@@ -228,7 +228,7 @@ func TestColorHexFieldKeepsTheDraft(t *testing.T) {
 		return h.Div(h.Class("p-4"), kit.ColorPicker{Value: &c, OnValueChange: s.Set})
 	}, telatest.Theme(kit.Theme()))
 	app.Focus(hexField)
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("12")
 	setC.Set(tela.Hex("#ff0000"))
 	app.Expect(areaThumb, telatest.HasValue("Saturation 100%, Brightness 100%"))

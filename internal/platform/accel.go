@@ -2,7 +2,6 @@ package platform
 
 import (
 	"fmt"
-	"runtime"
 	"strings"
 	"unicode/utf8"
 )
@@ -14,7 +13,8 @@ import (
 //
 //   - Modifiers: Ctrl (Control), Alt (Option), Shift, Super (Meta, Win,
 //     Cmd, Command), and CmdOrCtrl (CommandOrControl, Electron's name):
-//     Super on macOS, Ctrl elsewhere.
+//     Super under the Mac flavor, Ctrl elsewhere (the host's flavor,
+//     [HostFlavor]).
 //   - The key, last: one character (a letter names the key and is
 //     lower-cased, so "N" is "n"; Shift is written as a modifier), a named
 //     [Key] ("F1", "Escape", "ArrowUp", "PageDown", "MediaPlayPause"), or
@@ -24,7 +24,7 @@ import (
 // The result passes CheckAccelerator; any other input is an error that
 // says what is wrong.
 func ParseAccelerator(s string) (Accelerator, error) {
-	return parseAccelerator(s, runtime.GOOS == "darwin")
+	return parseAccelerator(s, HostFlavor() == FlavorMac)
 }
 
 // parseAccelerator is ParseAccelerator with CmdOrCtrl's meaning chosen by

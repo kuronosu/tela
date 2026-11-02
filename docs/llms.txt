@@ -184,7 +184,7 @@ func TodoList(todos []Todo, remove func(id int)) tela.Node {
 func Shortcuts(save func()) tela.Node {
 	return Div(TabIndex(0), Class("rounded-md p-4 outline-none focus-visible:ring-2 focus-visible:ring-ring"),
 		OnKeyDown(func(e tela.KeyboardEvent) {
-			if e.Ctrl && e.Key == "s" {
+			if e.CmdOrCtrl() && e.Key == "s" { // Cmd on a Mac, Ctrl elsewhere
 				e.PreventDefault()
 				save()
 			}
@@ -1245,7 +1245,7 @@ func TestSettingsLike(t *testing.T) {
 
 	digest := telatest.ByRole("switch", "Weekly digest")
 	app.Expect(digest, telatest.Checked(false))
-	app.Click(digest) // also: Fill(loc, text), Press("Shift+Tab"), Hover, Click(loc, telatest.Right()), Tap, LongPress
+	app.Click(digest) // also: Fill(loc, text), Press("Shift+Tab"), Press("ControlOrMeta+s") (Meta under telatest.PlatformKeys("darwin")), Hover, Click(loc, telatest.Right()), Tap, LongPress
 	app.Expect(digest, telatest.Checked(true), telatest.Disabled(false))
 	app.ExpectText("Subscribed")
 	app.Advance(500 * time.Millisecond) // the clock is manual: timers, UseTimeout, animations

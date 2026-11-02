@@ -137,18 +137,18 @@ func TestSearchFiltersTitleAndText(t *testing.T) {
 	a.ExpectCount(card("Welcome to Notes"), 0)
 	a.ExpectRole("heading", "All notes")
 
-	a.Press("Control+a")
+	a.Press("ControlOrMeta+a")
 	a.Type("shortcuts") // in the title of a note
 	a.ExpectRole("button", "Keyboard shortcuts")
 	a.ExpectCount(card("Groceries"), 0)
 
-	a.Press("Control+a")
+	a.Press("ControlOrMeta+a")
 	a.Type("zzz")
 	a.ExpectText(`Nothing matches "zzz".`)
 
 	// The search applies inside a filter too, and the rail keeps counting
 	// all the notes.
-	a.Press("Control+a")
+	a.Press("ControlOrMeta+a")
 	a.Type("oats")
 	a.Click(railItem("Pinned"))
 	a.ExpectText(`Nothing matches "oats".`)
@@ -209,7 +209,7 @@ func TestEditTitle(t *testing.T) {
 	a := mount(t)
 	a.ExpectValue(titleBox, "Welcome to Notes")
 	a.Click(titleBox)
-	a.Press("Control+a")
+	a.Press("ControlOrMeta+a")
 	a.Type("Start here")
 	a.ExpectValue(titleBox, "Start here")
 	a.ExpectRole("button", "Start here") // the card

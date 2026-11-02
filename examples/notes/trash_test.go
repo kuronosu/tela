@@ -193,7 +193,7 @@ func TestLockedNoteCannotBeSaved(t *testing.T) {
 	a.ExpectValue(editor, groceriesText)
 	a.Expect(saveBtn, telatest.Disabled(true))
 	a.Click(editor)
-	a.Press("Control+s")
+	a.Press("ControlOrMeta+s")
 	a.ExpectText("Locked notes stay in your library.")
 	a.ExpectText("Remove the lock to save to a file.")
 	if d := a.FileDialogs(); len(d) != 0 {

@@ -431,7 +431,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
 - **Events:**
   - Pointer: `MouseEvent`, `PointerEvent` (mouse, touchpad, pen).
   - Scroll: `WheelEvent` with precise deltas.
-  - Keyboard: `KeyboardEvent` (ADR-056) following winit's model: **physical key** (scancode-based position), **logical key** (layout-dependent meaning) and **text** (produced characters) as three separate fields, plus modifiers and repeat flag.
+  - Keyboard: `KeyboardEvent` (ADR-056) following winit's model: **physical key** (scancode-based position), **logical key** (layout-dependent meaning) and **text** (produced characters) as three separate fields, plus modifiers and repeat flag. Events with modifiers have `CmdOrCtrl()`: Meta (Command) under the Mac flavor, Ctrl elsewhere; the flavor (key bindings, word rules, primary modifier) is the Tree's `Config.Flavor`, the host's by default (ADR-221).
   - Text fields and forms: `InputEvent` (beforeinput), `ChangeEvent` (React's onChange), `CompositionEvent`, `SelectEvent`, `SubmitEvent` (ADR-069).
   - Focus: `FocusEvent`.
   - Drag and drop, HTML's model through the OS (ADR-209, ADR-211): `DragEvent` with a `DataTransfer`; an `h.Draggable` element's drag gesture fills it in `OnDragStart`, and targets get `OnDragEnter`, `OnDragOver` (whose `PreventDefault` accepts), `OnDragLeave` and `OnDrop`, which bubble.
@@ -566,6 +566,7 @@ func TestCounter(t *testing.T) {
 - **Auto-wait (from Playwright):** actions and expectations wait for pending frames and running animations to settle (with a timeout) before acting or asserting; under `NoSettle` an expectation's first try handles only the work due and the clock moves only between failed tries.
 - `app.AriaSnapshot()` returns the same YAML as `tela inspect` for assertion.
 - State assertions without strings (ADR-086): `app.Expect(loc, telatest.Checked(true), telatest.Disabled(false))` (also `Pressed`, `Selected`, `Expanded`, `Focused`, `Invalid`, `Sort`, `Current`, `HasName`, `HasValue`); `ByTestID` finds elements by `h.TestID`; `Bounds` returns a `tela.Rect`; `ClickAt`, `DragFromTo`, `PixelAt`, `Measure`, `GoldenScales` and `MountFunc` shorten the rest.
+- `PlatformKeys(goos)` gives one app another platform's key conventions (text field bindings, `CmdOrCtrl`, what `ControlOrMeta` presses), so Mac behavior is tested on any OS (ADR-221).
 - Several windows (ADR-183): `app.Windows()`, `app.Window(title)` and `app.WaitForWindow(f)` return an `*App` scoped to one window; `ExpectWindowState`, `RequestClose`, `HitRegions` and `ExpectQuit` cover window-level behavior through the headless window manager.
 
 ### Debug overlays (from Chrome DevTools / Flutter DevTools)

@@ -119,7 +119,7 @@ func (p body) Build() tela.Node {
 		}
 	}
 	keys := func(e tela.KeyboardEvent) {
-		if !(e.Ctrl || e.Meta) || e.Alt || e.Shift {
+		if !e.CmdOrCtrl() || e.Alt || e.Shift {
 			return
 		}
 		switch e.Key {

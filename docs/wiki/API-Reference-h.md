@@ -1603,7 +1603,7 @@ Div(OnKeyDown(func(e tela.KeyboardEvent) {
     if e.Key == "Escape" {
         close()
     }
-    if e.Ctrl && e.Code == tela.CodeKeyS {
+    if e.CmdOrCtrl() && e.Code == tela.CodeKeyS { // Cmd+S on a Mac, Ctrl+S elsewhere
         save()
     }
 }))

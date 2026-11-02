@@ -128,6 +128,17 @@ func (e KeyboardEvent) PreventDefault() { e.st.prevent() }
 // DefaultPrevented reports whether a handler called PreventDefault.
 func (e KeyboardEvent) DefaultPrevented() bool { return e.st.defaultPrevented() }
 
+// CmdOrCtrl reports whether the primary modifier of shortcuts is held:
+// Meta (Command) under the Mac flavor, Ctrl under the others, so
+// e.CmdOrCtrl() && e.Key == "s" is Command+S on a Mac and Ctrl+S
+// elsewhere. The flavor is the one of the app that dispatched the event:
+// the OS's, or another platform's in a test (telatest.PlatformKeys;
+// Config.Flavor in this package); an event built by hand follows the OS.
+// It tests only that modifier, like React Aria's isCtrlKeyPressed and
+// Playwright's ControlOrMeta, and is named after Electron's CmdOrCtrl
+// accelerator modifier (ADR-221).
+func (e KeyboardEvent) CmdOrCtrl() bool { return cmdOrCtrl(e.st, e.Ctrl, e.Meta) }
+
 // FocusEvent is passed to OnFocus and OnBlur. Like React's onFocus and
 // onBlur (the DOM's focusin and focusout), focus events bubble: an
 // element's OnFocus also runs when one of its descendants gains focus.

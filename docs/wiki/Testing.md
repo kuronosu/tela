@@ -473,7 +473,7 @@ desktop, and the test plays the part of the OS or the user. As with the other
 |---|---|
 | Global shortcuts | `app.GlobalShortcuts()` lists what is registered (`ID`, `Keys`, `Status`, `Trigger`). `app.PressShortcut(id)` and `ReleaseShortcut(id)` are the user pressing it (the test fails if it is not bound). `app.SetShortcutStatus(id, desktop.ShortcutTaken, "")` plays the OS: taken, refused, revoked, or bound to other keys (`desktop.ShortcutBound` with a trigger). `app.SetShortcutUnassigned(id)` is Hyprland, bound with no keys (an empty `Trigger`); `app.FailShortcuts(desktop.ErrAppNotRegistered)` makes later registrations fail as on a Linux desktop without the app's entry |
 | Launches | `app.InjectLaunch(desktop.Launch{Args: ...})` is a second start that forwards its arguments: the window comes forward and `UseLaunch` runs. `SingleInstance` claims nothing in tests, and `UseLaunch` gets no start launch of its own |
-| Clipboard | `app.Clipboard()` returns a `*tela.DataTransfer` with what the app copied. `app.SetClipboard(&dt)` is another application copying (nil empties it); then `app.Press("Control+V")` |
+| Clipboard | `app.Clipboard()` returns a `*tela.DataTransfer` with what the app copied. `app.SetClipboard(&dt)` is another application copying (nil empties it); then `app.Press("ControlOrMeta+V")` |
 | Secrets | `app.StoredSecret(name)` and `app.SetStoredSecret(name, b)` read and seed the keyring; `app.FailSecrets(desktop.ErrSecretCanceled)` makes every secret call fail (nil stops it); `app.Unsupported(telatest.Secrets)` is a desktop without a keyring |
 | Trash | `desktop.MoveToTrash` moves the file into a temporary folder of the test, so it leaves its place; `app.Trashed()` lists the paths. `app.FailTrash(err)` makes every call fail (nil stops it); `app.Unsupported(telatest.Trash)` is a desktop without a trash, where the file stays |
 | Links and file types | `app.Registrations()` lists what the app registered (`Association` as `"notes:"` or `".note"`, the `App` and `Default`). `app.HoldAssociation(desktop.URLScheme("notes"), "Other App")` makes another application own it, so `Register` fails with `ErrAssociationTaken`; `app.SetDefaultHandler(assoc, "Other App")` sets the default. `app.RegisteredApps()` lists what `desktop.RegisterApp` registered, and `app.HoldAppEntry(id, path)` plays a package's desktop entry of the app |
@@ -523,6 +523,25 @@ func TestReadout(t *testing.T) {
 A test that checks the `contrast-more:` classes mounts with `telatest.HighContrast()`
 and compares a golden or reads the layout (`app.Bounds`). The scale is 1 by
 default, so goldens do not depend on the machine that renders them.
+
+### Platform keys
+
+Shortcuts differ per platform: Command on a Mac, Control elsewhere. Press
+them with `ControlOrMeta`, which follows the app's platform like
+`e.CmdOrCtrl()` does, and test another platform's conventions on any OS with
+`telatest.PlatformKeys(goos)` (a `runtime.GOOS` value). It sets the text
+fields' bindings too (Command+A, Option+Left by word on a Mac), for this app
+only, so parallel tests with different platforms do not interfere.
+
+```go
+func TestSaveShortcut(t *testing.T) {
+	for _, goos := range []string{"darwin", "linux", "windows"} {
+		app := telatest.Mount(t, Editor{}, telatest.PlatformKeys(goos))
+		app.Press("ControlOrMeta+s") // Meta+s under "darwin", Control+s otherwise
+		app.ExpectText("Saved")
+	}
+}
+```
 
 ## Testing a package of screens
 

@@ -648,7 +648,7 @@ func (s screen) Build() tela.Node {
 	// --- The screen ------------------------------------------------
 
 	shortcuts := OnKeyDown(func(e tela.KeyboardEvent) {
-		if !(e.Ctrl || e.Meta) || e.Alt {
+		if !e.CmdOrCtrl() || e.Alt {
 			return
 		}
 		key := string(e.Key)

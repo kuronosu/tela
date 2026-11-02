@@ -30,7 +30,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type DataTransfer`](#type-datatransfer): [`ClearData`](#func-datatransfer-cleardata) · [`Files`](#func-datatransfer-files) · [`Get`](#func-datatransfer-get) · [`GetData`](#func-datatransfer-getdata) · [`HTML`](#func-datatransfer-html) · [`Has`](#func-datatransfer-has) · [`Image`](#func-datatransfer-image) · [`Set`](#func-datatransfer-set) · [`SetData`](#func-datatransfer-setdata) · [`SetDragImage`](#func-datatransfer-setdragimage) · [`SetFiles`](#func-datatransfer-setfiles) · [`SetHTML`](#func-datatransfer-sethtml) · [`SetImage`](#func-datatransfer-setimage) · [`SetText`](#func-datatransfer-settext) · [`Text`](#func-datatransfer-text) · [`Types`](#func-datatransfer-types)
   - [`type DevState`](#type-devstate)
   - [`type Dispatcher`](#type-dispatcher): [`UseReducer`](#func-usereducer) · [`Dispatch`](#func-dispatcher-dispatch)
-  - [`type DragEvent`](#type-dragevent): [`DefaultPrevented`](#func-dragevent-defaultprevented) · [`PreventDefault`](#func-dragevent-preventdefault) · [`StopPropagation`](#func-dragevent-stoppropagation)
+  - [`type DragEvent`](#type-dragevent): [`CmdOrCtrl`](#func-dragevent-cmdorctrl) · [`DefaultPrevented`](#func-dragevent-defaultprevented) · [`PreventDefault`](#func-dragevent-preventdefault) · [`StopPropagation`](#func-dragevent-stoppropagation)
   - [`type DropEffect`](#type-dropeffect)
   - [`type Easing`](#type-easing): [`CubicBezier`](#func-cubicbezier)
   - [`type ElementRef`](#type-elementref): [`UseElementRef`](#func-useelementref) · [`Blur`](#func-elementref-blur) · [`Bounds`](#func-elementref-bounds) · [`Click`](#func-elementref-click) · [`Focus`](#func-elementref-focus) · [`Focused`](#func-elementref-focused) · [`ScrollBy`](#func-elementref-scrollby) · [`ScrollIntoView`](#func-elementref-scrollintoview) · [`ScrollOffset`](#func-elementref-scrolloffset) · [`ScrollTo`](#func-elementref-scrollto) · [`ScrollToIndex`](#func-elementref-scrolltoindex) · [`Select`](#func-elementref-select) · [`SelectionRange`](#func-elementref-selectionrange) · [`SetSelectionRange`](#func-elementref-setselectionrange) · [`Value`](#func-elementref-value)
@@ -42,13 +42,13 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type KeyCode`](#type-keycode)
   - [`type KeyLocation`](#type-keylocation): [`String`](#func-keylocation-string)
   - [`type KeyName`](#type-keyname)
-  - [`type KeyboardEvent`](#type-keyboardevent): [`DefaultPrevented`](#func-keyboardevent-defaultprevented) · [`PreventDefault`](#func-keyboardevent-preventdefault) · [`StopPropagation`](#func-keyboardevent-stoppropagation)
+  - [`type KeyboardEvent`](#type-keyboardevent): [`CmdOrCtrl`](#func-keyboardevent-cmdorctrl) · [`DefaultPrevented`](#func-keyboardevent-defaultprevented) · [`PreventDefault`](#func-keyboardevent-preventdefault) · [`StopPropagation`](#func-keyboardevent-stoppropagation)
   - [`type MouseButton`](#type-mousebutton): [`String`](#func-mousebutton-string)
   - [`type MouseButtons`](#type-mousebuttons): [`Has`](#func-mousebuttons-has)
-  - [`type MouseEvent`](#type-mouseevent): [`DefaultPrevented`](#func-mouseevent-defaultprevented) · [`PreventDefault`](#func-mouseevent-preventdefault) · [`StopPropagation`](#func-mouseevent-stoppropagation)
+  - [`type MouseEvent`](#type-mouseevent): [`CmdOrCtrl`](#func-mouseevent-cmdorctrl) · [`DefaultPrevented`](#func-mouseevent-defaultprevented) · [`PreventDefault`](#func-mouseevent-preventdefault) · [`StopPropagation`](#func-mouseevent-stoppropagation)
   - [`type Node`](#type-node): [`C`](#func-c) · [`CP`](#func-cp) · [`Memo`](#func-memo) · [`WithKey`](#func-withkey)
   - [`type Point`](#type-point)
-  - [`type PointerEvent`](#type-pointerevent): [`DefaultPrevented`](#func-pointerevent-defaultprevented) · [`PreventDefault`](#func-pointerevent-preventdefault) · [`StopPropagation`](#func-pointerevent-stoppropagation)
+  - [`type PointerEvent`](#type-pointerevent): [`CmdOrCtrl`](#func-pointerevent-cmdorctrl) · [`DefaultPrevented`](#func-pointerevent-defaultprevented) · [`PreventDefault`](#func-pointerevent-preventdefault) · [`StopPropagation`](#func-pointerevent-stoppropagation)
   - [`type PointerKind`](#type-pointerkind): [`String`](#func-pointerkind-string)
   - [`type Preview`](#type-preview): [`Build`](#func-preview-build)
   - [`type Previews`](#type-previews): [`Names`](#func-previews-names)
@@ -69,7 +69,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type ThemeValues`](#type-themevalues): [`UseTheme`](#func-usetheme) · [`Color`](#func-themevalues-color) · [`FontMono`](#func-themevalues-fontmono) · [`FontSans`](#func-themevalues-fontsans) · [`Lookup`](#func-themevalues-lookup) · [`Radius`](#func-themevalues-radius) · [`Scheme`](#func-themevalues-scheme) · [`Tokens`](#func-themevalues-tokens)
   - [`type TitleBarColors`](#type-titlebarcolors)
   - [`type Value`](#type-value): [`UseBounds`](#func-usebounds) · [`UsePresenceTween`](#func-usepresencetween) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseTween`](#func-usetween) · [`UseValue`](#func-usevalue) · [`Get`](#func-value-get) · [`Latest`](#func-value-latest) · [`Set`](#func-value-set) · [`Update`](#func-value-update)
-  - [`type WheelEvent`](#type-wheelevent): [`DefaultPrevented`](#func-wheelevent-defaultprevented) · [`PreventDefault`](#func-wheelevent-preventdefault) · [`StopPropagation`](#func-wheelevent-stoppropagation)
+  - [`type WheelEvent`](#type-wheelevent): [`CmdOrCtrl`](#func-wheelevent-cmdorctrl) · [`DefaultPrevented`](#func-wheelevent-defaultprevented) · [`PreventDefault`](#func-wheelevent-preventdefault) · [`StopPropagation`](#func-wheelevent-stoppropagation)
   - [`type Window`](#type-window): [`Build`](#func-window-build)
   - [`type WindowControl`](#type-windowcontrol): [`String`](#func-windowcontrol-string)
   - [`type WindowHandle`](#type-windowhandle): [`UseWindow`](#func-usewindow) · [`Close`](#func-windowhandle-close) · [`Focus`](#func-windowhandle-focus) · [`Hide`](#func-windowhandle-hide) · [`IsZero`](#func-windowhandle-iszero) · [`Maximize`](#func-windowhandle-maximize) · [`Minimize`](#func-windowhandle-minimize) · [`Placement`](#func-windowhandle-placement) · [`SetFullscreen`](#func-windowhandle-setfullscreen) · [`Show`](#func-windowhandle-show) · [`State`](#func-windowhandle-state) · [`ToggleMaximize`](#func-windowhandle-togglemaximize) · [`Unmaximize`](#func-windowhandle-unmaximize)
@@ -2555,6 +2555,14 @@ type DragEvent struct {
 }
 ```
 
+#### func (DragEvent) CmdOrCtrl
+
+```go
+func (e DragEvent) CmdOrCtrl() bool
+```
+
+CmdOrCtrl reports whether the primary modifier of shortcuts is held (see MouseEvent.CmdOrCtrl).
+
 #### func (DragEvent) DefaultPrevented
 
 ```go
@@ -3547,7 +3555,7 @@ Named keys: the values of KeyboardEvent.Key that are not characters (W3C UI Even
 type KeyboardEvent = core.KeyboardEvent
 ```
 
-KeyboardEvent is passed to h.OnKeyDown and h.OnKeyUp: the logical Key, the physical Code, its Location, Repeat for a keydown generated while the key is held, and the modifiers held after the event (Shift, Ctrl, Alt, Meta; Meta is the Windows, Command or Super key). StopPropagation stops the bubbling; PreventDefault cancels the key's default action (Tab's focus move, the click of Enter or Space on a button, the text a key types into a text field). Typed text reaches text fields (h.Input, h.Textarea), which report it with h.OnChange.
+KeyboardEvent is passed to h.OnKeyDown and h.OnKeyUp: the logical Key, the physical Code, its Location, Repeat for a keydown generated while the key is held, and the modifiers held after the event (Shift, Ctrl, Alt, Meta; Meta is the Windows, Command or Super key). CmdOrCtrl reports the platform's shortcut modifier: Command (Meta) on a Mac, Ctrl elsewhere (ADR-221); MouseEvent, PointerEvent, WheelEvent and DragEvent have it too. StopPropagation stops the bubbling; PreventDefault cancels the key's default action (Tab's focus move, the click of Enter or Space on a button, the text a key types into a text field). Typed text reaches text fields (h.Input, h.Textarea), which report it with h.OnChange.
 
 ```go
 OnKeyDown(func(e tela.KeyboardEvent) {
@@ -3555,7 +3563,7 @@ OnKeyDown(func(e tela.KeyboardEvent) {
     case e.Key == tela.KeyArrowDown:
         e.PreventDefault()
         setIndex.Update(func(i int) int { return min(i+1, n-1) })
-    case e.Ctrl && e.Key == "a":
+    case e.CmdOrCtrl() && e.Key == "a": // Cmd+A on a Mac, Ctrl+A elsewhere
         selectAll()
     }
 })
@@ -3585,6 +3593,14 @@ type KeyboardEvent struct {
     // contains filtered or unexported fields
 }
 ```
+
+#### func (KeyboardEvent) CmdOrCtrl
+
+```go
+func (e KeyboardEvent) CmdOrCtrl() bool
+```
+
+CmdOrCtrl reports whether the primary modifier of shortcuts is held: Meta (Command) under the Mac flavor, Ctrl under the others, so e.CmdOrCtrl() \&\& e.Key == "s" is Command+S on a Mac and Ctrl+S elsewhere. The flavor is the one of the app that dispatched the event: the OS's, or another platform's in a test (telatest.PlatformKeys; Config.Flavor in this package); an event built by hand follows the OS. It tests only that modifier, like React Aria's isCtrlKeyPressed and Playwright's ControlOrMeta, and is named after Electron's CmdOrCtrl accelerator modifier (ADR-221).
 
 #### func (KeyboardEvent) DefaultPrevented
 
@@ -3709,6 +3725,14 @@ type MouseEvent struct {
     // contains filtered or unexported fields
 }
 ```
+
+#### func (MouseEvent) CmdOrCtrl
+
+```go
+func (e MouseEvent) CmdOrCtrl() bool
+```
+
+CmdOrCtrl reports whether the primary modifier of shortcuts is held: Meta (Command) under the Mac flavor, Ctrl under the others. The flavor is the one of the app that dispatched the event: the OS's, or another platform's in a test (telatest.PlatformKeys; Config.Flavor in this package); an event built by hand follows the OS. It tests only that modifier, like React Aria's isCtrlKeyPressed and Playwright's ControlOrMeta, and is named after Electron's CmdOrCtrl accelerator modifier (ADR-221).
 
 #### func (MouseEvent) DefaultPrevented
 
@@ -3957,6 +3981,14 @@ type PointerEvent struct {
     // contains filtered or unexported fields
 }
 ```
+
+#### func (PointerEvent) CmdOrCtrl
+
+```go
+func (e PointerEvent) CmdOrCtrl() bool
+```
+
+CmdOrCtrl reports whether the primary modifier of shortcuts is held (see MouseEvent.CmdOrCtrl).
 
 #### func (PointerEvent) DefaultPrevented
 
@@ -5589,6 +5621,14 @@ type WheelEvent struct {
     // contains filtered or unexported fields
 }
 ```
+
+#### func (WheelEvent) CmdOrCtrl
+
+```go
+func (e WheelEvent) CmdOrCtrl() bool
+```
+
+CmdOrCtrl reports whether the primary modifier of shortcuts is held (see MouseEvent.CmdOrCtrl).
 
 #### func (WheelEvent) DefaultPrevented
 

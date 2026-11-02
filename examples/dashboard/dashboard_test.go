@@ -154,13 +154,13 @@ func TestNavigation(t *testing.T) {
 	a.ExpectRole("heading", "Tasks")
 	a.ExpectText("12 tasks")
 	a.ExpectCount(telatest.ByRole("complementary", "Pulse"), 0)
-	a.Press("Control+3")
+	a.Press("ControlOrMeta+3")
 	a.ExpectRole("heading", "Orders")
 	a.ExpectText("240 orders")
 	a.Click(telatest.ByRole("radio", "Failed"))
 	a.ExpectText("24 orders")
 	a.ExpectNoText("#4891") // a paid order
-	a.Press("Control+1")
+	a.Press("ControlOrMeta+1")
 	a.ExpectRole("heading", "Overview")
 	a.Click(telatest.ByRole("button", "View all"))
 	a.ExpectRole("heading", "Orders")
@@ -250,7 +250,7 @@ func TestNewTask(t *testing.T) {
 // its form works.
 func TestReportDialog(t *testing.T) {
 	a := mount(t, windowW, windowH)
-	a.Press("Control+k")
+	a.Press("ControlOrMeta+k")
 	a.Click(telatest.ByRole("option", "New report"))
 	a.ExpectCount(telatest.ByRole("dialog", "New report"), 1)
 	a.Expect(telatest.ByRole("radio", "PDF"), telatest.Checked(true))

@@ -150,7 +150,7 @@ func TestListBoxInVirtualList(t *testing.T) {
 	app.Press("0")
 	app.ExpectFocused(option("row-0500"))
 	// Ctrl+A selects the whole list, rendered or not.
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Expect(option("row-0500"), telatest.Selected(true))
 	if got := ev.take(); got != "all" {
 		t.Errorf("events %q", got)

@@ -413,16 +413,16 @@ func TestKeyboardShortcuts(t *testing.T) {
 	sandbox(t)
 	a := mount(t)
 	a.Click(editor) // the shortcuts are keys of the window: focus is in it
-	a.Press("Control+n")
+	a.Press("ControlOrMeta+n")
 	a.ExpectRole("button", "Untitled note")
 	a.Click(editor)
 	a.Type("Shortcuts")
-	a.Press("Control+s")
+	a.Press("ControlOrMeta+s")
 	if d := a.FileDialogs(); len(d) != 1 || d[0].Kind != telatest.SaveFileDialog {
 		t.Fatalf("Ctrl+S opened %+v, want a save dialog", d)
 	}
 	a.AnswerFileDialog() // cancel
-	a.Press("Control+o")
+	a.Press("ControlOrMeta+o")
 	if d := a.FileDialogs(); len(d) != 1 || d[0].Kind != telatest.OpenFileDialog {
 		t.Fatalf("Ctrl+O opened %+v, want an open dialog", d)
 	}
@@ -740,7 +740,9 @@ func TestNoWordWrapScrollsHorizontally(t *testing.T) {
 	t.Run("off", func(t *testing.T) {
 		sandbox(t)
 		setSetting(t, keyWordWrap, false)
-		a := mount(t)
+		// Home and End go to the line's edges with the Linux and Windows
+		// bindings (a Mac uses Command+Left and Right).
+		a := mount(t, telatest.PlatformKeys("linux"))
 		a.ExpectCount(editor.Filter(telatest.HasClass("text-nowrap")), 1)
 		typeNote(a, long)
 		a.ExpectValue(editor, long)

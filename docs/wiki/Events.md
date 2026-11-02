@@ -132,6 +132,10 @@ to the outermost element of the window's content. A [`tela.KeyboardEvent`](https
   (Ctrl+Z).
 - `Location` ([`tela.KeyLocationLeft`](https://pkg.go.dev/github.com/kuronosu/tela#KeyLocationLeft), [`tela.KeyLocationRight`](https://pkg.go.dev/github.com/kuronosu/tela#KeyLocationRight),
   [`tela.KeyLocationNumpad`](https://pkg.go.dev/github.com/kuronosu/tela#KeyLocationNumpad)), `Repeat`, and `Shift`, `Ctrl`, `Alt`, `Meta`.
+- `CmdOrCtrl()`, the platform's shortcut modifier: Command (`Meta`) on a Mac,
+  `Ctrl` elsewhere, like React Aria's isCtrlKeyPressed. Write shortcuts with it
+  so Cmd+S saves on a Mac and Ctrl+S elsewhere. Mouse, pointer, wheel and drag
+  events have it too.
 
 ```go
 func Editor(save, closeEditor func()) tela.Node {
@@ -140,12 +144,12 @@ func Editor(save, closeEditor func()) tela.Node {
 			switch {
 			case e.Key == tela.KeyEscape:
 				closeEditor()
-			case e.Ctrl && e.Code == tela.CodeKeyS:
+			case e.CmdOrCtrl() && e.Code == tela.CodeKeyS:
 				e.PreventDefault()
 				save()
 			}
 		}),
-		Text("Press Ctrl+S to save, Esc to close"),
+		Text("Press Ctrl+S (Cmd+S on a Mac) to save, Esc to close"),
 	)
 }
 ```

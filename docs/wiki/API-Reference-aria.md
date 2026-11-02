@@ -1429,10 +1429,10 @@ page := func() tela.Node {
 app := telatest.MountFunc(t, page)
 field := telatest.ByRole("textbox", "Hex")
 app.Focus(field)
-app.Press("Control+a")
+app.Press("ControlOrMeta+a")
 app.Type("ff8800\n") // Enter commits; so does leaving the field
 app.ExpectText("color #ff8800")
-app.Press("Control+a")
+app.Press("ControlOrMeta+a")
 app.Type("oops\n") // not a color: reverted
 fmt.Println(app.AriaSnapshot())
 // Output:
@@ -3343,7 +3343,7 @@ page := func() tela.Node {
 }
 app := telatest.MountFunc(&exampleTB{}, page, telatest.Size(300, 200))
 app.Click(telatest.ByRole("option", "cherry"))
-app.Press("Control+a")
+app.Press("ControlOrMeta+a")
 app.ExpectText("3 selected")
 fmt.Println("3 selected")
 // Output: 3 selected

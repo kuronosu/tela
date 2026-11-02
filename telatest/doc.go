@@ -164,6 +164,10 @@
 // options [Dark], [ReducedMotion], [HighContrast], [TextScale] and
 // [AccentColor] set it at Mount.
 //
+// [PlatformKeys] gives the app another platform's key conventions (the text
+// fields' bindings, the events' CmdOrCtrl, what "ControlOrMeta" presses),
+// so a test of Command shortcuts runs on any OS.
+//
 // # The clock
 //
 // The window's clock is manual: it starts at zero and moves only when the

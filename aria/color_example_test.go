@@ -93,10 +93,10 @@ func ExampleUseColorField() {
 	app := telatest.MountFunc(t, page)
 	field := telatest.ByRole("textbox", "Hex")
 	app.Focus(field)
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("ff8800\n") // Enter commits; so does leaving the field
 	app.ExpectText("color #ff8800")
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("oops\n") // not a color: reverted
 	fmt.Println(app.AriaSnapshot())
 	// Output:

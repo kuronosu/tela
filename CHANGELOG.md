@@ -12,6 +12,15 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
+### Added
+
+- `CmdOrCtrl()` on `tela.KeyboardEvent`, `MouseEvent`, `PointerEvent`, `WheelEvent` and `DragEvent` (ADR-221): the platform's shortcut modifier, Command (`Meta`) on a Mac and `Ctrl` elsewhere, like React Aria's isCtrlKeyPressed. Write `e.CmdOrCtrl() && e.Key == "s"` for a save shortcut that works on every OS.
+- `telatest.PlatformKeys(goos)` gives one app another platform's key conventions (text field bindings such as Command+A and Option+Left on a Mac, `CmdOrCtrl`, the aria collections' Command+click and Command+A, and what `Press("ControlOrMeta+…")` presses), so Mac behavior is tested on Linux or Windows; parallel tests with different platforms do not interfere.
+
+### Changed
+
+- The examples' shortcuts (`dashboard`'s Ctrl+K and Ctrl+1–3, `notes`' Ctrl+N/S/O and Ctrl+Shift+D, `settings`' Ctrl+S) use `CmdOrCtrl`: Meta alone no longer triggers them on Linux and Windows, and Control alone no longer triggers them on a Mac.
+
 ### Fixed
 
 - `desktop.MakeDefault` and registration on Linux no longer replace a `mimeapps.list` (or desktop entry) that is a symbolic link they cannot follow, such as a dotfiles link whose file does not exist yet: links are followed as GLib follows them (the target is created if missing), and a loop or an unreadable link is an error that leaves the link alone.

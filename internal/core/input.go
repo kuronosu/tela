@@ -907,7 +907,8 @@ type event interface {
 
 // eventPtr gives fire access to an event's dispatch fields: prepare sets
 // the shared dispatch state and the fields that depend on the element
-// whose handlers run (the local position of pointer events).
+// whose handlers run (the local position of pointer events), and for the
+// events with modifiers the Tree's flavor in the state (CmdOrCtrl).
 type eventPtr[E event] interface {
 	*E
 	prepare(t *Tree, st *eventState, cur *Element)
@@ -916,28 +917,34 @@ type eventPtr[E event] interface {
 func (e *MouseEvent) prepare(t *Tree, st *eventState, cur *Element) {
 	l := t.localPoint(cur, gfx.Point{X: e.X, Y: e.Y})
 	e.st, e.LocalX, e.LocalY = st, l.X, l.Y
+	st.flavor = t.flavor
 }
 
 func (e *PointerEvent) prepare(t *Tree, st *eventState, cur *Element) {
 	l := t.localPoint(cur, gfx.Point{X: e.X, Y: e.Y})
 	e.st, e.LocalX, e.LocalY = st, l.X, l.Y
+	st.flavor = t.flavor
 }
 
 func (e *DragEvent) prepare(t *Tree, st *eventState, cur *Element) {
 	l := t.localPoint(cur, gfx.Point{X: e.X, Y: e.Y})
 	e.st, e.LocalX, e.LocalY = st, l.X, l.Y
+	st.flavor = t.flavor
 }
 
 func (e *WheelEvent) prepare(t *Tree, st *eventState, cur *Element) {
 	l := t.localPoint(cur, gfx.Point{X: e.X, Y: e.Y})
 	e.st, e.LocalX, e.LocalY = st, l.X, l.Y
+	st.flavor = t.flavor
 }
 
-func (e *ScrollEvent) prepare(_ *Tree, st *eventState, _ *Element)   { e.st = st }
-func (e *KeyboardEvent) prepare(_ *Tree, st *eventState, _ *Element) { e.st = st }
-func (e *FocusEvent) prepare(_ *Tree, st *eventState, _ *Element)    { e.st = st }
-func (e *InputEvent) prepare(_ *Tree, st *eventState, _ *Element)    { e.st = st }
-func (e *ChangeEvent) prepare(_ *Tree, st *eventState, _ *Element)   { e.st = st }
+func (e *ScrollEvent) prepare(_ *Tree, st *eventState, _ *Element) { e.st = st }
+func (e *KeyboardEvent) prepare(t *Tree, st *eventState, _ *Element) {
+	e.st, st.flavor = st, t.flavor
+}
+func (e *FocusEvent) prepare(_ *Tree, st *eventState, _ *Element)  { e.st = st }
+func (e *InputEvent) prepare(_ *Tree, st *eventState, _ *Element)  { e.st = st }
+func (e *ChangeEvent) prepare(_ *Tree, st *eventState, _ *Element) { e.st = st }
 func (e *CompositionEvent) prepare(_ *Tree, st *eventState, _ *Element) {
 	e.st = st
 }

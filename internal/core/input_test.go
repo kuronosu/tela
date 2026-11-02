@@ -16,6 +16,12 @@ import (
 // ---------------------------------------------------------------------
 // Harness: a headless host driven by injected platform pointer events.
 
+// testFlavor is the platform flavor of the harnesses' Trees: the tests
+// that press keys were written for the Linux bindings (Ctrl shortcuts,
+// Home and End), so they pass on every host, a Mac included (ADR-221);
+// flavor_test.go covers the Mac and Windows flavors.
+const testFlavor = platform.FlavorLinux
+
 type inputHarness struct {
 	t *testing.T
 	b *headless.Backend
@@ -26,7 +32,7 @@ type inputHarness struct {
 func newInput(t *testing.T, root Node, w, h float32) *inputHarness {
 	t.Helper()
 	b := headless.New(headless.Options{Size: platform.Size{W: w, H: h}})
-	host, err := NewHost(b, Options{Config: Config{Fonts: testFonts}, Root: root})
+	host, err := NewHost(b, Options{Config: Config{Fonts: testFonts, Flavor: testFlavor}, Root: root})
 	if err != nil {
 		t.Fatal(err)
 	}

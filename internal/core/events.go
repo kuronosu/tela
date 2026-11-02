@@ -2,6 +2,8 @@ package core
 
 import (
 	"fmt"
+
+	"github.com/kuronosu/tela/internal/platform"
 )
 
 // Event types passed to the handlers of the public API (tela.MouseEvent,
@@ -88,6 +90,20 @@ type eventState struct {
 	// press is the pointer whose long press is being dispatched
 	// (Tree.longPress), for KeepOutsidePress; nil for other events.
 	press *pointerState
+	// flavor is the flavor of the Tree that dispatches the event, set by
+	// prepare for the events with modifiers (CmdOrCtrl, ADR-221).
+	flavor platform.Flavor
+}
+
+// cmdOrCtrl is the CmdOrCtrl of an event with dispatch state s: the
+// primary modifier of the dispatching Tree's flavor, or of the host's for
+// an event built by hand (s nil).
+func cmdOrCtrl(s *eventState, ctrl, meta bool) bool {
+	fl := platform.FlavorHost
+	if s != nil {
+		fl = s.flavor
+	}
+	return fl.CmdOrCtrl(ctrl, meta)
 }
 
 func (s *eventState) stop() {
@@ -145,6 +161,16 @@ func (e MouseEvent) PreventDefault() { e.st.prevent() }
 // DefaultPrevented reports whether a handler called PreventDefault.
 func (e MouseEvent) DefaultPrevented() bool { return e.st.defaultPrevented() }
 
+// CmdOrCtrl reports whether the primary modifier of shortcuts is held:
+// Meta (Command) under the Mac flavor, Ctrl under the others. The flavor
+// is the one of the app that dispatched the event: the OS's, or another
+// platform's in a test (telatest.PlatformKeys; Config.Flavor in this
+// package); an event built by hand follows the OS. It tests only that
+// modifier, like React Aria's isCtrlKeyPressed and Playwright's
+// ControlOrMeta, and is named after Electron's CmdOrCtrl accelerator
+// modifier (ADR-221).
+func (e MouseEvent) CmdOrCtrl() bool { return cmdOrCtrl(e.st, e.Ctrl, e.Meta) }
+
 // PointerEvent is passed to the pointer handlers (OnPointerDown...,
 // OnLongPress): every pointer, mouse, touch and pen, as in the DOM.
 type PointerEvent struct {
@@ -192,6 +218,10 @@ func (e PointerEvent) PreventDefault() { e.st.prevent() }
 
 // DefaultPrevented reports whether a handler called PreventDefault.
 func (e PointerEvent) DefaultPrevented() bool { return e.st.defaultPrevented() }
+
+// CmdOrCtrl reports whether the primary modifier of shortcuts is held
+// (see MouseEvent.CmdOrCtrl).
+func (e PointerEvent) CmdOrCtrl() bool { return cmdOrCtrl(e.st, e.Ctrl, e.Meta) }
 
 // DragEvent is passed to the drag handlers, for two kinds of drags.
 //
@@ -252,6 +282,10 @@ func (e DragEvent) PreventDefault() { e.st.prevent() }
 // DefaultPrevented reports whether a handler called PreventDefault.
 func (e DragEvent) DefaultPrevented() bool { return e.st.defaultPrevented() }
 
+// CmdOrCtrl reports whether the primary modifier of shortcuts is held
+// (see MouseEvent.CmdOrCtrl).
+func (e DragEvent) CmdOrCtrl() bool { return cmdOrCtrl(e.st, e.Ctrl, e.Meta) }
+
 // WheelEvent is passed to OnWheel: a mouse wheel notch or a touchpad
 // scroll over the element (the DOM's wheel event). It bubbles; its default
 // action scrolls the nearest scroll container that can move in its
@@ -280,6 +314,10 @@ func (e WheelEvent) PreventDefault() { e.st.prevent() }
 
 // DefaultPrevented reports whether a handler called PreventDefault.
 func (e WheelEvent) DefaultPrevented() bool { return e.st.defaultPrevented() }
+
+// CmdOrCtrl reports whether the primary modifier of shortcuts is held
+// (see MouseEvent.CmdOrCtrl).
+func (e WheelEvent) CmdOrCtrl() bool { return cmdOrCtrl(e.st, e.Ctrl, e.Meta) }
 
 // ScrollEvent is passed to OnScroll after the scroll offset of a scroll
 // container changed (the DOM's scroll event: at most once per frame, on

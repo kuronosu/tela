@@ -96,6 +96,13 @@ type Config struct {
 	// NativeMenus asks kit's menus to use the OS's menus where the
 	// platform has them (tela.App.NativeMenus); read with UseNativeMenus.
 	NativeMenus bool
+	// Flavor is the platform whose key conventions the tree follows
+	// (ADR-221): the key bindings and word rules of its text fields, and
+	// the primary modifier its events report (KeyboardEvent.CmdOrCtrl).
+	// The zero value, platform.FlavorHost, is the OS the program runs on;
+	// telatest.PlatformKeys sets another so any platform's conventions are
+	// tested on any OS. The trees of child windows inherit it.
+	Flavor platform.Flavor
 	// Debug selects the debug overlays drawn over the application
 	// (debug.go). Zero means unset: NewHost then reads TELA_DEBUG;
 	// DebugOff means none and ignores the environment.
@@ -169,6 +176,8 @@ type Tree struct {
 	// dirRebuild: the style phase marked its readers to build again;
 	// inStyle: the style phase runs.
 	dirHooks, dirRebuild, inStyle bool
+	// flavor is Config.Flavor resolved: never platform.FlavorHost.
+	flavor platform.Flavor
 
 	root     *Element
 	rootBox  *Box
@@ -357,6 +366,7 @@ func NewTree(cfg Config) *Tree {
 	t.dbg.clock = cfg.DebugClock
 	t.scr.classic, t.scr.instant = cfg.ClassicScrollbars, cfg.InstantScroll
 	t.nativeMenus = cfg.NativeMenus
+	t.flavor = cfg.Flavor.Resolve()
 	t.in.clicks.Interval = cfg.DoubleClickInterval
 	if t.fonts == nil {
 		t.fonts = text.NewDefaultCollection()
@@ -388,6 +398,10 @@ func NewTree(cfg Config) *Tree {
 		ReducedMotion: cfg.ReducedMotion, HighContrast: cfg.HighContrast}
 	return t
 }
+
+// Flavor returns the platform flavor the tree follows: Config.Flavor
+// resolved, never platform.FlavorHost (ADR-221).
+func (t *Tree) Flavor() platform.Flavor { return t.flavor }
 
 // SetWake sets the function a state setter calls after queueing an update
 // (a backend's Wake), so that the UI thread applies it. Safe from any

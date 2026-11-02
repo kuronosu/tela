@@ -150,7 +150,7 @@ func TestDeleteShortcut(t *testing.T) {
 	sandbox(t)
 	a := mount(t)
 	a.Click(editor)
-	a.Press("Control+Shift+d")
+	a.Press("ControlOrMeta+Shift+d")
 	a.ExpectCount(card("Welcome to Notes"), 0)
 	a.ExpectValue(titleBox, "Keyboard shortcuts")
 
@@ -170,7 +170,7 @@ func TestDeleteIsPersisted(t *testing.T) {
 	a := mount(t)
 	a.Click(editor)
 	for range 4 {
-		a.Press("Control+Shift+d")
+		a.Press("ControlOrMeta+Shift+d")
 	}
 	a.ExpectCount(editor, 0)
 	a.ExpectText("No notes here yet.")

@@ -26,7 +26,7 @@ func TestColorFieldCommitsOnEnterAndBlur(t *testing.T) {
 	app := telatest.MountFunc(t, p.page(), telatest.Size(232, 400))
 	app.Expect(hexField(), telatest.HasValue("#336699"))
 	app.Focus(hexField())
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("ff8800")
 	// Typing does not change the color until the field commits.
 	app.Expect(hexField(), telatest.HasValue("ff8800"))
@@ -41,7 +41,7 @@ func TestColorFieldCommitsOnEnterAndBlur(t *testing.T) {
 		t.Errorf("OnChange: %s", got)
 	}
 	// Blur commits too.
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("#abc")
 	app.Press("Tab")
 	app.ExpectText("color #aabbccff")
@@ -57,7 +57,7 @@ func TestColorFieldRevertsInvalidInput(t *testing.T) {
 	app := telatest.MountFunc(t, p.page(), telatest.Size(232, 400))
 	app.Focus(hexField())
 	// Characters that can never be part of a code are not typed.
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("zz12")
 	app.Expect(hexField(), telatest.HasValue("12"))
 	// An incomplete code reverts when committed.
@@ -65,13 +65,13 @@ func TestColorFieldRevertsInvalidInput(t *testing.T) {
 	app.Expect(hexField(), telatest.HasValue("#336699"))
 	app.ExpectText("color #336699ff")
 	// An empty text reverts too.
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Press("Backspace")
 	app.Press("Tab")
 	app.Expect(hexField(), telatest.HasValue("#336699"))
 	// More than eight digits cannot be typed.
 	app.Focus(hexField())
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("123456789")
 	app.Expect(hexField(), telatest.HasValue("12345678"))
 	if got := changes.take(); got != "" {
@@ -85,10 +85,10 @@ func TestColorFieldAlpha(t *testing.T) {
 	app := telatest.MountFunc(t, p.page(), telatest.Size(232, 400))
 	app.Expect(hexField(), telatest.HasValue("#336699"))
 	app.Focus(hexField())
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("ff0000\n")
 	app.ExpectText("color #ff000080")
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("00ff0020\n") // the opacity is ignored without Alpha
 	app.ExpectText("color #00ff0080")
 
@@ -97,13 +97,13 @@ func TestColorFieldAlpha(t *testing.T) {
 	app = telatest.MountFunc(t, p.page(), telatest.Size(232, 400))
 	app.Expect(hexField(), telatest.HasValue("#33669980"))
 	app.Focus(hexField())
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("00ff0020\n")
 	app.ExpectText("color #00ff0020")
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("f00\n") // no opacity in the code: it keeps the current one
 	app.ExpectText("color #ff000020")
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("f00f\n")
 	app.ExpectText("color #ff0000ff")
 }
@@ -124,11 +124,11 @@ func TestColorFieldKeys(t *testing.T) {
 	app.Press("PageDown")
 	app.Expect(hexField(), telatest.HasValue("#0000ef"))
 	// Limits.
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("fffffe\n")
 	app.Press("PageUp")
 	app.Expect(hexField(), telatest.HasValue("#ffffff"))
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("000001\n")
 	app.Press("PageDown")
 	app.Expect(hexField(), telatest.HasValue("#000000"))
@@ -146,7 +146,7 @@ func TestColorFieldFollowsTheColor(t *testing.T) {
 	app.Expect(hexField(), telatest.HasValue("#cccccc"))
 	// A draft is not overwritten while the user types.
 	app.Focus(hexField())
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("12")
 	app.Expect(hexField(), telatest.HasValue("12"))
 }
@@ -157,7 +157,7 @@ func TestColorFieldControlledRefuses(t *testing.T) {
 	p.state = aria.ColorStateOptions{Value: &v}
 	app := telatest.MountFunc(t, p.page(), telatest.Size(232, 400))
 	app.Focus(hexField())
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("ff0000\n")
 	// The caller did not store it: the field shows the color again.
 	app.Expect(hexField(), telatest.HasValue("#336699"))

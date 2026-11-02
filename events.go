@@ -225,7 +225,7 @@ const (
 //	    if e.Key == "Escape" {
 //	        close()
 //	    }
-//	    if e.Ctrl && e.Code == tela.CodeKeyS {
+//	    if e.CmdOrCtrl() && e.Code == tela.CodeKeyS { // Cmd+S on a Mac, Ctrl+S elsewhere
 //	        e.PreventDefault()
 //	        save()
 //	    }
@@ -277,18 +277,21 @@ const (
 // KeyboardEvent is passed to h.OnKeyDown and h.OnKeyUp: the logical Key,
 // the physical Code, its Location, Repeat for a keydown generated while
 // the key is held, and the modifiers held after the event (Shift, Ctrl,
-// Alt, Meta; Meta is the Windows, Command or Super key). StopPropagation
-// stops the bubbling; PreventDefault cancels the key's default action
-// (Tab's focus move, the click of Enter or Space on a button, the text a
-// key types into a text field). Typed text reaches text fields
-// (h.Input, h.Textarea), which report it with h.OnChange.
+// Alt, Meta; Meta is the Windows, Command or Super key). CmdOrCtrl
+// reports the platform's shortcut modifier: Command (Meta) on a Mac, Ctrl
+// elsewhere (ADR-221); MouseEvent, PointerEvent, WheelEvent and DragEvent
+// have it too. StopPropagation stops the bubbling; PreventDefault cancels
+// the key's default action (Tab's focus move, the click of Enter or Space
+// on a button, the text a key types into a text field). Typed text
+// reaches text fields (h.Input, h.Textarea), which report it with
+// h.OnChange.
 //
 //	OnKeyDown(func(e tela.KeyboardEvent) {
 //	    switch {
 //	    case e.Key == tela.KeyArrowDown:
 //	        e.PreventDefault()
 //	        setIndex.Update(func(i int) int { return min(i+1, n-1) })
-//	    case e.Ctrl && e.Key == "a":
+//	    case e.CmdOrCtrl() && e.Key == "a": // Cmd+A on a Mac, Ctrl+A elsewhere
 //	        selectAll()
 //	    }
 //	})

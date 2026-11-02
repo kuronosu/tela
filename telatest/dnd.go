@@ -147,7 +147,7 @@ func (a *App) dragConfigOf(opts []DragOption) (cfg dragConfig, mods platform.Mod
 	}
 	cfg.steps = max(cfg.steps, 1)
 	for _, name := range cfg.dnd.modifiers {
-		m, ok := modifierNamed(name)
+		m, ok := modifierNamed(name, a.cfg.flavor)
 		if !ok {
 			a.fatalf("Modifiers(%q): not a modifier; use \"Shift\", \"Control\", \"Alt\", \"Meta\" or \"ControlOrMeta\"", name)
 		}

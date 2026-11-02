@@ -49,6 +49,8 @@ type config struct {
 	screen platform.Size
 	// noServerDeco: NoServerDecorations.
 	noServerDeco bool
+	// flavor: PlatformKeys (zero: the host's).
+	flavor platform.Flavor
 }
 
 func newConfig(opts []Option) config {
@@ -109,6 +111,7 @@ func (c config) coreConfig() core.Config {
 		NativeMenus:       c.nativeMenus,
 		Theme:             (*core.Theme)(c.theme),
 		ClassAliases:      c.aliases,
+		Flavor:            c.flavor,
 	}
 	if c.accent != nil {
 		cc.AccentColor, cc.HasAccentColor = *c.accent, true
@@ -217,6 +220,28 @@ func InstantScroll() Option { return func(c *config) { c.instant = true } }
 // native context menu with [App.ChoosePopupItem] and read a native bar
 // with [App.MenuBar].
 func PreferNativeMenus() Option { return func(c *config) { c.nativeMenus = true } }
+
+// PlatformKeys makes the app follow the key conventions of the platform
+// goos names, a runtime.GOOS value: "darwin" for macOS, "windows" for
+// Windows, anything else for Linux (ADR-221). The key bindings and word
+// rules of text fields follow it (Command+A selects all, Option+Left moves
+// by word under "darwin"), and so do the events' CmdOrCtrl and the aria
+// hooks built on it (Command+click toggles a selection on a Mac), and
+// [App.Press] and [Modifiers] resolve "ControlOrMeta" to Meta under
+// "darwin" and to Control otherwise. Without it the app follows the OS the
+// test runs on. It applies to one app and its windows, so parallel tests
+// with different platforms do not interfere:
+//
+//	app := telatest.Mount(t, Editor(), telatest.PlatformKeys("darwin"))
+//	app.Press("ControlOrMeta+a") // Meta+a: selects all
+//	app.Press("Alt+ArrowLeft")   // Option+Left: one word back
+//
+// Only the conventions change: the headless backend, the look of the app
+// and what the app reads from runtime.GOOS stay those of the host.
+func PlatformKeys(goos string) Option {
+	fl := platform.FlavorOf(goos)
+	return func(c *config) { c.flavor = fl }
+}
 
 // devMode returns whether the tree runs in dev mode: TELA_DEV=1 or
 // TELA_DEV=0 overrides the option.

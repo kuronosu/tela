@@ -22,6 +22,9 @@ func newScrollHost(t *testing.T, root Node, w, h float32, cfg Config) *inputHarn
 	t.Helper()
 	b := headless.New(headless.Options{Size: platform.Size{W: w, H: h}})
 	cfg.Fonts = testFonts
+	if cfg.Flavor == platform.FlavorHost {
+		cfg.Flavor = testFlavor
+	}
 	host, err := NewHost(b, Options{Config: cfg, Root: root})
 	if err != nil {
 		t.Fatal(err)

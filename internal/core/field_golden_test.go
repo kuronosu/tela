@@ -25,7 +25,7 @@ func TestFieldStatesGolden(t *testing.T) {
 				input(Key("ph"), Class(field+" placeholder:text-indigo-400 placeholder:italic caret-pink-500"), Placeholder("Styled placeholder")),
 			)
 			b := headless.New(headless.Options{Size: platform.Size{W: 320, H: 280}, Scale: scale})
-			host, err := NewHost(b, Options{Config: Config{Fonts: testFonts}, Root: root})
+			host, err := NewHost(b, Options{Config: Config{Fonts: testFonts, Flavor: testFlavor}, Root: root})
 			if err != nil {
 				t.Fatal(err)
 			}

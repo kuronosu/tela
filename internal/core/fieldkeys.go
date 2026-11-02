@@ -1,7 +1,6 @@
 package core
 
 import (
-	"runtime"
 	"strings"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -15,8 +14,10 @@ import (
 // # Keys
 //
 // A keydown that no handler prevented runs the field's key binding
-// (fieldBinding) before the other default actions. The bindings follow
-// Chromium on each platform: Windows and Linux now (Ctrl shortcuts,
+// (fieldBinding) before the other default actions. The bindings are
+// those of the Tree's flavor (Config.Flavor, the host's by default,
+// ADR-221), so every platform's are tested on any OS. They follow
+// Chromium on each platform: Windows and Linux (Ctrl shortcuts,
 // Ctrl+arrows by word with the Windows or GTK word convention,
 // Shift+Delete, Ctrl+Insert and Shift+Insert, Ctrl+Y and Ctrl+Shift+Z for
 // redo; on Linux Up, Down, Page Up and Page Down in a single-line field go
@@ -59,26 +60,6 @@ const (
 	actSubmit                     // implicit submission (form.go)
 )
 
-// keyFlavor selects the key bindings of a platform.
-type keyFlavor uint8
-
-const (
-	flavorLinux keyFlavor = iota
-	flavorWindows
-	flavorMac
-)
-
-// keyFlavorOf is the flavor of the platform the program runs on.
-var hostKeyFlavor = func() keyFlavor {
-	switch runtime.GOOS {
-	case "windows":
-		return flavorWindows
-	case "darwin":
-		return flavorMac
-	}
-	return flavorLinux
-}()
-
 // shortcutLetter returns the lower-case Latin letter of a shortcut key:
 // the logical key when it is a letter, else the physical key's ("KeyZ"),
 // so Ctrl+Z works on non-Latin layouts as in Chromium.
@@ -94,9 +75,9 @@ func shortcutLetter(e KeyboardEvent) string {
 }
 
 // fieldBinding returns what keydown e does in field f with the bindings
-// of flavor fl; txt is the text the key produces.
-func fieldBinding(fl keyFlavor, multi bool, e KeyboardEvent, txt string) (edit.Command, fieldAction) {
-	if fl == flavorMac {
+// of flavor fl (resolved); txt is the text the key produces.
+func fieldBinding(fl platform.Flavor, multi bool, e KeyboardEvent, txt string) (edit.Command, fieldAction) {
+	if fl == platform.FlavorMac {
 		return macBinding(multi, e, txt)
 	}
 	cmd := func(k edit.CommandKind) (edit.Command, fieldAction) {
@@ -133,7 +114,7 @@ func fieldBinding(fl keyFlavor, multi bool, e KeyboardEvent, txt string) (edit.C
 			return cmd(edit.MoveUp)
 		case multi:
 			return cmd(edit.MoveDown)
-		case fl == flavorWindows:
+		case fl == platform.FlavorWindows:
 			return edit.Command{}, actConsume
 		case up:
 			return cmd(edit.MoveDocumentStart)
@@ -330,7 +311,7 @@ func (t *Tree) fieldKey(f *field, e KeyboardEvent, txt string) bool {
 	if f.ed.Composing() {
 		return e.Key != KeyValue(platform.KeyTab)
 	}
-	cmd, act := fieldBinding(hostKeyFlavor, f.multi, e, txt)
+	cmd, act := fieldBinding(t.flavor, f.multi, e, txt)
 	switch act {
 	case actNone:
 		return false

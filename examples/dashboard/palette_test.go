@@ -23,7 +23,7 @@ var (
 func TestPaletteKeyboard(t *testing.T) {
 	a := mount(t, windowW, windowH)
 	a.Click(telatest.ByRole("radio", "30D")) // the focus is in the page
-	a.Press("Control+k")
+	a.Press("ControlOrMeta+k")
 	a.ExpectCount(palette, 1)
 	a.ExpectFocused(paletteBox)
 	a.ExpectCount(telatest.ByRole("option", ""), 7)
@@ -42,12 +42,12 @@ func TestPaletteKeyboard(t *testing.T) {
 	a.ExpectRole("heading", "Tasks")
 
 	// Enter with no arrow pressed runs the first match.
-	a.Press("Control+k")
+	a.Press("ControlOrMeta+k")
 	a.Type("theme")
 	a.ExpectCount(telatest.ByRole("option", ""), 1)
 	a.Press("Enter")
 	a.ExpectCount(palette, 0)
-	a.Press("Control+k")
+	a.Press("ControlOrMeta+k")
 	a.ExpectText("Light") // the theme is dark now: the command switches to light
 
 	// Nothing matches: the list says so. Escape closes, and the focus goes

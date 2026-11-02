@@ -171,7 +171,7 @@ func TestColorPickerHexField(t *testing.T) {
 		OnValueChange: changed.add, OnValueCommit: committed.add}))
 	app.Expect(hexField, telatest.HasValue("#6366f1ff"))
 	app.Focus(hexField)
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("#f80\n") // three digits: the opacity stays
 	app.Expect(hexField, telatest.HasValue("#ff8800ff"))
 	app.Expect(areaThumb, telatest.HasValue("Saturation 100%, Brightness 100%"))
@@ -180,13 +180,13 @@ func TestColorPickerHexField(t *testing.T) {
 		t.Fatalf("OnValueCommit was called %d times after Enter, want 1", len(committed.got))
 	}
 	// Typing changes nothing until it is committed.
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("12")
 	if len(changed.got) != 1 {
 		t.Errorf("typing called OnValueChange (%d calls), want it to wait for Enter or blur", len(changed.got))
 	}
 	// A blur commits: eight digits set the opacity.
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("336699cc")
 	app.Press("Tab")
 	app.Expect(hexField, telatest.HasValue("#336699cc"))
@@ -196,10 +196,10 @@ func TestColorPickerHexField(t *testing.T) {
 	}
 	// Text that is not a color goes back to the color, and commits nothing.
 	app.Focus(hexField)
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Type("12345\n")
 	app.Expect(hexField, telatest.HasValue("#336699cc"))
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.Press("Delete")
 	app.Press("Enter")
 	app.Expect(hexField, telatest.HasValue("#336699cc"))

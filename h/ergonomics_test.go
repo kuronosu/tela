@@ -137,7 +137,7 @@ func TestHandlersTakeFuncOrFuncWithEvent(t *testing.T) {
 
 	app.Focus(telatest.ByRole("textbox", "field"))
 	app.Type("ab")
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a") // select all
 	c.check(t, "change", "beforeinput", "select")
 	app.Press("Enter")
 	c.check(t, "submit")

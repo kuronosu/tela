@@ -164,7 +164,7 @@ func TestScreenComboboxKeyboard(t *testing.T) {
 
 	// Replace the text with "se": the list opens with the projects that
 	// contain it.
-	a.Press("Control+a")
+	a.Press("ControlOrMeta+a")
 	a.Type("se")
 	a.ExpectFocused(screenProjectBox)
 	screenExpectSection(t, a, `- listbox "Project"`, `

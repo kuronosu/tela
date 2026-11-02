@@ -555,42 +555,42 @@ func TestFieldBindings(t *testing.T) {
 		return e
 	}
 	for _, c := range []struct {
-		fl    keyFlavor
+		fl    platform.Flavor
 		multi bool
 		e     KeyboardEvent
 		txt   string
 		kind  edit.CommandKind
 		act   fieldAction
 	}{
-		{flavorLinux, false, k(platform.KeyArrowLeft, platform.ModCtrl), "", edit.MoveWordLeft, actCommand},
-		{flavorWindows, false, k(platform.KeyArrowRight, platform.ModCtrl|platform.ModShift), "", edit.MoveWordRight, actCommand},
-		{flavorLinux, false, k(platform.KeyArrowUp, 0), "", edit.MoveDocumentStart, actCommand},
-		{flavorWindows, false, k(platform.KeyArrowUp, 0), "", 0, actConsume},
-		{flavorLinux, true, k(platform.KeyPageDown, 0), "", edit.MovePageDown, actCommand},
-		{flavorLinux, false, k(platform.KeyHome, platform.ModCtrl), "", edit.MoveDocumentStart, actCommand},
-		{flavorLinux, false, k(platform.KeyBackspace, platform.ModCtrl), "", edit.DeleteWordBackward, actCommand},
-		{flavorLinux, false, k(platform.KeyDelete, platform.ModShift), "", edit.Cut, actCommand},
-		{flavorLinux, false, k(platform.KeyInsert, platform.ModCtrl), "", edit.Copy, actCommand},
-		{flavorLinux, false, k(platform.KeyInsert, platform.ModShift), "", 0, actPaste},
-		{flavorLinux, false, k(platform.KeyEnter, 0), "", 0, actSubmit},
-		{flavorLinux, true, k(platform.KeyEnter, platform.ModShift), "", edit.InsertLineBreak, actCommand},
-		{flavorLinux, false, k(platform.KeyTab, 0), "", 0, actNone},
-		{flavorLinux, false, k("a", platform.ModCtrl), "a", edit.SelectAll, actCommand},
-		{flavorLinux, false, k("Z", platform.ModCtrl|platform.ModShift), "Z", edit.Redo, actCommand},
-		{flavorLinux, false, k("x", platform.ModCtrl|platform.ModAlt), "x", 0, actNone},
-		{flavorLinux, false, k("é", 0), "é", edit.InsertText, actCommand},
-		{flavorLinux, false, k("é", platform.ModSuper), "é", 0, actNone},
+		{platform.FlavorLinux, false, k(platform.KeyArrowLeft, platform.ModCtrl), "", edit.MoveWordLeft, actCommand},
+		{platform.FlavorWindows, false, k(platform.KeyArrowRight, platform.ModCtrl|platform.ModShift), "", edit.MoveWordRight, actCommand},
+		{platform.FlavorLinux, false, k(platform.KeyArrowUp, 0), "", edit.MoveDocumentStart, actCommand},
+		{platform.FlavorWindows, false, k(platform.KeyArrowUp, 0), "", 0, actConsume},
+		{platform.FlavorLinux, true, k(platform.KeyPageDown, 0), "", edit.MovePageDown, actCommand},
+		{platform.FlavorLinux, false, k(platform.KeyHome, platform.ModCtrl), "", edit.MoveDocumentStart, actCommand},
+		{platform.FlavorLinux, false, k(platform.KeyBackspace, platform.ModCtrl), "", edit.DeleteWordBackward, actCommand},
+		{platform.FlavorLinux, false, k(platform.KeyDelete, platform.ModShift), "", edit.Cut, actCommand},
+		{platform.FlavorLinux, false, k(platform.KeyInsert, platform.ModCtrl), "", edit.Copy, actCommand},
+		{platform.FlavorLinux, false, k(platform.KeyInsert, platform.ModShift), "", 0, actPaste},
+		{platform.FlavorLinux, false, k(platform.KeyEnter, 0), "", 0, actSubmit},
+		{platform.FlavorLinux, true, k(platform.KeyEnter, platform.ModShift), "", edit.InsertLineBreak, actCommand},
+		{platform.FlavorLinux, false, k(platform.KeyTab, 0), "", 0, actNone},
+		{platform.FlavorLinux, false, k("a", platform.ModCtrl), "a", edit.SelectAll, actCommand},
+		{platform.FlavorLinux, false, k("Z", platform.ModCtrl|platform.ModShift), "Z", edit.Redo, actCommand},
+		{platform.FlavorLinux, false, k("x", platform.ModCtrl|platform.ModAlt), "x", 0, actNone},
+		{platform.FlavorLinux, false, k("é", 0), "é", edit.InsertText, actCommand},
+		{platform.FlavorLinux, false, k("é", platform.ModSuper), "é", 0, actNone},
 		// Alt chords type nothing on Linux and Windows (GTK accelerators,
 		// WM_SYSCHAR); AltGr is never reported as Alt and types.
-		{flavorLinux, false, k("x", platform.ModAlt), "x", 0, actNone},
-		{flavorWindows, false, k("x", platform.ModAlt), "x", 0, actNone},
-		{flavorWindows, false, k("X", platform.ModAlt|platform.ModShift), "X", 0, actNone},
-		{flavorWindows, false, k("@", 0), "@", edit.InsertText, actCommand},
+		{platform.FlavorLinux, false, k("x", platform.ModAlt), "x", 0, actNone},
+		{platform.FlavorWindows, false, k("x", platform.ModAlt), "x", 0, actNone},
+		{platform.FlavorWindows, false, k("X", platform.ModAlt|platform.ModShift), "X", 0, actNone},
+		{platform.FlavorWindows, false, k("@", 0), "@", edit.InsertText, actCommand},
 		// Option types characters on macOS.
-		{flavorMac, false, k("å", platform.ModAlt), "å", edit.InsertText, actCommand},
-		{flavorMac, false, k(platform.KeyArrowLeft, platform.ModAlt), "", edit.MoveWordLeft, actCommand},
-		{flavorMac, false, k("c", platform.ModSuper), "c", edit.Copy, actCommand},
-		{flavorMac, false, k(platform.KeyBackspace, platform.ModSuper), "", edit.DeleteToLineStart, actCommand},
+		{platform.FlavorMac, false, k("å", platform.ModAlt), "å", edit.InsertText, actCommand},
+		{platform.FlavorMac, false, k(platform.KeyArrowLeft, platform.ModAlt), "", edit.MoveWordLeft, actCommand},
+		{platform.FlavorMac, false, k("c", platform.ModSuper), "c", edit.Copy, actCommand},
+		{platform.FlavorMac, false, k(platform.KeyBackspace, platform.ModSuper), "", edit.DeleteToLineStart, actCommand},
 	} {
 		cmd, act := fieldBinding(c.fl, c.multi, c.e, c.txt)
 		if act != c.act || act == actCommand && cmd.Kind != c.kind {
@@ -599,7 +599,7 @@ func TestFieldBindings(t *testing.T) {
 	}
 	// A shortcut on a non-Latin layout uses the physical key.
 	e := KeyboardEvent{Key: "я", Code: "KeyZ", Ctrl: true}
-	if cmd, _ := fieldBinding(flavorLinux, false, e, "я"); cmd.Kind != edit.Undo {
+	if cmd, _ := fieldBinding(platform.FlavorLinux, false, e, "я"); cmd.Kind != edit.Undo {
 		t.Errorf("Ctrl+я (KeyZ) = %v, want undo", cmd.Kind)
 	}
 }

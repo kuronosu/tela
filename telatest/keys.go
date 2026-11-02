@@ -2,7 +2,6 @@ package telatest
 
 import (
 	"fmt"
-	"runtime"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -119,10 +118,11 @@ func splitCombo(s string) (mods []string, key string) {
 	return mods, s[start:]
 }
 
-// modifierNamed resolves a modifier name, including ControlOrMeta.
-func modifierNamed(name string) (modDef, bool) {
+// modifierNamed resolves a modifier name, including ControlOrMeta: Meta
+// under the Mac flavor fl, Control under the others ([PlatformKeys]).
+func modifierNamed(name string, fl platform.Flavor) (modDef, bool) {
 	if name == "ControlOrMeta" {
-		if runtime.GOOS == "darwin" {
+		if fl.Resolve() == platform.FlavorMac {
 			name = "Meta"
 		} else {
 			name = "Control"
@@ -174,7 +174,8 @@ func unknownKey(name string) string {
 //
 //	app.Press("Enter")
 //	app.Press("Shift+Tab")
-//	app.Press("Control+s")      // ControlOrMeta+s on the platform's shortcut key
+//	app.Press("Control+s")
+//	app.Press("ControlOrMeta+s") // Meta+s under the Mac flavor, Control+s elsewhere
 //	app.Press("ArrowDown")
 //	app.Press("a")              // the character "a"
 //
@@ -192,7 +193,7 @@ func (a *App) Press(combo string) {
 	var mods []modDef
 	var held platform.Modifiers
 	for _, n := range modNames {
-		m, ok := modifierNamed(n)
+		m, ok := modifierNamed(n, a.cfg.flavor)
 		if !ok {
 			a.fatalf("Press(%q): %q is not a modifier; only the last part is a key, the others are \"Control\", \"Shift\", \"Alt\", \"Meta\" or \"ControlOrMeta\"", combo, n)
 		}
@@ -202,7 +203,7 @@ func (a *App) Press(combo string) {
 		held |= m.mod
 		a.sendKey(platform.KeyEvent{Action: platform.KeyPress, Code: m.code, Key: m.key, Location: m.code.Location(), Mods: held})
 	}
-	if m, ok := modifierNamed(keyName); ok {
+	if m, ok := modifierNamed(keyName, a.cfg.flavor); ok {
 		// Press("Shift"): the modifier is the key.
 		held |= m.mod
 		a.sendKey(platform.KeyEvent{Action: platform.KeyPress, Code: m.code, Key: m.key, Location: m.code.Location(), Mods: held})

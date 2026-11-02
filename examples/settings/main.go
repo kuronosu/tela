@@ -143,7 +143,7 @@ func (w Preferences) Build() tela.Node {
 	return Div(Class("flex h-screen"),
 		OnKeyDown(func(e tela.KeyboardEvent) {
 			// Ctrl+S, or Cmd+S on macOS; a child that has the focus bubbles it up.
-			if (e.Ctrl || e.Meta) && e.Key == "s" {
+			if e.CmdOrCtrl() && e.Key == "s" {
 				e.PreventDefault()
 				save()
 			}

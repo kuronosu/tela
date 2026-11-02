@@ -125,7 +125,7 @@ func ExampleUseListBox_controlled() {
 	}
 	app := telatest.MountFunc(&exampleTB{}, page, telatest.Size(300, 200))
 	app.Click(telatest.ByRole("option", "cherry"))
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.ExpectText("3 selected")
 	fmt.Println("3 selected")
 	// Output: 3 selected

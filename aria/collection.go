@@ -10,7 +10,6 @@ package aria
 
 import (
 	"fmt"
-	"runtime"
 	"slices"
 	"strings"
 	"time"
@@ -668,15 +667,6 @@ func (c *collState[K]) clearSelection() {
 	c.setSelection(SelectionOf[K]())
 }
 
-// ctrlKey is React Aria's isCtrlKeyPressed: Command on a Mac, Control
-// elsewhere.
-func ctrlKey(ctrl, meta bool) bool {
-	if runtime.GOOS == "darwin" {
-		return meta
-	}
-	return ctrl
-}
-
 // selectOnFocus is whether moving the focus selects (selection behavior
 // "replace", and tabs with automatic activation).
 func (c *collState[K]) selectOnFocus() bool {
@@ -703,14 +693,18 @@ func (c *collState[K]) actions(k K) (primary, secondary bool) {
 	return
 }
 
+// activation is what selects or activates an item: the pointer type and
+// the modifiers that matter, Shift and the primary modifier (React Aria's
+// isCtrlKeyPressed: Command under the Mac flavor, Control elsewhere; the
+// event's CmdOrCtrl, so it follows the flavor of the Tree, ADR-221).
 type activation struct {
-	kind                   PointerType
-	shift, ctrl, alt, meta bool
+	kind             PointerType
+	shift, cmdOrCtrl bool
 }
 
 // onSelect is React Aria's onSelect of useSelectableItem.
 func (c *collState[K]) onSelect(k K, a activation) {
-	if a.kind == PointerKeyboard && ctrlKey(a.ctrl, a.meta) {
+	if a.kind == PointerKeyboard && a.cmdOrCtrl {
 		c.toggleSelection(k)
 		return
 	}
@@ -728,7 +722,7 @@ func (c *collState[K]) onSelect(k K, a activation) {
 		}
 	case a.shift:
 		c.extendSelection(k)
-	case c.cfg.behavior != "replace" || ctrlKey(a.ctrl, a.meta) || a.kind == PointerTouch || a.kind == PointerVirtual:
+	case c.cfg.behavior != "replace" || a.cmdOrCtrl || a.kind == PointerTouch || a.kind == PointerVirtual:
 		// A touch or a virtual press has no modifier keys: it toggles,
 		// or multiple selection would be impossible.
 		c.toggleSelection(k)
@@ -882,7 +876,7 @@ func (c *collState[K]) onItemClick(k K, e tela.MouseEvent) {
 		kind = c.downKind
 	}
 	c.hasDown = false
-	c.press(k, activation{kind: kind, shift: e.Shift, ctrl: e.Ctrl, alt: e.Alt, meta: e.Meta})
+	c.press(k, activation{kind: kind, shift: e.Shift, cmdOrCtrl: e.CmdOrCtrl()})
 }
 
 func (c *collState[K]) onItemDoubleClick(k K, e tela.MouseEvent) {
@@ -1012,7 +1006,7 @@ func (c *collState[K]) handleKey(e tela.KeyboardEvent) {
 	if c.typeSelect(e) {
 		return
 	}
-	ctrl := ctrlKey(e.Ctrl, e.Meta)
+	ctrl := e.CmdOrCtrl() // React Aria's isCtrlKeyPressed
 	vertical := !c.horizontal()
 	next := func(k K, ok bool) {
 		if ok {
@@ -1137,7 +1131,7 @@ func (c *collState[K]) navigate(k K, e tela.KeyboardEvent) {
 	switch {
 	case e.Shift && c.multiple():
 		c.extendSelection(k)
-	case c.selectOnFocus() && !ctrlKey(e.Ctrl, e.Meta):
+	case c.selectOnFocus() && !e.CmdOrCtrl():
 		c.replaceSelection(k)
 	}
 }
@@ -1148,7 +1142,7 @@ func (c *collState[K]) onKey(k K, e tela.KeyboardEvent) {
 	if c.isDisabled(k) {
 		return
 	}
-	a := activation{kind: PointerKeyboard, shift: e.Shift, ctrl: e.Ctrl, alt: e.Alt, meta: e.Meta}
+	a := activation{kind: PointerKeyboard, shift: e.Shift, cmdOrCtrl: e.CmdOrCtrl()}
 	if c.cfg.kind != kindListBox {
 		c.activate(k, a)
 		return

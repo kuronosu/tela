@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"math"
 	"net/url"
-	"runtime"
 	"strings"
 	"time"
 
 	"github.com/kuronosu/tela/internal/editdist"
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/layout"
+	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/style"
 	"github.com/kuronosu/tela/internal/text"
 	"github.com/kuronosu/tela/internal/text/edit"
@@ -487,7 +487,7 @@ func (f *field) options() edit.Options {
 		MaxLength: fp.maxLength,
 		Now:       f.t.clock,
 	}
-	if runtime.GOOS == "windows" {
+	if f.t.flavor == platform.FlavorWindows {
 		o.Words = edit.WordsWindows
 	}
 	return o

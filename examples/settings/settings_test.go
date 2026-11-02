@@ -379,7 +379,7 @@ func TestSaveNeedsAValidForm(t *testing.T) {
 	a.Expect(save, telatest.Disabled(true))
 	a.ExpectText(mustFix)
 	a.Focus(email)
-	a.Press("Control+s")
+	a.Press("ControlOrMeta+s")
 	a.ExpectNoText(fixed)
 	a.ExpectText(mustFix)
 
@@ -397,7 +397,7 @@ func TestSaveNeedsAValidForm(t *testing.T) {
 	a.Expect(save, telatest.Disabled(false))
 	a.ExpectText(dirty)
 	a.Focus(email)
-	a.Press("Control+s")
+	a.Press("ControlOrMeta+s")
 	a.ExpectText(fixed)
 	a.ExpectText(clean)
 }
@@ -407,28 +407,50 @@ func TestSaveNeedsAValidForm(t *testing.T) {
 func TestShortcutFromAnyControl(t *testing.T) {
 	a := open(t, "Develop")
 	a.Focus(lens)
-	a.Press("Control+s")
+	a.Press("ControlOrMeta+s")
 	a.ExpectNoText(fixed)
 
 	a.Press("Space") // flips the focused switch
 	a.Expect(lens, telatest.Checked(false))
 	a.ExpectText(dirty)
-	a.Press("Control+s")
+	a.Press("ControlOrMeta+s")
 	a.ExpectText(fixed)
 	a.Expect(save, telatest.Disabled(true))
 
 	a.Focus(straighten)
 	a.Press("Space")
 	a.ExpectText(dirty)
-	a.Press("Meta+s")
+	a.Press("ControlOrMeta+s")
 	a.ExpectText(clean)
 
 	// A slider has the focus and the arrows: Ctrl+S still reaches the window.
 	a.Focus(sharpen)
 	a.Press("ArrowRight")
-	a.Press("Control+s")
+	a.Press("ControlOrMeta+s")
 	a.ExpectText(clean)
 	a.Expect(save, telatest.Disabled(true))
+}
+
+// TestShortcutPerPlatform: the shortcut is the platform's primary
+// modifier (KeyboardEvent.CmdOrCtrl): Cmd+S on a Mac, where Ctrl+S does
+// nothing, and Ctrl+S elsewhere, where Meta+S does nothing.
+func TestShortcutPerPlatform(t *testing.T) {
+	for _, c := range []struct{ goos, saves, ignored string }{
+		{"darwin", "Meta+s", "Control+s"},
+		{"linux", "Control+s", "Meta+s"},
+		{"windows", "Control+s", "Meta+s"},
+	} {
+		t.Run(c.goos, func(t *testing.T) {
+			a := open(t, "Develop", telatest.PlatformKeys(c.goos))
+			a.Focus(lens)
+			a.Press("Space")
+			a.ExpectText(dirty)
+			a.Press(c.ignored)
+			a.ExpectText(dirty)
+			a.Press(c.saves)
+			a.ExpectText(clean)
+		})
+	}
 }
 
 // TestSignOutConfirms: Sign out everywhere asks first; Cancel does nothing.
@@ -627,5 +649,5 @@ func TestDamage(t *testing.T) {
 	a.Click(radio("Custom"))
 	a.Fill(custom, "12")
 	a.Click(stamp)
-	a.Press("Control+s")
+	a.Press("ControlOrMeta+s")
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/aria"
 	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/testutil/rawwin"
 	"github.com/kuronosu/tela/telatest"
@@ -74,7 +75,7 @@ func TestListBoxSelectAll(t *testing.T) {
 	o := aria.ListBoxOptions[string]{SelectionMode: "multiple", DisabledKeys: []string{"fig"}}
 	app := telatest.MountFunc(t, selPage(o, &ev), telatest.Size(300, 400))
 	app.Focus(option("Banana"))
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	// All selects every item that can be selected, not the disabled ones.
 	app.Expect(option("Apple"), telatest.Selected(true))
 	app.Expect(option("Fig"), telatest.Selected(false))
@@ -91,7 +92,7 @@ func TestListBoxDisallowSelectAll(t *testing.T) {
 	o := aria.ListBoxOptions[string]{SelectionMode: "multiple", DisallowSelectAll: true}
 	app := telatest.MountFunc(t, selPage(o, nil), telatest.Size(300, 400))
 	app.Focus(option("Banana"))
-	app.Press("Control+a")
+	app.Press("ControlOrMeta+a")
 	app.ExpectText("selected:")
 	app.Expect(option("Apple"), telatest.Selected(false))
 }
@@ -108,16 +109,16 @@ func TestListBoxReplaceBehavior(t *testing.T) {
 	app.ExpectText("selected: elderberry")
 	app.Press("Home")
 	app.ExpectText("selected: apple")
-	// Shift+Arrow extends, Ctrl+Arrow moves without selecting and
-	// Ctrl+Space toggles.
+	// Shift+Arrow extends, Ctrl+Arrow (Cmd on a Mac) moves without
+	// selecting and Ctrl+Space toggles.
 	app.Press("Shift+ArrowDown")
 	app.Press("Shift+ArrowDown")
 	app.ExpectText("selected: apple,banana,blueberry")
-	app.Press("Control+ArrowDown")
-	app.Press("Control+ArrowDown")
+	app.Press("ControlOrMeta+ArrowDown")
+	app.Press("ControlOrMeta+ArrowDown")
 	app.ExpectFocused(option("Date"))
 	app.ExpectText("selected: apple,banana,blueberry")
-	app.Press("Control+Space")
+	app.Press("ControlOrMeta+Space")
 	app.ExpectText("selected: apple,banana,blueberry,date")
 	// A plain Space replaces the selection with the focused item.
 	app.Press("Space")
@@ -136,7 +137,10 @@ func (a *rawApp) clickWith(x, y float32, mods platform.Modifiers) {
 
 func TestListBoxShiftAndCtrlClick(t *testing.T) {
 	o := aria.ListBoxOptions[string]{SelectionMode: "multiple", SelectionBehavior: "replace"}
-	app := mountRaw(t, tela.C(selPage(o, nil)), 300, 400)
+	// The Linux flavor: Ctrl+click toggles (Cmd+click on a Mac,
+	// TestListBoxModifierClickPerPlatform).
+	b, host, win := rawwin.Mount(t, tela.C(selPage(o, nil)), 300, 400, 0, core.Config{Flavor: platform.FlavorLinux})
+	app := &rawApp{t: t, b: b, host: host, win: win, tree: host.Tree()}
 	click := func(i int, mods platform.Modifiers) {
 		app.clickWith(20, float32(i)*32+16, mods)
 	}
