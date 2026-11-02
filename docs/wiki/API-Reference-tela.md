@@ -1509,6 +1509,14 @@ type App struct {
     // own title bar, marked with h.WindowDrag and h.WindowControl. The
     // window stays resizable at its edges (unless FixedSize).
     Frameless bool
+    // TitleBarOverlay extends the content under a transparent title bar
+    // while the OS keeps its window buttons over it: on macOS the traffic
+    // lights, centered in the height of the app's caption. The app draws
+    // the rest of the title bar (kit.TitleBar leaves room for the buttons:
+    // [WindowState].TitleBarControls is the rectangle they cover).
+    // Elsewhere it behaves as Frameless, and the rectangle is empty. Set
+    // one of Frameless and TitleBarOverlay: Run panics with both.
+    TitleBarOverlay bool
     // AlwaysOnTop keeps the window above other windows (not on Wayland).
     AlwaysOnTop bool
     // Hidden starts the window hidden (an app that starts in the tray):
@@ -1538,6 +1546,16 @@ type App struct {
     //
     //	OnClose: func(w tela.WindowHandle) { w.Hide() },
     OnClose func(WindowHandle)
+    // OnQuit runs when the user or the OS asks the app to quit: on macOS
+    // Cmd+Q, the app menu's Quit, the Dock's Quit, a logout. Nil, the
+    // default, sends every window a close request, as their close buttons
+    // do, so an app whose main window has no OnClose quits. A close-to-tray
+    // app (its OnClose hides the window) sets OnQuit to really quit:
+    //
+    //	OnQuit: tela.Quit,
+    //
+    // or to its own "ask about unsaved changes, then quit".
+    OnQuit func()
     // RootClass are Tailwind classes for the root, which fills the
     // window. Use it to give the window a background ("bg-slate-900") or
     // a text style; without it the window is white and the text black.
@@ -5673,6 +5691,15 @@ type Window struct {
     // its own title bar, marked with h.WindowDrag and h.WindowControl.
     // The window stays resizable at its edges (unless FixedSize).
     Frameless bool
+    // TitleBarOverlay extends the content under a transparent title bar
+    // while the OS keeps its window buttons over it: on macOS the traffic
+    // lights, centered in the height of the app's caption. The content
+    // draws the rest of the title bar (kit.TitleBar leaves room for the
+    // buttons: [WindowState].TitleBarControls is the rectangle they
+    // cover). Elsewhere it behaves as Frameless, and the rectangle is
+    // empty. Set one of Frameless and TitleBarOverlay: the window panics
+    // with both.
+    TitleBarOverlay bool
     // AlwaysOnTop keeps the window above other windows (not on Wayland,
     // which has no way to ask for it).
     AlwaysOnTop bool
@@ -5735,7 +5762,7 @@ The window belongs to the window it is declared in: it stays above it, and with 
 
 When the user asks to close the window (its close button, Alt+F4, a WindowClose control, [`WindowHandle`](#type-windowhandle).Close), OnClose runs: it should update the state that renders the Window, which unmounts it and closes the window. Without OnClose the request does nothing and the window stays open (dev mode warns once). To keep the window and its state while it is out of sight, set Hidden instead of unmounting it.
 
-The fields are applied when they change: a new Title, Width and Height, size limits, AlwaysOnTop, Hidden, Icon, TitleBar, Backdrop or RootClass update the open window. FixedSize, Frameless, Modal and Placement are read when it opens (give the Window a new key to open it again with others).
+The fields are applied when they change: a new Title, Width and Height, size limits, AlwaysOnTop, Hidden, Icon, TitleBar, Backdrop or RootClass update the open window. FixedSize, Frameless, TitleBarOverlay, Modal and Placement are read when it opens (give the Window a new key to open it again with others).
 
 tela snapshot, tela inspect and tela mcp show the main window only; in tests, telatest's App.Windows and App.Window reach the others. Under tela dev the other windows keep their parent, modality and window control, and an open window survives a reload (it is keyed by its place in the tree).
 
@@ -5792,7 +5819,7 @@ WindowHandle is a window of the app: the one a component renders in ([`UseWindow
 - Hide and Show: hide the window (it stays open, with its state) and show it again (activated). The app keeps running while its windows are hidden: App.OnClose can hide the main window to keep the app in the tray. A hidden or minimized window draws nothing, but its components build, its effects run and its Windows open as usual (a tray menu declared in it follows its state); it draws the current state when it shows.
 - Focus: raise the window and give it the keyboard focus, bringing it back from minimized.
 - Close: ask to close the window as its close button does (its OnClose runs; for the main window App.OnClose, or the app quits).
-- State() WindowState: maximized, fullscreen, minimized, focused, hidden and whether the app draws the title bar (ClientSideDecorations). Read in a component's body, it rebuilds the component when the state changes.
+- State() WindowState: maximized, fullscreen, minimized, focused, hidden, whether the app draws the title bar (ClientSideDecorations) and where the OS's window buttons are over it (TitleBarControls). Read in a component's body, it rebuilds the component when the state changes.
 - Placement() WindowPlacement: where the window is, to save and give back as App.Placement or Window.Placement next time.
 - IsZero() bool: the zero handle (no window).
 
@@ -5962,7 +5989,7 @@ type WindowPlacement struct {
 type WindowState = core.WindowState
 ```
 
-WindowState is the state of a window ([`WindowHandle`](#type-windowhandle).State): Maximized, Fullscreen and Minimized as the OS reports them (Wayland cannot report minimized windows), Focused (the active window), Hidden (the app hid it) and ClientSideDecorations (the OS draws no title bar: the app draws one, as a frameless window does, and so on a Wayland desktop without server-side decorations).
+WindowState is the state of a window ([`WindowHandle`](#type-windowhandle).State): Maximized, Fullscreen and Minimized as the OS reports them (Wayland cannot report minimized windows), Focused (the active window), Hidden (the app hid it), ClientSideDecorations (the OS draws no title bar: the app draws one, as a frameless or TitleBarOverlay window does, and so on a Wayland desktop without server-side decorations) and TitleBarControls (the [`Rect`](#type-rect) the OS's window buttons cover in a TitleBarOverlay window, in the window's logical pixels: macOS's traffic lights, which the app's title bar leaves free; the zero Rect elsewhere).
 
 `WindowState` is an alias of `core.WindowState`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
 
@@ -5977,8 +6004,15 @@ type WindowState struct {
     // Hidden: the app hid the window (Hide, or Hidden).
     Hidden bool
     // ClientSideDecorations: the OS draws no title bar or borders for the
-    // window (a Frameless window, or a Wayland compositor without
-    // server-side decorations), so the app draws its own title bar.
+    // window (a Frameless or TitleBarOverlay window, or a Wayland
+    // compositor without server-side decorations), so the app draws its
+    // own title bar.
     ClientSideDecorations bool
+    // TitleBarControls is the rectangle the OS's window buttons cover in
+    // a TitleBarOverlay window (macOS's traffic lights), in the window's
+    // logical pixels: the app's title bar leaves it free. The zero Rect
+    // when the OS draws no buttons over the content (every other window,
+    // and TitleBarOverlay where it acts as Frameless).
+    TitleBarControls Rect
 }
 ```
