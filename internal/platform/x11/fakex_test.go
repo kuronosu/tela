@@ -36,6 +36,7 @@ type fakeX struct {
 	children map[xproto.Window][]fakeChild
 	pointer  image.Point
 	mask     uint16
+	queries  int // QueryPointer round trips
 
 	taken     map[[2]int]bool // key grabs another client holds
 	grabbed   map[[2]int]bool
@@ -239,6 +240,7 @@ func (x *fakeX) selectInput(win xproto.Window, mask uint32) {
 }
 
 func (x *fakeX) queryPointer(win xproto.Window) (pointerInfo, bool) {
+	x.queries++
 	o := x.origin[win]
 	return pointerInfo{rootX: int16(x.pointer.X), rootY: int16(x.pointer.Y),
 		winX: int16(x.pointer.X - o.X), winY: int16(x.pointer.Y - o.Y), mask: x.mask}, true

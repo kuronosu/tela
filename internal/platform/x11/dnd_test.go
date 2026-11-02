@@ -100,6 +100,61 @@ func TestXdndTarget(t *testing.T) {
 	}
 }
 
+// With XKB, a session queries the pointer once, at its first position:
+// later positions are translated with the window's origin it read, and
+// the modifiers follow XKB's StateNotify (the pointer's mask is not read
+// again). Without XKB each position queries it, so the modifiers stay
+// current.
+func TestXdndTargetPositionsWithoutRoundTrips(t *testing.T) {
+	g := dndRig()
+	g.b.xkb = xkbExt{extension: extension{present: true, opcode: 135, firstEvent: xkbFirstEvent}, ok: true}
+	a := &g.b.atoms
+	png := uint32(g.x.id("image/png"))
+	g.xdnd(a.xdndEnter, xdndSource, 5<<24, png)
+	g.x.mask = xproto.KeyButMaskControl
+	if got, w := g.position(130, 70, a.xdndActionCopy), "drag enter 30,20 [image/png] allowed=copy mods=10"; got != w {
+		t.Errorf("first position = %q, want %q", got, w)
+	}
+	// The mask changes without a StateNotify: not read.
+	g.x.mask = xproto.KeyButMaskShift
+	if got, w := g.position(140, 75, a.xdndActionCopy), "drag over 40,25 [image/png] allowed=copy mods=10"; got != w {
+		t.Errorf("second position = %q, want %q", got, w)
+	}
+	// Shift pressed, Control released: StateNotify gives the modifiers
+	// of the next position.
+	g.feed(stateNotify(byte(xproto.KeyButMaskShift), 0, 0, 50))
+	if got, w := g.position(140, 75, a.xdndActionCopy), "drag over 40,25 [image/png] allowed=copy mods=1"; got != w {
+		t.Errorf("after StateNotify = %q, want %q", got, w)
+	}
+	g.feed(stateNotify(0, 0, 0, 50))
+	if got, w := g.position(160, 90, a.xdndActionCopy), "drag over 60,40 [image/png] allowed=copy mods=0"; got != w {
+		t.Errorf("after the release = %q, want %q", got, w)
+	}
+	if g.x.queries != 1 {
+		t.Errorf("%d QueryPointer round trips in the session, want 1", g.x.queries)
+	}
+	// A new session reads the origin again (the window moved meanwhile).
+	g.xdnd(a.xdndLeave, xdndSource)
+	g.x.origin[7] = image.Pt(200, 100)
+	g.xdnd(a.xdndEnter, xdndSource, 5<<24, png)
+	if got, w := g.position(230, 120, a.xdndActionCopy), "drag enter 30,20 [image/png] allowed=copy mods=1"; got != w {
+		t.Errorf("new session = %q, want %q", got, w)
+	}
+	if g.x.queries != 2 {
+		t.Errorf("%d QueryPointer round trips after two sessions, want 2", g.x.queries)
+	}
+
+	// Without XKB, every position reads the mask.
+	g.b.xkb = xkbExt{}
+	g.x.mask = xproto.KeyButMaskControl
+	if got, w := g.position(231, 120, a.xdndActionCopy), "drag over 31,20 [image/png] allowed=copy mods=10"; got != w {
+		t.Errorf("without XKB = %q, want %q", got, w)
+	}
+	if g.x.queries != 3 {
+		t.Errorf("%d QueryPointer round trips, want 3", g.x.queries)
+	}
+}
+
 func TestXdndTargetRefusedAndLeave(t *testing.T) {
 	g := dndRig()
 	a := &g.b.atoms

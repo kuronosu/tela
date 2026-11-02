@@ -20,12 +20,20 @@ import (
 //     more. Types are normalized with platform.SelectionType.
 //   - The first XdndPosition is the DragEnter, later ones DragOver when
 //     the position, the modifiers or the allowed effects changed. The
-//     root position is translated with the QueryPointer reply that also
-//     gives the modifiers (the pointer's mask; X sends no key events to a
-//     window while another client grabs the pointer for a drag). Allowed
-//     is the requested action, or the source's XdndActionList for
-//     XdndActionAsk; a version-0/1 source (no action) and
-//     XdndActionPrivate allow copy.
+//     first position of a session makes one QueryPointer round trip: the
+//     window's root origin (the pointer's root position minus its window
+//     position), kept for the session, and the modifiers (the pointer's
+//     mask; X sends no key events to a window while another client grabs
+//     the pointer and keyboard for a drag). Later positions translate the
+//     root position with that origin (the user cannot move a window while
+//     the source holds the pointer; a new XdndEnter reads it again) and
+//     take the modifiers from the XKB StateNotify events the keyboard
+//     selects, which the server sends to every client that selected them,
+//     grabs or not (xkbEvent's lookupMods, the state a core event or
+//     QueryPointer carries). Without XKB every position queries the
+//     pointer for them. Allowed is the requested action, or the source's
+//     XdndActionList for XdndActionAsk; a version-0/1 source (no action)
+//     and XdndActionPrivate allow copy.
 //   - Every XdndPosition is answered with XdndStatus after the handler
 //     saw the event (a callback posted behind it): accepted when the
 //     window's sticky SetDropEffect is in Allowed, with that action, and
@@ -59,6 +67,10 @@ type dropSession struct {
 	allowed  platform.DropEffect
 	dropped  bool // XdndDrop arrived: XdndLeave is ignored
 	finished bool // XdndFinished was sent
+	// located: ox, oy are the window's root origin (physical pixels),
+	// read at the session's first position.
+	located bool
+	ox, oy  float64
 }
 
 // windowDnD is a window's drag and drop state.
@@ -162,12 +174,22 @@ func (b *Backend) xdndPosition(w *Window, source xproto.Window, x, y int16, acti
 	}
 	mods := s.mods
 	pos := s.pos
-	if qp, ok := b.xs.queryPointer(w.id); ok {
-		mods = b.kbd.mods(uint32(qp.mask))
-		// The window's origin in root coordinates is the pointer's root
-		// position minus its window position.
-		ox, oy := float64(qp.rootX)-float64(qp.winX), float64(qp.rootY)-float64(qp.winY)
-		pos = w.posf(float64(x)-ox, float64(y)-oy)
+	if !s.located || !b.xkb.ok {
+		// A round trip: once per session, or per position without XKB.
+		if qp, ok := b.xs.queryPointer(w.id); ok {
+			mods = b.kbd.mods(uint32(qp.mask))
+			if !s.located {
+				// The window's origin in root coordinates is the
+				// pointer's root position minus its window position.
+				s.ox, s.oy = float64(qp.rootX)-float64(qp.winX), float64(qp.rootY)-float64(qp.winY)
+				s.located = true
+			}
+		}
+	} else if b.kbd.lookupKnown {
+		mods = b.kbd.mods(b.kbd.lookupMods)
+	}
+	if s.located {
+		pos = w.posf(float64(x)-s.ox, float64(y)-s.oy)
 	}
 	allowed := b.xdndAllowed(s, source, action)
 	switch {

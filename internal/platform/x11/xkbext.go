@@ -112,8 +112,9 @@ func (b *Backend) xkbEvent(raw []byte) {
 	case xkbNewKeyboardNotify, xkbMapNotify:
 		b.kbd.mappingChanged()
 	case xkbStateNotify:
-		// Bytes: 10 baseMods, 11 latchedMods, 26-27 changed, 28 keycode
-		// of the key that caused the change.
+		// Bytes: 10 baseMods, 11 latchedMods, 22 lookupMods, 26-27
+		// changed, 28 keycode of the key that caused the change.
+		b.kbd.lookupMods, b.kbd.lookupKnown = uint32(raw[22]), true
 		held := uint32(raw[10]) | uint32(raw[11])
 		b.kbd.stateNotify(held, raw[28])
 	}

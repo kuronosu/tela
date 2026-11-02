@@ -71,6 +71,14 @@ type kbd struct {
 	held  keyboard.Held // presses delivered to focus and not released
 	stale [256]bool     // keys down before focus arrived
 
+	// lookupMods are the core keyboard's real modifiers from the latest
+	// XKB StateNotify (its lookup state, which a core event's state and
+	// QueryPointer's mask carry), once lookupKnown. XKB events reach
+	// every client that selected them, even while another client grabs
+	// the keyboard, so a drag over a window reads them (dnd.go).
+	lookupMods  uint32
+	lookupKnown bool
+
 	// Pending key event: queued once the next event shows whether a
 	// StateNotify belongs to it.
 	pending    platform.KeyEvent
