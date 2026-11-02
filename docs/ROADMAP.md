@@ -27,8 +27,8 @@ Started 2026-11-02 on the work branch `phase-14-macos` (ADR-220). Verified on `m
 - [ ] `cocoa` backend via purego, with a CI job on `macos-latest`: app and event loop, window, present, HiDPI, frame pacing, keyboard, pointer and trackpad scrolling (precise deltas, gesture phases, momentum), cursors, text clipboard, settings (dark mode, accent, reduced motion, contrast)
   - [x] Base (ADR-222): purego bindings in the leaf `internal/darwin`, `[NSApp run]` loop, windows, a layer-hosting view presented through a `CGImage`, the `macos-latest` CI job; platformtest conformance and a pixel read-back pass there
   - [x] The OS-independent macOS key translation (`internal/platform/internal/keyboard/mac.go`)
-  - [ ] Keyboard, pointer, scrolling, cursors and the display link in the backend
-  - [ ] Clipboard and settings
+  - [x] Keyboard, pointer, scrolling (precise deltas and phases; Tela flings), cursors and the display link (NSView.displayLink, CVDisplayLink on macOS 13, a timer otherwise)
+  - [x] Clipboard (NSPasteboard, every Data type) and settings (appearance, accent, reduced motion, contrast, double-click time) with change events
 - [ ] IME through `NSTextInputClient`, with tests that drive the protocol in CI
 - [ ] `tela dev` with a cocoa host
 - [ ] `looks/aqua` and its entry in `detect.For` (ADR-197)
