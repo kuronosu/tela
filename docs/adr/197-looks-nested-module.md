@@ -1,7 +1,7 @@
 # ADR-197: Platform looks in a nested `looks/` module
 
 - **Date:** 2026-10-30
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-223 (two macOS designs)
 
 ## Decision
 
