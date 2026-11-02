@@ -63,6 +63,7 @@ type Backend struct {
 	settings settingsState // system settings and their observer (settings_darwin.go)
 	desk     desktopState  // desktop services (services_darwin.go)
 	dnd      backendDnD    // drag and drop (dnd_darwin.go)
+	menus    menuState     // menus and quit requests (menu_darwin.go, quit_darwin.go)
 }
 
 var _ platform.Backend = (*Backend)(nil)
@@ -136,6 +137,7 @@ func New() (*Backend, error) {
 	}
 	darwin.CFRunLoopAddSource(b.runLoop, b.source, darwin.CFRunLoopCommonModes)
 	b.startSettings()
+	b.startMenus()
 	return b, nil
 }
 
@@ -217,6 +219,7 @@ func (b *Backend) shutdown() {
 	b.closed = true
 	pool := darwin.PoolPush()
 	b.stopDesktop() // ends the sheets before their windows close
+	b.stopMenus()
 	for _, w := range slices.Clone(b.loop.Windows()) {
 		w.Close()
 	}
@@ -298,6 +301,7 @@ func (b *Backend) pump() {
 		}
 		b.passEnded() // launch_darwin.go: the launches held for the first pass
 	}()
+	b.menusAfterPass()
 	idle := !b.loop.Ready()
 	for _, w := range b.loop.Windows() {
 		if idle {
@@ -512,7 +516,7 @@ func setupApp() error {
 	// TelaView conforms to NSTextInputClient, which makes NSView give it
 	// an NSTextInputContext; should the runtime not know the protocol,
 	// the view makes its own context (ime_darwin.go).
-	methods := append(append(append(viewMethods(), inputMethods()...), imeMethods()...), dndMethods()...)
+	methods := append(append(append(append(viewMethods(), inputMethods()...), imeMethods()...), dndMethods()...), menuViewMethods()...)
 	var protocols []string
 	if app.textInputClient = darwin.HasProtocol("NSTextInputClient"); app.textInputClient {
 		protocols = []string{"NSTextInputClient"}
@@ -539,10 +543,13 @@ func setupApp() error {
 	}
 
 	// TelaApplication forwards the key releases that NSApplication's own
-	// sendEvent: swallows (input_darwin.go). It must be the class of NSApp,
-	// so it is registered before sharedApplication creates NSApp.
+	// sendEvent: swallows (input_darwin.go) and makes terminate: a quit
+	// request that never calls exit() (quit_darwin.go). It must be the
+	// class of NSApp, so it is registered before sharedApplication creates
+	// NSApp.
 	appClass, err := darwin.RegisterClass("TelaApplication", nsApplication, nil, []darwin.Method{
 		{Sel: darwin.Sel("sendEvent:"), Fn: appSendEvent},
+		{Sel: darwin.Sel("terminate:"), Fn: appTerminate},
 	})
 	if err != nil {
 		return fmt.Errorf("cocoa: registering TelaApplication: %w", err)
@@ -576,12 +583,17 @@ func setupApp() error {
 	return nil
 }
 
-// applicationShouldTerminate: answers a quit request (Cmd+Q, the app
-// menu's Quit, the Dock's Quit, a logout): quitting is the app's policy,
-// so the running backend delivers an app-scoped QuitRequestedEvent (the
-// layers above run tela.App.OnQuit, or send every window a close
-// request) and AppKit is told to cancel; the app quits with Quit.
+// applicationShouldTerminate: answers NSTerminateCancel. TelaApplication's
+// terminate: decides quit requests itself and calls NSApplication's only
+// to refuse one (quit_darwin.go). Should NSApp not be a TelaApplication,
+// the request comes here: the running backend delivers an app-scoped
+// QuitRequestedEvent (the layers above run tela.App.OnQuit, or send every
+// window a close request) and AppKit is told to cancel; the app quits
+// with Quit.
 func applicationShouldTerminate(_ darwin.ID, _ darwin.SEL, _ darwin.ID) uint {
+	if quitDeclining {
+		return darwin.NSTerminateCancel
+	}
 	registry.Lock()
 	var running *Backend
 	for _, b := range registry.backends {

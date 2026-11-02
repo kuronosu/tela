@@ -567,7 +567,7 @@
 // ([Desktop.SetAppMenu], checked by [CheckAppMenu]; see "Native menus"),
 // quit requests (the app-scoped [QuitRequestedEvent]: the user or the OS
 // asks the app to quit, and the app decides, as with a window's close
-// request; only Cocoa sends it, from applicationShouldTerminate:) and
+// request; only Cocoa sends it, from NSApp's terminate:) and
 // title bar overlays (see "Custom title bars").
 //
 // # Drag and drop and the clipboard
@@ -684,8 +684,9 @@
 // menu). Where the OS has no native menu, both return ErrUnsupported and
 // the layers above draw their own (kit's menus): Wayland and X11 always,
 // frameless Win32 windows for the menu bar (their client area covers the
-// frame), Cocoa until its desktop integration (whose menu bar is the
-// app's NSMenu).
+// frame), and Cocoa for the menu bar (a macOS window has none of its own:
+// the menu bar is the app's NSMenu, below). Cocoa's popup menus are
+// native.
 //
 // The app menu bar (contract v4, ADR-224, ADR-225) is declared once for
 // the whole app, as Electron's Menu.setApplicationMenu:
@@ -693,8 +694,9 @@
 // macOS puts in the app menu it always shows first (after About; Services,
 // Hide, Hide Others, Show All and Quit are the backend's). A choice is an
 // app-scoped [AppMenuEvent], with no window: the layers above act on the
-// focused one. Only the Cocoa backend will have it (every window shares
-// the bar); the others return ErrUnsupported, and the layers above give
+// focused one. Only the Cocoa backend has it (every window shares the
+// bar; without one of the app's, the default bar has the app, Edit and
+// Window menus); the others return ErrUnsupported, and the layers above give
 // the bar to each framed window (Win32's Window.SetMenu) or draw it.
 // Headless records it and remote forwards it.
 //
@@ -1316,8 +1318,19 @@
 // LSCopyAllRoleHandlersForContentType and their defaults; MakeDefault
 // with LSSetDefaultHandlerForURLScheme and
 // LSSetDefaultRoleHandlerForContentType (synchronous, any goroutine, no
-// prompt); AppStatus from LSCopyApplicationURLsForBundleIdentifier. Planned: NSMenu (the app's
-// menu bar; window menus return ErrUnsupported).
+// prompt); AppStatus from LSCopyApplicationURLsForBundleIdentifier. Menus (phase 15): the app's menu bar is
+// NSApp.mainMenu, the app menu first (About, the app items, Services,
+// Hide, Hide Others, Show All, Quit, which sends terminate: and so is a
+// quit request), then the app's menus; the default bar (the app, Edit and
+// Window menus) from the start and after SetAppMenu(nil, nil). Role items
+// send AppKit's actions to the first responder (TelaView delivers the
+// edit roles as their standard key presses; the window roles are
+// NSWindow's) and are not reported; menu roles set NSApp.windowsMenu and
+// helpMenu; accelerators are key equivalents. Window.SetMenu returns
+// ErrUnsupported; Window.PopupMenu is an NSMenu shown with
+// popUpMenuPositioningItem:atLocation:inView: from a run loop block.
+// Quit requests: TelaApplication's terminate: delivers QuitRequestedEvent
+// and never lets AppKit call exit() (see the cocoa package).
 //
 // Remote (tela dev), protocol 5 (ADR-214), 6 with contract v4 (ADR-225):
 // everything is forwarded to the host's backend, which owns the real

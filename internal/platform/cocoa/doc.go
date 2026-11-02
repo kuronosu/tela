@@ -5,8 +5,8 @@
 // platform ("Mapping onto each OS: Cocoa"). The code that touches the OS is
 // built only on darwin; cursor.go (the cursor table), input.go (the
 // pointer and scroll rules), ime.go (the IME rules), windowctl.go (the
-// window control rules) and dnd.go (the drag and drop rules) are pure and
-// tested on every OS.
+// window control rules), dnd.go (the drag and drop rules) and menu.go
+// (the menu plans and key equivalents) are pure and tested on every OS.
 //
 // # Status (phases 14 and 15, ADR-222, ADR-224)
 //
@@ -22,13 +22,12 @@
 // windows, vibrancy backdrops), drag and drop in both directions
 // (dnd_darwin.go over dnd.go; see "Drag and drop" below), the desktop
 // services of phase 12 with the secrets and the trash (see "Desktop
-// services" below), and global shortcuts, single instance, the app ID and
+// services" below), global shortcuts, single instance, the app ID and
 // Launch Services' launches (see "Shortcuts, single instance and
-// launches"), and the registration of schemes and file types (package
-// assoc, on the app's bundle; ADR-228). Native menus are the next task of
-// the macOS desktop integration phase (ADR-224); until then the menu
-// requests are validated like on every backend and return
-// ErrUnsupported.
+// launches"), the registration of schemes and file types (package assoc,
+// on the app's bundle; ADR-228), and the app's menu bar, popup menus and
+// quit requests (see "Menus and quitting"): the whole platform contract
+// of phases 12 and 13 (ADR-224).
 //
 // # Loop
 //
@@ -394,4 +393,58 @@
 //     wait for it, so the listeners mounted with the first frame get them.
 //     NSTreatUnknownArgumentsAsOpen is registered as NO, so AppKit does
 //     not turn the command-line arguments into launches too.
+//
+// # Menus and quitting
+//
+// menu_darwin.go and quit_darwin.go have the details; menu.go is the pure
+// half.
+//
+//   - The menu bar is NSApp.mainMenu, the same for every window. Tela puts
+//     the app menu first, titled with CFBundleName (else the process
+//     name): About, the app items of SetAppMenu, Services
+//     (NSApp.servicesMenu), Hide ⌘H, Hide Others ⌥⌘H, Show All, Quit ⌘Q;
+//     the app's menus follow. Until SetAppMenu, and after
+//     SetAppMenu(nil, nil), the default bar has the app menu, an Edit
+//     menu (Undo, Redo, Cut, Copy, Paste, Select All) and a Window menu
+//     (Minimize ⌘M, Zoom, Bring All to Front, then AppKit's window list),
+//     so every Tela app has a working ⌘Q, ⌘H, ⌘M and edit keys. The
+//     backend's own labels are English (an i18n gap).
+//   - An app item's choice is an app-scoped AppMenuEvent. Role items send
+//     AppKit's standard actions to the first responder and are not
+//     reported: TelaView implements undo:, redo:, cut:, copy:, paste: and
+//     selectAll: by delivering the role's standard key press under the Mac
+//     flavor (⌘Z, ⇧⌘Z, ⌘X, ⌘C, ⌘V, ⌘A) as KeyEvents, so text fields
+//     act on a menu click as on the key; the window roles are NSWindow's
+//     performMiniaturize:, performZoom: and performClose:. The Window and
+//     Help menu roles set NSApp.windowsMenu and helpMenu; AppKit finds the
+//     Edit menu by its title. Automatic enabling grays out the edit items
+//     unless a TelaView is key, and disabled items have no action.
+//   - Accelerators are key equivalents (CmdOrCtrl is Command): the main
+//     menu sees a key down first, so a key that chooses an item is not
+//     delivered (its release is dropped too), and a key no item has is
+//     delivered as before. An accelerator that does not parse, or whose
+//     key has none (media keys), is not shown and does not fail the menu.
+//   - Window.SetMenu returns ErrUnsupported: a window's own bar is drawn
+//     by kit (ADR-224). Window.PopupMenu is an NSMenu shown at the window
+//     point with popUpMenuPositioningItem:atLocation:inView: on TelaView,
+//     started from a run loop block outside any pass, one at a time; the
+//     chosen ID, or 0, goes through the loop, and Quit cancels the
+//     tracking.
+//   - Quitting: Cmd+Q, the app menu's Quit, the Dock and a logout or
+//     restart end in -[NSApplication terminate:], whose own implementation
+//     calls exit() (after the delegate's NSTerminateNow, or the YES of
+//     replyToApplicationShouldTerminate: after NSTerminateLater, which
+//     waits in NSModalPanelRunLoopMode inside terminate:): Run would never
+//     return. TelaApplication overrides terminate:, as Chromium and
+//     Electron do. It delivers a QuitRequestedEvent in a pass at once; if
+//     the app quits, terminate: just returns (no exit(): Run returns, and
+//     a logout goes on, since the quit Apple event is answered without an
+//     error); if the pass ended with no Quit and nothing the app opened
+//     meanwhile is pending (a dialog or alert, a modal window, an
+//     undelivered answer), AppKit's terminate: is called with the delegate
+//     answering NSTerminateCancel, which cancels a logout; while something
+//     is pending (an unsaved-changes alert from OnQuit), terminate: runs
+//     the app's events itself until the app decides. A request while one
+//     waits, or terminate: from inside a pass, is delivered in the next
+//     pass and accepted.
 package cocoa

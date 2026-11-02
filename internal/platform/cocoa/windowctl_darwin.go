@@ -878,15 +878,5 @@ func (w *Window) setOpaque(opaque bool) {
 
 // --- integration requests (later tasks) ---
 
-// SetMenu validates the menu and returns ErrUnsupported: the app's menu
-// bar is macOS desktop integration.
-func (w *Window) SetMenu(menu []platform.MenuItem) error {
-	platform.CheckMenu("SetMenu", menu)
-	return platform.ErrUnsupported
-}
-
-// PopupMenu validates the request and returns ErrUnsupported.
-func (w *Window) PopupMenu(at platform.Point, menu []platform.MenuItem, done func(platform.MenuItemID, error)) error {
-	platform.CheckPopupMenu(at, menu, done != nil)
-	return platform.ErrUnsupported
-}
+// SetDropEffect and StartDrag are in dnd_darwin.go, SetMenu and PopupMenu
+// in menu_darwin.go.

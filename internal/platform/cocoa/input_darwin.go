@@ -200,7 +200,7 @@ func (w *Window) deliverKey(e platform.KeyEvent) bool {
 
 // keyEquivalent answers performKeyEquivalent:: a key down with Command or
 // Control in the focused window is delivered here, after the main menu
-// (none until the macOS desktop phase) had its chance.
+// (the app's bar, menu_darwin.go) had its chance.
 func (w *Window) keyEquivalent(ev darwin.ID) bool {
 	if !w.focused || darwin.SendUint(ev, isel.typ) != darwin.NSEventTypeKeyDown {
 		return false
@@ -208,7 +208,7 @@ func (w *Window) keyEquivalent(ev darwin.ID) bool {
 	if darwin.SendUint(ev, isel.modifierFlags)&(darwin.NSEventModifierFlagCommand|darwin.NSEventModifierFlagControl) == 0 {
 		return false
 	}
-	if menu := darwin.Send(app.ns, isel.mainMenu); menu != 0 && darwin.SendBool(menu, isel.performKeyEquivalent, ev) {
+	if mainMenuKey(ev) {
 		return true
 	}
 	w.key(ev, true)
