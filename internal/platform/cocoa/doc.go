@@ -18,13 +18,14 @@
 // window control (windowctl_darwin.go over windowctl.go: minimize, zoom,
 // native full screen, the floating level, size limits, positions,
 // activation, frameless windows, custom title bars, child and modal
-// windows, vibrancy backdrops) and the desktop services of phase 12 with
-// the secrets and the trash (see "Desktop services" below). Native menus,
-// drag and drop, global shortcuts, single instance, the associations and
-// the app ID are the next tasks of the macOS desktop integration phase
-// (ADR-224); until then those requests are validated like on every
-// backend and do nothing, and the services return ErrUnsupported
-// (UnsupportedDesktop).
+// windows, vibrancy backdrops), the desktop services of phase 12 with
+// the secrets and the trash (see "Desktop services" below), and global
+// shortcuts, single instance, the app ID and Launch Services' launches
+// (see "Shortcuts, single instance and launches"). Native menus, drag and
+// drop and the associations are the next tasks of the macOS desktop
+// integration phase (ADR-224); until then those requests are validated
+// like on every backend and do nothing, and the services return
+// ErrUnsupported (UnsupportedDesktop).
 //
 // # Loop
 //
@@ -291,4 +292,44 @@
 //   - Notifications: UNUserNotificationCenter, only from an app bundle with
 //     a bundle identifier (notify_darwin.go); without one Notify returns
 //     ErrUnsupported naming tela run.
+//
+// # Shortcuts, single instance and launches
+//
+// shortcut_darwin.go and launch_darwin.go have the details and the quirks;
+// shortcut.go, instance.go and instance_unix.go are the pure halves
+// (instance_unix.go builds on Linux too, for its tests).
+//
+//   - Global shortcuts are Carbon hot keys (RegisterEventHotKey on the
+//     application event target, with kEventHotKeyExclusive): no
+//     permission prompt, presses and releases. Super is Command, Alt
+//     Option; a named key has its fixed virtual key code, a character the
+//     code of the key that types it in the current keyboard layout
+//     (UCKeyTranslate over every key code, plain then with Shift, cached
+//     per input source), else the ANSI layout's. The status is queued:
+//     ShortcutBound with the trigger as macOS shows it ("⌃⌥⌘K"),
+//     ShortcutTaken for eventHotKeyExistsErr (another app, or this one,
+//     holds the combination), ShortcutFailed otherwise. One Carbon handler,
+//     installed once per process, turns kEventHotKeyPressed and Released
+//     into ShortcutEvents (a held hot key is one press). The hot keys are
+//     unregistered when Run returns.
+//   - SetAppID keeps the ID; no service needs it yet.
+//   - Single instance: an exclusive flock on <TMPDIR>/tela-<app ID>.lock
+//     (the per-user temporary folder; a hash of the ID when it is not a
+//     plain name or the socket path would pass sun_path's 104 bytes) makes
+//     the first process, which listens on tela-<app ID>.sock beside it
+//     (mode 0600, a stale one removed first). A second process connects,
+//     gets the first's PID, yields the activation to it
+//     (yieldActivationToApplication:, macOS 14), sends its Launch and
+//     waits for the ack (versioned frames, 1 MiB and 3 s at most), then
+//     returns false. The forwarded launch hops to the main thread and is a
+//     LaunchEvent. Run's return closes the listener (removing the socket)
+//     and releases the lock.
+//   - Launches: the app delegate's application:openURLs: (the URLs and
+//     files Launch Services hands a bundled app) is one LaunchEvent, file
+//     URLs as paths, whether or not the app claimed single instance; the
+//     URLs that start the app come the same way, after the start's own
+//     Launch. Launches that arrive before the first delivery pass ended
+//     wait for it, so the listeners mounted with the first frame get them.
+//     NSTreatUnknownArgumentsAsOpen is registered as NO, so AppKit does
+//     not turn the command-line arguments into launches too.
 package cocoa

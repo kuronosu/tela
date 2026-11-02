@@ -1021,7 +1021,8 @@
 // NotificationActivated, the dismiss action to NotificationClosed and the
 // others to NotificationActionInvoked, and shows notifications while the
 // app is in front.
-// Menus, drag and drop, global shortcuts, single instance and the
+// Global shortcuts, single instance and Launch Services' launches: see
+// "Desktop integration on each OS". Menus, drag and drop and the
 // associations are later tasks of the phase (ErrUnsupported until then).
 //
 // Headless (subpackage headless). An in-memory backend with a controllable
@@ -1240,11 +1241,33 @@
 // -[NSFileManager trashItemAtURL:resultingItemURL:error:] (the Finder's
 // Move to Trash, Put Back included), with a file URL that keeps a symbolic
 // link itself; a volume without a trash fails, leaving the file in place
-// (ErrUnsupported). Planned: NSDraggingDestination and NSDraggingSource,
-// NSMenu (the app's menu bar; window menus return
-// ErrUnsupported), Carbon RegisterEventHotKey for global shortcuts, a lock
-// file and a Unix socket for single instance, the bundle's Info.plist for
-// schemes and document types.
+// (ErrUnsupported). Global shortcuts (phase 15): Carbon's
+// RegisterEventHotKey on the application event target with
+// kEventHotKeyExclusive (no permission prompt), the modifiers as
+// cmdKey, optionKey, controlKey and shiftKey and the virtual key code of
+// the key (fixed for named keys; for a character, the key that types it
+// in the current layout, found with UCKeyTranslate, else the ANSI
+// layout's); eventHotKeyExistsErr is ShortcutTaken (as an event);
+// kEventHotKeyPressed and kEventHotKeyReleased are Pressed and Released;
+// the Trigger is shown as macOS menus show it ("⌃⌥⌘K"). Single instance
+// (phase 15): an exclusive flock on a lock file in the per-user temporary
+// folder ($TMPDIR), named from the app ID, makes the first process, which
+// listens on a Unix socket (mode 0600) beside it; a second process
+// connects, receives the first's PID, calls
+// -[NSApplication yieldActivationToApplication:] for it (macOS 14's
+// cooperative activation; it helps when the second process is active, as
+// one Launch Services started is), sends its Launch and waits for the
+// acknowledgement; a crashed first process's socket is replaced by the
+// next one to get the lock. ActivateWithToken ignores the token. Launch
+// Services (phase 15): the app delegate's application:openURLs: (a link
+// or a file opened with the bundled app, also the one that starts it) is
+// a LaunchEvent, file URLs as paths, with or without single instance;
+// launches that arrive before the first delivery pass ended wait for it,
+// and AppKit's opening of command-line arguments
+// (NSTreatUnknownArgumentsAsOpen) is off. Planned: NSDraggingDestination
+// and NSDraggingSource, NSMenu (the app's menu bar; window menus return
+// ErrUnsupported), the bundle's Info.plist for schemes and document
+// types.
 //
 // Remote (tela dev), protocol 5 (ADR-214), 6 with contract v4 (ADR-225):
 // everything is forwarded to the host's backend, which owns the real
