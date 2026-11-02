@@ -3,9 +3,9 @@
 // events and framebuffers; it does not know gfx. A backend receives a
 // finished *image.RGBA framebuffer plus damage rectangles and shows them.
 //
-// Backends live in subpackages: wayland, x11, win32 and headless, plus
-// remote, the IPC backend of the dev loop (ADR-112); cocoa is planned (the
-// macOS backend).
+// Backends live in subpackages: wayland, x11, win32, cocoa (macOS, being
+// built in phase 14, ADR-222) and headless, plus remote, the IPC backend of
+// the dev loop (ADR-112).
 // This package only defines the interfaces, the event set and a few helpers
 // that every backend uses so they behave identically (sizing rule, option
 // validation, framebuffer checks, damage clipping, pixel copies). It imports
@@ -834,18 +834,33 @@
 // (per-monitor DPI v2); scale = dpi / 96. Quit posts WM_QUIT. Implicit
 // pointer capture needs SetCapture / ReleaseCapture.
 //
-// Cocoa via purego (planned). Run calls [NSApp run], which owns the loop; the backend
-// is called back by NSApplication/NSWindow delegates and the NSView
-// subclass, and calls the handler from there. Wake signals a CFRunLoopSource
-// (CFRunLoopSourceSignal + CFRunLoopWakeUp, safe from any thread) added in
-// kCFRunLoopCommonModes so it also fires during live resize (event tracking
-// mode). Pacing: a frame request starts a display link (CVDisplayLink on
-// its own thread signalling the same run loop source, or NSView.displayLink
-// on macOS 14+); the link is stopped when no frame is requested. Sizes are
-// points (logical); scale is backingScaleFactor. Present sets the layer's
-// contents to a CGImage made from the copied pixels (RGBA premultiplied is
-// native: kCGImageAlphaPremultipliedLast). Quit calls [NSApp stop:] and posts
-// a dummy event so that run returns.
+// Cocoa via purego (ADR-222; the system bindings are the leaf package
+// internal/darwin). New runs on the main thread; Run calls [NSApp run],
+// which owns the loop; the backend is called back by the NSWindow delegate,
+// the NSView subclass and the run loop, and calls the handler from there.
+// Wake signals a CFRunLoopSource (CFRunLoopSourceSignal + CFRunLoopWakeUp,
+// safe from any thread) added in kCFRunLoopCommonModes so it also fires
+// during live resize (event tracking mode); its perform callback runs the
+// delivery pass. A delegate callback that queues events (windowDidResize:,
+// windowShouldClose:, key changes) runs a pass itself, so a live resize
+// presents before AppKit continues. Pacing: until the display link task, a
+// CFRunLoopTimer in the common modes set to the shared loop's Pace deadline
+// and pushed to the far future when no frame waits. Then a frame request
+// starts a display link (CVDisplayLink on its own thread signalling the
+// same run loop source, or NSView.displayLink on macOS 14+; Go 1.27 needs
+// macOS 13); the link is stopped when no frame is requested. Sizes are
+// points (logical); scale is backingScaleFactor. The content view hosts a
+// CALayer (contentsScale = backing scale, top-left gravity); Present sets
+// its contents to a CGImage made from the copied pixels (RGBA premultiplied
+// is native: kCGImageAlphaPremultipliedLast; sRGB color space) inside a
+// CATransaction without implicit animations. Quit calls [NSApp stop:] and
+// posts an application-defined event so that run returns. Implemented:
+// windows, presentation, HiDPI, close requests, focus, hiding, child
+// windows closed with their parent, cursors (cursor rectangles). Pending in
+// phase 14: keyboard, pointer and scrolling input, IME, the text clipboard,
+// settings, the display link; window control, menus, drag and drop and the
+// desktop services are the macOS desktop integration phase (validated
+// no-ops and ErrUnsupported until then).
 //
 // Headless (subpackage headless). An in-memory backend with a controllable
 // clock and an input injection API, used by tests, telatest and the CLI. It

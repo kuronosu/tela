@@ -151,7 +151,7 @@ platform → gfx → svg → text → style → layout → {anim, gesture, seman
 ```
 
 - `platform` does not know `gfx`; it receives an `*image.RGBA` framebuffer and damage rects.
-- Leaf packages that import nothing from Tela (`internal/fmath`, `internal/utf16x`, `internal/editdist`) may be imported by every layer, `platform` included (ADR-189).
+- Leaf packages that import nothing from Tela (`internal/fmath`, `internal/utf16x`, `internal/editdist`; `internal/darwin`, the macOS system bindings over purego shared by the `cocoa` backend and the future Metal backend, ADR-222) may be imported by every layer, `platform` included (ADR-189).
 - `layout` does not know `core`; it works on a layout-node interface that `core` implements.
 - **Public API:** `tela`, `h`, `desktop`, `i18n`, `aria`, `kit`, `telatest`, `cmd/tela`.
 - `internal/icongen` (the engine of `tela icons gen`) imports only `internal/svg` and `internal/gfx` and is used only by `cmd/tela`. `internal/lint` (the engine of `tela lint`, ADR-173) imports `internal/style` and `internal/core` (whose role check reads `internal/semantics`) for their validation functions, type-checks with the standard library, and is used only by `cmd/tela` and by the test that checks `docs/llms.txt` (`internal/gen/llmsdoc`, ADR-177). `icons/lucide` is a separate module (ADR-102): outside this list, it may import only the public packages (`tela`, `h`, `telatest`), and nothing in the core module imports it.
@@ -170,8 +170,9 @@ tela/
 ├── kit/                  # styled components (the source of the deferred `tela add`, ADR-129)
 ├── telatest/
 ├── internal/
-│   ├── platform/{wayland,x11,win32,headless,remote,assoc}/   # cocoa comes with the macOS backend
+│   ├── platform/{wayland,x11,win32,cocoa,headless,remote,assoc}/
 │   │   └── wayland/protocols/   # generated from protocol XML (§15)
+│   ├── darwin/           # macOS bindings over purego (Objective-C runtime, CoreFoundation, CoreGraphics; ADR-222)
 │   ├── gfx/  gfx/raster/  svg/
 │   ├── icongen/          # SVG directory -> Go file of tela.Icon variables, behind `tela icons gen` (ADR-102)
 │   ├── text/  style/  layout/  anim/  gesture/  semantics/  core/
@@ -506,7 +507,7 @@ type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entr
 | `wayland` (primary on Linux) | Protocol over `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` | `xdg_shell`, `wl_shm` (memfd buffers), `wp_viewporter` + `wp_fractional_scale_v1`, `xdg-decoration` (if absent, the window reports `ClientSideDecorations` and the app draws its title bar), `wp_cursor_shape_v1`, `wl_data_device` (clipboard), `zwp_text_input_v3` (IME). **Protocol bindings are generated from the official XML** (a Go `wayland-scanner`, see `rajveermalviya/go-wayland`), so adding a protocol is trivial. The keyboard's XKB keymap is read by a **minimal pure-Go XKB subset** (`internal/platform/internal/xkb`, ADR-052; reference: `kbvm`, a pure-Rust XKB implementation) |
 | `x11` (Linux fallback) | X11 protocol over socket, via a patched copy of `jezek/xgb` vendored under `internal/` (ADR-025) | `PutImage` (MIT-SHM later), XInput2 for smooth scrolling, XKB or core keyboard mapping, `_NET_WM_*`, selections for clipboard. IME (XIM) comes later |
 | `win32` | `x/sys/windows` + `syscall.NewCallback` | `CreateWindowExW`, `GetMessageW` loop, `SetDIBitsToDevice`/`StretchDIBits`, per-monitor DPI v2, IMM32, Win32 clipboard, `DwmFlush` for pacing. Reference: Ebitengine's no-cgo Windows code |
-| `cocoa` | `purego` + ObjC runtime | `NSApplication`, `NSWindow`, layer-backed `NSView`, present via `CALayer.contents` (`CGImage`), `NSTextInputClient` (IME), `CVDisplayLink`. Main thread only. Reference: Ebitengine's purego macOS code |
+| `cocoa` | `purego` + ObjC runtime | `NSApplication`, `NSWindow`, layer-hosting `NSView`, present via `CALayer.contents` (`CGImage`), `NSTextInputClient` (IME), `CVDisplayLink`. Main thread only. Reference: Ebitengine's purego macOS code |
 | `headless` | Memory | Tests, snapshots, CLI. Configurable size and scale, controllable clock |
 | `remote` (dev loop only) | AF_UNIX socket to a host process; pixels in shared memory (memfd, named file mapping) | The child backend of `tela dev`: windows, events, clock, clipboard, IME and settings are forwarded to a `remote.Host` that owns the real windows on another backend and swaps children under them (ADR-111, ADR-112); protocol 3 (4 with ADR-187) forwards window control, keyed child windows and desktop services held by the host (ADR-184); protocol 5 carries phase 13: drag and drop, menus, clipboard data, shortcuts and single instance held by the host, secrets, associations and the trash (ADR-214, ADR-216) |
 

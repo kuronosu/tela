@@ -387,7 +387,14 @@ jobs:
         env:
           CGO_ENABLED: "0"
         run: go build ./...
+      - name: go test (cocoa, verbose)
+        env:
+          CGO_ENABLED: "0"
+        # -v: the cocoa tests log what ran (capture path, metrics, pixel
+        # samples) even when they pass; no Mac is at hand to look.
+        run: go test -v -count=1 -timeout 10m ./internal/platform/cocoa/ ./internal/platform/auto/ ./internal/darwin/
       - name: go test (platform)
+        if: success() || failure()
         env:
           CGO_ENABLED: "0"
         run: go test -timeout 20m ./internal/platform/...

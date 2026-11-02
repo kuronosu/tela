@@ -16,6 +16,7 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 - `CmdOrCtrl()` on `tela.KeyboardEvent`, `MouseEvent`, `PointerEvent`, `WheelEvent` and `DragEvent` (ADR-221): the platform's shortcut modifier, Command (`Meta`) on a Mac and `Ctrl` elsewhere, like React Aria's isCtrlKeyPressed. Write `e.CmdOrCtrl() && e.Key == "s"` for a save shortcut that works on every OS.
 - `telatest.PlatformKeys(goos)` gives one app another platform's key conventions (text field bindings such as Command+A and Option+Left on a Mac, `CmdOrCtrl`, the aria collections' Command+click and Command+A, and what `Press("ControlOrMeta+…")` presses), so Mac behavior is tested on Linux or Windows; parallel tests with different platforms do not interfere.
+- macOS: the first part of the native `cocoa` backend (ADR-222), with no cgo: a Tela app on macOS 13 or later now opens a real window and draws into it, sharp on Retina displays, instead of needing `TELA_BACKEND=headless`. Keyboard, mouse and trackpad input, the clipboard and system settings follow in the next steps of the macOS phase; the backend adds the `github.com/ebitengine/purego` dependency, used only when building for macOS.
 
 ### Changed
 

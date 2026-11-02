@@ -206,6 +206,13 @@ their original copyright notice. Add one section per source project.
 - **Used in:** `internal/platform/win32/`
 - **Notes:** Design references only (syscall-based window class, message loop and DPI setup; mouse capture, leave tracking and DPI quirks). No source was copied; the backend is written against the Win32 documentation. Listed as a courtesy. The keyboard (`scancode.go`, `vkey.go`, `keyboard.go`, `layout.go`) follows winit 0.30's Windows keyboard (`keyboard.rs`, `keyboard_layout.rs`): the scan code to W3C code table and the virtual-key to named-key table are the same facts (and the same W3C and Firefox sources) written out again in Go, and the techniques (character messages complete the key, a peek at the queue, the fake left Ctrl before AltGr, `ToUnicodeEx` on the layout) are winit's. No Rust code was translated.
 
+## Ebitengine and purego (Cocoa backend)
+
+- **Source:** https://github.com/hajimehoshi/ebiten (v2.10.5: `internal/cocoa`, the pure-Go GLFW port's `internal/glfw/cocoa_*_darwin.go`, `internal/graphicsdriver/metal/ca`) and https://github.com/ebitengine/purego (v0.11.2: `objc`, a dependency)
+- **License:** Apache-2.0
+- **Used in:** `internal/darwin/`, `internal/platform/cocoa/`
+- **Notes:** Design references only (opening the frameworks explicitly under `CGO_ENABLED=0`, message sends with struct arguments and `objc_msgSend_stret` on amd64, registered NSWindow, delegate and view classes, the application-defined event that makes `[NSApp run]` return after `stop:`, not declaring `NSApplicationDelegate` on macOS 14, Ebitengine issue #3451). No source was copied; the bindings and the backend are written against Apple's documentation. Listed as a courtesy.
+
 ## Motion (springs)
 
 - **Source:** https://github.com/motiondivision/motion (formerly framer-motion; `packages/motion-dom/src/animation/generators/spring/`: `index.ts`, `find.ts`)

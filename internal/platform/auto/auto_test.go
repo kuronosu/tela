@@ -37,8 +37,11 @@ func TestUnknownBackend(t *testing.T) {
 }
 
 func TestNothingAvailable(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	switch runtime.GOOS {
+	case "windows":
 		t.Skip("the win32 backend needs no display server")
+	case "darwin":
+		t.Skip("the cocoa backend's window server cannot be hidden from the test (auto_darwin_test.go covers it)")
 	}
 	if runtime.GOOS == "linux" {
 		t.Setenv("WAYLAND_DISPLAY", "")
