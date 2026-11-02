@@ -385,9 +385,11 @@
 //     gets the first's PID, yields the activation to it
 //     (yieldActivationToApplication:, macOS 14), sends its Launch and
 //     waits for the ack (versioned frames, 1 MiB and 3 s at most), then
-//     returns false. The forwarded launch hops to the main thread and is a
-//     LaunchEvent. Run's return closes the listener (removing the socket)
-//     and releases the lock.
+//     returns false. The first acknowledges a launch once the backend has
+//     queued it for the main thread, where it becomes a LaunchEvent; after
+//     Run returned it refuses it unacknowledged, so the second process
+//     gets an error and runs on its own. Run's return closes the listener
+//     (removing the socket) and releases the lock.
 //   - Launches: the app delegate's application:openURLs: (the URLs and
 //     files Launch Services hands a bundled app) is one LaunchEvent, file
 //     URLs as paths, whether or not the app claimed single instance; the

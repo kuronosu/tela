@@ -164,7 +164,7 @@ func TestClaimInstanceProcesses(t *testing.T) {
 	var helperDone atomic.Bool
 	var got []platform.Launch
 	var activeAfter string
-	var activatedAt time.Time
+	var activatedAt, helperSeen time.Time
 	desktopRun(t, b, 60*time.Second, func(w *Window) {
 		go func() {
 			defer close(done)
@@ -186,7 +186,22 @@ func TestClaimInstanceProcesses(t *testing.T) {
 			activeAfter = fmt.Sprintf("NSApp isActive %v, the window key %v",
 				darwin.SendBool(app.ns, darwin.Sel("isActive")), darwin.SendBool(w.ns, darwin.Sel("isKeyWindow")))
 		}
-		return helperDone.Load() && (activeAfter != "" || len(got) == 0)
+		if !helperDone.Load() {
+			return false
+		}
+		// The helper exits once its launch was acknowledged, which is
+		// before the launch's pass here: wait for it, with a deadline.
+		if helperSeen.IsZero() {
+			helperSeen = time.Now()
+		}
+		if len(got) == 0 {
+			if time.Since(helperSeen) > 10*time.Second {
+				t.Errorf("no LaunchEvent within 10 s of the helper's end")
+				return true
+			}
+			return false
+		}
+		return activeAfter != ""
 	})
 	select {
 	case <-done:

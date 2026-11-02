@@ -5,6 +5,7 @@ package cocoa
 import (
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/kuronosu/tela/internal/darwin"
 	"github.com/kuronosu/tela/internal/platform"
@@ -15,8 +16,10 @@ import (
 // Single instance is a lock file and a Unix socket in the per-user
 // temporary folder (os.TempDir: $TMPDIR, /var/folders/…/T/, which only the
 // user can enter), named from the app ID; instance_unix.go has the
-// details. The forwarded launches arrive on a goroutine of the claim and
-// hop to the main thread with onMain.
+// details. The forwarded launches arrive on a goroutine of the claim,
+// which queues them under a lock and signals the run loop source; the
+// claim acknowledges a launch only once it is queued, and the backend
+// refuses launches once Run returned (forwardedLaunch).
 //
 // Activation: since macOS 14 activation is cooperative, so [NSApp
 // activate] in the first process (Window.ActivateWithToken, which is
@@ -62,6 +65,10 @@ type launchState struct {
 	claims map[string]*instanceClaim // by app ID
 	passed bool                      // a delivery pass has ended
 	held   []platform.Launch         // launches waiting for passed
+
+	// forwarded is the one part used off the main thread, by the claims'
+	// goroutines, under its lock.
+	forwarded forwardedQueue
 }
 
 // SetAppID keeps the app's ID for the services that need one. None does
@@ -96,9 +103,31 @@ func (d desktop) ClaimInstance(appID string, launch platform.Launch) (bool, erro
 	return true, nil
 }
 
-// forwardedLaunch receives a launch from the claim's goroutine.
-func (b *Backend) forwardedLaunch(l platform.Launch) {
-	b.onMain(func() { b.launch(l) })
+// forwardedLaunch receives a launch from the claim's goroutine and
+// reports whether the backend took it (the claim acknowledges only then).
+// It is queued under a lock and the run loop source is signaled; the
+// pass that follows takes it on the main thread (passEnded), before Run
+// or while it runs. Once Run has returned, launches are refused, so the
+// second process gets an error and runs on its own instead of exiting
+// with its launch lost.
+func (b *Backend) forwardedLaunch(l platform.Launch) bool {
+	q := &b.desk.launch.forwarded
+	q.Lock()
+	if q.closed {
+		q.Unlock()
+		return false
+	}
+	q.items = append(q.items, l)
+	q.Unlock()
+	b.notify()
+	return true
+}
+
+// forwardedQueue holds the launches the claims took, for the main thread.
+type forwardedQueue struct {
+	sync.Mutex
+	items  []platform.Launch
+	closed bool // Run returned
 }
 
 // launch delivers l as an app-scoped LaunchEvent, or holds it until the
@@ -115,23 +144,35 @@ func (b *Backend) launch(l platform.Launch) {
 	b.appEvent(platform.LaunchEvent{Launch: l})
 }
 
-// passEnded runs after every delivery pass: after the first one it
-// queues the held launches for the next.
+// passEnded runs after every delivery pass (inside it): it takes the
+// launches the claims forwarded, and queues them with those held for the
+// first pass, once that has ended, as LaunchEvents of the next pass,
+// which pump then signals.
 func (b *Backend) passEnded() {
 	st := &b.desk.launch
-	if st.passed {
-		return
+	q := &b.desk.launch.forwarded
+	q.Lock()
+	taken := q.items
+	q.items = nil
+	q.Unlock()
+	if !st.passed {
+		st.passed = true
+		taken = append(st.held, taken...)
+		st.held = nil
 	}
-	st.passed = true
-	for _, l := range st.held {
+	for _, l := range taken {
 		b.enqueue(nil, platform.LaunchEvent{Launch: l})
 	}
-	st.held = nil
 }
 
-// stopInstances ends the claims (Run returns): the listeners close,
-// removing their sockets, and the locks are released.
+// stopInstances ends the claims (Run returns): later forwarded launches
+// are refused, the listeners close, removing their sockets, and the locks
+// are released.
 func (b *Backend) stopInstances() {
+	b.desk.launch.forwarded.Lock()
+	b.desk.launch.forwarded.closed = true
+	b.desk.launch.forwarded.items = nil
+	b.desk.launch.forwarded.Unlock()
 	for id, c := range b.desk.launch.claims {
 		c.close()
 		delete(b.desk.launch.claims, id)
