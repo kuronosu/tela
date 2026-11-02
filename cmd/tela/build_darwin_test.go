@@ -60,16 +60,20 @@ func TestRunBundleIdentityDarwin(t *testing.T) {
 	}
 	t.Logf("stdout: %s", stdout.String())
 	bundle := filepath.Join(cache, "tela", "run", "dev.example.probe", "Probe.app")
+	if !strings.Contains(stdout.String(), "bundleIdentifier=dev.example.probe\n") {
+		t.Errorf("stdout lacks the bundle identifier dev.example.probe:\n%s", stdout.String())
+	}
 	// t.TempDir may be under /var, a link to /private/var, and AppKit
-	// reports the resolved path.
+	// reports the path as the process was started (the runner gave
+	// /var/...), so both sides are compared resolved.
 	wantPath, err := filepath.EvalSymlinks(bundle)
 	if err != nil {
 		t.Fatalf("the bundle is not at %s: %v\nstderr: %s", bundle, err, stderr.String())
 	}
-	for _, want := range []string{"bundleIdentifier=dev.example.probe\n", "bundlePath=" + wantPath + "\n"} {
-		if !strings.Contains(stdout.String(), want) {
-			t.Errorf("stdout lacks %q:\n%s", want, stdout.String())
-		}
+	_, after, ok := strings.Cut(stdout.String(), "bundlePath=")
+	gotPath, _, _ := strings.Cut(after, "\n")
+	if resolved, err := filepath.EvalSymlinks(gotPath); !ok || err != nil || resolved != wantPath {
+		t.Errorf("the program's bundle path is %q (resolved %q, %v), want %s", gotPath, resolved, err, wantPath)
 	}
 
 	raw, err := os.ReadFile(filepath.Join(bundle, "Contents", "Info.plist"))
