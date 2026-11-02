@@ -1,5 +1,5 @@
 // Package looks holds the platform looks of Tela: Windows 11 (Fluent), GNOME
-// (libadwaita) and KDE (Breeze) as values an app can adopt, each in light and
+// (libadwaita), KDE (Breeze) and macOS (Aqua) as values an app can adopt, each in light and
 // dark. It is a separate module, github.com/kuronosu/tela/looks (ADR-197), so
 // that package kit stays platform neutral and the looks change at their own
 // pace.
@@ -18,7 +18,7 @@
 // Nothing in a component tree needs to ask which platform it draws. Adopting
 // a look is giving the window its theme and the tree its style:
 //
-//	l := win11.Look() // or adwaita.Look(), breeze.Look(), detect.Look()
+//	l := win11.Look() // or adwaita.Look(), breeze.Look(), aqua.Look(), detect.Look()
 //	tela.Main(tela.App{
 //		Title: "Files",
 //		Theme: &l.Theme,
@@ -31,8 +31,10 @@
 // # Packages
 //
 // Each look is a package that exports Look: [github.com/kuronosu/tela/looks/win11],
-// [github.com/kuronosu/tela/looks/adwaita] and
-// [github.com/kuronosu/tela/looks/breeze]. Package looks defines their types,
+// [github.com/kuronosu/tela/looks/adwaita],
+// [github.com/kuronosu/tela/looks/breeze] and
+// [github.com/kuronosu/tela/looks/aqua] (macOS, with two designs, Tahoe and
+// Sequoia, that an app can mix per part). Package looks defines their types,
 // so that they can all import it; for the same reason it cannot import them,
 // and the choice of the look of the running desktop lives in
 // [github.com/kuronosu/tela/looks/detect].
@@ -53,6 +55,14 @@
 //   - field: the background of a text field set in the toolbar.
 //   - edge: the stronger line under a field (Windows 11's text box).
 //   - selection and selection-foreground: a selected row or place.
+//   - glass, glass-strong, glass-selected, glass-edge, glass-highlight,
+//     glass-shadow and primary-glow: the translucent surfaces of Aqua's
+//     Tahoe design (a fill, a stronger fill for small pieces, the fill of a
+//     selected piece, the 1 px edge, the highlight along the top edge, the
+//     soft shadow and the glow of the default button); control-shadow and
+//     segment: the hairline under an Aqua control and the raised segment of
+//     its segmented controls. The other looks have them follow their
+//     surfaces.
 //
 // # Extra variants
 //
@@ -104,6 +114,10 @@ type Regions struct {
 	ToolbarGroup string
 	// ToolbarEnd wraps the buttons after the search field.
 	ToolbarEnd string
+	// ToolbarSegments is the class of the view switcher of the toolbar: a
+	// [kit.ToggleGroup] of [Toolbar] toggles. It sets the space between the
+	// items and the capsule, track or glass that holds them.
+	ToolbarSegments string
 	// Location is the bar that shows where the user is, with a breadcrumb
 	// of small buttons; LocationCurrent is added to the last one, and
 	// LocationSeparator wraps what is between two crumbs.

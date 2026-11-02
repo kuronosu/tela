@@ -1,11 +1,13 @@
 // Command gallery shows kit's controls in each of the platform looks of
-// package looks: Windows 11 (Fluent), GNOME (libadwaita) and KDE (Breeze),
-// each in light and dark, and switches between them while it runs.
+// package looks: Windows 11 (Fluent), GNOME (libadwaita), KDE (Breeze) and
+// macOS (Aqua: its Tahoe and Sequoia designs and a mix of them), each in light
+// and dark, and switches between them while it runs.
 //
 //	go run ./gallery                       # the look of this OS, light or dark as the system says
 //	go run ./gallery -look=breeze -dark=true
+//	go run ./gallery -look=tahoe          # also sequoia and mixed
 //
-// One component tree draws all six looks. Each look is a tela.Theme (the
+// One component tree draws all the looks. Each look is a tela.Theme (the
 // tokens), a kit.Style (the recipes of the controls) and the Regions, the
 // classes of the parts of the window that kit has no component for: the
 // toolbar, the sidebar, the content, the details pane and the status bar.
@@ -15,7 +17,7 @@
 //
 // `tela snapshot` renders in one shot and takes the theme of var App, which
 // starts as the look of this OS or the one the environment variable
-// LOOKS_LOOK names (win11, adwaita or breeze), so name it to see another:
+// LOOKS_LOOK names (win11, adwaita, breeze, tahoe, sequoia or mixed), so name it to see another:
 //
 //	LOOKS_LOOK=breeze tela snapshot --size 1100x720 --dark -o gallery.png ./gallery
 package main

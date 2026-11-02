@@ -46,6 +46,35 @@ func Theme(radius float32, font string, colors map[string]tela.SchemeColor) tela
 	if _, ok := colors["edge"]; !ok {
 		t.Colors["edge"] = t.Colors["border"]
 	}
+	// The tokens of Aqua's glass and controls (package looks lists them):
+	// the other looks have them follow their surfaces.
+	if _, ok := colors["glass"]; !ok {
+		t.Colors["glass"] = t.Colors["card"]
+	}
+	if _, ok := colors["glass-strong"]; !ok {
+		t.Colors["glass-strong"] = t.Colors["card"]
+	}
+	if _, ok := colors["glass-selected"]; !ok {
+		t.Colors["glass-selected"] = t.Colors["accent"]
+	}
+	if _, ok := colors["glass-edge"]; !ok {
+		t.Colors["glass-edge"] = t.Colors["border"]
+	}
+	if _, ok := colors["glass-highlight"]; !ok {
+		t.Colors["glass-highlight"] = t.Colors["border"]
+	}
+	if _, ok := colors["glass-shadow"]; !ok {
+		t.Colors["glass-shadow"] = Tok(Black(0.15), Black(0.4))
+	}
+	if _, ok := colors["primary-glow"]; !ok {
+		t.Colors["primary-glow"] = t.Colors["ring"]
+	}
+	if _, ok := colors["control-shadow"]; !ok {
+		t.Colors["control-shadow"] = Tok(Black(0.15), Black(0.4))
+	}
+	if _, ok := colors["segment"]; !ok {
+		t.Colors["segment"] = t.Colors["accent"]
+	}
 	return t
 }
 

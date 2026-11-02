@@ -29,8 +29,10 @@ func ExampleFor() {
 	fmt.Println(detect.For("linux", "KDE").Name)
 	fmt.Println(detect.For("linux", "ubuntu:GNOME").Name)
 	fmt.Println(detect.For("windows", "").Name)
+	fmt.Println(detect.For("darwin", "").Name)
 	// Output:
 	// KDE
 	// GNOME
 	// Windows 11
+	// macOS Tahoe
 }

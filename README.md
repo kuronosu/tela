@@ -235,11 +235,11 @@ a kit component. Every page is also a preview (`tela dev --preview Calendar
 ### Platform looks
 
 **[looks](looks)** is a separate module, `github.com/kuronosu/tela/looks`
-(ADR-197), with the looks of Windows 11, GNOME and KDE, each in light and
-dark. A look is a `tela.Theme` (the tokens), a `kit.Style` (the recipes of the
+(ADR-197), with the looks of Windows 11, GNOME, KDE and macOS (Tahoe and
+Sequoia, which an app can mix per part; ADR-223), each in light and dark. A look is a `tela.Theme` (the tokens), a `kit.Style` (the recipes of the
 controls) and `Regions` (the classes of the toolbar, sidebar, content, details
-pane and status bar); `win11.Look()`, `adwaita.Look()`, `breeze.Look()` and
-`detect.Look()` (the look of the running desktop) return one. Its
+pane and status bar); `win11.Look()`, `adwaita.Look()`, `breeze.Look()`,
+`aqua.Look()` and `detect.Look()` (the look of the running desktop) return one. Its
 [gallery](looks/gallery) shows kit's controls in each look and switches between
 them while it runs (`cd looks && go run ./gallery -look=breeze -dark=true`).
 

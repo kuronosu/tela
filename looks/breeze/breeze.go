@@ -29,6 +29,7 @@ func Look() looks.Look {
 			Toolbar:           "flex h-[46px] items-center gap-1.5 border-b border-border px-2",
 			ToolbarGroup:      "flex items-center gap-0.5",
 			ToolbarEnd:        "flex shrink-0 items-center gap-0.5",
+			ToolbarSegments:   "gap-0.5",
 			Location:          "flex h-[30px] min-w-0 flex-1 items-center overflow-hidden rounded-md border border-input bg-field px-1",
 			LocationSeparator: "flex w-3 shrink-0 items-center justify-center text-muted-foreground",
 			Search:            "relative w-[240px] shrink-0",

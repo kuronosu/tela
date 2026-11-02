@@ -4,6 +4,7 @@ import (
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/looks"
 	"github.com/kuronosu/tela/looks/adwaita"
+	"github.com/kuronosu/tela/looks/aqua"
 	"github.com/kuronosu/tela/looks/breeze"
 	"github.com/kuronosu/tela/looks/detect"
 	"github.com/kuronosu/tela/looks/gallery/icons"
@@ -24,6 +25,10 @@ var catalog = []catalogEntry{
 	{ID: "win11", Title: "Windows 11", Icon: icons.LayoutGrid, Look: win11.Look},
 	{ID: "adwaita", Title: "GNOME", Icon: icons.PanelLeft, Look: adwaita.Look},
 	{ID: "breeze", Title: "KDE", Icon: icons.Settings, Look: breeze.Look},
+	{ID: "tahoe", Title: "macOS Tahoe", Icon: icons.House, Look: func() looks.Look { return aqua.Look(aqua.Tahoe) }},
+	{ID: "sequoia", Title: "macOS Sequoia", Icon: icons.Bell, Look: func() looks.Look { return aqua.Look(aqua.Sequoia) }},
+	// A mix: Tahoe with the controls of Sequoia.
+	{ID: "mixed", Title: "macOS mixed", Icon: icons.Menu, Look: func() looks.Look { return aqua.Look(aqua.Tahoe, aqua.Controls(aqua.Sequoia)) }},
 }
 
 func ids() []string {

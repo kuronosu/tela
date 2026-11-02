@@ -139,9 +139,22 @@ func TestSwitchScheme(t *testing.T) {
 func TestArrowsStepThroughLooks(t *testing.T) {
 	a := mount(t, Gallery{Look: "win11"})
 	a.Click(telatest.ByRole("button", "Previous look"))
-	a.Expect(telatest.ByRole("radio", "KDE"), telatest.Checked(true))
+	a.Expect(telatest.ByRole("radio", "macOS mixed"), telatest.Checked(true))
 	a.Click(telatest.ByRole("button", "Next look"))
 	a.Expect(telatest.ByRole("radio", "Windows 11"), telatest.Checked(true))
+}
+
+// TestAquaDesignsInTheGallery: the macOS entries draw aqua's designs, and
+// their keys parse.
+func TestAquaDesignsInTheGallery(t *testing.T) {
+	for id, name := range map[string]string{"tahoe": "macOS Tahoe", "sequoia": "macOS Sequoia", "mixed": "macOS Tahoe (mixed: Sequoia controls)"} {
+		if got := byID(id).Look().Name; got != name {
+			t.Errorf("look %q is %q, want %q", id, got, name)
+		}
+		if got, err := parseLook(id); err != nil || got != id {
+			t.Errorf("parseLook(%q) = %q, %v", id, got, err)
+		}
+	}
 }
 
 // TestOverlays opens the menu, the dialog and the select in every look and

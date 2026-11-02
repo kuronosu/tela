@@ -166,7 +166,7 @@ func (w Window) toolbar(sidebar bool, setSidebar tela.Setter[bool], columns stri
 				{Value: "columns", Icon: icons.LayoutGrid, AriaLabel: "Two columns"},
 				{Value: "stack", Icon: icons.List, AriaLabel: "One column"},
 			},
-			Variant: looks.Toolbar, Size: looks.ToolbarSize, Spacing: 1, Class: "gap-0.5",
+			Variant: looks.Toolbar, Size: looks.ToolbarSize, Spacing: 1, Class: r.ToolbarSegments,
 			Value: &view, OnValueChange: setColumns.Set, DisallowEmptySelection: true, AriaLabel: "Layout",
 		},
 		kit.DropdownMenu[string]{

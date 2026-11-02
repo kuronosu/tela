@@ -19,8 +19,8 @@ func TestFor(t *testing.T) {
 		{"linux", "ubuntu:GNOME", "GNOME"},
 		{"linux", "", "GNOME"},
 		{"linux", "sway", "GNOME"},
-		{"darwin", "", "GNOME"}, // until the macOS backend adds Aqua
-		{"darwin", "KDE", "GNOME"},
+		{"darwin", "", "macOS Tahoe"},
+		{"darwin", "KDE", "macOS Tahoe"},
 		{"freebsd", "KDE", "GNOME"},
 	} {
 		if got := detect.For(c.goos, c.desktop).Name; got != c.want {
@@ -33,7 +33,15 @@ func TestFor(t *testing.T) {
 func TestLookReadsTheEnvironment(t *testing.T) {
 	t.Setenv("XDG_CURRENT_DESKTOP", "KDE")
 	got := detect.Look().Name
-	if want := detect.For(goos(), "KDE").Name; got != want {
+	want := detect.For(goos(), "KDE").Name
+	if goos() == "darwin" {
+		// A Mac picks the design of its version.
+		if got != "macOS Tahoe" && got != "macOS Sequoia" {
+			t.Errorf("Look() = %q, want a macOS design", got)
+		}
+		return
+	}
+	if got != want {
 		t.Errorf("Look() = %q, want %q", got, want)
 	}
 }
@@ -45,7 +53,7 @@ func TestAll(t *testing.T) {
 	for _, l := range detect.All() {
 		names = append(names, l.Name)
 	}
-	if got, want := fmt.Sprint(names), "[Windows 11 GNOME KDE]"; got != want {
+	if got, want := fmt.Sprint(names), "[Windows 11 GNOME KDE macOS Tahoe macOS Sequoia]"; got != want {
 		t.Errorf("All() names = %s, want %s", got, want)
 	}
 }

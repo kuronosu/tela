@@ -8,11 +8,16 @@ import (
 	"github.com/kuronosu/tela/kit"
 	"github.com/kuronosu/tela/looks"
 	"github.com/kuronosu/tela/looks/adwaita"
+	"github.com/kuronosu/tela/looks/aqua"
 	"github.com/kuronosu/tela/looks/breeze"
 	"github.com/kuronosu/tela/looks/win11"
 )
 
-var all = map[string]func() looks.Look{"win11": win11.Look, "adwaita": adwaita.Look, "breeze": breeze.Look}
+var all = map[string]func() looks.Look{
+	"win11": win11.Look, "adwaita": adwaita.Look, "breeze": breeze.Look,
+	"tahoe":   func() looks.Look { return aqua.Look(aqua.Tahoe) },
+	"sequoia": func() looks.Look { return aqua.Look(aqua.Sequoia) },
+}
 
 // tokens every look defines: kit's, and the ones of package looks.
 var tokens = []string{
@@ -20,6 +25,8 @@ var tokens = []string{
 	"primary", "primary-foreground", "secondary", "secondary-foreground", "muted", "muted-foreground",
 	"accent", "accent-foreground", "destructive", "border", "input", "ring",
 	"toolbar", "sidebar", "field", "edge", "selection", "selection-foreground",
+	"glass", "glass-strong", "glass-selected", "glass-edge", "glass-highlight", "glass-shadow", "primary-glow",
+	"control-shadow", "segment",
 }
 
 func TestEveryLookDefinesTheTokens(t *testing.T) {
@@ -46,7 +53,7 @@ func TestRegionsHaveWhatEveryLookNeeds(t *testing.T) {
 		r := f().Regions
 		for field, v := range map[string]string{
 			"Window": r.Window, "Toolbar": r.Toolbar, "ToolbarGroup": r.ToolbarGroup, "Location": r.Location,
-			"Search": r.Search, "SearchIcon": r.SearchIcon, "Sidebar": r.Sidebar, "Content": r.Content,
+			"ToolbarSegments": r.ToolbarSegments, "Search": r.Search, "SearchIcon": r.SearchIcon, "Sidebar": r.Sidebar, "Content": r.Content,
 			"Details": r.Details, "DetailsTitle": r.DetailsTitle, "DetailsLabel": r.DetailsLabel, "StatusBar": r.StatusBar,
 		} {
 			if v == "" {
@@ -72,10 +79,10 @@ func TestEveryLookDefinesTheToggleVariants(t *testing.T) {
 	}
 }
 
-// TestLooksDiffer: the three looks are three different sets of tokens,
+// TestLooksDiffer: the looks are different sets of tokens,
 // recipes and regions.
 func TestLooksDiffer(t *testing.T) {
-	names := []string{"win11", "adwaita", "breeze"}
+	names := []string{"win11", "adwaita", "breeze", "tahoe", "sequoia"}
 	for i, a := range names {
 		for _, b := range names[i+1:] {
 			la, lb := all[a](), all[b]()

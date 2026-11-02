@@ -16,6 +16,9 @@
     - radio "Windows 11"
     - radio "GNOME" [checked]
     - radio "KDE"
+    - radio "macOS Tahoe"
+    - radio "macOS Sequoia"
+    - radio "macOS mixed"
   - radiogroup "Color scheme":
     - radio "Light" [checked]
     - radio "Dark"
@@ -91,4 +94,4 @@
   - button "Upgrade"
   - button "Manage"
 - complementary "Details": GNOME Font Adwaita Sans Radius 10 px Color scheme Light Tokens primary accent muted selection destructive
-- status: GNOME · Light Look 2 of 3
+- status: GNOME · Light Look 2 of 6
