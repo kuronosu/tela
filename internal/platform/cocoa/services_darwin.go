@@ -17,10 +17,11 @@ import (
 // for OpenURI and OpenPath (this file), NSOpenPanel, NSSavePanel and
 // NSAlert (dialog_darwin.go), NSStatusItem (tray_darwin.go), the keychain
 // (secret_darwin.go), NSFileManager's trash (trash_darwin.go) and
-// UNUserNotificationCenter (notify_darwin.go). Shortcuts, single instance,
-// the associations, the app ID and the app's menu bar are later tasks:
-// UnsupportedDesktop answers them. The clipboard is in clipboard_darwin.go
-// and the system settings in settings_darwin.go.
+// UNUserNotificationCenter (notify_darwin.go), Carbon hot keys
+// (shortcut_darwin.go), single instance, the app ID and Launch Services'
+// launches (launch_darwin.go). The associations and the app's menu bar
+// are later tasks: UnsupportedDesktop answers them. The clipboard is in
+// clipboard_darwin.go and the system settings in settings_darwin.go.
 //
 // Everything runs on the main thread except the secrets and the trash,
 // which are safe from any goroutine. Answers reach the app through the
@@ -55,6 +56,9 @@ type desktopState struct {
 	lastTray platform.TrayID
 
 	notes notifyState // notify_darwin.go
+
+	keys   shortcutState // shortcut_darwin.go
+	launch launchState   // launch_darwin.go: the app ID, single instance, launches
 }
 
 // dsel holds the selectors of the desktop services.
@@ -170,6 +174,8 @@ func (b *Backend) stopDesktop() {
 	}
 	b.desk.trays = nil
 	b.stopNotifications()
+	b.stopShortcuts()
+	b.stopInstances()
 }
 
 // --- the classes of the services ---

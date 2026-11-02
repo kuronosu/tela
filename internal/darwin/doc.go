@@ -32,9 +32,12 @@
 // every function, and returns an error instead of panicking when one is
 // missing. The function variables are nil until then. CoreVideo's display
 // link ([LoadCoreVideo]) and HIToolbox's keyboard type ([KeyboardISO]) are
-// opened on first use instead: a backend without them still works. The
-// CGEvent constructors build input events for tests, which hand them to
-// AppKit in-process; nothing here posts events to the system.
+// opened on first use instead: a backend without them still works, and so
+// are the Carbon hot keys and the keyboard layout's characters of the
+// global shortcuts ([LoadCarbon], carbon_darwin.go). The CGEvent
+// constructors build input events for tests, which hand them to AppKit
+// in-process; only the global shortcut test posts one to the system
+// ([CGEventPost]), since a hot key is matched there.
 //
 // Rules for callers, which the bindings do not check:
 //

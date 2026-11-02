@@ -205,10 +205,8 @@ func TestDesktopArguments(t *testing.T) {
 		if err := d.MoveToTrash("relative/path"); !errors.Is(err, fs.ErrInvalid) {
 			t.Errorf("MoveToTrash of a relative path = %v, want fs.ErrInvalid", err)
 		}
-		// The services this task leaves out are still refused.
-		if err := d.RegisterShortcut(platform.Shortcut{ID: "x", Accelerator: platform.Accelerator{Mods: platform.ModCtrl, Key: "x"}, Description: "X"}); !errors.Is(err, platform.ErrUnsupported) {
-			t.Errorf("RegisterShortcut = %v, want ErrUnsupported", err)
-		}
+		// Shortcuts and single instance: shortcut_darwin_test.go and
+		// launch_darwin_test.go.
 	}, func(*Window, platform.Event) bool { return true })
 }
 

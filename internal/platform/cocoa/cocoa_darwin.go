@@ -296,6 +296,7 @@ func (b *Backend) pump() {
 		for _, w := range b.loop.Windows() {
 			w.applyControl()
 		}
+		b.passEnded() // launch_darwin.go: the launches held for the first pass
 	}()
 	idle := !b.loop.Ready()
 	for _, w := range b.loop.Windows() {
@@ -530,9 +531,9 @@ func setupApp() error {
 	// declaring it made AppKit crash on macOS 14 shortly after activation
 	// in Ebitengine (issue #3451); AppKit finds the methods anyway through
 	// respondsToSelector:.
-	appDelegate, err := darwin.RegisterClass("TelaAppDelegate", nsObject, nil, []darwin.Method{
+	appDelegate, err := darwin.RegisterClass("TelaAppDelegate", nsObject, nil, append([]darwin.Method{
 		{Sel: darwin.Sel("applicationShouldTerminate:"), Fn: applicationShouldTerminate},
-	})
+	}, appDelegateLaunchMethods()...)) // launch_darwin.go
 	if err != nil {
 		return fmt.Errorf("cocoa: registering TelaAppDelegate: %w", err)
 	}
@@ -571,6 +572,7 @@ func setupApp() error {
 	darwin.Send(app.ns, sel.setActivationPolicy, uintptr(darwin.NSApplicationActivationPolicyRegular))
 	app.delegate = darwin.Send(darwin.SendClass(appDelegate, sel.alloc), sel.init)
 	darwin.Send(app.ns, sel.setDelegate, app.delegate)
+	registerLaunchDefaults()
 	return nil
 }
 
