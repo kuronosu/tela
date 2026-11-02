@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -416,4 +417,27 @@ func deleteTree(key string) {
 		}
 	}
 	_ = winreg.DeleteKey(winreg.CURRENT_USER, key)
+}
+
+// TestLiveMoveToTrash recycles a temporary file through IFileOperation:
+// it leaves its place, from a goroutine that is not the UI thread, and a
+// missing file is fs.ErrNotExist. The file stays in the Recycle Bin.
+func TestLiveMoveToTrash(t *testing.T) {
+	requireLiveServices(t)
+	d := liveBackend(t).Desktop()
+	path := filepath.Join(t.TempDir(), fmt.Sprintf("tela-trash-%d.txt", os.Getpid()))
+	if err := os.WriteFile(path, []byte("recycle me"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- d.MoveToTrash(path) }()
+	if err := <-done; err != nil {
+		t.Fatalf("MoveToTrash: %v", err)
+	}
+	if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("the file is still at its place after MoveToTrash: %v", err)
+	}
+	if err := d.MoveToTrash(path); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("MoveToTrash of a missing file = %v, want fs.ErrNotExist", err)
+	}
 }
