@@ -26,11 +26,20 @@ type WindowState struct {
 	Minimized bool
 	// ClientSideDecorations: the OS draws no title bar or borders for the
 	// window, so the app draws its own title bar and declares it with
-	// Window.SetHitRegions. Always true for WindowOptions.Frameless
-	// windows; also true on Wayland when the compositor has no server-side
-	// decorations (no xdg-decoration, or it chose client-side), which is
-	// why it is state and not only an option.
+	// Window.SetHitRegions. Always true for WindowOptions.Frameless and
+	// TitleBarOverlay windows (the OS may still draw its window buttons
+	// over the latter: TitleBarControls); also true on Wayland when the
+	// compositor has no server-side decorations (no xdg-decoration, or it
+	// chose client-side), which is why it is state and not only an
+	// option.
 	ClientSideDecorations bool
+	// TitleBarControls is the rectangle the OS's window buttons cover in
+	// a WindowOptions.TitleBarOverlay window (macOS: the traffic lights),
+	// in logical pixels, window coordinates (like HitRegion rectangles).
+	// The app leaves it free in the title bar it draws. Empty when the OS
+	// draws no buttons over the content: every other window, and every
+	// window of a backend that treats TitleBarOverlay as Frameless.
+	TitleBarControls Rect
 	// HasPosition reports whether Position is known: on X11 and Win32 (and
 	// headless once the app placed the window), never on Wayland.
 	HasPosition bool
@@ -61,6 +70,9 @@ func (s WindowState) String() string {
 	}
 	if s.ClientSideDecorations {
 		add("csd")
+	}
+	if r := s.TitleBarControls; r != (Rect{}) {
+		add(fmt.Sprintf("controls %g,%g %gx%g", r.X, r.Y, r.W, r.H))
 	}
 	if s.HasPosition {
 		add(fmt.Sprintf("at %d,%d", s.Position.X, s.Position.Y))

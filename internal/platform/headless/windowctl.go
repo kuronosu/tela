@@ -91,7 +91,7 @@ func (w *Window) initCtl(opts platform.WindowOptions, screen platform.Size, n in
 	c.osState = platform.WindowState{
 		Maximized:             opts.Maximized,
 		Fullscreen:            opts.Fullscreen,
-		ClientSideDecorations: opts.Frameless,
+		ClientSideDecorations: opts.Frameless || opts.TitleBarOverlay,
 		HasPosition:           opts.HasPosition,
 		Position:              opts.Position,
 	}
@@ -407,6 +407,34 @@ func (w *Window) SetState(st platform.WindowState) {
 	w.b.mu.Lock()
 	defer w.b.mu.Unlock()
 	w.setOSState(st)
+}
+
+// SetTitleBarControls simulates the OS moving the window buttons it keeps
+// over a TitleBarOverlay window's content (macOS places the traffic
+// lights in the app's caption height): r becomes the window's
+// WindowState.TitleBarControls, in logical window coordinates, and a
+// WindowStateEvent is queued if it changed. An empty r removes them. It
+// panics for a window that is not a TitleBarOverlay one (the OS keeps no
+// buttons over other windows) and for a rectangle that is not finite or
+// has a negative size. Safe from any goroutine.
+func (w *Window) SetTitleBarControls(r platform.Rect) {
+	checkControls("SetTitleBarControls", r)
+	if r != (platform.Rect{}) && !w.opts.TitleBarOverlay {
+		panic("headless: SetTitleBarControls on a window without WindowOptions.TitleBarOverlay; only such a window has the OS's buttons over its content")
+	}
+	w.changeState(func(s *platform.WindowState) { s.TitleBarControls = r })
+}
+
+// checkControls panics if r is not a valid TitleBarControls rectangle.
+func checkControls(what string, r platform.Rect) {
+	for _, v := range [4]float32{r.X, r.Y, r.W, r.H} {
+		if v != v || v > 1e7 || v < -1e7 {
+			panic(fmt.Sprintf("headless: %s: rectangle %v is not finite", what, r))
+		}
+	}
+	if r.W < 0 || r.H < 0 {
+		panic(fmt.Sprintf("headless: %s: rectangle %v has a negative size", what, r))
+	}
 }
 
 // --- inspection ---

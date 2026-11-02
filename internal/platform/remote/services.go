@@ -92,6 +92,8 @@ const (
 	dAppRegister   // app, replace; result: changed (off the UI thread)
 	dAppUnregister // app; result: changed
 	dAppStatus     // app; result: registered, requested, other
+	// Version 6 (appmenu.go, ADR-225).
+	dSetAppMenu // menu, app items
 )
 
 // Outcome codes of a desktop call.
@@ -613,6 +615,12 @@ func (h *Host) serveDesktop(c *Child, op uint8, token uint32, d *dec, result *fu
 		primary, err := h.claimInstance(c, appID, launch, call)
 		*result = func(e *enc) { e.boolean(primary) }
 		return err
+	case dSetAppMenu:
+		menu, items := d.menu(0), d.menu(0)
+		if err := d.end(); err != nil {
+			return err
+		}
+		return h.setAppMenu(c, menu, items, call)
 	}
 	return fmt.Errorf("remote: unknown desktop operation %d", op)
 }
@@ -740,6 +748,7 @@ func (h *Host) removeTray(c *Child, id platform.TrayID, call func(func() error) 
 // child, and its global shortcuts (phase13.go).
 func (h *Host) promoteServices(c *Child) {
 	defer h.promoteShortcuts(c)
+	h.promoteAppMenu(c)
 	for _, id := range c.trays {
 		t := h.trays[id]
 		if t == nil {

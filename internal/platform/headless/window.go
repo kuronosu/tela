@@ -242,7 +242,7 @@ func (w *Window) Inject(e platform.Event) {
 	case nil:
 		panic("headless: Inject called with a nil event")
 	default:
-		panic(fmt.Sprintf("headless: Inject does not accept %T; use Resize/SetScale for ConfigureEvent, SetState for WindowStateEvent, RequestFrame and Backend.Advance for FrameEvent, Backend.Wake for WakeEvent, Backend.SetSettings for SettingsEvent, Backend.InjectApp for NotificationEvent, TrayEvent, ShortcutEvent, ShortcutStatusEvent and LaunchEvent, SetFocused and SetTextInput for IMESessionEvent, StartDrag and pointer events for DragDoneEvent", e))
+		panic(fmt.Sprintf("headless: Inject does not accept %T; use Resize/SetScale for ConfigureEvent, SetState for WindowStateEvent, RequestFrame and Backend.Advance for FrameEvent, Backend.Wake for WakeEvent, Backend.SetSettings for SettingsEvent, Backend.InjectApp for NotificationEvent, TrayEvent, ShortcutEvent, ShortcutStatusEvent, LaunchEvent, AppMenuEvent and QuitRequestedEvent, SetFocused and SetTextInput for IMESessionEvent, StartDrag and pointer events for DragDoneEvent", e))
 	}
 	w.b.mu.Lock()
 	if w.WindowState.Closed() {

@@ -15,3 +15,9 @@ import (
 // Associations returns the registration of the session's desktop
 // (package assoc).
 func (d *Desktop) Associations() platform.Associations { return assoc.Native() }
+
+// SetAppMenu checks the menus and returns ErrUnsupported: Linux desktops
+// have no app menu bar, so the layers above draw it (ADR-224).
+func (d *Desktop) SetAppMenu(menu, appItems []platform.MenuItem) error {
+	return platform.UnsupportedDesktop{}.SetAppMenu(menu, appItems)
+}

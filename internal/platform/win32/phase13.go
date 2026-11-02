@@ -26,3 +26,10 @@ func (d desktop) SetAppID(id string) { platform.CheckAppID("SetAppID", id) }
 
 // Associations returns the current user's registration (package assoc).
 func (d desktop) Associations() platform.Associations { return assoc.Native() }
+
+// SetAppMenu checks the menus and returns ErrUnsupported: Windows has no
+// app menu bar. The layers above give it to the framed windows instead
+// (Window.SetMenu; ADR-224), or draw it.
+func (d desktop) SetAppMenu(menu, appItems []platform.MenuItem) error {
+	return platform.UnsupportedDesktop{}.SetAppMenu(menu, appItems)
+}

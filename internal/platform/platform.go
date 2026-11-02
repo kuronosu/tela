@@ -292,7 +292,8 @@ type Window interface {
 
 // Handler receives the backend's events on the UI thread. The window is nil
 // for app-scoped events (WakeEvent, SettingsEvent, NotificationEvent,
-// TrayEvent, ShortcutEvent, ShortcutStatusEvent, LaunchEvent).
+// TrayEvent, ShortcutEvent, ShortcutStatusEvent, LaunchEvent,
+// QuitRequestedEvent, AppMenuEvent).
 //
 // The handler may call any Backend or Window method, including NewWindow,
 // Present and Close. Backends never call HandleEvent re-entrantly: events
@@ -361,6 +362,16 @@ type WindowOptions struct {
 	// for undecorated windows. See "Custom title bars" in the package
 	// documentation.
 	Frameless bool
+	// TitleBarOverlay extends the content under a transparent OS title
+	// bar and keeps the OS's window buttons over it (macOS: the traffic
+	// lights): the app draws the rest of its title bar and declares it
+	// with Window.SetHitRegions, as a Frameless window does, and
+	// WindowState.TitleBarControls reports the buttons' rectangle. A
+	// backend that cannot keep its buttons over the content treats it as
+	// Frameless (OverlayAsFrameless): Wayland, X11 and Win32 for now. Set
+	// at creation; it excludes Frameless (Resolve panics with both). See
+	// "Custom title bars" in the package documentation.
+	TitleBarOverlay bool
 
 	// TitleBar and Backdrop: see Window.SetTitleBarColors and
 	// Window.SetBackdrop. Backends apply them when they create the window.
@@ -388,7 +399,7 @@ type WindowOptions struct {
 // DefaultWindowSize, Size is clamped to MaxSize and then raised to
 // MinSize). It panics with an actionable message on invalid values
 // (negative, NaN or infinite sizes, a half-zero Size, Modal without
-// Parent). Backends call it at the top of NewWindow so every backend
+// Parent, Frameless with TitleBarOverlay). Backends call it at the top of NewWindow so every backend
 // accepts and rejects the same options; checking that Parent is an open
 // window of the same backend is left to the backend.
 func (opts WindowOptions) Resolve() WindowOptions {
@@ -405,7 +416,23 @@ func (opts WindowOptions) Resolve() WindowOptions {
 	if opts.Modal && opts.Parent == nil {
 		panic("platform: WindowOptions.Modal without a Parent; a modal window is modal to its parent window: set Parent")
 	}
+	if opts.Frameless && opts.TitleBarOverlay {
+		panic("platform: WindowOptions has both Frameless and TitleBarOverlay; Frameless removes the OS's window buttons and TitleBarOverlay keeps them over the content: set one")
+	}
 	opts.Size = opts.ClampSize(opts.Size)
+	return opts
+}
+
+// OverlayAsFrameless returns opts with TitleBarOverlay turned into
+// Frameless: what a backend that cannot keep the OS's window buttons over
+// the content does with a TitleBarOverlay window (Wayland, X11, Win32;
+// see "Custom title bars" in the package documentation). Such a window
+// reports an empty WindowState.TitleBarControls. Other options are
+// returned unchanged.
+func (opts WindowOptions) OverlayAsFrameless() WindowOptions {
+	if opts.TitleBarOverlay {
+		opts.Frameless, opts.TitleBarOverlay = true, false
+	}
 	return opts
 }
 

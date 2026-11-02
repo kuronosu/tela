@@ -553,10 +553,11 @@ func setupApp() error {
 	return nil
 }
 
-// applicationShouldTerminate: answers a quit request from outside the app
-// (the Dock's Quit, a logout): quitting is the app's policy, so every
-// window of the running backend gets a CloseRequestedEvent and AppKit is
-// told to cancel.
+// applicationShouldTerminate: answers a quit request (Cmd+Q, the app
+// menu's Quit, the Dock's Quit, a logout): quitting is the app's policy,
+// so the running backend delivers an app-scoped QuitRequestedEvent (the
+// layers above run tela.App.OnQuit, or send every window a close
+// request) and AppKit is told to cancel; the app quits with Quit.
 func applicationShouldTerminate(_ darwin.ID, _ darwin.SEL, _ darwin.ID) uint {
 	registry.Lock()
 	var running *Backend
@@ -568,9 +569,7 @@ func applicationShouldTerminate(_ darwin.ID, _ darwin.SEL, _ darwin.ID) uint {
 	registry.Unlock()
 	if running != nil {
 		running.guard(func() {
-			for _, w := range running.loop.Windows() {
-				running.enqueue(w, platform.CloseRequestedEvent{})
-			}
+			running.enqueue(nil, platform.QuitRequestedEvent{})
 			running.pump()
 		})
 	}

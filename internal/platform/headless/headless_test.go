@@ -80,6 +80,10 @@ func describe(e platform.Event) string {
 		return fmt.Sprintf("shortcut-status(%s %v %q)", e.ID, e.Status, e.Trigger)
 	case platform.LaunchEvent:
 		return fmt.Sprintf("launch(%q %s %q)", e.Launch.Args, e.Launch.Dir, e.Launch.Token)
+	case platform.AppMenuEvent:
+		return fmt.Sprintf("appmenu(%d)", e.Item)
+	case platform.QuitRequestedEvent:
+		return "quit-requested"
 	}
 	return fmt.Sprintf("%T", e)
 }

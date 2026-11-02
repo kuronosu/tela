@@ -108,7 +108,9 @@ var _ platform.Window = (*Window)(nil)
 // window then gets a WindowStateEvent with ClientSideDecorations. A
 // Parent must be an open window of this backend.
 func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error) {
-	opts = opts.Resolve()
+	// Window managers draw no window buttons over a client: a
+	// TitleBarOverlay window is a Frameless one (ADR-225).
+	opts = opts.Resolve().OverlayAsFrameless()
 	if b.closed {
 		return nil, errClosed
 	}

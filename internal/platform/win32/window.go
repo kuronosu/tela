@@ -88,7 +88,10 @@ var _ platform.Window = (*Window)(nil)
 // Its first event is a ConfigureEvent with the client size Windows granted,
 // followed by a WindowStateEvent.
 func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error) {
-	opts = opts.Resolve()
+	// The backend keeps no caption buttons of the OS over the client area
+	// (DwmDefWindowProc over an extended frame could, later): a
+	// TitleBarOverlay window is a Frameless one (ADR-225).
+	opts = opts.Resolve().OverlayAsFrameless()
 	if b.closed {
 		return nil, errClosed
 	}

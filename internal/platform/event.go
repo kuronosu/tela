@@ -9,8 +9,8 @@ import "time"
 //
 // The window-scoped events are delivered with the Window they belong to.
 // App-scoped events ([WakeEvent], [SettingsEvent], [NotificationEvent],
-// [TrayEvent], [ShortcutEvent], [ShortcutStatusEvent], [LaunchEvent]) are
-// delivered with a nil Window.
+// [TrayEvent], [ShortcutEvent], [ShortcutStatusEvent], [LaunchEvent],
+// [QuitRequestedEvent], [AppMenuEvent]) are delivered with a nil Window.
 type Event interface {
 	isEvent()
 }
@@ -352,6 +352,26 @@ type MenuEvent struct {
 	Item MenuItemID
 }
 
+// AppMenuEvent is delivered, with a nil Window, when the user chooses an
+// item of the app's menu bar ([Desktop.SetAppMenu]), its app items
+// included. Only enabled items without a submenu are reported, and not
+// the role items the backend carries out itself (see [MenuRole]). The
+// app menu bar belongs to the app, not to a window: the layers above act
+// on the focused window where the item needs one.
+type AppMenuEvent struct {
+	Item MenuItemID
+}
+
+// QuitRequestedEvent is delivered, with a nil Window, when the user or
+// the OS asks the app to quit: on macOS Cmd+Q, the app menu's Quit, the
+// Dock's Quit, a logout or a shutdown. Like [CloseRequestedEvent] it is a
+// request: the app keeps running, and quitting is its own policy (it
+// calls [Backend.Quit] when it is done; the layers above run
+// tela.App.OnQuit, or send every window a close request). Only the Cocoa
+// backend sends it; the other OSes have no such app-wide request (a
+// Windows logout is a later task).
+type QuitRequestedEvent struct{}
+
 func (ConfigureEvent) isEvent()      {}
 func (DragEvent) isEvent()           {}
 func (DragDoneEvent) isEvent()       {}
@@ -359,6 +379,8 @@ func (MenuEvent) isEvent()           {}
 func (ShortcutEvent) isEvent()       {}
 func (ShortcutStatusEvent) isEvent() {}
 func (LaunchEvent) isEvent()         {}
+func (AppMenuEvent) isEvent()        {}
+func (QuitRequestedEvent) isEvent()  {}
 func (WindowStateEvent) isEvent()    {}
 func (NotificationEvent) isEvent()   {}
 func (TrayEvent) isEvent()           {}

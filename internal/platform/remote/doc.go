@@ -43,7 +43,8 @@
 //     adds a key. On a swap the host gives the new child's window the
 //     real window the old child had under the same key (by ID without
 //     one), if it was opened with the same creation-only options
-//     (frameless, fixed size, modal, parent); it keeps its size, position
+//     (frameless, title bar overlay, fixed size, modal, parent); it keeps
+//     its size, position
 //     and maximized or fullscreen state. Real windows the new child does
 //     not take over close at the promotion (ADR-184).
 //   - Events of the sealed set are forwarded by the host: ConfigureEvent,

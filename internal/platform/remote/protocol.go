@@ -33,7 +33,10 @@ import (
 //     native menus (and menu accelerators), global shortcuts, single
 //     instance and launches, secrets, associations, ActivateWithToken,
 //     MoveToTrash (ADR-216).
-const ProtocolVersion = 5
+//   - 6: platform contract v4 (ADR-225; appmenu.go): QuitRequestedEvent,
+//     the app menu bar (SetAppMenu, AppMenuEvent), menu roles,
+//     WindowOptions.TitleBarOverlay and WindowState.TitleBarControls.
+const ProtocolVersion = 6
 
 // magic opens the hello message.
 const magic = "TELA"
@@ -347,6 +350,9 @@ const (
 	evShortcut
 	evShortcutStatus
 	evLaunch
+	// Version 6 (ADR-225).
+	evQuitRequested
+	evAppMenu
 )
 
 // event encodes ev. It panics on an event type it does not know, which
@@ -421,6 +427,7 @@ func (e *enc) event(ev platform.Event) {
 		e.boolean(st.HasPosition)
 		e.i64(int64(st.Position.X))
 		e.i64(int64(st.Position.Y))
+		e.rect(st.TitleBarControls)
 	case platform.NotificationEvent:
 		e.u8(evNotification)
 		e.u32(uint32(ev.ID))
@@ -461,6 +468,11 @@ func (e *enc) event(ev platform.Event) {
 	case platform.LaunchEvent:
 		e.u8(evLaunch)
 		e.launch(ev.Launch)
+	case platform.QuitRequestedEvent:
+		e.u8(evQuitRequested)
+	case platform.AppMenuEvent:
+		e.u8(evAppMenu)
+		e.u32(uint32(ev.Item))
 	default:
 		panic(fmt.Sprintf("remote: no wire encoding for event %T; add one to protocol.go", ev))
 	}
@@ -533,6 +545,7 @@ func (d *dec) event() platform.Event {
 			ClientSideDecorations: d.boolean(),
 			HasPosition:           d.boolean(),
 			Position:              image.Point{X: int(d.i64()), Y: int(d.i64())},
+			TitleBarControls:      d.rect(),
 		}}
 	case evNotification:
 		return platform.NotificationEvent{
@@ -567,6 +580,10 @@ func (d *dec) event() platform.Event {
 		return platform.ShortcutStatusEvent{ID: d.str(), Status: platform.ShortcutStatus(d.u8()), Trigger: d.str(), Reason: d.str()}
 	case evLaunch:
 		return platform.LaunchEvent{Launch: d.launch()}
+	case evQuitRequested:
+		return platform.QuitRequestedEvent{}
+	case evAppMenu:
+		return platform.AppMenuEvent{Item: platform.MenuItemID(d.u32())}
 	default:
 		if d.err == nil {
 			d.err = fmt.Errorf("remote: unknown event tag %d", tag)
@@ -625,6 +642,7 @@ func (e *enc) windowOptions(o platform.WindowOptions, parent uint32) {
 	e.str(o.RestoreToken)
 	e.titleBar(o.TitleBar)
 	e.u8(uint8(o.Backdrop))
+	e.boolean(o.TitleBarOverlay)
 }
 
 // windowOptions decodes the options of a new window. Parent is left nil:
@@ -650,6 +668,7 @@ func (d *dec) windowOptions() (platform.WindowOptions, uint32) {
 	o.RestoreToken = d.str()
 	o.TitleBar = d.titleBar()
 	o.Backdrop = d.backdrop()
+	o.TitleBarOverlay = d.boolean()
 	return o, parent
 }
 
@@ -845,6 +864,7 @@ func (e *enc) menu(items []platform.MenuItem) {
 		e.boolean(it.Checkable)
 		e.boolean(it.Checked)
 		e.boolean(it.Disabled)
+		e.u8(uint8(it.Role))
 		e.menu(it.Submenu)
 	}
 }
@@ -861,7 +881,12 @@ func (d *dec) menu(depth int) []platform.MenuItem {
 	out := make([]platform.MenuItem, 0, n)
 	for range n {
 		it := platform.MenuItem{ID: platform.MenuItemID(d.u32()), Label: d.str(), Accelerator: d.str(),
-			Separator: d.boolean(), Checkable: d.boolean(), Checked: d.boolean(), Disabled: d.boolean()}
+			Separator: d.boolean(), Checkable: d.boolean(), Checked: d.boolean(), Disabled: d.boolean(),
+			Role: platform.MenuRole(d.u8())}
+		if !it.Role.Valid() {
+			d.fail(fmt.Errorf("remote: invalid menu role %d", uint8(it.Role)))
+			return nil
+		}
 		it.Submenu = d.menu(depth + 1)
 		if d.err != nil {
 			return nil

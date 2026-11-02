@@ -8,11 +8,12 @@ import (
 )
 
 // SetMenu records the window's menu bar (Menu, MenuChanges). Like Win32,
-// frameless windows have none: they return platform.ErrUnsupported, as
-// every window does with ServiceMenus unsupported (a Linux backend).
+// frameless windows (and TitleBarOverlay ones, Frameless there) have
+// none: they return platform.ErrUnsupported, as every window does with
+// ServiceMenus unsupported (a Linux backend).
 func (w *Window) SetMenu(menu []platform.MenuItem) error {
 	platform.CheckMenu("SetMenu", menu)
-	if !w.b.supports(ServiceMenus) || w.opts.Frameless {
+	if !w.b.supports(ServiceMenus) || w.opts.Frameless || w.opts.TitleBarOverlay {
 		return platform.ErrUnsupported
 	}
 	menu = cloneMenu(menu)

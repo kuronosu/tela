@@ -122,7 +122,9 @@ var _ platform.Window = (*Window)(nil)
 // size the compositor granted, follows the compositor's initial configure;
 // it is mapped (shown) by its first Present.
 func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error) {
-	opts = opts.Resolve()
+	// Wayland compositors draw no window buttons over a client: a
+	// TitleBarOverlay window is a Frameless one (ADR-225).
+	opts = opts.Resolve().OverlayAsFrameless()
 	if b.released {
 		return nil, fmt.Errorf("wayland: NewWindow called after Run returned; the backend's connection is closed")
 	}

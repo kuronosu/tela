@@ -142,6 +142,13 @@ type Options struct {
 	// as GNOME on Wayland: every window reports ClientSideDecorations, and
 	// the app draws its own bar.
 	NoServerDecorations bool
+	// TitleBarControls is the rectangle the fake window manager's window
+	// buttons cover in every WindowOptions.TitleBarOverlay window (macOS's
+	// traffic lights; WindowState.TitleBarControls), in logical window
+	// coordinates. Zero means none, as on a backend that treats
+	// TitleBarOverlay as Frameless; Window.SetTitleBarControls changes a
+	// window's.
+	TitleBarControls platform.Rect
 }
 
 // Backend is the headless backend. Create it with New.
@@ -186,6 +193,7 @@ func New(opts Options) *Backend {
 	if opts.Screen.Empty() {
 		opts.Screen = DefaultScreen
 	}
+	checkControls("headless.Options.TitleBarControls", opts.TitleBarControls)
 	if opts.FrameInterval < 0 {
 		panic(fmt.Sprintf("headless: negative Options.FrameInterval %v", opts.FrameInterval))
 	}
@@ -264,6 +272,9 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	size := w.initCtl(opts, b.opts.Screen, n)
 	if b.opts.NoServerDecorations {
 		w.ctl.osState.ClientSideDecorations = true
+	}
+	if opts.TitleBarOverlay {
+		w.ctl.osState.TitleBarControls = b.opts.TitleBarControls
 	}
 	w.os = platform.Metrics{Size: size, Scale: b.opts.Scale}
 	b.mu.Lock()

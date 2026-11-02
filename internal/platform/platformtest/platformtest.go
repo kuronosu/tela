@@ -872,6 +872,7 @@ func testParentAndModal(s *session) {
 	closed := false
 	s.run(func() {
 		s.expectPanic("NewWindow with Modal and no Parent", func() { _, _ = s.b.NewWindow(platform.WindowOptions{Modal: true}) })
+		s.expectPanic("NewWindow with Frameless and TitleBarOverlay", func() { _, _ = s.b.NewWindow(platform.WindowOptions{Frameless: true, TitleBarOverlay: true}) })
 		p = s.newWindow(platform.WindowOptions{Title: "parent"})
 		modal = s.newWindow(platform.WindowOptions{Title: "modal child", Size: platform.Size{W: 200, H: 150}, Parent: p, Modal: true})
 		child = s.newWindow(platform.WindowOptions{Title: "child", Size: platform.Size{W: 180, H: 120}, Parent: p})
@@ -1022,6 +1023,16 @@ func testIntegration(s *session) {
 		s.expectPanic("Secret without a name", func() { _, _ = d.Secret(app.ID, "") })
 		s.expectPanic("DeleteSecret with an invalid app ID", func() { _ = d.DeleteSecret("a b", "x") })
 		s.expectPanic("ClaimInstance without an app ID", func() { _, _ = d.ClaimInstance("", platform.Launch{}) })
+		// The app menu bar (contract v4, ADR-225).
+		s.expectPanic("SetAppMenu with an ID in both menus", func() {
+			_ = d.SetAppMenu([]platform.MenuItem{{ID: 1, Label: "a"}}, []platform.MenuItem{{ID: 1, Label: "b"}})
+		})
+		s.expectPanic("SetAppMenu with a role item that has a submenu", func() {
+			_ = d.SetAppMenu([]platform.MenuItem{{Label: "Edit", Role: platform.RoleCopy, Submenu: []platform.MenuItem{{ID: 1}}}}, nil)
+		})
+		if err := d.SetAppMenu(nil, nil); err != nil && !errors.Is(err, platform.ErrUnsupported) {
+			s.t.Errorf("SetAppMenu(nil, nil) = %v", err)
+		}
 		// The trash: only paths that never reach the OS's trash.
 		if err := d.MoveToTrash("dev.telaui.relative"); !errors.Is(err, fs.ErrInvalid) {
 			s.t.Errorf("MoveToTrash of a relative path = %v, want fs.ErrInvalid", err)

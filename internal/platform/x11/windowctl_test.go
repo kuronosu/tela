@@ -191,7 +191,7 @@ func (f *fakeServer) destroy(win xproto.Window, _ xproto.Gcontext) { f.log("dest
 // creating the server window: control state, first ConfigureEvent, initial
 // WindowStateEvent.
 func fakeWindow(b *Backend, id xproto.Window, size image.Point, opts platform.WindowOptions) *Window {
-	opts = opts.Resolve()
+	opts = opts.Resolve().OverlayAsFrameless() // as NewWindow
 	w := &Window{b: b, id: id, osSize: size, opts: opts, parent: b.parentOf(opts)}
 	w.initCtl(opts)
 	b.windows[id] = w
@@ -440,6 +440,19 @@ func TestHiddenWindows(t *testing.T) {
 	g.expect("shown", "frame", "")
 	g.present(n)
 	g.sent("first Present", "prop WM_NORMAL_HINTS win=31 = gravity=10; prop _NET_WM_STATE win=31 = []; map win=31")
+}
+
+// TestTitleBarOverlayIsFrameless: window managers keep no buttons over a
+// client, so a TitleBarOverlay window is a frameless one: no decorations
+// in _MOTIF_WM_HINTS and client-side decorations (ADR-225).
+func TestTitleBarOverlayIsFrameless(t *testing.T) {
+	g := newRig(t)
+	w := fakeWindow(g.b, 9, image.Pt(400, 300), platform.WindowOptions{Size: platform.Size{W: 400, H: 300}, TitleBarOverlay: true})
+	g.sent("NewWindow", "prop _NET_WM_WINDOW_TYPE win=9 = [_NET_WM_WINDOW_TYPE_NORMAL]; prop _MOTIF_WM_HINTS win=9 = [2 0 0 0 0]")
+	g.expect("first dispatch", "configure 400x300@1x (400x300 px); state {csd}; frame", "")
+	if !w.opts.Frameless || w.opts.TitleBarOverlay {
+		t.Errorf("the window keeps options %+v, want a frameless window", w.opts)
+	}
 }
 
 // TestCaptionAndEdges checks the presses the OS owns on a frameless window:

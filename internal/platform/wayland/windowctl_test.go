@@ -622,6 +622,23 @@ func TestIcon(t *testing.T) {
 	}
 }
 
+// TestTitleBarOverlayIsFrameless: compositors keep no window buttons over
+// a client, so a TitleBarOverlay window is a frameless one (client-side
+// decorations, no controls' rectangle; ADR-225).
+func TestTitleBarOverlayIsFrameless(t *testing.T) {
+	h := newHarness(t, standardGlobals(1))
+	presentFrames(h)
+	w, setup := openCtl(t, h, platform.WindowOptions{TitleBarOverlay: true}, 300, 200, 1, protocols.XdgToplevelStateActivated)
+	if r, i := find(setup, "zxdg_toplevel_decoration_v1.set_mode"); i < 0 || r.u(0) != uint32(protocols.ZxdgToplevelDecorationV1ModeClientSide) {
+		t.Errorf("an overlay window asked for decoration mode %v, want client side", r)
+	}
+	expect[platform.ConfigureEvent](h)
+	expectState(t, h, platform.WindowState{ClientSideDecorations: true})
+	if o := w.opts; !o.Frameless || o.TitleBarOverlay {
+		t.Errorf("the window keeps options %+v, want a frameless window", o)
+	}
+}
+
 func TestResizeEdgesAndCaption(t *testing.T) {
 	h := newHarness(t, standardGlobals(1))
 	presentFrames(h)

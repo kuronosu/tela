@@ -77,7 +77,7 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	w := &Window{b: b, opts: opts, visible: !opts.Hidden, parent: b.parentOf(opts.Parent)}
 	style := uint(darwin.NSWindowStyleMaskTitled | darwin.NSWindowStyleMaskClosable |
 		darwin.NSWindowStyleMaskMiniaturizable | darwin.NSWindowStyleMaskResizable)
-	if opts.Frameless {
+	if opts.Frameless || opts.TitleBarOverlay { // TitleBarOverlay: borderless for now (ADR-225)
 		style = darwin.NSWindowStyleMaskBorderless | darwin.NSWindowStyleMaskMiniaturizable | darwin.NSWindowStyleMaskResizable
 	}
 	if opts.FixedSize {

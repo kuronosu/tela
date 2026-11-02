@@ -503,7 +503,8 @@ func (b *Backend) windowInfo(d *dec) error {
 func checkHostEvent(id uint32, ev platform.Event) error {
 	switch e := ev.(type) {
 	case platform.SettingsEvent, platform.NotificationEvent, platform.TrayEvent,
-		platform.ShortcutEvent, platform.ShortcutStatusEvent, platform.LaunchEvent:
+		platform.ShortcutEvent, platform.ShortcutStatusEvent, platform.LaunchEvent,
+		platform.QuitRequestedEvent, platform.AppMenuEvent:
 		if id != 0 {
 			return fmt.Errorf("remote: app-scoped %T for window %d", ev, id)
 		}

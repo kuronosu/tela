@@ -161,6 +161,24 @@ type Desktop interface {
 	// operation) and is safe from any goroutine; call it off the UI
 	// thread. (ADR-216.)
 	MoveToTrash(path string) error
+
+	// --- Platform contract v4 (ADR-224, ADR-225). ---
+
+	// SetAppMenu sets the app's menu bar, declared once for the whole app
+	// (Electron's Menu.setApplicationMenu): menu is the top-level items,
+	// each usually with a Submenu. On macOS it is the menu bar of every
+	// window, after the app menu that macOS always shows first; appItems
+	// go in that app menu after About (Settings…), and other platforms
+	// ignore them. A choice of either is an app-scoped AppMenuEvent;
+	// role items may be carried out by the backend instead ([MenuRole]),
+	// and accelerators are key equivalents there (MenuItem.Accelerator).
+	// nil menu and appItems restore the default bar (macOS: the app,
+	// Edit and Window menus). The menus are copied. Backends without an
+	// app menu bar return ErrUnsupported, and the layers above draw it:
+	// every backend but headless and remote for now (Cocoa implements it
+	// with its desktop integration). An invalid menu panics
+	// ([CheckAppMenu]). See "Native menus" in the package documentation.
+	SetAppMenu(menu, appItems []MenuItem) error
 }
 
 // FileFilter is one entry of a file dialog's type list.
@@ -301,25 +319,35 @@ type Notification struct {
 type TrayID uint32
 
 // MenuItemID identifies an item of a menu (a tray menu, a window's menu
-// bar, a popup menu); chosen by the app and reported by TrayEvents,
-// MenuEvents and the popup menu's callback.
+// bar, the app's menu bar, a popup menu); chosen by the app and reported
+// by TrayEvents, MenuEvents, AppMenuEvents and the popup menu's callback.
 type MenuItemID uint32
 
 // MenuItem is an item of a menu: a tray icon's menu, a window's menu bar
-// (Window.SetMenu) or a popup menu (Window.PopupMenu). See [CheckMenu].
+// (Window.SetMenu), the app's menu bar (Desktop.SetAppMenu) or a popup
+// menu (Window.PopupMenu). See [CheckMenu].
 type MenuItem struct {
 	// ID is reported when the item is activated. Items that can be
 	// activated (neither separators nor submenus) need a non-zero ID,
-	// unique in the whole menu.
+	// unique in the whole menu, role items included (see [MenuRole]).
 	ID MenuItemID
 	// Label is plain text: backends escape their mnemonic characters
 	// ("&" on Win32, "_" in dbusmenu).
 	Label string
 	// Accelerator is the text of the item's keyboard shortcut, shown at
 	// its right ("Ctrl+S"; Accelerator.String formats one). It is display
-	// only: the app handles the key itself. Win32 menus show it after a
-	// tab; tray menus may ignore it. No control characters.
+	// text, and the app handles the key itself, except in the macOS app
+	// menu bar (Desktop.SetAppMenu), where it is the item's key
+	// equivalent: the key chooses the item (an AppMenuEvent, or the
+	// role's native action) and does not reach the app as a KeyEvent.
+	// The backend reads it there as [ParseAccelerator] does, and an
+	// accelerator it cannot parse is only shown. Win32 menus show it
+	// after a tab; tray menus may ignore it. No control characters.
 	Accelerator string
+	// Role makes the item, or its submenu, a standard one the OS may
+	// provide (undo, copy, the Window menu; see [MenuRole]). RoleNone,
+	// the zero value, is an item of the app's own.
+	Role MenuRole
 	// Separator makes the item a separator line; its other fields are
 	// ignored.
 	Separator bool
@@ -399,32 +427,14 @@ func CheckTrayOptions(opts TrayOptions) {
 }
 
 // CheckMenu panics with an actionable message if menu has an activatable
-// item (neither a separator nor a submenu) with ID 0 or an ID used twice
-// in the whole menu, or an Accelerator with control characters. what
-// names the menu in the message.
+// item (neither a separator nor a submenu, role items included) with ID
+// 0 or an ID used twice in the whole menu, an Accelerator with control
+// characters, an invalid Role, an item role on a submenu, a menu role on
+// an item without a Submenu, or a menu role used twice (see [MenuRole]).
+// what names the menu in the message.
 func CheckMenu(what string, menu []MenuItem) {
-	seen := map[MenuItemID]bool{}
-	var walk func(items []MenuItem, path string)
-	walk = func(items []MenuItem, path string) {
-		for i, it := range items {
-			at := fmt.Sprintf("%s[%d]", path, i)
-			if strings.IndexFunc(it.Accelerator, func(r rune) bool { return r < ' ' || r == 0x7f }) >= 0 {
-				panicf("platform: %s (%q) has Accelerator %q with a control character; it is display text such as \"Ctrl+S\"", at, it.Label, it.Accelerator)
-			}
-			switch {
-			case it.Separator:
-			case len(it.Submenu) > 0:
-				walk(it.Submenu, at+".Submenu")
-			case it.ID == 0:
-				panicf("platform: %s (%q) has ID 0; items that can be activated need a non-zero ID", at, it.Label)
-			case seen[it.ID]:
-				panicf("platform: %s (%q) reuses ID %d; item IDs must be unique in the whole menu", at, it.Label, it.ID)
-			default:
-				seen[it.ID] = true
-			}
-		}
-	}
-	walk(menu, what)
+	c := menuCheck{seen: map[MenuItemID]bool{}}
+	c.walk(menu, what)
 }
 
 // FindMenuItem returns the activatable item of menu (submenus included)
@@ -585,6 +595,13 @@ func (UnsupportedDesktop) MoveToTrash(path string) error {
 	if _, err := CheckTrashPath(path); err != nil {
 		return err
 	}
+	return ErrUnsupported
+}
+
+// SetAppMenu checks the menus ([CheckAppMenu]) and returns
+// ErrUnsupported.
+func (UnsupportedDesktop) SetAppMenu(menu, appItems []MenuItem) error {
+	CheckAppMenu(menu, appItems)
 	return ErrUnsupported
 }
 

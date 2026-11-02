@@ -26,6 +26,7 @@ const (
 	ServiceInstance                     // ClaimInstance
 	ServiceAssociations                 // Associations (platform.UnsupportedAssociations)
 	ServiceTrash                        // MoveToTrash
+	ServiceAppMenu                      // Desktop.SetAppMenu (only macOS has an app menu bar)
 	serviceCount
 )
 
@@ -132,6 +133,9 @@ type desktopState struct {
 	launches          []platform.Launch
 	assoc             *assoc.Fake
 	trash             trashState
+
+	// Platform contract v4 (appmenu.go).
+	appMenu appMenuState
 }
 
 // Desktop returns the headless desktop services: nothing is shown; every
@@ -277,12 +281,16 @@ func (b *Backend) Trays() []TrayRecord {
 // released a global shortcut), a ShortcutStatusEvent (the OS or the user
 // changed a shortcut's binding later: another trigger, revoked) or a
 // LaunchEvent (another process of the app was started; ClaimInstance from
-// a second backend does the same). The event must be one a real backend
-// could deliver: an open notification and an existing action; an existing
-// tray and an enabled item without a submenu; a bound shortcut; a status
-// for a registered shortcut (which it records); a launch for a backend
-// that claimed an instance. A NotificationClosed marks the notification
-// closed. Safe from any goroutine.
+// a second backend does the same), an AppMenuEvent (the user chose an
+// item of the app's menu bar; ChooseAppMenu) or a QuitRequestedEvent
+// (the user or the OS asks the app to quit; RequestQuit). The event must
+// be one a real backend could deliver: an open notification and an
+// existing action; an existing tray and an enabled item without a
+// submenu; a bound shortcut; a status for a registered shortcut (which it
+// records); a launch for a backend that claimed an instance; an enabled
+// item without a submenu of the app's menu bar or app items. A
+// NotificationClosed marks the notification closed. Safe from any
+// goroutine.
 func (b *Backend) InjectApp(e platform.Event) {
 	b.mu.Lock()
 	problem := ""
@@ -332,6 +340,9 @@ func (b *Backend) InjectApp(e platform.Event) {
 			b.desktop.launches = append(b.desktop.launches, e.Launch.Clone())
 			queued = e
 		}
+	case platform.AppMenuEvent:
+		problem = b.checkAppMenuEvent(e)
+	case platform.QuitRequestedEvent:
 	case nil:
 		problem = "nil event"
 	default:

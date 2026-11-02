@@ -41,7 +41,7 @@ var eventSamples = []platform.Event{
 	platform.IMEEvent{DeleteBefore: 3, DeleteAfter: 4, Commit: "日本", Preedit: "ご", CursorStart: 0, CursorEnd: 3},
 	platform.IMESessionEvent{Active: true},
 	platform.WindowStateEvent{State: platform.WindowState{Maximized: true, Fullscreen: true, Minimized: true,
-		ClientSideDecorations: true, HasPosition: true, Position: image.Point{X: -1920, Y: 37}}},
+		ClientSideDecorations: true, HasPosition: true, Position: image.Point{X: -1920, Y: 37}, TitleBarControls: platform.Rect{X: 8, Y: 6.5, W: 52, H: 16}}},
 	platform.NotificationEvent{ID: 9, Kind: platform.NotificationActionInvoked, Action: "reply"},
 	platform.TrayEvent{Tray: 2, Kind: platform.TrayMenuItem, Item: 41},
 	platform.DragEvent{Action: platform.DragDrop, Pos: platform.Point{X: 10.5, Y: -3}, Types: []string{platform.MIMEURIList, platform.MIMEText},
@@ -53,6 +53,8 @@ var eventSamples = []platform.Event{
 	platform.ShortcutEvent{ID: "show", Action: platform.ShortcutReleased, Time: 5 * time.Second},
 	platform.ShortcutStatusEvent{ID: "show", Status: platform.ShortcutRefused, Trigger: "Ctrl+Alt+K", Reason: "declined"},
 	platform.LaunchEvent{Launch: platform.Launch{Args: []string{"notes:open?id=3", "/tmp/x y"}, Dir: "/home/u", Token: "tok_TIME42"}},
+	platform.QuitRequestedEvent{},
+	platform.AppMenuEvent{Item: 78},
 }
 
 // TestEveryEventHasAnEncoding fails when package platform gains an event
@@ -352,6 +354,12 @@ func TestDecodeErrors(t *testing.T) {
 	if d.end() == nil {
 		t.Errorf("trailing bytes not reported")
 	}
+	e = &enc{}
+	e.menu([]platform.MenuItem{{ID: 1, Role: platform.RoleHelpMenu + 1}})
+	d = &dec{b: e.b}
+	if d.menu(0); d.end() == nil {
+		t.Errorf("an invalid menu role decoded without error")
+	}
 }
 
 // chunkReader returns its data a few bytes at a time.
@@ -425,7 +433,7 @@ func TestPhase13Encodings(t *testing.T) {
 	launch := platform.Launch{Args: []string{"a"}, Dir: "/d", Token: "t"}
 	app := platform.HandlerApp{ID: "com.example.Notes", Name: "Notes", Exec: "/usr/bin/notes", Args: []string{"--open"}, Icon: "/i.png"}
 	as := platform.Association{Extension: ".note", MIMEType: "application/x-note", Description: "Note"}
-	menu := []platform.MenuItem{{ID: 1, Label: "Save", Accelerator: "Ctrl+S"}, {Label: "Edit", Submenu: []platform.MenuItem{{ID: 2, Label: "Undo", Accelerator: "Ctrl+Z"}}}}
+	menu := []platform.MenuItem{{ID: 1, Label: "Save", Accelerator: "Ctrl+S"}, {Label: "Edit", Role: platform.RoleEditMenu, Submenu: []platform.MenuItem{{ID: 2, Label: "Undo", Accelerator: "Ctrl+Z", Role: platform.RoleUndo}}}}
 
 	e := &enc{}
 	e.data(data)
