@@ -274,3 +274,25 @@ func TestKeyEquivalentMatches(t *testing.T) {
 		}
 	}
 }
+
+// macAccelerator turns CmdOrCtrl (any case, either spelling) into Command,
+// also after a rune whose lower case is longer (U+0130), which once moved
+// the splice.
+func TestMacAccelerator(t *testing.T) {
+	for in, want := range map[string]platform.Modifiers{
+		"CmdOrCtrl+K":            platform.ModSuper,
+		"cmdorctrl+shift+k":      platform.ModSuper | platform.ModShift,
+		"CommandOrControl+Alt+K": platform.ModSuper | platform.ModAlt,
+		"Ctrl+K":                 platform.ModCtrl,
+	} {
+		a, err := macAccelerator(in)
+		if err != nil || a.Mods != want {
+			t.Errorf("macAccelerator(%q) = %+v, %v; want mods %v", in, a, err, want)
+		}
+	}
+	// The splice lands on the right bytes after a multi-byte rune: the
+	// result names Cmd and keeps the rest intact.
+	if a, err := macAccelerator("İ+CmdOrCtrl+K"); err == nil && a.Mods&platform.ModSuper == 0 {
+		t.Errorf("macAccelerator(İ+CmdOrCtrl+K) = %+v: CmdOrCtrl was not turned into Command", a)
+	}
+}

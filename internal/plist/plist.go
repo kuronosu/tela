@@ -216,7 +216,11 @@ func escape(s string) (string, error) {
 			b.WriteString("&lt;")
 		case r == '>':
 			b.WriteString("&gt;")
-		case r == '\t' || r == '\n' || r == '\r' || r >= 0x20 && r <= 0xD7FF || r >= 0xE000 && r <= 0xFFFD || r >= 0x10000:
+		case r == '\r':
+			// XML parsers turn a raw CR (and CRLF) into LF when they read
+			// it, so a CR is written as a character reference to round-trip.
+			b.WriteString("&#13;")
+		case r == '\t' || r == '\n' || r >= 0x20 && r <= 0xD7FF || r >= 0xE000 && r <= 0xFFFD || r >= 0x10000:
 			b.WriteRune(r)
 		default:
 			return "", fmt.Errorf("the character U+%04X cannot appear in XML", r)
@@ -404,7 +408,7 @@ func decodeValue(d *xml.Decoder, depth int) (v any, end bool, err error) {
 	case "string":
 		return s, false, nil
 	case "integer":
-		n, perr := strconv.ParseInt(strings.TrimSpace(s), 0, 64)
+		n, perr := parseInteger(strings.TrimSpace(s))
 		if perr != nil {
 			return nil, false, fmt.Errorf("plist: <integer>%s</integer> is not an integer in the int64 range", truncate(s))
 		}
@@ -469,4 +473,36 @@ func text(d *xml.Decoder, name string) (string, error) {
 			return "", fmt.Errorf("plist: <%s> holds <%s>; it takes text only", name, t.Name.Local)
 		}
 	}
+}
+
+// parseInteger reads an <integer> as CFPropertyList does: decimal, with an
+// optional sign, or hexadecimal after "0x". A leading zero is still decimal
+// (strconv's base 0 would read 010 as octal 8, and accept "0o", "0b" and
+// underscores, which Apple rejects).
+func parseInteger(s string) (int64, error) {
+	neg := strings.HasPrefix(s, "-")
+	digits := strings.TrimPrefix(strings.TrimPrefix(s, "-"), "+")
+	if neg && strings.HasPrefix(s, "-+") {
+		return 0, strconv.ErrSyntax
+	}
+	if h, ok := strings.CutPrefix(strings.ToLower(digits), "0x"); ok {
+		u, err := strconv.ParseUint(h, 16, 64)
+		if err != nil || h == "" || strings.ContainsAny(h, "+-") {
+			return 0, strconv.ErrSyntax
+		}
+		if neg {
+			if u > 1<<63 {
+				return 0, strconv.ErrRange
+			}
+			return -int64(u), nil
+		}
+		if u > math.MaxInt64 {
+			return 0, strconv.ErrRange
+		}
+		return int64(u), nil
+	}
+	if digits == "" || strings.ContainsAny(digits, "+-") {
+		return 0, strconv.ErrSyntax
+	}
+	return strconv.ParseInt(s, 10, 64)
 }

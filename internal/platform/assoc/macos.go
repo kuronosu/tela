@@ -355,16 +355,7 @@ func (m *macOS) knowsBundle(b *appBundle, id string) (bool, error) {
 // samePath compares two folder paths after resolving symbolic links
 // (/var is /private/var), without regard to case, as macOS volumes are by
 // default.
-func samePath(a, b string) bool {
-	norm := func(p string) string {
-		p = filepath.Clean(p)
-		if r, err := filepath.EvalSymlinks(p); err == nil {
-			p = r
-		}
-		return p
-	}
-	return strings.EqualFold(norm(a), norm(b))
-}
+func samePath(a, b string) bool { return strings.EqualFold(normDir(a), normDir(b)) }
 
 // --- Info.plist entries ---
 

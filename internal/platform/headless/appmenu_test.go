@@ -142,3 +142,14 @@ func TestTitleBarOverlay(t *testing.T) {
 	}
 	expectPanic(t, "both Frameless and TitleBarOverlay", func() { _, _ = b.NewWindow(platform.WindowOptions{Frameless: true, TitleBarOverlay: true}) })
 }
+
+// An item under a disabled submenu cannot be chosen, as on a real backend,
+// which grays out the whole submenu: in the app menu bar and a window's.
+func TestMenuItemUnderDisabledSubmenu(t *testing.T) {
+	b := New(Options{})
+	menu := []platform.MenuItem{{Label: "File", Disabled: true, Submenu: []platform.MenuItem{{ID: 1, Label: "Save"}}}}
+	if err := b.Desktop().SetAppMenu(menu, nil); err != nil {
+		t.Fatal(err)
+	}
+	expectPanic(t, "disabled", func() { b.ChooseAppMenu(1) })
+}

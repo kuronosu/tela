@@ -63,9 +63,9 @@ func (b *Backend) RequestQuit() { b.InjectApp(platform.QuitRequestedEvent{}) }
 // menu bar or app items. b.mu must be held.
 func (b *Backend) checkAppMenuEvent(e platform.AppMenuEvent) string {
 	st := &b.desktop.appMenu
-	it, ok := platform.FindMenuItem(st.menu, e.Item)
+	it, ok := findChoosable(st.menu, e.Item)
 	if !ok {
-		it, ok = platform.FindMenuItem(st.items, e.Item)
+		it, ok = findChoosable(st.items, e.Item)
 	}
 	switch {
 	case !ok:

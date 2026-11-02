@@ -260,3 +260,40 @@ func TestSpecialReals(t *testing.T) {
 		t.Errorf("reals: %v", a)
 	}
 }
+
+// Integers read as Apple's parser reads them: decimal (a leading zero too)
+// or 0x hexadecimal, never octal, binary or with underscores.
+func TestIntegers(t *testing.T) {
+	for in, want := range map[string]int64{"010": 10, "+7": 7, "-12": -12, "0x1F": 31, "0X1f": 31, "-0x10": -16, " 42 ": 42} {
+		v, err := Unmarshal([]byte("<plist version=\"1.0\"><integer>" + in + "</integer></plist>"))
+		if err != nil || v != want {
+			t.Errorf("<integer>%s</integer> = %v, %v; want %d", in, v, err, want)
+		}
+	}
+	for _, in := range []string{"1_000", "0o7", "0b1", "0x", "--1", "-+1", "0x-1", ""} {
+		if v, err := Unmarshal([]byte("<plist version=\"1.0\"><integer>" + in + "</integer></plist>")); err == nil {
+			t.Errorf("<integer>%s</integer> = %v, want an error", in, v)
+		}
+	}
+}
+
+// A carriage return survives an encode and decode (XML would turn a raw
+// one into a line feed).
+func TestCarriageReturnRoundTrips(t *testing.T) {
+	in := Dict{"K": "a\r\nb\rc"}
+	out, err := Marshal(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := Unmarshal(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := v.(Dict)["K"]; got != "a\r\nb\rc" {
+		t.Errorf("round trip gave %q, want %q\n%s", got, "a\r\nb\rc", out)
+	}
+	again, _ := Marshal(v)
+	if string(again) != string(out) {
+		t.Errorf("the second encoding differs:\n%s\n%s", out, again)
+	}
+}

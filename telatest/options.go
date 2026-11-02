@@ -84,8 +84,8 @@ func (c config) validate() error {
 	if _, err := headlessServices(c.unsupported); err != nil {
 		return fmt.Errorf("telatest.WithUnsupported%v", err)
 	}
-	if r := c.controls; r.X != r.X || r.Y != r.Y || r.Width != r.Width || r.Height != r.Height || r.Width < 0 || r.Height < 0 {
-		return fmt.Errorf("telatest.TitleBarControls(%v): give a rectangle in logical pixels with a width and height that are not negative", r)
+	if r := c.controls; !finiteRect(r) || r.Width < 0 || r.Height < 0 {
+		return fmt.Errorf("telatest.TitleBarControls(%v): give a finite rectangle in logical pixels with a width and height that are not negative", r)
 	}
 	return c.win.validate(c.screen)
 }
@@ -417,4 +417,15 @@ func FromApp(app tela.App) Option {
 			c.dev = *app.Dev
 		}
 	}
+}
+
+// finiteRect reports whether r's coordinates are numbers within the range
+// the headless window manager accepts (it panics beyond ±1e7).
+func finiteRect(r tela.Rect) bool {
+	for _, v := range [4]float32{r.X, r.Y, r.Width, r.Height} {
+		if v != v || v > 1e7 || v < -1e7 {
+			return false
+		}
+	}
+	return true
 }

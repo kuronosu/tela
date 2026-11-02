@@ -144,3 +144,26 @@ func TestMenubarMenuRoleMustBeAMenuRole(t *testing.T) {
 		return kit.Menubar[string]{Menus: []kit.MenubarMenu[string]{{Key: "x", Label: "X", Role: desktop.RoleCopy}}}
 	}, telatest.Size(480, 320), telatest.Theme(kit.Theme()))
 }
+
+// TestMenubarEmptyHelpMenuPanics: a Help role menu without Items panics on
+// every platform (it used to vanish when drawn and panic in desktop when
+// native).
+func TestMenubarEmptyHelpMenuPanics(t *testing.T) {
+	for _, native := range []bool{false, true} {
+		t.Run(fmt.Sprint("native=", native), func(t *testing.T) {
+			defer func() {
+				r := recover()
+				if s := fmt.Sprint(r); !strings.Contains(s, "RoleHelpMenu and no Items") {
+					t.Errorf("panic %v, want one about the empty Help menu", r)
+				}
+			}()
+			opts := []telatest.Option{telatest.Size(480, 320), telatest.Theme(kit.Theme())}
+			if native {
+				opts = append(opts, telatest.PreferNativeMenus())
+			}
+			telatest.MountFunc(t, func() tela.Node {
+				return kit.Menubar[string]{AppMenu: true, Menus: []kit.MenubarMenu[string]{{Key: "help", Label: "Help", Role: desktop.RoleHelpMenu}}}
+			}, opts...)
+		})
+	}
+}

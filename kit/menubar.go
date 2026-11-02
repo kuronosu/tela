@@ -206,7 +206,14 @@ func (m Menubar[K]) Build() tela.Node {
 // role of a menu.
 func checkMenuRole[K comparable](component string, mm MenubarMenu[K]) {
 	switch mm.Role {
-	case desktop.RoleNone, desktop.RoleEditMenu, desktop.RoleWindowMenu, desktop.RoleHelpMenu:
+	case desktop.RoleNone, desktop.RoleEditMenu, desktop.RoleWindowMenu:
+	case desktop.RoleHelpMenu:
+		// The Help menu has no standard items (desktop panics on an empty
+		// one when the bar is native), so it needs its own on every
+		// platform, drawn or native.
+		if len(mm.Items) == 0 {
+			panic(fmt.Sprintf("kit: %s menu %q has Role desktop.RoleHelpMenu and no Items; the Help menu has no standard items: give it its own, such as Items: []kit.MenuItem[K]{{Key: \"docs\", Label: \"Documentation\"}}", component, mm.Label))
+		}
 	default:
 		if devMode() {
 			panic(fmt.Sprintf("kit: %s menu %q has Role %v, the role of an item; a menu's Role is desktop.RoleEditMenu, RoleWindowMenu or RoleHelpMenu (or none)", component, mm.Label, mm.Role))

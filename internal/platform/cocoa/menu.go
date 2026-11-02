@@ -152,13 +152,17 @@ func isStandardKey(r platform.MenuRole, e platform.KeyEvent) bool {
 // macAccelerator parses an accelerator as ParseAccelerator does under the
 // Mac flavor, whatever the host: CmdOrCtrl is Command.
 func macAccelerator(s string) (platform.Accelerator, error) {
+	// The names are ASCII, so they are found by an ASCII-only fold over s's
+	// own bytes: strings.ToLower can change the byte length of other runes
+	// (U+0130), which would put an index into the lowered copy elsewhere.
 	for _, name := range []string{"commandorcontrol", "cmdorctrl"} {
-		for {
-			i := strings.Index(strings.ToLower(s), name)
-			if i < 0 {
-				break
+		for i := 0; i+len(name) <= len(s); {
+			if asciiFoldEqual(s[i:i+len(name)], name) {
+				s = s[:i] + "Cmd" + s[i+len(name):]
+				i += len("Cmd")
+				continue
 			}
-			s = s[:i] + "Cmd" + s[i+len(name):]
+			i++
 		}
 	}
 	return platform.ParseAccelerator(s)
@@ -430,4 +434,22 @@ func roleEntry(r platform.MenuRole, label, accel string) menuEntry {
 	e := menuEntry{Title: label, Action: roleActions[r]}
 	e.Key, e.Mods = accelKeyEquivalent(accel)
 	return e
+}
+
+// asciiFoldEqual reports whether a equals the lower-case ASCII word b,
+// ignoring the case of ASCII letters only.
+func asciiFoldEqual(a, b string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := 0; i < len(a); i++ {
+		c := a[i]
+		if 'A' <= c && c <= 'Z' {
+			c += 'a' - 'A'
+		}
+		if c != b[i] {
+			return false
+		}
+	}
+	return true
 }

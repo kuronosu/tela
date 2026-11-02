@@ -1,6 +1,7 @@
 package telatest_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/kuronosu/tela"
@@ -116,6 +117,11 @@ func TestTitleBarControlsValidation(t *testing.T) {
 	mustFail(t, func(tb testing.TB) {
 		telatest.MountFunc(tb, func() tela.Node { return Text("x") }, telatest.TitleBarControls(tela.Rect{Width: -1}))
 	}, "TitleBarControls")
+	// An infinite rectangle is the option's error, not a panic of the fake
+	// window manager.
+	mustFail(t, func(tb testing.TB) {
+		telatest.MountFunc(tb, func() tela.Node { return Text("x") }, telatest.TitleBarControls(tela.Rect{Width: float32(math.Inf(1)), Height: 14}))
+	}, "TitleBarControls", "finite")
 }
 
 // The app menu bar helpers read the bar and choose by label path, and fail

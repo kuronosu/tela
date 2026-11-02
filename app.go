@@ -81,7 +81,10 @@ type App struct {
 	// OnQuit runs when the user or the OS asks the app to quit: on macOS
 	// Cmd+Q, the app menu's Quit, the Dock's Quit, a logout. Nil, the
 	// default, sends every window a close request, as their close buttons
-	// do, so an app whose main window has no OnClose quits. A close-to-tray
+	// do, so an app whose main window has no OnClose quits; while a Modal
+	// window is open over the main window, that request brings the modal
+	// window forward instead and the app keeps running, as a Mac app with
+	// a modal dialog does (macOS then cancels a logout). A close-to-tray
 	// app (its OnClose hides the window) sets OnQuit to really quit:
 	//
 	//	OnQuit: tela.Quit,

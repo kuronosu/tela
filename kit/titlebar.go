@@ -232,7 +232,7 @@ func (t TitleBar) Build() tela.Node {
 	// The OS's own window buttons over the bar (TitleBarOverlay): their
 	// room is kept free at the physical side they are on, and the bar draws
 	// no controls.
-	reserve, reserveLead := titleBarRoom(st.TitleBarControls, atStart, tela.UseDirection() == "rtl")
+	reserve, reserveLead := titleBarRoom(st.TitleBarControls, tela.UseDirection() == "rtl")
 	if plain {
 		state, inactive, quiet = "", s.Inactive[Plain], s.Variants[Plain]
 		controls.Variant, controls.Look = Plain, lk
@@ -272,21 +272,24 @@ func (t TitleBar) Build() tela.Node {
 
 // titleBarRoom returns the empty box that keeps the room of the OS's window
 // buttons (rectangle r in the window, State().TitleBarControls) free, and
-// whether it goes in the leading region of the bar. The buttons are at the
-// window's left when the look puts its controls at the start (macOS), at the
-// right otherwise; the leading region is the left one except under rtl. The
-// box is nil without buttons. It covers the window's edge up to the end of
-// the buttons plus a gap, at the left; at the right it covers the buttons
-// and the gap the left side has (the window's width is not known here).
-func titleBarRoom(r tela.Rect, atStart, rtl bool) (box tela.Child, lead bool) {
+// whether it goes in the leading region of the bar. The side is where the
+// buttons are, whatever the look draws: at the window's left when the
+// rectangle starts within its own width of the left edge (macOS's traffic
+// lights), at the right otherwise; the leading region is the left one
+// except under rtl. The box is nil without buttons. It covers the window's
+// edge up to the end of the buttons plus a gap, at the left; at the right
+// it covers the buttons and the gap the left side has (the window's width
+// is not known here).
+func titleBarRoom(r tela.Rect, rtl bool) (box tela.Child, lead bool) {
 	if !(r.Width > 0 && r.Height > 0) {
 		return nil, false
 	}
 	const gap = 8
+	left := r.X < r.Width
 	w := float64(r.X+r.Width) + gap
-	if !atStart {
+	if !left {
 		w = float64(r.Width) + 2*gap
 	}
 	n := int(math.Ceil(w))
-	return h.Div(cls(fmt.Sprintf("w-[%dpx] shrink-0", n)), h.AriaHidden(true)), atStart != rtl
+	return h.Div(cls(fmt.Sprintf("w-[%dpx] shrink-0", n)), h.AriaHidden(true)), left != rtl
 }

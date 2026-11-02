@@ -49,7 +49,7 @@ func (w *Window) injectMenu(e platform.MenuEvent) {
 		b.mu.Unlock()
 		return
 	}
-	it, ok := platform.FindMenuItem(w.menu, e.Item)
+	it, ok := findChoosable(w.menu, e.Item)
 	problem := ""
 	switch {
 	case !ok:
@@ -83,4 +83,23 @@ func (w *Window) PopupMenu(at platform.Point, menu []platform.MenuItem, done fun
 			}
 			done(r.Item, nil)
 		})
+}
+
+// findChoosable finds item id in menu as platform.FindMenuItem does, and
+// reports it Disabled when it or any submenu above it is disabled: a real
+// backend grays out a disabled submenu's items, so they cannot be chosen.
+func findChoosable(menu []platform.MenuItem, id platform.MenuItemID) (platform.MenuItem, bool) {
+	for _, it := range menu {
+		switch {
+		case it.Separator:
+		case len(it.Submenu) > 0:
+			if found, ok := findChoosable(it.Submenu, id); ok {
+				found.Disabled = found.Disabled || it.Disabled
+				return found, true
+			}
+		case it.ID == id:
+			return it, true
+		}
+	}
+	return platform.MenuItem{}, false
 }

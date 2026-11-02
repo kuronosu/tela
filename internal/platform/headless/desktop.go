@@ -232,7 +232,7 @@ func checkResponse(d Dialog, r DialogResponse) {
 			panic(fmt.Sprintf("headless: dialog %d is a popup menu, answered with paths", d.ID))
 		}
 		if r.Item != 0 && r.Err == nil {
-			it, ok := platform.FindMenuItem(d.Popup.Menu, r.Item)
+			it, ok := findChoosable(d.Popup.Menu, r.Item)
 			switch {
 			case !ok:
 				panic(fmt.Sprintf("headless: dialog %d: the popup menu has no item %d", d.ID, r.Item))
@@ -321,7 +321,7 @@ func (b *Backend) InjectApp(e platform.Event) {
 		case e.Kind == platform.TrayActivated && e.Item != 0:
 			problem = "Item is set on a TrayActivated event"
 		case e.Kind == platform.TrayMenuItem:
-			it, ok := platform.FindMenuItem(b.desktop.trays[i].Options.Menu, e.Item)
+			it, ok := findChoosable(b.desktop.trays[i].Options.Menu, e.Item)
 			if !ok {
 				problem = fmt.Sprintf("tray %d has no menu item %d", e.Tray, e.Item)
 			} else if it.Disabled {

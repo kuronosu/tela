@@ -820,7 +820,9 @@ func (h *Host) closeRequested(v *winView) {
 // as from its close button, in the order they opened. The main window
 // comes first: without Options.OnClose it closes, its child windows with
 // it, and the app quits; a close-to-tray app (OnClose hides the window)
-// sets OnQuit to quit for real.
+// sets OnQuit to quit for real. A modal window over the main window keeps
+// the app running on purpose: the main window's request brings it forward
+// (closeRequested), as a Mac app refuses to quit under a modal dialog.
 func (h *Host) quitRequested() {
 	if h.onQuit != nil {
 		h.onQuit()

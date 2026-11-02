@@ -164,3 +164,15 @@ func TestTitleBarOverlayGolden(t *testing.T) {
 	mountOverlayPage(t, "bg-background", true, overlayBar(kit.MacOS, "")).GoldenScales("titlebar_overlay_macos", 1, 2)
 	mountOverlayPage(t, "bg-muted", true, overlayBar(kit.Plain, kit.MacOS)).GoldenScales("titlebar_overlay_plain", 1, 2)
 }
+
+// The side kept free follows the rectangle, not the look: a Windows-look bar
+// in a macOS window (the traffic lights at the left) keeps the left free,
+// so its leading content does not sit under the buttons.
+func TestTitleBarRoomFollowsTheRectangleNotTheLook(t *testing.T) {
+	a := mountOverlay(t, overlayBar(kit.Windows, ""))
+	right := telatest.MacTitleBarControls.X + telatest.MacTitleBarControls.Width
+	a.ExpectCount(group, 0)
+	if x := a.Bounds(menuButton).X; x < right {
+		t.Errorf("the leading button starts at x=%v, inside the OS's buttons that end at %v", x, right)
+	}
+}
