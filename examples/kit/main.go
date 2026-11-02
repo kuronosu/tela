@@ -50,7 +50,7 @@ var App = tela.App{
 // second style on the Button page, and "Gallery Arabic" on the Date Picker
 // page, right to left) and one entry per page, named as the page is: the
 // page over the window's background, in the default style and in English.
-// Three more show the Internationalization page in each language
+// Two more show the Internationalization page in the other languages
 // ("Internationalization es", "Internationalization ar"; the plain name is
 // English).
 var Previews = previews()

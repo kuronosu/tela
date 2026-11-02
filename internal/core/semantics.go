@@ -26,7 +26,7 @@ import (
 // dirty. A full build of a 10k-element tree takes a few milliseconds
 // (BenchmarkSemantics10k); incremental updates (§8's needsSemantics marks)
 // wait for a consumer that needs the tree every frame, the OS
-// accessibility backends of phase 8.
+// accessibility backends (the Accessibility phase).
 //
 // # Nodes
 //

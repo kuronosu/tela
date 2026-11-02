@@ -2,7 +2,7 @@
 // types for the current user: the OS side of platform.Associations (see
 // "Registration of schemes and file types" in package platform, ADR-209,
 // ADR-210). It works without a running app or backend, so installers
-// (phase 17) call [Native] directly; a running app reaches the same
+// (packaging) call [Native] directly; a running app reaches the same
 // implementation through platform.Desktop.Associations, which the headless
 // backend answers with a [Fake].
 //
@@ -52,7 +52,7 @@
 //     when its last association goes; on Windows nothing (an app needs no
 //     entry there).
 //   - Other OSes: [Native] returns platform.UnsupportedAssociations (macOS
-//     registers through the app bundle's Info.plist, phase 14).
+//     registers through the app bundle's Info.plist, planned).
 //
 // # Tests never touch the system
 //

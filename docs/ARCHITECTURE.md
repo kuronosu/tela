@@ -72,8 +72,6 @@ Contributions that break these are rejected.
 | `github.com/godbus/dbus/v5` | Linux D-Bus: desktop services (portal, notifications, tray; ADR-178) and accessibility (AT-SPI) |
 | `github.com/jezek/xgb` | X11 client (chosen in phase 1); from phase 4 a patched copy of its core, `xproto` and `bigreq` is vendored under `internal/` (ADR-025). XInput2 and XKB are hand-written on its connection |
 
-The X11 client (own or `github.com/jezek/xgb`) is chosen in its phase without an ADR, as long as it is pure Go.
-
 **Porting code** from projects in §20 is allowed when the license is compatible (MIT, BSD, Apache-2.0, Unlicense). Keep the original copyright notice in the ported file and list it in `THIRD_PARTY.md`.
 
 ## 3. Design principles
@@ -95,7 +93,7 @@ The X11 client (own or `github.com/jezek/xgb`) is chosen in its phase without an
 | **Box** | Render object: `ComputedStyle`, layout geometry, knows how to paint itself. ≈ Flutter *RenderObject*. |
 | **ComputedStyle** | Typed struct with all style properties resolved (no strings). |
 | **DisplayList** | Immutable list of draw commands produced by the paint phase. |
-| **Layer** | Subtree painted into its own DisplayList with a cached raster (repaint boundary). |
+| **Layer** | Subtree painted into its own DisplayList (repaint boundary); the framebuffer is the only raster cache (ADR-061). |
 | **Frame** | One full pipeline pass, from events to present. |
 | **Semantics** | Parallel tree of roles, labels, states, actions. Used by accessibility, tests and agents. |
 | **Backend** | Platform layer implementation for one OS, or `headless`. |
@@ -104,7 +102,7 @@ The X11 client (own or `github.com/jezek/xgb`) is chosen in its phase without an
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│ cmd/tela        CLI: snapshot, inspect, icons, lint, dev, add │
+│ cmd/tela        snapshot, inspect, icons, lint, dev, mcp, new │
 │ telatest        Mount without window, simulate input, goldens │
 ├───────────────────────────────────────────────────────────────┤
 │ kit             Styled components (shadcn model; recipes for  │
@@ -156,7 +154,7 @@ platform → gfx → svg → text → style → layout → {anim, gesture, seman
 - Leaf packages that import nothing from Tela (`internal/fmath`, `internal/utf16x`, `internal/editdist`) may be imported by every layer, `platform` included (ADR-189).
 - `layout` does not know `core`; it works on a layout-node interface that `core` implements.
 - **Public API:** `tela`, `h`, `desktop`, `i18n`, `aria`, `kit`, `telatest`, `cmd/tela`.
-- `internal/icongen` (the engine of `tela icons gen`) imports only `internal/svg` and is used only by `cmd/tela`. `internal/lint` (the engine of `tela lint`, ADR-173) imports `internal/style`, `internal/semantics` and `internal/core` for their validation functions, type-checks with the standard library, and is used only by `cmd/tela` and by the test that checks `docs/llms.txt` (`internal/gen/llmsdoc`, ADR-177). `icons/lucide` is a separate module (ADR-102): outside this list, it may import only the public packages (`tela`, `h`, `telatest`), and nothing in the core module imports it.
+- `internal/icongen` (the engine of `tela icons gen`) imports only `internal/svg` and `internal/gfx` and is used only by `cmd/tela`. `internal/lint` (the engine of `tela lint`, ADR-173) imports `internal/style` and `internal/core` (whose role check reads `internal/semantics`) for their validation functions, type-checks with the standard library, and is used only by `cmd/tela` and by the test that checks `docs/llms.txt` (`internal/gen/llmsdoc`, ADR-177). `icons/lucide` is a separate module (ADR-102): outside this list, it may import only the public packages (`tela`, `h`, `telatest`), and nothing in the core module imports it.
 - **Everything else lives in `internal/`** until its API stabilizes. Making a package public needs an ADR. The clearest candidate is `gfx`, for custom painting.
 
 ### Repository layout
@@ -169,10 +167,10 @@ tela/
 ├── i18n/                 # message catalogs, plurals, locale formatting (ADR-087)
 │   └── internal/gen/     # go:generate: date and list patterns, week data from vendored CLDR JSON
 ├── aria/                 # behavior hooks, floating positioning
-├── kit/                  # styled components (also the `tela add` registry)
+├── kit/                  # styled components (the source of the deferred `tela add`, ADR-129)
 ├── telatest/
 ├── internal/
-│   ├── platform/{wayland,x11,win32,cocoa,headless}/
+│   ├── platform/{wayland,x11,win32,headless,remote,assoc}/   # cocoa comes with the macOS backend
 │   │   └── wayland/protocols/   # generated from protocol XML (§15)
 │   ├── gfx/  gfx/raster/  svg/
 │   ├── icongen/          # SVG directory -> Go file of tela.Icon variables, behind `tela icons gen` (ADR-102)
@@ -329,8 +327,8 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
 - **Text:** see §11.
 
 **Limited:**
-- **`calc()`:** only `min()`, `max()`, `clamp()` and add/subtract of two units.
-- **Keyframes:** via the Go API, plus predefined classes (`animate-spin`, `animate-pulse`, `animate-ping`, `animate-bounce`).
+- **`calc()`:** `+ - * /` of lengths and numbers, nested, with percentages; `min()`, `max()` and `clamp()` without percentages.
+- **Keyframes:** only the predefined classes (`animate-spin`, `animate-pulse`, `animate-ping`, `animate-bounce`); other motion uses the Go animation API (§12).
 - **Inline:** rich text with decorated inline boxes and atomic inlines (§11); no `vertical-align` on spans.
 - **`z-index` / stacking contexts:** simplified model (§13).
 - **`divide-*`:** Tailwind v4's rule (every child but the last), applied before the child's own classes (ADR-203).
@@ -340,7 +338,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
 | Feature | Use instead |
 |---|---|
 | `float`, `clear` | flex or grid |
-| Margin collapsing | `gap` (`space-y-*` is implemented as gap) |
+| Margin collapsing | `gap`, or `space-y-*` (a margin on every child but the last, as in Tailwind v4: ADR-070) |
 | `display: table` | `kit` Table built on grid |
 | Cascade, specificity, selectors, `!important`, `@layer` | Explicit styles and variants |
 | `::before` / `::after` / `content` / counters | Regular nodes |
@@ -398,7 +396,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
   - Shapes: `FillRect`, `FillRRect`, `FillPath`, `StrokePath`.
   - Content: `DrawGlyphRun`, `DrawImage`.
   - Shadows: `DrawShadow` (incl. inset).
-  - State: `PushClip(RRect|Path)`/`PopClip`, `PushTransform`/`Pop`, `PushLayer(opacity, blend, filter, mask)`/`PopLayer`, `BackdropFilter`. A mask is painted content (a display list) used as alpha or luminance coverage of the layer (ADR-074).
+  - State: `PushClip(RRect|Path)`/`PopClip`, `PushTransform`/`PopTransform`, `PushLayer(opacity, blend, filter, mask)`/`PopLayer`, `BackdropFilter`. A mask is painted content (a display list) used as alpha or luminance coverage of the layer (ADR-074).
 - **Paints:** solid color or gradient (linear, radial, two-point focal, conic; with stops and an interpolation color space, Oklab by default like Tailwind v4's named utilities, sRGB for gradients written as CSS text unless they say `in oklab`; ADR-023, ADR-158). Linear, radial and focal gradients pad, reflect or repeat (ADR-095).
 - **Coordinates:** float32 in logical pixels; display scale is applied at raster time.
 
@@ -411,10 +409,10 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
 - **Parallelism:** tiles rasterized by parallel goroutines.
 - **Shadows:**
   - Rounded-rect shadows (the common case, all Tailwind `shadow-*`) use **Evan Wallace's closed-form analytic Gaussian** (erf-based): no blur pass, nearly free.
-  - Arbitrary-shape shadows (`drop-shadow`), `filter: blur` and `backdrop-blur` use a separable Gaussian approximation (three box-blur passes; an exact kernel for small radii; large radii blurred at a reduced resolution, and backdrop filters computing only the pixels they draw, in parallel bands, ADR-078). A backdrop filter's output is cached between frames while its input is unchanged (ADR-200); other blur results are not cached yet, and layer caching (below) will cover them (ADR-028).
+  - Arbitrary-shape shadows (`drop-shadow`), `filter: blur` and `backdrop-blur` use a separable Gaussian approximation (three box-blur passes; an exact kernel for small radii; large radii blurred at a reduced resolution, and backdrop filters computing only the pixels they draw, in parallel bands, ADR-078). A backdrop filter's output is cached between frames while its input is unchanged (ADR-200); other blur results are not cached (ADR-028): layers are display lists and the persistent framebuffer is the only raster cache (ADR-061).
 - **Layers and caching:**
-  - A Box is a repaint boundary if it has animated `transform`/`opacity`, is a scroll container, is explicitly marked, or a dev heuristic suggests it (frequent repaints).
-  - Each layer keeps its raster; unchanged layers are only composited. Refined by ADR-061: layers are cached display lists and the persistent framebuffer is the only raster cache, so incremental frames stay bit-identical to full ones. A paint records again only the layers whose lists read a box that changed (ADR-204).
+  - Layers are display lists (ADR-061): the root; a chunk for each scroll container whose content can move; a deferred layer for each stacking context with paint-phase deferred props (`TranslateFn`, `OpacityFn`, animated transforms and opacity); the scrollbars; and a text field's content.
+  - Unchanged layers are only composited again. The persistent framebuffer is the only raster cache, so incremental frames stay bit-identical to full ones. A paint records again only the layers whose lists read a box that changed (ADR-204).
 - **Damage tracking:** the union of changed rects is computed; only that region is rasterized and presented. The backend receives the damage list (Wayland `wl_surface.damage_buffer` and equivalents).
 - **z-index and stacking contexts:**
   - Paint in tree order; `z-*` reorders among siblings.
@@ -479,6 +477,7 @@ type Backend interface {
     Now() time.Duration             // frame clock: time base of FrameEvent and input events
     Clipboard() Clipboard           // async ReadText, WriteText; Data by MIME type (ADR-210)
     Settings() SystemSettings       // dark mode, reduced motion…; changes arrive as SettingsEvent
+    Desktop() Desktop               // OS services (Desktop below); never nil, ErrUnsupported when missing
 }
 
 type Window interface {
@@ -504,8 +503,8 @@ type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entr
 
 | Backend | Transport | Notes |
 |---|---|---|
-| `wayland` (primary on Linux) | Protocol over `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` | `xdg_shell`, `wl_shm` (memfd buffers), `wp_viewporter` + `wp_fractional_scale_v1`, `xdg-decoration` (if absent, Tela draws its own decorations), `wp_cursor_shape_v1`, `wl_data_device` (clipboard), `zwp_text_input_v3` (IME). **Protocol bindings are generated from the official XML** (a Go `wayland-scanner`, see `rajveermalviya/go-wayland`), so adding a protocol is trivial. **Risk:** the keyboard sends an XKB keymap, so a **minimal pure-Go XKB parser** is needed (reference: `kbvm`, a pure-Rust XKB implementation) |
-| `x11` (Linux fallback) | X11 protocol over socket, via `jezek/xgb` | `PutImage`/MIT-SHM, XInput2 for smooth scrolling, XKB or core keyboard mapping, `_NET_WM_*`, selections for clipboard. IME (XIM) comes later |
+| `wayland` (primary on Linux) | Protocol over `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` | `xdg_shell`, `wl_shm` (memfd buffers), `wp_viewporter` + `wp_fractional_scale_v1`, `xdg-decoration` (if absent, the window reports `ClientSideDecorations` and the app draws its title bar), `wp_cursor_shape_v1`, `wl_data_device` (clipboard), `zwp_text_input_v3` (IME). **Protocol bindings are generated from the official XML** (a Go `wayland-scanner`, see `rajveermalviya/go-wayland`), so adding a protocol is trivial. The keyboard's XKB keymap is read by a **minimal pure-Go XKB subset** (`internal/platform/internal/xkb`, ADR-052; reference: `kbvm`, a pure-Rust XKB implementation) |
+| `x11` (Linux fallback) | X11 protocol over socket, via a patched copy of `jezek/xgb` vendored under `internal/` (ADR-025) | `PutImage` (MIT-SHM later), XInput2 for smooth scrolling, XKB or core keyboard mapping, `_NET_WM_*`, selections for clipboard. IME (XIM) comes later |
 | `win32` | `x/sys/windows` + `syscall.NewCallback` | `CreateWindowExW`, `GetMessageW` loop, `SetDIBitsToDevice`/`StretchDIBits`, per-monitor DPI v2, IMM32, Win32 clipboard, `DwmFlush` for pacing. Reference: Ebitengine's no-cgo Windows code |
 | `cocoa` | `purego` + ObjC runtime | `NSApplication`, `NSWindow`, layer-backed `NSView`, present via `CALayer.contents` (`CGImage`), `NSTextInputClient` (IME), `CVDisplayLink`. Main thread only. Reference: Ebitengine's purego macOS code |
 | `headless` | Memory | Tests, snapshots, CLI. Configurable size and scale, controllable clock |
@@ -543,12 +542,13 @@ type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entr
 | `tela dev [pkg] [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [-v]` | Watch, rebuild in the background, swap the app process under a window that never closes, keeping hook and engine state; errors as an overlay over the last good frame. Go can't swap code in a process, so the restart is made invisible (ADR-111); state outside the tree: `App.DevState` (ADR-114) |
 | `tela new [-module path] [-skip-deps] <dir>` | Create an app: `go.mod` (tela at this binary's release version, or the latest), a counter in `main.go` with `var App`, a `telatest` test, README and `.gitignore`, from templates embedded in the binary; runs `go get` and `go mod tidy` (ADR-128) |
 | `tela icons gen -pkg <name> [-o dir] <dir>` | Generate a Go file with one `tela.Icon` variable per SVG file: validated, minified, deterministic (ADR-102) |
-| `tela add <component>...` | Copy `kit` component source into the user's project (shadcn model), rewriting the package name |
+| `tela add <component>...` | Deferred (ADR-129): copy `kit` component source into the user's project (shadcn model), rewriting the package name |
+| `tela version` | Print the module version, VCS revision, Go version and platform of the binary |
 | `tela mcp [pkg] [--size WxH] [--scale N] [--dark] [--preview NAME] [-v]` | MCP server over stdio driving a headless instance of the screen that stays up between calls: `snapshot` (aria YAML with `[ref=eN]`), `screenshot` (PNG), `click`, `hover`, `fill`, `press`, `scroll`, `drag`, `resize`, `open`, `wait`, `inspect`, `lint`; rebuilds and remounts when the sources change (ADR-174) |
 
 ### Contract for `snapshot`, `inspect`, `mcp`
 
-The package exposes `func Preview() tela.Node` (mounted as `tela.C(Preview)`, so it may use hooks and return a struct component: ADR-175, ADR-205), or a `tela.Previews` variable with several named screens (`tela.Preview{Root, Wrap}`: ADR-092). A package-level `var App = tela.App{...}` gives the window of the render (size, root class, color scheme, theme, class aliases; ADR-092), and alone its `Root` (a `tela.Component`: `tela.C(Screen)` or a struct component, ADR-094) is the screen. The CLI generates a temporary `main` that mounts it on the chosen backend.
+The package exposes `func Preview() tela.Node` (mounted as `tela.C(Preview)`, so it may use hooks and return a struct component: ADR-175, ADR-205), or a `tela.Previews` variable with several named screens (`tela.Preview{Root, Wrap}`: ADR-092). A package-level `var App = tela.App{...}` gives the window of the render (size, root class, color scheme, theme, class aliases; ADR-092), and alone its `Root` (a `tela.Component`: `tela.C(Screen)` or a struct component, ADR-094) is the screen. The CLI adds generated code through a build overlay, so the directory is not touched: a test file that mounts it headlessly with `telatest` for `snapshot`, `inspect` and `mcp` (ADR-059), a `main` on the real backend for `dev`.
 
 ### `telatest`
 
@@ -586,7 +586,7 @@ This is also a design constraint:
 - `docs/llms.txt`: compact API guide with examples.
 - `examples/`: full, beautiful screens to imitate.
 - Errors with suggestions (§3).
-- `kit` components as editable source (`tela add`).
+- `kit` components as editable source (`tela add` is deferred, ADR-129).
 - **Agent loop:** write UI → `tela snapshot` → look at the PNG → `tela inspect` if something is off → fix. Or drive the same loop interactively through `tela mcp`.
 
 ## 18. Quality and CI
@@ -595,8 +595,8 @@ This is also a design constraint:
 - **Checks:** `go vet`, `staticcheck`, tests and goldens (headless, on Linux).
 - **Windows:**
   - Locally: `GOOS=windows go test -exec wine ./...`, `wine` to run examples (CI runs the tests under Wine with a null graphics driver and no display, not `xvfb-run`).
-  - Wine is not real Windows (DPI, DWM, IME and accessibility differ), so there is periodic validation on `windows-latest` runners.
-- **macOS:** `macos-latest` runners, with `cocoa` backend snapshots to validate presentation.
+  - Wine is not real Windows (DPI, DWM, IME and accessibility differ), so CI also runs the tests on `windows-latest` on every push and pull request, and weekly.
+- **macOS:** with the macOS backend, `macos-latest` runners, with `cocoa` backend snapshots to validate presentation (today CI only cross-compiles for darwin).
 - **Benchmarks:** typical-scene raster (dashboard, long scrolling list, heavy blur), 10k-node layout, paragraph shaping. Regressions are tracked.
 
 ## 19. Conventions

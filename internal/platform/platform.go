@@ -104,7 +104,9 @@ type Window interface {
 	//     treated as full, whatever damage says.
 	//   - The backend copies what it needs before returning; the caller
 	//     may reuse or modify fb immediately.
-	// Windows are opaque: backends may ignore alpha. Errors are resource
+	// Windows are opaque unless they implement AlphaPresenter and report
+	// true (a Windows 11 client-area backdrop); otherwise backends may
+	// ignore alpha. Errors are resource
 	// errors (buffer allocation, lost connection).
 	Present(fb *image.RGBA, damage []image.Rectangle) error
 
@@ -272,8 +274,8 @@ type Window interface {
 	// each with a Submenu). A chosen item arrives as a MenuEvent. nil or
 	// empty removes the bar. The content area keeps its size where the
 	// OS allows. Backends without native menu bars return ErrUnsupported:
-	// Linux (Wayland and X11), frameless windows, Cocoa until phase 14
-	// (its menu is the app's). The menu is copied. An invalid menu panics
+	// Linux (Wayland and X11), frameless windows, Cocoa until its desktop
+	// integration (its menu is the app's). The menu is copied. An invalid menu panics
 	// ([CheckMenu]). See "Native menus" in the package documentation.
 	SetMenu(menu []MenuItem) error
 

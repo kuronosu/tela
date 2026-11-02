@@ -1,8 +1,8 @@
 // Package semantics holds Tela's semantics tree (ARCHITECTURE sections 4,
 // 8 and 16): a parallel tree of roles, names, states and actions derived
-// from the Element and Box trees, used by accessibility backends, tests
-// (telatest's ByRole and ByText) and agents (the aria snapshot of `tela
-// inspect --aria` and `tela mcp`).
+// from the Element and Box trees, used by tests (telatest's ByRole and
+// ByText) and agents (the aria snapshot of `tela inspect --aria` and `tela
+// mcp`), and later by the OS accessibility backends.
 //
 // The package defines the node type and its vocabulary (WAI-ARIA 1.2 roles
 // and the role groups of the accessible name computation and of the
@@ -33,8 +33,8 @@
 // byte what Playwright prints for the equivalent HTML, with these
 // deliberate differences:
 //
-//   - a textbox shows its Value (its text content until Tela has text
-//     inputs) where Playwright shows the value only for input and textarea
+//   - a textbox shows its Value (a text field's text, else its text
+//     content) where Playwright shows the value only for input and textarea
 //     elements;
 //   - there are no iframes, slots, shadow roots, pseudo-element content,
 //     placeholders, aria-owns or title attributes, and aria-invalid is

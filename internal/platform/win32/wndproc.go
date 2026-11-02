@@ -217,7 +217,8 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 
 	case wmKeyDown, wmSysKeyDown:
 		// The system keys are swallowed: a lone Alt or F10 would enter the
-		// menu loop of a window that has no menu. Alt+F4 (close) and
+		// menu loop (a menu bar from SetMenu is for the mouse only). Alt+F4
+		// (close) and
 		// Alt+Space (the window menu) are the exceptions. A window without
 		// the keyboard focus (SetFocus(NULL) sends the keys to the active
 		// window as system keys) reports nothing.

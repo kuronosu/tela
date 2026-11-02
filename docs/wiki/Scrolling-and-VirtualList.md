@@ -13,7 +13,7 @@ func Inbox(rows tela.Node) tela.Node {
 ```
 
 A scroll container scrolls with the wheel, the touchpad (with a kinetic fling
-when the fingers lift), touch, the keyboard (arrows, Page Up and Down, Home and
+when the fingers lift, except on X11), touch, the keyboard (arrows, Page Up and Down, Home and
 End, Space) and its scrollbars. `overflow-hidden` scrolls only from code.
 Wheel scrolling chains to the scrolling ancestors at an edge unless the element
 has `overscroll-contain`.

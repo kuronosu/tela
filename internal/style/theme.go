@@ -186,7 +186,7 @@ type Theme struct {
 
 	// Animate maps the animate-* names to their CSS animation shorthand
 	// ("spin" is "spin 1s linear infinite"). The strings are kept raw;
-	// animation support (phase 6) parses them.
+	// core parses them with anim.ParseSpec.
 	Animate map[string]string
 }
 

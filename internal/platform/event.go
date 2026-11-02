@@ -169,8 +169,7 @@ func (b PointerButton) Mask() Buttons {
 // on.
 //
 // Pointer and scroll events report it as well: the state of the keyboard
-// of the same seat (on Wayland, from wl_keyboard.modifiers). Backends
-// without keyboard support yet leave it zero.
+// of the same seat (on Wayland, from wl_keyboard.modifiers).
 type Modifiers uint8
 
 const (

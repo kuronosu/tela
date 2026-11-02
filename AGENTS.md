@@ -4,22 +4,22 @@ Tela is a pure-Go desktop UI framework: no cgo, no webview, React-like API, Tail
 
 ## At the start of every session
 
-1. Read `docs/ARCHITECTURE.md` in full (§1–§20, about 14k tokens). It is the source of truth for the design.
-2. Read `docs/ROADMAP.md` to see the current status, open limitations and next step.
+1. Read `docs/ARCHITECTURE.md` in full (§1–§20, about 16k tokens). It is the source of truth for the design.
+2. Read `docs/ROADMAP.md` to see the current status, the phases left (with the open limitations as their tasks) and the next step.
 3. Before starting a task, read its references in ARCHITECTURE §20, the ADR index `docs/adr/README.md`, and only the ADRs the task touches (`docs/adr/NNN-*.md`). Do not read the whole `docs/adr/` folder or `docs/HISTORY.md` (ADR-165).
 
 ## At the end of every session
 
-- In `docs/ROADMAP.md`: check off completed tasks; keep "Current status" to a few lines and "Open known limitations" to what is still true (remove what was fixed, add what was found); update "Next step".
+- In `docs/ROADMAP.md`: check off completed tasks; keep "Current status" to a few lines; add each limitation found as a task of the phase that will fix it (a new unnumbered phase if none fits, or "By design or outside Tela") and remove what was fixed; put checks that need hardware the project lacks under "Live checks"; update "Next step" (ADR-218).
 - Add user-visible changes to the `Unreleased` section of `CHANGELOG.md`.
 - Append one line to the session log at the end of `docs/HISTORY.md`.
-- When a phase is done, move its section from the roadmap to HISTORY.md.
+- When a phase starts, it takes the next number; future phases have none. When a phase is done, move its section from the roadmap to HISTORY.md.
 
 ## At the end of a phase
 
 After the phase's done criteria pass and its review fixes are in:
 - Move the `Unreleased` entries of `CHANGELOG.md` into a new version, with the date and the link line: the next minor (`v0.N.0`) if anything in it breaks the public API, otherwise the next patch (`v0.N.M`).
-- Propose the tag to the owner; once approved, create it annotated on the closing commit (`git tag -a v0.N.M -m "Phase N: <name>"`). Never push tags or commits.
+- Propose the tag to the owner; once approved, create it annotated on the closing commit (`git tag -a v0.N.M -m "Phase N: <name>"`). Never push tags, and never push `main` (see "Pushing" under Rules).
 
 Fixes and work between phases are released the same way, with the same rule for the number. See ADR-049 and ADR-208.
 
@@ -32,6 +32,7 @@ Fixes and work between phases are released the same way, with the same rule for 
 - **Respect layer dependency rules** (ARCHITECTURE §5). Nothing in `internal/` becomes public without an ADR.
 - **Everything in English:** code, comments, commits and docs.
 - **Visual work is tested with headless goldens.** When you change rendering, generate a snapshot and look at it.
+- **Pushing (ADR-220).** By default nothing is pushed: the owner pushes. When the owner allows it in a session, the main session may push commits to a work branch (never `main`) to run CI there, and watch the runs with `gh` (`gh run watch`, `gh run view --log-failed`). Never push tags, never force-push, never push `main`; merging the branch into `main` stays local, and the owner pushes it. Subagents never push.
 
 ## Delegation (Claude Code)
 
@@ -47,7 +48,7 @@ The main session plans, delegates, verifies and updates the roadmap. Run it on O
 Main-session workflow per task:
 
 1. **Plan.** Split the phase into tasks of a size worth a fresh agent (one package or one algorithm). Don't delegate tiny edits; do them directly.
-2. **Brief.** Give each agent a self-contained prompt: goal, files/packages in scope, relevant ARCHITECTURE sections, done criteria. Agents start without conversation context.
+2. **Brief.** Give each agent a self-contained prompt: goal, files/packages in scope, the ARCHITECTURE sections to read (agents always read §1–§5 and §19, then only those, ADR-219), done criteria. Agents start without conversation context.
 3. **Sequence.** Run agents sequentially by default, because layers depend on each other. Run in parallel only for independent packages, each with `isolation: "worktree"`, then integrate.
 4. **Verify.** Never accept a report at face value: rerun the build/vet/test/cross-compile commands below and look at any snapshot.
 5. **Record.** Update `docs/ROADMAP.md` yourself, or via `tela-chore`.
@@ -64,7 +65,7 @@ CGO_ENABLED=0 go test ./...
 TELA_UPDATE=1 CGO_ENABLED=0 go test ./...           # regenerate goldens (review the diff)
 TELA_LIVE=1 CGO_ENABLED=0 go test ./internal/platform/...  # tests that open real windows
 CGO_ENABLED=1 go test -race ./internal/core/... . ./internal/platform/...  # race detector (verification only)
-CGO_ENABLED=0 GOARCH=arm64 go test -short -exec qemu-aarch64-static ./internal/gfx/...  # pixel determinism (ADR-027)
+CGO_ENABLED=0 GOARCH=arm64 go test -short -timeout 40m -exec qemu-aarch64-static ./internal/gfx/...  # pixel determinism (ADR-027)
 
 # Cross-compilation (must always build)
 CGO_ENABLED=0 GOOS=windows go build ./...

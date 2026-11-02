@@ -46,7 +46,7 @@ type TitleBarColors = core.TitleBarColors
 //	}
 //
 // The material follows the dark or light title bar, which follows the
-// app's color scheme. A [Frameless] window with a client-area backdrop
+// app's color scheme. A frameless window with a client-area backdrop
 // extends the window frame over its content (DwmExtendFrameIntoClientArea),
 // which Windows 11 may answer by no longer showing the snap layouts flyout
 // over the app's maximize button; keep a frameless window without a

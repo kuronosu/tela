@@ -19,7 +19,7 @@ const (
 	// colStart is a column whose items are as wide as they are, not stretched
 	// to the stage: a button that opens something. A w-fit calendar needs it
 	// too, since in a stretching column it is laid out taller than it should
-	// be (see the README).
+	// be (see ADR-150).
 	colStart = "flex flex-col items-start gap-4"
 	// rowTop is a row whose items start at the top, such as a few calendars.
 	rowTop = "flex flex-wrap items-start gap-6"

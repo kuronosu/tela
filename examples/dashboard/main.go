@@ -2,7 +2,7 @@
 // style: dark first, a calm dune wallpaper and three fixed panes of real
 // glass over it (the rail, the main pane and the Pulse pane), with one
 // amber accent. Only the content inside a pane scrolls, so what each blur
-// samples never moves. It is the target of phase 16 (the GPU backend draws
+// samples never moves. It is the target of the GPU backend (which draws
 // it at 60 fps at scale 2; the CPU rasterizer does not), and its
 // benchmarks (bench_test.go) measure the CPU path.
 //

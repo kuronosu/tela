@@ -1,8 +1,8 @@
 // Package loop is the OS-independent half of a platform backend's event
 // loop: the part of the platform contract (see package platform, "Loop
 // contract" and "Frames and pacing") that does not depend on how the OS
-// reports events. Every backend (wayland, x11, headless, and later win32 and
-// cocoa) owns one Loop and keeps only its OS-specific I/O.
+// reports events. Every backend (wayland, x11, win32, headless and remote,
+// and later cocoa) owns one Loop and keeps only its OS-specific I/O.
 //
 // # What the Loop owns
 //
@@ -52,14 +52,14 @@
 // backend's poll timeout or timer. Nothing is armed while no frame is
 // requested, so an idle loop never wakes up (0% CPU).
 //
-// # Reuse by future backends
+// # How Win32 and Cocoa plug in
 //
 // Win32: WndProc translates messages into Enqueue, QueuePointer and Reconfigure
 // calls; Notify posts a private message to a message-only window; the
 // GetMessageW loop (and WndProc itself inside modal move/resize loops)
-// calls Deliver after dispatching, then Pace to arm a SetTimer for the
-// deadline (or, from a Pace hook, a DwmFlush-paced post that ends in
-// VsyncDone). WM_SIZE becomes Reconfigure followed by a synchronous Deliver,
+// calls Deliver after dispatching, then Pace, whose hook starts a
+// DwmFlush-paced post that ends in VsyncDone (the hook always arranges
+// it, so no timer is armed). WM_SIZE becomes Reconfigure followed by a synchronous Deliver,
 // which delivers the ConfigureEvent and its forced FrameEvent before
 // DefWindowProc continues; if WM_SIZE arrives while the handler runs, the
 // re-entrancy guard defers it to the next pass.

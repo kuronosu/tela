@@ -99,12 +99,14 @@
 // overlay; a modal one makes the rest of the window inert), [UseDialog]
 // (role, name and focus), [UsePopover] (a floating overlay next to its
 // trigger), [UseOverlayTrigger] (the open state and the trigger's props),
-// [UseMenuTrigger] (a trigger that opens with press, long press or keys)
-// and [UseTooltipTrigger] (hover and focus with React Aria's delays and
-// warm-up).
+// [UseMenuTrigger] (a trigger that opens with press, long press or keys),
+// [UseContextMenuTrigger] (an area that opens a menu at a right click, a
+// long press or Shift+F10) and [UseTooltipTrigger] (hover and focus with
+// React Aria's delays and warm-up).
 //
 // Collections, keyed lists of items with a focused key and a selection:
-// [UseListBox], [UseMenu] (the menu of [UseMenuTrigger]), [UseTabs],
+// [UseListBox], [UseMenu] (the menu of [UseMenuTrigger]), [UseMenuBar] (a
+// row of menus), [UseTabs],
 // [UseSelect] (a button that opens a list box) and [UseCombobox] (a text
 // field that filters one, with the [Contains] and [StartsWith] filters),
 // with the [Selection] type for what is selected.

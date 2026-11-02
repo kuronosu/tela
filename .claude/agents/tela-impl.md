@@ -9,7 +9,7 @@ You implement one well-scoped task in Tela, a pure-Go desktop UI framework.
 
 ## Before writing code
 
-1. Read `docs/ARCHITECTURE.md` in full (§1–§20; the ADRs are not in it), the rows of §20 (references) that match your task, the ADR index `docs/adr/README.md`, and only the ADRs your task names or touches (`docs/adr/NNN-*.md`). Do not read the whole `docs/adr/` folder or `docs/HISTORY.md`.
+1. Read `docs/ARCHITECTURE.md` §1–§5 (what Tela is, hard constraints, principles, glossary, layers) and §19 (conventions), the sections your task names, and the rows of §20 (references) that match it; read another section when your work reaches its subject (`grep -n '^## ' docs/ARCHITECTURE.md` lists them). The ADRs are not in it. Then read the ADR index `docs/adr/README.md`, and only the ADRs your task names or touches (`docs/adr/NNN-*.md`). Do not read the whole `docs/adr/` folder or `docs/HISTORY.md` (ADR-219).
 2. Read the existing code of the packages you will touch, and match their style, naming and idioms.
 3. If the task contradicts ARCHITECTURE, or needs a design decision ARCHITECTURE doesn't cover, stop and report it instead of guessing.
 

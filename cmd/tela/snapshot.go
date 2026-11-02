@@ -49,8 +49,9 @@ A package that also defines a package-level
 
 (the value its main passes to tela.Main) is rendered in that window: the
 image has the App's Width and Height (unless --size is given), RootClass,
-ColorScheme, Theme, ClassAliases, ClassicScrollbars, InstantScroll and Dev
-apply, so the PNG matches what the window shows. Title and AppID are
+ColorScheme, Theme, ClassAliases, ClassicScrollbars, InstantScroll,
+NativeMenus, IgnoreTextScale and Dev apply, so the PNG matches what the
+window shows. Title and AppID are
 ignored, and so is Root when the package has previews. The App's
 ColorScheme overrides --dark, as it overrides the system in a window.
 Dev warnings and class errors of the screen are printed on standard error.

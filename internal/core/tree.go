@@ -37,7 +37,8 @@ type Config struct {
 	ClassAliases map[string]string
 	// RootClass are classes for the root box, which fills the window. Its
 	// background is the window's; without one the window is white, the
-	// browser canvas default. The root is the viewport: it scrolls on
+	// browser canvas default (transparent under a client-area backdrop,
+	// SetTransparentCanvas). The root is the viewport: it scrolls on
 	// both axes (overflow auto) unless these classes set an overflow
 	// (scroll.go).
 	RootClass string

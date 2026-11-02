@@ -2,8 +2,8 @@
 // contract between the paint phase, the CPU rasterizer and any future GPU
 // backend.
 //
-// gfx imports only the standard library and sits just above the platform
-// layer (ARCHITECTURE section 5).
+// gfx imports only the standard library and internal/fmath (ADR-189), and
+// sits just above the platform layer (ARCHITECTURE section 5).
 //
 // # Coordinates
 //

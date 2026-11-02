@@ -31,9 +31,8 @@ overflow, transforms, effects (filters, `mix-blend-*`,
 aliases that mean the same thing are accepted (`bg-gradient-to-br`). The
 theme's semantic colors (`bg-primary`, `text-muted-foreground`) and the app's
 class aliases are described in [Theming](Theming). Custom
-keyframes are not implemented
-yet; check the [roadmap](https://github.com/kuronosu/tela/blob/main/docs/ROADMAP.md)
-before relying on them.
+keyframes are not implemented: `animate-spin`, `animate-ping`, `animate-pulse`
+and `animate-bounce` are the only keyframe animations.
 
 A class Tela does not know is not silently ignored: in dev mode (on in every
 development build and every `telatest` test; see

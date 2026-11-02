@@ -451,7 +451,7 @@ Colors in Go: `tela.Hex("#4f46e5")`, `tela.RGB`, `tela.RGBA(r, g, b, a)`, `tela.
 
 ## 6. kit: components in shadcn/ui's look
 
-`kit` has 36 components with shadcn/ui's ("new-york-v4") look, built on the `aria` behavior hooks: keyboard, focus and roles are done. Use them for every control; build layout and decoration with `h` elements and classes around them.
+`kit` has 37 components with shadcn/ui's ("new-york-v4") look, built on the `aria` behavior hooks: keyboard, focus and roles are done. Use them for every control; build layout and decoration with `h` elements and classes around them.
 
 **Rules that hold for every component:**
 - Each is a struct; its fields are its props. `Class` adds classes to the root after the component's own (last wins: `Class: "w-full"` overrides); parts have `...Class` fields (`HeaderClass`, `ContentClass`, `ItemClass`...). `Props` takes one more `h` prop for the root (`Props: TestID("save")`; several: `tela.MergeProps(TestID("x"), AutoComplete("email"))`).
@@ -988,7 +988,7 @@ func Editor() tela.Node {
 }
 ```
 
-**Phase 13: drag and drop, clipboard, shortcuts, launches, links, secrets, menus, settings.**
+**Drag and drop, clipboard, shortcuts, launches, links, secrets, menus, settings.**
 
 - **Drag and drop is HTML's.** A target takes `h.OnDragEnter`, `OnDragOver`, `OnDragLeave` and `OnDrop` (they bubble) and accepts by calling `e.PreventDefault()` in `OnDragOver`. Before the drop only the types are known (`e.DataTransfer.Has("Files")`, `Types()`); the data arrives in `OnDrop` (`Files()` absolute paths, `Text()`, `HTML()`, `Image()`, `GetData(mime)`). Enter fires on the new element before leave fires on the old one, so "a drag is over me" is a counter (+1 on enter, -1 on leave, 0 on drop). A source is `h.Draggable(true)`: its `OnDragStart` fills `e.DataTransfer` (`SetText`, `SetHTML`, `SetFiles`, `SetImage`, `SetData(mime, s)`, `EffectAllowed = tela.DropMove`); with no data the press stays the `OnDrag` gesture. `OnDragEnd` reads `e.DataTransfer.DropEffect` (`tela.DropNone|DropCopy|DropMove|DropLink`). It works between windows and with other applications (files from the file manager, text from an editor).
 - **Clipboard:** `desktop.ReadClipboard(done, types...)` (`done(*tela.DataTransfer, err)` on the UI thread) and `desktop.WriteClipboard(&dt)` (every representation at once) carry the same `DataTransfer`; `ReadClipboardText` and `WriteClipboardText` for text only. Text fields keep their own paste.
@@ -1227,7 +1227,7 @@ func (Readout) Build() tela.Node {
 | `desktop.Register` for a link or file type, then expecting it to be the default or to replace another app's | It makes the app a candidate only. `MakeDefault` on the user's request; `Replace()` only after asking; under `go run`/`tela dev` give `ForApp(HandlerApp{Exec: ...})` |
 | A `GlobalShortcut` that "does nothing" | Show `OnStatus`: it may be taken, refused by the user, or unsupported; a nil `OnStatus` only warns in dev mode |
 
-**Limits.** Linux (Wayland, X11) and Windows windows; macOS cross-compiles but has no window yet. Wayland cannot place windows or keep them on top, and Windows notifications have no action buttons; a tray needs a host on Linux (GNOME needs an extension). No submenus in menus; `Checkbox` has no indeterminate state; `Select` has no search (build a combobox with `aria.UseCombobox`); `Table` has no virtualization, resizing or row selection UI; no date-time input; no `tela add` yet. No margin collapsing, floats or CSS tables; 2D transforms only; SVG icons have no text, filters or patterns; no `grid-template-areas` from classes; `vertical-align` only on inline-blocks.
+**Limits.** Linux (Wayland, X11) and Windows windows; macOS cross-compiles but has no window yet. Wayland cannot place windows or keep them on top, and Windows notifications have no action buttons; a tray needs a host on Linux (GNOME needs an extension). No submenus in menus; `Checkbox` has no indeterminate state; `Select` has no search (build a combobox with `aria.UseCombobox`); `Table` is virtual only with a fixed `RowHeight`, and has no column resizing or row selection UI; no date-time input; no `tela add` yet. No margin collapsing, floats or CSS tables; 2D transforms only; SVG icons have no text, filters or patterns; no `grid-template-areas` from classes; `vertical-align` only on inline-blocks.
 
 ## 10. Testing
 
@@ -1291,7 +1291,7 @@ func TestEditorServices(t *testing.T) {
 
 Also `app.Notifications()`, `ClickNotification(title)`, `ClickNotificationAction(title, label)`, `DismissNotification(title)` and `MessageBoxes()` / `FileDialogs()` to check what was asked. `Unsupported` takes `telatest.FileDialogs`, `MessageBoxes` (the box is drawn then), `Notifications`, `TrayIcons` and `OpenURLs`; with no arguments everything is supported again.
 
-**Phase 13 in tests.** The headless desktop plays the OS for each feature, and nothing touches the real clipboard, keyring, registry, shortcuts or menus. Call `telatest.TempDesktopDirs(t)` first.
+**Integration services in tests.** The headless desktop plays the OS for each feature, and nothing touches the real clipboard, keyring, registry, shortcuts or menus. Call `telatest.TempDesktopDirs(t)` first.
 
 - **Drag and drop:** `app.DropFiles(loc, paths...)` and `app.DropData(loc, payload)` (payloads `telatest.DragFiles`, `DragText`, `DragHTML`, `DragPNG`, `DragType(mime, s)`, combined with `.And`) drop what another application drags and return the `tela.DropEffect` the app accepted (`tela.DropNone`: refused). Steps: `app.HoverDrag(loc, telatest.Carrying(p))` (the drag-over state), `app.LeaveDrag()`, `app.CancelDrag()`, `app.DropOn(loc)`. A drag of your own `Draggable`: `app.DragTo(from, to)` (also `DragToWindow(from, otherWindow, to)`), or `app.StartDrag(from)` then `DropOutside(tela.DropMove)` for a drop in another application.
 - **Shortcuts and launches:** `app.GlobalShortcuts()` (what is registered), `app.PressShortcut(id)`, `ReleaseShortcut(id)`, `app.SetShortcutStatus(id, desktop.ShortcutTaken, "")` (also `ShortcutRefused`, `ShortcutRevoked`, `ShortcutBound` with a trigger), `app.SetShortcutUnassigned(id)`, `app.FailShortcuts(err)`; `app.InjectLaunch(desktop.Launch{Args: ...})` plays a second start. `desktop.SingleInstance` claims nothing in tests.

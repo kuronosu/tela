@@ -15,6 +15,7 @@ under **Breaking**. See ADR-049 and ADR-208.
 ### Fixed
 
 - `desktop.MakeDefault` and registration on Linux no longer replace a `mimeapps.list` (or desktop entry) that is a symbolic link they cannot follow, such as a dotfiles link whose file does not exist yet: links are followed as GLib follows them (the target is created if missing), and a loop or an unreadable link is an error that leaves the link alone.
+- Documentation brought up to date with the code: the README (version, phase table, kit's 37 components, the X11 IME and fling, the layout fixtures), the wiki guides, `docs/llms.txt`, the examples' READMEs and the doc comments that pkg.go.dev shows (`Run` on macOS, theme variables in arbitrary values, `telatest.Render` running frames until the tree is quiet, `tela lint -fix` and `tela icons gen -deprecated` in the usage, `tela snapshot` applying `NativeMenus` and `IgnoreTextScale`). `THIRD_PARTY.md` lists every ported file.
 
 ## [0.13.1] - 2026-11-01
 

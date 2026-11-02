@@ -28,9 +28,10 @@ import "github.com/kuronosu/tela/internal/core"
 // A token missing from Colors keeps its value in DefaultTheme, so the
 // shadcn/ui tokens always resolve. A token name is lowercase letters,
 // digits and dashes, and cannot be a palette color ("red-500", "white")
-// or transparent, current or inherit; [Run] panics otherwise. Tokens
-// cannot be used inside arbitrary values (bg-[linear-gradient(...)]):
-// use the utilities (from-primary, shadow-primary).
+// or transparent, current or inherit; [Run] panics otherwise. A token
+// cannot be written bare inside an arbitrary value (bg-[linear-gradient(...)]):
+// write var(--color-primary) there (ADR-202), or use the utilities
+// (from-primary, shadow-primary).
 type Theme struct {
 	// Colors maps token names to their values in the light and the dark
 	// scheme.

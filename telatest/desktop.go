@@ -61,7 +61,7 @@ const (
 	ClipboardData
 	// Associations: desktop.Register, Unregister, MakeDefault,
 	// RegistrationStatus, RegisterApp, UnregisterApp and AppStatus while
-	// the app runs, as on macOS before phase 14.
+	// the app runs, as on macOS before its desktop integration.
 	Associations
 	// Trash: desktop.MoveToTrash, as on a desktop without a trash or for
 	// a file the trash cannot take (a network drive); the file stays.

@@ -6,7 +6,7 @@ frames (0% CPU), and with the system's reduced-motion setting (or
 [`telatest.ReducedMotion`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#ReducedMotion)) transitions take no time and springs and tweens
 jump to their targets.
 
-There are three tools, from the most declarative to the most manual:
+These are the tools, from the most declarative to the most manual:
 
 | You want | Use |
 |---|---|

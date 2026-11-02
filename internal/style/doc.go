@@ -22,7 +22,9 @@
 // cascade or specificity. Inheritance applies to the text properties of
 // TextProps, plus cursor, visibility, pointer-events and user-select, which
 // inherit in browsers and would otherwise break "pointer-events-none" on a
-// container and the cursor of a button's label.
+// container and the cursor of a button's label, and to the SVG paints
+// fill, stroke and stroke-width (ADR-098), the caret and selection colors
+// and the color scheme.
 //
 // # Parsing and interning
 //
@@ -58,8 +60,9 @@
 // with Gradient.Paint.
 //
 // Variants are conditions (Condition) evaluated against the element state,
-// the states of its group ancestors and peers, dark mode, reduced motion and
-// the window width (VariantContext).
+// the states of its group ancestors and peers, dark mode, reduced motion,
+// high contrast, the starting style, the direction and the window width
+// (VariantContext).
 //
 // # Theme
 //

@@ -96,8 +96,8 @@ type App struct {
 	// [Window] follows it; a menu's own Native setting (kit.NativeOn,
 	// kit.NativeOff) wins over it, so a menu can stay drawn while the
 	// others are native. Windows has native menus now (context menus, and
-	// menu bars on windows with a title bar of the OS), macOS will in
-	// phase 14; Linux never does, and a frameless Windows window has no
+	// menu bars on windows with a title bar of the OS), macOS will with
+	// its desktop integration; Linux never does, and a frameless Windows window has no
 	// menu bar: there the menus are drawn as if this were false.
 	//
 	// What a native menu cannot show (icons, descriptions, custom content,
@@ -220,8 +220,9 @@ type DevState struct {
 // [Quit] is called. The windows unmount before Run returns, running the
 // cleanups of their effects. It must be called from the main goroutine,
 // normally from main. The window is drawn by Tela's own renderer on the
-// native backend: Wayland or X11 on Linux, Win32 and Cocoa elsewhere;
-// [Window] components open more windows.
+// native backend: Wayland or X11 on Linux and Win32 on Windows (macOS has no
+// backend yet, so Run returns an error there); [Window] components open more
+// windows.
 //
 // Run returns an error when the platform cannot open a window (for
 // example, no display is available). It panics when app.Root is nil.

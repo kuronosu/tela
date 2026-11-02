@@ -373,7 +373,7 @@
       "cells": [
         {
           "v": "planned",
-          "note": "Phase 14, Cocoa without cgo",
+          "note": "Next phase: Cocoa without cgo",
           "src": []
         },
         {
@@ -497,7 +497,7 @@
       "cells": [
         {
           "v": "planned",
-          "note": "Phase 15: AT-SPI, UI Automation, NSAccessibility",
+          "note": "Planned: AT-SPI, UI Automation, NSAccessibility",
           "src": []
         },
         {

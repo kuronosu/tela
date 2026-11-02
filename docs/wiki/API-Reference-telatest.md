@@ -122,7 +122,7 @@ The window's clock is manual: it starts at zero and moves only when the app wait
 
 ### Headless rendering without a test
 
-[`Render`](#func-render), [`AriaSnapshot`](#func-ariasnapshot) and [`LayoutJSON`](#func-layoutjson) mount a tree, run one frame and return the image, the aria snapshot or the layout JSON, for tools. `tela snapshot` and `tela inspect` are built on them.
+[`Render`](#func-render), [`AriaSnapshot`](#func-ariasnapshot) and [`LayoutJSON`](#func-layoutjson) mount a tree, run frames until it is quiet and return the image, the aria snapshot or the layout JSON, for tools. `tela snapshot` and `tela inspect` are built on them.
 
 ## Constants
 
@@ -1939,7 +1939,7 @@ const (
     ClipboardData
     // Associations: desktop.Register, Unregister, MakeDefault,
     // RegistrationStatus, RegisterApp, UnregisterApp and AppStatus while
-    // the app runs, as on macOS before phase 14.
+    // the app runs, as on macOS before its desktop integration.
     Associations
     // Trash: desktop.MoveToTrash, as on a desktop without a trash or for
     // a file the trash cannot take (a network drive); the file stays.

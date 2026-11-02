@@ -1,18 +1,22 @@
 // Package win32 is the Windows platform backend. It talks to the system DLLs
 // (user32, gdi32, imm32, dwmapi, shcore, kernel32; shell32 and ole32 for the
-// desktop services) through golang.org/x/sys/windows
+// desktop services; advapi32 for Credential Manager) through
+// golang.org/x/sys/windows
 // and syscall.NewCallback, with no cgo, and implements the platform contract
 // documented in package platform ("Mapping onto each OS: Win32").
 //
 // The code that touches the OS is built only on Windows. The files without a
 // build constraint (dib.go, dpi.go, msg.go, pointer.go, cursor.go,
 // keyboard.go, scancode.go, vkey.go, text.go, systemsettings.go, ime.go,
-// frame.go, dataformat.go, droptarget.go, menu.go) hold the pure logic
-// behind it (pixel conversion, DPI and size math, message decoding, the
-// pointer state machine, the cursor table, the keyboard translation, line
-// endings, the settings values, the IME events, window placement,
-// hit-testing and icon pixels, the clipboard formats, the drop session and
-// the menu commands), so it is tested on every
+// frame.go, dataformat.go, droptarget.go, menu.go, style.go, dialog.go,
+// shell.go, tray.go, hotkey.go, instance.go, secret.go, trash.go) hold the
+// pure logic behind it (pixel conversion, DPI and size math, message
+// decoding, the pointer state machine, the cursor table, the keyboard
+// translation, line endings, the settings values, the IME events, window
+// placement, hit-testing and icon pixels, the clipboard formats, the drop
+// session, the menu commands, the window styling, and the pure halves of
+// the dialogs, shell calls, trays, hotkeys, single instance, secrets and
+// trash), so it is tested on every
 // OS; the Windows files are exercised by the shared platformtest
 // conformance suite under Wine (and on a real Windows machine, where the
 // live_*_test.go files type on the real keyboard path with SendInput).
@@ -78,7 +82,9 @@
 // plain Go slice used as the bits of SetDIBitsToDevice). Present converts the
 // damaged rectangles from the premultiplied RGBA framebuffer into it and
 // blits them; WM_PAINT repaints from the copy without involving the app.
-// Windows are opaque and alpha is ignored. The window is shown at its first
+// Windows are opaque and alpha is ignored, except under a client-area
+// backdrop (Mica, MicaAlt, Acrylic; windowstyle.go), where the copy keeps
+// the frame's premultiplied alpha. The window is shown at its first
 // Present.
 //
 // # Pointer
@@ -158,8 +164,9 @@
 //     system (the window menu, moving and resizing) swallow key releases, so
 //     WM_EXITMENULOOP and WM_EXITSIZEMOVE release the held keys that are no
 //     longer down.
-//   - The window has no menu, so the system keys that would enter the menu
-//     loop are swallowed: WM_SYSKEYDOWN and WM_SYSKEYUP are not passed to
+//   - The keyboard never enters the menu loop (a menu bar set with SetMenu
+//     is for the mouse), so the system keys that would enter it are
+//     swallowed: WM_SYSKEYDOWN and WM_SYSKEYUP are not passed to
 //     DefWindowProc, and WM_SYSCOMMAND/SC_KEYMENU is dropped unless it is
 //     Alt+Space (the window menu). Alt+F4 and Alt+Space are handed to
 //     DefWindowProc and the app does not see the F4 or the space. A lone Alt
@@ -238,7 +245,8 @@
 // call, and WndProc adopts it at its first message. The frame is not
 // extended into the client area (a one-pixel top margin hid Windows 11's
 // snap layouts flyout from the maximize button of a window in its normal
-// state); DWMWA_WINDOW_CORNER_PREFERENCE asks for rounded corners. A maximized frameless
+// state), except on the left, right and bottom under a client-area
+// backdrop (glassMargins); DWMWA_WINDOW_CORNER_PREFERENCE asks for rounded corners. A maximized frameless
 // window would cover its resize borders, which Windows puts outside the
 // work area (onto the next monitor, under the task bar), so its client
 // area is clipped to the work area of its monitor (Chromium's approach;
@@ -258,7 +266,8 @@
 // WM_DWMCOMPOSITIONCHANGED, WM_POWERBROADCAST, WM_SETTINGCHANGE,
 // activation) is painted again from the retained copy and the next Present
 // is a full one; the corner preference is set again. The retained copy is
-// always opaque (alpha 0xFF), so no pixel can be transparent to DWM.
+// opaque (alpha 0xFF), so no pixel can be transparent to DWM, except under
+// a client-area backdrop (dib.go).
 //
 // WM_NCHITTEST asks DefWindowProc first (the OS frame of decorated windows);
 // inside the client area, the app's window buttons (not at the outermost

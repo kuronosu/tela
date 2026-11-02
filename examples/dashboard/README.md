@@ -1,6 +1,6 @@
 # dashboard
 
-"Frosted graphite": an analytics dashboard, dark first, in the manner of Apple's materials and Raycast. A calm dune wallpaper, three fixed panes of real glass over it (the rail, the main pane and the Pulse pane) and one amber accent. Only the content inside a pane scrolls, so what each blur samples never moves. It is the screen of the phase-16 criterion: the GPU backend draws it at 60 fps at scale 2, and the CPU rasterizer does not (see [Performance](#performance)).
+"Frosted graphite": an analytics dashboard, dark first, in the manner of Apple's materials and Raycast. A calm dune wallpaper, three fixed panes of real glass over it (the rail, the main pane and the Pulse pane) and one amber accent. Only the content inside a pane scrolls, so what each blur samples never moves. It is the screen of the GPU backend's criterion: the GPU backend must draw it at 60 fps at scale 2, and the CPU rasterizer does not (see [Performance](#performance)).
 
 | Dark | Light |
 |---|---|
@@ -21,15 +21,15 @@ The previews: `1 Overview` (the peak's tooltip open, as in the goldens), `2 Boar
 
 ## The glass budget
 
-A `backdrop-blur` is computed again for every pixel that is painted again under it, and on the CPU that is the largest cost of the page (about 25 ns per blurred pixel on one core; the CPU rasterizer keeps no blurred backdrop between frames). The design is heavy on purpose, as the GPU backend's target, but scrolling and resting must stay cheap, so:
+A `backdrop-blur` is computed again for every pixel that is painted again under it, and on the CPU that is the largest cost of the page (about 25 ns per blurred pixel on one core). The rasterizer keeps a filter's output while its input does not change (`raster.BackdropCache`, ADR-200), so only a change under the glass computes the blur again. The design is heavy on purpose, as the GPU backend's target, but scrolling and resting must stay cheap, so:
 
 1. **Blur only where the backdrop is fixed.** The three panes blur the wallpaper, which never moves, and only their content scrolls. The damage of a frame stays what changed (a scrolled table, a bar that grows), and a pane at rest costs nothing.
 2. **No `backdrop-blur` inside an element that is a layer** (opacity under 1, a blend mode, a filter, an animated transform): it turns off the parallel rasterization of the whole frame while it is on screen. The menus, the select's list, the notifications, the tooltips and the toasts animate in and out, so they use the nearly opaque `menu` fill and no blur; the dialogs and the palette blur and animate only their panel's entrance, a few frames.
 3. **No fade over the whole window.** A scrim that fades repaints the whole window on every frame of it: the dialogs' scrim and the palette's appear at once. The palette's veil is a plain translucent scrim, not the blurred veil of the proposal: with `backdrop-blur-[3px]` under it, moving the highlight between two commands cost 31 ms at 1080p (81 ms at scale 2) instead of 24 (54).
-4. **No transition on what a drag crosses.** A transition restyles the page on each of its frames, and a frame that restyles records every layer again; the cards and the columns change at once when the pointer crosses them, so a drag moves one layer and records nothing (`TestDragMoveRecordsNothing`).
-5. **Tables build every row.** A `kit.Table` is not virtualized, and the overview lays out again on every frame of its springs: the overview shows the 30 latest orders, the orders view all 240 (240 rows on the overview made its pipeline five times slower).
+4. **No transition on what a drag crosses.** A transition restyles the page on each of its frames, and a frame that restyles records every layer again; the cards and the columns change at once when the pointer crosses them, so a drag moves one layer and records little (`TestDragMoveRecordsLittle`).
+5. **Tables build every row.** A `kit.Table` without `RowHeight` is not virtualized (ADR-199; this page sets none), and the overview lays out again on every frame of its springs: the overview shows the 30 latest orders, the orders view all 240 (240 rows on the overview made its pipeline five times slower).
 
-The damage of a change under a pane also grows by the blur's reach (about 120 px on each side at `backdrop-blur-2xl`), even for content painted above the blur: dragging a card repaints a region about twice its size.
+The damage of a change under a pane also grows by the blur's reach (about 120 px on each side at `backdrop-blur-2xl`); content painted above the blur, such as a dragged card, does not grow it (ADR-200).
 
 ## Performance
 
@@ -61,7 +61,7 @@ Medians of three runs on an i5-10400 (12 threads, so 12 raster workers), frame t
 
 The sessions differ (this one has the palette, the tasks and the board), so the percentiles compare the two pages' typical frames, not the same actions. What costs is the glass: with the panes' `backdrop-blur-2xl` taken out, a full frame at 1080p takes 10.5 ms instead of 25.8 and a scroll frame 17.7 instead of 36.7. A frame whose damage is under a pane (a spring of the spectrum, a row that slides, a scrolled table) rasterizes the blur of the wallpaper again for every pixel of it and of the blur's reach around it: the period change runs at 18 ms per frame at 1080p for 0.8 Mpx of damage, a scroll of the latest orders at 16 ms. Frames that change little stay cheap (a hover over the rail or the spectrum: 6 ms, with a tooltip; the settle: 4 ms), and the page at rest asks for no frames (`TestIdle`, `TestGoesIdle`, and the end of every session). Per scene at 1080p, scale 1 (p50, p95 in ms): hover sweep 6.3, 7.6; period 18.0, 20.3; metric tab 14.9, 16.8; scroll and fling 15.6, 32.4; dialog and toast 12.9, 37.1; palette 2.9, 26.0; finish and sort 27.1, 35.1; board drag 14.1, 38.0; theme switch 26.5, 28.8.
 
-So the CPU path does not reach 60 fps on this page even at scale 1 (253 of 676 frames over 16.7 ms), and at scale 2 its median frame is 48 ms: the gap that phase 16's GPU backend has to close. The worst phase is always the rasterizer; the pipeline (build, style, layout, paint) has a p50 of 1.5 ms.
+So the CPU path does not reach 60 fps on this page even at scale 1 (253 of 676 frames over 16.7 ms), and at scale 2 its median frame is 48 ms: the gap that the GPU backend has to close. The worst phase is always the rasterizer; the pipeline (build, style, layout, paint) has a p50 of 1.5 ms.
 
 ## Run it
 

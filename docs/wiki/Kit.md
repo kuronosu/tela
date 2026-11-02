@@ -467,7 +467,8 @@ return Div(Dir(f.Dir().String()),
 What kit defaults to English (the date pickers' placeholder and month buttons, a
 dialog's close button, the alert dialog's Cancel and Continue) is a field of the
 component (`Placeholder`, `PreviousLabel`, `NextLabel`, `CloseLabel`, `Cancel`,
-`Action`): fill it from your catalog. The gallery's **Internationalization** page
+`Action`): fill it from your catalog. The `Toaster`'s viewport and close button
+names ("Notifications", "Close toast") are English with no field yet. The gallery's **Internationalization** page
 shows catalogs, plurals and formats next to the date picker with its labels from the
 catalog (`tela dev --preview Internationalization ./examples/kit`), and the Language
 menu in its header turns every other page into Spanish or right-to-left Arabic; see
@@ -506,5 +507,5 @@ anti-aliasing of text.
 - **`Select`** always opens below (or above) its trigger, as shadcn's `position="popper"`; no scroll buttons.
 - **`Toaster`** has no swipe to dismiss, no promise helper (show a `Loading` toast and replace it), no rich colors.
 - **Dates**: no time of day and no typed date segments; `Calendar` has no year and month dropdowns, week numbers or multiple-date mode.
-- **`Table`**: no virtualization, column resizing, row selection or editing.
+- **`Table`**: no column resizing, row selection or editing. It is virtual only when `RowHeight` is set (fixed row height, no `Sticky` columns).
 - **`tela add <component>`**, which copies a component's source into your project (shadcn's model), is not there yet; customization is by recipes.

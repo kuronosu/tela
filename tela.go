@@ -157,7 +157,7 @@
 //
 // An element with overflow-auto or overflow-scroll (per axis:
 // overflow-x-*, overflow-y-*) scrolls with the wheel, the touchpad (with a
-// kinetic fling when the fingers lift), touch, the keyboard (arrows, Page
+// kinetic fling when the fingers lift, except on X11), touch, the keyboard (arrows, Page
 // Up/Down, Home/End, Space) and its scrollbars; overflow-hidden scrolls
 // only from code. The window itself scrolls like a browser page when the
 // content is taller or wider than it ([App].RootClass "overflow-hidden"

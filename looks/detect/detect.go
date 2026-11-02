@@ -25,8 +25,8 @@ import (
 //     colons, such as "KDE" or "ubuntu:GNOME"): KDE (Breeze).
 //   - Linux otherwise (GNOME, and every desktop that is neither): GNOME
 //     (libadwaita).
-//   - macOS: GNOME, until phase 14 adds an Aqua look; the call will then
-//     return it.
+//   - macOS: GNOME, until the macOS backend adds an Aqua look; the call
+//     will then return it.
 //   - Any other system: GNOME.
 func Look() looks.Look {
 	return For(runtime.GOOS, os.Getenv("XDG_CURRENT_DESKTOP"))

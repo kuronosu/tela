@@ -3,9 +3,10 @@
 // the hosts that run a tree in a window or headless. The public packages
 // tela and h are thin wrappers over it.
 //
-// core imports gfx, gfx/raster, text, style, layout, anim, gesture, semantics and
-// platform (with platform/auto for Run); nothing but tela and h imports
-// core (ARCHITECTURE section 5).
+// core imports gfx, gfx/raster, svg, text, text/edit, style, layout, anim,
+// gesture, semantics and platform (with platform/auto for Run). Above it,
+// tela, h, desktop, i18n, aria, telatest and cmd/tela import it, and so
+// does internal/lint for its validation functions (ARCHITECTURE section 5).
 //
 // # Nodes, Elements and Boxes
 //
@@ -209,7 +210,7 @@
 // mode).
 //
 // mapLayoutStyle maps a ComputedStyle onto layout.Style; see it for the
-// approximations (fixed as absolute). Flex and grid containers make every
+// approximations (inline-level boxes). Flex and grid containers make every
 // element child an item and wrap each run of text in an anonymous item;
 // a grid's track lists become a layout.GridTemplate whose pointer is kept
 // while the template is equal (keepGrid). space-x-* and space-y-*

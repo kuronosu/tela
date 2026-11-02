@@ -183,7 +183,7 @@ Hooks keep state and run code across builds, with React's names and semantics:
 
 ### Scrolling
 
-An element with overflow-auto or overflow-scroll (per axis: overflow-x-\*, overflow-y-\*) scrolls with the wheel, the touchpad (with a kinetic fling when the fingers lift), touch, the keyboard (arrows, Page Up/Down, Home/End, Space) and its scrollbars; overflow-hidden scrolls only from code. The window itself scrolls like a browser page when the content is taller or wider than it ([`App`](#type-app).RootClass "overflow-hidden" turns that off); h-screen and h-full on the outer element still mean the window's height. Wheel scrolling chains to the scrolling ancestors at an edge unless overscroll-contain stops it. Scrollbars are thin overlay bars that appear while scrolling; [`App`](#type-app).ClassicScrollbars (or the class scrollbar-classic) draws always-visible classic bars that take space. User scrolling animates; [`App`](#type-app).InstantScroll (or scroll-instant on an element) turns animation and flings off, scroll-smooth turns them back on, and the system's reduced-motion setting always does. Code scrolls with [`ElementRef`](#type-elementref)'s ScrollTo, ScrollBy and ScrollIntoView (animated with scroll-smooth, like CSS), and h.OnScroll and h.OnWheel observe it:
+An element with overflow-auto or overflow-scroll (per axis: overflow-x-\*, overflow-y-\*) scrolls with the wheel, the touchpad (with a kinetic fling when the fingers lift, except on X11), touch, the keyboard (arrows, Page Up/Down, Home/End, Space) and its scrollbars; overflow-hidden scrolls only from code. The window itself scrolls like a browser page when the content is taller or wider than it ([`App`](#type-app).RootClass "overflow-hidden" turns that off); h-screen and h-full on the outer element still mean the window's height. Wheel scrolling chains to the scrolling ancestors at an edge unless overscroll-contain stops it. Scrollbars are thin overlay bars that appear while scrolling; [`App`](#type-app).ClassicScrollbars (or the class scrollbar-classic) draws always-visible classic bars that take space. User scrolling animates; [`App`](#type-app).InstantScroll (or scroll-instant on an element) turns animation and flings off, scroll-smooth turns them back on, and the system's reduced-motion setting always does. Code scrolls with [`ElementRef`](#type-elementref)'s ScrollTo, ScrollBy and ScrollIntoView (animated with scroll-smooth, like CSS), and h.OnScroll and h.OnWheel observe it:
 
 ```go
 list := tela.UseElementRef()
@@ -596,7 +596,7 @@ Quit quits the app: Run returns (and Main with it) after unmounting every window
 func Run(app App) error
 ```
 
-Run opens a window, shows app.Root and runs the event loop until the app quits: the main window is closed (unless App.OnClose says otherwise) or [`Quit`](#func-quit) is called. The windows unmount before Run returns, running the cleanups of their effects. It must be called from the main goroutine, normally from main. The window is drawn by Tela's own renderer on the native backend: Wayland or X11 on Linux, Win32 and Cocoa elsewhere; [`Window`](#type-window) components open more windows.
+Run opens a window, shows app.Root and runs the event loop until the app quits: the main window is closed (unless App.OnClose says otherwise) or [`Quit`](#func-quit) is called. The windows unmount before Run returns, running the cleanups of their effects. It must be called from the main goroutine, normally from main. The window is drawn by Tela's own renderer on the native backend: Wayland or X11 on Linux and Win32 on Windows (macOS has no backend yet, so Run returns an error there); [`Window`](#type-window) components open more windows.
 
 Run returns an error when the platform cannot open a window (for example, no display is available). It panics when app.Root is nil. [`Main`](#func-main) runs it and handles the error.
 
@@ -1568,8 +1568,8 @@ type App struct {
     // [Window] follows it; a menu's own Native setting (kit.NativeOn,
     // kit.NativeOff) wins over it, so a menu can stay drawn while the
     // others are native. Windows has native menus now (context menus, and
-    // menu bars on windows with a title bar of the OS), macOS will in
-    // phase 14; Linux never does, and a frameless Windows window has no
+    // menu bars on windows with a title bar of the OS), macOS will with
+    // its desktop integration; Linux never does, and a frameless Windows window has no
     // menu bar: there the menus are drawn as if this were false.
     //
     // What a native menu cannot show (icons, descriptions, custom content,
@@ -1667,7 +1667,7 @@ tela.App{
 }
 ```
 
-The material follows the dark or light title bar, which follows the app's color scheme. A \[Frameless\] window with a client-area backdrop extends the window frame over its content (DwmExtendFrameIntoClientArea), which Windows 11 may answer by no longer showing the snap layouts flyout over the app's maximize button; keep a frameless window without a backdrop if that matters.
+The material follows the dark or light title bar, which follows the app's color scheme. A frameless window with a client-area backdrop extends the window frame over its content (DwmExtendFrameIntoClientArea), which Windows 11 may answer by no longer showing the snap layouts flyout over the app's maximize button; keep a frameless window without a backdrop if that matters.
 
 Windows 10, Linux and headless ignore Backdrop, and so does Windows 11 before 22H2: the window stays as without it, so an app that leaves its root transparent should still give it a background color for them (a dark: class pair, or a background only where the backdrop is missing). Changing the field of an open [`Window`](#type-window) updates the window.
 
@@ -5075,7 +5075,7 @@ theme.Radius = 10 // shadcn/ui's 0.625rem
 tela.Main(tela.App{Title: "Notes", Root: Notes(), Theme: &theme, RootClass: "bg-background text-foreground"})
 ```
 
-A token missing from Colors keeps its value in DefaultTheme, so the shadcn/ui tokens always resolve. A token name is lowercase letters, digits and dashes, and cannot be a palette color ("red-500", "white") or transparent, current or inherit; [`Run`](#func-run) panics otherwise. Tokens cannot be used inside arbitrary values (bg-\[linear-gradient(...)\]): use the utilities (from-primary, shadow-primary).
+A token missing from Colors keeps its value in DefaultTheme, so the shadcn/ui tokens always resolve. A token name is lowercase letters, digits and dashes, and cannot be a palette color ("red-500", "white") or transparent, current or inherit; [`Run`](#func-run) panics otherwise. A token cannot be written bare inside an arbitrary value (bg-\[linear-gradient(...)\]): write var(--color-primary) there (ADR-202), or use the utilities (from-primary, shadow-primary).
 
 #### func DefaultTheme
 

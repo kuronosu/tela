@@ -53,7 +53,7 @@ CGO_ENABLED=0 go run ./cmd/tela snapshot -o counter.png ./examples/counter
 
 Exit codes: 0 on success, 1 on failure (the message says what and how to fix
 it), 2 on a usage error. `tela lint` exits 1 when it reports something, and 2 when
-a package cannot be loaded. `tela add` is planned, not available yet.
+a package cannot be loaded. `tela add` is deferred, not available.
 
 ## What a package must define
 
@@ -159,7 +159,7 @@ func main() { tela.Main(App) }
 |---|---|
 | `Width`, `Height` | The size of the window, unless `--size` is given (both must be set; otherwise 960x640) |
 | `RootClass`, `ColorScheme`, `Theme`, `ClassAliases` | Applied, as in the window; the app's `ColorScheme` overrides `--dark`, as it overrides the system in a window |
-| `ClassicScrollbars`, `InstantScroll`, `Dev` | Applied (`Dev` false silences the dev messages) |
+| `ClassicScrollbars`, `InstantScroll`, `NativeMenus`, `IgnoreTextScale`, `Dev` | Applied (`Dev` false silences the dev messages) |
 | `Root` | The screen when the package has no `Preview` or `Previews`; otherwise ignored |
 | `Title`, `AppID`, `DevState` | Ignored (`DevState` is for `tela dev`) |
 | `MinWidth`, `MinHeight`, `MaxWidth`, `MaxHeight`, `FixedSize`, `Frameless`, `AlwaysOnTop`, `Hidden`, `Icon`, `TitleBar`, `Backdrop`, `Placement`, `OnClose` | Ignored: they shape the OS window, not its content. The windows a `tela.Window` opens are not rendered (the main window only), and the `desktop` calls return an error (no running app) |
@@ -522,7 +522,7 @@ module that requires Tela.
 ## tela icons gen
 
 ```text
-tela icons gen -pkg <name> [-o outdir] [-r] [-prefix text] [-suffix text] [-skip-invalid] [-minify=false] [-source text] [-license name] [-license-file file] <dir>
+tela icons gen -pkg <name> [-o outdir] [-r] [-prefix text] [-suffix text] [-skip-invalid] [-minify=false] [-source text] [-license name] [-license-file file] [-deprecated file] <dir>
 ```
 
 Reads the `*.svg` files of `<dir>` and writes `outdir/icons_gen.go` with one

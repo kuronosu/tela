@@ -74,9 +74,11 @@ func WifiSwitch() tela.Node {
 }
 ```
 
-There are no checkbox, radio, select or slider elements yet (they arrive with
-the `kit` components in a later phase); a `Button` or `Div` with a `Role`, the
-state props, `TabIndex` and key handlers is how you build them meanwhile.
+There are no checkbox, radio, select or slider elements: [`kit`](Kit) has the
+components (`kit.Checkbox`, `kit.RadioGroup`, `kit.Select`, `kit.Slider`) and
+[`aria`](Aria) the hooks behind them. For a control of your own, a `Button` or
+`Div` with a `Role`, the state props, `TabIndex` and key handlers is how you
+build it.
 
 ### A dialog named by its title
 

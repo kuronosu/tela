@@ -19,8 +19,8 @@ import (
 )
 
 // This file measures the CPU path of the dashboard, the screen of the
-// phase-16 criterion (the GPU backend draws it at 60 fps at scale 2; the
-// CPU rasterizer does not). It drives the page headlessly through a
+// GPU backend's criterion (it must draw it at 60 fps at scale 2; the CPU
+// rasterizer does not). It drives the page headlessly through a
 // scripted session of about 1100 ticks of a 60 Hz clock: hover sweeps
 // (rail, spectrum and row transitions, tooltips), a period change (springs
 // and a sliding pill), a metric tab, scrolling and a fling inside the main

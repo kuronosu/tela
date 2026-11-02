@@ -27,7 +27,7 @@ text tree you can read. That last part is on purpose: Tela is designed so both
 people and LLM agents can build good-looking interfaces without trial and
 error.
 
-> **Status: pre-1.0 (v0.13.0).** Phases 1–12 are done and tagged: Linux
+> **Status: pre-1.0 (v0.13.1).** Phases 1–13 are done and tagged: Linux
 > (Wayland, X11) and Windows windows, text inputs and IME, CSS grid,
 > transitions and animations, glass effects, theme tokens, i18n, SVG icons,
 > `aria` behavior hooks, `tela dev` (a reload that keeps your state) and
@@ -61,11 +61,11 @@ error.
 - **Known vocabulary.** Names copy React (`UseState`, `UseEffect`, `Key`,
   `OnClick`) and classes copy Tailwind v4 verbatim. If an LLM would write it
   in React + Tailwind, it works here.
-- **Real CSS semantics.** Block and flex layout checked against 828 Taffy
-  fixtures and Chromium; box painting, gradients, shadows and blur compared to
-  Chromium's pixels; text shaped with HarfBuzz (bidi, Arabic, CJK, color
-  emoji). SVG icons are compared to Chromium too (Lucide's set, mean under
-  one level per channel).
+- **Real CSS semantics.** Block, flex and grid layout checked against about
+  1,400 Taffy fixtures and Chromium; box painting, gradients, shadows and
+  blur compared to Chromium's pixels; text shaped with HarfBuzz (bidi,
+  Arabic, CJK, color emoji). SVG icons are compared to Chromium too
+  (Lucide's set, mean under one level per channel).
 - **Deterministic.** Embedded fonts and an own rasterizer: same tree, same
   pixels on every platform and architecture. Goldens are bit-exact on amd64
   and arm64.
@@ -193,7 +193,7 @@ tasks as a sortable `kit.Table` (a finished task slides to the end with
 table; a command palette (Ctrl+K) and tooltips built directly on `aria` hooks
 (`UseOverlay`, `UseDialog`, `UseCombobox`, `UseTooltipTrigger`,
 `UseFloating`); `LayoutID` pills, toasts and a theme switch. It is the screen
-of the GPU backend's criterion (phase 16): the CPU rasterizer does not draw it
+of the GPU backend's criterion: the CPU rasterizer does not draw it
 at 60 fps at scale 2. Its benchmarks and its "glass budget" are in its README.
 
 <p align="center">
@@ -306,7 +306,7 @@ VirtualList(100_000, func(int) float32 { return 65 }, func(i int) tela.Component
   `UseMenu`, `UseTabs`, `UseSelect`, `UseCombobox`) and `UseFloating`, a port
   of Floating UI's positioning. Each returns a `Props` value to spread on any
   element, so you style it with plain classes.
-- **`kit`**: 34 ready-made components in the look of shadcn/ui (button, card,
+- **`kit`**: 37 ready-made components in the look of shadcn/ui (button, card,
   input, field, select, tabs, table, dialog, popover, tooltip, toasts, menus,
   checkbox, switch, radio group, slider, calendar, date picker, color picker...),
   built on `aria` and the theme tokens. Struct components with slots, one value
@@ -366,8 +366,8 @@ from it) and the common mistakes, with every code block checked against the curr
 
 ## Project status
 
-**Current version: [v0.13.0](CHANGELOG.md)**, tagged 2026-10-31. Phases 1–12
-are done; v0.13.0 released the work between phases 12 and 13 (ADR-208).
+**Current version: [v0.13.1](CHANGELOG.md)**, tagged 2026-11-01. Phases 1–13
+are done (ADR-208 sets how versions are numbered).
 
 | Phase | Name | State |
 |---|---|---|
@@ -383,9 +383,9 @@ are done; v0.13.0 released the work between phases 12 and 13 (ADR-208).
 | 10 | `kit`: ready-made components on the theme tokens, restyled with recipes | ✅ v0.10.0 |
 | 11 | `tela lint`, `tela mcp`, `llms.txt`, full-screen examples | ✅ v0.11.0 |
 | 12 | Desktop essentials: window control, multiple windows, native dialogs, tray and notifications, app data | ✅ v0.12.0 |
-| 13 | Desktop integration: drag and drop with the OS, native menus, global shortcuts, deep links, secure storage | next (v0.13.1) |
-| 14 | macOS and IME on X11 | planned |
-| 15–20 | Accessibility backends, GPU backend, packaging and auto-update, DevTools, canvas and PDF, audio and video | planned |
+| 13 | Desktop integration: drag and drop with the OS, native menus, global shortcuts, deep links, secure storage | ✅ v0.13.1 |
+| — | The macOS backend | next |
+| — | macOS desktop integration, Linux and Windows parity (IME on X11), font system, accessibility, API and kit gaps, layout and text fidelity, memory, CPU performance, GPU backend, packaging and auto-update, DevTools, dev loop and testing, canvas, SVG and PDF, audio and video | planned |
 
 ### What works today
 
@@ -394,7 +394,7 @@ are done; v0.13.0 released the work between phases 12 and 13 (ADR-208).
 | Window and rendering | ✅ | ✅ | ✅ | ✅ | cross-compiles, no backend yet |
 | Pointer, scroll, keyboard | ✅ | ✅ | ✅ (`telatest`) | ✅ | — |
 | Text fields, clipboard | ✅ | ✅ | ✅ (`telatest`) | ✅ | — |
-| IME (Japanese, Chinese, …) | ✅ (`text-input-v3`) | — (phase 14) | ✅ (injected) | ✅ (IMM32) | — |
+| IME (Japanese, Chinese, …) | ✅ (`text-input-v3`) | — (planned, XIM) | ✅ (injected) | ✅ (IMM32) | — |
 
 Implemented: block, flex and grid layout with relative, absolute, fixed and
 sticky positioning; Tailwind classes and variants; shaped text with fallback;
@@ -411,10 +411,10 @@ overlays; the `tela` CLI (`snapshot`, `inspect`, `dev`, `icons gen`).
 
 ### Not yet, or known limits
 
-- **No macOS window** yet (phase 14); it cross-compiles. No IME on X11 yet
-  (XIM, phase 14).
-- **Glass pages at 2x are not 60 fps while scrolling** on CPU (the phase-6
-  dashboard's p95 was 36–48 ms per frame at 2880×1800 and 4K, 14.6 ms at 1080p).
+- **No macOS window** yet (the next phase); it cross-compiles. No IME on X11
+  yet (XIM, planned).
+- **Glass pages at 2x are not 60 fps** on CPU (the dashboard example's p95 is
+  40 ms per frame at 1080p and scale 2, 17.8 ms at scale 1).
 - Transforms are 2D only; SVG has no text, filters or patterns; no
   `grid-template-areas` from classes; menus have no submenus yet.
 - `tela dev` has not been run on macOS; an IME composition is lost across a
@@ -429,9 +429,13 @@ The full list of limitations is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
   [`tela`](https://pkg.go.dev/github.com/kuronosu/tela) (app, hooks, events,
   style props),
   [`h`](https://pkg.go.dev/github.com/kuronosu/tela/h) (elements, props,
-  helpers) and
+  helpers),
   [`telatest`](https://pkg.go.dev/github.com/kuronosu/tela/telatest) (tests
-  without a window).
+  without a window),
+  [`aria`](https://pkg.go.dev/github.com/kuronosu/tela/aria) (behavior hooks),
+  [`kit`](https://pkg.go.dev/github.com/kuronosu/tela/kit) (components) and
+  [`desktop`](https://pkg.go.dev/github.com/kuronosu/tela/desktop) (desktop
+  services).
 - **Guides on the [wiki](https://github.com/kuronosu/tela/wiki)**: getting
   started, styling, theming, hooks, animation, events, forms, scrolling,
   `aria`, `kit`, icons, internationalization, accessibility, testing and the CLI,
@@ -443,7 +447,7 @@ The full list of limitations is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 |---|---|
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | The design: layers, trees, pipeline, layout, text, input, platform layer |
 | [`docs/adr/`](docs/adr/README.md) | The decision log: one file per ADR, with an index |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Current status, open limitations, next step and the phases left |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Current status, the phases left, live checks and the next step |
 | [`docs/HISTORY.md`](docs/HISTORY.md) | Finished phases, past status notes and the session log |
 | [`CHANGELOG.md`](CHANGELOG.md) | User-visible changes per version |
 | [`THIRD_PARTY.md`](THIRD_PARTY.md) | Ported code and third-party licenses |

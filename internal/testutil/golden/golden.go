@@ -1,7 +1,7 @@
 // Package golden compares images produced by tests against golden PNG files.
 //
 // It is a small, standard-library-only helper shared by the rasterizer tests
-// and, later, telatest. A golden lives at testdata/<name>.png, relative to
+// and telatest. A golden lives at testdata/<name>.png, relative to
 // the working directory of the test (the package directory under go test).
 //
 //	golden.Image(t, "rrect_scale2", img)                          // exact match

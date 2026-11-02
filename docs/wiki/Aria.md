@@ -508,8 +508,9 @@ color name; and there are no localized channel names, only `FormatValue`.
 
 Everything above runs in `telatest`: `app.Click`, `app.Press("Enter")`,
 `app.Press("Space")`, `app.Focus`, `app.Hover`, `app.Expect(loc,
-telatest.Checked(true))`, `app.AriaSnapshot()`. Touch and pen have no
-`telatest` action yet; the package's own tests inject them as platform events.
+telatest.Checked(true))`, `app.AriaSnapshot()`. `app.Tap` and `app.LongPress`
+act as a finger. A pen has no `telatest` action yet; the package's own tests
+inject it as platform events.
 
 ## Calendars: `UseCalendar`, `UseRangeCalendar`
 

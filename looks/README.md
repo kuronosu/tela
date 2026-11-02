@@ -38,7 +38,7 @@ tela.Main(tela.App{
 |---|---|
 | `looks` | the types `Look` and `Regions`, and the `Toggle` variants `Sidebar` and `Toolbar` that every look defines |
 | `looks/win11`, `looks/adwaita`, `looks/breeze` | `Look()`, `Theme()` and `Style()` of each look |
-| `looks/detect` | `Look()`: Windows is win11; Linux with `KDE` in `$XDG_CURRENT_DESKTOP` is breeze, otherwise adwaita; macOS is adwaita until phase 14 adds Aqua. `For(goos, desktop)` for a given system and `All()` |
+| `looks/detect` | `Look()`: Windows is win11; Linux with `KDE` in `$XDG_CURRENT_DESKTOP` is breeze, otherwise adwaita; macOS is adwaita until the macOS backend adds Aqua. `For(goos, desktop)` for a given system and `All()` |
 | `looks/gallery` | `package main`: kit's controls in a look, with a switch between looks and schemes at run time |
 
 `looks` cannot import the look packages (they import it for the types), which
@@ -60,8 +60,9 @@ LOOKS_LOOK=breeze CGO_ENABLED=0 tela snapshot --size 1100x720 --dark -o gallery.
 
 The sidebar (or the menu, or the toolbar's arrows) switches look with
 `tela.SetTheme` and a new `kit.StyleProvider` style. Tests
-(`CGO_ENABLED=0 go test ./...`) hold goldens of every look in both schemes, at
-scale 2, with the menu and the dialog open (`gallery/testdata`; regenerate with
+(`CGO_ENABLED=0 go test ./...`) hold goldens of every look in both schemes at
+1100x720 (the Windows 11 light one also at scale 2), and of each look with the
+dialog (light) and the menu (dark) open (`gallery/testdata`; regenerate with
 `TELA_UPDATE=1`).
 
 ## Limits

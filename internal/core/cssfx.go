@@ -38,7 +38,7 @@ import (
 // # background-clip: text
 //
 // The backgrounds of a box with bg-clip-text are painted inside a mask
-// layer (gfx.PushMaskLayer, ADR-074) whose mask is the glyph runs of the
+// layer (gfx.Builder.PushMaskLayer, ADR-074) whose mask is the glyph runs of the
 // box's text and of its in-flow descendants' (the foreground text of CSS),
 // painted opaque, so the background shows where the glyphs are: color
 // glyphs (emoji) mask with their own alpha, and text decorations are part

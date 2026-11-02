@@ -530,7 +530,7 @@ func (w *windows) MakeDefault(app platform.HandlerApp, a platform.Association) (
 // Windows identifies a desktop app by its executable: RegisterHotKey,
 // the notification area and the single-instance mutex need no entry, so
 // RegisterApp writes nothing (the Start menu shortcut that makes an app
-// "installed" is an installer's, phase 17) and AppStatus reports the app
+// "installed" is an installer's, from packaging) and AppStatus reports the app
 // registered. The registry is not even read.
 
 func (w *windows) RegisterApp(app platform.HandlerApp, _ platform.RegisterOptions) (bool, error) {

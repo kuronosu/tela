@@ -6,7 +6,7 @@
 // The progress is driven by a goroutine ticker through tela.UseValue (see
 // Transport): the seek bar is a kit.Slider whose ValueSource is that Value,
 // so every tick repaints its knob and range without building or laying out
-// a single component. The time label is a tela.TextFn of a second Value that
+// a single component. The time label is an h.TextFn of a second Value that
 // changes once per second. Dragging the bar stores each position in the same
 // Value, which costs a repaint as well.
 //

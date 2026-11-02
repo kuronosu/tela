@@ -4,14 +4,14 @@
 //
 //	tela snapshot [--size WxH] [--scale N] [--dark] [--preview NAME] [-o out.png] <pkg>
 //	tela inspect  [--aria | --layout] [--size WxH] [--dark] [--preview NAME] <pkg>
-//	tela lint     [-json] [-tests] [packages]
+//	tela lint     [-json] [-tests] [-fix] [packages]
 //	tela dev      [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [-v] [pkg]
 //	tela mcp      [--size WxH] [--scale N] [--dark] [--preview NAME] [-v] [pkg]
 //	tela icons gen -pkg <name> [-o outdir] [flags] <dir>
 //	tela new      [-module path] [-skip-deps] <dir>
 //	tela version
 //
-// Both render a package headlessly: the package defines func Preview()
+// snapshot and inspect render a package headlessly: the package defines func Preview()
 // tela.Node (built as a component of its own), or a Previews variable (a
 // tela.Previews map of named tela.Preview screens, each with a Root and an
 // optional Wrap);
@@ -59,7 +59,7 @@
 // counter in main.go, a telatest test, a README and a .gitignore (ADR-128).
 // It runs go get and go mod tidy unless -skip-deps is given.
 //
-// More commands (add) arrive in later phases; see docs/ARCHITECTURE.md
+// tela add is deferred (docs/ROADMAP.md, Deferred); see docs/ARCHITECTURE.md
 // section 17.
 package main
 

@@ -3,8 +3,9 @@
 // events and framebuffers; it does not know gfx. A backend receives a
 // finished *image.RGBA framebuffer plus damage rectangles and shows them.
 //
-// Backends live in subpackages: wayland, x11, win32, cocoa and headless,
-// plus remote, the IPC backend of the dev loop (ADR-112).
+// Backends live in subpackages: wayland, x11, win32 and headless, plus
+// remote, the IPC backend of the dev loop (ADR-112); cocoa is planned (the
+// macOS backend).
 // This package only defines the interfaces, the event set and a few helpers
 // that every backend uses so they behave identically (sizing rule, option
 // validation, framebuffer checks, damage clipping, pixel copies). It imports
@@ -253,7 +254,7 @@
 //     during a composition completes it in the IME without delivering the
 //     result. Surrounding text answers IMR_DOCUMENTFEED and
 //     IMR_RECONVERTSTRING. See the win32 package.
-//   - macOS, NSTextInputClient: setMarkedText:selectedRange:replacementRange:
+//   - macOS (planned), NSTextInputClient: setMarkedText:selectedRange:replacementRange:
 //     is a Preedit (selectedRange gives the cursor), insertText:
 //     replacementRange: a Commit with an empty Preedit, unmarkText a Commit
 //     of the marked text; a replacement range next to the cursor becomes
@@ -261,8 +262,8 @@
 //     cursor area in screen coordinates, selectedRange and
 //     attributedSubstringForProposedRange: the surrounding text;
 //     ResetTextInput is discardMarkedText.
-//   - X11 has no IME yet (XIM is phase 8): SetTextInput and
-//     ResetTextInput do nothing.
+//   - X11 has no IME yet (XIM is a task of the Linux and Windows parity
+//     phase): SetTextInput and ResetTextInput do nothing.
 //   - Headless records the latest state per window and lets tests inject
 //     IMEEvents, checked against these rules like keys.
 //
@@ -495,7 +496,8 @@
 // org.freedesktop.portal.FileChooser (OpenFile, SaveFile, OpenFile with
 // directory for folders; the Request's Response signal answers: 0 chosen,
 // 1 canceled, other codes errors), with the parent window identifier
-// "wayland:<handle>" (xdg-foreign-v2 export) or "x11:<hex XID>"; no message box
+// "x11:<hex XID>" on X11 and none on Wayland (it needs an xdg-foreign-v2
+// export, not done yet); no message box
 // (ErrUnsupported); org.freedesktop.Notifications (the image-data hint
 // for icons; ActionInvoked with "default" is NotificationActivated);
 // StatusNotifierItem registered with org.kde.StatusNotifierWatcher and a
@@ -633,7 +635,8 @@
 // menu). Where the OS has no native menu, both return ErrUnsupported and
 // the layers above draw their own (kit's menus): Wayland and X11 always,
 // frameless Win32 windows for the menu bar (their client area covers the
-// frame), Cocoa until phase 14 (whose menu bar is the app's NSMenu).
+// frame), Cocoa until its desktop integration (whose menu bar is the
+// app's NSMenu).
 //
 // # Global shortcuts
 //
@@ -771,7 +774,9 @@
 // unpainted content (Wayland maps a surface only when a buffer is attached;
 // the other backends delay ShowWindow / XMapWindow / orderFront until then),
 // nor while it is hidden (see "Window control").
-// Windows are opaque in phase 1; backends may ignore alpha.
+// Windows are opaque, except a Windows 11 window with a client-area
+// backdrop ([AlphaPresenter], ADR-187), which shows the frame's alpha;
+// other backends may ignore alpha.
 //
 // # Errors
 //
@@ -809,9 +814,9 @@
 // itself. A pump goroutine calls WaitForEvent and sends each event on a
 // channel. The UI thread blocks in a select over that channel, a wake
 // channel (buffer 1, non-blocking send from Wake), and a frame timer that is
-// armed only while a frame is requested and due later (the timer period
-// follows the monitor refresh rate; X11 has no frame callbacks without the
-// Present extension). Sizes are physical (ConfigureNotify); the scale comes
+// armed only while a frame is requested and due later (a fixed 60 Hz
+// period, FrameInterval; X11 has no frame callbacks without the Present
+// extension). Sizes are physical (ConfigureNotify); the scale comes
 // from Xft.dpi / 96 when set, else 1; logical = LogicalSize(physical,
 // scale). Present uses PutImage (MIT-SHM later), keeping a copy for Expose.
 //
@@ -819,8 +824,9 @@
 // WndProc translates messages into events. Wake posts a private message to a
 // message-only window: PostMessageW to a window, not PostThreadMessageW,
 // because thread messages are dropped while a modal loop (move/resize, menus)
-// runs, a known Win32 quirk. Pacing: a frame request arms a timer or a
-// DwmFlush-paced post of a private message; both are dispatched inside
+// runs, a known Win32 quirk. Pacing: a frame request starts a goroutine
+// that waits in DwmFlush (or sleeps out the refresh interval when it
+// returns at once) and posts a private message, which is dispatched inside
 // modal loops too, so animations continue during a live resize. WM_SIZE and
 // WM_DPICHANGED become a ConfigureEvent followed by a synchronous FrameEvent,
 // so the resized window is painted before DefWindowProc continues. WM_PAINT
@@ -828,7 +834,7 @@
 // (per-monitor DPI v2); scale = dpi / 96. Quit posts WM_QUIT. Implicit
 // pointer capture needs SetCapture / ReleaseCapture.
 //
-// Cocoa via purego. Run calls [NSApp run], which owns the loop; the backend
+// Cocoa via purego (planned). Run calls [NSApp run], which owns the loop; the backend
 // is called back by NSApplication/NSWindow delegates and the NSView
 // subclass, and calls the handler from there. Wake signals a CFRunLoopSource
 // (CFRunLoopSourceSignal + CFRunLoopWakeUp, safe from any thread) added in
@@ -885,7 +891,7 @@
 //   - Global shortcuts: org.freedesktop.portal.GlobalShortcuts only
 //     (CreateSession, BindShortcuts with description and preferred_trigger
 //     in the XDG shortcut format, "CTRL+SHIFT+k" with xkb keysym names,
-//     the parent "wayland:<handle>" when exported; the Response's
+//     an empty parent window; the Response's
 //     shortcuts give trigger_description; Activated, Deactivated,
 //     ShortcutsChanged). xdg-desktop-portal 1.19 and later first need the
 //     app ID (SetAppID) registered
@@ -1034,7 +1040,7 @@
 //     Chromium does. (SHFileOperationW deletes such a file silently with
 //     FOF_NOCONFIRMATION, or asks the user with FOF_WANTNUKEWARNING.)
 //
-// Cocoa (phase 14): NSDraggingDestination and NSDraggingSource,
+// Cocoa (planned): NSDraggingDestination and NSDraggingSource,
 // NSPasteboard, NSMenu (the app's menu bar; window menus return
 // ErrUnsupported), the keychain, NSRunningApplication for single instance,
 // the bundle's Info.plist for schemes and document types, NSFileManager's

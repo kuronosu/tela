@@ -4,93 +4,194 @@
 > Design lives in [`ARCHITECTURE.md`](ARCHITECTURE.md) and decisions in
 > [`adr/`](adr/README.md); finished phases, old status notes and the session
 > log are in [`HISTORY.md`](HISTORY.md), versions in [`CHANGELOG.md`](../CHANGELOG.md).
+> Future phases have no number: a phase takes the next one when it starts, and
+> every open limitation is a task of the phase that fixes it (ADR-218).
 
 ## Current status
 
 - **Done:** phases 1–13. Latest version `v0.13.1` (2026-11-01, phase 13: desktop integration; tagged on `1c6fdd3` with the owner's approval). `main`, the tag and the GitHub wiki (`docs/wiki` at `v0.13.1`, `dcf5958`) are pushed; CI and Site are green on `50fb049`. Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
-- **Phase in progress:** none; phase 14 (macOS and X11 IME) is next.
-- **CI (2026-11-01):** every failure of the last 60 runs is explained (HISTORY.md, 2026-11-01). Three pushes fixed the races they showed: expected values computed before the state settled, effects observed before the event that records them, fixed wall-clock windows, screen reads under other windows. Then a read-only audit of every package's tests, by area, found the rest before the fourth push (the same patterns, Windows file locks, timeouts used as bounds on `tela dev`'s supervisor), all fixed and, where Linux allows, reproduced with injected delays; on `windows-latest` the win32 tests now run alone before the rest of the suite, and the Wine job has `-timeout 20m`.
+- **Phase in progress:** none. The roadmap was reorganized on 2026-11-01 (ADR-218): the old phase 14 is split into the macOS backend, macOS desktop integration, and Linux and Windows parity, and the known limitations are now tasks of phases.
+- **CI (2026-11-01):** every failure of the last 60 runs is explained (HISTORY.md, 2026-11-01); the races they showed are fixed, on `windows-latest` the win32 tests run alone before the rest of the suite, and the Wine job has `-timeout 20m`.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the `v0.13.1` docs. A release commit publishes its own docs before its tag (ADR-208).
-- **Next step:** phase 14, macOS (and X11 IME); its first item, one host-platform flavor read by core's key bindings, `aria` and `telatest`, comes first. R11–R13 of the 2026-10-31 complexity review are still not started.
-- **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`.
-
-## Open known limitations
-
-Still true as of `v0.13.1`; the per-phase lists in HISTORY.md include items fixed since.
-
-- **Layout:** two `w-full aspect-square max-h-[20px]` flex items are clamped by the transferred max (Chromium 140×20, Tela 20×20); a ratio item with an auto or keyword width in a column of indefinite width is 5×5 where Chromium gives 30×30; grid items' percentage min sizes keep the old rule; no margin collapsing, floats or tables (by design, ARCHITECTURE §10); `grid-template-areas` is unreachable from classes.
-- **Text:** at x1.5 a baseline on an exact half device pixel can be drawn one row higher; no hyphenation, skip-ink or synthetic bold/italic; CJK glyph forms ignore the language; debug-overlay labels lay text out at scale 1; static text (`P`, `Span`) cannot be selected, only `Input` and `Textarea` text; a growing textarea (`field-sizing-content`) with long text can widen its grid column past the card unless the column has `min-w-0` (Chromium lets it shrink; found while merging signup into login, unverified against Chromium); interned font faces are never evicted; no test covers a style run that starts inside a grapheme cluster (the itemizer then segments the run alone).
-- **Paint and performance:** Chromium snaps border widths to device pixels at x1.5 and Tela does not; a paint records again only the layers whose content changed (ADR-204), but the root list (everything outside scroll content, deferred layers and hoisted chunks) is recorded whole when anything in it changes (a hover on the dashboard's sidebar: 346 commands), adding or removing a hoisted box records its stacking context's list, and a mounted `TextColorFn`, a box that starts or stops being a layer and layout-animation corrections still record everything; frames that build, restyle or lay out still place every box; mounting the Calendar page takes 20–28 ms; no paint culling of rows hidden by a scroll container (large tables); the Frosted graphite dashboard on the CPU (1080p, 12 raster workers, with the backdrop cache of ADR-200; quiet i5-10400, 2026-10-31): p50 4.2 ms, p95 17.8 ms at x1 over 726 frames (the session grew from 676 with the board cards' transitions, `2f5a037`), p50 9.0 ms, p95 40 ms at x2; a scroll that moves most of the window is still a full frame (the damage matcher gives up, ~28 ms at x1), and a theme switch or the palette opening are full frames (56 ms at x1); backdrop filters inside layers, or over content that changes every frame, are not cached; a frame that is not a pure scroll walks, lays out and re-records every element, including those a scroll container hides (a plain 2000-row `kit.Table` costs 9–15 ms per such frame; `kit.Table.RowHeight` makes it virtual, ADR-199); 3D transforms are out of scope.
-- **Engine:** a passive effect's state never reaches `tela snapshot`, which renders once; an out-of-flow box with auto insets inside a paragraph sits below the paragraph (Chromium: at its place on the line), and an absolute child of a `relative` inline span is placed against the nearest positioned block; `ScrollOffset` read in the layout effect that scrolled returns the old offset (ADR-176).
-- **Input and focus:** a box shown again that flips in the same frame does not restart its entrance; X11 has no IME and no touchpad fling.
-- **API gaps:** no submenus; `tela snapshot` does not show toasts set by effects; no `h.AriaKeyShortcuts` or deferred accessible name (`h.AriaLabelFn`); `Disabled` missing on Tooltip, menu and Select triggers; `aria.UseContextMenuTrigger` exposes no opening number to key a menu per opening (proposed `ContextMenuTriggerResult.Opening`; kit counts openings itself); `kit.ContextMenu` areas are not focusable by default (Radix's model; the demo shows `TabIndex(0)`); SVG has no text, filters, images, patterns or markers; from the phase-10 kit migrations: `kit.Table` has no "never unsorted" sort mode and cannot hide the unsorted arrow; kit's toast viewport and close labels ("Notifications", "Close toast") have no field, so they stay English in the gallery's Spanish and Arabic; the gallery's English demo texts put their final period at the wrong end under RTL; `kit.Field` has no slot by the description or rich labels, and a group inside a `Field` (not a `FieldSet`) is not named by its label; `examples/kit` still shows control-after with `flex-row-reverse`; no `kit.Alert`, Badge tone or dot, loading state on `kit.Button`, leading icon on `kit.Input`, caption on `kit.Separator`, slot beside a `Field`'s label, `animation-delay` utilities, Avatar group or color; Toggle, Slider and Checkbox cannot be a `Trigger` (no tooltips on them) and a trigger takes one overlay; `tela.Preview` takes no theme or color scheme; no `BackgroundGradientFn` and no deferred (`…Fn`) forms of Progress and ToggleGroup; no sort variants for `aria-sort` `other`/`none`; a context menu opened from the keyboard does not know the bounds of the focused element (it opens at the area's corner); `ar-EG` formats Latin digits with the vendored CLDR data (ICU: Arabic-Indic); the README screenshots of the examples migrated to kit are old. No embedded serif font and no API for an app to ship its own fonts (`font-serif` draws Inter); left for later by the owner (2026-10-30) because of binary size.
-- **Desktop integration (phase 13, live checks of 2026-11-01):** on the Windows VM the native suite passes and so do the win32 live tests of OLE drag between windows, clipboard formats, `SetMenu`, `PopupMenu`, Credential Manager, single instance with a real second process, HKCU associations, settings (accent `#0078D4` read from `DWM\AccentColor`), dialogs, tray and backdrops; the global shortcut registers (Bound) but a press injected with `keybd_event` or `SendInput` from a scheduled task never arrives (a real key press is the owner's check); the owner's hand test of `notes.exe` on the VM passed for `start notes://new?text=…` into the running instance, a drop from File Explorer, locking (Credential Manager), moving the file to the Recycle Bin and Ctrl+Alt+N with the window in the background: the phase's done criterion holds on Windows; on Hyprland the owner's hand test passed for `./notes 'notes://new?…'` and `xdg-open` into the running instance (xdg-utils' xdg-open fell back to the browser for a quoted `Exec`, fixed in `76b68b5`), a drop from Nautilus, Quick note through the portal (`hl.dsp.global`) and locked notes with the real keyring: the done criterion holds on Linux too; `TestLiveIME` fails as before (the VM's IME). On the owner's Hyprland the GlobalShortcuts portal works end to end once the app ID is right and the app has a desktop entry (fix in progress, ADR-217); xdg-desktop-portal-hyprland assigns no keys (the user binds `appID:id` in the compositor's config). Not run live yet: Wayland and X11 drag and drop and clipboard data (fake compositor and fake X server only), the Trash on either OS (ADR-216), the Secret Service through notes' prompts. The X11 drag source shows no drag image, and never offers XdndActionAsk. The Win32 native menu bar is mouse-only (Alt and F10 do not open it) and stays light in dark mode. Win32 drop reads have no timeout (a hung source blocks the UI thread). Under `tela dev`, a drop's final effect set inside `OnDrop` does not reach the source, and a refused or taken shortcut status is cached until `tela dev` restarts. Registration's `.desktop` file has `NoDisplay=true`; whether "Open with" dialogs list it is unchecked. `telatest` cannot play Windows' `DefaultAsked` for file types, and gives no start launch. Text fields do not accept text drops by default (HTML's do). `docs/llms.txt` is near `llmsdoc`'s 100 KB limit.
-- **Agent tools:** `tela mcp` runs headless only (no shared real window); its refs are role, name and position, not node identity; `scroll` needs an element; a locator that matches nothing waits 2 s; `notifications/cancelled` is ignored.
-- **Dev loop:** kit components keep aria hook state in refs that `tela dev` cannot keep (silent resets); a renamed component resets; dev builds cannot be debugged (no DWARF); an IME composition is lost across a swap. `watch`'s `TestDirectoryMovedInAndOut/native` failed once on `windows-latest` (`c9aff8d`): nothing was reported for a directory moved into the tree, and no error either; the cause is unknown. The Windows watcher now reports the errors it dropped (a failed walk of a new directory, a failed `Lstat` of a new name) and the test counts overflowed batches, so a next failure says more. On Windows the poller (used only on request or when native watching fails) holds each directory open while it lists it, so a rename of that directory fails for that moment ("being used by another process"). `telatest` waits on a long timer of the app's clock one frame per try (about 120 tries for 2 s), so such a wait depends on the machine's speed; advancing to the next deadline when nothing else is due would make it constant. The win32 keyboard tests inject their "slow" keys 40 ms apart from a goroutine and check the focus only at the start: on CI they rely on running alone.
-- **Desktop:** GNOME's AppIndicator extension applies a tray menu's changes only when the menu opens, so the old label shows for a moment (its design; GTK apps behave the same); a decorated window on a compositor without server-side decorations (GNOME on Wayland) has no title bar unless the app draws one when `State().ClientSideDecorations` says so (no automatic fallback bar yet; `examples/notes` draws `kit.TitleBar`); Linux file dialogs need the XDG Desktop Portal (`xdg-desktop-portal` with a backend) and have no fallback dialog (the owner's choice, 2026-10-27, after an Ubuntu XFCE container without it); Wayland file dialogs have no parent window (no `zxdg_exporter_v2` yet) and no activation tokens are passed to the portal; Wayland cannot place windows or keep them on top, and maximize, the window menu, icons, `xdg-dialog` and session restore are unverified live (sway lacks them; hide and show, notifications and the tray work on Hyprland 0.56, whose Omarchy window rules did not keep the restored size of `examples/notes`); a Wayland window shown again gets a new session restore token (ADR-186); work of a minimized Wayland window waits for the compositor's next frame callback (`xdg_toplevel.suspended` is not used yet); `App.OnClose` is outside the component tree (`examples/notes` bridges it with a package variable) and message boxes have fixed button labels; X11 window positions and interactive moves are unverified on a real EWMH window manager; Windows notifications have no actions (balloons; WinRT toasts later) and each one adds a notification-area icon while it lives; tray icons are not redrawn on DPI changes; the drawn message box's labels are English only (no i18n hook); a saved window position is not clamped to the monitors present at the next start; `desktop` stores do not see changes other programs make to their files; under `tela dev`, a window a new build opens only later (from an effect) closes and reopens on reload, a dialog opened at startup shows again on every reload, and a reload while a Wayland window is minimized can stall (as before); `tela mcp` sees only the main window; the tray and notification icons' alpha is not checked visually; `TestLiveIME` fails on the Windows VM at `v0.11.0` too (the VM's Japanese IME does not compose, an environment issue). Windows 11: rounded corners and Mica are unverified on real hardware (the VM has no GPU and draws square corners and a solid backdrop), and a frameless window with a client-area backdrop extends its DWM frame, which may hide the snap layouts flyout again (unverified); under `tela dev` the backdrop does not reach the client area.
-- **Platforms:** the win32 tests that read the screen (title bar colors, backdrop, frameless modal and glass pixels) and those that open real dialogs run only with `TELA_LIVE=1`, so CI checks their attributes but not their pixels; Windows verified on a VM at scale 1 only (`v0.10.4` test binaries and live gallery; native `go test ./...` at phases 11 and 12, the last on 2026-10-28, and the win32 live tests); X11 live only at scale 1 (no `Xft.dpi`); macOS is phase 14; `wtype` cannot type into Xwayland windows (Hyprland, not Tela).
+- **Next step:** the macOS backend (phase 14 when it starts), first the host-platform flavor, which needs no Mac. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Agents never push, so every `macos-latest` CI run waits for the owner's push.
 
 ## Phases
 
-Each phase ends with verifiable criteria. A phase is not done unless its criteria pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). Phases 1–13 are done (HISTORY.md).
+In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–13 are done (HISTORY.md).
 
-### Phase 14: macOS (and X11 IME)
+### macOS backend
+
+Verified on `macos-latest` CI; what needs a real Mac goes to the macOS live checks.
 
 - [ ] First: one host-platform flavor (Linux, Windows, Mac) read by `core`'s key bindings and word rules, `aria`'s `ctrlKey` and `telatest`'s `ControlOrMeta`, overridable in tests so Mac behavior runs off-Mac (codebase review 2026-10-29, C11; a public "primary modifier" query needs an ADR)
-- [ ] `cocoa` backend via purego, with CI on `macos-latest`: window, event loop, present, HiDPI, keyboard, pointer, clipboard, settings
-- [ ] IME on macOS (`NSTextInputClient`) and on X11 (XIM)
-- [ ] macOS parity for every phase-12 and phase-13 item
+- [ ] `cocoa` backend via purego, with a CI job on `macos-latest`: app and event loop, window, present, HiDPI, frame pacing, keyboard, pointer and trackpad scrolling (precise deltas, gesture phases, momentum), cursors, text clipboard, settings (dark mode, accent, reduced motion, contrast)
+- [ ] IME through `NSTextInputClient`, with tests that drive the protocol in CI
+- [ ] `tela dev` with a cocoa host
+- [ ] `looks/aqua` and its entry in `detect.For` (ADR-197)
 
-**Done when:** every example runs on macOS with snapshots pixel-identical up to text antialiasing, Japanese can be typed through the IME on macOS and on X11, and the phase-12/13 examples run on all three platforms.
+**Done when:** every example runs on `macos-latest` with snapshots pixel-identical up to text antialiasing, and the IME composition tests pass there.
 
-### Phase 15: Accessibility
+### macOS desktop integration
 
-Strictly after phase 14: the bridges for AT-SPI, UI Automation and NSAccessibility are verified together (the owner chose strict order over starting the Linux and Windows bridges in parallel).
+Phases 12 and 13 on macOS. Verified on `macos-latest` CI; the rest goes to the macOS live checks.
+
+- [ ] A minimal `.app` bundle for development builds (Info.plist with the app's ID): notifications, links, file types and single instance need one; packaging reuses it
+- [ ] Window control: minimize, zoom, fullscreen, always-on-top, position, min/max size, child and modal windows, a custom title bar with the system's window buttons, a vibrancy backdrop
+- [ ] Services: open URI and path, file dialogs, message boxes, notifications, tray (`NSStatusItem`)
+- [ ] Native menus: the app's menu bar (one per app, not per window; needs an ADR) and context menus
+- [ ] Drag and drop, pasteboard formats
+- [ ] Global shortcuts, single instance, deep links and file types (Info.plist and Launch Services, through `assoc`), Keychain, Trash
+
+**Done when:** `examples/notes` meets the phase-12 and phase-13 criteria on `macos-latest` where CI can drive them; the rest is in the macOS live checks.
+
+### Linux and Windows parity
+
+Gaps in the existing backends. Verified on the owner's Linux machine and the Windows VM.
+
+- [ ] IME on X11 (XIM)
+- [ ] Touchpad fling on X11
+- [ ] The X11 drag source shows a drag image and offers `XdndActionAsk`
+- [ ] Wayland: file dialogs get their parent window (`zxdg_exporter_v2`) and activation tokens are passed to the portal; a minimized window's work stops waiting for the compositor's next frame callback (`xdg_toplevel.suspended`)
+- [ ] A fallback title bar when the compositor has no server-side decorations (GNOME on Wayland); today the app draws one when `State().ClientSideDecorations` says so (`examples/notes` draws `kit.TitleBar`)
+- [ ] Win32: the native menu bar opens with Alt and F10 and follows dark mode (it is mouse-only and stays light); drop reads get a timeout (a hung source blocks the UI thread)
+- [ ] Windows notifications with actions (WinRT toasts; today balloons), without a notification-area icon per notification
+- [ ] Tray icons are redrawn on DPI changes
+
+**Done when:** Japanese can be typed through XIM on X11, and each item works on the owner's Linux machine or the Windows VM.
+
+### Font system
+
+How Tela ships and loads fonts. Before the API freeze, since it can add public API and change which fonts an app carries by default.
+
+- [ ] Baseline: `examples/hello` is 25.6 MB (20.2 MB with `-s -w`), and 7.2 MB of it are the six embedded fonts (Noto Color Emoji alone 5 MB, Inter's two files 1.8 MB, Noto Sans Arabic 0.8 MB, JetBrains Mono 0.6 MB). Every app parses all six at start (about 70 ms of work, 40 ms of it Noto Color Emoji, whose outlines go-text parses up front), and keeps them in memory whether its text needs them or not
+- [ ] An ADR on the options, keeping ADR-008's deterministic pixels for tests and snapshots: fewer or subset embedded fonts; fonts an app opts into (separate modules like `icons/lucide`, or build tags); compressed embedding (the standard library's `compress/flate`; WOFF2 needs a Brotli decoder, a new dependency); system fonts by default with the embedded ones for tests (go-text's `fontscan` already indexes them, opt-in and internal today)
+- [ ] Parse a font when text first needs it, not at start
+- [ ] An API for an app to ship its own fonts, and a serif face for `font-serif` (today it draws Inter; deferred by the owner on 2026-10-30 because of binary size)
+
+**Done when:** the ADR's choice is in, an app can ship its own fonts, goldens stay bit-identical wherever the default fonts did not change, and `examples/hello`'s binary size, start-up parse time and font memory are measured before and after.
+
+### Accessibility
+
+Strictly after the two macOS phases: the bridges for AT-SPI, UI Automation and NSAccessibility are verified together (the owner chose strict order over starting the Linux and Windows bridges in parallel).
 
 - [ ] AT-SPI over D-Bus (pure Go)
 - [ ] UI Automation over COM
 - [ ] NSAccessibility
 - [ ] The semantics tree covers `aria` and `kit` roles, states, actions and live regions
+- [ ] `h.AriaKeyShortcuts` and a deferred accessible name (`h.AriaLabelFn`)
 
-**Done when:** a screen reader reads, navigates and operates the `login` example (with `signup` merged in, ADR-195) on Linux, Windows and macOS.
+**Done when:** a screen reader reads, navigates and operates the `login` example (with `signup` merged in, ADR-195) on Linux and Windows; VoiceOver on macOS is in the macOS live checks.
 
-### Phase 16: GPU backend
+### API and kit gaps
 
-Independent of phases 14–15 and the hardest technical item (`tela-hard`).
+What building the examples showed missing in `tela`, `h`, `aria`, `kit` and `desktop`.
 
+- [ ] Menus and triggers: submenus; `Disabled` on Tooltip, menu and Select triggers; Toggle, Slider and Checkbox as `Trigger`s (so they can have tooltips), and more than one overlay per trigger; `aria.UseContextMenuTrigger` exposes an opening number to key a menu per opening (proposed `ContextMenuTriggerResult.Opening`; kit counts openings itself); a context menu opened from the keyboard knows the focused element's bounds (it opens at the area's corner); decide whether `kit.ContextMenu` areas are focusable by default (Radix's model says no; the demo shows `TabIndex(0)`)
+- [ ] New kit pieces: `kit.Alert`, Badge tone and dot, a loading state on `kit.Button`, a leading icon on `kit.Input`, a caption on `kit.Separator`, Avatar group and color, `animation-delay` utilities
+- [ ] `kit.Field`: a slot by the description, rich labels, a slot beside the label, and a group inside a `Field` (not a `FieldSet`) named by its label
+- [ ] `kit.Table`: a "never unsorted" sort mode and a way to hide the unsorted arrow; sort variants for `aria-sort` `other`/`none`
+- [ ] Deferred forms: `BackgroundGradientFn`, and `…Fn` forms of Progress and ToggleGroup; `tela.Preview` takes a theme and a color scheme
+- [ ] i18n: fields for kit's toast viewport and close labels ("Notifications", "Close toast" stay English in the gallery's Spanish and Arabic); message boxes' button labels, native and drawn, get an i18n hook; `ar-EG` formats Arabic-Indic digits as ICU does (the vendored CLDR data gives Latin)
+- [ ] App and desktop: `App.OnClose` inside the component tree (`examples/notes` bridges it with a package variable); text fields accept text drops by default, as HTML's do; a saved window position is clamped to the monitors present at the next start; `desktop` stores see changes other programs make to their files
+- [ ] Examples: the gallery's English demo texts end their sentences at the right side under RTL; `examples/kit` shows control-after without `flex-row-reverse`; new README screenshots of the examples migrated to kit
+
+**Done when:** each item has its API, an ADR where it adds public API, and a test or golden, and the kit gallery shows the new pieces in its three locales.
+
+### Layout, text and engine fidelity
+
+Differences from Chromium and missing typography; each fix comes with a fixture or golden.
+
+- [ ] Layout: two `w-full aspect-square max-h-[20px]` flex items are clamped by the transferred max (Chromium 140×20, Tela 20×20); a ratio item with an auto or keyword width in a column of indefinite width is 5×5 where Chromium gives 30×30; grid items' percentage min sizes keep the old rule; `grid-template-areas` is unreachable from classes; an out-of-flow box with auto insets inside a paragraph sits below the paragraph (Chromium: at its place on the line); an absolute child of a `relative` inline span is placed against the nearest positioned block
+- [ ] A growing textarea (`field-sizing-content`) with long text can widen its grid column past the card unless the column has `min-w-0`; check against Chromium first (Chromium lets it shrink; found while merging signup into login)
+- [ ] Text: selectable static text (`P`, `Span`; today only `Input` and `Textarea`); at x1.5 a baseline on an exact half device pixel can be drawn one row higher; hyphenation, skip-ink, synthetic bold and italic; CJK glyph forms follow the language; a test for a style run that starts inside a grapheme cluster (the itemizer then segments the run alone)
+- [ ] Paint: border widths snap to device pixels at x1.5, as in Chromium
+- [ ] Engine: `ScrollOffset` read in the layout effect that scrolled returns the new offset (ADR-176); a box shown again that flips in the same frame restarts its entrance
+- [ ] Re-measure the scale-2 tolerances that about 12 Chromium comparison tests in `internal/core` and `internal/text` justify with ADR-048: ADR-159 superseded it (line boxes in device pixels, as Blink), so they may be looser than needed
+
+**Done when:** every case above has a fixture or golden that matches Chromium up to text antialiasing, and static text can be selected and copied.
+
+### Memory
+
+Find where RAM goes and reduce it. Before CPU performance, whose caches trade memory for speed.
+
+- [ ] A repeatable measurement: Go heap profiles (pprof `inuse_space`, `alloc_space`) and the process's RSS for `examples/hello`, the kit gallery, `dashboard` and `notes`, at x1 and x2, at rest and through the dashboard's scripted session, run by one command so regressions show
+- [ ] Check the suspects the profile ranks (none measured yet): the parsed fonts (see Font system), interned font faces that are never evicted, framebuffers and the copies made around `Present` (one RGBA buffer of a 1080p window at x2 is about 33 MB), the raster workers' buffers, the backdrop cache (ADR-200), the layers' display lists, glyph caches
+- [ ] Reduce the largest consumers, each change measured and the goldens unchanged
+
+**Done when:** the measurement runs from one command with a recorded baseline, and the largest consumers it found are reduced or explained, with the before and after numbers for each example.
+
+### CPU performance
+
+The frame cost of the engine and the CPU rasterizer; the GPU backend builds on it. Baseline, the Frosted graphite dashboard (1080p, 12 raster workers, backdrop cache of ADR-200; quiet i5-10400, 2026-10-31): p50 4.2 ms, p95 17.8 ms at x1 over 726 frames; p50 9.0 ms, p95 40 ms at x2.
+
+- [ ] Recording: a paint records again only the layers whose content changed (ADR-204), but the root list (everything outside scroll content, deferred layers and hoisted chunks) is recorded whole when anything in it changes (a hover on the dashboard's sidebar: 346 commands); adding or removing a hoisted box records its stacking context's list; a mounted `TextColorFn`, a box that starts or stops being a layer and layout-animation corrections still record everything
+- [ ] Layout and walks: frames that build, restyle or lay out still place every box; a frame that is not a pure scroll walks, lays out and re-records every element, including those a scroll container hides (a plain 2000-row `kit.Table`: 9–15 ms per such frame; `kit.Table.RowHeight` makes it virtual, ADR-199); no paint culling of rows a scroll container hides; mounting the Calendar page takes 20–28 ms
+- [ ] Damage: a scroll that moves most of the window is a full frame (the damage matcher gives up, ~28 ms at x1); a theme switch and the palette opening are full frames (56 ms at x1)
+- [ ] Caches: backdrop filters inside layers, or over content that changes every frame, are not cached
+- [ ] `examples/dashboard/README.md`'s Performance section was measured before ADR-200 and ADR-204 (676 frames, p50 15.2 ms, p95 34.4 ms at x1): measure again and rewrite it
+
+**Done when:** the dashboard's p95 at x1 is under 16.7 ms on the CPU, a scroll of most of the window and a theme switch cost less than a full frame, and a frame of a plain 2000-row `kit.Table` that is not a scroll no longer lays out the hidden rows.
+
+### GPU backend
+
+The hardest technical item (`tela-hard`). It changes no public API.
+
+- [ ] First: an ADR on presenting from the GPU without libwayland or libxcb, since Tela speaks both protocols in Go: dmabuf buffers through `zwp_linux_dmabuf_v1` and DRI3/Present, or a copy into `wl_shm`. It also settles what purego means for Linux binaries (dynamic linking)
 - [ ] Vulkan (Linux, Windows) and Metal (macOS) via purego/syscall over the same DisplayList, with the fixed shader set of ARCHITECTURE §13
 - [ ] D3D11 on Windows optional
 - [ ] The CPU rasterizer stays the reference for goldens; GPU output is checked against it within a tolerance
 
-**Done when:** the `dashboard` example renders at 60 fps at scale 2 on the GPU backend (the CPU one does not reach it) and GPU snapshots stay within the agreed tolerance of the CPU goldens.
+**Done when:** the `dashboard` example renders at 60 fps at scale 2 on the GPU backend on the owner's Linux machine (RTX 3060 Ti and UHD 630), and GPU snapshots stay within the agreed tolerance of the CPU goldens; Metal and Windows GPUs are in the live checks (the Windows VM has no GPU).
 
-### Phase 17: Packaging and auto-update
+### Packaging and auto-update
 
-- [ ] `tela build` / `tela package`: installers and bundles (`.msi`/MSIX, `.app`/`.dmg`, AppImage, flatpak, `.deb`), icons, metadata, code-signing hooks
+- [ ] `tela build` / `tela package`: installers and bundles (`.msi`/MSIX, `.app`/`.dmg` on the development bundle of the macOS desktop phase, AppImage, flatpak, `.deb`), icons, metadata, code-signing hooks (macOS notarization needs an Apple developer account)
 - [ ] Windows targets are GUI programs by default (`-H=windowsgui`, no console window next to the app; ADR-127), with panics and the app's log written to a file in its data directory, since a GUI program has no standard output
 - [ ] Auto-update: signed manifests, delta or full downloads, atomic replace, rollback
 - [ ] Crash reporting hook and structured logging
 
 **Done when:** a sample app is packaged for three platforms from one command and updates itself from a signed manifest.
 
-### Phase 18: DevTools
+### DevTools and agents
+
+Inspecting and driving a running app.
 
 - [ ] Live inspector: element tree, computed style, hooks and state, re-render counts, accessibility tree
 - [ ] Frame profiler
 - [ ] Connect to a running app and pick an element
+- [ ] `tela mcp` on a running app's real windows, all of them (today headless only, and only the main window)
+- [ ] `tela mcp`: refs keep node identity (today role, name and position); `scroll` without an element; a locator that matches nothing does not always wait 2 s; `notifications/cancelled` is honored
+- [ ] `tela snapshot` shows a passive effect's state and toasts set by effects (it renders once)
+- [ ] Debug-overlay labels are laid out at the display scale (today at scale 1)
 
-**Done when:** DevTools shows why a given element re-rendered and where a frame spent its time.
+**Done when:** DevTools shows why a given element re-rendered and where a frame spent its time, and `tela mcp` drives a running app's windows.
 
-### Phase 19: Canvas and PDF
+### Dev loop and testing
 
-Both sit on the `DisplayList`, so they are cheap next to the rest.
+`tela dev`, `telatest`, `watch` and the test infrastructure.
+
+- [ ] `tela dev` keeps what a swap loses today: kit components' aria hook state held in refs (silent resets), a renamed component's state, an IME composition
+- [ ] `tela dev` with desktop services: a drop's final effect set inside `OnDrop` reaches the source; a refused or taken shortcut status is not cached until `tela dev` restarts; a window a new build opens only later (from an effect) does not close and reopen on reload; a dialog opened at startup does not show again on every reload; a reload while a Wayland window is minimized does not stall; the Windows 11 backdrop reaches the client area
+- [ ] Dev builds can be debugged (DWARF)
+- [ ] `telatest`: plays Windows' `DefaultAsked` for file types and gives a start launch; a wait on a long timer of the app's clock advances to the next deadline when nothing else is due (today one frame per try, about 120 tries for 2 s, so it depends on the machine's speed)
+- [ ] `watch`: find why `TestDirectoryMovedInAndOut/native` failed once on `windows-latest` (`c9aff8d`: nothing reported for a directory moved into the tree, no error; the watcher and the test now report more); the Windows poller holds each directory open while it lists it, so a rename of that directory fails for that moment
+- [ ] CI: the win32 tests that read the screen (title bar colors, backdrop, frameless modal and glass pixels) or open real dialogs run only with `TELA_LIVE=1`, so CI checks their attributes but not their pixels; the win32 keyboard tests inject their "slow" keys 40 ms apart from a goroutine and check the focus only at the start, so they rely on running alone; a global-shortcut press injected with `keybd_event` or `SendInput` from a scheduled task never arrives, so only a real key press checks it
+- [ ] `docs/llms.txt` is near `llmsdoc`'s 100 KB limit
+
+**Done when:** each item has a test that failed before it, on Linux and Windows CI.
+
+### Canvas, SVG and PDF
+
+Vector output on the `DisplayList`.
 
 - [ ] `Canvas` (2D): immediate-mode drawing surface (paths, gradients, text, images) with an animation-frame callback
+- [ ] SVG: text, filters, images, patterns and markers
 - [ ] Printing and PDF export: a vector PDF backend over the DisplayList (fonts embedded, gradients, clip, opacity), print dialogs, page-break CSS subset
 
-**Done when:** a `Canvas` example animates at 60 fps and a page exports to a PDF that two viewers render identically.
+**Done when:** a `Canvas` example animates at 60 fps, the new SVG features match their resvg test cases, and a page exports to a PDF that two viewers render identically.
 
-### Phase 20: Audio and video
+### Audio and video
 
 Highest uncertainty of the roadmap: pure-Go decoders limit the codecs.
 
@@ -99,6 +200,53 @@ Highest uncertainty of the roadmap: pure-Go decoders limit the codecs.
 - [ ] 3D (exploratory, ADR first; transforms stay 2D until then) lives here or in the backlog
 
 **Done when:** a "player" example plays an audio file and a video with synced controls.
+
+## Live checks (not blocking)
+
+Checks that need hardware or a desktop the project does not have at hand. They never block a phase. Each list runs in one session when the owner can arrange it, and the results go to HISTORY.md. Phases add their items here as they finish.
+
+### macOS: one session on a real Mac (rented or borrowed)
+
+This session gates v1.0's "macOS supported". Items a phase adds after the session wait for a later one.
+
+- [ ] Every example at Retina scale; trackpad scrolling, momentum and gestures; Cmd shortcuts and word movement
+- [ ] Japanese through the macOS IME
+- [ ] `examples/notes`: tray, notifications, file dialogs, two windows, a persisted position, a file dropped from Finder, the global shortcut in the background, a deep link into the running instance, a note locked in the Keychain, the Trash
+- [ ] After Accessibility: VoiceOver reads, navigates and operates `login`
+- [ ] After the GPU backend: Metal draws the dashboard at 60 fps at scale 2
+- [ ] After packaging: a signed and notarized `.app`/`.dmg` installs and updates
+
+### Windows on real hardware
+
+The VM has no GPU and runs at scale 1.
+
+- [ ] Scales above 1 (per-monitor DPI)
+- [ ] Windows 11 rounded corners and Mica (the VM draws square corners and a solid backdrop); a frameless window with a client-area backdrop extends its DWM frame, which may hide the snap layouts flyout again
+- [ ] The tray and notification icons' alpha, by eye
+- [ ] After the GPU backend: Vulkan (and D3D11 if built) on a real GPU
+
+### Linux desktops
+
+On the owner's Hyprland, a headless sway, or a GNOME or KDE session.
+
+- [ ] X11 drag and drop, drags out of a Wayland window, and clipboard data (images, files, rich text) on both, with real apps (so far a fake compositor and a fake X server; a drop from Nautilus into a Wayland window is checked)
+- [ ] The Trash (the portal, and the home trash)
+- [ ] The Secret Service's unlock prompts through `examples/notes`
+- [ ] X11 at scale 2 (`Xft.dpi`); X11 window positions and interactive moves on a real EWMH window manager
+- [ ] Wayland maximize, the window menu, icons, `xdg-dialog` and session restore on a compositor that has them (sway lacks them)
+- [ ] "Open with" dialogs list an app registered with `NoDisplay=true`
+- [ ] The tray and notification icons' alpha, by eye
+
+## By design or outside Tela
+
+Not planned; the owner can reopen any of them.
+
+- No margin collapsing, floats or tables (ARCHITECTURE §10); 3D transforms are out of scope (see Audio and video).
+- Linux file dialogs need the XDG Desktop Portal (`xdg-desktop-portal` with a backend) and have no fallback dialog (the owner's choice, 2026-10-27).
+- Wayland cannot place windows or keep them on top; a Wayland window shown again gets a new session restore token (ADR-186).
+- GNOME's AppIndicator extension applies a tray menu's changes only when the menu opens, so the old label shows for a moment (its design; GTK apps behave the same).
+- xdg-desktop-portal-hyprland assigns no keys to global shortcuts: the user binds `appID:id` in the compositor's config.
+- Environment: Omarchy's window rules on Hyprland 0.56 did not keep the restored size of `examples/notes`; `wtype` cannot type into Xwayland windows (Hyprland); the Windows VM's Japanese IME does not compose, so `TestLiveIME` fails there.
 
 ## Website (ADR-206)
 
@@ -112,7 +260,7 @@ Highest uncertainty of the roadmap: pure-Go decoders limit the codecs.
 `v1.0.0` is not scheduled; these gate it.
 
 - Phase 7's breaking changes are done and their deprecations removed. From phase 10 (`kit` on the final API) on, **breaking changes need an ADR and a deprecation cycle**.
-- The API freezes when phases 7–15 are done: stable `tela`, `h`, `aria`, `kit` and `telatest`; Linux (Wayland and X11), Windows and macOS supported; accessibility working on all three. The GPU backend (16) changes no public API and does not gate it.
+- The API freezes when the phases up to Accessibility are done: stable `tela`, `h`, `aria`, `kit` and `telatest`; Linux (Wayland and X11), Windows and macOS supported, macOS once its live-check session passes; accessibility working on all three. The GPU backend changes no public API and does not gate it.
 - Godoc and wiki cover every exported symbol with a runnable example; `llms.txt` matches the API.
 - At least two non-trivial applications outside the repository build against each release in CI.
 
@@ -120,9 +268,9 @@ Highest uncertainty of the roadmap: pure-Go decoders limit the codecs.
 
 Optional, outside the core module. Until `tela add` exists (see "Deferred") they are plain Go modules that applications import. They are not scheduled; each starts when a real application needs it.
 
-- **Charts:** line, bar, area, pie, scatter, axes, tooltips, built on `Canvas` (phase 19) or plain `Div`/SVG until then
+- **Charts:** line, bar, area, pie, scatter, axes, tooltips, built on `Canvas` (Canvas, SVG and PDF) or plain `Div`/SVG until then
 - **DataGrid / TreeView:** sortable, resizable, editable cells, row selection, grouping, tree expansion, on top of `VirtualList`; the simple `Table` in `kit` stays in core
-- **Looks (`looks/`, ADR-197):** done for Windows 11, GNOME and KDE (`win11`, `adwaita`, `breeze`, `detect`, and a gallery); phase 14 adds `looks/aqua` and its entry in `detect.For`
+- **Looks (`looks/`, ADR-197):** done for Windows 11, GNOME and KDE (`win11`, `adwaita`, `breeze`, `detect`, and a gallery); the macOS backend adds `looks/aqua` and its entry in `detect.For`
 
 ## Deferred (not discarded)
 

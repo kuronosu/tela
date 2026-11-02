@@ -191,7 +191,7 @@
 //
 // # Headless rendering without a test
 //
-// [Render], [AriaSnapshot] and [LayoutJSON] mount a tree, run one frame and
-// return the image, the aria snapshot or the layout JSON, for tools. `tela
-// snapshot` and `tela inspect` are built on them.
+// [Render], [AriaSnapshot] and [LayoutJSON] mount a tree, run frames until it
+// is quiet and return the image, the aria snapshot or the layout JSON, for
+// tools. `tela snapshot` and `tela inspect` are built on them.
 package telatest

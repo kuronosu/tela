@@ -60,7 +60,8 @@
 // two-point (focal) gradients (gradient.go: CSS geometry, the Canvas and
 // COLRv1 definition for the two-point gradient with its parameter solved
 // per pixel as the largest root of a quadratic, transparent outside its
-// cone; pad spread, premultiplied interpolation in Oklab or sRGB of the
+// cone; pad, reflect or repeat spread (ADR-095), premultiplied
+// interpolation in Oklab or sRGB of the
 // unclipped extended sRGB stops, each pixel clipped per channel, through
 // 256-entry ramps per stop segment, exact hard stops) and images (image.go:
 // nearest or bilinear sampling, clamped to the Src rectangle).

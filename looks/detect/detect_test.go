@@ -19,7 +19,7 @@ func TestFor(t *testing.T) {
 		{"linux", "ubuntu:GNOME", "GNOME"},
 		{"linux", "", "GNOME"},
 		{"linux", "sway", "GNOME"},
-		{"darwin", "", "GNOME"}, // until phase 14 adds Aqua
+		{"darwin", "", "GNOME"}, // until the macOS backend adds Aqua
 		{"darwin", "KDE", "GNOME"},
 		{"freebsd", "KDE", "GNOME"},
 	} {

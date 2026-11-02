@@ -27,7 +27,7 @@ const (
 	DisplayInlineFlex
 	DisplayInlineGrid
 	// DisplayContents removes the box and lifts its children into the
-	// parent. Layout may not support it yet.
+	// parent (core's box phase does it; layout never sees the box).
 	DisplayContents
 	DisplayNone
 )

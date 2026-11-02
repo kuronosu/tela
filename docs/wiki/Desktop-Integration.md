@@ -118,7 +118,7 @@ can copy.
 An element with [`Draggable(true)`](API-Reference-h#func-draggable) is a source.
 When a press on it becomes a drag, its `OnDragStart` gets an empty
 `DataTransfer` to fill. If the handler puts data in it, Tela starts a real drag:
-the OS carries the data under the pointer, with a picture of the element, until
+the OS carries the data under the pointer, with a picture of the element (not on X11, which shows none), until
 the user drops it.
 
 ```go
@@ -540,7 +540,7 @@ if errors.Is(err, desktop.ErrUnsupported) {
 
 Tela follows more of the user's system settings than dark mode and reduced
 motion: the accent color, high contrast and the text scale. Linux reads them from
-the settings portal (so dark mode now works on Wayland and X11 too), and Windows
+the settings portal (so dark mode follows the system on Wayland and X11 too), and Windows
 from the registry and its change notifications. A change reaches the running app
 at once.
 
@@ -606,12 +606,12 @@ from that:
 ## Platform notes
 
 Linux is Wayland and X11 over the XDG Desktop Portal and the freedesktop D-Bus
-services; macOS has no window yet (phase 14).
+services; macOS has no window yet (its backend is the next phase).
 
 | | Linux | Windows |
 |---|---|---|
 | Drag and drop | Wayland `wl_data_device`, X11 XDND | OLE `DoDragDrop` and `RegisterDragDrop` |
-| Clipboard | Text, HTML, PNG images, files and custom types on Wayland and X11 (X11 had no clipboard before this) | The same types |
+| Clipboard | Text, HTML, PNG images, files and custom types on Wayland and X11 | The same types |
 | Global shortcuts | Wayland: the GlobalShortcuts portal, which asks the user and may bind other keys (`Trigger`; none on Hyprland), and needs the app's desktop entry (`RegisterApp`); X11: the portal, else key grabs; `ShortcutFailed` with `ErrUnsupported` without a portal | `RegisterHotKey`: `ShortcutTaken` if another application holds the keys; no release events |
 | Single instance | A well-known D-Bus name; without a D-Bus session the app runs on its own | A named mutex and a message to the first instance |
 | Registration | The app's own `.desktop` file in `~/.local/share/applications`, `mimeinfo.cache` kept by Tela, and a MIME type for a new extension (made with `update-mime-database` when it is installed); `xdg-mime query default x-scheme-handler/notes` shows the default | `HKCU\Software\Classes`; the default for a file type is chosen by the user in Settings, Default apps |

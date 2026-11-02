@@ -180,7 +180,8 @@ func isFakeCtrl(env keyEnv, ki keyInfo, msg uint32) bool {
 const scKeyMenu = 0xF100
 
 // swallowSysCommand reports whether a WM_SYSCOMMAND must not reach
-// DefWindowProc. The window has no menu bar, so the keyboard commands that
+// DefWindowProc. The keyboard does not open the menu bar (SetMenu's bar is
+// for the mouse, menu_windows.go), so the keyboard commands that
 // would enter the menu loop (a lone Alt, F10, Alt and a mnemonic, which also
 // beeps) are dropped; the window (system) menu on Alt+Space, SC_KEYMENU with
 // the space as its character, is kept.

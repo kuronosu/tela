@@ -45,7 +45,7 @@
 // Supported: arguments ({name}), {n, number[, integer|percent]},
 // {d, date|time[, short|medium|long|full]}, plural and selectordinal
 // (=N, zero, one, two, few, many, other, offset:N and # for the number),
-// select, nesting, and ICU's apostrophe quoting (” is an apostrophe; a
+// select, nesting, and ICU's apostrophe quoting (two apostrophes are one; a
 // single apostrophe quotes only before a brace, or # in a plural). Plural
 // rules are CLDR 32's, from golang.org/x/text. Not supported: number
 // skeletons and patterns, currencies, units, spellout, and choice.

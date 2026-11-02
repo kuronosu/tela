@@ -24,7 +24,8 @@
 //	fragment   a Fragment of a single child, redundant since ADR-205 (has a fix)
 //	prop-node  a Prop where a tela.Node is expected (compiles, panics at run time)
 //
-// This package is used only by cmd/tela.
+// This package is used only by cmd/tela and by the test that checks
+// docs/llms.txt (internal/gen/llmsdoc, ADR-177).
 package lint
 
 import (
