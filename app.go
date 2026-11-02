@@ -220,9 +220,8 @@ type DevState struct {
 // [Quit] is called. The windows unmount before Run returns, running the
 // cleanups of their effects. It must be called from the main goroutine,
 // normally from main. The window is drawn by Tela's own renderer on the
-// native backend: Wayland or X11 on Linux and Win32 on Windows (macOS has no
-// backend yet, so Run returns an error there); [Window] components open more
-// windows.
+// native backend: Wayland or X11 on Linux, Win32 on Windows and Cocoa on
+// macOS 13 or later; [Window] components open more windows.
 //
 // Run returns an error when the platform cannot open a window (for
 // example, no display is available). It panics when app.Root is nil.

@@ -407,6 +407,14 @@ jobs:
         env:
           CGO_ENABLED: "0"
         run: go test -v -count=1 -timeout 10m -run 'TestDevEndToEndCocoa' ./cmd/tela/
+      - name: go test (examples on cocoa, verbose)
+        if: success() || failure()
+        env:
+          CGO_ENABLED: "0"
+        # Phase 14's done criterion: every example's own main on the cocoa
+        # backend, its window read back and compared with tela snapshot's
+        # headless render, pixel for pixel.
+        run: go test -v -count=1 -timeout 20m -run '^TestExamplesCocoa$' ./cmd/tela/
       - name: go test (all)
         if: success() || failure()
         env:
@@ -414,7 +422,7 @@ jobs:
         # The whole suite on a Mac host: headless goldens, the packages that
         # follow the host's platform flavor (ADR-221) and the cocoa backend.
         # -timeout 25m: see the linux job.
-        run: go test -timeout 25m ./...
+        run: go test -timeout 25m -skip '^(TestExamplesCocoa|TestDevEndToEndCocoa)$' ./...
       - name: Upload golden diffs
         if: failure()
         uses: actions/upload-artifact@v4

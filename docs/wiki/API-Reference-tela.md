@@ -596,7 +596,7 @@ Quit quits the app: Run returns (and Main with it) after unmounting every window
 func Run(app App) error
 ```
 
-Run opens a window, shows app.Root and runs the event loop until the app quits: the main window is closed (unless App.OnClose says otherwise) or [`Quit`](#func-quit) is called. The windows unmount before Run returns, running the cleanups of their effects. It must be called from the main goroutine, normally from main. The window is drawn by Tela's own renderer on the native backend: Wayland or X11 on Linux and Win32 on Windows (macOS has no backend yet, so Run returns an error there); [`Window`](#type-window) components open more windows.
+Run opens a window, shows app.Root and runs the event loop until the app quits: the main window is closed (unless App.OnClose says otherwise) or [`Quit`](#func-quit) is called. The windows unmount before Run returns, running the cleanups of their effects. It must be called from the main goroutine, normally from main. The window is drawn by Tela's own renderer on the native backend: Wayland or X11 on Linux, Win32 on Windows and Cocoa on macOS 13 or later; [`Window`](#type-window) components open more windows.
 
 Run returns an error when the platform cannot open a window (for example, no display is available). It panics when app.Root is nil. [`Main`](#func-main) runs it and handles the error.
 
