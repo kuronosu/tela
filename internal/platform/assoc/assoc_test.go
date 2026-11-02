@@ -47,6 +47,7 @@ func TestOSArgumentChecks(t *testing.T) {
 	for name, a := range map[string]platform.Associations{
 		"linux":   Linux(LinuxDirs{DataHome: t.TempDir(), ConfigHome: t.TempDir()}),
 		"windows": Windows(&MemRegistry{}),
+		"macos":   MacOS(newMemLS()),
 	} {
 		mustPanic(t, name+" Register without Exec", func() {
 			_, _ = a.Register(platform.HandlerApp{ID: "x", Name: "X"}, scheme, platform.RegisterOptions{})

@@ -11,6 +11,7 @@ import (
 
 	"github.com/kuronosu/tela/internal/darwin"
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/assoc"
 )
 
 // The desktop services (macOS desktop integration, ADR-224): NSWorkspace
@@ -114,6 +115,12 @@ func (d desktop) OpenPath(_ platform.Window, path string) error {
 	}
 	return nil
 }
+
+// Associations returns the registration of URL schemes and file types:
+// package assoc, which edits the app bundle's Info.plist and registers it
+// with Launch Services (ADR-228). Safe from any goroutine, like every
+// Associations.
+func (desktop) Associations() platform.Associations { return assoc.Native() }
 
 func workspace() darwin.ID {
 	return darwin.SendClass(darwin.GetClass("NSWorkspace"), dsel.sharedWorkspace)

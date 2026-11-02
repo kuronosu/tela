@@ -14,7 +14,10 @@
 // Objective-C runtime (GetClass, Send). The desktop services add blocks
 // (completion handlers made from Go functions, CallBlock for the system's
 // own, CFRunLoopPerformBlock; block_darwin.go), the Security framework's
-// SecItem functions (security_darwin.go, opened on first use), the
+// SecItem functions (security_darwin.go, opened on first use), Launch
+// Services and its Uniform Type Identifier lookup for the registration of
+// schemes and file types (launchservices_darwin.go, opened on first use,
+// with CoreFoundation of its own so it needs no Load), the
 // UserNotifications framework (usernotifications_darwin.go), file URLs,
 // NSError, dictionaries and arrays (foundation_services_darwin.go) and the
 // constants of the panels, alerts and status items

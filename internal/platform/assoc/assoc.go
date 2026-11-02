@@ -47,20 +47,42 @@
 //     extension nothing else opens, or the user's choice), and otherwise
 //     opens ms-settings:defaultapps (DefaultAsked), because Windows lets
 //     only the user choose.
+//   - macOS ([MacOS]; macos.go has the details, ADR-228): the app is its
+//     bundle, so HandlerApp.Exec (else the running executable) must be
+//     inside <Name>.app/Contents/MacOS/ and the app ID must be the
+//     bundle's CFBundleIdentifier; otherwise every call fails (outside a
+//     bundle with ErrUnsupported, naming `tela build` and `tela run`). A
+//     scheme is an entry of the bundle's Info.plist CFBundleURLTypes; a
+//     file type an entry of CFBundleDocumentTypes for the extension's
+//     content type (LSHandlerRank Alternate, CFBundleTypeRole Editor),
+//     plus a UTImportedTypeDeclarations entry when nothing declares the
+//     extension. Entries are marked TelaRegistered=true, other keys and
+//     entries kept, the file rewritten only when an entry is added or
+//     removed (never in a signed bundle). Then LSRegisterURL makes Launch
+//     Services read the bundle again. Launch Services keeps every app's
+//     claims side by side, so nothing is ever taken (Replace changes
+//     nothing), and it makes the only candidate of a scheme or type its
+//     handler by itself. MakeDefault calls LSSetDefaultHandlerForURLScheme
+//     or LSSetDefaultRoleHandlerForContentType; Status reads the
+//     Info.plist and Launch Services' handlers and default (Other: a
+//     bundle ID).
 //   - RegisterApp (ADR-217): on Linux the same desktop entry with no
 //     MimeType, marked X-Tela-App=true, kept until UnregisterApp even
 //     when its last association goes; on Windows nothing (an app needs no
-//     entry there).
-//   - Other OSes: [Native] returns platform.UnsupportedAssociations (macOS
-//     registers through the app bundle's Info.plist, planned).
+//     entry there); on macOS LSRegisterURL of the bundle, which is the
+//     app's registration (UnregisterApp writes nothing).
+//   - Other OSes: [Native] returns platform.UnsupportedAssociations.
 //
 // # Tests never touch the system
 //
 // The OS logic takes where it writes as an argument: [LinuxDirs] (the XDG
-// directories, and the command runner) and a [Registry] (the part of
-// HKEY_CURRENT_USER it uses). Tests point LinuxDirs at t.TempDir() and use
-// a [MemRegistry], which runs the Windows logic on every OS. Only Native
-// reads the environment or opens the real registry.
+// directories, and the command runner), a [Registry] (the part of
+// HKEY_CURRENT_USER it uses) and [LaunchServices] (the macOS database;
+// the Info.plist edited is the given bundle's). Tests point LinuxDirs at
+// t.TempDir() and use a [MemRegistry] and a fake Launch Services on
+// temporary bundles, which run the Windows and macOS logic on every OS.
+// Only Native reads the environment or opens the real registry and Launch
+// Services (and the darwin tests, on a temporary bundle of a unique ID).
 package assoc
 
 import (

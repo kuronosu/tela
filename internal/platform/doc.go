@@ -804,9 +804,16 @@
 // with no MimeType and NoDisplay=true, which the GlobalShortcuts portal
 // needs; it stays until UnregisterApp even when the last association goes,
 // and UnregisterApp leaves the associations that still need it; Windows
-// needs no entry and writes nothing. Package assoc documents what is
-// written where; its tests run against temporary directories and an
-// in-memory registry, never the real system.
+// needs no entry and writes nothing. On macOS the app is its bundle
+// (ADR-228): registration edits the bundle's Info.plist and registers the
+// bundle with Launch Services, so a program outside a bundle gets
+// ErrUnsupported naming `tela run`; RegisterApp registers the bundle and
+// UnregisterApp writes nothing. Launch Services makes the only candidate
+// of a scheme or type its handler by itself: the OS's rule, not a default
+// taken. Package assoc documents what is written where; its tests run
+// against temporary directories, an in-memory registry and a fake Launch
+// Services, never the real system (except the darwin tests, on a
+// temporary bundle of a unique ID).
 //
 // # Coordinates, scale and framebuffer size
 //
@@ -1240,11 +1247,21 @@
 // -[NSFileManager trashItemAtURL:resultingItemURL:error:] (the Finder's
 // Move to Trash, Put Back included), with a file URL that keeps a symbolic
 // link itself; a volume without a trash fails, leaving the file in place
-// (ErrUnsupported). Planned: NSDraggingDestination and NSDraggingSource,
+// (ErrUnsupported). Associations (phase 15): package assoc, on the app
+// bundle of HandlerApp.Exec (else the running executable), whose
+// CFBundleIdentifier must be the app ID: CFBundleURLTypes and
+// CFBundleDocumentTypes entries in its Info.plist (LSHandlerRank
+// Alternate; a UTImportedTypeDeclarations entry for an extension nothing
+// declares, resolved with UTTypeCreatePreferredIdentifierForTag), then
+// LSRegisterURL; Status from LSCopyAllHandlersForURLScheme,
+// LSCopyAllRoleHandlersForContentType and their defaults; MakeDefault
+// with LSSetDefaultHandlerForURLScheme and
+// LSSetDefaultRoleHandlerForContentType (synchronous, any goroutine, no
+// prompt); AppStatus from LSCopyApplicationURLsForBundleIdentifier.
+// Planned: NSDraggingDestination and NSDraggingSource,
 // NSMenu (the app's menu bar; window menus return
 // ErrUnsupported), Carbon RegisterEventHotKey for global shortcuts, a lock
-// file and a Unix socket for single instance, the bundle's Info.plist for
-// schemes and document types.
+// file and a Unix socket for single instance.
 //
 // Remote (tela dev), protocol 5 (ADR-214), 6 with contract v4 (ADR-225):
 // everything is forwarded to the host's backend, which owns the real

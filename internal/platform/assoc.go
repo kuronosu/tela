@@ -13,7 +13,8 @@ type HandlerApp struct {
 	// ID is the app ID (CheckAppID): it names the app's .desktop file on
 	// Linux (<ID>.desktop, the file Wayland compositors match with
 	// xdg_toplevel.app_id) and its ProgIDs and registered application
-	// entry on Windows.
+	// entry on Windows; on macOS it must be the bundle's
+	// CFBundleIdentifier (compared without regard to case).
 	ID string
 	// Name is the name shown in "Open with" lists ("Notes").
 	Name string
@@ -22,12 +23,17 @@ type HandlerApp struct {
 	// an app that registers both schemes and file types gets %U, so files
 	// may arrive as file: URIs; the layer that parses a launch turns them
 	// into paths). Needed by Register and MakeDefault, which registers
-	// first; Status and Unregister ignore it.
+	// first; Status and Unregister ignore it, except on macOS, where Exec
+	// (else the running executable) names the app bundle that every
+	// method reads: it must be inside <Name>.app/Contents/MacOS/.
 	Exec string
-	// Args are arguments put before the URI or paths (optional).
+	// Args are arguments put before the URI or paths (optional). Unused on
+	// macOS, where Launch Services starts the bundle and hands it the URLs
+	// and files in an open event, not as arguments.
 	Args []string
 	// Icon is the absolute path of an icon file (optional): PNG or SVG on
-	// Linux, an .ico or "exe,index" on Windows.
+	// Linux, an .ico or "exe,index" on Windows; unused on macOS (the
+	// bundle's icon).
 	Icon string
 }
 
@@ -69,7 +75,8 @@ type AssociationStatus struct {
 	// default handler (a .desktop file name, a ProgID), on Windows the
 	// owner of the scheme's key, and on Linux also a desktop entry of the
 	// app's ID that Tela did not write (its path) or the MIME type that
-	// already claims an extension; "" when nothing does.
+	// already claims an extension; on macOS the bundle identifier of the
+	// default handler, else of another handler; "" when nothing does.
 	Other string
 }
 
@@ -80,14 +87,15 @@ type AppStatus struct {
 	// it (Linux: a desktop entry <ID>.desktop in the data directories that
 	// is not Hidden; the GlobalShortcuts portal needs one). Always true on
 	// Windows, which identifies a desktop app by its executable and needs
-	// no entry.
+	// no entry. On macOS: Launch Services knows a bundle of the ID.
 	Registered bool
 	// Requested: RegisterApp wrote the entry and UnregisterApp would
-	// remove it (Linux).
+	// remove it (Linux; never on macOS, where the bundle is the entry).
 	Requested bool
 	// Other is the path of an entry of the app's ID that Tela did not
 	// write (a package's, an installer's, or the user's hidden one), which
-	// RegisterApp does not take over without RegisterOptions.Replace; ""
+	// RegisterApp does not take over without RegisterOptions.Replace; on
+	// macOS a bundle of the ID at another path (an installed copy); ""
 	// when there is none.
 	Other string
 }
@@ -99,7 +107,9 @@ type RegisterOptions struct {
 	// command is not the app's, a Linux .desktop file of the app's ID that
 	// Tela did not write, an extension already mapped to another MIME type
 	// in the user's MIME database. It never makes the app the default
-	// handler of a file type: that is MakeDefault.
+	// handler of a file type: that is MakeDefault. macOS has nothing to
+	// take over (Launch Services keeps every app's claims), so it changes
+	// nothing there.
 	Replace bool
 }
 
@@ -151,7 +161,9 @@ type Associations interface {
 
 	// Register makes the app a candidate handler of a, not the default
 	// (unless nothing else handles a Windows scheme, where the scheme key
-	// is the handler). It reads what exists first and writes nothing when
+	// is the handler, or nothing else handles a on macOS, where Launch
+	// Services uses the only candidate). It reads what exists first and
+	// writes nothing when
 	// nothing would change (changed false). It never overwrites another
 	// application's association without opts.Replace
 	// (ErrAssociationTaken).
@@ -165,8 +177,9 @@ type Associations interface {
 
 	// MakeDefault asks for the app to become the default handler of a,
 	// registering it first if needed (with Register's rules). Where the OS
-	// lets apps set it (Linux mimeapps.list, Windows schemes) it is set at
-	// once (DefaultSet); Windows file types open the Default apps settings
+	// lets apps set it (Linux mimeapps.list, Windows schemes, macOS Launch
+	// Services) it is set at once (DefaultSet); Windows file types open
+	// the Default apps settings
 	// page instead (DefaultAsked). On Linux a desktop-specific
 	// <desktop>-mimeapps.list that names another default wins over the
 	// user's mimeapps.list and belongs to the desktop environment, so
@@ -182,14 +195,16 @@ type Associations interface {
 	// up to date, or when an entry of the ID that Tela did not write
 	// already names the app (changed false); a hidden one is taken over
 	// only with opts.Replace (ErrAssociationTaken). On Windows it writes
-	// nothing (see AppStatus.Registered).
+	// nothing (see AppStatus.Registered). On macOS the bundle is the
+	// registration: it is registered with Launch Services unless Launch
+	// Services lists its path for the ID already.
 	RegisterApp(app HandlerApp, opts RegisterOptions) (changed bool, err error)
 
 	// UnregisterApp withdraws RegisterApp's request: the entry is removed
 	// unless associations registered with Register still need it (they
 	// keep it, and Unregister of the last one removes it). An entry Tela
 	// did not write is never touched. Nothing to remove is not an error
-	// (changed false).
+	// (changed false). On macOS it writes nothing.
 	UnregisterApp(app HandlerApp) (changed bool, err error)
 
 	// AppStatus reports whether the desktop knows the app's ID, and
