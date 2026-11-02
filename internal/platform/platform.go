@@ -187,8 +187,9 @@ type Window interface {
 	SetMaxSize(size Size)
 
 	// SetPosition asks the OS to move the window so that the top-left of
-	// its content area is at pos, in physical pixels of the OS's desktop
-	// coordinates (the same space as WindowState.Position). Wayland
+	// its content area is at pos, in the OS's desktop coordinates
+	// (physical pixels; points on Cocoa; the same space as
+	// WindowState.Position). Wayland
 	// clients cannot place windows: no-op there (see "Session restore").
 	SetPosition(pos image.Point)
 
@@ -341,8 +342,8 @@ type WindowOptions struct {
 	FixedSize bool
 
 	// Position, if HasPosition is set, is where the top-left of the
-	// content area goes, in physical pixels of the OS's desktop
-	// coordinates (see Window.SetPosition). Ignored on Wayland.
+	// content area goes, in the OS's desktop coordinates (physical
+	// pixels; points on Cocoa; see Window.SetPosition). Ignored on Wayland.
 	Position    image.Point
 	HasPosition bool
 	// Maximized and Fullscreen open the window in that state (restoring a

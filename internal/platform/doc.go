@@ -331,11 +331,13 @@
 //   - Size limits: xdg_toplevel.set_min_size/set_max_size, WM_NORMAL_HINTS,
 //     WM_GETMINMAXINFO. The minimum wins where the maximum is below it
 //     ([ClampSize]).
-//   - Positions are the top-left of the content area in physical pixels
-//     of the desktop (Win32 virtual screen via ClientToScreen and
-//     AdjustWindowRectExForDpi; X11 root coordinates of the client
-//     window, set with StaticGravity in WM_NORMAL_HINTS or compensating
-//     _NET_FRAME_EXTENTS). They round-trip: a reported position given back
+//   - Positions are the top-left of the content area in the desktop's
+//     coordinates: physical pixels on Win32 (virtual screen via
+//     ClientToScreen and AdjustWindowRectExForDpi) and X11 (root
+//     coordinates of the client window, set with StaticGravity in
+//     WM_NORMAL_HINTS or compensating _NET_FRAME_EXTENTS), points on Cocoa
+//     (the CoreGraphics global display space, whose screens each have a
+//     scale). They round-trip: a reported position given back
 //     puts the window in the same place. Wayland never reports one
 //     (HasPosition false) and ignores SetPosition.
 //   - Activate: xdg_activation_v1 with a token from the latest input
@@ -381,7 +383,9 @@
 // Backdrop): [Window.SetTitleBarColors] with [TitleBarColors], and
 // [Window.SetBackdrop] with [Backdrop]. They are hints about decoration the
 // OS draws, so they never produce events, and a backend that has no such
-// thing ignores them (Wayland, X11, headless apart from recording them).
+// thing ignores them (Wayland, X11, headless apart from recording them;
+// Cocoa ignores the title bar colors and maps the backdrops onto
+// NSVisualEffectView materials, see the Cocoa mapping).
 //
 //   - Win32 on Windows 11: DwmSetWindowAttribute with DWMWA_CAPTION_COLOR,
 //     DWMWA_TEXT_COLOR and DWMWA_BORDER_COLOR (build 22000; the border
@@ -846,9 +850,9 @@
 // unpainted content (Wayland maps a surface only when a buffer is attached;
 // the other backends delay ShowWindow / XMapWindow / orderFront until then),
 // nor while it is hidden (see "Window control").
-// Windows are opaque, except a Windows 11 window with a client-area
-// backdrop ([AlphaPresenter], ADR-187), which shows the frame's alpha;
-// other backends may ignore alpha.
+// Windows are opaque, except a window with a client-area backdrop (Windows
+// 11, and macOS's materials: [AlphaPresenter], ADR-187, ADR-224), which
+// shows the frame's alpha; other backends may ignore alpha.
 //
 // # Errors
 //

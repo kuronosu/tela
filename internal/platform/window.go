@@ -43,9 +43,11 @@ type WindowState struct {
 	// HasPosition reports whether Position is known: on X11 and Win32 (and
 	// headless once the app placed the window), never on Wayland.
 	HasPosition bool
-	// Position is the top-left of the content area in physical pixels of
-	// the OS's desktop coordinates (Win32 virtual screen, X11 root
-	// window). It is meant to be saved and given back to
+	// Position is the top-left of the content area in the OS's desktop
+	// coordinates: physical pixels of the Win32 virtual screen and the X11
+	// root window, points of the CoreGraphics global display space on
+	// Cocoa (y down from the primary screen's top-left; every screen has
+	// its own scale there). It is meant to be saved and given back to
 	// WindowOptions.Position or Window.SetPosition, not to be mixed with
 	// logical coordinates.
 	Position image.Point
