@@ -75,28 +75,52 @@ func (p *poller) loop() {
 		case <-p.stop:
 			return
 		case r := <-p.roots:
+			// The new walk is the baseline of the new roots, but a change
+			// made since the last walk under a root that stays is still
+			// reported: tela dev adds a root (the assets directory, the
+			// dependencies found after a build) right when a save may come.
+			old := roots
 			roots = r.roots
-			files, dirs = p.snapshot(roots)
+			nf, nd := p.snapshot(roots)
+			kept := func(path string) bool { return under(path, old) && under(path, roots) }
+			p.compare(files, dirs, nf, nd, kept)
+			files, dirs = nf, nd
 			close(r.ack)
 			continue
 		case <-t.C:
 		}
 		nf, nd := p.snapshot(roots)
-		for path, s := range nf {
-			if old, ok := files[path]; !ok || old != s {
-				p.w.changed(path, false)
-			}
-		}
-		for path := range files {
-			if _, ok := nf[path]; !ok {
-				p.w.changed(path, false)
-			}
-		}
-		for path := range dirs {
-			if !nd[path] {
-				p.w.changed(path, true)
-			}
-		}
+		p.compare(files, dirs, nf, nd, func(string) bool { return true })
 		files, dirs = nf, nd
 	}
+}
+
+// compare reports the differences between two walks, for the paths keep
+// accepts.
+func (p *poller) compare(files map[string]stamp, dirs map[string]bool, nf map[string]stamp, nd map[string]bool, keep func(string) bool) {
+	for path, s := range nf {
+		if old, ok := files[path]; (!ok || old != s) && keep(path) {
+			p.w.changed(path, false)
+		}
+	}
+	for path := range files {
+		if _, ok := nf[path]; !ok && keep(path) {
+			p.w.changed(path, false)
+		}
+	}
+	for path := range dirs {
+		if !nd[path] && keep(path) {
+			p.w.changed(path, true)
+		}
+	}
+}
+
+// under reports whether path is within one of roots.
+func under(path string, roots []string) bool {
+	for _, r := range roots {
+		if within(path, r) {
+			return true
+		}
+	}
+	return false
 }

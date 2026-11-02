@@ -35,7 +35,9 @@ background when its sources change and swaps the running process for the
 new build, keeping the state of its components (ADR-111). Go cannot replace
 code in a running process, so the app runs as a child of tela dev, which
 owns the window; each build is a new child that takes over the window
-without a visible close and reopen.
+without a visible close and reopen. The window is a native one: Wayland or
+X11 on Linux, Win32 on Windows, Cocoa on macOS (TELA_BACKEND chooses, as
+for apps).
 
 <pkg> is a package path or a relative directory; it defaults to ".". A
 package main is built as is. Any other package, or a package with

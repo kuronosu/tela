@@ -503,6 +503,25 @@ func TestSetRoots(t *testing.T) {
 	})
 }
 
+// TestPollSetRootsKeepsChanges: a change made between two walks under a
+// root that stays is reported when SetRoots adds another root before the
+// next walk (the new walk used to become the baseline and hide it), and the
+// files of the new root are its baseline, not changes.
+func TestPollSetRootsKeepsChanges(t *testing.T) {
+	root, _ := filepath.EvalSymlinks(t.TempDir())
+	other, _ := filepath.EvalSymlinks(t.TempDir())
+	os.WriteFile(filepath.Join(root, "a.go"), []byte("a"), 0o644)
+	os.WriteFile(filepath.Join(other, "old.go"), []byte("o"), 0o644)
+	// No walk happens during the test: only SetRoots walks.
+	h := newHarnessAt(t, root, Options{Filter: goFilter, SkipDir: skipHidden, Debounce: 30 * time.Millisecond, Poll: true, PollInterval: time.Hour})
+	h.write("a.go", "changed")
+	h.write("new.go", "n")
+	if err := h.w.SetRoots([]string{root, other}); err != nil {
+		t.Fatal(err)
+	}
+	h.expect("the changes made before SetRoots", []string{"a.go", "new.go"}, filepath.Join(other, "old.go"))
+}
+
 func TestClose(t *testing.T) {
 	modes(t, func(t *testing.T, poll bool) {
 		h := newHarness(t, poll, Options{})

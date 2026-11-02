@@ -64,11 +64,17 @@ func newNative(w *Watcher) (impl, error) {
 func (in *inotify) setRoots(roots []string) error {
 	in.mu.Lock()
 	defer in.mu.Unlock()
-	for wd := range in.byWD {
-		unix.InotifyRmWatch(in.fd, uint32(wd))
+	// Only the watches outside the new roots go: the events already queued
+	// for a removed watch are dropped (its descriptor is unknown when they
+	// are read), so removing every watch would lose a save made just
+	// before tela dev adds a root.
+	for wd, path := range in.byWD {
+		if !under(path, roots) {
+			unix.InotifyRmWatch(in.fd, uint32(wd))
+			delete(in.byWD, wd)
+			delete(in.byPath, path)
+		}
 	}
-	clear(in.byWD)
-	clear(in.byPath)
 	in.roots = roots
 	for _, r := range roots {
 		in.w.walk(r, in.add, nil)

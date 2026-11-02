@@ -20,6 +20,7 @@ under **Breaking**. See ADR-049 and ADR-208.
 - macOS: the clipboard and system settings in the `cocoa` backend. Copy and paste work with other apps for text, HTML, PNG images (TIFF images from other apps are converted), files and links (as Finder copies them) and custom MIME types; dark mode (`dark:`), the accent color, reduced motion, increased contrast (`contrast-more:`) and the double-click speed follow System Settings, and a change, including an app that sets its own appearance, re-renders the app at once.
 - macOS: the first part of the native `cocoa` backend (ADR-222), with no cgo: a Tela app on macOS 13 or later now opens a real window and draws into it, sharp on Retina displays, instead of needing `TELA_BACKEND=headless`. Keyboard, mouse and trackpad input, the clipboard and system settings follow in the next steps of the macOS phase; the backend adds the `github.com/ebitengine/purego` dependency, used only when building for macOS.
 - macOS: keyboard, mouse and trackpad input in the `cocoa` backend: keys with their modifiers (Command shortcuts and their releases included), clicks of every mouse button, hover, wheel and trackpad scrolling with Tela's own fling after the fingers lift, a hidden cursor with `cursor-none`, and animations paced by the display's refresh (a display link) that stop using the CPU when idle.
+- macOS: `tela dev` shows the app in a real macOS window that stays open across reloads: each new build takes over the same window with its state kept, clicks and keys reach the app, and a build error is drawn over the last good frame.
 
 ### Changed
 
@@ -27,6 +28,7 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ### Fixed
 
+- `tela dev` no longer misses a save made right after a build when it starts watching a new directory (the app's `tela.Assets` directory, or a dependency found by the build): the change used to be dropped and the app was not reloaded until the next save.
 - `desktop.MakeDefault` and registration on Linux no longer replace a `mimeapps.list` (or desktop entry) that is a symbolic link they cannot follow, such as a dotfiles link whose file does not exist yet: links are followed as GLib follows them (the target is created if missing), and a loop or an unreadable link is an error that leaves the link alone.
 - Documentation brought up to date with the code: the README (version, phase table, kit's 37 components, the X11 IME and fling, the layout fixtures), the wiki guides, `docs/llms.txt`, the examples' READMEs and the doc comments that pkg.go.dev shows (`Run` on macOS, theme variables in arbitrary values, `telatest.Render` running frames until the tree is quiet, `tela lint -fix` and `tela icons gen -deprecated` in the usage, `tela snapshot` applying `NativeMenus` and `IgnoreTextScale`). `THIRD_PARTY.md` lists every ported file.
 

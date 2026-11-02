@@ -23,11 +23,13 @@ import (
 const e2eWait = 3 * time.Minute
 
 // e2e is a real tela dev (real go build, real watcher, real children) on a
-// headless window, running testdata/devapp copied into a module of its own.
+// headless window (dev_cocoa_e2e_test.go runs one on a real macOS window),
+// running testdata/devapp copied into a module of its own.
 type e2e struct {
 	t    *testing.T
-	hb   *headless.Backend
+	hb   *headless.Backend // nil on another backend (dev_cocoa_e2e_test.go)
 	s    *supervisor
+	w    *watch.Watcher
 	out  *syncBuffer // the supervisor's lines and the children's output
 	view *recordView
 	done chan int
@@ -63,7 +65,12 @@ func devAppModule(t *testing.T) string {
 	return dir
 }
 
-func startE2E(t *testing.T) *e2e {
+// newE2E prepares a real tela dev of testdata/devapp: the module, the
+// builder, the watcher and the supervisor (drawing problems over the window
+// too when overlay is set, as tela dev does), without a backend or a host.
+// The caller creates the host on its backend's UI thread, attaches the
+// supervisor to it and calls start.
+func newE2E(t *testing.T, overlay bool) *e2e {
 	t.Helper()
 	skipShort(t)
 	wine.Skip(t, "no AF_UNIX sockets (WSAEAFNOSUPPORT), so the remote host cannot listen")
@@ -100,7 +107,7 @@ func startE2E(t *testing.T) *e2e {
 
 	e := &e2e{
 		t:    t,
-		hb:   headless.New(headless.Options{RealTime: true}),
+		w:    w,
 		out:  &syncBuffer{},
 		view: &recordView{},
 		done: make(chan int, 1),
@@ -118,7 +125,8 @@ func startE2E(t *testing.T) *e2e {
 		refreshDeps: func() (depSet, error) {
 			return listDeps(goBin, target)
 		},
-		view: e.view,
+		view:    e.view,
+		overlay: overlay,
 		// A real app on a loaded runner can take longer than the defaults
 		// to save its state or to report it, which the test checks.
 		saveTimeout:       e2eWait,
@@ -126,17 +134,30 @@ func startE2E(t *testing.T) *e2e {
 		reportWait:        e2eWait,
 	})
 	e.view.term = terminalView{e.s.log}
+	return e
+}
+
+// start runs the supervisor and forwards the watcher's changes to it, once
+// it is attached to its host.
+func (e *e2e) start() {
+	go e.s.forward(e.w)
+	go func() { e.done <- e.s.run() }()
+}
+
+func startE2E(t *testing.T) *e2e {
+	t.Helper()
+	e := newE2E(t, false)
+	e.hb = headless.New(headless.Options{RealTime: true})
 	host, err := remote.NewHost(e.hb, e.s.hostOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
 	e.s.attach(host, e.hb.Quit)
-	go e.s.forward(w)
 	go func() {
 		err := host.Run()
 		e.s.push(evHostDone{err: err})
 	}()
-	go func() { e.done <- e.s.run() }()
+	e.start()
 	t.Cleanup(func() {
 		e.s.push(evKey{'q'})
 		select {

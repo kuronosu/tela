@@ -72,7 +72,7 @@ func TestMain(m *testing.M) {
 	if mode, ok := os.LookupEnv(envFake); ok {
 		os.Exit(fakeChild(mode))
 	}
-	os.Exit(m.Run())
+	serveTests(m)
 }
 
 func fakeGo(goBin string, args []string) int {

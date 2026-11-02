@@ -331,7 +331,7 @@ and inlining in the app's package, to build faster (panics keep their
 
 Keys, when standard input is a terminal: `r` reloads keeping state, `R`
 reloads with fresh state, `q` quits (as does closing the window or Ctrl+C).
-Linux (Wayland, X11) and Windows; macOS comes with its backend.
+Linux (Wayland, X11), Windows and macOS (Cocoa, macOS 13 or later).
 
 **Windows and desktop services under `tela dev`** (ADR-184): the window is the
 host's and the app runs in a child process, and everything about windows and
@@ -565,7 +565,7 @@ fading ones. The CLI does not draw overlays.
 | `TELA_DEV=1`, `TELA_DEV=0` | Turns dev mode on or off, whatever the build and `tela.App.Dev` say (by default it is on unless the binary is a release build: built with `-trimpath` or installed with `go install pkg@version`). Dev mode reports unknown classes, hook misuse and other mistakes with the fix |
 | `TELA_DEBUG=...` | Debug overlays (above) |
 | `TELA_UPDATE=1` | `go test` writes goldens instead of comparing them; review the diff |
-| `TELA_BACKEND=...` | Chooses the window backend: `wayland`, `x11` (Linux) or `win32` (Windows), or `headless`. By default Wayland is tried first, then X11 |
+| `TELA_BACKEND=...` | Chooses the window backend: `wayland`, `x11` (Linux), `win32` (Windows) or `cocoa` (macOS), or `headless`. On Linux, Wayland is tried first by default, then X11 |
 | `TELA_CHECK_DAMAGE=1` | In `telatest`, compares every frame with a full rendering (slow) |
 
 ## For agents
