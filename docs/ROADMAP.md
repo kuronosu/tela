@@ -12,7 +12,7 @@
 - **Done:** phases 1–13. Latest version `v0.13.1` (2026-11-01, phase 13: desktop integration; tagged on `1c6fdd3` with the owner's approval). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
 - **Phase in progress:** 14, the macOS backend (started 2026-11-02, branch `phase-14-macos`; the main session pushes it to run `macos-latest` CI, ADR-220).
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the `v0.13.1` docs. A release commit publishes its own docs before its tag (ADR-208).
-- **Next step:** phase 14: the host-platform flavor, then a minimal `cocoa` skeleton (a window and one presented frame) with its `macos-latest` job. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** phase 14: the owner picks the `looks/aqua` style, then the look, the review and the full CI on the branch before the merge. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
@@ -24,7 +24,7 @@ In order. Each phase ends with verifiable criteria and is not done unless they p
 Started 2026-11-02 on the work branch `phase-14-macos` (ADR-220). Verified on `macos-latest` CI; what needs a real Mac goes to the macOS live checks.
 
 - [x] First: one host-platform flavor (Linux, Windows, Mac) read by `core`'s key bindings and word rules, `aria`'s collections and `telatest`'s `ControlOrMeta`, overridable in tests (ADR-221: `platform.Flavor`, public `CmdOrCtrl()` on events, `telatest.PlatformKeys`); the suite passes with a Mac host
-- [ ] `cocoa` backend via purego, with a CI job on `macos-latest`: app and event loop, window, present, HiDPI, frame pacing, keyboard, pointer and trackpad scrolling (precise deltas, gesture phases, momentum), cursors, text clipboard, settings (dark mode, accent, reduced motion, contrast)
+- [x] `cocoa` backend via purego, with a CI job on `macos-latest`: app and event loop, window, present, HiDPI, frame pacing, keyboard, pointer and trackpad scrolling (precise deltas, gesture phases, momentum), cursors, text clipboard, settings (dark mode, accent, reduced motion, contrast)
   - [x] Base (ADR-222): purego bindings in the leaf `internal/darwin`, `[NSApp run]` loop, windows, a layer-hosting view presented through a `CGImage`, the `macos-latest` CI job; platformtest conformance and a pixel read-back pass there
   - [x] The OS-independent macOS key translation (`internal/platform/internal/keyboard/mac.go`)
   - [x] Keyboard, pointer, scrolling (precise deltas and phases; Tela flings), cursors and the display link (NSView.displayLink, CVDisplayLink on macOS 13, a timer otherwise)
@@ -33,7 +33,7 @@ Started 2026-11-02 on the work branch `phase-14-macos` (ADR-220). Verified on `m
 - [x] `tela dev` with a cocoa host (an end-to-end test on the runner: the frame in the window, a swap under the same NSWindow, the error overlay; the watcher no longer loses a save made just before `SetRoots`)
 - [ ] `looks/aqua` and its entry in `detect.For` (ADR-197)
 
-**Done when:** every example runs on `macos-latest` with snapshots pixel-identical up to text antialiasing, and the IME composition tests pass there.
+**Done when:** every example runs on `macos-latest` with snapshots pixel-identical up to text antialiasing, and the IME composition tests pass there. Both pass (2026-11-02): `TestExamplesCocoa` runs each example's own `main` on cocoa and its window matches the headless render pixel for pixel (the runner's 1024x768 screen shrinks the larger windows; the player's endless animation is masked), and the IME protocol tests pass. Left: `looks/aqua`, waiting for the owner's choice of style (Sequoia or Tahoe prototypes).
 
 ### macOS desktop integration
 
