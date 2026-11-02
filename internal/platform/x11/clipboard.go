@@ -67,8 +67,11 @@ func (c clipboard) Read(mime string, done func(data []byte, err error)) error {
 // does not offer it.
 func (c clipboard) read(mime string, done func([]byte, error)) {
 	if d, ok := c.local(); ok {
-		data, _ := d.Get(mime)
+		data, ok := d.Get(mime)
 		data = bytes.Clone(data)
+		if ok && data == nil {
+			data = []byte{} // an empty entry is present (Data.Clone keeps it nil)
+		}
 		c.post(func() { done(data, nil) })
 		return
 	}
