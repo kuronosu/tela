@@ -14,6 +14,24 @@ at every `astro dev` and `astro build`; the generated files are not committed.
 `TELA_DOCS_DIR` points to another `docs/` (it needs `wiki/` and `images/`), for
 example the one of a release tag.
 
+## Deploying (ADR-229)
+
+Only tags deploy <https://telaui.dev> (`.github/workflows/site.yml`); pushes to
+`main` and pull requests only build and check it.
+
+- A release tag (`v0.13.3`) deploys the whole site from that tag.
+- A site tag deploys the site code of its commit with the docs of the latest
+  release tag, for a change to the site between releases. Name it after the
+  day, with `-2`, `-3` for more that day, and put it on a commit no release tag
+  points at (Pages keeps one deployment per commit):
+
+  ```bash
+  git tag -a site-2026-11-03 -m "Site: <what changed>"
+  git push origin site-2026-11-03
+  ```
+
+- `gh workflow run site.yml` does the same from `main`'s head.
+
 ## The landing page
 
 - `src/pages/index.astro` is the landing page (`/`), with `src/components/landing/`

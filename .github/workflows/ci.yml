@@ -2,6 +2,9 @@ name: CI
 
 on:
   push:
+    # Branches only: a release tag points at a commit main already tested,
+    # and listing branches keeps tag pushes from starting a second run.
+    branches: ["**"]
     paths-ignore: ["site/**", ".github/workflows/site.yml"]
   pull_request:
     paths-ignore: ["site/**", ".github/workflows/site.yml"]
