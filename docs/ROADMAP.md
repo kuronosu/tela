@@ -9,10 +9,10 @@
 
 ## Current status
 
-- **Done:** phases 1–15. Latest version `v0.13.3` (2026-11-02, phase 15: the macOS desktop integration; the tag waits for the owner's approval). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
-- **Phase in progress:** none. Phase 15 is done on the work branch `phase-15-macos-desktop` (full CI green, `/code-review high` fixed); it is merged into `main` locally once the owner approves `v0.13.3`.
+- **Done:** phases 1–15. Latest version `v0.13.3` (2026-11-02, phase 15: the macOS desktop integration; tagged on `f83006a` with the owner's approval). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
+- **Phase in progress:** none. Phase 15 was merged into `main` from `phase-15-macos-desktop`.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the `v0.13.1` docs. A release commit publishes its own docs before its tag (ADR-208).
-- **Next step:** the owner approves `v0.13.3` and pushes `main` and the tag; then the next phase in order, Platform parity (IME on X11 first), or the real-Mac session when one can be arranged. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** the owner pushes `main` and `v0.13.3`; then the next phase in order, Platform parity (IME on X11 first), or the real-Mac session when one can be arranged. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
