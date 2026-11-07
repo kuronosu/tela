@@ -135,7 +135,14 @@ func TestLiveMenuBarKeyboard(t *testing.T) {
 		}
 	}
 	check := func(what string, want bool) {
-		if !menuModeIs(b.tid, want, 1500*time.Millisecond) {
+		// The bar opens at the key's release (SC_KEYMENU from the
+		// window procedure), so a check that it stays closed waits less;
+		// runLive gives the whole script 15 s.
+		wait := 1500 * time.Millisecond
+		if !want {
+			wait = 700 * time.Millisecond
+		}
+		if !menuModeIs(b.tid, want, wait) {
 			fail("%s: in menu mode = %v, want %v", what, !want, want)
 		}
 		leaveMenus(b.tid)
