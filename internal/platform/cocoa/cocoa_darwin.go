@@ -223,6 +223,7 @@ func (b *Backend) shutdown() {
 	for _, w := range slices.Clone(b.loop.Windows()) {
 		w.Close()
 	}
+	b.stopDnD()
 	b.releaseZombies()
 	b.stopSettings()
 	darwin.PoolPop(pool)

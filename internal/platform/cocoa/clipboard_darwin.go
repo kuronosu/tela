@@ -5,6 +5,7 @@ package cocoa
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/kuronosu/tela/internal/darwin"
 	"github.com/kuronosu/tela/internal/platform"
@@ -29,7 +30,7 @@ var pbSel = struct {
 	writeObjects, dataForType, stringForType, setDataForType, setStringFor darwin.SEL
 	count, objectAtIndex, array, addObject                                 darwin.SEL
 	typeWithMIMEType, typeWithIdentifier, identifier, preferredMIMEType    darwin.SEL
-	urlWithString, filePathURL, absoluteString                             darwin.SEL
+	urlWithString, filePathURL, absoluteString, conformsToType             darwin.SEL
 }{
 	generalPasteboard:  darwin.Sel("generalPasteboard"),
 	changeCount:        darwin.Sel("changeCount"),
@@ -52,6 +53,7 @@ var pbSel = struct {
 	urlWithString:      darwin.Sel("URLWithString:"),
 	filePathURL:        darwin.Sel("filePathURL"),
 	absoluteString:     darwin.Sel("absoluteString"),
+	conformsToType:     darwin.Sel("conformsToType:"),
 }
 
 var errNoPasteboard = errors.New("cocoa: NSPasteboard.generalPasteboard is nil (no pasteboard server?)")
@@ -179,6 +181,9 @@ func newPasteboardItem(it pbItem) (darwin.ID, error) {
 // utiForMIME returns the pasteboard type of a custom MIME type: its UTType
 // (declared or dynamic), else customType.
 func utiForMIME(mime string) string {
+	if uti, ok := privateUTI(mime); ok {
+		return uti
+	}
 	if needsCustomType(mime) || !darwin.LoadUniformTypeIdentifiers() {
 		return customType(mime)
 	}
@@ -196,26 +201,39 @@ func utiForMIME(mime string) string {
 
 // mimeForUTI returns the MIME type of a pasteboard type that is not well
 // known: a customType identifier's, else the UTType's preferred MIME type
-// (normalized like a Linux target: "text/plain" is MIMEText). Types
-// without one (private Apple types, legacy names) are not data.
+// (normalized like a Linux target: "text/plain" is MIMEText), else the
+// private Data type of a declared identifier (privateMIME: another app's
+// own type, ADR-237). Dynamic identifiers, legacy names and the file
+// promise types are not data.
 func mimeForUTI(uti string) (string, bool) {
 	if m, ok := customMIME(uti); ok {
 		return m, true
 	}
-	if !darwin.LoadUniformTypeIdentifiers() {
+	if isPromiseType(uti) || slices.Contains(promiseReadableTypes(), uti) {
 		return "", false
 	}
-	s := darwin.NSString(uti)
-	defer darwin.Release(s)
-	t := darwin.SendClass(darwin.GetClass("UTType"), pbSel.typeWithIdentifier, s)
-	if t == 0 {
-		return "", false
+	if darwin.LoadUniformTypeIdentifiers() {
+		s := darwin.NSString(uti)
+		t := darwin.SendClass(darwin.GetClass("UTType"), pbSel.typeWithIdentifier, s)
+		darwin.Release(s)
+		if t != 0 {
+			if m := darwin.GoString(darwin.Send(t, pbSel.preferredMIMEType)); m != "" {
+				if mt, ok := platform.SelectionType(m); ok {
+					return mt, true
+				}
+			}
+			// A text encoding without a MIME type
+			// (com.apple.traditional-mac-plain-text) is another form of
+			// the text the string methods read: not a type of its own.
+			plain := darwin.NSString("public.plain-text")
+			pt := darwin.SendClass(darwin.GetClass("UTType"), pbSel.typeWithIdentifier, plain)
+			darwin.Release(plain)
+			if pt != 0 && darwin.SendBool(t, pbSel.conformsToType, pt) {
+				return "", false
+			}
+		}
 	}
-	m := darwin.GoString(darwin.Send(t, pbSel.preferredMIMEType))
-	if m == "" {
-		return "", false
-	}
-	return platform.SelectionType(m)
+	return privateMIME(uti)
 }
 
 // --- reading ---

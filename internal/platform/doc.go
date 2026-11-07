@@ -1249,8 +1249,10 @@
 // are resolved to paths); any other type is the UTType of the MIME type
 // (+[UTType typeWithMIMEType:], declared or dynamic; a type with
 // parameters gets an identifier naming it, "dev.telaui.mime." and the
-// escaped type), reported through the UTType's preferred MIME type.
-// Secrets (phase 15): SecItem generic passwords
+// escaped type), reported through the UTType's preferred MIME type; a
+// declared type with no MIME type (another app's private type) is
+// "application/x-uti." and its identifier, read and written under it
+// (ADR-237). Secrets (phase 15): SecItem generic passwords
 // (kSecClassGenericPassword) of the login keychain, service the app ID
 // and account the name; SecItemAdd, then SecItemUpdate for an existing
 // item; errSecItemNotFound is ErrSecretNotFound, errSecUserCanceled and
@@ -1262,10 +1264,17 @@
 // (ErrUnsupported). Drag and drop (phase 15): the content view is an
 // NSDraggingDestination registered for the well-known types above (every
 // text encoding, public.html, public.png and public.tiff, public.file-url,
-// public.url) and for the custom types of the app's own drags (registered
-// on every window before such a drag starts; a drag of another app that
-// offers only custom types is not seen, since they cannot be listed in
-// advance). draggingEntered: and draggingUpdated: are DragEnter and
+// public.url), the file promise types, public.item, public.data and
+// public.content, the custom types of the app's own drags (registered on
+// every window before such a drag starts) and the types of other apps'
+// drags, learned when each starts (a global monitor of left mouse drags
+// watches the drag pasteboard's changeCount), so every drag is seen
+// (ADR-237). File promises (NSFilePromiseReceiver: Photos, Mail) are
+// MIMEURIList: a drop that reads it receives them into a new folder of
+// <TMPDIR>/tela-drops on a background queue, performDragOperation:
+// returns at once, and DragDrop follows when the files are in (30 s at
+// most), the window refusing other drags meanwhile; the folders are
+// removed when Run returns. draggingEntered: and draggingUpdated: are DragEnter and
 // DragOver (positions in the flipped view's points; Allowed from
 // draggingSourceOperationMask, which AppKit filters by the modifiers:
 // copy, link, and move for move or generic; Mods from +[NSEvent
@@ -1280,7 +1289,8 @@
 // beginDraggingSessionWithItems:event:source: from the held press's (or
 // its latest drag's) NSEvent, with the clipboard's items (one per URI, as
 // Finder writes files) as NSDraggingItems, the image as the first item's
-// contents at the hotspot under the pointer; the view is the
+// contents at the hotspot under the pointer (without one, each item shows
+// its file's icon or its type's, 32 points under the pointer); the view is the
 // NSDraggingSource (move is offered as move and generic), and
 // draggingSession:endedAtPoint:operation: is the DragDoneEvent (generic
 // and delete count as move; a drop on one of the app's own windows
@@ -1334,7 +1344,8 @@
 // Quit requests: TelaApplication's terminate: delivers QuitRequestedEvent
 // and never lets AppKit call exit() (see the cocoa package).
 //
-// Remote (tela dev), protocol 5 (ADR-214), 6 with contract v4 (ADR-225):
+// Remote (tela dev), protocol 5 (ADR-214), 6 with contract v4 (ADR-225),
+// 7 with TrayOptions.Template (ADR-237):
 // everything is forwarded to the host's backend, which owns the real
 // windows: drags in both directions (the answer to a drag reaches the OS
 // one round trip late, so a drag entering a window is refused until the

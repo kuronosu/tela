@@ -114,7 +114,7 @@ func TestAlertMapping(t *testing.T) {
 				s += "(esc)"
 			}
 			titles = append(titles, s)
-			if got := alertAnswer(c.b, alertFirstButtonReturn+i); got != bt.answer {
+			if got := alertAnswer(c.b, alertButtonResponse(i)); got != bt.answer {
 				t.Errorf("%d: response %d = %v, want %v", c.b, alertFirstButtonReturn+i, got, bt.answer)
 			}
 			if !c.b.Has(bt.answer) {

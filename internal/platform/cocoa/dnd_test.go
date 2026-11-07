@@ -89,7 +89,7 @@ func TestSourceMaskAndDoneEffect(t *testing.T) {
 }
 
 func TestDraggedTypes(t *testing.T) {
-	got := draggedTypes([]string{"dev.telaui.mime.application-2fx-a", utiPNG})
+	got := draggedTypes([]string{"com.apple.NSFilePromiseItemMetaData", "promise.extra"}, []string{"dev.telaui.mime.application-2fx-a", utiPNG})
 	for _, want := range []string{utiUTF8Text, "NSStringPboardType", utiHTML, utiPNG, utiTIFF, utiFileURL, utiURL, "dev.telaui.mime.application-2fx-a"} {
 		if !slices.Contains(got, want) {
 			t.Errorf("draggedTypes lacks %s: %q", want, got)
