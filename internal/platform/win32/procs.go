@@ -123,6 +123,8 @@ var (
 	procDwmSetWindowAttribute   = dwmapi.NewProc("DwmSetWindowAttribute") // Windows 10 1809 (19) and 1903 (20)
 
 	procDwmExtendFrameIntoClientArea = dwmapi.NewProc("DwmExtendFrameIntoClientArea")
+	procDwmGetWindowAttribute        = dwmapi.NewProc("DwmGetWindowAttribute")
+	procDwmDefWindowProc             = dwmapi.NewProc("DwmDefWindowProc") // TitleBarOverlay (overlay_windows.go)
 
 	procGetModuleHandleW = kernel32.NewProc("GetModuleHandleW")
 	procGlobalAlloc      = kernel32.NewProc("GlobalAlloc")

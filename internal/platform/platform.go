@@ -368,9 +368,10 @@ type WindowOptions struct {
 	// bar and keeps the OS's window buttons over it (macOS: the traffic
 	// lights): the app draws the rest of its title bar and declares it
 	// with Window.SetHitRegions, as a Frameless window does, and
-	// WindowState.TitleBarControls reports the buttons' rectangle. A
-	// backend that cannot keep its buttons over the content treats it as
-	// Frameless (OverlayAsFrameless): Wayland, X11 and Win32 for now. Set
+	// WindowState.TitleBarControls reports the buttons' rectangle (Cocoa;
+	// Win32 on Windows 11). A backend that cannot keep its buttons over
+	// the content treats it as Frameless (OverlayAsFrameless): Wayland,
+	// X11 and Win32 on Windows 10. Set
 	// at creation; it excludes Frameless (Resolve panics with both). See
 	// "Custom title bars" in the package documentation.
 	TitleBarOverlay bool
@@ -427,9 +428,9 @@ func (opts WindowOptions) Resolve() WindowOptions {
 
 // OverlayAsFrameless returns opts with TitleBarOverlay turned into
 // Frameless: what a backend that cannot keep the OS's window buttons over
-// the content does with a TitleBarOverlay window (Wayland, X11, Win32;
-// see "Custom title bars" in the package documentation). Such a window
-// reports an empty WindowState.TitleBarControls. Other options are
+// the content does with a TitleBarOverlay window (Wayland, X11, Win32 on
+// Windows 10; see "Custom title bars" in the package documentation). Such a
+// window reports an empty WindowState.TitleBarControls. Other options are
 // returned unchanged.
 func (opts WindowOptions) OverlayAsFrameless() WindowOptions {
 	if opts.TitleBarOverlay {

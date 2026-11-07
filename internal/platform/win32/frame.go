@@ -100,20 +100,32 @@ type hitInput struct {
 	border     int
 	fullscreen bool
 	regions    []platform.HitRegion
+	// topOnly: the band is only along the top, the other edges being the
+	// OS's frame outside the client area (a TitleBarOverlay window).
+	topOnly bool
+	// controls is the rectangle of the OS's caption buttons in physical
+	// client pixels (a TitleBarOverlay window), empty otherwise. A point
+	// there that DWM did not claim as one of its buttons is caption.
+	controls image.Rectangle
 }
 
 // clientHit answers WM_NCHITTEST for a point inside the client area: the
 // app's window buttons (except at the outermost pixel), the resize band of a
-// frameless window (it takes precedence over the other hit regions), then
-// the app's hit regions. Corners take twice the band along
-// each edge, so they are easier to grab, as Windows' own frames do.
+// frameless window (it takes precedence over the other hit regions), the
+// rectangle of the OS's caption buttons of a TitleBarOverlay window (which
+// replaces every region there), then the app's hit regions. Corners take
+// twice the band along each edge, so they are easier to grab, as Windows'
+// own frames do; along the top of a TitleBarOverlay window a corner takes
+// the band's width, and the side band outside the client area adds the
+// rest.
 func clientHit(in hitInput) uintptr {
+	inControls := in.pt.In(in.controls)
 	// A window button of the app takes the band, like the caption buttons
 	// of a native frame, which leave only the outermost pixel of the window
 	// to the resize edges: the hover over the maximize button of Windows 11
 	// (the snap layouts flyout) starts from the hit test at the pointer, and
 	// the pointer reaches a button across the band.
-	if in.border > 0 && len(in.regions) > 0 {
+	if in.border > 0 && len(in.regions) > 0 && !inControls {
 		thin := max(1, int(in.scale+0.5))
 		x, y, w, h := in.pt.X, in.pt.Y, in.client.X, in.client.Y
 		if x >= thin && y >= thin && x < w-thin && y < h-thin {
@@ -129,6 +141,10 @@ func clientHit(in hitInput) uintptr {
 		top, bottom := y < b, y >= h-b
 		nearLeft, nearRight := x < 2*b, x >= w-2*b
 		nearTop, nearBottom := y < 2*b, y >= h-2*b
+		if in.topOnly {
+			left, right, bottom = false, false, false
+			nearLeft, nearRight = x < b, x >= w-b
+		}
 		switch {
 		case (top && nearLeft) || (left && nearTop):
 			return htTopLeft
@@ -147,6 +163,11 @@ func clientHit(in hitInput) uintptr {
 		case right:
 			return htRight
 		}
+	}
+	if inControls {
+		// Around DWM's buttons (which it answers itself): the caption
+		// they sit in.
+		return hitCodeOf(platform.HitCaption, in.fullscreen)
 	}
 	if len(in.regions) == 0 {
 		return htClient

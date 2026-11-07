@@ -153,10 +153,15 @@ func (b *Backend) settingsChanged() {
 
 // applyTheme makes the title bar follow the color mode
 // (DWMWA_USE_IMMERSIVE_DARK_MODE). It does nothing where DWM has no such
-// attribute (before Windows 10 1809, Wine).
+// attribute (before Windows 10 1809, Wine). The caption buttons DWM keeps
+// over a TitleBarOverlay window follow the app's title bar background
+// instead when it set one (captionDark).
 func (w *Window) applyTheme(dark bool) {
 	if !available(procDwmSetWindowAttribute) {
 		return
+	}
+	if w.overlay {
+		dark = captionDark(w.titleBar, dark)
 	}
 	var v int32
 	if dark {

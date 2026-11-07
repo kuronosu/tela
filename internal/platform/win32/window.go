@@ -76,6 +76,16 @@ type Window struct {
 	backdropSet bool // the backdrop type was set once
 	glass       bool // client-area backdrop: frame extended, alpha presented
 
+	// TitleBarOverlay (overlay.go, overlay_windows.go): opts.Frameless is
+	// true too, and overlay keeps DWM's caption buttons over the client
+	// area. controls is the reported WindowState.TitleBarControls, ctlPx
+	// the same in physical client pixels, recheck the Presents left that
+	// read it again.
+	overlay  bool
+	controls platform.Rect
+	ctlPx    image.Rectangle
+	recheck  int
+
 	// Drag and drop and the menu bar (phase 13: dnd_windows.go,
 	// menu_windows.go).
 	integ windowIntegration
@@ -88,14 +98,17 @@ var _ platform.Window = (*Window)(nil)
 // Its first event is a ConfigureEvent with the client size Windows granted,
 // followed by a WindowStateEvent.
 func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error) {
-	// The backend keeps no caption buttons of the OS over the client area
-	// (DwmDefWindowProc over an extended frame could, later): a
-	// TitleBarOverlay window is a Frameless one (ADR-225).
-	opts = opts.Resolve().OverlayAsFrameless()
+	// A TitleBarOverlay window keeps DWM's caption buttons over the client
+	// area where Windows can (overlayAvailable: Windows 11); elsewhere it
+	// is Frameless (ADR-225). Either way it is Frameless inside the
+	// package, w.overlay telling the first apart (ADR-236).
+	opts = opts.Resolve()
+	overlay := opts.TitleBarOverlay && overlayAvailable()
+	opts = opts.OverlayAsFrameless()
 	if b.closed {
 		return nil, errClosed
 	}
-	w := &Window{b: b, opts: opts, parent: b.parentOf(opts.Parent), visible: !opts.Hidden}
+	w := &Window{b: b, opts: opts, overlay: overlay, parent: b.parentOf(opts.Parent), visible: !opts.Hidden}
 	w.style = uint32(wsOverlappedWindow | wsClipSiblings | wsClipChildren)
 	if opts.FixedSize {
 		w.style &^= wsThickFrame | wsMaximizeBox
@@ -179,11 +192,23 @@ func (w *Window) osMetrics() platform.Metrics {
 // outerSize returns the outer window size for a physical client size: the
 // same size for a frameless window, whose whole window is client area.
 func (w *Window) outerSize(client image.Point) rect {
-	r := rect{right: int32(client.X), bottom: int32(client.Y)}
-	if w.opts.Frameless {
-		return r
+	return w.frameRect(rect{right: int32(client.X), bottom: int32(client.Y)}, w.style, w.exStyle)
+}
+
+// frameRect returns the outer rectangle of a client rectangle for a window
+// with the given styles in its normal state: the client rectangle itself
+// for a frameless window, whose whole window is client area; the side and
+// bottom frame of a decorated window without its caption for a
+// TitleBarOverlay one (overlayOuter); else AdjustWindowRectExForDpi with
+// the menu bar.
+func (w *Window) frameRect(client rect, style, exStyle uint32) rect {
+	switch {
+	case w.overlay:
+		return rectFrom(overlayOuter(client.image(), w.adjustRect(client, style, exStyle).image()))
+	case w.opts.Frameless:
+		return client
 	}
-	return w.adjustRect(r, w.style, w.exStyle)
+	return w.adjustRect(client, style, exStyle)
 }
 
 // resizeClient resizes the window so that its client area is client physical
@@ -239,10 +264,7 @@ func (w *Window) SetSize(size platform.Size) {
 	if w.fs != nil {
 		style, exStyle = w.fs.style, w.fs.exStyle
 	}
-	r := rect{right: int32(client.X), bottom: int32(client.Y)}
-	if !w.opts.Frameless {
-		r = w.adjustRect(r, style, exStyle)
-	}
+	r := w.frameRect(rect{right: int32(client.X), bottom: int32(client.Y)}, style, exStyle)
 	w.setNormalRect(func(n image.Rectangle) image.Rectangle {
 		return image.Rectangle{Min: n.Min, Max: n.Min.Add(image.Pt(int(r.width()), int(r.height())))}
 	})
@@ -336,6 +358,8 @@ func (w *Window) onDPIChanged(wparam, lparam uintptr) {
 	if len(w.icon) > 0 {
 		w.applyIcon()
 	}
+	// So does the caption DWM keeps its buttons in.
+	w.overlayDPIChanged()
 }
 
 // onGetMinMaxInfo applies WindowOptions.MinSize and MaxSize (logical sizes

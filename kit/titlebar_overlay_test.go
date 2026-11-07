@@ -176,3 +176,74 @@ func TestTitleBarRoomFollowsTheRectangleNotTheLook(t *testing.T) {
 		t.Errorf("the leading button starts at x=%v, inside the OS's buttons that end at %v", x, right)
 	}
 }
+
+// windowsControls is where Windows 11 keeps its caption buttons over a
+// TitleBarOverlay window 480 px wide at 100% (the win32 backend reports
+// DWM's three 46 px buttons at the top right, ADR-236).
+var windowsControls = tela.Rect{X: 480 - 138, Y: 0, Width: 138, Height: 32}
+
+// mountWindowsOverlay mounts the bar in a TitleBarOverlay window with the
+// Windows arrangement whose OS's buttons move to the end, as the window
+// reports them on Windows 11, and a translucent box where the window says
+// they are (the golden's stand-in for DWM's buttons, which the OS draws).
+func mountWindowsOverlay(t *testing.T, surface string, root tela.Component) *telatest.App {
+	t.Helper()
+	a := telatest.MountFunc(t, func() tela.Node {
+		var marker tela.Child
+		if r := tela.UseWindow().State().TitleBarControls; r.Width > 0 {
+			marker = h.Div(h.Class(fmt.Sprintf("absolute bg-red-500/40 left-[%gpx] top-[%gpx] h-[%gpx] w-[%gpx]", r.X, r.Y, r.Height, r.Width)))
+		}
+		return h.Div(h.Class("relative flex h-full w-full flex-col text-foreground", surface), root,
+			h.Div(h.Class("grow p-4 text-sm text-muted-foreground"), h.Text("The note's content sits under the same window.")), marker)
+	}, telatest.Size(480, 160), telatest.Theme(kit.Theme()), telatest.TitleBarOverlay(), telatest.PlatformKeys("windows"))
+	// Until the OS reports buttons, the bar draws its own.
+	a.ExpectCount(group, 1)
+	a.SetTitleBarControls(windowsControls)
+	return a
+}
+
+// The OS's buttons reported at the end of the bar (Windows 11): the bar
+// draws no controls, the trailing content ends before the buttons and the
+// leading content stays at the start; taking the buttons away (fullscreen)
+// brings the drawn controls back at the end.
+func TestTitleBarRoomAtTheEndFromTheOS(t *testing.T) {
+	for name, bar := range map[string]kit.TitleBar{
+		"windows": overlayBar(kit.Windows, ""),
+		"plain":   overlayBar(kit.Plain, kit.Windows),
+	} {
+		t.Run(name, func(t *testing.T) {
+			a := mountWindowsOverlay(t, "bg-background", bar)
+			if got := a.WindowState().TitleBarControls; got != windowsControls {
+				t.Fatalf("the window reports %v, want %v", got, windowsControls)
+			}
+			a.ExpectCount(group, 0)
+			a.ExpectCount(btnClose, 0)
+			share := a.Bounds(shareBtn)
+			if end := share.X + share.Width; end > windowsControls.X {
+				t.Errorf("the trailing button ends at x=%v, inside the OS's buttons that start at %v", end, windowsControls.X)
+			} else if end < windowsControls.X-40 {
+				t.Errorf("the trailing button ends at x=%v, far from the OS's buttons that start at %v", end, windowsControls.X)
+			}
+			if title := a.Bounds(telatest.ByText("Notes")); title.X+title.Width > windowsControls.X {
+				t.Errorf("the title ends at x=%v, inside the OS's buttons", title.X+title.Width)
+			}
+			if x := a.Bounds(menuButton).X; x > 20 {
+				t.Errorf("the leading button is at x=%v, want it at the start", x)
+			}
+			a.SetTitleBarControls(tela.Rect{})
+			a.ExpectCount(group, 1)
+			if r := a.Bounds(btnClose); r.X+r.Width < 470 {
+				t.Errorf("the drawn close button ends at x=%v, want it at the end", r.X+r.Width)
+			}
+		})
+	}
+}
+
+// The look of a Windows 11 window with DWM's buttons over the bar (the red
+// box): Windows' bar and the Plain bar of an app with a design of its own.
+// Look at the PNGs: the Share button ends left of the box and no drawn
+// controls are under it.
+func TestTitleBarOverlayWindowsGolden(t *testing.T) {
+	mountWindowsOverlay(t, "bg-background", overlayBar(kit.Windows, "")).GoldenScales("titlebar_overlay_windows", 1, 2)
+	mountWindowsOverlay(t, "bg-muted", overlayBar(kit.Plain, kit.Windows)).GoldenScales("titlebar_overlay_windows_plain", 1, 2)
+}

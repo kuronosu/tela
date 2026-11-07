@@ -15,11 +15,7 @@ import (
 	"github.com/kuronosu/tela/internal/platform"
 )
 
-var (
-	procDwmGetWindowAttribute = dwmapi.NewProc("DwmGetWindowAttribute")
-
-	solidBlack = color.RGBA{0, 0, 0, 0xff}
-)
+var solidBlack = color.RGBA{0, 0, 0, 0xff}
 
 func sendMessage(hwnd uintptr, msg uint32, wparam, lparam uintptr) uintptr {
 	r, _, _ := procSendMessageW.Call(hwnd, uintptr(msg), wparam, lparam)

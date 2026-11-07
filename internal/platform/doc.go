@@ -448,10 +448,14 @@
 // hit regions as usual, and they combine with the OS's buttons: inside
 // TitleBarControls the buttons take the presses (they are not delivered,
 // whatever region lies there), and everywhere else the regions apply.
-// Wayland, X11 and Win32 cannot keep their buttons over the content, so
-// they treat TitleBarOverlay as Frameless
-// ([WindowOptions.OverlayAsFrameless]): TitleBarControls stays empty, and
-// the app draws its own buttons as in any frameless window. Frameless and TitleBarOverlay exclude each other
+// Win32 keeps DWM's caption buttons at the top right on Windows 11
+// (ADR-236): the caption is client area, the side and bottom frame stay,
+// and TitleBarControls is the buttons' rectangle (empty in fullscreen); it
+// has no menu bar, as a frameless window. Wayland, X11 and Win32 on Windows
+// 10 cannot keep their buttons over the content, so they treat
+// TitleBarOverlay as Frameless ([WindowOptions.OverlayAsFrameless]):
+// TitleBarControls stays empty, and the app draws its own buttons as in
+// any frameless window. Frameless and TitleBarOverlay exclude each other
 // (Resolve panics with both).
 //
 // # Parent windows and modality
@@ -684,8 +688,8 @@
 // ([Window.PopupMenu]; asynchronous like the dialogs, 0 for a dismissed
 // menu). Where the OS has no native menu, both return ErrUnsupported and
 // the layers above draw their own (kit's menus): Wayland and X11 always,
-// frameless Win32 windows for the menu bar (their client area covers the
-// frame), and Cocoa for the menu bar (a macOS window has none of its own:
+// frameless and TitleBarOverlay Win32 windows for the menu bar (their client
+// area covers the frame), and Cocoa for the menu bar (a macOS window has none of its own:
 // the menu bar is the app's NSMenu, below). Cocoa's popup menus are
 // native.
 //
