@@ -108,6 +108,9 @@ type Backend struct {
 	atomNames map[xproto.Atom]string
 	timers    timers
 	integ     integration
+
+	// ime is the XIM client (ime.go).
+	ime imeClient
 }
 
 // xevent is an event or an X error received by the pump.
@@ -210,6 +213,7 @@ func newBackend(conn *xgb.Conn) (*Backend, error) {
 	b.initXKB()
 	b.initXI2()
 	b.kbd.km() // read the keyboard mapping now, not at the first key
+	b.initIME(os.Getenv("XMODIFIERS"))
 
 	b.timer = time.NewTimer(time.Hour)
 	b.timer.Stop()
@@ -436,6 +440,7 @@ func (b *Backend) shutdown() {
 		w.Close()
 	}
 	b.ungrabShortcuts()
+	b.shutdownIME()
 	b.closeDesktop()
 	b.loop.Discard()
 	close(b.done)
@@ -455,11 +460,16 @@ func (b *Backend) nextDeadline() (time.Duration, bool) { return b.loop.Pace() }
 // due frames (see loop.Loop.Deliver). Items queued while the handler runs
 // wait for the next iteration; frame requests are evaluated after the
 // items, so an input event that requests a frame gets it in the same
-// iteration if pacing allows.
+// iteration if pacing allows. The input method's latched composition is
+// queued first, and its input contexts follow the focus and the text
+// input states before and after the delivery (ime.go).
 func (b *Backend) dispatch(h platform.Handler) {
 	b.runTimers()
 	b.dispatchDesktop()
+	b.flushIME()
+	b.syncIME()
 	b.loop.Deliver(h)
+	b.syncIME()
 }
 
 // enqueue appends an event for w (nil for app events).

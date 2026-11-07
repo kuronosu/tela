@@ -28,6 +28,20 @@
 // Mods come from the real modifier mapping (Alt and Super are where their
 // keys are bound; AltGr is never Alt).
 //
+// # Input methods
+//
+// ime.go is an XIM client (ADR-231) for the input method XMODIFIERS names
+// ("@im=fcitx"; none means no input method). It is asynchronous: the
+// protocol's messages are read by the loop like other events and nothing
+// waits for a reply. Its wire format and the COMPOUND_TEXT decoding are
+// the package internal/xim. While a window's text field (a non-password
+// TextInputState) has the keyboard focus, its input context has the XIM
+// focus and keys go to the server, which consumes them or sends them back
+// to the keyboard above; commits and preedit updates become IMEEvents
+// (one per read), the focus IMESessionEvents. A server that starts later
+// or restarts is picked up from XIM_SERVERS; one that quits ends the
+// sessions and keys go to the keyboard again.
+//
 // # Window control
 //
 // windowctl.go implements the phase 12 requests (ADR-178, ADR-179) with

@@ -185,6 +185,13 @@ their original copyright notice. Add one section per source project.
 - **Used in:** `internal/platform/x11/internal/xgb/` (the core package: `auth.go`, `conn.go`, `cookie.go`, `doc.go`, `help.go`, `sync.go`, `xgb.go`), `internal/platform/x11/internal/xgb/xproto/xproto.go` and `internal/platform/x11/internal/xgb/bigreq/bigreq.go` (ADR-025)
 - **Notes:** Copied unchanged except for: a copyright header on each Go file (the originals carry the license only in `LICENSE`); the import paths of `xproto` and `bigreq`, rewritten to the vendored location; and Tela's patch to the reader in `xgb.go`, marked "Tela patch": (1) a GenericEvent (code 35) is read whole, the 32-byte header plus the extra 4-byte units its length field announces, and delivered as `RawEvent` (v1.3.1 read every event as 32 bytes, so an XInput2 or Present event desynchronized the connection); (2) an event without a registered constructor (an extension without a Go package, such as XKB) is delivered as `RawEvent` instead of being logged and dropped; (3) an error without a registered constructor (XInput2's BadDevice, XKB errors) becomes a `RawError` and is matched to its request's cookie (v1.3.1 skipped it, so the request's `Reply` blocked forever). `RawEvent`, `RawError` and `GenericEventCode` are in the new file `raw.go`, tested by `raw_test.go`. The unreachable `panic` at the end of `readAuthority` (`auth.go`) is removed so that `go vet` passes. The other xgb extension packages, `xgbgen`, the examples and xgb's own tests are not vendored. `doc.go` is kept as upstream wrote it (not gofmt-formatted).
 
+## XIM: libX11, xcb-imdkit and the xim crate (reference behavior; a test vector)
+
+- **Source:** https://gitlab.freedesktop.org/xorg/lib/libx11 (`modules/im/ximcp`, `src/xlibi18n/XimProto.h`, `XimTrX.h`; MIT/X11 notices of Sun, Fujitsu and others), https://github.com/fcitx/xcb-imdkit (LGPL-2.1, reference only), https://github.com/fcitx/fcitx5 (`src/frontend/xim/xim.cpp`, LGPL-2.1+, reference only) and https://github.com/Riey/xim-rs (MIT, Copyright (c) 2020 Riey)
+- **License:** see each source; nothing LGPL is copied
+- **Used in:** `internal/platform/x11/internal/xim/` and `internal/platform/x11/ime.go`; `internal/platform/x11/internal/xim/proto_test.go`
+- **Notes:** No code is copied. The XIM messages, the X transport and the COMPOUND_TEXT rules are written from the X Input Method Protocol and Compound Text specifications, checked against libX11's client (opcodes, transport version 0.0, the encoding negotiation, locale names), xcb-imdkit and fcitx5's XIM frontend (property reads by offset, sync mode, `UTF8_STRING`, the styles fcitx5 offers, how it sends preedits and commits) and the xim crate's message layouts. `proto_test.go` uses the xim crate's `OPEN_REPLY` byte vector and the expected bytes of a few of its tests (`read_open`, `read_query`, `set_event_mask`, `write_create_ic`, `read_error`, `spot_attr`), under its MIT license.
+
 ## X.Org server (reference behavior)
 
 - **Source:** https://gitlab.freedesktop.org/xorg/xserver (`xkb/xkbUtils.c`: `XkbGetCoreMap`; `xkb/XKBMisc.c`: `XkbKeyTypesForCoreSymbols`; `dix/getevents.c` and `Xi/` for XInput2 smooth-scrolling behavior) and the X protocol headers (`XI2proto.h`, `XKBproto.h` from xorgproto, `xinput.xml`, `xkb.xml` from xcb-proto)
@@ -245,7 +252,7 @@ their original copyright notice. Add one section per source project.
 
 - **Source:** https://go.googlesource.com/text (v0.43.0)
 - **License:** BSD-3-Clause, Copyright 2009 The Go Authors
-- **Used in:** `i18n` (`language`, `feature/plural`, `number`, `message`), a module dependency, not vendored code (ARCHITECTURE §2). Its CLDR 32 tables give the plural rules and number formats; date patterns do not come from it (it keeps them private).
+- **Used in:** `i18n` (`language`, `feature/plural`, `number`, `message`), a module dependency, not vendored code (ARCHITECTURE §2). Its CLDR 32 tables give the plural rules and number formats; date patterns do not come from it (it keeps them private). Also `internal/platform/x11/internal/xim/ctext.go` (`encoding/japanese`, `encoding/korean`, `encoding/simplifiedchinese`, `encoding/charmap`): the EUC and ISO 8859 decoders behind the COMPOUND_TEXT the X11 input methods send (ADR-231).
 
 ## Floating UI (ported code; test oracle)
 

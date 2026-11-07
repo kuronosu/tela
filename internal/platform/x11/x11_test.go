@@ -391,6 +391,16 @@ func (r *recorder) HandleEvent(_ platform.Window, e platform.Event) {
 		s = "wake"
 	case platform.WindowStateEvent:
 		s = "state " + e.State.String()
+	case platform.IMEEvent:
+		s = fmt.Sprintf("ime %q %q %d,%d", e.Commit, e.Preedit, e.CursorStart, e.CursorEnd)
+		if e.DeleteBefore != 0 || e.DeleteAfter != 0 {
+			s += fmt.Sprintf(" del=%d,%d", e.DeleteBefore, e.DeleteAfter)
+		}
+		if msg := platform.CheckIMEEvent(e); msg != "" {
+			s += " INVALID: " + msg
+		}
+	case platform.IMESessionEvent:
+		s = fmt.Sprintf("session %v", e.Active)
 	default:
 		s = fmt.Sprintf("%T", e)
 	}

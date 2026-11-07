@@ -10,6 +10,7 @@ import (
 
 	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb"
 	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/xproto"
+	"github.com/kuronosu/tela/internal/platform/x11/internal/xim"
 
 	"github.com/kuronosu/tela/internal/platform"
 )
@@ -73,6 +74,14 @@ type atoms struct {
 	netStartupID       xproto.Atom
 	netStartupInfo     xproto.Atom
 	netStartupInfoBegn xproto.Atom
+
+	// Input methods (ime.go).
+	ximServers   xproto.Atom
+	ximLocales   xproto.Atom
+	ximTransport xproto.Atom
+	ximXConnect  xproto.Atom
+	ximProtocol  xproto.Atom
+	ximMoreData  xproto.Atom
 }
 
 // atomEntry is an atom name and the field of atoms it is stored in.
@@ -136,6 +145,12 @@ func (a *atoms) list() []atomEntry {
 		{"_NET_STARTUP_ID", &a.netStartupID},
 		{"_NET_STARTUP_INFO", &a.netStartupInfo},
 		{"_NET_STARTUP_INFO_BEGIN", &a.netStartupInfoBegn},
+		{xim.AtomServers, &a.ximServers},
+		{xim.AtomLocales, &a.ximLocales},
+		{xim.AtomTransport, &a.ximTransport},
+		{xim.AtomXConnect, &a.ximXConnect},
+		{xim.AtomProtocol, &a.ximProtocol},
+		{xim.AtomMoreData, &a.ximMoreData},
 	}
 }
 

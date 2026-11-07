@@ -27,6 +27,12 @@ func (b *Backend) translate(e xevent) {
 	if p, ok := e.ev.(xproto.KeyPressEvent); !ok || p.Event != b.root {
 		b.integ.sc.flushRelease(b)
 	}
+	// The input method's transport and selections come before the
+	// keyboard's look-ahead: the keys it sends back run it themselves
+	// (injectKey), as if nothing came between them.
+	if b.imeEvent(e.ev) {
+		return
+	}
 	if !b.kbd.beforeEvent(e.ev) {
 		return
 	}
@@ -112,11 +118,17 @@ func (b *Backend) translate(e xevent) {
 			b.ptrLeave(b.corePtr(w, ev.State, ev.EventX, ev.EventY, ev.RootX, ev.RootY), ev.Mode, ev.Detail)
 		}
 
+	// Keys go to the input method while a text field has its session
+	// (ime.go), else to the keyboard.
 	case xproto.KeyPressEvent:
 		b.userTime = uint32(ev.Time)
-		b.kbd.keyPress(ev)
+		if !b.imeFilterKey(ev, ev.Event, byte(ev.Detail), false) {
+			b.kbd.keyPress(ev)
+		}
 	case xproto.KeyReleaseEvent:
-		b.kbd.keyRelease(ev)
+		if !b.imeFilterKey(ev, ev.Event, byte(ev.Detail), true) {
+			b.kbd.keyRelease(ev)
+		}
 	case xproto.KeymapNotifyEvent:
 		b.kbd.keymapNotify(ev.Keys)
 	case xproto.MappingNotifyEvent:
@@ -166,6 +178,9 @@ func (b *Backend) translate(e xevent) {
 				xproto.EventMaskSubstructureNotify|xproto.EventMaskSubstructureRedirect, string(ev.Bytes()))
 		}
 
+	case xproto.DestroyNotifyEvent:
+		b.imeDestroyed(ev.Window) // the input method's windows (ime.go)
+
 	case xproto.SelectionRequestEvent:
 		b.selectionRequest(ev)
 	case xproto.SelectionNotifyEvent:
@@ -181,6 +196,8 @@ func (b *Backend) translate(e xevent) {
 			b.updateScale()
 		case ev.Window == b.root && ev.Atom == b.atoms.netSupported:
 			b.readSupported() // another window manager
+		case ev.Window == b.root && ev.Atom == b.atoms.ximServers:
+			b.imeServersChanged() // an input method started or quit
 		case ev.Atom == b.atoms.netWMState || ev.Atom == b.atoms.wmState:
 			if w := b.windows[ev.Window]; w != nil {
 				w.refreshState()

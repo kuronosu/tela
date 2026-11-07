@@ -96,6 +96,16 @@ type Window struct {
 	dnd         windowDnD
 	pressed     platform.Buttons
 	pressDevice uint16 // the XInput2 master pointer of the latest press, 0 for core
+
+	// Text input (ime.go): the app's state, a restart (SetTextInput(nil))
+	// and a reset requested in this loop iteration, the input context,
+	// and whether an IME session was reported.
+	textInput *platform.TextInputState
+	tiRestart bool
+	tiReset   bool
+	ic        *xic
+	icFailed  bool // the server refused or ignored its CREATE_IC: no input method
+	imeActive bool
 }
 
 var _ platform.Window = (*Window)(nil)
@@ -269,6 +279,7 @@ func (w *Window) Close() {
 	b := w.b
 	b.dragWindowClosed(w)
 	b.endSessions(w)
+	b.imeWindowClosed(w)
 	b.loop.Remove(w) // marks it closed and drops its queued events
 	b.kbd.dropWindow(w)
 	delete(b.windows, w.id)

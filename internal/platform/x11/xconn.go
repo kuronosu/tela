@@ -52,6 +52,19 @@ type dataServer interface {
 	// client holds the combination).
 	grabKey(kc byte, mods uint16) error
 	ungrabKey(kc byte, mods uint16)
+
+	// The input method client (ime.go).
+	//
+	// createIMWindow creates the XIM client's window: an unmapped
+	// InputOnly child of the root that receives the transport's
+	// ClientMessages and the selection conversions.
+	createIMWindow() (xproto.Window, error)
+	// propertyPart reads length 4-byte units of a property from offset
+	// (in 4-byte units), deleting it when del is set and nothing is left
+	// after the part (a round trip). after is the bytes left.
+	propertyPart(win xproto.Window, prop xproto.Atom, offset, length uint32, del bool) (data []byte, after uint32, ok bool)
+	// appendProperty appends to a property (PropModeAppend).
+	appendProperty(win xproto.Window, prop, typ xproto.Atom, format byte, data []byte)
 }
 
 // xproperty is a property's value.
@@ -196,6 +209,33 @@ func (s connServer) grabKey(kc byte, mods uint16) error {
 
 func (s connServer) ungrabKey(kc byte, mods uint16) {
 	xproto.UngrabKey(s.b.conn, xproto.Keycode(kc), s.b.root, mods)
+}
+
+func (s connServer) createIMWindow() (xproto.Window, error) {
+	b := s.b
+	id, err := xproto.NewWindowId(b.conn)
+	if err != nil {
+		return 0, err
+	}
+	err = xproto.CreateWindowChecked(b.conn, 0, id, b.root, -100, -100, 1, 1, 0,
+		xproto.WindowClassInputOnly, 0, xproto.CwOverrideRedirect, []uint32{1}).Check()
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+func (s connServer) propertyPart(win xproto.Window, prop xproto.Atom, offset, length uint32, del bool) ([]byte, uint32, bool) {
+	r, err := xproto.GetProperty(s.b.conn, del, win, prop, xproto.GetPropertyTypeAny, offset, length).Reply()
+	if err != nil || r == nil || r.Type == 0 {
+		return nil, 0, false
+	}
+	n := int(r.ValueLen) * int(r.Format) / 8
+	return r.Value[:min(n, len(r.Value))], r.BytesAfter, true
+}
+
+func (s connServer) appendProperty(win xproto.Window, prop, typ xproto.Atom, format byte, data []byte) {
+	xproto.ChangeProperty(s.b.conn, xproto.PropModeAppend, win, prop, typ, format, uint32(len(data))/uint32(format/8), data)
 }
 
 // isAccessError reports whether err is the X error BadAccess.
