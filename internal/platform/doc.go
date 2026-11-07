@@ -1240,8 +1240,9 @@
 //     string IDs; ERROR_HOTKEY_ALREADY_REGISTERED is ShortcutTaken (as an
 //     event); WM_HOTKEY is ShortcutPressed (no releases). A keyboard
 //     layout change (WM_INPUTLANGCHANGE) registers shortcuts declared by
-//     character again whose key moved, with a new ShortcutStatusEvent
-//     (ADR-234); tray icons are drawn again at a new DPI.
+//     character again whose key moved, a status that changes being a
+//     new ShortcutStatusEvent (ADR-234); tray icons are drawn again at a
+//     new DPI.
 //   - Settings: AppsUseLightTheme, the DWM AccentColor,
 //     SPI_GETHIGHCONTRAST (HCF_HIGHCONTRASTON), the Accessibility
 //     TextScaleFactor (percent), SPI_GETCLIENTAREAANIMATION; WM_SETTINGCHANGE

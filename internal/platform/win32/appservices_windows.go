@@ -57,16 +57,6 @@ type appServices struct {
 	instanceMutex windows.Handle
 }
 
-// hotkeyReg is a shortcut asked for with RegisterShortcut. It is kept
-// whether or not RegisterHotKey took it, so that a change of the keyboard
-// layout can bind it again (layoutChanged).
-type hotkeyReg struct {
-	s          platform.Shortcut
-	id         int32  // the RegisterHotKey ID (0: none was allocated)
-	vk         uint32 // the virtual key it was bound to; 0: the layout had none
-	registered bool   // RegisterHotKey succeeded
-}
-
 // appServicesMessage handles the messages of the app-level services that
 // reach the backend's own windows (the message-only window and the tray
 // window); ok is false for any other.
@@ -135,14 +125,6 @@ func (d desktop) UnregisterShortcut(id string) error {
 func (b *Backend) registerShortcut(s platform.Shortcut) {
 	a := &b.app
 	b.unregisterShortcut(s.ID)
-	report := func(status platform.ShortcutStatus, reason string) {
-		ev := platform.ShortcutStatusEvent{ID: s.ID, Status: status, Reason: reason}
-		if status == platform.ShortcutBound {
-			ev.Trigger = s.Accelerator.String()
-		}
-		b.enqueue(nil, ev)
-		b.notify()
-	}
 	if a.shortcuts == nil {
 		a.shortcuts, a.byHotKey = map[string]*hotkeyReg{}, map[int32]string{}
 	}
@@ -150,30 +132,60 @@ func (b *Backend) registerShortcut(s platform.Shortcut) {
 	// (layoutChanged).
 	reg := &hotkeyReg{s: s}
 	a.shortcuts[s.ID] = reg
-	vk, err := hotkeyVK(s.Accelerator.Key, scanKey)
-	if err != nil {
-		report(platform.ShortcutFailed, err.Error())
-		return
+	status, reason := platform.ShortcutFailed, ""
+	if vk, err := hotkeyVK(s.Accelerator.Key, scanKey); err != nil {
+		reason = err.Error()
+	} else {
+		reg.vk = vk
+		status, reason = b.bindHotkey(reg)
 	}
-	reg.vk = vk
+	reg.status = status
+	b.reportShortcut(reg, status, reason)
+}
+
+// reportShortcut queues the ShortcutStatusEvent of reg.
+func (b *Backend) reportShortcut(reg *hotkeyReg, status platform.ShortcutStatus, reason string) {
+	ev := platform.ShortcutStatusEvent{ID: reg.s.ID, Status: status, Reason: reason}
+	if status == platform.ShortcutBound {
+		ev.Trigger = reg.s.Accelerator.String()
+	}
+	b.enqueue(nil, ev)
+	b.notify()
+}
+
+// bindHotkey registers reg's accelerator under reg.vk with a new hotkey
+// ID and returns the status: Bound, Taken (another registration holds the
+// combination) or Failed.
+func (b *Backend) bindHotkey(reg *hotkeyReg) (platform.ShortcutStatus, string) {
+	a := &b.app
 	id, ok := a.hotkeyIDs.alloc()
 	if !ok {
-		report(platform.ShortcutFailed, "all 49151 hotkey IDs of the process are in use")
-		return
+		return platform.ShortcutFailed, "all 49151 hotkey IDs of the process are in use"
 	}
-	r, _, e := procRegisterHotKey.Call(b.msgHwnd, uintptr(id), uintptr(hotkeyModifiers(s.Accelerator.Mods)), uintptr(vk))
+	r, _, e := procRegisterHotKey.Call(b.msgHwnd, uintptr(id), uintptr(hotkeyModifiers(reg.s.Accelerator.Mods)), uintptr(reg.vk))
 	if r == 0 {
 		a.hotkeyIDs.free(id)
 		if errno, _ := e.(syscall.Errno); errno == errHotKeyAlreadyRegistered {
-			report(platform.ShortcutTaken, fmt.Sprintf("another application has registered %s as a hotkey", s.Accelerator))
-			return
+			return platform.ShortcutTaken, fmt.Sprintf("another application has registered %s as a hotkey", reg.s.Accelerator)
 		}
-		report(platform.ShortcutFailed, winError("RegisterHotKey", e).Error())
-		return
+		return platform.ShortcutFailed, winError("RegisterHotKey", e).Error()
 	}
 	reg.id, reg.registered = id, true
-	a.byHotKey[id] = s.ID
-	report(platform.ShortcutBound, "")
+	a.byHotKey[id] = reg.s.ID
+	return platform.ShortcutBound, ""
+}
+
+// unbindHotkey releases reg's hotkey and its ID; reg stays a shortcut.
+func (b *Backend) unbindHotkey(reg *hotkeyReg) {
+	a := &b.app
+	if reg.registered && !b.stopped.Load() {
+		unregisterHotKey(b.msgHwnd, reg.id)
+	}
+	if reg.id != 0 {
+		delete(a.byHotKey, reg.id)
+		a.hotkeyIDs.free(reg.id)
+	}
+	reg.id, reg.registered = 0, false
 }
 
 // layoutChanged binds again the shortcuts declared by character when the
@@ -181,12 +193,12 @@ func (b *Backend) registerShortcut(s platform.Shortcut) {
 // RegisterHotKey takes a virtual key, which is the key that types the
 // character in the layout of the registration, so "Ctrl+Z" held the Z of
 // the old layout and the key the new one types Z with is a different one.
-// A shortcut whose key moved is released and registered under the new key,
-// and one that had none finds it; each reports its status again
-// (ShortcutStatusEvent: Bound, or Taken or Failed if the new key is not
-// free or the layout lacks it). Named keys and shortcuts whose key did not
-// move are left alone, and nothing is reported for them. Registering an ID
-// again replaces its binding, so this is registerShortcut for each.
+// The shortcuts whose key moved are all released and then registered
+// under their new keys, and one that had none finds it (relayoutHotkeys);
+// a status that changes is reported (ShortcutStatusEvent: Taken or Failed
+// if the new key is not free or the layout lacks it, Bound again when a
+// later layout gives it a free key). Named keys and shortcuts whose key
+// did not move are left alone. Shortcuts go in ID order.
 func (b *Backend) layoutChanged() {
 	a := &b.app
 	if len(a.shortcuts) == 0 {
@@ -197,12 +209,11 @@ func (b *Backend) layoutChanged() {
 		ids = append(ids, id)
 	}
 	slices.Sort(ids)
-	for _, id := range ids {
-		reg := a.shortcuts[id]
-		if _, again, _ := hotkeyRebind(reg.s.Accelerator.Key, reg.vk, scanKey); again {
-			b.registerShortcut(reg.s)
-		}
+	regs := make([]*hotkeyReg, len(ids))
+	for i, id := range ids {
+		regs[i] = a.shortcuts[id]
 	}
+	relayoutHotkeys(regs, scanKey, b.unbindHotkey, b.bindHotkey, b.reportShortcut)
 }
 
 // unregisterShortcut releases the hotkey of a shortcut; an unknown ID is
@@ -213,12 +224,8 @@ func (b *Backend) unregisterShortcut(id string) {
 	if h == nil {
 		return
 	}
-	if h.registered && !b.stopped.Load() {
-		unregisterHotKey(b.msgHwnd, h.id)
-	}
+	b.unbindHotkey(h)
 	delete(a.shortcuts, id)
-	delete(a.byHotKey, h.id)
-	a.hotkeyIDs.free(h.id)
 }
 
 func unregisterHotKey(hwnd uintptr, id int32) {

@@ -293,7 +293,8 @@ func TestLiveMenuBarDark(t *testing.T) {
 
 // TestLiveHotkeyLayoutChange registers a shortcut by character and then
 // changes the keyboard layout: the shortcut is bound again under the key
-// that types the character, with a new status event. The first part fakes
+// that types the character, with no new status event (it stays Bound with
+// the same trigger). The first part fakes
 // a registration made under another layout and posts the
 // WM_INPUTLANGCHANGE; the second activates a real layout (German, where the
 // semicolon is a different key), when it is installed.
@@ -337,9 +338,14 @@ func TestLiveHotkeyLayoutChange(t *testing.T) {
 				stage = 2
 				reg.vk = 0x41
 				postMessage(w.hwnd, wmInputLangChange, 0, currentLayout())
+				time.AfterFunc(time.Second, b.Wake)
 			case 2:
-				if e.Status != platform.ShortcutBound || reg.vk != wantVK || !reg.registered {
-					t.Errorf("status after the layout change = %+v, registration %+v; want Bound under vk %#x", e, reg, wantVK)
+				t.Errorf("status after the layout change = %+v; want none (the shortcut stays Bound)", e)
+			}
+		case platform.WakeEvent:
+			if stage == 2 {
+				if reg := b.app.shortcuts["live-layout"]; reg == nil || reg.vk != wantVK || !reg.registered {
+					t.Errorf("registration after the layout change = %+v; want registered under vk %#x", reg, wantVK)
 				}
 				stage = 3
 				b.Quit()
@@ -380,7 +386,13 @@ func TestLiveHotkeyLayoutChange(t *testing.T) {
 			case stage < 2:
 				t.Skip("the window did not get the keyboard focus")
 			case stage == 3:
-				b2.Quit() // no status: the key is the same in this layout
+				reg := b2.app.shortcuts["live-layout"]
+				after = reg.vk
+				if vk, _ := scanKey(';'); !reg.registered || reg.vk != vk {
+					t.Errorf("registration after the layout change = %+v; want registered under vk %#x, the key the layout types ';' with", reg, vk)
+				}
+				stage = 4
+				b2.Quit()
 			}
 		case platform.ShortcutStatusEvent:
 			reg := b2.app.shortcuts["live-layout"]
@@ -391,17 +403,14 @@ func TestLiveHotkeyLayoutChange(t *testing.T) {
 				procActivateKeyboardLayout.Call(hkl, 0)
 				time.AfterFunc(2*time.Second, b2.Wake)
 			case 3:
-				after = reg.vk
-				stage = 4
-				b2.Quit()
+				t.Errorf("status after the layout change = %+v; want none (the shortcut stays Bound)", e)
 			}
 		}
 	})
 	switch {
-	case stage < 4 && before != 0:
-		t.Logf("no status after activating the German layout: the semicolon is the same key there (vk %#x)", before)
-	case stage == 4 && before == after:
-		t.Errorf("the shortcut stayed on vk %#x after the layout change", before)
+	case stage < 4:
+	case before == after:
+		t.Logf("the semicolon is the same key in the activated layout (vk %#x)", before)
 	default:
 		t.Logf("the shortcut moved from vk %#x to %#x with the layout", before, after)
 	}

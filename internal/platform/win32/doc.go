@@ -494,10 +494,12 @@
 //     A shortcut is kept even when it failed, and WM_INPUTLANGCHANGE (the
 //     thread's layout changed) binds again those declared by character
 //     whose virtual key under the new layout is another one, or that had
-//     none: the old key is released, the new one registered, and the
-//     status reported again (hotkeyRebind decides, layoutChanged acts;
-//     ADR-234). Named keys and shortcuts whose key did not move are not
-//     touched. A layout switched while the app is in the background reaches
+//     none: every moving key is released first, then each is registered
+//     under its new key, so two that trade keys (AZERTY's A and Q) do not
+//     collide, and a status that changes is reported again (hotkeyRebind
+//     decides, relayoutHotkeys plans, layoutChanged acts; ADR-234). A
+//     shortcut whose key only moved stays Bound and reports nothing. Named
+//     keys and shortcuts whose key did not move are not touched. A layout switched while the app is in the background reaches
 //     the thread when it is next activated.
 //   - Secrets: Credential Manager, generic credentials with TargetName
 //     "<appID>/<name>", UserName the app ID, CRED_PERSIST_LOCAL_MACHINE.

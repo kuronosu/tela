@@ -11,7 +11,7 @@ Phase 16, Win32 gaps (`internal/platform/win32` only; the contract is unchanged)
 - **The bar is dark in dark mode** (system app theme, not high contrast) with user32 and gdi32 only: the undocumented `WM_UAHDRAWMENU` and `WM_UAHDRAWMENUITEM` of the themed bar are painted (menu font, `DrawTextW`, colors of the dark title bar), plus the line under the bar after `WM_NCPAINT` and `WM_NCACTIVATE`. Drop-down and popup menus stay light: darkening them needs uxtheme's undocumented ordinals, a DLL not in §2, and owner-drawing them loses access keys, screen reader text and system metrics.
 - **Reads from a drag's source are bounded.** The UI thread enables COM call cancellation and a timer cancels the pending call (`CoCancelCall`) when no call (`EnumFormatEtc`, `GetData`, a stream chunk, the shell helper's) has completed for **5 s**. Formats that cannot be listed offer nothing; data that cannot be read completes the drop with no data (`integ.dropErr` keeps the error). No worker thread: a proxy marshaled to another apartment may route back through the blocked STA.
 - **Tray and notification icons are drawn again** at the new side on `WM_DPICHANGED` (tray window), `WM_DISPLAYCHANGE` and `WM_SETTINGCHANGE`.
-- **Global shortcuts declared by character are bound again** on `WM_INPUTLANGCHANGE` when their virtual key moves (failed ones are kept to retry), reporting a new `ShortcutStatusEvent`.
+- **Global shortcuts declared by character are bound again** on `WM_INPUTLANGCHANGE` when their virtual key moves (failed ones are kept to retry; all moving keys are released before any is registered again), reporting a `ShortcutStatusEvent` when the status changes.
 
 ## Why
 

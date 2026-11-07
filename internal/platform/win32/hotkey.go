@@ -130,6 +130,66 @@ func hotkeyRebind(key platform.Key, held uint32, scan func(r rune) (vk uint32, o
 	return vk, vk != held, nil
 }
 
+// hotkeyReg is a shortcut asked for with RegisterShortcut. It is kept
+// whether or not RegisterHotKey took it, so that a change of the keyboard
+// layout can bind it again (relayoutHotkeys).
+type hotkeyReg struct {
+	s          platform.Shortcut
+	id         int32  // the RegisterHotKey ID (0: none was allocated)
+	vk         uint32 // the virtual key it was bound to; 0: the layout had none
+	registered bool   // RegisterHotKey succeeded
+	// status is the last status reported for it, so that a layout change
+	// reports only a status that changes.
+	status platform.ShortcutStatus
+}
+
+// relayoutHotkeys moves the hot keys of regs, in order, after the keyboard
+// layout changed (ADR-234): hotkeyRebind picks those that must be
+// registered again. It works in two passes, as Cocoa's relayoutShortcuts
+// does: every moving hot key is released first (unbind, for those that are
+// registered), and only then are they registered under their new keys
+// (bind), so two shortcuts that trade keys (Ctrl+A and Ctrl+Q from QWERTY
+// to AZERTY) do not collide with the app's own old registrations, which
+// RegisterHotKey refuses as it refuses another app's. A status that
+// changes is reported (report, with the reason); a shortcut whose key only
+// moved stays Bound with the same trigger and reports nothing.
+func relayoutHotkeys(regs []*hotkeyReg, scan func(r rune) (vk uint32, ok bool),
+	unbind func(*hotkeyReg), bind func(*hotkeyReg) (platform.ShortcutStatus, string),
+	report func(r *hotkeyReg, status platform.ShortcutStatus, reason string)) {
+	type move struct {
+		reg *hotkeyReg
+		vk  uint32
+		err error
+	}
+	var moves []move
+	for _, reg := range regs {
+		vk, again, err := hotkeyRebind(reg.s.Accelerator.Key, reg.vk, scan)
+		if !again {
+			continue
+		}
+		moves = append(moves, move{reg, vk, err})
+		if reg.registered {
+			unbind(reg)
+		}
+	}
+	for _, m := range moves {
+		m.reg.vk = m.vk
+		status, reason := platform.ShortcutFailed, ""
+		if m.err != nil {
+			reason = m.err.Error()
+		} else {
+			status, reason = bind(m.reg)
+		}
+		if status != m.reg.status {
+			m.reg.status = status
+			if status != platform.ShortcutBound {
+				reason = "the keyboard layout changed: " + reason
+			}
+			report(m.reg, status, reason)
+		}
+	}
+}
+
 // fallbackVK is the virtual key of a character when the layout does not
 // name one: letters, digits and the space bar everywhere, and the
 // punctuation keys of the US layout.
