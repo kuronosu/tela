@@ -2,6 +2,7 @@ package cocoa
 
 import (
 	"fmt"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -95,6 +96,7 @@ func TestDragMIME(t *testing.T) {
 }
 
 func TestDragIcons(t *testing.T) {
+	posixPaths(t)
 	items := pasteboardItems(platform.Data{
 		{Type: platform.MIMEText, Bytes: []byte("hi")},
 		{Type: platform.MIMEURIList, Bytes: platform.URIList([]string{"file:///tmp/a%20b.txt", "https://example.com/", "file:///tmp/c"})},
@@ -179,6 +181,7 @@ func TestPromiseDrop(t *testing.T) {
 }
 
 func TestWithFiles(t *testing.T) {
+	posixPaths(t)
 	order := []string{platform.MIMEHTML, platform.MIMEURIList, platform.MIMEText}
 	d := platform.Data{{Type: platform.MIMEHTML, Bytes: []byte("<b>")}, {Type: platform.MIMEText, Bytes: []byte("t")}}
 	got := withFiles(d, order, []string{"/d/a b.jpg"})
@@ -219,5 +222,15 @@ func TestPromisedOnly(t *testing.T) {
 		if got := promisedOnly(c.items, []string{"com.example.promise"}); got != c.want {
 			t.Errorf("promisedOnly(%q) = %v, want %v", c.items, got, c.want)
 		}
+	}
+}
+
+// posixPaths skips a test whose file paths and file: URIs are macOS's
+// (POSIX): platform.FilePath and FileURI follow the host, and on Windows
+// they read drive letters.
+func posixPaths(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("macOS file paths: platform.FilePath and FileURI follow the host")
 	}
 }

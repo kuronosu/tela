@@ -422,6 +422,9 @@ func TestLiveTrayDPI(t *testing.T) {
 		started = true
 		defer b.Quit()
 		presentSolid(t, win, solidBlack)
+		// A balloon notification has a notification-area icon to check;
+		// toasts (ADR-235) have none.
+		b.desk.toast.off = true
 		tray, err := d.NewTray(platform.TrayOptions{Icon: testIcon(), Tooltip: "Tela DPI"})
 		if err != nil {
 			t.Errorf("NewTray: %v", err)
