@@ -59,8 +59,8 @@ type Desktop interface {
 	MessageBox(opts MessageBoxOptions, done func(answer MessageAnswer, err error)) error
 
 	// Notify shows a desktop notification and returns its ID, which
-	// NotificationEvents carry. Backends without actions (Win32 balloon
-	// notifications) show it without its actions.
+	// NotificationEvents carry. Backends without actions (Win32's balloon
+	// fallback, before Windows 10 1809) show it without its actions.
 	Notify(n Notification) (NotificationID, error)
 
 	// CloseNotification withdraws a notification. Unknown or already

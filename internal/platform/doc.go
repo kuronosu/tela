@@ -547,8 +547,9 @@
 // uses ShellExecuteW, the common item dialogs over COM (IFileOpenDialog,
 // IFileSaveDialog, FOS_PICKFOLDERS), MessageBoxW, and Shell_NotifyIconW
 // for trays (menus with TrackPopupMenuEx after SetForegroundWindow, the
-// documented quirk) and for notifications (NIF_INFO balloons, shown as
-// toasts: no actions; a click is NotificationActivated, a timeout or
+// documented quirk). Its notifications are WinRT toasts with actions
+// (combase, Windows 10 1809 and later, ADR-235), else NIF_INFO balloons
+// without actions (a click is NotificationActivated, a timeout or
 // dismissal NotificationClosed).
 //
 // Phase 13 (ADR-209, ADR-210) adds drag and drop, clipboard data, native
