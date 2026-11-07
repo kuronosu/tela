@@ -198,9 +198,12 @@ func swallowSysCommand(wparam, lparam uintptr, bar bool) bool {
 //
 //   - A lone Alt (press and release, as in every Windows app) or F10 (the
 //     key alone: Shift+F10 is the context menu, Alt+F10 the app's) arms the
-//     bar for its release. Any other key, a mouse button or losing the
-//     focus disarms it, so Alt+Tab, Alt+Shift (the layout switch) and
-//     Alt+key shortcuts never open it.
+//     bar for its release. Any other key, a mouse button (client or
+//     non-client, side buttons too: mouseDisarmsMenu), a wheel or losing
+//     the focus disarms it, so Alt+Tab, Alt+Shift (the layout switch) and
+//     Alt+key shortcuts never open it. Alt pressed while Shift is held
+//     does not arm it either: Shift+Alt is the layout switch too, in
+//     either order.
 //   - A tap of AltGr (a right Alt on a layout that has one) or of Alt with
 //     Ctrl held is not Alt.
 //
@@ -220,7 +223,7 @@ func (m *menuKeys) down(vk uint32, repeat, extended, altGr, ctrl, shift, alt boo
 			return
 		}
 		m.armed = 0
-		if !ctrl && !(extended && altGr) {
+		if !ctrl && !shift && !(extended && altGr) {
 			m.armed = vkMenu
 		}
 	case vk == vkF10 && !shift && !ctrl && !alt:
@@ -241,6 +244,19 @@ func (m *menuKeys) up(vk uint32) bool {
 
 // reset disarms the bar (a mouse button, the focus lost).
 func (m *menuKeys) reset() { m.armed = 0 }
+
+// mouseDisarmsMenu reports whether a window message is a mouse button or a
+// wheel, in the client area or on the frame (the side buttons too), which
+// disarms the bar between Alt's press and release (menuKeys.reset).
+func mouseDisarmsMenu(msg uint32) bool {
+	switch {
+	case msg >= wmNCLButtonDown && msg <= wmNCXButtonDblClk: // WM_NCLBUTTONDOWN to WM_NCXBUTTONDBLCLK
+		return true
+	case msg >= wmLButtonDown && msg <= wmMouseHWheel: // WM_LBUTTONDOWN to WM_MOUSEHWHEEL
+		return true
+	}
+	return false
+}
 
 // isSystemShortcut reports whether a key message is Alt+F4 or Alt+Space: the
 // keys that the window system owns (closing the window, its menu) and that

@@ -124,6 +124,11 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		}
 		return defWindowProc(w.hwnd, uintptr(msg), wparam, lparam)
 	}
+	if mouseDisarmsMenu(msg) {
+		// A click (in the client area, on the frame or a side button) or
+		// a wheel between Alt's press and release: Alt was not alone.
+		w.integ.keys.reset()
+	}
 	if w.overlay {
 		// DWM's caption buttons over a TitleBarOverlay window
 		// (overlay_windows.go).
@@ -319,14 +324,12 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		w.onMouseLeave(false)
 		return 0
 	case wmLButtonDown, wmLButtonUp, wmRButtonDown, wmRButtonUp, wmMButtonDown, wmMButtonUp:
-		w.integ.keys.reset() // a click between Alt's press and release
 		w.onButton(msg, wparam, lparam)
 		return 0
 	case wmXButtonDown, wmXButtonUp:
 		w.onButton(msg, wparam, lparam)
 		return 1 // TRUE: the message was handled, as WM_XBUTTON* requires
 	case wmMouseWheel, wmMouseHWheel:
-		w.integ.keys.reset()
 		w.onWheel(msg, wparam, lparam)
 		return 0
 	case wmCaptureChanged:

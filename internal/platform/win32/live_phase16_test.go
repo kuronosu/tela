@@ -61,6 +61,26 @@ func menuModeIs(tid uint32, want bool, d time.Duration) bool {
 	return inMenuMode(tid) == want
 }
 
+// MOUSEEVENTF_XDOWN and MOUSEEVENTF_XUP.
+const (
+	mouseeventfXDown = 0x0080
+	mouseeventfXUp   = 0x0100
+)
+
+// sendMouseData moves the real mouse to p (screen pixels) with the button
+// flags and the mouse data (XBUTTON1 for a side button).
+func sendMouseData(p image.Point, buttons, data uint32) {
+	vx, _, _ := procGetSystemMetrics.Call(76) // SM_XVIRTUALSCREEN
+	vy, _, _ := procGetSystemMetrics.Call(77)
+	vw, _, _ := procGetSystemMetrics.Call(78)
+	vh, _, _ := procGetSystemMetrics.Call(79)
+	x := (int64(p.X) - int64(int32(vx))) * 65535 / max(int64(int32(vw))-1, 1)
+	y := (int64(p.Y) - int64(int32(vy))) * 65535 / max(int64(int32(vh))-1, 1)
+	in := mouseInputRec{typ: inputMouse, mi: mouseInput{dx: int32(x), dy: int32(y), data: data,
+		flags: mouseeventfMove | mouseeventfAbsolute | mouseeventfVirtualDsk | buttons}}
+	procSendInput.Call(1, uintptr(unsafe.Pointer(&in)), unsafe.Sizeof(in))
+}
+
 // leaveMenus taps Escape until the thread is out of its menus.
 func leaveMenus(tid uint32) {
 	for range 5 {
@@ -74,8 +94,9 @@ func leaveMenus(tid uint32) {
 
 // TestLiveMenuBarKeyboard types Alt, F10 and Alt+key at a window with a
 // menu bar: the lone Alt and F10 select the bar, Alt and the access key
-// opens the menu, and the keys that are not for the bar (Alt+Shift, Alt and
-// another key, Shift+F10) and a window without a bar leave it alone. Every
+// opens the menu, and the keys that are not for the bar (Alt+Shift, Shift
+// then Alt, Alt and another key, Shift+F10, Alt over a side button or a
+// click on the caption) and a window without a bar leave it alone. Every
 // key still reaches the app as a KeyEvent.
 func TestLiveMenuBarKeyboard(t *testing.T) {
 	requireLiveIntegration(t)
@@ -147,6 +168,29 @@ func TestLiveMenuBarKeyboard(t *testing.T) {
 		check("Alt+X (not an access key)", false)
 		sendKeysRaw(chord([]uint16{scLShiftK}, scF10)...)
 		check("Shift+F10", false)
+		sendKeysRaw(chord([]uint16{scLShiftK}, scLAltK)...)
+		check("Shift held, then Alt", false)
+
+		// Alt held over a side button in the client area, and over a click
+		// on the caption: Alt was not alone.
+		var old point
+		procGetCursorPos.Call(uintptr(unsafe.Pointer(&old)))
+		defer procSetCursorPos.Call(uintptr(int(old.x)), uintptr(int(old.y)))
+		c := clientCenter(w)
+		sendKeysRaw(kdn(scLAltK)...)
+		sendMouseData(c, mouseeventfXDown, xButton1)
+		sendMouseData(c, mouseeventfXUp, xButton1)
+		time.Sleep(200 * time.Millisecond)
+		sendKeysRaw(kup(scLAltK)...)
+		check("Alt and a side button", false)
+		wr := getWindowRect(w.hwnd)
+		caption := image.Pt(int(wr.left+wr.right)/2, int(wr.top)+12)
+		sendKeysRaw(kdn(scLAltK)...)
+		sendMouseData(caption, mouseeventfLeftDown, 0)
+		sendMouseData(caption, mouseeventfLeftUp, 0)
+		time.Sleep(300 * time.Millisecond)
+		sendKeysRaw(kup(scLAltK)...)
+		check("Alt and a click on the caption", false)
 
 		onUI(func() { w.SetMenu(nil) })
 		time.Sleep(300 * time.Millisecond)

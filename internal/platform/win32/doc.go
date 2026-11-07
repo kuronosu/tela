@@ -174,9 +174,10 @@
 //     menu bar nothing else happens. A window with a menu bar (SetMenu)
 //     opens it itself with SC_KEYMENU, the command DefWindowProc would
 //     send (ADR-234; menuKeys in keyboard.go): when a lone Alt or F10 is
-//     released with no other key, mouse button or wheel between (an
-//     AltGr, and Alt with Ctrl, do not count; Shift+F10 and Alt+F10 are
-//     not F10), and at Alt and the access key of one of its menus
+//     released with no other key, mouse button (in the client area or on
+//     the frame, side buttons too) or wheel between (an AltGr, and Alt
+//     pressed with Ctrl or Shift held, do not count; Shift+F10 and Alt+F10
+//     are not F10), and at Alt and the access key of one of its menus
 //     (WM_SYSCHAR; the bar's labels get access keys from the backend,
 //     buildBarMenu). The app has got the keys as KeyEvents first.
 //   - Text typed by SendInput with KEYEVENTF_UNICODE (VK_PACKET: touch

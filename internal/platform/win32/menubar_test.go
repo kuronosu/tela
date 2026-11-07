@@ -94,6 +94,7 @@ func TestMenuKeys(t *testing.T) {
 		{"right Alt without AltGr", []key{{vk: vkMenu, ext: true}}, vkMenu, true},
 		{"AltGr", []key{{vk: vkMenu, ext: true, altGr: true}}, vkMenu, false},
 		{"Alt with Ctrl", []key{{vk: vkMenu, ctrl: true}}, vkMenu, false},
+		{"Alt with Shift held (the layout switch)", []key{{vk: vkShift, shift: true}, {vk: vkMenu, shift: true}}, vkMenu, false},
 		{"Alt and a key", []key{alt, {vk: 'F', alt: true}}, vkMenu, false},
 		{"Alt+Shift", []key{alt, {vk: vkShift, alt: true}}, vkMenu, false},
 		{"Alt+Tab", []key{alt, {vk: 0x09, alt: true}}, vkMenu, false},
@@ -122,5 +123,16 @@ func TestMenuKeys(t *testing.T) {
 	m.reset()
 	if m.up(vkMenu) {
 		t.Errorf("reset did not disarm the bar")
+	}
+	for _, msg := range []uint32{wmLButtonDown, wmRButtonUp, wmMButtonDown, wmXButtonDown, wmXButtonUp, wmMouseWheel, wmMouseHWheel,
+		wmNCLButtonDown, wmNCRButtonDown, wmNCMButtonUp, wmNCXButtonDown, wmNCXButtonDblClk} {
+		if !mouseDisarmsMenu(msg) {
+			t.Errorf("message %#x does not disarm the bar", msg)
+		}
+	}
+	for _, msg := range []uint32{wmNCMouseMove, 0x0200 /* WM_MOUSEMOVE */, wmKeyDown, wmSysKeyUp, wmNCMouseLeave} {
+		if mouseDisarmsMenu(msg) {
+			t.Errorf("message %#x disarms the bar", msg)
+		}
 	}
 }
