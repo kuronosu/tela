@@ -49,6 +49,12 @@ type fakeX struct {
 
 	// Timers: fired by fire, in creation order.
 	timers []*fakeTimer
+
+	// sendHook and convertHook, if set, see SendEvent and
+	// ConvertSelection first and take them when they return true (the
+	// fake input method, ime_test.go).
+	sendHook    func(dest xproto.Window, ev []byte) bool
+	convertHook func(req xproto.Window, sel, target, prop xproto.Atom) bool
 }
 
 type fakeChild struct {
@@ -158,6 +164,9 @@ func (x *fakeX) setOwner(win xproto.Window, sel xproto.Atom, t uint32) {
 func (x *fakeX) owner(sel xproto.Atom) xproto.Window { return x.owners[sel] }
 
 func (x *fakeX) convert(req xproto.Window, sel, target, prop xproto.Atom, t uint32) {
+	if x.convertHook != nil && x.convertHook(req, sel, target, prop) {
+		return
+	}
 	x.log("convert %s %s to %s t=%d", x.name(sel), x.name(target), x.name(prop), t)
 }
 
@@ -207,6 +216,9 @@ func (x *fakeX) deleteProperty(win xproto.Window, prop xproto.Atom) {
 }
 
 func (x *fakeX) sendEvent(dest xproto.Window, mask uint32, ev []byte) {
+	if x.sendHook != nil && x.sendHook(dest, ev) {
+		return
+	}
 	switch ev[0] {
 	case xproto.SelectionNotify:
 		x.log("notify win=%d %s %s prop=%s", dest, x.name(xproto.Atom(le.Uint32(ev[12:]))),
@@ -308,6 +320,30 @@ func (x *fakeX) createDragIcon(r image.Rectangle, argb bool, pix []byte, boundin
 func (x *fakeX) moveIcon(win xproto.Window, px, py int) { x.log("move %d to %d,%d", win, px, py) }
 func (x *fakeX) mapIcon(win xproto.Window)              { x.log("map %d", win) }
 func (x *fakeX) destroyIcon(win xproto.Window)          { x.log("destroy %d", win) }
+
+const fakeIMWin = 902
+
+func (x *fakeX) createIMWindow() (xproto.Window, error) { return fakeIMWin, nil }
+
+func (x *fakeX) propertyPart(win xproto.Window, prop xproto.Atom, offset, length uint32, del bool) ([]byte, uint32, bool) {
+	p, ok := x.props[win][prop]
+	if !ok {
+		return nil, 0, false
+	}
+	start := min(int(offset)*4, len(p.data))
+	end := min(start+int(length)*4, len(p.data))
+	after := uint32(len(p.data) - end)
+	data := p.data[start:end]
+	if del && after == 0 {
+		delete(x.props[win], prop)
+	}
+	return data, after, true
+}
+
+func (x *fakeX) appendProperty(win xproto.Window, prop, typ xproto.Atom, format byte, data []byte) {
+	old := x.props[win][prop]
+	x.setProp(win, prop, typ, format, append(append([]byte{}, old.data...), data...))
+}
 
 // grabs returns the key grabs held, sorted.
 func (x *fakeX) grabs() string {

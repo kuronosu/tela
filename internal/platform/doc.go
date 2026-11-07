@@ -282,8 +282,12 @@
 //     discardMarkedText; a moved cursor area is
 //     invalidateCharacterCoordinates, once per pass. See the cocoa
 //     package.
-//   - X11 has no IME yet (XIM is a task of the Linux and Windows parity
-//     phase): SetTextInput and ResetTextInput do nothing.
+//   - X11, XIM (when XMODIFIERS names an input method): one input
+//     context per window, focused while a non-password field has focus
+//     (the session); keys are forwarded to the server and those it sends
+//     back take the keyboard path; XIM_COMMIT and the preedit callbacks
+//     of one read are one IMEEvent; ResetTextInput is XIM_RESET_IC. See
+//     the x11 package (ime.go).
 //   - Headless records the latest state per window and lets tests inject
 //     IMEEvents, checked against these rules like keys.
 //
