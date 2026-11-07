@@ -47,12 +47,14 @@ func TestHotkeyRebind(t *testing.T) {
 // this process or by another app.
 type fakeHotkeys struct {
 	taken map[[2]uint32]string // (modifiers, vk) -> owner
+	ids   hotkeyIDs
 	log   []string
 }
 
 func (f *fakeHotkeys) unbind(r *hotkeyReg) {
 	delete(f.taken, [2]uint32{hotkeyModifiers(r.s.Accelerator.Mods), r.vk})
-	r.registered = false
+	f.ids.free(r.id)
+	r.id, r.registered = 0, false
 	f.log = append(f.log, "unbind "+r.s.ID)
 }
 
@@ -62,6 +64,7 @@ func (f *fakeHotkeys) bind(r *hotkeyReg) (platform.ShortcutStatus, string) {
 		return platform.ShortcutTaken, "taken"
 	}
 	f.taken[k] = r.s.ID
+	r.id, _ = f.ids.alloc()
 	r.registered = true
 	f.log = append(f.log, "bind "+r.s.ID)
 	return platform.ShortcutBound, ""

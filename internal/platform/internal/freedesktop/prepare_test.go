@@ -301,7 +301,9 @@ func TestOpenerFailsLater(t *testing.T) {
 	// A portal that refuses: the fallback runs on a godbus goroutine.
 	addr := privateBus(t)
 	p := startPortal(t, addr, 4)
+	p.mu.Lock()
 	p.refuseOpens = true
+	p.mu.Unlock()
 	h = newHarness(t, addr)
 	h.d.opts.Opener = bad
 	if err := h.d.OpenURI(nil, "https://example.com/"); err != nil {
