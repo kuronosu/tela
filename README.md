@@ -395,7 +395,7 @@ are done (ADR-208 sets how versions are numbered).
 | Window and rendering | ✅ | ✅ | ✅ | ✅ | ✅ (Cocoa, CI) |
 | Pointer, scroll, keyboard | ✅ | ✅ | ✅ (`telatest`) | ✅ | ✅ (CI) |
 | Text fields, clipboard | ✅ | ✅ | ✅ (`telatest`) | ✅ | ✅ (CI) |
-| IME (Japanese, Chinese, …) | ✅ (`text-input-v3`) | — (planned, XIM) | ✅ (injected) | ✅ (IMM32) | ✅ (`NSTextInputClient`, CI) |
+| IME (Japanese, Chinese, …) | ✅ (`text-input-v3`) | ✅ (XIM) | ✅ (injected) | ✅ (IMM32) | ✅ (`NSTextInputClient`, CI) |
 | Window control, dialogs, tray, menus, drag and drop | ✅ | ✅ | ✅ (fakes) | ✅ | ✅ (CI; notifications, links and file types from a `tela run` bundle) |
 
 macOS is verified on `macos-latest` CI (every example's window matches its
@@ -419,8 +419,7 @@ overlays; the `tela` CLI (`snapshot`, `inspect`, `dev`, `icons gen`).
 
 - **macOS** has not been tried on a real Mac yet (only `macos-latest` CI), and
   notifications, links and file types need the app to run from a bundle
-  (`tela run`, or a `.app` from `tela build`). No IME on X11 yet (XIM,
-  planned).
+  (`tela run`, or a `.app` from `tela build`).
 - **Glass pages at 2x are not 60 fps** on CPU (the dashboard example's p95 is
   40 ms per frame at 1080p and scale 2, 17.8 ms at scale 1).
 - Transforms are 2D only; SVG has no text, filters or patterns; no

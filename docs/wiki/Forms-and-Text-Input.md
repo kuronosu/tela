@@ -4,7 +4,7 @@
 browser's: typing, arrows and Ctrl+arrows, Home and End, Backspace and Delete,
 Ctrl+A, undo and redo (Ctrl+Z, Ctrl+Y), the clipboard, mouse selection (click,
 drag, double and triple click) and input methods (IME) for Japanese, Chinese
-and Korean (on Wayland and Windows; X11 has no IME yet). [`Form`](https://pkg.go.dev/github.com/kuronosu/tela/h#Form) groups fields and submits on Enter, and [`Label`](https://pkg.go.dev/github.com/kuronosu/tela/h#Label) names a
+and Korean (on Wayland, X11 through XIM, Windows and macOS). [`Form`](https://pkg.go.dev/github.com/kuronosu/tela/h#Form) groups fields and submits on Enter, and [`Label`](https://pkg.go.dev/github.com/kuronosu/tela/h#Label) names a
 field and focuses it when clicked.
 
 Fields have Tailwind's Preflight defaults: no border, padding or background

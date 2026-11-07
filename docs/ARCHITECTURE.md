@@ -67,7 +67,7 @@ Contributions that break these are rejected.
 | `golang.org/x/sys` | Unix and Windows syscalls |
 | `golang.org/x/image` | Image decoders, font utilities |
 | `github.com/go-text/typesetting` | Shaping (HarfBuzz port), bidi, segmentation, font discovery |
-| `golang.org/x/text` | `i18n`: language tags and matching, CLDR plural rules, number formatting (ADR-087) |
+| `golang.org/x/text` | `i18n`: language tags and matching, CLDR plural rules, number formatting (ADR-087); the X11 backend's COMPOUND_TEXT decoding for XIM (ADR-231) |
 | `github.com/ebitengine/purego` | macOS backend only (and a future GPU backend) |
 | `github.com/godbus/dbus/v5` | Linux D-Bus: desktop services (portal, notifications, tray; ADR-178) and accessibility (AT-SPI) |
 | `github.com/jezek/xgb` | X11 client (chosen in phase 1); from phase 4 a patched copy of its core, `xproto` and `bigreq` is vendored under `internal/` (ADR-025). XInput2 and XKB are hand-written on its connection |
