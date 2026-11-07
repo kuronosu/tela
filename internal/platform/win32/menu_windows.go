@@ -42,8 +42,9 @@ import (
 //     after SetForegroundWindow and followed by a posted WM_NULL (the
 //     documented quirk, KB135788). The answer goes through the loop.
 //   - In dark mode the bar is drawn dark (menubar_dark.go); the drop-down
-//     and popup menus are the system's own, light: the dark menus of
-//     Explorer use undocumented uxtheme exports, which Tela does not call.
+//     and popup menus are the system's own, darkened as Explorer's are
+//     through uxtheme's unnamed exports (menutheme.go, ADR-239), and light
+//     where those are missing (before Windows 10 1903).
 
 // Messages and flags of the menus (winuser.h).
 const (
