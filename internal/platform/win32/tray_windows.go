@@ -37,8 +37,8 @@ import (
 //     its timeout or dismissal (NIN_BALLOONTIMEOUT) or its removal
 //     (NIN_BALLOONHIDE) NotificationClosed, and the icon is removed then or
 //     by CloseNotification (which withdraws the toast). Balloons have no
-//     buttons: Notification.Actions are dropped (WinRT toasts, which have
-//     them, need an AppUserModelID and a Start menu shortcut).
+//     buttons: Notification.Actions are dropped. They are the fallback of
+//     the WinRT toasts (toast_windows.go), which have them.
 //   - When Explorer restarts, the taskbar broadcasts TaskbarCreated: the
 //     tray icons are added again (at the current DPI), and notifications,
 //     whose balloons are gone, are closed.

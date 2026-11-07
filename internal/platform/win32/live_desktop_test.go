@@ -382,12 +382,14 @@ func TestLiveTray(t *testing.T) {
 	}
 }
 
-// TestLiveNotification shows a balloon (a toast on Windows 10 and 11) and
-// drives it with the callbacks of a click; CloseNotification withdraws one
-// without an event.
+// TestLiveNotification shows a balloon (the fallback of the toasts, shown
+// as a toast on Windows 10 and 11) and drives it with the callbacks of a
+// click; CloseNotification withdraws one without an event. live_toast_test.go
+// has the WinRT toasts.
 func TestLiveNotification(t *testing.T) {
 	requireLiveShell(t)
 	b := liveBackend(t)
+	b.desk.toast.off = true
 	d := b.Desktop()
 	var (
 		started atomic.Bool

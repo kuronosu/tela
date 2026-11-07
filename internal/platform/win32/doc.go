@@ -1,6 +1,7 @@
 // Package win32 is the Windows platform backend. It talks to the system DLLs
 // (user32, gdi32, imm32, dwmapi, shcore, kernel32; shell32 and ole32 for the
-// desktop services; advapi32 for Credential Manager) through
+// desktop services; advapi32 for Credential Manager; combase for WinRT
+// toasts) through
 // golang.org/x/sys/windows
 // and syscall.NewCallback, with no cgo, and implements the platform contract
 // documented in package platform ("Mapping onto each OS: Win32").
@@ -9,14 +10,14 @@
 // build constraint (dib.go, dpi.go, msg.go, pointer.go, cursor.go,
 // keyboard.go, scancode.go, vkey.go, text.go, systemsettings.go, ime.go,
 // frame.go, dataformat.go, droptarget.go, menu.go, style.go, dialog.go,
-// shell.go, tray.go, hotkey.go, instance.go, secret.go, trash.go) hold the
+// shell.go, tray.go, toast.go, hotkey.go, instance.go, secret.go, trash.go) hold the
 // pure logic behind it (pixel conversion, DPI and size math, message
 // decoding, the pointer state machine, the cursor table, the keyboard
 // translation, line endings, the settings values, the IME events, window
 // placement, hit-testing and icon pixels, the clipboard formats, the drop
 // session, the menu commands, the window styling, and the pure halves of
-// the dialogs, shell calls, trays, hotkeys, single instance, secrets and
-// trash), so it is tested on every
+// the dialogs, shell calls, trays, toasts, hotkeys, single instance,
+// secrets and trash), so it is tested on every
 // OS; the Windows files are exercised by the shared platformtest
 // conformance suite under Wine (and on a real Windows machine, where the
 // live_*_test.go files type on the real keyboard path with SendInput).
@@ -497,7 +498,18 @@
 //     for them, one at a time; their modal loops dispatch the backend's
 //     messages, so delivery goes on while they are open, and their answers
 //     come through the loop. Quit closes them.
-//   - Tray icons and notifications: Shell_NotifyIconW on a hidden window
+//   - Notifications are WinRT toasts (toast_windows.go has the details,
+//     ADR-235): the toast XML with the actions as buttons, shown by the
+//     ToastNotifier of the app's AppUserModelID (registered per user
+//     under HKCU\Software\Classes\AppUserModelId on the first toast; the
+//     process's explicit AUMID set by SetAppID), Tag and Group for
+//     withdrawing and replacing, agile COM delegates for Activated,
+//     Dismissed and Failed whose events reach the UI thread through a
+//     private message. A timeout is not NotificationClosed (the toast is
+//     in the Action Center, where it can still be clicked while the app
+//     runs). Without WinRT or before Windows 10 1809, and when a toast
+//     fails to show, the notification is a balloon.
+//   - Tray icons and balloons: Shell_NotifyIconW on a hidden window
 //     of the backend (tray_windows.go has the details): version 4
 //     callbacks, menus with TrackPopupMenuEx, balloons (shown as toasts on
 //     Windows 10 and 11) on an icon of each notification's own, which

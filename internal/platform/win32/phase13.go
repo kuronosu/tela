@@ -19,10 +19,15 @@ import (
 // (AllowSetForegroundWindow).
 func (w *Window) ActivateWithToken(string) { w.Activate() }
 
-// SetAppID checks id and keeps nothing (ADR-217): RegisterHotKey, the
+// SetAppID checks id and makes it the app's AppUserModelID (ADR-217,
+// ADR-235): the process's explicit AUMID, and the one the toasts are shown
+// and registered under (toast_windows.go). RegisterHotKey, the
 // notification area and the single-instance mutex (which takes the ID as
-// an argument) need no app ID, and Tela sets no AppUserModelID yet.
-func (d desktop) SetAppID(id string) { platform.CheckAppID("SetAppID", id) }
+// an argument) need no app ID.
+func (d desktop) SetAppID(id string) {
+	platform.CheckAppID("SetAppID", id)
+	d.b.setToastAppID(id)
+}
 
 // Associations returns the current user's registration (package assoc).
 func (d desktop) Associations() platform.Associations { return assoc.Native() }

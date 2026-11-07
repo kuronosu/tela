@@ -15,8 +15,10 @@ import (
 
 // Desktop services (phase 12, ADR-178): ShellExecuteW for OpenURI and
 // OpenPath (shell_windows.go), the common item dialogs over COM and
-// MessageBoxW (dialog_windows.go), Shell_NotifyIconW for tray icons and
-// balloon notifications (tray_windows.go).
+// MessageBoxW (dialog_windows.go), WinRT toasts for notifications
+// (toast_windows.go, ADR-235), Shell_NotifyIconW for tray icons and the
+// balloons that stand in for toasts where they are unavailable
+// (tray_windows.go).
 //
 // Dialogs and message boxes run a modal message loop. The app asks for
 // them from its handler, inside a delivery pass, where a modal loop would
@@ -68,6 +70,9 @@ type desktopState struct {
 	lastNote       platform.NotificationID
 	appIcon        uintptr // the executable's small icon, for notifications
 	appIconOwned   bool    // appIcon was extracted (DestroyIcon), not a shared system icon
+
+	// Toasts (toast_windows.go); notification IDs come from lastNote too.
+	toast toastState
 }
 
 // postedMessage is a message to post later.
@@ -162,10 +167,16 @@ func (d desktop) Notify(n platform.Notification) (platform.NotificationID, error
 	if d.b.closed {
 		return 0, errClosed
 	}
+	if id, ok, err := d.b.showToast(n); ok {
+		return id, err
+	}
 	return d.b.showNotification(n)
 }
 
 func (d desktop) CloseNotification(id platform.NotificationID) error {
+	if d.b.closeToast(id) {
+		return nil
+	}
 	if ic := d.b.findIcon(func(ic *shellIcon) bool { return ic.note == id && id != 0 }); ic != nil {
 		d.b.deleteIcon(ic)
 	}
@@ -299,6 +310,8 @@ func (b *Backend) desktopMessage(hwnd uintptr, msg uint32, wparam, lparam uintpt
 	switch {
 	case hwnd == b.msgHwnd && msg == wmTelaModal:
 		b.runModal()
+	case hwnd == b.msgHwnd && msg == wmTelaToast:
+		b.toastMessages()
 	case hwnd != d.hwnd || hwnd == 0:
 		return 0, false
 	case msg == wmTelaTray:
@@ -323,6 +336,7 @@ func (b *Backend) desktopMessage(hwnd uintptr, msg uint32, wparam, lparam uintpt
 func (b *Backend) desktopShutdown() {
 	d := &b.desk
 	d.modal, d.later = nil, nil
+	b.toastShutdown()
 	for _, ic := range b.sortedIcons() {
 		b.deleteIcon(ic)
 	}
