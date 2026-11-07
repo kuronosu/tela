@@ -144,6 +144,7 @@ func (b *Backend) settingsChanged() {
 		return
 	}
 	b.settings = s
+	b.applyMenuTheme() // popup menus follow the mode too (menutheme.go)
 	for _, w := range b.loop.Windows() {
 		w.applyTheme(s.DarkMode)
 		w.refreshBar() // the menu bar follows dark mode too (menubar_dark.go)

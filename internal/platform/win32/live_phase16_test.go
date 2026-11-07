@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 	"unsafe"
@@ -472,4 +473,194 @@ func TestLiveTrayDPI(t *testing.T) {
 			check(fmt.Sprintf("after message %#x", msg), base)
 		}
 	})
+}
+
+// ownPopup returns the popup menu window (class #32768) of this process, or
+// 0 after the timeout: a menu of another program is never touched.
+func ownPopup(d time.Duration) uintptr {
+	for deadline := time.Now().Add(d); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
+		for _, cls := range []string{"#32768"} {
+			c := utf16(cls)
+			var h uintptr
+			for {
+				h, _, _ = procFindWindowExW.Call(0, h, uintptr(unsafe.Pointer(c)), 0)
+				if h == 0 {
+					break
+				}
+				var pid uint32
+				procGetWindowThreadProcID.Call(h, uintptr(unsafe.Pointer(&pid)))
+				if int(pid) == os.Getpid() {
+					return h
+				}
+			}
+		}
+	}
+	return 0
+}
+
+// meanLuma is the mean luminance (0..255) of an image.
+func meanLuma(img *image.RGBA) float64 {
+	var sum float64
+	n := 0
+	for i := 0; i+3 < len(img.Pix); i += 4 {
+		sum += 0.2126*float64(img.Pix[i]) + 0.7152*float64(img.Pix[i+1]) + 0.0722*float64(img.Pix[i+2])
+		n++
+	}
+	if n == 0 {
+		return 0
+	}
+	return sum / float64(n)
+}
+
+// TestLiveMenuPopupDark opens the three kinds of popup menus of the backend
+// (ADR-239) with the dark mode forced on and then off, and reads the
+// popup's pixels from the screen: a PopupMenu (the context menu path), a
+// drop-down of the menu bar and a tray menu. The menus are opened with
+// posted messages and closed with a posted Escape, only the test's own.
+// The PNGs are written to the temp directory for a look.
+func TestLiveMenuPopupDark(t *testing.T) {
+	requireLiveShell(t)
+	b := liveBackend(t)
+	if !menuThemeSupported(windowsBuild()) {
+		t.Skipf("Windows build %d has no dark menus (ADR-239)", windowsBuild())
+	}
+	pw, err := b.NewWindow(platform.WindowOptions{Title: "tela dark popup", Size: platform.Size{W: 420, H: 300}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := pw.(*Window)
+	items := []platform.MenuItem{
+		{ID: 1, Label: "Open", Accelerator: "Ctrl+O"},
+		{ID: 2, Label: "Disabled", Disabled: true},
+		{Separator: true},
+		{ID: 3, Label: "Close"},
+	}
+	if err := w.SetMenu([]platform.MenuItem{
+		{Label: "File", Submenu: items},
+		{Label: "Edit", Submenu: []platform.MenuItem{{ID: 4, Label: "Copy"}}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	tray, err := b.Desktop().NewTray(platform.TrayOptions{Icon: testIcon(), Tooltip: "Tela popup", Menu: items})
+	if err != nil {
+		t.Fatalf("NewTray: %v", err)
+	}
+	defer b.Desktop().RemoveTray(tray)
+
+	var (
+		mu     sync.Mutex
+		lumas  = map[string]float64{}
+		ready  atomic.Bool
+		stage  int
+		cancel = func(h uintptr) {
+			procPostMessageW.Call(h, 0x0100, 0x1B, 1) // WM_KEYDOWN VK_ESCAPE
+			procPostMessageW.Call(h, 0x0101, 0x1B, 0xC0000001)
+		}
+	)
+	// watch reads the popup that opens next, closes it and wakes the loop
+	// for the next step.
+	watch := func(name string, bar bool) {
+		go func() {
+			defer func() { ready.Store(true); b.Wake() }()
+			menu := ownPopup(5 * time.Second)
+			if menu == 0 {
+				t.Errorf("%s: no popup menu opened", name)
+				return
+			}
+			time.Sleep(600 * time.Millisecond) // the fade-in
+			r := getWindowRect(menu)
+			shot := captureScreenRect(image.Rect(int(r.left), int(r.top), int(r.right), int(r.bottom)))
+			l := meanLuma(shot)
+			mu.Lock()
+			lumas[name] = l
+			mu.Unlock()
+			path := filepath.Join(os.TempDir(), "tela-menu-"+name+".png")
+			if f, err := os.Create(path); err == nil {
+				png.Encode(f, shot)
+				f.Close()
+			}
+			t.Logf("%s: mean luminance %.0f; %s", name, l, path)
+			for deadline := time.Now().Add(3 * time.Second); isWindow(menu) && time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
+				cancel(menu)
+			}
+			if bar {
+				for deadline := time.Now().Add(3 * time.Second); inMenuMode(b.tid) && time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
+					cancel(w.hwnd)
+				}
+			}
+		}()
+	}
+	origin := func() (int, int) {
+		r := getWindowRect(w.hwnd)
+		return int(r.left) + 120, int(r.top) + 200
+	}
+	setDark := func(dark bool) {
+		b.settings.DarkMode = dark
+		b.applyMenuTheme()
+		w.refreshBar()
+	}
+	steps := []func(){
+		func() {
+			setDark(true)
+			watch("popup-dark", false)
+			w.PopupMenu(platform.Point{X: 20, Y: 20}, items, func(platform.MenuItemID, error) {})
+		},
+		func() {
+			setDark(false)
+			watch("popup-light", false)
+			w.PopupMenu(platform.Point{X: 20, Y: 20}, items, func(platform.MenuItemID, error) {})
+		},
+		func() { setDark(true); watch("bar-dark", true); postMessage(w.hwnd, wmSysCommand, scKeyMenu, 'f') },
+		func() { setDark(false); watch("bar-light", true); postMessage(w.hwnd, wmSysCommand, scKeyMenu, 'f') },
+		func() {
+			setDark(true)
+			ic := b.findIcon(func(ic *shellIcon) bool { return ic.tray == tray })
+			x, y := origin()
+			watch("tray-dark", false)
+			postMessage(b.desk.hwnd, wmTelaTrayMenu, uintptr(ic.uid), uintptr(uint16(x))|uintptr(uint16(y))<<16)
+		},
+		func() {
+			setDark(false)
+			ic := b.findIcon(func(ic *shellIcon) bool { return ic.tray == tray })
+			x, y := origin()
+			watch("tray-light", false)
+			postMessage(b.desk.hwnd, wmTelaTrayMenu, uintptr(ic.uid), uintptr(uint16(x))|uintptr(uint16(y))<<16)
+		},
+	}
+	runLive(t, b, nil, func(win platform.Window, e platform.Event) {
+		switch e.(type) {
+		case platform.FrameEvent:
+			presentSolid(t, win, solidBlack)
+			if stage == 0 {
+				stage = 1
+				time.AfterFunc(500*time.Millisecond, func() { ready.Store(true); b.Wake() })
+			}
+		case platform.WakeEvent:
+			if stage == 0 || !ready.CompareAndSwap(true, false) {
+				return
+			}
+			if stage > len(steps) {
+				b.Quit()
+				return
+			}
+			stage++
+			steps[stage-2]()
+		}
+	})
+	mu.Lock()
+	defer mu.Unlock()
+	for _, kind := range []string{"popup", "bar", "tray"} {
+		dark, okD := lumas[kind+"-dark"]
+		light, okL := lumas[kind+"-light"]
+		if !okD || !okL {
+			t.Errorf("%s: a popup was not read", kind)
+			continue
+		}
+		if dark > 90 {
+			t.Errorf("%s menu in dark mode: mean luminance %.0f, want a dark menu (< 90)", kind, dark)
+		}
+		if light < 150 {
+			t.Errorf("%s menu in light mode: mean luminance %.0f, want a light menu (> 150)", kind, light)
+		}
+	}
 }

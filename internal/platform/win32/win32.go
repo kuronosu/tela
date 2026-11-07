@@ -52,6 +52,9 @@ type Backend struct {
 	msg     msg
 	// settings are the system settings as last read (see settings.go).
 	settings platform.SystemSettings
+	// The mode the popup menus were last set to (menutheme_windows.go).
+	menuThemeLoaded, menuThemeSet bool
+	menuThemeMode                 appMode
 	// desk is the state of the desktop services (services.go).
 	desk desktopState
 	// app is the state of the app-level services of phase 13: global
@@ -104,6 +107,7 @@ func newBackend() (*Backend, error) {
 		return nil, winError("creating the message-only window", e)
 	}
 	b.msgHwnd, b.tid = hwnd, windows.GetCurrentThreadId()
+	b.applyMenuTheme() // dark popup menus under the dark mode (ADR-239)
 	registry.mu.Lock()
 	registry.backends[hwnd] = b
 	registry.mu.Unlock()
