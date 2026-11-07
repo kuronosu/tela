@@ -12,17 +12,21 @@ import (
 // backend in internal/platform/internal/freedesktop. Nothing touches D-Bus
 // until a service is used. UI thread.
 //
-// Portal dialogs get no parent window: "wayland:<handle>" needs a toplevel
-// exported with xdg-foreign (zxdg_exporter_v2), whose handle arrives
-// asynchronously; the dialogs are then not modal to the window.
+// Portal requests get their parent window as "wayland:<handle>" of the
+// toplevel exported with xdg-foreign (zxdg_exporter_v2), and OpenURI and
+// OpenPath an xdg_activation_v1 token for the application they start;
+// both arrive as events, which the request waits for (foreign.go). The
+// shortcut portal's dialog is parented to the focused window.
 func (b *Backend) Desktop() platform.Desktop {
 	if b.desktop == nil {
 		b.desktop = freedesktop.New(freedesktop.Options{
-			AppID: b.appID,
-			Wake:  b.signal,
-			Post:  b.loop.Post,
-			Event: func(e platform.Event) { b.loop.Enqueue(nil, e) },
-			Now:   b.Now,
+			AppID:   b.appID,
+			Wake:    b.signal,
+			Post:    b.loop.Post,
+			Event:   func(e platform.Event) { b.loop.Enqueue(nil, e) },
+			Prepare: b.preparePortal,
+			Focused: b.focusedWindow,
+			Now:     b.Now,
 		})
 	}
 	return b.desktop

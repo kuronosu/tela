@@ -4,7 +4,7 @@
 // The vendored protocol versions are wayland 1.26.0 (wayland.xml) and
 // wayland-protocols 1.49 (xdg-shell, viewporter, fractional-scale-v1,
 // xdg-decoration-unstable-v1, cursor-shape-v1, tablet-v2,
-// text-input-unstable-v3, and the staging xdg-activation-v1, xdg-dialog-v1,
+// text-input-unstable-v3, xdg-foreign-unstable-v2, and the staging xdg-activation-v1, xdg-dialog-v1,
 // xdg-toplevel-icon-v1 and xdg-session-management-v1, from the 1.49
 // release tarball). To add a protocol, copy its XML into xml/ and run
 //

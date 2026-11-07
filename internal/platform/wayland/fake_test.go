@@ -85,6 +85,19 @@ type fakeComp struct {
 	// proto checks the xdg-shell object rules on every request (only the
 	// fake's goroutine uses it).
 	proto protoCheck
+
+	// respond, if set (setRespond), answers requests on the fake's
+	// goroutine as they arrive, before the requests after them: for
+	// events a compositor sends at once, ahead of a later
+	// wl_display.sync's done. Guarded by mu.
+	respond func(fc *fakeComp, r freq)
+}
+
+// setRespond sets the fake's immediate answers (see fakeComp.respond).
+func (fc *fakeComp) setRespond(f func(fc *fakeComp, r freq)) {
+	fc.mu.Lock()
+	fc.respond = f
+	fc.mu.Unlock()
 }
 
 // protoCheck enforces, like a compositor would with a protocol error, the
@@ -381,6 +394,12 @@ func (fc *fakeComp) handle(id uint32, op uint16, body []byte) {
 		}
 	}
 	fc.proto.check(fc.t, r)
+	fc.mu.Lock()
+	respond := fc.respond
+	fc.mu.Unlock()
+	if respond != nil {
+		respond(fc, r)
+	}
 	fc.auto(r)
 	if fc.automatic != nil {
 		fc.automatic.handle(fc, r)

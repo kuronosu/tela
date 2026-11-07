@@ -31,6 +31,7 @@ type fakePortal13 struct {
 	bind     func(shortcuts []portalShortcut) (uint32, []portalShortcut)
 	calls    []string                 // methods called, in order ("Register tela-test", "CreateSession", …)
 	binds    [][]portalShortcut       // BindShortcuts arguments
+	parents  []string                 // their parent_window arguments
 	sessions []dbus.ObjectPath        // sessions created
 	closed   map[dbus.ObjectPath]bool // sessions the client closed
 	senders  map[string]bool          // senders that made a portal call
@@ -120,6 +121,7 @@ func startPortal13(t *testing.T, addr string, o portal13Options) *fakePortal13 {
 				p.mu.Lock()
 				p.called(sender, "BindShortcuts")
 				p.binds = append(p.binds, shortcuts)
+				p.parents = append(p.parents, parent)
 				bind := p.bind
 				p.mu.Unlock()
 				code, bound := uint32(0), []portalShortcut(nil)

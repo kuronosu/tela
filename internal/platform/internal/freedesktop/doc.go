@@ -3,8 +3,12 @@
 // Package freedesktop implements the desktop services of the Linux
 // backends (platform.Desktop, ADR-178, ADR-179) over the D-Bus session
 // bus with github.com/godbus/dbus/v5. The Wayland and X11 backends share
-// it; they differ only in the parent window identifier they give portal
-// dialogs.
+// it; they differ only in the identifiers they give portal requests: the
+// parent window ("x11:<hex XID>" at once from Options.Parent, or
+// "wayland:<handle>" of a toplevel exported with xdg-foreign, which
+// Options.Prepare gets with a round trip) and, on Wayland, an XDG
+// activation token for the application OpenURI and OpenPath start. A
+// request that needs them is sent once they are known (ADR-233).
 //
 // # Services
 //
@@ -22,7 +26,7 @@
 //     the "default" action for a click on the notification, the icon as the
 //     image-data hint). ActionInvoked and NotificationClosed become
 //     NotificationEvents; the token of ActivationToken is kept for the
-//     backend (TakeActivationToken).
+//     backend (TakeActivationToken), whose Activate uses it.
 //   - NewTray, UpdateTray, RemoveTray: a StatusNotifierItem per tray, on its
 //     own connection under the well-known name
 //     org.kde.StatusNotifierItem-<pid>-<id>, registered with

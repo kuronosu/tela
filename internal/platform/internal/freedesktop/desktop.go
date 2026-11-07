@@ -35,9 +35,25 @@ type Options struct {
 	// from Dispatch only.
 	Event func(platform.Event)
 	// Parent returns the XDG Desktop Portal parent window identifier of a
-	// window: "x11:<hex XID>", "wayland:<exported handle>", or "" when
-	// there is none. nil means "" for every window.
+	// window ("x11:<hex XID>"), or "" when there is none. It is the
+	// synchronous form of Prepare, used when Prepare is nil, and gives no
+	// activation tokens. nil means "" for every window.
 	Parent func(platform.Window) string
+	// Prepare, when set, gets what a portal request needs before it is
+	// sent, where that takes a compositor round trip (Wayland): the parent
+	// window identifier of w ("wayland:<exported handle>"; "" when w is
+	// nil or has none) and, when token is true, an XDG activation token
+	// for the application the request opens ("" for none), which the
+	// portal passes on so that it may take the focus. It calls done
+	// exactly once on the UI thread, before it returns or later (never
+	// from another goroutine). The request waits for it: nothing is sent
+	// until done runs.
+	Prepare func(w platform.Window, token bool, done func(parent, token string))
+	// Focused returns the app's focused window, or nil: the parent of the
+	// portal requests the app makes without a window (BindShortcuts of
+	// the GlobalShortcuts portal, whose dialog asks the user). nil means
+	// no parent. UI thread.
+	Focused func() platform.Window
 	// Address is the D-Bus address of the session bus. "" means the
 	// session's: $DBUS_SESSION_BUS_ADDRESS, else $XDG_RUNTIME_DIR/bus (the
 	// bus is never autolaunched). Tests point it at a private bus.
@@ -101,7 +117,8 @@ type Desktop struct {
 	notes    map[platform.NotificationID]*note
 	byServer map[uint32]platform.NotificationID
 	trays    map[platform.TrayID]*tray
-	token    string // the latest activation token
+	token    string    // the latest activation token
+	tokenAt  time.Time // when it arrived
 
 	// idMu guards id, the app ID (Options.AppID, then SetAppID), which
 	// the shortcut worker and godbus goroutines read (appid.go).
@@ -198,21 +215,32 @@ func (d *Desktop) Close() {
 	}
 }
 
+// activationTokenLifetime is how long a token from the notification
+// server or the tray host stays usable: it answers the click that came
+// with it, which the app handles at once. An older token is dropped
+// rather than given to a later, unrelated activation.
+const activationTokenLifetime = 10 * time.Second
+
 // TakeActivationToken returns the XDG activation token the notification
 // server or the tray host sent last (with an action, or with an
-// activation), and forgets it; "" if there is none. A Wayland backend can
-// use it to activate a window in answer to the event. UI thread.
+// activation), and forgets it; "" if there is none or it is older than
+// activationTokenLifetime. The Wayland backend's Activate uses it in
+// place of a token of its own, so that a window raised in answer to a
+// click on a notification is granted the focus. UI thread.
 func (d *Desktop) TakeActivationToken() string {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	t := d.token
+	if time.Since(d.tokenAt) > activationTokenLifetime {
+		t = ""
+	}
 	d.token = ""
 	return t
 }
 
 func (d *Desktop) setActivationToken(t string) {
 	d.mu.Lock()
-	d.token = t
+	d.token, d.tokenAt = t, time.Now()
 	d.mu.Unlock()
 }
 
@@ -386,12 +414,55 @@ func addMatch(conn *dbus.Conn, opts ...dbus.MatchOption) error {
 	return conn.AddMatchSignalContext(ctx, opts...)
 }
 
-// parentID returns the portal parent window identifier of w.
+// parentID returns the portal parent window identifier of w from
+// Options.Parent.
 func (d *Desktop) parentID(w platform.Window) string {
 	if w == nil || d.opts.Parent == nil {
 		return ""
 	}
 	return d.opts.Parent(w)
+}
+
+// prepare gets the identifiers of a portal request about w
+// (Options.Prepare, else Options.Parent and no token) and calls done with
+// them on the UI thread, at once or later. UI thread.
+func (d *Desktop) prepare(w platform.Window, token bool, done func(parent, token string)) {
+	if d.opts.Prepare != nil {
+		d.opts.Prepare(w, token, done)
+		return
+	}
+	done(d.parentID(w), "")
+}
+
+// prepared runs send with the identifiers of a portal request about w
+// (prepare) unless the Desktop was closed meanwhile; closed is then
+// called instead, if not nil, to release what the request holds. An error
+// from send is returned when the identifiers came at once (X11; Wayland
+// with a handle already exported), so a synchronous failure stays
+// synchronous; a later one goes to fail through the loop, like any
+// answer. UI thread.
+func (d *Desktop) prepared(w platform.Window, token bool, send func(parent, token string) error, fail func(error), closed func()) error {
+	waiting := false
+	var now error
+	d.prepare(w, token, func(parent, tok string) {
+		if d.isClosed() {
+			// A pending answer is never delivered after Close.
+			if closed != nil {
+				closed()
+			}
+			return
+		}
+		err := send(parent, tok)
+		switch {
+		case err == nil:
+		case !waiting:
+			now = err
+		case fail != nil:
+			d.push(item{fn: func() { fail(err) }})
+		}
+	})
+	waiting = true
+	return now
 }
 
 // unsupported returns an ErrUnsupported error with a message.
