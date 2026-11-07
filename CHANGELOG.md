@@ -12,6 +12,22 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
+### Added
+
+- X11: input methods through XIM (ADR-231). With `XMODIFIERS=@im=<name>` (fcitx, ibus), text fields take Japanese, Chinese and Korean from the input method as on Wayland, Windows and macOS: inline when the server offers on-the-spot preedit, else in the server's own window at the caret. Password fields bypass the input method; dead keys and Compose keep working without one; an input method that quits or restarts does not break typing.
+- X11: a touchpad flings when the fingers lift, where the driver reports it (xf86-input-libinput; ADR-232). An `h.Draggable` drag shows its image under the pointer, and a drag with several allowed actions offers `XdndActionAsk` (right or middle button, or Alt).
+- Wayland: file dialogs and the other portal requests are attached to their window (xdg-foreign), opening a link or file passes an activation token so the opened app may take the focus, and a window's activation uses the token a notification or tray click brings (ADR-233). A window the compositor suspends (minimized, on a hidden workspace, the screen locked) stops waiting for frames and draws its current state when it comes back.
+- Windows: notifications are toasts with action buttons on Windows 10 1809 and later, withdrawn by `CloseNotification` (ADR-235); balloons remain where toasts are unavailable. Notifications the user turned off report `ErrUnsupported`.
+- Windows: the native menu bar opens with Alt and F10 and Alt plus an access key (assigned from each label), and is drawn dark under the system's dark mode; its drop-down menus stay light (ADR-234).
+- Windows 11: `TitleBarOverlay` keeps the system's minimize, maximize and close buttons, with snap layouts, over the app's title bar, and reports them in `WindowState.TitleBarControls`; `kit.TitleBar` leaves room for them at the end (ADR-236). On Windows 10 it stays frameless.
+- macOS: drops see drags that carry only another app's private types (as `application/x-uti.<type>`), receive file promises from Photos and Mail, and a drag without an image shows the file's or type's icon; a message box without a parent no longer blocks the app's other windows (ADR-237).
+- `desktop.Tray.Template` (ADR-237): on macOS the icon is a template image the menu bar tints; ignored elsewhere.
+
+### Changed
+
+- Windows: reading a drop from another process gives up after 5 s without progress instead of freezing the window (ADR-234). Tray icons are drawn again at a new display scale, and global shortcuts declared by character follow a keyboard layout change (also on macOS).
+- `tela dev` speaks remote protocol 7 (ADR-237): the `tela` command and the app must be built with the same Tela version.
+
 ## [0.13.3] - 2026-11-02
 
 Phase 15, the macOS desktop integration (ADR-224 to ADR-228): window control, the traffic lights over an app's own title bar (`TitleBarOverlay`), vibrancy backdrops, the desktop services, one app menu bar with the standard macOS menus and Cmd+Q (`desktop.AppMenuBar`, `tela.App.OnQuit`), drag and drop, global shortcuts, single instance, deep links and file types through Launch Services, the Keychain and the Trash, and `tela build`/`tela run` for a development `.app`. Verified on `macos-latest` CI, where `examples/notes` registers itself and a `tela-notes:` link reaches the running instance; a session on a real Mac is still to come.
