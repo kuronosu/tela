@@ -108,6 +108,15 @@ type Backend struct {
 	atomNames map[xproto.Atom]string
 	timers    timers
 	integ     integration
+
+	// Drag images (dragicon.go): the screen's 32-bit TrueColor visual
+	// (0 when it has none), the screen number (_NET_WM_CM_Sn), the
+	// colormap for the ARGB visual (made at first use) and the SHAPE
+	// extension (queried at first use).
+	argbVisual xproto.Visualid
+	screenNum  int
+	argbCmap   xproto.Colormap
+	shape      shapeExt
 }
 
 // xevent is an event or an X error received by the pump.
@@ -186,6 +195,9 @@ func newBackend(conn *xgb.Conn) (*Backend, error) {
 		scale:   1,
 		windows: map[xproto.Window]*Window{},
 		cursors: map[platform.Cursor]xproto.Cursor{},
+
+		argbVisual: findARGBVisual(setup, screen),
+		screenNum:  conn.DefaultScreen,
 	}
 	b.initLoop()
 	b.kbd.fetch = b.coreMapping

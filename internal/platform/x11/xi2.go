@@ -5,6 +5,9 @@ package x11
 import (
 	"math"
 	"strings"
+	"time"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/xproto"
@@ -51,11 +54,40 @@ import (
 //     (15 by default), so Delta is libinput's own distance, what a
 //     Wayland compositor sends. Xwayland's single "xwayland-pointer"
 //     device does not tell a touchpad from a wheel and reports notches.
-//   - No gesture phases: XI2 smooth scrolling has no "fingers lifted"
-//     signal (xf86-input-libinput posts none; GTK 3 on X11 has no kinetic
-//     scrolling either, and the Synaptics driver coasts by itself), so
-//     every ScrollEvent has ScrollPhaseNone and the layers above never
-//     fling after X11 touchpad scrolling.
+//
+// Gesture phases (kinetic scrolling, ADR-232). XI2 has no scroll phases,
+// but a driver that knows when the fingers lift posts one more scroll
+// event whose scroll valuators did not move (both deltas zero). GTK 3
+// reads it as the scroll stop (gdkdevicemanager-xi2.c sets is_stop for a
+// 0/0 smooth scroll since 3.20), and GtkScrolledWindow and Firefox's GTK
+// widget (a pan gesture end for touchpads) fling from it; Chromium on X11
+// flings only with ChromeOS's CMT driver.
+//
+//   - xf86-input-libinput posts it: libinput ends a finger (and a
+//     continuous) scroll with an axis event of value 0, which the driver
+//     posts as a relative motion of 0 on the scroll valuators, and the
+//     server delivers it (GetPointerEvents drops only an empty valuator
+//     mask).
+//   - The Synaptics driver posts none (it coasts by itself); other
+//     drivers are unknown.
+//   - Xwayland 23.1 and later post it for wl_pointer.axis_stop (22.1 and
+//     older ignore axis_stop), but drop wl_pointer.axis_source, so the
+//     events before the stop cannot be told from a wheel's on the single
+//     "xwayland-pointer" device: they stay wheel steps without phases and
+//     the stop is dropped (no fling under Xwayland; unchanged in the
+//     26.0.99 prerelease).
+//
+// So a touchpad's scroll events have ScrollPhaseUpdate when its driver
+// is known to post the stop: the device has the "libinput Send Events
+// Modes Available" property (xf86-input-libinput), or a stop was already
+// seen from it (its earlier gestures stay unphased). The stop becomes a
+// ScrollPhaseEnd without delta for the window of the gesture. A touchpad
+// without the stop keeps ScrollPhaseNone: a gesture that never ends would
+// keep the layers above latched to one container, and no timeout can
+// tell lifted fingers from resting ones. An event that only sets
+// baselines (after XI_Enter) is not a stop. Scroll times come from the
+// server's timestamps (scrollTime), so a fling's velocity does not depend
+// on when the backend reads the batch.
 //
 // Sign convention: valuators grow downwards and to the right, the DOM's
 // positive directions.
@@ -106,8 +138,10 @@ type xiState struct {
 	// it.
 	query func(id uint16) ([]*xiDevice, error)
 	// touchpadProps are the atoms of the properties that mark a touchpad
-	// (0 if the server has none).
+	// (0 if the server has none); libinputProp marks a device of
+	// xf86-input-libinput, which ends finger scrolling with a stop.
 	touchpadProps [2]xproto.Atom
+	libinputProp  xproto.Atom
 }
 
 // xiDevice is what the backend knows about an input device.
@@ -115,7 +149,13 @@ type xiDevice struct {
 	id     uint16
 	name   string
 	smooth bool // a touchpad: precise scroll distances
-	axes   []*scrollAxis
+	// stops: the driver ends a finger scroll with a zero-delta event, so
+	// the device's scrolling has gesture phases.
+	stops bool
+	// gesture is the window of the phased gesture in progress (a
+	// ScrollPhaseUpdate went out), nil when none.
+	gesture *Window
+	axes    []*scrollAxis
 }
 
 // scrollAxis is a scroll valuator of a device.
@@ -173,9 +213,14 @@ func (b *Backend) initXI2() {
 		return
 	}
 	b.xi = xiState{extension: e, ok: true, devices: map[uint16]*xiDevice{}, query: b.queryXIDevices}
-	for i, name := range []string{"libinput Tapping Enabled", "Synaptics Off"} {
-		if r, err := xproto.InternAtom(b.conn, true, uint16(len(name)), name).Reply(); err == nil && r != nil {
+	for i, name := range []string{"libinput Tapping Enabled", "Synaptics Off", "libinput Send Events Modes Available"} {
+		r, err := xproto.InternAtom(b.conn, true, uint16(len(name)), name).Reply()
+		switch {
+		case err != nil || r == nil:
+		case i < 2:
 			b.xi.touchpadProps[i] = r.Atom
+		default:
+			b.xi.libinputProp = r.Atom
 		}
 	}
 	b.sendRequest(xiSelectEventsRequest(e.opcode, b.root, xiAllDevices, 1<<xiHierarchyChanged|1<<xiDeviceChanged))
@@ -187,7 +232,8 @@ func (b *Backend) initXI2() {
 }
 
 // queryXIDevices runs XIQueryDevice, then XIListProperties for the devices
-// with scroll axes whose name does not say touchpad (pipelined).
+// with scroll axes (pipelined): the properties mark touchpads and the
+// devices of xf86-input-libinput.
 func (b *Backend) queryXIDevices(id uint16) ([]*xiDevice, error) {
 	req := newRequest(b.xi.opcode, xiOpQueryDevice, 8)
 	le.PutUint16(req[4:], id)
@@ -196,7 +242,7 @@ func (b *Backend) queryXIDevices(id uint16) ([]*xiDevice, error) {
 		return nil, err
 	}
 	devs := parseXIDevices(r)
-	if b.xi.touchpadProps == [2]xproto.Atom{} {
+	if b.xi.touchpadProps == [2]xproto.Atom{} && b.xi.libinputProp == 0 {
 		return devs, nil
 	}
 	type pending struct {
@@ -205,7 +251,7 @@ func (b *Backend) queryXIDevices(id uint16) ([]*xiDevice, error) {
 	}
 	var ps []pending
 	for _, d := range devs {
-		if len(d.axes) == 0 || d.smooth {
+		if len(d.axes) == 0 {
 			continue
 		}
 		req := newRequest(b.xi.opcode, xiOpListProperties, 8)
@@ -219,18 +265,27 @@ func (b *Backend) queryXIDevices(id uint16) ([]*xiDevice, error) {
 		if err != nil || len(r) < 32 {
 			continue
 		}
-		n := int(le.Uint16(r[8:]))
-		for i := range n {
-			if 32+4*i+4 > len(r) {
-				break
-			}
-			a := xproto.Atom(le.Uint32(r[32+4*i:]))
-			if a != 0 && (a == b.xi.touchpadProps[0] || a == b.xi.touchpadProps[1]) {
-				p.d.smooth = true
-			}
-		}
+		b.xi.markDevice(p.d, r)
 	}
 	return devs, nil
+}
+
+// markDevice reads an XIListProperties reply for d: a touchpad property
+// makes it smooth, the libinput one says its driver posts scroll stops.
+func (x *xiState) markDevice(d *xiDevice, r []byte) {
+	n := int(le.Uint16(r[8:]))
+	for i := range n {
+		if 32+4*i+4 > len(r) {
+			break
+		}
+		switch a := xproto.Atom(le.Uint32(r[32+4*i:])); {
+		case a == 0:
+		case a == x.touchpadProps[0] || a == x.touchpadProps[1]:
+			d.smooth = true
+		case a == x.libinputProp:
+			d.stops = true
+		}
+	}
 }
 
 // fp3232 decodes an XI FP3232 (signed integral part, then the fraction).
@@ -498,6 +553,9 @@ func (x *xiState) resetScroll() {
 func (b *Backend) xiMotion(p ptr, ev xiDeviceEvent) {
 	var dx, dy float64
 	var d *xiDevice
+	// still: the event has a scroll valuator with a baseline, and none
+	// moved when dx and dy stay zero (the scroll stop).
+	still := false
 	if len(ev.valuators) > 0 {
 		d = b.xi.device(ev.sourceid)
 		for _, v := range ev.valuators {
@@ -509,6 +567,7 @@ func (b *Backend) xiMotion(p ptr, ev xiDeviceEvent) {
 				a.value, a.valid = v.value, true
 				continue
 			}
+			still = true
 			delta := (v.value - a.value) / a.increment
 			a.value = v.value
 			if a.horizontal {
@@ -523,13 +582,59 @@ func (b *Backend) xiMotion(p ptr, ev xiDeviceEvent) {
 		b.ptrMotion(p)
 	}
 	if dx == 0 && dy == 0 {
+		if still && d.smooth {
+			b.scrollStop(d, p.mods, ev.time)
+		}
 		return
 	}
-	se := platform.ScrollEvent{Kind: platform.PointerMouse, Pos: p.w.lastPos, Mods: p.mods, Time: b.Now()}
+	se := platform.ScrollEvent{Kind: platform.PointerMouse, Pos: p.w.lastPos, Mods: p.mods, Time: b.scrollTime(ev.time)}
 	if d.smooth {
 		se.Delta = platform.Point{X: float32(dx * smoothScrollPixels), Y: float32(dy * smoothScrollPixels)}
+		if d.stops {
+			if d.gesture != nil && d.gesture != p.w {
+				// The pointer is over another window now: the
+				// gesture there is over.
+				b.scrollStop(d, p.mods, ev.time)
+			}
+			se.Phase, d.gesture = platform.ScrollPhaseUpdate, p.w
+		}
 	} else {
 		se.Steps = platform.Point{X: float32(dx), Y: float32(dy)}
 	}
 	b.enqueue(p.w, se)
+}
+
+// scrollStop handles the zero-delta event that ends a touchpad's finger
+// scroll: the device is known to post it from now on, and the gesture in
+// progress, if any, ends in its window.
+func (b *Backend) scrollStop(d *xiDevice, mods platform.Modifiers, t uint32) {
+	d.stops = true
+	w := d.gesture
+	d.gesture = nil
+	if w == nil || w.Closed() {
+		return
+	}
+	b.enqueue(w, platform.ScrollEvent{Kind: platform.PointerMouse, Pos: w.lastPos, Phase: platform.ScrollPhaseEnd,
+		Mods: mods, Time: b.scrollTime(t)})
+}
+
+// scrollTime converts the X server time of a scroll event (milliseconds,
+// 32 bits) to the time base of Now. Xorg and Xwayland stamp events with
+// CLOCK_MONOTONIC (GetTimeInMillis; the coarse variant when it is fine
+// enough), which is Go's monotonic clock on Linux: the timestamp is
+// trusted when it lies within the last second (computed modulo 2^32),
+// otherwise (a remote server) the arrival time is used, as the Wayland
+// backend does with compositor times. A fling's velocity comes from these
+// times, so they must not be the times the batch was read.
+func (b *Backend) scrollTime(ms uint32) time.Duration {
+	now := b.Now()
+	var ts unix.Timespec
+	if ms == 0 || unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts) != nil {
+		return now
+	}
+	age := time.Duration(int32(uint32(ts.Nano()/int64(time.Millisecond))-ms)) * time.Millisecond
+	if age < 0 || age > time.Second || age > now {
+		return now
+	}
+	return now - age
 }

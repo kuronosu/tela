@@ -126,8 +126,11 @@
 // Wayland reports it from
 // wl_pointer.axis_source (finger) and wl_pointer.axis_stop, as GTK 4 does;
 // Cocoa from NSEvent.phase, dropping the momentum events AppKit generates
-// after the fingers lift (the layers above fling instead); X11 cannot (XInput2 smooth scrolling has no stop signal, and the
-// Synaptics driver coasts by itself), so its events have ScrollPhaseNone.
+// after the fingers lift (the layers above fling instead); X11 from the
+// zero-delta XInput2 scroll event that xf86-input-libinput posts when the
+// fingers lift, as GTK 3 does (ADR-232). Touchpads without that stop (the
+// Synaptics driver, which coasts by itself; Xwayland, which reports
+// touchpads as wheels) have ScrollPhaseNone.
 //
 // # Keyboard
 //

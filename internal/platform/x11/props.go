@@ -73,6 +73,11 @@ type atoms struct {
 	netStartupID       xproto.Atom
 	netStartupInfo     xproto.Atom
 	netStartupInfoBegn xproto.Atom
+
+	// The drag source's action descriptions and drag image
+	// (dragsource.go, dragicon.go).
+	xdndActionDescription xproto.Atom
+	netWMTypeDND          xproto.Atom
 }
 
 // atomEntry is an atom name and the field of atoms it is stored in.
@@ -136,6 +141,8 @@ func (a *atoms) list() []atomEntry {
 		{"_NET_STARTUP_ID", &a.netStartupID},
 		{"_NET_STARTUP_INFO", &a.netStartupInfo},
 		{"_NET_STARTUP_INFO_BEGIN", &a.netStartupInfoBegn},
+		{"XdndActionDescription", &a.xdndActionDescription},
+		{"_NET_WM_WINDOW_TYPE_DND", &a.netWMTypeDND},
 	}
 }
 

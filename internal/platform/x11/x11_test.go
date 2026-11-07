@@ -369,7 +369,7 @@ func (r *recorder) HandleEvent(_ platform.Window, e platform.Event) {
 			s += fmt.Sprintf(" mods=%b", e.Mods)
 		}
 		if e.Phase != platform.ScrollPhaseNone {
-			// X11 has no gesture boundaries (xi2.go).
+			// Touchpads whose driver posts the scroll stop (xi2.go).
 			s += " phase=" + e.Phase.String()
 		}
 	case platform.KeyEvent:

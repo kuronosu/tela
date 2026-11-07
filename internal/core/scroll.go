@@ -89,8 +89,9 @@ import (
 // platform, or a touch release) the content keeps moving with GTK 4's
 // kinetic deceleration (GtkKineticScrolling: v(t) = v0 e^(-flingFriction
 // t)), from the velocity of the last velocityWindow of the gesture.
-// Backends without gesture ends (X11) never fling. Programmatic scrolls
-// jump, unless the container has scroll-smooth (CSS scroll-behavior).
+// Devices without gesture ends (wheels; X11 touchpads whose driver posts
+// no scroll stop) never fling. Programmatic scrolls jump, unless the
+// container has scroll-smooth (CSS scroll-behavior).
 //
 // Instant settings: App.InstantScroll (Config.InstantScroll) makes user
 // scrolling jump, except in containers with scroll-smooth;

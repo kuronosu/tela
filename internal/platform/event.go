@@ -230,11 +230,13 @@ type ScrollEvent struct {
 //
 // Only devices whose gestures have a reported end use the phases: a
 // touchpad on Wayland (wl_pointer.axis_source finger, ended by
-// wl_pointer.axis_stop when the fingers lift) and on macOS (NSEvent.phase;
-// the momentum events that follow are not delivered). Wheels, and backends that cannot tell
-// when a gesture ends (X11: XInput2 smooth scrolling has no stop signal),
-// report ScrollPhaseNone, so the layers above never start a fling for
-// them.
+// wl_pointer.axis_stop when the fingers lift), on macOS (NSEvent.phase;
+// the momentum events that follow are not delivered) and on X11 when its
+// driver ends finger scrolling with a zero-delta XInput2 scroll event
+// (xf86-input-libinput; ADR-232). Wheels, and devices whose gestures have
+// no reported end (an X11 touchpad on the Synaptics driver, any touchpad
+// under Xwayland, which does not tell it from a wheel), report
+// ScrollPhaseNone, so the layers above never start a fling for them.
 type ScrollPhase uint8
 
 const (
