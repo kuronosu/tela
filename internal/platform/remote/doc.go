@@ -86,6 +86,8 @@
 //     promotion), and its choices go to the active child; menu roles,
 //     TitleBarOverlay and the controls' rectangle travel with the menus,
 //     the options and the window state.
+//   - Protocol 7 (ADR-237): TrayOptions.Template travels with the tray's
+//     options.
 //   - Run returns an error when the connection is lost.
 //
 // The child's loop is internal/loop's (queue, coalesced wake, quit,

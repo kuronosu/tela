@@ -49,6 +49,15 @@ type Tray struct {
 	// Icon is the tray image, the same picture at one or more sizes (16,
 	// 24 and 32 pixels cover the usual trays; the OS picks). Required.
 	Icon []image.Image
+	// Template makes Icon a template image on macOS: only its alpha
+	// counts, and the menu bar tints it (dark on a light bar, light on a
+	// dark one, inverted while its menu is open), as the system's own
+	// status icons are drawn. Draw it as a black silhouette on
+	// transparency. Other platforms ignore it and show Icon's colors, so
+	// pick a color that reads on light and dark panels, or set Template
+	// only on a Mac (runtime.GOOS == "darwin") with a colored icon
+	// elsewhere.
+	Template bool
 	// Tooltip is shown when the pointer rests on the icon.
 	Tooltip string
 	// Menu is the icon's context menu (a right click; on some Linux
@@ -202,14 +211,14 @@ func (s *trayState) event(e platform.Event) {
 // can be chosen from 1 in menu order, and their OnSelect by number.
 func trayOptions(t Tray) (platform.TrayOptions, menuActions) {
 	menu, actions := platformMenu("desktop.Tray", t.Menu)
-	return platform.TrayOptions{Icon: t.Icon, Tooltip: t.Tooltip, Menu: menu}, actions
+	return platform.TrayOptions{Icon: t.Icon, Tooltip: t.Tooltip, Menu: menu, Template: t.Template}, actions
 }
 
-// sameTray reports whether a and b show the same icon, tooltip and menu.
-// Images are compared by identity (the same image values): pass the same
-// images on every build, not new ones.
+// sameTray reports whether a and b show the same icon (and template
+// flag), tooltip and menu. Images are compared by identity (the same
+// image values): pass the same images on every build, not new ones.
 func sameTray(a, b platform.TrayOptions) bool {
-	return a.Tooltip == b.Tooltip &&
+	return a.Tooltip == b.Tooltip && a.Template == b.Template &&
 		slices.EqualFunc(a.Icon, b.Icon, sameImage) &&
 		sameMenu(a.Menu, b.Menu)
 }

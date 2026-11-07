@@ -373,6 +373,13 @@ type TrayOptions struct {
 	// Menu is the context menu (secondary click; on some Linux hosts any
 	// click). Empty: no menu.
 	Menu []MenuItem
+	// Template marks Icon as a template image (ADR-237): only its alpha
+	// counts, and the OS tints it to match the menu bar (light, dark,
+	// highlighted while the menu is open), as macOS status items are
+	// drawn. Cocoa sets NSImage.template; the other backends ignore it
+	// and show the icon's colors as they are (draw a template icon in a
+	// color that reads on both light and dark panels).
+	Template bool
 }
 
 // CheckFileDialogOptions panics with an actionable message if opts has an
