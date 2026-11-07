@@ -218,7 +218,7 @@ The VM has no GPU and runs at scale 1.
 - [ ] Scales above 1 (per-monitor DPI)
 - [ ] Windows 11 rounded corners and Mica (the VM draws square corners and a solid backdrop); a frameless window with a client-area backdrop extends its DWM frame, which may hide the snap layouts flyout again
 - [ ] The tray and notification icons' alpha, by eye
-- [ ] Phase 16 by hand: the snap layouts flyout over an overlay window's maximize button, its caption buttons across monitors of different DPI, and a toast's buttons; `TitleBarOverlay` on Windows 10 22H2 (today frameless there)
+- [ ] Phase 16 by hand: the snap layouts flyout, hover and presses on an overlay window's DWM buttons, its caption buttons across monitors of different DPI, with a taskbar at the top and with a monitor above a maximized one (its 8 px hidden band), and a toast's buttons; `TitleBarOverlay` on Windows 10 22H2 (today frameless there)
 - [ ] After the GPU backend: Vulkan (and D3D11 if built) on a real GPU
 
 ### Linux desktops
