@@ -12,7 +12,7 @@
 - **Done:** phases 1–15. Latest version `v0.13.3` (2026-11-02, phase 15: the macOS desktop integration; tagged on `f83006a` with the owner's approval). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
 - **Phase in progress:** 16, Platform parity, on the work branch `phase-16-platform-parity` (ADR-230: `combase.dll` for WinRT toasts, an automatic fallback title bar, the branch pushed for CI).
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** phase 16's tasks run in parallel worktrees per backend; the fallback title bar's look waits for the owner's pick of rendered options. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** phase 16's seven backend tasks are merged (ADR-231 to ADR-237) and the full CI passes on the branch; left: the fallback title bar (the owner picks its look), the owner's Mozc check on X11, the phase's `TELA_LIVE` tests on the Windows VM, and whether `uxtheme.dll` may darken Win32's drop-down menus. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
@@ -23,16 +23,19 @@ In order. Each phase ends with verifiable criteria and is not done unless they p
 
 Gaps in the existing backends. Verified on the owner's Linux machine, the Windows VM and `macos-latest` CI.
 
-- [ ] IME on X11 (XIM)
-- [ ] Touchpad fling on X11
-- [ ] The X11 drag source shows a drag image and offers `XdndActionAsk`
-- [ ] Wayland: file dialogs get their parent window (`zxdg_exporter_v2`) and activation tokens are passed to the portal; a minimized window's work stops waiting for the compositor's next frame callback (`xdg_toplevel.suspended`)
-- [ ] A fallback title bar when the compositor has no server-side decorations (GNOME on Wayland), drawn automatically unless the app draws its own (ADR-230); today the app draws one when `State().ClientSideDecorations` says so (`examples/notes` draws `kit.TitleBar`). The owner picks its look from rendered options
-- [ ] Win32: the native menu bar opens with Alt and F10 and follows dark mode (it is mouse-only and stays light); drop reads get a timeout (a hung source blocks the UI thread)
-- [ ] Windows notifications with actions (WinRT toasts; today balloons), without a notification-area icon per notification
-- [ ] Tray icons are redrawn on DPI changes
-- [ ] `TitleBarOverlay` keeps the OS's caption buttons on Windows too (DWM's buttons over the client area, Windows Controls Overlay); today it is `Frameless` there, and `kit.TitleBar`'s room for buttons at the end is untested
-- [ ] macOS: drags that offer only another app's private types are not seen, file promises (Photos, Mail) are not received, and a drag without an image shows none (the file's icon would do); a tray icon can be a template image (a contract field); a message box without a parent is app-modal (`runModal`) and blocks the app's other windows; global hot keys are not registered again when the keyboard layout changes (Win32 neither)
+- [x] IME on X11 through a pure-Go XIM client (ADR-231): on-the-spot, over-the-spot or root preedit, sync mode, server restarts, COMPOUND_TEXT; checked against the owner's fcitx5 up to the input context
+- [ ] Japanese typed through fcitx5-mozc on X11 (the owner installs Mozc; steps: `TELA_BACKEND=x11 go run ./examples/notes`, Ctrl+Space, `nihongo`, Space, Enter gives 日本語 once; login's password field bypasses the IME; `pkill fcitx5` keeps typing working)
+- [x] Touchpad fling on X11 after libinput's zero-delta scroll stop (ADR-232); Xwayland and Synaptics send none, so they never fling
+- [x] The X11 drag source shows a drag image (ARGB or shaped, empty input shape) and offers `XdndActionAsk` (ADR-232)
+- [x] Wayland: portal requests get their parent through `zxdg_exporter_v2`, OpenURI and OpenFile an activation token, `Activate` the token a notification or tray brings; a suspended toplevel pauses frames (internal `WindowState.Suspended`, ADR-233)
+- [ ] A fallback title bar when the compositor has no server-side decorations (GNOME on Wayland), drawn automatically unless the app draws its own (ADR-230); today the app draws one when `State().ClientSideDecorations` says so (`examples/notes` draws `kit.TitleBar`). Three looks are rendered for the owner (Adwaita, Slim, Seamless; the proposal: hidden when the window has an `h.WindowDrag` area, buttons from GNOME's `button-layout`)
+- [x] Win32: the native menu bar opens with Alt, F10 and Alt+access key and is drawn dark (user32/gdi32); drop reads are cancelled after 5 s without progress (ADR-234)
+- [ ] Win32: dark drop-down menus under the dark bar need `uxtheme.dll`'s ordinals (`SetPreferredAppMode`, `AllowDarkModeForWindow`), not in §2: the owner decides
+- [x] Windows notifications are WinRT toasts with actions (`combase`, Windows 10 1809+, ADR-235), balloons the fallback
+- [x] Tray icons are redrawn on DPI changes (Win32, ADR-234)
+- [x] `TitleBarOverlay` keeps DWM's caption buttons on Windows 11 (Windows Controls Overlay, ADR-236); `kit.TitleBar` leaves room at the end (golden)
+- [x] macOS: every drag is seen (private types as `application/x-uti.<type>`), file promises are received, a drag without an image shows icons, `desktop.Tray.Template`, a message box without a parent is modeless, global hot keys follow the keyboard layout (Win32 too) (ADR-237; remote protocol 7)
+- [ ] Run the phase's `TELA_LIVE=1` win32 tests on the Windows 11 VM: `TestLiveMenuBarKeyboard`, `TestLiveMenuBarDark`, `TestLiveHotkeyLayoutChange`, `TestLiveTrayDPI`, `TestLiveDropSourceStalls`, `TestLiveOverlay*`, `TestLiveToast` (and `TestLiveToastClick` by hand)
 
 **Done when:** Japanese can be typed through XIM on X11, and each item works on the owner's Linux machine, the Windows VM or `macos-latest`.
 
@@ -67,6 +70,7 @@ What building the examples showed missing in `tela`, `h`, `aria`, `kit` and `des
 - [ ] Menus and triggers: submenus; `kit.MenuItem` has no `Role` (an Edit menu that mixes the app's items with standard ones needs `desktop.AppMenuBar`); `Disabled` on Tooltip, menu and Select triggers; Toggle, Slider and Checkbox as `Trigger`s (so they can have tooltips), and more than one overlay per trigger; `aria.UseContextMenuTrigger` exposes an opening number to key a menu per opening (proposed `ContextMenuTriggerResult.Opening`; kit counts openings itself); a context menu opened from the keyboard knows the focused element's bounds (it opens at the area's corner); decide whether `kit.ContextMenu` areas are focusable by default (Radix's model says no; the demo shows `TabIndex(0)`)
 - [ ] `kit.ToggleStyle.Icon` is one class for every Toggle variant, so `looks/aqua` cannot tint the sidebar's glyphs with the accent as macOS does; small `looks/aqua` fidelity gaps: Sequoia's pop-up button chevron sits in an accent tile (`kit.Select` with `Icon: ChevronsUpDown` matches macOS) and its toolbar search field is bordered, not borderless gray; in Tahoe dark, Destructive text over a saturated backdrop has low contrast
 - [ ] New kit pieces: `kit.Alert`, Badge tone and dot, a loading state on `kit.Button`, a leading icon on `kit.Input`, a caption on `kit.Separator`, Avatar group and color, `animation-delay` utilities
+- [ ] Windows 11 overlay windows: DWM's caption glyphs follow the system scheme when the app's theme differs and it gives no `TitleBar.Background` (sample the bar's pixels); the access keys Win32 gives a native menu bar are Latin letters and digits only
 - [ ] `kit.Field`: a slot by the description, rich labels, a slot beside the label, and a group inside a `Field` (not a `FieldSet`) named by its label
 - [ ] `kit.Table`: a "never unsorted" sort mode and a way to hide the unsorted arrow; sort variants for `aria-sort` `other`/`none`
 - [ ] Deferred forms: `BackgroundGradientFn`, and `…Fn` forms of Progress and ToggleGroup; `tela.Preview` takes a theme and a color scheme
@@ -128,6 +132,7 @@ The hardest technical item (`tela-hard`). It changes no public API.
 - [ ] `tela build` / `tela package`: installers and bundles (`.msi`/MSIX, `.app`/`.dmg` on the development bundle of the macOS desktop phase, AppImage, flatpak, `.deb`), icons, metadata, code-signing hooks (macOS notarization needs an Apple developer account); a signed bundle's `Info.plist` cannot be edited at run time, so a packaged Mac app declares its schemes and file types at build time (`assoc` refuses to edit a signed bundle, ADR-228)
 - [ ] Windows targets are GUI programs by default (`-H=windowsgui`, no console window next to the app; ADR-127), with panics and the app's log written to a file in its data directory, since a GUI program has no standard output
 - [ ] Auto-update: signed manifests, delta or full downloads, atomic replace, rollback
+- [ ] A toast clicked after the app exited starts it (a COM activator registered with `ToastActivatorCLSID`, ADR-235); today it only dismisses the toast
 - [ ] Crash reporting hook and structured logging
 
 **Done when:** a sample app is packaged for three platforms from one command and updates itself from a signed manifest.
@@ -154,6 +159,7 @@ Inspecting and driving a running app.
 - [ ] `tela dev` with desktop services: a drop's final effect set inside `OnDrop` reaches the source; a refused or taken shortcut status is not cached until `tela dev` restarts; a window a new build opens only later (from an effect) does not close and reopen on reload; a dialog opened at startup does not show again on every reload; a reload while a Wayland window is minimized does not stall; the Windows 11 backdrop reaches the client area
 - [ ] Dev builds can be debugged (DWARF)
 - [ ] `telatest`: clicks with modifiers (Playwright's `click({modifiers})`; aria's Cmd+click tests mount through `rawwin` today); menu accelerators' `CmdOrCtrl` follow the host, not `PlatformKeys` (ADR-221)
+- [ ] `telatest.TrayIcon` reports `Template` (ADR-237)
 - [ ] `telatest`: plays Windows' `DefaultAsked` for file types and gives a start launch; a wait on a long timer of the app's clock advances to the next deadline when nothing else is due (today one frame per try, about 120 tries for 2 s, so it depends on the machine's speed)
 - [ ] `watch`: `TestDebounce/native` saw a batch 401 ms after the last write (before the debounce) once on the Linux runner (`7ae8f0e`, 2026-11-02); find why `TestDirectoryMovedInAndOut/native` failed once on `windows-latest` (`c9aff8d`: nothing reported for a directory moved into the tree, no error; the watcher and the test now report more); the Windows poller holds each directory open while it lists it, so a rename of that directory fails for that moment
 - [ ] CI: the win32 tests that read the screen (title bar colors, backdrop, frameless modal and glass pixels) or open real dialogs run only with `TELA_LIVE=1`, so CI checks their attributes but not their pixels; the win32 keyboard tests inject their "slow" keys 40 ms apart from a goroutine and check the focus only at the start, so they rely on running alone; a global-shortcut press injected with `keybd_event` or `SendInput` from a scheduled task never arrives, so only a real key press checks it
@@ -199,6 +205,7 @@ This session gates v1.0's "macOS supported". Items a phase adds after the sessio
 - [ ] `examples/notes`: tray, notifications, file dialogs, two windows, a persisted position, a file dropped from Finder, the global shortcut in the background, a deep link into the running instance, a note locked in the Keychain, the Trash
 - [ ] Phase 15 by hand (`tela run ./examples/notes`): notifications in the bundle (the authorization prompt, actions, a click), the traffic lights over notes' bar and their hover glyphs after they move, the vibrancy backdrops, a file dialog's "Format:" popup, Cmd+Q, the Dock's Quit and a logout with and without `OnQuit`'s dialog, a second start from Terminal taking the focus (macOS 14's activation yield), the global shortcut with a non-US layout, `open dist/Notes.app` and a `tela-notes:` link from Safari, and whether macOS accepts the development bundle's ad-hoc signature (the Go linker's, without a seal over `Info.plist`)
 - [ ] The app bar's key equivalents: cocoa matches them itself when AppKit's matching takes none (CI's CGEvent-built keys); with real keys, check whether that fallback is still needed
+- [ ] Phase 16: a drag from Photos or Mail (file promises) and one carrying another app's private types reach an `OnDrop` target (CI cannot start another app's drag)
 - [ ] After Accessibility: VoiceOver reads, navigates and operates `login`
 - [ ] After the GPU backend: Metal draws the dashboard at 60 fps at scale 2
 - [ ] After packaging: a signed and notarized `.app`/`.dmg` installs and updates
@@ -210,6 +217,7 @@ The VM has no GPU and runs at scale 1.
 - [ ] Scales above 1 (per-monitor DPI)
 - [ ] Windows 11 rounded corners and Mica (the VM draws square corners and a solid backdrop); a frameless window with a client-area backdrop extends its DWM frame, which may hide the snap layouts flyout again
 - [ ] The tray and notification icons' alpha, by eye
+- [ ] Phase 16 by hand: the snap layouts flyout over an overlay window's maximize button, its caption buttons across monitors of different DPI, and a toast's buttons; `TitleBarOverlay` on Windows 10 22H2 (today frameless there)
 - [ ] After the GPU backend: Vulkan (and D3D11 if built) on a real GPU
 
 ### Linux desktops
@@ -223,6 +231,7 @@ On the owner's Hyprland, a headless sway, or a GNOME or KDE session.
 - [ ] Wayland maximize, the window menu, icons, `xdg-dialog` and session restore on a compositor that has them (sway lacks them)
 - [ ] "Open with" dialogs list an app registered with `NoDisplay=true`
 - [ ] The tray and notification icons' alpha, by eye
+- [ ] Phase 16: an X11 touchpad fling on native Xorg with xf86-input-libinput; the Wayland suspended state on GNOME or KWin (Hyprland sends none); a file dialog modal to its window and a link opened with focus, on Wayland
 
 ## By design or outside Tela
 
@@ -233,6 +242,7 @@ Not planned; the owner can reopen any of them.
 - Wayland cannot place windows or keep them on top; a Wayland window shown again gets a new session restore token (ADR-186).
 - GNOME's AppIndicator extension applies a tray menu's changes only when the menu opens, so the old label shows for a moment (its design; GTK apps behave the same).
 - xdg-desktop-portal-hyprland assigns no keys to global shortcuts: the user binds `appID:id` in the compositor's config.
+- X11 XIM: no trigger-key (dynamic) event flow, authentication or string conversion; CNS 11643 and Big5 in COMPOUND_TEXT decode as U+FFFD; balloon notifications (Windows before 1809, Wine) keep one notification-area icon each (ADR-231, ADR-235).
 - Environment: Omarchy's window rules on Hyprland 0.56 did not keep the restored size of `examples/notes`; `wtype` cannot type into Xwayland windows (Hyprland); the Windows VM's Japanese IME does not compose, so `TestLiveIME` fails there.
 
 ## Website (ADR-206)
