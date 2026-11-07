@@ -33,6 +33,7 @@ type fakeIM struct {
 	// Behavior.
 	styles     []uint32 // queryInputStyle
 	refuse     []uint32 // styles CREATE_IC rejects with BadStyle
+	failNext   uint16   // the next CREATE_IC fails with this XIM error code
 	utf8       bool     // accepts UTF8_STRING
 	locales    string
 	syncMode   bool              // forwards and commits with the synchronous flag (fcitx5)
@@ -291,6 +292,12 @@ func (im *fakeIM) handle(m xim.Message) {
 	case xim.OpCreateIC:
 		_, attrs, _ := xim.ParseCreateIC(m.Body)
 		desc, style := describeAttrs(attrs)
+		if im.failNext != 0 {
+			im.log("CREATE_IC%s: error %d", desc, im.failNext)
+			im.send(xim.EncodeError(xim.Error{IMID: imid, Flag: xim.ErrIMIDValid, Code: im.failNext, Detail: "failed"}))
+			im.failNext = 0
+			return
+		}
 		if slices.Contains(im.refuse, style) || !slices.Contains(im.styles, style) {
 			im.log("CREATE_IC%s: refused", desc)
 			im.send(xim.EncodeError(xim.Error{IMID: imid, Flag: xim.ErrIMIDValid, Code: xim.ErrBadStyle, Detail: "bad style"}))
@@ -904,6 +911,24 @@ func TestIMECreateICFailures(t *testing.T) {
 	}
 	if got := g.feed(press(kcA, 0, 1)); got != `key press KeyA "a" "a" mods=0` {
 		t.Errorf("typing: app got %s", got)
+	}
+
+	// An error that is not BadStyle (the window went away: BadFocusWindow)
+	// fails that window's CREATE_IC only: the style stays, and the next
+	// connection's windows get the best one.
+	g = newIMERig(t, func(im *fakeIM) { im.failNext = xim.ErrBadFocusWindow })
+	g.connect()
+	g.im.took()
+	g.w.SetTextInput(textState(platform.TextPurposeNormal))
+	g.pump()
+	if got, want := g.im.took(), "CREATE_IC style=0x402 client=7 focus=7 spot=20,72: error 4"; got != want {
+		t.Errorf("BadFocusWindow:\n got %s\nwant %s", got, want)
+	}
+	if want := uint32(xim.PreeditCallbacks | xim.StatusNothing); g.b.ime.style != want {
+		t.Errorf("style after BadFocusWindow = %#x, want %#x (unchanged)", g.b.ime.style, want)
+	}
+	if !g.w.icFailed || g.b.ime.creating {
+		t.Errorf("after BadFocusWindow: icFailed %v, creating %v; want the window failed and nothing in flight", g.w.icFailed, g.b.ime.creating)
 	}
 
 	// A window closed while its CREATE_IC is in flight: the context the

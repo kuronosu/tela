@@ -55,7 +55,9 @@ import (
 //     window at the spot location; fcitx5 offers only this unless its XIM
 //     frontend's "UseOnTheSpot" option is set), then root
 //     (XIMPreeditNothing); with XIMStatusNothing or XIMStatusNone. A
-//     CREATE_IC refused with an error tries the next style.
+//     CREATE_IC refused with BadStyle tries the next style (for the
+//     input method: every later context uses it until the server
+//     reconnects); another error fails that window's context only.
 //   - One input context per window, created when the window first gets a
 //     text input state, and focused (XIM_SET_IC_FOCUS) while the window
 //     has keyboard focus and a state whose purpose is not a password: a
@@ -703,13 +705,20 @@ func (b *Backend) imeSetStyles(server []uint32) {
 }
 
 // imeError handles XIM_ERROR: during the handshake the connection fails;
-// for a CREATE_IC (no IC ID) the next style is tried; other errors (a
-// spot location the server rejects) are recorded only.
+// a CREATE_IC (no IC ID) refused with BadStyle tries the next style, for
+// the whole input method (the server does not support that style, for
+// any window; a new connection starts from the best one again), and one
+// refused with another error (BadClientWindow or BadFocusWindow for a
+// window that went away, BadAlloc) fails that window's context only;
+// other errors (a spot location the server rejects) are recorded only.
 func (b *Backend) imeError(e xim.Error) {
 	ime := &b.ime
 	switch {
 	case ime.state < imeReady:
 		b.imeFail(e, true)
+	case ime.creating && e.Flag&xim.ErrICIDValid == 0 && e.Code != xim.ErrBadStyle:
+		ime.err = e
+		b.imeCreated(0, false)
 	case ime.creating && e.Flag&xim.ErrICIDValid == 0:
 		ime.err = e
 		if i := slices.Index(ime.styles, ime.style); i >= 0 && i+1 < len(ime.styles) {
