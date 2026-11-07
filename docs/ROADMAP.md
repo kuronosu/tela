@@ -10,16 +10,16 @@
 ## Current status
 
 - **Done:** phases 1–15. Latest version `v0.13.3` (2026-11-02, phase 15: the macOS desktop integration; tagged on `f83006a` with the owner's approval). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
-- **Phase in progress:** none. Phase 15 was merged into `main` from `phase-15-macos-desktop`.
+- **Phase in progress:** 16, Platform parity, on the work branch `phase-16-platform-parity` (ADR-230: `combase.dll` for WinRT toasts, an automatic fallback title bar, the branch pushed for CI).
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** the owner pushes `main` and `v0.13.3`; then the next phase in order, Platform parity (IME on X11 first), or the real-Mac session when one can be arranged. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** phase 16's tasks run in parallel worktrees per backend; the fallback title bar's look waits for the owner's pick of rendered options. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
 
 In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–15 are done (HISTORY.md).
 
-### Platform parity
+### Phase 16: Platform parity (in progress)
 
 Gaps in the existing backends. Verified on the owner's Linux machine, the Windows VM and `macos-latest` CI.
 
@@ -27,13 +27,12 @@ Gaps in the existing backends. Verified on the owner's Linux machine, the Window
 - [ ] Touchpad fling on X11
 - [ ] The X11 drag source shows a drag image and offers `XdndActionAsk`
 - [ ] Wayland: file dialogs get their parent window (`zxdg_exporter_v2`) and activation tokens are passed to the portal; a minimized window's work stops waiting for the compositor's next frame callback (`xdg_toplevel.suspended`)
-- [ ] A fallback title bar when the compositor has no server-side decorations (GNOME on Wayland); today the app draws one when `State().ClientSideDecorations` says so (`examples/notes` draws `kit.TitleBar`)
+- [ ] A fallback title bar when the compositor has no server-side decorations (GNOME on Wayland), drawn automatically unless the app draws its own (ADR-230); today the app draws one when `State().ClientSideDecorations` says so (`examples/notes` draws `kit.TitleBar`). The owner picks its look from rendered options
 - [ ] Win32: the native menu bar opens with Alt and F10 and follows dark mode (it is mouse-only and stays light); drop reads get a timeout (a hung source blocks the UI thread)
 - [ ] Windows notifications with actions (WinRT toasts; today balloons), without a notification-area icon per notification
 - [ ] Tray icons are redrawn on DPI changes
 - [ ] `TitleBarOverlay` keeps the OS's caption buttons on Windows too (DWM's buttons over the client area, Windows Controls Overlay); today it is `Frameless` there, and `kit.TitleBar`'s room for buttons at the end is untested
 - [ ] macOS: drags that offer only another app's private types are not seen, file promises (Photos, Mail) are not received, and a drag without an image shows none (the file's icon would do); a tray icon can be a template image (a contract field); a message box without a parent is app-modal (`runModal`) and blocks the app's other windows; global hot keys are not registered again when the keyboard layout changes (Win32 neither)
-- [ ] macOS: the app bar's key equivalents are also matched by the backend when AppKit's own matching takes none (CI's CGEvent-built keys); check with real keys whether the fallback is needed
 
 **Done when:** Japanese can be typed through XIM on X11, and each item works on the owner's Linux machine, the Windows VM or `macos-latest`.
 
@@ -199,6 +198,7 @@ This session gates v1.0's "macOS supported". Items a phase adds after the sessio
 - [ ] Japanese through the macOS IME, and dead keys with real key presses (CI's synthetic events start a dead-key composition but do not finish it)
 - [ ] `examples/notes`: tray, notifications, file dialogs, two windows, a persisted position, a file dropped from Finder, the global shortcut in the background, a deep link into the running instance, a note locked in the Keychain, the Trash
 - [ ] Phase 15 by hand (`tela run ./examples/notes`): notifications in the bundle (the authorization prompt, actions, a click), the traffic lights over notes' bar and their hover glyphs after they move, the vibrancy backdrops, a file dialog's "Format:" popup, Cmd+Q, the Dock's Quit and a logout with and without `OnQuit`'s dialog, a second start from Terminal taking the focus (macOS 14's activation yield), the global shortcut with a non-US layout, `open dist/Notes.app` and a `tela-notes:` link from Safari, and whether macOS accepts the development bundle's ad-hoc signature (the Go linker's, without a seal over `Info.plist`)
+- [ ] The app bar's key equivalents: cocoa matches them itself when AppKit's matching takes none (CI's CGEvent-built keys); with real keys, check whether that fallback is still needed
 - [ ] After Accessibility: VoiceOver reads, navigates and operates `login`
 - [ ] After the GPU backend: Metal draws the dashboard at 60 fps at scale 2
 - [ ] After packaging: a signed and notarized `.app`/`.dmg` installs and updates
