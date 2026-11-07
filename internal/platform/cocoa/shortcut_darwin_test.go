@@ -3,6 +3,7 @@
 package cocoa
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -328,4 +329,159 @@ func checkModifiersReleased(t *testing.T) {
 		}
 	}
 	t.Logf("after posting releases without flags: %#x", flags)
+}
+
+// frenchSources are AZERTY keyboard layouts: the Q key (0x0C) types a and
+// the A key (0x00) types q.
+var frenchSources = []string{"com.apple.keylayout.French", "com.apple.keylayout.French-PC", "com.apple.keylayout.Belgian"}
+
+// TestShortcutRelayout registers Control-Option-Shift-Command-A, selects
+// an AZERTY layout (enabled for the test on CI), and checks that the
+// distributed notification moved the hot key to the key that types a
+// there (0x0C), that pressing that key fires it, and that selecting the
+// first layout again moves it back. No status event follows a move that
+// keeps the shortcut bound. It skips when no AZERTY layout can be
+// selected.
+func TestShortcutRelayout(t *testing.T) {
+	b := newBackend(t)
+	accel := platform.Accelerator{Mods: testAccel.Mods, Key: "a"}
+	var src, prev uintptr
+	var enabled, posted, restored bool
+	var skip string
+	t.Cleanup(func() {
+		if posted {
+			checkModifiersReleased(t)
+		}
+	})
+	restore := func() {
+		if restored {
+			return
+		}
+		restored = true
+		if prev != 0 {
+			t.Logf("selecting %s again: status %d", sourceID(prev), darwin.TISSelectInputSource(prev))
+		}
+		if enabled {
+			t.Logf("disabling %s: status %d", sourceID(src), darwin.TISDisableInputSource(src))
+		}
+	}
+	defer onMain(func() {
+		restore()
+		if prev != 0 {
+			darwin.CFRelease(prev)
+		}
+		if src != 0 {
+			darwin.Release(darwin.ID(src))
+		}
+	})
+	var statuses []platform.ShortcutStatusEvent
+	var events []platform.ShortcutEvent
+	var first uint16
+	step := 0
+	var deadline time.Time
+	desktopRun(t, b, 60*time.Second, func(w *Window) {
+		if err := darwin.LoadTextInputSources(); err != nil {
+			skip = fmt.Sprintf("Text Input Sources unavailable: %v", err)
+			return
+		}
+		if err := darwin.LoadCarbon(); err != nil {
+			skip = fmt.Sprintf("Carbon unavailable: %v", err)
+			return
+		}
+		prev = darwin.TISCopyCurrentKeyboardInputSource()
+		t.Logf("current input source %s, keyboard layout %s, notification %q", sourceID(prev), darwin.KeyLayoutID(), darwin.SelectedInputSourceChangedName())
+		if src = findSource(frenchSources, false); src == 0 {
+			if src = findSource(frenchSources, true); src != 0 {
+				st := darwin.TISEnableInputSource(src)
+				enabled = st == 0
+				t.Logf("enabled %s for the test: status %d", sourceID(src), st)
+			}
+		}
+		if src == 0 {
+			skip = "no AZERTY keyboard layout is installed"
+			return
+		}
+		if err := b.Desktop().RegisterShortcut(platform.Shortcut{ID: "relayout", Accelerator: accel, Description: "Tela test"}); err != nil {
+			t.Errorf("RegisterShortcut: %v", err)
+			skip = "RegisterShortcut failed"
+			return
+		}
+		deadline = time.Now().Add(10 * time.Second)
+	}, func(w *Window, e platform.Event) bool {
+		switch e := e.(type) {
+		case platform.ShortcutStatusEvent:
+			t.Logf("status: %+v", e)
+			statuses = append(statuses, e)
+		case platform.ShortcutEvent:
+			t.Logf("shortcut event %+v", e)
+			events = append(events, e)
+		}
+		if skip != "" {
+			return true
+		}
+		h := b.desk.keys.byID["relayout"]
+		if h == nil {
+			t.Errorf("the shortcut is not kept")
+			return true
+		}
+		switch step {
+		case 0: // bound under the first layout: select AZERTY
+			if len(statuses) == 0 {
+				break
+			}
+			if statuses[0].Status != platform.ShortcutBound {
+				t.Errorf("the hot key was not bound: %+v", statuses[0])
+				return true
+			}
+			first = h.target.code
+			st := darwin.TISSelectInputSource(src)
+			t.Logf("'a' is key code %#x on %s; TISSelectInputSource(%s): status %d", first, darwin.KeyLayoutID(), sourceID(src), st)
+			if st != 0 {
+				skip = fmt.Sprintf("TISSelectInputSource(%s) returned %d", sourceID(src), st)
+				return true
+			}
+			step, deadline = 1, time.Now().Add(10*time.Second)
+		case 1: // the notification moved the hot key
+			if h.target.code != 0x0C {
+				break
+			}
+			t.Logf("moved to %#x after %d notifications (layout %s, registered %v)", h.target.code, b.desk.keys.layoutChanges, darwin.KeyLayoutID(), h.ref != 0)
+			if h.ref == 0 {
+				t.Errorf("the hot key is not registered after the move")
+			}
+			posted = true
+			postHotKey(t, 0x0C)
+			step, deadline = 2, time.Now().Add(3*time.Second)
+		case 2: // the press on the moved key
+			if len(events) < 2 && time.Now().Before(deadline) {
+				break
+			}
+			allowed, known := darwin.CGPreflightPostEventAccess()
+			t.Logf("events after posting 0x0C: %+v (post access %v, known %v)", events, allowed, known)
+			if len(events) == 0 {
+				t.Logf("no hot key event: the process may not post events")
+			} else if events[0].Action != platform.ShortcutPressed {
+				t.Errorf("first event %+v, want a press", events[0])
+			}
+			restore()
+			step, deadline = 3, time.Now().Add(10*time.Second)
+		case 3: // back on the first layout's key
+			if h.target.code == first {
+				t.Logf("moved back to %#x after %d notifications", first, b.desk.keys.layoutChanges)
+				return true
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Errorf("step %d: nothing within the deadline (target %+v, %d notifications, layout %s)",
+				step, h.target, b.desk.keys.layoutChanges, darwin.KeyLayoutID())
+			return true
+		}
+		return false
+	})
+	if skip != "" {
+		t.Skip(skip)
+	}
+	if len(statuses) != 1 {
+		t.Errorf("statuses %+v, want one ShortcutBound (a move that keeps it bound reports nothing)", statuses)
+	}
 }

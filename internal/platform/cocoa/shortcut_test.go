@@ -1,6 +1,7 @@
 package cocoa
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -208,5 +209,44 @@ func TestMacTrigger(t *testing.T) {
 		if got := macTrigger(a); !strings.HasPrefix(got, "⇧⌘") {
 			t.Errorf("CmdOrCtrl+Shift+K on a Mac: trigger %q", got)
 		}
+	}
+}
+
+// TestRelayoutPlan: switching from US to AZERTY moves the hot keys of the
+// characters the layouts type on other keys (a and q trade places), keeps
+// named keys and characters on the same key, and lets a character that
+// had no key find one.
+func TestRelayoutPlan(t *testing.T) {
+	us := usLayout()
+	azerty := fakeLayout(
+		map[uint16]string{0x00: "q", 0x0C: "a", 0x28: "k", 0x13: "é"},
+		map[uint16]string{0x00: "Q", 0x0C: "A"},
+	)
+	keys := []platform.Key{"a", "q", "k", platform.KeyF5, "é", platform.KeyMediaPlayPause}
+	targets := func(l *keyLayout) []hotkeyTarget {
+		var out []hotkeyTarget
+		for _, k := range keys {
+			out = append(out, targetOf(k, l))
+		}
+		return out
+	}
+	old, now := targets(us), targets(azerty)
+	if old[4].err == "" || now[4].err != "" || now[4].code != 0x13 {
+		t.Errorf("é: US %+v, AZERTY %+v; want an error, then the key 0x13", old[4], now[4])
+	}
+	if old[5].err == "" || old[5] != now[5] {
+		t.Errorf("a media key: %+v, %+v; want the same error under both layouts", old[5], now[5])
+	}
+	if got, want := relayoutPlan(old, now), []int{0, 1, 4}; fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("relayoutPlan(US → AZERTY) = %v, want %v (a, q and é move)", got, want)
+	}
+	if now[0].code != 0x0C || now[1].code != 0x00 {
+		t.Errorf("AZERTY targets of a and q: %+v, %+v; want 0x0C and 0x00", now[0], now[1])
+	}
+	if got := relayoutPlan(old, old); len(got) != 0 {
+		t.Errorf("relayoutPlan with the same layout = %v, want none", got)
+	}
+	if got := relayoutPlan(now, old); fmt.Sprint(got) != "[0 1 4]" {
+		t.Errorf("relayoutPlan(AZERTY → US) = %v, want [0 1 4]", got)
 	}
 }

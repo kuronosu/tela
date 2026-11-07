@@ -369,7 +369,12 @@
 //     Option; a named key has its fixed virtual key code, a character the
 //     code of the key that types it in the current keyboard layout
 //     (UCKeyTranslate over every key code, plain then with Shift, cached
-//     per input source), else the ANSI layout's. The status is queued:
+//     per input source), else the ANSI layout's. When the user selects
+//     another layout (the distributed notification
+//     kTISNotifySelectedKeyboardInputSourceChanged), the hot keys whose
+//     character another key types now are registered again on it, and a
+//     status that changes with it is a new ShortcutStatusEvent (ADR-237).
+//     The status is queued:
 //     ShortcutBound with the trigger as macOS shows it ("⌃⌥⌘K"),
 //     ShortcutTaken for eventHotKeyExistsErr (another app, or this one,
 //     holds the combination), ShortcutFailed otherwise. One Carbon handler,

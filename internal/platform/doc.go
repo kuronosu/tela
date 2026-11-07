@@ -1290,7 +1290,10 @@
 // cmdKey, optionKey, controlKey and shiftKey and the virtual key code of
 // the key (fixed for named keys; for a character, the key that types it
 // in the current layout, found with UCKeyTranslate, else the ANSI
-// layout's); eventHotKeyExistsErr is ShortcutTaken (as an event);
+// layout's; registered again on the new key when the user selects
+// another layout, kTISNotifySelectedKeyboardInputSourceChanged, a status
+// that changes then being a further ShortcutStatusEvent, ADR-237);
+// eventHotKeyExistsErr is ShortcutTaken (as an event);
 // kEventHotKeyPressed and kEventHotKeyReleased are Pressed and Released;
 // the Trigger is shown as macOS menus show it ("⌃⌥⌘K"). Single instance
 // (phase 15): an exclusive flock on a lock file in the per-user temporary
