@@ -83,17 +83,24 @@ func (w *Window) setDwmUint(attr uintptr, v uint32) bool {
 func (w *Window) initStyle() {
 	w.titleBar, w.backdrop = w.opts.TitleBar, w.opts.Backdrop
 	w.applyTitleBar()
-	w.applyBackdrop()
+	w.applyBackdrop() // a TitleBarOverlay window extends its frame here
+	if w.overlay {
+		w.applyTheme(w.b.settings.DarkMode) // with the app's title bar color
+	}
 }
 
 // SetTitleBarColors sets the colors of the native title bar and border
-// (Windows 11); see platform.Window.
+// (Windows 11); see platform.Window. Over a TitleBarOverlay window the
+// background also picks the glyph color of DWM's buttons (captionDark).
 func (w *Window) SetTitleBarColors(colors platform.TitleBarColors) {
 	if w.Closed() || colors == w.titleBar {
 		return
 	}
 	w.titleBar = colors
 	w.applyTitleBar()
+	if w.overlay {
+		w.applyTheme(w.b.settings.DarkMode)
+	}
 }
 
 // SetBackdrop sets the system backdrop (Windows 11 22H2); see
@@ -144,13 +151,7 @@ func (w *Window) applyBackdrop() {
 // switches the retained copy to alpha. It extends again when it is already
 // on: DWM forgets the margins when the composition changes.
 func (w *Window) setGlass(on bool) {
-	if on {
-		m := glassMargins(w.opts.Frameless)
-		procDwmExtendFrameIntoClientArea.Call(w.hwnd, uintptr(unsafe.Pointer(&m)))
-	} else if w.glass {
-		var none margins
-		procDwmExtendFrameIntoClientArea.Call(w.hwnd, uintptr(unsafe.Pointer(&none)))
-	}
+	w.extendFrame(on)
 	w.glass = on
 	if w.dib.setAlpha(on) {
 		// The retained pixels have the other alpha: the next Present
@@ -159,13 +160,39 @@ func (w *Window) setGlass(on bool) {
 	}
 }
 
+// extendFrame extends the frame into the client area as the window needs
+// it: the whole client area under a client-area backdrop (glass), else the
+// caption height of a TitleBarOverlay window, where DWM keeps its buttons
+// (overlayMargins), else nothing, taking back the margins of a backdrop
+// that is gone and leaving a window that never had any alone.
+func (w *Window) extendFrame(glass bool) {
+	var m margins
+	switch {
+	case glass:
+		// A TitleBarOverlay window takes the sheet of glass of a
+		// decorated one: its top margin is what keeps the buttons.
+		m = glassMargins(w.opts.Frameless && !w.overlay)
+	case w.overlay:
+		m = w.overlayMargins()
+	case !w.glass:
+		return
+	}
+	procDwmExtendFrameIntoClientArea.Call(w.hwnd, uintptr(unsafe.Pointer(&m)))
+}
+
 // restyle redoes what the window asked DWM for when the composition or the
 // theme changed (frameChanged): the margins of a window with a client-area
-// backdrop, and the attributes.
+// backdrop or a title bar overlay, and the attributes. A TitleBarOverlay
+// window also gets its buttons' glyph color again and reports where DWM put
+// them.
 func (w *Window) restyle() {
-	if !w.titleBarSet && !w.backdropSet && !w.glass {
+	if !w.titleBarSet && !w.backdropSet && !w.glass && !w.overlay {
 		return // a window that never asked is left alone
 	}
 	w.applyTitleBar()
 	w.applyBackdrop()
+	if w.overlay {
+		w.applyTheme(w.b.settings.DarkMode)
+		w.updateState()
+	}
 }

@@ -199,7 +199,8 @@
 // is IsIconic, Maximized IsZoomed (in fullscreen, the state the window
 // returns to; minimized, where IsZoomed is false, the placement's
 // WPF_RESTORETOMAXIMIZED), ClientSideDecorations WindowOptions.Frameless
-// (TitleBarOverlay is Frameless here).
+// or TitleBarOverlay, TitleBarControls DWM's caption buttons of a
+// TitleBarOverlay window (see "Title bar overlay" below).
 // Position is always known: the content origin (ClientToScreen) of the
 // normal placement, recorded while the window is normal; a minimized,
 // maximized or fullscreen window reports where its content goes when it
@@ -293,6 +294,43 @@
 // (WindowFromPoint and the hit test), so crossing between them is not.
 // WM_SETCURSOR shows the app's cursor over its regions too, and Windows'
 // resize cursors over the band.
+//
+// # Title bar overlay
+//
+// A TitleBarOverlay window (ADR-236; overlay.go, overlay_windows.go) keeps
+// DWM's caption buttons over the app's title bar on Windows 11 (build
+// 22000; the window must also see DWM composing at creation). It is a
+// decorated window whose caption is client area: WM_NCCALCSIZE lets
+// DefWindowProc compute the side and bottom resize frame and moves the top
+// back to the window's top (Windows Terminal's NonClientIslandWindow), and a
+// maximized window's client area is clipped to the work area, which the
+// frame overhangs on every side. DwmExtendFrameIntoClientArea extends the
+// frame at the top by the height of a decorated window's caption at the DPI
+// (the sheet of glass under a client-area backdrop), so DWM draws its
+// buttons over the app's opaque pixels; DwmDefWindowProc sees every message
+// first (the "Custom Window Frame Using DWM" sample) and the non-client
+// button messages it claims end there. WM_NCHITTEST asks DwmDefWindowProc
+// first, which answers HTMINBUTTON, HTMAXBUTTON (Windows 11's snap layouts
+// flyout) and HTCLOSE over its buttons; then DefWindowProc the side and
+// bottom frame; inside the client area the resize band along the top only
+// (not maximized, not FixedSize), the rest of the buttons' rectangle as
+// caption, and the hit regions. WindowState.TitleBarControls is
+// DWMWA_CAPTION_BUTTON_BOUNDS (relative to the window rectangle) in logical
+// client coordinates, read at every state report (WM_SIZE, WM_MOVE,
+// WM_DPICHANGED, theme and composition changes) and again at the next three
+// Presents, since DWM may lay its buttons out after the message (and a
+// window never shown has none to report); empty in fullscreen (no caption),
+// the last one while minimized. The pointer over that rectangle is not the
+// app's: moves there are a leave, no press is delivered, the cursor is the
+// system's. The buttons' glyphs follow DWMWA_USE_IMMERSIVE_DARK_MODE, set
+// from the app's title bar background when it gave one (captionDark), else
+// from the color scheme; the title bar colors are applied as for any
+// window. Inside the package the window is Frameless (opts.Frameless, with
+// Window.overlay set): no menu bar (SetMenu is ErrUnsupported), and the
+// composition-off paths above keep DefWindowProc from painting a classic
+// caption over it. On Windows 10, or without composition or the DWM
+// procedures, the window is Frameless as before (OverlayAsFrameless) and
+// TitleBarControls stays empty.
 //
 // Parents and modality: WindowOptions.Parent is the owner window of
 // CreateWindowExW, so Windows keeps the child above it, minimizes it with

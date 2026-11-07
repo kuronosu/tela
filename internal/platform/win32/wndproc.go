@@ -118,11 +118,18 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 			return 0
 		case wmNCCalcSize:
 			if w.opts.Frameless {
-				w.onNCCalcSize(lparam)
+				w.onNCCalcSize(wparam, lparam)
 				return 0
 			}
 		}
 		return defWindowProc(w.hwnd, uintptr(msg), wparam, lparam)
+	}
+	if w.overlay {
+		// DWM's caption buttons over a TitleBarOverlay window
+		// (overlay_windows.go).
+		if r, done := w.overlayMessage(msg, wparam, lparam); done {
+			return r
+		}
 	}
 	switch msg {
 	case wmClose:
@@ -148,7 +155,7 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 
 	case wmNCCalcSize:
 		if w.opts.Frameless {
-			w.onNCCalcSize(lparam)
+			w.onNCCalcSize(wparam, lparam)
 			return 0
 		}
 	case wmNCHitTest:

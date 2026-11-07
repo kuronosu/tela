@@ -140,7 +140,9 @@ func (w *Window) updateState() {
 	fsMax := w.fs != nil && w.fs.maximized
 	restoreMax := iconic && w.fs == nil && w.restoresToMaximized()
 	w.b.dirty = true
-	w.b.loop.UpdateState(w, reportedState(iconic, zoomed, restoreMax, w.fs != nil, fsMax, w.opts.Frameless, w.pos))
+	st := reportedState(iconic, zoomed, restoreMax, w.fs != nil, fsMax, w.opts.Frameless, w.pos)
+	st.TitleBarControls = w.overlayControls(iconic)
+	w.b.loop.UpdateState(w, st)
 }
 
 // restoresToMaximized reports whether a minimized window returns to
@@ -575,10 +577,24 @@ func (w *Window) RestoreToken() string { return "" }
 // window snaps, animates and has a system menu), except that a maximized
 // window is clipped to the work area of its monitor (see maximizedClient).
 // lParam points to the rectangle either way: NCCALCSIZE_PARAMS starts with
-// the proposed window rectangle.
-func (w *Window) onNCCalcSize(lparam uintptr) {
+// the proposed window rectangle. A TitleBarOverlay window keeps the side and
+// bottom frame DefWindowProc computes and gives it the caption
+// (overlayClient). In fullscreen the window has no frame: all of it is
+// client area.
+func (w *Window) onNCCalcSize(wparam, lparam uintptr) {
 	r := (*rect)(ptrFromUintptr(lparam))
 	if r == nil || w.fs != nil {
+		return
+	}
+	if w.overlay {
+		proposed := r.image()
+		defWindowProc(w.hwnd, wmNCCalcSize, wparam, lparam)
+		zoomed := isZoomed(w.hwnd)
+		var work image.Rectangle
+		if zoomed {
+			work = monitorInfoOf(monitorFromRect(rectFrom(proposed))).work.image()
+		}
+		*r = rectFrom(overlayClient(proposed, r.image(), zoomed, work))
 		return
 	}
 	if !isZoomed(w.hwnd) {
@@ -598,10 +614,16 @@ func (w *Window) resizeBorder() int {
 	return max(systemMetric(smCxSizeFrame, w.dpi)+systemMetric(smCxPaddedBorder, w.dpi), 1)
 }
 
-// onNCHitTest answers WM_NCHITTEST. DefWindowProc answers the OS frame of
-// decorated windows; inside the client area, the resize band of a
-// frameless window and the app's hit regions decide (clientHit).
+// onNCHitTest answers WM_NCHITTEST. DWM answers its caption buttons over a
+// TitleBarOverlay window; DefWindowProc answers the OS frame of decorated
+// windows (the side and bottom frame of a TitleBarOverlay one); inside the
+// client area, the resize band of a frameless window (only the top for a
+// TitleBarOverlay one), the rest of the OS buttons' rectangle and the
+// app's hit regions decide (clientHit).
 func (w *Window) onNCHitTest(lparam uintptr) uintptr {
+	if code, ok := w.overlayHitTest(lparam); ok {
+		return code
+	}
 	def := defWindowProc(w.hwnd, wmNCHitTest, 0, lparam)
 	if def != htClient || (len(w.regions) == 0 && !w.opts.Frameless) {
 		return def
@@ -614,6 +636,8 @@ func (w *Window) onNCHitTest(lparam uintptr) uintptr {
 		border:     w.resizeBorder(),
 		fullscreen: w.fs != nil,
 		regions:    w.regions,
+		topOnly:    w.overlay,
+		controls:   w.ctlPx,
 	})
 }
 
@@ -638,7 +662,7 @@ func (w *Window) inClient(x, y int) bool {
 func (w *Window) onNCMouseMove(wparam, lparam uintptr) {
 	x, y := w.screenPointToClient(lparam)
 	w.mods = w.modifiers()
-	if !isAppHit(wparam) || !w.inClient(x, y) {
+	if !isAppHit(wparam) || !w.inClient(x, y) || w.osButtonAt(x, y) {
 		if w.ptr.inside {
 			w.ptr.leaveMessage(w.emitFn)
 		}
@@ -661,8 +685,8 @@ func (w *Window) onNCButton(msg uint32, wparam, lparam uintptr) bool {
 		return false
 	}
 	x, y := w.screenPointToClient(lparam)
-	if !w.inClient(x, y) {
-		return false
+	if !w.inClient(x, y) || w.osButtonAt(x, y) {
+		return false // the OS's frame, or DWM's buttons for DefWindowProc
 	}
 	w.button(btn, down, x, y)
 	return true
@@ -686,29 +710,30 @@ func (w *Window) pointerOverApp() bool {
 	if !isAppHit(w.onNCHitTest(lp)) {
 		return false
 	}
-	return w.inClient(screenToClient(w.hwnd, int(p.x), int(p.y)))
+	x, y := screenToClient(w.hwnd, int(p.x), int(p.y))
+	return w.inClient(x, y) && !w.osButtonAt(x, y)
 }
 
-// cursorOverAppRegion reports whether the mouse is over the client area, for
-// WM_SETCURSOR answers that came from the app's hit regions.
+// cursorOverAppRegion reports whether the mouse is over the client area (not
+// over DWM's buttons), for WM_SETCURSOR answers that came from the app's hit
+// regions.
 func (w *Window) cursorOverAppRegion() bool {
 	var p point
 	if r, _, _ := procGetCursorPos.Call(uintptr(unsafe.Pointer(&p))); r == 0 {
 		return false
 	}
-	return w.inClient(screenToClient(w.hwnd, int(p.x), int(p.y)))
+	x, y := screenToClient(w.hwnd, int(p.x), int(p.y))
+	return w.inClient(x, y) && !w.osButtonAt(x, y)
 }
 
 // --- placement helpers ---
 
 // frameOffset returns the offset from the content's top-left to the
 // window's outer top-left for a window with the given styles at the
-// current DPI (negative or zero components); zero for a frameless window.
+// current DPI (negative or zero components); zero for a frameless window,
+// the side frame only for a TitleBarOverlay one.
 func (w *Window) frameOffset(style, exStyle uint32) image.Point {
-	if w.opts.Frameless {
-		return image.Point{}
-	}
-	r := w.adjustRect(rect{}, style, exStyle)
+	r := w.frameRect(rect{}, style, exStyle)
 	return image.Pt(int(r.left), int(r.top))
 }
 

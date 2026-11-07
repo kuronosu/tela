@@ -52,6 +52,8 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 		// accumulated (a resize, the show) needs no WM_PAINT.
 		procValidateRect.Call(w.hwnd, 0)
 	}
+	// Where DWM put its caption buttons for the size just presented.
+	w.recheckControls()
 	return nil
 }
 

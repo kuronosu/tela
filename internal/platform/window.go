@@ -34,7 +34,8 @@ type WindowState struct {
 	// option.
 	ClientSideDecorations bool
 	// TitleBarControls is the rectangle the OS's window buttons cover in
-	// a WindowOptions.TitleBarOverlay window (macOS: the traffic lights),
+	// a WindowOptions.TitleBarOverlay window (macOS: the traffic lights;
+	// Windows 11: DWM's caption buttons at the top right),
 	// in logical pixels, window coordinates (like HitRegion rectangles).
 	// The app leaves it free in the title bar it draws. Empty when the OS
 	// draws no buttons over the content: every other window, and every
