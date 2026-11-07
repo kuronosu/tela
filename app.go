@@ -45,7 +45,10 @@ type App struct {
 	// screen they are in the OS's auto-hiding title bar and the rectangle
 	// is empty. The app draws the rest of the title bar (kit.TitleBar
 	// leaves room for the buttons: [WindowState].TitleBarControls is the
-	// rectangle they cover). Elsewhere it behaves as Frameless, and the
+	// rectangle they cover). On Windows 11 DWM keeps its minimize,
+	// maximize and close buttons (with snap layouts) at the end of the
+	// bar, at the system's caption height, and TitleBarControls is their
+	// rectangle. Elsewhere it behaves as Frameless, and the
 	// rectangle is empty. Set one of Frameless and TitleBarOverlay: Run
 	// panics with both.
 	TitleBarOverlay bool

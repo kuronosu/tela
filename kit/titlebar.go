@@ -138,7 +138,8 @@ func init() {
 //	if tela.UseWindow().State().ClientSideDecorations { ... kit.TitleBar{...} ... }
 //
 // A window with tela.App.TitleBarOverlay on macOS keeps the OS's own
-// buttons (the traffic lights) over the bar: its State().TitleBarControls
+// buttons (the traffic lights) over the bar, and on Windows 11 DWM's
+// caption buttons at the end: its State().TitleBarControls
 // is the rectangle they cover, and the bar draws no controls of its own
 // and keeps that room free instead, at the side the look keeps its controls
 // (ControlsSide: the start on macOS, so the leading slot starts after the

@@ -36,7 +36,7 @@ import (
 // and Quit). On Windows, where each framed window has a menu bar, it
 // becomes the bar of every framed window that has no [MenuBar] of its own,
 // including windows that open later; a window's own MenuBar wins on that
-// window. AppItems are ignored there. Elsewhere (Linux; frameless windows;
+// window. AppItems are ignored there. Elsewhere (Linux; frameless and TitleBarOverlay windows;
 // a tree with no window of a running app, as in tela snapshot) OnError
 // receives an error wrapping [ErrUnsupported] after the first build, and
 // the app draws its menu instead (kit's Menubar with AppMenu does). Nil

@@ -16,8 +16,9 @@
 //     the app's badge and the Open and Save buttons. App.TitleBarOverlay,
 //     h.WindowDrag and h.WindowControl are inside the kit components; the OS
 //     moves, resizes and snaps the window. On macOS the OS keeps its traffic
-//     lights over the bar and the bar leaves room for them; elsewhere
-//     TitleBarOverlay is Frameless and the bar draws the window controls.
+//     lights over the bar and the bar leaves room for them, as it does for
+//     DWM's caption buttons on Windows 11; elsewhere TitleBarOverlay is
+//     Frameless and the bar draws the window controls.
 //   - Three panes under it. The rail has New note, the views (All notes,
 //     Pinned, Unsaved), the folders and the #tags of the library, with
 //     their counts, and Preferences. Choosing one shows the overview: a
