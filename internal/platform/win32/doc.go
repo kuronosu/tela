@@ -165,13 +165,20 @@
 //     system (the window menu, moving and resizing) swallow key releases, so
 //     WM_EXITMENULOOP and WM_EXITSIZEMOVE release the held keys that are no
 //     longer down.
-//   - The keyboard never enters the menu loop (a menu bar set with SetMenu
-//     is for the mouse), so the system keys that would enter it are
-//     swallowed: WM_SYSKEYDOWN and WM_SYSKEYUP are not passed to
-//     DefWindowProc, and WM_SYSCOMMAND/SC_KEYMENU is dropped unless it is
-//     Alt+Space (the window menu). Alt+F4 and Alt+Space are handed to
-//     DefWindowProc and the app does not see the F4 or the space. A lone Alt
-//     and F10 are reported as key events; nothing else happens.
+//   - The system keys are not passed to DefWindowProc (WM_SYSKEYDOWN and
+//     WM_SYSKEYUP): the app sees every key, and what would enter the menu
+//     loop of a window without a menu bar is dropped (WM_SYSCOMMAND with
+//     SC_KEYMENU, unless it is Alt+Space, the window menu). Alt+F4 and
+//     Alt+Space are handed to DefWindowProc and the app does not see the F4
+//     or the space. A lone Alt and F10 are reported as key events; with no
+//     menu bar nothing else happens. A window with a menu bar (SetMenu)
+//     opens it itself with SC_KEYMENU, the command DefWindowProc would
+//     send (ADR-234; menuKeys in keyboard.go): when a lone Alt or F10 is
+//     released with no other key, mouse button or wheel between (an
+//     AltGr, and Alt with Ctrl, do not count; Shift+F10 and Alt+F10 are
+//     not F10), and at Alt and the access key of one of its menus
+//     (WM_SYSCHAR; the bar's labels get access keys from the backend,
+//     buildBarMenu). The app has got the keys as KeyEvents first.
 //   - Text typed by SendInput with KEYEVENTF_UNICODE (VK_PACKET: touch
 //     keyboards, remote desktops) is a key with an unidentified Code, the
 //     character as Key and Text. A WM_CHAR with no key press before it is
@@ -344,16 +351,34 @@
 //     waits. DragOver calls with nothing changed (OLE repeats them on a
 //     timer) deliver nothing. A drag of this app is recognized by its data
 //     object and read as it is (FromApp). The shell's IDropTargetHelper
-//     draws the source's drag image over the window.
+//     draws the source's drag image over the window. The calls into another
+//     program's data object (EnumFormatEtc at DragEnter, GetData and the
+//     reads of a stream at Drop, the helper's) are bounded (ADR-234;
+//     stallguard.go, comcancel_windows.go): the UI thread enables COM call
+//     cancellation, and a timer cancels the pending call (CoCancelCall)
+//     when no call has completed for 5 s, each completed call or chunk
+//     starting the wait again. A drag whose formats cannot be listed
+//     offers none; a drop whose data cannot be read completes with no data
+//     (the reason is kept in the backend's integ.dropErr). No other thread
+//     or apartment is involved.
 //   - Source: StartDrag ends the window's pointer sequence with a
 //     PointerCancel and posts a message; DoDragDrop runs when it is
 //     dispatched, outside the pass, and its modal loop keeps delivering.
 //     The image goes through IDragSourceHelper. DragDoneEvent carries the
 //     effect DoDragDrop reports.
 //   - Menus: a menu bar (SetMenu; framed windows only) keeps the client
-//     size by growing the window; its WM_COMMAND is a MenuEvent. Popup
-//     menus (TrackPopupMenuEx with TPM_RETURNCMD) start outside the pass
-//     like the dialogs and answer through the loop.
+//     size by growing the window; its WM_COMMAND is a MenuEvent. The bar's
+//     items get access keys (the first free letter or digit of each level,
+//     an '&' in the native label) and Alt, F10 and Alt and an access key
+//     open it (# Keyboard, ADR-234). In dark mode (SystemSettings.DarkMode,
+//     without high contrast) the bar is drawn dark: the window answers the
+//     undocumented WM_UAHDRAWMENU and WM_UAHDRAWMENUITEM of the themed bar
+//     with user32 and gdi32 (menubar_dark_windows.go) and paints the line
+//     under the bar after WM_NCPAINT and WM_NCACTIVATE; a change of the
+//     theme redraws it. The drop-down and popup menus stay the system's,
+//     light (a dark menu is uxtheme's, a DLL the backend does not load).
+//     Popup menus (TrackPopupMenuEx with TPM_RETURNCMD) start outside the
+//     pass like the dialogs and answer through the loop.
 //
 // # Settings
 //
@@ -393,6 +418,14 @@
 //     1 to 0xBFFF. The outcome is always a ShortcutStatusEvent: Bound, Taken
 //     (ERROR_HOTKEY_ALREADY_REGISTERED) or Failed (a key the layout lacks);
 //     WM_HOTKEY is a ShortcutEvent press (no releases). Run unregisters all.
+//     A shortcut is kept even when it failed, and WM_INPUTLANGCHANGE (the
+//     thread's layout changed) binds again those declared by character
+//     whose virtual key under the new layout is another one, or that had
+//     none: the old key is released, the new one registered, and the
+//     status reported again (hotkeyRebind decides, layoutChanged acts;
+//     ADR-234). Named keys and shortcuts whose key did not move are not
+//     touched. A layout switched while the app is in the background reaches
+//     the thread when it is next activated.
 //   - Secrets: Credential Manager, generic credentials with TargetName
 //     "<appID>/<name>", UserName the app ID, CRED_PERSIST_LOCAL_MACHINE.
 //     They are plain advapi32 calls, safe from any goroutine.
@@ -515,5 +548,12 @@
 //     Windows 10 and 11) on an icon of each notification's own, which
 //     makes its callbacks unambiguous; balloons have no actions. Icons are
 //     created at the small-icon size of the primary monitor's DPI and
-//     added again when Explorer restarts (TaskbarCreated).
+//     added again when Explorer restarts (TaskbarCreated). They are drawn
+//     again at the new size, from the images the backend keeps, and
+//     replaced (NIM_MODIFY) when the tray window gets WM_DPICHANGED (the
+//     new DPI is in the message), WM_DISPLAYCHANGE or WM_SETTINGCHANGE (the
+//     primary monitor's DPI is asked), for tray icons and the small icon
+//     of a notification alike; the executable's own icon, which the shell
+//     scales, and the balloon's large icon, read once when it shows, stay
+//     (ADR-234).
 package win32

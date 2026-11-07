@@ -24,7 +24,6 @@ var (
 	procBitBlt              = gdi32.NewProc("BitBlt")
 	procCreateCompatibleDC  = gdi32.NewProc("CreateCompatibleDC")
 	procCreateCompatibleBmp = gdi32.NewProc("CreateCompatibleBitmap")
-	procSelectObject        = gdi32.NewProc("SelectObject")
 	procGetDIBits           = gdi32.NewProc("GetDIBits")
 	procDeleteDC            = gdi32.NewProc("DeleteDC")
 )

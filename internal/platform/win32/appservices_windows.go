@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"slices"
 	"syscall"
 	"time"
 	"unsafe"
@@ -56,10 +57,14 @@ type appServices struct {
 	instanceMutex windows.Handle
 }
 
-// hotkeyReg is a shortcut asked for with RegisterShortcut.
+// hotkeyReg is a shortcut asked for with RegisterShortcut. It is kept
+// whether or not RegisterHotKey took it, so that a change of the keyboard
+// layout can bind it again (layoutChanged).
 type hotkeyReg struct {
-	id         int32 // the RegisterHotKey ID
-	registered bool  // RegisterHotKey succeeded
+	s          platform.Shortcut
+	id         int32  // the RegisterHotKey ID (0: none was allocated)
+	vk         uint32 // the virtual key it was bound to; 0: the layout had none
+	registered bool   // RegisterHotKey succeeded
 }
 
 // appServicesMessage handles the messages of the app-level services that
@@ -81,6 +86,7 @@ func (b *Backend) appServicesMessage(hwnd uintptr, msg uint32, wparam, lparam ui
 		// outlives the app's windows.
 		if hwnd == b.desk.hwnd && hwnd != 0 {
 			b.settingsChanged()
+			b.refreshIcons(0) // the icon size and the DPI are settings too
 			b.notify()
 			return 0, true
 		}
@@ -137,11 +143,19 @@ func (b *Backend) registerShortcut(s platform.Shortcut) {
 		b.enqueue(nil, ev)
 		b.notify()
 	}
+	if a.shortcuts == nil {
+		a.shortcuts, a.byHotKey = map[string]*hotkeyReg{}, map[int32]string{}
+	}
+	// Kept even when it fails: a new keyboard layout may give it a key
+	// (layoutChanged).
+	reg := &hotkeyReg{s: s}
+	a.shortcuts[s.ID] = reg
 	vk, err := hotkeyVK(s.Accelerator.Key, scanKey)
 	if err != nil {
 		report(platform.ShortcutFailed, err.Error())
 		return
 	}
+	reg.vk = vk
 	id, ok := a.hotkeyIDs.alloc()
 	if !ok {
 		report(platform.ShortcutFailed, "all 49151 hotkey IDs of the process are in use")
@@ -157,12 +171,38 @@ func (b *Backend) registerShortcut(s platform.Shortcut) {
 		report(platform.ShortcutFailed, winError("RegisterHotKey", e).Error())
 		return
 	}
-	if a.shortcuts == nil {
-		a.shortcuts, a.byHotKey = map[string]*hotkeyReg{}, map[int32]string{}
-	}
-	a.shortcuts[s.ID] = &hotkeyReg{id: id, registered: true}
+	reg.id, reg.registered = id, true
 	a.byHotKey[id] = s.ID
 	report(platform.ShortcutBound, "")
+}
+
+// layoutChanged binds again the shortcuts declared by character when the
+// keyboard layout of the UI thread changed (WM_INPUTLANGCHANGE, ADR-234):
+// RegisterHotKey takes a virtual key, which is the key that types the
+// character in the layout of the registration, so "Ctrl+Z" held the Z of
+// the old layout and the key the new one types Z with is a different one.
+// A shortcut whose key moved is released and registered under the new key,
+// and one that had none finds it; each reports its status again
+// (ShortcutStatusEvent: Bound, or Taken or Failed if the new key is not
+// free or the layout lacks it). Named keys and shortcuts whose key did not
+// move are left alone, and nothing is reported for them. Registering an ID
+// again replaces its binding, so this is registerShortcut for each.
+func (b *Backend) layoutChanged() {
+	a := &b.app
+	if len(a.shortcuts) == 0 {
+		return
+	}
+	ids := make([]string, 0, len(a.shortcuts))
+	for id := range a.shortcuts {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	for _, id := range ids {
+		reg := a.shortcuts[id]
+		if _, again, _ := hotkeyRebind(reg.s.Accelerator.Key, reg.vk, scanKey); again {
+			b.registerShortcut(reg.s)
+		}
+	}
 }
 
 // unregisterShortcut releases the hotkey of a shortcut; an unknown ID is

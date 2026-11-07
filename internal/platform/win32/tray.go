@@ -3,7 +3,9 @@ package win32
 import (
 	"image"
 	"strings"
+	"unicode"
 	utf16pkg "unicode/utf16"
+	"unicode/utf8"
 
 	xdraw "golang.org/x/image/draw"
 
@@ -99,11 +101,30 @@ type menuEntry struct {
 // Accelerator follows its label after a tab, which menus show as a
 // right-aligned column.
 func buildMenu(items []platform.MenuItem) (entries []menuEntry, cmds []platform.MenuItemID) {
-	var walk func(items []platform.MenuItem) []menuEntry
-	walk = func(items []platform.MenuItem) []menuEntry {
+	entries, cmds, _ = buildMenuWith(items, false)
+	return entries, cmds
+}
+
+// buildMenuWith is buildMenu with the choice of mnemonics: with auto, each
+// menu level gives its items access keys (autoMnemonics) and mnemonics
+// returns those of the top level, lower-cased.
+func buildMenuWith(items []platform.MenuItem, auto bool) (entries []menuEntry, cmds []platform.MenuItemID, mnemonics []rune) {
+	var walk func(items []platform.MenuItem, top bool) []menuEntry
+	walk = func(items []platform.MenuItem, top bool) []menuEntry {
 		out := make([]menuEntry, 0, len(items))
-		for _, it := range items {
+		var keys []int
+		if auto {
+			keys = autoMnemonics(items)
+		}
+		for i, it := range items {
 			e := menuEntry{label: menuLabel(it.Label)}
+			if keys != nil && keys[i] >= 0 {
+				e.label = menuLabelAt(it.Label, keys[i])
+				if top {
+					r, _ := utf8.DecodeRuneInString(it.Label[keys[i]:])
+					mnemonics = append(mnemonics, unicode.ToLower(r))
+				}
+			}
 			if it.Accelerator != "" && len(it.Submenu) == 0 {
 				e.label += "\t" + menuLabel(it.Accelerator)
 			}
@@ -112,7 +133,7 @@ func buildMenu(items []platform.MenuItem) (entries []menuEntry, cmds []platform.
 				e = menuEntry{flags: mfSeparator}
 			case len(it.Submenu) > 0:
 				e.flags = mfPopup
-				e.sub = walk(it.Submenu)
+				e.sub = walk(it.Submenu, false)
 			default:
 				cmds = append(cmds, it.ID)
 				e.cmd = uint32(len(cmds))
@@ -127,8 +148,8 @@ func buildMenu(items []platform.MenuItem) (entries []menuEntry, cmds []platform.
 		}
 		return out
 	}
-	entries = walk(items)
-	return entries, cmds
+	entries = walk(items, true)
+	return entries, cmds, mnemonics
 }
 
 // menuLabel escapes a plain label for a menu: '&' would mark the next
@@ -147,6 +168,14 @@ func shellIconSide(base int, dpi uint32) int {
 		dpi = baseDPI
 	}
 	return (base*int(dpi) + baseDPI/2) / baseDPI
+}
+
+// iconNeedsRedraw reports whether an icon of the notification area must be
+// drawn again for a new side: the backend drew it (owned, from the images it
+// kept) at another side. The executable's own icon, which the shell scales,
+// and an icon at the right side are left alone.
+func iconNeedsRedraw(owned bool, images, have, want int) bool {
+	return owned && images > 0 && want > 0 && have != want
 }
 
 // shellIconBGRA returns the color bitmap of a side × side 32-bit icon

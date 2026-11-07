@@ -184,8 +184,25 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		if w.opts.Frameless && !compositionEnabled() {
 			return 0
 		}
+		if msg == wmNCPaint && w.darkBar() {
+			// The default paint lays a light line under the dark bar.
+			r := defWindowProc(w.hwnd, uintptr(msg), wparam, lparam)
+			w.paintBarSeam()
+			return r
+		}
+	case wmUAHDrawMenu:
+		// The themed menu bar asks its window to paint it (menubar_dark.go).
+		if w.onUAHDrawMenu(lparam) {
+			return 1
+		}
+	case wmUAHDrawMenuItem:
+		if w.onUAHDrawMenuItem(lparam) {
+			return 1
+		}
 	case wmNCActivate:
-		return w.onNCActivate(wparam, lparam)
+		r := w.onNCActivate(wparam, lparam)
+		w.paintBarSeam()
+		return r
 	case wmSetText, wmSetIcon:
 		return w.defNoFramePaint(msg, wparam, lparam)
 
@@ -213,19 +230,23 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		return 0
 	case wmKillFocus:
 		w.setFocused(false)
+		w.integ.keys.reset()
 		return 0
 
 	case wmKeyDown, wmSysKeyDown:
 		// The system keys are swallowed: a lone Alt or F10 would enter the
-		// menu loop (a menu bar from SetMenu is for the mouse only). Alt+F4
-		// (close) and
-		// Alt+Space (the window menu) are the exceptions. A window without
-		// the keyboard focus (SetFocus(NULL) sends the keys to the active
+		// menu loop, and Alt and a character beeps. A window with a menu
+		// bar opens it from them itself (menuKeyDown, menuKeyUp, menuChar:
+		// the app has already got the keys). Alt+F4 (close) and Alt+Space
+		// (the window menu) are the exceptions. A window without the
+		// keyboard focus (SetFocus(NULL) sends the keys to the active
 		// window as system keys) reports nothing.
 		if w.focused {
 			if w.kbd.down(w.kenv, msg, wparam, lparam) {
+				w.integ.keys.reset()
 				return defWindowProc(w.hwnd, uintptr(msg), wparam, lparam)
 			}
+			w.menuKeyDown(wparam, lparam)
 		} else if isSystemShortcut(msg, uint32(wparam&0xFF), lparam) {
 			return defWindowProc(w.hwnd, uintptr(msg), wparam, lparam)
 		}
@@ -233,18 +254,22 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 	case wmKeyUp, wmSysKeyUp:
 		if w.focused {
 			w.kbd.up(w.kenv, msg, wparam, lparam)
+			w.menuKeyUp(wparam)
 		}
 		return 0
 	case wmChar, wmSysChar:
 		if !w.kbd.char(w.kenv, wparam) && msg == wmChar && w.focused {
 			break // not a key's text: an IME result or an injected message
 		}
+		if msg == wmSysChar && w.focused {
+			w.menuChar(wparam)
+		}
 		return 0 // WM_SYSCHAR for DefWindowProc would beep (no menu mnemonic)
 	case wmDeadChar, wmSysDeadChar:
 		w.kbd.deadChar(w.kenv)
 		return 0
 	case wmSysCommand:
-		if swallowSysCommand(wparam, lparam) {
+		if swallowSysCommand(wparam, lparam, w.barActive()) {
 			return 0
 		}
 	case wmCommand:
@@ -254,8 +279,12 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 	case wmExitMenuLoop, wmExitSizeMove:
 		// The system's modal loops swallow key releases.
 		w.kbd.releaseStale(w.kenv)
+		if msg == wmExitMenuLoop {
+			w.menuLoopExited()
+		}
 	case wmInputLangChange:
 		forgetLayouts()
+		w.b.layoutChanged()
 		// The IMEs of the new language may read other forms.
 		w.ime.placed, w.ime.dirty = false, true
 		w.b.dirty = true
@@ -283,12 +312,14 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		w.onMouseLeave(false)
 		return 0
 	case wmLButtonDown, wmLButtonUp, wmRButtonDown, wmRButtonUp, wmMButtonDown, wmMButtonUp:
+		w.integ.keys.reset() // a click between Alt's press and release
 		w.onButton(msg, wparam, lparam)
 		return 0
 	case wmXButtonDown, wmXButtonUp:
 		w.onButton(msg, wparam, lparam)
 		return 1 // TRUE: the message was handled, as WM_XBUTTON* requires
 	case wmMouseWheel, wmMouseHWheel:
+		w.integ.keys.reset()
 		w.onWheel(msg, wparam, lparam)
 		return 0
 	case wmCaptureChanged:

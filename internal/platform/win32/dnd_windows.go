@@ -80,6 +80,13 @@ type windowIntegration struct {
 
 	menu     uintptr               // the menu bar's HMENU, or 0
 	menuCmds []platform.MenuItemID // its command table (buildMenu)
+
+	mnemonics    []rune   // the access keys of its items (buildBarMenu), lower-cased
+	keys         menuKeys // the keyboard state that opens it (keyboard.go)
+	cuesHeld     bool     // an Alt or F10 opening showed the access keys: hide them at the exit
+	barFont      uintptr  // the bar items' font (menubar_dark_windows.go) at barFontDPI
+	barFontDPI   uint32
+	barFontOwned bool
 }
 
 // backendIntegration is the backend's phase-13 state.
@@ -93,6 +100,11 @@ type backendIntegration struct {
 	popups      []popupRequest // waiting, in request order
 	popupPosted bool
 	popupOpen   bool
+
+	// dropErr is why the data of the latest drop was not read (the
+	// source stopped answering: errDropStalled), or nil. The drop itself
+	// completes, without data.
+	dropErr error
 }
 
 // outgoingDrag is a drag of this app.
@@ -193,7 +205,8 @@ func (w *Window) closeIntegration() {
 	if in.menu != 0 && w.fs != nil {
 		procDestroyMenu.Call(in.menu)
 	}
-	in.menu, in.menuCmds = 0, nil
+	in.menu, in.menuCmds, in.mnemonics = 0, nil, nil
+	w.releaseBarFont()
 }
 
 // dropTargetOf returns the open window of an IDropTarget, or nil.
@@ -276,7 +289,12 @@ func dropTargetEnter(this, dataObj uintptr, keyState uint32, pt point, pEffect u
 	if in.own != nil {
 		types = in.own.data.Types()
 	} else {
-		in.formats = dataObjectFormats(obj)
+		// Bounded: a source that hangs offers nothing (stallguard.go).
+		in.formats = nil
+		var formats []clipFormat
+		if !guarded(func(g *stallGuard) { formats = enumFormats(obj, g) }) {
+			in.formats = formats
+		}
 		types = offeredTypes(in.formats)
 	}
 	// The window gets no pointer events during the drag: a pointer the
@@ -290,7 +308,10 @@ func dropTargetEnter(this, dataObj uintptr, keyState uint32, pt point, pEffect u
 	effect := in.session.enter(winDropHost{w}, types, platform.DropEffect(getEffect(pEffect)), dragKeyMods(keyState), w.dragPos(pt), in.own != nil)
 	putEffect(pEffect, effect)
 	if h := w.b.dropHelper(); h != 0 && !w.Closed() {
-		h.call(vtDropTargetHelperDragEnter, w.hwnd, dataObj, uintptr(unsafe.Pointer(&pt)), uintptr(effect))
+		// The helper reads the drag image from the source's data object.
+		guarded(func(*stallGuard) {
+			h.call(vtDropTargetHelperDragEnter, w.hwnd, dataObj, uintptr(unsafe.Pointer(&pt)), uintptr(effect))
+		})
 	}
 	return sOK
 }
@@ -342,13 +363,21 @@ func dropTargetDrop(this, dataObj uintptr, keyState uint32, pt point, pEffect ui
 	// The helper first: it takes the drag image away while the app
 	// handles the drop.
 	if h := w.b.dropHelper(); h != 0 {
-		h.call(vtDropTargetHelperDrop, dataObj, uintptr(unsafe.Pointer(&pt)), uintptr(in.session.answer()&allowed))
+		guarded(func(*stallGuard) {
+			h.call(vtDropTargetHelperDrop, dataObj, uintptr(unsafe.Pointer(&pt)), uintptr(in.session.answer()&allowed))
+		})
 	}
 	read := func(types []string) platform.Data {
 		if own != nil {
 			return own.data.Select(types).Clone()
 		}
-		return readDataObject(obj, formats, types)
+		// Bounded: a source that stops answering ends the read, and the
+		// drop completes without data (stallguard.go).
+		var data platform.Data
+		var err error
+		guarded(func(g *stallGuard) { data, err = readDataObjectGuarded(obj, formats, types, g) })
+		w.b.integ.dropErr = err
+		return data
 	}
 	putEffect(pEffect, in.session.drop(winDropHost{w}, allowed, dragKeyMods(keyState), w.dragPos(pt), read))
 	return sOK

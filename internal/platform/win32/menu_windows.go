@@ -23,15 +23,27 @@ import (
 //     window shows no bar: it is detached while fullscreen and attached
 //     again when the window leaves it. WM_COMMAND from the bar (16-bit
 //     command IDs, mapped back by the window's table) is a MenuEvent.
-//     Mnemonics are not supported: '&' is escaped, and Alt and F10 do not
-//     open the bar (the keyboard translation swallows them, keyboard.go),
-//     so the bar is for the mouse; apps keep their own shortcuts.
+//   - The keyboard opens the bar (ADR-234). The labels are plain text, so
+//     the bar gives every level its own access keys (buildBarMenu: the
+//     first free letter or digit, an '&' in the native label, which
+//     Windows underlines per the "underline access keys" setting or after
+//     Alt). The key translation still keeps the system keys from
+//     DefWindowProc (keyboard.go), so the window opens the bar itself with
+//     SC_KEYMENU, the command DefWindowProc would have sent: when a lone
+//     Alt or F10 is released with no other key or mouse button between
+//     (menuKeys), and at Alt and the access key of one of its menus
+//     (WM_SYSCHAR). The app has already received every key as a KeyEvent,
+//     so an Alt shortcut of the app still reaches it (and opens the menu
+//     whose access key it shares: the contract cannot say that the app
+//     consumed the key). Esc and the rest are the menu loop's. A window
+//     without a bar keeps the old behavior: Alt and F10 do nothing.
 //   - Popup menus run TrackPopupMenuEx with TPM_RETURNCMD outside the
 //     delivery pass (a posted message, like the dialogs), one at a time,
 //     after SetForegroundWindow and followed by a posted WM_NULL (the
 //     documented quirk, KB135788). The answer goes through the loop.
-//   - Win32 menus are light even in dark mode (the dark menus of Explorer
-//     use undocumented uxtheme exports, which Tela does not call).
+//   - In dark mode the bar is drawn dark (menubar_dark.go); the drop-down
+//     and popup menus are the system's own, light: the dark menus of
+//     Explorer use undocumented uxtheme exports, which Tela does not call.
 
 // Messages and flags of the menus (winuser.h).
 const (
@@ -91,16 +103,18 @@ func (w *Window) SetMenu(menu []platform.MenuItem) error {
 	}
 	var h uintptr
 	var cmds []platform.MenuItemID
+	var keys []rune
 	if len(menu) > 0 {
 		var entries []menuEntry
-		entries, cmds = buildMenu(menu)
+		entries, cmds, keys = buildBarMenu(menu)
 		if h = buildMenuBar(entries); h == 0 {
 			return errors.New("win32: SetMenu: creating the menu failed")
 		}
 	}
 	in := &w.integ
 	old := in.menu
-	in.menu, in.menuCmds = h, cmds
+	in.menu, in.menuCmds, in.mnemonics = h, cmds, keys
+	in.keys.reset()
 	if w.fs != nil {
 		w.growNormal(old != 0, h != 0, w.fs.style, w.fs.exStyle)
 	} else {
@@ -180,6 +194,91 @@ func (w *Window) onMenuCommand(wparam, lparam uintptr) bool {
 		w.b.enqueue(w, platform.MenuEvent{Item: id})
 	}
 	return ok
+}
+
+// WM_CHANGEUISTATE and the actions and flags of its wParam (winuser.h), and
+// SPI_GETKEYBOARDCUES: the "underline keyboard shortcuts and access keys"
+// setting.
+const (
+	wmChangeUIState    = 0x0127
+	uisSet             = 1
+	uisClear           = 2
+	uisfHideAccel      = 2
+	spiGetKeyboardCues = 0x100A
+)
+
+// barActive reports whether the window has a menu bar showing, which the
+// keyboard may open (a fullscreen window has none: it is detached).
+func (w *Window) barActive() bool {
+	if w.integ.menu == 0 || w.Closed() {
+		return false
+	}
+	bar, _, _ := procGetMenu.Call(w.hwnd)
+	return bar != 0
+}
+
+// menuKeyDown follows a key press for the keys that open the menu bar.
+func (w *Window) menuKeyDown(wparam, lparam uintptr) {
+	if w.integ.menu == 0 {
+		return
+	}
+	mods := w.modifiers()
+	w.integ.keys.down(uint32(wparam&0xFF), keyRepeat(lparam), lparam&(1<<24) != 0,
+		layoutHasAltGr(currentLayout()), mods&platform.ModCtrl != 0, mods&platform.ModShift != 0, lparam&(1<<29) != 0)
+}
+
+// menuKeyUp follows a key release: a lone Alt or F10 opens the bar.
+func (w *Window) menuKeyUp(wparam uintptr) {
+	if w.integ.menu != 0 && w.integ.keys.up(uint32(wparam&0xFF)) {
+		w.openBar(0)
+	}
+}
+
+// menuChar handles the character of Alt and a key (WM_SYSCHAR): the access
+// key of one of the bar's menus opens it.
+func (w *Window) menuChar(c uintptr) {
+	if hasMnemonic(w.integ.mnemonics, c) {
+		w.openBar(c)
+	}
+}
+
+// openBar enters the menu loop of the bar, as DefWindowProc does for the
+// keys that open it: key is 0 for a lone Alt or F10 (the bar is selected)
+// or the access key of the menu to open. It returns when the user leaves
+// the menus. The access keys are shown (underlined) for the loop, even
+// with the system setting off, which hides them until a keyboard use.
+func (w *Window) openBar(key uintptr) {
+	if !w.barActive() {
+		return
+	}
+	if !keyboardCues() {
+		sendMsg(w.hwnd, wmChangeUIState, uisClear|uisfHideAccel<<16, 0)
+		procDrawMenuBar.Call(w.hwnd)
+		w.integ.cuesHeld = true
+	}
+	defWindowProc(w.hwnd, wmSysCommand, scKeyMenu, key)
+}
+
+// menuLoopExited handles WM_EXITMENULOOP: the access keys the keyboard
+// showed are hidden again when the system setting wants them hidden.
+func (w *Window) menuLoopExited() {
+	in := &w.integ
+	in.keys.reset()
+	if in.cuesHeld {
+		in.cuesHeld = false
+		if !w.Closed() {
+			sendMsg(w.hwnd, wmChangeUIState, uisSet|uisfHideAccel<<16, 0)
+			procDrawMenuBar.Call(w.hwnd)
+		}
+	}
+}
+
+// keyboardCues reports SPI_GETKEYBOARDCUES: whether the access keys are
+// always underlined.
+func keyboardCues() bool {
+	var on int32
+	r, _, _ := procSystemParametersInfoW.Call(spiGetKeyboardCues, 0, uintptr(unsafe.Pointer(&on)), 0)
+	return r != 0 && on != 0
 }
 
 // PopupMenu shows a popup menu at a point of the window, outside the

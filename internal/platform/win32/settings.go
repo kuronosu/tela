@@ -146,6 +146,7 @@ func (b *Backend) settingsChanged() {
 	b.settings = s
 	for _, w := range b.loop.Windows() {
 		w.applyTheme(s.DarkMode)
+		w.refreshBar() // the menu bar follows dark mode too (menubar_dark.go)
 	}
 	b.enqueue(nil, platform.SettingsEvent{Settings: s})
 }

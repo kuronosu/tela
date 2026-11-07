@@ -529,8 +529,12 @@ func TestSwallowSysCommand(t *testing.T) {
 		{"close", 0xF060, 0, false},
 		{"maximize", 0xF030, 0, false},
 	} {
-		if got := swallowSysCommand(tc.wparam, tc.lparam); got != tc.want {
+		if got := swallowSysCommand(tc.wparam, tc.lparam, false); got != tc.want {
 			t.Errorf("%s: %v, want %v", tc.name, got, tc.want)
+		}
+		// With a menu bar the keyboard opens it: nothing is swallowed.
+		if swallowSysCommand(tc.wparam, tc.lparam, true) {
+			t.Errorf("%s: swallowed with a menu bar", tc.name)
 		}
 	}
 	if !isSystemShortcut(wmSysKeyDown, vkF4, lp(0x3E, false, false, true)) || !isSystemShortcut(wmSysKeyDown, vkSpace, lp(0x39, false, false, true)) {

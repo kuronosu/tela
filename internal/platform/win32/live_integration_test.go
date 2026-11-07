@@ -489,12 +489,14 @@ func TestLiveSetMenu(t *testing.T) {
 			if after := getClientRect(framed.hwnd); after != before {
 				t.Errorf("client area %v after SetMenu, want %v (the window grows)", after, before)
 			}
-			checkMenuString(t, bar, 1, "Help && about")
+			// The bar's items have access keys (ADR-234).
+			checkMenuString(t, bar, 0, "&File")
+			checkMenuString(t, bar, 1, "&Help && about")
 			if n, _, _ := procGetMenuItemCount.Call(bar); n != 2 {
 				t.Errorf("menu bar has %d items, want 2", n)
 			}
 			sub, _, _ := procGetSubMenu.Call(bar, 0)
-			checkMenuString(t, sub, 0, "Open\tCtrl+O")
+			checkMenuString(t, sub, 0, "&Open\tCtrl+O")
 			const mfGrayedDisabled = mfGrayed | 0x0002
 			if st, _, _ := procGetMenuState.Call(sub, 2, mfByPosition); st&mfGrayedDisabled == 0 {
 				t.Errorf("disabled item state %#x", st)

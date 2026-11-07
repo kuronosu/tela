@@ -48,7 +48,8 @@ import (
 //     neither Ctrl nor Alt is ever reported for AltGr (Mods included).
 //   - A lone Alt or F10 would enter the menu loop of a window that has no
 //     menu: the caller swallows the system key messages, except Alt+F4 and
-//     Alt+Space (the system menu), which down reports for DefWindowProc.
+//     Alt+Space (the system menu), which down reports for DefWindowProc. A
+//     window with a menu bar opens it itself from the same keys (menuKeys).
 //   - Alt codes: while Alt is held, the numpad digits of a code produce no
 //     character messages (and no Text); at the release of Alt
 //     TranslateMessage posts the character as WM_CHAR. It is delivered as
@@ -180,14 +181,66 @@ func isFakeCtrl(env keyEnv, ki keyInfo, msg uint32) bool {
 const scKeyMenu = 0xF100
 
 // swallowSysCommand reports whether a WM_SYSCOMMAND must not reach
-// DefWindowProc. The keyboard does not open the menu bar (SetMenu's bar is
-// for the mouse, menu_windows.go), so the keyboard commands that
-// would enter the menu loop (a lone Alt, F10, Alt and a mnemonic, which also
-// beeps) are dropped; the window (system) menu on Alt+Space, SC_KEYMENU with
-// the space as its character, is kept.
-func swallowSysCommand(wparam, lparam uintptr) bool {
-	return wparam&0xFFF0 == scKeyMenu && lparam != ' '
+// DefWindowProc. A window without a menu bar (bar false) drops the keyboard
+// commands that would enter the menu loop (a lone Alt, F10, Alt and a
+// character, which also beeps); the window (system) menu on Alt+Space,
+// SC_KEYMENU with the space as its character, is kept. A window with a bar
+// (SetMenu) lets them through: they open it (menuKeys, menu_windows.go).
+func swallowSysCommand(wparam, lparam uintptr, bar bool) bool {
+	return !bar && wparam&0xFFF0 == scKeyMenu && lparam != ' '
 }
+
+// menuKeys decides when the keyboard opens a window's menu bar. Windows
+// does it from DefWindowProc's handling of the system keys, which the
+// translation above keeps from it (the app sees every key and decides what
+// they mean), so the window sends SC_KEYMENU itself when a key that opens
+// the bar is released with nothing typed in between:
+//
+//   - A lone Alt (press and release, as in every Windows app) or F10 (the
+//     key alone: Shift+F10 is the context menu, Alt+F10 the app's) arms the
+//     bar for its release. Any other key, a mouse button or losing the
+//     focus disarms it, so Alt+Tab, Alt+Shift (the layout switch) and
+//     Alt+key shortcuts never open it.
+//   - A tap of AltGr (a right Alt on a layout that has one) or of Alt with
+//     Ctrl held is not Alt.
+//
+// Alt and a character that is the access key of one of the bar's menus
+// opens that menu (hasMnemonic); the app still gets the key.
+type menuKeys struct {
+	armed uint32 // the virtual key whose release opens the bar, or 0
+}
+
+// down notes a key press. altGr is whether a right Alt is AltGr on the
+// active layout; ctrl, shift and alt are the modifiers held (alt: the
+// message's context code, the Alt held down while this key goes down).
+func (m *menuKeys) down(vk uint32, repeat, extended, altGr, ctrl, shift, alt bool) {
+	switch {
+	case vk == vkMenu:
+		if repeat {
+			return
+		}
+		m.armed = 0
+		if !ctrl && !(extended && altGr) {
+			m.armed = vkMenu
+		}
+	case vk == vkF10 && !shift && !ctrl && !alt:
+		if !repeat {
+			m.armed = vkF10
+		}
+	default:
+		m.armed = 0
+	}
+}
+
+// up notes a key release and reports whether it opens the menu bar.
+func (m *menuKeys) up(vk uint32) bool {
+	armed := m.armed
+	m.armed = 0
+	return armed != 0 && vk == armed
+}
+
+// reset disarms the bar (a mouse button, the focus lost).
+func (m *menuKeys) reset() { m.armed = 0 }
 
 // isSystemShortcut reports whether a key message is Alt+F4 or Alt+Space: the
 // keys that the window system owns (closing the window, its menu) and that
