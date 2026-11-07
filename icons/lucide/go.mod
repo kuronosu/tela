@@ -10,6 +10,7 @@ require (
 	github.com/godbus/dbus/v5 v5.2.4 // indirect
 	golang.org/x/image v0.23.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
 )
 
 // Development inside the repository: the module tests against the tela
