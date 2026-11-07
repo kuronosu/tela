@@ -345,8 +345,9 @@ func runDialogs(t *testing.T, rounds ...dialogRound) {
 
 func cancelPanel(r *dialogRequest) { darwin.Send(r.obj, psel.cancel, darwin.ID(0)) }
 
-// clickAlert presses button i of an alert, and posts an event so that a
-// modal session ended outside an event (here, a wake pass) returns.
+// clickAlert presses button i of an alert (a sheet's, or a detached
+// one's, whose button actions answer at once), and posts an event, which
+// wakes a loop that waits for one (terminate:'s).
 func clickAlert(i int) func(r *dialogRequest) {
 	return func(r *dialogRequest) {
 		btns := darwin.ArrayItems(darwin.Send(r.obj, testSel.buttons))
@@ -499,8 +500,9 @@ func TestFileDialogSheets(t *testing.T) {
 }
 
 // TestMessageBoxes shows an alert as a sheet answered with a button, and
-// an app-modal alert answered from a wake pass, which only arrives when
-// the run loop source fires inside the modal session.
+// a detached alert (no parent): a modeless panel with no modal session,
+// while the app's own window can still become key, answered by a button
+// from a wake pass.
 func TestMessageBoxes(t *testing.T) {
 	answer := func(a platform.MessageAnswer, err error) any { return fmt.Sprint(a, err) }
 	runDialogs(t,
@@ -531,16 +533,32 @@ func TestMessageBoxes(t *testing.T) {
 			want: answer(platform.AnswerNo, nil),
 		},
 		dialogRound{
-			name: "MessageBox app-modal",
+			name: "MessageBox detached",
 			open: func(w *Window, done func(any)) error {
 				return w.b.Desktop().MessageBox(platform.MessageBoxOptions{Kind: platform.MessageWarning,
-					Title: "tela test", Text: "app-modal", Buttons: platform.ButtonsOKCancel},
+					Title: "tela test", Text: "detached", Buttons: platform.ButtonsOKCancel},
 					func(a platform.MessageAnswer, err error) { done(answer(a, err)) })
 			},
 			check: func(r *dialogRequest) {
-				t.Logf("app-modal alert: sheet %v, runModal running %v", r.sheet != nil, r.b.desk.modalRunning)
-				if r.sheet != nil || !r.b.desk.modalRunning {
-					t.Errorf("want an alert in runModal, delivering wake passes")
+				modal := darwin.Send(app.ns, darwin.Sel("modalWindow"))
+				win := r.window()
+				t.Logf("detached alert: sheet %v, detached %v, modal window %v, alert key %v, level %d",
+					r.sheet != nil, r.detached, modal != 0, darwin.SendBool(win, darwin.Sel("isKeyWindow")), darwin.SendInt(win, darwin.Sel("level")))
+				if r.sheet != nil || !r.detached || modal != 0 {
+					t.Errorf("want a detached alert with no modal session")
+				}
+				// The app's window still takes the focus: no modal
+				// session blocks it.
+				ws := r.b.loop.Windows()
+				if len(ws) == 0 {
+					t.Errorf("no window")
+					return
+				}
+				darwin.Send(ws[0].ns, psel.makeKeyAndOrderFront, darwin.ID(0))
+				key := darwin.SendBool(ws[0].ns, darwin.Sel("isKeyWindow"))
+				t.Logf("the app's window is key after makeKeyAndOrderFront: %v", key)
+				if !key {
+					t.Errorf("the app's window cannot become key while the detached alert is open")
 				}
 			},
 			act:  clickAlert(1),
@@ -549,8 +567,8 @@ func TestMessageBoxes(t *testing.T) {
 	)
 }
 
-// TestMessageBoxQuit: Quit while an app-modal alert is open ends the
-// alert's modal session and then Run, without calling done.
+// TestMessageBoxQuit: Quit while a detached alert is open hides the alert
+// and ends Run, without calling done.
 func TestMessageBoxQuit(t *testing.T) {
 	b := newBackend(t)
 	calls := 0
@@ -561,7 +579,7 @@ func TestMessageBoxQuit(t *testing.T) {
 			t.Errorf("MessageBox: %v", err)
 		}
 	}, func(w *Window, e platform.Event) bool {
-		if _, ok := e.(platform.WakeEvent); ok && quitAt.IsZero() && b.desk.modalRunning && len(b.desk.dialogs) == 1 &&
+		if _, ok := e.(platform.WakeEvent); ok && quitAt.IsZero() && len(b.desk.dialogs) == 1 && b.desk.dialogs[0].detached &&
 			darwin.SendBool(b.desk.dialogs[0].window(), psel.isVisible) {
 			quitAt = time.Now()
 			b.Quit()
@@ -574,6 +592,9 @@ func TestMessageBoxQuit(t *testing.T) {
 	t.Logf("Run returned %v after Quit; done ran %d times", time.Since(quitAt).Round(time.Millisecond), calls)
 	if calls != 0 {
 		t.Errorf("done ran %d times after Quit, want 0 (Run returned first)", calls)
+	}
+	if len(b.desk.dialogs) != 0 {
+		t.Errorf("%d dialogs left after Run", len(b.desk.dialogs))
 	}
 }
 
@@ -648,10 +669,20 @@ func TestTray(t *testing.T) {
 				t.Errorf("menu events %q, want %q", events, want)
 			}
 			events = nil
-			if err := d.UpdateTray(id, platform.TrayOptions{Icon: icon[:1]}); err != nil {
+			tr := b.desk.trays[id]
+			isTemplate := func() bool {
+				return darwin.SendBool(darwin.Send(darwin.Send(tr.item, trsel.button), testSel.image), darwin.Sel("isTemplate"))
+			}
+			if isTemplate() {
+				t.Errorf("the tray's image is a template without TrayOptions.Template")
+			}
+			if err := d.UpdateTray(id, platform.TrayOptions{Icon: icon[:1], Template: true}); err != nil {
 				t.Errorf("UpdateTray: %v", err)
 			}
-			tr := b.desk.trays[id]
+			t.Logf("after UpdateTray with Template: isTemplate %v", isTemplate())
+			if !isTemplate() {
+				t.Errorf("UpdateTray with Template: the image is not a template")
+			}
 			if darwin.Send(tr.item, darwin.Sel("menu")) != 0 {
 				t.Errorf("UpdateTray without a menu left the menu")
 			}

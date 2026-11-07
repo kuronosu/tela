@@ -21,15 +21,21 @@ import (
 //   - Without one, a panel is a separate, modeless window
 //     (beginWithCompletionHandler:, as Electron and Chromium show detached
 //     panels): no modal loop runs, so the shared loop goes on delivering
-//     events as usual. An alert has no modeless form: it runs
-//     -[NSAlert runModal], started outside any delivery pass from a run
-//     loop block in the common modes (onMain), one at a time in request
-//     order (like Win32's dialogs). The run loop source of the shared loop
-//     is in the common modes, which include NSModalPanelRunLoopMode, so
-//     passes, frames and Wake keep running inside the modal loop; AppKit
-//     blocks input to the app's other windows meanwhile (an app-modal
-//     alert). A Quit during it: [NSApp stop:] ends the innermost loop,
-//     which is the alert's, so it is sent again once runModal returns.
+//     events as usual. An alert has no modeless form in AppKit
+//     (-[NSAlert runModal] is app-modal: AppKit blocks input to every
+//     other window of the app), so a detached alert is shown modeless by
+//     hand (ADR-237), as a free-standing window: [NSAlert layout] builds
+//     its panel, every button's target and action are retargeted to the
+//     request's TelaPanelHelper (alertButton:, which finds the button's
+//     index in NSAlert.buttons: the response NSAlertFirstButtonReturn +
+//     index that runModal would return), and the panel is centered,
+//     kept when the app deactivates (an NSPanel hides by default), and
+//     made key and front with the app activated. No modal session runs:
+//     the app's other windows keep their input, as with the drawn box on
+//     Linux and a box of another window on Win32. Return and Escape work
+//     through the buttons' key equivalents while the panel is key; the
+//     panel has no close button. Several detached alerts can be open at
+//     once.
 //   - The completion handler runs on the main thread; it reads the result
 //     and posts done to the loop, so done runs once, later, from a pass.
 //     Cancel is nil paths (or "") and a nil error; a closed alert (its
@@ -62,8 +68,9 @@ type dialogRequest struct {
 	active   int  // the selected filter
 	delegate bool // the helper is the panel's delegate (a filter has globs)
 
-	ended  bool               // answered or abandoned
-	finish func(response int) // reads the result and posts done; main thread
+	ended    bool               // answered or abandoned
+	detached bool               // a message box shown as a free-standing panel (no sheet, no modal session)
+	finish   func(response int) // reads the result and posts done; main thread
 }
 
 // psel holds the selectors of the panels and alerts.
@@ -73,11 +80,12 @@ var psel = struct {
 	setCanCreateDirectories, setResolvesAliases, setNameFieldStringValue               darwin.SEL
 	setAllowsOtherFileTypes, setAllowedContentTypes, setAllowedFileTypes               darwin.SEL
 	typeWithFilenameExtension, setDelegate, validateVisibleColumns, url, urls          darwin.SEL
-	beginSheet, begin, cancel, endSheetReturnCode, isVisible, window, runModal         darwin.SEL
+	beginSheet, begin, cancel, endSheetReturnCode, isVisible, window                   darwin.SEL
 	setMessageText, setInformativeText, setAlertStyle, addButtonWithTitle              darwin.SEL
 	setKeyEquivalent, labelWithString, initWithFramePullsDown, menu, addItemWithTitle  darwin.SEL
 	selectItemAtIndex, indexOfSelectedItem, setTarget, setAction, sizeToFit, frame     darwin.SEL
 	setFrameOrigin, addSubview, setAccessoryView, setAccessoryViewDisclosed, initFrame darwin.SEL
+	layout, buttons, setHidesOnDeactivate, center, makeKeyAndOrderFront, orderOut      darwin.SEL
 }{
 	openPanel:                  darwin.Sel("openPanel"),
 	savePanel:                  darwin.Sel("savePanel"),
@@ -104,7 +112,6 @@ var psel = struct {
 	endSheetReturnCode:         darwin.Sel("endSheet:returnCode:"),
 	isVisible:                  darwin.Sel("isVisible"),
 	window:                     darwin.Sel("window"),
-	runModal:                   darwin.Sel("runModal"),
 	setMessageText:             darwin.Sel("setMessageText:"),
 	setInformativeText:         darwin.Sel("setInformativeText:"),
 	setAlertStyle:              darwin.Sel("setAlertStyle:"),
@@ -125,6 +132,12 @@ var psel = struct {
 	setAccessoryView:           darwin.Sel("setAccessoryView:"),
 	setAccessoryViewDisclosed:  darwin.Sel("setAccessoryViewDisclosed:"),
 	initFrame:                  darwin.Sel("initWithFrame:"),
+	layout:                     darwin.Sel("layout"),
+	buttons:                    darwin.Sel("buttons"),
+	setHidesOnDeactivate:       darwin.Sel("setHidesOnDeactivate:"),
+	center:                     darwin.Sel("center"),
+	makeKeyAndOrderFront:       darwin.Sel("makeKeyAndOrderFront:"),
+	orderOut:                   darwin.Sel("orderOut:"),
 }
 
 // OpenFiles shows an NSOpenPanel for files.
@@ -333,19 +346,13 @@ func setPanelTypes(panel darwin.ID, exts []string) {
 }
 
 // begin shows the dialog: a sheet on the parent when it is on screen, else
-// a separate panel; an alert without a sheet waits for runModal.
+// a separate panel; an alert without a sheet is a free-standing panel.
 func (r *dialogRequest) begin(parent platform.Window) {
 	b := r.b
 	b.desk.dialogs = append(b.desk.dialogs, r)
 	w := b.sheetParent(parent)
 	if w == nil && r.kind == dialogMessageBox {
-		b.queueModal(func() {
-			if r.ended {
-				return
-			}
-			response := darwin.SendInt(r.obj, psel.runModal)
-			r.end(response)
-		})
+		r.showDetached()
 		return
 	}
 	handler := darwin.NewBlock(func(_ darwin.Block, response int) {
@@ -364,6 +371,41 @@ func (r *dialogRequest) begin(parent platform.Window) {
 	} else {
 		darwin.Send(r.obj, psel.begin, handler)
 	}
+}
+
+// showDetached shows an alert without a sheet as a modeless panel: its
+// buttons answer through the helper's alertButton: instead of runModal's
+// modal session.
+func (r *dialogRequest) showDetached() {
+	r.detached = true
+	r.newHelper()
+	darwin.Send(r.obj, psel.layout)
+	for _, btn := range darwin.ArrayItems(darwin.Send(r.obj, psel.buttons)) {
+		darwin.Send(btn, psel.setTarget, r.helper)
+		darwin.Send(btn, psel.setAction, deskClasses.selAlertButton)
+	}
+	win := r.window()
+	darwin.Send(win, psel.setHidesOnDeactivate, false)
+	darwin.Send(win, psel.center)
+	activateApp()
+	darwin.Send(win, psel.makeKeyAndOrderFront, darwin.ID(0))
+}
+
+// alertButtonPressed is the action of a detached alert's buttons: the
+// answer of the button's position, as runModal would return it.
+func alertButtonPressed(self darwin.ID, _ darwin.SEL, sender darwin.ID) {
+	r := panelRequest(self)
+	if r == nil || r.ended || !r.detached {
+		return
+	}
+	r.b.guard(func() {
+		i := slices.Index(darwin.ArrayItems(darwin.Send(r.obj, psel.buttons)), sender)
+		if i < 0 {
+			return
+		}
+		darwin.Send(r.window(), psel.orderOut, darwin.ID(0))
+		r.end(alertButtonResponse(i))
+	})
 }
 
 // newHelper gives the request its TelaPanelHelper, once.
@@ -392,8 +434,8 @@ func (b *Backend) sheetParent(p platform.Window) *Window {
 	return w
 }
 
-// end answers the dialog once: called by its completion handler, or after
-// runModal returned.
+// end answers the dialog once: called by its completion handler, or by a
+// detached alert's button.
 func (r *dialogRequest) end(response int) {
 	if r.ended {
 		return
@@ -413,6 +455,8 @@ func (r *dialogRequest) abandon() {
 	switch {
 	case r.sheet != nil:
 		darwin.Send(r.sheet.ns, psel.endSheetReturnCode, r.window(), darwin.NSModalResponseCancel)
+	case r.detached:
+		darwin.Send(r.window(), psel.orderOut, darwin.ID(0))
 	case r.kind != dialogMessageBox:
 		darwin.Send(r.obj, psel.cancel, darwin.ID(0))
 	}
@@ -445,6 +489,11 @@ func (r *dialogRequest) release() {
 		}
 		if r.popup != 0 {
 			darwin.Send(r.popup, psel.setTarget, darwin.ID(0))
+		}
+		if r.detached {
+			for _, btn := range darwin.ArrayItems(darwin.Send(r.obj, psel.buttons)) {
+				darwin.Send(btn, psel.setTarget, darwin.ID(0))
+			}
 		}
 		b.releaseLater(r.helper)
 	}
@@ -507,7 +556,8 @@ func panelShouldEnableURL(self darwin.ID, _ darwin.SEL, _, url darwin.ID) bool {
 
 // --- message boxes ---
 
-// MessageBox shows an NSAlert: a sheet on opts.Parent, or app-modal.
+// MessageBox shows an NSAlert: a sheet on opts.Parent, or a modeless
+// free-standing panel.
 func (d desktop) MessageBox(opts platform.MessageBoxOptions, done func(platform.MessageAnswer, error)) error {
 	if done == nil {
 		panic("cocoa: MessageBox called with a nil callback; pass a func(answer platform.MessageAnswer, err error)")
@@ -543,43 +593,4 @@ func (d desktop) MessageBox(opts platform.MessageBoxOptions, done func(platform.
 	}
 	r.begin(opts.Parent)
 	return nil
-}
-
-// queueModal runs fn, which runs a modal session, from a run loop block
-// outside any delivery pass, after the modal sessions queued before it.
-func (b *Backend) queueModal(fn func()) {
-	b.desk.modal = append(b.desk.modal, fn)
-	b.nextModal()
-}
-
-func (b *Backend) nextModal() {
-	if b.desk.modalRunning || b.desk.modalPosted || len(b.desk.modal) == 0 {
-		return
-	}
-	b.desk.modalPosted = true
-	b.onMain(func() {
-		b.desk.modalPosted = false
-		if b.desk.modalRunning || len(b.desk.modal) == 0 {
-			return
-		}
-		if b.pumping || !b.running {
-			b.nextModal() // not from inside a pass, nor before [NSApp run]
-			return
-		}
-		fn := b.desk.modal[0]
-		b.desk.modal = b.desk.modal[1:]
-		b.desk.modalRunning = true
-		func() {
-			defer func() { b.desk.modalRunning = false }()
-			fn()
-		}()
-		if b.stopping {
-			// Quit's [NSApp stop:] ended the modal session, not [NSApp
-			// run]: stop the app again.
-			b.stopping = false
-			b.stopApp()
-			return
-		}
-		b.nextModal()
-	})
 }

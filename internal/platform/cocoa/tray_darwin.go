@@ -20,7 +20,10 @@ import (
 //     22-point bar), with a bitmap representation at 1x and at 2x, each
 //     made from the image of TrayOptions.Icon that fits it best
 //     (platform.PickIcon), so it is sharp on every display. It keeps its
-//     colors: the contract has no template (monochrome) images.
+//     colors, unless TrayOptions.Template makes it a template image
+//     (NSImage.template, ADR-237): the status bar then draws only its
+//     alpha, tinted for the bar's appearance and for the highlighted
+//     state while the menu is open.
 //   - With a menu, a click opens it, as macOS status items do (the item's
 //     menu property); there is no TrayActivated then, as on Linux hosts
 //     that open the menu on any click. Without one, a primary click is
@@ -47,7 +50,7 @@ var trsel = struct {
 	setImage, setToolTip, setMenu, initWithSize, addRepresentation, setSize    darwin.SEL
 	initWithCGImage, initWithTitle, initWithTitleAction, separatorItem         darwin.SEL
 	setAutoenablesItems, setTag, tag, setEnabled, setState, setSubmenu         darwin.SEL
-	addItem, setTarget, setAction, setVisible                                  darwin.SEL
+	addItem, setTarget, setAction, setVisible, setTemplate                     darwin.SEL
 }{
 	systemStatusBar:      darwin.Sel("systemStatusBar"),
 	statusItemWithLength: darwin.Sel("statusItemWithLength:"),
@@ -74,6 +77,7 @@ var trsel = struct {
 	setTarget:            darwin.Sel("setTarget:"),
 	setAction:            darwin.Sel("setAction:"),
 	setVisible:           darwin.Sel("setVisible:"),
+	setTemplate:          darwin.Sel("setTemplate:"),
 }
 
 func statusBar() darwin.ID {
@@ -144,6 +148,7 @@ func (t *trayIcon) apply(opts platform.TrayOptions) {
 	button := darwin.Send(t.item, trsel.button)
 	side := trayIconPoints(darwin.SendFloat(statusBar(), trsel.thickness))
 	if img := t.b.trayImage(opts.Icon, side); img != 0 {
+		darwin.Send(img, trsel.setTemplate, opts.Template)
 		darwin.Send(button, trsel.setImage, img)
 		darwin.Release(img)
 	}

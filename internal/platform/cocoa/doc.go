@@ -343,9 +343,9 @@
 //     an open panel filters other globs with its delegate, a save panel
 //     drops them; several filters get a "Format:" popup. done runs once,
 //     from a later pass; cancel is nil and nil.
-//   - Message boxes: NSAlert, a sheet on the parent or -[NSAlert runModal]
-//     started from a run loop block outside any pass (the loop's source is
-//     in the common modes, so passes run inside the modal session).
+//   - Message boxes: NSAlert, a sheet on the parent, or without one a
+//     modeless free-standing panel whose buttons answer through a helper
+//     (no runModal: the app's other windows keep working; ADR-237).
 //   - Trays: NSStatusItems (tray_darwin.go) with a 1x and 2x image, the
 //     tooltip, and an NSMenu, which opens on any click; without a menu a
 //     click is TrayActivated.

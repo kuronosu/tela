@@ -31,7 +31,7 @@ import (
 // system calls some completion handlers on threads of its own (the
 // notification center's): those hop to the main thread with
 // CFRunLoopPerformBlock in the common modes (onMain), and so does what
-// must start outside a delivery pass (a modal alert).
+// must start outside a delivery pass (a popup menu's tracking loop).
 
 // Desktop returns the desktop services.
 func (b *Backend) Desktop() platform.Desktop { return desktop{b: b} }
@@ -49,10 +49,7 @@ var _ platform.Desktop = desktop{}
 // desktopState is the backend's state of the desktop services, on the
 // main thread.
 type desktopState struct {
-	dialogs      []*dialogRequest // open panels and alerts, in request order
-	modal        []func()         // detached alerts waiting for runModal, in request order
-	modalPosted  bool             // a block will start the next one
-	modalRunning bool             // runModal is running
+	dialogs []*dialogRequest // open panels and alerts, in request order
 
 	trays    map[platform.TrayID]*trayIcon
 	lastTray platform.TrayID
@@ -172,7 +169,6 @@ func (b *Backend) appEvent(e platform.Event) {
 // close: dialogs are ended without an answer (done is not called after
 // Run), trays are removed, and the notification delegate is detached.
 func (b *Backend) stopDesktop() {
-	b.desk.modal = nil
 	for _, r := range append([]*dialogRequest(nil), b.desk.dialogs...) {
 		r.abandon()
 	}
@@ -207,6 +203,7 @@ var deskClasses struct {
 	selFilterChanged, selTray darwin.SEL
 	selTrayItem               darwin.SEL
 	selParentWillClose        darwin.SEL
+	selAlertButton            darwin.SEL
 }
 
 // setupDesktop registers the helper classes, once.
@@ -218,6 +215,7 @@ func setupDesktop() error {
 		c.selTray = darwin.Sel("trayClicked:")
 		c.selTrayItem = darwin.Sel("trayItem:")
 		c.selParentWillClose = darwin.Sel("parentWillClose:")
+		c.selAlertButton = darwin.Sel("alertButton:")
 		var err error
 		// The panel helper is the target of the format popup and the
 		// panel's delegate (NSOpenSavePanelDelegate, not declared: AppKit
@@ -226,6 +224,7 @@ func setupDesktop() error {
 			{Sel: c.selFilterChanged, Fn: panelFilterChanged},
 			{Sel: darwin.Sel("panel:shouldEnableURL:"), Fn: panelShouldEnableURL},
 			{Sel: c.selParentWillClose, Fn: panelParentWillClose},
+			{Sel: c.selAlertButton, Fn: alertButtonPressed},
 		})
 		if err != nil {
 			c.err = fmt.Errorf("cocoa: registering TelaPanelHelper: %w", err)

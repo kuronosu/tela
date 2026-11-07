@@ -1023,12 +1023,11 @@
 // set's buttons right to left (Yes, Cancel, No: the guidelines' order;
 // Escape on Cancel, or on No in a Yes/No box) and the kind's style
 // (critical for errors, warning, informational for the rest), a sheet on
-// the parent, else -[NSAlert runModal] started from a CFRunLoopPerformBlock
-// in the common modes, outside any pass, one at a time (the run loop
-// source fires in NSModalPanelRunLoopMode, a common mode, so passes,
-// frames and Wake go on; a Quit ends the modal session first and is sent
-// again). NSStatusItem trays (an NSImage 4 points shorter than the menu
-// bar with 1x and 2x bitmap representations picked with PickIcon, the
+// the parent, else a modeless free-standing panel (the alert laid out and
+// shown with its buttons retargeted, no runModal: the app's other windows
+// keep working, as on Linux and Win32; ADR-237). NSStatusItem trays (an NSImage 4 points shorter than the menu
+// bar with 1x and 2x bitmap representations picked with PickIcon, a
+// template image when TrayOptions.Template is set (ADR-237), the
 // tooltip; an NSMenu with tags as IDs, which opens on any click, else a
 // click is TrayActivated). Notifications through UNUserNotificationCenter
 // only in an app bundle with a bundle identifier, else ErrUnsupported
