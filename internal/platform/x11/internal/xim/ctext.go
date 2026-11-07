@@ -249,38 +249,62 @@ func ctRun(out *strings.Builder, set ctSet, run []byte) {
 }
 
 // ctWide decodes the bytes of a 94x94 set through its EUC form (both bytes
-// with the high bit set, plus 0x8f before JIS X 0212).
+// with the high bit set, plus 0x8f before JIS X 0212). The run is decoded
+// at once: its valid characters go into one EUC buffer, decoded when the
+// run ends or before a byte pair outside the set (written as U+FFFD), with
+// one decoder for the run.
 func ctWide(out *strings.Builder, cs int, run []byte) {
-	var dec encoding.Encoding
+	var enc encoding.Encoding
 	switch cs {
 	case csJIS0208, csJIS0212:
-		dec = japanese.EUCJP
+		enc = japanese.EUCJP
 	case csKSC5601:
-		dec = korean.EUCKR
+		enc = korean.EUCKR
 	case csGB2312:
-		dec = simplifiedchinese.GBK
+		enc = simplifiedchinese.GBK
+	}
+	if enc == nil {
+		for range (len(run) + 1) / 2 {
+			out.WriteRune(utf8.RuneError)
+		}
+		return
+	}
+	dec := enc.NewDecoder()
+	per := 2
+	if cs == csJIS0212 {
+		per = 3
+	}
+	euc := make([]byte, 0, len(run)/2*per)
+	flush := func() {
+		if len(euc) == 0 {
+			return
+		}
+		s, err := dec.Bytes(euc)
+		if err != nil {
+			out.WriteRune(utf8.RuneError)
+		} else {
+			out.WriteString(strings.ToValidUTF8(string(s), "\uFFFD"))
+		}
+		euc = euc[:0]
 	}
 	for i := 0; i < len(run); i += 2 {
-		if i+1 >= len(run) || dec == nil {
+		if i+1 >= len(run) {
+			flush()
 			out.WriteRune(utf8.RuneError)
-			continue
+			break
 		}
 		b1, b2 := run[i]|0x80, run[i+1]|0x80
 		if b1 < 0xa1 || b1 > 0xfe || b2 < 0xa1 || b2 > 0xfe {
+			flush()
 			out.WriteRune(utf8.RuneError)
 			continue
 		}
-		euc := []byte{b1, b2}
 		if cs == csJIS0212 {
-			euc = []byte{0x8f, b1, b2}
+			euc = append(euc, 0x8f)
 		}
-		s, err := dec.NewDecoder().Bytes(euc)
-		if err != nil || len(s) == 0 {
-			out.WriteRune(utf8.RuneError)
-			continue
-		}
-		out.WriteString(strings.ToValidUTF8(string(s), "�"))
+		euc = append(euc, b1, b2)
 	}
+	flush()
 }
 
 // ctExtended decodes the text of an extended segment by its encoding name.

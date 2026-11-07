@@ -1,6 +1,15 @@
 package xim
 
-import "testing"
+import (
+	"strings"
+	"testing"
+	"unicode/utf8"
+
+	"golang.org/x/text/encoding"
+	"golang.org/x/text/encoding/japanese"
+	"golang.org/x/text/encoding/korean"
+	"golang.org/x/text/encoding/simplifiedchinese"
+)
 
 func TestDecodeCompoundText(t *testing.T) {
 	gr := func(s string) string { // a GL string in its GR form
@@ -30,6 +39,8 @@ func TestDecodeCompoundText(t *testing.T) {
 		{"back to latin-1", "\x1b-B\xb1\x1b-A\xb1", "ą±"},
 		{"space in a 94x94 GL", "\x1b$(B$3 $s", "こ ん"},
 		{"odd byte of a 94x94 set", "\x1b$)B\xa4", "�"},
+		{"invalid pair inside a 94x94 run", "\x1b$)B\xa4\xb3\xa0\xa0\xa4\xf3", "こ�ん"},
+		{"odd byte after a 94x94 run", "\x1b$)B\xa4\xb3\xa4", "こ�"},
 		{"unknown 94 set", "\x1b(Zab", "��"},
 		{"cns 11643", "\x1b$(Gab", "�"},
 		{"tab, newline, other controls", "a\tb\nc\x01d\x7f\x85", "a\tb\ncd"},
@@ -42,6 +53,59 @@ func TestDecodeCompoundText(t *testing.T) {
 	} {
 		if got := DecodeCompoundText([]byte(c.in)); got != c.want {
 			t.Errorf("%s: DecodeCompoundText(%q) = %q, want %q", c.name, c.in, got, c.want)
+		}
+	}
+}
+
+// TestCtWideRun checks that decoding a 94x94 run at once gives what
+// decoding each character alone gives, over every byte pair of each set.
+func TestCtWideRun(t *testing.T) {
+	alone := func(cs int, b1, b2 byte) string {
+		var enc encoding.Encoding
+		switch cs {
+		case csJIS0208, csJIS0212:
+			enc = japanese.EUCJP
+		case csKSC5601:
+			enc = korean.EUCKR
+		case csGB2312:
+			enc = simplifiedchinese.GBK
+		}
+		b1, b2 = b1|0x80, b2|0x80
+		if b1 < 0xa1 || b1 > 0xfe || b2 < 0xa1 || b2 > 0xfe {
+			return string(utf8.RuneError)
+		}
+		euc := []byte{b1, b2}
+		if cs == csJIS0212 {
+			euc = []byte{0x8f, b1, b2}
+		}
+		s, err := enc.NewDecoder().Bytes(euc)
+		if err != nil || len(s) == 0 {
+			return string(utf8.RuneError)
+		}
+		return strings.ToValidUTF8(string(s), "\uFFFD")
+	}
+	for _, cs := range []int{csJIS0208, csJIS0212, csKSC5601, csGB2312} {
+		var run []byte
+		var want strings.Builder
+		for b1 := 0x20; b1 <= 0x7f; b1++ {
+			for b2 := 0x20; b2 <= 0x7f; b2++ {
+				run = append(run, byte(b1), byte(b2))
+				want.WriteString(alone(cs, byte(b1), byte(b2)))
+			}
+		}
+		var got strings.Builder
+		ctWide(&got, cs, run)
+		if got.String() != want.String() {
+			g, w := []rune(got.String()), []rune(want.String())
+			for i := range min(len(g), len(w)) {
+				if g[i] != w[i] {
+					t.Errorf("set %d: rune %d = %q, decoded alone %q (lengths %d, %d)", cs, i, g[i], w[i], len(g), len(w))
+					break
+				}
+			}
+			if len(g) != len(w) {
+				t.Errorf("set %d: %d runes, %d decoded alone", cs, len(g), len(w))
+			}
 		}
 	}
 }
