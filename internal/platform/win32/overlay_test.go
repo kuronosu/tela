@@ -2,6 +2,7 @@ package win32
 
 import (
 	"image"
+	"slices"
 	"testing"
 
 	"github.com/kuronosu/tela/internal/platform"
@@ -43,14 +44,15 @@ func TestOverlayClient(t *testing.T) {
 			out:      image.Rect(108, 100, 608, 431),
 		},
 		{
-			// Windows puts the frame outside the work area: the top is
-			// clipped like the sides DefWindowProc already moved in.
+			// Windows puts the frame outside the work area: the sides
+			// and bottom are clipped to it, the top stays at the
+			// window's top for DWM (the hidden band, overlayInset).
 			name:     "maximized",
 			proposed: image.Rect(-8, -8, 1928, 1048),
 			def:      image.Rect(0, 31, 1920, 1040),
 			zoomed:   true,
 			work:     image.Rect(0, 0, 1920, 1040),
-			out:      image.Rect(0, 0, 1920, 1040),
+			out:      image.Rect(0, -8, 1920, 1040),
 		},
 		{
 			name:     "maximized under a task bar at the top",
@@ -58,7 +60,7 @@ func TestOverlayClient(t *testing.T) {
 			def:      image.Rect(0, 71, 1920, 1080),
 			zoomed:   true,
 			work:     image.Rect(0, 40, 1920, 1080),
-			out:      image.Rect(0, 40, 1920, 1080),
+			out:      image.Rect(0, 32, 1920, 1080),
 		},
 		{
 			name:     "maximized on a monitor at 150%",
@@ -66,7 +68,7 @@ func TestOverlayClient(t *testing.T) {
 			def:      image.Rect(1920, 34, 4480, 1440),
 			zoomed:   true,
 			work:     image.Rect(1920, 0, 4480, 1440),
-			out:      image.Rect(1920, 0, 4480, 1440),
+			out:      image.Rect(1920, -11, 4480, 1440),
 		},
 	} {
 		if got := overlayClient(tc.proposed, tc.def, tc.zoomed, tc.work); got != tc.out {
@@ -152,19 +154,46 @@ func nearRect(a, b platform.Rect) bool {
 	return near(a.X, b.X) && near(a.Y, b.Y) && near(a.W, b.W) && near(a.H, b.H)
 }
 
+func TestOverlayInset(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		top, height int
+		work        image.Rectangle
+		want        int
+	}{
+		{"maximized", -8, 1048, image.Rect(0, 0, 1920, 1040), 8},
+		{"under a task bar at the top", 32, 1048, image.Rect(0, 40, 1920, 1080), 8},
+		{"150%", -11, 1451, image.Rect(1920, 0, 4480, 1440), 11},
+		{"inside the work area", 100, 300, image.Rect(0, 0, 1920, 1040), 0},
+		{"unknown work area", -8, 1048, image.Rectangle{}, 0},
+		{"never the whole client area", -50, 20, image.Rect(0, 0, 1920, 1040), 19},
+	} {
+		if got := overlayInset(tc.top, tc.height, tc.work); got != tc.want {
+			t.Errorf("%s: overlayInset = %d, want %d", tc.name, got, tc.want)
+		}
+	}
+	// The app's area of a maximized window is the work area: the client
+	// rectangle of overlayClient without the band.
+	client := overlayClient(image.Rect(-8, -8, 1928, 1048), image.Rect(0, 31, 1920, 1040), true, image.Rect(0, 0, 1920, 1040))
+	client.Min.Y += overlayInset(client.Min.Y, client.Dy(), image.Rect(0, 0, 1920, 1040))
+	if client != image.Rect(0, 0, 1920, 1040) {
+		t.Errorf("the app's area of a maximized window = %v, want the work area", client)
+	}
+}
+
 func TestCaptionDark(t *testing.T) {
-	c := func(r, g, b uint8) platform.TitleBarColors {
-		return platform.TitleBarColors{Background: platform.WindowColor{R: r, G: g, B: b, Set: true}}
+	c := func(r, g, b uint8) platform.WindowColor {
+		return platform.WindowColor{R: r, G: g, B: b, Set: true}
 	}
 	for _, tc := range []struct {
 		name   string
-		colors platform.TitleBarColors
+		bg     platform.WindowColor
 		scheme bool
 		want   bool
 	}{
-		{"no color, light scheme", platform.TitleBarColors{}, false, false},
-		{"no color, dark scheme", platform.TitleBarColors{}, true, true},
-		// A color of the app's wins over the scheme.
+		{"no color, light scheme", platform.WindowColor{}, false, false},
+		{"no color, dark scheme", platform.WindowColor{}, true, true},
+		// The color behind the buttons wins over the scheme.
 		{"white bar, dark scheme", c(0xff, 0xff, 0xff), true, false},
 		{"black bar, light scheme", c(0, 0, 0), false, true},
 		{"navy bar", c(0x1e, 0x1b, 0x4b), false, true},
@@ -173,11 +202,101 @@ func TestCaptionDark(t *testing.T) {
 		// Around the crossover (relative luminance 0.179).
 		{"gray 0x80", c(0x80, 0x80, 0x80), true, false},
 		{"gray 0x70", c(0x70, 0x70, 0x70), false, true},
-		// A text color alone says nothing about the bar.
-		{"text only", platform.TitleBarColors{Text: platform.WindowColor{R: 0xff, G: 0xff, B: 0xff, Set: true}}, false, false},
 	} {
-		if got := captionDark(tc.colors, tc.scheme); got != tc.want {
+		if got := captionDark(tc.bg, tc.scheme); got != tc.want {
 			t.Errorf("%s: captionDark = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestCaptionSample(t *testing.T) {
+	// A 400x100 copy: a navy bar 32 px tall at 100%, 48 px at 150%, with
+	// a white mark where the gap ends at 100%.
+	bar := func(barH int) dib {
+		d := dib{}
+		d.resize(image.Pt(400, 100))
+		for y := 0; y < barH; y++ {
+			for x := 0; x < 400; x++ {
+				i := y*d.stride() + 4*x
+				d.pix[i], d.pix[i+1], d.pix[i+2] = 0x4b, 0x1b, 0x1e
+			}
+		}
+		return d
+	}
+	navy := platform.WindowColor{R: 0x1e, G: 0x1b, B: 0x4b, Set: true}
+	d := bar(32)
+	if c, ok := captionSample(d.pix, d.stride(), d.size, image.Rect(262, 0, 400, 32), 1); !ok || c != navy {
+		t.Errorf("100%%: captionSample = %v %v, want the bar's %v", c, ok, navy)
+	}
+	// The point is captionGap logical pixels left, in the middle row.
+	i := 16*d.stride() + 4*(262-4)
+	d.pix[i], d.pix[i+1], d.pix[i+2] = 0xff, 0xff, 0xff
+	if c, _ := captionSample(d.pix, d.stride(), d.size, image.Rect(262, 0, 400, 32), 1); c != (platform.WindowColor{R: 0xff, G: 0xff, B: 0xff, Set: true}) {
+		t.Errorf("captionSample = %v, want the pixel 4 px left of the buttons in their middle row", c)
+	}
+	d = bar(48)
+	if c, ok := captionSample(d.pix, d.stride(), d.size, image.Rect(193, 0, 400, 47), 1.5); !ok || c != navy {
+		t.Errorf("150%%: captionSample = %v %v, want %v", c, ok, navy)
+	}
+	for _, ctl := range []image.Rectangle{{}, image.Rect(2, 0, 100, 32), image.Rect(262, 120, 400, 150)} {
+		if c, ok := captionSample(d.pix, d.stride(), d.size, ctl, 1); ok {
+			t.Errorf("buttons at %v: captionSample = %v, want none", ctl, c)
+		}
+	}
+	if _, ok := captionSample(nil, 0, image.Point{}, image.Rect(262, 0, 400, 32), 1); ok {
+		t.Errorf("captionSample of no pixels reported a color")
+	}
+}
+
+func TestBlitParts(t *testing.T) {
+	hole := image.Rect(262, 8, 400, 40)
+	for _, tc := range []struct {
+		name        string
+		r           image.Rectangle
+		top         int
+		hole        image.Rectangle
+		from, clear []image.Rectangle
+	}{
+		{name: "plain window", r: image.Rect(0, 0, 400, 300), from: []image.Rectangle{image.Rect(0, 0, 400, 300)}},
+		{name: "empty", r: image.Rectangle{}},
+		{
+			name: "everything of a maximized window", r: image.Rect(0, 0, 400, 300), top: 8, hole: hole,
+			from:  []image.Rectangle{image.Rect(0, 40, 400, 300), image.Rect(0, 8, 262, 40)},
+			clear: []image.Rectangle{image.Rect(0, 0, 400, 8), image.Rect(262, 8, 400, 40)},
+		},
+		{
+			name: "only the band", r: image.Rect(10, 0, 50, 6), top: 8, hole: hole,
+			clear: []image.Rectangle{image.Rect(10, 0, 50, 6)},
+		},
+		{
+			name: "a damage rectangle across the hole", r: image.Rect(250, 20, 300, 60), hole: hole,
+			from:  []image.Rectangle{image.Rect(250, 40, 300, 60), image.Rect(250, 20, 262, 40)},
+			clear: []image.Rectangle{image.Rect(262, 20, 300, 40)},
+		},
+		{
+			name: "inside the hole", r: image.Rect(300, 10, 320, 20), hole: hole,
+			clear: []image.Rectangle{image.Rect(300, 10, 320, 20)},
+		},
+		{
+			name: "around the hole", r: image.Rect(250, 0, 410, 50), hole: hole,
+			from:  []image.Rectangle{image.Rect(250, 0, 410, 8), image.Rect(250, 40, 410, 50), image.Rect(250, 8, 262, 40), image.Rect(400, 8, 410, 40)},
+			clear: []image.Rectangle{hole},
+		},
+	} {
+		from, clear := blitParts(tc.r, tc.top, tc.hole)
+		if !slices.Equal(from, tc.from) || !slices.Equal(clear, tc.clear) {
+			t.Errorf("%s: blitParts = %v, %v; want %v, %v", tc.name, from, clear, tc.from, tc.clear)
+		}
+		// The parts tile r exactly.
+		area := 0
+		for _, p := range append(from, clear...) {
+			area += p.Dx() * p.Dy()
+			if !p.In(tc.r) {
+				t.Errorf("%s: part %v outside %v", tc.name, p, tc.r)
+			}
+		}
+		if area != tc.r.Dx()*tc.r.Dy() {
+			t.Errorf("%s: the parts cover %d pixels, want %d", tc.name, area, tc.r.Dx()*tc.r.Dy())
 		}
 	}
 }
@@ -244,6 +363,16 @@ func TestClientHitOverlay(t *testing.T) {
 		in.pt = image.Pt(tc.x, tc.y)
 		if got := clientHit(in); got != tc.want {
 			t.Errorf("maximized: clientHit(%d,%d) = %d, want %d", tc.x, tc.y, got, tc.want)
+		}
+	}
+
+	// Maximized, the hidden band above the app's area (negative y, from a
+	// monitor above) is the title bar's.
+	in = hitInput{client: image.Pt(400, 300), scale: 1, regions: overlayBar, topOnly: true, controls: controls}
+	for _, p := range []image.Point{{200, -1}, {200, -8}, {300, -4}} {
+		in.pt = p
+		if got := clientHit(in); got != htCaption {
+			t.Errorf("hidden band: clientHit(%v) = %d, want %d", p, got, htCaption)
 		}
 	}
 

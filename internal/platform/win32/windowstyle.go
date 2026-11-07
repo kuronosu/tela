@@ -91,16 +91,15 @@ func (w *Window) initStyle() {
 
 // SetTitleBarColors sets the colors of the native title bar and border
 // (Windows 11); see platform.Window. Over a TitleBarOverlay window the
-// background also picks the glyph color of DWM's buttons (captionDark).
+// background is the color behind DWM's buttons and picks their glyphs
+// (captionBackground); without one, the bar's sampled color is again.
 func (w *Window) SetTitleBarColors(colors platform.TitleBarColors) {
 	if w.Closed() || colors == w.titleBar {
 		return
 	}
 	w.titleBar = colors
 	w.applyTitleBar()
-	if w.overlay {
-		w.applyTheme(w.b.settings.DarkMode)
-	}
+	w.syncOverlay()
 }
 
 // SetBackdrop sets the system backdrop (Windows 11 22H2); see
@@ -122,13 +121,22 @@ func (w *Window) PresentsAlpha() bool { return w.glass }
 
 // applyTitleBar sets the three colors. Nothing is touched for a window that
 // never had any, and a color that is the system's again is set to
-// DWMWA_COLOR_DEFAULT.
+// DWMWA_COLOR_DEFAULT. The caption color of a TitleBarOverlay window is
+// always set, from captionBackground (applyCaption).
 func (w *Window) applyTitleBar() {
-	if windowsBuild() < buildColors || (w.titleBar.IsZero() && !w.titleBarSet) {
+	if windowsBuild() < buildColors {
+		return
+	}
+	if w.overlay {
+		w.applyCaption()
+	}
+	if w.titleBar.IsZero() && !w.titleBarSet {
 		return
 	}
 	w.titleBarSet = true
-	w.setDwmUint(dwmwaCaptionColor, colorRef(w.titleBar.Background))
+	if !w.overlay {
+		w.setDwmUint(dwmwaCaptionColor, colorRef(w.titleBar.Background))
+	}
 	w.setDwmUint(dwmwaTextColor, colorRef(w.titleBar.Text))
 	w.setDwmUint(dwmwaBorderColor, colorRef(w.titleBar.Border))
 }
@@ -152,11 +160,17 @@ func (w *Window) applyBackdrop() {
 // on: DWM forgets the margins when the composition changes.
 func (w *Window) setGlass(on bool) {
 	w.extendFrame(on)
+	glass := w.glass
 	w.glass = on
 	if w.dib.setAlpha(on) {
 		// The retained pixels have the other alpha: the next Present
 		// draws everything (core renders the whole window again too).
 		w.RequestFull()
+	}
+	if w.overlay && glass != on {
+		// The material replaces the hole and the sampled caption color.
+		w.applyCaption()
+		w.syncOverlay()
 	}
 }
 
@@ -189,6 +203,7 @@ func (w *Window) restyle() {
 	if !w.titleBarSet && !w.backdropSet && !w.glass && !w.overlay {
 		return // a window that never asked is left alone
 	}
+	w.capKnown = false // set the caption color again
 	w.applyTitleBar()
 	w.applyBackdrop()
 	if w.overlay {

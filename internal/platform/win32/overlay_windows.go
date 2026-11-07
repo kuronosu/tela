@@ -70,7 +70,7 @@ func (w *Window) overlayHitTest(lparam uintptr) (uintptr, bool) {
 	return code, ok && code != 0
 }
 
-// osButtonAt reports whether a point in physical client coordinates is over
+// osButtonAt reports whether a point in the app's physical pixels is over
 // the OS's caption buttons of a TitleBarOverlay window: what is there is
 // the OS's, not the app's (no pointer events, the system's cursor).
 func (w *Window) osButtonAt(x, y int) bool {
@@ -94,18 +94,103 @@ func (w *Window) overlayControls(iconic bool) platform.Rect {
 		w.controls, w.ctlPx = w.readControls()
 	}
 	w.recheck = recheckFrames
+	w.syncOverlay()
 	return w.controls
 }
 
 // readControls reads DWMWA_CAPTION_BUTTON_BOUNDS and converts it to the
-// client area (controlsRect). Both are empty when DWM does not answer.
+// app's coordinates (controlsRect: the client area below the hidden band
+// of a maximized window, so only the visible part of the buttons is
+// reported). Both are empty when DWM does not answer.
 func (w *Window) readControls() (platform.Rect, image.Rectangle) {
 	var b rect
 	if hr, _, _ := procDwmGetWindowAttribute.Call(w.hwnd, dwmwaCaptionButtonBounds, uintptr(unsafe.Pointer(&b)), unsafe.Sizeof(b)); hr != 0 {
 		return platform.Rect{}, image.Rectangle{}
 	}
-	off := clientOrigin(w.hwnd).Sub(getWindowRect(w.hwnd).image().Min)
+	off := clientOrigin(w.hwnd).Sub(getWindowRect(w.hwnd).image().Min).Add(image.Pt(0, w.top))
 	return controlsRect(b.image(), off, w.client, w.scale())
+}
+
+// hiddenBand returns the hidden band of a maximized TitleBarOverlay window
+// whose client area is height pixels tall (overlayInset), zero for every
+// other window and state.
+func (w *Window) hiddenBand(height int) int {
+	if !w.overlay || w.fs != nil || !isZoomed(w.hwnd) {
+		return 0
+	}
+	work := monitorInfoOf(monitorFromWindow(w.hwnd)).work.image()
+	return overlayInset(clientOrigin(w.hwnd).Y, height, work)
+}
+
+// holeRect returns the rectangle of the client area presented transparent
+// so that DWM's buttons show (blitParts): the buttons' rectangle below the
+// hidden band. A window with a client-area backdrop keeps the alpha the app
+// renders instead (no hole), and a fullscreen window has no buttons.
+func (w *Window) holeRect() image.Rectangle {
+	if !w.overlay || w.glass || w.fs != nil {
+		return image.Rectangle{}
+	}
+	return w.ctlPx.Add(image.Pt(0, w.top))
+}
+
+// syncOverlay brings what a TitleBarOverlay window shows of DWM's buttons in
+// line with their rectangle, the hidden band, the backdrop and the
+// retained pixels: the hole (a moved hole repaints the window from the
+// copy, which keeps the app's pixels under it) and the caption color
+// sampled from the app's bar (sampleCaption). Called at every Present and
+// state report; it calls DWM only when something changed.
+func (w *Window) syncOverlay() {
+	if !w.overlay {
+		return
+	}
+	if h := w.holeRect(); h != w.hole {
+		w.hole = h
+		w.repaint(false)
+	}
+	w.sampleCaption()
+}
+
+// sampleCaption reads the color of the app's title bar beside DWM's buttons
+// from the retained pixels (captionSample) and makes it the caption color
+// when it changed. Not when the app gave its title bar background (that is
+// the caption color), under a client-area backdrop (whose bar is the
+// material) or in fullscreen.
+func (w *Window) sampleCaption() {
+	if w.titleBar.Background.Set || w.glass || w.fs != nil {
+		return
+	}
+	c, ok := captionSample(w.dib.pix, w.dib.stride(), w.dib.size, w.ctlPx, w.scale())
+	if !ok || c == w.sampled {
+		return
+	}
+	w.sampled = c
+	w.applyCaption()
+}
+
+// captionBackground returns the color DWM paints behind the buttons of a
+// TitleBarOverlay window (DWMWA_CAPTION_COLOR), which also picks their
+// glyphs (captionDark): the app's title bar background when it gave one,
+// else the color sampled from its bar, else (nothing sampled yet, or a
+// client-area backdrop) the system's.
+func (w *Window) captionBackground() platform.WindowColor {
+	switch {
+	case w.titleBar.Background.Set:
+		return w.titleBar.Background
+	case w.glass:
+		return platform.WindowColor{}
+	}
+	return w.sampled
+}
+
+// applyCaption sets DWMWA_CAPTION_COLOR to captionBackground and the
+// glyphs that go with it, unless that color is already set.
+func (w *Window) applyCaption() {
+	ref := colorRef(w.captionBackground())
+	if w.capKnown && w.capRef == ref {
+		return
+	}
+	w.capKnown, w.capRef = w.setDwmUint(dwmwaCaptionColor, ref), ref
+	w.applyTheme(w.b.settings.DarkMode)
 }
 
 // recheckFrames is how many Presents after a reported state read the
@@ -138,16 +223,19 @@ func (w *Window) recheckControls() {
 // overlayMargins returns the frame extended into the client area of a
 // TitleBarOverlay window without a client-area backdrop: the height of the
 // caption a decorated window has at the current DPI (the top of
-// AdjustWindowRectExForDpi without a menu bar), so DWM draws its buttons
-// whole, maximized or not, and nothing else. The pixels there stay the app's
-// (the retained copy is opaque).
+// AdjustWindowRectExForDpi without a menu bar) and the resize frame once
+// more, for the hidden band of a maximized window, so DWM draws its buttons
+// whole, maximized or not. DWM paints the caption color over all of it,
+// under the client pixels: only the transparent hole over the buttons
+// shows it (blitParts).
 func (w *Window) overlayMargins() margins {
 	style, exStyle := w.style, w.exStyle
 	if w.fs != nil {
 		style, exStyle = w.fs.style, w.fs.exStyle
 	}
-	top := -adjustWindowRectMenu(rect{}, style, exStyle, w.dpi, false).top
-	return margins{top: max(top, 1)}
+	top := -int(adjustWindowRectMenu(rect{}, style, exStyle, w.dpi, false).top)
+	top += systemMetric(smCxSizeFrame, w.dpi) + systemMetric(smCxPaddedBorder, w.dpi)
+	return margins{top: int32(max(top, 1))}
 }
 
 // overlayDPIChanged extends the frame again for the new DPI's caption height

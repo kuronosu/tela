@@ -628,7 +628,7 @@ func (w *Window) onNCHitTest(lparam uintptr) uintptr {
 	if def != htClient || (len(w.regions) == 0 && !w.opts.Frameless) {
 		return def
 	}
-	x, y := w.screenPointToClient(lparam)
+	x, y := w.screenPointToApp(lparam)
 	return clientHit(hitInput{
 		pt:         image.Pt(x, y),
 		client:     w.client,
@@ -641,15 +641,14 @@ func (w *Window) onNCHitTest(lparam uintptr) uintptr {
 	})
 }
 
-// screenPointToClient converts the screen position of a non-client mouse
-// message or WM_NCHITTEST to client coordinates.
-func (w *Window) screenPointToClient(lparam uintptr) (x, y int) {
-	sx, sy := pointFromLParam(lparam)
-	return screenToClient(w.hwnd, sx, sy)
+// screenPointToApp converts the screen position of a non-client mouse
+// message or WM_NCHITTEST to the app's coordinates.
+func (w *Window) screenPointToApp(lparam uintptr) (x, y int) {
+	return w.screenToApp(pointFromLParam(lparam))
 }
 
-// inClient reports whether a point in client coordinates lies in the
-// client area.
+// inClient reports whether a point in the app's coordinates lies in the
+// app's area (the client area without a hidden band).
 func (w *Window) inClient(x, y int) bool {
 	return x >= 0 && y >= 0 && x < w.client.X && y < w.client.Y
 }
@@ -660,7 +659,7 @@ func (w *Window) inClient(x, y int) bool {
 // of the non-client area; over the OS's frame (a resize band, the title
 // bar of a decorated window) the pointer has left the app's content.
 func (w *Window) onNCMouseMove(wparam, lparam uintptr) {
-	x, y := w.screenPointToClient(lparam)
+	x, y := w.screenPointToApp(lparam)
 	w.mods = w.modifiers()
 	if !isAppHit(wparam) || !w.inClient(x, y) || w.osButtonAt(x, y) {
 		if w.ptr.inside {
@@ -684,7 +683,7 @@ func (w *Window) onNCButton(msg uint32, wparam, lparam uintptr) bool {
 	if !ok || !isAppButton(hit) {
 		return false
 	}
-	x, y := w.screenPointToClient(lparam)
+	x, y := w.screenPointToApp(lparam)
 	if !w.inClient(x, y) || w.osButtonAt(x, y) {
 		return false // the OS's frame, or DWM's buttons for DefWindowProc
 	}
@@ -710,7 +709,7 @@ func (w *Window) pointerOverApp() bool {
 	if !isAppHit(w.onNCHitTest(lp)) {
 		return false
 	}
-	x, y := screenToClient(w.hwnd, int(p.x), int(p.y))
+	x, y := w.screenToApp(int(p.x), int(p.y))
 	return w.inClient(x, y) && !w.osButtonAt(x, y)
 }
 
@@ -722,7 +721,7 @@ func (w *Window) cursorOverAppRegion() bool {
 	if r, _, _ := procGetCursorPos.Call(uintptr(unsafe.Pointer(&p))); r == 0 {
 		return false
 	}
-	x, y := screenToClient(w.hwnd, int(p.x), int(p.y))
+	x, y := w.screenToApp(int(p.x), int(p.y))
 	return w.inClient(x, y) && !w.osButtonAt(x, y)
 }
 

@@ -3,6 +3,7 @@
 package win32
 
 import (
+	"image"
 	"unsafe"
 
 	"github.com/kuronosu/tela/internal/platform"
@@ -23,9 +24,36 @@ func (w *Window) pointerEvent(pe platform.PointerEvent) {
 
 func (w *Window) scale() float64 { return scaleFromDPI(w.dpi) }
 
+// The app's coordinates are the client area's, except in a maximized
+// TitleBarOverlay window, whose client area keeps a hidden band of w.top
+// rows above the work area (overlayInset): the app's content, size and
+// positions start below it. Every position the window reports goes through
+// clientToApp or screenToApp, and every position it gives Windows through
+// appToScreen.
+
+// clientToApp converts client coordinates to the app's (physical pixels).
+func (w *Window) clientToApp(x, y int) (int, int) { return x, y - w.top }
+
+// screenToApp converts screen coordinates to the app's (physical pixels).
+func (w *Window) screenToApp(sx, sy int) (int, int) {
+	return w.clientToApp(screenToClient(w.hwnd, sx, sy))
+}
+
+// appToScreen converts the app's coordinates (physical pixels) to screen
+// coordinates.
+func (w *Window) appToScreen(p image.Point) point {
+	return clientToScreen(w.hwnd, p.Add(image.Pt(0, w.top)))
+}
+
 func (w *Window) onMouseMove(lparam uintptr) {
-	x, y := pointFromLParam(lparam)
+	x, y := w.clientToApp(pointFromLParam(lparam))
 	w.mods = w.modifiers()
+	if y < 0 && w.ptr.held == 0 {
+		// Over the hidden band (a monitor above a maximized window): not
+		// the app's content.
+		w.ptr.leaveMessage(w.emitFn)
+		return
+	}
 	if w.ptr.move(logicalPoint(x, y, w.scale()), w.inClient(x, y), w.emitFn) {
 		// Only inside: arming the leave while the pointer is outside (a
 		// captured drag) would make Windows send it at once.
@@ -70,11 +98,11 @@ func (w *Window) onButton(msg uint32, wparam, lparam uintptr) {
 	if !ok {
 		return
 	}
-	x, y := pointFromLParam(lparam)
+	x, y := w.clientToApp(pointFromLParam(lparam))
 	w.button(btn, down, x, y)
 }
 
-// button handles a press or release at client position x, y (physical
+// button handles a press or release at the app's position x, y (physical
 // pixels), from a client mouse message or a non-client one over the app's
 // window buttons.
 func (w *Window) button(btn platform.PointerButton, down bool, x, y int) {
@@ -112,8 +140,7 @@ func (w *Window) onWheel(msg uint32, wparam, lparam uintptr) {
 	if !ok {
 		return
 	}
-	sx, sy := pointFromLParam(lparam)
-	x, y := screenToClient(w.hwnd, sx, sy)
+	x, y := w.screenToApp(pointFromLParam(lparam))
 	w.b.enqueue(w, platform.ScrollEvent{
 		Kind:  platform.PointerMouse,
 		Pos:   logicalPoint(x, y, w.scale()),

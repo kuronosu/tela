@@ -27,10 +27,13 @@ const wmGetIcon = 0x007F
 // non-client mouse messages and WM_NCHITTEST.
 func screenLParam(p image.Point) uintptr { return mouseLParam(p.X, p.Y) }
 
-// screenAt returns the screen position of a logical client point of w.
+// screenAt returns the screen position of a logical point of w's content
+// (the app's coordinates: below the hidden band of a maximized
+// TitleBarOverlay window).
 func screenAt(w *Window, x, y float64) image.Point {
 	s := w.scale()
-	return clientOrigin(w.hwnd).Add(image.Pt(int(x*s), int(y*s)))
+	p := w.appToScreen(image.Pt(int(x*s), int(y*s)))
+	return image.Pt(int(p.x), int(p.y))
 }
 
 // TestFramelessHitTest: a frameless window's whole window is client area,

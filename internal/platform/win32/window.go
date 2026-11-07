@@ -79,12 +79,24 @@ type Window struct {
 	// TitleBarOverlay (overlay.go, overlay_windows.go): opts.Frameless is
 	// true too, and overlay keeps DWM's caption buttons over the client
 	// area. controls is the reported WindowState.TitleBarControls, ctlPx
-	// the same in physical client pixels, recheck the Presents left that
-	// read it again.
+	// the same in the app's physical pixels, recheck the Presents left that
+	// read it again. top is the hidden band of a maximized window: the
+	// client rows above the work area, which the app does not see (its
+	// coordinates and size start below them; zero for every other
+	// window). hole is the rectangle presented transparent for DWM's
+	// buttons (client pixels), zeros the zero bytes blitted there.
+	// sampled is the color of the app's bar beside the buttons, capRef the
+	// DWMWA_CAPTION_COLOR last set (capKnown: one was).
 	overlay  bool
 	controls platform.Rect
 	ctlPx    image.Rectangle
 	recheck  int
+	top      int
+	hole     image.Rectangle
+	zeros    []byte
+	sampled  platform.WindowColor
+	capRef   uint32
+	capKnown bool
 
 	// Drag and drop and the menu bar (phase 13: dnd_windows.go,
 	// menu_windows.go).
@@ -180,11 +192,24 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 // osMetrics reads the client size and returns the window metrics at the
 // current DPI. A minimized window has an empty client area, which the
 // platform contract takes as "not visible".
+//
+// The size is the app's: without the hidden band of a maximized
+// TitleBarOverlay window (w.top, overlayInset), whose content starts below
+// it.
 func (w *Window) osMetrics() platform.Metrics {
-	w.client = image.Point{}
+	top := w.top
+	w.client, w.top = image.Point{}, 0
 	if !isIconic(w.hwnd) {
 		r := getClientRect(w.hwnd)
-		w.client = image.Pt(int(r.width()), int(r.height()))
+		size := image.Pt(int(r.width()), int(r.height()))
+		w.top = w.hiddenBand(size.Y)
+		w.client = size.Sub(image.Pt(0, w.top))
+	}
+	if w.top != top {
+		// The app's pixels and caret moved inside the client area.
+		w.RequestFull()
+		w.ime.dirty = true
+		w.repaint(false)
 	}
 	return metricsFor(w.client, w.dpi)
 }

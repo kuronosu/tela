@@ -242,7 +242,9 @@ func (w *Window) placeIMEWindows(force bool) {
 	if im.state == nil || im.state.CursorArea == (platform.Rect{}) || !im.attached {
 		return
 	}
-	r := imeCaretRect(im.state.CursorArea, scaleFromDPI(w.dpi))
+	// The forms take client coordinates: below the hidden band of a
+	// maximized TitleBarOverlay window.
+	r := imeCaretRect(im.state.CursorArea, scaleFromDPI(w.dpi)).Add(image.Pt(0, w.top))
 	lang := imeLang()
 	if !force && im.placed && r == im.placedRect && lang == im.placedLang {
 		return
@@ -410,11 +412,9 @@ func (w *Window) imeRequest(wparam, lparam uintptr) (uintptr, bool) {
 			return 0, true
 		}
 		r := imeCaretRect(im.state.CursorArea, scaleFromDPI(w.dpi))
-		p.pt = clientToScreen(w.hwnd, r.Min)
+		p.pt = w.appToScreen(r.Min)
 		p.lineHeight = uint32(r.Dy())
-		c := getClientRect(w.hwnd)
-		tl := clientToScreen(w.hwnd, image.Pt(int(c.left), int(c.top)))
-		br := clientToScreen(w.hwnd, image.Pt(int(c.right), int(c.bottom)))
+		tl, br := w.appToScreen(image.Point{}), w.appToScreen(w.client)
 		p.document = rect{tl.x, tl.y, br.x, br.y}
 		return 1, true
 

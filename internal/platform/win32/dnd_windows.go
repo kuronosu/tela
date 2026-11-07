@@ -254,7 +254,7 @@ func putEffect(p uintptr, e platform.DropEffect) {
 // dragPos converts a drag position (screen pixels) to the content's
 // logical pixels.
 func (w *Window) dragPos(pt point) platform.Point {
-	x, y := screenToClient(w.hwnd, int(pt.x), int(pt.y))
+	x, y := w.screenToApp(int(pt.x), int(pt.y))
 	return logicalPoint(x, y, w.scale())
 }
 

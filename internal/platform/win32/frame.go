@@ -92,8 +92,8 @@ func isAppButton(code uintptr) bool {
 // hitInput is what clientHit needs to answer WM_NCHITTEST for a point of the
 // client area.
 type hitInput struct {
-	pt     image.Point // physical client pixels
-	client image.Point // physical client size
+	pt     image.Point // the app's physical pixels (Window.screenToApp)
+	client image.Point // the app's physical size
 	scale  float64
 	// border is the width of the resize band in physical pixels, or 0 when
 	// the window has none (decorated, FixedSize, maximized, fullscreen).
@@ -103,8 +103,8 @@ type hitInput struct {
 	// topOnly: the band is only along the top, the other edges being the
 	// OS's frame outside the client area (a TitleBarOverlay window).
 	topOnly bool
-	// controls is the rectangle of the OS's caption buttons in physical
-	// client pixels (a TitleBarOverlay window), empty otherwise. A point
+	// controls is the rectangle of the OS's caption buttons in the app's
+	// physical pixels (a TitleBarOverlay window), empty otherwise. A point
 	// there that DWM did not claim as one of its buttons is caption.
 	controls image.Rectangle
 }
@@ -119,6 +119,12 @@ type hitInput struct {
 // the band's width, and the side band outside the client area adds the
 // rest.
 func clientHit(in hitInput) uintptr {
+	if in.pt.Y < 0 {
+		// The hidden band of a maximized TitleBarOverlay window, above
+		// the app's area (overlayInset; reachable from a monitor above):
+		// part of its title bar.
+		return hitCodeOf(platform.HitCaption, in.fullscreen)
+	}
 	inControls := in.pt.In(in.controls)
 	// A window button of the app takes the band, like the caption buttons
 	// of a native frame, which leave only the outermost pixel of the window

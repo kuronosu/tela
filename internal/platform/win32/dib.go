@@ -131,3 +131,49 @@ func (d *dib) region(r image.Rectangle) (clipped image.Rectangle, bits []byte, h
 
 // bitmapInfoHeaderSize is sizeof(BITMAPINFOHEADER).
 const bitmapInfoHeaderSize = 40
+
+// blitParts splits the rectangle r of a window's client area (client
+// pixels) into the parts blitted from the retained copy (from) and the
+// parts blitted fully transparent (clear: B, G, R and alpha 0). The app's
+// pixels start top rows down the client area: the hidden band above the
+// work area of a maximized TitleBarOverlay window (overlayInset), which is
+// clear; hole is the rectangle of DWM's caption buttons over a
+// TitleBarOverlay window (client pixels, below the band), clear too: DWM
+// draws its buttons in the extended frame under the client pixels, so they
+// show only where those are transparent. Every other window has neither,
+// and from is r alone.
+//
+// The retained copy keeps the app's pixels under the hole, so moving the
+// hole only needs a repaint. The clear pixels are zero in all four bytes:
+// DWM composes the client pixels of an extended frame as premultiplied, so
+// a color with zero alpha would be added to the buttons.
+func blitParts(r image.Rectangle, top int, hole image.Rectangle) (from, clear []image.Rectangle) {
+	if r.Empty() {
+		return nil, nil
+	}
+	if r.Min.Y < top {
+		band := r
+		band.Max.Y = min(r.Max.Y, top)
+		clear = append(clear, band)
+		r.Min.Y = band.Max.Y
+		if r.Empty() {
+			return nil, clear
+		}
+	}
+	h := r.Intersect(hole)
+	if h.Empty() {
+		return append(from, r), clear
+	}
+	clear = append(clear, h)
+	for _, p := range [...]image.Rectangle{
+		{Min: r.Min, Max: image.Pt(r.Max.X, h.Min.Y)},                      // above
+		{Min: image.Pt(r.Min.X, h.Max.Y), Max: r.Max},                      // below
+		{Min: image.Pt(r.Min.X, h.Min.Y), Max: image.Pt(h.Min.X, h.Max.Y)}, // left
+		{Min: image.Pt(h.Max.X, h.Min.Y), Max: image.Pt(r.Max.X, h.Max.Y)}, // right
+	} {
+		if !p.Empty() {
+			from = append(from, p)
+		}
+	}
+	return from, clear
+}

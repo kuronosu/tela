@@ -458,7 +458,12 @@
 // Win32 keeps DWM's caption buttons at the top right on Windows 11
 // (ADR-236): the caption is client area, the side and bottom frame stay,
 // and TitleBarControls is the buttons' rectangle (empty in fullscreen); it
-// has no menu bar, as a frameless window. Wayland, X11 and Win32 on Windows
+// has no menu bar, as a frameless window. DWM paints the buttons'
+// background with TitleBarColors.Background when the app sets it, else
+// with the color the app's bar has just left of them (sampled from the
+// presented frame), and picks their glyphs for it. A maximized window
+// reports the visible work area as its size and positions as everywhere
+// else (the backend hides the rows it keeps above the monitor for DWM). Wayland, X11 and Win32 on Windows
 // 10 cannot keep their buttons over the content, so they treat
 // TitleBarOverlay as Frameless ([WindowOptions.OverlayAsFrameless]):
 // TitleBarControls stays empty, and the app draws its own buttons as in
