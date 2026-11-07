@@ -211,17 +211,16 @@ func (b *Backend) releaseCtl() {
 }
 
 // osState is the window's state as the compositor configured it last.
-// Minimized is the xdg_toplevel suspended state (xdg-shell 6), which
+// Suspended is the xdg_toplevel suspended state (xdg-shell 6), which
 // compositors set for minimized windows and also for windows on a hidden
-// workspace, occluded ones and while the screen is locked: what the
-// contract's Minimized gates (no frames) holds for all of them (ADR-233).
-// Without it (an older xdg-shell) it stays false. The position cannot be
-// known.
+// workspace, occluded ones and while the screen is locked (ADR-233);
+// without it (an older xdg-shell) it stays false. Wayland cannot report
+// Minimized, nor the position.
 func (w *Window) osState() platform.WindowState {
 	return platform.WindowState{
 		Maximized:             w.states.maximized,
 		Fullscreen:            w.states.fullscreen,
-		Minimized:             w.suspended(),
+		Suspended:             w.suspended(),
 		ClientSideDecorations: w.csd(),
 	}
 }
@@ -305,7 +304,7 @@ func (w *Window) mapRetained() {
 
 // Minimize asks the compositor to minimize the window
 // (xdg_toplevel.set_minimized). Wayland has no minimized state, nor can a
-// client undo it: State().Minimized follows the suspended state the
+// client undo it: State().Suspended follows the suspended state the
 // compositor sets for a minimized window (xdg-shell 6; else it stays
 // false), and Activate brings the window back.
 func (w *Window) Minimize() {

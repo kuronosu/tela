@@ -171,7 +171,7 @@ func TestSuspendedWindowPausesFrames(t *testing.T) {
 	}
 	h.ui(func() { w.RequestFrame() })
 	h.configure(300, 200, 2, protocols.XdgToplevelStateSuspended)
-	expectState(t, h, platform.WindowState{Minimized: true})
+	expectState(t, h, platform.WindowState{Suspended: true})
 	// The late callback and new requests deliver no frame, and no
 	// callback is asked for.
 	h.fc.send(frame.u(0), 0, uint32(1))
@@ -197,7 +197,7 @@ func TestSuspendedBeforeMapping(t *testing.T) {
 	if _, i := find(h.fc.until("wl_surface.commit"), "wl_surface.attach"); i < 0 {
 		t.Error("the first frame did not map the window")
 	}
-	expectState(t, h, platform.WindowState{Minimized: true})
+	expectState(t, h, platform.WindowState{Suspended: true})
 	h.ui(func() { w.RequestFrame() })
 	h.noEvent(60 * time.Millisecond)
 	h.configure(300, 200, 2)
@@ -210,7 +210,7 @@ func TestSuspendedBeforeMapping(t *testing.T) {
 func TestSuspendedThenShown(t *testing.T) {
 	h, w, _ := mappedCtl(t, standardGlobals(1), platform.WindowOptions{})
 	h.configure(300, 200, 2, protocols.XdgToplevelStateSuspended)
-	expectState(t, h, platform.WindowState{Minimized: true})
+	expectState(t, h, platform.WindowState{Suspended: true})
 	h.ui(func() {
 		w.SetVisible(false)
 		w.SetVisible(true)

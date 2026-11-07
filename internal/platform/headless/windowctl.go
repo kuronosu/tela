@@ -133,7 +133,7 @@ func (w *Window) setOSState(st platform.WindowState) {
 		w.os.Size = size
 		b.loop.Enqueue(w, platform.ConfigureEvent{Metrics: w.os})
 	}
-	w.WindowState.SetHidden(!c.visible || st.Minimized)
+	w.WindowState.SetHidden(!c.visible || st.Minimized || st.Suspended)
 	if minimizing && w.focused {
 		w.queueFocus(false)
 	}
@@ -150,6 +150,14 @@ func (w *Window) changeState(change func(*platform.WindowState)) {
 }
 
 // --- platform.Window: window control ---
+
+// Suspend plays the Wayland compositor's suspended state (xdg-shell 6: a
+// hidden workspace, a locked screen; ADR-233): State().Suspended follows
+// on, and frames pause while it holds, without minimizing the window.
+// For tests.
+func (w *Window) Suspend(on bool) {
+	w.changeState(func(s *platform.WindowState) { s.Suspended = on })
+}
 
 // Minimize minimizes the window: frames pause and the focus is lost.
 func (w *Window) Minimize() { w.changeState(func(s *platform.WindowState) { s.Minimized = true }) }

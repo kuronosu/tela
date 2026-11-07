@@ -424,6 +424,7 @@ func (e *enc) event(ev platform.Event) {
 		e.boolean(st.Maximized)
 		e.boolean(st.Fullscreen)
 		e.boolean(st.Minimized)
+		e.boolean(st.Suspended)
 		e.boolean(st.ClientSideDecorations)
 		e.boolean(st.HasPosition)
 		e.i64(int64(st.Position.X))
@@ -543,6 +544,7 @@ func (d *dec) event() platform.Event {
 			Maximized:             d.boolean(),
 			Fullscreen:            d.boolean(),
 			Minimized:             d.boolean(),
+			Suspended:             d.boolean(),
 			ClientSideDecorations: d.boolean(),
 			HasPosition:           d.boolean(),
 			Position:              image.Point{X: int(d.i64()), Y: int(d.i64())},

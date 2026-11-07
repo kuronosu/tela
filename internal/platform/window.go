@@ -24,6 +24,14 @@ type WindowState struct {
 	// _NET_WM_STATE_HIDDEN) and Cocoa; Wayland has no way to know, so it
 	// stays false there.
 	Minimized bool
+	// Suspended: the OS shows nothing of the window and sends it no frame
+	// callbacks, though it may not be minimized: the xdg_toplevel
+	// suspended state of xdg-shell 6 on Wayland (minimized, on a hidden
+	// workspace, occluded, the screen locked; ADR-233). The layers above
+	// pause the window's frames as for Minimized and commit its work
+	// without them (ADR-185); apps do not see it. False on the other
+	// backends, whose Minimized covers it.
+	Suspended bool
 	// ClientSideDecorations: the OS draws no title bar or borders for the
 	// window, so the app draws its own title bar and declares it with
 	// Window.SetHitRegions. Always true for WindowOptions.Frameless and
@@ -70,6 +78,9 @@ func (s WindowState) String() string {
 	}
 	if s.Minimized {
 		add("minimized")
+	}
+	if s.Suspended {
+		add("suspended")
 	}
 	if s.ClientSideDecorations {
 		add("csd")

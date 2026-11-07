@@ -639,7 +639,7 @@ func (h *Host) frame(v *winView, now time.Duration) {
 // until they are shown; their builds and effects do not, see PausedWork).
 func (h *Host) NeedsFrame() bool {
 	for _, v := range h.views {
-		if v.configured && !v.hidden && !v.os.Minimized {
+		if v.configured && !v.hidden && !v.os.Minimized && !v.os.Suspended {
 			return true
 		}
 	}

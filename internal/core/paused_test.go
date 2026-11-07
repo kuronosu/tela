@@ -138,6 +138,36 @@ func TestMinimizedWindowCommits(t *testing.T) {
 	expectFullRender(t, main, x.h.Tree())
 }
 
+// A suspended window (Wayland's xdg-shell 6 state: a hidden workspace, a
+// locked screen) commits like a minimized one, without appearing
+// minimized to the app; when the state clears it presents the current
+// state.
+func TestSuspendedWindowCommits(t *testing.T) {
+	var c counterApp
+	x := newWinHarness(t, Options{Window: WindowSpec{Title: "Main"}, Root: c.root()})
+	main := x.windows()[0]
+	main.Suspend(true)
+	x.drain()
+	if !main.OSState().Suspended || c.w.State().Minimized {
+		t.Fatalf("suspended: OS state %v, app's Minimized %v", main.OSState(), c.w.State().Minimized)
+	}
+	presents := main.Presents()
+	c.setN.Set(1)
+	x.drain()
+	if s := x.snapshot(main); !strings.Contains(s, "n=1") || !slices.Equal(c.effects, []int{0, 1}) {
+		t.Errorf("a suspended window: snapshot %q, effects %v", s, c.effects)
+	}
+	if main.Presents() != presents {
+		t.Errorf("a suspended window presented (%d presents, want %d)", main.Presents(), presents)
+	}
+	main.Suspend(false)
+	x.drain()
+	if main.Presents() == presents {
+		t.Fatal("no present after the suspended state cleared")
+	}
+	expectFullRender(t, main, x.h.Tree())
+}
+
 // A window whose parent is minimized counts as one without frames
 // (Windows hides owned windows with their owner).
 func TestChildOfMinimizedWindowIsPaused(t *testing.T) {

@@ -42,7 +42,10 @@ import "time"
 // A window commits only after its first ConfigureEvent, which every
 // backend delivers at once, hidden windows included: the tree then has
 // the window's size and scale. Wayland cannot report a minimized window:
-// the compositor's frame callbacks decide when its work runs.
+// it reports the xdg-shell 6 suspended state (minimized, a hidden
+// workspace, a locked screen; platform.WindowState.Suspended), which
+// pauses the window the same way; without it the compositor's frame
+// callbacks decide when its work runs.
 
 // pausedInterval is the pace of the commits of a window without frames:
 // the backends' default refresh interval.
@@ -54,13 +57,13 @@ const pausedInterval = time.Second / 60
 const maxPausedCommits = 64
 
 // paused reports whether window v gets no frames: the app hid it, or it
-// or a window it belongs to is minimized.
+// or a window it belongs to is minimized or suspended (Wayland).
 func (v *winView) paused() bool {
 	if v.hidden {
 		return true
 	}
 	for w := v; w != nil; w = w.parent {
-		if w.os.Minimized {
+		if w.os.Minimized || w.os.Suspended {
 			return true
 		}
 	}

@@ -92,7 +92,7 @@
 // While the compositor's configure says so, the window's frames pause like
 // a hidden window's (internal/loop SetHidden; an outstanding callback is
 // not waited for, and is ignored if it fires late), and its state reports
-// Minimized, so core commits its work without frames (ADR-185, ADR-233).
+// Suspended, so core commits its work without frames (ADR-185, ADR-233).
 // The configure that clears the state resumes them: a frame requested
 // meanwhile is due at once and, the tree having committed without
 // rasterizing, renders in full. Without the state (xdg_wm_base older than
@@ -236,7 +236,7 @@
 // configure) sends nothing.
 //
 //   - Minimize is set_minimized; Wayland cannot report or undo it, but
-//     compositors suspend a minimized window, and State.Minimized follows
+//     compositors suspend a minimized window, and State.Suspended follows
 //     the suspended state (also set on hidden workspaces; see Frame
 //     pacing); Activate brings the window back.
 //     SetAlwaysOnTop and SetPosition do nothing: there is no protocol.

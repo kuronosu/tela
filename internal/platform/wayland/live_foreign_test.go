@@ -67,7 +67,7 @@ func logWorkspace(t *testing.T) {
 
 // TestLiveForeign exports a window and gets activation tokens from the
 // compositor; on a hidden workspace it also reports whether the window is
-// suspended (Minimized) and that frames pause then. No portal is called.
+// suspended (State.Suspended) and that frames pause then. No portal is called.
 func TestLiveForeign(t *testing.T) {
 	b := liveBackend(t)
 	placeLiveWindow(t)
@@ -97,7 +97,7 @@ func TestLiveForeign(t *testing.T) {
 	err = b.Run(platform.HandlerFunc(func(_ platform.Window, e platform.Event) {
 		switch e := e.(type) {
 		case platform.WindowStateEvent:
-			if e.State.Minimized && !minimized {
+			if e.State.Suspended && !minimized {
 				t.Logf("suspended: WindowStateEvent %v", e.State)
 				minimized = true
 				w.RequestFrame()
