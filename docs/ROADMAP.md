@@ -244,7 +244,7 @@ Not planned; the owner can reopen any of them.
 - Wayland cannot place windows or keep them on top; a Wayland window shown again gets a new session restore token (ADR-186).
 - GNOME's AppIndicator extension applies a tray menu's changes only when the menu opens, so the old label shows for a moment (its design; GTK apps behave the same).
 - xdg-desktop-portal-hyprland assigns no keys to global shortcuts: the user binds `appID:id` in the compositor's config.
-- X11 XIM: no trigger-key (dynamic) event flow, authentication or string conversion; CNS 11643 and Big5 in COMPOUND_TEXT decode as U+FFFD; balloon notifications (Windows before 1809, Wine) keep one notification-area icon each (ADR-231, ADR-235).
+- X11 XIM: no trigger-key (dynamic) event flow, authentication or string conversion; an `XIM_ERROR` with an empty body (xcb-imdkit, IMdkit) during `CREATE_IC` costs the 5 s handshake timeout; CNS 11643 and Big5 in COMPOUND_TEXT decode as U+FFFD; balloon notifications (Windows before 1809, Wine) keep one notification-area icon each (ADR-231, ADR-235).
 - Environment: Omarchy's window rules on Hyprland 0.56 did not keep the restored size of `examples/notes`; `wtype` cannot type into Xwayland windows (Hyprland); the Windows VM's Japanese IME does not compose, so `TestLiveIME` fails there.
 
 ## Website (ADR-206)
