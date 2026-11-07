@@ -335,8 +335,9 @@ type Tree struct {
 	winQ   []*windowSlot
 	wstate *Value[WindowState]
 	// reg counts the mounted elements with custom title bar props
-	// (winregion.go).
-	reg regionState
+	// (winregion.go); chrome is the fallback title bar (chrome.go).
+	reg    regionState
+	chrome chromeState
 	// dnd is the state of drag and drop (dnd.go).
 	dnd dndState
 
@@ -469,7 +470,8 @@ func (t *Tree) Mount(root Node) {
 func (t *Tree) mountLocked(root Node) {
 	t.lockBuild()
 	defer unlockBuild()
-	n := node{&desc{kind: nodeElement, elem: style.KindRoot, classes: t.rootClasses, children: []node{nodeOf(root, "the root is")}}}
+	t.chrome.content = nodeOf(root, "the root is")
+	n := t.rootNode() // with the fallback title bar while it is shown (chrome.go)
 	if t.root == nil {
 		el := &Element{tree: t, kind: elemPrimitive, node: n, mounted: true}
 		el.box = newBox(t, el, style.KindRoot)
@@ -478,6 +480,7 @@ func (t *Tree) mountLocked(root Node) {
 		t.markStyle(el)
 		t.markBoxes(el)
 		t.reconcile(el, n.d.children)
+		t.syncChrome()
 		if devStateEnabled {
 			t.devMounted() // tela dev: fields and focus of the saved state
 		}
@@ -485,6 +488,7 @@ func (t *Tree) mountLocked(root Node) {
 		return
 	}
 	t.update(t.root, n)
+	t.syncChrome()
 	t.syncModal()
 }
 
@@ -497,6 +501,7 @@ func (t *Tree) Unmount() {
 	if t.root != nil {
 		t.lockBuild()
 		t.update(t.root, node{&desc{kind: nodeElement, elem: style.KindRoot, classes: t.rootClasses}})
+		t.resetChrome()
 		unlockBuild()
 		t.syncModal()
 		t.closeDetached() // the windows opened by code close too (desktop.go)
@@ -512,13 +517,14 @@ func (t *Tree) Unmount() {
 func (t *Tree) Viewport() gfx.Size { return t.viewport }
 
 // SetViewport sets the logical size of the window: the root box's size,
-// the vw and vh units and the breakpoint variants.
+// the vw and vh units and the breakpoint variants (those of the content
+// area below the fallback title bar while it is shown, chrome.go).
 func (t *Tree) SetViewport(size gfx.Size) {
 	if size == t.viewport {
 		return
 	}
 	t.viewport = size
-	t.cx.Viewport = size
+	t.cx.Viewport = t.contentSize()
 	t.restyleAll() // perf: only elements whose classes use vw, vh or breakpoints
 }
 
@@ -759,7 +765,7 @@ func (t *Tree) afterFrame() {
 // built once. The queue catches whatever the descent did not reach,
 // shallowest first.
 func (t *Tree) buildPhase() {
-	if len(t.buildQ) == 0 {
+	if len(t.buildQ) == 0 && !t.chrome.check {
 		return
 	}
 	t.buildLocked()
@@ -776,7 +782,7 @@ func (t *Tree) buildLocked() {
 	defer unlockBuild()
 	// The builds may mount, unmount or exit overlays (overlay.go).
 	defer t.syncModal()
-	for len(t.buildQ) > 0 {
+	for len(t.buildQ) > 0 || t.chrome.check {
 		q := t.buildQ
 		t.buildQ = nil
 		if t.root != nil && t.root.dirtyKids {
@@ -787,6 +793,12 @@ func (t *Tree) buildLocked() {
 			if el.mounted && el.needsBuild {
 				t.build(el)
 			}
+		}
+		if len(t.buildQ) == 0 && (t.chrome.check || t.chrome.shown) {
+			// The builds are done: the fallback title bar follows the
+			// drag areas they mounted or unmounted (chrome.go), in this
+			// frame.
+			t.syncChrome()
 		}
 	}
 }

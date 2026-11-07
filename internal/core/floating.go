@@ -138,7 +138,8 @@ type FloatInput struct {
 	// is the window; for one that is not (an absolute element inside a
 	// scroll container) it is the visible part of those containers.
 	Clip Rect
-	// Viewport is the window (Floating UI's rootBoundary, "viewport").
+	// Viewport is the window below the fallback title bar, when it shows
+	// (chrome.go): Floating UI's rootBoundary, "viewport".
 	Viewport Rect
 	// RTL reports a right-to-left floating element (its direction, Dir):
 	// start and end alignments mirror (Floating UI's getRTL).
@@ -480,7 +481,7 @@ func (t *Tree) floatOne(p *painter, bx *Box, relayout bool) (laid bool) {
 		}
 	}
 
-	view := gfx.Rect{X1: t.viewport.W, Y1: t.viewport.H}
+	view := t.contentArea() // below the fallback title bar (chrome.go)
 	in := FloatInput{Viewport: rectOf(view), Scale: t.scale}
 	l := bx.ld.Layout()
 	in.Floating = Size{Width: l.Size.W, Height: l.Size.H}
@@ -668,7 +669,7 @@ func (f *floatState) limitLayout(b *Box, ls *layout.Style) {
 	}
 	// The basis of percentages: the window for a fixed box, the parent's
 	// padding box otherwise (from the last layout).
-	basis := gfx.Size{W: b.tree.viewport.W, H: b.tree.viewport.H}
+	basis := b.tree.contentSize()
 	if (b.cs == nil || b.cs.Position != style.PositionFixed) && b.parent != nil {
 		pl := b.parent.ld.Layout()
 		basis = gfx.Size{W: pl.Size.W - pl.Border.Left - pl.Border.Right, H: pl.Size.H - pl.Border.Top - pl.Border.Bottom}

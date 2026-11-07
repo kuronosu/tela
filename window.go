@@ -47,6 +47,10 @@ import (
 // Placement are read when it opens (give the Window a new key to open it
 // again with others).
 //
+// On a desktop whose compositor draws no title bars (GNOME on Wayland),
+// a framed window gets Tela's fallback title bar unless its content has a
+// title bar of its own; see [App].
+//
 // tela snapshot, tela inspect and tela mcp show the main window only;
 // in tests, telatest's App.Windows and App.Window reach the others. Under
 // tela dev the other windows keep their parent, modality and window
@@ -184,10 +188,12 @@ type WindowHandle = core.WindowHandle
 // cannot report minimized windows), Focused (the active window), Hidden
 // (the app hid it), ClientSideDecorations (the OS draws no title bar:
 // the app draws one, as a frameless or TitleBarOverlay window does, and
-// so on a Wayland desktop without server-side decorations) and
-// TitleBarControls (the [Rect] the OS's window buttons cover in a
-// TitleBarOverlay window, in the window's logical pixels: macOS's traffic
-// lights, which the app's title bar leaves free; the zero Rect elsewhere).
+// so on a Wayland desktop without server-side decorations, such as GNOME;
+// there Tela draws a plain one for a framed window that has none of its
+// own, see [App]) and TitleBarControls (the [Rect] the OS's window buttons
+// cover in a TitleBarOverlay window, in the window's logical pixels:
+// macOS's traffic lights, which the app's title bar leaves free; the zero
+// Rect elsewhere).
 type WindowState = core.WindowState
 
 // WindowPlacement is where a window is: Width and Height (its logical

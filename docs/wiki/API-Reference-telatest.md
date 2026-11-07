@@ -2730,7 +2730,7 @@ fmt.Println("ok")
 func NoServerDecorations() Option
 ```
 
-NoServerDecorations makes the fake window manager draw no title bars, as GNOME on Wayland does: every window, framed or not, reports ClientSideDecorations, so a test can check that the app draws its own bar (kit.TitleBar) there.
+NoServerDecorations makes the fake window manager draw no title bars, as GNOME on Wayland does: every window, framed or not, reports ClientSideDecorations, so a test can check that the app draws its own bar (kit.TitleBar) there. A framed window without an h.WindowDrag area of its own then shows Tela's fallback title bar (see tela.App), with its window buttons, and its content below it.
 
 #### func NoSettle
 

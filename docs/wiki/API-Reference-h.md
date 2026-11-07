@@ -2380,6 +2380,8 @@ func WindowDrag() tela.Prop
 
 WindowDrag makes an element a drag area of the window's title bar, for a frameless window that draws its own (tela.App.Frameless, tela.Window.Frameless), or any window: pressing it and moving moves the window, a double click maximizes or restores it and a right click opens the window menu, as in the OS's own title bar. Its interactive elements keep working: buttons, links, text fields, focusable elements and elements with press or drag handlers are left out of the drag area by themselves, and WindowNoDrag leaves out any other.
 
+A window whose content has a WindowDrag area draws its own title bar, so it gets no fallback title bar where the OS draws none (GNOME on Wayland; see tela.App).
+
 ```go
 Div(Class("flex h-10 items-center gap-2 px-3"), WindowDrag(),
     Span(Class("grow text-sm font-medium"), Text("Notes")),

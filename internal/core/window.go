@@ -237,6 +237,12 @@ type winView struct {
 	opening bool
 	// dead: the window closed; requests of handles are dropped.
 	dead atomic.Bool
+	// title is the window's title; framed: it was opened neither Frameless
+	// nor TitleBarOverlay; fixed: FixedSize. The fallback title bar reads
+	// them (chrome.go).
+	title  string
+	framed bool
+	fixed  bool
 
 	mu    sync.Mutex
 	place WindowPlacement
@@ -247,7 +253,8 @@ type winView struct {
 // newView returns the view of window win, opened with options wo (the
 // resolved size is the placement's until a ConfigureEvent says more).
 func (h *Host) newView(win platform.Window, t *Tree, slot *windowSlot, spec *WindowSpec, wo platform.WindowOptions) *winView {
-	v := &winView{host: h, win: win, tree: t, slot: slot, hidden: spec.Hidden, opening: wo.Maximized || wo.Fullscreen}
+	v := &winView{host: h, win: win, tree: t, slot: slot, hidden: spec.Hidden, opening: wo.Maximized || wo.Fullscreen,
+		title: spec.Title, framed: !spec.Frameless && !spec.TitleBarOverlay, fixed: spec.FixedSize}
 	v.os.ClientSideDecorations = spec.Frameless || spec.TitleBarOverlay
 	size := wo.Resolve().Size
 	v.place = WindowPlacement{
@@ -279,6 +286,7 @@ func (v *winView) syncState() {
 			s.storeUI(st)
 		}
 	}
+	v.tree.noteChrome() // the fallback title bar (chrome.go)
 }
 
 // notePlacement records the window's placement after a ConfigureEvent
@@ -574,6 +582,7 @@ func (t *Tree) openWindow(s *windowSlot) {
 	ct.SetWake(h.backend.Wake)
 	ct.SetClipboard(h.backend.Clipboard())
 	ct.SetWindowFocused(false)
+	ct.chrome.buttons = t.chrome.buttons // the desktop's button layout (chrome.go)
 	if len(spec.Icon) > 0 {
 		win.SetIcon(spec.Icon)
 	}
@@ -643,6 +652,8 @@ func (t *Tree) updateWindow(s *windowSlot) {
 		win := v.win
 		if spec.Title != old.Title {
 			win.SetTitle(spec.Title)
+			v.title = spec.Title
+			v.tree.noteChrome() // the fallback title bar's title (chrome.go)
 		}
 		if spec.MinWidth != old.MinWidth || spec.MinHeight != old.MinHeight {
 			win.SetMinSize(platform.Size{W: spec.MinWidth, H: spec.MinHeight})

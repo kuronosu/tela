@@ -186,6 +186,32 @@ no title bar or borders; the window is still resizable at its edges (unless
 compositor draws no title bars (GNOME), every window is in this situation and
 `State().ClientSideDecorations` is true.
 
+### The fallback title bar
+
+On such a desktop a framed window (neither `Frameless` nor `TitleBarOverlay`)
+would have no title bar at all, so Tela draws a plain one for it: 36 px in the
+app's `bg-background` with a hairline under it, the window's `Title` centered,
+flat minimize, maximize (restore) and close buttons that tint on hover (close in
+the destructive color), dimmed while the window is not focused. It follows the
+app's theme and color scheme, mirrors under `Dir("rtl")` on the app's outermost
+element, and orders its buttons by the desktop's button layout (GNOME's
+`button-layout`, as GNOME Tweaks sets it; minimize, maximize and close at the
+end without one). A modal `tela.Window` has only close, a `FixedSize` window no
+maximize. Dragging it moves the window, a double click maximizes it, a right
+click opens the window menu, and the window resizes from its edges; the buttons
+work while a dialog is open, as the OS's would. It hides in full screen.
+
+The content is laid out below it: the root's `h-full`, `h-screen`, `100vh`, the
+breakpoints, fixed elements and dialogs see the rest of the window as the
+viewport, so an app needs no change. Everywhere else (Windows, macOS, X11, a
+compositor that draws title bars) nothing changes, and neither does `tela
+snapshot` or a telatest app unless it mounts with `telatest.NoServerDecorations()`.
+
+An app with a title bar of its own replaces it: while the window's content has
+an `h.WindowDrag` area (`kit.TitleBar` is one) the fallback is not drawn, and it
+comes back if that area unmounts, in the same frame, so the window never shows
+two bars or none.
+
 **With `kit`:** [`kit.TitleBar`](Kit#title-bars) is the whole bar, with
 [`kit.WindowControls`](Kit#title-bars) (minimize, maximize or restore, close) in
 the look of the OS:
@@ -231,7 +257,8 @@ The OS answers these regions natively: `WM_NCHITTEST` on Windows,
 `_NET_WM_MOVERESIZE` on X11.
 
 To show the bar only where the OS draws none, test the state:
-`If(tela.UseWindow().State().ClientSideDecorations, kit.TitleBar{...})`. A
+`If(tela.UseWindow().State().ClientSideDecorations, kit.TitleBar{...})`; it
+replaces [the fallback title bar](#the-fallback-title-bar) there. A
 fullscreen window usually has no bar either.
 
 ### A title bar with the OS's buttons

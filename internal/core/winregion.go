@@ -73,6 +73,9 @@ func WindowControlProp(c WindowControl) Prop {
 // regionChanged records that primitive el's region prop went from old to
 // now (regionNone when it mounts or unmounts).
 func (t *Tree) regionChanged(el *Element, old, now uint8) {
+	if old == regionDrag || now == regionDrag {
+		t.chromeDrag(el, old, now) // chrome.go
+	}
 	switch {
 	case old == regionNone && now != regionNone:
 		t.reg.n++

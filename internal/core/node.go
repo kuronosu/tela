@@ -81,6 +81,8 @@ type desc struct {
 	exit string
 	// portal marks a Portal node (portal.go).
 	portal bool
+	// chrome marks the root of the fallback title bar (chrome.go).
+	chrome bool
 	// The engine props of package aria (ADR-096): a floating element
 	// (floating.go), an overlay (overlay.go) and the Inert prop.
 	float   *FloatOptions

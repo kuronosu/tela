@@ -22,6 +22,7 @@ under **Breaking**. See ADR-049 and ADR-208.
 - Windows 11: `TitleBarOverlay` keeps the system's minimize, maximize and close buttons, with snap layouts, over the app's title bar, and reports them in `WindowState.TitleBarControls`; `kit.TitleBar` leaves room for them at the end (ADR-236). On Windows 10 it stays frameless.
 - macOS: drops see drags that carry only another app's private types (as `application/x-uti.<type>`), receive file promises from Photos and Mail, and a drag without an image shows the file's or type's icon; a message box without a parent no longer blocks the app's other windows (ADR-237).
 - `desktop.Tray.Template` (ADR-237): on macOS the icon is a template image the menu bar tints; ignored elsewhere.
+- A fallback title bar (ADR-230, ADR-238): on a desktop whose compositor draws no title bars (GNOME on Wayland), a framed window (neither `Frameless` nor `TitleBarOverlay`) gets a plain one drawn by Tela in the app's theme, with the window's title, minimize, maximize and close in the desktop's button layout, drag, double-click maximize and the window menu; the content is laid out below it (`h-full`, `h-screen` and dialogs see the rest of the window). It hides in full screen and wherever the window has a title bar of its own (an `h.WindowDrag` area, such as `kit.TitleBar`), so apps that draw theirs are unchanged.
 
 ### Changed
 

@@ -14,6 +14,10 @@ import (
 // elements with press or drag handlers are left out of the drag area by
 // themselves, and WindowNoDrag leaves out any other.
 //
+// A window whose content has a WindowDrag area draws its own title bar,
+// so it gets no fallback title bar where the OS draws none (GNOME on
+// Wayland; see tela.App).
+//
 //	Div(Class("flex h-10 items-center gap-2 px-3"), WindowDrag(),
 //	    Span(Class("grow text-sm font-medium"), Text("Notes")),
 //	    Button(WindowControl(tela.WindowClose), AriaLabel("Close"), Text("×")),

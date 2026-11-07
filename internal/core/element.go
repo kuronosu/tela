@@ -646,6 +646,9 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 		scope: e.scope, sub: e.sub, key: e.key, keyed: e.keyed, mounted: true,
 		inert: parent.inert, outside: inheritOutside(parent),
 	}
+	if d.chrome {
+		el.outside = outsideNo // the fallback title bar stays alive (chrome.go)
+	}
 	t.stats.Mounts++
 	switch d.kind {
 	case nodeText:

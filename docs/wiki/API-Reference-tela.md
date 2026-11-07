@@ -1677,6 +1677,14 @@ tela.Run(tela.App{
 })
 ```
 
+##### The fallback title bar
+
+Where the OS draws no title bar for a framed window (one that is neither Frameless nor TitleBarOverlay; [`WindowState`](#type-windowstate).ClientSideDecorations, as on GNOME under Wayland, whose compositor leaves decorations to the apps), Tela draws a plain one, in the app's theme and color scheme: the window's Title centered, the minimize, maximize (restore) and close buttons in the order the desktop's button layout gives (GNOME's button-layout setting; minimize, maximize and close at the end without one), dimmed while the window is not focused. It moves the window when dragged, maximizes it on a double click and opens the window menu on a right click, and the window resizes from its edges. The main window and every [`Window`](#type-window) get one; it hides in full screen. Nothing changes for apps elsewhere (Windows, macOS, X11 and compositors that draw title bars), in tela snapshot or in telatest (unless the test asks for telatest.NoServerDecorations).
+
+The window's content is laid out below the bar: the root (h-full, h-screen, 100vh, the breakpoints, fixed and portal content such as dialogs) sees the rest of the window as its viewport, so an app needs no change for it.
+
+An app that draws its own title bar (an element with h.WindowDrag, such as kit.TitleBar) replaces it: while the window's content has a WindowDrag area the fallback is not shown, and it comes back when that area unmounts, in the same frame. Show your bar only where it is needed by reading State().ClientSideDecorations.
+
 ### type Backdrop
 
 ```go
@@ -5780,6 +5788,8 @@ When the user asks to close the window (its close button, Alt+F4, a WindowClose 
 
 The fields are applied when they change: a new Title, Width and Height, size limits, AlwaysOnTop, Hidden, Icon, TitleBar, Backdrop or RootClass update the open window. FixedSize, Frameless, TitleBarOverlay, Modal and Placement are read when it opens (give the Window a new key to open it again with others).
 
+On a desktop whose compositor draws no title bars (GNOME on Wayland), a framed window gets Tela's fallback title bar unless its content has a title bar of its own; see [`App`](#type-app).
+
 tela snapshot, tela inspect and tela mcp show the main window only; in tests, telatest's App.Windows and App.Window reach the others. Under tela dev the other windows keep their parent, modality and window control, and an open window survives a reload (it is keyed by its place in the tree).
 
 #### func (Window) Build
@@ -6005,7 +6015,7 @@ type WindowPlacement struct {
 type WindowState = core.WindowState
 ```
 
-WindowState is the state of a window ([`WindowHandle`](#type-windowhandle).State): Maximized, Fullscreen and Minimized as the OS reports them (Wayland cannot report minimized windows), Focused (the active window), Hidden (the app hid it), ClientSideDecorations (the OS draws no title bar: the app draws one, as a frameless or TitleBarOverlay window does, and so on a Wayland desktop without server-side decorations) and TitleBarControls (the [`Rect`](#type-rect) the OS's window buttons cover in a TitleBarOverlay window, in the window's logical pixels: macOS's traffic lights, which the app's title bar leaves free; the zero Rect elsewhere).
+WindowState is the state of a window ([`WindowHandle`](#type-windowhandle).State): Maximized, Fullscreen and Minimized as the OS reports them (Wayland cannot report minimized windows), Focused (the active window), Hidden (the app hid it), ClientSideDecorations (the OS draws no title bar: the app draws one, as a frameless or TitleBarOverlay window does, and so on a Wayland desktop without server-side decorations, such as GNOME; there Tela draws a plain one for a framed window that has none of its own, see [`App`](#type-app)) and TitleBarControls (the [`Rect`](#type-rect) the OS's window buttons cover in a TitleBarOverlay window, in the window's logical pixels: macOS's traffic lights, which the app's title bar leaves free; the zero Rect elsewhere).
 
 `WindowState` is an alias of `core.WindowState`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
 

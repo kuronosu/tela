@@ -187,6 +187,10 @@ func (t *Tree) SetSystemSettings(s platform.SystemSettings) {
 	e.sysTextScale = s.TextScaleFactor()
 	e.accent = settingsAccent(s)
 	t.applyEnv()
+	if s.TitleBarButtons != t.chrome.buttons {
+		t.chrome.buttons = s.TitleBarButtons
+		t.noteChrome() // chrome.go
+	}
 }
 
 // setSystem takes the system's settings into cfg (a Host's initial

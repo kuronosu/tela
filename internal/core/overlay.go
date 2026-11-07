@@ -386,8 +386,8 @@ func (t *Tree) markOutside() {
 	}
 	var walk func(el *Element, out bool)
 	walk = func(el *Element, out bool) {
-		if in[el] {
-			out = false
+		if in[el] || el.kind == elemPrimitive && el.node.d.chrome {
+			out = false // alive, or the fallback title bar (chrome.go)
 		}
 		switch {
 		case !out:

@@ -293,6 +293,10 @@ func (p *painter) barGeometry(bx *Box, g *boxGeom, geo *[2]barGeom) {
 	s.bars.overlay = !p.t.classicBars(bx.pcs)
 	p.t.barsActive(s)
 	pr := g.padding.Rect
+	if h := p.t.chrome.h; h > 0 && bx == p.t.rootBox {
+		// The root scrolls below the fallback title bar (chrome.go).
+		pr.Y0 = min(pr.Y0+h, pr.Y1)
+	}
 	if pr.Empty() {
 		return
 	}

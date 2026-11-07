@@ -304,7 +304,8 @@ func TestNoFileDialogs(t *testing.T) {
 
 // On a desktop that draws no title bars (GNOME on Wayland), Preferences
 // draws its own, and its close button closes the window; where the OS
-// draws one, it has none.
+// draws one, it has none. Tela's fallback title bar (ADR-238) never shows:
+// both windows have a bar of their own.
 func TestPreferencesTitleBar(t *testing.T) {
 	sandbox(t)
 	closeBtn := telatest.ByRole("button", "Close")
@@ -319,6 +320,8 @@ func TestPreferencesTitleBar(t *testing.T) {
 	prefs.ExpectWindowState(telatest.ClientDecorations(true))
 	prefs.ExpectRole("group", "Window controls")
 	prefs.ExpectCount(telatest.ByRole("button", "Minimize"), 0)
+	prefs.ExpectCount(closeBtn, 1) // kit's, not the fallback's too
+	g.ExpectCount(closeBtn, 1)
 	prefs.Click(closeBtn)
 	prefs.ExpectClosed()
 	g.ExpectWindowCount(1)

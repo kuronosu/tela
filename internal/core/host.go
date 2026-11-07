@@ -230,6 +230,7 @@ func NewHost(b platform.Backend, opts Options) (*Host, error) {
 	if t.dev {
 		h.uiG = goid()
 	}
+	t.chrome.buttons = b.Settings().TitleBarButtons // the fallback title bar (chrome.go)
 	h.main = h.newView(win, t, nil, &spec, wo)
 	h.views = []*winView{h.main}
 	t.SetWake(b.Wake)

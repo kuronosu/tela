@@ -137,6 +137,11 @@ func init() {
 //
 //	if tela.UseWindow().State().ClientSideDecorations { ... kit.TitleBar{...} ... }
 //
+// Where the OS draws no title bar for a framed window (GNOME on Wayland),
+// Tela draws a plain fallback bar by itself (see tela.App); a TitleBar,
+// being a drag area, replaces it while it is mounted, in the same frame,
+// so the window never shows two.
+//
 // A window with tela.App.TitleBarOverlay on macOS keeps the OS's own
 // buttons (the traffic lights) over the bar, and on Windows 11 DWM's
 // caption buttons at the end: its State().TitleBarControls

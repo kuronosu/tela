@@ -4341,6 +4341,8 @@ To show the bar only where the window has no title bar of its own, read the wind
 if tela.UseWindow().State().ClientSideDecorations { ... kit.TitleBar{...} ... }
 ```
 
+Where the OS draws no title bar for a framed window (GNOME on Wayland), Tela draws a plain fallback bar by itself (see tela.App); a TitleBar, being a drag area, replaces it while it is mounted, in the same frame, so the window never shows two.
+
 A window with tela.App.TitleBarOverlay on macOS keeps the OS's own buttons (the traffic lights) over the bar, and on Windows 11 DWM's caption buttons at the end: its State().TitleBarControls is the rectangle they cover, and the bar draws no controls of its own and keeps that room free instead, at the side the look keeps its controls (ControlsSide: the start on macOS, so the leading slot starts after the traffic lights; they stay at the window's left under rtl). Where the OS draws no buttons there, the rectangle is empty and the bar draws its controls as usual.
 
 A fullscreen window usually has no bar either: leave it out on State().Fullscreen. In tela snapshot there is no window: the bar is drawn focused and not maximized, and its buttons do nothing.

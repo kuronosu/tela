@@ -360,6 +360,12 @@ expectations `ExpectTitle`, `ExpectWindowState(telatest.Maximized(true),
 telatest.Active(false))`, `ExpectClosed`, `ExpectWindowCount` and
 `ExpectNoWindow`.
 
+`telatest.NoServerDecorations()` plays a desktop whose compositor draws no title
+bars (GNOME on Wayland): every window reports `ClientSideDecorations`, and a
+framed window without a `h.WindowDrag` area of its own gets Tela's fallback
+title bar, with its buttons (`ByRole("button", "Close")`) and the content below
+it.
+
 For a custom title bar (`h.WindowDrag`, `h.WindowControl`), `HitRegions` and
 `HitAt` read what the window sent to the OS; a click on the drag area is the
 OS's press (`CaptionDrags`, and a double click maximizes), and the control

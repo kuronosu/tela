@@ -80,6 +80,9 @@ func (t *Tree) restyle(el *Element) {
 	if bx.portal {
 		portalStyle(cs) // a portal layer (portal.go)
 	}
+	if el.node.d.chrome {
+		chromeStyle(cs) // the fallback title bar (chrome.go)
+	}
 	old := bx.cs
 	// before is the style the animations start from (beforeChange); old
 	// is what the rest compares with: the structure, the children's
@@ -388,6 +391,7 @@ func (t *Tree) remapPhase() {
 	if t.rootBox != nil && t.rootBox.cs != nil {
 		ls := mapLayoutStyle(t.rootBox, nil, false)
 		ls.Width, ls.Height = layout.Px(t.viewport.W), layout.Px(t.viewport.H)
+		t.chromeBorder(&ls) // the fallback title bar's band (chrome.go)
 		keepGrid(&ls, &t.rootBox.ls)
 		if ls != t.rootBox.ls {
 			t.rootBox.ls = ls
