@@ -303,6 +303,10 @@ func (b *Backend) desktopMessage(hwnd uintptr, msg uint32, wparam, lparam uintpt
 		return 0, false
 	case msg == wmTelaTray:
 		b.onTrayCallback(wparam, lparam)
+	case msg == wmDPIChanged:
+		b.refreshIcons(uint32(loword(wparam)))
+	case msg == wmDisplayChange:
+		b.refreshIcons(0)
 	case msg == wmTelaTrayMenu:
 		if ic := d.icons[uint16(wparam)]; ic != nil {
 			x, y := pointFromLParam(lparam)
@@ -364,6 +368,7 @@ type shellIcon struct {
 	images []image.Image       // tray: the icon at its sizes (a copy)
 	menu   []platform.MenuItem // tray: the menu (a copy)
 	hicon  uintptr             // the icon shown
+	side   int                 // the side in pixels hicon was drawn for (0: not drawn by the backend)
 	owned  bool                // hicon was created for it (DestroyIcon)
 	big    uintptr             // note: the balloon's large icon, or 0
 	added  bool                // the notification area has it

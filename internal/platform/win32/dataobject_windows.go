@@ -152,9 +152,15 @@ func duplicateGlobal(h uintptr) (uintptr, error) {
 
 // dataObjectFormats returns the formats an IDataObject offers in global
 // memory or a stream, in its order.
-func dataObjectFormats(obj comObject) []clipFormat {
+func dataObjectFormats(obj comObject) []clipFormat { return enumFormats(obj, nil) }
+
+// enumFormats is dataObjectFormats under a guard (nil: none), which cuts it
+// short when the source stops answering (stallguard.go).
+func enumFormats(obj comObject, g *stallGuard) []clipFormat {
 	var enum comObject
-	if hr := obj.call(vtDataObjectEnumFormatEtc, datadirGet, uintptr(unsafe.Pointer(&enum))); hr < 0 || enum == 0 {
+	hr := obj.call(vtDataObjectEnumFormatEtc, datadirGet, uintptr(unsafe.Pointer(&enum)))
+	g.progress()
+	if hr < 0 || enum == 0 {
 		return nil
 	}
 	defer enum.release()
@@ -162,7 +168,9 @@ func dataObjectFormats(obj comObject) []clipFormat {
 	for range 1024 { // a bound against a broken enumerator
 		var fe formatEtc
 		var fetched uint32
-		if hr := enum.call(vtEnumFormatEtcNext, 1, uintptr(unsafe.Pointer(&fe)), uintptr(unsafe.Pointer(&fetched))); hr != sOK || fetched == 0 {
+		hr := enum.call(vtEnumFormatEtcNext, 1, uintptr(unsafe.Pointer(&fe)), uintptr(unsafe.Pointer(&fetched)))
+		g.progress()
+		if hr != sOK || fetched == 0 || g.Stalled() {
 			break
 		}
 		if fe.ptd != 0 {
@@ -178,10 +186,15 @@ func dataObjectFormats(obj comObject) []clipFormat {
 
 // getData reads one format of an IDataObject, from global memory or a
 // stream.
-func getData(obj comObject, f clipFormat) ([]byte, error) {
+func getData(obj comObject, f clipFormat) ([]byte, error) { return getDataGuarded(obj, f, nil) }
+
+// getDataGuarded is getData under a guard (nil: none).
+func getDataGuarded(obj comObject, f clipFormat, g *stallGuard) ([]byte, error) {
 	fe := formatEtc{cf: uint16(f.id), aspect: dvaspectContent, lindex: -1, tymed: tymedHGlobal | tymedIStream}
 	var med stgMedium
-	if hr := obj.call(vtDataObjectGetData, uintptr(unsafe.Pointer(&fe)), uintptr(unsafe.Pointer(&med))); hr < 0 {
+	hr := obj.call(vtDataObjectGetData, uintptr(unsafe.Pointer(&fe)), uintptr(unsafe.Pointer(&med)))
+	g.progress()
+	if hr < 0 {
 		return nil, hresultError("IDataObject.GetData", hr)
 	}
 	defer procReleaseStgMedium.Call(uintptr(unsafe.Pointer(&med)))
@@ -189,7 +202,7 @@ func getData(obj comObject, f clipFormat) ([]byte, error) {
 	case tymedHGlobal:
 		return bytesFromGlobal(med.data)
 	case tymedIStream:
-		return readStream(comObject(med.data))
+		return readStream(comObject(med.data), g)
 	}
 	return nil, fmt.Errorf("win32: IDataObject.GetData returned storage medium %d", med.tymed)
 }
@@ -198,13 +211,15 @@ func getData(obj comObject, f clipFormat) ([]byte, error) {
 // ends one must not exhaust memory).
 const maxStreamRead = 1 << 30
 
-// readStream reads an IStream from its current position to its end.
-func readStream(s comObject) ([]byte, error) {
+// readStream reads an IStream from its current position to its end. Each
+// chunk that arrives restarts the guard (nil: none).
+func readStream(s comObject, g *stallGuard) ([]byte, error) {
 	var out []byte
 	buf := make([]byte, 64<<10)
 	for len(out) < maxStreamRead {
 		var n uint32
 		hr := s.call(vtStreamRead, uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf)), uintptr(unsafe.Pointer(&n)))
+		g.progress()
 		if hr < 0 {
 			return nil, hresultError("IStream.Read", hr)
 		}
@@ -220,10 +235,22 @@ func readStream(s comObject) ([]byte, error) {
 // IDataObject offering formats: for each type, the first of its formats
 // that reads and converts (a type that fails is left out).
 func readDataObject(obj comObject, formats []clipFormat, types []string) platform.Data {
+	d, _ := readDataObjectGuarded(obj, formats, types, nil)
+	return d
+}
+
+// readDataObjectGuarded is readDataObject under a guard (nil: none). When
+// the guard cancels a call because the source stopped answering, the read
+// stops and returns errDropStalled with no data: a drop has all the data it
+// asked for or none.
+func readDataObjectGuarded(obj comObject, formats []clipFormat, types []string, g *stallGuard) (platform.Data, error) {
 	var d platform.Data
 	for _, t := range types {
 		for _, f := range formatsFor(t, formats) {
-			raw, err := getData(obj, f)
+			raw, err := getDataGuarded(obj, f, g)
+			if g.Stalled() {
+				return nil, errDropStalled()
+			}
 			if err != nil {
 				continue
 			}
@@ -233,7 +260,7 @@ func readDataObject(obj comObject, formats []clipFormat, types []string) platfor
 			}
 		}
 	}
-	return d
+	return d, nil
 }
 
 // --- this app's IDataObject ---

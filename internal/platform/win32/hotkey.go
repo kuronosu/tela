@@ -108,6 +108,28 @@ func hotkeyVK(key platform.Key, scan func(r rune) (vk uint32, ok bool)) (uint32,
 	return 0, fmt.Errorf("the key %q is not on the current keyboard layout", key)
 }
 
+// hotkeyRebind decides, after the keyboard layout changed, whether a
+// shortcut must be registered again (ADR-234). A shortcut declared by
+// character is bound to the virtual key that types the character in the
+// layout of its registration, so a layout where another key types it moves
+// it; a named key has a fixed virtual key. held is the virtual key the
+// shortcut holds (0 for none: it failed for lack of a key, or was refused
+// at its first registration and may find one now). It returns the key the
+// new layout gives (vk, or err when it has none) and whether to register
+// again: when the key changed, or when a shortcut without one finds one.
+// A shortcut that has none and still has none stays as it is, and its
+// status is not reported again.
+func hotkeyRebind(key platform.Key, held uint32, scan func(r rune) (vk uint32, ok bool)) (vk uint32, again bool, err error) {
+	if key.IsNamed() {
+		return held, false, nil
+	}
+	vk, err = hotkeyVK(key, scan)
+	if err != nil {
+		return 0, held != 0, err
+	}
+	return vk, vk != held, nil
+}
+
 // fallbackVK is the virtual key of a character when the layout does not
 // name one: letters, digits and the space bar everywhere, and the
 // punctuation keys of the US layout.

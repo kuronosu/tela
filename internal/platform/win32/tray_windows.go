@@ -102,11 +102,12 @@ func (b *Backend) newTray(opts platform.TrayOptions) (platform.TrayID, error) {
 	}
 	d := &b.desk
 	ic := &shellIcon{tip: opts.Tooltip, images: platform.CopyIcon(opts.Icon), menu: cloneMenu(opts.Menu)}
-	h, err := createShellIcon(ic.images, smallIconSide())
+	side := smallIconSide()
+	h, err := createShellIcon(ic.images, side)
 	if err != nil {
 		return 0, err
 	}
-	ic.hicon, ic.owned = h, true
+	ic.hicon, ic.owned, ic.side = h, true, side
 	if ic.uid = d.ids.take(); ic.uid == 0 {
 		procDestroyIcon.Call(h)
 		return 0, fmt.Errorf("win32: NewTray: too many notification area icons")
@@ -121,12 +122,13 @@ func (b *Backend) newTray(opts platform.TrayOptions) (platform.TrayID, error) {
 // updateTray replaces a tray icon's image, tooltip and menu.
 func (b *Backend) updateTray(ic *shellIcon, opts platform.TrayOptions) error {
 	images := platform.CopyIcon(opts.Icon)
-	h, err := createShellIcon(images, smallIconSide())
+	side := smallIconSide()
+	h, err := createShellIcon(images, side)
 	if err != nil {
 		return err
 	}
 	old := ic.hicon
-	ic.images, ic.tip, ic.menu, ic.hicon = images, opts.Tooltip, cloneMenu(opts.Menu), h
+	ic.images, ic.tip, ic.menu, ic.hicon, ic.side = images, opts.Tooltip, cloneMenu(opts.Menu), h, side
 	if ic.added {
 		nid := b.iconData(ic, nifIcon|nifTip|nifShowTip)
 		ic.added = shellNotifyIcon(nimModify, &nid)
@@ -157,11 +159,13 @@ func (b *Backend) showNotification(n platform.Notification) (platform.Notificati
 		}
 	}
 	if len(images) > 0 {
-		h, err := createShellIcon(images, smallIconSide())
+		side := smallIconSide()
+		h, err := createShellIcon(images, side)
 		if err != nil {
 			return 0, err
 		}
-		ic.hicon, ic.owned = h, true
+		// Kept to draw the icon again at another DPI (refreshIcons).
+		ic.images, ic.hicon, ic.owned, ic.side = platform.CopyIcon(images), h, true, side
 	} else {
 		ic.hicon = b.appIcon()
 	}
@@ -317,15 +321,57 @@ func (b *Backend) taskbarRestarted() {
 			continue
 		}
 		// The taskbar may have come back at another DPI.
-		if h, err := createShellIcon(ic.images, smallIconSide()); err == nil {
-			procDestroyIcon.Call(ic.hicon)
-			ic.hicon = h
+		if side := smallIconSide(); ic.owned && side != ic.side {
+			if h, err := createShellIcon(ic.images, side); err == nil {
+				procDestroyIcon.Call(ic.hicon)
+				ic.hicon, ic.side = h, side
+			}
 		}
 		ic.added = false
 		b.addIcon(ic)
 	}
 	if closed > 0 {
 		b.pump()
+	}
+}
+
+// refreshIcons draws the icons again for the DPI of the notification area
+// when it changed (ADR-234): WM_DPICHANGED on the tray window (dpi is its
+// new DPI; the window sits at the origin of the primary monitor, where the
+// taskbar's area is), a change of the display or of the settings (dpi 0:
+// asked of the primary monitor), which also cover a taskbar that changed
+// its icon size. Every icon the backend drew (a tray icon, and the small
+// icon that carries a balloon) is made again at the new side from the
+// images it kept and replaced in the area (NIM_MODIFY); an icon already at
+// that side, and the executable's own icon (a notification without an
+// image of its own), which the shell scales, are left alone. The large icon
+// of a balloon is read once, when the balloon shows, and is not redrawn.
+func (b *Backend) refreshIcons(dpi uint32) {
+	if len(b.desk.icons) == 0 {
+		return
+	}
+	if dpi == 0 {
+		dpi = primaryDPI()
+	}
+	side := iconSideAt(smallIconMetric, 16, dpi)
+	for _, ic := range b.sortedIcons() {
+		if !iconNeedsRedraw(ic.owned, len(ic.images), ic.side, side) {
+			continue
+		}
+		h, err := createShellIcon(ic.images, side)
+		if err != nil {
+			continue // keep the old icon: the shell scales it
+		}
+		old := ic.hicon
+		ic.hicon, ic.side = h, side
+		if ic.added {
+			nid := b.iconData(ic, nifIcon)
+			ic.added = shellNotifyIcon(nimModify, &nid)
+		}
+		if !ic.added {
+			b.addIcon(ic)
+		}
+		procDestroyIcon.Call(old)
 	}
 }
 
@@ -464,11 +510,18 @@ func shellNotifyIcon(msg uint32, nid *notifyIconData) bool {
 // smallIconSide and largeIconSide return the sides of small (tray) and
 // large (balloon) icons at the DPI of the primary monitor, where the
 // taskbar's notification area is.
-func smallIconSide() int { return iconSide(49, 16) } // SM_CXSMICON
-func largeIconSide() int { return iconSide(11, 32) } // SM_CXICON
+func smallIconSide() int { return iconSideAt(smallIconMetric, 16, primaryDPI()) }
+func largeIconSide() int { return iconSideAt(largeIconMetric, 32, primaryDPI()) }
 
-func iconSide(metric uintptr, base int) int {
-	dpi := primaryDPI()
+// SM_CXSMICON and SM_CXICON.
+const (
+	smallIconMetric = 49
+	largeIconMetric = 11
+)
+
+// iconSideAt returns the side of an icon at dpi: the system metric for that
+// DPI where Windows has GetSystemMetricsForDpi, else base scaled.
+func iconSideAt(metric uintptr, base int, dpi uint32) int {
 	if available(procGetSystemMetricsForDpi) {
 		if r, _, _ := procGetSystemMetricsForDpi.Call(metric, uintptr(dpi)); int32(r) > 0 {
 			return int(int32(r))
