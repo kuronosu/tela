@@ -319,6 +319,7 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		w.onButton(msg, wparam, lparam)
 		return 1 // TRUE: the message was handled, as WM_XBUTTON* requires
 	case wmMouseWheel, wmMouseHWheel:
+		w.integ.keys.reset()
 		w.onWheel(msg, wparam, lparam)
 		return 0
 	case wmCaptureChanged:

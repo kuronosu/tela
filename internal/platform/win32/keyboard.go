@@ -48,7 +48,8 @@ import (
 //     neither Ctrl nor Alt is ever reported for AltGr (Mods included).
 //   - A lone Alt or F10 would enter the menu loop of a window that has no
 //     menu: the caller swallows the system key messages, except Alt+F4 and
-//     Alt+Space (the system menu), which down reports for DefWindowProc.
+//     Alt+Space (the system menu), which down reports for DefWindowProc. A
+//     window with a menu bar opens it itself from the same keys (menuKeys).
 //   - Alt codes: while Alt is held, the numpad digits of a code produce no
 //     character messages (and no Text); at the release of Alt
 //     TranslateMessage posts the character as WM_CHAR. It is delivered as

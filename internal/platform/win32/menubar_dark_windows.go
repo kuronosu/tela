@@ -99,7 +99,7 @@ func (w *Window) barRect() (rect, bool) {
 		return rect{}, false
 	}
 	win := getWindowRect(w.hwnd)
-	r := rect(mbi.bar)
+	r := mbi.bar
 	r.left, r.right = r.left-win.left, r.right-win.left
 	r.top, r.bottom = r.top-win.top, r.bottom-win.top
 	return r, true
@@ -127,7 +127,7 @@ func (w *Window) onUAHDrawMenuItem(lparam uintptr) bool {
 	u := (*uahDrawMenuItem)(ptrFromUintptr(lparam))
 	state := barItemState(u.dis.itemState)
 	hdc := u.um.hdc
-	fillRect(hdc, rect(u.dis.rcItem), state.fill())
+	fillRect(hdc, u.dis.rcItem, state.fill())
 
 	var label [256]uint16
 	mii := menuItemInfo{mask: miimString, typeData: &label[0], cch: uint32(len(label) - 1)}
@@ -138,7 +138,7 @@ func (w *Window) onUAHDrawMenuItem(lparam uintptr) bool {
 	oldFont, _, _ := procSelectObject.Call(hdc, w.barFont())
 	procSetBkMode.Call(hdc, transparent)
 	oldColor, _, _ := procSetTextColor.Call(hdc, uintptr(state.ink()))
-	rc := rect(u.dis.rcItem)
+	rc := u.dis.rcItem
 	procDrawTextW.Call(hdc, uintptr(unsafe.Pointer(&label[0])), ^uintptr(0), uintptr(unsafe.Pointer(&rc)), uintptr(drawTextFlags(u.dis.itemState)))
 	procSetTextColor.Call(hdc, oldColor)
 	procSelectObject.Call(hdc, oldFont)

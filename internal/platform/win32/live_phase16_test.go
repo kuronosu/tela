@@ -334,7 +334,7 @@ func TestLiveHotkeyLayoutChange(t *testing.T) {
 				// Pretend the registration was made under another layout:
 				// the key it holds is not the one the layout types ';' with.
 				stage = 2
-				reg.vk, b.app.hotkeyLayout = 0x41, 1
+				reg.vk = 0x41
 				postMessage(w.hwnd, wmInputLangChange, 0, currentLayout())
 			case 2:
 				if e.Status != platform.ShortcutBound || reg.vk != wantVK || !reg.registered {

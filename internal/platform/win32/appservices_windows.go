@@ -50,9 +50,6 @@ type appServices struct {
 	shortcuts map[string]*hotkeyReg // by shortcut ID
 	byHotKey  map[int32]string      // hotkey ID -> shortcut ID
 	hotkeyIDs hotkeyIDs
-	// hotkeyLayout is the keyboard layout (HKL) the shortcuts declared by
-	// character were bound under.
-	hotkeyLayout uintptr
 
 	// Single instance: the app ID this process claimed, and the mutex that
 	// holds the claim until Run returns.
@@ -153,7 +150,6 @@ func (b *Backend) registerShortcut(s platform.Shortcut) {
 	// (layoutChanged).
 	reg := &hotkeyReg{s: s}
 	a.shortcuts[s.ID] = reg
-	a.hotkeyLayout = currentLayout()
 	vk, err := hotkeyVK(s.Accelerator.Key, scanKey)
 	if err != nil {
 		report(platform.ShortcutFailed, err.Error())
@@ -193,12 +189,9 @@ func (b *Backend) registerShortcut(s platform.Shortcut) {
 // again replaces its binding, so this is registerShortcut for each.
 func (b *Backend) layoutChanged() {
 	a := &b.app
-	hkl := currentLayout()
-	if hkl == a.hotkeyLayout || len(a.shortcuts) == 0 {
-		a.hotkeyLayout = hkl
+	if len(a.shortcuts) == 0 {
 		return
 	}
-	a.hotkeyLayout = hkl
 	ids := make([]string, 0, len(a.shortcuts))
 	for id := range a.shortcuts {
 		ids = append(ids, id)
