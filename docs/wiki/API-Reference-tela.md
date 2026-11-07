@@ -1519,8 +1519,10 @@ type App struct {
     // leaves room for the buttons: [WindowState].TitleBarControls is the
     // rectangle they cover). On Windows 11 DWM keeps its minimize,
     // maximize and close buttons (with snap layouts) at the end of the
-    // bar, at the system's caption height, and TitleBarControls is their
-    // rectangle. Elsewhere it behaves as Frameless, and the
+    // bar, at the system's caption height, on the bar's own color
+    // (TitleBar.Background when set, else the color the bar has just
+    // left of them), and TitleBarControls is their rectangle. Elsewhere
+    // it behaves as Frameless, and the
     // rectangle is empty. Set one of Frameless and TitleBarOverlay: Run
     // panics with both.
     TitleBarOverlay bool
@@ -5719,8 +5721,10 @@ type Window struct {
     // leaves room for the buttons: [WindowState].TitleBarControls is the
     // rectangle they cover). On Windows 11 DWM keeps its minimize,
     // maximize and close buttons (with snap layouts) at the end of the
-    // bar, at the system's caption height, and TitleBarControls is their
-    // rectangle. Elsewhere it behaves as Frameless, and the
+    // bar, at the system's caption height, on the bar's own color
+    // (TitleBar.Background when set, else the color the bar has just
+    // left of them), and TitleBarControls is their rectangle. Elsewhere
+    // it behaves as Frameless, and the
     // rectangle is empty. Set one of Frameless and TitleBarOverlay: the
     // window panics with both.
     TitleBarOverlay bool
