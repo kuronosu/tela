@@ -81,6 +81,10 @@ type shortcutService struct {
 	conn    *dbus.Conn    // the worker's connection; nil until dialed
 	connID  string        // the app ID conn registered
 	tokens  uint64        // request and session handle tokens
+	// preparing: kickShortcuts waits for the parent identifier, which
+	// BindShortcuts then takes from parent.
+	preparing bool
+	parent    string
 
 	waiters map[dbus.ObjectPath]chan portalResponse // requests waiting for their Response
 	session dbus.ObjectPath                         // the current session; "" when none
@@ -180,19 +184,33 @@ func (d *Desktop) shortcutOp(op shortcutOp) {
 	d.opts.Wake() // the loop runs Dispatch again soon
 }
 
-// kickShortcuts hands the queued shortcut requests to the worker. UI
-// thread, from Dispatch.
+// kickShortcuts hands the queued shortcut requests to the worker, once
+// the parent window of their dialog is known: the app's focused window
+// (Options.Focused), whose identifier may take a round trip (Wayland
+// exports it). Requests queued meanwhile join the batch. UI thread, from
+// Dispatch.
 func (d *Desktop) kickShortcuts() {
 	sc := &d.shortcuts
 	sc.mu.Lock()
-	queued := len(sc.ops) > 0
+	queued := len(sc.ops) > 0 && !sc.preparing
+	sc.preparing = queued
 	sc.mu.Unlock()
-	if queued {
+	if !queued {
+		return
+	}
+	var w platform.Window
+	if d.opts.Focused != nil {
+		w = d.opts.Focused()
+	}
+	d.prepare(w, false, func(parent, _ string) {
+		sc.mu.Lock()
+		sc.preparing, sc.parent = false, parent
+		sc.mu.Unlock()
 		select {
 		case sc.kick <- struct{}{}:
 		default:
 		}
-	}
+	})
 }
 
 // closeShortcuts stops the worker and closes its connection, which ends
@@ -344,6 +362,7 @@ func (d *Desktop) bindShortcuts(set []platform.Shortcut, pending map[string]int)
 	sc.session, sc.set = session, set
 	sc.tokens++
 	token := fmt.Sprintf("tela_bind%d", sc.tokens)
+	parent := sc.parent
 	sc.mu.Unlock()
 
 	list := make([]portalShortcut, len(set))
@@ -355,7 +374,7 @@ func (d *Desktop) bindShortcuts(set []platform.Shortcut, pending map[string]int)
 		}}
 	}
 	resp, err := d.portalRequest(conn, token, ifaceGlobalShortcuts+".BindShortcuts",
-		session, list, "", map[string]dbus.Variant{"handle_token": dbus.MakeVariant(token)})
+		session, list, parent, map[string]dbus.Variant{"handle_token": dbus.MakeVariant(token)})
 	switch {
 	case errors.Is(err, errClosed):
 		return

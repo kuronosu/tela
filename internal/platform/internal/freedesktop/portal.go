@@ -17,6 +17,12 @@ import (
 )
 
 // --- OpenURI, OpenPath ---
+//
+// Both pass the parent window and an XDG activation token
+// (Options.Prepare): the portal hands the token to the application it
+// starts (OpenURI version 3 and later), so that its window may take the
+// focus. Without a portal, xdg-open gets the token in its environment,
+// as GLib's launchers do.
 
 // OpenURI opens uri with the portal's OpenURI, or with xdg-open when there
 // is no portal. A portal that answers the call with an error (it refused
@@ -31,17 +37,19 @@ func (d *Desktop) OpenURI(parent platform.Window, uri string) error {
 	}
 	conn, _, err := d.portal(ifaceOpenURI)
 	if err != nil {
-		return d.runOpener(uri, err)
+		return d.openWithOpener(parent, uri, err)
 	}
-	ch := make(chan *dbus.Call, 1)
-	conn.Object(portalName, portalPath).Go(ifaceOpenURI+".OpenURI", 0, ch,
-		d.parentID(parent), uri, map[string]dbus.Variant{})
-	go func() {
-		if c := <-ch; c.Err != nil {
-			d.runOpener(uri, c.Err)
-		}
-	}()
-	return nil
+	return d.prepared(parent, true, func(id, token string) error {
+		ch := make(chan *dbus.Call, 1)
+		conn.Object(portalName, portalPath).Go(ifaceOpenURI+".OpenURI", 0, ch,
+			id, uri, openOptions(token))
+		go func() {
+			if c := <-ch; c.Err != nil {
+				d.runOpener(uri, token, c.Err)
+			}
+		}()
+		return nil
+	}, nil, nil)
 }
 
 // OpenPath opens a file or folder with the portal's OpenURI.OpenFile, which
@@ -68,43 +76,105 @@ func (d *Desktop) OpenPath(parent platform.Window, path string) error {
 		err = errors.New("the D-Bus connection cannot pass file descriptors")
 	}
 	if err != nil {
-		return d.runOpener(abs, err)
+		return d.openWithOpener(parent, abs, err)
 	}
 	fd, err := unix.Open(abs, unix.O_PATH|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return fmt.Errorf("freedesktop: OpenPath: %w", &os.PathError{Op: "open", Path: abs, Err: err})
 	}
-	ch := make(chan *dbus.Call, 1)
-	conn.Object(portalName, portalPath).Go(ifaceOpenURI+".OpenFile", 0, ch,
-		d.parentID(parent), dbus.UnixFD(fd), map[string]dbus.Variant{})
-	go func() {
-		c := <-ch // the message (and its descriptor) was sent before Go returned
-		unix.Close(fd)
-		if c.Err != nil {
-			d.runOpener(abs, c.Err)
-		}
-	}()
-	return nil
+	return d.prepared(parent, true, func(id, token string) error {
+		ch := make(chan *dbus.Call, 1)
+		conn.Object(portalName, portalPath).Go(ifaceOpenURI+".OpenFile", 0, ch,
+			id, dbus.UnixFD(fd), openOptions(token))
+		go func() {
+			c := <-ch // the message (and its descriptor) was sent before Go returned
+			unix.Close(fd)
+			if c.Err != nil {
+				d.runOpener(abs, token, c.Err)
+			}
+		}()
+		return nil
+	}, nil, func() { unix.Close(fd) })
+}
+
+// openOptions are the options of OpenURI and OpenFile: the activation
+// token, when there is one.
+func openOptions(token string) map[string]dbus.Variant {
+	o := map[string]dbus.Variant{}
+	if token != "" {
+		o["activation_token"] = dbus.MakeVariant(token)
+	}
+	return o
+}
+
+// openWithOpener opens target with xdg-open when the portal cannot (why).
+// The opener must be installed (else the error wraps both reasons); it is
+// started once the activation token is known, and a failure to start it
+// then is returned only if that was at once. UI thread.
+func (d *Desktop) openWithOpener(parent platform.Window, target string, why error) error {
+	name, path, err := d.opener(target, why)
+	if err != nil {
+		return err
+	}
+	return d.prepared(parent, true, func(_, token string) error {
+		return startOpener(name, path, target, token)
+	}, nil, nil)
 }
 
 // runOpener runs xdg-open (Options.Opener) on target without waiting for
 // it. why is the reason the portal was not used; when the opener is not
 // installed either, the error wraps both. Safe from any goroutine.
-func (d *Desktop) runOpener(target string, why error) error {
-	name := d.opts.Opener
+func (d *Desktop) runOpener(target, token string, why error) error {
+	name, path, err := d.opener(target, why)
+	if err != nil {
+		return err
+	}
+	return startOpener(name, path, target, token)
+}
+
+// opener finds xdg-open (Options.Opener).
+func (d *Desktop) opener(target string, why error) (name, path string, err error) {
+	name = d.opts.Opener
 	if name == "" {
 		name = "xdg-open"
 	}
-	p, err := exec.LookPath(name)
+	path, err = exec.LookPath(name)
 	if err != nil {
-		return fmt.Errorf("freedesktop: cannot open %q: %v; %s is not installed either: %w", target, why, name, platform.ErrUnsupported)
+		return "", "", fmt.Errorf("freedesktop: cannot open %q: %v; %s is not installed either: %w", target, why, name, platform.ErrUnsupported)
 	}
-	cmd := exec.Command(p, target)
+	return name, path, nil
+}
+
+// startOpener starts the opener at path on target without waiting for
+// it. The activation token, if any, goes in XDG_ACTIVATION_TOKEN and
+// DESKTOP_STARTUP_ID (GLib sets both, and xdg-open's helpers pass them
+// on); a token this process was itself started with is never passed on,
+// since it was meant for this process and is spent. Safe from any
+// goroutine.
+func startOpener(name, path, target, token string) error {
+	cmd := exec.Command(path, target)
+	cmd.Env = openerEnv(os.Environ(), token)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("freedesktop: cannot run %s: %w", name, err)
 	}
 	go cmd.Wait() // reap it
 	return nil
+}
+
+// openerEnv returns env without the activation variables, plus token in
+// both of them when it is not "".
+func openerEnv(env []string, token string) []string {
+	out := make([]string, 0, len(env)+2)
+	for _, kv := range env {
+		if strings.HasPrefix(kv, "XDG_ACTIVATION_TOKEN=") || strings.HasPrefix(kv, "DESKTOP_STARTUP_ID=") {
+			continue
+		}
+		out = append(out, kv)
+	}
+	if token != "" {
+		out = append(out, "XDG_ACTIVATION_TOKEN="+token, "DESKTOP_STARTUP_ID="+token)
+	}
+	return out
 }
 
 // --- file dialogs ---
@@ -130,9 +200,7 @@ type portalRule struct {
 
 // chooserOptions converts the options shared by every file dialog.
 func chooserOptions(opts platform.FileDialogOptions) map[string]dbus.Variant {
-	o := map[string]dbus.Variant{
-		"modal": dbus.MakeVariant(opts.Parent != nil),
-	}
+	o := map[string]dbus.Variant{} // modal is set by choose, with the parent
 	if len(opts.Filters) > 0 {
 		filters := make([]portalFilter, len(opts.Filters))
 		for i, f := range opts.Filters {
@@ -228,25 +296,31 @@ func (d *Desktop) choose(method string, minVersion uint32, opts platform.FileDia
 	if version < minVersion {
 		return fmt.Errorf("freedesktop: the XDG desktop portal's FileChooser is version %d; folder dialogs need version %d: %w", version, minVersion, platform.ErrUnsupported)
 	}
-	d.tokens++
-	token := fmt.Sprintf("tela%d", d.tokens)
-	path := requestPath(conn.Names()[0], token)
-	o["handle_token"] = dbus.MakeVariant(token)
+	// The dialog is sent once its parent's identifier is known (Wayland
+	// exports the toplevel first).
+	return d.prepared(opts.Parent, false, func(parent, _ string) error {
+		// Modal only with a parent to be modal to.
+		o["modal"] = dbus.MakeVariant(parent != "")
+		d.tokens++
+		token := fmt.Sprintf("tela%d", d.tokens)
+		path := requestPath(conn.Names()[0], token)
+		o["handle_token"] = dbus.MakeVariant(token)
 
-	req := &request{finish: finish}
-	d.mu.Lock()
-	d.requests[path] = req
-	d.mu.Unlock()
-	if err := addMatch(conn, responseMatch(path)...); err != nil {
+		req := &request{finish: finish}
 		d.mu.Lock()
-		delete(d.requests, path)
+		d.requests[path] = req
 		d.mu.Unlock()
-		return fmt.Errorf("freedesktop: cannot subscribe to the portal's answer: %w", err)
-	}
-	ch := make(chan *dbus.Call, 1)
-	conn.Object(portalName, portalPath).Go(ifaceFileChooser+"."+method, 0, ch, d.parentID(opts.Parent), opts.Title, o)
-	go d.awaitRequest(conn, path, ch)
-	return nil
+		if err := addMatch(conn, responseMatch(path)...); err != nil {
+			d.mu.Lock()
+			delete(d.requests, path)
+			d.mu.Unlock()
+			return fmt.Errorf("freedesktop: cannot subscribe to the portal's answer: %w", err)
+		}
+		ch := make(chan *dbus.Call, 1)
+		conn.Object(portalName, portalPath).Go(ifaceFileChooser+"."+method, 0, ch, parent, opts.Title, o)
+		go d.awaitRequest(conn, path, ch)
+		return nil
+	}, func(err error) { finish(nil, err)() }, nil)
 }
 
 // requestPath is the handle path the portal gives a request:

@@ -154,6 +154,13 @@ func (w *Window) onMapped() {
 			w.b.activation.Activate(tok, w.surface)
 		}
 	}
+	if w.states.suspended {
+		// Suspended before it showed a buffer (a hidden workspace): the
+		// state applies now (suspended).
+		w.voidCallback()
+		w.syncHidden()
+		w.b.loop.UpdateState(w, w.osState())
+	}
 }
 
 // closeChildren closes the window's children, in creation order (their
@@ -204,11 +211,17 @@ func (b *Backend) releaseCtl() {
 }
 
 // osState is the window's state as the compositor configured it last.
-// Minimized cannot be known on Wayland, nor the position.
+// Minimized is the xdg_toplevel suspended state (xdg-shell 6), which
+// compositors set for minimized windows and also for windows on a hidden
+// workspace, occluded ones and while the screen is locked: what the
+// contract's Minimized gates (no frames) holds for all of them (ADR-233).
+// Without it (an older xdg-shell) it stays false. The position cannot be
+// known.
 func (w *Window) osState() platform.WindowState {
 	return platform.WindowState{
 		Maximized:             w.states.maximized,
 		Fullscreen:            w.states.fullscreen,
+		Minimized:             w.suspended(),
 		ClientSideDecorations: w.csd(),
 	}
 }
@@ -253,9 +266,7 @@ func (w *Window) unmap() {
 	w.ackPending = false // its serial belonged to the destroyed xdg_surface
 	// The frame callback of an unmapped surface may never fire; nothing
 	// may wait for it after the window is shown again.
-	if w.VsyncPending() {
-		w.VsyncDone()
-	}
+	w.voidCallback()
 	// No configure tells an unmapped toplevel that it is no longer
 	// activated; the keyboard's leave comes on its own.
 	w.activated = false
@@ -293,9 +304,10 @@ func (w *Window) mapRetained() {
 // WindowStateEvent.
 
 // Minimize asks the compositor to minimize the window
-// (xdg_toplevel.set_minimized). Wayland never says whether it did, nor
-// can a client undo it: State().Minimized stays false, and Activate
-// brings the window back.
+// (xdg_toplevel.set_minimized). Wayland has no minimized state, nor can a
+// client undo it: State().Minimized follows the suspended state the
+// compositor sets for a minimized window (xdg-shell 6; else it stays
+// false), and Activate brings the window back.
 func (w *Window) Minimize() {
 	if w.Closed() || w.ctl.unmapped {
 		return
@@ -376,7 +388,7 @@ func (w *Window) SetVisible(visible bool) {
 	case w.ctl.awaitConfigure:
 		// Hidden and shown again before the configure: it resumes then.
 	default:
-		w.SetHidden(false)
+		w.syncHidden() // resumes frames unless suspended
 		w.mapRetained()
 	}
 }
@@ -453,39 +465,36 @@ func (w *Window) SetPosition(image.Point) {}
 // as winit does. A granted activation arrives as a FocusEvent. Without the
 // protocol, or for a hidden window, nothing happens. A window shown but not
 // mapped yet is activated when it maps (the activation of an unmapped
-// surface is ignored).
+// surface is ignored). A token from the desktop services (a click on a
+// notification or a tray item, at most 10 s old) is used instead of a new
+// one.
 func (w *Window) Activate() {
 	b := w.b
 	if w.Closed() || b.activation == nil || w.ctl.hidden {
 		return
 	}
-	tok := b.activation.GetActivationToken()
-	if s := b.lastSeat; s != nil && b.lastSerial != 0 {
-		tok.SetSerial(b.lastSerial, s.wl)
-	}
-	req := w
-	for _, o := range b.loop.Windows() {
-		if o.focused {
-			req = o
-			break
+	// A token the notification server or the tray host gave with the
+	// click being handled lets the window take the focus, where one of our
+	// own (the app usually has no focus then) would only ask for
+	// attention.
+	if b.desktop != nil {
+		if tok := b.desktop.TakeActivationToken(); tok != "" {
+			w.ActivateWithToken(tok)
+			return
 		}
 	}
-	tok.SetSurface(req.surface)
-	tok.SetAppId(w.appID())
-	tok.SetDoneHandler(func(e protocols.XdgActivationTokenV1DoneEvent) {
-		tok.Destroy()
-		if w.Closed() || w.ctl.hidden || b.activation == nil {
+	b.requestToken(w, w.appID(), false, func(token string) {
+		if token == "" || w.Closed() || w.ctl.hidden || b.activation == nil {
 			return
 		}
 		if !w.mapped {
 			// Shown, not mapped yet (SetVisible(true) then Activate):
 			// activated when it maps (onMapped).
-			w.ctl.activationToken = e.Token
+			w.ctl.activationToken = token
 			return
 		}
-		b.activation.Activate(e.Token, w.surface)
+		b.activation.Activate(token, w.surface)
 	})
-	tok.Commit()
 }
 
 // SetIcon sets the window's icon with xdg_toplevel_icon_v1: every image

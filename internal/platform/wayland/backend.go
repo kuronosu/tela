@@ -75,6 +75,9 @@ type Backend struct {
 	iconManager    *protocols.XdgToplevelIconManagerV1
 	sessionManager *protocols.XdgSessionManagerV1
 	session        session
+	// exporter is zxdg_exporter_v2 (foreign.go), nil when the compositor
+	// lacks it: portal requests then have no parent window.
+	exporter *protocols.ZxdgExporterV2
 
 	shmFormats map[protocols.WlShmFormat]bool
 	format     protocols.WlShmFormat // pixel format of every buffer
@@ -278,6 +281,10 @@ func (b *Backend) onGlobal(e protocols.WlRegistryGlobalEvent) {
 	case protocols.XdgSessionManagerV1InterfaceName:
 		if b.sessionManager == nil {
 			b.sessionManager = protocols.WlRegistryBind[protocols.XdgSessionManagerV1](b.registry, e.Name, min(e.Version, sessionVersion))
+		}
+	case protocols.ZxdgExporterV2InterfaceName:
+		if b.exporter == nil {
+			b.exporter = protocols.WlRegistryBind[protocols.ZxdgExporterV2](b.registry, e.Name, min(e.Version, foreignVersion))
 		}
 	case protocols.WlDataDeviceManagerInterfaceName:
 		b.bindDataDeviceManager(e.Name, e.Version)
@@ -550,6 +557,9 @@ func (b *Backend) release() {
 		}
 		if b.textInputManager != nil {
 			b.textInputManager.Destroy()
+		}
+		if b.exporter != nil {
+			b.exporter.Destroy()
 		}
 		b.releaseCtl()
 		b.wm.Destroy()

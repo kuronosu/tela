@@ -114,6 +114,14 @@ type Window struct {
 	// dropping is the drag session whose DragDrop the app is handling
 	// (dnd.go): SetDropEffect sets its final effect.
 	dropping *dndSession
+
+	// export is the toplevel's xdg-foreign export, the parent of portal
+	// dialogs (foreign.go).
+	export exportState
+
+	// callbacks counts the frame callbacks given up on (voidCallback): a
+	// callback requested before is ignored when it fires late.
+	callbacks uint64
 }
 
 var _ platform.Window = (*Window)(nil)
@@ -245,6 +253,7 @@ func (w *Window) destroyRole() {
 	if w.toplevel == nil {
 		return
 	}
+	w.unexport() // the handle names this toplevel
 	if w.decoration != nil {
 		w.decoration.Destroy()
 		w.decoration = nil
@@ -283,15 +292,24 @@ func (w *Window) onConfigure(e protocols.XdgSurfaceConfigureEvent) {
 		w.ctl.decoMode = w.ctl.pendingDeco
 	}
 	size := w.sizes.choose(w.pendingW, w.pendingH, st)
+	// Suspended (xdg-shell 6: minimized, on a hidden workspace, occluded,
+	// the screen locked): the compositor sends no frame callbacks, so
+	// none is waited for, and frames pause like a hidden window's while
+	// the state reports Minimized, which makes core commit the window's
+	// work without frames (ADR-185, ADR-233). Resumed, a frame requested
+	// meanwhile is due at once, without waiting for a callback asked for
+	// before.
+	was := w.suspended()
 	w.states = st
+	if w.suspended() != was {
+		w.voidCallback()
+	}
 	w.ctl.wantMax, w.ctl.wantFull = st.maximized, st.fullscreen
 	first := !w.configured
 	w.configured = true
-	if w.ctl.awaitConfigure {
-		// The configure of a window shown again: frames resume.
-		w.ctl.awaitConfigure = false
-		w.SetHidden(w.ctl.hidden)
-	}
+	// The configure of a window shown again resumes its frames.
+	w.ctl.awaitConfigure = false
+	w.syncHidden()
 
 	target := platform.Metrics{Size: sizeOf(size), Scale: w.scale}
 	// The state goes before the size it comes with (maximizing), except
@@ -430,10 +448,39 @@ func (w *Window) requestCallback() {
 	}
 	w.VsyncRequested()
 	cb := w.surface.Frame()
+	gen := w.callbacks
 	cb.SetDoneHandler(func(protocols.WlCallbackDoneEvent) {
 		// The compositor destroys the callback after done.
-		w.VsyncDone()
+		if gen == w.callbacks {
+			w.VsyncDone()
+		}
 	})
+}
+
+// syncHidden pauses or resumes frame delivery (internal/loop SetHidden):
+// paused while the app hides the window, while a window shown again waits
+// for the configure of its new initial commit, and while the compositor
+// suspends it.
+func (w *Window) syncHidden() {
+	w.SetHidden(w.ctl.hidden || w.ctl.awaitConfigure || w.suspended())
+}
+
+// suspended reports whether the compositor suspended the window (the
+// xdg_toplevel suspended state). A window that shows no buffer is not: it
+// must present its first frame to be mapped at all (a window opened on a
+// hidden workspace is suspended from its first configure); onMapped
+// applies the state then.
+func (w *Window) suspended() bool { return w.states.suspended && w.mapped }
+
+// voidCallback stops waiting for the outstanding frame callback, which
+// may never fire (an unmapped or suspended surface): a requested frame no
+// longer waits for it, and when it fires late it is ignored, so it cannot
+// release a frame meant for the next callback.
+func (w *Window) voidCallback() {
+	if w.VsyncPending() {
+		w.callbacks++
+		w.VsyncDone()
+	}
 }
 
 // --- platform.Window ---

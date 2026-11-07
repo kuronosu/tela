@@ -36,6 +36,12 @@
 //     (modal windows), xdg_toplevel_icon_manager_v1 (SetIcon) and
 //     xdg_session_manager_v1 (RestoreToken), version 1, from
 //     wayland-protocols 1.49 (staging).
+//   - zxdg_exporter_v2 (optional, version 1; xdg-foreign-unstable-v2):
+//     the parent window of portal dialogs, "wayland:<handle>", and
+//     xdg_activation_v1 tokens for the applications OpenURI and OpenPath
+//     start (foreign.go, see Desktop services). Without it portal
+//     dialogs have no parent.
+//   - xdg_wm_base version 6: the suspended state (see Frame pacing).
 //
 // # Loop
 //
@@ -80,6 +86,18 @@
 // surface without one is not mapped and gets no callbacks) and no configure
 // waiting for the buffer that acks it; in those cases requests are paced by
 // a 1/60 s timer in the poll timeout instead, like the X11 backend.
+//
+// A suspended toplevel (the xdg-shell 6 suspended state: minimized, on a
+// hidden workspace, occluded, the screen locked) gets no frame callbacks.
+// While the compositor's configure says so, the window's frames pause like
+// a hidden window's (internal/loop SetHidden; an outstanding callback is
+// not waited for, and is ignored if it fires late), and its state reports
+// Minimized, so core commits its work without frames (ADR-185, ADR-233).
+// The configure that clears the state resumes them: a frame requested
+// meanwhile is due at once and, the tree having committed without
+// rasterizing, renders in full. Without the state (xdg_wm_base older than
+// 6) a minimized window's work waits for the compositor's next frame
+// callback, as before.
 //
 // # Scale
 //
@@ -217,8 +235,10 @@
 // both). A request equal to the last one asked (or to the latest
 // configure) sends nothing.
 //
-//   - Minimize is set_minimized; Wayland cannot report or undo it
-//     (State.Minimized stays false; Activate brings the window back).
+//   - Minimize is set_minimized; Wayland cannot report or undo it, but
+//     compositors suspend a minimized window, and State.Minimized follows
+//     the suspended state (also set on hidden workspaces; see Frame
+//     pacing); Activate brings the window back.
 //     SetAlwaysOnTop and SetPosition do nothing: there is no protocol.
 //   - SetMaximized and SetFullscreen (no output: the compositor picks)
 //     map to set_/unset_maximized and set_/unset_fullscreen; Maximized and
@@ -306,6 +326,25 @@
 // any other form, or with an id the compositor would reject, are ignored.
 // At exit the session is destroyed, not removed, so the next run can
 // restore from it.
+//
+// # Desktop services
+//
+// Desktop is the D-Bus services shared with X11
+// (internal/platform/internal/freedesktop). What a portal request needs
+// from the compositor comes from foreign.go (ADR-233): the parent window,
+// "wayland:<handle>" of the toplevel exported with
+// zxdg_exporter_v2.export_toplevel at the first request that names it,
+// kept until the toplevel is destroyed (hidden or closed) and exported
+// again after a show; and, for OpenURI and OpenPath, an xdg_activation_v1
+// token (the latest input serial and its seat, our focused surface, no app
+// id) that the portal hands to the application it starts. Both are
+// events: the request waits for them on the UI thread, bounded by a
+// wl_display.sync round trip, and goes without what did not come. Hidden,
+// unmapped and closed windows give no parent. The GlobalShortcuts
+// portal's BindShortcuts is parented to the focused window. Activate uses
+// the activation token the notification server or the tray host sent
+// with the click being handled (at most 10 s old) instead of asking for
+// one, so a window raised from a notification gets the focus.
 //
 // Every file but this one is only built on Linux.
 package wayland
