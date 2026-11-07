@@ -4,8 +4,16 @@ package x11
 
 import (
 	"bytes"
+	"cmp"
+	"image"
 	"math"
+	"strings"
 	"testing"
+	"time"
+
+	"golang.org/x/sys/unix"
+
+	"github.com/kuronosu/tela/internal/platform"
 
 	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb"
 	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/xproto"
@@ -43,6 +51,8 @@ type xiEv struct {
 	buttons   []int // held before the event
 	mods      uint32
 	valuators map[int]float64
+	win       xproto.Window // the event window; 0 is window 7
+	time      uint32        // server time (ms)
 }
 
 func (v xiEv) bytes() xgb.RawEvent {
@@ -52,8 +62,10 @@ func (v xiEv) bytes() xgb.RawEvent {
 	}
 	vwords := (maxV + 32) / 32
 	e := genericEvent(v.evtype, 80+4+4*vwords+8*len(v.valuators))
+	le.PutUint32(e[12:], v.time)
 	le.PutUint32(e[16:], v.detail)
-	le.PutUint32(e[24:], 7) // event window
+	win := cmp.Or(v.win, 7)
+	le.PutUint32(e[24:], uint32(win)) // event window
 	putFP1616(e[40:], v.x)
 	putFP1616(e[44:], v.y)
 	le.PutUint16(e[48:], 1)
@@ -252,6 +264,20 @@ func xiBackend(t *testing.T) (*Backend, func(...xgb.Event) string, *int) {
 			{number: 3, increment: 15, valid: true},
 		}},
 		12: {id: 12, name: "Old wheel mouse"},
+		// A touchpad of xf86-input-libinput: it posts scroll stops.
+		13: {id: 13, name: "SYNA2393:00 06CB:7A13 Touchpad", smooth: true, stops: true, axes: []*scrollAxis{
+			{number: 2, horizontal: true, increment: 120, valid: true},
+			{number: 3, increment: 120, valid: true},
+		}},
+		// Xwayland's pointer: touchpads and wheels alike, in notches.
+		14: {id: 14, name: "xwayland-pointer:13", axes: []*scrollAxis{
+			{number: 2, horizontal: true, increment: 1, valid: true},
+			{number: 3, increment: 1, valid: true},
+		}},
+		// A touchpad known by name only.
+		15: {id: 15, name: "ELAN Touchpad", smooth: true, axes: []*scrollAxis{
+			{number: 3, increment: 15, valid: true},
+		}},
 	}
 	b.xi = xiState{
 		extension: extension{present: true, opcode: xiOpcode},
@@ -405,5 +431,119 @@ func TestXI2Buttons(t *testing.T) {
 	le.PutUint16(bad[50:], 200) // valuator mask longer than the event
 	if got := feed(short, bad, xiCrossing(xiEnter, 1, 1, 0, 0, nil, 0)[:50]); got != "" {
 		t.Errorf("malformed events delivered %q", got)
+	}
+}
+
+// TestXI2ScrollPhases: a touchpad whose driver posts the zero-delta scroll
+// stop (xf86-input-libinput) has phased gestures ended by the stop; other
+// devices keep ScrollPhaseNone and their still events are dropped
+// (ADR-232).
+func TestXI2ScrollPhases(t *testing.T) {
+	b, feed, _ := xiBackend(t)
+	motion := func(source uint16, vals map[int]float64) xgb.RawEvent {
+		return xiEv{evtype: xiMotion, source: source, x: 20, y: 40, valuators: vals}.bytes()
+	}
+	for _, c := range []struct {
+		name string
+		evs  []xgb.Event
+		want string
+	}{
+		{"enter", []xgb.Event{xiCrossing(xiEnter, 20, 40, 0, xproto.NotifyDetailNonlinear, nil, 0)},
+			"pointer enter 10,20 btn=0 held=0 mods=0"},
+		// xf86-input-libinput: the increment is 120 for 15 pixels.
+		{"libinput touchpad", []xgb.Event{motion(13, map[int]float64{3: 240}), motion(13, map[int]float64{3: 300, 2: -60})},
+			"scroll 0,0 at 10,20 delta 0,30 phase=update; scroll 0,0 at 10,20 delta -7.5,7.5 phase=update"},
+		{"fingers lift", []xgb.Event{motion(13, map[int]float64{3: 300, 2: -60})}, "scroll 0,0 at 10,20 phase=end"},
+		{"a second stop ends nothing", []xgb.Event{motion(13, map[int]float64{3: 300})}, ""},
+		// The first event after an enter only sets the baselines: it is
+		// no stop, and the gesture goes on.
+		{"enter mid-gesture", []xgb.Event{
+			motion(13, map[int]float64{3: 315}),
+			xiCrossing(xiLeave, 20, 40, 0, xproto.NotifyDetailNonlinear, nil, 0),
+			xiCrossing(xiEnter, 20, 40, 0, xproto.NotifyDetailNonlinear, nil, 0),
+			motion(13, map[int]float64{3: 900}),
+			motion(13, map[int]float64{3: 1020}),
+			motion(13, map[int]float64{3: 1020}),
+		}, "scroll 0,0 at 10,20 delta 0,1.875 phase=update; pointer leave 10,20 btn=0 held=0 mods=0; " +
+			"pointer enter 10,20 btn=0 held=0 mods=0; scroll 0,0 at 10,20 delta 0,15 phase=update; scroll 0,0 at 10,20 phase=end"},
+		// Synaptics coasts by itself: no phases.
+		{"synaptics", []xgb.Event{motion(11, map[int]float64{3: 15})}, "scroll 0,0 at 10,20 delta 0,15"},
+		// A wheel's or Xwayland's still event is no stop.
+		{"wheel", []xgb.Event{motion(10, map[int]float64{3: 1120}), motion(10, map[int]float64{3: 1120})}, "scroll 0,1 at 10,20"},
+		{"xwayland", []xgb.Event{motion(14, map[int]float64{3: 0.75}), motion(14, map[int]float64{3: 0.75})}, "scroll 0,0.75 at 10,20"},
+		// A touchpad known by name only learns from its first stop.
+		{"unknown driver", []xgb.Event{motion(15, map[int]float64{3: 15}), motion(15, map[int]float64{3: 15})}, "scroll 0,0 at 10,20 delta 0,15"},
+		{"after its first stop", []xgb.Event{motion(15, map[int]float64{3: 30}), motion(15, map[int]float64{3: 30})},
+			"scroll 0,0 at 10,20 delta 0,15 phase=update; scroll 0,0 at 10,20 phase=end"},
+	} {
+		if got := feed(c.evs...); got != c.want {
+			t.Errorf("%s:\n got %s\nwant %s", c.name, got, c.want)
+		}
+	}
+	if d := b.xi.devices[11]; d.stops || d.gesture != nil {
+		t.Errorf("synaptics device = %+v", d)
+	}
+
+	// A gesture that moves to another window ends in the first one; a
+	// gesture whose window closed ends nothing.
+	w8 := fakeWindow(b, 8, image.Pt(300, 200), platform.WindowOptions{})
+	feed()
+	feed(motion(13, map[int]float64{3: 1140}))
+	got := feed(xiEv{evtype: xiMotion, source: 13, x: 20, y: 40, win: 8, valuators: map[int]float64{3: 1260}}.bytes())
+	if want := "scroll 0,0 at 10,20 phase=end; scroll 0,0 at 10,20 delta 0,15 phase=update"; !strings.HasSuffix(got, want) {
+		t.Errorf("moving to window 8 = %q, want an end, then the update", got)
+	}
+	if d := b.xi.devices[13]; d.gesture != w8 {
+		t.Errorf("gesture window = %v, want window 8", d.gesture)
+	}
+	w8.Close()
+	if got := feed(xiEv{evtype: xiMotion, source: 13, x: 20, y: 40, win: 7, valuators: map[int]float64{3: 1260}}.bytes()); got != "" {
+		t.Errorf("stop after the window closed = %q", got)
+	}
+}
+
+func TestXI2ListPropertiesMarksDevices(t *testing.T) {
+	x := xiState{touchpadProps: [2]xproto.Atom{50, 51}, libinputProp: 52}
+	reply := func(atoms ...uint32) []byte {
+		r := make([]byte, 32+4*len(atoms))
+		le.PutUint16(r[8:], uint16(len(atoms)))
+		for i, a := range atoms {
+			le.PutUint32(r[32+4*i:], a)
+		}
+		return r
+	}
+	var libinputPad, synaptics, mouse xiDevice
+	x.markDevice(&libinputPad, reply(7, 52, 50))
+	x.markDevice(&synaptics, reply(51))
+	x.markDevice(&mouse, reply(52, 9))
+	if !libinputPad.smooth || !libinputPad.stops || !synaptics.smooth || synaptics.stops || mouse.smooth || !mouse.stops {
+		t.Errorf("libinput touchpad %+v, synaptics %+v, libinput mouse %+v", libinputPad, synaptics, mouse)
+	}
+	short := reply(52)
+	le.PutUint16(short[8:], 3) // more atoms than the reply holds
+	var d xiDevice
+	x.markDevice(&d, short)
+	if !d.stops {
+		t.Errorf("truncated reply lost its atom")
+	}
+}
+
+func TestXI2ScrollTime(t *testing.T) {
+	b, _ := fakeBackend(1)
+	b.start = time.Now().Add(-10 * time.Second)
+	var ts unix.Timespec
+	if err := unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts); err != nil {
+		t.Skip(err)
+	}
+	ms := uint32(ts.Nano() / int64(time.Millisecond))
+	if st := b.scrollTime(ms - 80); b.Now()-st < 70*time.Millisecond || b.Now()-st > 300*time.Millisecond {
+		t.Errorf("an event 80 ms old is %v old", b.Now()-st)
+	}
+	// Another clock (a remote server), or no time: the arrival time.
+	for _, ms := range []uint32{ms - 5000, ms + 5000, 0} {
+		before := b.Now()
+		if st := b.scrollTime(ms); st < before || st-before > 100*time.Millisecond {
+			t.Errorf("server time %d: %v, want the arrival time %v", ms, st, before)
+		}
 	}
 }
