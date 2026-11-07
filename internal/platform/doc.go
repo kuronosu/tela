@@ -1187,7 +1187,9 @@
 //     synchronously and returns the answer; DragOver is called on a timer
 //     too, so unchanged calls are answered without an event; Drop reads
 //     the wanted formats with GetData, delivers DragDrop synchronously and
-//     returns the final effect. FromApp: the IDataObject is the backend's
+//     returns the final effect; calls into another process's data object
+//     are cancelled (CoCancelCall) after 5 s without progress, and the
+//     drop then carries no data (ADR-234). FromApp: the IDataObject is the backend's
 //     own. Source: DoDragDrop with an IDataObject (the Data, rendered per
 //     format) and an IDropSource (Escape cancels, the release drops,
 //     default cursors), started outside the handler like the dialogs (a
@@ -1204,7 +1206,11 @@
 //     window grown so the client area keeps its size
 //     (AdjustWindowRectExForDpi with bMenu); WM_COMMAND from a menu is a
 //     MenuEvent (command IDs are 16 bits: the backend maps MenuItemIDs).
-//     Popup menus: TrackPopupMenuEx with TPM_RETURNCMD at the point
+//     The bar gets access keys of its own (the first free Latin letter or
+//     digit of each label), opens on the release of a lone Alt or F10 and
+//     with Alt+access key (SC_KEYMENU, after the KeyEvents), and is drawn
+//     dark under the system's dark mode (WM_UAHDRAWMENU; its drop-down
+//     menus stay light; ADR-234). Popup menus: TrackPopupMenuEx with TPM_RETURNCMD at the point
 //     converted with ClientToScreen, after SetForegroundWindow, started
 //     outside the handler like the dialogs. Roles are ordinary items (the
 //     layers above carry them out). No app menu bar (SetAppMenu is
@@ -1213,7 +1219,10 @@
 //     MOD_NOREPEAT and the virtual key of the key in the current layout
 //     (VkKeyScanExW for characters), IDs 0x0000-0xBFFF mapped from the
 //     string IDs; ERROR_HOTKEY_ALREADY_REGISTERED is ShortcutTaken (as an
-//     event); WM_HOTKEY is ShortcutPressed (no releases).
+//     event); WM_HOTKEY is ShortcutPressed (no releases). A keyboard
+//     layout change (WM_INPUTLANGCHANGE) registers shortcuts declared by
+//     character again whose key moved, with a new ShortcutStatusEvent
+//     (ADR-234); tray icons are drawn again at a new DPI.
 //   - Settings: AppsUseLightTheme, the DWM AccentColor,
 //     SPI_GETHIGHCONTRAST (HCF_HIGHCONTRASTON), the Accessibility
 //     TextScaleFactor (percent), SPI_GETCLIENTAREAANIMATION; WM_SETTINGCHANGE
