@@ -15,7 +15,10 @@
 //   - OpenURI, OpenPath: the XDG Desktop Portal org.freedesktop.portal.OpenURI
 //     interface (OpenURI; OpenFile with an O_PATH file descriptor, which
 //     opens folders in the file manager too), falling back to running
-//     xdg-open when there is no portal (or no session bus at all).
+//     xdg-open when there is no portal (or no session bus at all). An
+//     xdg-open that cannot start once the call has returned (after the
+//     portal refused, or a Prepare that answers later) is printed on
+//     standard error, as the contract returns no error then.
 //   - OpenFiles, SaveFile, PickFolder: org.freedesktop.portal.FileChooser
 //     (OpenFile with multiple/directory/filters, SaveFile with
 //     current_name/current_folder). The answer is the Response signal of

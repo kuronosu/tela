@@ -10,7 +10,10 @@ import (
 // cannot be used) on standard error as "tela: <err>", except in a go test
 // binary, and returns err for the backend to record: the keyboard keeps
 // working with physical codes only (or without dead keys), and a silent
-// failure would be impossible to diagnose.
+// failure would be impossible to diagnose. The backends report the same
+// way the other failures the contract has no error path for (an input
+// method that cannot be used, an opener that cannot start after OpenURI
+// returned).
 func Report(err error) error {
 	if !underTest() {
 		fmt.Fprintln(os.Stderr, "tela:", err)

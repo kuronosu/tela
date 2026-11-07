@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/internal/keyboard"
 )
 
 // --- OpenURI, OpenPath ---
@@ -26,8 +27,10 @@ import (
 
 // OpenURI opens uri with the portal's OpenURI, or with xdg-open when there
 // is no portal. A portal that answers the call with an error (it refused
-// the URI) also falls back to xdg-open; a failure after that is not
-// reported (contract).
+// the URI) also falls back to xdg-open. The contract has no error path
+// once OpenURI has returned, so an opener that cannot be started then
+// (after the portal's answer, or after a Prepare that answers later) is
+// reported on standard error (reportAsync).
 func (d *Desktop) OpenURI(parent platform.Window, uri string) error {
 	if err := platform.CheckURI(uri); err != nil {
 		return err
@@ -45,7 +48,9 @@ func (d *Desktop) OpenURI(parent platform.Window, uri string) error {
 			id, uri, openOptions(token))
 		go func() {
 			if c := <-ch; c.Err != nil {
-				d.runOpener(uri, token, c.Err)
+				if err := d.runOpener(uri, token, c.Err); err != nil {
+					d.reportAsync(err)
+				}
 			}
 		}()
 		return nil
@@ -90,7 +95,9 @@ func (d *Desktop) OpenPath(parent platform.Window, path string) error {
 			c := <-ch // the message (and its descriptor) was sent before Go returned
 			unix.Close(fd)
 			if c.Err != nil {
-				d.runOpener(abs, token, c.Err)
+				if err := d.runOpener(abs, token, c.Err); err != nil {
+					d.reportAsync(err)
+				}
 			}
 		}()
 		return nil
@@ -110,7 +117,8 @@ func openOptions(token string) map[string]dbus.Variant {
 // openWithOpener opens target with xdg-open when the portal cannot (why).
 // The opener must be installed (else the error wraps both reasons); it is
 // started once the activation token is known, and a failure to start it
-// then is returned only if that was at once. UI thread.
+// then is returned if that was at once, else reported (reportAsync). UI
+// thread.
 func (d *Desktop) openWithOpener(parent platform.Window, target string, why error) error {
 	name, path, err := d.opener(target, why)
 	if err != nil {
@@ -118,7 +126,27 @@ func (d *Desktop) openWithOpener(parent platform.Window, target string, why erro
 	}
 	return d.prepared(parent, true, func(_, token string) error {
 		return startOpener(name, path, target, token)
-	}, nil, nil)
+	}, d.reportAsync, nil)
+}
+
+// reportAsync reports a failure that the contract has no way to return,
+// because the call it comes from has returned (OpenURI and OpenPath
+// starting xdg-open after an asynchronous answer): it is printed on
+// standard error as "tela: <err>", as the backends report a keymap they
+// cannot use (keyboard.Report), and kept for tests (asyncErr). Safe from
+// any goroutine.
+func (d *Desktop) reportAsync(err error) {
+	err = keyboard.Report(err)
+	d.mu.Lock()
+	d.lastAsync = err
+	d.mu.Unlock()
+}
+
+// asyncErr returns the latest failure reportAsync reported.
+func (d *Desktop) asyncErr() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.lastAsync
 }
 
 // runOpener runs xdg-open (Options.Opener) on target without waiting for

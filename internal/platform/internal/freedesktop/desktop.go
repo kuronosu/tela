@@ -119,6 +119,8 @@ type Desktop struct {
 	trays    map[platform.TrayID]*tray
 	token    string    // the latest activation token
 	tokenAt  time.Time // when it arrived
+	// lastAsync is the latest failure reportAsync reported.
+	lastAsync error
 
 	// idMu guards id, the app ID (Options.AppID, then SetAppID), which
 	// the shortcut worker and godbus goroutines read (appid.go).

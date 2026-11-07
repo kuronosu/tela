@@ -263,3 +263,49 @@ func TestShortcutsParent(t *testing.T) {
 		t.Errorf("BindShortcuts parents = %q in %d calls, want one with wayland:h1", parents, binds)
 	}
 }
+
+// An opener that cannot be started after OpenURI returned (a Prepare that
+// answers later, or a portal that refused the URI) is reported, since the
+// contract has no error path then.
+func TestOpenerFailsLater(t *testing.T) {
+	bad := filepath.Join(t.TempDir(), "bad-opener")
+	if err := os.WriteFile(bad, []byte{0x7f, 'E', 'L', 'F', 0, 1}, 0o755); err != nil { // not a program: exec fails
+		t.Fatal(err)
+	}
+
+	// No portal; the token comes later.
+	h := newHarness(t, privateBus(t))
+	h.d.opts.Opener = bad
+	f := &fakePrepare{}
+	h.d.opts.Prepare = f.prepare
+	if err := h.d.OpenURI(nil, "https://example.com/"); err != nil {
+		t.Fatalf("OpenURI = %v, want nil (the opener starts later)", err)
+	}
+	if err := h.d.asyncErr(); err != nil {
+		t.Fatalf("reported %v before the token came", err)
+	}
+	f.release()
+	h.pump("the opener's failure", func() bool { return h.d.asyncErr() != nil })
+	t.Logf("reported: %v", h.d.asyncErr())
+
+	// At once: returned, not reported.
+	h = newHarness(t, privateBus(t))
+	h.d.opts.Opener = bad
+	if err := h.d.OpenURI(nil, "https://example.com/"); err == nil {
+		t.Error("OpenURI with an opener that cannot start at once = nil, want its error")
+	}
+	if err := h.d.asyncErr(); err != nil {
+		t.Errorf("reported %v; it was returned", err)
+	}
+
+	// A portal that refuses: the fallback runs on a godbus goroutine.
+	addr := privateBus(t)
+	p := startPortal(t, addr, 4)
+	p.refuseOpens = true
+	h = newHarness(t, addr)
+	h.d.opts.Opener = bad
+	if err := h.d.OpenURI(nil, "https://example.com/"); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "the fallback's failure", func() bool { return h.d.asyncErr() != nil })
+}
