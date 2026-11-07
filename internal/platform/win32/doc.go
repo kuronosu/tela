@@ -442,8 +442,14 @@
 //     undocumented WM_UAHDRAWMENU and WM_UAHDRAWMENUITEM of the themed bar
 //     with user32 and gdi32 (menubar_dark_windows.go) and paints the line
 //     under the bar after WM_NCPAINT and WM_NCACTIVATE; a change of the
-//     theme redraws it. The drop-down and popup menus stay the system's,
-//     light (a dark menu is uxtheme's, a DLL the backend does not load).
+//     theme redraws it. The drop-downs of the bar, context menus and tray
+//     menus are the system's, and are dark under the same setting through
+//     uxtheme.dll's unnamed exports, by ordinal (ADR-239; menutheme_windows.go):
+//     SetPreferredAppMode (ForceDark, ForceLight, or the default under high
+//     contrast, set at creation and at each settings change, so the menus
+//     follow the backend's reading of the settings), RefreshImmersiveColorPolicyState
+//     and FlushMenuThemes. uxtheme loads on Windows 10 1903 and later and
+//     only when its exports exist; elsewhere the menus stay light.
 //     Popup menus (TrackPopupMenuEx with TPM_RETURNCMD) start outside the
 //     pass like the dialogs and answer through the loop.
 //

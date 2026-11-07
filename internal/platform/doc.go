@@ -1227,8 +1227,9 @@
 //     The bar gets access keys of its own (the first free Latin letter or
 //     digit of each label), opens on the release of a lone Alt or F10 and
 //     with Alt+access key (SC_KEYMENU, after the KeyEvents), and is drawn
-//     dark under the system's dark mode (WM_UAHDRAWMENU; its drop-down
-//     menus stay light; ADR-234). Popup menus: TrackPopupMenuEx with TPM_RETURNCMD at the point
+//     dark under the system's dark mode (WM_UAHDRAWMENU; ADR-234), and its
+//     drop-downs, the popup menus and the tray menus are dark too, through
+//     uxtheme's SetPreferredAppMode (Windows 10 1903+; ADR-239). Popup menus: TrackPopupMenuEx with TPM_RETURNCMD at the point
 //     converted with ClientToScreen, after SetForegroundWindow, started
 //     outside the handler like the dialogs. Roles are ordinary items (the
 //     layers above carry them out). No app menu bar (SetAppMenu is

@@ -2,16 +2,14 @@ package win32
 
 // The pure half of the dark menu bar (menubar_dark_windows.go).
 //
-// Windows draws a menu bar light whatever the app theme is. Explorer's
-// dark menus come from undocumented uxtheme exports (SetPreferredAppMode,
-// AllowDarkModeForWindow), a DLL Tela does not load (ARCHITECTURE §2). The
-// bar can be drawn dark with user32 and gdi32 alone: a window whose bar is
-// themed gets two undocumented messages, WM_UAHDRAWMENU for the bar's
-// background and WM_UAHDRAWMENUITEM for each item, which an app may answer
-// by painting (Notepad++, and the win32-darkmode samples, do). The drop-down
-// menus are the system's own and stay light: darkening them needs uxtheme
-// (owner-drawing them would lose their access keys, screen reader text and
-// the system's metrics).
+// Windows draws a menu bar light whatever the app theme is. The bar is
+// drawn dark with user32 and gdi32 alone: a window whose bar is themed gets
+// two undocumented messages, WM_UAHDRAWMENU for the bar's background and
+// WM_UAHDRAWMENUITEM for each item, which an app may answer by painting
+// (Notepad++, and the win32-darkmode samples, do). The drop-down menus are
+// the system's own; they are darkened through uxtheme (menutheme.go,
+// ADR-239), because owner-drawing them would lose their access keys, screen
+// reader text and the system's metrics.
 
 // Owner-draw item states (ODS_*) the bar reports in itemState.
 const (
