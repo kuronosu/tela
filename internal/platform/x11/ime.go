@@ -92,10 +92,10 @@ import (
 //     highlight) feedback, the converted clause fcitx5 highlights, else
 //     the caret; XIMCaretInvisible hides it. XIM counts characters; Tela
 //     counts UTF-8 bytes.
-//   - ResetTextInput is XIM_RESET_IC; until its reply, preedit updates and
-//     commits are not delivered (they were made before the reset), and
-//     the preedit string the reply returns is dropped: the app finished
-//     the composition itself.
+//   - ResetTextInput is XIM_RESET_IC; until its reply (at most
+//     imeSyncTimeout), preedit updates and commits are not delivered (they
+//     were made before the reset), and the preedit string the reply
+//     returns is dropped: the app finished the composition itself.
 //   - The server going away (DestroyNotify of its windows, which the
 //     client selects, or a new owner of its selection) ends the sessions
 //     (IMESessionEvent false), sends any held keys through the keyboard,
@@ -209,8 +209,10 @@ type xic struct {
 	// The preedit and cursor of the last IMEEvent.
 	preedit string
 	cursor  [2]int
-	// resetting: a RESET_IC waits for its reply.
+	// resetting: a RESET_IC waits for its reply, at most imeSyncTimeout
+	// (stopReset stops that timeout).
 	resetting bool
+	stopReset func()
 
 	// waiting: a key forwarded synchronously waits for XIM_SYNC_REPLY;
 	// held are the keys that came after it.
@@ -640,7 +642,7 @@ func (b *Backend) imeHandle(m xim.Message) {
 	case xim.OpResetICReply:
 		if _, icid, _, err := xim.ParseResetICReply(m.Body); err == nil {
 			if ic := ime.ics[icid]; ic != nil && ic.resetting {
-				ic.resetting = false
+				ic.endReset()
 				ic.clearText()
 				ic.commit, ic.dirty = "", false
 			}
@@ -847,6 +849,7 @@ func (b *Backend) imeWindowClosed(w *Window) {
 			d.stop()
 		}
 		ic.deferred = nil
+		ic.endReset()
 		b.imeSend(xim.EncodeIDs(xim.OpDestroyIC, ime.imid, ic.id))
 	}
 	if i := slices.Index(ime.pending, w); i > 0 || i == 0 && !ime.creating {
@@ -911,14 +914,32 @@ func (b *Backend) imeSyncWindow(w *Window) {
 	case !ic.focused:
 		ic.focused = true
 		ic.clearText()
-		ic.commit, ic.dirty, ic.preedit, ic.cursor, ic.resetting = "", false, "", [2]int{}, false
+		ic.commit, ic.dirty, ic.preedit, ic.cursor = "", false, "", [2]int{}
+		ic.endReset()
 		b.imeSend(xim.EncodeIDs(xim.OpSetICFocus, ime.imid, ic.id))
 		w.setIMESession(true)
 	case w.tiReset:
+		ic.endReset()
 		ic.resetting = true
+		// A server that does not answer (xcb-imdkit sends no reply for an
+		// input context it does not know) would otherwise silence the
+		// field until its focus changes.
+		ic.stopReset = b.after(imeSyncTimeout, func() {
+			ic.stopReset = nil
+			ic.resetting = false
+		})
 		ic.clearText()
 		ic.commit, ic.dirty, ic.preedit, ic.cursor = "", false, "", [2]int{}
 		b.imeSend(xim.EncodeIDs(xim.OpResetIC, ime.imid, ic.id))
+	}
+}
+
+// endReset ends the wait for a RESET_IC reply.
+func (ic *xic) endReset() {
+	ic.resetting = false
+	if ic.stopReset != nil {
+		ic.stopReset()
+		ic.stopReset = nil
 	}
 }
 
@@ -927,7 +948,8 @@ func (b *Backend) imeSyncWindow(w *Window) {
 func (b *Backend) imeEndSession(ic *xic) {
 	ic.focused = false
 	ic.clearText()
-	ic.commit, ic.dirty, ic.preedit, ic.cursor, ic.resetting = "", false, "", [2]int{}, false
+	ic.commit, ic.dirty, ic.preedit, ic.cursor = "", false, "", [2]int{}
+	ic.endReset()
 	if ic.stopWait != nil {
 		ic.stopWait()
 		ic.stopWait = nil

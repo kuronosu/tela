@@ -31,18 +31,19 @@ type fakeIM struct {
 	got         []string
 
 	// Behavior.
-	styles     []uint32 // queryInputStyle
-	refuse     []uint32 // styles CREATE_IC rejects with BadStyle
-	failNext   uint16   // the next CREATE_IC fails with this XIM error code
-	utf8       bool     // accepts UTF8_STRING
-	locales    string
-	syncMode   bool              // forwards and commits with the synchronous flag (fcitx5)
-	boundary   uint32            // XCONNECT: transport 0.2 with this boundary when set
-	moreData   bool              // long messages in _XIM_MOREDATA parts instead of properties
-	sameProp   bool              // long messages appended to one property
-	imMask     *xim.SetEventMask // sent after XIM_OPEN_REPLY
-	icMask     *xim.SetEventMask // sent after XIM_CREATE_IC_REPLY (ICID filled in)
-	ignoreSync bool              // never answers a synchronous forward
+	styles      []uint32 // queryInputStyle
+	refuse      []uint32 // styles CREATE_IC rejects with BadStyle
+	failNext    uint16   // the next CREATE_IC fails with this XIM error code
+	utf8        bool     // accepts UTF8_STRING
+	locales     string
+	syncMode    bool              // forwards and commits with the synchronous flag (fcitx5)
+	boundary    uint32            // XCONNECT: transport 0.2 with this boundary when set
+	moreData    bool              // long messages in _XIM_MOREDATA parts instead of properties
+	sameProp    bool              // long messages appended to one property
+	imMask      *xim.SetEventMask // sent after XIM_OPEN_REPLY
+	icMask      *xim.SetEventMask // sent after XIM_CREATE_IC_REPLY (ICID filled in)
+	ignoreSync  bool              // never answers a synchronous forward
+	ignoreReset bool              // never answers XIM_RESET_IC
 	// onKey decides what happens to a forwarded key: true consumes it
 	// (and may queue messages), false sends it back.
 	onKey func(press bool, kc byte) bool
@@ -325,6 +326,9 @@ func (im *fakeIM) handle(m xim.Message) {
 		case xim.OpDestroyIC:
 			im.send(xim.EncodeIDs(xim.OpDestroyICReply, imid, icid))
 		case xim.OpResetIC:
+			if im.ignoreReset {
+				break
+			}
 			if im.inFlight != nil {
 				im.send(im.inFlight)
 			}
@@ -997,5 +1001,28 @@ func TestIMEReleaseOutsideForwardMask(t *testing.T) {
 	}
 	if got, want := g.im.took(), "KEY 1 press 24 sync"; got != want {
 		t.Errorf("held: server got %s, want %s", got, want)
+	}
+}
+
+func TestIMEResetUnanswered(t *testing.T) {
+	// A server that never answers XIM_RESET_IC: commits are dropped only
+	// until imeSyncTimeout, then the field gets them again.
+	g := newIMERig(t, func(im *fakeIM) { im.ignoreReset = true })
+	g.focusField(t)
+	g.w.ResetTextInput()
+	g.pump()
+	if got, want := g.im.took(), "RESET_IC 1"; got != want {
+		t.Errorf("reset: server got %s, want %s", got, want)
+	}
+	g.im.commit(1, "x")
+	if got := g.pump(); got != "" {
+		t.Errorf("during the reset: app got %s", got)
+	}
+	if n := g.x.fire(imeSyncTimeout); n != 1 {
+		t.Fatalf("%d timers fired, want the reset's", n)
+	}
+	g.im.commit(1, "y")
+	if got, want := g.pump(), `ime "y" "" 0,0`; got != want {
+		t.Errorf("after the timeout: app got %s, want %s", got, want)
 	}
 }
