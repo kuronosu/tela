@@ -4,6 +4,7 @@ package x11
 
 import (
 	"fmt"
+	"maps"
 	"math"
 	"os"
 	"slices"
@@ -75,7 +76,11 @@ import (
 //     XIM_SYNC_REPLY (at most imeSyncTimeout). Every synchronous message
 //     of the server (a forwarded event, a commit, XIM_SYNC) is answered
 //     with XIM_SYNC_REPLY: fcitx5 runs in sync mode and holds the
-//     client's next keys until it.
+//     client's next keys until it. Keys that wait keep their order, and
+//     those the forward mask leaves out go to the keyboard in their turn;
+//     a release the server does not take waits for its press if that is
+//     at the server (imeKeyboard), so the keyboard never sees a key's
+//     release before its press.
 //   - Composition: XIM_COMMIT strings (XLookupChars; a keysym alone is
 //     committed as its character when it has one) and the preedit of
 //     XIM_PREEDIT_START/DRAW/CARET/DONE are latched and become one
@@ -210,6 +215,18 @@ type xic struct {
 	waiting  bool
 	held     []xgb.Event
 	stopWait func()
+	// unanswered: key codes pressed and forwarded asynchronously, whose
+	// release the server does not take, and not sent back yet; deferred:
+	// their releases, waiting for them (imeKeyboard).
+	unanswered [256]bool
+	deferred   map[byte]deferredRelease
+}
+
+// deferredRelease is a release that waits for its press (imeKeyboard), and
+// the stop of its timeout.
+type deferredRelease struct {
+	ev   xgb.Event
+	stop func()
 }
 
 // initIME starts connecting to the input method XMODIFIERS names.
@@ -817,6 +834,10 @@ func (b *Backend) imeWindowClosed(w *Window) {
 		if ic.stopWait != nil {
 			ic.stopWait()
 		}
+		for _, d := range ic.deferred {
+			d.stop()
+		}
+		ic.deferred = nil
 		b.imeSend(xim.EncodeIDs(xim.OpDestroyIC, ime.imid, ic.id))
 	}
 	if i := slices.Index(ime.pending, w); i > 0 || i == 0 && !ime.creating {
@@ -908,7 +929,17 @@ func (b *Backend) imeEndSession(ic *xic) {
 	for _, ev := range held {
 		b.injectKey(ev)
 	}
+	b.imeFlushDeferred(ic)
 	ic.w.setIMESession(false)
+}
+
+// imeFlushDeferred sends every release that waits for its press to the
+// keyboard, in key code order (the session ends).
+func (b *Backend) imeFlushDeferred(ic *xic) {
+	for _, kc := range slices.Sorted(maps.Keys(ic.deferred)) {
+		b.imeReleaseDeferred(ic, kc)
+	}
+	ic.unanswered = [256]bool{}
 }
 
 // setIMESession reports a session change.
@@ -934,19 +965,33 @@ func (b *Backend) imeFilterKey(ev xgb.Event, win xproto.Window, kc byte, release
 		return false
 	}
 	ic := w.ic
-	bit := uint32(xproto.EventMaskKeyPress)
-	if release {
-		bit = xproto.EventMaskKeyRelease
-	}
-	if ime.forwardMask(ic)&bit == 0 {
-		return false
-	}
 	if ic.waiting {
+		// A synchronous forward is unanswered: every key waits behind it,
+		// in order, and goes to the server or the keyboard when its turn
+		// comes (imeSynced). A release outside the forward mask that went
+		// to the keyboard now would come before its own press, still at
+		// the server, which would send that back later: a KeyUp before
+		// its KeyDown, or a KeyDown without one.
 		ic.held = append(ic.held, ev)
+		return true
+	}
+	if ime.forwardMask(ic)&keyMaskBit(release) == 0 {
+		if !release || !ic.unanswered[kc] {
+			return false
+		}
+		b.imeKeyboard(ic, ev)
 		return true
 	}
 	b.imeForward(ic, ev)
 	return true
+}
+
+// keyMaskBit is the event mask bit of a key press or release.
+func keyMaskBit(release bool) uint32 {
+	if release {
+		return xproto.EventMaskKeyRelease
+	}
+	return xproto.EventMaskKeyPress
 }
 
 // forwardMask and syncMask are the event masks in effect for ic: its own,
@@ -1001,7 +1046,64 @@ func (b *Backend) imeForward(ic *xic, ev xgb.Event) {
 			}
 		})
 	}
+	if bit == xproto.EventMaskKeyPress && ime.forwardMask(ic)&xproto.EventMaskKeyRelease == 0 {
+		// The server does not take this key's release (imeKeyboard).
+		kc := wire[1]
+		b.imeReleaseDeferred(ic, kc) // the previous press's
+		if flag == 0 {
+			ic.unanswered[kc] = true
+		}
+	}
 	b.imeSend(xim.EncodeForwardEvent(ime.imid, ic.id, flag, 0, wire))
+}
+
+// imeKeyboard sends a key the server does not take to the keyboard: at
+// once, except a release whose press went to the server asynchronously and
+// has not come back. The keyboard must not see that release before the
+// press, which the server may still send back (a KeyUp before its KeyDown,
+// so a KeyDown without one); it waits for the press (imeForwarded) or for
+// imeSyncTimeout, after which the press counts as consumed (the keyboard
+// then drops the release of a key it never saw pressed). An asynchronous
+// forward has no answer when the server consumes the key, and a
+// synchronous flag the sync mask does not ask for gets none either
+// (xcb-imdkit sends XIM_SYNC_REPLY only in its sync-event mode), so there
+// is nothing better to wait for. fcitx5 and ibus take releases too
+// (KeyPress and KeyRelease in their forward masks), so this is for the
+// servers that ask for presses only.
+func (b *Backend) imeKeyboard(ic *xic, ev xgb.Event) {
+	r, ok := ev.(xproto.KeyReleaseEvent)
+	if !ok || !ic.unanswered[r.Detail] {
+		b.injectKey(ev)
+		return
+	}
+	kc := byte(r.Detail)
+	b.imeReleaseDeferred(ic, kc)
+	if ic.deferred == nil {
+		ic.deferred = map[byte]deferredRelease{}
+	}
+	ic.deferred[kc] = deferredRelease{ev: ev, stop: b.after(imeSyncTimeout, func() {
+		if _, ok := ic.deferred[kc]; ok {
+			delete(ic.deferred, kc)
+			ic.unanswered[kc] = false
+			b.injectKey(ev)
+		}
+	})}
+}
+
+// imeReleaseDeferred sends a release that waits for its press (imeKeyboard)
+// to the keyboard now: the press came back, a new press of the key goes to
+// the server, or the session ends.
+func (b *Backend) imeReleaseDeferred(ic *xic, kc byte) {
+	ic.unanswered[kc] = false
+	d, ok := ic.deferred[kc]
+	if !ok {
+		return
+	}
+	delete(ic.deferred, kc)
+	if d.stop != nil {
+		d.stop()
+	}
+	b.injectKey(d.ev)
 }
 
 // imeSynced ends the wait of a synchronous forward: the held keys go to
@@ -1015,10 +1117,14 @@ func (b *Backend) imeSynced(ic *xic) {
 	for len(ic.held) > 0 && !ic.waiting {
 		ev := ic.held[0]
 		ic.held = ic.held[1:]
-		if ic.focused && b.ime.state == imeReady && ic.w.ic == ic {
-			b.imeForward(ic, ev)
-		} else {
+		_, release := ev.(xproto.KeyReleaseEvent)
+		switch {
+		case !ic.focused || b.ime.state != imeReady || ic.w.ic != ic:
 			b.injectKey(ev)
+		case b.ime.forwardMask(ic)&keyMaskBit(release) != 0:
+			b.imeForward(ic, ev)
+		default:
+			b.imeKeyboard(ic, ev)
 		}
 	}
 }
@@ -1047,6 +1153,9 @@ func (b *Backend) imeForwarded(f xim.ForwardEvent) {
 	if ev != nil && ic != nil {
 		b.imeFlush(ic)
 		b.injectKey(ev)
+		if k, ok := ev.(xproto.KeyPressEvent); ok {
+			b.imeReleaseDeferred(ic, byte(k.Detail)) // its release, which waited
+		}
 	}
 	if f.Flag&xim.FlagSynchronous != 0 {
 		b.imeSend(xim.EncodeIDs(xim.OpSyncReply, f.IMID, f.ICID))

@@ -919,3 +919,58 @@ func TestIMECreateICFailures(t *testing.T) {
 		t.Errorf("closed while creating:\n got %s\nwant %s", got, want)
 	}
 }
+
+func TestIMEReleaseOutsideForwardMask(t *testing.T) {
+	// A server that takes presses only (no KeyRelease in its forward
+	// mask): the release of a key whose press is at the server waits for
+	// the server's answer, so the app sees the press first, then the
+	// release. (Without the wait the keyboard dropped the release of a key
+	// it had not seen pressed, then got the press: a key stuck down.)
+	g := newIMERig(t, func(im *fakeIM) {
+		im.icMask = &xim.SetEventMask{IMID: 1, Forward: xproto.EventMaskKeyPress}
+	})
+	g.focusField(t)
+	if got, want := g.feed(press(kcA, 0, 1), release(kcA, 0, 2)), lines(`key press KeyA "a" "a" mods=0`, `key release KeyA "a" "" mods=0`); got != want {
+		t.Errorf("sent back: app got %s, want %s", got, want)
+	}
+	if got, want := g.im.took(), "KEY 1 press 38"; got != want {
+		t.Errorf("sent back: server got %s, want %s", got, want)
+	}
+	if n := g.x.fire(imeSyncTimeout); n != 0 {
+		t.Errorf("%d timers left after the press came back", n)
+	}
+
+	// A press the server consumes: its release waits until imeSyncTimeout
+	// or the next press of the key, and the keyboard drops it.
+	g.im.onKey = func(press bool, kc byte) bool { return kc == kcY }
+	if got, want := g.feed(press(kcY, 0, 3), release(kcY, 0, 4), press(kcA, 0, 5), release(kcA, 0, 6)), lines(`key press KeyA "a" "a" mods=0`, `key release KeyA "a" "" mods=0`); got != want {
+		t.Errorf("consumed: app got %s, want %s", got, want)
+	}
+	if n := g.x.fire(imeSyncTimeout); n != 1 {
+		t.Errorf("%d timers fired, want the consumed press's", n)
+	}
+	if got := g.pump(); got != "" {
+		t.Errorf("consumed, after the timeout: app got %s", got)
+	}
+	if got, want := g.feed(press(kcY, 0, 7), release(kcY, 0, 8), press(kcY, 0, 9)), ""; got != want {
+		t.Errorf("consumed twice: app got %s, want %s", got, want)
+	}
+	g.im.took()
+
+	// Held behind a synchronous forward the server does not answer: the
+	// release goes after the press, when the wait ends.
+	g.im.onKey = nil
+	g.w.ic.mask.sync = xproto.EventMaskKeyPress
+	g.im.ignoreSync = true
+	if got, want := g.feed(press(kcQ, 0, 10), release(kcQ, 0, 11)), `key press KeyQ "q" "q" mods=0`; got != want {
+		t.Errorf("unanswered: app got %s, want %s (the release waits for the answer)", got, want)
+	}
+	g.im.ignoreSync = false
+	g.x.fire(imeSyncTimeout)
+	if got, want := g.pump(), `key release KeyQ "q" "" mods=0`; got != want {
+		t.Errorf("after the timeout: app got %s, want %s", got, want)
+	}
+	if got, want := g.im.took(), "KEY 1 press 24 sync"; got != want {
+		t.Errorf("held: server got %s, want %s", got, want)
+	}
+}
