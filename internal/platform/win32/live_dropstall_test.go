@@ -37,8 +37,18 @@ func hungMethod(this, a, b uintptr) uintptr {
 }
 
 // hungDataObject returns a proxy to a data object that hangs, in the
-// calling (single-threaded) apartment.
-func hungDataObject(t *testing.T) comObject {
+// calling (single-threaded) apartment, and the function that ends it.
+//
+// The order of the end matters: the proxy is released and the methods
+// return, the object is destroyed (its stub holds a reference until the
+// calls in flight return), and only then does the apartment's thread leave
+// COM and exit. A locked goroutine that returns ends its OS thread, and a
+// thread that ends while it is still in the multithreaded apartment with an
+// object exported from it (no CoUninitialize) took the process down with
+// an access violation outside Go (0xC0000005 and no Go trace, Windows 11
+// 26200), whether or not the proxy was released after: COM tears down the
+// thread's apartment state on a thread the Go runtime has already given up.
+func hungDataObject(t *testing.T) (obj comObject, end func()) {
 	t.Helper()
 	initComVtables()
 	hungVtbl = dataObjectVtbl
@@ -46,28 +56,46 @@ func hungDataObject(t *testing.T) comObject {
 	hungVtbl[vtDataObjectEnumFormatEtc] = syscall.NewCallback(hungMethod)
 
 	streams := make(chan uintptr)
+	destroyed := make(chan struct{})
+	exited := make(chan struct{})
 	go func() {
-		runtime.LockOSThread()        // the apartment belongs to this thread; it is never released
+		defer close(exited)
+		runtime.LockOSThread()        // the apartment belongs to this thread, which ends with it
 		procCoInitializeEx.Call(0, 0) // COINIT_MULTITHREADED
-		srv := newComServer(&hungVtbl[0], []guid{iidDataObject}, struct{}{}, nil)
+		srv := newComServer(&hungVtbl[0], []guid{iidDataObject}, struct{}{}, func() { close(destroyed) })
 		var stream uintptr
 		hr, _, _ := procCoMarshalInterThreadInterfaceInStream.Call(uintptr(unsafe.Pointer(&iidDataObject)), srv.ptr(), uintptr(unsafe.Pointer(&stream)))
 		if int32(uint32(hr)) < 0 {
 			stream = 0
 		}
+		srv.release() // the stream's marshaled reference keeps it
 		streams <- stream
-		<-hungRelease
+		select {
+		case <-destroyed:
+		case <-time.After(10 * time.Second):
+			// Something still holds the object: leave the thread in
+			// COM, alive and parked, rather than crash the process.
+			select {}
+		}
+		procCoUninitialize.Call()
 	}()
 	stream := <-streams
 	if stream == 0 {
 		t.Fatal("CoMarshalInterThreadInterfaceInStream failed")
 	}
-	var obj comObject
 	hr, _, _ := procCoGetInterfaceAndReleaseStream.Call(stream, uintptr(unsafe.Pointer(&iidDataObject)), uintptr(unsafe.Pointer(&obj)))
 	if int32(uint32(hr)) < 0 || obj == 0 {
 		t.Fatalf("CoGetInterfaceAndReleaseStream = %#x", uint32(hr))
 	}
-	return obj
+	return obj, func() {
+		obj.release()
+		close(hungRelease)
+		select {
+		case <-exited:
+		case <-time.After(10 * time.Second):
+			t.Errorf("the hung data object was not destroyed after its proxy was released")
+		}
+	}
 }
 
 func TestLiveDropSourceStalls(t *testing.T) {
@@ -82,11 +110,8 @@ func TestLiveDropSourceStalls(t *testing.T) {
 	dropStallTimeout = 600 * time.Millisecond
 	defer func() { dropStallTimeout = old }()
 	hungRelease = make(chan struct{})
-	obj := hungDataObject(t)
-	defer func() {
-		close(hungRelease)
-		obj.release()
-	}()
+	obj, end := hungDataObject(t)
+	defer end()
 
 	// EnumFormatEtc hangs: the formats are cut short and the guard says so.
 	start := time.Now()
