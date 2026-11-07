@@ -183,7 +183,7 @@ Hooks keep state and run code across builds, with React's names and semantics:
 
 ### Scrolling
 
-An element with overflow-auto or overflow-scroll (per axis: overflow-x-\*, overflow-y-\*) scrolls with the wheel, the touchpad (with a kinetic fling when the fingers lift, except on X11), touch, the keyboard (arrows, Page Up/Down, Home/End, Space) and its scrollbars; overflow-hidden scrolls only from code. The window itself scrolls like a browser page when the content is taller or wider than it ([`App`](#type-app).RootClass "overflow-hidden" turns that off); h-screen and h-full on the outer element still mean the window's height. Wheel scrolling chains to the scrolling ancestors at an edge unless overscroll-contain stops it. Scrollbars are thin overlay bars that appear while scrolling; [`App`](#type-app).ClassicScrollbars (or the class scrollbar-classic) draws always-visible classic bars that take space. User scrolling animates; [`App`](#type-app).InstantScroll (or scroll-instant on an element) turns animation and flings off, scroll-smooth turns them back on, and the system's reduced-motion setting always does. Code scrolls with [`ElementRef`](#type-elementref)'s ScrollTo, ScrollBy and ScrollIntoView (animated with scroll-smooth, like CSS), and h.OnScroll and h.OnWheel observe it:
+An element with overflow-auto or overflow-scroll (per axis: overflow-x-\*, overflow-y-\*) scrolls with the wheel, the touchpad (with a kinetic fling when the fingers lift, except under Xwayland and on X11 touchpads without libinput), touch, the keyboard (arrows, Page Up/Down, Home/End, Space) and its scrollbars; overflow-hidden scrolls only from code. The window itself scrolls like a browser page when the content is taller or wider than it ([`App`](#type-app).RootClass "overflow-hidden" turns that off); h-screen and h-full on the outer element still mean the window's height. Wheel scrolling chains to the scrolling ancestors at an edge unless overscroll-contain stops it. Scrollbars are thin overlay bars that appear while scrolling; [`App`](#type-app).ClassicScrollbars (or the class scrollbar-classic) draws always-visible classic bars that take space. User scrolling animates; [`App`](#type-app).InstantScroll (or scroll-instant on an element) turns animation and flings off, scroll-smooth turns them back on, and the system's reduced-motion setting always does. Code scrolls with [`ElementRef`](#type-elementref)'s ScrollTo, ScrollBy and ScrollIntoView (animated with scroll-smooth, like CSS), and h.OnScroll and h.OnWheel observe it:
 
 ```go
 list := tela.UseElementRef()
@@ -1517,7 +1517,10 @@ type App struct {
     // screen they are in the OS's auto-hiding title bar and the rectangle
     // is empty. The app draws the rest of the title bar (kit.TitleBar
     // leaves room for the buttons: [WindowState].TitleBarControls is the
-    // rectangle they cover). Elsewhere it behaves as Frameless, and the
+    // rectangle they cover). On Windows 11 DWM keeps its minimize,
+    // maximize and close buttons (with snap layouts) at the end of the
+    // bar, at the system's caption height, and TitleBarControls is their
+    // rectangle. Elsewhere it behaves as Frameless, and the
     // rectangle is empty. Set one of Frameless and TitleBarOverlay: Run
     // panics with both.
     TitleBarOverlay bool
@@ -5706,7 +5709,10 @@ type Window struct {
     // screen they are in the OS's auto-hiding title bar and the rectangle
     // is empty. The content draws the rest of the title bar (kit.TitleBar
     // leaves room for the buttons: [WindowState].TitleBarControls is the
-    // rectangle they cover). Elsewhere it behaves as Frameless, and the
+    // rectangle they cover). On Windows 11 DWM keeps its minimize,
+    // maximize and close buttons (with snap layouts) at the end of the
+    // bar, at the system's caption height, and TitleBarControls is their
+    // rectangle. Elsewhere it behaves as Frameless, and the
     // rectangle is empty. Set one of Frameless and TitleBarOverlay: the
     // window panics with both.
     TitleBarOverlay bool

@@ -957,7 +957,7 @@ desktop.AppMenuBar{
 }
 ```
 
-Where the platform has an app menu bar (macOS), it is the menu bar of every window, and macOS always puts the app's own menu first (About, then AppItems such as Settings…, then Services, Hide, Hide Others, Show All and Quit). On Windows, where each framed window has a menu bar, it becomes the bar of every framed window that has no [`MenuBar`](#type-menubar) of its own, including windows that open later; a window's own MenuBar wins on that window. AppItems are ignored there. Elsewhere (Linux; frameless windows; a tree with no window of a running app, as in tela snapshot) OnError receives an error wrapping [`ErrUnsupported`](#variables) after the first build, and the app draws its menu instead (kit's Menubar with AppMenu does). Nil OnError reports it as a dev warning. Two mounted AppMenuBars: the later one wins, with a dev warning.
+Where the platform has an app menu bar (macOS), it is the menu bar of every window, and macOS always puts the app's own menu first (About, then AppItems such as Settings…, then Services, Hide, Hide Others, Show All and Quit). On Windows, where each framed window has a menu bar, it becomes the bar of every framed window that has no [`MenuBar`](#type-menubar) of its own, including windows that open later; a window's own MenuBar wins on that window. AppItems are ignored there. Elsewhere (Linux; frameless and TitleBarOverlay windows; a tree with no window of a running app, as in tela snapshot) OnError receives an error wrapping [`ErrUnsupported`](#variables) after the first build, and the app draws its menu instead (kit's Menubar with AppMenu does). Nil OnError reports it as a dev warning. Two mounted AppMenuBars: the later one wins, with a dev warning.
 
 Choosing an item runs its OnSelect on the UI thread. Role items ([`Role`](#type-role)) without an OnSelect are carried out by the OS where it can (macOS) and by package desktop elsewhere, on the window with the keyboard focus.
 
@@ -1989,6 +1989,15 @@ type Tray struct {
     // Icon is the tray image, the same picture at one or more sizes (16,
     // 24 and 32 pixels cover the usual trays; the OS picks). Required.
     Icon []image.Image
+    // Template makes Icon a template image on macOS: only its alpha
+    // counts, and the menu bar tints it (dark on a light bar, light on a
+    // dark one, inverted while its menu is open), as the system's own
+    // status icons are drawn. Draw it as a black silhouette on
+    // transparency. Other platforms ignore it and show Icon's colors, so
+    // pick a color that reads on light and dark panels, or set Template
+    // only on a Mac (runtime.GOOS == "darwin") with a colored icon
+    // elsewhere.
+    Template bool
     // Tooltip is shown when the pointer rests on the icon.
     Tooltip string
     // Menu is the icon's context menu (a right click; on some Linux
