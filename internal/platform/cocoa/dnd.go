@@ -500,3 +500,40 @@ func (s *dropSession) setAnswer(effect platform.DropEffect, types []string) {
 		s.effect, s.want = effect, slices.Clone(types)
 	}
 }
+
+// dragLookGap is the shortest time between two looks at the drag
+// pasteboard within one drag sequence (dragWatch).
+const dragLookGap = 50 * time.Millisecond
+
+// dragWatch decides when the global monitor of left mouse drags looks at
+// the drag pasteboard's changeCount (ADR-237), which is a call to the
+// pasteboard server, for the drag events of every app. Within one drag
+// sequence (from its first LeftMouseDragged to the next LeftMouseUp or
+// LeftMouseDown of another app) it
+// looks at the first event and then at most once per dragLookGap, since
+// the source writes the pasteboard only once its own drag threshold is
+// crossed, a few events in; once the sequence has shown a new drag it
+// looks no more until the mouse goes up. A text selection or a window
+// move in another app costs a look per dragLookGap instead of one per
+// event, and a drag one look at most dragLookGap after it starts, long
+// before the pointer leaves the source's window for one of ours.
+type dragWatch struct {
+	seen bool      // this sequence has shown a new drag
+	last time.Time // the latest look of this sequence; zero before the first
+}
+
+// dragged reports whether to look at the pasteboard for a drag event at
+// now.
+func (w *dragWatch) dragged(now time.Time) bool {
+	if w.seen || !w.last.IsZero() && now.Sub(w.last) < dragLookGap {
+		return false
+	}
+	w.last = now
+	return true
+}
+
+// changed notes that a look found a new drag: none more this sequence.
+func (w *dragWatch) changed() { w.seen = true }
+
+// up ends the sequence (LeftMouseUp, LeftMouseDown).
+func (w *dragWatch) up() { *w = dragWatch{} }

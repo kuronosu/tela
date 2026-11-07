@@ -42,7 +42,9 @@ import (
 //     starts), and the types of other apps' drags, learned as each drag
 //     starts: a global event monitor of left mouse drags (no permission
 //     is needed for mouse events) looks at the drag pasteboard's
-//     changeCount, and a new drag's types are registered on every window
+//     changeCount (at a sequence's first drag event, then at most once
+//     per dragLookGap until it shows a drag or the mouse goes up:
+//     dragWatch), and a new drag's types are registered on every window
 //     before the pointer can reach one (AppKit asks the window server for
 //     a window's types as the drag moves over it). Chromium and Qt register
 //     a fixed list and miss such drags.
@@ -156,6 +158,8 @@ type backendDnD struct {
 	// changeCount when they were last looked at.
 	learned   []string
 	dragCount int
+	// watch spaces the monitor's looks at the drag pasteboard.
+	watch dragWatch
 	// monitor is the global event monitor of left mouse drags (retained),
 	// 0 until the first window.
 	monitor darwin.ID
@@ -259,9 +263,13 @@ func dragPasteboard() darwin.ID {
 	return darwin.SendClass(darwin.GetClass("NSPasteboard"), dndSel.pasteboardWithName, name)
 }
 
-// watchDrags installs the global monitor of left mouse drags, once: a
-// drag of another app that starts (the drag pasteboard's changeCount
-// moved) has its types registered on every window.
+// watchDrags installs the global monitor of left mouse drags, presses and
+// releases, once: a drag of another app that starts (the drag pasteboard's
+// changeCount moved) has its types registered on every window. The
+// changeCount is a call to the pasteboard server, so it is read only when
+// dragWatch says (the first drag event of a sequence, then at most once
+// per dragLookGap until the sequence shows its drag or the mouse goes up),
+// not at every drag event of every app.
 func (b *Backend) watchDrags() {
 	if b.dnd.monitor != 0 || b.closed {
 		return
@@ -269,11 +277,20 @@ func (b *Backend) watchDrags() {
 	if pb := dragPasteboard(); pb != 0 {
 		b.dnd.dragCount = darwin.SendInt(pb, pbSel.changeCount)
 	}
-	handler := darwin.NewBlock(func(_ darwin.Block, _ darwin.ID) {
+	handler := darwin.NewBlock(func(_ darwin.Block, ev darwin.ID) {
 		if b.closed {
 			return
 		}
 		b.guard(func() {
+			// A press or a release of another app bounds a sequence (the
+			// press too, in case the release went to one of ours).
+			if typ := darwin.SendUint(ev, isel.typ); ev == 0 || typ == darwin.NSEventTypeLeftMouseUp || typ == darwin.NSEventTypeLeftMouseDown {
+				b.dnd.watch.up()
+				return
+			}
+			if !b.dnd.watch.dragged(time.Now()) {
+				return
+			}
 			pool := darwin.PoolPush()
 			defer darwin.PoolPop(pool)
 			pb := dragPasteboard()
@@ -285,11 +302,13 @@ func (b *Backend) watchDrags() {
 				return
 			}
 			b.dnd.dragCount = n
+			b.dnd.watch.changed()
 			b.learnDragTypes(pb)
 		})
 	})
 	defer handler.Release()
-	m := darwin.SendClass(app.event, dndSel.addGlobalMonitor, uint64(1)<<darwin.NSEventTypeLeftMouseDragged, handler)
+	mask := uint64(1)<<darwin.NSEventTypeLeftMouseDragged | uint64(1)<<darwin.NSEventTypeLeftMouseDown | uint64(1)<<darwin.NSEventTypeLeftMouseUp
+	m := darwin.SendClass(app.event, dndSel.addGlobalMonitor, mask, handler)
 	b.dnd.monitor = darwin.Retain(m)
 }
 

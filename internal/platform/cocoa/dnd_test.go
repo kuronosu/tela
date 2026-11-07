@@ -1,6 +1,7 @@
 package cocoa
 
 import (
+	"fmt"
 	"image"
 	"slices"
 	"testing"
@@ -332,5 +333,32 @@ func TestDropSessionBusyPass(t *testing.T) {
 	s.enter(h, []string{platform.MIMEText}, platform.DropCopy, 0, platform.Point{}, false)
 	if want := []platform.DragAction{platform.DragEnter, platform.DragLeave, platform.DragEnter}; !slices.Equal(dragActions(h.got), want) {
 		t.Errorf("events = %v, want %v", dragActions(h.got), want)
+	}
+}
+
+func TestDragWatch(t *testing.T) {
+	var w dragWatch
+	t0 := time.Unix(100, 0)
+	at := func(ms int) time.Time { return t0.Add(time.Duration(ms) * time.Millisecond) }
+	var looks []int
+	for ms := 0; ms <= 200; ms += 8 { // a 125 Hz text selection: no drag
+		if w.dragged(at(ms)) {
+			looks = append(looks, ms)
+		}
+	}
+	if fmt.Sprint(looks) != "[0 56 112 168]" {
+		t.Errorf("looks without a drag = %v, want the first event and one per %v", looks, dragLookGap)
+	}
+	w.up()
+	if !w.dragged(at(300)) {
+		t.Error("a new sequence's first event was not looked at")
+	}
+	w.changed()
+	if w.dragged(at(400)) || w.dragged(at(1000)) {
+		t.Error("looked again after the sequence showed its drag")
+	}
+	w.up()
+	if !w.dragged(at(1001)) {
+		t.Error("no look after the mouse went up and a new sequence started")
 	}
 }
