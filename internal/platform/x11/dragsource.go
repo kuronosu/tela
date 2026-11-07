@@ -3,6 +3,7 @@
 package x11
 
 import (
+	"image"
 	"slices"
 	"time"
 
@@ -15,7 +16,9 @@ import (
 //
 //   - The backend owns XdndSelection with the source window and serves it
 //     like the clipboard (selection.go); XdndTypeList and XdndActionList
-//     on the source window list the targets and the allowed actions.
+//     on the source window list the targets and the allowed actions (the
+//     default first), and XdndActionDescription names them when there
+//     is a choice (the specification's requirement for XdndActionAsk).
 //   - It grabs the pointer (a core grab replaces the implicit grab of the
 //     held press, which belongs to this client) and the keyboard, so
 //     Escape cancels. The window gets PointerCancel (and PointerLeave)
@@ -25,10 +28,13 @@ import (
 //     of the app or at one with XdndAware (version 3 or later; XdndProxy
 //     honored). XDND targets get XdndEnter (XdndTypeList when more than
 //     three types), XdndPosition with the action DefaultDropEffect picks
-//     from Allowed and the modifiers (never XdndActionAsk: the backend
-//     has no way to ask the user, so the list is only advertised), at
-//     most one position in flight (the next one waits for XdndStatus),
-//     and XdndLeave. The app's own windows get the target-side
+//     from Allowed and the modifiers, or XdndActionAsk when the drag
+//     allows a choice and the user asks for one as in GTK (a drag of the
+//     secondary or middle button, or Alt alone held), so the target lets
+//     the user choose at the drop and XdndFinished reports the choice
+//     (the cursor shows context-menu while the target accepts the ask);
+//     at most one position in flight (the next one waits for
+//     XdndStatus), and XdndLeave. The app's own windows get the target-side
 //     DragEvents directly, with FromApp set, as the headless backend
 //     does.
 //   - The release drops: XdndDrop when the target's latest status
@@ -39,11 +45,8 @@ import (
 //     grabs end at the drop, and one DragDoneEvent goes to the source
 //     window.
 //   - The pointer shows the grabbing cursor, then copy, move, alias
-//     (link) or no-drop as the target answers. DragOptions.Image is not
-//     shown: an image window under the pointer would need the Shape
-//     extension to stay out of the hit-test walk, and an ARGB visual
-//     with a compositing manager to look right (the contract makes it a
-//     hint).
+//     (link) or no-drop as the target answers. DragOptions.Image follows
+//     the pointer in a window of its own (dragicon.go).
 
 const (
 	// dragStatusTimeout bounds the wait for the XdndStatus of the
@@ -84,10 +87,38 @@ type dragSource struct {
 	own    *Window
 	ownPos platform.Point
 
+	// askButton: the drag started from the secondary or middle button,
+	// which asks the target to let the user choose (XdndActionAsk);
+	// asked: the latest status accepted the ask.
+	askButton bool
+	asked     bool
+
+	// The drag image's window (dragicon.go), 0 when none; the hotspot
+	// and the window's root position.
+	icon    xproto.Window
+	iconHot image.Point
+	iconAt  image.Point
+
 	aware      map[xproto.Window]awareInfo
 	grabbedKbd bool
 	ungrabbed  bool
 	cursor     platform.Cursor
+}
+
+// actionNames are the XdndActionDescription strings of the actions.
+var actionNames = map[platform.DropEffect]string{platform.DropCopy: "Copy", platform.DropMove: "Move", platform.DropLink: "Link"}
+
+// requested returns the action XdndPosition requests: XdndActionAsk when
+// the drag allows a choice and the user asks for one (a drag of the
+// secondary or middle button, or Alt alone held: GTK's rules,
+// gtk_drag_get_event_actions), else the default effect for the
+// modifiers.
+func (ds *dragSource) requested(b *Backend) xproto.Atom {
+	choice := ds.allowed&(ds.allowed-1) != 0 // more than one effect
+	if choice && (ds.askButton || ds.mods&(platform.ModAlt|platform.ModCtrl|platform.ModShift) == platform.ModAlt) {
+		return b.atoms.xdndActionAsk
+	}
+	return b.actionOf(platform.DefaultDropEffect(ds.allowed, ds.mods))
 }
 
 // awareInfo is what a window says about XDND.
@@ -133,13 +164,27 @@ func (w *Window) StartDrag(opts platform.DragOptions) error {
 		list[i] = uint32(a)
 	}
 	b.xs.changeProperty(w.id, b.atoms.xdndTypeList, xproto.AtomAtom, 32, card32s(list...))
+	// The allowed actions, the default first (the XDND specification:
+	// the first is preselected when the target asks the user), with
+	// their descriptions when there is a choice (XdndActionAsk).
 	var actions []uint32
-	for _, e := range [...]platform.DropEffect{platform.DropCopy, platform.DropMove, platform.DropLink} {
-		if ds.allowed.Has(e) {
-			actions = append(actions, uint32(b.actionOf(e)))
+	var desc []byte
+	def := platform.DefaultDropEffect(ds.allowed, 0)
+	for _, e := range [...]platform.DropEffect{def, platform.DropCopy, platform.DropMove, platform.DropLink} {
+		if a := uint32(b.actionOf(e)); ds.allowed.Has(e) && !slices.Contains(actions, a) {
+			actions = append(actions, a)
+			desc = append(append(desc, actionNames[e]...), 0)
 		}
 	}
 	b.xs.changeProperty(w.id, b.atoms.xdndActionList, xproto.AtomAtom, 32, card32s(actions...))
+	if len(actions) > 1 {
+		b.xs.changeProperty(w.id, b.atoms.xdndActionDescription, xproto.AtomString, 8, desc[:len(desc)-1])
+	} else {
+		b.xs.deleteProperty(w.id, b.atoms.xdndActionDescription) // an earlier drag's
+	}
+	// A drag of the secondary or middle button asks (GTK's rule, and
+	// Windows' right-drag menu).
+	ds.askButton = w.pressed&platform.ButtonPrimary.Mask() == 0
 	ds.grabbedKbd = b.xs.grabKeyboard(w.id)
 
 	qp, _ := b.xs.queryPointer(b.root)
@@ -155,6 +200,7 @@ func (w *Window) StartDrag(opts platform.DragOptions) error {
 	w.pressed = 0
 
 	b.integ.drag = ds
+	b.showDragIcon(ds, opts.Image, opts.Hotspot, qp.rootX, qp.rootY)
 	b.dragMove(qp.rootX, qp.rootY, mods, 0)
 	if buttonsFromState(qp.mask) == 0 {
 		// Released before the grab: drop where the pointer is.
@@ -258,6 +304,7 @@ func (b *Backend) dragMove(x, y int16, mods platform.Modifiers, t uint32) {
 	if t != 0 {
 		ds.time = t
 	}
+	b.moveDragIcon(ds, x, y)
 	own, target, info := b.dragFind(x, y)
 	if own != ds.own || target != ds.target {
 		b.dragLeaveCurrent()
@@ -384,9 +431,8 @@ func (b *Backend) sendPosition() {
 		ds.moved = true
 		return
 	}
-	action := b.actionOf(platform.DefaultDropEffect(ds.allowed, ds.mods))
 	xy := uint32(uint16(ds.rootX))<<16 | uint32(uint16(ds.rootY))
-	b.sendXdndTo(ds.dest, ds.target, b.atoms.xdndPosition, uint32(ds.w.id), 0, xy, ds.time, uint32(action))
+	b.sendXdndTo(ds.dest, ds.target, b.atoms.xdndPosition, uint32(ds.w.id), 0, xy, ds.time, uint32(ds.requested(b)))
 	ds.waiting, ds.moved = true, false
 }
 
@@ -397,11 +443,15 @@ func (b *Backend) dragStatus(w *Window, target xproto.Window, flags uint32, acti
 		return
 	}
 	ds.waiting = false
-	ds.accept = platform.DropNone
+	ds.accept, ds.asked = platform.DropNone, false
 	if flags&1 != 0 {
 		e := b.effectOf(action)
 		if !ds.allowed.Has(e) {
-			e = platform.DefaultDropEffect(ds.allowed, ds.mods) // older targets send no action
+			// Older targets send no action; a target that will ask
+			// the user answers XdndActionAsk, and XdndFinished brings
+			// the choice.
+			e = platform.DefaultDropEffect(ds.allowed, ds.mods)
+			ds.asked = action == b.atoms.xdndActionAsk
 		}
 		ds.accept = e
 	}
@@ -521,7 +571,7 @@ func (b *Backend) dragLeaveCurrent() {
 	if ds.target != 0 {
 		b.sendXdndTo(ds.dest, ds.target, b.atoms.xdndLeave, uint32(ds.w.id))
 		ds.target, ds.dest, ds.version = 0, 0, 0
-		ds.waiting, ds.moved, ds.accept = false, false, platform.DropNone
+		ds.waiting, ds.moved, ds.accept, ds.asked = false, false, platform.DropNone, false
 	}
 }
 
@@ -549,6 +599,8 @@ func (b *Backend) updateDragCursor() {
 	switch {
 	case ds.own == nil && ds.target == 0:
 		c = platform.CursorGrabbing
+	case ds.own == nil && ds.asked:
+		c = platform.CursorContextMenu // GTK's dnd-ask cursor
 	case effect == platform.DropCopy:
 		c = platform.CursorCopy
 	case effect == platform.DropMove:
@@ -569,6 +621,7 @@ func (b *Backend) ungrabDrag() {
 		return
 	}
 	ds.ungrabbed = true
+	b.hideDragIcon(ds)
 	b.xs.ungrabPointerCore()
 	if ds.grabbedKbd {
 		b.xs.ungrabKeyboard()

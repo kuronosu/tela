@@ -166,8 +166,10 @@ type DragOptions struct {
 	// Image, if not nil, is shown under the pointer during the drag:
 	// premultiplied RGBA (like Present's framebuffer) in physical pixels
 	// of the window's scale. nil: the OS's default feedback. It is a hint:
-	// a backend that cannot show it (X11 without a compositor) shows the
-	// cursor only. The backend copies it before StartDrag returns.
+	// a backend that cannot show it (an X server without input shapes)
+	// shows the cursor only, and X11 without a compositing manager shows
+	// its pixels at least half opaque, opaque. The backend copies it
+	// before StartDrag returns.
 	Image *image.RGBA
 	// Hotspot is the point of Image under the pointer, in Image's
 	// coordinates (physical pixels; it may lie outside the image).

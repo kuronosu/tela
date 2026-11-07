@@ -4,6 +4,7 @@ package x11
 
 import (
 	"errors"
+	"image"
 	"sync"
 	"time"
 
@@ -52,6 +53,20 @@ type dataServer interface {
 	// client holds the combination).
 	grabKey(kc byte, mods uint16) error
 	ungrabKey(kc byte, mods uint16)
+	// inputShapes reports whether the server has SHAPE 1.1 or later
+	// (input shapes); a round trip the first time.
+	inputShapes() bool
+	// createDragIcon creates the unmapped window of a drag image at r
+	// (root coordinates; dragicon.go has the details): the ARGB visual
+	// when argb, pix (32-bpp ZPixmap, stride 4*r.Dx()) as its
+	// background, an empty input shape, and the bounding shape bounding
+	// unless it is nil. 0 when the server refuses it (a round trip).
+	createDragIcon(r image.Rectangle, argb bool, pix []byte, bounding []xproto.Rectangle) xproto.Window
+	// moveIcon moves the drag image's window to (x, y) on top of its
+	// siblings; mapIcon shows it, destroyIcon destroys it.
+	moveIcon(win xproto.Window, x, y int)
+	mapIcon(win xproto.Window)
+	destroyIcon(win xproto.Window)
 }
 
 // xproperty is a property's value.

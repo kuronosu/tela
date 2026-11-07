@@ -40,7 +40,9 @@ type fakeX struct {
 
 	taken     map[[2]int]bool // key grabs another client holds
 	grabbed   map[[2]int]bool
-	noPointer bool // the pointer grab fails
+	noPointer bool   // the pointer grab fails
+	noShape   bool   // the server has no input shapes
+	iconPix   []byte // the pixels of the latest drag image window
 	// setOwnerHook, if set, runs after SetSelectionOwner (another client
 	// taking the selection back at once).
 	setOwnerHook func(sel xproto.Atom)
@@ -285,6 +287,27 @@ func (x *fakeX) grabKey(kc byte, mods uint16) error {
 }
 
 func (x *fakeX) ungrabKey(kc byte, mods uint16) { delete(x.grabbed, [2]int{int(kc), int(mods)}) }
+
+const fakeIconWin = 950
+
+func (x *fakeX) inputShapes() bool { return !x.noShape }
+
+func (x *fakeX) createDragIcon(r image.Rectangle, argb bool, pix []byte, bounding []xproto.Rectangle) xproto.Window {
+	kind, shape := "rgb", "none"
+	if argb {
+		kind = "argb"
+	}
+	if bounding != nil {
+		shape = fmt.Sprint(len(bounding))
+	}
+	x.log("create icon %v %s bounding=%s", r, kind, shape)
+	x.iconPix = pix
+	return fakeIconWin
+}
+
+func (x *fakeX) moveIcon(win xproto.Window, px, py int) { x.log("move %d to %d,%d", win, px, py) }
+func (x *fakeX) mapIcon(win xproto.Window)              { x.log("map %d", win) }
+func (x *fakeX) destroyIcon(win xproto.Window)          { x.log("destroy %d", win) }
 
 // grabs returns the key grabs held, sorted.
 func (x *fakeX) grabs() string {

@@ -104,7 +104,10 @@
 //     every window, XdndStatus sent after the handler saw each position),
 //     source side in dragsource.go (core pointer and keyboard grabs, a
 //     walk down the window tree with TranslateCoordinates, the app's own
-//     windows served directly). The drag image is not shown.
+//     windows served directly, XdndActionAsk with the action descriptions
+//     when the user asks for a choice), and the drag image in an
+//     override-redirect window with an empty input shape (dragicon.go:
+//     ARGB with a compositing manager, shaped otherwise).
 //   - Global shortcuts (shortcuts.go): the portal first, else XGrabKey on
 //     the root window per Lock/NumLock combination.
 //   - ActivateWithToken (phase13.go): _NET_STARTUP_ID, _NET_ACTIVE_WINDOW
