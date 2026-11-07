@@ -155,7 +155,8 @@ type Options struct {
 	Screen platform.Size
 	// NoServerDecorations makes the fake window manager draw no title bars,
 	// as GNOME on Wayland: every window reports ClientSideDecorations, and
-	// the app draws its own bar.
+	// the app draws its own bar (core draws its fallback title bar on the
+	// framed windows that have none, ADR-238).
 	NoServerDecorations bool
 	// TitleBarControls is the rectangle the fake window manager's window
 	// buttons cover in every WindowOptions.TitleBarOverlay window (macOS's

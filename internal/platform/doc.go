@@ -762,9 +762,12 @@
 // # System settings
 //
 // [SystemSettings] reports dark mode, reduced motion, the double-click
-// time, the accent color (HasAccentColor), high contrast and the text
+// time, the accent color (HasAccentColor), high contrast, the text
 // scale (0 unknown, TextScaleFactor treats it as 1; the layers above
-// multiply rem by it). Backends read them when they start and deliver a
+// multiply rem by it) and TitleBarButtons, the desktop's order of the
+// window buttons in GNOME's button-layout syntax ("" unknown; the Linux
+// settings portal's org.gnome.desktop.wm.preferences button-layout), which
+// core's fallback title bar follows (ADR-238). Backends read them when they start and deliver a
 // [SettingsEvent] with the whole new value when one changes (an equal
 // value is not reported).
 //

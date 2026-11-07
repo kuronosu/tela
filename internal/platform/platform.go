@@ -498,6 +498,14 @@ type SystemSettings struct {
 	// GNOME's text-scaling-factor): 1rem is the theme's rem times it.
 	// Zero means unknown and is treated as 1 (TextScaleFactor).
 	TextScale float64
+	// TitleBarButtons is where the desktop puts the window buttons of a
+	// title bar, in GNOME's button-layout syntax (org.gnome.desktop.wm.
+	// preferences, which GTK reads as gtk-decoration-layout): the names
+	// before the colon go at the start of the bar, those after it at the
+	// end, in order, such as "appmenu:minimize,maximize,close" or
+	// "close,minimize,maximize:". Core draws the fallback title bar of
+	// client-side decorated windows with it (ADR-238). Empty means unknown.
+	TitleBarButtons string
 }
 
 // MaxTextScale bounds SystemSettings.TextScale; backends report larger OS

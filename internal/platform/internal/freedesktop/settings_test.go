@@ -56,6 +56,8 @@ func TestSettingsFrom(t *testing.T) {
 			{nsKDE, "AnimationDurationFactor"}: "0",
 			{nsKDE, "DoubleClickInterval"}:     "550",
 		}, platform.SystemSettings{ReducedMotion: true, DoubleClickInterval: 550 * time.Millisecond}},
+		{"GNOME button layout", kv{{nsGnomeWM, "button-layout"}: "close,minimize:"}, platform.SystemSettings{TitleBarButtons: "close,minimize:"}},
+		{"button layout of another type", kv{{nsGnomeWM, "button-layout"}: uint32(1)}, platform.SystemSettings{}},
 		{"KDE slower animations", kv{{nsKDE, "AnimationDurationFactor"}: "0.5"}, platform.SystemSettings{}},
 		{"text scale clamped", kv{{nsGnomeInterface, "text-scaling-factor"}: 9.0}, platform.SystemSettings{TextScale: platform.MaxTextScale}},
 		{"text scale invalid", kv{{nsGnomeInterface, "text-scaling-factor"}: -1.0}, platform.SystemSettings{}},
@@ -98,6 +100,9 @@ func appearanceSettings() map[string]map[string]dbus.Variant {
 		nsGnomeMouse: {
 			"double-click": dbus.MakeVariant(int32(400)),
 		},
+		nsGnomeWM: {
+			"button-layout": dbus.MakeVariant("appmenu:close"),
+		},
 		"org.example.other": {"x": dbus.MakeVariant(true)},
 	}
 }
@@ -109,7 +114,7 @@ func TestSettingsPortal(t *testing.T) {
 
 	want := platform.SystemSettings{
 		DarkMode: true, AccentColor: color.NRGBA{51, 102, 153, 255}, HasAccentColor: true,
-		TextScale: 1.5, DoubleClickInterval: 400 * time.Millisecond,
+		TextScale: 1.5, DoubleClickInterval: 400 * time.Millisecond, TitleBarButtons: "appmenu:close",
 	}
 	if got := h.d.SystemSettings(); got != want {
 		t.Fatalf("SystemSettings = %+v\nwant %+v", got, want)
@@ -151,6 +156,13 @@ func TestSettingsPortal(t *testing.T) {
 	}
 	if got := h.d.SystemSettings(); got != want {
 		t.Errorf("SystemSettings = %+v, want %+v", got, want)
+	}
+
+	// GNOME Tweaks moving the window buttons (ADR-238).
+	p.setSetting(nsGnomeWM, "button-layout", "close,minimize,maximize:")
+	want.TitleBarButtons = "close,minimize,maximize:"
+	if se := h.event("button layout").(platform.SettingsEvent); se.Settings != want {
+		t.Fatalf("event = %+v, want %+v", se.Settings, want)
 	}
 
 	// After Close nothing more is delivered.

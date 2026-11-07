@@ -26,7 +26,7 @@ func TestSettingsV2Forwarded(t *testing.T) {
 	a.newWindow(platform.WindowOptions{Title: "settings"})
 	a.configured()
 	s := platform.SystemSettings{DarkMode: true, DoubleClickInterval: 300 * time.Millisecond,
-		AccentColor: color.NRGBA{R: 53, G: 132, B: 228, A: 255}, HasAccentColor: true, HighContrast: true, TextScale: 1.5}
+		AccentColor: color.NRGBA{R: 53, G: 132, B: 228, A: 255}, HasAccentColor: true, HighContrast: true, TextScale: 1.5, TitleBarButtons: "appmenu:minimize,close"}
 	p.hb.SetSettings(s)
 	got := a.waitEvent("settings", isType[platform.SettingsEvent]).(platform.SettingsEvent)
 	if got.Settings != s {

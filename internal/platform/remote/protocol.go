@@ -36,7 +36,8 @@ import (
 //   - 6: platform contract v4 (ADR-225; appmenu.go): QuitRequestedEvent,
 //     the app menu bar (SetAppMenu, AppMenuEvent), menu roles,
 //     WindowOptions.TitleBarOverlay and WindowState.TitleBarControls.
-//   - 7: TrayOptions.Template (ADR-237).
+//   - 7: TrayOptions.Template (ADR-237) and
+//     SystemSettings.TitleBarButtons (ADR-238).
 const ProtocolVersion = 7
 
 // magic opens the hello message.
@@ -199,6 +200,7 @@ func (e *enc) settings(s platform.SystemSettings) {
 	e.boolean(s.HasAccentColor)
 	e.boolean(s.HighContrast)
 	e.f64(s.TextScale)
+	e.str(s.TitleBarButtons) // protocol 7 (ADR-238)
 }
 func (e *enc) rects(rs []image.Rectangle) {
 	e.u32(uint32(len(rs)))
@@ -276,6 +278,7 @@ func (d *dec) settings() platform.SystemSettings {
 		HasAccentColor:      d.boolean(),
 		HighContrast:        d.boolean(),
 		TextScale:           d.f64(),
+		TitleBarButtons:     d.str(),
 	}
 }
 func (d *dec) str() string {

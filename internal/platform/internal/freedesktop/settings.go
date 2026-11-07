@@ -45,6 +45,9 @@ import (
 //   - DoubleClickInterval: org.gnome.desktop.peripherals.mouse
 //     double-click, else org.kde.kdeglobals.KDE DoubleClickInterval
 //     (milliseconds).
+//   - TitleBarButtons: org.gnome.desktop.wm.preferences button-layout,
+//     as it is (GTK reads the same key through the portal for
+//     gtk-decoration-layout; core parses it, ADR-238).
 //
 // Without a portal, or with a portal that has no Settings interface
 // (xdg-desktop-portal-hyprland alone, for instance), every value stays
@@ -59,9 +62,10 @@ const (
 	nsGnomeA11y      = "org.gnome.desktop.a11y.interface"
 	nsGnomeMouse     = "org.gnome.desktop.peripherals.mouse"
 	nsKDE            = "org.kde.kdeglobals.KDE"
+	nsGnomeWM        = "org.gnome.desktop.wm.preferences"
 )
 
-var settingsNamespaces = []string{nsAppearance, nsGnomeInterface, nsGnomeA11y, nsGnomeMouse, nsKDE}
+var settingsNamespaces = []string{nsAppearance, nsGnomeInterface, nsGnomeA11y, nsGnomeMouse, nsKDE, nsGnomeWM}
 
 // settingKey is a (namespace, key) pair of the Settings portal.
 type settingKey struct{ ns, key string }
@@ -258,8 +262,18 @@ func settingsFrom(raw map[settingKey]any) platform.SystemSettings {
 	if ok && ms > 0 && ms < 60_000 {
 		s.DoubleClickInterval = time.Duration(ms) * time.Millisecond
 	}
+
+	if v, ok := get(nsGnomeWM, "button-layout"); ok {
+		if layout, ok := v.(string); ok && len(layout) <= maxButtonLayout {
+			s.TitleBarButtons = layout
+		}
+	}
 	return s
 }
+
+// maxButtonLayout bounds the button-layout value taken: a real one is a
+// few names long.
+const maxButtonLayout = 256
 
 // accentColor converts the portal's accent-color, (ddd) in 0..1; any
 // component out of range (the portal's "unset") or a value of another

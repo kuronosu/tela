@@ -31,7 +31,7 @@ var eventSamples = []platform.Event{
 	platform.FocusEvent{Focused: true},
 	platform.WakeEvent{},
 	platform.SettingsEvent{Settings: platform.SystemSettings{DarkMode: true, ReducedMotion: true, DoubleClickInterval: 400 * time.Millisecond,
-		AccentColor: color.NRGBA{R: 53, G: 132, B: 228, A: 255}, HasAccentColor: true, HighContrast: true, TextScale: 1.25}},
+		AccentColor: color.NRGBA{R: 53, G: 132, B: 228, A: 255}, HasAccentColor: true, HighContrast: true, TextScale: 1.25, TitleBarButtons: "close:"}},
 	platform.PointerEvent{Action: platform.PointerDown, Kind: platform.PointerPen, ID: 7, Pos: platform.Point{X: 1.5, Y: -2.25},
 		Button: platform.ButtonSecondary, Buttons: 3, Mods: platform.ModCtrl | platform.ModShift, Time: time.Second},
 	platform.ScrollEvent{Kind: platform.PointerMouse, Pos: platform.Point{X: 3, Y: 4}, Delta: platform.Point{X: -1, Y: 2.5},
