@@ -36,7 +36,8 @@ import (
 //   - 6: platform contract v4 (ADR-225; appmenu.go): QuitRequestedEvent,
 //     the app menu bar (SetAppMenu, AppMenuEvent), menu roles,
 //     WindowOptions.TitleBarOverlay and WindowState.TitleBarControls.
-const ProtocolVersion = 6
+//   - 7: TrayOptions.Template (ADR-237).
+const ProtocolVersion = 7
 
 // magic opens the hello message.
 const magic = "TELA"
@@ -848,10 +849,11 @@ func (e *enc) tray(o platform.TrayOptions) {
 	e.images(o.Icon)
 	e.str(o.Tooltip)
 	e.menu(o.Menu)
+	e.boolean(o.Template)
 }
 
 func (d *dec) tray() platform.TrayOptions {
-	return platform.TrayOptions{Icon: d.images(), Tooltip: d.str(), Menu: d.menu(0)}
+	return platform.TrayOptions{Icon: d.images(), Tooltip: d.str(), Menu: d.menu(0), Template: d.boolean()}
 }
 
 func (e *enc) menu(items []platform.MenuItem) {

@@ -629,7 +629,7 @@ func TestQuitRequestDialog(t *testing.T) {
 		if _, ok := e.(platform.WakeEvent); !ok {
 			return false
 		}
-		if !clicked && b.desk.modalRunning && len(b.desk.dialogs) == 1 && darwin.SendBool(b.desk.dialogs[0].window(), psel.isVisible) {
+		if !clicked && len(b.desk.dialogs) == 1 && b.desk.dialogs[0].detached && darwin.SendBool(b.desk.dialogs[0].window(), psel.isVisible) {
 			clicked = true
 			waitingAtClick = append(waitingAtClick, b.menus.quit.waiting)
 			if round == 0 {

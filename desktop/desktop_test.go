@@ -313,6 +313,33 @@ func TestTrayWhileHidden(t *testing.T) {
 	}
 }
 
+// Template is part of what the tray shows: changing it updates the icon,
+// and a build that keeps it does not.
+func TestTrayTemplate(t *testing.T) {
+	app := telatest.MountFunc(t, func() tela.Node {
+		template, setTemplate := tela.UseState(false)
+		n, setN := tela.UseState(0)
+		return Div(
+			Button(OnClick(func() { setTemplate.Set(!template) }), Text("Toggle")),
+			Button(OnClick(func() { setN.Set(n + 1) }), Text("Rebuild")),
+			Textf("builds: %d", n),
+			tela.Component(desktop.Tray{Icon: trayIcon, Tooltip: "Notes", Template: template}),
+		)
+	})
+	if tr := app.Tray(); tr.Updates != 0 {
+		t.Fatalf("%d updates before any change", tr.Updates)
+	}
+	app.Click(telatest.ByRole("button", "Toggle"))
+	if tr := app.Tray(); tr.Updates != 1 {
+		t.Errorf("%d updates after Template changed, want 1", tr.Updates)
+	}
+	app.Click(telatest.ByRole("button", "Rebuild"))
+	app.ExpectText("builds: 1")
+	if tr := app.Tray(); tr.Updates != 1 {
+		t.Errorf("%d updates after a build with the same Template, want 1", tr.Updates)
+	}
+}
+
 // Without a tray, OnError gets an error wrapping ErrUnsupported.
 func TestTrayUnsupported(t *testing.T) {
 	var got error

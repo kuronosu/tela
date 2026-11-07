@@ -216,3 +216,38 @@ func macTrigger(a platform.Accelerator) string {
 	}
 	return b.String()
 }
+
+// hotkeyTarget is where a shortcut's hot key goes in one keyboard layout:
+// the virtual key code, or why its key has none (err, ShortcutFailed).
+type hotkeyTarget struct {
+	code uint16
+	err  string
+}
+
+// targetOf returns the hot key target of key in layout (hotkeyKeyCode).
+func targetOf(key platform.Key, layout *keyLayout) hotkeyTarget {
+	code, err := hotkeyKeyCode(key, layout)
+	if err != nil {
+		return hotkeyTarget{err: err.Error()}
+	}
+	return hotkeyTarget{code: code}
+}
+
+// relayoutPlan returns the shortcuts whose hot key moves when the keyboard
+// layout changes: the indexes i where now[i], the target under the new
+// layout, differs from old[i], the one the hot key was registered (or
+// tried) with, in order. A named key never moves; a character moves to
+// the key that types it now, and one the old layout did not type (an
+// error, or the ANSI fallback) may find its key. The backend unregisters
+// every moving hot key first and then registers them again in this order,
+// so two shortcuts whose keys trade places (AZERTY's A and Q) do not take
+// each other's old combination.
+func relayoutPlan(old, now []hotkeyTarget) []int {
+	var out []int
+	for i := range min(len(old), len(now)) {
+		if old[i] != now[i] {
+			out = append(out, i)
+		}
+	}
+	return out
+}

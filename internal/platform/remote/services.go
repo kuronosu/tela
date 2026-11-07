@@ -800,5 +800,5 @@ func (h *Host) dropServices(c *Child) {
 
 // equalTray reports whether two decoded tray options are the same.
 func equalTray(a, b platform.TrayOptions) bool {
-	return a.Tooltip == b.Tooltip && equalIcons(a.Icon, b.Icon) && reflect.DeepEqual(a.Menu, b.Menu)
+	return a.Tooltip == b.Tooltip && a.Template == b.Template && equalIcons(a.Icon, b.Icon) && reflect.DeepEqual(a.Menu, b.Menu)
 }

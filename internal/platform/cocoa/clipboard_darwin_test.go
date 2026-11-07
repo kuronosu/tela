@@ -204,6 +204,8 @@ func TestClipboardRoundTrips(t *testing.T) {
 		{"custom binary", platform.Data{{Type: "application/x-tela-test", Bytes: []byte{0, 1, 2, 0xff, 0xfe, 0}}, {Type: platform.MIMEText, Bytes: []byte("fallback")}}},
 		{"declared type", platform.Data{{Type: "application/json", Bytes: []byte(`{"tela":1}`)}}},
 		{"custom with parameters", platform.Data{{Type: "application/x-tela-item;version=2", Bytes: []byte("v2")}}},
+		// Another app's private type, under its own identifier (ADR-237).
+		{"private type", platform.Data{{Type: utiMIMEPrefix + "com.example.tela-private", Bytes: []byte("private ✓")}}},
 		{"files and a URL", platform.Data{{Type: platform.MIMEURIList, Bytes: platform.URIList([]string{uriA, uriB, "https://telaui.dev/"})}}},
 	}
 	runScript(t, b, func(quit func()) {

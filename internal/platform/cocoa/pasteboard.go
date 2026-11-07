@@ -35,6 +35,12 @@ import (
 //     which UTType tags do not carry, or one UTType refuses, is a custom
 //     identifier naming it (customType). Types are read back through the
 //     UTType's preferred MIME type.
+//   - A pasteboard type with no MIME type (another app's private type,
+//     com.adobe.photoshop-layers, com.apple.finder.node) is the Data type
+//     utiMIMEPrefix + its identifier (privateMIME, ADR-237), read and
+//     written under that identifier, so a drop or paste can see and take
+//     what another Mac app offers. Dynamic identifiers (dyn.…, aliases of
+//     legacy names and tags) and the file promise types are not data.
 
 // Pasteboard types of the well-known Data types.
 const (
@@ -172,6 +178,71 @@ func unhex(c byte) int {
 // customType rather than its UTType: one with parameters, which UTType
 // tags do not carry.
 func needsCustomType(mime string) bool { return strings.Contains(mime, ";") }
+
+// utiMIMEPrefix starts the Data type of a pasteboard type with no MIME
+// type: "application/x-uti." and the type's identifier
+// ("application/x-uti.com.adobe.photoshop-layers").
+const utiMIMEPrefix = "application/x-uti."
+
+// privateMIME returns the Data type of a pasteboard type that has no MIME
+// type: utiMIMEPrefix and the identifier, for a declared identifier
+// (ASCII letters, digits, '-' and '.', with a dot inside: reverse DNS),
+// not a dynamic one (dyn.…) nor a file promise type. ok is false for
+// anything else (legacy names with spaces are not data).
+func privateMIME(uti string) (string, bool) {
+	if uti == "" || len(utiMIMEPrefix)+len(uti) > 255 || strings.HasPrefix(strings.ToLower(uti), "dyn.") ||
+		isPromiseType(uti) || !strings.Contains(strings.Trim(uti, "."), ".") {
+		return "", false
+	}
+	for i := 0; i < len(uti); i++ {
+		c := uti[i]
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '.') {
+			return "", false
+		}
+	}
+	return utiMIMEPrefix + uti, true
+}
+
+// privateUTI returns the pasteboard type of a Data type made by
+// privateMIME.
+func privateUTI(mime string) (string, bool) {
+	uti, ok := strings.CutPrefix(mime, utiMIMEPrefix)
+	if !ok {
+		return "", false
+	}
+	if m, ok := privateMIME(uti); !ok || m != mime {
+		return "", false
+	}
+	return uti, true
+}
+
+// promiseTypes are the pasteboard types of file promises
+// (NSFilePromiseProvider and the older NSFilesPromisePboardType): a drag
+// that offers them offers files that the source writes once the drop
+// asks for them (Photos, Mail). A drag reports them as MIMEURIList;
+// they are not data of their own.
+var promiseTypes = []string{
+	"com.apple.NSFilePromiseItemMetaData",
+	"com.apple.pasteboard.promised-file-url",
+	"com.apple.pasteboard.promised-file-content-type",
+	"com.apple.pasteboard.promised-suggested-file-name",
+	"Apple files promise pasteboard type",
+}
+
+func isPromiseType(uti string) bool { return slices.Contains(promiseTypes, uti) }
+
+// dragMIME returns the mapping of a drag's pasteboard types: a file
+// promise type (promiseTypes, or one of promises, NSFilePromiseReceiver's
+// readableDraggedTypes) is MIMEURIList, the files the drop receives, and
+// any other type is mimeOf's.
+func dragMIME(promises []string, mimeOf func(uti string) (string, bool)) func(string) (string, bool) {
+	return func(uti string) (string, bool) {
+		if isPromiseType(uti) || slices.Contains(promises, uti) {
+			return platform.MIMEURIList, true
+		}
+		return mimeOf(uti)
+	}
+}
 
 // pbEntry is one representation in a pasteboard item.
 type pbEntry struct {

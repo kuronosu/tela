@@ -268,7 +268,7 @@ func TestDesktopEncodings(t *testing.T) {
 	n := platform.Notification{Title: "Saved", Body: "notes.txt", Icon: []image.Image{small},
 		Actions: []platform.NotificationAction{{ID: "open", Label: "Open"}}}
 	e.notification(n)
-	tray := platform.TrayOptions{Icon: []image.Image{icon}, Tooltip: "Notes", Menu: []platform.MenuItem{
+	tray := platform.TrayOptions{Icon: []image.Image{icon}, Tooltip: "Notes", Template: true, Menu: []platform.MenuItem{
 		{ID: 1, Label: "Show"}, {Separator: true},
 		{Label: "More", Submenu: []platform.MenuItem{{ID: 2, Label: "Pin", Checkable: true, Checked: true}, {ID: 3, Label: "Off", Disabled: true}}},
 	}}

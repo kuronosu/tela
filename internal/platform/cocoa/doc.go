@@ -302,10 +302,14 @@
 // is the clipboard's (pasteboard.go).
 //
 //   - Target: TelaView is the window's NSDraggingDestination, registered
-//     for the well-known pasteboard types and the custom types of the
-//     app's own drags (AppKit calls a view only for a drag offering one of
-//     its registered types, so a drag of another app with only custom
-//     types is not seen). draggingEntered: is DragEnter and
+//     for the well-known pasteboard types, the file promise types, the
+//     roots of the type hierarchy, the custom types of the app's own
+//     drags and the types of other apps' drags, learned as each starts
+//     (AppKit calls a view only for a drag offering one of its registered
+//     types; ADR-237). A type without a MIME type is
+//     "application/x-uti." and its identifier; file promises are
+//     MIMEURIList, received into a drop folder before a DragDrop that
+//     comes after performDragOperation: returned. draggingEntered: is DragEnter and
 //     draggingUpdated: DragOver when the position (flipped view points),
 //     the modifiers or the allowed effects changed; both deliver the event
 //     synchronously (a pass inside the call; inside a running pass the
@@ -323,7 +327,8 @@
 //     its latest drag's, is kept for beginDraggingSessionWithItems:);
 //     one drag at a time. The items are the clipboard's (one per URI, as
 //     Finder writes files), the image the first item's contents at the
-//     hotspot under the pointer. The window's sequence ends with a
+//     hotspot under the pointer; without an image every item shows its
+//     file's or its type's icon. The window's sequence ends with a
 //     PointerCancel and the rest of it is dropped; the view is the
 //     NSDraggingSource, and draggingSession:endedAtPoint:operation: is the
 //     DragDoneEvent. The app's own windows get the target events with
@@ -343,9 +348,9 @@
 //     an open panel filters other globs with its delegate, a save panel
 //     drops them; several filters get a "Format:" popup. done runs once,
 //     from a later pass; cancel is nil and nil.
-//   - Message boxes: NSAlert, a sheet on the parent or -[NSAlert runModal]
-//     started from a run loop block outside any pass (the loop's source is
-//     in the common modes, so passes run inside the modal session).
+//   - Message boxes: NSAlert, a sheet on the parent, or without one a
+//     modeless free-standing panel whose buttons answer through a helper
+//     (no runModal: the app's other windows keep working; ADR-237).
 //   - Trays: NSStatusItems (tray_darwin.go) with a 1x and 2x image, the
 //     tooltip, and an NSMenu, which opens on any click; without a menu a
 //     click is TrayActivated.
@@ -369,7 +374,12 @@
 //     Option; a named key has its fixed virtual key code, a character the
 //     code of the key that types it in the current keyboard layout
 //     (UCKeyTranslate over every key code, plain then with Shift, cached
-//     per input source), else the ANSI layout's. The status is queued:
+//     per input source), else the ANSI layout's. When the user selects
+//     another layout (the distributed notification
+//     kTISNotifySelectedKeyboardInputSourceChanged), the hot keys whose
+//     character another key types now are registered again on it, and a
+//     status that changes with it is a new ShortcutStatusEvent (ADR-237).
+//     The status is queued:
 //     ShortcutBound with the trigger as macOS shows it ("⌃⌥⌘K"),
 //     ShortcutTaken for eventHotKeyExistsErr (another app, or this one,
 //     holds the combination), ShortcutFailed otherwise. One Carbon handler,

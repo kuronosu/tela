@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"sync"
 	"unicode/utf16"
+
+	"github.com/ebitengine/purego"
 )
 
 // The Carbon Event Manager's hot keys (HIToolbox/CarbonEvents.h), the
@@ -120,6 +122,9 @@ func LoadCarbon() error {
 			bind(&carbonLMGetKbdType, lib, "LMGetKbdType")
 			tisPropertyInputSourceID = symbolValue(lib, "kTISPropertyInputSourceID")
 			tisPropertyKeyData = symbolValue(lib, "kTISPropertyUnicodeKeyLayoutData")
+			if p, err := purego.Dlsym(lib, "kTISNotifySelectedKeyboardInputSourceChanged"); err == nil && p != 0 {
+				tisNotifySelectedChanged = symbolValue(lib, "kTISNotifySelectedKeyboardInputSourceChanged")
+			}
 		})
 		if carbonErr != nil {
 			return
@@ -135,6 +140,31 @@ func LoadCarbon() error {
 		})
 	})
 	return carbonErr
+}
+
+// tisNotifySelectedChanged is kTISNotifySelectedKeyboardInputSourceChanged
+// (a CFStringRef), 0 when HIToolbox lacks the symbol.
+var tisNotifySelectedChanged uintptr
+
+// selectedSourceChangedName is the value of
+// kTISNotifySelectedKeyboardInputSourceChanged, the name used when the
+// symbol cannot be read.
+const selectedSourceChangedName = "com.apple.Carbon.TISNotifySelectedKeyboardInputSourceChanged"
+
+// SelectedInputSourceChangedName returns the name of the distributed
+// notification Text Input Sources posts when the user (or a program)
+// selects another keyboard input source:
+// kTISNotifySelectedKeyboardInputSourceChanged, read from HIToolbox, else
+// its documented value. Observe it on NSDistributedNotificationCenter (the
+// Cocoa face of CFNotificationCenterGetDistributedCenter). Call LoadCarbon
+// first.
+func SelectedInputSourceChangedName() string {
+	if tisNotifySelectedChanged != 0 {
+		if s := GoString(ID(tisNotifySelectedChanged)); s != "" {
+			return s
+		}
+	}
+	return selectedSourceChangedName
 }
 
 // RegisterEventHotKey registers a system-wide hot key on the application

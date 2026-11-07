@@ -158,10 +158,15 @@ func alertButtons(b platform.MessageButtons) []alertButton {
 	return []alertButton{{"OK", platform.AnswerOK, false}}
 }
 
+// alertButtonResponse is the response of the alert button at index i (in
+// the order added), as -[NSAlert runModal] and a sheet's completion
+// handler report it; a detached alert's buttons answer with it.
+func alertButtonResponse(i int) int { return alertFirstButtonReturn + i }
+
 // alertAnswer returns the answer of an alert with the set b that ended
 // with response: the button at response - NSAlertFirstButtonReturn, or
 // the set's DismissAnswer for anything else (a sheet ended because its
-// window closed, a modal session stopped by Quit).
+// window closed).
 func alertAnswer(b platform.MessageButtons, response int) platform.MessageAnswer {
 	buttons := alertButtons(b)
 	if i := response - alertFirstButtonReturn; i >= 0 && i < len(buttons) {

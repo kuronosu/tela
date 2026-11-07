@@ -4,8 +4,12 @@ package cocoa
 
 import (
 	"errors"
+	"fmt"
 	"image"
+	"os"
+	"path/filepath"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/kuronosu/tela/internal/darwin"
@@ -28,12 +32,25 @@ import (
 //     sticky answer. Inside a pass (a method called from the handler) the
 //     event waits for the follow-up and the previous answer is returned.
 //   - A view gets the destination methods only for a drag whose pasteboard
-//     offers one of its registered types: the well-known types of the
-//     clipboard mapping, plus the custom types of this app's own drags,
-//     registered on every window before such a drag starts (another app's
-//     custom types cannot be listed in advance; a drag that offers only
-//     those is not seen, as in Chromium, which registers its own custom
-//     type only).
+//     offers one of its registered types, matched by name. Every drag is
+//     to be seen (ADR-237; an HTML drop target sees any drag and reads its
+//     types), so the views register the well-known types of the clipboard
+//     mapping, the file promise types, the roots of the type hierarchy
+//     (public.item, public.data, public.content: should AppKit match by
+//     conformance, these catch every data type), the custom types of this
+//     app's own drags (registered on every window before such a drag
+//     starts), and the types of other apps' drags, learned as each drag
+//     starts: a global event monitor of left mouse drags (no permission
+//     is needed for mouse events) looks at the drag pasteboard's
+//     changeCount, and a new drag's types are registered on every window
+//     before the pointer can reach one (AppKit asks the window server for
+//     a window's types as the drag moves over it). Chromium and Qt register
+//     a fixed list and miss such drags.
+//   - Types without a MIME type are Data types of their own
+//     ("application/x-uti." and the identifier, pasteboard.go); file
+//     promises (NSFilePromiseProvider: Photos, Mail, Safari's images) are
+//     MIMEURIList, and a drop that reads it receives the files (see
+//     "File promises" below).
 //   - draggingSourceOperationMask is already filtered by the modifiers
 //     (Option leaves copy, Command generic, Control link), so Allowed
 //     follows them; generic counts as move. The answer is given back in
@@ -56,13 +73,37 @@ import (
 //     transparent image.
 //   - wantsPeriodicDraggingUpdates is NO: draggingUpdated: comes for moves
 //     and modifier changes only.
+//   - A drag without an image (DragOptions.Image nil) shows an icon per
+//     item, 32 points centered under the pointer: a file's own icon
+//     (NSWorkspace iconForFile:), else its type's (iconForContentType:),
+//     as Finder shows dragged files.
+//
+// File promises (ADR-237). A drop whose read types hold MIMEURIList, from
+// a pasteboard with NSFilePromiseReceivers (readObjectsForClasses:), asks
+// each receiver for its files with receivePromisedFilesAtDestination:
+// options:operationQueue:reader: into a new folder of its own,
+// <TMPDIR>/tela-drops/<pid>-<random>, on a background NSOperationQueue.
+// performDragOperation: returns at once (the source writes its files
+// after the drop, and Photos may first download them); the session ends
+// there with no event, and DragDrop is delivered once every promised file
+// arrived or failed (the reader blocks hop to the main thread), or after
+// promiseTimeout with what arrived: the data read at the release, the
+// received files appended to its URI list. The source is told the answer
+// held at the release (the handler's final effect cannot reach it later).
+// Until then the window refuses new drags without events, so the session
+// order holds. The folders belong to the app while Run runs (copy what is
+// kept) and are removed when Run returns; a folder of a crashed run stays
+// in TMPDIR, which macOS empties after a few days.
 
 // dndSel holds the selectors of drag and drop.
 var dndSel = struct {
-	registerForDraggedTypes, unregisterDraggedTypes, draggingPasteboard    darwin.SEL
-	draggingLocation, draggingSourceOperationMask, draggingSource          darwin.SEL
-	beginDraggingSession, initWithPasteboardWriter, setDraggingFrame       darwin.SEL
-	initWithCGImageSize, setDraggingFormation, setAnimatesToStartPositions darwin.SEL
+	registerForDraggedTypes, unregisterDraggedTypes, draggingPasteboard       darwin.SEL
+	draggingLocation, draggingSourceOperationMask, draggingSource             darwin.SEL
+	beginDraggingSession, initWithPasteboardWriter, setDraggingFrame          darwin.SEL
+	initWithCGImageSize, setDraggingFormation, setAnimatesToStartPositions    darwin.SEL
+	pasteboardWithName, addGlobalMonitor, removeMonitor, readableDraggedTypes darwin.SEL
+	readObjectsForClasses, receivePromisedFiles, fileNames, fileTypes         darwin.SEL
+	setQualityOfService, iconForFile, iconForContentType                      darwin.SEL
 }{
 	registerForDraggedTypes:     darwin.Sel("registerForDraggedTypes:"),
 	unregisterDraggedTypes:      darwin.Sel("unregisterDraggedTypes"),
@@ -76,6 +117,17 @@ var dndSel = struct {
 	initWithCGImageSize:         darwin.Sel("initWithCGImage:size:"),
 	setDraggingFormation:        darwin.Sel("setDraggingFormation:"),
 	setAnimatesToStartPositions: darwin.Sel("setAnimatesToStartingPositionsOnCancelOrFail:"),
+	pasteboardWithName:          darwin.Sel("pasteboardWithName:"),
+	addGlobalMonitor:            darwin.Sel("addGlobalMonitorForEventsMatchingMask:handler:"),
+	removeMonitor:               darwin.Sel("removeMonitor:"),
+	readableDraggedTypes:        darwin.Sel("readableDraggedTypes"),
+	readObjectsForClasses:       darwin.Sel("readObjectsForClasses:options:"),
+	receivePromisedFiles:        darwin.Sel("receivePromisedFilesAtDestination:options:operationQueue:reader:"),
+	fileNames:                   darwin.Sel("fileNames"),
+	fileTypes:                   darwin.Sel("fileTypes"),
+	setQualityOfService:         darwin.Sel("setQualityOfService:"),
+	iconForFile:                 darwin.Sel("iconForFile:"),
+	iconForContentType:          darwin.Sel("iconForContentType:"),
 }
 
 // windowDnD is a window's drag and drop state.
@@ -89,6 +141,8 @@ type windowDnD struct {
 	// window took (StartDrag), until its release or a move without
 	// buttons.
 	swallow bool
+	// promised is a drop waiting for its promised files, or nil.
+	promised *heldPromises
 }
 
 // backendDnD is the backend's drag and drop state.
@@ -97,6 +151,32 @@ type backendDnD struct {
 	// custom are the custom pasteboard types the views are registered
 	// for besides the well-known ones: those of the app's own drags.
 	custom []string
+	// learned are the types of other apps' drags the views are
+	// registered for (learnTypes), and dragCount the drag pasteboard's
+	// changeCount when they were last looked at.
+	learned   []string
+	dragCount int
+	// monitor is the global event monitor of left mouse drags (retained),
+	// 0 until the first window.
+	monitor darwin.ID
+	// folders are the drop folders of file promises, removed when Run
+	// returns.
+	folders []string
+}
+
+// promiseTimeout is how long a drop waits for its promised files before
+// it is delivered with the files that arrived (a variable for the tests).
+var promiseTimeout = 30 * time.Second
+
+// heldPromises is a drop waiting for its promised files.
+type heldPromises struct {
+	held      heldDrop
+	data      platform.Data // what the drop read at the release
+	types     []string      // the types it read, best first
+	promise   promiseDrop
+	receivers darwin.ID // the NSArray of NSFilePromiseReceivers (retained)
+	queue     darwin.ID // the NSOperationQueue of the readers (owned)
+	timer     *time.Timer
 }
 
 // outgoingDrag is a drag of this app.
@@ -114,9 +194,10 @@ type outgoingDrag struct {
 // --- target ---
 
 // registerDrop makes the window's view a destination for the dragged
-// types.
+// types, and starts watching other apps' drags.
 func (w *Window) registerDrop() {
-	types := draggedTypes(w.b.dnd.custom)
+	w.b.watchDrags()
+	types := draggedTypes(promiseReadableTypes(), append(slices.Clone(w.b.dnd.custom), w.b.dnd.learned...))
 	ids := make([]darwin.ID, len(types))
 	for i, t := range types {
 		ids[i] = darwin.NSString(t)
@@ -141,16 +222,127 @@ func (b *Backend) registerDragTypes(types []string) {
 	if !added {
 		return
 	}
+	b.reregisterDrops()
+}
+
+// reregisterDrops registers the views of every window again (the custom
+// or learned types changed).
+func (b *Backend) reregisterDrops() {
 	for _, w := range b.loop.Windows() {
 		w.registerDrop()
 	}
 }
 
+// learnDragTypes registers the pasteboard types of a drag of another app
+// that the views do not know yet.
+func (b *Backend) learnDragTypes(pb darwin.ID) {
+	var offered []string
+	for _, it := range items(pb) {
+		offered = append(offered, stringsOf(darwin.Send(it, pbSel.types))...)
+	}
+	registered := draggedTypes(promiseReadableTypes(), b.dnd.custom)
+	learned, changed := learnTypes(b.dnd.learned, registered, offered)
+	if !changed {
+		return
+	}
+	b.dnd.learned = learned
+	b.reregisterDrops()
+}
+
+// dragPasteboard returns the drag pasteboard (borrowed): the one every
+// drag of every app writes to.
+func dragPasteboard() darwin.ID {
+	name := darwin.AppKitString("NSPasteboardNameDrag")
+	if name == 0 {
+		name = darwin.AutoString("Apple CFPasteboard drag")
+	}
+	return darwin.SendClass(darwin.GetClass("NSPasteboard"), dndSel.pasteboardWithName, name)
+}
+
+// watchDrags installs the global monitor of left mouse drags, once: a
+// drag of another app that starts (the drag pasteboard's changeCount
+// moved) has its types registered on every window.
+func (b *Backend) watchDrags() {
+	if b.dnd.monitor != 0 || b.closed {
+		return
+	}
+	if pb := dragPasteboard(); pb != 0 {
+		b.dnd.dragCount = darwin.SendInt(pb, pbSel.changeCount)
+	}
+	handler := darwin.NewBlock(func(_ darwin.Block, _ darwin.ID) {
+		if b.closed {
+			return
+		}
+		b.guard(func() {
+			pool := darwin.PoolPush()
+			defer darwin.PoolPop(pool)
+			pb := dragPasteboard()
+			if pb == 0 {
+				return
+			}
+			n := darwin.SendInt(pb, pbSel.changeCount)
+			if n == b.dnd.dragCount {
+				return
+			}
+			b.dnd.dragCount = n
+			b.learnDragTypes(pb)
+		})
+	})
+	defer handler.Release()
+	m := darwin.SendClass(app.event, dndSel.addGlobalMonitor, uint64(1)<<darwin.NSEventTypeLeftMouseDragged, handler)
+	b.dnd.monitor = darwin.Retain(m)
+}
+
+// stopDnD ends drag and drop when Run returns: the monitor goes and the
+// drop folders are removed.
+func (b *Backend) stopDnD() {
+	if b.dnd.monitor != 0 {
+		darwin.SendClass(app.event, dndSel.removeMonitor, b.dnd.monitor)
+		darwin.Release(b.dnd.monitor)
+		b.dnd.monitor = 0
+	}
+	for _, dir := range b.dnd.folders {
+		_ = os.RemoveAll(dir)
+	}
+	b.dnd.folders = nil
+}
+
+var promiseReadable struct {
+	once  sync.Once
+	types []string
+}
+
+// promiseReadableTypes returns +[NSFilePromiseReceiver
+// readableDraggedTypes], the pasteboard types of file promises, once.
+func promiseReadableTypes() []string {
+	promiseReadable.once.Do(func() {
+		c := darwin.GetClass("NSFilePromiseReceiver")
+		if c == 0 {
+			return
+		}
+		pool := darwin.PoolPush()
+		promiseReadable.types = stringsOf(darwin.SendClass(c, dndSel.readableDraggedTypes))
+		darwin.PoolPop(pool)
+	})
+	return promiseReadable.types
+}
+
+// dragTypesOf returns the Data types of a dragging pasteboard: the
+// clipboard's mapping, with file promises as MIMEURIList.
+func dragTypesOf(pb darwin.ID) []string {
+	var lists [][]string
+	for _, it := range items(pb) {
+		lists = append(lists, stringsOf(darwin.Send(it, pbSel.types)))
+	}
+	return offeredTypes(lists, dragMIME(promiseReadableTypes(), mimeForUTI))
+}
+
 // closeDnD runs when the window closes: no more drags reach it, and the
 // kept press is released. A drag it started goes on (its session ends it)
-// without a DragDoneEvent.
+// without a DragDoneEvent; a drop waiting for promised files is dropped.
 func (w *Window) closeDnD() {
 	darwin.Send(w.view, dndSel.unregisterDraggedTypes)
+	w.dropPromises()
 	w.dnd.session = dropSession{}
 	w.dnd.own, w.dnd.swallow = false, false
 	w.keepPress(0)
@@ -206,15 +398,20 @@ func (b *Backend) ownDrag(source darwin.ID) *outgoingDrag {
 	return nil
 }
 
-// dragEntered handles draggingEntered: and returns the operation.
+// dragEntered handles draggingEntered: and returns the operation. While a
+// drop waits for its promised files the window refuses drags, without
+// events.
 func (w *Window) dragEntered(info darwin.ID) uint64 {
+	if w.dnd.promised != nil {
+		return 0
+	}
 	mask := darwin.SendUint(info, dndSel.draggingSourceOperationMask)
 	own := w.b.ownDrag(darwin.Send(info, dndSel.draggingSource))
 	var types []string
 	if own != nil {
 		types = own.data.Types()
 	} else if pb := darwin.Send(info, dndSel.draggingPasteboard); pb != 0 {
-		types = typesOf(pb)
+		types = dragTypesOf(pb)
 	}
 	w.dnd.own = own != nil
 	// The window gets no pointer events during the drag: a pointer the
@@ -255,6 +452,12 @@ func (w *Window) dragPerform(info darwin.ID) bool {
 		own = w.b.ownDrag(darwin.Send(info, dndSel.draggingSource))
 	}
 	w.dnd.own = false
+	if own == nil && w.dnd.session.active && pb != 0 &&
+		slices.Contains(platform.DropTypes(w.dnd.session.types, w.dnd.session.want), platform.MIMEURIList) {
+		if receivers := promiseReceivers(pb); receivers != 0 {
+			return w.dropWithPromises(info, mask, pb, receivers)
+		}
+	}
 	read := func(types []string) platform.Data {
 		if own != nil {
 			return own.data.Select(types).Clone()
@@ -266,6 +469,131 @@ func (w *Window) dragPerform(info darwin.ID) bool {
 		own.dropped, own.effect = true, effect
 	}
 	return effect != platform.DropNone
+}
+
+// promiseReceivers returns the NSFilePromiseReceivers of a dragging
+// pasteboard (an NSArray, borrowed), or 0 when it holds no file promise
+// that a file URL does not already give (promisedOnly).
+func promiseReceivers(pb darwin.ID) darwin.ID {
+	c := darwin.GetClass("NSFilePromiseReceiver")
+	if c == 0 {
+		return 0
+	}
+	var lists [][]string
+	for _, it := range items(pb) {
+		lists = append(lists, stringsOf(darwin.Send(it, pbSel.types)))
+	}
+	if !promisedOnly(lists, promiseReadableTypes()) {
+		return 0
+	}
+	classes := darwin.NSArray(darwin.ID(c)) // autoreleased
+	array := darwin.Send(pb, dndSel.readObjectsForClasses, classes, darwin.ID(0))
+	if array == 0 || darwin.SendInt(array, pbSel.count) == 0 {
+		return 0
+	}
+	return array
+}
+
+// dropWithPromises ends a drop whose files are promised (see "File
+// promises" at the top): the session is held, the data read now, and the
+// receivers write into a new drop folder; DragDrop follows when the files
+// are in. It returns the answer AppKit gets.
+func (w *Window) dropWithPromises(info darwin.ID, mask uint64, pb, receivers darwin.ID) bool {
+	b := w.b
+	held, types, ok := w.dnd.session.hold(cocoaDropHost{w}, dropEffects(mask), currentMods(), w.dragPos(info))
+	if !ok {
+		return false
+	}
+	p := &heldPromises{held: held, types: types, data: readDrop(pb, types)}
+	folder, err := b.newDropFolder()
+	if err != nil {
+		// No folder: the drop goes on without the promised files.
+		w.dnd.session.deliverHeld(cocoaDropHost{w}, held, p.data)
+		return true
+	}
+	p.receivers = darwin.Retain(receivers)
+	p.queue = darwin.Send(darwin.SendClass(darwin.GetClass("NSOperationQueue"), sel.alloc), sel.init)
+	darwin.Send(p.queue, dndSel.setQualityOfService, int(nsQualityOfServiceUserInitiated))
+	w.dnd.promised = p
+	reader := darwin.NewBlock(func(_ darwin.Block, url, nserr darwin.ID) {
+		// On the queue's thread: read what the block gives, then go to the
+		// main thread.
+		path, failure := "", ""
+		if nserr != 0 || url == 0 {
+			_, code, desc := darwin.ErrorInfo(nserr)
+			failure = fmt.Sprintf("a promised file failed: %s (%d)", desc, code)
+		} else {
+			path = darwin.URLPath(url)
+		}
+		b.onMain(func() {
+			if w.dnd.promised != p {
+				return
+			}
+			if p.promise.arrived(path, failure) {
+				w.finishPromises(p)
+			}
+		})
+	})
+	defer reader.Release()
+	dest := darwin.FileURL(folder, true)
+	options := darwin.NewDictionary() // autoreleased
+	for _, r := range darwin.ArrayItems(receivers) {
+		darwin.Send(r, dndSel.receivePromisedFiles, dest, options, p.queue, reader)
+		n := darwin.SendInt(darwin.Send(r, dndSel.fileNames), pbSel.count)
+		if n == 0 {
+			n = darwin.SendInt(darwin.Send(r, dndSel.fileTypes), pbSel.count)
+		}
+		p.promise.expected += max(n, 1)
+	}
+	p.timer = time.AfterFunc(promiseTimeout, func() {
+		b.onMain(func() {
+			if w.dnd.promised == p {
+				w.finishPromises(p)
+			}
+		})
+	})
+	return true
+}
+
+// finishPromises delivers the held drop with the files that arrived.
+func (w *Window) finishPromises(p *heldPromises) {
+	w.dropPromises()
+	if w.Closed() {
+		return
+	}
+	w.dnd.session.deliverHeld(cocoaDropHost{w}, p.held, withFiles(p.data, p.types, p.promise.paths))
+}
+
+// dropPromises forgets the drop waiting for promised files, if any.
+func (w *Window) dropPromises() {
+	p := w.dnd.promised
+	if p == nil {
+		return
+	}
+	w.dnd.promised = nil
+	if p.timer != nil {
+		p.timer.Stop()
+	}
+	w.b.releaseLater(p.receivers, p.queue)
+}
+
+// nsQualityOfServiceUserInitiated is NSQualityOfServiceUserInitiated: the
+// user waits for the drop.
+const nsQualityOfServiceUserInitiated = 0x19
+
+// newDropFolder makes a new folder for the files of one drop's promises:
+// <TMPDIR>/tela-drops/<pid>-<random> (0700), removed when Run returns.
+func (b *Backend) newDropFolder() (string, error) {
+	base := filepath.Join(os.TempDir(), "tela-drops")
+	if err := os.MkdirAll(base, 0o700); err != nil {
+		return "", err
+	}
+	dir, err := os.MkdirTemp(base, fmt.Sprintf("%d-", os.Getpid()))
+	if err != nil {
+		return "", err
+	}
+	b.dnd.folders = append(b.dnd.folders, dir)
+	return dir, nil
 }
 
 // readDrop reads types from a dragging pasteboard with the clipboard's
@@ -367,11 +695,15 @@ func (w *Window) StartDrag(opts platform.DragOptions) error {
 
 	scale := w.Metrics().Scale
 	pos := w.eventPos(w.dnd.press)
-	frame := dragFrame{X: float64(pos.X), Y: float64(pos.Y), W: 1, H: 1}
+	var frame dragFrame
 	var picture darwin.ID
+	var icons []darwin.ID // one per item when the app gave no image (borrowed)
 	if opts.Image != nil {
 		picture = b.dragImage(opts.Image, scale)
 		frame = imageFrame(pos, opts.Image.Rect.Size(), opts.Hotspot, scale)
+	} else {
+		icons = dragIconImages(dragIcons(items))
+		frame = iconFrame(pos, dragIconPoints)
 	}
 	blank := b.dragImage(image.NewRGBA(image.Rect(0, 0, 1, 1)), 1)
 	defer darwin.Release(blank)
@@ -394,7 +726,10 @@ func (w *Window) StartDrag(opts platform.DragOptions) error {
 			return errors.New("cocoa: StartDrag: creating an NSDraggingItem failed")
 		}
 		contents := picture
-		if i > 0 {
+		switch {
+		case i < len(icons) && icons[i] != 0:
+			contents = icons[i]
+		case i > 0:
 			contents = blank
 		}
 		darwin.Send(item, dndSel.setDraggingFrame, rect, contents)
@@ -420,6 +755,34 @@ func (w *Window) StartDrag(opts platform.DragOptions) error {
 	w.keepPress(0)
 	w.updateCursorHidden()
 	return nil
+}
+
+// dragIconImages returns the NSImages (autoreleased, 0 where none) of the
+// icons, dragIconPoints square: a file's icon from NSWorkspace, else a
+// content type's.
+func dragIconImages(icons []dragIcon) []darwin.ID {
+	ws := workspace()
+	out := make([]darwin.ID, len(icons))
+	for i, ic := range icons {
+		var img darwin.ID
+		switch {
+		case ic.path != "":
+			img = darwin.Send(ws, dndSel.iconForFile, darwin.AutoString(ic.path))
+		case darwin.LoadUniformTypeIdentifiers():
+			t := darwin.SendClass(darwin.GetClass("UTType"), pbSel.typeWithIdentifier, darwin.AutoString(ic.uti))
+			if t == 0 {
+				t = darwin.SendClass(darwin.GetClass("UTType"), pbSel.typeWithIdentifier, darwin.AutoString("public.data"))
+			}
+			if t != 0 {
+				img = darwin.Send(ws, dndSel.iconForContentType, t)
+			}
+		}
+		if img != 0 {
+			darwin.Send(img, trsel.setSize, darwin.CGSize{Width: dragIconPoints, Height: dragIconPoints})
+		}
+		out[i] = img
+	}
+	return out
 }
 
 // dragImage returns an NSImage (+1) of img (premultiplied RGBA, physical

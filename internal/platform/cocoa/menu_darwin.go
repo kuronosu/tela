@@ -59,8 +59,8 @@ import (
 //     ID, roles included) shown with
 //     popUpMenuPositioningItem:atLocation:inView: on TelaView, whose
 //     tracking loop runs until the user chooses or dismisses. It is
-//     started from a run loop block outside any delivery pass, as the
-//     app-modal alerts are (onMain), one at a time in request order; the
+//     started from a run loop block outside any delivery pass (onMain),
+//     one at a time in request order; the
 //     answer goes through the loop. Quit cancels the tracking.
 
 // msel holds the selectors of the menu code.
