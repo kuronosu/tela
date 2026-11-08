@@ -77,6 +77,14 @@ type Typeface struct {
 	cffMu sync.Mutex
 	cff   *font.Face
 
+	// Color bitmaps (bitmap.go): the raw CBLC, CBDT and sbix tables,
+	// parsed on first use, and the bitmaps of each glyph, found on first
+	// use. Bitmaps do not vary, so the faces of the typeface share them.
+	cblcRaw, cbdtRaw, sbixRaw []byte
+	bitmapOnce                sync.Once
+	bitmapTabs                *bitmapTables
+	bitmapGlyphs              glyphSlots[bitmapGlyph]
+
 	facesMu sync.Mutex
 	faces   map[string]*Face // interned instances, keyed by coordinates
 }
@@ -174,6 +182,7 @@ func newTypeface(src tableSource, family string) (*Typeface, error) {
 	if tf.glyf == nil {
 		tf.cff = font.NewFace(ft)
 	}
+	tf.cblcRaw, tf.cbdtRaw, tf.sbixRaw = src.table(tagCBLC), src.table(tagCBDT), src.table(tagSbix)
 
 	names, _, _ := tables.ParseName(raw("name"))
 	tf.describe(family, names)
@@ -255,8 +264,10 @@ func (tf *Typeface) UnitsPerEm() int { return tf.upem }
 // NumGlyphs returns the number of glyphs.
 func (tf *Typeface) NumGlyphs() int { return tf.nGlyphs }
 
-// IsColor reports whether the font has COLR color glyphs.
-func (tf *Typeface) IsColor() bool { return tf.ft.COLR != nil }
+// IsColor reports whether the font has color glyphs: COLR, or PNG
+// bitmaps (CBDT, sbix). Emoji presentation prefers such fonts and text
+// presentation (VS15) avoids them.
+func (tf *Typeface) IsColor() bool { return tf.ft.COLR != nil || tf.bitmaps() != nil }
 
 // HasRune reports whether the cmap maps r to a glyph.
 func (tf *Typeface) HasRune(r rune) bool {

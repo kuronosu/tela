@@ -46,6 +46,21 @@ type Font interface {
 	ColorGlyph(g GlyphID, fg Color) *DisplayList
 }
 
+// SizedColorFont is a Font whose color glyphs depend on the size they are
+// drawn at: bitmap color glyphs (CBDT, sbix), which come in strikes drawn
+// for given pixel sizes and are best drawn from the strike and the image
+// resolution closest to the device size. Rasterizers call ColorGlyphAt
+// instead of ColorGlyph when the Font implements it.
+type SizedColorFont interface {
+	Font
+	// ColorGlyphAt is ColorGlyph for glyph g drawn at ppem device pixels
+	// per em (the larger of the em's sizes along x and y; 0 when unknown).
+	// The list may differ between sizes, but whether it is nil must depend
+	// on neither fg nor ppem, its bounds must stay within GlyphBounds, and
+	// for given arguments it must never change.
+	ColorGlyphAt(g GlyphID, fg Color, ppem float32) *DisplayList
+}
+
 var nextFontKey atomic.Uint64
 
 // NewFontKey returns a process-unique, non-zero font key for a new Font.

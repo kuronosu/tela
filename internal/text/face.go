@@ -221,24 +221,41 @@ func (f *Face) GlyphOutline(g gfx.GlyphID) (gfx.Path, bool) {
 	return e.path, !e.path.IsEmpty()
 }
 
-// GlyphBounds implements gfx.Font: the control bounds of the outline, or
-// for a color glyph its COLR clip box (or the bounds of its paint graph
-// when the font has no clip box for it).
+// GlyphBounds implements gfx.Font: the control bounds of the outline; for
+// a COLR glyph its clip box (or the bounds of its paint graph when the font
+// has no clip box for it); for a bitmap glyph the union of its images'
+// rectangles in every strike.
 func (f *Face) GlyphBounds(g gfx.GlyphID) gfx.Rect {
 	if c := f.color(g); c != nil {
 		return c.bounds
 	}
+	if b := f.tf.bitmapGlyph(g); b != nil {
+		return b.bounds
+	}
 	return f.entry(g).bounds
 }
 
-// ColorGlyph implements gfx.Font for COLR (v0 and v1) glyphs. Bitmap
-// (CBDT, sbix) and SVG glyphs are not supported: it returns nil for them.
+// ColorGlyph implements gfx.Font for COLR (v0 and v1) glyphs and PNG
+// bitmap glyphs (CBDT, sbix), the latter drawn from the largest strike at
+// full resolution; rasterizers call ColorGlyphAt instead. SVG glyphs are
+// not supported: it returns nil for them, and they draw their outline.
 func (f *Face) ColorGlyph(g gfx.GlyphID, fg gfx.Color) *gfx.DisplayList {
-	c := f.color(g)
-	if c == nil {
-		return nil
+	return f.ColorGlyphAt(g, fg, 0)
+}
+
+// ColorGlyphAt implements gfx.SizedColorFont: ColorGlyph for a glyph drawn
+// at ppem device pixels per em. A COLR glyph does not depend on the size.
+// A bitmap glyph is drawn from the strike closest to ppem (the smallest at
+// least as large, else the largest), at the mip level of the image that
+// suits the size drawn, scaled to the glyph's em rectangle; it ignores fg.
+func (f *Face) ColorGlyphAt(g gfx.GlyphID, fg gfx.Color, ppem float32) *gfx.DisplayList {
+	if c := f.color(g); c != nil {
+		return c.list(f, g, fg)
 	}
-	return c.list(f, g, fg)
+	if b := f.tf.bitmapGlyph(g); b != nil {
+		return f.tf.bitmapList(b, ppem)
+	}
+	return nil
 }
 
 var emptyEntry = &glyphEntry{}

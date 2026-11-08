@@ -150,7 +150,7 @@ func (r *Renderer) glyphCached(run *glyphRun, id gfx.GlyphID, gb gfx.Rect, lx, l
 	var cl *gfx.DisplayList
 	if e == nil {
 		font := run.c.Font
-		cl = font.ColorGlyph(id, run.fg)
+		cl = colorGlyph(font, id, run.fg, max(run.sx, run.sy))
 		e = &glyphEntry{key: k, kind: entryEmpty}
 		switch {
 		case cl != nil:
@@ -184,7 +184,7 @@ func (r *Renderer) glyphCached(run *glyphRun, id gfx.GlyphID, gb gfx.Rect, lx, l
 		s := cache.get(&ks)
 		if s == nil {
 			if cl == nil {
-				cl = run.c.Font.ColorGlyph(id, run.fg)
+				cl = colorGlyph(run.c.Font, id, run.fg, max(run.sx, run.sy))
 			}
 			s = &glyphEntry{key: ks, kind: entryEmpty}
 			if cl != nil {
@@ -354,7 +354,7 @@ func (r *Renderer) glyphDirect(run *glyphRun, id gfx.GlyphID, gb gfx.Rect, lx, l
 	if !affineBounds(&gm, gb).Overlaps(r.blit.clip) {
 		return
 	}
-	if cl := c.Font.ColorGlyph(id, run.fg); cl != nil {
+	if cl := colorGlyph(c.Font, id, run.fg, devEm(&gm)); cl != nil {
 		r.drawColorInline(cl, gm)
 		run.shaded = false // the list changed the shader
 		return
@@ -371,6 +371,26 @@ func (r *Renderer) glyphDirect(run *glyphRun, id gfx.GlyphID, gb gfx.Rect, lx, l
 	r.ctm = gm
 	r.fillPath(p, gfx.NonZero)
 	r.ctm = saved
+}
+
+// colorGlyph returns the color glyph list of id drawn at ppem device pixels
+// per em: Font.ColorGlyph, or SizedColorFont.ColorGlyphAt when the font
+// implements it (bitmap glyphs, drawn from the strike closest to the
+// size).
+func colorGlyph(f gfx.Font, id gfx.GlyphID, fg gfx.Color, ppem float32) *gfx.DisplayList {
+	if sf, ok := f.(gfx.SizedColorFont); ok {
+		return sf.ColorGlyphAt(id, fg, ppem)
+	}
+	return f.ColorGlyph(id, fg)
+}
+
+// devEm returns the device size of the em square under the glyph
+// transform gm: the longer of the images of its two unit vectors. The
+// products of float32 values are exact in float64, and Sqrt is correctly
+// rounded, so it is the same on every architecture.
+func devEm(gm *gfx.Affine) float32 {
+	a, b, c, d := float64(gm[0]), float64(gm[1]), float64(gm[2]), float64(gm[3])
+	return float32(math.Sqrt(max(a*a+b*b, c*c+d*d)))
 }
 
 // drawColorInline draws the em-space list of a color glyph under the

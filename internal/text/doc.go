@@ -77,8 +77,9 @@
 // Installed fonts load through newTypeface, the code of ParseTypefaces, so
 // they share the face, variation and determinism handling of the embedded
 // ones: TrueType outlines through this package's port, CFF and CFF2 through
-// go-text (ADR-030). Fonts without outlines (bitmap-only color fonts) are
-// skipped. Output that uses them depends on the machine, by nature.
+// go-text (ADR-030). Fonts with neither outlines nor color bitmaps (old
+// grayscale bitmap fonts) are skipped. Output that uses installed fonts
+// depends on the machine, by nature.
 //
 // Optical size follows CSS font-optical-sizing: auto: opsz is the font size
 // in CSS pixels, rounded to whole pixels by the Collection so that a
@@ -201,8 +202,25 @@
 // mostly anti-aliasing (TestChromiumEmoji; the flags were 1.6 to 3.7
 // before blend modes, masks and focal gradients were exact).
 //
-// Bitmap (CBDT, sbix) and SVG glyphs are not supported: ColorGlyph returns
-// nil for them and they draw their outline, if any.
+// Bitmap color glyphs (bitmap.go): PNG images in CBDT/CBLC strikes (Noto
+// Color Emoji, the emoji font of most Linux distributions) or sbix strikes
+// (Apple Color Emoji), so that bitmap-only emoji fonts are color fonts like
+// COLR ones (IsColor, emoji presentation). Their advances come from hmtx
+// and their line metrics from hhea and OS/2 like any font's; GlyphBounds is
+// the union of a glyph's image rectangles over the strikes. The rasterizer
+// asks for a glyph at its device em size (gfx.SizedColorFont), which picks
+// the smallest strike at least that large, else the largest, and the mip
+// level of its image whose size is the smallest not smaller than the size
+// drawn; the image is drawn with bilinear filtering over the glyph's em
+// rectangle, so it is rendered once per size into the glyph cache like a
+// COLR glyph (a bitmap ignores the text color and fades with its alpha).
+// sbix origin offsets place the bottom-left corner of the image, in the
+// strike's pixels (HarfBuzz's reading), and 'dupe' glyphs share the image
+// they refer to. Decoded images are kept in a cache of 16 MiB shared by
+// every face (they are needed only when the glyph cache misses). Only PNG
+// images are drawn: black-and-white and grayscale bitmaps and sbix JPEG
+// or TIFF images draw the glyph's outline, if any. SVG glyphs are not
+// supported either: ColorGlyph returns nil for them.
 //
 // # Paragraph layout
 //

@@ -74,9 +74,9 @@ type SystemFontLogger interface {
 //     that name when there is one: "Segoe UI", "DejaVu Serif", "Noto Sans CJK
 //     JP". Registered families always win over installed ones of the same
 //     name. CSS matching (stretch, style, weight) is the collection's own;
-//     only the face that matches is read from disk. Fonts that have no
-//     outlines (bitmap-only color fonts such as Apple Color Emoji) are
-//     ignored.
+//     only the face that matches is read from disk. Fonts that have
+//     neither outlines nor color bitmaps (CBDT, sbix: Noto Color Emoji,
+//     Apple Color Emoji) are ignored.
 //   - Fallback. A grapheme cluster that no requested, script, registered or
 //     embedded family covers (CJK, Hebrew, Devanagari, Thai...) is drawn with
 //     an installed family that covers all of it. System fonts come after
@@ -362,6 +362,12 @@ var (
 	tagCFF2 = ot.MustNewTag("CFF2")
 )
 
+// hasGlyphs reports whether the font has outlines or color bitmaps.
+func hasGlyphs(ld *ot.Loader) bool {
+	return ld.HasTable(tagGlyf) || ld.HasTable(tagCFF) || ld.HasTable(tagCFF2) ||
+		ld.HasTable(tagSbix) || (ld.HasTable(tagCBLC) && ld.HasTable(tagCBDT))
+}
+
 // loadTypeface parses the font at e. It is ParseTypefaces for one font of a
 // file: the same newTypeface, without parsing the other fonts of a
 // collection (a Noto CJK collection holds five).
@@ -379,15 +385,15 @@ func (s *systemFonts) loadTypeface(e *sysEntry) (*Typeface, error) {
 	if err == nil && e.index >= len(lds) {
 		err = errors.New("the file changed since it was indexed")
 	}
-	if err == nil && !lds[e.index].HasTable(tagGlyf) && !lds[e.index].HasTable(tagCFF) && !lds[e.index].HasTable(tagCFF2) {
-		err = errors.New("no outlines (bitmap-only font)")
+	if err == nil && !hasGlyphs(lds[e.index]) {
+		err = errors.New("no outlines and no color bitmaps (a grayscale bitmap font)")
 	}
 	var tf *Typeface
 	if err == nil {
 		tf, err = newTypeface(newTableSource(lds[e.index], data, e.index), "")
 	}
 	if err != nil {
-		// Do not keep a file nothing was loaded from (a bitmap-only font).
+		// Do not keep a file nothing was loaded from.
 		keep := false
 		for k, tf := range s.typefaces {
 			if k.file == e.file && tf != nil {

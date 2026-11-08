@@ -166,13 +166,17 @@
 // DisplayList rendered by a nested Renderer onto a transparent surface at
 // the same size and offset and trimmed to its painted pixels, keyed further
 // by the foreground color's float32 bits and the color glyph nesting depth;
-// it is composited with source-over through the clip like a layer.
+// it is composited with source-over through the clip like a layer. A font
+// that implements gfx.SizedColorFont (bitmap glyphs) is asked for the list
+// at the device em size (the larger of the two axes'), which is part of
+// the key already.
 //
 // Direct, otherwise (rotations, skews, flips, larger sizes, pens beyond
 // ±2^19 device pixels, glyphs whose em bounds exceed 1024 device pixels):
 // the outline is filled with NonZero under the glyph's full transform
 // (current transform, translation to the unsnapped pen, Scale(Size)), and a
-// color glyph's DisplayList is visited inline under that transform. Inline
+// color glyph's DisplayList (at the device size of the em square under that
+// transform, for a gfx.SizedColorFont) is visited inline under it. Inline
 // commands composite one by one instead of as a group, which differs from
 // a sprite only by rounding when they use source-over. Color glyphs nested
 // more than three deep are not drawn, which stops fonts whose color glyphs
