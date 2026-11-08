@@ -67,6 +67,29 @@ func TestSettingsFrom(t *testing.T) {
 			{nsKDE, "DoubleClickInterval"}: "300",
 		}, platform.SystemSettings{DoubleClickInterval: 300 * time.Millisecond}},
 		{"double click negative", kv{{nsGnomeMouse, "double-click"}: int32(-5)}, platform.SystemSettings{}},
+		{"GNOME fonts", kv{
+			{nsGnomeInterface, "font-name"}:           "Adwaita Sans 11",
+			{nsGnomeInterface, "monospace-font-name"}: "Adwaita Mono 11",
+			{nsGnomeInterface, "document-font-name"}:  "Adwaita Sans 12",
+		}, platform.SystemSettings{UIFontFamily: "Adwaita Sans", MonoFontFamily: "Adwaita Mono"}},
+		{"KDE fonts", kv{
+			{nsKDEGeneral, "font"}:  "Noto Sans,10,-1,5,50,0,0,0,0,0",
+			{nsKDEGeneral, "fixed"}: "Hack,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1",
+		}, platform.SystemSettings{UIFontFamily: "Noto Sans", MonoFontFamily: "Hack"}},
+		{"GNOME fonts win over KDE", kv{
+			{nsGnomeInterface, "font-name"}: "Cantarell 11",
+			{nsKDEGeneral, "font"}:          "Noto Sans,10,-1,5,50,0,0,0,0,0",
+			{nsKDEGeneral, "fixed"}:         "Hack,10,-1,5,50,0,0,0,0,0",
+		}, platform.SystemSettings{UIFontFamily: "Cantarell", MonoFontFamily: "Hack"}},
+		{"a GNOME font without a family falls back to KDE", kv{
+			{nsGnomeInterface, "font-name"}: "Bold 11",
+			{nsKDEGeneral, "font"}:          "Noto Sans,10,-1,5,50,0,0,0,0,0",
+		}, platform.SystemSettings{UIFontFamily: "Noto Sans"}},
+		{"fonts of another type", kv{
+			{nsGnomeInterface, "font-name"}:           uint32(11),
+			{nsKDEGeneral, "fixed"}:                   true,
+			{nsGnomeInterface, "monospace-font-name"}: "",
+		}, platform.SystemSettings{}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			got := settingsFrom(c.raw)
@@ -103,6 +126,9 @@ func appearanceSettings() map[string]map[string]dbus.Variant {
 		nsGnomeWM: {
 			"button-layout": dbus.MakeVariant("appmenu:close"),
 		},
+		nsKDEGeneral: {
+			"font": dbus.MakeVariant("Noto Sans,10,-1,5,50,0,0,0,0,0"),
+		},
 		"org.example.other": {"x": dbus.MakeVariant(true)},
 	}
 }
@@ -115,6 +141,7 @@ func TestSettingsPortal(t *testing.T) {
 	want := platform.SystemSettings{
 		DarkMode: true, AccentColor: color.NRGBA{51, 102, 153, 255}, HasAccentColor: true,
 		TextScale: 1.5, DoubleClickInterval: 400 * time.Millisecond, TitleBarButtons: "appmenu:close",
+		UIFontFamily: "Noto Sans",
 	}
 	if got := h.d.SystemSettings(); got != want {
 		t.Fatalf("SystemSettings = %+v\nwant %+v", got, want)
@@ -165,9 +192,29 @@ func TestSettingsPortal(t *testing.T) {
 		t.Fatalf("event = %+v, want %+v", se.Settings, want)
 	}
 
+	// The desktop's fonts (ADR-244): GNOME's keys win over KDE's.
+	p.setSetting(nsGnomeInterface, "font-name", "Inter Display Semi-Bold 10.5")
+	want.UIFontFamily = "Inter Display"
+	if se := h.event("interface font").(platform.SettingsEvent); se.Settings != want {
+		t.Fatalf("event = %+v, want %+v", se.Settings, want)
+	}
+	p.setSetting(nsGnomeInterface, "monospace-font-name", "JetBrains Mono 11")
+	want.MonoFontFamily = "JetBrains Mono"
+	if se := h.event("monospace font").(platform.SettingsEvent); se.Settings != want {
+		t.Fatalf("event = %+v, want %+v", se.Settings, want)
+	}
+	// Another size of the same family is no change: the next event is
+	// the contrast's.
+	p.setSetting(nsGnomeInterface, "monospace-font-name", "JetBrains Mono 13")
+	p.setSetting(nsAppearance, "contrast", uint32(1))
+	want.HighContrast = true
+	if se := h.event("contrast after a font size").(platform.SettingsEvent); se.Settings != want {
+		t.Fatalf("event = %+v, want %+v", se.Settings, want)
+	}
+
 	// After Close nothing more is delivered.
 	h.d.Close()
-	p.setSetting(nsAppearance, "contrast", uint32(1))
+	p.setSetting(nsAppearance, "contrast", uint32(0))
 	time.Sleep(50 * time.Millisecond)
 	h.d.Dispatch()
 	if len(h.events) != 0 {

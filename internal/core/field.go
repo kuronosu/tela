@@ -879,6 +879,17 @@ func (f *field) rescale() {
 	f.t.dirty()
 }
 
+// reshape drops the field's layouts, which layout, placeholder and
+// lineHeight make again with the tree's fonts (the desktop's families
+// changed, fonts.go), and lays the field out again.
+func (f *field) reshape() {
+	f.lay, f.ph, f.empty = nil, nil, nil
+	f.brokeAt, f.phBroke = nan32(), nan32()
+	f.t.engine.MarkDirty(f.bx)
+	f.markPaint()
+	f.t.dirty()
+}
+
 // layout returns the layout of the editor's Display, rebuilt when the
 // display or the style changed and broken (aligned, for an Input) at the
 // width of the field's text area; nil before the field has a style.

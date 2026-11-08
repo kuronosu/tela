@@ -556,16 +556,34 @@ func (t *Tree) SetScale(scale float32) {
 
 // rescaleText quantizes the line boxes of every paragraph and text field
 // for the tree's scale and queues their boxes for layout.
-func (t *Tree) rescaleText() {
+func (t *Tree) rescaleText() { t.eachTextBox(t.rescaleBox) }
+
+// reshapeText shapes the text of every paragraph and text field again
+// and queues their boxes for layout: the fonts resolve the same styles
+// to other faces (the desktop's families changed, fonts.go).
+func (t *Tree) reshapeText() {
+	t.eachTextBox(func(b *Box) {
+		if p := b.para; p != nil {
+			p.reshape(t, b)
+		}
+		if f := b.fld; f != nil {
+			f.reshape()
+		}
+	})
+}
+
+// eachTextBox calls f with every box of the tree and their anonymous
+// boxes, the boxes that hold paragraphs and text fields.
+func (t *Tree) eachTextBox(f func(b *Box)) {
 	if t.root == nil {
 		return
 	}
 	var walk func(el *Element)
 	walk = func(el *Element) {
 		if b := el.box; b != nil {
-			t.rescaleBox(b)
+			f(b)
 			for _, a := range b.anon {
-				t.rescaleBox(a)
+				f(a)
 			}
 		}
 		for _, c := range el.children {

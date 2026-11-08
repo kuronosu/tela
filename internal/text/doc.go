@@ -95,7 +95,8 @@
 // monospace, emoji, cursive, fantasy, math: the first installed family of
 // an ordered list for the running OS, sysgeneric.go, with the desktop's
 // own interface and monospace families first when the platform reads them,
-// SystemFontOptions.UIFamily and MonoFamily), named families that are not
+// SystemFontOptions.UIFamily and MonoFamily, which SetDesktopFamilies
+// replaces when the desktop's change), named families that are not
 // registered ("Segoe UI", "Noto Sans CJK JP") and, last of all in the
 // fallback order, clusters that no requested, per-script or registered
 // family covers (CJK, Hebrew, Devanagari, Thai...). A script is drawn by
@@ -106,7 +107,8 @@
 // that covers it; clusters with no script of their own follow their run's.
 //
 // The scan and the parsing are lazy: the index loads at the first generic
-// or unknown family name or uncovered cluster, a font file is read and
+// or unknown family name or uncovered cluster (or earlier, on the goroutine
+// of Preload, which core starts with the app), a font file is read and
 // parsed when a face of it is first used (only the face CSS matching
 // selects, from the index's family, style and weight), and a TrueType
 // collection is read once. Installed fonts load through newTypeface, the

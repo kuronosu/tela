@@ -160,6 +160,52 @@ func NewSystemCollection(opts SystemFontOptions) (*Collection, error) {
 	return c, c.EnableSystemFonts(opts)
 }
 
+// SetDesktopFamilies replaces the desktop's interface and monospace
+// families (SystemFontOptions.UIFamily and MonoFamily) of a collection
+// that uses the system fonts, and reports whether they changed. A change
+// drops the resolved queries, so the layouts made after it resolve
+// system-ui, ui-sans-serif, sans-serif, ui-monospace and monospace with
+// the new families; layouts made before keep the faces they have (the
+// caller lays its text out again: internal/core does on a SettingsEvent).
+// What was loaded stays: the index of the installed fonts and the parsed
+// faces. Without system fonts it does nothing and returns false. Safe for
+// concurrent use with every other method.
+func (c *Collection) SetDesktopFamilies(ui, mono string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	s := c.sys
+	if s == nil {
+		return false
+	}
+	if g := s.generics.Load(); g.ui == ui && g.mono == mono {
+		return false
+	}
+	s.generics.Store(newGenericLists(s.opts.goos, ui, mono))
+	clear(c.cache)
+	return true
+}
+
+// Preload loads the index of the installed fonts on the calling
+// goroutine, ahead of the first text that needs it: a scan of the font
+// directories the first time, the on-disk index otherwise (about 20 ms
+// for 800 fonts). internal/core calls it on a goroutine when an app
+// starts, so that the index loads while the window opens instead of in
+// the first frame. Without system fonts, or once the index is loaded, it
+// does nothing. Safe for concurrent use: text laid out meanwhile waits
+// for the same load instead of starting another.
+//
+// It parses no face: on Linux the desktop's families arrive with the
+// platform's settings, after the index load starts, and parsing a face
+// takes far less than the index.
+func (c *Collection) Preload() {
+	c.mu.RLock()
+	s := c.sys
+	c.mu.RUnlock()
+	if s != nil {
+		s.ensureIndex()
+	}
+}
+
 // DisableSystemFonts turns system fonts off again and drops what was loaded.
 func (c *Collection) DisableSystemFonts() {
 	c.mu.Lock()
@@ -225,10 +271,13 @@ const maxFallbackFamilies = 8
 // systemFonts is the lazily loaded view of the installed fonts of one
 // Collection.
 type systemFonts struct {
-	opts     SystemFontOptions
-	logger   Logger
-	prefs    []string            // region suffixes in order of preference
-	generics map[string][]string // normalized generic name -> normalized families, in order
+	opts   SystemFontOptions
+	logger Logger
+	prefs  []string // region suffixes in order of preference
+	// generics maps normalized generic names to normalized families, in
+	// order (systemGenerics); SetDesktopFamilies replaces it under the
+	// collection's lock, and readers that do not hold it load it once.
+	generics atomic.Pointer[genericLists]
 
 	indexOnce sync.Once
 	indexed   atomic.Bool
@@ -250,7 +299,6 @@ func newSystemFonts(opts SystemFontOptions) *systemFonts {
 		opts:      opts,
 		logger:    opts.Logger,
 		prefs:     regionPreference(opts.Lang),
-		generics:  systemGenerics(opts.goos, opts.UIFamily, opts.MonoFamily),
 		data:      map[string][]byte{},
 		typefaces: map[entryKey]*Typeface{},
 		fams:      map[famKey]*family{},
@@ -260,7 +308,20 @@ func newSystemFonts(opts SystemFontOptions) *systemFonts {
 	if s.logger == nil {
 		s.logger = nopLogger{}
 	}
+	s.generics.Store(newGenericLists(opts.goos, opts.UIFamily, opts.MonoFamily))
 	return s
+}
+
+// genericLists are the generic family lists of a systemFonts, with the
+// desktop's families they were made with. They are not modified once
+// made.
+type genericLists struct {
+	ui, mono string
+	lists    map[string][]string
+}
+
+func newGenericLists(goos, ui, mono string) *genericLists {
+	return &genericLists{ui: ui, mono: mono, lists: systemGenerics(goos, ui, mono)}
 }
 
 // ensureIndex loads the index of installed fonts once.
@@ -316,7 +377,7 @@ func (s *systemFonts) has(key string) bool {
 // genericList returns the normalized names of the installed families that
 // the generic name key (normalized) resolves to, in order of preference;
 // the families need not be installed.
-func (s *systemFonts) genericList(key string) []string { return s.generics[key] }
+func (s *systemFonts) genericList(key string) []string { return s.generics.Load().lists[key] }
 
 // familyByKey returns the family with the face of the entry that best
 // matches q among the entries of the normalized family name key, parsed on

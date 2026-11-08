@@ -506,6 +506,15 @@ type SystemSettings struct {
 	// "close,minimize,maximize:". Core draws the fallback title bar of
 	// client-side decorated windows with it (ADR-238). Empty means unknown.
 	TitleBarButtons string
+	// UIFontFamily and MonoFontFamily are the family names of the
+	// desktop's interface and monospace fonts, such as "Adwaita Sans" and
+	// "Adwaita Mono" (the first family of GNOME's font-name and
+	// monospace-font-name, or of KDE's font and fixed). Core's system
+	// fonts draw system-ui, ui-sans-serif and sans-serif with the first,
+	// ui-monospace and monospace with the second, when they are installed
+	// (ADR-244). Empty means unknown, and always on Windows and macOS,
+	// whose generic families already name the system's faces.
+	UIFontFamily, MonoFontFamily string
 }
 
 // MaxTextScale bounds SystemSettings.TextScale; backends report larger OS
