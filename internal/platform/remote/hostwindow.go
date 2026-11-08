@@ -42,6 +42,9 @@ type realWin struct {
 	menuErr   error
 	// dragSrc is the child window whose StartDrag is in progress on w.
 	dragSrc *childWin
+	// access: w's accessibility bridge is active (the latest
+	// AccessibilityEvent; access.go).
+	access bool
 
 	active  *childWin   // shown, receives input
 	pending []*childWin // render offscreen

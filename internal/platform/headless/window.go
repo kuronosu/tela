@@ -44,6 +44,9 @@ type Window struct {
 	drops       []platform.DropEffect
 	menu        []platform.MenuItem
 	menuChanges int
+
+	// Accessibility (access.go).
+	acc accessState
 }
 
 var _ platform.Window = (*Window)(nil)
@@ -239,6 +242,9 @@ func (w *Window) Inject(e platform.Event) {
 		return
 	case platform.FocusEvent:
 		w.injectFocus(ev)
+		return
+	case platform.AccessibilityEvent, platform.AccessActionEvent:
+		w.injectAccess(ev)
 		return
 	case platform.CloseRequestedEvent:
 	case nil:

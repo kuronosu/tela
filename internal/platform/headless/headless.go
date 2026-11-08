@@ -103,6 +103,16 @@
 // for one (reported as WindowState.TitleBarControls; presses inside it are
 // the OS's and are not delivered).
 //
+// # Platform contract v5
+//
+// Each window has a fake accessibility bridge (access.go): Inject an
+// AccessibilityEvent to start or stop an assistive technology and
+// AccessActionEvents for its requests; the updates the app sends while it
+// is active are recorded (AccessUpdates) and applied to the window's
+// platform.AccessTree (AccessTree), which panics on an update a real
+// bridge could not apply; updates sent while it is not are counted
+// (AccessIgnored).
+//
 // # Concurrency
 //
 // All state is guarded by one mutex, and the handler is never called with it
@@ -110,7 +120,7 @@
 // SetFocused, SetState, SetTitleBarControls, Backend.SetSettings,
 // Backend.InjectApp, ChooseAppMenu, RequestQuit, Backend.AnswerDialog,
 // Advance) and the inspection API (Frame, Damage,
-// Presents, Title, OSState, Dialogs, ...) are safe from any goroutine, so a tool can
+// Presents, Title, OSState, Dialogs, AccessUpdates, ...) are safe from any goroutine, so a tool can
 // drive a Run loop from another goroutine. The platform.Window and
 // platform.Backend methods follow the platform contract (UI thread), but
 // are also internally synchronized.
@@ -511,6 +521,9 @@ func (t tracker) HandleEvent(w platform.Window, e platform.Event) {
 			hw.buttons = 0
 		}
 		t.b.mu.Unlock()
+	}
+	if ae, ok := e.(platform.AccessibilityEvent); ok && w != nil {
+		w.(*Window).accessDelivered(ae.Active)
 	}
 	t.h.HandleEvent(w, e)
 }

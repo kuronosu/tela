@@ -56,6 +56,9 @@ var eventSamples = []platform.Event{
 	platform.LaunchEvent{Launch: platform.Launch{Args: []string{"notes:open?id=3", "/tmp/x y"}, Dir: "/home/u", Token: "tok_TIME42"}},
 	platform.QuitRequestedEvent{},
 	platform.AppMenuEvent{Item: 78},
+	platform.AccessibilityEvent{Active: true},
+	platform.AccessActionEvent{Node: 1<<41 | 9, Action: platform.AccessActionSetSelection, Value: "ana@example.com", DX: -2.5, DY: 40,
+		Selection: platform.AccessSelection{Anchor: 7, Focus: 3}},
 }
 
 // TestEveryEventHasAnEncoding fails when package platform gains an event

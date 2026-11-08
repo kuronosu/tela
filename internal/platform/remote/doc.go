@@ -88,6 +88,14 @@
 //     the options and the window state.
 //   - Protocol 7 (ADR-237): TrayOptions.Template travels with the tray's
 //     options.
+//   - Platform contract v5 (protocol 9, ADR-246; access.go):
+//     SetAccessibility goes to the real window while its bridge is active
+//     and the child is its active one, with the child's serial number in
+//     the node IDs so a reload's tree replaces the old build's;
+//     AccessibilityEvent goes to the active child window (a promoted
+//     build is told at its promotion) and AccessActionEvent too, mapped
+//     back to its IDs and dropped while input is frozen or before the
+//     child sent its tree.
 //   - Run returns an error when the connection is lost.
 //
 // The child's loop is internal/loop's (queue, coalesced wake, quit,

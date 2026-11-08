@@ -42,6 +42,7 @@ func (w *win) ActivateWithToken(string)                     {}
 func (w *win) SetDropEffect(platform.DropEffect, ...string) {}
 func (w *win) StartDrag(platform.DragOptions) error         { return platform.ErrUnsupported }
 func (w *win) SetMenu([]platform.MenuItem) error            { return platform.ErrUnsupported }
+func (w *win) SetAccessibility(platform.AccessUpdate)       {}
 func (w *win) PopupMenu(platform.Point, []platform.MenuItem, func(platform.MenuItemID, error)) error {
 	return platform.ErrUnsupported
 }

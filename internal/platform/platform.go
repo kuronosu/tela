@@ -290,6 +290,20 @@ type Window interface {
 	// layers above draw the menu. An empty or invalid menu, or a nil done,
 	// panics.
 	PopupMenu(at Point, menu []MenuItem, done func(item MenuItemID, err error)) error
+
+	// --- Accessibility (contract v5, ADR-246). ---
+
+	// SetAccessibility gives the window's accessibility bridge the next
+	// update of the window's tree: the new and changed nodes, the root,
+	// the focus and the announcements (see [AccessUpdate] and
+	// "Accessibility" in the package documentation). The app calls it on
+	// the UI thread while the bridge is active (between an
+	// AccessibilityEvent with Active true and the next one), after the
+	// commits that changed the tree; calls while it is not active are
+	// ignored. The backend copies what it keeps before returning. An
+	// invalid update panics ([CheckAccessUpdate]). Backends without a
+	// bridge ignore it.
+	SetAccessibility(update AccessUpdate)
 }
 
 // Handler receives the backend's events on the UI thread. The window is nil

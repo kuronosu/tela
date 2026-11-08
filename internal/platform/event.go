@@ -374,6 +374,34 @@ type AppMenuEvent struct {
 // Windows logout is a later task).
 type QuitRequestedEvent struct{}
 
+// AccessibilityEvent reports that an assistive technology (AT: a screen
+// reader, a magnifier, voice control) started or stopped looking at the
+// window through the backend's accessibility bridge (contract v5,
+// ADR-246; "Accessibility" in the package documentation). While Active,
+// the app sends the window's tree with [Window.SetAccessibility]: every
+// node first, then the changes. Events alternate: the first one has Active
+// true. Backends without a bridge never send it.
+type AccessibilityEvent struct {
+	Active bool
+}
+
+// AccessActionEvent is an assistive technology asking node Node of the
+// window's accessibility tree to perform Action. Only the fields of the
+// action are set: Value for AccessActionSetValue, DX and DY (logical
+// pixels, positive toward the right and down) for AccessActionScrollBy,
+// Selection for AccessActionSetSelection. It arrives only while the
+// window's bridge is active; the node may be gone by then (the app
+// ignores it), and an action the node does not support does nothing.
+type AccessActionEvent struct {
+	Node      AccessID
+	Action    AccessAction
+	Value     string
+	DX, DY    float32
+	Selection AccessSelection
+}
+
+func (AccessibilityEvent) isEvent()  {}
+func (AccessActionEvent) isEvent()   {}
 func (ConfigureEvent) isEvent()      {}
 func (DragEvent) isEvent()           {}
 func (DragDoneEvent) isEvent()       {}

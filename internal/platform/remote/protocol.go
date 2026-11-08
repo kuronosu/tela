@@ -39,7 +39,9 @@ import (
 //   - 7: TrayOptions.Template (ADR-237) and
 //     SystemSettings.TitleBarButtons (ADR-238).
 //   - 8: SystemSettings.UIFontFamily and MonoFontFamily (ADR-244).
-const ProtocolVersion = 8
+//   - 9: platform contract v5 (ADR-246; access.go): SetAccessibility,
+//     AccessibilityEvent and AccessActionEvent.
+const ProtocolVersion = 9
 
 // magic opens the hello message.
 const magic = "TELA"
@@ -95,6 +97,9 @@ const (
 
 	// Drag and drop (version 5, ADR-214).
 	msgSetDropEffect // child→host: id, drag session, effect, types
+
+	// Accessibility (version 9, ADR-246; access.go).
+	msgSetAccessibility // child→host: id, update
 )
 
 // Window control operations of msgWindowCtl.
@@ -362,6 +367,9 @@ const (
 	// Version 6 (ADR-225).
 	evQuitRequested
 	evAppMenu
+	// Version 9 (ADR-246).
+	evAccessibility
+	evAccessAction
 )
 
 // event encodes ev. It panics on an event type it does not know, which
@@ -483,6 +491,18 @@ func (e *enc) event(ev platform.Event) {
 	case platform.AppMenuEvent:
 		e.u8(evAppMenu)
 		e.u32(uint32(ev.Item))
+	case platform.AccessibilityEvent:
+		e.u8(evAccessibility)
+		e.boolean(ev.Active)
+	case platform.AccessActionEvent:
+		e.u8(evAccessAction)
+		e.u64(uint64(ev.Node))
+		e.u8(uint8(ev.Action))
+		e.str(ev.Value)
+		e.f32(ev.DX)
+		e.f32(ev.DY)
+		e.i64(int64(ev.Selection.Anchor))
+		e.i64(int64(ev.Selection.Focus))
 	default:
 		panic(fmt.Sprintf("remote: no wire encoding for event %T; add one to protocol.go", ev))
 	}
@@ -595,6 +615,17 @@ func (d *dec) event() platform.Event {
 		return platform.QuitRequestedEvent{}
 	case evAppMenu:
 		return platform.AppMenuEvent{Item: platform.MenuItemID(d.u32())}
+	case evAccessibility:
+		return platform.AccessibilityEvent{Active: d.boolean()}
+	case evAccessAction:
+		return platform.AccessActionEvent{
+			Node:      platform.AccessID(d.u64()),
+			Action:    platform.AccessAction(d.u8()),
+			Value:     d.str(),
+			DX:        d.f32(),
+			DY:        d.f32(),
+			Selection: platform.AccessSelection{Anchor: int(d.i64()), Focus: int(d.i64())},
+		}
 	default:
 		if d.err == nil {
 			d.err = fmt.Errorf("remote: unknown event tag %d", tag)

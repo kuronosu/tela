@@ -511,6 +511,10 @@ func checkHostEvent(id uint32, ev platform.Event) error {
 		return nil
 	case platform.WakeEvent:
 		return errors.New("remote: the host sent a WakeEvent")
+	case platform.AccessActionEvent:
+		if p := platform.CheckAccessActionEvent(e); p != "" {
+			return fmt.Errorf("remote: invalid AccessActionEvent: %s", p)
+		}
 	case platform.ConfigureEvent:
 		m := e.Metrics
 		if !(m.Scale > 0) || math.IsInf(m.Scale, 0) || try(func() { platform.CheckSize("ConfigureEvent size", m.Size) }) != nil {

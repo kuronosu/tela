@@ -44,9 +44,9 @@
 // The event set: ConfigureEvent, FrameEvent, CloseRequestedEvent,
 // FocusEvent, WakeEvent, SettingsEvent, PointerEvent, ScrollEvent,
 // KeyEvent, IMEEvent, IMESessionEvent, WindowStateEvent, DragEvent,
-// DragDoneEvent, MenuEvent, and the app-scoped NotificationEvent,
-// TrayEvent, ShortcutEvent, ShortcutStatusEvent, LaunchEvent,
-// QuitRequestedEvent and AppMenuEvent.
+// DragDoneEvent, MenuEvent, AccessibilityEvent, AccessActionEvent, and
+// the app-scoped NotificationEvent, TrayEvent, ShortcutEvent,
+// ShortcutStatusEvent, LaunchEvent, QuitRequestedEvent and AppMenuEvent.
 //
 // # Threading
 //
@@ -587,6 +587,9 @@
 // request; only Cocoa sends it, from NSApp's terminate:) and
 // title bar overlays (see "Custom title bars").
 //
+// Contract v5 (ADR-246) adds accessibility: [Window.SetAccessibility],
+// [AccessibilityEvent] and [AccessActionEvent] (see "Accessibility").
+//
 // # Drag and drop and the clipboard
 //
 // One data type, [Data], carries a drag and the clipboard: an ordered set
@@ -1077,6 +1080,54 @@
 // and its desktop services are answered by programmable responders and
 // recorded for inspection (see the headless package).
 //
+// # Accessibility
+//
+// Contract v5 (ADR-246) follows AccessKit's push model. Each window may
+// have an accessibility bridge in its backend (AT-SPI2 on Linux, UI
+// Automation on Windows, NSAccessibility on macOS) that keeps its own copy
+// of the window's tree and answers the assistive technology's (AT's)
+// queries from it, on whatever thread they arrive (D-Bus goroutines, COM
+// threads, AppKit callbacks), without waiting for the UI thread. The app
+// pushes the tree; the AT's requests come back as events.
+//
+//   - [AccessibilityEvent] with Active true says an AT started looking at
+//     the window (a screen reader registered on the AT-SPI bus, a
+//     WM_GETOBJECT for the UIA root, an NSAccessibility query); Active
+//     false that it stopped. Events alternate, starting with true. A
+//     backend that cannot tell when ATs stop reports Active true once and
+//     keeps it. Backends without a bridge never send it, so the app does
+//     no accessibility work at all there (0% idle CPU).
+//   - While active, the app calls [Window.SetAccessibility] with an
+//     [AccessUpdate] after every commit that changed the tree: the new
+//     and changed [AccessNode]s (every node in the first update after
+//     activation), the root, the focused node, and the [Announcement]s
+//     of live regions, which the app computes so that every platform
+//     speaks the same thing. A node no longer reachable from the root is
+//     gone. The bridge applies updates in order; [AccessTree] does it as
+//     an immutable value that other threads can read while the next one
+//     is made. When the bridge deactivates it drops its tree; the next
+//     activation starts from a full update again.
+//   - [AccessActionEvent] carries an AT's request (the default action,
+//     focus, set value, increment, decrement, expand, collapse, scroll
+//     into view, scroll by, set the text selection, show the menu) to the
+//     UI thread, where the app performs it as the user's input; the
+//     bridge answers the AT at once (success means "requested") and the
+//     outcome arrives as the next update. A bridge offers only the
+//     actions a node lists in AccessNode.Actions.
+//   - The nodes carry ARIA roles and states; each bridge maps them to its
+//     platform's after W3C Core-AAM 1.2 and HTML-AAM, as Chromium and
+//     AccessKit do, and leaves out the nodes [AccessNode.Ignored]
+//     reports (layout-only containers), exposing their children instead.
+//     Coordinates are logical pixels of the window's content area;
+//     bridges convert to the screen's.
+//
+// Wayland, X11, Win32 and Cocoa have no bridge yet (later tasks of phase
+// 19): they ignore SetAccessibility and never report Active. Headless
+// records the updates, applies them to an AccessTree (an invalid one
+// panics) and lets tests inject both events; remote (protocol 9)
+// forwards updates to the host's real window and its events to the
+// active child.
+//
 // # Desktop integration on each OS
 //
 // What each backend calls for the phase-13 contract (ADR-210). Wayland and
@@ -1383,7 +1434,8 @@
 // and never lets AppKit call exit() (see the cocoa package).
 //
 // Remote (tela dev), protocol 5 (ADR-214), 6 with contract v4 (ADR-225),
-// 7 with TrayOptions.Template (ADR-237):
+// 7 with TrayOptions.Template (ADR-237), 9 with contract v5 (ADR-246:
+// accessibility, see "Accessibility"):
 // everything is forwarded to the host's backend, which owns the real
 // windows: drags in both directions (the answer to a drag reaches the OS
 // one round trip late, so a drag entering a window is refused until the

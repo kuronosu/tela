@@ -108,6 +108,7 @@ type Host struct {
 	settings platform.SystemSettings
 	handlers map[string]func(*Child, []byte) ([]byte, error)
 	all      map[*Child]struct{} // connected children, for Close
+	serial   uint64              // children connected so far (Child.serial)
 	closed   bool
 
 	// UI thread.
@@ -515,6 +516,8 @@ func (h *Host) windowEvent(rw *realWin, e platform.Event) {
 			h.deliver(cw, ev)
 		}
 		h.input(rw, e)
+	case platform.AccessibilityEvent, platform.AccessActionEvent:
+		h.accessEvent(rw, e) // access.go
 	case platform.DragEvent, platform.DragDoneEvent, platform.MenuEvent:
 		// Input for the active child, but not for HostOptions.Input: the
 		// overlay takes clicks and keys, not drags or menu choices.
@@ -680,6 +683,7 @@ func (h *Host) configure(rw *realWin, cw *childWin) {
 	}
 	cw.sent = m
 	cw.c.sendEvent(cw.id, platform.ConfigureEvent{Metrics: m})
+	h.syncAccess(rw, cw) // a bridge active before the window's first ConfigureEvent
 	cw.wantFrame = true
 	rw.w.RequestFrame()
 	h.offscreenFrame(rw, cw)
@@ -742,6 +746,16 @@ func (h *Host) deliver(cw *childWin, e platform.Event) {
 		}
 	case platform.DragEvent:
 		if !h.dragView(cw, ev) {
+			return
+		}
+	case platform.AccessibilityEvent:
+		if ev.Active == cw.access {
+			return
+		}
+		cw.access, cw.accessSynced = ev.Active, false
+	case platform.AccessActionEvent:
+		var ok bool
+		if e, ok = cw.c.childAction(cw, ev); !ok {
 			return
 		}
 	}
@@ -831,6 +845,8 @@ func (h *Host) serve(nc *net.UnixConn) {
 		return
 	}
 	h.all[c] = struct{}{}
+	h.serial++
+	c.serial = h.serial
 	h.mu.Unlock()
 	h.post(func() { h.connected(c) })
 	c.readLoop()
@@ -967,6 +983,7 @@ func (h *Host) activate(rw *realWin, cw *childWin) {
 	h.setTextInput(rw, cw.textInput)
 	h.applyWindow(rw, cw)
 	h.promoteMenu(rw, cw)
+	h.syncAccess(rw, cw)
 	if cw.wantFrame && cw.visible {
 		rw.w.RequestFrame()
 	}
@@ -1108,6 +1125,9 @@ type Child struct {
 	pid      int
 	tag      string
 	welcomed platform.SystemSettings // the settings sent in the welcome
+	// serial numbers the children in connection order, from 1; it tells
+	// their accessibility node IDs apart on the real windows (access.go).
+	serial uint64
 
 	// UI thread.
 	state   childState
@@ -1282,6 +1302,8 @@ func (c *Child) dispatch(t msgType, d *dec) error {
 		return c.windowCtl(d)
 	case msgSetDropEffect:
 		return c.setDropEffect(d)
+	case msgSetAccessibility:
+		return c.setAccessibility(d)
 	case msgRunning:
 		if err := d.end(); err != nil {
 			return err
@@ -1597,6 +1619,9 @@ type childWin struct {
 	// the child's view; the DragEnters sent to it.
 	dragging    bool
 	dragSession uint32
+	// Accessibility (access.go): access, the child was told its bridge is
+	// active; accessSynced, it sent an update since.
+	access, accessSynced bool
 
 	// The child's view of the window's state requests (windowctl.go),
 	// applied to the real window while it is the active one.

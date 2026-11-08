@@ -791,6 +791,12 @@ func testWindowControl(s *session) {
 			s.expectPanic("SetHitRegions with a negative size", func() {
 				w.SetHitRegions([]platform.HitRegion{{Kind: platform.HitCaption, Rect: platform.Rect{W: -1, H: 1}}})
 			})
+			// Accessibility (contract v5, ADR-246): no assistive technology
+			// is active, so every backend ignores a valid update and
+			// rejects an invalid one.
+			w.SetAccessibility(platform.AccessUpdate{Root: 1, Focus: 1, Nodes: []platform.AccessNode{
+				{ID: 1, Kind: platform.AccessRoot, Children: []platform.AccessID{2}}, {ID: 2, Role: "button", Name: "OK"}}})
+			s.expectPanic("SetAccessibility without a root", func() { w.SetAccessibility(platform.AccessUpdate{Focus: 1}) })
 			s.expectPanic("SetMinSize with a negative size", func() { w.SetMinSize(platform.Size{W: -1}) })
 			nan := float32(math.NaN())
 			s.expectPanic("SetMaxSize with NaN", func() { w.SetMaxSize(platform.Size{W: nan, H: 1}) })
