@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/utf16x"
 )
 
 // The Text pattern (ADR-246): ITextProvider on the nodes uiaHasText
@@ -86,7 +87,7 @@ func (tr *uiaRange) put(r uiaTextRange) {
 // selectionRange returns the selection of a text field as a range.
 func selectionRange(n *platform.AccessNode) uiaTextRange {
 	v := uiaText(n)
-	a, f := uiaCodePointsToUTF16(v, n.Selection.Anchor), uiaCodePointsToUTF16(v, n.Selection.Focus)
+	a, f := utf16x.FromCodePoints(v, n.Selection.Anchor), utf16x.FromCodePoints(v, n.Selection.Focus)
 	return uiaTextRange{min(a, f), max(a, f)}
 }
 

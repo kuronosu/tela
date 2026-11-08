@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/utf16x"
 )
 
 // The OS-independent half of the UI Automation bridge (uia.go,
@@ -461,7 +462,7 @@ func TestUIATextRangeMoves(t *testing.T) {
 func TestUIATextOffsets(t *testing.T) {
 	s := "a😀é"
 	for cp, want := range map[int]int{0: 0, 1: 1, 2: 3, 3: 4, 9: 4} {
-		if got := uiaCodePointsToUTF16(s, cp); got != want {
+		if got := utf16x.FromCodePoints(s, cp); got != want {
 			t.Errorf("code point %d -> UTF-16 %d, want %d", cp, got, want)
 		}
 	}

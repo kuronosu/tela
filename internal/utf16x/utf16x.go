@@ -53,3 +53,18 @@ func FromByte(s string, b int) int {
 	}
 	return Len(s[:b])
 }
+
+// FromCodePoints returns the UTF-16 offset of the code point offset cp in
+// s (an invalid byte counts as one code point, U+FFFD); offsets are
+// clamped to s.
+func FromCodePoints(s string, cp int) int {
+	n := 0
+	for _, r := range s {
+		if cp <= 0 {
+			break
+		}
+		cp--
+		n += units(r)
+	}
+	return n
+}

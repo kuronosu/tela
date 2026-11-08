@@ -526,24 +526,6 @@ func axValueDescription(n *platform.AccessNode) string {
 // u16Len returns the length of s in UTF-16 code units.
 func u16Len(s string) int { return utf16x.Len(s) }
 
-// cpToU16 returns the UTF-16 offset of the code point offset cp in s
-// (clamped to s).
-func cpToU16(s string, cp int) int {
-	u := 0
-	for _, r := range s {
-		if cp <= 0 {
-			break
-		}
-		cp--
-		if r >= 0x10000 {
-			u += 2
-		} else {
-			u++
-		}
-	}
-	return u
-}
-
 // u16ToCP returns the code point offset of the UTF-16 offset u in s: an
 // offset inside a surrogate pair counts the characters before it;
 // offsets are clamped to s.
@@ -572,7 +554,7 @@ func selectionU16(n *platform.AccessNode) (loc, length int, ok bool) {
 	if !isText || !n.HasSelection {
 		return 0, 0, false
 	}
-	a, f := cpToU16(text, n.Selection.Anchor), cpToU16(text, n.Selection.Focus)
+	a, f := utf16x.FromCodePoints(text, n.Selection.Anchor), utf16x.FromCodePoints(text, n.Selection.Focus)
 	return min(a, f), max(a, f) - min(a, f), true
 }
 
@@ -889,7 +871,7 @@ func u16CharRange(s string, u int) (loc, n int, ok bool) {
 	if u < 0 || u >= u16Len(s) {
 		return 0, 0, false
 	}
-	loc = cpToU16(s, u16ToCP(s, u))
+	loc = utf16x.FromCodePoints(s, u16ToCP(s, u))
 	n = 1
 	if r, _ := utf8.DecodeRuneInString(s[utf16x.ToByte(s, loc):]); r >= 0x10000 {
 		n = 2

@@ -36,3 +36,12 @@ func TestOffsets(t *testing.T) {
 		}
 	}
 }
+
+func TestFromCodePoints(t *testing.T) {
+	s := "a😀é\xff"
+	for cp, want := range map[int]int{-1: 0, 0: 0, 1: 1, 2: 3, 3: 4, 4: 5, 9: 5} {
+		if got := FromCodePoints(s, cp); got != want {
+			t.Errorf("FromCodePoints(%d) = %d, want %d", cp, got, want)
+		}
+	}
+}

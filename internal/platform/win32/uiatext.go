@@ -377,23 +377,6 @@ func (r uiaTextRange) setEndpoint(endEP bool, pos int) uiaTextRange {
 	return r
 }
 
-// uiaCodePointsToUTF16 converts an offset in code points into s to UTF-16
-// code units (clamped to s).
-func uiaCodePointsToUTF16(s string, cp int) int {
-	n := 0
-	for i, r := range []rune(s) {
-		if i >= cp {
-			break
-		}
-		if l := unicode16.RuneLen(r); l > 0 {
-			n += l
-		} else {
-			n++ // invalid: one replacement unit
-		}
-	}
-	return n
-}
-
 // uiaUTF16ToCodePoints converts an offset in UTF-16 code units of the
 // text u to code points.
 func uiaUTF16ToCodePoints(u []uint16, off int) int {

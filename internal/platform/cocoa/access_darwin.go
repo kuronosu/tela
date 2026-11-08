@@ -9,6 +9,7 @@ import (
 
 	"github.com/kuronosu/tela/internal/darwin"
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/utf16x"
 )
 
 // The NSAccessibility bridge (ADR-246): TelaView answers for the root of
@@ -748,7 +749,7 @@ func elementMethods() []darwin.Method {
 			if !c.n.HasSelection {
 				return 0
 			}
-			return lineForIndex(s, cpToU16(s, c.n.Selection.Focus))
+			return lineForIndex(s, utf16x.FromCodePoints(s, c.n.Selection.Focus))
 		}),
 		{Sel: darwin.Sel(axSelStringForRange), Fn: func(self darwin.ID, _ darwin.SEL, r darwin.NSRange) darwin.ID {
 			var res darwin.ID

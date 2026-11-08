@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/utf16x"
 )
 
 // Tests of the OS-independent half of the NSAccessibility bridge
@@ -205,8 +206,8 @@ func TestAXTextRanges(t *testing.T) {
 		t.Errorf("u16Len = %d, want 8", n)
 	}
 	for cp, want := range []int{0, 1, 3, 4, 5, 6, 7, 8, 8} {
-		if got := cpToU16(s, cp); got != want {
-			t.Errorf("cpToU16(%d) = %d, want %d", cp, got, want)
+		if got := utf16x.FromCodePoints(s, cp); got != want {
+			t.Errorf("utf16x.FromCodePoints(%d) = %d, want %d", cp, got, want)
 		}
 	}
 	// Offset 2 is inside the surrogate pair: it counts the characters before.
