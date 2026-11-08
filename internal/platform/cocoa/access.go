@@ -724,6 +724,60 @@ func axAllows(v *axTree, n *platform.AccessNode, sel string) (allowed, known boo
 	return false, false
 }
 
+// --- name-based actions ---
+
+// axActionTable maps the AX action names of the name-based API
+// (accessibilityActionNames, accessibilityPerformAction:) onto the
+// tree's actions, with English descriptions for the ones AppKit's
+// NSAccessibilityActionDescription does not know.
+var axActionTable = []struct {
+	name   string
+	action platform.AccessAction
+	desc   string
+}{
+	{"AXPress", platform.AccessActionDefault, "press"},
+	{"AXIncrement", platform.AccessActionIncrement, "increment"},
+	{"AXDecrement", platform.AccessActionDecrement, "decrement"},
+	{"AXShowMenu", platform.AccessActionShowMenu, "show menu"},
+	{axScrollToVisible, platform.AccessActionScrollIntoView, "scroll to visible"},
+}
+
+// axScrollToVisible is the AX action of scrolling into view, which has
+// no method of its own in the NSAccessibility protocol.
+const axScrollToVisible = "AXScrollToVisible"
+
+// axActionNames returns the AX action names of n's actions.
+func axActionNames(n *platform.AccessNode) []string {
+	var out []string
+	for _, a := range axActionTable {
+		if n.Actions.Has(a.action) {
+			out = append(out, a.name)
+		}
+	}
+	return out
+}
+
+// axActionNamed returns the action of an AX action name.
+func axActionNamed(name string) (platform.AccessAction, bool) {
+	for _, a := range axActionTable {
+		if a.name == name {
+			return a.action, true
+		}
+	}
+	return 0, false
+}
+
+// axActionDescription returns the English description of an AX action
+// name (the name itself when unknown).
+func axActionDescription(name string) string {
+	for _, a := range axActionTable {
+		if a.name == name {
+			return a.desc
+		}
+	}
+	return name
+}
+
 // --- notifications ---
 
 // axNoteKind is an NSAccessibility notification the bridge posts.

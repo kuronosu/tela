@@ -78,16 +78,19 @@ var axElems = struct {
 // asel holds the selectors of the bridge.
 var asel = struct {
 	dealloc, selectorAllowed, actionNames, performAction, hitTest darwin.SEL
-	isKindOfClass, contentRect, frame                             darwin.SEL
+	isKindOfClass, contentRect, frame, actionDescription          darwin.SEL
+	instancesRespond                                              darwin.SEL
 }{
-	dealloc:         darwin.Sel("dealloc"),
-	selectorAllowed: darwin.Sel("isAccessibilitySelectorAllowed:"),
-	actionNames:     darwin.Sel("accessibilityActionNames"),
-	performAction:   darwin.Sel("accessibilityPerformAction:"),
-	hitTest:         darwin.Sel("accessibilityHitTest:"),
-	isKindOfClass:   darwin.Sel("isKindOfClass:"),
-	contentRect:     darwin.Sel("contentRectForFrameRect:"),
-	frame:           darwin.Sel("frame"),
+	actionDescription: darwin.Sel("accessibilityActionDescription:"),
+	instancesRespond:  darwin.Sel("instancesRespondToSelector:"),
+	dealloc:           darwin.Sel("dealloc"),
+	selectorAllowed:   darwin.Sel("isAccessibilitySelectorAllowed:"),
+	actionNames:       darwin.Sel("accessibilityActionNames"),
+	performAction:     darwin.Sel("accessibilityPerformAction:"),
+	hitTest:           darwin.Sel("accessibilityHitTest:"),
+	isKindOfClass:     darwin.Sel("isKindOfClass:"),
+	contentRect:       darwin.Sel("contentRectForFrameRect:"),
+	frame:             darwin.Sel("frame"),
 }
 
 // axAccess holds the element class and the selector names the gate knows,
@@ -99,9 +102,29 @@ var axAccess struct {
 	strs         map[string]darwin.ID // constant NSStrings (owned, kept)
 }
 
-// axScrollToVisible is the AX action of scrolling into view, which has
-// no method of its own in the NSAccessibility protocol.
-const axScrollToVisible = "AXScrollToVisible"
+// superResponds caches whether instances of a superclass respond to a
+// selector (main thread).
+var superResponds = map[[2]uintptr]bool{}
+
+// superSend sends cmd to self from the class super when super's
+// instances respond to it, and reports whether it did: an unrecognized
+// selector raises an Objective-C exception, which aborts the process
+// through purego's frames.
+func superSend(self darwin.ID, super darwin.Class, cmd darwin.SEL, args ...any) (darwin.ID, bool) {
+	key := [2]uintptr{uintptr(super), uintptr(cmd)}
+	has, ok := superResponds[key]
+	if !ok {
+		has = darwin.SendBool(darwin.ID(super), asel.instancesRespond, cmd)
+		superResponds[key] = has
+		if !has {
+			atracef("%s does not implement %s", darwin.GoString(darwin.Send(darwin.ID(super), darwin.Sel("description"))), darwin.SelName(cmd))
+		}
+	}
+	if !has {
+		return 0, false
+	}
+	return darwin.SendSuper(self, super, cmd, args...), true
+}
 
 // setupAccess registers TelaAccessElement and binds AppKit's
 // NSAccessibility functions; without them the bridge never activates.
@@ -430,7 +453,8 @@ func accessViewMethods() []darwin.Method {
 					}
 				}
 			}
-			return darwin.SendSuper(self, app.nsView, cmd)
+			res, _ := superSend(self, app.nsView, cmd)
+			return res
 		}},
 		{Sel: asel.hitTest, Fn: func(self darwin.ID, cmd darwin.SEL, p darwin.CGPoint) darwin.ID {
 			if w := accessWindow(self); w != nil {
@@ -442,7 +466,8 @@ func accessViewMethods() []darwin.Method {
 					}
 				}
 			}
-			return darwin.SendSuper(self, app.nsView, cmd, p)
+			res, _ := superSend(self, app.nsView, cmd, p)
+			return res
 		}},
 	}
 }
@@ -496,6 +521,7 @@ func elementMethods() []darwin.Method {
 			axElems.Lock()
 			delete(axElems.m, self)
 			axElems.Unlock()
+			// NSObject's dealloc: every class has it.
 			darwin.SendSuper(self, axAccess.super, cmd)
 		}},
 		{Sel: asel.selectorAllowed, Fn: func(self darwin.ID, cmd darwin.SEL, s darwin.SEL) bool {
@@ -507,7 +533,8 @@ func elementMethods() []darwin.Method {
 				return allowed
 			}
 			// A BOOL comes back in the low byte of the register.
-			return darwin.SendSuper(self, axAccess.super, cmd, s)&0xff != 0
+			res, ok := superSend(self, axAccess.super, cmd, s)
+			return !ok || res&0xff != 0
 		}},
 		boolean("isAccessibilityElement", func(axCall) bool { return true }),
 		boolean("isAccessibilityEnabled", func(c axCall) bool { return !c.n.Has(platform.AccessDisabled) }),
@@ -700,27 +727,34 @@ func elementMethods() []darwin.Method {
 			})
 		}},
 		// Scrolling into view has no NSAccessibility method: it is the
-		// action AXScrollToVisible of the older, name-based API.
-		{Sel: asel.actionNames, Fn: func(self darwin.ID, cmd darwin.SEL) darwin.ID {
-			names := darwin.SendSuper(self, axAccess.super, cmd)
-			scroll := false
-			axQuery(self, func(c axCall) { scroll = c.n.Actions.Has(platform.AccessActionScrollIntoView) })
-			if !scroll {
-				return names
-			}
+		// action AXScrollToVisible of the older, name-based API, whose
+		// methods NSAccessibilityElement does not implement (macOS 26:
+		// sending super accessibilityActionNames raised "unrecognized
+		// selector"). The element answers the whole name-based action API
+		// itself, from the node's actions (axActionNames), and never sends
+		// super there.
+		{Sel: asel.actionNames, Fn: func(self darwin.ID, _ darwin.SEL) darwin.ID {
 			out := darwin.NewMutableArray()
-			for _, n := range darwin.ArrayItems(names) {
-				darwin.ArrayAdd(out, n)
-			}
-			darwin.ArrayAdd(out, axStr(axScrollToVisible))
+			axQuery(self, func(c axCall) {
+				for _, name := range axActionNames(c.n) {
+					darwin.ArrayAdd(out, axStr(name))
+				}
+			})
 			return out
 		}},
-		{Sel: asel.performAction, Fn: func(self darwin.ID, cmd darwin.SEL, action darwin.ID) {
-			if darwin.GoString(action) == axScrollToVisible {
-				axAct(self, platform.AccessActionScrollIntoView, nil)
-				return
+		{Sel: asel.performAction, Fn: func(self darwin.ID, _ darwin.SEL, action darwin.ID) {
+			if a, ok := axActionNamed(darwin.GoString(action)); ok {
+				axAct(self, a, nil)
 			}
-			darwin.SendSuper(self, axAccess.super, cmd, action)
+		}},
+		{Sel: asel.actionDescription, Fn: func(self darwin.ID, _ darwin.SEL, action darwin.ID) darwin.ID {
+			if action == 0 {
+				return 0
+			}
+			if d := darwin.AccessibilityActionDescription(action); d != 0 {
+				return d
+			}
+			return darwin.AutoString(axActionDescription(darwin.GoString(action)))
 		}},
 	}
 }

@@ -18,6 +18,7 @@ var (
 	nsAccessibilityPostNotification         func(element, name ID)
 	nsAccessibilityPostNotificationUserInfo func(element, name, userInfo ID)
 	nsAccessibilityRoleDescription          func(role, subrole ID) ID
+	nsAccessibilityActionDescription        func(action ID) ID
 )
 
 var (
@@ -33,6 +34,7 @@ func LoadAccessibility() error {
 			bind(&nsAccessibilityPostNotification, lib, "NSAccessibilityPostNotification")
 			bind(&nsAccessibilityPostNotificationUserInfo, lib, "NSAccessibilityPostNotificationWithUserInfo")
 			bind(&nsAccessibilityRoleDescription, lib, "NSAccessibilityRoleDescription")
+			bind(&nsAccessibilityActionDescription, lib, "NSAccessibilityActionDescription")
 		})
 	})
 	return accessErr
@@ -62,6 +64,15 @@ func AccessibilityRoleDescription(role, subrole ID) ID {
 		return 0
 	}
 	return nsAccessibilityRoleDescription(role, subrole)
+}
+
+// AccessibilityActionDescription returns AppKit's localized description
+// of the action name (an NSString such as AXPress), autoreleased, or 0.
+func AccessibilityActionDescription(action ID) ID {
+	if nsAccessibilityActionDescription == nil || action == 0 {
+		return 0
+	}
+	return nsAccessibilityActionDescription(action)
 }
 
 var (

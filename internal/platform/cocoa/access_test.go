@@ -383,3 +383,32 @@ func TestAXNotes(t *testing.T) {
 		t.Errorf("unknown note kind prints %q", s)
 	}
 }
+
+func TestAXActionNames(t *testing.T) {
+	n := platform.AccessNode{Role: "button", Actions: platform.AccessActionsOf(platform.AccessActionDefault,
+		platform.AccessActionFocus, platform.AccessActionScrollIntoView, platform.AccessActionShowMenu)}
+	names := axActionNames(&n)
+	t.Logf("button actions %v -> %v", n.Actions, names)
+	if !slices.Equal(names, []string{"AXPress", "AXShowMenu", "AXScrollToVisible"}) {
+		t.Errorf("action names = %v, want [AXPress AXShowMenu AXScrollToVisible]", names)
+	}
+	if names := axActionNames(&platform.AccessNode{Role: "heading"}); names != nil {
+		t.Errorf("a heading has the actions %v", names)
+	}
+	for name, want := range map[string]platform.AccessAction{"AXPress": platform.AccessActionDefault,
+		"AXIncrement": platform.AccessActionIncrement, "AXDecrement": platform.AccessActionDecrement,
+		"AXShowMenu": platform.AccessActionShowMenu, "AXScrollToVisible": platform.AccessActionScrollIntoView} {
+		if got, ok := axActionNamed(name); got != want || !ok {
+			t.Errorf("axActionNamed(%s) = %v, %v; want %v", name, got, ok, want)
+		}
+	}
+	if _, ok := axActionNamed("AXRaise"); ok {
+		t.Errorf("AXRaise maps to an action")
+	}
+	if d := axActionDescription("AXScrollToVisible"); d != "scroll to visible" {
+		t.Errorf("description of AXScrollToVisible = %q", d)
+	}
+	if d := axActionDescription("AXRaise"); d != "AXRaise" {
+		t.Errorf("description of an unknown action = %q, want the name", d)
+	}
+}
