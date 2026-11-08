@@ -1121,7 +1121,11 @@
 //     Coordinates are logical pixels of the window's content area;
 //     bridges convert to the screen's.
 //
-// Wayland, X11, Win32 and Cocoa have no bridge yet (later tasks of phase
+// Wayland and X11 share an AT-SPI2 bridge over D-Bus
+// (internal/platform/internal/atspi): it reports Active while the
+// session's org.a11y.Status says an AT is enabled and the application is
+// embedded in the registry, and each window is a frame of the
+// application. Win32 and Cocoa have no bridge yet (later tasks of phase
 // 19): they ignore SetAccessibility and never report Active. Headless
 // records the updates, applies them to an AccessTree (an invalid one
 // panics) and lets tests inject both events; remote (protocol 9)

@@ -16,6 +16,8 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 - Accessibility props (ADR-246): `h.AriaLive("polite"|"assertive"|"off")` and `h.AriaAtomic(bool)` for live regions (`Role("status")`, `"log"` and `"alert"` are live without them), `h.AriaKeyShortcuts("Control+S Meta+S")` (dev mode rejects `Ctrl`, `Cmd` and empty keys with the right name), `h.AriaPosInSet(i)` and `h.AriaSetSize(n)` for sets that have only some of their items in the tree (otherwise positions are counted as Chromium does), and `h.AriaLabelFn(func() string)`, a name read when the semantics tree is built, so a `tela.Value` it reads rebuilds nothing. The aria snapshot prints none of them, as Playwright's does not.
 
+- Linux: screen readers (Orca) through AT-SPI. While an assistive technology is enabled (`org.a11y.Status`), Wayland and X11 windows join the accessibility registry: Orca reads their tree (roles after W3C Core-AAM, names, states, text with words, sentences and lines), follows focus, value, text and caret changes, speaks live regions through AT-SPI announcements, and operates the app (activate, focus, check, expand, set text, select, scroll into view). `NO_AT_BRIDGE=1` turns it off.
+
 ### Changed
 
 - kit: a menu item's `Shortcut` is announced as its ARIA key shortcuts (`Shift+Cmd+P` is `Shift+Meta+P`); a `MenuRadioGroup`'s `Label` names its group; a `Popover` without `AriaLabel` is named by its trigger, as React Aria's dialogs; the `Toaster`'s region is a polite live region and each toast is named by its title, so a new toast is announced.

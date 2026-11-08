@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/internal/atspi"
 	"github.com/kuronosu/tela/internal/platform/internal/loop"
 	"github.com/kuronosu/tela/internal/platform/wayland/protocols"
 )
@@ -45,6 +46,8 @@ type Window struct {
 
 	cursor platform.Cursor
 	title  string // the latest title, sent to the new toplevel when a hidden window is shown
+	// acc is the window's side of the AT-SPI bridge (access.go).
+	acc *atspi.Window
 
 	// ctl is the window control state (windowctl.go): requests,
 	// visibility, decorations, hit regions, icon, parent, session.
@@ -191,6 +194,7 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 
 	b.loop.Add(w)
 	b.surfaces[w.surface] = w
+	w.acc = b.accessBridge().NewWindow(w, opts.Title)
 	w.SetHidden(opts.Hidden)
 	return w, nil
 }
@@ -622,6 +626,9 @@ func (w *Window) SetTitle(title string) {
 		return
 	}
 	w.title = title
+	if w.acc != nil {
+		w.acc.SetTitle(title)
+	}
 	if !w.ctl.unmapped {
 		w.toplevel.SetTitle(title)
 	}
@@ -698,6 +705,9 @@ func (w *Window) Close() {
 	b := w.b
 	w.closeChildren()
 	b.loop.Remove(w) // marks it closed and drops its queued events
+	if w.acc != nil {
+		w.acc.Close()
+	}
 	for _, s := range b.seats {
 		if s.ptr.focus == w {
 			s.ptr = pointerState{mods: s.ptr.mods}
