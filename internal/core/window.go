@@ -216,6 +216,10 @@ type winView struct {
 	// its size needs after a resize, is trimmed to it (trimFramebuffer); 0
 	// for none.
 	fbTrimAt time.Duration
+	// rasterTrimAt is the backend time at which the renderer's memory is
+	// trimmed (Tree.TrimRaster), RasterSettle after a frame that left
+	// nothing pending, and cancelled by the next frame; 0 for none.
+	rasterTrimAt time.Duration
 	// cursor is the cursor last set on the window; imeField the text
 	// field whose state the window's text input has (Tree.TextInput).
 	cursor   platform.Cursor
@@ -328,6 +332,8 @@ func (v *winView) setHidden(hidden bool) {
 		// rasterized in full into a new framebuffer (the backend's copy
 		// of the frame is all a hidden window needs).
 		v.fb, v.fbTrimAt = nil, 0
+		v.rasterTrimAt = 0
+		v.tree.TrimRaster(&v.renderer)
 	}
 	v.win.SetVisible(!hidden)
 	v.syncState()

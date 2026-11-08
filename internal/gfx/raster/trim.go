@@ -16,12 +16,15 @@ import "math"
 //
 // EndFrame lets that memory follow what recent frames need. Every piece of
 // it records whether a Render used it since the previous EndFrame (useAge);
-// EndFrame releases what no Render used in the last maxIdleFrames frames,
-// and, when the caller expects no frame soon (idle), what the frame that
-// ends did not use. A Renderer whose owner never calls EndFrame keeps
-// everything, as before. Releasing memory changes no pixel: every buffer
-// is either zeroed when handed out (getBuf) or fully written before it is
-// read, so a buffer allocated anew holds what a reused one would.
+// EndFrame releases what no Render used in the last maxIdleFrames frames.
+// Trim releases all of it: its owner calls it once the window has rested a
+// while (core: a second after a frame that left nothing pending), not at
+// the end of every frame that happens to be the last of an interaction, so
+// that the next interaction does not allocate everything again. A Renderer
+// whose owner calls neither keeps everything, as before. Releasing memory
+// changes no pixel: every buffer is either zeroed when handed out (getBuf)
+// or fully written before it is read, so a buffer allocated anew holds
+// what a reused one would.
 
 // maxIdleFrames is the number of frames that scratch memory no Render uses
 // is kept for: about a quarter of a second at 60 Hz, longer than the gaps
@@ -40,9 +43,13 @@ type useAge struct {
 func (a *useAge) use() { a.used = true }
 
 // end ends a frame and reports whether the memory should be released: no
-// Render used it in the last maxIdleFrames frames, or, when idle, in the
-// frame that ends.
-func (a *useAge) end(idle bool) bool {
+// Render used it in the last maxIdleFrames frames. With all (Trim), it
+// reports true and starts the age again.
+func (a *useAge) end(all bool) bool {
+	if all {
+		*a = useAge{}
+		return true
+	}
 	if a.used {
 		a.used, a.idle = false, 0
 		return false
@@ -50,7 +57,7 @@ func (a *useAge) end(idle bool) bool {
 	if a.idle < math.MaxUint16 {
 		a.idle++
 	}
-	return idle || a.idle > maxIdleFrames
+	return a.idle > maxIdleFrames
 }
 
 // freeBuf is a released buffer of the free list. Every buffer a Render
@@ -77,57 +84,67 @@ const bufSlack = 64 << 10
 
 // EndFrame ends a frame: the Renders of r since the previous EndFrame. It
 // releases the scratch memory of r and of the Renderers r owns (its
-// workers, see Options.Workers) that no Render used in the last few frames,
-// and with idle, when the caller expects no frame soon (nothing animates
-// and nothing is pending), the memory the frame that ends did not use, so
-// that what a large frame needed is not kept while the window rests. The
-// next Render allocates again what it needs. The pixels do not depend on
-// it.
+// workers, see Options.Workers) that no Render used in the last few
+// frames, so that what a large frame needed is not kept while smaller
+// frames follow. The next Render allocates again what it needs. The pixels
+// do not depend on it.
 //
 // A frame's owner (core's RasterizeFrame) calls it once per frame, after
 // the frame's Renders; a Renderer that never sees EndFrame keeps all its
 // memory for reuse. It must not be called while r renders.
-func (r *Renderer) EndFrame(idle bool) {
+func (r *Renderer) EndFrame() { r.endFrame(false) }
+
+// Trim releases all the scratch memory of r and of the Renderers it owns,
+// for a window that rests: its owner calls it once no frame came for a
+// while (core's Host, a second after a frame that left nothing pending),
+// so that a window at rest keeps no buffers and an interaction that
+// follows soon after another reuses them. The next Render allocates again
+// what it needs; the pixels do not depend on it. It must not be called
+// while r renders.
+func (r *Renderer) Trim() { r.endFrame(true) }
+
+// endFrame is EndFrame, or with all Trim.
+func (r *Renderer) endFrame(all bool) {
 	kept := r.free[:0]
 	for _, f := range r.free {
-		if !f.age.end(idle) {
+		if !f.age.end(all) {
 			kept = append(kept, f)
 		}
 	}
 	clear(r.free[len(kept):])
 	r.free = kept
-	if r.scrAge.end(idle) {
+	if r.scrAge.end(all) {
 		r.scratch = nil
 	}
-	if r.blurS.age.end(idle) {
+	if r.blurS.age.end(all) {
 		r.blurS = blurScratch{age: r.blurS.age} // par is nil between Renders
 	}
-	if r.shd.age.end(idle) {
+	if r.shd.age.end(all) {
 		r.shd = shadowScratch{age: r.shd.age}
 	}
-	r.pool.endFrame(idle)
+	r.pool.endFrame(all)
 	if p := r.par; p != nil {
 		for _, w := range p.workers {
-			w.r.EndFrame(idle)
+			w.r.endFrame(all)
 		}
 		if p.comp != nil {
-			p.comp.EndFrame(idle)
+			p.comp.endFrame(all)
 		}
-		p.pool.endFrame(idle)
+		p.pool.endFrame(all)
 	}
 	if r.sprite != nil {
-		r.sprite.EndFrame(idle)
+		r.sprite.endFrame(all)
 	}
 }
 
-// endFrame is EndFrame for the scratches of the pool's goroutines. A nil
+// endFrame is endFrame for the scratches of the pool's goroutines. A nil
 // pool is ignored.
-func (p *workPool) endFrame(idle bool) {
+func (p *workPool) endFrame(all bool) {
 	if p == nil {
 		return
 	}
 	for _, s := range p.scr {
-		if s.age.end(idle) {
+		if s.age.end(all) {
 			*s = blurScratch{age: s.age}
 		}
 	}

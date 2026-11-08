@@ -47,7 +47,7 @@ import (
 // filters of the current list: an entry whose filter leaves the list is
 // dropped at the next Retain, its buffer kept as a spare for the entries
 // of the frames that follow, and EndFrame frees the spares that no entry
-// took (all of them when the window goes idle).
+// took for a few frames (Trim all of them, when the window rests).
 type BackdropCache struct {
 	dl    *gfx.DisplayList // the list of the entries; nil: none
 	scale float32
@@ -439,19 +439,24 @@ func (c *BackdropCache) trim(limit int) {
 }
 
 // EndFrame ends a frame of the cache's owner (see Renderer.EndFrame): it
-// frees the spare buffers that no entry took in the last few frames, and
-// with idle (no frame is expected soon) all of them. A spare serves the
-// entry of a filter whose input changes from frame to frame (a moving glass
-// pane, dropped by Retain and stored again by the Render that follows);
-// once no frame comes, nothing would take it. The entries stay: they are
-// the outputs of the filters of the current list, which the next frame
-// draws from. A nil cache is ignored.
-func (c *BackdropCache) EndFrame(idle bool) {
+// frees the spare buffers that no entry took in the last few frames. A
+// spare serves the entry of a filter whose input changes from frame to
+// frame (a moving glass pane, dropped by Retain and stored again by the
+// Render that follows); once no frame takes it, it is only memory. The
+// entries stay: they are the outputs of the filters of the current list,
+// which the next frame draws from. A nil cache is ignored.
+func (c *BackdropCache) EndFrame() { c.endFrame(false) }
+
+// Trim frees all the spare buffers, for a window that rests (see
+// Renderer.Trim). The entries stay. A nil cache is ignored.
+func (c *BackdropCache) Trim() { c.endFrame(true) }
+
+func (c *BackdropCache) endFrame(all bool) {
 	if c == nil {
 		return
 	}
 	for k := len(c.spare) - 1; k >= 0; k-- {
-		if c.spare[k].age.end(false) || idle {
+		if c.spare[k].age.end(all) {
 			c.freeSpare(k)
 		}
 	}
@@ -464,4 +469,17 @@ func (c *BackdropCache) Bytes() int {
 		return 0
 	}
 	return c.bytes
+}
+
+// SpareBytes returns the bytes of the cache's spare buffers: what Trim
+// frees. A nil cache holds none.
+func (c *BackdropCache) SpareBytes() int {
+	if c == nil {
+		return 0
+	}
+	n := 0
+	for _, s := range c.spare {
+		n += cap(s.b)
+	}
+	return n
 }

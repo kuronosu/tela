@@ -86,7 +86,7 @@ func TestEndFrameAges(t *testing.T) {
 	// the first one's surplus goes after maxIdleFrames frames).
 	for range 2 * maxIdleFrames {
 		r.Render(fb, dl, Options{Workers: 1})
-		r.EndFrame(false)
+		r.EndFrame()
 	}
 	used := r.ScratchBytes()
 	if used == 0 {
@@ -95,7 +95,7 @@ func TestEndFrameAges(t *testing.T) {
 	// Frames that use it keep it, without growing.
 	for range 3 * maxIdleFrames {
 		r.Render(fb, dl, Options{Workers: 1})
-		r.EndFrame(false)
+		r.EndFrame()
 	}
 	if got := r.ScratchBytes(); got != used {
 		t.Errorf("after frames of the same scene: %d bytes of scratch, want %d", got, used)
@@ -105,21 +105,21 @@ func TestEndFrameAges(t *testing.T) {
 	// take turns, goes one frame earlier).
 	for i := range maxIdleFrames {
 		r.Render(fb, plainScene(300, 200), Options{Workers: 1})
-		r.EndFrame(false)
+		r.EndFrame()
 		if got := r.ScratchBytes(); (got != used && i < maxIdleFrames-1) || got == 0 {
 			t.Fatalf("after %d frames without the scene: %d bytes of scratch, want %d", i+1, got, used)
 		}
 	}
 	r.Render(fb, plainScene(300, 200), Options{Workers: 1})
-	r.EndFrame(false)
+	r.EndFrame()
 	if got := r.ScratchBytes(); got != 0 {
 		t.Errorf("after %d frames without the scene: %d bytes of scratch, want 0", maxIdleFrames+1, got)
 	}
 }
 
-// TestEndFrameIdle checks that an idle frame releases what it did not use,
-// in the worker Renderers too, and keeps what it used.
-func TestEndFrameIdle(t *testing.T) {
+// TestTrim checks that Trim releases all the scratch memory, in the worker
+// Renderers too, and that EndFrame alone keeps what the frame used.
+func TestTrim(t *testing.T) {
 	for _, workers := range []int{1, 4} {
 		t.Run(fmt.Sprintf("w%d", workers), func(t *testing.T) {
 			fb := image.NewRGBA(image.Rect(0, 0, 600, 400))
@@ -129,15 +129,19 @@ func TestEndFrameIdle(t *testing.T) {
 			if workers > 1 && (r.par == nil || len(r.par.workers) == 0) {
 				t.Fatal("not rendered in parallel")
 			}
-			r.EndFrame(true)
+			r.EndFrame()
 			used := r.ScratchBytes()
 			if used == 0 {
-				t.Fatal("an idle frame released what it used")
+				t.Fatal("EndFrame released what the frame used")
 			}
-			r.Render(fb, plainScene(600, 400), Options{Workers: workers})
-			r.EndFrame(true)
+			r.Trim()
 			if got := r.ScratchBytes(); got != 0 {
-				t.Errorf("an idle frame that used no scratch kept %d bytes (of %d)", got, used)
+				t.Errorf("after Trim: %d bytes of scratch (of %d)", got, used)
+			}
+			// The next frame allocates again what it needs.
+			r.Render(fb, paletteScene(600, 400), Options{Workers: workers})
+			if r.ScratchBytes() == 0 {
+				t.Error("a frame after Trim kept no scratch memory")
 			}
 		})
 	}
@@ -172,7 +176,10 @@ func TestEndFramePixels(t *testing.T) {
 					t.Fatalf("step %d (region %v): the frame differs from a new Renderer's", step, region)
 				}
 				for range rng.IntN(3) {
-					r.EndFrame(rng.IntN(3) == 0)
+					r.EndFrame()
+				}
+				if rng.IntN(6) == 0 {
+					r.Trim()
 				}
 			}
 		})
@@ -204,8 +211,8 @@ func TestPhasedOneWindow(t *testing.T) {
 }
 
 // TestBackdropCacheSpares checks that the buffer of an entry whose filter
-// left the list is a spare that EndFrame frees: after a few frames, or at
-// once when idle.
+// left the list is a spare that EndFrame frees after a few frames, and
+// Trim at once.
 func TestBackdropCacheSpares(t *testing.T) {
 	ground := func(b *gfx.Builder) {
 		b.FillRect(gfx.Rect{X1: 200, Y1: 100}, gfx.LinearGradient{End: gfx.Pt(200, 100), Stops: stops(indigo, rose, amber)})
@@ -222,8 +229,8 @@ func TestBackdropCacheSpares(t *testing.T) {
 		ground(b)
 		b.BackdropFilter(gfx.NewRRect(gfx.RectXYWH(10, 10, 80, 60), 8), gfx.Blur{StdDev: 4})
 	})
-	for _, idle := range []bool{false, true} {
-		t.Run(fmt.Sprintf("idle=%v", idle), func(t *testing.T) {
+	for _, trim := range []bool{false, true} {
+		t.Run(fmt.Sprintf("trim=%v", trim), func(t *testing.T) {
 			fb := image.NewRGBA(image.Rect(0, 0, 200, 100))
 			var c BackdropCache
 			var r Renderer
@@ -241,15 +248,17 @@ func TestBackdropCacheSpares(t *testing.T) {
 			}
 			// The frame that dropped the entry ends, then the spare waits
 			// maxIdleFrames frames for an entry to take it.
-			frames := 1
-			if !idle {
+			frames := 0
+			if trim {
+				c.Trim()
+			} else {
 				frames = maxIdleFrames + 2
 			}
 			for i := range frames {
 				if len(c.spare) != 1 {
 					t.Fatalf("the spare was freed after %d frames", i)
 				}
-				c.EndFrame(idle)
+				c.EndFrame()
 			}
 			if c.Bytes() != first || len(c.spare) != 0 {
 				t.Errorf("after %d frames: %d bytes, %d spares; want %d bytes, the entry of the remaining filter", frames, c.Bytes(), len(c.spare), first)
@@ -258,5 +267,48 @@ func TestBackdropCacheSpares(t *testing.T) {
 				t.Error("the entry of the remaining filter was dropped")
 			}
 		})
+	}
+}
+
+// TestPhasedMaskBarrier renders, in phases, a masked layer before a
+// backdrop filter whose command index is smaller than the length of the
+// mask's list: the mask's commands must not pass the main list's barriers
+// (a band that did would skip a mask command and compute the filter before
+// the bands painted what it reads). The pixels are the sequential ones.
+func TestPhasedMaskBarrier(t *testing.T) {
+	mb := gfx.NewBuilder()
+	for k := range 40 {
+		mb.FillRect(gfx.RectXYWH(float32(k)*6, 0, 4, 200), gfx.White.WithAlpha(float32(k%5+1)/5))
+	}
+	mask := mb.Finish()
+	b := gfx.NewBuilder()
+	b.FillRect(gfx.Rect{X1: 300, Y1: 200}, gfx.LinearGradient{End: gfx.Pt(300, 200), Stops: stops(indigo, rose, amber)})
+	b.PushMaskLayer(gfx.Mask{List: mask, Mode: gfx.MaskAlpha}, 1, gfx.SrcOver)
+	b.FillRect(gfx.RectXYWH(20, 10, 260, 180), slate)
+	b.PopLayer()
+	shape := gfx.NewRRect(gfx.RectXYWH(40, 30, 200, 140), 12)
+	b.BackdropFilter(shape, gfx.Blur{StdDev: 6})
+	b.FillRRect(shape, gfx.White.WithAlpha(0.2))
+	dl := b.Finish()
+	bfs, ok := phaseBarriers(dl)
+	if !ok || len(bfs) != 1 || bfs[0] >= mask.Len() {
+		t.Fatalf("barriers %v (phased %v): want one, at an index below the mask's %d commands", bfs, ok, mask.Len())
+	}
+	bounds := image.Rect(0, 0, 300, 200)
+	bg := image.NewRGBA(bounds)
+	background(bg)
+	want := cloneRGBA(bg)
+	NewRenderer().Render(want, dl, Options{Workers: 1})
+	for _, workers := range []int{2, 4} {
+		r := NewRenderer()
+		r.tune.minPixels = 1
+		got := cloneRGBA(bg)
+		r.Render(got, dl, Options{Workers: workers})
+		if r.par == nil || r.par.comp == nil {
+			t.Fatalf("%d workers: not rendered in phases", workers)
+		}
+		if p, same := firstDiffRGBA(got, want); !same {
+			t.Fatalf("%d workers: the phased render differs from the sequential one at %v: %v, want %v", workers, p, pixel(got, p.X, p.Y), pixel(want, p.X, p.Y))
+		}
 	}
 }

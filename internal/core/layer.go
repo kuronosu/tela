@@ -210,6 +210,8 @@ type layerState struct {
 	// (ADR-200): frameDamage carries the filters whose input did not
 	// change to the next frame.
 	bdc raster.BackdropCache
+	// rasIdle: the last RasterizeFrame left nothing pending (RasterIdle).
+	rasIdle bool
 	// recorded counts the layers recorded by the last paint.
 	recorded int
 }

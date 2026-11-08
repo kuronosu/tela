@@ -282,11 +282,17 @@ func (r *Renderer) renderMask(m gfx.Mask, comp image.Rectangle) []uint8 {
 	b.clip, b.cm = rect, clipMask{}
 	r.region, r.bound, r.surfBounds = rect, lim, rect
 	r.skipping = false
-	// The root space of the mask list is the current local space.
+	// The root space of the mask list is the current local space. The
+	// barriers of a phased render (r.ph) are command indices of the main
+	// list: the mask list's commands must not pass them (its backdrop
+	// filters read the mask's own surface, never the destination).
 	r.dl, r.root = m.List, r.ctm
+	ph := r.ph
+	r.ph = nil
 	for i := range m.List.Len() {
 		r.visit(i, m.List.At(i))
 	}
+	r.ph = ph
 	r.dl, r.root = dl, root
 	r.restore()
 	b.pix, b.stride, b.origin = surf, stride, origin

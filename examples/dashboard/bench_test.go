@@ -71,17 +71,22 @@ type frameStat struct {
 // rig is the page in a tree without a window, with the framebuffer a Host
 // would keep.
 type rig struct {
-	tb      testing.TB
-	tree    *core.Tree
-	w, h    float32
-	scale   float64
-	fb      *image.RGBA
-	out     []byte // the buffer a backend presents from (BGRA)
-	outStr  int
-	rr      raster.Renderer
-	now     time.Duration
-	ticks   int  // ticks played
-	asked   bool // a frame was requested since the last one ran
+	tb     testing.TB
+	tree   *core.Tree
+	w, h   float32
+	scale  float64
+	fb     *image.RGBA
+	out    []byte // the buffer a backend presents from (BGRA)
+	outStr int
+	rr     raster.Renderer
+	now    time.Duration
+	ticks  int  // ticks played
+	asked  bool // a frame was requested since the last one ran
+	// trimAt is the clock time of the deferred trim of the renderer's
+	// memory (core.Host's rasterTrimAt): RasterSettle after a frame that
+	// left nothing pending, moved or cancelled by the next frame; 0 for
+	// none.
+	trimAt  time.Duration
 	scene   string
 	pointer platform.Point
 	stop    func()
@@ -123,6 +128,14 @@ func (r *rig) settle(limit int) {
 	}
 }
 
+// rest lets the settled page rest for idleTicks ticks without frames, in
+// which the deferred trim of the rasterizer runs (a window at rest).
+func (r *rig) rest() {
+	for range idleTicks {
+		r.tick(nil)
+	}
+}
+
 // tick advances the clock by one frame interval and, if the tree asked for
 // a frame, runs one like core.Host does. When st is not nil, the frame is
 // recorded. It reports whether a frame ran. events runs before the frame
@@ -130,6 +143,11 @@ func (r *rig) settle(limit int) {
 func (r *rig) tick(st *[]frameStat, events ...func()) bool {
 	r.now += frameInterval
 	r.ticks++
+	if r.trimAt != 0 && r.trimAt <= r.now {
+		// The Host's timer: the window rested for RasterSettle.
+		r.trimAt = 0
+		r.tree.TrimRaster(&r.rr)
+	}
 	t0 := time.Now()
 	for _, f := range events {
 		f()
@@ -162,6 +180,10 @@ func (r *rig) tick(st *[]frameStat, events ...func()) bool {
 	if changed {
 		d := r.tree.RasterizeFrame(r.fb, &r.rr, false)
 		lap(phRaster)
+		r.trimAt = 0
+		if r.tree.RasterTrimDue(&r.rr) {
+			r.trimAt = r.now + core.RasterSettle
+		}
 		fs.full = d.Full
 		if d.Full {
 			fs.pixels = r.fb.Rect.Dx() * r.fb.Rect.Dy()
@@ -406,8 +428,9 @@ func (r *rig) release(p platform.Point) func() {
 }
 
 // idleTicks is how long the session ends with the page at rest: no frame
-// may run.
-const idleTicks = 30
+// may run. It is longer than core.RasterSettle, so the deferred trim of
+// the rasterizer's memory runs in it, as a Host's timer would run it.
+const idleTicks = 90
 
 // runSession plays the script on r and returns the frames. It fails the
 // test if the page still draws frames after the settle scene.

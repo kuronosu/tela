@@ -5,8 +5,13 @@
 
 ## Decision
 
-Amends ADR-078 (the barrier windows of a phased render) and ADR-200 (the cache's spare buffers). A `raster.Renderer` and its workers keep their scratch (free lists, blur planes, shadow tables, the grown region's copy) only while frames use it: `Renderer.EndFrame(idle)` releases what no Render used in the last 15 frames, and with `idle` what the ending frame did not use. A free buffer serves a request only if it wastes at most the request's size (beyond 64 KiB), so a window-sized buffer does not stay alive for small masks. A phased render returns each barrier's filtered window once every band has drawn it, so the next barrier reuses it: one window at a time instead of one per filter. `BackdropCache.EndFrame(idle)` frees the spare buffers no entry took (all of them when idle); entries stay, and the budget stays two frames. Core's `RasterizeFrame` calls both after each frame, idle when nothing animates, nothing is dirty and no frame was requested.
+Amends ADR-078 (the barrier windows of a phased render) and ADR-200 (the cache's spare buffers).
+
+- **Aging.** `raster.Renderer.EndFrame()` releases the scratch of a Renderer and of the Renderers it owns (free lists, blur planes, shadow tables, the grown region's copy) that no Render used in the last 15 frames. `BackdropCache.EndFrame()` does the same for spare buffers. Core's `RasterizeFrame` calls both after every frame.
+- **Deferred trim.** `Renderer.Trim()` and `BackdropCache.Trim()` release all of it; the cache's entries stay. The Host calls them through `Tree.TrimRaster` `RasterSettle` (1 s) after a frame that left nothing pending, if there is memory to release, with the same deadline mechanism as the framebuffer trim (ADR-242). Any frame moves or cancels it. That is one timer wake-up after the last frame, and none while frames come or when nothing would be released.
+- A free buffer serves a request only if it wastes at most the request's size (beyond 64 KiB).
+- A phased render returns each barrier's filtered window once every band has drawn it: one window at a time instead of one per filter.
 
 ## Why
 
-Every free list kept its high-water buffers forever: after the dashboard's session at 3840x2160 the live heap stayed at 374 MiB (raster scratch 164 MiB, backdrop cache 58 MiB) though the page was at rest. With this change it is 199 MiB (scratch 3 MiB, cache 30 MiB, the entries of the filters on screen). Pixels do not change: buffers are zeroed or fully written before they are read.
+Every free list kept its high-water buffers: after the dashboard's session at 3840x2160 the heap stayed at 388 MiB (raster scratch 164 MiB, backdrop cache 58 MiB) with the page at rest. Releasing on the idle frame itself got it down, but the end of every hover or transition is an idle frame, so the next interaction allocated everything again (session allocations 1066 → 1543 MiB). Deferring the release to a rest of one second keeps the low memory without that churn. Pixels do not change: buffers are zeroed or fully written before they are read.

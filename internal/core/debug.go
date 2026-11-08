@@ -334,11 +334,11 @@ func (t *Tree) debugTouch() {
 // repainted.
 //
 // It ends the frame for r and the tree's cache of filtered backdrops
-// (raster.Renderer.EndFrame): the rasterizer's scratch memory follows what
-// recent frames used, and a frame after which nothing is pending (no
-// animation, no update, no requested frame) releases what it did not use,
-// so that a closed dialog's or palette's buffers are not kept while the
-// window rests. r should be the Renderer of fb's earlier frames.
+// (raster.Renderer.EndFrame), so that the rasterizer's scratch memory
+// follows what recent frames used, and records whether the frame left
+// nothing pending (RasterTrimDue), after which the owner trims it once
+// the window rests (TrimRaster). r should be the Renderer of fb's earlier
+// frames.
 func (t *Tree) RasterizeFrame(fb *image.RGBA, r *raster.Renderer, full bool) Damage {
 	var d Damage
 	if t.dbg.flags == 0 {
@@ -346,10 +346,37 @@ func (t *Tree) RasterizeFrame(fb *image.RGBA, r *raster.Renderer, full bool) Dam
 	} else {
 		d = t.rasterizeDebug(fb, r, full)
 	}
-	idle := !t.asked && !t.Animating() && !t.Dirty()
-	r.EndFrame(idle)
-	t.lay.bdc.EndFrame(idle)
+	r.EndFrame()
+	t.lay.bdc.EndFrame()
+	t.lay.rasIdle = !t.asked && !t.Animating() && !t.Dirty()
 	return d
+}
+
+// RasterSettle is how long a window rests after a frame that left nothing
+// pending before the rasterizer's memory is trimmed (TrimRaster): longer
+// than the pauses within an interaction (a hover whose transition ended, a
+// dialog that opens after a click), so that the next frames find their
+// buffers, short enough that a window at rest soon holds none.
+const RasterSettle = time.Second
+
+// RasterTrimDue reports whether the last RasterizeFrame, with r, left
+// nothing pending (no animation, no update, no requested frame) while r or
+// the tree's cache of filtered backdrops keep memory that TrimRaster would
+// release. The owner of the renderer then calls TrimRaster RasterSettle
+// later, unless another frame comes first (core.Host does; so does a
+// host-like test rig). A window whose frames need no scratch memory gets
+// no trim, and so no timer.
+func (t *Tree) RasterTrimDue(r *raster.Renderer) bool {
+	return t.lay.rasIdle && (r.ScratchBytes() > 0 || t.lay.bdc.SpareBytes() > 0)
+}
+
+// TrimRaster releases the scratch memory of r, the Renderer of the
+// tree's frames, and the spare buffers of the tree's cache of filtered
+// backdrops (raster.Renderer.Trim): for a window that rests. The cached
+// backdrops of the current frame stay. It changes no pixel.
+func (t *Tree) TrimRaster(r *raster.Renderer) {
+	r.Trim()
+	t.lay.bdc.Trim()
 }
 
 // rasterizeDebug is RasterizeFrame with overlays on.

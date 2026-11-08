@@ -424,19 +424,27 @@ func (h *Host) tick(now time.Duration) {
 		if v.fbTrimAt != 0 && v.fbTrimAt <= now {
 			v.trimFramebuffer()
 		}
+		if v.rasterTrimAt != 0 && v.rasterTrimAt <= now {
+			v.rasterTrimAt = 0
+			v.tree.TrimRaster(&v.renderer)
+		}
 	}
 	h.armTimer()
 }
 
 // nextDeadline returns the earliest deadline of the windows' trees, of
-// the trims of their framebuffers (trimFramebuffer), and of the commits
-// that windows without frames wait for (paused.go).
+// the trims of their framebuffers (trimFramebuffer) and renderers
+// (Tree.TrimRaster), and of the commits that windows without frames wait
+// for (paused.go).
 func (h *Host) nextDeadline() (at time.Duration, ok bool) {
 	for _, v := range h.views {
 		if d, has := v.tree.NextDeadline(); has && (!ok || d < at) {
 			at, ok = d, true
 		}
 		if d := v.fbTrimAt; d != 0 && (!ok || d < at) {
+			at, ok = d, true
+		}
+		if d := v.rasterTrimAt; d != 0 && (!ok || d < at) {
 			at, ok = d, true
 		}
 	}
@@ -643,6 +651,20 @@ func (h *Host) frame(v *winView, now time.Duration) {
 	// rasterized (layer.go), and presented. The first Present after a
 	// ConfigureEvent is full for the platform anyway.
 	d := t.RasterizeFrame(v.fb, &v.renderer, full || h.FullFrames)
+	// The renderer's memory is trimmed once the window rests: RasterSettle
+	// after a frame that left nothing pending, unless a frame comes first
+	// (one timer wake-up after the last frame; none while frames come).
+	// A later deadline needs no new timer: one that fires early re-arms.
+	trimAt := time.Duration(0)
+	if t.RasterTrimDue(&v.renderer) {
+		trimAt = h.backend.Now() + RasterSettle
+	}
+	if was := v.rasterTrimAt; (was == 0) != (trimAt == 0) {
+		v.rasterTrimAt = trimAt
+		h.armTimer()
+	} else {
+		v.rasterTrimAt = trimAt
+	}
 	if t.Debug() != 0 {
 		switch app := t.LastDamage(); {
 		case app.Full:

@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"testing"
+	"time"
 
+	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/internal/testutil/memprobe"
 	"github.com/kuronosu/tela/telatest"
 )
@@ -15,12 +17,13 @@ import (
 //
 // For each scale:
 //
-//   - rest: the page mounted with telatest at the size of App and settled,
-//     the same path as the other examples (the host's framebuffer and the
-//     headless backend's copy of the presented frame).
-//   - rig-rest: the page in the rig of bench_test.go at 1920x1080 and
-//     settled; the rig has its own framebuffer and a BGRA buffer standing in
-//     for the one a backend presents from.
+//   - rest: the page mounted with telatest at the size of App, settled, and
+//     left at rest for core.RasterSettle, so that the host's deferred trim
+//     of the rasterizer's scratch memory runs (the host's framebuffer and
+//     the headless backend's copy of the presented frame).
+//   - rig-rest: the page in the rig of bench_test.go at 1920x1080, settled
+//     and at rest the same way (rig.rest); the rig has its own framebuffer
+//     and a BGRA buffer standing in for the one a backend presents from.
 //   - session: the rig at 1920x1080 through the scripted session
 //     (runSession, about 1100 ticks), to compare with rig-rest. The heap is
 //     sampled after every frame and marked at the end of every scene.
@@ -33,6 +36,9 @@ func TestMemory(t *testing.T) {
 					Width: App.Width, Height: App.Height, Scale: scale,
 					Run: func(p *memprobe.Probe) any {
 						a := mount(t, App.Width, App.Height, telatest.Scale(scale))
+						// At rest: the host's deferred trim of the
+						// rasterizer's memory runs (core.RasterSettle).
+						a.Advance(core.RasterSettle + 100*time.Millisecond)
 						p.Sample()
 						return a
 					},
@@ -46,6 +52,7 @@ func TestMemory(t *testing.T) {
 					Run: func(p *memprobe.Probe) any {
 						r := newRig(t, c.w, c.h, scale, false)
 						r.settle(600)
+						r.rest()
 						p.Sample()
 						return r
 					},
