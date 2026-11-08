@@ -83,6 +83,13 @@ their original copyright notice. Add one section per source project.
 - **Used in:** `internal/assets/fonts/notocoloremoji/Noto-COLRv1.ttf` (sha256 `0ae57fe58645638523ba35f388d93739d292539a9acb84df5700c81b1e1a28d2`)
 - **Notes:** Vendored unchanged. Embedded by the Go package `internal/assets/fonts/notocoloremoji` (the emoji family of `internal/stdfonts`; ADR-244). This is the COLRv1 (vector) build; the CBDT bitmap build is not used. The `fonts/` directory no longer exists on the repository's main branch, so the tag is pinned. Newer tags (such as v2026-09-24-unicode18_0) publish only the 3D fonts as release assets.
 
+## Noto Color Emoji, CBDT build (font, test-only subset)
+
+- **Source:** https://github.com/googlefonts/noto-emoji (release v2.057), the CBDT build `NotoColorEmoji.ttf` as packaged by Arch Linux (`noto-fonts-emoji` 1:2.057-1, sha256 `15671215ab769fdc7162a045d56fd7d7e477c51b04e6b3c761d914d8fdd6cc44`)
+- **License:** OFL-1.1, Copyright 2021 Google Inc. (`internal/text/testdata/fonts/OFL.txt`)
+- **Used in:** `internal/text/testdata/fonts/NotoColorEmoji-CBDT-Subset.ttf` (sha256 `c419c40501dcdbeed57c6741024059f126577c8fd221dd44509790c4896565c5`). Tests only; never embedded in a non-test package.
+- **Notes:** Eight emoji whose PNG records, advances and `head`, `hhea`, `OS/2` and `post` tables are copied unchanged by a Go test (`internal/text/bitmapfont_gen_test.go`), which writes the other tables; the command is in `internal/text/testdata/fonts/README.md`. It tests the drawing of bitmap color glyphs (CBDT/CBLC).
+
 ## Noto Sans CJK JP (font, test-only subset)
 
 - **Source:** https://github.com/notofonts/noto-cjk (release Sans2.004, `06_NotoSansCJKjp.zip` sha256 `bf5b26feb83ee02533d4eb4a127bd90ed9d42bdd7ca7cb6e4030b2f21ef55cc5`, file `NotoSansCJKjp-Regular.otf` sha256 `68a3fc98800b2a27b371f2fb79991daf3633bd89309d4ffaa6946fd587f375b5`)
