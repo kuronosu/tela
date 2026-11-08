@@ -503,6 +503,145 @@ func TestSystemGenericsDesktopFamilies(t *testing.T) {
 	}
 }
 
+// TestSetDesktopFamilies checks that new desktop families replace the
+// old ones for the generic names, drop the resolved queries and keep what
+// was loaded.
+func TestSetDesktopFamilies(t *testing.T) {
+	dir := renamedFonts(t, installed...)
+	c := systemOn(t, NewCollection(), dir, "linux", SystemFontOptions{UIFamily: "DejaVu Sans"})
+	if got := genericFamily(c, "system-ui"); got != "DejaVu Sans" {
+		t.Fatalf("system-ui: %s", got)
+	}
+	parsed := c.sys.loadedTypefaces()
+	if !c.SetDesktopFamilies("Segoe UI", "Liberation Mono") {
+		t.Error("SetDesktopFamilies reports no change")
+	}
+	if c.SetDesktopFamilies("Segoe UI", "Liberation Mono") {
+		t.Error("the same families again report a change")
+	}
+	for g, want := range map[string]string{
+		"system-ui": "Segoe UI", "ui-sans-serif": "Segoe UI", "sans-serif": "Segoe UI",
+		"ui-monospace": "Liberation Mono", "monospace": "Liberation Mono", "serif": "Liberation Serif",
+	} {
+		if got := genericFamily(c, g); got != want {
+			t.Errorf("after the change, %s resolves to %s, want %s", g, got, want)
+		}
+	}
+	if !c.sys.indexed.Load() || c.sys.loadedTypefaces() < parsed {
+		t.Error("the change dropped the index or the parsed faces")
+	}
+	// Empty families give the operating system's lists back.
+	c.SetDesktopFamilies("", "")
+	if got := genericFamily(c, "system-ui"); got != "Noto Sans" {
+		t.Errorf("system-ui without desktop families: %s", got)
+	}
+	if got := genericFamily(c, "monospace"); got != "DejaVu Sans Mono" {
+		t.Errorf("monospace without desktop families: %s", got)
+	}
+	// The app's mapping still wins.
+	c.SetGeneric("sans-serif", "Liberation Serif")
+	c.SetDesktopFamilies("DejaVu Sans", "")
+	if got := genericFamily(c, "sans-serif"); got != "Liberation Serif" {
+		t.Errorf("sans-serif mapped by the app: %s", got)
+	}
+	// Without system fonts nothing changes.
+	if NewCollection().SetDesktopFamilies("DejaVu Sans", "") {
+		t.Error("a collection without system fonts reports a change")
+	}
+}
+
+// TestSetDesktopFamiliesConcurrent changes the desktop families while
+// other goroutines lay text out (run with -race): every face is of one of
+// the families system-ui can resolve to, and once the last change
+// returned it decides.
+func TestSetDesktopFamiliesConcurrent(t *testing.T) {
+	dir := renamedFonts(t, installed...)
+	c := systemOn(t, NewCollection(), dir, "linux", SystemFontOptions{})
+	var wg sync.WaitGroup
+	var stop atomic.Bool
+	errs := make(chan string, 64)
+	for g := 0; g < 8; g++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; !stop.Load(); i++ {
+				var f *Face
+				switch g % 3 {
+				case 0:
+					f = c.Face(Query{Families: sansStack, Weight: float32(100 * (1 + i%9))}, float32(10+i%20))
+				case 1:
+					if tf := c.Match("system-ui", Query{}); tf != nil {
+						f = tf.Face(Instance{})
+					}
+				default:
+					if l := layoutText(c, "Hello", TextStyle{}); l.Line(0).Width <= 0 {
+						errs <- "empty layout"
+						return
+					}
+					continue
+				}
+				if f == nil {
+					errs <- "no face"
+					return
+				}
+				if fam := f.Typeface().Family(); fam != "DejaVu Sans" && fam != "Segoe UI" && fam != "Noto Sans" {
+					errs <- "face of " + fam
+					return
+				}
+			}
+		}()
+	}
+	for i := 0; i < 200; i++ {
+		ui := "DejaVu Sans"
+		if i%2 == 1 {
+			ui = "Segoe UI"
+		}
+		c.SetDesktopFamilies(ui, "")
+	}
+	stop.Store(true)
+	wg.Wait()
+	close(errs)
+	for e := range errs {
+		t.Error(e)
+	}
+	c.SetDesktopFamilies("Segoe UI", "")
+	if got := genericFamily(c, "system-ui"); got != "Segoe UI" {
+		t.Errorf("after the last change, system-ui is %s", got)
+	}
+}
+
+// TestPreload checks that Preload loads the index without parsing a face,
+// alone or while text that needs the index is laid out (run with -race),
+// and does nothing without system fonts.
+func TestPreload(t *testing.T) {
+	dir := renamedFonts(t, installed...)
+	c := systemOn(t, NewCollection(), dir, "linux", SystemFontOptions{UIFamily: "DejaVu Sans"})
+	c.Preload()
+	if !c.sys.indexed.Load() {
+		t.Fatal("Preload did not load the index")
+	}
+	if n := c.sys.loadedTypefaces(); n != 0 {
+		t.Errorf("Preload parsed %d faces", n)
+	}
+	c.Preload() // loaded: nothing to do
+
+	c = systemOn(t, NewCollection(), dir, "linux", SystemFontOptions{UIFamily: "DejaVu Sans"})
+	var wg sync.WaitGroup
+	fams := make([]string, 4)
+	wg.Add(1 + len(fams))
+	go func() { defer wg.Done(); c.Preload() }()
+	for i := range fams {
+		go func() { defer wg.Done(); fams[i] = genericFamily(c, "system-ui") }()
+	}
+	wg.Wait()
+	for _, f := range fams {
+		if f != "DejaVu Sans" {
+			t.Errorf("system-ui laid out during Preload: %s", f)
+		}
+	}
+	NewCollection().Preload() // no system fonts: nothing to do
+}
+
 // TestSystemGenericsAppWins checks that the app's mapping of a generic
 // wins over the system's list, and that a family of the list the app
 // registered wins over the installed one of the same name.

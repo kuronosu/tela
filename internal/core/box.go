@@ -827,19 +827,35 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 	for i := range spans {
 		p.em = max(p.em, spans[i].Style.Size)
 	}
-	p.inkAt = [3]float32{}
 	p.spans = slices.Clone(spans)
 	p.boxes = slices.Clone(a.boxes)
+	t.shapeParagraph(b, p)
+	return !empty
+}
+
+// shapeParagraph shapes the text of paragraph p, the paragraph of box b,
+// and forgets what depends on its layout: the lines are broken again and
+// b is laid out again.
+func (t *Tree) shapeParagraph(b *Box, p *paragraph) {
+	p.final, p.sized, p.fragAt = nil, false, [2]float32{}
+	p.inkAt = [3]float32{}
 	p.lay = nil
-	if !empty {
-		p.lay = text.NewLayout(t.fonts, &text.Paragraph{Text: s, Style: pstyle, Default: def, Spans: p.spans, Boxes: p.boxes, Inlines: p.inlines, Scale: t.scale})
+	if !p.empty {
+		p.lay = text.NewLayout(t.fonts, &text.Paragraph{Text: p.text, Style: p.pstyle, Default: p.def, Spans: p.spans, Boxes: p.boxes, Inlines: p.inlines, Scale: t.scale})
 		t.stats.Shapes++
 	}
 	inf := float32(math.Inf(1))
 	p.brokeAt, p.alignedAt = inf, inf
 	t.engine.MarkDirty(b)
 	t.dirty()
-	return !empty
+}
+
+// reshape shapes the paragraph again, with the same text and styles: the
+// fonts resolve them to other faces (the desktop's families changed,
+// fonts.go).
+func (p *paragraph) reshape(t *Tree, b *Box) {
+	p.ver++ // a new layout (record.go)
+	t.shapeParagraph(b, p)
 }
 
 // inlineEdged reports whether an inline has a left or right edge.

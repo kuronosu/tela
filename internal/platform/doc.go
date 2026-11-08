@@ -772,7 +772,13 @@
 // multiply rem by it) and TitleBarButtons, the desktop's order of the
 // window buttons in GNOME's button-layout syntax ("" unknown; the Linux
 // settings portal's org.gnome.desktop.wm.preferences button-layout), which
-// core's fallback title bar follows (ADR-238). Backends read them when they start and deliver a
+// core's fallback title bar follows (ADR-238), and UIFontFamily and
+// MonoFontFamily, the family names of the desktop's interface and
+// monospace fonts ("" unknown; on Linux the first family of the portal's
+// org.gnome.desktop.interface font-name and monospace-font-name, else of
+// org.kde.kdeglobals.General font and fixed; always "" on Windows and
+// macOS), which core's system fonts put first for the generic families
+// (ADR-244). Backends read them when they start and deliver a
 // [SettingsEvent] with the whole new value when one changes (an equal
 // value is not reported).
 //

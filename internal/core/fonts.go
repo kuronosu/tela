@@ -6,6 +6,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/text"
 )
 
@@ -38,11 +39,39 @@ func defaultFonts() (*text.Collection, error) {
 
 // runFonts returns the fonts of Run without Options.Fonts (defaultFonts),
 // reporting to w why the system fonts are off, the font files that cannot
-// be used, and, once, that there is no font at all (NoFontMessage).
+// be used, and, once, that there is no font at all (NoFontMessage). With
+// the system fonts it starts loading their index on another goroutine
+// (Collection.Preload), so that the first frame does not wait for it: the
+// index loads while the backend connects and the window opens.
 func runFonts(w io.Writer) *text.Collection {
 	c, err := defaultFonts()
 	reportFonts(c, err, w)
+	go c.Preload()
 	return c
+}
+
+// setDesktopFonts gives the fonts of every window the desktop's interface
+// and monospace families of s (ADR-244), and shapes the text of the
+// windows whose fonts resolve to other faces with them again. A
+// collection without system fonts ignores them (the deterministic set of
+// tests and telatest). NewHost calls it before the first frame, the
+// SettingsEvent handler on every change.
+func (h *Host) setDesktopFonts(s platform.SystemSettings) {
+	var changed map[*text.Collection]bool
+	for _, v := range h.views {
+		c := v.tree.fonts
+		ch, done := changed[c]
+		if !done {
+			ch = c.SetDesktopFamilies(s.UIFontFamily, s.MonoFontFamily)
+			if changed == nil {
+				changed = map[*text.Collection]bool{}
+			}
+			changed[c] = ch
+		}
+		if ch {
+			v.tree.reshapeText()
+		}
+	}
 }
 
 // reportFonts makes c report to w: err (why the system fonts are off), the

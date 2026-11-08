@@ -243,6 +243,7 @@ func NewHost(b platform.Backend, opts Options) (*Host, error) {
 	t.chrome.buttons = b.Settings().TitleBarButtons // the fallback title bar (chrome.go)
 	h.main = h.newView(win, t, nil, &spec, wo)
 	h.views = []*winView{h.main}
+	h.setDesktopFonts(b.Settings()) // fonts.go
 	t.SetWake(b.Wake)
 	t.SetClipboard(b.Clipboard())
 	// The window has keyboard focus from its first FocusEvent on.
@@ -294,6 +295,7 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 		h.tick(h.backend.Now())
 		return
 	case platform.SettingsEvent:
+		h.setDesktopFonts(e.Settings) // fonts.go
 		for i := 0; i < len(h.views); i++ {
 			h.views[i].tree.SetSystemSettings(e.Settings)
 		}

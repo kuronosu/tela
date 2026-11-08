@@ -48,6 +48,12 @@ import (
 //   - TitleBarButtons: org.gnome.desktop.wm.preferences button-layout,
 //     as it is (GTK reads the same key through the portal for
 //     gtk-decoration-layout; core parses it, ADR-238).
+//   - UIFontFamily and MonoFontFamily: the first family of
+//     org.gnome.desktop.interface font-name and monospace-font-name, Pango
+//     font descriptions ("Adwaita Sans 11"; pangoFamily), else of KDE's
+//     org.kde.kdeglobals.General font and fixed, Qt font strings ("Noto
+//     Sans,10,-1,5,50,0,0,0,0,0"; qtFamily). xdg-desktop-portal-gtk
+//     answers the GNOME keys on any desktop (GTK apps draw with them).
 //
 // Without a portal, or with a portal that has no Settings interface
 // (xdg-desktop-portal-hyprland alone, for instance), every value stays
@@ -63,9 +69,10 @@ const (
 	nsGnomeMouse     = "org.gnome.desktop.peripherals.mouse"
 	nsKDE            = "org.kde.kdeglobals.KDE"
 	nsGnomeWM        = "org.gnome.desktop.wm.preferences"
+	nsKDEGeneral     = "org.kde.kdeglobals.General"
 )
 
-var settingsNamespaces = []string{nsAppearance, nsGnomeInterface, nsGnomeA11y, nsGnomeMouse, nsKDE, nsGnomeWM}
+var settingsNamespaces = []string{nsAppearance, nsGnomeInterface, nsGnomeA11y, nsGnomeMouse, nsKDE, nsGnomeWM, nsKDEGeneral}
 
 // settingKey is a (namespace, key) pair of the Settings portal.
 type settingKey struct{ ns, key string }
@@ -268,7 +275,26 @@ func settingsFrom(raw map[settingKey]any) platform.SystemSettings {
 			s.TitleBarButtons = layout
 		}
 	}
+
+	s.UIFontFamily = fontFamily(get, "font-name", "font")
+	s.MonoFontFamily = fontFamily(get, "monospace-font-name", "fixed")
 	return s
+}
+
+// fontFamily returns the family of GNOME's interface key gnome, else of
+// KDE's General key kde, or "" when neither names one.
+func fontFamily(get func(ns, key string) (any, bool), gnome, kde string) string {
+	if v, ok := get(nsGnomeInterface, gnome); ok {
+		if desc, ok := v.(string); ok {
+			if f := pangoFamily(desc); f != "" {
+				return f
+			}
+		}
+	}
+	if v, ok := get(nsKDEGeneral, kde); ok {
+		return qtFamily(v)
+	}
+	return ""
 }
 
 // maxButtonLayout bounds the button-layout value taken: a real one is a

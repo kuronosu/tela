@@ -38,7 +38,8 @@ import (
 //     WindowOptions.TitleBarOverlay and WindowState.TitleBarControls.
 //   - 7: TrayOptions.Template (ADR-237) and
 //     SystemSettings.TitleBarButtons (ADR-238).
-const ProtocolVersion = 7
+//   - 8: SystemSettings.UIFontFamily and MonoFontFamily (ADR-244).
+const ProtocolVersion = 8
 
 // magic opens the hello message.
 const magic = "TELA"
@@ -201,6 +202,8 @@ func (e *enc) settings(s platform.SystemSettings) {
 	e.boolean(s.HighContrast)
 	e.f64(s.TextScale)
 	e.str(s.TitleBarButtons) // protocol 7 (ADR-238)
+	e.str(s.UIFontFamily)    // protocol 8 (ADR-244)
+	e.str(s.MonoFontFamily)
 }
 func (e *enc) rects(rs []image.Rectangle) {
 	e.u32(uint32(len(rs)))
@@ -279,6 +282,8 @@ func (d *dec) settings() platform.SystemSettings {
 		HighContrast:        d.boolean(),
 		TextScale:           d.f64(),
 		TitleBarButtons:     d.str(),
+		UIFontFamily:        d.str(),
+		MonoFontFamily:      d.str(),
 	}
 }
 func (d *dec) str() string {
