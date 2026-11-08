@@ -15,7 +15,11 @@ import (
 // vtables, without a window or a UIA client (live_uia_test.go has the real
 // client). They run anywhere, a service session included.
 
-// uiaCall calls method i of interface pointer p.
+// uiaCall calls method i of interface pointer p. Like comObject.call it
+// is uintptrescapes: the pointers its callers convert in its argument list
+// stay on the heap.
+//
+//go:uintptrescapes
 func uiaCall(p uintptr, i int, args ...uintptr) uint32 { return uint32(comObject(p).call(i, args...)) }
 
 // uiaQI returns interface iid of p, or 0.

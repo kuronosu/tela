@@ -36,6 +36,7 @@ var (
 	clientNotifyVtbl        [4]uintptr
 	clientVtblOnce          sync.Once
 	uiaTestKeep             []*variant // keeps condition values on the heap
+	uiaTestKeepOut          []*comObject
 	uiaTestKeepMu           sync.Mutex
 	errUIATimeout           = errors.New("timed out")
 	uiaTreeScopeDescendants = uintptr(4)
@@ -93,12 +94,24 @@ func (c *uiaClient) condition(id int32, v uiaVal) (comObject, error) {
 	uiaTestKeepMu.Lock()
 	uiaTestKeep = append(uiaTestKeep, val)
 	uiaTestKeepMu.Unlock()
-	var out comObject
+	// The VARIANT goes by value (variantArgs: a pointer on 64-bit
+	// Windows), so the slots are built before the call; the out
+	// parameter lives on the heap (keepOut) for the same reason.
+	out := keepOut()
 	args := append([]uintptr{uintptr(id)}, variantArgs(val)...)
-	args = append(args, uintptr(unsafe.Pointer(&out)))
+	args = append(args, uintptr(unsafe.Pointer(out)))
 	err := c.hr("CreatePropertyCondition", c.uia.call(vtUIACreatePropertyCondition, args...))
 	val.clear()
-	return out, err
+	return *out, err
+}
+
+// keepOut returns an out parameter that is surely on the heap.
+func keepOut() *comObject {
+	p := new(comObject)
+	uiaTestKeepMu.Lock()
+	uiaTestKeepOut = append(uiaTestKeepOut, p)
+	uiaTestKeepMu.Unlock()
+	return p
 }
 
 // find waits for the descendant of root with the name and control type.
@@ -124,6 +137,9 @@ func (c *uiaClient) find(root comObject, name string, controlType int32) (comObj
 		hr := root.call(vtElemFindFirst, uiaTreeScopeDescendants, uintptr(both), uintptr(unsafe.Pointer(&el)))
 		if hr >= 0 && el != 0 {
 			return el, nil
+		}
+		if time.Until(deadline) < clientUIAPoll {
+			c.t.Logf("FindFirst(%q) = %#x", name, uint32(hr))
 		}
 		time.Sleep(clientUIAPoll)
 	}
@@ -163,9 +179,19 @@ func (c *uiaClient) patternOf(el comObject, id int32, iid guid) (comObject, erro
 }
 
 // bstrOut calls method i of o with a BSTR out parameter after args.
+// The out parameter is converted in the call's argument list (call is
+// uintptrescapes), so it stays valid if the stack moves.
 func bstrOut(o comObject, i int, args ...uintptr) (string, int32) {
 	var s uintptr
-	hr := o.call(i, append(args, uintptr(unsafe.Pointer(&s)))...)
+	var hr int32
+	switch len(args) {
+	case 0:
+		hr = o.call(i, uintptr(unsafe.Pointer(&s)))
+	case 1:
+		hr = o.call(i, args[0], uintptr(unsafe.Pointer(&s)))
+	default:
+		panic("bstrOut: too many arguments")
+	}
 	defer procSysFreeString.Call(s)
 	return bstrString(s), hr
 }

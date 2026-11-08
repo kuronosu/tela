@@ -169,13 +169,15 @@ func (v *variant) clear() { procVariantClear.Call(uintptr(unsafe.Pointer(v))) }
 // bstr allocates a BSTR of s; the receiver frees it.
 func bstr(s string) uintptr {
 	u := unicode16.Encode([]rune(s))
-	var p uintptr
-	if len(u) > 0 {
-		p = uintptr(unsafe.Pointer(&u[0]))
-	}
-	r, _, _ := procSysAllocStringLen.Call(p, uintptr(len(u)))
+	r, _, _ := procSysAllocStringLen.Call(uintptr(unsafe.Pointer(unsafe.SliceData(u))), uintptr(len(u)))
 	return r
 }
+
+// A note on Go memory passed to the OS: a pointer becomes a uintptr only
+// inside the argument list of a //go:uintptrescapes call (LazyProc.Call,
+// comObject.call), which keeps its object on the heap. A uintptr made
+// earlier may point into a goroutine stack that moves when it grows before
+// the call (the callback that runs this code may be deep in a stack).
 
 // bstrString returns the text of a BSTR.
 func bstrString(p uintptr) string {
@@ -186,10 +188,17 @@ func bstrString(p uintptr) string {
 	return string(unicode16.Decode(unsafe.Slice((*uint16)(ptrFromUintptr(p)), int(n))))
 }
 
-// safeArray returns a SAFEARRAY of vt (VT_I4, VT_R8 or VT_UNKNOWN) with n
-// elements, set from put(i, element pointer or interface).
-func safeArray(vt uint16, n int, elem func(i int) uintptr) uintptr {
+// newSafeArray returns an empty-valued SAFEARRAY of vt with n elements, or
+// 0.
+func newSafeArray(vt uint16, n int) uintptr {
 	sa, _, _ := procSafeArrayCreateVector.Call(uintptr(vt), 0, uintptr(n))
+	return sa
+}
+
+// safeArray returns a SAFEARRAY of VT_UNKNOWN with n elements, the
+// interface pointers elem(i) (SafeArrayPutElement takes a reference).
+func safeArray(vt uint16, n int, elem func(i int) uintptr) uintptr {
+	sa := newSafeArray(vt, n)
 	if sa == 0 {
 		return 0
 	}
@@ -201,11 +210,27 @@ func safeArray(vt uint16, n int, elem func(i int) uintptr) uintptr {
 }
 
 func safeArrayI4(vals []int32) uintptr {
-	return safeArray(vtI4, len(vals), func(i int) uintptr { return uintptr(unsafe.Pointer(&vals[i])) })
+	sa := newSafeArray(vtI4, len(vals))
+	for i := range vals {
+		if sa == 0 {
+			break
+		}
+		idx := int32(i)
+		procSafeArrayPutElement.Call(sa, uintptr(unsafe.Pointer(&idx)), uintptr(unsafe.Pointer(&vals[i])))
+	}
+	return sa
 }
 
 func safeArrayR8(vals []float64) uintptr {
-	return safeArray(vtR8, len(vals), func(i int) uintptr { return uintptr(unsafe.Pointer(&vals[i])) })
+	sa := newSafeArray(vtR8, len(vals))
+	for i := range vals {
+		if sa == 0 {
+			break
+		}
+		idx := int32(i)
+		procSafeArrayPutElement.Call(sa, uintptr(unsafe.Pointer(&idx)), uintptr(unsafe.Pointer(&vals[i])))
+	}
+	return sa
 }
 
 // safeArrayProviders returns a SAFEARRAY of the IRawElementProviderSimple
