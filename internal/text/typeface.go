@@ -119,13 +119,15 @@ func ParseTypefaces(data []byte, family string) ([]*Typeface, error) {
 }
 
 // newTypeface loads the font that src reads. go-text parses the font
-// (font.NewFont, which keeps its own copy of every table it uses); Tela
+// (font.NewFont, which keeps its own copy of every table it uses, except
+// the bitmap tables, which it sees as small stubs: see goTextLoader); Tela
 // reads the few tables it evaluates itself (metrics, variations, TrueType
-// outlines) from src, parsing the small ones and keeping glyf, loca, gvar
-// and hmtx raw (see glyfTables).
+// outlines, color bitmaps) from src, parsing the small ones and keeping
+// glyf, loca, gvar, hmtx and the bitmap tables raw (see glyfTables and
+// bitmap.go).
 func newTypeface(src tableSource, family string) (*Typeface, error) {
 	ld := src.ld
-	ft, err := font.NewFont(ld)
+	ft, err := font.NewFont(goTextLoader(src))
 	if err != nil {
 		return nil, err
 	}

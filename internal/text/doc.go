@@ -144,7 +144,14 @@
 // Tela does not use, since it loads TrueType outlines itself): see
 // docs/adr/243-font-loading-memory.md. Since a FontSource parses a font
 // only when text draws with it (ADR-244), a program pays for the faces it
-// uses: text in Inter upright parses that one file.
+// uses: text in Inter upright parses that one file. go-text does not see
+// the bitmap tables (CBLC/CBDT, EBLC/EBDT, sbix): it gets stubs of a few
+// bytes per glyph that give the same glyph extents (goTextLoader), so a
+// bitmap emoji font costs no copy of its images; this package reads the
+// images from the file bytes (bitmap.go). System font files are mapped
+// into memory rather than read (readFontFile), so their bytes cost the
+// pages touched, not heap: with Noto Color Emoji, drawing a few emoji
+// costs about 1.7 MiB of heap instead of 22.
 //
 // # Determinism
 //

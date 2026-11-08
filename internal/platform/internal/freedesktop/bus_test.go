@@ -116,6 +116,13 @@ type harness struct {
 
 func newHarness(t *testing.T, addr string) *harness {
 	t.Helper()
+	return newDesktopHarness(t, addr, "")
+}
+
+// newDesktopHarness is newHarness with XDG_CURRENT_DESKTOP set to desktop
+// for the Desktop (the process environment is not read).
+func newDesktopHarness(t *testing.T, addr, desktop string) *harness {
+	t.Helper()
 	h := &harness{t: t, wake: make(chan struct{}, 1)}
 	dir := t.TempDir()
 	h.opener = filepath.Join(dir, "opened")
@@ -135,6 +142,12 @@ func newHarness(t *testing.T, addr string) *harness {
 		},
 		Post:  func(fn func()) { h.posted = append(h.posted, fn) },
 		Event: func(e platform.Event) { h.events = append(h.events, e) },
+		Getenv: func(key string) string {
+			if key == "XDG_CURRENT_DESKTOP" {
+				return desktop
+			}
+			return ""
+		},
 		Parent: func(w platform.Window) string {
 			if w != nil {
 				return "x11:2a"

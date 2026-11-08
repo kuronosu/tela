@@ -3,6 +3,7 @@ package text
 import (
 	"bytes"
 	"container/list"
+	"encoding/binary"
 	"image/png"
 	"sort"
 	"sync"
@@ -34,7 +35,7 @@ var (
 )
 
 // maxDupes is the length of the chains of sbix 'dupe' references that are
-// followed, as in go-text.
+// drawn (go-text follows one more, see goTextSbixHops).
 const maxDupes = 8
 
 // bitmapTables are the strikes of a font, in increasing pixel size.
@@ -49,7 +50,7 @@ type bitmapStrike struct {
 	ppemX, ppemY uint16
 	ppem         uint16 // max(ppemX, ppemY): what strikes are chosen by
 	index        []tables.BitmapSubtable
-	sbix         []tables.BitmapGlyphData
+	sbix         *sbixStrike
 }
 
 // bitmapGlyph is what a typeface keeps of the bitmaps of one glyph: the
@@ -100,10 +101,10 @@ func (tf *Typeface) bitmaps() *bitmapTables {
 func parseBitmapTables(cblc, cbdt, sbix []byte, nGlyphs int) *bitmapTables {
 	bt := &bitmapTables{}
 	if len(sbix) > 0 {
-		if sb, _, err := tables.ParseSbix(sbix, nGlyphs); err == nil {
-			for _, s := range sb.Strikes {
-				if s.Ppem > 0 {
-					bt.strikes = append(bt.strikes, bitmapStrike{ppemX: s.Ppem, ppemY: s.Ppem, ppem: s.Ppem, sbix: s.GlyphDatas})
+		if strikes, ok := parseSbixStrikes(sbix, nGlyphs); ok {
+			for i := range strikes {
+				if s := &strikes[i]; s.ppem > 0 {
+					bt.strikes = append(bt.strikes, bitmapStrike{ppemX: s.ppem, ppemY: s.ppem, ppem: s.ppem, sbix: s})
 				}
 			}
 		}
@@ -180,7 +181,7 @@ func (bt *bitmapTables) load(gid tables.GlyphID) *bitmapGlyph {
 func (bt *bitmapTables) glyph(st *bitmapStrike, gid tables.GlyphID) (strikeGlyph, bool) {
 	var sg strikeGlyph
 	if st.sbix != nil {
-		d := sbixGlyph(st.sbix, gid)
+		d := st.sbix.resolve(gid)
 		if d.GraphicType != tagPNG {
 			return sg, false // 'jpg ', 'tiff', 'mask' or none
 		}
@@ -285,20 +286,105 @@ func (bt *bitmapTables) cbdtData(st *bitmapStrike, gid tables.GlyphID) ([]byte, 
 	return nil, 0, m, false
 }
 
-// sbixGlyph returns the sbix data of gid, following 'dupe' references.
-func sbixGlyph(datas []tables.BitmapGlyphData, gid tables.GlyphID) tables.BitmapGlyphData {
-	for range maxDupes + 1 {
-		if int(gid) >= len(datas) {
-			break
+// sbixStrike is one strike of an sbix table, read on demand: its glyph
+// records are parsed when a glyph is looked up, so that finding the
+// strikes touches only their headers and offset arrays (the strikes of
+// Apple Color Emoji are most of its 180 MB).
+type sbixStrike struct {
+	ppem, ppi uint16
+	src       []byte // from the strike's header to the end of the table
+	n         int    // the glyphs before n have valid records
+}
+
+// parseSbixStrikes returns the strikes of an sbix table as
+// tables.ParseSbix does, and whether ParseSbix succeeds. Like ParseSbix,
+// it stops at the first bad strike: that strike keeps its size and the
+// glyphs before the bad record (none when its offset array is short), and
+// the strikes after it are empty; a strike with a null offset is empty.
+// It checks only offsets, which is all ParseSbix's errors depend on (a
+// record must hold its 8-byte header; the image data is not read).
+func parseSbixStrikes(raw []byte, nGlyphs int) ([]sbixStrike, bool) {
+	if len(raw) < 8 {
+		return nil, false
+	}
+	n := uint64(binary.BigEndian.Uint32(raw[4:]))
+	if uint64(len(raw)) < 8+4*n {
+		return nil, false
+	}
+	strikes := make([]sbixStrike, n)
+	for i := range strikes {
+		off := uint64(binary.BigEndian.Uint32(raw[8+4*i:]))
+		if off == 0 {
+			continue
 		}
-		d := datas[gid]
+		if uint64(len(raw)) < off || uint64(len(raw))-off < 4 {
+			return strikes, false
+		}
+		s := raw[off:]
+		st := &strikes[i]
+		st.ppem, st.ppi = binary.BigEndian.Uint16(s), binary.BigEndian.Uint16(s[2:])
+		st.src = s
+		if uint64(len(s)-4) < 4*(uint64(nGlyphs)+1) {
+			return strikes, false
+		}
+		for g := range nGlyphs {
+			start, end := st.offset(g), st.offset(g+1)
+			if start == end {
+				continue
+			}
+			if start > end || uint64(len(s)) < end || end-start < 8 {
+				st.n = g
+				return strikes, false
+			}
+		}
+		st.n = nGlyphs
+	}
+	return strikes, true
+}
+
+// offset returns the offset of glyph g's record from the strike's start.
+func (st *sbixStrike) offset(g int) uint64 {
+	return uint64(binary.BigEndian.Uint32(st.src[4+4*g:]))
+}
+
+// glyph returns the record of gid, as tables.ParseSbix parses it (the zero
+// value when the glyph has none).
+func (st *sbixStrike) glyph(gid tables.GlyphID) tables.BitmapGlyphData {
+	if int(gid) >= st.n {
+		return tables.BitmapGlyphData{}
+	}
+	start, end := st.offset(int(gid)), st.offset(int(gid)+1)
+	if start == end {
+		return tables.BitmapGlyphData{}
+	}
+	r := st.src[start:end:end]
+	return tables.BitmapGlyphData{
+		OriginOffsetX: int16(binary.BigEndian.Uint16(r)),
+		OriginOffsetY: int16(binary.BigEndian.Uint16(r[2:])),
+		GraphicType:   ot.Tag(binary.BigEndian.Uint32(r[4:])),
+		Data:          r[8:],
+	}
+}
+
+// resolve returns the record of gid, following up to maxDupes 'dupe'
+// references.
+func (st *sbixStrike) resolve(gid tables.GlyphID) tables.BitmapGlyphData {
+	return st.resolveHops(gid, maxDupes)
+}
+
+// resolveHops returns the record of gid, following up to hops 'dupe'
+// references; a longer chain, or a reference without a glyph ID, gives
+// the zero value.
+func (st *sbixStrike) resolveHops(gid tables.GlyphID, hops int) tables.BitmapGlyphData {
+	for range hops + 1 {
+		d := st.glyph(gid)
 		if d.GraphicType != tagDupe {
 			return d
 		}
 		if len(d.Data) < 2 {
 			break
 		}
-		gid = tables.GlyphID(uint16(d.Data[0])<<8 | uint16(d.Data[1]))
+		gid = tables.GlyphID(binary.BigEndian.Uint16(d.Data))
 	}
 	return tables.BitmapGlyphData{}
 }

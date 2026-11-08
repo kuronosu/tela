@@ -118,8 +118,10 @@ type SystemFontOptions struct {
 // unknown family name or the first cluster the other fonts cannot draw
 // loads the index (a full scan the first time, then the cached index
 // checks file times); parsing a font file waits until a face of it is
-// used. Loaded fonts stay in memory with the collection (a TrueType
-// collection is read once). The methods that use the fonts, Face, Match
+// used. Loaded fonts stay with the collection (a TrueType collection is
+// read once); their files are mapped into memory where the operating
+// system allows it, so only the pages that are read take memory (see
+// readFontFile). The methods that use the fonts, Face, Match
 // and Itemize, stay safe for concurrent use; the first one to need the
 // index waits for it while others that need it too wait with it, and those
 // that do not need it go on.
@@ -467,7 +469,7 @@ func (s *systemFonts) loadTypeface(e *sysEntry) (*Typeface, error) {
 	data, ok := s.data[e.file]
 	if !ok {
 		var err error
-		data, err = os.ReadFile(e.file)
+		data, err = readFontFile(e.file)
 		if err != nil {
 			return nil, err
 		}

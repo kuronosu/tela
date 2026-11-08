@@ -775,10 +775,11 @@
 // core's fallback title bar follows (ADR-238), and UIFontFamily and
 // MonoFontFamily, the family names of the desktop's interface and
 // monospace fonts ("" unknown; on Linux the first family of the portal's
-// org.gnome.desktop.interface font-name and monospace-font-name, else of
-// org.kde.kdeglobals.General font and fixed; always "" on Windows and
-// macOS), which core's system fonts put first for the generic families
-// (ADR-244). Backends read them when they start and deliver a
+// org.gnome.desktop.interface font-name and monospace-font-name, or of
+// org.kde.kdeglobals.General font and fixed, KDE's first when
+// XDG_CURRENT_DESKTOP names KDE and GNOME's otherwise; always "" on
+// Windows and macOS), which core's system fonts put first for the
+// generic families (ADR-244). Backends read them when they start and deliver a
 // [SettingsEvent] with the whole new value when one changes (an equal
 // value is not reported).
 //

@@ -509,7 +509,8 @@ type SystemSettings struct {
 	// UIFontFamily and MonoFontFamily are the family names of the
 	// desktop's interface and monospace fonts, such as "Adwaita Sans" and
 	// "Adwaita Mono" (the first family of GNOME's font-name and
-	// monospace-font-name, or of KDE's font and fixed). Core's system
+	// monospace-font-name, or of KDE's font and fixed, KDE's first on
+	// KDE). Core's system
 	// fonts draw system-ui, ui-sans-serif and sans-serif with the first,
 	// ui-monospace and monospace with the second, when they are installed
 	// (ADR-244). Empty means unknown, and always on Windows and macOS,
