@@ -10,9 +10,9 @@
 ## Current status
 
 - **Done:** phases 1–16. Latest version `v0.13.4` (2026-11-07, phase 16: platform parity; tagged on `31942ee` with the owner's approval). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
-- **Phase in progress:** 17, Memory, on the branch `phase-17-memory` (ADR-240: the measurement).
+- **Phase in progress:** 17, Memory, on the branch `phase-17-memory` (ADR-240 to ADR-243): its tasks are done and its tests pass; the phase's code review is next.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** phase 17's reductions: the rasterizer's scratch buffers and backdrop cache, then core's framebuffer headroom and decoded images. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** phase 17's code review and its fixes, then `v0.13.5` proposed to the owner. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
@@ -21,7 +21,7 @@ In order. Each phase ends with verifiable criteria and is not done unless they p
 
 ### Phase 17: Memory
 
-Find where RAM goes and reduce it. Before the Font system (the owner, 2026-11-07: its measurements inform the fonts' ADR) and before CPU performance, whose caches trade memory for speed. What the fonts take is measured and explained here, and reduced in the Font system phase.
+Find where RAM goes and reduce it. Before the Font system (the owner, 2026-11-07: its measurements inform the fonts' ADR) and before CPU performance, whose caches trade memory for speed. What the fonts take is measured and explained here; their waste is removed here (the owner's choice), their design is the Font system's.
 
 - [x] A repeatable measurement: `go run ./internal/testutil/memreport` (ADR-240), baseline in `internal/testutil/memreport/baseline.json` (about 3 minutes; `-only`, `-cases`, `-profiles`, `-update`)
 - [x] Rank the suspects. Baseline (MiB, live heap after GC / RSS): hello 69.5 / 99 at x1, 79 / 109 at x2; kit 80 / 114, 108 / 140; notes 77 / 108, 94 / 126; dashboard 119 / 152, 198 / 236; the dashboard's 1080p session 176 / 211 at x1, 388 / 421 at 4K x2, allocating 780 / 1066 MiB. Shares:
@@ -31,10 +31,23 @@ Find where RAM goes and reduce it. Before the Font system (the owner, 2026-11-07
   - the framebuffer with 25% headroom plus one present copy per backend (two to three `wl_shm` buffers on Wayland, a `CFData` per Present on macOS)
   - decoded images never dropped: the dashboard keeps both 9 MiB wallpapers after a theme switch
   - trees, display lists and text layout: under 10 MiB
-- [ ] The rasterizer: release scratch buffers no frame uses, and evict backdrop cache entries no frame reads, so memory comes back after the palette or a dialog closes, without slower frames
+- [x] The rasterizer: scratch buffers and the backdrop cache's spares released when 15 frames do not use them, and all but the cached backdrops after a second at rest; a phased render keeps one filtered window at a time (ADR-241). The 4K session's heap at rest 353 → 163 MiB, raster scratch 164 → 3 MiB; p50 unchanged, p95 within noise except about +3 ms at 1440x900 x2; a parallel-render race of masks before a backdrop filter fixed
 - [x] Core: decoded images released when nothing shows them, framebuffers exact once a resize settles and dropped while hidden (ADR-242); the dashboard's session keeps one wallpaper instead of two (17.7 → 8.9 MiB), framebuffer and copy 11% smaller
 - [x] The fonts' waste (the owner, 2026-11-07: removed here, the design stays in the Font system): outlines parsed on demand from the file bytes (ADR-243); fonts 61 → 35 MiB in every app, hello 69.9 → 42.8 MiB in use and 98 → 69 MiB RSS at x1
-- [ ] Record the before and after numbers of every example, and the fonts' share for the Font system's ADR
+- [x] Before and after (MiB, heap in use after GC / RSS / allocated during the case; the new numbers are the baseline). The fonts' share is in the Font system phase:
+
+  | case | heap in use | RSS | allocated |
+  |---|---|---|---|
+  | hello/x1/rest | 70 → 43 | 99 → 71 | 87 → 55 |
+  | hello/x2/rest | 79 → 51 | 109 → 80 | 96 → 63 |
+  | kit/x1/rest | 80 → 53 | 114 → 83 | 98 → 66 |
+  | kit/x2/rest | 108 → 77 | 140 → 106 | 125 → 90 |
+  | notes/x1/rest | 77 → 50 | 108 → 84 | 95 → 63 |
+  | notes/x2/rest | 94 → 65 | 126 → 96 | 112 → 78 |
+  | dashboard/x1/rest | 119 → 77 | 152 → 112 | 238 → 203 |
+  | dashboard/x2/rest | 198 → 121 | 236 → 156 | 331 → 285 |
+  | dashboard/x1/session | 176 → 90 | 211 → 129 | 780 → 859 |
+  | dashboard/x2/session | 388 → 163 | 421 → 204 | 1066 → 1359 |
 
 **Done when:** the measurement runs from one command with a recorded baseline, and the largest consumers it found are reduced or explained (the fonts' share measured for the Font system's ADR), with the before and after numbers for each example.
 
@@ -103,7 +116,8 @@ The frame cost of the engine and the CPU rasterizer; the GPU backend builds on i
 - [ ] Damage: a scroll that moves most of the window is a full frame (the damage matcher gives up, ~28 ms at x1); a theme switch and the palette opening are full frames (56 ms at x1)
 - [ ] Caches: backdrop filters inside layers, or over content that changes every frame, are not cached
 - [ ] macOS: every `Present` copies the whole retained frame into a new `CFData` and `CGImage`, whatever the damage (about 20 MB per frame for a 2880x1800 Retina window); an `IOSurface`-backed layer would copy only the damage
-- [ ] Allocation churn: the dashboard's 1080p session allocates 780 MiB in about 1100 ticks (`memreport -profiles`, `alloc_space`): display list recording (`gfx.(*Builder).record`, `recordPush`, `pop`), dashed strokes flattened again every frame (`dashSubpaths`, 89 MiB), `layout.(*Engine).flexItems`, `style.Compute`; it also sets the peak heap, about twice the live one
+- [ ] Allocation churn: the dashboard's 1080p session allocates 859 MiB in about 1150 ticks (1359 MiB at 4K x2; 780 and 1066 before ADR-241, whose 15-frame aging of the rasterizer's scratch trades allocations for a lower heap during activity) (`memreport -profiles`, `alloc_space`): display list recording (`gfx.(*Builder).record`, `recordPush`, `pop`), dashed strokes flattened again every frame (`dashSubpaths`, 89 MiB), `layout.(*Engine).flexItems`, `style.Compute`; it also sets the peak heap, about twice the live one
+- [ ] Wayland: a third `wl_shm` buffer, allocated once when the compositor held two, stays until the next resize (one frame of shared memory, 33 MB at 4K)
 - [ ] `examples/dashboard/README.md`'s Performance section was measured before ADR-200 and ADR-204 (676 frames, p50 15.2 ms, p95 34.4 ms at x1): measure again and rewrite it
 
 **Done when:** the dashboard's p95 at x1 is under 16.7 ms on the CPU, a scroll of most of the window and a theme switch cost less than a full frame, and a frame of a plain 2000-row `kit.Table` that is not a scroll no longer lays out the hidden rows.

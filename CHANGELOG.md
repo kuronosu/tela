@@ -12,6 +12,23 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
+Phase 17, Memory (ADR-240 to ADR-243): an app holds about 30 MiB less in every window, and memory comes back after heavy screens close.
+
+### Changed
+
+- Fonts load each glyph's outline the first time it is drawn, straight from the embedded file, instead of parsing every glyph of every font at start (ADR-243): about 26 MiB less in every app (`examples/hello`: 70 → 43 MiB of heap, 98 → 69 MiB resident), and the fonts are parsed a third faster. Pixels and text layout are unchanged.
+- The rasterizer releases the buffers recent frames did not use, and everything but the cached backdrops after a second at rest (ADR-241): after the dashboard's scripted session at 4K the heap goes back to 163 MiB instead of staying at 353 MiB.
+- Decoded images (`Img`, `url()` backgrounds and masks, `tela.Assets` paths, `tela.BgImage`, icons) are released once nothing shows them, and decoded again, with the same pixels, when shown again; the most recently used ones are kept up to 4 MiB (ADR-242). Before, path images stayed for the life of the process and the others in caches of up to 256 MiB.
+- A window's framebuffer is allocated at its exact size, trimmed half a second after a resize settles, and dropped while the window is hidden (ADR-242).
+
+### Fixed
+
+- A masked layer painted before a backdrop filter in a parallel render could draw before the filter's input was ready, so its pixels could differ from a sequential render.
+
+### Added (development)
+
+- `go run ./internal/testutil/memreport` measures the heap, its peak, the bytes allocated and the resident memory of `examples/hello`, `kit`, `dashboard` and `notes` at x1 and x2, with the live heap split by subsystem, against a checked-in baseline (ADR-240).
+
 ## [0.13.4] - 2026-11-07
 
 Phase 16, Platform parity (ADR-230 to ADR-239): input methods on X11 through XIM, touchpad flings and drag images on X11, portal dialogs attached to their Wayland window, WinRT toast notifications with buttons, the Windows menu bar from the keyboard and in dark mode, Windows 11's own caption buttons over an app's title bar, macOS drags from other apps and file promises, and a title bar Tela draws itself where the desktop draws none (GNOME on Wayland). Checked on the owner's Linux machine (Japanese through fcitx5-mozc on X11), a Windows 11 VM and `macos-latest` CI.

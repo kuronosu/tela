@@ -12,29 +12,29 @@
       "scale": 1,
       "physW": 1440,
       "physH": 900,
-      "heapInuse": 124993536,
-      "heapAlloc": 115228208,
-      "heapSys": 207945728,
-      "sys": 221399352,
-      "peakHeap": 119094704,
-      "peakLive": 115228208,
-      "allocated": 249454888,
-      "vmRSS": 159277056,
-      "rssAnon": 136237056,
-      "rssFile": 23040000,
+      "heapInuse": 80461824,
+      "heapAlloc": 72564288,
+      "heapSys": 153321472,
+      "sys": 165447992,
+      "peakHeap": 88867656,
+      "peakLive": 72564288,
+      "allocated": 212498968,
+      "vmRSS": 117575680,
+      "rssAnon": 94371840,
+      "rssFile": 23203840,
       "rssShmem": 0,
-      "vmHWM": 237514752,
+      "vmHWM": 184410112,
       "breakdown": {
-        "backdrop cache": 4892568,
-        "display lists": 195464,
-        "fonts": 63992672,
-        "framebuffers and present copies": 11673760,
-        "glyph cache": 1571968,
-        "images": 9263432,
-        "other": 615672,
-        "raster scratch": 14973208,
-        "text layout": 878840,
-        "trees": 7146272
+        "backdrop cache": 4892576,
+        "display lists": 195496,
+        "fonts": 37330976,
+        "framebuffers and present copies": 10371232,
+        "glyph cache": 678592,
+        "images": 9263400,
+        "other": 624568,
+        "raster scratch": 1162312,
+        "text layout": 879048,
+        "trees": 7148488
       }
     },
     "dashboard/x1/rig-rest": {
@@ -43,29 +43,29 @@
       "scale": 1,
       "physW": 1920,
       "physH": 1080,
-      "heapInuse": 139255808,
-      "heapAlloc": 129516704,
-      "heapSys": 237240320,
-      "sys": 250435912,
-      "peakHeap": 141785448,
-      "peakLive": 129516704,
-      "allocated": 271581112,
-      "vmRSS": 175382528,
-      "rssAnon": 152338432,
-      "rssFile": 23044096,
+      "heapInuse": 89268224,
+      "heapAlloc": 81833776,
+      "heapSys": 174391296,
+      "sys": 187005224,
+      "peakHeap": 160111520,
+      "peakLive": 81833776,
+      "allocated": 235530408,
+      "vmRSS": 124682240,
+      "rssAnon": 101797888,
+      "rssFile": 22884352,
       "rssShmem": 0,
-      "vmHWM": 264949760,
+      "vmHWM": 202682368,
       "breakdown": {
-        "backdrop cache": 7915416,
-        "display lists": 195480,
-        "fonts": 63993072,
-        "framebuffers and present copies": 16717176,
-        "glyph cache": 1572736,
-        "images": 9263464,
-        "other": 628256,
-        "raster scratch": 21571664,
-        "text layout": 877288,
-        "trees": 6779288
+        "backdrop cache": 7915424,
+        "display lists": 195496,
+        "fonts": 37331680,
+        "framebuffers and present copies": 16717232,
+        "glyph cache": 679440,
+        "images": 9263416,
+        "other": 622456,
+        "raster scratch": 1450112,
+        "text layout": 877480,
+        "trees": 6783560
       }
     },
     "dashboard/x1/session": {
@@ -74,78 +74,78 @@
       "scale": 1,
       "physW": 1920,
       "physH": 1080,
-      "heapInuse": 184901632,
-      "heapAlloc": 168862840,
-      "heapSys": 266534912,
-      "sys": 280590664,
-      "peakHeap": 234957416,
-      "peakLive": 169054360,
-      "allocated": 817384696,
-      "vmRSS": 220798976,
-      "rssAnon": 197640192,
-      "rssFile": 23158784,
+      "heapInuse": 94674944,
+      "heapAlloc": 80873784,
+      "heapSys": 224493568,
+      "sys": 238176568,
+      "peakHeap": 167298864,
+      "peakLive": 101054944,
+      "allocated": 901064376,
+      "vmRSS": 135286784,
+      "rssAnon": 112283648,
+      "rssFile": 23003136,
       "rssShmem": 0,
-      "vmHWM": 278061056,
+      "vmHWM": 217976832,
       "breakdown": {
-        "backdrop cache": 15306368,
-        "display lists": 109760,
-        "fonts": 64217920,
-        "framebuffers and present copies": 16708952,
-        "glyph cache": 3603224,
-        "images": 18565120,
-        "other": 730384,
-        "raster scratch": 45587424,
-        "text layout": 400256,
-        "trees": 3654352
+        "backdrop cache": 7966400,
+        "display lists": 109824,
+        "fonts": 37561256,
+        "framebuffers and present copies": 16708792,
+        "glyph cache": 2666184,
+        "images": 9348960,
+        "other": 718296,
+        "raster scratch": 1743232,
+        "text layout": 400512,
+        "trees": 3657672
       },
       "marks": [
         {
           "label": "settled",
-          "heapAlloc": 130038648
+          "heapAlloc": 82880944
         },
         {
           "label": "hover sweep",
-          "heapAlloc": 130049568
+          "heapAlloc": 82632968
         },
         {
           "label": "period 90D",
-          "heapAlloc": 130238944
+          "heapAlloc": 83049888
         },
         {
           "label": "tab Orders",
-          "heapAlloc": 130281976
+          "heapAlloc": 82817304
         },
         {
           "label": "scroll and fling",
-          "heapAlloc": 131292576
+          "heapAlloc": 86930528
         },
         {
           "label": "dialog and toast",
-          "heapAlloc": 135841000
+          "heapAlloc": 87307624
         },
         {
           "label": "palette",
-          "heapAlloc": 158030208
+          "heapAlloc": 81484400
         },
         {
           "label": "finish and sort",
-          "heapAlloc": 160881848
+          "heapAlloc": 88089432
         },
         {
           "label": "board drag",
-          "heapAlloc": 169054360
+          "heapAlloc": 101054944
         },
         {
           "label": "theme switch",
-          "heapAlloc": 168936312
+          "heapAlloc": 100910504
         },
         {
           "label": "hover sweep 2",
-          "heapAlloc": 168978768
+          "heapAlloc": 83080616
         },
         {
           "label": "settle",
-          "heapAlloc": 168864848
+          "heapAlloc": 80875792
         }
       ]
     },
@@ -155,29 +155,29 @@
       "scale": 2,
       "physW": 2880,
       "physH": 1800,
-      "heapInuse": 207749120,
-      "heapAlloc": 198158392,
-      "heapSys": 291733504,
-      "sys": 305224008,
-      "peakHeap": 271567848,
-      "peakLive": 198158392,
-      "allocated": 346970152,
-      "vmRSS": 247320576,
-      "rssAnon": 224083968,
-      "rssFile": 23236608,
+      "heapInuse": 126664704,
+      "heapAlloc": 119627848,
+      "heapSys": 266436608,
+      "sys": 279468360,
+      "peakHeap": 249395336,
+      "peakLive": 119627848,
+      "allocated": 298898104,
+      "vmRSS": 163700736,
+      "rssAnon": 140554240,
+      "rssFile": 23146496,
       "rssShmem": 0,
-      "vmHWM": 321581056,
+      "vmHWM": 295993344,
       "breakdown": {
-        "backdrop cache": 19523480,
+        "backdrop cache": 19523488,
         "display lists": 195496,
-        "fonts": 63993104,
-        "framebuffers and present copies": 46669984,
-        "glyph cache": 1920904,
+        "fonts": 37331424,
+        "framebuffers and present copies": 41484448,
+        "glyph cache": 1027560,
         "images": 9263400,
-        "other": 657240,
-        "raster scratch": 47929360,
-        "text layout": 878840,
-        "trees": 7145856
+        "other": 668008,
+        "raster scratch": 2117152,
+        "text layout": 879064,
+        "trees": 7149352
       }
     },
     "dashboard/x2/rig-rest": {
@@ -186,29 +186,29 @@
       "scale": 2,
       "physW": 3840,
       "physH": 2160,
-      "heapInuse": 261160960,
-      "heapAlloc": 251605592,
-      "heapSys": 388169728,
-      "sys": 401697112,
-      "peakHeap": 367218608,
-      "peakLive": 251605592,
-      "allocated": 410650184,
-      "vmRSS": 295231488,
-      "rssAnon": 272199680,
-      "rssFile": 23031808,
+      "heapInuse": 164315136,
+      "heapAlloc": 157160344,
+      "heapSys": 358776832,
+      "sys": 372930920,
+      "peakHeap": 338124592,
+      "peakLive": 157160344,
+      "allocated": 366180736,
+      "vmRSS": 201781248,
+      "rssAnon": 178831360,
+      "rssFile": 22949888,
       "rssShmem": 0,
-      "vmHWM": 409788416,
+      "vmHWM": 386613248,
       "breakdown": {
-        "backdrop cache": 31631256,
+        "backdrop cache": 31631264,
         "display lists": 195496,
-        "fonts": 63992736,
-        "framebuffers and present copies": 66475440,
-        "glyph cache": 1921144,
+        "fonts": 37331024,
+        "framebuffers and present copies": 66475600,
+        "glyph cache": 1027880,
         "images": 9263416,
-        "other": 666624,
-        "raster scratch": 69823360,
-        "text layout": 877288,
-        "trees": 6780256
+        "other": 664256,
+        "raster scratch": 2916432,
+        "text layout": 877528,
+        "trees": 6783288
       }
     },
     "dashboard/x2/session": {
@@ -217,78 +217,78 @@
       "scale": 2,
       "physW": 3840,
       "physH": 2160,
-      "heapInuse": 407068672,
-      "heapAlloc": 391635768,
-      "heapSys": 501612544,
-      "sys": 516000120,
-      "peakHeap": 461818040,
-      "peakLive": 391818328,
-      "allocated": 1117887640,
-      "vmRSS": 441769984,
-      "rssAnon": 418799616,
-      "rssFile": 22970368,
+      "heapInuse": 170991616,
+      "heapAlloc": 157381448,
+      "heapSys": 501678080,
+      "sys": 515672440,
+      "peakHeap": 456123168,
+      "peakLive": 221359784,
+      "allocated": 1425209504,
+      "vmRSS": 213651456,
+      "rssAnon": 190570496,
+      "rssFile": 23080960,
       "rssShmem": 0,
-      "vmHWM": 530087936,
+      "vmHWM": 494886912,
       "breakdown": {
-        "backdrop cache": 61165184,
-        "display lists": 109760,
-        "fonts": 64218000,
-        "framebuffers and present copies": 66467160,
-        "glyph cache": 4950696,
-        "images": 18565120,
-        "other": 721856,
-        "raster scratch": 171400096,
-        "text layout": 400240,
-        "trees": 3655472
+        "backdrop cache": 31837888,
+        "display lists": 109824,
+        "fonts": 37560824,
+        "framebuffers and present copies": 66467320,
+        "glyph cache": 4013672,
+        "images": 9348944,
+        "other": 721712,
+        "raster scratch": 3237024,
+        "text layout": 400512,
+        "trees": 3657352
       },
       "marks": [
         {
           "label": "settled",
-          "heapAlloc": 252149832
+          "heapAlloc": 158928768
         },
         {
           "label": "hover sweep",
-          "heapAlloc": 252167056
+          "heapAlloc": 158206664
         },
         {
           "label": "period 90D",
-          "heapAlloc": 252303320
+          "heapAlloc": 158904744
         },
         {
           "label": "tab Orders",
-          "heapAlloc": 252328544
+          "heapAlloc": 159429712
         },
         {
           "label": "scroll and fling",
-          "heapAlloc": 254990496
+          "heapAlloc": 171747864
         },
         {
           "label": "dialog and toast",
-          "heapAlloc": 269276136
+          "heapAlloc": 169783752
         },
         {
           "label": "palette",
-          "heapAlloc": 380302680
+          "heapAlloc": 162566824
         },
         {
           "label": "finish and sort",
-          "heapAlloc": 383558552
+          "heapAlloc": 179425208
         },
         {
           "label": "board drag",
-          "heapAlloc": 391818328
+          "heapAlloc": 221359784
         },
         {
           "label": "theme switch",
-          "heapAlloc": 391710568
+          "heapAlloc": 221349992
         },
         {
           "label": "hover sweep 2",
-          "heapAlloc": 391748512
+          "heapAlloc": 166856840
         },
         {
           "label": "settle",
-          "heapAlloc": 391637776
+          "heapAlloc": 157383456
         }
       ]
     },
@@ -298,29 +298,29 @@
       "scale": 1,
       "physW": 800,
       "physH": 450,
-      "heapInuse": 72876032,
-      "heapAlloc": 68926064,
-      "heapSys": 78708736,
-      "sys": 88926488,
-      "peakHeap": 69501496,
-      "peakLive": 68926064,
-      "allocated": 90969048,
-      "vmRSS": 103849984,
-      "rssAnon": 83791872,
-      "rssFile": 20058112,
+      "heapInuse": 44711936,
+      "heapAlloc": 41072184,
+      "heapSys": 61964288,
+      "sys": 71756056,
+      "peakHeap": 51266720,
+      "peakLive": 41072184,
+      "allocated": 57417992,
+      "vmRSS": 74645504,
+      "rssAnon": 54542336,
+      "rssFile": 20103168,
       "rssShmem": 0,
-      "vmHWM": 104230912,
+      "vmHWM": 84561920,
       "breakdown": {
         "backdrop cache": 0,
         "display lists": 1488,
-        "fonts": 63792368,
-        "framebuffers and present copies": 3244192,
-        "glyph cache": 1058880,
+        "fonts": 37088576,
+        "framebuffers and present copies": 2883744,
+        "glyph cache": 250448,
         "images": 13032,
-        "other": 436824,
-        "raster scratch": 118776,
+        "other": 436712,
+        "raster scratch": 119768,
         "text layout": 51824,
-        "trees": 224712
+        "trees": 224792
       }
     },
     "hello/x2/rest": {
@@ -329,29 +329,29 @@
       "scale": 2,
       "physW": 1600,
       "physH": 900,
-      "heapInuse": 82886656,
-      "heapAlloc": 78772784,
-      "heapSys": 95518720,
-      "sys": 105638168,
-      "peakHeap": 81279320,
-      "peakLive": 78772784,
-      "allocated": 100893848,
-      "vmRSS": 114257920,
-      "rssAnon": 94265344,
-      "rssFile": 19992576,
+      "heapInuse": 53526528,
+      "heapAlloc": 49858584,
+      "heapSys": 66125824,
+      "sys": 75950360,
+      "peakHeap": 50263336,
+      "peakLive": 49858584,
+      "allocated": 66517768,
+      "vmRSS": 83910656,
+      "rssAnon": 63680512,
+      "rssFile": 20230144,
       "rssShmem": 0,
-      "vmHWM": 116920320,
+      "vmHWM": 87089152,
       "breakdown": {
         "backdrop cache": 0,
         "display lists": 1488,
-        "fonts": 63792112,
-        "framebuffers and present copies": 12968096,
-        "glyph cache": 1157360,
+        "fonts": 37088640,
+        "framebuffers and present copies": 11534496,
+        "glyph cache": 349024,
         "images": 13032,
-        "other": 436680,
-        "raster scratch": 139544,
+        "other": 441664,
+        "raster scratch": 167344,
         "text layout": 51824,
-        "trees": 224744
+        "trees": 224792
       }
     },
     "kit/x1/rest": {
@@ -360,29 +360,29 @@
       "scale": 1,
       "physW": 1280,
       "physH": 800,
-      "heapInuse": 83705856,
-      "heapAlloc": 77796344,
-      "heapSys": 95453184,
-      "sys": 106293528,
-      "peakHeap": 83334928,
-      "peakLive": 77796344,
-      "allocated": 102797064,
-      "vmRSS": 119201792,
-      "rssAnon": 95539200,
-      "rssFile": 23662592,
+      "heapInuse": 55222272,
+      "heapAlloc": 49427648,
+      "heapSys": 70287360,
+      "sys": 80734488,
+      "peakHeap": 50654872,
+      "peakLive": 49427648,
+      "allocated": 68743592,
+      "vmRSS": 87470080,
+      "rssAnon": 63696896,
+      "rssFile": 23773184,
       "rssShmem": 0,
-      "vmHWM": 122810368,
+      "vmHWM": 94842880,
       "breakdown": {
         "backdrop cache": 0,
         "display lists": 66616,
-        "fonts": 64067808,
-        "framebuffers and present copies": 9216160,
-        "glyph cache": 1420664,
+        "fonts": 37394880,
+        "framebuffers and present copies": 8192160,
+        "glyph cache": 592088,
         "images": 32408,
-        "other": 474704,
-        "raster scratch": 486264,
-        "text layout": 439432,
-        "trees": 1734576
+        "other": 479848,
+        "raster scratch": 491680,
+        "text layout": 439528,
+        "trees": 1737312
       }
     },
     "kit/x2/rest": {
@@ -391,29 +391,29 @@
       "scale": 2,
       "physW": 2560,
       "physH": 1600,
-      "heapInuse": 113139712,
-      "heapAlloc": 106012896,
-      "heapSys": 124813312,
-      "sys": 135592232,
-      "peakHeap": 110011824,
-      "peakLive": 106012896,
-      "allocated": 131157824,
-      "vmRSS": 147116032,
-      "rssAnon": 123518976,
-      "rssFile": 23597056,
+      "heapInuse": 80297984,
+      "heapAlloc": 74420408,
+      "heapSys": 91324416,
+      "sys": 101443864,
+      "peakHeap": 75010376,
+      "peakLive": 74420408,
+      "allocated": 93879712,
+      "vmRSS": 111337472,
+      "rssAnon": 87769088,
+      "rssFile": 23568384,
       "rssShmem": 0,
-      "vmHWM": 149856256,
+      "vmHWM": 115924992,
       "breakdown": {
         "backdrop cache": 0,
         "display lists": 66616,
-        "fonts": 64067280,
-        "framebuffers and present copies": 36864160,
-        "glyph cache": 1556872,
+        "fonts": 37395056,
+        "framebuffers and present copies": 32768160,
+        "glyph cache": 727976,
         "images": 32408,
-        "other": 475088,
-        "raster scratch": 783224,
-        "text layout": 439432,
-        "trees": 1734640
+        "other": 474800,
+        "raster scratch": 779232,
+        "text layout": 439528,
+        "trees": 1736848
       }
     },
     "notes/x1/rest": {
@@ -422,29 +422,29 @@
       "scale": 1,
       "physW": 960,
       "physH": 640,
-      "heapInuse": 80969728,
-      "heapAlloc": 74482328,
-      "heapSys": 91258880,
-      "sys": 101771544,
-      "peakHeap": 80695576,
-      "peakLive": 74482328,
-      "allocated": 99943792,
-      "vmRSS": 113553408,
-      "rssAnon": 90071040,
-      "rssFile": 23482368,
+      "heapInuse": 52346880,
+      "heapAlloc": 46416672,
+      "heapSys": 66093056,
+      "sys": 76007704,
+      "peakHeap": 52154792,
+      "peakLive": 46416672,
+      "allocated": 66169376,
+      "vmRSS": 87855104,
+      "rssAnon": 64466944,
+      "rssFile": 23388160,
       "rssShmem": 0,
-      "vmHWM": 118591488,
+      "vmHWM": 92594176,
       "breakdown": {
         "backdrop cache": 0,
         "display lists": 53216,
-        "fonts": 63867120,
-        "framebuffers and present copies": 5529760,
-        "glyph cache": 1209952,
-        "images": 65528,
-        "other": 813128,
-        "raster scratch": 435560,
-        "text layout": 284312,
-        "trees": 2249520
+        "fonts": 37178432,
+        "framebuffers and present copies": 4915360,
+        "glyph cache": 398096,
+        "images": 65480,
+        "other": 818800,
+        "raster scratch": 440152,
+        "text layout": 284344,
+        "trees": 2250176
       }
     },
     "notes/x2/rest": {
@@ -453,29 +453,29 @@
       "scale": 2,
       "physW": 1920,
       "physH": 1280,
-      "heapInuse": 98705408,
-      "heapAlloc": 91654448,
-      "heapSys": 112263168,
-      "sys": 122812712,
-      "peakHeap": 96033656,
-      "peakLive": 91654448,
-      "allocated": 117615984,
-      "vmRSS": 131837952,
-      "rssAnon": 108224512,
-      "rssFile": 23613440,
+      "heapInuse": 68001792,
+      "heapAlloc": 61695320,
+      "heapSys": 82903040,
+      "sys": 93055256,
+      "peakHeap": 64584456,
+      "peakLive": 61695320,
+      "allocated": 81955888,
+      "vmRSS": 100667392,
+      "rssAnon": 77279232,
+      "rssFile": 23388160,
       "rssShmem": 0,
-      "vmHWM": 135364608,
+      "vmHWM": 105152512,
       "breakdown": {
         "backdrop cache": 0,
-        "display lists": 53248,
-        "fonts": 63867344,
-        "framebuffers and present copies": 22118560,
-        "glyph cache": 1279928,
-        "images": 65448,
-        "other": 817408,
-        "raster scratch": 881816,
-        "text layout": 284312,
-        "trees": 2250320
+        "display lists": 53216,
+        "fonts": 37178144,
+        "framebuffers and present copies": 19660960,
+        "glyph cache": 468312,
+        "images": 65480,
+        "other": 813480,
+        "raster scratch": 850432,
+        "text layout": 284360,
+        "trees": 2250704
       }
     }
   }
