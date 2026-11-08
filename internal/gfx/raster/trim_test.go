@@ -78,13 +78,13 @@ func TestFitsBuf(t *testing.T) {
 // TestEndFrameAges checks that a Renderer keeps the buffers frames use and
 // releases those no frame used for more than maxIdleFrames frames.
 func TestEndFrameAges(t *testing.T) {
-	dl := paletteScene(120, 80)
-	fb := image.NewRGBA(image.Rect(0, 0, 120, 80))
+	dl := paletteScene(300, 200)
+	fb := image.NewRGBA(image.Rect(0, 0, 300, 200))
 	var r Renderer
 	// The first frames reach the steady state (the second one may add a
 	// buffer that the order of the first one's requests did not need, and
 	// the first one's surplus goes after maxIdleFrames frames).
-	for range maxIdleFrames + 2 {
+	for range 2 * maxIdleFrames {
 		r.Render(fb, dl, Options{Workers: 1})
 		r.EndFrame()
 	}
@@ -93,7 +93,7 @@ func TestEndFrameAges(t *testing.T) {
 		t.Fatal("the scene kept no scratch memory")
 	}
 	// Frames that use it keep it, without growing.
-	for range 20 {
+	for range 3 * maxIdleFrames {
 		r.Render(fb, dl, Options{Workers: 1})
 		r.EndFrame()
 	}
@@ -104,15 +104,13 @@ func TestEndFrameAges(t *testing.T) {
 	// that frames of the scene used every other frame, because two of them
 	// take turns, goes one frame earlier).
 	for i := range maxIdleFrames {
-		if i%50 == 0 {
-			r.Render(fb, plainScene(120, 80), Options{Workers: 1})
-		}
+		r.Render(fb, plainScene(300, 200), Options{Workers: 1})
 		r.EndFrame()
 		if got := r.ScratchBytes(); (got != used && i < maxIdleFrames-1) || got == 0 {
 			t.Fatalf("after %d frames without the scene: %d bytes of scratch, want %d", i+1, got, used)
 		}
 	}
-	r.Render(fb, plainScene(120, 80), Options{Workers: 1})
+	r.Render(fb, plainScene(300, 200), Options{Workers: 1})
 	r.EndFrame()
 	if got := r.ScratchBytes(); got != 0 {
 		t.Errorf("after %d frames without the scene: %d bytes of scratch, want 0", maxIdleFrames+1, got)
