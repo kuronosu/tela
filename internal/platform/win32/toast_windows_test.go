@@ -116,7 +116,7 @@ func newFakeArgs(t *testing.T, iid guid, a *fakeArgs) *comServer {
 			syscall.NewCallback(func(this, out uintptr) uintptr {
 				s := comServerOf(this)
 				a := s.impl.(*fakeArgs)
-				if s.iids[0] == iidToastActivatedEventArgs {
+				if s.iids[0][0] == iidToastActivatedEventArgs {
 					h, err := newHString(a.arguments)
 					if err != nil {
 						return eOutOfMemory

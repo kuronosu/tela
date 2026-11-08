@@ -41,14 +41,24 @@ type comHeader struct {
 	vtbl uintptr
 }
 
-// comServer is a COM object implemented in Go.
+// comServer is a COM object implemented in Go. It has one interface
+// pointer per vtable: the drag and drop objects one, a UI Automation
+// element one per provider interface (uia_windows.go). Each header answers
+// QueryInterface for its own IIDs; IUnknown is the first header (COM's
+// identity rule).
 type comServer struct {
-	hdr   *comHeader
+	hdrs  []comHeader // pinned; COM's pointers are their addresses
 	pin   runtime.Pinner
 	refs  atomic.Int32
-	iids  []guid // the interfaces it answers besides IUnknown
-	impl  any    // *dropTargetServer, *dropSourceServer or *dataObjectServer
-	final func() // runs when the last reference goes, or nil
+	iids  [][]guid // per header: the interfaces it answers besides IUnknown
+	impl  any      // *dropTargetServer, *dropSourceServer, *dataObjectServer, *uiaNode...
+	final func()   // runs when the last reference goes, or nil
+}
+
+// comIface is one interface of a comServer: its vtable and IIDs.
+type comIface struct {
+	vtbl *uintptr
+	iids []guid
 }
 
 var comServers = struct {
@@ -76,17 +86,34 @@ var iidUnknown = guid{0x00000000, 0x0000, 0x0000, [8]byte{0xC0, 0, 0, 0, 0, 0, 0
 // whose vtable is the array starting at vtbl.
 func newComServer(vtbl *uintptr, iids []guid, impl any, final func()) *comServer {
 	initComVtables()
-	s := &comServer{hdr: &comHeader{vtbl: uintptr(unsafe.Pointer(vtbl))}, iids: iids, impl: impl, final: final}
-	s.pin.Pin(s.hdr)
+	return newComServerOf([]comIface{{vtbl, iids}}, impl, final)
+}
+
+// newComServerOf creates a COM object with one reference whose interfaces
+// are ifaces (a nil vtbl leaves a header out of QueryInterface).
+func newComServerOf(ifaces []comIface, impl any, final func()) *comServer {
+	s := &comServer{hdrs: make([]comHeader, len(ifaces)), iids: make([][]guid, len(ifaces)), impl: impl, final: final}
+	for i, f := range ifaces {
+		if f.vtbl != nil {
+			s.hdrs[i].vtbl = uintptr(unsafe.Pointer(f.vtbl))
+		}
+		s.iids[i] = f.iids
+	}
+	s.pin.Pin(&s.hdrs[0])
 	s.refs.Store(1)
 	comServers.Lock()
-	comServers.m[s.ptr()] = s
+	for i := range s.hdrs {
+		comServers.m[s.iface(i)] = s
+	}
 	comServers.Unlock()
 	return s
 }
 
-// ptr returns the interface pointer COM sees.
-func (s *comServer) ptr() uintptr { return uintptr(unsafe.Pointer(s.hdr)) }
+// ptr returns the interface pointer COM sees (the first interface's).
+func (s *comServer) ptr() uintptr { return s.iface(0) }
+
+// iface returns the pointer of interface i.
+func (s *comServer) iface(i int) uintptr { return uintptr(unsafe.Pointer(&s.hdrs[i])) }
 
 func (s *comServer) addRef() int32 { return s.refs.Add(1) }
 
@@ -95,7 +122,9 @@ func (s *comServer) release() int32 {
 	n := s.refs.Add(-1)
 	if n == 0 {
 		comServers.Lock()
-		delete(comServers.m, s.ptr())
+		for i := range s.hdrs {
+			delete(comServers.m, s.iface(i))
+		}
 		comServers.Unlock()
 		s.pin.Unpin()
 		if s.final != nil {
@@ -163,11 +192,22 @@ func comQueryInterface(this, riid, ppv uintptr) uintptr {
 		return eNoInterface
 	}
 	iid := *(*guid)(ptrFromUintptr(riid))
-	if iid != iidUnknown && !slices.Contains(s.iids, iid) {
+	p := uintptr(0)
+	if iid == iidUnknown {
+		p = s.ptr()
+	} else {
+		for i, ids := range s.iids {
+			if s.hdrs[i].vtbl != 0 && slices.Contains(ids, iid) {
+				p = s.iface(i)
+				break
+			}
+		}
+	}
+	if p == 0 {
 		return eNoInterface
 	}
 	s.addRef()
-	*(*uintptr)(ptrFromUintptr(ppv)) = this
+	*(*uintptr)(ptrFromUintptr(ppv)) = p
 	return sOK
 }
 
