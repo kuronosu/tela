@@ -27,7 +27,9 @@
 // launches"), the registration of schemes and file types (package assoc,
 // on the app's bundle; ADR-228), and the app's menu bar, popup menus and
 // quit requests (see "Menus and quitting"): the whole platform contract
-// of phases 12 and 13 (ADR-224).
+// of phases 12 and 13 (ADR-224). Phase 19 adds the accessibility bridge
+// (NSAccessibility, access_darwin.go over the pure rules of access.go;
+// see "Accessibility").
 //
 // # Loop
 //
@@ -462,4 +464,65 @@
 //     the app's events itself until the app decides. A request while one
 //     waits, or terminate: from inside a pass, is delivered in the next
 //     pass and accepted.
+//
+// # Accessibility
+//
+// The NSAccessibility bridge of contract v5 (ADR-246), after AccessKit's
+// macOS adapter, with roles after W3C Core-AAM 1.2; access_darwin.go has
+// the details and access.go the pure half.
+//
+//   - Activation: the first accessibilityChildren,
+//     accessibilityFocusedUIElement or accessibilityHitTest: AppKit sends
+//     TelaView (VoiceOver, Accessibility Inspector, any AX client)
+//     queues AccessibilityEvent{Active: true}; until then nothing of the
+//     bridge runs. The answer is what exists (nothing before the first
+//     update, which posts a layout change). There is no deactivation:
+//     AppKit does not say when the last client leaves, so the window
+//     stays active until it closes (the contract allows it).
+//   - Elements: TelaView, an ignored view, stands for the root, and its
+//     accessibilityChildren are the root's exposed children. Every other
+//     exposed node is a TelaAccessElement, an NSAccessibilityElement
+//     subclass made at run time, created when AppKit first needs it and
+//     kept by node ID. Nodes that AccessNode.Ignored reports give their
+//     place to their children; the children of ARIA's "children
+//     presentational" roles (button, checkbox, image, slider, tab...) and
+//     of text fields are not exposed. An element whose node is gone or
+//     no longer exposed posts AXUIElementDestroyed, is released and, while
+//     an AT still holds it, answers as nothing. Answers come from the
+//     latest tree (an immutable AccessTree, held atomically, on the main
+//     thread, where AppKit sends every NSAccessibility message).
+//   - Attributes: role, subrole and role description (Core-AAM; English
+//     descriptions for the web subroles AppKit calls "group"), the name as
+//     accessibilityLabel (AXDescription), the description as
+//     accessibilityHelp, the placeholder, the value (text, 0/1/2 for
+//     toggles, a tab's selection, a heading's level, a range's number with
+//     aria-valuetext as AXValueDescription, min and max), enabled, focused,
+//     required, expanded, selected, modal, disclosed and disclosure level
+//     of tree items, AXIndex, AXRows of tables and trees, selected
+//     children, the URL of links, the orientation, the frame in screen
+//     points (window logical pixels are points), parent, children, window,
+//     and hit testing (deepest exposed node, the last child on top).
+//     isAccessibilitySelectorAllowed: offers only the methods that apply to
+//     the node's role, states and actions.
+//   - Text (text fields, and texts as AXStaticText): the number of
+//     characters, the selection and setting it, the selected text, strings
+//     for ranges, lines, the insertion line and the visible range, in
+//     UTF-16 (the tree's selection is in code points). The tree has no
+//     layout lines: lines are hard lines (between line feeds), the
+//     visible range is the whole text and the frame of a range is the
+//     element's.
+//   - Actions, queued as AccessActionEvents: press (default action),
+//     increment, decrement, show menu, setting the focus, a text field's
+//     value and selection, expanded and disclosed (expand, collapse),
+//     selecting an item (its default action), and AXScrollToVisible
+//     (scroll into view) through accessibilityActionNames and
+//     accessibilityPerformAction:. Only the node's own actions run.
+//   - Notifications, from comparing the trees before and after each
+//     update: UIElementDestroyed, LayoutChanged (the exposed structure
+//     changed), RowCountChanged, ValueChanged, TitleChanged,
+//     SelectedTextChanged, SelectedChildrenChanged (on the item's
+//     container), RowExpanded and RowCollapsed for tree items and rows,
+//     AXExpandedChanged (WebKit's name) for others, FocusedUIElementChanged,
+//     and AnnouncementRequested on the window with the announcement and
+//     its priority (assertive: high, polite: medium).
 package cocoa

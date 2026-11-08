@@ -49,6 +49,7 @@ type Window struct {
 	cursorHidden bool          // this window's +[NSCursor hide] is in effect
 	ime          imeWindow     // text input and IME (ime_darwin.go)
 	dnd          windowDnD     // drag and drop (dnd_darwin.go)
+	acc          windowAccess  // the accessibility bridge (access_darwin.go)
 
 	// Pacing (link_darwin.go).
 	link        darwin.ID // CADisplayLink of the view (owned: +1)
@@ -353,6 +354,9 @@ func (w *Window) Close() {
 	darwin.PoolPop(imePool)
 	w.releaseLink()
 	w.closeDnD()
+	accPool := darwin.PoolPush()
+	w.closeAccess()
+	darwin.PoolPop(accPool)
 	registry.Lock()
 	delete(registry.objects, w.delegate)
 	delete(registry.objects, w.view)

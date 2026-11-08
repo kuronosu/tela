@@ -517,7 +517,8 @@ func setupApp() error {
 	// TelaView conforms to NSTextInputClient, which makes NSView give it
 	// an NSTextInputContext; should the runtime not know the protocol,
 	// the view makes its own context (ime_darwin.go).
-	methods := append(append(append(append(viewMethods(), inputMethods()...), imeMethods()...), dndMethods()...), menuViewMethods()...)
+	methods := append(append(append(append(append(viewMethods(), inputMethods()...), imeMethods()...), dndMethods()...),
+		menuViewMethods()...), accessViewMethods()...)
 	var protocols []string
 	if app.textInputClient = darwin.HasProtocol("NSTextInputClient"); app.textInputClient {
 		protocols = []string{"NSTextInputClient"}
@@ -532,6 +533,8 @@ func setupApp() error {
 	if err != nil {
 		return fmt.Errorf("cocoa: registering TelaView: %w", err)
 	}
+	// TelaAccessElement, the accessibility elements (access_darwin.go).
+	setupAccess()
 	// The application delegate does not declare NSApplicationDelegate:
 	// declaring it made AppKit crash on macOS 14 shortly after activation
 	// in Ebitengine (issue #3451); AppKit finds the methods anyway through

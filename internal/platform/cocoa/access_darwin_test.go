@@ -1,0 +1,474 @@
+//go:build darwin
+
+package cocoa
+
+import (
+	"fmt"
+	"math"
+	"os"
+	"runtime"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/kuronosu/tela/internal/darwin"
+	"github.com/kuronosu/tela/internal/platform"
+)
+
+// Tests of the NSAccessibility bridge on a real window: the tests call
+// TelaView's and the elements' NSAccessibility methods through
+// objc_msgSend, as AppKit does for an assistive technology (so the
+// CGRect, CGPoint and NSRange arguments and results cross purego's
+// callbacks as AppKit passes them), and read the notifications through
+// accessTrace (AppKit sends them to the AX server, which an in-process
+// observer cannot see without the accessibility permission). Everything
+// observed is logged.
+
+// axSend sends the message name to obj.
+func axSend(obj darwin.ID, name string, args ...any) darwin.ID {
+	return darwin.Send(obj, darwin.Sel(name), args...)
+}
+
+func axGoString(obj darwin.ID, name string) string { return darwin.GoString(axSend(obj, name)) }
+
+func axBool(obj darwin.ID, name string, args ...any) bool {
+	return darwin.SendBool(obj, darwin.Sel(name), args...)
+}
+
+// axDescribe returns a line about element e: role, subrole, label and
+// value.
+func axDescribe(e darwin.ID) string {
+	if e == 0 {
+		return "<nil>"
+	}
+	val := axSend(e, "accessibilityValue")
+	v := "nil"
+	if val != 0 {
+		v = fmt.Sprintf("%q", darwin.GoString(axSend(val, "description")))
+	}
+	return fmt.Sprintf("%s/%s %q value=%s desc=%q", axGoString(e, "accessibilityRole"), axGoString(e, "accessibilitySubrole"),
+		axGoString(e, "accessibilityLabel"), v, axGoString(e, "accessibilityRoleDescription"))
+}
+
+// axTestTree is the first tree the test pushes: a heading with its text,
+// a layout div holding a button and a checkbox, a text field, a password
+// field and a slider; the button has the focus.
+func axTestTree() platform.AccessUpdate {
+	root := platform.AccessNode{ID: 1, Kind: platform.AccessRoot, Children: []platform.AccessID{2, 4, 8, 9, 10}}
+	heading := platform.AccessNode{ID: 2, Role: "heading", Name: "Settings", Level: 1, Children: []platform.AccessID{3},
+		Bounds: platform.Rect{X: 10, Y: 10, W: 180, H: 24}}
+	text := platform.AccessNode{ID: 3, Kind: platform.AccessText, Text: "Settings", Bounds: platform.Rect{X: 10, Y: 10, W: 80, H: 24}}
+	div := platform.AccessNode{ID: 4, Role: "generic", Children: []platform.AccessID{5, 7}, Bounds: platform.Rect{X: 0, Y: 40, W: 200, H: 30}}
+	button := platform.AccessNode{ID: 5, Role: "button", Name: "Save", Children: []platform.AccessID{6},
+		States: platform.AccessFocusable | platform.AccessFocused,
+		Actions: platform.AccessActionsOf(platform.AccessActionDefault, platform.AccessActionFocus,
+			platform.AccessActionScrollIntoView, platform.AccessActionShowMenu),
+		Bounds: platform.Rect{X: 10, Y: 40, W: 80, H: 30}}
+	label := platform.AccessNode{ID: 6, Kind: platform.AccessText, Text: "Save", Bounds: platform.Rect{X: 20, Y: 45, W: 40, H: 20}}
+	check := platform.AccessNode{ID: 7, Role: "checkbox", Name: "Notify", Checked: platform.ToggleTrue,
+		Actions: platform.AccessActionsOf(platform.AccessActionDefault), Bounds: platform.Rect{X: 100, Y: 40, W: 90, H: 30}}
+	field := platform.AccessNode{ID: 8, Role: "textbox", Name: "Email", Value: "a😀b", Placeholder: "you@example.com",
+		HasSelection: true, Selection: platform.AccessSelection{Anchor: 1, Focus: 2},
+		Actions: platform.AccessActionsOf(platform.AccessActionSetValue, platform.AccessActionSetSelection, platform.AccessActionFocus),
+		States:  platform.AccessFocusable, Bounds: platform.Rect{X: 10, Y: 75, W: 180, H: 20}}
+	password := platform.AccessNode{ID: 9, Role: "textbox", Name: "Password", Value: "••••",
+		States: platform.AccessFocusable | platform.AccessProtected, Bounds: platform.Rect{X: 10, Y: 100, W: 180, H: 20}}
+	slider := platform.AccessNode{ID: 10, Role: "slider", Name: "Volume", Value: "30",
+		Range:   platform.AccessRange{Now: 30, HasNow: true, Min: 0, HasMin: true, Max: 100, HasMax: true},
+		Actions: platform.AccessActionsOf(platform.AccessActionIncrement, platform.AccessActionDecrement),
+		Bounds:  platform.Rect{X: 10, Y: 125, W: 180, H: 20}}
+	return platform.AccessUpdate{Nodes: []platform.AccessNode{root, heading, text, div, button, label, check, field, password, slider},
+		Root: 1, Focus: 5}
+}
+
+func actionString(e platform.AccessActionEvent) string {
+	s := fmt.Sprintf("%v %d", e.Action, e.Node)
+	switch e.Action {
+	case platform.AccessActionSetValue:
+		s += fmt.Sprintf(" %q", e.Value)
+	case platform.AccessActionSetSelection:
+		s += fmt.Sprintf(" %d-%d", e.Selection.Anchor, e.Selection.Focus)
+	}
+	return s
+}
+
+// TestAccessibilityBridge activates the bridge as an AT does, pushes a
+// tree, walks it through the NSAccessibility methods, performs actions
+// and checks the AccessActionEvents, then pushes a second update and
+// checks its notifications and the dead element of a removed node.
+func TestAccessibilityBridge(t *testing.T) {
+	var trace []string
+	accessTrace = func(format string, args ...any) {
+		l := fmt.Sprintf(format, args...)
+		trace = append(trace, l)
+		t.Logf("access: %s", l)
+	}
+	t.Cleanup(func() { accessTrace = nil })
+	check := func(what string, got, want any) {
+		t.Helper()
+		if fmt.Sprint(got) != fmt.Sprint(want) {
+			t.Errorf("%s = %v, want %v", what, got, want)
+		} else {
+			t.Logf("%s = %v", what, got)
+		}
+	}
+	var buttonEl darwin.ID
+	activations := func(s *session) int {
+		n := 0
+		for _, e := range s.events {
+			if e, ok := e.(platform.AccessibilityEvent); ok {
+				n++
+				if !e.Active {
+					t.Errorf("AccessibilityEvent{Active: false}: the bridge never deactivates")
+				}
+			}
+		}
+		return n
+	}
+	steps := []func(s *session){
+		// 1. An AT asks the view for its children: nothing yet, and the
+		// bridge activates (once).
+		func(s *session) {
+			if axAccess.class == 0 {
+				t.Errorf("TelaAccessElement is not registered: NSAccessibilityElement or AppKit's functions are missing")
+				return
+			}
+			t.Logf("bridge active before the test's first query: %v (true: something in the process asked already)", s.w.acc.active)
+			check("children before the first tree", len(darwin.ArrayItems(axSend(s.w.view, "accessibilityChildren"))), 0)
+			axSend(s.w.view, "accessibilityFocusedUIElement")
+			check("active", s.w.acc.active, true)
+		},
+		// 2. The app pushes the tree; the test walks it.
+		func(s *session) {
+			check("AccessibilityEvents after the first queries", activations(s), 1)
+			trace = nil
+			s.w.SetAccessibility(axTestTree())
+			check("notifications of the first tree", strings.Join(trace, "; "), "post AXLayoutChanged")
+			v := s.w.view
+			kids := darwin.ArrayItems(axSend(v, "accessibilityChildren"))
+			var lines []string
+			for _, k := range kids {
+				lines = append(lines, axDescribe(k))
+			}
+			t.Logf("view children:\n  %s", strings.Join(lines, "\n  "))
+			if len(kids) != 6 {
+				t.Errorf("the view has %d children, want 6 (heading, button, checkbox, field, password, slider)", len(kids))
+				return
+			}
+			heading, button, checkbox, field, password, slider := kids[0], kids[1], kids[2], kids[3], kids[4], kids[5]
+			buttonEl = darwin.Retain(button)
+			roles := []string{}
+			for _, k := range kids {
+				roles = append(roles, axGoString(k, "accessibilityRole"))
+			}
+			check("roles", roles, []string{"AXHeading", "AXButton", "AXCheckBox", "AXTextField", "AXTextField", "AXSlider"})
+			check("button label", axGoString(button, "accessibilityLabel"), "Save")
+			check("button children (presentational)", len(darwin.ArrayItems(axSend(button, "accessibilityChildren"))), 0)
+			check("button is an element", axBool(button, "isAccessibilityElement"), true)
+			check("button enabled", axBool(button, "isAccessibilityEnabled"), true)
+			check("button focused", axBool(button, "isAccessibilityFocused"), true)
+			check("view's focused element is the button", axSend(v, "accessibilityFocusedUIElement") == button, true)
+			check("button parent is the view", axSend(button, "accessibilityParent") == v, true)
+			check("button window", axSend(button, "accessibilityWindow") == s.w.ns, true)
+			check("heading level (value)", darwin.SendInt(axSend(heading, "accessibilityValue"), darwin.Sel("integerValue")), 1)
+			hk := darwin.ArrayItems(axSend(heading, "accessibilityChildren"))
+			if len(hk) != 1 {
+				t.Errorf("the heading has %d children, want its static text", len(hk))
+			} else {
+				t.Logf("heading's child: %s", axDescribe(hk[0]))
+				check("heading text role", axGoString(hk[0], "accessibilityRole"), "AXStaticText")
+				check("heading text value", axGoString(hk[0], "accessibilityValue"), "Settings")
+				check("text's parent is the heading", axSend(hk[0], "accessibilityParent") == heading, true)
+			}
+			check("checkbox value", darwin.SendInt(axSend(checkbox, "accessibilityValue"), darwin.Sel("integerValue")), 1)
+			check("password subrole", axGoString(password, "accessibilitySubrole"), "AXSecureTextField")
+			check("password value", axGoString(password, "accessibilityValue"), "••••")
+			check("slider value", darwin.SendFloat(axSend(slider, "accessibilityValue"), darwin.Sel("doubleValue")), 30)
+			check("slider min", darwin.SendFloat(axSend(slider, "accessibilityMinValue"), darwin.Sel("doubleValue")), 0)
+			check("slider max", darwin.SendFloat(axSend(slider, "accessibilityMaxValue"), darwin.Sel("doubleValue")), 100)
+
+			// Text, in UTF-16: "a😀b" is 4 units; the selection 1-2 in
+			// code points is the emoji.
+			check("field value", axGoString(field, "accessibilityValue"), "a😀b")
+			check("field placeholder", axGoString(field, "accessibilityPlaceholderValue"), "you@example.com")
+			check("field characters", darwin.SendInt(field, darwin.Sel("accessibilityNumberOfCharacters")), 4)
+			check("field selected range", darwin.SendRange(field, darwin.Sel("accessibilitySelectedTextRange")), darwin.NSRange{Location: 1, Length: 2})
+			check("field selected text", axGoString(field, "accessibilitySelectedText"), "😀")
+			check("field string for 3-1", darwin.GoString(axSend(field, "accessibilityStringForRange:", darwin.NSRange{Location: 3, Length: 1})), "b")
+			check("field line for index 2", darwin.SendInt(field, darwin.Sel("accessibilityLineForIndex:"), 2), 0)
+			check("field range for line 0", darwin.SendRange(field, darwin.Sel("accessibilityRangeForLine:"), 0), darwin.NSRange{Length: 4})
+			check("field visible range", darwin.SendRange(field, darwin.Sel("accessibilityVisibleCharacterRange")), darwin.NSRange{Length: 4})
+			check("field insertion line", darwin.SendInt(field, darwin.Sel("accessibilityInsertionPointLineNumber")), 0)
+
+			// The method gate.
+			allowed := func(e darwin.ID, name string) bool {
+				return axBool(e, "isAccessibilitySelectorAllowed:", darwin.Sel(name))
+			}
+			check("press allowed on the button", allowed(button, "accessibilityPerformPress"), true)
+			check("press allowed on the heading", allowed(heading, "accessibilityPerformPress"), false)
+			check("setValue allowed on the button", allowed(button, "setAccessibilityValue:"), false)
+			check("setValue allowed on the field", allowed(field, "setAccessibilityValue:"), true)
+			check("role allowed on the button", allowed(button, "accessibilityRole"), true)
+			names := []string{}
+			for _, n := range darwin.ArrayItems(axSend(button, "accessibilityActionNames")) {
+				names = append(names, darwin.GoString(n))
+			}
+			t.Logf("button action names: %v", names)
+			if !strings.Contains(strings.Join(names, " "), axScrollToVisible) {
+				t.Errorf("the button's action names %v lack %s", names, axScrollToVisible)
+			}
+
+			// The frame in screen coordinates: the content area's origin
+			// plus the bounds, y flipped.
+			frame := darwin.SendRect(s.w.ns, asel.frame)
+			content := darwin.SendRect(s.w.ns, asel.contentRect, frame)
+			got := darwin.SendRect(button, darwin.Sel("accessibilityFrame"))
+			want := darwin.CGRect{Origin: darwin.CGPoint{X: content.Origin.X + 10, Y: content.Origin.Y + content.Size.Height - 40 - 30},
+				Size: darwin.CGSize{Width: 80, Height: 30}}
+			t.Logf("window frame %v, content %v; button frame %v, want %v", frame, content, got, want)
+			if math.Abs(got.Origin.X-want.Origin.X) > 0.5 || math.Abs(got.Origin.Y-want.Origin.Y) > 0.5 ||
+				math.Abs(got.Size.Width-80) > 0.5 || math.Abs(got.Size.Height-30) > 0.5 {
+				t.Errorf("button frame %v, want %v", got, want)
+			}
+			center := darwin.CGPoint{X: want.Origin.X + 40, Y: want.Origin.Y + 15}
+			hit := axSend(v, "accessibilityHitTest:", center)
+			check("view hit test at the button's center", axDescribe(hit), axDescribe(button))
+			whit := axSend(s.w.ns, "accessibilityHitTest:", center)
+			t.Logf("window hit test at %v: %s", center, axDescribe(whit))
+			var wk []string
+			found := false
+			for _, k := range darwin.ArrayItems(axSend(s.w.ns, "accessibilityChildren")) {
+				wk = append(wk, axGoString(k, "accessibilityRole"))
+				found = found || k == heading
+			}
+			t.Logf("window children: %v", wk)
+			if !found {
+				t.Errorf("the window's accessibilityChildren %v do not hold the heading: AppKit does not reach the view's children", wk)
+			}
+
+			// Actions: each queues an AccessActionEvent.
+			check("press the button", axBool(button, "accessibilityPerformPress"), true)
+			check("press the heading", axBool(heading, "accessibilityPerformPress"), false)
+			check("increment the slider", axBool(slider, "accessibilityPerformIncrement"), true)
+			check("decrement the button", axBool(button, "accessibilityPerformDecrement"), false)
+			check("show the button's menu", axBool(button, "accessibilityPerformShowMenu"), true)
+			hi := darwin.NSString("hi")
+			axSend(field, "setAccessibilityValue:", hi)
+			axSend(password, "setAccessibilityValue:", hi) // no set-value action: ignored
+			darwin.Release(hi)
+			axSend(field, "setAccessibilitySelectedTextRange:", darwin.NSRange{Location: 0, Length: 3})
+			axSend(field, "setAccessibilityFocused:", true)
+			axSend(button, "accessibilityPerformAction:", darwin.AutoString(axScrollToVisible))
+
+			// The attribute API the AX server calls (accessibilityAttribute
+			// Value: and the names), which AppKit maps onto the methods
+			// above through their type encodings.
+			attr := func(e darwin.ID, name string) darwin.ID {
+				return axSend(e, "accessibilityAttributeValue:", darwin.AutoString(name))
+			}
+			desc := func(o darwin.ID) string {
+				if o == 0 {
+					return "<nil>"
+				}
+				return darwin.GoString(axSend(o, "description"))
+			}
+			var attrNames []string
+			for _, n := range darwin.ArrayItems(axSend(button, "accessibilityAttributeNames")) {
+				attrNames = append(attrNames, darwin.GoString(n))
+			}
+			t.Logf("button attribute names: %v", attrNames)
+			for _, name := range []string{"AXRole", "AXRoleDescription", "AXDescription", "AXEnabled", "AXFocused", "AXFrame", "AXParent", "AXWindow"} {
+				t.Logf("button %s = %s", name, desc(attr(button, name)))
+			}
+			check("AXRole", darwin.GoString(attr(button, "AXRole")), "AXButton")
+			check("AXDescription", darwin.GoString(attr(button, "AXDescription")), "Save")
+			check("AXEnabled", darwin.SendBool(attr(button, "AXEnabled"), darwin.Sel("boolValue")), true)
+			if f := attr(button, "AXFrame"); f != 0 {
+				check("AXFrame", darwin.SendRect(f, darwin.Sel("rectValue")), got)
+			} else {
+				t.Errorf("AXFrame is nil")
+			}
+			check("AXChildren of the heading", len(darwin.ArrayItems(attr(heading, "AXChildren"))), 1)
+			check("AXValue of the slider", darwin.SendFloat(attr(slider, "AXValue"), darwin.Sel("doubleValue")), 30)
+			check("AXNumberOfCharacters of the field", darwin.SendInt(attr(field, "AXNumberOfCharacters"), darwin.Sel("integerValue")), 4)
+			if r := attr(field, "AXSelectedTextRange"); r != 0 {
+				check("AXSelectedTextRange of the field", darwin.SendRange(r, darwin.Sel("rangeValue")), darwin.NSRange{Location: 1, Length: 2})
+			} else {
+				t.Errorf("AXSelectedTextRange is nil")
+			}
+			var fieldAttrs []string
+			for _, n := range darwin.ArrayItems(axSend(field, "accessibilityAttributeNames")) {
+				fieldAttrs = append(fieldAttrs, darwin.GoString(n))
+			}
+			t.Logf("field attribute names: %v", fieldAttrs)
+			var params []string
+			for _, n := range darwin.ArrayItems(axSend(field, "accessibilityParameterizedAttributeNames")) {
+				params = append(params, darwin.GoString(n))
+			}
+			t.Logf("field parameterized attribute names: %v", params)
+			wkids := attr(s.w.ns, "AXChildren")
+			found = false
+			for _, k := range darwin.ArrayItems(wkids) {
+				found = found || k == heading
+			}
+			t.Logf("window AXChildren: %s", desc(wkids))
+			if !found {
+				t.Errorf("the window's AXChildren do not hold the heading")
+			}
+			// AXPress through the attribute API reaches accessibilityPerformPress.
+			axSend(button, "accessibilityPerformAction:", darwin.AutoString("AXPress"))
+		},
+		// 3. The actions arrived; a second update.
+		func(s *session) {
+			var acts []string
+			for _, e := range s.events {
+				if e, ok := e.(platform.AccessActionEvent); ok {
+					acts = append(acts, actionString(e))
+				}
+			}
+			check("action events", strings.Join(acts, "; "),
+				`default 5; increment 10; show-menu 5; set-value 8 "hi"; set-selection 8 0-2; focus 8; scroll-into-view 5; default 5`)
+			u := axTestTree()
+			nodes := map[platform.AccessID]platform.AccessNode{}
+			for _, n := range u.Nodes {
+				nodes[n.ID] = n
+			}
+			heading, div, checkbox := nodes[2], nodes[4], nodes[7]
+			heading.Name = "Preferences"
+			div.Children = []platform.AccessID{7}
+			checkbox.Checked = platform.ToggleFalse
+			trace = nil
+			s.w.SetAccessibility(platform.AccessUpdate{Nodes: []platform.AccessNode{heading, div, checkbox}, Root: 1, Focus: 8,
+				Announcements: []platform.Announcement{{Text: "Saved", Assertive: true}}})
+			check("notifications of the second update", strings.Join(trace, "; "),
+				`post AXUIElementDestroyed 5; post AXLayoutChanged; post AXTitleChanged 2; post AXValueChanged 7; `+
+					`post AXFocusedUIElementChanged 8; post AXAnnouncementRequested "Saved" high`)
+			kids := darwin.ArrayItems(axSend(s.w.view, "accessibilityChildren"))
+			check("view children after the removal", len(kids), 5)
+			if buttonEl != 0 {
+				check("removed button is an element", axBool(buttonEl, "isAccessibilityElement"), false)
+				check("removed button role", axGoString(buttonEl, "accessibilityRole"), "")
+				check("removed button press", axBool(buttonEl, "accessibilityPerformPress"), false)
+				darwin.Release(buttonEl)
+				buttonEl = 0
+			}
+			if len(kids) > 0 {
+				check("renamed heading", axGoString(kids[0], "accessibilityLabel"), "Preferences")
+			}
+			focused := axSend(s.w.view, "accessibilityFocusedUIElement")
+			t.Logf("focused element after the update: %s", axDescribe(focused))
+			check("focused element is the field", len(kids) == 5 && focused == kids[2], true)
+		},
+	}
+	s := runSteps(t, "tela accessibility", false, 300*time.Millisecond, steps...)
+	if s == nil {
+		t.Fatal("the window never showed")
+	}
+	check("AccessibilityEvents in the session", activations(s), 1)
+}
+
+// TestAccessibilityAXClient reads the window's tree through the
+// AXUIElement API from another thread, as VoiceOver does from its own
+// process. It needs the accessibility permission (AXIsProcessTrusted),
+// which CI runners usually lack: it skips without it.
+func TestAccessibilityAXClient(t *testing.T) {
+	if err := darwin.LoadAXClient(); err != nil {
+		t.Skipf("ApplicationServices: %v", err)
+	}
+	if !darwin.AXIsProcessTrusted() {
+		t.Skip("the process is not trusted for accessibility (System Settings > Privacy & Security > Accessibility); skipping the AXUIElement client test")
+	}
+	results := make(chan []string, 1)
+	pushed := make(chan struct{})
+	const title = "tela ax client"
+	client := func() {
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+		pool := darwin.PoolPush()
+		defer darwin.PoolPop(pool)
+		var out []string
+		attr := func(el uintptr, name string) uintptr {
+			s := darwin.NSString(name)
+			defer darwin.Release(s)
+			var v uintptr
+			if err := darwin.AXUIElementCopyAttributeValue(el, uintptr(s), &v); err != 0 {
+				out = append(out, fmt.Sprintf("%s: AXError %d", name, err))
+				return 0
+			}
+			return v
+		}
+		app := darwin.AXUIElementCreateApplication(int32(os.Getpid()))
+		defer darwin.CFRelease(app)
+		var win uintptr
+		if ws := attr(app, "AXWindows"); ws != 0 {
+			for _, w := range darwin.ArrayItems(darwin.ID(ws)) {
+				if tv := attr(uintptr(w), "AXTitle"); tv != 0 {
+					if darwin.GoString(darwin.ID(tv)) == title {
+						win = uintptr(darwin.Retain(w))
+					}
+					darwin.CFRelease(tv)
+				}
+			}
+			darwin.CFRelease(ws)
+		}
+		if win == 0 {
+			results <- append(out, "window not found")
+			return
+		}
+		walk := func() {
+			if kids := attr(win, "AXChildren"); kids != 0 {
+				for _, k := range darwin.ArrayItems(darwin.ID(kids)) {
+					role, desc := attr(uintptr(k), "AXRole"), attr(uintptr(k), "AXDescription")
+					out = append(out, fmt.Sprintf("%s %q", darwin.GoString(darwin.ID(role)), darwin.GoString(darwin.ID(desc))))
+					if role != 0 {
+						darwin.CFRelease(role)
+					}
+					if desc != 0 {
+						darwin.CFRelease(desc)
+					}
+				}
+				darwin.CFRelease(kids)
+			}
+		}
+		walk() // activates the bridge
+		out = append(out, "--- after the tree")
+		select {
+		case <-pushed:
+		case <-time.After(5 * time.Second):
+			out = append(out, "no tree pushed")
+		}
+		walk()
+		darwin.Release(darwin.ID(win))
+		results <- out
+	}
+	var got []string
+	done := false
+	poll := func(s *session) {
+		if done {
+			return
+		}
+		if s.w.acc.active && s.w.acc.tree.Load() == nil {
+			s.w.SetAccessibility(axTestTree())
+			close(pushed)
+		}
+		select {
+		case got = <-results:
+			done = true
+		default:
+		}
+	}
+	steps := []func(s *session){func(*session) { go client() }}
+	for range 20 {
+		steps = append(steps, poll)
+	}
+	if s := runSteps(t, title, false, 300*time.Millisecond, steps...); s == nil {
+		t.Fatal("the window never showed")
+	}
+	if !done {
+		t.Fatalf("the AX client did not finish")
+	}
+	t.Logf("AX client saw:\n  %s", strings.Join(got, "\n  "))
+	if !strings.Contains(strings.Join(got, "\n"), `AXButton "Save"`) {
+		t.Errorf("the AX client did not see the Save button")
+	}
+}
