@@ -34,7 +34,7 @@ How Tela ships and loads fonts (ADR-244): system fonts by default, embedded font
 - [ ] The sprite cache keys bitmap and COLR glyphs by text color, so one emoji in two colors is cached twice
 - [ ] Inspect's and LayoutJSON's `font` field shows the first name of the stack (`ui-sans-serif`), not the family that drew the text
 - [ ] Linux: the portal's settings are read on the UI thread in `NewHost` while the font index loads beside it (3 → 8 ms); read them off the UI thread at `Run` start
-- [ ] After: hello's binary size, start-up font time and font memory measured again with `go run ./internal/testutil/memreport`
+- [x] After (2026-11-08): hello's binary 27.8 → 19.6 MB (21.9 → 13.7 MB with `-s -w`; 21.6 MB embedding Inter). memreport (the test set, now parsed on first need): hello's font heap 35.4 → 4.6 MiB, heap in use 42.5 → 10.1 MiB, RSS 70.6 → 28.8 MiB; kit and the dashboard 35.7 → 6.3 MiB of fonts. With system fonts (this machine, a hello-like screen): the index 20 ms, loaded beside the window opening, the first render 8 ms, fonts and index 7.4 MiB of heap. Start-up parse: 46 ms for six files before, now only the faces text uses, when it first needs them
 
 **Done when:** an app without `Fonts` carries no font file and draws with the system's fonts on Linux, Windows and macOS (emoji included), an app can ship its own fonts or Tela's, goldens stay bit-identical wherever the default fonts did not change, and `examples/hello`'s binary size, start-up parse time and font memory are measured before and after.
 
