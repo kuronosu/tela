@@ -210,8 +210,6 @@ type layerState struct {
 	// (ADR-200): frameDamage carries the filters whose input did not
 	// change to the next frame.
 	bdc raster.BackdropCache
-	// rasIdle: the last RasterizeFrame left nothing pending (RasterIdle).
-	rasIdle bool
 	// recorded counts the layers recorded by the last paint.
 	recorded int
 }
@@ -243,10 +241,16 @@ func (p *painter) hold(a *imageAsset) {
 	default:
 		return
 	}
-	if n := len(*uses); n > 0 && (*uses)[n-1] == a {
-		return
+	// The recent entries are enough to hold each image about once: a list
+	// paints the images of a row, then of the next. (The image itself is
+	// not marked: it is shared by trees that may paint in parallel.)
+	u := *uses
+	for i := len(u) - 1; i >= max(len(u)-8, 0); i-- {
+		if u[i] == a {
+			return
+		}
 	}
-	*uses = append(*uses, a)
+	*uses = append(u, a)
 }
 
 // instance is a layer as composed in a frame.

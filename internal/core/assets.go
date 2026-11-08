@@ -84,6 +84,10 @@ type assetRegistry struct {
 	// used first), keepBytes the cost of its images.
 	keepHead, keepTail *imageAsset
 	keepBytes          int
+	// failed holds the keys of the cached failures, oldest first: at most
+	// maxFailures are kept (an app that previews documents as they are
+	// typed makes a new failing key at every keystroke).
+	failed []any
 	// decodes counts the lookups that missed the cache (tests).
 	decodes int
 }
@@ -107,6 +111,11 @@ type assetSlot struct {
 // keepBytes bounds the cost of the images the cache holds strongly
 // because they were looked up last (the keep list).
 const keepBytes = 4 << 20
+
+// maxFailures bounds the failures to load a source the cache keeps; the
+// oldest go first, and a source whose failure was dropped is loaded again
+// the next time it is asked for.
+const maxFailures = 256
 
 var assets = assetRegistry{slots: map[any]*assetSlot{}}
 
@@ -213,6 +222,17 @@ func (r *assetRegistry) store(k any, a *imageAsset, err error, gen uint64) (*ima
 		r.touch(a)
 	}
 	r.slots[k] = s
+	if err != nil {
+		r.failed = append(r.failed, k)
+		if len(r.failed) > maxFailures {
+			old := r.failed[0]
+			r.failed[0] = nil
+			r.failed = r.failed[1:]
+			if o := r.slots[old]; o != nil && o.err != nil {
+				delete(r.slots, old)
+			}
+		}
+	}
 	return a, s.err
 }
 

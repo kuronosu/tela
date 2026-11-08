@@ -149,3 +149,30 @@ func TestHostRasterTrim(t *testing.T) {
 	x.settle()
 	checkFramebuffer(t, x)
 }
+
+// TestHostRasterTrimWithoutPixels: the frame that leaves the tree at rest
+// may draw nothing new (an animation whose last step changes no pixel), so
+// it returns before rasterizing; it must still schedule the trim, or the
+// window would keep the scratch memory of its last heavy frame.
+func TestHostRasterTrimWithoutPixels(t *testing.T) {
+	var set func(bool)
+	x := newInput(t, palettePage(&set), 600, 400)
+	x.settle()
+	v := x.h.main
+	set(true)
+	x.settle()
+	if v.renderer.ScratchBytes() == 0 {
+		t.Fatal("the palette left no scratch memory to trim")
+	}
+	v.rasterTrimAt = 0 // as after a last rasterized frame that was still animating
+	x.h.frame(v, x.b.Now())
+	if v.rasterTrimAt == 0 {
+		t.Fatal("a frame that drew nothing new did not schedule the trim")
+	}
+	x.b.Advance(RasterSettle + time.Millisecond)
+	x.b.Wake()
+	x.b.Drain(x.h)
+	if s := v.renderer.ScratchBytes(); s != 0 {
+		t.Fatalf("after the trim: %d bytes of scratch", s)
+	}
+}

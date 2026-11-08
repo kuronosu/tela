@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"crypto/sha256"
+	"fmt"
 	"image"
 	"image/png"
 	"runtime"
@@ -306,4 +307,30 @@ func TestKeepList(t *testing.T) {
 		t.Errorf("the keep list holds %d bytes, more than %d", assets.keepBytes, keepBytes)
 	}
 	assets.mu.Unlock()
+}
+
+// TestFailuresBounded: the cache keeps at most maxFailures failures, so an
+// app that previews a document at every keystroke (most versions invalid)
+// does not grow it without bound; the oldest failure goes first.
+func TestFailuresBounded(t *testing.T) {
+	resetAssets()
+	t.Cleanup(resetAssets)
+	bad := func(i int) string { return fmt.Sprintf("<svg %d", i) }
+	for i := range maxFailures + 10 {
+		if _, err := ParseIcon(bad(i)); err == nil {
+			t.Fatalf("document %d parsed", i)
+		}
+	}
+	assets.mu.Lock()
+	n := len(assets.slots)
+	assets.mu.Unlock()
+	if n != maxFailures {
+		t.Errorf("the cache holds %d slots; want %d", n, maxFailures)
+	}
+	if cachedSlot(iconKey(bad(0))) != nil {
+		t.Error("the oldest failure is still cached")
+	}
+	if s := cachedSlot(iconKey(bad(maxFailures + 9))); s == nil || s.err == nil {
+		t.Error("the newest failure is not cached")
+	}
 }

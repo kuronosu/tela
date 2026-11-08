@@ -458,8 +458,7 @@ func (h *Host) nextDeadline() (at time.Duration, ok bool) {
 
 // armTimer arms one wake-up for the gesture arenas' next deadline (or the
 // next paced commit of a window without frames, or the trim of a
-// framebuffer), or
-// stops the timer when nothing waits (an idle app has no timer). The
+// framebuffer or of a renderer's scratch memory), or stops the timer when nothing waits (an idle app has no timer). The
 // platform layer has no timer API: a goroutine timer calls Wake, and the
 // WakeEvent compares the deadline with the backend clock, so a timer that
 // fires early only re-arms.
@@ -551,6 +550,20 @@ func (h *Host) syncRegions(v *winView) {
 		return
 	}
 	v.win.SetHitRegions(v.regions)
+}
+
+// scheduleRasterTrim sets when the renderer of window v is trimmed
+// (Tree.RasterTrimAt), after each frame: RasterSettle after a frame that
+// left nothing pending, unless a frame comes first (one timer wake-up
+// after the last frame; none while frames come). A later deadline needs no
+// new timer: one that fires early re-arms.
+func (h *Host) scheduleRasterTrim(v *winView) {
+	at := v.tree.RasterTrimAt(&v.renderer, h.backend.Now())
+	was := v.rasterTrimAt
+	v.rasterTrimAt = at
+	if (was == 0) != (at == 0) {
+		h.armTimer()
+	}
 }
 
 // fbSettle is how long the size of a window must stay the same before
@@ -645,26 +658,14 @@ func (h *Host) frame(v *winView, now time.Duration) {
 		changed, full = true, true
 	}
 	if !changed && !v.configured && !t.DebugPending() {
-		return // nothing new to show
+		h.scheduleRasterTrim(v) // the frame that ends an animation may draw nothing new
+		return                  // nothing new to show
 	}
 	// The framebuffer keeps the previous frame: only the damage is
 	// rasterized (layer.go), and presented. The first Present after a
 	// ConfigureEvent is full for the platform anyway.
 	d := t.RasterizeFrame(v.fb, &v.renderer, full || h.FullFrames)
-	// The renderer's memory is trimmed once the window rests: RasterSettle
-	// after a frame that left nothing pending, unless a frame comes first
-	// (one timer wake-up after the last frame; none while frames come).
-	// A later deadline needs no new timer: one that fires early re-arms.
-	trimAt := time.Duration(0)
-	if t.RasterTrimDue(&v.renderer) {
-		trimAt = h.backend.Now() + RasterSettle
-	}
-	if was := v.rasterTrimAt; (was == 0) != (trimAt == 0) {
-		v.rasterTrimAt = trimAt
-		h.armTimer()
-	} else {
-		v.rasterTrimAt = trimAt
-	}
+	h.scheduleRasterTrim(v)
 	if t.Debug() != 0 {
 		switch app := t.LastDamage(); {
 		case app.Full:

@@ -204,7 +204,7 @@ func newGvarTable(data []byte, nGlyphs int) *gvarTable {
 		if start == end {
 			continue
 		}
-		if start > end || len(data) < end {
+		if start > end || uint64(len(data)) < uint64(end) {
 			return nil
 		}
 	}
@@ -212,15 +212,17 @@ func newGvarTable(data []byte, nGlyphs int) *gvarTable {
 }
 
 // bounds returns the byte range of the variation data of glyph i in data,
-// computed as tables.ParseGvar does (uint32 sums).
-func (v *gvarTable) bounds(i int) (start, end int) {
+// computed as tables.ParseGvar does (uint32 sums). They stay uint32: an
+// int conversion would turn offsets of 2^31 and more negative on 32-bit
+// targets and let them pass the bounds check.
+func (v *gvarTable) bounds(i int) (start, end uint32) {
 	off := func(i int) uint32 {
 		if v.longOffsets {
 			return binary.BigEndian.Uint32(v.offsets[4*i:])
 		}
 		return 2 * uint32(binary.BigEndian.Uint16(v.offsets[2*i:]))
 	}
-	return int(v.arrayOffset + off(i)), int(v.arrayOffset + off(i+1))
+	return v.arrayOffset + off(i), v.arrayOffset + off(i+1)
 }
 
 // glyphData parses the variation data of glyph gid; ok is false when the

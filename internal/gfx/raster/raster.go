@@ -497,7 +497,9 @@ func (r *Renderer) getBuf(n int) []uint8 {
 
 // putBuf releases a buffer from getBuf. Its age starts again: it was used
 // in the current frame.
-func (r *Renderer) putBuf(b []uint8) { r.free = append(r.free, freeBuf{b: b}) }
+func (r *Renderer) putBuf(b []uint8) {
+	r.free = append(r.free, freeBuf{b: b, age: useAge{used: true}})
+}
 
 // strokePath fills the outline of a stroke. The outline is computed in local
 // space with a tolerance that keeps the device-space error within

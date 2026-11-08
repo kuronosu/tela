@@ -83,7 +83,7 @@ type rig struct {
 	ticks  int  // ticks played
 	asked  bool // a frame was requested since the last one ran
 	// trimAt is the clock time of the deferred trim of the renderer's
-	// memory (core.Host's rasterTrimAt): RasterSettle after a frame that
+	// memory (core.Host's rasterTrimAt, from Tree.RasterTrimAt): RasterSettle after a frame that
 	// left nothing pending, moved or cancelled by the next frame; 0 for
 	// none.
 	trimAt  time.Duration
@@ -180,10 +180,6 @@ func (r *rig) tick(st *[]frameStat, events ...func()) bool {
 	if changed {
 		d := r.tree.RasterizeFrame(r.fb, &r.rr, false)
 		lap(phRaster)
-		r.trimAt = 0
-		if r.tree.RasterTrimDue(&r.rr) {
-			r.trimAt = r.now + core.RasterSettle
-		}
 		fs.full = d.Full
 		if d.Full {
 			fs.pixels = r.fb.Rect.Dx() * r.fb.Rect.Dy()
@@ -201,6 +197,7 @@ func (r *rig) tick(st *[]frameStat, events ...func()) bool {
 		}
 		lap(phPresent)
 	}
+	r.trimAt = r.tree.RasterTrimAt(&r.rr, r.now) // as core.Host does after every frame
 	r.tree.FlushEffects()
 	lap(phEffects)
 	if r.sample != nil {

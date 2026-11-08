@@ -180,7 +180,11 @@ func main() {
 		log("memreport: %v", err)
 		os.Exit(2)
 	}
-	defer os.RemoveAll(tmp)
+	// exit removes the test binaries first: os.Exit skips deferred calls.
+	exit := func(code int) {
+		os.RemoveAll(tmp)
+		os.Exit(code)
+	}
 
 	start := time.Now()
 	var results []*caseResult
@@ -224,7 +228,7 @@ func main() {
 	}
 	if len(results) == 0 && !failed {
 		log("memreport: no case matches -only/-cases")
-		os.Exit(2)
+		exit(2)
 	}
 
 	// base is what -update merges into; the report compares with cmp.
@@ -244,18 +248,19 @@ func main() {
 	if *update {
 		if failed {
 			log("memreport: not updating the baseline: a case failed")
-			os.Exit(1)
+			exit(1)
 		}
 		base.update(results, time.Now())
 		if err := writeBaseline(*basePath, base); err != nil {
 			log("memreport: %v", err)
-			os.Exit(1)
+			exit(1)
 		}
 		log("baseline written to %s", *basePath)
 	}
 	if failed || (*strict && flagged > 0) {
-		os.Exit(1)
+		exit(1)
 	}
+	os.RemoveAll(tmp)
 }
 
 func hasExample(name string) bool {
