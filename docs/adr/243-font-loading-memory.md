@@ -1,7 +1,7 @@
 # ADR-243: Fonts load their outlines on demand from the file bytes (phase 17)
 
 - **Date:** 2026-11-07
-- **Status:** Draft
+- **Status:** Accepted
 
 ## Decision
 

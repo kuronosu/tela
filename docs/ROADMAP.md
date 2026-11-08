@@ -33,7 +33,7 @@ Find where RAM goes and reduce it. Before the Font system (the owner, 2026-11-07
   - trees, display lists and text layout: under 10 MiB
 - [ ] The rasterizer: release scratch buffers no frame uses, and evict backdrop cache entries no frame reads, so memory comes back after the palette or a dialog closes, without slower frames
 - [ ] Core: the framebuffer's resize headroom, and decoded images that no box shows
-- [ ] The fonts' waste (the owner, 2026-11-07: removed here, the design stays in the Font system): `glyf` and `gvar` parsed again by Tela after go-text, and table copies, with identical pixels
+- [x] The fonts' waste (the owner, 2026-11-07: removed here, the design stays in the Font system): outlines parsed on demand from the file bytes (ADR-243); fonts 61 → 35 MiB in every app, hello 69.9 → 42.8 MiB in use and 98 → 69 MiB RSS at x1
 - [ ] Record the before and after numbers of every example, and the fonts' share for the Font system's ADR
 
 **Done when:** the measurement runs from one command with a recorded baseline, and the largest consumers it found are reduced or explained (the fonts' share measured for the Font system's ADR), with the before and after numbers for each example.
@@ -43,6 +43,7 @@ Find where RAM goes and reduce it. Before the Font system (the owner, 2026-11-07
 How Tela ships and loads fonts. Before the API freeze, since it can add public API and change which fonts an app carries by default.
 
 - [ ] Baseline: `examples/hello` is 25.6 MB (20.2 MB with `-s -w`), and 7.2 MB of it are the six embedded fonts (Noto Color Emoji alone 5 MB, Inter's two files 1.8 MB, Noto Sans Arabic 0.8 MB, JetBrains Mono 0.6 MB). Every app parses all six at start (about 70 ms of work, 40 ms of it Noto Color Emoji, whose outlines go-text parses up front), and keeps them in memory whether its text needs them or not
+- [ ] What the fonts still take (ADR-243, measured in phase 17): 35 MiB of live heap in every app, almost all go-text's `NewFont`: its glyf (17 MiB with the table copy it keeps) and gvar (9.6 MiB), which Tela does not use but HarfBuzz's fallback mark positioning reads for extents (Noto Color Emoji, which has no GPOS, and Hebrew runs); COLR paint graphs 5.3 MiB. Per face: Noto Color Emoji 20 MiB, Inter and Inter Italic 4.2 each, Noto Sans Arabic 3.6, JetBrains Mono 1.4 each; hello draws only Inter upright, so 31 MiB are faces it never uses. A go-text patch with lazy glyf/gvar would save about 27 MiB with exact extents
 - [ ] An ADR on the options, from the Memory phase's measurements (the fonts' share of RAM, parse time, binary size), keeping ADR-008's deterministic pixels for tests and snapshots: fewer or subset embedded fonts; fonts an app opts into (separate modules like `icons/lucide`, or build tags); compressed embedding (the standard library's `compress/flate`; WOFF2 needs a Brotli decoder, a new dependency); system fonts by default with the embedded ones for tests (go-text's `fontscan` already indexes them, opt-in and internal today)
 - [ ] Parse a font when text first needs it, not at start
 - [ ] An API for an app to ship its own fonts, and a serif face for `font-serif` (today it draws Inter; deferred by the owner on 2026-10-30 because of binary size)
