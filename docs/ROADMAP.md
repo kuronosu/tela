@@ -10,26 +10,29 @@
 ## Current status
 
 - **Done:** phases 1–17. Latest version `v0.13.5` (2026-11-08, phase 17: memory; tagged on `6ca765e` with the owner's approval). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
-- **Phase in progress:** none. Phase 17 was merged into `main` from `phase-17-memory`.
+- **Phase in progress:** 18, Font system (ADR-244), on `phase-18-fonts`.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** the next phase in order, the Font system, whose ADR starts from phase 17's measurements (`go run ./internal/testutil/memreport`). R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** phase 18's text task (font sources parsed on first need, generic families per OS). R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
 
 In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–17 are done (HISTORY.md).
 
-### Font system
+### Phase 18: Font system
 
-How Tela ships and loads fonts. Before the API freeze, since it can add public API and change which fonts an app carries by default.
+How Tela ships and loads fonts (ADR-244): system fonts by default, embedded fonts opt-in per app. Work branch `phase-18-fonts`.
 
-- [ ] Baseline: `examples/hello` is 25.6 MB (20.2 MB with `-s -w`), and 7.2 MB of it are the six embedded fonts (Noto Color Emoji alone 5 MB, Inter's two files 1.8 MB, Noto Sans Arabic 0.8 MB, JetBrains Mono 0.6 MB). Every app parses all six at start (about 70 ms of work, 40 ms of it Noto Color Emoji, whose outlines go-text parses up front), and keeps them in memory whether its text needs them or not
-- [ ] What the fonts still take (ADR-243, measured in phase 17): 35 MiB of live heap in every app, almost all go-text's `NewFont`: its glyf (17 MiB with the table copy it keeps) and gvar (9.6 MiB), which Tela does not use but HarfBuzz's fallback mark positioning reads for extents (Noto Color Emoji, which has no GPOS, and Hebrew runs); COLR paint graphs 5.3 MiB. Per face: Noto Color Emoji 20 MiB, Inter and Inter Italic 4.2 each, Noto Sans Arabic 3.6, JetBrains Mono 1.4 each; hello draws only Inter upright, so 31 MiB are faces it never uses. A go-text patch with lazy glyf/gvar would save about 27 MiB with exact extents
-- [ ] An ADR on the options, from the Memory phase's measurements (the fonts' share of RAM, parse time, binary size), keeping ADR-008's deterministic pixels for tests and snapshots: fewer or subset embedded fonts; fonts an app opts into (separate modules like `icons/lucide`, or build tags); compressed embedding (the standard library's `compress/flate`; WOFF2 needs a Brotli decoder, a new dependency); system fonts by default with the embedded ones for tests (go-text's `fontscan` already indexes them, opt-in and internal today)
-- [ ] Parse a font when text first needs it, not at start
-- [ ] An API for an app to ship its own fonts, and a serif face for `font-serif` (today it draws Inter; deferred by the owner on 2026-10-30 because of binary size)
+- [x] Baseline (2026-11-08, before the phase): `examples/hello` is 27.8 MB (21.9 MB with `-s -w`), 7.2 MB of it the six embedded fonts; every app parses all six at start and keeps 35 MiB of font heap (ADR-243), 31 MiB of it faces hello never draws
+- [x] The ADR on the options: ADR-244 (system fonts by default, opt-in font packages, tests on the app's fonts plus `fonts/standard`)
+- [ ] Text: no font file reachable from non-test code; font sources registered without parsing and parsed when text first needs their family (embedded, app and system alike); generic families resolved per OS from the installed fonts; the theme's `font-sans`/`font-serif`/`font-mono` as generic stacks; the deterministic set for tests through a registration hook; text without any font draws nothing instead of panicking
+- [ ] Bitmap color glyphs: CBDT/CBLC and sbix PNG strikes drawn as images scaled from the closest strike, so the system emoji fonts work (Noto Color Emoji CBDT on Linux, Apple Color Emoji)
+- [ ] Public API: `tela.Font`, `tela.FontData`, `tela.FontFS`, `Sans`/`Serif`/`Mono`/`Emoji`/`Scripts`, `App.Fonts`; the packages `fonts/inter`, `fonts/jetbrainsmono`, `fonts/notoemoji`, `fonts/notoarabic`, `fonts/standard`; `telatest`, `tela snapshot` and `tela mcp` on the app's fonts plus `fonts/standard`; docs, `llms.txt`, wiki, `tela new`
+- [ ] A serif face for `font-serif`: three candidates rendered for the owner (Source Serif 4, Noto Serif, Literata), Source Serif 4 packaged until the owner picks
+- [ ] Linux: `system-ui` follows the desktop's interface and monospace fonts (the portal's `org.gnome.desktop.interface` settings, KDE's `kdeglobals`), fontconfig's preferences otherwise; the system font index loaded off the UI thread at start
+- [ ] After: hello's binary size, start-up font time and font memory measured again with `go run ./internal/testutil/memreport`
 
-**Done when:** the ADR's choice is in, an app can ship its own fonts, goldens stay bit-identical wherever the default fonts did not change, and `examples/hello`'s binary size, start-up parse time and font memory are measured before and after with the Memory phase's command.
+**Done when:** an app without `Fonts` carries no font file and draws with the system's fonts on Linux, Windows and macOS (emoji included), an app can ship its own fonts or Tela's, goldens stay bit-identical wherever the default fonts did not change, and `examples/hello`'s binary size, start-up parse time and font memory are measured before and after.
 
 ### Accessibility
 

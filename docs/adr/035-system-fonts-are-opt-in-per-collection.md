@@ -1,7 +1,7 @@
 # ADR-035: System fonts are opt-in per `Collection`
 
 - **Date:** 2026-10-12
-- **Status:** Accepted
+- **Status:** Accepted, amended by ADR-244 (system fonts by default, embedded fonts opt-in)
 
 ## Decision
 

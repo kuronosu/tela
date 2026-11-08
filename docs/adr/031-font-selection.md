@@ -1,7 +1,7 @@
 # ADR-031: Font selection
 
 - **Date:** 2026-10-11
-- **Status:** Accepted
+- **Status:** Accepted, amended by ADR-244 (system fonts by default, embedded fonts opt-in)
 
 ## Decision
 

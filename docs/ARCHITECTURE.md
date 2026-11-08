@@ -79,7 +79,7 @@ Contributions that break these are rejected.
 1. **Known vocabulary over new vocabulary.** Names copy React (`UseState`, `UseEffect`, `Key`, `OnClick`); classes copy Tailwind v4 verbatim. If an LLM would write it that way in React + Tailwind, it must work in Tela.
 2. **Beautiful by default.** Tokens, typography, shadows and components come polished. The easy path is the beautiful path.
 3. **Errors that teach.** Unknown classes, misused hooks and impossible layouts yield the cause plus a suggestion (`unknown class "rounded-xxl"; did you mean "rounded-2xl"?`).
-4. **Deterministic and observable.** Same tree, same pixels on every platform (embedded fonts, own rasterizer). Everything renders without a window and can be inspected as text.
+4. **Deterministic and observable.** Same tree, same pixels on every platform in tests and snapshots (embedded fonts, own rasterizer). Everything renders without a window and can be inspected as text.
 5. **0% CPU when idle.** No change, no frame.
 6. **One-way layered dependencies.** Each layer is tested without the layers above it.
 7. **Flutter inside, CSS semantics outside.** Layout protocol, trees and pipeline come from Flutter; what users see (flex, grid, classes) behaves like the browser.
@@ -154,7 +154,7 @@ platform → gfx → svg → text → style → layout → {anim, gesture, seman
 - Leaf packages that import nothing from Tela (`internal/fmath`, `internal/utf16x`, `internal/editdist`, `internal/plist`, the XML property lists of macOS bundles, ADR-227; `internal/darwin`, the macOS system bindings over purego shared by the `cocoa` backend and the future Metal backend, ADR-222) may be imported by every layer, `platform` included (ADR-189).
 - `layout` does not know `core`; it works on a layout-node interface that `core` implements.
 - **Public API:** `tela`, `h`, `desktop`, `i18n`, `aria`, `kit`, `telatest`, `cmd/tela`.
-- `internal/icongen` (the engine of `tela icons gen`) imports only `internal/svg` and `internal/gfx` and is used only by `cmd/tela`. `internal/lint` (the engine of `tela lint`, ADR-173) imports `internal/style` and `internal/core` (whose role check reads `internal/semantics`) for their validation functions, type-checks with the standard library, and is used only by `cmd/tela` and by the test that checks `docs/llms.txt` (`internal/gen/llmsdoc`, ADR-177). `icons/lucide` is a separate module (ADR-102): outside this list, it may import only the public packages (`tela`, `h`, `telatest`), and nothing in the core module imports it.
+- `internal/icongen` (the engine of `tela icons gen`) imports only `internal/svg` and `internal/gfx` and is used only by `cmd/tela`. `internal/lint` (the engine of `tela lint`, ADR-173) imports `internal/style` and `internal/core` (whose role check reads `internal/semantics`) for their validation functions, type-checks with the standard library, and is used only by `cmd/tela` and by the test that checks `docs/llms.txt` (`internal/gen/llmsdoc`, ADR-177). The `fonts/…` packages (ADR-244) import only `tela` and their font files in `internal/assets/fonts`; `telatest` imports them, nothing below it does. `icons/lucide` is a separate module (ADR-102): outside this list, it may import only the public packages (`tela`, `h`, `telatest`), and nothing in the core module imports it.
 - **Everything else lives in `internal/`** until its API stabilizes. Making a package public needs an ADR. The clearest candidate is `gfx`, for custom painting.
 
 ### Repository layout
@@ -177,8 +177,9 @@ tela/
 │   ├── icongen/          # SVG directory -> Go file of tela.Icon variables, behind `tela icons gen` (ADR-102)
 │   ├── text/  style/  layout/  anim/  gesture/  semantics/  core/
 │   ├── style/gen/        # go:generate from Tailwind v4 theme (§10)
-│   └── assets/fonts/     # embedded fonts (go:embed)
+│   └── assets/fonts/     # font files, one package per family (go:embed), imported only by fonts/ and tests
 ├── cmd/tela/
+├── fonts/                # opt-in embedded fonts: inter, jetbrainsmono, notoemoji, notoarabic, a serif, standard (ADR-244)
 ├── icons/lucide/         # separate module (own go.mod): Lucide as tela.Icon variables (ADR-102)
 ├── looks/               # separate module (own go.mod): platform looks for kit, Windows 11, GNOME, KDE (ADR-197)
 ├── examples/             # full screens: dashboard, login, settings, chat…
@@ -362,9 +363,10 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
   - cursor positions, selection rectangles, hit-testing (point → character index);
   - word/line navigation.
 - **Fonts:**
-  - **Embedded** (`go:embed`, OFL): Inter as default sans, a monospace font, a color emoji font. Chosen in the text phase.
-  - System fonts are available (discovery via `go-text` fontscan), but **snapshots and tests use embedded fonts only**, so they are deterministic across machines.
-  - **Fallback:** a per-script family list, embedded fonts last.
+  - **System fonts by default** (discovery via `go-text` fontscan); the generic families (`system-ui`, `sans-serif`, `serif`, `monospace`, `emoji`…) resolve per OS, and no font is in the binary unless the app imports one (ADR-244).
+  - **Opt-in embedded fonts** (`go:embed`, OFL): `tela.App.Fonts`, from the app's own files (`tela.FontData`, `tela.FontFS`) or Tela's packages `fonts/inter`, `fonts/jetbrainsmono`, `fonts/notoemoji`, `fonts/notoarabic`, a serif and `fonts/standard` (all of them). A file is parsed when text first needs it.
+  - **Snapshots and tests use the app's fonts and `fonts/standard` only**, never system fonts, so they are deterministic across machines (ADR-008).
+  - **Fallback:** the requested families, a per-script family list, the app's fonts, then the system's.
 - **Paragraphs:** a text node contains styled runs (`Text`, `Span`, `Strong`, `Em`, `Code`, `A`) and atomic inline-level boxes (`inline-block`, `inline-flex`, buttons, inline images: laid out like any box and placed on the line by `vertical-align`). Inline elements are CSS inline boxes: their horizontal margins, borders and padding take space on the line, and their backgrounds, borders and radii are painted per line fragment (ADR-066).
 - **Line boxes:** CSS 2.1 §10.8, quantized like Blink's in device pixels at the display scale: font ascent, descent and line gap rounded to whole device pixels, half-leadings rounded down to whole device pixels; layout results stay in logical px, so they depend on the scale as Chromium's do (ADR-159).
 - **Properties:** `font-family`, `font-size`, `font-weight` (incl. variable fonts), `font-style`, `line-height`, `letter-spacing`, `text-align`, `text-transform`, `text-decoration`, `white-space`, `text-wrap` (`text-balance` and `text-pretty` break lines as Blink does, ADR-166), `text-overflow: ellipsis`, `line-clamp-*`, `tabular-nums`.
