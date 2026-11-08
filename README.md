@@ -27,11 +27,12 @@ text tree you can read. That last part is on purpose: Tela is designed so both
 people and LLM agents can build good-looking interfaces without trial and
 error.
 
-> **Status: pre-1.0 (v0.13.6).** Phases 1–18 are done and tagged: Linux
+> **Status: pre-1.0 (v0.13.7).** Phases 1–19 are done and tagged: Linux
 > (Wayland, X11), Windows and macOS windows, text inputs and IME, CSS grid,
 > transitions and animations, glass effects, theme tokens, i18n, SVG icons,
 > `aria` behavior hooks, `tela dev` (a reload that keeps your state) and
-> `kit`, ready-made components you can restyle. macOS (13 or later) is
+> `kit`, ready-made components you can restyle, and screen readers on all
+> three systems. macOS (13 or later) is
 > verified on CI and has not yet been tried on a real Mac. The public API (`tela`, `h`) may still break between minor
 > versions. See [Project status](#project-status).
 
@@ -391,7 +392,8 @@ are done (ADR-208 sets how versions are numbered).
 | 16 | Platform parity: IME on X11, X11 flings and drag images, Wayland portal parents, Windows toasts, menu bar keys and dark menus, Windows 11 caption buttons over your title bar, macOS drags from other apps, a fallback title bar on GNOME | ✅ v0.13.4 |
 | 17 | Memory: one command measures every example's RAM; fonts load glyphs on demand, the rasterizer and image cache give memory back, about 30 MiB less per app | ✅ v0.13.5 |
 | 18 | Font system: apps draw with the system's fonts and carry none unless they embed one (`App.Fonts`, `fonts/inter`…); bitmap color emoji; hello's binary 8 MB smaller | ✅ v0.13.6 |
-| — | Accessibility, API and kit gaps, layout and text fidelity, CPU performance, GPU backend, packaging and auto-update, DevTools, dev loop and testing, canvas, SVG and PDF, audio and video | planned |
+| 19 | Accessibility: screen readers read and operate Tela apps (Orca through AT-SPI, NVDA and Narrator through UI Automation, VoiceOver through NSAccessibility); live regions and `aria-*` props | ✅ v0.13.7 |
+| — | Accessibility gaps, API and kit gaps, layout and text fidelity, CPU performance, GPU backend, packaging and auto-update, DevTools, dev loop and testing, canvas, SVG and PDF, audio and video | planned |
 
 ### What works today
 
@@ -402,6 +404,7 @@ are done (ADR-208 sets how versions are numbered).
 | Text fields, clipboard | ✅ | ✅ | ✅ (`telatest`) | ✅ | ✅ (CI) |
 | IME (Japanese, Chinese, …) | ✅ (`text-input-v3`) | ✅ (XIM) | ✅ (injected) | ✅ (IMM32) | ✅ (`NSTextInputClient`, CI) |
 | Window control, dialogs, tray, menus, drag and drop | ✅ | ✅ | ✅ (fakes) | ✅ | ✅ (CI; notifications, links and file types from a `tela run` bundle) |
+| Screen readers | ✅ (AT-SPI, Orca) | ✅ (AT-SPI) | ✅ (recorded tree) | ✅ (UI Automation, NVDA) | ✅ (NSAccessibility, CI; VoiceOver untried) |
 
 macOS is verified on `macos-latest` CI (every example's window matches its
 headless render pixel for pixel); a session on a real Mac (Retina, trackpad,
@@ -431,7 +434,8 @@ overlays; the `tela` CLI (`snapshot`, `inspect`, `dev`, `icons gen`).
   `grid-template-areas` from classes; menus have no submenus yet.
 - In `tela dev` an IME composition is lost across a reload, and a renamed
   component starts fresh.
-- No accessibility backend (AT-SPI, UIA, NSAccessibility) yet.
+- Screen readers: text is exposed by hard lines only, a slider's value is
+  set one step at a time, and VoiceOver has not been tried on a real Mac.
 
 The full list of limitations is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
