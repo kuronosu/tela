@@ -18,6 +18,7 @@ import (
 	"github.com/kuronosu/tela/internal/assets/fonts/jetbrainsmono"
 	"github.com/kuronosu/tela/internal/assets/fonts/notocoloremoji"
 	"github.com/kuronosu/tela/internal/assets/fonts/notosansarabic"
+	"github.com/kuronosu/tela/internal/assets/fonts/sourceserif4"
 	"github.com/kuronosu/tela/internal/stdfonts"
 	"github.com/kuronosu/tela/internal/text"
 )
@@ -29,7 +30,7 @@ func TestRegistered(t *testing.T) {
 	if c == nil {
 		t.Fatal("text.NewDefaultCollection is nil with stdfonts imported")
 	}
-	want := []string{stdfonts.Inter, stdfonts.JetBrainsMono, stdfonts.NotoSansArabic, stdfonts.NotoColorEmoji}
+	want := []string{stdfonts.Inter, stdfonts.JetBrainsMono, stdfonts.NotoSansArabic, stdfonts.NotoColorEmoji, stdfonts.SourceSerif4}
 	if got := c.Families(); !slices.Equal(got, want) {
 		t.Fatalf("Families() = %v, want %v", got, want)
 	}
@@ -46,8 +47,9 @@ func TestSetResolution(t *testing.T) {
 		"sans-serif": stdfonts.Inter, "system-ui": stdfonts.Inter, "ui-sans-serif": stdfonts.Inter,
 		"monospace": stdfonts.JetBrainsMono, "ui-monospace": stdfonts.JetBrainsMono,
 		"emoji": stdfonts.NotoColorEmoji,
-		// Not mapped: the first registered family draws them.
-		"serif": stdfonts.Inter, "ui-serif": stdfonts.Inter, "cursive": stdfonts.Inter,
+		"serif": stdfonts.SourceSerif4, "ui-serif": stdfonts.SourceSerif4,
+		// Not mapped: the first registered family draws it.
+		"cursive": stdfonts.Inter,
 	} {
 		f := c.Face(text.Query{Families: []string{generic}}, 16)
 		if f == nil || f.Typeface().Family() != want {
@@ -82,6 +84,7 @@ func files() []file {
 		{"Inter Variable", inter.Upright}, {"Inter Variable Italic", inter.Italic},
 		{"JetBrains Mono", jetbrainsmono.Upright}, {"JetBrains Mono Italic", jetbrainsmono.Italic},
 		{"Noto Sans Arabic", notosansarabic.Data}, {"Noto Color Emoji", notocoloremoji.Data},
+		{"Source Serif 4", sourceserif4.Upright}, {"Source Serif 4 Italic", sourceserif4.Italic},
 	}
 }
 
@@ -272,5 +275,18 @@ func TestCJKSubset(t *testing.T) {
 				t.Errorf("no glyph for U+%04X", r)
 			}
 		}
+	}
+}
+
+func TestSourceSerif4(t *testing.T) {
+	for _, f := range files()[6:8] {
+		a := axes(t, f.data)
+		if w, ok := a["wght"]; !ok || w.Minimum != 200 || w.Maximum != 900 {
+			t.Errorf("%s wght axis = %v, want 200..900", f.name, w)
+		}
+		if _, ok := a["opsz"]; !ok {
+			t.Errorf("%s has no opsz axis", f.name)
+		}
+		requireGlyphs(t, parse(t, f.data), "AaZz09 .,;:!?@#&é ñ ü ß Ж")
 	}
 }

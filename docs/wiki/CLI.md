@@ -221,8 +221,12 @@ tela snapshot [--size WxH] [--scale N] [--dark] [--preview NAME] [-o out.png] <p
 tela snapshot --size 480x200 --scale 2 --dark -o counter-dark.png ./examples/counter
 ```
 
-Rendering uses Tela's own rasterizer and the embedded fonts, so the PNG is the
-same on every machine and matches what a window shows. Snapshots of the
+Rendering uses Tela's own rasterizer and its standard fonts (the fonts of the
+package's `App.Fonts` first, never the system's), so the PNG is the same on
+every machine. It matches what a window shows when the app brings its own
+fonts; an app that uses the system's fonts looks like Inter, JetBrains Mono
+and Source Serif here and like the system's faces in its window
+([Fonts](Fonts)). Snapshots of the
 bundled examples are in
 [`docs/images`](https://github.com/kuronosu/tela/tree/main/docs/images).
 

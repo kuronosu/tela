@@ -531,6 +531,16 @@ A test that checks the `contrast-more:` classes mounts with `telatest.HighContra
 and compares a golden or reads the layout (`app.Bounds`). The scale is 1 by
 default, so goldens do not depend on the machine that renders them.
 
+### Fonts
+
+Tests never use the system's fonts: text is drawn with the fonts of
+`tela.App.Fonts` (with `telatest.FromApp(App)`, or `telatest.Fonts(...)` for a
+test of its own) and then Tela's standard fonts (Inter, JetBrains Mono,
+Source Serif 4, Noto Color Emoji, Noto Sans Arabic), so goldens are the same on
+every machine. A font that cannot be used (a `FontFS` pattern that matches no
+file, a file that is not a font) fails the test at `Mount`. See
+[Fonts](Fonts).
+
 ### Platform keys
 
 Shortcuts differ per platform: Command on a Mac, Control elsewhere. Press

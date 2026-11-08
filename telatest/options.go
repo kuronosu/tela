@@ -11,6 +11,7 @@ import (
 	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/stdfonts"
+	"github.com/kuronosu/tela/internal/text"
 )
 
 // DefaultTimeout is how long actions and expectations wait for their
@@ -44,6 +45,7 @@ type config struct {
 	noSettle      bool
 	theme         *tela.Theme
 	aliases       map[string]string
+	fonts         []tela.Font
 	// win is the OS window of the main window (winoptions.go), screen the
 	// size of the fake screen maximized and fullscreen windows fill.
 	win    windowConfig
@@ -82,6 +84,13 @@ func (c config) validate() error {
 	if _, err := core.ParseDebug(strings.Join(c.debug, ",")); err != nil {
 		return fmt.Errorf("telatest.Debug: %v", err)
 	}
+	for _, f := range c.coreFonts() {
+		// Verify reads and parses the font now, so a broken file fails
+		// the test instead of drawing fallback glyphs.
+		if err := f.Verify(); err != nil {
+			return fmt.Errorf("telatest.Fonts: %v", err)
+		}
+	}
 	if _, err := headlessServices(c.unsupported); err != nil {
 		return fmt.Errorf("telatest.WithUnsupported%v", err)
 	}
@@ -102,6 +111,25 @@ func (c config) titleBarControls() platform.Rect {
 	return platform.Rect{X: r.X, Y: r.Y, W: r.Width, H: r.Height}
 }
 
+// coreFonts returns the app's fonts for core.
+func (c config) coreFonts() []core.Font {
+	out := make([]core.Font, len(c.fonts))
+	for i, f := range c.fonts {
+		out[i] = core.Font(f)
+	}
+	return out
+}
+
+// fontCollection returns the collection the app draws with: its own fonts,
+// then the deterministic set (the same fonts as fonts/standard, ADR-244),
+// and never the system's.
+func (c config) fontCollection() *text.Collection {
+	// Not an error: validate has checked the fonts and there are no system
+	// fonts to fail.
+	coll, _ := core.NewFontCollection(c.coreFonts(), stdfonts.Sources(), nil)
+	return coll
+}
+
 // coreConfig returns the tree configuration (without Log and IDPrefix).
 func (c config) coreConfig() core.Config {
 	// TELA_DEBUG is ignored (goldens must not depend on the environment):
@@ -117,9 +145,9 @@ func (c config) coreConfig() core.Config {
 		clock = func() time.Duration { now += time.Millisecond; return now }
 	}
 	cc := core.Config{
-		// The deterministic fonts (ADR-008, ADR-244), never the system's:
-		// goldens are the same on every machine.
-		Fonts:             stdfonts.NewCollection(),
+		// The app's fonts and the deterministic ones (ADR-008, ADR-244),
+		// never the system's: goldens are the same on every machine.
+		Fonts:             c.fontCollection(),
 		Debug:             dbg,
 		DebugClock:        clock,
 		RootClass:         c.rootClass,
@@ -356,11 +384,26 @@ func ClassAliases(aliases map[string]string) Option {
 	return func(c *config) { c.aliases = aliases }
 }
 
+// Fonts adds fonts to the app, before the deterministic set every app has
+// (the fonts of fonts/standard: Inter, JetBrains Mono, Source Serif 4,
+// Noto Sans Arabic and Noto Color Emoji), like tela.App.Fonts: they win the
+// generic families they stand for (a Sans() font replaces Inter as
+// font-sans) and are tried first in fallback. Tests never use the
+// system's fonts, so goldens are the same on every machine. A font that
+// cannot be used (a FontFS pattern that matches nothing, a file that is
+// not a font) fails the test at Mount.
+//
+//	app := telatest.Mount(t, Notes(), telatest.Fonts(tela.FontData("Lora", lora).Serif()))
+func Fonts(fonts ...tela.Font) Option {
+	fonts = append([]tela.Font(nil), fonts...)
+	return func(c *config) { c.fonts = append(c.fonts, fonts...) }
+}
+
 // FromApp applies the settings of a [tela.App] that shape what is drawn, so
 // a test, `tela snapshot` and the window see the same app: the size when
 // both Width and Height are set, RootClass, ColorScheme, Theme,
-// ClassAliases, ClassicScrollbars, InstantScroll, NativeMenus, IgnoreTextScale and
-// Dev. It sets only
+// ClassAliases, Fonts, ClassicScrollbars, InstantScroll, NativeMenus,
+// IgnoreTextScale and Dev. It sets only
 // what the app sets, so it never undoes an earlier option, and the options
 // after it override it:
 //
@@ -383,6 +426,7 @@ func FromApp(app tela.App) Option {
 		panic("telatest.FromApp: App.ColorScheme must be tela.Light, tela.Dark or tela.System")
 	}
 	aliases := maps.Clone(app.ClassAliases)
+	fonts := append([]tela.Font(nil), app.Fonts...)
 	var theme *tela.Theme
 	if app.Theme != nil {
 		t := *app.Theme
@@ -405,6 +449,7 @@ func FromApp(app tela.App) Option {
 		if aliases != nil {
 			c.aliases = aliases
 		}
+		c.fonts = append(c.fonts, fonts...)
 		if app.ClassicScrollbars {
 			c.classic = true
 		}

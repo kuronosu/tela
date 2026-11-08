@@ -66,9 +66,11 @@ error.
   blur compared to Chromium's pixels; text shaped with HarfBuzz (bidi,
   Arabic, CJK, color emoji). SVG icons are compared to Chromium too
   (Lucide's set, mean under one level per channel).
-- **Deterministic.** Embedded fonts and an own rasterizer: same tree, same
-  pixels on every platform and architecture. Goldens are bit-exact on amd64
-  and arm64.
+- **Deterministic.** Tela's own rasterizer, and fonts that tests and
+  snapshots bring themselves: same tree, same pixels on every platform and
+  architecture. Goldens are bit-exact on amd64 and arm64. An app uses the
+  system's fonts, or embeds the ones it wants (`Fonts: []tela.Font{inter.Sans}`)
+  and pays for them in its binary only then.
 - **Fast when it matters, silent when it doesn't.** Frames on demand, 0% CPU
   when idle, layers with exact damage tracking, and phase-deferred values that
   repaint or relayout one element without rebuilding anything. A 100,000-row
@@ -488,5 +490,5 @@ CGO_ENABLED=0 GOOS=darwin  go build ./...
 ## License
 
 Tela is released under the [BSD 3-Clause License](LICENSE). Third-party code
-and the embedded fonts keep their own licenses; see
+and the fonts Tela can embed keep their own licenses; see
 [`THIRD_PARTY.md`](THIRD_PARTY.md).

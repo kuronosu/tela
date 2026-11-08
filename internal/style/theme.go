@@ -169,8 +169,9 @@ type Theme struct {
 	DefaultTransition Transition
 
 	// Fonts maps the font-* families ("sans", "serif", "mono") to a
-	// family list. Tela maps them to its embedded fonts instead of the
-	// system stacks of Tailwind (ADR-008, ADR-038).
+	// family list. Tela's lists are generic names (ui-sans-serif,
+	// system-ui, sans-serif...) that resolve to the system's fonts, or to
+	// the app's (ADR-244), instead of Tailwind's stacks of font names.
 	Fonts map[string][]string
 
 	// DefaultFont and DefaultMonoFont are the keys of Fonts used for

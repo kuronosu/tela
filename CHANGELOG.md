@@ -12,6 +12,23 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
+Phase 18, Font system (ADR-244): no font is in an app's binary unless the app brings it, and text uses the fonts installed on the system.
+
+### Added
+
+- `tela.App.Fonts []tela.Font`: the fonts an app brings, before the system's. `tela.FontData(family, files...)` takes font files in memory (usually `//go:embed`), `tela.FontFS(fsys, family, patterns...)` the files of an `fs.FS` that `fs.Glob` patterns match, read when text first needs the family. `Sans()`, `Serif()`, `Mono()` and `Emoji()` make a font the family of the generic names `ui-sans-serif`/`system-ui`/`sans-serif`, `ui-serif`/`serif`, `ui-monospace`/`monospace` and `emoji`, and `Scripts("Arab", "Hebr")` makes it the fallback for those scripts. `Run` returns an error naming a `FontFS` pattern that matches no file before it opens the window; a script code that is not ISO 15924 panics in dev mode.
+- The packages `fonts/inter` (`inter.Sans`, 1.8 MB), `fonts/jetbrainsmono` (`Mono`, 0.6 MB), `fonts/sourceserif` (Source Serif 4, `Serif`, 2.1 MB), `fonts/notoemoji` (`Emoji`, the COLRv1 Noto Color Emoji, 5.0 MB), `fonts/notoarabic` (`Arabic`, 0.8 MB) and `fonts/standard` (`standard.Fonts`, all of them): import the ones an app wants and list them in `App.Fonts`. A font is read and parsed when text first needs it.
+- `telatest.Fonts(fonts...)` adds fonts to a mounted app; `telatest.FromApp` takes `App.Fonts`, so `tela snapshot`, `tela inspect` and `tela mcp` render with the package's `var App` fonts.
+- Bitmap color glyphs are drawn: CBDT/CBLC and sbix (PNG) strikes, scaled from the closest strike, so the system's emoji fonts work (Noto Color Emoji on most Linux distributions, Apple Color Emoji).
+- A new wiki page, Fonts.
+
+### Changed
+
+- Apps no longer embed fonts: the binary of `examples/hello` went from 27.8 to 19.6 MB. Text uses the installed system fonts (on unless the program is a test binary), so an app looks like its OS unless it embeds a font. `tela new` apps use the system's fonts and carry a commented line showing how to embed Inter.
+- The theme's font stacks are generic names: `font-sans` is `ui-sans-serif, system-ui, sans-serif`, `font-serif` is `ui-serif, serif` and `font-mono` is `ui-monospace, monospace`, and each generic name (and `emoji`) resolves per operating system to the first installed family of a list (macOS: SF, New York, SF Mono, Apple Color Emoji; Windows: Segoe UI, Cambria, Cascadia Mono or Consolas, Segoe UI Emoji; Linux: fontconfig's usual preferences). `tela inspect --layout` shows `ui-sans-serif` as the `font` of default text instead of `Inter`.
+- Tests, `telatest`, `tela snapshot` and `tela mcp` use the app's fonts and then Tela's standard fonts (now with Source Serif 4 as the serif, so `font-serif` draws a serif there), never the system's. No golden changed.
+- Text with no font at all (nothing installed, none embedded, as in a minimal container) draws nothing and the app prints once which package to import.
+
 ## [0.13.5] - 2026-11-08
 
 Phase 17, Memory (ADR-240 to ADR-243): an app holds about 30 MiB less in every window, and memory comes back after heavy screens close.

@@ -27,6 +27,10 @@ func TestAppOptions(t *testing.T) {
 		!o.ClassicScrollbars || !o.InstantScroll || o.Root == nil {
 		t.Errorf("options %+v", o)
 	}
+	app.Fonts = []Font{FontData("A", []byte("x")).Sans(), FontData("B", []byte("y"))}
+	if o := app.options(); len(o.AppFonts) != 2 || o.AppFonts[0].Family() != "A" || o.AppFonts[1].Family() != "B" {
+		t.Errorf("App.Fonts did not reach the core options: %+v", o.AppFonts)
+	}
 }
 
 // TestAppWindowOptions checks that the window fields of App (ADR-180)

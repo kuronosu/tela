@@ -202,3 +202,22 @@ func TestAppOfAnotherType(t *testing.T) {
 		t.Errorf("*tela.App: corner %v, want its RootClass (lime)", got)
 	}
 }
+
+// TestAppFontsReachTheRender: the fonts of the package's App are the fonts
+// of snapshot, inspect and mcp (ADR-244), before the standard set.
+func TestAppFontsReachTheRender(t *testing.T) {
+	skipShort(t)
+	layout, _ := inspectRun(t, 0, "--layout", "./testdata/appfonts")
+	_, _, sansW, _ := boxRect(t, layout, "sans")
+	_, _, interW, _ := boxRect(t, layout, "inter")
+	if sansW == interW {
+		t.Errorf("font-sans and font-['Inter'] are both %dpx wide: App.Fonts did not reach the render", sansW)
+	}
+	if sansW <= 0 || interW <= 0 {
+		t.Errorf("widths %d, %d", sansW, interW)
+	}
+	img, _, _ := snap(t, "./testdata/appfonts")
+	if b := img.Bounds(); b.Dx() != 300 || b.Dy() != 100 {
+		t.Errorf("image is %v, want the App's 300x100", b)
+	}
+}

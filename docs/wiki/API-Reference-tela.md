@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`OpenPath`](#func-openpath) · [`OpenURL`](#func-openurl) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`Quit`](#func-quit) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseAccentColor`](#func-useaccentcolor) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseHighContrast`](#func-usehighcontrast) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseNativeMenus`](#func-usenativemenus) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTextScale`](#func-usetextscale) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`UseWindow`](#func-usewindow) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`OpenPath`](#func-openpath) · [`OpenURL`](#func-openurl) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`Quit`](#func-quit) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseAccentColor`](#func-useaccentcolor) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseHighContrast`](#func-usehighcontrast) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseNativeMenus`](#func-usenativemenus) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTextScale`](#func-usetextscale) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`UseWindow`](#func-usewindow) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Initial`](#func-initial) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
@@ -35,6 +35,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Easing`](#type-easing): [`CubicBezier`](#func-cubicbezier)
   - [`type ElementRef`](#type-elementref): [`UseElementRef`](#func-useelementref) · [`Blur`](#func-elementref-blur) · [`Bounds`](#func-elementref-bounds) · [`Click`](#func-elementref-click) · [`Focus`](#func-elementref-focus) · [`Focused`](#func-elementref-focused) · [`ScrollBy`](#func-elementref-scrollby) · [`ScrollIntoView`](#func-elementref-scrollintoview) · [`ScrollOffset`](#func-elementref-scrolloffset) · [`ScrollTo`](#func-elementref-scrollto) · [`ScrollToIndex`](#func-elementref-scrolltoindex) · [`Select`](#func-elementref-select) · [`SelectionRange`](#func-elementref-selectionrange) · [`SetSelectionRange`](#func-elementref-setselectionrange) · [`Value`](#func-elementref-value)
   - [`type FocusEvent`](#type-focusevent): [`DefaultPrevented`](#func-focusevent-defaultprevented) · [`PreventDefault`](#func-focusevent-preventdefault) · [`StopPropagation`](#func-focusevent-stoppropagation)
+  - [`type Font`](#type-font): [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`Emoji`](#func-font-emoji) · [`Mono`](#func-font-mono) · [`Sans`](#func-font-sans) · [`Scripts`](#func-font-scripts) · [`Serif`](#func-font-serif)
   - [`type Gradient`](#type-gradient): [`LinearGradient`](#func-lineargradient) · [`Paint`](#func-gradient-paint)
   - [`type GradientStop`](#type-gradientstop): [`Stop`](#func-stop) · [`StopAt`](#func-stopat)
   - [`type Icon`](#type-icon): [`MustSVG`](#func-mustsvg) · [`ParseSVG`](#func-parsesvg)
@@ -1659,6 +1660,17 @@ type App struct {
     //	off := false
     //	tela.Main(tela.App{Title: "Notes", Root: Notes(), Dev: &off})
     Dev *bool
+    // Fonts are the fonts the app brings, before the system's: made with
+    // tela.FontData and tela.FontFS from font files, or taken from Tela's
+    // packages fonts/inter, fonts/jetbrainsmono, fonts/notoemoji,
+    // fonts/notoarabic, fonts/sourceserif and fonts/standard. Without them
+    // the app draws with the installed fonts, as a browser does, and its
+    // binary carries no font file (ADR-244). Run returns an error before
+    // opening the window when a font cannot be used, such as a FontFS
+    // pattern that matches no file. Child windows share the app's fonts.
+    //
+    //	tela.Main(tela.App{Title: "Notes", Fonts: []tela.Font{inter.Sans}, Root: Notes()})
+    Fonts []Font
     // DevState keeps state that lives outside the component tree across
     // the reloads of tela dev: package variables, controllers, the
     // settings of a connection. State in hooks, text fields, scroll
@@ -1686,6 +1698,18 @@ Where the OS draws no title bar for a framed window (one that is neither Framele
 The window's content is laid out below the bar: the root (h-full, h-screen, 100vh, the breakpoints, fixed and portal content such as dialogs) sees the rest of the window as its viewport, so an app needs no change for it.
 
 An app that draws its own title bar (an element with h.WindowDrag, such as kit.TitleBar) replaces it: while the window's content has a WindowDrag area the fallback is not shown, and it comes back when that area unmounts, in the same frame. Show your bar only where it is needed by reading State().ClientSideDecorations.
+
+**Example (fonts)**
+
+Fonts brings Inter instead of the system's sans-serif font.
+
+```go
+tela.Main(tela.App{
+    Title: "Notes",
+    Fonts: []tela.Font{inter.Sans, jetbrainsmono.Mono},
+    Root:  tela.C(func() tela.Node { return nil }),
+})
+```
 
 ### type Backdrop
 
@@ -2929,6 +2953,179 @@ func (e FocusEvent) StopPropagation()
 ```
 
 StopPropagation stops the event from bubbling to the ancestors.
+
+### type Font
+
+```go
+type Font core.Font
+```
+
+Font is a font family an app brings with it, for [`App`](#type-app).Fonts: font files (variable fonts and static ones, TrueType and OpenType, color emoji fonts included) under one family name, and the roles it plays. Without App.Fonts an app draws its text with the fonts installed on the system, and its binary carries no font file (ADR-244); a Font is how an app that wants one fixed look embeds its own.
+
+Make one with [`FontData`](#func-fontdata) (files in memory, usually //go:embed) or [`FontFS`](#func-fontfs) (files of an fs.FS), or take one of Tela's packages: fonts/inter, fonts/jetbrainsmono, fonts/notoemoji, fonts/notoarabic, fonts/sourceserif, or fonts/standard for all of them.
+
+```go
+//go:embed Lora.ttf Lora-Italic.ttf
+var loraFiles embed.FS
+
+tela.Main(tela.App{
+    Fonts: []tela.Font{
+        tela.FontFS(loraFiles, "Lora", "*.ttf").Serif(),
+        inter.Sans,
+    },
+    Root: Notes(),
+})
+```
+
+A font is used by the CSS font-family names: its own family name ("font-\['Lora'\]") and, through the methods below, the generic families the theme's font-sans, font-serif and font-mono stack end with. A Font is a value: the methods return a modified copy and the copies share the parsed font, which is read and parsed when text first needs the family (a font that is never drawn costs only its bytes in the binary). App fonts come before the system's: they win the generic names they stand for and are tried first when a character needs a fallback.
+
+#### func FontData
+
+```go
+func FontData(family string, files ...[]byte) Font
+```
+
+FontData returns the font of files already in memory, usually embedded with //go:embed. Give the files of one family: an upright file and an italic one, or one variable font. family is the name the font is used by (font-\['Lora'\]); "" takes the family name the first file declares.
+
+A mistake (no files, an empty file) makes [`Run`](#func-run) return an error before the window opens; a file that is not a font is logged when text first needs the family, and the font is left out.
+
+```go
+//go:embed Lora[wght].ttf
+var lora []byte
+
+tela.App{Fonts: []tela.Font{tela.FontData("Lora", lora).Serif()}}
+```
+
+**Example**
+
+FontData takes font files already in memory. With "" as the family, the font keeps the name its file declares.
+
+```go
+// //go:embed Roboto.ttf RobotoItalic.ttf
+var roboto, robotoItalic []byte
+sans := tela.FontData("Roboto", roboto, robotoItalic).Sans()
+
+tela.Main(tela.App{
+    Title: "Notes",
+    Fonts: []tela.Font{sans},
+    Root:  tela.C(func() tela.Node { return nil }),
+})
+```
+
+#### func FontFS
+
+```go
+func FontFS(fsys fs.FS, family string, patterns ...string) Font
+```
+
+FontFS returns the font of the files of fsys that the patterns match (fs.Glob patterns, relative to the root of fsys), read when text first needs the family: the files of an embed.FS are not copied until then, and files of os.DirFS are not opened at all if the text never needs the font. family is the name the font is used by; "" takes the family name the first file declares, which reads that file when the app starts.
+
+[`Run`](#func-run) checks the patterns before it opens the window and returns an error naming one that matches nothing. A file that cannot be read or parsed later is logged, and the font is left out.
+
+```go
+//go:embed fonts/*.ttf
+var fonts embed.FS
+
+tela.App{Fonts: []tela.Font{tela.FontFS(fonts, "Lora", "fonts/Lora*.ttf").Serif()}}
+```
+
+**Example**
+
+FontFS reads the files of an embed.FS (or os.DirFS) when text first needs the family; Run checks the patterns before it opens the window.
+
+```go
+// //go:embed fonts/Lora*.ttf
+// var loraFiles embed.FS
+lora := tela.FontFS(loraFiles, "Lora", "fonts/Lora*.ttf").Serif()
+
+tela.Main(tela.App{
+    Title: "Reader",
+    Fonts: []tela.Font{lora},
+    Root:  tela.C(func() tela.Node { return nil }),
+})
+```
+
+#### func (Font) Emoji
+
+```go
+func (f Font) Emoji() Font
+```
+
+Emoji makes the font the family of the emoji generic name, which emoji are drawn with. A color font (COLRv1, CBDT or sbix) draws them in color.
+
+```go
+tela.App{Fonts: []tela.Font{tela.FontData("Twemoji", twemoji).Emoji()}}
+```
+
+#### func (Font) Mono
+
+```go
+func (f Font) Mono() Font
+```
+
+Mono makes the font the family of ui-monospace and monospace (font-mono, code).
+
+```go
+tela.App{Fonts: []tela.Font{tela.FontData("Fira Code", fira).Mono()}}
+```
+
+**Example**
+
+Sans, Serif, Mono and Emoji make a font the family of the generic names the theme's font-sans, font-serif and font-mono end with; they combine.
+
+```go
+// //go:embed FiraCode.ttf
+var fira []byte
+code := tela.FontData("Fira Code", fira).Mono()
+_ = tela.App{Fonts: []tela.Font{code}}
+```
+
+#### func (Font) Sans
+
+```go
+func (f Font) Sans() Font
+```
+
+Sans makes the font the family of the generic names ui-sans-serif, system-ui and sans-serif, which the theme's font-sans ends with: the default font of the app and of everything that does not name another.
+
+```go
+tela.App{Fonts: []tela.Font{tela.FontData("Roboto", roboto).Sans()}}
+```
+
+#### func (Font) Scripts
+
+```go
+func (f Font) Scripts(scripts ...string) Font
+```
+
+Scripts makes the font a fallback for the scripts, ISO 15924 codes such as "Arab", "Hebr", "Deva", "Thai", "Hani" or "Cyrl": text in one of them that the requested families cannot draw uses this font before the system's. A code that is not an ISO 15924 code is a programmer error: it panics in dev mode with the valid examples, and is ignored in a release build (ARCHITECTURE section 19).
+
+```go
+tela.App{Fonts: []tela.Font{tela.FontData("Noto Sans Hebrew", hebrew).Scripts("Hebr")}}
+```
+
+**Example**
+
+Scripts makes a font the fallback for the scripts of text that the requested family cannot draw. The codes are ISO 15924.
+
+```go
+// //go:embed NotoSansHebrew.ttf
+var hebrew []byte
+f := tela.FontData("Noto Sans Hebrew", hebrew).Scripts("Hebr")
+_ = tela.App{Fonts: []tela.Font{f, notoarabic.Arabic}}
+```
+
+#### func (Font) Serif
+
+```go
+func (f Font) Serif() Font
+```
+
+Serif makes the font the family of ui-serif and serif (font-serif).
+
+```go
+tela.App{Fonts: []tela.Font{tela.FontData("Lora", lora).Serif()}}
+```
 
 ### type Gradient
 

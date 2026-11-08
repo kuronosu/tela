@@ -48,6 +48,11 @@ type Options struct {
 	// under tela dev, ignored otherwise (ADR-114).
 	DevSave    func() ([]byte, error)
 	DevRestore func([]byte) error
+	// AppFonts are the app's fonts (tela.App.Fonts): Run makes them the
+	// first families of its collection, before the installed fonts, and
+	// returns an error before it opens a window when one cannot be used
+	// (CheckFonts). Ignored when Config.Fonts is set.
+	AppFonts []Font
 	// ErrorLog receives platform errors (a failed Present). Nil means
 	// stderr.
 	ErrorLog io.Writer
@@ -60,7 +65,7 @@ type Options struct {
 // window without Options.OnClose, or Quit; ARCHITECTURE section 15) or
 // the platform fails, after unmounting every window.
 //
-// Without opts.Fonts, the text uses the installed system fonts, the
+// Without opts.Fonts, the text uses opts.AppFonts and then the installed system fonts, the
 // generic families (system-ui, sans-serif, monospace, emoji...) resolved
 // per operating system (ADR-244), or the default font set when the binary
 // registers one (internal/stdfonts, in tests); Run reports on ErrorLog,
@@ -73,8 +78,15 @@ func Run(opts Options) error {
 	// The app's dev mode is the process default of the node constructors
 	// (one app per process; ADR-085).
 	devAny.Store(configDev(opts.Dev))
+	if err := CheckFonts(opts.AppFonts); err != nil {
+		return err
+	}
 	if opts.Fonts == nil {
-		opts.Fonts = runFonts(errorLog(opts.ErrorLog)) // fonts.go
+		if len(opts.AppFonts) > 0 {
+			opts.Fonts = runAppFonts(opts.AppFonts, errorLog(opts.ErrorLog)) // appfonts.go
+		} else {
+			opts.Fonts = runFonts(errorLog(opts.ErrorLog)) // fonts.go
+		}
 	}
 	if devStateEnabled {
 		// tela dev: report a panic of the UI thread to the supervisor

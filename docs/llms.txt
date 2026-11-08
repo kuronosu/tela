@@ -138,7 +138,7 @@ Elements are named by `ref` (from the latest snapshot), or `role` + `name`, `tex
 
 **A good loop.** 1) Write the screen with `var App` (or `Preview`). 2) `snapshot`: fix every dev error and lint finding. 3) `screenshot`: fix the look. 4) `open {"dark": true}` + `screenshot`. 5) `click`/`fill` the main interactions and `screenshot` the states (open dialogs, toasts after `wait`). 6) `resize` to a narrow window if it must be responsive.
 
-**CLI equivalents** (same rendering, deterministic, embedded fonts):
+**CLI equivalents** (same rendering, deterministic, no system fonts):
 
 ```sh
 tela snapshot --size 1040x800 --scale 2 --dark -o out.png ./myapp   # PNG (W*scale x H*scale)
@@ -429,7 +429,7 @@ var brandTheme = func() tela.Theme {
 	t.Colors["primary"] = tela.SchemeColor{Light: tela.Hex("#4f46e5"), Dark: tela.Hex("#818cf8")}
 	t.Colors["primary-foreground"] = tela.SchemeColor{Light: tela.Hex("#ffffff"), Dark: tela.Hex("#1e1b4b")}
 	t.Colors["brand"] = tela.SchemeColor{Light: tela.Hex("#7c3aed"), Dark: tela.Hex("#a78bfa")} // bg-brand, text-brand...
-	t.FontSans = "Geist"                                                                         // a system font; Inter is the fallback
+	t.FontSans = "Geist"                                                                         // a system font
 	return t
 }()
 
@@ -445,7 +445,7 @@ var BrandApp = tela.App{
 
 Colors in Go: `tela.Hex("#4f46e5")`, `tela.RGB`, `tela.RGBA(r, g, b, a)`, `tela.OKLCH(l, c, h)`, `tela.UseTheme().Color("primary")`. `h.Scheme(tela.Dark)` gives a subtree its own scheme (a dark sidebar in a light app). `tela.SetColorScheme(tela.Dark)` switches the app's scheme at run time, and `tela.SetTheme(t)` its theme: an accent picker copies `kit.Theme()`, sets `t.Colors["primary"]` (and `ring`) and calls `tela.SetTheme(t)`, so every `bg-primary` follows.
 
-**Fonts:** `font-sans` (Inter, the default), `font-mono` (JetBrains Mono, embedded), `font-serif`, or a named family `font-['Fira_Code',monospace]` (`_` for spaces). Named families come from the system when the app runs; `tela snapshot`, `tela mcp` and tests use only the embedded fonts, so there they fall back to Inter or JetBrains Mono. A theme's `FontSans`/`FontMono` rename the defaults.
+**Fonts:** text uses the system's fonts; none are in the binary. `font-sans` is `ui-sans-serif, system-ui, sans-serif`. To fix the look: `tela.App{Fonts: []tela.Font{inter.Sans}}` (`fonts/inter`, 1.8 MB) or your files, `tela.FontData("Lora", ttf)` / `tela.FontFS(fsys, "Lora", "fonts/*.ttf")` plus `.Sans()`, `.Serif()`, `.Mono()`, `.Scripts("Hebr")`; app fonts come first. Tests, snapshots and mcp use the App's fonts, then Inter, Source Serif 4 and JetBrains Mono, never the system's (`telatest.Fonts`).
 
 **Icons:** `Icon(lucide.Settings, Class("size-4"))`. An icon is 1em square (follows `text-*` size) unless sized, colored by the text color (`text-muted-foreground`), `stroke-[1.5]` thins it; decorative unless it has an `AriaLabel`. Lucide names are the file names of lucide.dev in PascalCase (`arrow-up-right` is `lucide.ArrowUpRight`, `circle-alert` is `lucide.CircleAlert`); to check one, `go doc github.com/kuronosu/tela/icons/lucide CircleAlert` (an old name such as `AlertCircle` compiles and its doc says what replaces it). Your own SVGs: `tela.Icon{SVG: "<svg ...>"}`, `tela.MustSVG(data)`, or `tela icons gen -pkg icons -o ./icons ./svg` for a whole directory.
 

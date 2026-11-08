@@ -14,8 +14,9 @@ const snapshotUsage = `Usage:
 
 	tela snapshot [--size WxH] [--scale N] [--dark] [--preview NAME] [-o out.png] <pkg>
 
-Renders a package's screen headlessly, with Tela's own renderer and the
-embedded fonts, and writes it as a PNG.
+Renders a package's screen headlessly, with Tela's own renderer and fonts
+(the App's Fonts, then Tela's standard ones, never the system's), and writes
+it as a PNG.
 
 <pkg> is a package path or a relative directory, such as ./examples/counter.
 The package must define one of

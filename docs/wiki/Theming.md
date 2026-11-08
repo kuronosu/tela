@@ -63,7 +63,7 @@ func main() {
 	theme.Colors["primary"] = tela.SchemeColor{Light: tela.OKLCH(0.55, 0.2, 264), Dark: tela.OKLCH(0.7, 0.16, 264)}
 	theme.Colors["brand"] = tela.SchemeColor{Light: tela.Hex("#7c3aed"), Dark: tela.Hex("#a78bfa")} // bg-brand
 	theme.Radius = 10                                                                               // shadcn/ui's 0.625rem
-	theme.FontSans = "Geist"                                                                        // a system font; Inter stays as fallback
+	theme.FontSans = "Geist"                                                                        // a system font; the system's sans-serif stays as fallback
 
 	tela.Main(tela.App{Title: "Notes", Root: Notes(), Theme: &theme, RootClass: "bg-background text-foreground"})
 }
@@ -83,9 +83,11 @@ func main() {
   `rounded-2xl` 1.8×, `rounded-3xl` 2.2× and `rounded-4xl` 2.6×, as in
   shadcn/ui v4's theme. The default, 0, keeps Tailwind's radius scale (so
   existing pages do not change); set 10 for shadcn/ui's look.
-- **Fonts.** `FontSans` is the family of `font-sans` and of the default text,
-  `FontMono` that of `font-mono` (code, kbd, pre); the embedded Inter and
-  JetBrains Mono stay as fallbacks.
+- **Fonts.** `FontSans` is the family put before the stack of `font-sans` and
+  of the default text, `FontMono` before that of `font-mono` (code, kbd, pre).
+  The stacks are the generic names `ui-sans-serif, system-ui, sans-serif` and
+  `ui-monospace, monospace`, which resolve to the system's fonts or to the
+  app's own ([Fonts](Fonts)).
 
 [`tela.SetTheme`](https://pkg.go.dev/github.com/kuronosu/tela#SetTheme)
 replaces the theme while the app runs (safe from any goroutine, like

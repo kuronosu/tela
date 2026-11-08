@@ -76,6 +76,13 @@ their original copyright notice. Add one section per source project.
 - **Used in:** `internal/assets/fonts/notosansarabic/NotoSansArabic-wdth-wght.ttf` (sha256 `63111b5b2e074dd48cc67692e0a2726d86ee94c1c37fe8598257b7b4e87e869e`)
 - **Notes:** Vendored unchanged; renamed from `NotoSansArabic[wdth,wght].ttf` to avoid brackets and a comma in `go:embed` paths. Embedded by the Go package `internal/assets/fonts/notosansarabic` (the Arabic fallback of `internal/stdfonts`; ADR-244). Variable axes: `wdth`, `wght`.
 
+## Source Serif 4 (font)
+
+- **Source:** https://github.com/google/fonts/tree/main/ofl/sourceserif4 (font version 4.004; upstream https://github.com/adobe-fonts/source-serif)
+- **License:** OFL-1.1, Copyright 2014 The Source Serif 4 Project Authors (`internal/assets/fonts/sourceserif4/OFL.txt`)
+- **Used in:** `internal/assets/fonts/sourceserif4/SourceSerif4-opsz-wght.ttf` (sha256 `97b2d4da6e3cb494b5a1e66ae176914d852ccabef49e0c02c0df25f3e39aca0b`) and `SourceSerif4-Italic-opsz-wght.ttf` (sha256 `15fbc7e4679489a501998c3669272637a6646388ef7e4bd77eebb5bf967a1f42`)
+- **Notes:** Vendored unchanged; renamed from `SourceSerif4[opsz,wght].ttf` and `SourceSerif4-Italic[opsz,wght].ttf` to avoid brackets and a comma in `go:embed` paths. Embedded by the Go package `internal/assets/fonts/sourceserif4` (the serif of `internal/stdfonts` and of the package `fonts/sourceserif`; ADR-244). Variable axes: `opsz`, `wght`. The serif is provisional until the owner picks among Source Serif 4, Noto Serif and Literata.
+
 ## Noto Color Emoji (font)
 
 - **Source:** https://github.com/googlefonts/noto-emoji (tag v2.051, commit `8998f5dd683424a73e2314a8c1f1e359c19e8742`, `fonts/Noto-COLRv1.ttf`)

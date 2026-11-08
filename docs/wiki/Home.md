@@ -39,6 +39,7 @@ func Counter() tela.Node {
 | [Getting Started](Getting-Started) | Install, write a counter, run it, render it without a window |
 | [Styling](Styling) | Tailwind classes, typed style props, variants, dark mode |
 | [Theming](Theming) | Semantic colors (shadcn/ui names) that follow the color scheme, radius and fonts, `Scheme` for part of the window, `UseTheme`, class aliases |
+| [Fonts](Fonts) | System fonts by default, the generic families per OS, bringing a font (`App.Fonts`, `FontData`, `FontFS`, Tela's font packages), what a binary costs, fonts in tests and snapshots |
 | [Hooks](Hooks) | State, effects, intervals and goroutines, memoization, context, refs, observable values |
 | [Events](Events) | Pointer, keyboard, focus, drag, long press, wheel |
 | [Elements and Props](Elements-and-Props) | Everything package `h` exports and how elements compose |

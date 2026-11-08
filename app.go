@@ -215,6 +215,17 @@ type App struct {
 	//	off := false
 	//	tela.Main(tela.App{Title: "Notes", Root: Notes(), Dev: &off})
 	Dev *bool
+	// Fonts are the fonts the app brings, before the system's: made with
+	// tela.FontData and tela.FontFS from font files, or taken from Tela's
+	// packages fonts/inter, fonts/jetbrainsmono, fonts/notoemoji,
+	// fonts/notoarabic, fonts/sourceserif and fonts/standard. Without them
+	// the app draws with the installed fonts, as a browser does, and its
+	// binary carries no font file (ADR-244). Run returns an error before
+	// opening the window when a font cannot be used, such as a FontFS
+	// pattern that matches no file. Child windows share the app's fonts.
+	//
+	//	tela.Main(tela.App{Title: "Notes", Fonts: []tela.Font{inter.Sans}, Root: Notes()})
+	Fonts []Font
 	// DevState keeps state that lives outside the component tree across
 	// the reloads of tela dev: package variables, controllers, the
 	// settings of a connection. State in hooks, text fields, scroll
@@ -331,6 +342,7 @@ func (app App) options() core.Options {
 			ClassAliases:      app.ClassAliases,
 			Dev:               core.ResolveDev(app.Dev),
 		},
+		AppFonts: coreFonts(app.Fonts),
 		Window: core.WindowSpec{
 			Title:           app.Title,
 			Width:           app.Width,
