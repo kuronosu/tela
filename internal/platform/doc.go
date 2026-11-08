@@ -1121,7 +1121,9 @@
 //     Coordinates are logical pixels of the window's content area;
 //     bridges convert to the screen's.
 //
-// Wayland, X11, Win32 and Cocoa have no bridge yet (later tasks of phase
+// Cocoa's bridge is NSAccessibility (package cocoa): it reports Active
+// true at the first NSAccessibility query of a window and never false.
+// Wayland, X11 and Win32 have no bridge yet (later tasks of phase
 // 19): they ignore SetAccessibility and never report Active. Headless
 // records the updates, applies them to an AccessTree (an invalid one
 // panics) and lets tests inject both events; remote (protocol 9)

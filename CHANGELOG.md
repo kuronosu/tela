@@ -15,6 +15,7 @@ under **Breaking**. See ADR-049 and ADR-208.
 ### Added
 
 - Accessibility props (ADR-246): `h.AriaLive("polite"|"assertive"|"off")` and `h.AriaAtomic(bool)` for live regions (`Role("status")`, `"log"` and `"alert"` are live without them), `h.AriaKeyShortcuts("Control+S Meta+S")` (dev mode rejects `Ctrl`, `Cmd` and empty keys with the right name), `h.AriaPosInSet(i)` and `h.AriaSetSize(n)` for sets that have only some of their items in the tree (otherwise positions are counted as Chromium does), and `h.AriaLabelFn(func() string)`, a name read when the semantics tree is built, so a `tela.Value` it reads rebuilds nothing. The aria snapshot prints none of them, as Playwright's does not.
+- macOS: VoiceOver through NSAccessibility (ADR-246): a Tela window exposes its semantics tree to VoiceOver and every AX client, with roles after W3C Core-AAM, values, text fields with their selection, actions (press, increment, decrement, show menu, focus, set value and selection, expand and collapse, scroll into view), notifications of changes and focus moves, and live-region announcements. Nothing runs until an assistive technology first asks.
 
 ### Changed
 
