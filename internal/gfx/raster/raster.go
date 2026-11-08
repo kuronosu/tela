@@ -46,7 +46,10 @@ type Options struct {
 // ramps) and reuses them between calls, so a long-lived Renderer does not
 // allocate in the steady state (StrokePath excepted: gfx.Path.Stroke
 // allocates its outline; and glyphs missing from the glyph cache, whose
-// masks and sprites are new memory owned by the cache).
+// masks and sprites are new memory owned by the cache). The owner of a
+// Renderer that draws frames calls EndFrame after each one, so that the
+// buffers follow what recent frames need instead of the largest frame
+// ever drawn (trim.go).
 //
 // A parallel Render (Options.Workers) uses worker Renderers that this
 // Renderer creates on first use and keeps for later frames.
@@ -72,7 +75,7 @@ type Renderer struct {
 	ctm      gfx.Affine // current transform: local -> device
 	skipping bool       // inside a block that shows nothing
 	stack    []savedState
-	free     [][]uint8 // released mask and layer buffers
+	free     []freeBuf // released mask, layer and filter buffers (trim.go)
 
 	// region is the device rectangle whose pixels must be exact at the
 	// current level: the rendered region, grown by the reach of the
@@ -120,6 +123,7 @@ type Renderer struct {
 	bdc     *BackdropCache
 	par     *parallel // worker Renderers and the job of a parallel Render
 	scratch []uint8   // the pixels of scratchImage
+	scrAge  useAge    // scratch's age in frames (trim.go)
 	pool    *workPool // blurPool
 	// A band of a phased render (phase.go): the barriers, and the next one
 	// this band has to pass.
@@ -283,6 +287,7 @@ func (r *Renderer) blurPool(workers int) *workPool {
 // the Renderer between calls (with unspecified values).
 func (r *Renderer) scratchImage(rect image.Rectangle) *image.RGBA {
 	n := 4 * rect.Dx() * rect.Dy()
+	r.scrAge.use()
 	if cap(r.scratch) < n {
 		r.scratch = make([]uint8, n)
 	}
@@ -471,27 +476,30 @@ func (r *Renderer) restore() {
 }
 
 // getBuf returns a zeroed buffer of n bytes, reusing a released one when
-// possible (the smallest that fits).
+// possible: the smallest that fits, unless it is much larger than n (see
+// fitsBuf), so that a buffer kept for a large surface does not stay alive
+// serving small masks.
 func (r *Renderer) getBuf(n int) []uint8 {
 	best := -1
-	for i, b := range r.free {
-		if cap(b) >= n && (best < 0 || cap(b) < cap(r.free[best])) {
+	for i := range r.free {
+		if c := cap(r.free[i].b); fitsBuf(c, n) && (best < 0 || c < cap(r.free[best].b)) {
 			best = i
 		}
 	}
 	if best < 0 {
 		return make([]uint8, n)
 	}
-	b := r.free[best][:n]
+	b := r.free[best].b[:n]
 	last := len(r.free) - 1
-	r.free[best], r.free[last] = r.free[last], nil
+	r.free[best], r.free[last] = r.free[last], freeBuf{}
 	r.free = r.free[:last]
 	clear(b)
 	return b
 }
 
-// putBuf releases a buffer from getBuf.
-func (r *Renderer) putBuf(b []uint8) { r.free = append(r.free, b) }
+// putBuf releases a buffer from getBuf. Its age starts again: it was used
+// in the current frame.
+func (r *Renderer) putBuf(b []uint8) { r.free = append(r.free, freeBuf{b: b}) }
 
 // strokePath fills the outline of a stroke. The outline is computed in local
 // space with a tolerance that keeps the device-space error within

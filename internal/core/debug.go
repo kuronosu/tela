@@ -332,11 +332,24 @@ func (t *Tree) debugTouch() {
 // are on (debug.go). It returns what it did to fb, which is not what
 // LastDamage reports when overlays are on: that is what the application
 // repainted.
+//
+// It ends the frame for r and the tree's cache of filtered backdrops
+// (raster.Renderer.EndFrame): the rasterizer's scratch memory follows what
+// recent frames used, and a frame after which nothing is pending (no
+// animation, no update, no requested frame) releases what it did not use,
+// so that a closed dialog's or palette's buffers are not kept while the
+// window rests. r should be the Renderer of fb's earlier frames.
 func (t *Tree) RasterizeFrame(fb *image.RGBA, r *raster.Renderer, full bool) Damage {
+	var d Damage
 	if t.dbg.flags == 0 {
-		return t.rasterizeApp(fb, r, full)
+		d = t.rasterizeApp(fb, r, full)
+	} else {
+		d = t.rasterizeDebug(fb, r, full)
 	}
-	return t.rasterizeDebug(fb, r, full)
+	idle := !t.asked && !t.Animating() && !t.Dirty()
+	r.EndFrame(idle)
+	t.lay.bdc.EndFrame(idle)
+	return d
 }
 
 // rasterizeDebug is RasterizeFrame with overlays on.

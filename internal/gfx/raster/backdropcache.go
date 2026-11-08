@@ -43,7 +43,11 @@ import (
 // Render writes it, from one goroutine at a time.
 //
 // Its memory is bounded: the entries and their spare buffers hold at most
-// two destination images' worth of pixels.
+// two destination images' worth of pixels. The entries are those of the
+// filters of the current list: an entry whose filter leaves the list is
+// dropped at the next Retain, its buffer kept as a spare for the entries
+// of the frames that follow, and EndFrame frees the spares that no entry
+// took (all of them when the window goes idle).
 type BackdropCache struct {
 	dl    *gfx.DisplayList // the list of the entries; nil: none
 	scale float32
@@ -58,7 +62,7 @@ type BackdropCache struct {
 	ctms  []gfx.Affine
 	open  []idxState // index's stack
 	bytes int        // the pixels held by ents and spare
-	spare [][]uint8  // buffers of dropped entries, for reuse
+	spare []freeBuf  // buffers of dropped entries, for reuse
 	// exact is, for the current Render, the device region inside which
 	// each backdrop filter's output is computed from exact pixels (see
 	// backdropRegion); its output elsewhere is not kept.
@@ -347,7 +351,7 @@ func (c *BackdropCache) store(e *bdEntry, k int, f gfx.BackdropFilter, ctm gfx.A
 	*e = bdEntry{}
 	var pix []uint8
 	switch {
-	case cap(old) >= n:
+	case fitsBuf(cap(old), n):
 		pix, old = old[:n], nil
 	default:
 		if old != nil {
@@ -391,32 +395,38 @@ func (c *BackdropCache) drop(e *bdEntry) {
 // give keeps a buffer of the cache as a spare (whose bytes stay counted),
 // or frees it.
 func (c *BackdropCache) give(b []uint8) {
-	c.spare = append(c.spare, b)
+	c.spare = append(c.spare, freeBuf{b: b, age: useAge{used: true}})
 	if len(c.spare) > maxSpare {
 		// Free the smallest.
 		m := 0
 		for k := range c.spare {
-			if cap(c.spare[k]) < cap(c.spare[m]) {
+			if cap(c.spare[k].b) < cap(c.spare[m].b) {
 				m = k
 			}
 		}
-		c.bytes -= cap(c.spare[m])
-		c.spare = slices.Delete(c.spare, m, m+1)
+		c.freeSpare(m)
 	}
 }
 
-// take returns a spare buffer of length n, or nil.
+// freeSpare frees the k-th spare buffer.
+func (c *BackdropCache) freeSpare(k int) {
+	c.bytes -= cap(c.spare[k].b)
+	c.spare = slices.Delete(c.spare, k, k+1)
+}
+
+// take returns a spare buffer of length n, or nil. Like getBuf, it does
+// not take a buffer much larger than n (fitsBuf).
 func (c *BackdropCache) take(n int) []uint8 {
 	best := -1
-	for k, b := range c.spare {
-		if cap(b) >= n && (best < 0 || cap(b) < cap(c.spare[best])) {
+	for k := range c.spare {
+		if b := c.spare[k].b; fitsBuf(cap(b), n) && (best < 0 || cap(b) < cap(c.spare[best].b)) {
 			best = k
 		}
 	}
 	if best < 0 {
 		return nil
 	}
-	b := c.spare[best][:n]
+	b := c.spare[best].b[:n]
 	c.spare = slices.Delete(c.spare, best, best+1)
 	return b
 }
@@ -424,9 +434,34 @@ func (c *BackdropCache) take(n int) []uint8 {
 // trim frees spare buffers until the cache holds at most limit bytes.
 func (c *BackdropCache) trim(limit int) {
 	for len(c.spare) > 0 && c.bytes > limit {
-		last := len(c.spare) - 1
-		c.bytes -= cap(c.spare[last])
-		c.spare[last] = nil
-		c.spare = c.spare[:last]
+		c.freeSpare(len(c.spare) - 1)
 	}
+}
+
+// EndFrame ends a frame of the cache's owner (see Renderer.EndFrame): it
+// frees the spare buffers that no entry took in the last few frames, and
+// with idle (no frame is expected soon) all of them. A spare serves the
+// entry of a filter whose input changes from frame to frame (a moving glass
+// pane, dropped by Retain and stored again by the Render that follows);
+// once no frame comes, nothing would take it. The entries stay: they are
+// the outputs of the filters of the current list, which the next frame
+// draws from. A nil cache is ignored.
+func (c *BackdropCache) EndFrame(idle bool) {
+	if c == nil {
+		return
+	}
+	for k := len(c.spare) - 1; k >= 0; k-- {
+		if c.spare[k].age.end(false) || idle {
+			c.freeSpare(k)
+		}
+	}
+}
+
+// Bytes returns the bytes of pixels the cache holds, in its entries and
+// spare buffers, for tests and memory measurements. A nil cache holds none.
+func (c *BackdropCache) Bytes() int {
+	if c == nil {
+		return 0
+	}
+	return c.bytes
 }

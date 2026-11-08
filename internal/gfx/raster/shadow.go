@@ -952,9 +952,14 @@ type shadowScratch struct {
 
 	want, cov []uint8
 	vf        []float64
+
+	// age counts the frames since a shadow last used the scratch
+	// (trim.go).
+	age useAge
 }
 
 func (sc *shadowScratch) reset() {
+	sc.age.use()
 	sc.mask = maskShadow{} // drop the buffer
 	sc.f, sc.i32 = sc.f[:0], sc.i32[:0]
 	clear(sc.sn)

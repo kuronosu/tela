@@ -39,6 +39,9 @@ func (p *workPool) run(s *blurScratch, n, grain int, fn func(s *blurScratch, lo,
 	for len(p.scr) < k-1 {
 		p.scr = append(p.scr, new(blurScratch))
 	}
+	for _, ws := range p.scr[:k-1] {
+		ws.age.use() // before the goroutines start: they own ws until Wait
+	}
 	p.wg.Add(k - 1)
 	for c := 1; c < k; c++ {
 		go p.chunk(p.scr[c-1], c*n/k, (c+1)*n/k, fn)

@@ -306,6 +306,8 @@ type blurScratch struct {
 	// par runs the stages of a blur on several goroutines (nil: on the
 	// calling one).
 	par *workPool
+	// age counts the frames since the scratch was last used (trim.go).
+	age useAge
 }
 
 // stripWidth is the number of values (pixels times channels) per row that
@@ -582,6 +584,7 @@ func (s *blurScratch) blurPlane(pix []uint8, stride, w, h, nch, ox, oy int, kx, 
 // coordinates); the other pixels of the plane are left with unspecified
 // values. The pixels of out are those blurPlane gives.
 func (s *blurScratch) blurPlaneOut(pix []uint8, stride, w, h, nch, ox, oy int, out image.Rectangle, kx, ky *gaussKernel) {
+	s.age.use()
 	out = out.Intersect(image.Rect(0, 0, w, h))
 	if out.Empty() || (kx.identity() && ky.identity()) {
 		return

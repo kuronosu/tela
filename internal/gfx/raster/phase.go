@@ -164,6 +164,11 @@ func (ph *phaser) wait(r *Renderer, j int, bf *gfx.BackdropFilter) bool {
 	if ph.arrived[j] == ph.n {
 		ph.mu.Unlock()
 		// Every band waits at this barrier: compute alone, with the pool.
+		// Every band has passed the barriers before it, and a band draws a
+		// barrier's output right after passing it, before it visits
+		// another command: the outputs of the earlier barriers are no
+		// longer read, and their buffers can serve this one.
+		ph.releaseBefore(j)
 		ok := false
 		defer func() {
 			ph.mu.Lock()
@@ -241,12 +246,23 @@ func (ph *phaser) compute(i int, res *phaseResult) {
 	}
 }
 
+// releaseBefore returns the buffers of the results of the barriers before
+// j to comp (those of the cache stay the cache's), so that a list with
+// several barrier filters holds one window at a time. It runs on the
+// goroutine that computes barrier j, while every other band waits.
+func (ph *phaser) releaseBefore(j int) {
+	for k := range ph.res[:j] {
+		if res := &ph.res[k]; res.buf != nil {
+			if !res.cached {
+				ph.comp.putBuf(res.buf)
+			}
+			res.buf, res.cached = nil, false
+		}
+	}
+}
+
 // release returns the buffers of the results to comp.
 func (ph *phaser) release() {
-	for k := range ph.res {
-		if ph.res[k].buf != nil && !ph.res[k].cached {
-			ph.comp.putBuf(ph.res[k].buf)
-		}
-		ph.res[k] = phaseResult{}
-	}
+	ph.releaseBefore(len(ph.res))
+	clear(ph.res)
 }

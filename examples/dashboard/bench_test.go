@@ -586,6 +586,11 @@ func TestSession(t *testing.T) {
 			if len(frames) < 450 {
 				t.Errorf("the session drew %d frames, want at least 450: lengthen the script", len(frames))
 			}
+			// The page rests: the rasterizer no longer keeps what the
+			// dialog, the palette or the drag needed (ADR-241).
+			if s, fb := r.rr.ScratchBytes(), len(r.fb.Pix); s > fb/2 {
+				t.Errorf("after the session the renderer keeps %.1f MiB of scratch buffers, over half a frame (%.1f MiB)", float64(s)/(1<<20), float64(fb)/(1<<20))
+			}
 			if os.Getenv("TELA_PERF") == "strict" && c.name == "1080p_x1" {
 				if d := distOf(totals(frames)); d.P95 > ms(frameInterval) {
 					t.Errorf("p95 %.2f ms is over %.2f ms", d.P95, ms(frameInterval))
