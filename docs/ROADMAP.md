@@ -25,7 +25,7 @@ Find where RAM goes and reduce it. Before the Font system (the owner, 2026-11-07
 
 - [x] A repeatable measurement: `go run ./internal/testutil/memreport` (ADR-240), baseline in `internal/testutil/memreport/baseline.json` (about 3 minutes; `-only`, `-cases`, `-profiles`, `-update`)
 - [x] Rank the suspects. Baseline (MiB, live heap after GC / RSS): hello 69.5 / 99 at x1, 79 / 109 at x2; kit 80 / 114, 108 / 140; notes 77 / 108, 94 / 126; dashboard 119 / 152, 198 / 236; the dashboard's 1080p session 176 / 211 at x1, 388 / 421 at 4K x2, allocating 780 / 1066 MiB. Shares:
-  - fonts 61 MiB in every app (87% of hello): all six faces parsed at the first layout, glyf and gvar parsed twice (go-text's `NewFont`, then `internal/text/typeface.go` again, about 19 MiB), `RawTable` copies (about 10 MiB). Reduced in the Font system phase
+  - fonts 61 MiB in every app (87% of hello): all six faces parsed at the first layout, glyf and gvar parsed twice (go-text's `NewFont`, then `internal/text/typeface.go` again, about 19 MiB), `RawTable` copies (about 10 MiB). The waste goes in this phase, the rest in the Font system phase
   - the rasterizer's scratch buffers: per `Renderer` free lists never released, 21 MiB at 1080p x1 at rest, 164 MiB after the x2 session (backdrop filter windows about 90 MiB, `pushLayer` about 43 MiB, masks about 19 MiB)
   - the backdrop cache (ADR-200): up to two full frames, 58 MiB after the x2 session
   - the framebuffer with 25% headroom plus one present copy per backend (two to three `wl_shm` buffers on Wayland, a `CFData` per Present on macOS)
@@ -33,6 +33,7 @@ Find where RAM goes and reduce it. Before the Font system (the owner, 2026-11-07
   - trees, display lists and text layout: under 10 MiB
 - [ ] The rasterizer: release scratch buffers no frame uses, and evict backdrop cache entries no frame reads, so memory comes back after the palette or a dialog closes, without slower frames
 - [ ] Core: the framebuffer's resize headroom, and decoded images that no box shows
+- [ ] The fonts' waste (the owner, 2026-11-07: removed here, the design stays in the Font system): `glyf` and `gvar` parsed again by Tela after go-text, and table copies, with identical pixels
 - [ ] Record the before and after numbers of every example, and the fonts' share for the Font system's ADR
 
 **Done when:** the measurement runs from one command with a recorded baseline, and the largest consumers it found are reduced or explained (the fonts' share measured for the Font system's ADR), with the before and after numbers for each example.
