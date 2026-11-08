@@ -309,6 +309,15 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		w.b.settingsChanged()
 		w.repaint(false)
 
+	case wmGetObject:
+		// A UI Automation client asks for the window's root (ADR-246).
+		if r, ok := w.onGetObject(wparam, lparam); ok {
+			return r
+		}
+	case wmTelaAccess:
+		w.onAccessActions()
+		return 0
+
 	case wmSetCursor:
 		// The app's cursor over its content, including its own title bar
 		// regions; Windows' cursors over the frame (resize arrows).
