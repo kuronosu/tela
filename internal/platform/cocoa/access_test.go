@@ -412,3 +412,66 @@ func TestAXActionNames(t *testing.T) {
 		t.Errorf("description of an unknown action = %q, want the name", d)
 	}
 }
+
+func TestAXAttributes(t *testing.T) {
+	tree := applyTree(t, nil, platform.AccessUpdate{Nodes: sampleNodes(), Root: 1, Focus: 5})
+	v := newAXTree(tree)
+	get := func(id platform.AccessID) *platform.AccessNode { n, _ := tree.Node(id); return n }
+	for _, c := range []struct {
+		id   platform.AccessID
+		want string
+	}{
+		{5, "AXRole AXRoleDescription AXDescription AXEnabled AXFocused AXRequired AXParent AXChildren AXWindow AXTopLevelUIElement AXPosition AXSize AXFrame"},
+		{7, "AXRole AXRoleDescription AXDescription AXValue AXEnabled AXFocused AXRequired AXParent AXChildren AXWindow AXTopLevelUIElement AXPosition AXSize AXFrame"},
+		{8, "AXRole AXRoleDescription AXDescription AXValue AXEnabled AXFocused AXRequired AXParent AXChildren AXWindow AXTopLevelUIElement AXPosition AXSize AXFrame " +
+			"AXNumberOfCharacters AXSelectedText AXSelectedTextRange AXInsertionPointLineNumber AXVisibleCharacterRange"},
+		{9, "AXRole AXRoleDescription AXDescription AXEnabled AXFocused AXRequired AXParent AXChildren AXSelectedChildren AXWindow AXTopLevelUIElement AXPosition AXSize AXFrame"},
+		{10, "AXRole AXRoleDescription AXDescription AXEnabled AXFocused AXRequired AXSelected AXParent AXChildren AXWindow AXTopLevelUIElement AXPosition AXSize AXFrame"},
+	} {
+		got := strings.Join(axAttributeNames(v, get(c.id)), " ")
+		t.Logf("%d %s: %s", c.id, get(c.id).Role, got)
+		if got != c.want {
+			t.Errorf("attributes of %d:\n got %s\nwant %s", c.id, got, c.want)
+		}
+	}
+	// A text has no AXRequired (not an element) and has the text attributes.
+	text := strings.Join(axAttributeNames(v, get(3)), " ")
+	t.Logf("3 text: %s", text)
+	if strings.Contains(text, "AXRequired") || !strings.Contains(text, "AXValue") || !strings.Contains(text, "AXNumberOfCharacters") {
+		t.Errorf("attributes of a text: %s", text)
+	}
+	pw := platform.AccessNode{Role: "textbox", States: platform.AccessProtected}
+	if names := axAttributeNames(v, &pw); !slices.Contains(names, "AXSubrole") {
+		t.Errorf("a password field has no AXSubrole: %v", names)
+	}
+	if got := axParamAttributeNames(get(8)); len(got) != len(axParamAttrs) {
+		t.Errorf("parameterized attributes of a field = %v", got)
+	}
+	if got := axParamAttributeNames(get(5)); got != nil {
+		t.Errorf("parameterized attributes of a button = %v", got)
+	}
+	for _, c := range []struct {
+		id   platform.AccessID
+		attr string
+		want bool
+	}{{8, "AXValue", true}, {8, "AXSelectedTextRange", true}, {5, "AXValue", false}, {5, "AXFocused", true},
+		{7, "AXFocused", false}, {10, "AXSelected", false}, {5, "AXRole", false}, {5, "AXNope", false}} {
+		if got := axSettable(v, get(c.id), c.attr); got != c.want {
+			t.Errorf("axSettable(%d, %s) = %v, want %v", c.id, c.attr, got, c.want)
+		}
+	}
+	for o, want := range map[string]string{"vertical": "AXVerticalOrientation", "horizontal": "AXHorizontalOrientation", "": "AXUnknownOrientation"} {
+		if got := axOrientationValue(&platform.AccessNode{Orientation: o}); got != want {
+			t.Errorf("orientation %q = %s, want %s", o, got, want)
+		}
+	}
+	for _, c := range []struct {
+		u, loc, n int
+		ok        bool
+	}{{0, 0, 1, true}, {1, 1, 2, true}, {2, 1, 2, true}, {3, 3, 1, true}, {4, 0, 0, false}, {-1, 0, 0, false}} {
+		loc, n, ok := u16CharRange("a😀b", c.u)
+		if loc != c.loc || n != c.n || ok != c.ok {
+			t.Errorf("u16CharRange(%d) = %d, %d, %v; want %d, %d, %v", c.u, loc, n, ok, c.loc, c.n, c.ok)
+		}
+	}
+}
