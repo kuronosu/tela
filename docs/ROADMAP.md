@@ -9,35 +9,15 @@
 
 ## Current status
 
-- **Done:** phases 1–15. Latest version `v0.13.3` (2026-11-02, phase 15: the macOS desktop integration; tagged on `f83006a` with the owner's approval). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
-- **Phase in progress:** 16, Platform parity, on the work branch `phase-16-platform-parity` (ADR-230: `combase.dll` for WinRT toasts, an automatic fallback title bar, the branch pushed for CI).
+- **Done:** phases 1–16. Latest version `v0.13.4` (2026-11-07, phase 16: platform parity; proposed to the owner, not tagged yet). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
+- **Phase in progress:** none. Phase 16 is on the work branch `phase-16-platform-parity`, to be merged into `main` locally once `v0.13.4` is approved.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** phase 16's tasks and checks are done; its review (`/code-review`), then `v0.13.4` (no public API breaks) proposed to the owner. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** the owner approves `v0.13.4` and pushes `main` and the tag; then the next phase in order, Font system. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
 
-In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–15 are done (HISTORY.md).
-
-### Phase 16: Platform parity (in progress)
-
-Gaps in the existing backends. Verified on the owner's Linux machine, the Windows VM and `macos-latest` CI.
-
-- [x] IME on X11 through a pure-Go XIM client (ADR-231): on-the-spot, over-the-spot or root preedit, sync mode, server restarts, COMPOUND_TEXT; checked against the owner's fcitx5 up to the input context
-- [x] Japanese typed through fcitx5-mozc on X11 (`examples/notes`, the owner, 2026-11-07: にほんご converted to 日本語 and committed once, over-the-spot with fcitx5's default settings)
-- [x] Touchpad fling on X11 after libinput's zero-delta scroll stop (ADR-232); Xwayland and Synaptics send none, so they never fling
-- [x] The X11 drag source shows a drag image (ARGB or shaped, empty input shape) and offers `XdndActionAsk` (ADR-232)
-- [x] Wayland: portal requests get their parent through `zxdg_exporter_v2`, OpenURI and OpenFile an activation token, `Activate` the token a notification or tray brings; a suspended toplevel pauses frames (internal `WindowState.Suspended`, ADR-233)
-- [x] A fallback title bar on framed windows without server-side decorations (GNOME on Wayland): look B (Slim), the owner's pick, drawn by core, hidden when the window has its own `h.WindowDrag` area, buttons from GNOME's `button-layout` (ADR-238)
-- [x] Win32: the native menu bar opens with Alt, F10 and Alt+access key and is drawn dark (user32/gdi32); drop reads are cancelled after 5 s without progress (ADR-234)
-- [x] Win32: dark popup menus (the bar's drop-downs, tray and context menus) through `uxtheme.dll`'s ordinals, allowed by the owner (ADR-239)
-- [x] Windows notifications are WinRT toasts with actions (`combase`, Windows 10 1809+, ADR-235), balloons the fallback
-- [x] Tray icons are redrawn on DPI changes (Win32, ADR-234)
-- [x] `TitleBarOverlay` keeps DWM's caption buttons on Windows 11 (Windows Controls Overlay, ADR-236); `kit.TitleBar` leaves room at the end (golden)
-- [x] macOS: every drag is seen (private types as `application/x-uti.<type>`), file promises are received, a drag without an image shows icons, `desktop.Tray.Template`, a message box without a parent is modeless, global hot keys follow the keyboard layout (Win32 too) (ADR-237; remote protocol 7)
-- [x] The phase's `TELA_LIVE=1` win32 tests on the Windows 11 VM (menu bar keys and dark bar, dark popups, hot keys on a German layout, tray DPI, drop stalls, the overlay restored and maximized, toasts; the owner clicked a toast's button and body)
-
-**Done when:** Japanese can be typed through XIM on X11, and each item works on the owner's Linux machine, the Windows VM or `macos-latest`.
+In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–16 are done (HISTORY.md).
 
 ### Font system
 

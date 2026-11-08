@@ -12,6 +12,10 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
+## [0.13.4] - 2026-11-07
+
+Phase 16, Platform parity (ADR-230 to ADR-239): input methods on X11 through XIM, touchpad flings and drag images on X11, portal dialogs attached to their Wayland window, WinRT toast notifications with buttons, the Windows menu bar from the keyboard and in dark mode, Windows 11's own caption buttons over an app's title bar, macOS drags from other apps and file promises, and a title bar Tela draws itself where the desktop draws none (GNOME on Wayland). Checked on the owner's Linux machine (Japanese through fcitx5-mozc on X11), a Windows 11 VM and `macos-latest` CI.
+
 ### Added
 
 - X11: input methods through XIM (ADR-231). With `XMODIFIERS=@im=<name>` (fcitx, ibus), text fields take Japanese, Chinese and Korean from the input method as on Wayland, Windows and macOS: inline when the server offers on-the-spot preedit, else in the server's own window at the caret. Password fields bypass the input method; dead keys and Compose keep working without one; an input method that quits or restarts does not break typing.
@@ -897,7 +901,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.13.3...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.13.4...HEAD
+[0.13.4]: https://github.com/kuronosu/tela/compare/v0.13.3...v0.13.4
 [0.13.3]: https://github.com/kuronosu/tela/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/kuronosu/tela/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/kuronosu/tela/compare/v0.13.0...v0.13.1
