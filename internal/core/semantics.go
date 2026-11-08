@@ -6,8 +6,10 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/semantics"
 	"github.com/kuronosu/tela/internal/style"
 	"github.com/kuronosu/tela/internal/text"
@@ -22,11 +24,21 @@ import (
 // On demand only: Semantics builds the whole tree when a consumer asks
 // (tela inspect --aria, telatest, tela mcp, the semantics overlay) and
 // nothing runs per frame, so a tree that nobody inspects costs nothing.
-// The tree is kept and handed out again while no Frame ran and nothing is
-// dirty. A full build of a 10k-element tree takes a few milliseconds
-// (BenchmarkSemantics10k); incremental updates (§8's needsSemantics marks)
-// wait for a consumer that needs the tree every frame, the OS
-// accessibility backends (the Accessibility phase).
+// The tree is kept and handed out again while no Frame ran, nothing is
+// dirty and no Value an AriaLabelFn read changed. A full build of a
+// 10k-element tree takes a few milliseconds (BenchmarkSemantics10k);
+// incremental updates (§8's needsSemantics marks) are a later performance
+// task of the OS accessibility bridges (ADR-246).
+//
+// # Staleness
+//
+// A Frame or a dirty tree makes the last tree stale, and so does a change
+// of a Value read by an AriaLabelFn (obsSem), which needs no frame: it
+// rebuilds nothing, it only invalidates the kept tree. SemanticsStale
+// reports it, and the listener set with OnSemanticsStale is told of the
+// changes that need no frame, so that a consumer that keeps a copy of the
+// tree (the OS accessibility bridges) knows to build it again; after a
+// Frame the consumer checks SemanticsStale itself.
 //
 // # Nodes
 //
@@ -94,7 +106,81 @@ type semState struct {
 	// portal is the portal being built (its content follows the root's,
 	// portal.go); others met inside the tree are skipped.
 	portal *Element
+	// labels caches the result of each AriaLabelFn evaluated in the build
+	// (ariaLabel); cleared at the start of a build and when one is stale.
+	labels map[*Element]string
+	// onStale is the listener of OnSemanticsStale, told is set once it was
+	// told about the tree last built.
+	onStale func()
+	told    bool
 }
+
+// SemanticsStale reports whether the tree Semantics last returned is out
+// of date: a Frame ran since, the tree is dirty (updates wait, an element
+// must be built), or a Value an AriaLabelFn read changed. Call it on the
+// UI thread.
+func (t *Tree) SemanticsStale() bool {
+	s := &t.sem
+	return !s.valid || s.root == nil || s.frame != t.frame || t.Dirty()
+}
+
+// OnSemanticsStale sets the function called on the UI thread when the
+// semantics tree becomes stale without a frame: a Value read by an
+// AriaLabelFn changed (the hook point of the OS accessibility bridges,
+// ADR-246). It is called once per tree built: again only after Semantics
+// built a new one. It must not build the tree itself (it may run inside
+// ApplyUpdates or a frame); it should schedule that. Changes that request
+// a frame are not reported: check SemanticsStale after each Frame. nil
+// removes the listener.
+func (t *Tree) OnSemanticsStale(f func()) { t.sem.onStale = f }
+
+// semanticsStale invalidates the kept semantics tree (an AriaLabelFn's
+// Value changed) and tells the listener.
+func (t *Tree) semanticsStale() {
+	s := &t.sem
+	s.valid = false
+	clear(s.labels)
+	if s.onStale != nil && !s.told {
+		s.told = true
+		s.onStale()
+	}
+}
+
+// ariaLabel returns the aria-label of primitive el, whose ARIA props are
+// a (nil without): its AriaLabel, or the result of its AriaLabelFn,
+// evaluated once per build of the semantics tree with the Values it reads
+// tracked (obsSem: a change makes the tree stale, nothing else).
+func (t *Tree) ariaLabel(el *Element, a *ariaProps) string {
+	if a == nil {
+		return ""
+	}
+	if a.labelFn == nil {
+		return a.label
+	}
+	s := &t.sem
+	if v, ok := s.labels[el]; ok {
+		return v
+	}
+	mark := t.beginTrack()
+	var v string
+	func() {
+		done := false
+		defer func() {
+			if !done { // fn panicked: keep the old subscriptions
+				t.endTrack(mark)
+			}
+		}()
+		v = a.labelFn()
+		done = true
+	}()
+	t.observe(&el.vobs, obsSem, el, nil, t.endTrack(mark))
+	if s.labels == nil {
+		s.labels = make(map[*Element]string)
+	}
+	s.labels[el] = v
+	return v
+}
+
 
 // Semantics returns the semantics tree (see the comment at the top of
 // semantics.go): roles, names and states follow the Elements as last built
@@ -113,6 +199,8 @@ func (t *Tree) Semantics() *semantics.Node {
 	} else {
 		clear(s.byID)
 	}
+	clear(s.labels)
+	s.told = false
 	root := &semantics.Node{Kind: semantics.KindRoot}
 	if t.root != nil && t.rootBox.cs != nil {
 		root.ID = t.semID(t.root)
@@ -133,6 +221,7 @@ func (t *Tree) Semantics() *semantics.Node {
 			t.semElement(p, root, semInherit{})
 		}
 		s.portal = nil
+		semantics.FillSetPositions(root)
 	}
 	s.root, s.frame, s.valid = root, t.frame, !t.Dirty()
 	return root
@@ -165,6 +254,8 @@ type semInherit struct {
 	// transformed: an ancestor has a transform, so bounds go through
 	// transformUp.
 	transformed bool
+	// liveRoot is the node ID of the live region around (0 for none).
+	liveRoot semantics.NodeID
 }
 
 // blockifies reports whether a box with style cs makes its children
@@ -192,7 +283,7 @@ func (t *Tree) semElement(el *Element, parent *semantics.Node, inh semInherit) {
 		if el.text == "" {
 			return
 		}
-		n := &semantics.Node{ID: t.semID(el), Kind: semantics.KindText, Text: el.text, Inline: true}
+		n := &semantics.Node{ID: t.semID(el), Kind: semantics.KindText, Text: el.text, Inline: true, LiveRoot: inh.liveRoot}
 		sp := el.styleParent()
 		if inh.hidden || el.inert || el.outside == outsideYes || sp == nil || sp.box.cs == nil || sp.box.cs.Visibility != style.VisibilityVisible {
 			n.States |= semantics.StateHidden
@@ -225,6 +316,10 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 	n.Inline = cs.Display == style.DisplayInline && !inh.blockify
 	cinh := t.semStates(el, n, inh)
 	t.semAriaFields(el, n)
+	cinh.liveRoot = semLive(d.aria, n, inh.liveRoot) // aria_live.go
+	if el.vobs != nil && (d.aria == nil || d.aria.labelFn == nil) {
+		dropObserver(el.vobs) // an AriaLabelFn removed by a build
+	}
 	if bx.kind == style.KindA {
 		n.URL = d.href
 	}
@@ -234,6 +329,7 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 	if !cinh.none {
 		n.Actions |= semantics.ActionScrollIntoView
 	}
+	semWidgetActions(el, n)
 	parent.Children = append(parent.Children, n)
 
 	cinh.transformed = inh.transformed || !paintStyle(bx).Transform.IsIdentity()
@@ -248,6 +344,7 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 	n.Name = semantics.NormalizeWhiteSpace(t.accName(el, role, n.Has(semantics.StateHidden)))
 	semFieldStates(el, n, cinh.disabled)
 	n.Value = semValue(el, role)
+	semFieldText(el, n, role)
 	if !n.Has(semantics.StateHidden) {
 		t.semBounds(el, n, cinh.none, cinh.transformed)
 	}
@@ -323,6 +420,82 @@ func (t *Tree) semAriaFields(el *Element, n *semantics.Node) {
 	if a != nil {
 		n.RowCount, n.RowIndex = int(a.rowCount), int(a.rowIndex)
 	}
+}
+
+// semWidgetActions sets the actions of node n of primitive el that its
+// role and states give (after semStates and semAriaFields): increment and
+// decrement for a focusable range widget the user moves (slider,
+// spinbutton, scrollbar) that is neither disabled nor read-only, expand or
+// collapse for an element with AriaExpanded, show menu for one with a
+// context-menu handler; none on a disabled element.
+func semWidgetActions(el *Element, n *semantics.Node) {
+	if n.Has(semantics.StateDisabled) {
+		return
+	}
+	switch n.Role {
+	case "slider", "spinbutton", "scrollbar":
+		if n.Has(semantics.StateFocusable) && !n.Has(semantics.StateReadOnly) {
+			n.Actions |= semantics.ActionIncrement | semantics.ActionDecrement
+		}
+	}
+	switch n.Expanded {
+	case semantics.ToggleFalse:
+		n.Actions |= semantics.ActionExpand
+	case semantics.ToggleTrue:
+		n.Actions |= semantics.ActionCollapse
+	}
+	if el.node.d.evMask&evContextMenu.mask() != 0 {
+		n.Actions |= semantics.ActionShowMenu
+	}
+}
+
+// semFieldText sets the text field data of node n of primitive el, whose
+// role is role: the placeholder, the protected state of a password, and
+// the caret and selection when the node's Value is the field's text.
+func semFieldText(el *Element, n *semantics.Node, role string) {
+	f := el.box.fld
+	if f == nil {
+		return
+	}
+	n.Placeholder = f.props().placeholder
+	if f.typ == fieldPassword {
+		n.States |= semantics.StateProtected
+	}
+	switch role {
+	case "textbox", "searchbox", "combobox":
+	default:
+		return // its Value is not its text (semValue)
+	}
+	// The exposed value is the editor's Display (the raw value, or its
+	// mask for a password), so the selection's Display offsets index it.
+	disp := f.ed.Display()
+	sel := f.ed.Selection()
+	n.Selection = &semantics.TextSelection{
+		Anchor: runeOffset(disp, sel.Anchor.Offset),
+		Focus:  runeOffset(disp, sel.Focus.Offset),
+	}
+	n.Actions |= semantics.ActionSetSelection
+}
+
+// runeOffset returns the number of code points of s before byte offset
+// off (clamped to s).
+func runeOffset(s string, off int) int {
+	off = max(0, min(off, len(s)))
+	return utf8.RuneCountInString(s[:off])
+}
+
+// byteOffset returns the byte offset of code point i of s (clamped to s).
+func byteOffset(s string, i int) int {
+	if i <= 0 {
+		return 0
+	}
+	for b := range s {
+		if i == 0 {
+			return b
+		}
+		i--
+	}
+	return len(s)
 }
 
 // semDescription returns the description of an element with ARIA props a:
@@ -487,7 +660,7 @@ func (t *Tree) implicitRole(el *Element) string {
 		return "textbox"
 	case style.KindForm:
 		// A form is a landmark only when it has a name (HTML-AAM).
-		if a := d.aria; a != nil && (semantics.TrimSpace(a.label) != "" || len(a.labelledBy) > 0) {
+		if a := d.aria; a != nil && (semantics.TrimSpace(t.ariaLabel(el, a)) != "" || len(a.labelledBy) > 0) {
 			return "form"
 		}
 	}
@@ -657,10 +830,10 @@ func (t *Tree) textAlt(el *Element, c *altCtx, o altOpts) string {
 	if s, ok := t.altEmbeddedControl(el, a, role, c, o); ok {
 		return s
 	}
-	// 2C: aria-label.
-	if a != nil && semantics.TrimSpace(a.label) != "" {
+	// 2C: aria-label (or AriaLabelFn's).
+	if l := t.ariaLabel(el, a); semantics.TrimSpace(l) != "" {
 		c.visited[el] = true
-		return a.label
+		return l
 	}
 	if s, ok := t.altNative(el, a, role, c, o); ok {
 		return s
@@ -1046,6 +1219,11 @@ var (
 	ErrNodeDisabled = errors.New("core: the element is disabled")
 	// ErrNotFocusable: the element cannot take the focus.
 	ErrNotFocusable = errors.New("core: the element is not focusable")
+	// ErrNoAction: the element does not support the action (the node
+	// lacks its semantics.Action bit: a decrement of a button, an expand of
+	// an element without AriaExpanded, a scroll of one that does not
+	// scroll).
+	ErrNoAction = errors.New("core: the element does not support the action")
 )
 
 // liveElement returns the element of node id in the last semantics tree,
@@ -1120,6 +1298,189 @@ func (t *Tree) ScrollNodeIntoView(id semantics.NodeID) error {
 		return err
 	}
 	t.intoView(el)
+	return nil
+}
+
+// IncrementNode and DecrementNode step the range widget of node id (a
+// slider, spinbutton or scrollbar) the way Chromium does for ARIA range
+// widgets: they focus it (ElementRef.Focus) and press and release an arrow
+// key through the normal key path (HandleKey), so its key handlers move it
+// as for a user. The arrow is ArrowUp or ArrowDown for a vertical widget
+// (AriaOrientation("vertical"), a spinbutton, a scrollbar without
+// orientation) and ArrowRight or ArrowLeft for a horizontal one (a slider
+// without orientation), mirrored in a right-to-left element, where package
+// aria's sliders decrease with ArrowRight. Another role gives ErrNoAction,
+// as does AriaReadOnly(true); a disabled element ErrNodeDisabled; one that
+// cannot take the focus ErrNotFocusable.
+func (t *Tree) IncrementNode(id semantics.NodeID) error { return t.stepNode(id, true) }
+
+// DecrementNode: see IncrementNode.
+func (t *Tree) DecrementNode(id semantics.NodeID) error { return t.stepNode(id, false) }
+
+func (t *Tree) stepNode(id semantics.NodeID, up bool) error {
+	el, err := t.actionElement(id)
+	if err != nil {
+		return err
+	}
+	role, _ := t.semRole(el)
+	a := el.node.d.aria
+	switch {
+	case role != "slider" && role != "spinbutton" && role != "scrollbar":
+		return fmt.Errorf("%w: %s (role %q) is not a slider, spinbutton or scrollbar", ErrNoAction, t.describe(el), role)
+	case a != nil && a.readOnly == semantics.ToggleTrue:
+		return fmt.Errorf("%w: %s is read-only (AriaReadOnly)", ErrNoAction, t.describe(el))
+	case outermostDisabled(el) != nil:
+		return fmt.Errorf("%w: %s", ErrNodeDisabled, t.describe(el))
+	case !t.focusable(el):
+		return fmt.Errorf("%w: %s", ErrNotFocusable, t.describe(el))
+	}
+	vertical := role != "slider"
+	if a != nil && a.w != nil && a.w.orientation != "" {
+		vertical = a.w.orientation == "vertical"
+	}
+	key, code := platform.KeyArrowDown, platform.CodeArrowDown
+	switch {
+	case vertical && up:
+		key, code = platform.KeyArrowUp, platform.CodeArrowUp
+	case !vertical:
+		right := up
+		if el.box.cs.Text.Direction == text.DirectionRTL {
+			right = !right
+		}
+		key, code = platform.KeyArrowLeft, platform.CodeArrowLeft
+		if right {
+			key, code = platform.KeyArrowRight, platform.CodeArrowRight
+		}
+	}
+	t.pressKey(el, key, code)
+	return nil
+}
+
+// pressKey focuses el, unless it has the focus, and presses and releases
+// a key through HandleKey, as a synthesized key press of an accessibility
+// action.
+func (t *Tree) pressKey(el *Element, key platform.Key, code platform.KeyCode) {
+	if t.foc.el != el {
+		t.focusElement(el)
+	}
+	t.HandleKey(platform.KeyEvent{Action: platform.KeyPress, Key: key, Code: code, Time: t.scr.now})
+	t.HandleKey(platform.KeyEvent{Action: platform.KeyRelease, Key: key, Code: code, Time: t.scr.now})
+}
+
+// ExpandNode and CollapseNode expand or collapse the element of node id,
+// one with AriaExpanded, by clicking it (ClickNode), as Chromium does,
+// and only when its state would change: expanding an expanded element
+// does nothing. An element without AriaExpanded gives ErrNoAction.
+func (t *Tree) ExpandNode(id semantics.NodeID) error { return t.setExpanded(id, true) }
+
+// CollapseNode: see ExpandNode.
+func (t *Tree) CollapseNode(id semantics.NodeID) error { return t.setExpanded(id, false) }
+
+func (t *Tree) setExpanded(id semantics.NodeID, expand bool) error {
+	el, err := t.actionElement(id)
+	if err != nil {
+		return err
+	}
+	a := el.node.d.aria
+	if a == nil || a.expanded == semantics.ToggleUnset {
+		return fmt.Errorf("%w: %s has no AriaExpanded", ErrNoAction, t.describe(el))
+	}
+	if (a.expanded == semantics.ToggleTrue) == expand {
+		return nil
+	}
+	return t.ClickNode(semantics.NodeID(el.semID))
+}
+
+// ShowMenuNode opens the context menu of node id as the ContextMenu key
+// does on a focused element in a browser: it focuses the element when it
+// can take the focus, dispatches a keydown and a keyup of the ContextMenu
+// key to it (they bubble), and, unless a handler prevented the keydown's
+// default (package aria's UseContextMenuTrigger opens its menu there, with
+// the first item focused), fires OnContextMenu on it with the secondary
+// button at the center of its bounds. An element without a context-menu
+// handler gives ErrNoAction, a disabled one ErrNodeDisabled.
+func (t *Tree) ShowMenuNode(id semantics.NodeID) error {
+	el, err := t.actionElement(id)
+	if err != nil {
+		return err
+	}
+	if el.node.d.evMask&evContextMenu.mask() == 0 {
+		return fmt.Errorf("%w: %s has no OnContextMenu", ErrNoAction, t.describe(el))
+	}
+	if outermostDisabled(el) != nil {
+		return fmt.Errorf("%w: %s", ErrNodeDisabled, t.describe(el))
+	}
+	if t.foc.el != el && t.focusable(el) {
+		t.focusElement(el)
+	}
+	ke := KeyboardEvent{Key: KeyValue(platform.KeyContextMenu), Code: CodeValue(platform.CodeContextMenu.String())}
+	st := fire(t, evKeyDown, el, ke, true)
+	t.flushDiscrete()
+	prevented := st.defaultPrevented()
+	if el.mounted {
+		fire(t, evKeyUp, el, ke, true)
+		t.flushDiscrete()
+	}
+	if prevented || !el.mounted {
+		return nil
+	}
+	me := MouseEvent{Button: MouseButtonRight}
+	if r := t.elemBounds(el); !r.Empty() {
+		c := r.Center()
+		me.X, me.Y = c.X, c.Y
+	}
+	fire(t, evContextMenu, el, me, true)
+	t.flushDiscrete()
+	return nil
+}
+
+// SetTextSelectionNode sets the caret and selection of the text field of
+// node id to anchor and focus, in code points of the node's Value (as in
+// semantics.TextSelection; clamped to it and moved to grapheme cluster
+// boundaries), without focusing it, as HTML's setSelectionRange with a
+// direction, and fires OnSelect when it changed. It does nothing during
+// an IME composition. An element that is not a text field gives
+// ErrNoAction.
+func (t *Tree) SetTextSelectionNode(id semantics.NodeID, anchor, focus int) error {
+	el, err := t.actionElement(id)
+	if err != nil {
+		return err
+	}
+	f := textField(el)
+	if f == nil {
+		return fmt.Errorf("%w: %s is not a text field", ErrNoAction, t.describe(el))
+	}
+	if f.ed.Composing() {
+		return nil
+	}
+	disp := f.ed.Display()
+	va := f.ed.DisplayToValue(byteOffset(disp, anchor))
+	vf := f.ed.DisplayToValue(byteOffset(disp, focus))
+	t.fieldChanged(f, f.ed.Select(va, vf))
+	t.fieldSelect(f, false)
+	return nil
+}
+
+// ScrollNodeBy scrolls the scroll container of node id (the root's node
+// scrolls the window's content) by dx, dy logical pixels from its current
+// offsets, as ElementRef.ScrollBy: positive dx scrolls toward the right
+// and positive dy down, in either direction. A node that does not scroll
+// (no semantics.ActionScroll) gives ErrNoAction.
+func (t *Tree) ScrollNodeBy(id semantics.NodeID, dx, dy float32) error {
+	el := t.liveElement(id)
+	if el == nil {
+		return fmt.Errorf("%w: %d", ErrNodeGone, id)
+	}
+	var s *scroller
+	if el == t.root {
+		s = t.rootBox.scr
+	} else if el.kind == elemPrimitive {
+		s = el.box.scr
+	}
+	if s == nil || !(s.userX && s.max.X > 0 || s.userY && s.max.Y > 0) {
+		return fmt.Errorf("%w: %s does not scroll", ErrNoAction, t.describe(el))
+	}
+	t.scriptedRequest(scrollReq{s: s, p: s.flip(gfx.Point{X: dx, Y: dy}), by: true})
 	return nil
 }
 

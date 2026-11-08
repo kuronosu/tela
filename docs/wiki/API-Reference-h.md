@@ -11,7 +11,7 @@ This page is generated from the doc comments of the package; the same text is on
 ## Index
 
 - [Overview](#overview)
-- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AnimateLayout`](#func-animatelayout) · [`AriaActiveDescendant`](#func-ariaactivedescendant) · [`AriaAutoComplete`](#func-ariaautocomplete) · [`AriaBusy`](#func-ariabusy) · [`AriaChecked`](#func-ariachecked) · [`AriaControls`](#func-ariacontrols) · [`AriaCurrent`](#func-ariacurrent) · [`AriaDescribedBy`](#func-ariadescribedby) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHasPopup`](#func-ariahaspopup) · [`AriaHidden`](#func-ariahidden) · [`AriaInvalid`](#func-ariainvalid) · [`AriaLabel`](#func-arialabel) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaModal`](#func-ariamodal) · [`AriaMultiSelectable`](#func-ariamultiselectable) · [`AriaOrientation`](#func-ariaorientation) · [`AriaPressed`](#func-ariapressed) · [`AriaReadOnly`](#func-ariareadonly) · [`AriaRequired`](#func-ariarequired) · [`AriaRowCount`](#func-ariarowcount) · [`AriaRowIndex`](#func-ariarowindex) · [`AriaSelected`](#func-ariaselected) · [`AriaSort`](#func-ariasort) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueText`](#func-ariavaluetext) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Dir`](#func-dir) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Draggable`](#func-draggable) · [`Em`](#func-em) · [`Exit`](#func-exit) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`ID`](#func-id) · [`Icon`](#func-icon) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Inert`](#func-inert) · [`Input`](#func-input) · [`ItemHeight`](#func-itemheight) · [`ItemKey`](#func-itemkey) · [`Key`](#func-key) · [`Label`](#func-label) · [`LayoutID`](#func-layoutid) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MapKeyed`](#func-mapkeyed) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`Nodes`](#func-nodes) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragEnter`](#func-ondragenter) · [`OnDragLeave`](#func-ondragleave) · [`OnDragOver`](#func-ondragover) · [`OnDragStart`](#func-ondragstart) · [`OnDrop`](#func-ondrop) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`Portal`](#func-portal) · [`Presence`](#func-presence) · [`Range`](#func-range) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Scale`](#func-scale) · [`Scheme`](#func-scheme) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`SrcBytes`](#func-srcbytes) · [`SrcFS`](#func-srcfs) · [`SrcPath`](#func-srcpath) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`TestID`](#func-testid) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Tint`](#func-tint) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist) · [`WindowControl`](#func-windowcontrol) · [`WindowDrag`](#func-windowdrag) · [`WindowNoDrag`](#func-windownodrag)
+- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AnimateLayout`](#func-animatelayout) · [`AriaActiveDescendant`](#func-ariaactivedescendant) · [`AriaAtomic`](#func-ariaatomic) · [`AriaAutoComplete`](#func-ariaautocomplete) · [`AriaBusy`](#func-ariabusy) · [`AriaChecked`](#func-ariachecked) · [`AriaControls`](#func-ariacontrols) · [`AriaCurrent`](#func-ariacurrent) · [`AriaDescribedBy`](#func-ariadescribedby) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHasPopup`](#func-ariahaspopup) · [`AriaHidden`](#func-ariahidden) · [`AriaInvalid`](#func-ariainvalid) · [`AriaKeyShortcuts`](#func-ariakeyshortcuts) · [`AriaLabel`](#func-arialabel) · [`AriaLabelFn`](#func-arialabelfn) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaLive`](#func-arialive) · [`AriaModal`](#func-ariamodal) · [`AriaMultiSelectable`](#func-ariamultiselectable) · [`AriaOrientation`](#func-ariaorientation) · [`AriaPosInSet`](#func-ariaposinset) · [`AriaPressed`](#func-ariapressed) · [`AriaReadOnly`](#func-ariareadonly) · [`AriaRequired`](#func-ariarequired) · [`AriaRowCount`](#func-ariarowcount) · [`AriaRowIndex`](#func-ariarowindex) · [`AriaSelected`](#func-ariaselected) · [`AriaSetSize`](#func-ariasetsize) · [`AriaSort`](#func-ariasort) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueText`](#func-ariavaluetext) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Dir`](#func-dir) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Draggable`](#func-draggable) · [`Em`](#func-em) · [`Exit`](#func-exit) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`ID`](#func-id) · [`Icon`](#func-icon) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Inert`](#func-inert) · [`Input`](#func-input) · [`ItemHeight`](#func-itemheight) · [`ItemKey`](#func-itemkey) · [`Key`](#func-key) · [`Label`](#func-label) · [`LayoutID`](#func-layoutid) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MapKeyed`](#func-mapkeyed) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`Nodes`](#func-nodes) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragEnter`](#func-ondragenter) · [`OnDragLeave`](#func-ondragleave) · [`OnDragOver`](#func-ondragover) · [`OnDragStart`](#func-ondragstart) · [`OnDrop`](#func-ondrop) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`Portal`](#func-portal) · [`Presence`](#func-presence) · [`Range`](#func-range) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Scale`](#func-scale) · [`Scheme`](#func-scheme) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`SrcBytes`](#func-srcbytes) · [`SrcFS`](#func-srcfs) · [`SrcPath`](#func-srcpath) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`TestID`](#func-testid) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Tint`](#func-tint) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist) · [`WindowControl`](#func-windowcontrol) · [`WindowDrag`](#func-windowdrag) · [`WindowNoDrag`](#func-windownodrag)
 
 ## Overview
 
@@ -128,6 +128,18 @@ AriaActiveDescendant names the active descendant of a composite widget that keep
 
 ```go
 Input(Role("combobox"), AriaActiveDescendant(active), AriaControls(list))
+```
+
+### func AriaAtomic
+
+```go
+func AriaAtomic(atomic bool) tela.Prop
+```
+
+AriaAtomic sets whether a live region is read as a whole when part of it changes (true), or only the part that changed (false, the default but for Role("alert") and Role("status")).
+
+```go
+Div(AriaLive("polite"), AriaAtomic(true), Text("Track "), Textf("%d of %d", i, n))
 ```
 
 ### func AriaAutoComplete
@@ -280,6 +292,18 @@ Input(Bind(email, setEmail), AriaInvalid(err != ""),
     Class("border aria-invalid:border-destructive aria-invalid:ring-destructive/20"))
 ```
 
+### func AriaKeyShortcuts
+
+```go
+func AriaKeyShortcuts(keys string) tela.Prop
+```
+
+AriaKeyShortcuts names the keys that activate or focus an element, for assistive technologies to announce: space-separated alternatives, each keys joined by "+" with the modifiers first, in UI Events key names ("Control", "Meta", "Alt", "Shift"). It does not handle the keys. Common aliases ("Ctrl", "Cmd") panic in dev mode with the right name.
+
+```go
+Button(AriaKeyShortcuts("Control+S Meta+S"), OnClick(save), Text("Save"))
+```
+
 ### func AriaLabel
 
 ```go
@@ -290,6 +314,21 @@ AriaLabel sets the accessible name of an element, for elements whose content doe
 
 ```go
 Button(AriaLabel("Close"), OnClick(close), closeIcon)
+```
+
+### func AriaLabelFn
+
+```go
+func AriaLabelFn(fn func() string) tela.Prop
+```
+
+AriaLabelFn sets the accessible name of an element, like AriaLabel, from a function called when the semantics tree is built, not when the component builds: a name that follows a tela.Value (a progress, a clock) without rebuilding the component. A change of a Value the function reads with Get rebuilds and repaints nothing; it only makes the next semantics tree (assistive technologies, telatest, the aria snapshot) call the function again.
+
+```go
+done := tela.UseValue(0)
+Div(Role("progressbar"), AriaLabelFn(func() string {
+    return fmt.Sprintf("Upload %d%%", done.Get())
+}), bar)
 ```
 
 ### func AriaLabelledBy
@@ -320,6 +359,18 @@ AriaLevel sets the level of an element with Role("heading") (H1 to H6 have their
 
 ```go
 Div(Role("heading"), AriaLevel(2), Text("Billing"))
+```
+
+### func AriaLive
+
+```go
+func AriaLive(politeness string) tela.Prop
+```
+
+AriaLive makes an element a live region: when its content changes, assistive technologies announce it without the focus moving there. "polite" waits until the user is idle, "assertive" interrupts, "off" (the default) announces nothing. Role("alert") is assertive and Role("status") and Role("log") polite without it. An unknown value panics in dev mode with the closest valid one.
+
+```go
+Div(AriaLive("polite"), Textf("%d results", n))
 ```
 
 ### func AriaModal
@@ -356,6 +407,18 @@ AriaOrientation sets the orientation of a listbox, menu, tablist, toolbar, slide
 
 ```go
 Div(Role("tablist"), AriaOrientation("vertical"), tabs)
+```
+
+### func AriaPosInSet
+
+```go
+func AriaPosInSet(pos int) tela.Prop
+```
+
+AriaPosInSet sets the position, from 1, of an item (an option, a menu item, a list item, a tab, a tree item) in its set, for a set that has only some of its items in the tree, such as a virtualized list. Without it the position is counted from the items that are in the tree.
+
+```go
+Div(Role("option"), AriaPosInSet(i+1), AriaSetSize(total), Text(name))
 ```
 
 ### func AriaPressed
@@ -428,6 +491,18 @@ AriaSelected sets whether a tab, option, row or cell is selected.
 
 ```go
 Button(Role("tab"), AriaSelected(active == "general"), Text("General"))
+```
+
+### func AriaSetSize
+
+```go
+func AriaSetSize(n int) tela.Prop
+```
+
+AriaSetSize sets the number of items in the set of an item, on the item or on its container (Role("listbox"), "menu", "list", "tree"...), for a set that has only some of its items in the tree; -1 says the number is unknown. Without it the size is counted from the items in the tree.
+
+```go
+Div(Role("listbox"), AriaSetSize(10_000), VirtualList(...))
 ```
 
 ### func AriaSort

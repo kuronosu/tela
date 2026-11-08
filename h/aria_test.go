@@ -10,6 +10,7 @@ import (
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/semantics"
 )
 
 // toolbar uses every semantics prop through the public API.
@@ -104,5 +105,40 @@ func TestSemanticsPropPanics(t *testing.T) {
 	core.NewTree(core.Config{Dev: true}) // dev mode on in this process
 	if msg := recovered(func() { Role("swich") }); !strings.Contains(msg, `did you mean "switch"?`) {
 		t.Errorf("Role(\"swich\") in dev mode: %q", msg)
+	}
+}
+
+// TestAccessibilityProps: the props of the OS accessibility bridges
+// (ADR-246) reach the semantics tree through the public API.
+func TestAccessibilityProps(t *testing.T) {
+	var n *tela.Value[int]
+	tr := core.NewTree(core.Config{})
+	tr.SetViewport(gfx.Size{W: 600, H: 400})
+	tr.Mount(tela.C(func() tela.Node {
+		n = tela.UseValue(3)
+		return Div(
+			Div(AriaLive("polite"), AriaAtomic(true), AriaLabelFn(func() string { return fmt.Sprintf("%d results", n.Get()) })),
+			Button(AriaKeyShortcuts("Control+S"), Text("Save")),
+			Div(Role("listbox"), AriaLabel("L"), AriaSetSize(50),
+				Div(Role("option"), AriaPosInSet(7), Text("Seven"))),
+		)
+	}))
+	tr.Frame()
+	var region, save, seven bool
+	n.Set(4)
+	tr.ApplyUpdates()
+	tr.Semantics().Walk(func(x *semantics.Node) bool {
+		switch {
+		case x.Name == "4 results":
+			region = x.Live == "polite" && x.Atomic && x.LiveRoot == x.ID
+		case x.Name == "Save":
+			save = x.KeyShortcuts == "Control+S"
+		case x.Name == "Seven":
+			seven = x.PosInSet == 7 && x.SetSize == 50
+		}
+		return true
+	})
+	if !region || !save || !seven {
+		t.Errorf("region %v, shortcut %v, set position %v:\n%s", region, save, seven, tr.AriaSnapshot())
 	}
 }

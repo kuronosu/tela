@@ -98,10 +98,16 @@ const (
 	// edit; never for a read-only or disabled field). Node.Invalid holds the prop alone, which is what aria
 	// snapshots print.
 	StateInvalid
+	// StateProtected: a text field whose value is not shown (an Input of
+	// type password): Value holds the masked text (one bullet per
+	// grapheme cluster), and bridges expose the field as a password one
+	// (AT-SPI's password text, UIA's IsPassword, AXSecureTextField).
+	StateProtected
 )
 
 // Action is a set of actions a node supports (ARCHITECTURE section 16).
-type Action uint8
+// Package core runs each one (ClickNode, FocusNode, IncrementNode...).
+type Action uint16
 
 const (
 	// ActionClick: a click does something (a button, a link, an element
@@ -116,7 +122,36 @@ const (
 	ActionScroll
 	// ActionSetValue: an editable text field (telatest's Fill).
 	ActionSetValue
+	// ActionIncrement and ActionDecrement: a range widget the user moves
+	// with the arrow keys (slider, spinbutton, scrollbar) that is
+	// focusable and neither disabled nor read-only. Core synthesizes the
+	// arrow key presses, as Chromium does for ARIA range widgets.
+	ActionIncrement
+	ActionDecrement
+	// ActionExpand and ActionCollapse: an element with AriaExpanded that is
+	// not disabled, collapsed (ActionExpand) or expanded (ActionCollapse).
+	// Core clicks it, as Chromium does.
+	ActionExpand
+	ActionCollapse
+	// ActionShowMenu: an element that is not disabled with a context-menu
+	// handler (OnContextMenu, as package aria's UseContextMenuTrigger
+	// sets): core opens its menu as the ContextMenu key does.
+	ActionShowMenu
+	// ActionSetSelection: a text field (Input, Textarea) whose caret and
+	// selection can be moved (Node.Selection), editable or read-only.
+	ActionSetSelection
 )
+
+// TextSelection is the caret and selection of a text field, as offsets in
+// Unicode code points into the node's Value (not bytes: bridges convert
+// them to the unit of their platform, UTF-16 for UI Automation and
+// NSAccessibility, code points for AT-SPI). Anchor is where the selection
+// started and Focus the caret; they are equal for a collapsed caret, and
+// Focus < Anchor for a backward selection. During an IME composition the
+// caret sits in the composed text, which Value includes.
+type TextSelection struct {
+	Anchor, Focus int
+}
 
 // Range holds the values of a range widget (slider, progressbar,
 // spinbutton, scrollbar, meter): aria-valuenow, -valuemin and -valuemax.
@@ -155,6 +190,16 @@ type Node struct {
 	// Level is the heading level (H1 to H6, or AriaLevel), or AriaLevel
 	// for other roles; 0 when there is none.
 	Level int
+	// PosInSet and SetSize are the position (from 1) of an item in its set
+	// and the size of the set (-1: unknown), 0 when the node is not in a
+	// set: AriaPosInSet and AriaSetSize when they are given, else computed
+	// as Chromium does for the items of a set (FillSetPositions): options
+	// of a listbox, menu items of a menu or menubar, tabs of a tablist,
+	// radios of a radiogroup, tree items of a tree, list items of a list,
+	// and the items of a group inside one of those. A set container keeps
+	// its own AriaSetSize, which sizes its items. Aria snapshots do not
+	// print them.
+	PosInSet, SetSize int
 	// RowCount and RowIndex are the AriaRowCount of a table, grid or
 	// treegrid (-1: unknown) and the AriaRowIndex of a row (from 1); 0 when
 	// unset. Aria snapshots do not print them.
@@ -177,6 +222,27 @@ type Node struct {
 	Current string
 	States  State
 	Actions Action
+
+	// Live is the politeness of a live region root: "polite" or
+	// "assertive", from AriaLive, else implicit by role (alert is
+	// assertive, status and log are polite; timer and marquee are off); ""
+	// is off. Atomic is AriaAtomic, else true for alert and status (ARIA's
+	// implicit values): an assistive technology reads the whole region on
+	// a change, not only what changed. LiveRoot is the node ID of the live
+	// region the node is in: its own for a region root, its nearest
+	// ancestor's, or 0 outside every region (AriaLive("off") ends a
+	// region for its subtree). Aria snapshots print none of them.
+	Live     string
+	Atomic   bool
+	LiveRoot NodeID
+	// KeyShortcuts is AriaKeyShortcuts: the keys that activate or focus
+	// the element, in ARIA's syntax ("Control+S Meta+S"); "" for none.
+	KeyShortcuts string
+	// Placeholder is the Placeholder of a text field (Input, Textarea).
+	Placeholder string
+	// Selection is the caret and selection of a text field (Input,
+	// Textarea) that exposes its text as Value; nil for other nodes.
+	Selection *TextSelection
 
 	// The widget props (aria-haspopup, -modal, -multiselectable,
 	// -orientation, -autocomplete, -controls, -activedescendant; ADR-096),

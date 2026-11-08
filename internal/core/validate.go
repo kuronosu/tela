@@ -37,7 +37,7 @@ func CheckRole(role string) string {
 // AriaTokenProps are the props whose value is one of a fixed set of
 // tokens, checked by CheckAriaToken.
 func AriaTokenProps() []string {
-	return []string{"AriaCurrent", "AriaSort", "AriaHasPopup", "AriaOrientation", "AriaAutoComplete"}
+	return []string{"AriaCurrent", "AriaSort", "AriaHasPopup", "AriaOrientation", "AriaAutoComplete", "AriaLive"}
 }
 
 // ariaTokenValues returns the tokens of a prop of AriaTokenProps.
@@ -53,6 +53,8 @@ func ariaTokenValues(prop string) []string {
 		return orientationValues
 	case "AriaAutoComplete":
 		return autoCompleteValues
+	case "AriaLive":
+		return liveValues
 	}
 	return nil
 }

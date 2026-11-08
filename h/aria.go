@@ -221,3 +221,59 @@ func AriaSort(sort string) tela.Prop { return core.AriaSort(sort) }
 //	    Class("text-muted-foreground aria-[current=page]:text-foreground aria-[current=page]:font-medium"),
 //	    Text("Docs"))
 func AriaCurrent(current string) tela.Prop { return core.AriaCurrent(current) }
+
+// AriaLabelFn sets the accessible name of an element, like AriaLabel, from
+// a function called when the semantics tree is built, not when the
+// component builds: a name that follows a tela.Value (a progress, a
+// clock) without rebuilding the component. A change of a Value the
+// function reads with Get rebuilds and repaints nothing; it only makes
+// the next semantics tree (assistive technologies, telatest, the aria
+// snapshot) call the function again.
+//
+//	done := tela.UseValue(0)
+//	Div(Role("progressbar"), AriaLabelFn(func() string {
+//	    return fmt.Sprintf("Upload %d%%", done.Get())
+//	}), bar)
+func AriaLabelFn(fn func() string) tela.Prop { return core.AriaLabelFn(fn) }
+
+// AriaLive makes an element a live region: when its content changes,
+// assistive technologies announce it without the focus moving there.
+// "polite" waits until the user is idle, "assertive" interrupts, "off"
+// (the default) announces nothing. Role("alert") is assertive and
+// Role("status") and Role("log") polite without it. An unknown value
+// panics in dev mode with the closest valid one.
+//
+//	Div(AriaLive("polite"), Textf("%d results", n))
+func AriaLive(politeness string) tela.Prop { return core.AriaLive(politeness) }
+
+// AriaAtomic sets whether a live region is read as a whole when part of it
+// changes (true), or only the part that changed (false, the default but
+// for Role("alert") and Role("status")).
+//
+//	Div(AriaLive("polite"), AriaAtomic(true), Text("Track "), Textf("%d of %d", i, n))
+func AriaAtomic(atomic bool) tela.Prop { return core.AriaAtomic(atomic) }
+
+// AriaKeyShortcuts names the keys that activate or focus an element, for
+// assistive technologies to announce: space-separated alternatives, each
+// keys joined by "+" with the modifiers first, in UI Events key names
+// ("Control", "Meta", "Alt", "Shift"). It does not handle the keys. Common
+// aliases ("Ctrl", "Cmd") panic in dev mode with the right name.
+//
+//	Button(AriaKeyShortcuts("Control+S Meta+S"), OnClick(save), Text("Save"))
+func AriaKeyShortcuts(keys string) tela.Prop { return core.AriaKeyShortcuts(keys) }
+
+// AriaPosInSet sets the position, from 1, of an item (an option, a menu
+// item, a list item, a tab, a tree item) in its set, for a set that has
+// only some of its items in the tree, such as a virtualized list. Without
+// it the position is counted from the items that are in the tree.
+//
+//	Div(Role("option"), AriaPosInSet(i+1), AriaSetSize(total), Text(name))
+func AriaPosInSet(pos int) tela.Prop { return core.AriaPosInSet(pos) }
+
+// AriaSetSize sets the number of items in the set of an item, on the item
+// or on its container (Role("listbox"), "menu", "list", "tree"...), for a
+// set that has only some of its items in the tree; -1 says the number is
+// unknown. Without it the size is counted from the items in the tree.
+//
+//	Div(Role("listbox"), AriaSetSize(10_000), VirtualList(...))
+func AriaSetSize(n int) tela.Prop { return core.AriaSetSize(n) }

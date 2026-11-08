@@ -212,6 +212,8 @@ func TestExportedNames(t *testing.T) {
 		"AriaCurrent",
 		// ADR-211: drag and drop.
 		"Draggable", "OnDragEnter", "OnDragLeave", "OnDragOver", "OnDrop",
+		// ADR-246: the props of the OS accessibility bridges.
+		"AriaAtomic", "AriaKeyShortcuts", "AriaLabelFn", "AriaLive", "AriaPosInSet", "AriaSetSize",
 	}
 	fset := token.NewFileSet()
 	var got []string

@@ -3,11 +3,14 @@ package core
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/semantics"
 	"github.com/kuronosu/tela/internal/style"
 )
@@ -736,4 +739,430 @@ func TestSemanticsActionOnUnmountedText(t *testing.T) {
 	if err := tr.ClickNode(text); !errors.Is(err, ErrNodeGone) || clicks != 0 {
 		t.Errorf("ClickNode(unmounted text) = %v with %d clicks; want ErrNodeGone and none", err, clicks)
 	}
+}
+
+// ---------------------------------------------------------------------
+// The fields and actions of the OS accessibility bridges (ADR-246).
+
+// TestSemanticsLiveRegions: Live, Atomic and LiveRoot, explicit and
+// implicit by role, on elements and texts.
+func TestSemanticsLiveRegions(t *testing.T) {
+	tr, _ := snapshotOf(t, div(
+		div(Role("alert"), AriaLabel("A"), span(Text("Saved"))),
+		div(Role("status"), AriaLabel("S"), AriaLive("assertive"), AriaAtomic(false)),
+		div(Role("log"), AriaLabel("L")),
+		div(Role("region"), AriaLabel("R"), AriaLive("Polite"),
+			div(Role("group"), AriaLabel("inner"), Text("x")),
+			div(Role("group"), AriaLabel("off"), AriaLive("off"), div(Role("group"), AriaLabel("in off"))),
+			div(Role("timer"), AriaLabel("T"))),
+		div(Role("alert"), AriaLabel("quiet"), AriaLive("off")),
+		div(Role("group"), AriaLabel("plain"))))
+	sem := tr.Semantics()
+	for _, c := range []struct {
+		role, name string
+		live       string
+		atomic     bool
+		root       string // name of the region root, "" for none
+	}{
+		{"alert", "A", "assertive", true, "A"},
+		{"status", "S", "assertive", false, "S"},
+		{"log", "L", "polite", false, "L"},
+		{"region", "R", "polite", false, "R"},
+		{"group", "inner", "", false, "R"},
+		{"group", "off", "", false, ""},
+		{"group", "in off", "", false, ""},
+		{"timer", "T", "", false, ""},
+		{"alert", "quiet", "", true, ""},
+		{"group", "plain", "", false, ""},
+	} {
+		n := mustNode(t, tr, c.role, c.name)
+		var root semantics.NodeID
+		if c.root != "" {
+			root = findNode(sem, map[string]string{"A": "alert", "S": "status", "L": "log", "R": "region"}[c.root], c.root).ID
+		}
+		if n.Live != c.live || n.Atomic != c.atomic || n.LiveRoot != root {
+			t.Errorf("%s %q: live %q atomic %v root %d; want %q %v %d", c.role, c.name, n.Live, n.Atomic, n.LiveRoot, c.live, c.atomic, root)
+		}
+	}
+	alert := mustNode(t, tr, "alert", "A")
+	var text *semantics.Node
+	alert.Walk(func(n *semantics.Node) bool {
+		if n.Kind == semantics.KindText {
+			text = n
+		}
+		return true
+	})
+	if text == nil || text.LiveRoot != alert.ID {
+		t.Errorf("the text of an alert: %+v, want LiveRoot %d", text, alert.ID)
+	}
+}
+
+// TestSemanticsNewPropChecks: AriaLive takes its tokens like the other
+// token props, and AriaKeyShortcuts rejects empty keys and aliases in dev
+// mode.
+func TestSemanticsNewPropChecks(t *testing.T) {
+	tr, _ := snapshotOf(t, div(button(AriaKeyShortcuts("  Control+S   Meta+S "), Text("Save"))))
+	if n := mustNode(t, tr, "button", "Save"); n.KeyShortcuts != "Control+S Meta+S" {
+		t.Errorf("KeyShortcuts %q", n.KeyShortcuts)
+	}
+	devTree(t, div(), nil) // dev mode on
+	for _, c := range []struct {
+		f    func()
+		want string
+	}{
+		{func() { AriaLive("politely") }, `AriaLive("politely"): unknown value; did you mean "polite"?`},
+		{func() { AriaKeyShortcuts("Ctrl+S") }, `"Ctrl" is not a UI Events key value; did you mean "Control"?`},
+		{func() { AriaKeyShortcuts("Control+") }, `the chord "Control+" has an empty key`},
+		{func() { AriaKeyShortcuts("Shift++") }, `write the + key as Plus`},
+		{func() { AriaLabelFn(nil) }, `AriaLabelFn(nil)`},
+	} {
+		if msg := panicMessage(c.f); !strings.Contains(msg, c.want) {
+			t.Errorf("panic %q, want %q", msg, c.want)
+		}
+	}
+	for _, ok := range []string{"Shift+Space", "Alt+Shift+N", "Control+Plus", "F5", ""} {
+		if msg := CheckKeyShortcuts(ok); msg != "" {
+			t.Errorf("CheckKeyShortcuts(%q) = %q", ok, msg)
+		}
+	}
+	if CheckAriaToken("AriaLive", "assertive") != "" || CheckAriaToken("AriaLive", "loud") == "" {
+		t.Error("CheckAriaToken does not check AriaLive")
+	}
+}
+
+// posOf returns "pos/size" of the node with role and name.
+func posOf(t *testing.T, tr *Tree, role, name string) string {
+	t.Helper()
+	n := mustNode(t, tr, role, name)
+	return strconv.Itoa(n.PosInSet) + "/" + strconv.Itoa(n.SetSize)
+}
+
+// TestSemanticsSetPositions: PosInSet and SetSize of the items of sets,
+// implicit as Chromium computes them and explicit.
+func TestSemanticsSetPositions(t *testing.T) {
+	opt := func(name string, ps ...Child) Node {
+		return div(append([]Child{Role("option"), Text(name)}, ps...)...)
+	}
+	tr, _ := snapshotOf(t, div(
+		div(Role("listbox"), AriaLabel("Fruit"),
+			opt("Apple"), div(opt("Banana")), opt("Hidden", Class("hidden")), opt("Cherry"),
+			div(Role("group"), AriaLabel("More"), opt("Date"), opt("Elder"))),
+		div(Role("menu"), AriaLabel("Edit"),
+			div(Role("menuitem"), Text("Cut")), div(Role("separator")),
+			div(Role("menuitemcheckbox"), AriaChecked(true), Text("Wrap")),
+			div(Role("group"), div(Role("menuitemradio"), AriaChecked(true), Text("Left")), div(Role("menuitemradio"), AriaChecked(false), Text("Right"))),
+			div(Role("menuitem"), Text("Paste"))),
+		div(Role("tablist"), div(Role("tab"), Text("One")), div(Role("tab"), Text("Two"))),
+		div(Role("radiogroup"), AriaLabel("Size"), div(Role("radio"), Text("S")), div(Role("radio"), Text("M")), div(Role("radio"), Text("L"))),
+		div(Role("tree"), AriaLabel("Files"),
+			div(Role("treeitem"), Text("src"), div(Role("group"), div(Role("treeitem"), Text("a.go")), div(Role("treeitem"), Text("b.go")))),
+			div(Role("treeitem"), Text("docs"))),
+		div(Role("list"), AriaLabel("Paged"), AriaSetSize(100),
+			div(Role("listitem"), AriaPosInSet(41), AriaLabel("Item 41")), div(Role("listitem"), AriaLabel("Item 42"))),
+		div(Role("list"), AriaLabel("Own"), div(Role("listitem"), AriaSetSize(-1), AriaLabel("Item a")), div(Role("listitem"), AriaLabel("Item b"))),
+		opt("Loose")))
+	for _, c := range []struct{ role, name, want string }{
+		{"option", "Apple", "1/3"}, {"option", "Banana", "2/3"}, {"option", "Cherry", "3/3"},
+		{"option", "Date", "1/2"}, {"option", "Elder", "2/2"},
+		{"menuitem", "Cut", "1/3"}, {"menuitemcheckbox", "Wrap", "2/3"}, {"menuitem", "Paste", "3/3"},
+		{"menuitemradio", "Left", "1/2"}, {"menuitemradio", "Right", "2/2"},
+		{"tab", "One", "1/2"}, {"tab", "Two", "2/2"},
+		{"radio", "M", "2/3"},
+		{"treeitem", "src", "1/2"}, {"treeitem", "docs", "2/2"}, {"treeitem", "b.go", "2/2"},
+		{"listitem", "Item 41", "41/100"}, {"listitem", "Item 42", "42/100"},
+		{"listitem", "Item a", "1/-1"}, {"listitem", "Item b", "2/2"},
+		{"option", "Loose", "0/0"},
+		{"listbox", "Fruit", "0/0"}, {"list", "Paged", "0/100"},
+	} {
+		if got := posOf(t, tr, c.role, c.name); got != c.want {
+			t.Errorf("%s %q: %s, want %s", c.role, c.name, got, c.want)
+		}
+	}
+	if h := findNode(tr.Semantics(), "option", "Hidden"); h == nil || h.PosInSet != 0 {
+		t.Errorf("a hidden option: %+v", h)
+	}
+}
+
+// TestSemanticsTextFields: the placeholder, the protected state of a
+// password and the caret and selection in code points.
+func TestSemanticsTextFields(t *testing.T) {
+	tr, _ := snapshotOf(t, div(
+		input(Key("pw"), FieldType("password"), AriaLabel("Password"), Placeholder("At least 8 characters"), DefaultValue("hé😀")),
+		textarea(Key("bio"), AriaLabel("Bio"), DefaultValue("aé😀b")),
+		input(Key("ro"), AriaLabel("Code"), ReadOnly(true), DefaultValue("XY")),
+		div(Role("textbox"), AriaLabel("Div"), Text("text"))))
+	pw := mustNode(t, tr, "textbox", "Password")
+	if !pw.Has(semantics.StateProtected) || pw.Placeholder != "At least 8 characters" || pw.Value != "•••" {
+		t.Errorf("password %+v", pw)
+	}
+	if pw.Selection == nil || !pw.Can(semantics.ActionSetSelection) {
+		t.Fatalf("password selection %+v", pw.Selection)
+	}
+	bio := mustNode(t, tr, "textbox", "Bio")
+	if bio.Has(semantics.StateProtected) || bio.Selection == nil {
+		t.Fatalf("textarea %+v", bio)
+	}
+	// Select "é😀" backwards: code points 3 to 1 (bytes 7 to 1).
+	if err := tr.SetTextSelectionNode(bio.ID, 3, 1); err != nil {
+		t.Fatal(err)
+	}
+	f := keyed(tr, "bio").box.fld
+	if s, e, back := f.ed.SelectionRange(); s != 1 || e != 7 || !back {
+		t.Errorf("selection bytes %d..%d backward %v, want 1..7 backward", s, e, back)
+	}
+	tr.Frame()
+	if got := *mustNode(t, tr, "textbox", "Bio").Selection; got != (semantics.TextSelection{Anchor: 3, Focus: 1}) {
+		t.Errorf("Selection %+v, want anchor 3 focus 1", got)
+	}
+	// Past the end clamps; the password field's offsets count bullets.
+	if err := tr.SetTextSelectionNode(pw.ID, 2, 99); err != nil {
+		t.Fatal(err)
+	}
+	if s, e, _ := keyed(tr, "pw").box.fld.ed.SelectionRange(); s != 3 || e != 7 {
+		t.Errorf("password selection bytes %d..%d, want 3..7", s, e)
+	}
+	tr.Frame()
+	if got := *mustNode(t, tr, "textbox", "Password").Selection; got != (semantics.TextSelection{Anchor: 2, Focus: 3}) {
+		t.Errorf("password Selection %+v", got)
+	}
+	ro := mustNode(t, tr, "textbox", "Code")
+	if ro.Selection == nil || !ro.Can(semantics.ActionSetSelection) || ro.Can(semantics.ActionSetValue) {
+		t.Errorf("read-only field %+v", ro)
+	}
+	d := mustNode(t, tr, "textbox", "Div")
+	if d.Selection != nil || d.Can(semantics.ActionSetSelection) {
+		t.Errorf("a div textbox has text field data: %+v", d)
+	}
+	if err := tr.SetTextSelectionNode(d.ID, 0, 1); !errors.Is(err, ErrNoAction) {
+		t.Errorf("SetTextSelectionNode(div) = %v, want ErrNoAction", err)
+	}
+}
+
+// TestSemanticsWidgetActions: the action bits of range widgets, expandable
+// elements and context-menu areas.
+func TestSemanticsWidgetActions(t *testing.T) {
+	tr, _ := snapshotOf(t, div(
+		div(Role("slider"), AriaLabel("Volume"), TabIndex(0)),
+		div(Role("slider"), AriaLabel("Locked"), TabIndex(0), AriaReadOnly(true)),
+		div(Role("slider"), AriaLabel("Static")),
+		div(Role("spinbutton"), AriaLabel("Off"), TabIndex(0), AriaDisabled(true)),
+		button(AriaExpanded(false), Text("Closed")),
+		button(AriaExpanded(true), Text("Open")),
+		button(AriaExpanded(true), Disabled(true), Text("Dead")),
+		div(Role("region"), AriaLabel("Area"), On("contextmenu", func(MouseEvent) {})),
+		button(Text("Plain"))))
+	step := semantics.ActionIncrement | semantics.ActionDecrement
+	for _, c := range []struct {
+		role, name string
+		has, not   semantics.Action
+	}{
+		{"slider", "Volume", step, 0},
+		{"slider", "Locked", 0, step},
+		{"slider", "Static", 0, step},
+		{"spinbutton", "Off", 0, step},
+		{"button", "Closed", semantics.ActionExpand, semantics.ActionCollapse},
+		{"button", "Open", semantics.ActionCollapse, semantics.ActionExpand},
+		{"button", "Dead", 0, semantics.ActionCollapse | semantics.ActionExpand},
+		{"region", "Area", semantics.ActionShowMenu, 0},
+		{"button", "Plain", 0, semantics.ActionShowMenu | semantics.ActionExpand | step},
+	} {
+		n := mustNode(t, tr, c.role, c.name)
+		if !n.Can(c.has) || n.Actions&c.not != 0 {
+			t.Errorf("%s %q: actions %b, want %b and not %b", c.role, c.name, n.Actions, c.has, c.not)
+		}
+	}
+}
+
+// stepSlider is a slider that records the keys it gets and moves by one
+// per arrow (ArrowUp and ArrowRight increase, mirrored in RTL like aria's).
+func stepSlider(name string, keys *[]string, ps ...Child) Node {
+	v, set := UseState(5)
+	return div(append([]Child{Role("slider"), AriaLabel(name), TabIndex(0), AriaValueNow(float64(v)),
+		On("keydown", func(e KeyboardEvent) {
+			*keys = append(*keys, string(e.Key))
+			switch e.Key {
+			case "ArrowUp", "ArrowRight":
+				set.Set(v + 1)
+			case "ArrowDown", "ArrowLeft":
+				set.Set(v - 1)
+			}
+			e.PreventDefault()
+		})}, ps...)...)
+}
+
+func TestIncrementDecrementNode(t *testing.T) {
+	var keys []string
+	tr, _ := snapshotOf(t, div(
+		Component(func() Node { return stepSlider("H", &keys) }),
+		Component(func() Node { return stepSlider("V", &keys, AriaOrientation("vertical")) }),
+		Component(func() Node { return stepSlider("R", &keys, Dir("rtl")) }),
+		Component(func() Node { return stepSlider("RO", &keys, AriaReadOnly(true)) }),
+		button(Text("B"))))
+	for _, c := range []struct {
+		name string
+		up   bool
+		key  string
+	}{
+		{"H", true, "ArrowRight"}, {"H", false, "ArrowLeft"},
+		{"V", true, "ArrowUp"}, {"V", false, "ArrowDown"},
+		{"R", true, "ArrowLeft"}, {"R", false, "ArrowRight"},
+	} {
+		keys = keys[:0]
+		n := mustNode(t, tr, "slider", c.name)
+		f := tr.DecrementNode
+		if c.up {
+			f = tr.IncrementNode
+		}
+		if err := f(n.ID); err != nil {
+			t.Fatal(err)
+		}
+		if len(keys) != 1 || keys[0] != c.key {
+			t.Errorf("%s up=%v: keys %v, want [%s]", c.name, c.up, keys, c.key)
+		}
+		if el := tr.liveElement(n.ID); tr.foc.el != el {
+			t.Errorf("%s: not focused", c.name)
+		}
+	}
+	tr.Frame()
+	// H: +1 -1; R: in RTL ArrowLeft decreased, ArrowRight increased.
+	if n := mustNode(t, tr, "slider", "H"); n.Value != "5" {
+		t.Errorf("H value %q", n.Value)
+	}
+	if err := tr.IncrementNode(mustNode(t, tr, "slider", "V").ID); err != nil {
+		t.Fatal(err)
+	}
+	tr.Frame()
+	if n := mustNode(t, tr, "slider", "V"); n.Value != "6" {
+		t.Errorf("V value after an increment %q, want 6", n.Value)
+	}
+	if err := tr.IncrementNode(mustNode(t, tr, "slider", "RO").ID); !errors.Is(err, ErrNoAction) {
+		t.Errorf("IncrementNode(read-only) = %v", err)
+	}
+	if err := tr.IncrementNode(mustNode(t, tr, "button", "B").ID); !errors.Is(err, ErrNoAction) {
+		t.Errorf("IncrementNode(button) = %v", err)
+	}
+}
+
+func TestExpandCollapseNode(t *testing.T) {
+	clicks := 0
+	disclosure := func() Node {
+		open, set := UseState(false)
+		return button(AriaExpanded(open), On("click", func(MouseEvent) { clicks++; set.Set(!open) }), Text("More"))
+	}
+	tr, _ := snapshotOf(t, div(Component(disclosure), button(Text("Plain"))))
+	id := mustNode(t, tr, "button", "More").ID
+	if err := tr.CollapseNode(id); err != nil || clicks != 0 {
+		t.Errorf("CollapseNode(collapsed) = %v with %d clicks; want nil and none", err, clicks)
+	}
+	if err := tr.ExpandNode(id); err != nil || clicks != 1 {
+		t.Fatalf("ExpandNode = %v with %d clicks", err, clicks)
+	}
+	tr.Frame()
+	if n := mustNode(t, tr, "button", "More"); n.Expanded != semantics.ToggleTrue || !n.Can(semantics.ActionCollapse) {
+		t.Errorf("after ExpandNode %+v", n)
+	}
+	if err := tr.ExpandNode(id); err != nil || clicks != 1 {
+		t.Errorf("ExpandNode(expanded) = %v with %d clicks", err, clicks)
+	}
+	if err := tr.CollapseNode(id); err != nil || clicks != 2 {
+		t.Errorf("CollapseNode = %v with %d clicks", err, clicks)
+	}
+	if err := tr.ExpandNode(mustNode(t, tr, "button", "Plain").ID); !errors.Is(err, ErrNoAction) {
+		t.Errorf("ExpandNode(plain button) = %v", err)
+	}
+}
+
+func TestShowMenuNode(t *testing.T) {
+	var got []string
+	tr, _ := snapshotOf(t, div(
+		div(Role("region"), AriaLabel("Plain"), On("contextmenu", func(e MouseEvent) {
+			got = append(got, fmt.Sprintf("menu %v %.0f,%.0f", e.Button == MouseButtonRight, e.X, e.Y))
+		}), Class("h-10 w-20")),
+		div(Role("region"), AriaLabel("Keyed"), TabIndex(0),
+			On("keydown", func(e KeyboardEvent) {
+				if e.Key == KeyValue(platform.KeyContextMenu) {
+					got = append(got, "key")
+					e.PreventDefault()
+				}
+			}),
+			On("contextmenu", func(MouseEvent) { got = append(got, "menu") })),
+		button(Text("None"))))
+	if err := tr.ShowMenuNode(mustNode(t, tr, "region", "Plain").ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := tr.ShowMenuNode(mustNode(t, tr, "region", "Keyed").ID); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"menu true 40,20", "key"}; fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("events %q, want %q", got, want)
+	}
+	if el := tr.liveElement(mustNode(t, tr, "region", "Keyed").ID); tr.foc.el != el {
+		t.Error("ShowMenuNode did not focus the focusable area")
+	}
+	if err := tr.ShowMenuNode(mustNode(t, tr, "button", "None").ID); !errors.Is(err, ErrNoAction) {
+		t.Errorf("ShowMenuNode(button) = %v", err)
+	}
+}
+
+func TestScrollNodeBy(t *testing.T) {
+	tr, _ := snapshotOf(t, div(
+		div(Key("list"), Role("list"), AriaLabel("Rows"), Class("h-20 overflow-y-auto"), div(Class("h-96"))),
+		button(Text("B"))))
+	n := mustNode(t, tr, "list", "Rows")
+	if err := tr.ScrollNodeBy(n.ID, 0, 30); err != nil {
+		t.Fatal(err)
+	}
+	if err := tr.ScrollNodeBy(n.ID, 0, 15); err != nil {
+		t.Fatal(err)
+	}
+	if y := keyed(tr, "list").box.scr.pos.Y; y != 45 {
+		t.Errorf("scrolled to %v, want 45", y)
+	}
+	if err := tr.ScrollNodeBy(mustNode(t, tr, "button", "B").ID, 0, 10); !errors.Is(err, ErrNoAction) {
+		t.Errorf("ScrollNodeBy(button) = %v", err)
+	}
+}
+
+// TestAriaLabelFn: the deferred name is read when the semantics tree is
+// built; a change of a Value it read rebuilds nothing, requests no frame,
+// and makes the next tree fresh, telling the listener once.
+func TestAriaLabelFn(t *testing.T) {
+	var pct *Value[int]
+	builds := 0
+	tr, _ := snapshotOf(t, Component(func() Node {
+		builds++
+		pct = UseValue(10)
+		return div(div(Role("progressbar"), AriaLabelFn(func() string { return fmt.Sprintf("Upload %d%%", pct.Get()) })))
+	}))
+	mustNode(t, tr, "progressbar", "Upload 10%")
+	told := 0
+	tr.OnSemanticsStale(func() { told++ })
+	if tr.SemanticsStale() {
+		t.Error("stale before any change")
+	}
+	pct.Set(55)
+	if tr.ApplyUpdates() {
+		t.Error("a Value read only by AriaLabelFn requested a frame")
+	}
+	if !tr.SemanticsStale() || told != 1 {
+		t.Errorf("stale %v, told %d; want true, 1", tr.SemanticsStale(), told)
+	}
+	pct.Set(60)
+	tr.ApplyUpdates()
+	if told != 1 {
+		t.Errorf("told %d times before a new tree was built", told)
+	}
+	mustNode(t, tr, "progressbar", "Upload 60%")
+	if builds != 1 {
+		t.Errorf("%d builds, want 1", builds)
+	}
+	pct.Set(70)
+	tr.ApplyUpdates()
+	if told != 2 {
+		t.Errorf("told %d times after a new tree, want 2", told)
+	}
+	// AriaLabel replaces AriaLabelFn and drops its subscriptions.
+	tr.Mount(div(div(Role("progressbar"), AriaLabelFn(func() string { return "x" }), AriaLabel("Fixed"))))
+	tr.Frame()
+	mustNode(t, tr, "progressbar", "Fixed")
 }

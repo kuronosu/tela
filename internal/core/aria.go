@@ -14,6 +14,7 @@ import (
 type ariaProps struct {
 	role        string // as given (a space-separated fallback list)
 	label       string
+	labelFn     func() string // AriaLabelFn (aria_live.go); label is "" then
 	hasLabel    bool
 	labelledBy  []*elemRef
 	describedBy *elemRef
@@ -25,6 +26,7 @@ type ariaProps struct {
 	selected    semantics.Toggle
 	expanded    semantics.Toggle
 	w           *ariaWidget // the widget props (ariawidget.go)
+	x           *ariaA11y   // live regions, shortcuts, sets (aria_live.go)
 	disabled    semantics.Toggle
 	required    semantics.Toggle // AriaRequired, AriaReadOnly, AriaBusy, AriaInvalid and AriaSort (aria_state.go)
 	readOnly    semantics.Toggle
@@ -72,8 +74,9 @@ func Role(role string) Prop {
 
 // AriaLabel sets the accessible name of a primitive (aria-label). It wins
 // over the name from content and Alt; AriaLabelledBy wins over it.
+// AriaLabel and AriaLabelFn replace each other.
 func AriaLabel(label string) Prop {
-	return ariaProp("AriaLabel", func(a *ariaProps) { a.label, a.hasLabel = label, true })
+	return ariaProp("AriaLabel", func(a *ariaProps) { a.label, a.labelFn, a.hasLabel = label, nil, true })
 }
 
 // AriaLabelledBy names a primitive with the text of the element r is
