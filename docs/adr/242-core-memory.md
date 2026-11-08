@@ -1,7 +1,7 @@
 # ADR-242: Decoded images released when unshown; exact framebuffers
 
 - **Date:** 2026-11-07
-- **Status:** Proposed
+- **Status:** Accepted
 
 ## Decision
 

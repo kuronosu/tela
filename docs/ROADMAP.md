@@ -32,7 +32,7 @@ Find where RAM goes and reduce it. Before the Font system (the owner, 2026-11-07
   - decoded images never dropped: the dashboard keeps both 9 MiB wallpapers after a theme switch
   - trees, display lists and text layout: under 10 MiB
 - [ ] The rasterizer: release scratch buffers no frame uses, and evict backdrop cache entries no frame reads, so memory comes back after the palette or a dialog closes, without slower frames
-- [ ] Core: the framebuffer's resize headroom, and decoded images that no box shows
+- [x] Core: decoded images released when nothing shows them, framebuffers exact once a resize settles and dropped while hidden (ADR-242); the dashboard's session keeps one wallpaper instead of two (17.7 → 8.9 MiB), framebuffer and copy 11% smaller
 - [x] The fonts' waste (the owner, 2026-11-07: removed here, the design stays in the Font system): outlines parsed on demand from the file bytes (ADR-243); fonts 61 → 35 MiB in every app, hello 69.9 → 42.8 MiB in use and 98 → 69 MiB RSS at x1
 - [ ] Record the before and after numbers of every example, and the fonts' share for the Font system's ADR
 
