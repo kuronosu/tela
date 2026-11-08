@@ -12,23 +12,33 @@
 - **Done:** phases 1–16. Latest version `v0.13.4` (2026-11-07, phase 16: platform parity; tagged on `31942ee` with the owner's approval). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
 - **Phase in progress:** none. Phase 16 was merged into `main` from `phase-16-platform-parity`.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** the owner pushes `main` and `v0.13.4`; then the next phase in order, Font system. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** the next phase in order, Memory (moved before the Font system by the owner on 2026-11-07, so the fonts' ADR is decided on measurements). R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
 
 In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–16 are done (HISTORY.md).
 
+### Memory
+
+Find where RAM goes and reduce it. Before the Font system (the owner, 2026-11-07: its measurements inform the fonts' ADR) and before CPU performance, whose caches trade memory for speed. What the fonts take is measured and explained here, and reduced in the Font system phase.
+
+- [ ] A repeatable measurement: Go heap profiles (pprof `inuse_space`, `alloc_space`) and the process's RSS for `examples/hello`, the kit gallery, `dashboard` and `notes`, at x1 and x2, at rest and through the dashboard's scripted session, run by one command so regressions show
+- [ ] Check the suspects the profile ranks (none measured yet): the parsed fonts (see Font system), interned font faces that are never evicted, framebuffers and the copies made around `Present` (one RGBA buffer of a 1080p window at x2 is about 33 MB), the raster workers' buffers, the backdrop cache (ADR-200), the layers' display lists, glyph caches
+- [ ] Reduce the largest consumers other than the fonts, each change measured and the goldens unchanged
+
+**Done when:** the measurement runs from one command with a recorded baseline, and the largest consumers it found are reduced or explained (the fonts' share measured for the Font system's ADR), with the before and after numbers for each example.
+
 ### Font system
 
 How Tela ships and loads fonts. Before the API freeze, since it can add public API and change which fonts an app carries by default.
 
 - [ ] Baseline: `examples/hello` is 25.6 MB (20.2 MB with `-s -w`), and 7.2 MB of it are the six embedded fonts (Noto Color Emoji alone 5 MB, Inter's two files 1.8 MB, Noto Sans Arabic 0.8 MB, JetBrains Mono 0.6 MB). Every app parses all six at start (about 70 ms of work, 40 ms of it Noto Color Emoji, whose outlines go-text parses up front), and keeps them in memory whether its text needs them or not
-- [ ] An ADR on the options, keeping ADR-008's deterministic pixels for tests and snapshots: fewer or subset embedded fonts; fonts an app opts into (separate modules like `icons/lucide`, or build tags); compressed embedding (the standard library's `compress/flate`; WOFF2 needs a Brotli decoder, a new dependency); system fonts by default with the embedded ones for tests (go-text's `fontscan` already indexes them, opt-in and internal today)
+- [ ] An ADR on the options, from the Memory phase's measurements (the fonts' share of RAM, parse time, binary size), keeping ADR-008's deterministic pixels for tests and snapshots: fewer or subset embedded fonts; fonts an app opts into (separate modules like `icons/lucide`, or build tags); compressed embedding (the standard library's `compress/flate`; WOFF2 needs a Brotli decoder, a new dependency); system fonts by default with the embedded ones for tests (go-text's `fontscan` already indexes them, opt-in and internal today)
 - [ ] Parse a font when text first needs it, not at start
 - [ ] An API for an app to ship its own fonts, and a serif face for `font-serif` (today it draws Inter; deferred by the owner on 2026-10-30 because of binary size)
 
-**Done when:** the ADR's choice is in, an app can ship its own fonts, goldens stay bit-identical wherever the default fonts did not change, and `examples/hello`'s binary size, start-up parse time and font memory are measured before and after.
+**Done when:** the ADR's choice is in, an app can ship its own fonts, goldens stay bit-identical wherever the default fonts did not change, and `examples/hello`'s binary size, start-up parse time and font memory are measured before and after with the Memory phase's command.
 
 ### Accessibility
 
@@ -73,16 +83,6 @@ Differences from Chromium and missing typography; each fix comes with a fixture 
 - [ ] Re-measure the scale-2 tolerances that about 12 Chromium comparison tests in `internal/core` and `internal/text` justify with ADR-048: ADR-159 superseded it (line boxes in device pixels, as Blink), so they may be looser than needed
 
 **Done when:** every case above has a fixture or golden that matches Chromium up to text antialiasing, and static text can be selected and copied.
-
-### Memory
-
-Find where RAM goes and reduce it. Before CPU performance, whose caches trade memory for speed.
-
-- [ ] A repeatable measurement: Go heap profiles (pprof `inuse_space`, `alloc_space`) and the process's RSS for `examples/hello`, the kit gallery, `dashboard` and `notes`, at x1 and x2, at rest and through the dashboard's scripted session, run by one command so regressions show
-- [ ] Check the suspects the profile ranks (none measured yet): the parsed fonts (see Font system), interned font faces that are never evicted, framebuffers and the copies made around `Present` (one RGBA buffer of a 1080p window at x2 is about 33 MB), the raster workers' buffers, the backdrop cache (ADR-200), the layers' display lists, glyph caches
-- [ ] Reduce the largest consumers, each change measured and the goldens unchanged
-
-**Done when:** the measurement runs from one command with a recorded baseline, and the largest consumers it found are reduced or explained, with the before and after numbers for each example.
 
 ### CPU performance
 
