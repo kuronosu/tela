@@ -27,11 +27,15 @@ import "math"
 // what a reused one would.
 
 // maxIdleFrames is the number of frames that scratch memory no Render uses
-// is kept for: about a quarter of a second at 60 Hz, longer than the gaps
-// of an interaction (a buffer needed every few frames is not reallocated),
-// short enough that what a dialog or a palette needed goes soon after it
-// closes, before the window even settles.
-const maxIdleFrames = 15
+// is kept for: five seconds of frames at 60 Hz. A window that rests is
+// trimmed whole (Trim) long before; aging matters for a window whose
+// frames never stop (an endless animation), which would otherwise keep
+// what a dialog or a palette needed for as long as it lives. A shorter age
+// reallocates what an interaction needs every few hundred milliseconds (a
+// backdrop recomputed on hover, the shadows of a hovered row): at 15
+// frames the dashboard's session allocated a third more than without
+// aging, for no lower memory once it rests.
+const maxIdleFrames = 300
 
 // useAge tracks the use of a piece of scratch memory across frames.
 type useAge struct {
