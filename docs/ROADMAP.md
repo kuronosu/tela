@@ -12,7 +12,7 @@
 - **Done:** phases 1–16. Latest version `v0.13.4` (2026-11-07, phase 16: platform parity; tagged on `31942ee` with the owner's approval). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
 - **Phase in progress:** 17, Memory, on the branch `phase-17-memory` (ADR-240: the measurement).
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** the measurement command and its baseline (phase 17's first task), then the reductions it ranks. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** phase 17's reductions: the rasterizer's scratch buffers and backdrop cache, then core's framebuffer headroom and decoded images. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
@@ -23,9 +23,17 @@ In order. Each phase ends with verifiable criteria and is not done unless they p
 
 Find where RAM goes and reduce it. Before the Font system (the owner, 2026-11-07: its measurements inform the fonts' ADR) and before CPU performance, whose caches trade memory for speed. What the fonts take is measured and explained here, and reduced in the Font system phase.
 
-- [ ] A repeatable measurement: Go heap profiles (pprof `inuse_space`, `alloc_space`) and the process's RSS for `examples/hello`, the kit gallery, `dashboard` and `notes`, at x1 and x2, at rest and through the dashboard's scripted session, run by one command so regressions show
-- [ ] Check the suspects the profile ranks (none measured yet): the parsed fonts (see Font system), interned font faces that are never evicted, framebuffers and the copies made around `Present` (one RGBA buffer of a 1080p window at x2 is about 33 MB), the raster workers' buffers, the backdrop cache (ADR-200), the layers' display lists, glyph caches
-- [ ] Reduce the largest consumers other than the fonts, each change measured and the goldens unchanged
+- [x] A repeatable measurement: `go run ./internal/testutil/memreport` (ADR-240), baseline in `internal/testutil/memreport/baseline.json` (about 3 minutes; `-only`, `-cases`, `-profiles`, `-update`)
+- [x] Rank the suspects. Baseline (MiB, live heap after GC / RSS): hello 69.5 / 99 at x1, 79 / 109 at x2; kit 80 / 114, 108 / 140; notes 77 / 108, 94 / 126; dashboard 119 / 152, 198 / 236; the dashboard's 1080p session 176 / 211 at x1, 388 / 421 at 4K x2, allocating 780 / 1066 MiB. Shares:
+  - fonts 61 MiB in every app (87% of hello): all six faces parsed at the first layout, glyf and gvar parsed twice (go-text's `NewFont`, then `internal/text/typeface.go` again, about 19 MiB), `RawTable` copies (about 10 MiB). Reduced in the Font system phase
+  - the rasterizer's scratch buffers: per `Renderer` free lists never released, 21 MiB at 1080p x1 at rest, 164 MiB after the x2 session (backdrop filter windows about 90 MiB, `pushLayer` about 43 MiB, masks about 19 MiB)
+  - the backdrop cache (ADR-200): up to two full frames, 58 MiB after the x2 session
+  - the framebuffer with 25% headroom plus one present copy per backend (two to three `wl_shm` buffers on Wayland, a `CFData` per Present on macOS)
+  - decoded images never dropped: the dashboard keeps both 9 MiB wallpapers after a theme switch
+  - trees, display lists and text layout: under 10 MiB
+- [ ] The rasterizer: release scratch buffers no frame uses, and evict backdrop cache entries no frame reads, so memory comes back after the palette or a dialog closes, without slower frames
+- [ ] Core: the framebuffer's resize headroom, and decoded images that no box shows
+- [ ] Record the before and after numbers of every example, and the fonts' share for the Font system's ADR
 
 **Done when:** the measurement runs from one command with a recorded baseline, and the largest consumers it found are reduced or explained (the fonts' share measured for the Font system's ADR), with the before and after numbers for each example.
 
@@ -93,6 +101,7 @@ The frame cost of the engine and the CPU rasterizer; the GPU backend builds on i
 - [ ] Damage: a scroll that moves most of the window is a full frame (the damage matcher gives up, ~28 ms at x1); a theme switch and the palette opening are full frames (56 ms at x1)
 - [ ] Caches: backdrop filters inside layers, or over content that changes every frame, are not cached
 - [ ] macOS: every `Present` copies the whole retained frame into a new `CFData` and `CGImage`, whatever the damage (about 20 MB per frame for a 2880x1800 Retina window); an `IOSurface`-backed layer would copy only the damage
+- [ ] Allocation churn: the dashboard's 1080p session allocates 780 MiB in about 1100 ticks (`memreport -profiles`, `alloc_space`): display list recording (`gfx.(*Builder).record`, `recordPush`, `pop`), dashed strokes flattened again every frame (`dashSubpaths`, 89 MiB), `layout.(*Engine).flexItems`, `style.Compute`; it also sets the peak heap, about twice the live one
 - [ ] `examples/dashboard/README.md`'s Performance section was measured before ADR-200 and ADR-204 (676 frames, p50 15.2 ms, p95 34.4 ms at x1): measure again and rewrite it
 
 **Done when:** the dashboard's p95 at x1 is under 16.7 ms on the CPU, a scroll of most of the window and a theme switch cost less than a full frame, and a frame of a plain 2000-row `kit.Table` that is not a scroll no longer lays out the hidden rows.
