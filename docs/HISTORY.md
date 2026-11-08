@@ -421,6 +421,24 @@ Find where RAM goes and reduce it. Before the Font system (the owner, 2026-11-07
 
 Delivered (ADRs 240–243): the measurement (ADR-240), the rasterizer's scratch following recent frames with a deferred trim (ADR-241), images released when unshown and exact framebuffers (ADR-242), outlines parsed on demand from the font bytes (ADR-243). The phase's `/code-review high` found ten candidates; eight were real (the trim missed after a frame that draws nothing, unbounded cached failures, gvar offsets on 32-bit targets, memreport's binaries left on failure, repeated held images, the hmtx port's notice, a free buffer aging a frame early, stale comments) and are fixed.
 
+### Phase 18: Font system (`v0.13.6`)
+
+How Tela ships and loads fonts (ADR-244): system fonts by default, embedded fonts opt-in per app.
+
+- [x] Baseline (2026-11-08, before the phase): `examples/hello` is 27.8 MB (21.9 MB with `-s -w`), 7.2 MB of it the six embedded fonts; every app parses all six at start and keeps 35 MiB of font heap (ADR-243), 31 MiB of it faces hello never draws
+- [x] The ADR on the options: ADR-244 (system fonts by default, opt-in font packages, tests on the app's fonts plus `fonts/standard`)
+- [x] Text: no font file reachable from non-test code; font sources registered without parsing and parsed when text first needs their family (embedded, app and system alike); generic families resolved per OS from the installed fonts; the theme's `font-sans`/`font-serif`/`font-mono` as generic stacks; the deterministic set for tests through a registration hook; text without any font draws nothing instead of panicking
+- [x] Bitmap color glyphs: CBDT/CBLC and sbix PNG strikes drawn as images scaled from the closest strike, so the system emoji fonts work (Noto Color Emoji CBDT on Linux, Apple Color Emoji)
+- [x] Public API: `tela.Font`, `tela.FontData`, `tela.FontFS`, `Sans`/`Serif`/`Mono`/`Emoji`/`Scripts`, `App.Fonts`; the packages `fonts/inter`, `fonts/jetbrainsmono`, `fonts/notoemoji`, `fonts/notoarabic`, `fonts/standard`; `telatest`, `tela snapshot` and `tela mcp` on the app's fonts plus `fonts/standard`; docs, `llms.txt`, wiki, `tela new`
+- [x] A serif face for `font-serif`: three candidates rendered for the owner (Source Serif 4, Noto Serif, Literata); the owner picked Source Serif 4 (`fonts/sourceserif`, in the test set)
+- [x] Linux: `system-ui` follows the desktop's interface and monospace fonts (the portal's `org.gnome.desktop.interface` settings, KDE's `kdeglobals`), fontconfig's preferences otherwise; the system font index loaded off the UI thread at start
+- [x] System font files mapped instead of read, and go-text given stubs of the bitmap tables (ADR-245): the system's Noto Color Emoji 22 → 1.7 MiB of heap
+- [x] After (2026-11-08): hello's binary 27.8 → 19.6 MB (21.9 → 13.7 MB with `-s -w`; 21.6 MB embedding Inter). memreport (the test set, now parsed on first need): hello's font heap 35.4 → 4.6 MiB, heap in use 42.5 → 10.1 MiB, RSS 70.6 → 28.8 MiB; kit and the dashboard 35.7 → 6.3 MiB of fonts. With system fonts (this machine, a hello-like screen): the index 20 ms, loaded beside the window opening, the first render 8 ms, fonts and index 7.4 MiB of heap. Start-up parse: 46 ms for six files before, now only the faces text uses, when it first needs them
+
+**Done when:** an app without `Fonts` carries no font file and draws with the system's fonts on Linux, Windows and macOS (emoji included), an app can ship its own fonts or Tela's, goldens stay bit-identical wherever the default fonts did not change, and `examples/hello`'s binary size, start-up parse time and font memory are measured before and after.
+
+Delivered (ADRs 244–245): system fonts by default with generic families per OS and the Linux desktop's fonts (ADR-244); opt-in fonts through `tela.App.Fonts` and the `fonts/*` packages, parsed on first need and once per file; CBDT/sbix bitmap emoji; system font files mapped and go-text given bitmap stubs (ADR-245). Checked on the owner's Linux machine, the Windows 11 VM and the full CI (macOS included); the macOS system faces wait for the Mac session.
+
 ## Session log
 
 One line per session: date, what was done, what is pending. Append new sessions at the end.
@@ -555,3 +573,4 @@ One line per session: date, what was done, what is pending.
 - **2026-11-08 (phase 17, close):** `/code-review high` over the phase: eight of ten candidates fixed with tests (the main one: a frame that draws nothing never scheduled the raster trim); race detector clean; `v0.13.5` in the CHANGELOG, the phase moved to HISTORY; the tag is proposed to the owner.
 - **2026-11-08:** `v0.13.5` tagged on `6ca765e` with the owner's approval; `phase-17-memory` fast-forwarded into `main` locally; `main` and the tag are not pushed yet.
 - **2026-11-08 (phase 18, overnight):** Font system started with the owner's answers (font packages in the core module, examples on system fonts, serif from rendered candidates, the work branch pushed for CI): ADR-244 and ADR-245. Apps carry no font (hello 27.8 → 19.6 MB) and draw with the system's, generic families per OS and the Linux desktop's fonts from the portal; `tela.App.Fonts`, `FontData`/`FontFS` and `fonts/*`; CBDT/sbix emoji; sources parsed on first need (the test set's font heap 35.4 → 4.6 MiB); system font files mapped and go-text given bitmap stubs. Checked on this machine, the Windows 11 VM and full CI; `/code-review high` found ten, nine fixed (HISTORY was the tenth). Waiting on the owner's serif pick (Source Serif 4 provisional).
+- **2026-11-08 (phase 18, close):** the owner picked Source Serif 4 and the version `v0.13.6`; the phase moved here, its open limitations to CPU performance and DevTools; CHANGELOG and README updated; tagged on the closing commit.

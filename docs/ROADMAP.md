@@ -9,36 +9,15 @@
 
 ## Current status
 
-- **Done:** phases 1–17. Latest version `v0.13.5` (2026-11-08, phase 17: memory; tagged on `6ca765e` with the owner's approval). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
-- **Phase in progress:** 18, Font system (ADR-244), on `phase-18-fonts`.
+- **Done:** phases 1–18. Latest version `v0.13.6` (2026-11-08, phase 18: font system). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
+- **Phase in progress:** none. Phase 18 is on `phase-18-fonts`, to be merged into `main` locally.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** the owner picks phase 18's serif (review page https://claude.ai/artifact/BJ8mQ2w7hW1XtSvKvFJGxh; Source Serif 4 is in until then); then the phase closes: CHANGELOG version (the default fonts change, but no public API breaks: a patch by ADR-208 unless the owner prefers a minor) and the tag proposal. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** the next phase in order, Accessibility. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
 
-In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–17 are done (HISTORY.md).
-
-### Phase 18: Font system
-
-How Tela ships and loads fonts (ADR-244): system fonts by default, embedded fonts opt-in per app. Work branch `phase-18-fonts`.
-
-- [x] Baseline (2026-11-08, before the phase): `examples/hello` is 27.8 MB (21.9 MB with `-s -w`), 7.2 MB of it the six embedded fonts; every app parses all six at start and keeps 35 MiB of font heap (ADR-243), 31 MiB of it faces hello never draws
-- [x] The ADR on the options: ADR-244 (system fonts by default, opt-in font packages, tests on the app's fonts plus `fonts/standard`)
-- [x] Text: no font file reachable from non-test code; font sources registered without parsing and parsed when text first needs their family (embedded, app and system alike); generic families resolved per OS from the installed fonts; the theme's `font-sans`/`font-serif`/`font-mono` as generic stacks; the deterministic set for tests through a registration hook; text without any font draws nothing instead of panicking
-- [x] Bitmap color glyphs: CBDT/CBLC and sbix PNG strikes drawn as images scaled from the closest strike, so the system emoji fonts work (Noto Color Emoji CBDT on Linux, Apple Color Emoji)
-- [x] Public API: `tela.Font`, `tela.FontData`, `tela.FontFS`, `Sans`/`Serif`/`Mono`/`Emoji`/`Scripts`, `App.Fonts`; the packages `fonts/inter`, `fonts/jetbrainsmono`, `fonts/notoemoji`, `fonts/notoarabic`, `fonts/standard`; `telatest`, `tela snapshot` and `tela mcp` on the app's fonts plus `fonts/standard`; docs, `llms.txt`, wiki, `tela new`
-- [ ] A serif face for `font-serif`: three candidates rendered for the owner (Source Serif 4, Noto Serif, Literata; https://claude.ai/artifact/BJ8mQ2w7hW1XtSvKvFJGxh), Source Serif 4 packaged as `fonts/sourceserif` and in the test set until the owner picks
-- [x] Linux: `system-ui` follows the desktop's interface and monospace fonts (the portal's `org.gnome.desktop.interface` settings, KDE's `kdeglobals`), fontconfig's preferences otherwise; the system font index loaded off the UI thread at start
-- [x] System font files mapped instead of read, and go-text given stubs of the bitmap tables (ADR-245): the system's Noto Color Emoji 22 → 1.7 MiB of heap
-- [ ] go-text's `NewFont` still copies glyf and gvar (ADR-243); a stub needs each glyph's bounding box and, for variable fonts, its points, so ADR-245's technique does not carry over cheaply
-- [ ] The decoded-bitmap cache's keys hold `*Typeface`, so a dropped collection's typefaces stay alive until their images are evicted (little memory since ADR-245)
-- [ ] The sprite cache keys bitmap and COLR glyphs by text color, so one emoji in two colors is cached twice
-- [ ] Inspect's and LayoutJSON's `font` field shows the first name of the stack (`ui-sans-serif`), not the family that drew the text
-- [ ] Linux: the portal's settings are read on the UI thread in `NewHost` while the font index loads beside it (3 → 8 ms); read them off the UI thread at `Run` start
-- [x] After (2026-11-08): hello's binary 27.8 → 19.6 MB (21.9 → 13.7 MB with `-s -w`; 21.6 MB embedding Inter). memreport (the test set, now parsed on first need): hello's font heap 35.4 → 4.6 MiB, heap in use 42.5 → 10.1 MiB, RSS 70.6 → 28.8 MiB; kit and the dashboard 35.7 → 6.3 MiB of fonts. With system fonts (this machine, a hello-like screen): the index 20 ms, loaded beside the window opening, the first render 8 ms, fonts and index 7.4 MiB of heap. Start-up parse: 46 ms for six files before, now only the faces text uses, when it first needs them
-
-**Done when:** an app without `Fonts` carries no font file and draws with the system's fonts on Linux, Windows and macOS (emoji included), an app can ship its own fonts or Tela's, goldens stay bit-identical wherever the default fonts did not change, and `examples/hello`'s binary size, start-up parse time and font memory are measured before and after.
+In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–18 are done (HISTORY.md).
 
 ### Accessibility
 
@@ -89,6 +68,10 @@ Differences from Chromium and missing typography; each fix comes with a fixture 
 
 The frame cost of the engine and the CPU rasterizer; the GPU backend builds on it. Baseline, the Frosted graphite dashboard (1080p, 12 raster workers, backdrop cache of ADR-200; quiet i5-10400, 2026-10-31): p50 4.2 ms, p95 17.8 ms at x1 over 726 frames; p50 9.0 ms, p95 40 ms at x2.
 
+- [ ] Fonts: the sprite cache keys bitmap and COLR glyphs by text color, so one emoji in two colors is cached twice
+- [ ] Linux: the portal's settings are read on the UI thread in `NewHost` while the font index loads beside it (3 → 8 ms); read them off the UI thread at `Run` start
+- [ ] go-text's `NewFont` still copies glyf and gvar (ADR-243); a stub needs each glyph's bounding box and, for variable fonts, its points, so ADR-245's technique does not carry over cheaply
+- [ ] The decoded-bitmap cache's keys hold `*Typeface`, so a dropped collection's typefaces stay alive until their images are evicted (little memory since ADR-245)
 - [ ] Recording: a paint records again only the layers whose content changed (ADR-204), but the root list (everything outside scroll content, deferred layers and hoisted chunks) is recorded whole when anything in it changes (a hover on the dashboard's sidebar: 346 commands); adding or removing a hoisted box records its stacking context's list; a mounted `TextColorFn`, a box that starts or stops being a layer and layout-animation corrections still record everything
 - [ ] Layout and walks: frames that build, restyle or lay out still place every box; a frame that is not a pure scroll walks, lays out and re-records every element, including those a scroll container hides (a plain 2000-row `kit.Table`: 9–15 ms per such frame; `kit.Table.RowHeight` makes it virtual, ADR-199); no paint culling of rows a scroll container hides; mounting the Calendar page takes 20–28 ms
 - [ ] Damage: a scroll that moves most of the window is a full frame (the damage matcher gives up, ~28 ms at x1); a theme switch and the palette opening are full frames (56 ms at x1)
@@ -125,6 +108,7 @@ The hardest technical item (`tela-hard`). It changes no public API.
 
 Inspecting and driving a running app.
 
+- [ ] Inspect's and LayoutJSON's `font` field shows the first name of the stack (`ui-sans-serif`), not the family that drew the text
 - [ ] Live inspector: element tree, computed style, hooks and state, re-render counts, accessibility tree
 - [ ] Frame profiler
 - [ ] Connect to a running app and pick an element

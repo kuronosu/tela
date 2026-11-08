@@ -27,7 +27,7 @@ text tree you can read. That last part is on purpose: Tela is designed so both
 people and LLM agents can build good-looking interfaces without trial and
 error.
 
-> **Status: pre-1.0 (v0.13.5).** Phases 1–17 are done and tagged: Linux
+> **Status: pre-1.0 (v0.13.6).** Phases 1–18 are done and tagged: Linux
 > (Wayland, X11), Windows and macOS windows, text inputs and IME, CSS grid,
 > transitions and animations, glass effects, theme tokens, i18n, SVG icons,
 > `aria` behavior hooks, `tela dev` (a reload that keeps your state) and
@@ -390,7 +390,8 @@ are done (ADR-208 sets how versions are numbered).
 | 15 | macOS desktop integration: window control, the traffic lights over your title bar, one app menu bar, Cmd+Q, dialogs, tray, drag and drop, shortcuts, deep links, Keychain, `tela build`/`tela run` | ✅ v0.13.3 |
 | 16 | Platform parity: IME on X11, X11 flings and drag images, Wayland portal parents, Windows toasts, menu bar keys and dark menus, Windows 11 caption buttons over your title bar, macOS drags from other apps, a fallback title bar on GNOME | ✅ v0.13.4 |
 | 17 | Memory: one command measures every example's RAM; fonts load glyphs on demand, the rasterizer and image cache give memory back, about 30 MiB less per app | ✅ v0.13.5 |
-| — | Font system, accessibility, API and kit gaps, layout and text fidelity, CPU performance, GPU backend, packaging and auto-update, DevTools, dev loop and testing, canvas, SVG and PDF, audio and video | planned |
+| 18 | Font system: apps draw with the system's fonts and carry none unless they embed one (`App.Fonts`, `fonts/inter`…); bitmap color emoji; hello's binary 8 MB smaller | ✅ v0.13.6 |
+| — | Accessibility, API and kit gaps, layout and text fidelity, CPU performance, GPU backend, packaging and auto-update, DevTools, dev loop and testing, canvas, SVG and PDF, audio and video | planned |
 
 ### What works today
 
