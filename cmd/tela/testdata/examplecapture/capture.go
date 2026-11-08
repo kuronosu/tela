@@ -52,6 +52,10 @@ import (
 
 	tctela "github.com/kuronosu/tela"
 	tcdarwin "github.com/kuronosu/tela/internal/darwin"
+
+	// The deterministic font set (ADR-244): the window must draw the same
+	// text as the headless reference, which never uses the system's fonts.
+	_ "github.com/kuronosu/tela/internal/stdfonts"
 )
 
 // telaCaptureEnv is the environment variable with the output directory;
