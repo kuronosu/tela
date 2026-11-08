@@ -100,8 +100,8 @@ func (f *Face) computeMetrics() Metrics {
 		m.XHeight = f.runeTop('x')
 	}
 
-	m.UnderlineOffset = em(-(float64(tf.post.UnderlinePosition) + tf.mvarDelta("undo", c)))
-	m.UnderlineThickness = em(float64(tf.post.UnderlineThickness) + tf.mvarDelta("unds", c))
+	m.UnderlineOffset = em(-(float64(tf.underlinePosition) + tf.mvarDelta("undo", c)))
+	m.UnderlineThickness = em(float64(tf.underlineThickness) + tf.mvarDelta("unds", c))
 	if tf.hasOS2 {
 		m.StrikeoutOffset = em(-(float64(tf.os2.YStrikeoutPosition) + tf.mvarDelta("stro", c)))
 		m.StrikeoutThickness = em(float64(tf.os2.YStrikeoutSize) + tf.mvarDelta("strs", c))

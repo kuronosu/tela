@@ -384,7 +384,7 @@ func (s *systemFonts) loadTypeface(e *sysEntry) (*Typeface, error) {
 	}
 	var tf *Typeface
 	if err == nil {
-		tf, err = newTypeface(lds[e.index], "")
+		tf, err = newTypeface(newTableSource(lds[e.index], data, e.index), "")
 	}
 	if err != nil {
 		// Do not keep a file nothing was loaded from (a bitmap-only font).

@@ -37,10 +37,10 @@ const maxFGLists = 32
 
 // color returns the color data of glyph g, or nil for an outline glyph.
 func (f *Face) color(g gfx.GlyphID) *colorEntry {
-	if f.colors == nil || int(g) >= len(f.colors) {
+	slot := f.colors.slot(int(g))
+	if slot == nil {
 		return nil
 	}
-	slot := &f.colors[g]
 	c := slot.Load()
 	if c == nil {
 		c = f.loadColor(tables.GlyphID(g))

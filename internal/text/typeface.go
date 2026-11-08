@@ -60,15 +60,16 @@ type Typeface struct {
 	axes    []Axis
 
 	glyf   *glyfTables // nil when the outlines are CFF or CFF2
-	hmtx   tables.Hmtx
+	hmtx   hmtx
 	hvar   *tables.HVAR
 	mvar   *tables.MVAR
 	os2    tables.Os2
 	hasOS2 bool
 	hhea   tables.Hhea
-	post   tables.Post
 	head   tables.Head
-	names  tables.Name
+
+	// From post: the underline (the glyph names are not kept).
+	underlinePosition, underlineThickness int16
 
 	// cff extracts CFF and CFF2 outlines through go-text; a font.Face is not
 	// safe for concurrent use, so it is guarded by cffMu. CFF2 faces set the
@@ -90,7 +91,9 @@ var (
 
 // ParseTypefaces parses a font file (TrueType, OpenType or a collection)
 // and returns its typefaces. family overrides the family name stored in the
-// font when it is not empty. data must not be modified afterwards.
+// font when it is not empty. data must not be modified afterwards: the
+// typefaces keep references into it (their outline tables are read from it
+// on demand).
 func ParseTypefaces(data []byte, family string) ([]*Typeface, error) {
 	lds, err := ot.NewLoaders(bytes.NewReader(data))
 	if err != nil {
@@ -98,7 +101,7 @@ func ParseTypefaces(data []byte, family string) ([]*Typeface, error) {
 	}
 	out := make([]*Typeface, 0, len(lds))
 	for i, ld := range lds {
-		tf, err := newTypeface(ld, family)
+		tf, err := newTypeface(newTableSource(ld, data, i), family)
 		if err != nil {
 			return nil, fmt.Errorf("text: parsing font %d of the file: %w", i, err)
 		}
@@ -107,17 +110,20 @@ func ParseTypefaces(data []byte, family string) ([]*Typeface, error) {
 	return out, nil
 }
 
-func newTypeface(ld *ot.Loader, family string) (*Typeface, error) {
+// newTypeface loads the font that src reads. go-text parses the font
+// (font.NewFont, which keeps its own copy of every table it uses); Tela
+// reads the few tables it evaluates itself (metrics, variations, TrueType
+// outlines) from src, parsing the small ones and keeping glyf, loca, gvar
+// and hmtx raw (see glyfTables).
+func newTypeface(src tableSource, family string) (*Typeface, error) {
+	ld := src.ld
 	ft, err := font.NewFont(ld)
 	if err != nil {
 		return nil, err
 	}
 	tf := &Typeface{ft: ft, upem: int(ft.Upem()), faces: map[string]*Face{}}
 
-	raw := func(tag string) []byte {
-		b, _ := ld.RawTable(ot.MustNewTag(tag))
-		return b
-	}
+	raw := func(tag string) []byte { return src.table(ot.MustNewTag(tag)) }
 	tf.head, _, err = font.LoadHeadTable(ld, nil)
 	if err != nil {
 		return nil, err
@@ -132,14 +138,16 @@ func newTypeface(ld *ot.Loader, family string) (*Typeface, error) {
 		tf.hhea = hhea
 		n := int(hhea.NumOfLongMetrics)
 		if n <= tf.nGlyphs {
-			tf.hmtx, _, _ = tables.ParseHmtx(raw("hmtx"), n, tf.nGlyphs-n)
+			tf.hmtx = newHmtx(raw("hmtx"), n, tf.nGlyphs-n)
 		}
 	}
 	if os2, _, err := tables.ParseOs2(raw("OS/2")); err == nil {
 		tf.os2, tf.hasOS2 = os2, true
 	}
-	tf.post, _, _ = tables.ParsePost(raw("post"))
-	tf.names, _, _ = tables.ParseName(raw("name"))
+	if post := raw("post"); len(post) >= 32 { // the header of tables.ParsePost
+		tf.underlinePosition = int16(binary.BigEndian.Uint16(post[8:]))
+		tf.underlineThickness = int16(binary.BigEndian.Uint16(post[10:]))
+	}
 
 	if fvar, _, err := tables.ParseFvar(raw("fvar")); err == nil {
 		for _, a := range fvar.FvarRecords.Axis {
@@ -156,18 +164,10 @@ func newTypeface(ld *ot.Loader, family string) (*Typeface, error) {
 	}
 
 	if glyfRaw := raw("glyf"); glyfRaw != nil && !ld.HasTable(ot.MustNewTag("CFF ")) && !ld.HasTable(ot.MustNewTag("CFF2")) {
-		loca, err := tables.ParseLoca(raw("loca"), tf.nGlyphs, tf.head.IndexToLocFormat == 1)
-		if err == nil {
-			if glyf, err := tables.ParseGlyf(glyfRaw, loca); err == nil {
-				tf.glyf = &glyfTables{glyf: glyf, hmtx: tf.hmtx, upem: tf.upem}
-			}
-		}
+		tf.glyf = newGlyfTables(glyfRaw, raw("loca"), tf.nGlyphs, tf.head.IndexToLocFormat == 1, tf.hmtx, tf.upem)
 		if tf.glyf != nil && len(tf.axes) > 0 {
-			if gvar, _, err := tables.ParseGvar(raw("gvar")); err == nil && len(gvar.GlyphVariationDatas) == len(tf.glyf.glyf) {
-				for _, t := range gvar.SharedTuples.SharedTuples {
-					tf.glyf.sharedTuples = append(tf.glyf.sharedTuples, t.Values)
-				}
-				tf.glyf.variations = gvar.GlyphVariationDatas
+			if tf.glyf.gvar = newGvarTable(raw("gvar"), tf.nGlyphs); tf.glyf.gvar != nil {
+				tf.glyf.variations = newGlyphSlots[tables.GlyphVariationData](tf.nGlyphs)
 			}
 		}
 	}
@@ -175,20 +175,21 @@ func newTypeface(ld *ot.Loader, family string) (*Typeface, error) {
 		tf.cff = font.NewFace(ft)
 	}
 
-	tf.describe(family)
+	names, _, _ := tables.ParseName(raw("name"))
+	tf.describe(family, names)
 	return tf, nil
 }
 
 // describe fills the family, name, style, weight and stretch.
-func (tf *Typeface) describe(family string) {
+func (tf *Typeface) describe(family string, names tables.Name) {
 	desc := tf.ft.Describe()
 	if family == "" {
 		family = desc.Family
 	}
 	tf.family = family
-	sub := tf.nameString(17)
+	sub := strings.TrimSpace(names.Name(17))
 	if sub == "" {
-		sub = tf.nameString(2)
+		sub = strings.TrimSpace(names.Name(2))
 	}
 	tf.name = family
 	if sub != "" && !strings.EqualFold(sub, "regular") {
@@ -226,10 +227,6 @@ func (tf *Typeface) describe(family string) {
 			tf.stretch = [3]float32{a.Min, a.Default, a.Max}
 		}
 	}
-}
-
-func (tf *Typeface) nameString(id tables.NameID) string {
-	return strings.TrimSpace(tf.names.Name(id))
 }
 
 // Family returns the family name the typeface is registered under.
@@ -330,6 +327,55 @@ func (tf *Typeface) advance(gid tables.GlyphID, coords []tables.Coord) float64 {
 		return max(0, math.Round(ph[phantomRight].x-ph[phantomLeft].x))
 	}
 	return base
+}
+
+// hmtx is the raw hmtx table, read like tables.Hmtx (which the eager parse
+// kept as two arrays of every glyph's metrics).
+type hmtx struct {
+	data            []byte
+	nMetrics, nLSBs int // long metrics, then left side bearings only
+}
+
+// newHmtx returns the hmtx table src with nMetrics long metrics followed by
+// nLSBs side bearings. Like tables.ParseHmtx, whose result the eager parse
+// kept even on an error, a table too short for the long metrics is empty
+// and one too short for the side bearings has only the long metrics.
+func newHmtx(src []byte, nMetrics, nLSBs int) hmtx {
+	switch {
+	case len(src) < 4*nMetrics:
+		return hmtx{}
+	case len(src) < 4*nMetrics+2*nLSBs:
+		nLSBs = 0
+	}
+	return hmtx{data: src, nMetrics: nMetrics, nLSBs: nLSBs}
+}
+
+// IsEmpty reports whether the font has no horizontal metrics.
+func (h hmtx) IsEmpty() bool { return h.nMetrics+h.nLSBs == 0 }
+
+// Advance returns the advance width of gid: a glyph past the long metrics
+// has the last one's, and an invalid glyph 0.
+func (h hmtx) Advance(gid tables.GlyphID) uint16 {
+	i := int(gid)
+	switch {
+	case i < h.nMetrics:
+		return binary.BigEndian.Uint16(h.data[4*i:])
+	case i < h.nMetrics+h.nLSBs && h.nMetrics > 0:
+		return binary.BigEndian.Uint16(h.data[4*(h.nMetrics-1):])
+	}
+	return 0
+}
+
+// SideBearing returns the left side bearing of gid, 0 for an invalid glyph.
+func (h hmtx) SideBearing(gid tables.GlyphID) int16 {
+	i := int(gid)
+	switch {
+	case i < h.nMetrics:
+		return int16(binary.BigEndian.Uint16(h.data[4*i+2:]))
+	case i < h.nMetrics+h.nLSBs:
+		return int16(binary.BigEndian.Uint16(h.data[4*h.nMetrics+2*(i-h.nMetrics):]))
+	}
+	return 0
 }
 
 func advanceIndex(m *tables.DeltaSetMapping, gid tables.GlyphID) tables.VariationStoreIndex {

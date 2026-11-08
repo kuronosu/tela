@@ -37,8 +37,9 @@ var (
 // The files are parsed concurrently, one goroutine each, and assembled in
 // their fixed order, so the result is the same as a sequential parse. It is
 // on the start-up path of every app (and of every reload of tela dev,
-// ADR-116): go-text parses every outline of Noto Color Emoji up front,
-// about 40 ms of the 70 ms the six files take one after another.
+// ADR-116): go-text parses every outline of Noto Color Emoji up front, most
+// of the time the six files take one after another (Tela's own outlines
+// load on demand, see glyfTables).
 func embeddedTypefaces() [][]*Typeface {
 	embeddedOnce.Do(func() {
 		type job struct {

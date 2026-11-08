@@ -6,7 +6,6 @@ import (
 	"math"
 	"strings"
 	"sync"
-	"sync/atomic"
 
 	"github.com/go-text/typesetting/font"
 	ot "github.com/go-text/typesetting/font/opentype"
@@ -54,8 +53,8 @@ type Face struct {
 
 	metrics Metrics
 
-	glyphs []atomic.Pointer[glyphEntry]
-	colors []atomic.Pointer[colorEntry] // nil unless the font has COLR
+	glyphs glyphSlots[glyphEntry]
+	colors glyphSlots[colorEntry] // empty unless the font has COLR
 
 	shapingOnce sync.Once
 	shaping     *font.Face
@@ -84,10 +83,10 @@ func (tf *Typeface) Face(inst Instance) *Face {
 		coords: coords,
 		key:    gfx.NewFontKey(),
 		upem:   float64(tf.upem),
-		glyphs: make([]atomic.Pointer[glyphEntry], tf.nGlyphs),
+		glyphs: newGlyphSlots[glyphEntry](tf.nGlyphs),
 	}
 	if tf.ft.COLR != nil {
-		f.colors = make([]atomic.Pointer[colorEntry], tf.nGlyphs)
+		f.colors = newGlyphSlots[colorEntry](tf.nGlyphs)
 	}
 	f.name = tf.name + tf.instanceName(coords, design)
 	f.metrics = f.computeMetrics()
@@ -248,10 +247,10 @@ var emptyEntry = &glyphEntry{}
 // goroutines may load the same glyph at once; the first stored result wins
 // (both are identical).
 func (f *Face) entry(g gfx.GlyphID) *glyphEntry {
-	if int(g) >= len(f.glyphs) {
+	slot := f.glyphs.slot(int(g))
+	if slot == nil {
 		return emptyEntry
 	}
-	slot := &f.glyphs[g]
 	if e := slot.Load(); e != nil {
 		return e
 	}

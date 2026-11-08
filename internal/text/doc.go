@@ -87,6 +87,24 @@
 // stretches are not quantized beyond the 2.14 fixed-point normalized
 // coordinates of OpenType.
 //
+// # Memory
+//
+// A typeface holds go-text's parse of the font (font.NewFont: cmap, layout
+// tables, COLR, and its own glyf and gvar, which it parses whole), and the
+// few tables this package evaluates itself. Of those, the outline tables
+// (glyf, loca, gvar) and hmtx are kept raw and read on demand: a glyph and
+// its variation data are parsed when a Face first needs its outline or
+// advance, and the Face caches the result (glyfTables). The tables are
+// sub-slices of the font file, found through its table directory
+// (tableSource), so the embedded fonts' outline tables cost no heap; only
+// WOFF and dfont files go through go-text's copies. A Face allocates its
+// per-glyph caches in pages of 128 glyphs on first use (glyphSlots).
+//
+// go-text's own parse is most of the fonts' memory (about 35 MB for the
+// embedded fonts, three quarters of it glyf and gvar that Tela does not
+// use, since it loads TrueType outlines itself): see
+// docs/adr/243-font-loading-memory.md.
+//
 // # Determinism
 //
 // Glyph outlines must be bit-identical on every architecture (ADR-027).

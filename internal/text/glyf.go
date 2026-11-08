@@ -4,7 +4,8 @@
 // font/variations.go (gvar parsing and applyDeltasToPoints, itself adapted
 // from HarfBuzz's hb-ot-var-gvar-table.hh) and font/renderer.go
 // (buildSegments, adapted from sfnt/truetype.go), with fusion-safe float64
-// arithmetic; see THIRD_PARTY.md.
+// arithmetic, and the table checks of font/opentype/tables (ParseLoca,
+// ParseGlyf, ParseGvar) for the on-demand loading; see THIRD_PARTY.md.
 
 package text
 
@@ -46,14 +47,191 @@ type glyfPoint struct {
 	explicit bool // gvar: the tuple gives a delta for this point
 }
 
-// glyfTables holds the tables needed to load TrueType outlines.
+// glyfTables loads TrueType outlines on demand from the raw glyf, loca
+// and gvar tables. Nothing is parsed up front: a glyph (and its variation
+// data) is parsed when a Face first needs its outline or its advance. The
+// parsed glyph is kept by the typeface, for its other instances and for the
+// composites that use it as a component, and the Face caches the outline.
+// The tables are sub-slices of the font file when it is in memory (see
+// tableSource), so a typeface costs no heap for the glyphs it never draws;
+// Noto Color Emoji alone has about 41,000 glyphs, which the eager parse kept
+// as some 20 MB of points.
+//
+// The per-glyph parsers are go-text's own (tables.ParseGlyph,
+// tables.ParseGlyphVariationData), the ones its whole-table parsers
+// (tables.ParseGlyf, tables.ParseGvar) call for every glyph, so the points
+// are those of the eager parse. The tables' structure (loca offsets, the
+// gvar header and its offsets) is validated when the typeface is loaded, as
+// the eager parse did; a glyph whose own data is invalid has no outline (and
+// a glyph whose variation data is invalid has no deltas), where the eager
+// parse dropped the outlines (or the variations) of the whole font.
+//
+// glyfTables is safe for concurrent use: the raster workers load outlines
+// in parallel. Its tables are immutable and its caches are glyphSlots.
 type glyfTables struct {
-	glyf tables.Glyf
-	hmtx tables.Hmtx
-	upem int
-	// gvar, nil if the font has no glyph variations.
+	glyf     []byte
+	loca     []byte
+	longLoca bool
+	nGlyphs  int
+	hmtx     hmtx
+	upem     int
+	gvar     *gvarTable // nil if the font has no glyph variations
+
+	glyphs     glyphSlots[tables.Glyph]              // parsed on first use
+	variations glyphSlots[tables.GlyphVariationData] // parsed on first use; when gvar != nil
+}
+
+// newGlyfTables returns the outlines of a font from its raw glyf and loca
+// tables, or nil when they are invalid (tables.ParseLoca and the offset
+// checks of tables.ParseGlyf).
+func newGlyfTables(glyf, loca []byte, nGlyphs int, longLoca bool, hm hmtx, upem int) *glyfTables {
+	g := &glyfTables{glyf: glyf, loca: loca, longLoca: longLoca, nGlyphs: nGlyphs, hmtx: hm, upem: upem,
+		glyphs: newGlyphSlots[tables.Glyph](nGlyphs)}
+	size := 2 * (nGlyphs + 1)
+	if longLoca {
+		size *= 2
+	}
+	if len(loca) < size {
+		return nil
+	}
+	for i := 0; i < nGlyphs; i++ {
+		start, end := g.offset(i), g.offset(i+1)
+		if start > end || uint64(end) > uint64(len(glyf)) {
+			return nil
+		}
+	}
+	return g
+}
+
+// offset returns the i-th loca offset (i <= nGlyphs).
+func (g *glyfTables) offset(i int) uint32 {
+	if g.longLoca {
+		return binary.BigEndian.Uint32(g.loca[4*i:])
+	}
+	return 2 * uint32(binary.BigEndian.Uint16(g.loca[2*i:])) // the offset divided by 2 is stored
+}
+
+// glyph returns glyph gid (gid < nGlyphs), parsing it on first use. An
+// empty glyph (loca[n] == loca[n+1]) and an invalid one are the zero Glyph.
+// The result is shared and must not be modified.
+func (g *glyfTables) glyph(gid tables.GlyphID) *tables.Glyph {
+	slot := g.glyphs.slot(int(gid))
+	if gl := slot.Load(); gl != nil {
+		return gl
+	}
+	gl := new(tables.Glyph)
+	if start, end := g.offset(int(gid)), g.offset(int(gid)+1); start != end {
+		if p, _, err := tables.ParseGlyph(g.glyf[start:end]); err == nil {
+			*gl = p
+		}
+	}
+	if !slot.CompareAndSwap(nil, gl) {
+		gl = slot.Load()
+	}
+	return gl
+}
+
+// variation returns the gvar data of glyph gid (gid < nGlyphs, gvar !=
+// nil), parsing it on first use; a glyph without variations (or with
+// invalid ones) has none. The result is shared and must not be modified.
+func (g *glyfTables) variation(gid tables.GlyphID) *tables.GlyphVariationData {
+	slot := g.variations.slot(int(gid))
+	if vd := slot.Load(); vd != nil {
+		return vd
+	}
+	vd := new(tables.GlyphVariationData)
+	if p, ok := g.gvar.glyphData(gid); ok {
+		*vd = p
+	}
+	if !slot.CompareAndSwap(nil, vd) {
+		vd = slot.Load()
+	}
+	return vd
+}
+
+// gvarTable is the raw gvar table with its header read.
+type gvarTable struct {
+	data         []byte
+	axisCount    int
 	sharedTuples [][]tables.Coord
-	variations   []tables.GlyphVariationData
+	offsets      []byte // glyphCount+1 offsets, 16 or 32 bits
+	longOffsets  bool
+	arrayOffset  uint32 // of the GlyphVariationData array
+}
+
+// newGvarTable reads the header of a gvar table for a font of nGlyphs
+// glyphs, with the validation of tables.ParseGvar (header, shared tuples,
+// offsets and their order and bounds). It returns nil when the table is
+// absent or invalid, or does not have one entry per glyph.
+func newGvarTable(data []byte, nGlyphs int) *gvarTable {
+	if len(data) < 20 {
+		return nil
+	}
+	v := &gvarTable{
+		data:        data,
+		axisCount:   int(binary.BigEndian.Uint16(data[4:])),
+		longOffsets: binary.BigEndian.Uint16(data[14:])&1 != 0,
+		arrayOffset: binary.BigEndian.Uint32(data[16:]),
+	}
+	sharedCount := int(binary.BigEndian.Uint16(data[6:]))
+	sharedOff := int(binary.BigEndian.Uint32(data[8:]))
+	glyphCount := int(binary.BigEndian.Uint16(data[12:]))
+	if glyphCount != nGlyphs {
+		return nil
+	}
+	if sharedOff != 0 {
+		if len(data) < sharedOff {
+			return nil
+		}
+		st, _, err := tables.ParseSharedTuples(data[sharedOff:], sharedCount, v.axisCount)
+		if err != nil {
+			return nil
+		}
+		for _, t := range st.SharedTuples {
+			v.sharedTuples = append(v.sharedTuples, t.Values)
+		}
+	}
+	size := 2 * (glyphCount + 1)
+	if v.longOffsets {
+		size *= 2
+	}
+	if len(data)-20 < size {
+		return nil
+	}
+	v.offsets = data[20 : 20+size]
+	for i := 0; i < glyphCount; i++ {
+		start, end := v.bounds(i)
+		if start == end {
+			continue
+		}
+		if start > end || len(data) < end {
+			return nil
+		}
+	}
+	return v
+}
+
+// bounds returns the byte range of the variation data of glyph i in data,
+// computed as tables.ParseGvar does (uint32 sums).
+func (v *gvarTable) bounds(i int) (start, end int) {
+	off := func(i int) uint32 {
+		if v.longOffsets {
+			return binary.BigEndian.Uint32(v.offsets[4*i:])
+		}
+		return 2 * uint32(binary.BigEndian.Uint16(v.offsets[2*i:]))
+	}
+	return int(v.arrayOffset + off(i)), int(v.arrayOffset + off(i+1))
+}
+
+// glyphData parses the variation data of glyph gid; ok is false when the
+// glyph has none or it is invalid.
+func (v *gvarTable) glyphData(gid tables.GlyphID) (vd tables.GlyphVariationData, ok bool) {
+	start, end := v.bounds(int(gid))
+	if start == end {
+		return vd, false
+	}
+	vd, _, err := tables.ParseGlyphVariationData(v.data[start:end], v.axisCount)
+	return vd, err == nil
 }
 
 // points returns the contour points of glyph gid at coords followed by its
@@ -66,11 +244,11 @@ func (g *glyfTables) points(gid tables.GlyphID, coords []tables.Coord) []glyfPoi
 }
 
 func (g *glyfTables) pointsRec(gid tables.GlyphID, coords []tables.Coord, depth int, seen map[tables.GlyphID]bool, out *[]glyfPoint) {
-	if depth > maxCompositeNesting || int(gid) >= len(g.glyf) {
+	if depth > maxCompositeNesting || int(gid) >= g.nGlyphs {
 		*out = append(*out, make([]glyfPoint, phantomCount)...)
 		return
 	}
-	gl := g.glyf[gid]
+	gl := g.glyph(gid)
 
 	var pts []glyfPoint
 	switch d := gl.Data.(type) {
@@ -100,7 +278,7 @@ func (g *glyfTables) pointsRec(gid tables.GlyphID, coords []tables.Coord, depth 
 	ph[phantomLeft].x = hDelta
 	ph[phantomRight].x = float64(adv) + hDelta
 
-	if len(coords) != 0 && g.variations != nil {
+	if len(coords) != 0 && g.gvar != nil {
 		g.applyDeltas(gid, coords, pts)
 	}
 
@@ -196,14 +374,11 @@ type tupleVar struct {
 // points and phantom points), inferring the deltas of unreferenced points
 // (IUP).
 func (g *glyfTables) applyDeltas(gid tables.GlyphID, coords []tables.Coord, pts []glyfPoint) {
-	if int(gid) >= len(g.variations) {
-		return
-	}
-	vd := g.variations[gid]
+	vd := g.variation(gid)
 	if len(vd.TupleVariationHeaders) == 0 {
 		return
 	}
-	tuples, err := g.parseTuples(&vd, len(pts))
+	tuples, err := g.parseTuples(vd, len(pts))
 	if err != nil {
 		return
 	}
@@ -345,10 +520,10 @@ func (g *glyfTables) parseTuples(vd *tables.GlyphVariationData, numPoints int) (
 		t.peak = h.PeakTuple.Values
 		if t.peak == nil {
 			idx := int(h.Index())
-			if idx >= len(g.sharedTuples) {
+			if idx >= len(g.gvar.sharedTuples) {
 				return nil, errGvarData
 			}
-			t.peak = g.sharedTuples[idx]
+			t.peak = g.gvar.sharedTuples[idx]
 		}
 		if h.IntermediateTuples[0].Values != nil {
 			t.start, t.end = h.IntermediateTuples[0].Values, h.IntermediateTuples[1].Values
