@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/internal/atspi"
 	"github.com/kuronosu/tela/internal/platform/internal/freedesktop"
 	"github.com/kuronosu/tela/internal/platform/internal/loop"
 	"github.com/kuronosu/tela/internal/platform/internal/xkb"
@@ -133,6 +134,8 @@ type Backend struct {
 	// desktop is the D-Bus desktop services (services.go), created by the
 	// first Desktop call.
 	desktop *freedesktop.Desktop
+	// access is the AT-SPI bridge, made with the first window (access.go).
+	access *atspi.Bridge
 }
 
 var _ platform.Backend = (*Backend)(nil)
@@ -386,7 +389,12 @@ func (b *Backend) Settings() platform.SystemSettings {
 func (b *Backend) Clipboard() platform.Clipboard { return clipboard{b} }
 
 // enqueue queues an event for delivery by the loop.
-func (b *Backend) enqueue(w *Window, ev platform.Event) { b.loop.Enqueue(w, ev) }
+func (b *Backend) enqueue(w *Window, ev platform.Event) {
+	if f, ok := ev.(platform.FocusEvent); ok && w.acc != nil {
+		w.acc.SetFocused(f.Focused) // the frame's active state
+	}
+	b.loop.Enqueue(w, ev)
+}
 
 // Run runs the event loop on the calling goroutine until Quit (nil) or a
 // connection or protocol error (non-nil). When it returns, every window and
@@ -410,6 +418,7 @@ func (b *Backend) Run(h platform.Handler) error {
 		b.keyRepeats(now)
 		b.expireTransfers(now)
 		b.dispatchDesktop()
+		b.dispatchAccess()
 		b.loop.Deliver(h)
 		if b.loop.Quitting() {
 			return nil
@@ -569,6 +578,7 @@ func (b *Backend) release() {
 	}
 	b.closeTransfers()
 	b.closeDesktop()
+	b.closeAccess()
 	b.loop.Discard()
 	b.conn.Close()
 	b.efdMu.Lock()

@@ -19,6 +19,7 @@ import (
 	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/xproto"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/internal/atspi"
 	"github.com/kuronosu/tela/internal/platform/internal/freedesktop"
 	"github.com/kuronosu/tela/internal/platform/internal/loop"
 )
@@ -91,6 +92,8 @@ type Backend struct {
 	// desktop is the D-Bus desktop services (services.go), created by the
 	// first Desktop call.
 	desktop *freedesktop.Desktop
+	// access is the AT-SPI bridge, made with the first window (access.go).
+	access *atspi.Bridge
 
 	// Window control (windowctl.go): the server side of the requests
 	// (the connection; a recorder in unit tests), the EWMH hints the
@@ -453,6 +456,7 @@ func (b *Backend) shutdown() {
 	b.ungrabShortcuts()
 	b.shutdownIME()
 	b.closeDesktop()
+	b.closeAccess()
 	b.loop.Discard()
 	close(b.done)
 	b.conn.Close()
@@ -477,6 +481,7 @@ func (b *Backend) nextDeadline() (time.Duration, bool) { return b.loop.Pace() }
 func (b *Backend) dispatch(h platform.Handler) {
 	b.runTimers()
 	b.dispatchDesktop()
+	b.dispatchAccess()
 	b.flushIME()
 	b.syncIME()
 	b.loop.Deliver(h)
@@ -484,7 +489,12 @@ func (b *Backend) dispatch(h platform.Handler) {
 }
 
 // enqueue appends an event for w (nil for app events).
-func (b *Backend) enqueue(w *Window, e platform.Event) { b.loop.Enqueue(w, e) }
+func (b *Backend) enqueue(w *Window, e platform.Event) {
+	if f, ok := e.(platform.FocusEvent); ok && w.acc != nil {
+		w.acc.SetFocused(f.Focused) // the frame's active state
+	}
+	b.loop.Enqueue(w, e)
+}
 
 // queueConfigure queues a coalesced ConfigureEvent for w with the metrics
 // of the latest server size at the current scale: any number of

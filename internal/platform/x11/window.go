@@ -11,6 +11,7 @@ import (
 	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/xproto"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/internal/atspi"
 	"github.com/kuronosu/tela/internal/platform/internal/loop"
 )
 
@@ -47,6 +48,8 @@ type Window struct {
 
 	b    *Backend
 	id   xproto.Window
+	// acc is the window's side of the AT-SPI bridge (access.go).
+	acc *atspi.Window
 	gc   xproto.Gcontext
 	opts platform.WindowOptions
 
@@ -180,6 +183,7 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 
 	b.windows[id] = w
 	b.loop.Add(w)
+	w.acc = b.accessBridge().NewWindow(w, opts.Title)
 	b.queueConfigure(w)
 	b.loop.UpdateState(w, w.osState) // frameless: client-side decorations
 	w.updateHidden()
@@ -207,6 +211,9 @@ func (w *Window) osMetrics() platform.Metrics {
 func (w *Window) SetTitle(title string) {
 	if !w.Closed() {
 		w.setTitle(title)
+		if w.acc != nil {
+			w.acc.SetTitle(title)
+		}
 	}
 }
 
@@ -281,6 +288,9 @@ func (w *Window) Close() {
 	b.endSessions(w)
 	b.imeWindowClosed(w)
 	b.loop.Remove(w) // marks it closed and drops its queued events
+	if w.acc != nil {
+		w.acc.Close()
+	}
 	b.kbd.dropWindow(w)
 	delete(b.windows, w.id)
 	w.destroy()

@@ -405,6 +405,9 @@ func (w *Window) reportPosition(p image.Point) {
 	st := w.osState
 	st.HasPosition, st.Position = true, p
 	w.setOSState(st)
+	if w.acc != nil {
+		w.acc.SetGeometry(w.Metrics().Scale, p, true)
+	}
 }
 
 // endBatch runs after a batch of events is translated: the positions of

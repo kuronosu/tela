@@ -2,12 +2,55 @@
 
 package x11
 
-import "github.com/kuronosu/tela/internal/platform"
+import (
+	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/internal/atspi"
+)
 
-// SetAccessibility implements platform.Window. The x11 backend has no
-// accessibility bridge yet (a later task of phase 19, ADR-246): it never
-// reports an active one, so it ignores updates after checking them, as
-// every backend does.
+// Accessibility (contract v5, ADR-246): the AT-SPI2 bridge shared with
+// the Wayland backend (internal/platform/internal/atspi). The first
+// window starts it; it reports AccessibilityEvent and AccessActionEvent
+// through the loop (dispatchAccess before every delivery pass) and is
+// closed when Run returns. Screen extents are the content area's root
+// position (reportPosition) plus the node's bounds, in physical pixels.
+
+// accessBridge returns the process's bridge, made on first use. UI thread.
+func (b *Backend) accessBridge() *atspi.Bridge {
+	if b.access == nil {
+		b.access = atspi.New(atspi.Options{
+			AppName: platform.DefaultAppID(),
+			Wake:    b.signal,
+			Event:   func(w platform.Window, e platform.Event) { b.loop.Enqueue(w.(*Window), e) },
+		})
+	}
+	return b.access
+}
+
+// dispatchAccess moves the bridge's events to the loop; called before
+// every delivery pass.
+func (b *Backend) dispatchAccess() {
+	if b.access != nil {
+		b.access.Dispatch()
+	}
+}
+
+// closeAccess unregisters the app from the accessibility registry when
+// Run returns.
+func (b *Backend) closeAccess() {
+	if b.access != nil {
+		b.access.Close()
+	}
+}
+
+// SetAccessibility implements platform.Window: the update goes to the
+// window's AT-SPI bridge, which drops it unless an assistive technology
+// is active.
 func (w *Window) SetAccessibility(update platform.AccessUpdate) {
 	platform.CheckAccessUpdate(&update)
+	if w.acc == nil || w.Closed() {
+		return
+	}
+	st := w.osState
+	w.acc.SetGeometry(w.Metrics().Scale, st.Position, st.HasPosition)
+	w.acc.Update(update)
 }
