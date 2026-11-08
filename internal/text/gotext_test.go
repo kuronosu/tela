@@ -16,9 +16,8 @@ import (
 	"golang.org/x/image/tiff"
 )
 
-// systemBitmapFonts are bitmap emoji fonts some machines have; the tests
-// that read them skip the missing ones (and all of them under -short:
-// Apple Color Emoji is 180 MB).
+// systemBitmapFonts are bitmap emoji fonts some machines have. Tests read
+// them only with TELA_SYSTEM_FONTS=1 (ADR-035), skipping the missing ones.
 var systemBitmapFonts = []string{
 	"/usr/share/fonts/noto/NotoColorEmoji.ttf",
 	"/usr/share/fonts/google-noto-color-emoji-fonts/NotoColorEmoji.ttf",
@@ -28,7 +27,7 @@ var systemBitmapFonts = []string{
 
 // goTextTestFonts returns the bitmap fonts that TestGoTextStubs compares:
 // the checked-in ones, synthetic variants of every table layout, and the
-// installed emoji fonts found.
+// installed emoji fonts found when TELA_SYSTEM_FONTS=1.
 func goTextTestFonts(t *testing.T) map[string][]byte {
 	fonts := map[string][]byte{}
 	for _, f := range []string{cbdtTestFile, sbixTestFile} {
@@ -41,7 +40,7 @@ func goTextTestFonts(t *testing.T) map[string][]byte {
 	for name, tabs := range syntheticBitmapFonts() {
 		fonts[name] = bitmapBaseFont(t, tabs)
 	}
-	if !testing.Short() {
+	if os.Getenv("TELA_SYSTEM_FONTS") == "1" { // installed fonts are opt-in (ADR-035)
 		for _, f := range systemBitmapFonts {
 			if data, err := os.ReadFile(f); err == nil {
 				fonts[f] = data
