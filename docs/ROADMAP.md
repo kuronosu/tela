@@ -12,7 +12,7 @@
 - **Done:** phases 1–18. Latest version `v0.13.6` (2026-11-08, phase 18: font system). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
 - **Phase in progress:** 19, Accessibility, on `phase-19-accessibility` (design in ADR-246; the owner allows pushing the work branch for CI).
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** phase 19's three bridges (AT-SPI, UI Automation, NSAccessibility), in parallel worktrees. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** phase 19: fix the macOS attribute API on CI, then the screen-reader runs with the owner (Orca on Linux, Narrator or NVDA on the VM). R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
@@ -26,9 +26,15 @@ Strictly after the two macOS phases: the bridges for AT-SPI, UI Automation and N
 - [x] Design: ADR-246
 - [x] The semantics tree covers `aria` and `kit` roles, states, actions and live regions; `h.AriaLive`, `AriaAtomic`, `AriaKeyShortcuts`, `AriaPosInSet`, `AriaSetSize` and a deferred accessible name (`h.AriaLabelFn`); password fields are protected
 - [x] Platform contract v5 (`AccessNode`, `AccessUpdate`, `Window.SetAccessibility`, `AccessibilityEvent`, `AccessActionEvent`); core sends changed nodes, focus and live-region announcements after each commit while an AT is active; headless records them, remote protocol 9 forwards them
-- [ ] AT-SPI over D-Bus (pure Go), shared by Wayland and X11; checked with Orca
-- [ ] UI Automation over COM; checked with Narrator on the VM
-- [ ] NSAccessibility; checked on macOS CI, VoiceOver in the macOS live checks
+- [x] AT-SPI over D-Bus (pure Go), shared by Wayland and X11: checked against at-spi2-registryd and libatspi on a private bus and on the session's registry; Orca 49 registers the app and its frame
+- [ ] Orca reads, navigates and operates `login` (the owner at the keyboard: an unattended run cannot give the window keyboard focus on Hyprland)
+- [x] UI Automation over COM: an in-process UIA client and the .NET UIA client (cross-process, as Narrator connects) read and operate `login` on the VM
+- [ ] Narrator (or NVDA, whose log records speech) reads, navigates and operates `login` on the VM
+- [ ] NSAccessibility: elements, actions and notifications pass on macOS CI; AppKit's attribute API (what AX clients and VoiceOver use) returns nothing for the elements yet
+- [ ] AT-SPI gaps: lines split only at hard newlines (no layout in the tree), character extents estimated, no text attributes; word segmentation is a simple rule, not UAX #29; no hypertext (a paragraph with a link exposes label objects); Selection over direct children only, no SelectAll/ClearSelection; no EditableText cut and paste; relations only controller-for/controlled-by (no labelled-by, described-by); announcements only through the Announcement signal (Orca 45+); Wayland screen extents are window coordinates; `Cache.GetItems` empty; not checked at HiDPI
+- [ ] UIA gaps: never deactivates once a client asks; no MSAA answer for `OBJID_CLIENT`; approximate text units and range rectangles, `RangeFromPoint` returns the start, `FindAttribute` finds nothing; Scroll pattern percents are placeholders; no AutomationId, ClassName, Window pattern on dialogs, Grid or Table patterns, LabeledBy, DescribedBy or document TextPattern; dead node objects stay while UIA holds them (no per-node `UiaDisconnectProvider`); not checked above 100% DPI
+- [ ] NSAccessibility gaps: never deactivates once an AX client asks; hard lines only, `accessibilityFrameForRange:` is the element's frame; English role descriptions for web subroles; no Confirm/Cancel or scroll-by, no `accessibilityRangeForPosition:` or attributed strings; KeyShortcuts, Controls, ActiveDescendant, Sort and Current not exposed; `option` is AXStaticText, no AXOutlineRow in treegrids
+- [ ] Both bridges and AT-SPI: setting a range value steps one increment or decrement toward it (the tree has no settable number)
 - [ ] Accessibility updates: set value works only on text fields (sliders and spinbuttons step with increment and decrement); live-region announcements count texts and image names only, not an `aria-label` alone; a busy region that appears after activation announces its old content when it stops being busy; a window's tree is sent only after its first frame
 - [ ] `tela dev` and accessibility: an assistive technology's action that arrives while input is frozen for a swap is dropped; every reload replaces the bridge's tree (node IDs change with the child's serial), so the reader loses its position
 - [ ] Semantics gaps: radios outside a radiogroup are not grouped by name and tree items without groups are not split by `aria-level` for set positions (Chromium does both); `IncrementNode`/`DecrementNode` need a focusable widget (Chromium sends the key without focusing); a dev warning for a focusable element with no role or name (a focusable `kit.ContextMenu` area has neither unless the app gives them)
@@ -183,7 +189,7 @@ This session gates v1.0's "macOS supported". Items a phase adds after the sessio
 - [ ] The app bar's key equivalents: cocoa matches them itself when AppKit's matching takes none (CI's CGEvent-built keys); with real keys, check whether that fallback is still needed
 - [ ] Phase 18: the system faces resolve (`system-ui` to SF through ".SF NS" or "System Font", `ui-serif` to New York, `ui-monospace` to SF Mono) and Apple Color Emoji's sbix glyphs sit where CoreText puts them (Tela follows HarfBuzz's reading of the origin offsets)
 - [ ] Phase 16: a drag from Photos or Mail (file promises) and one carrying another app's private types reach an `OnDrop` target (CI cannot start another app's drag)
-- [ ] After Accessibility: VoiceOver reads, navigates and operates `login`
+- [ ] Phase 19: VoiceOver reads, navigates and operates `login` (announcements and layout changes are posted on the NSWindow; check VoiceOver speaks them, and whether it offers AXScrollToVisible)
 - [ ] After the GPU backend: Metal draws the dashboard at 60 fps at scale 2
 - [ ] After packaging: a signed and notarized `.app`/`.dmg` installs and updates
 
@@ -191,7 +197,7 @@ This session gates v1.0's "macOS supported". Items a phase adds after the sessio
 
 The VM has no GPU and runs at scale 1.
 
-- [ ] Scales above 1 (per-monitor DPI)
+- [ ] Scales above 1 (per-monitor DPI), the UIA bridge's bounding rectangles included
 - [ ] Windows 11 rounded corners and Mica (the VM draws square corners and a solid backdrop); a frameless window with a client-area backdrop extends its DWM frame, which may hide the snap layouts flyout again
 - [ ] The tray and notification icons' alpha, by eye
 - [ ] Phase 16 by hand: the snap layouts flyout, hover and presses on an overlay window's DWM buttons, its caption buttons across monitors of different DPI, with a taskbar at the top and with a monitor above a maximized one (its 8 px hidden band), and a toast's buttons; `TitleBarOverlay` on Windows 10 22H2 (today frameless there)
