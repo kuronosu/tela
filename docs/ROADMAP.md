@@ -30,7 +30,9 @@ How Tela ships and loads fonts (ADR-244): system fonts by default, embedded font
 - [x] Public API: `tela.Font`, `tela.FontData`, `tela.FontFS`, `Sans`/`Serif`/`Mono`/`Emoji`/`Scripts`, `App.Fonts`; the packages `fonts/inter`, `fonts/jetbrainsmono`, `fonts/notoemoji`, `fonts/notoarabic`, `fonts/standard`; `telatest`, `tela snapshot` and `tela mcp` on the app's fonts plus `fonts/standard`; docs, `llms.txt`, wiki, `tela new`
 - [ ] A serif face for `font-serif`: three candidates rendered for the owner (Source Serif 4, Noto Serif, Literata; https://claude.ai/artifact/BJ8mQ2w7hW1XtSvKvFJGxh), Source Serif 4 packaged as `fonts/sourceserif` and in the test set until the owner picks
 - [x] Linux: `system-ui` follows the desktop's interface and monospace fonts (the portal's `org.gnome.desktop.interface` settings, KDE's `kdeglobals`), fontconfig's preferences otherwise; the system font index loaded off the UI thread at start
-- [ ] go-text's `NewFont` keeps its own copy of the bitmap tables (10.6 MB of CBDT for the system's Noto Color Emoji) and of glyf/gvar (ADR-243): hide what Tela reads itself, keeping HarfBuzz's fallback mark extents
+- [x] System font files mapped instead of read, and go-text given stubs of the bitmap tables (ADR-245): the system's Noto Color Emoji 22 → 1.7 MiB of heap
+- [ ] go-text's `NewFont` still copies glyf and gvar (ADR-243); a stub needs each glyph's bounding box and, for variable fonts, its points, so ADR-245's technique does not carry over cheaply
+- [ ] The decoded-bitmap cache's keys hold `*Typeface`, so a dropped collection's typefaces stay alive until their images are evicted (little memory since ADR-245)
 - [ ] The sprite cache keys bitmap and COLR glyphs by text color, so one emoji in two colors is cached twice
 - [ ] Inspect's and LayoutJSON's `font` field shows the first name of the stack (`ui-sans-serif`), not the family that drew the text
 - [ ] Linux: the portal's settings are read on the UI thread in `NewHost` while the font index loads beside it (3 → 8 ms); read them off the UI thread at `Run` start

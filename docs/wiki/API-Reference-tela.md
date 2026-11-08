@@ -2977,7 +2977,7 @@ tela.Main(tela.App{
 })
 ```
 
-A font is used by the CSS font-family names: its own family name ("font-\['Lora'\]") and, through the methods below, the generic families the theme's font-sans, font-serif and font-mono stack end with. A Font is a value: the methods return a modified copy and the copies share the parsed font, which is read and parsed when text first needs the family (a font that is never drawn costs only its bytes in the binary). App fonts come before the system's: they win the generic names they stand for and are tried first when a character needs a fallback.
+A font is used by the CSS font-family names: its own family name ("font-\['Lora'\]") and, through the methods below, the generic families the theme's font-sans, font-serif and font-mono stack end with. A Font is a value: the methods return a modified copy and the copies share the parsed font, whatever roles they give it (lora.Serif() and lora.Scripts("Latn") read and parse the files once), which is read and parsed when text first needs the family (a font that is never drawn costs only its bytes in the binary). App fonts come before the system's: they win the generic names they stand for and are tried first when a character needs a fallback.
 
 #### func FontData
 
@@ -3098,10 +3098,11 @@ tela.App{Fonts: []tela.Font{tela.FontData("Roboto", roboto).Sans()}}
 func (f Font) Scripts(scripts ...string) Font
 ```
 
-Scripts makes the font a fallback for the scripts, ISO 15924 codes such as "Arab", "Hebr", "Deva", "Thai", "Hani" or "Cyrl": text in one of them that the requested families cannot draw uses this font before the system's. A code that is not an ISO 15924 code is a programmer error: it panics in dev mode with the valid examples, and is ignored in a release build (ARCHITECTURE section 19).
+Scripts makes the font a fallback for the scripts, ISO 15924 codes such as "Arab", "Hebr", "Deva", "Thai", "Hani" or "Cyrl": text in one of them that the requested families cannot draw uses this font before the system's. The umbrella codes stand for the scripts their text is made of, as in browsers: "Hans" and "Hant" for "Hani" (Chinese characters), "Jpan" for "Hani", "Hira" and "Kana", "Kore" for "Hang" and "Hani". A code that is not the code of a script of text ("Zyyy", "Zsye", a typo) is a programmer error: it panics in dev mode with the valid examples, and is ignored in a release build (ARCHITECTURE section 19).
 
 ```go
 tela.App{Fonts: []tela.Font{tela.FontData("Noto Sans Hebrew", hebrew).Scripts("Hebr")}}
+tela.App{Fonts: []tela.Font{tela.FontData("Noto Sans JP", jp).Scripts("Jpan")}}
 ```
 
 **Example**

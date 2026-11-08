@@ -107,7 +107,7 @@ A font is a value, and these methods return a modified copy:
 | `Serif()` | the family of `ui-serif` and `serif` |
 | `Mono()` | the family of `ui-monospace` and `monospace` |
 | `Emoji()` | the family of `emoji` |
-| `Scripts("Arab", "Hebr")` | the fallback for text in those scripts (ISO 15924 codes) that the requested family cannot draw |
+| `Scripts("Arab", "Hebr")` | the fallback for text in those scripts (ISO 15924 codes) that the requested family cannot draw; the umbrella codes stand for their scripts, as in browsers: `Hans` and `Hant` for `Hani`, `Jpan` for `Hani`, `Hira` and `Kana`, `Kore` for `Hang` and `Hani` |
 
 Without a method the font is used by its name only. They combine:
 `FontData("Fira", fira).Mono().Scripts("Latn")`.
@@ -115,8 +115,9 @@ Without a method the font is used by its name only. They combine:
 Mistakes are reported where they can be fixed. `Run` checks the patterns
 before it opens the window and returns an error naming one that matches no
 file; a file that is not a font is logged when text first needs the family,
-and the font is left out. A script code that is not an ISO 15924 code panics
-in dev mode with examples of valid ones (release builds ignore it).
+and the font is left out. A script code that is not the ISO 15924 code of a
+script of text (a typo, or `Zyyy`, `Zinh`, `Zsye`) panics in dev mode with
+examples of valid ones (release builds ignore it).
 
 ## Tests and snapshots
 

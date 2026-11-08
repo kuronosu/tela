@@ -1,11 +1,14 @@
 package core
 
 import (
+	"fmt"
+	"os"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
-
-	"os"
+	"unsafe"
 
 	"github.com/go-text/typesetting/language"
 	"github.com/kuronosu/tela/internal/stdfonts"
@@ -89,23 +92,92 @@ func TestFontCheck(t *testing.T) {
 }
 
 func TestFontScripts(t *testing.T) {
-	f := FontData("A", []byte("x")).WithScripts("arab", "Hebr", "Arab")
-	if got := strings.Join(f.scripts, ","); got != "Arab,Hebr" {
-		t.Errorf("scripts = %q, want Arab,Hebr (normalized, no duplicates)", got)
+	f := FontData("A", []byte("x")).WithScripts("arab", "Hebr", "Arab", "LATN")
+	if got := scriptCodes(f); got != "Arab,Hebr,Latn" {
+		t.Errorf("scripts = %q, want Arab,Hebr,Latn (normalized, no duplicates)", got)
 	}
+	// The original is not modified.
+	if len(FontData("A", []byte("x")).scripts) != 0 {
+		t.Error("a new font has scripts")
+	}
+}
+
+func scriptCodes(f Font) string {
+	var codes []string
+	for _, s := range f.scripts {
+		codes = append(codes, s.String())
+	}
+	return strings.Join(codes, ",")
+}
+
+// TestFontScriptsUmbrellas: the umbrella codes stand for the scripts their
+// text is itemized into, as in CLDR and browsers.
+func TestFontScriptsUmbrellas(t *testing.T) {
+	for code, want := range map[string]string{
+		"Hans": "Hani", "Hant": "Hani", "hant": "Hani",
+		"Jpan": "Hani,Hira,Kana",
+		"Kore": "Hang,Hani",
+		"Hrkt": "Hira,Kana",
+	} {
+		if got := scriptCodes(FontData("A", []byte("x")).WithScripts(code)); got != want {
+			t.Errorf("Scripts(%q) = %s, want %s", code, got, want)
+		}
+	}
+	if got := scriptCodes(FontData("A", []byte("x")).WithScripts("Jpan", "Kore", "Hani")); got != "Hani,Hira,Kana,Hang" {
+		t.Errorf("Scripts(Jpan, Kore, Hani) = %s", got)
+	}
+
+	// End to end: Chinese and kana text uses the font of Jpan (Kore,
+	// Hans) before the families registered before it, which also have
+	// the characters.
+	cjk := readTestFont(t, "NotoSansJP-Subset.otf")
+	for _, code := range []string{"Jpan", "Hans", "Hant", "Kore", "Latn"} {
+		c, _ := NewFontCollection([]Font{FontData("First", cjk), FontData("Umbrella", cjk).WithScripts(code)}, nil, nil)
+		sample := "日本語"
+		if code == "Jpan" {
+			sample = "日本語かなカナ"
+		}
+		want := "Umbrella"
+		if code == "Latn" {
+			want = "First" // the control: a font for another script is not used
+		}
+		rs := []rune(sample)
+		runs := c.Itemize(rs, 0, len(rs), text.Query{Families: []string{"unknown"}}, 16, language.Latin, nil)
+		if len(runs) != 1 || runs[0].Face.Typeface().Family() != want {
+			var got []string
+			for _, r := range runs {
+				got = append(got, string(rs[r.Start:r.End])+"="+r.Face.Typeface().Family())
+			}
+			t.Errorf("Scripts(%q): runs %v, want one run of %s", code, got, want)
+		}
+	}
+}
+
+// TestFontScriptsRejects: a code that is not one of a script of text
+// panics in dev mode with the examples and the umbrella mapping, and is
+// ignored otherwise.
+func TestFontScriptsRejects(t *testing.T) {
 	panics := func(code string) (msg string) {
 		defer func() { msg, _ = recover().(string) }()
 		FontData("A", []byte("x")).WithScripts(code)
 		return ""
 	}
-	for _, bad := range []string{"Arabic", "Arbc", "", "Ar"} {
-		if m := panics(bad); !strings.Contains(m, "ISO 15924") || !strings.Contains(m, `"Arab"`) {
-			t.Errorf("WithScripts(%q) panic = %q, want a message with the examples", bad, m)
+	for bad, hint := range map[string]string{
+		"Arabic": "", "Arbc": "", "": "", "Ar": "", "Ar1b": "", "Ärab": "",
+		"Zyyy": "Common", "zinh": "Inherited", "Zzzz": "unknown", "Zxxx": "unwritten",
+		"Zmth": "Common", "Zsym": "Common", "Zsye": "Emoji()",
+	} {
+		m := panics(bad)
+		for _, want := range []string{fmt.Sprintf("Font.Scripts(%q)", bad), "ISO 15924", `"Arab"`, `"Jpan" for "Hani", "Hira" and "Kana"`, `"Kore" for "Hang" and "Hani"`, hint} {
+			if !strings.Contains(m, want) {
+				t.Errorf("WithScripts(%q) panic = %q, want it to contain %q", bad, m, want)
+			}
 		}
 	}
-	// The original is not modified.
-	if len(FontData("A", []byte("x")).scripts) != 0 {
-		t.Error("a new font has scripts")
+	defer devAny.Store(devAny.Load())
+	devAny.Store(false)
+	if got := scriptCodes(FontData("A", []byte("x")).WithScripts("Zyyy", "Arab", "Nope")); got != "Arab" {
+		t.Errorf("without dev mode: scripts %s, want the valid one", got)
 	}
 }
 
@@ -118,7 +190,7 @@ func TestFontCopiesShareTheSource(t *testing.T) {
 	b, _ := base.WithGenerics(sansNames...).Source()
 	c, _ := base.WithGenerics("ui-monospace", "monospace").Source()
 	if a != b {
-		t.Error("two copies with the same roles have different sources: the font would be parsed twice")
+		t.Error("two copies with the same roles have different sources")
 	}
 	if a == c {
 		t.Error("copies with other roles share a source")
@@ -132,6 +204,156 @@ func TestFontCopiesShareTheSource(t *testing.T) {
 	arab, _ := base.WithScripts("Arab").Source()
 	if len(arab.Scripts) != 1 || arab.Scripts[0] != language.Arabic {
 		t.Errorf("scripts = %v", arab.Scripts)
+	}
+}
+
+// parseCounts counts, with text's parse hook, the descriptions and parses
+// of files (by the identity of their bytes).
+type parseCounts struct {
+	mu     sync.Mutex
+	files  [][]byte
+	counts map[[2]int]int // file, font (-1: described)
+}
+
+func countParses(t *testing.T, files [][]byte) *parseCounts {
+	pc := &parseCounts{files: files, counts: map[[2]int]int{}}
+	t.Cleanup(text.SetParseHook(func(_ string, data []byte, font int) {
+		pc.mu.Lock()
+		defer pc.mu.Unlock()
+		for i, f := range pc.files {
+			if len(f) == len(data) && unsafe.SliceData(f) == unsafe.SliceData(data) {
+				pc.counts[[2]int{i, font}]++
+			}
+		}
+	}))
+	return pc
+}
+
+// once fails t unless each file was described once and each of its fonts
+// parsed at most once, n fonts in all.
+func (pc *parseCounts) once(t *testing.T, n int) {
+	t.Helper()
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	parsed := 0
+	for k, c := range pc.counts {
+		if c != 1 {
+			t.Errorf("file %d, font %d (-1: the description): %d times, want once", k[0], k[1], c)
+		}
+		if k[1] >= 0 {
+			parsed++
+		}
+	}
+	for i := range pc.files {
+		if pc.counts[[2]int{i, -1}] == 0 {
+			t.Errorf("file %d not described", i)
+		}
+	}
+	if parsed != n {
+		t.Errorf("%d fonts parsed, want %d", parsed, n)
+	}
+}
+
+// TestFontRolesShareTheParse: the copies of a Font with different roles
+// have their own sources, which read, describe and parse the files once
+// and give the same typefaces (ADR-244: copies of a Font share one parse).
+func TestFontRolesShareTheParse(t *testing.T) {
+	data := readTestFont(t, "TelaSbixTest.ttf") // new bytes: parsed by no other test
+	check := func(t *testing.T, base Font, files [][]byte, reads func() int) {
+		pc := countParses(t, files)
+		var first []*text.Typeface
+		for _, f := range []Font{base, base.WithGenerics("ui-serif", "serif"), base.WithScripts("Latn"), base.WithGenerics(sansNames...).WithScripts("Arab")} {
+			src, err := f.Source()
+			if err != nil {
+				t.Fatal(err)
+			}
+			tfs, err := src.Typefaces()
+			if err != nil || len(tfs) == 0 {
+				t.Fatalf("Typefaces: %d, %v", len(tfs), err)
+			}
+			if first == nil {
+				first = tfs
+			} else if !slices.Equal(tfs, first) {
+				t.Errorf("the roles %v %v have other typefaces: the files were parsed again", f.generics, f.scripts)
+			}
+		}
+		// Two roles in one collection: the family resolves through either.
+		c, _ := NewFontCollection([]Font{base.WithGenerics("ui-serif", "serif"), base.WithScripts("Latn")}, nil, nil)
+		if got := familyOf(c, "serif"); got != base.Family() {
+			t.Errorf("serif = %q", got)
+		}
+		pc.once(t, len(first))
+		if reads != nil && reads() != 1 {
+			t.Errorf("the files were read %d times, want once", reads())
+		}
+	}
+	t.Run("data", func(t *testing.T) {
+		check(t, FontData("Roles", data), [][]byte{data}, nil)
+	})
+	t.Run("fs", func(t *testing.T) {
+		reads := 0
+		fsys := &fontCountFS{MapFS: fstest.MapFS{"f/a.ttf": {Data: data}}, reads: &reads}
+		base := FontFS(fsys, "", "f/*.ttf") // the family comes from the file
+		files, err := base.b.read()
+		if err != nil {
+			t.Fatal(err)
+		}
+		check(t, base, files, func() int { return reads })
+	})
+}
+
+// TestFontFamilyConcurrent: goroutines that resolve the family of one Font
+// given none (in parallel tests of an app, say) do not race (go test
+// -race).
+func TestFontFamilyConcurrent(t *testing.T) {
+	data := readTestFont(t, "TelaSbixTest.ttf")
+	for _, f := range []Font{
+		FontFS(fstest.MapFS{"a.ttf": {Data: data}}, "", "*.ttf"),
+		FontData("", data),
+	} {
+		var wg sync.WaitGroup
+		names := make([]string, 8)
+		for i := range names {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				switch i % 3 {
+				case 0:
+					names[i] = f.Family()
+				case 1:
+					if err := f.Check(); err != nil {
+						t.Error(err)
+					}
+					names[i] = f.Family()
+				default:
+					src, err := f.WithGenerics("serif").Source()
+					if err != nil {
+						t.Error(err)
+						return
+					}
+					names[i] = src.Family
+				}
+			}()
+		}
+		wg.Wait()
+		for i, n := range names {
+			if n != "Tela Sbix Test" {
+				t.Errorf("goroutine %d: family %q", i, n)
+			}
+		}
+	}
+}
+
+// TestRunFontsIgnoreAppFontsWithConfigFonts: Run checks the app's fonts
+// only when it uses them, not when Config.Fonts is set.
+func TestRunFontsIgnoreAppFontsWithConfigFonts(t *testing.T) {
+	given := text.NewCollection()
+	c, err := runCollection(Options{Config: Config{Fonts: given}, AppFonts: []Font{{}}})
+	if err != nil || c != given {
+		t.Errorf("with Config.Fonts: %v, %v; want the given collection and no error", c, err)
+	}
+	if _, err := runCollection(Options{AppFonts: []Font{{}}}); err == nil || !strings.Contains(err.Error(), "zero tela.Font") {
+		t.Errorf("without Config.Fonts: error %v", err)
 	}
 }
 

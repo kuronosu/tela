@@ -23,15 +23,16 @@ import (
 // The tests of ADR-244: font sources parsed on first need, the generic
 // families of each operating system, and text without any font.
 
-// countedSources returns new standard sources (not shared with other
-// tests, so nothing is parsed yet) whose files are read through Load,
-// counting the reads of each family.
+// countedSources returns new standard sources whose files are read
+// through Load, counting the reads of each family. The files are copies of
+// the standard ones, so they share no parse with other tests (sources over
+// the same slices would) and nothing of them is parsed yet.
 func countedSources(loads map[string]*atomic.Int32, delay time.Duration) []*FontSource {
 	var out []*FontSource
 	for _, s := range stdSources() {
 		n := &atomic.Int32{}
 		loads[s.Family] = n
-		data := s.Data
+		data := cloneFiles(s.Data)
 		out = append(out, &FontSource{
 			Family:   s.Family,
 			Generics: s.Generics,

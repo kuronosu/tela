@@ -122,7 +122,10 @@ func (c config) coreFonts() []core.Font {
 
 // fontCollection returns the collection the app draws with: its own fonts,
 // then the deterministic set (the same fonts as fonts/standard, ADR-244),
-// and never the system's.
+// and never the system's. An app font of fonts/... and the set's font of
+// the same family are over the same embedded bytes, so they share one
+// parse and one set of faces (text.FontSource): registering both changes
+// nothing.
 func (c config) fontCollection() *text.Collection {
 	// Not an error: validate has checked the fonts and there are no system
 	// fonts to fail.

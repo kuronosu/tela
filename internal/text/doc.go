@@ -11,8 +11,8 @@
 // font-variation-settings). Faces are interned per typeface by their
 // normalized coordinates, so equal requests return the same *Face and the
 // same gfx FontKey; they live as long as their typeface (the typefaces of a
-// FontSource live as long as the source, the whole process for the
-// package-level sources of the font packages).
+// FontSource live as long as a source over its files, the whole process for
+// the package-level sources of the font packages).
 //
 // Face implements gfx.Font. Glyph geometry is in em space: x right, y down,
 // 1 em = 1 unit, origin at the pen position on the baseline (font units
@@ -40,7 +40,9 @@
 // their small tables (name, OS/2, head, fvar), CSS matching picks the font
 // of the request among the descriptions, and only that font is parsed; the
 // first goroutine that needs it parses it while the others wait, and the
-// typefaces are shared by every collection the source is in. A file that
+// typefaces are shared by every collection the source is in and by every
+// source of the family over the same byte slices (another role of the
+// family, the same embedded files registered by two packages). A file that
 // cannot be read or parsed is left out and reported (FontSource.Err, the
 // Collection's Logger); a family with nothing usable is skipped.
 //

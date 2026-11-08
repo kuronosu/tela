@@ -821,7 +821,6 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 	a.setSources(b)
 	p.setElements(a)
 	p.inlines = slices.Clone(a.inlines)
-	p.final, p.sized, p.fragAt = nil, false, [2]float32{}
 	p.text, p.pstyle, p.def, p.empty = s, pstyle, def, empty
 	p.em = def.Size
 	for i := range spans {

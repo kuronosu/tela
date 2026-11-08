@@ -78,23 +78,17 @@ func Run(opts Options) error {
 	// The app's dev mode is the process default of the node constructors
 	// (one app per process; ADR-085).
 	devAny.Store(configDev(opts.Dev))
-	if err := CheckFonts(opts.AppFonts); err != nil {
+	fonts, err := runCollection(opts)
+	if err != nil {
 		return err
 	}
-	if opts.Fonts == nil {
-		if len(opts.AppFonts) > 0 {
-			opts.Fonts = runAppFonts(opts.AppFonts, errorLog(opts.ErrorLog)) // appfonts.go
-		} else {
-			opts.Fonts = runFonts(errorLog(opts.ErrorLog)) // fonts.go
-		}
-	}
+	opts.Fonts = fonts
 	if devStateEnabled {
 		// tela dev: report a panic of the UI thread to the supervisor
 		// and exit with status 2 (ADR-114).
 		defer devRecover()
 	}
 	var b platform.Backend
-	var err error
 	if devStateEnabled {
 		// Under tela dev the backend is the supervisor's window, not a
 		// native one; nil, nil when the process is not a tela dev child.

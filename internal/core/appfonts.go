@@ -9,39 +9,42 @@ import (
 	"strings"
 	"sync"
 
-	gotextlang "github.com/go-text/typesetting/language"
+	"github.com/go-text/typesetting/language"
 	"github.com/kuronosu/tela/internal/text"
-	xlang "golang.org/x/text/language"
 )
 
 // Font is a font family an app brings (tela.Font, ADR-244): font files in
 // memory (FontData) or in a file system (FontFS), the generic families it
 // stands for and the scripts it is a fallback for. Fonts are values; the
-// methods that change one return a modified copy, and the copies share the
-// files and, per (generics, scripts), the text.FontSource that parses them,
-// so a family is read and parsed once per process however many apps,
-// collections and copies use it.
+// methods that change one return a modified copy. The copies share the
+// files and, per (generics, scripts), the text.FontSource that registers
+// them; the sources of every role share one read and one parse (the
+// sources over the same slices do, text.FontSource), so a family is read
+// and parsed once per process however many apps, collections, copies and
+// roles use it, and so are the files of a fonts/ package that
+// internal/stdfonts registers too (both are over the same embedded bytes).
 //
 // The zero Font is invalid: Check reports it.
 type Font struct {
 	b        *fontBase
 	generics []string
-	scripts  []string // ISO 15924 codes, as xlang.Script.String
+	scripts  []language.Script // without duplicates, in order
 }
 
 // fontBase is what the copies of a Font share.
 type fontBase struct {
-	family string // "" until known: taken from the first file
-	data   [][]byte
-	fsys   fs.FS
-	pats   []string
-	err    error // a construction error, reported by Check
+	given string // the family given; "" takes it from the first file
+	data  [][]byte
+	fsys  fs.FS
+	pats  []string
+	err   error // a construction error, reported by Check
 
 	filesOnce sync.Once // reads the files of an FS font, once
-	files     [][]byte
+	files     [][]byte  // the same slices every time, so the sources of every role share their parse
 	filesErr  error
 
 	famOnce sync.Once // resolves an empty family from the first file
+	family  string    // after famOnce
 	famErr  error
 
 	mu      sync.Mutex
@@ -50,7 +53,7 @@ type fontBase struct {
 
 // FontData returns the font of files already in memory.
 func FontData(family string, files ...[]byte) Font {
-	b := &fontBase{family: strings.TrimSpace(family), data: files}
+	b := &fontBase{given: strings.TrimSpace(family), data: files}
 	switch {
 	case len(files) == 0:
 		b.err = errors.New("tela.FontData: give at least one font file, such as tela.FontData(\"Lora\", loraTTF, loraItalicTTF) with the files embedded using //go:embed")
@@ -68,7 +71,7 @@ func FontData(family string, files ...[]byte) Font {
 // FontFS returns the font of the files of fsys that patterns (fs.Glob
 // syntax) match, read when text first needs the family.
 func FontFS(fsys fs.FS, family string, patterns ...string) Font {
-	b := &fontBase{family: strings.TrimSpace(family), fsys: fsys, pats: slices.Clone(patterns)}
+	b := &fontBase{given: strings.TrimSpace(family), fsys: fsys, pats: slices.Clone(patterns)}
 	switch {
 	case fsys == nil:
 		b.err = errors.New("tela.FontFS: the file system is nil; pass an embed.FS, os.DirFS(dir) or another fs.FS")
@@ -84,24 +87,95 @@ func (f Font) WithGenerics(names ...string) Font {
 	return f
 }
 
-// scriptExamples are the codes the message of a bad script code suggests.
-const scriptExamples = `"Arab", "Hebr", "Deva", "Thai", "Hani", "Cyrl"`
+// scriptExamples are the codes the message of a bad script code suggests,
+// and scriptUmbrellaHelp what it says of the umbrella codes.
+const (
+	scriptExamples     = `"Arab", "Hebr", "Deva", "Thai", "Hani", "Cyrl"`
+	scriptUmbrellaHelp = `"Hans" and "Hant" stand for "Hani", "Jpan" for "Hani", "Hira" and "Kana", "Kore" for "Hang" and "Hani", "Hrkt" for "Hira" and "Kana"`
+)
 
-// WithScripts returns f also a fallback for the scripts, ISO 15924 codes.
-// A code that is not one is a programmer error: it panics in dev mode and
-// is ignored otherwise.
+// scriptUmbrellas are the ISO 15924 codes of writing systems made of
+// several scripts, mapped as CLDR and browsers do to the scripts their
+// text is itemized into (text: UAX #24, where Chinese is Hani, kana Hira
+// and Kana, Hangul Hang).
+var scriptUmbrellas = map[string][]language.Script{
+	"Hans": {language.Han},
+	"Hant": {language.Han},
+	"Jpan": {language.Han, language.Hiragana, language.Katakana},
+	"Kore": {language.Hangul, language.Han},
+	"Hrkt": {language.Hiragana, language.Katakana},
+}
+
+// scriptHints say why the ISO 15924 codes that are not scripts of text
+// cannot be a fallback.
+var scriptHints = map[string]string{
+	"Zyyy": "Zyyy is Common: digits, punctuation and symbols take the script of the text around them",
+	"Zinh": "Zinh is Inherited: combining marks take the script of the character before them",
+	"Zzzz": "Zzzz is the code of unknown scripts",
+	"Zxxx": "Zxxx is the code of unwritten languages",
+	"Zmth": "math symbols are Common characters, which take the script of the text around them",
+	"Zsym": "symbols are Common characters, which take the script of the text around them",
+	"Zsye": "emoji use the emoji family: make the font Emoji()",
+}
+
+// textScripts are the scripts text runs can be in: those of Unicode's
+// characters (go-text's table, which itemization reads), without Common
+// and Inherited, whose characters take the script of the text around them.
+var textScripts = sync.OnceValue(func() map[language.Script]bool {
+	m := map[language.Script]bool{}
+	for _, r := range language.ScriptRanges {
+		if r.Script != language.Common && r.Script != language.Inherited {
+			m[r.Script] = true
+		}
+	}
+	return m
+})
+
+// parseScripts returns the scripts of an ISO 15924 code (any case): the
+// script itself, or the scripts of an umbrella code; why says what is
+// wrong with a code that is not one of a script of text.
+func parseScripts(code string) (scripts []language.Script, why string) {
+	if len(code) != 4 {
+		return nil, ""
+	}
+	for i := range 4 {
+		if c := code[i] | 0x20; c < 'a' || c > 'z' {
+			return nil, ""
+		}
+	}
+	code = strings.ToUpper(code[:1]) + strings.ToLower(code[1:])
+	if l, ok := scriptUmbrellas[code]; ok {
+		return l, ""
+	}
+	s, err := language.ParseScript(code)
+	if err != nil || !textScripts()[s] {
+		return nil, scriptHints[code]
+	}
+	return []language.Script{s}, ""
+}
+
+// WithScripts returns f also a fallback for the scripts, ISO 15924 codes
+// of scripts of text, or umbrella codes, which stand for the scripts their
+// text is made of (Hans and Hant: Hani; Jpan: Hani, Hira and Kana; Kore:
+// Hang and Hani; Hrkt: Hira and Kana). Another code is a programmer error:
+// it panics in dev mode and is ignored otherwise.
 func (f Font) WithScripts(codes ...string) Font {
 	out := slices.Clone(f.scripts)
 	for _, c := range codes {
-		s, err := xlang.ParseScript(c)
-		if err != nil || len(c) != 4 {
+		l, why := parseScripts(c)
+		if l == nil {
 			if devNow() {
-				panic(fmt.Sprintf("tela: Font.Scripts(%q): not an ISO 15924 script code; give four-letter codes such as %s", c, scriptExamples))
+				if why != "" {
+					why = " (" + why + ")"
+				}
+				panic(fmt.Sprintf("tela: Font.Scripts(%q): not the ISO 15924 code of a script of text%s; give four-letter codes such as %s, or an umbrella code: %s", c, why, scriptExamples, scriptUmbrellaHelp))
 			}
 			continue
 		}
-		if code := s.String(); !slices.Contains(out, code) {
-			out = append(out, code)
+		for _, s := range l {
+			if !slices.Contains(out, s) {
+				out = append(out, s)
+			}
 		}
 	}
 	f.scripts = out
@@ -114,8 +188,8 @@ func (f Font) Family() string {
 	if f.b == nil {
 		return ""
 	}
-	_ = f.b.resolveFamily()
-	return f.b.family
+	name, _ := f.b.resolveFamily()
+	return name
 }
 
 // Check reports why the font cannot be used, without reading the files of
@@ -141,7 +215,8 @@ func (f Font) Check() error {
 			}
 		}
 	}
-	return b.resolveFamily()
+	_, err := b.resolveFamily()
+	return err
 }
 
 // Verify reads and parses every font of f now (a family is otherwise
@@ -159,11 +234,12 @@ func (f Font) Verify() error {
 	return err
 }
 
-// resolveFamily sets an empty family from the first file (reading it,
-// for an FS font) and returns the error of doing so.
-func (b *fontBase) resolveFamily() error {
-	if b.family != "" || b.err != nil {
-		return b.err
+// resolveFamily returns the family: the one given, else the one of the
+// first file (reading it, for an FS font, once), with the error of the
+// font or of taking it from the file.
+func (b *fontBase) resolveFamily() (string, error) {
+	if b.given != "" || b.err != nil {
+		return b.given, b.err
 	}
 	b.famOnce.Do(func() {
 		files, err := b.read()
@@ -178,7 +254,7 @@ func (b *fontBase) resolveFamily() error {
 		}
 		b.family = name
 	})
-	return b.famErr
+	return b.family, b.famErr
 }
 
 // read returns the font files, reading an FS font's once.
@@ -216,26 +292,27 @@ func (b *fontBase) read() ([][]byte, error) {
 }
 
 // Source returns the text.FontSource of f, shared by every copy of f with
-// the same generics and scripts. The family is resolved now, which reads
-// the first file of an FS font that was given no family.
+// the same generics and scripts; the sources of the other roles share its
+// files' read and parse. The family is resolved now, which reads the first
+// file of an FS font that was given no family.
 func (f Font) Source() (*text.FontSource, error) {
 	if err := f.Check(); err != nil {
 		return nil, err
 	}
 	b := f.b
-	var scripts []gotextlang.Script
-	for _, c := range f.scripts {
-		if s, err := gotextlang.ParseScript(c); err == nil {
-			scripts = append(scripts, s)
-		}
+	family, _ := b.resolveFamily() // no error: Check resolved it
+	var key strings.Builder
+	key.WriteString(strings.Join(f.generics, ","))
+	key.WriteByte('|')
+	for _, s := range f.scripts {
+		key.WriteString(s.String())
 	}
-	key := strings.Join(f.generics, ",") + "|" + strings.Join(f.scripts, ",")
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if s := b.sources[key]; s != nil {
+	if s := b.sources[key.String()]; s != nil {
 		return s, nil
 	}
-	s := &text.FontSource{Family: b.family, Generics: slices.Clone(f.generics), Scripts: scripts}
+	s := &text.FontSource{Family: family, Generics: slices.Clone(f.generics), Scripts: slices.Clone(f.scripts)}
 	if b.fsys == nil {
 		s.Data = b.data
 	} else {
@@ -244,7 +321,7 @@ func (f Font) Source() (*text.FontSource, error) {
 	if b.sources == nil {
 		b.sources = map[string]*text.FontSource{}
 	}
-	b.sources[key] = s
+	b.sources[key.String()] = s
 	return s, nil
 }
 
@@ -278,6 +355,23 @@ func NewFontCollection(fonts []Font, after []*text.FontSource, system *text.Syst
 		return c, nil
 	}
 	return c, c.EnableSystemFonts(*system)
+}
+
+// runCollection returns the fonts of Run: Config.Fonts when set (the app's
+// fonts are then ignored, unchecked), else the app's fonts (after
+// CheckFonts) and the installed ones, else the installed ones or the
+// default set (runFonts).
+func runCollection(opts Options) (*text.Collection, error) {
+	switch {
+	case opts.Fonts != nil:
+		return opts.Fonts, nil
+	case len(opts.AppFonts) > 0:
+		if err := CheckFonts(opts.AppFonts); err != nil {
+			return nil, err
+		}
+		return runAppFonts(opts.AppFonts, errorLog(opts.ErrorLog)), nil
+	}
+	return runFonts(errorLog(opts.ErrorLog)), nil // fonts.go
 }
 
 // runAppFonts returns the fonts of Run with Options.AppFonts: the app's
