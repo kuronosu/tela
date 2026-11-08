@@ -453,7 +453,7 @@ var images embed.FS
 func init() { tela.Assets(images) }
 ```
 
-Assets may be called several times: the file systems are searched in the order they were registered and the first one that has the file wins. Files are decoded once, when first used, and kept for the life of the process: PNG, JPEG, GIF (the first frame), WebP and SVG (drawn as vectors), recognized by their content. A missing or undecodable file paints nothing and is reported once in the dev log, with the path and the registered file systems, like an unknown class. Remote and data: URLs are not supported.
+Assets may be called several times: the file systems are searched in the order they were registered and the first one that has the file wins. Files are decoded when first used and kept while something shows them (an image no element shows any more is released, and decoded again if it is shown again): PNG, JPEG, GIF (the first frame), WebP and SVG (drawn as vectors), recognized by their content. A missing or undecodable file paints nothing and is reported once in the dev log, with the path and the registered file systems, like an unknown class. Remote and data: URLs are not supported.
 
 **Example**
 
@@ -3034,7 +3034,7 @@ var Check = tela.Icon{SVG: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
   <path d="M20 6 9 17l-5-5"/></svg>`}
 ```
 
-The document is parsed the first time an icon with that text is drawn and the result is cached by the text for the life of the process (in a cache bounded by size), so drawing it again, at any size or color, never parses it again. Icon is comparable. ParseSVG and MustSVG check the text when the icon is created.
+The document is parsed the first time an icon with that text is drawn and the result is cached by the text while an icon shows it (and for a while after, in a small cache of the documents used last), so drawing it again, at any size or color, does not parse it again. Icon is comparable. ParseSVG and MustSVG check the text when the icon is created.
 
 Icons are drawn as vectors at the device scale, with currentColor as the element's text color; see h.Icon.
 
@@ -4704,7 +4704,7 @@ fmt.Println(app.Screenshot().RGBAAt(5, 5), after.Builds-before.Builds, after.Sty
 func BgImage(img image.Image) StyleProp
 ```
 
-BgImage sets a decoded image as the background image, over the background color. The background classes apply to it as to a bg-\[url(...)\] image: bg-cover, bg-contain, bg-center, bg-no-repeat, bg-origin-\*, bg-clip-\* and the others. Each image.Image value is converted once and cached (the cache keeps the most recently used images, up to 256 MiB of pixels), so pass the same value on every build and do not modify its pixels afterwards: give a new image instead. For images stored as files, register them with [`Assets`](#func-assets) and use a class.
+BgImage sets a decoded image as the background image, over the background color. The background classes apply to it as to a bg-\[url(...)\] image: bg-cover, bg-contain, bg-center, bg-no-repeat, bg-origin-\*, bg-clip-\* and the others. Each image.Image value is converted once and cached while an element shows it, so pass the same value on every build and do not modify its pixels afterwards: give a new image instead. For images stored as files, register them with [`Assets`](#func-assets) and use a class.
 
 **Example**
 

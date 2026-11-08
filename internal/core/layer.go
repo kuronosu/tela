@@ -146,6 +146,12 @@ type layer struct {
 	oin, oout []*Box
 	rec       uint64
 	dirty     bool
+	// uses holds the decoded images its list draws (backgrounds and
+	// masks: painter.hold), so that the cache keeps them while they are
+	// shown (assets.go, "Releasing images"); ouses those of the previous
+	// recording while one runs, so that an image drawn again stays alive
+	// until it is looked up.
+	uses, ouses []*imageAsset
 }
 
 // target is a list being recorded: its builder, its scroll space and
@@ -214,6 +220,31 @@ type frame struct {
 	dl    *gfx.DisplayList
 	inst  []instance
 	scale float32
+	// uses holds the decoded images painted while composing it (the masks
+	// of deferred layers, whose effects the compositor pushes).
+	uses []*imageAsset
+}
+
+// hold keeps decoded image a alive with the list being recorded (its
+// layer), or with the frame being composed (assets.go, "Releasing
+// images").
+func (p *painter) hold(a *imageAsset) {
+	if a == nil {
+		return
+	}
+	var uses *[]*imageAsset
+	switch {
+	case p.layer != nil:
+		uses = &p.layer.uses
+	case p.t.lay.compF != nil:
+		uses = &p.t.lay.compF.uses
+	default:
+		return
+	}
+	if n := len(*uses); n > 0 && (*uses)[n-1] == a {
+		return
+	}
+	*uses = append(*uses, a)
 }
 
 // instance is a layer as composed in a frame.

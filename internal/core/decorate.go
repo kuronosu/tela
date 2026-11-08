@@ -200,13 +200,16 @@ func (p *painter) paintBgLayer(l *style.BackgroundLayer, area gfx.Rect, clip gfx
 	switch {
 	case l.Gradient != nil:
 	case l.Image != nil:
-		img = convertBgImage(l.Image)
+		a := convertBgImage(l.Image)
+		p.hold(a)
+		img = a.raster
 	case l.URL != "":
 		a, err := loadAsset(l.URL)
 		if err != nil {
 			p.t.reportOnce(what+"-url:"+l.URL, "tela: "+what+" "+err.Error())
 			return
 		}
+		p.hold(a)
 		img, doc = a.raster, a.doc
 	}
 	if doc != nil {

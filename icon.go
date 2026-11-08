@@ -14,9 +14,10 @@ import (
 //	  <path d="M20 6 9 17l-5-5"/></svg>`}
 //
 // The document is parsed the first time an icon with that text is drawn
-// and the result is cached by the text for the life of the process (in a
-// cache bounded by size), so drawing it again, at any size or color,
-// never parses it again. Icon is comparable. ParseSVG and MustSVG check
+// and the result is cached by the text while an icon shows it (and for a
+// while after, in a small cache of the documents used last), so drawing
+// it again, at any size or color, does not parse it again. Icon is
+// comparable. ParseSVG and MustSVG check
 // the text when the icon is created.
 //
 // Icons are drawn as vectors at the device scale, with currentColor as

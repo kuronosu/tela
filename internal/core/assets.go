@@ -11,8 +11,10 @@ import (
 	"io/fs"
 	"path"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
+	"weak"
 
 	"golang.org/x/image/webp"
 
@@ -33,42 +35,80 @@ import (
 // internal/svg and drawn as vectors (ADR-098). Img's SrcPath and
 // mask-[url()] use the same registry and cache (media.go).
 //
-// A decoded file is converted to a gfx.Image once and kept for the life
-// of the process, keyed by its cleaned path (assets do not change while
-// the app runs); a missing or undecodable file is remembered too, until
-// another file system is registered. The paint phase reports it once per
-// path to the dev log (Config.Log), with the registered file systems, and
-// paints nothing for that layer.
+// A decoded file is converted to a gfx.Image once and cached by its
+// cleaned path (assets do not change while the app runs); a missing or
+// undecodable file is remembered too, until another file system is
+// registered. The paint phase reports it once per path to the dev log
+// (Config.Log), with the registered file systems, and paints nothing for
+// that layer.
 //
 // Decoded images given with tela.BgImage (style.BackgroundLayer.Image) are
-// converted once per image.Image value and kept in a cache bounded by
-// size (bgImageCacheBytes, least recently used first), so that passing
-// the same image on every build converts it once; an image that cannot be
-// a map key (its dynamic type is not comparable, or it holds a value that
-// is not in an interface field: hashable) is converted on every paint.
+// converted once per image.Image value, so that passing the same image on
+// every build converts it once; an image that cannot be a map key (its
+// dynamic type is not comparable, or it holds a value that is not in an
+// interface field: hashable) is converted on every paint.
+//
+// # Releasing images (ADR-242)
+//
+// The cache (assetRegistry.slots) holds its images weakly: an image stays
+// while something that shows it holds it, and is released by the garbage
+// collector once nothing does. The holders are the boxes of Img and Icon
+// elements (boxMedia), the layers whose lists paint a background or mask
+// image (layer.uses, painter.hold) and the composed frames (frame.uses: a
+// mask composited with a deferred layer). A lookup while the image is
+// alive returns the same image, so a layer recorded again draws the same
+// gfx.Image (the damage sees no change); once it is gone, the next lookup
+// decodes the source again, into the same pixels. To keep an image that
+// comes back soon cheap (a row scrolled out and in, an icon in a menu
+// opened again), the images looked up last are also held strongly, up to
+// keepBytes in all (least recently used out first); a larger image is
+// never held there, so a wallpaper the app stops showing is released at
+// the next collections. Failures are cached strongly (they hold no
+// pixels). A slot whose image was collected is removed by a cleanup
+// (runtime.AddCleanup), so the keys (the tela.BgImage values among them)
+// do not outlive their images.
 
 // assetRegistry is the process-wide registry of asset file systems and
 // the cache of decoded images.
 type assetRegistry struct {
 	mu  sync.Mutex
 	fss []fs.FS
-	// byPath caches the result of loading a cleaned path; failures are
-	// stamped with gen and retried after a new registration.
-	byPath map[string]assetEntry
-	gen    uint64
-	// conv caches the conversions of tela.BgImage images.
-	conv convCache
-	// media caches the sources of SrcBytes, SrcFS and icons (media.go).
-	media mediaCache
-}
-
-type assetEntry struct {
-	img *imageAsset
-	err error
+	// gen counts the registrations: failures to load a path are stamped
+	// with it and retried after a new registration.
 	gen uint64
+	// slots caches decoded sources by key: pathKey (the cleaned path of
+	// url() and SrcPath), [32]byte (the SHA-256 of SrcBytes data), fsKey
+	// (SrcFS), iconKey (icon text) and convKey (tela.BgImage values).
+	slots map[any]*assetSlot
+	// keepHead and keepTail are the ends of the keep list (least recently
+	// used first), keepBytes the cost of its images.
+	keepHead, keepTail *imageAsset
+	keepBytes          int
+	// decodes counts the lookups that missed the cache (tests).
+	decodes int
 }
 
-var assets = assetRegistry{byPath: map[string]assetEntry{}}
+// pathKey keys the cache with the cleaned path of a url() or SrcPath;
+// convKey with a tela.BgImage image.
+type (
+	pathKey string
+	convKey struct{ img image.Image }
+)
+
+// assetSlot is a cached source: its decoded image, held weakly, or the
+// error of its load.
+type assetSlot struct {
+	key  any
+	weak weak.Pointer[imageAsset]
+	err  error
+	gen  uint64 // the registration generation of a failure
+}
+
+// keepBytes bounds the cost of the images the cache holds strongly
+// because they were looked up last (the keep list).
+const keepBytes = 4 << 20
+
+var assets = assetRegistry{slots: map[any]*assetSlot{}}
 
 // RegisterAssets adds fsys to the file systems that background url()s
 // are resolved in, after those registered before. It is safe to call from
@@ -92,10 +132,10 @@ func resetAssets() {
 	assets.mu.Lock()
 	defer assets.mu.Unlock()
 	assets.fss = nil
-	assets.byPath = map[string]assetEntry{}
+	assets.slots = map[any]*assetSlot{}
 	assets.gen++
-	assets.conv = convCache{}
-	assets.media = mediaCache{}
+	assets.clearKeep()
+	assets.decodes = 0
 }
 
 // assetPath returns the fs.FS path of the url() u.
@@ -118,19 +158,123 @@ func loadAsset(u string) (*imageAsset, error) {
 	if err != nil {
 		return nil, err
 	}
+	k := pathKey(p)
 	assets.mu.Lock()
-	e, ok := assets.byPath[p]
-	if ok && (e.err == nil || e.gen == assets.gen) {
+	if a, ok, err := assets.lookup(k); ok {
 		assets.mu.Unlock()
-		return e.img, e.err
+		return a, err
 	}
 	fss, gen := append([]fs.FS(nil), assets.fss...), assets.gen
 	assets.mu.Unlock()
-	img, err := findAsset(u, p, fss)
+	a, err := findAsset(u, p, fss)
 	assets.mu.Lock()
-	assets.byPath[p] = assetEntry{img: img, err: err, gen: gen}
-	assets.mu.Unlock()
-	return img, err
+	defer assets.mu.Unlock()
+	return assets.store(k, a, err, gen)
+}
+
+// lookup returns the cached image of key k (a hit also moves it to the
+// recent end of the keep list) or the error of its load; ok is false when
+// the cache has neither: the image was never loaded, was released, or is
+// a failure to load a path made before the last registration. assets.mu
+// must be held.
+func (r *assetRegistry) lookup(k any) (a *imageAsset, ok bool, err error) {
+	if s := r.slots[k]; s != nil {
+		if s.err != nil {
+			if _, isPath := k.(pathKey); !isPath || s.gen == r.gen {
+				return nil, true, s.err
+			}
+		} else if a := s.weak.Value(); a != nil {
+			r.touch(a)
+			return a, true, nil
+		}
+	}
+	r.decodes++
+	return nil, false, nil
+}
+
+// store caches the result of loading key k (a, or the error err; gen is
+// the registration generation it was loaded with) and returns what the
+// cache holds for k: the image another tree stored meanwhile, if it is
+// still alive. assets.mu must be held.
+func (r *assetRegistry) store(k any, a *imageAsset, err error, gen uint64) (*imageAsset, error) {
+	if s := r.slots[k]; s != nil && s.err == nil {
+		if b := s.weak.Value(); b != nil { // loaded meanwhile by another tree
+			r.touch(b)
+			return b, nil
+		}
+	}
+	if a == nil && err == nil {
+		return nil, nil // nothing to cache
+	}
+	s := &assetSlot{key: k, err: err, gen: gen}
+	if a != nil {
+		s.weak = weak.Make(a)
+		runtime.AddCleanup(a, forgetSlot, s)
+		r.touch(a)
+	}
+	r.slots[k] = s
+	return a, s.err
+}
+
+// forgetSlot removes slot s, whose image was collected, unless the cache
+// holds another slot for its key by now.
+func forgetSlot(s *assetSlot) {
+	assets.mu.Lock()
+	defer assets.mu.Unlock()
+	if assets.slots[s.key] == s {
+		delete(assets.slots, s.key)
+	}
+}
+
+// touch moves a to the recent end of the keep list, adding it, and drops
+// the least recently used images while the list costs more than
+// keepBytes. An image that costs more than keepBytes is not kept.
+// assets.mu must be held.
+func (r *assetRegistry) touch(a *imageAsset) {
+	if a.kept {
+		if r.keepTail == a {
+			return
+		}
+		r.unlink(a)
+	}
+	if a.cost > keepBytes {
+		return
+	}
+	a.kept = true
+	a.prev, a.next = r.keepTail, nil
+	if r.keepTail != nil {
+		r.keepTail.next = a
+	} else {
+		r.keepHead = a
+	}
+	r.keepTail = a
+	r.keepBytes += a.cost
+	for r.keepBytes > keepBytes {
+		r.unlink(r.keepHead)
+	}
+}
+
+// unlink removes a from the keep list.
+func (r *assetRegistry) unlink(a *imageAsset) {
+	if a.prev != nil {
+		a.prev.next = a.next
+	} else {
+		r.keepHead = a.next
+	}
+	if a.next != nil {
+		a.next.prev = a.prev
+	} else {
+		r.keepTail = a.prev
+	}
+	a.prev, a.next, a.kept = nil, nil, false
+	r.keepBytes -= a.cost
+}
+
+// clearKeep empties the keep list.
+func (r *assetRegistry) clearKeep() {
+	for r.keepHead != nil {
+		r.unlink(r.keepHead)
+	}
 }
 
 // findAsset reads and decodes path p (url u) from the first of fss that
@@ -193,86 +337,19 @@ func describeFS(f fs.FS) string {
 // ---------------------------------------------------------------------
 // tela.BgImage conversions.
 
-// bgImageCacheBytes bounds the converted pixels kept for tela.BgImage
-// images. The most recent image is kept even when larger.
-const bgImageCacheBytes = 256 << 20
-
-// convCache is a least-recently-used cache of converted images.
-type convCache struct {
-	m     map[image.Image]*convEntry
-	order []*convEntry // least recently used first
-	bytes int
-}
-
-type convEntry struct {
-	src image.Image
-	img *gfx.Image
-}
-
-// convertBgImage returns the gfx.Image of a tela.BgImage image.
-func convertBgImage(src image.Image) *gfx.Image {
+// convertBgImage returns the image of a tela.BgImage image, converted
+// once while it is in use (or kept: see "Releasing images").
+func convertBgImage(src image.Image) *imageAsset {
 	if src == nil {
 		return nil
 	}
+	conv := func() (*imageAsset, error) { return rasterAsset(gfx.NewImage(src)), nil }
 	if !hashable(reflect.ValueOf(src)) {
 		// Not a map key: a type that is not comparable, or a comparable
 		// one holding such a value in an interface (hashing it panics).
-		return gfx.NewImage(src)
+		a, _ := conv()
+		return a
 	}
-	if img := lookupConv(src); img != nil {
-		return img
-	}
-	img := gfx.NewImage(src)
-	assets.mu.Lock()
-	defer assets.mu.Unlock()
-	c := &assets.conv
-	if e, ok := c.m[src]; ok { // converted meanwhile by another tree
-		return e.img
-	}
-	if c.m == nil {
-		c.m = map[image.Image]*convEntry{}
-	}
-	c.add(&convEntry{src: src, img: img}, bgImageCacheBytes)
-	return img
-}
-
-// lookupConv returns the cached conversion of src, or nil.
-func lookupConv(src image.Image) *gfx.Image {
-	assets.mu.Lock()
-	defer assets.mu.Unlock()
-	c := &assets.conv
-	if e, ok := c.m[src]; ok {
-		c.touch(e)
-		return e.img
-	}
-	return nil
-}
-
-// add inserts e as the most recently used entry and evicts the least
-// recently used ones while the cache holds more than limit bytes (the
-// newest entry stays even when larger).
-func (c *convCache) add(e *convEntry, limit int) {
-	c.m[e.src] = e
-	c.order = append(c.order, e)
-	c.bytes += len(e.img.Pix())
-	for c.bytes > limit && len(c.order) > 1 {
-		old := c.order[0]
-		// Clear the slot: the backing array outlives the reslice, and a
-		// pointer left in it would keep the evicted pixels alive.
-		c.order[0] = nil
-		c.order = c.order[1:]
-		delete(c.m, old.src)
-		c.bytes -= len(old.img.Pix())
-	}
-}
-
-// touch moves e to the most recently used end.
-func (c *convCache) touch(e *convEntry) {
-	for i, x := range c.order {
-		if x == e {
-			copy(c.order[i:], c.order[i+1:])
-			c.order[len(c.order)-1] = e
-			return
-		}
-	}
+	a, _ := cachedMedia(convKey{src}, conv)
+	return a
 }

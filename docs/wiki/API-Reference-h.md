@@ -2131,7 +2131,7 @@ SrcFS sets the image of an Img to file path of fsys (an embed.FS, an os.DirFS...
 func SrcPath(path string) tela.Prop
 ```
 
-SrcPath sets the image of an Img to a file of the file systems registered with tela.Assets, resolved like the url() of bg-\[url(img/a.png)\]: searched in registration order, relative to their roots (a leading "/" or "./" is ignored, ".." is not allowed). The file is decoded once, when first shown, and cached for the life of the process; its format is recognized by its content: PNG, JPEG, GIF (the first frame), WebP or SVG. A missing or undecodable file shows nothing and is reported once in the dev log.
+SrcPath sets the image of an Img to a file of the file systems registered with tela.Assets, resolved like the url() of bg-\[url(img/a.png)\]: searched in registration order, relative to their roots (a leading "/" or "./" is ignored, ".." is not allowed). The file is decoded when first shown and cached while an element shows it; its format is recognized by its content: PNG, JPEG, GIF (the first frame), WebP or SVG. A missing or undecodable file shows nothing and is reported once in the dev log.
 
 ```go
 //go:embed img

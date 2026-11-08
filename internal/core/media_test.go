@@ -34,7 +34,7 @@ const wideSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="24" 
 func mediaDecodes() int {
 	assets.mu.Lock()
 	defer assets.mu.Unlock()
-	return assets.media.decodes
+	return assets.decodes
 }
 
 func TestIconCaching(t *testing.T) {
@@ -102,8 +102,8 @@ func TestImgSourceCaching(t *testing.T) {
 	tr := newTestTree(t, 200, 200, app, nil)
 	tr.Frame()
 	decodes, reads := mediaDecodes(), fsys.reads.Load()
-	if decodes != 2 { // the bytes (both slices: one content) and the fs file
-		t.Errorf("decodes = %d, want 2", decodes)
+	if decodes != 3 { // the bytes (both slices: one content), the path and the fs file
+		t.Errorf("decodes = %d, want 3", decodes)
 	}
 	for i := 1; i <= 3; i++ {
 		setN.Set(i) // rebuild with the same sources
@@ -163,7 +163,7 @@ func TestCachedMediaUnlocksOnPanic(t *testing.T) {
 				t.Fatal("hashing an unhashable key did not panic")
 			}
 		}()
-		cachedMedia(fsKey{wrapFS{fstest.MapFS{}}, "logo.svg"}, 0, func() (*imageAsset, error) {
+		cachedMedia(fsKey{wrapFS{fstest.MapFS{}}, "logo.svg"}, func() (*imageAsset, error) {
 			t.Error("load called for a key that cannot be hashed")
 			return nil, nil
 		})
@@ -192,7 +192,7 @@ func TestBgImageUnhashable(t *testing.T) {
 	}
 	type wrapImage struct{ image.Image }
 	src := wrapImage{sliceImage{Image: image.NewNRGBA(image.Rect(0, 0, 2, 2))}}
-	var g *gfx.Image
+	var g *imageAsset
 	func() {
 		defer func() {
 			if r := recover(); r != nil {

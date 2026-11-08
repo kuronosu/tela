@@ -588,6 +588,7 @@ func (l *layer) begin(L *layerState, interest gfx.Rect, cull bool) {
 	l.out, l.oout = l.oout, l.out
 	clear(l.cul)
 	l.cul = l.cul[:0]
+	l.uses, l.ouses = l.ouses[:0], l.uses
 	l.rint, l.cull = interest, cull
 	l.rec, l.paint, l.dirty = L.epoch, L.paints, false
 	L.recorded++
@@ -600,6 +601,8 @@ func (p *painter) endLayer(l *layer) {
 	l.dl = p.b.Finish()
 	L.free = append(L.free, p.b)
 	l.dropOld()
+	clear(l.ouses) // the images it drew before and does not draw now may go
+	l.ouses = l.ouses[:0]
 	for _, k := range l.pool {
 		if k != nil {
 			L.freeLayer(k)
@@ -644,6 +647,7 @@ func (L *layerState) freeLayer(l *layer) {
 	}
 	l.drop()
 	l.kids, l.pool, l.in, l.out, l.oin, l.oout, l.cul, l.dl = nil, nil, nil, nil, nil, nil, nil, nil
+	l.uses, l.ouses = nil, nil
 }
 
 // checkPartial compares the frame f composed after a partial recording

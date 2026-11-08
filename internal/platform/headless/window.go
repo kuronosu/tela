@@ -92,7 +92,9 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 		return nil
 	}
 	if full {
-		w.frame = image.NewRGBA(fb.Rect)
+		if w.frame == nil || w.frame.Rect != fb.Rect {
+			w.frame = image.NewRGBA(fb.Rect) // else every pixel is copied over the old frame
+		}
 		w.ClearNeedsFull()
 	}
 	for _, r := range rects {

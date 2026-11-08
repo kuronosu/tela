@@ -21,9 +21,10 @@ import (
 //
 // Assets may be called several times: the file systems are searched in
 // the order they were registered and the first one that has the file
-// wins. Files are decoded once, when first used, and kept for the life
-// of the process: PNG, JPEG, GIF (the first frame), WebP and SVG (drawn
-// as vectors), recognized by their content. A missing or undecodable file
+// wins. Files are decoded when first used and kept while something shows
+// them (an image no element shows any more is released, and decoded again
+// if it is shown again): PNG, JPEG, GIF (the first frame), WebP and SVG
+// (drawn as vectors), recognized by their content. A missing or undecodable file
 // paints nothing and is reported once in the dev log, with the path and
 // the registered file systems, like an unknown class. Remote and data:
 // URLs are not supported.

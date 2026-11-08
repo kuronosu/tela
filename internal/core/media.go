@@ -31,11 +31,11 @@ import (
 // Decoding happens once per content, when the element is mounted or its
 // source changes (not when it is painted): the result is cached by
 // cleaned path for SrcPath (the background cache), by content hash for
-// SrcBytes, by (file system, path) for SrcFS, and by text for icons, in a
-// cache bounded by size (mediaCacheBytes, least recently used first). A
-// box keeps its decoded source while the node gives the same one (the
-// same path, the same slice, the same file system and path, the same
-// text), so rebuilding with the same source costs a comparison. A source
+// SrcBytes, by (file system, path) for SrcFS, and by text for icons, while
+// a box or a layer shows it (assets.go, "Releasing images"). A box keeps
+// its decoded source while the node gives the same one (the same path, the
+// same slice, the same file system and path, the same text), so
+// rebuilding with the same source costs a comparison. A source
 // that cannot be loaded or decoded paints nothing and is reported once in
 // the log (reportOnce), like a missing background image.
 //
@@ -178,10 +178,29 @@ func checkMediaProps(kind style.Kind, d *desc) {
 // ---------------------------------------------------------------------
 // Decoded sources.
 
-// imageAsset is a decoded image: a raster image or an SVG document.
+// imageAsset is a decoded image: a raster image or an SVG document. It is
+// what the holders of a cached image hold (assets.go, "Releasing
+// images"): the cache keeps it only weakly.
 type imageAsset struct {
 	raster *gfx.Image
 	doc    *svg.Doc
+	// cost estimates the memory it keeps: its pixels, or a few times the
+	// text of a document.
+	cost int
+	// prev, next and kept link it in the registry's keep list (guarded by
+	// assets.mu).
+	prev, next *imageAsset
+	kept       bool
+}
+
+// rasterAsset returns the asset of a raster image.
+func rasterAsset(img *gfx.Image) *imageAsset {
+	return &imageAsset{raster: img, cost: len(img.Pix())}
+}
+
+// docAsset returns the asset of an SVG document parsed from srcLen bytes.
+func docAsset(doc *svg.Doc, srcLen int) *imageAsset {
+	return &imageAsset{doc: doc, cost: 16 * srcLen}
 }
 
 // natural returns the natural width and height of the image (0 when it
@@ -215,14 +234,6 @@ func (a *imageAsset) size() (w, h float32) {
 	return w, h
 }
 
-// cost estimates the memory an asset keeps, for the cache bound.
-func (a *imageAsset) cost(srcLen int) int {
-	if a != nil && a.raster != nil {
-		return len(a.raster.Pix())
-	}
-	return 16 * srcLen // a parsed document: a few times its text
-}
-
 // decodeAsset decodes PNG, JPEG, GIF (first frame), WebP or SVG data,
 // recognized by their content.
 func decodeAsset(data []byte) (*imageAsset, error) {
@@ -231,13 +242,13 @@ func decodeAsset(data []byte) (*imageAsset, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &imageAsset{doc: doc}, nil
+		return docAsset(doc, len(data)), nil
 	}
 	img, err := decodeImage(data)
 	if err != nil {
 		return nil, err
 	}
-	return &imageAsset{raster: gfx.NewImage(img)}, nil
+	return rasterAsset(gfx.NewImage(img)), nil
 }
 
 // isSVG reports whether data looks like an XML document: after a byte
@@ -249,12 +260,7 @@ func isSVG(data []byte) bool {
 	return len(data) > 0 && data[0] == '<'
 }
 
-// mediaCacheBytes bounds the decoded sources kept for SrcBytes, SrcFS and
-// icons. The most recent entry is kept even when larger.
-const mediaCacheBytes = 256 << 20
-
-// mediaKey keys the media cache: [32]byte (the SHA-256 of SrcBytes
-// data), fsKey or iconKey.
+// The keys of SrcFS and icons in the cache (assets.slots).
 type (
 	fsKey struct {
 		fsys fs.FS
@@ -263,102 +269,51 @@ type (
 	iconKey string
 )
 
-type mediaEntry struct {
-	key   any
-	asset *imageAsset
-	err   error
-	cost  int
-}
-
-// mediaCache is a least-recently-used cache of decoded sources, guarded
-// by assets.mu.
-type mediaCache struct {
-	m     map[any]*mediaEntry
-	order []*mediaEntry // least recently used first
-	bytes int
-	// decodes counts the decodes and parses that missed the cache
-	// (tests).
-	decodes int
-}
-
-func (c *mediaCache) get(k any) (*mediaEntry, bool) {
-	e, ok := c.m[k]
-	if ok {
-		for i, x := range c.order {
-			if x == e {
-				copy(c.order[i:], c.order[i+1:])
-				c.order[len(c.order)-1] = e
-				break
-			}
-		}
-	}
-	return e, ok
-}
-
-func (c *mediaCache) add(e *mediaEntry) {
-	if c.m == nil {
-		c.m = map[any]*mediaEntry{}
-	}
-	if old, ok := c.m[e.key]; ok { // added meanwhile by another tree
-		*e = *old
-		return
-	}
-	c.m[e.key] = e
-	c.order = append(c.order, e)
-	c.bytes += e.cost
-	for c.bytes > mediaCacheBytes && len(c.order) > 1 {
-		old := c.order[0]
-		c.order[0] = nil
-		c.order = c.order[1:]
-		delete(c.m, old.key)
-		c.bytes -= old.cost
-	}
-}
-
 // cachedMedia returns the decoded source of key k, calling load once
-// (outside the lock). k must be hashable (see hashable): hashing a key
-// that is not panics, and the deferred unlocks keep that panic from
-// leaving assets.mu locked, which would deadlock every later load.
-func cachedMedia(k any, srcLen int, load func() (*imageAsset, error)) (*imageAsset, error) {
-	if e := lookupMedia(k); e != nil {
-		return e.asset, e.err
+// while it is cached (outside the lock). k must be hashable (see
+// hashable): hashing a key that is not panics, and the deferred unlocks
+// keep that panic from leaving assets.mu locked, which would deadlock
+// every later load.
+func cachedMedia(k any, load func() (*imageAsset, error)) (*imageAsset, error) {
+	if a, ok, err := lookupMedia(k); ok {
+		return a, err
 	}
 	a, err := load()
-	e := &mediaEntry{key: k, asset: a, err: err, cost: a.cost(srcLen)}
-	addMedia(e)
-	return e.asset, e.err
+	return addMedia(k, a, err)
 }
 
-// lookupMedia returns the cached entry of k, or nil after counting a
-// decode.
-func lookupMedia(k any) *mediaEntry {
+// lookupMedia returns the cached result of k; ok is false when there is
+// none.
+func lookupMedia(k any) (a *imageAsset, ok bool, err error) {
 	assets.mu.Lock()
 	defer assets.mu.Unlock()
-	if e, ok := assets.media.get(k); ok {
-		return e
-	}
-	assets.media.decodes++
-	return nil
+	return assets.lookup(k)
 }
 
-// addMedia adds e to the cache (or takes the entry another tree added
-// meanwhile).
-func addMedia(e *mediaEntry) {
+// addMedia caches the result of loading k and returns what the cache
+// holds for it (the result another tree added meanwhile).
+func addMedia(k any, a *imageAsset, err error) (*imageAsset, error) {
 	assets.mu.Lock()
 	defer assets.mu.Unlock()
-	assets.media.add(e)
+	return assets.store(k, a, err, 0)
+}
+
+// iconAsset returns the parsed SVG text of an icon, from the cache when it
+// is there.
+func iconAsset(text string) (*imageAsset, error) {
+	return cachedMedia(iconKey(text), func() (*imageAsset, error) {
+		doc, err := svg.Parse([]byte(text))
+		if err != nil {
+			return nil, err
+		}
+		return docAsset(doc, len(text)), nil
+	})
 }
 
 // ParseIcon parses the SVG text of an icon, or returns the cached result
 // of an earlier parse of the same text.
 func ParseIcon(text string) (*svg.Doc, error) {
-	a, err := cachedMedia(iconKey(text), len(text), func() (*imageAsset, error) {
-		doc, err := svg.Parse([]byte(text))
-		if err != nil {
-			return nil, err
-		}
-		return &imageAsset{doc: doc}, nil
-	})
+	a, err := iconAsset(text)
 	if err != nil {
 		return nil, err
 	}
@@ -378,7 +333,7 @@ func loadSource(s *srcSpec) (*imageAsset, error) {
 		if len(s.data) == 0 {
 			return nil, errors.New("SrcBytes got no data")
 		}
-		a, err := cachedMedia(sha256.Sum256(s.data), len(s.data), func() (*imageAsset, error) { return decodeAsset(s.data) })
+		a, err := cachedMedia(sha256.Sum256(s.data), func() (*imageAsset, error) { return decodeAsset(s.data) })
 		if err != nil {
 			return nil, fmt.Errorf("the %d bytes of SrcBytes cannot be decoded: %v", len(s.data), err)
 		}
@@ -404,7 +359,7 @@ func loadSource(s *srcSpec) (*imageAsset, error) {
 		}
 		var a *imageAsset
 		if s.fsys != nil && hashable(reflect.ValueOf(s.fsys)) {
-			a, err = cachedMedia(fsKey{s.fsys, p}, 0, load)
+			a, err = cachedMedia(fsKey{s.fsys, p}, load)
 		} else {
 			a, err = load() // not hashable: the box keeps it while the source is the same
 		}
@@ -413,11 +368,13 @@ func loadSource(s *srcSpec) (*imageAsset, error) {
 		}
 		return a, nil
 	case srcIcon:
-		doc, err := ParseIcon(s.icon)
+		// The cached asset itself: the box holds it, so the document stays
+		// cached while an icon shows it.
+		a, err := iconAsset(s.icon)
 		if err != nil {
 			return nil, fmt.Errorf("the SVG cannot be parsed: %v", err)
 		}
-		return &imageAsset{doc: doc}, nil
+		return a, nil
 	}
 	return nil, nil
 }

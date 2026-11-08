@@ -421,15 +421,22 @@ func (h *Host) tick(now time.Duration) {
 			v.tree.TickGestures(now)
 			h.updateCursor(v)
 		}
+		if v.fbTrimAt != 0 && v.fbTrimAt <= now {
+			v.trimFramebuffer()
+		}
 	}
 	h.armTimer()
 }
 
-// nextDeadline returns the earliest deadline of the windows' trees, and
-// of the commits that windows without frames wait for (paused.go).
+// nextDeadline returns the earliest deadline of the windows' trees, of
+// the trims of their framebuffers (trimFramebuffer), and of the commits
+// that windows without frames wait for (paused.go).
 func (h *Host) nextDeadline() (at time.Duration, ok bool) {
 	for _, v := range h.views {
 		if d, has := v.tree.NextDeadline(); has && (!ok || d < at) {
+			at, ok = d, true
+		}
+		if d := v.fbTrimAt; d != 0 && (!ok || d < at) {
 			at, ok = d, true
 		}
 	}
@@ -442,7 +449,8 @@ func (h *Host) nextDeadline() (at time.Duration, ok bool) {
 }
 
 // armTimer arms one wake-up for the gesture arenas' next deadline (or the
-// next paced commit of a window without frames), or
+// next paced commit of a window without frames, or the trim of a
+// framebuffer), or
 // stops the timer when nothing waits (an idle app has no timer). The
 // platform layer has no timer API: a goroutine timer calls Wake, and the
 // WakeEvent compares the deadline with the backend clock, so a timer that
@@ -537,23 +545,45 @@ func (h *Host) syncRegions(v *winView) {
 	v.win.SetHitRegions(v.regions)
 }
 
-// resizeFramebuffer returns a framebuffer of size size that reuses the
-// pixel memory of fb (nil for none) when it is large enough and less than
-// twice what size needs, so that an interactive resize does not allocate
-// one on every frame; a new one gets a quarter more room for the frames
-// that follow. Its pixels are left as they are: the frame after a resize
-// is rasterized in full, which clears them (rasterizeApp), and Present
-// copies out of the framebuffer and never retains it (platform.Window),
-// so no backend still reads the old one.
+// fbSettle is how long the size of a window must stay the same before
+// its framebuffer, which a resize left with more room than the size needs,
+// is trimmed to the size (trimFramebuffer).
+const fbSettle = 500 * time.Millisecond
+
+// resizeFramebuffer returns a framebuffer of size size. The first one (fb
+// nil) has exactly the room it needs. A later one reuses the pixel memory
+// of fb when it is large enough and less than twice what size needs, and
+// a new one gets a quarter more room, so that an interactive resize does
+// not allocate one on every frame; the host trims it once the size
+// settles (trimFramebuffer). Its pixels are left as they are: the frame
+// after a resize is rasterized in full, which clears them (rasterizeApp),
+// and Present copies out of the framebuffer and never retains it
+// (platform.Window), so no backend still reads the old one.
 func resizeFramebuffer(fb *image.RGBA, size image.Point) *image.RGBA {
 	n := 4 * size.X * size.Y
 	var pix []byte
-	if fb != nil && n <= cap(fb.Pix) && cap(fb.Pix) < 2*n {
+	switch {
+	case fb == nil:
+		pix = make([]byte, n)
+	case n <= cap(fb.Pix) && cap(fb.Pix) < 2*n:
 		pix = fb.Pix[:n]
-	} else {
+	default:
 		pix = make([]byte, n, n+n/4)
 	}
 	return &image.RGBA{Pix: pix, Stride: 4 * size.X, Rect: image.Rectangle{Max: size}}
+}
+
+// trimFramebuffer gives the framebuffer of window v exactly the room its
+// size needs, copying its pixels (the previous frame, which the next
+// frame's damage is rasterized over), once its size has not changed for
+// fbSettle: the end of an interactive resize, or a single resize.
+func (v *winView) trimFramebuffer() {
+	v.fbTrimAt = 0
+	if fb := v.fb; fb != nil && cap(fb.Pix) != len(fb.Pix) {
+		pix := make([]byte, len(fb.Pix)) // not bytes.Clone: append rounds the capacity up
+		copy(pix, fb.Pix)
+		v.fb = &image.RGBA{Pix: pix, Stride: fb.Stride, Rect: fb.Rect}
+	}
 }
 
 // frame runs window v's pipeline, rasterizes at the window's scale when
@@ -590,6 +620,11 @@ func (h *Host) frame(v *winView, now time.Duration) {
 	if want := image.Rect(0, 0, phys.X, phys.Y); v.fb == nil || v.fb.Rect != want {
 		v.fb = resizeFramebuffer(v.fb, want.Max)
 		changed, full = true, true
+		v.fbTrimAt = 0
+		if cap(v.fb.Pix) != len(v.fb.Pix) {
+			v.fbTrimAt = h.backend.Now() + fbSettle
+			h.armTimer()
+		}
 	}
 	if m.Scale != v.scale {
 		v.scale = m.Scale

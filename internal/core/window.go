@@ -212,6 +212,10 @@ type winView struct {
 	// the backend time before which no other such commit runs.
 	sized, stale bool
 	commitAt     time.Duration
+	// fbTrimAt is the backend time at which fb, which has more room than
+	// its size needs after a resize, is trimmed to it (trimFramebuffer); 0
+	// for none.
+	fbTrimAt time.Duration
 	// cursor is the cursor last set on the window; imeField the text
 	// field whose state the window's text input has (Tree.TextInput).
 	cursor   platform.Cursor
@@ -319,6 +323,12 @@ func (v *winView) setHidden(hidden bool) {
 		return
 	}
 	v.hidden = hidden
+	if hidden {
+		// A hidden window gets no frames; the one that shows it again is
+		// rasterized in full into a new framebuffer (the backend's copy
+		// of the frame is all a hidden window needs).
+		v.fb, v.fbTrimAt = nil, 0
+	}
 	v.win.SetVisible(!hidden)
 	v.syncState()
 }

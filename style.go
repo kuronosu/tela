@@ -130,9 +130,9 @@ func BackgroundGradient(g Gradient) StyleProp { return prop(style.BackgroundGrad
 // background color. The background classes apply to it as to a
 // bg-[url(...)] image: bg-cover, bg-contain, bg-center, bg-no-repeat,
 // bg-origin-*, bg-clip-* and the others. Each image.Image value is
-// converted once and cached (the cache keeps the most recently used
-// images, up to 256 MiB of pixels), so pass the same value on every build
-// and do not modify its pixels afterwards: give a new image instead. For
+// converted once and cached while an element shows it, so pass the same
+// value on every build and do not modify its pixels afterwards: give a
+// new image instead. For
 // images stored as files, register them with [Assets] and use a class.
 func BgImage(img image.Image) StyleProp {
 	if img == nil {
