@@ -938,6 +938,42 @@ func TestSemanticsTextFields(t *testing.T) {
 	}
 }
 
+// A field whose role exposes a number, not its text, has no selection to
+// set: its Value's offsets are not the field's.
+func TestSetTextSelectionNodeSpinbutton(t *testing.T) {
+	tr, _ := snapshotOf(t, div(input(Role("spinbutton"), AriaLabel("Qty"), AriaValueNow(3), DefaultValue("3 items"))))
+	n := mustNode(t, tr, "spinbutton", "Qty")
+	if n.Selection != nil || n.Can(semantics.ActionSetSelection) {
+		t.Errorf("a spinbutton field has a selection: %+v", n)
+	}
+	if err := tr.SetTextSelectionNode(n.ID, 0, 1); !errors.Is(err, ErrNoAction) {
+		t.Errorf("SetTextSelectionNode(spinbutton) = %v, want ErrNoAction", err)
+	}
+}
+
+// The actions the tree withholds from an AriaDisabled element are refused
+// when called directly, as for a natively disabled one.
+func TestAriaDisabledActions(t *testing.T) {
+	var keys []string
+	clicks := 0
+	tr, _ := snapshotOf(t, div(
+		Component(func() Node { return stepSlider("S", &keys, AriaDisabled(true)) }),
+		div(AriaDisabled(true),
+			button(AriaExpanded(false), On("click", func(MouseEvent) { clicks++ }), Text("More")),
+			div(TabIndex(0), AriaLabel("Area"), Role("region"), On("contextmenu", func(MouseEvent) { clicks++ })))))
+	if n := mustNode(t, tr, "slider", "S"); n.Can(semantics.ActionIncrement) {
+		t.Errorf("an AriaDisabled slider can increment: %+v", n)
+	} else if err := tr.IncrementNode(n.ID); !errors.Is(err, ErrNodeDisabled) || len(keys) != 0 {
+		t.Errorf("IncrementNode(AriaDisabled) = %v with keys %v, want ErrNodeDisabled", err, keys)
+	}
+	if err := tr.ExpandNode(mustNode(t, tr, "button", "More").ID); !errors.Is(err, ErrNodeDisabled) || clicks != 0 {
+		t.Errorf("ExpandNode(in an AriaDisabled group) = %v with %d clicks", err, clicks)
+	}
+	if err := tr.ShowMenuNode(mustNode(t, tr, "region", "Area").ID); !errors.Is(err, ErrNodeDisabled) || clicks != 0 {
+		t.Errorf("ShowMenuNode(in an AriaDisabled group) = %v with %d clicks", err, clicks)
+	}
+}
+
 // TestSemanticsWidgetActions: the action bits of range widgets, expandable
 // elements and context-menu areas.
 func TestSemanticsWidgetActions(t *testing.T) {

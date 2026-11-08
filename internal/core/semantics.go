@@ -448,6 +448,32 @@ func semWidgetActions(el *Element, n *semantics.Node) {
 	}
 }
 
+// fieldTextRole reports whether a text field with role exposes its text
+// as the node's Value (semValue), so that the node has a selection.
+func fieldTextRole(role string) bool {
+	switch role {
+	case "textbox", "searchbox", "combobox":
+		return true
+	}
+	return false
+}
+
+// semDisabled reports whether the tree marks el disabled
+// (semantics.StateDisabled, see semStates): it or an ancestor is disabled,
+// or the nearest AriaDisabled among them is true. The tree gives such a
+// node no increment, decrement, expand, collapse or show menu action.
+func semDisabled(el *Element) bool {
+	if outermostDisabled(el) != nil {
+		return true
+	}
+	for e := el; e != nil; e = e.styleParent() {
+		if a := e.node.d.aria; a != nil && a.disabled != semantics.ToggleUnset {
+			return a.disabled == semantics.ToggleTrue
+		}
+	}
+	return false
+}
+
 // semFieldText sets the text field data of node n of primitive el, whose
 // role is role: the placeholder, the protected state of a password, and
 // the caret and selection when the node's Value is the field's text.
@@ -460,9 +486,7 @@ func semFieldText(el *Element, n *semantics.Node, role string) {
 	if f.typ == fieldPassword {
 		n.States |= semantics.StateProtected
 	}
-	switch role {
-	case "textbox", "searchbox", "combobox":
-	default:
+	if !fieldTextRole(role) {
 		return // its Value is not its text (semValue)
 	}
 	// The exposed value is the editor's Display (the raw value, or its
@@ -1309,8 +1333,9 @@ func (t *Tree) ScrollNodeIntoView(id semantics.NodeID) error {
 // orientation) and ArrowRight or ArrowLeft for a horizontal one (a slider
 // without orientation), mirrored in a right-to-left element, where package
 // aria's sliders decrease with ArrowRight. Another role gives ErrNoAction,
-// as does AriaReadOnly(true); a disabled element ErrNodeDisabled; one that
-// cannot take the focus ErrNotFocusable.
+// as does AriaReadOnly(true); a disabled element (natively or with
+// AriaDisabled, semDisabled) ErrNodeDisabled; one that cannot take the
+// focus ErrNotFocusable.
 func (t *Tree) IncrementNode(id semantics.NodeID) error { return t.stepNode(id, true) }
 
 // DecrementNode: see IncrementNode.
@@ -1328,7 +1353,7 @@ func (t *Tree) stepNode(id semantics.NodeID, up bool) error {
 		return fmt.Errorf("%w: %s (role %q) is not a slider, spinbutton or scrollbar", ErrNoAction, t.describe(el), role)
 	case a != nil && a.readOnly == semantics.ToggleTrue:
 		return fmt.Errorf("%w: %s is read-only (AriaReadOnly)", ErrNoAction, t.describe(el))
-	case outermostDisabled(el) != nil:
+	case semDisabled(el):
 		return fmt.Errorf("%w: %s", ErrNodeDisabled, t.describe(el))
 	case !t.focusable(el):
 		return fmt.Errorf("%w: %s", ErrNotFocusable, t.describe(el))
@@ -1369,7 +1394,8 @@ func (t *Tree) pressKey(el *Element, key platform.Key, code platform.KeyCode) {
 // ExpandNode and CollapseNode expand or collapse the element of node id,
 // one with AriaExpanded, by clicking it (ClickNode), as Chromium does,
 // and only when its state would change: expanding an expanded element
-// does nothing. An element without AriaExpanded gives ErrNoAction.
+// does nothing. An element without AriaExpanded gives ErrNoAction, a
+// disabled one (natively or with AriaDisabled) ErrNodeDisabled.
 func (t *Tree) ExpandNode(id semantics.NodeID) error { return t.setExpanded(id, true) }
 
 // CollapseNode: see ExpandNode.
@@ -1384,6 +1410,9 @@ func (t *Tree) setExpanded(id semantics.NodeID, expand bool) error {
 	if a == nil || a.expanded == semantics.ToggleUnset {
 		return fmt.Errorf("%w: %s has no AriaExpanded", ErrNoAction, t.describe(el))
 	}
+	if semDisabled(el) {
+		return fmt.Errorf("%w: %s", ErrNodeDisabled, t.describe(el))
+	}
 	if (a.expanded == semantics.ToggleTrue) == expand {
 		return nil
 	}
@@ -1397,7 +1426,8 @@ func (t *Tree) setExpanded(id semantics.NodeID, expand bool) error {
 // default (package aria's UseContextMenuTrigger opens its menu there, with
 // the first item focused), fires OnContextMenu on it with the secondary
 // button at the center of its bounds. An element without a context-menu
-// handler gives ErrNoAction, a disabled one ErrNodeDisabled.
+// handler gives ErrNoAction, a disabled one (natively or with
+// AriaDisabled) ErrNodeDisabled.
 func (t *Tree) ShowMenuNode(id semantics.NodeID) error {
 	el, err := t.actionElement(id)
 	if err != nil {
@@ -1406,7 +1436,7 @@ func (t *Tree) ShowMenuNode(id semantics.NodeID) error {
 	if el.node.d.evMask&evContextMenu.mask() == 0 {
 		return fmt.Errorf("%w: %s has no OnContextMenu", ErrNoAction, t.describe(el))
 	}
-	if outermostDisabled(el) != nil {
+	if semDisabled(el) {
 		return fmt.Errorf("%w: %s", ErrNodeDisabled, t.describe(el))
 	}
 	if t.foc.el != el && t.focusable(el) {
@@ -1438,8 +1468,9 @@ func (t *Tree) ShowMenuNode(id semantics.NodeID) error {
 // semantics.TextSelection; clamped to it and moved to grapheme cluster
 // boundaries), without focusing it, as HTML's setSelectionRange with a
 // direction, and fires OnSelect when it changed. It does nothing during
-// an IME composition. An element that is not a text field gives
-// ErrNoAction.
+// an IME composition. An element that is not a text field, or a field
+// whose role does not expose its text as the Value (a spinbutton: its
+// Value is the number, fieldTextRole), gives ErrNoAction.
 func (t *Tree) SetTextSelectionNode(id semantics.NodeID, anchor, focus int) error {
 	el, err := t.actionElement(id)
 	if err != nil {
@@ -1448,6 +1479,9 @@ func (t *Tree) SetTextSelectionNode(id semantics.NodeID, anchor, focus int) erro
 	f := textField(el)
 	if f == nil {
 		return fmt.Errorf("%w: %s is not a text field", ErrNoAction, t.describe(el))
+	}
+	if role, _ := t.semRole(el); !fieldTextRole(role) {
+		return fmt.Errorf("%w: %s (role %q) does not expose its text", ErrNoAction, t.describe(el), role)
 	}
 	if f.ed.Composing() {
 		return nil
