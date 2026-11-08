@@ -262,10 +262,13 @@ func (h *Host) Window() platform.Window { return h.win }
 func (h *Host) Presents() int { return h.main.presents }
 
 // HandleEvent implements platform.Handler. After each event, the windows
-// that get no frames commit the work it left them (paused.go).
+// that get no frames commit the work it left them (paused.go), and the
+// windows with an active accessibility bridge send it what changed
+// (access.go).
 func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 	h.handle(w, e)
 	h.commitPaused()
+	h.syncAccess() // access.go: the accessibility bridges' updates
 }
 
 // handle handles one event of the backend.
@@ -415,6 +418,16 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 		h.armTimer()
 	case platform.CloseRequestedEvent:
 		h.closeRequested(v)
+	case platform.AccessibilityEvent:
+		h.setAccessActive(v, e.Active) // access.go
+	case platform.AccessActionEvent:
+		if h.cut(v, false, h.backend.Now()) {
+			return
+		}
+		h.accessAction(v, e)
+		h.updateCursor(v)
+		h.syncTextInput(v)
+		h.armTimer()
 	}
 }
 

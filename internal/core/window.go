@@ -224,6 +224,9 @@ type winView struct {
 	// field whose state the window's text input has (Tree.TextInput).
 	cursor   platform.Cursor
 	imeField any
+	// acc is the state of the window's accessibility bridge while it is
+	// active, nil otherwise (access.go).
+	acc *accessView
 
 	// regions are the hit regions sent last (winregion.go), regBuf the
 	// scratch list they are computed into, regFrame the frame count of
