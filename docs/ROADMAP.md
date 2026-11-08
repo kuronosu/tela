@@ -29,10 +29,11 @@ How Tela ships and loads fonts (ADR-244): system fonts by default, embedded font
 - [x] Bitmap color glyphs: CBDT/CBLC and sbix PNG strikes drawn as images scaled from the closest strike, so the system emoji fonts work (Noto Color Emoji CBDT on Linux, Apple Color Emoji)
 - [x] Public API: `tela.Font`, `tela.FontData`, `tela.FontFS`, `Sans`/`Serif`/`Mono`/`Emoji`/`Scripts`, `App.Fonts`; the packages `fonts/inter`, `fonts/jetbrainsmono`, `fonts/notoemoji`, `fonts/notoarabic`, `fonts/standard`; `telatest`, `tela snapshot` and `tela mcp` on the app's fonts plus `fonts/standard`; docs, `llms.txt`, wiki, `tela new`
 - [ ] A serif face for `font-serif`: three candidates rendered for the owner (Source Serif 4, Noto Serif, Literata; https://claude.ai/artifact/BJ8mQ2w7hW1XtSvKvFJGxh), Source Serif 4 packaged as `fonts/sourceserif` and in the test set until the owner picks
-- [ ] Linux: `system-ui` follows the desktop's interface and monospace fonts (the portal's `org.gnome.desktop.interface` settings, KDE's `kdeglobals`), fontconfig's preferences otherwise; the system font index loaded off the UI thread at start
+- [x] Linux: `system-ui` follows the desktop's interface and monospace fonts (the portal's `org.gnome.desktop.interface` settings, KDE's `kdeglobals`), fontconfig's preferences otherwise; the system font index loaded off the UI thread at start
 - [ ] go-text's `NewFont` keeps its own copy of the bitmap tables (10.6 MB of CBDT for the system's Noto Color Emoji) and of glyf/gvar (ADR-243): hide what Tela reads itself, keeping HarfBuzz's fallback mark extents
 - [ ] The sprite cache keys bitmap and COLR glyphs by text color, so one emoji in two colors is cached twice
 - [ ] Inspect's and LayoutJSON's `font` field shows the first name of the stack (`ui-sans-serif`), not the family that drew the text
+- [ ] Linux: the portal's settings are read on the UI thread in `NewHost` while the font index loads beside it (3 → 8 ms); read them off the UI thread at `Run` start
 - [ ] After: hello's binary size, start-up font time and font memory measured again with `go run ./internal/testutil/memreport`
 
 **Done when:** an app without `Fonts` carries no font file and draws with the system's fonts on Linux, Windows and macOS (emoji included), an app can ship its own fonts or Tela's, goldens stay bit-identical wherever the default fonts did not change, and `examples/hello`'s binary size, start-up parse time and font memory are measured before and after.

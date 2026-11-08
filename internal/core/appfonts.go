@@ -286,5 +286,7 @@ func NewFontCollection(fonts []Font, after []*text.FontSource, system *text.Syst
 func runAppFonts(fonts []Font, w io.Writer) *text.Collection {
 	c, err := NewFontCollection(fonts, nil, &text.SystemFontOptions{})
 	reportFonts(c, err, w)
+	// As in runFonts: the system index loads while the window opens.
+	go c.Preload()
 	return c
 }
