@@ -148,6 +148,18 @@ func axTestTree() platform.AccessUpdate {
 		Root: 1, Focus: 5}
 }
 
+// posts returns the notification lines of an access trace (the hosts
+// also trace the messages AppKit sends them).
+func posts(trace []string) []string {
+	var out []string
+	for _, l := range trace {
+		if strings.HasPrefix(l, "post ") {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
 func actionString(e platform.AccessActionEvent) string {
 	s := fmt.Sprintf("%v %d", e.Action, e.Node)
 	switch e.Action {
@@ -211,7 +223,7 @@ func TestAccessibilityBridge(t *testing.T) {
 			check("AccessibilityEvents after the first queries", activations(s), 1)
 			trace = nil
 			s.w.SetAccessibility(axTestTree())
-			check("notifications of the first tree", strings.Join(trace, "; "), "post AXLayoutChanged")
+			check("notifications of the first tree", strings.Join(posts(trace), "; "), "post AXLayoutChanged")
 			v := s.w.view
 			kids := darwin.ArrayItems(axSend(v, "accessibilityChildren"))
 			var lines []string
@@ -464,7 +476,7 @@ func TestAccessibilityBridge(t *testing.T) {
 			trace = nil
 			s.w.SetAccessibility(platform.AccessUpdate{Nodes: []platform.AccessNode{heading, div, checkbox}, Root: 1, Focus: 8,
 				Announcements: []platform.Announcement{{Text: "Saved", Assertive: true}}})
-			check("notifications of the second update", strings.Join(trace, "; "),
+			check("notifications of the second update", strings.Join(posts(trace), "; "),
 				`post AXUIElementDestroyed 5; post AXLayoutChanged; post AXTitleChanged 2; post AXValueChanged 7; `+
 					`post AXFocusedUIElementChanged 8; post AXAnnouncementRequested "Saved" high`)
 			kids := darwin.ArrayItems(axSend(s.w.view, "accessibilityChildren"))
@@ -503,6 +515,10 @@ func TestAccessibilityAXClient(t *testing.T) {
 	if !darwin.AXIsProcessTrusted() {
 		t.Skip("the process is not trusted for accessibility (System Settings > Privacy & Security > Accessibility); skipping the AXUIElement client test")
 	}
+	// The accessibility messages the hosts and elements receive, as they
+	// arrive (from the main thread; t.Logf is safe there).
+	accessTrace = func(format string, args ...any) { t.Logf("access: "+format, args...) }
+	t.Cleanup(func() { accessTrace = nil })
 	results := make(chan []string, 1)
 	pushed := make(chan struct{})
 	const title = "tela ax client"
@@ -586,13 +602,18 @@ func TestAccessibilityAXClient(t *testing.T) {
 			}
 		}
 		walk(win, 0) // activates the bridge
-		out = append(out, "--- after the tree")
 		select {
 		case <-pushed:
 		case <-time.After(5 * time.Second):
 			out = append(out, "no tree pushed")
 		}
-		walk(win, 0)
+		// The tree reaches the bridge in the pass after the activation:
+		// walk again until the Save button shows up (a few seconds).
+		for try := 1; try <= 8 && save == 0; try++ {
+			time.Sleep(300 * time.Millisecond)
+			out = append(out, fmt.Sprintf("--- walk %d after the tree", try))
+			walk(win, 0)
+		}
 		if f := quiet(app, "AXFocusedUIElement"); f != 0 {
 			out = append(out, fmt.Sprintf("focused: %s %q", str(quiet(f, "AXRole")), str(quiet(f, "AXDescription"))))
 			darwin.CFRelease(f)
@@ -625,7 +646,7 @@ func TestAccessibilityAXClient(t *testing.T) {
 		}
 	}
 	steps := []func(s *session){func(*session) { go client() }}
-	for range 20 {
+	for range 40 {
 		steps = append(steps, poll)
 	}
 	s := runSteps(t, title, false, 300*time.Millisecond, steps...)

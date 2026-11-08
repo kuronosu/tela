@@ -428,50 +428,6 @@ func accessWindow(self darwin.ID) *Window {
 	return nil
 }
 
-// accessViewMethods are TelaView's NSAccessibility methods: the view
-// stands for the root of the tree.
-func accessViewMethods() []darwin.Method {
-	return []darwin.Method{
-		{Sel: darwin.Sel("accessibilityChildren"), Fn: func(self darwin.ID, _ darwin.SEL) darwin.ID {
-			w := accessWindow(self)
-			if w == nil {
-				return darwin.NSArray()
-			}
-			w.activateAccess()
-			v := w.acc.tree.Load()
-			if v == nil {
-				return darwin.NSArray()
-			}
-			return w.elements(v.kids[v.root()])
-		}},
-		{Sel: darwin.Sel("accessibilityFocusedUIElement"), Fn: func(self darwin.ID, cmd darwin.SEL) darwin.ID {
-			if w := accessWindow(self); w != nil {
-				w.activateAccess()
-				if v := w.acc.tree.Load(); v != nil {
-					if f := v.focus(); f != v.root() {
-						return w.element(f)
-					}
-				}
-			}
-			res, _ := superSend(self, app.nsView, cmd)
-			return res
-		}},
-		{Sel: asel.hitTest, Fn: func(self darwin.ID, cmd darwin.SEL, p darwin.CGPoint) darwin.ID {
-			if w := accessWindow(self); w != nil {
-				w.activateAccess()
-				if v := w.acc.tree.Load(); v != nil {
-					x, y := w.viewPoint(p)
-					if id := v.hitTest(v.root(), x, y); id != 0 {
-						return w.element(id)
-					}
-				}
-			}
-			res, _ := superSend(self, app.nsView, cmd, p)
-			return res
-		}},
-	}
-}
-
 // elementMethods are TelaAccessElement's methods.
 func elementMethods() []darwin.Method {
 	str := func(name string, f func(c axCall) string) darwin.Method {

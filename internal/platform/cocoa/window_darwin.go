@@ -128,6 +128,7 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	registry.Lock()
 	registry.objects[w.delegate] = w
 	registry.objects[w.view] = w
+	registry.objects[w.ns] = w // the accessibility host (access_host_darwin.go)
 	registry.Unlock()
 	// The delegate comes after the setup, whose moves and resizes must
 	// not queue events before the window's first ConfigureEvent.
@@ -360,6 +361,7 @@ func (w *Window) Close() {
 	registry.Lock()
 	delete(registry.objects, w.delegate)
 	delete(registry.objects, w.view)
+	delete(registry.objects, w.ns)
 	registry.Unlock()
 	pool := darwin.PoolPush()
 	wasKey := darwin.SendBool(w.ns, wsel.isKeyWindow)

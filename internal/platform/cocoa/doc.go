@@ -471,11 +471,14 @@
 // macOS adapter, with roles after W3C Core-AAM 1.2; access_darwin.go has
 // the details and access.go the pure half.
 //
-//   - Activation: the first accessibilityChildren,
-//     accessibilityFocusedUIElement or accessibilityHitTest: AppKit sends
-//     TelaView (VoiceOver, Accessibility Inspector, any AX client)
+//   - Activation: the first query of the tree that reaches TelaView or
+//     TelaWindow (VoiceOver, Accessibility Inspector, any AX client): the
+//     children (accessibilityChildren, the AXChildren attribute and its
+//     array helpers), the focused element or a hit test, in either API,
 //     queues AccessibilityEvent{Active: true}; until then nothing of the
-//     bridge runs. The answer is what exists (nothing before the first
+//     bridge runs. The window answers these itself
+//     (access_host_darwin.go): a client in another process did not reach
+//     the view's methods through AppKit's own answers. The answer is what exists (nothing before the first
 //     update, which posts a layout change). There is no deactivation:
 //     AppKit does not say when the last client leaves, so the window
 //     stays active until it closes (the contract allows it).

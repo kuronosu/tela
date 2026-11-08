@@ -441,8 +441,9 @@ var sel = struct {
 // app holds the shared NSApplication and the classes, set up once per
 // process (an Objective-C class name exists once per process).
 var app struct {
-	ns                                darwin.ID // NSApp
-	delegate                          darwin.ID // TelaAppDelegate instance
+	ns                                darwin.ID    // NSApp
+	windowSuper                       darwin.Class // NSWindow, TelaWindow's superclass
+	delegate                          darwin.ID    // TelaAppDelegate instance
 	window, windowDelegate, view      darwin.Class
 	layer, transaction, cursor, event darwin.Class
 	trackingArea, processInfo         darwin.Class
@@ -500,10 +501,12 @@ func setupApp() error {
 	var err error
 	// TelaWindow lets borderless (Frameless) windows become key and main,
 	// which NSWindow refuses by default.
-	app.window, err = darwin.RegisterClass("TelaWindow", nsWindow, nil, []darwin.Method{
+	// It also hosts the accessibility elements (access_host_darwin.go).
+	app.windowSuper = nsWindow
+	app.window, err = darwin.RegisterClass("TelaWindow", nsWindow, nil, append([]darwin.Method{
 		{Sel: darwin.Sel("canBecomeKeyWindow"), Fn: func(darwin.ID, darwin.SEL) bool { return true }},
 		{Sel: darwin.Sel("canBecomeMainWindow"), Fn: func(darwin.ID, darwin.SEL) bool { return true }},
-	})
+	}, accessWindowMethods()...))
 	if err != nil {
 		return fmt.Errorf("cocoa: registering TelaWindow: %w", err)
 	}
