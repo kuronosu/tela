@@ -85,6 +85,9 @@ type rig struct {
 	scene   string
 	pointer platform.Point
 	stop    func()
+	// sample, when set, is called after each frame that ran (the memory
+	// measurement reads the heap there, memory_test.go).
+	sample func(r *rig)
 }
 
 // newRig mounts the dashboard at w x h logical pixels and scale, light or
@@ -178,6 +181,9 @@ func (r *rig) tick(st *[]frameStat, events ...func()) bool {
 	}
 	r.tree.FlushEffects()
 	lap(phEffects)
+	if r.sample != nil {
+		r.sample(r)
+	}
 	fs.total = time.Since(t0)
 	if st != nil {
 		*st = append(*st, fs)
