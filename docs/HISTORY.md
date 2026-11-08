@@ -385,6 +385,42 @@ Gaps in the existing backends. Verified on the owner's Linux machine, the Window
 
 Delivered (ADRs 230–239): the owner's choices (ADR-230: `combase` for toasts, an automatic fallback title bar; ADR-239: `uxtheme` for dark popup menus), XIM (ADR-231), X11 fling and drag image (ADR-232), Wayland parents, tokens and suspended (ADR-233), Win32 menu keys, dark bar, drop timeout, tray DPI, hot keys on layout changes (ADR-234), WinRT toasts (ADR-235), DWM's caption buttons through a cleared hole with the bar's caption color and a hidden band when maximized (ADR-236), macOS drags, tray templates, modeless boxes, hot keys (ADR-237), the fallback title bar, look B chosen by the owner (ADR-238).
 
+### Phase 17: Memory (`v0.13.5`)
+
+Find where RAM goes and reduce it. Before the Font system (the owner, 2026-11-07: its measurements inform the fonts' ADR) and before CPU performance, whose caches trade memory for speed. What the fonts take is measured and explained here; their waste is removed here (the owner's choice), their design is the Font system's.
+
+- [x] A repeatable measurement: `go run ./internal/testutil/memreport` (ADR-240), baseline in `internal/testutil/memreport/baseline.json` (about 3 minutes; `-only`, `-cases`, `-profiles`, `-update`)
+- [x] Rank the suspects. Baseline (MiB, live heap after GC / RSS): hello 69.5 / 99 at x1, 79 / 109 at x2; kit 80 / 114, 108 / 140; notes 77 / 108, 94 / 126; dashboard 119 / 152, 198 / 236; the dashboard's 1080p session 176 / 211 at x1, 388 / 421 at 4K x2, allocating 780 / 1066 MiB. Shares:
+  - fonts 61 MiB in every app (87% of hello): all six faces parsed at the first layout, glyf and gvar parsed twice (go-text's `NewFont`, then `internal/text/typeface.go` again, about 19 MiB), `RawTable` copies (about 10 MiB). The waste goes in this phase, the rest in the Font system phase
+  - the rasterizer's scratch buffers: per `Renderer` free lists never released, 21 MiB at 1080p x1 at rest, 164 MiB after the x2 session (backdrop filter windows about 90 MiB, `pushLayer` about 43 MiB, masks about 19 MiB)
+  - the backdrop cache (ADR-200): up to two full frames, 58 MiB after the x2 session
+  - the framebuffer with 25% headroom plus one present copy per backend (two to three `wl_shm` buffers on Wayland, a `CFData` per Present on macOS)
+  - decoded images never dropped: the dashboard keeps both 9 MiB wallpapers after a theme switch
+  - trees, display lists and text layout: under 10 MiB
+- [x] The rasterizer: scratch buffers and the backdrop cache's spares released when 15 frames do not use them, and all but the cached backdrops after a second at rest; a phased render keeps one filtered window at a time (ADR-241). The 4K session's heap at rest 353 → 163 MiB, raster scratch 164 → 3 MiB; p50 unchanged, p95 within noise except about +3 ms at 1440x900 x2; a parallel-render race of masks before a backdrop filter fixed
+- [x] Core: decoded images released when nothing shows them, framebuffers exact once a resize settles and dropped while hidden (ADR-242); the dashboard's session keeps one wallpaper instead of two (17.7 → 8.9 MiB), framebuffer and copy 11% smaller
+- [x] The fonts' waste (the owner, 2026-11-07: removed here, the design stays in the Font system): outlines parsed on demand from the file bytes (ADR-243); fonts 61 → 35 MiB in every app, hello 69.9 → 42.8 MiB in use and 98 → 69 MiB RSS at x1
+- [x] Before and after (MiB, heap in use after GC / RSS / allocated during the case; the new numbers are the baseline). The fonts' share is in the Font system phase:
+
+  | case | heap in use | RSS | allocated |
+  |---|---|---|---|
+  | hello/x1/rest | 70 → 43 | 99 → 71 | 87 → 55 |
+  | hello/x2/rest | 79 → 51 | 109 → 80 | 96 → 63 |
+  | kit/x1/rest | 80 → 53 | 114 → 83 | 98 → 66 |
+  | kit/x2/rest | 108 → 77 | 140 → 106 | 125 → 90 |
+  | notes/x1/rest | 77 → 50 | 108 → 84 | 95 → 63 |
+  | notes/x2/rest | 94 → 65 | 126 → 96 | 112 → 78 |
+  | dashboard/x1/rest | 119 → 77 | 152 → 112 | 238 → 203 |
+  | dashboard/x2/rest | 198 → 121 | 236 → 156 | 331 → 285 |
+  | dashboard/x1/session | 176 → 90 | 211 → 129 | 780 → 859 |
+  | dashboard/x2/session | 388 → 163 | 421 → 204 | 1066 → 1359 |
+
+**Done when:** the measurement runs from one command with a recorded baseline, and the largest consumers it found are reduced or explained (the fonts' share measured for the Font system's ADR), with the before and after numbers for each example.
+
+**Done check** (2026-11-08): `go run ./internal/testutil/memreport` runs every case from one command against its checked-in baseline; the largest consumers are reduced (fonts' waste, the rasterizer's scratch and backdrop spares, unshown images, framebuffer headroom) or explained (the fonts' remaining 35 MiB, measured per face and per go-text structure for the Font system's ADR; one present copy per backend); `go test ./...`, the race detector on core, tela, platform, text and raster, and every golden pass unchanged.
+
+Delivered (ADRs 240–243): the measurement (ADR-240), the rasterizer's scratch following recent frames with a deferred trim (ADR-241), images released when unshown and exact framebuffers (ADR-242), outlines parsed on demand from the font bytes (ADR-243). The phase's `/code-review high` found ten candidates; eight were real (the trim missed after a frame that draws nothing, unbounded cached failures, gvar offsets on 32-bit targets, memreport's binaries left on failure, repeated held images, the hmtx port's notice, a free buffer aging a frame early, stale comments) and are fixed.
+
 ## Session log
 
 One line per session: date, what was done, what is pending. Append new sessions at the end.
@@ -516,3 +552,4 @@ One line per session: date, what was done, what is pending.
 - **2026-11-07:** `v0.13.4` tagged on `31942ee` with the owner's approval; `phase-16-platform-parity` fast-forwarded into `main` locally; `main` and the tag are not pushed yet.
 - **2026-11-07 (order):** the owner moved Memory before the Font system, so the fonts' ADR is decided on measured RAM, parse time and binary size; the Memory phase measures the fonts' share and leaves their reduction to the Font system.
 - **2026-11-07 (phase 17):** Memory started (ADR-240): `memreport` measured hello, kit, dashboard and notes, then three parallel agents removed the fonts' double parse (ADR-243, 61 → 35 MiB in every app; moved here by the owner), released unshown images and trimmed framebuffers (ADR-242), and made the rasterizer's scratch follow recent frames (ADR-241; the 4K session at rest 388 → 163 MiB), fixing a parallel-render race of masks before backdrop filters; hello 70 → 43 MiB of heap, 99 → 71 MiB RSS; baseline rewritten; code review next.
+- **2026-11-08 (phase 17, close):** `/code-review high` over the phase: eight of ten candidates fixed with tests (the main one: a frame that draws nothing never scheduled the raster trim); race detector clean; `v0.13.5` in the CHANGELOG, the phase moved to HISTORY; the tag is proposed to the owner.

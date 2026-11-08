@@ -9,47 +9,15 @@
 
 ## Current status
 
-- **Done:** phases 1–16. Latest version `v0.13.4` (2026-11-07, phase 16: platform parity; tagged on `31942ee` with the owner's approval). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
-- **Phase in progress:** 17, Memory, on the branch `phase-17-memory` (ADR-240 to ADR-243): its tasks are done and its tests pass; the phase's code review is next.
+- **Done:** phases 1–17. Latest version `v0.13.5` (2026-11-08, phase 17: memory; to be tagged with the owner's approval); `v0.13.4` (phase 16) is tagged on `31942ee`. Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
+- **Phase in progress:** none. Phase 17 is done on the branch `phase-17-memory`, to be merged into `main`.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** phase 17's code review and its fixes, then `v0.13.5` proposed to the owner. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** the next phase in order, the Font system, whose ADR starts from phase 17's measurements (`go run ./internal/testutil/memreport`). R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
 
-In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–16 are done (HISTORY.md); phase 17 is in progress.
-
-### Phase 17: Memory
-
-Find where RAM goes and reduce it. Before the Font system (the owner, 2026-11-07: its measurements inform the fonts' ADR) and before CPU performance, whose caches trade memory for speed. What the fonts take is measured and explained here; their waste is removed here (the owner's choice), their design is the Font system's.
-
-- [x] A repeatable measurement: `go run ./internal/testutil/memreport` (ADR-240), baseline in `internal/testutil/memreport/baseline.json` (about 3 minutes; `-only`, `-cases`, `-profiles`, `-update`)
-- [x] Rank the suspects. Baseline (MiB, live heap after GC / RSS): hello 69.5 / 99 at x1, 79 / 109 at x2; kit 80 / 114, 108 / 140; notes 77 / 108, 94 / 126; dashboard 119 / 152, 198 / 236; the dashboard's 1080p session 176 / 211 at x1, 388 / 421 at 4K x2, allocating 780 / 1066 MiB. Shares:
-  - fonts 61 MiB in every app (87% of hello): all six faces parsed at the first layout, glyf and gvar parsed twice (go-text's `NewFont`, then `internal/text/typeface.go` again, about 19 MiB), `RawTable` copies (about 10 MiB). The waste goes in this phase, the rest in the Font system phase
-  - the rasterizer's scratch buffers: per `Renderer` free lists never released, 21 MiB at 1080p x1 at rest, 164 MiB after the x2 session (backdrop filter windows about 90 MiB, `pushLayer` about 43 MiB, masks about 19 MiB)
-  - the backdrop cache (ADR-200): up to two full frames, 58 MiB after the x2 session
-  - the framebuffer with 25% headroom plus one present copy per backend (two to three `wl_shm` buffers on Wayland, a `CFData` per Present on macOS)
-  - decoded images never dropped: the dashboard keeps both 9 MiB wallpapers after a theme switch
-  - trees, display lists and text layout: under 10 MiB
-- [x] The rasterizer: scratch buffers and the backdrop cache's spares released when 15 frames do not use them, and all but the cached backdrops after a second at rest; a phased render keeps one filtered window at a time (ADR-241). The 4K session's heap at rest 353 → 163 MiB, raster scratch 164 → 3 MiB; p50 unchanged, p95 within noise except about +3 ms at 1440x900 x2; a parallel-render race of masks before a backdrop filter fixed
-- [x] Core: decoded images released when nothing shows them, framebuffers exact once a resize settles and dropped while hidden (ADR-242); the dashboard's session keeps one wallpaper instead of two (17.7 → 8.9 MiB), framebuffer and copy 11% smaller
-- [x] The fonts' waste (the owner, 2026-11-07: removed here, the design stays in the Font system): outlines parsed on demand from the file bytes (ADR-243); fonts 61 → 35 MiB in every app, hello 69.9 → 42.8 MiB in use and 98 → 69 MiB RSS at x1
-- [x] Before and after (MiB, heap in use after GC / RSS / allocated during the case; the new numbers are the baseline). The fonts' share is in the Font system phase:
-
-  | case | heap in use | RSS | allocated |
-  |---|---|---|---|
-  | hello/x1/rest | 70 → 43 | 99 → 71 | 87 → 55 |
-  | hello/x2/rest | 79 → 51 | 109 → 80 | 96 → 63 |
-  | kit/x1/rest | 80 → 53 | 114 → 83 | 98 → 66 |
-  | kit/x2/rest | 108 → 77 | 140 → 106 | 125 → 90 |
-  | notes/x1/rest | 77 → 50 | 108 → 84 | 95 → 63 |
-  | notes/x2/rest | 94 → 65 | 126 → 96 | 112 → 78 |
-  | dashboard/x1/rest | 119 → 77 | 152 → 112 | 238 → 203 |
-  | dashboard/x2/rest | 198 → 121 | 236 → 156 | 331 → 285 |
-  | dashboard/x1/session | 176 → 90 | 211 → 129 | 780 → 859 |
-  | dashboard/x2/session | 388 → 163 | 421 → 204 | 1066 → 1359 |
-
-**Done when:** the measurement runs from one command with a recorded baseline, and the largest consumers it found are reduced or explained (the fonts' share measured for the Font system's ADR), with the before and after numbers for each example.
+In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–17 are done (HISTORY.md).
 
 ### Font system
 

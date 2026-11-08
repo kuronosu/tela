@@ -12,6 +12,8 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
+## [0.13.5] - 2026-11-08
+
 Phase 17, Memory (ADR-240 to ADR-243): an app holds about 30 MiB less in every window, and memory comes back after heavy screens close.
 
 ### Changed
@@ -918,7 +920,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.13.4...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.13.5...HEAD
+[0.13.5]: https://github.com/kuronosu/tela/compare/v0.13.4...v0.13.5
 [0.13.4]: https://github.com/kuronosu/tela/compare/v0.13.3...v0.13.4
 [0.13.3]: https://github.com/kuronosu/tela/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/kuronosu/tela/compare/v0.13.1...v0.13.2
