@@ -476,13 +476,11 @@ func (r *Renderer) restore() {
 }
 
 // getBuf returns a zeroed buffer of n bytes, reusing a released one when
-// possible: the smallest that fits, unless it is much larger than n (see
-// fitsBuf), so that a buffer kept for a large surface does not stay alive
-// serving small masks.
+// possible (the smallest that fits).
 func (r *Renderer) getBuf(n int) []uint8 {
 	best := -1
 	for i := range r.free {
-		if c := cap(r.free[i].b); fitsBuf(c, n) && (best < 0 || c < cap(r.free[best].b)) {
+		if c := cap(r.free[i].b); c >= n && (best < 0 || c < cap(r.free[best].b)) {
 			best = i
 		}
 	}

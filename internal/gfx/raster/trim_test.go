@@ -46,35 +46,6 @@ func plainScene(w, h float32) *gfx.DisplayList {
 	return b.Finish()
 }
 
-// TestFitsBuf checks the rule of getBuf: a released buffer serves a request
-// it holds without wasting more than the request (beyond the slack).
-func TestFitsBuf(t *testing.T) {
-	for _, c := range []struct {
-		c, n int
-		want bool
-	}{
-		{100, 101, false},
-		{100, 100, true},
-		{bufSlack, 1, true},
-		{bufSlack + 2, 1, false},
-		{1 << 20, 100, false},
-		{1 << 20, 1 << 19, true},
-		{1 << 20, 1<<19 - 1, false},
-	} {
-		if got := fitsBuf(c.c, c.n); got != c.want {
-			t.Errorf("fitsBuf(%d, %d) = %v, want %v", c.c, c.n, got, c.want)
-		}
-	}
-	var r Renderer
-	r.putBuf(make([]uint8, 1<<20))
-	if b := r.getBuf(100 * 100); cap(b) == 1<<20 {
-		t.Errorf("a 1 MiB buffer served a 10,000-byte request")
-	}
-	if b := r.getBuf(800 << 10); cap(b) != 1<<20 {
-		t.Errorf("the 1 MiB buffer did not serve a 800 KiB request (got a buffer of %d bytes)", cap(b))
-	}
-}
-
 // TestEndFrameAges checks that a Renderer keeps the buffers frames use and
 // releases those no frame used for more than maxIdleFrames frames.
 func TestEndFrameAges(t *testing.T) {

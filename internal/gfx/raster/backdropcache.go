@@ -351,7 +351,7 @@ func (c *BackdropCache) store(e *bdEntry, k int, f gfx.BackdropFilter, ctm gfx.A
 	*e = bdEntry{}
 	var pix []uint8
 	switch {
-	case fitsBuf(cap(old), n):
+	case cap(old) >= n:
 		pix, old = old[:n], nil
 	default:
 		if old != nil {
@@ -414,12 +414,11 @@ func (c *BackdropCache) freeSpare(k int) {
 	c.spare = slices.Delete(c.spare, k, k+1)
 }
 
-// take returns a spare buffer of length n, or nil. Like getBuf, it does
-// not take a buffer much larger than n (fitsBuf).
+// take returns a spare buffer of length n, or nil.
 func (c *BackdropCache) take(n int) []uint8 {
 	best := -1
 	for k := range c.spare {
-		if b := c.spare[k].b; fitsBuf(cap(b), n) && (best < 0 || cap(b) < cap(c.spare[best].b)) {
+		if b := c.spare[k].b; cap(b) >= n && (best < 0 || cap(b) < cap(c.spare[best].b)) {
 			best = k
 		}
 	}

@@ -30,7 +30,11 @@ import "math"
 // is kept for: about a quarter of a second at 60 Hz, longer than the gaps
 // of an interaction (a buffer needed every few frames is not reallocated),
 // short enough that what a dialog or a palette needed goes soon after it
-// closes, before the window even settles.
+// closes, while frames go on (a window that rests is trimmed whole). The
+// trade is measured on the dashboard's session at 3840x2160: at 15 frames
+// the live heap stays at most 213 MiB during it and the session allocates
+// 1359 MiB; at 60 frames, 391 MiB and 1355 MiB; without aging, 387 MiB and
+// 1206 MiB (339 MiB and 1047 MiB before any of this, ADR-241).
 const maxIdleFrames = 15
 
 // useAge tracks the use of a piece of scratch memory across frames.
@@ -67,20 +71,6 @@ type freeBuf struct {
 	b   []uint8
 	age useAge
 }
-
-// fitsBuf reports whether a released buffer of capacity c may serve a
-// request of n bytes: it must hold them, and waste at most as much as it
-// uses, beyond a small slack. A buffer much larger than the request (a
-// window-sized layer serving a 100x100 mask) would stay alive for it and
-// keep its whole size in use; a new buffer of n bytes is allocated instead,
-// and the large one is released when no frame needs it any more.
-func fitsBuf(c, n int) bool {
-	return c >= n && c-n <= max(n, bufSlack)
-}
-
-// bufSlack is the waste a released buffer may always have when it serves a
-// request: small masks share buffers of any size up to it.
-const bufSlack = 64 << 10
 
 // EndFrame ends a frame: the Renders of r since the previous EndFrame. It
 // releases the scratch memory of r and of the Renderers r owns (its
