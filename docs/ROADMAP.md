@@ -29,7 +29,7 @@ Strictly after the two macOS phases: the bridges for AT-SPI, UI Automation and N
 - [x] AT-SPI over D-Bus (pure Go), shared by Wayland and X11: checked against at-spi2-registryd and libatspi on a private bus and on the session's registry; Orca 49 registers the app and its frame
 - [ ] Orca reads, navigates and operates `login` (the owner at the keyboard: an unattended run cannot give the window keyboard focus on Hyprland)
 - [x] UI Automation over COM: an in-process UIA client and the .NET UIA client (cross-process, as Narrator connects) read and operate `login` on the VM
-- [ ] Narrator (or NVDA, whose log records speech) reads, navigates and operates `login` on the VM
+- [x] NVDA 2026.2 reads, navigates and operates `login` on the VM (speech from its io log: fields with placeholders and typed-character echo, the protected password, the toggle button, the checkbox checked with Space, the buttons, the live region "Signing in…" and the error alert)
 - [ ] NSAccessibility: elements, actions and notifications pass on macOS CI; AppKit's attribute API (what AX clients and VoiceOver use) returns nothing for the elements yet
 - [ ] AT-SPI gaps: lines split only at hard newlines (no layout in the tree), character extents estimated, no text attributes; word segmentation is a simple rule, not UAX #29; no hypertext (a paragraph with a link exposes label objects); Selection over direct children only, no SelectAll/ClearSelection; no EditableText cut and paste; relations only controller-for/controlled-by (no labelled-by, described-by); announcements only through the Announcement signal (Orca 45+); Wayland screen extents are window coordinates; `Cache.GetItems` empty; not checked at HiDPI
 - [ ] UIA gaps: never deactivates once a client asks; no MSAA answer for `OBJID_CLIENT`; approximate text units and range rectangles, `RangeFromPoint` returns the start, `FindAttribute` finds nothing; Scroll pattern percents are placeholders; no AutomationId, ClassName, Window pattern on dialogs, Grid or Table patterns, LabeledBy, DescribedBy or document TextPattern; dead node objects stay while UIA holds them (no per-node `UiaDisconnectProvider`); not checked above 100% DPI
@@ -198,6 +198,7 @@ This session gates v1.0's "macOS supported". Items a phase adds after the sessio
 The VM has no GPU and runs at scale 1.
 
 - [ ] Scales above 1 (per-monitor DPI), the UIA bridge's bounding rectangles included
+- [ ] Narrator on `login` (NVDA is checked; Narrator keeps no speech log)
 - [ ] Windows 11 rounded corners and Mica (the VM draws square corners and a solid backdrop); a frameless window with a client-area backdrop extends its DWM frame, which may hide the snap layouts flyout again
 - [ ] The tray and notification icons' alpha, by eye
 - [ ] Phase 16 by hand: the snap layouts flyout, hover and presses on an overlay window's DWM buttons, its caption buttons across monitors of different DPI, with a taskbar at the top and with a monitor above a maximized one (its 8 px hidden band), and a toast's buttons; `TitleBarOverlay` on Windows 10 22H2 (today frameless there)
