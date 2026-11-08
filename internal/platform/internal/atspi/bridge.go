@@ -200,12 +200,21 @@ func (b *Bridge) NewWindow(win platform.Window, title string) *Window {
 // dropped unless the window's bridge is active (between the
 // AccessibilityEvents with Active true and false that Dispatch
 // delivered). UI thread.
+//
+// An activation starts from the empty tree, but the events that tell core
+// about it are queued: until core handles them it may still send diffs of
+// its previous session (a deactivation and activation in one Dispatch, an
+// update queued before them). Such a diff does not apply to the empty
+// tree and is dropped; core's whole tree follows its Active true.
 func (w *Window) Update(u platform.AccessUpdate) {
 	platform.CheckAccessUpdate(&u)
 	if w.gone || !w.uiActive || w.refused {
 		return
 	}
 	t, _, err := w.tree.Apply(&u)
+	if err != nil && w.tree == nil {
+		return // a diff from before the activation (above)
+	}
 	if err != nil {
 		// Core sent something the tree cannot take: a bug. The AT keeps
 		// the last good tree; the next activation starts over.

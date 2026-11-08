@@ -310,3 +310,40 @@ func TestExtents(t *testing.T) {
 }
 
 func imagePt(x, y int) image.Point { return image.Pt(x, y) }
+
+// A deactivation and an activation in one Dispatch reach core after a
+// diff of its previous session: the bridge drops that diff and takes the
+// whole tree core sends next.
+func TestStaleDiffAfterReactivation(t *testing.T) {
+	var logs []string
+	b := New(Options{
+		Wake:   func() {},
+		Event:  func(platform.Window, platform.Event) {},
+		Getenv: func(k string) string { return map[string]string{"NO_AT_BRIDGE": "1"}[k] },
+		Logf:   func(f string, a ...any) { logs = append(logs, f) },
+	})
+	w := b.NewWindow(nil, "w")
+	full := platform.AccessUpdate{Root: 1, Focus: 1, Nodes: []platform.AccessNode{
+		{ID: 1, Kind: platform.AccessRoot, Children: []platform.AccessID{2}},
+		{ID: 2, Role: "button", Name: "OK"},
+	}}
+	b.post(inboxItem{w: w, act: true, active: true, gen: 1})
+	b.Dispatch()
+	w.Update(full)
+	b.post(inboxItem{w: w, act: true, active: false, gen: 1})
+	b.post(inboxItem{w: w, act: true, active: true, gen: 2})
+	b.Dispatch()
+	w.Update(platform.AccessUpdate{Root: 1, Focus: 1, Nodes: []platform.AccessNode{{ID: 2, Role: "button", Name: "Cancel"}}})
+	if w.refused || len(logs) != 0 {
+		t.Fatalf("the stale diff was refused (logs %q)", logs)
+	}
+	w.Update(full)
+	if w.tree.Len() != 2 {
+		t.Fatalf("the whole tree after the stale diff: %d nodes, want 2", w.tree.Len())
+	}
+	// A diff that does not apply to a tree the bridge holds is a bug.
+	w.Update(platform.AccessUpdate{Root: 1, Focus: 1, Nodes: []platform.AccessNode{{ID: 1, Kind: platform.AccessRoot, Children: []platform.AccessID{3}}}})
+	if !w.refused || len(logs) != 1 {
+		t.Errorf("a bad diff over a held tree: refused %v, logs %q", w.refused, logs)
+	}
+}
