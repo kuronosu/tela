@@ -275,6 +275,9 @@ func TestGoldenPreferencesGeneral(t *testing.T) {
 	prefs := openPreferences(a, "General")
 	prefs.Click(registerBtn)
 	prefs.ExpectText("Registered. Firefox is the default.")
+	// The .md row's status comes from its own asynchronous query; a slow
+	// runner (windows-latest) can still show "Checking..." here.
+	prefs.ExpectText("Notes is not offered for .md files.")
 	prefs.MouseMove(300, 420)
 	prefs.Golden("preferences_general.png")
 }
