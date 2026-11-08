@@ -55,7 +55,7 @@ Contributions that break these are rejected.
 1. **`CGO_ENABLED=0` always**, for every build, test and CI job.
 2. **OS access only through:**
    - **Linux:** Wayland and X11 protocols directly over Unix sockets, plus syscalls (and D-Bus, below); the helpers `xdg-open` and `update-mime-database` only when installed (ADR-212).
-   - **Windows:** system DLLs (`user32`, `gdi32`, `imm32`, `dwmapi`, `shcore`, `kernel32`; `shell32`, `ole32`, `comdlg32` for desktop services, ADR-178; `advapi32` for Credential Manager and the registry, ADR-209; `combase` for WinRT toasts, ADR-230; `uxtheme` for dark popup menus, ADR-239) via `golang.org/x/sys/windows` / `syscall`.
+   - **Windows:** system DLLs (`user32`, `gdi32`, `imm32`, `dwmapi`, `shcore`, `kernel32`; `shell32`, `ole32`, `comdlg32` for desktop services, ADR-178; `advapi32` for Credential Manager and the registry, ADR-209; `combase` for WinRT toasts, ADR-230; `uxtheme` for dark popup menus, ADR-239; `uiautomationcore` and `oleaut32` for UI Automation, ADR-246) via `golang.org/x/sys/windows` / `syscall`.
    - **macOS:** Objective-C runtime and system frameworks (AppKit, QuartzCore, CoreGraphics) via `github.com/ebitengine/purego`.
 3. **Dependencies:** pure Go only, permissive licenses (MIT, BSD, Apache-2.0, OFL for fonts). Approved list below; new ones need an ADR.
 4. **No webview, no Chromium, no external layout engines.**
@@ -496,7 +496,7 @@ type Window interface {
 type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entrantly
 ```
 
-- **Events** (sealed set): `ConfigureEvent` (size and/or scale; implies a frame), `FrameEvent`, `CloseRequestedEvent`, `FocusEvent`, `WakeEvent`, `SettingsEvent`, `PointerEvent` (DOM-style `Action`: move, enter, leave, down, up, cancel), `ScrollEvent` (precise `Delta`, discrete `Steps`, gesture `Phase`; ADR-057), `KeyEvent` (ADR-050), `IMEEvent` and `IMESessionEvent` (ADR-068), `WindowStateEvent`, `DragEvent`, `DragDoneEvent` and `MenuEvent` (ADR-210), and the app-scoped `NotificationEvent` and `TrayEvent` (ADR-179), `ShortcutEvent`, `ShortcutStatusEvent` and `LaunchEvent` (ADR-210), and `QuitRequestedEvent` and `AppMenuEvent` (ADR-225).
+- **Events** (sealed set): `ConfigureEvent` (size and/or scale; implies a frame), `FrameEvent`, `CloseRequestedEvent`, `FocusEvent`, `WakeEvent`, `SettingsEvent`, `PointerEvent` (DOM-style `Action`: move, enter, leave, down, up, cancel), `ScrollEvent` (precise `Delta`, discrete `Steps`, gesture `Phase`; ADR-057), `KeyEvent` (ADR-050), `IMEEvent` and `IMESessionEvent` (ADR-068), `WindowStateEvent`, `DragEvent`, `DragDoneEvent` and `MenuEvent` (ADR-210), and the app-scoped `NotificationEvent` and `TrayEvent` (ADR-179), `ShortcutEvent`, `ShortcutStatusEvent` and `LaunchEvent` (ADR-210), and `QuitRequestedEvent` and `AppMenuEvent` (ADR-225), and `AccessibilityEvent` and `AccessActionEvent` (contract v5, ADR-246).
 - **Sizing rule:** `PhysicalSize(logical, scale)` rounds logical × scale half away from zero (the `wp_fractional_scale_v1` rule). Every backend sizes framebuffers with it.
 - `Run` does not return when the last window closes; quitting is app policy (`core`/`tela`).
 - Backends share the OS-independent half of the loop (`internal/platform/internal/loop`: queue, wake/quit, frame pacing; ADR-050) and keep only their OS I/O.
@@ -523,7 +523,7 @@ type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entr
 - Any Box may contribute a semantics node. Primitives have implicit roles (`Button` → `button`, `Input` → `textbox`, `H1` → `heading` level 1), overridable with `Role(...)`, `AriaLabel(...)`, `AriaChecked(...)` and the other `Aria…` props of `h` (ADR-058).
 - **A semantics node holds:** role, label, value, description; states (focused, disabled, checked, expanded, selected, invalid…; sort for headers); actions (click, focus, setValue, scroll); bounds in window coordinates.
 - **Consumers:**
-  1. **OS accessibility** (late phase): AT-SPI over D-Bus (Linux), UI Automation over COM (Windows), NSAccessibility (macOS).
+  1. **OS accessibility** (ADR-246): AT-SPI over D-Bus (Linux), UI Automation over COM (Windows), NSAccessibility (macOS). Each bridge holds its own copy of the tree and answers queries from it; while an AT is active core sends the changed nodes and live-region announcements after each commit, and the AT's actions return as events.
   2. **`telatest`:** queries like `ByRole("button", "Save")`, `ByText("Hello")`.
   3. **Agents:** a Playwright-style **aria snapshot**, a compact YAML LLMs already know (below), and an MCP server (§17).
 
@@ -649,6 +649,7 @@ Implementation references, not dependencies. Read the relevant entry before star
 | Components | **shadcn/ui** | Components as copied source (`tela add`), semantic tokens, look |
 | Animation | **Motion** (formerly framer-motion) | Layout animations (FLIP), `layoutId`, `AnimatePresence`, springs (§12) |
 | Styling | **Tailwind CSS v4 source** | Theme and class vocabulary, generated into Go (§10) |
+| Accessibility | **AccessKit** (MIT/Apache), W3C Core-AAM 1.2 and HTML-AAM, at-spi2-core's XML | Push-model tree and the AT-SPI, UIA and macOS adapters; role and state mappings (ADR-246) |
 | Tooling | **Playwright** | Role locators, auto-wait, aria snapshot YAML, MCP agent loop (§16, §17) |
 | Tooling | **Chrome / Flutter DevTools** | Debug overlays (§17) |
 
