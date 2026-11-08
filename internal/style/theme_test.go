@@ -202,9 +202,9 @@ func TestEaseAndTransition(t *testing.T) {
 func TestFonts(t *testing.T) {
 	th := DefaultTheme()
 	want := map[string][]string{
-		"sans":  {"Inter"},
-		"mono":  {"JetBrains Mono"},
-		"serif": {"serif"},
+		"sans":  {"ui-sans-serif", "system-ui", "sans-serif"},
+		"mono":  {"ui-monospace", "monospace"},
+		"serif": {"ui-serif", "serif"},
 	}
 	if !reflect.DeepEqual(th.Fonts, want) {
 		t.Errorf("Fonts = %v, want %v", th.Fonts, want)
@@ -277,7 +277,7 @@ func TestDefaultThemeIsIndependent(t *testing.T) {
 	delete(a.Radius, "3xl")
 	b := DefaultTheme()
 	if b.Colors["white"] != gfx.White || b.Shadows["2xl"][0].Blur != 50 ||
-		b.Fonts["sans"][0] != "Inter" || b.Radius["3xl"] != Rem(1.5) {
+		b.Fonts["sans"][0] != "ui-sans-serif" || b.Radius["3xl"] != Rem(1.5) {
 		t.Error("modifying one DefaultTheme() result changed another")
 	}
 }

@@ -11,10 +11,14 @@ import (
 	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/platform"
+	// The tela command draws its overlay with the standard fonts, as its
+	// goldens do, not with the machine's (it is a tool, not an app: ADR-244
+	// keeps fonts out of apps' binaries).
+	_ "github.com/kuronosu/tela/internal/stdfonts"
 )
 
 // The picture of the error overlay (ADR-117): a Tela tree rendered
-// headless, with the embedded fonts, onto a transparent image of the
+// headless, with the standard fonts (internal/stdfonts), onto a transparent image of the
 // window's size, which the overlay view composites over the frame. The
 // geometry (where the panel and its close button are, how many lines fit)
 // is computed here in logical pixels, before the tree is built, so the

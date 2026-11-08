@@ -9,7 +9,7 @@
   "style": {
     "display": "block",
     "color": "#000000",
-    "font": "400 16px/1.5 Inter",
+    "font": "400 16px/1.5 ui-sans-serif",
     "opacity": 1
   },
   "children": [
@@ -34,7 +34,7 @@
         "flex": "column gap 8px/8px",
         "color": "#000000",
         "background": "#f1f5f9",
-        "font": "400 16px/1.5 Inter",
+        "font": "400 16px/1.5 ui-sans-serif",
         "opacity": 1
       },
       "children": [
@@ -53,7 +53,7 @@
             "classes": "text-2xl font-bold text-slate-900 dark:text-white",
             "display": "block",
             "color": "#0f172b",
-            "font": "700 24px/1.3333334 Inter",
+            "font": "700 24px/1.3333334 ui-sans-serif",
             "opacity": 1
           }
         },
@@ -71,7 +71,7 @@
             "display": "flex",
             "flex": "row gap 8px/8px",
             "color": "#000000",
-            "font": "400 16px/1.5 Inter",
+            "font": "400 16px/1.5 ui-sans-serif",
             "opacity": 1
           },
           "children": [
@@ -91,7 +91,7 @@
                 "height": "40px",
                 "color": "#000000",
                 "background": "#00a6f4",
-                "font": "400 16px/1.5 Inter",
+                "font": "400 16px/1.5 ui-sans-serif",
                 "opacity": 1
               }
             },
@@ -111,7 +111,7 @@
                 "height": "40px",
                 "color": "#000000",
                 "background": "#ff2056",
-                "font": "400 16px/1.5 Inter",
+                "font": "400 16px/1.5 ui-sans-serif",
                 "opacity": 1
               }
             }

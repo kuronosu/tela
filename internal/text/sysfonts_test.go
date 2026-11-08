@@ -12,7 +12,6 @@ import (
 
 	"github.com/go-text/typesetting/fontscan"
 	"github.com/go-text/typesetting/language"
-	"github.com/kuronosu/tela/internal/assets/fonts"
 )
 
 // The tests of system fonts never read the machine's fonts: they point the
@@ -53,7 +52,7 @@ func withSystemDir(t testing.TB, c *Collection, dir string) *Collection {
 func interOnly(t testing.TB) *Collection {
 	t.Helper()
 	c := NewCollection()
-	if _, err := c.Register(fonts.Data(fonts.InterVariable), "Inter"); err != nil {
+	if _, err := c.Register(fontInter.data(), "Inter"); err != nil {
 		t.Fatal(err)
 	}
 	return c
@@ -95,16 +94,16 @@ func itemize(c *Collection, s string, families ...string) []string {
 }
 
 func TestSystemFontsLazy(t *testing.T) {
-	dir := fontDir(t, map[string][]byte{"cjk.otf": cjkFontData(t), "mono.ttf": fonts.Data(fonts.JetBrainsMono)})
+	dir := fontDir(t, map[string][]byte{"cjk.otf": cjkFontData(t), "mono.ttf": fontJetBrainsMono.data()})
 
 	c := withSystemDir(t, NewDefaultCollection(), dir)
 	s := c.sys
 	if s.indexed.Load() {
 		t.Fatal("EnableSystemFonts scanned the directories")
 	}
-	// Registered families, generic names, and text the embedded fonts cover
-	// never need the system fonts.
-	for _, fam := range [][]string{{"Inter"}, {"sans-serif", "system-ui"}, {"serif", "ui-serif", "ui-sans-serif"}, {"monospace"}, {"Noto Color Emoji"}} {
+	// Registered families, the generic names the collection maps, and text
+	// the registered fonts cover never need the system fonts.
+	for _, fam := range [][]string{{"Inter"}, {"sans-serif", "system-ui"}, {"ui-sans-serif"}, {"monospace", "ui-monospace"}, {"Noto Color Emoji"}, {"emoji"}} {
 		c.Itemize([]rune("Hello مرحبا 😀 world"), 0, 16, Query{Families: fam}, 16, language.Latin, nil)
 		c.Face(Query{Families: fam}, 16)
 		c.Match(fam[0], Query{})
@@ -118,6 +117,15 @@ func TestSystemFontsLazy(t *testing.T) {
 	}
 	if !s.indexed.Load() {
 		t.Fatal("an unknown family did not load the index")
+	}
+	// So does a generic name the collection does not map (it resolves
+	// through the operating system's list).
+	c = withSystemDir(t, NewDefaultCollection(), dir)
+	if f := c.Face(Query{Families: []string{"serif"}}, 16); f == nil || f.Typeface().Family() != FamilyInter {
+		t.Fatalf("serif: got %v, want the default fallback (no serif installed)", f)
+	}
+	if !c.sys.indexed.Load() {
+		t.Fatal("an unmapped generic did not load the index")
 	}
 
 	// An uncovered cluster loads it too.
@@ -173,7 +181,7 @@ func TestSystemFontsOffByDefault(t *testing.T) {
 }
 
 func TestSystemNamedFamily(t *testing.T) {
-	dir := fontDir(t, map[string][]byte{"mono.ttf": fonts.Data(fonts.JetBrainsMono), "cjk.otf": cjkFontData(t)})
+	dir := fontDir(t, map[string][]byte{"mono.ttf": fontJetBrainsMono.data(), "cjk.otf": cjkFontData(t)})
 	// A collection that has Inter only.
 	c := interOnly(t)
 	if c.Match("JetBrains Mono", Query{}) != nil {
@@ -223,8 +231,8 @@ func TestSystemRegisteredFamiliesWin(t *testing.T) {
 	// embedded fonts cover may come from the directory, so default
 	// rendering is the same with and without system fonts.
 	files := map[string][]byte{}
-	for _, f := range fonts.All() {
-		files[fonts.Name(f)+".ttf"] = fonts.Data(f)
+	for _, f := range allStdFonts {
+		files[f.String()+".ttf"] = f.data()
 	}
 	files["cjk.otf"] = cjkFontData(t)
 	dir := fontDir(t, files)
@@ -252,7 +260,7 @@ func TestSystemRegisteredFamiliesWin(t *testing.T) {
 }
 
 func TestSystemTrueTypeCollection(t *testing.T) {
-	ttc := makeTTC(fonts.Data(fonts.JetBrainsMono), cjkFontData(t))
+	ttc := makeTTC(fontJetBrainsMono.data(), cjkFontData(t))
 	dir := fontDir(t, map[string][]byte{"both.ttc": ttc, "notes.txt": []byte("not a font"), "junk.ttf": []byte("garbage garbage garbage")})
 	c := withSystemDir(t, interOnly(t), dir)
 
@@ -290,7 +298,7 @@ func (s *systemFonts) loadedTypefaces() int {
 
 func TestSystemParsesOnlyWhatIsUsed(t *testing.T) {
 	// Two fonts of a collection; asking for one parses one.
-	dir := fontDir(t, map[string][]byte{"both.ttc": makeTTC(fonts.Data(fonts.JetBrainsMono), cjkFontData(t))})
+	dir := fontDir(t, map[string][]byte{"both.ttc": makeTTC(fontJetBrainsMono.data(), cjkFontData(t))})
 	c := withSystemDir(t, interOnly(t), dir)
 	if c.Match("JetBrains Mono", Query{}) == nil {
 		t.Fatal("no match")
@@ -303,7 +311,7 @@ func TestSystemParsesOnlyWhatIsUsed(t *testing.T) {
 func TestSystemSameTypefaceAsParse(t *testing.T) {
 	// A system font is parsed by the same code as Register: same metadata,
 	// same glyphs and advances.
-	data := fonts.Data(fonts.JetBrainsMono)
+	data := fontJetBrainsMono.data()
 	dir := fontDir(t, map[string][]byte{"mono.ttf": data})
 	c := withSystemDir(t, NewCollection(), dir)
 	got := c.Match("JetBrains Mono", Query{})
@@ -373,7 +381,7 @@ func TestSystemScriptFallbackNamesSystemFamily(t *testing.T) {
 
 func TestSystemConcurrent(t *testing.T) {
 	dir := fontDir(t, map[string][]byte{
-		"both.ttc": makeTTC(fonts.Data(fonts.JetBrainsMono), cjkFontData(t)),
+		"both.ttc": makeTTC(fontJetBrainsMono.data(), cjkFontData(t)),
 	})
 	text := "Hello 日本語の文章、中文简体字们说 mono مرحبا 😀 ab日"
 	want := itemize(withSystemDir(t, interOnly(t), dir), text, "JetBrains Mono", "Inter")
@@ -615,7 +623,7 @@ func TestSystemDirectoryScan(t *testing.T) {
 	if err := os.Mkdir(sub, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(sub, "mono.TTF"), fonts.Data(fonts.JetBrainsMono), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(sub, "mono.TTF"), fontJetBrainsMono.data(), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	fps := scanDirectory(dir, nopLogger{})

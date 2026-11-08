@@ -9,7 +9,7 @@
   "style": {
     "display": "block",
     "color": "#000000",
-    "font": "400 16px/1.5 Inter",
+    "font": "400 16px/1.5 ui-sans-serif",
     "opacity": 1
   },
   "children": [
@@ -31,7 +31,7 @@
         "classes": "p-4",
         "display": "block",
         "color": "#000000",
-        "font": "400 16px/1.5 Inter",
+        "font": "400 16px/1.5 ui-sans-serif",
         "opacity": 1
       },
       "children": [
@@ -50,7 +50,7 @@
             "height": "40px",
             "color": "#000000",
             "background": "#00a6f4",
-            "font": "400 16px/1.5 Inter",
+            "font": "400 16px/1.5 ui-sans-serif",
             "opacity": 1
           }
         },
@@ -75,7 +75,7 @@
             "height": "40px",
             "color": "#000000",
             "background": "#00a6f4",
-            "font": "400 16px/1.5 Inter",
+            "font": "400 16px/1.5 ui-sans-serif",
             "opacity": 1
           }
         },
@@ -100,7 +100,7 @@
             "height": "40px",
             "color": "#000000",
             "background": "#00a6f4",
-            "font": "400 16px/1.5 Inter",
+            "font": "400 16px/1.5 ui-sans-serif",
             "opacity": 1
           }
         }

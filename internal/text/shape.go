@@ -195,7 +195,7 @@ func (l *Layout) special(kind runKind, i int, level uint8, si *styleInfo, adv fl
 // line-height: normal).
 func (l *Layout) runMetrics(r *run) {
 	if r.kind == runText {
-		m := r.face.Metrics()
+		m := faceMetrics(r.face)
 		r.ascent, r.descent, r.gap = l.qround(m.Ascent, r.size), l.qround(m.Descent, r.size), l.qround(m.LineGap, r.size)
 		return
 	}
@@ -209,6 +209,10 @@ func (l *Layout) runMetrics(r *run) {
 // shapeRun shapes the runes [r0, r1) with face f and appends the run, its
 // clusters and its glyphs. shapeMu must be held.
 func (l *Layout) shapeRun(f *Face, r0, r1 int32, level uint8, script language.Script, si *styleInfo, segs []uint8) {
+	if f == nil {
+		l.emptyRun(r0, r1, level, si, segs)
+		return
+	}
 	shapeCalls.Add(1)
 	pt := &l.text
 	hb := f.hbFont()
@@ -327,6 +331,38 @@ func (l *Layout) shapeRun(f *Face, r0, r1 int32, level uint8, script language.Sc
 			adv += st.WordSpacing
 		}
 		cl.adv = adv
+	}
+	rn.c0, rn.c1 = c0, int32(len(l.clusters))
+	l.runs = append(l.runs, rn)
+}
+
+// emptyRun appends the run of the runes [r0, r1) when the collection has
+// no font at all: one cluster per grapheme cluster (on source character
+// boundaries, as shapeRun merges them), no glyphs, no advance (no letter-
+// or word-spacing either: the text takes no space), and the metrics of
+// noFontMetrics.
+func (l *Layout) emptyRun(r0, r1 int32, level uint8, si *styleInfo, segs []uint8) {
+	pt := &l.text
+	ri := int32(len(l.runs))
+	g := int32(len(l.glyphs))
+	rn := run{kind: runText, level: level, size: si.size, r0: r0, r1: r1, box: -1,
+		ascent: l.qround(noFontMetrics.Ascent, si.size), descent: l.qround(noFontMetrics.Descent, si.size)}
+	c0 := int32(len(l.clusters))
+	for p := r0; p < r1; {
+		q := p + 1
+		for q < r1 && (segs[q]&segGrapheme == 0 || pt.src[q] <= pt.src[q-1]) {
+			q++
+		}
+		graph := uint16(1)
+		for k := p + 1; k < q; k++ {
+			if segs[k]&segGrapheme != 0 && pt.src[k] > pt.src[k-1] {
+				graph++
+			}
+		}
+		cl := cluster{r0: p, r1: q, g0: g, g1: g, run: ri, style: pt.style[p], graph: graph}
+		cl.flags = clusterFlags(pt.runes[p:q])
+		l.clusters = append(l.clusters, cl)
+		p = q
 	}
 	rn.c0, rn.c1 = c0, int32(len(l.clusters))
 	l.runs = append(l.runs, rn)

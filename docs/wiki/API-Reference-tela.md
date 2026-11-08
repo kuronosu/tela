@@ -5126,9 +5126,11 @@ type Theme struct {
     // set 10 for shadcn/ui's look.
     Radius float32
     // FontSans and FontMono are font family names for font-sans (also
-    // the default text font) and font-mono (code, kbd, pre, samp); the
-    // embedded Inter and JetBrains Mono stay as fallbacks. "" keeps the
-    // defaults.
+    // the default text font) and font-mono (code, kbd, pre, samp), put
+    // before the default stacks, which stay as fallbacks: font-sans is
+    // ui-sans-serif, system-ui, sans-serif and font-mono ui-monospace,
+    // monospace, the system's interface and monospace fonts (ADR-244). ""
+    // keeps the defaults.
     FontSans, FontMono string
 }
 ```
@@ -5153,7 +5155,7 @@ A token missing from Colors keeps its value in DefaultTheme, so the shadcn/ui to
 func DefaultTheme() Theme
 ```
 
-DefaultTheme returns the default theme: shadcn/ui's neutral colors (v4, converted from OKLCH to extended sRGB like the Tailwind palette), Tailwind's radius scale and the embedded fonts. It is the theme of an [`App`](#type-app) whose Theme is nil. Every call returns a new map.
+DefaultTheme returns the default theme: shadcn/ui's neutral colors (v4, converted from OKLCH to extended sRGB like the Tailwind palette), Tailwind's radius scale and the generic font stacks (the system's fonts, or the ones the app embeds for them). It is the theme of an [`App`](#type-app) whose Theme is nil. Every call returns a new map.
 
 ### type ThemeValues
 
@@ -5195,7 +5197,7 @@ Color returns the value of a color token ("primary") or of a palette color ("red
 func (t ThemeValues) FontMono() string
 ```
 
-FontMono returns the family of font-mono: the theme's FontMono, or the embedded "JetBrains Mono".
+FontMono returns the first family of font-mono: the theme's FontMono, or the generic "ui-monospace".
 
 #### func (ThemeValues) FontSans
 
@@ -5203,7 +5205,7 @@ FontMono returns the family of font-mono: the theme's FontMono, or the embedded 
 func (t ThemeValues) FontSans() string
 ```
 
-FontSans returns the family of font-sans: the theme's FontSans, or the embedded "Inter".
+FontSans returns the first family of font-sans: the theme's FontSans, or the generic "ui-sans-serif".
 
 #### func (ThemeValues) Lookup
 

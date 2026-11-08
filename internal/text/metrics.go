@@ -57,6 +57,27 @@ func (m Metrics) Scale(size float32) Metrics {
 // Metrics returns the font-wide metrics in em units.
 func (f *Face) Metrics() Metrics { return f.metrics }
 
+// noFontMetrics are the metrics of text that has no face because the
+// collection has no font at all: the ascent and descent computeMetrics
+// gives a font without vertical metrics (0.8 and 0.2 em), so lines keep a
+// height (1 em with line-height: normal) and the boxes around them do not
+// collapse. The text itself has no glyphs and no width.
+var noFontMetrics = Metrics{
+	Ascent: 0.8, Descent: 0.2,
+	CapHeight: 0.7, XHeight: 0.5,
+	UnderlineOffset: 0.1, UnderlineThickness: 0.05,
+	StrikeoutOffset: -0.3, StrikeoutThickness: 0.05,
+	AvgCharWidth: 0.5, MaxCharWidth: 1,
+}
+
+// faceMetrics returns the metrics of f, or noFontMetrics for a nil face.
+func faceMetrics(f *Face) Metrics {
+	if f == nil {
+		return noFontMetrics
+	}
+	return f.metrics
+}
+
 func (f *Face) computeMetrics() Metrics {
 	tf := f.tf
 	c := f.coords

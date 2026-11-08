@@ -154,7 +154,7 @@ platform → gfx → svg → text → style → layout → {anim, gesture, seman
 - Leaf packages that import nothing from Tela (`internal/fmath`, `internal/utf16x`, `internal/editdist`, `internal/plist`, the XML property lists of macOS bundles, ADR-227; `internal/darwin`, the macOS system bindings over purego shared by the `cocoa` backend and the future Metal backend, ADR-222) may be imported by every layer, `platform` included (ADR-189).
 - `layout` does not know `core`; it works on a layout-node interface that `core` implements.
 - **Public API:** `tela`, `h`, `desktop`, `i18n`, `aria`, `kit`, `telatest`, `cmd/tela`.
-- `internal/icongen` (the engine of `tela icons gen`) imports only `internal/svg` and `internal/gfx` and is used only by `cmd/tela`. `internal/lint` (the engine of `tela lint`, ADR-173) imports `internal/style` and `internal/core` (whose role check reads `internal/semantics`) for their validation functions, type-checks with the standard library, and is used only by `cmd/tela` and by the test that checks `docs/llms.txt` (`internal/gen/llmsdoc`, ADR-177). The `fonts/…` packages (ADR-244) import only `tela` and their font files in `internal/assets/fonts`; `telatest` imports them, nothing below it does. `icons/lucide` is a separate module (ADR-102): outside this list, it may import only the public packages (`tela`, `h`, `telatest`), and nothing in the core module imports it.
+- `internal/icongen` (the engine of `tela icons gen`) imports only `internal/svg` and `internal/gfx` and is used only by `cmd/tela`. `internal/lint` (the engine of `tela lint`, ADR-173) imports `internal/style` and `internal/core` (whose role check reads `internal/semantics`) for their validation functions, type-checks with the standard library, and is used only by `cmd/tela` and by the test that checks `docs/llms.txt` (`internal/gen/llmsdoc`, ADR-177). The `fonts/…` packages (ADR-244) import only `tela` and their font files in `internal/assets/fonts`; `telatest` imports them, nothing below it does; `internal/stdfonts` (the deterministic set over `internal/assets/fonts/…`) is imported only by test files, `telatest` and `cmd/tela`. `icons/lucide` is a separate module (ADR-102): outside this list, it may import only the public packages (`tela`, `h`, `telatest`), and nothing in the core module imports it.
 - **Everything else lives in `internal/`** until its API stabilizes. Making a package public needs an ADR. The clearest candidate is `gfx`, for custom painting.
 
 ### Repository layout
@@ -177,7 +177,8 @@ tela/
 │   ├── icongen/          # SVG directory -> Go file of tela.Icon variables, behind `tela icons gen` (ADR-102)
 │   ├── text/  style/  layout/  anim/  gesture/  semantics/  core/
 │   ├── style/gen/        # go:generate from Tailwind v4 theme (§10)
-│   └── assets/fonts/     # font files, one package per family (go:embed), imported only by fonts/ and tests
+│   ├── assets/fonts/     # font files, one package per family (go:embed), imported only by fonts/, internal/stdfonts and tests
+│   └── stdfonts/         # the deterministic font set of tests, telatest and cmd/tela (ADR-244)
 ├── cmd/tela/
 ├── fonts/                # opt-in embedded fonts: inter, jetbrainsmono, notoemoji, notoarabic, a serif, standard (ADR-244)
 ├── icons/lucide/         # separate module (own go.mod): Lucide as tela.Icon variables (ADR-102)

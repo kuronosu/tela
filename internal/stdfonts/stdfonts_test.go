@@ -1,19 +1,89 @@
-package fonts_test
+package stdfonts_test
 
 import (
 	"bytes"
 	"encoding/binary"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/go-text/typesetting/font"
 	ot "github.com/go-text/typesetting/font/opentype"
 	"github.com/go-text/typesetting/font/opentype/tables"
+	"github.com/go-text/typesetting/language"
 
-	"github.com/kuronosu/tela/internal/assets/fonts"
+	"github.com/kuronosu/tela/internal/assets/fonts/inter"
+	"github.com/kuronosu/tela/internal/assets/fonts/jetbrainsmono"
+	"github.com/kuronosu/tela/internal/assets/fonts/notocoloremoji"
+	"github.com/kuronosu/tela/internal/assets/fonts/notosansarabic"
+	"github.com/kuronosu/tela/internal/stdfonts"
+	"github.com/kuronosu/tela/internal/text"
 )
+
+// TestRegistered checks that importing the package registers the set as
+// the default collection of internal/text.
+func TestRegistered(t *testing.T) {
+	c := text.NewDefaultCollection()
+	if c == nil {
+		t.Fatal("text.NewDefaultCollection is nil with stdfonts imported")
+	}
+	want := []string{stdfonts.Inter, stdfonts.JetBrainsMono, stdfonts.NotoSansArabic, stdfonts.NotoColorEmoji}
+	if got := c.Families(); !slices.Equal(got, want) {
+		t.Fatalf("Families() = %v, want %v", got, want)
+	}
+	if c == text.NewDefaultCollection() {
+		t.Error("NewDefaultCollection returns the same collection twice")
+	}
+}
+
+// TestSetResolution checks the generic families and the script fallback
+// of the set: the mapping the goldens are drawn with.
+func TestSetResolution(t *testing.T) {
+	c := stdfonts.NewCollection()
+	for generic, want := range map[string]string{
+		"sans-serif": stdfonts.Inter, "system-ui": stdfonts.Inter, "ui-sans-serif": stdfonts.Inter,
+		"monospace": stdfonts.JetBrainsMono, "ui-monospace": stdfonts.JetBrainsMono,
+		"emoji": stdfonts.NotoColorEmoji,
+		// Not mapped: the first registered family draws them.
+		"serif": stdfonts.Inter, "ui-serif": stdfonts.Inter, "cursive": stdfonts.Inter,
+	} {
+		f := c.Face(text.Query{Families: []string{generic}}, 16)
+		if f == nil || f.Typeface().Family() != want {
+			t.Errorf("%s: %v, want %s", generic, f, want)
+		}
+	}
+	rs := []rune("Hi مرحبا 😀")
+	var got []string
+	for _, r := range c.Itemize(rs, 0, len(rs), text.Query{Families: []string{"ui-sans-serif", "system-ui", "sans-serif"}}, 16, language.Latin, nil) {
+		got = append(got, string(rs[r.Start:r.End])+"="+r.Face.Typeface().Family())
+	}
+	if want := "Hi =Inter|مرحبا=Noto Sans Arabic| =Inter|😀=Noto Color Emoji"; strings.Join(got, "|") != want {
+		t.Errorf("runs %s, want %s", strings.Join(got, "|"), want)
+	}
+	// The sources are shared: a second collection gets the same faces.
+	if a, b := c.Face(text.Query{Families: []string{"Inter"}}, 16), stdfonts.NewCollection().Face(text.Query{Families: []string{"Inter"}}, 16); a != b {
+		t.Error("two collections of the set have different Inter faces")
+	}
+}
+
+// The tests below check the embedded files themselves (they were the tests
+// of internal/assets/fonts before it was split into one package per
+// family).
+
+type file struct {
+	name string
+	data []byte
+}
+
+func files() []file {
+	return []file{
+		{"Inter Variable", inter.Upright}, {"Inter Variable Italic", inter.Italic},
+		{"JetBrains Mono", jetbrainsmono.Upright}, {"JetBrains Mono Italic", jetbrainsmono.Italic},
+		{"Noto Sans Arabic", notosansarabic.Data}, {"Noto Color Emoji", notocoloremoji.Data},
+	}
+}
 
 func parse(t *testing.T, data []byte) *font.Face {
 	t.Helper()
@@ -55,61 +125,50 @@ func requireGlyphs(t *testing.T, face *font.Face, s string) {
 	}
 }
 
-func TestAllEmbeddedFontsParse(t *testing.T) {
-	all := fonts.All()
-	if len(all) != 6 {
-		t.Fatalf("All() returned %d fonts, want 6", len(all))
-	}
-	for _, f := range all {
-		t.Run(fonts.Name(f), func(t *testing.T) {
-			data := fonts.Data(f)
-			if len(data) < 100_000 {
-				t.Fatalf("embedded data is only %d bytes", len(data))
+func TestAllFilesParse(t *testing.T) {
+	for _, f := range files() {
+		t.Run(f.name, func(t *testing.T) {
+			if len(f.data) < 100_000 {
+				t.Fatalf("embedded data is only %d bytes", len(f.data))
 			}
-			parse(t, data)
+			parse(t, f.data)
 		})
 	}
-}
-
-func TestDataPanicsOnUnknownFont(t *testing.T) {
-	defer func() {
-		if recover() == nil {
-			t.Fatal("Data(0) did not panic")
+	for _, s := range stdfonts.Sources() {
+		tfs, err := s.Typefaces()
+		if err != nil || len(tfs) != len(s.Data) {
+			t.Errorf("%s: %d typefaces, %v", s.Family, len(tfs), err)
 		}
-	}()
-	fonts.Data(0)
+	}
 }
 
 func TestInter(t *testing.T) {
-	for _, f := range []fonts.Font{fonts.InterVariable, fonts.InterVariableItalic} {
-		data := fonts.Data(f)
-		a := axes(t, data)
+	for _, f := range files()[:2] {
+		a := axes(t, f.data)
 		wght, ok := a["wght"]
 		if !ok {
-			t.Fatalf("%s has no wght axis (axes: %v)", fonts.Name(f), a)
+			t.Fatalf("%s has no wght axis (axes: %v)", f.name, a)
 		}
 		if wght.Minimum != 100 || wght.Maximum != 900 {
-			t.Errorf("%s wght range = %v..%v, want 100..900", fonts.Name(f), wght.Minimum, wght.Maximum)
+			t.Errorf("%s wght range = %v..%v, want 100..900", f.name, wght.Minimum, wght.Maximum)
 		}
 		if _, ok := a["opsz"]; !ok {
-			t.Errorf("%s has no opsz axis", fonts.Name(f))
+			t.Errorf("%s has no opsz axis", f.name)
 		}
-		face := parse(t, data)
-		requireGlyphs(t, face, "AaZz09 .,;:!?@#&é ñ ü ß Ж → ✓")
+		requireGlyphs(t, parse(t, f.data), "AaZz09 .,;:!?@#&é ñ ü ß Ж → ✓")
 	}
 }
 
 func TestJetBrainsMono(t *testing.T) {
-	for _, f := range []fonts.Font{fonts.JetBrainsMono, fonts.JetBrainsMonoItalic} {
-		data := fonts.Data(f)
-		wght, ok := axes(t, data)["wght"]
+	for _, f := range files()[2:4] {
+		wght, ok := axes(t, f.data)["wght"]
 		if !ok {
-			t.Fatalf("%s has no wght axis", fonts.Name(f))
+			t.Fatalf("%s has no wght axis", f.name)
 		}
 		if wght.Minimum != 100 || wght.Maximum != 800 {
-			t.Errorf("%s wght range = %v..%v, want 100..800", fonts.Name(f), wght.Minimum, wght.Maximum)
+			t.Errorf("%s wght range = %v..%v, want 100..800", f.name, wght.Minimum, wght.Maximum)
 		}
-		face := parse(t, data)
+		face := parse(t, f.data)
 		requireGlyphs(t, face, "AaZz09 {}[]()<>=-+*/\\|_~`'\"é")
 		// Monospace: all of these advance by the same amount.
 		var want float32
@@ -122,27 +181,25 @@ func TestJetBrainsMono(t *testing.T) {
 			if i == 0 {
 				want = adv
 			} else if adv != want {
-				t.Errorf("%s: advance of %q = %v, want %v (monospace)", fonts.Name(f), r, adv, want)
+				t.Errorf("%s: advance of %q = %v, want %v (monospace)", f.name, r, adv, want)
 			}
 		}
 	}
 }
 
 func TestNotoSansArabic(t *testing.T) {
-	data := fonts.Data(fonts.NotoSansArabic)
-	a := axes(t, data)
+	a := axes(t, notosansarabic.Data)
 	for _, tag := range []string{"wght", "wdth"} {
 		if _, ok := a[tag]; !ok {
 			t.Errorf("Noto Sans Arabic has no %s axis (axes: %v)", tag, a)
 		}
 	}
-	face := parse(t, data)
 	// alef, beh, teh, meem, lam, noon, waw, yeh, plus Arabic-Indic digits.
-	requireGlyphs(t, face, "ابتملنوي ٠١٢")
+	requireGlyphs(t, parse(t, notosansarabic.Data), "ابتملنوي ٠١٢")
 }
 
 func TestNotoColorEmojiIsCOLRv1(t *testing.T) {
-	data := fonts.Data(fonts.NotoColorEmoji)
+	data := notocoloremoji.Data
 	ld, err := ot.NewLoader(bytes.NewReader(data))
 	if err != nil {
 		t.Fatal(err)
@@ -176,7 +233,7 @@ func TestNotoColorEmojiIsCOLRv1(t *testing.T) {
 }
 
 // cjkDir is the test-only CJK subset font. It is not embedded anywhere.
-const cjkDir = "../../text/testdata/fonts"
+const cjkDir = "../text/testdata/fonts"
 
 func TestCJKSubset(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join(cjkDir, "NotoSansJP-Subset.otf"))

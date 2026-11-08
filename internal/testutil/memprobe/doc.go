@@ -23,8 +23,8 @@
 //     costs memory, so the RSS of this mode is not the app's.
 //
 // MemProfileRate must be set before the allocations it should see: the
-// embedded fonts are parsed on the first use of a text collection
-// (text.embeddedTypefaces, a sync.Once), after the test starts, but the
+// fonts are parsed when text first needs them (text.FontSource, ADR-244),
+// after the test starts, but the
 // driver sets GODEBUG=memprofilerate=1 for the profile mode anyway, which
 // the runtime applies before any package initializes, and this package's
 // init sets the rate too for runs without the driver.

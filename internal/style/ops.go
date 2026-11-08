@@ -303,7 +303,7 @@ var (
 //
 // Tailwind's universal Preflight rules (margin: 0, padding: 0, border: 0
 // solid currentColor, box-sizing: border-box) are the initial values of
-// every ComputedStyle, and the root text style (Inter 16px, line-height
+// every ComputedStyle, and the root text style (font-sans 16px, line-height
 // 1.5, tab-size 4, black) is the style of an element without a parent, so
 // they appear in no list.
 func KindDefaults(k Kind) []Op { return kindDefaults(k) }

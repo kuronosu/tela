@@ -10,8 +10,9 @@
 // Instance: weight, stretch, optical size, italic/oblique axes, explicit
 // font-variation-settings). Faces are interned per typeface by their
 // normalized coordinates, so equal requests return the same *Face and the
-// same gfx FontKey; they live as long as their typeface (the embedded
-// typefaces live for the whole process).
+// same gfx FontKey; they live as long as their typeface (the typefaces of a
+// FontSource live as long as the source, the whole process for the
+// package-level sources of the font packages).
 //
 // Face implements gfx.Font. Glyph geometry is in em space: x right, y down,
 // 1 em = 1 unit, origin at the pen position on the baseline (font units
@@ -26,6 +27,32 @@
 // else hhea), cap height, x-height, underline and strikeout, with MVAR
 // deltas for variable fonts.
 //
+// # Font sources
+//
+// No font file is part of this package or of anything an app links unless
+// the app embeds one (ADR-244). A family is registered with a FontSource
+// (Collection.AddSource): its name, its files (the bytes, or a function
+// that reads them), the generic names it stands for and the scripts it is
+// a fallback for. Nothing is read or parsed then. When text first needs the
+// family (requested by name or through a generic, as a script fallback, as
+// the emoji family, or when fallback walks the registered families past
+// the ones before it) the files are read and their fonts described from
+// their small tables (name, OS/2, head, fvar), CSS matching picks the font
+// of the request among the descriptions, and only that font is parsed; the
+// first goroutine that needs it parses it while the others wait, and the
+// typefaces are shared by every collection the source is in. A file that
+// cannot be read or parsed is left out and reported (FontSource.Err, the
+// Collection's Logger); a family with nothing usable is skipped.
+//
+// The deterministic set of the tests and snapshots (Inter for sans-serif,
+// system-ui and ui-sans-serif, JetBrains Mono for monospace and
+// ui-monospace, Noto Color Emoji for emoji, Noto Sans Arabic for Arabic) is
+// internal/stdfonts, over the font files of internal/assets/fonts/...; it
+// registers itself from its init (RegisterDefaultFonts), and
+// NewDefaultCollection returns it in the binaries that link it (tests and
+// telatest), nil elsewhere. An app's text otherwise uses the system's fonts
+// (NewSystemCollection; see "System fonts").
+//
 // # Matching and fallback
 //
 // A Collection maps family names, generic families and scripts to
@@ -34,51 +61,60 @@
 // variable fonts covering their axis ranges). Collection.Itemize splits
 // text into runs of grapheme clusters that resolve to the same face:
 // requested families first, then the per-script fallback families, then
-// every other family in registration order with the embedded ones last;
-// emoji presentation (VS16, Emoji_Presentation, ZWJ sequences, skin tones)
-// tries the emoji families first and VS15 avoids color fonts. Spaces
-// resolve like any other character (a space between Arabic words takes the
-// first requested family that has it, as in browsers); controls, line and
-// paragraph separators and default ignorables keep the face before them.
-//
-// NewDefaultCollection registers the embedded fonts (Inter, JetBrains Mono,
-// Noto Sans Arabic, Noto Color Emoji; see internal/assets/fonts) and the
-// generic families sans-serif, system-ui, ui-sans-serif (Inter), monospace,
-// ui-monospace (JetBrains Mono) and emoji (Noto Color Emoji). There are no
-// system fonts here (ADR-008; see "System fonts") and no synthetic bold or
+// every other registered family in registration order, then the system
+// fonts when they are on; emoji presentation (VS16, Emoji_Presentation, ZWJ
+// sequences, skin tones) tries the emoji families first and VS15 avoids
+// color fonts. Spaces resolve like any other character (a space between
+// Arabic words takes the first requested family that has it, as in
+// browsers); controls, line and paragraph separators and default
+// ignorables keep the face before them. There is no synthetic bold or
 // oblique: a request no face covers gets the closest face as CSS matching
 // defines it.
 //
+// A collection without any font (nothing registered, nothing installed: a
+// minimal container) is not an error: Face returns nil, Itemize gives runs
+// without a face, and NewLayout lays such text out with no glyphs and no
+// width, with lines of fallback metrics (an ascent of 0.8 and a descent of
+// 0.2 em) so that the boxes around them keep their height. The collection
+// reports it once (SetNoFontHandler; core.Run prints which font package to
+// import).
+//
 // # System fonts
 //
-// Collection.EnableSystemFonts opts in to the fonts installed on the machine
-// (found by go-text's fontscan, which indexes the Linux, Windows and macOS
-// font directories and caches the index on disk). Nothing enables it
-// implicitly and the tests and snapshots never do (under "go test" the call
-// is refused unless TELA_SYSTEM_FONTS=1 or the options name only explicit
-// directories).
+// Collection.EnableSystemFonts (and NewSystemCollection, which is how
+// internal/core draws an app's text when the app embeds no font) uses the
+// fonts installed on the machine, found by go-text's fontscan, which
+// indexes the Linux, Windows and macOS font directories and caches the
+// index on disk. The tests and snapshots never do: under "go test" the
+// call is refused unless TELA_SYSTEM_FONTS=1 or the options name only
+// explicit directories, so a tree there has the deterministic set or no
+// font at all.
 //
-// System fonts serve named families that are not registered ("Segoe UI",
-// "Noto Sans CJK JP") and, last of all in the fallback order, clusters that
-// no requested, per-script, registered or embedded family covers (CJK,
-// Hebrew, Devanagari, Thai...). Being last keeps default rendering of
-// Latin, Arabic and emoji the same on every machine: the installed fonts
-// only fill what the embedded ones cannot draw. A script is drawn by one
-// family: the installed families that support it are ranked once per script
-// (sans-serif designs before others, then the region of
+// System fonts serve the generic families the collection does not map
+// (system-ui, ui-sans-serif, sans-serif, ui-serif, serif, ui-monospace,
+// monospace, emoji, cursive, fantasy, math: the first installed family of
+// an ordered list for the running OS, sysgeneric.go, with the desktop's
+// own interface and monospace families first when the platform reads them,
+// SystemFontOptions.UIFamily and MonoFamily), named families that are not
+// registered ("Segoe UI", "Noto Sans CJK JP") and, last of all in the
+// fallback order, clusters that no requested, per-script or registered
+// family covers (CJK, Hebrew, Devanagari, Thai...). A script is drawn by
+// one family: the installed families that support it are ranked once per
+// script (sans-serif designs before others, then the region of
 // SystemFontOptions.Lang for CJK families, then the family that covers the
 // fewest characters, then the name) and a cluster takes the first of them
 // that covers it; clusters with no script of their own follow their run's.
 //
-// The scan and the parsing are lazy: the index loads at the first unknown
-// family name or uncovered cluster, a font file is read and parsed when a
-// face of it is first used (only the face CSS matching selects, from the
-// index's family, style and weight), and a TrueType collection is read once.
-// Installed fonts load through newTypeface, the code of ParseTypefaces, so
-// they share the face, variation and determinism handling of the embedded
-// ones: TrueType outlines through this package's port, CFF and CFF2 through
-// go-text (ADR-030). Fonts without outlines (bitmap-only color fonts) are
-// skipped. Output that uses them depends on the machine, by nature.
+// The scan and the parsing are lazy: the index loads at the first generic
+// or unknown family name or uncovered cluster, a font file is read and
+// parsed when a face of it is first used (only the face CSS matching
+// selects, from the index's family, style and weight), and a TrueType
+// collection is read once. Installed fonts load through newTypeface, the
+// code of ParseTypefaces, so they share the face, variation and
+// determinism handling of the embedded ones: TrueType outlines through
+// this package's port, CFF and CFF2 through go-text (ADR-030). Fonts
+// without outlines (bitmap-only color fonts) are skipped. Output that uses
+// them depends on the machine, by nature.
 //
 // Optical size follows CSS font-optical-sizing: auto: opsz is the font size
 // in CSS pixels, rounded to whole pixels by the Collection so that a
@@ -100,10 +136,12 @@
 // WOFF and dfont files go through go-text's copies. A Face allocates its
 // per-glyph caches in pages of 128 glyphs on first use (glyphSlots).
 //
-// go-text's own parse is most of the fonts' memory (about 35 MB for the
-// embedded fonts, three quarters of it glyf and gvar that Tela does not
-// use, since it loads TrueType outlines itself): see
-// docs/adr/243-font-loading-memory.md.
+// go-text's own parse is most of a typeface's memory (about 35 MB for the
+// six files of the standard set, three quarters of it glyf and gvar that
+// Tela does not use, since it loads TrueType outlines itself): see
+// docs/adr/243-font-loading-memory.md. Since a FontSource parses a font
+// only when text draws with it (ADR-244), a program pays for the faces it
+// uses: text in Inter upright parses that one file.
 //
 // # Determinism
 //

@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/stdfonts"
 	"github.com/kuronosu/tela/internal/style"
-	"github.com/kuronosu/tela/internal/text"
 )
 
 // Element constructors in the shape of package h.
@@ -25,8 +25,8 @@ func img(c ...Child) Node    { return Primitive(style.KindImg, c...) }
 // nd returns the content of n, a node made by a constructor.
 func nd(n Node) *desc { return n.(node).d }
 
-// testFonts is shared by the tests: the embedded fonts only.
-var testFonts = text.NewDefaultCollection()
+// testFonts is shared by the tests: the standard (deterministic) fonts only.
+var testFonts = stdfonts.NewCollection()
 
 // newTestTree returns a tree of the given viewport with root mounted,
 // with dev messages collected in *logs.

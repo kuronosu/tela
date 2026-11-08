@@ -60,28 +60,28 @@ their original copyright notice. Add one section per source project.
 - **Source:** https://github.com/rsms/inter (release v4.1, `Inter-4.1.zip`, sha256 `9883fdd4a49d4fb66bd8177ba6625ef9a64aa45899767dde3d36aa425756b11e`)
 - **License:** OFL-1.1, Copyright 2016 The Inter Project Authors (`internal/assets/fonts/inter/OFL.txt`, the release's `LICENSE.txt`)
 - **Used in:** `internal/assets/fonts/inter/InterVariable.ttf` (sha256 `4989b125924991b90d05b2d16e0e388c48f7d5bb8b30539bbf9c755278d0ccaf`) and `InterVariable-Italic.ttf` (sha256 `d6f1f6a172d9e588438db9f986fd5cfad7b30f644374080a8a9d4d91e344586f`)
-- **Notes:** Vendored unchanged from the zip root; default sans-serif. Variable axes: `opsz`, `wght`.
+- **Notes:** Vendored unchanged from the zip root. Embedded by the Go package `internal/assets/fonts/inter`, which only the packages that embed Inter import (the deterministic font set of tests, `internal/stdfonts`, where it is the sans-serif; ADR-244). Variable axes: `opsz`, `wght`.
 
 ## JetBrains Mono (font)
 
 - **Source:** https://github.com/JetBrains/JetBrainsMono (release v2.304, `JetBrainsMono-2.304.zip`, sha256 `6f6376c6ed2960ea8a963cd7387ec9d76e3f629125bc33d1fdcd7eb7012f7bbf`)
 - **License:** OFL-1.1, Copyright 2020 The JetBrains Mono Project Authors (`internal/assets/fonts/jetbrainsmono/OFL.txt`, the release's `OFL.txt`)
 - **Used in:** `internal/assets/fonts/jetbrainsmono/JetBrainsMono-wght.ttf` (sha256 `662a196d58f1183bf2d77428b6d5283fe3f45161ab021bea4036bc98e5cac016`) and `JetBrainsMono-Italic-wght.ttf` (sha256 `f115aaa12113718c02ce72864fe6823b87241bc23d3e44cf1220155f861063f2`)
-- **Notes:** Vendored unchanged from `fonts/variable/`; renamed from `JetBrainsMono[wght].ttf` and `JetBrainsMono-Italic[wght].ttf` to avoid brackets in `go:embed` paths. Default monospace. Variable axis: `wght`.
+- **Notes:** Vendored unchanged from `fonts/variable/`; renamed from `JetBrainsMono[wght].ttf` and `JetBrainsMono-Italic[wght].ttf` to avoid brackets in `go:embed` paths. Embedded by the Go package `internal/assets/fonts/jetbrainsmono` (the monospace of `internal/stdfonts`; ADR-244). Variable axis: `wght`.
 
 ## Noto Sans Arabic (font)
 
 - **Source:** https://github.com/google/fonts, `ofl/notosansarabic/` at commit `8b0a1d0f5983c89bc2b93f1b5fb55f9e252744b5` (font version 2.012; upstream https://github.com/notofonts/arabic)
 - **License:** OFL-1.1, Copyright 2022 The Noto Project Authors (`internal/assets/fonts/notosansarabic/OFL.txt`)
 - **Used in:** `internal/assets/fonts/notosansarabic/NotoSansArabic-wdth-wght.ttf` (sha256 `63111b5b2e074dd48cc67692e0a2726d86ee94c1c37fe8598257b7b4e87e869e`)
-- **Notes:** Vendored unchanged; renamed from `NotoSansArabic[wdth,wght].ttf` to avoid brackets and a comma in `go:embed` paths. Arabic script fallback. Variable axes: `wdth`, `wght`.
+- **Notes:** Vendored unchanged; renamed from `NotoSansArabic[wdth,wght].ttf` to avoid brackets and a comma in `go:embed` paths. Embedded by the Go package `internal/assets/fonts/notosansarabic` (the Arabic fallback of `internal/stdfonts`; ADR-244). Variable axes: `wdth`, `wght`.
 
 ## Noto Color Emoji (font)
 
 - **Source:** https://github.com/googlefonts/noto-emoji (tag v2.051, commit `8998f5dd683424a73e2314a8c1f1e359c19e8742`, `fonts/Noto-COLRv1.ttf`)
 - **License:** OFL-1.1 (`internal/assets/fonts/notocoloremoji/OFL.txt`, the repository's `LICENSE`), Copyright 2022 Google Inc.
 - **Used in:** `internal/assets/fonts/notocoloremoji/Noto-COLRv1.ttf` (sha256 `0ae57fe58645638523ba35f388d93739d292539a9acb84df5700c81b1e1a28d2`)
-- **Notes:** Vendored unchanged. This is the COLRv1 (vector) build; the CBDT bitmap build is not used. The `fonts/` directory no longer exists on the repository's main branch, so the tag is pinned. Newer tags (such as v2026-09-24-unicode18_0) publish only the 3D fonts as release assets.
+- **Notes:** Vendored unchanged. Embedded by the Go package `internal/assets/fonts/notocoloremoji` (the emoji family of `internal/stdfonts`; ADR-244). This is the COLRv1 (vector) build; the CBDT bitmap build is not used. The `fonts/` directory no longer exists on the repository's main branch, so the tag is pinned. Newer tags (such as v2026-09-24-unicode18_0) publish only the 3D fonts as release assets.
 
 ## Noto Sans CJK JP (font, test-only subset)
 

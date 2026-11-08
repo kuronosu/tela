@@ -15,8 +15,8 @@ func TestRootTextStyle(t *testing.T) {
 	eq(t, "Color", s.Text.Color, gfx.Black)
 	eq(t, "LH", s.Text.LineHeight, text.LineHeightMultiple(1.5))
 	eq(t, "Tab", s.Text.TabSize, 4)
-	if len(s.Text.FontFamily) != 1 || s.Text.FontFamily[0] != "Inter" {
-		t.Errorf("FontFamily = %v, want [Inter]", s.Text.FontFamily)
+	if want := []string{"ui-sans-serif", "system-ui", "sans-serif"}; !slices.Equal(s.Text.FontFamily, want) {
+		t.Errorf("FontFamily = %v, want %v", s.Text.FontFamily, want)
 	}
 	eq(t, "Display", s.Display, DisplayBlock)
 	eq(t, "Opacity", s.Opacity, 1)
@@ -76,7 +76,7 @@ func TestInheritance(t *testing.T) {
 	eq(t, "Deco", child.Text.Decoration, parent.Text.Decoration)
 	eq(t, "WS", child.Text.WhiteSpace, text.WhiteSpaceNowrap)
 	eq(t, "Numeric", child.Text.Numeric, text.NumericTabular)
-	eq(t, "Family", child.Text.FontFamily[0], "JetBrains Mono")
+	eq(t, "Family", child.Text.FontFamily[0], "ui-monospace")
 	eq(t, "Cursor", child.Cursor, CursorPointer)
 	eq(t, "PE", child.PointerEvents, PointerEventsNone)
 	eq(t, "US", child.UserSelect, UserSelectNone)
@@ -205,7 +205,7 @@ func TestElementDefaults(t *testing.T) {
 	eq(t, "strong weight", of(KindStrong).Text.FontWeight, 900) // bolder than 700
 	eq(t, "strong from 400", Compute(testCx, Input{Kind: KindStrong, Parent: style(t, "")}).Text.FontWeight, 700)
 	eq(t, "em style", of(KindEm).Text.FontStyle, text.StyleItalic)
-	eq(t, "code family", of(KindCode).Text.FontFamily[0], "JetBrains Mono")
+	eq(t, "code family", of(KindCode).Text.FontFamily[0], "ui-monospace")
 	eq(t, "code size", of(KindCode).Text.FontSize, parent.Text.FontSize)
 	eq(t, "a color", of(KindA).Text.Color, parent.Text.Color)
 

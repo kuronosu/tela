@@ -4,17 +4,16 @@ import (
 	"testing"
 
 	"github.com/go-text/typesetting/font/opentype/tables"
-	"github.com/kuronosu/tela/internal/assets/fonts"
 )
 
-// BenchmarkParseEmbedded parses every embedded font file one after another:
-// the start-up cost of the fonts (embeddedTypefaces parses them in
-// parallel).
+// BenchmarkParseEmbedded parses every standard font file one after another:
+// what an app that embeds all of them pays when it draws with every one
+// (a FontSource parses a font when text first needs it).
 func BenchmarkParseEmbedded(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
-		for _, f := range fonts.All() {
-			if _, err := ParseTypefaces(fonts.Data(f), ""); err != nil {
+		for _, f := range allStdFonts {
+			if _, err := ParseTypefaces(f.data(), ""); err != nil {
 				b.Fatal(err)
 			}
 		}
@@ -44,7 +43,7 @@ func benchGlyphLoad(b *testing.B, f *Face, cold bool) {
 
 func interFace(inst Instance) *Face {
 	// A typeface of its own, so that the cold benchmarks can drop its caches.
-	tfs, err := ParseTypefaces(fonts.Data(fonts.InterVariable), "")
+	tfs, err := ParseTypefaces(fontInter.data(), "")
 	if err != nil {
 		panic(err)
 	}
@@ -52,7 +51,7 @@ func interFace(inst Instance) *Face {
 }
 
 func emojiFace() *Face {
-	tfs, err := ParseTypefaces(fonts.Data(fonts.NotoColorEmoji), "")
+	tfs, err := ParseTypefaces(fontNotoColorEmoji.data(), "")
 	if err != nil {
 		panic(err)
 	}

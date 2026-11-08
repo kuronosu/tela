@@ -70,7 +70,7 @@ func cacheDirectory(dir string) (string, error) {
 // (TrueType, OpenType and collections), skipping what cannot be read. It is
 // fontscan's scan without its cache, which fontscan only offers for the
 // operating system's directories.
-func scanDirectory(dir string, logger SystemFontLogger) []fontscan.Footprint {
+func scanDirectory(dir string, logger Logger) []fontscan.Footprint {
 	var fps []fontscan.Footprint
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {

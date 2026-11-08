@@ -18,9 +18,10 @@ import (
 	"github.com/go-text/typesetting/language"
 )
 
-// SystemFontOptions configures Collection.EnableSystemFonts. The zero value
-// uses the operating system's font directories and an on-disk index in the
-// user cache directory.
+// SystemFontOptions configures Collection.EnableSystemFonts and
+// NewSystemCollection. The zero value uses the operating system's font
+// directories, an on-disk index in the user cache directory and the
+// operating system's generic families.
 type SystemFontOptions struct {
 	// CacheDir is the directory of go-text's font index cache (the file
 	// font_index_v*.cache). The default is os.UserCacheDir()/tela/fonts.
@@ -50,60 +51,78 @@ type SystemFontOptions struct {
 	// LC_MESSAGES and LANG environment variables, else Japanese forms are
 	// preferred, then Simplified Chinese, Korean, Traditional Chinese.
 	Lang string
+	// UIFamily and MonoFamily are the desktop's interface and monospace
+	// font families, when the platform can tell them (on Linux, the
+	// desktop's settings). When set and installed, UIFamily comes first
+	// for system-ui, ui-sans-serif and sans-serif, and MonoFamily for
+	// ui-monospace and monospace, before the operating system's lists
+	// (systemGenerics).
+	UIFamily, MonoFamily string
 	// Logger receives diagnostics of the scan (directories used, files that
 	// could not be read, cache problems). The default discards them.
-	Logger SystemFontLogger
-}
+	Logger Logger
 
-// SystemFontLogger receives the diagnostics of the system font scan; a *log.Logger implements it.
-type SystemFontLogger interface {
-	Printf(format string, args ...any)
+	// goos selects the generic family lists; "" is runtime.GOOS. Tests set
+	// it to check another operating system's lists.
+	goos string
 }
 
 // EnableSystemFonts lets the collection use the fonts installed on the
-// machine, found with go-text's fontscan. It is off by default and never
-// enabled implicitly: NewDefaultCollection uses the embedded fonts only, so
-// that snapshots and tests are the same on every machine (ADR-008). Do not
-// call it from tests; under "go test" it returns an error unless
+// machine, found with go-text's fontscan. A collection made by
+// NewCollection does not use them until this is called;
+// NewSystemCollection, which internal/core uses for an app's text when the
+// app embeds no font (ADR-244), calls it. Tests must not depend on the
+// installed fonts (ADR-008): under "go test" it returns an error unless
 // TELA_SYSTEM_FONTS=1 is set or the options skip the system directories.
 //
-// System fonts serve two purposes:
+// System fonts serve three purposes:
 //
-//   - Named families. A requested family that is not registered (and is not
-//     a generic name such as "serif") resolves to the installed family of
-//     that name when there is one: "Segoe UI", "DejaVu Serif", "Noto Sans CJK
-//     JP". Registered families always win over installed ones of the same
-//     name. CSS matching (stretch, style, weight) is the collection's own;
-//     only the face that matches is read from disk. Fonts that have no
-//     outlines (bitmap-only color fonts such as Apple Color Emoji) are
-//     ignored.
-//   - Fallback. A grapheme cluster that no requested, script, registered or
-//     embedded family covers (CJK, Hebrew, Devanagari, Thai...) is drawn with
-//     an installed family that covers all of it. System fonts come after
-//     everything else, so the embedded fonts still draw Latin, Arabic and
-//     emoji exactly as without them, and the installed fonts only fill the
-//     gaps. A script is drawn by one family: the installed families that
-//     support the script (their fonts cover at least half as much of it as
-//     the font that covers most) are ranked once per script, and a cluster
-//     takes the first of them that covers it, so Thai is Noto Sans Thai
-//     throughout and not partly a narrower font that has some Thai
-//     characters. The rank is: sans-serif designs over unknown, serif and
-//     symbol or monospace families, then the region of Lang for CJK
-//     families, then the family that covers the fewest characters (Noto
-//     Sans Thai, 101, before its Looped design, 146; a script-specific font
-//     over a pan-Unicode one), then the name. Clusters with no script of
-//     their own (punctuation) use the script of their run. Families that do
-//     not support the script come after, by the same rank, for the clusters
-//     only they cover.
+//   - Generic families. A generic name ("system-ui", "ui-sans-serif",
+//     "sans-serif", "ui-serif", "serif", "ui-monospace", "monospace",
+//     "emoji", "cursive", "fantasy", "math", "ui-rounded" on macOS) that
+//     the collection does not map (SetGeneric, FontSource.Generics)
+//     resolves to the first installed family of the operating system's
+//     list for it: macOS SF (system-ui, ui-sans-serif), Helvetica, New
+//     York, Times, SF Mono and Menlo, Apple Color Emoji; Windows Segoe UI,
+//     Cambria and Times New Roman, Cascadia Mono, Consolas and Courier
+//     New, Segoe UI Emoji; on Linux and the BSDs fontconfig's preferences
+//     (Cantarell, Noto Sans, DejaVu Sans, Liberation Sans...). The
+//     desktop's own families (SystemFontOptions.UIFamily, MonoFamily) come
+//     first. See systemGenerics for the lists.
+//   - Named families. A requested family that is not registered resolves
+//     to the installed family of that name when there is one: "Segoe UI",
+//     "DejaVu Serif", "Noto Sans CJK JP". Registered families always win
+//     over installed ones of the same name. CSS matching (stretch, style,
+//     weight) is the collection's own; only the face that matches is read
+//     from disk. Fonts that have no outlines (bitmap-only color fonts such
+//     as Apple Color Emoji) are ignored.
+//   - Fallback. A grapheme cluster that no requested, script or registered
+//     family covers (CJK, Hebrew, Devanagari, Thai...) is drawn with an
+//     installed family that covers all of it. System fonts come after
+//     everything else, so the registered fonts draw what they can and the
+//     installed fonts fill the gaps. A script is drawn by one family: the
+//     installed families that support the script (their fonts cover at
+//     least half as much of it as the font that covers most) are ranked
+//     once per script, and a cluster takes the first of them that covers
+//     it, so Thai is Noto Sans Thai throughout and not partly a narrower
+//     font that has some Thai characters. The rank is: sans-serif designs
+//     over unknown, serif and symbol or monospace families, then the region
+//     of Lang for CJK families, then the family that covers the fewest
+//     characters (Noto Sans Thai, 101, before its Looped design, 146; a
+//     script-specific font over a pan-Unicode one), then the name. Clusters
+//     with no script of their own (punctuation) use the script of their
+//     run. Families that do not support the script come after, by the same
+//     rank, for the clusters only they cover.
 //
-// Nothing is scanned or read until it is needed: the first unknown family
-// name or the first cluster the other fonts cannot draw loads the index (a
-// full scan the first time, then the cached index checks file times);
-// parsing a font file waits until a face of it is used. Loaded fonts stay in
-// memory with the collection (a TrueType collection is read once). The
-// methods that use the fonts, Face, Match and Itemize, stay safe for
-// concurrent use; the first one to need the index waits for it while others
-// that need it too wait with it, and those that do not need it go on.
+// Nothing is scanned or read until it is needed: the first generic or
+// unknown family name or the first cluster the other fonts cannot draw
+// loads the index (a full scan the first time, then the cached index
+// checks file times); parsing a font file waits until a face of it is
+// used. Loaded fonts stay in memory with the collection (a TrueType
+// collection is read once). The methods that use the fonts, Face, Match
+// and Itemize, stay safe for concurrent use; the first one to need the
+// index waits for it while others that need it too wait with it, and those
+// that do not need it go on.
 //
 // Fonts load through the same code as ParseTypefaces, so they get the same
 // instances, variations and determinism: TrueType outlines through this
@@ -127,6 +146,18 @@ func (c *Collection) EnableSystemFonts(opts SystemFontOptions) error {
 	clear(c.cache)
 	c.mu.Unlock()
 	return nil
+}
+
+// NewSystemCollection returns a collection of the fonts installed on the
+// machine: nothing is registered, the generic families resolve to the
+// operating system's (see EnableSystemFonts) and every other name to the
+// installed family of that name. Families registered later (AddSource,
+// Register) come before the installed ones. When the system fonts cannot
+// be enabled (under go test, see EnableSystemFonts) it returns an empty
+// collection, which lays text out with no glyphs, and the error.
+func NewSystemCollection(opts SystemFontOptions) (*Collection, error) {
+	c := NewCollection()
+	return c, c.EnableSystemFonts(opts)
 }
 
 // DisableSystemFonts turns system fonts off again and drops what was loaded.
@@ -194,9 +225,10 @@ const maxFallbackFamilies = 8
 // systemFonts is the lazily loaded view of the installed fonts of one
 // Collection.
 type systemFonts struct {
-	opts   SystemFontOptions
-	logger SystemFontLogger
-	prefs  []string // region suffixes in order of preference
+	opts     SystemFontOptions
+	logger   Logger
+	prefs    []string            // region suffixes in order of preference
+	generics map[string][]string // normalized generic name -> normalized families, in order
 
 	indexOnce sync.Once
 	indexed   atomic.Bool
@@ -218,6 +250,7 @@ func newSystemFonts(opts SystemFontOptions) *systemFonts {
 		opts:      opts,
 		logger:    opts.Logger,
 		prefs:     regionPreference(opts.Lang),
+		generics:  systemGenerics(opts.goos, opts.UIFamily, opts.MonoFamily),
 		data:      map[string][]byte{},
 		typefaces: map[entryKey]*Typeface{},
 		fams:      map[famKey]*family{},
@@ -273,19 +306,17 @@ func (s *systemFonts) ensureIndex() {
 	})
 }
 
-// family returns the installed family called name, with the face that
-// matches q, or nil. Generic names never name a font.
-func (s *systemFonts) family(name string, q Query) *family {
-	key := normalizeFamily(name)
-	if key == "" || isGenericName(key) {
-		return nil
-	}
+// has reports whether an installed family has the normalized name key,
+// loading the index on first use.
+func (s *systemFonts) has(key string) bool {
 	s.ensureIndex()
-	if len(s.byFamily[key]) == 0 {
-		return nil
-	}
-	return s.familyByKey(key, q)
+	return len(s.byFamily[key]) > 0
 }
+
+// genericList returns the normalized names of the installed families that
+// the generic name key (normalized) resolves to, in order of preference;
+// the families need not be installed.
+func (s *systemFonts) genericList(key string) []string { return s.generics[key] }
 
 // familyByKey returns the family with the face of the entry that best
 // matches q among the entries of the normalized family name key, parsed on

@@ -902,11 +902,11 @@ func TestTypographyClasses(t *testing.T) {
 		{"font-light font-semibold", func(t *testing.T, s *ComputedStyle) { eq(t, "Weight", s.Text.FontWeight, 600) }},
 		{"font-[550]", func(t *testing.T, s *ComputedStyle) { eq(t, "Weight", s.Text.FontWeight, 550) }},
 		{"font-mono", func(t *testing.T, s *ComputedStyle) {
-			if len(s.Text.FontFamily) != 1 || s.Text.FontFamily[0] != "JetBrains Mono" {
+			if len(s.Text.FontFamily) != 2 || s.Text.FontFamily[0] != "ui-monospace" || s.Text.FontFamily[1] != "monospace" {
 				t.Errorf("Family = %v", s.Text.FontFamily)
 			}
 		}},
-		{"font-serif", func(t *testing.T, s *ComputedStyle) { eq(t, "Family", s.Text.FontFamily[0], "serif") }},
+		{"font-serif", func(t *testing.T, s *ComputedStyle) { eq(t, "Family", s.Text.FontFamily[0], "ui-serif") }},
 		{"font-['Open_Sans',sans-serif]", func(t *testing.T, s *ComputedStyle) {
 			if len(s.Text.FontFamily) != 2 || s.Text.FontFamily[0] != "Open Sans" || s.Text.FontFamily[1] != "sans-serif" {
 				t.Errorf("Family = %v", s.Text.FontFamily)

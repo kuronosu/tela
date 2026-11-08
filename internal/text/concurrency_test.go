@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/go-text/typesetting/language"
-	"github.com/kuronosu/tela/internal/assets/fonts"
 	"github.com/kuronosu/tela/internal/gfx"
 )
 
@@ -32,13 +31,13 @@ func glyphSummary(f *Face, g gfx.GlyphID) uint64 {
 // crash.
 func TestConcurrentFaces(t *testing.T) {
 	type subject struct {
-		font fonts.Font
+		font stdFont
 		inst Instance
 		max  int // glyphs to check
 	}
 	subjects := []subject{
-		{fonts.InterVariable, Instance{Weight: 550, OpticalSize: 22}, 1200},
-		{fonts.NotoColorEmoji, Instance{}, 600},
+		{fontInter, Instance{Weight: 550, OpticalSize: 22}, 1200},
+		{fontNotoColorEmoji, Instance{}, 600},
 	}
 	if testing.Short() {
 		for i := range subjects {
@@ -47,7 +46,7 @@ func TestConcurrentFaces(t *testing.T) {
 	}
 	for _, s := range subjects {
 		fresh := func() *Face {
-			tfs, err := ParseTypefaces(fonts.Data(s.font), "Test")
+			tfs, err := ParseTypefaces(s.font.data(), "Test")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -74,7 +73,7 @@ func TestConcurrentFaces(t *testing.T) {
 				}
 				for _, g := range rand.New(rand.NewPCG(seed, seed)).Perm(n) {
 					if got := glyphSummary(f, gfx.GlyphID(g)); got != want[g] {
-						errs <- fonts.Name(s.font) + ": a glyph differs from the sequential reference"
+						errs <- s.font.String() + ": a glyph differs from the sequential reference"
 						return
 					}
 				}
@@ -120,7 +119,7 @@ func TestConcurrentCollection(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < 5; i++ {
-			if _, err := c.Register(fonts.Data(fonts.JetBrainsMonoItalic), "Extra"); err != nil {
+			if _, err := c.Register(fontJetBrainsMonoItalic.data(), "Extra"); err != nil {
 				t.Error(err)
 			}
 		}

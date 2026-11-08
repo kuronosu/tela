@@ -2,8 +2,8 @@
 
 `NotoSansJP-Subset.otf` is a subset of Noto Sans CJK JP Regular. It exists only
 for tests and goldens of CJK line breaking and mixed-script text. **It is not
-embedded in any non-test package**; the production fallback fonts live in
-`internal/assets/fonts`.
+embedded in any non-test package**; the fonts Tela can embed live in
+`internal/assets/fonts/...`, one package per family (ADR-244).
 
 ## Source
 

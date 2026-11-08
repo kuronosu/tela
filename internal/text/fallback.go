@@ -20,7 +20,9 @@ type Run struct {
 // every character of the cluster other than variation selectors, joiners
 // and emoji tags. When no face covers the whole cluster, the first face
 // that has its first character is used, and failing that the first
-// requested face (which then shows .notdef).
+// requested face (which then shows .notdef). Families are parsed as the
+// walk reaches them: text that the first requested family draws never
+// parses the others.
 //
 // Emoji presentation: a cluster with VS16 (U+FE0F), a character with
 // Emoji_Presentation, a ZWJ sequence or a skin tone modifier tries the
@@ -30,8 +32,8 @@ type Run struct {
 //
 // With system fonts enabled (Collection.EnableSystemFonts), a cluster that
 // none of those families covers is looked up among the installed fonts,
-// after every other family, so the embedded fonts still draw everything
-// they can and default rendering is the same on every machine.
+// after every other family, so the registered fonts still draw everything
+// they can.
 //
 // Clusters of one control, line or paragraph separator or default
 // ignorable character keep the face of the preceding cluster. Spaces
@@ -43,7 +45,9 @@ type Run struct {
 // script is the script of the text (from itemization); it chooses the
 // per-script fallback for clusters whose characters are all Common or
 // Inherited. Runs are appended to out. size is the font size in CSS pixels
-// (optical size). The text slice is not retained.
+// (optical size). The text slice is not retained. A run's Face is nil only
+// when the collection has no font at all (see SetNoFontHandler): the whole
+// range is then one run.
 //
 // The API takes runes rather than a go-text shaping.Fontmap because
 // Fontmap resolves one rune at a time and cannot see variation selectors
@@ -78,6 +82,7 @@ func (c *Collection) Itemize(text []rune, start, end int, q Query, size float32,
 // own, as Itemize does.
 func (cs *candidates) itemize(text []rune, start, end int, segs []uint8, script language.Script, out []Run) []Run {
 	var cur *Face
+	started := false
 	runStart := start
 	add := func(c0, c1 int) {
 		cluster := text[c0:c1]
@@ -87,11 +92,11 @@ func (cs *candidates) itemize(text []rune, start, end int, segs []uint8, script 
 		} else {
 			f = cs.resolve(cluster, script)
 		}
-		if f != cur {
-			if cur != nil {
+		if !started || f != cur {
+			if started {
 				out = append(out, Run{runStart, c0, cur})
 			}
-			cur, runStart = f, c0
+			cur, runStart, started = f, c0, true
 		}
 	}
 	if segs != nil && segs[start]&segGrapheme != 0 {
@@ -112,7 +117,7 @@ func (cs *candidates) itemize(text []rune, start, end int, segs []uint8, script 
 			add(c0, c0+len(g.Text))
 		}
 	}
-	if cur != nil {
+	if started {
 		out = append(out, Run{runStart, end, cur})
 	}
 	return out
@@ -205,41 +210,39 @@ func covers(f *Face, cluster []rune) bool {
 	return any
 }
 
-// resolve picks the face of one cluster.
+// resolve picks the face of one cluster, or nil when the collection has no
+// font at all.
 func (cs *candidates) resolve(cluster []rune, script language.Script) *Face {
 	pres := clusterPresentation(cluster)
 	sc := clusterScript(cluster, script)
-	// Kana and Hrkt fall back to the Han list when they have none of their own.
-	scriptFaces := cs.scripts[sc]
-	if len(scriptFaces) == 0 && (sc == language.Hiragana || sc == language.Katakana || sc == language.Katakana_Or_Hiragana) {
-		scriptFaces = cs.scripts[language.Han]
-	}
 
-	var order [5][]*Face
-	switch pres {
-	case presEmoji:
-		order = [5][]*Face{cs.emoji, cs.primary, scriptFaces, cs.rest}
-	default:
-		order = [5][]*Face{cs.primary, scriptFaces, cs.rest}
-	}
+	// try walks the fallback order: the emoji families for emoji
+	// presentation, the requested families, the script's, then every other
+	// registered family. Each list is resolved, and each family parsed,
+	// only when the walk reaches it.
 	try := func(ok func(*Face) bool) *Face {
-		for _, list := range order {
-			for _, f := range list {
-				if pres == presText && f.tf.IsColor() {
-					continue
-				}
-				if ok(f) {
-					return f
-				}
+		accept := ok
+		if pres == presText {
+			accept = func(f *Face) bool { return !f.tf.IsColor() && ok(f) }
+		}
+		if pres == presEmoji {
+			if f := cs.first(cs.emojiSlots(), accept); f != nil {
+				return f
 			}
 		}
-		return nil
+		if f := cs.first(cs.primary, accept); f != nil {
+			return f
+		}
+		if f := cs.first(cs.scriptSlots(sc), accept); f != nil {
+			return f
+		}
+		return cs.first(cs.rest, accept)
 	}
 	if f := try(func(f *Face) bool { return covers(f, cluster) }); f != nil {
 		return f
 	}
-	// The embedded and registered fonts cannot draw the cluster: the system
-	// fonts, when enabled, come last (sysfonts.go).
+	// The registered fonts cannot draw the cluster: the system fonts, when
+	// enabled, come last (sysfonts.go).
 	if f := cs.system(cluster, sc, pres == presText); f != nil {
 		return f
 	}
@@ -254,10 +257,8 @@ func (cs *candidates) resolve(cluster []rune, script language.Script) *Face {
 	if f := try(func(f *Face) bool { return f.HasRune(first) }); f != nil {
 		return f
 	}
-	for _, list := range order {
-		if len(list) > 0 {
-			return list[0]
-		}
+	if f := try(func(*Face) bool { return true }); f != nil {
+		return f
 	}
-	return nil
+	return cs.defaultFace()
 }

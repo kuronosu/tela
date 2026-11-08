@@ -3,14 +3,15 @@ package style
 import (
 	"testing"
 
+	"github.com/kuronosu/tela/internal/stdfonts"
 	"github.com/kuronosu/tela/internal/text"
 )
 
 // TestChUnitMatchesInter checks that ChPerEm approximates the advance of
-// "0" in the embedded Inter, which is what the CSS ch unit means (within a
+// "0" in Inter (the standard sans), which is what the CSS ch unit means (within a
 // few percent: the unit is documented as approximate).
 func TestChUnitMatchesInter(t *testing.T) {
-	c := text.NewDefaultCollection()
+	c := stdfonts.NewCollection()
 	p := &text.Paragraph{Text: "0", Default: text.TextStyle{Families: []string{"Inter"}, Size: 100}}
 	l := text.NewLayout(c, p)
 	l.BreakLines(1000)

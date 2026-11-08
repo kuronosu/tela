@@ -12,7 +12,6 @@ import (
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/auto"
-	"github.com/kuronosu/tela/internal/text"
 )
 
 func init() {
@@ -61,8 +60,11 @@ type Options struct {
 // window without Options.OnClose, or Quit; ARCHITECTURE section 15) or
 // the platform fails, after unmounting every window.
 //
-// Without opts.Fonts, the text uses the embedded fonts plus the system's
-// fonts for the scripts the embedded ones cannot draw (ADR-035). Without
+// Without opts.Fonts, the text uses the installed system fonts, the
+// generic families (system-ui, sans-serif, monospace, emoji...) resolved
+// per operating system (ADR-244), or the default font set when the binary
+// registers one (internal/stdfonts, in tests); Run reports on ErrorLog,
+// once, when no font is installed at all (NoFontMessage). Without
 // opts.Debug, the debug overlays are the ones TELA_DEBUG names (debug.go).
 // opts.Dev (with TELA_DEV) also becomes the process default of dev mode,
 // which the node constructors called outside any build check (devNow).
@@ -72,11 +74,7 @@ func Run(opts Options) error {
 	// (one app per process; ADR-085).
 	devAny.Store(configDev(opts.Dev))
 	if opts.Fonts == nil {
-		fonts := text.NewDefaultCollection()
-		if err := fonts.EnableSystemFonts(text.SystemFontOptions{}); err != nil {
-			fmt.Fprintln(errorLog(opts.ErrorLog), "tela: system fonts disabled:", err)
-		}
-		opts.Fonts = fonts
+		opts.Fonts = runFonts(errorLog(opts.ErrorLog)) // fonts.go
 	}
 	if devStateEnabled {
 		// tela dev: report a panic of the UI thread to the supervisor

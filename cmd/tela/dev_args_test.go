@@ -166,7 +166,7 @@ func TestListDeps(t *testing.T) {
 	skipShort(t)
 	goBin, _ := exec.LookPath("go")
 	root := repoRoot(t)
-	tg, err := resolveDevTarget(goBin, devOptions{Pkg: filepath.Join(root, "examples", "counter")})
+	tg, err := resolveDevTarget(goBin, devOptions{Pkg: filepath.Join(root, "examples", "kit")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,13 +177,17 @@ func TestListDeps(t *testing.T) {
 	if len(d.modules) != 1 || d.modules[0] != root {
 		t.Errorf("modules %v, want the tela module only", d.modules)
 	}
-	// internal/assets/fonts embeds the fonts.
+	// The kit example embeds its message catalogs; no package an app
+	// links embeds a font (ADR-244).
 	found := false
 	for _, f := range d.embeds {
-		found = found || strings.Contains(filepath.ToSlash(f), "internal/assets/fonts/")
+		found = found || strings.Contains(filepath.ToSlash(f), "examples/kit/locales/")
+		if strings.Contains(filepath.ToSlash(f), "internal/assets/fonts/") {
+			t.Errorf("an app embeds the font %s", f)
+		}
 	}
 	if !found {
-		t.Errorf("embedded files %v lack the fonts", d.embeds)
+		t.Errorf("embedded files %v lack the catalogs", d.embeds)
 	}
 }
 

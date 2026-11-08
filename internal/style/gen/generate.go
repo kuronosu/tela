@@ -16,20 +16,20 @@ const (
 )
 
 // fontStacks replaces the font stacks of theme.css. Tailwind's stacks list
-// system fonts (-apple-system, Segoe UI, Roboto...) that differ per OS and
-// are not installed in tests; Tela draws the same pixels everywhere, so
-// the three families map to its embedded fonts (ADR-008, ADR-038): Inter
-// for sans, JetBrains Mono for mono. Tela embeds no serif font; "serif"
-// is the generic family, which a Collection resolves to a registered or
-// system font. Emoji and script fallbacks come from the text layer's
-// fallback order (ADR-031), so they are not repeated in the stacks.
+// generic names followed by the emoji fonts of each OS ("Apple Color
+// Emoji", "Segoe UI Emoji", "Noto Color Emoji"); Tela keeps the generic
+// names (ADR-244): the text layer resolves them to the operating system's
+// interface, serif and monospace fonts, or to the fonts the app embeds for
+// them (in tests, Inter and JetBrains Mono: ADR-008), and its fallback
+// order (ADR-031) finds the emoji and script fonts, so they are not
+// repeated in the stacks.
 //
 // Every font family in theme.css must have an entry here: a new one is a
 // decision to make, not a value to copy.
 var fontStacks = map[string][]string{
-	"sans":  {"Inter"},
-	"mono":  {"JetBrains Mono"},
-	"serif": {"serif"},
+	"sans":  {"ui-sans-serif", "system-ui", "sans-serif"},
+	"mono":  {"ui-monospace", "monospace"},
+	"serif": {"ui-serif", "serif"},
 }
 
 // field describes one Theme map field filled from a theme.css namespace.

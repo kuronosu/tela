@@ -12,6 +12,7 @@ import (
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/stdfonts"
 	"github.com/kuronosu/tela/internal/testutil/golden"
 	"github.com/kuronosu/tela/internal/text"
 )
@@ -35,13 +36,13 @@ var (
 	textShowFonts *text.Collection
 )
 
-// textShowCollection is the embedded collection plus the CJK subset the
-// text package's goldens use: the embedded fonts have no CJK glyphs
+// textShowCollection is the standard collection plus the CJK subset the
+// text package's goldens use: the standard fonts have no CJK glyphs
 // (ADR-031), and system fonts are never used in tests.
 func textShowCollection(tb testing.TB) *text.Collection {
 	tb.Helper()
 	textShowOnce.Do(func() {
-		c := text.NewDefaultCollection()
+		c := stdfonts.NewCollection()
 		data, err := os.ReadFile("../internal/text/testdata/fonts/NotoSansJP-Subset.otf")
 		if err != nil {
 			tb.Fatal(err)
@@ -254,7 +255,7 @@ func TestTextShowcaseNarrow(t *testing.T) {
 }
 
 // TestTextShowcaseNoMissingGlyphs guards the content: every character of
-// the page must be covered by the embedded fonts or the CJK subset, so
+// the page must be covered by the standard fonts or the CJK subset, so
 // that goldens show glyphs and never missing-glyph boxes.
 func TestTextShowcaseNoMissingGlyphs(t *testing.T) {
 	dl, _ := core.Render(core.Component(textShowcase), core.RenderOptions{

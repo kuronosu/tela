@@ -10,6 +10,7 @@ import (
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/stdfonts"
 )
 
 // DefaultTimeout is how long actions and expectations wait for their
@@ -116,6 +117,9 @@ func (c config) coreConfig() core.Config {
 		clock = func() time.Duration { now += time.Millisecond; return now }
 	}
 	cc := core.Config{
+		// The deterministic fonts (ADR-008, ADR-244), never the system's:
+		// goldens are the same on every machine.
+		Fonts:             stdfonts.NewCollection(),
 		Debug:             dbg,
 		DebugClock:        clock,
 		RootClass:         c.rootClass,

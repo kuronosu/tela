@@ -19,9 +19,12 @@ var DefaultRules = []Rule{
 		"github.com/go-text/typesetting/opentype",
 		"internal/text.ParseTypefaces",
 		"internal/text.newTypeface",
-		"internal/text.embeddedTypefaces",
+		"internal/text.describeTypeface",
+		"internal/text.(*FontSource)",
+		"internal/text.(*sourceFont)",
 		"internal/text.sys",
-		"internal/assets/fonts",
+		"internal/assets/fonts", // every family's package: internal/assets/fonts/inter...
+		"internal/stdfonts",
 	}},
 	// The renderer's buffers and growable scratch come before the glyph cache:
 	// a glyph is rendered through them, and what they grow to while it is

@@ -22,8 +22,13 @@ const EnvDev = "TELA_DEV"
 
 // Config configures a Tree.
 type Config struct {
-	// Fonts shapes the text. Nil means text.NewDefaultCollection() (the
-	// embedded fonts only; Run also enables the system fonts).
+	// Fonts shapes the text. Nil means the default font set a package
+	// registered (text.NewDefaultCollection: internal/stdfonts, the
+	// deterministic fonts that tests and telatest link), else the
+	// process's collection of the installed system fonts
+	// (text.NewSystemCollection; empty under go test, so text draws
+	// nothing there unless the test links internal/stdfonts). An app's
+	// binary embeds no font unless it imports one (ADR-244).
 	Fonts *text.Collection
 	// Parser compiles the classes, bound to a theme. Nil means the
 	// parser of Theme and ClassAliases (NewParser), style.DefaultParser()
@@ -370,7 +375,7 @@ func NewTree(cfg Config) *Tree {
 	t.flavor = cfg.Flavor.Resolve()
 	t.in.clicks.Interval = cfg.DoubleClickInterval
 	if t.fonts == nil {
-		t.fonts = text.NewDefaultCollection()
+		t.fonts, _ = defaultFonts() // fonts.go; Run reports the error
 	}
 	if t.parserBase == nil {
 		t.parserBase = themeParser(&cfg)

@@ -44,9 +44,11 @@ type Theme struct {
 	// set 10 for shadcn/ui's look.
 	Radius float32
 	// FontSans and FontMono are font family names for font-sans (also
-	// the default text font) and font-mono (code, kbd, pre, samp); the
-	// embedded Inter and JetBrains Mono stay as fallbacks. "" keeps the
-	// defaults.
+	// the default text font) and font-mono (code, kbd, pre, samp), put
+	// before the default stacks, which stay as fallbacks: font-sans is
+	// ui-sans-serif, system-ui, sans-serif and font-mono ui-monospace,
+	// monospace, the system's interface and monospace fonts (ADR-244). ""
+	// keeps the defaults.
 	FontSans, FontMono string
 }
 
@@ -58,7 +60,8 @@ type SchemeColor = core.SchemeColor
 
 // DefaultTheme returns the default theme: shadcn/ui's neutral colors (v4,
 // converted from OKLCH to extended sRGB like the Tailwind palette),
-// Tailwind's radius scale and the embedded fonts. It is the theme of an
+// Tailwind's radius scale and the generic font stacks (the system's fonts,
+// or the ones the app embeds for them). It is the theme of an
 // [App] whose Theme is nil. Every call returns a new map.
 func DefaultTheme() Theme { return Theme(core.DefaultTheme()) }
 
@@ -111,12 +114,12 @@ func (t ThemeValues) Scheme() ColorScheme {
 // Radius, or Tailwind's 8 when the theme keeps Tailwind's scale.
 func (t ThemeValues) Radius() float32 { return t.v.Radius() }
 
-// FontSans returns the family of font-sans: the theme's FontSans, or the
-// embedded "Inter".
+// FontSans returns the first family of font-sans: the theme's FontSans, or
+// the generic "ui-sans-serif".
 func (t ThemeValues) FontSans() string { return t.v.FontSans() }
 
-// FontMono returns the family of font-mono: the theme's FontMono, or the
-// embedded "JetBrains Mono".
+// FontMono returns the first family of font-mono: the theme's FontMono, or
+// the generic "ui-monospace".
 func (t ThemeValues) FontMono() string { return t.v.FontMono() }
 
 // Tokens returns the names of the theme's color tokens, sorted.

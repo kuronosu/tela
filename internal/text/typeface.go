@@ -176,13 +176,14 @@ func newTypeface(src tableSource, family string) (*Typeface, error) {
 	}
 
 	names, _, _ := tables.ParseName(raw("name"))
-	tf.describe(family, names)
+	tf.describe(family, names, ft.Describe())
 	return tf, nil
 }
 
-// describe fills the family, name, style, weight and stretch.
-func (tf *Typeface) describe(family string, names tables.Name) {
-	desc := tf.ft.Describe()
+// describe fills the family, name, style, weight and stretch from the
+// name table, OS/2, head and the axes (which must be set), and go-text's
+// description of the font.
+func (tf *Typeface) describe(family string, names tables.Name, desc font.Description) {
 	if family == "" {
 		family = desc.Family
 	}

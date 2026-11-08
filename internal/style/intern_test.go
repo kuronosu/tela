@@ -132,7 +132,7 @@ func TestBridgeToText(t *testing.T) {
 	s := style(t, "text-lg font-semibold italic tracking-wide leading-7 text-red-500 text-center uppercase underline decoration-2 "+
 		"tabular-nums font-mono truncate line-clamp-2 break-words whitespace-pre-wrap")
 	ts := s.TextStyle()
-	if len(ts.Families) != 1 || ts.Families[0] != "JetBrains Mono" {
+	if len(ts.Families) != 2 || ts.Families[0] != "ui-monospace" || ts.Families[1] != "monospace" {
 		t.Errorf("Families = %v", ts.Families)
 	}
 	eq(t, "Size", ts.Size, 18)

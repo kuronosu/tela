@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kuronosu/tela/internal/stdfonts"
 	"github.com/kuronosu/tela/internal/text"
 )
 
@@ -17,12 +18,12 @@ var (
 	collErr  error
 )
 
-// collection returns the embedded fonts plus the CJK subset of package
+// collection returns the standard fonts plus the CJK subset of package
 // text's test data (font parsing is the slow part).
 func collection(t testing.TB) *text.Collection {
 	t.Helper()
 	collOnce.Do(func() {
-		coll = text.NewDefaultCollection()
+		coll = stdfonts.NewCollection()
 		data, err := os.ReadFile("../testdata/fonts/NotoSansJP-Subset.otf")
 		if err != nil {
 			collErr = err

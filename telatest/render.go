@@ -27,8 +27,9 @@ import (
 //
 // Each call builds a new tree, runs frames at the given size until the
 // tree has no more work (a few at most, for what the first one measures,
-// such as tela.UseBounds) and unmounts it. They use the embedded fonts only, so the results are the
-// same on every machine. A panic in the tree (a hook misuse, say) is
+// such as tela.UseBounds) and unmounts it. They use Tela's standard fonts
+// only (Inter, JetBrains Mono, Noto Sans Arabic and Noto Color Emoji),
+// never the system's, so the results are the same on every machine. A panic in the tree (a hook misuse, say) is
 // returned as an error.
 
 // headlessSetup resolves the options of the headless entry points.

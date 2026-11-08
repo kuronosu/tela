@@ -10,7 +10,6 @@ import (
 
 	ot "github.com/go-text/typesetting/font/opentype"
 	"github.com/go-text/typesetting/font/opentype/tables"
-	"github.com/kuronosu/tela/internal/assets/fonts"
 	"github.com/kuronosu/tela/internal/gfx"
 )
 
@@ -21,7 +20,7 @@ import (
 func lazyDigestFaces() []*Face {
 	c := NewDefaultCollection()
 	var faces []*Face
-	for _, tfs := range embeddedTypefaces() {
+	for _, tfs := range stdTypefaces() {
 		for _, tf := range tfs {
 			faces = append(faces, tf.Face(Instance{}))
 		}
@@ -79,8 +78,8 @@ func TestLazyOutlinesMatchEager(t *testing.T) {
 // (simple, composite or empty), its gvar variation data and the shared
 // tuples, and the hmtx metrics.
 func TestLazyGlyfParse(t *testing.T) {
-	for _, f := range fonts.All() {
-		data := fonts.Data(f)
+	for _, f := range allStdFonts {
+		data := f.data()
 		tfs, err := ParseTypefaces(data, "")
 		if err != nil {
 			t.Fatal(err)
@@ -94,7 +93,7 @@ func TestLazyGlyfParse(t *testing.T) {
 			b, _ := lds[0].RawTable(ot.MustNewTag(tag))
 			return b
 		}
-		name := fonts.Name(f)
+		name := f.String()
 		if tf.glyf == nil {
 			t.Fatalf("%s: no glyf outlines", name)
 		}
@@ -120,7 +119,7 @@ func TestLazyGlyfParse(t *testing.T) {
 			}
 		}
 		t.Logf("%s: %d glyphs, %d simple, %d composite", name, len(glyf), simple, composite)
-		if f != fonts.NotoColorEmoji && composite == 0 {
+		if f != fontNotoColorEmoji && composite == 0 {
 			t.Errorf("%s: no composite glyph", name)
 		}
 
@@ -185,10 +184,10 @@ func TestTableSource(t *testing.T) {
 		t.Fatal(err)
 	}
 	files := map[string][]byte{"NotoSansJP-Subset.otf": cjk}
-	for _, f := range fonts.All() {
-		files[fonts.Name(f)] = fonts.Data(f)
+	for _, f := range allStdFonts {
+		files[f.String()] = f.data()
 	}
-	files["collection"] = makeCollection(fonts.Data(fonts.JetBrainsMono), cjk, fonts.Data(fonts.InterVariable))
+	files["collection"] = makeCollection(fontJetBrainsMono.data(), cjk, fontInter.data())
 	for name, data := range files {
 		lds, err := ot.NewLoaders(bytes.NewReader(data))
 		if err != nil {
@@ -219,7 +218,7 @@ func TestTableSource(t *testing.T) {
 	if sfntDirectory([]byte("wOFF\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"), 0) != nil {
 		t.Error("a WOFF file has an sfnt directory")
 	}
-	if sfntDirectory(files["collection"], 3) != nil || sfntDirectory(fonts.Data(fonts.InterVariable), 1) != nil {
+	if sfntDirectory(files["collection"], 3) != nil || sfntDirectory(fontInter.data(), 1) != nil {
 		t.Error("a font index past the end has a directory")
 	}
 }

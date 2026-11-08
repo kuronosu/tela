@@ -716,15 +716,7 @@ func TestEdgeInputs(t *testing.T) {
 	if !near(l.Width(), ab.Width()) || l.Cluster(1).GlyphEnd != l.Cluster(1).GlyphStart {
 		t.Errorf("controls: width %g, want %g", l.Width(), ab.Width())
 	}
-	// A collection without fonts is a programmer error.
-	func() {
-		defer func() {
-			if recover() == nil {
-				t.Error("no panic for an empty collection")
-			}
-		}()
-		NewLayout(NewCollection(), &Paragraph{Text: "a"})
-	}()
+	// A collection without fonts lays out with no glyphs: TestNoFonts.
 	// Spans must be valid.
 	for _, p := range []*Paragraph{
 		{Text: "ab", Spans: []Span{{0, 3, TextStyle{}}}},

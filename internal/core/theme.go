@@ -39,13 +39,15 @@ type Theme struct {
 	// Radius is the base radius in logical pixels (rounded-lg); 0 keeps
 	// Tailwind's radius scale.
 	Radius float32
-	// FontSans and FontMono are the families of font-sans (and of the
-	// root text) and of font-mono; "" keeps the defaults.
+	// FontSans and FontMono are families put before the stacks of
+	// font-sans (and of the root text) and of font-mono, the generic
+	// ui-sans-serif, system-ui, sans-serif and ui-monospace, monospace
+	// (ADR-244); "" keeps the defaults.
 	FontSans, FontMono string
 }
 
 // DefaultTheme returns the default theme: shadcn/ui's neutral colors,
-// Tailwind's radius scale and the embedded fonts.
+// Tailwind's radius scale and the generic font stacks.
 func DefaultTheme() Theme {
 	return Theme{Colors: maps.Clone(style.DefaultTheme().Tokens)}
 }

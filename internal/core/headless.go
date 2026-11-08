@@ -29,8 +29,10 @@ type RenderOptions struct {
 // the given logical size and scale, and returns the display list (logical
 // pixels) and the rendered image (physical pixels, sized by
 // platform.PhysicalSize like a window's framebuffer). Goldens, `tela
-// snapshot` and telatest use it. Without opts.Fonts only the embedded
-// fonts are used, so the result is the same on every machine (ADR-008).
+// snapshot` and telatest use it. Without opts.Fonts the tree uses the
+// default font set the binary registers (internal/stdfonts, which tests
+// and telatest link, so goldens are the same on every machine, ADR-008),
+// else the installed system fonts (Config.Fonts).
 //
 // The frame's effects run as in a window: layout effects before paint,
 // the others after rasterizing. Then the tree is unmounted, running the

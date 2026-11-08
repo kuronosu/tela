@@ -437,9 +437,9 @@ func newDefaultTheme() Theme {
 			"in-out": {X1: 0.4, Y1: 0, X2: 0.2, Y2: 1},
 		},
 		Fonts: map[string][]string{
-			"sans":  {"Inter"},
-			"serif": {"serif"},
-			"mono":  {"JetBrains Mono"},
+			"sans":  {"ui-sans-serif", "system-ui", "sans-serif"},
+			"serif": {"ui-serif", "serif"},
+			"mono":  {"ui-monospace", "monospace"},
 		},
 		Animate: map[string]string{
 			"spin":   "spin 1s linear infinite",

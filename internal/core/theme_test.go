@@ -163,7 +163,7 @@ func TestThemeConfig(t *testing.T) {
 	if cs.Radius.TopLeft.Px != 10 {
 		t.Errorf("rounded-lg = %v, want 10", cs.Radius.TopLeft)
 	}
-	if !slices.Equal(cs.Text.FontFamily, []string{"Fira Code", "JetBrains Mono"}) {
+	if !slices.Equal(cs.Text.FontFamily, []string{"Fira Code", "ui-monospace", "monospace"}) {
 		t.Errorf("font-mono = %v", cs.Text.FontFamily)
 	}
 	other := SchemeColor{Light: gfx.RGB8(1, 2, 3), Dark: gfx.RGB8(4, 5, 6)}

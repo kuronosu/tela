@@ -217,10 +217,15 @@ type ellipsisData struct {
 // Shaping uses each Face's go-text face, which is not safe for concurrent
 // use; NewLayout serializes its shaping internally, so it may be called from
 // any goroutine.
+//
+// A collection with no font at all (or a nil one) is not an error: the
+// text lays out with no glyphs and no width, its lines with the metrics of
+// noFontMetrics, so the boxes around it keep a stable height, and it draws
+// nothing (the collection reports it, SetNoFontHandler).
 func NewLayout(c *Collection, p *Paragraph) *Layout {
 	p.validate()
-	if c == nil || c.Face(Query{}, 16) == nil {
-		panic("text.NewLayout: the Collection has no fonts; start from NewDefaultCollection")
+	if c == nil {
+		c = emptyCollection
 	}
 	l := &Layout{
 		coll:       c,
@@ -271,10 +276,7 @@ func (l *Layout) resolveStyles() {
 		if si.decoPaint == nil {
 			si.decoPaint = si.paint
 		}
-		var m Metrics
-		if si.face != nil {
-			m = si.face.Metrics()
-		}
+		m := faceMetrics(si.face)
 		l.resolveMetrics(i)
 		si.underline = float32(m.UnderlineOffset * si.size)
 		si.underlineThick = float32(m.UnderlineThickness * si.size)
@@ -298,10 +300,7 @@ func (l *Layout) resolveStyles() {
 func (l *Layout) resolveMetrics(i int) {
 	st := &l.styles[i]
 	si := &l.sinfo[i]
-	var m Metrics
-	if si.face != nil {
-		m = si.face.Metrics()
-	}
+	m := faceMetrics(si.face)
 	si.ascent, si.descent = l.qround(m.Ascent, si.size), l.qround(m.Descent, si.size)
 	gap := l.qround(m.LineGap, si.size)
 	normal := l.lineSum(si.ascent, si.descent, gap)

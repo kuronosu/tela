@@ -199,17 +199,31 @@ func TestItemizeRange(t *testing.T) {
 }
 
 // TestScriptFallbackOrder checks that per-script families come before the
-// general fallback order, and that user fonts come before embedded ones.
+// general fallback order, and that the general order is the registration
+// order (ADR-244: no family is kept for last).
 func TestScriptFallbackOrder(t *testing.T) {
 	c := testCollection(t)
 	// The CJK subset has ASCII too, but Latin text keeps the requested
-	// family; with an unknown requested family the user font (registered
-	// last) still comes before the embedded ones.
+	// family; with an unknown requested family the first registered family
+	// draws it (the subset was registered last).
 	if got := runsOf(c, "abc", Query{Families: []string{"sans-serif"}}); got != "abc=Inter" {
 		t.Errorf("Latin: %s", got)
 	}
-	if got := runsOf(c, "abc", Query{Families: []string{"Unknown"}}); got != "abc=Noto Sans JP" {
-		t.Errorf("Latin with an unknown family: %s (user fonts come before embedded ones)", got)
+	if got := runsOf(c, "abc", Query{Families: []string{"Unknown"}}); got != "abc=Inter" {
+		t.Errorf("Latin with an unknown family: %s, want the first registered family", got)
+	}
+	// Registered first, the subset comes first.
+	first := NewCollection()
+	if _, err := first.Register(cjkFontData(t), "Noto Sans JP"); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range stdSources() {
+		if err := first.AddSource(s); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := runsOf(first, "abc", Query{Families: []string{"Unknown"}}); got != "abc=Noto Sans JP" {
+		t.Errorf("Latin with an unknown family, the subset registered first: %s", got)
 	}
 	c.SetScriptFallback(language.Arabic) // none
 	if got := runsOf(c, "مرحبا", Query{Families: []string{"sans-serif"}}); got != "مرحبا=Noto Sans Arabic" {

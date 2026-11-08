@@ -2,16 +2,17 @@ package text
 
 import (
 	"encoding/binary"
+	"errors"
 	"math"
+	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/go-text/typesetting/font"
 	"github.com/go-text/typesetting/language"
 )
 
-// Query is a CSS-like font request: a family list and the style
-// properties used to match a face within a family (CSS Fonts 4, section
 // 5.2).
 type Query struct {
 	// Families in order of preference: family names or CSS generic
@@ -43,12 +44,23 @@ func (q Query) stretch() float32 {
 // Collection is a registry of font families with CSS-like matching and
 // fallback. It is safe for concurrent use.
 //
-// Fallback order for a cluster of text (see Itemize): the requested
-// families, then the families registered for the cluster's script
-// (SetScriptFallback), then every other family in registration order with
-// the embedded families last, then, only when EnableSystemFonts was called,
-// the installed system fonts. Emoji presentation clusters try the emoji
-// families (generic "emoji") first.
+// Families are registered as parsed typefaces (Register, AddTypeface) or as
+// font sources that are parsed when text first needs them (AddSource,
+// ADR-244). Fallback order for a cluster of text (see Itemize): the
+// requested families, then the families registered for the cluster's
+// script (SetScriptFallback), then every other registered family in
+// registration order, then, when EnableSystemFonts was called, the
+// installed system fonts. Emoji presentation clusters try the emoji
+// families (generic "emoji") first. A family is parsed only when this walk
+// reaches it, so a source that never draws anything is never parsed.
+//
+// Generic family names ("sans-serif", "system-ui", "monospace", "emoji"...)
+// resolve to the families SetGeneric or a source's Generics mapped them to;
+// with system fonts enabled, a generic the collection does not map
+// resolves to the first installed family of the operating system's list
+// for it (SystemFontOptions; macOS SF, Windows Segoe UI, fontconfig's
+// preferences on Linux). Registered families win over installed ones of
+// the same name.
 //
 // Variable faces are instantiated per optical size: CSS
 // font-optical-sizing: auto sets opsz to the font size in CSS pixels, and
@@ -57,10 +69,12 @@ func (q Query) stretch() float32 {
 // size) used. Instances are interned for the life of the Collection's
 // typefaces.
 //
-// No system fonts are used unless EnableSystemFonts is called (ADR-008);
-// synthetic bold and oblique are not implemented: a request for a weight or
-// style that no face covers gets the closest face as CSS matching defines
-// it, unchanged.
+// No system fonts are used unless EnableSystemFonts is called (or the
+// collection comes from NewSystemCollection); synthetic bold and oblique
+// are not implemented: a request for a weight or style that no face covers
+// gets the closest face as CSS matching defines it, unchanged. A
+// collection with no font at all (none registered, none installed) lays
+// text out with fallback metrics and no glyphs (SetNoFontHandler).
 type Collection struct {
 	mu       sync.RWMutex
 	families map[string]*family // by normalized name
@@ -69,13 +83,28 @@ type Collection struct {
 	scripts  map[language.Script][]string
 	cache    map[string]*candidates
 	sys      *systemFonts // nil unless EnableSystemFonts was called
+	log      Logger       // nil: diagnostics are discarded
+
+	noFont         atomic.Pointer[func()]
+	noFontReported atomic.Bool
 }
 
+// family is a registered family: its parsed typefaces and its sources.
+// The family of a system font has typefaces only.
 type family struct {
-	name     string
-	faces    []*Typeface
-	embedded bool
+	name  string
+	faces []*Typeface
+	srcs  []*FontSource
 }
+
+// Logger receives diagnostics: the font files that could not be read or
+// parsed, the system font scan. A *log.Logger implements it.
+type Logger interface {
+	Printf(format string, args ...any)
+}
+
+// emptyCollection lays out text given a nil collection (NewLayout).
+var emptyCollection = NewCollection()
 
 // NewCollection returns an empty collection.
 func NewCollection() *Collection {
@@ -106,24 +135,68 @@ func (c *Collection) Register(data []byte, family string) ([]*Typeface, error) {
 }
 
 // AddTypeface adds a parsed typeface to its family.
-func (c *Collection) AddTypeface(tf *Typeface) { c.add(tf, false) }
-
-func (c *Collection) add(tf *Typeface, embedded bool) {
+func (c *Collection) AddTypeface(tf *Typeface) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	key := normalizeFamily(tf.family)
-	f := c.families[key]
-	if f == nil {
-		f = &family{name: tf.family, embedded: embedded}
-		c.families[key] = f
-		c.order = append(c.order, f)
-	}
+	f := c.familyLocked(tf.family)
 	f.faces = append(f.faces, tf)
 	clear(c.cache)
 }
 
+// familyLocked returns the registered family called name, adding it at
+// the end of the order when it is new. c.mu must be held for writing.
+func (c *Collection) familyLocked(name string) *family {
+	key := normalizeFamily(name)
+	f := c.families[key]
+	if f == nil {
+		f = &family{name: name}
+		c.families[key] = f
+		c.order = append(c.order, f)
+	}
+	return f
+}
+
+// AddSource registers the family of src without reading or parsing its
+// files: they are parsed when text first needs the family (see
+// FontSource). The family takes its place in the registration order (a
+// family registered again keeps its first place and gains the source's
+// fonts), and src.Generics and src.Scripts append the family to the lists
+// of those generic names and scripts. A source may be added to several
+// collections; it is parsed once for all of them. AddSource returns an
+// error, and changes nothing, when src has no family name or no files.
+func (c *Collection) AddSource(src *FontSource) error {
+	switch {
+	case src == nil:
+		return errors.New("text: AddSource(nil)")
+	case normalizeFamily(src.Family) == "":
+		return errors.New("text: a FontSource needs a Family name")
+	case len(src.Data) == 0 && src.Load == nil:
+		return errors.New("text: the FontSource of " + src.Family + " has neither Data nor Load")
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	f := c.familyLocked(src.Family)
+	if !slices.Contains(f.srcs, src) {
+		f.srcs = append(f.srcs, src)
+	}
+	for _, g := range src.Generics {
+		k := normalizeFamily(g)
+		if !slices.Contains(c.generics[k], src.Family) {
+			c.generics[k] = append(c.generics[k], src.Family)
+		}
+	}
+	for _, s := range src.Scripts {
+		if !slices.Contains(c.scripts[s], src.Family) {
+			c.scripts[s] = append(c.scripts[s], src.Family)
+		}
+	}
+	clear(c.cache)
+	return nil
+}
+
 // SetGeneric maps a generic family name (such as "sans-serif") to a list of
-// families, replacing the previous mapping.
+// families, replacing the previous mapping (and, for that name, the
+// operating system's list of the system fonts).
 func (c *Collection) SetGeneric(generic string, families ...string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -141,6 +214,7 @@ func (c *Collection) SetScriptFallback(script language.Script, families ...strin
 }
 
 // Families returns the registered family names in registration order.
+// Nothing is parsed.
 func (c *Collection) Families() []string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -151,19 +225,105 @@ func (c *Collection) Families() []string {
 	return out
 }
 
-// resolveNames expands generic names into family records, skipping
-// unknown names and duplicates. A name no registered family has is looked up
-// among the system fonts when they are enabled (q picks the face of the
-// system family). c.mu must be held.
-func (c *Collection) resolveNames(names []string, q Query, seen map[*family]bool, out []*family) []*family {
+// SetLogger sets where the collection reports the font files of its
+// sources that cannot be read or parsed (nil discards them).
+func (c *Collection) SetLogger(l Logger) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.log = l
+	clear(c.cache)
+}
+
+// SetNoFontHandler sets a function that runs once, the first time the
+// collection finds no font at all for text or for Face: nothing is
+// registered (or nothing registered can be parsed) and no system font is
+// installed or enabled. Text then lays out with fallback metrics (an
+// ascent of 0.8 and a descent of 0.2 em) and draws nothing. f runs on the
+// goroutine that laid the text out, possibly while text layout holds its
+// shaping lock, so it must not use the collection; a nil f removes it.
+func (c *Collection) SetNoFontHandler(f func()) {
+	if f == nil {
+		c.noFont.Store(nil)
+		return
+	}
+	c.noFont.Store(&f)
+}
+
+// reportNoFont runs the no-font handler the first time.
+func (c *Collection) reportNoFont() {
+	if f := c.noFont.Load(); f != nil && c.noFontReported.CompareAndSwap(false, true) {
+		(*f)()
+	}
+}
+
+// famRef is a family as a name resolves to it, before anything is parsed:
+// a registered family (its typefaces and sources as of the resolution) or
+// an installed one.
+type famRef struct {
+	key   string // identity: "r" or "s" (registered, system) and the normalized name
+	faces []*Typeface
+	srcs  []*FontSource
+	sys   *systemFonts // an installed family, key[1:] in its index
+}
+
+// typeface returns the typeface of the family that CSS matching selects
+// for q, parsing it on first use, or nil when the family has none usable.
+func (r *famRef) typeface(q Query, log Logger) *Typeface {
+	if r.sys != nil {
+		f := r.sys.familyByKey(r.key[1:], q)
+		if f == nil {
+			return nil
+		}
+		return f.faces[0]
+	}
+	return matchSources(r.faces, r.srcs, q, log)
+}
+
+// ref returns the reference of a registered family. c.mu must be held.
+func (c *Collection) ref(f *family) famRef {
+	return famRef{key: "r" + normalizeFamily(f.name), faces: slices.Clone(f.faces), srcs: slices.Clone(f.srcs)}
+}
+
+// famSlot is one entry of a fallback list: a family and the face it gives
+// for the list's query, made on first need. A generic name the operating
+// system resolves has its installed alternatives in order, and the first
+// that can be loaded is used.
+type famSlot struct {
+	alts []famRef
+	once sync.Once
+	face *Face
+}
+
+// get returns the face of the slot for the query of cs, or nil when no
+// alternative can be used.
+func (s *famSlot) get(cs *candidates) *Face {
+	s.once.Do(func() {
+		for i := range s.alts {
+			if tf := s.alts[i].typeface(cs.q, cs.log); tf != nil {
+				s.face = instance(tf, cs.q, cs.size)
+				return
+			}
+		}
+	})
+	return s.face
+}
+
+// resolveSlots expands names into the slots of their families, in order,
+// skipping unknown names and the families whose key is in seen (and adding
+// the new ones to it): a registered family; the families a generic name is
+// mapped to; with system fonts, an unmapped generic name's family from the
+// operating system's list, or an installed family of the name. c.mu must
+// be held.
+func (c *Collection) resolveSlots(names []string, seen map[string]bool, out []*famSlot) []*famSlot {
 	var walk func(names []string, depth int)
 	walk = func(names []string, depth int) {
 		for _, n := range names {
 			key := normalizeFamily(n)
 			if f := c.families[key]; f != nil {
-				if !seen[f] {
-					seen[f] = true
-					out = append(out, f)
+				r := c.ref(f)
+				if !seen[r.key] {
+					seen[r.key] = true
+					out = append(out, &famSlot{alts: []famRef{r}})
 				}
 				continue
 			}
@@ -173,11 +333,24 @@ func (c *Collection) resolveNames(names []string, q Query, seen map[*family]bool
 				}
 				continue
 			}
-			if c.sys != nil {
-				if f := c.sys.family(n, q); f != nil && !seen[f] {
-					seen[f] = true
-					out = append(out, f)
+			if c.sys == nil || key == "" {
+				continue
+			}
+			var alts []famRef
+			if isGenericName(key) {
+				for _, name := range c.sys.genericList(key) {
+					if f := c.families[name]; f != nil {
+						alts = append(alts, c.ref(f))
+					} else if c.sys.has(name) {
+						alts = append(alts, famRef{key: "s" + name, sys: c.sys})
+					}
 				}
+			} else if c.sys.has(key) {
+				alts = []famRef{{key: "s" + key, sys: c.sys}}
+			}
+			if len(alts) > 0 && !seen[alts[0].key] {
+				seen[alts[0].key] = true
+				out = append(out, &famSlot{alts: alts})
 			}
 		}
 	}
@@ -185,74 +358,86 @@ func (c *Collection) resolveNames(names []string, q Query, seen map[*family]bool
 	return out
 }
 
-// systemNames appends to out the names among names, and among the generic
-// names they expand to, that resolveNames looks up in the system fonts.
-// c.mu must be held.
-func (c *Collection) systemNames(names []string, out []string) []string {
+// needsIndex reports whether resolving names reads the index of the system
+// fonts, which is not loaded yet: a name that is neither registered nor a
+// mapped generic. c.mu must be held.
+func (c *Collection) needsIndex(names []string) bool {
+	if c.sys == nil || c.sys.indexed.Load() {
+		return false
+	}
+	found := false
 	var walk func(names []string, depth int)
 	walk = func(names []string, depth int) {
 		for _, n := range names {
 			key := normalizeFamily(n)
-			if c.families[key] != nil {
-				continue
-			}
-			if g, ok := c.generics[key]; ok {
+			g, mapped := c.generics[key]
+			switch {
+			case found || key == "" || c.families[key] != nil:
+			case mapped:
 				if depth < 4 {
 					walk(g, depth+1)
 				}
-				continue
+			case isGenericName(key):
+				found = len(c.sys.genericList(key)) > 0
+			default:
+				found = true
 			}
-			out = append(out, n)
 		}
 	}
 	walk(names, 0)
+	return found
+}
+
+// lazySlots resolves names outside a cache build: it loads the system
+// index first when the names need it, so that the scan (seconds, the first
+// time) never runs under c.mu and never blocks the queries that need only
+// registered fonts. seen is copied, not modified.
+func (c *Collection) lazySlots(names func() []string, seen map[string]bool) []*famSlot {
+	c.mu.RLock()
+	sys, need := c.sys, c.needsIndex(names())
+	c.mu.RUnlock()
+	if need {
+		sys.ensureIndex()
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.resolveSlots(names(), cloneSeen(seen), nil)
+}
+
+// cloneSeen copies a set of family keys (nil gives an empty set).
+func cloneSeen(m map[string]bool) map[string]bool {
+	out := make(map[string]bool, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
 	return out
 }
 
-// loadSystemNames looks names up in sys before c.mu is taken. The first
-// lookup scans the font directories and a new family parses its file, which
-// can take seconds; done under c.mu, it would block the callers that need
-// only registered fonts. resolveNames then finds the families cached.
-func loadSystemNames(sys *systemFonts, names []string, q Query) {
-	for _, n := range names {
-		sys.family(n, q)
-	}
-}
-
 // Match returns the typeface of family that CSS font matching selects for
-// q, or nil if the family (or generic name) is unknown.
+// q, or nil if the family (or generic name) is unknown or none of its
+// fonts can be parsed. Only the selected font is parsed.
 func (c *Collection) Match(familyName string, q Query) *Typeface {
+	slots := c.lazySlots(func() []string { return []string{familyName} }, nil)
 	c.mu.RLock()
-	sys, names := c.sys, []string{familyName}
-	var sysNames []string
-	if sys != nil {
-		sysNames = c.systemNames(names, nil)
-	}
+	log := c.log
 	c.mu.RUnlock()
-	loadSystemNames(sys, sysNames, q)
-
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	fams := c.resolveNames(names, q, map[*family]bool{}, nil)
-	if len(fams) == 0 {
-		return nil
+	for _, s := range slots {
+		for i := range s.alts {
+			if tf := s.alts[i].typeface(q, log); tf != nil {
+				return tf
+			}
+		}
 	}
-	return matchFace(fams[0].faces, q)
+	return nil
 }
 
 // Face returns the face of the first available family of q, instantiated
-// for size (CSS pixels, used for the optical size), or the first fallback
-// family's face when none of q's families exists. It returns nil only for
-// an empty collection.
+// for size (CSS pixels, used for the optical size): the first requested
+// family that has a usable font, else the first registered family, else
+// (with system fonts) the operating system's sans-serif. It returns nil
+// only when the collection has no font at all.
 func (c *Collection) Face(q Query, size float32) *Face {
-	cands := c.candidates(q, size)
-	if len(cands.primary) > 0 {
-		return cands.primary[0]
-	}
-	if len(cands.rest) > 0 {
-		return cands.rest[0]
-	}
-	return nil
+	return c.candidates(q, size).defaultFace()
 }
 
 // instance returns the face of tf for q at size.
@@ -382,18 +567,36 @@ func narrowStyle(set []*Typeface, want Style) []*Typeface {
 // maxCachedQueries bounds the cache of resolved queries.
 const maxCachedQueries = 1024
 
-// candidates are the faces tried for a query, in fallback order.
+// candidates are the families tried for a query, in fallback order. They
+// are resolved by name when the query is first seen, without parsing
+// anything; each family's face is made (and its font parsed) when the
+// fallback walk first reaches it. The emoji and per-script lists are
+// resolved on their first use. A candidates value is shared by every
+// goroutine that lays out text with the query.
 type candidates struct {
-	primary []*Face                     // the requested families
-	emoji   []*Face                     // the emoji families
-	scripts map[language.Script][]*Face // per-script fallbacks
-	rest    []*Face                     // every other family, embedded last
-
-	// sys is the system font fallback, tried after rest; nil when system
-	// fonts are not enabled. q and size select the face of a system family.
-	sys  *systemFonts
+	c    *Collection
 	q    Query
 	size float32
+	log  Logger
+
+	primary []*famSlot      // the requested families
+	rest    []*famSlot      // every other registered family, in order
+	seen    map[string]bool // the keys of primary; read-only once built
+
+	emojiOnce sync.Once
+	emoji     []*famSlot // the emoji families
+
+	scriptMu sync.Mutex
+	scripts  map[language.Script][]*famSlot // per-script fallbacks
+
+	// sys is the system font fallback, tried after rest; nil when system
+	// fonts are not enabled.
+	sys *systemFonts
+
+	defOnce sync.Once
+	def     *Face
+	sysOnce sync.Once
+	sysDef  *Face
 }
 
 // queryKey is the cache key of a query at an optical size: the families,
@@ -424,56 +627,121 @@ func (c *Collection) candidates(q Query, size float32) *candidates {
 	c.mu.RLock()
 	cands := c.cache[key]
 	sys := c.sys
-	var sysNames []string
-	if cands == nil && sys != nil {
-		sysNames = c.systemNames(q.Families, nil)
-		sysNames = c.systemNames(c.generics["emoji"], sysNames)
-		for _, names := range c.scripts {
-			sysNames = c.systemNames(names, sysNames)
-		}
-	}
+	need := cands == nil && c.needsIndex(q.Families)
 	c.mu.RUnlock()
 	if cands != nil {
 		return cands
 	}
-	loadSystemNames(sys, sysNames, q)
+	if need {
+		sys.ensureIndex()
+	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if cands := c.cache[key]; cands != nil {
 		return cands
 	}
-	faceOf := func(f *family) *Face { return instance(matchFace(f.faces, q), q, size) }
-	seen := map[*family]bool{}
-	cands = &candidates{scripts: map[language.Script][]*Face{}, sys: c.sys, q: q, size: size}
-	for _, f := range c.resolveNames(q.Families, q, seen, nil) {
-		cands.primary = append(cands.primary, faceOf(f))
-	}
-	for _, f := range c.resolveNames(c.generics["emoji"], q, map[*family]bool{}, nil) {
-		cands.emoji = append(cands.emoji, faceOf(f))
-	}
-	for s, names := range c.scripts {
-		for _, f := range c.resolveNames(names, q, map[*family]bool{}, nil) {
-			if !seen[f] {
-				cands.scripts[s] = append(cands.scripts[s], faceOf(f))
-			}
-		}
-	}
-	var embedded []*Face
+	cands = &candidates{c: c, q: q, size: size, log: c.log, sys: c.sys, seen: map[string]bool{}, scripts: map[language.Script][]*famSlot{}}
+	cands.primary = c.resolveSlots(q.Families, cands.seen, nil)
 	for _, f := range c.order {
-		if seen[f] {
-			continue
-		}
-		if f.embedded {
-			embedded = append(embedded, faceOf(f))
-		} else {
-			cands.rest = append(cands.rest, faceOf(f))
+		if r := c.ref(f); !cands.seen[r.key] {
+			cands.rest = append(cands.rest, &famSlot{alts: []famRef{r}})
 		}
 	}
-	cands.rest = append(cands.rest, embedded...)
 	if len(c.cache) >= maxCachedQueries {
 		clear(c.cache)
 	}
 	c.cache[key] = cands
 	return cands
+}
+
+// emojiSlots returns the families of the generic name "emoji", resolved on
+// first use.
+func (cs *candidates) emojiSlots() []*famSlot {
+	cs.emojiOnce.Do(func() {
+		cs.emoji = cs.c.lazySlots(func() []string { return []string{"emoji"} }, nil)
+	})
+	return cs.emoji
+}
+
+// scriptSlots returns the fallback families of script that are not among
+// the requested ones, resolved on first use; Hiragana and Katakana use the
+// Han list when they have none of their own.
+func (cs *candidates) scriptSlots(script language.Script) []*famSlot {
+	l := cs.scriptList(script)
+	if len(l) == 0 && (script == language.Hiragana || script == language.Katakana || script == language.Katakana_Or_Hiragana) {
+		l = cs.scriptList(language.Han)
+	}
+	return l
+}
+
+func (cs *candidates) scriptList(script language.Script) []*famSlot {
+	cs.scriptMu.Lock()
+	l, ok := cs.scripts[script]
+	cs.scriptMu.Unlock()
+	if ok {
+		return l
+	}
+	c := cs.c
+	l = c.lazySlots(func() []string { return c.scripts[script] }, cs.seen)
+	cs.scriptMu.Lock()
+	defer cs.scriptMu.Unlock()
+	if prev, ok := cs.scripts[script]; ok {
+		return prev
+	}
+	cs.scripts[script] = l
+	return l
+}
+
+// first returns the first face of slots that ok accepts.
+func (cs *candidates) first(slots []*famSlot, ok func(*Face) bool) *Face {
+	for _, s := range slots {
+		if f := s.get(cs); f != nil && ok(f) {
+			return f
+		}
+	}
+	return nil
+}
+
+// defaultFace is the face of Face and the last resort of Itemize: the
+// first requested family that can be used, else the first registered one,
+// else the system's default.
+func (cs *candidates) defaultFace() *Face {
+	cs.defOnce.Do(func() {
+		always := func(*Face) bool { return true }
+		if cs.def = cs.first(cs.primary, always); cs.def == nil {
+			if cs.def = cs.first(cs.rest, always); cs.def == nil {
+				cs.def = cs.systemDefault()
+			}
+		}
+	})
+	if cs.def == nil {
+		cs.c.reportNoFont()
+	}
+	return cs.def
+}
+
+// systemDefault returns the face of the operating system's sans-serif
+// family (its list, see systemGenerics) for the query, else of an
+// installed family that has Latin letters, else nil (no system fonts, or
+// none installed).
+func (cs *candidates) systemDefault() *Face {
+	cs.sysOnce.Do(func() {
+		s := cs.sys
+		if s == nil {
+			return
+		}
+		s.ensureIndex()
+		names := append(slices.Clone(s.genericList("sans-serif")), s.fallbackFamilies([]rune{'a'}, language.Latin)...)
+		for _, name := range names {
+			if !s.has(name) {
+				continue
+			}
+			if f := s.familyByKey(name, cs.q); f != nil {
+				cs.sysDef = instance(f.faces[0], cs.q, cs.size)
+				return
+			}
+		}
+	})
+	return cs.sysDef
 }
