@@ -4,6 +4,7 @@ package cocoa
 
 import (
 	"fmt"
+	"image/color"
 	"math"
 	"os"
 	"runtime"
@@ -212,10 +213,10 @@ func TestAccessibilityBridge(t *testing.T) {
 				t.Errorf("TelaAccessElement is not registered: NSAccessibilityElement or AppKit's functions are missing")
 				return
 			}
-			t.Logf("bridge active before the test's first query: %v (true: something in the process asked already)", s.w.acc.active)
+			t.Logf("bridge active before the test's first query: %v (true: something in the process asked already)", s.w.acc.active.Load())
 			check("children before the first tree", len(darwin.ArrayItems(axSend(s.w.view, "accessibilityChildren"))), 0)
 			axSend(s.w.view, "accessibilityFocusedUIElement")
-			check("active", s.w.acc.active, true)
+			check("active", s.w.acc.active.Load(), true)
 			axReportUnrecognized(t, "step 1")
 		},
 		// 2. The app pushes the tree; the test walks it.
@@ -580,6 +581,9 @@ func TestAccessibilityAXClient(t *testing.T) {
 		var walk func(el uintptr, depth int)
 		walk = func(el uintptr, depth int) {
 			kids := attr(el, "AXChildren")
+			if depth == 0 {
+				out = append(out, fmt.Sprintf("window AXChildren: %d items", len(darwin.ArrayItems(darwin.ID(kids)))))
+			}
 			for _, k := range darwin.ArrayItems(darwin.ID(kids)) {
 				e := uintptr(k)
 				role, sub := str(quiet(e, "AXRole")), str(quiet(e, "AXSubrole"))
@@ -635,7 +639,7 @@ func TestAccessibilityAXClient(t *testing.T) {
 		if done {
 			return
 		}
-		if s.w.acc.active && s.w.acc.tree.Load() == nil {
+		if s.w.acc.active.Load() && s.w.acc.tree.Load() == nil {
 			s.w.SetAccessibility(axTestTree())
 			close(pushed)
 		}
@@ -669,5 +673,66 @@ func TestAccessibilityAXClient(t *testing.T) {
 	}
 	if !pressed {
 		t.Errorf("AXPress from the AX client did not arrive as the default action of the Save button")
+	}
+}
+
+// TestAccessibilityTwoWindows checks that each window's bridge activates
+// on its own first query (contract v5: core keeps a bridge per window):
+// the first window through its view, the second through its NSWindow.
+func TestAccessibilityTwoWindows(t *testing.T) {
+	accessTrace = func(format string, args ...any) { t.Logf("access: "+format, args...) }
+	t.Cleanup(func() { accessTrace = nil })
+	b := newBackend(t)
+	events := map[*Window][]bool{}
+	var got1, got2 [3]int // AccessibilityEvents of each window after each stage
+	onMain(func() {
+		p1, err1 := b.NewWindow(platform.WindowOptions{Title: "tela access one", Size: platform.Size{W: 160, H: 120}})
+		p2, err2 := b.NewWindow(platform.WindowOptions{Title: "tela access two", Size: platform.Size{W: 160, H: 120}})
+		if err1 != nil || err2 != nil {
+			t.Errorf("NewWindow: %v, %v", err1, err2)
+			return
+		}
+		w1, w2 := p1.(*Window), p2.(*Window)
+		time.AfterFunc(20*time.Second, b.Quit) // a failure, not a hang
+		stage := 0
+		_ = b.Run(platform.HandlerFunc(func(ew platform.Window, e platform.Event) {
+			switch e := e.(type) {
+			case platform.FrameEvent:
+				presentSolid(t, ew, color.RGBA{0x80, 0x80, 0x90, 0xff})
+				if stage == 0 && w1.shown && w2.shown {
+					stage = 1
+					time.AfterFunc(150*time.Millisecond, b.Wake)
+				}
+			case platform.AccessibilityEvent:
+				w := ew.(*Window)
+				events[w] = append(events[w], e.Active)
+				t.Logf("AccessibilityEvent{Active: %v} for %q", e.Active, w.opts.Title)
+			case platform.WakeEvent:
+				pool := darwin.PoolPush()
+				defer darwin.PoolPop(pool)
+				switch stage {
+				case 1:
+					got1[0], got2[0] = len(events[w1]), len(events[w2])
+					t.Logf("window one's view children: %d", len(darwin.ArrayItems(axSend(w1.view, "accessibilityChildren"))))
+					stage = 2
+					time.AfterFunc(300*time.Millisecond, b.Wake)
+				case 2:
+					got1[1], got2[1] = len(events[w1]), len(events[w2])
+					t.Logf("window two's children: %d", len(darwin.ArrayItems(axSend(w2.ns, "accessibilityChildren"))))
+					axSend(w1.view, "accessibilityChildren") // a second query of window one
+					stage = 3
+					time.AfterFunc(300*time.Millisecond, b.Wake)
+				case 3:
+					got1[2], got2[2] = len(events[w1]), len(events[w2])
+					axReportUnrecognized(t, "two windows")
+					b.Quit()
+				}
+			}
+		}))
+	})
+	t.Logf("AccessibilityEvents (one, two) before any query %d %d, after querying one %d %d, after querying two %d %d",
+		got1[0], got2[0], got1[1], got2[1], got1[2], got2[2])
+	if got1 != [3]int{0, 1, 1} || got2 != [3]int{0, 0, 1} {
+		t.Errorf("activations of window one %v and two %v after each stage, want [0 1 1] and [0 0 1]", got1, got2)
 	}
 }

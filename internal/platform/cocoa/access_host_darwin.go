@@ -3,6 +3,7 @@
 package cocoa
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/kuronosu/tela/internal/darwin"
@@ -87,6 +88,21 @@ func isElement(o darwin.ID) bool {
 // bridge can answer for it.
 func hostWindow(self darwin.ID) *Window { return accessWindow(self) }
 
+// htrace traces a message a host received, with the thread and whether
+// the host's window was found.
+func htrace(self darwin.ID, who, format string, args ...any) {
+	if accessTrace == nil {
+		return
+	}
+	w := windowFor(self)
+	title := "<none>"
+	if w != nil {
+		title = w.opts.Title
+	}
+	atracef("%s %s (main thread %v, window %q, active %v)", who, fmt.Sprintf(format, args...), darwin.IsMainThread(),
+		title, w != nil && w.acc.active.Load())
+}
+
 // hostMethods returns the accessibility methods of a host class whose
 // superclass is super: children computes the host's children from
 // AppKit's own answer (nil when super has none), focus the focused
@@ -101,7 +117,7 @@ func hostMethods(who string, super func() darwin.Class,
 	isChildren := func(attr darwin.ID) bool { return darwin.GoString(attr) == axChildrenAttr }
 	return []darwin.Method{
 		{Sel: darwin.Sel("accessibilityChildren"), Fn: func(self darwin.ID, cmd darwin.SEL) darwin.ID {
-			atracef("%s accessibilityChildren", who)
+			htrace(self, who, "accessibilityChildren")
 			if w := hostWindow(self); w != nil {
 				return darwin.NSArray(children(w, superArray(self, cmd))...)
 			}
@@ -109,7 +125,7 @@ func hostMethods(who string, super func() darwin.Class,
 			return v
 		}},
 		{Sel: darwin.Sel("accessibilityChildrenInNavigationOrder"), Fn: func(self darwin.ID, cmd darwin.SEL) darwin.ID {
-			atracef("%s accessibilityChildrenInNavigationOrder", who)
+			htrace(self, who, "accessibilityChildrenInNavigationOrder")
 			if w := hostWindow(self); w != nil {
 				return darwin.NSArray(children(w, superArray(self, cmd))...)
 			}
@@ -117,7 +133,7 @@ func hostMethods(who string, super func() darwin.Class,
 			return v
 		}},
 		{Sel: darwin.Sel("accessibilityFocusedUIElement"), Fn: func(self darwin.ID, cmd darwin.SEL) darwin.ID {
-			atracef("%s accessibilityFocusedUIElement", who)
+			htrace(self, who, "accessibilityFocusedUIElement")
 			if w := hostWindow(self); w != nil {
 				if f := w.focusedElement(); f != 0 && w.hostsFocus() {
 					return f
@@ -127,7 +143,7 @@ func hostMethods(who string, super func() darwin.Class,
 			return v
 		}},
 		{Sel: asel.hitTest, Fn: func(self darwin.ID, cmd darwin.SEL, p darwin.CGPoint) darwin.ID {
-			atracef("%s accessibilityHitTest: %v", who, p)
+			htrace(self, who, "accessibilityHitTest: %v", p)
 			if w := hostWindow(self); w != nil {
 				w.activateAccess()
 				if v := w.acc.tree.Load(); v != nil {
@@ -142,7 +158,7 @@ func hostMethods(who string, super func() darwin.Class,
 		}},
 		{Sel: darwin.Sel("accessibilityAttributeValue:"), Fn: func(self darwin.ID, cmd darwin.SEL, attr darwin.ID) darwin.ID {
 			name := darwin.GoString(attr)
-			atracef("%s accessibilityAttributeValue: %s", who, name)
+			htrace(self, who, "accessibilityAttributeValue: %s", name)
 			if w := hostWindow(self); w != nil {
 				switch name {
 				case axChildrenAttr:
@@ -157,7 +173,7 @@ func hostMethods(who string, super func() darwin.Class,
 			return v
 		}},
 		{Sel: darwin.Sel("accessibilityArrayAttributeCount:"), Fn: func(self darwin.ID, cmd darwin.SEL, attr darwin.ID) uint {
-			atracef("%s accessibilityArrayAttributeCount: %s", who, darwin.GoString(attr))
+			htrace(self, who, "accessibilityArrayAttributeCount: %s", darwin.GoString(attr))
 			if w := hostWindow(self); w != nil && isChildren(attr) {
 				return uint(len(children(w, superArray(self, darwin.Sel("accessibilityAttributeValue:"), attr))))
 			}
@@ -165,7 +181,7 @@ func hostMethods(who string, super func() darwin.Class,
 			return uint(v)
 		}},
 		{Sel: darwin.Sel("accessibilityArrayAttributeValues:index:maxCount:"), Fn: func(self darwin.ID, cmd darwin.SEL, attr darwin.ID, index, maxCount uint) darwin.ID {
-			atracef("%s accessibilityArrayAttributeValues: %s %d %d", who, darwin.GoString(attr), index, maxCount)
+			htrace(self, who, "accessibilityArrayAttributeValues: %s %d %d", darwin.GoString(attr), index, maxCount)
 			if w := hostWindow(self); w != nil && isChildren(attr) {
 				items := children(w, superArray(self, darwin.Sel("accessibilityAttributeValue:"), attr))
 				start := min(int(min(index, 1<<31)), len(items))
@@ -176,7 +192,7 @@ func hostMethods(who string, super func() darwin.Class,
 			return v
 		}},
 		{Sel: darwin.Sel("accessibilityIndexOfChild:"), Fn: func(self darwin.ID, cmd darwin.SEL, child darwin.ID) uint {
-			atracef("%s accessibilityIndexOfChild:", who)
+			htrace(self, who, "accessibilityIndexOfChild:")
 			if w := hostWindow(self); w != nil && isElement(child) {
 				if i := slices.Index(children(w, superArray(self, darwin.Sel("accessibilityAttributeValue:"), darwin.AutoString(axChildrenAttr))), child); i >= 0 {
 					return uint(i)
@@ -190,13 +206,13 @@ func hostMethods(who string, super func() darwin.Class,
 		}},
 		// Traced only.
 		{Sel: darwin.Sel("accessibilityAttributeNames"), Fn: func(self darwin.ID, cmd darwin.SEL) darwin.ID {
-			atracef("%s accessibilityAttributeNames", who)
+			htrace(self, who, "accessibilityAttributeNames")
 			v, _ := superSend(self, super(), cmd)
 			return v
 		}},
 		{Sel: darwin.Sel("accessibilityIsIgnored"), Fn: func(self darwin.ID, cmd darwin.SEL) bool {
 			v, ok := superSend(self, super(), cmd)
-			atracef("%s accessibilityIsIgnored: %v", who, ok && v&0xff != 0)
+			htrace(self, who, "accessibilityIsIgnored: %v", ok && v&0xff != 0)
 			return ok && v&0xff != 0
 		}},
 	}

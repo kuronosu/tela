@@ -269,6 +269,7 @@ func (w *Window) centerOnParent() {
 // a ConfigureEvent call it first: the state goes before the size it comes
 // with.
 func (w *Window) syncState() {
+	w.updateGeometry() // the accessibility bridge's view rectangle
 	if w.Closed() {
 		return
 	}

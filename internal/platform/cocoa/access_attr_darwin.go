@@ -3,6 +3,8 @@
 package cocoa
 
 import (
+	"sync"
+
 	"github.com/kuronosu/tela/internal/darwin"
 )
 
@@ -15,14 +17,19 @@ import (
 // geometry and ranges). Nothing here sends super: NSAccessibilityElement's
 // versions read its own stored properties, which the element never sets.
 
-// axSels caches the selectors of the attribute table (main thread).
-var axSels = map[string]darwin.SEL{}
+// axSels caches the selectors of the attribute table.
+var axSels = struct {
+	sync.Mutex
+	m map[string]darwin.SEL
+}{m: map[string]darwin.SEL{}}
 
 func axSelOf(name string) darwin.SEL {
-	s, ok := axSels[name]
+	axSels.Lock()
+	defer axSels.Unlock()
+	s, ok := axSels.m[name]
 	if !ok {
 		s = darwin.Sel(name)
-		axSels[name] = s
+		axSels.m[name] = s
 	}
 	return s
 }

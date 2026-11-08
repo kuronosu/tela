@@ -897,6 +897,21 @@ func u16CharRange(s string, u int) (loc, n int, ok bool) {
 	return loc, n, true
 }
 
+// --- coordinates off the main thread ---
+
+// screenRectIn converts r, window logical pixels (points, y down) of a
+// view whose bounds are at (vx, vy) with height vh in screen coordinates
+// (points, y up), to screen coordinates.
+func screenRectIn(vx, vy, vh float64, r platform.Rect) (x, y, w, h float64) {
+	return vx + float64(r.X), vy + vh - float64(r.Y) - float64(r.H), float64(r.W), float64(r.H)
+}
+
+// viewPointIn converts the screen point (px, py) to the view's
+// coordinates, the inverse of screenRectIn.
+func viewPointIn(vx, vy, vh, px, py float64) (x, y float32) {
+	return float32(px - vx), float32(vy + vh - py)
+}
+
 // --- name-based actions ---
 
 // axActionTable maps the AX action names of the name-based API

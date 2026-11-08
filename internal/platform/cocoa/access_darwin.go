@@ -43,7 +43,9 @@ import (
 //   - Actions are requests: they are queued as AccessActionEvents for the
 //     next pass, and the outcome comes back as an update.
 
-// accessTrace, when set (by tests), receives each notification posted.
+// accessTrace, when set (by tests), receives each notification posted,
+// action queued and message the hosts receive. It may be called on any
+// thread.
 var accessTrace func(format string, args ...any)
 
 func atracef(format string, args ...any) {
@@ -52,13 +54,26 @@ func atracef(format string, args ...any) {
 	}
 }
 
-// windowAccess is the bridge state of a window. AppKit sends every
-// NSAccessibility message on the main thread, as SetAccessibility runs;
-// the tree is still held atomically, as ADR-246 asks of every bridge.
+// windowAccess is the bridge state of a window. AppKit sends the
+// NSAccessibility messages of an AT in another process on the main
+// thread, but an AX client in the process itself is answered on its own
+// thread (the AX client test's queries reached the hosts off the main
+// thread and found no window), so everything the queries read is safe
+// from any thread, as ADR-246 asks of every bridge: the tree is an
+// atomic pointer to an immutable value, the elements are guarded by mu,
+// the activation and the actions reach the loop through the backend's
+// access inbox, and coordinates off the main thread come from the
+// view's screen rectangle recorded on the main thread (geom).
 type windowAccess struct {
-	active bool
+	active atomic.Bool
+	closed atomic.Bool
 	tree   atomic.Pointer[axTree]
-	// elems are the elements made so far, by node (owned: +1).
+	// geom is the view's bounds in screen coordinates, as last recorded
+	// on the main thread (updateGeometry).
+	geom atomic.Pointer[darwin.CGRect]
+	mu   sync.Mutex
+	// elems are the elements made so far, by node (owned: +1). Guarded
+	// by mu, which is never held across a message send.
 	elems map[platform.AccessID]darwin.ID
 }
 
@@ -98,13 +113,13 @@ var asel = struct {
 var axAccess struct {
 	class, super darwin.Class // TelaAccessElement, NSAccessibilityElement (0: no bridge)
 	stringClass  darwin.Class
-	gated        map[darwin.SEL]string
-	strs         map[string]darwin.ID // constant NSStrings (owned, kept)
+	gated        map[darwin.SEL]string // read-only after setupAccess
+	mu           sync.Mutex            // guards strs and superResponds
+	strs         map[string]darwin.ID  // constant NSStrings (owned, kept)
+	// superResponds caches whether instances of a superclass respond to
+	// a selector.
+	superResponds map[[2]uintptr]bool
 }
-
-// superResponds caches whether instances of a superclass respond to a
-// selector (main thread).
-var superResponds = map[[2]uintptr]bool{}
 
 // superSend sends cmd to self from the class super when super's
 // instances respond to it, and reports whether it did: an unrecognized
@@ -112,10 +127,17 @@ var superResponds = map[[2]uintptr]bool{}
 // through purego's frames.
 func superSend(self darwin.ID, super darwin.Class, cmd darwin.SEL, args ...any) (darwin.ID, bool) {
 	key := [2]uintptr{uintptr(super), uintptr(cmd)}
-	has, ok := superResponds[key]
+	axAccess.mu.Lock()
+	has, ok := axAccess.superResponds[key]
+	axAccess.mu.Unlock()
 	if !ok {
 		has = darwin.SendBool(darwin.ID(super), asel.instancesRespond, cmd)
-		superResponds[key] = has
+		axAccess.mu.Lock()
+		if axAccess.superResponds == nil {
+			axAccess.superResponds = map[[2]uintptr]bool{}
+		}
+		axAccess.superResponds[key] = has
+		axAccess.mu.Unlock()
 		if !has {
 			atracef("%s does not implement %s", darwin.GoString(darwin.Send(darwin.ID(super), darwin.Sel("description"))), darwin.SelName(cmd))
 		}
@@ -150,6 +172,8 @@ func setupAccess() {
 // axStr returns a kept NSString of s, for the constant strings (roles,
 // notification names).
 func axStr(s string) darwin.ID {
+	axAccess.mu.Lock()
+	defer axAccess.mu.Unlock()
 	if v, ok := axAccess.strs[s]; ok {
 		return v
 	}
@@ -178,16 +202,37 @@ func optString(s string) darwin.ID {
 	return darwin.AutoString(s)
 }
 
-// activateAccess starts the bridge of w at the first query of an AT.
+// open reports whether the window is open, from any thread.
+func (w *Window) accOpen() bool {
+	if darwin.IsMainThread() {
+		return !w.Closed()
+	}
+	return !w.acc.closed.Load()
+}
+
+// activateAccess starts the bridge of w at its first query by an AT:
+// each window activates on its own (contract v5: one bridge per window).
+// Safe from any thread.
 func (w *Window) activateAccess() {
-	if w.acc.active || axAccess.class == 0 || w.Closed() {
+	if axAccess.class == 0 || !w.accOpen() || !w.acc.active.CompareAndSwap(false, true) {
 		return
 	}
-	w.acc.active = true
-	w.acc.elems = map[platform.AccessID]darwin.ID{}
-	atracef("activated")
-	w.b.enqueue(w, platform.AccessibilityEvent{Active: true})
-	w.b.notify()
+	atracef("activated window %q (main thread %v)", w.opts.Title, darwin.IsMainThread())
+	if darwin.IsMainThread() {
+		w.updateGeometry()
+	}
+	w.b.postAccess(w, platform.AccessibilityEvent{Active: true})
+}
+
+// updateGeometry records the view's bounds in screen coordinates for the
+// queries off the main thread. Main thread.
+func (w *Window) updateGeometry() {
+	if !w.acc.active.Load() || w.Closed() {
+		return
+	}
+	b := darwin.SendRect(w.view, sel.bounds)
+	r := w.liveScreenRect(platform.Rect{W: float32(b.Size.Width), H: float32(b.Size.Height)})
+	w.acc.geom.Store(&r)
 }
 
 // SetAccessibility applies update to the window's tree and posts what
@@ -196,7 +241,7 @@ func (w *Window) activateAccess() {
 // sent) panics, as headless does.
 func (w *Window) SetAccessibility(update platform.AccessUpdate) {
 	platform.CheckAccessUpdate(&update)
-	if w.Closed() || !w.acc.active {
+	if w.Closed() || !w.acc.active.Load() {
 		return
 	}
 	old := w.acc.tree.Load()
@@ -209,24 +254,44 @@ func (w *Window) SetAccessibility(update platform.AccessUpdate) {
 		panic(fmt.Sprintf("cocoa: SetAccessibility: %v", err))
 	}
 	cur := newAXTree(t)
-	w.acc.tree.Store(cur)
 	pool := darwin.PoolPush()
 	defer darwin.PoolPop(pool)
+	w.updateGeometry()
+	w.acc.tree.Store(cur)
 	for _, n := range axNotes(old, cur, &update) {
 		w.postNote(n)
 	}
 	// Elements that are no longer exposed die (their destruction was
 	// posted above when an AT could know them).
-	for id, e := range w.acc.elems {
+	for id, e := range w.cachedElements() {
 		if !cur.exposed(id) {
 			w.killElement(id, e)
 		}
 	}
 }
 
+// cachedElements returns a copy of the elements made so far.
+func (w *Window) cachedElements() map[platform.AccessID]darwin.ID {
+	w.acc.mu.Lock()
+	defer w.acc.mu.Unlock()
+	out := make(map[platform.AccessID]darwin.ID, len(w.acc.elems))
+	for id, e := range w.acc.elems {
+		out[id] = e
+	}
+	return out
+}
+
+// cached returns the element made for node id, if any.
+func (w *Window) cached(id platform.AccessID) (darwin.ID, bool) {
+	w.acc.mu.Lock()
+	defer w.acc.mu.Unlock()
+	e, ok := w.acc.elems[id]
+	return e, ok
+}
+
 // postNote posts one notification. Notes about an element the AT never
 // got are skipped (it has nothing to refresh), except the focus, which
-// makes the element.
+// makes the element. Main thread.
 func (w *Window) postNote(n axNote) {
 	name := axNoteName(n.kind)
 	switch n.kind {
@@ -252,13 +317,13 @@ func (w *Window) postNote(n axNote) {
 		atracef("post %v", n)
 		darwin.AccessibilityPostNotification(el, name)
 	case noteDestroyed:
-		if e, ok := w.acc.elems[n.id]; ok {
+		if e, ok := w.cached(n.id); ok {
 			atracef("post %v", n)
 			darwin.AccessibilityPostNotification(e, name)
 			w.killElement(n.id, e)
 		}
 	default:
-		if e, ok := w.acc.elems[n.id]; ok {
+		if e, ok := w.cached(n.id); ok {
 			atracef("post %v", n)
 			darwin.AccessibilityPostNotification(e, name)
 		}
@@ -274,23 +339,35 @@ func axStrConst(name, value string) darwin.ID {
 }
 
 // element returns the object that stands for node id: the view for the
-// root, else the node's element, made on first use.
+// root, else the node's element, made on first use. Safe from any
+// thread.
 func (w *Window) element(id platform.AccessID) darwin.ID {
 	v := w.acc.tree.Load()
 	if v == nil || id == 0 || id == v.root() {
 		return w.view
 	}
-	if e, ok := w.acc.elems[id]; ok {
+	if e, ok := w.cached(id); ok {
 		return e
 	}
 	e := darwin.Send(darwin.SendClass(axAccess.class, sel.alloc), sel.init)
 	if e == 0 {
 		return 0
 	}
+	w.acc.mu.Lock()
+	if other, ok := w.acc.elems[id]; ok || w.acc.closed.Load() {
+		// Another thread made it meanwhile, or the window closed.
+		w.acc.mu.Unlock()
+		darwin.Release(e)
+		return other
+	}
+	if w.acc.elems == nil {
+		w.acc.elems = map[platform.AccessID]darwin.ID{}
+	}
+	w.acc.elems[id] = e
+	w.acc.mu.Unlock()
 	axElems.Lock()
 	axElems.m[e] = &axElem{w: w, id: id}
 	axElems.Unlock()
-	w.acc.elems[id] = e
 	return e
 }
 
@@ -305,29 +382,47 @@ func (w *Window) elements(ids []platform.AccessID) darwin.ID {
 	return darwin.NSArray(objs...)
 }
 
-// killElement makes e dead and releases the window's reference.
+// killElement makes e dead and releases the window's reference. Main
+// thread.
 func (w *Window) killElement(id platform.AccessID, e darwin.ID) {
 	axElems.Lock()
 	if x := axElems.m[e]; x != nil {
 		x.w = nil
 	}
 	axElems.Unlock()
+	w.acc.mu.Lock()
 	delete(w.acc.elems, id)
+	w.acc.mu.Unlock()
 	darwin.Release(e)
 }
 
 // closeAccess kills the elements of a closing window.
 func (w *Window) closeAccess() {
-	for id, e := range w.acc.elems {
+	w.acc.closed.Store(true)
+	for id, e := range w.cachedElements() {
 		w.killElement(id, e)
 	}
 	w.acc.tree.Store(nil)
-	w.acc.active = false
+	w.acc.active.Store(false)
 }
 
 // screenRect converts r, window logical pixels (points), to screen
-// coordinates (points, origin at the bottom left of the main screen).
+// coordinates (points, origin at the bottom left of the main screen):
+// through AppKit on the main thread, from the recorded view rectangle
+// elsewhere.
 func (w *Window) screenRect(r platform.Rect) darwin.CGRect {
+	if darwin.IsMainThread() {
+		return w.liveScreenRect(r)
+	}
+	g := w.acc.geom.Load()
+	if g == nil {
+		return darwin.CGRect{}
+	}
+	x, y, wd, h := screenRectIn(g.Origin.X, g.Origin.Y, g.Size.Height, r)
+	return darwin.CGRect{Origin: darwin.CGPoint{X: x, Y: y}, Size: darwin.CGSize{Width: wd, Height: h}}
+}
+
+func (w *Window) liveScreenRect(r platform.Rect) darwin.CGRect {
 	vr := darwin.CGRect{
 		Origin: darwin.CGPoint{X: float64(r.X), Y: float64(r.Y)},
 		Size:   darwin.CGSize{Width: float64(r.W), Height: float64(r.H)},
@@ -337,8 +432,15 @@ func (w *Window) screenRect(r platform.Rect) darwin.CGRect {
 }
 
 // viewPoint converts a screen point to the view's coordinates (window
-// logical pixels).
+// logical pixels), like screenRect.
 func (w *Window) viewPoint(p darwin.CGPoint) (x, y float32) {
+	if !darwin.IsMainThread() {
+		g := w.acc.geom.Load()
+		if g == nil {
+			return -1, -1
+		}
+		return viewPointIn(g.Origin.X, g.Origin.Y, g.Size.Height, p.X, p.Y)
+	}
 	inWindow := darwin.SendPoint(w.ns, isel.convertFrom, p)
 	v := darwin.SendPoint(w.view, isel.convertPointFromView, inWindow, darwin.ID(0))
 	return float32(v.X), float32(v.Y)
@@ -352,12 +454,8 @@ type axCall struct {
 	n *platform.AccessNode
 }
 
-// lookup returns the call of element self. A message off the main
-// thread (AppKit sends none) gets no answer: the elements are made there.
+// lookup returns the call of element self.
 func lookup(self darwin.ID) axCall {
-	if !darwin.IsMainThread() {
-		return axCall{}
-	}
 	axElems.Lock()
 	e := axElems.m[self]
 	var c axCall
@@ -365,7 +463,7 @@ func lookup(self darwin.ID) axCall {
 		c.w = e.w
 	}
 	axElems.Unlock()
-	if c.w == nil || c.w.Closed() || !c.w.acc.active {
+	if c.w == nil || !c.w.accOpen() || !c.w.acc.active.Load() {
 		return axCall{}
 	}
 	if c.v = c.w.acc.tree.Load(); c.v != nil {
@@ -376,7 +474,8 @@ func lookup(self darwin.ID) axCall {
 
 // axQuery runs f, an answer of element self, when its node is alive. Like
 // imeQuery it pushes no autorelease pool (the answers are autoreleased
-// objects AppKit must get alive); a panic stops the loop.
+// objects AppKit must get alive); a panic stops the loop (on the main
+// thread; elsewhere it is traced and the answer is nil).
 func axQuery(self darwin.ID, f func(c axCall)) {
 	c := lookup(self)
 	if c.n == nil {
@@ -384,7 +483,11 @@ func axQuery(self darwin.ID, f func(c axCall)) {
 	}
 	defer func() {
 		if r := recover(); r != nil {
-			c.w.b.fail(r)
+			if darwin.IsMainThread() {
+				c.w.b.fail(r)
+			} else {
+				atracef("panic off the main thread: %v", r)
+			}
 		}
 	}()
 	f(c)
@@ -408,24 +511,62 @@ func axAct(self darwin.ID, a platform.AccessAction, fill func(c axCall, e *platf
 			return
 		}
 		atracef("action %v on %d", a, c.n.ID)
-		c.w.b.enqueue(c.w, e)
-		c.w.b.notify()
+		c.w.b.postAccess(c.w, e)
 		ok = true
 	})
 	return ok
 }
 
-// accessWindow returns the window of the view self when the bridge can
-// answer for it: the class exists and the message came on the main
-// thread.
+// accessWindow returns the window of the host self (TelaView or
+// TelaWindow) when the bridge can answer for it.
 func accessWindow(self darwin.ID) *Window {
-	if axAccess.class == 0 || !darwin.IsMainThread() {
+	if axAccess.class == 0 {
 		return nil
 	}
-	if w := windowFor(self); w != nil && !w.Closed() {
+	if w := windowFor(self); w != nil && w.accOpen() {
 		return w
 	}
 	return nil
+}
+
+// accessInbox holds the events of the bridge queued off the main thread
+// (activations and actions of an in-process AX client), for the next
+// pass.
+type accessInbox struct {
+	sync.Mutex
+	items []accessItem
+}
+
+type accessItem struct {
+	w *Window
+	e platform.Event
+}
+
+// postAccess queues e, an event of the bridge, for w from any thread and
+// signals the run loop.
+func (b *Backend) postAccess(w *Window, e platform.Event) {
+	if darwin.IsMainThread() {
+		b.enqueue(w, e)
+	} else {
+		b.accIn.Lock()
+		b.accIn.items = append(b.accIn.items, accessItem{w, e})
+		b.accIn.Unlock()
+	}
+	b.notify()
+}
+
+// drainAccess moves the events queued off the main thread to the loop.
+// Main thread.
+func (b *Backend) drainAccess() {
+	b.accIn.Lock()
+	items := b.accIn.items
+	b.accIn.items = nil
+	b.accIn.Unlock()
+	for _, it := range items {
+		if !it.w.Closed() {
+			b.enqueue(it.w, it.e)
+		}
+	}
 }
 
 // elementMethods are TelaAccessElement's methods.

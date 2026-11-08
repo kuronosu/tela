@@ -492,8 +492,12 @@
 //     of text fields are not exposed. An element whose node is gone or
 //     no longer exposed posts AXUIElementDestroyed, is released and, while
 //     an AT still holds it, answers as nothing. Answers come from the
-//     latest tree (an immutable AccessTree, held atomically, on the main
-//     thread, where AppKit sends every NSAccessibility message).
+//     latest tree (an immutable AccessTree, held atomically) on any
+//     thread: an AT in another process is answered on the main thread,
+//     but an AX client in the process itself may be answered on its own.
+//     Off the main thread, coordinates come from the view's screen
+//     rectangle recorded at each update and window move, and the
+//     activation and actions reach the loop through a locked inbox.
 //   - Attributes: role, subrole and role description (Core-AAM; English
 //     descriptions for the web subroles AppKit calls "group"), the name as
 //     accessibilityLabel (AXDescription), the description as

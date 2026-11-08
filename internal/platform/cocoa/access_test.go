@@ -475,3 +475,14 @@ func TestAXAttributes(t *testing.T) {
 		}
 	}
 }
+
+func TestAXScreenGeometry(t *testing.T) {
+	// A view at (100, 200) in screen points, 150 high: its top is y=350.
+	x, y, w, h := screenRectIn(100, 200, 150, platform.Rect{X: 10, Y: 40, W: 80, H: 30})
+	if x != 110 || y != 280 || w != 80 || h != 30 {
+		t.Errorf("screenRectIn = %g, %g, %g, %g; want 110, 280, 80, 30", x, y, w, h)
+	}
+	if vx, vy := viewPointIn(100, 200, 150, 150, 295); vx != 50 || vy != 55 {
+		t.Errorf("viewPointIn = %g, %g; want 50, 55", vx, vy)
+	}
+}

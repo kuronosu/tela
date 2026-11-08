@@ -64,6 +64,7 @@ type Backend struct {
 	desk     desktopState  // desktop services (services_darwin.go)
 	dnd      backendDnD    // drag and drop (dnd_darwin.go)
 	menus    menuState     // menus and quit requests (menu_darwin.go, quit_darwin.go)
+	accIn    accessInbox   // accessibility events queued off the main thread (access_darwin.go)
 }
 
 var _ platform.Backend = (*Backend)(nil)
@@ -566,6 +567,7 @@ func setupApp() error {
 		if b := backendFor(info); b != nil {
 			b.guard(func() {
 				b.releaseZombies()
+				b.drainAccess()
 				b.collectTicks()
 				b.standIn()
 				b.pump()
