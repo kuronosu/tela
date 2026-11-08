@@ -1121,8 +1121,11 @@
 //     Coordinates are logical pixels of the window's content area;
 //     bridges convert to the screen's.
 //
-// Wayland, X11, Win32 and Cocoa have no bridge yet (later tasks of phase
-// 19): they ignore SetAccessibility and never report Active. Headless
+// Win32's bridge is UI Automation (package win32's uia_windows.go): it
+// reports Active true at the first WM_GETOBJECT for the UIA root and never
+// false (UIA cannot tell when its last client left). Wayland, X11 and
+// Cocoa have no bridge yet (later tasks of phase 19): they ignore
+// SetAccessibility and never report Active. Headless
 // records the updates, applies them to an AccessTree (an invalid one
 // panics) and lets tests inject both events; remote (protocol 9)
 // forwards updates to the host's real window and its events to the

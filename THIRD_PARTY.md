@@ -227,6 +227,13 @@ their original copyright notice. Add one section per source project.
 - **Used in:** `internal/platform/win32/`
 - **Notes:** Design references only (syscall-based window class, message loop and DPI setup; mouse capture, leave tracking and DPI quirks). No source was copied; the backend is written against the Win32 documentation. Listed as a courtesy. The keyboard (`scancode.go`, `vkey.go`, `keyboard.go`, `layout.go`) follows winit 0.30's Windows keyboard (`keyboard.rs`, `keyboard_layout.rs`): the scan code to W3C code table and the virtual-key to named-key table are the same facts (and the same W3C and Firefox sources) written out again in Go, and the techniques (character messages complete the key, a peek at the queue, the fake left Ctrl before AltGr, `ToUnicodeEx` on the layout) are winit's. No Rust code was translated.
 
+## AccessKit (Windows adapter)
+
+- **Source:** https://github.com/AccessKit/accesskit (`platforms/windows`, now `adapters/windows/src/{node,text,adapter,util}.rs`, shallow clone of `main`, November 2026)
+- **License:** Apache-2.0 OR MIT, Copyright 2022 The AccessKit Authors; its role mapping is derived from Chromium's accessibility code (BSD-3-Clause, Copyright The Chromium Authors)
+- **Used in:** `internal/platform/win32/uia.go`, `internal/platform/win32/uiatext.go` (ported logic, with AccessKit's notice in each file), and `uia_windows.go`, `uia_text_windows.go` (design)
+- **Notes:** Ported to Go on Tela's flat `platform.AccessNode`: the ARIA role to UIA control type table (merged with W3C Core-AAM 1.2's localized control types and landmarks), the rules for which node gets the Toggle, SelectionItem, Invoke, Value, RangeValue, ExpandCollapse and Text patterns, the AriaProperties string, the selection events (ElementSelected, AddedToSelection, RemovedFromSelection), and the text range moves (`move_position`, `Move`, `MoveEndpointByUnit`, `ExpandToEnclosingUnit` with its document-end quirk). Taken as design: free-threaded providers answering from an immutable tree, the root as fragment root with the window's host provider, activation at the first `WM_GETOBJECT` for `UiaRootObjectId`, one COM object per node cached by ID. The text units are Tela's own (code points, words and hard lines over a node's value, no layout data); the COM objects are Go servers (`comserver_windows.go`).
+
 ## Ebitengine and purego (Cocoa backend)
 
 - **Source:** https://github.com/hajimehoshi/ebiten (v2.10.5: `internal/cocoa`, the pure-Go GLFW port's `internal/glfw/cocoa_*_darwin.go`, `internal/graphicsdriver/metal/ca`) and https://github.com/ebitengine/purego (v0.11.2: `objc`, a dependency)

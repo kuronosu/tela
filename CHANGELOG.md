@@ -15,6 +15,7 @@ under **Breaking**. See ADR-049 and ADR-208.
 ### Added
 
 - Accessibility props (ADR-246): `h.AriaLive("polite"|"assertive"|"off")` and `h.AriaAtomic(bool)` for live regions (`Role("status")`, `"log"` and `"alert"` are live without them), `h.AriaKeyShortcuts("Control+S Meta+S")` (dev mode rejects `Ctrl`, `Cmd` and empty keys with the right name), `h.AriaPosInSet(i)` and `h.AriaSetSize(n)` for sets that have only some of their items in the tree (otherwise positions are counted as Chromium does), and `h.AriaLabelFn(func() string)`, a name read when the semantics tree is built, so a `tela.Value` it reads rebuilds nothing. The aria snapshot prints none of them, as Playwright's does not.
+- Windows: screen readers (Narrator, NVDA) through UI Automation. Elements map to UIA control types after Core-AAM; buttons, checkboxes, text fields, sliders, combo boxes, lists and tabs can be read and operated (Invoke, Toggle, Value, RangeValue, ExpandCollapse, SelectionItem, Selection, ScrollItem, Scroll and Text patterns); focus, name, value and state changes are raised as events, and live regions are announced with UIA notifications. Nothing runs until a UIA client asks for the window.
 
 ### Changed
 
