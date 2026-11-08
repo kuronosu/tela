@@ -8,7 +8,7 @@ only then.
 | Without `Fonts` | With `Fonts: []tela.Font{inter.Sans}` |
 |---|---|
 | Segoe UI on Windows, the system font on macOS, the desktop's font on Linux | Inter everywhere |
-| `examples/hello` is 19.6 MB | 21.4 MB (Inter is 1.8 MB) |
+| `examples/hello` is 19.6 MB | 21.6 MB (Inter is 1.8 MB) |
 
 ## What `font-sans` draws
 
