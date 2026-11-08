@@ -101,6 +101,10 @@ type Window struct {
 	// Drag and drop and the menu bar (phase 13: dnd_windows.go,
 	// menu_windows.go).
 	integ windowIntegration
+
+	// uia is the UI Automation bridge, nil until a client asks for the
+	// window's UIA root (uia_windows.go, ADR-246).
+	uia *uiaBridge
 }
 
 var _ platform.Window = (*Window)(nil)
@@ -211,6 +215,7 @@ func (w *Window) osMetrics() platform.Metrics {
 		w.ime.dirty = true
 		w.repaint(false)
 	}
+	w.uiaGeometryChanged()
 	return metricsFor(w.client, w.dpi)
 }
 
@@ -314,6 +319,7 @@ func (w *Window) Close() {
 	w.releaseCapture()
 	w.unregister()
 	w.closeIntegration()
+	w.closeUIA()
 	procDestroyWindow.Call(w.hwnd)
 	w.dib.release()
 	destroyIcons(w.icons)
@@ -330,6 +336,7 @@ func (w *Window) destroyed() {
 	w.b.loop.Remove(w)
 	w.ime = imeWindow{}
 	w.closeIntegration()
+	w.closeUIA()
 	w.unregister()
 	w.dib.release()
 	destroyIcons(w.icons)

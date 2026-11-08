@@ -24,6 +24,10 @@ var (
 	imm32    = windows.NewLazySystemDLL("imm32.dll")
 	shell32  = windows.NewLazySystemDLL("shell32.dll") // desktop services (ADR-178)
 	ole32    = windows.NewLazySystemDLL("ole32.dll")   // desktop services (ADR-178)
+	// UI Automation (ADR-246): the provider API, and VARIANT, BSTR and
+	// SAFEARRAY. Loaded at the first WM_GETOBJECT for the UIA root.
+	uiautomationcore = windows.NewLazySystemDLL("uiautomationcore.dll")
+	oleaut32         = windows.NewLazySystemDLL("oleaut32.dll")
 
 	procRegisterClassExW           = user32.NewProc("RegisterClassExW")
 	procCreateWindowExW            = user32.NewProc("CreateWindowExW")
@@ -170,6 +174,29 @@ var (
 	procGetMenu                  = user32.NewProc("GetMenu")
 )
 
+// UI Automation (uia_windows.go, ADR-246).
+var (
+	procUiaReturnRawElementProvider            = uiautomationcore.NewProc("UiaReturnRawElementProvider")
+	procUiaHostProviderFromHwnd                = uiautomationcore.NewProc("UiaHostProviderFromHwnd")
+	procUiaRaiseAutomationEvent                = uiautomationcore.NewProc("UiaRaiseAutomationEvent")
+	procUiaRaiseAutomationPropertyChangedEvent = uiautomationcore.NewProc("UiaRaiseAutomationPropertyChangedEvent")
+	procUiaRaiseStructureChangedEvent          = uiautomationcore.NewProc("UiaRaiseStructureChangedEvent")
+	procUiaRaiseNotificationEvent              = uiautomationcore.NewProc("UiaRaiseNotificationEvent") // Windows 10 1709
+	procUiaClientsAreListening                 = uiautomationcore.NewProc("UiaClientsAreListening")
+	procUiaGetReservedNotSupportedValue        = uiautomationcore.NewProc("UiaGetReservedNotSupportedValue")
+	procUiaDisconnectProvider                  = uiautomationcore.NewProc("UiaDisconnectProvider") // Windows 8
+
+	procSysAllocStringLen     = oleaut32.NewProc("SysAllocStringLen")
+	procSysFreeString         = oleaut32.NewProc("SysFreeString")
+	procSysStringLen          = oleaut32.NewProc("SysStringLen")
+	procSafeArrayCreateVector = oleaut32.NewProc("SafeArrayCreateVector")
+	procSafeArrayPutElement   = oleaut32.NewProc("SafeArrayPutElement")
+	procSafeArrayGetElement   = oleaut32.NewProc("SafeArrayGetElement")
+	procSafeArrayGetUBound    = oleaut32.NewProc("SafeArrayGetUBound")
+	procSafeArrayDestroy      = oleaut32.NewProc("SafeArrayDestroy")
+	procVariantClear          = oleaut32.NewProc("VariantClear")
+)
+
 // available reports whether an optional procedure exists on this system.
 func available(p *windows.LazyProc) bool { return p.Find() == nil }
 
@@ -211,6 +238,7 @@ const (
 	pbtAPMResumeAutomatic   = 0x0012
 	wsVisible               = 0x10000000
 	wmNCHitTest             = 0x0084
+	wmGetObject             = 0x003D
 	wmTelaNotify            = 0x8000 + 1 // WM_APP + 1: a Wake or Quit is waiting
 	wmTelaVsync             = 0x8000 + 2 // WM_APP + 2: the display signalled a vsync
 	pmRemove                = 0x0001

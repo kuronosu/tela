@@ -19,6 +19,8 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 - Linux: screen readers (Orca) through AT-SPI. While an assistive technology is enabled (`org.a11y.Status`), Wayland and X11 windows join the accessibility registry: Orca reads their tree (roles after W3C Core-AAM, names, states, text with words, sentences and lines), follows focus, value, text and caret changes, speaks live regions through AT-SPI announcements, and operates the app (activate, focus, check, expand, set text, select, scroll into view). `NO_AT_BRIDGE=1` turns it off.
 
+- Windows: screen readers (Narrator, NVDA) through UI Automation. Elements map to UIA control types after Core-AAM; buttons, checkboxes, text fields, sliders, combo boxes, lists and tabs can be read and operated (Invoke, Toggle, Value, RangeValue, ExpandCollapse, SelectionItem, Selection, ScrollItem, Scroll and Text patterns); focus, name, value and state changes are raised as events, and live regions are announced with UIA notifications. Nothing runs until a UIA client asks for the window.
+
 ### Changed
 
 - kit: a menu item's `Shortcut` is announced as its ARIA key shortcuts (`Shift+Cmd+P` is `Shift+Meta+P`); a `MenuRadioGroup`'s `Label` names its group; a `Popover` without `AriaLabel` is named by its trigger, as React Aria's dialogs; the `Toaster`'s region is a polite live region and each toast is named by its title, so a new toast is announced.

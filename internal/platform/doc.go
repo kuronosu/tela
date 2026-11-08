@@ -1127,8 +1127,10 @@
 // embedded in the registry, and each window is a frame of the
 // application. Cocoa's bridge is NSAccessibility (package cocoa): it
 // reports Active true at the first NSAccessibility query of a window and
-// never false. Win32 has no bridge yet (a later task of phase
-// 19): it ignores SetAccessibility and never reports Active. Headless
+// never false. Win32's bridge is UI Automation (package win32's
+// uia_windows.go): it reports Active true at the first WM_GETOBJECT for
+// the UIA root and never false (UIA cannot tell when its last client
+// left). Headless
 // records the updates, applies them to an AccessTree (an invalid one
 // panics) and lets tests inject both events; remote (protocol 9)
 // forwards updates to the host's real window and its events to the

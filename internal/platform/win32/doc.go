@@ -632,4 +632,19 @@
 //     of a notification alike; the executable's own icon, which the shell
 //     scales, and the balloon's large icon, read once when it shows, stay
 //     (ADR-234).
+//
+// # Accessibility
+//
+// UI Automation providers implemented as Go COM servers
+// (uia_windows.go has the model, ADR-246): activated by the first
+// WM_GETOBJECT for UiaRootObjectId, free-threaded (they answer from an
+// immutable snapshot of the tree on UIA's threads, never through the UI
+// thread), the root a fragment root over the window's host provider, one
+// object per exposed node. Pattern calls become AccessActionEvents posted
+// to the UI thread; each update raises the UIA events of what changed.
+// The OS-independent rules (roles after Core-AAM, properties, patterns,
+// event diffing, text units) are pure Go in uia.go and uiatext.go. The
+// methods that take doubles get them through small assembly thunks
+// (uiathunk_windows_*.s), since syscall callbacks take integer arguments
+// only.
 package win32
