@@ -50,10 +50,16 @@ import (
 //     gtk-decoration-layout; core parses it, ADR-238).
 //   - UIFontFamily and MonoFontFamily: the first family of
 //     org.gnome.desktop.interface font-name and monospace-font-name, Pango
-//     font descriptions ("Adwaita Sans 11"; pangoFamily), else of KDE's
+//     font descriptions ("Adwaita Sans 11"; pangoFamily), or of KDE's
 //     org.kde.kdeglobals.General font and fixed, Qt font strings ("Noto
-//     Sans,10,-1,5,50,0,0,0,0,0"; qtFamily). xdg-desktop-portal-gtk
-//     answers the GNOME keys on any desktop (GTK apps draw with them).
+//     Sans,10,-1,5,50,0,0,0,0,0"; qtFamily). The running desktop's keys
+//     come first: KDE's when XDG_CURRENT_DESKTOP (a colon-separated list)
+//     names KDE, GNOME's otherwise; the other namespace's are used when
+//     the first has no family. Both can answer at once:
+//     xdg-desktop-portal-gtk answers the GNOME keys on any desktop (GTK
+//     apps draw with them), from gsettings' defaults ("Cantarell 11")
+//     where GNOME is not the desktop, and the portal merges every
+//     backend's namespaces.
 //
 // Without a portal, or with a portal that has no Settings interface
 // (xdg-desktop-portal-hyprland alone, for instance), every value stays
@@ -139,7 +145,7 @@ func (d *Desktop) readSettings() platform.SystemSettings {
 			}
 		}
 	}
-	s := settingsFrom(d.settings.raw)
+	s := settingsFrom(d.settings.raw, d.kdeFonts)
 	d.settings.ready = true
 	d.settings.reported = s
 	return s
@@ -181,7 +187,7 @@ func (d *Desktop) settingChanged(ns, key string, v any) {
 		d.mu.Unlock()
 		return
 	}
-	s := settingsFrom(d.settings.raw)
+	s := settingsFrom(d.settings.raw, d.kdeFonts)
 	if s == d.settings.reported {
 		d.mu.Unlock()
 		return
@@ -207,8 +213,9 @@ func unwrapVariant(v any) any {
 }
 
 // settingsFrom derives the system settings from the portal's values (see
-// the comment at the top of the file).
-func settingsFrom(raw map[settingKey]any) platform.SystemSettings {
+// the comment at the top of the file). kdeFonts prefers KDE's font keys
+// to GNOME's (the desktop is KDE: isKDE).
+func settingsFrom(raw map[settingKey]any, kdeFonts bool) platform.SystemSettings {
 	var s platform.SystemSettings
 	get := func(ns, key string) (any, bool) {
 		v, ok := raw[settingKey{ns, key}]
@@ -276,25 +283,48 @@ func settingsFrom(raw map[settingKey]any) platform.SystemSettings {
 		}
 	}
 
-	s.UIFontFamily = fontFamily(get, "font-name", "font")
-	s.MonoFontFamily = fontFamily(get, "monospace-font-name", "fixed")
+	s.UIFontFamily = fontFamily(get, "font-name", "font", kdeFonts)
+	s.MonoFontFamily = fontFamily(get, "monospace-font-name", "fixed", kdeFonts)
 	return s
 }
 
-// fontFamily returns the family of GNOME's interface key gnome, else of
-// KDE's General key kde, or "" when neither names one.
-func fontFamily(get func(ns, key string) (any, bool), gnome, kde string) string {
-	if v, ok := get(nsGnomeInterface, gnome); ok {
-		if desc, ok := v.(string); ok {
-			if f := pangoFamily(desc); f != "" {
-				return f
+// fontFamily returns the family of GNOME's interface key gnome or of
+// KDE's General key kde, the KDE one first when kdeFirst is set, or ""
+// when neither names one.
+func fontFamily(get func(ns, key string) (any, bool), gnome, kde string, kdeFirst bool) string {
+	gnomeFamily := func() string {
+		if v, ok := get(nsGnomeInterface, gnome); ok {
+			if desc, ok := v.(string); ok {
+				return pangoFamily(desc)
 			}
 		}
+		return ""
 	}
-	if v, ok := get(nsKDEGeneral, kde); ok {
-		return qtFamily(v)
+	kdeFamily := func() string {
+		if v, ok := get(nsKDEGeneral, kde); ok {
+			return qtFamily(v)
+		}
+		return ""
 	}
-	return ""
+	first, second := gnomeFamily, kdeFamily
+	if kdeFirst {
+		first, second = kdeFamily, gnomeFamily
+	}
+	if f := first(); f != "" {
+		return f
+	}
+	return second()
+}
+
+// isKDE reports whether XDG_CURRENT_DESKTOP's value, a colon-separated
+// list of desktop names ("KDE", "ubuntu:GNOME"), names KDE.
+func isKDE(currentDesktop string) bool {
+	for name := range strings.SplitSeq(currentDesktop, ":") {
+		if strings.EqualFold(strings.TrimSpace(name), "KDE") {
+			return true
+		}
+	}
+	return false
 }
 
 // maxButtonLayout bounds the button-layout value taken: a real one is a

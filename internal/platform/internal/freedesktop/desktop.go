@@ -64,6 +64,10 @@ type Options struct {
 	// Now is the backend's clock (platform.Backend.Now), which stamps
 	// ShortcutEvents. It is called from godbus goroutines. nil stamps 0.
 	Now func() time.Duration
+	// Getenv reads the environment variable XDG_CURRENT_DESKTOP, which
+	// chooses between GNOME's and KDE's font settings, once in New. nil
+	// means os.Getenv; tests set it.
+	Getenv func(key string) string
 }
 
 // D-Bus names used by the services.
@@ -127,6 +131,10 @@ type Desktop struct {
 	idMu sync.Mutex
 	id   string
 
+	// kdeFonts prefers KDE's font settings to GNOME's: the desktop is
+	// KDE (settings.go). Set by New, then only read.
+	kdeFonts bool
+
 	// Phase 13 (settings.go, shortcuts.go, instance.go).
 	settings  settingsState
 	shortcuts shortcutService
@@ -151,8 +159,13 @@ func New(opts Options) *Desktop {
 	if opts.AppID == "" {
 		opts.AppID = platform.DefaultAppID()
 	}
+	getenv := opts.Getenv
+	if getenv == nil {
+		getenv = os.Getenv
+	}
 	return &Desktop{
 		opts:     opts,
+		kdeFonts: isKDE(getenv("XDG_CURRENT_DESKTOP")),
 		id:       opts.AppID,
 		requests: map[dbus.ObjectPath]*request{},
 		notes:    map[platform.NotificationID]*note{},

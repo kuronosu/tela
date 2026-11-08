@@ -92,12 +92,112 @@ func TestSettingsFrom(t *testing.T) {
 		}, platform.SystemSettings{}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			got := settingsFrom(c.raw)
+			got := settingsFrom(c.raw, false)
 			if got != c.want {
 				t.Errorf("settingsFrom = %+v\nwant %+v", got, c.want)
 			}
 			platform.CheckSystemSettings(got)
 		})
+	}
+}
+
+// TestSettingsFromDesktopFonts checks which namespace's fonts win, on KDE
+// and elsewhere.
+func TestSettingsFromDesktopFonts(t *testing.T) {
+	type kv = map[settingKey]any
+	for _, c := range []struct {
+		name string
+		kde  bool // XDG_CURRENT_DESKTOP names KDE
+		raw  kv
+		want platform.SystemSettings
+	}{
+		{"GNOME fonts win over KDE off KDE", false, kv{
+			{nsGnomeInterface, "font-name"}:           "Cantarell 11",
+			{nsGnomeInterface, "monospace-font-name"}: "Source Code Pro 10",
+			{nsKDEGeneral, "font"}:                    "Noto Sans,10,-1,5,50,0,0,0,0,0",
+			{nsKDEGeneral, "fixed"}:                   "Hack,10,-1,5,50,0,0,0,0,0",
+		}, platform.SystemSettings{UIFontFamily: "Cantarell", MonoFontFamily: "Source Code Pro"}},
+		{"KDE fonts win over GNOME on KDE", true, kv{
+			// Plasma with xdg-desktop-portal-gtk: gsettings' defaults.
+			{nsGnomeInterface, "font-name"}:           "Cantarell 11",
+			{nsGnomeInterface, "monospace-font-name"}: "Source Code Pro 10",
+			{nsKDEGeneral, "font"}:                    "Noto Sans,10,-1,5,50,0,0,0,0,0",
+			{nsKDEGeneral, "fixed"}:                   "Hack,10,-1,5,50,0,0,0,0,0",
+		}, platform.SystemSettings{UIFontFamily: "Noto Sans", MonoFontFamily: "Hack"}},
+		{"only KDE answers off KDE", false, kv{
+			{nsKDEGeneral, "font"}:  "Noto Sans,10,-1,5,50,0,0,0,0,0",
+			{nsKDEGeneral, "fixed"}: "Hack,10,-1,5,50,0,0,0,0,0",
+		}, platform.SystemSettings{UIFontFamily: "Noto Sans", MonoFontFamily: "Hack"}},
+		{"only GNOME answers on KDE", true, kv{
+			{nsGnomeInterface, "font-name"}:           "Adwaita Sans 11",
+			{nsGnomeInterface, "monospace-font-name"}: "Adwaita Mono 11",
+		}, platform.SystemSettings{UIFontFamily: "Adwaita Sans", MonoFontFamily: "Adwaita Mono"}},
+		{"a KDE font without a family falls back to GNOME on KDE", true, kv{
+			{nsGnomeInterface, "font-name"}:           "Cantarell 11",
+			{nsGnomeInterface, "monospace-font-name"}: "Source Code Pro 10",
+			{nsKDEGeneral, "font"}:                    ",10,-1,5,50,0,0,0,0,0",
+			{nsKDEGeneral, "fixed"}:                   true,
+		}, platform.SystemSettings{UIFontFamily: "Cantarell", MonoFontFamily: "Source Code Pro"}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if got := settingsFrom(c.raw, c.kde); got != c.want {
+				t.Errorf("settingsFrom = %+v\nwant %+v", got, c.want)
+			}
+		})
+	}
+}
+
+func TestIsKDE(t *testing.T) {
+	for _, c := range []struct {
+		desktop string
+		want    bool
+	}{
+		{"", false},
+		{"KDE", true},
+		{"kde", true},
+		{"GNOME", false},
+		{"ubuntu:GNOME", false},
+		{"X-Cinnamon", false},
+		{"GNOME:KDE", true},
+		{"KDE:", true},
+		{"KDEX", false},
+		{"Hyprland", false},
+	} {
+		if got := isKDE(c.desktop); got != c.want {
+			t.Errorf("isKDE(%q) = %v, want %v", c.desktop, got, c.want)
+		}
+	}
+}
+
+// TestSettingsPortalOnKDE checks that the Desktop reads
+// XDG_CURRENT_DESKTOP through Options.Getenv: on KDE, KDE's fonts win over
+// the GNOME defaults xdg-desktop-portal-gtk answers, as their changes do.
+func TestSettingsPortalOnKDE(t *testing.T) {
+	addr := privateBus(t)
+	values := appearanceSettings()
+	values[nsGnomeInterface]["font-name"] = dbus.MakeVariant("Cantarell 11")
+	values[nsGnomeInterface]["monospace-font-name"] = dbus.MakeVariant("Source Code Pro 10")
+	p := startPortal13(t, addr, portal13Options{settings: values})
+	h := newDesktopHarness(t, addr, "KDE")
+	got := h.d.SystemSettings()
+	if got.UIFontFamily != "Noto Sans" || got.MonoFontFamily != "Source Code Pro" {
+		t.Fatalf("fonts on KDE = %q, %q; want Noto Sans (KDE's) and Source Code Pro (GNOME's: KDE has no fixed)", got.UIFontFamily, got.MonoFontFamily)
+	}
+	p.setSetting(nsKDEGeneral, "fixed", "Hack,10,-1,5,50,0,0,0,0,0")
+	if se := h.event("KDE's monospace font").(platform.SettingsEvent); se.Settings.MonoFontFamily != "Hack" {
+		t.Fatalf("event = %+v, want MonoFontFamily Hack", se.Settings)
+	}
+	// A GNOME change does not override KDE's font.
+	p.setSetting(nsGnomeInterface, "font-name", "Inter 11")
+	p.setSetting(nsAppearance, "contrast", uint32(1))
+	if se := h.event("contrast after a GNOME font change").(platform.SettingsEvent); se.Settings.UIFontFamily != "Noto Sans" || !se.Settings.HighContrast {
+		t.Fatalf("event = %+v, want UIFontFamily Noto Sans and high contrast", se.Settings)
+	}
+
+	// Off KDE the same values give GNOME's.
+	h2 := newDesktopHarness(t, addr, "ubuntu:GNOME")
+	if got := h2.d.SystemSettings(); got.UIFontFamily != "Inter" || got.MonoFontFamily != "Source Code Pro" {
+		t.Errorf("fonts on GNOME = %q, %q; want Inter and Source Code Pro", got.UIFontFamily, got.MonoFontFamily)
 	}
 }
 
