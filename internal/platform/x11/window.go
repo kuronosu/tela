@@ -46,10 +46,10 @@ type Window struct {
 	// RequestFrame.
 	loop.WindowState
 
-	b    *Backend
-	id   xproto.Window
+	b  *Backend
+	id xproto.Window
 	// acc is the window's side of the AT-SPI bridge (access.go).
-	acc *atspi.Window
+	acc  *atspi.Window
 	gc   xproto.Gcontext
 	opts platform.WindowOptions
 
