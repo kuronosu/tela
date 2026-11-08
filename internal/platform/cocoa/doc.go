@@ -504,6 +504,15 @@
 //     and hit testing (deepest exposed node, the last child on top).
 //     isAccessibilitySelectorAllowed: offers only the methods that apply to
 //     the node's role, states and actions.
+//   - The AX server reads elements through the older attribute API
+//     (accessibilityAttributeNames, accessibilityAttributeValue:, the
+//     parameterized and settable variants, accessibilityIsIgnored), and
+//     AppKit's bridge from it does not see a run-time subclass's methods
+//     (on macOS 26 every attribute but AXWindow read nil, and AX clients
+//     saw no element). TelaAccessElement implements that API itself,
+//     each attribute answered by its own method (access_attr_darwin.go),
+//     as Chromium's and WebKit's elements do, and the name-based action
+//     API too (NSAccessibilityElement does not implement it).
 //   - Text (text fields, and texts as AXStaticText): the number of
 //     characters, the selection and setting it, the selected text, strings
 //     for ranges, lines, the insertion line and the visible range, in

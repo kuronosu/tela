@@ -724,6 +724,179 @@ func axAllows(v *axTree, n *platform.AccessNode, sel string) (allowed, known boo
 	return false, false
 }
 
+// --- the attribute API ---
+
+// The AX server reads elements through the attribute API of the older
+// NSAccessibility informal protocol (accessibilityAttributeNames,
+// accessibilityAttributeValue: and the parameterized and settable
+// variants). AppKit's own bridge from it to the methods of the
+// NSAccessibility protocol does not see TelaAccessElement's methods (on
+// macOS 26 it answered nil for AXRole and every other attribute but
+// AXWindow, and an AX client saw no element), so the element implements
+// the attribute API itself, mapping each attribute onto its own method
+// (Chromium's and WebKit's elements implement this API too).
+
+// axAttrKind says how an attribute's value comes from its method.
+type axAttrKind uint8
+
+const (
+	attrObject      axAttrKind = iota // the method returns the object
+	attrBool                          // a BOOL, boxed in an NSNumber
+	attrInt                           // an NSInteger, boxed
+	attrRange                         // an NSRange, in an NSValue
+	attrRect                          // a CGRect, in an NSValue
+	attrPosition                      // accessibilityFrame's origin, in an NSValue
+	attrSize                          // accessibilityFrame's size, in an NSValue
+	attrParent                        // accessibilityParent, its unignored ancestor
+	attrOrientation                   // accessibilityOrientation as AXOrientation's string
+)
+
+// axAttr is one attribute: its name, the method that answers it, how,
+// and the method that sets it ("" when it cannot be set).
+type axAttr struct {
+	name, sel string
+	kind      axAttrKind
+	set       string
+}
+
+// axAttrs are the attributes of TelaAccessElement, in the order
+// accessibilityAttributeNames lists them.
+var axAttrs = []axAttr{
+	{"AXRole", "accessibilityRole", attrObject, ""},
+	{"AXSubrole", "accessibilitySubrole", attrObject, ""},
+	{"AXRoleDescription", axSelRoleDescription, attrObject, ""},
+	{"AXDescription", axSelLabel, attrObject, ""},
+	{"AXHelp", axSelHelp, attrObject, ""},
+	{"AXValue", axSelValue, attrObject, axSelSetValue},
+	{"AXValueDescription", axSelValueDescription, attrObject, ""},
+	{"AXMinValue", axSelMinValue, attrObject, ""},
+	{"AXMaxValue", axSelMaxValue, attrObject, ""},
+	{"AXPlaceholderValue", axSelPlaceholder, attrObject, ""},
+	{"AXEnabled", "isAccessibilityEnabled", attrBool, ""},
+	{"AXFocused", "isAccessibilityFocused", attrBool, axSelSetFocused},
+	{"AXRequired", axSelRequired, attrBool, ""},
+	{"AXExpanded", axSelExpanded, attrBool, axSelSetExpanded},
+	{"AXDisclosing", axSelDisclosed, attrBool, axSelSetDisclosed},
+	{"AXDisclosureLevel", axSelDisclosureLevel, attrInt, ""},
+	{"AXSelected", axSelSelected, attrBool, axSelSetSelected},
+	{"AXModal", "isAccessibilityModal", attrBool, ""},
+	{"AXParent", "accessibilityParent", attrParent, ""},
+	{"AXChildren", "accessibilityChildren", attrObject, ""},
+	{"AXSelectedChildren", axSelSelectedChildren, attrObject, ""},
+	{"AXRows", axSelRows, attrObject, ""},
+	{"AXIndex", axSelIndex, attrInt, ""},
+	{"AXWindow", "accessibilityWindow", attrObject, ""},
+	{"AXTopLevelUIElement", "accessibilityTopLevelUIElement", attrObject, ""},
+	{"AXPosition", "accessibilityFrame", attrPosition, ""},
+	{"AXSize", "accessibilityFrame", attrSize, ""},
+	{"AXFrame", "accessibilityFrame", attrRect, ""},
+	{"AXURL", axSelURL, attrObject, ""},
+	{"AXOrientation", axSelOrientation, attrOrientation, ""},
+	{"AXNumberOfCharacters", axSelNumChars, attrInt, ""},
+	{"AXSelectedText", axSelSelectedText, attrObject, ""},
+	{"AXSelectedTextRange", axSelSelectedRange, attrRange, axSelSetSelectedRange},
+	{"AXInsertionPointLineNumber", axSelInsertionLine, attrInt, ""},
+	{"AXVisibleCharacterRange", axSelVisibleRange, attrRange, ""},
+}
+
+// axParamAttrs are the parameterized attributes of text, each answered
+// by the method named (AXAttributedStringForRange by
+// accessibilityStringForRange:, without attributes; AXRangeForIndex by
+// the bridge itself).
+var axParamAttrs = []axAttr{
+	{"AXStringForRange", axSelStringForRange, attrObject, ""},
+	{"AXAttributedStringForRange", axSelStringForRange, attrObject, ""},
+	{"AXLineForIndex", axSelLineForIndex, attrInt, ""},
+	{"AXRangeForLine", axSelRangeForLine, attrRange, ""},
+	{"AXBoundsForRange", axSelFrameForRange, attrRect, ""},
+	{"AXRangeForIndex", axSelNumChars, attrRange, ""},
+}
+
+// axAttrApplies reports whether the attribute a applies to node n: its
+// method is allowed (axAllows), and a subrole exists.
+func axAttrApplies(v *axTree, n *platform.AccessNode, a axAttr) bool {
+	if a.name == "AXSubrole" {
+		_, s := axRole(n)
+		return s != ""
+	}
+	if a.name == "AXModal" {
+		return n.Has(platform.AccessModal)
+	}
+	allowed, known := axAllows(v, n, a.sel)
+	return !known || allowed
+}
+
+// axAttributeNames returns the attribute names of n.
+func axAttributeNames(v *axTree, n *platform.AccessNode) []string {
+	var out []string
+	for _, a := range axAttrs {
+		if axAttrApplies(v, n, a) {
+			out = append(out, a.name)
+		}
+	}
+	return out
+}
+
+// axParamAttributeNames returns the parameterized attribute names of n:
+// those of text, for a text field or a text.
+func axParamAttributeNames(n *platform.AccessNode) []string {
+	if _, ok := axText(n); !ok {
+		return nil
+	}
+	out := make([]string, len(axParamAttrs))
+	for i, a := range axParamAttrs {
+		out[i] = a.name
+	}
+	return out
+}
+
+// axFindAttr returns the attribute called name among attrs.
+func axFindAttr(attrs []axAttr, name string) (axAttr, bool) {
+	for _, a := range attrs {
+		if a.name == name {
+			return a, true
+		}
+	}
+	return axAttr{}, false
+}
+
+// axSettable reports whether the attribute name of n can be set: it has
+// a setter that applies to n.
+func axSettable(v *axTree, n *platform.AccessNode, name string) bool {
+	a, ok := axFindAttr(axAttrs, name)
+	if !ok || a.set == "" {
+		return false
+	}
+	allowed, known := axAllows(v, n, a.set)
+	return known && allowed
+}
+
+// axOrientationValue is the AXOrientation string of n.
+func axOrientationValue(n *platform.AccessNode) string {
+	switch n.Orientation {
+	case "vertical":
+		return "AXVerticalOrientation"
+	case "horizontal":
+		return "AXHorizontalOrientation"
+	}
+	return "AXUnknownOrientation"
+}
+
+// u16CharRange returns the UTF-16 range of the character at UTF-16
+// offset u of s (AXRangeForIndex): two units for a surrogate pair; false
+// past the end.
+func u16CharRange(s string, u int) (loc, n int, ok bool) {
+	if u < 0 || u >= u16Len(s) {
+		return 0, 0, false
+	}
+	loc = cpToU16(s, u16ToCP(s, u))
+	n = 1
+	if r, _ := utf8.DecodeRuneInString(s[utf16x.ToByte(s, loc):]); r >= 0x10000 {
+		n = 2
+	}
+	return loc, n, true
+}
+
 // --- name-based actions ---
 
 // axActionTable maps the AX action names of the name-based API

@@ -19,6 +19,7 @@ var (
 	nsAccessibilityPostNotificationUserInfo func(element, name, userInfo ID)
 	nsAccessibilityRoleDescription          func(role, subrole ID) ID
 	nsAccessibilityActionDescription        func(action ID) ID
+	nsAccessibilityUnignoredAncestor        func(element ID) ID
 )
 
 var (
@@ -35,6 +36,7 @@ func LoadAccessibility() error {
 			bind(&nsAccessibilityPostNotificationUserInfo, lib, "NSAccessibilityPostNotificationWithUserInfo")
 			bind(&nsAccessibilityRoleDescription, lib, "NSAccessibilityRoleDescription")
 			bind(&nsAccessibilityActionDescription, lib, "NSAccessibilityActionDescription")
+			bind(&nsAccessibilityUnignoredAncestor, lib, "NSAccessibilityUnignoredAncestor")
 		})
 	})
 	return accessErr
@@ -74,6 +76,32 @@ func AccessibilityActionDescription(action ID) ID {
 	}
 	return nsAccessibilityActionDescription(action)
 }
+
+// AccessibilityUnignoredAncestor returns element, or its nearest ancestor
+// that is not ignored (NSAccessibilityUnignoredAncestor); 0 when none.
+func AccessibilityUnignoredAncestor(element ID) ID {
+	if nsAccessibilityUnignoredAncestor == nil || element == 0 {
+		return 0
+	}
+	return nsAccessibilityUnignoredAncestor(element)
+}
+
+var (
+	selValueWithRect  = objc.RegisterName("valueWithRect:")
+	selValueWithPoint = objc.RegisterName("valueWithPoint:")
+	selValueWithSize  = objc.RegisterName("valueWithSize:")
+	selValueWithRange = objc.RegisterName("valueWithRange:")
+)
+
+// NSValueRect, NSValuePoint, NSValueSize and NSValueRange return
+// autoreleased NSValues holding a geometry value or a range.
+func NSValueRect(r CGRect) ID { return ID(objc.GetClass("NSValue")).Send(selValueWithRect, r) }
+
+func NSValuePoint(p CGPoint) ID { return ID(objc.GetClass("NSValue")).Send(selValueWithPoint, p) }
+
+func NSValueSize(s CGSize) ID { return ID(objc.GetClass("NSValue")).Send(selValueWithSize, s) }
+
+func NSValueRange(r NSRange) ID { return ID(objc.GetClass("NSValue")).Send(selValueWithRange, r) }
 
 var (
 	selNumberWithDouble  = objc.RegisterName("numberWithDouble:")

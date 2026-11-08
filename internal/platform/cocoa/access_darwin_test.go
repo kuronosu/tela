@@ -306,6 +306,13 @@ func TestAccessibilityBridge(t *testing.T) {
 			var wk []string
 			found := false
 			for _, k := range darwin.ArrayItems(axSend(s.w.ns, "accessibilityChildren")) {
+				// Only the bridge's elements: AppKit's own (the title's
+				// cell proxy) need not answer every method.
+				cls := darwin.GoString(darwin.Send(darwin.Send(k, darwin.Sel("class")), darwin.Sel("description")))
+				if !darwin.SendBool(k, darwin.Sel("isKindOfClass:"), axAccess.class) {
+					wk = append(wk, cls)
+					continue
+				}
 				wk = append(wk, axGoString(k, "accessibilityRole"))
 				found = found || k == heading
 			}
@@ -379,6 +386,38 @@ func TestAccessibilityBridge(t *testing.T) {
 				} else {
 					t.Errorf("AXSelectedTextRange is nil")
 				}
+				check("AXParent of the button is the window", attr(button, "AXParent") == s.w.ns, true)
+				check("AXParent of the heading's text is the heading", len(hk) == 1 && attr(hk[0], "AXParent") == heading, true)
+				if len(hk) == 1 {
+					check("AXValue of the heading's text", darwin.GoString(attr(hk[0], "AXValue")), "Settings")
+					check("AXRole of the heading's text", darwin.GoString(attr(hk[0], "AXRole")), "AXStaticText")
+				}
+				check("AXRole of the heading", darwin.GoString(attr(heading, "AXRole")), "AXHeading")
+				check("AXSubrole of the password", darwin.GoString(attr(password, "AXSubrole")), "AXSecureTextField")
+				if p := attr(button, "AXPosition"); p != 0 {
+					t.Logf("button AXPosition %s AXSize %s", desc(p), desc(attr(button, "AXSize")))
+				} else {
+					t.Errorf("AXPosition is nil")
+				}
+				check("AXIsIgnored of the button", axBool(button, "accessibilityIsIgnored"), false)
+				check("AXValue settable on the field", axBool(field, "accessibilityIsAttributeSettable:", darwin.AutoString("AXValue")), true)
+				check("AXValue settable on the button", axBool(button, "accessibilityIsAttributeSettable:", darwin.AutoString("AXValue")), false)
+				check("AXFocused settable on the button", axBool(button, "accessibilityIsAttributeSettable:", darwin.AutoString("AXFocused")), true)
+				param := func(e darwin.ID, name string, p darwin.ID) darwin.ID {
+					return axSend(e, "accessibilityAttributeValue:forParameter:", darwin.AutoString(name), p)
+				}
+				check("AXStringForRange 3-1", darwin.GoString(param(field, "AXStringForRange", darwin.NSValueRange(darwin.NSRange{Location: 3, Length: 1}))), "b")
+				if as := param(field, "AXAttributedStringForRange", darwin.NSValueRange(darwin.NSRange{Location: 1, Length: 2})); as != 0 {
+					check("AXAttributedStringForRange 1-2", axGoString(as, "string"), "😀")
+				} else {
+					t.Errorf("AXAttributedStringForRange is nil")
+				}
+				check("AXLineForIndex 2", axInt(param(field, "AXLineForIndex", darwin.NSNumberInt(2)), "integerValue"), 0)
+				check("AXRangeForIndex 1", axRangeOf(param(field, "AXRangeForIndex", darwin.NSNumberInt(1)), "rangeValue"), darwin.NSRange{Location: 1, Length: 2})
+				check("AXRangeForLine 0", axRangeOf(param(field, "AXRangeForLine", darwin.NSNumberInt(0)), "rangeValue"), darwin.NSRange{Length: 4})
+				// Setting the field's selection through the attribute API.
+				axSend(field, "accessibilitySetValue:forAttribute:", darwin.NSValueRange(darwin.NSRange{Location: 3, Length: 1}),
+					darwin.AutoString("AXSelectedTextRange"))
 				var fieldAttrs []string
 				for _, n := range darwin.ArrayItems(axSend(field, "accessibilityAttributeNames")) {
 					fieldAttrs = append(fieldAttrs, darwin.GoString(n))
@@ -412,7 +451,7 @@ func TestAccessibilityBridge(t *testing.T) {
 				}
 			}
 			check("action events", strings.Join(acts, "; "),
-				`default 5; increment 10; show-menu 5; set-value 8 "hi"; set-selection 8 0-2; focus 8; scroll-into-view 5; default 5`)
+				`default 5; increment 10; show-menu 5; set-value 8 "hi"; set-selection 8 0-2; focus 8; scroll-into-view 5; set-selection 8 2-3; default 5`)
 			u := axTestTree()
 			nodes := map[platform.AccessID]platform.AccessNode{}
 			for _, n := range u.Nodes {
@@ -501,29 +540,71 @@ func TestAccessibilityAXClient(t *testing.T) {
 			results <- append(out, "window not found")
 			return
 		}
-		walk := func() {
-			if kids := attr(win, "AXChildren"); kids != 0 {
-				for _, k := range darwin.ArrayItems(darwin.ID(kids)) {
-					role, desc := attr(uintptr(k), "AXRole"), attr(uintptr(k), "AXDescription")
-					out = append(out, fmt.Sprintf("%s %q", darwin.GoString(darwin.ID(role)), darwin.GoString(darwin.ID(desc))))
-					if role != 0 {
-						darwin.CFRelease(role)
-					}
-					if desc != 0 {
-						darwin.CFRelease(desc)
-					}
+		// str returns the description of a CF value ("" for none).
+		str := func(v uintptr) string {
+			if v == 0 {
+				return ""
+			}
+			defer darwin.CFRelease(v)
+			if darwin.SendBool(darwin.ID(v), darwin.Sel("isKindOfClass:"), darwin.GetClass("NSString")) {
+				return darwin.GoString(darwin.ID(v))
+			}
+			return darwin.GoString(darwin.Send(darwin.ID(v), darwin.Sel("description")))
+		}
+		quiet := func(el uintptr, name string) uintptr {
+			s := darwin.NSString(name)
+			defer darwin.Release(s)
+			var v uintptr
+			if darwin.AXUIElementCopyAttributeValue(el, uintptr(s), &v) != 0 {
+				return 0
+			}
+			return v
+		}
+		var save uintptr
+		var walk func(el uintptr, depth int)
+		walk = func(el uintptr, depth int) {
+			kids := attr(el, "AXChildren")
+			for _, k := range darwin.ArrayItems(darwin.ID(kids)) {
+				e := uintptr(k)
+				role, sub := str(quiet(e, "AXRole")), str(quiet(e, "AXSubrole"))
+				desc, title, value := str(quiet(e, "AXDescription")), str(quiet(e, "AXTitle")), str(quiet(e, "AXValue"))
+				n := 0
+				if c := quiet(e, "AXChildren"); c != 0 {
+					n = len(darwin.ArrayItems(darwin.ID(c)))
+					darwin.CFRelease(c)
 				}
+				out = append(out, fmt.Sprintf("%s%s/%s %q title=%q value=%q children=%d", strings.Repeat("  ", depth), role, sub, desc, title, value, n))
+				if role == "AXButton" && desc == "Save" && save == 0 {
+					save = uintptr(darwin.Retain(k))
+				}
+				if depth < 3 {
+					walk(e, depth+1)
+				}
+			}
+			if kids != 0 {
 				darwin.CFRelease(kids)
 			}
 		}
-		walk() // activates the bridge
+		walk(win, 0) // activates the bridge
 		out = append(out, "--- after the tree")
 		select {
 		case <-pushed:
 		case <-time.After(5 * time.Second):
 			out = append(out, "no tree pushed")
 		}
-		walk()
+		walk(win, 0)
+		if f := quiet(app, "AXFocusedUIElement"); f != 0 {
+			out = append(out, fmt.Sprintf("focused: %s %q", str(quiet(f, "AXRole")), str(quiet(f, "AXDescription"))))
+			darwin.CFRelease(f)
+		} else {
+			out = append(out, "focused: none")
+		}
+		if save != 0 {
+			a := darwin.NSString("AXPress")
+			out = append(out, fmt.Sprintf("AXPress on Save: AXError %d", darwin.AXUIElementPerformAction(save, uintptr(a))))
+			darwin.Release(a)
+			darwin.Release(darwin.ID(save))
+		}
 		darwin.Release(darwin.ID(win))
 		results <- out
 	}
@@ -547,14 +628,25 @@ func TestAccessibilityAXClient(t *testing.T) {
 	for range 20 {
 		steps = append(steps, poll)
 	}
-	if s := runSteps(t, title, false, 300*time.Millisecond, steps...); s == nil {
+	s := runSteps(t, title, false, 300*time.Millisecond, steps...)
+	if s == nil {
 		t.Fatal("the window never showed")
 	}
 	if !done {
 		t.Fatalf("the AX client did not finish")
 	}
 	t.Logf("AX client saw:\n  %s", strings.Join(got, "\n  "))
-	if !strings.Contains(strings.Join(got, "\n"), `AXButton "Save"`) {
+	if !strings.Contains(strings.Join(got, "\n"), `AXButton/ "Save"`) {
 		t.Errorf("the AX client did not see the Save button")
+	}
+	pressed := false
+	for _, e := range s.events {
+		if e, ok := e.(platform.AccessActionEvent); ok {
+			t.Logf("action event from the AX client: %s", actionString(e))
+			pressed = pressed || (e.Node == 5 && e.Action == platform.AccessActionDefault)
+		}
+	}
+	if !pressed {
+		t.Errorf("AXPress from the AX client did not arrive as the default action of the Save button")
 	}
 }

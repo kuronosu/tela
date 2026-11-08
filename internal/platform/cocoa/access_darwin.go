@@ -133,7 +133,7 @@ func setupAccess() {
 	if super == 0 || darwin.LoadAccessibility() != nil {
 		return
 	}
-	methods := elementMethods()
+	methods := append(elementMethods(), attributeMethods()...)
 	axAccess.gated = map[darwin.SEL]string{}
 	for _, m := range methods {
 		axAccess.gated[m.Sel] = darwin.SelName(m.Sel)
