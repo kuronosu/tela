@@ -4,9 +4,9 @@ Every element has a place in a **semantics tree**: a role, an accessible name,
 a description, states and a value, computed the way browsers do (HTML-AAM and
 AccName 1.2, checked against Playwright). The tree is what tests query with
 `ByRole`, what `tela inspect` prints, and what an agent reads to understand a
-screen. An operating-system accessibility backend (AT-SPI, UI Automation,
-NSAccessibility) is not there yet; the tree is built on demand, so it costs
-nothing while you do not ask for it.
+screen. The operating-system accessibility bridges (AT-SPI, UI Automation,
+NSAccessibility) are being built from the same tree; it is built on demand, so
+it costs nothing while you do not ask for it.
 
 ## Implicit roles
 
@@ -49,6 +49,10 @@ The props follow React's `aria-*` attributes:
 | [`AriaCurrent`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaCurrent) | The current item of a set: `"page"` (the link of the page being shown), `"step"`, `"location"`, `"date"`, `"time"` or `"true"`; `"false"` and `""` mean none |
 | [`AriaLevel`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaLevel) | Level of a custom heading, list item, row or tree item |
 | [`AriaValueNow`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaValueNow), [`AriaValueMin`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaValueMin), [`AriaValueMax`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaValueMax), [`AriaValueText`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaValueText) | The value of a range widget (`slider`, `progressbar`, `spinbutton`, `meter`) |
+| [`AriaLive`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaLive), [`AriaAtomic`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaAtomic) | A live region: changes of its content are announced without moving the focus, `"polite"` or `"assertive"` (`"off"` ends one); `Role("status")` and `Role("log")` are polite and `Role("alert")` assertive without it. `AriaAtomic(true)` reads the whole region on a change |
+| [`AriaKeyShortcuts`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaKeyShortcuts) | The keys that activate an element, in ARIA's syntax: `"Control+S Meta+S"` (it only describes them; `Ctrl` and `Cmd` panic in dev mode with the right name) |
+| [`AriaPosInSet`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaPosInSet), [`AriaSetSize`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaSetSize) | The position of an item and the size of its set, for a list, listbox or menu that has only some of its items in the tree; otherwise they are counted (`-1` is an unknown size) |
+| [`AriaLabelFn`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaLabelFn) | A name computed from `tela.Value`s when the semantics tree is built: a change of one rebuilds nothing |
 
 These props also drive the `aria-*` class variants: `aria-checked:`, `aria-expanded:`,
 `aria-pressed:`, `aria-selected:`, `aria-disabled:`, `aria-hidden:`, `aria-busy:`,
@@ -60,8 +64,9 @@ header (`group-aria-[sort=descending]:rotate-180` turns its arrow), and
 `aria-[current=page]:` (also `step`, `location`, `date`, `time` and `true`)
 match the `AriaCurrent` of a link or step (Tailwind has no bare `aria-current:`).
 The aria snapshot prints `[invalid]` (from `AriaInvalid(true)` only, on the
-roles that support it) but not `required`, `readonly`, `busy`, the sort or the
-current item, as Playwright's does not.
+roles that support it) but not `required`, `readonly`, `busy`, the sort, the
+current item, live regions, shortcuts or positions in sets, as Playwright's
+does not.
 
 ```go
 func WifiSwitch() tela.Node {

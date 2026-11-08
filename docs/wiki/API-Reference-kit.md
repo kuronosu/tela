@@ -2712,7 +2712,10 @@ type Popover struct {
     // as a dialog does. The default is a popover that leaves the page
     // usable.
     Modal bool
-    // AriaLabel names the panel (it is a dialog for assistive technologies).
+    // AriaLabel names the panel (it is a dialog for assistive
+    // technologies). Without it the panel is named by its trigger, as React
+    // Aria's DialogTrigger names its dialog: a "Dimensions" button opens a
+    // "Dimensions" dialog.
     AriaLabel string
 
     // Open points to the open state of a controlled popover; nil leaves the

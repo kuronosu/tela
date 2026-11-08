@@ -599,7 +599,11 @@ func (t Toaster) Build() tela.Node {
 	}
 
 	root := joinClass(st.Root, when(t.Inline, st.Inline), when(!t.Inline, st.Fixed), posClass, t.Class)
-	viewport := h.Div(cls(root), h.Role("region"), h.AriaLabel("Notifications"), t.Props,
+	// The region is a polite live region that is always there (Sonner's
+	// section has aria-live="polite"), so that assistive technologies
+	// announce a toast added to it: many do not announce a live region that
+	// appears with its content, such as a toast's own status role.
+	viewport := h.Div(cls(root), h.Role("region"), h.AriaLabel("Notifications"), h.AriaLive("polite"), h.AriaAtomic(false), t.Props,
 		h.OnMouseEnter(func() { setHovered.Set(true) }), h.OnMouseLeave(func() { setHovered.Set(false) }),
 		h.Presence(items...))
 	var layer tela.Child = viewport
@@ -650,7 +654,7 @@ func (it toastItem) Build() tela.Node {
 	// height class applies (a forced height would be measured back); the
 	// difference to the body is kept, and a body that changes later (a
 	// replaced toast, a narrower window) is that difference taller.
-	body, root := tela.UseElementRef(), tela.UseElementRef()
+	body, root, title := tela.UseElementRef(), tela.UseElementRef(), tela.UseElementRef()
 	size, rootSize := tela.UseSize(body), tela.UseSize(root)
 	ch, rh := size.Get().Height, rootSize.Get().Height
 	chrome := tela.UseRef(float32(-1))
@@ -734,10 +738,13 @@ func (it toastItem) Build() tela.Node {
 	if d.kind == toastError {
 		role = "alert"
 	}
-	return h.Div(h.Ref(root), cls(it.class), h.Role(role), h.TabIndex(0), h.Exit(it.exit), closeBtn, bridge,
+	// A toast is a live region of its own (status, or alert for an error:
+	// polite or assertive and atomic) named by its title, since it takes
+	// the focus (Tab reaches it, as in Sonner).
+	return h.Div(h.Ref(root), cls(it.class), h.Role(role), h.AriaLabelledBy(title), h.TabIndex(0), h.Exit(it.exit), closeBtn, bridge,
 		h.Div(h.Ref(body), cls(st.Body, when(it.collapsedBehind, st.Collapsed)),
 			iconBox,
-			h.Div(cls(st.Content), h.Div(cls(st.Title), h.Text(d.title)), desc),
+			h.Div(cls(st.Content), h.Div(h.Ref(title), cls(st.Title), h.Text(d.title)), desc),
 			action))
 }
 

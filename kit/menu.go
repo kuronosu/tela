@@ -8,9 +8,11 @@ package kit
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/aria"
+	"github.com/kuronosu/tela/desktop"
 	"github.com/kuronosu/tela/h"
 )
 
@@ -435,6 +437,9 @@ func (r menuRenderer[K]) entries(items []MenuItem[K]) []tela.Child {
 			g := it
 			var kids []tela.Child
 			kids = append(kids, h.Role("group"), h.Key(menuRowKey{it.Kind, i}))
+			if it.Label != "" {
+				kids = append(kids, h.AriaLabel(it.Label))
+			}
 			if it.Disabled {
 				kids = append(kids, h.AriaDisabled(true))
 			}
@@ -490,9 +495,48 @@ func (r menuRenderer[K]) item(it MenuItem[K], radio *MenuItem[K]) tela.Child {
 	}
 	kids = append(kids, h.Text(it.Label))
 	if it.Shortcut != "" {
+		if keys := ariaKeyShortcuts(it.Shortcut); keys != "" {
+			kids = append(kids, h.AriaKeyShortcuts(keys))
+		}
 		kids = append(kids, h.Span(cls(st.Shortcut), h.AriaHidden(true), h.Text(it.Shortcut)))
 	}
 	return h.Div(kids...)
+}
+
+// ariaKeyShortcuts returns a menu item's Shortcut in ARIA's syntax for
+// h.AriaKeyShortcuts ("Shift+Cmd+P" is "Shift+Meta+P"), so that assistive
+// technologies announce the keys the hidden shortcut text shows; "" when
+// it is not a key combination desktop.ParseKeys reads (a glyph such as
+// "⌘T").
+func ariaKeyShortcuts(shortcut string) string {
+	keys, err := desktop.ParseKeys(shortcut)
+	if err != nil {
+		return ""
+	}
+	mods, key := "", keys
+	switch {
+	case keys == "+":
+		key = "Plus"
+	case strings.HasSuffix(keys, "++"):
+		mods, key = keys[:len(keys)-2], "Plus"
+	default:
+		if i := strings.LastIndexByte(keys, '+'); i >= 0 {
+			mods, key = keys[:i], keys[i+1:]
+		}
+	}
+	var out []string
+	if mods != "" {
+		for _, m := range strings.Split(mods, "+") {
+			switch m {
+			case "Ctrl":
+				m = "Control"
+			case "Super":
+				m = "Meta"
+			}
+			out = append(out, m)
+		}
+	}
+	return strings.Join(append(out, key), "+")
 }
 
 // itemVariant returns the classes of a plain item's Variant. One the

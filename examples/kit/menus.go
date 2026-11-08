@@ -117,7 +117,10 @@ func contextMenuPage() tela.Node {
 		demo("Right click", "A right click opens it at the pointer; a long press on touch. From the keyboard, Tab to the box (TabIndex 0 makes it focusable) and press Shift+F10 or the context menu key.", col,
 			kit.ContextMenu[string]{
 				AriaLabel: "Page",
-				Props:     TabIndex(0),
+				// Focusable for the keyboard, so it gets a role and a name
+				// for screen readers, and the keys that open its menu.
+				Props: tela.MergeProps(TabIndex(0), Role("region"), AriaLabel("Page area"),
+					AriaKeyShortcuts("Shift+F10 ContextMenu")),
 				Class: "flex h-40 w-72 items-center justify-center rounded-md border border-dashed border-border text-sm text-muted-foreground outline-none " +
 					"focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
 				Children: Text("Right click here"),

@@ -85,7 +85,10 @@ type Popover struct {
 	// as a dialog does. The default is a popover that leaves the page
 	// usable.
 	Modal bool
-	// AriaLabel names the panel (it is a dialog for assistive technologies).
+	// AriaLabel names the panel (it is a dialog for assistive
+	// technologies). Without it the panel is named by its trigger, as React
+	// Aria's DialogTrigger names its dialog: a "Dimensions" button opens a
+	// "Dimensions" dialog.
 	AriaLabel string
 
 	// Open points to the open state of a controlled popover; nil leaves the
@@ -124,10 +127,14 @@ func (p Popover) Build() tela.Node {
 		Placement: placementOf("Popover", p.Placement, p.Align, "bottom"), Offset: offset, Modal: p.Modal,
 	})
 	dlg := aria.UseDialog(aria.DialogOptions{Modal: p.Modal, AriaLabel: p.AriaLabel, Ref: trig.OverlayRef})
+	var name tela.Child
+	if p.AriaLabel == "" {
+		name = h.AriaLabelledBy(trig.Ref) // the panel has no title of its own
+	}
 	return h.Fragment(
 		triggerOf(p.Trigger, trig.TriggerProps),
 		h.Portal(h.Presence(h.If(trig.Open,
-			h.Div(pop.Props, dlg.Props, h.Exit(s.Exit),
+			h.Div(pop.Props, dlg.Props, name, h.Exit(s.Exit),
 				cls(s.Root, s.Sides[pop.Side], p.Class), p.Props, p.Children)))),
 	)
 }

@@ -12,6 +12,14 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
+### Added
+
+- Accessibility props (ADR-246): `h.AriaLive("polite"|"assertive"|"off")` and `h.AriaAtomic(bool)` for live regions (`Role("status")`, `"log"` and `"alert"` are live without them), `h.AriaKeyShortcuts("Control+S Meta+S")` (dev mode rejects `Ctrl`, `Cmd` and empty keys with the right name), `h.AriaPosInSet(i)` and `h.AriaSetSize(n)` for sets that have only some of their items in the tree (otherwise positions are counted as Chromium does), and `h.AriaLabelFn(func() string)`, a name read when the semantics tree is built, so a `tela.Value` it reads rebuilds nothing. The aria snapshot prints none of them, as Playwright's does not.
+
+### Changed
+
+- kit: a menu item's `Shortcut` is announced as its ARIA key shortcuts (`Shift+Cmd+P` is `Shift+Meta+P`); a `MenuRadioGroup`'s `Label` names its group; a `Popover` without `AriaLabel` is named by its trigger, as React Aria's dialogs; the `Toaster`'s region is a polite live region and each toast is named by its title, so a new toast is announced.
+
 ## [0.13.6] - 2026-11-08
 
 Phase 18, Font system (ADR-244): no font is in an app's binary unless the app brings it, and text uses the fonts installed on the system.

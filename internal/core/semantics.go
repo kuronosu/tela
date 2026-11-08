@@ -181,7 +181,6 @@ func (t *Tree) ariaLabel(el *Element, a *ariaProps) string {
 	return v
 }
 
-
 // Semantics returns the semantics tree (see the comment at the top of
 // semantics.go): roles, names and states follow the Elements as last built
 // (a click's rebuild shows at once), styles, bounds and focusability the
