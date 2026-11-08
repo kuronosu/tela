@@ -802,6 +802,12 @@ func (b *Bridge) treeChanged(w *Window, t *platform.AccessTree, ann []platform.A
 	if w.removed.Load() {
 		return
 	}
+	if old.view.tree == nil && s.active {
+		// The first tree of an activation in a focused window: an AT that
+		// just started learns the active window (Wayland has no other way
+		// to tell it), then the focus (treeEvents).
+		b.emit(w.path, eventWindowIface, "Activate", "", 0, 0, dbus.MakeVariant(s.title))
+	}
 	b.treeEvents(w, old, &s)
 	for _, a := range ann {
 		pol := int32(livePolite)

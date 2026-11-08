@@ -3,6 +3,7 @@
 package atspi
 
 import (
+	"bufio"
 	"context"
 	"os"
 	"os/exec"
@@ -135,6 +136,7 @@ func TestRealRegistry(t *testing.T) {
 	}
 
 	libatspi(t, addr, "tela-test")
+	libatspiEvents(t, addr, w)
 
 	// Close unembeds: the desktop loses the app.
 	h.b.Close()
@@ -212,4 +214,116 @@ func libatspi(t *testing.T, addr, appName string) {
 	if got != want {
 		t.Errorf("libatspi reads\n%s\nwant\n%s", got, want)
 	}
+}
+
+// libatspiEventsScript prints the events libatspi delivers for the app
+// named argv[1]: type, the source's name, detail1 and the data.
+const libatspiEventsScript = `
+import sys, gi
+gi.require_version('Atspi', '2.0')
+from gi.repository import Atspi, GLib
+def cb(e):
+    try:
+        app = e.source.get_application()
+        if app is None or app.get_name() != sys.argv[1]:
+            return
+        data = e.any_data if isinstance(e.any_data, str) else ''
+        print('%s|%s|%d|%s' % (e.type, e.source.get_name(), e.detail1, data), flush=True)
+    except Exception as ex:
+        print('error|%s' % ex, flush=True)
+l = Atspi.EventListener.new(cb)
+for ev in ('object:state-changed:focused', 'object:state-changed:checked', 'object:announcement',
+           'object:property-change:accessible-name', 'object:children-changed'):
+    l.register(ev)
+GLib.timeout_add(200, lambda: print('ready', flush=True) and False)
+GLib.timeout_add(8000, lambda: Atspi.event_quit() and False)
+Atspi.event_main()
+`
+
+// libatspiEvents checks that libatspi parses the bridge's events: a
+// change of focus, a state, a name and an announcement.
+func libatspiEvents(t *testing.T, addr string, w *Window) {
+	py, err := exec.LookPath("python3")
+	if err != nil {
+		return
+	}
+	dir := t.TempDir()
+	script := filepath.Join(dir, "events.py")
+	if err := os.WriteFile(script, []byte(libatspiEventsScript), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, py, "-I", script, "tela-test")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "AT_SPI_BUS_ADDRESS="+addr, "DBUS_SESSION_BUS_ADDRESS="+addr)
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer cmd.Wait()
+	lines := make(chan string, 64)
+	go func() {
+		sc := bufio.NewScanner(out)
+		for sc.Scan() {
+			lines <- sc.Text()
+		}
+		close(lines)
+	}()
+	select {
+	case l := <-lines:
+		if l != "ready" {
+			t.Logf("libatspi events not checked: %q", l)
+			return
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("the libatspi listener did not start")
+	}
+	// The registry tells the bridge about the new listeners first.
+	time.Sleep(300 * time.Millisecond)
+	u := loginTree()
+	u.Nodes[5].Name = "Signing in"
+	u.Nodes[7].Checked = platform.ToggleFalse
+	u.Nodes[4].States |= platform.AccessFocused
+	u.Focus = 5
+	u.Nodes = append(u.Nodes[4:6:6], u.Nodes[7])
+	u.Announcements = []platform.Announcement{{Text: "Signed in", Assertive: true}}
+	w.Update(u)
+	want := []string{
+		"object:state-changed:checked|Remember me|0|",
+		"object:property-change:accessible-name|Signing in|0|Signing in",
+		"object:state-changed:focused|Email|1|",
+		"object:announcement|Login|2|Signed in",
+	}
+	var got []string
+	for !slicesContains(got, want[len(want)-1]) {
+		select {
+		case l, ok := <-lines:
+			if !ok {
+				t.Fatalf("libatspi delivered %q, want %q", got, want)
+			}
+			got = append(got, l)
+		case <-time.After(10 * time.Second):
+			t.Fatalf("libatspi delivered %q, want %q", got, want)
+		}
+	}
+	for _, wl := range want {
+		if !slicesContains(got, wl) {
+			t.Errorf("libatspi delivered %q, lacking %q", got, wl)
+		}
+	}
+	cmd.Process.Kill()
+}
+
+func slicesContains(s []string, v string) bool {
+	for _, x := range s {
+		if x == v {
+			return true
+		}
+	}
+	return false
 }
