@@ -10,16 +10,16 @@
 ## Current status
 
 - **Done:** phases 1–16. Latest version `v0.13.4` (2026-11-07, phase 16: platform parity; tagged on `31942ee` with the owner's approval). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
-- **Phase in progress:** none. Phase 16 was merged into `main` from `phase-16-platform-parity`.
+- **Phase in progress:** 17, Memory, on the branch `phase-17-memory` (ADR-240: the measurement).
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** the next phase in order, Memory (moved before the Font system by the owner on 2026-11-07, so the fonts' ADR is decided on measurements). R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** the measurement command and its baseline (phase 17's first task), then the reductions it ranks. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
 
-In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–16 are done (HISTORY.md).
+In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–16 are done (HISTORY.md); phase 17 is in progress.
 
-### Memory
+### Phase 17: Memory
 
 Find where RAM goes and reduce it. Before the Font system (the owner, 2026-11-07: its measurements inform the fonts' ADR) and before CPU performance, whose caches trade memory for speed. What the fonts take is measured and explained here, and reduced in the Font system phase.
 
