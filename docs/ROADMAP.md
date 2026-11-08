@@ -12,7 +12,7 @@
 - **Done:** phases 1–18. Latest version `v0.13.6` (2026-11-08, phase 18: font system). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
 - **Phase in progress:** 19, Accessibility, on `phase-19-accessibility` (design in ADR-246; the owner allows pushing the work branch for CI).
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** phase 19's semantics coverage, then the platform contract v5 and core's updates, then the three bridges. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** phase 19's platform contract v5 and core's updates, then the three bridges. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
@@ -24,11 +24,12 @@ In order. Each phase ends with verifiable criteria and is not done unless they p
 Strictly after the two macOS phases: the bridges for AT-SPI, UI Automation and NSAccessibility are verified together (the owner chose strict order over starting the Linux and Windows bridges in parallel). Design: ADR-246 (AccessKit's push model).
 
 - [x] Design: ADR-246
-- [ ] The semantics tree covers `aria` and `kit` roles, states, actions and live regions; `h.AriaLive`, `AriaAtomic`, `AriaKeyShortcuts`, `AriaPosInSet`, `AriaSetSize` and a deferred accessible name (`h.AriaLabelFn`); password fields are protected
+- [x] The semantics tree covers `aria` and `kit` roles, states, actions and live regions; `h.AriaLive`, `AriaAtomic`, `AriaKeyShortcuts`, `AriaPosInSet`, `AriaSetSize` and a deferred accessible name (`h.AriaLabelFn`); password fields are protected
 - [ ] Platform contract v5 (`AccessNode`, `AccessUpdate`, `Window.SetAccessibility`, `AccessibilityEvent`, `AccessActionEvent`); core sends changed nodes, focus and live-region announcements after each commit while an AT is active; headless records them, remote protocol 9 forwards them
 - [ ] AT-SPI over D-Bus (pure Go), shared by Wayland and X11; checked with Orca
 - [ ] UI Automation over COM; checked with Narrator on the VM
 - [ ] NSAccessibility; checked on macOS CI, VoiceOver in the macOS live checks
+- [ ] Semantics gaps: radios outside a radiogroup are not grouped by name and tree items without groups are not split by `aria-level` for set positions (Chromium does both); `IncrementNode`/`DecrementNode` need a focusable widget (Chromium sends the key without focusing); a dev warning for a focusable element with no role or name (a focusable `kit.ContextMenu` area has neither unless the app gives them)
 
 **Done when:** a screen reader reads, navigates and operates the `login` example (with `signup` merged in, ADR-195) on Linux and Windows; VoiceOver on macOS is in the macOS live checks.
 
@@ -43,6 +44,7 @@ What building the examples showed missing in `tela`, `h`, `aria`, `kit` and `des
 - [ ] Windows 11 overlay windows: DWM's caption glyphs follow the system scheme when the app's theme differs and it gives no `TitleBar.Background` (sample the bar's pixels); the access keys Win32 gives a native menu bar are Latin letters and digits only
 - [ ] The fallback title bar (ADR-238): its button labels get the i18n hook; it follows a `Dir` set below the app's outermost element; a press on it counts as outside an open dialog (an outside-press dialog closes); decide whether an explicit opt-out is needed besides a `WindowDrag` area
 - [ ] Transparent windows (asked by the owner, 2026-11-08): a window whose unpainted pixels show the desktop, so the root's first element floats with its own radius and `shadow-*` (an `App`/`Window` option such as `Transparent`, with `Frameless`). Needs an ADR. Wayland: premultiplied `ARGB8888` buffers and an empty opaque region (today `XRGB`/`XBGR`); X11: a 32-bit ARGB visual and colormap for the window (today the root visual; needs a compositing manager, else an opaque fallback); Windows: per-pixel alpha through DWM (`DwmExtendFrameIntoClientArea` with -1 margins and a premultiplied surface) or a layered window; macOS: a non-opaque `NSWindow` with `clearColor` and an alpha `CALayer`. Clicks on transparent pixels pass to what is below (the Wayland input region, X11 SHAPE input, `WM_NCHITTEST` returning `HTTRANSPARENT`, the view's `hitTest:`), kept in sync with what the frame painted; the window larger than the card so the shadow fits; damage and present keep alpha; headless and goldens render with alpha; a `telatest` option
+- [ ] `kit.MenuItem.Shortcut` written in glyphs ("⌘T") gets no `AriaKeyShortcuts`, and `CmdOrCtrl` there resolves to the build host's modifier, not the Tree's flavor
 - [ ] `kit.Field`: a slot by the description, rich labels, a slot beside the label, and a group inside a `Field` (not a `FieldSet`) named by its label
 - [ ] `kit.Table`: a "never unsorted" sort mode and a way to hide the unsorted arrow; sort variants for `aria-sort` `other`/`none`
 - [ ] Deferred forms: `BackgroundGradientFn`, and `…Fn` forms of Progress and ToggleGroup; `tela.Preview` takes a theme and a color scheme
@@ -70,6 +72,7 @@ Differences from Chromium and missing typography; each fix comes with a fixture 
 
 The frame cost of the engine and the CPU rasterizer; the GPU backend builds on it. Baseline, the Frosted graphite dashboard (1080p, 12 raster workers, backdrop cache of ADR-200; quiet i5-10400, 2026-10-31): p50 4.2 ms, p95 17.8 ms at x1 over 726 frames; p50 9.0 ms, p95 40 ms at x2.
 
+- [ ] Semantics: every commit while an assistive technology is active, and every `AriaLabelFn` change, rebuilds the whole semantics tree (no incremental `needsSemantics` marks, ADR-246)
 - [ ] Fonts: the sprite cache keys bitmap and COLR glyphs by text color, so one emoji in two colors is cached twice
 - [ ] Linux: the portal's settings are read on the UI thread in `NewHost` while the font index loads beside it (3 → 8 ms); read them off the UI thread at `Run` start
 - [ ] go-text's `NewFont` still copies glyf and gvar (ADR-243); a stub needs each glyph's bounding box and, for variable fonts, its points, so ADR-245's technique does not carry over cheaply
@@ -129,11 +132,12 @@ Inspecting and driving a running app.
 - [ ] `tela dev` with desktop services: a drop's final effect set inside `OnDrop` reaches the source; a refused or taken shortcut status is not cached until `tela dev` restarts; a window a new build opens only later (from an effect) does not close and reopen on reload; a dialog opened at startup does not show again on every reload; a reload while a Wayland window is minimized does not stall; the Windows 11 backdrop reaches the client area
 - [ ] Dev builds can be debugged (DWARF)
 - [ ] `telatest`: clicks with modifiers (Playwright's `click({modifiers})`; aria's Cmd+click tests mount through `rawwin` today); menu accelerators' `CmdOrCtrl` follow the host, not `PlatformKeys` (ADR-221)
+- [ ] A public accessibility check in `telatest` (such as `App.ExpectAccessible()`, needs an ADR) from the axe-like rules of `telatest/a11y_audit_test.go`
 - [ ] `telatest.TrayIcon` reports `Template` (ADR-237)
 - [ ] `telatest`: plays Windows' `DefaultAsked` for file types and gives a start launch; a wait on a long timer of the app's clock advances to the next deadline when nothing else is due (today one frame per try, about 120 tries for 2 s, so it depends on the machine's speed)
 - [ ] `watch`: `TestDebounce/native` saw a batch 401 ms after the last write (before the debounce) once on the Linux runner (`7ae8f0e`, 2026-11-02), and both `native` and `poll` 290–340 ms after it under Wine (`047ca54`, 2026-11-08); find why `TestDirectoryMovedInAndOut/native` failed once on `windows-latest` (`c9aff8d`: nothing reported for a directory moved into the tree, no error; the watcher and the test now report more); the Windows poller holds each directory open while it lists it, so a rename of that directory fails for that moment
 - [ ] CI: the win32 tests that read the screen (title bar colors, backdrop, frameless modal and glass pixels) or open real dialogs run only with `TELA_LIVE=1`, so CI checks their attributes but not their pixels; the win32 keyboard tests inject their "slow" keys 40 ms apart from a goroutine and check the focus only at the start, so they rely on running alone; a global-shortcut press injected with `keybd_event` or `SendInput` from a scheduled task never arrives, so only a real key press checks it
-- [ ] `docs/llms.txt` is near `llmsdoc`'s 100 KB limit
+- [ ] `docs/llms.txt` is 2 bytes under `llmsdoc`'s 100 KB limit (phase 19 dropped eight class examples to fit the new aria props): raise the limit or split the file
 - [ ] CI: `cmd/tela`'s out-of-repository tests (dev, mcp, new, outside modules) skip when `go mod tidy` cannot resolve offline; the macOS job warms the module cache first, the Linux and Windows jobs do not, so there they likely skip; lint runs staticcheck for Linux only (`watch.(*Watcher).lost` is unused on darwin)
 - [ ] `tela dev` on macOS polls the tree every 300 ms; an FSEvents watcher
 
