@@ -1,11 +1,13 @@
 // Package watch reports changes of files under a set of directory trees,
-// debounced into batches: the file watcher of tela dev (ADR-115).
+// debounced into batches: the file watcher of tela dev (ADR-115) and of
+// desktop's stores (ADR-253).
 //
-// Watching is native where the OS has a recursive notification API:
-// inotify on Linux (one watch per directory, added for new directories as
-// they appear) and ReadDirectoryChangesW on Windows (one handle per root,
-// with its subtree). Elsewhere, and on request ([Options.Poll]), the trees
-// are polled. It needs no dependency besides golang.org/x/sys.
+// Watching is native: inotify on Linux (one watch per directory, added
+// for new directories as they appear), ReadDirectoryChangesW on Windows
+// (one handle per root, with its subtree) and kqueue on macOS (one
+// descriptor per directory and per file the filter accepts, ADR-259).
+// Elsewhere, and on request ([Options.Poll]), the trees are polled. It
+// needs no dependency besides golang.org/x/sys.
 //
 // What counts as a change is the caller's: [Options.Filter] sees every
 // path, on the watcher's goroutines, before the debounce, so a file that

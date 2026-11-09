@@ -23,6 +23,21 @@ func waitFor(t *testing.T, what string, cond func() bool) {
 	}
 }
 
+// waitWatch waits until the store's watch is open (it opens on a
+// goroutine of its own, ADR-259), and a moment more for its reload.
+func waitWatch(t *testing.T, s *Store) *fileWatch {
+	t.Helper()
+	var fw *fileWatch
+	waitFor(t, "the watch to open", func() bool {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		fw = s.fw
+		return fw != nil
+	})
+	time.Sleep(50 * time.Millisecond)
+	return fw
+}
+
 // TestStoreSeesOtherPrograms (ADR-253): while the store has watchers, a
 // write of another program to its file reaches Get and the watchers of
 // the keys it changed; a key the file drops is removed.
@@ -38,7 +53,7 @@ func TestStoreSeesOtherPrograms(t *testing.T) {
 	changed := make(chan string, 16)
 	stop := s.Watch("", func(k string) { changed <- k })
 	defer stop()
-	time.Sleep(50 * time.Millisecond) // the watch is set up
+	waitWatch(t, s)
 	// Written in place, as a program that does not rename would.
 	if err := os.WriteFile(path, []byte(`{"theme": "dark"}`), 0o600); err != nil {
 		t.Fatal(err)
@@ -126,45 +141,57 @@ func TestStoreWatchSurvivesRemount(t *testing.T) {
 	}
 	s, _ := OpenStore(path)
 	stop := s.Watch("x", func(string) {})
-	s.mu.Lock()
-	before := s.fw
-	s.mu.Unlock()
+	before := waitWatch(t, s)
 	stop()
 	stop = s.Watch("x", func(string) {})
 	defer stop()
 	s.mu.Lock()
 	after := s.fw
 	s.mu.Unlock()
-	if before == nil || after != before {
+	if after != before {
 		t.Errorf("the watch was %p, %p after a stop and a new watcher: want the same one", before, after)
 	}
 }
 
-// TestStoreWatchOpensWithoutTheLock: the watch of the file is opened
-// without the store's lock (Watch runs on the UI thread for UseSetting, and
-// opening it stats, sets up inotify or scans the folder).
-func TestStoreWatchOpensWithoutTheLock(t *testing.T) {
+// TestStoreWatchOpensOffTheCaller (ADR-259): Watch returns before the
+// watch of the file is open (Watch runs on the UI thread for UseSetting,
+// and opening it stats, sets up inotify or scans the folder), and the
+// watch is opened without the store's lock.
+func TestStoreWatchOpensOffTheCaller(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "s.json")
 	if err := os.WriteFile(path, []byte(`{}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	s, _ := OpenStore(path)
-	locked := false
+	release := make(chan struct{})
+	locked := make(chan bool, 1)
 	open := newWatch
 	newWatch = func(o watch.Options, dirs ...string) (*watch.Watcher, error) {
+		<-release
 		if s.mu.TryLock() {
 			s.mu.Unlock()
+			locked <- false
 		} else {
-			locked = true
+			locked <- true
 		}
 		return open(o, dirs...)
 	}
 	defer func() { newWatch = open }()
-	stop := s.Watch("x", func(string) {})
+	returned := make(chan func())
+	go func() { returned <- s.Watch("x", func(string) {}) }()
+	var stop func()
+	select {
+	case stop = <-returned:
+	case <-time.After(5 * time.Second):
+		close(release)
+		t.Fatal("Watch waited for the watch of the file to open")
+	}
 	defer stop()
-	if locked {
+	close(release)
+	if <-locked {
 		t.Error("the watch was opened with the store's lock held")
 	}
+	waitWatch(t, s)
 }
 
 // TestStoreWatchStops: the file's watch ends with the last watcher, after
@@ -177,20 +204,106 @@ func TestStoreWatchStops(t *testing.T) {
 	s, _ := OpenStore(path)
 	stop1 := s.Watch("x", func(string) {})
 	stop2 := s.Watch("y", func(string) {})
-	s.mu.Lock()
-	on := s.fw != nil
-	s.mu.Unlock()
+	waitWatch(t, s)
 	stop1()
 	stop2()
 	s.mu.Lock()
 	kept := s.fw != nil
 	s.mu.Unlock()
-	if !on || !kept {
-		t.Errorf("watching while watched %v, during the grace period %v", on, kept)
+	if !kept {
+		t.Error("the watch stopped during the grace period")
 	}
 	waitFor(t, "the watch to stop", func() bool {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		return s.fw == nil
 	})
+}
+
+// TestStoreWatchesMissingFolder (ADR-259): a store whose folder does not
+// exist yet sees another program create the folder and write the file.
+func TestStoreWatchesMissingFolder(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "app", "conf")
+	path := filepath.Join(dir, "s.json")
+	s, err := OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stop := s.Watch("k", func(string) {})
+	defer stop()
+	waitWatch(t, s)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(50 * time.Millisecond) // the folders appear one by one
+	if err := os.WriteFile(path, []byte(`{"k": "v"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the file in the new folder", func() bool {
+		var v string
+		return s.Get("k", &v) && v == "v"
+	})
+	// Then the folder alone is watched, and later writes are seen too.
+	if err := os.WriteFile(path, []byte(`{"k": "w"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "a later write", func() bool {
+		var v string
+		return s.Get("k", &v) && v == "w"
+	})
+	s.mu.Lock()
+	roots := s.fw.w.Roots()
+	s.mu.Unlock()
+	if len(roots) != 1 || roots[0] != dir {
+		t.Errorf("watching %v once the folder exists, want [%s]", roots, dir)
+	}
+}
+
+// TestStoreWriteEdge (ADR-259): another program that writes the file
+// after this one's write read it, and before the rename, is read and
+// merged again: its key is not lost.
+func TestStoreWriteEdge(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.json")
+	if err := os.WriteFile(path, []byte(`{"a": 1}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, _ := OpenStore(path)
+	s.mu.Lock()
+	s.delay = time.Hour // written by Flush only
+	s.mu.Unlock()
+	if err := s.Set("b", 2); err != nil {
+		t.Fatal(err)
+	}
+	writes := 0
+	hook := func(p string) {
+		if p != path {
+			return // another test's store
+		}
+		writes++
+		if writes == 1 {
+			if err := os.WriteFile(path, []byte(`{"a": 1, "c": 3}`), 0o600); err != nil {
+				t.Error(err)
+			}
+		}
+	}
+	beforeRename.Store(&hook)
+	defer beforeRename.Store(nil)
+	if err := s.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"a": 1`, `"b": 2`, `"c": 3`} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("the file lacks %s after the write:\n%s", want, data)
+		}
+	}
+	if writes != 2 {
+		t.Errorf("%d tries, want 2 (one merge)", writes)
+	}
+	if !s.Has("c") {
+		t.Error("the store lacks the other program's key")
+	}
 }

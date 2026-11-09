@@ -35,7 +35,7 @@ type harness struct {
 // poller.
 func modes(t *testing.T, f func(t *testing.T, poll bool)) {
 	t.Run("native", func(t *testing.T) {
-		if runtime.GOOS != "linux" && runtime.GOOS != "windows" {
+		if runtime.GOOS != "linux" && runtime.GOOS != "windows" && runtime.GOOS != "darwin" {
 			t.Skip("no native watcher on " + runtime.GOOS)
 		}
 		f(t, false)
@@ -402,7 +402,7 @@ func TestDebounce(t *testing.T) {
 }
 
 func TestMaxDelay(t *testing.T) {
-	poll := runtime.GOOS != "linux" && runtime.GOOS != "windows"
+	poll := runtime.GOOS != "linux" && runtime.GOOS != "windows" && runtime.GOOS != "darwin"
 	h := newHarness(t, poll, Options{Debounce: 100 * time.Millisecond, MaxDelay: 300 * time.Millisecond})
 	stop := time.After(900 * time.Millisecond)
 	// The writer stops before the temporary directory is removed (cleanups

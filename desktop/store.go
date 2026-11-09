@@ -55,6 +55,7 @@ type Store struct {
 	fw       *fileWatch      // the watch of the file while there are watchers
 	opening  bool            // a watch is being opened (openWatch, without mu)
 	stopT    *time.Timer     // the stop of the watch after the last watcher (stopWatch)
+	read     fileStamp       // the file as the last reload merged it (under wmu)
 
 	wmu sync.Mutex // serializes the writes of the file
 }
@@ -515,7 +516,7 @@ func (s *Store) Watch(key string, f func(key string)) (stop func()) {
 	start := s.claimWatch() // storewatch.go: changes of other programs
 	s.mu.Unlock()
 	if start {
-		s.openWatch()
+		go s.openWatch()
 	}
 	return func() {
 		s.mu.Lock()
@@ -532,15 +533,37 @@ func (s *Store) Watch(key string, f func(key string)) (stop func()) {
 // nothing.
 func (s *Store) Flush() error {
 	s.wmu.Lock()
-	notify := s.reload() // merge what other programs wrote since (storewatch.go)
-	err := s.flushLocked()
+	notify := []func(){s.reload()} // merge what other programs wrote since (storewatch.go)
+	var err error
+	for try := 0; ; try++ {
+		// Another program that wrote the file after the reload, before
+		// the rename, is read and merged once more (twice at most: a
+		// file rewritten all the time is replaced at the third try).
+		err = s.flushLocked(try < maxMergeRetries)
+		if !errors.Is(err, errFileChanged) {
+			break
+		}
+		notify = append(notify, s.reload())
+	}
 	s.wmu.Unlock()
-	notify()
+	for _, f := range notify {
+		f()
+	}
 	return err
 }
 
-// flushLocked is Flush's write, with s.wmu held.
-func (s *Store) flushLocked() error {
+// maxMergeRetries is how many times a write reads the file again when
+// another program changed it during the write.
+const maxMergeRetries = 2
+
+// errFileChanged is flushLocked's report that the file changed since the
+// last reload, before the rename: nothing was written.
+var errFileChanged = errors.New("desktop: the store's file changed during the write")
+
+// flushLocked is Flush's write, with s.wmu held. With check, the rename is
+// skipped, and errFileChanged returned, when the file is no longer the
+// one the last reload merged (s.read).
+func (s *Store) flushLocked(check bool) error {
 	s.mu.Lock()
 	if s.timer != nil {
 		s.timer.Stop()
@@ -563,8 +586,13 @@ func (s *Store) flushLocked() error {
 	written := s.pending
 	s.pending = nil
 	s.mu.Unlock()
+	var unchanged func() bool
+	if check && !corrupt {
+		read, path := s.read, s.path
+		unchanged = func() bool { return !changedSince(path, read) }
+	}
 	if err == nil {
-		err = writeStore(s.path, append(data, '\n'), corrupt)
+		err = writeStore(s.path, append(data, '\n'), corrupt, unchanged)
 	}
 	s.mu.Lock()
 	if err != nil {
@@ -575,6 +603,10 @@ func (s *Store) flushLocked() error {
 			}
 			s.pending[k] = true
 		}
+		if errors.Is(err, errFileChanged) {
+			s.mu.Unlock()
+			return err // Flush merges the file and writes again
+		}
 		s.err = fmt.Errorf("desktop: cannot write the store %s: %w", s.path, err)
 		err = s.err
 		s.mu.Unlock()
@@ -584,7 +616,7 @@ func (s *Store) flushLocked() error {
 	start := s.claimWatch() // the folder exists now
 	s.mu.Unlock()
 	if start {
-		s.openWatch()
+		go s.openWatch()
 	}
 	return nil
 }
@@ -592,8 +624,11 @@ func (s *Store) flushLocked() error {
 // writeStore writes data to path atomically: a temporary file in the same
 // folder, synced, then renamed over path (os.Rename replaces the file on
 // every OS, MoveFileEx with MOVEFILE_REPLACE_EXISTING on Windows). A
-// corrupt file is renamed to path.corrupt first.
-func writeStore(path string, data []byte, corrupt bool) error {
+// corrupt file is renamed to path.corrupt first. When unchanged is not
+// nil, it runs right before the rename (after the slow part, the sync),
+// and a false result removes the temporary file and returns
+// errFileChanged: another program wrote path meanwhile.
+func writeStore(path string, data []byte, corrupt bool, unchanged func() bool) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
@@ -615,6 +650,12 @@ func writeStore(path string, data []byte, corrupt bool) error {
 	if cerr := f.Close(); err == nil {
 		err = cerr
 	}
+	if f := beforeRename.Load(); err == nil && f != nil {
+		(*f)(path)
+	}
+	if err == nil && unchanged != nil && !unchanged() {
+		err = errFileChanged
+	}
 	if err == nil {
 		err = rename(tmp, path)
 	}
@@ -623,6 +664,10 @@ func writeStore(path string, data []byte, corrupt bool) error {
 	}
 	return err
 }
+
+// beforeRename, when set, runs in writeStore before its check, with the
+// store's path (tests: another program's write at the edge of this one's).
+var beforeRename atomic.Pointer[func(path string)]
 
 // rename is os.Rename, retried for a moment on Windows, where replacing or
 // moving a file fails with ERROR_ACCESS_DENIED or ERROR_SHARING_VIOLATION
