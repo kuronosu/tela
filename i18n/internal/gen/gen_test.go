@@ -22,6 +22,30 @@ func TestGeneratedFileIsCurrent(t *testing.T) {
 	}
 }
 
+// The committed numbering_gen.go is what the generator makes of the
+// vendored numbering data.
+func TestNumberingFileIsCurrent(t *testing.T) {
+	want, err := generateNumbering("cldr")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile("../../numbering_gen.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, want) {
+		t.Error("i18n/numbering_gen.go is out of date; run \"go generate ./i18n\"")
+	}
+}
+
+func TestParentOf(t *testing.T) {
+	for name, want := range map[string]string{"ar": "", "ar-EG": "ar", "ff-Adlm-BF": "ff-Adlm"} {
+		if got := parentOf(name); got != want {
+			t.Errorf("parentOf(%q) = %q, want %q", name, got, want)
+		}
+	}
+}
+
 func TestUnsupportedLetter(t *testing.T) {
 	for p, want := range map[string]string{
 		"EEEE, d 'de' MMMM 'de' y": "",

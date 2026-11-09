@@ -187,8 +187,12 @@ func TestCalendarLocales(t *testing.T) {
 	}{
 		{"es", "octubre de 2026", "lunes", "14", false},
 		{"ja", "2026年10月", "日曜日", "14", false},
-		{"ar-EG", "أكتوبر 2026", "السبت", "14", true},
+		// ar-EG writes Arabic-Indic digits by default, as ICU does (ADR-251);
+		// ar-AE writes Latin ones, and the tag can ask for either.
+		{"ar-EG", "أكتوبر ٢٠٢٦", "السبت", "١٤", true},
 		{"ar-EG-u-nu-arab", "أكتوبر ٢٠٢٦", "السبت", "١٤", true},
+		{"ar-EG-u-nu-latn", "أكتوبر 2026", "السبت", "14", true},
+		{"ar-AE", "أكتوبر 2026", "الاثنين", "14", true},
 	}
 	for _, c := range cases {
 		t.Run(c.locale, func(t *testing.T) {

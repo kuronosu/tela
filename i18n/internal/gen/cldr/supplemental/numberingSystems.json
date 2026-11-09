@@ -1,0 +1,54 @@
+{
+ "supplemental": {
+  "numberingSystems": {
+   "adlm": {
+    "_digits": "𞥐𞥑𞥒𞥓𞥔𞥕𞥖𞥗𞥘𞥙",
+    "_type": "numeric"
+   },
+   "arab": {
+    "_digits": "٠١٢٣٤٥٦٧٨٩",
+    "_type": "numeric"
+   },
+   "arabext": {
+    "_digits": "۰۱۲۳۴۵۶۷۸۹",
+    "_type": "numeric"
+   },
+   "beng": {
+    "_digits": "০১২৩৪৫৬৭৮৯",
+    "_type": "numeric"
+   },
+   "cakm": {
+    "_digits": "𑄶𑄷𑄸𑄹𑄺𑄻𑄼𑄽𑄾𑄿",
+    "_type": "numeric"
+   },
+   "deva": {
+    "_digits": "०१२३४५६७८९",
+    "_type": "numeric"
+   },
+   "hmnp": {
+    "_digits": "𞅀𞅁𞅂𞅃𞅄𞅅𞅆𞅇𞅈𞅉",
+    "_type": "numeric"
+   },
+   "mtei": {
+    "_digits": "꯰꯱꯲꯳꯴꯵꯶꯷꯸꯹",
+    "_type": "numeric"
+   },
+   "mymr": {
+    "_digits": "၀၁၂၃၄၅၆၇၈၉",
+    "_type": "numeric"
+   },
+   "nkoo": {
+    "_digits": "߀߁߂߃߄߅߆߇߈߉",
+    "_type": "numeric"
+   },
+   "olck": {
+    "_digits": "᱐᱑᱒᱓᱔᱕᱖᱗᱘᱙",
+    "_type": "numeric"
+   },
+   "tibt": {
+    "_digits": "༠༡༢༣༤༥༦༧༨༩",
+    "_type": "numeric"
+   }
+  }
+ }
+}

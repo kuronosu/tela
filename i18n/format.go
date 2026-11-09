@@ -78,8 +78,11 @@ type locData struct {
 
 	dates *dateLocale // nil until first used (dateInit)
 	once  sync.Once
-	// digits are the locale's digits 0 to 9 when they are not ASCII.
+	// digits are the locale's digits 0 to 9 when they are not ASCII (its
+	// numbering system, numbering.go); remap says the printer writes ASCII
+	// digits anyway.
 	digits []string
+	remap  bool
 }
 
 var locCache sync.Map // string (as given) -> *locData
@@ -100,21 +103,8 @@ func forTag(tag string) (*locData, error) {
 
 func newLoc(t language.Tag) *locData {
 	b, _ := t.Base()
-	d := &locData{tag: t, name: t.String(), lang: b, dir: dirOf(t), printer: message.NewPrinter(t)}
-	// Native digits: format 0 to 9 without grouping and see whether they
-	// are ASCII.
-	digits := make([]string, 10)
-	ascii := true
-	for i := range digits {
-		digits[i] = d.printer.Sprint(number.Decimal(i, number.NoSeparator()))
-		if digits[i] != string(rune('0'+i)) {
-			ascii = false
-		}
-	}
-	if !ascii {
-		d.digits = digits
-	}
-	return d
+	nf := newNumberFormat(t)
+	return &locData{tag: t, name: t.String(), lang: b, dir: dirOf(t), printer: nf.printer, digits: nf.digits, remap: nf.remap}
 }
 
 // Formatter formats messages, numbers, dates and lists for one locale.
@@ -217,10 +207,16 @@ func (f Formatter) formatNumber(v any, c numberConfig) string {
 		hi = max(hi, lo)
 		opts = append(opts, number.MinFractionDigits(lo), number.MaxFractionDigits(hi))
 	}
+	var s string
 	if c.percent {
-		return d.printer.Sprint(number.Percent(v, opts...))
+		s = d.printer.Sprint(number.Percent(v, opts...))
+	} else {
+		s = d.printer.Sprint(number.Decimal(v, opts...))
 	}
-	return d.printer.Sprint(number.Decimal(v, opts...))
+	if d.remap {
+		s = replaceDigits(s, d.digits)
+	}
+	return s
 }
 
 // ---------------------------------------------------------------------
