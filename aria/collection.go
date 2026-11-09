@@ -55,6 +55,10 @@ type collConfig[K comparable] struct {
 	rtl          bool
 	disableType  bool
 	escapeClears bool
+	// accessKey is a menu's MenuOptions.AccessKey; mac the Mac flavor,
+	// which has none and leaves Alt to typeahead.
+	accessKey    func(K) rune
+	mac          bool
 	manual       bool // tabs: arrows move the focus without selecting
 	virtualFocus bool // aria-activedescendant instead of moving the focus
 	external     bool // the focus is on another element (a combobox's input)
@@ -1085,6 +1089,16 @@ func (c *collState[K]) onKeyDown(e tela.KeyboardEvent) {
 }
 
 func (c *collState[K]) handleKey(e tela.KeyboardEvent) {
+	if c.cfg.kind == kindMenu && !c.cfg.mac && !e.Ctrl && !e.Meta {
+		if c.accessKey(e) {
+			return
+		}
+		if e.Alt && utf8.RuneCountInString(string(e.Key)) == 1 {
+			// Alt and a character are access keys on Windows and Linux,
+			// not a search: one no item has is the menu bar's.
+			return
+		}
+	}
 	if c.typeSelect(e) {
 		return
 	}
@@ -1274,6 +1288,40 @@ func (c *collState[K]) typeAhead(e tela.KeyboardEvent, from K, hasFrom bool) (k 
 	}
 	c.t.Start(time.Second, func() { c.search = "" })
 	return
+}
+
+// accessKey chooses the item whose access key e types (MenuOptions.
+// AccessKey), or moves the focus between the items that share it. It
+// reports whether an item had it.
+func (c *collState[K]) accessKey(e tela.KeyboardEvent) bool {
+	if c.cfg.accessKey == nil || e.Repeat {
+		return false
+	}
+	m := accessKeyMatches(c.keys, c.cfg.accessKey, func(k K) bool { return !c.isDisabled(k) }, e)
+	if len(m) == 0 {
+		return false
+	}
+	e.PreventDefault()
+	e.StopPropagation()
+	c.search = ""
+	if len(m) > 1 {
+		next := m[0]
+		if c.hasFocused {
+			i := c.index[c.focused]
+			for _, k := range m {
+				if c.index[k] > i {
+					next = k
+					break
+				}
+			}
+		}
+		c.moveFocus(next)
+		return true
+	}
+	k := m[0]
+	c.moveFocus(k)
+	c.activate(k, activation{kind: PointerKeyboard})
+	return true
 }
 
 // typeSelect is useTypeSelect: the focus goes to the item typeAhead finds,

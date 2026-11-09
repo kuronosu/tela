@@ -74,7 +74,11 @@ type SubmenuTriggerResult struct {
 
 // PopoverOptions returns the options of [UsePopover] for the submenu:
 // beside its trigger item ("right-start", "left-start" under "rtl"),
-// flipped and shifted to stay in the window, not modal. Escape and the key
+// flipped and shifted to stay in the window, not modal. A submenu that
+// fits on neither side of its parent goes on the side that overflows
+// least and is then shifted across into the window, over its parent, as
+// the native menus of Windows, GTK and macOS do (Floating UI's shift with
+// crossAxis, ADR-260; Floating's first option). Escape and the key
 // back close this submenu only, a press outside every menu of the chain
 // closes the whole menu, and a press inside one of the parent menus is
 // left to that menu (it moves the focus, which closes the submenu, or
@@ -89,6 +93,9 @@ func (r SubmenuTriggerResult) PopoverOptions() PopoverOptions {
 	o := PopoverOptions{
 		Trigger: r.Ref, Ref: r.MenuRef, Open: r.Open, Placement: placement,
 		OnClose: r.Close,
+		// After the popover's flip and shift (which slides along the
+		// trigger only): across, flush with the window's edge.
+		Floating: []FloatingOption{Shift(0, ShiftOptions{NoMainAxis: true, CrossAxis: true})},
 	}
 	lvl := r.lvl
 	if lvl == nil {

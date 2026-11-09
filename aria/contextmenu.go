@@ -35,8 +35,8 @@ type ContextMenuTriggerOptions struct {
 	// Intercept, if not nil, is asked before the menu opens (a right
 	// click, a long press, the keys, OpenAt), with the point it would open
 	// at in window coordinates: the pointer, or for the keys the center
-	// of the focused element or the caret of a focused text field (the
-	// area's top-left corner when the area has no focus). When it returns
+	// of the focused element or the caret of a focused text field (see
+	// [UseContextMenuTrigger] for the corners). When it returns
 	// true it has taken the opening over, by
 	// showing the OS's own context menu there: the hook then neither opens
 	// the menu nor calls OnOpenChange. When it returns false, the menu
@@ -44,6 +44,12 @@ type ContextMenuTriggerOptions struct {
 	// only moved, without asking. kit's ContextMenu uses it for native
 	// menus (ADR-215).
 	Intercept func(x, y float32) (handled bool)
+	// Position is the point, in window coordinates, where the menu
+	// appears when it opens with no point of its own: a controlled Open
+	// that the app sets to true, or SetOpen(true) (MUI's anchorPosition).
+	// Nil places such a menu as the keys do, at the focused element. A
+	// gesture or OpenAt still opens the menu at its own point.
+	Position *tela.Point
 	// Ref is the area's ref and MenuRef the menu's, for hooks used together
 	// with others on the same element; the zero value makes the hook
 	// create its own.
@@ -78,8 +84,8 @@ type ContextMenuTriggerResult struct {
 	// Presence at its own point.
 	Opening int
 	// Anchor returns the virtual rectangle the menu is placed at, in window
-	// coordinates: a point where the pointer was or the area's top-left
-	// corner. It is [AnchorRect]'s argument, for a menu placed with
+	// coordinates: the point of its opening (the pointer, the focused
+	// element, Position). It is [AnchorRect]'s argument, for a menu placed with
 	// [UseFloating] instead of [UsePopover]. Each build's Anchor belongs to
 	// the opening that build saw: it follows the menu while it is moved
 	// (a long press or OpenAt while it is open) and keeps its point once
@@ -131,8 +137,13 @@ func (r ContextMenuTriggerResult) PopoverOptions() PopoverOptions {
 // A key opens the menu at the element that has the focus, the area itself
 // or an element inside it, as Chromium does: at the center of the part of
 // it the area shows, or for a text field at the caret (the start of the
-// selection); at the area's top-left corner when nothing in it has the
-// focus.
+// selection); at the area's top-left corner when the focused element is
+// outside the area or out of its view; and when nothing in the window
+// has the focus (the keys then reach the area from the window's
+// content), at the window's top-left corner plus one pixel, Chromium's
+// non-located menu. A menu that opens with no point of its own (a
+// controlled Open the app sets to true, SetOpen(true)) is placed the same
+// way, unless the options give a Position.
 //
 // The event's default is prevented and its propagation stopped, so the
 // innermost area with a context menu wins. The menu is rendered by the
@@ -257,13 +268,32 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 	anchor := openingAnchor(pos)
 	// A controlled menu that the app opened itself (Open set to true with
 	// no request through the hook, which numbers its own openings) is an
-	// opening too.
+	// opening too, with no point: at Position, else where the keys open
+	// it.
 	seen := &tela.UseRef(ctxSeen{}).Current
-	gen := pos.Latest().gen
-	if open && !seen.open && gen == seen.gen {
+	cur := pos.Latest()
+	gen := cur.gen
+	switch {
+	case open && !seen.open && gen == seen.gen:
 		seen.extra++
+		seen.app, seen.appGen, seen.appFrom = true, gen, cur.at
+		seen.appAt = nonLocated(ref, o.Position)
+	case !open || gen != seen.appGen:
+		seen.app = false
+	case seen.app && o.Position != nil:
+		seen.appAt = nonLocated(ref, o.Position) // the app moves it
 	}
 	seen.open, seen.gen = open, gen
+	if seen.app {
+		// Until a long press or OpenAt moves it (the point changes).
+		base, from, at := anchor, seen.appFrom, seen.appAt
+		anchor = func() tela.Rect {
+			if p := pos.Get(); p.gen == gen && p.at != from {
+				return base()
+			}
+			return at
+		}
+	}
 	return ContextMenuTriggerResult{
 		TriggerProps: core.MergeProps(ps...),
 		MenuProps: core.MergeProps(h.Ref(menuRef),
@@ -280,10 +310,12 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 		OpenAt:        func(x, y float32) { openAt(point(x, y), "") },
 		SetOpen: func(v bool) {
 			if v && !st.cur {
-				// A new opening at the last point, as OpenAt's: an exiting
-				// menu is not revived as this one.
+				// A new opening with no point (an exiting menu is not
+				// revived as this one): at Position, else where the keys
+				// open it.
 				p := pos.Latest()
 				p.gen++
+				p.at = nonLocated(ref, o.Position)
 				pos.Set(p)
 				setStrategy.Set("")
 			}
@@ -295,19 +327,38 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 	}
 }
 
+// nonLocatedMargin is the distance from the window's top-left corner of
+// a menu opened from the keyboard with nothing focused: Chromium's
+// kContextMenuMargin.
+const nonLocatedMargin = 1
+
+// nonLocated is where a menu with no point of its own opens: at, else
+// where the keys open it (keyAnchor).
+func nonLocated(area tela.ElementRef, at *tela.Point) tela.Rect {
+	if at != nil {
+		return tela.Rect{X: at.X, Y: at.Y}
+	}
+	return keyAnchor(area)
+}
+
 // keyAnchor is where a menu opened from the keyboard is placed, as
 // Chromium places it (EventHandler::ShowNonLocatedContextMenu): the
 // middle of the caret at the start of the selection when the focus is in
 // a text field, else the center of the focused element (the area or one
 // inside it), both within the part of the element that the area shows;
 // the area's top-left corner when the focus is elsewhere or the element is
-// out of the area's view. A point, not the element's bounds: a menu
+// out of the area's view; the window's top-left corner plus one pixel
+// when nothing has the focus (Chromium's kContextMenuMargin from the
+// viewport's corner). A point, not the element's bounds: a menu
 // below a large focused area (a canvas, a list) would open off its view.
 func keyAnchor(area tela.ElementRef) tela.Rect {
 	a := area.Bounds()
 	corner := tela.Rect{X: a.X, Y: a.Y}
 	f, ok := core.ActiveElement(area)
-	if !ok || !core.ContainsFocus(area) {
+	if !ok {
+		return tela.Rect{X: nonLocatedMargin, Y: nonLocatedMargin}
+	}
+	if !core.ContainsFocus(area) {
 		return corner
 	}
 	b := f.Bounds()
@@ -329,6 +380,12 @@ type ctxSeen struct {
 	open  bool
 	gen   uint64
 	extra int
+	// app is set while the menu is open by the app itself, opening appGen
+	// at appAt (its point when it opened was appFrom).
+	app     bool
+	appGen  uint64
+	appAt   tela.Rect
+	appFrom tela.Rect
 }
 
 // ctxPoint is the point a context menu is placed at, and the number of

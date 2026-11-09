@@ -8,6 +8,10 @@
 package aria
 
 import (
+	"time"
+	"unicode"
+	"unicode/utf8"
+
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/core"
@@ -58,8 +62,23 @@ type MenuBarOptions[K comparable] struct {
 	// trigger, give the focus back to where it was (closing an open menu).
 	// Ignored under the Mac flavor (tela.UsePlatformKeys), which has no
 	// such keys. Give it to one bar per window: the first one in the tree
-	// takes the keys.
+	// takes the keys. It also gives the bar's AccessKey its Alt
+	// combinations.
 	ActivationKeys bool
+	// TextValue is the text of a trigger, for typeahead: a character typed
+	// on a focused trigger moves the focus to the next trigger whose text
+	// starts with it (the APG menubar's), and more characters typed within
+	// a second search on. Nil: the key as fmt.Sprint prints it.
+	TextValue func(K) string
+	// AccessKey is the access key of a trigger (0 for none; see
+	// [AccessKeys], which gives a bar's triggers theirs): with
+	// ActivationKeys, Alt and the key, from anywhere in the window, open
+	// the trigger's menu on its first item, and the key alone does so on
+	// a focused trigger (before typeahead), as Windows' and GTK's menu
+	// bars do. When several triggers have the key it moves the focus
+	// between them instead. Ignored under the Mac flavor, which has no
+	// access keys.
+	AccessKey func(K) rune
 }
 
 // MenuBarResult is what [UseMenuBar] returns.
@@ -80,6 +99,13 @@ type MenuBarResult[K comparable] struct {
 	Close func()
 	// Ref is the ref attached to the bar by Props.
 	Ref tela.ElementRef
+	// ShowAccessKeys is whether the access keys are shown (underlined) on
+	// the triggers and in the open menu: while Alt is held, and while the
+	// keyboard is in the bar since ActivationKeys or an access key brought
+	// it there (Windows' keyboard cues; GTK shows them while Alt is
+	// held). Always false under the Mac flavor and without
+	// ActivationKeys.
+	ShowAccessKeys bool
 
 	b *menuBar[K]
 }
@@ -118,6 +144,16 @@ type menuBar[K comparable] struct {
 	menuRefs   map[K]tela.ElementRef
 	press      map[K]*pressState
 	setPressed tela.Setter[bool]
+
+	// mac: the window has the Mac flavor (no access keys). altHeld is
+	// whether Alt is held alone (core.MenuBarAccess), setCues asks for a
+	// build when the cues change. search and searchT are the typeahead
+	// on the triggers.
+	mac     bool
+	altHeld bool
+	setCues tela.Setter[bool]
+	search  string
+	searchT core.Timeout
 }
 
 // UseMenuBar holds the state of a menu bar and returns the props of the bar
@@ -165,12 +201,20 @@ type menuBar[K comparable] struct {
 // FocusedBefore is the element the focus came from, for the menus' edit
 // commands.
 //
-// There is no typeahead on the triggers and there are no mnemonics.
+// A character typed on a trigger moves the focus by typeahead (TextValue).
+// On Windows and Linux the triggers can have access keys (AccessKey,
+// [AccessKeys]; ADR-260): the key opens its menu from a focused trigger,
+// and with ActivationKeys Alt and the key do from anywhere in the window;
+// ShowAccessKeys says when to underline them (Alt held, or the keyboard
+// brought to the bar), for the triggers and the open menu, whose items
+// take keys through [MenuOptions].AccessKey.
 func UseMenuBar[K comparable](o MenuBarOptions[K]) MenuBarResult[K] {
 	const hook = "UseMenuBar: MenuBarOptions."
 	dir := checkChoice(hook, "Direction", o.Direction, "ltr", "ltr", "rtl")
 	r := useRover(o.Keys, o.DisabledKeys, o.Disabled)
 	_, setPressed := tela.UseState(false)
+	_, setCues := tela.UseState(false)
+	searchT := core.UseTimeout()
 	b := tela.UseOnce(func() *menuBar[K] {
 		return &menuBar[K]{r: r, menuRefs: map[K]tela.ElementRef{}, press: map[K]*pressState{}}
 	})
@@ -180,10 +224,12 @@ func UseMenuBar[K comparable](o MenuBarOptions[K]) MenuBarResult[K] {
 		ref = own
 	}
 	b.cfg, b.rtl, b.setPressed, b.ref = o, dir == "rtl", setPressed, ref
+	b.setCues, b.searchT = setCues, searchT
 	if b.origin.inside == nil {
 		b.origin.inside = b.inside
 	}
 	mac := tela.UsePlatformKeys() == "darwin"
+	b.mac = mac
 	if !b.started {
 		b.started = true
 		if o.DefaultOpen != nil {
@@ -232,17 +278,145 @@ func UseMenuBar[K comparable](o MenuBarOptions[K]) MenuBarResult[K] {
 		}
 		return nil
 	})
-	if o.ActivationKeys && !mac && !o.Disabled {
-		ps = append(ps, core.MenuBarKeys(func(core.KeyboardEvent) bool { return b.activate() }))
+	keys := o.ActivationKeys && !mac && !o.Disabled
+	if keys {
+		ps = append(ps,
+			core.MenuBarKeys(func(core.KeyboardEvent) bool { return b.activate() }),
+			core.MenuBarAccess(core.MenuBarAccessOptions{
+				Mnemonic: func(e core.KeyboardEvent) bool { return b.mnemonic(e, true) },
+				AltHeld:  b.onAltHeld,
+			}))
 	}
 	return MenuBarResult[K]{
 		Props: core.MergeProps(ps...),
 		Open:  b.has, OpenKey: b.cur,
-		FocusStrategy: b.strategy,
-		Close:         b.close,
-		Ref:           ref,
-		b:             b,
+		FocusStrategy:  b.strategy,
+		Close:          b.close,
+		Ref:            ref,
+		ShowAccessKeys: keys && (b.altHeld || b.keyMode),
+		b:              b,
 	}
+}
+
+// onAltHeld is the bar's core.MenuBarAccess AltHeld: the cues follow Alt.
+func (b *menuBar[K]) onAltHeld(held bool) {
+	if b.altHeld == held {
+		return
+	}
+	b.altHeld = held
+	b.setCues.Update(func(v bool) bool { return !v })
+}
+
+// setKeyMode sets whether the keyboard is in the bar by ActivationKeys or
+// an access key, asking for a build when the cues change.
+func (b *menuBar[K]) setKeyMode(on bool) {
+	if b.keyMode == on {
+		return
+	}
+	b.keyMode = on
+	b.setCues.Update(func(v bool) bool { return !v })
+}
+
+// mnemonic runs the access key that e types: Alt and the key from
+// anywhere in the window (alt, core's MenuBarAccess), or the key alone on
+// a trigger. The only trigger with the key opens its menu on its first
+// item; with several, the focus moves to the next of them (Windows). It
+// reports whether a trigger had the key.
+func (b *menuBar[K]) mnemonic(e tela.KeyboardEvent, alt bool) bool {
+	if b.mac || b.cfg.Disabled {
+		return false
+	}
+	m := accessKeyMatches(b.r.keys, b.cfg.AccessKey, b.r.enabled, e)
+	if len(m) == 0 {
+		return false
+	}
+	if alt && !b.inside(activeOr(b.ref)) {
+		b.origin.set(b.ref)
+	}
+	if len(m) > 1 {
+		// The next one after the focused trigger, around the end.
+		next := m[0]
+		if cur, ok := b.focusedTrigger(); ok {
+			i := b.r.index[cur]
+			for _, k := range m {
+				if b.r.index[k] > i {
+					next = k
+					break
+				}
+			}
+		}
+		if b.has {
+			b.switchTo(next, FocusFirst)
+		} else {
+			b.r.refFor(next).Focus()
+		}
+		b.setKeyMode(true)
+		return true
+	}
+	k := m[0]
+	if b.has && b.cur == k {
+		return true
+	}
+	b.switchTo(k, FocusFirst)
+	b.setKeyMode(true)
+	return true
+}
+
+// focusedTrigger returns the trigger that has the focus, if one does.
+func (b *menuBar[K]) focusedTrigger() (K, bool) {
+	for _, k := range b.r.keys {
+		if b.r.refFor(k).Focused() {
+			return k, true
+		}
+	}
+	var zero K
+	return zero, false
+}
+
+// typeahead moves the focus to the trigger that the characters typed
+// within a second name (Radix's typeahead, the APG menubar's): a character
+// typed again goes on to the next trigger that starts with it, a longer
+// search stays on the focused one while it still matches. It reports
+// whether e was a character of the search.
+func (b *menuBar[K]) typeahead(k K, e tela.KeyboardEvent) bool {
+	s := string(e.Key)
+	r, n := utf8.DecodeRuneInString(s)
+	if n == 0 || n != len(s) || !unicode.IsPrint(r) || r == ' ' {
+		return false
+	}
+	text := b.cfg.TextValue
+	if text == nil {
+		text = sprintKey[K]
+	}
+	b.search += s
+	b.searchT.Start(time.Second, func() { b.search = "" })
+	search := b.search
+	repeated := true
+	for _, c := range search {
+		if unicode.ToLower(c) != unicode.ToLower(r) {
+			repeated = false
+		}
+	}
+	if repeated {
+		search = s
+	}
+	// From the focused trigger, around the end; a one-character search
+	// leaves it out, so that typing it again moves on.
+	keys := b.r.keys
+	start := b.r.index[k]
+	for step := 0; step < len(keys); step++ {
+		nk := keys[(start+step)%len(keys)]
+		if (step == 0 && utf8.RuneCountInString(search) == 1) || !b.r.enabled(nk) {
+			continue
+		}
+		if hasPrefixFold(text(nk), search) {
+			if nk != k {
+				b.r.refFor(nk).Focus()
+			}
+			break
+		}
+	}
+	return true
 }
 
 // FocusedBefore returns the element that had the focus before the bar
@@ -423,7 +597,7 @@ func (b *menuBar[K]) inside(r tela.ElementRef) bool {
 func (b *menuBar[K]) blur(e tela.FocusEvent) {
 	b.origin.blur(e)
 	if r, ok := core.RelatedTarget(e); ok && !b.inside(r) {
-		b.keyMode = false
+		b.setKeyMode(false)
 	}
 }
 
@@ -444,14 +618,14 @@ func (b *menuBar[K]) activate() bool {
 	b.r.refFor(k).Focus()
 	// After the trigger's focus, whose handler leaves the origin alone
 	// (it came from outside) but not the mode.
-	b.keyMode = b.r.refFor(k).Focused()
+	b.setKeyMode(b.r.refFor(k).Focused())
 	return b.keyMode
 }
 
 // leave closes the open menu and gives the focus back to the element it
 // came from, or takes it out of the bar when there is none.
 func (b *menuBar[K]) leave() {
-	b.keyMode = false
+	b.setKeyMode(false)
 	if f, ok := b.origin.get(); ok && !b.inside(f) {
 		f.Focus()
 	}
@@ -595,6 +769,16 @@ func (b *menuBar[K]) onTriggerKey(k K, e tela.KeyboardEvent) {
 			e.PreventDefault()
 			e.StopPropagation()
 			b.leave()
+		}
+	default:
+		// A character: a trigger's access key opens its menu (Windows,
+		// GTK), any other moves the focus by typeahead (APG).
+		if e.Repeat {
+			return
+		}
+		if b.mnemonic(e, false) || b.typeahead(k, e) {
+			e.PreventDefault()
+			e.StopPropagation()
 		}
 	}
 }

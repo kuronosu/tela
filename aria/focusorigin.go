@@ -45,11 +45,19 @@ func (o *focusOrigin) triggerProps(at tela.ElementRef) tela.Prop {
 
 // focusProp is the focus handler of the trigger's element (or of an
 // element around the triggers, as the focus events bubble): the focus that
-// comes from elsewhere records where it came from.
+// comes from elsewhere records where it came from, and the focus that
+// comes from nowhere (nothing had it: Tab after a press on the
+// background) records that there is no such element (ADR-260). The
+// window gaining the focus back, and the focus a menu's scope gives back
+// to the trigger as the menu unmounts, keep it.
 func (o *focusOrigin) focusProp() tela.Prop {
 	return h.OnFocus(func(e tela.FocusEvent) {
-		if r, ok := core.RelatedTarget(e); ok && !o.inside(r) {
+		r, ok := core.RelatedTarget(e)
+		switch {
+		case ok && !o.inside(r):
 			o.ref, o.has = r, true
+		case !ok && core.FocusFromNowhere(e):
+			o.has = false
 		}
 	})
 }
