@@ -65,7 +65,7 @@ CGO_ENABLED=0 staticcheck ./...                     # lint; config in staticchec
 CGO_ENABLED=0 go test ./...
 TELA_UPDATE=1 CGO_ENABLED=0 go test ./...           # regenerate goldens (review the diff)
 TELA_LIVE=1 CGO_ENABLED=0 go test ./internal/platform/...  # tests that open real windows
-CGO_ENABLED=1 go test -race ./internal/core/... . ./internal/platform/...  # race detector (verification only)
+CGO_ENABLED=1 go test -race -timeout 30m ./internal/core/... . ./internal/platform/...  # race detector (verification only; internal/core takes ~15 min)
 CGO_ENABLED=0 GOARCH=arm64 go test -short -timeout 40m -exec qemu-aarch64-static ./internal/gfx/...  # pixel determinism (ADR-027)
 
 # Cross-compilation (must always build)

@@ -12,7 +12,9 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
-Phase 21, Kit and window follow-ups (ADR-255 to ADR-259).
+## [0.15.0] - 2026-11-09
+
+Phase 21, Kit and window follow-ups (ADR-255 to ADR-259). It breaks `telatest.App.Move`.
 
 ### Breaking
 
@@ -43,6 +45,7 @@ Phase 21, Kit and window follow-ups (ADR-255 to ADR-259).
 ### Fixed
 
 - `tela dev`'s error overlay no longer paints a transparent window's margin black; an open drawn message box's window title follows a language change.
+- A text move inside one field whose delete an `OnBeforeInput` handler cancels inserts a copy at the drop point; Alt with the wheel no longer activates a drawn menu bar, a hidden bar takes no F10 or Alt, and leaving the bar with a menu open leaves the focus where it was; small transparent windows on Windows keep their size while resized, and macOS's resize loop keeps a minimum and counts the title bar; numbers in locales whose CLDR data sits under a script (`pa-PK`, `uz-AF`, `zh-TW`) use their own symbols, and `-u-nu-` systems that are not a locale's default (`hanidec`, `thai`, `tamldec`) write their digits; a store whose folder does not exist yet watches only the folders on its way, not their whole subtree.
 
 ## [0.14.0] - 2026-11-08
 
@@ -1022,7 +1025,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/kuronosu/tela/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/kuronosu/tela/compare/v0.13.7...v0.14.0
 [0.13.7]: https://github.com/kuronosu/tela/compare/v0.13.6...v0.13.7
 [0.13.6]: https://github.com/kuronosu/tela/compare/v0.13.5...v0.13.6
