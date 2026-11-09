@@ -136,7 +136,7 @@ func (p *painter) drawField(bx *Box, interest gfx.Rect) {
 	m := 2*f.ts.Size + 1
 	if f.ed.RawValue() == "" {
 		if ph := f.placeholder(cs, f.textWidth()); ph != nil {
-			ph.PaintScaled(p.b, origin, scale)
+			ph.PaintScaled(p.b, gfx.Point{X: origin.X, Y: origin.Y + f.placeholderDY(lay, ph)}, scale)
 		}
 	} else {
 		i0, i1 := linesIn(lay, origin.Y, interest.Y0, interest.Y1, m)
