@@ -27,6 +27,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type HandlerApp`](#type-handlerapp)
   - [`type HandlerRole`](#type-handlerrole): [`String`](#func-handlerrole-string)
   - [`type Launch`](#type-launch): [`Files`](#func-launch-files) · [`URLs`](#func-launch-urls)
+  - [`type LaunchSource`](#type-launchsource): [`String`](#func-launchsource-string)
   - [`type MenuBar`](#type-menubar): [`Build`](#func-menubar-build)
   - [`type MenuItem`](#type-menuitem)
   - [`type Message`](#type-message)
@@ -807,7 +808,7 @@ UnregisterApp removes the entry RegisterApp wrote, unless schemes or file types 
 func UseLaunch(f func(Launch))
 ```
 
-UseLaunch calls f, on the UI thread, with each launch of the app: once with the process's own start, after the component mounts, and with every later start that [`SingleInstance`](#func-singleinstance) forwarded to this process (Launch.Forwarded). Use Launch.Files and Launch.URLs to open what the user asked for:
+UseLaunch calls f, on the UI thread, with each launch of the app: once with the process's own start, after the component mounts (LaunchStart), with every later start that [`SingleInstance`](#func-singleinstance) forwarded to this process (LaunchForwarded), and with the links and files the OS opens with the running app (LaunchOpened: macOS Launch Services, also the file that started the app, just after the start). Launches that arrive before the app's first frame wait for it, so the UseLaunch calls of the first frame get them. Use Launch.Files and Launch.URLs to open what the user asked for:
 
 ```go
 desktop.UseLaunch(func(l desktop.Launch) {
@@ -844,7 +845,7 @@ tela.Window{
 func UseSetting[T any](key string, def T) (T, tela.Setter[T])
 ```
 
-UseSetting returns the value of key in the app's settings ([`Settings`](#func-settings)), or def when it has none, and a setter that stores a new value: the useState of a setting. The component builds again when the value changes, whoever changed it (this component, another one with the same key, Settings().Set from any goroutine), and the store writes the file shortly after a change.
+UseSetting returns the value of key in the app's settings ([`Settings`](#func-settings)), or def when it has none, and a setter that stores a new value: the useState of a setting. The component builds again when the value changes, whoever changed it (this component, another one with the same key, Settings().Set from any goroutine, another program writing the file), and the store writes the file shortly after a change.
 
 ```go
 func (Editor) Build() tela.Node {
@@ -943,6 +944,13 @@ type AppMenuBar struct {
     // (ErrUnsupported where there is no menu bar to give). Nil reports it
     // as a dev warning.
     OnError func(err error)
+    // NativeOnly gives the bar only where the platform has an app menu
+    // bar (macOS): elsewhere it is not put in the windows' menu bars
+    // (Windows), and OnError receives an error wrapping ErrUnsupported
+    // (nil OnError: no dev warning, the app asked for nothing else). An app
+    // that draws its own title bar or menus on Windows and Linux declares
+    // its macOS menu bar this way, unconditionally.
+    NativeOnly bool
 }
 ```
 
@@ -966,7 +974,7 @@ desktop.AppMenuBar{
 }
 ```
 
-Where the platform has an app menu bar (macOS), it is the menu bar of every window, and macOS always puts the app's own menu first (About, then AppItems such as Settings…, then Services, Hide, Hide Others, Show All and Quit). On Windows, where each framed window has a menu bar, it becomes the bar of every framed window that has no [`MenuBar`](#type-menubar) of its own, including windows that open later; a window's own MenuBar wins on that window. AppItems are ignored there. Elsewhere (Linux; frameless and TitleBarOverlay windows; a tree with no window of a running app, as in tela snapshot) OnError receives an error wrapping [`ErrUnsupported`](#variables) after the first build, and the app draws its menu instead (kit's Menubar with AppMenu does). Nil OnError reports it as a dev warning. Two mounted AppMenuBars: the later one wins, with a dev warning.
+Where the platform has an app menu bar (macOS), it is the menu bar of every window, and macOS always puts the app's own menu first (About, then AppItems such as Settings…, then Services, Hide, Hide Others, Show All and Quit). On Windows, where each framed window has a menu bar, it becomes the bar of every framed window that has no [`MenuBar`](#type-menubar) of its own, including windows that open later; a window's own MenuBar wins on that window. AppItems are ignored there. Elsewhere (Linux; frameless and TitleBarOverlay windows; a tree with no window of a running app, as in tela snapshot; with NativeOnly, everywhere but the platform's app menu bar) OnError receives an error wrapping [`ErrUnsupported`](#variables) after the first build, and the app draws its menu instead (kit's Menubar with AppMenu does). Nil OnError reports it as a dev warning. Two mounted AppMenuBars: the later one wins, with a dev warning.
 
 Choosing an item runs its OnSelect on the UI thread. Role items ([`Role`](#type-role)) without an OnSelect are carried out by the OS where it can (macOS) and by package desktop elsewhere, on the window with the keyboard focus.
 
@@ -1386,19 +1394,19 @@ func (r HandlerRole) String() string
 
 ```go
 type Launch struct {
-    // Args are the command-line arguments after the program's name.
+    // Args are the command-line arguments after the program's name, or
+    // the links and files opened (files as paths).
     Args []string
     // Dir is the working directory of the process that was started, for
     // relative paths in Args.
     Dir string
-    // Forwarded reports a launch of another process of the app, which
-    // [SingleInstance] forwarded to this one and exited; false for this
-    // process's own start.
-    Forwarded bool
+    // Source says where the launch comes from: this process's own start,
+    // another process of the app, or the OS.
+    Source LaunchSource
 }
 ```
 
-Launch is how the app was started: the command-line arguments and the working directory of a process of the app. [`UseLaunch`](#func-uselaunch) gives the app its own start's, and, with [`SingleInstance`](#func-singleinstance), those of every later start that another process forwarded: a file opened from a file manager, a deep link such as "notes:open?id=3" clicked in a browser.
+Launch is a request to open something: the command-line arguments and the working directory of a process of the app, or the links and files the OS opened with it. [`UseLaunch`](#func-uselaunch) gives the app its own start's, with [`SingleInstance`](#func-singleinstance) those of every later start that another process forwarded (a file opened from a file manager, a deep link such as "notes:open?id=3" clicked in a browser), and on macOS the links and files Launch Services hands the app. Source says which.
 
 **Example**
 
@@ -1428,6 +1436,39 @@ func (l Launch) URLs() []string
 ```
 
 URLs returns the arguments that are URLs, in order: any "scheme:…" with a scheme of at least two characters ("notes:open?id=3", "<https://example.com>"), except file: URIs, which are files. Arguments that start with '-' are flags, neither URLs nor files (after a "--", every argument counts).
+
+### type LaunchSource
+
+```go
+type LaunchSource uint8
+```
+
+LaunchSource says where a [`Launch`](#type-launch) comes from.
+
+```go
+const (
+    // LaunchStart is this process's own start: its command line.
+    LaunchStart LaunchSource = iota
+    // LaunchForwarded is another process of the app, started while this
+    // one runs, which [SingleInstance] forwarded to this one before it
+    // exited: its command line.
+    LaunchForwarded
+    // LaunchOpened is the OS handing the running app links or files to
+    // open, without another process of the app (Electron's open-url and
+    // open-file events): on macOS a link clicked in another app or a file
+    // opened from the Finder, the Dock or Open With, including the one
+    // that started the app, which arrives just after the start (whose Args
+    // are then empty); on Linux the desktop's launchers that call the
+    // running instance over D-Bus (org.freedesktop.Application).
+    LaunchOpened
+)
+```
+
+#### func (LaunchSource) String
+
+```go
+func (s LaunchSource) String() string
+```
 
 ### type MenuBar
 
@@ -1935,7 +1976,7 @@ type Store struct {
 
 Store is a small key-value store kept in a JSON file: an app's settings ([`Settings`](#func-settings)) or any other small state. Values are anything encoding/json encodes; reads decode them into the caller's type. Writes are kept in memory and written to the file shortly after (coalesced: a slider that sets a value every frame writes a few times a second), atomically (a temporary file renamed over the old one, so a crash never leaves half a file), and when the app quits. A Store is safe for use from any goroutine.
 
-The file is read once, when the store opens; changes made to it by other programs while the app runs are not seen, and are overwritten by the next write.
+Changes other programs make to the file are seen while the store has watchers ([`Store.Watch`](#func-store-watch), [`UseSetting`](#func-usesetting)): the file is read again and merged key by key, and the watchers of the keys that changed run. For a key both sides changed, this process's change not yet written wins (it is written a moment later); otherwise the file's value wins. A write reads the file first and merges it the same way, so it never drops a key another program wrote.
 
 #### func OpenStore
 
@@ -2058,7 +2099,7 @@ Set stores v under key. It returns an error, and changes nothing, when v cannot 
 func (s *Store) Watch(key string, f func(key string)) (stop func())
 ```
 
-Watch calls f after each change of key's value (Set with a different value, Delete), or of any key when key is "", until stop is called. f runs on the goroutine that made the change, after it, without the store's lock: it may read the store and set values. In components, use [`UseSetting`](#func-usesetting), which builds them again on change.
+Watch calls f after each change of key's value (Set with a different value, Delete, another program's write to the file), or of any key when key is "", until stop is called. f runs on the goroutine that made the change (the store's watcher goroutine for another program's), after it, without the store's lock: it may read the store and set values. In components, use [`UseSetting`](#func-usesetting), which builds them again on change.
 
 ### type Tray
 

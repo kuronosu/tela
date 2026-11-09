@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`BackgroundGradientFn`](#func-backgroundgradientfn) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Label`](#func-label) · [`Labels`](#func-labels) · [`LabelsChanged`](#func-labelschanged) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`OpenPath`](#func-openpath) · [`OpenURL`](#func-openurl) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`Quit`](#func-quit) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetLabelSource`](#func-setlabelsource) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseAccentColor`](#func-useaccentcolor) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseHighContrast`](#func-usehighcontrast) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLabels`](#func-uselabels) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseNativeMenus`](#func-usenativemenus) · [`UseOnce`](#func-useonce) · [`UsePlatformKeys`](#func-useplatformkeys) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTextScale`](#func-usetextscale) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`UseWindow`](#func-usewindow) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`BackgroundGradientFn`](#func-backgroundgradientfn) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Label`](#func-label) · [`Labels`](#func-labels) · [`LabelsChanged`](#func-labelschanged) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`OpenPath`](#func-openpath) · [`OpenURL`](#func-openurl) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`Quit`](#func-quit) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetLabelSource`](#func-setlabelsource) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseAccentColor`](#func-useaccentcolor) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseCloseRequest`](#func-usecloserequest) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseHighContrast`](#func-usehighcontrast) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLabels`](#func-uselabels) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseNativeMenus`](#func-usenativemenus) · [`UseOnce`](#func-useonce) · [`UsePlatformKeys`](#func-useplatformkeys) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseQuitRequest`](#func-usequitrequest) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTextScale`](#func-usetextscale) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`UseWindow`](#func-usewindow) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Initial`](#func-initial) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
@@ -22,6 +22,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Callback`](#type-callback): [`UseCallback`](#func-usecallback) · [`Fn`](#func-callback-fn) · [`IsZero`](#func-callback-iszero)
   - [`type ChangeEvent`](#type-changeevent): [`DefaultPrevented`](#func-changeevent-defaultprevented) · [`PreventDefault`](#func-changeevent-preventdefault) · [`StopPropagation`](#func-changeevent-stoppropagation)
   - [`type Child`](#type-child)
+  - [`type CloseRequestEvent`](#type-closerequestevent): [`DefaultPrevented`](#func-closerequestevent-defaultprevented) · [`PreventDefault`](#func-closerequestevent-preventdefault)
   - [`type Color`](#type-color): [`Hex`](#func-hex) · [`OKLCH`](#func-oklch) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`UseAccentColor`](#func-useaccentcolor) · [`Clamp`](#func-color-clamp) · [`IsFinite`](#func-color-isfinite) · [`IsOpaque`](#func-color-isopaque) · [`MulAlpha`](#func-color-mulalpha) · [`NRGBA8`](#func-color-nrgba8) · [`Premul8`](#func-color-premul8) · [`Premultiplied`](#func-color-premultiplied) · [`String`](#func-color-string) · [`ToOKLCH`](#func-color-tooklch) · [`ToOklab`](#func-color-tooklab) · [`WithAlpha`](#func-color-withalpha)
   - [`type ColorScheme`](#type-colorscheme): [`UseColorScheme`](#func-usecolorscheme) · [`String`](#func-colorscheme-string)
   - [`type Component`](#type-component)
@@ -55,6 +56,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Preview`](#type-preview): [`Build`](#func-preview-build)
   - [`type Previews`](#type-previews): [`Names`](#func-previews-names)
   - [`type Prop`](#type-prop): [`MergeProps`](#func-mergeprops) · [`Build`](#func-prop-build)
+  - [`type QuitRequestEvent`](#type-quitrequestevent): [`DefaultPrevented`](#func-quitrequestevent-defaultprevented) · [`PreventDefault`](#func-quitrequestevent-preventdefault)
   - [`type Rect`](#type-rect): [`Bottom`](#func-rect-bottom) · [`Contains`](#func-rect-contains) · [`Right`](#func-rect-right)
   - [`type Ref`](#type-ref): [`UseRef`](#func-useref)
   - [`type SchemeColor`](#type-schemecolor)
@@ -715,6 +717,28 @@ fmt.Println(app.Count(telatest.ByText("Settings")))
 // 0
 ```
 
+### func UseCloseRequest
+
+```go
+func UseCloseRequest(f func(CloseRequestEvent))
+```
+
+UseCloseRequest calls f each time the user asks to close the window the component renders in: its close button, Alt+F4, a WindowClose control, [`WindowHandle`](#type-windowhandle).Close (Tauri's onCloseRequested, Electron's close event). It is App.OnClose inside the component tree, where the state that decides lives: call e.PreventDefault and the window's default does not run (for the main window App.OnClose, else the app quits; for a [`Window`](#type-window) its OnClose). Every mounted handler of the window runs, in the order they mounted.
+
+```go
+tela.UseCloseRequest(func(e tela.CloseRequestEvent) {
+    if keepInTray {
+        e.PreventDefault()
+        e.Window.Hide()
+    } else if unsaved > 0 {
+        e.PreventDefault()
+        askThenQuit() // tela.Quit() once the user answers
+    }
+})
+```
+
+To end after asking, call [`Quit`](#func-quit) (main window) or drop the Window from the state (another window): [`WindowHandle`](#type-windowhandle).Close would ask again.
+
 ### func UseContext
 
 ```go
@@ -1129,6 +1153,21 @@ start := app.Now()
 app.Click(telatest.ByRole("button", "Dismiss")) // waits for the exit
 fmt.Println(app.Count(telatest.ByRole("status", "")), app.Now()-start >= 200*time.Millisecond)
 // Output: 0 true
+```
+
+### func UseQuitRequest
+
+```go
+func UseQuitRequest(f func(QuitRequestEvent))
+```
+
+UseQuitRequest calls f each time the user or the OS asks the app to quit: on macOS Cmd+Q, the app menu's and the Dock's Quit, a logout (Electron's before-quit). It is App.OnQuit inside the component tree: call e.PreventDefault and the default (App.OnQuit, else a close request to every window) does not run; the handler quits later with [`Quit`](#func-quit). Every mounted handler of the app runs, in the order they mounted.
+
+```go
+tela.UseQuitRequest(func(e tela.QuitRequestEvent) {
+    e.PreventDefault()
+    askThenQuit() // quits for real, also with "keep running in the tray" on
+})
 ```
 
 ### func UseReducedMotion
@@ -1636,6 +1675,10 @@ type App struct {
     // window instead; [Quit] ends the app later:
     //
     //	OnClose: func(w tela.WindowHandle) { w.Hide() },
+    //
+    // When what closing does depends on state (a setting, unsaved
+    // changes), answer the request inside the tree instead, with
+    // [UseCloseRequest]; its handlers run first and can prevent OnClose.
     OnClose func(WindowHandle)
     // OnQuit runs when the user or the OS asks the app to quit: on macOS
     // Cmd+Q, the app menu's Quit, the Dock's Quit, a logout. Nil, the
@@ -1648,7 +1691,8 @@ type App struct {
     //
     //	OnQuit: tela.Quit,
     //
-    // or to its own "ask about unsaved changes, then quit".
+    // or to its own "ask about unsaved changes, then quit";
+    // [UseQuitRequest] does that inside the tree, where the state is.
     OnQuit func()
     // RootClass are Tailwind classes for the root, which fills the
     // window. Use it to give the window a background ("bg-slate-900") or
@@ -1949,6 +1993,40 @@ type Child interface {
     Build() Node
 }
 ```
+
+### type CloseRequestEvent
+
+```go
+type CloseRequestEvent = core.CloseRequestEvent
+```
+
+CloseRequestEvent is the user asking to close a window, given to [`UseCloseRequest`](#func-usecloserequest): Window is the window, PreventDefault keeps its default (App.OnClose or quitting for the main window, the Window's OnClose for another) from running, DefaultPrevented tells whether a handler called it.
+
+`CloseRequestEvent` is an alias of `core.CloseRequestEvent`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type CloseRequestEvent struct {
+    // Window is the window the user asked to close.
+    Window WindowHandle
+    // contains filtered or unexported fields
+}
+```
+
+#### func (CloseRequestEvent) DefaultPrevented
+
+```go
+func (e CloseRequestEvent) DefaultPrevented() bool
+```
+
+DefaultPrevented reports whether a handler called PreventDefault.
+
+#### func (CloseRequestEvent) PreventDefault
+
+```go
+func (e CloseRequestEvent) PreventDefault()
+```
+
+PreventDefault keeps the window from doing what its close request does by default: for the main window Options.OnClose, else quitting; for a Window component its OnClose. The handler then decides: hide the window, ask about unsaved changes, quit later with Quit.
 
 ### type Color
 
@@ -2665,6 +2743,8 @@ Div(Class("rounded-lg border-2 border-dashed p-8", over),
 ```
 
 OnDragEnter and OnDragLeave follow HTML: they fire when the element under the drag changes (enter on the new one, then leave on the old one), and they bubble, so a container also gets them as the drag moves between its children; a container that tracks "is the drag over me" counts them (enter adds one, leave removes one) or uses OnDragOver.
+
+Text fields take text by default, as HTML's do: an editable Input or Textarea accepts a drag that offers text, and the drop inserts it at the drop point (an insertFromDrop edit, with OnBeforeInput and OnChange) unless an OnDrop handler calls e.PreventDefault().
 
 `DragEvent` is an alias of `core.DragEvent`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
 
@@ -4565,6 +4645,38 @@ func (p Prop) Build() Node
 ```
 
 Build returns a node that holds p: given to an element (or to a Fragment, a Provider or a Presence, which take Key only) it applies like p itself; where a node is consumed (nodeOf) it panics, since a prop renders nothing. It is what makes Prop a Child.
+
+### type QuitRequestEvent
+
+```go
+type QuitRequestEvent = core.QuitRequestEvent
+```
+
+QuitRequestEvent is the user or the OS asking the app to quit, given to [`UseQuitRequest`](#func-usequitrequest): PreventDefault keeps the default (App.OnQuit, else a close request to every window) from running.
+
+`QuitRequestEvent` is an alias of `core.QuitRequestEvent`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type QuitRequestEvent struct {
+    // contains filtered or unexported fields
+}
+```
+
+#### func (QuitRequestEvent) DefaultPrevented
+
+```go
+func (e QuitRequestEvent) DefaultPrevented() bool
+```
+
+DefaultPrevented reports whether a handler called PreventDefault.
+
+#### func (QuitRequestEvent) PreventDefault
+
+```go
+func (e QuitRequestEvent) PreventDefault()
+```
+
+PreventDefault keeps the app from doing what a quit request does by default: Options.OnQuit, else a close request to every window. The handler then decides, and quits with Quit.
 
 ### type Rect
 

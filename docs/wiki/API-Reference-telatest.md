@@ -1227,7 +1227,7 @@ app.ExpectNoText("Drop to upload")
 func (a *App) InjectLaunch(l desktop.Launch)
 ```
 
-InjectLaunch plays the user starting the app again while it runs, as a single-instance app sees it (desktop.SingleInstance): the new process forwards l (its Args and Dir; Forwarded is ignored) and exits, the main window comes to the front (shown if hidden), and every desktop.UseLaunch handler gets the launch. The app settles.
+InjectLaunch plays the user starting the app again while it runs, as a single-instance app sees it (desktop.SingleInstance): the new process forwards l (its Args and Dir) and exits, the main window comes to the front (shown if hidden), and every desktop.UseLaunch handler gets the launch, with Source LaunchForwarded. With l.Source LaunchOpened it plays the OS opening links or files with the running app instead (macOS Launch Services: a link clicked, a file opened from the Finder), which needs no SingleInstance. The app settles.
 
 ```go
 app := telatest.MountApp(t, desktop.SingleInstance(App))
