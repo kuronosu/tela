@@ -384,8 +384,10 @@ func (p *Parser) resolveUtility(tok, util string) ([]Op, error) {
 	c := &pctx{th: p.th}
 	if strings.HasPrefix(util, "[") && strings.HasSuffix(util, "]") {
 		// Arbitrary properties: only [clip-path:...], which has no
-		// utility in Tailwind (ADR-079), and [animation-delay:...], the
-		// stagger of animate-* classes that LLMs write (ADR-248).
+		// utility in Tailwind (ADR-079), and the animation longhands
+		// [animation-delay:...] (the stagger of animate-* classes that LLMs
+		// write, ADR-248), -duration, -timing-function, -iteration-count,
+		// -direction and -fill-mode (ADR-256).
 		prop, v, _ := strings.Cut(util[1:len(util)-1], ":")
 		var parse func(string) (Op, error)
 		switch prop {
@@ -393,6 +395,16 @@ func (p *Parser) resolveUtility(tok, util string) ([]Op, error) {
 			parse = parseClipPath
 		case "animation-delay":
 			parse = parseAnimationDelay
+		case "animation-duration":
+			parse = parseAnimationDuration
+		case "animation-timing-function":
+			parse = parseAnimationTiming
+		case "animation-iteration-count":
+			parse = parseAnimationIterations
+		case "animation-direction":
+			parse = parseAnimationDirection
+		case "animation-fill-mode":
+			parse = parseAnimationFillMode
 		}
 		if parse != nil {
 			v, err := c.substituteVars(arbitrarySpaces(v))
@@ -414,7 +426,7 @@ func (p *Parser) resolveUtility(tok, util string) ([]Op, error) {
 			return []Op{o}, nil
 		}
 		return nil, &UnsupportedClassError{Class: tok,
-			Reason: "arbitrary properties are not supported (except [clip-path:...] and [animation-delay:...]); use a utility class, for example w-[320px]"}
+			Reason: "arbitrary properties are not supported (except [clip-path:...] and the animation longhands, [animation-delay:...] and its siblings); use a utility class, for example w-[320px]"}
 	}
 	if alias, ok := reg.aliases[util]; ok {
 		util = alias

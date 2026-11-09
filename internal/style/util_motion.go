@@ -212,7 +212,15 @@ func registerTransitions(r *registry) {
 			return []string{"0", "75", "100", "150", "200", "300", "500", "700", "1000"}
 		})
 	}
-	times("duration", func(e *env, d time.Duration) { e.s.Transition.Duration, e.sc.durSet = d, true })
+	// duration-* also sets animation-duration (tw-animate-css, ADR-256), as
+	// delay-* sets the delay, and animation-duration-* is the animation
+	// alone.
+	times("duration", func(e *env, d time.Duration) {
+		e.s.Transition.Duration, e.sc.durSet = d, true
+		e.s.AnimProps.setDuration(d)
+	})
+	times("animation-duration", func(e *env, d time.Duration) { e.s.AnimProps.setDuration(d) })
+	registerAnimationUtilities(r)
 	// delay-* sets transition-delay (Tailwind v4) and animation-delay
 	// (tw-animate-css, which shadcn/ui's projects load, ADR-248): it is how
 	// a list staggers its animate-* classes, delay-100 delay-200...
@@ -258,7 +266,10 @@ func registerTransitions(r *registry) {
 			}
 			cb = v
 		}
-		return op(func(e *env) { e.s.Transition.Timing, e.sc.timingSet = cb, true }), nil
+		return op(func(e *env) {
+			e.s.Transition.Timing, e.sc.timingSet = cb, true
+			e.s.AnimProps.setTiming(cb) // and the animation's (ADR-256)
+		}), nil
 	}, func(th *Theme) []string { return append(th.Keys(NamespaceEase), "linear", "initial") })
 
 	r.add("animate", false, func(c *pctx, a *arg) (Op, error) {

@@ -390,12 +390,11 @@ func (t *Tree) updateKeyframes(ba *boxAnim, el *Element, cs *style.ComputedStyle
 		ba.dormant = false
 	}
 	if ba.kf != nil && ba.kf.raw == raw {
-		// A new animation-delay changes the timing of the running animation
-		// without restarting it (CSS Animations Level 1).
-		if cs.AnimationDelaySet {
-			ba.kf.spec.Delay = cs.AnimationDelay
-		} else if e := t.animSpec(raw); e.err == "" {
-			ba.kf.spec.Delay = e.spec.Delay
+		// New animation longhands (delay, duration, count...) change the
+		// timing of the running animation without restarting it (CSS
+		// Animations Level 1).
+		if e := t.animSpec(raw); e.err == "" {
+			ba.kf.spec = withAnimProps(e.spec, cs)
 		}
 		return
 	}
@@ -407,11 +406,52 @@ func (t *Tree) updateKeyframes(ba *boxAnim, el *Element, cs *style.ComputedStyle
 		ba.kf = nil
 		return
 	}
-	spec := e.spec
+	spec := withAnimProps(e.spec, cs)
+	ba.kf = &kfRun{raw: raw, spec: spec, kfs: e.kfs, start: now}
+}
+
+// withAnimProps is spec, an animation shorthand, with the longhands the
+// classes of cs set instead (animation-delay, duration-*, ease-*, repeat-*,
+// direction-*, fill-mode-*).
+func withAnimProps(spec anim.Spec, cs *style.ComputedStyle) anim.Spec {
 	if cs.AnimationDelaySet {
 		spec.Delay = cs.AnimationDelay
 	}
-	ba.kf = &kfRun{raw: raw, spec: spec, kfs: e.kfs, start: now}
+	p := &cs.AnimProps
+	if p.Set&style.AnimDuration != 0 {
+		spec.Duration = p.Duration
+	}
+	if p.Set&style.AnimTiming != 0 {
+		spec.Curve = animCurve(p.Timing)
+	}
+	if p.Set&style.AnimIterations != 0 {
+		spec.Iterations = p.Iterations
+	}
+	if p.Set&style.AnimDirection != 0 {
+		switch p.Direction {
+		case "reverse":
+			spec.Direction = anim.DirectionReverse
+		case "alternate":
+			spec.Direction = anim.DirectionAlternate
+		case "alternate-reverse":
+			spec.Direction = anim.DirectionAlternateReverse
+		default:
+			spec.Direction = anim.DirectionNormal
+		}
+	}
+	if p.Set&style.AnimFillMode != 0 {
+		switch p.Fill {
+		case "forwards":
+			spec.Fill = anim.FillForwards
+		case "backwards":
+			spec.Fill = anim.FillBackwards
+		case "both":
+			spec.Fill = anim.FillBoth
+		default:
+			spec.Fill = anim.FillNone
+		}
+	}
+	return spec
 }
 
 // animSpec parses (once) an animation shorthand and resolves its keyframes.

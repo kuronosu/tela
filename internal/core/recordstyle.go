@@ -60,7 +60,7 @@ func sameStyle(a, b *style.ComputedStyle, layer bool) bool {
 		a.StrokeWidthSet == b.StrokeWidthSet &&
 		a.ObjectFit == b.ObjectFit && a.ObjectPosX == b.ObjectPosX && a.ObjectPosY == b.ObjectPosY &&
 		a.Transition == b.Transition && a.Animation == b.Animation &&
-		a.AnimationDelay == b.AnimationDelay && a.AnimationDelaySet == b.AnimationDelaySet &&
+		a.AnimationDelay == b.AnimationDelay && a.AnimationDelaySet == b.AnimationDelaySet && a.AnimProps == b.AnimProps &&
 		a.Cursor == b.Cursor && a.PointerEvents == b.PointerEvents && a.UserSelect == b.UserSelect &&
 		sameText(&a.Text, &b.Text) && a.TextOverflow == b.TextOverflow && a.LineClamp == b.LineClamp &&
 		a.VerticalAlign == b.VerticalAlign &&

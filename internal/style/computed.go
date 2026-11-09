@@ -729,6 +729,9 @@ type ComputedStyle struct {
 	// AnimationDelaySet. A negative delay starts the animation partway.
 	AnimationDelay    time.Duration
 	AnimationDelaySet bool
+	// AnimProps are the other animation longhands that classes set
+	// (duration-*, ease-*, repeat-*, direction-*, fill-mode-*, ADR-256).
+	AnimProps AnimationProps
 
 	// Interaction (cursor, pointer-events and user-select are inherited).
 	Cursor        Cursor
