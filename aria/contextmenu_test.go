@@ -185,12 +185,12 @@ func TestContextMenuKeyboard(t *testing.T) {
 			app.Focus(inner)
 			app.Press(key)
 			app.ExpectFocused(telatest.ByRole("menuitem", "Copy"))
-			// It opens below the focused element, not at the area's
-			// corner.
+			// It opens at the center of the focused element (Chromium),
+			// not at the area's corner.
 			r := app.Bounds(telatest.ByTestID("menu"))
 			b := app.Bounds(inner)
-			if r.X != b.X || r.Y != b.Y+b.Height {
-				t.Errorf("menu at (%v, %v), want below the focused element (%v, %v)", r.X, r.Y, b.X, b.Y+b.Height)
+			if cx, cy := b.X+b.Width/2, b.Y+b.Height/2; r.X != cx || r.Y != cy {
+				t.Errorf("menu at (%v, %v), want at the focused element's center (%v, %v)", r.X, r.Y, cx, cy)
 			}
 			app.Press("ArrowDown")
 			app.ExpectFocused(telatest.ByRole("menuitem", "Paste"))
@@ -327,7 +327,8 @@ func ExampleUseContextMenuTrigger() {
 	// action:copy
 }
 
-// A focusable area opens the keyboard's menu below itself.
+// A focusable area opens the keyboard's menu at its center (Chromium), not
+// below it: a large area would push the menu out of the window.
 func TestContextMenuKeyboardOnTheArea(t *testing.T) {
 	var ev events
 	app := telatest.MountFunc(t, func() tela.Node {
@@ -341,8 +342,56 @@ func TestContextMenuKeyboardOnTheArea(t *testing.T) {
 	app.Focus(area)
 	app.Press("Shift+F10")
 	r, a := app.Bounds(telatest.ByTestID("menu")), app.Bounds(area)
-	if r.X != a.X || r.Y != a.Y+a.Height {
-		t.Errorf("menu at (%v, %v), want below the area (%v, %v)", r.X, r.Y, a.X, a.Y+a.Height)
+	if cx, cy := a.X+a.Width/2, a.Y+a.Height/2; r.X != cx || r.Y != cy {
+		t.Errorf("menu at (%v, %v), want at the area's center (%v, %v)", r.X, r.Y, cx, cy)
+	}
+}
+
+// A large focusable area (a canvas as tall as the window) opens the
+// keyboard's menu inside itself, where the user sees it, and not flipped
+// above it at the window's top (it opened below the whole area before).
+func TestContextMenuKeyboardOnALargeArea(t *testing.T) {
+	var ev events
+	app := telatest.MountFunc(t, func() tela.Node {
+		cm := aria.UseContextMenuTrigger(aria.ContextMenuTriggerOptions{})
+		return Div(Class("relative h-full"),
+			Div(cm.TriggerProps, TabIndex(0), Role("region"), AriaLabel("Canvas"),
+				Class("absolute inset-x-5 top-5 h-[260px]")),
+			Portal(If(cm.Open, ctxMenu{cm, &ev})))
+	}, telatest.Size(400, 300))
+	area := telatest.ByRole("region", "Canvas")
+	app.Focus(area)
+	app.Press("Shift+F10")
+	r, a := app.Bounds(telatest.ByTestID("menu")), app.Bounds(area)
+	if r.X != a.X+a.Width/2 || r.Y != a.Y+a.Height/2 {
+		t.Errorf("menu at (%v, %v), want at the area's center (%v, %v)", r.X, r.Y, a.X+a.Width/2, a.Y+a.Height/2)
+	}
+}
+
+// In a text field the keyboard's menu opens at the caret (Chromium), at the
+// start of the selection.
+func TestContextMenuKeyboardAtTheCaret(t *testing.T) {
+	var ev events
+	app := telatest.MountFunc(t, func() tela.Node {
+		cm := aria.UseContextMenuTrigger(aria.ContextMenuTriggerOptions{})
+		return Div(Class("p-5"),
+			Div(cm.TriggerProps, Input(AriaLabel("Name"), DefaultValue("Hello world"), Class("h-10 w-60 px-2 text-base"))),
+			Portal(If(cm.Open, ctxMenu{cm, &ev})))
+	}, telatest.Size(400, 300))
+	field := telatest.ByRole("textbox", "Name")
+	app.Focus(field)
+	app.Press("Home")
+	app.Press("Shift+F10")
+	r, f := app.Bounds(telatest.ByTestID("menu")), app.Bounds(field)
+	// The caret is at the field's padding, in the middle of the line.
+	if r.X != f.X+8 || r.Y <= f.Y || r.Y >= f.Y+f.Height {
+		t.Errorf("menu at (%v, %v), want at the caret (%v, inside %v..%v)", r.X, r.Y, f.X+8, f.Y, f.Y+f.Height)
+	}
+	app.Press("Escape")
+	app.Press("End")
+	app.Press("Shift+F10")
+	if r2 := app.Bounds(telatest.ByTestID("menu")); r2.X <= r.X+40 {
+		t.Errorf("menu at x %v after End, want at the caret after the text (beyond %v)", r2.X, r.X+40)
 	}
 }
 
@@ -404,5 +453,42 @@ func TestContextMenuSetOpenIsAnOpening(t *testing.T) {
 	app.settle()
 	if len(seen) != 2 {
 		t.Errorf("openings %v after SetOpen(true) on the open menu", seen)
+	}
+}
+
+// A controlled menu that the app opens itself (Open set to true, with no
+// request through the hook) is an opening too, each time (Opening did not
+// change, ADR-255), and a request through the hook is still one opening.
+func TestContextMenuControlledOpenIsAnOpening(t *testing.T) {
+	var ev events
+	var seen []int
+	var setOpen tela.Setter[bool]
+	b, host, win := rawwin.Mount(t, tela.C(func() tela.Node {
+		open, set := tela.UseState(false)
+		setOpen = set
+		cm := aria.UseContextMenuTrigger(aria.ContextMenuTriggerOptions{Open: &open, OnOpenChange: set.Set})
+		if cm.Open && (len(seen) == 0 || seen[len(seen)-1] != cm.Opening) {
+			seen = append(seen, cm.Opening)
+		}
+		return Div(Class("relative h-full"),
+			Div(cm.TriggerProps, Class("absolute left-5 top-5 h-[120px] w-[200px]")),
+			Portal(If(cm.Open, tela.WithKey(ctxMenu{cm, &ev}, cm.Opening))))
+	}), 400, 300, 0, core.Config{})
+	app := &rawApp{t: t, b: b, host: host, win: win, tree: host.Tree()}
+	app.rightClick(90, 60)
+	for range 2 {
+		setOpen.Set(false)
+		app.settle()
+		setOpen.Set(true)
+		app.settle()
+	}
+	if !hasMenu(app) || len(seen) != 3 || seen[0] == seen[1] || seen[1] == seen[2] {
+		t.Fatalf("menu %v, openings %v, want three different numbers", hasMenu(app), seen)
+	}
+	setOpen.Set(false)
+	app.settle()
+	app.rightClick(40, 40)
+	if len(seen) != 4 || seen[3] == seen[2] {
+		t.Errorf("openings %v after a right click", seen)
 	}
 }

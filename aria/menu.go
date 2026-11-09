@@ -74,6 +74,14 @@ type MenuOptions[K comparable] struct {
 	// closes the whole menu), and its own submenus chain to it. Direction
 	// is still this menu's own: pass the parent's.
 	Submenu SubmenuTriggerResult
+	// ShouldCloseOnInteractOutside is, for a menu that is not a submenu,
+	// its popover's rule for a press outside it: pass the
+	// PopoverOptions.ShouldCloseOnInteractOutside of the menu's popover
+	// (a menu bar's PopoverOptions has one). Its submenus follow it, so a
+	// press it lets through, such as one on another button of a menu bar
+	// (which opens that menu), reaches its target while a submenu is open
+	// too, instead of only closing the menu.
+	ShouldCloseOnInteractOutside func(tela.PointerEvent) bool
 }
 
 // MenuResult is what [UseMenu] returns.
@@ -183,7 +191,7 @@ func UseMenu[K comparable](o MenuOptions[K]) MenuResult[K] {
 		focusOnHover: true,
 		autoFocus:    auto, strategy: strategy,
 		onAction: o.OnAction, onClose: onClose, closeOnSelect: o.CloseOnSelect,
-		subKeys: o.SubmenuKeys, parent: o.Submenu,
+		subKeys: o.SubmenuKeys, parent: o.Submenu, outside: o.ShouldCloseOnInteractOutside,
 		label: o.AriaLabel, ref: ref,
 	})
 	return MenuResult[K]{Collection: Collection[K]{c}, Props: c.containerProps(), Selected: c.sel, Ref: c.ref}

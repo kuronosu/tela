@@ -1248,8 +1248,9 @@ submenus, no typeahead on the triggers and no mnemonics (Alt+letter).
 returns the props of an area that opens a menu at the pointer: `TriggerProps`
 handles a right click (the contextmenu event, at the pointer), a touch that
 stays down 500 ms (at the finger, with the first item focused) and Shift+F10 or
-the ContextMenu key (at the area's top-left corner, with the first item
-focused). The event's default is prevented and its propagation stopped, so the
+the ContextMenu key (at the focused element's center, or a text field's caret,
+as Chromium does; the area's top-left corner when nothing in it has the focus;
+with the first item focused). The event's default is prevented and its propagation stopped, so the
 innermost area wins. The result is shaped like `UseMenuTrigger`: `MenuProps`,
 `Open`, `FocusStrategy`, `SetOpen`, `Close`, `Ref`, `MenuRef`, plus `OpenAt(x, y)`
 and `Anchor`, the virtual rectangle that `AnchorRect` takes.

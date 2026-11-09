@@ -550,7 +550,7 @@ func TestPreferencesPlacementIsRemembered(t *testing.T) {
 	sandbox(t)
 	a := mount(t)
 	prefs := openPreferences(a)
-	prefs.Move(120, 90)
+	prefs.MoveWindow(120, 90)
 	prefs.Resize(500, 460)
 	prefs.RequestClose()
 	prefs.ExpectClosed()
@@ -572,7 +572,7 @@ func TestPreferencesPlacementIsRemembered(t *testing.T) {
 func TestMainPlacementIsRemembered(t *testing.T) {
 	sandbox(t)
 	a := mount(t)
-	a.Move(40, 60)
+	a.MoveWindow(40, 60)
 	a.Resize(800, 560)
 	a.ClickTrayItem("Quit")
 	a.ExpectQuit()

@@ -116,11 +116,13 @@ func (d DropdownMenu[K]) triggerBusy() bool { return isBusy(d.Trigger) }
 func (d DropdownMenu[K]) Build() tela.Node {
 	st := &UseStyle().DropdownMenu
 	store := useMenuStore[K]()
-	w := tela.UseWindow()
+	before := tela.UseOnce(func() *func() (tela.ElementRef, bool) { return new(func() (tela.ElementRef, bool)) })
 	mt := aria.UseMenuTrigger(aria.MenuTriggerOptions{
-		Open: d.Open, DefaultOpen: d.DefaultOpen, OnOpenChange: store.openChange(d.OnOpenChange), Disabled: d.Disabled || isBusy(d.Trigger), Ref: d.outer.ref,
+		Open: d.Open, DefaultOpen: d.DefaultOpen, OnOpenChange: store.openChange(before, d.OnOpenChange), Disabled: d.Disabled || isBusy(d.Trigger), Ref: d.outer.ref,
 	})
-	open := mt.Open
+	// The element the roles of the items act on (menuStore.origin).
+	*before = mt.FocusedBefore
+	store.sync(mt.Open)
 	panel := menuPanel[K]{
 		component: "DropdownMenu", style: st, items: d.Items, store: store, onSelect: d.OnSelect,
 		popover: aria.PopoverOptions{
@@ -131,9 +133,7 @@ func (d DropdownMenu[K]) Build() tela.Node {
 		menuProps: mt.MenuProps, ref: mt.MenuRef, strategy: mt.FocusStrategy, close: mt.Close,
 		ariaLabel: d.AriaLabel, checkIcon: d.CheckIcon, radioIcon: d.RadioIcon, subIcon: d.SubIcon, class: d.Class, props: d.Props,
 	}
-	// The press on the trigger takes the focus from the element the roles
-	// of the items act on: remember it first.
-	props := tela.MergeProps(store.captureOrigin(w, open), d.outer.merge(mt.TriggerProps))
+	props := d.outer.merge(mt.TriggerProps)
 	return h.Fragment(
 		triggerOf(d.Trigger, props, mt.Ref),
 		h.Portal(h.Presence(h.If(mt.Open, panel))),

@@ -428,7 +428,7 @@ func TestPlacementOnMissingMonitor(t *testing.T) {
 	// The first run, docked: the user leaves the window on the external
 	// monitor.
 	app := telatest.MountApp(t, desktop.PersistApp(tela.App{Width: 800, Height: 600, Root: root}), telatest.Monitors(laptop, external))
-	app.Move(3000, 300)
+	app.MoveWindow(3000, 300)
 	app.Close()
 	if p := desktop.LoadPlacement(desktop.MainWindowKey); !p.HasPosition || p.X != 3000 || p.Y != 300 {
 		t.Fatalf("saved placement %+v, want at 3000,300", p)

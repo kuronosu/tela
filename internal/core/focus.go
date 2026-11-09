@@ -236,6 +236,7 @@ func (t *Tree) SetWindowFocused(focused bool) {
 		}
 	}
 	if !focused {
+		t.loneAlt = false // Alt+Tab (menubarkeys.go)
 		t.cancelSpace()
 		t.syncFocus()
 		if el := f.el; el != nil && el.mounted {
@@ -358,7 +359,11 @@ func (t *Tree) setFocus(el *Element, typ focusType) {
 			}
 		}
 		if f.window && old.mounted {
-			dispatch(t, evBlur, old, FocusEvent{}, true, false)
+			var to *Element
+			if el != nil && el.mounted {
+				to = el
+			}
+			dispatch(t, evBlur, old, FocusEvent{related: to}, true, false)
 			t.afterFocusEvent()
 			if f.gen != g || f.el != nil {
 				return // a handler moved the focus
@@ -383,7 +388,11 @@ func (t *Tree) setFocus(el *Element, typ focusType) {
 		t.fieldFocused(fld, typ)
 	}
 	if f.window {
-		dispatch(t, evFocus, el, FocusEvent{}, true, false)
+		var from *Element
+		if old != nil && old.mounted {
+			from = old
+		}
+		dispatch(t, evFocus, el, FocusEvent{related: from}, true, false)
 		t.afterFocusEvent()
 	}
 }
@@ -873,6 +882,15 @@ func (t *Tree) resetFocus() {
 }
 
 // isInside reports whether el is anc or one of its descendants.
+// Contains reports whether inner's element is outer's or inside it, in
+// the element tree (a Portal's content is inside the element that
+// renders it): the DOM's Node.contains. False when either is not
+// attached. For package aria.
+func Contains(outer, inner ElementRef) bool {
+	o, i := outer.element(), inner.element()
+	return o != nil && i != nil && isInside(i, o)
+}
+
 func isInside(el, anc *Element) bool {
 	for x := el; x != nil; x = x.parent {
 		if x == anc {

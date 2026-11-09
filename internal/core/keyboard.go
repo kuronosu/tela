@@ -144,6 +144,24 @@ func (e KeyboardEvent) CmdOrCtrl() bool { return cmdOrCtrl(e.st, e.Ctrl, e.Meta)
 // element's OnFocus also runs when one of its descendants gains focus.
 type FocusEvent struct {
 	st *eventState
+	// related is the element the focus left (a focus) or goes to (a
+	// blur): the DOM's relatedTarget, nil when there is none (the window
+	// gaining or losing the focus, a blur to nothing).
+	related *Element
+}
+
+// RelatedTarget returns the element on the other side of a focus change
+// (the DOM's FocusEvent.relatedTarget): for a focus, the element that lost
+// the focus, for a blur the one that takes it, as the stable ref of
+// WindowHandle.ActiveElement. False when there is none: the window
+// gaining or losing the focus, a blur to nothing, a focus from nothing.
+// For package aria (a menu bar remembers where the focus came from); it
+// is not exposed by tela.
+func RelatedTarget(e FocusEvent) (ElementRef, bool) {
+	if el := e.related; el != nil && el.mounted {
+		return refOf(el), true
+	}
+	return ElementRef{}, false
 }
 
 // StopPropagation stops the event from bubbling to the ancestors.
@@ -182,6 +200,9 @@ func (t *Tree) HandleKey(e platform.KeyEvent) {
 		t.noteKey(e)
 		st := fire(t, evKeyDown, target, ke, true)
 		t.flushDiscrete()
+		if t.menuKeyDown(ke, st) {
+			return // F10 moved to the menu bar (menubarkeys.go)
+		}
 		if !st.defaultPrevented() {
 			if ke.Key == KeyValue(platform.KeyEscape) && !ke.Repeat && t.escapeOverlay(ke, st) {
 				return // dismissed the top overlay (overlay.go)
@@ -192,6 +213,11 @@ func (t *Tree) HandleKey(e platform.KeyEvent) {
 	}
 	st := fire(t, evKeyUp, target, ke, true)
 	t.flushDiscrete()
+	if !e.Synthetic {
+		t.menuKeyUp(ke, st)
+	} else {
+		t.loneAlt = false
+	}
 	t.keyUpDefault(target, ke, e.Synthetic || st.defaultPrevented())
 }
 

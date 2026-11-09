@@ -296,6 +296,7 @@ func (t *Tree) pointerLeave(ps *pointerState) {
 }
 
 func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platform.Buttons) {
+	t.loneAlt = false // Alt+click is no lone Alt (menubarkeys.go)
 	if prev == 0 && ps.pressing {
 		// The release of the previous press never came: drop it.
 		ps.pressing, ps.panned = false, false

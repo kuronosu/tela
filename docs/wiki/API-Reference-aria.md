@@ -59,7 +59,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type ListBoxOptions`](#type-listboxoptions)
   - [`type ListBoxResult`](#type-listboxresult): [`UseListBox`](#func-uselistbox)
   - [`type MenuBarOptions`](#type-menubaroptions)
-  - [`type MenuBarResult`](#type-menubarresult): [`UseMenuBar`](#func-usemenubar) · [`IsOpen`](#func-menubarresultk-isopen) · [`MenuProps`](#func-menubarresultk-menuprops) · [`MenuRef`](#func-menubarresultk-menuref) · [`PopoverOptions`](#func-menubarresultk-popoveroptions) · [`SetOpen`](#func-menubarresultk-setopen) · [`TriggerProps`](#func-menubarresultk-triggerprops) · [`TriggerRef`](#func-menubarresultk-triggerref)
+  - [`type MenuBarResult`](#type-menubarresult): [`UseMenuBar`](#func-usemenubar) · [`FocusedBefore`](#func-menubarresultk-focusedbefore) · [`IsOpen`](#func-menubarresultk-isopen) · [`MenuProps`](#func-menubarresultk-menuprops) · [`MenuRef`](#func-menubarresultk-menuref) · [`PopoverOptions`](#func-menubarresultk-popoveroptions) · [`SetOpen`](#func-menubarresultk-setopen) · [`TriggerProps`](#func-menubarresultk-triggerprops) · [`TriggerRef`](#func-menubarresultk-triggerref)
   - [`type MenuOptions`](#type-menuoptions)
   - [`type MenuResult`](#type-menuresult): [`UseMenu`](#func-usemenu) · [`SubmenuTrigger`](#func-menuresultk-submenutrigger)
   - [`type MenuTriggerOptions`](#type-menutriggeroptions)
@@ -1963,9 +1963,10 @@ type ContextMenuTriggerOptions struct {
     NoLongPress bool
     // Intercept, if not nil, is asked before the menu opens (a right
     // click, a long press, the keys, OpenAt), with the point it would open
-    // at in window coordinates: the pointer, or for the keys the
-    // bottom-left corner of the focused element (the area's top-left
-    // corner when the area has no focus). When it returns true it has taken the opening over, by
+    // at in window coordinates: the pointer, or for the keys the center
+    // of the focused element or the caret of a focused text field (the
+    // area's top-left corner when the area has no focus). When it returns
+    // true it has taken the opening over, by
     // showing the OS's own context menu there: the hook then neither opens
     // the menu nor calls OnOpenChange. When it returns false, the menu
     // opens as usual, in the same event. A menu that is open already is
@@ -2001,7 +2002,8 @@ type ContextMenuTriggerResult struct {
     // [MenuOptions].FocusStrategy.
     FocusStrategy string
     // Opening numbers the openings of the menu: it changes each time the
-    // menu opens, by a gesture, OpenAt or SetOpen(true) (a right click
+    // menu opens, by a gesture, OpenAt, SetOpen(true) or a controlled Open
+    // that the app sets to true itself (at the last point) (a right click
     // elsewhere while it is open closes it and opens it again, as a new
     // opening) and not when an open menu is moved
     // (a long press or OpenAt while it is open). Key the menu's component
@@ -2041,9 +2043,9 @@ UseContextMenuTrigger holds the open state of a context menu and returns the pro
 
 - a right click, or a Control+click under the Mac flavor, at the pointer (the focus stays where it was, and the menu itself takes it),
 - a touch or a pen that stays down for 500 ms, at the finger, with the first item focused (Radix's rule; a mouse button held down is not a long press here, so it clicks what it is on as usual),
-- Shift+F10 and the ContextMenu key, with the first item focused, at the top-left corner of the area.
+- Shift+F10 and the ContextMenu key, with the first item focused, at the element that has the focus.
 
-A key opens the menu at the element that has the focus, the area itself or an element inside it: below it (its bounds are the anchor, cut to the area's), as a browser opens the menu of the keyboard at the focused element; the area's corner when nothing in it has the focus.
+A key opens the menu at the element that has the focus, the area itself or an element inside it, as Chromium does: at the center of the part of it the area shows, or for a text field at the caret (the start of the selection); at the area's top-left corner when nothing in it has the focus.
 
 The event's default is prevented and its propagation stopped, so the innermost area with a context menu wins. The menu is rendered by the caller, in a Portal, and [`UsePopover`](#func-usepopover) places it at the point with [`AnchorRect`](#func-anchorrect), flipped and shifted to stay in the window; Escape, a press outside it with any mouse button (Radix's DismissableLayer), the focus leaving and choosing an item close it, and the focus goes back to where it was. A right click elsewhere on the area while the menu is open closes it and opens it again at the new point, as a new menu: it takes the focus as when it opens (the right click's contextmenu event comes after the release that closes the menu). A touch or a pen that stays down elsewhere on the area while the menu is open moves the open menu there, and its release does not close it (Radix); a quick tap there closes it, as any press outside does. A right click or a long press in another area with a context menu closes this one and opens that one, and a right click outside every area just closes it. A menu rendered in a Presence (to fade out) comes back as the same element when it opens again while it exits, at the new point and without taking the focus: key it with the result's Opening, as kit's ContextMenu does, and the exiting one fades out at its own point while a new one opens and takes the focus.
 
@@ -3400,6 +3402,15 @@ type MenuBarOptions[K comparable] struct {
     // Ref is the bar element's ref, for a hook used together with others on
     // the same element; the zero value makes the hook create its own.
     Ref tela.ElementRef
+    // ActivationKeys makes the bar the window's menu bar for the keys of
+    // Windows and Linux that reach one: F10 and a lone Alt (pressed and
+    // released with nothing else in between), from anywhere in the window,
+    // focus its first trigger, and the same keys again, or Escape on a
+    // trigger, give the focus back to where it was (closing an open menu).
+    // Ignored under the Mac flavor (tela.UsePlatformKeys), which has no
+    // such keys. Give it to one bar per window: the first one in the tree
+    // takes the keys.
+    ActivationKeys bool
 }
 ```
 
@@ -3455,18 +3466,20 @@ type appMenu struct{ bar aria.MenuBarResult[string] }
 
 func (m appMenu) Build() tela.Node {
     k := m.bar.OpenKey
-    pop := aria.UsePopover(m.bar.PopoverOptions(k))
+    po := m.bar.PopoverOptions(k)
+    pop := aria.UsePopover(po)
     menu := aria.UseMenu(aria.MenuOptions[string]{
         Keys: items[k], OnAction: run, OnClose: m.bar.Close,
         AutoFocus: true, FocusStrategy: m.bar.FocusStrategy, Ref: m.bar.MenuRef(k),
+        ShouldCloseOnInteractOutside: po.ShouldCloseOnInteractOutside, // for submenus
     })
     return Div(pop.Props, m.bar.MenuProps(k), menu.Props, Class("w-48 rounded-md border bg-popover p-1"), ...)
 }
 ```
 
-The component has the open key as its key, so that each menu mounts anew and focuses its first item. The triggers are "menuitem"s with aria-haspopup and aria-expanded, and the bar is one tab stop that remembers its last trigger. ArrowLeft and ArrowRight (swapped by Direction "rtl") move the focus between the triggers, wrapping unless NoWrap, and Home and End jump; ArrowDown, Enter and Space open the menu of the focused trigger on its first item, ArrowUp on its last. While a menu is open ArrowLeft and ArrowRight close it and open the neighbor's, and hovering another trigger opens its menu: that is why the popover is not modal. A press on the open menu's trigger closes it, so do Escape, a press outside, and Tab, which also leaves the bar. Closing gives the focus back to the trigger.
+The component has the open key as its key, so that each menu mounts anew and focuses its first item. The triggers are "menuitem"s with aria-haspopup and aria-expanded, and the bar is one tab stop that remembers its last trigger. ArrowLeft and ArrowRight (swapped by Direction "rtl") move the focus between the triggers, wrapping unless NoWrap, and Home and End jump; ArrowDown, Enter and Space open the menu of the focused trigger on its first item, ArrowUp on its last. While a menu is open ArrowLeft and ArrowRight close it and open the neighbor's, and hovering another trigger opens its menu: that is why the popover is not modal. A press on the open menu's trigger closes it, so do Escape, a press outside, and Tab, which also leaves the bar. Closing gives the focus back to the trigger. With ActivationKeys, F10 and a lone Alt reach the bar from anywhere in the window (Windows and Linux), and FocusedBefore is the element the focus came from, for the menus' edit commands.
 
-There are no submenus, no typeahead on the triggers and no mnemonics.
+There is no typeahead on the triggers and there are no mnemonics.
 
 **Example**
 
@@ -3491,6 +3504,14 @@ fmt.Println(app.AriaSnapshot())
 //   - menuitem "Undo"
 //   - menuitem "Redo"
 ```
+
+#### func (MenuBarResult[K]) FocusedBefore
+
+```go
+func (r MenuBarResult[K]) FocusedBefore() (tela.ElementRef, bool)
+```
+
+FocusedBefore returns the element that had the focus before the bar took it (Tab, a press on a trigger, ActivationKeys), while the focus stays in the bar and its menus: the element that the menus' edit commands act on, as a native menu bar, which takes no focus, acts on the window's focused field. False when the focus came from nowhere or has left the bar since.
 
 #### func (MenuBarResult[K]) IsOpen
 
@@ -3613,6 +3634,14 @@ type MenuOptions[K comparable] struct {
     // closes the whole menu), and its own submenus chain to it. Direction
     // is still this menu's own: pass the parent's.
     Submenu SubmenuTriggerResult
+    // ShouldCloseOnInteractOutside is, for a menu that is not a submenu,
+    // its popover's rule for a press outside it: pass the
+    // PopoverOptions.ShouldCloseOnInteractOutside of the menu's popover
+    // (a menu bar's PopoverOptions has one). Its submenus follow it, so a
+    // press it lets through, such as one on another button of a menu bar
+    // (which opens that menu), reaches its target while a submenu is open
+    // too, instead of only closing the menu.
+    ShouldCloseOnInteractOutside func(tela.PointerEvent) bool
 }
 ```
 
@@ -3783,6 +3812,12 @@ type MenuTriggerResult struct {
     Pressed bool
     // Ref is the trigger's ref and MenuRef the menu's.
     Ref, MenuRef tela.ElementRef
+    // FocusedBefore returns the element that had the focus before the
+    // trigger took it (Tab, a press), while the focus stays on the trigger
+    // and its menu: what the menu's edit commands act on, as a native
+    // menu, which takes no focus, acts on the field the user is in. False
+    // when the focus came from nowhere or has left them since.
+    FocusedBefore func() (tela.ElementRef, bool)
 }
 ```
 

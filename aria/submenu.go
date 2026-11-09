@@ -100,6 +100,12 @@ func (r SubmenuTriggerResult) PopoverOptions() PopoverOptions {
 				return false
 			}
 		}
+		// A press the root menu's popover lets through (a menu bar's other
+		// buttons) reaches its target: it switches menus, which unmounts
+		// this one with its root.
+		if f := lvl.rootOutside(); f != nil && !f(e) {
+			return false
+		}
 		*lvl.outside() = true
 		return true
 	}
@@ -120,6 +126,9 @@ func (r SubmenuTriggerResult) PopoverOptions() PopoverOptions {
 type submenuLevel interface {
 	// chain is the menus from the root to this one.
 	chain() []tela.ElementRef
+	// rootOutside is the root menu's ShouldCloseOnInteractOutside, nil
+	// when it has none.
+	rootOutside() func(tela.PointerEvent) bool
 	// closeAllMenus closes the whole menu.
 	closeAllMenus()
 	// outside is set by a press outside the chain, so that the submenu's
@@ -261,6 +270,13 @@ func (c *collState[K]) chain() []tela.ElementRef {
 		up = p.lvl.chain()
 	}
 	return append(up[:len(up):len(up)], c.ref)
+}
+
+func (c *collState[K]) rootOutside() func(tela.PointerEvent) bool {
+	if p := c.cfg.parent; p.lvl != nil {
+		return p.lvl.rootOutside()
+	}
+	return c.cfg.outside
 }
 
 func (c *collState[K]) closeAllMenus() {

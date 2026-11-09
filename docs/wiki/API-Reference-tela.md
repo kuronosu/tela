@@ -6351,7 +6351,7 @@ func titleBar() tela.Node {
 func (w WindowHandle) ActiveElement() (ElementRef, bool)
 ```
 
-ActiveElement returns a ref to the element of the window that has the focus (the DOM's document.activeElement), and whether one has. The ref acts on that element while it stays mounted (Focus, Bounds, Focused, Click) and does nothing once it unmounts; it is a new ref, not equal to the refs attached to the element, so compare elements with Focused. Call it on the UI thread, from a handler or an effect: a component that remembers the focus before it moves it (a menu that gives an edit command to the field the user was in) keeps the ref.
+ActiveElement returns a ref to the element of the window that has the focus (the DOM's document.activeElement), and whether one has. The ref is comparable and stable: the ref attached to the element (h.Ref) when it has one, so ActiveElement() == ref tells whether that element has the focus; else the same ref for the element on every call, which acts on it while it stays mounted (Focus, Bounds, Focused, Click) and does nothing once it unmounts. Call it on the UI thread, from a handler or an effect: a component that remembers the focus before it moves it (a menu that gives an edit command to the field the user was in) keeps the ref.
 
 #### func (WindowHandle) Close
 

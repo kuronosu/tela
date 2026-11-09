@@ -309,7 +309,10 @@ type Tree struct {
 	// published what builds read (Frame).
 	rerun bool
 	ovl   overlayState
-	pubs  []*valueCore
+	// loneAlt is set by an Alt keydown with no other key since
+	// (menubarkeys.go).
+	loneAlt bool
+	pubs    []*valueCore
 	// env is the color scheme and reduced motion (env.go).
 	env envState
 

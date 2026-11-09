@@ -51,6 +51,15 @@ type MenuBarOptions[K comparable] struct {
 	// Ref is the bar element's ref, for a hook used together with others on
 	// the same element; the zero value makes the hook create its own.
 	Ref tela.ElementRef
+	// ActivationKeys makes the bar the window's menu bar for the keys of
+	// Windows and Linux that reach one: F10 and a lone Alt (pressed and
+	// released with nothing else in between), from anywhere in the window,
+	// focus its first trigger, and the same keys again, or Escape on a
+	// trigger, give the focus back to where it was (closing an open menu).
+	// Ignored under the Mac flavor (tela.UsePlatformKeys), which has no
+	// such keys. Give it to one bar per window: the first one in the tree
+	// takes the keys.
+	ActivationKeys bool
 }
 
 // MenuBarResult is what [UseMenuBar] returns.
@@ -94,6 +103,13 @@ type menuBar[K comparable] struct {
 	// a trigger: the blur of the old menu is not a reason to close it.
 	switching bool
 
+	// ref is the bar's element; origin the element the focus came from
+	// (FocusedBefore). keyMode is set while the focus is in the bar
+	// because of ActivationKeys, so Escape on a trigger gives it back.
+	ref     tela.ElementRef
+	origin  focusOrigin
+	keyMode bool
+
 	menuRefs   map[K]tela.ElementRef
 	press      map[K]*pressState
 	setPressed tela.Setter[bool]
@@ -118,10 +134,12 @@ type menuBar[K comparable] struct {
 //
 //	func (m appMenu) Build() tela.Node {
 //	    k := m.bar.OpenKey
-//	    pop := aria.UsePopover(m.bar.PopoverOptions(k))
+//	    po := m.bar.PopoverOptions(k)
+//	    pop := aria.UsePopover(po)
 //	    menu := aria.UseMenu(aria.MenuOptions[string]{
 //	        Keys: items[k], OnAction: run, OnClose: m.bar.Close,
 //	        AutoFocus: true, FocusStrategy: m.bar.FocusStrategy, Ref: m.bar.MenuRef(k),
+//	        ShouldCloseOnInteractOutside: po.ShouldCloseOnInteractOutside, // for submenus
 //	    })
 //	    return Div(pop.Props, m.bar.MenuProps(k), menu.Props, Class("w-48 rounded-md border bg-popover p-1"), ...)
 //	}
@@ -137,9 +155,12 @@ type menuBar[K comparable] struct {
 // and hovering another trigger opens its menu: that is why the popover is
 // not modal. A press on the open menu's trigger closes it, so do Escape,
 // a press outside, and Tab, which also leaves the bar. Closing gives the
-// focus back to the trigger.
+// focus back to the trigger. With ActivationKeys, F10 and a lone Alt reach
+// the bar from anywhere in the window (Windows and Linux), and
+// FocusedBefore is the element the focus came from, for the menus' edit
+// commands.
 //
-// There are no submenus, no typeahead on the triggers and no mnemonics.
+// There is no typeahead on the triggers and there are no mnemonics.
 func UseMenuBar[K comparable](o MenuBarOptions[K]) MenuBarResult[K] {
 	const hook = "UseMenuBar: MenuBarOptions."
 	dir := checkChoice(hook, "Direction", o.Direction, "ltr", "ltr", "rtl")
@@ -153,7 +174,11 @@ func UseMenuBar[K comparable](o MenuBarOptions[K]) MenuBarResult[K] {
 	if ref == (tela.ElementRef{}) {
 		ref = own
 	}
-	b.cfg, b.rtl, b.setPressed = o, dir == "rtl", setPressed
+	b.cfg, b.rtl, b.setPressed, b.ref = o, dir == "rtl", setPressed, ref
+	if b.origin.inside == nil {
+		b.origin.inside = b.inside
+	}
+	mac := tela.UsePlatformKeys() == "darwin"
 	if !b.started {
 		b.started = true
 		if o.DefaultOpen != nil {
@@ -190,6 +215,15 @@ func UseMenuBar[K comparable](o MenuBarOptions[K]) MenuBarResult[K] {
 	if o.Disabled {
 		ps = append(ps, h.AriaDisabled(true))
 	}
+	// The focus events of the triggers bubble to the bar.
+	ps = append(ps, b.origin.triggerProps(ref), h.OnBlur(func(e tela.FocusEvent) {
+		if r, ok := core.RelatedTarget(e); ok && !b.inside(r) {
+			b.keyMode = false
+		}
+	}))
+	if o.ActivationKeys && !mac && !o.Disabled {
+		ps = append(ps, core.MenuBarKeys(func(core.KeyboardEvent) { b.activate() }))
+	}
 	return MenuBarResult[K]{
 		Props: core.MergeProps(ps...),
 		Open:  b.has, OpenKey: b.cur,
@@ -199,6 +233,14 @@ func UseMenuBar[K comparable](o MenuBarOptions[K]) MenuBarResult[K] {
 		b:             b,
 	}
 }
+
+// FocusedBefore returns the element that had the focus before the bar
+// took it (Tab, a press on a trigger, ActivationKeys), while the focus
+// stays in the bar and its menus: the element that the menus' edit
+// commands act on, as a native menu bar, which takes no focus, acts on
+// the window's focused field. False when the focus came from nowhere or
+// has left the bar since.
+func (r MenuBarResult[K]) FocusedBefore() (tela.ElementRef, bool) { return r.b.origin.get() }
 
 // IsOpen reports whether the menu with key k is open.
 func (r MenuBarResult[K]) IsOpen(k K) bool { return r.b.has && r.b.cur == k }
@@ -274,6 +316,10 @@ func (r MenuBarResult[K]) TriggerProps(k K) tela.Prop {
 						return
 					}
 					if e.PointerType != PointerVirtual {
+						// The focus the press takes (FocusedBefore), first.
+						if !b.inside(activeOr(ref)) {
+							b.origin.set(ref)
+						}
 						// The press focuses the trigger after this handler;
 						// the menu's focus scope remembers the focus when it
 						// mounts, before that.
@@ -319,6 +365,12 @@ func (r MenuBarResult[K]) MenuProps(k K) tela.Prop {
 		h.Ref(b.menuRef(k)), h.AriaLabelledBy(b.r.refFor(k)),
 		core.Scope(core.ScopeOptions{Restore: true}),
 		h.OnKeyDown(func(e tela.KeyboardEvent) { b.onMenuKey(k, e) }),
+		h.OnBlur(func(e tela.FocusEvent) {
+			b.origin.blur(e)
+			if r, ok := core.RelatedTarget(e); ok && !b.inside(r) {
+				b.keyMode = false
+			}
+		}),
 	)
 }
 
@@ -344,6 +396,53 @@ func (r MenuBarResult[K]) PopoverOptions(k K) PopoverOptions {
 			return true
 		},
 	}
+}
+
+// inside reports whether r's element is in the bar or in one of its
+// menus (their submenus included).
+func (b *menuBar[K]) inside(r tela.ElementRef) bool {
+	if core.Contains(b.ref, r) {
+		return true
+	}
+	for _, m := range b.menuRefs {
+		if core.Contains(m, r) {
+			return true
+		}
+	}
+	return false
+}
+
+// activate is the bar's ActivationKeys: F10 or a lone Alt focuses the
+// first trigger (Windows highlights the first menu, without opening it),
+// remembering where the focus was; in the bar already, or with a menu
+// open, they leave it.
+func (b *menuBar[K]) activate() {
+	if b.has || b.inside(activeOr(b.ref)) {
+		b.leave()
+		return
+	}
+	k, ok := b.r.firstKey()
+	if !ok {
+		return
+	}
+	b.origin.set(b.ref)
+	b.r.refFor(k).Focus()
+	// After the trigger's focus, whose handler leaves the origin alone
+	// (it came from outside) but not the mode.
+	b.keyMode = b.r.refFor(k).Focused()
+}
+
+// leave closes the open menu and gives the focus back to the element it
+// came from, or takes it out of the bar when there is none.
+func (b *menuBar[K]) leave() {
+	b.keyMode = false
+	if f, ok := b.origin.get(); ok && !b.inside(f) {
+		f.Focus()
+	}
+	if f := activeOr(b.ref); b.inside(f) {
+		f.Blur()
+	}
+	b.close()
 }
 
 func (b *menuBar[K]) menuRef(k K) tela.ElementRef {
@@ -473,6 +572,13 @@ func (b *menuBar[K]) onTriggerKey(k K, e tela.KeyboardEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
 		b.toggle(k, FocusLast)
+	case tela.KeyEscape:
+		// The bar was reached with F10 or Alt: Escape gives the focus back.
+		if b.keyMode && !b.has && !e.Repeat {
+			e.PreventDefault()
+			e.StopPropagation()
+			b.leave()
+		}
 	}
 }
 

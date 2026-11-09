@@ -23,8 +23,9 @@ func init() {
 // area, shadcn/ui's ContextMenu, built on aria.UseContextMenuTrigger: a
 // right click (a Control+click on a Mac) opens it at the pointer, a touch
 // or a pen that stays down opens it under the finger, and Shift+F10 or the
-// ContextMenu key opens it, on its first item, below the element that has
-// the focus. The menu closes with Escape,
+// ContextMenu key opens it, on its first item, at the element that has
+// the focus (its center, or a text field's caret, as Chromium does). The
+// menu closes with Escape,
 // a press outside it with any mouse button or choosing an item, and the
 // focus returns to where it was. A right click elsewhere in the area while
 // the menu is open closes it and opens a new one at the new point (Radix),
@@ -53,7 +54,7 @@ func init() {
 //
 // The area is not focusable: kit adds no tab stop (Radix's model). The
 // keys reach it from the element inside it that has the focus, as in the
-// browser, and the menu opens below that element. An area with nothing
+// browser, and the menu opens at that element. An area with nothing
 // focusable inside (a canvas, a drop zone) opens from the keyboard only
 // when it can take the focus itself: give it a tab stop, a role and a name
 // in Props, and a focus ring in Class:
@@ -64,7 +65,8 @@ func init() {
 //	    ...
 //	}
 //
-// The menu then opens below the area. A list of items with selection
+// The menu then opens at the area's center, inside it, however large the
+// area is. A list of items with selection
 // inside the area (aria.UseListBox) selects the item that is right-clicked
 // before the menu opens, unless it is part of the selection already, as
 // Finder does.
@@ -74,8 +76,8 @@ func init() {
 // The menu is drawn in the kit's look unless Native (kit.NativeOn), or
 // tela.App.NativeMenus when Native is left at kit.NativeAuto, asks for the
 // OS's context menu (ADR-215). It then opens where the drawn one would
-// (the pointer, or below the focused element for Shift+F10 and the Menu
-// key), and
+// (the pointer, or the focused element for Shift+F10 and the Menu key),
+// and
 // where the platform has no native context menu (Linux) the drawn menu
 // opens instead, in the same event and frame. The area's own Native
 // setting wins over the app's, so one menu can stay drawn while the

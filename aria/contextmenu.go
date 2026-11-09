@@ -34,9 +34,10 @@ type ContextMenuTriggerOptions struct {
 	NoLongPress bool
 	// Intercept, if not nil, is asked before the menu opens (a right
 	// click, a long press, the keys, OpenAt), with the point it would open
-	// at in window coordinates: the pointer, or for the keys the
-	// bottom-left corner of the focused element (the area's top-left
-	// corner when the area has no focus). When it returns true it has taken the opening over, by
+	// at in window coordinates: the pointer, or for the keys the center
+	// of the focused element or the caret of a focused text field (the
+	// area's top-left corner when the area has no focus). When it returns
+	// true it has taken the opening over, by
 	// showing the OS's own context menu there: the hook then neither opens
 	// the menu nor calls OnOpenChange. When it returns false, the menu
 	// opens as usual, in the same event. A menu that is open already is
@@ -67,7 +68,8 @@ type ContextMenuTriggerResult struct {
 	// [MenuOptions].FocusStrategy.
 	FocusStrategy string
 	// Opening numbers the openings of the menu: it changes each time the
-	// menu opens, by a gesture, OpenAt or SetOpen(true) (a right click
+	// menu opens, by a gesture, OpenAt, SetOpen(true) or a controlled Open
+	// that the app sets to true itself (at the last point) (a right click
 	// elsewhere while it is open closes it and opens it again, as a new
 	// opening) and not when an open menu is moved
 	// (a long press or OpenAt while it is open). Key the menu's component
@@ -124,12 +126,13 @@ func (r ContextMenuTriggerResult) PopoverOptions() PopoverOptions {
 //     first item focused (Radix's rule; a mouse button held down is not a
 //     long press here, so it clicks what it is on as usual),
 //   - Shift+F10 and the ContextMenu key, with the first item focused, at
-//     the top-left corner of the area.
+//     the element that has the focus.
 //
 // A key opens the menu at the element that has the focus, the area itself
-// or an element inside it: below it (its bounds are the anchor, cut to the
-// area's), as a browser opens the menu of the keyboard at the focused
-// element; the area's corner when nothing in it has the focus.
+// or an element inside it, as Chromium does: at the center of the part of
+// it the area shows, or for a text field at the caret (the start of the
+// selection); at the area's top-left corner when nothing in it has the
+// focus.
 //
 // The event's default is prevented and its propagation stopped, so the
 // innermost area with a context menu wins. The menu is rendered by the
@@ -252,6 +255,15 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 		}))
 	}
 	anchor := openingAnchor(pos)
+	// A controlled menu that the app opened itself (Open set to true with
+	// no request through the hook, which numbers its own openings) is an
+	// opening too.
+	seen := &tela.UseRef(ctxSeen{}).Current
+	gen := pos.Latest().gen
+	if open && !seen.open && gen == seen.gen {
+		seen.extra++
+	}
+	seen.open, seen.gen = open, gen
 	return ContextMenuTriggerResult{
 		TriggerProps: core.MergeProps(ps...),
 		MenuProps: core.MergeProps(h.Ref(menuRef),
@@ -263,7 +275,7 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 			})),
 		Open:          open,
 		FocusStrategy: strategy,
-		Opening:       int(pos.Latest().gen),
+		Opening:       int(gen) + seen.extra,
 		Anchor:        anchor,
 		OpenAt:        func(x, y float32) { openAt(point(x, y), "") },
 		SetOpen: func(v bool) {
@@ -283,11 +295,14 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 	}
 }
 
-// keyAnchor is where a menu opened from the keyboard is placed: the
-// bounds of the element that has the focus, the area or one inside it,
-// cut to the area's (a browser opens the keyboard's context menu at the
-// focused element); the area's top-left corner when the focus is
-// elsewhere or the element is out of the area's view.
+// keyAnchor is where a menu opened from the keyboard is placed, as
+// Chromium places it (EventHandler::ShowNonLocatedContextMenu): the
+// middle of the caret at the start of the selection when the focus is in
+// a text field, else the center of the focused element (the area or one
+// inside it), both within the part of the element that the area shows;
+// the area's top-left corner when the focus is elsewhere or the element is
+// out of the area's view. A point, not the element's bounds: a menu
+// below a large focused area (a canvas, a list) would open off its view.
 func keyAnchor(area tela.ElementRef) tela.Rect {
 	a := area.Bounds()
 	corner := tela.Rect{X: a.X, Y: a.Y}
@@ -301,7 +316,19 @@ func keyAnchor(area tela.ElementRef) tela.Rect {
 	if x1 < x0 || y1 < y0 {
 		return corner
 	}
-	return tela.Rect{X: x0, Y: y0, Width: x1 - x0, Height: y1 - y0}
+	if p, ok := core.CaretPoint(f); ok {
+		return tela.Rect{X: min(max(p.X, x0), x1), Y: min(max(p.Y, y0), y1)}
+	}
+	return tela.Rect{X: (x0 + x1) / 2, Y: (y0 + y1) / 2}
+}
+
+// ctxSeen is what the last build of UseContextMenuTrigger saw: whether
+// the menu was open and the opening number of its point, and extra, the
+// openings that did not go through the hook (Opening).
+type ctxSeen struct {
+	open  bool
+	gen   uint64
+	extra int
 }
 
 // ctxPoint is the point a context menu is placed at, and the number of

@@ -75,6 +75,9 @@ type collConfig[K comparable] struct {
 	// this menu is (the zero value for a root menu).
 	subKeys []K
 	parent  SubmenuTriggerResult
+	// outside is a root menu's popover rule for a press outside it, which
+	// its submenus follow (MenuOptions.ShouldCloseOnInteractOutside).
+	outside func(tela.PointerEvent) bool
 	// Element.
 	ref        tela.ElementRef
 	role       string

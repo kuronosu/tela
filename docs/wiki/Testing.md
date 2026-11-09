@@ -353,7 +353,7 @@ func TestSettingsWindow(t *testing.T) {
 ```
 
 What the user does with the window manager: `RequestClose`, `Minimize`,
-`Maximize`, `Unmaximize`, `SetFullscreen`, `Restore`, `Move`, `Resize` and
+`Maximize`, `Unmaximize`, `SetFullscreen`, `Restore`, `MoveWindow`, `Resize` and
 `BringToFront`. The window itself: `Title`, `WindowState`, `WindowSize`,
 `Placement`, `Modal`, `Parent`, `Blocks` and `BlockedBy`, with the
 expectations `ExpectTitle`, `ExpectWindowState(telatest.Maximized(true),

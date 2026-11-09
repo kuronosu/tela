@@ -130,7 +130,11 @@ type MenubarMenu[K comparable] struct {
 // platform has no such bar (Linux), or the app is not asking for native
 // menus, the bar is drawn where it is declared, as any Menubar, usually in
 // the window's title bar (kit.TitleBar's Children) or at the top of the
-// content. A per-window native Menubar (AppMenu false) is unsupported on
+// content. A drawn app bar is the window's bar for the keyboard, as a
+// native one is on Windows and Linux (aria.MenuBarOptions.ActivationKeys):
+// F10 or a lone Alt focuses its first menu from anywhere in the window,
+// and the same keys or Escape give the focus back (not under the Mac's
+// key conventions, which have no such keys). A per-window native Menubar (AppMenu false) is unsupported on
 // macOS, where the menu bar belongs to the app, and is drawn there.
 // Shortcuts of the app's bar are key equivalents on macOS: the key chooses
 // the item and does not reach the app (write "CmdOrCtrl+N" to be portable).
@@ -173,7 +177,9 @@ type Menubar[K comparable] struct {
 	DefaultOpen  *K
 	OnOpenChange func(menu K, open bool)
 
-	// Class is added after the recipe's Root classes, to the bar;
+	// Class is added after the recipe's Root classes, to the bar (a flex
+	// box, as shadcn's: in a column it is as wide as the column, as in a
+	// browser; Class: "w-fit" makes it as wide as its menus);
 	// TriggerClass does the same for the menus' buttons and ContentClass for
 	// the menus' panels.
 	Class        string
@@ -276,7 +282,7 @@ type drawnMenubar[K comparable] struct {
 func (d drawnMenubar[K]) Build() tela.Node {
 	m, store := d.bar, d.store
 	st := &UseStyle().Menubar
-	w := tela.UseWindow()
+	before := tela.UseOnce(func() *func() (tela.ElementRef, bool) { return new(func() (tela.ElementRef, bool)) })
 	keys := make([]K, len(m.Menus))
 	var disabled []K
 	for i, mm := range m.Menus {
@@ -290,20 +296,22 @@ func (d drawnMenubar[K]) Build() tela.Node {
 		Keys: keys, DisabledKeys: disabled, Open: m.Open, DefaultOpen: m.DefaultOpen, OnOpenChange: func(k K, open bool) {
 			// The bar moves from one open menu to another without a close:
 			// only its first opening takes the origin (openChange).
-			store.openChange(nil)(open)
+			store.openChange(before, nil)(open)
 			if m.OnOpenChange != nil {
 				m.OnOpenChange(k, open)
 			}
 		},
 		AriaLabel: m.AriaLabel, Direction: dir,
+		// The app's bar is the window's bar: F10 and Alt reach it.
+		ActivationKeys: m.AppMenu,
 	})
+	// The element the roles of the items act on (menuStore.origin).
+	*before = bar.FocusedBefore
+	store.sync(bar.Open)
 
 	kids := []tela.Child{bar.Props, cls(st.Root, m.Class), rootDir, m.Props}
-	// The press on a menu's button takes the focus from the element the
-	// roles of the items act on: remember it first.
-	origin := store.captureOrigin(w, bar.Open)
 	for _, mm := range m.Menus {
-		kids = append(kids, h.Button(origin, bar.TriggerProps(mm.Key), h.Key(mm.Key), cls(st.Trigger, m.TriggerClass), h.Text(mm.Label)))
+		kids = append(kids, h.Button(bar.TriggerProps(mm.Key), h.Key(mm.Key), cls(st.Trigger, m.TriggerClass), h.Text(mm.Label)))
 	}
 
 	var open tela.Child

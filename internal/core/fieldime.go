@@ -386,10 +386,44 @@ func (t *Tree) fieldCursorArea(f *field) (gfx.Rect, bool) {
 		c := lay.Caret(f.ed.Selection().Focus)
 		r = gfx.Rect{X0: c.X, Y0: c.Top, X1: c.X, Y1: c.Top + c.Height}
 	}
+	return t.fieldToWindow(f, r), true
+}
+
+// fieldToWindow converts a rectangle of f's text layout to window
+// coordinates.
+func (t *Tree) fieldToWindow(f *field, r gfx.Rect) gfx.Rect {
+	bx := f.bx
 	x, y := f.textOrigin()
 	o := t.semOrigin(bx).Add(gfx.Point{X: x, Y: y})
 	if s := bx.scr; s != nil && f.multi {
 		o = o.Sub(s.soff)
 	}
-	return t.transformUp(bx, r.Translate(o.X, o.Y)), true
+	return t.transformUp(bx, r.Translate(o.X, o.Y))
+}
+
+// CaretPoint returns the middle of the caret at the start of the
+// selection of the text field r is attached to, in window coordinates
+// (where Chromium opens a context menu asked for with the keyboard), and
+// false for another element or a field not laid out. For package aria.
+func CaretPoint(r ElementRef) (Point, bool) {
+	f := r.field()
+	if f == nil {
+		return Point{}, false
+	}
+	t := f.t
+	if f.bx.pcs == nil || !t.inTree(f.bx) {
+		return Point{}, false
+	}
+	lay := f.layout()
+	if lay == nil {
+		return Point{}, false
+	}
+	sel := f.ed.Selection()
+	start := sel.Focus
+	if sel.Anchor.Offset < start.Offset {
+		start = sel.Anchor
+	}
+	c := lay.Caret(start)
+	q := t.fieldToWindow(f, gfx.Rect{X0: c.X, Y0: c.Top, X1: c.X, Y1: c.Top + c.Height})
+	return Point{X: q.X0, Y: (q.Y0 + q.Y1) / 2}, true
 }

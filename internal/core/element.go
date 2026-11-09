@@ -78,6 +78,9 @@ type Element struct {
 	winKids bool
 	// fscope is the focus scope of a primitive with FocusScope (focus.go).
 	fscope *focusScope
+	// qref is the ref ActiveElement and RelatedTarget return for an
+	// element with no ref of its own (refOf), made at the first query.
+	qref *elemRef
 
 	// Presence (presence.go): pchild is the state of a child of a
 	// Presence (its UsePresence components, its exit); inert marks the

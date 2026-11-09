@@ -304,7 +304,7 @@ func (a *App) WindowSize() (width, height float32) {
 
 // Placement returns where the window is (tela.WindowHandle.Placement): its
 // size outside maximized and fullscreen, its position once the app or
-// [App.Move] set one, the state to open in. It still answers after the
+// [App.MoveWindow] set one, the state to open in. It still answers after the
 // window closed.
 func (a *App) Placement() tela.WindowPlacement {
 	a.tb.Helper()
@@ -548,10 +548,11 @@ func (a *App) Restore() {
 	a.wm(func(s *platform.WindowState) { s.Minimized, s.Maximized, s.Fullscreen = false, false, false })
 }
 
-// Move moves the window so that its content area's top-left corner is at
-// (x, y) physical pixels of the fake desktop, as the user dragging it. The
-// position shows in [App.Placement] from then on.
-func (a *App) Move(x, y int) {
+// MoveWindow moves the window so that its content area's top-left corner
+// is at (x, y) physical pixels of the fake desktop, as the user dragging
+// it by its title bar (the pointer is [App.MouseMove]'s). The position
+// shows in [App.Placement] from then on.
+func (a *App) MoveWindow(x, y int) {
 	a.tb.Helper()
 	a.wm(func(s *platform.WindowState) { s.HasPosition, s.Position = true, image.Pt(x, y) })
 }

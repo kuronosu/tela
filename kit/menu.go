@@ -16,6 +16,7 @@ import (
 	"github.com/kuronosu/tela/aria"
 	"github.com/kuronosu/tela/desktop"
 	"github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/i18n"
 )
 
 // This file is what [DropdownMenu], [Menubar] and [ContextMenu] share: the
@@ -104,9 +105,10 @@ const (
 //
 // A plain item with a Role is one of the standard items of desktop.Role
 // (Electron's roles): Undo, Redo, Cut, Copy, Paste, Select All, Minimize,
-// Zoom and Close. An empty Label is the role's English one and an empty
-// Shortcut the role's keys, so an Edit menu can mix the app's items with
-// the standard ones:
+// Zoom and Close. An empty Label is the role's built-in label (English
+// unless the app's catalogs translate it, in the locale of the nearest
+// i18n.Provider; ADR-251) and an empty Shortcut the role's keys, so an
+// Edit menu can mix the app's items with the standard ones:
 //
 //	{Key: "undo", Role: desktop.RoleUndo},
 //	{Key: "redo", Role: desktop.RoleRedo},
@@ -121,9 +123,11 @@ const (
 // items never report the choice either): in a native menu the OS or
 // package desktop does it (ADR-226), and in a drawn one the menu closes and
 // desktop.PerformRole does it once the focus is back where the menu was
-// opened from (the element that had it before the trigger's press took it;
-// a context menu's area keeps it), so Copy acts on the text field the user
-// was in. An item's own OnSelect replaces the role, as in desktop.MenuItem.
+// opened from (the element that had it before the trigger or the menu bar
+// took it, by a press, Tab or the menu bar's F10 and Alt; a context menu's
+// area keeps it), so Copy acts on the text field the user was in, whether
+// the menu was opened with the pointer or the keyboard. An item's own
+// OnSelect replaces the role, as in desktop.MenuItem.
 //
 // # Shortcuts
 //
@@ -134,7 +138,8 @@ const (
 // role item's default keys are written that way. Assistive technologies
 // get the keys in ARIA's syntax (aria-keyshortcuts: "Shift+Meta+Z") from
 // the glyphs of a Mac ("⇧⌘Z", "⌃⌥⌘K") and from the usual spelling
-// ("Ctrl+Shift+T").
+// ("Ctrl+Shift+T"). A shortcut reads left to right under right-to-left
+// too ("⌘T", not "T⌘"), as macOS and Windows show it in their RTL menus.
 //
 // Choosing a plain item calls its OnSelect and the menu's, and closes the
 // menu; a checkbox item toggles and a radio item chooses, and they close
@@ -200,8 +205,13 @@ type MenuItem[K comparable] struct {
 	// or the entries of a submenu.
 	Items []MenuItem[K]
 
-	// Class is added after the recipe's classes, to the item.
+	// Class is added after the recipe's classes, to the item (for a
+	// MenuSub, to its trigger item).
 	Class string
+	// ContentClass is added after the recipe's SubContent classes, to the
+	// panel of a MenuSub's submenu (shadcn's SubContent className); other
+	// kinds ignore it.
+	ContentClass string
 }
 
 // MenuStyle is the recipe of the panel of a menu and its items, shared by
@@ -329,19 +339,14 @@ type menuStore[K comparable] struct {
 	rebuild func()
 	// role is the role of the item chosen last, carried out once the
 	// drawn menu has closed (desktop.PerformRole), in origin when there
-	// is one: the element that had the focus before the trigger's press
-	// took it.
+	// is one: the element that had the focus before the trigger (or the
+	// menu bar) took it, as the trigger hook reports it at the opening
+	// (FocusedBefore). open is the menu's state as of the last build or
+	// request.
 	role      desktop.Role
 	origin    tela.ElementRef
 	hasOrigin bool
-	// cand is the element a press on the closed menu's trigger found
-	// focused: the opening that press asks for (openChange) makes it the
-	// origin, so a press that opens nothing (a right click, a touch
-	// dragged off) leaves no origin for a later opening. open is the
-	// menu's state as of the last build or request.
-	cand    tela.ElementRef
-	hasCand bool
-	open    bool
+	open      bool
 }
 
 // useMenuStore is the hook that returns the store of a menu component. It
@@ -368,41 +373,28 @@ func useMenuStore[K comparable]() *menuStore[K] {
 	return s
 }
 
-// captureOrigin remembers the element that has the focus before a press
-// on a menu's trigger moves it there, for the roles of the menu's items
-// (menuStore.role); the opening the press asks for makes it the origin
-// (openChange). A key on the trigger forgets it: the focus is the
-// trigger's already. open is the menu's state in this build: a closed
-// menu with no role to carry out has no origin.
-func (s *menuStore[K]) captureOrigin(w tela.WindowHandle, open bool) tela.Prop {
+// sync takes the menu's state of this build: a closed menu with no role to
+// carry out has no origin.
+func (s *menuStore[K]) sync(open bool) {
 	s.open = open
 	if !open && s.role == desktop.RoleNone {
 		s.hasOrigin = false
 	}
-	return tela.MergeProps(
-		h.OnPointerDown(func() {
-			if !s.open {
-				s.cand, s.hasCand = w.ActiveElement()
-			}
-		}),
-		h.OnKeyDown(func() {
-			if !s.open {
-				s.hasCand = false
-			}
-		}),
-	)
 }
 
 // openChange returns the OnOpenChange of the menu's trigger hook, which
-// calls f: an opening asked for by the trigger takes the element its press
-// captured as the origin (none after a key), and a close with no role to
-// carry out forgets it.
-func (s *menuStore[K]) openChange(f func(bool)) func(bool) {
+// calls f: an opening takes the element the focus came from (before, the
+// trigger hook's FocusedBefore, read when the opening is asked for) as
+// the origin, and a close with no role to carry out forgets it. before
+// may be nil until the hook has run.
+func (s *menuStore[K]) openChange(before *func() (tela.ElementRef, bool), f func(bool)) func(bool) {
 	return func(open bool) {
 		switch {
 		case open && !s.open:
-			s.origin, s.hasOrigin = s.cand, s.hasCand
-			s.hasCand = false
+			s.hasOrigin = false
+			if b := *before; b != nil {
+				s.origin, s.hasOrigin = b()
+			}
 		case !open && s.role == desktop.RoleNone:
 			s.hasOrigin = false
 		}
@@ -625,11 +617,24 @@ func (p menuPanel[K]) Build() tela.Node {
 		// CloseAll of the submenus; the items close the menu themselves.
 		o.OnClose, o.AutoFocus, o.FocusStrategy = p.close, true, p.strategy
 	}
+	if !p.isSub {
+		// The submenus follow the popover's rule for a press outside (a
+		// menu bar's other buttons switch menus).
+		o.ShouldCloseOnInteractOutside = p.popover.ShouldCloseOnInteractOutside
+	}
+	// The role items' labels follow the locale of the nearest
+	// i18n.Provider (ADR-251), for the typeahead as for the text.
+	f := i18n.UseFormatter()
+	for k, e := range flat.entries {
+		if e.item.Label == "" && e.item.Role != desktop.RoleNone && e.item.Kind == MenuPlain {
+			flat.text[k] = roleLabel(f, e.item.Role)
+		}
+	}
 	menu := aria.UseMenu(o)
 	r := menuRenderer[K]{component: p.component, st: st, menu: menu, store: p.store, checkIcon: p.checkIcon, radioIcon: p.radioIcon, subIcon: p.subIcon,
-		mac: tela.UsePlatformKeys() == "darwin"}
+		mac: tela.UsePlatformKeys() == "darwin", labels: f, rtl: dir == "rtl"}
 	kids := []tela.Child{pop.Props, p.menuProps, menu.Props, h.Exit(st.Exit),
-		cls(content, st.Sides[pop.Side], when(!p.isSub, p.class))}
+		cls(content, st.Sides[pop.Side], p.class)}
 	if !p.isSub {
 		kids = append(kids, p.props)
 	}
@@ -638,9 +643,11 @@ func (p menuPanel[K]) Build() tela.Node {
 	// would get the submenu's pointer events (aria.MenuResult.SubmenuTrigger).
 	for _, k := range flat.subs {
 		sub := menu.SubmenuTrigger(k)
+		it := flat.entries[k].item
 		inner := menuPanel[K]{
-			component: p.component, style: st, items: flat.entries[k].item.Items, store: p.store, onSelect: p.onSelect,
+			component: p.component, style: st, items: it.Items, store: p.store, onSelect: p.onSelect,
 			checkIcon: p.checkIcon, radioIcon: p.radioIcon, subIcon: p.subIcon, dir: dir, sub: sub, isSub: true,
+			class: it.ContentClass,
 		}
 		kids = append(kids, h.Portal(h.Key(menuSubKey[K]{k}), h.Presence(h.If(sub.Open, inner))))
 	}
@@ -713,6 +720,10 @@ type menuRenderer[K comparable] struct {
 	radioIcon tela.Icon
 	// mac: the window follows the Mac's key conventions (shortcuts).
 	mac bool
+	// rtl: the menu is right to left (shortcuts).
+	rtl bool
+	// labels gives the role items' labels in the menu's locale.
+	labels i18n.Formatter
 }
 
 // entries draws a list of entries.
@@ -789,7 +800,7 @@ func (r menuRenderer[K]) item(it MenuItem[K], radio *MenuItem[K]) tela.Child {
 	label, shortcut := it.Label, it.Shortcut
 	if it.Role != desktop.RoleNone && it.Kind == MenuPlain {
 		if label == "" {
-			label = it.Role.Label()
+			label = roleLabel(r.labels, it.Role)
 		}
 		if shortcut == "" {
 			shortcut = roleShortcut(it.Role)
@@ -801,9 +812,33 @@ func (r menuRenderer[K]) item(it MenuItem[K], radio *MenuItem[K]) tela.Child {
 		if keys != "" {
 			kids = append(kids, h.AriaKeyShortcuts(keys))
 		}
-		kids = append(kids, h.Span(cls(st.Shortcut), h.AriaHidden(true), h.Text(shown)))
+		var text tela.Child = h.Text(shown)
+		if r.rtl {
+			// A shortcut is keys, read left to right in either direction
+			// (as macOS and Windows show it in RTL menus): a left-to-right
+			// paragraph of its own, or bidi would show "⌘T" as "T⌘". In a
+			// block inside the span, whose ms-auto stays the menu's.
+			text = h.Span(h.Dir("ltr"), h.Class("block"), text)
+		}
+		kids = append(kids, h.Span(cls(st.Shortcut), h.AriaHidden(true), text))
 	}
 	return h.Div(kids...)
+}
+
+// roleLabels are the IDs of the item roles' built-in labels (ADR-251),
+// those desktop.Role.Label reads.
+var roleLabels = map[desktop.Role]string{
+	desktop.RoleUndo: "tela.menu.undo", desktop.RoleRedo: "tela.menu.redo", desktop.RoleCut: "tela.menu.cut",
+	desktop.RoleCopy: "tela.menu.copy", desktop.RolePaste: "tela.menu.paste", desktop.RoleSelectAll: "tela.menu.selectAll",
+	desktop.RoleMinimize: "tela.menu.minimize", desktop.RoleZoom: "tela.menu.zoom", desktop.RoleClose: "tela.menu.close",
+}
+
+// roleLabel is the label of an item role in f's locale.
+func roleLabel(f i18n.Formatter, r desktop.Role) string {
+	if id, ok := roleLabels[r]; ok {
+		return f.Label(id)
+	}
+	return r.Label()
 }
 
 // roleShortcut is the keys a role item shows when it has no Shortcut: the

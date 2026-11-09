@@ -117,7 +117,7 @@
 // [App.ExpectClosed], [App.ExpectWindowCount] and [App.ExpectNoWindow]. What
 // the user does with the window manager: [App.RequestClose] (the close
 // button), [App.Minimize], [App.Maximize], [App.Unmaximize],
-// [App.SetFullscreen], [App.Restore], [App.Move], [App.Resize] and
+// [App.SetFullscreen], [App.Restore], [App.MoveWindow], [App.Resize] and
 // [App.BringToFront]. A window blocked by a modal one drops input.
 //
 // Custom title bars: [App.HitRegions] and [App.HitAt] read the regions

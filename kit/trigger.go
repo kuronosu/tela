@@ -1,6 +1,9 @@
 package kit
 
-import "github.com/kuronosu/tela"
+import (
+	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/h"
+)
 
 // Trigger is what a trigger slot takes: the Trigger field of [Dialog],
 // [AlertDialog], [Popover] and [Tooltip], and of the menus, selects and
@@ -25,7 +28,9 @@ import "github.com/kuronosu/tela"
 //   - a trigger's own Disabled wins over the overlay's props, as the
 //     overlay's Disabled does: a disabled trigger opens nothing, and a
 //     Loading [Button] opens nothing either, from the pointer or the
-//     keyboard, while it keeps its tab stop;
+//     keyboard, while it keeps its tab stop (a loading Button that a
+//     [TriggerFunc] renders is the function's: wrap it in
+//     [LoadingTrigger]);
 //   - a component of your own implements it with one method, merging p into
 //     the props of its root element (the way a kit component merges it with
 //     its Props field);
@@ -86,6 +91,52 @@ func triggerOf(t Trigger, p tela.Prop, ref tela.ElementRef) tela.Component {
 	}
 	return t.WithTriggerProps(p)
 }
+
+// LoadingTrigger returns t as a trigger that is busy while loading is
+// true: the overlay that holds it opens nothing, from the pointer or the
+// keyboard, and the trigger's element stays enabled and in the tab order
+// with aria-busy, as a Loading [Button] in a trigger slot does by itself.
+//
+// Use it for a trigger the overlay cannot see is busy: a [TriggerFunc] (or
+// a component of your own) that renders a loading Button with the props it
+// is given. The overlay's hook is set up before the function runs, and the
+// function may put the props on any element, so the Button's Loading does
+// not reach the overlay:
+//
+//	kit.DropdownMenu[string]{
+//	    Trigger: kit.LoadingTrigger(kit.TriggerFunc(func(p tela.Prop) tela.Node {
+//	        return kit.Button{Loading: saving, Props: p, Children: h.Text("Export")}
+//	    }), saving),
+//	    Items: formats,
+//	}
+func LoadingTrigger(t Trigger, loading bool) Trigger {
+	return loadingTrigger{t: t, loading: loading}
+}
+
+// loadingTrigger is a [LoadingTrigger].
+type loadingTrigger struct {
+	t       Trigger
+	loading bool
+}
+
+// props adds to the overlay's props, which disable the element when its
+// hook is disabled, what keeps a busy trigger focusable.
+func (l loadingTrigger) props(p tela.Prop) tela.Prop {
+	if !l.loading {
+		return p
+	}
+	return tela.MergeProps(p, h.Disabled(false), h.TabIndex(0), h.AriaBusy(true))
+}
+
+func (l loadingTrigger) WithTriggerProps(p tela.Prop) tela.Component {
+	return l.t.WithTriggerProps(l.props(p))
+}
+
+func (l loadingTrigger) withTrigger(p tela.Prop, ref tela.ElementRef) tela.Component {
+	return triggerOf(l.t, l.props(p), ref)
+}
+
+func (l loadingTrigger) triggerBusy() bool { return l.loading || isBusy(l.t) }
 
 // busyTrigger is a [Trigger] that ignores presses for now: a Loading
 // [Button], or an overlay whose own Trigger is busy. The overlay that holds

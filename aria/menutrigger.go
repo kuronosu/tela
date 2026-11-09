@@ -80,6 +80,12 @@ type MenuTriggerResult struct {
 	Pressed bool
 	// Ref is the trigger's ref and MenuRef the menu's.
 	Ref, MenuRef tela.ElementRef
+	// FocusedBefore returns the element that had the focus before the
+	// trigger took it (Tab, a press), while the focus stays on the trigger
+	// and its menu: what the menu's edit commands act on, as a native
+	// menu, which takes no focus, acts on the field the user is in. False
+	// when the focus came from nowhere or has left them since.
+	FocusedBefore func() (tela.ElementRef, bool)
 }
 
 // UseMenuTrigger holds the open state of a menu and returns the props of
@@ -125,6 +131,8 @@ func UseMenuTrigger(o MenuTriggerOptions) MenuTriggerResult {
 		menuRef = ownMenu
 	}
 	opened := &tela.UseRef(false).Current // a long press opened the menu: its release is not a press
+	origin := tela.UseOnce(func() *focusOrigin { return &focusOrigin{} })
+	origin.inside = func(r tela.ElementRef) bool { return core.Contains(ref, r) || core.Contains(menuRef, r) }
 	openWith := func(s string) {
 		if o.Disabled {
 			return
@@ -202,7 +210,9 @@ func UseMenuTrigger(o MenuTriggerOptions) MenuTriggerResult {
 			toggleWith(FocusLast)
 		}
 	}
-	ps := []tela.Prop{props, buttonProps(o.Disabled), h.OnKeyDown(onKeyDown), h.AriaHasPopup(popup), h.AriaExpanded(open)}
+	// The origin first: its pointerdown sees the focus before the press's
+	// handler opens the menu.
+	ps := []tela.Prop{origin.triggerProps(ref), props, buttonProps(o.Disabled), h.OnKeyDown(onKeyDown), h.AriaHasPopup(popup), h.AriaExpanded(open)}
 	if longPress && !o.Disabled {
 		ps = append(ps, h.OnLongPress(func() {
 			*opened = true
@@ -215,7 +225,7 @@ func UseMenuTrigger(o MenuTriggerOptions) MenuTriggerResult {
 	return MenuTriggerResult{
 		TriggerProps: core.MergeProps(ps...),
 		MenuProps: core.MergeProps(h.Ref(menuRef), h.AriaLabelledBy(ref),
-			core.Scope(core.ScopeOptions{Restore: true})),
+			core.Scope(core.ScopeOptions{Restore: true}), h.OnBlur(origin.blur)),
 		Open:          open,
 		FocusStrategy: strategy,
 		SetOpen:       func(v bool) { st.request(v) },
@@ -224,5 +234,6 @@ func UseMenuTrigger(o MenuTriggerOptions) MenuTriggerResult {
 		Pressed:       pressed,
 		Ref:           ref,
 		MenuRef:       menuRef,
+		FocusedBefore: origin.get,
 	}
 }

@@ -311,7 +311,7 @@ func TestWindowStateThroughTheWindowManager(t *testing.T) {
 	settings.ExpectWindowState(telatest.Active(true))
 	app.ExpectWindowState(telatest.Active(false))
 
-	settings.Move(40, 50)
+	settings.MoveWindow(40, 50)
 	if p := settings.Placement(); !p.HasPosition || p.X != 40 || p.Y != 50 {
 		t.Errorf("placement %+v, want the position 40,50", p)
 	}
@@ -546,7 +546,7 @@ func ExampleApp_WaitForWindow() {
 
 // Monitors: a window opened at a position off every monitor (the main
 // window from its placement, a tela.Window from its own) opens on the
-// nearest one; App.Move is never changed.
+// nearest one; App.MoveWindow is never changed.
 func TestMonitors(t *testing.T) {
 	off := tela.WindowPlacement{Width: 400, Height: 300, X: -2000, Y: 100, HasPosition: true}
 	app := telatest.MountApp(t, tela.App{
@@ -563,7 +563,7 @@ func TestMonitors(t *testing.T) {
 	if p := app.Window("Tool").Placement(); p.X != 500 || p.Y != 840 {
 		t.Errorf("tool window at %d,%d, want 500,840", p.X, p.Y)
 	}
-	app.Move(-5000, -5000)
+	app.MoveWindow(-5000, -5000)
 	if p := app.Placement(); p.X != -5000 || p.Y != -5000 {
 		t.Errorf("moved window at %d,%d, want -5000,-5000", p.X, p.Y)
 	}

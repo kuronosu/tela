@@ -12,7 +12,7 @@ This page is generated from the doc comments of the package; the same text is on
 
 - [Overview](#overview)
 - [Constants](#constants)
-- [Functions](#functions): [`DefaultStyle`](#func-defaultstyle) · [`Initials`](#func-initials) · [`Theme`](#func-theme) · [`ToastAction`](#func-toastaction) · [`ToastDescription`](#func-toastdescription) · [`ToastDuration`](#func-toastduration) · [`ToastOnAutoClose`](#func-toastonautoclose) · [`ToastOnDismiss`](#func-toastondismiss) · [`ToastReplace`](#func-toastreplace) · [`UseStyle`](#func-usestyle) · [`UseToast`](#func-usetoast)
+- [Functions](#functions): [`DefaultStyle`](#func-defaultstyle) · [`Initials`](#func-initials) · [`LoadingTrigger`](#func-loadingtrigger) · [`Theme`](#func-theme) · [`ToastAction`](#func-toastaction) · [`ToastDescription`](#func-toastdescription) · [`ToastDuration`](#func-toastduration) · [`ToastOnAutoClose`](#func-toastonautoclose) · [`ToastOnDismiss`](#func-toastondismiss) · [`ToastReplace`](#func-toastreplace) · [`UseStyle`](#func-usestyle) · [`UseToast`](#func-usetoast)
 - [Types](#types)
   - [`type Alert`](#type-alert): [`Build`](#func-alert-build)
   - [`type AlertDialog`](#type-alertdialog): [`Build`](#func-alertdialog-build) · [`WithTriggerProps`](#func-alertdialog-withtriggerprops)
@@ -111,7 +111,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type ToggleStyle`](#type-togglestyle)
   - [`type Tooltip`](#type-tooltip): [`Build`](#func-tooltip-build) · [`WithTriggerProps`](#func-tooltip-withtriggerprops)
   - [`type TooltipStyle`](#type-tooltipstyle)
-  - [`type Trigger`](#type-trigger)
+  - [`type Trigger`](#type-trigger): [`LoadingTrigger`](#func-loadingtrigger)
   - [`type TriggerFunc`](#type-triggerfunc): [`WithTriggerProps`](#func-triggerfunc-withtriggerprops)
   - [`type Variant`](#type-variant)
   - [`type WindowControls`](#type-windowcontrols): [`Build`](#func-windowcontrols-build)
@@ -1674,7 +1674,7 @@ type ContextMenu[K comparable] struct {
 }
 ```
 
-ContextMenu is a menu that opens where the user right-clicks inside an area, shadcn/ui's ContextMenu, built on aria.UseContextMenuTrigger: a right click (a Control+click on a Mac) opens it at the pointer, a touch or a pen that stays down opens it under the finger, and Shift+F10 or the ContextMenu key opens it, on its first item, below the element that has the focus. The menu closes with Escape, a press outside it with any mouse button or choosing an item, and the focus returns to where it was. A right click elsewhere in the area while the menu is open closes it and opens a new one at the new point (Radix), a right click in another area opens that area's menu instead, and in nested areas the innermost wins.
+ContextMenu is a menu that opens where the user right-clicks inside an area, shadcn/ui's ContextMenu, built on aria.UseContextMenuTrigger: a right click (a Control+click on a Mac) opens it at the pointer, a touch or a pen that stays down opens it under the finger, and Shift+F10 or the ContextMenu key opens it, on its first item, at the element that has the focus (its center, or a text field's caret, as Chromium does). The menu closes with Escape, a press outside it with any mouse button or choosing an item, and the focus returns to where it was. A right click elsewhere in the area while the menu is open closes it and opens a new one at the new point (Radix), a right click in another area opens that area's menu instead, and in nested areas the innermost wins.
 
 ```go
 kit.ContextMenu[string]{
@@ -1694,7 +1694,7 @@ The items are the \[MenuItem\]s of [`DropdownMenu`](#type-dropdownmenu), submenu
 
 ##### The keyboard
 
-The area is not focusable: kit adds no tab stop (Radix's model). The keys reach it from the element inside it that has the focus, as in the browser, and the menu opens below that element. An area with nothing focusable inside (a canvas, a drop zone) opens from the keyboard only when it can take the focus itself: give it a tab stop, a role and a name in Props, and a focus ring in Class:
+The area is not focusable: kit adds no tab stop (Radix's model). The keys reach it from the element inside it that has the focus, as in the browser, and the menu opens at that element. An area with nothing focusable inside (a canvas, a drop zone) opens from the keyboard only when it can take the focus itself: give it a tab stop, a role and a name in Props, and a focus ring in Class:
 
 ```go
 kit.ContextMenu[string]{
@@ -1704,11 +1704,11 @@ kit.ContextMenu[string]{
 }
 ```
 
-The menu then opens below the area. A list of items with selection inside the area (aria.UseListBox) selects the item that is right-clicked before the menu opens, unless it is part of the selection already, as Finder does.
+The menu then opens at the area's center, inside it, however large the area is. A list of items with selection inside the area (aria.UseListBox) selects the item that is right-clicked before the menu opens, unless it is part of the selection already, as Finder does.
 
 ##### Native context menu
 
-The menu is drawn in the kit's look unless Native (kit.NativeOn), or tela.App.NativeMenus when Native is left at kit.NativeAuto, asks for the OS's context menu (ADR-215). It then opens where the drawn one would (the pointer, or below the focused element for Shift+F10 and the Menu key), and where the platform has no native context menu (Linux) the drawn menu opens instead, in the same event and frame. The area's own Native setting wins over the app's, so one menu can stay drawn while the others are native (kit.NativeOff).
+The menu is drawn in the kit's look unless Native (kit.NativeOn), or tela.App.NativeMenus when Native is left at kit.NativeAuto, asks for the OS's context menu (ADR-215). It then opens where the drawn one would (the pointer, or the focused element for Shift+F10 and the Menu key), and where the platform has no native context menu (Linux) the drawn menu opens instead, in the same event and frame. The area's own Native setting wins over the app's, so one menu can stay drawn while the others are native (kit.NativeOff).
 
 A native menu shows each item's Label, Shortcut (as its accelerator: text only), Disabled state and separators; checkbox items are check items and the items of a radio group check items with the chosen one checked. Icons, the destructive Variant, Inset, KeepOpen (the OS's menu always closes), Class, ContentClass and the check and radio icons are not shown, a label becomes a disabled item, and a group's items appear without it. Choosing an item does what it does in the drawn menu (OnSelect, OnCheckedChange, OnValueChange and the menu's OnSelect). While a native menu is up the drawn one does not open, and Open and OnOpenChange are not involved: the OS owns the menu and reports only the choice.
 
@@ -2723,8 +2723,13 @@ type MenuItem[K comparable] struct {
     // or the entries of a submenu.
     Items []MenuItem[K]
 
-    // Class is added after the recipe's classes, to the item.
+    // Class is added after the recipe's classes, to the item (for a
+    // MenuSub, to its trigger item).
     Class string
+    // ContentClass is added after the recipe's SubContent classes, to the
+    // panel of a MenuSub's submenu (shadcn's SubContent className); other
+    // kinds ignore it.
+    ContentClass string
 }
 ```
 
@@ -2761,7 +2766,7 @@ ArrowLeft (ArrowRight under right-to-left) and Escape close the submenu and give
 
 ##### Roles
 
-A plain item with a Role is one of the standard items of desktop.Role (Electron's roles): Undo, Redo, Cut, Copy, Paste, Select All, Minimize, Zoom and Close. An empty Label is the role's English one and an empty Shortcut the role's keys, so an Edit menu can mix the app's items with the standard ones:
+A plain item with a Role is one of the standard items of desktop.Role (Electron's roles): Undo, Redo, Cut, Copy, Paste, Select All, Minimize, Zoom and Close. An empty Label is the role's built-in label (English unless the app's catalogs translate it, in the locale of the nearest i18n.Provider; ADR-251) and an empty Shortcut the role's keys, so an Edit menu can mix the app's items with the standard ones:
 
 ```go
 {Key: "undo", Role: desktop.RoleUndo},
@@ -2773,11 +2778,11 @@ A plain item with a Role is one of the standard items of desktop.Role (Electron'
 {Key: "find", Label: "Find…", Shortcut: "CmdOrCtrl+F", OnSelect: find},
 ```
 
-Choosing a role item without an OnSelect of its own carries the role out, and neither the item's nor the menu's OnSelect is called (macOS's own items never report the choice either): in a native menu the OS or package desktop does it (ADR-226), and in a drawn one the menu closes and desktop.PerformRole does it once the focus is back where the menu was opened from (the element that had it before the trigger's press took it; a context menu's area keeps it), so Copy acts on the text field the user was in. An item's own OnSelect replaces the role, as in desktop.MenuItem.
+Choosing a role item without an OnSelect of its own carries the role out, and neither the item's nor the menu's OnSelect is called (macOS's own items never report the choice either): in a native menu the OS or package desktop does it (ADR-226), and in a drawn one the menu closes and desktop.PerformRole does it once the focus is back where the menu was opened from (the element that had it before the trigger or the menu bar took it, by a press, Tab or the menu bar's F10 and Alt; a context menu's area keeps it), so Copy acts on the text field the user was in, whether the menu was opened with the pointer or the keyboard. An item's own OnSelect replaces the role, as in desktop.MenuItem.
 
 ##### Shortcuts
 
-Shortcut is shown as written, with two exceptions that follow the platform of the window's key conventions (tela.UsePlatformKeys): a shortcut that names CmdOrCtrl ("CmdOrCtrl+Shift+Z") is shown as a Mac shows it ("⇧⌘Z") under "darwin" and as "Ctrl+Shift+Z" elsewhere, and a role item's default keys are written that way. Assistive technologies get the keys in ARIA's syntax (aria-keyshortcuts: "Shift+Meta+Z") from the glyphs of a Mac ("⇧⌘Z", "⌃⌥⌘K") and from the usual spelling ("Ctrl+Shift+T").
+Shortcut is shown as written, with two exceptions that follow the platform of the window's key conventions (tela.UsePlatformKeys): a shortcut that names CmdOrCtrl ("CmdOrCtrl+Shift+Z") is shown as a Mac shows it ("⇧⌘Z") under "darwin" and as "Ctrl+Shift+Z" elsewhere, and a role item's default keys are written that way. Assistive technologies get the keys in ARIA's syntax (aria-keyshortcuts: "Shift+Meta+Z") from the glyphs of a Mac ("⇧⌘Z", "⌃⌥⌘K") and from the usual spelling ("Ctrl+Shift+T"). A shortcut reads left to right under right-to-left too ("⌘T", not "T⌘"), as macOS and Windows show it in their RTL menus.
 
 Choosing a plain item calls its OnSelect and the menu's, and closes the menu; a checkbox item toggles and a radio item chooses, and they close the menu too (Radix's default) unless KeepOpen is set. A disabled item is skipped by the keyboard and dimmed.
 
@@ -2918,7 +2923,9 @@ type Menubar[K comparable] struct {
     DefaultOpen  *K
     OnOpenChange func(menu K, open bool)
 
-    // Class is added after the recipe's Root classes, to the bar;
+    // Class is added after the recipe's Root classes, to the bar (a flex
+    // box, as shadcn's: in a column it is as wide as the column, as in a
+    // browser; Class: "w-fit" makes it as wide as its menus);
     // TriggerClass does the same for the menus' buttons and ContentClass for
     // the menus' panels.
     Class        string
@@ -2957,7 +2964,7 @@ Each menu is a top-level entry with its items, converted as a native ContextMenu
 
 ##### The app's menu bar
 
-AppMenu makes the bar the app's one menu bar (ADR-226; Electron's Menu.setApplicationMenu) instead of a window's: declare it once, anywhere in the tree. A native one is desktop.AppMenuBar: macOS's menu bar for every window, after the app menu it always shows first (About, AppItems such as Settings…, Services, Hide, Quit), and on Windows the bar of every framed window; the component draws nothing where it is. Where the platform has no such bar (Linux), or the app is not asking for native menus, the bar is drawn where it is declared, as any Menubar, usually in the window's title bar (kit.TitleBar's Children) or at the top of the content. A per-window native Menubar (AppMenu false) is unsupported on macOS, where the menu bar belongs to the app, and is drawn there. Shortcuts of the app's bar are key equivalents on macOS: the key chooses the item and does not reach the app (write "CmdOrCtrl+N" to be portable).
+AppMenu makes the bar the app's one menu bar (ADR-226; Electron's Menu.setApplicationMenu) instead of a window's: declare it once, anywhere in the tree. A native one is desktop.AppMenuBar: macOS's menu bar for every window, after the app menu it always shows first (About, AppItems such as Settings…, Services, Hide, Quit), and on Windows the bar of every framed window; the component draws nothing where it is. Where the platform has no such bar (Linux), or the app is not asking for native menus, the bar is drawn where it is declared, as any Menubar, usually in the window's title bar (kit.TitleBar's Children) or at the top of the content. A drawn app bar is the window's bar for the keyboard, as a native one is on Windows and Linux (aria.MenuBarOptions.ActivationKeys): F10 or a lone Alt focuses its first menu from anywhere in the window, and the same keys or Escape give the focus back (not under the Mac's key conventions, which have no such keys). A per-window native Menubar (AppMenu false) is unsupported on macOS, where the menu bar belongs to the app, and is drawn there. Shortcuts of the app's bar are key equivalents on macOS: the key chooses the item and does not reach the app (write "CmdOrCtrl+N" to be portable).
 
 **Example**
 
@@ -5612,11 +5619,30 @@ Trigger is what a trigger slot takes: the Trigger field of [`Dialog`](#type-dial
 One rule holds for every trigger slot of the kit:
 
 - a kit component that can be a trigger implements Trigger: [`Button`](#type-button) (Trigger: kit.Button{Variant: kit.Outline, Children: h.Text("Open")}), [`Toggle`](#type-toggle), [`Checkbox`](#type-checkbox), [`Switch`](#type-switch) and [`Slider`](#type-slider) (so that they can have a tooltip), and the overlays [`Tooltip`](#type-tooltip), [`Popover`](#type-popover), [`Dialog`](#type-dialog), [`AlertDialog`](#type-alertdialog) and [`DropdownMenu`](#type-dropdownmenu), so that one element can have several overlays: Tooltip{Content: h.Text("More actions"), Trigger: kit.DropdownMenu\[string\]{Trigger: kit.Button{...}, Items: items}} is a button with a tooltip that opens a menu (Radix's asChild on both triggers; nest them either way);
-- a trigger's own Disabled wins over the overlay's props, as the overlay's Disabled does: a disabled trigger opens nothing, and a Loading [`Button`](#type-button) opens nothing either, from the pointer or the keyboard, while it keeps its tab stop;
+- a trigger's own Disabled wins over the overlay's props, as the overlay's Disabled does: a disabled trigger opens nothing, and a Loading [`Button`](#type-button) opens nothing either, from the pointer or the keyboard, while it keeps its tab stop (a loading Button that a [`TriggerFunc`](#type-triggerfunc) renders is the function's: wrap it in [`LoadingTrigger`](#func-loadingtrigger));
 - a component of your own implements it with one method, merging p into the props of its root element (the way a kit component merges it with its Props field);
 - anything else, an element or a function component, is made a Trigger with [`TriggerFunc`](#type-triggerfunc), which receives the props and puts them on the element it chooses.
 
 A Trigger is the equivalent of Radix's asChild: the overlay does not wrap the trigger in an element of its own, so the button you wrote is the one the screen reader finds, with its name and its tab stop.
+
+#### func LoadingTrigger
+
+```go
+func LoadingTrigger(t Trigger, loading bool) Trigger
+```
+
+LoadingTrigger returns t as a trigger that is busy while loading is true: the overlay that holds it opens nothing, from the pointer or the keyboard, and the trigger's element stays enabled and in the tab order with aria-busy, as a Loading [`Button`](#type-button) in a trigger slot does by itself.
+
+Use it for a trigger the overlay cannot see is busy: a [`TriggerFunc`](#type-triggerfunc) (or a component of your own) that renders a loading Button with the props it is given. The overlay's hook is set up before the function runs, and the function may put the props on any element, so the Button's Loading does not reach the overlay:
+
+```go
+kit.DropdownMenu[string]{
+    Trigger: kit.LoadingTrigger(kit.TriggerFunc(func(p tela.Prop) tela.Node {
+        return kit.Button{Loading: saving, Props: p, Children: h.Text("Export")}
+    }), saving),
+    Items: formats,
+}
+```
 
 ### type TriggerFunc
 
