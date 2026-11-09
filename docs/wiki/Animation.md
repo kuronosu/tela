@@ -49,6 +49,15 @@ Map([]int{0, 1, 2}, func(i int) tela.Node {
 })
 ```
 
+The other longhands of tw-animate-css work the same way and replace what the
+`animate-*` shorthand says: `duration-300` and `ease-out` (the transition's
+too), `animation-duration-300`, `repeat-3` or `repeat-infinite`,
+`direction-reverse` (or `alternate`, `alternate-reverse`), `fill-mode-forwards`
+(or `backwards`, `both`), and the arbitrary properties `[animation-duration:2s]`,
+`[animation-timing-function:ease-in-out]`, `[animation-iteration-count:3]`,
+`[animation-direction:reverse]` and `[animation-fill-mode:both]`. A change of
+any of them does not restart a running animation.
+
 ## Entering: `starting:`
 
 An element that starts being rendered (it mounts, or its `hidden` /

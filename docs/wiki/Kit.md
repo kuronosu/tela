@@ -283,13 +283,15 @@ picture with a fallback, and `AvatarGroup` a row of them that overlap, with a
 `Caption`; `Skeleton` a pulsing placeholder.
 
 ```go
-kit.Alert{Variant: kit.Destructive, Icon: lucide.CircleAlert, Title: Text("Payment failed"), Description: Text("Your card was declined.")}
+kit.Alert{Variant: kit.Destructive, Icon: lucide.CircleAlert, Title: Text("Payment failed"), Description: Text("Your card was declined."),
+	Action: kit.Button{Size: kit.Xs, Variant: kit.Outline, Children: Text("Retry")}} // Action: a button at the top end corner
 kit.Avatar{Fallback: "MT", Size: kit.Lg}
 kit.Avatar{Name: "Mei Tanaka", Color: kit.AvatarAuto} // "MT" on a color chosen by the name
 kit.AvatarGroup{Max: 3, Avatars: []kit.Avatar{{Name: "Mei Tanaka"}, {Name: "Ada Lovelace"}, {Name: "Alan Turing"}, {Name: "Grace Hopper"}}}
 kit.Badge{Variant: kit.Secondary, Icon: lucide.Check, Children: Text("Verified")}
 kit.Badge{Variant: kit.Success, Dot: true, Children: Text("Active")}
 kit.Separator{Caption: Text("Or continue with")}
+kit.Separator{Caption: Text("Yesterday"), CaptionAlign: kit.CaptionStart} // or CaptionEnd
 kit.Card{TitleLevel: 2, Title: Text("Notifications"), Description: Text("3 unread."), Children: list, Footer: markRead}
 kit.Separator{Orientation: kit.Vertical}
 kit.Skeleton{Class: "h-4 w-[250px]"}
@@ -344,6 +346,7 @@ kit.ToggleGroup[string]{AriaLabel: "View", ValueFn: view.Get, OnValueChange: vie
 ```go
 kit.Input{Placeholder: "Search...", AriaLabel: "Search", Value: &q, OnValueChange: setQ.Set}
 kit.Input{Icon: lucide.Search, Placeholder: "Search...", AriaLabel: "Search", Class: "max-w-sm"} // IconEnd too; Class is the wrapper's
+kit.Input{Type: "password", AriaLabel: "Password", EndContent: kit.Button{Variant: kit.Ghost, Size: kit.IconXs, Icon: lucide.Eye, AriaLabel: "Show password"}} // a button inside the field
 kit.Textarea{Rows: 3, MaxLength: 140, Value: &msg, OnValueChange: setMsg.Set, AriaLabel: "Message"}
 kit.Select[string]{Placeholder: "Select a fruit", Items: []kit.SelectItem[string]{
 	{Value: "apple", Label: "Apple"}, {Value: "banana", Label: "Banana"}}}

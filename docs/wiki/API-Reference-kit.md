@@ -29,6 +29,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type ButtonStyle`](#type-buttonstyle)
   - [`type Calendar`](#type-calendar): [`Build`](#func-calendar-build)
   - [`type CalendarStyle`](#type-calendarstyle)
+  - [`type CaptionAlign`](#type-captionalign)
   - [`type Card`](#type-card): [`Build`](#func-card-build)
   - [`type CardStyle`](#type-cardstyle)
   - [`type Checkbox`](#type-checkbox): [`Build`](#func-checkbox-build) · [`WithTriggerProps`](#func-checkbox-withtriggerprops)
@@ -390,6 +391,9 @@ type Alert struct {
     // Title is the first line, in medium weight; Description follows it
     // in the muted color, and may be several lines or a few paragraphs.
     Title, Description tela.Component
+    // Action is drawn at the top end corner of the alert, over the room the
+    // alert keeps for it; see above.
+    Action tela.Component
     // Role is "alert" (the default), "status" or "note".
     Role string
     // Class is added after the recipe's classes. TitleClass and
@@ -413,6 +417,13 @@ kit.Alert{Variant: kit.Destructive, Icon: lucide.CircleAlert, Title: h.Text("Pay
 ```
 
 The variants are [`Default`](#type-variant) and [`Destructive`](#type-variant), as in shadcn, and the tones [`Success`](#type-variant), [`Warning`](#type-variant) and [`Info`](#type-variant) that [`Badge`](#type-badge) has.
+
+Action puts a button (or a few) at the top end corner, shadcn's AlertAction: a way to undo, retry or dismiss. The alert keeps 72 px free at its end for it; a wider action needs a padding in Class ("pe-32").
+
+```go
+kit.Alert{Title: h.Text("Update available"), Description: h.Text("Restart to install it."),
+    Action: kit.Button{Size: kit.Xs, Variant: kit.Outline, Children: h.Text("Restart")}}
+```
 
 An alert has the alert role, as shadcn's does: a live region that assistive technologies announce at once when it appears in the page, which is right for an error that shows after the user did something. An alert that is part of the page from the start (a notice at the top of a form) is not an interruption: give it Role "status" (a polite live region) or "note" (none).
 
@@ -570,6 +581,10 @@ type AlertStyle struct {
     WithIcon string
     // Icon is what the Icon slot has.
     Icon string
+    // WithAction is added to Root when the alert has an Action: room for
+    // the action at the end (shadcn's has-data-[slot=alert-action]:pr-18).
+    // Action is the box of the Action slot, at the top end corner.
+    WithAction, Action string
     // Title and Description are the two texts, in the second column.
     Title, Description string
     // DescriptionVariants are added to Description per alert variant
@@ -1106,6 +1121,25 @@ type CalendarStyle struct {
 CalendarStyle is the recipe of [`Calendar`](#type-calendar) and [`RangeCalendar`](#type-rangecalendar) (shadcn/ui's Calendar, whose parts are react-day-picker's: its classNames). The root element is the calendar; a day is a cell (Day) that holds a ghost icon button (DayButton), as in react-day-picker's td and button.
 
 shadcn sizes the calendar with the CSS variable --cell-size (2rem); the engine has no variables, so the recipe writes size-8, h-8, px-8 and min-w-8 where shadcn writes size-(--cell-size) and the like: change them together to resize the cells.
+
+### type CaptionAlign
+
+```go
+type CaptionAlign string
+```
+
+CaptionAlign is where a [`Separator`](#type-separator)'s Caption sits on the line. The zero value is the middle; start and end follow the direction (the caption of a right-to-left page starts at the right), and in a Vertical separator they are the top and the bottom.
+
+```go
+const (
+    CaptionCenter CaptionAlign = ""
+    // CaptionStart puts the caption near the start of the line, after a short
+    // line.
+    CaptionStart CaptionAlign = "start"
+    // CaptionEnd puts it near the end, before a short line.
+    CaptionEnd CaptionAlign = "end"
+)
+```
 
 ### type Card
 
@@ -2270,6 +2304,12 @@ type Field struct {
     // "Forgot password?". DescriptionEnd does the same by the description,
     // such as a character counter.
     LabelEnd, DescriptionEnd tela.Component
+    // ErrorContent is drawn in place of Error, for a message that is not
+    // plain text: a link, a list of what is wrong. It makes the field
+    // invalid, shows as an alert below the control and describes it like
+    // Error; with both, ErrorContent is drawn. Error should still say it in
+    // words where a string is wanted.
+    ErrorContent tela.Component
     // Invalid makes the field invalid with no error message, such as when
     // the message is shown elsewhere. A field with an Error is invalid
     // already.
@@ -2333,6 +2373,13 @@ kit.Field{
     LabelEnd: kit.Button{Variant: kit.Link, Size: kit.Sm, Class: "h-auto p-0", Children: h.Text("Forgot password?")},
     Children: kit.Input{Type: "password"},
 }
+```
+
+The error takes rich content too: ErrorContent is drawn in place of Error.
+
+```go
+kit.Field{Label: "Username", Children: kit.Input{},
+    ErrorContent: h.Span(h.Text("Taken. "), h.A(h.Class("underline"), h.Text("See suggestions")))}
 ```
 
 A group of controls (a [`RadioGroup`](#type-radiogroup), a [`ToggleGroup`](#type-togglegroup)) in a Field is named by the field's label: the group is labelled by it (aria-labelledby), so it needs no AriaLabel. To caption a group that has more than the one control a label points to, with its own legend and description, use a [`FieldSet`](#type-fieldset).
@@ -2538,8 +2585,11 @@ type Input struct {
     MaxLength int
     // Icon is drawn inside the field at its start and IconEnd at its end.
     Icon, IconEnd tela.Icon
-    // Class is added after the recipe's classes. With an Icon or IconEnd
-    // it is for the wrapper that holds the input and the icons, and
+    // EndContent is drawn inside the field at its end, over the input's
+    // padding; see above.
+    EndContent tela.Component
+    // Class is added after the recipe's classes. With an Icon, IconEnd or
+    // EndContent it is for the wrapper that holds the input and the icons, and
     // InputClass is added to the input.
     Class      string
     InputClass string
@@ -2558,6 +2608,23 @@ kit.Input{Type: "email", DefaultValue: "ana@example.com", Name: "email"}
 ```
 
 Inside a [`Field`](#type-field) the input takes the field's ID, so the field's label names it, and is described by the field's description or error.
+
+EndContent puts a component inside the field at its end, where IconEnd would be, and it takes pointer events: a button, a unit label, a spinner. A password field with a button that shows what was typed:
+
+```go
+shown, setShown := tela.UseState(false)
+typ := "password"
+if shown {
+    typ = "text"
+}
+kit.Input{Type: typ, AriaLabel: "Password",
+    EndContent: kit.Button{Variant: kit.Ghost, Size: kit.IconXs, Icon: lucide.Eye,
+        AriaLabel: "Show password", OnClick: func() { setShown.Set(!shown) }}}
+```
+
+(shadcn's InputGroup with an InputGroupButton). The box is as tall as its content and 6 px from the edge; the field keeps 36 px of padding for it, the room of an icon-sized button (kit.IconXs, 24 px): for a wider piece of content add a padding to InputClass ("pe-16"). A Disabled field dims it; disable a button in it yourself. EndContent and IconEnd take the same place: giving both panics in dev mode.
+
+A key for the field in a list goes on the component, tela.WithKey(kit.Input{...}, id), which is the same with and without a wrapper; a Key in Props keys the input element inside the component only.
 
 Icon puts an icon inside the field at its start (a magnifier in a search box, an envelope in an email field) and IconEnd one at its end. Both are decorative, mirror under a right-to-left direction, and leave the text room; the focus ring stays on the field. The icons need a wrapper, so with one Class goes on the wrapper (the width of the field, "max-w-sm") and InputClass on the input:
 
@@ -2593,6 +2660,12 @@ type InputStyle struct {
     // PadStart and PadEnd are added to the input to make room for the
     // icons (an icon, its inset and a gap).
     PadStart, PadEnd string
+    // Action is the box around an EndContent: at the end of the field,
+    // level with the text, taking pointer events (shadcn's
+    // InputGroupAddon with an InputGroupButton, which sits 0.45rem into
+    // the field's padding). ActionDisabled is added to it after, for a
+    // disabled field.
+    Action, ActionDisabled string
 }
 ```
 
@@ -3760,6 +3833,8 @@ type Separator struct {
     // Caption is drawn in the middle of the line, between two lines that
     // fill the rest of the width (or the height of a Vertical separator).
     Caption tela.Component
+    // CaptionAlign is CaptionCenter (the default), CaptionStart or CaptionEnd.
+    CaptionAlign CaptionAlign
     // Semantic makes the separator part of the accessibility tree, with
     // the separator role and its orientation, for a line that divides
     // sections of the content and not just decorates it. It has no effect
@@ -3787,6 +3862,12 @@ A Caption puts a label in the middle of the line, as login forms do:
 kit.Separator{Caption: h.Text("Or continue with")}
 ```
 
+CaptionAlign moves the caption to the start or the end of the line, after or before a short line, as a section heading does:
+
+```go
+kit.Separator{Caption: h.Text("Yesterday"), CaptionAlign: kit.CaptionStart}
+```
+
 The caption is text for the page, so a captioned separator is not hidden from assistive technologies, and has no separator role (a separator's children are presentational in ARIA, which would drop the text): the lines are decorative and the caption is read as it is.
 
 #### func (Separator) Build
@@ -3812,6 +3893,9 @@ type SeparatorStyle struct {
     Captioned map[Orientation]string
     Caption   string
     Line      map[Orientation]string
+    // LineShort is the line on the side of the caption that a CaptionAlign
+    // of CaptionStart or CaptionEnd makes short, by orientation.
+    LineShort map[Orientation]string
 }
 ```
 
