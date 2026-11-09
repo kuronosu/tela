@@ -111,8 +111,10 @@ func Theme() tela.Theme {
 // Part names are public API; the strings are defaults and may change with
 // the look.
 type Style struct {
+	Alert          AlertStyle
 	AlertDialog    AlertDialogStyle
 	Avatar         AvatarStyle
+	AvatarGroup    AvatarGroupStyle
 	Badge          BadgeStyle
 	Button         ButtonStyle
 	Calendar       CalendarStyle

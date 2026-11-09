@@ -10,15 +10,28 @@ import (
 	"github.com/kuronosu/tela/h"
 )
 
+// The tones: variants for a status, shared by [Badge] and [Alert]. shadcn/ui
+// has none (its colors are tokens, and the neutral theme has no green,
+// yellow or blue), so the recipes use Tailwind's emerald, amber and sky at a
+// low opacity, with a dark-scheme text of their own.
+const (
+	Success Variant = "success"
+	Warning Variant = "warning"
+	Info    Variant = "info"
+)
+
 // BadgeStyle is the recipe of [Badge] (shadcn/ui's badgeVariants).
 type BadgeStyle struct {
 	// Root is what every badge has.
 	Root string
 	// Variants are the looks: Default, Secondary, Destructive, Outline,
-	// Ghost and Link.
+	// Ghost and Link, and the tones Success, Warning and Info.
 	Variants map[Variant]string
 	// Icon is what the Icon slot has.
 	Icon string
+	// Dot is the status dot of a badge with Dot: a disc in the badge's
+	// text color, level with the label.
+	Dot string
 }
 
 func init() {
@@ -32,8 +45,12 @@ func init() {
 			Outline:     "border-border text-foreground",
 			Ghost:       "",
 			Link:        "text-primary underline-offset-4",
+			Success:     "bg-emerald-500/15 text-emerald-700 focus-visible:ring-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 dark:focus-visible:ring-emerald-500/40",
+			Warning:     "bg-amber-500/15 text-amber-700 focus-visible:ring-amber-500/20 dark:bg-amber-500/20 dark:text-amber-400 dark:focus-visible:ring-amber-500/40",
+			Info:        "bg-sky-500/15 text-sky-700 focus-visible:ring-sky-500/20 dark:bg-sky-500/20 dark:text-sky-400 dark:focus-visible:ring-sky-500/40",
 		},
 		Icon: "pointer-events-none size-3",
+		Dot:  "size-1.5 shrink-0 rounded-full bg-current",
 	}
 }
 
@@ -41,6 +58,12 @@ func init() {
 //
 //	kit.Badge{Variant: kit.Secondary, Children: h.Text("Draft")}
 //	kit.Badge{Variant: kit.Destructive, Icon: lucide.CircleAlert, Children: h.Text("Failed")}
+//
+// The tones [Success], [Warning] and [Info] are for a status, and Dot puts
+// a small disc before the label, as a status badge in a table does:
+//
+//	kit.Badge{Variant: kit.Success, Dot: true, Children: h.Text("Active")}
+//	kit.Badge{Variant: kit.Outline, Dot: true, DotClass: "bg-amber-500", Children: h.Text("Pending")}
 //
 // shadcn's hover styles for a badge that is a link ([a&]:hover:) are not
 // part of the recipe: a Badge is not a link here; put it in an h.A or give
@@ -50,6 +73,13 @@ type Badge struct {
 	Variant Variant
 	// Icon is drawn before the children.
 	Icon tela.Icon
+	// Dot draws a status dot before the children (after the Icon, if any),
+	// in the color of the text. It is hidden from assistive technologies:
+	// say the status in the label.
+	Dot bool
+	// DotClass is added after the recipe's classes of the dot, such as
+	// "bg-emerald-500" to color it apart from the text.
+	DotClass string
 	// Children is the label.
 	Children tela.Component
 	// Class is added after the recipe's classes.
@@ -61,6 +91,10 @@ type Badge struct {
 // Build returns the badge element.
 func (b Badge) Build() tela.Node {
 	s := &UseStyle().Badge
+	var dot tela.Child
+	if b.Dot {
+		dot = h.Span(cls(s.Dot, b.DotClass), h.AriaHidden(true))
+	}
 	return h.Span(cls(s.Root, pick("Badge", "Variant", s.Variants, b.Variant), b.Class),
-		b.Props, icon(b.Icon, s.Icon), b.Children)
+		b.Props, icon(b.Icon, s.Icon), dot, b.Children)
 }

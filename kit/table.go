@@ -49,6 +49,11 @@ type SortDirection string
 const (
 	Ascending  SortDirection = "ascending"
 	Descending SortDirection = "descending"
+	// Other is a column sorted by an order that is neither: a relevance
+	// score, the server's own ranking. The table does not reorder the rows
+	// for it (it shows the state, aria-sort "other", and the rows come
+	// sorted as given), and pressing the header starts ascending.
+	Other SortDirection = "other"
 )
 
 // SortState is how a [Table] is sorted: by the column with the ID Column, in
@@ -56,7 +61,7 @@ const (
 type SortState struct {
 	// Column is the ID of the sorted column ("" with no sort).
 	Column string
-	// Direction is Ascending or Descending ("" with no sort).
+	// Direction is Ascending, Descending or Other ("" with no sort).
 	Direction SortDirection
 }
 
@@ -119,6 +124,11 @@ type TableStyle struct {
 	// is a `group` with aria-sort, for group-aria-[sort=ascending]: and
 	// group-aria-[sort=descending]: classes.
 	SortButton string
+	// SortIconUnsorted is added to the arrow of a sortable header that is
+	// not sorted when the table has HideUnsortedIcon: the arrow keeps its
+	// place, so the header does not change width when it is sorted, and
+	// shows when the pointer is over the header or the focus is in it.
+	SortIconUnsorted string
 }
 
 func init() {
@@ -148,6 +158,7 @@ func init() {
 		Caption:              "col-span-full mt-4 text-center text-sm text-muted-foreground",
 		Empty:                "col-span-full h-24 justify-center border-b-0 text-center",
 		SortButton:           "",
+		SortIconUnsorted:     "invisible group-hover:visible group-focus-within:visible",
 	}
 }
 
@@ -232,7 +243,15 @@ func (c Column[T]) sortable() bool { return c.Sort != nil || c.Sortable }
 // through ascending, descending and unsorted, as TanStack Table (the engine
 // of shadcn's data table) does by default, and pressing another column
 // starts that one ascending; only one column is sorted at a time. The
-// sorted header carries aria-sort and shows an arrow. The sort is stable:
+// sorted header carries aria-sort and shows an arrow; a sortable header that
+// is not sorted says aria-sort "none" (the variants aria-[sort=none]:,
+// aria-[sort=ascending]:, aria-[sort=descending]: and aria-[sort=other]:
+// style the header, and their group- forms what it holds). AlwaysSorted
+// removes the unsorted step: a sorted table stays sorted and pressing cycles
+// ascending and descending (TanStack's enableSortingRemoval: false).
+// HideUnsortedIcon hides the arrow of the headers that are not sorted until
+// the pointer is over them, for a table where the arrows are noise. The sort
+// is stable:
 // rows that compare equal keep their order in Rows (also when
 // descending). Sorting follows ADR-101's value rule: Sort (a pointer to
 // your state) controls it, DefaultSort sets the start and OnSortChange
@@ -304,6 +323,15 @@ type Table[T any] struct {
 	Sort         *SortState
 	DefaultSort  SortState
 	OnSortChange func(SortState)
+	// AlwaysSorted makes pressing a sorted header cycle ascending and
+	// descending only, never back to unsorted. A table that should always
+	// be sorted needs a DefaultSort (or a Sort), as the first press is what
+	// sorts an unsorted one.
+	AlwaysSorted bool
+	// HideUnsortedIcon hides the arrow of a sortable header that is not
+	// sorted (it shows while the pointer is over the header or the focus is
+	// in it), keeping its place.
+	HideUnsortedIcon bool
 
 	// Selected tells whether a row is selected: the row gets the selected
 	// look and aria-selected. Nil leaves the rows unselectable.
@@ -389,7 +417,7 @@ func (t Table[T]) Build() tela.Node {
 		}
 	}
 	var order []int
-	if sortedBy >= 0 && cols[sortedBy].Sort != nil {
+	if sortedBy >= 0 && cols[sortedBy].Sort != nil && (cur.Direction == Ascending || cur.Direction == Descending) {
 		order = make([]int, len(t.Rows))
 		for i := range order {
 			order[i] = i
@@ -633,19 +661,28 @@ func (t Table[T]) headCell(s *TableStyle, c Column[T], i int, sorted bool, cur S
 	if ic == (tela.Icon{}) {
 		ic = tableIconSort
 	}
-	if sorted {
-		kids = append(kids, h.AriaSort(string(cur.Direction)))
-		if cur.Direction == Ascending {
-			if ic = t.SortAscIcon; ic == (tela.Icon{}) {
-				ic = tableIconSortAsc
-			}
-		} else if ic = t.SortDescIcon; ic == (tela.Icon{}) {
+	iconClass := ""
+	switch {
+	case !sorted:
+		kids = append(kids, h.AriaSort("none"))
+		iconClass = when(t.HideUnsortedIcon, s.SortIconUnsorted)
+	case cur.Direction == Ascending:
+		kids = append(kids, h.AriaSort(string(Ascending)))
+		if ic = t.SortAscIcon; ic == (tela.Icon{}) {
+			ic = tableIconSortAsc
+		}
+	case cur.Direction == Descending:
+		kids = append(kids, h.AriaSort(string(Descending)))
+		if ic = t.SortDescIcon; ic == (tela.Icon{}) {
 			ic = tableIconSortDesc
 		}
+	default:
+		// Sorted by some other order: the neutral arrow.
+		kids = append(kids, h.AriaSort(string(Other)))
 	}
 	id := c.id()
-	btn := Button{Variant: Ghost, IconEnd: ic, Class: s.SortButton, Children: content,
-		OnClick: func() { set(nextSort(cur, id)) }}
+	btn := Button{Variant: Ghost, IconEnd: ic, IconClass: iconClass, Class: s.SortButton, Children: content,
+		OnClick: func() { set(nextSort(cur, id, t.AlwaysSorted)) }}
 	if c.HeaderContent != nil {
 		btn.AriaLabel = c.Header
 	}
@@ -662,14 +699,17 @@ func stickyLeft(left float32) string {
 }
 
 // nextSort is the state after pressing the header of column id: ascending,
-// then descending, then unsorted (TanStack Table's default cycle); another
-// column starts ascending.
-func nextSort(cur SortState, id string) SortState {
+// then descending, then unsorted (TanStack Table's default cycle) or, when
+// always, ascending again; another column, and a column sorted by some other
+// order, start ascending.
+func nextSort(cur SortState, id string, always bool) SortState {
 	switch {
-	case cur.Column != id || cur.Direction == "":
+	case cur.Column != id || cur.Direction == "" || cur.Direction == Other:
 		return SortState{Column: id, Direction: Ascending}
 	case cur.Direction == Ascending:
 		return SortState{Column: id, Direction: Descending}
+	case always:
+		return SortState{Column: id, Direction: Ascending}
 	}
 	return SortState{}
 }

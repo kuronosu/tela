@@ -16,6 +16,13 @@ type SeparatorStyle struct {
 	// Orientations are a 1 px line across the available width
 	// (Horizontal) and one down the available height (Vertical).
 	Orientations map[Orientation]string
+	// Captioned is the root of a separator with a Caption: the two lines
+	// and the caption between them, in a row (Horizontal) or a column
+	// (Vertical). Caption is the caption's part; Line is each of the two
+	// lines, by orientation.
+	Captioned map[Orientation]string
+	Caption   string
+	Line      map[Orientation]string
 }
 
 func init() {
@@ -24,6 +31,15 @@ func init() {
 		Orientations: map[Orientation]string{
 			Horizontal: "h-px w-full",
 			Vertical:   "h-full w-px",
+		},
+		Captioned: map[Orientation]string{
+			Horizontal: "flex w-full items-center gap-2",
+			Vertical:   "flex h-full flex-col items-center gap-2",
+		},
+		Caption: "shrink-0 text-sm text-muted-foreground",
+		Line: map[Orientation]string{
+			Horizontal: "h-px flex-1 bg-border",
+			Vertical:   "w-px flex-1 bg-border",
 		},
 	}
 }
@@ -34,15 +50,30 @@ func init() {
 //
 //	kit.Separator{}
 //	h.Div(cls("flex h-5 items-center gap-4"), h.Text("Blog"), kit.Separator{Orientation: kit.Vertical}, h.Text("Docs"))
+//
+// A Caption puts a label in the middle of the line, as login forms do:
+//
+//	kit.Separator{Caption: h.Text("Or continue with")}
+//
+// The caption is text for the page, so a captioned separator is not hidden
+// from assistive technologies, and has no separator role (a separator's
+// children are presentational in ARIA, which would drop the text): the lines
+// are decorative and the caption is read as it is.
 type Separator struct {
 	// Orientation is Horizontal (the default) or Vertical.
 	Orientation Orientation
+	// Caption is drawn in the middle of the line, between two lines that
+	// fill the rest of the width (or the height of a Vertical separator).
+	Caption tela.Component
 	// Semantic makes the separator part of the accessibility tree, with
 	// the separator role and its orientation, for a line that divides
-	// sections of the content and not just decorates it.
+	// sections of the content and not just decorates it. It has no effect
+	// with a Caption.
 	Semantic bool
-	// Class is added after the recipe's classes.
-	Class string
+	// Class is added after the recipe's classes. CaptionClass is added to
+	// the caption's.
+	Class        string
+	CaptionClass string
 	// Props are more props for the separator element.
 	Props tela.Child
 }
@@ -51,6 +82,13 @@ type Separator struct {
 func (s Separator) Build() tela.Node {
 	r := &UseStyle().Separator
 	o := orientationOr(s.Orientation, Horizontal)
+	if s.Caption != nil {
+		line := func() tela.Child {
+			return h.Div(cls(pick("Separator", "Orientation", r.Line, o)), h.AriaHidden(true))
+		}
+		return h.Div(cls(pick("Separator", "Orientation", r.Captioned, o), s.Class), s.Props,
+			line(), h.Div(cls(r.Caption, s.CaptionClass), s.Caption), line())
+	}
 	kids := []tela.Child{cls(r.Root, pick("Separator", "Orientation", r.Orientations, o), s.Class), s.Props}
 	if s.Semantic {
 		kids = append(kids, h.Role("separator"), h.AriaOrientation(string(o)))

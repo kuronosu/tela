@@ -13,6 +13,21 @@ import (
 // InputStyle is the recipe of [Input] (shadcn/ui's Input).
 type InputStyle struct {
 	Root string
+	// Wrapper is the element around an input that has an Icon or an
+	// IconEnd; it carries the input's Class and is as wide as the input
+	// would be.
+	Wrapper string
+	// Icon is the icon, level with the text and at the start (IconStart)
+	// or at the end (IconEnd) of the field; both are muted and let the
+	// pointer through. IconDisabled and IconInvalid are added to them
+	// after.
+	Icon, IconStart, IconEnd string
+	// IconDisabled dims the icon of a disabled field and IconInvalid
+	// colors the one of an invalid field.
+	IconDisabled, IconInvalid string
+	// PadStart and PadEnd are added to the input to make room for the
+	// icons (an icon, its inset and a gap).
+	PadStart, PadEnd string
 }
 
 func init() {
@@ -22,6 +37,14 @@ func init() {
 			"disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30 " +
 			"focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 " +
 			"aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
+		Wrapper:      "relative flex w-full min-w-0",
+		Icon:         "pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 text-muted-foreground",
+		IconStart:    "start-3",
+		IconEnd:      "end-3",
+		IconDisabled: "peer-disabled:opacity-50",
+		IconInvalid:  "peer-aria-invalid:text-destructive",
+		PadStart:     "ps-9",
+		PadEnd:       "pe-9",
 	}
 }
 
@@ -37,6 +60,15 @@ func init() {
 //
 // Inside a [Field] the input takes the field's ID, so the field's label
 // names it, and is described by the field's description or error.
+//
+// Icon puts an icon inside the field at its start (a magnifier in a search
+// box, an envelope in an email field) and IconEnd one at its end. Both are
+// decorative, mirror under a right-to-left direction, and leave the text
+// room; the focus ring stays on the field. The icons need a wrapper, so
+// with one Class goes on the wrapper (the width of the field, "max-w-sm")
+// and InputClass on the input:
+//
+//	kit.Input{Icon: lucide.Search, Placeholder: "Search...", Class: "max-w-sm"}
 type Input struct {
 	// Value points to the text of a controlled field; nil leaves the text
 	// to the field, which starts with DefaultValue.
@@ -69,8 +101,13 @@ type Input struct {
 	// MaxLength limits what the user can type, in UTF-16 code units; 0 is
 	// no limit.
 	MaxLength int
-	// Class is added after the recipe's classes.
-	Class string
+	// Icon is drawn inside the field at its start and IconEnd at its end.
+	Icon, IconEnd tela.Icon
+	// Class is added after the recipe's classes. With an Icon or IconEnd
+	// it is for the wrapper that holds the input and the icons, and
+	// InputClass is added to the input.
+	Class      string
+	InputClass string
 	// Props are more props for the input element.
 	Props tela.Child
 }
@@ -78,7 +115,12 @@ type Input struct {
 // Build returns the input element.
 func (i Input) Build() tela.Node {
 	s := &UseStyle().Input
-	kids := []tela.Child{cls(s.Root, i.Class), i.Props}
+	hasIcons := i.Icon != (tela.Icon{}) || i.IconEnd != (tela.Icon{})
+	inputClass := joinClass(s.Root, i.Class, i.InputClass)
+	if hasIcons {
+		inputClass = joinClass(s.Root, "peer", when(i.Icon != (tela.Icon{}), s.PadStart), when(i.IconEnd != (tela.Icon{}), s.PadEnd), i.InputClass)
+	}
+	kids := []tela.Child{h.Class(inputClass), i.Props}
 	if i.Type != "" {
 		kids = append(kids, h.Type(i.Type))
 	}
@@ -87,5 +129,11 @@ func (i Input) Build() tela.Node {
 		placeholder: i.Placeholder, name: i.Name, id: i.ID, ariaLabel: i.AriaLabel,
 		disabled: i.Disabled, readOnly: i.ReadOnly, invalid: i.Invalid, autoFocus: i.AutoFocus, maxLength: i.MaxLength,
 	})...)
-	return h.Input(kids...)
+	if !hasIcons {
+		return h.Input(kids...)
+	}
+	// The icons follow the input so that peer- variants see its state.
+	return h.Div(cls(s.Wrapper, i.Class), h.Input(kids...),
+		icon(i.Icon, s.Icon, s.IconStart, s.IconDisabled, s.IconInvalid),
+		icon(i.IconEnd, s.Icon, s.IconEnd, s.IconDisabled, s.IconInvalid))
 }

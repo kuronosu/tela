@@ -28,6 +28,16 @@ type ButtonStyle struct {
 	// IconSizes are the icon's size per button size; a size the map does
 	// not define uses the default's.
 	IconSizes map[Size]string
+	// Loading is added to a button that is Loading, after its variant and
+	// size: it ignores the pointer.
+	Loading string
+	// LoadingIcon is added to the spinner, after Icon and IconSizes.
+	LoadingIcon string
+	// LoadingOverlay is the root's addition and LoadingSpinner the spinner
+	// element's classes for a loading button that has no icon to turn into
+	// the spinner: the content stays (LoadingContent hides it, so that the
+	// button keeps its width) and the spinner is centered over it.
+	LoadingOverlay, LoadingSpinner, LoadingContent string
 }
 
 func init() {
@@ -64,6 +74,11 @@ func init() {
 			Xs:     "size-3",
 			IconXs: "size-3",
 		},
+		Loading:        "pointer-events-none",
+		LoadingIcon:    "animate-spin",
+		LoadingOverlay: "relative",
+		LoadingSpinner: "absolute inset-0 flex items-center justify-center",
+		LoadingContent: "contents text-transparent",
 	}
 }
 
@@ -79,6 +94,17 @@ func init() {
 //	kit.Button{Icon: lucide.Mail, Children: h.Text("Login with email")}
 //	kit.Button{Variant: kit.Outline, Size: kit.Icon, Icon: lucide.ChevronRight, AriaLabel: "Next"}
 //
+// Loading shows that the button's action is under way, as a button that
+// submits a form does while the request is out. The button turns its Icon
+// (or, with none, its IconEnd) into a spinner, or when it has neither draws
+// a spinner over the content, which stays in place and invisible: either
+// way the button keeps its width, so nothing around it moves. A loading
+// button is marked aria-busy, ignores presses (the pointer and the keyboard,
+// and it does not submit its form) and stays in the tab order, unlike a
+// Disabled one, so the focus does not jump away from it.
+//
+//	kit.Button{Type: "submit", Loading: saving, Icon: lucide.Save, Children: h.Text("Save")}
+//
 // A Variant or Size the active [Style] does not define panics in dev mode
 // with the closest one.
 type Button struct {
@@ -92,6 +118,11 @@ type Button struct {
 	Type string
 	// Disabled makes the button inert (h.Disabled) and dims it.
 	Disabled bool
+	// Loading shows a spinner and ignores presses (see above).
+	Loading bool
+	// LoadingIcon replaces the spinner (a Lucide loader-circle that turns
+	// with animate-spin).
+	LoadingIcon tela.Icon
 	// OnClick is called when the button is clicked or activated with the
 	// keyboard.
 	OnClick func()
@@ -101,6 +132,8 @@ type Button struct {
 	// Icon is drawn before the children, IconEnd after them. Their size
 	// and shape come from the recipe's Icon and IconSizes.
 	Icon, IconEnd tela.Icon
+	// IconClass is added to the classes of both icons, after the recipe's.
+	IconClass string
 	// Children is the label.
 	Children tela.Component
 	// Class is added after the recipe's classes, so it wins over them.
@@ -129,20 +162,45 @@ func (b Button) Build() tela.Node {
 	if !ok {
 		iconSize = s.IconSizes[""]
 	}
+	// A loading button turns its icon into the spinner; without one the
+	// spinner goes over the content.
+	lead, trail := icon(b.Icon, s.Icon, iconSize, b.IconClass), icon(b.IconEnd, s.Icon, iconSize, b.IconClass)
+	var content tela.Child = b.Children
+	var overlay tela.Child
+	spinner := func() tela.Child {
+		return h.Icon(iconOr(b.LoadingIcon, toastLoader), cls(s.Icon, iconSize, s.LoadingIcon))
+	}
+	overlayClass := ""
+	if b.Loading {
+		switch {
+		case b.Icon != (tela.Icon{}):
+			lead = spinner()
+		case b.IconEnd != (tela.Icon{}):
+			trail = spinner()
+		default:
+			overlayClass = s.LoadingOverlay
+			content = h.Span(cls(s.LoadingContent), b.Children)
+			overlay = h.Span(cls(s.LoadingSpinner), h.AriaHidden(true), spinner())
+		}
+	}
 	kids := []tela.Child{cls(s.Root, pick("Button", "Variant", s.Variants, b.Variant),
-		pick("Button", "Size", s.Sizes, b.Size), when(hasIcon, s.HasIcon[b.Size]), b.Class)}
-	if b.Type != "" {
+		pick("Button", "Size", s.Sizes, b.Size), when(hasIcon, s.HasIcon[b.Size]), when(b.Loading, s.Loading), overlayClass, b.Class)}
+	switch {
+	case b.Loading:
+		// Not a submit button while it is loading: a press does nothing.
+		kids = append(kids, h.Type("button"), h.AriaBusy(true))
+	case b.Type != "":
 		kids = append(kids, h.Type(b.Type))
 	}
 	if b.Disabled {
 		kids = append(kids, h.Disabled(true))
 	}
-	if b.OnClick != nil {
+	if b.OnClick != nil && !b.Loading {
 		kids = append(kids, h.OnClick(b.OnClick))
 	}
 	if b.AriaLabel != "" {
 		kids = append(kids, h.AriaLabel(b.AriaLabel))
 	}
-	kids = append(kids, b.Props, b.trigger, icon(b.Icon, s.Icon, iconSize), b.Children, icon(b.IconEnd, s.Icon, iconSize))
+	kids = append(kids, b.Props, b.trigger, lead, content, trail, overlay)
 	return h.Button(kids...)
 }
