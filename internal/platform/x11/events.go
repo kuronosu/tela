@@ -36,7 +36,7 @@ func (b *Backend) translate(e xevent) {
 	if !b.kbd.beforeEvent(e.ev) {
 		return
 	}
-	if b.dragInput(e.ev) || b.shortcutKey(e.ev) {
+	if b.dragInput(e.ev) || b.shortcutKey(e.ev) || b.cmEvent(e.ev) {
 		return
 	}
 	switch ev := e.ev.(type) {

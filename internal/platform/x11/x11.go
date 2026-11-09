@@ -120,6 +120,9 @@ type Backend struct {
 	screenNum  int
 	argbCmap   xproto.Colormap
 	shape      shapeExt
+	// cm is the compositing manager, followed for transparent windows
+	// (transparent.go).
+	cm cmState
 	// ime is the XIM client (ime.go).
 	ime imeClient
 }

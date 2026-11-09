@@ -118,7 +118,7 @@ func (w *Window) putImage(r image.Rectangle) {
 		// A request that fits the 16-bit length is sent in the standard
 		// form even when BIG-REQUESTS is on.
 		big := b.bigRequests && putImageHeader+4*c.Dx()*c.Dy() > 0xffff*4
-		b.reqBuf = encodePutImage(b.reqBuf, big, xproto.Drawable(w.id), w.gc, b.depth, w.pix, w.pixSize.X, c)
+		b.reqBuf = encodePutImage(b.reqBuf, big, xproto.Drawable(w.id), w.gc, w.depth, w.pix, w.pixSize.X, c)
 		b.conn.NewRequest(b.reqBuf, b.conn.NewCookie(false, false))
 	}
 }

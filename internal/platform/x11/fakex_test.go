@@ -304,6 +304,10 @@ const fakeIconWin = 950
 
 func (x *fakeX) inputShapes() bool { return !x.noShape }
 
+func (x *fakeX) setInputShape(win xproto.Window, rects []xproto.Rectangle) {
+	x.log("input shape win=%d %v", win, rects)
+}
+
 func (x *fakeX) createDragIcon(r image.Rectangle, argb bool, pix []byte, bounding []xproto.Rectangle) xproto.Window {
 	kind, shape := "rgb", "none"
 	if argb {

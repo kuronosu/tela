@@ -264,15 +264,10 @@ func (s connServer) createDragIcon(r image.Rectangle, argb bool, pix []byte, bou
 	depth, visual := b.depth, b.visual
 	if argb {
 		depth, visual = 32, b.argbVisual
-		if b.argbCmap == 0 {
-			// A window of another visual than its parent's needs a
-			// colormap of that visual (and a border pixel).
-			id, err := xproto.NewColormapId(b.conn)
-			if err != nil {
-				return 0
-			}
-			xproto.CreateColormap(b.conn, xproto.ColormapAllocNone, id, b.root, visual)
-			b.argbCmap = id
+		// A window of another visual than its parent's needs a colormap
+		// of that visual (and a border pixel).
+		if b.argbColormap() == 0 {
+			return 0
 		}
 	}
 	size := r.Size()

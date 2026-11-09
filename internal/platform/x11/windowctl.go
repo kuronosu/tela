@@ -657,7 +657,7 @@ func (w *Window) RestoreToken() string { return "" }
 // platform.ResizeEdge, shared with Wayland), or 0: only frameless windows
 // that can be resized, outside maximized and fullscreen, have one.
 func (w *Window) edgeAt(p platform.Point) platform.Edge {
-	if !w.osState.ClientSideDecorations || w.opts.FixedSize || w.osState.Maximized || w.osState.Fullscreen {
+	if !w.osState.ClientSideDecorations || w.opts.FixedSize || w.osState.Maximized || w.osState.Fullscreen || w.opts.Transparent {
 		return 0
 	}
 	return platform.ResizeEdge(p, w.osMetrics().Size)

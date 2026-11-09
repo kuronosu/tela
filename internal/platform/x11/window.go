@@ -48,6 +48,12 @@ type Window struct {
 
 	b  *Backend
 	id xproto.Window
+	// depth is the window's depth: the root visual's, or 32 for the ARGB
+	// visual of a transparent window, whose input mask is input and
+	// which has argb (transparent.go).
+	depth byte
+	argb  bool
+	input platform.InputMask
 	// acc is the window's side of the AT-SPI bridge (access.go).
 	acc  *atspi.Window
 	gc   xproto.Gcontext
@@ -142,20 +148,30 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	// newly grown areas keep stale pixels until Expose is answered from the
 	// retained copy, instead of flashing a background color. NorthWest bit
 	// gravity keeps the content in place on resize instead of discarding it.
-	const mask = xproto.CwBackPixmap | xproto.CwBitGravity | xproto.CwEventMask | xproto.CwCursor
+	mask := uint32(xproto.CwBackPixmap | xproto.CwBitGravity | xproto.CwEventMask | xproto.CwCursor)
 	events := uint32(windowEvents)
 	if !b.xi.ok {
 		events |= corePointerEvents
 	}
 	values := []uint32{xproto.BackPixmapNone, xproto.GravityNorthWest, events, uint32(b.cursorFor(platform.CursorDefault))}
+	depth, visual := b.depth, b.visual
+	argb := opts.Transparent && b.argbVisual != 0 && b.argbColormap() != 0
+	if argb {
+		// The ARGB visual of a transparent window (transparent.go): a
+		// border pixel and a colormap of the visual, in the mask's bit
+		// order (BorderPixel after BackPixmap, Colormap before Cursor).
+		depth, visual = 32, b.argbVisual
+		mask |= xproto.CwBorderPixel | xproto.CwColormap
+		values = []uint32{xproto.BackPixmapNone, 0, xproto.GravityNorthWest, events, uint32(b.argbCmap), uint32(b.cursorFor(platform.CursorDefault))}
+	}
 	var x, y int16
 	if opts.HasPosition {
 		// With StaticGravity (WM_NORMAL_HINTS) this is the content
 		// area's position, which window managers read at map.
 		x, y = int16(opts.Position.X), int16(opts.Position.Y)
 	}
-	err = xproto.CreateWindowChecked(b.conn, b.depth, id, b.root, x, y, uint16(size.X), uint16(size.Y), 0,
-		xproto.WindowClassInputOutput, b.visual, mask, values).Check()
+	err = xproto.CreateWindowChecked(b.conn, depth, id, b.root, x, y, uint16(size.X), uint16(size.Y), 0,
+		xproto.WindowClassInputOutput, visual, mask, values).Check()
 	if err != nil {
 		return nil, fmt.Errorf("x11: CreateWindow: %w", err)
 	}
@@ -166,13 +182,16 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 		b.sendRequest(xiSelectEventsRequest(b.xi.opcode, id, xiAllMasterDevices, xiWindowEvents))
 	}
 
-	w := &Window{b: b, id: id, gc: gc, opts: opts, osSize: size, parent: parent}
+	w := &Window{b: b, id: id, depth: depth, gc: gc, opts: opts, osSize: size, parent: parent}
 	a := b.atoms
 	b.setProperty(id, a.wmProtocols, xproto.AtomAtom, 32, card32s(uint32(a.wmDeleteWindow), uint32(a.netWMPing)))
 	b.setProperty(id, xproto.AtomWmClass, xproto.AtomString, 8, wmClass(opts.AppID, platform.DefaultAppID()))
 	b.setProperty(id, xproto.AtomWmHints, xproto.AtomWmHints, 32, wmHints(false))
 	b.setProperty(id, a.xdndAware, xproto.AtomAtom, 32, card32s(xdndVersion))
 	w.initCtl(opts)
+	if opts.Transparent {
+		w.initTransparent(argb)
+	}
 	// _NET_WM_PING requires _NET_WM_PID and WM_CLIENT_MACHINE (EWMH).
 	b.setProperty(id, a.netWMPID, xproto.AtomCardinal, 32, card32s(uint32(os.Getpid())))
 	if host, err := os.Hostname(); err == nil {
@@ -332,6 +351,7 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 	for _, r := range rects {
 		platform.CopyRGBAToBGRA(w.pix, stride, fb, r)
 	}
+	w.syncInputShape(fb, rects) // a transparent window (transparent.go)
 	if !w.mapped {
 		// An unmapped window has no contents, so drawing now would be
 		// lost. The Expose that follows the map paints the retained copy.

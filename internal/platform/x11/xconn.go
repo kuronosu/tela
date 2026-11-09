@@ -67,6 +67,9 @@ type dataServer interface {
 	moveIcon(win xproto.Window, x, y int)
 	mapIcon(win xproto.Window)
 	destroyIcon(win xproto.Window)
+	// setInputShape sets the input shape of win (SHAPE 1.1 ShapeInput,
+	// YX-banded rectangles in window coordinates; transparent.go).
+	setInputShape(win xproto.Window, rects []xproto.Rectangle)
 
 	// The input method client (ime.go).
 	//
