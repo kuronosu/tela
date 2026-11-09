@@ -187,6 +187,9 @@ func TestGoldenShortcuts(t *testing.T) {
 	sandbox(t)
 	a := mount(t)
 	prefs := openPreferences(a, "Shortcuts")
+	// The list is longer than the window's 440 px: the golden is taller, so
+	// that every row shows (the window scrolls when it is as big as it asks).
+	prefs.Resize(540, 640)
 	prefs.MouseMove(300, 420)
 	prefs.Golden("preferences_shortcuts.png")
 
