@@ -38,9 +38,9 @@ Phase 20, API and kit gaps.
 - The fallback title bar follows a `Dir` on the element that is the window's whole content, and a click on it (Wayland) closes an open dialog or popover that closes on outside presses (ADR-252).
 - Windows menu bars give Chinese, Japanese and Korean labels an appended access key ("ファイル(&F)"), and Cyrillic, Greek, Arabic and Hebrew labels a letter of their own (ADR-252).
 
-### Deprecated
+### Breaking
 
-- `desktop.Launch.Forwarded`: use `Launch.Source`; it stays true for every launch but the start's until the next minor version (ADR-253).
+- `desktop.Launch.Forwarded` is removed: `Launch.Source` (`LaunchStart`, `LaunchForwarded`, `LaunchOpened`) replaces it and tells a forwarded launch from one the OS opened (ADR-253). The owner waived the deprecation cycle: the library has no outside users yet.
 
 ## [0.13.7] - 2026-11-08
 

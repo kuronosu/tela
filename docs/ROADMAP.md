@@ -56,7 +56,7 @@ What phase 20's work left (ADR-247 to ADR-254).
 
 - [ ] Text drops: the dropped text is not selected after the drop (browsers select it); no drop caret while dragging over a field; a field's own selection cannot be dragged (moving text inside or between fields)
 - [ ] Stores: a read at a write's edge can still lose another program's write of the same moment (last writer wins within about 100 ms); a store whose folder does not exist yet is watched only after its first write; macOS polls every second (an FSEvents or kqueue watcher)
-- [ ] `desktop.Launch` cannot say whether a `LaunchOpened` came at the app's start (macOS sends the starting file just after the start launch); `UseCloseRequest` handlers that call `WindowHandle.Close` ask again, and there is no "close without asking" API; `desktop.Launch.Forwarded` (deprecated by ADR-253) is removed in the next minor version
+- [ ] `desktop.Launch` cannot say whether a `LaunchOpened` came at the app's start (macOS sends the starting file just after the start launch); `UseCloseRequest` handlers that call `WindowHandle.Close` ask again, and there is no "close without asking" API
 - [ ] Associations: `AssociationStatus` does not report the registered role; on macOS a type changed to None cannot clear a default the user set through Launch Services; a developer's own Info.plist entries keep their role
 - [ ] Monitor fitting: X11 fits the content, not the frame (read `_NET_FRAME_EXTENTS` before map) and should use mutter's per-monitor `_GTK_WORKAREAS_D<n>`; Win32 fits the outer rectangle with its invisible borders (about 7 px further in; `DWMWA_EXTENDED_FRAME_BOUNDS`); monitors unplugged while the app runs are left to the OS
 
