@@ -121,6 +121,7 @@ func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 
 		NoServerDecorations: cfg.noServerDeco,
 		TitleBarControls:    cfg.titleBarControls(),
+		NoCompositing:       cfg.noCompositing,
 	})
 	if hs, _ := headlessServices(cfg.unsupported); len(hs) > 0 {
 		a.backend.SetUnsupported(hs...)

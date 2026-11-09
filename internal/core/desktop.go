@@ -320,7 +320,7 @@ func (c *CodeWindow) Handle() WindowHandle {
 
 // Update gives the window a new spec: the fields that changed are
 // applied and Root is built again, as for a Window component (FixedSize,
-// Frameless, TitleBarOverlay and Modal stay). It is applied with the
+// Frameless, TitleBarOverlay, Transparent and Modal stay). It is applied with the
 // parent tree's updates, never inside the window's own frame or handlers.
 // Safe from any goroutine.
 func (c *CodeWindow) Update(spec ChildWindowSpec) {

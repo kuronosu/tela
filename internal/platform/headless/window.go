@@ -29,6 +29,14 @@ type Window struct {
 	frame    *image.RGBA
 	damage   []image.Rectangle
 	presents int
+	// mask is the part of a Transparent window's frame that takes
+	// pointer input (transparent.go).
+	mask platform.InputMask
+	// passing: the last pointer event fell where a Transparent window
+	// lets input through, and its leave was delivered; passHeld the
+	// buttons of the press sequence it took (transparent.go).
+	passing  bool
+	passHeld platform.Buttons
 	ctl      windowCtl // window control state (windowctl.go)
 
 	// Pointer state of the pointer events delivered to the app (tracker):
@@ -102,6 +110,9 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 	}
 	for _, r := range rects {
 		platform.CopyRGBA(w.frame, fb, r)
+	}
+	if w.opts.Transparent {
+		w.mask.Update(fb, rects)
 	}
 	w.damage = rects
 	w.presents++
@@ -221,6 +232,9 @@ func (w *Window) Inject(e platform.Event) {
 			ev.Time = w.b.Now()
 		}
 		if w.draggedPointer(ev) || w.captionPointer(ev) {
+			return
+		}
+		if w.passPointer(ev) {
 			return
 		}
 		e = ev

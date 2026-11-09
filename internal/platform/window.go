@@ -49,6 +49,14 @@ type WindowState struct {
 	// draws no buttons over the content: every other window, and every
 	// window of a backend that treats TitleBarOverlay as Frameless.
 	TitleBarControls Rect
+	// Transparent: the OS composites the window's frames with their
+	// alpha, so its transparent pixels show what is below it and take no
+	// pointer input (a WindowOptions.Transparent window; see
+	// "Transparent windows" in the package documentation). False for
+	// every other window, and for a Transparent window the OS shows
+	// opaque (X11 without a compositing manager, which may start or stop
+	// while the window is open: the state changes with it).
+	Transparent bool
 	// HasPosition reports whether Position is known: on X11 and Win32 (and
 	// headless once the app placed the window), never on Wayland.
 	HasPosition bool
@@ -87,6 +95,9 @@ func (s WindowState) String() string {
 	}
 	if r := s.TitleBarControls; r != (Rect{}) {
 		add(fmt.Sprintf("controls %g,%g %gx%g", r.X, r.Y, r.W, r.H))
+	}
+	if s.Transparent {
+		add("transparent")
 	}
 	if s.HasPosition {
 		add(fmt.Sprintf("at %d,%d", s.Position.X, s.Position.Y))

@@ -52,8 +52,8 @@ import (
 // tela snapshot, tela inspect) opens no window: only the main window's
 // content is rendered there. The fields of a mounted Window are applied
 // when they change (title, sizes, always-on-top, visibility, icon, root
-// class); FixedSize, Frameless, TitleBarOverlay and Modal are fixed when
-// it opens.
+// class); FixedSize, Frameless, TitleBarOverlay, Transparent and Modal
+// are fixed when it opens.
 //
 // Modality: a visible Modal window blocks its parent window, the window
 // it was declared in. Core drops the parent's input itself, whatever the
@@ -81,6 +81,11 @@ type WindowSpec struct {
 	// bar that keeps the OS's window buttons (macOS); elsewhere it is
 	// Frameless. It excludes Frameless (checkWindowSpec panics).
 	TitleBarOverlay bool
+	// Transparent: the window's unpainted pixels show what is below it
+	// and pass pointer input through (ADR-249). It needs Frameless
+	// (checkWindowSpec panics without it) and is fixed when the window
+	// opens.
+	Transparent bool
 	// Icon is the window icon at several sizes; empty is the default.
 	Icon []image.Image
 	// TitleBar are the colors of the OS title bar and border, Backdrop the
@@ -132,6 +137,11 @@ type WindowState struct {
 	// when the OS draws no buttons over the content (every other window,
 	// and TitleBarOverlay where it acts as Frameless).
 	TitleBarControls Rect
+	// Transparent: the OS shows the window's transparent pixels (a
+	// Transparent window whose OS can; ADR-249). A Transparent window
+	// the OS shows opaque (X11 without a compositing manager) reports
+	// false and renders opaque.
+	Transparent bool
 }
 
 // WindowPlacement is where a window is: its size outside maximized and
@@ -286,6 +296,7 @@ func (v *winView) state() WindowState {
 		Maximized: v.os.Maximized, Fullscreen: v.os.Fullscreen, Minimized: v.os.Minimized,
 		Focused: v.focused, Hidden: v.hidden, ClientSideDecorations: v.os.ClientSideDecorations,
 		TitleBarControls: Rect{X: c.X, Y: c.Y, Width: c.W, Height: c.H},
+		Transparent:      v.os.Transparent,
 	}
 }
 
@@ -700,9 +711,9 @@ func (t *Tree) updateWindow(s *windowSlot) {
 			v.syncCanvas()
 		}
 	}
-	if t.dev && (spec.FixedSize != old.FixedSize || spec.Frameless != old.Frameless || spec.TitleBarOverlay != old.TitleBarOverlay || spec.Modal != old.Modal) {
+	if t.dev && (spec.FixedSize != old.FixedSize || spec.Frameless != old.Frameless || spec.TitleBarOverlay != old.TitleBarOverlay || spec.Transparent != old.Transparent || spec.Modal != old.Modal) {
 		t.warnOnce("window-fixed:"+spec.Title, func() string {
-			return fmt.Sprintf("tela: tela.Window %q changed FixedSize, Frameless, TitleBarOverlay or Modal while open, which only apply when a window opens: the open window keeps its old ones. Give the Window a new key (tela.WithKey) to open it again with the new ones", spec.Title)
+			return fmt.Sprintf("tela: tela.Window %q changed FixedSize, Frameless, TitleBarOverlay, Transparent or Modal while open, which only apply when a window opens: the open window keeps its old ones. Give the Window a new key (tela.WithKey) to open it again with the new ones", spec.Title)
 		})
 	}
 	ct := v.tree
@@ -781,6 +792,7 @@ func (s *WindowSpec) options(appID string, parent platform.Window) platform.Wind
 		Frameless:       s.Frameless,
 		Hidden:          s.Hidden,
 		TitleBarOverlay: s.TitleBarOverlay,
+		Transparent:     s.Transparent,
 		TitleBar:        s.TitleBar.platform(),
 		Backdrop:        s.Backdrop,
 		Parent:          parent,
@@ -825,6 +837,9 @@ func checkWindowSpec(kind, title string, s *WindowSpec) {
 	}
 	if s.Frameless && s.TitleBarOverlay {
 		panic(fmt.Sprintf("tela: %s sets both Frameless and TitleBarOverlay; set one: Frameless removes the OS's window buttons too (the app draws them), TitleBarOverlay keeps them over the app's title bar on macOS (and is Frameless elsewhere)", what()))
+	}
+	if s.Transparent && !s.Frameless {
+		panic(fmt.Sprintf("tela: %s sets Transparent without Frameless; a transparent window has no OS title bar or borders: set Frameless: true too (and give the root's first element its own background, radius and shadow)", what()))
 	}
 }
 

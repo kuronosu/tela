@@ -175,6 +175,12 @@ type Options struct {
 	// TitleBarOverlay as Frameless; Window.SetTitleBarControls changes a
 	// window's.
 	TitleBarControls platform.Rect
+	// NoCompositing makes the fake desktop unable to show transparency,
+	// as X11 without a compositing manager: a WindowOptions.Transparent
+	// window reports WindowState.Transparent false and takes input
+	// everywhere (Window.SetState changes it later, as a compositing
+	// manager that starts or stops).
+	NoCompositing bool
 }
 
 // Backend is the headless backend. Create it with New.
@@ -302,6 +308,7 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	if opts.TitleBarOverlay {
 		w.ctl.osState.TitleBarControls = b.opts.TitleBarControls
 	}
+	w.ctl.osState.Transparent = opts.Transparent && !b.opts.NoCompositing
 	w.os = platform.Metrics{Size: size, Scale: b.opts.Scale}
 	b.mu.Lock()
 	b.loop.Add(w)

@@ -83,7 +83,8 @@ func Render(root tela.Component, opts ...Option) (img *image.RGBA, err error) {
 	_, img = core.Render(core.NodeOf(root), core.RenderOptions{
 		Config: cfg.coreConfig(),
 		Width:  size.W, Height: size.H,
-		Scale: float32(cfg.scale),
+		Scale:       float32(cfg.scale),
+		Transparent: cfg.win.transparent,
 	})
 	return img, nil
 }

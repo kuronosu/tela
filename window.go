@@ -43,9 +43,9 @@ import (
 //
 // The fields are applied when they change: a new Title, Width and Height,
 // size limits, AlwaysOnTop, Hidden, Icon, TitleBar, Backdrop or RootClass
-// update the open window. FixedSize, Frameless, TitleBarOverlay, Modal and
-// Placement are read when it opens (give the Window a new key to open it
-// again with others).
+// update the open window. FixedSize, Frameless, TitleBarOverlay,
+// Transparent, Modal and Placement are read when it opens (give the
+// Window a new key to open it again with others).
 //
 // On a desktop whose compositor draws no title bars (GNOME on Wayland),
 // a framed window gets Tela's fallback title bar unless its content has a
@@ -89,6 +89,22 @@ type Window struct {
 	// rectangle is empty. Set one of Frameless and TitleBarOverlay: the
 	// window panics with both.
 	TitleBarOverlay bool
+	// Transparent makes the window's unpainted pixels show the desktop:
+	// the root has no background (unless RootClass gives it one), so the
+	// root's content floats over what is below the window with its own
+	// background, radius and shadow-*, and clicks on the pixels the frame
+	// leaves transparent (or nearly: alpha under a quarter, which the
+	// shadows of shadow-* stay under) go to what is below. Make the
+	// window larger than the content so its shadow fits, with padding on
+	// the root (RootClass: "p-12 flex items-center justify-center").
+	// It needs Frameless (the window panics without it); the OS draws no shadow,
+	// border or rounded corners for it, and its edges are not resize
+	// handles (the margin is transparent), so size it with Width and
+	// Height. Where the OS cannot show transparency (X11 without a
+	// compositing manager) the window is an opaque Frameless one, which
+	// [WindowState].Transparent reports, read through [UseWindow]: an app
+	// can give its root a background there. tela dev shows it as well.
+	Transparent bool
 	// AlwaysOnTop keeps the window above other windows (not on Wayland,
 	// which has no way to ask for it).
 	AlwaysOnTop bool
@@ -142,7 +158,7 @@ func (w Window) spec() core.ChildWindowSpec {
 		WindowSpec: core.WindowSpec{
 			Title: w.Title, Width: w.Width, Height: w.Height,
 			MinWidth: w.MinWidth, MinHeight: w.MinHeight, MaxWidth: w.MaxWidth, MaxHeight: w.MaxHeight,
-			FixedSize: w.FixedSize, Frameless: w.Frameless, TitleBarOverlay: w.TitleBarOverlay, AlwaysOnTop: w.AlwaysOnTop,
+			FixedSize: w.FixedSize, Frameless: w.Frameless, TitleBarOverlay: w.TitleBarOverlay, Transparent: w.Transparent, AlwaysOnTop: w.AlwaysOnTop,
 			Hidden: w.Hidden, Icon: w.Icon,
 			TitleBar: w.TitleBar, Backdrop: w.Backdrop,
 			Placement: w.Placement,
@@ -195,7 +211,9 @@ type WindowHandle = core.WindowHandle
 // own, see [App]) and TitleBarControls (the [Rect] the OS's window buttons
 // cover in a TitleBarOverlay window, in the window's logical pixels:
 // macOS's traffic lights, which the app's title bar leaves free; the zero
-// Rect elsewhere).
+// Rect elsewhere) and Transparent (a Transparent window whose OS shows its
+// transparent pixels: false where it cannot, as on X11 without a
+// compositing manager, and the window is then opaque).
 type WindowState = core.WindowState
 
 // WindowPlacement is where a window is: Width and Height (its logical

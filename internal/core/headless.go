@@ -23,6 +23,10 @@ type RenderOptions struct {
 	// Scale is the display scale (device pixels per logical pixel); zero
 	// means 1.
 	Scale float32
+	// Transparent renders over a transparent canvas, as a transparent
+	// window shows the app (tela.App.Transparent, ADR-249): the image
+	// keeps the alpha where the root has no opaque background.
+	Transparent bool
 }
 
 // Render mounts root in a new Tree without a window, runs every phase for
@@ -55,6 +59,7 @@ func Render(root Node, opts RenderOptions) (*gfx.DisplayList, *image.RGBA) {
 	t := NewTree(cfg)
 	t.SetViewport(size)
 	t.SetScale(opts.Scale)
+	t.SetTransparentCanvas(opts.Transparent)
 	t.Mount(root)
 	dl, _ := t.Frame()
 	for i := 1; i < MaxRenderFrames && t.Dirty(); i++ {
@@ -76,11 +81,12 @@ func Render(root Node, opts RenderOptions) (*gfx.DisplayList, *image.RGBA) {
 
 // Rasterize renders a display list of this tree (from Frame) into a new
 // image of the viewport at the given scale (zero means 1), over the
-// canvas color. The list snaps box edges for the tree's Scale, which
-// should be the same.
+// canvas color (over nothing for a transparent canvas, which the list
+// fills). The list snaps box edges for the tree's Scale, which should be
+// the same.
 func (t *Tree) Rasterize(dl *gfx.DisplayList, scale float32) *image.RGBA {
 	img := t.newImage(scale)
-	raster.Clear(img, image.Rectangle{}, t.CanvasColor())
+	raster.Clear(img, image.Rectangle{}, t.clearColor())
 	raster.Render(img, dl, raster.Options{Scale: scale})
 	return img
 }

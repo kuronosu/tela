@@ -26,6 +26,7 @@ type windowConfig struct {
 	onClose                 func(tela.WindowHandle)
 	onQuit                  func()
 	overlay                 bool
+	transparent             bool
 }
 
 // coreOptions returns the core options of the window (without the root,
@@ -37,7 +38,7 @@ func (w windowConfig) coreOptions() core.Options {
 			MinWidth: w.minW, MinHeight: w.minH, MaxWidth: w.maxW, MaxHeight: w.maxH,
 			FixedSize: w.fixed, Frameless: w.frameless, AlwaysOnTop: w.onTop, Hidden: w.hidden,
 			Icon: w.icon, TitleBar: w.titleBar, Backdrop: w.backdrop, Placement: w.placement,
-			TitleBarOverlay: w.overlay,
+			TitleBarOverlay: w.overlay, Transparent: w.transparent,
 		},
 		AppID: w.appID, OnClose: w.onClose, OnQuit: w.onQuit,
 	}
@@ -69,7 +70,7 @@ func windowFromApp(app tela.App) Option {
 			minW: app.MinWidth, minH: app.MinHeight, maxW: app.MaxWidth, maxH: app.MaxHeight,
 			fixed: app.FixedSize, frameless: app.Frameless, onTop: app.AlwaysOnTop, hidden: app.Hidden,
 			icon: icon, titleBar: app.TitleBar, backdrop: app.Backdrop, placement: app.Placement, onClose: app.OnClose,
-			onQuit: app.OnQuit, overlay: app.TitleBarOverlay,
+			onQuit: app.OnQuit, overlay: app.TitleBarOverlay, transparent: app.Transparent,
 		}
 	}
 }

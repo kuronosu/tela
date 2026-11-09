@@ -60,11 +60,12 @@ func to8(v float32) uint8 {
 }
 
 // syncCanvas makes the tree's canvas transparent when the platform window
-// shows the alpha of the frames (platform.AlphaPresenter), and opaque (as
+// shows the alpha of the frames (platform.AlphaPresenter, or a Transparent
+// window the OS composites: WindowState.Transparent), and opaque (as
 // always) when it does not.
 func (v *winView) syncCanvas() {
-	on := false
-	if p, ok := v.win.(platform.AlphaPresenter); ok {
+	on := v.os.Transparent
+	if p, ok := v.win.(platform.AlphaPresenter); ok && !on {
 		on = p.PresentsAlpha()
 	}
 	v.tree.SetTransparentCanvas(on)

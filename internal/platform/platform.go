@@ -105,8 +105,9 @@ type Window interface {
 	//   - The backend copies what it needs before returning; the caller
 	//     may reuse or modify fb immediately.
 	// Windows are opaque unless they implement AlphaPresenter and report
-	// true (a Windows 11 client-area backdrop); otherwise backends may
-	// ignore alpha. Errors are resource
+	// true (a Windows 11 client-area backdrop), or report
+	// WindowState.Transparent (a WindowOptions.Transparent window);
+	// otherwise backends may ignore alpha. Errors are resource
 	// errors (buffer allocation, lost connection).
 	Present(fb *image.RGBA, damage []image.Rectangle) error
 
@@ -389,6 +390,15 @@ type WindowOptions struct {
 	// at creation; it excludes Frameless (Resolve panics with both). See
 	// "Custom title bars" in the package documentation.
 	TitleBarOverlay bool
+	// Transparent makes the window show what is below it wherever the
+	// presented frames are transparent: the frames' premultiplied alpha
+	// is composited by the OS, and pointer input passes through the
+	// pixels whose alpha is below InputAlpha (see "Transparent windows" in
+	// the package documentation). It requires Frameless (Resolve panics
+	// without it). WindowState.Transparent reports whether the OS shows
+	// the alpha: false where it cannot (X11 without a compositing
+	// manager), and the window is then opaque. Set at creation.
+	Transparent bool
 
 	// TitleBar and Backdrop: see Window.SetTitleBarColors and
 	// Window.SetBackdrop. Backends apply them when they create the window.
@@ -416,7 +426,7 @@ type WindowOptions struct {
 // DefaultWindowSize, Size is clamped to MaxSize and then raised to
 // MinSize). It panics with an actionable message on invalid values
 // (negative, NaN or infinite sizes, a half-zero Size, Modal without
-// Parent, Frameless with TitleBarOverlay). Backends call it at the top of NewWindow so every backend
+// Parent, Frameless with TitleBarOverlay, Transparent without Frameless). Backends call it at the top of NewWindow so every backend
 // accepts and rejects the same options; checking that Parent is an open
 // window of the same backend is left to the backend.
 func (opts WindowOptions) Resolve() WindowOptions {
@@ -435,6 +445,9 @@ func (opts WindowOptions) Resolve() WindowOptions {
 	}
 	if opts.Frameless && opts.TitleBarOverlay {
 		panic("platform: WindowOptions has both Frameless and TitleBarOverlay; Frameless removes the OS's window buttons and TitleBarOverlay keeps them over the content: set one")
+	}
+	if opts.Transparent && !opts.Frameless {
+		panic("platform: WindowOptions.Transparent without Frameless; a transparent window has no OS title bar or borders: set Frameless too")
 	}
 	opts.Size = opts.ClampSize(opts.Size)
 	return opts

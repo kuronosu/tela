@@ -329,6 +329,7 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 		v.os, v.opening = e.State, false
 		v.notePlacement(platform.Size{})
 		v.placementMoved()
+		v.syncCanvas() // a Transparent window the OS shows opaque, or again with alpha
 		v.syncState()
 	case platform.FrameEvent:
 		// The state of a new window comes before its first frame, if

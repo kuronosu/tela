@@ -50,8 +50,9 @@ type config struct {
 	// size of the fake screen maximized and fullscreen windows fill.
 	win    windowConfig
 	screen platform.Size
-	// noServerDeco: NoServerDecorations.
-	noServerDeco bool
+	// noServerDeco: NoServerDecorations; noCompositing: NoCompositing.
+	noServerDeco  bool
+	noCompositing bool
 	// controls: TitleBarControls; unsupported: WithUnsupported.
 	controls    tela.Rect
 	unsupported []DesktopService
@@ -406,7 +407,8 @@ func Fonts(fonts ...tela.Font) Option {
 // a test, `tela snapshot` and the window see the same app: the size when
 // both Width and Height are set, RootClass, ColorScheme, Theme,
 // ClassAliases, Fonts, ClassicScrollbars, InstantScroll, NativeMenus,
-// IgnoreTextScale and Dev. It sets only
+// IgnoreTextScale, Dev and Transparent (the picture keeps the frame's
+// alpha, as [Transparent]). It sets only
 // what the app sets, so it never undoes an earlier option, and the options
 // after it override it:
 //
@@ -467,6 +469,9 @@ func FromApp(app tela.App) Option {
 		}
 		if app.Dev != nil {
 			c.dev = *app.Dev
+		}
+		if app.Transparent {
+			c.win.transparent, c.win.frameless = true, true
 		}
 	}
 }

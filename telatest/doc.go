@@ -129,6 +129,14 @@
 // [App.SetTitleBarControls], [MacTitleBarControls] under [PlatformKeys]
 // ("darwin")): [tela.WindowState].TitleBarControls reports them.
 //
+// Transparent windows: a [Transparent] window's screenshots and goldens
+// keep the alpha of the frame (a PNG with transparent pixels where the app
+// paints nothing), and pointer actions over its (nearly) transparent
+// pixels go to what is below the window, as on the desktop: they reach
+// nothing ([App.TakesInput]). [NoCompositing] and [App.SetCompositing]
+// play a desktop that cannot show transparency (X11 without a compositing
+// manager), where the window is opaque.
+//
 // The app's menu bar (desktop.AppMenuBar): [App.AppMenuBar],
 // [App.AppMenuItems] and [App.ChooseAppMenuItem]. The headless desktop has
 // the platform's app bar by default, as macOS; [WithUnsupported] and
@@ -142,7 +150,7 @@
 // further use fails the test. [App.HasQuit] and [App.ExpectRunning] check
 // that it did or did not. [App.RequestQuit] plays the OS asking the app to
 // quit (macOS's Cmd+Q: [OnQuit]). The window options ([Title], [MinSize],
-// [MaxSize], [FixedSize], [Frameless], [TitleBarOverlay], [AlwaysOnTop], [TitleBar], [Backdrop], [StartHidden],
+// [MaxSize], [FixedSize], [Frameless], [TitleBarOverlay], [Transparent], [AlwaysOnTop], [TitleBar], [Backdrop], [StartHidden],
 // [Icon], [Placement], [OnClose], [OnQuit], [Screen]) set the main window's fields
 // for Mount.
 //

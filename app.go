@@ -82,6 +82,22 @@ type App struct {
 	// rectangle is empty. Set one of Frameless and TitleBarOverlay: Run
 	// panics with both.
 	TitleBarOverlay bool
+	// Transparent makes the window's unpainted pixels show the desktop:
+	// the root has no background (unless RootClass gives it one), so the
+	// root's content floats over what is below the window with its own
+	// background, radius and shadow-*, and clicks on the pixels the frame
+	// leaves transparent (or nearly: alpha under a quarter, which the
+	// shadows of shadow-* stay under) go to what is below. Make the
+	// window larger than the content so its shadow fits, with padding on
+	// the root (RootClass: "p-12 flex items-center justify-center").
+	// It needs Frameless (Run panics without it); the OS draws no shadow,
+	// border or rounded corners for it, and its edges are not resize
+	// handles (the margin is transparent), so size it with Width and
+	// Height. Where the OS cannot show transparency (X11 without a
+	// compositing manager) the window is an opaque Frameless one, which
+	// [WindowState].Transparent reports, read through [UseWindow]: an app
+	// can give its root a background there. tela dev shows it as well.
+	Transparent bool
 	// AlwaysOnTop keeps the window above other windows (not on Wayland).
 	AlwaysOnTop bool
 	// Hidden starts the window hidden (an app that starts in the tray):
@@ -360,6 +376,7 @@ func (app App) options() core.Options {
 			Backdrop:        app.Backdrop,
 			Placement:       app.Placement,
 			TitleBarOverlay: app.TitleBarOverlay,
+			Transparent:     app.Transparent,
 		},
 		AppID:      app.AppID,
 		OnClose:    app.OnClose,
