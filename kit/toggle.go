@@ -30,6 +30,10 @@ type ToggleStyle struct {
 	On string
 	// Icon is what the icon slot has (shadcn's [&_svg]: classes).
 	Icon string
+	// IconVariants are added to Icon per variant, after it, so that a look
+	// can tint the glyphs of one variant (an accent sidebar's) without
+	// changing the others. A variant with no entry adds nothing.
+	IconVariants map[Variant]string
 }
 
 func init() {
@@ -46,8 +50,9 @@ func init() {
 			Sm: "h-8 min-w-8 px-1.5",
 			Lg: "h-10 min-w-10 px-2.5",
 		},
-		On:   "aria-pressed:bg-accent aria-pressed:text-accent-foreground checked:bg-accent checked:text-accent-foreground",
-		Icon: "pointer-events-none shrink-0 size-4",
+		On:           "aria-pressed:bg-accent aria-pressed:text-accent-foreground checked:bg-accent checked:text-accent-foreground",
+		Icon:         "pointer-events-none shrink-0 size-4",
+		IconVariants: map[Variant]string{},
 	}
 }
 
@@ -128,6 +133,6 @@ func (t Toggle) Build() tela.Node {
 	if t.AriaLabel != "" {
 		kids = append(kids, h.AriaLabel(t.AriaLabel))
 	}
-	kids = append(kids, icon(t.Icon, s.Icon), t.Children)
+	kids = append(kids, icon(t.Icon, s.Icon, s.IconVariants[t.Variant]), t.Children)
 	return h.Button(kids...)
 }

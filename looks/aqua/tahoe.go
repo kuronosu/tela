@@ -1,6 +1,8 @@
 package aqua
 
 import (
+	"strings"
+
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/kit"
 	"github.com/kuronosu/tela/looks"
@@ -66,6 +68,7 @@ func tahoeTheme() tela.Theme {
 		"accent":               tok(black(0.06), white(0.1)),
 		"accent-foreground":    tok(black(0.85), white(0.92)),
 		"destructive":          tok(tela.Hex("#ff383c"), tela.Hex("#ff4245")),
+		"destructive-text":     tok(tela.Hex("#ff383c"), tela.Hex("#ff7a7d")),
 		"border":               tok(black(0.08), white(0.1)),
 		"input":                tok(black(0.18), white(0.22)),
 		"ring":                 tok(blue, blueDark),
@@ -117,6 +120,7 @@ func tahoeFrame(s *kit.Style) {
 	g.Variants[looks.Toolbar] = "rounded-full text-foreground/75 hover:text-foreground checked:bg-glass-selected checked:text-foreground checked:" + glassRaised
 	g.Sizes[looks.ToolbarSize] = "h-[30px] w-10"
 	g.Icon = "pointer-events-none size-4 shrink-0"
+	g.IconVariants[looks.Sidebar] = "text-primary"
 }
 
 // tahoeControls is the capsule controls: buttons, fields, selects, toggles,
@@ -130,7 +134,10 @@ func tahoeControls(s *kit.Style) {
 	b.Variants[kit.Default] = "bg-primary/90 text-primary-foreground border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_4px_12px_var(--color-primary-glow)] hover:bg-primary active:bg-primary/80"
 	b.Variants[kit.Secondary] = glassSmall + " text-secondary-foreground hover:bg-glass-selected active:bg-foreground/10"
 	b.Variants[kit.Outline] = b.Variants[kit.Secondary]
-	b.Variants[kit.Destructive] = glassSmall + " text-destructive hover:bg-glass-selected active:bg-foreground/10"
+	// Red text needs a darker pane in dark: over a saturated backdrop the
+	// glass is a mid-tone, where no red passes AA, so the tint is black.
+	b.Variants[kit.Destructive] = glassSmall + " text-destructive-text hover:bg-glass-selected active:bg-foreground/10 " +
+		"dark:bg-black/50 dark:hover:bg-black/40 dark:active:bg-black/60"
 	b.Variants[kit.Ghost] = "text-foreground/80 hover:bg-foreground/8 active:bg-foreground/14"
 	b.Variants[kit.Link] = "text-primary hover:underline"
 	b.Sizes[""] = "h-8 px-4"
@@ -206,6 +213,15 @@ func tahoeControls(s *kit.Style) {
 	tb.TriggerVariants[kit.Default] = ""
 }
 
+// readableRed makes the destructive text of a recipe the token
+// destructive-text: in dark, the red over glass (a dark gray, or the wash of
+// the window behind it) reads at 3.6:1 and the lighter red passes AA.
+func readableRed(classes ...*string) {
+	for _, c := range classes {
+		*c = strings.ReplaceAll(*c, "text-destructive", "text-destructive-text")
+	}
+}
+
 // tahoeSurfaces is what Tahoe makes of the tables, menus, dialogs, tooltips
 // and cards: large radii, glass menus, and opaque cards.
 func tahoeSurfaces(s *kit.Style) {
@@ -221,6 +237,14 @@ func tahoeSurfaces(s *kit.Style) {
 		base.Swap("rounded-md border", "rounded-[20px] border", &m.Content)
 		base.Swap("rounded-sm px-2", "rounded-full px-3", &m.Item, &m.CheckboxItem, &m.RadioItem)
 		m.Content += " bg-popover backdrop-blur-2xl shadow-2xl"
+	}
+	readableRed(&s.Field.Invalid, &s.Field.Error)
+	for _, m := range []map[kit.Variant]string{s.DropdownMenu.ItemVariants, s.DropdownMenu.ItemIconVariants,
+		s.ContextMenu.ItemVariants, s.ContextMenu.ItemIconVariants, s.Alert.Variants, s.Alert.DescriptionVariants} {
+		for k, v := range m {
+			readableRed(&v)
+			m[k] = v
+		}
 	}
 	base.Swap("rounded-lg border", "rounded-[28px] border", &s.Dialog.Root, &s.AlertDialog.Root)
 	s.Dialog.Root += " backdrop-blur-2xl"

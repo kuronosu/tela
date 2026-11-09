@@ -100,7 +100,7 @@ func (w Window) Build() tela.Node {
 		body = append(body, w.sidebar())
 	}
 	body = append(body, Div(Class(r.Content), Role("main"), AriaLabel("Controls"),
-		Div(Class("flex min-h-0 flex-1 flex-col overflow-y-auto"), Controls{Columns: columns})))
+		Div(Class("flex min-h-0 flex-1 flex-col overflow-y-auto"), Controls{Columns: columns, Popup: byID(w.ID).Popup})))
 	if details {
 		body = append(body, w.detailsPane())
 	}
@@ -142,7 +142,7 @@ func (w Window) toolbar(sidebar bool, setSidebar tela.Setter[bool], columns stri
 	)
 	search := Div(Class(r.Search),
 		Icon(icons.Search, Class(r.SearchIcon)),
-		kit.Input{Type: "search", Placeholder: "Search controls", AriaLabel: "Search controls"},
+		kit.Input{Type: "search", Placeholder: "Search controls", AriaLabel: "Search controls", Class: r.SearchField},
 	)
 
 	row := []tela.Child{Class(r.Toolbar)}

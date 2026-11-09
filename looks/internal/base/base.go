@@ -75,6 +75,9 @@ func Theme(radius float32, font string, colors map[string]tela.SchemeColor) tela
 	if _, ok := colors["segment"]; !ok {
 		t.Colors["segment"] = t.Colors["accent"]
 	}
+	if _, ok := colors["destructive-text"]; !ok {
+		t.Colors["destructive-text"] = t.Colors["destructive"]
+	}
 	return t
 }
 

@@ -50,7 +50,8 @@ all of them. An app with one fixed look imports that package alone.
 Besides kit's tokens every look defines `toolbar`, `sidebar`, `field`, `edge`,
 `selection` and `selection-foreground`, and the glass tokens of Aqua (`glass`,
 `glass-strong`, `glass-selected`, `glass-edge`, `glass-highlight`,
-`glass-shadow`, `primary-glow`, `control-shadow` and `segment`; see the package
+`glass-shadow`, `primary-glow`, `control-shadow`, `segment` and
+`destructive-text`; see the package
 documentation), so the classes of any look resolve under any look's theme.
 
 ## macOS: Tahoe, Sequoia and a mix

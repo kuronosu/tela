@@ -19,7 +19,7 @@ var tokens = []string{
 	"accent", "accent-foreground", "destructive", "border", "input", "ring",
 	"toolbar", "sidebar", "field", "edge", "selection", "selection-foreground",
 	"glass", "glass-strong", "glass-selected", "glass-edge", "glass-highlight", "glass-shadow", "primary-glow",
-	"control-shadow", "segment",
+	"control-shadow", "segment", "destructive-text",
 }
 
 var designs = []aqua.Design{aqua.Tahoe, aqua.Sequoia}

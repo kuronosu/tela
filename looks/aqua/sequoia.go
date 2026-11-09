@@ -34,6 +34,7 @@ func sequoiaTheme() tela.Theme {
 		"accent":               tok(black(0.06), white(0.08)),
 		"accent-foreground":    tok(black(0.85), white(0.9)),
 		"destructive":          tok(tela.Hex("#ff3b30"), tela.Hex("#ff453a")),
+		"destructive-text":     tok(tela.Hex("#ff3b30"), tela.Hex("#ff7a7d")),
 		"border":               tok(black(0.1), white(0.1)),
 		"input":                tok(black(0.2), white(0.2)),
 		"ring":                 tok(blue, blueDark),
@@ -63,6 +64,7 @@ func sequoiaRegions() looks.Regions {
 		LocationSeparator: "flex w-3 shrink-0 items-center justify-center text-muted-foreground",
 		Search:            "relative w-[190px] shrink-0",
 		SearchIcon:        "pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground",
+		SearchField:       "border-transparent bg-foreground/8 shadow-none focus-visible:bg-field",
 		Sidebar:           "flex w-[216px] shrink-0 flex-col gap-px overflow-y-auto border-r border-border bg-sidebar p-2.5",
 		SidebarHeading:    "px-2 pt-3 pb-1 text-[11px] font-semibold text-muted-foreground first:pt-1",
 		SidebarGroup:      "gap-px",
@@ -84,6 +86,8 @@ func sequoiaFrame(s *kit.Style) {
 	g.Variants[looks.Toolbar] = "rounded-[5px] text-foreground/70 hover:text-foreground checked:bg-segment checked:text-foreground checked:" + raisedSegment
 	g.Sizes[looks.ToolbarSize] = "h-5 w-8"
 	g.Icon = "pointer-events-none size-[15px] shrink-0"
+	// The glyphs of a source list are tinted with the accent, selected or not.
+	g.IconVariants[looks.Sidebar] = "text-primary"
 }
 
 // sequoiaControls is the 6 px controls: white push buttons with a hairline

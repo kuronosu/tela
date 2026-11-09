@@ -192,7 +192,7 @@ func (g ToggleGroup[K]) Build() tela.Node {
 		if it.AriaLabel != "" {
 			ik = append(ik, h.AriaLabel(it.AriaLabel))
 		}
-		ik = append(ik, icon(it.Icon, t.Icon))
+		ik = append(ik, icon(it.Icon, t.Icon, t.IconVariants[g.Variant]))
 		if it.Children != nil {
 			ik = append(ik, it.Children)
 		} else if it.Label != "" {

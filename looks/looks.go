@@ -61,8 +61,9 @@
 //     selected piece, the 1 px edge, the highlight along the top edge, the
 //     soft shadow and the glow of the default button); control-shadow and
 //     segment: the hairline under an Aqua control and the raised segment of
-//     its segmented controls. The other looks have them follow their
-//     surfaces.
+//     its segmented controls; destructive-text: the red of text, which
+//     Tahoe's dark lightens to pass WCAG AA over its glass. The other looks
+//     have them follow their surfaces (destructive-text is destructive).
 //
 // # Extra variants
 //
@@ -124,8 +125,10 @@ type Regions struct {
 	Location, LocationCurrent, LocationSeparator string
 	// Search wraps a search field (a [kit.Input] with room for an icon at
 	// its start) and its magnifier; SearchIcon is the class of the
-	// magnifier.
-	Search, SearchIcon string
+	// magnifier. SearchField is added to the input's own classes, after
+	// the recipe's (macOS' borderless gray field); empty: the field is the
+	// style's Input.
+	Search, SearchIcon, SearchField string
 
 	// CommandBar is a second row of commands under the toolbar (Windows
 	// 11's command bar), and CommandSeparator the class of the line between

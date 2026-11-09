@@ -40,8 +40,7 @@
 // highlight along the top. Tela does not refract: the light bending at the
 // edges of Apple's glass, its lensing and its adaptive tint are not drawn.
 // The font is Inter and the icons Lucide's (the app's), never Apple's San
-// Francisco and SF Symbols, and no other asset of Apple's is used; the
-// sidebar entries' glyphs are not tinted with the accent.
+// Francisco and SF Symbols, and no other asset of Apple's is used.
 //
 // Glass costs a backdrop blur on the CPU for each piece, on every frame in
 // which what is behind it changes; the blur is cached while its input does not

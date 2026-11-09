@@ -16,6 +16,9 @@ import (
 // have any.
 type Controls struct {
 	Columns string
+	// Popup is the glyph at the end of the pop-up button; the zero value
+	// is kit's chevron down.
+	Popup tela.Icon
 }
 
 // asset is a row of the table.
@@ -74,7 +77,7 @@ func (c Controls) Build() tela.Node {
 	fields := section("Fields",
 		kit.Input{Placeholder: "Your name", AriaLabel: "Name", Class: "pl-3"},
 		kit.Select[string]{
-			Value: &fruit, OnValueChange: setFruit.Set, AriaLabel: "Fruit", Class: "w-full",
+			Value: &fruit, OnValueChange: setFruit.Set, AriaLabel: "Fruit", Class: "w-full", Icon: c.Popup,
 			Items: []kit.SelectItem[string]{
 				{Value: "apple", Label: "Apple"}, {Value: "banana", Label: "Banana"},
 				{Value: "cherry", Label: "Cherry"}, {Value: "grape", Label: "Grape", Disabled: true},
