@@ -327,6 +327,10 @@
 // At exit the session is destroyed, not removed, so the next run can
 // restore from it.
 //
+// Transparent windows (ADR-249; transparent.go) have ARGB8888 or ABGR8888
+// buffers, no opaque region, no resize edges, and the input region of the
+// mask of their frames, set before the commit that shows them.
+//
 // # Desktop services
 //
 // Desktop is the D-Bus services shared with X11

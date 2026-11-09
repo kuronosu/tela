@@ -108,6 +108,10 @@
 // The requests and the two queries go through a small interface
 // (wmServer), so unit tests check them without a server.
 //
+// Transparent windows (ADR-249; transparent.go) have the ARGB visual and
+// the input shape of the mask of their frames, and are transparent while
+// a compositing manager runs, which the backend follows.
+//
 // # Desktop integration (phase 13)
 //
 //   - Clipboard (clipboard.go, selection.go): CLIPBOARD owned by a hidden

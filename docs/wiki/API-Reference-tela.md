@@ -1527,6 +1527,22 @@ type App struct {
     // rectangle is empty. Set one of Frameless and TitleBarOverlay: Run
     // panics with both.
     TitleBarOverlay bool
+    // Transparent makes the window's unpainted pixels show the desktop:
+    // the root has no background (unless RootClass gives it one), so the
+    // root's content floats over what is below the window with its own
+    // background, radius and shadow-*, and clicks on the pixels the frame
+    // leaves transparent (or nearly: alpha under a quarter, which the
+    // shadows of shadow-* stay under) go to what is below. Make the
+    // window larger than the content so its shadow fits, with padding on
+    // the root (RootClass: "p-12 flex items-center justify-center").
+    // It needs Frameless (Run panics without it); the OS draws no shadow,
+    // border or rounded corners for it, and its edges are not resize
+    // handles (the margin is transparent), so size it with Width and
+    // Height. Where the OS cannot show transparency (X11 without a
+    // compositing manager) the window is an opaque Frameless one, which
+    // [WindowState].Transparent reports, read through [UseWindow]: an app
+    // can give its root a background there. tela dev shows it as well.
+    Transparent bool
     // AlwaysOnTop keeps the window above other windows (not on Wayland).
     AlwaysOnTop bool
     // Hidden starts the window hidden (an app that starts in the tray):
@@ -5928,6 +5944,22 @@ type Window struct {
     // rectangle is empty. Set one of Frameless and TitleBarOverlay: the
     // window panics with both.
     TitleBarOverlay bool
+    // Transparent makes the window's unpainted pixels show the desktop:
+    // the root has no background (unless RootClass gives it one), so the
+    // root's content floats over what is below the window with its own
+    // background, radius and shadow-*, and clicks on the pixels the frame
+    // leaves transparent (or nearly: alpha under a quarter, which the
+    // shadows of shadow-* stay under) go to what is below. Make the
+    // window larger than the content so its shadow fits, with padding on
+    // the root (RootClass: "p-12 flex items-center justify-center").
+    // It needs Frameless (the window panics without it); the OS draws no shadow,
+    // border or rounded corners for it, and its edges are not resize
+    // handles (the margin is transparent), so size it with Width and
+    // Height. Where the OS cannot show transparency (X11 without a
+    // compositing manager) the window is an opaque Frameless one, which
+    // [WindowState].Transparent reports, read through [UseWindow]: an app
+    // can give its root a background there. tela dev shows it as well.
+    Transparent bool
     // AlwaysOnTop keeps the window above other windows (not on Wayland,
     // which has no way to ask for it).
     AlwaysOnTop bool
@@ -5990,7 +6022,7 @@ The window belongs to the window it is declared in: it stays above it, and with 
 
 When the user asks to close the window (its close button, Alt+F4, a WindowClose control, [`WindowHandle`](#type-windowhandle).Close), OnClose runs: it should update the state that renders the Window, which unmounts it and closes the window. Without OnClose the request does nothing and the window stays open (dev mode warns once). To keep the window and its state while it is out of sight, set Hidden instead of unmounting it.
 
-The fields are applied when they change: a new Title, Width and Height, size limits, AlwaysOnTop, Hidden, Icon, TitleBar, Backdrop or RootClass update the open window. FixedSize, Frameless, TitleBarOverlay, Modal and Placement are read when it opens (give the Window a new key to open it again with others).
+The fields are applied when they change: a new Title, Width and Height, size limits, AlwaysOnTop, Hidden, Icon, TitleBar, Backdrop or RootClass update the open window. FixedSize, Frameless, TitleBarOverlay, Transparent, Modal and Placement are read when it opens (give the Window a new key to open it again with others).
 
 On a desktop whose compositor draws no title bars (GNOME on Wayland), a framed window gets Tela's fallback title bar unless its content has a title bar of its own; see [`App`](#type-app).
 
@@ -6219,7 +6251,7 @@ type WindowPlacement struct {
 type WindowState = core.WindowState
 ```
 
-WindowState is the state of a window ([`WindowHandle`](#type-windowhandle).State): Maximized, Fullscreen and Minimized as the OS reports them (Wayland cannot report minimized windows), Focused (the active window), Hidden (the app hid it), ClientSideDecorations (the OS draws no title bar: the app draws one, as a frameless or TitleBarOverlay window does, and so on a Wayland desktop without server-side decorations, such as GNOME; there Tela draws a plain one for a framed window that has none of its own, see [`App`](#type-app)) and TitleBarControls (the [`Rect`](#type-rect) the OS's window buttons cover in a TitleBarOverlay window, in the window's logical pixels: macOS's traffic lights, which the app's title bar leaves free; the zero Rect elsewhere).
+WindowState is the state of a window ([`WindowHandle`](#type-windowhandle).State): Maximized, Fullscreen and Minimized as the OS reports them (Wayland cannot report minimized windows), Focused (the active window), Hidden (the app hid it), ClientSideDecorations (the OS draws no title bar: the app draws one, as a frameless or TitleBarOverlay window does, and so on a Wayland desktop without server-side decorations, such as GNOME; there Tela draws a plain one for a framed window that has none of its own, see [`App`](#type-app)) and TitleBarControls (the [`Rect`](#type-rect) the OS's window buttons cover in a TitleBarOverlay window, in the window's logical pixels: macOS's traffic lights, which the app's title bar leaves free; the zero Rect elsewhere) and Transparent (a Transparent window whose OS shows its transparent pixels: false where it cannot, as on X11 without a compositing manager, and the window is then opaque).
 
 `WindowState` is an alias of `core.WindowState`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
 
@@ -6244,5 +6276,10 @@ type WindowState struct {
     // when the OS draws no buttons over the content (every other window,
     // and TitleBarOverlay where it acts as Frameless).
     TitleBarControls Rect
+    // Transparent: the OS shows the window's transparent pixels (a
+    // Transparent window whose OS can; ADR-249). A Transparent window
+    // the OS shows opaque (X11 without a compositing manager) reports
+    // false and renders opaque.
+    Transparent bool
 }
 ```

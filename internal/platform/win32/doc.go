@@ -647,4 +647,15 @@
 // methods that take doubles get them through small assembly thunks
 // (uiathunk_windows_*.s), since syscall callbacks take integer arguments
 // only.
+//
+// # Transparent windows
+//
+// A transparent window (ADR-249; transparent_windows.go) is a WS_EX_LAYERED
+// popup without frame, shadow, border, rounded corners, resize band or
+// backdrop, presented with UpdateLayeredWindowIndirect from a DIB section
+// instead of the retained DIB and WM_PAINT. Windows passes the pointer
+// through its zero-alpha pixels; over the pixels under
+// platform.InputAlpha, WM_NCHITTEST sets WS_EX_TRANSPARENT and a 16 ms
+// WM_TIMER polls the cursor until it is over the input mask again or off
+// the window.
 package win32

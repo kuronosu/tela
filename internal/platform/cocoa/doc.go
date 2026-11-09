@@ -195,6 +195,11 @@
 //     so the frame's premultiplied alpha shows the material
 //     (platform.AlphaPresenter); default and none remove it and make the
 //     window opaque again. SetTitleBarColors does nothing.
+//   - Transparent windows (ADR-249; transparent_darwin.go): the frameless
+//     window non-opaque with a clear background, no shadow, not
+//     resizable, no backdrop; ignoresMouseEvents while the pointer is over
+//     a pixel under platform.InputAlpha, until a cursor poll finds the
+//     input mask again.
 //
 // # Input
 //

@@ -470,6 +470,51 @@
 // any frameless window. Frameless and TitleBarOverlay exclude each other
 // (Resolve panics with both).
 //
+// # Transparent windows
+//
+// A [WindowOptions].Transparent window (ADR-249; it must be Frameless)
+// shows what is below it wherever its frames are transparent: the OS
+// composites the premultiplied alpha of Present's pixels, and the window
+// has no OS frame, shadow, border, rounded corners or resize edges (its
+// edges are usually the transparent margin around the app's content; the
+// app sizes it). [WindowState].Transparent reports whether the OS shows
+// the alpha. It is false where the OS cannot (X11 without a compositing
+// manager, a screen without a 32-bit visual), and may change while the
+// window is open (a compositing manager that starts or stops); the layers
+// above then render the window opaque, as a plain Frameless one.
+//
+// Pointer input passes through the pixels of the presented frame whose
+// alpha is below [InputAlpha] (a quarter), to what is below the window:
+// the window gets no events there, and a PointerLeave when the pointer
+// crosses from its input part into them. A pointer sequence that started
+// in the input part keeps going to the window until its release, as an
+// implicit grab. The input part is computed by each backend from the
+// frames it presents ([InputMask], updated from the damage), so it always
+// matches the pixels on screen; while WindowState.Transparent is false the
+// window takes input everywhere.
+//
+//   - Wayland: ARGB8888 (ABGR8888 where listed) wl_shm buffers with no
+//     opaque region, and the mask as the surface's input region, set
+//     before the commit of the buffer it was computed from.
+//   - X11: the screen's 32-bit TrueColor visual with its colormap; the
+//     mask as the SHAPE 1.1 input shape; transparent while an owner of
+//     _NET_WM_CM_S<screen> exists, followed through its window's
+//     DestroyNotify and the MANAGER client message.
+//   - Win32: a WS_EX_LAYERED popup presented with
+//     UpdateLayeredWindowIndirect; Windows passes the pointer through
+//     zero alpha, and pixels under InputAlpha set WS_EX_TRANSPARENT until
+//     a cursor poll finds the mask again (HTTRANSPARENT only reaches
+//     windows of the same thread).
+//   - Cocoa: a non-opaque frameless window with a clear background and no
+//     shadow; the window server passes zero alpha through, and pixels
+//     under InputAlpha set ignoresMouseEvents until a cursor poll finds
+//     the mask again.
+//   - Headless: the mask of the presented frames decides which injected
+//     pointer events are delivered (Options.NoCompositing and
+//     Window.SetCompositing play X11 without a compositing manager).
+//   - Remote: the option and the state travel (protocol 10); the host's
+//     real window computes the mask from the frames it presents.
+//
 // # Parent windows and modality
 //
 // WindowOptions.Parent makes a window the child of another open window of
@@ -589,6 +634,10 @@
 //
 // Contract v5 (ADR-246) adds accessibility: [Window.SetAccessibility],
 // [AccessibilityEvent] and [AccessActionEvent] (see "Accessibility").
+//
+// Contract v6 (ADR-249) adds transparent windows:
+// [WindowOptions].Transparent, [WindowState].Transparent and
+// [InputMask] (see "Transparent windows").
 //
 // # Drag and drop and the clipboard
 //
@@ -890,8 +939,9 @@
 // the other backends delay ShowWindow / XMapWindow / orderFront until then),
 // nor while it is hidden (see "Window control").
 // Windows are opaque, except a window with a client-area backdrop (Windows
-// 11, and macOS's materials: [AlphaPresenter], ADR-187, ADR-224), which
-// shows the frame's alpha; other backends may ignore alpha.
+// 11, and macOS's materials: [AlphaPresenter], ADR-187, ADR-224) and a
+// transparent window ([WindowState].Transparent, ADR-249), which show the
+// frame's alpha; other backends may ignore alpha.
 //
 // # Errors
 //
@@ -1443,7 +1493,8 @@
 //
 // Remote (tela dev), protocol 5 (ADR-214), 6 with contract v4 (ADR-225),
 // 7 with TrayOptions.Template (ADR-237), 9 with contract v5 (ADR-246:
-// accessibility, see "Accessibility"):
+// accessibility, see "Accessibility"), 10 with contract v6 (ADR-249:
+// transparent windows):
 // everything is forwarded to the host's backend, which owns the real
 // windows: drags in both directions (the answer to a drag reaches the OS
 // one round trip late, so a drag entering a window is refused until the
