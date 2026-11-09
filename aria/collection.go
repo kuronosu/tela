@@ -977,6 +977,10 @@ func (c *collState[K]) onItemLeave(e tela.PointerEvent) {
 	if e.Kind == tela.PointerTouch || !c.within || core.Rehovered(e) {
 		return
 	}
+	// The pointer left the item: a submenu waiting for its open delay
+	// does not open (Radix's MenuSubTrigger clears its open timer on
+	// pointer leave).
+	c.sub.openT.Stop()
 	if s := &c.sub; s.open {
 		// On the way to the open submenu, or with the focus in it: the
 		// highlight stays on its trigger.

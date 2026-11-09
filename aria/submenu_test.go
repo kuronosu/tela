@@ -196,6 +196,26 @@ func TestSubmenuHoverOpensAfterDelay(t *testing.T) {
 	app.ExpectCount(menuitem("New"), 0)
 }
 
+// The open delay ends when the pointer leaves the trigger, out of the menu
+// or onto its gap, before it runs out (React Aria and Radix cancel it): the
+// submenu does not open beside a trigger that is no longer hovered.
+func TestSubmenuHoverLeaveCancelsDelay(t *testing.T) {
+	var ev events
+	app := telatest.MountFunc(t, subMenuApp("", &ev), telatest.Size(600, 400))
+	share := menuitem("Share")
+	app.Click(telatest.ByRole("button", "Actions"))
+	app.Hover(share)
+	app.Advance(aria.SubmenuDelay / 2)
+	app.MouseMove(580, 380) // out of the menu
+	app.Advance(aria.SubmenuDelay * 2)
+	app.ExpectCount(menuitem("Email"), 0)
+	app.Expect(share, telatest.Expanded(false))
+	// Back on the trigger, the delay starts over and opens it.
+	app.Hover(share)
+	app.Advance(aria.SubmenuDelay * 2)
+	app.ExpectCount(menuitem("Email"), 1)
+}
+
 // moveTo moves the mouse in steps the grace looks at (one every 60 ms).
 func moveTo(app *telatest.App, pts ...[2]float32) {
 	for _, p := range pts {
