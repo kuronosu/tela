@@ -12,6 +12,38 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
+Phase 21, Kit and window follow-ups (ADR-255 to ADR-259).
+
+### Breaking
+
+- `telatest.App.Move` is renamed `App.MoveWindow` (it moves the window; `MouseMove` moves the pointer). No deprecation cycle while Tela has no outside users (the owner's choice).
+
+### Added
+
+- Window resizing (ADR-257): `h.WindowResize` with `tela.ResizeBand` and `tela.ResizeEdges` puts resize handles inside a card's edges, so transparent and frameless windows can be resized on Wayland, X11, Windows and macOS.
+- Menus (ADR-255): a drawn `kit.Menubar` with `AppMenu` is reached with F10 or a lone Alt on Windows and Linux (`aria.MenuBarOptions.ActivationKeys`); `MenuBarResult.FocusedBefore` and `MenuTriggerResult.FocusedBefore`; `aria.MenuOptions.ShouldCloseOnInteractOutside`; `kit.MenuItem.ContentClass` styles a submenu's panel; `kit.LoadingTrigger` keeps an overlay closed while a custom trigger is loading.
+- kit (ADR-256): `Input.EndContent` (a button inside the field, such as a password reveal), `Separator.CaptionAlign`, `Alert.Action`, `Field.ErrorContent`; `kit.SelectStyle.DefaultIcon` (ADR-258).
+- Animations (ADR-256): `duration-*` and `ease-*` also act on `animate-*` animations, and `animation-duration-*`, `repeat-*`, `direction-*`, `fill-mode-*` and the arbitrary `[animation-duration:…]`, `[animation-timing-function:…]`, `[animation-iteration-count:…]`, `[animation-direction:…]`, `[animation-fill-mode:…]`.
+- `aria.ProgressBarOptions.ValueFn` and `MeterOptions.ValueFn`, with `PercentFn` and `ValueTextFn` (ADR-256).
+- `i18n.Replace` and `i18n.Unload` (ADR-258).
+- Desktop (ADR-259): `desktop.MenuItem.AccessKey` (the app's own access key in Windows menus, "ファイル(&F)"), `desktop.Launch.AtStart` (the file that started a macOS app), `desktop.Registration.Role`, `tela.WindowHandle.Destroy` (closes without asking the `UseCloseRequest` handlers).
+- Text fields: a drop selects the dropped text, a caret shows where dragged text would go, and selected text can be dragged out (a move; Ctrl, or Option on a Mac, copies) (ADR-259).
+
+### Changed
+
+- A click on a `WindowDrag` area closes an outside-press overlay on X11, Windows and macOS too (ADR-257); macOS gives a transparent window's backdrop the card's shape and hands the pointer back from click-through on mouse events, a press on a faint pixel is no longer swallowed (macOS, Windows), and X11 notices a compositing manager that starts without announcing itself (XFixes).
+- Menus: a press on another menu bar button while a submenu is open switches to that menu; standard items (Copy, Paste…) act on the field the focus came from, also when the menu was opened from the keyboard; shortcuts read left to right in right-to-left menus; Shift+F10 opens a context menu at the focused element's center or a text field's caret, as Chromium does; a controlled `ContextMenu.Open` set to true counts as an opening; drawn role labels follow `i18n.Provider`; `WindowHandle.ActiveElement` returns a stable ref (ADR-255).
+- A `Field` around a `RadioGroup` or `ToggleGroup` no longer warns that its label names no control; `BackgroundGradientFn` keeps the background layers below it; a `Preview` as `App.Root` applies its theme and scheme in `Run` and `Main` (ADR-256).
+- `i18n`: plain `ar` uses Latin digits as CLDR 48 and ICU do (`ar-EG`, `ar-SA` keep Arabic-Indic); numbers use CLDR 48 symbols, patterns and minimum grouping (Nepali grouping, ckb and sd symbols, French's narrow no-break space; es, pl and pt-PT no longer group four-digit numbers) (ADR-258, ADR-259).
+- Windows: translated message box buttons widen to their text. X11 and Windows: a window restored to a saved position keeps its title bar and frame on screen (ADR-259).
+- Stores merge another program's change made during a write and see a file appear in a folder created later; macOS watches files with kqueue instead of polling, `tela dev` too (ADR-259).
+- `looks/aqua`: red text and Tahoe's dark glass controls pass WCAG AA, the toolbar search field follows the controls' design, and pop-up buttons draw the double chevron by default (ADR-258).
+- The kit gallery is translated into Spanish and Arabic on every page, and shows phase 20 and 21's pieces; `examples/dashboard` uses `kit.Progress{ValueFn}` and `ToggleGroup.Indicator`; `examples/login`'s password reveal is `kit.Input`'s `EndContent`.
+
+### Fixed
+
+- `tela dev`'s error overlay no longer paints a transparent window's margin black; an open drawn message box's window title follows a language change.
+
 ## [0.14.0] - 2026-11-08
 
 Phase 20, API and kit gaps (ADR-247 to ADR-254): submenus, transparent windows, new kit pieces, deferred forms, built-in labels, and app and desktop gaps. It breaks `desktop.Launch.Forwarded`.
