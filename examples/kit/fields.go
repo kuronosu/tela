@@ -123,7 +123,7 @@ func fieldPage() tela.Node {
 				Children:     kit.Input{Placeholder: "Mei Tanaka"}}),
 		demo("A counter", "DescriptionEnd sits at the end of the description's line: a character counter beside the help text.", col,
 			kit.Field{Class: "max-w-sm", Label: tr("field.bio", "Bio"), Description: tr("field.bioHelp", "A line about yourself."),
-				DescriptionEnd: Span(Class("text-xs text-muted-foreground tabular-nums"),
+				DescriptionEnd: Span(Class("text-xs text-muted-foreground tabular-nums"), Dir("ltr"), // "29 / 140" in every direction
 					Text(tr("field.count", "{n} / {max}", "n", f.Number(float64(utf8.RuneCountInString(bio))), "max", f.Number(bioLimit)))),
 				Children: kit.Textarea{Value: &bio, OnValueChange: setBio.Set, MaxLength: bioLimit, Rows: 3}}),
 		demo("A rich description", "DescriptionContent takes any inline content, such as a link.", col,
