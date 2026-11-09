@@ -3337,7 +3337,7 @@ kit.Progress{Value: 512, Max: 2048, FormatValue: func(v float64) string { return
 
 Use Indeterminate while the amount is unknown. For a measure that is not the progress of a task, such as disk usage, use aria.UseMeter.
 
-A value that changes many times a second (a download, a tween) goes in ValueFn instead, which is read when the bar is painted and when the semantics tree is built: the bar moves and aria-valuenow follows without building the component (ADR-250).
+A value that changes many times a second (a download, a tween) goes in ValueFn instead, which is read when the bar is painted and when the semantics tree is built: the bar moves and aria-valuenow follows without building the component (ADR-250). The indicator is a layer of its own while ValueFn is set (a few drawing commands: a new value records only it); a bar that is done changing can take Value instead, with the same hooks, to be an ordinary box again (ADR-263).
 
 ```go
 done := tela.UseValue(0.0) // the download's goroutine calls done.Set(percent)
