@@ -230,3 +230,44 @@ func TestDropdownSubmenuGolden(t *testing.T) {
 		})
 	}
 }
+
+// A key is unique across the whole menu, every level: two submenus with
+// the same key inside, or an item after a submenu with one of its keys,
+// would make a native menu run the wrong handler (flattenDeep keeps one).
+func TestMenuSubmenuDuplicateKeyAcrossLevelsPanics(t *testing.T) {
+	sub := func(key string, items ...kit.MenuItem[string]) kit.MenuItem[string] {
+		return kit.MenuItem[string]{Kind: kit.MenuSub, Key: key, Label: key, Items: items}
+	}
+	cases := map[string][]kit.MenuItem[string]{
+		"sibling submenus": {
+			sub("a", kit.MenuItem[string]{Key: "x", Label: "X in a"}),
+			sub("b", kit.MenuItem[string]{Key: "x", Label: "X in b"}),
+		},
+		"item after the submenu": {
+			sub("a", kit.MenuItem[string]{Key: "x", Label: "X in a"}),
+			{Key: "x", Label: "X"},
+		},
+		"radio item after the submenu": {
+			sub("a", kit.MenuItem[string]{Key: "x", Label: "X in a"}),
+			{Kind: kit.MenuRadioGroup, Key: "g", Items: []kit.MenuItem[string]{{Key: "x", Label: "X"}}},
+		},
+		"nested submenus": {
+			sub("a", sub("a1", kit.MenuItem[string]{Key: "x", Label: "X in a1"})),
+			sub("b", sub("b1", kit.MenuItem[string]{Key: "x", Label: "X in b1"})),
+		},
+	}
+	for name, items := range cases {
+		t.Run(name, func(t *testing.T) {
+			defer func() {
+				r := recover()
+				if r == nil || !strings.Contains(fmt.Sprint(r), `key x`) {
+					t.Errorf("recover() = %v, want the duplicate key named", r)
+				}
+			}()
+			app := telatest.MountFunc(t, func() tela.Node {
+				return kit.DropdownMenu[string]{Trigger: kit.Button{Children: h.Text("Open")}, Items: items}
+			}, telatest.Theme(kit.Theme()))
+			app.Click(telatest.ByRole("button", "Open"))
+		})
+	}
+}

@@ -424,10 +424,20 @@ type menuFlat[K comparable] struct {
 func flattenMenu[K comparable](component string, items []MenuItem[K]) *menuFlat[K] {
 	f := &menuFlat[K]{entries: map[K]menuEntry[K]{}, text: map[K]string{}}
 	groups := map[K]bool{}
+	// deep holds, in dev mode, the keys of the submenus' entries at every
+	// depth: a key is unique across the whole menu, or a native menu,
+	// whose choices come from any level (flattenDeep), would run the
+	// wrong item.
+	deep := map[K]bool{}
 	var walk func(items []MenuItem[K], radio *MenuItem[K], off bool)
 	add := func(it MenuItem[K], radio *MenuItem[K], off bool) {
-		if _, dup := f.entries[it.Key]; dup && devMode() {
-			panic(fmt.Sprintf("kit: %s has two items with the key %v; give each item that can be chosen its own Key", component, it.Key))
+		if devMode() {
+			if _, dup := f.entries[it.Key]; dup {
+				panic(fmt.Sprintf("kit: %s has two items with the key %v; give each item that can be chosen its own Key", component, it.Key))
+			}
+			if deep[it.Key] {
+				panic(fmt.Sprintf("kit: %s has two items with the key %v (one in a submenu); give each item that can be chosen, in every submenu, its own Key", component, it.Key))
+			}
 		}
 		f.entries[it.Key] = menuEntry[K]{item: it, group: radio}
 		f.keys = append(f.keys, it.Key)
@@ -444,7 +454,7 @@ func flattenMenu[K comparable](component string, items []MenuItem[K]) *menuFlat[
 				add(it, nil, off)
 				f.subs = append(f.subs, it.Key)
 				if devMode() {
-					checkSubKeys(component, it.Items, f.entries)
+					checkSubKeys(component, it.Items, f.entries, deep)
 				}
 			case MenuPlain, MenuCheckbox:
 				if it.Role != desktop.RoleNone && devMode() {
@@ -475,19 +485,19 @@ func flattenMenu[K comparable](component string, items []MenuItem[K]) *menuFlat[
 }
 
 // checkSubKeys panics, in dev mode, when an entry of a submenu (at any
-// depth) has the Key of an item of the menus above it: the menu's OnSelect
-// could not tell them apart.
-func checkSubKeys[K comparable](component string, items []MenuItem[K], seen map[K]menuEntry[K]) {
-	keys := map[K]bool{}
+// depth) has the Key of an item of the menu (seen) or of another submenu
+// entry met before it (deep, which it adds the submenu's keys to): the
+// menu's OnSelect could not tell them apart.
+func checkSubKeys[K comparable](component string, items []MenuItem[K], seen map[K]menuEntry[K], deep map[K]bool) {
 	var walk func(items []MenuItem[K])
 	walk = func(items []MenuItem[K]) {
 		for _, it := range items {
 			switch it.Kind {
 			case MenuPlain, MenuCheckbox, MenuSub:
-				if _, dup := seen[it.Key]; dup || keys[it.Key] {
+				if _, dup := seen[it.Key]; dup || deep[it.Key] {
 					panic(fmt.Sprintf("kit: %s has two items with the key %v (one in a submenu); give each item that can be chosen, in every submenu, its own Key", component, it.Key))
 				}
-				keys[it.Key] = true
+				deep[it.Key] = true
 				if it.Kind == MenuSub {
 					walk(it.Items)
 				}
