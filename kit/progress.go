@@ -8,7 +8,6 @@ package kit
 import (
 	"fmt"
 	"math"
-	"strconv"
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/aria"
@@ -91,10 +90,12 @@ type Progress struct {
 func (p Progress) Build() tela.Node {
 	s := &UseStyle().Progress
 	live := p.ValueFn != nil && !p.Indeterminate
-	// A live bar's value is set below, read when the semantics are built:
-	// the hook gets no value (Indeterminate) for it.
-	pb := aria.UseProgressBar(aria.ProgressBarOptions{Value: p.Value, Max: p.Max, Indeterminate: p.Indeterminate || live,
-		FormatValue: p.FormatValue, AriaLabel: p.AriaLabel})
+	opts := aria.ProgressBarOptions{Value: p.Value, Max: p.Max, Indeterminate: p.Indeterminate,
+		FormatValue: p.FormatValue, AriaLabel: p.AriaLabel}
+	if live {
+		opts.ValueFn = p.ValueFn
+	}
+	pb := aria.UseProgressBar(opts)
 	// The same hooks with and without ValueFn, so a bar may switch.
 	bar := tela.UseElementRef()
 	size := tela.UseSize(bar)
@@ -114,36 +115,16 @@ func (p Progress) Build() tela.Node {
 
 // live is the bar of a Progress with ValueFn: the indicator is slid by a
 // tela.TranslateFn of its own width (what a percentage of translate-x is
-// of), and the value reaches the semantics through h.AriaValueNowFn and
-// h.AriaValueTextFn, so a change of the Values ValueFn reads repaints and
-// builds nothing.
+// of), and the value reaches the semantics through the hook's
+// h.AriaValueNowFn and h.AriaValueTextFn, so a change of the Values ValueFn
+// reads repaints and builds nothing.
 func (p Progress) live(s *ProgressStyle, pb aria.ProgressBarResult, bar tela.ElementRef, size *tela.Value[tela.Size], dir string) tela.Node {
-	// The range of aria.UseProgressBar, which has checked it.
-	lo, hi := 0.0, p.Max
-	if hi == 0 {
-		hi = 100
-	}
-	value := func() float64 {
-		v := p.ValueFn()
-		if v != v {
-			v = lo
-		}
-		return min(max(v, lo), hi)
-	}
-	percent := func() float64 { return (value() - lo) / (hi - lo) * 100 }
 	sign := float32(-1) // toward the start: left, or right under rtl
 	if dir == "rtl" {
 		sign = 1
 	}
-	format := p.FormatValue
-	text := func() string {
-		if format != nil {
-			return format(value())
-		}
-		return strconv.FormatFloat(math.Floor(percent()+0.5), 'f', -1, 64) + "%"
-	}
-	return h.Div(cls(s.Root, p.Class), pb.Props, h.AriaValueNowFn(value), h.AriaValueTextFn(text), p.Props,
+	return h.Div(cls(s.Root, p.Class), pb.Props, p.Props,
 		h.Div(h.Ref(bar), cls(s.Indicator, p.IndicatorClass), h.Style(tela.TranslateFn(func() (x, y float32) {
-			return sign * float32((100-percent())/100) * size.Get().Width, 0
+			return sign * float32((100-pb.PercentFn())/100) * size.Get().Width, 0
 		}))))
 }

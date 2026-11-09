@@ -20,6 +20,14 @@ type ProgressBarOptions struct {
 	// Value is the progress, from Min to Max. It is ignored while
 	// Indeterminate.
 	Value float64
+	// ValueFn, when not nil, is read in place of Value, not while the
+	// component builds but when the bar is painted and when the semantics
+	// tree is built, so a tela.Value it reads moves the bar and the
+	// bar's aria-valuenow without building anything (ADR-250, ADR-256).
+	// The result then has PercentFn and ValueTextFn instead of Percent and
+	// ValueText. NaN is Min, and the value is clamped to the range as
+	// Value is.
+	ValueFn func() float64
 	// Min and Max are the ends of the scale. Min is 0 by default and Max
 	// 100 when both are 0.
 	Min, Max float64
@@ -44,6 +52,9 @@ type ProgressBarOptions struct {
 type MeterOptions struct {
 	// Value is the measure, from Min to Max.
 	Value float64
+	// ValueFn is read in place of Value, deferred as
+	// [ProgressBarOptions].ValueFn is.
+	ValueFn func() float64
 	// Min and Max are the ends of the scale. Min is 0 by default and Max
 	// 100 when both are 0.
 	Min, Max float64
@@ -69,11 +80,20 @@ type ProgressBarResult struct {
 	// Percent is the value as a percentage of the range, from 0 to 100
 	// (React Aria's percentage is a fraction from 0 to 1): the width of the
 	// fill, as Class(fmt.Sprintf("w-[%g%%]", p.Percent)) or a tela.WidthFn
-	// of the bar's size. It is 0 for an indeterminate bar.
+	// of the bar's size. It is 0 for an indeterminate bar and, with a
+	// ValueFn, always (use PercentFn).
 	Percent float64
 	// ValueText is the value as people read it (aria-valuetext); empty
-	// for an indeterminate bar.
+	// for an indeterminate bar and with a ValueFn (use ValueTextFn).
 	ValueText string
+	// PercentFn and ValueTextFn are Percent and ValueText read now, for
+	// options with a ValueFn (nil otherwise). Call them in paint-phase
+	// closures (tela.WidthFn, tela.TranslateFn) so that the bar follows
+	// the value without a build:
+	//
+	//	h.Style(tela.WidthFn(func() float32 { return float32(p.PercentFn()) / 100 * track.Get().Width }))
+	PercentFn   func() float64
+	ValueTextFn func() string
 }
 
 // UseProgressBar returns the props of a progress bar (React Aria's
@@ -85,7 +105,7 @@ type ProgressBarResult struct {
 //	return Div(p.Props, Class("h-2 w-64 overflow-hidden rounded-full bg-muted"),
 //	    Div(Class("h-full bg-primary transition-all"), Class(fmt.Sprintf("w-[%g%%]", p.Percent))))
 func UseProgressBar(o ProgressBarOptions) ProgressBarResult {
-	return useRange("UseProgressBar", "progressbar", o.Value, o.Min, o.Max, o.Indeterminate, o.FormatValue, o.AriaLabel, o.AriaLabelledBy)
+	return useRange("UseProgressBar", "progressbar", o.Value, o.ValueFn, o.Min, o.Max, o.Indeterminate, o.FormatValue, o.AriaLabel, o.AriaLabelledBy)
 }
 
 // UseMeter returns the props of a meter (React Aria's useMeter): the
@@ -95,10 +115,10 @@ func UseProgressBar(o ProgressBarOptions) ProgressBarResult {
 //	return Div(m.Props, Class("h-2 w-64 rounded-full bg-muted"),
 //	    Div(Class("h-full bg-primary"), Class(fmt.Sprintf("w-[%g%%]", m.Percent))))
 func UseMeter(o MeterOptions) ProgressBarResult {
-	return useRange("UseMeter", "meter", o.Value, o.Min, o.Max, false, o.FormatValue, o.AriaLabel, o.AriaLabelledBy)
+	return useRange("UseMeter", "meter", o.Value, o.ValueFn, o.Min, o.Max, false, o.FormatValue, o.AriaLabel, o.AriaLabelledBy)
 }
 
-func useRange(hook, role string, value, lo, hi float64, indeterminate bool, format func(float64) string, label string, labelledBy tela.ElementRef) ProgressBarResult {
+func useRange(hook, role string, value float64, valueFn func() float64, lo, hi float64, indeterminate bool, format func(float64) string, label string, labelledBy tela.ElementRef) ProgressBarResult {
 	labelRef := tela.UseElementRef()
 	if lo == 0 && hi == 0 {
 		hi = 100
@@ -106,7 +126,13 @@ func useRange(hook, role string, value, lo, hi float64, indeterminate bool, form
 	if hi <= lo && core.DevNow() {
 		panic(fmt.Sprintf("aria: %s: Max (%g) must be greater than Min (%g)", hook, hi, lo))
 	}
-	value = min(max(value, lo), hi)
+	clamp := func(v float64) float64 {
+		if v != v {
+			v = lo
+		}
+		return min(max(v, lo), hi)
+	}
+	value = clamp(value)
 	name := h.AriaLabelledBy(labelRef)
 	switch {
 	case label != "":
@@ -116,7 +142,20 @@ func useRange(hook, role string, value, lo, hi float64, indeterminate bool, form
 	}
 	ps := []tela.Prop{h.Role(role), name, h.AriaValueMin(lo), h.AriaValueMax(hi)}
 	r := ProgressBarResult{LabelProps: h.Ref(labelRef)}
-	if !indeterminate {
+	switch {
+	case indeterminate:
+	case valueFn != nil:
+		// Read when painted and when the semantics are built, never here.
+		current := func() float64 { return clamp(valueFn()) }
+		r.PercentFn = func() float64 { return (current() - lo) / (hi - lo) * 100 }
+		r.ValueTextFn = func() string {
+			if format != nil {
+				return format(current())
+			}
+			return percentText(r.PercentFn())
+		}
+		ps = append(ps, h.AriaValueNowFn(current), h.AriaValueTextFn(r.ValueTextFn))
+	default:
 		r.Percent = (value - lo) / (hi - lo) * 100
 		r.ValueText = percentText(r.Percent)
 		if format != nil {

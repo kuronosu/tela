@@ -165,7 +165,8 @@ type App struct {
 	// or a function component made with [C] (Root: Notes(), where Notes
 	// returns tela.C(notes)). It is a
 	// component of its own, so it may use hooks. A [Node] works too, but a
-	// root that uses hooks must be a component.
+	// root that uses hooks must be a component. A [Preview] works too, and
+	// its Theme and ColorScheme win over this App's.
 	Root Component
 	// ClassicScrollbars draws always-visible classic scrollbars (a
 	// Windows look) that take space next to the content, instead of the
@@ -360,6 +361,17 @@ var (
 // Options.Window, a core.WindowSpec (TestWindowFieldsReachCore checks that
 // none is left out).
 func (app App) options() core.Options {
+	// A Preview as the root keeps its own theme and color scheme, which win
+	// over the app's, as in `tela snapshot` and telatest (ADR-256).
+	theme, scheme := app.Theme, app.ColorScheme
+	if p, ok := app.Root.(Preview); ok {
+		if p.Theme != nil {
+			theme = p.Theme
+		}
+		if p.ColorScheme == Light || p.ColorScheme == Dark {
+			scheme = p.ColorScheme
+		}
+	}
 	return core.Options{
 		Config: core.Config{
 			RootClass:         app.RootClass,
@@ -367,8 +379,8 @@ func (app App) options() core.Options {
 			InstantScroll:     app.InstantScroll,
 			NativeMenus:       app.NativeMenus,
 			IgnoreTextScale:   app.IgnoreTextScale,
-			ColorScheme:       app.ColorScheme,
-			Theme:             (*core.Theme)(app.Theme),
+			ColorScheme:       scheme,
+			Theme:             (*core.Theme)(theme),
 			ClassAliases:      app.ClassAliases,
 			Dev:               core.ResolveDev(app.Dev),
 		},
