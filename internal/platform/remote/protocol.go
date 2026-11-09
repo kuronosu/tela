@@ -43,7 +43,8 @@ import (
 //     AccessibilityEvent and AccessActionEvent.
 //   - 10: platform contract v6 (ADR-249): WindowOptions.Transparent and
 //     WindowState.Transparent.
-const ProtocolVersion = 10
+//   - 11: platform contract v7 (ADR-252): CaptionClickEvent.
+const ProtocolVersion = 11
 
 // magic opens the hello message.
 const magic = "TELA"
@@ -372,6 +373,8 @@ const (
 	// Version 9 (ADR-246).
 	evAccessibility
 	evAccessAction
+	// Version 11 (ADR-252).
+	evCaptionClick
 )
 
 // event encodes ev. It panics on an event type it does not know, which
@@ -506,6 +509,10 @@ func (e *enc) event(ev platform.Event) {
 		e.f32(ev.DY)
 		e.i64(int64(ev.Selection.Anchor))
 		e.i64(int64(ev.Selection.Focus))
+	case platform.CaptionClickEvent:
+		e.u8(evCaptionClick)
+		e.point(ev.Pos)
+		e.dur(ev.Time)
 	default:
 		panic(fmt.Sprintf("remote: no wire encoding for event %T; add one to protocol.go", ev))
 	}
@@ -630,6 +637,8 @@ func (d *dec) event() platform.Event {
 			DY:        d.f32(),
 			Selection: platform.AccessSelection{Anchor: int(d.i64()), Focus: int(d.i64())},
 		}
+	case evCaptionClick:
+		return platform.CaptionClickEvent{Pos: d.point(), Time: d.dur()}
 	default:
 		if d.err == nil {
 			d.err = fmt.Errorf("remote: unknown event tag %d", tag)

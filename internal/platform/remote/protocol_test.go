@@ -59,6 +59,7 @@ var eventSamples = []platform.Event{
 	platform.AccessibilityEvent{Active: true},
 	platform.AccessActionEvent{Node: 1<<41 | 9, Action: platform.AccessActionSetSelection, Value: "ana@example.com", DX: -2.5, DY: 40,
 		Selection: platform.AccessSelection{Anchor: 7, Focus: 3}},
+	platform.CaptionClickEvent{Pos: platform.Point{X: 120.5, Y: 14}, Time: 42 * time.Millisecond},
 }
 
 // TestEveryEventHasAnEncoding fails when package platform gains an event

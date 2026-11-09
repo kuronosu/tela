@@ -44,8 +44,8 @@
 // The event set: ConfigureEvent, FrameEvent, CloseRequestedEvent,
 // FocusEvent, WakeEvent, SettingsEvent, PointerEvent, ScrollEvent,
 // KeyEvent, IMEEvent, IMESessionEvent, WindowStateEvent, DragEvent,
-// DragDoneEvent, MenuEvent, AccessibilityEvent, AccessActionEvent, and
-// the app-scoped NotificationEvent, TrayEvent, ShortcutEvent,
+// DragDoneEvent, MenuEvent, AccessibilityEvent, AccessActionEvent,
+// CaptionClickEvent, and the app-scoped NotificationEvent, TrayEvent, ShortcutEvent,
 // ShortcutStatusEvent, LaunchEvent, QuitRequestedEvent and AppMenuEvent.
 //
 // # Threading
@@ -433,6 +433,14 @@
 //     button over a caption region is delivered (hover effects work): on
 //     Win32 the backend turns WM_NCMOUSEMOVE into PointerMove and reports
 //     no leave when the pointer crosses between client and caption areas.
+//     A primary click there that neither moved nor maximized the window
+//     (released inside the drag threshold, not the second click of a
+//     double click) is reported at its release as a [CaptionClickEvent]
+//     (contract v7, ADR-252), so the app can treat it as a press outside
+//     its open overlays. Only a backend that waits for the drag threshold
+//     before the move starts can tell: Wayland (8 logical pixels, GTK's)
+//     and headless send it, and remote forwards it; X11, Win32 and Cocoa
+//     give the press to the OS's move at once and send none.
 //   - Pointer events over HitMinimize, HitMaximize and HitClose regions are
 //     delivered to the app as usual (presses, releases, moves): the app's
 //     buttons perform the action. The regions only give the OS their
@@ -638,6 +646,9 @@
 // Contract v6 (ADR-249) adds transparent windows:
 // [WindowOptions].Transparent, [WindowState].Transparent and
 // [InputMask] (see "Transparent windows").
+//
+// Contract v7 (ADR-252) adds [CaptionClickEvent] (see "Custom title
+// bars").
 //
 // # Drag and drop and the clipboard
 //
@@ -1340,8 +1351,9 @@
 //     window grown so the client area keeps its size
 //     (AdjustWindowRectExForDpi with bMenu); WM_COMMAND from a menu is a
 //     MenuEvent (command IDs are 16 bits: the backend maps MenuItemIDs).
-//     The bar gets access keys of its own (the first free Latin letter or
-//     digit of each label), opens on the release of a lone Alt or F10 and
+//     The bar gets access keys of its own (the first free letter or digit
+//     of each label, of a script typed without an IME; "(&A)" appended to
+//     the others, as Chinese, Japanese and Korean apps do, ADR-252), opens on the release of a lone Alt or F10 and
 //     with Alt+access key (SC_KEYMENU, after the KeyEvents), and is drawn
 //     dark under the system's dark mode (WM_UAHDRAWMENU; ADR-234), and its
 //     drop-downs, the popup menus and the tray menus are dark too, through
@@ -1494,7 +1506,7 @@
 // Remote (tela dev), protocol 5 (ADR-214), 6 with contract v4 (ADR-225),
 // 7 with TrayOptions.Template (ADR-237), 9 with contract v5 (ADR-246:
 // accessibility, see "Accessibility"), 10 with contract v6 (ADR-249:
-// transparent windows):
+// transparent windows), 11 with contract v7 (ADR-252: caption clicks):
 // everything is forwarded to the host's backend, which owns the real
 // windows: drags in both directions (the answer to a drag reaches the OS
 // one round trip late, so a drag entering a window is refused until the

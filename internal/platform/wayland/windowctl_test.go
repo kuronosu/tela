@@ -726,7 +726,30 @@ func TestResizeEdgesAndCaption(t *testing.T) {
 	if _, i := find(reqs, "xdg_toplevel.move"); i >= 0 {
 		t.Errorf("a double click started a move: %v", names(reqs))
 	}
+	// Its first click was a click (ADR-252); the second, which
+	// maximized, is not.
+	if ce := expect[platform.CaptionClickEvent](h); ce.Pos != (platform.Point{X: 120, Y: 12}) {
+		t.Errorf("caption click at %v, want the pointer's 120,12", ce.Pos)
+	}
 	h.noEvent(50 * time.Millisecond)
+
+	// A click that moves within the threshold is reported at its release,
+	// a chord is not.
+	button(34, btnLeft, true)
+	move(124, 14)
+	button(35, btnLeft, false)
+	if ce := expect[platform.CaptionClickEvent](h); ce.Pos != (platform.Point{X: 124, Y: 14}) {
+		t.Errorf("caption click at %v, want 124,14", ce.Pos)
+	}
+	move(150, 12) // away from the click: no double click
+	expect[platform.PointerEvent](h)
+	button(36, btnLeft, true)
+	button(37, btnMiddle, true)
+	button(38, btnLeft, false)
+	button(39, btnMiddle, false)
+	h.noEvent(50 * time.Millisecond)
+	move(120, 12)
+	expect[platform.PointerEvent](h)
 
 	// A secondary click opens the window menu at the pointer.
 	button(40, btnRight, true)

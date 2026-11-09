@@ -204,13 +204,37 @@ func TestCaptionRegions(t *testing.T) {
 	press := func(action platform.PointerAction, button platform.PointerButton, x, y float32) {
 		w.Inject(platform.PointerEvent{Action: action, Button: button, Pos: platform.Point{X: x, Y: y}})
 	}
-	// A primary press in the caption is the OS's, up to its release.
+	// A primary press in the caption is the OS's, up to its release: a
+	// drag moves the window and the app hears nothing.
 	press(platform.PointerDown, platform.ButtonPrimary, 10, 10)
 	press(platform.PointerMove, platform.ButtonNone, 60, 12)
 	press(platform.PointerUp, platform.ButtonPrimary, 60, 12)
 	expectEvents(t, b, r, "")
 	if w.CaptionDrags() != 1 {
 		t.Errorf("CaptionDrags = %d", w.CaptionDrags())
+	}
+	// A press that comes back inside the threshold was still a drag.
+	b.Advance(time.Second)
+	press(platform.PointerDown, platform.ButtonPrimary, 200, 10)
+	press(platform.PointerMove, platform.ButtonNone, 210, 10)
+	press(platform.PointerMove, platform.ButtonNone, 201, 10)
+	press(platform.PointerUp, platform.ButtonPrimary, 201, 10)
+	expectEvents(t, b, r, "")
+	// A click within the threshold is reported at its release (ADR-252);
+	// a chord is not a click.
+	b.Advance(time.Second)
+	press(platform.PointerDown, platform.ButtonPrimary, 300, 10)
+	press(platform.PointerMove, platform.ButtonNone, 305, 14)
+	press(platform.PointerUp, platform.ButtonPrimary, 305, 14)
+	expectEvents(t, b, r, "w:captionclick(305,14)")
+	b.Advance(time.Second)
+	press(platform.PointerDown, platform.ButtonPrimary, 300, 10)
+	press(platform.PointerDown, platform.ButtonSecondary, 300, 10)
+	press(platform.PointerUp, platform.ButtonPrimary, 300, 10)
+	press(platform.PointerUp, platform.ButtonSecondary, 300, 10)
+	expectEvents(t, b, r, "")
+	if w.CaptionDrags() != 4 {
+		t.Errorf("CaptionDrags = %d, want 4", w.CaptionDrags())
 	}
 	// The hole and the button are ordinary content.
 	press(platform.PointerDown, platform.ButtonPrimary, 120, 10)
@@ -225,12 +249,12 @@ func TestCaptionRegions(t *testing.T) {
 	press(platform.PointerUp, platform.ButtonPrimary, 10, 10)
 	press(platform.PointerDown, platform.ButtonPrimary, 11, 10)
 	press(platform.PointerUp, platform.ButtonPrimary, 11, 10)
-	expectEvents(t, b, r, "w:state{maximized csd} w:configure(1000x800@1x (1000x800 px)) w:frame(1s)")
+	expectEvents(t, b, r, "w:captionclick(10,10) w:state{maximized csd} w:configure(1000x800@1x (1000x800 px)) w:frame(4s)")
 	// A secondary press opens the window menu.
 	press(platform.PointerDown, platform.ButtonSecondary, 10, 10)
 	press(platform.PointerUp, platform.ButtonSecondary, 10, 10)
 	expectEvents(t, b, r, "")
-	if w.WindowMenus() != 1 || w.CaptionDrags() != 2 {
+	if w.WindowMenus() != 1 || w.CaptionDrags() != 5 {
 		t.Errorf("WindowMenus = %d, CaptionDrags = %d", w.WindowMenus(), w.CaptionDrags())
 	}
 	expectPanic(t, "invalid kind", func() { w.SetHitRegions([]platform.HitRegion{{Kind: 9}}) })

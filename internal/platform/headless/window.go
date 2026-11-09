@@ -205,7 +205,10 @@ func (w *Window) closeLocked() {
 // release are not delivered; a primary press starts a move (counted by
 // CaptionDrags), two primary presses within the double-click interval
 // toggle maximize, and a secondary press opens the window menu (counted by
-// WindowMenus).
+// WindowMenus). A primary press released within 8 logical pixels of where
+// it started, with no other button pressed meanwhile and not the second
+// click of a double click, is also a click: its release queues a
+// CaptionClickEvent (ADR-252).
 //
 // Key events follow the platform keyboard contract, and Inject enforces it
 // so that tests describe sequences a real backend can produce: the window
@@ -231,7 +234,11 @@ func (w *Window) Inject(e platform.Event) {
 		if ev.Time == 0 {
 			ev.Time = w.b.Now()
 		}
-		if w.draggedPointer(ev) || w.captionPointer(ev) {
+		if w.draggedPointer(ev) {
+			return
+		}
+		if w.captionPointer(ev) {
+			w.b.signal() // a caption click may have been queued
 			return
 		}
 		if w.passPointer(ev) {

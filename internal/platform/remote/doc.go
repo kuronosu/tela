@@ -103,6 +103,8 @@
 //     canvas while the host's real window shows its alpha. The real
 //     window computes its input region from the frames the host presents
 //     on it, so it follows the child's pixels.
+//   - Platform contract v7 (protocol 11, ADR-252): CaptionClickEvent is
+//     input like a pointer event, for the active child window.
 //   - Run returns an error when the connection is lost.
 //
 // The child's loop is internal/loop's (queue, coalesced wake, quit,

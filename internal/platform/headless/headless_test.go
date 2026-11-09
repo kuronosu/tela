@@ -45,6 +45,8 @@ func describe(e platform.Event) string {
 		return fmt.Sprintf("frame(%v)", e.Time)
 	case platform.PointerEvent:
 		return fmt.Sprintf("pointer(%v %v,%v)", e.Action, e.Pos.X, e.Pos.Y)
+	case platform.CaptionClickEvent:
+		return fmt.Sprintf("captionclick(%v,%v)", e.Pos.X, e.Pos.Y)
 	case platform.ScrollEvent:
 		return fmt.Sprintf("scroll(%v,%v)", e.Steps.X, e.Steps.Y)
 	case platform.FocusEvent:

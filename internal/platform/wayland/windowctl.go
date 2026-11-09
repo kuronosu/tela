@@ -674,8 +674,10 @@ func (s *seat) pointerMoved() {
 //     edge starts xdg_toplevel.resize for the primary button.
 //   - A press in a HitCaption region: primary, a double click toggles
 //     maximize, otherwise an interactive move starts once the pointer
-//     moves past the drag threshold (pointerMoved); secondary opens the
-//     window menu (show_window_menu at the pointer); others do nothing.
+//     moves past the drag threshold (pointerMoved), and a release before
+//     that, with no other button pressed meanwhile, is a click the app
+//     gets as a CaptionClickEvent; secondary opens the window menu
+//     (show_window_menu at the pointer); others do nothing.
 //
 // Presses in other regions, including the window button regions
 // (HitMinimize, HitMaximize, HitClose), are the app's.
@@ -691,8 +693,18 @@ func (s *seat) osButton(btn platform.PointerButton, pressed bool, serial uint32,
 		} else {
 			p.osHeld &^= btn.Mask()
 		}
+		if pressed && p.captionPending {
+			// A chord: not a click. The move still starts once the
+			// pointer leaves the threshold, while the primary is held.
+			p.captionClick = false
+		}
 		if !p.osHeld.Has(platform.ButtonPrimary) {
-			p.captionPending = false // released before moving: a click
+			if p.captionPending && p.captionClick && p.osHeld == 0 {
+				// Released before moving: a click, which the app hears of
+				// to treat it as a press outside its overlays (ADR-252).
+				w.b.enqueue(w, platform.CaptionClickEvent{Pos: p.pos, Time: t})
+			}
+			p.captionPending, p.captionClick = false, false
 		}
 		return true
 	}
@@ -718,7 +730,7 @@ func (s *seat) osButton(btn platform.PointerButton, pressed bool, serial uint32,
 			w.SetMaximized(!w.states.maximized)
 			break
 		}
-		p.captionPending, p.captionSerial, p.captionPos = true, serial, p.pos
+		p.captionPending, p.captionClick, p.captionSerial, p.captionPos = true, true, serial, p.pos
 	case platform.ButtonSecondary:
 		w.toplevel.ShowWindowMenu(s.wl, serial, int32(p.pos.X), int32(p.pos.Y))
 	}

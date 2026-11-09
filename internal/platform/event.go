@@ -197,6 +197,22 @@ type PointerEvent struct {
 	Time time.Duration
 }
 
+// CaptionClickEvent reports a primary click in a [HitCaption] region that
+// the OS took and that neither moved nor maximized the window: the press
+// was released before the pointer left the drag threshold, and it was not
+// the second click of a double click (contract v7, ADR-252). The press and
+// its release were the OS's (they are not delivered as PointerEvents); the
+// app hears of the click only to treat it as a press outside its open
+// overlays, as the browser treats a click on the page's background. It is
+// delivered at the release, at the pointer's position then (logical
+// pixels, as PointerEvent.Pos). Backends that hand the press to the OS's
+// move at once cannot tell a click from a drag and do not send it (see
+// "Custom title bars" in the package documentation).
+type CaptionClickEvent struct {
+	Pos  Point
+	Time time.Duration
+}
+
 // ScrollEvent is a mouse wheel or touchpad scroll.
 //
 // Signs follow the DOM WheelEvent: positive Y scrolls down (toward the end
@@ -402,6 +418,7 @@ type AccessActionEvent struct {
 
 func (AccessibilityEvent) isEvent()  {}
 func (AccessActionEvent) isEvent()   {}
+func (CaptionClickEvent) isEvent()   {}
 func (ConfigureEvent) isEvent()      {}
 func (DragEvent) isEvent()           {}
 func (DragDoneEvent) isEvent()       {}

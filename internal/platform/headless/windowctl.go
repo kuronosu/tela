@@ -46,7 +46,17 @@ type windowCtl struct {
 	// primary caption press for double clicks.
 	captionHeld platform.Buttons
 	captions    platform.CaptionClicks
+	// captionClick: the primary caption press held now may still be a
+	// click (no double click, not moved past captionDragThreshold from
+	// captionAt); its release then delivers a CaptionClickEvent.
+	captionClick bool
+	captionAt    platform.Point
 }
+
+// captionDragThreshold is how far (logical pixels) a primary caption press
+// moves before the fake window manager counts it as a drag, not a click:
+// the Wayland backend's threshold (GTK's).
+const captionDragThreshold = 8
 
 // big reports whether the window is maximized or fullscreen (its size is
 // the screen's, and SetSize changes the size it returns to).
@@ -377,12 +387,21 @@ func (w *Window) captionPointer(e platform.PointerEvent) bool {
 	}
 	if c.captionHeld != 0 {
 		switch e.Action {
+		case platform.PointerMove:
+			if dx, dy := e.Pos.X-c.captionAt.X, e.Pos.Y-c.captionAt.Y; dx*dx+dy*dy >= captionDragThreshold*captionDragThreshold {
+				c.captionClick = false
+			}
 		case platform.PointerDown:
 			c.captionHeld |= e.Button.Mask()
+			c.captionClick = false // a chord is not a click
 		case platform.PointerUp:
 			c.captionHeld &^= e.Button.Mask()
+			if c.captionClick && e.Button == platform.ButtonPrimary && c.captionHeld == 0 {
+				b.loop.Enqueue(w, platform.CaptionClickEvent{Pos: e.Pos, Time: e.Time})
+			}
+			c.captionClick = false
 		case platform.PointerCancel:
-			c.captionHeld = 0
+			c.captionHeld, c.captionClick = 0, false
 		}
 		return true
 	}
@@ -392,13 +411,13 @@ func (w *Window) captionPointer(e platform.PointerEvent) bool {
 	if r := c.osState.TitleBarControls; e.Pos.X >= r.X && e.Pos.X < r.X+r.W && e.Pos.Y >= r.Y && e.Pos.Y < r.Y+r.H {
 		// The OS's window buttons over a TitleBarOverlay window take the
 		// press, whatever region lies under them.
-		c.captionHeld = e.Button.Mask()
+		c.captionHeld, c.captionClick = e.Button.Mask(), false
 		return true
 	}
 	if platform.HitTest(c.regions, e.Pos) != platform.HitCaption {
 		return false
 	}
-	c.captionHeld = e.Button.Mask()
+	c.captionHeld, c.captionClick = e.Button.Mask(), false
 	switch e.Button {
 	case platform.ButtonPrimary:
 		if c.captions.Press(e.Time, e.Pos, b.settings) {
@@ -407,7 +426,10 @@ func (w *Window) captionPointer(e platform.PointerEvent) bool {
 			w.setOSState(st)
 			return true
 		}
+		// The move starts at the press, as Win32's move loop does; a
+		// release within the threshold is also a click (CaptionClickEvent).
 		c.captionDrags++
+		c.captionClick, c.captionAt = true, e.Pos
 	case platform.ButtonSecondary:
 		c.windowMenus++
 	}

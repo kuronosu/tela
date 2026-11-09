@@ -307,7 +307,9 @@
 // pixels) toggles maximize; otherwise
 // xdg_toplevel.move starts with the press serial once the pointer has
 // moved 8 logical pixels, GTK's drag threshold (GtkWindowHandle does the
-// same), so a click that does not move never starts a compositor grab.
+// same), so a click that does not move never starts a compositor grab;
+// such a click (no other button pressed with it) is delivered at its
+// release as a CaptionClickEvent (ADR-252).
 // Secondary: show_window_menu at the pointer. Other regions, the window
 // button regions included, are the app's.
 //

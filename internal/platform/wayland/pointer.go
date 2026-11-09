@@ -274,10 +274,12 @@ type pointerState struct {
 	// released yet, whose events (motion included) are not delivered; a
 	// primary caption press that becomes an interactive move once the
 	// pointer leaves the drag threshold (captionPending, with the press
-	// serial and position); and the resize edge under the pointer, whose
-	// cursor replaces the window's.
+	// serial and position; captionClick while no other button was pressed
+	// with it, so its release is a CaptionClickEvent); and the resize edge
+	// under the pointer, whose cursor replaces the window's.
 	osHeld         platform.Buttons
 	captionPending bool
+	captionClick   bool
 	captionSerial  uint32
 	captionPos     platform.Point
 	edge           platform.Edge
