@@ -26,7 +26,8 @@ type fakeServer struct {
 	sent  []string
 	props map[xproto.Window]map[xproto.Atom][]uint32
 	pos   map[xproto.Window]image.Point
-	mons  []image.Rectangle // the monitors RandR reports
+	mons  []image.Rectangle   // the monitors RandR reports
+	named map[string][]uint32 // root properties read by name (namedProperty32)
 }
 
 // newFakeServer gives every atom of b a distinct value and makes the
@@ -190,14 +191,22 @@ func (f *fakeServer) destroy(win xproto.Window, _ xproto.Gcontext) { f.log("dest
 
 func (f *fakeServer) monitors() []image.Rectangle { return f.mons }
 
+func (f *fakeServer) namedProperty32(win xproto.Window, name string) ([]uint32, bool) {
+	if win != f.b.root {
+		return nil, false
+	}
+	v, ok := f.named[name]
+	return v, ok
+}
+
 // fakeWindow adds a window to a fake backend the way NewWindow does after
 // creating the server window: control state, first ConfigureEvent, initial
 // WindowStateEvent.
 func fakeWindow(b *Backend, id xproto.Window, size image.Point, opts platform.WindowOptions) *Window {
 	opts = opts.Resolve().OverlayAsFrameless() // as NewWindow
-	opts = b.fitPosition(opts, size)
 	w := &Window{b: b, id: id, osSize: size, opts: opts, parent: b.parentOf(opts)}
 	w.initCtl(opts)
+	w.requestFit()
 	b.windows[id] = w
 	b.loop.Add(w)
 	b.queueConfigure(w)
@@ -324,8 +333,11 @@ func TestWindowStateRequests(t *testing.T) {
 	a := &g.b.atoms
 	w := fakeWindow(g.b, 9, image.Pt(400, 300), platform.WindowOptions{Size: platform.Size{W: 400, H: 300},
 		Maximized: true, AlwaysOnTop: true, HasPosition: true, Position: image.Pt(30, 40)})
-	g.sent("NewWindow", "prop _NET_WM_WINDOW_TYPE win=9 = [_NET_WM_WINDOW_TYPE_NORMAL]")
-	g.expect("first dispatch", "configure 400x300@1x (400x300 px); frame", "")
+	g.sent("NewWindow", "prop _NET_WM_WINDOW_TYPE win=9 = [_NET_WM_WINDOW_TYPE_NORMAL]; msg _NET_REQUEST_FRAME_EXTENTS win=9 []")
+	// The window manager answers the request: no frame (screens_test.go
+	// has the fit itself).
+	g.f.set(9, a.netFrameExtents, 0, 0, 0, 0)
+	g.expect("first dispatch", "configure 400x300@1x (400x300 px); frame", "", xproto.PropertyNotifyEvent{Window: 9, Atom: a.netFrameExtents})
 
 	// Before the first map: requests are only stored.
 	w.SetFullscreen(true)

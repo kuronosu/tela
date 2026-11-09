@@ -310,6 +310,40 @@ func centerOver(parent image.Rectangle, size image.Point, work image.Rectangle) 
 	return p
 }
 
+// visibleBorder is the width in physical pixels of the frame border that
+// DWM draws on Windows 10 and 11, at every DPI: the rest of the side and
+// bottom frame (SM_CXSIZEFRAME plus SM_CXPADDEDBORDER) is an invisible
+// resize band where the window's shadow is (Chromium's GetFrameThickness,
+// ui/base/win/hwnd_metrics.cc).
+const visibleBorder = 1
+
+// visibleFrame returns the part of a window's outer rectangle (what
+// GetWindowRect and AdjustWindowRectExForDpi give) that shows on screen,
+// for the client rectangle client inside it: the outer rectangle without
+// the invisible resize borders on the left, right and bottom (7 physical
+// pixels each at 96 DPI: what DWMWA_EXTENDED_FRAME_BOUNDS reports once
+// the window was shown, about (7, 0, 7, 7) inside GetWindowRect). The top
+// has none: its resize band lies inside the caption. A side without frame
+// (a frameless window, whose whole window is client area) has nothing to
+// remove.
+//
+// It is computed instead of measured because DwmGetWindowAttribute answers
+// with GetWindowRect itself until a window is first shown, and the fit of
+// a new window must be done before that to avoid a visible jump.
+func visibleFrame(outer, client image.Rectangle) image.Rectangle {
+	inv := func(frame int) int { return max(frame-visibleBorder, 0) }
+	return image.Rect(outer.Min.X+inv(client.Min.X-outer.Min.X), outer.Min.Y,
+		outer.Max.X-inv(outer.Max.X-client.Max.X), outer.Max.Y-inv(outer.Max.Y-client.Max.Y))
+}
+
+// fitVisible returns how far a window must move for its visible frame to
+// be grabbable on the monitors present: platform.FitOnScreens on
+// visibleFrame(outer, client) over the work areas.
+func fitVisible(outer, client image.Rectangle, works []image.Rectangle) image.Point {
+	vis := visibleFrame(outer, client)
+	return platform.FitOnScreens(vis, works).Min.Sub(vis.Min)
+}
+
 // maximizedClient returns the client rectangle of a maximized frameless
 // window from the window rectangle Windows proposes: Windows puts the
 // resize borders of a maximized window outside the work area, and a window

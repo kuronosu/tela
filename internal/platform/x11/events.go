@@ -198,6 +198,10 @@ func (b *Backend) translate(e xevent) {
 			b.readSupported() // another window manager
 		case ev.Window == b.root && ev.Atom == b.atoms.ximServers:
 			b.imeServersChanged() // an input method started or quit
+		case ev.Atom == b.atoms.netFrameExtents:
+			if w := b.windows[ev.Window]; w != nil {
+				w.frameExtentsChanged()
+			}
 		case ev.Atom == b.atoms.netWMState || ev.Atom == b.atoms.wmState:
 			if w := b.windows[ev.Window]; w != nil {
 				w.refreshState()

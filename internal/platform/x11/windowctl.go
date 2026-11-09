@@ -124,6 +124,11 @@ type wmServer interface {
 	// monitors returns the active monitors in root coordinates, the
 	// primary first (round trips; screens.go).
 	monitors() []image.Rectangle
+	// namedProperty32 reads a format-32 property by name, when the atom
+	// exists (two round trips; ok is false if the atom or the property
+	// does not), for the properties whose names are made at run time
+	// (_GTK_WORKAREAS_D<n>).
+	namedProperty32(win xproto.Window, name string) (values []uint32, ok bool)
 }
 
 // connServer implements wmServer on the backend's connection.
@@ -220,6 +225,17 @@ func (s connServer) property32(win xproto.Window, prop xproto.Atom) ([]uint32, b
 	return out, true
 }
 
+func (s connServer) namedProperty32(win xproto.Window, name string) ([]uint32, bool) {
+	// Only if it exists: a property nobody set has no atom yet, and
+	// interning one per desktop would leave atoms in the server for good
+	// (GTK asks the same way).
+	r, err := xproto.InternAtom(s.b.conn, true, uint16(len(name)), name).Reply()
+	if err != nil || r == nil || r.Atom == xproto.AtomNone {
+		return nil, false
+	}
+	return s.property32(win, r.Atom)
+}
+
 func (s connServer) rootPosition(win xproto.Window) (image.Point, bool) {
 	r, err := xproto.TranslateCoordinates(s.b.conn, win, s.b.root, 0, 0).Reply()
 	if err != nil || r == nil {
@@ -312,9 +328,14 @@ func (w *Window) netWMStateAtoms() []byte {
 // wanted state: position (hints and the window's own position, both
 // read at map with StaticGravity), WM_HINTS initial state (Iconic if
 // minimized while withdrawn), _NET_WM_STATE, then MapWindow. The Expose
-// that follows paints the retained frame.
+// that follows paints the retained frame. The first map of a window
+// created at a position fits it onto the monitors present first, and may
+// wait for the frame extents (fitCreation): then nothing happens now.
 func (w *Window) mapWindow() {
 	b := w.b
+	if w.fitPending && !w.fitCreation() {
+		return
+	}
 	if w.req.hasPos {
 		b.srv.configure(w.id, xproto.ConfigWindowX|xproto.ConfigWindowY,
 			[]uint32{uint32(int32(w.req.pos.X)), uint32(int32(w.req.pos.Y))})
@@ -598,6 +619,7 @@ func (w *Window) SetPosition(pos image.Point) {
 		return
 	}
 	w.req.pos, w.req.hasPos = pos, true
+	w.fitPending = false // the app's (or the user's) choice: not fitted
 	if !w.mapped {
 		w.updateNormalHints()
 	}

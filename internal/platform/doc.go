@@ -355,12 +355,15 @@
 //     work areas of the monitors, the primary first, moves a window that
 //     could not be grabbed there onto the nearest one, keeping its size,
 //     and the WindowStateEvent reports where it went. Win32 enumerates
-//     the monitors' rcWork (EnumDisplayMonitors) and fits the outer
-//     window at the DPI of the monitor it lands on; Cocoa uses each
+//     the monitors' rcWork (EnumDisplayMonitors) and fits the visible
+//     frame (without the invisible resize borders) at the DPI of the
+//     monitor it lands on; Cocoa uses each
 //     NSScreen's visibleFrame and fits the frame; X11 uses RandR 1.5
-//     RRGetMonitors (else the root window's geometry) with _NET_WORKAREA
-//     cutting the primary monitor, and fits the content (the frame's
-//     extents are not known before map); headless uses Options.Screens.
+//     RRGetMonitors (else the root window's geometry) cut to mutter's
+//     _GTK_WORKAREAS_D<n>, else with _NET_WORKAREA cutting the primary
+//     monitor, and fits the frame of _NET_REQUEST_FRAME_EXTENTS's answer
+//     at the first map (the content when the window manager gives none);
+//     headless uses Options.Screens.
 //     SetPosition is not checked: a position given while the app runs is
 //     the app's (or the user's) to choose.
 //   - Activate: xdg_activation_v1 with a token from the latest input

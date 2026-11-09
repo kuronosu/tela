@@ -14,12 +14,13 @@ const (
 	MinVisibleHeight = 50
 )
 
-// FitOnScreens returns where a window whose rectangle is win (its outer
-// frame where the backend knows it, else its content area, in the
-// backend's desktop coordinates) can open on the monitors present, whose
-// work areas (the monitor minus task bars, docks and panels) are works,
-// the primary first. Backends apply it to WindowOptions.Position at
-// creation: a position saved in an earlier run may be on a monitor that is
+// FitOnScreens returns where a window whose rectangle is win (the visible
+// part of its frame where the backend knows it, else its content area, in
+// the backend's desktop coordinates) can open on the monitors present,
+// whose work areas (the monitor minus task bars, docks and panels) are
+// works, the primary first. Backends apply it to WindowOptions.Position
+// at creation (X11 at the first map, once the window manager told the
+// frame): a position saved in an earlier run may be on a monitor that is
 // gone (a laptop undocked, a resolution changed).
 //
 // win is returned as it is when it can still be grabbed: its top edge is

@@ -5,8 +5,10 @@ package x11
 import (
 	"fmt"
 	"image"
+	"math"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/xproto"
 
@@ -106,6 +108,16 @@ type Window struct {
 	captionPress                 ptr
 	captionAt                    platform.Point
 
+	// The fit of a position given at creation (screens.go): fitPending
+	// until the first map (SetPosition cancels it), extWait while the
+	// _NET_REQUEST_FRAME_EXTENTS sent at extSent is unanswered, ext the
+	// answer, mapWaiting while the first map waits for it (extStop stops
+	// the timeout).
+	fitPending, extWait, mapWaiting bool
+	extSent                         time.Duration
+	ext                             frameExtents
+	extStop                         func()
+
 	// Drag and drop (dnd.go, dragsource.go): the target-side state, and
 	// the buttons of the app's press sequence (delivered presses not
 	// yet released), which StartDrag needs.
@@ -142,9 +154,6 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	}
 	parent := b.parentOf(opts)
 	size := clampPhysical(platform.PhysicalSize(opts.Size, b.scale))
-	// A position from an earlier run may be on a monitor that is gone.
-	opts = b.fitPosition(opts, size)
-
 	id, err := xproto.NewWindowId(b.conn)
 	if err != nil {
 		return nil, fmt.Errorf("x11: allocating a window id: %w", err)
@@ -176,8 +185,10 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	var x, y int16
 	if opts.HasPosition {
 		// With StaticGravity (WM_NORMAL_HINTS) this is the content
-		// area's position, which window managers read at map.
-		x, y = int16(opts.Position.X), int16(opts.Position.Y)
+		// area's position, which window managers read at map; the first
+		// map fits it onto the monitors present and sets it again
+		// (requestFit).
+		x, y = clampInt16(opts.Position.X), clampInt16(opts.Position.Y)
 	}
 	err = xproto.CreateWindowChecked(b.conn, depth, id, b.root, x, y, uint16(size.X), uint16(size.Y), 0,
 		xproto.WindowClassInputOutput, visual, mask, values).Check()
@@ -208,6 +219,8 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	}
 	w.setTitle(opts.Title)
 	w.updateNormalHints()
+	// A position from an earlier run may be on a monitor that is gone.
+	w.requestFit()
 
 	b.windows[id] = w
 	b.loop.Add(w)
@@ -217,6 +230,9 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	w.updateHidden()
 	return w, nil
 }
+
+// clampInt16 keeps a coordinate inside the core protocol's INT16.
+func clampInt16(v int) int16 { return int16(min(max(v, math.MinInt16), math.MaxInt16)) }
 
 // clampPhysical keeps a physical size inside what X11 accepts.
 func clampPhysical(p image.Point) image.Point {

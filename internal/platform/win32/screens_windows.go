@@ -67,25 +67,26 @@ func monitorWorkAreas() []image.Rectangle {
 
 // fitPosition returns where the content of a window asked to open at pos
 // goes so that it can be grabbed on a monitor present, and sets w.dpi to
-// the DPI of the monitor there. The rectangle fitted is the outer window
-// (its frame and title bar, from frameOffset and outerSize, which depend
-// on the DPI), so the title bar ends up on screen; the invisible resize
-// borders of Windows 10 and 11 count as part of it, which keeps the
-// window a few pixels further in than needed. The DPI of the monitor the
-// window lands on changes its frame and physical size: the fit is done
-// again there (at most twice more).
+// the DPI of the monitor there. The rectangle fitted is the visible frame
+// (fitVisible: the outer window from frameOffset and outerSize, which
+// depend on the DPI, without the invisible resize borders of Windows 10
+// and 11), so the title bar ends up on screen and the window can sit
+// against a work area's edge. The fit runs before CreateWindowExW, from
+// AdjustWindowRectExForDpi, so the window is created where it stays (no
+// jump when it is shown). The DPI of the monitor the window lands on
+// changes its frame and physical size: the fit is done again there (at
+// most twice more).
 func (w *Window) fitPosition(pos image.Point) image.Point {
 	works := monitorWorkAreas()
 	for range 3 {
 		w.dpi = monitorDPI(monitorFromRect(rect{int32(pos.X), int32(pos.Y), int32(pos.X) + 1, int32(pos.Y) + 1}))
-		off := w.frameOffset(w.style, w.exStyle)
-		outer := w.outerSize(clampPhysical(platform.PhysicalSize(w.opts.Size, w.scale())))
-		r := image.Rectangle{Min: pos.Add(off), Max: pos.Add(off).Add(image.Pt(int(outer.width()), int(outer.height())))}
-		fit := platform.FitOnScreens(r, works)
-		if fit == r {
+		client := image.Rectangle{Min: pos, Max: pos.Add(clampPhysical(platform.PhysicalSize(w.opts.Size, w.scale())))}
+		outer := w.frameRect(rectFrom(client), w.style, w.exStyle).image()
+		move := fitVisible(outer, client, works)
+		if move == (image.Point{}) {
 			break
 		}
-		pos = fit.Min.Sub(off)
+		pos = pos.Add(move)
 	}
 	w.dpi = monitorDPI(monitorFromRect(rect{int32(pos.X), int32(pos.Y), int32(pos.X) + 1, int32(pos.Y) + 1}))
 	return pos

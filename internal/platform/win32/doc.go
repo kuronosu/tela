@@ -241,9 +241,15 @@
 //   - WindowOptions.Position is checked against the monitors present at
 //     creation (screens_windows.go): the work areas (MONITORINFO.rcWork of
 //     each EnumDisplayMonitors monitor, the MONITORINFOF_PRIMARY one
-//     first) and the outer window at the DPI of the monitor under the
+//     first) and the visible frame at the DPI of the monitor under the
 //     position go to platform.FitOnScreens, and a window that moves is
-//     fitted again at the DPI of the monitor it lands on. CreateWindowExW
+//     fitted again at the DPI of the monitor it lands on. The visible
+//     frame is the outer window (AdjustWindowRectExForDpi) without the
+//     invisible resize borders of Windows 10 and 11 on the left, right and
+//     bottom (all of the side frame but its 1-pixel border; 7 pixels at
+//     96 DPI): computed, because DWMWA_EXTENDED_FRAME_BOUNDS equals the
+//     window rectangle until a window is first shown, and the fit runs
+//     before CreateWindowExW so the window never jumps. CreateWindowExW
 //     itself places a window anywhere, off every monitor too. SetPosition
 //     is not checked.
 //   - Activate restores a minimized window and calls SetForegroundWindow,

@@ -45,6 +45,9 @@ type atoms struct {
 	gtkShowWindowMenu xproto.Atom
 	netWorkarea       xproto.Atom // the work area of each desktop (screens.go)
 	netCurrentDesktop xproto.Atom
+	gtkWorkareas      xproto.Atom // listed in _NET_SUPPORTED when mutter sets _GTK_WORKAREAS_D<n>
+	netFrameExtents   xproto.Atom // the frame the window manager puts around a window
+	netReqFrameExt    xproto.Atom // _NET_REQUEST_FRAME_EXTENTS: the estimate before map
 
 	// Selections, drag and drop, activation (selection.go, dnd.go,
 	// dragsource.go, phase13.go).
@@ -125,6 +128,9 @@ func (a *atoms) list() []atomEntry {
 		{"_GTK_SHOW_WINDOW_MENU", &a.gtkShowWindowMenu},
 		{"_NET_WORKAREA", &a.netWorkarea},
 		{"_NET_CURRENT_DESKTOP", &a.netCurrentDesktop},
+		{"_GTK_WORKAREAS", &a.gtkWorkareas},
+		{"_NET_FRAME_EXTENTS", &a.netFrameExtents},
+		{"_NET_REQUEST_FRAME_EXTENTS", &a.netReqFrameExt},
 		{"CLIPBOARD", &a.clipboard},
 		{"TARGETS", &a.targets},
 		{"MULTIPLE", &a.multiple},

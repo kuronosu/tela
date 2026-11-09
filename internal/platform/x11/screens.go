@@ -3,7 +3,9 @@
 package x11
 
 import (
+	"fmt"
 	"image"
+	"time"
 
 	"github.com/kuronosu/tela/internal/platform"
 )
@@ -97,33 +99,82 @@ func parseMonitors(rep []byte) []image.Rectangle {
 }
 
 // workAreas returns the work areas of the monitors present, the primary
-// first: the monitors, with the primary one cut to _NET_WORKAREA of the
-// current desktop when the window manager sets it (without the panels and
-// docks that reserve struts).
+// first, for the current desktop (_NET_CURRENT_DESKTOP, else the first):
 //
-// _NET_WORKAREA is one rectangle for the whole root window (EWMH predates
-// several monitors), so with monitors of different sizes, or a panel on
-// one monitor only, it can cut a strip off the others. GTK 3
-// (gdk_x11_screen_get_monitor_workarea) therefore applies it to the
-// primary monitor only, where the panels usually are; so does this.
-// Mutter's per-monitor _GTK_WORKAREAS_D<n> is not read.
+//   - Mutter's per-monitor _GTK_WORKAREAS_D<desktop> when the window
+//     manager lists _GTK_WORKAREAS in _NET_SUPPORTED (the property of a
+//     window manager that ran before could be stale): x, y, width and
+//     height per monitor, in root coordinates. Each monitor is cut to the
+//     work areas that overlap it, as GTK 3 does
+//     (_gdk_x11_screen_get_monitor_work_area), which does not rely on the
+//     order of the list matching the monitors'.
+//   - Else the monitors, with the primary one cut to _NET_WORKAREA of the
+//     desktop. _NET_WORKAREA is one rectangle for the whole root window
+//     (EWMH predates several monitors), so with monitors of different
+//     sizes, or a panel on one monitor only, it can cut a strip off the
+//     others. GTK 3 (gdk_x11_screen_get_monitor_workarea) therefore applies
+//     it to the primary monitor only, where the panels usually are; so
+//     does this.
 func (b *Backend) workAreas() []image.Rectangle {
 	mons := b.srv.monitors()
 	if len(mons) == 0 {
 		return nil
 	}
 	a := b.atoms
+	desk := -1
+	if cur, ok := b.srv.property32(b.root, a.netCurrentDesktop); ok && len(cur) > 0 && int32(cur[0]) >= 0 {
+		desk = int(cur[0])
+	}
+	if b.supported[a.gtkWorkareas] {
+		if v, ok := b.srv.namedProperty32(b.root, fmt.Sprintf("_GTK_WORKAREAS_D%d", max(desk, 0))); ok {
+			if works := parseWorkAreas(v); len(works) > 0 {
+				return cutToWorkAreas(mons, works)
+			}
+		}
+	}
 	values, ok := b.srv.property32(b.root, a.netWorkarea)
 	if !ok || len(values) < 4 {
 		return mons
 	}
-	desk := 0
-	if cur, ok := b.srv.property32(b.root, a.netCurrentDesktop); ok && len(cur) > 0 && int(cur[0]) >= 0 && len(values) >= 4*(int(cur[0])+1) {
-		desk = int(cur[0])
+	if desk < 0 || len(values) < 4*(desk+1) {
+		desk = 0
 	}
 	v := values[4*desk:]
 	work := image.Rect(int(int32(v[0])), int(int32(v[1])), int(int32(v[0]))+int(v[2]), int(int32(v[1]))+int(v[3]))
 	return primaryWorkArea(mons, work)
+}
+
+// parseWorkAreas reads _GTK_WORKAREAS_D<n>: x, y, width and height per
+// monitor. A list whose length is not a multiple of four is rejected
+// whole, as GTK does; empty rectangles are skipped.
+func parseWorkAreas(v []uint32) []image.Rectangle {
+	if len(v)%4 != 0 {
+		return nil
+	}
+	var out []image.Rectangle
+	for ; len(v) >= 4; v = v[4:] {
+		x, y, w, h := int(int32(v[0])), int(int32(v[1])), int(int32(v[2])), int(int32(v[3]))
+		if w > 0 && h > 0 {
+			out = append(out, image.Rect(x, y, x+w, y+h))
+		}
+	}
+	return out
+}
+
+// cutToWorkAreas returns each monitor cut to the work areas that overlap
+// it (GTK 3's loop: each one that still intersects the area narrows it); a
+// monitor no work area overlaps stays whole.
+func cutToWorkAreas(mons, works []image.Rectangle) []image.Rectangle {
+	out := make([]image.Rectangle, len(mons))
+	for i, m := range mons {
+		for _, w := range works {
+			if in := m.Intersect(w); !in.Empty() {
+				m = in
+			}
+		}
+		out[i] = m
+	}
+	return out
 }
 
 // primaryWorkArea returns mons with the first (the primary) cut to work,
@@ -136,18 +187,133 @@ func primaryWorkArea(mons []image.Rectangle, work image.Rectangle) []image.Recta
 	return out
 }
 
-// fitPosition returns where a window created at opts.Position with the
-// physical content size size goes: platform.FitOnScreens over the work
-// areas, on the content rectangle (the frame's extents are not known
-// before the window manager maps it: _NET_FRAME_EXTENTS comes after, and
-// _NET_REQUEST_FRAME_EXTENTS is not universally answered). Window managers
-// keep the title bar of a window whose content top is at the top of the
-// work area visible themselves (mutter's, KWin's and Xfwm's constraints).
-func (b *Backend) fitPosition(opts platform.WindowOptions, size image.Point) platform.WindowOptions {
-	if !opts.HasPosition {
-		return opts
+// The frame a window manager puts around a window, for fitting a position
+// given at creation: the rectangle that must stay on a monitor is the
+// frame (its title bar is what the user grabs), not the content.
+//
+// EWMH's _NET_REQUEST_FRAME_EXTENTS asks the window manager, before map,
+// to set _NET_FRAME_EXTENTS (left, right, top, bottom) to its estimate for
+// the window as its properties are then; so it is sent once the window
+// has all of them (type, _MOTIF_WM_HINTS, WM_TRANSIENT_FOR, hints), and
+// only when _NET_SUPPORTED lists it (mutter, KWin, Xfwm4 and Openbox do;
+// tiling window managers such as i3, dwm and xmonad have no frame
+// extents at all). The first map waits for the answer at most
+// frameExtentsTimeout after the request (the PropertyNotify ends the
+// wait; the frame was already presented to the retained copy, which the
+// Expose after the map paints), then fits without extents. A late answer
+// is ignored. The values are mutter's visible borders (its invisible
+// resize borders are not in them), which is what must be on screen.
+//
+// Frameless windows are not asked: their _MOTIF_WM_HINTS has no
+// decorations, and mutter, Muffin and Marco report the extents of a
+// decorated frame anyway (winit's frame-extents heuristic and SDL's
+// X11_GetBorderValues ignore them for borderless windows for that
+// reason). Neither winit nor SDL sends the request: they read
+// _NET_FRAME_EXTENTS after map only, when moving a window that is
+// already managed.
+
+// frameExtentsTimeout bounds how long the first map of a window created
+// at a position waits for the window manager's _NET_FRAME_EXTENTS.
+const frameExtentsTimeout = 100 * time.Millisecond
+
+// frameExtents is _NET_FRAME_EXTENTS, in physical pixels.
+type frameExtents struct{ left, right, top, bottom int }
+
+// maxFrameExtent bounds each side of a believable frame: a property with
+// a larger value is ignored (a bogus window manager would otherwise push
+// windows far from where they belong).
+const maxFrameExtent = 1 << 12
+
+// parseFrameExtents reads _NET_FRAME_EXTENTS (four CARDINALs: left,
+// right, top, bottom).
+func parseFrameExtents(v []uint32) (frameExtents, bool) {
+	if len(v) < 4 {
+		return frameExtents{}, false
 	}
-	works := b.workAreas()
-	opts.Position = platform.FitOnScreens(image.Rectangle{Min: opts.Position, Max: opts.Position.Add(size)}, works).Min
-	return opts
+	for _, x := range v[:4] {
+		if x > maxFrameExtent {
+			return frameExtents{}, false
+		}
+	}
+	return frameExtents{left: int(v[0]), right: int(v[1]), top: int(v[2]), bottom: int(v[3])}, true
+}
+
+// fitFramed returns where the content of a window goes whose content
+// rectangle is content and whose frame has the extents ext:
+// platform.FitOnScreens on the frame (the content grown by the extents)
+// over the work areas, and the content moved with the frame.
+func fitFramed(content image.Rectangle, ext frameExtents, works []image.Rectangle) image.Point {
+	frame := image.Rect(content.Min.X-ext.left, content.Min.Y-ext.top, content.Max.X+ext.right, content.Max.Y+ext.bottom)
+	return content.Min.Add(platform.FitOnScreens(frame, works).Min.Sub(frame.Min))
+}
+
+// requestFit prepares the fit of a position given at creation
+// (WindowOptions.Position): it marks it for the first map, and asks the
+// window manager for the frame extents when it can tell them (see above).
+// It runs once the window has every property it is mapped with.
+func (w *Window) requestFit() {
+	b, a := w.b, w.b.atoms
+	if !w.req.hasPos {
+		return
+	}
+	w.fitPending = true
+	if w.opts.Frameless || !b.supported[a.netReqFrameExt] {
+		return
+	}
+	b.srv.clientMessage(w.id, a.netReqFrameExt)
+	w.extWait, w.extSent = true, b.Now()
+}
+
+// fitCreation runs at the first map of a window created at a position
+// (before the position is written): it waits for the frame extents if they
+// were asked for and the wait is not over, returning false (the map
+// happens when they arrive or the wait ends), else fits w.req.pos onto the
+// monitors present.
+func (w *Window) fitCreation() bool {
+	b := w.b
+	if w.extWait {
+		if left := frameExtentsTimeout - (b.Now() - w.extSent); left > 0 {
+			if !w.mapWaiting {
+				w.mapWaiting = true
+				w.extStop = b.after(left, w.frameExtentsDone)
+			}
+			return false
+		}
+		w.extWait = false
+	}
+	w.fitPending = false
+	size := clampPhysical(platform.PhysicalSize(w.opts.Size, b.scale))
+	w.req.pos = fitFramed(image.Rectangle{Min: w.req.pos, Max: w.req.pos.Add(size)}, w.ext, b.workAreas())
+	return true
+}
+
+// frameExtentsChanged handles a PropertyNotify of _NET_FRAME_EXTENTS: the
+// answer to the request of requestFit ends the wait.
+func (w *Window) frameExtentsChanged() {
+	if !w.extWait || w.Closed() {
+		return
+	}
+	v, _ := w.b.srv.property32(w.id, w.b.atoms.netFrameExtents)
+	ext, ok := parseFrameExtents(v)
+	if !ok {
+		return
+	}
+	w.ext = ext
+	w.frameExtentsDone()
+}
+
+// frameExtentsDone ends the wait for the frame extents (they arrived, or
+// the time is up) and maps the window if its first map was waiting.
+func (w *Window) frameExtentsDone() {
+	w.extWait = false
+	if w.extStop != nil {
+		w.extStop()
+		w.extStop = nil
+	}
+	if w.mapWaiting {
+		w.mapWaiting = false
+		if w.visible && !w.mapped && !w.Closed() {
+			w.mapWindow()
+		}
+	}
 }

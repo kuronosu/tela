@@ -76,15 +76,19 @@
 //     (xgb drops the SendEvent bit, so synthetic events cannot be told
 //     apart; GTK translates the same way).
 //   - WindowOptions.Position is checked against the monitors present at
-//     creation (screens.go): RandR 1.5 RRGetMonitors on a hand-written
+//     the first map (screens.go): RandR 1.5 RRGetMonitors on a hand-written
 //     request (active monitors, the primary first; the root window's
-//     geometry without RandR 1.5), with the primary one cut to
-//     _NET_WORKAREA of the current desktop as GTK 3 does (the property is
-//     one rectangle for every monitor), and the content rectangle go to
-//     platform.FitOnScreens: the frame's extents are not known before the
-//     window manager maps the window, and window managers keep the title
-//     bar of a window placed at the top of the work area on screen.
-//     SetPosition is not checked.
+//     geometry without RandR 1.5), cut to mutter's per-monitor
+//     _GTK_WORKAREAS_D<desktop> when _NET_SUPPORTED lists _GTK_WORKAREAS,
+//     else with the primary one cut to _NET_WORKAREA of the current
+//     desktop as GTK 3 does (the property is one rectangle for every
+//     monitor), and the frame go to platform.FitOnScreens. The frame is
+//     the content grown by _NET_FRAME_EXTENTS, which the window manager
+//     sets before map in answer to _NET_REQUEST_FRAME_EXTENTS, sent at
+//     creation when _NET_SUPPORTED lists it and the window is not
+//     frameless; the first map waits for it at most 100 ms after the
+//     request, then fits the content alone. SetPosition is not checked,
+//     and one before the first map cancels the fit.
 //   - Size limits are PMinSize/PMaxSize in WM_NORMAL_HINTS (a zero
 //     component is 1 or 32767); the icon is _NET_WM_ICON with every
 //     size, sent as one BIG-REQUESTS ChangeProperty (or Replace plus

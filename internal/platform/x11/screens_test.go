@@ -6,8 +6,6 @@ import (
 	"image"
 	"slices"
 	"testing"
-
-	"github.com/kuronosu/tela/internal/platform"
 )
 
 // monitorsReply encodes an RRGetMonitors reply with the given monitors
@@ -86,33 +84,5 @@ func TestWorkAreas(t *testing.T) {
 	f.set(b.root, a.netWorkarea, 5000, 0, 100, 100)
 	if got := b.workAreas(); !slices.Equal(got, f.mons) {
 		t.Errorf("work area off the primary: %v", got)
-	}
-}
-
-// A window created at a position on a monitor that is gone is mapped on
-// the nearest one, in physical pixels; SetPosition is never moved.
-func TestCreationPositionOnScreens(t *testing.T) {
-	g := newRig(t)
-	g.f.mons = []image.Rectangle{image.Rect(0, 0, 1920, 1080)}
-	g.f.set(g.b.root, g.b.atoms.netWorkarea, 0, 0, 1920, 1040)
-	w := fakeWindow(g.b, 7, image.Pt(800, 600), platform.WindowOptions{Size: platform.Size{W: 800, H: 600},
-		HasPosition: true, Position: image.Pt(2500, 900)})
-	g.feed()
-	g.f.take()
-	g.present(w)
-	if got, want := g.f.take(), "configure win=7 x=1120 y=440; prop WM_NORMAL_HINTS win=7 = pos=1120,440 gravity=10; prop _NET_WM_STATE win=7 = []; map win=7"; got != want {
-		t.Errorf("first Present:\n got %s\nwant %s", got, want)
-	}
-	w.SetPosition(image.Pt(5000, 5000))
-	g.sent("SetPosition", "configure win=7 x=5000 y=5000")
-
-	// On a monitor present: where it was asked.
-	w2 := fakeWindow(g.b, 8, image.Pt(800, 600), platform.WindowOptions{Size: platform.Size{W: 800, H: 600},
-		HasPosition: true, Position: image.Pt(100, 200)})
-	g.feed()
-	g.f.take()
-	g.present(w2)
-	if got, want := g.f.take(), "configure win=8 x=100 y=200; prop WM_NORMAL_HINTS win=8 = pos=100,200 gravity=10; prop _NET_WM_STATE win=8 = []; map win=8"; got != want {
-		t.Errorf("first Present on screen:\n got %s\nwant %s", got, want)
 	}
 }
