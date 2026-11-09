@@ -32,6 +32,10 @@ type resizeInput struct {
 	edge  platform.Edge
 	mouse [2]float64 // the cursor at the press
 	frame [4]float64 // the window's frame at the press: x, y, w, h
+	// deco is the frame's size beyond the content at the press (zero for
+	// a frameless window), which turns the content size limits into
+	// frame limits (resizeLimits).
+	deco [2]float64
 	// hover is the edge of the handle under the pointer while no button
 	// is held (its cursor is shown), 0 for none.
 	hover platform.Edge
@@ -81,6 +85,12 @@ func (w *Window) resizePress(btn platform.PointerButton, pos platform.Point) boo
 		return false
 	}
 	*r = resizeInput{held: true, btn: btn, edge: e, mouse: screenMouse(), frame: w.frameOf()}
+	if !w.fullSizeContent() {
+		// AppKit's content rectangle of a frameless window still has a
+		// title bar; its frame is its content.
+		c := darwin.SendRect(w.ns, asel.contentRect, darwin.SendRect(w.ns, wsel.frame))
+		r.deco = [2]float64{r.frame[2] - c.Size.Width, r.frame[3] - c.Size.Height}
+	}
 	if btn != platform.ButtonPrimary {
 		r.edge = 0 // swallowed until its release
 	}
@@ -88,15 +98,15 @@ func (w *Window) resizePress(btn platform.PointerButton, pos platform.Point) boo
 }
 
 // resizeDrag follows a drag of a resize press: the frame from the press's
-// and the cursor's motion, within the size limits (AppKit's minSize and
-// maxSize do not apply to setFrame:).
+// and the cursor's motion, within the size limits as frame sizes
+// (resizeLimits; AppKit's minSize and maxSize do not apply to setFrame:).
 func (w *Window) resizeDrag() {
 	r := &w.ctl.resize
 	if r.edge == 0 {
 		return
 	}
 	m := screenMouse()
-	lo, hi := sizeLimits(w.opts.MinSize, w.opts.MaxSize)
+	lo, hi := resizeLimits(w.opts.MinSize, w.opts.MaxSize, r.deco)
 	f := resizedFrame(r.frame, r.edge, m[0]-r.mouse[0], m[1]-r.mouse[1], lo, hi)
 	darwin.Send(w.ns, wsel.setFrameDisplay, darwin.CGRect{
 		Origin: darwin.CGPoint{X: f[0], Y: f[1]},
