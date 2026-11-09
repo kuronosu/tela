@@ -209,6 +209,50 @@ func TestCaptionDark(t *testing.T) {
 	}
 }
 
+// The caption glyphs of an overlay window follow the app's bar, not the
+// system's scheme, when the app's theme differs from it and it gives no
+// TitleBar.Background (ADR-252): the color sampled from its bar decides.
+func TestCaptionColor(t *testing.T) {
+	c := func(r, g, b uint8) platform.WindowColor {
+		return platform.WindowColor{R: r, G: g, B: b, Set: true}
+	}
+	white, navy, zinc950 := c(0xff, 0xff, 0xff), c(0x1e, 0x1b, 0x4b), c(0x09, 0x09, 0x0b)
+	for _, tc := range []struct {
+		name              string
+		titleBar, sampled platform.WindowColor
+		glass, scheme     bool
+		want              platform.WindowColor
+		dark              bool
+	}{
+		{"light app on a dark system", platform.WindowColor{}, white, false, true, white, false},
+		{"dark app on a light system", platform.WindowColor{}, zinc950, false, false, zinc950, true},
+		{"the app's background wins over the sample", navy, white, false, false, navy, true},
+		{"nothing sampled yet: the scheme", platform.WindowColor{}, platform.WindowColor{}, false, true, platform.WindowColor{}, true},
+		{"a backdrop's bar is the material: the scheme", platform.WindowColor{}, white, true, true, platform.WindowColor{}, true},
+		{"a backdrop with the app's background", navy, white, true, false, navy, true},
+	} {
+		got := captionColor(tc.titleBar, tc.sampled, tc.glass)
+		if got != tc.want {
+			t.Errorf("%s: captionColor = %+v, want %+v", tc.name, got, tc.want)
+		}
+		if d := captionDark(got, tc.scheme); d != tc.dark {
+			t.Errorf("%s: dark glyph variant = %v, want %v", tc.name, d, tc.dark)
+		}
+	}
+
+	// From the pixels: a light bar presented under a dark system scheme.
+	const w, h = 200, 40
+	pix := make([]byte, w*h*4)
+	for i := range pix {
+		pix[i] = 0xfa // zinc-50, B G R X
+	}
+	ctl := image.Rect(140, 0, 200, 32)
+	sampled, ok := captionSample(pix, w*4, image.Pt(w, h), ctl, 1)
+	if !ok || captionDark(captionColor(platform.WindowColor{}, sampled, false), true) {
+		t.Errorf("a light bar on a dark system: sampled %+v (%v), want light glyph variant", sampled, ok)
+	}
+}
+
 func TestCaptionSample(t *testing.T) {
 	// A 400x100 copy: a navy bar 32 px tall at 100%, 48 px at 150%, with
 	// a white mark where the gap ends at 100%.

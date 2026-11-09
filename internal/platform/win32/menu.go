@@ -4,6 +4,7 @@ import (
 	"math"
 	"slices"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/kuronosu/tela/internal/platform"
 )
@@ -14,44 +15,128 @@ import (
 
 // Mnemonics of the menu bar. The contract's labels are plain text (no
 // '&'), so a bar gets its access keys from the backend, as every level of
-// a native menu has them: each item takes the first letter or digit of its
-// label that no earlier item of the same menu took. Windows underlines the
-// key when it shows access keys (the "Underline keyboard shortcuts and
-// access keys" setting, or after Alt), Alt and the key opens the bar's
-// menu, and inside an open menu the key chooses the item.
+// a native menu has them, following Windows' convention per script
+// (ADR-234, ADR-252):
+//
+//   - An item takes the first character of its label that the user types
+//     with Alt and that no earlier item of the same menu took: a digit, or
+//     a letter of a script that keyboard layouts type directly (Latin,
+//     Cyrillic, Greek, Arabic, Hebrew, Thai...). Russian apps mark their
+//     own letters ("&Файл"), as English ones do ("&File"); Alt with that
+//     key on the user's layout sends the letter (WM_SYSCHAR).
+//   - A label without such a character (Chinese, Japanese and Korean,
+//     whose characters come from an IME, or symbols only) gets a Latin
+//     letter appended in parentheses, as the native apps of those
+//     languages do ("ファイル(&F)", "文件(&F)", "파일(&F)"): the letter the
+//     item's role has in English menus (the Edit menu's E, Copy's C) when
+//     it is free, else the first free one from A to Z, then a digit. Their
+//     layouts type Latin letters with Alt, with the IME on or off.
+//   - A label whose own characters are all taken by earlier items keeps
+//     none, as a native menu would not mark one key twice.
+//
+// Windows underlines the key when it shows access keys (the "Underline
+// keyboard shortcuts and access keys" setting, or after Alt), Alt and the
+// key opens the bar's menu, and inside an open menu the key chooses the
+// item.
 
-// isMnemonicRune reports whether r can be an access key: a Latin letter
-// (with the accented ones of the Latin blocks) or a digit, which the user
-// types with Alt on the layouts that have them. Labels in other scripts get
-// none: their layouts do not type them with Alt (native apps add a Latin
-// key in parentheses, which a plain label does not have).
+// isMnemonicRune reports whether r can be an access key of its own label:
+// an ASCII digit, or a letter the user types with Alt on the layouts of
+// its script. Letters of the scripts typed through an IME (Han, Hiragana,
+// Katakana, Hangul, Bopomofo, Yi) and the fullwidth forms are not: their
+// labels get an appended Latin key instead.
 func isMnemonicRune(r rune) bool {
-	return r < 0x250 && (unicode.IsLetter(r) || (r >= '0' && r <= '9'))
+	switch {
+	case r >= '0' && r <= '9':
+		return true
+	case !unicode.IsLetter(r), r >= 0xff00 && r <= 0xffef:
+		return false
+	}
+	return !unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana, unicode.Hangul, unicode.Bopomofo, unicode.Yi)
 }
 
-// autoMnemonics returns, for each item of a menu level, the byte offset in
-// its Label of the character that becomes its access key, or -1 for none
-// (separators, disabled items, labels without a usable character, and keys
-// already taken by an earlier item). The result is nil for an empty menu.
-func autoMnemonics(items []platform.MenuItem) []int {
+// mnemonic is the access key of a menu item: the character at byte offset
+// at of its label, or, when at is -1, key appended to the label as "(&K)";
+// neither (at -1, key 0) for none.
+type mnemonic struct {
+	at  int
+	key rune
+}
+
+// roleKeys are the access keys of the standard items and menus in English
+// Windows menus, which an appended key takes when it is free.
+var roleKeys = map[platform.MenuRole]rune{
+	platform.RoleUndo: 'U', platform.RoleRedo: 'R', platform.RoleCut: 'T', platform.RoleCopy: 'C',
+	platform.RolePaste: 'P', platform.RoleSelectAll: 'A', platform.RoleMinimize: 'N', platform.RoleZoom: 'X',
+	platform.RoleClose: 'C', platform.RoleEditMenu: 'E', platform.RoleWindowMenu: 'W', platform.RoleHelpMenu: 'H',
+}
+
+// appendKeys are the keys an item without a character of its own may take,
+// in order.
+const appendKeys = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+
+// autoMnemonics returns the access key of each item of a menu level (see
+// "Mnemonics of the menu bar"): separators and disabled items get none.
+// The result is nil for an empty menu.
+func autoMnemonics(items []platform.MenuItem) []mnemonic {
 	if len(items) == 0 {
 		return nil
 	}
-	out := make([]int, len(items))
+	out := make([]mnemonic, len(items))
 	taken := map[rune]bool{}
+	var bare []int // the items whose label has no character of its own
 	for i, it := range items {
-		out[i] = -1
+		out[i] = mnemonic{at: -1}
 		if it.Separator || it.Disabled {
 			continue
 		}
+		own := false
 		for off, r := range it.Label {
-			if k := unicode.ToLower(r); isMnemonicRune(r) && !taken[k] {
-				taken[k], out[i] = true, off
+			if !isMnemonicRune(r) {
+				continue
+			}
+			own = true
+			if k := unicode.ToLower(r); !taken[k] {
+				taken[k], out[i].at = true, off
+				break
+			}
+		}
+		if !own {
+			bare = append(bare, i)
+		}
+	}
+	// After every own key, so that an appended key never takes the letter
+	// of a later label; the roles' letters first, so that an item before
+	// the Edit menu does not take its E.
+	for _, i := range bare {
+		if k := roleKeys[items[i].Role]; k != 0 && !taken[unicode.ToLower(k)] {
+			taken[unicode.ToLower(k)], out[i].key = true, k
+		}
+	}
+	for _, i := range bare {
+		if out[i].key != 0 {
+			continue
+		}
+		for _, c := range appendKeys {
+			if k := unicode.ToLower(c); !taken[k] {
+				taken[k], out[i].key = true, c
 				break
 			}
 		}
 	}
 	return out
+}
+
+// label returns the item's label s with its access key marked (an '&'
+// before it, or "(&K)" appended), and the key in lower case (0 for none).
+func (m mnemonic) label(s string) (string, rune) {
+	switch {
+	case m.at >= 0 && m.at < len(s):
+		r, _ := utf8.DecodeRuneInString(s[m.at:])
+		return menuLabelAt(s, m.at), unicode.ToLower(r)
+	case m.key != 0:
+		return menuLabel(s) + "(&" + string(m.key) + ")", unicode.ToLower(m.key)
+	}
+	return menuLabel(s), 0
 }
 
 // menuLabelAt is menuLabel with the character at byte offset at marked as

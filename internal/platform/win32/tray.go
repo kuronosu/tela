@@ -3,9 +3,7 @@ package win32
 import (
 	"image"
 	"strings"
-	"unicode"
 	utf16pkg "unicode/utf16"
-	"unicode/utf8"
 
 	xdraw "golang.org/x/image/draw"
 
@@ -112,17 +110,17 @@ func buildMenuWith(items []platform.MenuItem, auto bool) (entries []menuEntry, c
 	var walk func(items []platform.MenuItem, top bool) []menuEntry
 	walk = func(items []platform.MenuItem, top bool) []menuEntry {
 		out := make([]menuEntry, 0, len(items))
-		var keys []int
+		var keys []mnemonic
 		if auto {
 			keys = autoMnemonics(items)
 		}
 		for i, it := range items {
 			e := menuEntry{label: menuLabel(it.Label)}
-			if keys != nil && keys[i] >= 0 {
-				e.label = menuLabelAt(it.Label, keys[i])
-				if top {
-					r, _ := utf8.DecodeRuneInString(it.Label[keys[i]:])
-					mnemonics = append(mnemonics, unicode.ToLower(r))
+			if keys != nil {
+				var k rune
+				e.label, k = keys[i].label(it.Label)
+				if top && k != 0 {
+					mnemonics = append(mnemonics, k)
 				}
 			}
 			if it.Accelerator != "" && len(it.Submenu) == 0 {

@@ -331,8 +331,10 @@
 // row, read at every Present and state report and sent to DWM only when it
 // changes. The buttons' glyphs follow DWMWA_USE_IMMERSIVE_DARK_MODE, set
 // from that same color (captionDark: the glyph of the better contrast),
-// else from the color scheme; DWM draws them gray while the window is
-// inactive. A window with a client-area backdrop keeps the alpha the app
+// else from the color scheme, so they follow the app's theme where it
+// differs from the system's (the attribute is their only control:
+// DWMWA_TEXT_COLOR colors the caption text, which an overlay window does
+// not show; ADR-252); DWM draws them gray while the window is inactive. A window with a client-area backdrop keeps the alpha the app
 // renders (no hole, no sampled color: its bar is the material); its
 // buttons show where the app leaves its bar transparent.
 //
@@ -437,7 +439,9 @@
 //   - Menus: a menu bar (SetMenu; framed windows only) keeps the client
 //     size by growing the window; its WM_COMMAND is a MenuEvent. The bar's
 //     items get access keys (the first free letter or digit of each level,
-//     an '&' in the native label) and Alt, F10 and Alt and an access key
+//     an '&' in the native label; a Latin key appended in parentheses to a
+//     label of a script typed through an IME, ADR-252; menu.go) and Alt,
+//     F10 and Alt and an access key
 //     open it (# Keyboard, ADR-234). In dark mode (SystemSettings.DarkMode,
 //     without high contrast) the bar is drawn dark: the window answers the
 //     undocumented WM_UAHDRAWMENU and WM_UAHDRAWMENUITEM of the themed bar

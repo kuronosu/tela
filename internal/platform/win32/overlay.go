@@ -117,6 +117,24 @@ func controlsRect(bounds image.Rectangle, off, client image.Point, scale float64
 	}, px
 }
 
+// captionColor returns the color DWM paints behind the caption buttons of a
+// TitleBarOverlay window (DWMWA_CAPTION_COLOR), which also picks their
+// glyphs (captionDark): the app's title bar background when it gave one
+// (titleBar), else the color sampled from its bar (sampled: the app's own
+// theme, whatever the system's scheme), else none, the system's: nothing
+// sampled yet, or a client-area backdrop, whose bar is the material (DWM
+// tints Mica and Acrylic by the same dark mode attribute, so the scheme is
+// right there).
+func captionColor(titleBar, sampled platform.WindowColor, glass bool) platform.WindowColor {
+	switch {
+	case titleBar.Set:
+		return titleBar
+	case glass:
+		return platform.WindowColor{}
+	}
+	return sampled
+}
+
 // captionDark reports whether DWM draws the caption buttons of a
 // TitleBarOverlay window for a dark title bar (light glyphs:
 // DWMWA_USE_IMMERSIVE_DARK_MODE). The buttons sit over the app's bar, not
@@ -124,6 +142,16 @@ func controlsRect(bounds image.Rectangle, off, client image.Point, scale float64
 // (captionBackground: the app's title bar background, else the bar's color
 // sampled from its pixels) with the glyph color of the better contrast
 // (WCAG's relative luminance); the color scheme decides when there is none.
+//
+// Quirk: the attribute is the only control of those glyphs. DWM draws them
+// in one of two variants, dark on a light caption or light on a dark one,
+// chosen by DWMWA_USE_IMMERSIVE_DARK_MODE; DWMWA_TEXT_COLOR colors the
+// caption's title text only (which an overlay window does not show), and
+// there is no attribute for a glyph color of the app's. Chromium's
+// titleBarOverlay symbolColor is no counterpart: Chromium draws its own
+// caption buttons (WindowsCaptionButton) and colors those. So an app whose
+// theme differs from the system's gets the right glyphs by its bar's
+// color, given (TitleBar.Background) or sampled (ADR-236, ADR-252).
 func captionDark(bg platform.WindowColor, schemeDark bool) bool {
 	if !bg.Set {
 		return schemeDark

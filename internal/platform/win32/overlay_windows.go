@@ -173,13 +173,7 @@ func (w *Window) sampleCaption() {
 // else the color sampled from its bar, else (nothing sampled yet, or a
 // client-area backdrop) the system's.
 func (w *Window) captionBackground() platform.WindowColor {
-	switch {
-	case w.titleBar.Background.Set:
-		return w.titleBar.Background
-	case w.glass:
-		return platform.WindowColor{}
-	}
-	return w.sampled
+	return captionColor(w.titleBar.Background, w.sampled, w.glass)
 }
 
 // applyCaption sets DWMWA_CAPTION_COLOR to captionBackground and the

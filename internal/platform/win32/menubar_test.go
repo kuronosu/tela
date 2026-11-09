@@ -3,6 +3,7 @@ package win32
 import (
 	"slices"
 	"testing"
+	"unicode"
 
 	"github.com/kuronosu/tela/internal/platform"
 )
@@ -18,18 +19,71 @@ func TestAutoMnemonics(t *testing.T) {
 		{Separator: true},
 		{ID: 4, Label: "Fe"},                  // F and e are taken: none
 		{ID: 5, Label: "Off", Disabled: true}, // disabled: none
-		{ID: 6, Label: "ファイル"},                // no Latin character
+		{ID: 6, Label: "ファイル"},                // no character of its own: a Latin key appended, the first free
 		{ID: 7, Label: "…2go"},                // a digit is a key
 		{ID: 8, Label: "Édition"},             // an accented capital
 		{ID: 9, Label: "ee"},                  // e and é are different keys, but e is taken
+		{ID: 10, Label: "Bold"},               // its own B, although the appended key comes first
 	}
-	want := []int{0, 0, 1, -1, -1, -1, -1, len("…"), 0, -1}
+	at := func(off int) mnemonic { return mnemonic{at: off} }
+	none := mnemonic{at: -1}
+	want := []mnemonic{at(0), at(0), at(1), none, none, none, {at: -1, key: 'A'}, at(len("…")), at(0), none, at(0)}
 	got := autoMnemonics(items)
 	if !slices.Equal(got, want) {
 		t.Fatalf("autoMnemonics = %v, want %v", got, want)
 	}
 	if autoMnemonics(nil) != nil {
 		t.Errorf("an empty menu has no mnemonics")
+	}
+}
+
+// Labels in other scripts follow Windows' convention for them (ADR-252):
+// scripts typed directly mark a letter of their own, those typed through
+// an IME get a Latin key in parentheses (the role's English one when
+// free), so every top-level menu opens with Alt and a key.
+func TestMnemonicScripts(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		items  []platform.MenuItem
+		labels []string
+		keys   string
+	}{
+		{"Russian", []platform.MenuItem{{Label: "Файл"}, {Label: "Правка"}, {Label: "Вид"}, {Label: "Выход"}},
+			[]string{"&Файл", "&Правка", "&Вид", "В&ыход"}, "фпвы"},
+		{"Greek", []platform.MenuItem{{Label: "Αρχείο"}, {Label: "Επεξεργασία"}},
+			[]string{"&Αρχείο", "&Επεξεργασία"}, "αε"},
+		{"Arabic", []platform.MenuItem{{Label: "ملف"}, {Label: "تحرير"}, {Label: "عرض"}},
+			[]string{"&ملف", "&تحرير", "&عرض"}, "متع"},
+		{"Hebrew", []platform.MenuItem{{Label: "קובץ"}, {Label: "עריכה"}},
+			[]string{"&קובץ", "&עריכה"}, "קע"},
+		{"Japanese", []platform.MenuItem{{Label: "ファイル"}, {Label: "編集", Role: platform.RoleEditMenu}, {Label: "表示"}, {Label: "ヘルプ", Role: platform.RoleHelpMenu}},
+			[]string{"ファイル(&A)", "編集(&E)", "表示(&B)", "ヘルプ(&H)"}, "aebh"},
+		{"Chinese, a role's letter taken", []platform.MenuItem{{Label: "Excel"}, {Label: "编辑", Role: platform.RoleEditMenu}},
+			[]string{"&Excel", "编辑(&A)"}, "ea"},
+		{"Korean with a digit of its own", []platform.MenuItem{{Label: "파일"}, {Label: "보기 2"}},
+			[]string{"파일(&A)", "보기 &2"}, "a2"},
+		{"symbols only", []platform.MenuItem{{Label: "★"}, {Label: "&"}},
+			[]string{"★(&A)", "&&(&B)"}, "ab"},
+		{"fullwidth Latin is typed through the IME", []platform.MenuItem{{Label: "ＡＢＣ"}},
+			[]string{"ＡＢＣ(&A)"}, "a"},
+	} {
+		entries, _, keys := buildBarMenu(tc.items)
+		var labels []string
+		for _, e := range entries {
+			labels = append(labels, e.label)
+		}
+		if !slices.Equal(labels, tc.labels) {
+			t.Errorf("%s: labels %q, want %q", tc.name, labels, tc.labels)
+		}
+		if string(keys) != tc.keys {
+			t.Errorf("%s: top-level keys %q, want %q", tc.name, string(keys), tc.keys)
+		}
+		// Alt and each key opens its menu (WM_SYSCHAR, in either case).
+		for _, k := range keys {
+			if !hasMnemonic(keys, uintptr(unicode.ToUpper(k))) {
+				t.Errorf("%s: Alt+%q opens nothing", tc.name, k)
+			}
+		}
 	}
 }
 
