@@ -250,7 +250,7 @@ An App must be used from the goroutine of its test; the state setters and tela.P
 func Mount(tb testing.TB, root tela.Component, opts ...Option) *App
 ```
 
-Mount shows root in a headless window and returns the running app. The window starts focused, so key events reach the focused element; it is unmounted when the test ends, running the cleanups of its effects. root is a node or a component: a struct component value, or a function component through its public wrapper, a function that returns its tela.C or tela.CP node (or use [`MountFunc`](#func-mountfunc)).
+Mount shows root in a headless window and returns the running app. The window starts focused, so key events reach the focused element; it is unmounted when the test ends, running the cleanups of its effects. root is a node or a component: a struct component value, or a function component through its public wrapper, a function that returns its tela.C or tela.CP node (or use [`MountFunc`](#func-mountfunc)). A [`tela.Preview`](API-Reference-tela#type-preview)'s Theme and ColorScheme apply after the options, as in `tela snapshot`.
 
 ```go
 app := telatest.Mount(t, Counter(), telatest.Size(400, 300))

@@ -3209,6 +3209,15 @@ PopoverStyle is the recipe of [`Popover`](#type-popover) (shadcn/ui's PopoverCon
 type Progress struct {
     // Value is how far the task is, from 0 to Max.
     Value float64
+    // ValueFn, when not nil, is read in place of Value: by a paint-phase
+    // closure that slides the bar (tela.TranslateFn), and when the
+    // semantics tree is built (h.AriaValueNowFn, h.AriaValueTextFn, with
+    // FormatValue). A change of a tela.Value it reads repaints the bar and
+    // makes the semantics stale, and builds nothing. The bar moves at once,
+    // without the transition of the recipe: read an animated float32 Value
+    // (tela.UseTween, tela.Animate) for a smooth bar. NaN is 0, and the
+    // value is clamped to the range as Value is.
+    ValueFn func() float64
     // Max is the value of a finished task (100 by default).
     Max float64
     // Indeterminate says that the amount of progress is unknown: the bar
@@ -3237,6 +3246,16 @@ kit.Progress{Value: 512, Max: 2048, FormatValue: func(v float64) string { return
 ```
 
 Use Indeterminate while the amount is unknown. For a measure that is not the progress of a task, such as disk usage, use aria.UseMeter.
+
+A value that changes many times a second (a download, a tween) goes in ValueFn instead, which is read when the bar is painted and when the semantics tree is built: the bar moves and aria-valuenow follows without building the component (ADR-250).
+
+```go
+done := tela.UseValue(0.0) // the download's goroutine calls done.Set(percent)
+kit.Progress{ValueFn: done.Get, AriaLabel: "Download"}
+
+pct := tela.UseTween(target) // a float32 that eases toward target
+kit.Progress{ValueFn: func() float64 { return float64(pct.Get()) }, AriaLabel: "Upload"}
+```
 
 **Example**
 
@@ -5265,6 +5284,12 @@ type ToggleGroup[K comparable] struct {
     Value         *K
     DefaultValue  *K
     OnValueChange func(K)
+    // ValueFn, the deferred form of Value, returns the key that is on in a
+    // controlled single-choice group (a key that is not an item's turns
+    // none on). The group calls it when it builds, so a tela.Value that it
+    // reads makes a change rebuild the group and not the component that
+    // gives it: pass the Value's Get, and its Set as OnValueChange.
+    ValueFn func() K
     // Selected is the selection of a controlled group, DefaultSelected the
     // starting one of an uncontrolled group and OnSelectionChange is called
     // with the next selection. The zero aria.Selection leaves the selection
@@ -5272,6 +5297,20 @@ type ToggleGroup[K comparable] struct {
     Selected          aria.Selection[K]
     DefaultSelected   aria.Selection[K]
     OnSelectionChange func(aria.Selection[K])
+    // SelectedFn, the deferred form of Selected, returns the selection of a
+    // controlled group when the group builds (see ValueFn); the zero
+    // aria.Selection is the empty one here.
+    SelectedFn func() aria.Selection[K]
+    // Indicator is drawn inside every item that is on, as its first child:
+    // a pill or an underline that marks the choice, such as
+    // h.Div(h.Class("absolute inset-0 -z-10 rounded-md bg-background"),
+    // h.LayoutID("pill")). The items get the recipe's ItemWithIndicator
+    // (relative isolate), so an absolute indicator covers its item and a
+    // negative z-index keeps it behind the label. With an h.LayoutID it
+    // slides to the item turned on (one layout, then frames that only
+    // composite); give a LayoutID only to a single-choice group, since with
+    // Multiple every item that is on has one.
+    Indicator tela.Component
     // DisallowEmptySelection keeps one item on: pressing the only item that
     // is on does nothing.
     DisallowEmptySelection bool
@@ -5320,6 +5359,17 @@ kit.ToggleGroup[string]{Multiple: true, Variant: kit.Outline, DefaultSelected: a
 ```
 
 Selected, DefaultSelected and OnSelectionChange also work on a single-choice group, for a controlled group that may have no item on.
+
+ValueFn and SelectedFn are the deferred forms of Value and Selected (ADR-250): read when the group builds, not when the component that holds the choice does, so a choice kept in a tela.Value rebuilds the group alone when it changes. With an Indicator, a pill that an h.LayoutID slides from item to item, the items need no state of the caller's to show the choice:
+
+```go
+view := tela.UseValue("list") // read by the content, not by this component
+kit.ToggleGroup[string]{
+    ValueFn: view.Get, OnValueChange: view.Set, DisallowEmptySelection: true, AriaLabel: "View",
+    Indicator: h.Div(h.Class("absolute inset-0 -z-10 rounded-md bg-background shadow-sm"), h.LayoutID("view-pill")),
+    Items: []kit.ToggleGroupItem[string]{{Value: "list", Label: "List"}, {Value: "grid", Label: "Grid"}},
+}
+```
 
 **Example**
 
@@ -5387,6 +5437,11 @@ type ToggleGroupStyle struct {
     // OutlineItemWithoutSpacing is added to an Outline item of a group with
     // no space between its items: one border between neighbors.
     OutlineItemWithoutSpacing string
+    // ItemWithIndicator is added to every item of a group with an
+    // Indicator: it places the indicator (relative) and keeps an indicator
+    // with a negative z-index above the item's background and below its
+    // content (isolate).
+    ItemWithIndicator string
 }
 ```
 

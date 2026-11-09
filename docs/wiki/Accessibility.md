@@ -53,6 +53,7 @@ The props follow React's `aria-*` attributes:
 | [`AriaKeyShortcuts`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaKeyShortcuts) | The keys that activate an element, in ARIA's syntax: `"Control+S Meta+S"` (it only describes them; `Ctrl` and `Cmd` panic in dev mode with the right name) |
 | [`AriaPosInSet`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaPosInSet), [`AriaSetSize`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaSetSize) | The position of an item and the size of its set, for a list, listbox or menu that has only some of its items in the tree; otherwise they are counted (`-1` is an unknown size) |
 | [`AriaLabelFn`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaLabelFn) | A name computed from `tela.Value`s when the semantics tree is built: a change of one rebuilds nothing |
+| [`AriaValueNowFn`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaValueNowFn), [`AriaValueTextFn`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaValueTextFn) | The value of a range widget computed from `tela.Value`s when the semantics tree is built, as `AriaLabelFn` (`kit.Progress.ValueFn` uses them) |
 
 These props also drive the `aria-*` class variants: `aria-checked:`, `aria-expanded:`,
 `aria-pressed:`, `aria-selected:`, `aria-disabled:`, `aria-hidden:`, `aria-busy:`,

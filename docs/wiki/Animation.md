@@ -170,15 +170,25 @@ func Drawer(open bool) tela.Node {
 ```
 
 Read the value in a deferred style closure (`TranslateFn`, `OpacityFn`,
-`BgFn`, `TextColorFn`, `WidthFn`, `HeightFn`, `h.TextFn`) and the animation
-runs without building the component: a `TranslateFn` or `OpacityFn` frame only
-composites, a `BgFn` or `TextColorFn` frame only repaints, a `WidthFn` frame
+`BgFn`, `BackgroundGradientFn`, `TextColorFn`, `WidthFn`, `HeightFn`,
+`h.TextFn`) and the animation runs without building the component: a
+`TranslateFn` or `OpacityFn` frame only composites, a `BgFn`,
+`BackgroundGradientFn` or `TextColorFn` frame only repaints, a `WidthFn` frame
 only lays out. Reading it in the body builds the component on every frame.
 
 ```go
 bg := tela.UseSpring(target) // target is a tela.Color
 Div(Class("rounded-lg p-4"), Style(tela.BgFn(bg.Get)), Text("Selected"))
+
+angle := tela.UseTween(turn) // a float32, in degrees
+Div(Class("h-32 rounded-xl"), Style(tela.BackgroundGradientFn(func() tela.Gradient {
+	return tela.LinearGradient(angle.Get(), tela.Stop(from), tela.Stop(to))
+})))
 ```
+
+[`tela.BackgroundGradientFn`](https://pkg.go.dev/github.com/kuronosu/tela#BackgroundGradientFn) replaces the background image classes; the
+background color and the size, position and repeat classes still apply, and a
+change records only the display list that paints the element.
 
 [`tela.TextColorFn`](https://pkg.go.dev/github.com/kuronosu/tela#TextColorFn) also recolors the text of the descendants that inherit
 the element's color (those that set no text color of their own); colors the

@@ -130,8 +130,19 @@ var Previews = tela.Previews{
 }
 ```
 
+A preview may give a theme and a color scheme of its own, which win over the
+package's `App` and over `--dark`:
+
+```go
+var Previews = tela.Previews{
+	"Light": {Root: Main{}},
+	"Dark":  {Root: Main{}, ColorScheme: tela.Dark},
+	"Brand": {Root: Main{}, Theme: &brandTheme},
+}
+```
+
 A `tela.Preview` is itself a component, so a test mounts one the way the CLI
-does: `telatest.Mount(t, Previews["mocked"])`.
+does, its `Theme` and `ColorScheme` included: `telatest.Mount(t, Previews["mocked"])`.
 
 Before `v0.7.0` the entries were functions (`"Login": Login`); write
 `"Login": {Root: Login()}` now.
@@ -160,7 +171,7 @@ func main() { tela.Main(App) }
 | `App` field | In `tela snapshot` and `tela inspect` |
 |---|---|
 | `Width`, `Height` | The size of the window, unless `--size` is given (both must be set; otherwise 960x640) |
-| `RootClass`, `ColorScheme`, `Theme`, `ClassAliases` | Applied, as in the window; the app's `ColorScheme` overrides `--dark`, as it overrides the system in a window |
+| `RootClass`, `ColorScheme`, `Theme`, `ClassAliases` | Applied, as in the window; the app's `ColorScheme` overrides `--dark`, as it overrides the system in a window, and a preview's `Theme` and `ColorScheme` override the app's |
 | `ClassicScrollbars`, `InstantScroll`, `NativeMenus`, `IgnoreTextScale`, `Dev` | Applied (`Dev` false silences the dev messages) |
 | `Root` | The screen when the package has no `Preview` or `Previews`; otherwise ignored |
 | `Title`, `AppID`, `DevState` | Ignored (`DevState` is for `tela dev`) |

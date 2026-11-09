@@ -319,6 +319,24 @@ kit.Slider{Value: &volume, OnValueChange: setVolume.Set, Max: 100, Step: 5, Aria
 kit.Progress{Value: 62, AriaLabel: "Storage used"}
 ```
 
+A value that changes many times a second goes in a deferred form, read later
+than the component's build. `Progress.ValueFn` is read when the bar is painted
+and when the semantics tree is built, so a download or a tween moves the bar,
+and its `aria-valuenow`, without building anything. `ToggleGroup.ValueFn` (and
+`SelectedFn`) is read in the group's own build, so a choice kept in a
+`tela.Value` rebuilds the group and not the component that holds it; its
+`Indicator`, drawn in the item that is on, slides there with a `LayoutID`.
+
+```go
+done := tela.UseValue(0.0) // the download's goroutine calls done.Set(percent)
+kit.Progress{ValueFn: done.Get, AriaLabel: "Download"}
+
+view := tela.UseValue("list") // read by the content, not here
+kit.ToggleGroup[string]{AriaLabel: "View", ValueFn: view.Get, OnValueChange: view.Set, DisallowEmptySelection: true,
+	Indicator: Div(Class("absolute inset-0 -z-10 rounded-md bg-background shadow-sm"), LayoutID("view-pill")),
+	Items: []kit.ToggleGroupItem[string]{{Value: "list", Label: "List"}, {Value: "grid", Label: "Grid"}}}
+```
+
 ### Text and selection
 
 `Input`, `Textarea`, `Field`, `Select`.
