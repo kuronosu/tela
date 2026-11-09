@@ -537,13 +537,20 @@ func (s *Store) Flush() error {
 	var err error
 	for try := 0; ; try++ {
 		// Another program that wrote the file after the reload, before
-		// the rename, is read and merged once more (twice at most: a
+		// the replace, is read and merged once more (twice at most: a
 		// file rewritten all the time is replaced at the third try).
-		err = s.flushLocked(try < maxMergeRetries)
+		var replaced *replacedFile
+		replaced, err = s.flushLocked(try < maxMergeRetries)
 		if !errors.Is(err, errFileChanged) {
 			break
 		}
-		notify = append(notify, s.reload())
+		if replaced != nil {
+			// The write replaced it already (an exchange): merge the
+			// version it replaced, and write again.
+			notify = append(notify, s.merge(replaced.data, replaced.written))
+		} else {
+			notify = append(notify, s.reload())
+		}
 	}
 	s.wmu.Unlock()
 	for _, f := range notify {
@@ -557,13 +564,23 @@ func (s *Store) Flush() error {
 const maxMergeRetries = 2
 
 // errFileChanged is flushLocked's report that the file changed since the
-// last reload, before the rename: nothing was written.
+// last reload, before the replace: nothing was written, or (with a
+// replacedFile) the version another program wrote was replaced and is to
+// be merged and written again.
 var errFileChanged = errors.New("desktop: the store's file changed during the write")
 
-// flushLocked is Flush's write, with s.wmu held. With check, the rename is
-// skipped, and errFileChanged returned, when the file is no longer the
-// one the last reload merged (s.read).
-func (s *Store) flushLocked(check bool) error {
+// replacedFile is a version of the file another program wrote after the
+// last reload, which a write replaced through an exchange (swapIn).
+type replacedFile struct {
+	data    []byte
+	written fileStamp // what the write put in place
+}
+
+// flushLocked is Flush's write, with s.wmu held. With check, the write
+// never replaces a version of the file other than the one the last
+// reload merged (s.read) without saying so: it returns errFileChanged, with
+// the version it replaced when it could tell only after the replace.
+func (s *Store) flushLocked(check bool) (*replacedFile, error) {
 	s.mu.Lock()
 	if s.timer != nil {
 		s.timer.Stop()
@@ -571,13 +588,13 @@ func (s *Store) flushLocked(check bool) error {
 	}
 	if !s.dirty || s.path == "" {
 		s.mu.Unlock()
-		return nil
+		return nil, nil
 	}
 	if s.unread {
 		if err := s.retryLoad(); err != nil {
 			s.err = err
 			s.mu.Unlock()
-			return err // dirty stays: written by the next change or Flush
+			return nil, err // dirty stays: written by the next change or Flush
 		}
 	}
 	data, err := json.MarshalIndent(s.vals, "", "  ")
@@ -586,13 +603,20 @@ func (s *Store) flushLocked(check bool) error {
 	written := s.pending
 	s.pending = nil
 	s.mu.Unlock()
-	var unchanged func() bool
-	if check && !corrupt {
-		read, path := s.read, s.path
-		unchanged = func() bool { return !changedSince(path, read) }
-	}
+	var replaced *replacedFile
 	if err == nil {
-		err = writeStore(s.path, append(data, '\n'), corrupt, unchanged)
+		data = append(data, '\n')
+		read := fileStamp{}
+		if check && !corrupt {
+			read = s.read
+		}
+		var old []byte
+		old, err = writeStore(s.path, data, corrupt, read)
+		if old != nil {
+			own := stampOf(data)
+			own.own = true
+			replaced = &replacedFile{data: old, written: own}
+		}
 	}
 	s.mu.Lock()
 	if err != nil {
@@ -605,12 +629,12 @@ func (s *Store) flushLocked(check bool) error {
 		}
 		if errors.Is(err, errFileChanged) {
 			s.mu.Unlock()
-			return err // Flush merges the file and writes again
+			return replaced, err // Flush merges the file and writes again
 		}
 		s.err = fmt.Errorf("desktop: cannot write the store %s: %w", s.path, err)
 		err = s.err
 		s.mu.Unlock()
-		return err
+		return nil, err
 	}
 	s.corrupt, s.err = false, nil
 	start := s.claimWatch() // the folder exists now
@@ -618,29 +642,33 @@ func (s *Store) flushLocked(check bool) error {
 	if start {
 		go s.openWatch()
 	}
-	return nil
+	return nil, nil
 }
 
 // writeStore writes data to path atomically: a temporary file in the same
-// folder, synced, then renamed over path (os.Rename replaces the file on
-// every OS, MoveFileEx with MOVEFILE_REPLACE_EXISTING on Windows). A
-// corrupt file is renamed to path.corrupt first. When unchanged is not
-// nil, it runs right before the rename (after the slow part, the sync),
-// and a false result removes the temporary file and returns
-// errFileChanged: another program wrote path meanwhile.
-func writeStore(path string, data []byte, corrupt bool, unchanged func() bool) error {
+// folder, synced, then put in place of path (renamed over it: os.Rename
+// replaces the file on every OS, MoveFileEx with MOVEFILE_REPLACE_EXISTING
+// on Windows). A corrupt file is renamed to path.corrupt first.
+//
+// When read is a stamp taken (the version of the file the last reload
+// merged), the temporary file replaces only that version (swapIn): when
+// another program wrote the file meanwhile, writeStore returns
+// errFileChanged, and also the content of the version it replaced when it
+// could tell only by replacing it (an exchange), which the caller merges
+// and writes again.
+func writeStore(path string, data []byte, corrupt bool, read fileStamp) (replaced []byte, err error) {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return err
+		return nil, err
 	}
 	if corrupt {
 		if err := rename(path, path+".corrupt"); err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return err
+			return nil, err
 		}
 	}
 	f, err := os.CreateTemp(dir, "."+filepath.Base(path)+".*.tmp")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	tmp := f.Name()
 	_, err = f.Write(data)
@@ -650,24 +678,86 @@ func writeStore(path string, data []byte, corrupt bool, unchanged func() bool) e
 	if cerr := f.Close(); err == nil {
 		err = cerr
 	}
-	if f := beforeRename.Load(); err == nil && f != nil {
-		(*f)(path)
-	}
-	if err == nil && unchanged != nil && !unchanged() {
-		err = errFileChanged
-	}
 	if err == nil {
-		err = rename(tmp, path)
+		hook(&beforeRename, path)
 	}
-	if err != nil {
-		os.Remove(tmp)
+	swapped := false
+	if err == nil {
+		if read.ok {
+			swapped, replaced, err = swapIn(tmp, path, read)
+		} else {
+			err = rename(tmp, path)
+		}
 	}
-	return err
+	if err != nil || swapped {
+		os.Remove(tmp) // the temporary file, or the version an exchange replaced
+	}
+	return replaced, err
+}
+
+// swapIn puts the file tmp in place of path, unless path is no longer the
+// version read (ADR-262). On Linux and macOS the replace is atomic and
+// tells what it replaced: tmp is exchanged with path (renameat2
+// RENAME_EXCHANGE, renamex_np RENAME_SWAP), then the version now at tmp is
+// read and compared with read; when it is another one, its content is
+// returned with errFileChanged (the caller merges it and writes again). A
+// file that did not exist is created only if it still does not
+// (RENAME_NOREPLACE, RENAME_EXCL), else errFileChanged with nothing
+// written. Where the OS or the file system cannot (Windows; NFS, FAT and
+// other file systems without the flags; kernels before 3.15), the file is
+// compared right before a plain rename, which leaves the moment between
+// the two open. swapped reports an exchange: tmp then holds the version
+// replaced, for the caller to remove.
+func swapIn(tmp, path string, read fileStamp) (swapped bool, replaced []byte, err error) {
+	if read.exists {
+		hook(&atReplace, path)
+		err := exchangeFiles(tmp, path)
+		switch {
+		case err == nil:
+			old, rerr := os.ReadFile(tmp)
+			if rerr != nil || read.same(stampOf(old)) {
+				// The version read (or one that cannot be read, which
+				// nothing could merge): written.
+				return true, nil, nil
+			}
+			return true, old, errFileChanged
+		case errors.Is(err, fs.ErrNotExist):
+			return false, nil, errFileChanged // removed meanwhile: nothing written
+		case !errors.Is(err, errors.ErrUnsupported):
+			return false, nil, err
+		}
+	} else {
+		hook(&atReplace, path)
+		err := renameNoReplace(tmp, path)
+		switch {
+		case err == nil:
+			return false, nil, nil
+		case errors.Is(err, fs.ErrExist):
+			return false, nil, errFileChanged // created meanwhile: nothing written
+		case !errors.Is(err, errors.ErrUnsupported):
+			return false, nil, err
+		}
+	}
+	if changedSince(path, read) {
+		return false, nil, errFileChanged
+	}
+	hook(&atReplace, path)
+	return false, nil, rename(tmp, path)
 }
 
 // beforeRename, when set, runs in writeStore before its check, with the
 // store's path (tests: another program's write at the edge of this one's).
-var beforeRename atomic.Pointer[func(path string)]
+// atReplace runs right before the call that replaces the file, after any
+// check (tests: another program's write in the moment that only an
+// exchange closes); it may run twice when an exchange is unsupported.
+var beforeRename, atReplace atomic.Pointer[func(path string)]
+
+// hook runs the test hook h with path, if set.
+func hook(h *atomic.Pointer[func(path string)], path string) {
+	if f := h.Load(); f != nil {
+		(*f)(path)
+	}
+}
 
 // rename is os.Rename, retried for a moment on Windows, where replacing or
 // moving a file fails with ERROR_ACCESS_DENIED or ERROR_SHARING_VIOLATION

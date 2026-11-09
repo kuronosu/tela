@@ -359,7 +359,7 @@ func TestTrayUnsupported(t *testing.T) {
 // again when the value changes, from a component or from the store.
 func TestUseSetting(t *testing.T) {
 	telatest.TempDesktopDirs(t)
-	desktop.SetAppID("com.example.settingstest")
+	desktop.SetAppIDForTest(t, "com.example.settingstest")
 	reader := func(name string) tela.Node {
 		return tela.CP(func(n string) tela.Node {
 			size, setSize := desktop.UseSetting("editor.fontSize", 14)
@@ -389,7 +389,7 @@ func TestUseSetting(t *testing.T) {
 // back; PersistApp does both for the main window.
 func TestPlacement(t *testing.T) {
 	telatest.TempDesktopDirs(t)
-	desktop.SetAppID("com.example.placementtest")
+	desktop.SetAppIDForTest(t, "com.example.placementtest")
 	if p := desktop.LoadPlacement("main"); p != (tela.WindowPlacement{}) {
 		t.Fatalf("a placement before any was saved: %+v", p)
 	}
@@ -421,7 +421,7 @@ func TestPlacement(t *testing.T) {
 // there; one still on a monitor opens where it was saved.
 func TestPlacementOnMissingMonitor(t *testing.T) {
 	telatest.TempDesktopDirs(t)
-	desktop.SetAppID("com.example.placementmonitors")
+	desktop.SetAppIDForTest(t, "com.example.placementmonitors")
 	laptop, external := image.Rect(0, 0, 1920, 1040), image.Rect(1920, 0, 4480, 1400)
 	root := tela.C(func() tela.Node { return Text("notes") })
 

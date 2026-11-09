@@ -28,16 +28,27 @@ func SetStartLaunchForTest(t *testing.T, dir string, args ...string) {
 	})
 }
 
-// resetInstance undoes what SingleInstance and runStart set.
+// SetAppIDForTest calls SetAppID(id) and restores the app ID when the
+// test ends: SetAppID is process-wide, and an ID left set leaks into the
+// later tests of the binary (under -count=3, into the next round's
+// TestSingleInstanceClaim). The tests of package desktop_test use it.
+func SetAppIDForTest(t *testing.T, id string) {
+	t.Cleanup(resetAppID)
+	SetAppID(id)
+}
+
+// resetInstance undoes what SingleInstance, runStart and SetAppID set,
+// both now (an earlier test may have left them set) and when the test
+// ends.
 func resetInstance(t *testing.T) {
-	t.Cleanup(func() {
+	reset := func() {
 		instance.mu.Lock()
 		instance.on, instance.appID, instance.start = false, "", nil
 		instance.mu.Unlock()
-		appID.mu.Lock()
-		appID.set = ""
-		appID.mu.Unlock()
-	})
+		resetAppID()
+	}
+	reset()
+	t.Cleanup(reset)
 }
 
 // Two headless backends of one process play the first and the second
