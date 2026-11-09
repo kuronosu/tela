@@ -173,6 +173,9 @@ func platformMenus(what string, lists ...[]MenuItem) ([][]platform.MenuItem, men
 			if strings.IndexFunc(it.Accelerator, func(r rune) bool { return r < ' ' || r == 0x7f }) >= 0 {
 				panic(fmt.Sprintf("%s: the item %q has the Accelerator %q with a control character; it is the text shown, such as \"Ctrl+S\"", what, it.Label, it.Accelerator))
 			}
+			if it.AccessKey != 0 && !it.Separator && !platform.CheckAccessKey(it.AccessKey) {
+				panic(fmt.Sprintf("%s: the item %q has the AccessKey %q; an access key is a letter or a digit the keyboard types, such as 'F' (a Japanese label gets it appended: \"ファイル(&F)\")", what, it.Label, it.AccessKey))
+			}
 			if !it.Role.valid() {
 				panic(fmt.Sprintf("%s: the item %q has the invalid Role %d; use one of the desktop.Role… constants", what, it.Label, it.Role))
 			}
@@ -188,19 +191,19 @@ func platformMenus(what string, lists ...[]MenuItem) ([][]platform.MenuItem, men
 				if len(sub) == 0 {
 					sub = standardMenu(what, it)
 				}
-				out[i] = platform.MenuItem{Label: label, Disabled: it.Disabled, Role: platform.MenuRole(it.Role), Submenu: conv(sub)}
+				out[i] = platform.MenuItem{Label: label, AccessKey: it.AccessKey, Disabled: it.Disabled, Role: platform.MenuRole(it.Role), Submenu: conv(sub)}
 			case len(it.Submenu) > 0:
 				if it.Role != RoleNone {
 					panic(fmt.Sprintf("%s: the item %q has Role %v, the role of an item, and a Submenu; a submenu can only have RoleEditMenu, RoleWindowMenu or RoleHelpMenu", what, it.Label, it.Role))
 				}
-				out[i] = platform.MenuItem{Label: label, Disabled: it.Disabled, Submenu: conv(it.Submenu)}
+				out[i] = platform.MenuItem{Label: label, AccessKey: it.AccessKey, Disabled: it.Disabled, Submenu: conv(it.Submenu)}
 			default:
 				next++
 				accel := it.Accelerator
 				if accel == "" {
 					accel = it.Role.accelerator()
 				}
-				pi := platform.MenuItem{ID: next, Label: label, Accelerator: accel, Checkable: it.Checkbox, Checked: it.Checked, Disabled: it.Disabled}
+				pi := platform.MenuItem{ID: next, Label: label, AccessKey: it.AccessKey, Accelerator: accel, Checkable: it.Checkbox, Checked: it.Checked, Disabled: it.Disabled}
 				switch {
 				case it.OnSelect != nil:
 					// The item's own action replaces the role: the platform

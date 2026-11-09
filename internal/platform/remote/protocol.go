@@ -500,6 +500,7 @@ func (e *enc) event(ev platform.Event) {
 		e.u8(evLaunch)
 		e.launch(ev.Launch)
 		e.u8(uint8(ev.Source)) // version 13
+		e.boolean(ev.AtStart) // version 15
 	case platform.QuitRequestedEvent:
 		e.u8(evQuitRequested)
 	case platform.AppMenuEvent:
@@ -629,7 +630,7 @@ func (d *dec) event() platform.Event {
 	case evShortcutStatus:
 		return platform.ShortcutStatusEvent{ID: d.str(), Status: platform.ShortcutStatus(d.u8()), Trigger: d.str(), Reason: d.str()}
 	case evLaunch:
-		return platform.LaunchEvent{Launch: d.launch(), Source: platform.LaunchSource(d.u8())}
+		return platform.LaunchEvent{Launch: d.launch(), Source: platform.LaunchSource(d.u8()), AtStart: d.boolean()}
 	case evQuitRequested:
 		return platform.QuitRequestedEvent{}
 	case evAppMenu:
@@ -959,6 +960,7 @@ func (e *enc) menu(items []platform.MenuItem) {
 		e.boolean(it.Checked)
 		e.boolean(it.Disabled)
 		e.u8(uint8(it.Role))
+		e.u32(uint32(it.AccessKey)) // version 15
 		e.menu(it.Submenu)
 	}
 }
@@ -976,7 +978,7 @@ func (d *dec) menu(depth int) []platform.MenuItem {
 	for range n {
 		it := platform.MenuItem{ID: platform.MenuItemID(d.u32()), Label: d.str(), Accelerator: d.str(),
 			Separator: d.boolean(), Checkable: d.boolean(), Checked: d.boolean(), Disabled: d.boolean(),
-			Role: platform.MenuRole(d.u8())}
+			Role: platform.MenuRole(d.u8()), AccessKey: rune(d.u32())}
 		if !it.Role.Valid() {
 			d.fail(fmt.Errorf("remote: invalid menu role %d", uint8(it.Role)))
 			return nil

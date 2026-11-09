@@ -551,6 +551,29 @@ func (w WindowHandle) Focus() { w.request(func(v *winView) { v.win.Activate() })
 // quits.
 func (w WindowHandle) Close() { w.request(func(v *winView) { v.host.requestClose(v) }) }
 
+// Destroy closes the window without asking (Electron's and Tauri's
+// destroy, ADR-259): the UseCloseRequest handlers of the window do not
+// run, and what Close does by default follows at once: for a Window
+// component its OnClose (which removes it from the state that renders
+// it), for the main window App.OnClose, or the window closes and the app
+// quits. It is what a close request handler calls once the user answered
+// its question:
+//
+//	tela.UseCloseRequest(func(e tela.CloseRequestEvent) {
+//	    if !dirty {
+//	        return
+//	    }
+//	    e.PreventDefault()
+//	    askToSave(func(ok bool) {
+//	        if ok {
+//	            e.Window.Destroy() // Close would ask again
+//	        }
+//	    })
+//	})
+//
+// A modal window open over the window does not stop it.
+func (w WindowHandle) Destroy() { w.request(func(v *winView) { v.host.closeDefault(v) }) }
+
 // ---------------------------------------------------------------------
 // Window components.
 
@@ -944,12 +967,19 @@ func (h *Host) quitRequested() {
 // requestClose runs what closing window v does: the user asked (the OS's
 // close button, a WindowClose control, WindowHandle.Close). The
 // window's UseCloseRequest handlers run first, and one that prevents the
-// default ends it. A child window runs its OnClose (nothing without one); the main window runs
-// Options.OnClose, or the app quits.
+// default ends it. Then closeDefault.
 func (h *Host) requestClose(v *winView) {
 	if v.closePrevented() { // closereq.go: UseCloseRequest
 		return
 	}
+	h.closeDefault(v)
+}
+
+// closeDefault runs the default of closing window v, without its
+// UseCloseRequest handlers (requestClose, WindowHandle.Destroy): a child
+// window runs its OnClose (nothing without one); the main window runs
+// Options.OnClose, or the app quits.
+func (h *Host) closeDefault(v *winView) {
 	if v == h.main {
 		if h.onClose != nil {
 			h.onClose(WindowHandle{v.tree})

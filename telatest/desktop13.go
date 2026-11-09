@@ -160,7 +160,8 @@ func (a *App) FailShortcuts(err error) {
 // launch, with Source LaunchForwarded. With l.Source LaunchOpened it plays
 // the OS opening links or files with the running app instead (macOS
 // Launch Services: a link clicked, a file opened from the Finder), which
-// needs no SingleInstance. The app settles.
+// needs no SingleInstance; with l.AtStart too, the file that started the
+// app, as macOS hands it just after the start. The app settles.
 //
 //	app := telatest.MountApp(t, desktop.SingleInstance(App))
 //	app.InjectLaunch(desktop.Launch{Args: []string{"notes:open?id=3"}})
@@ -169,7 +170,7 @@ func (a *App) InjectLaunch(l desktop.Launch) {
 	a.tb.Helper()
 	a.mustRun()
 	if l.Source == desktop.LaunchOpened {
-		a.backend.InjectApp(platform.LaunchEvent{Launch: platform.Launch{Args: slices.Clone(l.Args), Dir: l.Dir}, Source: platform.LaunchOpened})
+		a.backend.InjectApp(platform.LaunchEvent{Launch: platform.Launch{Args: slices.Clone(l.Args), Dir: l.Dir}, Source: platform.LaunchOpened, AtStart: l.AtStart})
 		a.settleAfter()
 		return
 	}

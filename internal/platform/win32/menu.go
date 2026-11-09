@@ -44,14 +44,19 @@ import (
 // its script. Letters of the scripts typed through an IME (Han, Hiragana,
 // Katakana, Hangul, Bopomofo, Yi) and the fullwidth forms are not: their
 // labels get an appended Latin key instead.
-func isMnemonicRune(r rune) bool {
-	switch {
-	case r >= '0' && r <= '9':
-		return true
-	case !unicode.IsLetter(r), r >= 0xff00 && r <= 0xffef:
-		return false
+func isMnemonicRune(r rune) bool { return platform.CheckAccessKey(r) }
+
+// explicitMnemonic is the mark of an item's own AccessKey k (ADR-259): the
+// first character of label equal to k in either case, else k appended
+// (upper-cased, as "(&F)").
+func explicitMnemonic(label string, k rune) mnemonic {
+	lk := unicode.ToLower(k)
+	for off, r := range label {
+		if unicode.ToLower(r) == lk {
+			return mnemonic{at: off}
+		}
 	}
-	return !unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana, unicode.Hangul, unicode.Bopomofo, unicode.Yi)
+	return mnemonic{at: -1, key: unicode.ToUpper(k)}
 }
 
 // mnemonic is the access key of a menu item: the character at byte offset
@@ -75,18 +80,26 @@ var roleKeys = map[platform.MenuRole]rune{
 const appendKeys = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 
 // autoMnemonics returns the access key of each item of a menu level (see
-// "Mnemonics of the menu bar"): separators and disabled items get none.
-// The result is nil for an empty menu.
+// "Mnemonics of the menu bar"): an item's own AccessKey first (taken
+// before the others choose, even when two items share it), then the rule
+// above for the others; separators and disabled items without an
+// AccessKey get none. The result is nil for an empty menu.
 func autoMnemonics(items []platform.MenuItem) []mnemonic {
 	if len(items) == 0 {
 		return nil
 	}
 	out := make([]mnemonic, len(items))
 	taken := map[rune]bool{}
-	var bare []int // the items whose label has no character of its own
 	for i, it := range items {
 		out[i] = mnemonic{at: -1}
-		if it.Separator || it.Disabled {
+		if k := it.AccessKey; k != 0 && !it.Separator {
+			out[i] = explicitMnemonic(it.Label, k)
+			taken[unicode.ToLower(k)] = true
+		}
+	}
+	var bare []int // the items whose label has no character of its own
+	for i, it := range items {
+		if it.Separator || it.Disabled || it.AccessKey != 0 {
 			continue
 		}
 		own := false
@@ -122,6 +135,25 @@ func autoMnemonics(items []platform.MenuItem) []mnemonic {
 				break
 			}
 		}
+	}
+	return out
+}
+
+// ownMnemonics returns the access keys of a menu level whose items get
+// only their own AccessKey (popup and tray menus): nil when none has one.
+func ownMnemonics(items []platform.MenuItem) []mnemonic {
+	var out []mnemonic
+	for i, it := range items {
+		if it.AccessKey == 0 || it.Separator {
+			continue
+		}
+		if out == nil {
+			out = make([]mnemonic, len(items))
+			for j := range out {
+				out[j] = mnemonic{at: -1}
+			}
+		}
+		out[i] = explicitMnemonic(it.Label, it.AccessKey)
 	}
 	return out
 }

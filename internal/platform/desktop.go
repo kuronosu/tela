@@ -346,6 +346,14 @@ type MenuItem struct {
 	// Label is plain text: backends escape their mnemonic characters
 	// ("&" on Win32, "_" in dbusmenu).
 	Label string
+	// AccessKey is the item's access key in Win32 menus (contract v11,
+	// ADR-259; HTML's accesskey): a letter or a digit. When the label has
+	// that character (in either case), it is marked there ("&File"),
+	// else it is appended in parentheses, as the native apps of IME
+	// languages do ("ファイル(&F)"). Zero lets the backend choose
+	// (ADR-252). Two items of a menu may share one (Windows then moves
+	// between them). The other backends ignore it.
+	AccessKey rune
 	// Accelerator is the text of the item's keyboard shortcut, shown at
 	// its right ("Ctrl+S"; Accelerator.String formats one). It is display
 	// text, and the app handles the key itself, except in the macOS app

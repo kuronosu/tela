@@ -113,6 +113,8 @@ func buildMenuWith(items []platform.MenuItem, auto bool) (entries []menuEntry, c
 		var keys []mnemonic
 		if auto {
 			keys = autoMnemonics(items)
+		} else {
+			keys = ownMnemonics(items) // popup and tray menus: the app's keys only
 		}
 		for i, it := range items {
 			e := menuEntry{label: menuLabel(it.Label)}

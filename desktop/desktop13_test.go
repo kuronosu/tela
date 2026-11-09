@@ -251,7 +251,11 @@ func TestUseLaunchStart(t *testing.T) {
 	listener := func(name string) tela.Component {
 		return tela.C(func() tela.Node {
 			desktop.UseLaunch(func(l desktop.Launch) {
-				got = append(got, name+":"+strings.Join(l.Files(), ",")+":"+l.Source.String())
+				at := ""
+				if l.AtStart {
+					at = "@start"
+				}
+				got = append(got, name+":"+strings.Join(l.Files(), ",")+":"+l.Source.String()+at)
 			})
 			return nil
 		})
@@ -267,7 +271,7 @@ func TestUseLaunchStart(t *testing.T) {
 	app.Click(telatest.ByRole("button", "Later"))
 	app.Click(telatest.ByRole("button", "Later"))
 	app.Click(telatest.ByRole("button", "Later"))
-	want := []string{"a:" + list + ":start", "b:" + list + ":start"}
+	want := []string{"a:" + list + ":start@start", "b:" + list + ":start@start"}
 	if !slices.Equal(got, want) {
 		t.Errorf("launches %q, want %q", got, want)
 	}
@@ -286,6 +290,14 @@ func TestUseLaunchStart(t *testing.T) {
 	want = []string{"a:" + opened + ":opened", "b:" + opened + ":opened", "c:" + opened + ":opened"}
 	if slices.Sort(got); !slices.Equal(got, want) {
 		t.Errorf("opened launch %q, want %q", got, want)
+	}
+	// The file that started the app, which macOS hands it just after the
+	// start, is marked (ADR-259).
+	got = nil
+	app.InjectLaunch(desktop.Launch{Args: []string{opened}, Source: desktop.LaunchOpened, AtStart: true})
+	want = []string{"a:" + opened + ":opened@start", "b:" + opened + ":opened@start", "c:" + opened + ":opened@start"}
+	if slices.Sort(got); !slices.Equal(got, want) {
+		t.Errorf("opened launch at the start %q, want %q", got, want)
 	}
 }
 

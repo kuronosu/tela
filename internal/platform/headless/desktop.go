@@ -338,6 +338,8 @@ func (b *Backend) InjectApp(e platform.Event) {
 		switch {
 		case e.Source > platform.LaunchOpened:
 			problem = fmt.Sprintf("invalid Source %d", e.Source)
+		case e.AtStart && e.Source != platform.LaunchOpened:
+			problem = "AtStart is set on a forwarded launch; only the OS opens links or files at the start (LaunchOpened)"
 		case e.Source == platform.LaunchForwarded && len(b.desktop.instances) == 0:
 			// Links and files the OS opens with the app (LaunchOpened)
 			// need no claim.

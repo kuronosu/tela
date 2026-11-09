@@ -94,6 +94,41 @@ func TestUseCloseRequestChildWindow(t *testing.T) {
 	}
 }
 
+// TestWindowDestroy (ADR-259): a close request handler that prevents the
+// default and then calls Destroy closes the window without being asked
+// again: Close would run it once more; Destroy runs the default (the
+// child's OnClose; the main window's quit without Options.OnClose).
+func TestWindowDestroy(t *testing.T) {
+	childClose, inChild, inMain := 0, 0, 0
+	var child, main WindowHandle
+	root := Component(func() Node {
+		main = UseWindow()
+		UseCloseRequest(func(e CloseRequestEvent) { inMain++; e.PreventDefault() })
+		return div(win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "C"}, OnClose: func() { childClose++ },
+			Root: Component(func() Node {
+				child = UseWindow()
+				UseCloseRequest(func(e CloseRequestEvent) { inChild++; e.PreventDefault() })
+				return div(Text("c"))
+			})}))
+	})
+	x := newWinHarness(t, Options{Root: root})
+	child.Close()
+	x.drain()
+	if inChild != 1 || childClose != 0 {
+		t.Fatalf("Close: handler %d, OnClose %d; want the handler, which prevents", inChild, childClose)
+	}
+	child.Destroy()
+	x.drain()
+	if inChild != 1 || childClose != 1 {
+		t.Errorf("Destroy: handler %d, OnClose %d; want no new handler call and OnClose", inChild, childClose)
+	}
+	main.Destroy()
+	x.drain()
+	if inMain != 0 || !x.b.Quitting() {
+		t.Errorf("main Destroy: handler %d, quitting %v; want no handler call and the app quitting", inMain, x.b.Quitting())
+	}
+}
+
 // TestUseQuitRequest: a quit request handler that prevents the default
 // keeps Options.OnQuit from running; without one OnQuit runs.
 func TestUseQuitRequest(t *testing.T) {

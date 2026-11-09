@@ -79,6 +79,16 @@ type MenuItem struct {
 	// Label is the item's text (plain text: "&" and "_" are shown as
 	// they are).
 	Label string
+	// AccessKey is the item's access key in Windows menus (HTML's
+	// accesskey; ADR-259): a letter or a digit, marked in the label where
+	// it has that character ("F&ormat" for 'o'), else appended as the
+	// native apps of Chinese, Japanese and Korean do ("ファイル(&F)"), so
+	// a translated menu keeps the English keys. Zero, the usual value, lets
+	// Windows menu bars choose one (the first free letter of the label, or
+	// the role's English letter; tray and popup menus then have none).
+	// Other platforms ignore it (macOS menus have no access keys; Tela's
+	// drawn menus use typeahead).
+	AccessKey rune
 	// Accelerator is the text of the item's keyboard shortcut, shown at
 	// its right ("Ctrl+S"; [ParseKeys] writes it the usual way). It is
 	// display only: the app handles the key itself (h.OnKeyDown). Tray
@@ -226,7 +236,7 @@ func sameTray(a, b platform.TrayOptions) bool {
 
 func sameMenu(a, b []platform.MenuItem) bool {
 	return slices.EqualFunc(a, b, func(x, y platform.MenuItem) bool {
-		return x.ID == y.ID && x.Label == y.Label && x.Accelerator == y.Accelerator && x.Separator == y.Separator &&
+		return x.ID == y.ID && x.Label == y.Label && x.AccessKey == y.AccessKey && x.Accelerator == y.Accelerator && x.Role == y.Role && x.Separator == y.Separator &&
 			x.Checkable == y.Checkable && x.Checked == y.Checked && x.Disabled == y.Disabled &&
 			sameMenu(x.Submenu, y.Submenu)
 	})

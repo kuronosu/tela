@@ -66,6 +66,15 @@ func TestMnemonicScripts(t *testing.T) {
 			[]string{"★(&A)", "&&(&B)"}, "ab"},
 		{"fullwidth Latin is typed through the IME", []platform.MenuItem{{Label: "ＡＢＣ"}},
 			[]string{"ＡＢＣ(&A)"}, "a"},
+		// The app's own keys (AccessKey, ADR-259): the English menus' F, V
+		// and T, appended to IME labels, reserved before the others choose.
+		{"Japanese with access keys", []platform.MenuItem{{Label: "ファイル", AccessKey: 'f'}, {Label: "編集", Role: platform.RoleEditMenu},
+			{Label: "表示", AccessKey: 'V'}, {Label: "ツール", AccessKey: 'T'}, {Label: "その他"}},
+			[]string{"ファイル(&F)", "編集(&E)", "表示(&V)", "ツール(&T)", "その他(&A)"}, "fevta"},
+		{"an own key in the label", []platform.MenuItem{{Label: "Format", AccessKey: 'o'}, {Label: "Open"}, {Label: "Файл", AccessKey: 'Ф'}},
+			[]string{"F&ormat", "O&pen", "&Файл"}, "opф"},
+		{"an own key the label lacks", []platform.MenuItem{{Label: "Print", AccessKey: 'x'}},
+			[]string{"Print(&X)"}, "x"},
 	} {
 		entries, _, keys := buildBarMenu(tc.items)
 		var labels []string
@@ -115,6 +124,11 @@ func TestBuildBarMenu(t *testing.T) {
 	plain, _ := buildMenu([]platform.MenuItem{{ID: 1, Label: "File"}})
 	if plain[0].label != "File" {
 		t.Errorf("buildMenu label = %q", plain[0].label)
+	}
+	// ...except for the app's own keys (ADR-259).
+	own, _ := buildMenu([]platform.MenuItem{{ID: 1, Label: "Copy", AccessKey: 'C'}, {ID: 2, Label: "貼り付け", AccessKey: 'P'}, {ID: 3, Label: "Plain"}})
+	if own[0].label != "&Copy" || own[1].label != "貼り付け(&P)" || own[2].label != "Plain" {
+		t.Errorf("buildMenu labels with access keys = %q, %q, %q", own[0].label, own[1].label, own[2].label)
 	}
 }
 

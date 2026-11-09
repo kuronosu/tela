@@ -30,6 +30,14 @@ type Launch struct {
 	// Source says where the launch comes from: this process's own start,
 	// another process of the app, or the OS.
 	Source LaunchSource
+	// AtStart reports a launch that came with this process's start: the
+	// LaunchStart one, and on macOS the LaunchOpened that names the files
+	// or links the user opened to start the app (Launch Services hands
+	// them just after the start, ADR-259). An app that restores its last
+	// session at start can skip it when such a launch names what to open.
+	// Linux and Windows cannot tell (their LaunchOpened and
+	// LaunchForwarded launches are false).
+	AtStart bool
 }
 
 // LaunchSource says where a [Launch] comes from.
@@ -147,7 +155,7 @@ func hasScheme(a, scheme string) bool {
 }
 
 func launchOf(l platform.Launch, src LaunchSource) Launch {
-	return Launch{Args: slices.Clone(l.Args), Dir: l.Dir, Source: src}
+	return Launch{Args: slices.Clone(l.Args), Dir: l.Dir, Source: src, AtStart: src == LaunchStart}
 }
 
 // launchSource returns the Source of a platform LaunchEvent.
@@ -337,7 +345,9 @@ func UseLaunch(f func(Launch)) {
 		}
 		return d.Listen(func(e platform.Event) {
 			if le, ok := e.(platform.LaunchEvent); ok {
-				cur.Current(launchOf(le.Launch, launchSource(le)))
+				l := launchOf(le.Launch, launchSource(le))
+				l.AtStart = le.AtStart && l.Source == LaunchOpened
+				cur.Current(l)
 			}
 		})
 	})

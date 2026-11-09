@@ -3,6 +3,7 @@ package platform
 import (
 	"fmt"
 	"strings"
+	"unicode"
 )
 
 // MenuRole is a standard item or menu that the OS may provide itself
@@ -80,6 +81,20 @@ func CheckAppMenu(menu, appItems []MenuItem) {
 	c.walk(appItems, "SetAppMenu appItems")
 }
 
+// CheckAccessKey reports whether k can be a [MenuItem].AccessKey: an
+// ASCII digit, or a letter of a script that keyboard layouts type
+// directly (not Han, Hiragana, Katakana, Hangul, Bopomofo or Yi, which
+// come from an IME, nor the fullwidth forms).
+func CheckAccessKey(k rune) bool {
+	switch {
+	case k >= '0' && k <= '9':
+		return true
+	case !unicode.IsLetter(k), k >= 0xff00 && k <= 0xffef:
+		return false
+	}
+	return !unicode.In(k, unicode.Han, unicode.Hiragana, unicode.Katakana, unicode.Hangul, unicode.Bopomofo, unicode.Yi)
+}
+
 // menuCheck walks the items of a menu for CheckMenu and CheckAppMenu.
 type menuCheck struct {
 	seen     map[MenuItemID]bool
@@ -95,6 +110,9 @@ func (c *menuCheck) walk(items []MenuItem, path string) {
 		}
 		if it.Separator {
 			continue
+		}
+		if k := it.AccessKey; k != 0 && !CheckAccessKey(k) {
+			panicf("platform: %s (%q) has AccessKey %q; an access key is a letter or a digit the keyboard types, such as 'F' (an IME language's label gets it appended: \"ファイル(&F)\")", at, it.Label, k)
 		}
 		if !it.Role.Valid() {
 			panicf("platform: %s (%q) has invalid Role %d; use one of the platform.Role… constants", at, it.Label, it.Role)

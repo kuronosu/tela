@@ -324,8 +324,9 @@ type QuitRequestEvent = core.QuitRequestEvent
 //	    }
 //	})
 //
-// To end after asking, call [Quit] (main window) or drop the Window from
-// the state (another window): [WindowHandle].Close would ask again.
+// To go on after asking, call [WindowHandle].Destroy, which runs the
+// default without the handlers ([WindowHandle].Close would ask again), or
+// [Quit], or drop the Window from the state.
 func UseCloseRequest(f func(CloseRequestEvent)) { core.UseCloseRequest(f) }
 
 // UseQuitRequest calls f each time the user or the OS asks the app to

@@ -59,6 +59,11 @@ type LaunchEvent struct {
 	Launch Launch
 	// Source says where the launch comes from.
 	Source LaunchSource
+	// AtStart marks a LaunchOpened that started the process: the OS
+	// started the app to open these links or files (contract v11,
+	// ADR-259). Only Cocoa knows (application:openURLs: before
+	// applicationDidFinishLaunching:); the others always leave it false.
+	AtStart bool
 }
 
 // LaunchSource says where a [LaunchEvent] comes from.

@@ -46,7 +46,8 @@ import (
 // (the user opened a file to start it) comes as the same Apple Event,
 // while [NSApp run] finishes launching, after the start's own Launch was
 // taken (CurrentLaunch, whose Args do not hold it): it is a LaunchOpened
-// like the later ones (desktop.UseLaunch's LaunchOpened), and launches
+// like the later ones (desktop.UseLaunch's LaunchOpened), marked AtStart
+// (it comes before applicationDidFinishLaunching:), and launches
 // forwarded by a second process are LaunchForwarded. Every launch is
 // delivered when it arrives: core holds the app-scoped events that come
 // before the app's first commit, whose effects mount the listeners of the
@@ -128,12 +129,28 @@ type forwardedQueue struct {
 }
 
 // openedLaunch delivers l, the URLs Launch Services handed the app, as an
-// app-scoped LaunchEvent (LaunchOpened). Main thread.
+// app-scoped LaunchEvent (LaunchOpened), AtStart when AppKit has not
+// finished launching the process yet (contract v11, ADR-259). Main
+// thread.
 func (b *Backend) openedLaunch(l platform.Launch) {
 	if b.closed {
 		return
 	}
-	b.appEvent(platform.LaunchEvent{Launch: l, Source: platform.LaunchOpened})
+	b.appEvent(platform.LaunchEvent{Launch: l, Source: platform.LaunchOpened, AtStart: !appLaunched})
+}
+
+// appLaunched is set by -[NSApplicationDelegate
+// applicationDidFinishLaunching:], once per process (a second Backend of
+// the process, in tests, runs after it). AppKit hands the app the files
+// and URLs that started it (application:openURLs:) after
+// applicationWillFinishLaunching: and before applicationDidFinishLaunching:,
+// so the launches before it are the start's. Main thread.
+var appLaunched bool
+
+// applicationDidFinishLaunching is -[NSApplicationDelegate
+// applicationDidFinishLaunching:].
+func applicationDidFinishLaunching(_ darwin.ID, _ darwin.SEL, _ darwin.ID) {
+	appLaunched = true
 }
 
 // passEnded runs after every delivery pass (inside it): it takes the
@@ -200,6 +217,7 @@ var lsSel = struct {
 func appDelegateLaunchMethods() []darwin.Method {
 	return []darwin.Method{
 		{Sel: darwin.Sel("application:openURLs:"), Fn: applicationOpenURLs},
+		{Sel: darwin.Sel("applicationDidFinishLaunching:"), Fn: applicationDidFinishLaunching},
 	}
 }
 

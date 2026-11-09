@@ -55,6 +55,7 @@ var eventSamples = []platform.Event{
 	platform.ShortcutStatusEvent{ID: "show", Status: platform.ShortcutRefused, Trigger: "Ctrl+Alt+K", Reason: "declined"},
 	platform.LaunchEvent{Launch: platform.Launch{Args: []string{"notes:open?id=3", "/tmp/x y"}, Dir: "/home/u", Token: "tok_TIME42"}},
 	platform.LaunchEvent{Launch: platform.Launch{Args: []string{"/Users/u/a.note"}, Dir: "/"}, Source: platform.LaunchOpened}, // version 13
+	platform.LaunchEvent{Launch: platform.Launch{Args: []string{"/Users/u/b.note"}, Dir: "/"}, Source: platform.LaunchOpened, AtStart: true}, // version 15
 	platform.QuitRequestedEvent{},
 	platform.AppMenuEvent{Item: 78},
 	platform.AccessibilityEvent{Active: true},
@@ -440,7 +441,7 @@ func TestPhase13Encodings(t *testing.T) {
 	launch := platform.Launch{Args: []string{"a"}, Dir: "/d", Token: "t"}
 	app := platform.HandlerApp{ID: "com.example.Notes", Name: "Notes", Exec: "/usr/bin/notes", Args: []string{"--open"}, Icon: "/i.png"}
 	as := platform.Association{Extension: ".note", MIMEType: "application/x-note", Description: "Note", Role: platform.HandlerViewer}
-	menu := []platform.MenuItem{{ID: 1, Label: "Save", Accelerator: "Ctrl+S"}, {Label: "Edit", Role: platform.RoleEditMenu, Submenu: []platform.MenuItem{{ID: 2, Label: "Undo", Accelerator: "Ctrl+Z", Role: platform.RoleUndo}}}}
+	menu := []platform.MenuItem{{ID: 1, Label: "Save", Accelerator: "Ctrl+S", AccessKey: 'S'}, {Label: "Edit", Role: platform.RoleEditMenu, Submenu: []platform.MenuItem{{ID: 2, Label: "Undo", Accelerator: "Ctrl+Z", Role: platform.RoleUndo}}}}
 
 	e := &enc{}
 	e.data(data)
