@@ -10,9 +10,10 @@ import (
 
 // The ARIA props the OS accessibility bridges read (ADR-246): live regions
 // (aria-live, aria-atomic), key shortcuts (aria-keyshortcuts), positions in
-// sets (aria-posinset, aria-setsize) and a deferred accessible name
-// (AriaLabelFn). They change nothing on screen and Playwright's aria
-// snapshot prints none of them.
+// sets (aria-posinset, aria-setsize), a deferred accessible name
+// (AriaLabelFn) and deferred range values (AriaValueNowFn,
+// AriaValueTextFn, ADR-250). They change nothing on screen and
+// Playwright's aria snapshot prints none of them.
 
 // ariaA11y holds the props of this file (ariaProps.x), allocated by the
 // first one applied.
@@ -137,6 +138,37 @@ func AriaLabelFn(fn func() string) Prop {
 		panic("tela: AriaLabelFn(nil): pass a function that returns the name, such as AriaLabelFn(func() string { return fmt.Sprintf(\"%d%% uploaded\", progress.Get()) })")
 	}
 	return ariaProp("AriaLabelFn", func(a *ariaProps) { a.label, a.labelFn, a.hasLabel = "", fn, true })
+}
+
+// AriaValueNowFn sets the current value of a range widget, like
+// AriaValueNow, to the result of fn, called when the semantics tree is
+// built rather than when the component builds (ADR-250): a progress bar
+// whose value a Value holds tells assistive technologies its value
+// without building. As with AriaLabelFn, a change of a Value fn reads
+// rebuilds nothing and needs no frame; it makes the semantics tree stale.
+// A NaN result is no value. AriaValueNow and AriaValueNowFn replace each
+// other.
+func AriaValueNowFn(fn func() float64) Prop {
+	if fn == nil {
+		panic("tela: AriaValueNowFn(nil): pass a function that returns the value, such as AriaValueNowFn(func() float64 { return float64(done.Get()) })")
+	}
+	return ariaProp("AriaValueNowFn", func(a *ariaProps) { a.rng.Now, a.rng.HasNow, a.nowFn = 0, false, fn })
+}
+
+// AriaValueTextFn sets the value of a range widget as people read it,
+// like AriaValueText, to the result of fn, called when the semantics tree
+// is built (see AriaValueNowFn). AriaValueText and AriaValueTextFn replace
+// each other.
+func AriaValueTextFn(fn func() string) Prop {
+	if fn == nil {
+		panic("tela: AriaValueTextFn(nil): pass a function that returns the text, such as AriaValueTextFn(func() string { return fmt.Sprintf(\"%d%%\", done.Get()) })")
+	}
+	return ariaProp("AriaValueTextFn", func(a *ariaProps) { a.valueText, a.hasText, a.textFn = "", false, fn })
+}
+
+// hasSemFn reports whether a has a function the semantics tree calls.
+func (a *ariaProps) hasSemFn() bool {
+	return a != nil && (a.labelFn != nil || a.nowFn != nil || a.textFn != nil)
 }
 
 // implicitLive returns the aria-live and aria-atomic values a role implies

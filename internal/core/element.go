@@ -45,7 +45,8 @@ type Element struct {
 	prov *providerState
 	// vobs holds the Values the last build read (value.go); on a text
 	// element, those its TextFn read (textfn.go); on a primitive, those its
-	// AriaLabelFn read (obsSem, semantics.go).
+	// AriaLabelFn, AriaValueNowFn and AriaValueTextFn read (obsSem,
+	// semantics.go).
 	vobs *observer
 
 	// Text. tfn is the function of a TextFn, whose Values vobs

@@ -50,7 +50,7 @@ const (
 	obsPaint                 // a box's paint-phase deferred props: repaint
 	obsText                  // a TextFn: assemble its paragraph again (textfn.go)
 	obsField                 // a text field bound to the Value (BindValue): show it
-	obsSem                   // an AriaLabelFn: the semantics tree is stale (semantics.go), no frame
+	obsSem                   // an AriaLabelFn, AriaValueNowFn or AriaValueTextFn: the semantics tree is stale (semantics.go), no frame
 )
 
 // observer is an evaluation whose Value reads are tracked: the build of a

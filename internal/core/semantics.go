@@ -25,7 +25,8 @@ import (
 // (tela inspect --aria, telatest, tela mcp, the semantics overlay) and
 // nothing runs per frame, so a tree that nobody inspects costs nothing.
 // The tree is kept and handed out again while no Frame ran, nothing is
-// dirty and no Value an AriaLabelFn read changed. A full build of a
+// dirty and no Value an AriaLabelFn (or AriaValueNowFn, AriaValueTextFn)
+// read changed. A full build of a
 // 10k-element tree takes a few milliseconds (BenchmarkSemantics10k);
 // incremental updates (§8's needsSemantics marks) are a later performance
 // task of the OS accessibility bridges (ADR-246).
@@ -33,7 +34,8 @@ import (
 // # Staleness
 //
 // A Frame or a dirty tree makes the last tree stale, and so does a change
-// of a Value read by an AriaLabelFn (obsSem), which needs no frame: it
+// of a Value read by an AriaLabelFn, AriaValueNowFn or AriaValueTextFn
+// (obsSem), which needs no frame: it
 // rebuilds nothing, it only invalidates the kept tree. SemanticsStale
 // reports it, and the listener set with OnSemanticsStale is told of the
 // changes that need no frame, so that a consumer that keeps a copy of the
@@ -106,9 +108,10 @@ type semState struct {
 	// portal is the portal being built (its content follows the root's,
 	// portal.go); others met inside the tree are skipped.
 	portal *Element
-	// labels caches the result of each AriaLabelFn evaluated in the build
-	// (ariaLabel); cleared at the start of a build and when one is stale.
-	labels map[*Element]string
+	// fns caches the results of the semantics functions of each element
+	// (AriaLabelFn, AriaValueNowFn, AriaValueTextFn) evaluated in the build
+	// (semFns); cleared at the start of a build and when one is stale.
+	fns map[*Element]semFnVals
 	// onStale is the listener of OnSemanticsStale, told is set once it was
 	// told about the tree last built.
 	onStale func()
@@ -117,8 +120,8 @@ type semState struct {
 
 // SemanticsStale reports whether the tree Semantics last returned is out
 // of date: a Frame ran since, the tree is dirty (updates wait, an element
-// must be built), or a Value an AriaLabelFn read changed. Call it on the
-// UI thread.
+// must be built), or a Value an AriaLabelFn (or AriaValueNowFn,
+// AriaValueTextFn) read changed. Call it on the UI thread.
 func (t *Tree) SemanticsStale() bool {
 	s := &t.sem
 	return !s.valid || s.root == nil || s.frame != t.frame || t.Dirty()
@@ -126,12 +129,12 @@ func (t *Tree) SemanticsStale() bool {
 
 // OnSemanticsStale sets the function called on the UI thread when the
 // semantics tree becomes stale without a frame: a Value read by an
-// AriaLabelFn changed (the hook point of the OS accessibility bridges,
-// ADR-246). It is called once per tree built: again only after Semantics
-// built a new one. It must not build the tree itself (it may run inside
-// ApplyUpdates or a frame); it should schedule that. Changes that request
-// a frame are not reported: check SemanticsStale after each Frame. nil
-// removes the listener.
+// AriaLabelFn, AriaValueNowFn or AriaValueTextFn changed (the hook point
+// of the OS accessibility bridges, ADR-246). It is called once per tree
+// built: again only after Semantics built a new one. It must not build the
+// tree itself (it may run inside ApplyUpdates or a frame); it should
+// schedule that. Changes that request a frame are not reported: check
+// SemanticsStale after each Frame. nil removes the listener.
 func (t *Tree) OnSemanticsStale(f func()) { t.sem.onStale = f }
 
 // semanticsStale invalidates the kept semantics tree (an AriaLabelFn's
@@ -139,7 +142,7 @@ func (t *Tree) OnSemanticsStale(f func()) { t.sem.onStale = f }
 func (t *Tree) semanticsStale() {
 	s := &t.sem
 	s.valid = false
-	clear(s.labels)
+	clear(s.fns)
 	if s.onStale != nil && !s.told {
 		s.told = true
 		s.onStale()
@@ -147,9 +150,8 @@ func (t *Tree) semanticsStale() {
 }
 
 // ariaLabel returns the aria-label of primitive el, whose ARIA props are
-// a (nil without): its AriaLabel, or the result of its AriaLabelFn,
-// evaluated once per build of the semantics tree with the Values it reads
-// tracked (obsSem: a change makes the tree stale, nothing else).
+// a (nil without): its AriaLabel, or the result of its AriaLabelFn
+// (semFns).
 func (t *Tree) ariaLabel(el *Element, a *ariaProps) string {
 	if a == nil {
 		return ""
@@ -157,27 +159,50 @@ func (t *Tree) ariaLabel(el *Element, a *ariaProps) string {
 	if a.labelFn == nil {
 		return a.label
 	}
+	return t.semFns(el, a).label
+}
+
+// semFnVals are the results of the semantics functions of an element.
+type semFnVals struct {
+	label string  // AriaLabelFn's
+	now   float64 // AriaValueNowFn's
+	text  string  // AriaValueTextFn's
+}
+
+// semFns returns the results of the semantics functions of primitive el,
+// whose ARIA props a have some (hasSemFn): evaluated once per build of the
+// semantics tree, all of them with the Values they read tracked together
+// (obsSem: a change makes the tree stale, nothing else).
+func (t *Tree) semFns(el *Element, a *ariaProps) semFnVals {
 	s := &t.sem
-	if v, ok := s.labels[el]; ok {
+	if v, ok := s.fns[el]; ok {
 		return v
 	}
 	mark := t.beginTrack()
-	var v string
+	var v semFnVals
 	func() {
 		done := false
 		defer func() {
-			if !done { // fn panicked: keep the old subscriptions
+			if !done { // a function panicked: keep the old subscriptions
 				t.endTrack(mark)
 			}
 		}()
-		v = a.labelFn()
+		if a.labelFn != nil {
+			v.label = a.labelFn()
+		}
+		if a.nowFn != nil {
+			v.now = a.nowFn()
+		}
+		if a.textFn != nil {
+			v.text = a.textFn()
+		}
 		done = true
 	}()
 	t.observe(&el.vobs, obsSem, el, nil, t.endTrack(mark))
-	if s.labels == nil {
-		s.labels = make(map[*Element]string)
+	if s.fns == nil {
+		s.fns = make(map[*Element]semFnVals)
 	}
-	s.labels[el] = v
+	s.fns[el] = v
 	return v
 }
 
@@ -198,7 +223,7 @@ func (t *Tree) Semantics() *semantics.Node {
 	} else {
 		clear(s.byID)
 	}
-	clear(s.labels)
+	clear(s.fns)
 	s.told = false
 	root := &semantics.Node{Kind: semantics.KindRoot}
 	if t.root != nil && t.rootBox.cs != nil {
@@ -316,8 +341,8 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 	cinh := t.semStates(el, n, inh)
 	t.semAriaFields(el, n)
 	cinh.liveRoot = semLive(d.aria, n, inh.liveRoot) // aria_live.go
-	if el.vobs != nil && (d.aria == nil || d.aria.labelFn == nil) {
-		dropObserver(el.vobs) // an AriaLabelFn removed by a build
+	if el.vobs != nil && !d.aria.hasSemFn() {
+		dropObserver(el.vobs) // an AriaLabelFn (or a value's) removed by a build
 	}
 	if bx.kind == style.KindA {
 		n.URL = d.href
@@ -342,7 +367,7 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 
 	n.Name = semantics.NormalizeWhiteSpace(t.accName(el, role, n.Has(semantics.StateHidden)))
 	semFieldStates(el, n, cinh.disabled)
-	n.Value = semValue(el, role)
+	n.Value = t.semValue(el, role)
 	semFieldText(el, n, role)
 	if !n.Has(semantics.StateHidden) {
 		t.semBounds(el, n, cinh.none, cinh.transformed)
@@ -414,6 +439,11 @@ func (t *Tree) semAriaFields(el *Element, n *semantics.Node) {
 		}
 		n.Description = t.semDescription(a)
 		n.Range = a.rng
+		if a.nowFn != nil {
+			if v := t.semFns(el, a).now; v == v { // NaN is no value
+				n.Range.Now, n.Range.HasNow = v, true
+			}
+		}
 		t.semWidget(a, n) // ariawidget.go
 	}
 	if n.Level = headingLevel(el.box.kind); n.Level == 0 && a != nil && a.level >= 1 {
@@ -570,7 +600,7 @@ func semFieldStates(el *Element, n *semantics.Node, disabled bool) {
 
 // semValue returns the value of primitive el, whose role is role: a text
 // field's text, a textbox's content, a range widget's value.
-func semValue(el *Element, role string) string {
+func (t *Tree) semValue(el *Element, role string) string {
 	switch {
 	case el.box.fld != nil && (role == "textbox" || role == "searchbox" || role == "combobox"):
 		// A text field with the combobox role (an editable combobox's input)
@@ -579,19 +609,26 @@ func semValue(el *Element, role string) string {
 	case role == "textbox" || role == "searchbox":
 		return textContent(el)
 	case semantics.RangeRole(role):
-		return rangeValue(el.node.d.aria)
+		return t.rangeValue(el, el.node.d.aria)
 	}
 	return ""
 }
 
-// rangeValue returns the value of a range widget with ARIA props a (nil
-// without): its AriaValueText, else its AriaValueNow as JavaScript prints
-// it, else "".
-func rangeValue(a *ariaProps) string {
+// rangeValue returns the value of range widget el with ARIA props a (nil
+// without): its AriaValueText (or AriaValueTextFn's), else its
+// AriaValueNow (or AriaValueNowFn's) as JavaScript prints it, else "".
+func (t *Tree) rangeValue(el *Element, a *ariaProps) string {
 	switch {
-	case a != nil && a.hasText:
+	case a == nil:
+	case a.textFn != nil:
+		return t.semFns(el, a).text
+	case a.hasText:
 		return a.valueText
-	case a != nil && a.rng.HasNow:
+	case a.nowFn != nil:
+		if v := t.semFns(el, a).now; v == v {
+			return jsNumberString(v)
+		}
+	case a.rng.HasNow:
 		return jsNumberString(a.rng.Now)
 	}
 	return ""
@@ -922,7 +959,7 @@ func (t *Tree) altEmbeddedControl(el *Element, a *ariaProps, role string, c *alt
 		return t.selectedOptions(el, role, c, o.child()), true
 	case semantics.RangeRole(role):
 		c.visited[el] = true
-		return rangeValue(a), true
+		return t.rangeValue(el, a), true
 	case role == "menu":
 		c.visited[el] = true
 		return "", true

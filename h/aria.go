@@ -142,6 +142,27 @@ func AriaValueMax(value float64) tela.Prop { return core.AriaValueMax(value) }
 //	Div(Role("slider"), AriaValueNow(3), AriaValueText("Medium"), track)
 func AriaValueText(text string) tela.Prop { return core.AriaValueText(text) }
 
+// AriaValueNowFn sets the current value of a range widget, like
+// AriaValueNow, from a function called when the semantics tree is built,
+// not when the component builds: a value that a tela.Value holds (a
+// download, a tween) reaches assistive technologies without rebuilding the
+// component. As with AriaLabelFn, a change of a Value the function reads
+// with Get rebuilds and repaints nothing; it only makes the next semantics
+// tree call the function again. A NaN is no value. AriaValueNow and
+// AriaValueNowFn replace each other.
+//
+//	done := tela.UseValue(0.0) // set by the download's goroutine
+//	Div(Role("progressbar"), AriaLabel("Download"), AriaValueMin(0), AriaValueMax(100),
+//	    AriaValueNowFn(done.Get), AriaValueTextFn(func() string { return fmt.Sprintf("%.0f%%", done.Get()) }),
+//	    bar) // the bar moves with a tela.TranslateFn that reads done
+func AriaValueNowFn(fn func() float64) tela.Prop { return core.AriaValueNowFn(fn) }
+
+// AriaValueTextFn sets the value of a range widget as people read it, like
+// AriaValueText, from a function called when the semantics tree is built
+// (see AriaValueNowFn). AriaValueText and AriaValueTextFn replace each
+// other.
+func AriaValueTextFn(fn func() string) tela.Prop { return core.AriaValueTextFn(fn) }
+
 // Alt sets the alternative text of an Img: its accessible name. Use
 // Alt("") for a decorative image, which the semantics tree leaves out. It
 // panics on other elements.

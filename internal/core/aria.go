@@ -38,7 +38,9 @@ type ariaProps struct {
 	rowCount    int32 // AriaRowCount; 0 unset
 	rowIndex    int32 // AriaRowIndex; 0 unset
 	rng         semantics.Range
+	nowFn       func() float64 // AriaValueNowFn (aria_live.go); rng.HasNow is false then
 	valueText   string
+	textFn      func() string // AriaValueTextFn (aria_live.go); hasText is false then
 	hasText     bool
 	alt         string
 	hasAlt      bool
@@ -172,8 +174,9 @@ func AriaRowIndex(i int) Prop {
 }
 
 // AriaValueNow sets the current value of a range widget (aria-valuenow).
+// AriaValueNow and AriaValueNowFn replace each other.
 func AriaValueNow(v float64) Prop {
-	return ariaProp("AriaValueNow", func(a *ariaProps) { a.rng.Now, a.rng.HasNow = v, true })
+	return ariaProp("AriaValueNow", func(a *ariaProps) { a.rng.Now, a.rng.HasNow, a.nowFn = v, true, nil })
 }
 
 // AriaValueMin sets the minimum value of a range widget (aria-valuemin).
@@ -187,9 +190,10 @@ func AriaValueMax(v float64) Prop {
 }
 
 // AriaValueText sets the human-readable value of a range widget
-// (aria-valuetext): "50%", "Medium".
+// (aria-valuetext): "50%", "Medium". AriaValueText and AriaValueTextFn
+// replace each other.
 func AriaValueText(s string) Prop {
-	return ariaProp("AriaValueText", func(a *ariaProps) { a.valueText, a.hasText = s, true })
+	return ariaProp("AriaValueText", func(a *ariaProps) { a.valueText, a.hasText, a.textFn = s, true, nil })
 }
 
 // Alt sets the alternative text of an Img, its accessible name. Alt("")
