@@ -50,6 +50,9 @@ type Window struct {
 	ime          imeWindow     // text input and IME (ime_darwin.go)
 	dnd          windowDnD     // drag and drop (dnd_darwin.go)
 	acc          windowAccess  // the accessibility bridge (access_darwin.go)
+	// trans is a transparent window's input mask and click-through
+	// (transparent_darwin.go, ADR-249).
+	trans transparentState
 
 	// Pacing (link_darwin.go).
 	link        darwin.ID // CADisplayLink of the view (owned: +1)
@@ -87,6 +90,9 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	}
 	if opts.FixedSize {
 		style &^= darwin.NSWindowStyleMaskResizable
+	}
+	if opts.Transparent {
+		style = transparentStyle(style) // transparent_darwin.go
 	}
 	rect := darwin.CGRect{Size: cgSize(opts.Size)}
 	w.ns = darwin.Send(darwin.SendClass(app.window, sel.alloc), sel.initWithContentRect,
@@ -354,6 +360,7 @@ func (w *Window) Close() {
 	w.closeIME()
 	darwin.PoolPop(imePool)
 	w.releaseLink()
+	w.releaseTransparent()
 	w.closeDnD()
 	accPool := darwin.PoolPush()
 	w.closeAccess()
@@ -491,10 +498,11 @@ func viewMethods() []darwin.Method {
 	return []darwin.Method{
 		// Flipped: y grows downward, like Tela's coordinates.
 		{Sel: darwin.Sel("isFlipped"), Fn: yes},
-		// Opaque unless a backdrop shows through the frame's alpha.
+		// Opaque unless a backdrop or the desktop (a transparent
+		// window) shows through the frame's alpha.
 		{Sel: darwin.Sel("isOpaque"), Fn: func(self darwin.ID, _ darwin.SEL) bool {
 			w := windowFor(self)
-			return w == nil || w.ctl.effect == 0
+			return w == nil || w.ctl.effect == 0 && !w.opts.Transparent
 		}},
 		// A press never moves the window by itself (a transparent title
 		// bar would, over a view that is not opaque): caption regions

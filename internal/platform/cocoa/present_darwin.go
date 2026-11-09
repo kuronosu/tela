@@ -40,6 +40,7 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 	for _, r := range rects {
 		platform.CopyRGBA(w.back, fb, r)
 	}
+	w.updateInputMask(fb, rects) // a transparent window (transparent_darwin.go)
 
 	pool := darwin.PoolPush()
 	defer darwin.PoolPop(pool)

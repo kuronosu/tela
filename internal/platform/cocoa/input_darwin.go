@@ -264,6 +264,9 @@ func (w *Window) mouseButton(ev darwin.ID, btn platform.PointerButton, down bool
 	}
 	pos := w.eventPos(ev)
 	defer w.keepPress(ev) // the press StartDrag starts from (dnd_darwin.go)
+	if down && w.passPointer(pos) {
+		return // under a transparent window's input alpha (transparent_darwin.go)
+	}
 	if down {
 		if w.ctl.blocked {
 			w.raiseModal()
@@ -292,6 +295,9 @@ func (w *Window) mouseMove(ev darwin.ID) {
 		return
 	}
 	pos := w.eventPos(ev)
+	if w.passPointer(pos) {
+		return // under a transparent window's input alpha (transparent_darwin.go)
+	}
 	b := darwin.SendRect(w.view, sel.bounds)
 	w.ptr.move(pos, inBounds(pos, platform.Size{W: float32(b.Size.Width), H: float32(b.Size.Height)}), w.emitter(ev))
 	w.updateCursorHidden()

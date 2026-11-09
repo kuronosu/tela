@@ -219,8 +219,12 @@ func (w *Window) setupWindowCtl() {
 	}
 	w.ctl.onTop = opts.AlwaysOnTop
 	w.applyLevel()
-	w.ctl.backdrop = opts.Backdrop
-	w.applyBackdrop()
+	if opts.Transparent {
+		w.initTransparent() // transparent_darwin.go; no backdrop
+	} else {
+		w.ctl.backdrop = opts.Backdrop
+		w.applyBackdrop()
+	}
 	w.ctl.fsWant = opts.Fullscreen
 	w.ctl.maxWant, w.ctl.maxPending = opts.Maximized, opts.Maximized
 }
@@ -290,6 +294,7 @@ func (w *Window) syncState() {
 		Minimized:             w.minimized,
 		ClientSideDecorations: w.fullSizeContent(),
 		TitleBarControls:      w.titleBarControls(),
+		Transparent:           w.opts.Transparent, // the window server composites every window
 		HasPosition:           true,
 		Position:              c.pos,
 	})
@@ -853,8 +858,8 @@ func (w *Window) PresentsAlpha() bool { return w.ctl.effect != 0 }
 // BackdropNone make the window opaque again.
 func (w *Window) SetBackdrop(backdrop platform.Backdrop) {
 	platform.CheckBackdrop("SetBackdrop backdrop", backdrop)
-	if w.Closed() || backdrop == w.ctl.backdrop {
-		return
+	if w.Closed() || backdrop == w.ctl.backdrop || w.opts.Transparent {
+		return // a transparent window shows the desktop, not a material
 	}
 	pool := darwin.PoolPush()
 	defer darwin.PoolPop(pool)

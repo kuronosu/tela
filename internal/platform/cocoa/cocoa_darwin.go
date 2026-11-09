@@ -300,6 +300,7 @@ func (b *Backend) pump() {
 		// queued for the follow-up pass.
 		for _, w := range b.loop.Windows() {
 			w.applyControl()
+			w.pollPassing() // a transparent window letting the pointer through
 		}
 		b.passEnded() // launch_darwin.go: the launches held for the first pass
 	}()
