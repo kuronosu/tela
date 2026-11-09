@@ -373,3 +373,36 @@ func TestContextMenuOpening(t *testing.T) {
 		t.Errorf("after a move: menu %v, openings %v", hasMenu(app), seen)
 	}
 }
+
+// SetOpen(true) is an opening too: Opening changes, so a menu exiting in a
+// Presence is not revived as the new one.
+func TestContextMenuSetOpenIsAnOpening(t *testing.T) {
+	var ev events
+	var seen []int
+	var setOpen func(bool)
+	b, host, win := rawwin.Mount(t, tela.C(func() tela.Node {
+		cm := aria.UseContextMenuTrigger(aria.ContextMenuTriggerOptions{})
+		setOpen = cm.SetOpen
+		if cm.Open && (len(seen) == 0 || seen[len(seen)-1] != cm.Opening) {
+			seen = append(seen, cm.Opening)
+		}
+		return Div(Class("relative h-full"),
+			Div(cm.TriggerProps, Class("absolute left-5 top-5 h-[120px] w-[200px]")),
+			Portal(If(cm.Open, tela.WithKey(ctxMenu{cm, &ev}, cm.Opening))))
+	}), 400, 300, 0, core.Config{})
+	app := &rawApp{t: t, b: b, host: host, win: win, tree: host.Tree()}
+	app.rightClick(90, 60)
+	setOpen(false)
+	app.settle()
+	setOpen(true)
+	app.settle()
+	if !hasMenu(app) || len(seen) != 2 || seen[0] == seen[1] {
+		t.Fatalf("menu %v, openings %v, want two different numbers", hasMenu(app), seen)
+	}
+	// SetOpen(true) on an open menu is no new opening.
+	setOpen(true)
+	app.settle()
+	if len(seen) != 2 {
+		t.Errorf("openings %v after SetOpen(true) on the open menu", seen)
+	}
+}
