@@ -208,8 +208,9 @@ func (in *inotify) event(wd int32, mask uint32, name string) {
 	case mask&(unix.IN_MOVED_FROM|unix.IN_DELETE) != 0:
 		in.remove(path)
 		in.mu.Unlock()
-		if mask&unix.IN_MOVED_FROM != 0 {
-			// Its files went with it, without events of their own.
+		if mask&unix.IN_MOVED_FROM != 0 || in.w.opts.Flat {
+			// Its files went with it, without events of their own (a
+			// Flat watcher never watched them, ADR-262).
 			in.w.changed(path, true)
 		}
 	default:

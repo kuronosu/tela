@@ -176,8 +176,19 @@ func (h *Host) desktop() *hostDesktop {
 // for every backend, whatever the OS sends before the first frame (a
 // launch forwarded before Run, the file that started a macOS app, a
 // shortcut's status).
+//
+// A LaunchOpened held so is marked AtStart (ADR-262): the OS handed the
+// app those links or files before it showed anything, so they came with
+// its start, whatever the backend could tell (the Linux D-Bus activation
+// whose Open call started the app, as Cocoa's application:openURLs:
+// before applicationDidFinishLaunching:). A forwarded launch never is: it
+// is another process's start.
 func (h *Host) appEvent(e platform.Event) {
 	if !h.main.committed {
+		if le, ok := e.(platform.LaunchEvent); ok && le.Source == platform.LaunchOpened {
+			le.AtStart = true
+			e = le
+		}
 		h.early = append(h.early, e)
 		return
 	}

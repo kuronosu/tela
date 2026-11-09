@@ -9,7 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"syscall"
+	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -29,9 +31,12 @@ import (
 //   - kqueue is not recursive and takes one descriptor per watched file,
 //     so only the files Filter accepts get one (the sources of tela dev,
 //     a store's file), and the directories. Go raises the soft limit of
-//     open files to the hard one at start; EMFILE is reported once, and
-//     such a file is then seen only through its directory (created,
-//     renamed, removed, replaced by a rename; not written in place).
+//     open files to the hard one at start; past it (EMFILE, ENFILE),
+//     reported once, a file is polled instead (ADR-262): its stat (inode,
+//     size, modification time) is compared every PollInterval, so a write
+//     in place is still seen, as the poller sees it; its directory still
+//     reports it created, renamed, removed or replaced, and a file that
+//     takes its name tries for a descriptor again.
 //   - A save that renames a new file over the old one (most editors, the
 //     stores) changes the name's inode: the scan compares inodes too and
 //     moves the file's watch to the new one.
@@ -52,6 +57,11 @@ type kqueue struct {
 	files   map[string]int   // watched files: path -> descriptor
 	byFD    map[int]kent
 	limited bool // EMFILE was reported
+	// polled are the files watched without a descriptor (past the open
+	// file limit), with their last stamps; pollStop ends their poll,
+	// started with the first.
+	polled   map[string]kstamp
+	pollStop chan struct{}
 	// closing are the descriptors of watches removed while a batch of
 	// events is handled, closed after it (closeRemoved): a descriptor
 	// closed at once could be reused by a watch the same batch opens, and
@@ -122,6 +132,11 @@ func (k *kqueue) setRoots(roots []string) error {
 			k.unwatchFile(p)
 		}
 	}
+	for p := range k.polled {
+		if !under(p, roots) {
+			k.unwatchFile(p)
+		}
+	}
 	k.roots = roots
 	for _, r := range roots {
 		k.w.walk(r, k.addDir, nil)
@@ -173,7 +188,7 @@ func (k *kqueue) failed(path string, err error) {
 	case errors.Is(err, unix.EMFILE), errors.Is(err, unix.ENFILE):
 		if !k.limited {
 			k.limited = true
-			k.w.error(fmt.Errorf("watch: %s: too many open files for kqueue; files beyond the limit are seen only when created, renamed or removed (raise it with ulimit -n)", path))
+			k.w.error(fmt.Errorf("watch: %s: too many open files for kqueue; files beyond the limit are polled (raise it with ulimit -n)", path))
 		}
 	default:
 		k.w.error(fmt.Errorf("watch: %s: %w", path, err))
@@ -217,16 +232,80 @@ func (k *kqueue) addFile(path string, e fs.DirEntry) {
 	if f := k.w.opts.Filter; f != nil && !f(path, false) {
 		return
 	}
-	fd, err := k.open(path, false)
+	fd, err := -1, error(nil)
+	if f := kqFileLimit.Load(); f != nil && (*f)(path) {
+		err = unix.EMFILE // tests: past the limit
+	} else {
+		fd, err = k.open(path, false)
+	}
 	if err != nil {
 		k.failed(path, err)
+		if errors.Is(err, unix.EMFILE) || errors.Is(err, unix.ENFILE) {
+			k.poll(path, e)
+		}
 		return
 	}
+	delete(k.polled, path)
 	k.files[path] = fd
+}
+
+// kqFileLimit, when set, makes the files it accepts fail as if past the
+// open file limit (tests).
+var kqFileLimit atomic.Pointer[func(path string) bool]
+
+// poll watches the file path without a descriptor: its stamp is compared
+// every PollInterval (pollLoop, started with the first such file). k.mu
+// is held.
+func (k *kqueue) poll(path string, e fs.DirEntry) {
+	st, ok := entryStamp(e)
+	if !ok {
+		return
+	}
+	if k.polled == nil {
+		k.polled = map[string]kstamp{}
+	}
+	k.polled[path] = st
+	if k.pollStop == nil {
+		k.pollStop = make(chan struct{})
+		go k.pollLoop(k.pollStop)
+	}
+}
+
+// pollLoop compares the stamps of the polled files every PollInterval
+// until stop is closed (shutdown). A file gone is left to its directory,
+// whose scan reports it and watches the file that takes its name.
+func (k *kqueue) pollLoop(stop chan struct{}) {
+	t := time.NewTicker(k.w.opts.PollInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-t.C:
+		}
+		var out []string
+		k.mu.Lock()
+		for path, old := range k.polled {
+			fi, err := os.Lstat(path)
+			if err != nil {
+				continue // the directory's scan reports it
+			}
+			st := statStamp(fi)
+			if st != old {
+				k.polled[path] = st
+				out = append(out, path)
+			}
+		}
+		k.mu.Unlock()
+		for _, p := range out {
+			k.w.changed(p, false)
+		}
+	}
 }
 
 // unwatchFile stops watching the file path. k.mu is held.
 func (k *kqueue) unwatchFile(path string) {
+	delete(k.polled, path)
 	if fd, ok := k.files[path]; ok {
 		k.closing = append(k.closing, fd)
 		delete(k.byFD, fd)
@@ -252,6 +331,11 @@ func (k *kqueue) unwatchTree(path string) {
 		}
 	}
 	for p := range k.files {
+		if Within(p, path) {
+			k.unwatchFile(p)
+		}
+	}
+	for p := range k.polled {
 		if Within(p, path) {
 			k.unwatchFile(p)
 		}
@@ -294,6 +378,11 @@ func (k *kqueue) shutdown() {
 	clear(k.byFD)
 	clear(k.dirs)
 	clear(k.files)
+	clear(k.polled)
+	if k.pollStop != nil {
+		close(k.pollStop)
+		k.pollStop = nil
+	}
 	k.closeRemoved()
 	unix.Close(k.kq)
 }
@@ -416,6 +505,12 @@ func entryStamp(e fs.DirEntry) (kstamp, bool) {
 	if err != nil {
 		return kstamp{}, false
 	}
+	return statStamp(fi), true
+}
+
+// statStamp returns what a scan, or the poll of a file without a
+// descriptor, compares of fi.
+func statStamp(fi fs.FileInfo) kstamp {
 	st := kstamp{dir: fi.IsDir(), size: fi.Size(), mod: fi.ModTime().UnixNano()}
 	if sys, ok := fi.Sys().(*syscall.Stat_t); ok {
 		st.ino = sys.Ino
@@ -423,5 +518,5 @@ func entryStamp(e fs.DirEntry) (kstamp, bool) {
 	if st.dir {
 		st.size, st.mod = 0, 0 // a directory changes with its entries
 	}
-	return st, true
+	return st
 }

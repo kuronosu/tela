@@ -62,7 +62,9 @@ type LaunchEvent struct {
 	// AtStart marks a LaunchOpened that started the process: the OS
 	// started the app to open these links or files (contract v11,
 	// ADR-259). Only Cocoa knows (application:openURLs: before
-	// applicationDidFinishLaunching:); the others always leave it false.
+	// applicationDidFinishLaunching:); the others always leave it false,
+	// and core marks a LaunchOpened that arrives before the main window's
+	// first commit itself (ADR-262).
 	AtStart bool
 }
 

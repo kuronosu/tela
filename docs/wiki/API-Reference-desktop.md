@@ -1404,12 +1404,18 @@ type Launch struct {
     // another process of the app, or the OS.
     Source LaunchSource
     // AtStart reports a launch that came with this process's start: the
-    // LaunchStart one, and on macOS the LaunchOpened that names the files
-    // or links the user opened to start the app (Launch Services hands
-    // them just after the start, ADR-259). An app that restores its last
-    // session at start can skip it when such a launch names what to open.
-    // Linux and Windows cannot tell (their LaunchOpened and
-    // LaunchForwarded launches are false).
+    // LaunchStart one, and a LaunchOpened that names the files or links
+    // the user opened to start the app. On macOS Launch Services hands
+    // them just after the start (ADR-259); elsewhere a LaunchOpened that
+    // arrives before the main window first shows is marked (ADR-262): on
+    // Linux the org.freedesktop.Application Open call of a D-Bus
+    // activation. On Windows and Linux a file or link the app was started
+    // with is normally on its command line, so in the LaunchStart launch.
+    // A LaunchForwarded launch, another process's start, never is. An app
+    // that restores its last session at start can skip it when such a
+    // launch names what to open. An app started hidden (a tray app) shows
+    // nothing at first, so outside macOS its LaunchOpened launches are not
+    // marked.
     AtStart bool
 }
 ```

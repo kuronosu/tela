@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -581,5 +582,61 @@ func TestFlat(t *testing.T) {
 		h.absent("files in a subdirectory", 300*time.Millisecond, "sub/a.go", "sub/deeper", "sub/deeper/b.go")
 		h.write("c.go", "package c")
 		h.expect("a file of the root", []string{"c.go"}, "sub/a.go")
+	})
+}
+
+// A Flat watcher reports a subdirectory of a root that goes, removed or
+// moved away, as a directory (Filter's dir true) on every backend, whether
+// it was there at the start or appeared later (ADR-262: Windows reported
+// it as a file, and inotify not at all when it was deleted).
+func TestFlatRemovedDirectory(t *testing.T) {
+	modes(t, func(t *testing.T, poll bool) {
+		if poll {
+			wine.Skip(t, "renaming a directory the poller scanned fails with a sharing violation")
+		}
+		root, err := filepath.EvalSymlinks(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(filepath.Join(root, "old", "deeper"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(root, "old", "f.txt"), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		var mu sync.Mutex
+		gone := map[string]bool{}
+		filter := func(p string, dir bool) bool {
+			if dir {
+				mu.Lock()
+				gone[p] = true
+				mu.Unlock()
+			}
+			return true
+		}
+		h := newHarnessAt(t, root, Options{Flat: true, Filter: filter, Debounce: 30 * time.Millisecond, Poll: poll, PollInterval: 20 * time.Millisecond})
+		time.Sleep(50 * time.Millisecond) // the poller's first scan
+		if err := os.Mkdir(h.path("new"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(h.path("moved"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		h.expect("new directories", []string{"new", "moved"})
+		if err := os.RemoveAll(h.path("old")); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Remove(h.path("new")); err != nil {
+			t.Fatal(err)
+		}
+		rename(t, h.path("moved"), filepath.Join(t.TempDir(), "moved"))
+		h.expect("directories gone", []string{"old", "new", "moved"})
+		mu.Lock()
+		defer mu.Unlock()
+		for _, name := range []string{"old", "new", "moved"} {
+			if !gone[h.path(name)] {
+				t.Errorf("%s went, reported without dir (directories reported: %v)", name, keys(gone))
+			}
+		}
 	})
 }

@@ -264,7 +264,7 @@ func fitMessageBoxButtons(dlg uintptr) {
 		x0, y0 := screenToClient(dlg, int(wr.left), int(wr.top))
 		x1, y1 := screenToClient(dlg, int(wr.right), int(wr.bottom))
 		r := image.Rect(x0, y0, x1, y1)
-		row = append(row, button{hwnd, r, textWidth(hwnd, plainLabel(text)) + buttonPadding(r.Dy())})
+		row = append(row, button{hwnd, r, textWidth(hwnd, plainLabel(text)) + buttonPadding(dlg, r.Dy())})
 	}
 	if len(row) == 0 {
 		return
@@ -306,9 +306,21 @@ func textWidth(hwnd uintptr, s string) int {
 }
 
 // buttonPadding is the room a message box button leaves around its text,
-// from the button's height (a 23 px button at 96 DPI leaves 11 or 12 px on
-// each side, as Windows' own wide buttons do).
-func buttonPadding(height int) int { return height }
+// in the dialog's own units (ADR-262): MapDialogRect converts dialog units
+// with the box's font, which follows the DPI and the user's message font,
+// and buttonPaddingPixels takes buttonPaddingDLU of them. When the box's
+// base units cannot be read, it is estimated from the button's height (a
+// 23 px button at 96 DPI leaves 11 or 12 px on each side).
+func buttonPadding(dlg uintptr, height int) int {
+	// Four horizontal dialog units are the font's average character width.
+	r := rect{right: 4}
+	if ok, _, _ := procMapDialogRect.Call(dlg, uintptr(unsafe.Pointer(&r))); ok != 0 && r.right > 0 {
+		return buttonPaddingPixels(int(r.right))
+	}
+	return height
+}
+
+var procMapDialogRect = user32.NewProc("MapDialogRect")
 
 // wmGetFont is WM_GETFONT.
 const wmGetFont = 0x0031

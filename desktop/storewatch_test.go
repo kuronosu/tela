@@ -38,6 +38,23 @@ func waitWatch(t *testing.T, s *Store) *fileWatch {
 	return fw
 }
 
+// hookWatch runs f before each watch the stores open under base, until
+// the test ends. Watches of other folders (stores earlier tests left
+// watched, whose goroutines may still open one) are left alone.
+func hookWatch(t *testing.T, base string, f func(o watch.Options, dirs ...string)) {
+	t.Helper()
+	hook := func(o watch.Options, dirs ...string) (*watch.Watcher, error) {
+		if len(dirs) > 0 && watch.Within(dirs[0], base) {
+			f(o, dirs...)
+		}
+		return watch.New(o, dirs...)
+	}
+	if !newWatch.CompareAndSwap(nil, &hook) {
+		t.Fatal("another test's watch hook is set")
+	}
+	t.Cleanup(func() { newWatch.Store(nil) })
+}
+
 // TestStoreSeesOtherPrograms (ADR-253): while the store has watchers, a
 // write of another program to its file reaches Get and the watchers of
 // the keys it changed; a key the file drops is removed.
@@ -165,8 +182,7 @@ func TestStoreWatchOpensOffTheCaller(t *testing.T) {
 	s, _ := OpenStore(path)
 	release := make(chan struct{})
 	locked := make(chan bool, 1)
-	open := newWatch
-	newWatch = func(o watch.Options, dirs ...string) (*watch.Watcher, error) {
+	hookWatch(t, filepath.Dir(path), func(o watch.Options, dirs ...string) {
 		<-release
 		if s.mu.TryLock() {
 			s.mu.Unlock()
@@ -174,9 +190,7 @@ func TestStoreWatchOpensOffTheCaller(t *testing.T) {
 		} else {
 			locked <- true
 		}
-		return open(o, dirs...)
-	}
-	defer func() { newWatch = open }()
+	})
 	returned := make(chan func())
 	go func() { returned <- s.Watch("x", func(string) {}) }()
 	var stop func()
@@ -226,15 +240,12 @@ func TestStoreWatchesMissingFolder(t *testing.T) {
 	// Every watch is flat: an ancestor's subtree (all of %APPDATA%, say)
 	// is not watched while the folder does not exist, nor the folder's
 	// subfolders once it does.
-	open := newWatch
-	newWatch = func(o watch.Options, dirs ...string) (*watch.Watcher, error) {
+	base := t.TempDir()
+	hookWatch(t, base, func(o watch.Options, dirs ...string) {
 		if !o.Flat {
 			t.Errorf("the watch of %v is not flat", dirs)
 		}
-		return open(o, dirs...)
-	}
-	defer func() { newWatch = open }()
-	base := t.TempDir()
+	})
 	dir := filepath.Join(base, "app", "conf")
 	path := filepath.Join(dir, "s.json")
 	s, err := OpenStore(path)

@@ -262,6 +262,17 @@ func fitButtonRow(buttons []image.Rectangle, need []int, client int) (out []imag
 	return out, grow
 }
 
+// buttonPaddingDLU is the room a renamed message box button leaves around
+// its label, in horizontal dialog units (ADR-262): 8 on each side, which
+// at 96 DPI with the default message font (4 units = 6 px) is the 12 px
+// Windows' own wide buttons leave, and scales with the box's font.
+const buttonPaddingDLU = 16
+
+// buttonPaddingPixels is buttonPaddingDLU in pixels for a dialog whose
+// average character width (4 horizontal dialog units) is baseX pixels,
+// rounded as MapDialogRect rounds (MulDiv).
+func buttonPaddingPixels(baseX int) int { return (buttonPaddingDLU*baseX + 2) / 4 }
+
 // plainLabel is a button label as drawn: "&&" is "&", a lone "&" marks
 // the access key and is not drawn.
 func plainLabel(s string) string {

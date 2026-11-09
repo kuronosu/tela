@@ -201,8 +201,15 @@ func primaryWorkArea(mons []image.Rectangle, work image.Rectangle) []image.Recta
 // frameExtentsTimeout after the request (the PropertyNotify ends the
 // wait; the frame was already presented to the retained copy, which the
 // Expose after the map paints), then fits without extents. A late answer
-// is ignored. The values are mutter's visible borders (its invisible
-// resize borders are not in them), which is what must be on screen.
+// does not move the window, but the wait adapts (ADR-262): once a window
+// manager missed the timeout, later windows are mapped at once (it may
+// list the request and never answer, or answer only at map), fitted with
+// the last extents it gave for a window of the same kind (decorated, or
+// a dialog: modal or transient), from any answer or later change of
+// _NET_FRAME_EXTENTS, else by their content. So only the first window
+// of a session waits for such a window manager. The values are mutter's
+// visible borders (its invisible resize borders are not in them), which
+// is what must be on screen.
 //
 // Frameless windows are not asked: their _MOTIF_WM_HINTS has no
 // decorations, and mutter, Muffin and Marco report the extents of a
@@ -261,7 +268,36 @@ func (w *Window) requestFit() {
 		return
 	}
 	b.srv.clientMessage(w.id, a.netReqFrameExt)
+	if b.frames.late {
+		// The window manager missed the wait before: no wait, the last
+		// extents it gave for such a window.
+		w.ext = b.frames.known[w.frameKind()]
+		return
+	}
 	w.extWait, w.extSent = true, b.Now()
+}
+
+// frameState is what the backend learned of the window manager's frame
+// extents (see above).
+type frameState struct {
+	late  bool                       // an answer missed frameExtentsTimeout
+	known map[frameKind]frameExtents // the last extents per kind of window
+}
+
+// frameKind is the kind of window whose frames are alike: a dialog
+// (modal, or transient for a parent) or not.
+type frameKind struct{ dialog bool }
+
+func (w *Window) frameKind() frameKind {
+	return frameKind{dialog: w.opts.Modal || w.parent != nil}
+}
+
+// learnExtents keeps ext as the extents of w's kind.
+func (b *Backend) learnExtents(w *Window, ext frameExtents) {
+	if b.frames.known == nil {
+		b.frames.known = map[frameKind]frameExtents{}
+	}
+	b.frames.known[w.frameKind()] = ext
 }
 
 // fitCreation runs at the first map of a window created at a position
@@ -280,10 +316,13 @@ func (w *Window) fitCreation() bool {
 		}
 		if left := frameExtentsTimeout - (b.Now() - w.extSent); left > 0 {
 			w.mapWaiting = true
-			w.extStop = b.after(left, w.frameExtentsDone)
+			w.extStop = b.after(left, func() {
+				b.frames.late = true
+				w.frameExtentsDone()
+			})
 			return false
 		}
-		w.extWait = false
+		w.extWait, b.frames.late = false, true
 	}
 	w.fitPending = false
 	size := clampPhysical(platform.PhysicalSize(w.opts.Size, b.scale))
@@ -292,14 +331,20 @@ func (w *Window) fitCreation() bool {
 }
 
 // frameExtentsChanged handles a PropertyNotify of _NET_FRAME_EXTENTS: the
-// answer to the request of requestFit ends the wait.
+// answer to the request of requestFit ends the wait. Every value of a
+// decorated window, late or a later change, is learned for the windows
+// that come next (learnExtents).
 func (w *Window) frameExtentsChanged() {
-	if !w.extWait || w.Closed() {
+	if w.opts.Frameless || w.Closed() {
 		return
 	}
 	v, _ := w.b.srv.property32(w.id, w.b.atoms.netFrameExtents)
 	ext, ok := parseFrameExtents(v)
 	if !ok {
+		return
+	}
+	w.b.learnExtents(w, ext)
+	if !w.extWait {
 		return
 	}
 	w.ext = ext

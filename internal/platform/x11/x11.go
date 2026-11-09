@@ -104,6 +104,9 @@ type Backend struct {
 	srv       wmServer
 	supported map[xproto.Atom]bool
 	userTime  uint32
+	// frames is what the window manager's frame extents taught
+	// (screens.go). UI thread.
+	frames frameState
 
 	// Desktop integration (phase13.go): the server side of selections,
 	// drags and key grabs (a fake in unit tests), the atoms known by

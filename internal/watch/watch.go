@@ -5,7 +5,8 @@
 // Watching is native: inotify on Linux (one watch per directory, added
 // for new directories as they appear), ReadDirectoryChangesW on Windows
 // (one handle per root, with its subtree) and kqueue on macOS (one
-// descriptor per directory and per file the filter accepts, ADR-259).
+// descriptor per directory and per file the filter accepts, ADR-259; the
+// files past the open file limit are polled, ADR-262).
 // Elsewhere, and on request ([Options.Poll]), the trees are polled. It
 // needs no dependency besides golang.org/x/sys.
 //
@@ -32,8 +33,9 @@ import (
 // Options configures a Watcher.
 type Options struct {
 	// Filter reports whether a change of path matters. dir is true for a
-	// directory that disappeared from a watched tree (moved away, or, on
-	// Windows, a removed name that may have been one); files inside a new
+	// directory that disappeared from a watched tree (moved away; removed
+	// too from a Flat watcher's roots, ADR-262; on Windows, a removed name
+	// that may have been one); files inside a new
 	// directory are reported one by one. Nil accepts everything. Called on
 	// the watcher's goroutines: it must be safe for concurrent use.
 	Filter func(path string, dir bool) bool

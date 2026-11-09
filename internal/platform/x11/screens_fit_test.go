@@ -194,6 +194,62 @@ func TestCreationPositionOnScreens(t *testing.T) {
 	g.sent("first Present at the top", mapped(9, 100, 37))
 }
 
+// A window manager that lists _NET_REQUEST_FRAME_EXTENTS but answers late
+// costs one wait (ADR-262): after a timeout, later windows still ask but
+// map at their first Present, fitted with the extents it last gave for a
+// window of their kind (a late answer, or the extents it sets once it
+// manages the window), else by their content.
+func TestCreationFrameExtentsLate(t *testing.T) {
+	g := newTimerRig(t)
+	g.f.mons = []image.Rectangle{image.Rect(0, 0, 1920, 1080)}
+	opts := platform.WindowOptions{Size: platform.Size{W: 800, H: 600}, HasPosition: true, Position: image.Pt(100, 0)}
+
+	w := fakeWindow(g.b, 7, image.Pt(800, 600), opts)
+	g.feed()
+	g.f.take()
+	g.present(w)
+	if n := g.fire(); n != 1 {
+		t.Fatalf("%d timers fired, want 1", n)
+	}
+	g.sent("timeout", mapped(7, 100, 0))
+	if _, sent := g.answer(7, 0, 0, 30, 0); sent != "" {
+		t.Errorf("late answer: sent %s", sent)
+	}
+
+	// The next window asks, and maps at once with the late answer's
+	// extents.
+	w = fakeWindow(g.b, 8, image.Pt(800, 600), opts)
+	g.sent("NewWindow after a late answer", "prop _NET_WM_WINDOW_TYPE win=8 = [_NET_WM_WINDOW_TYPE_NORMAL]; msg _NET_REQUEST_FRAME_EXTENTS win=8 []")
+	g.feed()
+	g.present(w)
+	g.sent("first Present after a late answer", mapped(8, 100, 30))
+	if len(g.timers) != 1 {
+		t.Errorf("%d timers, want none after the first window's", len(g.timers)-1)
+	}
+	// Its own answer, or a later change, teaches the next window.
+	g.answer(8, 0, 0, 40, 0)
+	w = fakeWindow(g.b, 9, image.Pt(800, 600), opts)
+	g.feed()
+	g.f.take()
+	g.present(w)
+	g.sent("first Present with newer extents", mapped(9, 100, 40))
+
+	// A dialog has extents of its own: none known yet, so it is fitted by
+	// its content, without waiting either.
+	dlg := opts
+	dlg.Parent, dlg.Modal = w, true
+	d := fakeWindow(g.b, 10, image.Pt(800, 600), dlg)
+	g.feed()
+	g.f.take()
+	g.present(d)
+	if got := g.f.take(); !strings.Contains(got, "configure win=10 x=100 y=0;") || !strings.HasSuffix(got, "map win=10") {
+		t.Errorf("first Present of a dialog: sent %s", got)
+	}
+	if len(g.timers) != 1 {
+		t.Errorf("%d timers, want none after the first window's", len(g.timers)-1)
+	}
+}
+
 // The first map waits for the window manager's frame extents, at most
 // frameExtentsTimeout after the request: a Present before the answer maps
 // nothing, the PropertyNotify maps, and without one the timeout maps with
@@ -229,7 +285,20 @@ func TestCreationFrameExtentsWait(t *testing.T) {
 		t.Errorf("later extents: sent %s", sent)
 	}
 
-	// No answer: the timeout maps with the content fitted.
+	// Hidden while waiting: the answer maps nothing; showing it maps.
+	w = fakeWindow(g.b, 9, image.Pt(800, 600), opts)
+	g.feed()
+	g.f.take()
+	g.present(w)
+	w.SetVisible(false)
+	if _, sent := g.answer(9, 0, 0, 30, 0); sent != "" {
+		t.Errorf("answer while hidden: sent %s", sent)
+	}
+	w.SetVisible(true)
+	g.sent("shown", mapped(9, 100, 30))
+
+	// No answer: the timeout maps with the content fitted (and later
+	// windows no longer wait: TestCreationFrameExtentsLate).
 	w = fakeWindow(g.b, 8, image.Pt(800, 600), opts)
 	g.feed()
 	g.f.take()
@@ -242,18 +311,6 @@ func TestCreationFrameExtentsWait(t *testing.T) {
 	if _, sent := g.answer(8, 0, 0, 30, 0); sent != "" {
 		t.Errorf("late answer: sent %s", sent)
 	}
-
-	// Hidden while waiting: the answer maps nothing; showing it maps.
-	w = fakeWindow(g.b, 9, image.Pt(800, 600), opts)
-	g.feed()
-	g.f.take()
-	g.present(w)
-	w.SetVisible(false)
-	if _, sent := g.answer(9, 0, 0, 30, 0); sent != "" {
-		t.Errorf("answer while hidden: sent %s", sent)
-	}
-	w.SetVisible(true)
-	g.sent("shown", mapped(9, 100, 30))
 
 	// Frameless: no request, no wait, no extents.
 	fl := opts
