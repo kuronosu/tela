@@ -248,7 +248,18 @@ func (t *Tree) moveDragged(d *textDrag, target *field) {
 	}
 	at, _, _ := target.ed.SelectionRange()
 	t.deleteDragged(d)
-	if d.f != target || !target.alive() || target.ed.Value() != d.value[:d.start]+d.value[d.end:] {
+	if d.f != target || !target.alive() {
+		return
+	}
+	if target.ed.Value() == d.value {
+		// The deletion was cancelled (OnBeforeInput's PreventDefault, or
+		// a controlled field that kept its value): the caret goes back to
+		// the drop point, so the drop inserts a copy there instead of
+		// replacing the dragged range it selected.
+		t.fieldChanged(target, target.ed.Select(at, at))
+		return
+	}
+	if target.ed.Value() != d.value[:d.start]+d.value[d.end:] {
 		return
 	}
 	switch {

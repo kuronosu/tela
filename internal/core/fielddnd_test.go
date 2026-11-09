@@ -510,3 +510,46 @@ func TestSelectionDragImage(t *testing.T) {
 		t.Errorf("hotspot %v", info.Hotspot)
 	}
 }
+
+// A move inside one field whose deleteByDrag is cancelled (OnBeforeInput's
+// PreventDefault) still inserts at the drop point, a copy then; it does
+// not replace the dragged text with itself.
+func TestSelectionDragCancelledDelete(t *testing.T) {
+	cancel := On("beforeinput", func(e InputEvent) {
+		if e.InputType == "deleteByDrag" {
+			e.PreventDefault()
+		}
+	})
+	for _, tc := range []struct {
+		name  string
+		props []Child
+		want  string
+	}{
+		{"prevented", []Child{DefaultValue(selValue), cancel}, "hello brave new worldbrave "},
+		// A controlled field whose OnChange stores nothing keeps its value
+		// after each edit, the insertion included.
+		{"controlled", []Child{FieldValue(selValue)}, selValue},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var log []string
+			root := div(Class("p-4"), input(append(append([]Child{Key("a"), Class("w-64")}, tc.props...), textLog(&log)...)...))
+			x := newWinHarness(t, Options{Root: root})
+			w := x.windows()[0]
+			f := selDrag(t, x, w, 0)
+			ex, ey := fieldAt(f, 21, 0)
+			w.Inject(moveHeld(ex, ey))
+			x.drain()
+			w.Inject(up(ex, ey))
+			x.drain()
+			if v := f.ed.Value(); v != tc.want {
+				t.Errorf("value %q, want %q", v, tc.want)
+			}
+			if sel := selectionOf(f); tc.name == "prevented" && sel != [2]int{21, 27} {
+				t.Errorf("selection %v, want the copy (21..27)", sel)
+			}
+			if got := strings.Join(log, " "); !strings.Contains(got, "beforeinput:insertFromDrop") {
+				t.Errorf("events %q: no insertFromDrop", got)
+			}
+		})
+	}
+}
