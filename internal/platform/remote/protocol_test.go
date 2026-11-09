@@ -54,7 +54,7 @@ var eventSamples = []platform.Event{
 	platform.ShortcutEvent{ID: "show", Action: platform.ShortcutReleased, Time: 5 * time.Second},
 	platform.ShortcutStatusEvent{ID: "show", Status: platform.ShortcutRefused, Trigger: "Ctrl+Alt+K", Reason: "declined"},
 	platform.LaunchEvent{Launch: platform.Launch{Args: []string{"notes:open?id=3", "/tmp/x y"}, Dir: "/home/u", Token: "tok_TIME42"}},
-	platform.LaunchEvent{Launch: platform.Launch{Args: []string{"/Users/u/a.note"}, Dir: "/"}, Source: platform.LaunchOpened}, // version 13
+	platform.LaunchEvent{Launch: platform.Launch{Args: []string{"/Users/u/a.note"}, Dir: "/"}, Source: platform.LaunchOpened},                // version 13
 	platform.LaunchEvent{Launch: platform.Launch{Args: []string{"/Users/u/b.note"}, Dir: "/"}, Source: platform.LaunchOpened, AtStart: true}, // version 15
 	platform.QuitRequestedEvent{},
 	platform.AppMenuEvent{Item: 78},

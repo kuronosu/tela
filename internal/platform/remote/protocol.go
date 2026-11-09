@@ -500,7 +500,7 @@ func (e *enc) event(ev platform.Event) {
 		e.u8(evLaunch)
 		e.launch(ev.Launch)
 		e.u8(uint8(ev.Source)) // version 13
-		e.boolean(ev.AtStart) // version 15
+		e.boolean(ev.AtStart)  // version 15
 	case platform.QuitRequestedEvent:
 		e.u8(evQuitRequested)
 	case platform.AppMenuEvent:
