@@ -2001,8 +2001,9 @@ type ContextMenuTriggerResult struct {
     // [MenuOptions].FocusStrategy.
     FocusStrategy string
     // Opening numbers the openings of the menu: it changes each time the
-    // menu opens (a right click elsewhere while it is open closes it and
-    // opens it again, as a new opening) and not when an open menu is moved
+    // menu opens, by a gesture, OpenAt or SetOpen(true) (a right click
+    // elsewhere while it is open closes it and opens it again, as a new
+    // opening) and not when an open menu is moved
     // (a long press or OpenAt while it is open). Key the menu's component
     // with it, tela.WithKey(menu, cm.Opening), so that each opening mounts
     // a new menu that takes the focus while the previous one exits in a

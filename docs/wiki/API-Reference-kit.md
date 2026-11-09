@@ -2685,7 +2685,8 @@ type MenuItem[K comparable] struct {
     // Role makes a plain item one of the standard items (see "Roles"):
     // desktop.RoleUndo, RoleCopy, RoleMinimize... The zero value,
     // desktop.RoleNone, is an item of the app's own. A menu role
-    // (RoleEditMenu...) is a MenubarMenu's, and panics here in dev mode.
+    // (RoleEditMenu...) is a MenubarMenu's, and panics here in dev mode,
+    // as a Role on a checkbox or radio item does.
     Role desktop.Role
     // Variant is Default or Destructive (a plain item, as shadcn's
     // variant="destructive").
@@ -5607,7 +5608,7 @@ Trigger is what a trigger slot takes: the Trigger field of [`Dialog`](#type-dial
 One rule holds for every trigger slot of the kit:
 
 - a kit component that can be a trigger implements Trigger: [`Button`](#type-button) (Trigger: kit.Button{Variant: kit.Outline, Children: h.Text("Open")}), [`Toggle`](#type-toggle), [`Checkbox`](#type-checkbox), [`Switch`](#type-switch) and [`Slider`](#type-slider) (so that they can have a tooltip), and the overlays [`Tooltip`](#type-tooltip), [`Popover`](#type-popover), [`Dialog`](#type-dialog), [`AlertDialog`](#type-alertdialog) and [`DropdownMenu`](#type-dropdownmenu), so that one element can have several overlays: Tooltip{Content: h.Text("More actions"), Trigger: kit.DropdownMenu\[string\]{Trigger: kit.Button{...}, Items: items}} is a button with a tooltip that opens a menu (Radix's asChild on both triggers; nest them either way);
-- a trigger's own Disabled wins over the overlay's props, as the overlay's Disabled does: a disabled trigger opens nothing;
+- a trigger's own Disabled wins over the overlay's props, as the overlay's Disabled does: a disabled trigger opens nothing, and a Loading [`Button`](#type-button) opens nothing either, from the pointer or the keyboard, while it keeps its tab stop;
 - a component of your own implements it with one method, merging p into the props of its root element (the way a kit component merges it with its Props field);
 - anything else, an element or a function component, is made a Trigger with [`TriggerFunc`](#type-triggerfunc), which receives the props and puts them on the element it chooses.
 
