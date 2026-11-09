@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/kuronosu/tela/internal/watch"
 )
 
 // waitFor polls cond until it holds or 10 s pass (the file watcher's
@@ -114,7 +116,59 @@ func TestStoreConflicts(t *testing.T) {
 	})
 }
 
-// TestStoreWatchStops: the file's watch ends with the last watcher.
+// TestStoreWatchSurvivesRemount: a watcher that comes back within the
+// grace period after the last one stopped (a screen swap that unmounts and
+// mounts a UseSetting) keeps the watch instead of opening a new one.
+func TestStoreWatchSurvivesRemount(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.json")
+	if err := os.WriteFile(path, []byte(`{}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, _ := OpenStore(path)
+	stop := s.Watch("x", func(string) {})
+	s.mu.Lock()
+	before := s.fw
+	s.mu.Unlock()
+	stop()
+	stop = s.Watch("x", func(string) {})
+	defer stop()
+	s.mu.Lock()
+	after := s.fw
+	s.mu.Unlock()
+	if before == nil || after != before {
+		t.Errorf("the watch was %p, %p after a stop and a new watcher: want the same one", before, after)
+	}
+}
+
+// TestStoreWatchOpensWithoutTheLock: the watch of the file is opened
+// without the store's lock (Watch runs on the UI thread for UseSetting, and
+// opening it stats, sets up inotify or scans the folder).
+func TestStoreWatchOpensWithoutTheLock(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.json")
+	if err := os.WriteFile(path, []byte(`{}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, _ := OpenStore(path)
+	locked := false
+	open := newWatch
+	newWatch = func(o watch.Options, dirs ...string) (*watch.Watcher, error) {
+		if s.mu.TryLock() {
+			s.mu.Unlock()
+		} else {
+			locked = true
+		}
+		return open(o, dirs...)
+	}
+	defer func() { newWatch = open }()
+	stop := s.Watch("x", func(string) {})
+	defer stop()
+	if locked {
+		t.Error("the watch was opened with the store's lock held")
+	}
+}
+
+// TestStoreWatchStops: the file's watch ends with the last watcher, after
+// the grace period.
 func TestStoreWatchStops(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "s.json")
 	if err := os.WriteFile(path, []byte(`{}`), 0o600); err != nil {
@@ -129,9 +183,14 @@ func TestStoreWatchStops(t *testing.T) {
 	stop1()
 	stop2()
 	s.mu.Lock()
-	off := s.fw == nil
+	kept := s.fw != nil
 	s.mu.Unlock()
-	if !on || !off {
-		t.Errorf("watching while watched %v, stopped after the last %v", on, off)
+	if !on || !kept {
+		t.Errorf("watching while watched %v, during the grace period %v", on, kept)
 	}
+	waitFor(t, "the watch to stop", func() bool {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return s.fw == nil
+	})
 }

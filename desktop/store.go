@@ -53,6 +53,8 @@ type Store struct {
 	watchers []*storeWatcher
 	pending  map[string]bool // keys changed since the last write (storewatch.go)
 	fw       *fileWatch      // the watch of the file while there are watchers
+	opening  bool            // a watch is being opened (openWatch, without mu)
+	stopT    *time.Timer     // the stop of the watch after the last watcher (stopWatch)
 
 	wmu sync.Mutex // serializes the writes of the file
 }
@@ -510,8 +512,11 @@ func (s *Store) Watch(key string, f func(key string)) (stop func()) {
 	w := &storeWatcher{key: key, f: f}
 	s.mu.Lock()
 	s.watchers = append(s.watchers, w)
-	s.startWatch() // storewatch.go: changes of other programs
+	start := s.claimWatch() // storewatch.go: changes of other programs
 	s.mu.Unlock()
+	if start {
+		s.openWatch()
+	}
 	return func() {
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -562,7 +567,6 @@ func (s *Store) flushLocked() error {
 		err = writeStore(s.path, append(data, '\n'), corrupt)
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if err != nil {
 		s.dirty = true // written by the next change or Flush
 		for k := range written {
@@ -572,10 +576,16 @@ func (s *Store) flushLocked() error {
 			s.pending[k] = true
 		}
 		s.err = fmt.Errorf("desktop: cannot write the store %s: %w", s.path, err)
-		return s.err
+		err = s.err
+		s.mu.Unlock()
+		return err
 	}
 	s.corrupt, s.err = false, nil
-	s.startWatch() // the folder exists now
+	start := s.claimWatch() // the folder exists now
+	s.mu.Unlock()
+	if start {
+		s.openWatch()
+	}
 	return nil
 }
 

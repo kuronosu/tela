@@ -15,7 +15,7 @@ import (
 // Changes other programs make to a store's file (ADR-253).
 //
 // While a store has watchers (Store.Watch, so every mounted UseSetting),
-// its file's folder is watched (package internal/watch: inotify on Linux,
+// and for watchGrace after the last one stops, its file's folder is watched (package internal/watch: inotify on Linux,
 // ReadDirectoryChangesW on Windows, polling elsewhere; only the folder,
 // not its subfolders, and only the store's file counts). A change reads
 // the file again and merges it: each key takes the file's value, unless
@@ -33,32 +33,67 @@ import (
 // notifications (macOS, ADR-115's watcher): settings change rarely.
 const watchPoll = time.Second
 
+// watchGrace is how long the watch outlives the last watcher: a screen
+// swap that unmounts and mounts the components using a setting keeps the
+// watch instead of closing and opening it again.
+var watchGrace = time.Second
+
+// newWatch opens the watch of a folder (a variable for the tests).
+var newWatch = watch.New
+
 // fileWatch is the watch of a store's file.
 type fileWatch struct {
 	w *watch.Watcher
 }
 
-// startWatch watches the file while the store has watchers, once its
-// folder exists (a store whose file was never written has none: the first
-// write starts it). Called with s.mu held.
-func (s *Store) startWatch() {
-	if s.fw != nil || s.path == "" || len(s.watchers) == 0 {
-		return
+// claimWatch reports whether the caller is to open the watch of the file
+// with openWatch, after releasing s.mu: the store has watchers and no
+// watch is open or being opened. A stop pending for the grace period is
+// called off. Called with s.mu held.
+func (s *Store) claimWatch() bool {
+	if len(s.watchers) == 0 {
+		return false
 	}
+	if s.stopT != nil {
+		s.stopT.Stop()
+		s.stopT = nil
+	}
+	if s.fw != nil || s.opening || s.path == "" {
+		return false
+	}
+	s.opening = true
+	return true
+}
+
+// openWatch watches the file, once its folder exists (a store whose file
+// was never written has none: the first write starts it). It runs without
+// s.mu, after claimWatch: the stat, the inotify setup or the first scan of
+// a poll take a while, and Watch runs on the UI thread for UseSetting.
+func (s *Store) openWatch() {
 	dir := filepath.Dir(s.path)
-	if st, err := os.Stat(dir); err != nil || !st.IsDir() {
-		return
+	var w *watch.Watcher
+	if st, err := os.Stat(dir); err == nil && st.IsDir() {
+		path := s.path
+		// An error leaves w nil: the store still works; changes of other
+		// programs are not seen.
+		w, _ = newWatch(watch.Options{
+			Filter:       func(p string, _ bool) bool { return p == path },
+			SkipDir:      func(string) bool { return true },
+			PollInterval: watchPoll,
+		}, dir)
 	}
-	path := s.path
-	w, err := watch.New(watch.Options{
-		Filter:       func(p string, _ bool) bool { return p == path },
-		SkipDir:      func(string) bool { return true },
-		PollInterval: watchPoll,
-	}, dir)
-	if err != nil {
-		return // the store still works; changes of other programs are not seen
+	s.mu.Lock()
+	s.opening = false
+	if w == nil || len(s.watchers) == 0 {
+		// No folder yet, or every watcher stopped meanwhile.
+		s.mu.Unlock()
+		if w != nil {
+			_ = w.Close()
+		}
+		return
 	}
 	s.fw = &fileWatch{w: w}
+	s.mu.Unlock()
 	go func() {
 		for range w.Events() {
 			// Under the write lock: a file read just before a write of
@@ -72,14 +107,27 @@ func (s *Store) startWatch() {
 	}()
 }
 
-// stopWatch stops the watch when the last watcher stopped. Called with
-// s.mu held.
+// stopWatch stops the watch watchGrace after the last watcher stopped,
+// unless one comes back meanwhile (claimWatch). Called with s.mu held.
 func (s *Store) stopWatch() {
-	if s.fw == nil || len(s.watchers) > 0 {
+	if s.fw == nil || len(s.watchers) > 0 || s.stopT != nil {
 		return
 	}
-	_ = s.fw.w.Close()
-	s.fw = nil
+	var t *time.Timer
+	t = time.AfterFunc(watchGrace, func() {
+		s.mu.Lock()
+		if s.stopT != t || len(s.watchers) > 0 {
+			s.mu.Unlock()
+			return
+		}
+		fw := s.fw
+		s.fw, s.stopT = nil, nil
+		s.mu.Unlock()
+		if fw != nil {
+			_ = fw.w.Close()
+		}
+	})
+	s.stopT = t
 }
 
 // reload reads the file again and merges it (see the top of the file),
