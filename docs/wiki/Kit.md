@@ -228,6 +228,16 @@ kit.Field{Orientation: kit.Horizontal, ControlAfter: true, Class: "items-center 
 	Children: kit.Switch{Checked: &on, OnCheckedChange: setOn.Set}}
 ```
 
+`LabelEnd` and `DescriptionEnd` are slots at the end of the label's line and of the
+description's (a link, a counter); `LabelContent` and `DescriptionContent` replace the
+text with rich content (`Label` and `Description` still name and describe the
+control). A `RadioGroup` or `ToggleGroup` inside a `Field` is named by its label.
+
+```go
+kit.Field{Label: "Password", LabelEnd: kit.Button{Variant: kit.Link, Size: kit.Sm, Class: "h-auto p-0", Children: Text("Forgot password?")},
+	Children: kit.Input{Type: "password"}}
+```
+
 ### A group of controls: `FieldSet`
 
 A `Field`'s label points at one control. To caption a group, such as a
@@ -266,12 +276,20 @@ go func() { upload(); toast.Success("Uploaded", kit.ToastReplace(id)) }()
 
 ### Display
 
-`Avatar` a round picture with a fallback; `Badge` a small label; `Card` a surface
-with slots; `Label`; `Separator`; `Skeleton` a pulsing placeholder.
+`Alert` a callout with an icon, a title and a description; `Avatar` a round
+picture with a fallback, and `AvatarGroup` a row of them that overlap, with a
+"+N"; `Badge` a small label, with tones (`Success`, `Warning`, `Info`) and a
+`Dot`; `Card` a surface with slots; `Label`; `Separator`, with an optional
+`Caption`; `Skeleton` a pulsing placeholder.
 
 ```go
+kit.Alert{Variant: kit.Destructive, Icon: lucide.CircleAlert, Title: Text("Payment failed"), Description: Text("Your card was declined.")}
 kit.Avatar{Fallback: "MT", Size: kit.Lg}
+kit.Avatar{Name: "Mei Tanaka", Color: kit.AvatarAuto} // "MT" on a color chosen by the name
+kit.AvatarGroup{Max: 3, Avatars: []kit.Avatar{{Name: "Mei Tanaka"}, {Name: "Ada Lovelace"}, {Name: "Alan Turing"}, {Name: "Grace Hopper"}}}
 kit.Badge{Variant: kit.Secondary, Icon: lucide.Check, Children: Text("Verified")}
+kit.Badge{Variant: kit.Success, Dot: true, Children: Text("Active")}
+kit.Separator{Caption: Text("Or continue with")}
 kit.Card{TitleLevel: 2, Title: Text("Notifications"), Description: Text("3 unread."), Children: list, Footer: markRead}
 kit.Separator{Orientation: kit.Vertical}
 kit.Skeleton{Class: "h-4 w-[250px]"}
@@ -282,7 +300,8 @@ A `Card`'s `Title` is a `div`, as in shadcn; `TitleLevel` from 1 to 6 makes it a
 
 ### Buttons and choices
 
-`Button` (six variants, eight sizes, `Icon` and `IconEnd`), `Toggle` a button that
+`Button` (six variants, eight sizes, `Icon` and `IconEnd`, and `Loading`: a spinner
+in place of the icon, `aria-busy`, presses ignored, the width kept), `Toggle` a button that
 stays pressed, `ToggleGroup` the segmented control and the toolbar, `Checkbox`,
 `Switch`, `RadioGroup` (with `Render` to draw the options yourself), `Slider`
 (one knob or several, vertical too) and `Progress`.
@@ -306,6 +325,7 @@ kit.Progress{Value: 62, AriaLabel: "Storage used"}
 
 ```go
 kit.Input{Placeholder: "Search...", AriaLabel: "Search", Value: &q, OnValueChange: setQ.Set}
+kit.Input{Icon: lucide.Search, Placeholder: "Search...", AriaLabel: "Search", Class: "max-w-sm"} // IconEnd too; Class is the wrapper's
 kit.Textarea{Rows: 3, MaxLength: 140, Value: &msg, OnValueChange: setMsg.Set, AriaLabel: "Message"}
 kit.Select[string]{Placeholder: "Select a fruit", Items: []kit.SelectItem[string]{
 	{Value: "apple", Label: "Apple"}, {Value: "banana", Label: "Banana"}}}
@@ -432,6 +452,13 @@ kit.Table[Invoice]{Rows: invoices, RowKey: func(i Invoice) any { return i.ID }, 
 		Sort: func(a, b Invoice) int { return strings.Compare(a.ID, b.ID) }},
 	{Header: "Amount", Align: kit.AlignRight, Cell: showAmount, Sort: byAmount}}}
 ```
+
+Pressing a header cycles ascending, descending and unsorted; `AlwaysSorted: true`
+leaves out the unsorted step, `HideUnsortedIcon: true` hides the arrow of the
+headers that are not sorted until the pointer is over them, and
+`SortState{Direction: kit.Other}` shows a column sorted by an order of the app's own
+(`aria-sort="other"`; the rows are not reordered). The variants
+`aria-[sort=ascending]:`, `descending`, `other` and `none` style a header.
 
 `Column.CellProps` puts props on a cell and `RowProps` on a whole row (a name, a
 handler: events from the row's cells reach it).

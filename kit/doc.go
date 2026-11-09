@@ -100,8 +100,8 @@
 //
 // # What is there
 //
-// Button, Badge, Card, Avatar, Label, Input, Textarea, Separator, Skeleton,
-// Field, FieldSet, Select, Tabs, Table and Toaster; the overlays Dialog, AlertDialog,
+// Button, Badge, Alert, Card, Avatar, AvatarGroup, Label, Input, Textarea,
+// Separator, Skeleton, Field, FieldSet, Select, Tabs, Table and Toaster; the overlays Dialog, AlertDialog,
 // Popover and Tooltip; the menus DropdownMenu, Menubar and ContextMenu; and
 // the controls that choose: Checkbox, Switch,
 // RadioGroup, Toggle, ToggleGroup (the segmented control), Slider and
@@ -116,6 +116,19 @@
 //	kit.ColorPicker{Value: &color, OnValueChange: setColor.Set, Alpha: true,
 //	    Swatches: []tela.Color{tela.Hex("#ef4444"), tela.Hex("#22c55e")}}
 //	kit.ColorInput{DefaultValue: new(tela.Hex("#6366f1")), OnValueCommit: save}
+//
+// An [Alert] is a callout with an icon, a title and a description; the tones
+// [Success], [Warning] and [Info] are variants of it and of [Badge], which
+// also has a Dot; a [Button] with Loading shows a spinner, ignores presses and
+// keeps its width; an [Input] takes an Icon and an IconEnd; a [Separator] a
+// Caption; an [Avatar] a Name and a Color (AvatarAuto picks one from the
+// name), and an [AvatarGroup] overlaps a row of them with a "+N":
+//
+//	kit.Alert{Variant: kit.Destructive, Icon: lucide.CircleAlert, Title: h.Text("Payment failed"),
+//	    Description: h.Text("Your card was declined.")}
+//	kit.Button{Type: "submit", Loading: saving, Children: h.Text("Save")}
+//	kit.Input{Icon: lucide.Search, Placeholder: "Search...", Class: "max-w-sm"}
+//	kit.AvatarGroup{Max: 3, Avatars: []kit.Avatar{{Name: "Mei Tanaka", Color: kit.AvatarAuto}, {Name: "Ada Lovelace", Color: kit.AvatarAuto}}}
 //
 // A [Table] shows rows of any type through columns, sorts
 // by a header (aria-sort, Enter and Space) and keeps its header and leading
@@ -148,6 +161,11 @@
 //
 //	kit.Field{Label: "Email", Description: "We never share it.", Error: errs.Email,
 //	    Children: kit.Input{Type: "email", Value: &email, OnValueChange: setEmail.Set}}
+//
+// A Field's LabelEnd and DescriptionEnd are slots at the end of the label's
+// line and the description's (a "Forgot password?" link, a counter), its
+// LabelContent and DescriptionContent hold rich text, and a RadioGroup or a
+// ToggleGroup inside it is named by its label.
 //
 // A horizontal Field puts the control first; ControlAfter puts it after the
 // text, as in a row of switches. A [FieldSet] captions a group of controls

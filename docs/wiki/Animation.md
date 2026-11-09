@@ -36,6 +36,19 @@ composite the element. Colors repaint it, sizes and spacing lay it out.
 `animate-spin`, `animate-ping`, `animate-pulse` and `animate-bounce` run
 Tailwind's keyframes.
 
+To stagger a row of them (skeletons, the dots of a loader) delay each one: `delay-150`
+sets the animation's delay as well as the transition's (as tw-animate-css, which
+shadcn projects load, does), `animation-delay-150` sets the animation's alone,
+`-animation-delay-300` or `[animation-delay:-0.3s]` starts it partway, which is
+how a three-dot loader is written:
+
+```go
+Map([]int{0, 1, 2}, func(i int) tela.Node {
+	return Span(Key(i), Class("size-2 animate-bounce rounded-full bg-muted-foreground"),
+		Class(fmt.Sprintf("[animation-delay:%dms]", i*150)))
+})
+```
+
 ## Entering: `starting:`
 
 An element that starts being rendered (it mounts, or its `hidden` /

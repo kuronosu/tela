@@ -143,7 +143,7 @@ func TestAvatarColorIsChecked(t *testing.T) {
 func TestAvatarColorFromTheRecipe(t *testing.T) {
 	s := kit.DefaultStyle()
 	s.Avatar.Colors["brand"] = "bg-fuchsia-600 text-white"
-	s.Avatar.AutoColors = []kit.AvatarColor{"brand"}
+	s.Avatar.AutoColors = map[kit.AvatarColor]bool{"brand": true}
 	app := telatest.Mount(t, kit.StyleProvider{Style: &s, Children: kit.Avatar{Name: "Mei Tanaka", Color: kit.AvatarAuto}})
 	app.ExpectCount(telatest.ByClass("bg-fuchsia-600"), 1)
 }

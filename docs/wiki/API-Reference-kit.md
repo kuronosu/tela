@@ -12,11 +12,16 @@ This page is generated from the doc comments of the package; the same text is on
 
 - [Overview](#overview)
 - [Constants](#constants)
-- [Functions](#functions): [`DefaultStyle`](#func-defaultstyle) · [`Theme`](#func-theme) · [`ToastAction`](#func-toastaction) · [`ToastDescription`](#func-toastdescription) · [`ToastDuration`](#func-toastduration) · [`ToastOnAutoClose`](#func-toastonautoclose) · [`ToastOnDismiss`](#func-toastondismiss) · [`ToastReplace`](#func-toastreplace) · [`UseStyle`](#func-usestyle) · [`UseToast`](#func-usetoast)
+- [Functions](#functions): [`DefaultStyle`](#func-defaultstyle) · [`Initials`](#func-initials) · [`Theme`](#func-theme) · [`ToastAction`](#func-toastaction) · [`ToastDescription`](#func-toastdescription) · [`ToastDuration`](#func-toastduration) · [`ToastOnAutoClose`](#func-toastonautoclose) · [`ToastOnDismiss`](#func-toastondismiss) · [`ToastReplace`](#func-toastreplace) · [`UseStyle`](#func-usestyle) · [`UseToast`](#func-usetoast)
 - [Types](#types)
+  - [`type Alert`](#type-alert): [`Build`](#func-alert-build)
   - [`type AlertDialog`](#type-alertdialog): [`Build`](#func-alertdialog-build)
   - [`type AlertDialogStyle`](#type-alertdialogstyle)
+  - [`type AlertStyle`](#type-alertstyle)
   - [`type Avatar`](#type-avatar): [`Build`](#func-avatar-build)
+  - [`type AvatarColor`](#type-avatarcolor)
+  - [`type AvatarGroup`](#type-avatargroup): [`Build`](#func-avatargroup-build)
+  - [`type AvatarGroupStyle`](#type-avatargroupstyle)
   - [`type AvatarStyle`](#type-avatarstyle)
   - [`type Badge`](#type-badge): [`Build`](#func-badge-build)
   - [`type BadgeStyle`](#type-badgestyle)
@@ -178,12 +183,22 @@ kit.Card{Class: "w-full max-w-sm", HeaderClass: "pb-6 border-b", TitleLevel: 2, 
 
 ### What is there
 
-Button, Badge, Card, Avatar, Label, Input, Textarea, Separator, Skeleton, Field, FieldSet, Select, Tabs, Table and Toaster; the overlays Dialog, AlertDialog, Popover and Tooltip; the menus DropdownMenu, Menubar and ContextMenu; and the controls that choose: Checkbox, Switch, RadioGroup, Toggle, ToggleGroup (the segmented control), Slider and Progress; and the dates: Calendar, RangeCalendar, DatePicker and DateRangePicker; and the [`TitleBar`](#type-titlebar) and [`WindowControls`](#type-windowcontrols) of a frameless window (below). A [`ColorPicker`](#type-colorpicker) chooses a [`tela.Color`](API-Reference-tela#type-color) with an area for the saturation and brightness, a hue slider, an optional alpha slider, a hex field and optional swatches; a [`ColorInput`](#type-colorinput) is the same behind a button that shows the color (the look of both is the kit's own, shadcn/ui has no color picker):
+Button, Badge, Alert, Card, Avatar, AvatarGroup, Label, Input, Textarea, Separator, Skeleton, Field, FieldSet, Select, Tabs, Table and Toaster; the overlays Dialog, AlertDialog, Popover and Tooltip; the menus DropdownMenu, Menubar and ContextMenu; and the controls that choose: Checkbox, Switch, RadioGroup, Toggle, ToggleGroup (the segmented control), Slider and Progress; and the dates: Calendar, RangeCalendar, DatePicker and DateRangePicker; and the [`TitleBar`](#type-titlebar) and [`WindowControls`](#type-windowcontrols) of a frameless window (below). A [`ColorPicker`](#type-colorpicker) chooses a [`tela.Color`](API-Reference-tela#type-color) with an area for the saturation and brightness, a hue slider, an optional alpha slider, a hex field and optional swatches; a [`ColorInput`](#type-colorinput) is the same behind a button that shows the color (the look of both is the kit's own, shadcn/ui has no color picker):
 
 ```go
 kit.ColorPicker{Value: &color, OnValueChange: setColor.Set, Alpha: true,
     Swatches: []tela.Color{tela.Hex("#ef4444"), tela.Hex("#22c55e")}}
 kit.ColorInput{DefaultValue: new(tela.Hex("#6366f1")), OnValueCommit: save}
+```
+
+An [`Alert`](#type-alert) is a callout with an icon, a title and a description; the tones [`Success`](#type-variant), [`Warning`](#type-variant) and [`Info`](#type-variant) are variants of it and of [`Badge`](#type-badge), which also has a Dot; a [`Button`](#type-button) with Loading shows a spinner, ignores presses and keeps its width; an [`Input`](#type-input) takes an Icon and an IconEnd; a [`Separator`](#type-separator) a Caption; an [`Avatar`](#type-avatar) a Name and a Color (AvatarAuto picks one from the name), and an [`AvatarGroup`](#type-avatargroup) overlaps a row of them with a "+N":
+
+```go
+kit.Alert{Variant: kit.Destructive, Icon: lucide.CircleAlert, Title: h.Text("Payment failed"),
+    Description: h.Text("Your card was declined.")}
+kit.Button{Type: "submit", Loading: saving, Children: h.Text("Save")}
+kit.Input{Icon: lucide.Search, Placeholder: "Search...", Class: "max-w-sm"}
+kit.AvatarGroup{Max: 3, Avatars: []kit.Avatar{{Name: "Mei Tanaka", Color: kit.AvatarAuto}, {Name: "Ada Lovelace", Color: kit.AvatarAuto}}}
 ```
 
 A [`Table`](#type-table) shows rows of any type through columns, sorts by a header (aria-sort, Enter and Space) and keeps its header and leading columns in place when it scrolls:
@@ -210,6 +225,8 @@ A [`Field`](#type-field) is the usual way to put a label, a control, help text a
 kit.Field{Label: "Email", Description: "We never share it.", Error: errs.Email,
     Children: kit.Input{Type: "email", Value: &email, OnValueChange: setEmail.Set}}
 ```
+
+A Field's LabelEnd and DescriptionEnd are slots at the end of the label's line and the description's (a "Forgot password?" link, a counter), its LabelContent and DescriptionContent hold rich text, and a RadioGroup or a ToggleGroup inside it is named by its label.
 
 A horizontal Field puts the control first; ControlAfter puts it after the text, as in a row of switches. A [`FieldSet`](#type-fieldset) captions a group of controls with a legend and names a RadioGroup or ToggleGroup inside it:
 
@@ -336,6 +353,14 @@ ToastForever as a duration keeps a toast until it is dismissed.
 
 ## Functions
 
+### func Initials
+
+```go
+func Initials(name string) string
+```
+
+Initials returns the first letters of the first and the last word of a name, in upper case: "Mei Tanaka" is "MT", "Ada" is "A" and "" is "". It is what an [`Avatar`](#type-avatar) with a Name and no Fallback shows.
+
 ### func Theme
 
 ```go
@@ -353,6 +378,51 @@ tela.Main(tela.App{Title: "Notes", Root: Notes{}, Theme: &theme,
 Change the tokens on the returned value (theme.Colors\["primary"\] = ...) to restyle every component at once; see [`DefaultStyle`](#func-defaultstyle) to restyle one.
 
 ## Types
+
+### type Alert
+
+```go
+type Alert struct {
+    // Variant is Default, Destructive, Success, Warning or Info.
+    Variant Variant
+    // Icon is drawn in the first column, level with the title.
+    Icon tela.Icon
+    // Title is the first line, in medium weight; Description follows it
+    // in the muted color, and may be several lines or a few paragraphs.
+    Title, Description tela.Component
+    // Role is "alert" (the default), "status" or "note".
+    Role string
+    // Class is added after the recipe's classes. TitleClass and
+    // DescriptionClass do the same for their part.
+    Class            string
+    TitleClass       string
+    DescriptionClass string
+    // Props are more props for the root element.
+    Props tela.Child
+}
+```
+
+Alert is a callout that tells the user something, shadcn/ui's Alert: a bordered card with an optional icon, a title and a description.
+
+```go
+kit.Alert{Icon: lucide.Terminal, Title: h.Text("Heads up!"),
+    Description: h.Text("You can add components to your app using the CLI.")}
+
+kit.Alert{Variant: kit.Destructive, Icon: lucide.CircleAlert, Title: h.Text("Payment failed"),
+    Description: h.Text("Your card was declined. Update it and try again.")}
+```
+
+The variants are [`Default`](#type-variant) and [`Destructive`](#type-variant), as in shadcn, and the tones [`Success`](#type-variant), [`Warning`](#type-variant) and [`Info`](#type-variant) that [`Badge`](#type-badge) has.
+
+An alert has the alert role, as shadcn's does: a live region that assistive technologies announce at once when it appears in the page, which is right for an error that shows after the user did something. An alert that is part of the page from the start (a notice at the top of a form) is not an interruption: give it Role "status" (a polite live region) or "note" (none).
+
+#### func (Alert) Build
+
+```go
+func (a Alert) Build() tela.Node
+```
+
+Build returns the alert element.
 
 ### type AlertDialog
 
@@ -476,6 +546,31 @@ type AlertDialogStyle struct {
 
 AlertDialogStyle is the recipe of [`AlertDialog`](#type-alertdialog) (shadcn/ui's AlertDialogOverlay, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription and AlertDialogFooter). Its Positioner, Overlay and Exit work as the ones of [`DialogStyle`](#type-dialogstyle).
 
+### type AlertStyle
+
+```go
+type AlertStyle struct {
+    // Root is what every alert has: a grid with a column for the icon (of
+    // no width without one), a border and the card's colors.
+    Root string
+    // Variants are the looks: Default, Destructive, and the tones Success,
+    // Warning and Info (shadcn has the first two).
+    Variants map[Variant]string
+    // WithIcon is added to Root when the alert has an Icon (shadcn's
+    // has-[>svg]:): the icon column gets its width and a gap.
+    WithIcon string
+    // Icon is what the Icon slot has.
+    Icon string
+    // Title and Description are the two texts, in the second column.
+    Title, Description string
+    // DescriptionVariants are added to Description per alert variant
+    // (shadcn's destructive alert softens its description).
+    DescriptionVariants map[Variant]string
+}
+```
+
+AlertStyle is the recipe of [`Alert`](#type-alert) (shadcn/ui's Alert, AlertTitle and AlertDescription).
+
 ### type Avatar
 
 ```go
@@ -485,10 +580,18 @@ type Avatar struct {
     // Src is the picture: h.Src, h.SrcPath, h.SrcBytes or h.SrcFS. Nil
     // shows the fallback only.
     Src tela.Child
-    // Alt names the picture for assistive technologies.
+    // Alt names the picture for assistive technologies; it defaults to Name.
     Alt string
+    // Name is the person's name. Without a Fallback, the first letters of
+    // its first and last words ("Mei Tanaka" is "MT") are the fallback.
+    Name string
     // Fallback is the text shown without a picture, normally initials.
     Fallback string
+    // Color is the fallback's background: [AvatarAuto] to choose it from
+    // the Name (or the Fallback without one), or a name from the recipe's
+    // Colors ("red", "orange", "amber", "emerald", "teal", "sky", "indigo",
+    // "violet", "pink"). The zero value is the muted disc.
+    Color AvatarColor
     // Class is added after the recipe's Root classes; FallbackClass does the
     // same for the fallback disc, such as a gradient of its own per person.
     Class         string
@@ -505,6 +608,13 @@ kit.Avatar{Src: h.SrcPath("faces/mei.png"), Alt: "Mei Tanaka", Fallback: "MT"}
 kit.Avatar{Size: kit.Lg, Fallback: "AB"}
 ```
 
+Name stands for the person: it is the Alt of the picture, the initials of the fallback when there is no Fallback text, and with Color [`AvatarAuto`](#type-avatarcolor) the seed of the fallback's color, so a list of people has a color each that stays the same everywhere they appear:
+
+```go
+kit.Avatar{Name: "Mei Tanaka", Color: kit.AvatarAuto}  // "MT" on a color chosen by the name
+kit.Avatar{Name: "Ada Lovelace", Color: "indigo"}      // a color of the recipe, by name
+```
+
 #### func (Avatar) Build
 
 ```go
@@ -512,6 +622,87 @@ func (a Avatar) Build() tela.Node
 ```
 
 Build returns the avatar element.
+
+### type AvatarColor
+
+```go
+type AvatarColor string
+```
+
+AvatarColor is the background of an [`Avatar`](#type-avatar)'s fallback among the ones its recipe defines. Like [`Variant`](#type-variant) it is open: an app adds a color by naming it in the recipe's Colors map.
+
+```go
+const AvatarAuto AvatarColor = "auto"
+```
+
+AvatarAuto picks the color from the avatar's name: the same name always gets the same color.
+
+### type AvatarGroup
+
+```go
+type AvatarGroup struct {
+    // Avatars are the people, in order.
+    Avatars []Avatar
+    // Max is the most avatars drawn; the others are counted in a "+N"
+    // avatar at the end. 0 draws all of them.
+    Max int
+    // Total is how many people there are when more than Avatars lists (the
+    // rest was not loaded): the "+N" counts Total minus the ones drawn.
+    Total int
+    // Size is the size of the avatars that have none of their own, and of
+    // the "+N" one.
+    Size Size
+    // AriaLabel names the group for assistive technologies ("Team
+    // members"); without it the group has no name.
+    AriaLabel string
+    // Class is added after the recipe's Root classes. AvatarClass is added
+    // to every avatar after the recipe's ring (including the "+N"):
+    // AvatarClass: "ring-card".
+    Class       string
+    AvatarClass string
+    // Props are more props for the root element.
+    Props tela.Child
+}
+```
+
+AvatarGroup is a row of overlapping avatars with a count of the ones that do not fit, as shadcn/ui's documentation builds with `-space-x-2` and a ring in the background color:
+
+```go
+kit.AvatarGroup{Max: 3, Avatars: []kit.Avatar{
+    {Name: "Mei Tanaka", Color: kit.AvatarAuto},
+    {Name: "Ada Lovelace", Color: kit.AvatarAuto},
+    {Name: "Alan Turing", Color: kit.AvatarAuto},
+    {Name: "Grace Hopper", Color: kit.AvatarAuto},
+    {Name: "Linus Torvalds", Color: kit.AvatarAuto},
+}}  // three avatars and "+2"
+```
+
+The ring is as wide as the page's background (ring-background), so the avatars are separated on any surface that uses it; on a card or a different surface set the ring with Class ("ring-card"). Later avatars cover earlier ones, and the overlap follows the direction of the page.
+
+#### func (AvatarGroup) Build
+
+```go
+func (g AvatarGroup) Build() tela.Node
+```
+
+Build returns the group element.
+
+### type AvatarGroupStyle
+
+```go
+type AvatarGroupStyle struct {
+    // Root overlaps the avatars: the next one covers the end of the
+    // previous.
+    Root string
+    // Avatar is added to every avatar of the group, including the overflow
+    // count: a ring in the background color that separates them.
+    Avatar string
+    // Overflow is added to the "+N" avatar after Avatar.
+    Overflow string
+}
+```
+
+AvatarGroupStyle is the recipe of [`AvatarGroup`](#type-avatargroup) (shadcn/ui's avatar group example: a row of avatars that overlap, each with a ring in the background color).
 
 ### type AvatarStyle
 
@@ -527,6 +718,12 @@ type AvatarStyle struct {
     // FallbackSizes are the fallback's classes per avatar size (a smaller
     // text for Sm); a size the map does not define adds none.
     FallbackSizes map[Size]string
+    // Colors are the fallback's backgrounds (with their text color), by
+    // name. They replace the muted disc.
+    Colors map[AvatarColor]string
+    // AutoColors are the names of Colors that [AvatarAuto] chooses among
+    // (the true ones), in the order of their names.
+    AutoColors map[AvatarColor]bool
 }
 ```
 
@@ -540,6 +737,13 @@ type Badge struct {
     Variant Variant
     // Icon is drawn before the children.
     Icon tela.Icon
+    // Dot draws a status dot before the children (after the Icon, if any),
+    // in the color of the text. It is hidden from assistive technologies:
+    // say the status in the label.
+    Dot bool
+    // DotClass is added after the recipe's classes of the dot, such as
+    // "bg-emerald-500" to color it apart from the text.
+    DotClass string
     // Children is the label.
     Children tela.Component
     // Class is added after the recipe's classes.
@@ -554,6 +758,13 @@ Badge is a small label, shadcn/ui's Badge: a status, a count, a tag.
 ```go
 kit.Badge{Variant: kit.Secondary, Children: h.Text("Draft")}
 kit.Badge{Variant: kit.Destructive, Icon: lucide.CircleAlert, Children: h.Text("Failed")}
+```
+
+The tones [`Success`](#type-variant), [`Warning`](#type-variant) and [`Info`](#type-variant) are for a status, and Dot puts a small disc before the label, as a status badge in a table does:
+
+```go
+kit.Badge{Variant: kit.Success, Dot: true, Children: h.Text("Active")}
+kit.Badge{Variant: kit.Outline, Dot: true, DotClass: "bg-amber-500", Children: h.Text("Pending")}
 ```
 
 shadcn's hover styles for a badge that is a link (\[a\&\]:hover:) are not part of the recipe: a Badge is not a link here; put it in an h.A or give it Props with an OnClick and a Class with hover: classes.
@@ -573,10 +784,13 @@ type BadgeStyle struct {
     // Root is what every badge has.
     Root string
     // Variants are the looks: Default, Secondary, Destructive, Outline,
-    // Ghost and Link.
+    // Ghost and Link, and the tones Success, Warning and Info.
     Variants map[Variant]string
     // Icon is what the Icon slot has.
     Icon string
+    // Dot is the status dot of a badge with Dot: a disc in the badge's
+    // text color, level with the label.
+    Dot string
 }
 ```
 
@@ -596,6 +810,11 @@ type Button struct {
     Type string
     // Disabled makes the button inert (h.Disabled) and dims it.
     Disabled bool
+    // Loading shows a spinner and ignores presses (see above).
+    Loading bool
+    // LoadingIcon replaces the spinner (a Lucide loader-circle that turns
+    // with animate-spin).
+    LoadingIcon tela.Icon
     // OnClick is called when the button is clicked or activated with the
     // keyboard.
     OnClick func()
@@ -605,6 +824,8 @@ type Button struct {
     // Icon is drawn before the children, IconEnd after them. Their size
     // and shape come from the recipe's Icon and IconSizes.
     Icon, IconEnd tela.Icon
+    // IconClass is added to the classes of both icons, after the recipe's.
+    IconClass string
     // Children is the label.
     Children tela.Component
     // Class is added after the recipe's classes, so it wins over them.
@@ -624,6 +845,12 @@ kit.Button{Variant: kit.Outline, Size: kit.Sm, OnClick: save, Children: h.Text("
 // An icon before the label (your own tela.Icon), and an icon-only button.
 kit.Button{Icon: lucide.Mail, Children: h.Text("Login with email")}
 kit.Button{Variant: kit.Outline, Size: kit.Icon, Icon: lucide.ChevronRight, AriaLabel: "Next"}
+```
+
+Loading shows that the button's action is under way, as a button that submits a form does while the request is out. The button turns its Icon (or, with none, its IconEnd) into a spinner, or when it has neither draws a spinner over the content, which stays in place and invisible: either way the button keeps its width, so nothing around it moves. A loading button is marked aria-busy, ignores presses (the pointer and the keyboard, and it does not submit its form) and stays in the tab order, unlike a Disabled one, so the focus does not jump away from it.
+
+```go
+kit.Button{Type: "submit", Loading: saving, Icon: lucide.Save, Children: h.Text("Save")}
 ```
 
 A Variant or Size the active [`Style`](#type-style) does not define panics in dev mode with the closest one.
@@ -680,6 +907,16 @@ type ButtonStyle struct {
     // IconSizes are the icon's size per button size; a size the map does
     // not define uses the default's.
     IconSizes map[Size]string
+    // Loading is added to a button that is Loading, after its variant and
+    // size: it ignores the pointer.
+    Loading string
+    // LoadingIcon is added to the spinner, after Icon and IconSizes.
+    LoadingIcon string
+    // LoadingOverlay is the root's addition and LoadingSpinner the spinner
+    // element's classes for a loading button that has no icon to turn into
+    // the spinner: the content stays (LoadingContent hides it, so that the
+    // button keeps its width) and the spinner is centered over it.
+    LoadingOverlay, LoadingSpinner, LoadingContent string
 }
 ```
 
@@ -1972,6 +2209,17 @@ Build returns the trigger and the menu's portal.
 type Field struct {
     // Label, Description and Error are plain text; empty draws nothing.
     Label, Description, Error string
+    // LabelContent and DescriptionContent are drawn in place of Label and
+    // Description, for text that is not plain: a bold word, a link, an
+    // icon. Label and Description should still say it in words: they name
+    // a control that has no label element of its own (a Select's button).
+    // Either one makes the label or the description exist.
+    LabelContent, DescriptionContent tela.Component
+    // LabelEnd is drawn at the end of the label's line, level with it and
+    // outside the label (pressing it does not focus the control), such as
+    // "Forgot password?". DescriptionEnd does the same by the description,
+    // such as a character counter.
+    LabelEnd, DescriptionEnd tela.Component
     // Invalid makes the field invalid with no error message, such as when
     // the message is shown elsewhere. A field with an Error is invalid
     // already.
@@ -2027,7 +2275,17 @@ kit.Field{
 }
 ```
 
-To name a group of controls (a [`RadioGroup`](#type-radiogroup), a [`ToggleGroup`](#type-togglegroup)) use a [`FieldSet`](#type-fieldset) and its legend: a Field's label points to one control.
+The label and the description are text, and take rich content too: LabelContent and DescriptionContent are drawn in place of the text (the text still names the control for assistive technologies that need a string), and LabelEnd and DescriptionEnd are slots at the end of the label's line and of the description's, such as a link or a counter:
+
+```go
+kit.Field{
+    Label:    "Password",
+    LabelEnd: kit.Button{Variant: kit.Link, Size: kit.Sm, Class: "h-auto p-0", Children: h.Text("Forgot password?")},
+    Children: kit.Input{Type: "password"},
+}
+```
+
+A group of controls (a [`RadioGroup`](#type-radiogroup), a [`ToggleGroup`](#type-togglegroup)) in a Field is named by the field's label: the group is labelled by it (aria-labelledby), so it needs no AriaLabel. To caption a group that has more than the one control a label points to, with its own legend and description, use a [`FieldSet`](#type-fieldset).
 
 **Example**
 
@@ -2178,6 +2436,12 @@ type FieldStyle struct {
     // DescriptionWithError is added to Description when the field shows an
     // error below it (shadcn's nth-last-2:).
     DescriptionWithError string
+    // LabelRow holds the label and the LabelEnd slot, DescriptionRow the
+    // description and the DescriptionEnd slot: the text first and the slot
+    // at the end of the line. They exist only when the slot is given.
+    LabelRow, DescriptionRow string
+    // DescriptionInRow is added to Description in its row.
+    DescriptionInRow string
     // Invalid is added to Root when the field is invalid (shadcn's
     // data-[invalid=true]:): the label and the text turn red.
     Invalid string
@@ -2222,8 +2486,13 @@ type Input struct {
     // MaxLength limits what the user can type, in UTF-16 code units; 0 is
     // no limit.
     MaxLength int
-    // Class is added after the recipe's classes.
-    Class string
+    // Icon is drawn inside the field at its start and IconEnd at its end.
+    Icon, IconEnd tela.Icon
+    // Class is added after the recipe's classes. With an Icon or IconEnd
+    // it is for the wrapper that holds the input and the icons, and
+    // InputClass is added to the input.
+    Class      string
+    InputClass string
     // Props are more props for the input element.
     Props tela.Child
 }
@@ -2240,6 +2509,12 @@ kit.Input{Type: "email", DefaultValue: "ana@example.com", Name: "email"}
 
 Inside a [`Field`](#type-field) the input takes the field's ID, so the field's label names it, and is described by the field's description or error.
 
+Icon puts an icon inside the field at its start (a magnifier in a search box, an envelope in an email field) and IconEnd one at its end. Both are decorative, mirror under a right-to-left direction, and leave the text room; the focus ring stays on the field. The icons need a wrapper, so with one Class goes on the wrapper (the width of the field, "max-w-sm") and InputClass on the input:
+
+```go
+kit.Input{Icon: lucide.Search, Placeholder: "Search...", Class: "max-w-sm"}
+```
+
 #### func (Input) Build
 
 ```go
@@ -2253,6 +2528,21 @@ Build returns the input element.
 ```go
 type InputStyle struct {
     Root string
+    // Wrapper is the element around an input that has an Icon or an
+    // IconEnd; it carries the input's Class and is as wide as the input
+    // would be.
+    Wrapper string
+    // Icon is the icon, level with the text and at the start (IconStart)
+    // or at the end (IconEnd) of the field; both are muted and let the
+    // pointer through. IconDisabled and IconInvalid are added to them
+    // after.
+    Icon, IconStart, IconEnd string
+    // IconDisabled dims the icon of a disabled field and IconInvalid
+    // colors the one of an invalid field.
+    IconDisabled, IconInvalid string
+    // PadStart and PadEnd are added to the input to make room for the
+    // icons (an icon, its inset and a gap).
+    PadStart, PadEnd string
 }
 ```
 
@@ -3324,12 +3614,18 @@ SelectStyle is the recipe of [`Select`](#type-select) (shadcn/ui's SelectTrigger
 type Separator struct {
     // Orientation is Horizontal (the default) or Vertical.
     Orientation Orientation
+    // Caption is drawn in the middle of the line, between two lines that
+    // fill the rest of the width (or the height of a Vertical separator).
+    Caption tela.Component
     // Semantic makes the separator part of the accessibility tree, with
     // the separator role and its orientation, for a line that divides
-    // sections of the content and not just decorates it.
+    // sections of the content and not just decorates it. It has no effect
+    // with a Caption.
     Semantic bool
-    // Class is added after the recipe's classes.
-    Class string
+    // Class is added after the recipe's classes. CaptionClass is added to
+    // the caption's.
+    Class        string
+    CaptionClass string
     // Props are more props for the separator element.
     Props tela.Child
 }
@@ -3341,6 +3637,14 @@ Separator is a thin line that divides content, shadcn/ui's Separator. By default
 kit.Separator{}
 h.Div(cls("flex h-5 items-center gap-4"), h.Text("Blog"), kit.Separator{Orientation: kit.Vertical}, h.Text("Docs"))
 ```
+
+A Caption puts a label in the middle of the line, as login forms do:
+
+```go
+kit.Separator{Caption: h.Text("Or continue with")}
+```
+
+The caption is text for the page, so a captioned separator is not hidden from assistive technologies, and has no separator role (a separator's children are presentational in ARIA, which would drop the text): the lines are decorative and the caption is read as it is.
 
 #### func (Separator) Build
 
@@ -3358,6 +3662,13 @@ type SeparatorStyle struct {
     // Orientations are a 1 px line across the available width
     // (Horizontal) and one down the available height (Vertical).
     Orientations map[Orientation]string
+    // Captioned is the root of a separator with a Caption: the two lines
+    // and the caption between them, in a row (Horizontal) or a column
+    // (Vertical). Caption is the caption's part; Line is each of the two
+    // lines, by orientation.
+    Captioned map[Orientation]string
+    Caption   string
+    Line      map[Orientation]string
 }
 ```
 
@@ -3576,6 +3887,11 @@ SortDirection is the order a [`Table`](#type-table) shows its rows in by a colum
 const (
     Ascending  SortDirection = "ascending"
     Descending SortDirection = "descending"
+    // Other is a column sorted by an order that is neither: a relevance
+    // score, the server's own ranking. The table does not reorder the rows
+    // for it (it shows the state, aria-sort "other", and the rows come
+    // sorted as given), and pressing the header starts ascending.
+    Other SortDirection = "other"
 )
 ```
 
@@ -3585,7 +3901,7 @@ const (
 type SortState struct {
     // Column is the ID of the sorted column ("" with no sort).
     Column string
-    // Direction is Ascending or Descending ("" with no sort).
+    // Direction is Ascending, Descending or Other ("" with no sort).
     Direction SortDirection
 }
 ```
@@ -3596,8 +3912,10 @@ SortState is how a [`Table`](#type-table) is sorted: by the column with the ID C
 
 ```go
 type Style struct {
+    Alert          AlertStyle
     AlertDialog    AlertDialogStyle
     Avatar         AvatarStyle
+    AvatarGroup    AvatarGroupStyle
     Badge          BadgeStyle
     Button         ButtonStyle
     Calendar       CalendarStyle
@@ -3862,6 +4180,15 @@ type Table[T any] struct {
     Sort         *SortState
     DefaultSort  SortState
     OnSortChange func(SortState)
+    // AlwaysSorted makes pressing a sorted header cycle ascending and
+    // descending only, never back to unsorted. A table that should always
+    // be sorted needs a DefaultSort (or a Sort), as the first press is what
+    // sorts an unsorted one.
+    AlwaysSorted bool
+    // HideUnsortedIcon hides the arrow of a sortable header that is not
+    // sorted (it shows while the pointer is over the header or the focus is
+    // in it), keeping its place.
+    HideUnsortedIcon bool
 
     // Selected tells whether a row is selected: the row gets the selected
     // look and aria-selected. Nil leaves the rows unselectable.
@@ -3922,7 +4249,7 @@ kit.Table[Invoice]{
 
 ##### Sorting
 
-The header of a column with a Sort (or Sortable) is a button, so Tab reaches it and Enter and Space press it. Pressing it cycles the column through ascending, descending and unsorted, as TanStack Table (the engine of shadcn's data table) does by default, and pressing another column starts that one ascending; only one column is sorted at a time. The sorted header carries aria-sort and shows an arrow. The sort is stable: rows that compare equal keep their order in Rows (also when descending). Sorting follows ADR-101's value rule: Sort (a pointer to your state) controls it, DefaultSort sets the start and OnSortChange reports every change.
+The header of a column with a Sort (or Sortable) is a button, so Tab reaches it and Enter and Space press it. Pressing it cycles the column through ascending, descending and unsorted, as TanStack Table (the engine of shadcn's data table) does by default, and pressing another column starts that one ascending; only one column is sorted at a time. The sorted header carries aria-sort and shows an arrow; a sortable header that is not sorted says aria-sort "none" (the variants aria-\[sort=none\]:, aria-\[sort=ascending\]:, aria-\[sort=descending\]: and aria-\[sort=other\]: style the header, and their group- forms what it holds). AlwaysSorted removes the unsorted step: a sorted table stays sorted and pressing cycles ascending and descending (TanStack's enableSortingRemoval: false). HideUnsortedIcon hides the arrow of the headers that are not sorted until the pointer is over them, for a table where the arrows are noise. The sort is stable: rows that compare equal keep their order in Rows (also when descending). Sorting follows ADR-101's value rule: Sort (a pointer to your state) controls it, DefaultSort sets the start and OnSortChange reports every change.
 
 ```go
 sort, setSort := tela.UseState(kit.SortState{Column: "amount", Direction: kit.Descending})
@@ -4077,6 +4404,11 @@ type TableStyle struct {
     // is a `group` with aria-sort, for group-aria-[sort=ascending]: and
     // group-aria-[sort=descending]: classes.
     SortButton string
+    // SortIconUnsorted is added to the arrow of a sortable header that is
+    // not sorted when the table has HideUnsortedIcon: the arrow keeps its
+    // place, so the header does not change width when it is sorted, and
+    // shows when the pointer is over the header or the focus is in it.
+    SortIconUnsorted string
 }
 ```
 
@@ -5123,6 +5455,16 @@ type Variant string
 ```
 
 Variant is the look of a component among the ones its recipe defines: a Button is Default, Secondary, Outline, Ghost, Destructive or Link. The constants are shared by the components that have the same variants; an app defines its own by adding a name to a recipe's Variants map (s.Button.Variants\["glass"\] = "...") and using Variant("glass").
+
+```go
+const (
+    Success Variant = "success"
+    Warning Variant = "warning"
+    Info    Variant = "info"
+)
+```
+
+The tones: variants for a status, shared by [`Badge`](#type-badge) and [`Alert`](#type-alert). shadcn/ui has none (its colors are tokens, and the neutral theme has no green, yellow or blue), so the recipes use Tailwind's emerald, amber and sky at a low opacity, with a dark-scheme text of their own.
 
 ```go
 const (

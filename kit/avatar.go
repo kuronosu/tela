@@ -7,6 +7,7 @@ package kit
 
 import (
 	"hash/fnv"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -41,8 +42,9 @@ type AvatarStyle struct {
 	// Colors are the fallback's backgrounds (with their text color), by
 	// name. They replace the muted disc.
 	Colors map[AvatarColor]string
-	// AutoColors are the names of Colors that [AvatarAuto] chooses among.
-	AutoColors []AvatarColor
+	// AutoColors are the names of Colors that [AvatarAuto] chooses among
+	// (the true ones), in the order of their names.
+	AutoColors map[AvatarColor]bool
 }
 
 func init() {
@@ -69,7 +71,8 @@ func init() {
 			"violet":  "bg-violet-600 text-white",
 			"pink":    "bg-pink-600 text-white",
 		},
-		AutoColors: []AvatarColor{"red", "orange", "amber", "emerald", "teal", "sky", "indigo", "violet", "pink"},
+		AutoColors: map[AvatarColor]bool{"red": true, "orange": true, "amber": true, "emerald": true, "teal": true,
+			"sky": true, "indigo": true, "violet": true, "pink": true},
 	}
 }
 
@@ -149,12 +152,19 @@ func (a Avatar) colorClass(s *AvatarStyle) string {
 		if seed == "" {
 			seed = a.Fallback
 		}
-		if seed == "" || len(s.AutoColors) == 0 {
+		var names []string
+		for c, on := range s.AutoColors {
+			if on {
+				names = append(names, string(c))
+			}
+		}
+		if seed == "" || len(names) == 0 {
 			return ""
 		}
+		sort.Strings(names)
 		f := fnv.New32a()
 		f.Write([]byte(strings.ToLower(strings.TrimSpace(seed))))
-		return s.Colors[s.AutoColors[int(f.Sum32()%uint32(len(s.AutoColors)))]]
+		return pick("Avatar", "Color", s.Colors, AvatarColor(names[int(f.Sum32()%uint32(len(names)))]))
 	}
 	return pick("Avatar", "Color", s.Colors, a.Color)
 }

@@ -269,8 +269,10 @@ arbitrary property, with underscores for spaces:
 `polygon(evenodd,…)`). Shapes are relative to the border box; the clip cuts
 everything the element paints (shadows and outline included) and its
 clicks. Variants work on it (`hover:[clip-path:circle(75%)]`), and
-`transition-[clip-path]` animates between shapes of the same kind. No other
-arbitrary property is accepted.
+`transition-[clip-path]` animates between shapes of the same kind. The only other
+arbitrary property is `[animation-delay:150ms]` (also negative,
+`[animation-delay:-0.3s]`), the delay of an `animate-*` class; `delay-*` and
+`animation-delay-*` set it too (see [Animation](Animation)).
 
 ## Variants
 
