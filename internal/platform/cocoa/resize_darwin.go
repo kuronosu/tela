@@ -18,6 +18,25 @@ var rsel = struct {
 	pressedMouseButtons: darwin.Sel("pressedMouseButtons"),
 }
 
+// resizeInput is a resize the backend runs itself from one of the app's
+// resize handles (a HitResize… region, h.WindowResize; ADR-257). AppKit
+// has no public call that starts the window server's resize from an event
+// (performWindowDragWithEvent: only moves), and a transparent window is
+// not resizable (its edges are the transparent margin), so the press
+// starts a loop of the drags AppKit sends the window while the button is
+// held: each one sets the frame from the press's frame and the cursor's
+// motion since the press, in screen points (y up; resizedFrame).
+type resizeInput struct {
+	held  bool
+	btn   platform.PointerButton
+	edge  platform.Edge
+	mouse [2]float64 // the cursor at the press
+	frame [4]float64 // the window's frame at the press: x, y, w, h
+	// hover is the edge of the handle under the pointer while no button
+	// is held (its cursor is shown), 0 for none.
+	hover platform.Edge
+}
+
 // captionPoll is how often a caption press handed to the window server is
 // checked for its release (only while the primary button is held).
 const captionPoll = 16 * time.Millisecond

@@ -292,7 +292,7 @@ func TestCaptionRegions(t *testing.T) {
 	if w.WindowMenus() != 1 || w.CaptionDrags() != 5 {
 		t.Errorf("WindowMenus = %d, CaptionDrags = %d", w.WindowMenus(), w.CaptionDrags())
 	}
-	expectPanic(t, "invalid kind", func() { w.SetHitRegions([]platform.HitRegion{{Kind: 9}}) })
+	expectPanic(t, "invalid kind", func() { w.SetHitRegions([]platform.HitRegion{{Kind: platform.HitResizeBottomRight + 1}}) })
 }
 
 func TestParentsAndModality(t *testing.T) {
