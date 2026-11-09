@@ -97,6 +97,9 @@ func fetchNumbering(dir, version string) error {
 		defaults[r.loc] = r.system
 		formats[r.loc] = r.formats
 		used[r.system] = true
+		for sys := range r.formats.Systems {
+			used[sys] = true // its digits, for a tag's -u-nu-
+		}
 	}
 	if err := writeNumberFormats(filepath.Join(dir, numberFormatsFile), formats); err != nil {
 		return err
@@ -212,8 +215,28 @@ func generateNumbering(dir string) ([]byte, error) {
 	if err := json.Unmarshal(raw, &sysDoc); err != nil {
 		return nil, fmt.Errorf("%s: %v", numberingSystemsFile, err)
 	}
-	digits := map[string]string{}
+	// The digits of the default systems, and of every system a locale has
+	// symbols for (numberFormats.json), which a tag can ask for with -u-nu-
+	// (zh-u-nu-hanidec).
+	systems := map[string]bool{}
 	for _, s := range table {
+		systems[s] = true
+	}
+	raw, err = os.ReadFile(filepath.Join(dir, numberFormatsFile))
+	if err != nil {
+		return nil, err
+	}
+	var formats map[string]numberDigest
+	if err := json.Unmarshal(raw, &formats); err != nil {
+		return nil, fmt.Errorf("%s: %v", numberFormatsFile, err)
+	}
+	for _, f := range formats {
+		for s := range f.Systems {
+			systems[s] = true
+		}
+	}
+	digits := map[string]string{}
+	for s := range systems {
 		if s == "latn" {
 			continue
 		}
@@ -240,7 +263,8 @@ func generateNumbering(dir string) ([]byte, error) {
 	}
 	b.WriteString("}\n\n")
 	b.WriteString("// numberingDigits are the ten digits, 0 to 9, of the numbering systems\n")
-	b.WriteString("// numberingDefaults names (other than latn).\n")
+	b.WriteString("// numberingDefaults names and of those a locale has symbols for (other\n")
+	b.WriteString("// than latn).\n")
 	b.WriteString("var numberingDigits = map[string]string{\n")
 	for _, k := range sortedKeys(digits) {
 		fmt.Fprintf(&b, "\t%q: %q,\n", k, digits[k])

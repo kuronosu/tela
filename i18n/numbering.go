@@ -23,14 +23,34 @@ func defaultNumbering(t language.Tag) string {
 	return "latn"
 }
 
+// scriptAliases are the language-region locales that ICU's data aliases to
+// their likely script, as pa_PK to pa_Arab_PK and zh_TW to zh_Hant_TW: the
+// language-region IDs of the cldr-to-icu converter's config.xml that have
+// no CLDR data of their own, aliased to their CLDR 48 likely subtags
+// (LdmlConverter.getAliasMap; golang.org/x/text's likely subtags are CLDR
+// 32's, where sd-IN is still Arabic). Other tags are not given a script:
+// ICU reads az-IR as az (Latin digits), not az-Arab-IR.
+var scriptAliases = map[string]string{
+	"az-AZ": "Latn", "bs-BA": "Latn", "ff-CM": "Latn", "ff-GN": "Latn", "ff-MR": "Latn", "ff-SN": "Latn",
+	"ks-IN": "Arab", "ku-SY": "Latn", "kxv-IN": "Latn", "mni-IN": "Beng", "pa-IN": "Guru", "pa-PK": "Arab",
+	"sat-IN": "Olck", "sd-IN": "Deva", "sd-PK": "Arab", "shi-MA": "Tfng", "sr-BA": "Cyrl", "sr-ME": "Latn",
+	"sr-RS": "Cyrl", "sr-XK": "Cyrl", "su-ID": "Latn", "uz-AF": "Arab", "uz-UZ": "Latn", "vai-LR": "Vaii",
+	"yue-CN": "Hans", "yue-HK": "Hant", "zh-CN": "Hans", "zh-HK": "Hant", "zh-MO": "Hant", "zh-SG": "Hans",
+	"zh-TW": "Hant",
+}
+
 // localeChain returns the names a tag's CLDR data is looked up under, most
 // specific first: language-script-region, language-script, language-region
-// and the language.
+// and the language. A language-region tag that ICU aliases (scriptAliases)
+// gets its likely script.
 func localeChain(t language.Tag) []string {
 	b, s, r := t.Raw()
 	base := b.String()
 	script, region := s.String(), r.String()
 	hasScript, hasRegion := script != "Zzzz", region != "ZZ"
+	if !hasScript && hasRegion {
+		script, hasScript = scriptAliases[base+"-"+region]
+	}
 	chain := make([]string, 0, 4)
 	if hasScript && hasRegion {
 		chain = append(chain, base+"-"+script+"-"+region)

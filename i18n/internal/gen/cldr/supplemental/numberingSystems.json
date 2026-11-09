@@ -25,8 +25,44 @@
     "_digits": "०१२३४५६७८९",
     "_type": "numeric"
    },
+   "gujr": {
+    "_digits": "૦૧૨૩૪૫૬૭૮૯",
+    "_type": "numeric"
+   },
+   "guru": {
+    "_digits": "੦੧੨੩੪੫੬੭੮੯",
+    "_type": "numeric"
+   },
+   "hanidec": {
+    "_digits": "〇一二三四五六七八九",
+    "_type": "numeric"
+   },
    "hmnp": {
     "_digits": "𞅀𞅁𞅂𞅃𞅄𞅅𞅆𞅇𞅈𞅉",
+    "_type": "numeric"
+   },
+   "java": {
+    "_digits": "꧐꧑꧒꧓꧔꧕꧖꧗꧘꧙",
+    "_type": "numeric"
+   },
+   "khmr": {
+    "_digits": "០១២៣៤៥៦៧៨៩",
+    "_type": "numeric"
+   },
+   "knda": {
+    "_digits": "೦೧೨೩೪೫೬೭೮೯",
+    "_type": "numeric"
+   },
+   "laoo": {
+    "_digits": "໐໑໒໓໔໕໖໗໘໙",
+    "_type": "numeric"
+   },
+   "mlym": {
+    "_digits": "൦൧൨൩൪൫൬൭൮൯",
+    "_type": "numeric"
+   },
+   "mong": {
+    "_digits": "᠐᠑᠒᠓᠔᠕᠖᠗᠘᠙",
     "_type": "numeric"
    },
    "mtei": {
@@ -45,8 +81,28 @@
     "_digits": "᱐᱑᱒᱓᱔᱕᱖᱗᱘᱙",
     "_type": "numeric"
    },
+   "orya": {
+    "_digits": "୦୧୨୩୪୫୬୭୮୯",
+    "_type": "numeric"
+   },
+   "tamldec": {
+    "_digits": "௦௧௨௩௪௫௬௭௮௯",
+    "_type": "numeric"
+   },
+   "telu": {
+    "_digits": "౦౧౨౩౪౫౬౭౮౯",
+    "_type": "numeric"
+   },
+   "thai": {
+    "_digits": "๐๑๒๓๔๕๖๗๘๙",
+    "_type": "numeric"
+   },
    "tibt": {
     "_digits": "༠༡༢༣༤༥༦༧༨༩",
+    "_type": "numeric"
+   },
+   "vaii": {
+    "_digits": "꘠꘡꘢꘣꘤꘥꘦꘧꘨꘩",
     "_type": "numeric"
    }
   }

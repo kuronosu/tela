@@ -67,7 +67,8 @@ var numberingDefaults = map[string]string{
 }
 
 // numberingDigits are the ten digits, 0 to 9, of the numbering systems
-// numberingDefaults names (other than latn).
+// numberingDefaults names and of those a locale has symbols for (other
+// than latn).
 var numberingDigits = map[string]string{
 	"adlm":    "𞥐𞥑𞥒𞥓𞥔𞥕𞥖𞥗𞥘𞥙",
 	"arab":    "٠١٢٣٤٥٦٧٨٩",
@@ -75,10 +76,24 @@ var numberingDigits = map[string]string{
 	"beng":    "০১২৩৪৫৬৭৮৯",
 	"cakm":    "𑄶𑄷𑄸𑄹𑄺𑄻𑄼𑄽𑄾𑄿",
 	"deva":    "०१२३४५६७८९",
+	"gujr":    "૦૧૨૩૪૫૬૭૮૯",
+	"guru":    "੦੧੨੩੪੫੬੭੮੯",
+	"hanidec": "〇一二三四五六七八九",
 	"hmnp":    "𞅀𞅁𞅂𞅃𞅄𞅅𞅆𞅇𞅈𞅉",
+	"java":    "꧐꧑꧒꧓꧔꧕꧖꧗꧘꧙",
+	"khmr":    "០១២៣៤៥៦៧៨៩",
+	"knda":    "೦೧೨೩೪೫೬೭೮೯",
+	"laoo":    "໐໑໒໓໔໕໖໗໘໙",
+	"mlym":    "൦൧൨൩൪൫൬൭൮൯",
+	"mong":    "᠐᠑᠒᠓᠔᠕᠖᠗᠘᠙",
 	"mtei":    "꯰꯱꯲꯳꯴꯵꯶꯷꯸꯹",
 	"mymr":    "၀၁၂၃၄၅၆၇၈၉",
 	"nkoo":    "߀߁߂߃߄߅߆߇߈߉",
 	"olck":    "᱐᱑᱒᱓᱔᱕᱖᱗᱘᱙",
+	"orya":    "୦୧୨୩୪୫୬୭୮୯",
+	"tamldec": "௦௧௨௩௪௫௬௭௮௯",
+	"telu":    "౦౧౨౩౪౫౬౭౮౯",
+	"thai":    "๐๑๒๓๔๕๖๗๘๙",
 	"tibt":    "༠༡༢༣༤༥༦༧༨༩",
+	"vaii":    "꘠꘡꘢꘣꘤꘥꘦꘧꘨꘩",
 }

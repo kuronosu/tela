@@ -1,6 +1,7 @@
 package i18n
 
 import (
+	"math"
 	"testing"
 	"time"
 )
@@ -94,5 +95,61 @@ func TestNumberingInMessages(t *testing.T) {
 	}
 	if got, want := For("ar-AE").T("n", "count", 1234), "1,234 ملفات"; got != want {
 		t.Errorf("ar-AE: %q, want %q", got, want)
+	}
+}
+
+// icuAliases are ICU 78.3's outputs (Node 26's Intl, CLDR 48) for
+// new Intl.NumberFormat(locale, {maximumFractionDigits: 3}).format(-1234567.891)
+// and for NaN, for the language-region locales that ICU's data aliases to
+// their likely script (pa_PK to pa_Arab_PK, zh_TW to zh_Hant_TW), for two
+// that it does not (az-IR, ha-SD: the language's data), and for tags that
+// ask for a system no locale uses by default (its digits).
+var icuAliases = []struct{ loc, number, nan string }{
+	{"pa-PK", "\u200e-\u200e۱٬۲۳۴٬۵۶۷٫۸۹۱", "NaN"},  // arabext
+	{"pa-IN", "-12,34,567.891", "NaN"},              // latn
+	{"uz-AF", "\u200e-\u200e۱٬۲۳۴٬۵۶۷٫۸۹۱", "NaN"},  // arabext
+	{"uz-UZ", "-1 234 567,891", "son emas"},         // latn
+	{"zh-TW-u-nu-hanidec", "-一,二三四,五六七.八九一", "非數值"}, // hanidec
+	{"zh-TW", "-1,234,567.891", "非數值"},              // latn
+	{"zh-HK", "-1,234,567.891", "非數值"},              // latn
+	{"zh-MO", "-1,234,567.891", "非數值"},              // latn
+	{"zh-SG", "-1,234,567.891", "NaN"},              // latn
+	{"zh-CN", "-1,234,567.891", "NaN"},              // latn
+	{"sr-ME", "-1.234.567,891", "NaN"},              // latn
+	{"sr-RS", "-1.234.567,891", "NaN"},              // latn
+	{"sr-BA", "-1.234.567,891", "NaN"},              // latn
+	{"sr-XK", "-1.234.567,891", "NaN"},              // latn
+	{"sd-PK", "\u061c-١٬٢٣٤٬٥٦٧.٨٩١", "NaN"},        // arab
+	{"sd-IN", "-1,234,567.891", "NaN"},              // latn
+	{"mni-IN", "-১,২৩৪,৫৬৭.৮৯১", "NaN"},             // beng
+	{"sat-IN", "-᱑,᱒᱓᱔,᱕᱖᱗.᱘᱙᱑", "NaN"},             // olck
+	{"ks-IN", "\u200e-\u200e۱٬۲۳۴٬۵۶۷٫۸۹۱", "NaN"},  // arabext
+	{"kxv-IN", "-12,34,567.891", "NaN"},             // latn
+	{"ff-GN", "-1 234 567,891", "NaN"},              // latn
+	{"ff-SN", "-1 234 567,891", "NaN"},              // latn
+	{"shi-MA", "-1 234 567,891", "NaN"},             // latn
+	{"vai-LR", "-1,234,567.891", "NaN"},             // latn
+	{"yue-CN", "-1,234,567.891", "非数值"},             // latn
+	{"yue-HK", "-1,234,567.891", "非數值"},             // latn
+	{"su-ID", "-1.234.567,891", "NaN"},              // latn
+	{"bs-BA", "-1.234.567,891", "NaN"},              // latn
+	{"az-AZ", "-1.234.567,891", "NaN"},              // latn
+	{"az-IR", "-1.234.567,891", "NaN"},              // latn
+	{"ku-SY", "-1.234.567,891", "NaN"},              // latn
+	{"ha-SD", "-1,234,567.891", "NaN"},              // latn
+	{"th-u-nu-thai", "-๑,๒๓๔,๕๖๗.๘๙๑", "NaN"},       // digits of a system no locale uses by default
+	{"ta-u-nu-tamldec", "-௧௨,௩௪,௫௬௭.௮௯௧", "NaN"},    // digits of a system no locale uses by default
+	{"en-u-nu-hanidec", "-一,二三四,五六七.八九一", "NaN"},    // digits of a system no locale uses by default
+}
+
+func TestNumbersOfScriptAliasesMatchICU(t *testing.T) {
+	for _, c := range icuAliases {
+		f := For(c.loc)
+		if got := f.Number(-1234567.891); got != c.number {
+			t.Errorf("For(%q).Number(-1234567.891) = %q, want ICU's %q", c.loc, got, c.number)
+		}
+		if got := f.Number(math.NaN()); got != c.nan {
+			t.Errorf("For(%q).Number(NaN) = %q, want ICU's %q", c.loc, got, c.nan)
+		}
 	}
 }
