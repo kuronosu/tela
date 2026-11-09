@@ -309,9 +309,10 @@ type Tree struct {
 	// published what builds read (Frame).
 	rerun bool
 	ovl   overlayState
-	// loneAlt is set by an Alt keydown with no other key since
-	// (menubarkeys.go).
+	// loneAlt is set by an Alt keydown with no other key since, and
+	// altHeld while Alt is down alone (menubarkeys.go).
 	loneAlt bool
+	altHeld bool
 	pubs    []*valueCore
 	// env is the color scheme and reduced motion (env.go).
 	env envState
@@ -532,6 +533,9 @@ func (t *Tree) SetViewport(size gfx.Size) {
 		return
 	}
 	t.viewport = size
+	// A resize while Alt is down (the window manager's Alt+drag) is no
+	// lone Alt (menubarkeys.go).
+	t.loneAlt = false
 	t.cx.Viewport = t.contentSize()
 	t.restyleAll() // perf: only elements whose classes use vw, vh or breakpoints
 }

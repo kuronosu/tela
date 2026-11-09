@@ -154,8 +154,9 @@ func (a AlertDialog) triggerBusy() bool { return isBusy(a.Trigger) }
 // Build returns the trigger and the dialog's portal.
 func (a AlertDialog) Build() tela.Node {
 	s := &UseStyle().AlertDialog
+	slot := useTriggerSlot()
 	trig := aria.UseOverlayTrigger(aria.OverlayTriggerOptions{
-		Open: a.Open, DefaultOpen: a.DefaultOpen, OnOpenChange: a.OnOpenChange, Disabled: a.Disabled || isBusy(a.Trigger), Ref: a.outer.ref,
+		Open: a.Open, DefaultOpen: a.DefaultOpen, OnOpenChange: a.OnOpenChange, Disabled: a.Disabled || isBusy(a.Trigger) || slot.dyn, Ref: a.outer.ref,
 	})
 	overlay := aria.UseOverlay(aria.OverlayOptions{Open: trig.Open, OnClose: trig.Close, Modal: true})
 	dlg := aria.UseDialog(aria.DialogOptions{Role: "alertdialog", Modal: true, Ref: trig.OverlayRef})
@@ -164,12 +165,12 @@ func (a AlertDialog) Build() tela.Node {
 
 	root := alertDialogRoot(s, a, size, a.Size, overlay.Props, dlg.Props, dlg.TitleProps, desc, trig.Close)
 	return h.Fragment(
-		triggerOf(a.Trigger, a.outer.merge(trig.TriggerProps), trig.Ref),
-		h.Portal(h.Presence(h.If(trig.Open,
+		slot.wrap(triggerOf(a.Trigger, slot.props(a.outer.merge(trig.TriggerProps)), trig.Ref)),
+		outsideSlot(h.Portal(h.Presence(h.If(trig.Open,
 			h.Div(cls(s.Positioner),
 				h.Div(cls(s.Overlay, a.OverlayClass), h.Exit(s.OverlayExit)),
 				root,
-			)))),
+			))))),
 	)
 }
 

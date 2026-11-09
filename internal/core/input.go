@@ -288,6 +288,11 @@ func (t *Tree) pointerMove(ps *pointerState, e platform.PointerEvent) {
 }
 
 func (t *Tree) pointerLeave(ps *pointerState) {
+	// A pointer leaving the window while Alt is down is no lone Alt
+	// (menubarkeys.go): the window manager's Alt+drag grabs the pointer
+	// (Wayland's wl_pointer.leave, X11's LeaveNotify of a grab) and the
+	// app sees only the Alt press and release around it.
+	t.loneAlt = false
 	ps.inside = false
 	t.updateOver(ps, nil)
 	t.fireBoundary(ps)
@@ -299,7 +304,8 @@ func (t *Tree) pointerLeave(ps *pointerState) {
 }
 
 func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platform.Buttons) {
-	t.loneAlt = false // Alt+click is no lone Alt (menubarkeys.go)
+	t.loneAlt = false  // Alt+click is no lone Alt (menubarkeys.go)
+	t.foc.gone = false // FocusFromNowhere (focus.go)
 	if prev == 0 && ps.pressing {
 		// The release of the previous press never came: drop it.
 		ps.pressing, ps.panned = false, false

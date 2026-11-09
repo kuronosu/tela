@@ -48,6 +48,10 @@ type MenubarMenu[K comparable] struct {
 	Key K
 	// Label is the text of the menu's button in the bar.
 	Label string
+	// AccessKey is the menu's access key, a letter or a digit: Alt and the
+	// key open the menu (see Menubar's "Keyboard"); 0 leaves it to the
+	// bar, which gives each menu one. It reaches a native bar too.
+	AccessKey rune
 	// Disabled makes the menu impossible to open.
 	Disabled bool
 	// Items are the entries of the menu.
@@ -134,10 +138,31 @@ type MenubarMenu[K comparable] struct {
 // native one is on Windows and Linux (aria.MenuBarOptions.ActivationKeys):
 // F10 or a lone Alt focuses its first menu from anywhere in the window,
 // and the same keys or Escape give the focus back (not under the Mac's
-// key conventions, which have no such keys). A per-window native Menubar (AppMenu false) is unsupported on
+// key conventions, which have no such keys; see "Keyboard"). A per-window native Menubar (AppMenu false) is unsupported on
 // macOS, where the menu bar belongs to the app, and is drawn there.
 // Shortcuts of the app's bar are key equivalents on macOS: the key chooses
 // the item and does not reach the app (write "CmdOrCtrl+N" to be portable).
+//
+// # Keyboard
+//
+// A character typed on a focused menu button moves the focus to the next
+// button whose label starts with it (typeahead, the WAI-ARIA menubar's).
+// A drawn bar that is the window's bar has the keys of Windows' and GTK's
+// menu bars on Windows and Linux (ADR-255, ADR-260): an AppMenu bar, a bar
+// drawn because the native one it asked for is not there (Native, or
+// tela.App.NativeMenus), or one with ActivationKeys. F10 and a lone Alt
+// (pressed and released with no other key, press, wheel, pointer leaving
+// or focus change in between) focus its first button; each menu and item
+// has an access key (MenubarMenu.AccessKey and MenuItem.AccessKey, else
+// the first free letter of its label, as the Win32 backend's native bars
+// give them), underlined while Alt is held and while the keyboard is in
+// the bar; Alt and a menu's key, from anywhere in the window, open that
+// menu on its first item, the key alone does so on a focused button
+// (before typeahead), and an item's key in the open menu chooses it. A
+// bar that is not the window's (a row of menus in a card, the default for
+// a Menubar without AppMenu) has typeahead only, as Radix's: one bar per
+// window takes F10 and Alt. Under the Mac's key conventions there are no
+// activation or access keys.
 type Menubar[K comparable] struct {
 	// Menus are the bar's menus, in order.
 	Menus []MenubarMenu[K]
@@ -153,6 +178,10 @@ type Menubar[K comparable] struct {
 	// the OS's when native menus apply and the platform has one, drawn
 	// otherwise. Declare one such Menubar per app.
 	AppMenu bool
+	// ActivationKeys makes a drawn bar the window's bar for the keyboard
+	// (see "Keyboard"): F10, a lone Alt and the access keys. An AppMenu
+	// bar, and a bar drawn in place of a native one, have them already.
+	ActivationKeys bool
 	// AppItems are the items of macOS's app menu after About
 	// ("Settings…"); ignored where the bar is drawn or the platform has no
 	// app menu, and without AppMenu. OnAppSelect gets the key of the one
@@ -210,7 +239,9 @@ func (m Menubar[K]) Build() tela.Node {
 	m.Menus = slices.DeleteFunc(slices.Clone(m.Menus), func(mm MenubarMenu[K]) bool {
 		return mm.Role != desktop.RoleNone && len(mm.Items) == 0
 	})
-	return drawnMenubar[K]{bar: m, store: store}
+	// The bar drawn in place of the window's native bar is the window's
+	// bar for the keyboard too, as the native one is on Windows.
+	return drawnMenubar[K]{bar: m, store: store, windowBar: m.AppMenu || m.ActivationKeys || native}
 }
 
 // checkMenuRole panics in dev mode when a menu has a Role that is not the
@@ -257,7 +288,7 @@ func (n nativeMenubar[K]) Build() tela.Node {
 			p.onSelect = func(item K) { onSelect(k, item) }
 		}
 		menus[i] = desktop.MenuItem{
-			Label: mm.Label, Disabled: mm.Disabled, Role: mm.Role,
+			Label: mm.Label, AccessKey: mm.AccessKey, Disabled: mm.Disabled, Role: mm.Role,
 			Submenu: nativeItems(mm.Items, n.store, mac, func(item K) { p.choose(flat, item) }),
 		}
 	}
@@ -277,6 +308,9 @@ func (n nativeMenubar[K]) Build() tela.Node {
 type drawnMenubar[K comparable] struct {
 	bar   Menubar[K]
 	store *menuStore[K]
+	// windowBar: the window's bar for the keyboard (ActivationKeys and
+	// access keys).
+	windowBar bool
 }
 
 func (d drawnMenubar[K]) Build() tela.Node {
@@ -292,6 +326,27 @@ func (d drawnMenubar[K]) Build() tela.Node {
 		}
 	}
 	dir, rootDir := useDirection("Menubar", m.Direction)
+	mac := tela.UsePlatformKeys() == "darwin"
+	// The menus' access keys: the window's bar gives every menu one, as
+	// Windows' native bars (ADR-260).
+	var access map[K]aria.AccessKey
+	labels := map[K]string{}
+	if d.windowBar && !mac {
+		items := make([]aria.AccessKeyItem, len(m.Menus))
+		for i, mm := range m.Menus {
+			if mm.AccessKey != 0 && devMode() && !validAccessKey(mm.AccessKey) {
+				panic(fmt.Sprintf("kit: Menubar menu %q has the AccessKey %q; an access key is a letter or a digit the keyboard types, such as 'F' (a Japanese label gets it appended: \"ファイル(F)\")", mm.Label, mm.AccessKey))
+			}
+			items[i] = aria.AccessKeyItem{Label: mm.Label, Key: mm.AccessKey, Role: mm.Role, Disabled: mm.Disabled}
+		}
+		access = map[K]aria.AccessKey{}
+		for i, ak := range aria.AccessKeys(items, true) {
+			access[m.Menus[i].Key] = ak
+		}
+	}
+	for _, mm := range m.Menus {
+		labels[mm.Key] = mm.Label
+	}
 	bar := aria.UseMenuBar(aria.MenuBarOptions[K]{
 		Keys: keys, DisabledKeys: disabled, Open: m.Open, DefaultOpen: m.DefaultOpen, OnOpenChange: func(k K, open bool) {
 			// The bar moves from one open menu to another without a close:
@@ -302,8 +357,10 @@ func (d drawnMenubar[K]) Build() tela.Node {
 			}
 		},
 		AriaLabel: m.AriaLabel, Direction: dir,
-		// The app's bar is the window's bar: F10 and Alt reach it.
-		ActivationKeys: m.AppMenu,
+		// The window's bar: F10, Alt and the access keys reach it.
+		ActivationKeys: d.windowBar,
+		TextValue:      func(k K) string { return labels[k] },
+		AccessKey:      func(k K) rune { return access[k].Key },
 	})
 	// The element the roles of the items act on (menuStore.origin).
 	*before = bar.FocusedBefore
@@ -311,7 +368,8 @@ func (d drawnMenubar[K]) Build() tela.Node {
 
 	kids := []tela.Child{bar.Props, cls(st.Root, m.Class), rootDir, m.Props}
 	for _, mm := range m.Menus {
-		kids = append(kids, h.Button(bar.TriggerProps(mm.Key), h.Key(mm.Key), cls(st.Trigger, m.TriggerClass), h.Text(mm.Label)))
+		kids = append(kids, h.Button(bar.TriggerProps(mm.Key), h.Key(mm.Key), cls(st.Trigger, m.TriggerClass),
+			accessLabel(mm.Label, access[mm.Key], bar.ShowAccessKeys, st.Menu.AccessKey)))
 	}
 
 	var open tela.Child
@@ -330,6 +388,7 @@ func (d drawnMenubar[K]) Build() tela.Node {
 				component: "Menubar", style: &st.Menu, items: mm.Items, store: store,
 				popover: pop, menuProps: bar.MenuProps(k), ref: bar.MenuRef(k), strategy: bar.FocusStrategy, close: bar.Close,
 				checkIcon: m.CheckIcon, radioIcon: m.RadioIcon, subIcon: m.SubIcon, class: m.ContentClass, dir: dir,
+				autoKeys: d.windowBar, cues: bar.ShowAccessKeys,
 			}
 			if onSelect := m.OnSelect; onSelect != nil {
 				panel.onSelect = func(item K) { onSelect(k, item) }

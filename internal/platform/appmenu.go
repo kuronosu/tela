@@ -84,12 +84,17 @@ func CheckAppMenu(menu, appItems []MenuItem) {
 // CheckAccessKey reports whether k can be a [MenuItem].AccessKey: an
 // ASCII digit, or a letter of a script that keyboard layouts type
 // directly (not Han, Hiragana, Katakana, Hangul, Bopomofo or Yi, which
-// come from an IME, nor the fullwidth forms).
+// come from an IME, nor the fullwidth forms, the kana blocks' common
+// letters such as "ー", or the CJK symbols).
 func CheckAccessKey(k rune) bool {
 	switch {
 	case k >= '0' && k <= '9':
 		return true
 	case !unicode.IsLetter(k), k >= 0xff00 && k <= 0xffef:
+		return false
+	case k >= 0x3000 && k <= 0x30ff:
+		// The CJK symbols and the kana blocks, with the letters of the
+		// Common script there: the prolonged sound mark of "コピー".
 		return false
 	}
 	return !unicode.In(k, unicode.Han, unicode.Hiragana, unicode.Katakana, unicode.Hangul, unicode.Bopomofo, unicode.Yi)

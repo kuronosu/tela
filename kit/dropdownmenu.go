@@ -115,10 +115,11 @@ func (d DropdownMenu[K]) triggerBusy() bool { return isBusy(d.Trigger) }
 // Build returns the trigger and the menu's portal.
 func (d DropdownMenu[K]) Build() tela.Node {
 	st := &UseStyle().DropdownMenu
+	slot := useTriggerSlot()
 	store := useMenuStore[K]()
 	before := tela.UseOnce(func() *func() (tela.ElementRef, bool) { return new(func() (tela.ElementRef, bool)) })
 	mt := aria.UseMenuTrigger(aria.MenuTriggerOptions{
-		Open: d.Open, DefaultOpen: d.DefaultOpen, OnOpenChange: store.openChange(before, d.OnOpenChange), Disabled: d.Disabled || isBusy(d.Trigger), Ref: d.outer.ref,
+		Open: d.Open, DefaultOpen: d.DefaultOpen, OnOpenChange: store.openChange(before, d.OnOpenChange), Disabled: d.Disabled || isBusy(d.Trigger) || slot.dyn, Ref: d.outer.ref,
 	})
 	// The element the roles of the items act on (menuStore.origin).
 	*before = mt.FocusedBefore
@@ -133,10 +134,10 @@ func (d DropdownMenu[K]) Build() tela.Node {
 		menuProps: mt.MenuProps, ref: mt.MenuRef, strategy: mt.FocusStrategy, close: mt.Close,
 		ariaLabel: d.AriaLabel, checkIcon: d.CheckIcon, radioIcon: d.RadioIcon, subIcon: d.SubIcon, class: d.Class, props: d.Props,
 	}
-	props := d.outer.merge(mt.TriggerProps)
+	props := slot.props(d.outer.merge(mt.TriggerProps))
 	return h.Fragment(
-		triggerOf(d.Trigger, props, mt.Ref),
-		h.Portal(h.Presence(h.If(mt.Open, panel))),
+		slot.wrap(triggerOf(d.Trigger, props, mt.Ref)),
+		outsideSlot(h.Portal(h.Presence(h.If(mt.Open, panel)))),
 	)
 }
 

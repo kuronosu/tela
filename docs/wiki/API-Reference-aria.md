@@ -12,8 +12,10 @@ This page is generated from the doc comments of the package; the same text is on
 
 - [Overview](#overview)
 - [Constants](#constants)
-- [Functions](#functions): [`All`](#func-all) · [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Contains`](#func-contains) · [`DateOf`](#func-dateof) · [`EndsWith`](#func-endswith) · [`Flip`](#func-flip) · [`FormatHexColor`](#func-formathexcolor) · [`Hide`](#func-hide) · [`LimitShift`](#func-limitshift) · [`Offset`](#func-offset) · [`ParseHexColor`](#func-parsehexcolor) · [`Placement`](#func-placement) · [`SelectionOf`](#func-selectionof) · [`Shift`](#func-shift) · [`Size`](#func-size) · [`StartsWith`](#func-startswith) · [`ToHSB`](#func-tohsb) · [`ToHSL`](#func-tohsl) · [`Today`](#func-today) · [`UseButton`](#func-usebutton) · [`UseCalendar`](#func-usecalendar) · [`UseCheckbox`](#func-usecheckbox) · [`UseColorArea`](#func-usecolorarea) · [`UseColorField`](#func-usecolorfield) · [`UseColorSlider`](#func-usecolorslider) · [`UseColorState`](#func-usecolorstate) · [`UseCombobox`](#func-usecombobox) · [`UseContextMenuTrigger`](#func-usecontextmenutrigger) · [`UseDialog`](#func-usedialog) · [`UseFloating`](#func-usefloating) · [`UseFocusRing`](#func-usefocusring) · [`UseFocusScope`](#func-usefocusscope) · [`UseHover`](#func-usehover) · [`UseListBox`](#func-uselistbox) · [`UseMenu`](#func-usemenu) · [`UseMenuBar`](#func-usemenubar) · [`UseMenuTrigger`](#func-usemenutrigger) · [`UseMeter`](#func-usemeter) · [`UseOverlay`](#func-useoverlay) · [`UseOverlayTrigger`](#func-useoverlaytrigger) · [`UsePopover`](#func-usepopover) · [`UsePress`](#func-usepress) · [`UseProgressBar`](#func-useprogressbar) · [`UseRadioGroup`](#func-useradiogroup) · [`UseRangeCalendar`](#func-userangecalendar) · [`UseSelect`](#func-useselect) · [`UseSlider`](#func-useslider) · [`UseSwitch`](#func-useswitch) · [`UseTabs`](#func-usetabs) · [`UseToggleButton`](#func-usetogglebutton) · [`UseToggleGroup`](#func-usetogglegroup) · [`UseTooltipTrigger`](#func-usetooltiptrigger)
+- [Functions](#functions): [`AccessKeys`](#func-accesskeys) · [`All`](#func-all) · [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Contains`](#func-contains) · [`DateOf`](#func-dateof) · [`EndsWith`](#func-endswith) · [`Flip`](#func-flip) · [`FormatHexColor`](#func-formathexcolor) · [`Hide`](#func-hide) · [`LimitShift`](#func-limitshift) · [`Offset`](#func-offset) · [`ParseHexColor`](#func-parsehexcolor) · [`Placement`](#func-placement) · [`SelectionOf`](#func-selectionof) · [`Shift`](#func-shift) · [`Size`](#func-size) · [`StartsWith`](#func-startswith) · [`ToHSB`](#func-tohsb) · [`ToHSL`](#func-tohsl) · [`Today`](#func-today) · [`UseButton`](#func-usebutton) · [`UseCalendar`](#func-usecalendar) · [`UseCheckbox`](#func-usecheckbox) · [`UseColorArea`](#func-usecolorarea) · [`UseColorField`](#func-usecolorfield) · [`UseColorSlider`](#func-usecolorslider) · [`UseColorState`](#func-usecolorstate) · [`UseCombobox`](#func-usecombobox) · [`UseContextMenuTrigger`](#func-usecontextmenutrigger) · [`UseDialog`](#func-usedialog) · [`UseFloating`](#func-usefloating) · [`UseFocusRing`](#func-usefocusring) · [`UseFocusScope`](#func-usefocusscope) · [`UseHover`](#func-usehover) · [`UseListBox`](#func-uselistbox) · [`UseMenu`](#func-usemenu) · [`UseMenuBar`](#func-usemenubar) · [`UseMenuTrigger`](#func-usemenutrigger) · [`UseMeter`](#func-usemeter) · [`UseOverlay`](#func-useoverlay) · [`UseOverlayTrigger`](#func-useoverlaytrigger) · [`UsePopover`](#func-usepopover) · [`UsePress`](#func-usepress) · [`UseProgressBar`](#func-useprogressbar) · [`UseRadioGroup`](#func-useradiogroup) · [`UseRangeCalendar`](#func-userangecalendar) · [`UseSelect`](#func-useselect) · [`UseSlider`](#func-useslider) · [`UseSwitch`](#func-useswitch) · [`UseTabs`](#func-usetabs) · [`UseToggleButton`](#func-usetogglebutton) · [`UseToggleGroup`](#func-usetogglegroup) · [`UseTooltipTrigger`](#func-usetooltiptrigger)
 - [Types](#types)
+  - [`type AccessKey`](#type-accesskey): [`AccessKeys`](#func-accesskeys) · [`Split`](#func-accesskey-split)
+  - [`type AccessKeyItem`](#type-accesskeyitem)
   - [`type ArrowOptions`](#type-arrowoptions)
   - [`type AutoPlacementOptions`](#type-autoplacementoptions)
   - [`type Available`](#type-available): [`MaxHeight`](#func-available-maxheight) · [`MaxWidth`](#func-available-maxwidth)
@@ -402,6 +404,57 @@ func StartsWith(text, query string) bool
 StartsWith reports whether text starts with query, ignoring case and diacritics. An empty query matches everything.
 
 ## Types
+
+### type AccessKey
+
+```go
+type AccessKey struct {
+    // Key is the key in lower case; 0 for none.
+    Key rune
+    // At is the byte offset in the label of the character that shows the
+    // key, or -1 when the label has none of its own: the key is then
+    // appended to it as "(K)" ("ファイル(F)"), as the native menus of
+    // Chinese, Japanese and Korean do.
+    At int
+}
+```
+
+AccessKey is the access key (mnemonic) of a menu entry and where its label shows it ([`AccessKeys`](#func-accesskeys)): Windows and GTK underline it while the keyboard's cues are shown, Alt and the key open a menu bar's menu, and the key alone chooses an item of an open menu (ADR-260).
+
+#### func AccessKeys
+
+```go
+func AccessKeys(items []AccessKeyItem, auto bool) []AccessKey
+```
+
+AccessKeys returns the access key of each entry of one menu level (the triggers of a menu bar, or the items of one menu or submenu). With auto unset only an entry's own Key counts, as in a context menu or a menu button's menu (Windows' popup menus). With auto set every entry gets one, as every level of a menu bar has them, by the rule of the Win32 backend's native bars (Windows' convention per script): an entry's own Key first, then the first character of its label that the user types with Alt and no earlier entry took (a digit, or a letter of a script that keyboard layouts type directly), and for a label with no such character (Chinese, Japanese, Korean) a Latin letter appended in parentheses: the role's English letter when it is free, else the first free one from A to Z, then a digit. A label whose characters are all taken, and a disabled entry without a Key, get none.
+
+#### func (AccessKey) Split
+
+```go
+func (a AccessKey) Split(label string) (before, key, after string)
+```
+
+Split splits label around the character that shows the key: before, the character and after, so that the character can be underlined. An appended key gives the label and "(" as before, the key in upper case and ")". An entry with no key gives the label and two empty strings.
+
+### type AccessKeyItem
+
+```go
+type AccessKeyItem struct {
+    // Label is the entry's text.
+    Label string
+    // Key is the entry's own access key, a letter or a digit (kit's
+    // MenuItem.AccessKey); 0 for none.
+    Key rune
+    // Role is the entry's standard role, whose letter in English menus an
+    // appended key takes when it is free (Copy's C, the Edit menu's E).
+    Role desktop.Role
+    // Disabled entries get no key of their own choosing.
+    Disabled bool
+}
+```
+
+AccessKeyItem is an entry of a menu level for [`AccessKeys`](#func-accesskeys).
 
 ### type ArrowOptions
 
@@ -1964,8 +2017,8 @@ type ContextMenuTriggerOptions struct {
     // Intercept, if not nil, is asked before the menu opens (a right
     // click, a long press, the keys, OpenAt), with the point it would open
     // at in window coordinates: the pointer, or for the keys the center
-    // of the focused element or the caret of a focused text field (the
-    // area's top-left corner when the area has no focus). When it returns
+    // of the focused element or the caret of a focused text field (see
+    // [UseContextMenuTrigger] for the corners). When it returns
     // true it has taken the opening over, by
     // showing the OS's own context menu there: the hook then neither opens
     // the menu nor calls OnOpenChange. When it returns false, the menu
@@ -1973,6 +2026,12 @@ type ContextMenuTriggerOptions struct {
     // only moved, without asking. kit's ContextMenu uses it for native
     // menus (ADR-215).
     Intercept func(x, y float32) (handled bool)
+    // Position is the point, in window coordinates, where the menu
+    // appears when it opens with no point of its own: a controlled Open
+    // that the app sets to true, or SetOpen(true) (MUI's anchorPosition).
+    // Nil places such a menu as the keys do, at the focused element. A
+    // gesture or OpenAt still opens the menu at its own point.
+    Position *tela.Point
     // Ref is the area's ref and MenuRef the menu's, for hooks used together
     // with others on the same element; the zero value makes the hook
     // create its own.
@@ -2012,8 +2071,8 @@ type ContextMenuTriggerResult struct {
     // Presence at its own point.
     Opening int
     // Anchor returns the virtual rectangle the menu is placed at, in window
-    // coordinates: a point where the pointer was or the area's top-left
-    // corner. It is [AnchorRect]'s argument, for a menu placed with
+    // coordinates: the point of its opening (the pointer, the focused
+    // element, Position). It is [AnchorRect]'s argument, for a menu placed with
     // [UseFloating] instead of [UsePopover]. Each build's Anchor belongs to
     // the opening that build saw: it follows the menu while it is moved
     // (a long press or OpenAt while it is open) and keeps its point once
@@ -2045,7 +2104,7 @@ UseContextMenuTrigger holds the open state of a context menu and returns the pro
 - a touch or a pen that stays down for 500 ms, at the finger, with the first item focused (Radix's rule; a mouse button held down is not a long press here, so it clicks what it is on as usual),
 - Shift+F10 and the ContextMenu key, with the first item focused, at the element that has the focus.
 
-A key opens the menu at the element that has the focus, the area itself or an element inside it, as Chromium does: at the center of the part of it the area shows, or for a text field at the caret (the start of the selection); at the area's top-left corner when nothing in it has the focus.
+A key opens the menu at the element that has the focus, the area itself or an element inside it, as Chromium does: at the center of the part of it the area shows, or for a text field at the caret (the start of the selection); at the area's top-left corner when the focused element is outside the area or out of its view; and when nothing in the window has the focus (the keys then reach the area from the window's content), at the window's top-left corner plus one pixel, Chromium's non-located menu. A menu that opens with no point of its own (a controlled Open the app sets to true, SetOpen(true)) is placed the same way, unless the options give a Position.
 
 The event's default is prevented and its propagation stopped, so the innermost area with a context menu wins. The menu is rendered by the caller, in a Portal, and [`UsePopover`](#func-usepopover) places it at the point with [`AnchorRect`](#func-anchorrect), flipped and shifted to stay in the window; Escape, a press outside it with any mouse button (Radix's DismissableLayer), the focus leaving and choosing an item close it, and the focus goes back to where it was. A right click elsewhere on the area while the menu is open closes it and opens it again at the new point, as a new menu: it takes the focus as when it opens (the right click's contextmenu event comes after the release that closes the menu). A touch or a pen that stays down elsewhere on the area while the menu is open moves the open menu there, and its release does not close it (Radix); a quick tap there closes it, as any press outside does. A right click or a long press in another area with a context menu closes this one and opens that one, and a right click outside every area just closes it. A menu rendered in a Presence (to fade out) comes back as the same element when it opens again while it exits, at the new point and without taking the focus: key it with the result's Opening, as kit's ContextMenu does, and the exiting one fades out at its own point while a new one opens and takes the focus.
 
@@ -3409,8 +3468,23 @@ type MenuBarOptions[K comparable] struct {
     // trigger, give the focus back to where it was (closing an open menu).
     // Ignored under the Mac flavor (tela.UsePlatformKeys), which has no
     // such keys. Give it to one bar per window: the first one in the tree
-    // takes the keys.
+    // takes the keys. It also gives the bar's AccessKey its Alt
+    // combinations.
     ActivationKeys bool
+    // TextValue is the text of a trigger, for typeahead: a character typed
+    // on a focused trigger moves the focus to the next trigger whose text
+    // starts with it (the APG menubar's), and more characters typed within
+    // a second search on. Nil: the key as fmt.Sprint prints it.
+    TextValue func(K) string
+    // AccessKey is the access key of a trigger (0 for none; see
+    // [AccessKeys], which gives a bar's triggers theirs): with
+    // ActivationKeys, Alt and the key, from anywhere in the window, open
+    // the trigger's menu on its first item, and the key alone does so on
+    // a focused trigger (before typeahead), as Windows' and GTK's menu
+    // bars do. When several triggers have the key it moves the focus
+    // between them instead. Ignored under the Mac flavor, which has no
+    // access keys.
+    AccessKey func(K) rune
 }
 ```
 
@@ -3438,6 +3512,13 @@ type MenuBarResult[K comparable] struct {
     Close func()
     // Ref is the ref attached to the bar by Props.
     Ref tela.ElementRef
+    // ShowAccessKeys is whether the access keys are shown (underlined) on
+    // the triggers and in the open menu: while Alt is held, and while the
+    // keyboard is in the bar since ActivationKeys or an access key brought
+    // it there (Windows' keyboard cues; GTK shows them while Alt is
+    // held). Always false under the Mac flavor and without
+    // ActivationKeys.
+    ShowAccessKeys bool
     // contains filtered or unexported fields
 }
 ```
@@ -3479,7 +3560,7 @@ func (m appMenu) Build() tela.Node {
 
 The component has the open key as its key, so that each menu mounts anew and focuses its first item. The triggers are "menuitem"s with aria-haspopup and aria-expanded, and the bar is one tab stop that remembers its last trigger. ArrowLeft and ArrowRight (swapped by Direction "rtl") move the focus between the triggers, wrapping unless NoWrap, and Home and End jump; ArrowDown, Enter and Space open the menu of the focused trigger on its first item, ArrowUp on its last. While a menu is open ArrowLeft and ArrowRight close it and open the neighbor's, and hovering another trigger opens its menu: that is why the popover is not modal. A press on the open menu's trigger closes it, so do Escape, a press outside, and Tab, which also leaves the bar. Closing gives the focus back to the trigger. With ActivationKeys, F10 and a lone Alt reach the bar from anywhere in the window (Windows and Linux), and FocusedBefore is the element the focus came from, for the menus' edit commands.
 
-There is no typeahead on the triggers and there are no mnemonics.
+A character typed on a trigger moves the focus by typeahead (TextValue). On Windows and Linux the triggers can have access keys (AccessKey, [`AccessKeys`](#func-accesskeys); ADR-260): the key opens its menu from a focused trigger, and with ActivationKeys Alt and the key do from anywhere in the window; ShowAccessKeys says when to underline them (Alt held, or the keyboard brought to the bar), for the triggers and the open menu, whose items take keys through [`MenuOptions`](#type-menuoptions).AccessKey.
 
 **Example**
 
@@ -3611,6 +3692,15 @@ type MenuOptions[K comparable] struct {
     Direction       string
     // DisallowTypeAhead turns off typeahead.
     DisallowTypeAhead bool
+    // AccessKey is the access key of an item (0 for none; [AccessKeys]
+    // gives a menu's items theirs): the key typed in the menu, alone or
+    // with Alt, chooses the only enabled item that has it, as Enter does
+    // (a submenu's item opens its submenu on its first item), before
+    // typeahead; with several items of that key it moves the focus to the
+    // next of them (Windows' menus). With Alt, a key that no item has is
+    // left to the menu bar the menu belongs to (another menu's access
+    // key). Ignored under the Mac flavor, which has no access keys.
+    AccessKey func(K) rune
     // AriaLabel names the menu; the trigger's MenuProps already name it
     // by the trigger.
     AriaLabel string
@@ -5481,7 +5571,7 @@ The trigger item's own props (aria-haspopup, aria-expanded, aria-controls, the k
 func (r SubmenuTriggerResult) PopoverOptions() PopoverOptions
 ```
 
-PopoverOptions returns the options of [`UsePopover`](#func-usepopover) for the submenu: beside its trigger item ("right-start", "left-start" under "rtl"), flipped and shifted to stay in the window, not modal. Escape and the key back close this submenu only, a press outside every menu of the chain closes the whole menu, and a press inside one of the parent menus is left to that menu (it moves the focus, which closes the submenu, or chooses an item). Change what you need in the value returned (Offset; append to Floating, for a cross-axis offset that lines the first item up with the trigger).
+PopoverOptions returns the options of [`UsePopover`](#func-usepopover) for the submenu: beside its trigger item ("right-start", "left-start" under "rtl"), flipped and shifted to stay in the window, not modal. A submenu that fits on neither side of its parent goes on the side that overflows least and is then shifted across into the window, over its parent, as the native menus of Windows, GTK and macOS do (Floating UI's shift with crossAxis, ADR-260; Floating's first option). Escape and the key back close this submenu only, a press outside every menu of the chain closes the whole menu, and a press inside one of the parent menus is left to that menu (it moves the focus, which closes the submenu, or chooses an item). Change what you need in the value returned (Offset; append to Floating, for a cross-axis offset that lines the first item up with the trigger).
 
 ### type TabsOptions
 

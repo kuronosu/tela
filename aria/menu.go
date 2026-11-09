@@ -51,6 +51,15 @@ type MenuOptions[K comparable] struct {
 	Direction       string
 	// DisallowTypeAhead turns off typeahead.
 	DisallowTypeAhead bool
+	// AccessKey is the access key of an item (0 for none; [AccessKeys]
+	// gives a menu's items theirs): the key typed in the menu, alone or
+	// with Alt, chooses the only enabled item that has it, as Enter does
+	// (a submenu's item opens its submenu on its first item), before
+	// typeahead; with several items of that key it moves the focus to the
+	// next of them (Windows' menus). With Alt, a key that no item has is
+	// left to the menu bar the menu belongs to (another menu's access
+	// key). Ignored under the Mac flavor, which has no access keys.
+	AccessKey func(K) rune
 	// AriaLabel names the menu; the trigger's MenuProps already name it
 	// by the trigger.
 	AriaLabel string
@@ -188,6 +197,8 @@ func UseMenu[K comparable](o MenuOptions[K]) MenuResult[K] {
 		disallowEmpty: mode == "single",
 		wrap:          o.ShouldFocusWrap, orientation: "vertical", rtl: dir == "rtl",
 		disableType:  o.DisallowTypeAhead,
+		accessKey:    o.AccessKey,
+		mac:          tela.UsePlatformKeys() == "darwin",
 		focusOnHover: true,
 		autoFocus:    auto, strategy: strategy,
 		onAction: o.OnAction, onClose: onClose, closeOnSelect: o.CloseOnSelect,

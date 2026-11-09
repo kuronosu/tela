@@ -306,6 +306,7 @@ func (t *Tree) inertFocus(o *Element) {
 	if f.el != nil && isInside(f.el, o) {
 		t.noteLost(f.el) // a containing scope around o takes it back (focus.go)
 		f.el = nil
+		f.gone = true // as an unmount (FocusFromNowhere)
 		t.syncFocus()
 	}
 }

@@ -164,6 +164,9 @@ func (b Button) triggerBusy() bool { return b.Loading }
 // Build returns the button element.
 func (b Button) Build() tela.Node {
 	s := &UseStyle().Button
+	// A loading button that a TriggerFunc renders tells the overlay of the
+	// slot (trigger.go); one given to the slot itself is seen by it.
+	useReportBusy(b.Loading && !b.triggered)
 	hasIcon := b.Icon != (tela.Icon{}) || b.IconEnd != (tela.Icon{})
 	iconSize, ok := s.IconSizes[b.Size]
 	if !ok {

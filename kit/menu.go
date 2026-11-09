@@ -129,6 +129,24 @@ const (
 // the menu was opened with the pointer or the keyboard. An item's own
 // OnSelect replaces the role, as in desktop.MenuItem.
 //
+// # Access keys
+//
+// On Windows and Linux (not under the Mac's key conventions) an item can
+// have an access key, as in native menus (ADR-260): typed in the open
+// menu, alone or with Alt, it chooses the item (a submenu's item opens the
+// submenu), and the menu shows it underlined while the keyboard's cues
+// are on (Alt held, or the menu opened from the keyboard). AccessKey sets
+// it ('F'): the first character of the label equal to it, in either case,
+// is underlined, else it is appended ("ファイル(F)"). In the menus of a
+// Menubar that is the window's bar (AppMenu, ActivationKeys), every item
+// without one gets one, by the rule of Windows' native menu bars that the
+// Win32 backend also follows: the first letter of its label that no item
+// before it took, or a Latin letter appended to a label written without
+// such letters (Chinese, Japanese, Korean). In the other menus only the
+// items with an AccessKey have one, as in Windows' popup menus. Several
+// items with the same key take turns getting the focus instead. Before
+// typeahead: a key that is an item's is not a search.
+//
 // # Shortcuts
 //
 // Shortcut is shown as written, with two exceptions that follow the
@@ -182,6 +200,10 @@ type MenuItem[K comparable] struct {
 	// KeepOpen keeps the menu open when this item is chosen, such as a
 	// checkbox toggled in a row.
 	KeepOpen bool
+	// AccessKey is the item's access key (mnemonic), a letter or a digit
+	// (see "Access keys"); 0 leaves it to the menu: a Menubar's menus give
+	// every item one, the other menus none.
+	AccessKey rune
 	// OnSelect is called when a plain item is chosen.
 	OnSelect func()
 
@@ -253,6 +275,10 @@ type MenuStyle struct {
 	Separator string
 	// Shortcut is the text at the end of an item.
 	Shortcut string
+	// AccessKey is the underlined character of an access key while the
+	// keyboard's cues are shown (see MenuItem's "Access keys"), in the
+	// items and in a Menubar's buttons.
+	AccessKey string
 	// SubTrigger is an item that opens a submenu (shadcn's SubTrigger;
 	// aria-expanded: styles it while its submenu is open), SubIcon the
 	// chevron at its end and SubContent the submenu's panel, which enters
@@ -298,6 +324,7 @@ func defaultMenuStyle() MenuStyle {
 		LabelInset:   "ps-8",
 		Separator:    "-mx-1 my-1 h-px bg-border",
 		Shortcut:     "ms-auto text-xs tracking-widest text-muted-foreground",
+		AccessKey:    "underline",
 		SubTrigger: "flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground " +
 			"aria-expanded:bg-accent aria-expanded:text-accent-foreground aria-disabled:pointer-events-none aria-disabled:opacity-50",
 		SubIcon: "pointer-events-none ms-auto size-4 shrink-0 rtl:rotate-180",
@@ -466,6 +493,9 @@ func flattenMenu[K comparable](component string, items []MenuItem[K]) *menuFlat[
 				panic(fmt.Sprintf("kit: %s has two items with the key %v (one in a submenu); give each item that can be chosen, in every submenu, its own Key", component, it.Key))
 			}
 		}
+		if it.AccessKey != 0 && devMode() && !validAccessKey(it.AccessKey) {
+			panic(fmt.Sprintf("kit: %s item %q has the AccessKey %q; an access key is a letter or a digit the keyboard types, such as 'F' (a Japanese label gets it appended: \"ファイル(F)\")", component, it.Label, it.AccessKey))
+		}
 		f.entries[it.Key] = menuEntry[K]{item: it, group: radio}
 		f.keys = append(f.keys, it.Key)
 		f.text[it.Key] = it.Label
@@ -585,6 +615,10 @@ type menuPanel[K comparable] struct {
 	// panel: its popover, props, ref and close come from it.
 	sub   aria.SubmenuTriggerResult
 	isSub bool
+	// autoKeys gives every item an access key (a window's menu bar), and
+	// cues shows them; submenus inherit both. Without cues set by the
+	// caller, a menu opened from the keyboard shows them.
+	autoKeys, cues bool
 }
 
 func (p menuPanel[K]) Build() tela.Node {
@@ -597,7 +631,7 @@ func (p menuPanel[K]) Build() tela.Node {
 	content := st.Content
 	if p.isSub {
 		p.popover = p.sub.PopoverOptions()
-		p.popover.Floating = menuFloating()
+		p.popover.Floating = append(p.popover.Floating, menuFloating()...)
 		p.menuProps, p.ref, p.close, content = p.sub.MenuProps, p.sub.MenuRef, p.sub.CloseAll, st.SubContent
 	}
 	pop := aria.UsePopover(p.popover)
@@ -630,9 +664,18 @@ func (p menuPanel[K]) Build() tela.Node {
 			flat.text[k] = roleLabel(f, e.item.Role)
 		}
 	}
+	mac := tela.UsePlatformKeys() == "darwin"
+	var keys map[K]aria.AccessKey
+	if !mac {
+		keys = levelAccessKeys(flat, p.autoKeys)
+		if len(keys) > 0 {
+			o.AccessKey = func(k K) rune { return keys[k].Key }
+		}
+	}
+	cues := p.cues || (!p.isSub && p.strategy != "")
 	menu := aria.UseMenu(o)
 	r := menuRenderer[K]{component: p.component, st: st, menu: menu, store: p.store, checkIcon: p.checkIcon, radioIcon: p.radioIcon, subIcon: p.subIcon,
-		mac: tela.UsePlatformKeys() == "darwin", labels: f, rtl: dir == "rtl"}
+		mac: mac, labels: f, rtl: dir == "rtl", keys: keys, cues: cues}
 	kids := []tela.Child{pop.Props, p.menuProps, menu.Props, h.Exit(st.Exit),
 		cls(content, st.Sides[pop.Side], p.class)}
 	if !p.isSub {
@@ -647,7 +690,7 @@ func (p menuPanel[K]) Build() tela.Node {
 		inner := menuPanel[K]{
 			component: p.component, style: st, items: it.Items, store: p.store, onSelect: p.onSelect,
 			checkIcon: p.checkIcon, radioIcon: p.radioIcon, subIcon: p.subIcon, dir: dir, sub: sub, isSub: true,
-			class: it.ContentClass,
+			class: it.ContentClass, autoKeys: p.autoKeys, cues: cues,
 		}
 		kids = append(kids, h.Portal(h.Key(menuSubKey[K]{k}), h.Presence(h.If(sub.Open, inner))))
 	}
@@ -724,6 +767,9 @@ type menuRenderer[K comparable] struct {
 	rtl bool
 	// labels gives the role items' labels in the menu's locale.
 	labels i18n.Formatter
+	// keys are the items' access keys, shown underlined when cues is set.
+	keys map[K]aria.AccessKey
+	cues bool
 }
 
 // entries draws a list of entries.
@@ -785,7 +831,7 @@ func (r menuRenderer[K]) item(it MenuItem[K], radio *MenuItem[K]) tela.Child {
 			h.Span(cls(st.Indicator), h.If(on, icon(orIcon(r.checkIcon, iconCheck), st.CheckIcon))))
 	case it.Kind == MenuSub:
 		return h.Div(append(kids, cls(st.SubTrigger, when(it.Inset, st.ItemInset), it.Class),
-			icon(it.Icon, st.ItemIcon, st.ItemIconVariants[""]), h.Text(it.Label),
+			icon(it.Icon, st.ItemIcon, st.ItemIconVariants[""]), accessLabel(it.Label, r.keys[it.Key], r.cues, st.AccessKey),
 			icon(orIcon(r.subIcon, menuChevronRight), st.SubIcon))...)
 	default:
 		// The icon's color falls back to the default one for a variant
@@ -806,7 +852,7 @@ func (r menuRenderer[K]) item(it MenuItem[K], radio *MenuItem[K]) tela.Child {
 			shortcut = roleShortcut(it.Role)
 		}
 	}
-	kids = append(kids, h.Text(label))
+	kids = append(kids, accessLabel(label, r.keys[it.Key], r.cues, st.AccessKey))
 	if shortcut != "" {
 		shown, keys := formatShortcut(shortcut, r.mac)
 		if keys != "" {

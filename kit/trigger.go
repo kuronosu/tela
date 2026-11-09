@@ -28,9 +28,9 @@ import (
 //   - a trigger's own Disabled wins over the overlay's props, as the
 //     overlay's Disabled does: a disabled trigger opens nothing, and a
 //     Loading [Button] opens nothing either, from the pointer or the
-//     keyboard, while it keeps its tab stop (a loading Button that a
-//     [TriggerFunc] renders is the function's: wrap it in
-//     [LoadingTrigger]);
+//     keyboard, while it keeps its tab stop, also when a [TriggerFunc]
+//     renders it (it tells the overlay itself; [LoadingTrigger] is for a
+//     busy element that is not a Button);
 //   - a component of your own implements it with one method, merging p into
 //     the props of its root element (the way a kit component merges it with
 //     its Props field);
@@ -98,14 +98,14 @@ func triggerOf(t Trigger, p tela.Prop, ref tela.ElementRef) tela.Component {
 // with aria-busy, as a Loading [Button] in a trigger slot does by itself.
 //
 // Use it for a trigger the overlay cannot see is busy: a [TriggerFunc] (or
-// a component of your own) that renders a loading Button with the props it
-// is given. The overlay's hook is set up before the function runs, and the
-// function may put the props on any element, so the Button's Loading does
-// not reach the overlay:
+// a component of your own) that renders a busy element of its own, such
+// as an h.Button with a spinner. A loading kit Button that the function
+// renders needs none: it tells the overlay that holds the slot (ADR-260),
+// which builds again with its hook disabled before the frame paints.
 //
 //	kit.DropdownMenu[string]{
 //	    Trigger: kit.LoadingTrigger(kit.TriggerFunc(func(p tela.Prop) tela.Node {
-//	        return kit.Button{Loading: saving, Props: p, Children: h.Text("Export")}
+//	        return h.Button(p, h.Class("..."), spinner(saving), h.Text("Export"))
 //	    }), saving),
 //	    Items: formats,
 //	}
@@ -184,4 +184,89 @@ func (o outerTrigger) child() tela.Child {
 		return nil
 	}
 	return o.props
+}
+
+// A loading Button that a TriggerFunc (or a component of your own)
+// renders in a trigger slot tells the overlay that holds the slot through
+// a context (ADR-260): the overlay's hook is set up before the function
+// runs, so the Button reports itself in a layout effect, and the overlay
+// builds again, before the frame paints, with its hook disabled and the
+// props that keep the busy element focusable (LoadingTrigger's). An
+// overlay in another's slot passes what its own slot reported on, and
+// the content of an overlay has no slot: a loading Button in a dialog does
+// not disable the dialog's trigger.
+
+// slotState is the state of one overlay's trigger slot: what the Buttons
+// in it reported last, and the setter that rebuilds the overlay.
+type slotState struct {
+	reported bool
+	set      tela.Setter[bool]
+}
+
+// report records that a Button in the slot is, or stops being, loading.
+func (s *slotState) report(busy bool) {
+	if s == nil || s.reported == busy {
+		return
+	}
+	s.reported = busy
+	s.set.Set(busy)
+}
+
+// triggerSlot is the value of triggerSlotCtx: the slot a component is
+// in, the zero value outside every trigger slot.
+type triggerSlot struct{ s *slotState }
+
+var triggerSlotCtx = tela.CreateContext(triggerSlot{})
+
+// overlaySlot is an overlay's trigger slot as its Build uses it.
+type overlaySlot struct {
+	slot triggerSlot
+	// dyn is whether a Button in the slot reported that it is loading.
+	dyn bool
+}
+
+// useTriggerSlot is the hook of an overlay with a trigger slot: it
+// returns the slot, and passes what the slot reported on to the slot the
+// overlay itself is in, when it is another overlay's trigger.
+func useTriggerSlot() overlaySlot {
+	dyn, set := tela.UseState(false)
+	s := tela.UseOnce(func() *slotState { return &slotState{} })
+	s.set = set
+	useReportBusy(dyn)
+	return overlaySlot{slot: triggerSlot{s}, dyn: dyn}
+}
+
+// useReportBusy tells the trigger slot that the calling component is in,
+// if any, whether it is busy, and that it is not once it unmounts.
+func useReportBusy(busy bool) {
+	outer := tela.UseContext(triggerSlotCtx)
+	tela.UseLayoutEffect(func() func() {
+		outer.s.report(busy)
+		return nil
+	}, busy, outer)
+	tela.UseLayoutEffect(func() func() {
+		return func() { outer.s.report(false) }
+	}, outer)
+}
+
+// props are the trigger's props p with what keeps a busy trigger
+// focusable while a Button in the slot reported that it is loading.
+func (o overlaySlot) props(p tela.Prop) tela.Prop {
+	if !o.dyn {
+		return p
+	}
+	return loadingTrigger{loading: true}.props(p)
+}
+
+// wrap returns the trigger's component inside the slot.
+func (o overlaySlot) wrap(c tela.Component) tela.Child {
+	if c == nil {
+		return nil
+	}
+	return triggerSlotCtx.Provider(o.slot, c)
+}
+
+// outside returns the overlay's content outside every trigger slot.
+func outsideSlot(c tela.Child) tela.Child {
+	return triggerSlotCtx.Provider(triggerSlot{}, c)
 }

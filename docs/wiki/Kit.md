@@ -405,6 +405,14 @@ menu after About (`Settings…`), and `MenubarMenu{Role: desktop.RoleEditMenu}` 
 A per-window native `Menubar` is drawn on macOS. See
 [the app's menu bar](Desktop-Integration#the-apps-menu-bar).
 
+A drawn bar that is the window's bar (`AppMenu`, one drawn in place of the
+native bar it asked for, or `ActivationKeys: true`) has the keys of Windows' and
+GTK's bars on Windows and Linux: F10 and a lone Alt focus it, and every menu and
+item gets an access key (`AccessKey: 'F'`, else the first free letter of its
+label), underlined while Alt is held or the keyboard is in the bar; Alt+F opens
+File from anywhere, and an item's key in the open menu chooses it. Other menus
+use only the items' own `AccessKey`. Any bar has typeahead on its buttons.
+
 ### Title bars
 
 `TitleBar` and `WindowControls` are for a window that draws its own title bar: a

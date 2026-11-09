@@ -201,6 +201,11 @@ type focusState struct {
 	// unmounted, for lostWork to give the focus back inside (focusLost);
 	// any focus change clears it.
 	lost *focusScope
+	// gone is set when the focused element unmounted or started an exit
+	// (nothing has the focus since): the next focus does not come from
+	// nowhere (FocusFromNowhere). Any focus change, a key press and a
+	// pointer press clear it.
+	gone bool
 	// space is the Button whose Space press waits for its release.
 	space *Element
 	// tab is the scratch list of tab order walks.
@@ -227,6 +232,10 @@ func (t *Tree) SetWindowFocused(focused bool) {
 		t.fixFocus()
 	}
 	f.window = focused
+	// A lone Alt does not span a change of the window's focus either way
+	// (Alt+Tab away, or back with Alt still down; menubarkeys.go).
+	t.loneAlt = false
+	t.setAltHeld(false)
 	if fld := t.focusedField(); fld != nil {
 		// The caret shows and the selection's colors follow the window.
 		if focused {
@@ -236,7 +245,6 @@ func (t *Tree) SetWindowFocused(focused bool) {
 		}
 	}
 	if !focused {
-		t.loneAlt = false // Alt+Tab (menubarkeys.go)
 		t.cancelSpace()
 		t.syncFocus()
 		if el := f.el; el != nil && el.mounted {
@@ -340,6 +348,8 @@ func (t *Tree) setFocus(el *Element, typ focusType) {
 	// A focus change, or a blur, after the unmount of the focused element
 	// replaces the containing scope's recovery (lostWork).
 	f.lost = nil
+	gone := f.gone
+	f.gone = false
 	if typ != focusScript && typ != focusQuiet {
 		f.lastType = typ
 	}
@@ -392,7 +402,7 @@ func (t *Tree) setFocus(el *Element, typ focusType) {
 		if old != nil && old.mounted {
 			from = old
 		}
-		dispatch(t, evFocus, el, FocusEvent{related: from}, true, false)
+		dispatch(t, evFocus, el, FocusEvent{related: from, nowhere: old == nil && !gone}, true, false)
 		t.afterFocusEvent()
 	}
 }
@@ -868,6 +878,7 @@ func (t *Tree) unmountFocus(el *Element) {
 	if f.el == el {
 		t.noteLost(el)
 		f.el = nil
+		f.gone = true
 		t.syncFocus()
 	}
 }
