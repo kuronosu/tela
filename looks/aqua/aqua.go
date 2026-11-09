@@ -127,16 +127,18 @@ func (glassOption) apply(c *config) { c.glass = true }
 
 // Controls sets the design of the controls: buttons, fields, toggles,
 // checkboxes, radios, switches, selects, sliders and segmented controls (and
-// the progress bar). The tokens stay those of the design given to [Look].
+// the progress bar), and the search field of the toolbar, which is an input
+// ([looks.Regions].SearchField and SearchIcon follow Controls, not [Chrome]).
+// The tokens stay those of the design given to [Look].
 func Controls(d Design) Option {
 	d.valid("the argument of Controls")
 	return controlsOption(d)
 }
 
 // Chrome sets the design of the window's frame: the toolbar with its groups,
-// location bar and search field, the sidebar with its entries, the content,
-// the details pane and the status bar. The tokens stay those of the design
-// given to [Look].
+// location bar and the room of the search field, the sidebar with its
+// entries, the content, the details pane and the status bar. The tokens stay
+// those of the design given to [Look].
 func Chrome(d Design) Option {
 	d.valid("the argument of Chrome")
 	return chromeOption(d)
@@ -171,7 +173,7 @@ func Look(opts ...Option) looks.Look {
 		Name:    c.name(),
 		Theme:   theme(c.base),
 		Style:   &s,
-		Regions: regions(c.chrome),
+		Regions: c.regions(),
 	}
 }
 
@@ -236,10 +238,21 @@ func frame(s *kit.Style, d Design) {
 	}
 }
 
-// regions is the classes of the window of a design.
-func regions(d Design) looks.Regions {
-	if d == Tahoe {
-		return tahoeRegions()
+// regions is the classes of the window: the chrome's, except for the search
+// field, which is an input and so follows the controls: Sequoia's is a
+// borderless gray field with its magnifier close to the edge, Tahoe's the glass
+// capsule of the input recipe (nothing to add).
+func (c config) regions() looks.Regions {
+	var r looks.Regions
+	if c.chrome == Tahoe {
+		r = tahoeRegions()
+	} else {
+		r = sequoiaRegions()
 	}
-	return sequoiaRegions()
+	if c.controls == Tahoe {
+		r.SearchIcon, r.SearchField = tahoeSearchIcon, ""
+	} else {
+		r.SearchIcon, r.SearchField = sequoiaSearchIcon, sequoiaSearchField
+	}
+	return r
 }

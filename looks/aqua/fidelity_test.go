@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kuronosu/tela"
+
 	"github.com/kuronosu/tela/looks"
 	"github.com/kuronosu/tela/looks/aqua"
 )
@@ -27,13 +29,29 @@ func TestSidebarGlyphsAreTinted(t *testing.T) {
 	}
 }
 
-// Sequoia's search field is borderless gray; Tahoe's is glass and adds
-// nothing.
+// The search field is an input, so it follows the controls whatever the
+// chrome is: Sequoia's is borderless gray with its magnifier close to the
+// edge, Tahoe's is the glass capsule of the input recipe and adds nothing.
 func TestSearchField(t *testing.T) {
-	if c := aqua.Look(aqua.Sequoia).Regions.SearchField; !strings.Contains(c, "border-transparent") {
-		t.Errorf("Sequoia SearchField = %q, want a borderless field", c)
+	for key, l := range combinations() {
+		controls := strings.Contains(key, "controls Sequoia")
+		field, icon := l.Regions.SearchField, l.Regions.SearchIcon
+		if controls {
+			if !strings.Contains(field, "border-transparent") || !strings.Contains(icon, "left-2") {
+				t.Errorf("%s: SearchField = %q, SearchIcon = %q, want Sequoia's borderless field", key, field, icon)
+			}
+		} else if field != "" || !strings.Contains(icon, "z-10") {
+			t.Errorf("%s: SearchField = %q, SearchIcon = %q, want Tahoe's glass input", key, field, icon)
+		}
 	}
-	if c := aqua.Look(aqua.Tahoe).Regions.SearchField; c != "" {
-		t.Errorf("Tahoe SearchField = %q, want none", c)
+}
+
+// The pop-up button of both designs draws the double chevron unless the app
+// sets Icon (kit.SelectStyle.DefaultIcon).
+func TestPopupButtonGlyph(t *testing.T) {
+	for key, l := range combinations() {
+		if l.Style.Select.DefaultIcon == (tela.Icon{}) {
+			t.Errorf("%s: Select.DefaultIcon is empty, want the double chevron", key)
+		}
 	}
 }

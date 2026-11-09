@@ -100,7 +100,7 @@ func (w Window) Build() tela.Node {
 		body = append(body, w.sidebar())
 	}
 	body = append(body, Div(Class(r.Content), Role("main"), AriaLabel("Controls"),
-		Div(Class("flex min-h-0 flex-1 flex-col overflow-y-auto"), Controls{Columns: columns, Popup: byID(w.ID).Popup})))
+		Div(Class("flex min-h-0 flex-1 flex-col overflow-y-auto"), Controls{Columns: columns})))
 	if details {
 		body = append(body, w.detailsPane())
 	}

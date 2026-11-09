@@ -115,6 +115,13 @@ func TestDesignsDiffer(t *testing.T) {
 	}
 }
 
+// chromeOnly is the regions without the search field's parts, which follow
+// the controls (TestSearchField), not the chrome.
+func chromeOnly(r looks.Regions) looks.Regions {
+	r.SearchIcon, r.SearchField = "", ""
+	return r
+}
+
 // TestOptionsApplyInOrder: the last option that sets a part wins, and a design
 // sets every part.
 func TestOptionsApplyInOrder(t *testing.T) {
@@ -122,7 +129,7 @@ func TestOptionsApplyInOrder(t *testing.T) {
 
 	// Sequoia with Tahoe's chrome: Sequoia's tokens and controls, Tahoe's regions.
 	mix := aqua.Look(aqua.Sequoia, aqua.Chrome(aqua.Tahoe))
-	if mix.Regions != tahoe.Regions {
+	if chromeOnly(mix.Regions) != chromeOnly(tahoe.Regions) {
 		t.Error("Look(Sequoia, Chrome(Tahoe)) has not Tahoe's regions")
 	}
 	if !reflect.DeepEqual(mix.Theme, sequoia.Theme) {
@@ -154,7 +161,7 @@ func TestOptionsApplyInOrder(t *testing.T) {
 
 	// Controls alone.
 	c := aqua.Look(aqua.Tahoe, aqua.Controls(aqua.Sequoia))
-	if c.Regions != tahoe.Regions || !reflect.DeepEqual(c.Theme, tahoe.Theme) {
+	if chromeOnly(c.Regions) != chromeOnly(tahoe.Regions) || !reflect.DeepEqual(c.Theme, tahoe.Theme) {
 		t.Error("Controls changed the regions or the tokens")
 	}
 	if c.Style.Button.Root != sequoia.Style.Button.Root || c.Style.Card.Root != tahoe.Style.Card.Root {
@@ -175,10 +182,10 @@ func TestOptionsApplyInOrder(t *testing.T) {
 
 func TestChromeRegionsAreTheDesigns(t *testing.T) {
 	tahoe, sequoia := aqua.Look(aqua.Tahoe), aqua.Look(aqua.Sequoia)
-	if got := aqua.Look(aqua.Tahoe, aqua.Chrome(aqua.Sequoia)).Regions; got != sequoia.Regions {
+	if got := aqua.Look(aqua.Tahoe, aqua.Chrome(aqua.Sequoia)).Regions; chromeOnly(got) != chromeOnly(sequoia.Regions) {
 		t.Error("Chrome(Sequoia) has not Sequoia's regions")
 	}
-	if got := aqua.Look(aqua.Sequoia, aqua.Chrome(aqua.Tahoe)).Regions; got != tahoe.Regions {
+	if got := aqua.Look(aqua.Sequoia, aqua.Chrome(aqua.Tahoe)).Regions; chromeOnly(got) != chromeOnly(tahoe.Regions) {
 		t.Error("Chrome(Tahoe) has not Tahoe's regions")
 	}
 }

@@ -34,7 +34,7 @@ func sequoiaTheme() tela.Theme {
 		"accent":               tok(black(0.06), white(0.08)),
 		"accent-foreground":    tok(black(0.85), white(0.9)),
 		"destructive":          tok(tela.Hex("#ff3b30"), tela.Hex("#ff453a")),
-		"destructive-text":     tok(tela.Hex("#ff3b30"), tela.Hex("#ff7a7d")),
+		"destructive-text":     tok(tela.Hex("#c4001a"), tela.Hex("#ff7a7d")),
 		"border":               tok(black(0.1), white(0.1)),
 		"input":                tok(black(0.2), white(0.2)),
 		"ring":                 tok(blue, blueDark),
@@ -47,6 +47,13 @@ func sequoiaTheme() tela.Theme {
 		"selection-foreground": tok(tela.Hex("#ffffff"), tela.Hex("#ffffff")),
 	}, extraTokens(tela.RGBA(0, 136, 255, 0.4), tela.RGBA(10, 145, 255, 0.45))))
 }
+
+// Sequoia's search field is borderless gray, with its magnifier close to the
+// edge (the input has 28 px at its start).
+const (
+	sequoiaSearchIcon  = "pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+	sequoiaSearchField = "border-transparent bg-foreground/8 shadow-none focus-visible:bg-field"
+)
 
 // sequoiaRegions is Sequoia's window: a flat toolbar unified with the title
 // bar, over a sidebar that runs the whole height (its head is the toolbar's
@@ -63,8 +70,8 @@ func sequoiaRegions() looks.Regions {
 		LocationCurrent:   "font-semibold",
 		LocationSeparator: "flex w-3 shrink-0 items-center justify-center text-muted-foreground",
 		Search:            "relative w-[190px] shrink-0",
-		SearchIcon:        "pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground",
-		SearchField:       "border-transparent bg-foreground/8 shadow-none focus-visible:bg-field",
+		SearchIcon:        sequoiaSearchIcon,
+		SearchField:       sequoiaSearchField,
 		Sidebar:           "flex w-[216px] shrink-0 flex-col gap-px overflow-y-auto border-r border-border bg-sidebar p-2.5",
 		SidebarHeading:    "px-2 pt-3 pb-1 text-[11px] font-semibold text-muted-foreground first:pt-1",
 		SidebarGroup:      "gap-px",
@@ -101,7 +108,8 @@ func sequoiaControls(s *kit.Style) {
 	b.Variants[kit.Default] = "bg-primary text-primary-foreground shadow-[inset_0_0.5px_0_rgba(255,255,255,0.3),0_0.5px_1px_var(--color-control-shadow)] hover:bg-primary/92 active:bg-primary/80"
 	b.Variants[kit.Secondary] = "border border-border bg-secondary text-secondary-foreground " + ctl + " hover:bg-secondary/80 active:bg-foreground/8"
 	b.Variants[kit.Outline] = b.Variants[kit.Secondary]
-	b.Variants[kit.Destructive] = "border border-border bg-secondary text-destructive " + ctl + " hover:bg-secondary/80 active:bg-foreground/8"
+	b.Variants[kit.Destructive] = "border border-border bg-secondary text-destructive-text " + ctl + " hover:bg-secondary/80 active:bg-foreground/8 " +
+		"dark:bg-black/50 dark:hover:bg-black/40 dark:active:bg-black/60"
 	b.Variants[kit.Ghost] = "text-foreground/80 hover:bg-foreground/7 active:bg-foreground/12"
 	b.Variants[kit.Link] = "text-primary hover:underline"
 	b.Sizes[""] = "h-6 px-3"
@@ -141,8 +149,8 @@ func sequoiaControls(s *kit.Style) {
 		"hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden"
 	s.Progress.Root = "relative h-1.5 w-full overflow-hidden rounded-full bg-foreground/14"
 
-	// The text field and the pop-up button (its chevrons sit in an accent
-	// tile; give the select Icon: ChevronsUpDown to match macOS).
+	// The text field and the pop-up button (its double chevron sits in an
+	// accent tile).
 	s.Input.Root = "h-6 w-full min-w-0 rounded-[5px] border border-input bg-field px-2 pl-7 " + fs + " " + ctl + " outline-none " +
 		"placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground " +
 		"focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/45 disabled:opacity-50"
@@ -152,6 +160,7 @@ func sequoiaControls(s *kit.Style) {
 	sel.Sizes[""] = "h-6"
 	sel.Sizes[kit.Sm] = "h-5"
 	sel.Icon = "pointer-events-none size-[18px] shrink-0 rounded-[4px] bg-primary p-[3px] text-primary-foreground opacity-100"
+	sel.DefaultIcon = chevronsUpDown
 	base.Swap("rounded-[6px] border", "rounded-[10px] border", &sel.Content)
 	sel.Content += " shadow-xl"
 	sel.Item = "relative flex w-full cursor-default items-center gap-2 rounded-[5px] py-1 pe-8 ps-2 " + fs + " outline-hidden select-none focus:bg-primary focus:text-primary-foreground aria-disabled:opacity-50"

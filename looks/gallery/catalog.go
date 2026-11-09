@@ -17,9 +17,6 @@ type catalogEntry struct {
 	ID    string
 	Title string // as in the sidebar and the status bar
 	Icon  tela.Icon
-	// Popup is the glyph at the end of a pop-up button (kit.Select's Icon):
-	// macOS has the double chevron; the zero value is kit's chevron down.
-	Popup tela.Icon
 	Look  func() looks.Look
 }
 
@@ -28,10 +25,10 @@ var catalog = []catalogEntry{
 	{ID: "win11", Title: "Windows 11", Icon: icons.LayoutGrid, Look: win11.Look},
 	{ID: "adwaita", Title: "GNOME", Icon: icons.PanelLeft, Look: adwaita.Look},
 	{ID: "breeze", Title: "KDE", Icon: icons.Settings, Look: breeze.Look},
-	{ID: "tahoe", Title: "macOS Tahoe", Icon: icons.House, Popup: icons.ChevronsUpDown, Look: func() looks.Look { return aqua.Look(aqua.Tahoe) }},
-	{ID: "sequoia", Title: "macOS Sequoia", Icon: icons.Bell, Popup: icons.ChevronsUpDown, Look: func() looks.Look { return aqua.Look(aqua.Sequoia) }},
+	{ID: "tahoe", Title: "macOS Tahoe", Icon: icons.House, Look: func() looks.Look { return aqua.Look(aqua.Tahoe) }},
+	{ID: "sequoia", Title: "macOS Sequoia", Icon: icons.Bell, Look: func() looks.Look { return aqua.Look(aqua.Sequoia) }},
 	// A mix: Tahoe with the controls of Sequoia.
-	{ID: "mixed", Title: "macOS mixed", Icon: icons.Menu, Popup: icons.ChevronsUpDown, Look: func() looks.Look { return aqua.Look(aqua.Tahoe, aqua.Controls(aqua.Sequoia)) }},
+	{ID: "mixed", Title: "macOS mixed", Icon: icons.Menu, Look: func() looks.Look { return aqua.Look(aqua.Tahoe, aqua.Controls(aqua.Sequoia)) }},
 }
 
 func ids() []string {

@@ -28,8 +28,8 @@ func extraTokens(glow, glowDark tela.Color) map[string]tela.SchemeColor {
 	tok, black, white := base.Tok, base.Black, base.White
 	return map[string]tela.SchemeColor{
 		"glass":           tok(white(0.46), white(0.07)),
-		"glass-strong":    tok(white(0.62), white(0.12)),
-		"glass-selected":  tok(white(0.7), white(0.17)),
+		"glass-strong":    tok(white(0.62), black(0.22)),
+		"glass-selected":  tok(white(0.7), tela.RGBA(99, 99, 102, 0.85)),
 		"glass-edge":      tok(white(0.7), white(0.16)),
 		"glass-highlight": tok(white(0.95), white(0.32)),
 		"glass-shadow":    tok(black(0.1), black(0.35)),
@@ -68,7 +68,7 @@ func tahoeTheme() tela.Theme {
 		"accent":               tok(black(0.06), white(0.1)),
 		"accent-foreground":    tok(black(0.85), white(0.92)),
 		"destructive":          tok(tela.Hex("#ff383c"), tela.Hex("#ff4245")),
-		"destructive-text":     tok(tela.Hex("#ff383c"), tela.Hex("#ff7a7d")),
+		"destructive-text":     tok(tela.Hex("#c4001a"), tela.Hex("#ff7a7d")),
 		"border":               tok(black(0.08), white(0.1)),
 		"input":                tok(black(0.18), white(0.22)),
 		"ring":                 tok(blue, blueDark),
@@ -81,6 +81,11 @@ func tahoeTheme() tela.Theme {
 		"selection-foreground": tok(tela.Hex("#ffffff"), tela.Hex("#ffffff")),
 	}, extraTokens(tela.RGBA(0, 136, 255, 0.4), tela.RGBA(10, 145, 255, 0.45))))
 }
+
+// tahoeSearchIcon is the magnifier of a search field of Tahoe's controls: over
+// the glass input, so it needs a z-index. The search field itself is the
+// input recipe, which is already a glass capsule.
+const tahoeSearchIcon = "pointer-events-none absolute top-1/2 left-3 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
 
 // tahoeRegions is Tahoe's window: the toolbar's groups, the location bar and
 // the sidebar are glass floating over the window's soft wash of the accent and
@@ -97,7 +102,7 @@ func tahoeRegions() looks.Regions {
 		LocationCurrent:   "bg-foreground/8 font-semibold",
 		LocationSeparator: "flex w-3 shrink-0 items-center justify-center text-muted-foreground",
 		Search:            "relative w-[200px] shrink-0",
-		SearchIcon:        "pointer-events-none absolute top-1/2 left-3 z-10 size-3.5 -translate-y-1/2 text-muted-foreground",
+		SearchIcon:        tahoeSearchIcon,
 		Sidebar:           "mb-3 ml-3 flex w-[226px] shrink-0 flex-col gap-px overflow-y-auto rounded-[22px] p-2.5 " + glassPanel,
 		SidebarHeading:    "px-2.5 pt-3 pb-1 text-[11px] font-semibold text-muted-foreground first:pt-1",
 		SidebarGroup:      "gap-0.5",
@@ -186,7 +191,10 @@ func tahoeControls(s *kit.Style) {
 		"focus-visible:ring-[3px] focus-visible:ring-ring/45 disabled:cursor-not-allowed disabled:opacity-40"
 	sel.Sizes[""] = "h-9"
 	sel.Sizes[kit.Sm] = "h-7"
+	// The pop-up button of macOS 26 keeps the double chevron inside its
+	// capsule, plain: the accent tile of the older design is gone.
 	sel.Icon = "pointer-events-none size-4 shrink-0 text-muted-foreground opacity-80"
+	sel.DefaultIcon = chevronsUpDown
 	base.Swap("rounded-md border", "rounded-[20px] border", &sel.Content)
 	sel.Content += " backdrop-blur-2xl shadow-2xl"
 	sel.Item = "relative flex w-full cursor-default items-center gap-2 rounded-full py-1.5 pe-8 ps-3 " + fs + " outline-hidden select-none focus:bg-primary focus:text-primary-foreground aria-disabled:opacity-50"
