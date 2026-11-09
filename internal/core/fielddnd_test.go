@@ -295,7 +295,9 @@ func TestSelectionDragToAnotherField(t *testing.T) {
 	t.Run("same window", func(t *testing.T) {
 		for _, mods := range []platform.Modifiers{0, platform.ModCtrl} {
 			var log, blog []string
-			x := newWinHarness(t, Options{Root: selRoot(&log,
+			// Ctrl is the copy modifier of the Linux flavor (Option under
+			// the Mac's, the host's on macOS).
+			x := newWinHarness(t, Options{Config: Config{Flavor: platform.FlavorLinux}, Root: selRoot(&log,
 				input(append([]Child{Key("b"), Class("w-64"), DefaultValue("xy")}, textLog(&blog)...)...))})
 			w := x.windows()[0]
 			f := selDrag(t, x, w, mods)
