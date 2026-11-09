@@ -28,8 +28,6 @@ import (
 // TELA_LIVE=1 only, and not under Wine.
 
 var (
-	procSetTimer         = user32.NewProc("SetTimer")
-	procKillTimer        = user32.NewProc("KillTimer")
 	procGetMenuItemCount = user32.NewProc("GetMenuItemCount")
 	procGetMenuStringW   = user32.NewProc("GetMenuStringW")
 	procGetSubMenu       = user32.NewProc("GetSubMenu")

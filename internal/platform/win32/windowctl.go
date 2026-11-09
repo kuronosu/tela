@@ -86,7 +86,9 @@ func (w *Window) initialPlacement() (x, y uintptr) {
 func (w *Window) initControl() {
 	w.onTop = w.opts.AlwaysOnTop
 	w.initStyle()
-	if w.opts.Frameless {
+	if w.opts.Transparent {
+		w.initTransparent() // square, without a border
+	} else if w.opts.Frameless {
 		w.roundCorners()
 		// The window got its first WM_NCCALCSIZE during CreateWindowExW;
 		// this makes DWM and the frame agree with it.
@@ -142,6 +144,7 @@ func (w *Window) updateState() {
 	w.b.dirty = true
 	st := reportedState(iconic, zoomed, restoreMax, w.fs != nil, fsMax, w.opts.Frameless, w.pos)
 	st.TitleBarControls = w.overlayControls(iconic)
+	st.Transparent = w.opts.Transparent // a layered window (transparent_windows.go)
 	w.b.loop.UpdateState(w, st)
 }
 
@@ -608,7 +611,7 @@ func (w *Window) onNCCalcSize(wparam, lparam uintptr) {
 // physical pixels (the DPI's resize frame: SM_CXSIZEFRAME plus
 // SM_CXPADDEDBORDER), or 0 when it has none.
 func (w *Window) resizeBorder() int {
-	if !w.opts.Frameless || w.opts.FixedSize || w.fs != nil || isZoomed(w.hwnd) {
+	if !w.opts.Frameless || w.opts.FixedSize || w.opts.Transparent || w.fs != nil || isZoomed(w.hwnd) {
 		return 0
 	}
 	return max(systemMetric(smCxSizeFrame, w.dpi)+systemMetric(smCxPaddedBorder, w.dpi), 1)

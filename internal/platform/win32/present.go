@@ -28,6 +28,11 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 	if len(rects) == 0 {
 		return nil // every damage rectangle was clipped away: nothing changed
 	}
+	if w.opts.Transparent {
+		// A layered window (transparent_windows.go).
+		w.ClearNeedsFull()
+		return w.presentLayered(fb, rects, full)
+	}
 	if full {
 		w.ClearNeedsFull()
 		w.dib.resize(size)

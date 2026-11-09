@@ -124,8 +124,8 @@ func (w *Window) PresentsAlpha() bool { return w.glass }
 // DWMWA_COLOR_DEFAULT. The caption color of a TitleBarOverlay window is
 // always set, from captionBackground (applyCaption).
 func (w *Window) applyTitleBar() {
-	if windowsBuild() < buildColors {
-		return
+	if windowsBuild() < buildColors || w.opts.Transparent {
+		return // a transparent window has no title bar or border
 	}
 	if w.overlay {
 		w.applyCaption()
@@ -145,6 +145,9 @@ func (w *Window) applyTitleBar() {
 // extends the frame over the client area and starts presenting alpha; any
 // other backdrop undoes that.
 func (w *Window) applyBackdrop() {
+	if w.opts.Transparent {
+		return // a layered window shows the desktop, not a material
+	}
 	build := windowsBuild()
 	glass := false
 	if build >= buildBackdrop && (w.backdrop != platform.BackdropDefault || w.backdropSet) {

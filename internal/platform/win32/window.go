@@ -105,6 +105,10 @@ type Window struct {
 	// uia is the UI Automation bridge, nil until a client asks for the
 	// window's UIA root (uia_windows.go, ADR-246).
 	uia *uiaBridge
+
+	// lay is a transparent window's layered presentation and input mask
+	// (transparent_windows.go, ADR-249).
+	lay layered
 }
 
 var _ platform.Window = (*Window)(nil)
@@ -128,6 +132,9 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	w.style = uint32(wsOverlappedWindow | wsClipSiblings | wsClipChildren)
 	if opts.FixedSize {
 		w.style &^= wsThickFrame | wsMaximizeBox
+	}
+	if opts.Transparent {
+		w.transparentStyle() // a layered popup (transparent_windows.go)
 	}
 	if opts.Maximized {
 		// Created maximized (and hidden): the first ConfigureEvent has
@@ -339,6 +346,7 @@ func (w *Window) destroyed() {
 	w.closeUIA()
 	w.unregister()
 	w.dib.release()
+	w.releaseLayered()
 	destroyIcons(w.icons)
 	w.icons = [2]uintptr{}
 }

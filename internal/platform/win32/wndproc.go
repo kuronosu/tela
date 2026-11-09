@@ -117,7 +117,7 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 			w.onGetMinMaxInfo(lparam)
 			return 0
 		case wmNCCalcSize:
-			if w.opts.Frameless {
+			if w.opts.Frameless && !w.opts.Transparent {
 				w.onNCCalcSize(wparam, lparam)
 				return 0
 			}
@@ -133,6 +133,12 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		// DWM's caption buttons over a TitleBarOverlay window
 		// (overlay_windows.go).
 		if r, done := w.overlayMessage(msg, wparam, lparam); done {
+			return r
+		}
+	}
+	if w.opts.Transparent {
+		// A layered window and its click-through (transparent_windows.go).
+		if r, done := w.transparentMessage(msg, wparam, lparam); done {
 			return r
 		}
 	}
