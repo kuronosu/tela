@@ -6,10 +6,11 @@
 package kit
 
 import (
-	"hash/fnv"
-	"sort"
+	"reflect"
+	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode"
 	"unicode/utf8"
 
@@ -152,21 +153,85 @@ func (a Avatar) colorClass(s *AvatarStyle) string {
 		if seed == "" {
 			seed = a.Fallback
 		}
-		var names []string
-		for c, on := range s.AutoColors {
-			if on {
-				names = append(names, string(c))
-			}
-		}
-		if seed == "" || len(names) == 0 {
+		if seed == "" {
 			return ""
 		}
-		sort.Strings(names)
-		f := fnv.New32a()
-		f.Write([]byte(strings.ToLower(strings.TrimSpace(seed))))
-		return pick("Avatar", "Color", s.Colors, AvatarColor(names[int(f.Sum32()%uint32(len(names)))]))
+		names := autoColorNames(s.AutoColors)
+		if len(names) == 0 {
+			return ""
+		}
+		h := fnv1a(strings.ToLower(strings.TrimSpace(seed)))
+		return pick("Avatar", "Color", s.Colors, names[int(h%uint32(len(names)))])
 	}
 	return pick("Avatar", "Color", s.Colors, a.Color)
+}
+
+// fnv1a is the 32-bit FNV-1a hash of s (hash/fnv's New32a), without the
+// allocations of a hash.Hash.
+func fnv1a(s string) uint32 {
+	const offset, prime = 2166136261, 16777619
+	h := uint32(offset)
+	for i := 0; i < len(s); i++ {
+		h ^= uint32(s[i])
+		h *= prime
+	}
+	return h
+}
+
+// autoNames keeps the sorted names of a recipe's AutoColors by the map,
+// so that an AvatarAuto avatar does not list and sort them on every build.
+// An entry is checked against its map on each use: a recipe edited in
+// place, or another map at the address of a collected one, is listed
+// again.
+var autoNames struct {
+	mu    sync.Mutex
+	byMap map[uintptr][]AvatarColor
+}
+
+// autoColorNames returns the colors m turns on, sorted.
+func autoColorNames(m map[AvatarColor]bool) []AvatarColor {
+	if len(m) == 0 {
+		return nil
+	}
+	key := reflect.ValueOf(m).Pointer()
+	autoNames.mu.Lock()
+	defer autoNames.mu.Unlock()
+	if names, ok := autoNames.byMap[key]; ok && sameAutoColors(m, names) {
+		return names
+	}
+	var names []AvatarColor
+	for c, on := range m {
+		if on {
+			names = append(names, c)
+		}
+	}
+	slices.Sort(names)
+	if autoNames.byMap == nil || len(autoNames.byMap) >= 64 {
+		// A few recipes at most: a style built again and again only
+		// keeps the last ones.
+		autoNames.byMap = map[uintptr][]AvatarColor{}
+	}
+	autoNames.byMap[key] = names
+	return names
+}
+
+// sameAutoColors reports whether names are the colors m turns on.
+func sameAutoColors(m map[AvatarColor]bool, names []AvatarColor) bool {
+	n := 0
+	for _, on := range m {
+		if on {
+			n++
+		}
+	}
+	if n != len(names) {
+		return false
+	}
+	for _, c := range names {
+		if !m[c] {
+			return false
+		}
+	}
+	return true
 }
 
 // Initials returns the first letters of the first and the last word of a
