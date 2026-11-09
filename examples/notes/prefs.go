@@ -264,6 +264,16 @@ func (generalSection) Build() tela.Node {
 	)
 }
 
+// useCmdName is the name of the primary modifier of the platform whose key
+// conventions the window follows: "Cmd" on a Mac and "Ctrl" elsewhere. It is
+// a hook (tela.UsePlatformKeys).
+func useCmdName() string {
+	if tela.UsePlatformKeys() == "darwin" {
+		return "Cmd"
+	}
+	return "Ctrl"
+}
+
 // shortcutsSection lists the keys the app answers to, with the modifier
 // of the platform (Cmd on macOS).
 type shortcutsSection struct{ Look kit.Variant }
@@ -272,7 +282,7 @@ func (s shortcutsSection) Build() tela.Node {
 	quick, setQuick := desktop.UseSetting(keyQuickNote, true)
 	info := tela.UseContext(quickNoteCtx)
 	status, notice := info.Describe(quick)
-	mod := "Ctrl"
+	mod := useCmdName()
 	if platform(s.Look) == kit.MacOS {
 		mod = "Cmd"
 	}
@@ -282,6 +292,8 @@ func (s shortcutsSection) Build() tela.Node {
 		{"Save", mod + " S"},
 		{"Preferences", mod + " ,"},
 		{"Delete the open note", mod + " Shift D"},
+		{"Close the window", mod + " W"},
+		{"All, pinned and unsaved notes", mod + " 1 / 2 / 3"},
 		{"Back to all notes, from the list", "Esc"},
 	}
 	// Registered with no keys (Hyprland): the line that binds it.

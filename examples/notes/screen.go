@@ -76,7 +76,8 @@ func (s screen) Build() tela.Node {
 	lib := tela.UseOnce(func() library { return openLibrary(win.IsZero()) })
 	// The first run has the welcome notes: they are the default of the
 	// setting, used only while the store has no "notes" key.
-	first := tela.UseOnce(func() []Note { return welcomeNotes(now()) })
+	mod := useCmdName()
+	first := tela.UseOnce(func() []Note { return welcomeNotes(now(), mod) })
 	start := welcomeID
 	if s.Overview {
 		start = 0

@@ -33,7 +33,7 @@ What it shows:
 - **A tray icon** (`desktop.Tray`): click toggles the window, the menu has New note, Show Notes or Hide Notes (following the window), Preferences… and Quit. With "keep running in the tray" on and a tray that works (`OnError` clears it), closing the window hides it (`App.OnClose`).
 - **A question before quitting** (`desktop.ShowMessage`, Yes/No/Cancel): with the tray off and notes that changed since their last Save, closing asks whether to save them. Yes saves each (a save dialog for a note with no file) and quits only if every save worked; No quits and leaves the changes in the library as drafts; Cancel keeps the app running.
 - **A notification** (`desktop.Notify`, "Saved <name>") after a successful save when the setting is on; a desktop without notifications gets a toast instead.
-- **Shortcuts:** Ctrl+N, Ctrl+O, Ctrl+S and Ctrl+, (Cmd on macOS), Ctrl+Shift+D (delete the open note), Ctrl+1, Ctrl+2 and Ctrl+3 (the views of the rail), and Escape in the list. On macOS the same keys are the key equivalents of the app menu bar's items (see Phase 15).
+- **Shortcuts:** Ctrl+N, Ctrl+O, Ctrl+S and Ctrl+, (Cmd on macOS), Ctrl+Shift+D (delete the open note), Ctrl+W (close the window), Ctrl+1, Ctrl+2 and Ctrl+3 (the views of the rail), and Escape in the list. The Keyboard shortcuts note of the first run and the list in Preferences name the modifier of the platform whose key conventions the window follows (`useCmdName` in `prefs.go`, from `tela.UsePlatformKeys`): Cmd on a Mac, Ctrl elsewhere (`modifier_test.go` plays the three with `telatest.PlatformKeys`). On macOS the same keys are the key equivalents of the app menu bar's items (see Phase 15).
 
 ## Phase 13: desktop integration
 

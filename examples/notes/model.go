@@ -353,7 +353,7 @@ func folderNamed(ns []Note, name string) string {
 // show the folders, the tags and the pin. It is a function so that there is
 // no package-level slice for the code to modify by mistake. at is the date of the
 // first note, and the others go back in time from there.
-func welcomeNotes(at time.Time) []Note {
+func welcomeNotes(at time.Time, mod string) []Note {
 	note := func(id int, title, folder string, ago time.Duration, text string) Note {
 		return Note{ID: id, Title: title, Text: text, Saved: text, Folder: folder, Modified: at.Add(-ago)}
 	}
@@ -361,7 +361,7 @@ func welcomeNotes(at time.Time) []Note {
 	welcome.Pinned = true
 	return []Note{
 		welcome,
-		note(2, "Keyboard shortcuts", "Getting started", 86*time.Minute, shortcutsText),
+		note(2, "Keyboard shortcuts", "Getting started", 86*time.Minute, shortcutsText(mod)),
 		note(3, "Groceries", "Home", 11*time.Hour+38*time.Minute,
 			"Coffee beans, oats, lemons, olive oil. Ask at the bakery if they still do the seeded rye.\n\n#errands"),
 		note(4, "Weekend in the mountains", "Ideas", 4*24*time.Hour,
@@ -375,9 +375,14 @@ Use Open to read a text file into a new note, and Save to write a note to a file
 
 #welcome`
 
-const shortcutsText = `Ctrl+N makes a note, Ctrl+O opens a file, Ctrl+S saves the note to its file and Ctrl+, opens Preferences. Press Escape in the list to go back to all your notes.
+// shortcutsText is the text of the Keyboard shortcuts note, with the primary
+// modifier of the platform: "Ctrl", or "Cmd" on a Mac (see useCmdName).
+func shortcutsText(mod string) string {
+	return mod + `+N makes a note, ` + mod + `+O opens a file, ` + mod + `+S saves the note to its file and ` + mod + `+, opens Preferences. ` +
+		mod + `+W closes the window, and ` + mod + `+1, ` + mod + `+2 and ` + mod + `+3 show all notes, the pinned ones and the unsaved ones. Press Escape in the list to go back to all your notes.
 
 #welcome`
+}
 
 // nextID is an ID no note of ns has.
 func nextID(ns []Note) int {

@@ -371,7 +371,7 @@ func TestKeyIsGone(t *testing.T) {
 	// A new lock does not make a key either.
 	b.Click(card("Keyboard shortcuts"))
 	b.Click(lockNote)
-	b.ExpectValue(editor, shortcutsText)
+	b.ExpectValue(editor, shortcutsText("Ctrl"))
 	if _, ok := b.StoredSecret("library-key"); ok {
 		t.Error("a note was locked with a new key while the library has notes for the old one")
 	}

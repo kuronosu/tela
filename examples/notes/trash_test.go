@@ -252,7 +252,7 @@ func TestOldLockedNoteLosesItsPath(t *testing.T) {
 // read it), for the goldens of the trash dialog.
 func seedLibrary(t *testing.T, path string) {
 	t.Helper()
-	ns := welcomeNotes(fixedNow)
+	ns := welcomeNotes(fixedNow, "Ctrl")
 	ns[2].Path = path
 	data, err := json.Marshal(map[string]any{"notes": ns, "selected": grocery})
 	if err != nil {
