@@ -13,11 +13,20 @@ import (
 // windows presented with UpdateLayeredWindowIndirect.
 //
 //   - Style: WS_POPUP with the system menu and the minimize box (the task
-//     bar's minimize and window menu), WS_EX_LAYERED; no caption or
-//     thick frame, so the window is all client area (WM_NCCALCSIZE is
-//     left to DefWindowProc), DWM draws no frame, shadow or border, and
+//     bar's minimize and window menu), WS_EX_LAYERED; no caption. Unless
+//     FixedSize it has WS_THICKFRAME too, without which DefWindowProc's
+//     SC_SIZE does nothing (Wine's WINPOS_SysCommandSizeMove returns
+//     early for a window without it, and Windows grays the system menu's
+//     Size): the app's resize handles (h.WindowResize, ADR-257) answer
+//     HTLEFT… from WM_NCHITTEST and DefWindowProc runs its sizing loop.
+//     WM_NCCALCSIZE keeps all of the window client area either way (the
+//     thick frame adds no border; a layered window's bitmap is the
+//     window), DWM draws no frame, shadow or border (no
+//     DwmExtendFrameIntoClientArea, DWMWA_BORDER_COLOR none), and
 //     Windows 11 is asked not to round it (DWMWA_WINDOW_CORNER_PREFERENCE).
-//     A backdrop and title bar colors are ignored.
+//     A backdrop and title bar colors are ignored: DWM's system backdrops
+//     need a frame DWM composes, which a layered window, drawn from its
+//     own bitmap, does not have (ADR-257).
 //   - Present copies the damage into a 32-bit top-down DIB section
 //     (premultiplied B, G, R, A: what ULW_ALPHA with AC_SRC_ALPHA takes)
 //     selected into a memory DC, and hands the union of the damage to
@@ -40,8 +49,18 @@ import (
 //     setIgnoreMouseEvents does the same with a mouse hook. A press keeps
 //     its sequence (the window holds the capture). HTTRANSPARENT alone
 //     would not do: it only passes the pointer to windows of the same
-//     thread.
-//   - No resize band: the edges are usually the transparent margin.
+//     thread. The poll stays (ADR-257): a WS_EX_TRANSPARENT window gets
+//     no mouse message at all, so TrackMouseEvent cannot end it, and a
+//     WH_MOUSE_LL hook runs every mouse move of the desktop through this
+//     thread, where a frame being rendered (tens of milliseconds) would
+//     stall the system's pointer, and Windows silently removes a hook
+//     that misses LowLevelHooksTimeout. The poll runs only while the
+//     cursor rests on faint pixels and ends when it leaves the window.
+//     When a Present changes the mask under a resting cursor, the window
+//     lets it through at once (passIfFaint), so a press that no move
+//     preceded does not land on a faint pixel.
+//   - No resize band of the backend's: the edges are usually the
+//     transparent margin; the app marks its own (h.WindowResize).
 
 const (
 	wsPopup         = 0x80000000
@@ -105,6 +124,9 @@ type layered struct {
 // this file).
 func (w *Window) transparentStyle() {
 	w.style = wsPopup | wsSysMenu | wsMinimizeBox | wsClipSiblings | wsClipChildren
+	if !w.opts.FixedSize {
+		w.style |= wsThickFrame // DefWindowProc's sizing loop needs it
+	}
 	w.exStyle |= wsExLayered
 }
 
@@ -121,8 +143,14 @@ func (w *Window) transparentMessage(msg uint32, wparam, lparam uintptr) (uintptr
 	switch msg {
 	case wmNCCalcSize:
 		// No frame: the whole window is client area, as DefWindowProc
-		// makes it for WS_POPUP (the frameless code would inset a
-		// maximized window).
+		// makes it for a WS_POPUP without a thick frame. With one,
+		// DefWindowProc would take the sizing border off the client
+		// area, so the proposed rectangle is kept as it is (the frameless
+		// code would also inset a maximized window: a layered window's
+		// bitmap sets its size, so there must be no non-client part).
+		if w.style&wsThickFrame != 0 {
+			return 0, true
+		}
 		return defWindowProc(w.hwnd, uintptr(msg), wparam, lparam), true
 	case wmNCHitTest:
 		x, y := w.screenPointToApp(lparam)
@@ -183,10 +211,34 @@ func (w *Window) presentLayered(fb *image.RGBA, rects []image.Rectangle, full bo
 	if !w.shown && w.visible {
 		w.show()
 	}
-	if maskChanged && w.lay.passing {
-		w.pollPassing() // the pixels under a resting pointer changed
+	if maskChanged {
+		// The pixels under a resting pointer changed: take it back, or
+		// let it through before a press that no move preceded would hit
+		// a faint pixel (Windows hit-tests at the press too, but
+		// HTTRANSPARENT there only reaches windows of this thread).
+		if w.lay.passing {
+			w.pollPassing()
+		} else {
+			w.passIfFaint()
+		}
 	}
 	return nil
+}
+
+// passIfFaint lets the pointer through when the cursor rests over the
+// window's client area outside the input mask, with no button held.
+func (w *Window) passIfFaint() {
+	if w.ptr.held != 0 {
+		return
+	}
+	var p point
+	if r, _, _ := procGetCursorPos.Call(uintptr(unsafe.Pointer(&p))); r == 0 || windowFromPoint(p) != w.hwnd {
+		return
+	}
+	x, y := w.screenToApp(int(p.x), int(p.y))
+	if w.inClient(x, y) && !w.lay.mask.Contains(image.Pt(x, y)) {
+		w.setPassing(true)
+	}
 }
 
 // newLayeredBitmap makes the memory DC and a DIB section of size.

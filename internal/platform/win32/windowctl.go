@@ -642,6 +642,7 @@ func (w *Window) onNCHitTest(lparam uintptr) uintptr {
 		regions:    w.regions,
 		topOnly:    w.overlay,
 		controls:   w.ctlPx,
+		resizable:  !w.opts.FixedSize && w.fs == nil && !isZoomed(w.hwnd),
 	})
 }
 
@@ -693,6 +694,41 @@ func (w *Window) onNCButton(msg uint32, wparam, lparam uintptr) bool {
 	}
 	w.button(btn, down, x, y)
 	return true
+}
+
+// captionPress runs DefWindowProc's move loop for a primary press in the
+// app's own caption region (WM_NCLBUTTONDOWN with HTCAPTION inside the
+// client area; the title bar of a decorated window is the OS's) and
+// reports a click that moved nothing as a CaptionClickEvent at its
+// release (captionWasClick). ok is false for every other message, which
+// takes the usual path.
+func (w *Window) captionPress(msg uint32, wparam, lparam uintptr) (ret uintptr, ok bool) {
+	if msg != wmNCLButtonDown || wparam != htCaption || len(w.regions) == 0 {
+		return 0, false
+	}
+	x, y := w.screenPointToApp(lparam)
+	if !w.inClient(x, y) || w.osButtonAt(x, y) {
+		return 0, false
+	}
+	hwnd := w.hwnd
+	before, zoomed := getWindowRect(hwnd).image(), isZoomed(hwnd)
+	press := image.Pt(pointFromLParam(lparam))
+	// The move loop: DefWindowProc returns once the button is up (the
+	// shared delivery pass runs meanwhile, see "Threading" in package
+	// platform).
+	ret = defWindowProc(hwnd, wmNCLButtonDown, wparam, lparam)
+	if w.Closed() {
+		return ret, true
+	}
+	var p point
+	procGetCursorPos.Call(uintptr(unsafe.Pointer(&p)))
+	release := image.Pt(int(p.x), int(p.y))
+	slop := int(platform.CaptionDragThreshold*w.scale() + 0.5)
+	if captionWasClick(before, getWindowRect(hwnd).image(), zoomed, isZoomed(hwnd), press, release, slop) {
+		rx, ry := w.screenToApp(release.X, release.Y)
+		w.b.enqueue(w, platform.CaptionClickEvent{Pos: logicalPoint(rx, ry, w.scale()), Time: w.b.Now()})
+	}
+	return ret, true
 }
 
 // pointerOverApp reports whether the mouse is over the window's content:

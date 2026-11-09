@@ -71,6 +71,31 @@ func hitCodeOf(k platform.HitKind, fullscreen bool) uintptr {
 	return htClient
 }
 
+// resizeHitCode returns the WM_NCHITTEST answer of a resize edge (a side
+// or a corner): DefWindowProc then shows the resize cursor and starts its
+// sizing loop at a press, as over a native frame.
+func resizeHitCode(e platform.Edge) uintptr {
+	switch e {
+	case platform.EdgeTop:
+		return htTop
+	case platform.EdgeBottom:
+		return htBottom
+	case platform.EdgeLeft:
+		return htLeft
+	case platform.EdgeRight:
+		return htRight
+	case platform.EdgeTop | platform.EdgeLeft:
+		return htTopLeft
+	case platform.EdgeTop | platform.EdgeRight:
+		return htTopRight
+	case platform.EdgeBottom | platform.EdgeLeft:
+		return htBottomLeft
+	case platform.EdgeBottom | platform.EdgeRight:
+		return htBottomRight
+	}
+	return htClient
+}
+
 // isAppHit reports whether a hit-test code answered for a point of the
 // client area belongs to the app's own title bar: the pointer is still over
 // content the app draws, so moves are delivered and crossing between it and
@@ -107,6 +132,21 @@ type hitInput struct {
 	// physical pixels (a TitleBarOverlay window), empty otherwise. A point
 	// there that DWM did not claim as one of its buttons is caption.
 	controls image.Rectangle
+	// resizable: the window can be resized (not FixedSize, maximized or
+	// fullscreen), so the app's resize handles (HitResize… regions,
+	// h.WindowResize) answer the resize codes; otherwise they are content.
+	resizable bool
+}
+
+// regionCode is the WM_NCHITTEST answer of the region kind k at a point.
+func (in *hitInput) regionCode(k platform.HitKind) uintptr {
+	if e := k.Edge(); e != 0 {
+		if in.resizable {
+			return resizeHitCode(e)
+		}
+		return htClient
+	}
+	return hitCodeOf(k, in.fullscreen)
 }
 
 // clientHit answers WM_NCHITTEST for a point inside the client area: the
@@ -179,7 +219,23 @@ func clientHit(in hitInput) uintptr {
 		return htClient
 	}
 	p := logicalPoint(in.pt.X, in.pt.Y, in.scale)
-	return hitCodeOf(platform.HitTest(in.regions, p), in.fullscreen)
+	return in.regionCode(platform.HitTest(in.regions, p))
+}
+
+// captionWasClick reports whether a primary press in the app's caption
+// that DefWindowProc's move loop took (WM_NCLBUTTONDOWN with HTCAPTION,
+// SC_MOVE) was a click (ADR-252): the loop returns at the release, and a
+// click neither moved the window (its rectangle before and after),
+// changed its maximized state (a drag off a maximized window restores
+// it; Aero Snap maximizes) nor took the cursor farther than slop
+// physical pixels from the press (a drag there and back). Windows posts
+// no WM_NCLBUTTONUP after the loop, so this is the only way to tell.
+func captionWasClick(before, after image.Rectangle, zoomedBefore, zoomedAfter bool, press, release image.Point, slop int) bool {
+	if before != after || zoomedBefore != zoomedAfter {
+		return false
+	}
+	d := release.Sub(press)
+	return d.X*d.X+d.Y*d.Y < slop*slop
 }
 
 // ncButtonFromMessage maps a non-client mouse button message to the client

@@ -82,6 +82,25 @@ func TestTransparentWindow(t *testing.T) {
 				t.Errorf("WM_NCHITTEST at %v,%v = %d, want %d", tc.x, tc.y, int(got), int(tc.want))
 			}
 		}
+		// The app's resize handles (ADR-257) answer the resize codes, and
+		// the window has the thick frame DefWindowProc's sizing loop needs
+		// while staying all client area.
+		w.SetHitRegions([]platform.HitRegion{
+			{Kind: platform.HitResizeLeft, Rect: platform.Rect{X: 40, Y: 30, W: 5, H: 80}},
+			{Kind: platform.HitResizeBottomRight, Rect: platform.Rect{X: 144, Y: 105, W: 16, H: 5}},
+		})
+		for _, tc := range []struct {
+			x, y float64
+			want uintptr
+		}{{42, 70, htLeft}, {150, 107, htBottomRight}, {100, 50, htClient}} {
+			if got := sendMessage(w.hwnd, wmNCHitTest, 0, screenLParam(screenAt(w, tc.x, tc.y))); got != tc.want {
+				t.Errorf("WM_NCHITTEST on a resize handle at %v,%v = %d, want %d", tc.x, tc.y, int(got), int(tc.want))
+			}
+		}
+		if st := getWindowLong(w.hwnd, gwlStyle); st&wsThickFrame == 0 {
+			t.Errorf("style %#x, want WS_THICKFRAME on a resizable transparent window", st)
+		}
+		w.SetHitRegions(nil)
 		// The shadow lets it through.
 		if got := sendMessage(w.hwnd, wmNCHitTest, 0, screenLParam(screenAt(w, 100, 115))); got != htTransparent {
 			t.Errorf("WM_NCHITTEST over the shadow = %d, want HTTRANSPARENT", int(got))

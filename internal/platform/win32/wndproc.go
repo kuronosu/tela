@@ -117,6 +117,9 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 			w.onGetMinMaxInfo(lparam)
 			return 0
 		case wmNCCalcSize:
+			if w.opts.Transparent && w.style&wsThickFrame != 0 {
+				return 0 // all client area (transparentMessage)
+			}
 			if w.opts.Frameless && !w.opts.Transparent {
 				w.onNCCalcSize(wparam, lparam)
 				return 0
@@ -181,6 +184,9 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		wmNCMButtonDown, wmNCMButtonUp, wmNCMButtonDblClk:
 		if w.onNCButton(msg, wparam, lparam) {
 			return 0
+		}
+		if r, ok := w.captionPress(msg, wparam, lparam); ok {
+			return r
 		}
 	case wmNCXButtonDown, wmNCXButtonUp, wmNCXButtonDblClk:
 		if w.onNCButton(msg, wparam, lparam) {
