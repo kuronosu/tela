@@ -95,7 +95,8 @@ func nativeItems[K comparable](items []MenuItem[K], store *menuStore[K], mac boo
 			Disabled:    it.Disabled || off,
 			OnSelect:    func() { choose(k) },
 		}
-		if it.Kind == MenuPlain && it.Role != desktop.RoleNone {
+		// A radio item is never a role item, as in a drawn menu.
+		if it.Kind == MenuPlain && group == nil && it.Role != desktop.RoleNone {
 			n.Role = it.Role
 			if it.OnSelect == nil {
 				n.OnSelect = nil

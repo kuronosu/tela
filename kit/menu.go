@@ -162,7 +162,8 @@ type MenuItem[K comparable] struct {
 	// Role makes a plain item one of the standard items (see "Roles"):
 	// desktop.RoleUndo, RoleCopy, RoleMinimize... The zero value,
 	// desktop.RoleNone, is an item of the app's own. A menu role
-	// (RoleEditMenu...) is a MenubarMenu's, and panics here in dev mode.
+	// (RoleEditMenu...) is a MenubarMenu's, and panics here in dev mode,
+	// as a Role on a checkbox or radio item does.
 	Role desktop.Role
 	// Variant is Default or Destructive (a plain item, as shadcn's
 	// variant="destructive").
@@ -468,6 +469,9 @@ func flattenMenu[K comparable](component string, items []MenuItem[K]) *menuFlat[
 				groups[it.Key] = true
 				g := it
 				for _, ri := range it.Items {
+					if ri.Role != desktop.RoleNone && devMode() {
+						panic(fmt.Sprintf("kit: %s item %q has Role %v and is a radio item of the group %v; only plain items have a role", component, ri.Label, ri.Role, it.Key))
+					}
 					add(ri, &g, off || it.Disabled)
 				}
 			case MenuGroup:

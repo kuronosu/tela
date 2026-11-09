@@ -2,6 +2,7 @@ package kit_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/kuronosu/tela"
@@ -136,4 +137,27 @@ func TestMenuItemRoleOfAMenuPanics(t *testing.T) {
 		return kit.DropdownMenu[string]{Trigger: kit.Button{Children: h.Text("Open")}, Items: items}
 	}, telatest.Theme(kit.Theme()))
 	app.Click(telatest.ByRole("button", "Open"))
+}
+
+// Only a plain item has a role: a radio item with one panics in dev mode,
+// drawn or native (a native menu would make it a role item, a drawn one a
+// radio).
+func TestMenuRadioItemRolePanics(t *testing.T) {
+	for _, native := range []bool{false, true} {
+		t.Run(fmt.Sprint("native=", native), func(t *testing.T) {
+			defer func() {
+				if r := recover(); r == nil || !strings.Contains(fmt.Sprint(r), "radio item") {
+					t.Errorf("recover() = %v, want the radio item with a role reported", r)
+				}
+			}()
+			items := []kit.MenuItem[string]{{Kind: kit.MenuRadioGroup, Key: "g", Items: []kit.MenuItem[string]{
+				{Key: "copy", Label: "Copy", Role: desktop.RoleCopy}, {Key: "b", Label: "B"}}}}
+			mode := kit.NativeOff
+			if native {
+				mode = kit.NativeOn
+			}
+			app := mountContext(t, contextPage(kit.ContextMenu[string]{Native: mode, Items: items}), 480, 360)
+			app.ClickAt(100, 80, telatest.Right())
+		})
+	}
 }
