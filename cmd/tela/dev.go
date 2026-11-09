@@ -14,7 +14,7 @@ import (
 	"syscall"
 
 	"github.com/kuronosu/tela/cmd/tela/internal/term"
-	"github.com/kuronosu/tela/cmd/tela/internal/watch"
+	"github.com/kuronosu/tela/internal/watch"
 	"github.com/kuronosu/tela/internal/platform/auto"
 	"github.com/kuronosu/tela/internal/platform/remote"
 )

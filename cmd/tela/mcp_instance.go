@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kuronosu/tela/cmd/tela/internal/watch"
+	"github.com/kuronosu/tela/internal/watch"
 )
 
 // The instance of tela mcp: what the package is, how it is built (go test

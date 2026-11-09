@@ -1,6 +1,7 @@
 package desktop_test
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -96,4 +97,25 @@ func TestUseStoreSettingStoreChangeKeepsClearedField(t *testing.T) {
 	if got[0].Pinned || got[1].Pinned || got[1].Body != "" {
 		t.Errorf("a cleared field came back from the default: %+v", got)
 	}
+}
+
+// UseSetting shows what another program writes to the settings file
+// (ADR-253): the component builds again with the new value.
+func TestUseSettingSeesOtherPrograms(t *testing.T) {
+	s := openSettingStore(t)
+	if err := s.Set("theme", "light"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	app := telatest.MountFunc(t, func() tela.Node {
+		v, _ := desktop.UseStoreSetting(s, "theme", "none")
+		return Div(Textf("theme %s", v))
+	})
+	app.ExpectText("theme light")
+	if err := os.WriteFile(s.Path(), []byte(`{"theme": "dark"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	app.ExpectText("theme dark")
 }

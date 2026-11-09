@@ -31,9 +31,13 @@ import (
 // file), and when the app quits. A Store is safe for use from any
 // goroutine.
 //
-// The file is read once, when the store opens; changes made to it by other
-// programs while the app runs are not seen, and are overwritten by the
-// next write.
+// Changes other programs make to the file are seen while the store has
+// watchers ([Store.Watch], [UseSetting]): the file is read again and
+// merged key by key, and the watchers of the keys that changed run. For
+// a key both sides changed, this process's change not yet written wins
+// (it is written a moment later); otherwise the file's value wins. A
+// write reads the file first and merges it the same way, so it never
+// drops a key another program wrote.
 type Store struct {
 	path  string
 	delay time.Duration
@@ -47,6 +51,8 @@ type Store struct {
 	touched  map[string]bool // keys changed while unread (they win over the file's)
 	err      error           // the last load or write error
 	watchers []*storeWatcher
+	pending  map[string]bool // keys changed since the last write (storewatch.go)
+	fw       *fileWatch      // the watch of the file while there are watchers
 
 	wmu sync.Mutex // serializes the writes of the file
 }
@@ -469,6 +475,10 @@ func (s *Store) change(key string, raw json.RawMessage) {
 		}
 		s.touched[key] = true
 	}
+	if s.pending == nil {
+		s.pending = map[string]bool{}
+	}
+	s.pending[key] = true
 	s.dirty = true
 	if s.timer == nil && s.path != "" {
 		s.timer = time.AfterFunc(s.delay, func() { _ = s.Flush() })
@@ -488,9 +498,10 @@ func (s *Store) change(key string, raw json.RawMessage) {
 }
 
 // Watch calls f after each change of key's value (Set with a different
-// value, Delete), or of any key when key is "", until stop is called. f
-// runs on the goroutine that made the change, after it, without the
-// store's lock: it may read the store and set values. In components, use
+// value, Delete, another program's write to the file), or of any key when
+// key is "", until stop is called. f runs on the goroutine that made the
+// change (the store's watcher goroutine for another program's), after it,
+// without the store's lock: it may read the store and set values. In components, use
 // [UseSetting], which builds them again on change.
 func (s *Store) Watch(key string, f func(key string)) (stop func()) {
 	if f == nil {
@@ -499,12 +510,14 @@ func (s *Store) Watch(key string, f func(key string)) (stop func()) {
 	w := &storeWatcher{key: key, f: f}
 	s.mu.Lock()
 	s.watchers = append(s.watchers, w)
+	s.startWatch() // storewatch.go: changes of other programs
 	s.mu.Unlock()
 	return func() {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		w.stopped.Store(true)
 		s.watchers = slices.DeleteFunc(s.watchers, func(x *storeWatcher) bool { return x == w })
+		s.stopWatch()
 	}
 }
 
@@ -515,6 +528,9 @@ func (s *Store) Watch(key string, f func(key string)) (stop func()) {
 func (s *Store) Flush() error {
 	s.wmu.Lock()
 	defer s.wmu.Unlock()
+	if s.path != "" {
+		s.reload() // merge what other programs wrote since (storewatch.go)
+	}
 	s.mu.Lock()
 	if s.timer != nil {
 		s.timer.Stop()
@@ -534,6 +550,8 @@ func (s *Store) Flush() error {
 	data, err := json.MarshalIndent(s.vals, "", "  ")
 	corrupt := s.corrupt
 	s.dirty = false
+	written := s.pending
+	s.pending = nil
 	s.mu.Unlock()
 	if err == nil {
 		err = writeStore(s.path, append(data, '\n'), corrupt)
@@ -542,10 +560,17 @@ func (s *Store) Flush() error {
 	defer s.mu.Unlock()
 	if err != nil {
 		s.dirty = true // written by the next change or Flush
+		for k := range written {
+			if s.pending == nil {
+				s.pending = map[string]bool{}
+			}
+			s.pending[k] = true
+		}
 		s.err = fmt.Errorf("desktop: cannot write the store %s: %w", s.path, err)
 		return s.err
 	}
 	s.corrupt, s.err = false, nil
+	s.startWatch() // the folder exists now
 	return nil
 }
 

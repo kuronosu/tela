@@ -12,8 +12,8 @@ import (
 // or def when it has none, and a setter that stores a new value: the
 // useState of a setting. The component builds again when the value
 // changes, whoever changed it (this component, another one with the same
-// key, Settings().Set from any goroutine), and the store writes the file
-// shortly after a change.
+// key, Settings().Set from any goroutine, another program writing the
+// file), and the store writes the file shortly after a change.
 //
 //	func (Editor) Build() tela.Node {
 //	    size, setSize := desktop.UseSetting("editor.fontSize", 14)

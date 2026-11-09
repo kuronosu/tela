@@ -313,7 +313,11 @@ func TestStoreSetEqualAfterReload(t *testing.T) {
 	forget(path)
 	s2, _ := OpenStore(path)
 	changes := 0
-	s2.Watch("", func(string) { changes++ })
+	stop := s2.Watch("", func(string) { changes++ })
+	defer func() {
+		stop()
+		_ = s2.Flush() // not after the folder is gone
+	}()
 	_ = s2.Set("pt", pt{1, 2})
 	_ = s2.Set("list", []string{"a", "<b>"})
 	_ = s2.Set("m", map[string]int{"a": 2, "z": 1})

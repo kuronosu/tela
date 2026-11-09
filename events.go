@@ -152,6 +152,11 @@ type PointerEvent = core.PointerEvent
 // one), and they bubble, so a container also gets them as the drag moves
 // between its children; a container that tracks "is the drag over me"
 // counts them (enter adds one, leave removes one) or uses OnDragOver.
+//
+// Text fields take text by default, as HTML's do: an editable Input or
+// Textarea accepts a drag that offers text, and the drop inserts it at
+// the drop point (an insertFromDrop edit, with OnBeforeInput and
+// OnChange) unless an OnDrop handler calls e.PreventDefault().
 type DragEvent = core.DragEvent
 
 // DataTransfer is the data of a drag and drop (HTML's dataTransfer): the

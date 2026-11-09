@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kuronosu/tela/cmd/tela/internal/watch"
+	"github.com/kuronosu/tela/internal/watch"
 )
 
 // TestDevWatcherReloads runs the supervisor with a real watcher on a
