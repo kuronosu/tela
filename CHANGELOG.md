@@ -12,7 +12,9 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
-Phase 20, API and kit gaps.
+## [0.14.0] - 2026-11-08
+
+Phase 20, API and kit gaps (ADR-247 to ADR-254): submenus, transparent windows, new kit pieces, deferred forms, built-in labels, and app and desktop gaps. It breaks `desktop.Launch.Forwarded`.
 
 ### Added
 
@@ -36,6 +38,7 @@ Phase 20, API and kit gaps.
 - A trigger's own `Disabled` (`kit.Button{Disabled: true}`) now wins over the overlay's trigger props.
 - Numbers and dates use the locale's default numbering system from CLDR 48: `ar-EG` and `ar-SA` give Arabic-Indic digits, as ICU does (ADR-251).
 - The fallback title bar follows a `Dir` on the element that is the window's whole content, and a click on it (Wayland) closes an open dialog or popover that closes on outside presses (ADR-252).
+- kit: a loading `Button` used as an overlay's trigger opens nothing, from the pointer or the keyboard; a radio menu item with a `Role` panics in dev mode; menu keys must be unique across every submenu level (dev mode).
 - Windows menu bars give Chinese, Japanese and Korean labels an appended access key ("ファイル(&F)"), and Cyrillic, Greek, Arabic and Hebrew labels a letter of their own (ADR-252).
 
 ### Breaking
@@ -987,7 +990,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.13.7...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/kuronosu/tela/compare/v0.13.7...v0.14.0
 [0.13.7]: https://github.com/kuronosu/tela/compare/v0.13.6...v0.13.7
 [0.13.6]: https://github.com/kuronosu/tela/compare/v0.13.5...v0.13.6
 [0.13.5]: https://github.com/kuronosu/tela/compare/v0.13.4...v0.13.5
