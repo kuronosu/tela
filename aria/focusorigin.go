@@ -37,23 +37,32 @@ func (o *focusOrigin) set(at tela.ElementRef) {
 	}
 }
 
-// triggerProps are the handlers of the trigger's element (or of an
-// element around the triggers, as the focus events bubble).
+// triggerProps are the handlers of the trigger's element: focusProp, the
+// blur and pressProp.
 func (o *focusOrigin) triggerProps(at tela.ElementRef) tela.Prop {
-	return core.MergeProps(
-		h.OnFocus(func(e tela.FocusEvent) {
-			if r, ok := core.RelatedTarget(e); ok && !o.inside(r) {
-				o.ref, o.has = r, true
-			}
-		}),
-		h.OnBlur(o.blur),
-		// A press focuses the trigger (or nothing) after its pointerdown.
-		h.OnPointerDown(func() {
-			if !o.inside(activeOr(at)) {
-				o.set(at)
-			}
-		}),
-	)
+	return core.MergeProps(o.focusProp(), h.OnBlur(o.blur), o.pressProp(at))
+}
+
+// focusProp is the focus handler of the trigger's element (or of an
+// element around the triggers, as the focus events bubble): the focus that
+// comes from elsewhere records where it came from.
+func (o *focusOrigin) focusProp() tela.Prop {
+	return h.OnFocus(func(e tela.FocusEvent) {
+		if r, ok := core.RelatedTarget(e); ok && !o.inside(r) {
+			o.ref, o.has = r, true
+		}
+	})
+}
+
+// pressProp is the pointerdown handler of a trigger: a press focuses the
+// trigger (or nothing) after its pointerdown, so it is merged before the
+// press's handlers, which may move the focus.
+func (o *focusOrigin) pressProp(at tela.ElementRef) tela.Prop {
+	return h.OnPointerDown(func() {
+		if !o.inside(activeOr(at)) {
+			o.set(at)
+		}
+	})
 }
 
 // blur is the blur handler of the trigger and its menus: the focus that

@@ -220,12 +220,9 @@ func UseMenuBar[K comparable](o MenuBarOptions[K]) MenuBarResult[K] {
 	if o.Disabled {
 		ps = append(ps, h.AriaDisabled(true))
 	}
-	// The focus events of the triggers bubble to the bar.
-	ps = append(ps, b.origin.triggerProps(ref), h.OnBlur(func(e tela.FocusEvent) {
-		if r, ok := core.RelatedTarget(e); ok && !b.inside(r) {
-			b.keyMode = false
-		}
-	}))
+	// The focus events of the triggers bubble to the bar; each trigger
+	// records the press origin itself (TriggerProps).
+	ps = append(ps, b.origin.focusProp(), h.OnBlur(b.blur))
 	tela.UseLayoutEffect(func() func() {
 		if b.blurOnClose {
 			b.blurOnClose = false
@@ -330,10 +327,8 @@ func (r MenuBarResult[K]) TriggerProps(k K) tela.Prop {
 						return
 					}
 					if e.PointerType != PointerVirtual {
-						// The focus the press takes (FocusedBefore), first.
-						if !b.inside(activeOr(ref)) {
-							b.origin.set(ref)
-						}
+						// The origin of the focus the press takes
+						// (FocusedBefore) was recorded at its pointerdown.
 						// The press focuses the trigger after this handler;
 						// the menu's focus scope remembers the focus when it
 						// mounts, before that.
@@ -352,6 +347,7 @@ func (r MenuBarResult[K]) TriggerProps(k K) tela.Prop {
 		st: st, ref: ref, setPressed: b.setPressed,
 	}
 	ps = append(ps,
+		b.origin.pressProp(ref), // before the press moves the focus
 		p.handlers(),
 		h.OnKeyDown(func(e tela.KeyboardEvent) { b.onTriggerKey(k, e) }),
 		h.OnFocus(func() { b.r.onFocus(k) }),
@@ -379,12 +375,7 @@ func (r MenuBarResult[K]) MenuProps(k K) tela.Prop {
 		h.Ref(b.menuRef(k)), h.AriaLabelledBy(b.r.refFor(k)),
 		core.Scope(core.ScopeOptions{Restore: true}),
 		h.OnKeyDown(func(e tela.KeyboardEvent) { b.onMenuKey(k, e) }),
-		h.OnBlur(func(e tela.FocusEvent) {
-			b.origin.blur(e)
-			if r, ok := core.RelatedTarget(e); ok && !b.inside(r) {
-				b.keyMode = false
-			}
-		}),
+		h.OnBlur(b.blur),
 	)
 }
 
@@ -424,6 +415,16 @@ func (b *menuBar[K]) inside(r tela.ElementRef) bool {
 		}
 	}
 	return false
+}
+
+// blur is the blur handler of the bar (its triggers' blurs bubble to it)
+// and of its menus, which are in a portal: the focus that goes to an
+// element outside them ends the origin and the key mode.
+func (b *menuBar[K]) blur(e tela.FocusEvent) {
+	b.origin.blur(e)
+	if r, ok := core.RelatedTarget(e); ok && !b.inside(r) {
+		b.keyMode = false
+	}
 }
 
 // activate is the bar's ActivationKeys: F10 or a lone Alt focuses the
