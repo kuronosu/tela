@@ -14,6 +14,10 @@
 //
 //	func init() { must(i18n.Load(locales, "locales/*.json")) }
 //
+// [Load] adds to the catalogs already loaded; [Replace] makes the files the
+// only catalogs in one step (a reload in development, a language pack the
+// user installs) and [Unload] removes the catalogs of some locales, or all.
+//
 // Components translate with the [UseT] hook, which also rebuilds them when
 // the locale changes; handlers and goroutines use [T]:
 //

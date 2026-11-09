@@ -3707,6 +3707,10 @@ type SelectStyle struct {
     Value string
     // Icon is the chevron at the end of the trigger.
     Icon string
+    // DefaultIcon is the glyph at the end of the trigger when the app sets
+    // no Icon on the [Select]: a look's own (macOS' pop-up button draws up
+    // and down chevrons). Zero: a chevron pointing down.
+    DefaultIcon tela.Icon
     // ValueIcon is the selected item's icon inside the trigger.
     ValueIcon string
     // Content is the popover that holds the list. It has no relative: the

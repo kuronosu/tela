@@ -267,37 +267,9 @@ func SetFallback(tag string) error {
 // is "en" when loaded, else the first catalog loaded, unless
 // [SetFallback] says otherwise. It is safe from any goroutine.
 func Load(fsys fs.FS, pattern string) error {
-	files, err := fs.Glob(fsys, pattern)
+	all, err := readCatalogs("Load", fsys, pattern)
 	if err != nil {
-		return fmt.Errorf("i18n: Load: bad pattern %q: %v", pattern, err)
-	}
-	if len(files) == 0 {
-		return fmt.Errorf("i18n: Load: pattern %q matches no files; check the pattern and, for an embedded file system, the //go:embed directive", pattern)
-	}
-	type loaded struct {
-		loc  *locData
-		msgs map[string][]node
-	}
-	var all []loaded
-	var errs []error
-	for _, name := range files {
-		base := strings.TrimSuffix(path.Base(name), path.Ext(name))
-		d, err := forTag(base)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("i18n: %s: the file name must be a locale such as en.json, es-MX.json or pt-BR.json: %v", name, err))
-			continue
-		}
-		data, err := fs.ReadFile(fsys, name)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("i18n: %v", err))
-			continue
-		}
-		msgs, perrs := parseCatalog(name, data)
-		errs = append(errs, perrs...)
-		all = append(all, loaded{d, msgs})
-	}
-	if len(errs) > 0 {
-		return errors.Join(errs...)
+		return err
 	}
 	return update(func(s *state) error {
 		for _, l := range all {
@@ -320,6 +292,120 @@ func Load(fsys fs.FS, pattern string) error {
 		}
 		return nil
 	})
+}
+
+// Replace is [Load] for catalogs that change while the program runs (a
+// reload during development, a language pack the user installed): it reads
+// the files that match pattern and, in one step, makes them the only
+// catalogs, so a message deleted from a file is gone and no component sees
+// the catalogs half loaded. Nothing changes when a file has an error. The
+// locale set with [SetLocale] is kept; a fallback set with [SetFallback] is
+// kept only if its locale is still loaded.
+func Replace(fsys fs.FS, pattern string) error {
+	all, err := readCatalogs("Replace", fsys, pattern)
+	if err != nil {
+		return err
+	}
+	return update(func(s *state) error {
+		s.cats = map[string]*catalog{}
+		s.order = nil
+		for _, l := range all {
+			if _, dup := s.cats[l.loc.name]; dup {
+				// Two files of one locale (en.json and en_US.json spell
+				// one): the messages of the later one win.
+				for k, v := range l.msgs {
+					s.cats[l.loc.name].msgs[k] = v
+				}
+				continue
+			}
+			s.cats[l.loc.name] = &catalog{loc: l.loc, msgs: l.msgs}
+			s.order = append(s.order, l.loc.name)
+		}
+		if _, ok := s.cats[s.fallbackSet]; !ok {
+			s.fallbackSet = ""
+		}
+		return nil
+	})
+}
+
+// Unload removes the catalogs of the given locales, or every catalog when
+// none is given: what an app does when it stops using a language pack, and
+// what a test does to leave no catalogs behind for the next one. The locale
+// set with [SetLocale] stays (numbers and dates keep following it; messages
+// then come from the catalogs that are left); a fallback whose catalog is
+// gone is forgotten. It returns an error, and removes nothing, for a tag
+// that is not valid or has no catalog loaded. It is safe from any goroutine.
+func Unload(tags ...string) error {
+	return update(func(s *state) error {
+		var gone []string
+		for _, tag := range tags {
+			d, err := forTag(tag)
+			if err != nil {
+				return errors.New("i18n: Unload(" + fmt.Sprintf("%q", tag) + "): " + err.Error())
+			}
+			if _, ok := s.cats[d.name]; !ok {
+				return fmt.Errorf("i18n: Unload(%q): no catalog for %q is loaded (loaded: %s)", tag, d.name, strings.Join(s.order, ", "))
+			}
+			gone = append(gone, d.name)
+		}
+		if len(tags) == 0 {
+			gone = append(gone, s.order...)
+		}
+		for _, name := range gone {
+			delete(s.cats, name)
+		}
+		kept := s.order[:0:0]
+		for _, name := range s.order {
+			if _, ok := s.cats[name]; ok {
+				kept = append(kept, name)
+			}
+		}
+		s.order = kept
+		if _, ok := s.cats[s.fallbackSet]; !ok {
+			s.fallbackSet = ""
+		}
+		return nil
+	})
+}
+
+// loaded is the messages of one file of a catalog directory.
+type loaded struct {
+	loc  *locData
+	msgs map[string][]node
+}
+
+// readCatalogs reads and parses the files that match pattern: every error
+// of every file, none of them loaded. who names the caller in the errors.
+func readCatalogs(who string, fsys fs.FS, pattern string) ([]loaded, error) {
+	files, err := fs.Glob(fsys, pattern)
+	if err != nil {
+		return nil, fmt.Errorf("i18n: %s: bad pattern %q: %v", who, pattern, err)
+	}
+	if len(files) == 0 {
+		return nil, fmt.Errorf("i18n: %s: pattern %q matches no files; check the pattern and, for an embedded file system, the //go:embed directive", who, pattern)
+	}
+	var all []loaded
+	var errs []error
+	for _, name := range files {
+		base := strings.TrimSuffix(path.Base(name), path.Ext(name))
+		d, err := forTag(base)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("i18n: %s: the file name must be a locale such as en.json, es-MX.json or pt-BR.json: %v", name, err))
+			continue
+		}
+		data, err := fs.ReadFile(fsys, name)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("i18n: %v", err))
+			continue
+		}
+		msgs, perrs := parseCatalog(name, data)
+		errs = append(errs, perrs...)
+		all = append(all, loaded{d, msgs})
+	}
+	if len(errs) > 0 {
+		return nil, errors.Join(errs...)
+	}
+	return all, nil
 }
 
 // parseCatalog reads a catalog file: nested objects of ICU messages.

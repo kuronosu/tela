@@ -68,6 +68,37 @@ func TestDrawnMessageBoxFollowsTheLanguage(t *testing.T) {
 	app.ExpectText("answer: ok")
 }
 
+// A language change while the drawn box is open renames its window too:
+// the default title is a built-in label, a title the app gave is not.
+func TestDrawnMessageBoxWindowTitleFollowsTheLanguage(t *testing.T) {
+	useLabels(t, spanish)
+	app := messageApp(t, desktop.Message{Kind: desktop.MessageQuestion, Text: "Hecho"})
+	app.Unsupported(telatest.MessageBoxes)
+	app.Click(telatest.ByRole("button", "Ask"))
+	boxWindow := func() *telatest.App {
+		t.Helper()
+		ws := app.Windows()
+		if len(ws) != 2 {
+			t.Fatalf("%d windows, want the app's and the box's", len(ws))
+		}
+		return ws[1]
+	}
+	boxWindow().ExpectTitle("Pregunta")
+	useLabels(t, map[string]string{"tela.messagebox.question": "Question", "tela.messagebox.ok": "D'accord"})
+	tela.LabelsChanged()
+	boxWindow().ExpectTitle("Question")
+	boxWindow().ExpectText("Question")
+	app.AnswerMessage(desktop.AnswerOK)
+
+	// A title of the message's own stays.
+	own := messageApp(t, desktop.Message{Title: "Guardar", Text: "Hecho"})
+	own.Unsupported(telatest.MessageBoxes)
+	own.Click(telatest.ByRole("button", "Ask"))
+	useLabels(t, spanish)
+	tela.LabelsChanged()
+	own.Windows()[1].ExpectTitle("Guardar")
+}
+
 // A native box gets the translated default title, and the backend is told
 // the button texts (the headless backend records them).
 func TestNativeMessageBoxLabels(t *testing.T) {

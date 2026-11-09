@@ -80,6 +80,18 @@ func (v messageView) Build() tela.Node {
 		}
 		return nil
 	}, height)
+	// The window's title is the default one unless the message has its own:
+	// it follows the language like the buttons.
+	title := m.Title
+	if title == "" {
+		title = label(kindTitles[m.Kind])
+	}
+	tela.UseEffect(func() func() {
+		if box != nil {
+			box.retitle(title)
+		}
+		return nil
+	}, title)
 	answer := func(a Answer) {
 		if box != nil {
 			box.answer(a)
@@ -101,7 +113,7 @@ func (v messageView) Build() tela.Node {
 
 	text := make([]tela.Child, 0, 4)
 	text = append(text, h.Class("flex min-w-0 grow flex-col gap-2 pt-1.5"),
-		h.H2(h.Class("text-lg leading-7 font-semibold"), h.Text(m.title())))
+		h.H2(h.Class("text-lg leading-7 font-semibold"), h.Text(title)))
 	for i, p := range splitLines(m.Text) {
 		if p == "" {
 			continue
@@ -109,7 +121,7 @@ func (v messageView) Build() tela.Node {
 		text = append(text, h.P(h.Key(i), h.Class("text-sm leading-5 text-muted-foreground"), h.Text(p)))
 	}
 
-	return h.Div(h.Ref(ref), h.Role("alertdialog"), h.AriaLabel(m.title()), h.AriaDescription(m.Text),
+	return h.Div(h.Ref(ref), h.Role("alertdialog"), h.AriaLabel(title), h.AriaDescription(m.Text),
 		h.Class("flex flex-col gap-6 p-6"),
 		h.OnKeyDown(func(e tela.KeyboardEvent) {
 			if e.Key == tela.KeyEscape {

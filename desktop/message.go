@@ -176,18 +176,8 @@ func ShowMessage(m Message, done func(Answer)) error {
 // drawMessage opens the drawn message box as a modal child window of
 // parent.
 func drawMessage(d core.Desktop, parent tela.WindowHandle, m Message, done func(Answer)) error {
-	box := &drawnBox{msg: m, done: done}
-	w, h := m.estimateSize()
-	cw, err := core.OpenWindow(parent, core.ChildWindowSpec{
-		WindowSpec: core.WindowSpec{
-			Title: m.title(), Width: w, Height: h,
-			MinWidth: w, MinHeight: h, MaxWidth: w, MaxHeight: h,
-		},
-		Modal:     true,
-		RootClass: "bg-background text-foreground",
-		OnClose:   func() { box.answer(m.Buttons.DismissAnswer()) },
-		Root:      core.NodeOf(messageView{Message: m, box: box}),
-	})
+	box := &drawnBox{msg: m, done: done, title: m.title()}
+	cw, err := core.OpenWindow(parent, box.spec())
 	if err != nil {
 		return wrap("ShowMessage", err)
 	}
@@ -215,7 +205,36 @@ type drawnBox struct {
 	win      *core.CodeWindow
 	reg      *drawnRegistry
 	answered bool
-	height   float32 // the height last given to the window
+	height   float32 // the height last given to the window (0: the estimate)
+	title    string  // the title last given to the window
+}
+
+// spec is the window's description: the title and the height last given.
+func (b *drawnBox) spec() core.ChildWindowSpec {
+	w, h := b.msg.estimateSize()
+	if b.height != 0 {
+		h = b.height
+	}
+	return core.ChildWindowSpec{
+		WindowSpec: core.WindowSpec{
+			Title: b.title, Width: w, Height: h,
+			MinWidth: w, MinHeight: h, MaxWidth: w, MaxHeight: h,
+		},
+		Modal:     true,
+		RootClass: "bg-background text-foreground",
+		OnClose:   func() { b.answer(b.msg.Buttons.DismissAnswer()) },
+		Root:      core.NodeOf(messageView{Message: b.msg, box: b}),
+	}
+}
+
+// retitle gives the window the title the view shows now: a language change
+// renames the default title of an open box.
+func (b *drawnBox) retitle(title string) {
+	if b.win == nil || b.answered || title == b.title {
+		return
+	}
+	b.title = title
+	b.win.Update(b.spec())
 }
 
 // answer closes the box and calls done once.
@@ -252,17 +271,7 @@ func (b *drawnBox) resize(h float32) {
 		return
 	}
 	b.height = h
-	w, _ := b.msg.estimateSize()
-	b.win.Update(core.ChildWindowSpec{
-		WindowSpec: core.WindowSpec{
-			Title: b.msg.title(), Width: w, Height: h,
-			MinWidth: w, MinHeight: h, MaxWidth: w, MaxHeight: h,
-		},
-		Modal:     true,
-		RootClass: "bg-background text-foreground",
-		OnClose:   func() { b.answer(b.msg.Buttons.DismissAnswer()) },
-		Root:      core.NodeOf(messageView{Message: b.msg, box: b}),
-	})
+	b.win.Update(b.spec())
 }
 
 // The drawn box's metrics, in logical pixels: the width, the padding, the

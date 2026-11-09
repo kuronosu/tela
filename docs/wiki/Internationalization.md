@@ -51,7 +51,10 @@ Every message is parsed when it is loaded, so a mistake is reported at
 startup with its file, key and position, for example
 `i18n: locales/en.json: message "files": 1:30: {count, plural, ...} needs an "other" case: other {...}`
 for `"{count, plural, one {# file}}"`, and nothing is loaded. Loading may be repeated: a locale loaded again adds
-its messages.
+its messages. Catalogs that change while the program runs (a reload in development, a language pack the user
+installs) go through [`i18n.Replace`](https://pkg.go.dev/github.com/kuronosu/tela/i18n#Replace), which makes the
+files the only catalogs in one step, and [`i18n.Unload`](https://pkg.go.dev/github.com/kuronosu/tela/i18n#Unload)
+removes the catalogs of some locales, or all of them (a test leaves none behind).
 
 ### Message syntax
 
