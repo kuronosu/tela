@@ -346,7 +346,7 @@ kit.ToggleGroup[string]{AriaLabel: "View", ValueFn: view.Get, OnValueChange: vie
 ```go
 kit.Input{Placeholder: "Search...", AriaLabel: "Search", Value: &q, OnValueChange: setQ.Set}
 kit.Input{Icon: lucide.Search, Placeholder: "Search...", AriaLabel: "Search", Class: "max-w-sm"} // IconEnd too; Class is the wrapper's
-kit.Input{Type: "password", AriaLabel: "Password", EndContent: kit.Button{Variant: kit.Ghost, Size: kit.IconXs, Icon: lucide.Eye, AriaLabel: "Show password"}} // a button inside the field
+kit.Input{Type: "password", AriaLabel: "Password", EndContent: kit.Button{Variant: kit.Ghost, Size: kit.IconXs, Icon: lucide.Eye, IconClass: "size-4", AriaLabel: "Show password"}} // a button inside the field; the field's end padding follows it, and IconEnd may go with it
 kit.Textarea{Rows: 3, MaxLength: 140, Value: &msg, OnValueChange: setMsg.Set, AriaLabel: "Message"}
 kit.Select[string]{Placeholder: "Select a fruit", Items: []kit.SelectItem[string]{
 	{Value: "apple", Label: "Apple"}, {Value: "banana", Label: "Banana"}}}

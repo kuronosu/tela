@@ -174,6 +174,11 @@ type Node struct {
 	Role string
 	// ExplicitRole reports a role given with the Role prop.
 	ExplicitRole bool
+	// Decorative marks an icon (h.Icon) that is hidden for accessibility
+	// only because it is decorative (it has no AriaLabel): it is
+	// StateHidden, but it is on screen and keeps its Bounds, so tests can
+	// locate it by class or test ID (ADR-263).
+	Decorative bool
 	// Name and Description are the accessible name (W3C AccName 1.2:
 	// AriaLabelledBy, AriaLabel, Alt, content) with white space collapsed,
 	// and the AriaDescription.

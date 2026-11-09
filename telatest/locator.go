@@ -85,7 +85,9 @@ func ByText(text string, opts ...TextOption) Locator {
 
 // ByClass locates the elements that have all the given Tailwind class
 // names. It is an escape hatch for elements without a role or text, and
-// ties the test to the styling: prefer [ByRole] and [ByText].
+// ties the test to the styling: prefer [ByRole] and [ByText]. It matches
+// an h.Icon that has no name (decorative, hidden from accessibility) as
+// well as the visible elements; other hidden elements are not matched.
 //
 //	telatest.ByClass("rounded-full", "shadow-sm")
 func ByClass(classes ...string) Locator {
@@ -101,7 +103,7 @@ func ByClass(classes ...string) Locator {
 // user cannot name (a card, a chart, a drop zone); the id is not part of
 // the semantics tree or the aria snapshot, so it is never visible to
 // assistive technologies. Hidden elements are not matched, like with the
-// other locators.
+// other locators, except a decorative h.Icon.
 //
 //	telatest.ByTestID("sidebar")
 func ByTestID(id string) Locator { return Locator{kind: locTestID, testID: id} }
@@ -252,7 +254,7 @@ func (a *App) find(l Locator) []*semantics.Node {
 		})
 	case locClass:
 		root.Walk(func(n *semantics.Node) bool {
-			if n.Has(semantics.StateHidden) {
+			if n.Has(semantics.StateHidden) && !n.Decorative {
 				return false
 			}
 			if n.Kind == semantics.KindElement && hasClasses(a.tree.NodeClasses(n.ID), l.classes) {
@@ -262,7 +264,7 @@ func (a *App) find(l Locator) []*semantics.Node {
 		})
 	case locTestID:
 		root.Walk(func(n *semantics.Node) bool {
-			if n.Has(semantics.StateHidden) {
+			if n.Has(semantics.StateHidden) && !n.Decorative {
 				return false
 			}
 			if n.Kind == semantics.KindElement && a.tree.NodeTestID(n.ID) == l.testID {

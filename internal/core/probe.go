@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/kuronosu/tela/internal/semantics"
+	"github.com/kuronosu/tela/internal/style"
 )
 
 // Queries of telatest on the last semantics tree (semantics.go): they map
@@ -57,6 +58,16 @@ func (t *Tree) NodeTestID(id semantics.NodeID) string {
 		return ""
 	}
 	return el.node.d.testID
+}
+
+// NodePointerEventsNone reports whether the element of node id has
+// pointer-events: none in the last frame: the pointer goes through it.
+func (t *Tree) NodePointerEventsNone(id semantics.NodeID) bool {
+	el := t.liveElement(id)
+	if el == nil || el.kind != elemPrimitive || el.box == nil || el.box.cs == nil {
+		return false
+	}
+	return el.box.cs.PointerEvents == style.PointerEventsNone
 }
 
 // BreakClickSequence ends the sequence of consecutive clicks: the next

@@ -2377,7 +2377,7 @@ Hidden elements (display: none, visibility other than visible, AriaHidden, and t
 func ByClass(classes ...string) Locator
 ```
 
-ByClass locates the elements that have all the given Tailwind class names. It is an escape hatch for elements without a role or text, and ties the test to the styling: prefer [`ByRole`](#func-byrole) and [`ByText`](#func-bytext).
+ByClass locates the elements that have all the given Tailwind class names. It is an escape hatch for elements without a role or text, and ties the test to the styling: prefer [`ByRole`](#func-byrole) and [`ByText`](#func-bytext). It matches an h.Icon that has no name (decorative, hidden from accessibility) as well as the visible elements; other hidden elements are not matched.
 
 ```go
 telatest.ByClass("rounded-full", "shadow-sm")
@@ -2419,7 +2419,7 @@ fmt.Println(telatest.ByRole("heading", ""))
 func ByTestID(id string) Locator
 ```
 
-ByTestID locates the element that carries the h.TestID with this exact id, like Playwright's getByTestId. It is the way to find an element a user cannot name (a card, a chart, a drop zone); the id is not part of the semantics tree or the aria snapshot, so it is never visible to assistive technologies. Hidden elements are not matched, like with the other locators.
+ByTestID locates the element that carries the h.TestID with this exact id, like Playwright's getByTestId. It is the way to find an element a user cannot name (a card, a chart, a drop zone); the id is not part of the semantics tree or the aria snapshot, so it is never visible to assistive technologies. Hidden elements are not matched, like with the other locators, except a decorative h.Icon.
 
 ```go
 telatest.ByTestID("sidebar")

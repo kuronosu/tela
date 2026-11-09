@@ -387,7 +387,7 @@ func (p *Parser) resolveUtility(tok, util string) ([]Op, error) {
 		// utility in Tailwind (ADR-079), and the animation longhands
 		// [animation-delay:...] (the stagger of animate-* classes that LLMs
 		// write, ADR-248), -duration, -timing-function, -iteration-count,
-		// -direction and -fill-mode (ADR-256).
+		// -direction and -fill-mode (ADR-256), and -play-state (ADR-263).
 		prop, v, _ := strings.Cut(util[1:len(util)-1], ":")
 		var parse func(string) (Op, error)
 		switch prop {
@@ -405,6 +405,8 @@ func (p *Parser) resolveUtility(tok, util string) ([]Op, error) {
 			parse = parseAnimationDirection
 		case "animation-fill-mode":
 			parse = parseAnimationFillMode
+		case "animation-play-state":
+			parse = parseAnimationPlayState
 		}
 		if parse != nil {
 			v, err := c.substituteVars(arbitrarySpaces(v))

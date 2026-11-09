@@ -25,6 +25,15 @@ func alertActionSheet() *sheet {
 			Action:      kit.Button{Size: kit.IconXs, Variant: kit.Ghost, Icon: iconX, AriaLabel: "Dismiss"}}),
 		c("title-only", kit.Alert{Title: h.Text("A new version is available"),
 			Action: kit.Button{Size: kit.Xs, Children: h.Text("Update")}}),
+		// Tela's own (ADR-263): the room follows an action wider than
+		// shadcn's pe-18; no Chromium cell.
+		c("two-buttons", kit.Alert{Variant: kit.Warning, Icon: iconInfo, Title: h.Text("Unsaved changes"),
+			Description: h.Text("You have edits that were not saved to the server yet."),
+			Action: tela.C(func() tela.Node {
+				return h.Div(h.Class("flex gap-2"),
+					kit.Button{Size: kit.Xs, Variant: kit.Outline, Children: h.Text("Discard")},
+					kit.Button{Size: kit.Xs, Children: h.Text("Save")})
+			})}),
 	}}
 }
 

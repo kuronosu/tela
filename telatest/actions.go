@@ -124,6 +124,10 @@ func (a *App) actionable(n *semantics.Node, verb string, needEnabled bool) (*sem
 		if h := a.tree.Semantics().Find(hit); h != nil {
 			by = a.describeMatch(h)
 		}
+		if a.tree.NodePointerEventsNone(n.ID) {
+			return n, platform.Point{}, fmt.Sprintf("%s has pointer-events-none, so the pointer goes through it and %s receives it at (%.0f, %.0f): "+
+				"a user cannot %s it", describeNode(n), by, c.X, c.Y, verb)
+		}
 		return n, platform.Point{}, fmt.Sprintf("%s receives the pointer at its center (%.0f, %.0f) instead of %s: "+
 			"it covers the element, or the element has pointer-events-none", by, c.X, c.Y, describeNode(n))
 	}

@@ -48,7 +48,10 @@ import (
 // exactly that, and a test mounts a preview the way the CLI does with
 // telatest.Mount(t, Previews["mocked"]), which applies its Theme and
 // ColorScheme too, as does an App whose Root is a Preview, for tela.Run
-// and tela.Main (ADR-256).
+// and tela.Main (ADR-256). Only a Preview that is the root counts: the
+// theme and the color scheme belong to the window, so one that a component
+// returns, deeper in the tree, applies its Wrap and not its Theme or
+// ColorScheme (ADR-263).
 type Preview struct {
 	// Root is the screen. It must not be nil.
 	Root Component

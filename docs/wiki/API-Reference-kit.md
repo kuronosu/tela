@@ -418,7 +418,7 @@ kit.Alert{Variant: kit.Destructive, Icon: lucide.CircleAlert, Title: h.Text("Pay
 
 The variants are [`Default`](#type-variant) and [`Destructive`](#type-variant), as in shadcn, and the tones [`Success`](#type-variant), [`Warning`](#type-variant) and [`Info`](#type-variant) that [`Badge`](#type-badge) has.
 
-Action puts a button (or a few) at the top end corner, shadcn's AlertAction: a way to undo, retry or dismiss. The alert keeps 72 px free at its end for it; a wider action needs a padding in Class ("pe-32").
+Action puts a button (or a few) at the top end corner, shadcn's AlertAction: a way to undo, retry or dismiss. The alert keeps 72 px free at its end for it, shadcn's pe-18, which holds an action up to 60 px wide; a wider one (two buttons) makes the room as wide as the action as laid out, with the corner's 12 px and 8 px between it and the text. Class can still set the padding ("pe-32").
 
 ```go
 kit.Alert{Title: h.Text("Update available"), Description: h.Text("Restart to install it."),
@@ -2622,7 +2622,13 @@ kit.Input{Type: typ, AriaLabel: "Password",
         AriaLabel: "Show password", OnClick: func() { setShown.Set(!shown) }}}
 ```
 
-(shadcn's InputGroup with an InputGroupButton). The box is as tall as its content and 6 px from the edge; the field keeps 36 px of padding for it, the room of an icon-sized button (kit.IconXs, 24 px): for a wider piece of content add a padding to InputClass ("pe-16"). A Disabled field dims it; disable a button in it yourself. EndContent and IconEnd take the same place: giving both panics in dev mode.
+(shadcn's InputGroup with an InputGroupButton). The box is as tall as its content and 6 px from the edge. The field keeps at least 36 px of padding for it, the room of an icon-sized button (kit.IconXs, 24 px), and more for a wider piece of content: the padding follows the width the content has when it is laid out (a unit label, two buttons), a frame after it appears. InputClass can still set the padding ("pe-16"). A Disabled field dims it; disable a button in it yourself. With an IconEnd too the content sits before the icon (the icon keeps its place), and the padding counts both.
+
+An IconXs button draws a 12 px icon, as shadcn's Button does; the 16 px of shadcn's InputGroupButton is IconClass:
+
+```go
+kit.Button{Variant: kit.Ghost, Size: kit.IconXs, Icon: lucide.Eye, IconClass: "size-4"}
+```
 
 A key for the field in a list goes on the component, tela.WithKey(kit.Input{...}, id), which is the same with and without a wrapper; a Key in Props keys the input element inside the component only.
 
@@ -2664,8 +2670,11 @@ type InputStyle struct {
     // level with the text, taking pointer events (shadcn's
     // InputGroupAddon with an InputGroupButton, which sits 0.45rem into
     // the field's padding). ActionDisabled is added to it after, for a
-    // disabled field.
-    Action, ActionDisabled string
+    // disabled field, and ActionAfterIcon when the field also has an
+    // IconEnd: it moves the box past the icon (its inset, width and a gap).
+    // The end padding of the input is PadEnd, or more when the content
+    // is wider than the room PadEnd leaves (see Input).
+    Action, ActionDisabled, ActionAfterIcon string
 }
 ```
 
