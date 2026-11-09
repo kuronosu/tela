@@ -41,6 +41,12 @@ type Options struct {
 	// with its subtree (".git", the build directory). It is never called
 	// for a root. Nil watches everything. Same goroutine rules as Filter.
 	SkipDir func(path string) bool
+	// Flat watches the entries of the roots only, none of their
+	// subdirectories (on Windows, ReadDirectoryChangesW without its
+	// subtree): a directory that appears in a root, created or renamed
+	// into it, is reported as a change of its own path (dir false), and
+	// nothing inside it is. SkipDir is not called.
+	Flat bool
 	// Debounce is how long the watcher waits after the last change before
 	// it delivers a batch. Zero means 100 ms.
 	Debounce time.Duration
@@ -339,7 +345,16 @@ func (w *Watcher) error(err error) {
 
 // skip reports whether the directory path inside a root is skipped.
 func (w *Watcher) skip(path string) bool {
-	return w.opts.SkipDir != nil && w.opts.SkipDir(path)
+	return w.opts.Flat || (w.opts.SkipDir != nil && w.opts.SkipDir(path))
+}
+
+// newDir reports a directory that appeared in a root and is not watched
+// (skip): a Flat watcher reports it by its path (called by the
+// implementations).
+func (w *Watcher) newDir(path string) {
+	if w.opts.Flat {
+		w.changed(path, false)
+	}
 }
 
 // walk visits the tree at root: dir is called for every directory that is
@@ -381,8 +396,8 @@ func walkTree(root string, skip func(path string) bool, report func(error), dir 
 	})
 }
 
-// within reports whether path is root or inside it.
-func within(path, root string) bool {
+// Within reports whether path is root or inside it (both clean).
+func Within(path, root string) bool {
 	if path == root {
 		return true
 	}

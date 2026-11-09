@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/kuronosu/tela/internal/watch"
@@ -20,7 +19,8 @@ import (
 // watched (package internal/watch: inotify on Linux, ReadDirectoryChangesW
 // on Windows, kqueue on macOS; only the folder, not its subfolders, and
 // only the store's file counts; a folder that does not exist yet is
-// watched through its nearest existing ancestor, ADR-259). The watch is
+// watched through its nearest existing ancestor, ADR-259, alone too, for
+// the next folder of the way to appear). The watch is
 // opened on a goroutine of its own, never on the caller's (the UI thread
 // for UseSetting). A change reads
 // the file again and merges it: each key takes the file's value, unless
@@ -78,11 +78,14 @@ func (s *Store) claimWatch() bool {
 // openWatch watches the file. It runs on a goroutine of its own
 // (claimWatch's caller starts it: Watch runs on the UI thread for
 // UseSetting, and the stat, the inotify setup or the first scan of a poll
-// take a while), without s.mu. A store whose folder does not exist yet
-// watches its nearest existing ancestor, with only the folders on the way
-// to the file (watchRoot), and moves to the folder once it appears. Once
-// the watch is open the file is read again, so a change another program
-// made between Watch and then is not missed.
+// take a while), without s.mu. Every watch is flat (the folder's entries
+// only, not its subtree: on Windows a recursive watch of an ancestor
+// would see every change under all of %APPDATA%). A store whose folder
+// does not exist yet watches its nearest existing ancestor (watchRoot) for
+// the next folder on the way to appear, and moves to that one, until it
+// watches the folder. Once the watch is open, and after every move, the
+// file is read again, so a change another program made between Watch and
+// then is not missed.
 func (s *Store) openWatch() {
 	path := s.path
 	dir := filepath.Dir(path)
@@ -92,10 +95,10 @@ func (s *Store) openWatch() {
 		// An error leaves w nil: the store still works; changes of other
 		// programs are not seen.
 		w, _ = newWatch(watch.Options{
-			Filter: func(p string, _ bool) bool { return p == path },
-			// Only the folders between the root and the store's folder
-			// (the root is an ancestor while the folder does not exist).
-			SkipDir:      func(p string) bool { return !within(dir, p) },
+			// The file, or a folder on the way to it (an ancestor of dir,
+			// or dir) appearing in the ancestor watched.
+			Filter:       func(p string, _ bool) bool { return p == path || watch.Within(dir, p) },
+			Flat:         true,
 			PollInterval: watchPoll,
 		}, root)
 	}
@@ -117,12 +120,17 @@ func (s *Store) openWatch() {
 		s.wmu.Unlock()
 		notify()
 		for range w.Events() {
-			if root != dir {
-				if st, err := os.Stat(dir); err == nil && st.IsDir() {
-					// The folder exists now: watch it alone.
-					root = dir
-					_ = w.SetRoots([]string{dir})
+			// Down the folders that appeared, rechecked after each move:
+			// one may appear before its parent's watch is set (mkdir -p),
+			// and then reports nothing; the reload below reads a file
+			// written meanwhile.
+			for root != dir {
+				next := watchRoot(dir)
+				if next == "" || next == root || !watch.Within(next, root) {
+					break
 				}
+				root = next
+				_ = w.SetRoots([]string{root})
 			}
 			// Under the write lock: a file read just before a write of
 			// this store, applied after it, would bring back the value
@@ -148,18 +156,6 @@ func watchRoot(dir string) string {
 		}
 		dir = parent
 	}
-}
-
-// within reports whether path is root or inside it (both clean and
-// absolute).
-func within(path, root string) bool {
-	if path == root {
-		return true
-	}
-	if !strings.HasPrefix(path, root) {
-		return false
-	}
-	return os.IsPathSeparator(path[len(root)]) || os.IsPathSeparator(root[len(root)-1])
 }
 
 // stopWatch stops the watch watchGrace after the last watcher stopped,

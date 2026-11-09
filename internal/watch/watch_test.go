@@ -555,8 +555,26 @@ func TestWithin(t *testing.T) {
 	} {
 		p := strings.ReplaceAll(c.path, "/", sep)
 		r := strings.ReplaceAll(c.root, "/", sep)
-		if got := within(p, r); got != c.want {
-			t.Errorf("within(%q, %q) = %v", p, r, got)
+		if got := Within(p, r); got != c.want {
+			t.Errorf("Within(%q, %q) = %v", p, r, got)
 		}
 	}
+}
+
+// A Flat watcher sees the entries of its roots only: a directory that
+// appears in a root is reported by its own path, and what happens inside
+// it is not.
+func TestFlat(t *testing.T) {
+	modes(t, func(t *testing.T, poll bool) {
+		h := newHarness(t, poll, Options{Flat: true, Filter: func(string, bool) bool { return true }})
+		if err := os.Mkdir(h.path("sub"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		h.expect("a new directory", []string{"sub"})
+		h.write("sub/a.go", "package a")
+		h.write("sub/deeper/b.go", "package b")
+		h.absent("files in a subdirectory", 300*time.Millisecond, "sub/a.go", "sub/deeper", "sub/deeper/b.go")
+		h.write("c.go", "package c")
+		h.expect("a file of the root", []string{"c.go"}, "sub/a.go")
+	})
 }

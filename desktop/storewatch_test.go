@@ -223,7 +223,19 @@ func TestStoreWatchStops(t *testing.T) {
 // TestStoreWatchesMissingFolder (ADR-259): a store whose folder does not
 // exist yet sees another program create the folder and write the file.
 func TestStoreWatchesMissingFolder(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "app", "conf")
+	// Every watch is flat: an ancestor's subtree (all of %APPDATA%, say)
+	// is not watched while the folder does not exist, nor the folder's
+	// subfolders once it does.
+	open := newWatch
+	newWatch = func(o watch.Options, dirs ...string) (*watch.Watcher, error) {
+		if !o.Flat {
+			t.Errorf("the watch of %v is not flat", dirs)
+		}
+		return open(o, dirs...)
+	}
+	defer func() { newWatch = open }()
+	base := t.TempDir()
+	dir := filepath.Join(base, "app", "conf")
 	path := filepath.Join(dir, "s.json")
 	s, err := OpenStore(path)
 	if err != nil {
@@ -232,6 +244,16 @@ func TestStoreWatchesMissingFolder(t *testing.T) {
 	stop := s.Watch("k", func(string) {})
 	defer stop()
 	waitWatch(t, s)
+	// One folder of the way at a time: the watch follows each.
+	if err := os.Mkdir(filepath.Join(base, "app"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the watch of the new folder", func() bool {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		r := s.fw.w.Roots()
+		return len(r) == 1 && r[0] == filepath.Join(base, "app")
+	})
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}

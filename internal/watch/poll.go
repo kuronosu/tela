@@ -2,6 +2,8 @@ package watch
 
 import (
 	"io/fs"
+	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -55,6 +57,20 @@ func (p *poller) close() error {
 func (p *poller) snapshot(roots []string) (map[string]stamp, map[string]bool) {
 	files, dirs := map[string]stamp{}, map[string]bool{}
 	for _, r := range roots {
+		if p.w.opts.Flat {
+			// The root's entries, its subdirectories by name only.
+			dirs[r] = true
+			ents, _ := os.ReadDir(r)
+			for _, e := range ents {
+				path := filepath.Join(r, e.Name())
+				if e.IsDir() {
+					dirs[path] = true
+				} else if fi, err := e.Info(); err == nil {
+					files[path] = stamp{fi.Size(), fi.ModTime(), fi.Mode()}
+				}
+			}
+			continue
+		}
 		p.w.walk(r, func(path string) error { dirs[path] = true; return nil }, func(path string, d fs.DirEntry) {
 			if fi, err := d.Info(); err == nil {
 				files[path] = stamp{fi.Size(), fi.ModTime(), fi.Mode()}
@@ -113,12 +129,19 @@ func (p *poller) compare(files map[string]stamp, dirs map[string]bool, nf map[st
 			p.w.changed(path, true)
 		}
 	}
+	if p.w.opts.Flat {
+		for path := range nd {
+			if !dirs[path] && keep(path) {
+				p.w.newDir(path)
+			}
+		}
+	}
 }
 
 // under reports whether path is within one of roots.
 func under(path string, roots []string) bool {
 	for _, r := range roots {
-		if within(path, r) {
+		if Within(path, r) {
 			return true
 		}
 	}

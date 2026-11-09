@@ -247,12 +247,12 @@ func (k *kqueue) unwatchDir(path string) {
 // unwatchTree stops watching the tree at path. k.mu is held.
 func (k *kqueue) unwatchTree(path string) {
 	for p := range k.dirs {
-		if within(p, path) {
+		if Within(p, path) {
 			k.unwatchDir(p)
 		}
 	}
 	for p := range k.files {
-		if within(p, path) {
+		if Within(p, path) {
 			k.unwatchFile(p)
 		}
 	}
@@ -373,6 +373,9 @@ func (k *kqueue) scan(path string) []change {
 		switch {
 		case st.dir && !had:
 			if k.w.skip(p) {
+				if k.w.opts.Flat {
+					out = append(out, change{p, false}) // Watcher.newDir
+				}
 				continue
 			}
 			// Watch the new tree first, then report what is already in it.

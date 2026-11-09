@@ -117,7 +117,7 @@ func (in *inotify) add(path string) error {
 // remove drops the watches of the tree at path. in.mu is held.
 func (in *inotify) remove(path string) {
 	for p, wd := range in.byPath {
-		if within(p, path) {
+		if Within(p, path) {
 			unix.InotifyRmWatch(in.fd, uint32(wd))
 			delete(in.byPath, p)
 			delete(in.byWD, wd)
@@ -195,6 +195,7 @@ func (in *inotify) event(wd int32, mask uint32, name string) {
 	case mask&(unix.IN_CREATE|unix.IN_MOVED_TO) != 0:
 		if in.w.skip(path) {
 			in.mu.Unlock()
+			in.w.newDir(path)
 			return
 		}
 		// Watch the new tree first, then report what is already in it.

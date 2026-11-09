@@ -17,8 +17,8 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// rdcw watches each root with ReadDirectoryChangesW and its subtree flag,
-// one directory handle and goroutine per root, with overlapped I/O so that
+// rdcw watches each root with ReadDirectoryChangesW and its subtree flag
+// (not for a Flat watcher), one directory handle and goroutine per root, with overlapped I/O so that
 // close can stop a pending read (an event per root signals the stop and
 // CancelIoEx aborts the read, as fsnotify does).
 //
@@ -289,7 +289,10 @@ func (d *rdcw) loop(r *rootWatch, ready chan<- error) {
 	for {
 		ov := windows.Overlapped{HEvent: ev}
 		windows.ResetEvent(ev)
-		err := windows.ReadDirectoryChanges(r.h, &buf[0], uint32(len(buf)), true, rdcwMask, nil, &ov, 0)
+		// A Flat watcher's root alone: without the subtree flag, the
+		// changes deep in a large tree (all of %APPDATA% for a store
+		// whose folder does not exist yet) never reach the process.
+		err := windows.ReadDirectoryChanges(r.h, &buf[0], uint32(len(buf)), !d.w.opts.Flat, rdcwMask, nil, &ov, 0)
 		if err != nil {
 			if first {
 				ready <- err
@@ -352,7 +355,7 @@ func (d *rdcw) parse(r *rootWatch, buf []byte) {
 
 func (d *rdcw) event(r *rootWatch, path string, action uint32) {
 	// Skipped directories: check every directory between root and path.
-	for dir := filepath.Dir(path); within(dir, r.path) && dir != r.path; dir = filepath.Dir(dir) {
+	for dir := filepath.Dir(path); Within(dir, r.path) && dir != r.path; dir = filepath.Dir(dir) {
 		if d.w.skip(dir) {
 			return
 		}
@@ -361,7 +364,9 @@ func (d *rdcw) event(r *rootWatch, path string, action uint32) {
 	case windows.FILE_ACTION_ADDED, windows.FILE_ACTION_RENAMED_NEW_NAME:
 		fi, err := os.Lstat(path)
 		if err == nil && fi.IsDir() {
-			if !d.w.skip(path) {
+			if d.w.skip(path) {
+				d.w.newDir(path)
+			} else {
 				// Its subtree is watched already: report what is in it.
 				d.walkTree(r, path, func(p string) { d.w.changed(p, false) })
 			}
