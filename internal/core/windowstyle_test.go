@@ -160,3 +160,23 @@ func TestBackdropValidation(t *testing.T) {
 		checkWindowSpec("tela.App", "", &s)
 	})
 }
+
+// TestTransparentNeedsFrameless: a transparent window without Frameless
+// panics with the fix; with it the options carry Transparent.
+func TestTransparentNeedsFrameless(t *testing.T) {
+	func() {
+		defer func() {
+			msg, _ := recover().(string)
+			if !strings.Contains(msg, "Transparent without Frameless") || !strings.Contains(msg, "Frameless: true") {
+				t.Errorf("panic %q does not explain the fix", msg)
+			}
+		}()
+		s := WindowSpec{Transparent: true}
+		checkWindowSpec("tela.Window", "W", &s)
+	}()
+	s := WindowSpec{Transparent: true, Frameless: true}
+	checkWindowSpec("tela.App", "", &s)
+	if o := s.options("", nil); !o.Transparent || !o.Frameless {
+		t.Errorf("options %+v drop Transparent", o)
+	}
+}

@@ -71,7 +71,7 @@ var (
 )
 
 // blendFunction is BLENDFUNCTION.
-type blendFunction struct{ op, flags, alpha, format byte }
+type blendFunction struct{ op, _, alpha, format byte } // BlendFlags (the second byte) is 0
 
 // sizeL is SIZE.
 type sizeL struct{ cx, cy int32 }
