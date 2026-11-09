@@ -10,16 +10,29 @@
 // so does the first day of the week of each region (its supplemental
 // weekData).
 //
+// It also generates the number data (numbering.go, numberformats.go,
+// numberdata.go): numbering_gen.go, numberformats_gen.go,
+// currencies_gen.go and localenumbers_gen.go.
+//
 // Flags:
 //
 //	-cldr dir      directory of the vendored locale files (default internal/gen/cldr)
 //	-out path      output file (default dates_gen.go)
 //	-numbering-out path  numbering systems file (default numbering_gen.go, numbering.go)
 //	-number-formats-out path  number symbols and patterns file (default numberformats_gen.go, numberformats.go)
+//	-currencies-out path      currency digits and symbols file (default currencies_gen.go, numberdata.go)
+//	-locale-numbers-out path  compact patterns and currency names file (default localenumbers_gen.go)
 //	-fetch-numbering     download only the numbers data: the default numbering system, the number
-//	                     symbols and patterns of each locale, and the digits of the systems
-//	-fetch         download the locale files from the cldr-json repository first
+//	                     symbols and patterns, the currency symbols of each locale, the compact
+//	                     patterns and currency names of the generated locales, the digits of the
+//	                     systems, the currencies' digits, and the sources of scriptAliases
+//	-fetch         download the locale files from the cldr-json repository first (and the numbers data)
 //	-version tag   cldr-json tag that -fetch reads (default 48.0.0)
+//	-cldr-tag tag  cldr tag whose common/main/root.xml -fetch-numbering reads (default release-48)
+//	-icu-tag tag   icu tag whose cldr-to-icu config.xml -fetch-numbering reads (default release-78.1,
+//	               the ICU of CLDR 48)
+//
+// A CLDR update changes the three tags together.
 //
 // -fetch keeps only the parts of CLDR's ca-gregorian.json and
 // listPatterns.json that the generator reads, under their original paths
@@ -83,7 +96,11 @@ func main() {
 	fetchNum := flag.Bool("fetch-numbering", false, "download only the numbering system data (numbering.go) first")
 	numOut := flag.String("numbering-out", "numbering_gen.go", "Go file to write the numbering systems to")
 	fmtOut := flag.String("number-formats-out", "numberformats_gen.go", "Go file to write the number symbols and patterns to")
+	curOut := flag.String("currencies-out", "currencies_gen.go", "Go file to write the currency digits and symbols to")
+	locOut := flag.String("locale-numbers-out", "localenumbers_gen.go", "Go file to write the compact patterns and currency names to")
 	version := flag.String("version", "48.0.0", "cldr-json tag that -fetch reads")
+	cldrTag := flag.String("cldr-tag", "release-48", "cldr tag whose root.xml -fetch-numbering reads")
+	icuTag := flag.String("icu-tag", "release-78.1", "icu tag whose cldr-to-icu config.xml -fetch-numbering reads")
 	flag.Parse()
 
 	if *fetch {
@@ -92,30 +109,27 @@ func main() {
 		}
 	}
 	if *fetch || *fetchNum {
-		if err := fetchNumbering(*cldrDir, *version); err != nil {
+		if err := fetchNumbering(*cldrDir, numberingSources{cldrJSON: *version, cldr: *cldrTag, icu: *icuTag}); err != nil {
 			fatal(err)
 		}
 	}
-	src, err := generate(*cldrDir)
-	if err != nil {
-		fatal(err)
-	}
-	if err := os.WriteFile(*out, src, 0o644); err != nil {
-		fatal(err)
-	}
-	src, err = generateNumbering(*cldrDir)
-	if err != nil {
-		fatal(err)
-	}
-	if err := os.WriteFile(*numOut, src, 0o644); err != nil {
-		fatal(err)
-	}
-	src, err = generateNumberFormats(*cldrDir)
-	if err != nil {
-		fatal(err)
-	}
-	if err := os.WriteFile(*fmtOut, src, 0o644); err != nil {
-		fatal(err)
+	for _, g := range []struct {
+		out string
+		gen func(string) ([]byte, error)
+	}{
+		{*out, generate},
+		{*numOut, generateNumbering},
+		{*fmtOut, generateNumberFormats},
+		{*curOut, generateCurrencies},
+		{*locOut, generateLocaleNumbers},
+	} {
+		src, err := g.gen(*cldrDir)
+		if err != nil {
+			fatal(err)
+		}
+		if err := os.WriteFile(g.out, src, 0o644); err != nil {
+			fatal(err)
+		}
 	}
 }
 

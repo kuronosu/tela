@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"golang.org/x/text/language"
-	"golang.org/x/text/message"
-	"golang.org/x/text/number"
 )
 
 // Direction is the writing direction of a locale: [LTR] or [RTL].
@@ -75,16 +73,15 @@ type locData struct {
 	dir  Direction
 
 	dates *dateLocale // nil until first used (dateInit)
-	once  sync.Once
+	// dateIdx is the index in dateTags of the generated locale whose
+	// dates, compact patterns and currency names the locale uses.
+	dateIdx int
+	once    sync.Once
 	// digits are the locale's digits 0 to 9 when they are not ASCII (its
-	// numbering system, numbering.go); numbers are the symbols it writes
-	// them with (numberformat.go).
+	// numbering system, numbering.go); numbers are the symbols and
+	// patterns it writes them with (numberformat.go).
 	digits  []string
-	numbers numberSymbols
-	// legacy is x/text's printer for an explicit numbering system the
-	// tables lack symbols for; remap says it writes ASCII digits anyway.
-	legacy *message.Printer
-	remap  bool
+	numbers *numberLocale
 }
 
 var locCache sync.Map // string (as given) -> *locData
@@ -105,8 +102,8 @@ func forTag(tag string) (*locData, error) {
 
 func newLoc(t language.Tag) *locData {
 	b, _ := t.Base()
-	nf := newNumberFormat(t)
-	return &locData{tag: t, name: t.String(), lang: b, dir: dirOf(t), digits: nf.digits, numbers: nf.symbols, legacy: nf.legacy, remap: nf.remap}
+	nl := newNumberLocale(t, "")
+	return &locData{tag: t, name: t.String(), lang: b, dir: dirOf(t), digits: nl.digits, numbers: nl}
 }
 
 // Formatter formats messages, numbers, dates and lists for one locale.
@@ -149,14 +146,54 @@ func (f Formatter) Dir() Direction { return f.loc().dir }
 // ---------------------------------------------------------------------
 // Numbers.
 
-// NumberOption changes how [FormatNumber] writes a number.
+// NumberOption changes how [Formatter.Number] writes a number. The options
+// are those of JavaScript's Intl.NumberFormat, with the same defaults:
+// [Percent] and [Currency] are its style, [SignDisplay], [Notation],
+// [CompactDisplay], [CurrencyDisplay] and [CurrencySign] its options of the
+// same names, [MinFractionDigits] and [MaxFractionDigits] its fraction
+// digits and [NoGrouping] useGrouping: false. When two options set the
+// same thing (Percent and Currency), the last one wins.
 type NumberOption func(*numberConfig)
 
+// numberStyle is Intl's style: a decimal number, a percentage or an
+// amount of money.
+type numberStyle uint8
+
+const (
+	styleDecimal numberStyle = iota
+	stylePercent
+	styleCurrency
+)
+
+// groupingMode is ICU's grouping strategy (skeletons' group-*).
+type groupingMode uint8
+
+const (
+	groupAuto      groupingMode = iota // the locale's minimum grouping digits (2 in compact notation)
+	groupOff                           // no grouping
+	groupMin2                          // at least 2 digits before the first separator
+	groupAlways                        // from 4 digits on, whatever the locale's minimum
+	groupThousands                     // groups of 3 from 4 digits on, whatever the locale's sizes
+)
+
+// numberConfig is how a number is written: the options of
+// [Formatter.Number] and the styles and skeletons of messages.
 type numberConfig struct {
-	minFrac, maxFrac int // -1: the locale's default (0 and 3)
-	percent          bool
-	noGrouping       bool
+	minFrac, maxFrac int // -1: the default for the style and notation
+	minSig, maxSig   int // significant digits (skeletons' @@#); 0: none
+	style            numberStyle
+	scale            int // the number is multiplied by 10^scale (Percent: 2)
+	currency         string
+	currencyDisplay  CurrencyDisplayMode
+	currencySign     CurrencySignMode
+	signDisplay      SignDisplayMode
+	notation         NotationMode
+	compactDisplay   CompactDisplayMode
+	grouping         groupingMode
+	numbering        string // a numbering system of a skeleton ("" the locale's)
 }
+
+func defaultNumberConfig() numberConfig { return numberConfig{minFrac: -1, maxFrac: -1} }
 
 // MinFractionDigits writes at least n digits after the decimal separator
 // (FormatNumber(2, MinFractionDigits(2)) is "2.00" in English).
@@ -165,7 +202,9 @@ func MinFractionDigits(n int) NumberOption {
 }
 
 // MaxFractionDigits writes at most n digits after the decimal separator,
-// rounding half to even; the default is 3.
+// rounding half to even; the default is 3 (0 for a percentage, the
+// currency's digits for an amount, and in compact notation one fraction
+// digit at most, for two significant digits: 1.2K, 12K, 123K).
 func MaxFractionDigits(n int) NumberOption {
 	return func(c *numberConfig) { c.maxFrac = max(n, 0) }
 }
@@ -173,16 +212,156 @@ func MaxFractionDigits(n int) NumberOption {
 // Percent multiplies the number by 100 and writes it as a percentage with
 // the locale's symbol and spacing ("12%" in English, "12 %" in French). The
 // default maximum is 0 fraction digits.
-func Percent() NumberOption { return func(c *numberConfig) { c.percent = true } }
+func Percent() NumberOption {
+	return func(c *numberConfig) { c.style, c.scale = stylePercent, 2 }
+}
 
 // NoGrouping leaves out the thousands separators.
-func NoGrouping() NumberOption { return func(c *numberConfig) { c.noGrouping = true } }
+func NoGrouping() NumberOption { return func(c *numberConfig) { c.grouping = groupOff } }
+
+// SignDisplayMode says which numbers show a sign: Intl.NumberFormat's
+// signDisplay. The signs are the locale's (fa writes "\u200e−", ar-EG
+// "\u061c-").
+type SignDisplayMode uint8
+
+const (
+	// SignAuto shows the minus sign of negative numbers, -0 and numbers
+	// that round to it included ("-0"), the default.
+	SignAuto SignDisplayMode = iota
+	// SignAlways also shows a plus sign on positive numbers and zero
+	// ("+3", "+0", "-0").
+	SignAlways
+	// SignExceptZero shows a plus or minus sign on numbers that are not
+	// zero once rounded ("+3", "0", "-3").
+	SignExceptZero
+	// SignNegative shows the minus sign of negative numbers that are not
+	// zero once rounded ("0" for -0).
+	SignNegative
+	// SignNever shows no sign.
+	SignNever
+)
+
+// SignDisplay says which numbers show their sign
+// (FormatNumber(5, SignDisplay(SignAlways)) is "+5").
+func SignDisplay(m SignDisplayMode) NumberOption {
+	return func(c *numberConfig) { c.signDisplay = m }
+}
+
+// Currency writes the number as an amount of money in the currency, an
+// ISO 4217 code ("EUR", "usd"), with the locale's currency pattern and
+// symbol: "$1,234.50" in English for "USD", "1.234,50 €" in German for
+// "EUR", "-₹12,34,567.50" in Hindi. The digits after the decimal
+// separator are the currency's (2, 0 for "JPY", 3 for "BHD"), unless
+// [MinFractionDigits] or [MaxFractionDigits] say otherwise. A currency
+// that no region uses today is written with its code ("XYZ 1,234.50"). It
+// panics if code is not three ASCII letters.
+func Currency(code string) NumberOption {
+	if len(code) != 3 || !isASCIILetters(code) {
+		panic(fmt.Sprintf("i18n: Currency(%q): not an ISO 4217 currency code; use three letters, such as \"USD\", \"EUR\" or \"JPY\"", code))
+	}
+	code = strings.ToUpper(code)
+	return func(c *numberConfig) { c.style, c.scale, c.currency = styleCurrency, 0, code }
+}
+
+func isASCIILetters(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if c := s[i] | 0x20; c < 'a' || c > 'z' {
+			return false
+		}
+	}
+	return true
+}
+
+// CurrencyDisplayMode is how [Currency] names the currency:
+// Intl.NumberFormat's currencyDisplay.
+type CurrencyDisplayMode uint8
+
+const (
+	// CurrencySymbol is the locale's symbol, the default: "$" for USD in
+	// English, "US$" in Spanish, "CA$" for CAD in English, "$" in en-CA.
+	CurrencySymbol CurrencyDisplayMode = iota
+	// CurrencyNarrowSymbol is the shortest symbol ("$" for USD, CAD, MXN...).
+	CurrencyNarrowSymbol
+	// CurrencyCode is the ISO code: "USD 1,234.50", "1.234,50 EUR".
+	CurrencyCode
+	// CurrencyName is the name in the plural form the number takes:
+	// "1.00 US dollars", "1 US dollar" with MaxFractionDigits(0),
+	// "2 złote polskie".
+	CurrencyName
+)
+
+// CurrencyDisplay says how [Currency] names the currency.
+func CurrencyDisplay(m CurrencyDisplayMode) NumberOption {
+	return func(c *numberConfig) { c.currencyDisplay = m }
+}
+
+// CurrencySignMode is how [Currency] writes negative amounts:
+// Intl.NumberFormat's currencySign.
+type CurrencySignMode uint8
+
+const (
+	// CurrencySignStandard writes them with the minus sign, the default.
+	CurrencySignStandard CurrencySignMode = iota
+	// CurrencySignAccounting writes them as the locale's accounting
+	// pattern does: "($1,234.50)" in English, "(1 234,50 €)" in French;
+	// locales without one use the minus sign.
+	CurrencySignAccounting
+)
+
+// CurrencySign says how [Currency] writes negative amounts.
+func CurrencySign(m CurrencySignMode) NumberOption {
+	return func(c *numberConfig) { c.currencySign = m }
+}
+
+// NotationMode is how a number is written: Intl.NumberFormat's notation.
+type NotationMode uint8
+
+const (
+	// NotationStandard writes every digit, the default.
+	NotationStandard NotationMode = iota
+	// NotationScientific writes a mantissa from 1 to 10 and the exponent
+	// with the locale's symbol: "1.235E4", "١٫٢٣أس\u061c-٣" in ar-EG.
+	NotationScientific
+	// NotationEngineering is scientific notation with an exponent that is
+	// a multiple of 3: "12.345E3".
+	NotationEngineering
+	// NotationCompact writes large numbers with the locale's abbreviations
+	// ([CompactDisplay]): "1.2K", "1,2 Mio." in German, "1.2万" in
+	// Japanese, "12 लाख" in Hindi; numbers below the locale's first
+	// abbreviation are written in full ("1234" in German and Japanese).
+	NotationCompact
+)
+
+// Notation says how a number is written.
+func Notation(m NotationMode) NumberOption {
+	return func(c *numberConfig) { c.notation = m }
+}
+
+// CompactDisplayMode is how [NotationCompact] abbreviates:
+// Intl.NumberFormat's compactDisplay.
+type CompactDisplayMode uint8
+
+const (
+	// CompactShort writes "1.2K", "1,2 M" (fr), the default.
+	CompactShort CompactDisplayMode = iota
+	// CompactLong writes words in the plural form the number takes: "1.2
+	// thousand", "2 millones", "5 миллионов".
+	CompactLong
+)
+
+// CompactDisplay says how [NotationCompact] abbreviates. An amount of
+// money in compact notation is always short ("$1.2M"), except with
+// [CurrencyName] ("1.2 million US dollars" is "1.2M US dollars" short).
+func CompactDisplay(m CompactDisplayMode) NumberOption {
+	return func(c *numberConfig) { c.compactDisplay = m }
+}
 
 // Number formats v for the Formatter's locale: grouping, decimal
 // separator and digits follow it ("1.234,5" in Spanish, "1,234.5" in
-// English).
+// English); see [NumberOption] for percentages, currencies, signs and
+// notations.
 func (f Formatter) Number(v float64, opts ...NumberOption) string {
-	c := numberConfig{minFrac: -1, maxFrac: -1}
+	c := defaultNumberConfig()
 	for _, o := range opts {
 		o(&c)
 	}
@@ -190,44 +369,7 @@ func (f Formatter) Number(v float64, opts ...NumberOption) string {
 }
 
 func (f Formatter) formatNumber(v any, c numberConfig) string {
-	d := f.loc()
-	var opts []number.Option
-	if c.minFrac >= 0 || c.maxFrac >= 0 {
-		lo, hi := c.minFrac, c.maxFrac
-		if lo < 0 {
-			lo = 0
-		}
-		if hi < 0 {
-			hi = max(lo, 3)
-			if c.percent {
-				hi = lo
-			}
-		}
-		hi = max(hi, lo)
-		opts = append(opts, number.MinFractionDigits(lo), number.MaxFractionDigits(hi))
-	}
-	if d.legacy != nil {
-		return d.formatLegacy(v, c, opts)
-	}
-	return d.numbers.write(v, c.percent, opts, d.digits, c.noGrouping)
-}
-
-// formatLegacy formats a number with golang.org/x/text's own symbols (CLDR
-// 32), for the numbering systems the generated tables have no symbols for.
-func (d *locData) formatLegacy(v any, c numberConfig, opts []number.Option) string {
-	if c.noGrouping {
-		opts = append(opts, number.NoSeparator())
-	}
-	var s string
-	if c.percent {
-		s = d.legacy.Sprint(number.Percent(v, opts...))
-	} else {
-		s = d.legacy.Sprint(number.Decimal(v, opts...))
-	}
-	if d.remap {
-		s = replaceDigits(s, d.digits)
-	}
-	return s
+	return f.loc().formatNumber(v, c)
 }
 
 // ---------------------------------------------------------------------

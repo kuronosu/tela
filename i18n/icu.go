@@ -13,7 +13,8 @@ import (
 // A message is text with arguments in braces:
 //
 //	{name}                                     simple argument
-//	{n, number}  {n, number, integer|percent}  number
+//	{n, number}  {n, number, integer|percent|currency}  number
+//	{n, number, ::currency/EUR sign-always}    number with an ICU skeleton (skeleton.go)
 //	{d, date, short|medium|long|full}          date (also: time)
 //	{n, plural, offset:1 =0 {none} one {# file} other {# files}}
 //	{n, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}
@@ -53,6 +54,9 @@ type node struct {
 	name  string // argument name (nodeArg, nodePlural, nodeSelect)
 	typ   argType
 	style string // number, date and time style ("" = default)
+	// num is how a number argument is written (nil: {n, number});
+	// "currency" has no currency: the locale's, when evaluated.
+	num *numberConfig
 
 	ordinal bool    // nodePlural: selectordinal
 	offset  float64 // nodePlural
@@ -270,7 +274,7 @@ func (p *parser) parseArg(inPlural bool) node {
 		if !p.eof() && p.src[p.pos] == ',' {
 			p.pos++
 			n.style = p.readStyle()
-			p.checkStyle(n, typStart)
+			p.checkStyle(&n, typStart)
 		}
 		p.expect('}', "'}' to close the argument")
 		return n
@@ -295,15 +299,34 @@ func (p *parser) readStyle() string {
 }
 
 var (
-	numberStyles = []string{"integer", "percent"}
+	numberStyles = []string{"integer", "percent", "currency"}
 	dateStyles   = []string{"short", "medium", "long", "full"}
 )
 
-func (p *parser) checkStyle(n node, at int) {
+func (p *parser) checkStyle(n *node, at int) {
 	var ok []string
 	switch n.typ {
 	case argNumber:
-		ok = numberStyles
+		c := defaultNumberConfig()
+		switch {
+		case strings.HasPrefix(n.style, "::"):
+			var err error
+			if c, err = parseSkeleton(n.style[2:]); err != nil {
+				p.fail(at, "{%s, number, %s}: %v", n.name, n.style, err)
+			}
+		case n.style == "integer":
+			c.maxFrac = 0
+		case n.style == "percent":
+			c.style, c.scale = stylePercent, 2
+		case n.style == "currency":
+			c.style = styleCurrency
+		default:
+			ok = numberStyles
+		}
+		if ok == nil {
+			n.num = &c
+			return
+		}
 	default:
 		ok = dateStyles
 	}
@@ -313,6 +336,10 @@ func (p *parser) checkStyle(n node, at int) {
 		}
 	}
 	kind := map[argType]string{argNumber: "number", argDate: "date", argTime: "time"}[n.typ]
+	if n.typ == argNumber {
+		p.fail(at, "unsupported number style %q in {%s, number, ...}; use one of %s, or a skeleton after :: (::currency/EUR, ::compact-short); patterns are not supported",
+			n.style, n.name, strings.Join(ok, ", "))
+	}
 	p.fail(at, "unsupported %s style %q in {%s, %s, ...}; use one of %s (skeletons and patterns are not supported)",
 		kind, n.style, n.name, kind, strings.Join(ok, ", "))
 }

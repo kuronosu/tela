@@ -2,12 +2,12 @@ package i18n
 
 import (
 	"golang.org/x/text/language"
-	"golang.org/x/text/message"
-	"golang.org/x/text/number"
 )
 
-// The numbering systems of locales (ADR-251). numbering_gen.go, generated
-// from CLDR 48, says which locales do not write Latin digits.
+// The numbering systems of locales (ADR-251, ADR-266). numbering_gen.go,
+// generated from CLDR 48, says which locales do not write Latin digits,
+// the digits of every numeric system, and the script ICU gives the
+// language-region locales it aliases (scriptAliases).
 
 // defaultNumbering returns the default numbering system of a locale
 // according to CLDR 48 ("latn", "arab", "arabext", "beng"...), found as
@@ -23,20 +23,18 @@ func defaultNumbering(t language.Tag) string {
 	return "latn"
 }
 
-// scriptAliases are the language-region locales that ICU's data aliases to
-// their likely script, as pa_PK to pa_Arab_PK and zh_TW to zh_Hant_TW: the
-// language-region IDs of the cldr-to-icu converter's config.xml that have
-// no CLDR data of their own, aliased to their CLDR 48 likely subtags
-// (LdmlConverter.getAliasMap; golang.org/x/text's likely subtags are CLDR
-// 32's, where sd-IN is still Arabic). Other tags are not given a script:
-// ICU reads az-IR as az (Latin digits), not az-Arab-IR.
-var scriptAliases = map[string]string{
-	"az-AZ": "Latn", "bs-BA": "Latn", "ff-CM": "Latn", "ff-GN": "Latn", "ff-MR": "Latn", "ff-SN": "Latn",
-	"ks-IN": "Arab", "ku-SY": "Latn", "kxv-IN": "Latn", "mni-IN": "Beng", "pa-IN": "Guru", "pa-PK": "Arab",
-	"sat-IN": "Olck", "sd-IN": "Deva", "sd-PK": "Arab", "shi-MA": "Tfng", "sr-BA": "Cyrl", "sr-ME": "Latn",
-	"sr-RS": "Cyrl", "sr-XK": "Cyrl", "su-ID": "Latn", "uz-AF": "Arab", "uz-UZ": "Latn", "vai-LR": "Vaii",
-	"yue-CN": "Hans", "yue-HK": "Hant", "zh-CN": "Hans", "zh-HK": "Hant", "zh-MO": "Hant", "zh-SG": "Hans",
-	"zh-TW": "Hant",
+// numberingOf returns the numbering system a tag writes in: the explicit
+// one ("-u-nu-"), or sys when it is not "", if it is a numeric system CLDR
+// knows, else the locale's default. Like ICU, an unknown or algorithmic
+// system ("-u-nu-roman") gives the default.
+func numberingOf(t language.Tag, sys string) string {
+	if sys == "" {
+		sys = t.TypeForKey("nu")
+	}
+	if _, ok := numberingDigits[sys]; ok || sys == "latn" {
+		return sys
+	}
+	return defaultNumbering(t)
 }
 
 // localeChain returns the names a tag's CLDR data is looked up under, most
@@ -64,77 +62,15 @@ func localeChain(t language.Tag) []string {
 	return append(chain, base)
 }
 
-// numberFormat is how a locale writes numbers: the digits (nil for ASCII)
-// and the CLDR 48 symbols and patterns of its numbering system. When the
-// tag names a system ("-u-nu-") that the tables have no symbols for,
-// golang.org/x/text's printer formats the number instead (CLDR 32).
-type numberFormat struct {
-	digits  []string
-	symbols numberSymbols
-	legacy  *message.Printer
-	remap   bool // the legacy printer writes ASCII digits anyway
-}
-
-// newNumberFormat chooses the numbering system of a locale: the tag's own
-// ("-u-nu-"), else CLDR 48's default.
-func newNumberFormat(t language.Tag) numberFormat {
-	sys := t.TypeForKey("nu")
-	explicit := sys != ""
-	if !explicit {
-		sys = defaultNumbering(t)
+// digitsOf returns the digits of a numbering system, nil for ASCII.
+func digitsOf(sys string) []string {
+	d, ok := numberingDigits[sys]
+	if !ok {
+		return nil
 	}
-	want := asciiDigits
-	if d, ok := numberingDigits[sys]; ok {
-		want = splitDigits(d)
-	}
-	syms, found := symbolsFor(t, sys)
-	if found || !explicit {
-		return numberFormat{digits: nonASCII(want), symbols: syms}
-	}
-	// A system of the tag that no locale of CLDR 48's tables uses by
-	// default: x/text knows more of them (en-u-nu-arab).
-	p := message.NewPrinter(t)
-	own := digitsOf(p)
-	if sys != "latn" && equalDigits(own, asciiDigits) && !equalDigits(want, asciiDigits) {
-		return numberFormat{digits: nonASCII(want), legacy: p, remap: true}
-	}
-	return numberFormat{digits: nonASCII(own), legacy: p}
-}
-
-var asciiDigits = splitDigits("0123456789")
-
-func splitDigits(s string) []string {
 	out := make([]string, 0, 10)
-	for _, r := range s {
+	for _, r := range d {
 		out = append(out, string(r))
 	}
 	return out
-}
-
-func digitsOf(p *message.Printer) []string {
-	digits := make([]string, 10)
-	for i := range digits {
-		digits[i] = p.Sprint(number.Decimal(i, number.NoSeparator()))
-	}
-	return digits
-}
-
-func equalDigits(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
-// nonASCII returns digits, or nil when they are 0 to 9.
-func nonASCII(digits []string) []string {
-	if equalDigits(digits, asciiDigits) {
-		return nil
-	}
-	return digits
 }

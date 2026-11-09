@@ -78,8 +78,8 @@ func TestArabicRegionsDigits(t *testing.T) {
 	}
 }
 
-// A system golang.org/x/text does not know is written by replacing the
-// ASCII digits of its output.
+// A system golang.org/x/text does not know (hmnp, the default of hnj) is
+// written with the digits of Tela's tables (numbering_gen.go).
 func TestNumberingSystemUnknownToXText(t *testing.T) {
 	if got, want := For("hnj").Number(1234.5), "𞅁,𞅂𞅃𞅄.𞅅"; got != want {
 		t.Errorf("For(hnj).Number(1234.5) = %q, want %q", got, want)

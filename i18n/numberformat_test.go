@@ -22,17 +22,17 @@ func TestNumberSymbolsCLDR48(t *testing.T) {
 		{"ur", "\u200e-1,234.5", "\u200e-1,234,567.891", "\u200e-26%"},
 		{"ur-IN", "\u200e-\u200e۱٬۲۳۴٫۵", "\u200e-\u200e۱٬۲۳۴٬۵۶۷٫۸۹۱", "\u200e-\u200e۲۶%"},
 		{"ne", "-१,२३४.५", "-१२,३४,५६७.८९१", "-२६%"},
-		{"ckb", "\u200f-١٬٢٣٤٫٥", "\u200f-١٬٢٣٤٬٥٦٧٫٨٩١", "\u200f-٢٦ ٪"},
+		{"ckb", "\u200f-١٬٢٣٤٫٥", "\u200f-١٬٢٣٤٬٥٦٧٫٨٩١", "\u200f-٢٦\u00a0٪"},
 		{"sd", "\u061c-١٬٢٣٤.٥", "\u061c-١٬٢٣٤٬٥٦٧.٨٩١", "\u061c-٢٦٪\u061c"},
 		{"ar-EG", "\u061c-١٬٢٣٤٫٥", "\u061c-١٬٢٣٤٬٥٦٧٫٨٩١", "\u061c-٢٦٪\u061c"},
 		{"ar", "\u200e-1,234.5", "\u200e-1,234,567.891", "\u200e-26\u200e%\u200e"},
-		{"sv", "−1 234,5", "−1 234 567,891", "−26 %"},
+		{"sv", "−1\u00a0234,5", "−1\u00a0234\u00a0567,891", "−26\u00a0%"},
 		{"tr", "-1.234,5", "-1.234.567,891", "-%26"},
 		{"hi", "-1,234.5", "-12,34,567.891", "-26%"},
 		{"en-IN", "-1,234.5", "-12,34,567.891", "-26%"},
-		{"fr", "-1 234,5", "-1 234 567,891", "-26 %"},
-		{"es", "-1234,5", "-1.234.567,891", "-26 %"},
-		{"pl", "-1234,5", "-1 234 567,891", "-26%"},
+		{"fr", "-1\u202f234,5", "-1\u202f234\u202f567,891", "-26\u00a0%"},
+		{"es", "-1234,5", "-1.234.567,891", "-26\u00a0%"},
+		{"pl", "-1234,5", "-1\u00a0234\u00a0567,891", "-26%"},
 		{"de-CH", "-1'234.5", "-1'234'567.891", "-26%"},
 		{"en", "-1,234.5", "-1,234,567.891", "-26%"},
 		// A tag's own numbering system keeps the locale's symbols.
@@ -65,8 +65,8 @@ func TestNumberMinimumGrouping(t *testing.T) {
 		{"es", 9999, "9999"},
 		{"es", 10000, "10.000"},
 		{"pt-PT", 1000, "1000"},
-		{"pt-PT", 10000, "10 000"},
-		{"pl", 10000, "10 000"},
+		{"pt-PT", 10000, "10\u00a0000"},
+		{"pl", 10000, "10\u00a0000"},
 		{"pt-BR", 1000, "1.000"},
 		{"es-MX", 1000, "1,000"},
 		{"hi", 1000, "1,000"},
@@ -120,12 +120,16 @@ func TestNumberTableMatchesVendoredCLDR(t *testing.T) {
 	}
 	var digests map[string]struct {
 		Systems map[string]struct {
-			Decimal     string `json:"decimal"`
-			Group       string `json:"group"`
-			MinusSign   string `json:"minusSign"`
-			PercentSign string `json:"percentSign"`
-			Infinity    string `json:"infinity"`
-			NaN         string `json:"nan"`
+			Decimal         string `json:"decimal"`
+			Group           string `json:"group"`
+			MinusSign       string `json:"minusSign"`
+			PlusSign        string `json:"plusSign"`
+			PercentSign     string `json:"percentSign"`
+			Exponential     string `json:"exponential"`
+			Infinity        string `json:"infinity"`
+			NaN             string `json:"nan"`
+			CurrencyDecimal string `json:"currencyDecimal"`
+			CurrencyGroup   string `json:"currencyGroup"`
 		} `json:"systems"`
 	}
 	if err := json.Unmarshal(raw, &digests); err != nil {
@@ -145,9 +149,11 @@ func TestNumberTableMatchesVendoredCLDR(t *testing.T) {
 			continue
 		}
 		for sys, want := range d.Systems {
-			got, found := symbolsFor(tag, sys)
+			got, found := lookupRow(tag, sys)
 			if !found || got.decimal != want.Decimal || got.group != want.Group || got.minus != want.MinusSign ||
-				got.infinity != want.Infinity || got.nan != want.NaN {
+				got.plus != want.PlusSign || got.percent != want.PercentSign || got.exponential != want.Exponential ||
+				got.infinity != want.Infinity || got.nan != want.NaN ||
+				got.currencyDecimal != want.CurrencyDecimal || got.currencyGroup != want.CurrencyGroup {
 				t.Errorf("%s/%s: table has %+v (found %v), CLDR has %+v", loc, sys, got, found, want)
 			}
 			checked++

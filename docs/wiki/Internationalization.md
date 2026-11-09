@@ -61,7 +61,8 @@ removes the catalogs of some locales, or all of them (a test leaves none behind)
 | Syntax | Example |
 |---|---|
 | Argument | `Hello, {name}!` |
-| Number | `{n, number}`, `{n, number, integer}`, `{n, number, percent}`; a plain `{n}` formats numbers for the locale too |
+| Number | `{n, number}`, `{n, number, integer}`, `{n, number, percent}`, `{n, number, currency}` (the locale's currency: its `-u-cu-`, else its region's); a plain `{n}` formats numbers for the locale too |
+| Number skeleton | `{n, number, ::currency/EUR}`, `::compact-short`, `::scientific`, `::sign-always`, `::.00`; see [Number skeletons](#number-skeletons) |
 | Date and time | `{when, date, long}`, `{when, time, short}` (styles `short`, `medium`, `long`, `full`; the argument is a `time.Time`) |
 | Plural | `{n, plural, =0 {none} one {# item} other {# items}}`; categories `zero one two few many other` (as the language has them), `=N` for exact values, `offset:1`, and `#` for the number, formatted for the locale |
 | Ordinal | `{n, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}` |
@@ -69,9 +70,29 @@ removes the catalogs of some locales, or all of them (a test leaves none behind)
 | Nesting | Cases hold messages, which may hold more arguments: a plural inside a select inside a plural; `#` is always the innermost enclosing plural's |
 | Quoting | `''` is an apostrophe; an apostrophe quotes only when it comes right before `{`, `}` (or `#` in a plural), up to the next apostrophe: `'{'name'}'` is `{name}`; `don't` needs nothing |
 
-A plural needs an `other` case. Number skeletons and patterns
-(`{n, number, ::currency/USD}`), currencies, units, spellout and `choice`
-are not supported and fail at load time.
+A plural needs an `other` case. Number patterns (`{n, number, #,##0.00}`),
+units, spellout and `choice` are not supported and fail at load time.
+
+### Number skeletons
+
+A number style that starts with `::` is an
+[ICU skeleton](https://unicode-org.github.io/icu/userguide/format_parse/numbers/skeletons.html):
+stems separated by spaces, written the long or the concise way.
+
+| What | Stems |
+|---|---|
+| Notation | `compact-short` `K`, `compact-long` `KK`, `scientific` `E0`, `engineering` `EE0`, `notation-simple` |
+| Unit | `currency/EUR`, `percent` `%` (no scaling: 50 is "50%"), `%x100` (0.5 is "50%"), `base-unit` |
+| Currency display | `unit-width-short` (symbol), `unit-width-narrow`, `unit-width-iso-code`, `unit-width-full-name` |
+| Precision | `precision-integer` `.`, `.00`, `.0#`, `.##`, `.00+`, `precision-unlimited` `.+`, `@@@`, `@@#`, `@+`, `precision-currency-standard` |
+| Sign | `sign-auto`, `sign-always` `+!`, `sign-never` `+_`, `sign-except-zero` `+?`, `sign-negative` `+-`, `sign-accounting` `()`, `sign-accounting-always` `()!`, `sign-accounting-except-zero` `()?`, `sign-accounting-negative` `()-` |
+| Grouping | `group-off` `,_`, `group-min2` `,?`, `group-auto`, `group-on-aligned` `,!`, `group-thousands` `,=` |
+| Other | `scale/100` (powers of ten), `latin`, `numbering-system/arab`, `rounding-mode-half-even`, `decimal-auto` |
+
+Other stems (measure units, per mille, integer width, rounding increments
+and modes, options after `scientific/`) fail when the catalog loads. A
+skeleton without a precision rounds to 3 fraction digits, as `{n, number}`
+does and as `Intl.NumberFormat` does; ICU's own NumberFormatter keeps 6.
 
 ## Translating
 
@@ -137,6 +158,41 @@ f.List([]string{"a", "b", "c"})        // "a, b, and c", "a, b y c", "a、b、c"
 with `UseLocale` in a component so that it rebuilds. `i18n.For("de")` is the
 formatter of any locale.
 
+### Currencies, signs and notations
+
+The number options are those of JavaScript's `Intl.NumberFormat`, with its
+defaults:
+
+```go
+f.Number(-1234.5, i18n.Currency("EUR"))  // "-€1,234.50", "-1.234,50 €" (de), "-1234,50 €" (es)
+f.Number(-1234.5, i18n.Currency("USD"), i18n.CurrencySign(i18n.CurrencySignAccounting)) // "($1,234.50)"
+f.Number(1234.5, i18n.Currency("USD"), i18n.CurrencyDisplay(i18n.CurrencyCode))        // "USD 1,234.50"
+f.Number(1, i18n.Currency("USD"), i18n.CurrencyDisplay(i18n.CurrencyName))             // "1.00 US dollars"
+f.Number(5, i18n.Currency("RUB"), i18n.CurrencyDisplay(i18n.CurrencyName),
+	i18n.MaxFractionDigits(0))                     // "5 российских рублей" (ru)
+f.Number(5, i18n.SignDisplay(i18n.SignAlways))   // "+5"; also SignExceptZero, SignNegative, SignNever
+f.Number(1234567, i18n.Notation(i18n.NotationCompact)) // "1.2M", "1,2 Mio." (de), "123万" (ja), "12 लाख" (hi)
+f.Number(2000000, i18n.Notation(i18n.NotationCompact),
+	i18n.CompactDisplay(i18n.CompactLong))         // "2 million", "2 millones" (es)
+f.Number(123456, i18n.Notation(i18n.NotationScientific))  // "1.235E5"
+f.Number(123456, i18n.Notation(i18n.NotationEngineering)) // "123.456E3"
+```
+
+An amount has the currency's digits (2, 0 for JPY, 3 for BHD) unless the
+fraction options say otherwise; a currency name takes the plural form of the
+number as it is shown ("1.00 US dollars", but "1 US dollar" with no
+fraction digits). Compact numbers keep two significant digits ("1.2K",
+"12K", "123K") and numbers below the locale's first abbreviation are
+written in full (German and Japanese do not abbreviate thousands). Ties are
+rounded to the even digit, where `Intl.NumberFormat` rounds them away from
+zero (`2.5` with no fraction digits is "2" here, "3" there).
+
+Currency symbols and patterns come from every CLDR locale ("S/" for PEN in
+es-PE, "$" for CAD in en-CA); currency names and compact patterns from the
+113 generated locales, so other locales use the closest one's. Only the
+currencies some region uses today have data; others are written with their
+code ("XYZ 1,234.50").
+
 For calendars and date pickers, a Formatter also has the names of months and
 weekdays on their own (CLDR's stand-alone form, which differs from the one in
 a date in languages such as Russian: "октябрь", "5 октября") in four widths,
@@ -160,11 +216,19 @@ The first day goes by region: the tag's own, else its language's most likely
 one (`en` is the United States, `ar` Egypt), Monday when CLDR has no data;
 `-u-fw-mon` and `-u-rg-gbzzzz` in the tag override it.
 
-Numbers and plural rules come from `golang.org/x/text` (CLDR 32); dates,
-lists and week data from CLDR 48 tables generated into the package for 113 locales. Other
-locales use the closest one (en-SG uses en-001, es-PE uses es-419). Dates are
-Gregorian and in the time's own zone, with zone abbreviations rather than
-localized names.
+Plural rules come from `golang.org/x/text` (CLDR 32, so a few languages,
+such as Icelandic and Macedonian, pick another form than ICU for some
+numbers); number symbols and patterns from CLDR 48 tables for every locale;
+compact patterns, currency names, dates, lists and week data from CLDR 48
+tables generated into the package for 113 locales. Other locales use the
+closest one (en-SG uses en-001, es-PE uses es-419). Dates are Gregorian and
+in the time's own zone, with zone abbreviations rather than localized names.
+
+A tag can ask for any numeric numbering system with `-u-nu-`
+(`en-u-nu-thai`, `ar-EG-u-nu-latn`): the digits are that system's, with the
+symbols the locale has for it, else the root's (Arabic-Indic), else the
+locale's Latin ones, as ICU does; an unknown or algorithmic system
+(`-u-nu-roman`) is ignored.
 
 ## Right to left
 

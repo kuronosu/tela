@@ -159,7 +159,7 @@ func (e *evaluator) nodes(ns []node) {
 			e.b.WriteString(n.text)
 		case nodePound:
 			if e.pound != nil {
-				e.b.WriteString(e.f.formatNumber(e.pound.n.orig, numberConfig{minFrac: -1, maxFrac: -1}))
+				e.b.WriteString(e.f.formatNumber(e.pound.n.orig, defaultNumberConfig()))
 			} else {
 				e.b.WriteByte('#')
 			}
@@ -190,12 +190,12 @@ func (e *evaluator) arg(n *node) {
 			e.b.WriteString(fmt.Sprint(v))
 			return
 		}
-		c := numberConfig{minFrac: -1, maxFrac: -1}
-		switch n.style {
-		case "integer":
-			c.maxFrac = 0
-		case "percent":
-			c.percent = true
+		c := defaultNumberConfig()
+		if n.num != nil {
+			c = *n.num
+		}
+		if c.style == styleCurrency && c.currency == "" {
+			c.currency = localeCurrency(e.f.d.tag) // {n, number, currency}
 		}
 		e.b.WriteString(e.f.formatNumber(nv.orig, c))
 	case argDate, argTime:
@@ -236,7 +236,7 @@ func (e *evaluator) simple(v any) string {
 		return x.Error()
 	}
 	if nv, ok := toNumber(v); ok {
-		return e.f.formatNumber(nv.orig, numberConfig{minFrac: -1, maxFrac: -1})
+		return e.f.formatNumber(nv.orig, defaultNumberConfig())
 	}
 	return fmt.Sprint(v)
 }
