@@ -487,17 +487,24 @@ func TestCaptionAndEdges(t *testing.T) {
 	}
 
 	g.expect("enter", "pointer enter 50,16 btn=0 held=0 mods=0", "", xproto.EnterNotifyEvent{Event: 9, EventX: 50, EventY: 16})
-	// A primary press in the caption starts a move; its sequence is the
-	// OS's until the window manager grabs the pointer.
-	g.expect("caption press", "", "ungrab dev=0; msg _NET_WM_MOVERESIZE win=9 [150 116 8 1 1]", press(1, 50, 16, 0))
-	g.expect("motion of the move", "", "", motion(60, 20, b1))
+	// A primary press in the caption starts a move once the pointer leaves
+	// the drag threshold, from the press's root position; its sequence is
+	// the OS's until the window manager grabs the pointer.
+	g.expect("caption press", "", "", press(1, 50, 16, 0))
+	g.expect("motion within the threshold", "", "", motion(54, 19, b1))
+	g.expect("motion past the threshold", "", "ungrab dev=0; msg _NET_WM_MOVERESIZE win=9 [150 116 8 1 1]", motion(60, 20, b1))
+	g.expect("motion of the move", "", "", motion(70, 20, b1))
 	g.expect("window manager grab", "pointer leave 60,20 btn=0 held=0 mods=0", "",
 		xproto.LeaveNotifyEvent{Event: 9, EventX: 60, EventY: 20, State: b1, Mode: xproto.NotifyModeGrab})
 	g.expect("grab ends", "pointer enter 52,17 btn=0 held=0 mods=0", "",
 		xproto.EnterNotifyEvent{Event: 9, EventX: 52, EventY: 17, Mode: xproto.NotifyModeUngrab})
-	// A second press within the interval toggles maximize.
+	// A click (released within the threshold) is reported, ADR-252; a
+	// second press within the interval toggles maximize, and is no click.
+	g.expect("click", "caption click 53,18", "", press(1, 52, 17, 0), motion(53, 18, b1), release(1, 53, 18, b1))
 	g.expect("double click", "", "msg _NET_WM_STATE win=9 [1 _NET_WM_STATE_MAXIMIZED_VERT _NET_WM_STATE_MAXIMIZED_HORZ 1]",
 		press(1, 52, 17, 0), release(1, 52, 17, b1))
+	// A chord is no click.
+	g.expect("chord", "", "", press(1, 200, 17, 0), press(2, 200, 17, b1), release(1, 200, 17, b1|xproto.KeyButMaskButton2), release(2, 200, 17, xproto.KeyButMaskButton2))
 	g.expect("hover", "pointer move 53,17 btn=0 held=0 mods=0", "", motion(53, 17, 0))
 	// A secondary press opens the window menu.
 	g.expect("caption menu", "", "ungrab dev=0; msg _GTK_SHOW_WINDOW_MENU win=9 [2 153 117]", press(3, 53, 17, 0))
@@ -537,7 +544,36 @@ func TestCaptionAndEdges(t *testing.T) {
 	// A window manager without the hints: the presses are still the OS's.
 	delete(g.b.supported, a.netWMMoveResize)
 	delete(g.b.supported, a.gtkShowWindowMenu)
-	g.expect("caption without _NET_WM_MOVERESIZE", "", "", press(1, 50, 16, 0), release(1, 50, 16, b1), press(3, 50, 16, 0), release(3, 50, 16, b3))
+	g.expect("caption without _NET_WM_MOVERESIZE", "caption click 50,16", "", press(1, 50, 16, 0), release(1, 50, 16, b1), press(3, 50, 16, 0), release(3, 50, 16, b3))
+}
+
+// TestResizeHandles (ADR-257): the app's resize handles inside the window
+// (h.WindowResize on a card) show the resize cursor and start
+// _NET_WM_MOVERESIZE from their edge; FixedSize windows have none.
+func TestResizeHandles(t *testing.T) {
+	for _, fixed := range []bool{false, true} {
+		g := newRig(t)
+		w := fakeWindow(g.b, 9, image.Pt(400, 300), platform.WindowOptions{Size: platform.Size{W: 400, H: 300}, Frameless: true, FixedSize: fixed})
+		g.f.take()
+		g.feed()
+		g.present(w)
+		g.f.take()
+		w.SetHitRegions([]platform.HitRegion{
+			{Kind: platform.HitResizeLeft, Rect: platform.Rect{X: 40, Y: 40, W: 5, H: 200}},
+			{Kind: platform.HitResizeBottomRight, Rect: platform.Rect{X: 344, Y: 255, W: 16, H: 5}},
+		})
+		const b1 = xproto.KeyButMaskButton1
+		press := xproto.ButtonPressEvent{Event: 9, Detail: 1, EventX: 42, EventY: 100, RootX: 142, RootY: 200}
+		release := xproto.ButtonReleaseEvent{Event: 9, Detail: 1, EventX: 42, EventY: 100, RootX: 142, RootY: 200, State: b1}
+		if fixed {
+			g.expect("FixedSize: no handle", "pointer move 42,100 btn=0 held=0 mods=0; pointer down 42,100 btn=1 held=1 mods=0; pointer up 42,100 btn=1 held=0 mods=0", "",
+				xproto.MotionNotifyEvent{Event: 9, EventX: 42, EventY: 100}, press, release)
+			continue
+		}
+		g.expect("onto the left handle", "pointer move 42,100 btn=0 held=0 mods=0", "cursor win=9 w-resize", xproto.MotionNotifyEvent{Event: 9, EventX: 42, EventY: 100})
+		g.expect("press", "", "ungrab dev=0; msg _NET_WM_MOVERESIZE win=9 [142 200 7 1 1]", press, release)
+		g.expect("the corner handle", "pointer move 350,257 btn=0 held=0 mods=0", "cursor win=9 se-resize", xproto.MotionNotifyEvent{Event: 9, EventX: 350, EventY: 257})
+	}
 }
 
 // TestPositions: root coordinates from ConfigureNotify while the parent is

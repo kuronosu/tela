@@ -30,8 +30,12 @@ import (
 //     selection owner's window, whose DestroyNotify is the manager
 //     quitting, and a new manager announces itself with the MANAGER
 //     client message on the root window (ICCCM 2.8), which the root's
-//     StructureNotify mask brings. GTK 3 watches the same selection
-//     through XFixes, which the backend does not bind.
+//     StructureNotify mask brings. A manager that takes the selection
+//     without sending MANAGER (some do not: picom before v10, xcompmgr)
+//     is seen through XFixes 2.0 SelectSelectionInput on the selection
+//     (xfixes.go), as GTK 3 and Qt watch it: XFixesSelectionNotify
+//     reports every new owner and the owner's end. Without XFixes only
+//     DestroyNotify and MANAGER remain.
 //   - Its input shape (SHAPE 1.1, ShapeInput) is the mask of its frames
 //     (platform.InputMask, the pixels at least platform.InputAlpha opaque,
 //     updated in Present from the damage), sent when it changes: the
@@ -67,6 +71,7 @@ func (b *Backend) compositing() bool {
 		// StructureNotify on the root brings the MANAGER messages, beside
 		// the PropertyChange the backend always selects there.
 		b.xs.selectInput(b.root, xproto.EventMaskPropertyChange|xproto.EventMaskStructureNotify)
+		b.xs.watchSelection(b.cm.sel) // before reading the owner: no change is missed
 		b.refreshCM()
 	}
 	return b.cm.owner != 0
@@ -104,6 +109,10 @@ func (b *Backend) cmEvent(ev xgb.Event) bool {
 	case xproto.ClientMessageEvent:
 		if ev.Window != b.root || ev.Type != b.cm.manager || b.cm.manager == 0 || ev.Format != 32 ||
 			len(ev.Data.Data32) < 2 || xproto.Atom(ev.Data.Data32[1]) != b.cm.sel {
+			return false
+		}
+	case selectionNotify:
+		if ev.selection != b.cm.sel || b.cm.sel == 0 {
 			return false
 		}
 	default:

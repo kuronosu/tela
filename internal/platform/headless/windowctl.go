@@ -59,7 +59,7 @@ type windowCtl struct {
 // captionDragThreshold is how far (logical pixels) a primary caption press
 // moves before the fake window manager counts it as a drag, not a click:
 // the Wayland backend's threshold (GTK's).
-const captionDragThreshold = 8
+const captionDragThreshold = platform.CaptionDragThreshold
 
 // big reports whether the window is maximized or fullscreen (its size is
 // the screen's, and SetSize changes the size it returns to).

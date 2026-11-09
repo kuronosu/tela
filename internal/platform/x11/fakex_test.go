@@ -304,6 +304,11 @@ const fakeIconWin = 950
 
 func (x *fakeX) inputShapes() bool { return !x.noShape }
 
+func (x *fakeX) watchSelection(sel xproto.Atom) bool {
+	x.log("watch selection %s", x.name(sel))
+	return true
+}
+
 func (x *fakeX) setInputShape(win xproto.Window, rects []xproto.Rectangle) {
 	x.log("input shape win=%d %v", win, rects)
 }

@@ -319,6 +319,14 @@ func ResizeEdge(p Point, size Size) Edge {
 	return e
 }
 
+// CaptionDragThreshold is how far, in logical pixels, a primary press in a
+// HitCaption region moves before it is a drag of the window rather than a
+// click: GTK's drag threshold. The backends that wait for it before the
+// OS's move starts (Wayland, X11, Cocoa, headless) and Win32, which
+// checks it after the move loop, report a click within it as a
+// [CaptionClickEvent].
+const CaptionDragThreshold = 8
+
 // CaptionClicks detects the double clicks of primary presses in a
 // HitCaption region, for the backends that toggle maximize themselves
 // (Wayland, X11, headless), with the double-click rule of content clicks

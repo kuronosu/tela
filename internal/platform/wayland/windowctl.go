@@ -30,7 +30,7 @@ import (
 // caption region must move before it becomes an interactive move, GTK's
 // drag threshold: a click that does not move never starts a compositor
 // grab, so double clicks are seen whole (GtkWindowHandle does the same).
-const captionDragThreshold = 8
+const captionDragThreshold = platform.CaptionDragThreshold
 
 // windowCtl is the window control state of a Window.
 type windowCtl struct {
@@ -592,12 +592,20 @@ func (w *Window) RestoreToken() string {
 // resizeEdgeAt returns the resize edge under p (surface-local logical
 // pixels), or 0: windows with client-side decorations that are mapped,
 // neither maximized, fullscreen nor FixedSize have resize edges, except
-// along the edges they are tiled against (GTK's rule).
+// along the edges they are tiled against (GTK's rule); a Transparent
+// window has none of its own. Under the band, the app's resize handles
+// (HitResize… regions, h.WindowResize) of any mapped window that can be
+// resized, tiled edges included (the app drew them).
 func (w *Window) resizeEdgeAt(p platform.Point) platform.Edge {
-	if !w.mapped || !w.csd() || w.states.maximized || w.states.fullscreen || w.opts.FixedSize || w.opts.Transparent {
+	if !w.mapped || w.states.maximized || w.states.fullscreen || w.opts.FixedSize {
 		return 0
 	}
-	return resizeEdge(p, w.surfaceSize, w.states.tiled)
+	if w.csd() && !w.opts.Transparent {
+		if e := resizeEdge(p, w.surfaceSize, w.states.tiled); e != 0 {
+			return e
+		}
+	}
+	return platform.HitEdge(w.ctl.regions, p)
 }
 
 // resizeEdge returns the edge of a window of the given logical size whose

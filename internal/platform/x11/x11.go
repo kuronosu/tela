@@ -122,6 +122,7 @@ type Backend struct {
 	screenNum  int
 	argbCmap   xproto.Colormap
 	shape      shapeExt
+	xfixes     xfixesExt
 	// cm is the compositing manager, followed for transparent windows
 	// (transparent.go).
 	cm cmState

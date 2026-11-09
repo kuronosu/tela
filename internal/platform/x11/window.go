@@ -98,6 +98,13 @@ type Window struct {
 	osHeld      platform.Buttons // buttons of a press sequence the OS owns
 	// The last primary caption press, for double clicks.
 	captions platform.CaptionClicks
+	// A primary caption press waiting for the drag threshold before the
+	// window manager's move starts (captionPending, with the press:
+	// captionPress and its logical position captionAt); captionClick
+	// while it can still be a click (no other button pressed meanwhile).
+	captionPending, captionClick bool
+	captionPress                 ptr
+	captionAt                    platform.Point
 
 	// Drag and drop (dnd.go, dragsource.go): the target-side state, and
 	// the buttons of the app's press sequence (delivered presses not

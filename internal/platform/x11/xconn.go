@@ -70,6 +70,11 @@ type dataServer interface {
 	// setInputShape sets the input shape of win (SHAPE 1.1 ShapeInput,
 	// YX-banded rectangles in window coordinates; transparent.go).
 	setInputShape(win xproto.Window, rects []xproto.Rectangle)
+	// watchSelection asks for an XFixesSelectionNotify (a
+	// selectionNotify event) whenever sel gets a new owner or loses its
+	// owner, where the server has XFixes 2.0 (xfixes.go; a round trip the
+	// first time). It reports whether it could.
+	watchSelection(sel xproto.Atom) bool
 
 	// The input method client (ime.go).
 	//

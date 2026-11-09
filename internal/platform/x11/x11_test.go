@@ -401,6 +401,8 @@ func (r *recorder) HandleEvent(_ platform.Window, e platform.Event) {
 		}
 	case platform.IMESessionEvent:
 		s = fmt.Sprintf("session %v", e.Active)
+	case platform.CaptionClickEvent:
+		s = fmt.Sprintf("caption click %v,%v", e.Pos.X, e.Pos.Y)
 	default:
 		s = fmt.Sprintf("%T", e)
 	}

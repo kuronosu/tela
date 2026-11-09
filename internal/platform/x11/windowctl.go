@@ -656,14 +656,21 @@ func (w *Window) RestoreToken() string { return "" }
 
 // --- pointer: resize edges and caption regions ---
 
-// edgeAt returns the resize edge under p (logical window coordinates;
-// platform.ResizeEdge, shared with Wayland), or 0: only frameless windows
-// that can be resized, outside maximized and fullscreen, have one.
+// edgeAt returns the resize edge under p (logical window coordinates), or
+// 0: windows that can be resized (not FixedSize, maximized or
+// fullscreen) have the band of a frameless window (platform.ResizeEdge,
+// shared with Wayland; none on a Transparent one), then the app's resize
+// handles (HitResize… regions, h.WindowResize).
 func (w *Window) edgeAt(p platform.Point) platform.Edge {
-	if !w.osState.ClientSideDecorations || w.opts.FixedSize || w.osState.Maximized || w.osState.Fullscreen || w.opts.Transparent {
+	if w.opts.FixedSize || w.osState.Maximized || w.osState.Fullscreen {
 		return 0
 	}
-	return platform.ResizeEdge(p, w.osMetrics().Size)
+	if w.osState.ClientSideDecorations && !w.opts.Transparent {
+		if e := platform.ResizeEdge(p, w.osMetrics().Size); e != 0 {
+			return e
+		}
+	}
+	return platform.HitEdge(w.regions, p)
 }
 
 // hoverEdge shows the resize cursor while the pointer is over the band.
@@ -695,11 +702,13 @@ func (b *Backend) osPress(p ptr, btn platform.PointerButton, pos platform.Point)
 	w := p.w
 	if w.osHeld != 0 {
 		w.osHeld |= btn.Mask()
+		w.captionClick = false // a chord is not a click
 		return true
 	}
 	if p.held != 0 {
 		return false // a press of the app's sequence
 	}
+	w.captionPending, w.captionClick = false, false // an older sequence ended unseen
 	if e := w.edgeAt(pos); e != 0 {
 		w.osHeld = btn.Mask()
 		if btn == platform.ButtonPrimary {
@@ -720,11 +729,51 @@ func (b *Backend) osPress(p ptr, btn platform.PointerButton, pos platform.Point)
 			w.SetMaximized(!w.osState.Maximized)
 			return true
 		}
-		b.moveResize(p, moveResizeMove)
+		// The move starts once the pointer leaves the drag threshold
+		// (captionMoved), as GTK's client-side title bars and the
+		// Wayland backend do: the implicit grab of the press keeps the
+		// moves coming meanwhile, and a release first is a click
+		// (captionReleased, ADR-252).
+		w.captionPending, w.captionClick, w.captionPress, w.captionAt = true, true, p, pos
 	case platform.ButtonSecondary:
 		b.showWindowMenu(p)
 	}
 	return true
+}
+
+// captionMoved starts the window manager's move of a pending caption press
+// once the pointer at pos (logical) is past the drag threshold, with the
+// press's root position: the window manager moves the window by the
+// pointer's motion from there, so the point pressed stays under it.
+func (b *Backend) captionMoved(w *Window, pos platform.Point) {
+	if !w.captionPending {
+		return
+	}
+	dx, dy := pos.X-w.captionAt.X, pos.Y-w.captionAt.Y
+	if dx*dx+dy*dy < platform.CaptionDragThreshold*platform.CaptionDragThreshold {
+		return
+	}
+	w.captionPending, w.captionClick = false, false
+	w.captions.Reset() // a drag is not half of a double click
+	b.moveResize(w.captionPress, moveResizeMove)
+}
+
+// captionReleased ends a pending caption press at the release of btn,
+// before osPointer takes the release: once the primary is up, a press that
+// stayed within the threshold with no other button held is a click the app
+// gets as a CaptionClickEvent.
+func (b *Backend) captionReleased(w *Window, p ptr, btn platform.PointerButton, pos platform.Point) {
+	if !w.captionPending {
+		return
+	}
+	held := (p.held & w.osHeld) &^ btn.Mask()
+	if held.Has(platform.ButtonPrimary) {
+		return
+	}
+	if w.captionClick && held == 0 {
+		b.enqueue(w, platform.CaptionClickEvent{Pos: pos, Time: b.Now()})
+	}
+	w.captionPending, w.captionClick = false, false
 }
 
 // osPointer reports whether a pointer event other than a press belongs to

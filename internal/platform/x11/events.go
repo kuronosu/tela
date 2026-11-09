@@ -262,6 +262,7 @@ func (b *Backend) ptrMotion(p ptr) {
 	w := p.w
 	w.lastPos = w.posf(p.x, p.y)
 	if w.osPointer(p, platform.ButtonNone) {
+		b.captionMoved(w, w.lastPos)
 		return
 	}
 	w.hoverEdge(w.lastPos)
@@ -388,6 +389,9 @@ func (b *Backend) ptrButton(p ptr, detail uint32, press bool) {
 		} else {
 			w.extra &^= btn.Mask()
 		}
+	}
+	if !press && w.osHeld.Has(btn) {
+		b.captionReleased(w, p, btn, pos)
 	}
 	if press && b.osPress(p, btn, pos) || !press && w.osPointer(p, btn) {
 		return // a caption or resize edge sequence: the OS's

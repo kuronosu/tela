@@ -75,5 +75,9 @@ func (b *Backend) rawEvent(raw xgb.RawEvent) {
 		}
 	case b.xkb.present && raw.Code() == b.xkb.firstEvent:
 		b.xkbEvent(raw)
+	case b.xfixes.ok && raw.Code() == b.xfixes.firstEvent+xfixesSelectionNotify:
+		if ev, ok := decodeSelectionNotify(raw); ok {
+			b.cmEvent(ev)
+		}
 	}
 }
