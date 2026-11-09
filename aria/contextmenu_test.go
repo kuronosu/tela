@@ -377,7 +377,7 @@ func TestContextMenuKeyboardAtTheCaret(t *testing.T) {
 		return Div(Class("p-5"),
 			Div(cm.TriggerProps, Input(AriaLabel("Name"), DefaultValue("Hello world"), Class("h-10 w-60 px-2 text-base"))),
 			Portal(If(cm.Open, ctxMenu{cm, &ev})))
-	}, telatest.Size(400, 300))
+	}, telatest.Size(400, 300), telatest.PlatformKeys("linux")) // Home and End move the caret (not on a Mac)
 	field := telatest.ByRole("textbox", "Name")
 	app.Focus(field)
 	app.Press("Home")
