@@ -62,6 +62,8 @@ func TestSidebarKeyboard(t *testing.T) {
 	a.ExpectFocused(tabFor("Internationalization"))
 	a.ExpectCount(heading("Internationalization"), 1)
 	a.Press("ArrowDown")
+	a.ExpectFocused(tabFor("Alert"))
+	a.Press("ArrowDown")
 	a.ExpectFocused(tabFor("Alert Dialog"))
 
 	// The ends wrap.

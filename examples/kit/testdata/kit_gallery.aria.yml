@@ -1,5 +1,5 @@
 - banner:
-  - text: Tela kit 36 components Style
+  - text: Tela kit 37 components Style
   - radiogroup "Style":
     - radio "Default" [checked]
     - radio "Rounded"
@@ -8,6 +8,7 @@
 - tablist "Pages":
   - tab "Introduction" [selected]
   - tab "Internationalization"
+  - tab "Alert"
   - tab "Alert Dialog"
   - tab "Avatar"
   - tab "Badge"
@@ -47,7 +48,7 @@
 - tabpanel "Introduction":
   - text: TELA / KIT
   - heading "Hello, kit." [level=1]
-  - text: Components, woven with Go. 36 components. Light and dark. Every one restyled with a class string.
+  - text: Components, woven with Go. 37 components. Light and dark. Every one restyled with a class string.
   - heading "What it is" [level=2]
   - paragraph: "kit is shadcn/ui for Go: buttons, dialogs, menus, date pickers and the rest, with the same look. Each component is built on the behavior hooks of package aria, which handle the keyboard, the focus and what a screen reader reads, and is styled by a recipe, a plain set of class strings, and by the theme's color tokens, so light and dark need no extra classes."
   - paragraph: "Change a recipe and every component of that kind changes: the Rounded style in the header is kit.DefaultStyle() with about forty edited class strings. Switch the language in the header to see the same pages in Spanish and, mirrored, in Arabic."
@@ -55,7 +56,8 @@
   - paragraph: Give the app kit.Theme(), then write components as structs or h elements.
   - text: "var theme = kit.Theme() func Hello() tela.Node { return tela.C(hello) } func hello() tela.Node { name, setName := tela.UseState(\"\") return Div(Class(\"flex max-w-sm flex-col gap-3 p-6\"), kit.Input{Placeholder: \"Your name\", Value: &name, OnValueChange: setName.Set}, kit.Button{Children: Textf(\"Hello, %s\", name)}) } func main() { tela.Main(tela.App{Title: \"Hello\", Theme: &theme, RootClass: \"bg-background text-foreground\", Root: Hello()}) }"
   - heading "Components" [level=2]
-  - paragraph: 36 pages, each with its variants, sizes and states. Choose one.
+  - paragraph: 37 pages, each with its variants, sizes and states. Choose one.
+  - button "Alert"
   - button "Alert Dialog"
   - button "Avatar"
   - button "Badge"

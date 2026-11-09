@@ -1,5 +1,5 @@
 - banner:
-  - text: Tela kit 36 components Style
+  - text: Tela kit 37 components Style
   - radiogroup "Style":
     - radio "Default" [checked]
     - radio "Rounded"
@@ -8,6 +8,7 @@
 - tablist "Pages":
   - tab "Introduction"
   - tab "Internationalization" [selected]
+  - tab "Alert"
   - tab "Alert Dialog"
   - tab "Avatar"
   - tab "Badge"

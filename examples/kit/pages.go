@@ -18,8 +18,9 @@ func sidebar() []page { return append(append([]page(nil), guides...), pages...) 
 // pages are the components of the kit, in alphabetical order. The preview of
 // a page is named after Name.
 var pages = []page{
+	{"Alert", "Alert", "kit.Alert", "A callout for a message the user should notice, with an icon, a title and a description.", tela.C(alertPage), false},
 	{"AlertDialog", "Alert Dialog", "kit.AlertDialog", "A modal question that needs an answer: it is not closed by a press outside, and its focus starts on Cancel.", tela.C(alertDialogPage), false},
-	{"Avatar", "Avatar", "kit.Avatar", "A round picture of a person, with their initials while there is no picture.", tela.C(avatarPage), false},
+	{"Avatar", "Avatar", "kit.Avatar, kit.AvatarGroup", "A round picture of a person, with their initials while there is no picture, alone or in an overlapping group.", tela.C(avatarPage), false},
 	{"Badge", "Badge", "kit.Badge", "A small label for a status, a count or a tag.", tela.C(badgePage), false},
 	{"Button", "Button", "kit.Button", "A button in six variants and eight sizes, with icon slots. It is the trigger of every overlay.", tela.C(buttonPage), false},
 	{"Calendar", "Calendar", "kit.Calendar", "A month grid that selects one date, with limits, several months and the names, digits and first weekday of the locale.", tela.C(calendarPage), false},

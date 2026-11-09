@@ -92,9 +92,10 @@ func avatarPage() tela.Node {
 	people := []struct{ Name, Initials string }{
 		{"Mei Tanaka", "MT"}, {"Ana García", "AG"}, {"Omar Haddad", "OH"}, {"Lena Fischer", "LF"},
 	}
-	var stacked, list []tela.Child
+	var group []kit.Avatar
+	var list []tela.Child
 	for _, p := range people {
-		stacked = append(stacked, kit.Avatar{Size: kit.Lg, Alt: p.Name, Fallback: p.Initials, Class: "ring-2 ring-background", Props: Key(p.Name)})
+		group = append(group, kit.Avatar{Name: p.Name, Color: kit.AvatarAuto})
 		list = append(list, Div(Key(p.Name), Class("flex items-center gap-3"),
 			kit.Avatar{Alt: p.Name, Fallback: p.Initials},
 			Div(Class("flex flex-col text-sm"), Span(Class("font-medium"), Text(p.Name)),
@@ -106,11 +107,26 @@ func avatarPage() tela.Node {
 			kit.Avatar{Fallback: "MD"},
 			kit.Avatar{Size: kit.Lg, Fallback: "LG"},
 		),
-		demo("Group", "Overlapping avatars with a ring in the background color.", "",
-			Div(Class("flex -space-x-3"), Fragment(stacked...)),
-			muted("+4 more"),
+		demo("Group", "kit.AvatarGroup overlaps avatars with a ring in the background color and counts the rest.", "",
+			kit.AvatarGroup{Avatars: group, Max: 3, Total: 8, Size: kit.Lg, AriaLabel: "Team"},
 		),
 		demo("In a list", "A person, as a row.", col, Fragment(list...)),
+	)
+}
+
+func alertPage() tela.Node {
+	return grid(
+		demo("Default", "An icon, a title and a description. Its role is alert.", col,
+			kit.Alert{Icon: icons.Info, Title: Text("Heads up!"), Description: Text("You can add components to your app with kit.")},
+		),
+		demo("Destructive", "For an error the user has to act on.", col,
+			kit.Alert{Variant: kit.Destructive, Icon: icons.CircleAlert, Title: Text("Unable to process your payment."), Description: Text("Please verify your billing information and try again.")},
+		),
+		demo("Tones", "Success, Warning and Info, also variants of Badge.", col,
+			kit.Alert{Variant: kit.Success, Icon: icons.Check, Title: Text("Payment received")},
+			kit.Alert{Variant: kit.Warning, Icon: icons.CircleAlert, Title: Text("Your trial ends in 3 days")},
+			kit.Alert{Variant: kit.Info, Icon: icons.Info, Title: Text("Scheduled maintenance on Sunday")},
+		),
 	)
 }
 
