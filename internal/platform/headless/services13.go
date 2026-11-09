@@ -3,6 +3,7 @@ package headless
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"slices"
 	"sync"
 
@@ -18,6 +19,22 @@ func (d desktop) SetAppID(id string) {
 	d.b.mu.Lock()
 	defer d.b.mu.Unlock()
 	d.b.desktop.appID = id
+}
+
+// SetStrings records the texts the layers above gave (ADR-251), which
+// DesktopStrings returns; a headless backend shows none of them.
+func (d desktop) SetStrings(strings platform.Strings) {
+	d.b.mu.Lock()
+	defer d.b.mu.Unlock()
+	d.b.desktop.strings = maps.Clone(strings)
+}
+
+// DesktopStrings returns a copy of the strings the layers above gave with
+// Desktop().SetStrings, nil before any. Safe from any goroutine.
+func (b *Backend) DesktopStrings() platform.Strings {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return maps.Clone(b.desktop.strings)
 }
 
 // DesktopAppID returns the app ID the layers above gave with

@@ -68,6 +68,8 @@ type App struct {
 // settling state and the dev messages.
 type appShared struct {
 	stop func() // ends the delivery of tela.Post
+	// stopStrings ends the host's following of the app's language (ADR-251).
+	stopStrings func()
 	// closed: the app ended (App.Close, or quit); quit: it ended because
 	// the app quit (tela.Quit, or the main window's close policy).
 	closed, quit bool
@@ -159,6 +161,7 @@ func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 		a.win.SetFocused(true) // a hidden window is not the active one; Show activates it
 	}
 	a.sh.stop = a.tree.ReceivePosts()
+	a.sh.stopStrings = host.WatchStrings() // what tela.Run does: a new language reaches the backend
 	tb.Cleanup(a.Close)
 	a.settleAfter()
 	return a
@@ -220,6 +223,7 @@ func (a *App) end() {
 	sh := a.sh
 	sh.closed = true
 	sh.stop()
+	sh.stopStrings()
 	a.host.Tree().Unmount()
 	a.host.Window().Close()
 	a.backend.Quit()

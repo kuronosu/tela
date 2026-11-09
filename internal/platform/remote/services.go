@@ -94,6 +94,8 @@ const (
 	dAppStatus     // app; result: registered, requested, other
 	// Version 6 (appmenu.go, ADR-225).
 	dSetAppMenu // menu, app items
+	// Version 12 (ADR-251).
+	dSetStrings // strings
 )
 
 // Outcome codes of a desktop call.
@@ -615,6 +617,12 @@ func (h *Host) serveDesktop(c *Child, op uint8, token uint32, d *dec, result *fu
 		primary, err := h.claimInstance(c, appID, launch, call)
 		*result = func(e *enc) { e.boolean(primary) }
 		return err
+	case dSetStrings:
+		strs := d.stringMap()
+		if err := d.end(); err != nil {
+			return err
+		}
+		return h.setStrings(c, strs, call)
 	case dSetAppMenu:
 		menu, items := d.menu(0), d.menu(0)
 		if err := d.end(); err != nil {

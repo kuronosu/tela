@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"slices"
 	"time"
 
 	"github.com/kuronosu/tela/internal/platform"
@@ -44,7 +45,8 @@ import (
 //   - 10: platform contract v6 (ADR-249): WindowOptions.Transparent and
 //     WindowState.Transparent.
 //   - 11: platform contract v7 (ADR-252): CaptionClickEvent.
-const ProtocolVersion = 11
+//   - 12: platform contract v8 (ADR-251): Desktop.SetStrings.
+const ProtocolVersion = 12
 
 // magic opens the hello message.
 const magic = "TELA"
@@ -833,6 +835,34 @@ func (d *dec) strs() []string {
 	out := make([]string, n)
 	for i := range out {
 		out[i] = d.str()
+	}
+	return out
+}
+
+// stringMap encodes platform.Strings, sorted by ID so equal sets give equal
+// bytes.
+func (e *enc) stringMap(m platform.Strings) {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	e.u32(uint32(len(keys)))
+	for _, k := range keys {
+		e.str(k)
+		e.str(m[k])
+	}
+}
+
+func (d *dec) stringMap() platform.Strings {
+	n := d.count(maxItems, "strings")
+	if n == 0 || d.err != nil {
+		return nil
+	}
+	out := make(platform.Strings, n)
+	for i := 0; i < n && d.err == nil; i++ {
+		k := d.str()
+		out[k] = d.str()
 	}
 	return out
 }

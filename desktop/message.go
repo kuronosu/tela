@@ -81,7 +81,8 @@ type Message struct {
 	// Kind is the icon and tone (MessageInfo by default).
 	Kind MessageKind
 	// Title is the box's title; empty uses the kind's ("Information",
-	// "Warning", "Error", "Question").
+	// "Warning", "Error", "Question", in the app's language: the built-in
+	// labels "tela.messagebox.info"... of [tela.Labels]).
 	Title string
 	// Text is the message. Keep it to a few sentences; a blank line
 	// separates paragraphs.
@@ -94,15 +95,15 @@ type Message struct {
 	Parent tela.WindowHandle
 }
 
-// kindTitles are the default titles, and the names of the drawn box's
-// icons.
-var kindTitles = [...]string{"Information", "Warning", "Error", "Question"}
+// kindTitles are the IDs of the built-in labels (ADR-251) that are the
+// default titles and the names of the drawn box's icons.
+var kindTitles = [...]string{"tela.messagebox.info", "tela.messagebox.warning", "tela.messagebox.error", "tela.messagebox.question"}
 
 func (m Message) title() string {
 	if m.Title != "" {
 		return m.Title
 	}
-	return kindTitles[m.Kind]
+	return tela.Label(kindTitles[m.Kind])
 }
 
 // ShowMessage shows a message box and calls done with the button the user

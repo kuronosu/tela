@@ -5111,6 +5111,12 @@ type Toaster struct {
     // button.
     Icons     ToastIcons
     CloseIcon tela.Icon
+    // AriaLabel names the viewport region ("Notifications") and CloseLabel
+    // the close button of a toast ("Close toast"). Empty is the built-in
+    // label of the component's locale ("tela.toast.region" and
+    // "tela.toast.close" of [tela.Labels]: English unless the app's i18n
+    // catalogs translate them, and they follow an i18n.Provider).
+    AriaLabel, CloseLabel string
     // Children is the app: the components below that call UseToast.
     Children tela.Component
 

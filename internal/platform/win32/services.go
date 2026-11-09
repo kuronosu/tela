@@ -61,6 +61,10 @@ type desktopState struct {
 	// again when it ends.
 	later []postedMessage
 
+	// strings are the texts the app gave (SetStrings, ADR-251): the buttons
+	// of message boxes.
+	strings platform.Strings
+
 	// Tray icons and notifications (tray_windows.go).
 	hwnd           uintptr // the tray window, created on first use
 	taskbarCreated uint32  // the registered TaskbarCreated message

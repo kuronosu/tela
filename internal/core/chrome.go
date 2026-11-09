@@ -389,21 +389,22 @@ func parseButtonLayout(s string) barLayout {
 // the window buttons at the sides the layout puts them.
 func fallbackBar(p barProps) Node {
 	st := UseWindow().State()
+	lbl := UseLabels() // ADR-251: the buttons' names follow the app's language
 	dim := barText
 	if !st.Focused {
 		dim = barTextDim
 	}
 	l := parseButtonLayout(p.buttons)
 	button := func(c WindowControl) Child {
-		label, glyph, hover := "Minimize", glyphMinimize, barHover
+		label, glyph, hover := lbl("tela.titlebar.minimize"), glyphMinimize, barHover
 		switch c {
 		case WindowMaximize:
-			label, glyph = "Maximize", glyphMaximize
+			label, glyph = lbl("tela.titlebar.maximize"), glyphMaximize
 			if st.Maximized {
-				label, glyph = "Restore", glyphRestore
+				label, glyph = lbl("tela.titlebar.restore"), glyphRestore
 			}
 		case WindowClose:
-			label, glyph, hover = "Close", glyphClose, barCloseHover
+			label, glyph, hover = lbl("tela.titlebar.close"), glyphClose, barCloseHover
 		}
 		return Primitive(style.KindButton, Class(barButtonBase+dim+hover), FieldType("button"),
 			WindowControlProp(c), AriaLabel(label),
@@ -420,7 +421,7 @@ func fallbackBar(p barProps) Node {
 			n++
 		}
 		if n > 0 {
-			kids = append(kids, Role("group"), AriaLabel("Window controls"))
+			kids = append(kids, Role("group"), AriaLabel(lbl("tela.titlebar.controls")))
 		}
 		return Primitive(style.KindDiv, kids...)
 	}

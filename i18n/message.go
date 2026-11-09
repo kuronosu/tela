@@ -34,6 +34,16 @@ func T(key string, args ...any) string { return Formatter{}.T(key, args...) }
 // have (the message then shows its {name}). Numbers, dates (time.Time) and
 // plurals are formatted for the locale.
 func (f Formatter) T(key string, args ...any) string {
+	if s, ok := f.lookup(key, args); ok {
+		return s
+	}
+	devReportMissing(current(), f.loc(), key)
+	return key
+}
+
+// lookup finds a message in the locale's catalogs, its parents' and the
+// fallback's, and evaluates it; ok is false when none has the key.
+func (f Formatter) lookup(key string, args []any) (string, bool) {
 	d := f.loc()
 	st := current()
 	for _, c := range st.chain(d) {
@@ -47,10 +57,9 @@ func (f Formatter) T(key string, args ...any) string {
 			// its plurals and numbers follow that language.
 			ld = c.loc
 		}
-		return evaluate(ld, key, m, args)
+		return evaluate(ld, key, m, args), true
 	}
-	devReportMissing(st, d, key)
-	return key
+	return "", false
 }
 
 // numVal is a number argument: the original value for the number

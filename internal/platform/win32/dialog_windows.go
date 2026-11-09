@@ -4,7 +4,10 @@ package win32
 
 import (
 	"path/filepath"
+	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 
 	"github.com/kuronosu/tela/internal/platform"
 )
@@ -173,9 +176,13 @@ func shellItemFromPath(path string) comObject {
 }
 
 // showMessageBox shows a MessageBoxW. Its modal loop ends on WM_QUIT,
-// which it posts again, so Quit closes it.
+// which it posts again, so Quit closes it. The buttons the app translated
+// (messageBoxLabels) are renamed as the box is created.
 func (b *Backend) showMessageBox(opts platform.MessageBoxOptions) (platform.MessageAnswer, error) {
 	owner := ownerOf(opts.Parent)
+	if labels := messageBoxLabels(opts.Buttons, b.desk.strings); len(labels) > 0 {
+		defer installMessageBoxHook(labels)()
+	}
 	r, _, e := procMessageBoxW.Call(owner, uintptr(unsafe.Pointer(utf16(opts.Text))), uintptr(unsafe.Pointer(utf16(opts.Title))),
 		uintptr(messageBoxStyle(opts, owner != 0)))
 	answer, ok := messageBoxAnswer(int32(r), opts.Buttons)
@@ -183,4 +190,60 @@ func (b *Backend) showMessageBox(opts platform.MessageBoxOptions) (platform.Mess
 		return answer, winError("MessageBoxW", e)
 	}
 	return answer, nil
+}
+
+// The hook that renames the buttons of a message box (ADR-251). MessageBoxW
+// has no way to give its buttons other text, and the OS's own language is
+// the user's, not the app's; a WH_CBT hook on the UI thread sees the box
+// being activated and sets the texts of its buttons (SetDlgItemTextW) before
+// it is shown. Message boxes run one at a time on the UI thread (runModal),
+// so the labels are package state.
+const (
+	whCBT        = 5
+	hcbtActivate = 5
+	// messageBoxClass is the window class of a message box (a dialog).
+	messageBoxClass = "#32770"
+)
+
+var messageBoxHook struct {
+	labels []messageBoxLabel
+	hook   uintptr
+	proc   uintptr // the callback, made once (callbacks are never freed)
+}
+
+// installMessageBoxHook hooks the UI thread for the next message box and
+// returns the function that removes the hook. If the hook cannot be set,
+// the box keeps the labels of the user's Windows.
+func installMessageBoxHook(labels []messageBoxLabel) (remove func()) {
+	h := &messageBoxHook
+	if h.proc == 0 {
+		h.proc = syscall.NewCallback(messageBoxHookProc)
+	}
+	h.labels = labels
+	hook, _, _ := procSetWindowsHookExW.Call(whCBT, h.proc, 0, uintptr(windows.GetCurrentThreadId()))
+	h.hook = hook
+	return func() {
+		if h.hook != 0 {
+			procUnhookWindowsHookEx.Call(h.hook)
+		}
+		h.hook, h.labels = 0, nil
+	}
+}
+
+// messageBoxHookProc is the WH_CBT callback: on the activation of the
+// message box it renames the buttons, once.
+func messageBoxHookProc(code, wParam, lParam uintptr) uintptr {
+	h := &messageBoxHook
+	if int32(code) == hcbtActivate && len(h.labels) > 0 {
+		var class [16]uint16
+		n, _, _ := procDialogClassNameW.Call(wParam, uintptr(unsafe.Pointer(&class[0])), uintptr(len(class)))
+		if syscall.UTF16ToString(class[:n]) == messageBoxClass {
+			for _, l := range h.labels {
+				procSetDlgItemTextW.Call(wParam, uintptr(l.id), uintptr(unsafe.Pointer(utf16(l.text))))
+			}
+			h.labels = nil
+		}
+	}
+	r, _, _ := procCallNextHookEx.Call(h.hook, code, wParam, lParam)
+	return r
 }

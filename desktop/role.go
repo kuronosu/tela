@@ -18,8 +18,8 @@ import (
 //	desktop.MenuItem{Role: desktop.RoleEditMenu}   // "Edit": Undo, Redo, Cut, Copy, Paste, Select All
 //	desktop.MenuItem{Role: desktop.RoleMinimize, Label: "Minimizar"}
 //
-// An item with a Role and no Label gets the role's English label
-// ([Role.Label]); a menu role with no Submenu gets the standard items,
+// An item with a Role and no Label gets the role's label ([Role.Label],
+// English unless the app's catalogs translate it); a menu role with no Submenu gets the standard items,
 // as Electron's role: 'editMenu' and 'windowMenu' do (RoleHelpMenu has no
 // standard items: give it a Submenu).
 //
@@ -70,36 +70,23 @@ const (
 // "editMenu"... ("" for RoleNone).
 func (r Role) String() string { return platform.MenuRole(r).String() }
 
-// Label returns the role's default English label: "Undo", "Select All",
-// "Edit"... ("" for RoleNone).
+// Label returns the role's default label: "Undo", "Select All", "Edit"...
+// in the app's language ("" for RoleNone). It is the built-in label of
+// the role (ADR-251: "tela.menu.undo", "tela.menu.selectAll"... of
+// [tela.Labels]), English unless the app's catalogs translate it.
 func (r Role) Label() string {
-	switch r {
-	case RoleUndo:
-		return "Undo"
-	case RoleRedo:
-		return "Redo"
-	case RoleCut:
-		return "Cut"
-	case RoleCopy:
-		return "Copy"
-	case RolePaste:
-		return "Paste"
-	case RoleSelectAll:
-		return "Select All"
-	case RoleMinimize:
-		return "Minimize"
-	case RoleZoom:
-		return "Zoom"
-	case RoleClose:
-		return "Close"
-	case RoleEditMenu:
-		return "Edit"
-	case RoleWindowMenu:
-		return "Window"
-	case RoleHelpMenu:
-		return "Help"
+	if int(r) < len(roleLabelIDs) && roleLabelIDs[r] != "" {
+		return tela.Label(roleLabelIDs[r])
 	}
 	return ""
+}
+
+// roleLabelIDs are the IDs of the roles' built-in labels.
+var roleLabelIDs = [...]string{
+	RoleUndo: "tela.menu.undo", RoleRedo: "tela.menu.redo", RoleCut: "tela.menu.cut",
+	RoleCopy: "tela.menu.copy", RolePaste: "tela.menu.paste", RoleSelectAll: "tela.menu.selectAll",
+	RoleMinimize: "tela.menu.minimize", RoleZoom: "tela.menu.zoom", RoleClose: "tela.menu.close",
+	RoleEditMenu: "tela.menu.edit", RoleWindowMenu: "tela.menu.window", RoleHelpMenu: "tela.menu.help",
 }
 
 func (r Role) valid() bool  { return platform.MenuRole(r).Valid() }

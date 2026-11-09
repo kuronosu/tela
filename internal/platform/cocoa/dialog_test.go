@@ -108,7 +108,7 @@ func TestAlertMapping(t *testing.T) {
 		{platform.ButtonsYesNoCancel, "Yes, Cancel(esc), No"},
 	} {
 		var titles []string
-		for i, bt := range alertButtons(c.b) {
+		for i, bt := range alertButtons(c.b, nil) {
 			s := bt.title
 			if bt.escape {
 				s += "(esc)"

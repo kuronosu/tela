@@ -63,6 +63,26 @@
 // ([NameWidth]), and [FirstDayOfWeek] the day a week starts on, from
 // CLDR's week data by region.
 //
+// Digits follow the locale's default numbering system in CLDR 48, as ICU's
+// do: ar-EG, ar-SA, ckb and sd write Arabic-Indic digits, fa, ps and ur-IN
+// extended ones, bn, mr, ne and my their own, ar-AE and ar-MA Latin ones; a
+// tag's own -u-nu- (ar-EG-u-nu-latn) wins. One deviation: bare "ar" keeps
+// Arabic-Indic digits, which CLDR 48 changed to Latin (ADR-251).
+//
 // [Dir] tells the direction of a locale ([LTR] or [RTL]); h.Dir with its
 // String lays a subtree out right to left.
+//
+// # Tela's own texts
+//
+// Importing i18n makes the catalogs the source of the texts Tela shows by
+// itself (ADR-251): the fallback title bar's buttons, message boxes, kit's
+// toast viewport, the standard menu items, the macOS save panel. A message
+// whose key is the label's ID translates it; tela.Labels lists the IDs
+// with their English texts, and [Formatter.Label] gives one for a locale:
+//
+//	{"tela": {"messagebox": {"ok": "Aceptar", "cancel": "Cancelar"},
+//	          "titlebar": {"close": "Cerrar"},
+//	          "toast":    {"close": "Cerrar aviso", "region": "Notificaciones"}}}
+//
+// Labels the catalogs lack stay English. Tela ships no translations.
 package i18n

@@ -65,7 +65,7 @@ func comparePlan(t *testing.T, got []menuEntry, want string) {
 }
 
 func TestDefaultMenuBarPlan(t *testing.T) {
-	comparePlan(t, defaultMenuBarPlan("Demo"), `
+	comparePlan(t, defaultMenuBarPlan("Demo", nil), `
 Demo (special 1)
   About Demo [orderFrontStandardAboutPanel:]
   ---
@@ -116,7 +116,7 @@ func TestAppMenuBarPlan(t *testing.T) {
 	}
 	appItems := []platform.MenuItem{{ID: 50, Label: "Settings…", Accelerator: "CmdOrCtrl+,"}}
 	platform.CheckAppMenu(menu, appItems)
-	comparePlan(t, appMenuBarPlan("Demo", menu, appItems), `
+	comparePlan(t, appMenuBarPlan("Demo", menu, appItems, nil), `
 Demo (special 1)
   About Demo [orderFrontStandardAboutPanel:]
   ---
@@ -160,7 +160,7 @@ func TestPopupPlan(t *testing.T) {
 		{ID: 2, Role: platform.RoleCopy},
 		{Separator: true},
 		{Label: "More", Role: platform.RoleEditMenu, Submenu: []platform.MenuItem{{ID: 3, Label: "Off", Disabled: true}, {ID: 4, Label: "On", Checkable: true}}},
-	}), `
+	}, nil), `
 Open [popupMenuItem: #1] ⌘"o"
 Copy [popupMenuItem: #2]
 ---

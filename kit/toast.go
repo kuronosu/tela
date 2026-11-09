@@ -21,6 +21,7 @@ import (
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/i18n"
 )
 
 // The icons Toaster draws, from Lucide (ISC, see THIRD_PARTY.md), as
@@ -492,6 +493,12 @@ type Toaster struct {
 	// button.
 	Icons     ToastIcons
 	CloseIcon tela.Icon
+	// AriaLabel names the viewport region ("Notifications") and CloseLabel
+	// the close button of a toast ("Close toast"). Empty is the built-in
+	// label of the component's locale ("tela.toast.region" and
+	// "tela.toast.close" of [tela.Labels]: English unless the app's i18n
+	// catalogs translate them, and they follow an i18n.Provider).
+	AriaLabel, CloseLabel string
 	// Children is the app: the components below that call UseToast.
 	Children tela.Component
 
@@ -516,6 +523,15 @@ func (t Toaster) Build() tela.Node {
 	_, bump := tela.UseState(0)
 	store := tela.UseOnce(func() *toastStore { return &toastStore{bump: bump} })
 	hovered, setHovered := tela.UseState(false)
+
+	f := i18n.UseFormatter() // the labels follow the locale (ADR-251)
+	regionLabel, closeLabel := t.AriaLabel, t.CloseLabel
+	if regionLabel == "" {
+		regionLabel = f.Label("tela.toast.region")
+	}
+	if closeLabel == "" {
+		closeLabel = f.Label("tela.toast.close")
+	}
 
 	dur := t.Duration
 	if dur == 0 {
@@ -594,7 +610,7 @@ func (t Toaster) Build() tela.Node {
 		items = append(items, tela.WithKey(toastItem{
 			store: store, data: td, class: joinClass(cls...), exit: st.Exit[y],
 			collapsedBehind: collapsedBehind, expanded: expanded, paused: hovered, unforced: own == 0,
-			closeButton: t.CloseButton, icons: icons, closeIcon: closeIcon,
+			closeButton: t.CloseButton, closeLabel: closeLabel, icons: icons, closeIcon: closeIcon,
 		}, td.id))
 	}
 
@@ -603,7 +619,7 @@ func (t Toaster) Build() tela.Node {
 	// section has aria-live="polite"), so that assistive technologies
 	// announce a toast added to it: many do not announce a live region that
 	// appears with its content, such as a toast's own status role.
-	viewport := h.Div(cls(root), h.Role("region"), h.AriaLabel("Notifications"), h.AriaLive("polite"), h.AriaAtomic(false), t.Props,
+	viewport := h.Div(cls(root), h.Role("region"), h.AriaLabel(regionLabel), h.AriaLive("polite"), h.AriaAtomic(false), t.Props,
 		h.OnMouseEnter(func() { setHovered.Set(true) }), h.OnMouseLeave(func() { setHovered.Set(false) }),
 		h.Presence(items...))
 	var layer tela.Child = viewport
@@ -637,6 +653,7 @@ type toastItem struct {
 	paused          bool
 	unforced        bool // no height class applies yet: the root has its natural height
 	closeButton     bool
+	closeLabel      string
 	icons           ToastIcons
 	closeIcon       tela.Icon
 }
@@ -727,7 +744,7 @@ func (it toastItem) Build() tela.Node {
 	}
 	var closeBtn tela.Child
 	if it.closeButton {
-		closeBtn = h.Button(h.Type("button"), h.AriaLabel("Close toast"), cls(st.Close),
+		closeBtn = h.Button(h.Type("button"), h.AriaLabel(it.closeLabel), cls(st.Close),
 			h.OnClick(func() { it.store.dismiss(d.id, false) }), h.Icon(it.closeIcon, cls(st.CloseIcon)))
 	}
 	var bridge tela.Child

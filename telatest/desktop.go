@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/desktop"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
@@ -226,6 +227,16 @@ type MessageBox struct {
 	Drawn bool
 }
 
+// BackendStrings returns the texts the app gave the platform to show
+// itself in its language (the labels of native message boxes, of the macOS
+// menus and of the save panel; ADR-251), after settling the app: only the
+// IDs the app translated (see [tela.Labels]), nil with none.
+func (a *App) BackendStrings() map[string]string {
+	a.tb.Helper()
+	a.settleAfter()
+	return a.backend.DesktopStrings()
+}
+
 // MessageBoxes returns the message boxes open now, oldest first (native
 // ones before drawn ones), after settling the app.
 func (a *App) MessageBoxes() []MessageBox {
@@ -270,7 +281,7 @@ func (a *App) AnswerMessage(answer desktop.Answer) {
 		a.fatalf("AnswerMessage(%v): no message box is open (desktop.ShowMessage was not called, or was answered already)", answer)
 	}
 	b := boxes[0]
-	label := map[desktop.Answer]string{desktop.AnswerOK: "OK", desktop.AnswerCancel: "Cancel", desktop.AnswerYes: "Yes", desktop.AnswerNo: "No"}[answer]
+	label := answerLabel(answer)
 	btn, ok := b.buttons[label]
 	if !ok {
 		a.fatalf("AnswerMessage(%v): the message box %q has no such button", answer, b.box.Title)
@@ -354,6 +365,15 @@ func (a *App) drawnBoxes() []drawnBox {
 	return out
 }
 
+// answerLabel is the name of the drawn box's button for answer in the
+// app's current language (the built-in labels of ADR-251).
+func answerLabel(a desktop.Answer) string {
+	return tela.Label(map[desktop.Answer]string{
+		desktop.AnswerOK: "tela.messagebox.ok", desktop.AnswerCancel: "tela.messagebox.cancel",
+		desktop.AnswerYes: "tela.messagebox.yes", desktop.AnswerNo: "tela.messagebox.no",
+	}[a])
+}
+
 func drawnBoxOf(n *semantics.Node, w *headless.Window) drawnBox {
 	b := drawnBox{box: MessageBox{Title: n.Name, Text: n.Description, Drawn: true}, win: w, buttons: map[string]semanticsRect{}}
 	var labels []string
@@ -366,11 +386,11 @@ func drawnBoxOf(n *semantics.Node, w *headless.Window) drawnBox {
 			labels = append(labels, n.Name)
 		case "img":
 			switch n.Name {
-			case "Warning":
+			case tela.Label("tela.messagebox.warning"):
 				b.box.Kind = desktop.MessageWarning
-			case "Error":
+			case tela.Label("tela.messagebox.error"):
 				b.box.Kind = desktop.MessageError
-			case "Question":
+			case tela.Label("tela.messagebox.question"):
 				b.box.Kind = desktop.MessageQuestion
 			}
 		}
@@ -379,12 +399,14 @@ func drawnBoxOf(n *semantics.Node, w *headless.Window) drawnBox {
 		}
 	}
 	walk(n)
-	switch strings.Join(labels, ",") {
-	case "Cancel,OK":
+	// The buttons are in drawing order (desktop's buttonOrder).
+	ok, cancel, yes, no := answerLabel(desktop.AnswerOK), answerLabel(desktop.AnswerCancel), answerLabel(desktop.AnswerYes), answerLabel(desktop.AnswerNo)
+	switch strings.Join(labels, "\x00") {
+	case cancel + "\x00" + ok:
 		b.box.Buttons = desktop.ButtonsOKCancel
-	case "No,Yes":
+	case no + "\x00" + yes:
 		b.box.Buttons = desktop.ButtonsYesNo
-	case "Cancel,No,Yes":
+	case cancel + "\x00" + no + "\x00" + yes:
 		b.box.Buttons = desktop.ButtonsYesNoCancel
 	}
 	return b

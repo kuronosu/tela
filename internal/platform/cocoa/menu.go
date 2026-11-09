@@ -16,7 +16,9 @@ import (
 //
 // Tela's own labels (About, Services, Hide, Hide Others, Show All, Quit,
 // the default Edit and Window menus, and the labels of role items given
-// without one) are English: an i18n gap, as in Electron's defaults.
+// without one) are English unless the app gave the backend its own texts
+// (platform.Strings, Desktop.SetStrings; ADR-251), which every plan
+// function takes as its last argument (nil: English).
 
 // menuSpecial marks a submenu AppKit treats in a special way.
 type menuSpecial uint8
@@ -103,6 +105,32 @@ var roleLabels = map[platform.MenuRole]string{
 	platform.RoleEditMenu:   "Edit",
 	platform.RoleWindowMenu: "Window",
 	platform.RoleHelpMenu:   "Help",
+}
+
+// roleLabelIDs are the IDs of the texts the app can give for the labels
+// above (platform.Strings).
+var roleLabelIDs = map[platform.MenuRole]string{
+	platform.RoleUndo:       platform.StringMenuUndo,
+	platform.RoleRedo:       platform.StringMenuRedo,
+	platform.RoleCut:        platform.StringMenuCut,
+	platform.RoleCopy:       platform.StringMenuCopy,
+	platform.RolePaste:      platform.StringMenuPaste,
+	platform.RoleSelectAll:  platform.StringMenuSelectAll,
+	platform.RoleMinimize:   platform.StringMenuMinimize,
+	platform.RoleZoom:       platform.StringMenuZoom,
+	platform.RoleClose:      platform.StringMenuClose,
+	platform.RoleEditMenu:   platform.StringMenuEdit,
+	platform.RoleWindowMenu: platform.StringMenuWindow,
+	platform.RoleHelpMenu:   platform.StringMenuHelp,
+}
+
+// roleLabel returns the label of a role item given without one: the app's
+// text, else Electron's default.
+func roleLabel(r platform.MenuRole, s platform.Strings) string {
+	if id := roleLabelIDs[r]; id != "" {
+		return s.Get(id, roleLabels[r])
+	}
+	return roleLabels[r]
 }
 
 // roleAccelerators are the key equivalents of role items given without an
@@ -302,9 +330,9 @@ func accelKeyEquivalent(s string) (key string, mods uint64) {
 // name, then menu's items. Role items perform their AppKit action and
 // menu roles mark their submenus (see roleEntry); every other activatable
 // item is an app item, reported as an AppMenuEvent.
-func appMenuBarPlan(name string, menu, appItems []platform.MenuItem) []menuEntry {
-	bar := []menuEntry{appMenuEntry(name, plan(appItems, false, false))}
-	for _, it := range plan(menu, false, false) {
+func appMenuBarPlan(name string, menu, appItems []platform.MenuItem, s platform.Strings) []menuEntry {
+	bar := []menuEntry{appMenuEntry(name, plan(appItems, false, false, s), s)}
+	for _, it := range plan(menu, false, false, s) {
 		if !it.HasSubmenu && !it.Separator {
 			// A top-level item without a submenu has nothing to show in
 			// the menu bar: AppKit shows a top-level item only as the
@@ -324,29 +352,29 @@ func appMenuBarPlan(name string, menu, appItems []platform.MenuItem) []menuEntry
 // with the edit roles and a Window menu (Minimize, Zoom, Bring All to
 // Front, then AppKit's list of windows), so Cmd+Q, Cmd+H, Cmd+M and the
 // edit keys work in every Tela app.
-func defaultMenuBarPlan(name string) []menuEntry {
-	edit := menuEntry{Title: "Edit", HasSubmenu: true, Special: specialEdit, Submenu: []menuEntry{
-		roleEntry(platform.RoleUndo, "", ""),
-		roleEntry(platform.RoleRedo, "", ""),
+func defaultMenuBarPlan(name string, s platform.Strings) []menuEntry {
+	edit := menuEntry{Title: s.Get(platform.StringMenuEdit, "Edit"), HasSubmenu: true, Special: specialEdit, Submenu: []menuEntry{
+		roleEntry(platform.RoleUndo, "", "", s),
+		roleEntry(platform.RoleRedo, "", "", s),
 		{Separator: true},
-		roleEntry(platform.RoleCut, "", ""),
-		roleEntry(platform.RoleCopy, "", ""),
-		roleEntry(platform.RolePaste, "", ""),
-		roleEntry(platform.RoleSelectAll, "", ""),
+		roleEntry(platform.RoleCut, "", "", s),
+		roleEntry(platform.RoleCopy, "", "", s),
+		roleEntry(platform.RolePaste, "", "", s),
+		roleEntry(platform.RoleSelectAll, "", "", s),
 	}}
-	window := menuEntry{Title: "Window", HasSubmenu: true, Special: specialWindows, Submenu: []menuEntry{
-		roleEntry(platform.RoleMinimize, "", ""),
-		roleEntry(platform.RoleZoom, "", ""),
+	window := menuEntry{Title: s.Get(platform.StringMenuWindow, "Window"), HasSubmenu: true, Special: specialWindows, Submenu: []menuEntry{
+		roleEntry(platform.RoleMinimize, "", "", s),
+		roleEntry(platform.RoleZoom, "", "", s),
 		{Separator: true},
-		{Title: "Bring All to Front", Action: "arrangeInFront:"},
+		{Title: s.Get(platform.StringMenuBringAllToFront, "Bring All to Front"), Action: "arrangeInFront:"},
 	}}
-	return []menuEntry{appMenuEntry(name, nil), edit, window}
+	return []menuEntry{appMenuEntry(name, nil, s), edit, window}
 }
 
 // appMenuEntry returns the app menu with items after About.
-func appMenuEntry(name string, items []menuEntry) menuEntry {
+func appMenuEntry(name string, items []menuEntry, s platform.Strings) menuEntry {
 	sub := []menuEntry{
-		{Title: "About " + name, Action: "orderFrontStandardAboutPanel:"},
+		{Title: s.Named(platform.StringMenuAbout, "About {name}", name), Action: "orderFrontStandardAboutPanel:"},
 		{Separator: true},
 	}
 	if len(items) > 0 {
@@ -354,15 +382,15 @@ func appMenuEntry(name string, items []menuEntry) menuEntry {
 	}
 	cmd := keyboard.MacFlagCommand
 	sub = append(sub,
-		menuEntry{Title: "Services", HasSubmenu: true, Special: specialServices},
+		menuEntry{Title: s.Get(platform.StringMenuServices, "Services"), HasSubmenu: true, Special: specialServices},
 		menuEntry{Separator: true},
-		menuEntry{Title: "Hide " + name, Action: "hide:", Key: "h", Mods: cmd},
-		menuEntry{Title: "Hide Others", Action: "hideOtherApplications:", Key: "h", Mods: cmd | keyboard.MacFlagOption},
-		menuEntry{Title: "Show All", Action: "unhideAllApplications:"},
+		menuEntry{Title: s.Named(platform.StringMenuHide, "Hide {name}", name), Action: "hide:", Key: "h", Mods: cmd},
+		menuEntry{Title: s.Get(platform.StringMenuHideOthers, "Hide Others"), Action: "hideOtherApplications:", Key: "h", Mods: cmd | keyboard.MacFlagOption},
+		menuEntry{Title: s.Get(platform.StringMenuShowAll, "Show All"), Action: "unhideAllApplications:"},
 		menuEntry{Separator: true},
 		// terminate: goes through TelaApplication's override: a quit
 		// request (quit_darwin.go).
-		menuEntry{Title: "Quit " + name, Action: "terminate:", Key: "q", Mods: cmd},
+		menuEntry{Title: s.Named(platform.StringMenuQuit, "Quit {name}", name), Action: "terminate:", Key: "q", Mods: cmd},
 	)
 	return menuEntry{Title: name, HasSubmenu: true, Special: specialApp, Submenu: sub}
 }
@@ -370,12 +398,14 @@ func appMenuEntry(name string, items []menuEntry) menuEntry {
 // popupPlan returns the plan of a popup menu: every activatable item, role
 // items included, is an app item answered with its ID (only the app menu
 // bar performs roles), and accelerators are shown as key equivalents.
-func popupPlan(items []platform.MenuItem) []menuEntry { return plan(items, true, false) }
+func popupPlan(items []platform.MenuItem, s platform.Strings) []menuEntry {
+	return plan(items, true, false, s)
+}
 
 // plan converts items. popup makes every item an app item of the popup;
 // disabled grays out every item (the items of a disabled submenu: AppKit
 // enables a submenu's own item whenever it has a submenu).
-func plan(items []platform.MenuItem, popup, disabled bool) []menuEntry {
+func plan(items []platform.MenuItem, popup, disabled bool, s platform.Strings) []menuEntry {
 	var out []menuEntry
 	for _, it := range items {
 		if it.Separator {
@@ -385,10 +415,10 @@ func plan(items []platform.MenuItem, popup, disabled bool) []menuEntry {
 		off := disabled || it.Disabled
 		label := it.Label
 		if label == "" {
-			label = roleLabels[it.Role]
+			label = roleLabel(it.Role, s)
 		}
 		if len(it.Submenu) > 0 {
-			e := menuEntry{Title: label, HasSubmenu: true, Submenu: plan(it.Submenu, popup, off)}
+			e := menuEntry{Title: label, HasSubmenu: true, Submenu: plan(it.Submenu, popup, off, s)}
 			if !popup {
 				switch it.Role {
 				case platform.RoleEditMenu:
@@ -404,7 +434,7 @@ func plan(items []platform.MenuItem, popup, disabled bool) []menuEntry {
 		}
 		var e menuEntry
 		if it.Role != platform.RoleNone && !popup {
-			e = roleEntry(it.Role, label, it.Accelerator)
+			e = roleEntry(it.Role, label, it.Accelerator, s)
 		} else {
 			e = menuEntry{Title: label, App: true, Tag: it.ID, Action: appItemAction}
 			if popup {
@@ -424,9 +454,9 @@ func plan(items []platform.MenuItem, popup, disabled bool) []menuEntry {
 // roleEntry returns the item of an item role: its AppKit action, sent to
 // the first responder, with the role's label and key equivalent when the
 // item gives none.
-func roleEntry(r platform.MenuRole, label, accel string) menuEntry {
+func roleEntry(r platform.MenuRole, label, accel string, s platform.Strings) menuEntry {
 	if label == "" {
-		label = roleLabels[r]
+		label = roleLabel(r, s)
 	}
 	if accel == "" {
 		accel = roleAccelerators[r]

@@ -5,6 +5,7 @@ package cocoa
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"sync"
 
 	"github.com/kuronosu/tela/internal/darwin"
@@ -107,6 +108,11 @@ type menuState struct {
 	// both nil while the default bar is shown.
 	menu, appItems []platform.MenuItem
 
+	// strings are the texts the app gave (Desktop.SetStrings, ADR-251): the
+	// plans of the bar and of popups, the alerts' buttons and the save
+	// panel's label take them.
+	strings platform.Strings
+
 	popups      []*popupRequest // waiting to be shown, in request order
 	popup       *popupRequest   // shown (its tracking loop runs) or answering
 	popupPosted bool            // a block will show the next one
@@ -155,7 +161,7 @@ func (b *Backend) startMenus() {
 	menuTargets.Lock()
 	menuTargets.m[b.menus.target] = b
 	menuTargets.Unlock()
-	b.installBar(defaultMenuBarPlan(appName()))
+	b.installBar(defaultMenuBarPlan(appName(), b.menus.strings))
 }
 
 // stopMenus puts the default bar back and drops the popups that wait, when
@@ -171,7 +177,7 @@ func (b *Backend) stopMenus() {
 		return
 	}
 	m.menu, m.appItems = nil, nil
-	b.installBar(defaultMenuBarPlan(appName()))
+	b.installBar(defaultMenuBarPlan(appName(), b.menus.strings))
 	menuTargets.Lock()
 	delete(menuTargets.m, m.target)
 	menuTargets.Unlock()
@@ -210,12 +216,38 @@ func (d desktop) SetAppMenu(menu, appItems []platform.MenuItem) error {
 	m := &b.menus
 	if len(menu) == 0 && len(appItems) == 0 {
 		m.menu, m.appItems = nil, nil
-		b.installBar(defaultMenuBarPlan(appName()))
+		b.installBar(defaultMenuBarPlan(appName(), b.menus.strings))
 		return nil
 	}
 	m.menu, m.appItems = cloneMenuItems(menu), cloneMenuItems(appItems)
-	b.installBar(appMenuBarPlan(appName(), m.menu, m.appItems))
+	b.installBar(appMenuBarPlan(appName(), m.menu, m.appItems, m.strings))
 	return nil
+}
+
+// SetStrings keeps the app's texts (ADR-251) and puts the menu bar back
+// under them: the standard items of the app menu, Edit and Window, and the
+// labels of role items given without one. The alerts and the save panel
+// read them when they are shown.
+func (d desktop) SetStrings(strs platform.Strings) {
+	b := d.b
+	if b.closed {
+		return
+	}
+	if maps.Equal(b.menus.strings, strs) {
+		return
+	}
+	b.menus.strings = maps.Clone(strs)
+	if b.menus.target == 0 {
+		return // no menus: setupMenus failed, or the backend is over
+	}
+	pool := darwin.PoolPush()
+	defer darwin.PoolPop(pool)
+	m := &b.menus
+	if m.menu == nil && m.appItems == nil {
+		b.installBar(defaultMenuBarPlan(appName(), m.strings))
+		return
+	}
+	b.installBar(appMenuBarPlan(appName(), m.menu, m.appItems, m.strings))
 }
 
 // barMenus are the submenus of a bar that NSApp is told about.
@@ -561,7 +593,7 @@ func (b *Backend) showPopup(r *popupRequest) {
 		finish()
 		return
 	}
-	r.menu = b.buildMenu(popupPlan(r.items), "", nil)
+	r.menu = b.buildMenu(popupPlan(r.items, b.menus.strings), "", nil)
 	picked := darwin.SendBool(r.menu, msel.popUp, darwin.ID(0),
 		darwin.CGPoint{X: float64(r.at.X), Y: float64(r.at.Y)}, r.w.view)
 	b.releaseLater(r.menu)

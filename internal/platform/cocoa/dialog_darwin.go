@@ -268,7 +268,7 @@ func (b *Backend) fileDialog(kind dialogKind, opts platform.FileDialogOptions, d
 // accessory view, its target the helper.
 func (r *dialogRequest) addPopup() {
 	const margin, gap = 20.0, 8.0
-	label := darwin.SendClass(darwin.GetClass("NSTextField"), psel.labelWithString, darwin.AutoString("Format:"))
+	label := darwin.SendClass(darwin.GetClass("NSTextField"), psel.labelWithString, darwin.AutoString(r.b.menus.strings.Get(platform.StringPanelFormat, "Format:")))
 	popup := darwin.Send(darwin.SendClass(darwin.GetClass("NSPopUpButton"), sel.alloc), psel.initWithFramePullsDown, darwin.CGRect{}, false)
 	if label == 0 || popup == 0 {
 		darwin.Release(popup)
@@ -580,7 +580,7 @@ func (d desktop) MessageBox(opts platform.MessageBoxOptions, done func(platform.
 	darwin.Send(alert, psel.setMessageText, darwin.AutoString(message))
 	darwin.Send(alert, psel.setInformativeText, darwin.AutoString(informative))
 	darwin.Send(alert, psel.setAlertStyle, uint(alertStyle(opts.Kind)))
-	for _, bt := range alertButtons(opts.Buttons) {
+	for _, bt := range alertButtons(opts.Buttons, b.menus.strings) {
 		btn := darwin.Send(alert, psel.addButtonWithTitle, darwin.AutoString(bt.title))
 		if bt.escape && btn != 0 {
 			darwin.Send(btn, psel.setKeyEquivalent, darwin.AutoString("\x1b"))

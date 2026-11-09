@@ -112,6 +112,7 @@ func (t Tray) Build() tela.Node {
 	if len(t.Icon) == 0 {
 		panic("desktop.Tray has no Icon: give it the picture at a few sizes, such as desktop.Tray{Icon: []image.Image{icon16, icon24, icon32}, Tooltip: \"Notes\"}")
 	}
+	tela.UseLabels() // the role items' labels follow the language (ADR-251)
 	w := tela.UseWindow()
 	s := tela.UseOnce(func() *trayState { return &trayState{} })
 	s.props = t // the latest callbacks

@@ -44,8 +44,8 @@ const (
 		"dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
 )
 
-// answerLabels are the button labels.
-var answerLabels = [...]string{AnswerOK: "OK", AnswerCancel: "Cancel", AnswerYes: "Yes", AnswerNo: "No"}
+// answerLabels are the IDs of the built-in labels (ADR-251) of the buttons.
+var answerLabels = [...]string{AnswerOK: "tela.messagebox.ok", AnswerCancel: "tela.messagebox.cancel", AnswerYes: "tela.messagebox.yes", AnswerNo: "tela.messagebox.no"}
 
 // buttonOrder returns the buttons of a set in the order they are drawn.
 func buttonOrder(b Buttons) []Answer {
@@ -70,6 +70,7 @@ type messageView struct {
 func (v messageView) Build() tela.Node {
 	m := v.Message
 	box := v.box
+	label := tela.UseLabels() // the buttons and the default title follow the language
 	ref := tela.UseElementRef()
 	size := tela.UseSize(ref)
 	height := size.Get().Height
@@ -95,7 +96,7 @@ func (v messageView) Build() tela.Node {
 			cls = buttonPrimary
 		}
 		buttons = append(buttons, h.Button(h.Key(int(a)), h.Class(buttonBase, cls), h.AutoFocus(a == def),
-			h.OnClick(func() { answer(a) }), h.Text(answerLabels[a])))
+			h.OnClick(func() { answer(a) }), h.Text(label(answerLabels[a]))))
 	}
 
 	text := make([]tela.Child, 0, 4)
@@ -118,7 +119,7 @@ func (v messageView) Build() tela.Node {
 		}),
 		h.Div(h.Class("flex items-start gap-4"),
 			h.Div(h.Class("flex size-10 shrink-0 items-center justify-center rounded-full", look.tone),
-				h.Icon(look.icon, h.Class("size-5"), h.AriaLabel(kindTitles[m.Kind]))),
+				h.Icon(look.icon, h.Class("size-5"), h.AriaLabel(label(kindTitles[m.Kind])))),
 			h.Div(text...),
 		),
 		h.Div(buttons...),

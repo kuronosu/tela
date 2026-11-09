@@ -146,6 +146,11 @@ var (
 	procCoCreateInstance            = ole32.NewProc("CoCreateInstance")
 	procCoTaskMemFree               = ole32.NewProc("CoTaskMemFree")
 	procMessageBoxW                 = user32.NewProc("MessageBoxW")
+	procSetWindowsHookExW           = user32.NewProc("SetWindowsHookExW")
+	procUnhookWindowsHookEx         = user32.NewProc("UnhookWindowsHookEx")
+	procCallNextHookEx              = user32.NewProc("CallNextHookEx")
+	procSetDlgItemTextW             = user32.NewProc("SetDlgItemTextW")
+	procDialogClassNameW            = user32.NewProc("GetClassNameW") // the message box hook
 	procCreatePopupMenu             = user32.NewProc("CreatePopupMenu")
 	procAppendMenuW                 = user32.NewProc("AppendMenuW")
 	procDestroyMenu                 = user32.NewProc("DestroyMenu")

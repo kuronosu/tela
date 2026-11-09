@@ -124,6 +124,7 @@ type desktopState struct {
 
 	// Phase 13 (services13.go).
 	appID             string // SetAppID's
+	strings           platform.Strings
 	shortcuts         []ShortcutRecord
 	shortcutResponder func(platform.Shortcut) platform.ShortcutStatusEvent
 	shortcutErr       error // SetShortcutError's

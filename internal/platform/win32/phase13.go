@@ -3,6 +3,8 @@
 package win32
 
 import (
+	"maps"
+
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/assoc"
 )
@@ -27,6 +29,13 @@ func (w *Window) ActivateWithToken(string) { w.Activate() }
 func (d desktop) SetAppID(id string) {
 	platform.CheckAppID("SetAppID", id)
 	d.b.setToastAppID(id)
+}
+
+// SetStrings keeps the app's texts (ADR-251): the next message boxes get
+// the buttons' labels the app translated (messageBoxLabels). The other
+// buttons keep the labels of the user's Windows.
+func (d desktop) SetStrings(strs platform.Strings) {
+	d.b.desk.strings = maps.Clone(strs)
 }
 
 // Associations returns the current user's registration (package assoc).

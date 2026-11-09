@@ -225,7 +225,7 @@ func TestAppMenuBar(t *testing.T) {
 	onMain(func() {
 		pool := darwin.PoolPush()
 		name = appName()
-		checkBar(t, b, "the default bar at New", defaultMenuBarPlan(name))
+		checkBar(t, b, "the default bar at New", defaultMenuBarPlan(name, nil))
 		darwin.PoolPop(pool)
 	})
 	t.Logf("app name %q", name)
@@ -241,7 +241,7 @@ func TestAppMenuBar(t *testing.T) {
 			step = 99
 			return
 		}
-		checkBar(t, b, "the app's bar", appMenuBarPlan(name, testAppMenu, testAppItems))
+		checkBar(t, b, "the app's bar", appMenuBarPlan(name, testAppMenu, testAppItems, nil))
 		pool := darwin.PoolPush()
 		defer darwin.PoolPop(pool)
 		main := darwin.Send(app.ns, msel.mainMenu)
@@ -282,7 +282,7 @@ func TestAppMenuBar(t *testing.T) {
 		if err := b.Desktop().SetAppMenu(nil, nil); err != nil {
 			t.Errorf("SetAppMenu(nil, nil): %v", err)
 		}
-		checkBar(t, b, "after SetAppMenu(nil, nil)", defaultMenuBarPlan(name))
+		checkBar(t, b, "after SetAppMenu(nil, nil)", defaultMenuBarPlan(name, nil))
 		step = 1
 		return true
 	})
@@ -293,7 +293,7 @@ func TestAppMenuBar(t *testing.T) {
 		if err := b.Desktop().SetAppMenu(testAppMenu, nil); err == nil {
 			t.Errorf("SetAppMenu after Run = nil, want an error")
 		}
-		checkBar(t, b, "after Run", defaultMenuBarPlan(name))
+		checkBar(t, b, "after Run", defaultMenuBarPlan(name, nil))
 	})
 }
 

@@ -11,6 +11,10 @@ import "github.com/kuronosu/tela/internal/platform"
 // protocol 5). The ID names the desktop entry the GlobalShortcuts portal
 // looks for, so it must be the app's, not the executable's.
 
+// SetStrings does nothing: no text of the portals' dialogs or the
+// notification and tray services is the backend's (ADR-251).
+func (d *Desktop) SetStrings(platform.Strings) {}
+
 // SetAppID sets the app ID of the services: the portal registration of
 // the global shortcuts (a changed ID binds the registered shortcuts again
 // under it, on a new connection), the notifications' app name and

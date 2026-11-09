@@ -95,6 +95,19 @@ type Desktop interface {
 	// panics ([CheckAppID]).
 	SetAppID(id string)
 
+	// --- Platform contract v8 (ADR-251). ---
+
+	// SetStrings gives the backend the texts it shows itself in the app's
+	// language: the button labels of its native message boxes, the titles
+	// of the standard items of its menus, the save panel's "Format:"
+	// label (see [Strings] for the IDs). Only the IDs the app translated
+	// are in strings; for the others the backend keeps its own text (the
+	// OS's own in the OS's language where the OS supplies one, else
+	// English). Layers above call it before the first window opens and
+	// again, with the whole set, whenever the app's language changes; it
+	// replaces the previous set. Backends that show no such text ignore it.
+	SetStrings(strings Strings)
+
 	// RegisterShortcut asks the OS for a global shortcut (see "Global
 	// shortcuts" in the package documentation). When it returns nil,
 	// exactly one ShortcutStatusEvent with the outcome follows through the
@@ -555,6 +568,9 @@ func (UnsupportedDesktop) RemoveTray(TrayID) error { return ErrUnsupported }
 
 // SetAppID checks id and does nothing.
 func (UnsupportedDesktop) SetAppID(id string) { CheckAppID("SetAppID", id) }
+
+// SetStrings does nothing.
+func (UnsupportedDesktop) SetStrings(Strings) {}
 
 // RegisterShortcut checks s and returns ErrUnsupported.
 func (UnsupportedDesktop) RegisterShortcut(s Shortcut) error {

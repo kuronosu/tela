@@ -650,6 +650,14 @@
 // Contract v7 (ADR-252) adds [CaptionClickEvent] (see "Custom title
 // bars").
 //
+// Contract v8 (ADR-251) adds [Desktop.SetStrings] and [Strings]: the layers
+// above give the backend the texts it shows itself in the app's language
+// (the buttons of native message boxes on Win32 and Cocoa, the standard
+// items of the macOS menus, the save panel's "Format:" label), only for
+// the IDs the app translated. Cocoa rebuilds its menu bar when the set
+// changes; Win32 renames the buttons of a message box when it is created
+// (a WH_CBT hook and SetDlgItemTextW).
+//
 // # Drag and drop and the clipboard
 //
 // One data type, [Data], carries a drag and the clipboard: an ordered set
@@ -1506,7 +1514,8 @@
 // Remote (tela dev), protocol 5 (ADR-214), 6 with contract v4 (ADR-225),
 // 7 with TrayOptions.Template (ADR-237), 9 with contract v5 (ADR-246:
 // accessibility, see "Accessibility"), 10 with contract v6 (ADR-249:
-// transparent windows), 11 with contract v7 (ADR-252: caption clicks):
+// transparent windows), 11 with contract v7 (ADR-252: caption clicks),
+// 12 with contract v8 (ADR-251: SetStrings):
 // everything is forwarded to the host's backend, which owns the real
 // windows: drags in both directions (the answer to a drag reaches the OS
 // one round trip late, so a drag entering a window is refused until the

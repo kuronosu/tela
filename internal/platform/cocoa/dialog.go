@@ -145,17 +145,23 @@ type alertButton struct {
 // alertButtons returns the buttons of a message box with the set b, in
 // the order the macOS guidelines give them (and NSAlert's own Save
 // boxes): the affirmative button at the right, Cancel at its left, and a
-// destructive No ("Don't Save") at the far left.
-func alertButtons(b platform.MessageButtons) []alertButton {
+// destructive No ("Don't Save") at the far left. Their titles are the
+// app's (platform.Strings, ADR-251), else English; the Cancel button has
+// the Escape key whatever its title.
+func alertButtons(b platform.MessageButtons, s platform.Strings) []alertButton {
+	ok := s.Get(platform.StringMessageOK, "OK")
+	cancel := s.Get(platform.StringMessageCancel, "Cancel")
+	yes := s.Get(platform.StringMessageYes, "Yes")
+	no := s.Get(platform.StringMessageNo, "No")
 	switch b {
 	case platform.ButtonsOKCancel:
-		return []alertButton{{"OK", platform.AnswerOK, false}, {"Cancel", platform.AnswerCancel, true}}
+		return []alertButton{{ok, platform.AnswerOK, false}, {cancel, platform.AnswerCancel, true}}
 	case platform.ButtonsYesNo:
-		return []alertButton{{"Yes", platform.AnswerYes, false}, {"No", platform.AnswerNo, true}}
+		return []alertButton{{yes, platform.AnswerYes, false}, {no, platform.AnswerNo, true}}
 	case platform.ButtonsYesNoCancel:
-		return []alertButton{{"Yes", platform.AnswerYes, false}, {"Cancel", platform.AnswerCancel, true}, {"No", platform.AnswerNo, false}}
+		return []alertButton{{yes, platform.AnswerYes, false}, {cancel, platform.AnswerCancel, true}, {no, platform.AnswerNo, false}}
 	}
-	return []alertButton{{"OK", platform.AnswerOK, false}}
+	return []alertButton{{ok, platform.AnswerOK, false}}
 }
 
 // alertButtonResponse is the response of the alert button at index i (in
@@ -168,7 +174,7 @@ func alertButtonResponse(i int) int { return alertFirstButtonReturn + i }
 // the set's DismissAnswer for anything else (a sheet ended because its
 // window closed).
 func alertAnswer(b platform.MessageButtons, response int) platform.MessageAnswer {
-	buttons := alertButtons(b)
+	buttons := alertButtons(b, nil) // the titles do not matter here
 	if i := response - alertFirstButtonReturn; i >= 0 && i < len(buttons) {
 		return buttons[i].answer
 	}

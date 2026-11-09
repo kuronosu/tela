@@ -116,12 +116,14 @@ func Run(opts Options) error {
 	// The window's tree runs the functions given to Post, including the
 	// ones posted before Run.
 	stop := h.tree.ReceivePosts()
+	stopStrings := h.WatchStrings() // labels.go: a new language reaches the backend
 	if devStateEnabled {
 		err = devRun(b, h)
 	} else {
 		err = b.Run(h)
 	}
 	stop()
+	stopStrings()
 	h.stopTimer()
 	h.end()
 	runEndHooks() // desktop.go: package desktop writes what it holds
@@ -234,6 +236,8 @@ func NewHost(b platform.Backend, opts Options) (*Host, error) {
 	if t.dev {
 		h.uiG = goid()
 	}
+	// labels.go: the texts the backend shows itself.
+	h.syncStrings()
 	t.chrome.buttons = b.Settings().TitleBarButtons // the fallback title bar (chrome.go)
 	h.main = h.newView(win, t, nil, &spec, wo)
 	h.views = []*winView{h.main}

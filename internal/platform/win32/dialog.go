@@ -161,6 +161,36 @@ func messageBoxStyle(opts platform.MessageBoxOptions, owned bool) uint32 {
 	return s
 }
 
+// messageBoxLabel is the text the app wants on one button of a message box.
+type messageBoxLabel struct {
+	id   int // IDOK, IDCANCEL, IDYES or IDNO
+	text string
+}
+
+// messageBoxLabels returns the labels the app gave (platform.Strings) for
+// the buttons of a box with the set b. MessageBoxW names its buttons in
+// the language of the user's Windows, which is right while the app has not
+// translated them; a translated one is set on the button once the box is
+// created (messageBoxHook).
+func messageBoxLabels(b platform.MessageButtons, s platform.Strings) []messageBoxLabel {
+	var out []messageBoxLabel
+	for _, c := range []struct {
+		answer platform.MessageAnswer
+		id     int
+		string string
+	}{
+		{platform.AnswerOK, idOK, platform.StringMessageOK},
+		{platform.AnswerCancel, idCancel, platform.StringMessageCancel},
+		{platform.AnswerYes, idYes, platform.StringMessageYes},
+		{platform.AnswerNo, idNo, platform.StringMessageNo},
+	} {
+		if text := s[c.string]; text != "" && b.Has(c.answer) {
+			out = append(out, messageBoxLabel{c.id, text})
+		}
+	}
+	return out
+}
+
 // messageBoxAnswer maps the result of MessageBoxW to the contract's answer.
 // 0 is a failure (ok false). Escape and the close button give IDCANCEL in
 // sets with Cancel and IDOK for a lone OK (Windows' rule, which is also

@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`OpenPath`](#func-openpath) · [`OpenURL`](#func-openurl) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`Quit`](#func-quit) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseAccentColor`](#func-useaccentcolor) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseHighContrast`](#func-usehighcontrast) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseNativeMenus`](#func-usenativemenus) · [`UseOnce`](#func-useonce) · [`UsePlatformKeys`](#func-useplatformkeys) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTextScale`](#func-usetextscale) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`UseWindow`](#func-usewindow) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Label`](#func-label) · [`Labels`](#func-labels) · [`LabelsChanged`](#func-labelschanged) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`OpenPath`](#func-openpath) · [`OpenURL`](#func-openurl) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`Quit`](#func-quit) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetLabelSource`](#func-setlabelsource) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseAccentColor`](#func-useaccentcolor) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseHighContrast`](#func-usehighcontrast) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLabels`](#func-uselabels) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseNativeMenus`](#func-usenativemenus) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTextScale`](#func-usetextscale) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`UseWindow`](#func-usewindow) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Initial`](#func-initial) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
@@ -44,6 +44,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type KeyLocation`](#type-keylocation): [`String`](#func-keylocation-string)
   - [`type KeyName`](#type-keyname)
   - [`type KeyboardEvent`](#type-keyboardevent): [`CmdOrCtrl`](#func-keyboardevent-cmdorctrl) · [`DefaultPrevented`](#func-keyboardevent-defaultprevented) · [`PreventDefault`](#func-keyboardevent-preventdefault) · [`StopPropagation`](#func-keyboardevent-stoppropagation)
+  - [`type LabelSource`](#type-labelsource)
   - [`type MouseButton`](#type-mousebutton): [`String`](#func-mousebutton-string)
   - [`type MouseButtons`](#type-mousebuttons): [`Has`](#func-mousebuttons-has)
   - [`type MouseEvent`](#type-mouseevent): [`CmdOrCtrl`](#func-mouseevent-cmdorctrl) · [`DefaultPrevented`](#func-mouseevent-defaultprevented) · [`PreventDefault`](#func-mouseevent-preventdefault) · [`StopPropagation`](#func-mouseevent-stoppropagation)
@@ -73,7 +74,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type WheelEvent`](#type-wheelevent): [`CmdOrCtrl`](#func-wheelevent-cmdorctrl) · [`DefaultPrevented`](#func-wheelevent-defaultprevented) · [`PreventDefault`](#func-wheelevent-preventdefault) · [`StopPropagation`](#func-wheelevent-stoppropagation)
   - [`type Window`](#type-window): [`Build`](#func-window-build)
   - [`type WindowControl`](#type-windowcontrol): [`String`](#func-windowcontrol-string)
-  - [`type WindowHandle`](#type-windowhandle): [`UseWindow`](#func-usewindow) · [`ActiveElement`](#func-windowhandle-activeelement) · [`Close`](#func-windowhandle-close) · [`Focus`](#func-windowhandle-focus) · [`Hide`](#func-windowhandle-hide) · [`IsZero`](#func-windowhandle-iszero) · [`Maximize`](#func-windowhandle-maximize) · [`Minimize`](#func-windowhandle-minimize) · [`Placement`](#func-windowhandle-placement) · [`SetFullscreen`](#func-windowhandle-setfullscreen) · [`Show`](#func-windowhandle-show) · [`State`](#func-windowhandle-state) · [`ToggleMaximize`](#func-windowhandle-togglemaximize) · [`Unmaximize`](#func-windowhandle-unmaximize)
+  - [`type WindowHandle`](#type-windowhandle): [`UseWindow`](#func-usewindow) · [`Close`](#func-windowhandle-close) · [`Focus`](#func-windowhandle-focus) · [`Hide`](#func-windowhandle-hide) · [`IsZero`](#func-windowhandle-iszero) · [`Maximize`](#func-windowhandle-maximize) · [`Minimize`](#func-windowhandle-minimize) · [`Placement`](#func-windowhandle-placement) · [`SetFullscreen`](#func-windowhandle-setfullscreen) · [`Show`](#func-windowhandle-show) · [`State`](#func-windowhandle-state) · [`ToggleMaximize`](#func-windowhandle-togglemaximize) · [`Unmaximize`](#func-windowhandle-unmaximize)
   - [`type WindowPlacement`](#type-windowplacement)
   - [`type WindowState`](#type-windowstate)
 
@@ -484,6 +485,35 @@ func DevMode() bool
 
 DevMode reports whether dev mode is on where it is called: in a build, the mode of the tree being built (App.Dev, telatest.NoDev); elsewhere the process default, on unless the program is a release build, with TELA_DEV=1 or TELA_DEV=0 overriding both (ADR-085, ADR-093). Component libraries use it to check their own props the way Tela checks classes and roles: panic with the fix in dev mode, fall back quietly otherwise. It is a lookup and costs nothing.
 
+### func Label
+
+```go
+func Label(id string, args ...any) string
+```
+
+Label returns the text of a built-in label (the IDs [`Labels`](#func-labels) lists): the [`LabelSource`](#type-labelsource)'s, else the English text, with the {name} placeholders replaced by the args pairs. It does not rebuild components when the language changes: use [`UseLabels`](#func-uselabels) in components. It panics on an ID that is not one of the labels.
+
+```go
+tela.Label("tela.toast.close")                 // "Close toast"
+tela.Label("tela.menu.quit", "name", "Notes")  // "Quit Notes"
+```
+
+### func Labels
+
+```go
+func Labels() map[string]string
+```
+
+Labels returns the IDs of the built-in labels with their English texts. A {name} in a text is an argument.
+
+### func LabelsChanged
+
+```go
+func LabelsChanged()
+```
+
+LabelsChanged says that the answers of the [`LabelSource`](#type-labelsource) changed (the language, a catalog): the components that call [`UseLabels`](#func-uselabels) build again, and the texts the platform shows itself (native message boxes, the macOS menus) are given to it again. It is safe from any goroutine.
+
 ### func Main
 
 ```go
@@ -634,6 +664,14 @@ fmt.Println(app.AriaSnapshot())
 // Output:
 // - button "Light mode"
 ```
+
+### func SetLabelSource
+
+```go
+func SetLabelSource(src LabelSource)
+```
+
+SetLabelSource sets where the built-in labels' texts come from; nil goes back to English. Package i18n sets one when it is imported (the app's catalogs, in its current locale), so most apps never call this; an app with another translation system does, and calls [`LabelsChanged`](#func-labelschanged) when its language changes. It is safe from any goroutine.
 
 ### func SetTheme
 
@@ -900,6 +938,21 @@ fmt.Println("ok")
 // Output: ok
 ```
 
+### func UseLabels
+
+```go
+func UseLabels() func(id string, args ...any) string
+```
+
+UseLabels returns [`Label`](#func-label) and subscribes the component to the source: it builds again when [`LabelsChanged`](#func-labelschanged) runs. It is a hook: call it at the top level of a component.
+
+```go
+func CloseButton() tela.Node {
+    label := tela.UseLabels()
+    return Button(AriaLabel(label("tela.toast.close")), Text("×"))
+}
+```
+
 ### func UseLayoutEffect
 
 ```go
@@ -1011,16 +1064,6 @@ app.Click(telatest.ByText("Add"))
 fmt.Println("created", created, "times")
 // Output: created 1 times
 ```
-
-### func UsePlatformKeys
-
-```go
-func UsePlatformKeys() string
-```
-
-UsePlatformKeys returns the platform whose key conventions the window follows, as a GOOS name: "darwin" (Command is the primary modifier of shortcuts, as [`KeyboardEvent.CmdOrCtrl`](#func-keyboardevent-cmdorctrl) reports), "windows" or "linux". It is the OS the app runs on, except in tests that ask for another (telatest.PlatformKeys, ADR-221). It does not change while the app runs, so the component does not build again for it. It is a hook: call it at the top level of a component.
-
-It is for showing shortcuts: kit's menus write "CmdOrCtrl+N" as "⌘N" under "darwin" and "Ctrl+N" elsewhere.
 
 ### func UsePresence
 
@@ -1721,9 +1764,9 @@ tela.Run(tela.App{
 
 Where the OS draws no title bar for a framed window (one that is neither Frameless nor TitleBarOverlay; [`WindowState`](#type-windowstate).ClientSideDecorations, as on GNOME under Wayland, whose compositor leaves decorations to the apps), Tela draws a plain one, in the app's theme and color scheme: the window's Title centered, the minimize, maximize (restore) and close buttons in the order the desktop's button layout gives (GNOME's button-layout setting; minimize, maximize and close at the end without one), dimmed while the window is not focused. It moves the window when dragged, maximizes it on a double click and opens the window menu on a right click, and the window resizes from its edges. The main window and every [`Window`](#type-window) get one; it hides in full screen. Nothing changes for apps elsewhere (Windows, macOS, X11 and compositors that draw title bars), in tela snapshot or in telatest (unless the test asks for telatest.NoServerDecorations).
 
-The window's content is laid out below the bar: the root (h-full, h-screen, 100vh, the breakpoints, fixed and portal content such as dialogs) sees the rest of the window as its viewport, so an app needs no change for it. The bar mirrors under the direction of the window's content: an h.Dir on the outermost element, or on the element that is the whole content inside it (a wrapper's only child). A click on it closes an open dialog or popover that closes on a press outside it; a drag moves the window and leaves them open.
+The window's content is laid out below the bar: the root (h-full, h-screen, 100vh, the breakpoints, fixed and portal content such as dialogs) sees the rest of the window as its viewport, so an app needs no change for it.
 
-An app that draws its own title bar (an element with h.WindowDrag, such as kit.TitleBar) replaces it: while the window's content has a WindowDrag area the fallback is not shown, and it comes back when that area unmounts, in the same frame. Show your bar only where it is needed by reading State().ClientSideDecorations. A Frameless window gets no bar at all; there is no other switch.
+An app that draws its own title bar (an element with h.WindowDrag, such as kit.TitleBar) replaces it: while the window's content has a WindowDrag area the fallback is not shown, and it comes back when that area unmounts, in the same frame. Show your bar only where it is needed by reading State().ClientSideDecorations.
 
 **Example (fonts)**
 
@@ -3887,6 +3930,20 @@ func (e KeyboardEvent) StopPropagation()
 ```
 
 StopPropagation stops the event from bubbling to the ancestors of the element whose handler runs. The other handlers of that element still run.
+
+### type LabelSource
+
+```go
+type LabelSource = core.LabelSource
+```
+
+LabelSource answers a built-in label's ID with the text in the app's current language, or false when it has none. args are name/value pairs for the {name} placeholders of the English text ("About {name}"). It may be called from any goroutine.
+
+`LabelSource` is an alias of `core.LabelSource`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type LabelSource func(id string, args ...any) (string, bool)
+```
 
 ### type MouseButton
 
@@ -6128,14 +6185,6 @@ func titleBar() tela.Node {
     )
 }
 ```
-
-#### func (WindowHandle) ActiveElement
-
-```go
-func (w WindowHandle) ActiveElement() (ElementRef, bool)
-```
-
-ActiveElement returns a ref to the element of the window that has the focus (the DOM's document.activeElement), and whether one has. The ref acts on that element while it stays mounted (Focus, Bounds, Focused, Click) and does nothing once it unmounts; it is a new ref, not equal to the refs attached to the element, so compare elements with Focused. Call it on the UI thread, from a handler or an effect: a component that remembers the focus before it moves it (a menu that gives an edit command to the field the user was in) keeps the ref.
 
 #### func (WindowHandle) Close
 

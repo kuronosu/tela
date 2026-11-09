@@ -71,6 +71,7 @@ type AppMenuBar struct {
 
 // Build sets the app's menu bar while the component is mounted.
 func (m AppMenuBar) Build() tela.Node {
+	tela.UseLabels() // the role items' labels follow the language (ADR-251)
 	w := tela.UseWindow()
 	s := tela.UseOnce(func() *appBarState { return &appBarState{} })
 	s.props = m

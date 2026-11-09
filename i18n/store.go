@@ -14,6 +14,7 @@ import (
 
 	"golang.org/x/text/language"
 
+	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/internal/core"
 )
 
@@ -84,6 +85,9 @@ func update(f func(s *state) error) error {
 	if ns.locale != old.locale {
 		notify()
 	}
+	// The catalogs are the source of Tela's own labels (labels.go): a new
+	// locale or a new message may change them.
+	tela.LabelsChanged()
 	return nil
 }
 

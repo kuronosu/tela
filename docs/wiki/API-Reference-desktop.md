@@ -1470,7 +1470,8 @@ type Message struct {
     // Kind is the icon and tone (MessageInfo by default).
     Kind MessageKind
     // Title is the box's title; empty uses the kind's ("Information",
-    // "Warning", "Error", "Question").
+    // "Warning", "Error", "Question", in the app's language: the built-in
+    // labels "tela.messagebox.info"... of [tela.Labels]).
     Title string
     // Text is the message. Keep it to a few sentences; a blank line
     // separates paragraphs.
@@ -1624,7 +1625,7 @@ desktop.MenuItem{Role: desktop.RoleEditMenu}   // "Edit": Undo, Redo, Cut, Copy,
 desktop.MenuItem{Role: desktop.RoleMinimize, Label: "Minimizar"}
 ```
 
-An item with a Role and no Label gets the role's English label ([`Role.Label`](#func-role-label)); a menu role with no Submenu gets the standard items, as Electron's role: 'editMenu' and 'windowMenu' do (RoleHelpMenu has no standard items: give it a Submenu).
+An item with a Role and no Label gets the role's label ([`Role.Label`](#func-role-label), English unless the app's catalogs translate it); a menu role with no Submenu gets the standard items, as Electron's role: 'editMenu' and 'windowMenu' do (RoleHelpMenu has no standard items: give it a Submenu).
 
 What choosing a role item does depends on the platform. Where the OS has the action, it carries it out itself and the choice never reaches the app (macOS's app menu bar: AppKit's own items, acting on the key window and its focused field). Everywhere else package desktop carries it out: minimize, zoom (maximize or restore) and close act on the window the menu belongs to (the key window for the app's menu bar and the tray's menu), and the edit roles send that window's focused element the shortcut of its platform (Ctrl+C, or Command+C under the Mac key flavor), so text fields cut, copy, paste, undo and select all as they do for the keys. An item's own OnSelect, if set, runs instead, and the platform does not perform the role.
 
@@ -1666,7 +1667,7 @@ const (
 func (r Role) Label() string
 ```
 
-Label returns the role's default English label: "Undo", "Select All", "Edit"... ("" for RoleNone).
+Label returns the role's default label: "Undo", "Select All", "Edit"... in the app's language ("" for RoleNone). It is the built-in label of the role (ADR-251: "tela.menu.undo", "tela.menu.selectAll"... of [`tela.Labels`](API-Reference-tela#func-labels)), English unless the app's catalogs translate it.
 
 #### func (Role) String
 

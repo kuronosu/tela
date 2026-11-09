@@ -930,6 +930,9 @@ func testDesktop(s *session) {
 			s.t.Errorf("Desktop() is nil; return platform.UnsupportedDesktop{} for a backend without services")
 			return
 		}
+		// SetStrings (contract v8, ADR-251) takes any set, and replaces it.
+		d.SetStrings(platform.Strings{platform.StringMessageOK: "Aceptar", platform.StringMenuQuit: "Salir de {name}"})
+		d.SetStrings(nil)
 		s.expectPanic("OpenFiles with a nil callback", func() { _ = d.OpenFiles(platform.FileDialogOptions{}, nil) })
 		s.expectPanic("SaveFile with a nil callback", func() { _ = d.SaveFile(platform.FileDialogOptions{}, nil) })
 		s.expectPanic("PickFolder with a nil callback", func() { _ = d.PickFolder(platform.FileDialogOptions{}, nil) })

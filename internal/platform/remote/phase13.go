@@ -255,6 +255,13 @@ func (d childDesktop) SetAppID(id string) {
 	_, _ = d.call(dSetAppID, 0, func(e *enc) { e.str(id) })
 }
 
+// SetStrings gives the host's backend the app's texts (ADR-251): under
+// tela dev the host's native message boxes and menus are the child app's.
+// A host that does not know the call is ignored.
+func (d childDesktop) SetStrings(strings platform.Strings) {
+	_, _ = d.call(dSetStrings, 0, func(e *enc) { e.stringMap(strings) })
+}
+
 func (d childDesktop) ClaimInstance(appID string, launch platform.Launch) (bool, error) {
 	platform.CheckAppID("ClaimInstance", appID)
 	r, err := d.call(dClaimInstance, 0, func(e *enc) { e.str(appID); e.launch(launch) })
@@ -698,6 +705,15 @@ func (h *Host) setAppID(c *Child, id string, call func(func() error) error) erro
 		return err
 	}
 	return call(func() error { h.b.Desktop().SetAppID(id); return nil })
+}
+
+// setStrings serves a child's SetStrings: the host's backend shows the
+// child app's texts. A replaced child's are dropped.
+func (h *Host) setStrings(c *Child, strs platform.Strings, call func(func() error) error) error {
+	if c.state == stateDetached {
+		return nil
+	}
+	return call(func() error { h.b.Desktop().SetStrings(strs); return nil })
 }
 
 // --- host side: single instance ---
