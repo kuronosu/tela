@@ -1,0 +1,166 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="gallery.css">
+</head>
+<body class="bg-white">
+<div data-probe="page" class="w-[800px]">
+<div data-probe="panel" class="flex flex-wrap items-start gap-6 bg-background p-6 text-foreground">
+<div class="flex-none w-[112px]">
+<div data-probe="success" class="flex">
+<span data-probe="success-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-emerald-500/15 text-emerald-700 focus-visible:ring-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 dark:focus-visible:ring-emerald-500/40">Paid</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="warning" class="flex">
+<span data-probe="warning-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-amber-500/15 text-amber-700 focus-visible:ring-amber-500/20 dark:bg-amber-500/20 dark:text-amber-400 dark:focus-visible:ring-amber-500/40">Pending</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="info" class="flex">
+<span data-probe="info-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-sky-500/15 text-sky-700 focus-visible:ring-sky-500/20 dark:bg-sky-500/20 dark:text-sky-400 dark:focus-visible:ring-sky-500/40">Draft</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="success-icon" class="flex">
+<span data-probe="success-icon-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-emerald-500/15 text-emerald-700 focus-visible:ring-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 dark:focus-visible:ring-emerald-500/40"><svg class="lucide" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Verified</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="warning-icon" class="flex">
+<span data-probe="warning-icon-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-amber-500/15 text-amber-700 focus-visible:ring-amber-500/20 dark:bg-amber-500/20 dark:text-amber-400 dark:focus-visible:ring-amber-500/40"><svg class="lucide" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>Review</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="dot-success" class="flex">
+<span data-probe="dot-success-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-emerald-500/15 text-emerald-700 focus-visible:ring-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 dark:focus-visible:ring-emerald-500/40"><span aria-hidden="true" class="size-1.5 shrink-0 rounded-full bg-current"></span>Active</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="dot-warning" class="flex">
+<span data-probe="dot-warning-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-amber-500/15 text-amber-700 focus-visible:ring-amber-500/20 dark:bg-amber-500/20 dark:text-amber-400 dark:focus-visible:ring-amber-500/40"><span aria-hidden="true" class="size-1.5 shrink-0 rounded-full bg-current"></span>Pending</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="dot-info" class="flex">
+<span data-probe="dot-info-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-sky-500/15 text-sky-700 focus-visible:ring-sky-500/20 dark:bg-sky-500/20 dark:text-sky-400 dark:focus-visible:ring-sky-500/40"><span aria-hidden="true" class="size-1.5 shrink-0 rounded-full bg-current"></span>Syncing</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="dot-destructive" class="flex">
+<span data-probe="dot-destructive-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-destructive text-white focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 [a&]:hover:bg-destructive/90"><span aria-hidden="true" class="size-1.5 shrink-0 rounded-full bg-current"></span>Failed</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="dot-default" class="flex">
+<span data-probe="dot-default-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-primary text-primary-foreground [a&]:hover:bg-primary/90"><span aria-hidden="true" class="size-1.5 shrink-0 rounded-full bg-current"></span>Default</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="dot-secondary" class="flex">
+<span data-probe="dot-secondary-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90"><span aria-hidden="true" class="size-1.5 shrink-0 rounded-full bg-current"></span>Idle</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="dot-outline" class="flex">
+<span data-probe="dot-outline-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground"><span aria-hidden="true" class="size-1.5 shrink-0 rounded-full bg-emerald-500"></span>Online</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="dot-outline-amber" class="flex">
+<span data-probe="dot-outline-amber-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground"><span aria-hidden="true" class="size-1.5 shrink-0 rounded-full bg-amber-500"></span>Away</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="dot-icon" class="flex">
+<span data-probe="dot-icon-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-sky-500/15 text-sky-700 focus-visible:ring-sky-500/20 dark:bg-sky-500/20 dark:text-sky-400 dark:focus-visible:ring-sky-500/40"><svg class="lucide" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span aria-hidden="true" class="size-1.5 shrink-0 rounded-full bg-current"></span>Both</span>
+</div>
+</div>
+</div>
+<div data-probe="panel" class="dark flex flex-wrap items-start gap-6 bg-background p-6 text-foreground">
+<div class="flex-none w-[112px]">
+<div data-probe="success" class="flex">
+<span data-probe="success-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-emerald-500/15 text-emerald-700 focus-visible:ring-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 dark:focus-visible:ring-emerald-500/40">Paid</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="warning" class="flex">
+<span data-probe="warning-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-amber-500/15 text-amber-700 focus-visible:ring-amber-500/20 dark:bg-amber-500/20 dark:text-amber-400 dark:focus-visible:ring-amber-500/40">Pending</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="info" class="flex">
+<span data-probe="info-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-sky-500/15 text-sky-700 focus-visible:ring-sky-500/20 dark:bg-sky-500/20 dark:text-sky-400 dark:focus-visible:ring-sky-500/40">Draft</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="success-icon" class="flex">
+<span data-probe="success-icon-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-emerald-500/15 text-emerald-700 focus-visible:ring-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 dark:focus-visible:ring-emerald-500/40"><svg class="lucide" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Verified</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="warning-icon" class="flex">
+<span data-probe="warning-icon-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-amber-500/15 text-amber-700 focus-visible:ring-amber-500/20 dark:bg-amber-500/20 dark:text-amber-400 dark:focus-visible:ring-amber-500/40"><svg class="lucide" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>Review</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="dot-success" class="flex">
+<span data-probe="dot-success-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-emerald-500/15 text-emerald-700 focus-visible:ring-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 dark:focus-visible:ring-emerald-500/40"><span aria-hidden="true" class="size-1.5 shrink-0 rounded-full bg-current"></span>Active</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="dot-warning" class="flex">
+<span data-probe="dot-warning-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-amber-500/15 text-amber-700 focus-visible:ring-amber-500/20 dark:bg-amber-500/20 dark:text-amber-400 dark:focus-visible:ring-amber-500/40"><span aria-hidden="true" class="size-1.5 shrink-0 rounded-full bg-current"></span>Pending</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="dot-info" class="flex">
+<span data-probe="dot-info-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-sky-500/15 text-sky-700 focus-visible:ring-sky-500/20 dark:bg-sky-500/20 dark:text-sky-400 dark:focus-visible:ring-sky-500/40"><span aria-hidden="true" class="size-1.5 shrink-0 rounded-full bg-current"></span>Syncing</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="dot-destructive" class="flex">
+<span data-probe="dot-destructive-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-destructive text-white focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 [a&]:hover:bg-destructive/90"><span aria-hidden="true" class="size-1.5 shrink-0 rounded-full bg-current"></span>Failed</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="dot-default" class="flex">
+<span data-probe="dot-default-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-primary text-primary-foreground [a&]:hover:bg-primary/90"><span aria-hidden="true" class="size-1.5 shrink-0 rounded-full bg-current"></span>Default</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="dot-secondary" class="flex">
+<span data-probe="dot-secondary-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90"><span aria-hidden="true" class="size-1.5 shrink-0 rounded-full bg-current"></span>Idle</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="dot-outline" class="flex">
+<span data-probe="dot-outline-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground"><span aria-hidden="true" class="size-1.5 shrink-0 rounded-full bg-emerald-500"></span>Online</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="dot-outline-amber" class="flex">
+<span data-probe="dot-outline-amber-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground"><span aria-hidden="true" class="size-1.5 shrink-0 rounded-full bg-amber-500"></span>Away</span>
+</div>
+</div>
+<div class="flex-none w-[112px]">
+<div data-probe="dot-icon" class="flex">
+<span data-probe="dot-icon-badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3 bg-sky-500/15 text-sky-700 focus-visible:ring-sky-500/20 dark:bg-sky-500/20 dark:text-sky-400 dark:focus-visible:ring-sky-500/40"><svg class="lucide" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span aria-hidden="true" class="size-1.5 shrink-0 rounded-full bg-current"></span>Both</span>
+</div>
+</div>
+</div>
+</div>
+<pre id="out" style="display: none"></pre>
+<script>
+document.fonts.ready.then(() => Promise.all([...document.fonts].map(f => f.load()))).then(() => {
+  const out = [];
+  for (const e of document.querySelectorAll("[data-probe]")) {
+    const r = e.getBoundingClientRect();
+    out.push([e.dataset.probe, r.left + scrollX, r.top + scrollY, r.width, r.height]);
+  }
+  document.getElementById("out").textContent = "BEGIN" + JSON.stringify(out) + "END";
+});
+</script>
+</body>
+</html>

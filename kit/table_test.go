@@ -65,6 +65,12 @@ type tableSpec struct {
 	height int
 	// class is added to the Tela table's root.
 	class string
+	// sortStates is the markup of the sort states (ADR-248): sortable
+	// headers are a group that says aria-sort "none" while unsorted and
+	// "other" for kit.Other; hideUnsorted is Table.HideUnsortedIcon and
+	// headClass Table.HeadClass.
+	sortStates, hideUnsorted bool
+	headClass                string
 }
 
 func (p tableSpec) columns() []kit.Column[trow] {
@@ -109,7 +115,7 @@ func (p tableSpec) rowData() []trow {
 func (p tableSpec) sortedRows() []trow {
 	rows := p.rowData()
 	for c, col := range p.cols {
-		if col.header == p.sort.Column && p.sort.Direction != "" {
+		if col.header == p.sort.Column && p.sort.Direction != "" && p.sort.Direction != kit.Other {
 			slices.SortStableFunc(rows, func(a, b trow) int {
 				r := cmp.Compare(a.v[c], b.v[c])
 				if p.sort.Direction == kit.Descending {
@@ -127,6 +133,7 @@ func (p tableSpec) component() kit.Table[trow] {
 	t := kit.Table[trow]{
 		Rows: p.rowData(), RowKey: func(r trow) any { return r.i }, Columns: p.columns(),
 		Caption: p.caption, DefaultSort: p.sort, Class: p.class, Props: h.TestID(p.name + "-table"),
+		HideUnsortedIcon: p.hideUnsorted, HeadClass: p.headClass,
 	}
 	if p.selected > 0 {
 		t.Selected = func(r trow) bool { return r.i == p.selected-1 }
@@ -161,21 +168,38 @@ func (p tableSpec) markup() string {
 	for c, col := range p.cols {
 		attrs := ""
 		inner := col.header
+		group := ""
 		if col.sort {
 			dir := ""
 			ic := tableTestUpDown
 			if p.sort.Column == col.header {
 				dir = string(p.sort.Direction)
 			}
+			iconHTML := ""
 			switch dir {
 			case "ascending":
 				attrs, ic = ` aria-sort="ascending"`, tableTestUp
 			case "descending":
 				attrs, ic = ` aria-sort="descending"`, tableTestDown
+			case "other":
+				attrs = ` aria-sort="other"`
+			default:
+				if p.sortStates {
+					attrs = ` aria-sort="none"`
+					if p.hideUnsorted {
+						iconHTML = svgWithClass(ic, "invisible group-hover:visible group-focus-within:visible")
+					}
+				}
 			}
-			inner = buttonHTML(kit.Button{Variant: kit.Ghost}, col.header+svgHTML(ic), "")
+			if iconHTML == "" {
+				iconHTML = svgHTML(ic)
+			}
+			if p.sortStates {
+				group = "group"
+			}
+			inner = buttonHTML(kit.Button{Variant: kit.Ghost}, col.header+iconHTML, "")
 		}
-		fmt.Fprintf(&sb, `<th data-slot="table-head" data-probe="%s-h%d" class="%s"%s%s>%s</th>`, p.name, c, cn(shadcnTableHead, align(col)), style(col), attrs, inner)
+		fmt.Fprintf(&sb, `<th data-slot="table-head" data-probe="%s-h%d" class="%s"%s%s>%s</th>`, p.name, c, cn(shadcnTableHead, align(col), group, p.headClass), style(col), attrs, inner)
 	}
 	fmt.Fprintf(&sb, `</tr></thead><tbody data-slot="table-body" class="%s">`, shadcnTableBody)
 	for _, tr := range p.sortedRows() {

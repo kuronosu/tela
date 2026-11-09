@@ -1,0 +1,76 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="gallery.css">
+</head>
+<body class="bg-white">
+<div data-probe="page" class="w-[800px]">
+<div data-probe="panel" class="flex flex-wrap items-start gap-6 bg-background p-6 text-foreground">
+<div class="flex-none w-[344px]">
+<div data-probe="start" class="flex w-[320px]">
+<div data-probe="start-sep" class="flex w-full items-center gap-2"><div aria-hidden="true" class="h-px w-6 shrink-0 bg-border"></div><div class="shrink-0 text-sm text-muted-foreground">Yesterday</div><div aria-hidden="true" class="h-px flex-1 bg-border"></div></div>
+</div>
+</div>
+<div class="flex-none w-[344px]">
+<div data-probe="center" class="flex w-[320px]">
+<div data-probe="center-sep" class="flex w-full items-center gap-2"><div aria-hidden="true" class="h-px flex-1 bg-border"></div><div class="shrink-0 text-sm text-muted-foreground">Yesterday</div><div aria-hidden="true" class="h-px flex-1 bg-border"></div></div>
+</div>
+</div>
+<div class="flex-none w-[344px]">
+<div data-probe="end" class="flex w-[320px]">
+<div data-probe="end-sep" class="flex w-full items-center gap-2"><div aria-hidden="true" class="h-px flex-1 bg-border"></div><div class="shrink-0 text-sm text-muted-foreground">Yesterday</div><div aria-hidden="true" class="h-px w-6 shrink-0 bg-border"></div></div>
+</div>
+</div>
+<div class="flex-none w-[344px]">
+<div data-probe="vertical-start" class="flex">
+<div class="flex h-32 items-center gap-6 text-sm"><div>Left</div><div data-probe="vertical-start-sep" class="flex h-full flex-col items-center gap-2"><div aria-hidden="true" class="h-6 w-px shrink-0 bg-border"></div><div class="shrink-0 text-sm text-muted-foreground">or</div><div aria-hidden="true" class="w-px flex-1 bg-border"></div></div><div>Right</div></div>
+</div>
+</div>
+<div class="flex-none w-[344px]">
+<div data-probe="vertical-end" class="flex">
+<div class="flex h-32 items-center gap-6 text-sm"><div>Left</div><div data-probe="vertical-end-sep" class="flex h-full flex-col items-center gap-2"><div aria-hidden="true" class="w-px flex-1 bg-border"></div><div class="shrink-0 text-sm text-muted-foreground">or</div><div aria-hidden="true" class="h-6 w-px shrink-0 bg-border"></div></div><div>Right</div></div>
+</div>
+</div>
+</div>
+<div data-probe="panel" class="dark flex flex-wrap items-start gap-6 bg-background p-6 text-foreground">
+<div class="flex-none w-[344px]">
+<div data-probe="start" class="flex w-[320px]">
+<div data-probe="start-sep" class="flex w-full items-center gap-2"><div aria-hidden="true" class="h-px w-6 shrink-0 bg-border"></div><div class="shrink-0 text-sm text-muted-foreground">Yesterday</div><div aria-hidden="true" class="h-px flex-1 bg-border"></div></div>
+</div>
+</div>
+<div class="flex-none w-[344px]">
+<div data-probe="center" class="flex w-[320px]">
+<div data-probe="center-sep" class="flex w-full items-center gap-2"><div aria-hidden="true" class="h-px flex-1 bg-border"></div><div class="shrink-0 text-sm text-muted-foreground">Yesterday</div><div aria-hidden="true" class="h-px flex-1 bg-border"></div></div>
+</div>
+</div>
+<div class="flex-none w-[344px]">
+<div data-probe="end" class="flex w-[320px]">
+<div data-probe="end-sep" class="flex w-full items-center gap-2"><div aria-hidden="true" class="h-px flex-1 bg-border"></div><div class="shrink-0 text-sm text-muted-foreground">Yesterday</div><div aria-hidden="true" class="h-px w-6 shrink-0 bg-border"></div></div>
+</div>
+</div>
+<div class="flex-none w-[344px]">
+<div data-probe="vertical-start" class="flex">
+<div class="flex h-32 items-center gap-6 text-sm"><div>Left</div><div data-probe="vertical-start-sep" class="flex h-full flex-col items-center gap-2"><div aria-hidden="true" class="h-6 w-px shrink-0 bg-border"></div><div class="shrink-0 text-sm text-muted-foreground">or</div><div aria-hidden="true" class="w-px flex-1 bg-border"></div></div><div>Right</div></div>
+</div>
+</div>
+<div class="flex-none w-[344px]">
+<div data-probe="vertical-end" class="flex">
+<div class="flex h-32 items-center gap-6 text-sm"><div>Left</div><div data-probe="vertical-end-sep" class="flex h-full flex-col items-center gap-2"><div aria-hidden="true" class="w-px flex-1 bg-border"></div><div class="shrink-0 text-sm text-muted-foreground">or</div><div aria-hidden="true" class="h-6 w-px shrink-0 bg-border"></div></div><div>Right</div></div>
+</div>
+</div>
+</div>
+</div>
+<pre id="out" style="display: none"></pre>
+<script>
+document.fonts.ready.then(() => Promise.all([...document.fonts].map(f => f.load()))).then(() => {
+  const out = [];
+  for (const e of document.querySelectorAll("[data-probe]")) {
+    const r = e.getBoundingClientRect();
+    out.push([e.dataset.probe, r.left + scrollX, r.top + scrollY, r.width, r.height]);
+  }
+  document.getElementById("out").textContent = "BEGIN" + JSON.stringify(out) + "END";
+});
+</script>
+</body>
+</html>

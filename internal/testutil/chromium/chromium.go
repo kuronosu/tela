@@ -40,7 +40,7 @@ func Tailwind(t testing.TB, htmlPath, outCSS, css string) {
 			t.Fatal("the Tailwind CLI is needed: set TELA_TAILWIND to node_modules/.bin/tailwindcss")
 		}
 	}
-	// @import "tailwindcss" resolves from the input file's directory; name
+	// source(none) keeps the CLI from scanning the working directory for classes. @import "tailwindcss" resolves from the input file's directory; name
 	// the package's entry point in the CLI's node_modules instead.
 	bin, err := filepath.EvalSymlinks(tw)
 	if err != nil {
@@ -55,7 +55,7 @@ func Tailwind(t testing.TB, htmlPath, outCSS, css string) {
 		modules = next
 	}
 	input := filepath.Join(t.TempDir(), "input.css")
-	src := fmt.Sprintf("@import %q;\n@source %q;\n%s", filepath.Join(modules, "tailwindcss", "index.css"), htmlPath, css)
+	src := fmt.Sprintf("@import %q source(none);\n@source %q;\n%s", filepath.Join(modules, "tailwindcss", "index.css"), htmlPath, css)
 	if err := os.WriteFile(input, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}

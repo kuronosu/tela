@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="gallery.css">
+</head>
+<body class="bg-white">
+<div data-probe="page" class="w-[800px]">
+<div data-probe="panel" class="flex flex-wrap items-start gap-6 bg-background p-6 text-foreground">
+<div data-probe="or" class="flex w-[320px]">
+<div data-probe="or-sep" class="flex w-full items-center gap-2"><div aria-hidden="true" class="h-px flex-1 bg-border"></div><div class="shrink-0 text-sm text-muted-foreground">Or continue with</div><div aria-hidden="true" class="h-px flex-1 bg-border"></div></div>
+</div>
+<div data-probe="uppercase" class="flex w-[320px]">
+<div data-probe="uppercase-sep" class="flex w-full items-center gap-2"><div aria-hidden="true" class="h-px flex-1 bg-border"></div><div class="shrink-0 text-muted-foreground text-xs uppercase tracking-wider">Today</div><div aria-hidden="true" class="h-px flex-1 bg-border"></div></div>
+</div>
+<div data-probe="vertical" class="flex">
+<div class="flex h-32 items-center gap-6 text-sm"><div>Left</div><div data-probe="vertical-sep" class="flex h-full flex-col items-center gap-2"><div aria-hidden="true" class="w-px flex-1 bg-border"></div><div class="shrink-0 text-sm text-muted-foreground">or</div><div aria-hidden="true" class="w-px flex-1 bg-border"></div></div><div>Right</div></div>
+</div>
+</div>
+<div data-probe="panel" class="dark flex flex-wrap items-start gap-6 bg-background p-6 text-foreground">
+<div data-probe="or" class="flex w-[320px]">
+<div data-probe="or-sep" class="flex w-full items-center gap-2"><div aria-hidden="true" class="h-px flex-1 bg-border"></div><div class="shrink-0 text-sm text-muted-foreground">Or continue with</div><div aria-hidden="true" class="h-px flex-1 bg-border"></div></div>
+</div>
+<div data-probe="uppercase" class="flex w-[320px]">
+<div data-probe="uppercase-sep" class="flex w-full items-center gap-2"><div aria-hidden="true" class="h-px flex-1 bg-border"></div><div class="shrink-0 text-muted-foreground text-xs uppercase tracking-wider">Today</div><div aria-hidden="true" class="h-px flex-1 bg-border"></div></div>
+</div>
+<div data-probe="vertical" class="flex">
+<div class="flex h-32 items-center gap-6 text-sm"><div>Left</div><div data-probe="vertical-sep" class="flex h-full flex-col items-center gap-2"><div aria-hidden="true" class="w-px flex-1 bg-border"></div><div class="shrink-0 text-sm text-muted-foreground">or</div><div aria-hidden="true" class="w-px flex-1 bg-border"></div></div><div>Right</div></div>
+</div>
+</div>
+</div>
+<pre id="out" style="display: none"></pre>
+<script>
+document.fonts.ready.then(() => Promise.all([...document.fonts].map(f => f.load()))).then(() => {
+  const out = [];
+  for (const e of document.querySelectorAll("[data-probe]")) {
+    const r = e.getBoundingClientRect();
+    out.push([e.dataset.probe, r.left + scrollX, r.top + scrollY, r.width, r.height]);
+  }
+  document.getElementById("out").textContent = "BEGIN" + JSON.stringify(out) + "END";
+});
+</script>
+</body>
+</html>
