@@ -1403,6 +1403,14 @@ type Launch struct {
     // Source says where the launch comes from: this process's own start,
     // another process of the app, or the OS.
     Source LaunchSource
+    // AtStart reports a launch that came with this process's start: the
+    // LaunchStart one, and on macOS the LaunchOpened that names the files
+    // or links the user opened to start the app (Launch Services hands
+    // them just after the start, ADR-259). An app that restores its last
+    // session at start can skip it when such a launch names what to open.
+    // Linux and Windows cannot tell (their LaunchOpened and
+    // LaunchForwarded launches are false).
+    AtStart bool
 }
 ```
 
@@ -1537,6 +1545,16 @@ type MenuItem struct {
     // Label is the item's text (plain text: "&" and "_" are shown as
     // they are).
     Label string
+    // AccessKey is the item's access key in Windows menus (HTML's
+    // accesskey; ADR-259): a letter or a digit, marked in the label where
+    // it has that character ("F&ormat" for 'o'), else appended as the
+    // native apps of Chinese, Japanese and Korean do ("ファイル(&F)"), so
+    // a translated menu keeps the English keys. Zero, the usual value, lets
+    // Windows menu bars choose one (the first free letter of the label, or
+    // the role's English letter; tray and popup menus then have none).
+    // Other platforms ignore it (macOS menus have no access keys; Tela's
+    // drawn menus use typeahead).
+    AccessKey rune
     // Accelerator is the text of the item's keyboard shortcut, shown at
     // its right ("Ctrl+S"; [ParseKeys] writes it the usual way). It is
     // display only: the app handles the key itself (h.OnKeyDown). Tray
@@ -1708,6 +1726,14 @@ type Registration struct {
     // that claims an extension on Linux, the default app's bundle ID on
     // macOS); "" when nothing does.
     Other string
+    // Role is the role the app is registered with, whatever the role of
+    // the Association asked about (ADR-259): HandlerNone for a file type
+    // the app only declares; on macOS the role of the Info.plist entry
+    // (an entry the developer wrote in the bundle keeps its own role,
+    // which Register does not change); on Linux and Windows, which keep no
+    // roles, HandlerDefault for a handler. HandlerDefault too when the app
+    // is not registered.
+    Role HandlerRole
 }
 ```
 

@@ -78,7 +78,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type WheelEvent`](#type-wheelevent): [`CmdOrCtrl`](#func-wheelevent-cmdorctrl) · [`DefaultPrevented`](#func-wheelevent-defaultprevented) · [`PreventDefault`](#func-wheelevent-preventdefault) · [`StopPropagation`](#func-wheelevent-stoppropagation)
   - [`type Window`](#type-window): [`Build`](#func-window-build)
   - [`type WindowControl`](#type-windowcontrol): [`String`](#func-windowcontrol-string)
-  - [`type WindowHandle`](#type-windowhandle): [`UseWindow`](#func-usewindow) · [`ActiveElement`](#func-windowhandle-activeelement) · [`Close`](#func-windowhandle-close) · [`Focus`](#func-windowhandle-focus) · [`Hide`](#func-windowhandle-hide) · [`IsZero`](#func-windowhandle-iszero) · [`Maximize`](#func-windowhandle-maximize) · [`Minimize`](#func-windowhandle-minimize) · [`Placement`](#func-windowhandle-placement) · [`SetFullscreen`](#func-windowhandle-setfullscreen) · [`Show`](#func-windowhandle-show) · [`State`](#func-windowhandle-state) · [`ToggleMaximize`](#func-windowhandle-togglemaximize) · [`Unmaximize`](#func-windowhandle-unmaximize)
+  - [`type WindowHandle`](#type-windowhandle): [`UseWindow`](#func-usewindow) · [`ActiveElement`](#func-windowhandle-activeelement) · [`Close`](#func-windowhandle-close) · [`Destroy`](#func-windowhandle-destroy) · [`Focus`](#func-windowhandle-focus) · [`Hide`](#func-windowhandle-hide) · [`IsZero`](#func-windowhandle-iszero) · [`Maximize`](#func-windowhandle-maximize) · [`Minimize`](#func-windowhandle-minimize) · [`Placement`](#func-windowhandle-placement) · [`SetFullscreen`](#func-windowhandle-setfullscreen) · [`Show`](#func-windowhandle-show) · [`State`](#func-windowhandle-state) · [`ToggleMaximize`](#func-windowhandle-togglemaximize) · [`Unmaximize`](#func-windowhandle-unmaximize)
   - [`type WindowPlacement`](#type-windowplacement)
   - [`type WindowState`](#type-windowstate)
 
@@ -756,7 +756,7 @@ tela.UseCloseRequest(func(e tela.CloseRequestEvent) {
 })
 ```
 
-To end after asking, call [`Quit`](#func-quit) (main window) or drop the Window from the state (another window): [`WindowHandle`](#type-windowhandle).Close would ask again.
+To go on after asking, call [`WindowHandle`](#type-windowhandle).Destroy, which runs the default without the handlers ([`WindowHandle`](#type-windowhandle).Close would ask again), or [`Quit`](#func-quit), or drop the Window from the state.
 
 ### func UseContext
 
@@ -2766,7 +2766,7 @@ Div(Class("rounded-lg border-2 border-dashed p-8", over),
 
 OnDragEnter and OnDragLeave follow HTML: they fire when the element under the drag changes (enter on the new one, then leave on the old one), and they bubble, so a container also gets them as the drag moves between its children; a container that tracks "is the drag over me" counts them (enter adds one, leave removes one) or uses OnDragOver.
 
-Text fields take text by default, as HTML's do: an editable Input or Textarea accepts a drag that offers text, and the drop inserts it at the drop point (an insertFromDrop edit, with OnBeforeInput and OnChange) unless an OnDrop handler calls e.PreventDefault().
+Text fields take text by default, as HTML's do: an editable Input or Textarea accepts a drag that offers text, shows a caret where the text would go, and the drop inserts it at the drop point and selects it (an insertFromDrop edit, with OnBeforeInput and OnChange) unless an OnDrop handler calls e.PreventDefault(). A field's selected text can be dragged too: the field's OnDragStart gets it as text, and a drop moves it (a deleteByDrag edit in the source), or copies it while Ctrl (Option on a Mac) is held.
 
 `DragEvent` is an alias of `core.DragEvent`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
 
@@ -6452,6 +6452,30 @@ func (w WindowHandle) Close()
 ```
 
 Close asks to close the window, as the user does with the title bar's close button: the window's OnClose runs (it removes the Window from the state that renders it); for the main window App.OnClose runs, or the app quits.
+
+#### func (WindowHandle) Destroy
+
+```go
+func (w WindowHandle) Destroy()
+```
+
+Destroy closes the window without asking (Electron's and Tauri's destroy, ADR-259): the UseCloseRequest handlers of the window do not run, and what Close does by default follows at once: for a Window component its OnClose (which removes it from the state that renders it), for the main window App.OnClose, or the window closes and the app quits. It is what a close request handler calls once the user answered its question:
+
+```go
+tela.UseCloseRequest(func(e tela.CloseRequestEvent) {
+    if !dirty {
+        return
+    }
+    e.PreventDefault()
+    askToSave(func(ok bool) {
+        if ok {
+            e.Window.Destroy() // Close would ask again
+        }
+    })
+})
+```
+
+A modal window open over the window does not stop it.
 
 #### func (WindowHandle) Focus
 
