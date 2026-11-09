@@ -1,8 +1,6 @@
 package main
 
 import (
-	"time"
-
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/examples/kit/icons"
 	. "github.com/kuronosu/tela/h"
@@ -30,9 +28,9 @@ func dialogPage() tela.Node {
 				Open:        &open, OnOpenChange: setOpen.Set,
 				Class: "sm:max-w-[425px]",
 				Children: Div(Class("flex flex-col gap-4"),
-					kit.Field{Orientation: kit.Horizontal, Label: "Name", Class: "flex-row-reverse items-center gap-4", LabelClass: "w-20 justify-end",
+					kit.Field{Orientation: kit.Horizontal, ControlAfter: true, Label: "Name", Class: "items-center gap-4", LabelClass: "w-20 justify-end",
 						Children: kit.Input{DefaultValue: "Mei Tanaka"}},
-					kit.Field{Orientation: kit.Horizontal, Label: "Username", Class: "flex-row-reverse items-center gap-4", LabelClass: "w-20 justify-end",
+					kit.Field{Orientation: kit.Horizontal, ControlAfter: true, Label: "Username", Class: "items-center gap-4", LabelClass: "w-20 justify-end",
 						Children: kit.Input{DefaultValue: "@mei"}},
 				),
 				Footer: kit.Button{OnClick: func() {
@@ -136,70 +134,6 @@ func popoverPage() tela.Node {
 }
 
 func dimension(label, value string) tela.Node {
-	return kit.Field{Props: Key(label), Orientation: kit.Horizontal, Label: label, Class: "flex-row-reverse items-center gap-4", LabelClass: "w-24 shrink-0",
+	return kit.Field{Props: Key(label), Orientation: kit.Horizontal, ControlAfter: true, Label: label, Class: "items-center gap-4", LabelClass: "w-24 shrink-0",
 		Children: kit.Input{DefaultValue: value, Class: "h-8"}}
-}
-
-func tooltipPage() tela.Node {
-	tip := func(label string, icon tela.Icon, content string, opts kit.Tooltip) tela.Node {
-		opts.Trigger = kit.Button{Variant: kit.Outline, Size: kit.Icon, Icon: icon, AriaLabel: label}
-		opts.Content = Text(content)
-		return opts
-	}
-	tipText := func(label, content string, opts kit.Tooltip) tela.Node {
-		opts.Trigger = kit.Button{Variant: kit.Outline, Size: kit.Sm, Children: Text(label)}
-		opts.Content = Text(content)
-		return opts
-	}
-	return grid(
-		demo("Icon buttons", "A tooltip names what an icon button does: on hover, on keyboard focus, and it describes its trigger.", "",
-			tip("Add to library", icons.Plus, "Add to library", kit.Tooltip{}),
-			tip("Download", icons.Download, "Download", kit.Tooltip{}),
-			tip("Share", icons.Share2, "Share a link", kit.Tooltip{}),
-			tip("Delete", icons.Trash2, "Delete forever", kit.Tooltip{})),
-		demo("Placements", "Placement and Align, with a flip when there is no room.", "",
-			tipText("Top", "On the top", kit.Tooltip{Placement: "top"}),
-			tipText("Right", "On the right", kit.Tooltip{Placement: "right"}),
-			tipText("Bottom", "On the bottom", kit.Tooltip{Placement: "bottom"}),
-			tipText("Left", "On the left", kit.Tooltip{Placement: "left"})),
-		demo("Delay and rich content", "Delay makes the pointer rest first. Once one tooltip has opened the next opens at once. Content is any short component.", "",
-			kit.Tooltip{Delay: 600 * time.Millisecond,
-				Trigger: kit.Button{Variant: kit.Outline, Children: Text("Hover and wait")},
-				Content: Text("Opens after 600 ms")},
-			kit.Tooltip{
-				Trigger: kit.Button{Variant: kit.Outline, Icon: icons.Settings, Children: Text("Settings")},
-				Content: Div(Class("flex items-center gap-2"), Text("Open settings"),
-					Span(Class("rounded bg-background/20 px-1 font-mono text-[10px]"), Text("Ctrl ,")))}),
-		demo("Disabled", "A disabled tooltip never opens.", "",
-			kit.Tooltip{Disabled: true, Trigger: kit.Button{Variant: kit.Outline, Children: Text("No tooltip")}, Content: Text("You will not see this")}),
-	)
-}
-
-func toastPage() tela.Node {
-	toast := kit.UseToast()
-	upload := func() {
-		id := toast.Loading("Uploading photos...")
-		time.AfterFunc(1800*time.Millisecond, func() {
-			toast.Success("3 photos uploaded", kit.ToastReplace(id), kit.ToastDescription("They are in the Summer album."))
-		})
-	}
-	return grid(
-		demo("Kinds", "Toasts stack at a corner of the window; the newest is in front. The pointer over the stack fans it out and stops the timers.", "",
-			kit.Button{Variant: kit.Outline, OnClick: func() { toast.Show("Event created", kit.ToastDescription("Sunday, October 25 at 9:00 AM")) }, Children: Text("Default")},
-			kit.Button{Variant: kit.Outline, OnClick: func() { toast.Success("Changes saved") }, Children: Text("Success")},
-			kit.Button{Variant: kit.Outline, OnClick: func() { toast.Info("A new version is available") }, Children: Text("Info")},
-			kit.Button{Variant: kit.Outline, OnClick: func() { toast.Warning("Your trial ends in 3 days") }, Children: Text("Warning")},
-			kit.Button{Variant: kit.Outline, OnClick: func() { toast.Error("The upload failed", kit.ToastDescription("Check your connection and try again.")) }, Children: Text("Error")}),
-		demo("Action", "ToastAction adds a button; clicking it runs your function and dismisses the toast.", "",
-			kit.Button{Variant: kit.Outline, Children: Text("Delete the draft"), OnClick: func() {
-				toast.Show("Draft deleted", kit.ToastAction("Undo", func() { toast.Success("Draft restored") }))
-			}}),
-		demo("Loading, then done", "A Loading toast is replaced with ToastReplace; every method of the handle is safe from any goroutine.", "",
-			kit.Button{Variant: kit.Outline, Icon: icons.Download, OnClick: upload, Children: Text("Upload photos")}),
-		demo("Forever, and dismissing", "ToastDuration(kit.ToastForever) keeps the toast until it is dismissed.", "",
-			kit.Button{Variant: kit.Outline, Children: Text("Sticky toast"), OnClick: func() {
-				toast.Show("Pinned until you close it", kit.ToastDuration(kit.ToastForever))
-			}},
-			kit.Button{Variant: kit.Ghost, Children: Text("Dismiss all"), OnClick: toast.DismissAll}),
-	)
 }

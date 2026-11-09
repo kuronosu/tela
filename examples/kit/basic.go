@@ -1,134 +1,14 @@
 package main
 
 import (
-	"fmt"
-	"strings"
-	"time"
-
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/examples/kit/icons"
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/kit"
 )
 
-// The pages of the components that display: Button, Badge, Avatar, Card,
-// Separator, Skeleton and Label.
-
-func buttonPage() tela.Node {
-	clicks, setClicks := tela.UseState(0)
-	saving, setSaving := tela.UseState(false)
-	save := func() {
-		setSaving.Set(true)
-		time.AfterFunc(1500*time.Millisecond, func() { setSaving.Set(false) })
-	}
-	return grid(
-		demo("Variants", "Default, Secondary, Outline, Ghost, Destructive and Link.", "",
-			kit.Button{Children: Text("Button")},
-			kit.Button{Variant: kit.Secondary, Children: Text("Secondary")},
-			kit.Button{Variant: kit.Outline, Children: Text("Outline")},
-			kit.Button{Variant: kit.Ghost, Children: Text("Ghost")},
-			kit.Button{Variant: kit.Destructive, Children: Text("Destructive")},
-			kit.Button{Variant: kit.Link, Children: Text("Link")},
-		),
-		demo("Sizes", "Xs, Sm, the default and Lg.", "",
-			kit.Button{Variant: kit.Outline, Size: kit.Xs, Children: Text("Extra small")},
-			kit.Button{Variant: kit.Outline, Size: kit.Sm, Children: Text("Small")},
-			kit.Button{Variant: kit.Outline, Children: Text("Default")},
-			kit.Button{Variant: kit.Outline, Size: kit.Lg, Children: Text("Large")},
-		),
-		demo("Icons", "An icon before or after the label, and icon-only buttons in four sizes (AriaLabel names them).", "",
-			kit.Button{Icon: icons.Mail, Children: Text("Login with email")},
-			kit.Button{Variant: kit.Secondary, IconEnd: icons.ChevronRight, Children: Text("Continue")},
-			Div(Class("flex items-center gap-2"),
-				kit.Button{Variant: kit.Outline, Size: kit.IconXs, Icon: icons.Plus, AriaLabel: "Add, extra small"},
-				kit.Button{Variant: kit.Outline, Size: kit.IconSm, Icon: icons.Plus, AriaLabel: "Add, small"},
-				kit.Button{Variant: kit.Outline, Size: kit.Icon, Icon: icons.Plus, AriaLabel: "Add"},
-				kit.Button{Variant: kit.Outline, Size: kit.IconLg, Icon: icons.Plus, AriaLabel: "Add, large"},
-			),
-		),
-		demo("States", "Disabled, loading (the label is any content) and a button that counts.", "",
-			kit.Button{Disabled: true, Children: Text("Disabled")},
-			kit.Button{Variant: kit.Outline, Disabled: true, Children: Text("Disabled")},
-			kit.Button{Variant: kit.Outline, Disabled: saving, OnClick: save, Children: Fragment(
-				If(saving, spinner()), Text(map[bool]string{true: "Saving...", false: "Save changes"}[saving]))},
-			kit.Button{Variant: kit.Secondary, OnClick: func() { setClicks.Update(func(n int) int { return n + 1 }) },
-				Children: Textf("Clicked %d times", clicks)},
-		),
-	)
-}
-
-func badgePage() tela.Node {
-	return grid(
-		demo("Variants", "Default, Secondary, Destructive, Outline and Ghost.", "",
-			kit.Badge{Children: Text("Badge")},
-			kit.Badge{Variant: kit.Secondary, Children: Text("Secondary")},
-			kit.Badge{Variant: kit.Destructive, Children: Text("Destructive")},
-			kit.Badge{Variant: kit.Outline, Children: Text("Outline")},
-			kit.Badge{Variant: kit.Ghost, Children: Text("Ghost")},
-		),
-		demo("With icons and colors", "The Icon slot; a color is a Class.", "",
-			kit.Badge{Variant: kit.Secondary, Icon: icons.Check, Class: "bg-blue-500 text-white dark:bg-blue-600", Children: Text("Verified")},
-			kit.Badge{Variant: kit.Destructive, Icon: icons.CircleAlert, Children: Text("Failed")},
-			kit.Badge{Variant: kit.Outline, Icon: icons.Star, Children: Text("Starred")},
-		),
-		demo("Counts", "A round badge with tabular digits.", "",
-			kit.Badge{Class: "h-5 min-w-5 rounded-full px-1 font-mono tabular-nums", Children: Text("8")},
-			kit.Badge{Variant: kit.Destructive, Class: "h-5 min-w-5 rounded-full px-1 font-mono tabular-nums", Children: Text("99")},
-			kit.Badge{Variant: kit.Outline, Class: "h-5 min-w-5 rounded-full px-1 font-mono tabular-nums", Children: Text("20+")},
-		),
-		demo("In context", "Badges next to the text they describe.", col,
-			Div(Class("flex items-center justify-between gap-6 text-sm"),
-				Div(Class("flex flex-col"), Span(Class("font-medium"), Text("Invoice INV-4021")), muted("Due 12 November")),
-				kit.Badge{Variant: kit.Secondary, Class: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300", Children: Text("Paid")}),
-			kit.Separator{},
-			Div(Class("flex items-center justify-between gap-6 text-sm"),
-				Div(Class("flex flex-col"), Span(Class("font-medium"), Text("Invoice INV-4022")), muted("Due 3 November")),
-				kit.Badge{Variant: kit.Destructive, Icon: icons.CircleAlert, Children: Text("Overdue")}),
-		),
-	)
-}
-
-func avatarPage() tela.Node {
-	people := []struct{ Name, Initials string }{
-		{"Mei Tanaka", "MT"}, {"Ana García", "AG"}, {"Omar Haddad", "OH"}, {"Lena Fischer", "LF"},
-	}
-	var group []kit.Avatar
-	var list []tela.Child
-	for _, p := range people {
-		group = append(group, kit.Avatar{Name: p.Name, Color: kit.AvatarAuto})
-		list = append(list, Div(Key(p.Name), Class("flex items-center gap-3"),
-			kit.Avatar{Alt: p.Name, Fallback: p.Initials},
-			Div(Class("flex flex-col text-sm"), Span(Class("font-medium"), Text(p.Name)),
-				muted(fmt.Sprintf("%s@example.com", strings.ToLower(p.Initials))))))
-	}
-	return grid(
-		demo("Sizes", "Sm (24 px), the default (32 px) and Lg (40 px). Without a Src the fallback is shown; with one, the picture is painted over it.", "",
-			kit.Avatar{Size: kit.Sm, Fallback: "SM"},
-			kit.Avatar{Fallback: "MD"},
-			kit.Avatar{Size: kit.Lg, Fallback: "LG"},
-		),
-		demo("Group", "kit.AvatarGroup overlaps avatars with a ring in the background color and counts the rest.", "",
-			kit.AvatarGroup{Avatars: group, Max: 3, Total: 8, Size: kit.Lg, AriaLabel: "Team"},
-		),
-		demo("In a list", "A person, as a row.", col, Fragment(list...)),
-	)
-}
-
-func alertPage() tela.Node {
-	return grid(
-		demo("Default", "An icon, a title and a description. Its role is alert.", col,
-			kit.Alert{Icon: icons.Info, Title: Text("Heads up!"), Description: Text("You can add components to your app with kit.")},
-		),
-		demo("Destructive", "For an error the user has to act on.", col,
-			kit.Alert{Variant: kit.Destructive, Icon: icons.CircleAlert, Title: Text("Unable to process your payment."), Description: Text("Please verify your billing information and try again.")},
-		),
-		demo("Tones", "Success, Warning and Info, also variants of Badge.", col,
-			kit.Alert{Variant: kit.Success, Icon: icons.Check, Title: Text("Payment received")},
-			kit.Alert{Variant: kit.Warning, Icon: icons.CircleAlert, Title: Text("Your trial ends in 3 days")},
-			kit.Alert{Variant: kit.Info, Icon: icons.Info, Title: Text("Scheduled maintenance on Sunday")},
-		),
-	)
-}
+// The pages of Card and Label (the other components that display are in
+// pieces.go).
 
 func cardPage() tela.Node {
 	return grid(
@@ -176,56 +56,6 @@ func notification(text, when string) tela.Node {
 	return Div(Key(text), Class("flex items-start gap-3 text-sm"),
 		Span(Class("mt-1.5 size-2 shrink-0 rounded-full bg-primary")),
 		Div(Class("flex flex-col"), Span(Class("font-medium"), Text(text)), muted(when)))
-}
-
-func separatorPage() tela.Node {
-	return grid(
-		demo("Horizontal", "Between the parts of a block of text.", col,
-			Div(Class("flex flex-col gap-1"),
-				H3(Class("text-sm leading-none font-medium"), Text("Tela kit")),
-				muted("Styled components for Tela apps, in the look of shadcn/ui.")),
-			kit.Separator{},
-			Div(Class("flex h-5 items-center gap-4 text-sm"),
-				Span(Text("Blog")), kit.Separator{Orientation: kit.Vertical}, Span(Text("Docs")),
-				kit.Separator{Orientation: kit.Vertical}, Span(Text("Source"))),
-		),
-		demo("In a menu", "A separator groups the rows of a list.", col,
-			Div(Class("flex w-64 flex-col gap-2 text-sm"),
-				Span(Text("Profile")), Span(Text("Billing")),
-				kit.Separator{Class: "my-1"},
-				Span(Text("Team")), Span(Text("Subscription")),
-				kit.Separator{Class: "my-1"},
-				Span(Class("text-destructive"), Text("Delete account"))),
-		),
-	)
-}
-
-func skeletonPage() tela.Node {
-	loading, setLoading := tela.UseState(true)
-	return grid(
-		demo("Avatar and text", "Size a Skeleton with Class to the shape of what it stands for.", "",
-			Div(Class("flex items-center gap-4"), AriaBusy(true),
-				kit.Skeleton{Class: "size-12 rounded-full"},
-				Div(Class("flex flex-col gap-2"),
-					kit.Skeleton{Class: "h-4 w-[250px]"},
-					kit.Skeleton{Class: "h-4 w-[200px]"}))),
-		demo("Card", "The placeholder of a card with a picture.", "",
-			Div(Class("flex w-72 flex-col gap-3"), AriaBusy(true),
-				kit.Skeleton{Class: "h-32 w-full rounded-xl"},
-				kit.Skeleton{Class: "h-4 w-5/6"},
-				kit.Skeleton{Class: "h-4 w-2/3"})),
-		demo("Loading, then loaded", "The same slot shows the skeleton while loading is true.", colStart,
-			kit.Button{Variant: kit.Outline, Size: kit.Sm, OnClick: func() { setLoading.Update(func(b bool) bool { return !b }) },
-				Children: Text(map[bool]string{true: "Show the content", false: "Show the skeleton"}[loading])},
-			IfElse(loading,
-				Div(Class("flex items-center gap-4"), AriaBusy(true),
-					kit.Skeleton{Class: "size-10 rounded-full"},
-					Div(Class("flex flex-col gap-2"), kit.Skeleton{Class: "h-4 w-40"}, kit.Skeleton{Class: "h-3 w-28"})),
-				Div(Class("flex items-center gap-4"),
-					kit.Avatar{Size: kit.Lg, Fallback: "MT"},
-					Div(Class("flex flex-col"), Span(Class("text-sm font-medium"), Text("Mei Tanaka")), muted("Product designer")))),
-		),
-	)
 }
 
 func labelPage() tela.Node {

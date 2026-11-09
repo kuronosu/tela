@@ -1,8 +1,13 @@
 package main
 
 import (
+	"bytes"
+	"image"
+	"image/color"
+	"image/png"
+	"sync"
+
 	"github.com/kuronosu/tela"
-	"github.com/kuronosu/tela/examples/kit/icons"
 	. "github.com/kuronosu/tela/h"
 )
 
@@ -66,5 +71,47 @@ func readout(s string) tela.Node {
 	return P(Class("text-sm text-muted-foreground tabular-nums"), Text(s))
 }
 
-// spinner is the loading icon of a button.
-func spinner() tela.Node { return ic(icons.LoaderCircle, "size-4 animate-spin") }
+// portraits are the pictures the Avatar demos use: a head and shoulders over
+// a gradient, drawn here so that the gallery needs no image file and the
+// pictures are the same on every run. Each has its own two colors.
+var portraits = [][2]color.RGBA{
+	{{0xfb, 0xbf, 0x24, 255}, {0xea, 0x58, 0x0c, 255}},
+	{{0x38, 0xbd, 0xf8, 255}, {0x4f, 0x46, 0xe5, 255}},
+	{{0x34, 0xd3, 0x99, 255}, {0x0d, 0x94, 0x88, 255}},
+	{{0xf4, 0x72, 0xb6, 255}, {0x7c, 0x3a, 0xed, 255}},
+}
+
+var portraitBytes sync.Map
+
+// portrait is the PNG of the i-th picture (a 96 px square).
+func portrait(i int) []byte {
+	if b, ok := portraitBytes.Load(i); ok {
+		return b.([]byte)
+	}
+	const n = 96
+	c := portraits[i%len(portraits)]
+	img := image.NewRGBA(image.Rect(0, 0, n, n))
+	mix := func(a, b uint8, t float64) uint8 { return uint8(float64(a)*(1-t) + float64(b)*t) }
+	for y := range n {
+		for x := range n {
+			t := float64(x+y) / float64(2*n)
+			px := color.RGBA{mix(c[0].R, c[1].R, t), mix(c[0].G, c[1].G, t), mix(c[0].B, c[1].B, t), 255}
+			// The head: a disc; the shoulders: a wide ellipse below it.
+			dx, dy := float64(x)-48, float64(y)-38
+			shoulders := (float64(x)-48)*(float64(x)-48)/(36*36) + (float64(y)-100)*(float64(y)-100)/(34*34)
+			if dx*dx+dy*dy < 17*17 || shoulders < 1 {
+				px = color.RGBA{0xff, 0xff, 0xff, 255}
+				if dx*dx+dy*dy >= 17*17 {
+					px = color.RGBA{0xf5, 0xf5, 0xf4, 255}
+				}
+			}
+			img.SetRGBA(x, y, px)
+		}
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		panic(err)
+	}
+	portraitBytes.Store(i, buf.Bytes())
+	return buf.Bytes()
+}

@@ -26,6 +26,13 @@
   - text: Fecha de entrega
   - button "Fecha de entrega" [expanded]: Elige una fecha
   - paragraph: No entregamos los domingos.
+- heading "Tela's own texts" [level=3]
+- paragraph: "The texts Tela draws itself have an ID and an English default (tela.Labels lists them): a catalog message with that key translates it, so the title bar, the message boxes, the toasts and the role items of a menu follow the language. Tela ships no translations; an app adds the messages, as locales/*.json does here."
+- text: f.Label("tela.toast.region") Notificaciones f.Label("tela.toast.close") Cerrar notificación f.Label("tela.titlebar.close") Cerrar f.Label("tela.menu.copy") Copiar f.Label("tela.menu.quit", "name", "Notes") Salir de Notes f.Label("tela.messagebox.question") Pregunta
+- button "Mostrar un cuadro de mensaje"
+- heading "Digits of a locale" [level=3]
+- paragraph: "Numbers and dates use the numbering system CLDR gives the locale by region, script and language: ar-EG writes Arabic-Indic digits, ar-AE and ar-MA Latin ones. A -u-nu- extension in the tag wins."
+- text: ar ١٬٢٣٤٫٥٠ · ١٤‏/٠٣‏/٢٠٢٦ ar-EG ١٬٢٣٤٫٥٠ · ١٤‏/٠٣‏/٢٠٢٦ ar-EG-u-nu-latn 1,234.50 · 14‏/03‏/2026 ar-AE 1,234.50 · 14‏/03‏/2026 es 1.234,50 · 14 mar 2026
 - dialog "Fecha de entrega":
   - application "Fecha de entrega, octubre de 2026":
     - button "Anterior" [disabled]
@@ -77,4 +84,4 @@
         - gridcell "viernes, 30 de octubre de 2026": "30"
         - gridcell "sábado, 31 de octubre de 2026": "31"
         - gridcell "domingo, 1 de noviembre de 2026" [disabled]: "1"
-- region "Notifications"
+- region "Notificaciones"

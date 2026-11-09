@@ -29,5 +29,10 @@
     "figs": "figs"
   },
   "deliveryDate": "Delivery date",
-  "deliveryHint": "We do not deliver on Sundays."
+  "deliveryHint": "We do not deliver on Sundays.",
+  "builtin": {
+    "show": "Show a message box",
+    "text": "Do you want to save the changes before closing?",
+    "answer": "You chose \"{answer}\"."
+  }
 }

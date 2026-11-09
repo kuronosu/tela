@@ -4,14 +4,13 @@ import (
 	"fmt"
 
 	"github.com/kuronosu/tela"
-	"github.com/kuronosu/tela/aria"
 	"github.com/kuronosu/tela/examples/kit/icons"
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/kit"
 )
 
-// The pages of the controls that choose: Checkbox, Switch, RadioGroup,
-// Toggle and ToggleGroup.
+// The pages of the controls that choose: Checkbox, Switch, RadioGroup and
+// Toggle (ToggleGroup is in toggles.go).
 
 func checkboxPage() tela.Node {
 	items := []string{"Recents", "Home", "Applications", "Desktop", "Downloads", "Documents"}
@@ -158,42 +157,5 @@ func togglePage() tela.Node {
 		demo("Controlled", "Pressed points to your state.", "",
 			kit.Toggle{Variant: kit.Outline, Pressed: &bold, OnPressedChange: setBold.Set, Icon: icons.Bold, Children: Text("Bold")},
 			Span(Class("text-sm font-medium", map[bool]string{true: "font-bold", false: "font-normal"}[bold]), Text("The quick brown fox"))),
-	)
-}
-
-func toggleGroupPage() tela.Node {
-	view, setView := tela.UseState("list")
-	align, setAlign := tela.UseState("start")
-	return grid(
-		demo("Segmented control", "One choice, always one on (DisallowEmptySelection). The group is one tab stop; the arrows move through it.", col,
-			kit.ToggleGroup[string]{AriaLabel: "View", Variant: kit.Outline, DisallowEmptySelection: true, Value: &view, OnValueChange: setView.Set,
-				Items: []kit.ToggleGroupItem[string]{
-					{Value: "list", Label: "List", Icon: icons.List},
-					{Value: "grid", Label: "Grid", Icon: icons.LayoutGrid},
-				}},
-			readout("View: "+view)),
-		demo("Multiple", "Any number on: the aria.Selection of the group is Selected, DefaultSelected and OnSelectionChange.", "",
-			kit.ToggleGroup[string]{AriaLabel: "Text formatting", Multiple: true, Variant: kit.Outline, DefaultSelected: aria.SelectionOf("bold", "italic"),
-				Items: []kit.ToggleGroupItem[string]{
-					{Value: "bold", Icon: icons.Bold, AriaLabel: "Toggle bold"},
-					{Value: "italic", Icon: icons.Italic, AriaLabel: "Toggle italic"},
-					{Value: "underline", Icon: icons.Underline, AriaLabel: "Toggle underline"},
-				}}),
-		demo("Alignment", "Icons only, default variant.", col,
-			kit.ToggleGroup[string]{AriaLabel: "Text alignment", DisallowEmptySelection: true, Value: &align, OnValueChange: setAlign.Set,
-				Items: []kit.ToggleGroupItem[string]{
-					{Value: "start", Icon: icons.TextAlignStart, AriaLabel: "Align left"},
-					{Value: "center", Icon: icons.TextAlignCenter, AriaLabel: "Align center"},
-					{Value: "end", Icon: icons.TextAlignEnd, AriaLabel: "Align right"},
-				}},
-			P(Class("w-64 text-sm", map[string]string{"start": "text-left", "center": "text-center", "end": "text-right"}[align]),
-				Text("The quick brown fox jumps over the lazy dog."))),
-		demo("Spacing, sizes and disabled", "Spacing 2 separates the items (4 px steps); Sm and Lg; one item disabled.", col,
-			kit.ToggleGroup[string]{AriaLabel: "Spaced", Variant: kit.Outline, Spacing: 2, DefaultValue: ptr("a"),
-				Items: []kit.ToggleGroupItem[string]{{Value: "a", Label: "Top"}, {Value: "b", Label: "Bottom"}, {Value: "c", Label: "Left"}}},
-			kit.ToggleGroup[string]{AriaLabel: "Small", Variant: kit.Outline, Size: kit.Sm, DefaultValue: ptr("a"),
-				Items: []kit.ToggleGroupItem[string]{{Value: "a", Label: "Day"}, {Value: "b", Label: "Week"}, {Value: "c", Label: "Month", Disabled: true}}},
-			kit.ToggleGroup[string]{AriaLabel: "Large", Size: kit.Lg, DefaultValue: ptr("a"),
-				Items: []kit.ToggleGroupItem[string]{{Value: "a", Label: "One"}, {Value: "b", Label: "Two"}}}),
 	)
 }

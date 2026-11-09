@@ -5,6 +5,7 @@ import (
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/aria"
+	"github.com/kuronosu/tela/desktop"
 	"github.com/kuronosu/tela/examples/kit/icons"
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/i18n"
@@ -53,12 +54,26 @@ func rows(rs ...tela.Node) tela.Node {
 	return Div(append([]tela.Child{Class("flex flex-col gap-3")}, kids...)...)
 }
 
+// noAnswer is the state of the message box demo before it has been answered.
+const noAnswer = desktop.Answer(255)
+
+// digits is a row of the numbering systems demo: the tag, a number and a
+// date as that locale writes them. It does not follow the window's language.
+func digits(tag string) tela.Node {
+	f := i18n.For(tag)
+	return Div(Class("flex items-baseline gap-4 text-sm"),
+		Span(Dir("ltr"), Class("w-36 shrink-0 font-mono text-xs text-muted-foreground"), Text(tag)),
+		Span(Class("ms-auto"),
+			Span(Dir(f.Dir().String()), Class("block font-medium tabular-nums"), Text(f.Number(subtotal, i18n.MinFractionDigits(2))+"  ·  "+f.Date(updated, i18n.Medium)))))
+}
+
 func internationalizationPage() tela.Node {
 	f := i18n.UseFormatter() // the locale's messages and formats; rebuilds when the language changes
 	t := f.T
 	k := kitTextFor(f)
 	count, setCount := tela.UseState(3)
 	day, setDay := tela.UseState(aria.Date{})
+	answer, setAnswer := tela.UseState(noAnswer)
 
 	presets := make([]kit.ToggleGroupItem[int], len(counts))
 	for i, n := range counts {
@@ -68,6 +83,29 @@ func internationalizationPage() tela.Node {
 	chosen := ""
 	if !day.IsZero() {
 		chosen = f.Date(day.Time(nil), i18n.Full)
+	}
+
+	// The message box is outside the tree of the page, so the texts it
+	// draws itself (its buttons and its default title) follow the app's
+	// locale (i18n.SetLocale), not the page's Provider: the demo sets it to
+	// the window's language while the box is open and puts the previous
+	// one back when it is answered.
+	showMessage := func() {
+		prev := i18n.Locale()
+		i18n.SetLocale(f.Locale())
+		err := desktop.ShowMessage(desktop.Message{
+			Kind: desktop.MessageQuestion, Text: t("builtin.text"), Buttons: desktop.ButtonsYesNoCancel,
+		}, func(a desktop.Answer) {
+			i18n.SetLocale(prev)
+			setAnswer.Set(a)
+		})
+		if err != nil {
+			i18n.SetLocale(prev)
+		}
+	}
+	answerText := ""
+	if answer != noAnswer {
+		answerText = t("builtin.answer", "answer", f.Label("tela.messagebox."+answer.String()))
 	}
 
 	return grid(
@@ -112,5 +150,19 @@ func internationalizationPage() tela.Node {
 				}},
 			If(!day.IsZero(), readout(chosen)),
 		),
+		demo("Tela's own texts", "The texts Tela draws itself have an ID and an English default (tela.Labels lists them): a catalog message with that key translates it, so the title bar, the message boxes, the toasts and the role items of a menu follow the language. Tela ships no translations; an app adds the messages, as locales/*.json does here.", col,
+			rows(
+				kv(`f.Label("tela.toast.region")`, f.Label("tela.toast.region")),
+				kv(`f.Label("tela.toast.close")`, f.Label("tela.toast.close")),
+				kv(`f.Label("tela.titlebar.close")`, f.Label("tela.titlebar.close")),
+				kv(`f.Label("tela.menu.copy")`, f.Label("tela.menu.copy")),
+				kv(`f.Label("tela.menu.quit", "name", "Notes")`, f.Label("tela.menu.quit", "name", "Notes")),
+				kv(`f.Label("tela.messagebox.question")`, f.Label("tela.messagebox.question")),
+			),
+			Div(Class("flex flex-wrap items-center gap-3"),
+				kit.Button{Variant: kit.Outline, Icon: icons.MessageSquare, Children: Text(t("builtin.show")), OnClick: showMessage},
+				If(answerText != "", readout(answerText)))),
+		demo("Digits of a locale", "Numbers and dates use the numbering system CLDR gives the locale by region, script and language: ar-EG writes Arabic-Indic digits, ar-AE and ar-MA Latin ones. A -u-nu- extension in the tag wins.", col,
+			rows(digits("ar"), digits("ar-EG"), digits("ar-EG-u-nu-latn"), digits("ar-AE"), digits("es"))),
 	)
 }

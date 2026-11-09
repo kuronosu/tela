@@ -98,7 +98,7 @@ func (g Gallery) Build() tela.Node {
 
 	return i18n.Provider(lang, navigate.Provider(setCurrent, kit.StyleProvider{
 		Style: styles[styleName],
-		Children: kit.Toaster{Children: Shell{Class: "flex h-screen flex-col overflow-hidden bg-background text-foreground", Children: Fragment(
+		Children: kit.Toaster{CloseButton: true, Children: Shell{Class: "flex h-screen flex-col overflow-hidden bg-background text-foreground", Children: Fragment(
 			Header{Style: styleName, SetStyle: setStyle.Set, Dark: dark, Lang: lang, SetLang: setLang.Set},
 			kit.Tabs[string]{
 				Tabs:          tabs,
@@ -216,7 +216,7 @@ func (c Canvas) Build() tela.Node {
 	current, setCurrent := tela.UseState(find(c.Page).Name)
 	return i18n.Provider(cmp.Or(c.Locale, "en"), navigate.Provider(setCurrent, kit.StyleProvider{
 		Style: styles[cmp.Or(c.Style, "default")],
-		Children: kit.Toaster{Children: Shell{Class: "h-screen overflow-y-auto bg-background text-foreground",
+		Children: kit.Toaster{CloseButton: true, Children: Shell{Class: "h-screen overflow-y-auto bg-background text-foreground",
 			Children: PageView{Name: current}}},
 	}))
 }

@@ -119,12 +119,12 @@ func TestGoldenLanguages(t *testing.T) {
 			if tag != "en" {
 				name += " " + tag
 			}
-			a := mount(t, Previews[name], telatest.Size(1280, 1000))
+			a := mount(t, Previews[name], telatest.Size(1280, 1750))
 			a.GoldenScales("kit_internationalization_"+tag, 1)
 		})
 	}
 	t.Run("ar dark", func(t *testing.T) {
-		a := mount(t, Previews["Internationalization ar"], telatest.Size(1280, 1000), telatest.Dark())
+		a := mount(t, Previews["Internationalization ar"], telatest.Size(1280, 1750), telatest.Dark())
 		a.GoldenScales("kit_internationalization_ar_dark", 1)
 	})
 	t.Run("gallery ar", func(t *testing.T) {

@@ -1,9 +1,7 @@
 package main
 
 import (
-	"cmp"
 	"fmt"
-	"strings"
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/examples/kit/icons"
@@ -11,7 +9,7 @@ import (
 	"github.com/kuronosu/tela/kit"
 )
 
-// The pages of Select, Slider, Progress, Tabs and Table.
+// The pages of Select, Slider and Tabs (Progress and Table have files of their own).
 
 func selectPage() tela.Node {
 	fruit, setFruit := tela.UseState("")
@@ -73,33 +71,6 @@ func sliderPage() tela.Node {
 	)
 }
 
-func progressPage() tela.Node {
-	done, setDone := tela.UseState(35.0)
-	bump := func(d float64) func() {
-		return func() { setDone.Update(func(v float64) float64 { return max(0, min(100, v+d)) }) }
-	}
-	return grid(
-		demo("Values", "The bar moves with a transition when Value changes.", col,
-			kit.Progress{Value: 13, Class: "max-w-sm", AriaLabel: "13 percent"},
-			kit.Progress{Value: 66, Class: "max-w-sm", AriaLabel: "66 percent"},
-			kit.Progress{Value: 100, Class: "max-w-sm", AriaLabel: "Done"}),
-		demo("Controlled", "A task you advance by hand.", col,
-			Div(Class("flex w-full max-w-sm flex-col gap-2"),
-				Div(Class("flex justify-between text-sm"), Span(Class("font-medium"), Text("Uploading photos")), Span(Class("text-muted-foreground tabular-nums"), Textf("%.0f%%", done))),
-				kit.Progress{Value: done, AriaLabel: "Upload"}),
-			Div(Class("flex gap-2"),
-				kit.Button{Variant: kit.Outline, Size: kit.Sm, OnClick: bump(-15), Children: Text("-15")},
-				kit.Button{Variant: kit.Outline, Size: kit.Sm, OnClick: bump(15), Children: Text("+15")})),
-		demo("Units", "Max and FormatValue: what a screen reader reads is the formatted value.", col,
-			Div(Class("flex w-full max-w-sm flex-col gap-2"),
-				Div(Class("flex justify-between text-sm"), Span(Class("font-medium"), Text("Storage")), Span(Class("text-muted-foreground"), Text("512 MB of 2 GB"))),
-				kit.Progress{Value: 512, Max: 2048, AriaLabel: "Storage", FormatValue: func(v float64) string { return fmt.Sprintf("%.0f MB", v) }})),
-		demo("Indeterminate", "No value: the bar pulses while the amount of work is unknown.", col,
-			kit.Progress{Indeterminate: true, Class: "max-w-sm", AriaLabel: "Loading"},
-			kit.Progress{Value: 72, Class: "max-w-sm", IndicatorClass: "bg-emerald-500", AriaLabel: "A custom color"}),
-	)
-}
-
 func tabsPage() tela.Node {
 	return grid(
 		demo("Account", "A Tabs with a form in each panel, as in shadcn's example. Only the selected panel is built.", "",
@@ -136,80 +107,5 @@ func tabsPage() tela.Node {
 				{Value: "b", Label: "Second", Content: muted("The second panel.")},
 				{Value: "c", Label: "Third", Content: muted("The third panel.")},
 			}}),
-	)
-}
-
-// Invoice is a row of the table demo.
-type Invoice struct {
-	ID, Status, Method string
-	Cents              int
-}
-
-var invoices = []Invoice{
-	{"INV001", "Paid", "Credit Card", 25000},
-	{"INV002", "Pending", "PayPal", 15000},
-	{"INV003", "Unpaid", "Bank Transfer", 35000},
-	{"INV004", "Paid", "Credit Card", 45000},
-	{"INV005", "Paid", "PayPal", 55000},
-	{"INV006", "Pending", "Bank Transfer", 15000},
-	{"INV007", "Unpaid", "Credit Card", 35000},
-	{"INV008", "Paid", "PayPal", 12500},
-	{"INV009", "Paid", "Credit Card", 9900},
-	{"INV010", "Pending", "PayPal", 21000},
-}
-
-func money(cents int) string { return fmt.Sprintf("$%d.%02d", cents/100, cents%100) }
-
-func statusBadge(s string) tela.Node {
-	switch s {
-	case "Paid":
-		return kit.Badge{Variant: kit.Secondary, Class: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300", Children: Text(s)}
-	case "Unpaid":
-		return kit.Badge{Variant: kit.Destructive, Children: Text(s)}
-	}
-	return kit.Badge{Variant: kit.Outline, Children: Text(s)}
-}
-
-func tablePage() tela.Node {
-	sort, setSort := tela.UseState(kit.SortState{Column: "amount", Direction: kit.Descending})
-	total := 0
-	for _, i := range invoices[:5] {
-		total += i.Cents
-	}
-	return stack(
-		demo("Sortable", "A header with a Sort is a button (Enter and Space press it): ascending, descending, unsorted. The sort is the app's through Sort and OnSortChange.", col,
-			kit.Table[Invoice]{
-				Caption: "A list of your recent invoices.", Rows: invoices[:5], RowKey: func(i Invoice) any { return i.ID },
-				Sort: &sort, OnSortChange: setSort.Set,
-				Columns: []kit.Column[Invoice]{
-					{ID: "invoice", Header: "Invoice", Width: "120px", Class: "font-medium", Cell: func(i Invoice) tela.Node { return Text(i.ID) },
-						Sort:   func(a, b Invoice) int { return strings.Compare(a.ID, b.ID) },
-						Footer: Text("Total"), FooterSpan: 3},
-					{ID: "status", Header: "Status", Cell: func(i Invoice) tela.Node { return statusBadge(i.Status) },
-						Sort: func(a, b Invoice) int { return strings.Compare(a.Status, b.Status) }},
-					{ID: "method", Header: "Method", Cell: func(i Invoice) tela.Node { return Text(i.Method) }},
-					{ID: "amount", Header: "Amount", Align: kit.AlignRight, Class: "tabular-nums", Cell: func(i Invoice) tela.Node { return Text(money(i.Cents)) },
-						Sort:   func(a, b Invoice) int { return cmp.Compare(a.Cents, b.Cents) },
-						Footer: Text(money(total))},
-				}}),
-		demo("Scrolling", "In a container with a height the header sticks to the top; Sticky keeps the first column at the left. Scroll the table.", col,
-			kit.Table[Invoice]{
-				Class: "max-h-64 max-w-xl", Rows: invoices, RowKey: func(i Invoice) any { return i.ID },
-				Columns: []kit.Column[Invoice]{
-					{Header: "Invoice", Width: "110px", Sticky: true, Class: "font-medium", Cell: func(i Invoice) tela.Node { return Text(i.ID) }},
-					{Header: "Status", Width: "120px", Cell: func(i Invoice) tela.Node { return statusBadge(i.Status) }},
-					{Header: "Method", Width: "160px", Cell: func(i Invoice) tela.Node { return Text(i.Method) }},
-					{Header: "Amount", Width: "120px", Align: kit.AlignRight, Class: "tabular-nums", Cell: func(i Invoice) tela.Node { return Text(money(i.Cents)) }},
-					{Header: "Action", Width: "140px", Cell: func(i Invoice) tela.Node {
-						return kit.Button{Variant: kit.Outline, Size: kit.Sm, Children: Text("View " + i.ID)}
-					}},
-				}}),
-		demo("Empty", "Empty is drawn in a row of its own.", col,
-			kit.Table[Invoice]{Class: "max-w-xl", AriaLabel: "No invoices", Rows: nil,
-				Empty: Div(Class("py-6 text-center text-sm text-muted-foreground"), Text("No results.")),
-				Columns: []kit.Column[Invoice]{
-					{Header: "Invoice", Cell: func(i Invoice) tela.Node { return Text(i.ID) }},
-					{Header: "Amount", Align: kit.AlignRight, Cell: func(i Invoice) tela.Node { return Text(money(i.Cents)) }},
-				}}),
 	)
 }

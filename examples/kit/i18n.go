@@ -2,6 +2,8 @@ package main
 
 import (
 	"embed"
+	"fmt"
+	"strings"
 
 	"github.com/kuronosu/tela/i18n"
 )
@@ -12,7 +14,9 @@ import (
 // They hold the Internationalization page's messages and the text that
 // kit's components default to English: the date pickers' placeholders and
 // month buttons, the dialogs' close button and the alert dialog's Cancel
-// and Continue. The gallery's own titles, notes and captions stay English.
+// and Continue. The gallery's own titles, notes and captions stay English
+// (they document the API and read left to right in every language); the text
+// of a stage, what the components show, is translated (see tr).
 
 //go:embed locales/*.json
 var locales embed.FS
@@ -56,3 +60,35 @@ func kitTextFor(f i18n.Formatter) kitText {
 // useKitText is kitTextFor for the language of the window; the component
 // builds again when it changes.
 func useKitText() kitText { return kitTextFor(i18n.UseFormatter()) }
+
+// trFunc is the text of a stage in the language of the window: English in
+// the code, Spanish and Arabic in the catalogs under "gallery.<id>", the way
+// every text a demo shows is written:
+//
+//	tr := useTr()
+//	Text(tr("alert.heads", "Heads up!"))
+//	Text(tr("button.clicked", "Clicked {n} times", "n", f.Number(3)))
+//
+// The English text may have {name} placeholders, filled from the name/value
+// pairs of args in every language. TestCatalogsHaveEveryText reads the
+// sources, so an id without a Spanish and an Arabic message, or a message no
+// code uses, fails it.
+type trFunc func(id, en string, args ...any) string
+
+// trFor is tr for the formatter's language.
+func trFor(f i18n.Formatter) trFunc {
+	if f.Locale() == "en" {
+		return func(_, en string, args ...any) string {
+			for i := 0; i+1 < len(args); i += 2 {
+				name, _ := args[i].(string)
+				en = strings.ReplaceAll(en, "{"+name+"}", fmt.Sprint(args[i+1]))
+			}
+			return en
+		}
+	}
+	return func(id, _ string, args ...any) string { return f.T("gallery."+id, args...) }
+}
+
+// useTr is trFor for the language of the window; the component builds
+// again when it changes.
+func useTr() trFunc { return trFor(i18n.UseFormatter()) }
