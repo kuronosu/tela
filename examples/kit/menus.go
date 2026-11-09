@@ -26,6 +26,36 @@ func chose(tr trFunc, last, prompt string) tela.Node {
 	return readout(tr("menu.chose", "Chose: {item}", "item", last))
 }
 
+// ExportMenu is a dropdown whose trigger is a TriggerFunc that draws a
+// Button of its own. Choosing a format "exports" for two seconds, and the
+// trigger is Loading meanwhile; kit.LoadingTrigger tells the menu so, since
+// the Button's own Loading cannot reach the menu's hook through a function:
+// pressing or opening it from the keyboard opens nothing until it is done.
+type ExportMenu struct{}
+
+func (ExportMenu) Build() tela.Node {
+	tr := useTr()
+	saving, start := useSaving()
+	format, setFormat := tela.UseState("")
+	return Div(Class("flex flex-col items-start gap-4"),
+		kit.DropdownMenu[string]{
+			Trigger: kit.LoadingTrigger(kit.TriggerFunc(func(p tela.Prop) tela.Node {
+				return kit.Button{Variant: kit.Outline, Icon: icons.Download, Loading: saving, Props: p, Children: Text(tr("menu.export", "Export"))}
+			}), saving),
+			Align: "start",
+			Items: []kit.MenuItem[string]{
+				{Key: "pdf", Label: "PDF"}, {Key: "csv", Label: "CSV"}, {Key: "json", Label: "JSON"}},
+			OnSelect: func(key string) {
+				setFormat.Set(key)
+				start()
+			},
+		},
+		readout(map[bool]string{
+			true:  tr("menu.exporting", "Exporting {format}...", "format", strings.ToUpper(format)),
+			false: tr("menu.chooseFormat", "Choose a format."),
+		}[saving]))
+}
+
 func dropdownMenuPage() tela.Node {
 	tr := useTr()
 	last, setLast := tela.UseState("")
@@ -99,6 +129,8 @@ func dropdownMenuPage() tela.Node {
 						{Key: "delete", Label: tr("menu.delete", "Delete"), Icon: icons.Trash2, Variant: kit.Destructive},
 					},
 				})),
+		demo("A busy trigger", "A trigger drawn by a kit.TriggerFunc has its own Button, whose Loading the menu cannot see: kit.LoadingTrigger(trigger, loading) tells it. Choose a format: the button works for two seconds, opens nothing meanwhile (pressed or from the keyboard), and keeps its place in the tab order.", colStart,
+			ExportMenu{}),
 		demo("Placement", "Placement and Align choose the side and the position along it.", "",
 			kit.DropdownMenu[string]{Trigger: kit.Button{Variant: kit.Outline, Size: kit.Sm, Children: Text(tr("menu.below", "Below, centered"))}, Items: simple},
 			kit.DropdownMenu[string]{Trigger: kit.Button{Variant: kit.Outline, Size: kit.Sm, Children: Text(tr("menu.rightSide", "Right"))}, Placement: "right", Align: "start", Items: simple},
@@ -172,6 +204,22 @@ func menubarPage() tela.Node {
 				},
 				kit.Input{DefaultValue: tr("menubar.sample", "Select this text, then cut or copy it."), AriaLabel: tr("menubar.text", "Text")}),
 			readout(map[bool]string{true: tr("menubar.findChosen", "Find was chosen."), false: tr("menubar.findHint", "Find is the app's item: it calls its OnSelect.")}[found])),
+		demo("A styled submenu", "ContentClass styles the panel of a MenuSub's submenu (shadcn's SubContent className), apart from the Class of its item: here Export as is wider than the Share submenu beside it.", colStart,
+			kit.Menubar[string]{
+				AriaLabel: tr("menubar.fileBar", "File"),
+				Menus: []kit.MenubarMenu[string]{
+					{Key: "file", Label: tr("menubar.file", "File"), Items: []kit.MenuItem[string]{
+						{Key: "new", Label: tr("menubar.newTab", "New Tab"), Shortcut: "Cmd+T"},
+						{Kind: kit.MenuSub, Key: "share", Label: tr("menubar.share", "Share"), Items: []kit.MenuItem[string]{
+							{Key: "email", Label: tr("menubar.email", "Email link")}, {Key: "messages", Label: tr("menubar.messages", "Messages")}}},
+						{Kind: kit.MenuSub, Key: "export", Label: tr("menubar.exportAs", "Export as"), ContentClass: "min-w-64", Items: []kit.MenuItem[string]{
+							{Key: "pdf", Label: tr("menubar.pdf", "PDF document"), Shortcut: "Shift+Cmd+E"}, {Key: "png", Label: tr("menubar.png", "PNG image")},
+							{Key: "html", Label: tr("menubar.html", "Web page")}}},
+					}},
+				},
+			}),
+		demo("The window's menu bar", "AppMenu makes a bar the app's: the OS's where native menus apply, drawn where it is declared otherwise (on Linux: in the title bar or at the top of the window). A drawn one is also the window's bar for the keyboard: F10 or a lone Alt focuses its first menu from anywhere in the window, and F10 or Escape gives the focus back. The Mac's key conventions have neither. The gallery has no app bar of its own, so there is nothing to press here.", col,
+			snippet("kit.TitleBar{\n\tChildren: kit.Menubar[string]{\n\t\tAppMenu: true, Menus: menus}}")),
 	)
 }
 

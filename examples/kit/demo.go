@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"strings"
 	"sync"
 
 	"github.com/kuronosu/tela"
@@ -43,6 +44,13 @@ func demo(title, note, class string, children ...tela.Child) tela.Node {
 		),
 		Div(Class("min-w-0 rounded-xl border border-border bg-card/50 p-6 dark:bg-card/30", class), Fragment(children...)),
 	)
+}
+
+// snippet is a few lines of Go in a stage, left to right and in the mono
+// font whatever the language of the window is: code is not translated.
+func snippet(code string) tela.Node {
+	return Div(Dir("ltr"), Class("w-full overflow-x-auto rounded-lg border border-border bg-muted/50 p-4 font-mono text-xs leading-relaxed whitespace-pre"),
+		Text(strings.ReplaceAll(code, "\t", "    ")))
 }
 
 // grid lays out demos in two columns when the window is wide enough.

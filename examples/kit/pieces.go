@@ -20,22 +20,24 @@ import (
 // saveTime is how long the "save" of a loading demo takes.
 const saveTime = 2 * time.Second
 
-// useSaving is the state of a button that "saves": start sets it loading
-// and the frame clock's timer, saveTime later, clears it. Nothing runs while
-// it is not loading, so the page stays idle.
-func useSaving() (loading bool, start func()) {
-	loading, setLoading := tela.UseState(false)
+// usePlay is the state of something that runs for d once it is started: start
+// sets it playing and the frame clock's timer, d later, clears it. Nothing
+// runs while it is not playing, so the page stays idle.
+func usePlay(d time.Duration) (playing bool, start func()) {
+	playing, setPlaying := tela.UseState(false)
 	presses, setPresses := tela.UseState(0)
-	d := time.Duration(0)
-	if loading {
-		d = saveTime
+	if !playing {
+		d = 0
 	}
-	tela.UseTimeout(d, func() { setLoading.Set(false) }, presses)
-	return loading, func() {
+	tela.UseTimeout(d, func() { setPlaying.Set(false) }, presses)
+	return playing, func() {
 		setPresses.Update(func(n int) int { return n + 1 })
-		setLoading.Set(true)
+		setPlaying.Set(true)
 	}
 }
+
+// useSaving is the state of a button that "saves": usePlay for saveTime.
+func useSaving() (loading bool, start func()) { return usePlay(saveTime) }
 
 // SaveButton is a kit.Button that shows Loading for two seconds when it is
 // pressed.
@@ -260,6 +262,29 @@ func avatarsOf(as []kit.Avatar) []tela.Child {
 	return out
 }
 
+// RetryAlert is a destructive alert whose Action has a Retry button (loading
+// for two seconds when pressed) and an icon button that dismisses the alert;
+// once dismissed a button brings it back.
+type RetryAlert struct {
+	Title, Description, Retry, Dismiss, Again string
+}
+
+func (a RetryAlert) Build() tela.Node {
+	open, setOpen := tela.UseState(true)
+	if !open {
+		return Div(Class("flex"), kit.Button{Variant: kit.Outline, Size: kit.Sm, Children: Text(a.Again),
+			OnClick: func() { setOpen.Set(true) }})
+	}
+	return kit.Alert{
+		Variant: kit.Destructive, Icon: icons.CircleAlert, Title: Text(a.Title), Description: Text(a.Description),
+		// The action is wider than the 72 px the alert keeps for one button.
+		Class: "pe-36",
+		Action: Div(Class("flex items-center gap-1"),
+			SaveButton{Variant: kit.Outline, Size: kit.Xs, Label: a.Retry},
+			kit.Button{Variant: kit.Ghost, Size: kit.IconXs, Icon: icons.X, AriaLabel: a.Dismiss, OnClick: func() { setOpen.Set(false) }}),
+	}
+}
+
 func alertPage() tela.Node {
 	tr := useTr()
 	return grid(
@@ -289,6 +314,15 @@ func alertPage() tela.Node {
 			kit.Alert{Variant: kit.Info, Role: "status", Icon: icons.Info, Title: Text(tr("alert.status", "The service will be down on Sunday")), Description: Text(tr("alert.statusText", "From 02:00 to 03:00 UTC, for maintenance."))},
 			kit.Alert{Role: "note", Icon: icons.Info, Title: Text(tr("alert.note", "Drafts are saved every minute."))},
 		),
+		demo("With an action", "Action sits at the top end corner (shadcn's AlertAction): a button for the next step, as here, or a few. The alert keeps 72 px free at its end for it; a wider action needs a padding, as the next demo's \"pe-36\".", col,
+			kit.Alert{Variant: kit.Info, Icon: icons.Info, Title: Text(tr("alert.update", "A new version is available")),
+				Description: Text(tr("alert.updateText", "Restart to install it.")),
+				Action:      kit.Button{Variant: kit.Outline, Size: kit.Xs, Children: Text(tr("alert.restart", "Restart"))}},
+		),
+		demo("Retry and dismiss", "A text button and an icon button together: Retry works for two seconds, and Dismiss (named by AriaLabel) takes the alert away until you ask for it again.", col,
+			RetryAlert{
+				Title: tr("alert.retryTitle", "The upload failed"), Description: tr("alert.retryText", "The connection dropped. Check your network and try again."),
+				Retry: tr("alert.retry", "Retry"), Dismiss: tr("alert.dismiss", "Dismiss"), Again: tr("alert.again", "Show the alert again")}),
 	)
 }
 
@@ -323,6 +357,13 @@ func separatorPage() tela.Node {
 		demo("Styled caption", "CaptionClass restyles the caption: here a pill with an uppercase label.", col,
 			kit.Separator{CaptionClass: "rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold tracking-wider uppercase", Caption: Text(tr("separator.today", "Today"))},
 			kit.Separator{CaptionClass: "text-primary", Caption: Div(Class("flex items-center gap-1.5"), ic(icons.Star, "size-3.5"), Text(tr("separator.featured", "Featured")))}),
+		demo("Caption at the start or the end", "CaptionAlign puts the caption at the start (CaptionStart) or the end (CaptionEnd) of the line, with a short line on the near side, as the date headings of a feed. The sides are logical: they swap under right-to-left.", col,
+			Div(Class("flex w-full max-w-sm flex-col gap-3 text-sm"),
+				kit.Separator{CaptionAlign: kit.CaptionStart, Caption: Text(tr("separator.yesterday", "Yesterday"))},
+				Span(Text(tr("separator.joined", "Ana joined the team."))),
+				Span(Text(tr("separator.notes", "Standup notes were posted."))),
+				kit.Separator{CaptionAlign: kit.CaptionEnd, Caption: Text(tr("separator.lastWeek", "Last week"))},
+				Span(Text(tr("separator.report", "The quarterly report was shared."))))),
 		demo("In a menu", "A separator groups the rows of a list.", col,
 			Div(Class("flex w-64 flex-col gap-2 text-sm"),
 				Span(Text(tr("separator.profile", "Profile"))), Span(Text(tr("separator.billing", "Billing"))),
@@ -332,6 +373,30 @@ func separatorPage() tela.Node {
 				Span(Class("text-destructive"), Text(tr("separator.delete", "Delete account")))),
 		),
 	)
+}
+
+// Replay is a button that plays an animation on an icon for a while: while it
+// plays the icon has Classes (animate-* with repeat-*, direction-* and
+// fill-mode-*), and when the animation is over (For, a little more than its
+// repeats take) the classes are taken off, so nothing runs while the page
+// waits.
+type Replay struct {
+	Label   string
+	Icon    tela.Icon
+	Classes string
+	For     time.Duration
+}
+
+func (r Replay) Build() tela.Node {
+	playing, play := usePlay(r.For)
+	classes := ""
+	if playing {
+		classes = r.Classes
+	}
+	return Div(Class("flex items-center gap-3"),
+		kit.Button{Variant: kit.Outline, Size: kit.Sm, OnClick: play, Children: Text(r.Label)},
+		Span(Class("flex size-8 items-center justify-center rounded-full bg-accent text-accent-foreground"),
+			Span(Class("flex", classes), Icon(r.Icon, Class("size-4")))))
 }
 
 func skeletonPage() tela.Node {
@@ -379,6 +444,9 @@ func skeletonPage() tela.Node {
 					dot("animate-bounce"), dot("animate-bounce delay-150"), dot("animate-bounce delay-300")),
 				Span(Class("text-sm text-muted-foreground"), Text(tr("skeleton.thinkingText", "Thinking..."))),
 			)),
+		demo("Plays a few times", "duration-*, ease-*, repeat-*, direction-* and fill-mode-* set the longhands of an animate-* animation: the refresh icon turns three times (animate-spin repeat-3 duration-700), and the bell bounces three times, every other pass backwards, holding its first and last frames (animate-bounce repeat-3 direction-alternate fill-mode-both duration-500). Each plays when pressed and the classes come off after it, so the page rests.", col,
+			Replay{Label: tr("skeleton.refresh", "Refresh"), Icon: icons.LoaderCircle, Classes: "animate-spin repeat-3 duration-700 ease-linear", For: 2200 * time.Millisecond},
+			Replay{Label: tr("skeleton.ring", "Ring the bell"), Icon: icons.Bell, Classes: "animate-bounce repeat-3 direction-alternate fill-mode-both duration-500", For: 1600 * time.Millisecond}),
 		demo("Loading, then loaded", "The same slot shows the skeleton while loading is true.", colStart,
 			kit.Button{Variant: kit.Outline, Size: kit.Sm, OnClick: func() { setLoading.Update(func(b bool) bool { return !b }) },
 				Children: Text(map[bool]string{true: tr("skeleton.showContent", "Show the content"), false: tr("skeleton.showSkeleton", "Show the skeleton")}[loading])},

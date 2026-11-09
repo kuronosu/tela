@@ -15,6 +15,28 @@ import (
 // stages are written with tr: English here, Spanish and Arabic in the
 // catalogs.
 
+// RevealInput is a password field with a button inside its end (EndContent)
+// that shows what was typed: an IconXs ghost button whose icon and accessible
+// name follow the state, "Show password" and "Hide password".
+type RevealInput struct {
+	Label, Show, Hide string
+	Value             string
+	Class             string
+}
+
+func (r RevealInput) Build() tela.Node {
+	shown, setShown := tela.UseState(false)
+	typ, icon, name := "password", icons.Eye, r.Show
+	if shown {
+		typ, icon, name = "text", icons.EyeOff, r.Hide
+	}
+	return kit.Input{
+		Class: r.Class, Type: typ, DefaultValue: r.Value, AriaLabel: r.Label,
+		EndContent: kit.Button{Variant: kit.Ghost, Size: kit.IconXs, Icon: icon, IconClass: "size-4",
+			Class: "text-muted-foreground", AriaLabel: name, OnClick: func() { setShown.Set(!shown) }},
+	}
+}
+
 func inputPage() tela.Node {
 	f := i18n.UseFormatter()
 	tr := trFor(f)
@@ -50,6 +72,9 @@ func inputPage() tela.Node {
 			Div(Class("flex w-full max-w-sm items-center gap-2"),
 				kit.Input{Type: "email", Placeholder: tr("input.email", "Email"), AriaLabel: tr("input.email", "Email")},
 				kit.Button{Children: Text(tr("input.subscribe", "Subscribe"))})),
+		demo("A button inside the field", "EndContent puts a component inside the end of the field, over its padding: here the button that reveals a password. Its icon and its accessible name follow the state (\"Show password\", \"Hide password\"); the field keeps room for a 24 px button, and with an EndContent the Class goes on the wrapper, as with an icon.", col,
+			RevealInput{Class: "max-w-xs", Label: tr("input.yourPassword", "Your password"), Show: tr("input.showPassword", "Show password"),
+				Hide: tr("input.hidePassword", "Hide password"), Value: "correct horse"}),
 		demo("Controlled", "Value points to your state; OnValueChange is how the field asks for a change.", col,
 			kit.Input{Class: "max-w-xs", Value: &name, OnValueChange: setName.Set, Placeholder: tr("input.yourName", "Your name"), AriaLabel: tr("input.yourName", "Your name")},
 			readout(map[bool]string{true: tr("input.type", "Type something."), false: tr("input.hello", "Hello, {name}!", "name", name)}[name == ""]),
@@ -69,6 +94,19 @@ func fieldPage() tela.Node {
 	errText := ""
 	if !valid {
 		errText = tr("field.emailError", "Enter a valid email address.")
+	}
+	// The username "mei" is taken: the error offers a free one, which the
+	// link fills in.
+	handle, setHandle := tela.UseState("mei")
+	var takenError tela.Component
+	takenText := ""
+	if handle == "mei" {
+		suggestion := "mei.tanaka"
+		takenText = tr("field.taken", "That username is taken.")
+		takenError = Span(Text(takenText+" "),
+			A(Href("#suggestion"), Class("text-destructive underline underline-offset-4"),
+				OnClick(func() { setHandle.Set(suggestion) }),
+				Text(tr("field.use", "Use {name}", "name", suggestion))))
 	}
 	return grid(
 		demo("Label, description and error", "The label names the control and focuses it when clicked; the description or the error describes it. Edit the email to clear the error.", col,
@@ -93,6 +131,9 @@ func fieldPage() tela.Node {
 				DescriptionContent: Span(Text(tr("field.usernameText", "Choose a username. Read the")+" "),
 					A(Href("#terms"), Class("text-foreground underline underline-offset-4"), Text(tr("field.terms", "terms of service"))), Text(".")),
 				Children: kit.Input{DefaultValue: "mei"}}),
+		demo("A rich error", "ErrorContent is drawn in place of Error, for a message that is more than text: here a link. It makes the field invalid, shows as an alert under the control and describes it. Press the link, or edit the name, to clear it.", col,
+			kit.Field{Class: "max-w-sm", Label: tr("field.handle", "Username"), Error: takenText, ErrorContent: takenError,
+				Children: kit.Input{Value: &handle, OnValueChange: setHandle.Set}}),
 		demo("A group in a Field", "A RadioGroup or a ToggleGroup in a Field is named by the Field's label: neither has an AriaLabel here.", col,
 			kit.Field{Class: "max-w-sm", Label: tr("field.plan", "Plan"), Description: tr("field.planHelp", "Choose how you are billed."),
 				Children: kit.RadioGroup[string]{Value: &plan, OnValueChange: setPlan.Set, Items: []kit.RadioItem[string]{

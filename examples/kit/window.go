@@ -107,6 +107,11 @@ func titleBarPage() tela.Node {
 				kit.WindowControls{Variant: kit.Plain, Look: kit.Windows, State: stateActive},
 				kit.WindowControls{Variant: kit.Plain, Look: kit.GNOME, State: stateActive},
 				kit.WindowControls{Variant: kit.Plain, Look: kit.MacOS, State: stateActive})),
+		demo("Resizing a frameless window", "h.WindowResize() on the card makes the inside of its edges the window's resize handles: a band 5 px wide (tela.ResizeBand changes it) on every side, corners 16 px, drawn here in color. It is for windows whose OS draws no resize border: a transparent one (tela.App.Transparent), whose edges are the margin around the card, and any frameless one. The gallery's own window is framed, so the band would do nothing here; a snippet shows where it goes.", col,
+			Div(Class("relative w-full overflow-hidden rounded-lg"),
+				mockWindow(kit.TitleBar{Variant: kit.Windows, State: stateActive, Title: Text(notes)}, content),
+				Div(AriaHidden(true), Class("pointer-events-none absolute inset-0 rounded-lg border-[5px] border-primary/30"))),
+			snippet("Div(Class(\"absolute inset-4 rounded-2xl bg-card\"),\n\tWindowResize(),\n\tkit.TitleBar{Variant: kit.Plain},\n\t...)")),
 		demo("Right to left", "Under h.Dir(\"rtl\") the bar mirrors: the controls move to the other side, and so do the start and the end.", col,
 			Div(Dir("rtl"), Class("flex w-full flex-col gap-4"),
 				mockWindow(kit.TitleBar{

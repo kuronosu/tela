@@ -17,17 +17,17 @@ var newPages = []struct {
 	// an indeterminate bar slides): it is captured at its first frame.
 	still bool
 }{
-	{"Alert", 1150, true, false},
+	{"Alert", 1350, true, false},
 	{"Avatar", 1500, true, false},
 	{"Badge", 1050, true, false},
 	{"Button", 950, false, false},
 	{"ContextMenu", 900, false, false},
-	{"DropdownMenu", 900, false, false},
+	{"DropdownMenu", 1000, false, false},
 	{"Field", 1950, false, false},
-	{"Input", 1400, false, false},
-	{"Menubar", 650, false, false},
+	{"Input", 1550, false, false},
+	{"Menubar", 850, false, false},
 	{"Progress", 950, true, true},
-	{"Separator", 1150, true, false},
+	{"Separator", 1250, true, false},
 	{"Skeleton", 1250, true, true},
 	{"Table", 2650, true, false},
 	{"Toast", 600, false, false},
@@ -80,7 +80,7 @@ var arabicPages = []struct {
 	{"Dialog", 600}, {"FieldSet", 900}, {"Introduction", 1900}, {"Label", 600},
 	{"Popover", 600}, {"RadioGroup", 800}, {"RangeCalendar", 1250}, {"Select", 650},
 	{"Slider", 700}, {"Switch", 750}, {"Tabs", 950}, {"Textarea", 750},
-	{"TitleBar", 2200}, {"Toggle", 550},
+	{"TitleBar", 2700}, {"Toggle", 550},
 }
 
 // TestGoldenArabicPages renders each of them in Arabic:
