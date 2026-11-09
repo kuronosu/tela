@@ -5,6 +5,7 @@ import (
 
 	"github.com/kuronosu/tela"
 	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/i18n"
 	"github.com/kuronosu/tela/kit"
 )
 
@@ -52,16 +53,17 @@ func colorPickerPage() tela.Node {
 }
 
 func colorInputPage() tela.Node {
+	tr := trFor(i18n.UseFormatter())
 	fill, setFill := tela.UseState(tela.Hex("#6366f1"))
 	saved, setSaved := tela.UseState("")
 	return grid(
 		demo("Basic", "The same picker behind a button that shows the color. The color lives in the ColorInput, so the swatch and the code follow a drag in the panel.", colStart,
-			kit.ColorInput{DefaultValue: new(tela.Hex("#6366f1")), OnValueCommit: func(c tela.Color) { setSaved.Set("Saved " + hexOf(c)) }},
-			readout(map[bool]string{true: "Nothing saved yet.", false: saved}[saved == ""])),
+			kit.ColorInput{DefaultValue: new(tela.Hex("#6366f1")), OnValueCommit: func(c tela.Color) { setSaved.Set(tr("color.saved", "Saved {hex}", "hex", hexOf(c))) }},
+			readout(map[bool]string{true: tr("color.nothing", "Nothing saved yet."), false: saved}[saved == ""])),
 		demo("With alpha and swatches", "", "",
 			kit.ColorInput{DefaultValue: new(tela.Hex("#ec4899").WithAlpha(0.8)), Alpha: true, Swatches: brand}),
 		demo("As a form row", "A Field's label points to the button by id and names it, and the field's description describes it.", col,
-			kit.Field{Label: "Brand color", Description: "Used for buttons and links.", Class: "max-w-xs",
+			kit.Field{Label: tr("color.brand", "Brand color"), Description: tr("color.brandHint", "Used for buttons and links."), Class: "max-w-xs",
 				Children: Div(Class("flex items-center gap-3"),
 					kit.ColorInput{Value: &fill, OnValueChange: setFill.Set, Swatches: brand},
 					chip(fill, "size-9"))}),

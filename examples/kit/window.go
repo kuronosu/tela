@@ -4,6 +4,7 @@ import (
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/examples/kit/icons"
 	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/i18n"
 	"github.com/kuronosu/tela/kit"
 )
 
@@ -35,55 +36,64 @@ func ghostIcon(icon tela.Icon, label string) tela.Component {
 }
 
 func titleBarPage() tela.Node {
+	tr := trFor(i18n.UseFormatter())
+	notes := tr("titlebar.notes", "Notes")
+	notesInactive := tr("titlebar.notesInactive", "Notes - inactive")
+	notesMaximized := tr("titlebar.notesMaximized", "Notes - maximized")
+	content := tr("titlebar.content", "Window content")
+	settings := ghostIcon(icons.Settings, tr("titlebar.settings", "Settings"))
+	newNote := ghostIcon(icons.Plus, tr("titlebar.newNote", "New note"))
+	share := ghostIcon(icons.Share2, tr("titlebar.share", "Share"))
+	bell := ghostIcon(icons.Bell, tr("titlebar.notifications", "Notifications"))
 	return grid(
 		demo("Windows", "The title at the start, the content (here a search field) in the room that is left, and flat buttons that fill the bar. Close turns red.", col,
 			mockWindow(kit.TitleBar{
 				Variant: kit.Windows, State: stateActive,
 				Leading: ic(icons.LayoutGrid, "size-4 text-primary"),
-				Title:   Text("Notes"),
-				Children: kit.Input{Type: "search", Placeholder: "Search notes", AriaLabel: "Search notes",
+				Title:   Text(notes),
+				Children: kit.Input{Type: "search", Placeholder: tr("titlebar.search", "Search notes"), AriaLabel: tr("titlebar.search", "Search notes"),
 					Class: "h-6 w-48 px-2 py-0 text-xs md:text-xs"},
-				Trailing: ghostIcon(icons.Settings, "Settings"),
-			}, "Window content")),
+				Trailing: settings,
+			}, content)),
 		demo("GNOME", "A tall header bar with the title centered between its start and end, and round buttons.", col,
 			mockWindow(kit.TitleBar{
 				Variant: kit.GNOME, State: stateActive,
-				Leading:  ghostIcon(icons.Plus, "New note"),
-				Title:    Text("Notes"),
-				Trailing: ghostIcon(icons.Share2, "Share"),
-			}, "Window content")),
+				Leading:  newNote,
+				Title:    Text(notes),
+				Trailing: share,
+			}, content)),
 		demo("macOS", "The dots at the start, glyphs on hover, and the title centered.", col,
 			mockWindow(kit.TitleBar{
 				Variant: kit.MacOS, State: stateActive,
-				Title:    Text("Notes"),
-				Trailing: ghostIcon(icons.Bell, "Notifications"),
-			}, "Window content")),
+				Title:    Text(notes),
+				Trailing: bell,
+			}, content)),
 		demo("Plain", "For an app with a design of its own: the platform's arrangement (here Windows, GNOME and macOS, by Look) with no background, border or outline, so the surface under the bar shows, and ghost window controls in the theme's colors.", col,
 			mockWindow(kit.TitleBar{
 				Variant: kit.Plain, Look: kit.Windows, State: stateActive,
 				Leading:  ic(icons.LayoutGrid, "size-4 text-primary"),
-				Title:    Text("Notes"),
-				Trailing: ghostIcon(icons.Settings, "Settings"),
+				Title:    Text(notes),
+				Trailing: settings,
 			}, "Windows"),
 			mockWindow(kit.TitleBar{
 				Variant: kit.Plain, Look: kit.GNOME, State: stateActive,
-				Leading:  ghostIcon(icons.Plus, "New note"),
-				Title:    Text("Notes"),
-				Trailing: ghostIcon(icons.Share2, "Share"),
+				Leading:  newNote,
+				Title:    Text(notes),
+				Trailing: share,
 			}, "GNOME"),
 			mockWindow(kit.TitleBar{
 				Variant: kit.Plain, Look: kit.MacOS, State: stateActive,
-				Title:    Text("Notes"),
-				Trailing: ghostIcon(icons.Bell, "Notifications"),
+				Title:    Text(notes),
+				Trailing: bell,
 			}, "macOS"),
-			mockWindow(kit.TitleBar{Variant: kit.Plain, Look: kit.GNOME, State: stateInactive, Title: Text("Notes - inactive")}, "Inactive")),
+			mockWindow(kit.TitleBar{Variant: kit.Plain, Look: kit.GNOME, State: stateInactive, Title: Text(notesInactive)}, tr("titlebar.inactive", "Inactive"))),
 		demo("Inactive", "While the window is not focused (State().Focused is false) the bar and its buttons dim.", col,
-			mockWindow(kit.TitleBar{Variant: kit.Windows, State: stateInactive, Title: Text("Notes - inactive")}, "Windows"),
-			mockWindow(kit.TitleBar{Variant: kit.GNOME, State: stateInactive, Title: Text("Notes - inactive")}, "GNOME"),
-			mockWindow(kit.TitleBar{Variant: kit.MacOS, State: stateInactive, Title: Text("Notes - inactive")}, "macOS")),
+			mockWindow(kit.TitleBar{Variant: kit.Windows, State: stateInactive, Title: Text(notesInactive)}, "Windows"),
+			mockWindow(kit.TitleBar{Variant: kit.GNOME, State: stateInactive, Title: Text(notesInactive)}, "GNOME"),
+			mockWindow(kit.TitleBar{Variant: kit.MacOS, State: stateInactive, Title: Text(notesInactive)}, "macOS")),
 		demo("Maximized", "The maximize button becomes Restore, and the bar loses the outline a floating window has.", col,
-			mockWindow(kit.TitleBar{Variant: kit.Windows, State: stateMaximized, Title: Text("Notes - maximized")}, "Windows"),
-			mockWindow(kit.TitleBar{Variant: kit.GNOME, State: stateMaximized, Title: Text("Notes - maximized")}, "GNOME")),
+			mockWindow(kit.TitleBar{Variant: kit.Windows, State: stateMaximized, Title: Text(notesMaximized)}, "Windows"),
+			mockWindow(kit.TitleBar{Variant: kit.GNOME, State: stateMaximized, Title: Text(notesMaximized)}, "GNOME")),
 		demo("Window controls alone", "WindowControls in each look; HideMinimize and HideMaximize leave a button out. Each is a real button that acts on click.", col,
 			Div(Class("flex flex-wrap items-center gap-x-8 gap-y-4"),
 				kit.WindowControls{Variant: kit.Windows, State: stateActive},
@@ -101,13 +111,13 @@ func titleBarPage() tela.Node {
 			Div(Dir("rtl"), Class("flex w-full flex-col gap-4"),
 				mockWindow(kit.TitleBar{
 					Variant: kit.Windows, State: stateActive,
-					Leading: ic(icons.LayoutGrid, "size-4 text-primary"), Title: Text("Notes"),
-					Trailing: ghostIcon(icons.Settings, "Settings"),
-				}, "Window content"),
+					Leading: ic(icons.LayoutGrid, "size-4 text-primary"), Title: Text(notes),
+					Trailing: settings,
+				}, content),
 				mockWindow(kit.TitleBar{
 					Variant: kit.GNOME, State: stateActive,
-					Leading: ghostIcon(icons.Plus, "New note"), Title: Text("Notes"),
-					Trailing: ghostIcon(icons.Share2, "Share"),
-				}, "Window content"))),
+					Leading: newNote, Title: Text(notes),
+					Trailing: share,
+				}, content))),
 	)
 }

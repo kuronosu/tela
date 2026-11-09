@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kuronosu/tela/i18n"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -141,7 +142,7 @@ func TestGoldenLanguages(t *testing.T) {
 	})
 	t.Run("datepicker open ar", func(t *testing.T) {
 		a := mount(t, Previews["Gallery Arabic"])
-		a.Click(telatest.ByRole("button", "Date"))
+		a.Click(telatest.ByRole("button", trFor(i18n.For("ar"))("picker.date", "Date")))
 		a.ExpectRole("grid", "أكتوبر 2026")
 		a.GoldenScales("kit_datepicker_open_ar_light", 1)
 	})

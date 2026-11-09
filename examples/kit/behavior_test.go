@@ -156,9 +156,9 @@ func TestSlidersMoveWithKeys(t *testing.T) {
 
 func TestRadioGroupPlans(t *testing.T) {
 	a := mount(t, Canvas{Page: "RadioGroup"})
-	a.ExpectText("Plan: pro")
+	a.ExpectText("Plan: Pro")
 	a.Click(telatest.ByRole("radio", "Free"))
-	a.ExpectText("Plan: free")
+	a.ExpectText("Plan: Free")
 }
 
 func TestColorPickerHexField(t *testing.T) {

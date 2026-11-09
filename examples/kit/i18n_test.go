@@ -152,9 +152,10 @@ func TestKitDefaultsFromTheCatalog(t *testing.T) {
 		{"ar", "اختر تاريخًا", "اختر نطاق تواريخ", "السابق", "التالي", "إغلاق", "إلغاء", "متابعة"},
 	} {
 		t.Run(c.tag, func(t *testing.T) {
+			tr := trFor(i18n.For(c.tag))
 			a := mount(t, Canvas{Page: "DatePicker", Locale: c.tag})
 			a.ExpectText(c.pick)
-			a.Click(telatest.ByRole("button", "Date"))
+			a.Click(telatest.ByRole("button", tr("picker.date", "Date")))
 			a.ExpectCount(telatest.ByRole("button", c.previous), 1)
 			a.ExpectCount(telatest.ByRole("button", c.next), 1)
 
@@ -162,12 +163,12 @@ func TestKitDefaultsFromTheCatalog(t *testing.T) {
 			b.ExpectText(c.rangeText)
 
 			d := mount(t, Canvas{Page: "Dialog", Locale: c.tag})
-			d.Click(telatest.ByRole("button", "Share"))
+			d.Click(telatest.ByRole("button", tr("dialog.share", "Share")))
 			d.Click(telatest.ByRole("button", c.close))
 			d.ExpectCount(telatest.ByRole("dialog", ""), 0)
 
 			e := mount(t, Canvas{Page: "AlertDialog", Locale: c.tag})
-			e.Click(telatest.ByRole("button", "Publish"))
+			e.Click(telatest.ByRole("button", tr("alertDialog.publish", "Publish")))
 			e.ExpectCount(telatest.ByRole("button", c.cancel), 1)
 			e.ExpectCount(telatest.ByRole("button", c.cont), 1)
 		})
@@ -317,7 +318,7 @@ func TestLanguageMenuSwitchesTheWindow(t *testing.T) {
 	// The language is the window's, not the page's: it stays when another
 	// page opens, and the whole sidebar is in the new direction.
 	a.Click(introTab)
-	a.ExpectRole("heading", "Hello, kit.")
+	a.ExpectRole("heading", "Hola, kit.")
 	a.Expect(languageMenu, telatest.HasName("Español Idioma"))
 }
 

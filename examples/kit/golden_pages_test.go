@@ -66,3 +66,31 @@ func TestGoldenNewPages(t *testing.T) {
 		})
 	}
 }
+
+// The pages that phase 21 translated, whole, in Arabic: right to left, and
+// with no English sentence left in a stage (the captions above each stage
+// stay English and left to right on purpose). The Spanish and English pages
+// are checked by TestCatalogsHaveEveryText and the page tests.
+var arabicPages = []struct {
+	name   string
+	height int
+}{
+	{"AlertDialog", 650}, {"Calendar", 2500}, {"Card", 1150}, {"Checkbox", 850},
+	{"ColorInput", 650}, {"ColorPicker", 1050}, {"DatePicker", 750}, {"DateRangePicker", 650},
+	{"Dialog", 600}, {"FieldSet", 900}, {"Introduction", 1900}, {"Label", 600},
+	{"Popover", 600}, {"RadioGroup", 800}, {"RangeCalendar", 1250}, {"Select", 650},
+	{"Slider", 700}, {"Switch", 750}, {"Tabs", 950}, {"Textarea", 750},
+	{"TitleBar", 2200}, {"Toggle", 550},
+}
+
+// TestGoldenArabicPages renders each of them in Arabic:
+// `TELA_UPDATE=1 CGO_ENABLED=0 go test -run TestGoldenArabicPages ./examples/kit`
+// writes the pictures, which must be looked at before they are committed.
+func TestGoldenArabicPages(t *testing.T) {
+	for _, p := range arabicPages {
+		t.Run(p.name, func(t *testing.T) {
+			a := mount(t, Canvas{Page: p.name, Locale: "ar"}, telatest.Size(1280, float32(p.height)))
+			a.GoldenScales("kit_page_"+slug(p.name)+"_ar", 1)
+		})
+	}
+}
