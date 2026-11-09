@@ -29,6 +29,11 @@ type ToggleGroupStyle struct {
 	// OutlineItemWithoutSpacing is added to an Outline item of a group with
 	// no space between its items: one border between neighbors.
 	OutlineItemWithoutSpacing string
+	// ItemWithIndicator is added to every item of a group with an
+	// Indicator: it places the indicator (relative) and keeps an indicator
+	// with a negative z-index above the item's background and below its
+	// content (isolate).
+	ItemWithIndicator string
 }
 
 func init() {
@@ -37,6 +42,7 @@ func init() {
 		Item:                      "w-auto min-w-0 shrink-0 px-3 focus:z-10 focus-visible:z-10",
 		ItemWithoutSpacing:        "rounded-none shadow-none first:rounded-s-md last:rounded-e-md",
 		OutlineItemWithoutSpacing: "border-s-0 first:border-s",
+		ItemWithIndicator:         "relative isolate",
 	}
 }
 
@@ -88,6 +94,20 @@ type ToggleGroupItem[K comparable] struct {
 //
 // Selected, DefaultSelected and OnSelectionChange also work on a
 // single-choice group, for a controlled group that may have no item on.
+//
+// ValueFn and SelectedFn are the deferred forms of Value and Selected
+// (ADR-250): read when the group builds, not when the component that holds
+// the choice does, so a choice kept in a tela.Value rebuilds the group
+// alone when it changes. With an Indicator, a pill that an h.LayoutID
+// slides from item to item, the items need no state of the caller's to
+// show the choice:
+//
+//	view := tela.UseValue("list") // read by the content, not by this component
+//	kit.ToggleGroup[string]{
+//	    ValueFn: view.Get, OnValueChange: view.Set, DisallowEmptySelection: true, AriaLabel: "View",
+//	    Indicator: h.Div(h.Class("absolute inset-0 -z-10 rounded-md bg-background shadow-sm"), h.LayoutID("view-pill")),
+//	    Items: []kit.ToggleGroupItem[string]{{Value: "list", Label: "List"}, {Value: "grid", Label: "Grid"}},
+//	}
 type ToggleGroup[K comparable] struct {
 	// Items are the buttons, in order.
 	Items []ToggleGroupItem[K]
@@ -107,6 +127,12 @@ type ToggleGroup[K comparable] struct {
 	Value         *K
 	DefaultValue  *K
 	OnValueChange func(K)
+	// ValueFn, the deferred form of Value, returns the key that is on in a
+	// controlled single-choice group (a key that is not an item's turns
+	// none on). The group calls it when it builds, so a tela.Value that it
+	// reads makes a change rebuild the group and not the component that
+	// gives it: pass the Value's Get, and its Set as OnValueChange.
+	ValueFn func() K
 	// Selected is the selection of a controlled group, DefaultSelected the
 	// starting one of an uncontrolled group and OnSelectionChange is called
 	// with the next selection. The zero aria.Selection leaves the selection
@@ -114,6 +140,20 @@ type ToggleGroup[K comparable] struct {
 	Selected          aria.Selection[K]
 	DefaultSelected   aria.Selection[K]
 	OnSelectionChange func(aria.Selection[K])
+	// SelectedFn, the deferred form of Selected, returns the selection of a
+	// controlled group when the group builds (see ValueFn); the zero
+	// aria.Selection is the empty one here.
+	SelectedFn func() aria.Selection[K]
+	// Indicator is drawn inside every item that is on, as its first child:
+	// a pill or an underline that marks the choice, such as
+	// h.Div(h.Class("absolute inset-0 -z-10 rounded-md bg-background"),
+	// h.LayoutID("pill")). The items get the recipe's ItemWithIndicator
+	// (relative isolate), so an absolute indicator covers its item and a
+	// negative z-index keeps it behind the label. With an h.LayoutID it
+	// slides to the item turned on (one layout, then frames that only
+	// composite); give a LayoutID only to a single-choice group, since with
+	// Multiple every item that is on has one.
+	Indicator tela.Component
 	// DisallowEmptySelection keeps one item on: pressing the only item that
 	// is on does nothing.
 	DisallowEmptySelection bool
@@ -160,9 +200,21 @@ func (g ToggleGroup[K]) Build() tela.Node {
 	if g.Value != nil && g.Selected.IsSet() || g.DefaultValue != nil && g.DefaultSelected.IsSet() {
 		panic("kit: ToggleGroup: give either Value and DefaultValue or Selected and DefaultSelected, not both")
 	}
-	if g.Value != nil {
+	if n := countTrue(g.Value != nil, g.ValueFn != nil, g.Selected.IsSet(), g.SelectedFn != nil); n > 1 {
+		panic("kit: ToggleGroup: give one of Value, ValueFn, Selected and SelectedFn, the controlled choice")
+	}
+	switch {
+	case g.ValueFn != nil:
+		// Read here, in the group's build: a Value it reads rebuilds the
+		// group (ADR-250).
+		o.Selected = aria.SelectionOf(g.ValueFn())
+	case g.SelectedFn != nil:
+		if o.Selected = g.SelectedFn(); !o.Selected.IsSet() {
+			o.Selected = aria.SelectionOf[K]()
+		}
+	case g.Value != nil:
 		o.Selected = aria.SelectionOf(*g.Value)
-	} else if g.DefaultValue != nil {
+	case g.DefaultValue != nil:
 		o.DefaultSelected = aria.SelectionOf(*g.DefaultValue)
 	}
 	if g.OnValueChange != nil || g.OnSelectionChange != nil {
@@ -185,12 +237,18 @@ func (g ToggleGroup[K]) Build() tela.Node {
 	variant, size := pick("Toggle", "Variant", t.Variants, g.Variant), pick("Toggle", "Size", t.Sizes, g.Size)
 	joined := g.Spacing <= 0
 	itemClass := joinClass(t.Root, variant, size, t.On, r.Item,
-		when(joined, joinClass(r.ItemWithoutSpacing, when(g.Variant == Outline, r.OutlineItemWithoutSpacing))), g.ItemClass)
+		when(joined, joinClass(r.ItemWithoutSpacing, when(g.Variant == Outline, r.OutlineItemWithoutSpacing))),
+		when(g.Indicator != nil, r.ItemWithIndicator), g.ItemClass)
 	kids := []tela.Child{cls(r.Root, when(!joined, fmt.Sprintf("gap-%d", g.Spacing)), g.Class), rootDir, grp.Props, g.Props}
 	for _, it := range g.Items {
 		ik := []tela.Child{h.Key(it.Value), cls(itemClass), grp.ItemProps(it.Value)}
 		if it.AriaLabel != "" {
 			ik = append(ik, h.AriaLabel(it.AriaLabel))
+		}
+		if g.Indicator != nil {
+			// An empty child while the item is off keeps the positions
+			// of its content, so turning it on remounts nothing.
+			ik = append(ik, h.If(grp.IsSelected(it.Value), g.Indicator))
 		}
 		ik = append(ik, icon(it.Icon, t.Icon, t.IconVariants[g.Variant]))
 		if it.Children != nil {
@@ -201,4 +259,15 @@ func (g ToggleGroup[K]) Build() tela.Node {
 		kids = append(kids, h.Button(ik...))
 	}
 	return h.Div(kids...)
+}
+
+// countTrue returns how many of bs are true.
+func countTrue(bs ...bool) int {
+	n := 0
+	for _, b := range bs {
+		if b {
+			n++
+		}
+	}
+	return n
 }

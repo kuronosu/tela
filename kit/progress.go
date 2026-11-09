@@ -8,6 +8,7 @@ package kit
 import (
 	"fmt"
 	"math"
+	"strconv"
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/aria"
@@ -45,9 +46,29 @@ func init() {
 //
 // Use Indeterminate while the amount is unknown. For a measure that is not
 // the progress of a task, such as disk usage, use aria.UseMeter.
+//
+// A value that changes many times a second (a download, a tween) goes in
+// ValueFn instead, which is read when the bar is painted and when the
+// semantics tree is built: the bar moves and aria-valuenow follows without
+// building the component (ADR-250).
+//
+//	done := tela.UseValue(0.0) // the download's goroutine calls done.Set(percent)
+//	kit.Progress{ValueFn: done.Get, AriaLabel: "Download"}
+//
+//	pct := tela.UseTween(target) // a float32 that eases toward target
+//	kit.Progress{ValueFn: func() float64 { return float64(pct.Get()) }, AriaLabel: "Upload"}
 type Progress struct {
 	// Value is how far the task is, from 0 to Max.
 	Value float64
+	// ValueFn, when not nil, is read in place of Value: by a paint-phase
+	// closure that slides the bar (tela.TranslateFn), and when the
+	// semantics tree is built (h.AriaValueNowFn, h.AriaValueTextFn, with
+	// FormatValue). A change of a tela.Value it reads repaints the bar and
+	// makes the semantics stale, and builds nothing. The bar moves at once,
+	// without the transition of the recipe: read an animated float32 Value
+	// (tela.UseTween, tela.Animate) for a smooth bar. NaN is 0, and the
+	// value is clamped to the range as Value is.
+	ValueFn func() float64
 	// Max is the value of a finished task (100 by default).
 	Max float64
 	// Indeterminate says that the amount of progress is unknown: the bar
@@ -69,8 +90,18 @@ type Progress struct {
 // Build returns the progress element.
 func (p Progress) Build() tela.Node {
 	s := &UseStyle().Progress
-	pb := aria.UseProgressBar(aria.ProgressBarOptions{Value: p.Value, Max: p.Max, Indeterminate: p.Indeterminate,
+	live := p.ValueFn != nil && !p.Indeterminate
+	// A live bar's value is set below, read when the semantics are built:
+	// the hook gets no value (Indeterminate) for it.
+	pb := aria.UseProgressBar(aria.ProgressBarOptions{Value: p.Value, Max: p.Max, Indeterminate: p.Indeterminate || live,
 		FormatValue: p.FormatValue, AriaLabel: p.AriaLabel})
+	// The same hooks with and without ValueFn, so a bar may switch.
+	bar := tela.UseElementRef()
+	size := tela.UseSize(bar)
+	dir := tela.UseDirection()
+	if live {
+		return p.live(s, pb, bar, size, dir)
+	}
 	// The bar is as wide as the track and is moved left by what is not done.
 	left := 100 - pb.Percent
 	if p.Indeterminate {
@@ -79,4 +110,40 @@ func (p Progress) Build() tela.Node {
 	left = math.Round(left*100) / 100
 	return h.Div(cls(s.Root, p.Class), pb.Props, p.Props,
 		h.Div(cls(s.Indicator, when(p.Indeterminate, s.Indeterminate), fmt.Sprintf("-translate-x-[%g%%] rtl:translate-x-[%g%%]", left, left), p.IndicatorClass)))
+}
+
+// live is the bar of a Progress with ValueFn: the indicator is slid by a
+// tela.TranslateFn of its own width (what a percentage of translate-x is
+// of), and the value reaches the semantics through h.AriaValueNowFn and
+// h.AriaValueTextFn, so a change of the Values ValueFn reads repaints and
+// builds nothing.
+func (p Progress) live(s *ProgressStyle, pb aria.ProgressBarResult, bar tela.ElementRef, size *tela.Value[tela.Size], dir string) tela.Node {
+	// The range of aria.UseProgressBar, which has checked it.
+	lo, hi := 0.0, p.Max
+	if hi == 0 {
+		hi = 100
+	}
+	value := func() float64 {
+		v := p.ValueFn()
+		if v != v {
+			v = lo
+		}
+		return min(max(v, lo), hi)
+	}
+	percent := func() float64 { return (value() - lo) / (hi - lo) * 100 }
+	sign := float32(-1) // toward the start: left, or right under rtl
+	if dir == "rtl" {
+		sign = 1
+	}
+	format := p.FormatValue
+	text := func() string {
+		if format != nil {
+			return format(value())
+		}
+		return strconv.FormatFloat(math.Floor(percent()+0.5), 'f', -1, 64) + "%"
+	}
+	return h.Div(cls(s.Root, p.Class), pb.Props, h.AriaValueNowFn(value), h.AriaValueTextFn(text), p.Props,
+		h.Div(h.Ref(bar), cls(s.Indicator, p.IndicatorClass), h.Style(tela.TranslateFn(func() (x, y float32) {
+			return sign * float32((100-percent())/100) * size.Get().Width, 0
+		}))))
 }
