@@ -5,6 +5,7 @@ import (
 	"image/draw"
 	"math"
 	"slices"
+	"time"
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/platform"
@@ -109,6 +110,12 @@ type dndState struct {
 	// (fielddnd.go).
 	caret   *field
 	caretAt text.Cursor
+	// as is the field the drag autoscrolls (fielddnd.go), since asAt;
+	// asRef is the window point a step scrolls into view, the drag's
+	// position moved by asDir.
+	as           *field
+	asAt         time.Duration
+	asRef, asDir gfx.Point
 
 	// src is the drag the tree started, until its DragDoneEvent.
 	src *dragSource
@@ -197,6 +204,7 @@ func (t *Tree) dragOver(e platform.DragEvent) DropEffect {
 	d.effect = DropNone
 	if d.target == nil || !d.target.mounted {
 		t.setDropCaret(nil, text.Cursor{})
+		d.as = nil
 		return DropNone
 	}
 	dt := t.protectedTransfer()
@@ -217,6 +225,7 @@ func (t *Tree) dragOver(e platform.DragEvent) DropEffect {
 		f = nil
 	}
 	t.setDropCaret(f, c)
+	t.dragAutoscrollTo(e.Time)
 	return d.effect
 }
 
@@ -241,7 +250,8 @@ func (t *Tree) dropField(target *Element) *field {
 // cancelable, then OnChange), line breaks as spaces in a single-line
 // field, as a paste, and selected. With move, the drag of a field's
 // selection of this tree moved by the drop, the dragged text is deleted
-// from its field first (fielddnd.go).
+// from its field first (fielddnd.go); within one field the deletion and
+// the insertion are one undo step.
 func (t *Tree) fieldDrop(f *field, p gfx.Point, s string, move *textDrag) {
 	if s == "" {
 		return
@@ -262,13 +272,14 @@ func (t *Tree) fieldDrop(f *field, p gfx.Point, s string, move *textDrag) {
 		r := f.ed.Do(edit.Command{Kind: edit.ClickAt, X: pt.X, Y: pt.Y}, lay)
 		t.fieldChangedBy(f, r, false)
 	}
+	join := false
 	if move != nil {
-		t.moveDragged(move, f)
+		join = t.moveDragged(move, f)
 		if !f.alive() || t.foc.el != f.el {
 			return
 		}
 	}
-	t.fieldDo(f, edit.Command{Kind: edit.Drop, Text: s})
+	t.fieldDo(f, edit.Command{Kind: edit.Drop, Text: s, JoinUndo: join})
 }
 
 // drop fires drop at the element under the drag with the data e carries,
@@ -475,8 +486,9 @@ func (t *Tree) dragDone(src *dragSource, effect DropEffect) {
 
 // dragImage returns the image of the drag src and its hotspot: the one
 // the DataTransfer was given, else the element as it is in the window's
-// last frame (its border box, or the dragged text of a field, cut by the
-// window), with the press point under the pointer.
+// last frame (its border box, cut by the window), or for the selection of
+// a field its text alone (textDragImage), with the press point under the
+// pointer.
 func (t *Tree) dragImage(src *dragSource, press gfx.Point) (*image.RGBA, image.Point) {
 	dt := src.dt
 	if dt.imgSet {
@@ -487,27 +499,53 @@ func (t *Tree) dragImage(src *dragSource, press gfx.Point) (*image.RGBA, image.P
 		return cutDragImage(dt.img, b, b.Min.Add(image.Pt(dt.hotspotX, dt.hotspotY)))
 	}
 	v := t.wv
-	if v == nil || v.fb == nil || !(v.scale > 0) {
+	if v == nil || !(v.scale > 0) {
 		return nil, image.Point{}
 	}
-	r := t.elemBounds(src.el)
-	if src.text != nil {
-		r = t.textDragRect(src.text)
-	}
 	s := v.scale
-	px := func(f float32, round func(float64) float64) int { return int(round(float64(f) * s)) }
-	pr := image.Rect(px(r.X0, math.Floor), px(r.Y0, math.Floor), px(r.X1, math.Ceil), px(r.Y1, math.Ceil)).Intersect(v.fb.Rect)
+	hot := image.Pt(devicePx(press.X, s, math.Round), devicePx(press.Y, s, math.Round))
+	if src.text != nil {
+		return t.textDragImage(src.text, s, hot)
+	}
+	if v.fb == nil {
+		return nil, image.Point{}
+	}
+	pr := dragPixels(t.elemBounds(src.el), s).Intersect(v.fb.Rect)
 	if pr.Empty() {
 		return nil, image.Point{}
 	}
-	return cutDragImage(v.fb, pr, image.Pt(px(press.X, math.Round), px(press.Y, math.Round)))
+	return cutDragImage(v.fb, pr, hot)
+}
+
+// devicePx returns the logical coordinate f in device pixels at scale s,
+// rounded by round.
+func devicePx(f float32, s float64, round func(float64) float64) int {
+	return int(round(float64(f) * s))
+}
+
+// dragPixels returns the device pixels at scale s that the logical
+// rectangle r touches.
+func dragPixels(r gfx.Rect, s float64) image.Rectangle {
+	return image.Rect(devicePx(r.X0, s, math.Floor), devicePx(r.Y0, s, math.Floor), devicePx(r.X1, s, math.Ceil), devicePx(r.Y1, s, math.Ceil))
 }
 
 // cutDragImage copies the part r of src into a new image at the origin,
 // keeping at most platform.MaxDragImageSide pixels on a side (those
-// around hot), and returns it with hot, a point of src, in its
-// coordinates.
+// around hot, dragImageRect), and returns it with hot, a point of src, in
+// its coordinates.
 func cutDragImage(src image.Image, r image.Rectangle, hot image.Point) (*image.RGBA, image.Point) {
+	r = dragImageRect(r, hot)
+	if r.Empty() {
+		return nil, image.Point{}
+	}
+	dst := image.NewRGBA(image.Rect(0, 0, r.Dx(), r.Dy()))
+	draw.Draw(dst, dst.Rect, src, r.Min, draw.Src)
+	return dst, hot.Sub(r.Min)
+}
+
+// dragImageRect returns r cut to at most platform.MaxDragImageSide pixels
+// on a side, keeping those around hot.
+func dragImageRect(r image.Rectangle, hot image.Point) image.Rectangle {
 	const m = platform.MaxDragImageSide
 	if r.Dx() > m {
 		x0 := min(max(hot.X-m/2, r.Min.X), r.Max.X-m)
@@ -517,10 +555,5 @@ func cutDragImage(src image.Image, r image.Rectangle, hot image.Point) (*image.R
 		y0 := min(max(hot.Y-m/2, r.Min.Y), r.Max.Y-m)
 		r.Min.Y, r.Max.Y = y0, y0+m
 	}
-	if r.Empty() {
-		return nil, image.Point{}
-	}
-	dst := image.NewRGBA(image.Rect(0, 0, r.Dx(), r.Dy()))
-	draw.Draw(dst, dst.Rect, src, r.Min, draw.Src)
-	return dst, hot.Sub(r.Min)
+	return r
 }

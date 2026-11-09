@@ -51,7 +51,8 @@ const (
 	// puts the caret at the drop point first (ClickAt).
 	Drop
 	// DeleteByDrag deletes the selection, the source of a drag and drop
-	// that moved the text (deleteByDrag, one undo step).
+	// that moved the text (deleteByDrag, one undo step; a Drop with
+	// Command.JoinUndo after it joins that step).
 	DeleteByDrag
 	// InsertLineBreak inserts a line feed (insertLineBreak, Enter in a
 	// multi-line field); it does nothing in a single-line field, where
@@ -157,6 +158,11 @@ type Command struct {
 	// Height is the viewport height of MovePageUp and MovePageDown
 	// (logical px).
 	Height float32
+	// JoinUndo makes a Drop one undo step with the edit before it, the
+	// DeleteByDrag of a move within the field: undo reverts both and
+	// selects the dragged text where it was, redo moves it again
+	// (Chromium's DragAndDropCommand). Other commands ignore it.
+	JoinUndo bool
 }
 
 type planOp uint8
@@ -196,6 +202,8 @@ type Plan struct {
 	// selectInserted selects the inserted text instead of putting the
 	// caret after it (Drop).
 	selectInserted bool
+	// join links the edit's undo step to the one before it (JoinUndo).
+	join bool
 }
 
 // Empty reports whether applying the plan would change nothing (and
@@ -235,7 +243,7 @@ func (e *Editor) Plan(cmd Command, l *text.Layout) Plan {
 	case Drop:
 		if !ro {
 			e.planInsert(&p, cmd.Text, InputInsertFromDrop, groupNone)
-			p.selectInserted = true
+			p.selectInserted, p.join = true, cmd.JoinUndo
 		}
 	case InsertLineBreak:
 		if !ro && e.opts.Multiline {
@@ -471,7 +479,7 @@ func (e *Editor) Apply(p Plan) Result {
 		r.InputType = p.InputType
 		return r
 	}
-	r := e.replace(p.start, p.end, p.insert, p.kind, p.selectInserted)
+	r := e.replace(p.start, p.end, p.insert, p.kind, p.selectInserted, p.join)
 	r.InputType, r.Data, r.Clipboard = p.InputType, p.Data, p.Clipboard
 	return r
 }
@@ -496,7 +504,7 @@ func (e *Editor) applySelection(s text.Selection) Result {
 // after a deletion, Downstream and moved back to a boundary. With sel the
 // inserted text is selected instead, from its start (moved back to a
 // boundary) to that caret.
-func (e *Editor) replace(start, end int, s string, kind groupKind, sel bool) Result {
+func (e *Editor) replace(start, end int, s string, kind groupKind, sel, join bool) Result {
 	oldValue, oldSel := e.value, e.sel
 	before := e.valueSel()
 	removed := e.value[start:end]
@@ -510,7 +518,7 @@ func (e *Editor) replace(start, end int, s string, kind groupKind, sel bool) Res
 	} else {
 		after = caretSel(snapGrapheme(e.value, start, false), text.Downstream)
 	}
-	e.record(step{at: start, removed: removed, inserted: s, before: before, after: after, kind: kind})
+	e.record(step{at: start, removed: removed, inserted: s, before: before, after: after, kind: kind, linked: join && len(e.hist.undo) > 0})
 	dc := e.rebuild()
 	e.sel = e.toDisplaySel(after)
 	e.gen++
