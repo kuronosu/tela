@@ -53,8 +53,13 @@ func WindowControl(c tela.WindowControl) tela.Prop { return core.WindowControlPr
 // Put it on the card; the band lies on the card's own pixels (5 logical
 // pixels wide unless tela.ResizeBand says otherwise, corners 16 along each
 // side), on top of what is inside it, so presses there resize instead of
-// reaching the content. tela.ResizeEdges keeps only some sides. The window
-// does not resize while it is maximized or fullscreen, nor with FixedSize.
+// reaching the content; the corners take the press over their whole
+// square, outside a rounded card's curve too. Overlays (popovers, menus,
+// dialogs: anything in an h.Portal) over the band take the press instead.
+// tela.ResizeEdges keeps only some sides. The window does not resize while
+// it is maximized or fullscreen, nor with FixedSize, and a resize stops
+// before the handles would come closer than two corners (the margin around
+// the card kept) unless MinWidth and MinHeight say otherwise.
 //
 //	Div(Class("absolute inset-4 rounded-2xl bg-white shadow-xl"), WindowResize(),
 //	    Div(Class("h-10"), WindowDrag(), Text("Notes")),

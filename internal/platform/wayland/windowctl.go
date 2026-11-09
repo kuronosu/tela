@@ -400,9 +400,16 @@ func (w *Window) SetAlwaysOnTop(bool) {}
 // SetTitleBarColors does nothing: only Windows 11 draws colored title bars.
 func (w *Window) SetTitleBarColors(platform.TitleBarColors) {}
 
-// SetBackdrop does nothing: system backdrops are a Windows 11 material.
+// SetBackdrop blurs the background of a transparent window behind its
+// input mask when backdrop is a material and the compositor blurs
+// (ext-background-effect-v1, transparent.go); other windows ignore it.
 func (w *Window) SetBackdrop(backdrop platform.Backdrop) {
 	platform.CheckBackdrop("SetBackdrop backdrop", backdrop)
+	if w.Closed() || backdrop == w.input.backdrop {
+		return
+	}
+	w.input.backdrop = backdrop
+	w.refreshBlur()
 }
 
 // SetMinSize changes the minimum size (xdg_toplevel.set_min_size, applied
@@ -573,6 +580,7 @@ func (w *Window) SetHitRegions(regions []platform.HitRegion) {
 		return
 	}
 	w.ctl.regions = slices.Clone(regions)
+	w.syncHandles() // a transparent window's input region (transparent.go)
 }
 
 // RestoreToken returns the window's session restore token (see session),

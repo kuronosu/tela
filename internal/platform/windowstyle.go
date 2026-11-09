@@ -31,7 +31,9 @@ func (c TitleBarColors) IsZero() bool { return c == TitleBarColors{} }
 // Backdrop is the system material behind a window: Mica or Acrylic on
 // Windows 11, the closest NSVisualEffectView material on macOS (ADR-224;
 // behind-window blending that follows the window's active state). The
-// zero value is the system's choice. Wayland and X11 ignore it.
+// zero value is the system's choice. Wayland and X11 blur behind a
+// transparent window whose backdrop is a material, where the compositor
+// offers it (ADR-261), and ignore it otherwise.
 type Backdrop uint8
 
 const (

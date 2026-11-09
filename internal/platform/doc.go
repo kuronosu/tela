@@ -409,9 +409,12 @@
 // Backdrop): [Window.SetTitleBarColors] with [TitleBarColors], and
 // [Window.SetBackdrop] with [Backdrop]. They are hints about decoration the
 // OS draws, so they never produce events, and a backend that has no such
-// thing ignores them (Wayland, X11, headless apart from recording them;
-// Cocoa ignores the title bar colors and maps the backdrops onto
-// NSVisualEffectView materials, see the Cocoa mapping).
+// thing ignores them (Wayland and X11 the title bar colors, headless apart
+// from recording them; Cocoa ignores the title bar colors and maps the
+// backdrops onto NSVisualEffectView materials, see the Cocoa mapping).
+// Wayland and X11 blur behind a transparent window whose backdrop is a
+// material, where the compositor offers it (contract v12, see
+// "Transparent windows").
 //
 //   - Win32 on Windows 11: DwmSetWindowAttribute with DWMWA_CAPTION_COLOR,
 //     DWMWA_TEXT_COLOR and DWMWA_BORDER_COLOR (build 22000; the border
@@ -486,11 +489,22 @@
 //     ([Edge.Cursor]) over them, as over its own band, which takes
 //     precedence over them; elsewhere they are content. Wayland:
 //     xdg_toplevel.resize; X11: _NET_WM_MOVERESIZE; Win32: HTLEFT… from
-//     WM_NCHITTEST (a transparent window has WS_THICKFRAME for it);
+//     WM_NCHITTEST (a transparent window has WS_THICKFRAME for it, a
+//     FixedSize one none);
 //     Cocoa: the backend's own loop of the press's drags setting the
-//     frame (AppKit has no window-server resize from an event; diagonal
-//     cursors are the arrow before macOS 15); headless records them
-//     (ResizeStarts).
+//     frame (AppKit has no window-server resize from an event, so it does
+//     not snap to the screen's edges or other windows; the two-way
+//     resize cursors of AppKit's frame, the diagonal ones from
+//     frameResizeCursorFromPosition:inDirections: on macOS 15 and the
+//     private window frame cursors before); headless records them
+//     (ResizeStarts). Where the backend bounds the resize itself (Win32's
+//     minimum tracking size of a frameless or transparent window, which
+//     has no caption to keep, and the Cocoa loop), the axes MinSize leaves
+//     free stop at [ResizeFloor]: the handles keep two corners, the margin
+//     around them as it is (contract v12, ADR-261). The layers above put
+//     HitClient regions over content painted above the handles and
+//     captions (core: the portal layers, popovers and dialogs), so it
+//     takes the press.
 //
 // A WindowOptions.TitleBarOverlay window (ADR-224, ADR-225) is a custom
 // title bar with the OS's own window buttons: the content extends under a
@@ -540,16 +554,26 @@
 // implicit grab. The input part is computed by each backend from the
 // frames it presents ([InputMask], updated from the damage), so it always
 // matches the pixels on screen; while WindowState.Transparent is false the
-// window takes input everywhere.
+// window takes input everywhere. While the window can be resized, its
+// resize handles (HitResize… regions) take input too, transparent pixels
+// included (contract v12, ADR-261: the outside of a rounded card's
+// corner resizes as its inside does; [HandleRects]).
 //
 //   - Wayland: ARGB8888 (ABGR8888 where listed) wl_shm buffers with no
-//     opaque region, and the mask as the surface's input region, set
-//     before the commit of the buffer it was computed from.
+//     opaque region, and the mask and the handles as the surface's input
+//     region, set before the commit of the buffer it was computed from
+//     (new handles alone commit it at once). A backdrop that is a
+//     material blurs behind the mask with ext-background-effect-v1 where
+//     the compositor has the blur capability (KDE's org_kde_kwin_blur
+//     is not used: its XML is LGPL).
 //   - X11: the screen's 32-bit TrueColor visual with its colormap; the
-//     mask as the SHAPE 1.1 input shape; transparent while an owner of
-//     _NET_WM_CM_S<screen> exists, followed through XFixes 2.0
-//     SelectSelectionInput (a manager that never sends MANAGER), its
-//     window's DestroyNotify and the MANAGER client message.
+//     mask and the handles as the SHAPE 1.1 input shape; transparent
+//     while an owner of _NET_WM_CM_S<screen> exists, followed through
+//     XFixes 2.0 SelectSelectionInput (a manager that never sends
+//     MANAGER), its window's DestroyNotify and the MANAGER client
+//     message. A backdrop that is a material sets
+//     _KDE_NET_WM_BLUR_BEHIND_REGION to the mask (KWin blurs, others
+//     ignore it).
 //   - Win32: a WS_EX_LAYERED popup presented with
 //     UpdateLayeredWindowIndirect; Windows passes the pointer through
 //     zero alpha, and pixels under InputAlpha set WS_EX_TRANSPARENT until
@@ -557,18 +581,22 @@
 //     windows of the same thread; a WH_MOUSE_LL hook would put every
 //     desktop mouse move through the UI thread, ADR-257). A Present that
 //     changes the mask under a resting cursor lets it through at once.
-//     No backdrop: DWM's materials need a frame DWM composes.
+//     Windows passes zero alpha through before any hit test, so the
+//     handles' transparent pixels are presented with [HandleAlpha]
+//     ([HandleCatch], invisible). No backdrop: DWM's materials need a
+//     frame DWM composes.
 //   - Cocoa: a non-opaque frameless window with a clear background and no
 //     shadow; the window server passes zero alpha through, and pixels
 //     under InputAlpha set ignoresMouseEvents until the cursor is over the
 //     mask again, which a global monitor of mouse moves signals (a slow
 //     poll stays for moves no app receives). Present, windowDidMove: and
 //     windowDidResize: let a resting cursor over faint pixels through
-//     before any press. A backdrop is the vibrancy material behind the
-//     mask's shape (NSVisualEffectView.maskImage).
-//   - Headless: the mask of the presented frames decides which injected
-//     pointer events are delivered (Options.NoCompositing and
-//     Window.SetCompositing play X11 without a compositing manager).
+//     before any press. The handles' transparent pixels are presented
+//     with [HandleAlpha], as on Win32. A backdrop is the vibrancy
+//     material behind the mask's shape (NSVisualEffectView.maskImage).
+//   - Headless: the mask of the presented frames and the handles decide
+//     which injected pointer events are delivered (Options.NoCompositing
+//     and Window.SetCompositing play X11 without a compositing manager).
 //   - Remote: the option and the state travel (protocol 10); the host's
 //     real window computes the mask from the frames it presents.
 //
@@ -718,6 +746,14 @@
 // ([HitResizeTop] to [HitResizeBottomRight], see "Custom title bars"),
 // caption clicks on every backend, and makes the Cocoa backend's backdrop
 // of a transparent window follow its input mask.
+//
+// Contract v12 (ADR-261): a transparent window's resize handles take
+// input over transparent pixels ([HandleRects], [HandleCatch],
+// [InputMask.RectsWith]); Wayland and X11 blur behind a transparent
+// window with a material backdrop where the compositor can; Win32's
+// minimum tracking size of frameless and transparent windows and the
+// Cocoa resize loop stop at [ResizeFloor]; Cocoa shows AppKit's own
+// resize cursors over the handles. The remote protocol is unchanged.
 //
 // Contract v11 (ADR-259) adds [LaunchEvent].AtStart (Cocoa: links and
 // files Launch Services hands the app before it finished launching),

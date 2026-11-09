@@ -79,6 +79,12 @@ type Backend struct {
 	// exporter is zxdg_exporter_v2 (foreign.go), nil when the compositor
 	// lacks it: portal requests then have no parent window.
 	exporter *protocols.ZxdgExporterV2
+	// backgroundEffect is ext_background_effect_manager_v1, nil when the
+	// compositor lacks it, and canBlur its blur capability: transparent
+	// windows with a backdrop blur what is behind their content
+	// (transparent.go).
+	backgroundEffect *protocols.ExtBackgroundEffectManagerV1
+	canBlur          bool
 
 	shmFormats map[protocols.WlShmFormat]bool
 	format     protocols.WlShmFormat // pixel format of every buffer
@@ -288,6 +294,8 @@ func (b *Backend) onGlobal(e protocols.WlRegistryGlobalEvent) {
 		if b.exporter == nil {
 			b.exporter = protocols.WlRegistryBind[protocols.ZxdgExporterV2](b.registry, e.Name, min(e.Version, foreignVersion))
 		}
+	case protocols.ExtBackgroundEffectManagerV1InterfaceName:
+		b.bindBackgroundEffect(e.Name, e.Version)
 	case protocols.WlDataDeviceManagerInterfaceName:
 		b.bindDataDeviceManager(e.Name, e.Version)
 	case protocols.ZwpTextInputManagerV3InterfaceName:
@@ -568,6 +576,9 @@ func (b *Backend) release() {
 		}
 		if b.exporter != nil {
 			b.exporter.Destroy()
+		}
+		if b.backgroundEffect != nil {
+			b.backgroundEffect.Destroy()
 		}
 		b.releaseCtl()
 		b.wm.Destroy()

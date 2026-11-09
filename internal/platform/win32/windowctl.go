@@ -568,6 +568,7 @@ func (w *Window) SetHitRegions(regions []platform.HitRegion) {
 		return
 	}
 	w.regions = slices.Clone(regions)
+	w.syncLayeredHandles() // a transparent window's handles (transparent_windows.go)
 }
 
 // RestoreToken returns "": Windows restores the position from the saved

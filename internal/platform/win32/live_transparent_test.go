@@ -123,7 +123,8 @@ func TestTransparentWindow(t *testing.T) {
 
 // TestTransparentSmallWindow: a resizable transparent window (it has
 // WS_THICKFRAME) smaller than Windows' minimum tracking size has its size,
-// and without MinSize the sizing loop gets no minimum (minTrack).
+// and without MinSize the sizing loop's minimum is the resize floor
+// (ownMinSize: two corners wide, never above the window's height).
 func TestTransparentSmallWindow(t *testing.T) {
 	b := liveBackend(t)
 	var w *Window
@@ -146,13 +147,14 @@ func TestTransparentSmallWindow(t *testing.T) {
 			t.Errorf("window %dx%d, want %v", wr.width(), wr.height(), want)
 		}
 		// The sizing loop's minimum: DefWindowProc's default
-		// (SM_CXMINTRACK, SM_CYMINTRACK) is replaced by one pixel.
+		// (SM_CXMINTRACK, SM_CYMINTRACK) is replaced by the floor.
 		cx, _, _ := procGetSystemMetrics.Call(34)
 		cy, _, _ := procGetSystemMetrics.Call(35)
 		mm := minMaxInfo{minTrackSize: point{int32(cx), int32(cy)}}
 		procSendMessageW.Call(w.hwnd, wmGetMinMaxInfo, 0, uintptr(unsafe.Pointer(&mm)))
-		if mm.minTrackSize != (point{1, 1}) {
-			t.Errorf("min track size %v (the default is %dx%d), want 1x1", mm.minTrackSize, cx, cy)
+		floor := platform.PhysicalSize(platform.Size{W: 32, H: 30}, s)
+		if mm.minTrackSize != (point{int32(floor.X), int32(floor.Y)}) {
+			t.Errorf("min track size %v (the default is %dx%d), want %v", mm.minTrackSize, cx, cy, floor)
 		}
 		b.Quit()
 	})

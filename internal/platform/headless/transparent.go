@@ -14,7 +14,10 @@ import (
 // they are not delivered. As on the real backends, the pointer leaving
 // the mask is a PointerLeave and coming back a PointerEnter, and a
 // pointer sequence that started in the mask (a button held) stays the
-// window's until its release, as the OS's implicit grab keeps it.
+// window's until its release, as the OS's implicit grab keeps it. While
+// the window can be resized, its resize handles (HitResize… regions)
+// take input too, over transparent pixels as well (contract v12,
+// ADR-261: the outside of a rounded card's corner).
 
 // passPointer reports whether e falls through the window, queueing the
 // leave or enter the crossing of the mask's edge brings.
@@ -67,7 +70,8 @@ func (w *Window) passPointer(e platform.PointerEvent) bool {
 // TakesInput reports whether a pointer event at p (logical window
 // coordinates) reaches the window: always, except for a Transparent
 // window the fake desktop composites, where only the pixels of the last
-// frames whose alpha is at least platform.InputAlpha take input.
+// frames whose alpha is at least platform.InputAlpha take input, and the
+// resize handles while the window can be resized.
 func (w *Window) TakesInput(p platform.Point) bool {
 	w.b.mu.Lock()
 	defer w.b.mu.Unlock()
@@ -83,7 +87,7 @@ func (w *Window) takesInputLocked(p platform.Point) bool {
 		s = 1
 	}
 	px := image.Pt(int(math.Floor(float64(p.X)*s)), int(math.Floor(float64(p.Y)*s)))
-	return w.mask.Contains(px)
+	return w.mask.Contains(px) || w.resizable() && platform.HitEdge(w.ctl.regions, p) != 0
 }
 
 // InputRects returns the input region of a Transparent window: the mask

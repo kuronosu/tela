@@ -51,8 +51,8 @@ func TestResizeHandles(t *testing.T) {
 					t.Errorf("handle edges %v and %v (FixedSize), want left and none", w.handleEdge(pt(2, 100)), c.w[1].handleEdge(pt(2, 100)))
 				}
 				darwin.Send(w.view, darwin.Sel("mouseMoved:"), c.mouse(0, moved, pt(2, 100), 0, 0))
-				if w.ctl.resize.hover != platform.EdgeLeft || w.shownCursor() != platform.CursorWResize {
-					t.Errorf("hover %v, shown cursor %v; want left and w-resize", w.ctl.resize.hover, w.shownCursor())
+				if w.ctl.resize.hover != platform.EdgeLeft || w.shownCursor() != platform.CursorEWResize {
+					t.Errorf("hover %v, shown cursor %v; want left and ew-resize", w.ctl.resize.hover, w.shownCursor())
 				}
 				c.send(c.mouse(0, lDown, pt(2, 100), 20, 1))
 				if !w.ctl.resize.held || w.ctl.resize.edge != platform.EdgeLeft {

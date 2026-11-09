@@ -336,23 +336,29 @@ func visibleFrame(outer, client image.Rectangle) image.Rectangle {
 		outer.Max.X-inv(outer.Max.X-client.Max.X), outer.Max.Y-inv(outer.Max.Y-client.Max.Y))
 }
 
-// minTrack returns the minimum tracking size (outer, physical) that
-// WM_GETMINMAXINFO answers: the app's MinSize as an outer size (minOuter,
-// when hasMin), else Windows' default (def, SM_CXMINTRACK by
-// SM_CYMINTRACK, about 136x39 at 96 dpi) for a window with a frame, and
-// one pixel for a transparent one, which has WS_THICKFRAME only for
-// DefWindowProc's sizing loop: with the default, the first drag of a
-// small one's edge (a 100x30 badge) jumped it to 136x39. (Windows 11
-// does not apply it to CreateWindowEx's or SetWindowPos's sizes, checked
-// live; Wine's SetWindowPos does, for a window with WS_THICKFRAME.)
-func minTrack(def, minOuter image.Point, hasMin, transparent bool) image.Point {
-	switch {
-	case hasMin:
-		return minOuter
-	case transparent:
-		return image.Pt(1, 1)
+// ownMinSize returns the minimum content size (logical pixels) that
+// WM_GETMINMAXINFO answers for a window whose edges are its own, a
+// frameless or a transparent one: the app's MinSize on the axes it sets,
+// else platform.ResizeFloor of the window's size and hit regions (its
+// resize handles keep two corners, the margin around them as it is,
+// never above the current size; ADR-261). Windows' default minimum
+// tracking size (SM_CXMINTRACK by SM_CYMINTRACK, about 136x39 at 96 dpi)
+// is a caption's, which such a window does not have: with it, the first
+// drag of a small one's edge (a 100x30 badge) jumped it to 136x39, and a
+// frameless window could not be narrower than its title bar's text.
+// (Windows 11 does not apply the minimum to CreateWindowEx's or
+// SetWindowPos's sizes, checked live; Wine's SetWindowPos does, for a
+// window with WS_THICKFRAME.) A window with a frame keeps the default, or
+// its MinSize.
+func ownMinSize(minSize, size platform.Size, regions []platform.HitRegion) platform.Size {
+	f := platform.ResizeFloor(size, regions)
+	if minSize.W > 0 {
+		f.W = minSize.W
 	}
-	return def
+	if minSize.H > 0 {
+		f.H = minSize.H
+	}
+	return f
 }
 
 // fitVisible returns how far a window must move for its visible frame to

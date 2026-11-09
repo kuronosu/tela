@@ -35,13 +35,28 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 		w.ClearNeedsFull()
 		if w.back == nil || w.back.Rect != fb.Rect {
 			w.back = image.NewRGBA(fb.Rect)
+			w.trans.catch.Reset() // nothing caught in the new copy
 		}
 	}
 	for _, r := range rects {
 		platform.CopyRGBA(w.back, fb, r)
 	}
+	w.catchHandles()             // a transparent window's resize handles (transparent_darwin.go)
 	w.updateInputMask(fb, rects) // a transparent window (transparent_darwin.go)
+	if err := w.showBack(); err != nil {
+		return err
+	}
+	w.presented = true
+	if !w.shown && w.visible {
+		// Not before: the window would show unpainted.
+		w.show()
+		w.passIfFaint() // shown under a resting cursor (transparent_darwin.go)
+	}
+	return nil
+}
 
+// showBack sets the retained frame as the layer's contents.
+func (w *Window) showBack() error {
 	pool := darwin.PoolPush()
 	defer darwin.PoolPop(pool)
 	img, err := w.b.newImage(w.back)
@@ -66,13 +81,6 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 	darwin.Send(w.layer, sel.setContents, darwin.ID(img))
 	darwin.SendClass(app.transaction, sel.commit)
 	darwin.CGImageRelease(img) // the layer keeps it
-
-	w.presented = true
-	if !w.shown && w.visible {
-		// Not before: the window would show unpainted.
-		w.show()
-		w.passIfFaint() // shown under a resting cursor (transparent_darwin.go)
-	}
 	return nil
 }
 

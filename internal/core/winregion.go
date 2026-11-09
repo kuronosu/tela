@@ -29,7 +29,9 @@ import (
 // After every frame that ran the pipeline, the Host computes the window's
 // regions from the boxes as painted (window coordinates, moved by scroll
 // offsets and transforms, cut by the overflow clips of the ancestors and
-// by the window) in tree order, later regions over earlier ones, and calls
+// by the window) in tree order, later regions over earlier ones (the
+// portal layers after the root's content, each first punching HitClient
+// holes where its content covers the regions below), and calls
 // SetHitRegions only when they changed. A tree without these props
 // computes nothing (Tree.reg.n is 0), and the walk only enters the
 // subtrees that hold them (Element.winKids).
@@ -105,7 +107,87 @@ func (t *Tree) hitRegions(out []platform.HitRegion) []platform.HitRegion {
 		return out
 	}
 	vp := gfx.Rect{X1: t.viewport.W, Y1: t.viewport.H}
-	return t.regionWalk(t.root, false, vp, out)
+	out = t.regionWalk(t.root, false, vp, out)
+	// The portal layers paint above the root's content, in mount order
+	// (portal.go): each one's content takes the presses over the regions
+	// below it, then adds its own.
+	for _, p := range t.portals {
+		if !p.mounted || p.inert || p.box.cs == nil {
+			continue
+		}
+		out = t.portalHoles(p, vp, out)
+		if p.winKids {
+			out = t.regionWalk(p, false, vp, out)
+		}
+	}
+	return out
+}
+
+// portalHoles appends HitClient regions over the content of portal p
+// that lies over a region of out that is not content (a caption, a resize
+// handle, a window button; ADR-261): a popover, a menu or a dialog over
+// the card's resize band or its title bar takes the press there, as it
+// does in the app's own hit-testing. The content is the bounds of its
+// elements that take pointer input (visible, pointer-events auto, not
+// inert), cut by their clips and by the window; an element inside a
+// rectangle already appended for an ancestor adds none.
+func (t *Tree) portalHoles(p *Element, vp gfx.Rect, out []platform.HitRegion) []platform.HitRegion {
+	below := len(out)
+	hasOther := false
+	for _, r := range out {
+		if r.Kind != platform.HitClient {
+			hasOther = true
+			break
+		}
+	}
+	if !hasOther {
+		return out
+	}
+	covers := func(r gfx.Rect) bool {
+		for _, o := range out[:below] {
+			if o.Kind == platform.HitClient {
+				continue
+			}
+			x0, y0 := max(r.X0, o.Rect.X), max(r.Y0, o.Rect.Y)
+			x1, y1 := min(r.X1, o.Rect.X+o.Rect.W), min(r.Y1, o.Rect.Y+o.Rect.H)
+			if x0 < x1 && y0 < y1 {
+				return true
+			}
+		}
+		return false
+	}
+	var walk func(el *Element, cover gfx.Rect)
+	walk = func(el *Element, cover gfx.Rect) {
+		for _, c := range el.children {
+			switch {
+			case c.kind == elemText || c.inert:
+				continue
+			case c.kind == elemComponent:
+				walk(c, cover)
+				continue
+			case isPortal(c):
+				continue // a layer of its own, later in t.portals
+			}
+			cs := c.box.cs
+			if cs == nil || cs.Display == style.DisplayNone {
+				continue
+			}
+			next := cover
+			if ps := paintStyle(c.box); ps != nil && ps.Visibility == style.VisibilityVisible && ps.PointerEvents == style.PointerEventsAuto {
+				r := t.clipUp(c, t.elemBounds(c)).Intersect(vp)
+				switch {
+				case r.Empty():
+				case !cover.Empty() && cover.Intersect(r) == r:
+				case covers(r):
+					out = append(out, platform.HitRegion{Kind: platform.HitClient, Rect: platform.Rect{X: r.X0, Y: r.Y0, W: r.Width(), H: r.Height()}})
+					next = r
+				}
+			}
+			walk(c, next)
+		}
+	}
+	walk(p, gfx.Rect{})
+	return out
 }
 
 // regionWalk appends the regions of the subtree below el; drag reports
@@ -121,8 +203,8 @@ func (t *Tree) regionWalk(el *Element, drag bool, vp gfx.Rect, out []platform.Hi
 			}
 			continue
 		}
-		if cs := c.box.cs; cs == nil || cs.Display == style.DisplayNone {
-			continue
+		if cs := c.box.cs; cs == nil || cs.Display == style.DisplayNone || isPortal(c) {
+			continue // a portal's regions come after the root's (hitRegions)
 		}
 		switch r := c.node.d.winRegion; {
 		case r >= regionMinimize:

@@ -147,6 +147,7 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	}
 	parent := b.checkParent(opts.Parent)
 	w := &Window{b: b, opts: opts, bufferScale: 1, title: opts.Title}
+	w.input.backdrop = opts.Backdrop // a transparent window's blur (transparent.go)
 	size := logicalPoint(opts.Size)
 	w.sizes = sizeChoice{
 		current:   size,
@@ -738,6 +739,7 @@ func (w *Window) Close() {
 		w.fractional.Destroy()
 		w.viewport.Destroy()
 	}
+	w.releaseBlur()
 	w.surface.Destroy()
 	w.chain.destroy()
 }

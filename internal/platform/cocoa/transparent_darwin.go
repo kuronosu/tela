@@ -40,6 +40,14 @@ import (
 //     app's own windows run a pass anyway. A slow poll (passSafety) stays
 //     for the moves no app receives (over the Dock or the menu bar), and
 //     the 16 ms poll of before where the monitor cannot be installed.
+//   - The app's resize handles (h.WindowResize) take the pointer over
+//     transparent pixels too while the window can be resized (contract
+//     v12, ADR-261: the outside of a rounded card's corner): the window
+//     server passes zero alpha through before the app sees anything, so
+//     the retained frame gives those pixels platform.HandleAlpha
+//     (platform.HandleCatch, invisible), and the handles count as input
+//     beside the mask. New handles without new pixels set the layer's
+//     contents again.
 //   - A press arrives only after the window server picked the window, so
 //     a press on a faint pixel that no move preceded (the content changed
 //     under a resting cursor, the window appeared or moved under it) used
@@ -119,8 +127,30 @@ var tpsel = struct {
 // lets the pointer through (ignoresMouseEvents and the poll).
 type transparentState struct {
 	mask    platform.InputMask
+	catch   platform.HandleCatch // the resize handles caught in Window.back
 	passing bool
 	poll    *time.Timer
+}
+
+// catchHandles catches the resize handles of a transparent window that
+// can be resized in its retained frame, and reports whether they changed.
+func (w *Window) catchHandles() bool {
+	if !w.opts.Transparent || w.back == nil {
+		return false
+	}
+	var handles []image.Rectangle
+	if w.resizable() {
+		handles = platform.HandleRects(w.ctl.regions, w.Metrics().Scale, w.back.Rect.Size())
+	}
+	return !w.trans.catch.Update(w.back.Pix, w.back.Stride, handles).Empty()
+}
+
+// syncHandles catches new resize handles after SetHitRegions or a state
+// change (zoom, full screen), showing the frame again when they changed.
+func (w *Window) syncHandles() {
+	if w.presented && w.catchHandles() {
+		w.showBack()
+	}
 }
 
 // transparentStyle returns the style mask of a transparent window: not
@@ -185,7 +215,8 @@ func (w *Window) takesInput(p platform.Point) bool {
 	if s == 0 {
 		s = 1
 	}
-	return w.trans.mask.Contains(image.Pt(int(math.Floor(float64(p.X)*s)), int(math.Floor(float64(p.Y)*s))))
+	px := image.Pt(int(math.Floor(float64(p.X)*s)), int(math.Floor(float64(p.Y)*s)))
+	return w.trans.mask.Contains(px) || w.trans.catch.Contains(px)
 }
 
 // passPointer reports whether a move or press at p goes to what is below

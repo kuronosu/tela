@@ -34,8 +34,10 @@ type resizeInput struct {
 	frame [4]float64 // the window's frame at the press: x, y, w, h
 	// deco is the frame's size beyond the content at the press (zero for
 	// a frameless window), which turns the content size limits into
-	// frame limits (resizeLimits).
-	deco [2]float64
+	// frame limits (resizeLimits); floor is the content's
+	// platform.ResizeFloor at the press.
+	deco  [2]float64
+	floor platform.Size
 	// hover is the edge of the handle under the pointer while no button
 	// is held (its cursor is shown), 0 for none.
 	hover platform.Edge
@@ -91,6 +93,8 @@ func (w *Window) resizePress(btn platform.PointerButton, pos platform.Point) boo
 		c := darwin.SendRect(w.ns, asel.contentRect, darwin.SendRect(w.ns, wsel.frame))
 		r.deco = [2]float64{r.frame[2] - c.Size.Width, r.frame[3] - c.Size.Height}
 	}
+	content := platform.Size{W: float32(r.frame[2] - r.deco[0]), H: float32(r.frame[3] - r.deco[1])}
+	r.floor = platform.ResizeFloor(content, w.ctl.regions)
 	if btn != platform.ButtonPrimary {
 		r.edge = 0 // swallowed until its release
 	}
@@ -106,7 +110,7 @@ func (w *Window) resizeDrag() {
 		return
 	}
 	m := screenMouse()
-	lo, hi := resizeLimits(w.opts.MinSize, w.opts.MaxSize, r.deco)
+	lo, hi := resizeLimits(w.opts.MinSize, w.opts.MaxSize, r.deco, r.floor)
 	f := resizedFrame(r.frame, r.edge, m[0]-r.mouse[0], m[1]-r.mouse[1], lo, hi)
 	darwin.Send(w.ns, wsel.setFrameDisplay, darwin.CGRect{
 		Origin: darwin.CGPoint{X: f[0], Y: f[1]},
@@ -140,11 +144,11 @@ func (w *Window) hoverHandles(pos platform.Point) {
 }
 
 // shownCursor is the cursor TelaView shows: the resize cursor over a
-// resize handle, else the app's (diagonal resize cursors are the arrow
-// before macOS 15, see cursorSelector).
+// resize handle, else the app's (diagonal resize cursors: see
+// diagonalCursor).
 func (w *Window) shownCursor() platform.Cursor {
 	if e := w.ctl.resize.hover; e != 0 {
-		return e.Cursor()
+		return handleCursor(e)
 	}
 	return w.cursor
 }

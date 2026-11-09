@@ -190,9 +190,14 @@
 //     while the window can be resized (not FixedSize, zoomed or in full
 //     screen): AppKit has no call that starts the window server's resize
 //     from an event, so the press's drags set the frame from the press's
-//     frame and the cursor's motion within the size limits, and the
-//     handles show the resize cursors (the arrow for diagonals before
-//     macOS 15). HitMinimize, HitMaximize, HitClose and HitClient
+//     frame and the cursor's motion within the size limits (MinSize, else
+//     platform.ResizeFloor at the press; no snapping to the screen's
+//     edges, which only the window server's own resize does), and the
+//     handles show the two-way resize cursors of AppKit's frame (the
+//     diagonals from frameResizeCursorFromPosition:inDirections: on
+//     macOS 15, the private _windowResize…Cursor class methods before,
+//     both behind respondsToSelector:, as winit does; ADR-261).
+//     HitMinimize, HitMaximize, HitClose and HitClient
 //     regions are content; hover is delivered everywhere.
 //   - A child window is an AppKit child window (addChildWindow:ordered:
 //     NSWindowAbove) while it and its parent are shown, and is detached
@@ -222,8 +227,10 @@
 //     mouse moves signals (ADR-257; a slow poll beside it, the 16 ms one
 //     without it); a resting cursor over such a pixel is let through at
 //     Present, windowDidMove: and windowDidResize:, so a press no move
-//     preceded is not swallowed. A backdrop is the material behind the
-//     input mask's shape (NSVisualEffectView.maskImage).
+//     preceded is not swallowed. The handles' transparent pixels are
+//     presented with platform.HandleAlpha, so the window server hit-tests
+//     them (ADR-261). A backdrop is the material behind the input mask's
+//     shape (NSVisualEffectView.maskImage).
 //
 // # Input
 //

@@ -32,27 +32,24 @@ func resizedFrame(f [4]float64, e platform.Edge, dx, dy float64, lo, hi [2]float
 	return [4]float64{x, y, w, h}
 }
 
-// minResizeSide is the smallest frame side, in points, the backend's own
-// resize loop leaves on an axis the app's MinSize does not limit:
-// two of h.WindowResize's 16 pt corners, so a window shrunk to it can
-// still be grabbed by a handle (a zero-width one could not).
-const minResizeSide = 32
-
 // resizeLimits returns the frame size limits of the backend's resize loop
 // (resizedFrame's lo and hi) for the options' MinSize and MaxSize, which
-// are content sizes (sizeLimits), and deco, the frame's size beyond the
+// are content sizes (sizeLimits), deco, the frame's size beyond the
 // content (the title bar of a titled window; zero for a frameless one,
-// whose frame is its content): the content limits plus deco, the minimum
-// of an axis without one minResizeSide, the maximum raised to the
-// minimum.
-func resizeLimits(min, max platform.Size, deco [2]float64) (lo, hi [2]float64) {
+// whose frame is its content), and floor, the content's
+// platform.ResizeFloor at the press (the handles keep two 16 pt corners,
+// the margin around them as it is, ADR-261; the fixed 32 pt of before let
+// a card inset by a wide shadow margin lose its handles first): the
+// content limits plus deco, floor on an axis without a minimum, the
+// maximum raised to the minimum.
+func resizeLimits(min, max platform.Size, deco [2]float64, floor platform.Size) (lo, hi [2]float64) {
 	lo, hi = sizeLimits(min, max)
+	fl := [2]float64{float64(floor.W), float64(floor.H)}
 	for i := range 2 {
-		if lo[i] > 0 {
-			lo[i] += deco[i]
-		} else {
-			lo[i] = math.Max(deco[i], minResizeSide)
+		if lo[i] <= 0 {
+			lo[i] = fl[i]
 		}
+		lo[i] += deco[i]
 		if hi[i] != noMaxSize {
 			hi[i] = math.Max(hi[i]+deco[i], lo[i])
 		}

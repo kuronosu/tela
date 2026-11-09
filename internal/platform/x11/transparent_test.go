@@ -89,6 +89,48 @@ func TestTransparentFollowsCompositingManager(t *testing.T) {
 	}
 }
 
+// TestTransparentHandlesAndBlur (ADR-261): the resize handles join the
+// input shape (banded with the mask) over transparent pixels too, and go
+// while the window is maximized; a material backdrop sets KWin's blur
+// region to the mask (not the handles), which SetBackdrop(None) deletes.
+func TestTransparentHandlesAndBlur(t *testing.T) {
+	g := newRig(t)
+	x := newFakeX(g.b)
+	x.owners[x.id("_NET_WM_CM_S0")] = 77
+	w := fakeWindow(g.b, 10, image.Pt(100, 80), platform.WindowOptions{Frameless: true, Transparent: true,
+		Backdrop: platform.BackdropMica, Size: platform.Size{W: 100, H: 80}})
+	w.initTransparent(true)
+	g.b.loop.UpdateState(w, w.osState)
+	g.feed()
+	x.take()
+	fb := image.NewRGBA(image.Rect(0, 0, 100, 80))
+	for y := 10; y < 60; y++ {
+		for x := 20; x < 80; x++ {
+			fb.SetRGBA(x, y, color.RGBA{R: 255, G: 255, B: 255, A: 255})
+		}
+	}
+	w.syncInputShape(fb, []image.Rectangle{fb.Rect})
+	if got, want := x.take(), "input shape win=10 [{20 10 60 50}]; prop _KDE_NET_WM_BLUR_BEHIND_REGION win=10 6 = [20 10 60 50]"; got != want {
+		t.Errorf("first frame\n got %q\nwant %q", got, want)
+	}
+	// A corner handle reaching over the margin.
+	w.SetHitRegions([]platform.HitRegion{{Kind: platform.HitResizeTopLeft, Rect: platform.Rect{X: 18, Y: 8, W: 16, H: 5}}})
+	if got, want := x.take(), "input shape win=10 [{18 8 16 2} {18 10 62 3} {20 13 60 47}]"; got != want {
+		t.Errorf("handles\n got %q\nwant %q", got, want)
+	}
+	// Maximized, the handles are content.
+	st := w.osState
+	st.Maximized = true
+	w.setOSState(st)
+	if got, want := x.take(), "input shape win=10 [{20 10 60 50}]"; got != want {
+		t.Errorf("maximized\n got %q\nwant %q", got, want)
+	}
+	w.SetBackdrop(platform.BackdropNone)
+	if _, ok := x.props[10][x.id("_KDE_NET_WM_BLUR_BEHIND_REGION")]; ok {
+		t.Error("SetBackdrop(None) kept the blur region")
+	}
+}
+
 // A window without the ARGB visual, or without a manager, is opaque.
 func TestTransparentWithoutManager(t *testing.T) {
 	g := newRig(t)
