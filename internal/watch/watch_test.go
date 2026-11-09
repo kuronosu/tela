@@ -363,7 +363,12 @@ func TestDebounce(t *testing.T) {
 			start, last time.Time
 		)
 		for attempt := 1; ; attempt++ {
-			h = newHarness(t, poll, Options{Debounce: debounce})
+			// MaxDelay far away: with the default 1 s, a burst that a slow
+			// runner stretched past MaxDelay-debounce (500 ms of 20 ms
+			// sleeps) got its batch at first+MaxDelay, under debounce
+			// after the last write (the 290-485 ms seen on Linux, Wine and
+			// macOS). TestMaxDelay covers that bound.
+			h = newHarness(t, poll, Options{Debounce: debounce, MaxDelay: time.Minute})
 			start = time.Now()
 			last = start
 			var maxGap time.Duration
