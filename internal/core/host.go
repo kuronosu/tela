@@ -172,6 +172,8 @@ type Host struct {
 	appID   string
 	onClose func(WindowHandle)
 	onQuit  func()
+	// quitters are the UseQuitRequest handlers of the app (closereq.go).
+	quitters []*requestListener[QuitRequestEvent]
 	// ended: Run's loop is over, the backend must not be called.
 	ended bool
 	// serial counts the windows opened (UseID prefixes of their trees).

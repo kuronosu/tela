@@ -131,6 +131,10 @@ type App struct {
 	// window instead; [Quit] ends the app later:
 	//
 	//	OnClose: func(w tela.WindowHandle) { w.Hide() },
+	//
+	// When what closing does depends on state (a setting, unsaved
+	// changes), answer the request inside the tree instead, with
+	// [UseCloseRequest]; its handlers run first and can prevent OnClose.
 	OnClose func(WindowHandle)
 	// OnQuit runs when the user or the OS asks the app to quit: on macOS
 	// Cmd+Q, the app menu's Quit, the Dock's Quit, a logout. Nil, the
@@ -143,7 +147,8 @@ type App struct {
 	//
 	//	OnQuit: tela.Quit,
 	//
-	// or to its own "ask about unsaved changes, then quit".
+	// or to its own "ask about unsaved changes, then quit";
+	// [UseQuitRequest] does that inside the tree, where the state is.
 	OnQuit func()
 	// RootClass are Tailwind classes for the root, which fills the
 	// window. Use it to give the window a background ("bg-slate-900") or

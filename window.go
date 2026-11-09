@@ -258,6 +258,54 @@ const (
 //	}
 func UseWindow() WindowHandle { return core.UseWindow() }
 
+// CloseRequestEvent is the user asking to close a window, given to
+// [UseCloseRequest]: Window is the window, PreventDefault keeps its
+// default (App.OnClose or quitting for the main window, the Window's
+// OnClose for another) from running, DefaultPrevented tells whether a
+// handler called it.
+type CloseRequestEvent = core.CloseRequestEvent
+
+// QuitRequestEvent is the user or the OS asking the app to quit, given to
+// [UseQuitRequest]: PreventDefault keeps the default (App.OnQuit, else a
+// close request to every window) from running.
+type QuitRequestEvent = core.QuitRequestEvent
+
+// UseCloseRequest calls f each time the user asks to close the window the
+// component renders in: its close button, Alt+F4, a WindowClose control,
+// [WindowHandle].Close (Tauri's onCloseRequested, Electron's close event).
+// It is App.OnClose inside the component tree, where the state that
+// decides lives: call e.PreventDefault and the window's default does not
+// run (for the main window App.OnClose, else the app quits; for a
+// [Window] its OnClose). Every mounted handler of the window runs, in the
+// order they mounted.
+//
+//	tela.UseCloseRequest(func(e tela.CloseRequestEvent) {
+//	    if keepInTray {
+//	        e.PreventDefault()
+//	        e.Window.Hide()
+//	    } else if unsaved > 0 {
+//	        e.PreventDefault()
+//	        askThenQuit() // tela.Quit() once the user answers
+//	    }
+//	})
+//
+// To end after asking, call [Quit] (main window) or drop the Window from
+// the state (another window): [WindowHandle].Close would ask again.
+func UseCloseRequest(f func(CloseRequestEvent)) { core.UseCloseRequest(f) }
+
+// UseQuitRequest calls f each time the user or the OS asks the app to
+// quit: on macOS Cmd+Q, the app menu's and the Dock's Quit, a logout
+// (Electron's before-quit). It is App.OnQuit inside the component tree:
+// call e.PreventDefault and the default (App.OnQuit, else a close request
+// to every window) does not run; the handler quits later with [Quit].
+// Every mounted handler of the app runs, in the order they mounted.
+//
+//	tela.UseQuitRequest(func(e tela.QuitRequestEvent) {
+//	    e.PreventDefault()
+//	    askThenQuit() // quits for real, also with "keep running in the tray" on
+//	})
+func UseQuitRequest(f func(QuitRequestEvent)) { core.UseQuitRequest(f) }
+
 // Quit quits the app: Run returns (and Main with it) after unmounting
 // every window, which runs the cleanups of their effects. It is safe from
 // any goroutine and is applied in order with the state updates queued

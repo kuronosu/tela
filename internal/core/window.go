@@ -226,6 +226,8 @@ type winView struct {
 	// frames) ran, with its effects; the main window's ends the hold of
 	// the app-scoped events (Host.appEvent).
 	committed bool
+	// closers are the window's UseCloseRequest handlers (closereq.go).
+	closers []*requestListener[CloseRequestEvent]
 	// fbTrimAt is the backend time at which fb, which has more room than
 	// its size needs after a resize, is trimmed to it (trimFramebuffer); 0
 	// for none.
@@ -899,7 +901,8 @@ func (h *Host) closeRequested(v *winView) {
 
 // quitRequested answers the user or the OS asking the app to quit
 // (platform.QuitRequestedEvent: macOS's Cmd+Q, the Dock's Quit, a
-// logout): Options.OnQuit runs, or every open window gets a close request
+// logout): the UseQuitRequest handlers run, and unless one prevents the
+// default Options.OnQuit runs, or every open window gets a close request
 // as from its close button, in the order they opened. The main window
 // comes first: without Options.OnClose it closes, its child windows with
 // it, and the app quits; a close-to-tray app (OnClose hides the window)
@@ -907,6 +910,9 @@ func (h *Host) closeRequested(v *winView) {
 // the app running on purpose: the main window's request brings it forward
 // (closeRequested), as a Mac app refuses to quit under a modal dialog.
 func (h *Host) quitRequested() {
+	if h.quitPrevented() { // closereq.go: UseQuitRequest
+		return
+	}
 	if h.onQuit != nil {
 		h.onQuit()
 		return
@@ -922,10 +928,14 @@ func (h *Host) quitRequested() {
 }
 
 // requestClose runs what closing window v does: the user asked (the OS's
-// close button, a WindowClose control, WindowHandle.Close). A child
-// window runs its OnClose (nothing without one); the main window runs
+// close button, a WindowClose control, WindowHandle.Close). The
+// window's UseCloseRequest handlers run first, and one that prevents the
+// default ends it. A child window runs its OnClose (nothing without one); the main window runs
 // Options.OnClose, or the app quits.
 func (h *Host) requestClose(v *winView) {
+	if v.closePrevented() { // closereq.go: UseCloseRequest
+		return
+	}
 	if v == h.main {
 		if h.onClose != nil {
 			h.onClose(WindowHandle{v.tree})
