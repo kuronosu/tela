@@ -11,7 +11,9 @@ import (
 // that the color changed and records the layers again, without building,
 // computing styles, laying out or placing the boxes.
 //
-// A background is painted by its box, so BgFn needs nothing else. The
+// A background is painted by its box, so BgFn needs nothing else, and
+// neither does BackgroundGradientFn (ADR-250), whose gradient, a new one on
+// every paint, the recording compares by content (paintIn.grad). The
 // text color is inherited, but the descendants' styles are computed in
 // the style phase, which a paint-phase change does not run. Instead, text
 // is recolored when it is painted: each style of a paragraph's layout

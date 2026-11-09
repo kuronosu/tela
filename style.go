@@ -185,8 +185,8 @@ func BoxShadow(layers ...Shadow) StyleProp { return prop(style.BoxShadow(layers.
 // the last time changes. Read a [UseValue] inside fn to drive drags,
 // scroll effects and progress bars without building components: a change
 // redoes only that element's layout (WidthFn, HeightFn) or paint
-// (TranslateFn, OpacityFn, BgFn, TextColorFn). fn runs on the UI thread
-// and should only compute the value.
+// (TranslateFn, OpacityFn, BgFn, BackgroundGradientFn, TextColorFn). fn
+// runs on the UI thread and should only compute the value.
 
 // TranslateFn defers Translate to the paint phase: a change of the Values
 // fn reads repaints the element, without layout.
@@ -208,6 +208,27 @@ func OpacityFn(fn func() float32) StyleProp { return prop(style.OpacityFn(fn)) }
 //	bg := tela.UseSpring(target) // target is a tela.Color
 //	Div(Class("rounded-lg p-4"), Style(tela.BgFn(bg.Get)))
 func BgFn(fn func() Color) StyleProp { return prop(style.BgFn(fn)) }
+
+// BackgroundGradientFn defers [BackgroundGradient] to the paint phase: the
+// element's background image is fn's gradient, and a change of the Values
+// fn reads repaints the element without building, computing styles or
+// laying out, recording only the display list that paints it. Like the
+// other Fn props it wins over the background image classes (bg-linear-*,
+// bg-[url(...)]) and the props before it; the background color, and the
+// background size, position, repeat and origin classes, still apply. A
+// Gradient without stops paints no image. With a [UseTween] or [Animate]
+// of a float32 it turns or recolors a gradient without rebuilding:
+//
+//	angle := tela.UseTween(target, tela.Duration(600*time.Millisecond)) // a float32, in degrees
+//	Div(Class("h-32 rounded-xl"), Style(tela.BackgroundGradientFn(func() tela.Gradient {
+//	    return tela.LinearGradient(angle.Get(), tela.Stop(from), tela.Stop(to))
+//	})))
+func BackgroundGradientFn(fn func() Gradient) StyleProp {
+	if fn == nil {
+		panic("tela: BackgroundGradientFn(nil): pass a function that returns the gradient, such as tela.BackgroundGradientFn(func() tela.Gradient { return tela.LinearGradient(angle.Get(), tela.Stop(from), tela.Stop(to)) })")
+	}
+	return prop(style.BackgroundGradientFn(fn))
+}
 
 // TextColorFn defers [TextColor] to the paint phase: a change of the
 // Values fn reads repaints the text without building, computing styles or

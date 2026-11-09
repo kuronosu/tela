@@ -175,12 +175,16 @@ type scratch struct {
 }
 
 type bgImage struct {
-	kind     uint8 // 0 none/unset, 1 gradient, 2 url, 3 explicit none, 4 decoded image, 5 list
+	kind     uint8 // 0 none/unset, 1 gradient, 2 url, 3 explicit none, 4 decoded image, 5 list, bgDeferred
 	gradient Gradient
 	url      string
 	img      image.Image
 	list     []bgImage // kind 5: the layers, topmost first (kinds 1 and 2)
 }
+
+// bgDeferred is the bgImage kind of a BackgroundGradientFn: one layer
+// without an image, which the paint phase fills.
+const bgDeferred = 6
 
 // Compute resolves the style of an element: the element defaults, then the
 // classes in order of appearance, then the typed props (last wins), on top
@@ -373,6 +377,9 @@ func (e *env) run(op Op, fontPass bool) {
 			return
 		}
 		e.s.Deferred = append(e.s.Deferred, Deferred{Phase: op.phase, Apply: op.def, TextColor: op.textColor})
+		if op.apply != nil {
+			op.apply(e) // what the deferred op fixes when the style is computed
+		}
 		return
 	}
 	if op.apply != nil {
@@ -601,7 +608,7 @@ func (e *env) finalizeBackground(cur gfx.Color) {
 	img := sc.bgImage
 	items := []bgImage{img}
 	switch img.kind {
-	case 1, 2, 4:
+	case 1, 2, 4, bgDeferred:
 	case 5:
 		items = img.list
 	default:
@@ -627,6 +634,8 @@ func (e *env) finalizeBackground(cur gfx.Color) {
 			layer.URL = it.url
 		case 4:
 			layer.Image = it.img
+		case bgDeferred:
+			// The paint phase puts the gradient in (BackgroundGradientFn).
 		default:
 			g := it.gradient
 			if len(g.Stops) == 0 {

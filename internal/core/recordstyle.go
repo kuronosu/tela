@@ -1,6 +1,10 @@
 package core
 
-import "github.com/kuronosu/tela/internal/style"
+import (
+	"slices"
+
+	"github.com/kuronosu/tela/internal/style"
+)
 
 // The style a box's list reads (record.go): paintIn holds the box's style
 // by identity, and two styles of different identity are compared by
@@ -107,10 +111,29 @@ func sameText(a, b *style.TextProps) bool {
 // tracker, record.go): equal, but for a style of another identity, which
 // is compared by sameStyle.
 func (in *paintIn) same(o *paintIn) bool {
-	if in.cs == o.cs {
-		return *in == *o
-	}
 	a, b := *in, *o
+	if a.grad != b.grad {
+		// A BackgroundGradientFn makes a gradient on every paint of its
+		// box: an equal one records the same.
+		if !sameGradient(a.grad, b.grad) {
+			return false
+		}
+		a.grad, b.grad = nil, nil
+	}
+	if a.cs == b.cs {
+		return a == b
+	}
 	a.cs, b.cs = nil, nil
 	return a == b && sameStyle(in.cs, o.cs, in.flags&inDeferred != 0)
+}
+
+// sameGradient reports whether gradients a and b (nil for none) paint the
+// same: equal fields and stops.
+func sameGradient(a, b *style.Gradient) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Kind == b.Kind && a.Angle == b.Angle && a.Corner == b.Corner && a.Shape == b.Shape &&
+		a.Size == b.Size && a.Radius == b.Radius && a.CenterX == b.CenterX && a.CenterY == b.CenterY &&
+		a.Interp == b.Interp && slices.Equal(a.Stops, b.Stops)
 }

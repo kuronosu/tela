@@ -2,6 +2,7 @@ package style
 
 import (
 	"image"
+	"slices"
 	"sync"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -23,6 +24,8 @@ type Op struct {
 	// other op so that em resolves against the final font size.
 	font bool
 	// def is the closure of a phase-deferred op; phase says when it runs.
+	// apply, on such an op, is what it fixes when the style is computed
+	// (BackgroundGradientFn's placeholder layer).
 	def   func(*ComputedStyle)
 	phase Phase
 	// textColor marks TextColorFn (Deferred.TextColor).
@@ -223,6 +226,32 @@ func OpacityFn(fn func() float32) Op {
 // BgFn defers the background color to the paint phase.
 func BgFn(fn func() gfx.Color) Op {
 	return Op{phase: PhasePaint, def: func(s *ComputedStyle) { s.BackgroundColor = fn() }}
+}
+
+// BackgroundGradientFn defers the background image to the paint phase:
+// fn's gradient is the element's one background image layer (ADR-250).
+// When the style is computed the op leaves a layer without an image in
+// place of the image layers of the classes and earlier props, so that the
+// background size, position, repeat and origin classes still apply to it;
+// the paint phase puts fn's gradient in it. A gradient without stops
+// paints no image. The stops are copied: fn may reuse its slice.
+func BackgroundGradientFn(fn func() Gradient) Op {
+	return Op{
+		apply: func(e *env) { e.sc.bgImage = bgImage{kind: bgDeferred} },
+		phase: PhasePaint,
+		def: func(s *ComputedStyle) {
+			l := BackgroundLayer{Origin: BackgroundPaddingBox}
+			if len(s.Backgrounds) > 0 {
+				l = s.Backgrounds[0]
+			}
+			l.Gradient, l.URL, l.Image = nil, "", nil
+			if g := fn(); len(g.Stops) > 0 {
+				g.Stops = slices.Clone(g.Stops)
+				l.Gradient = &g
+			}
+			s.Backgrounds = []BackgroundLayer{l}
+		},
+	}
 }
 
 // TextColorFn defers the text color to the paint phase. Text that

@@ -91,10 +91,12 @@ func kidsOf(kids []*Box) kidsRef {
 // paintIn is what painting a box itself reads. It is comparable (==).
 type paintIn struct {
 	// cs is the paint style; for a box with paint-phase deferred props, its
-	// computed style, with the deferred colors in bg and fg (the
-	// compositor applies its translation and opacity).
+	// computed style, with the deferred colors in bg and fg and the
+	// gradient of a BackgroundGradientFn in grad (compared by content:
+	// paintIn.same) (the compositor applies its translation and opacity).
 	cs     *style.ComputedStyle
 	bg, fg gfx.Color
+	grad   *style.Gradient
 	u      gfx.Rect
 	// The edges of the layout (the size is u's).
 	border, padding layout.Insets
@@ -212,6 +214,9 @@ func (p *painter) inputsIn(bx *Box) paintIn {
 	}
 	if bx.deferPaint {
 		in.cs, in.bg, in.fg = bx.cs, bx.pcs.BackgroundColor, bx.pcs.Text.Color
+		if pb := bx.pcs.Backgrounds; len(pb) > 0 && !sameSlice(pb, bx.cs.Backgrounds) {
+			in.grad = pb[0].Gradient // BackgroundGradientFn's
+		}
 	}
 	if la := bx.lanim; la != nil {
 		// A layout animation corrects radii and shadows in the paint

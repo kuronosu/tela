@@ -165,9 +165,10 @@ func Toggle(set Setter[bool]) func() {
 }
 
 // MapValue returns a function that reads v and applies f, for the deferred
-// style props ([WidthFn], [HeightFn], [OpacityFn], [BgFn], [TextColorFn]),
-// which take a func with one result: v is read, and tracked, when the prop
-// is evaluated in a later phase, not when the component builds.
+// style props ([WidthFn], [HeightFn], [OpacityFn], [BgFn],
+// [BackgroundGradientFn], [TextColorFn]), which take a func with one
+// result: v is read, and tracked, when the prop is evaluated in a later
+// phase, not when the component builds.
 //
 //	Style(tela.HeightFn(tela.MapValue(open, func(t float32) float32 { return 36 + 120*t })))
 //	Style(tela.BgFn(tela.MapValue(progress, func(p float32) tela.Color { return mix(from, to, p) })))
@@ -495,7 +496,7 @@ func UseContext[T any](ctx *Context[T]) T { return core.UseContext(ctx) }
 //   - inside a layout-phase style closure ([WidthFn], [HeightFn]): that
 //     element is laid out again, with no build and no style computation;
 //   - inside a paint-phase style closure ([TranslateFn], [OpacityFn],
-//     [BgFn], [TextColorFn]):
+//     [BgFn], [BackgroundGradientFn], [TextColorFn]):
 //     that element is repainted, with no build, style or layout;
 //   - anywhere else (event handlers, effects, goroutines): nothing; Get
 //     just returns the value.
