@@ -549,9 +549,10 @@ type menuPanel[K comparable] struct {
 
 func (p menuPanel[K]) Build() tela.Node {
 	st := p.style
-	dir := p.dir
-	if dir == "" {
-		dir = tela.UseDirection()
+	// UseDirection is a hook: read it on every build, then prefer p.dir.
+	dir := tela.UseDirection()
+	if p.dir != "" {
+		dir = p.dir
 	}
 	content := st.Content
 	if p.isSub {
