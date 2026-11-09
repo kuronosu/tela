@@ -305,6 +305,11 @@ func textWidth(hwnd uintptr, s string) int {
 	return int(size.cx)
 }
 
+// buttonPadding is the room a message box button leaves around its text,
+// from the button's height (a 23 px button at 96 DPI leaves 11 or 12 px on
+// each side, as Windows' own wide buttons do).
+func buttonPadding(height int) int { return height }
+
 // wmGetFont is WM_GETFONT.
 const wmGetFont = 0x0031
 

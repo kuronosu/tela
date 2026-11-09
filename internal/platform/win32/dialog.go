@@ -262,11 +262,6 @@ func fitButtonRow(buttons []image.Rectangle, need []int, client int) (out []imag
 	return out, grow
 }
 
-// buttonPadding is the room a message box button leaves around its text,
-// from the button's height (a 23 px button at 96 DPI leaves 12 px on each
-// side, as Windows' own wide buttons do).
-func buttonPadding(height int) int { return height }
-
 // plainLabel is a button label as drawn: "&&" is "&", a lone "&" marks
 // the access key and is not drawn.
 func plainLabel(s string) string {
