@@ -162,7 +162,7 @@ func internationalizationPage() tela.Node {
 			Div(Class("flex flex-wrap items-center gap-3"),
 				kit.Button{Variant: kit.Outline, Icon: icons.MessageSquare, Children: Text(t("builtin.show")), OnClick: showMessage},
 				If(answerText != "", readout(answerText)))),
-		demo("Digits of a locale", "Numbers and dates use the numbering system CLDR gives the locale by region, script and language: ar-EG writes Arabic-Indic digits, ar-AE and ar-MA Latin ones. A -u-nu- extension in the tag wins.", col,
+		demo("Digits of a locale", "Numbers and dates use the numbering system CLDR gives the locale by region, script and language: ar-EG and ar-SA write Arabic-Indic digits, a bare ar, ar-AE and ar-MA Latin ones (CLDR 48). A -u-nu- extension in the tag wins.", col,
 			rows(digits("ar"), digits("ar-EG"), digits("ar-EG-u-nu-latn"), digits("ar-AE"), digits("es"))),
 	)
 }

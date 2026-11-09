@@ -20,8 +20,9 @@ func TestMonthYear(t *testing.T) {
 		"ko":    "2026년 10월",
 		"zh":    "2026年10月",
 		// The stand-alone month: a date says "5 октября".
-		"ru": "октябрь 2026\u202fг.",
-		"ar": "أكتوبر ٢٠٢٦",
+		"ru":    "октябрь 2026\u202fг.",
+		"ar":    "أكتوبر 2026",
+		"ar-EG": "أكتوبر ٢٠٢٦",
 	} {
 		if got := For(loc).MonthYear(oct); got != want {
 			t.Errorf("%s MonthYear = %q, want %q", loc, got, want)

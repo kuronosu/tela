@@ -23,8 +23,9 @@ func TestNumbers(t *testing.T) {
 		{"ru", 1234567, nil, "1 234 567"},
 		{"hi", 1234567, nil, "12,34,567"},
 		{"pt-BR", 1234.5, nil, "1.234,5"},
-		// Arabic: CLDR's default numbering system for ar is arab.
-		{"ar", 1234.5, nil, "١٬٢٣٤٫٥"},
+		// Arabic: bare ar is Latin in CLDR 48 (ADR-258); ar-EG is Arabic-Indic.
+		{"ar", 1234.5, nil, "1,234.5"},
+		{"ar-EG", 1234.5, nil, "١٬٢٣٤٫٥"},
 		{"fa", 12, nil, "۱۲"},
 		{"ja", 1234.5, nil, "1,234.5"},
 		{"en", 0.12, []NumberOption{Percent()}, "12%"},
@@ -62,8 +63,10 @@ func TestDates(t *testing.T) {
 		{"zh", "2026/1/5", "2026年1月5日", "2026年1月5日", "2026年1月5日星期一"},
 		{"ko", "26. 1. 5.", "2026. 1. 5.", "2026년 1월 5일", "2026년 1월 5일 월요일"},
 		{"ru", "05.01.2026", "5 янв. 2026 г.", "5 января 2026 г.", "понедельник, 5 января 2026 г."},
-		// Arabic uses Arabic-Indic digits and right-to-left marks.
-		{"ar", "٥\u200f/١\u200f/٢٠٢٦", "٠٥\u200f/٠١\u200f/٢٠٢٦", "٥ يناير ٢٠٢٦", "الاثنين، ٥ يناير ٢٠٢٦"},
+		// Arabic uses right-to-left marks; ar-EG writes Arabic-Indic digits,
+		// bare ar Latin ones (CLDR 48, ADR-258).
+		{"ar", "5\u200f/1\u200f/2026", "05\u200f/01\u200f/2026", "5 يناير 2026", "الاثنين، 5 يناير 2026"},
+		{"ar-EG", "٥\u200f/١\u200f/٢٠٢٦", "٠٥\u200f/٠١\u200f/٢٠٢٦", "٥ يناير ٢٠٢٦", "الاثنين، ٥ يناير ٢٠٢٦"},
 	}
 	for _, tc := range tests {
 		f := For(tc.loc)
@@ -94,7 +97,8 @@ func TestTimes(t *testing.T) {
 		{"es", tm, Short, "15:04"},
 		{"de", tm, Medium, "15:04:05"},
 		{"ja", tm, Full, "15時04分05秒 UTC"},
-		{"ar", tm, Short, "٣:٠٤ م"},
+		{"ar", tm, Short, "3:04 م"},
+		{"ar-EG", tm, Short, "٣:٠٤ م"},
 		{"en", cet, Long, "12:30:00 AM CET"},
 		{"en", time.Date(2026, 1, 5, 12, 0, 0, 0, time.FixedZone("", -5*3600-30*60)), Long, "12:00:00 PM GMT-5:30"},
 	}

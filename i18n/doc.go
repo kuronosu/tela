@@ -66,8 +66,8 @@
 // Digits follow the locale's default numbering system in CLDR 48, as ICU's
 // do: ar-EG, ar-SA, ckb and sd write Arabic-Indic digits, fa, ps and ur-IN
 // extended ones, bn, mr, ne and my their own, ar-AE and ar-MA Latin ones; a
-// tag's own -u-nu- (ar-EG-u-nu-latn) wins. One deviation: bare "ar" keeps
-// Arabic-Indic digits, which CLDR 48 changed to Latin (ADR-251).
+// tag's own -u-nu- (ar-EG-u-nu-latn) wins. Bare "ar" writes Latin digits, as in
+// CLDR 48 (ADR-258); say "ar-EG" or "ar-SA" for Arabic-Indic ones.
 //
 // [Dir] tells the direction of a locale ([LTR] or [RTL]); h.Dir with its
 // String lays a subtree out right to left.

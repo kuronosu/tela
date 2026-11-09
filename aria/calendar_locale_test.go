@@ -116,7 +116,9 @@ func TestCalendarNamesAndHeadings(t *testing.T) {
 		{"en-US", "October 2026", "Su Mo Tu We Th Fr Sa", "Monday, October 5, 2026", "5"},
 		{"es", "octubre de 2026", "LU MA MI JU VI SA DO", "lunes, 5 de octubre de 2026", "5"},
 		{"ja", "2026年10月", "日 月 火 水 木 金 土", "2026年10月5日月曜日", "5"},
-		{"ar", "أكتوبر ٢٠٢٦", "سبت أحد إثنين ثلاثاء أربعاء خميس جمعة", "الاثنين، ٥ أكتوبر ٢٠٢٦", "٥"},
+		// Bare ar writes Latin digits (CLDR 48); ar-EG Arabic-Indic ones.
+		{"ar", "أكتوبر 2026", "سبت أحد إثنين ثلاثاء أربعاء خميس جمعة", "الاثنين، 5 أكتوبر 2026", "5"},
+		{"ar-EG", "أكتوبر ٢٠٢٦", "سبت أحد إثنين ثلاثاء أربعاء خميس جمعة", "الاثنين، ٥ أكتوبر ٢٠٢٦", "٥"},
 		{"de", "Oktober 2026", "Mo. Di. Mi. Do. Fr. Sa. So.", "Montag, 5. Oktober 2026", "5"},
 	} {
 		app, res := calendarIn(t, aria.CalendarOptions{Locale: tt.locale, DefaultValue: oct})

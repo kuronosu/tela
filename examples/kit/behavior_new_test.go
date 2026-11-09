@@ -232,6 +232,6 @@ func TestToasterNamesFollowTheLanguage(t *testing.T) {
 
 func TestDigitsOfALocale(t *testing.T) {
 	a := mount(t, Canvas{Page: "Internationalization"})
-	a.ExpectText("١٬٢٣٤٫٥٠") // ar and ar-EG
+	a.ExpectText("١٬٢٣٤٫٥٠") // ar-EG; bare ar writes Latin digits
 	a.ExpectText("1,234.50 · 14")
 }

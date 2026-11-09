@@ -46,14 +46,14 @@ func TestNumberingSystemsMatchICU(t *testing.T) {
 
 // ar-EG and the other Mashriq regions write Arabic-Indic digits, the
 // Maghreb and the Gulf states that CLDR 48 lists write Latin ones, and the
-// dates follow the numbers. Bare "ar" keeps Arabic-Indic digits, which
-// CLDR 48 no longer gives it (keepNative in the generator).
+// dates follow the numbers. Bare "ar" writes Latin digits, as in CLDR 48
+// (ADR-258).
 func TestArabicRegionsDigits(t *testing.T) {
 	day := time.Date(2026, 11, 8, 15, 4, 5, 0, time.UTC)
 	for _, c := range []struct {
 		loc, number, date string
 	}{
-		{"ar", "١٬٢٣٤٫٥", "٠٨\u200f/١١\u200f/٢٠٢٦"},
+		{"ar", "1,234.5", "08\u200f/11\u200f/2026"},
 		{"ar-EG", "١٬٢٣٤٫٥", "٠٨\u200f/١١\u200f/٢٠٢٦"},
 		{"ar-SA", "١٬٢٣٤٫٥", "٠٨\u200f/١١\u200f/٢٠٢٦"},
 		{"ar-AE", "1,234.5", "08\u200f/11\u200f/2026"},

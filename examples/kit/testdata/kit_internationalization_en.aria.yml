@@ -31,6 +31,6 @@
 - text: f.Label("tela.toast.region") Notifications f.Label("tela.toast.close") Close toast f.Label("tela.titlebar.close") Close f.Label("tela.menu.copy") Copy f.Label("tela.menu.quit", "name", "Notes") Quit Notes f.Label("tela.messagebox.question") Question
 - button "Show a message box"
 - heading "Digits of a locale" [level=3]
-- paragraph: "Numbers and dates use the numbering system CLDR gives the locale by region, script and language: ar-EG writes Arabic-Indic digits, ar-AE and ar-MA Latin ones. A -u-nu- extension in the tag wins."
-- text: ar ١٬٢٣٤٫٥٠ · ١٤‏/٠٣‏/٢٠٢٦ ar-EG ١٬٢٣٤٫٥٠ · ١٤‏/٠٣‏/٢٠٢٦ ar-EG-u-nu-latn 1,234.50 · 14‏/03‏/2026 ar-AE 1,234.50 · 14‏/03‏/2026 es 1.234,50 · 14 mar 2026
+- paragraph: "Numbers and dates use the numbering system CLDR gives the locale by region, script and language: ar-EG and ar-SA write Arabic-Indic digits, a bare ar, ar-AE and ar-MA Latin ones (CLDR 48). A -u-nu- extension in the tag wins."
+- text: ar 1,234.50 · 14‏/03‏/2026 ar-EG ١٬٢٣٤٫٥٠ · ١٤‏/٠٣‏/٢٠٢٦ ar-EG-u-nu-latn 1,234.50 · 14‏/03‏/2026 ar-AE 1,234.50 · 14‏/03‏/2026 es 1.234,50 · 14 mar 2026
 - region "Notifications"

@@ -14,7 +14,7 @@ import (
 
 // The numbering systems (ADR-251). golang.org/x/text formats numbers with
 // CLDR 32, whose default numbering system per locale is out of date (ar-EG
-// gives Latin digits, bare ar still Arabic-Indic ones). The generator
+// gives Latin digits). The generator
 // reads the default numbering system of every CLDR locale and emits
 // numbering_gen.go: the locales whose default differs from their parent's,
 // and the digits of the systems they name.
@@ -32,16 +32,6 @@ const (
 	// under its original path, kept for the systems some locale defaults to.
 	numberingSystemsFile = "supplemental/numberingSystems.json"
 )
-
-// keepNative lists the locales whose default numbering system Tela keeps
-// at the one golang.org/x/text and ADR-087 gave them, where CLDR 48 changed
-// it. CLDR 48 made bare "ar" Latin (the Maghreb, and the Gulf states that
-// write Latin digits, outweigh Egypt and Saudi Arabia), while ar-EG, ar-SA
-// and the other Mashriq regions stay Arabic-Indic. An app that says only
-// "ar" is most likely written for Arabic readers, who expect Arabic-Indic
-// digits, and the kit gallery and the tests of aria and kit were made with
-// them; delete the entry to follow ICU 78 exactly.
-var keepNative = map[string]string{"ar": "arab"}
 
 // fetchNumbering vendors the default numbering system of every CLDR locale
 // and the digits of the systems that are some locale's default.
@@ -165,12 +155,6 @@ func generateNumbering(dir string) ([]byte, error) {
 	var defaults map[string]string
 	if err := json.Unmarshal(raw, &defaults); err != nil {
 		return nil, fmt.Errorf("%s: %v", defaultSystemsFile, err)
-	}
-	for loc, s := range keepNative {
-		if _, ok := defaults[loc]; !ok {
-			return nil, fmt.Errorf("keepNative names %q, which CLDR has no data for", loc)
-		}
-		defaults[loc] = s
 	}
 	// Parents first, so a locale is compared with what its parent resolves
 	// to once the table is built.

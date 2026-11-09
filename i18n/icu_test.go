@@ -178,8 +178,11 @@ func TestICUSelectAndNesting(t *testing.T) {
 }
 
 func TestICUPoundUsesLocaleDigits(t *testing.T) {
-	if got := msg(t, "ar", "{n, plural, other {# ملفات}}", "n", 1234); got != "١٬٢٣٤ ملفات" {
+	if got := msg(t, "ar", "{n, plural, other {# ملفات}}", "n", 1234); got != "1,234 ملفات" {
 		t.Errorf("ar # = %q", got)
+	}
+	if got := msg(t, "ar-EG", "{n, plural, other {# ملفات}}", "n", 1234); got != "١٬٢٣٤ ملفات" {
+		t.Errorf("ar-EG # = %q", got)
 	}
 	if got := msg(t, "de", "{n, plural, one {# Datei} other {# Dateien}}", "n", 1234); got != "1.234 Dateien" {
 		t.Errorf("de # = %q", got)

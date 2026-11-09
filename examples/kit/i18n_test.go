@@ -61,8 +61,8 @@ func TestTranslations(t *testing.T) {
 		{"es", []string{"¡Hola, Ana!", "Paso 3 de 4", "3 mensajes nuevos", "3 artículos en tu carrito", "Eres el 3.º de la fila", "Descuento", "Actualizado",
 			"1.234,50", "15 %", "sábado, 14 de marzo de 2026", "15:30", "manzanas, peras y higos",
 			"Fecha de entrega", "Elige una fecha", "No entregamos los domingos."}},
-		{"ar", []string{"مرحبا يا Ana!", "الخطوة ٣ من ٤", "٣ رسائل جديدة", "٣ عناصر في سلتك", "الخصم", "آخر تحديث",
-			"١٬٢٣٤٫٥٠", "١٥٪\u061c", "السبت، ١٤ مارس ٢٠٢٦", "٣:٣٠ م", "تفاح وكمثرى وتين",
+		{"ar", []string{"مرحبا يا Ana!", "الخطوة 3 من 4", "3 رسائل جديدة", "3 عناصر في سلتك", "الخصم", "آخر تحديث",
+			"1,234.50", "15\u200e%\u200e", "السبت، 14 مارس 2026", "3:30 م", "تفاح وكمثرى وتين",
 			"تاريخ التوصيل", "اختر تاريخًا", "لا نوصل أيام الأحد."}},
 	} {
 		t.Run(c.tag, func(t *testing.T) {
@@ -83,12 +83,12 @@ func TestPluralCategories(t *testing.T) {
 		n                 string // the preset, in the language's digits
 		category, message string
 	}{
-		{"٠", "zero", "لا توجد رسائل جديدة"},
-		{"١", "one", "رسالة جديدة واحدة"},
-		{"٢", "two", "رسالتان جديدتان"},
-		{"٣", "few", "٣ رسائل جديدة"},
-		{"١١", "many", "١١ رسالة جديدة"},
-		{"١٠٠", "other", "١٠٠ رسالة جديدة"},
+		{"0", "zero", "لا توجد رسائل جديدة"},
+		{"1", "one", "رسالة جديدة واحدة"},
+		{"2", "two", "رسالتان جديدتان"},
+		{"3", "few", "3 رسائل جديدة"},
+		{"11", "many", "11 رسالة جديدة"},
+		{"100", "other", "100 رسالة جديدة"},
 	} {
 		a.Click(telatest.ByRole("radio", c.n))
 		a.Expect(telatest.ByRole("radio", c.n), telatest.Checked(true))
@@ -199,7 +199,7 @@ func TestCalendarFollowsTheLanguage(t *testing.T) {
 	}{
 		{"en", "October 2026", "Sunday", "Saturday", false},
 		{"es", "octubre de 2026", "lunes", "domingo", false},
-		{"ar", "أكتوبر ٢٠٢٦", "السبت", "الجمعة", true},
+		{"ar", "أكتوبر 2026", "السبت", "الجمعة", true},
 	} {
 		t.Run(c.tag, func(t *testing.T) {
 			a := canvasIn(t, c.tag)
@@ -239,7 +239,7 @@ func TestChooseDeliveryDate(t *testing.T) {
 	}{
 		{"en", "October 28, 2026", "Wednesday, October 28, 2026"},
 		{"es", "28 de octubre de 2026", "miércoles, 28 de octubre de 2026"},
-		{"ar", "٢٨ أكتوبر ٢٠٢٦", "الأربعاء، ٢٨ أكتوبر ٢٠٢٦"},
+		{"ar", "28 أكتوبر 2026", "الأربعاء، 28 أكتوبر 2026"},
 	} {
 		t.Run(c.tag, func(t *testing.T) {
 			a := canvasIn(t, c.tag)
@@ -279,7 +279,7 @@ func TestLanguageMenuSwitchesTheWindow(t *testing.T) {
 	a.ExpectText("مرحبا يا Ana!")
 	a.ExpectNoText("Hello, Ana!")
 	a.Expect(languageMenu, telatest.HasName("العربية اللغة"))
-	a.ExpectText("الأربعاء، ٢٨ أكتوبر ٢٠٢٦") // the chosen date, in Arabic, state kept
+	a.ExpectText("الأربعاء، 28 أكتوبر 2026") // the chosen date, in Arabic, state kept
 	rtlTab, rtlMenu, rtlStyle := a.Bounds(pageTab), a.Bounds(languageMenu), a.Bounds(telatest.ByRole("radio", "Default"))
 	if rtlTab.X < 1280-224 {
 		t.Errorf("ar: the sidebar is at x=%v, want it at the right edge (mirrored)", rtlTab.X)
@@ -294,7 +294,7 @@ func TestLanguageMenuSwitchesTheWindow(t *testing.T) {
 	// With the calendar open the weekdays run from the right and the
 	// language's names are used; then Spanish.
 	a.Click(deliveryButton)
-	a.ExpectRole("heading", "أكتوبر ٢٠٢٦")
+	a.ExpectRole("heading", "أكتوبر 2026")
 	a.Expect(cell("ar", oct(28)), telatest.Selected(true))
 	a.Press("Escape")
 

@@ -135,7 +135,7 @@ func TestSwitchFromHandler(t *testing.T) {
 	app.ExpectText("¡Hola, Ana!")
 	app.ExpectText("3 archivos")
 	app.Click(telatest.ByRole("button", "العربية"))
-	app.ExpectText("٣ ملفات")
+	app.ExpectText("3 ملفات")
 }
 
 func Greeting() tela.Node {
@@ -155,13 +155,13 @@ func TestProviderIsolatesSubtrees(t *testing.T) {
 	}
 	app := telatest.Mount(t, tela.C(root))
 	app.ExpectText("¡Hola, Ana! | es | 1.234,5 | LTR")
-	app.ExpectText("مرحبا، Ana! | ar | ١٬٢٣٤٫٥ | RTL")
+	app.ExpectText("مرحبا، Ana! | ar | 1,234.5 | RTL")
 	app.ExpectText("Hello, Ana! | en | 1,234.5 | LTR")
 
 	// The global locale moves only the tree that is not under a Provider.
 	i18n.SetLocale("es")
 	app.ExpectCount(telatest.ByText("¡Hola, Ana! | es | 1.234,5 | LTR"), 2)
-	app.ExpectText("مرحبا، Ana! | ar | ١٬٢٣٤٫٥ | RTL")
+	app.ExpectText("مرحبا، Ana! | ar | 1,234.5 | RTL")
 	app.ExpectNoText("Hello, Ana!")
 }
 
