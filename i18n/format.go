@@ -74,14 +74,16 @@ type locData struct {
 	lang language.Base
 	dir  Direction
 
-	printer *message.Printer // numbers
-
 	dates *dateLocale // nil until first used (dateInit)
 	once  sync.Once
 	// digits are the locale's digits 0 to 9 when they are not ASCII (its
-	// numbering system, numbering.go); remap says the printer writes ASCII
-	// digits anyway.
-	digits []string
+	// numbering system, numbering.go); numbers are the symbols it writes
+	// them with (numberformat.go).
+	digits  []string
+	numbers numberSymbols
+	// legacy is x/text's printer for an explicit numbering system the
+	// tables lack symbols for; remap says it writes ASCII digits anyway.
+	legacy *message.Printer
 	remap  bool
 }
 
@@ -104,7 +106,7 @@ func forTag(tag string) (*locData, error) {
 func newLoc(t language.Tag) *locData {
 	b, _ := t.Base()
 	nf := newNumberFormat(t)
-	return &locData{tag: t, name: t.String(), lang: b, dir: dirOf(t), printer: nf.printer, digits: nf.digits, remap: nf.remap}
+	return &locData{tag: t, name: t.String(), lang: b, dir: dirOf(t), digits: nf.digits, numbers: nf.symbols, legacy: nf.legacy, remap: nf.remap}
 }
 
 // Formatter formats messages, numbers, dates and lists for one locale.
@@ -190,9 +192,6 @@ func (f Formatter) Number(v float64, opts ...NumberOption) string {
 func (f Formatter) formatNumber(v any, c numberConfig) string {
 	d := f.loc()
 	var opts []number.Option
-	if c.noGrouping {
-		opts = append(opts, number.NoSeparator())
-	}
 	if c.minFrac >= 0 || c.maxFrac >= 0 {
 		lo, hi := c.minFrac, c.maxFrac
 		if lo < 0 {
@@ -207,11 +206,23 @@ func (f Formatter) formatNumber(v any, c numberConfig) string {
 		hi = max(hi, lo)
 		opts = append(opts, number.MinFractionDigits(lo), number.MaxFractionDigits(hi))
 	}
+	if d.legacy != nil {
+		return d.formatLegacy(v, c, opts)
+	}
+	return d.numbers.write(v, c.percent, opts, d.digits, c.noGrouping)
+}
+
+// formatLegacy formats a number with golang.org/x/text's own symbols (CLDR
+// 32), for the numbering systems the generated tables have no symbols for.
+func (d *locData) formatLegacy(v any, c numberConfig, opts []number.Option) string {
+	if c.noGrouping {
+		opts = append(opts, number.NoSeparator())
+	}
 	var s string
 	if c.percent {
-		s = d.printer.Sprint(number.Percent(v, opts...))
+		s = d.legacy.Sprint(number.Percent(v, opts...))
 	} else {
-		s = d.printer.Sprint(number.Decimal(v, opts...))
+		s = d.legacy.Sprint(number.Decimal(v, opts...))
 	}
 	if d.remap {
 		s = replaceDigits(s, d.digits)

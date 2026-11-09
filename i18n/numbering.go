@@ -1,8 +1,6 @@
 package i18n
 
 import (
-	"strings"
-
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 	"golang.org/x/text/number"
@@ -17,11 +15,23 @@ import (
 // and the language (ar-AE is Latin, ar-EG Arabic-Indic). An explicit
 // numbering system in the tag ("ar-u-nu-latn") is not looked at here.
 func defaultNumbering(t language.Tag) string {
+	for _, name := range localeChain(t) {
+		if sys, ok := numberingDefaults[name]; ok {
+			return sys
+		}
+	}
+	return "latn"
+}
+
+// localeChain returns the names a tag's CLDR data is looked up under, most
+// specific first: language-script-region, language-script, language-region
+// and the language.
+func localeChain(t language.Tag) []string {
 	b, s, r := t.Raw()
 	base := b.String()
 	script, region := s.String(), r.String()
 	hasScript, hasRegion := script != "Zzzz", region != "ZZ"
-	var chain []string
+	chain := make([]string, 0, 4)
 	if hasScript && hasRegion {
 		chain = append(chain, base+"-"+script+"-"+region)
 	}
@@ -31,52 +41,44 @@ func defaultNumbering(t language.Tag) string {
 	if hasRegion {
 		chain = append(chain, base+"-"+region)
 	}
-	chain = append(chain, base)
-	for _, name := range chain {
-		if sys, ok := numberingDefaults[name]; ok {
-			return sys
-		}
-	}
-	return "latn"
+	return append(chain, base)
 }
 
-// numberFormat is how a locale writes numbers: the x/text printer, the
-// digits (nil for ASCII) and whether the printer's ASCII digits must still
-// be replaced by them.
+// numberFormat is how a locale writes numbers: the digits (nil for ASCII)
+// and the CLDR 48 symbols and patterns of its numbering system. When the
+// tag names a system ("-u-nu-") that the tables have no symbols for,
+// golang.org/x/text's printer formats the number instead (CLDR 32).
 type numberFormat struct {
-	printer *message.Printer
 	digits  []string
-	remap   bool
+	symbols numberSymbols
+	legacy  *message.Printer
+	remap   bool // the legacy printer writes ASCII digits anyway
 }
 
 // newNumberFormat chooses the numbering system of a locale: the tag's own
-// ("-u-nu-"), else CLDR 48's default. golang.org/x/text has CLDR 32's
-// defaults, so when its digits for the tag are not the ones wanted the
-// printer is made for the tag with the system named, and for a system it
-// does not know the digits are replaced after formatting.
+// ("-u-nu-"), else CLDR 48's default.
 func newNumberFormat(t language.Tag) numberFormat {
-	own := message.NewPrinter(t)
-	ownDigits := digitsOf(own)
-	if t.TypeForKey("nu") != "" {
-		return numberFormat{printer: own, digits: nonASCII(ownDigits)}
+	sys := t.TypeForKey("nu")
+	explicit := sys != ""
+	if !explicit {
+		sys = defaultNumbering(t)
 	}
-	sys := defaultNumbering(t)
 	want := asciiDigits
-	if sys != "latn" {
-		want = splitDigits(numberingDigits[sys])
+	if d, ok := numberingDigits[sys]; ok {
+		want = splitDigits(d)
 	}
-	if equalDigits(ownDigits, want) {
-		return numberFormat{printer: own, digits: nonASCII(want)}
+	syms, found := symbolsFor(t, sys)
+	if found || !explicit {
+		return numberFormat{digits: nonASCII(want), symbols: syms}
 	}
-	if nt, err := t.SetTypeForKey("nu", sys); err == nil {
-		p := message.NewPrinter(nt)
-		if equalDigits(digitsOf(p), want) {
-			return numberFormat{printer: p, digits: nonASCII(want)}
-		}
+	// A system of the tag that no locale of CLDR 48's tables uses by
+	// default: x/text knows more of them (en-u-nu-arab).
+	p := message.NewPrinter(t)
+	own := digitsOf(p)
+	if sys != "latn" && equalDigits(own, asciiDigits) && !equalDigits(want, asciiDigits) {
+		return numberFormat{digits: nonASCII(want), legacy: p, remap: true}
 	}
-	// x/text cannot write the system (newer than its CLDR): its ASCII
-	// output is remapped.
-	return numberFormat{printer: own, digits: nonASCII(want), remap: nonASCII(want) != nil && equalDigits(ownDigits, asciiDigits)}
+	return numberFormat{digits: nonASCII(own), legacy: p}
 }
 
 var asciiDigits = splitDigits("0123456789")
@@ -115,17 +117,4 @@ func nonASCII(digits []string) []string {
 		return nil
 	}
 	return digits
-}
-
-// replaceDigits writes the ASCII digits of s with digits.
-func replaceDigits(s string, digits []string) string {
-	var b strings.Builder
-	for _, r := range s {
-		if r >= '0' && r <= '9' {
-			b.WriteString(digits[r-'0'])
-		} else {
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
 }

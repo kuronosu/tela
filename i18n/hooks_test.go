@@ -76,7 +76,7 @@ func TestSetLocaleRebuildsOnlySubscribers(t *testing.T) {
 
 	i18n.SetLocale("es")
 	app.ExpectText("Ajustes")
-	app.ExpectText("locale:es 1.234,5")
+	app.ExpectText("locale:es 1234,5")
 	if got := titleBuilds.Load(); got != 1 {
 		t.Errorf("UseT component built %d times, want 1", got)
 	}
@@ -154,13 +154,13 @@ func TestProviderIsolatesSubtrees(t *testing.T) {
 		)
 	}
 	app := telatest.Mount(t, tela.C(root))
-	app.ExpectText("¡Hola, Ana! | es | 1.234,5 | LTR")
+	app.ExpectText("¡Hola, Ana! | es | 1234,5 | LTR")
 	app.ExpectText("مرحبا، Ana! | ar | 1,234.5 | RTL")
 	app.ExpectText("Hello, Ana! | en | 1,234.5 | LTR")
 
 	// The global locale moves only the tree that is not under a Provider.
 	i18n.SetLocale("es")
-	app.ExpectCount(telatest.ByText("¡Hola, Ana! | es | 1.234,5 | LTR"), 2)
+	app.ExpectCount(telatest.ByText("¡Hola, Ana! | es | 1234,5 | LTR"), 2)
 	app.ExpectText("مرحبا، Ana! | ar | 1,234.5 | RTL")
 	app.ExpectNoText("Hello, Ana!")
 }

@@ -16,7 +16,7 @@ func TestICUBasics(t *testing.T) {
 		{"en", "{ name }", []any{"name", "Ana"}, "Ana"},
 		{"en", "no arguments", nil, "no arguments"},
 		{"en", "{n} items", []any{"n", 1234}, "1,234 items"},
-		{"es", "{n} artículos", []any{"n", 1234.5}, "1.234,5 artículos"},
+		{"es", "{n} artículos", []any{"n", 1234.5}, "1234,5 artículos"},
 		{"en", "# is literal outside a plural", nil, "# is literal outside a plural"},
 		{"en", "{a}{b}", []any{"a", 1, "b", "x"}, "1x"},
 		{"en", "{0}", []any{"0", "zero"}, "zero"},

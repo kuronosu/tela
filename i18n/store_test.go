@@ -283,7 +283,7 @@ func TestSetLocale(t *testing.T) {
 	if got := Locale(); got != "fr" {
 		t.Errorf("Locale = %q", got)
 	}
-	if got := FormatNumber(1234.5); got != "1 234,5" {
+	if got := FormatNumber(1234.5); got != "1\u202f234,5" {
 		t.Errorf("FormatNumber = %q", got)
 	}
 	// An empty tag follows the system again (here: the fallback).

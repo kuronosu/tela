@@ -15,7 +15,9 @@
 //	-cldr dir      directory of the vendored locale files (default internal/gen/cldr)
 //	-out path      output file (default dates_gen.go)
 //	-numbering-out path  numbering systems file (default numbering_gen.go, numbering.go)
-//	-fetch-numbering     download only the default numbering system of each locale and the digits of the systems
+//	-number-formats-out path  number symbols and patterns file (default numberformats_gen.go, numberformats.go)
+//	-fetch-numbering     download only the numbers data: the default numbering system, the number
+//	                     symbols and patterns of each locale, and the digits of the systems
 //	-fetch         download the locale files from the cldr-json repository first
 //	-version tag   cldr-json tag that -fetch reads (default 48.0.0)
 //
@@ -80,6 +82,7 @@ func main() {
 	fetch := flag.Bool("fetch", false, "download the locale files from the cldr-json repository first")
 	fetchNum := flag.Bool("fetch-numbering", false, "download only the numbering system data (numbering.go) first")
 	numOut := flag.String("numbering-out", "numbering_gen.go", "Go file to write the numbering systems to")
+	fmtOut := flag.String("number-formats-out", "numberformats_gen.go", "Go file to write the number symbols and patterns to")
 	version := flag.String("version", "48.0.0", "cldr-json tag that -fetch reads")
 	flag.Parse()
 
@@ -105,6 +108,13 @@ func main() {
 		fatal(err)
 	}
 	if err := os.WriteFile(*numOut, src, 0o644); err != nil {
+		fatal(err)
+	}
+	src, err = generateNumberFormats(*cldrDir)
+	if err != nil {
+		fatal(err)
+	}
+	if err := os.WriteFile(*fmtOut, src, 0o644); err != nil {
 		fatal(err)
 	}
 }

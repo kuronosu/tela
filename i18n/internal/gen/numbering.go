@@ -51,6 +51,7 @@ func fetchNumbering(dir, version string) error {
 	locs := avail.AvailableLocales.Full
 	type result struct {
 		loc, system string
+		formats     numberDigest
 		err         error
 	}
 	results := make([]result, len(locs))
@@ -77,18 +78,28 @@ func fetchNumbering(dir, version string) error {
 				results[i] = result{loc: loc, err: fmt.Errorf("%s numbers.json: no defaultNumberingSystem", loc)}
 				return
 			}
-			results[i] = result{loc: loc, system: s}
+			nd, err := digestNumbers(nums)
+			if err != nil {
+				results[i] = result{loc: loc, err: fmt.Errorf("%s numbers.json: %v", loc, err)}
+				return
+			}
+			results[i] = result{loc: loc, system: s, formats: nd}
 		}()
 	}
 	wg.Wait()
 	defaults := map[string]string{}
+	formats := map[string]numberDigest{}
 	used := map[string]bool{}
 	for _, r := range results {
 		if r.err != nil {
 			return r.err
 		}
 		defaults[r.loc] = r.system
+		formats[r.loc] = r.formats
 		used[r.system] = true
+	}
+	if err := writeNumberFormats(filepath.Join(dir, numberFormatsFile), formats); err != nil {
+		return err
 	}
 	out, err := json.MarshalIndent(defaults, "", " ") // keys sorted
 	if err != nil {
@@ -132,7 +143,7 @@ func fetchNumbering(dir, version string) error {
 	if err := os.WriteFile(path, append(out, '\n'), 0o644); err != nil {
 		return err
 	}
-	fmt.Fprintln(os.Stderr, "fetched", defaultSystemsFile, "and", numberingSystemsFile)
+	fmt.Fprintln(os.Stderr, "fetched", defaultSystemsFile+",", numberFormatsFile, "and", numberingSystemsFile)
 	return nil
 }
 

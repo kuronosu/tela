@@ -59,7 +59,7 @@ func TestTranslations(t *testing.T) {
 			"1,234.50", "15%", "Saturday, March 14, 2026", "3:30 PM", "apples, pears, and figs",
 			"Delivery date", "Pick a date", "We do not deliver on Sundays."}},
 		{"es", []string{"¡Hola, Ana!", "Paso 3 de 4", "3 mensajes nuevos", "3 artículos en tu carrito", "Eres el 3.º de la fila", "Descuento", "Actualizado",
-			"1.234,50", "15 %", "sábado, 14 de marzo de 2026", "15:30", "manzanas, peras y higos",
+			"1234,50", "15 %", "sábado, 14 de marzo de 2026", "15:30", "manzanas, peras y higos",
 			"Fecha de entrega", "Elige una fecha", "No entregamos los domingos."}},
 		{"ar", []string{"مرحبا يا Ana!", "الخطوة 3 من 4", "3 رسائل جديدة", "3 عناصر في سلتك", "الخصم", "آخر تحديث",
 			"1,234.50", "15\u200e%\u200e", "السبت، 14 مارس 2026", "3:30 م", "تفاح وكمثرى وتين",

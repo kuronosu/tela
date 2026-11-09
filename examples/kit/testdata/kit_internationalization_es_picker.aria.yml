@@ -19,7 +19,7 @@
 - text: plural "messages" 3 mensajes nuevos plural "items" 3 artículos en tu carrito selectordinal "rank" Eres el 3.º de la fila the plural category other
 - heading "Formatting" [level=3]
 - paragraph: i18n.UseFormatter gives numbers, percentages, dates, times and lists the way the language writes them, digits included.
-- text: f.Number(1234.5, MinFractionDigits(2)) 1.234,50 f.Number(0.15, Percent()) 15 % f.Date(t, Full) sábado, 14 de marzo de 2026 f.Time(t, Short) 15:30 f.List(items) manzanas, peras y higos
+- text: f.Number(1234.5, MinFractionDigits(2)) 1234,50 f.Number(0.15, Percent()) 15 % f.Date(t, Full) sábado, 14 de marzo de 2026 f.Time(t, Short) 15:30 f.List(items) manzanas, peras y higos
 - heading "kit follows the language" [level=3]
 - paragraph: A DatePicker writes the date, names the months and weekdays, starts the week and lays the calendar out the way the language does. What kit defaults to English comes from the catalog (kit.* keys); Arabic's short weekday names do not fit a cell, so it asks for the narrow ones.
 - group:
@@ -32,7 +32,7 @@
 - button "Mostrar un cuadro de mensaje"
 - heading "Digits of a locale" [level=3]
 - paragraph: "Numbers and dates use the numbering system CLDR gives the locale by region, script and language: ar-EG and ar-SA write Arabic-Indic digits, a bare ar, ar-AE and ar-MA Latin ones (CLDR 48). A -u-nu- extension in the tag wins."
-- text: ar 1,234.50 · 14‏/03‏/2026 ar-EG ١٬٢٣٤٫٥٠ · ١٤‏/٠٣‏/٢٠٢٦ ar-EG-u-nu-latn 1,234.50 · 14‏/03‏/2026 ar-AE 1,234.50 · 14‏/03‏/2026 es 1.234,50 · 14 mar 2026
+- text: ar 1,234.50 · 14‏/03‏/2026 ar-EG ١٬٢٣٤٫٥٠ · ١٤‏/٠٣‏/٢٠٢٦ ar-EG-u-nu-latn 1,234.50 · 14‏/03‏/2026 ar-AE 1,234.50 · 14‏/03‏/2026 es 1234,50 · 14 mar 2026
 - dialog "Fecha de entrega":
   - application "Fecha de entrega, octubre de 2026":
     - button "Anterior" [disabled]

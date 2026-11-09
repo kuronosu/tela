@@ -59,7 +59,10 @@
 // [FormatNumber], [FormatDate], [FormatTime], [FormatDateTime] and
 // [FormatList] format for the current locale; [Formatter] (from [For] or
 // [UseFormatter]) does the same for a given one. Numbers come from
-// golang.org/x/text/number; dates and lists from CLDR 48 tables generated
+// golang.org/x/text/number, which rounds, with the symbols, grouping and
+// percent patterns of CLDR 48 (as ICU writes them: the minus sign and bidi
+// marks of Persian, Urdu and Arabic, Nepali grouping, Spanish and Polish
+// not grouping four digits); dates and lists from CLDR 48 tables generated
 // into this package (go generate), for the locales listed in
 // internal/gen: other locales use the closest one. Dates are Gregorian and
 // in the time.Time's own zone. For calendars, [Formatter.MonthName] and
