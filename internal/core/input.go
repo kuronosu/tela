@@ -194,6 +194,9 @@ type inputState struct {
 	enters  []*Element
 	// fdrag is the selection dragged in a text field (fieldkeys.go).
 	fdrag *fieldDrag
+	// fsel is a press on a text field's selection that may drag it
+	// (fielddnd.go).
+	fsel *fieldSelPress
 	// rehover is set while rehover fires boundary events (Rehovered).
 	rehover bool
 }
@@ -344,10 +347,11 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 		// (focus.go); cancelling pointerdown or mousedown prevents it. A
 		// press on a scrollbar does not move it.
 		if prev == 0 && e.Button == platform.ButtonPrimary && !prevented && bar.s == nil {
+			focused := t.foc.el == target
 			t.mouseFocus(target)
 			// A press in a text field puts its caret (fieldkeys.go), so
 			// focusing it revealed nothing (fieldFocused).
-			t.fieldPress(ps, target)
+			t.fieldPress(ps, target, focused)
 		}
 	}
 	if e.Button != platform.ButtonPrimary || ps.pressing {
@@ -394,7 +398,7 @@ func (t *Tree) pointerUp(ps *pointerState, e platform.PointerEvent) {
 	ctxClick := false
 	if e.Button == platform.ButtonPrimary && ps.pressing {
 		ps.pressing = false
-		t.fieldPointerUp(ps)
+		t.fieldPointerUp(ps, false)
 		// Routes the release: the click (tap), the end of a drag.
 		t.in.arena.Up(t.gestureEvent(ps, e.Time))
 		ctxClick, ps.ctxClick = ps.ctxClick, false
@@ -424,7 +428,7 @@ func (t *Tree) pointerCancel(ps *pointerState, e platform.PointerEvent) {
 	ps.outside = nil
 	if ps.pressing {
 		ps.pressing = false
-		t.fieldPointerUp(ps)
+		t.fieldPointerUp(ps, true)
 		t.in.arena.Cancel(t.gestureEvent(ps, e.Time))
 		t.in.clicks.Reset()
 		t.clearActive(ps)
@@ -486,6 +490,10 @@ func (t *Tree) gestureEvent(ps *pointerState, at time.Duration) gesture.Event {
 // take no part.
 func (t *Tree) recognizers(ps *pointerState, target *Element) []gesture.Recognizer {
 	var rs []gesture.Recognizer
+	if r := t.textDragRecognizer(ps, target); r != nil {
+		// A press on a text field's selection drags it (fielddnd.go).
+		rs = append(rs, r)
+	}
 	tap := false
 	inert := outermostDisabled(target)
 	for el := target; el != nil; el = el.styleParent() {
@@ -628,6 +636,7 @@ func (t *Tree) resetInput() {
 	clear(t.in.ptrs)
 	t.in.clicks.Reset()
 	t.in.fdrag = nil
+	t.in.fsel = nil
 	t.scr.wheel = wheelLatch{}
 	t.dnd = dndState{}
 }

@@ -62,7 +62,7 @@
 // the display changed, the InputType and Data of the edit (W3C Input
 // Events Level 2 names: insertText, insertFromPaste, insertFromDrop,
 // insertLineBreak, deleteContentBackward, deleteWordBackward, deleteSoftLineBackward,
-// deleteByCut, historyUndo, insertCompositionText, insertFromComposition,
+// deleteByCut, deleteByDrag, historyUndo, insertCompositionText, insertFromComposition,
 // deleteCompositionText...), IsComposing, and the clipboard text of Copy
 // and Cut. The caller builds its input event and its
 // ChangeEvent{Value, InputType, Data, IsComposing} from it.

@@ -26,6 +26,7 @@ const (
 	InputDeleteSoftLineBack    InputType = "deleteSoftLineBackward"
 	InputDeleteSoftLineForward InputType = "deleteSoftLineForward"
 	InputDeleteByCut           InputType = "deleteByCut"
+	InputDeleteByDrag          InputType = "deleteByDrag"
 	InputDeleteCompositionText InputType = "deleteCompositionText"
 	InputHistoryUndo           InputType = "historyUndo"
 	InputHistoryRedo           InputType = "historyRedo"
@@ -45,9 +46,13 @@ const (
 	// undo step).
 	Paste
 	// Drop inserts Command.Text over the selection, as Paste does, for a
-	// drag and drop (insertFromDrop, one undo step). The caller puts the
-	// caret at the drop point first (ClickAt).
+	// drag and drop (insertFromDrop, one undo step), and selects the
+	// inserted text, as browsers do (redo selects it again). The caller
+	// puts the caret at the drop point first (ClickAt).
 	Drop
+	// DeleteByDrag deletes the selection, the source of a drag and drop
+	// that moved the text (deleteByDrag, one undo step).
+	DeleteByDrag
 	// InsertLineBreak inserts a line feed (insertLineBreak, Enter in a
 	// multi-line field); it does nothing in a single-line field, where
 	// Enter belongs to the caller (form submission).
@@ -188,6 +193,9 @@ type Plan struct {
 	start, end int
 	insert     string
 	kind       groupKind
+	// selectInserted selects the inserted text instead of putting the
+	// caret after it (Drop).
+	selectInserted bool
 }
 
 // Empty reports whether applying the plan would change nothing (and
@@ -227,6 +235,7 @@ func (e *Editor) Plan(cmd Command, l *text.Layout) Plan {
 	case Drop:
 		if !ro {
 			e.planInsert(&p, cmd.Text, InputInsertFromDrop, groupNone)
+			p.selectInserted = true
 		}
 	case InsertLineBreak:
 		if !ro && e.opts.Multiline {
@@ -235,6 +244,11 @@ func (e *Editor) Plan(cmd Command, l *text.Layout) Plan {
 	case DeleteBackward, DeleteForward, DeleteWordBackward, DeleteWordForward, DeleteToLineStart, DeleteToLineEnd:
 		if !ro {
 			e.planDelete(&p, cmd.Kind, l)
+		}
+	case DeleteByDrag:
+		if s, t := e.valueSel().ordered(); !ro && s < t {
+			p.op, p.start, p.end, p.kind = opEdit, s, t, groupNone
+			p.InputType = InputDeleteByDrag
 		}
 	case Cut:
 		if s, t := e.valueSel().ordered(); !ro && !e.opts.Password && s < t {
@@ -457,7 +471,7 @@ func (e *Editor) Apply(p Plan) Result {
 		r.InputType = p.InputType
 		return r
 	}
-	r := e.replace(p.start, p.end, p.insert, p.kind)
+	r := e.replace(p.start, p.end, p.insert, p.kind, p.selectInserted)
 	r.InputType, r.Data, r.Clipboard = p.InputType, p.Data, p.Clipboard
 	return r
 }
@@ -479,8 +493,10 @@ func (e *Editor) applySelection(s text.Selection) Result {
 // in the history and puts the caret after the inserted text: Upstream,
 // attached to it, and moved forward to a grapheme boundary when the
 // insertion merged with what follows (a base before a combining mark);
-// after a deletion, Downstream and moved back to a boundary.
-func (e *Editor) replace(start, end int, s string, kind groupKind) Result {
+// after a deletion, Downstream and moved back to a boundary. With sel the
+// inserted text is selected instead, from its start (moved back to a
+// boundary) to that caret.
+func (e *Editor) replace(start, end int, s string, kind groupKind, sel bool) Result {
 	oldValue, oldSel := e.value, e.sel
 	before := e.valueSel()
 	removed := e.value[start:end]
@@ -488,6 +504,9 @@ func (e *Editor) replace(start, end int, s string, kind groupKind) Result {
 	var after vsel
 	if s != "" {
 		after = caretSel(snapGrapheme(e.value, start+len(s), true), text.Upstream)
+		if sel {
+			after.anchor = text.Cursor{Offset: snapGrapheme(e.value, start, false)}
+		}
 	} else {
 		after = caretSel(snapGrapheme(e.value, start, false), text.Downstream)
 	}

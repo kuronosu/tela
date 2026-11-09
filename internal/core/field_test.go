@@ -645,7 +645,14 @@ func TestFieldPointer(t *testing.T) {
 	if s, e := x.selection("in"); s != 0 || e != 21 {
 		t.Errorf("triple click selected %d..%d, want all", s, e)
 	}
-	// Drag selects.
+	// A click on the selection puts the caret at the release (a press on
+	// it that moves would drag it, fielddnd.go); a drag from a caret
+	// selects.
+	x.b.Advance(time.Second)
+	x.click(wx, cy)
+	if s, e := x.selection("in"); s != 8 || e != 8 {
+		t.Errorf("a click on the selection left %d..%d, want the caret at 8", s, e)
+	}
 	x.b.Advance(time.Second)
 	x.send(down(r.X0+1, cy), moveHeld(r.X0+lay.Caret(textCursor(5)).X+1, cy), up(r.X0+lay.Caret(textCursor(5)).X+1, cy))
 	if s, e := x.selection("in"); s != 0 || e != 5 {

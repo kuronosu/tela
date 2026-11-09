@@ -8,6 +8,7 @@ import (
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/text"
 	"github.com/kuronosu/tela/internal/text/edit"
 )
 
@@ -50,8 +51,10 @@ import (
 //     accepted without a handler, and its drop, unless a drop handler
 //     called PreventDefault, focuses the field, puts the caret under the
 //     drop point and inserts the text as one insertFromDrop edit
-//     (OnBeforeInput, OnChange). A read-only or disabled field takes
-//     none.
+//     (OnBeforeInput, OnChange), which it selects. A read-only or
+//     disabled field takes none. While it accepts the drag, the field
+//     paints a drop caret where the text would go; a field's own
+//     selection is a drag source too (fielddnd.go).
 //   - The OS owns the pointer while a drag is over the window: at the
 //     session's start the tree's pointers are cancelled and leave, so
 //     hover and active states end; the next pointer event after the drag
@@ -76,6 +79,8 @@ import (
 // PreventDefault, the press stays the drag gesture: OnDrag and OnDragEnd
 // follow as for an element without Draggable, with a nil DataTransfer.
 // OnDrag does not fire during a drag and drop (the OS owns the pointer).
+// A text field's selection is a source the same way, without Draggable:
+// its OnDragStart gets the selected text (fielddnd.go).
 
 // Draggable makes a primitive the source of a drag and drop, like HTML's
 // draggable attribute: its drag gesture gives OnDragStart a DataTransfer
@@ -98,17 +103,25 @@ type dndState struct {
 	effect DropEffect
 	// wanted are the offered custom types the handlers looked up.
 	wanted []string
+	// fromApp: the drag was started by this app (platform.DragEvent).
+	fromApp bool
+	// caret is the field that paints a drop caret, at caretAt
+	// (fielddnd.go).
+	caret   *field
+	caretAt text.Cursor
 
 	// src is the drag the tree started, until its DragDoneEvent.
 	src *dragSource
 }
 
-// dragSource is a drag and drop started from a Draggable element.
+// dragSource is a drag and drop started from a Draggable element, or
+// from a text field's selection (text, fielddnd.go).
 type dragSource struct {
 	el   *Element
 	dt   *DataTransfer
 	pos  gfx.Point
 	mods platform.Modifiers
+	text *textDrag
 }
 
 // HandleDrag dispatches a platform drag event over the tree's window (see
@@ -161,7 +174,7 @@ func (t *Tree) beginDragSession(e platform.DragEvent) {
 func (t *Tree) noteDrag(e platform.DragEvent) {
 	d := &t.dnd
 	d.pos = gfx.Point{X: e.Pos.X, Y: e.Pos.Y}
-	d.mods, d.allowed = e.Mods, e.Allowed&DropAll
+	d.mods, d.allowed, d.fromApp = e.Mods, e.Allowed&DropAll, e.FromApp
 }
 
 // dragOver moves the drag to e's position: dragenter and dragleave when
@@ -183,23 +196,40 @@ func (t *Tree) dragOver(e platform.DragEvent) DropEffect {
 	}
 	d.effect = DropNone
 	if d.target == nil || !d.target.mounted {
+		t.setDropCaret(nil, text.Cursor{})
 		return DropNone
 	}
 	dt := t.protectedTransfer()
 	st := fire(t, evDragOver, d.target, t.dndEvent(dt), true)
-	if st.defaultPrevented() || t.dropField(d.target) != nil {
+	f := t.dropField(d.target)
+	if st.defaultPrevented() || f != nil {
 		// A text field accepts text by default, as HTML's do.
 		d.effect = acceptedEffect(dt.DropEffect, d.allowed, d.mods)
 	}
+	// The drop caret shows where the field's default action would put
+	// the text; a handler that takes the drag over hides it (Chromium).
+	var c text.Cursor
+	ok := f != nil && !st.defaultPrevented() && d.effect != DropNone
+	if ok {
+		c, ok = t.dropCursor(f)
+	}
+	if !ok {
+		f = nil
+	}
+	t.setDropCaret(f, c)
 	return d.effect
 }
 
 // dropField returns the field the drag's text would be dropped into by
-// default: target is an editable text field (not read-only, not disabled)
-// and the drag offers plain text; else nil.
+// default: target is an editable text field (not read-only, not
+// disabled), the drag offers plain text and is not over the text it
+// drags (fielddnd.go); else nil.
 func (t *Tree) dropField(target *Element) *field {
 	f := textField(target)
 	if f == nil || !f.alive() || f.readOnly() || !slices.Contains(t.dnd.types, MIMEText) {
+		return nil
+	}
+	if td := t.ownTextDrag(); td != nil && td.f == f && td.intact() && t.inSelection(f, t.dnd.pos, td.start, td.end) {
 		return nil
 	}
 	return f
@@ -209,8 +239,10 @@ func (t *Tree) dropField(target *Element) *field {
 // window point p: the field takes the focus, the caret goes under the drop
 // point, and the text is inserted as one insertFromDrop edit (OnBeforeInput,
 // cancelable, then OnChange), line breaks as spaces in a single-line
-// field, as a paste.
-func (t *Tree) fieldDrop(f *field, p gfx.Point, s string) {
+// field, as a paste, and selected. With move, the drag of a field's
+// selection of this tree moved by the drop, the dragged text is deleted
+// from its field first (fielddnd.go).
+func (t *Tree) fieldDrop(f *field, p gfx.Point, s string, move *textDrag) {
 	if s == "" {
 		return
 	}
@@ -229,6 +261,12 @@ func (t *Tree) fieldDrop(f *field, p gfx.Point, s string) {
 		pt := t.fieldPoint(f, p)
 		r := f.ed.Do(edit.Command{Kind: edit.ClickAt, X: pt.X, Y: pt.Y}, lay)
 		t.fieldChangedBy(f, r, false)
+	}
+	if move != nil {
+		t.moveDragged(move, f)
+		if !f.alive() || t.foc.el != f.el {
+			return
+		}
 	}
 	t.fieldDo(f, edit.Command{Kind: edit.Drop, Text: s})
 }
@@ -250,7 +288,11 @@ func (t *Tree) drop(e platform.DragEvent) (DropEffect, []string) {
 		st := fire(t, evDrop, tg, t.dndEvent(dt), true)
 		effect = acceptedEffect(dt.DropEffect, d.allowed, d.mods)
 		if f := t.dropField(tg); f != nil && !st.defaultPrevented() && effect != DropNone {
-			t.fieldDrop(f, d.pos, dt.Text())
+			var move *textDrag
+			if effect == DropMove {
+				move = t.ownTextDrag()
+			}
+			t.fieldDrop(f, d.pos, dt.Text(), move)
 		}
 	}
 	t.resetDragSession()
@@ -268,8 +310,10 @@ func (t *Tree) endDragSession() {
 	t.flushDiscrete()
 }
 
-// resetDragSession forgets the session over the window.
+// resetDragSession forgets the session over the window; the drop caret
+// goes away.
 func (t *Tree) resetDragSession() {
+	t.setDropCaret(nil, text.Cursor{})
 	src := t.dnd.src
 	t.dnd = dndState{src: src}
 }
@@ -279,12 +323,29 @@ func (t *Tree) resetDragSession() {
 func (t *Tree) protectedTransfer() *DataTransfer {
 	d := &t.dnd
 	return &DataTransfer{
-		DropEffect:    platform.DefaultDropEffect(d.allowed, d.mods),
+		DropEffect:    t.defaultDropEffect(),
 		EffectAllowed: d.allowed,
 		types:         d.types,
 		mode:          dtProtected,
 		look:          t.dndLook,
 	}
+}
+
+// defaultDropEffect returns the effect the drag over the window starts
+// with: the platform's convention for the allowed effects and the
+// modifiers, except for the drag of a field's selection of the app, which
+// moves unless the copy modifier is held (fielddnd.go).
+func (t *Tree) defaultDropEffect() DropEffect {
+	d := &t.dnd
+	if d.fromApp && t.appTextDrag() != nil {
+		if copyModifier(t.flavor, d.mods) && d.allowed.Has(DropCopy) {
+			return DropCopy
+		}
+		if d.allowed.Has(DropMove) {
+			return DropMove
+		}
+	}
+	return platform.DefaultDropEffect(d.allowed, d.mods)
 }
 
 // dndLook records a type a handler looked up before the drop, when the
@@ -347,16 +408,24 @@ func (t *Tree) RefuseDrag() {
 // starts the OS drag of the data it got. When it does, or tries, the
 // press is no longer the gesture's (ps.osDrag); without data it stays.
 func (t *Tree) dragStart(ps *pointerState, el *Element, e DragEvent, press gfx.Point) {
-	dt := &DataTransfer{EffectAllowed: DropAll}
+	t.startDrag(ps, &dragSource{el: el, dt: &DataTransfer{EffectAllowed: DropAll}}, e, press)
+}
+
+// startDrag runs OnDragStart of src's element with src's DataTransfer and
+// starts the OS drag of the data it holds then (see dragStart). It
+// reports whether it did, or tried: false when the handlers called
+// PreventDefault, left no data or no effect allowed, or unmounted it.
+func (t *Tree) startDrag(ps *pointerState, src *dragSource, e DragEvent, press gfx.Point) bool {
+	el, dt := src.el, src.dt
 	e.DataTransfer = dt
 	st := fire(t, evDragStart, el, e, false)
 	if st.defaultPrevented() || len(dt.data) == 0 || dt.EffectAllowed&DropAll == 0 || !el.mounted {
-		return
+		return false
 	}
 	dt.mode = dtReadOnly
-	src := &dragSource{el: el, dt: dt, pos: gfx.Point{X: e.X, Y: e.Y}, mods: ps.mods}
+	src.pos, src.mods = gfx.Point{X: e.X, Y: e.Y}, ps.mods
 	opts := platform.DragOptions{Data: dt.data.Clone(), Allowed: dt.EffectAllowed & DropAll}
-	opts.Image, opts.Hotspot = t.dragImage(el, dt, press)
+	opts.Image, opts.Hotspot = t.dragImage(src, press)
 	err := platform.ErrUnsupported
 	if v := t.wv; v != nil && v.alive() {
 		err = v.win.StartDrag(opts)
@@ -367,9 +436,10 @@ func (t *Tree) dragStart(ps *pointerState, el *Element, e DragEvent, press gfx.P
 			return "tela: the drag and drop of an h.Draggable element could not start (" + err.Error() + "): its OnDragEnd runs at once with DropNone"
 		})
 		t.dragDone(src, DropNone)
-		return
+		return true
 	}
 	t.dnd.src = src
+	return true
 }
 
 // HandleDragDone ends the drag the tree started with its outcome: the
@@ -383,7 +453,9 @@ func (t *Tree) HandleDragDone(effect DropEffect) {
 	}
 }
 
-// dragDone runs the source's OnDragEnd for the outcome effect.
+// dragDone runs the source's OnDragEnd for the outcome effect; then a
+// field's selection that moved and was not deleted by a drop of this tree
+// is deleted (HTML's default action of dragend, fielddnd.go).
 func (t *Tree) dragDone(src *dragSource, effect DropEffect) {
 	if !src.el.mounted {
 		return
@@ -393,13 +465,20 @@ func (t *Tree) dragDone(src *dragSource, effect DropEffect) {
 	e.Shift, e.Ctrl, e.Alt, e.Meta = modifiers(src.mods)
 	fire(t, evDragEnd, src.el, e, false)
 	t.flushDiscrete()
+	if d := src.text; d != nil && !d.moved && effect == DropMove {
+		d.moved = true
+		if d.intact() {
+			t.deleteDragged(d)
+		}
+	}
 }
 
-// dragImage returns the image of a drag of el and its hotspot: the one
-// the DataTransfer was given, else el as it is in the window's last frame
-// (its border box, cut by the window), with the press point under the
-// pointer.
-func (t *Tree) dragImage(el *Element, dt *DataTransfer, press gfx.Point) (*image.RGBA, image.Point) {
+// dragImage returns the image of the drag src and its hotspot: the one
+// the DataTransfer was given, else the element as it is in the window's
+// last frame (its border box, or the dragged text of a field, cut by the
+// window), with the press point under the pointer.
+func (t *Tree) dragImage(src *dragSource, press gfx.Point) (*image.RGBA, image.Point) {
+	dt := src.dt
 	if dt.imgSet {
 		if dt.img == nil {
 			return nil, image.Point{}
@@ -411,7 +490,10 @@ func (t *Tree) dragImage(el *Element, dt *DataTransfer, press gfx.Point) (*image
 	if v == nil || v.fb == nil || !(v.scale > 0) {
 		return nil, image.Point{}
 	}
-	r := t.elemBounds(el)
+	r := t.elemBounds(src.el)
+	if src.text != nil {
+		r = t.textDragRect(src.text)
+	}
 	s := v.scale
 	px := func(f float32, round func(float64) float64) int { return int(round(float64(f) * s)) }
 	pr := image.Rect(px(r.X0, math.Floor), px(r.Y0, math.Floor), px(r.X1, math.Ceil), px(r.Y1, math.Ceil)).Intersect(v.fb.Rect)

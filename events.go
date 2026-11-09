@@ -154,9 +154,13 @@ type PointerEvent = core.PointerEvent
 // counts them (enter adds one, leave removes one) or uses OnDragOver.
 //
 // Text fields take text by default, as HTML's do: an editable Input or
-// Textarea accepts a drag that offers text, and the drop inserts it at
-// the drop point (an insertFromDrop edit, with OnBeforeInput and
-// OnChange) unless an OnDrop handler calls e.PreventDefault().
+// Textarea accepts a drag that offers text, shows a caret where the text
+// would go, and the drop inserts it at the drop point and selects it (an
+// insertFromDrop edit, with OnBeforeInput and OnChange) unless an OnDrop
+// handler calls e.PreventDefault(). A field's selected text can be
+// dragged too: the field's OnDragStart gets it as text, and a drop moves
+// it (a deleteByDrag edit in the source), or copies it while Ctrl
+// (Option on a Mac) is held.
 type DragEvent = core.DragEvent
 
 // DataTransfer is the data of a drag and drop (HTML's dataTransfer): the

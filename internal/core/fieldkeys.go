@@ -47,7 +47,9 @@ import (
 // Textarea scrolls toward the pointer and the selection follows,
 // animateFields). A caret the pointer placed is revealed without the
 // padding (revealNowBy). A press finishes an IME composition first and
-// resets the IME.
+// resets the IME. A single press on the selected text of a field that
+// had the focus is the exception: it may drag the selection
+// (fielddnd.go), and puts the caret only at its release.
 
 // fieldAction is what a key does in a text field.
 type fieldAction uint8
@@ -431,8 +433,9 @@ func (t *Tree) fieldPoint(f *field, p gfx.Point) gfx.Point {
 }
 
 // fieldPress handles a primary press of ps on target (see the comment at
-// the top of fieldkeys.go), after the press moved the focus.
-func (t *Tree) fieldPress(ps *pointerState, target *Element) {
+// the top of fieldkeys.go), after the press moved the focus; focused
+// reports that target had the focus before the press.
+func (t *Tree) fieldPress(ps *pointerState, target *Element, focused bool) {
 	f := textField(target)
 	if f == nil || !f.alive() || t.foc.el != target || outermostDisabled(target) != nil {
 		return
@@ -446,6 +449,14 @@ func (t *Tree) fieldPress(ps *pointerState, target *Element) {
 	}
 	lay := f.layout()
 	if lay == nil {
+		return
+	}
+	if focused && t.selectionDraggable(ps, f) {
+		// A press on the selection of the focused field may drag it
+		// (fielddnd.go): the caret waits for the release. The selection
+		// a field kept while it was not focused is not painted, and a
+		// press that focuses it puts the caret, as in Chromium.
+		t.in.fsel = &fieldSelPress{f: f, ps: ps}
 		return
 	}
 	pt := t.fieldPoint(f, ps.pos)
@@ -509,10 +520,18 @@ func (t *Tree) fieldPointerMove(ps *pointerState) {
 	}
 }
 
-// fieldPointerUp ends the drag of a selection by ps.
-func (t *Tree) fieldPointerUp(ps *pointerState) {
+// fieldPointerUp ends the drag of a selection by ps. A release (cancel
+// false) of a press on a field's selection that did not drag it puts the
+// caret under the pointer (fielddnd.go).
+func (t *Tree) fieldPointerUp(ps *pointerState, cancel bool) {
 	if d := t.in.fdrag; d != nil && d.ps == ps {
 		t.in.fdrag = nil
+	}
+	if d := t.in.fsel; d != nil && d.ps == ps {
+		t.in.fsel = nil
+		if f := d.f; !cancel && f.alive() && t.foc.el == f.el && !f.ed.Composing() {
+			t.fieldClickAt(f, ps.pos, false)
+		}
 	}
 }
 

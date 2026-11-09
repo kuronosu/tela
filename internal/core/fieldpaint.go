@@ -24,7 +24,9 @@ import (
 //   - the IME composition's underline: a solid line under the preedit,
 //     thicker under the IME's highlighted range;
 //   - the caret (caretShown): one device-pixel-snapped logical pixel wide,
-//     the line box tall, in the caret-color (the text color by default).
+//     the line box tall, in the caret-color (the text color by default);
+//   - the drop caret of a drag of text over the field, drawn the same way
+//     where the drop would insert (fielddnd.go).
 //
 // An Input clips its text to its content box horizontally (the inner
 // editor of Chromium) and paints it moved by its horizontal scroll, its
@@ -155,17 +157,27 @@ func (p *painter) drawField(bx *Box, interest gfx.Rect) {
 		p.drawComposition(lay, origin, cs, comp.Start, comp.End, comp.CursorStart, comp.CursorEnd)
 	}
 	if t.caretShown(f) {
-		c := lay.Caret(sel.Focus)
-		x := p.snap(origin.X + c.X)
-		col := cs.Text.Color
-		if cs.Caret.Set {
-			col = cs.Caret.Color
-		}
-		p.b.FillRect(gfx.Rect{X0: x, Y0: origin.Y + c.Top, X1: x + p.snapWidth(caretWidth), Y1: origin.Y + c.Top + c.Height}, col)
+		p.drawCaret(lay, origin, cs, sel.Focus)
+	}
+	if c, ok := t.dropCaret(f); ok {
+		p.drawCaret(lay, origin, cs, c)
 	}
 	if clipped {
 		p.b.PopClip()
 	}
+}
+
+// drawCaret draws a caret at c of lay painted at origin: one snapped
+// logical pixel wide, the line box tall, in the caret-color (the text
+// color by default). The drop caret of a drag is drawn the same way.
+func (p *painter) drawCaret(lay *text.Layout, origin gfx.Point, cs *style.ComputedStyle, cur text.Cursor) {
+	c := lay.Caret(cur)
+	x := p.snap(origin.X + c.X)
+	col := cs.Text.Color
+	if cs.Caret.Set {
+		col = cs.Caret.Color
+	}
+	p.b.FillRect(gfx.Rect{X0: x, Y0: origin.Y + c.Top, X1: x + p.snapWidth(caretWidth), Y1: origin.Y + c.Top + c.Height}, col)
 }
 
 // drawComposition underlines the preedit [start, end) of lay painted at

@@ -577,6 +577,12 @@ func (t *Tree) unmountField(el *Element) {
 	if t.in.fdrag != nil && t.in.fdrag.f == f {
 		t.in.fdrag = nil
 	}
+	if t.in.fsel != nil && t.in.fsel.f == f {
+		t.in.fsel = nil
+	}
+	if t.dnd.caret == f {
+		t.dnd.caret = nil
+	}
 }
 
 // bindTo subscribes the field to v (BindValue), or ends its
