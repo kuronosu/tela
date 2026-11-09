@@ -41,7 +41,10 @@ import (
 //     the records. Guessing from the name instead (no extension) reported
 //     vim's "4913" write probe, and any other extensionless file removed,
 //     as a directory that may have held packages, which a filter must
-//     accept. Keys are lowercased: NTFS names are case-insensitive.
+//     accept. Keys are lowercased: NTFS names are case-insensitive. A
+//     Flat watcher keeps its roots' subdirectories in the set by name
+//     (nothing under them), so a removed one is a directory there too, as
+//     on the other backends (ADR-262).
 //   - Records may carry a name's 8.3 short form (MYPACK~1) instead of the
 //     long one ("it is unspecified which one", says the documentation),
 //     which the set, made of long names, never matches: a removed name
@@ -165,6 +168,10 @@ func (d *rdcw) walkTree(r *rootWatch, dir string, file func(path string)) {
 		if e.IsDir() {
 			if path != r.path {
 				if d.w.skip(path) {
+					if d.w.opts.Flat {
+						// Known by name, so its removal is a directory's.
+						r.addDir(dirKey(path))
+					}
 					return filepath.SkipDir
 				}
 				r.addDir(dirKey(path))
@@ -365,6 +372,9 @@ func (d *rdcw) event(r *rootWatch, path string, action uint32) {
 		fi, err := os.Lstat(path)
 		if err == nil && fi.IsDir() {
 			if d.w.skip(path) {
+				if d.w.opts.Flat {
+					r.addDir(dirKey(path))
+				}
 				d.w.newDir(path)
 			} else {
 				// Its subtree is watched already: report what is in it.
