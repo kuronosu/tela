@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -242,7 +241,7 @@ func (s screen) Build() tela.Node {
 	// when it starts, and when the user turns the setting on again
 	// (link.go).
 	wantLinks := prefs.RegisterLinks
-	tela.UseGo(func(ctx context.Context) { registerAtStart(wantLinks) }, wantLinks)
+	tela.UseEffectDo(func() { registerAtStart(wantLinks) }, wantLinks)
 	// copyLink puts the link of a note on the clipboard.
 	copyLink := func(id int) {
 		if err := desktop.WriteClipboardText(fmt.Sprintf("tela-notes://open?id=%d", id)); err != nil {

@@ -2,7 +2,9 @@ package main
 
 import (
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/kuronosu/tela/desktop"
 	"github.com/kuronosu/tela/telatest"
@@ -115,6 +117,42 @@ func TestDoesNotRegisterWhenItShouldNot(t *testing.T) {
 			}
 			a.ExpectNoText("Could not") // and says nothing: Preferences tells
 		})
+	}
+}
+
+// The start decides with what holds when the window shows, not when a
+// goroutine gets to run. A goroutine that decided late, started late by a
+// loaded CI machine (macos-latest), read autoRegister and blockedBy as the
+// next test had set them and registered into that test's app. Here the
+// check answers slowly, and the program becomes one that registers right
+// after the window showed: the start of a temporary build still registers
+// nothing.
+func TestRegisterAtStartDecidesWhenTheWindowShows(t *testing.T) {
+	sandbox(t)
+	autoRegistering(t)
+	var why atomic.Pointer[string]
+	temporary := "This is a temporary build (go run)."
+	why.Store(&temporary)
+	changed := make(chan struct{})
+	slow := func() string {
+		select { // the UI thread waits for the deadline, a goroutine for the change
+		case <-changed:
+		case <-time.After(100 * time.Millisecond):
+		}
+		return *why.Load()
+	}
+	was := blockedBy.Swap(&slow)
+	t.Cleanup(func() { blockedBy.Store(was) })
+	base := registerCalls.Load()
+	a := mount(t)
+	installed := ""
+	why.Store(&installed)
+	close(changed)
+	a.WaitFor("the start to consider registering", func() bool { return registerCalls.Load() > base })
+	for deadline := time.Now().Add(100 * time.Millisecond); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
+		if regs := a.Registrations(); len(regs) != 0 {
+			t.Fatalf("a temporary build registered, after the window showed: %+v", regs)
+		}
 	}
 }
 

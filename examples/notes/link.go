@@ -126,12 +126,13 @@ func blockedExecutable(goos, exe string) string {
 }
 
 // blockedBy replaces registrationBlocked's check: the tests pretend to be
-// an installed program, or a temporary one. Atomic because the goroutine
-// that registers at start may outlive a test.
+// an installed program, or a temporary one. Atomic, so that a test may swap
+// it whichever goroutine reads it.
 var blockedBy atomic.Pointer[func() string]
 
-// registerCalls counts the calls of registerAtStart, for the tests to wait
-// for the goroutine that makes them.
+// registerCalls counts the starts registerAtStart has finished (decided
+// not to register, or registered), for the tests to wait for the goroutine
+// that registers.
 var registerCalls atomic.Int32
 
 // registerApp makes the desktop know Notes before it starts (ADR-217): on
@@ -161,13 +162,22 @@ func registerApp() {
 // program is not one to register. Nothing here is the user's to be told:
 // Preferences shows the state when they look. It makes Notes a candidate,
 // never the default (that is a button of its own), and never takes another
-// application's association (no desktop.Replace). It blocks on file or
-// registry I/O: call it off the UI thread.
+// application's association (no desktop.Replace).
+//
+// It decides on the calling goroutine (the UI thread, in the effect of the
+// main window) and registers, which blocks on file or registry I/O, on a
+// goroutine of its own. The decision is not the goroutine's: one the
+// scheduler starts late (a loaded CI machine) would read autoRegister and
+// blockedBy as the next test set them, and register into that test's app
+// (desktop.Register goes to the app running when it is called).
 func registerAtStart(wanted bool) {
-	registerCalls.Add(1)
 	if !autoRegister.Load() || !wanted || registrationBlocked() != "" {
+		registerCalls.Add(1)
 		return
 	}
-	// ErrDevExecutable (tela dev) and ErrAssociationTaken are expected.
-	_, _ = desktop.Register(notesScheme)
+	go func() {
+		defer registerCalls.Add(1)
+		// ErrDevExecutable (tela dev) and ErrAssociationTaken are expected.
+		_, _ = desktop.Register(notesScheme)
+	}()
 }
