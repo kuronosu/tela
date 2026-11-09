@@ -369,6 +369,10 @@ func (t *tx) status(app platform.HandlerApp, a platform.Association, exec string
 		return s
 	}
 	s.Registered = t.hasValue(extKey(a)+`\OpenWithProgids`, id)
+	if pkey := classesKey + `\` + id; !s.Registered && t.exists(pkey) && !t.exists(pkey+`\shell\open\command`) {
+		// Declared, not handled (ADR-259); a handler's role is not kept.
+		s.Role = platform.HandlerNone
+	}
 	cur, _ := t.get(extKey(a), "")
 	if cur == "" {
 		cur = t.machine(extKey(a), "")

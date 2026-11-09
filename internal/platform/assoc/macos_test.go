@@ -325,7 +325,7 @@ func TestMacOSRegisterScheme(t *testing.T) {
 		t.Errorf("LSRegisterURL called %d times, want once", l.calls())
 	}
 	// The only candidate: Launch Services makes it the handler by itself.
-	if s := macStatus(t, a, app, scheme); s != (platform.AssociationStatus{Registered: true, Default: true}) {
+	if s := macStatus(t, a, app, scheme); s != (platform.AssociationStatus{Registered: true, Default: true, Role: platform.HandlerViewer}) {
 		t.Errorf("status after Register = %+v", s)
 	}
 
@@ -369,14 +369,14 @@ func TestMacOSOtherAppAndMakeDefault(t *testing.T) {
 		if changed, err := a.Register(app, as, platform.RegisterOptions{}); !changed || err != nil {
 			t.Fatalf("%v: Register = %v, %v", as, changed, err)
 		}
-		if s := macStatus(t, a, app, as); s != (platform.AssociationStatus{Registered: true, Other: "com.other.Editor"}) {
+		if s := macStatus(t, a, app, as); s != (platform.AssociationStatus{Registered: true, Other: "com.other.Editor", Role: as.ResolvedRole()}) {
 			t.Errorf("%v: status after Register = %+v", as, s)
 		}
 		r, err := a.MakeDefault(app, as)
 		if r != platform.DefaultSet || err != nil {
 			t.Fatalf("%v: MakeDefault = %v, %v", as, r, err)
 		}
-		if s := macStatus(t, a, app, as); s != (platform.AssociationStatus{Registered: true, Default: true}) {
+		if s := macStatus(t, a, app, as); s != (platform.AssociationStatus{Registered: true, Default: true, Role: as.ResolvedRole()}) {
 			t.Errorf("%v: status after MakeDefault = %+v", as, s)
 		}
 	}
@@ -436,7 +436,7 @@ func TestMacOSFileTypeUnknownExtension(t *testing.T) {
 	if u, _ := l.TypeOfExtension("note"); u != "com.example.Notes.note" {
 		t.Errorf("Launch Services knows .note as %q", u)
 	}
-	if s := macStatus(t, a, app, noteFile); s != (platform.AssociationStatus{Registered: true, Default: true}) {
+	if s := macStatus(t, a, app, noteFile); s != (platform.AssociationStatus{Registered: true, Default: true, Role: platform.HandlerEditor}) {
 		t.Errorf("status = %+v", s)
 	}
 	if changed, err := a.Register(app, noteFile, platform.RegisterOptions{}); changed || err != nil {

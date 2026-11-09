@@ -59,7 +59,7 @@ func TestLinuxRoles(t *testing.T) {
 	if got := e.read(e.userMimeapps()); strings.Contains(got, notesApp.ID) {
 		t.Errorf("the default naming the app was kept:\n%s", got)
 	}
-	if s := e.status(noteFile); s.Registered || s.Default {
+	if s := e.status(noteFile); s.Registered || s.Default || s.Role != platform.HandlerNone {
 		t.Errorf("status as a handler = %+v; want not registered", s)
 	}
 	if s := e.status(declaredFile); !s.Registered || s.Default {
@@ -176,7 +176,7 @@ func TestWindowsRoles(t *testing.T) {
 			t.Errorf("%s left after HandlerNone:\n%s", gone, dump)
 		}
 	}
-	if s := mustStatus(t, a, noteFile); s.Registered || s.Default {
+	if s := mustStatus(t, a, noteFile); s.Registered || s.Default || s.Role != platform.HandlerNone {
 		t.Errorf("status as a handler = %+v; want not registered", s)
 	}
 	if s := mustStatus(t, a, declaredFile); !s.Registered || s.Default {
@@ -235,7 +235,7 @@ func TestMacOSRoles(t *testing.T) {
 	if l.calls() != calls+1 {
 		t.Errorf("Launch Services did not read the bundle again")
 	}
-	if s := macStatus(t, a, app, noteFile); !s.Registered || !s.Default {
+	if s := macStatus(t, a, app, noteFile); !s.Registered || !s.Default || s.Role != platform.HandlerViewer {
 		t.Errorf("status as a viewer = %+v", s)
 	}
 	if _, err := a.Register(app, withRole(noteFile, platform.HandlerShell), platform.RegisterOptions{}); err != nil || docEntry()[keyRole] != "Shell" {
@@ -248,7 +248,7 @@ func TestMacOSRoles(t *testing.T) {
 	if d := docEntry(); d[keyRole] != "None" || d[keyRank] != "None" || fmt.Sprint(d["LSItemContentTypes"]) != "[com.example.Notes.note]" {
 		t.Errorf("declaration entry = %v", d)
 	}
-	if s := macStatus(t, a, app, noteFile); s.Registered || s.Default {
+	if s := macStatus(t, a, app, noteFile); s.Registered || s.Default || s.Role != platform.HandlerNone {
 		t.Errorf("status as a handler = %+v; want not registered", s)
 	}
 	if s := macStatus(t, a, app, declaredFile); !s.Registered || s.Default {
@@ -340,7 +340,7 @@ func TestFakeRoles(t *testing.T) {
 	if regs := f.Registrations(); len(regs) != 1 || regs[0].Role != platform.HandlerNone {
 		t.Errorf("registrations = %+v", regs)
 	}
-	if s, _ := f.Status(notesApp, noteFile); s.Registered || s.Default {
+	if s, _ := f.Status(notesApp, noteFile); s.Registered || s.Default || s.Role != platform.HandlerNone {
 		t.Errorf("status as a handler = %+v", s)
 	}
 	if s, _ := f.Status(notesApp, declaredFile); !s.Registered || s.Default {

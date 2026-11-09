@@ -650,11 +650,16 @@ func TestRegistrationRole(t *testing.T) {
 	if regs := app.Registrations(); len(regs) != 1 || regs[0].Role != desktop.HandlerViewer {
 		t.Errorf("after the role change %+v", regs)
 	}
+	// The status reports the role registered, whatever the role asked
+	// about (ADR-259).
+	if s, err := desktop.RegistrationStatus(doc); err != nil || s.Role != desktop.HandlerViewer {
+		t.Errorf("status after the role change %+v, %v; want Role viewer", s, err)
+	}
 	index := doc.WithRole(desktop.HandlerNone)
 	if changed, err := desktop.Register(index, forApp); !changed || err != nil {
 		t.Errorf("Register with HandlerNone = %v, %v", changed, err)
 	}
-	if s, err := desktop.RegistrationStatus(doc); err != nil || s.Registered || s.Default {
+	if s, err := desktop.RegistrationStatus(doc); err != nil || s.Registered || s.Default || s.Role != desktop.HandlerNone {
 		t.Errorf("a declared type has no handler: %+v, %v", s, err)
 	}
 	if s, err := desktop.RegistrationStatus(index); err != nil || !s.Registered || s.Default {

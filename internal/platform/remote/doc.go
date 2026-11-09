@@ -115,6 +115,9 @@
 //   - Platform contract v10 (protocol 14, ADR-257): the resize kinds of
 //     hit regions travel with the others; the host's real window starts
 //     the OS's resize from them.
+//   - Platform contract v11 (protocol 15, ADR-259): LaunchEvent.AtStart,
+//     MenuItem.AccessKey and AssociationStatus.Role travel with the
+//     rest.
 //   - Run returns an error when the connection is lost.
 //
 // The child's loop is internal/loop's (queue, coalesced wake, quit,

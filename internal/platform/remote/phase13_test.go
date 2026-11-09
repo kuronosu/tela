@@ -671,7 +671,7 @@ func TestSecretsAndAssociations(t *testing.T) {
 	if regs := p.hb.Associations().Registrations(); len(regs) != 2 || regs[0].Association != ".note" || regs[0].Role != platform.HandlerNone {
 		t.Errorf("registrations after HandlerNone %+v", regs)
 	}
-	if st, err := as.Status(app, file); st.Registered || err != nil {
+	if st, err := as.Status(app, file); st.Registered || st.Role != platform.HandlerNone || err != nil {
 		t.Errorf("Status as a handler of a declared type = %+v, %v; want not registered", st, err)
 	}
 	if st, err := as.Status(app, declared); !st.Registered || err != nil {

@@ -207,6 +207,14 @@ type Registration struct {
 	// that claims an extension on Linux, the default app's bundle ID on
 	// macOS); "" when nothing does.
 	Other string
+	// Role is the role the app is registered with, whatever the role of
+	// the Association asked about (ADR-259): HandlerNone for a file type
+	// the app only declares; on macOS the role of the Info.plist entry
+	// (an entry the developer wrote in the bundle keeps its own role,
+	// which Register does not change); on Linux and Windows, which keep no
+	// roles, HandlerDefault for a handler. HandlerDefault too when the app
+	// is not registered.
+	Role HandlerRole
 }
 
 // DefaultResult is what [MakeDefault] did.
@@ -303,7 +311,7 @@ func RegistrationStatus(a Association, opts ...RegisterOption) (Registration, er
 		return Registration{}, err
 	}
 	s, err := associations().Status(app, a.platform())
-	return Registration{Registered: s.Registered, Default: s.Default, Other: s.Other},
+	return Registration{Registered: s.Registered, Default: s.Default, Other: s.Other, Role: HandlerRole(s.Role)},
 		wrap(fmt.Sprintf("RegistrationStatus(%v)", a), err)
 }
 

@@ -162,6 +162,14 @@ type AssociationStatus struct {
 	// already claims an extension; on macOS the bundle identifier of the
 	// default handler, else of another handler; "" when nothing does.
 	Other string
+	// Role is the role the app's registration has (contract v11,
+	// ADR-259), whatever the role of the Association asked about:
+	// HandlerNone for a type the app only declares; on macOS the
+	// CFBundleTypeRole of the Info.plist entry (HandlerEditor,
+	// HandlerViewer, HandlerShell; an entry the developer wrote keeps its
+	// own); on Linux and Windows, which keep no roles, HandlerDefault for
+	// a handler. HandlerDefault too when the app has no registration.
+	Role HandlerRole
 }
 
 // AppStatus is what Associations.AppStatus reports: whether the desktop

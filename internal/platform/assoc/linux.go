@@ -345,19 +345,25 @@ func (l *linuxAssoc) status(app platform.HandlerApp, a platform.Association) (pl
 	own := ents[ownID]
 
 	// A file type works only while its extension maps to its MIME type.
-	mapped, heldBy := true, ""
+	mapped, heldBy, ownDecl := true, "", false
 	if a.Extension != "" {
 		pkg, _, err := l.readPackage(app.ID)
 		if err != nil {
 			return st, err
 		}
+		ownDecl = strings.EqualFold(pkg.globType(a.Extension), typ)
 		claims := l.extClaims(a.Extension, l.ownPackagePath(app.ID))
-		if _, ok := claims[strings.ToLower(typ)]; !ok && !strings.EqualFold(pkg.globType(a.Extension), typ) {
+		if _, ok := claims[strings.ToLower(typ)]; !ok && !ownDecl {
 			mapped = false
 			heldBy = topClaim(claims)
 		}
 	}
 	st.Registered = mapped && own != nil && !own.hide && hasType(own.mime, typ)
+	if !st.Registered && ownDecl {
+		// Tela's MIME package declares the type and the app is no
+		// handler: HandlerNone (ADR-259). A handler's role is not kept.
+		st.Role = platform.HandlerNone
+	}
 
 	m := l.readMimeapps()
 	if def := m.defaultFor(typ, ents); def != "" {

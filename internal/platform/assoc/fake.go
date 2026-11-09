@@ -164,6 +164,9 @@ func (f *Fake) status(appID, key string, role platform.HandlerRole) platform.Ass
 	var s platform.AssociationStatus
 	r, ok := f.regs[appID+"\x00"+key]
 	s.Registered = ok && r.opens()
+	if ok {
+		s.Role = r.role // the fake keeps roles, as macOS does
+	}
 	declared := ok && !r.opens()
 	def := f.defaults[key]
 	switch {

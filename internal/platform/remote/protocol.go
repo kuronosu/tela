@@ -51,7 +51,9 @@ import (
 //   - 14: platform contract v10 (ADR-257): the resize hit kinds
 //     (HitResizeTop to HitResizeBottomRight) in SetHitRegions; the
 //     encoding is unchanged, but a host of 13 refuses the kinds.
-const ProtocolVersion = 14
+//   - 15: platform contract v11 (ADR-259): LaunchEvent.AtStart,
+//     MenuItem.AccessKey and AssociationStatus.Role.
+const ProtocolVersion = 15
 
 // magic opens the hello message.
 const magic = "TELA"

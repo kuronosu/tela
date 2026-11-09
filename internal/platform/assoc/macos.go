@@ -267,6 +267,30 @@ func bundleRole(a platform.Association) string {
 	return "Editor"
 }
 
+// entryRole is the role a CFBundleURLTypes or CFBundleDocumentTypes entry
+// gives the app (ADR-259): its CFBundleTypeRole, HandlerNone also for
+// LSHandlerRank None, HandlerDefault for no entry or a role Tela does not
+// know (an entry the developer wrote may have none).
+func entryRole(e plist.Dict) platform.HandlerRole {
+	if e == nil {
+		return platform.HandlerDefault
+	}
+	if e[keyRank] == noneRank {
+		return platform.HandlerNone
+	}
+	switch e[keyRole] {
+	case "Editor":
+		return platform.HandlerEditor
+	case "Viewer":
+		return platform.HandlerViewer
+	case "Shell":
+		return platform.HandlerShell
+	case noneRole:
+		return platform.HandlerNone
+	}
+	return platform.HandlerDefault
+}
+
 // handlerRank is the LSHandlerRank of the document type entry of a:
 // Alternate, or None for HandlerNone (Launch Services never uses the app
 // to open the type).
@@ -689,12 +713,15 @@ func (m *macOS) Status(app platform.HandlerApp, a platform.Association) (platfor
 	var (
 		declared bool // the Info.plist declares a
 		opens    bool // in a role other than None
+		role     platform.HandlerRole
 		handlers []string
 		def      string
 	)
 	if a.Scheme != "" {
-		declared = hasScheme(b.info, a.Scheme)
+		e := schemeEntry(b.info, a.Scheme)
+		declared = e != nil
 		opens = declared
+		role = entryRole(e)
 		if handlers, err = m.ls.SchemeHandlers(a.Scheme); err == nil {
 			def, err = m.ls.DefaultSchemeHandler(a.Scheme)
 		}
@@ -704,6 +731,7 @@ func (m *macOS) Status(app platform.HandlerApp, a platform.Association) (platfor
 			e := docTypeEntry(b.info, uti, extOf(a))
 			declared = e != nil
 			opens = declared && opensDocType(e)
+			role = entryRole(e)
 			if handlers, err = m.ls.TypeHandlers(uti); err == nil {
 				def, err = m.ls.DefaultTypeHandler(uti)
 			}
@@ -723,6 +751,9 @@ func (m *macOS) Status(app platform.HandlerApp, a platform.Association) (platfor
 	}
 	var st platform.AssociationStatus
 	st.Registered = opens && containsFold(handlers, app.ID)
+	if declared {
+		st.Role = role
+	}
 	switch {
 	case strings.EqualFold(def, app.ID):
 		st.Default = opens

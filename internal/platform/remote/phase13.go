@@ -346,7 +346,7 @@ func (a childAssoc) Status(app platform.HandlerApp, as platform.Association) (pl
 	if err != nil {
 		return platform.AssociationStatus{}, err
 	}
-	st := platform.AssociationStatus{Registered: r.boolean(), Default: r.boolean(), Other: r.str()}
+	st := platform.AssociationStatus{Registered: r.boolean(), Default: r.boolean(), Other: r.str(), Role: platform.HandlerRole(r.u8())}
 	return st, r.end()
 }
 
@@ -814,7 +814,7 @@ func (h *Host) serveBlocking(op uint8, d *dec, result *func(*enc)) error {
 		switch op {
 		case dAssocStatus:
 			st, err := a.Status(app, as)
-			*result = func(e *enc) { e.boolean(st.Registered); e.boolean(st.Default); e.str(st.Other) }
+			*result = func(e *enc) { e.boolean(st.Registered); e.boolean(st.Default); e.str(st.Other); e.u8(uint8(st.Role)) } // Role: version 15
 			return err
 		case dAssocRegister, dAssocUnregister:
 			var changed bool

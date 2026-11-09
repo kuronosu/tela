@@ -719,6 +719,13 @@
 // caption clicks on every backend, and makes the Cocoa backend's backdrop
 // of a transparent window follow its input mask.
 //
+// Contract v11 (ADR-259) adds [LaunchEvent].AtStart (Cocoa: links and
+// files Launch Services hands the app before it finished launching),
+// [MenuItem].AccessKey (the app's own access key in Win32 menus, marked
+// in the label or appended as "(&F)"; [CheckAccessKey]) and
+// [AssociationStatus].Role (the role the app is registered with); Win32
+// message boxes widen their buttons to renamed texts.
+//
 // # Drag and drop and the clipboard
 //
 // One data type, [Data], carries a drag and the clipboard: an ordered set
@@ -1592,7 +1599,8 @@
 // transparent windows), 11 with contract v7 (ADR-252: caption clicks),
 // 12 with contract v8 (ADR-251: SetStrings),
 // 13 with contract v9 (ADR-253: launch sources, association roles),
-// 14 with contract v10 (ADR-257: resize handles):
+// 14 with contract v10 (ADR-257: resize handles), 15 with contract v11
+// (ADR-259: launches at the start, access keys, registered roles):
 // everything is forwarded to the host's backend, which owns the real
 // windows: drags in both directions (the answer to a drag reaches the OS
 // one round trip late, so a drag entering a window is refused until the
