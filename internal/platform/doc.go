@@ -658,6 +658,12 @@
 // changes; Win32 renames the buttons of a message box when it is created
 // (a WH_CBT hook and SetDlgItemTextW).
 //
+// Contract v9 (ADR-253) adds [LaunchEvent].Source ([LaunchSource]: a
+// launch another process forwarded, or links and files the OS opened with
+// the app) and [Association].Role; backends no longer hold app-scoped
+// events until the first frame (core holds them until its first commit),
+// and WindowOptions.Position is moved onto the monitors present.
+//
 // # Drag and drop and the clipboard
 //
 // One data type, [Data], carries a drag and the clipboard: an ordered set
@@ -1522,7 +1528,8 @@
 // 7 with TrayOptions.Template (ADR-237), 9 with contract v5 (ADR-246:
 // accessibility, see "Accessibility"), 10 with contract v6 (ADR-249:
 // transparent windows), 11 with contract v7 (ADR-252: caption clicks),
-// 12 with contract v8 (ADR-251: SetStrings):
+// 12 with contract v8 (ADR-251: SetStrings),
+// 13 with contract v9 (ADR-253: launch sources, association roles):
 // everything is forwarded to the host's backend, which owns the real
 // windows: drags in both directions (the answer to a drag reaches the OS
 // one round trip late, so a drag entering a window is refused until the

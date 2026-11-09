@@ -496,7 +496,7 @@ func (e *enc) event(ev platform.Event) {
 	case platform.LaunchEvent:
 		e.u8(evLaunch)
 		e.launch(ev.Launch)
-		e.u8(uint8(ev.Source)) // version 11
+		e.u8(uint8(ev.Source)) // version 13
 	case platform.QuitRequestedEvent:
 		e.u8(evQuitRequested)
 	case platform.AppMenuEvent:
