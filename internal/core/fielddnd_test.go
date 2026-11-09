@@ -10,6 +10,7 @@ import (
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
 	"github.com/kuronosu/tela/internal/testutil/golden"
+	"github.com/kuronosu/tela/internal/text/edit"
 )
 
 // Drag and drop of text fields (fielddnd.go): the drop selects the text,
@@ -284,6 +285,26 @@ func TestSelectionDragInTheSameField(t *testing.T) {
 			if got := strings.Join(log, " "); got != tc.events {
 				t.Errorf("events %q\nwant   %q", got, tc.events)
 			}
+			if tc.to < 0 {
+				return
+			}
+			// The move is one undo step (Chromium's DragAndDropCommand):
+			// undo puts the text back and selects it where it was, redo
+			// moves it again.
+			tr := x.h.Tree()
+			tr.fieldDo(f, edit.Command{Kind: edit.Undo})
+			x.drain()
+			if v, sel := f.ed.Value(), selectionOf(f); v != selValue || (strings.Contains(tc.events, "deleteByDrag") && sel != [2]int{6, 12}) {
+				t.Errorf("after one undo: value %q selection %v, want %q with 6..12 selected", v, sel, selValue)
+			}
+			if f.ed.CanUndo() {
+				t.Error("one undo left another step: the drop was two")
+			}
+			tr.fieldDo(f, edit.Command{Kind: edit.Redo})
+			x.drain()
+			if v, sel := f.ed.Value(), selectionOf(f); v != tc.value || sel != tc.sel {
+				t.Errorf("after redo: value %q selection %v, want %q %v", v, sel, tc.value, tc.sel)
+			}
 		})
 	}
 }
@@ -490,26 +511,53 @@ func TestSelectionPressWithoutDrag(t *testing.T) {
 	}
 }
 
-// The drag image of a selection is the selected text as painted: its
-// selection rectangles, cut by the field.
+// The drag image of a selection is the selected text alone, as Chromium
+// draws it: the glyphs in the text's color at 75% opacity over the
+// selection's rectangles, without the selection highlight or the field's
+// background, the press point under the pointer.
 func TestSelectionDragImage(t *testing.T) {
-	var log []string
-	x := newWinHarness(t, Options{Root: selRoot(&log)})
-	w := x.windows()[0]
-	w.SetFocused(true)
-	f := selDrag(t, x, w, 0)
-	info, ok := x.b.Drag()
-	if !ok || info.Image == nil {
-		t.Fatal("no drag image")
-	}
-	x0, _ := fieldAt(f, 6, 0)
-	x1, _ := fieldAt(f, 12, 0)
-	if dx := info.Image.Rect.Dx(); float32(dx) < x1-x0-1 || float32(dx) > x1-x0+2 {
-		t.Errorf("image %v wide, want the selection's %v", dx, x1-x0)
-	}
-	// The press was at offset 8 + 1 px, inside the image.
-	if hx := float32(info.Hotspot.X); hx < 1 || hx > x1-x0 {
-		t.Errorf("hotspot %v", info.Hotspot)
+	for _, scale := range []float64{1, 2} {
+		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
+			var log []string
+			root := div(Class("p-4 bg-slate-100"), input(append([]Child{Key("a"), Class("w-64 bg-amber-100 text-slate-900"), DefaultValue(selValue)}, textLog(&log)...)...))
+			x := newBackendHarness(t, headless.Options{Size: platform.Size{W: 400, H: 300}, Scale: scale}, Options{Root: root})
+			w := x.windows()[0]
+			w.SetFocused(true)
+			f := selDrag(t, x, w, 0)
+			info, ok := x.b.Drag()
+			if !ok || info.Image == nil {
+				t.Fatal("no drag image")
+			}
+			x0, _ := fieldAt(f, 6, 0)
+			x1, _ := fieldAt(f, 12, 0)
+			want := (x1 - x0) * float32(scale)
+			if dx := float32(info.Image.Rect.Dx()); dx < want-1 || dx > want+2 {
+				t.Errorf("image %v wide, want the selection's %v", dx, want)
+			}
+			if dy, lh := info.Image.Rect.Dy(), f.layout().Line(0).Height*float32(scale); float32(dy) < lh || float32(dy) > lh+1 {
+				t.Errorf("image %v tall, want the line's %v", dy, lh)
+			}
+			// The press was at offset 8 + 1 px, inside the image.
+			if hx := float32(info.Hotspot.X); hx < float32(scale) || hx > want {
+				t.Errorf("hotspot %v", info.Hotspot)
+			}
+			var ink, clear int
+			for i := 0; i < len(info.Image.Pix); i += 4 {
+				p := info.Image.Pix[i : i+4]
+				switch {
+				case p[3] == 0:
+					clear++
+				case p[3] > 192 || p[2] > p[0]+24:
+					t.Fatalf("pixel %v: not the text at 75%% (the highlight or the background)", p)
+				default:
+					ink++
+				}
+			}
+			if ink == 0 || clear == 0 {
+				t.Errorf("%d pixels of ink, %d transparent: want both", ink, clear)
+			}
+			golden.Image(t, fmt.Sprintf("field_drag_image_x%g", scale), info.Image)
+		})
 	}
 }
 

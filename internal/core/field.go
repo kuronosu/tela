@@ -38,8 +38,15 @@ import (
 // is centered vertically in its content box and is its baseline; an Input
 // lays its line out with line-height: normal where Chromium's inner editor
 // does (field.textStyle: a height taller than the line height, or a font
-// size at least as large, ADR-159). A Textarea's baseline is its bottom
-// margin edge (a scroll container).
+// size at least as large, ADR-159). With line-height: normal the fonts a
+// line falls back to take part in its line box (text.Layout, as Blink's
+// used fonts do), so a line of Arabic in a Latin field is taller than the
+// field's one-line height: as in Chromium, the field stays one empty line
+// tall and the taller line is centered in it, its baseline moving up by
+// half the difference (lineBox, ADR-265). An Input's placeholder sits on
+// the value's baseline, whatever its own font size and fallback fonts
+// (Chromium's text control placeholder). A Textarea's baseline is its
+// bottom margin edge (a scroll container).
 //
 // An Input clips its text to its content box horizontally and scrolls it
 // itself (field.scrollX) to keep the caret visible; a Textarea is a
@@ -1115,7 +1122,8 @@ func (f *field) measure(in layout.MeasureInput) layout.Measurement {
 			h = in.AvailableHeight.Value
 		}
 		if lay := f.layoutAt(cs, max(m.Width, 0)); lay != nil {
-			m.Baseline, m.HasBaseline = (h-lh)/2+lay.Line(0).Baseline, true
+			ln := lay.Line(0)
+			m.Baseline, m.HasBaseline = (h-ln.Height)/2+ln.Baseline, true
 		}
 	}
 	return m
@@ -1130,7 +1138,32 @@ func (f *field) lineOffset() float32 {
 	}
 	l := f.bx.ld.Layout()
 	ch := l.Size.H - l.Border.Top - l.Border.Bottom - l.Padding.Top - l.Padding.Bottom
-	return (ch - f.lineHeight(cs)) / 2
+	return (ch - f.lineBox(cs)) / 2
+}
+
+// lineBox returns the height of an Input's line as laid out: with
+// line-height: normal, taller than lineHeight when the text falls back to
+// a font with a larger ascent or descent (Noto Sans Arabic after Inter),
+// as Blink's inner editor line is. Chromium centers that line, not the
+// empty one, in the content box (measured in Chromium 155,
+// TestChromiumInputFallbackBaselines).
+func (f *field) lineBox(cs *style.ComputedStyle) float32 {
+	if lay := f.layout(); lay != nil {
+		return lay.Line(0).Height
+	}
+	return f.lineHeight(cs)
+}
+
+// placeholderDY returns how far below the field's text origin an Input's
+// placeholder ph is painted: its baseline on the baseline of the field's
+// (empty) line, as Chromium aligns its placeholder with its inner editor,
+// whatever the placeholder's font size or fallback fonts. A Textarea's
+// starts at the origin.
+func (f *field) placeholderDY(lay, ph *text.Layout) float32 {
+	if f.multi || lay == nil || ph == nil {
+		return 0
+	}
+	return lay.Line(0).Baseline - ph.Line(0).Baseline
 }
 
 // textOrigin returns the origin of the field's text layout relative to

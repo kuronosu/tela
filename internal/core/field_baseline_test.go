@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/testutil/golden"
 )
 
 // inputBaselineCases are single-line inputs measured in Chromium 154
@@ -85,6 +86,102 @@ func TestChromiumInputBaselines(t *testing.T) {
 				t.Errorf("%s: baseline at %.4f device px (H bottom row %d), height %.4f; Chromium's row %d, height %.4f", name, base, row(0), h, c.row[si], c.h[si])
 			}
 		}
+	}
+}
+
+// inputFallbackCases are single-line inputs whose text falls back from
+// Inter to Noto Sans Arabic, measured in Chromium 155 (headless, both
+// fonts through @font-face, font-family: Inter, "Noto Sans Arabic";
+// display: block, box-sizing: border-box, no border, 4 px 12 px of
+// padding, 240 px wide, 14 px; the page is
+// testdata/chromium/fields/fallback.html): the device row of the bottom
+// of an "H" of the value or placeholder, counted from the input's top, at
+// display scales 1, 1.5 and 2. With line-height: normal (h-[36px] drops
+// the line height, leading-none is smaller than the font) the Arabic
+// font's ascent and descent make the line taller than the input's one
+// empty line, and Chromium centers that taller line: the baseline moves up
+// (one row at x1 and x2 under h-[36px]) where Tela had kept the empty
+// line's top and put it five pixels lower. The input keeps its height. A
+// placeholder sits on the baseline of the empty value, whatever its font
+// size and fallback fonts (ADR-265).
+var inputFallbackCases = []struct {
+	cls  string // added to the input's classes
+	dir  string
+	val  string
+	ph   string
+	rows [3]int
+}{
+	{"h-[36px] leading-[20px]", "", "HHH مرحبا بالعالم", "", [3]int{22, 33, 44}},
+	{"leading-[20px]", "", "HHH مرحبا بالعالم", "", [3]int{18, 27, 37}},
+	{"leading-none", "", "HHH مرحبا بالعالم", "", [3]int{16, 25, 33}},
+	{"h-[36px] leading-[20px]", "rtl", "مرحبا بالعالم HHH", "", [3]int{22, 33, 44}},
+	{"h-[36px] leading-[20px]", "", "", "HHH مرحبا بالعالم", [3]int{23, 34, 45}},
+	{"leading-none", "", "", "HHH مرحبا بالعالم", [3]int{17, 25, 34}},
+	{"h-[36px] leading-[20px] placeholder:text-[10px]", "", "", "HHH", [3]int{23, 34, 45}},
+	{"h-[36px] leading-[20px] placeholder:text-[20px]", "", "", "HHH", [3]int{23, 34, 45}},
+	{"leading-none placeholder:text-[10px]", "", "", "HHH", [3]int{17, 25, 34}},
+	{"leading-none placeholder:text-[20px]", "", "", "HHH", [3]int{17, 25, 34}},
+	{"leading-[20px] placeholder:text-[10px]", "", "", "HHH", [3]int{18, 27, 37}},
+	{"leading-[20px] placeholder:text-[20px]", "", "", "HHH", [3]int{18, 27, 37}},
+	{"h-[36px] leading-[20px]", "", "HHH", "", [3]int{23, 34, 45}},
+}
+
+func TestChromiumInputFallbackBaselines(t *testing.T) {
+	for _, c := range inputFallbackCases {
+		for si, s := range []float32{1, 1.5, 2} {
+			name := fmt.Sprintf("x%g %s value %q placeholder %q", s, c.cls, c.val, c.ph)
+			props := []Child{Key("in"), Class("block box-border border-0 w-[240px] px-3 py-[4px] text-[14px] " + c.cls)}
+			if c.val != "" {
+				props = append(props, DefaultValue(c.val))
+			}
+			if c.ph != "" {
+				props = append(props, Placeholder(c.ph))
+			}
+			if c.dir != "" {
+				props = append(props, Dir(c.dir))
+			}
+			tr := NewTree(Config{Fonts: testFonts})
+			tr.SetViewport(gfx.Size{W: 300, H: 100})
+			tr.SetScale(s)
+			tr.Mount(div(Class("h-[50px] w-[300px]"), input(props...)))
+			tr.Frame()
+			f := fieldOf(t, tr, "in")
+			_, oy := f.textOrigin()
+			lay := f.layout()
+			base := oy + lay.Line(0).Baseline
+			if c.ph != "" {
+				ph := f.placeholder(f.bx.cs, f.textWidth())
+				base = oy + f.placeholderDY(lay, ph) + ph.Line(0).Baseline
+			}
+			b := float64(base) * float64(s)
+			row := func(eps float64) int { return int(math.Floor(b+0.5+eps)) - 1 }
+			if row(1e-3) != c.rows[si] && row(-1e-3) != c.rows[si] {
+				t.Errorf("%s: baseline at %.4f device px (H bottom row %d); Chromium's row %d", name, b, row(0), c.rows[si])
+			}
+			if h := f.bx.ld.Layout().Size.H; c.val != "" && math.Abs(float64(h-f.lineHeight(f.bx.cs)-8)) > 1e-3 && c.cls != "h-[36px] leading-[20px]" {
+				t.Errorf("%s: height %.4f, want one empty line and the padding", name, h)
+			}
+		}
+	}
+}
+
+// TestFieldFallbackBaselineGolden draws kit-like Inputs (h-9, text-sm:
+// line-height: normal) whose Latin font falls back to Noto Sans Arabic,
+// next to a Latin one: the Arabic value, a mixed value in a right-to-left
+// field and an Arabic placeholder sit in the middle of their boxes, on
+// the Latin field's baseline or one pixel above it, as in Chromium
+// (TestChromiumInputFallbackBaselines), not five pixels low.
+func TestFieldFallbackBaselineGolden(t *testing.T) {
+	field := "h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1 text-sm text-slate-900 placeholder:text-slate-500"
+	for _, scale := range []float32{1, 2} {
+		root := div(Class("flex h-full flex-col gap-2 bg-slate-50 p-3"),
+			input(Class(field), DefaultValue("Hello, world")),
+			input(Class(field), DefaultValue("مرحبا بالعالم")),
+			input(Class(field), Dir("rtl"), DefaultValue("البريد الإلكتروني ana@example.com")),
+			input(Class(field), Dir("rtl"), Placeholder("ابحث هنا")),
+		)
+		_, img := Render(root, RenderOptions{Config: Config{Fonts: testFonts}, Width: 240, Height: 180, Scale: scale})
+		golden.Image(t, fmt.Sprintf("field_fallback_baseline_x%g", scale), img)
 	}
 }
 

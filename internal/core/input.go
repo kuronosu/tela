@@ -601,7 +601,8 @@ func (t *Tree) drag(ps *pointerState, el *Element, k eventKind, u gesture.DragUp
 
 // NextDeadline reports when the tree needs TickGestures, in the backend
 // clock: a long press waiting for its timeout, overlay scrollbars
-// waiting to fade, a caret waiting to blink, a UseInterval due. ok is
+// waiting to fade, a caret waiting to blink, a UseInterval due, the
+// delay of a drag's autoscroll (fielddnd.go). ok is
 // false when nothing waits: an idle app arms no timer.
 func (t *Tree) NextDeadline() (at time.Duration, ok bool) {
 	at, ok = t.in.arena.NextDeadline()
@@ -612,6 +613,9 @@ func (t *Tree) NextDeadline() (at time.Duration, ok bool) {
 		at, ok = c, true
 	}
 	if c, has := t.intervalDeadline(); has && (!ok || c < at) {
+		at, ok = c, true
+	}
+	if c, has := t.dragAutoscrollDeadline(); has && (!ok || c < at) {
 		at, ok = c, true
 	}
 	return at, ok
@@ -627,6 +631,7 @@ func (t *Tree) TickGestures(now time.Duration) {
 	t.tickScroll(now)
 	t.tickCaret(now)
 	t.tickIntervals(now)
+	t.tickDragAutoscroll()
 }
 
 // resetInput forgets every pointer: presses end without events (the

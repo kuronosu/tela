@@ -31,6 +31,11 @@ import (
 // Chromium coalesces a whole typing run, Backspaces included, until the
 // selection changes, and has no timer; the kind, word and pause rules make
 // undo steps smaller, as in VS Code and ProseMirror.
+//
+// Linking: a step recorded with Command.JoinUndo (the insertFromDrop of a
+// move within the field) is linked to the step before it (its
+// deleteByDrag): undo reverts both and restores the selection before the
+// first, redo applies both, as one step of Chromium's DragAndDropCommand.
 
 // groupKind is the coalescing class of an edit.
 type groupKind uint8
@@ -48,6 +53,9 @@ type step struct {
 	before, after     vsel
 	kind              groupKind
 	time              time.Duration
+	// linked: undo and redo take this step together with the one before
+	// it (see Linking above).
+	linked bool
 }
 
 type history struct {
@@ -67,6 +75,9 @@ func (h *history) trim(limit int) {
 		k := copy(h.undo, h.undo[n:])
 		clear(h.undo[k:])
 		h.undo = h.undo[:k]
+		if k > 0 {
+			h.undo[0].linked = false // its partner was dropped
+		}
 	}
 	if len(h.redo) > limit {
 		// Redo pops from the end: keep the most recent undos, the end.
@@ -172,33 +183,42 @@ func (e *Editor) recordDiff(a, b string, before, after vsel) {
 
 func runeStartAt(s string, i int) bool { return i >= len(s) || utf8.RuneStart(s[i]) }
 
-// undo reverts the last step and returns the selection to restore.
+// undo reverts the last step, and the steps it is linked to, and returns
+// the selection to restore.
 func (e *Editor) undo() (vsel, bool) {
 	h := &e.hist
 	if len(h.undo) == 0 {
 		return vsel{}, false
 	}
-	st := h.undo[len(h.undo)-1]
-	h.undo[len(h.undo)-1] = step{}
-	h.undo = h.undo[:len(h.undo)-1]
-	e.value = e.value[:st.at] + st.removed + e.value[st.at+len(st.inserted):]
-	h.redo = append(h.redo, st)
-	h.open = false
-	return st.before, true
+	for {
+		st := h.undo[len(h.undo)-1]
+		h.undo[len(h.undo)-1] = step{}
+		h.undo = h.undo[:len(h.undo)-1]
+		e.value = e.value[:st.at] + st.removed + e.value[st.at+len(st.inserted):]
+		h.redo = append(h.redo, st)
+		h.open = false
+		if !st.linked || len(h.undo) == 0 {
+			return st.before, true
+		}
+	}
 }
 
-// redo applies the last undone step again and returns the selection to
-// restore.
+// redo applies the last undone step again, and the steps linked to it,
+// and returns the selection to restore.
 func (e *Editor) redo() (vsel, bool) {
 	h := &e.hist
 	if len(h.redo) == 0 {
 		return vsel{}, false
 	}
-	st := h.redo[len(h.redo)-1]
-	h.redo[len(h.redo)-1] = step{}
-	h.redo = h.redo[:len(h.redo)-1]
-	e.value = e.value[:st.at] + st.inserted + e.value[st.at+len(st.removed):]
-	h.undo = append(h.undo, st)
-	h.open = false
-	return st.after, true
+	for {
+		st := h.redo[len(h.redo)-1]
+		h.redo[len(h.redo)-1] = step{}
+		h.redo = h.redo[:len(h.redo)-1]
+		e.value = e.value[:st.at] + st.inserted + e.value[st.at+len(st.removed):]
+		h.undo = append(h.undo, st)
+		h.open = false
+		if len(h.redo) == 0 || !h.redo[len(h.redo)-1].linked {
+			return st.after, true
+		}
+	}
 }
