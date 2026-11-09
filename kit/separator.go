@@ -23,7 +23,25 @@ type SeparatorStyle struct {
 	Captioned map[Orientation]string
 	Caption   string
 	Line      map[Orientation]string
+	// LineShort is the line on the side of the caption that a CaptionAlign
+	// of CaptionStart or CaptionEnd makes short, by orientation.
+	LineShort map[Orientation]string
 }
+
+// CaptionAlign is where a [Separator]'s Caption sits on the line. The zero
+// value is the middle; start and end follow the direction (the caption of a
+// right-to-left page starts at the right), and in a Vertical separator they
+// are the top and the bottom.
+type CaptionAlign string
+
+const (
+	CaptionCenter CaptionAlign = ""
+	// CaptionStart puts the caption near the start of the line, after a short
+	// line.
+	CaptionStart CaptionAlign = "start"
+	// CaptionEnd puts it near the end, before a short line.
+	CaptionEnd CaptionAlign = "end"
+)
 
 func init() {
 	defaultStyle.Separator = SeparatorStyle{
@@ -41,6 +59,10 @@ func init() {
 			Horizontal: "h-px flex-1 bg-border",
 			Vertical:   "w-px flex-1 bg-border",
 		},
+		LineShort: map[Orientation]string{
+			Horizontal: "h-px w-6 shrink-0 bg-border",
+			Vertical:   "h-6 w-px shrink-0 bg-border",
+		},
 	}
 }
 
@@ -55,6 +77,11 @@ func init() {
 //
 //	kit.Separator{Caption: h.Text("Or continue with")}
 //
+// CaptionAlign moves the caption to the start or the end of the line, after
+// or before a short line, as a section heading does:
+//
+//	kit.Separator{Caption: h.Text("Yesterday"), CaptionAlign: kit.CaptionStart}
+//
 // The caption is text for the page, so a captioned separator is not hidden
 // from assistive technologies, and has no separator role (a separator's
 // children are presentational in ARIA, which would drop the text): the lines
@@ -65,6 +92,8 @@ type Separator struct {
 	// Caption is drawn in the middle of the line, between two lines that
 	// fill the rest of the width (or the height of a Vertical separator).
 	Caption tela.Component
+	// CaptionAlign is CaptionCenter (the default), CaptionStart or CaptionEnd.
+	CaptionAlign CaptionAlign
 	// Semantic makes the separator part of the accessibility tree, with
 	// the separator role and its orientation, for a line that divides
 	// sections of the content and not just decorates it. It has no effect
@@ -83,11 +112,18 @@ func (s Separator) Build() tela.Node {
 	r := &UseStyle().Separator
 	o := orientationOr(s.Orientation, Horizontal)
 	if s.Caption != nil {
-		line := func() tela.Child {
-			return h.Div(cls(pick("Separator", "Orientation", r.Line, o)), h.AriaHidden(true))
+		line := func(short bool) tela.Child {
+			lines := r.Line
+			if short {
+				lines = r.LineShort
+			}
+			return h.Div(cls(pick("Separator", "Orientation", lines, o)), h.AriaHidden(true))
+		}
+		if devMode() && s.CaptionAlign != CaptionCenter && s.CaptionAlign != CaptionStart && s.CaptionAlign != CaptionEnd {
+			panic("kit: Separator.CaptionAlign " + string(s.CaptionAlign) + " is not kit.CaptionCenter, kit.CaptionStart or kit.CaptionEnd")
 		}
 		return h.Div(cls(pick("Separator", "Orientation", r.Captioned, o), s.Class), s.Props,
-			line(), h.Div(cls(r.Caption, s.CaptionClass), s.Caption), line())
+			line(s.CaptionAlign == CaptionStart), h.Div(cls(r.Caption, s.CaptionClass), s.Caption), line(s.CaptionAlign == CaptionEnd))
 	}
 	kids := []tela.Child{cls(r.Root, pick("Separator", "Orientation", r.Orientations, o), s.Class), s.Props}
 	if s.Semantic {

@@ -28,6 +28,12 @@ type InputStyle struct {
 	// PadStart and PadEnd are added to the input to make room for the
 	// icons (an icon, its inset and a gap).
 	PadStart, PadEnd string
+	// Action is the box around an EndContent: at the end of the field,
+	// level with the text, taking pointer events (shadcn's
+	// InputGroupAddon with an InputGroupButton, which sits 0.45rem into
+	// the field's padding). ActionDisabled is added to it after, for a
+	// disabled field.
+	Action, ActionDisabled string
 }
 
 func init() {
@@ -37,14 +43,16 @@ func init() {
 			"disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30 " +
 			"focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 " +
 			"aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
-		Wrapper:      "relative flex w-full min-w-0",
-		Icon:         "pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 text-muted-foreground",
-		IconStart:    "start-3",
-		IconEnd:      "end-3",
-		IconDisabled: "peer-disabled:opacity-50",
-		IconInvalid:  "peer-aria-invalid:text-destructive",
-		PadStart:     "ps-9",
-		PadEnd:       "pe-9",
+		Wrapper:        "relative flex w-full min-w-0",
+		Icon:           "pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 text-muted-foreground",
+		IconStart:      "start-3",
+		IconEnd:        "end-3",
+		IconDisabled:   "peer-disabled:opacity-50",
+		IconInvalid:    "peer-aria-invalid:text-destructive",
+		PadStart:       "ps-9",
+		PadEnd:         "pe-9",
+		Action:         "absolute end-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1 text-muted-foreground",
+		ActionDisabled: "peer-disabled:opacity-50",
 	}
 }
 
@@ -60,6 +68,30 @@ func init() {
 //
 // Inside a [Field] the input takes the field's ID, so the field's label
 // names it, and is described by the field's description or error.
+//
+// EndContent puts a component inside the field at its end, where IconEnd
+// would be, and it takes pointer events: a button, a unit label, a spinner.
+// A password field with a button that shows what was typed:
+//
+//	shown, setShown := tela.UseState(false)
+//	typ := "password"
+//	if shown {
+//	    typ = "text"
+//	}
+//	kit.Input{Type: typ, AriaLabel: "Password",
+//	    EndContent: kit.Button{Variant: kit.Ghost, Size: kit.IconXs, Icon: lucide.Eye,
+//	        AriaLabel: "Show password", OnClick: func() { setShown.Set(!shown) }}}
+//
+// (shadcn's InputGroup with an InputGroupButton). The box is as tall as its
+// content and 6 px from the edge; the field keeps 36 px of padding for it,
+// the room of an icon-sized button (kit.IconXs, 24 px): for a wider piece of
+// content add a padding to InputClass ("pe-16"). A Disabled field dims it;
+// disable a button in it yourself. EndContent and IconEnd take the same
+// place: giving both panics in dev mode.
+//
+// A key for the field in a list goes on the component, tela.WithKey(kit.Input{...}, id),
+// which is the same with and without a wrapper; a Key in Props keys the
+// input element inside the component only.
 //
 // Icon puts an icon inside the field at its start (a magnifier in a search
 // box, an envelope in an email field) and IconEnd one at its end. Both are
@@ -103,8 +135,11 @@ type Input struct {
 	MaxLength int
 	// Icon is drawn inside the field at its start and IconEnd at its end.
 	Icon, IconEnd tela.Icon
-	// Class is added after the recipe's classes. With an Icon or IconEnd
-	// it is for the wrapper that holds the input and the icons, and
+	// EndContent is drawn inside the field at its end, over the input's
+	// padding; see above.
+	EndContent tela.Component
+	// Class is added after the recipe's classes. With an Icon, IconEnd or
+	// EndContent it is for the wrapper that holds the input and the icons, and
 	// InputClass is added to the input.
 	Class      string
 	InputClass string
@@ -115,10 +150,14 @@ type Input struct {
 // Build returns the input element.
 func (i Input) Build() tela.Node {
 	s := &UseStyle().Input
-	hasIcons := i.Icon != (tela.Icon{}) || i.IconEnd != (tela.Icon{})
+	if devMode() && i.EndContent != nil && i.IconEnd != (tela.Icon{}) {
+		panic("kit: Input has both IconEnd and EndContent, which take the same place: keep one (put the icon in the EndContent)")
+	}
+	hasEnd := i.IconEnd != (tela.Icon{}) || i.EndContent != nil
+	hasIcons := i.Icon != (tela.Icon{}) || hasEnd
 	inputClass := joinClass(s.Root, i.Class, i.InputClass)
 	if hasIcons {
-		inputClass = joinClass(s.Root, "peer", when(i.Icon != (tela.Icon{}), s.PadStart), when(i.IconEnd != (tela.Icon{}), s.PadEnd), i.InputClass)
+		inputClass = joinClass(s.Root, "peer", when(i.Icon != (tela.Icon{}), s.PadStart), when(hasEnd, s.PadEnd), i.InputClass)
 	}
 	kids := []tela.Child{h.Class(inputClass), i.Props}
 	if i.Type != "" {
@@ -133,7 +172,11 @@ func (i Input) Build() tela.Node {
 		return h.Input(kids...)
 	}
 	// The icons follow the input so that peer- variants see its state.
+	var action tela.Child
+	if i.EndContent != nil {
+		action = h.Div(cls(s.Action, s.ActionDisabled), i.EndContent)
+	}
 	return h.Div(cls(s.Wrapper, i.Class), h.Input(kids...),
 		icon(i.Icon, s.Icon, s.IconStart, s.IconDisabled, s.IconInvalid),
-		icon(i.IconEnd, s.Icon, s.IconEnd, s.IconDisabled, s.IconInvalid))
+		icon(i.IconEnd, s.Icon, s.IconEnd, s.IconDisabled, s.IconInvalid), action)
 }

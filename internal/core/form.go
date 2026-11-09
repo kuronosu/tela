@@ -231,7 +231,7 @@ func (t *Tree) checkLabels() {
 	labels := t.devLabels
 	t.devLabels = nil
 	for _, el := range labels {
-		if !el.mounted || t.labelControl(el) != nil {
+		if !el.mounted || t.labelControl(el) != nil || t.namesByLabelledBy(el) {
 			continue
 		}
 		id := forID(el.node.d)
@@ -252,6 +252,31 @@ func (t *Tree) checkLabels() {
 				el.node.d.describe(), t.labelText(el))
 		})
 	}
+}
+
+// namesByLabelledBy reports whether a mounted element is labelled by Label
+// el with aria-labelledby: a group of controls (a radio group) that a Field's
+// label names has no control for the label's For to point at, and is still
+// named by it. It walks the tree: only for a label that names nothing else,
+// in dev mode.
+func (t *Tree) namesByLabelledBy(label *Element) bool {
+	var walk func(el *Element) bool
+	walk = func(el *Element) bool {
+		if el.node.d != nil && el.node.d.aria != nil {
+			for _, ref := range el.node.d.aria.labelledBy {
+				if ref.el == label {
+					return true
+				}
+			}
+		}
+		for _, c := range el.children {
+			if c.kind != elemText && walk(c) {
+				return true
+			}
+		}
+		return false
+	}
+	return t.root != nil && walk(t.root)
 }
 
 // labelText returns the text inside label el, for messages (truncated).

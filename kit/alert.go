@@ -24,6 +24,10 @@ type AlertStyle struct {
 	WithIcon string
 	// Icon is what the Icon slot has.
 	Icon string
+	// WithAction is added to Root when the alert has an Action: room for
+	// the action at the end (shadcn's has-data-[slot=alert-action]:pr-18).
+	// Action is the box of the Action slot, at the top end corner.
+	WithAction, Action string
 	// Title and Description are the two texts, in the second column.
 	Title, Description string
 	// DescriptionVariants are added to Description per alert variant
@@ -42,6 +46,8 @@ func init() {
 			Info:        "border-sky-500/30 bg-sky-500/10 text-sky-800 dark:border-sky-400/30 dark:text-sky-300",
 		},
 		WithIcon:    "grid-cols-[1rem_1fr] gap-x-3",
+		WithAction:  "pe-18",
+		Action:      "absolute end-3 top-2.5",
 		Icon:        "size-4 translate-y-0.5 text-current",
 		Title:       "col-start-2 line-clamp-1 min-h-4 font-medium tracking-tight",
 		Description: "col-start-2 grid justify-items-start gap-1 text-sm text-muted-foreground",
@@ -66,6 +72,13 @@ func init() {
 // The variants are [Default] and [Destructive], as in shadcn, and the tones
 // [Success], [Warning] and [Info] that [Badge] has.
 //
+// Action puts a button (or a few) at the top end corner, shadcn's
+// AlertAction: a way to undo, retry or dismiss. The alert keeps 72 px free
+// at its end for it; a wider action needs a padding in Class ("pe-32").
+//
+//	kit.Alert{Title: h.Text("Update available"), Description: h.Text("Restart to install it."),
+//	    Action: kit.Button{Size: kit.Xs, Variant: kit.Outline, Children: h.Text("Restart")}}
+//
 // An alert has the alert role, as shadcn's does: a live region that
 // assistive technologies announce at once when it appears in the page, which
 // is right for an error that shows after the user did something. An alert
@@ -80,6 +93,9 @@ type Alert struct {
 	// Title is the first line, in medium weight; Description follows it
 	// in the muted color, and may be several lines or a few paragraphs.
 	Title, Description tela.Component
+	// Action is drawn at the top end corner of the alert, over the room the
+	// alert keeps for it; see above.
+	Action tela.Component
 	// Role is "alert" (the default), "status" or "note".
 	Role string
 	// Class is added after the recipe's classes. TitleClass and
@@ -109,6 +125,10 @@ func (a Alert) Build() tela.Node {
 	if a.Description != nil {
 		desc = h.Div(cls(s.Description, s.DescriptionVariants[a.Variant], a.DescriptionClass), a.Description)
 	}
-	return h.Div(cls(s.Root, pick("Alert", "Variant", s.Variants, a.Variant), when(hasIcon, s.WithIcon), a.Class),
-		h.Role(role), a.Props, icon(a.Icon, s.Icon), title, desc)
+	var action tela.Child
+	if a.Action != nil {
+		action = h.Div(cls(s.Action), a.Action)
+	}
+	return h.Div(cls(s.Root, pick("Alert", "Variant", s.Variants, a.Variant), when(hasIcon, s.WithIcon), when(a.Action != nil, s.WithAction), a.Class),
+		h.Role(role), a.Props, icon(a.Icon, s.Icon), title, desc, action)
 }

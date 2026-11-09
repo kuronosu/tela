@@ -109,6 +109,11 @@ func init() {
 //	    Children: kit.Input{Type: "password"},
 //	}
 //
+// The error takes rich content too: ErrorContent is drawn in place of Error.
+//
+//	kit.Field{Label: "Username", Children: kit.Input{},
+//	    ErrorContent: h.Span(h.Text("Taken. "), h.A(h.Class("underline"), h.Text("See suggestions")))}
+//
 // A group of controls (a [RadioGroup], a [ToggleGroup]) in a Field is named
 // by the field's label: the group is labelled by it (aria-labelledby), so it
 // needs no AriaLabel. To caption a group that has more than the one control
@@ -127,6 +132,12 @@ type Field struct {
 	// "Forgot password?". DescriptionEnd does the same by the description,
 	// such as a character counter.
 	LabelEnd, DescriptionEnd tela.Component
+	// ErrorContent is drawn in place of Error, for a message that is not
+	// plain text: a link, a list of what is wrong. It makes the field
+	// invalid, shows as an alert below the control and describes it like
+	// Error; with both, ErrorContent is drawn. Error should still say it in
+	// words where a string is wanted.
+	ErrorContent tela.Component
 	// Invalid makes the field invalid with no error message, such as when
 	// the message is shown elsewhere. A field with an Error is invalid
 	// already.
@@ -163,22 +174,23 @@ func (f Field) Build() tela.Node {
 	descRef, errRef, labelRef := tela.UseElementRef(), tela.UseElementRef(), tela.UseElementRef()
 	hasLabel := f.Label != "" || f.LabelContent != nil
 	hasDesc := f.Description != "" || f.DescriptionContent != nil
+	hasErr := f.Error != "" || f.ErrorContent != nil
 	var describedBy tela.ElementRef
 	switch {
-	case f.Error != "":
+	case hasErr:
 		describedBy = errRef
 	case hasDesc:
 		describedBy = descRef
 	}
 	vertical := f.Orientation != Horizontal
-	invalid := f.Invalid || f.Error != ""
+	invalid := f.Invalid || hasErr
 	// A group of controls inside the field is named by the label.
 	var groupName tela.ElementRef
 	if hasLabel {
 		groupName = labelRef
 	}
 
-	hasContent := !vertical && (hasDesc || f.Error != "")
+	hasContent := !vertical && (hasDesc || hasErr)
 	var label, desc, errNode tela.Child
 	if hasLabel {
 		var text tela.Component = f.LabelContent
@@ -197,7 +209,7 @@ func (f Field) Build() tela.Node {
 		if text == nil {
 			text = h.Text(f.Description)
 		}
-		withError := when(f.Error != "", s.DescriptionWithError)
+		withError := when(hasErr, s.DescriptionWithError)
 		if f.DescriptionEnd != nil {
 			desc = h.Div(cls(s.DescriptionRow, withError),
 				h.P(cls(s.Description, s.DescriptionInRow, f.DescriptionClass), h.Ref(descRef), text), f.DescriptionEnd)
@@ -205,8 +217,12 @@ func (f Field) Build() tela.Node {
 			desc = h.P(cls(s.Description, withError, f.DescriptionClass), h.Ref(descRef), text)
 		}
 	}
-	if f.Error != "" {
-		errNode = h.Div(cls(s.Error, f.ErrorClass), h.Role("alert"), h.Ref(errRef), h.Text(f.Error))
+	if hasErr {
+		var text tela.Component = f.ErrorContent
+		if text == nil {
+			text = h.Text(f.Error)
+		}
+		errNode = h.Div(cls(s.Error, f.ErrorClass), h.Role("alert"), h.Ref(errRef), text)
 	}
 
 	var body []tela.Child
