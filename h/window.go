@@ -18,8 +18,7 @@ import (
 // so it gets no fallback title bar where the OS draws none (GNOME on
 // Wayland; see tela.App). A click on the drag area that does not move the
 // window is a press outside the open overlays (a dismissable dialog or
-// popover closes) where the OS lets Tela tell a click from a drag: on
-// Wayland.
+// popover closes), on every platform.
 //
 //	Div(Class("flex h-10 items-center gap-2 px-3"), WindowDrag(),
 //	    Span(Class("grow text-sm font-medium"), Text("Notes")),

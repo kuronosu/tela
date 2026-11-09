@@ -205,9 +205,9 @@ type PointerEvent struct {
 // app hears of the click only to treat it as a press outside its open
 // overlays, as the browser treats a click on the page's background. It is
 // delivered at the release, at the pointer's position then (logical
-// pixels, as PointerEvent.Pos). Backends that hand the press to the OS's
-// move at once cannot tell a click from a drag and do not send it (see
-// "Custom title bars" in the package documentation).
+// pixels, as PointerEvent.Pos). Every backend sends it (contract v10,
+// ADR-257), each telling a click from a drag its own way (see "Custom
+// title bars" in the package documentation).
 type CaptionClickEvent struct {
 	Pos  Point
 	Time time.Duration

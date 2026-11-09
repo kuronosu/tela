@@ -180,8 +180,20 @@
 //     when unset), and other buttons and Control-clicks there are
 //     swallowed (macOS has no window menu). Neither the press nor its
 //     drags and release are delivered; a move without buttons ends the
-//     sequence. HitMinimize, HitMaximize, HitClose and HitClient regions
-//     are content; hover is delivered everywhere.
+//     sequence. performWindowDragWithEvent: returns at once and the
+//     release may never come, so the drag's press is followed through
+//     +[NSEvent pressedMouseButtons] and the cursor in the passes until
+//     the primary button is up (resize_darwin.go): a press that never
+//     left platform.CaptionDragThreshold and did not move the window is
+//     a CaptionClickEvent (ADR-252, ADR-257). HitResize… regions (the
+//     app's resize handles, ADR-257) start the backend's own resize loop
+//     while the window can be resized (not FixedSize, zoomed or in full
+//     screen): AppKit has no call that starts the window server's resize
+//     from an event, so the press's drags set the frame from the press's
+//     frame and the cursor's motion within the size limits, and the
+//     handles show the resize cursors (the arrow for diagonals before
+//     macOS 15). HitMinimize, HitMaximize, HitClose and HitClient
+//     regions are content; hover is delivered everywhere.
 //   - A child window is an AppKit child window (addChildWindow:ordered:
 //     NSWindowAbove) while it and its parent are shown, and is detached
 //     when hidden or closed: AppKit keeps it above the parent, moves it
@@ -204,9 +216,14 @@
 //     window opaque again. SetTitleBarColors does nothing.
 //   - Transparent windows (ADR-249; transparent_darwin.go): the frameless
 //     window non-opaque with a clear background, no shadow, not
-//     resizable, no backdrop; ignoresMouseEvents while the pointer is over
-//     a pixel under platform.InputAlpha, until a cursor poll finds the
-//     input mask again.
+//     resizable by AppKit (the app's resize handles are); ignoresMouseEvents
+//     while the pointer is over a pixel under platform.InputAlpha, until
+//     the cursor is over the input mask again, which a global monitor of
+//     mouse moves signals (ADR-257; a slow poll beside it, the 16 ms one
+//     without it); a resting cursor over such a pixel is let through at
+//     Present, windowDidMove: and windowDidResize:, so a press no move
+//     preceded is not swallowed. A backdrop is the material behind the
+//     input mask's shape (NSVisualEffectView.maskImage).
 //
 // # Input
 //

@@ -264,7 +264,8 @@ func TestDesktopEncodings(t *testing.T) {
 	e := &enc{}
 	e.images([]image.Image{icon, small})
 	regions := []platform.HitRegion{{Kind: platform.HitCaption, Rect: platform.Rect{W: 300, H: 32}},
-		{Kind: platform.HitClose, Rect: platform.Rect{X: 268, W: 32, H: 32}}}
+		{Kind: platform.HitClose, Rect: platform.Rect{X: 268, W: 32, H: 32}},
+		{Kind: platform.HitResizeLeft, Rect: platform.Rect{Y: 32, W: 5, H: 200}}}
 	e.regions(regions)
 	fd := platform.FileDialogOptions{Title: "Open", Directory: "/tmp", Name: "a.txt", Multiple: true,
 		Filters: []platform.FileFilter{{Name: "Text", Patterns: []string{"*.txt", "*.md"}}, {Name: "All", Patterns: []string{"*"}}}}

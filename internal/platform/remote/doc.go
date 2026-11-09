@@ -112,6 +112,9 @@
 //     launch forwarded by
 //     another process, or links and files the OS opened with the app)
 //     and Association.Role.
+//   - Platform contract v10 (protocol 14, ADR-257): the resize kinds of
+//     hit regions travel with the others; the host's real window starts
+//     the OS's resize from them.
 //   - Run returns an error when the connection is lost.
 //
 // The child's loop is internal/loop's (queue, coalesced wake, quit,

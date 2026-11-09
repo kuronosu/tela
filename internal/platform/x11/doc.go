@@ -99,9 +99,14 @@
 //     with the edge.
 //   - Hit regions: a press of any button in a HitCaption region, when the
 //     app holds no button, is the OS's: primary starts _NET_WM_MOVERESIZE
-//     move (a second one within content's double-click rule,
-//     platform.CaptionClicks: 500 ms, as the backend does not read
-//     XSETTINGS yet, and 5 logical pixels, toggles maximize), secondary sends
+//     move once the pointer leaves platform.CaptionDragThreshold, from
+//     the press's root position (the implicit grab of the press brings
+//     the moves meanwhile; GTK 3's client-side title bars wait the same
+//     way), and a release before that with no other button is a
+//     CaptionClickEvent (ADR-252, ADR-257); a second press within
+//     content's double-click rule (platform.CaptionClicks: 500 ms, as the
+//     backend does not read XSETTINGS yet, and 5 logical pixels) toggles
+//     maximize; secondary sends
 //     _GTK_SHOW_WINDOW_MENU (mutter, KWin, Xfwm4, Openbox) when
 //     _NET_SUPPORTED lists it. Before a move or menu request the implicit
 //     grab is released with UngrabPointer and XIUngrabDevice (an XI2
@@ -110,7 +115,9 @@
 //     grab yields a plain PointerLeave (no cancel: the app saw no press),
 //     and buttons the server no longer reports held end the sequence.
 //     Without _NET_WM_MOVERESIZE nothing moves, but the press is still
-//     not delivered.
+//     not delivered. HitResize… regions (the app's resize handles,
+//     ADR-257) act as the band does, after it, on any window that can be
+//     resized: the resize cursor, _NET_WM_MOVERESIZE with their edge.
 //   - Parents are WM_TRANSIENT_FOR; modal children also have
 //     _NET_WM_WINDOW_TYPE_DIALOG and _NET_WM_STATE_MODAL. Close closes the
 //     children first. RestoreToken is "": X11 restores by position.

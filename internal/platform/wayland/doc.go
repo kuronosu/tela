@@ -313,8 +313,11 @@
 // same), so a click that does not move never starts a compositor grab;
 // such a click (no other button pressed with it) is delivered at its
 // release as a CaptionClickEvent (ADR-252).
-// Secondary: show_window_menu at the pointer. Other regions, the window
-// button regions included, are the app's.
+// Secondary: show_window_menu at the pointer. HitResize… regions (the
+// app's resize handles, ADR-257) act as the band does, after it and on any
+// mapped window that can be resized (not maximized, fullscreen or
+// FixedSize), tiled sides included. Other regions, the window button
+// regions included, are the app's.
 //
 // Session restore. With xdg_session_manager_v1 the backend opens one
 // xdg_session_v1 per process at the first NewWindow (reason launch; the

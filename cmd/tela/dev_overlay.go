@@ -201,8 +201,12 @@ func (v *overlayView) pointer(w platform.Window, e platform.PointerEvent) bool {
 	return false
 }
 
-// compositeOver draws src, premultiplied and of dst's size, over the
-// opaque dst inside r.
+// compositeOver draws src, premultiplied and of dst's size, over dst
+// inside r (source over, both premultiplied). dst's alpha is kept as the
+// operator gives it, so over a transparent window (ADR-249) the panel is
+// opaque while the transparent pixels around it stay transparent (only
+// the panel's shadow and, for the full panel, the dimming tint them), and
+// the window's click-through mask follows (ADR-257).
 func compositeOver(dst, src *image.RGBA, r image.Rectangle) {
 	r = r.Intersect(dst.Rect).Intersect(src.Rect)
 	for y := r.Min.Y; y < r.Max.Y; y++ {
@@ -221,7 +225,7 @@ func compositeOver(dst, src *image.RGBA, r image.Rectangle) {
 			d[i] = uint8(uint32(s[i]) + (uint32(d[i])*k+127)/255)
 			d[i+1] = uint8(uint32(s[i+1]) + (uint32(d[i+1])*k+127)/255)
 			d[i+2] = uint8(uint32(s[i+2]) + (uint32(d[i+2])*k+127)/255)
-			d[i+3] = 255
+			d[i+3] = uint8(a + (uint32(d[i+3])*k+127)/255)
 		}
 	}
 }

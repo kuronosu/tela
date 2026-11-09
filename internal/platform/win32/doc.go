@@ -669,5 +669,14 @@
 // through its zero-alpha pixels; over the pixels under
 // platform.InputAlpha, WM_NCHITTEST sets WS_EX_TRANSPARENT and a 16 ms
 // WM_TIMER polls the cursor until it is over the input mask again or off
-// the window.
+// the window (ADR-257 keeps the poll: a low-level mouse hook would put
+// every desktop mouse move through the UI thread). Unless FixedSize it
+// has WS_THICKFRAME, for the sizing loop of the app's resize handles.
+//
+// The app's resize handles (HitResize… regions, ADR-257) answer HTLEFT and
+// the other resize codes from WM_NCHITTEST while the window can be
+// resized. A primary press in the app's caption runs DefWindowProc's move
+// loop, which returns at the release (and eats WM_NCLBUTTONUP); the
+// window rectangle, maximized state and cursor before and after tell a
+// click, reported as a CaptionClickEvent (captionPress).
 package win32

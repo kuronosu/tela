@@ -126,7 +126,8 @@ func TestWindowControlForwarded(t *testing.T) {
 	icon := image.NewNRGBA(image.Rect(0, 0, 16, 16))
 	icon.Pix[3] = 255
 	regions := []platform.HitRegion{{Kind: platform.HitCaption, Rect: platform.Rect{W: 120, H: 24}},
-		{Kind: platform.HitClose, Rect: platform.Rect{X: 96, W: 24, H: 24}}}
+		{Kind: platform.HitClose, Rect: platform.Rect{X: 96, W: 24, H: 24}},
+		{Kind: platform.HitResizeBottomRight, Rect: platform.Rect{X: 104, Y: 60, W: 16, H: 5}}} // protocol 14
 	a.ui(func() {
 		w.SetAlwaysOnTop(true)
 		w.SetMinSize(platform.Size{W: 60, H: 50})

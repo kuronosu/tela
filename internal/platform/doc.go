@@ -450,13 +450,20 @@
 //     Win32 the backend turns WM_NCMOUSEMOVE into PointerMove and reports
 //     no leave when the pointer crosses between client and caption areas.
 //     A primary click there that neither moved nor maximized the window
-//     (released inside the drag threshold, not the second click of a
+//     (released inside [CaptionDragThreshold], not the second click of a
 //     double click) is reported at its release as a [CaptionClickEvent]
 //     (contract v7, ADR-252), so the app can treat it as a press outside
-//     its open overlays. Only a backend that waits for the drag threshold
-//     before the move starts can tell: Wayland (8 logical pixels, GTK's)
-//     and headless send it, and remote forwards it; X11, Win32 and Cocoa
-//     give the press to the OS's move at once and send none.
+//     its open overlays. Every backend sends it (ADR-257), each the way
+//     its OS lets it tell a click from a drag: Wayland and X11 start the
+//     move only once the pointer leaves the threshold (xdg_toplevel.move
+//     with the press serial; _NET_WM_MOVERESIZE from the press's root
+//     position), Win32 compares the window rectangle, its maximized
+//     state and the cursor before and after DefWindowProc's move loop
+//     (which returns at the release and eats WM_NCLBUTTONUP), Cocoa
+//     follows the press it handed to performWindowDragWithEvent: (which
+//     returns at once, and whose release may never reach the window)
+//     through +[NSEvent pressedMouseButtons] and the cursor; headless
+//     fakes it and remote forwards it.
 //   - Pointer events over HitMinimize, HitMaximize and HitClose regions are
 //     delivered to the app as usual (presses, releases, moves): the app's
 //     buttons perform the action. The regions only give the OS their
@@ -467,6 +474,20 @@
 //     run its own button tracking. Other backends treat them as content.
 //   - HitClient regions are content again, punched into earlier regions
 //     (a search field inside the caption).
+//   - HitResizeTop to HitResizeBottomRight regions (contract v10,
+//     ADR-257; h.WindowResize marks them along the inside of a card's
+//     edges) are resize handles: where the window can be resized (not
+//     FixedSize, maximized or fullscreen) a press there is the OS's
+//     interactive resize from that side or corner and is not delivered
+//     with its sequence, and the backend shows the resize cursor
+//     ([Edge.Cursor]) over them, as over its own band, which takes
+//     precedence over them; elsewhere they are content. Wayland:
+//     xdg_toplevel.resize; X11: _NET_WM_MOVERESIZE; Win32: HTLEFT… from
+//     WM_NCHITTEST (a transparent window has WS_THICKFRAME for it);
+//     Cocoa: the backend's own loop of the press's drags setting the
+//     frame (AppKit has no window-server resize from an event; diagonal
+//     cursors are the arrow before macOS 15); headless records them
+//     (ResizeStarts).
 //
 // A WindowOptions.TitleBarOverlay window (ADR-224, ADR-225) is a custom
 // title bar with the OS's own window buttons: the content extends under a
@@ -501,7 +522,8 @@
 // composites the premultiplied alpha of Present's pixels, and the window
 // has no OS frame, shadow, border, rounded corners or resize edges (its
 // edges are usually the transparent margin around the app's content; the
-// app sizes it). [WindowState].Transparent reports whether the OS shows
+// app sizes it, and marks resize handles inside its card, contract v10).
+// [WindowState].Transparent reports whether the OS shows
 // the alpha. It is false where the OS cannot (X11 without a compositing
 // manager, a screen without a 32-bit visual), and may change while the
 // window is open (a compositing manager that starts or stops); the layers
@@ -522,17 +544,25 @@
 //     before the commit of the buffer it was computed from.
 //   - X11: the screen's 32-bit TrueColor visual with its colormap; the
 //     mask as the SHAPE 1.1 input shape; transparent while an owner of
-//     _NET_WM_CM_S<screen> exists, followed through its window's
-//     DestroyNotify and the MANAGER client message.
+//     _NET_WM_CM_S<screen> exists, followed through XFixes 2.0
+//     SelectSelectionInput (a manager that never sends MANAGER), its
+//     window's DestroyNotify and the MANAGER client message.
 //   - Win32: a WS_EX_LAYERED popup presented with
 //     UpdateLayeredWindowIndirect; Windows passes the pointer through
 //     zero alpha, and pixels under InputAlpha set WS_EX_TRANSPARENT until
 //     a cursor poll finds the mask again (HTTRANSPARENT only reaches
-//     windows of the same thread).
+//     windows of the same thread; a WH_MOUSE_LL hook would put every
+//     desktop mouse move through the UI thread, ADR-257). A Present that
+//     changes the mask under a resting cursor lets it through at once.
+//     No backdrop: DWM's materials need a frame DWM composes.
 //   - Cocoa: a non-opaque frameless window with a clear background and no
 //     shadow; the window server passes zero alpha through, and pixels
-//     under InputAlpha set ignoresMouseEvents until a cursor poll finds
-//     the mask again.
+//     under InputAlpha set ignoresMouseEvents until the cursor is over the
+//     mask again, which a global monitor of mouse moves signals (a slow
+//     poll stays for moves no app receives). Present, windowDidMove: and
+//     windowDidResize: let a resting cursor over faint pixels through
+//     before any press. A backdrop is the vibrancy material behind the
+//     mask's shape (NSVisualEffectView.maskImage).
 //   - Headless: the mask of the presented frames decides which injected
 //     pointer events are delivered (Options.NoCompositing and
 //     Window.SetCompositing play X11 without a compositing manager).
@@ -680,6 +710,11 @@
 // the app) and [Association].Role; backends no longer hold app-scoped
 // events until the first frame (core holds them until its first commit),
 // and WindowOptions.Position is moved onto the monitors present.
+//
+// Contract v10 (ADR-257) adds the resize handles of hit regions
+// ([HitResizeTop] to [HitResizeBottomRight], see "Custom title bars"),
+// caption clicks on every backend, and makes the Cocoa backend's backdrop
+// of a transparent window follow its input mask.
 //
 // # Drag and drop and the clipboard
 //
@@ -1553,7 +1588,8 @@
 // accessibility, see "Accessibility"), 10 with contract v6 (ADR-249:
 // transparent windows), 11 with contract v7 (ADR-252: caption clicks),
 // 12 with contract v8 (ADR-251: SetStrings),
-// 13 with contract v9 (ADR-253: launch sources, association roles):
+// 13 with contract v9 (ADR-253: launch sources, association roles),
+// 14 with contract v10 (ADR-257: resize handles):
 // everything is forwarded to the host's backend, which owns the real
 // windows: drags in both directions (the answer to a drag reaches the OS
 // one round trip late, so a drag entering a window is refused until the
