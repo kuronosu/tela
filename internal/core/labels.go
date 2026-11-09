@@ -219,15 +219,19 @@ func OnLabelsChanged(f func()) (cancel func()) {
 // ([Label]) and subscribes the component to the source: when
 // [LabelsChanged] runs, the component builds again. It is a hook.
 func UseLabels() func(id string, args ...any) string {
-	_, set := UseState(labels.version.Load())
-	UseEffect(func() func() {
+	v, set := UseState(labels.version.Load())
+	// Once per mount: a rebuild neither registers again nor queues an
+	// update that would wake the UI thread for nothing.
+	UseMount(func() func() {
 		catchUp := func() {
 			// Applies on the UI thread reading the version at that moment,
 			// so changes that race end on the latest one.
 			set.Update(func(uint64) uint64 { return labels.version.Load() })
 		}
 		cancel := OnLabelsChanged(catchUp)
-		catchUp() // a change between this build and the effect
+		if labels.version.Load() != v {
+			catchUp() // a change between the first build and the mount
+		}
 		return cancel
 	})
 	return Label

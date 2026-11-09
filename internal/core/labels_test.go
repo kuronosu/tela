@@ -118,3 +118,65 @@ func TestHostGivesTheBackendItsStrings(t *testing.T) {
 		t.Errorf("strings after LabelsChanged = %v", x.b.DesktopStrings())
 	}
 }
+
+// UseLabels subscribes once per mount: a rebuild neither registers its
+// listener again nor queues an update that wakes the UI thread, and a
+// change still builds the component again.
+func TestUseLabelsSubscribesOnce(t *testing.T) {
+	var set Setter[int]
+	builds := 0
+	comp := func() Node {
+		n, s := UseState(0)
+		set = s
+		builds++
+		label := UseLabels()
+		return Textf("%d %s", n, label("tela.toast.close"))
+	}
+	tr := devTree(t, Component(comp), nil)
+	frameAndFlush(tr)
+	labels.mu.Lock()
+	seq := labels.seq
+	labels.mu.Unlock()
+	for i := 1; i <= 3; i++ {
+		set.Set(i)
+		frameAndFlush(tr)
+		if tr.Dirty() {
+			t.Fatalf("after rebuild %d the tree has work queued", i)
+		}
+	}
+	labels.mu.Lock()
+	again := labels.seq - seq
+	labels.mu.Unlock()
+	if again != 0 {
+		t.Errorf("three rebuilds registered %d more listeners, want none", again)
+	}
+	before := builds
+	LabelsChanged()
+	if !tr.Dirty() {
+		t.Fatal("LabelsChanged queued no update")
+	}
+	frameAndFlush(tr)
+	if builds != before+1 {
+		t.Errorf("LabelsChanged built the component %d times, want once", builds-before)
+	}
+}
+
+// A change between a component's first build and its mount is caught up:
+// the component builds again with the new texts.
+func TestUseLabelsCatchesUpBeforeMount(t *testing.T) {
+	builds := 0
+	comp := func() Node {
+		builds++
+		label := UseLabels()
+		if builds == 1 {
+			LabelsChanged() // before the mount effect subscribes
+		}
+		return Text(label("tela.toast.close"))
+	}
+	tr := devTree(t, Component(comp), nil)
+	frameAndFlush(tr)
+	frameAndFlush(tr)
+	if builds != 2 {
+		t.Errorf("built %d times, want 2 (the change caught up once)", builds)
+	}
+}
