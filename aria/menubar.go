@@ -222,7 +222,7 @@ func UseMenuBar[K comparable](o MenuBarOptions[K]) MenuBarResult[K] {
 		}
 	}))
 	if o.ActivationKeys && !mac && !o.Disabled {
-		ps = append(ps, core.MenuBarKeys(func(core.KeyboardEvent) { b.activate() }))
+		ps = append(ps, core.MenuBarKeys(func(core.KeyboardEvent) bool { return b.activate() }))
 	}
 	return MenuBarResult[K]{
 		Props: core.MergeProps(ps...),
@@ -415,21 +415,22 @@ func (b *menuBar[K]) inside(r tela.ElementRef) bool {
 // activate is the bar's ActivationKeys: F10 or a lone Alt focuses the
 // first trigger (Windows highlights the first menu, without opening it),
 // remembering where the focus was; in the bar already, or with a menu
-// open, they leave it.
-func (b *menuBar[K]) activate() {
+// open, they leave it. It reports whether it did either.
+func (b *menuBar[K]) activate() bool {
 	if b.has || b.inside(activeOr(b.ref)) {
 		b.leave()
-		return
+		return true
 	}
 	k, ok := b.r.firstKey()
 	if !ok {
-		return
+		return false
 	}
 	b.origin.set(b.ref)
 	b.r.refFor(k).Focus()
 	// After the trigger's focus, whose handler leaves the origin alone
 	// (it came from outside) but not the mode.
 	b.keyMode = b.r.refFor(k).Focused()
+	return b.keyMode
 }
 
 // leave closes the open menu and gives the focus back to the element it

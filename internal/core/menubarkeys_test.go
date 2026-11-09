@@ -22,8 +22,8 @@ func menuBarKeysPage(log *[]string, prevent *bool) Node {
 					e.PreventDefault()
 				}
 			})),
-		div(Key("bar"), Class("h-8 w-40"), MenuBarKeys(func(e KeyboardEvent) { *log = append(*log, string(e.Key)) })),
-		div(Key("bar2"), Class("h-8 w-40"), MenuBarKeys(func(e KeyboardEvent) { *log = append(*log, "second:"+string(e.Key)) })),
+		div(Key("bar"), Class("h-8 w-40"), MenuBarKeys(func(e KeyboardEvent) bool { *log = append(*log, string(e.Key)); return true })),
+		div(Key("bar2"), Class("h-8 w-40"), MenuBarKeys(func(e KeyboardEvent) bool { *log = append(*log, "second:"+string(e.Key)); return true })),
 	)
 }
 
@@ -76,8 +76,13 @@ func TestMenuBarKeys(t *testing.T) {
 	// Nor with Ctrl held.
 	x.keys(keyEv(platform.KeyPress, platform.KeyAlt, platform.CodeAltLeft, platform.ModAlt|platform.ModCtrl),
 		keyEv(platform.KeyRelease, platform.KeyAlt, platform.CodeAltLeft, platform.ModCtrl))
+	// Nor with a wheel turned in between (Alt+wheel): Win32 counts
+	// WM_MOUSEWHEEL as an input that cancels the menu activation.
+	x.keys(alt(platform.KeyPress))
+	x.wheel(platform.ScrollEvent{Pos: platform.Point{X: px, Y: py}, Steps: platform.Point{Y: 1}, Mods: platform.ModAlt})
+	x.keys(alt(platform.KeyRelease))
 	if got := take(); got != "" {
-		t.Errorf("Alt with another key, a click or Ctrl: %q", got)
+		t.Errorf("Alt with another key, a click, Ctrl or a wheel: %q", got)
 	}
 	// Nor when the window loses the focus in between (Alt+Tab to another
 	// app): the backend's synthetic release does not count.
@@ -109,13 +114,36 @@ func TestMenuBarKeys(t *testing.T) {
 func TestMenuBarKeysSkipInert(t *testing.T) {
 	var log []string
 	root := div(
-		div(Key("bar"), Inert(true), Class("h-8"), MenuBarKeys(func(KeyboardEvent) { log = append(log, "inert") })),
-		div(Key("bar2"), Class("h-8"), MenuBarKeys(func(KeyboardEvent) { log = append(log, "live") })),
+		div(Key("bar"), Inert(true), Class("h-8"), MenuBarKeys(func(KeyboardEvent) bool { log = append(log, "inert"); return true })),
+		div(Key("bar2"), Class("h-8"), MenuBarKeys(func(KeyboardEvent) bool { log = append(log, "live"); return true })),
 	)
 	x := newKeys(t, root, 300, 200)
 	x.press(platform.KeyF10, platform.CodeF10, 0)
 	if got := strings.Join(log, " "); got != "live" {
 		t.Errorf("F10 reached %q", got)
+	}
+}
+
+// A bar that is not displayed (display:none, or in a subtree that is) does
+// not take the keys; the next one does. A bar whose handler takes nothing
+// (no trigger to focus) leaves the key unhandled.
+func TestMenuBarKeysSkipHidden(t *testing.T) {
+	var log []string
+	take := true
+	root := div(
+		div(Class("hidden"), div(Key("bar0"), Class("h-8"), MenuBarKeys(func(KeyboardEvent) bool { log = append(log, "nested"); return true }))),
+		div(Key("bar"), Class("hidden h-8"), MenuBarKeys(func(KeyboardEvent) bool { log = append(log, "hidden"); return true })),
+		div(Key("bar2"), Class("h-8"), MenuBarKeys(func(KeyboardEvent) bool { log = append(log, "shown"); return take })),
+	)
+	x := newKeys(t, root, 300, 200)
+	x.press(platform.KeyF10, platform.CodeF10, 0)
+	if got := strings.Join(log, " "); got != "shown" {
+		t.Errorf("F10 reached %q", got)
+	}
+	take = false
+	ke := KeyboardEvent{Key: KeyValue(platform.KeyF10)}
+	if x.tree().menuKeyDown(ke, &eventState{}) {
+		t.Error("F10 reported handled by a bar that took nothing")
 	}
 }
 

@@ -91,7 +91,7 @@ type desc struct {
 	overlay *OverlayOptions
 	inert   bool
 	// menuKeys is the MenuBarKeys prop (menubarkeys.go).
-	menuKeys func(KeyboardEvent)
+	menuKeys func(KeyboardEvent) bool
 	// animLayout is the AnimateLayout prop and layoutID the LayoutID
 	// prop (layoutanim.go).
 	animLayout bool

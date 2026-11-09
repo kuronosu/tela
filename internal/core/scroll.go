@@ -1083,6 +1083,9 @@ func (t *Tree) HandleScroll(e platform.ScrollEvent) {
 	}
 	g := &t.scr.wheel
 	if d != (gfx.Point{}) {
+		// Alt+wheel is no lone Alt (menubarkeys.go): Win32's menu
+		// activation is cancelled by a WM_MOUSEWHEEL too.
+		t.loneAlt = false
 		pos := gfx.Point{X: e.Pos.X, Y: e.Pos.Y}
 		target, _ := t.hitTest(pos)
 		if target == nil {
