@@ -4,21 +4,22 @@ All notable changes to Tela are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
 [Semantic Versioning](https://semver.org/) as Go modules use it: while Tela
 is v0, a release that breaks the public API raises the minor version and any
-other release (features, fixes, a roadmap phase) the patch version (ADR-208). Compatibility covers the public API only (`tela`,
+other release (features, fixes, a roadmap phase) the patch version; the owner may
+release a small break, such as a rename, as a patch (ADR-208). Compatibility covers the public API only (`tela`,
 `h`, the `tela` command's flags, the `Preview()`/`Previews` contract and the
 `tela inspect` JSON); everything under `internal/` may change at any time.
 In v0 a minor version may break the public API; such changes are listed
-under **Breaking**. See ADR-049 and ADR-208.
+under **Breaking**, as are the small breaks released in a patch. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
-## [0.15.0] - 2026-11-09
+## [0.14.1] - 2026-11-09
 
 Phase 21, Kit and window follow-ups (ADR-255 to ADR-259). It breaks `telatest.App.Move`.
 
 ### Breaking
 
-- `telatest.App.Move` is renamed `App.MoveWindow` (it moves the window; `MouseMove` moves the pointer). No deprecation cycle while Tela has no outside users (the owner's choice).
+- `telatest.App.Move` is renamed `App.MoveWindow` (it moves the window; `MouseMove` moves the pointer).
 
 ### Added
 
@@ -78,7 +79,7 @@ Phase 20, API and kit gaps (ADR-247 to ADR-254): submenus, transparent windows, 
 
 ### Breaking
 
-- `desktop.Launch.Forwarded` is removed: `Launch.Source` (`LaunchStart`, `LaunchForwarded`, `LaunchOpened`) replaces it and tells a forwarded launch from one the OS opened (ADR-253). The owner waived the deprecation cycle: the library has no outside users yet.
+- `desktop.Launch.Forwarded` is removed: `Launch.Source` (`LaunchStart`, `LaunchForwarded`, `LaunchOpened`) replaces it and tells a forwarded launch from one the OS opened (ADR-253).
 
 ## [0.13.7] - 2026-11-08
 
@@ -1025,8 +1026,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.15.0...HEAD
-[0.15.0]: https://github.com/kuronosu/tela/compare/v0.14.0...v0.15.0
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/kuronosu/tela/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/kuronosu/tela/compare/v0.13.7...v0.14.0
 [0.13.7]: https://github.com/kuronosu/tela/compare/v0.13.6...v0.13.7
 [0.13.6]: https://github.com/kuronosu/tela/compare/v0.13.5...v0.13.6

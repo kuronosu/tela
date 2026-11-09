@@ -9,7 +9,7 @@
 
 ## Current status
 
-- **Done:** phases 1–21. Latest version `v0.15.0` (2026-11-09, phase 21: kit and window follow-ups). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
+- **Done:** phases 1–21. Latest version `v0.14.1` (2026-11-09, phase 21: kit and window follow-ups). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch; the owner may release a small break, such as a rename, as a patch.
 - **Phase in progress:** none. Phase 21 is on `phase-21-kit-window-follow-ups`, to be merged into `main` locally; `main` and `v0.14.0` are not pushed yet.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
 - **Next step:** the next phase in order, Desktop, kit and text details. R11–R13 of the 2026-10-31 complexity review are still not started.
