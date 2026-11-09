@@ -96,11 +96,11 @@ func (p NameField) Build() tela.Node {
 	}
 }
 
-// PasswordField has a show/hide button over the end of the field: a ghost
-// icon kit.Button with AriaPressed and a kit.Tooltip that names what the
-// next press does. Type is just a prop, so toggling it swaps the dots for
-// the text without remounting the input. For a new account (New) it adds a
-// strength meter under the field.
+// PasswordField has a show/hide button inside the end of the field
+// (kit.Input's EndContent): a ghost icon kit.Button with AriaPressed and a
+// kit.Tooltip that names what the next press does. Type is just a prop, so
+// toggling it swaps the dots for the text without remounting the input. For
+// a new account (New) it adds a strength meter under the field.
 type PasswordField struct {
 	Password string
 	Set      tela.Setter[string]
@@ -122,22 +122,20 @@ func (p PasswordField) Build() tela.Node {
 	if p.New {
 		placeholder, complete = "At least 8 characters", "new-password"
 	}
-	field := Div(Class("relative"),
-		kit.Input{
-			Name: "password", Type: typ, Placeholder: placeholder,
-			Value: &password, OnValueChange: p.Set.Set,
-			Class: "pr-10", Props: AutoComplete(complete),
-		},
-		kit.Tooltip{
+	field := kit.Input{
+		Name: "password", Type: typ, Placeholder: placeholder,
+		Value: &password, OnValueChange: p.Set.Set,
+		Props: AutoComplete(complete),
+		EndContent: kit.Tooltip{
 			Trigger: kit.Button{
-				Type: "button", Variant: kit.Ghost, Size: kit.IconSm, Icon: icon,
-				AriaLabel: "Show password", Class: "absolute top-0.5 right-0.5 text-muted-foreground",
+				Type: "button", Variant: kit.Ghost, Size: kit.IconXs, Icon: icon,
+				AriaLabel: "Show password", Class: "text-muted-foreground", IconClass: "size-4",
 				Props:   AriaPressed(p.Show),
 				OnClick: tela.Toggle(p.SetShow),
 			},
 			Content: Text(tip),
 		},
-	)
+	}
 	if !p.New {
 		return kit.Field{Label: "Password", Error: p.Error, Children: field}
 	}
