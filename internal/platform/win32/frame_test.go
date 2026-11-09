@@ -277,3 +277,27 @@ func TestIconBGRA(t *testing.T) {
 		t.Errorf("scaled icon has opaque pixels %v and transparent pixels %v; want both", opaque, clear)
 	}
 }
+
+// A transparent window without MinSize has no minimum track size: Windows'
+// default (SM_CXMINTRACK by SM_CYMINTRACK) would grow a small one, which
+// has WS_THICKFRAME to be resizable. MinSize wins; a framed window keeps
+// the default.
+func TestMinTrack(t *testing.T) {
+	def := image.Pt(136, 39)
+	for _, c := range []struct {
+		name        string
+		minOuter    image.Point
+		hasMin      bool
+		transparent bool
+		want        image.Point
+	}{
+		{"framed, no MinSize", image.Point{}, false, false, def},
+		{"transparent, no MinSize", image.Point{}, false, true, image.Pt(1, 1)},
+		{"transparent with MinSize", image.Pt(60, 20), true, true, image.Pt(60, 20)},
+		{"framed with MinSize", image.Pt(300, 200), true, false, image.Pt(300, 200)},
+	} {
+		if got := minTrack(def, c.minOuter, c.hasMin, c.transparent); got != c.want {
+			t.Errorf("%s: %v, want %v", c.name, got, c.want)
+		}
+	}
+}

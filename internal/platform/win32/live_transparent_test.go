@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"testing"
+	"unsafe"
 
 	"github.com/kuronosu/tela/internal/platform"
 )
@@ -118,4 +119,41 @@ func TestTransparentWindow(t *testing.T) {
 	if !done {
 		t.Fatal("no frame")
 	}
+}
+
+// TestTransparentSmallWindow: a resizable transparent window (it has
+// WS_THICKFRAME) smaller than Windows' minimum tracking size has its size,
+// and without MinSize the sizing loop gets no minimum (minTrack).
+func TestTransparentSmallWindow(t *testing.T) {
+	b := liveBackend(t)
+	var w *Window
+	runLive(t, b, func() {
+		pw, err := b.NewWindow(platform.WindowOptions{Size: platform.Size{W: 100, H: 30}, Frameless: true, Transparent: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		w = pw.(*Window)
+	}, func(ew platform.Window, e platform.Event) {
+		if _, ok := e.(platform.FrameEvent); !ok {
+			return
+		}
+		if w.style&wsThickFrame == 0 {
+			t.Errorf("style %#x: a resizable transparent window has WS_THICKFRAME", w.style)
+		}
+		s := w.scale()
+		want := image.Pt(int(100*s+0.5), int(30*s+0.5))
+		if wr := getWindowRect(w.hwnd); int(wr.width()) != want.X || int(wr.height()) != want.Y {
+			t.Errorf("window %dx%d, want %v", wr.width(), wr.height(), want)
+		}
+		// The sizing loop's minimum: DefWindowProc's default
+		// (SM_CXMINTRACK, SM_CYMINTRACK) is replaced by one pixel.
+		cx, _, _ := procGetSystemMetrics.Call(34)
+		cy, _, _ := procGetSystemMetrics.Call(35)
+		mm := minMaxInfo{minTrackSize: point{int32(cx), int32(cy)}}
+		procSendMessageW.Call(w.hwnd, wmGetMinMaxInfo, 0, uintptr(unsafe.Pointer(&mm)))
+		if mm.minTrackSize != (point{1, 1}) {
+			t.Errorf("min track size %v (the default is %dx%d), want 1x1", mm.minTrackSize, cx, cy)
+		}
+		b.Quit()
+	})
 }

@@ -405,18 +405,23 @@ func (w *Window) onDPIChanged(wparam, lparam uintptr) {
 // onGetMinMaxInfo applies WindowOptions.MinSize and MaxSize (logical sizes
 // that follow the current DPI) as the outer track sizes; the minimum wins
 // where the maximum is below it. Windows clamps the maximized size to the
-// maximum track size too. A fullscreen window ignores the limits.
+// maximum track size too. A transparent window without MinSize has no
+// minimum (minTrack). A fullscreen window ignores the limits.
 func (w *Window) onGetMinMaxInfo(lparam uintptr) {
 	minSize, maxSize := w.opts.MinSize, w.opts.MaxSize
-	if w.fs != nil || (minSize == (platform.Size{}) && maxSize == (platform.Size{})) {
+	if w.fs != nil || (!w.opts.Transparent && minSize == (platform.Size{}) && maxSize == (platform.Size{})) {
 		return
 	}
 	mm := (*minMaxInfo)(ptrFromUintptr(lparam))
 	scale := w.scale()
+	var minOuter image.Point
 	if minSize != (platform.Size{}) {
 		outer := w.outerSize(clampPhysical(platform.PhysicalSize(minSize, scale)))
-		mm.minTrackSize = point{outer.width(), outer.height()}
+		minOuter = image.Pt(int(outer.width()), int(outer.height()))
 	}
+	def := image.Pt(int(mm.minTrackSize.x), int(mm.minTrackSize.y))
+	mt := minTrack(def, minOuter, minSize != (platform.Size{}), w.opts.Transparent)
+	mm.minTrackSize = point{int32(mt.X), int32(mt.Y)}
 	if maxSize.W > 0 || maxSize.H > 0 {
 		outer := w.outerSize(clampPhysical(platform.PhysicalSize(maxSize, scale)))
 		if maxSize.W > 0 {
