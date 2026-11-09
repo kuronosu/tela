@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`BackgroundGradientFn`](#func-backgroundgradientfn) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Label`](#func-label) · [`Labels`](#func-labels) · [`LabelsChanged`](#func-labelschanged) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`OpenPath`](#func-openpath) · [`OpenURL`](#func-openurl) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`Quit`](#func-quit) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetLabelSource`](#func-setlabelsource) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseAccentColor`](#func-useaccentcolor) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseCloseRequest`](#func-usecloserequest) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseHighContrast`](#func-usehighcontrast) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLabels`](#func-uselabels) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseNativeMenus`](#func-usenativemenus) · [`UseOnce`](#func-useonce) · [`UsePlatformKeys`](#func-useplatformkeys) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseQuitRequest`](#func-usequitrequest) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTextScale`](#func-usetextscale) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`UseWindow`](#func-usewindow) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`BackgroundGradientFn`](#func-backgroundgradientfn) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Label`](#func-label) · [`Labels`](#func-labels) · [`LabelsChanged`](#func-labelschanged) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`OpenPath`](#func-openpath) · [`OpenURL`](#func-openurl) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`Quit`](#func-quit) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`ResizeBand`](#func-resizeband) · [`ResizeEdges`](#func-resizeedges) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetLabelSource`](#func-setlabelsource) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseAccentColor`](#func-useaccentcolor) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseCloseRequest`](#func-usecloserequest) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseHighContrast`](#func-usehighcontrast) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLabels`](#func-uselabels) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseNativeMenus`](#func-usenativemenus) · [`UseOnce`](#func-useonce) · [`UsePlatformKeys`](#func-useplatformkeys) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseQuitRequest`](#func-usequitrequest) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTextScale`](#func-usetextscale) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`UseWindow`](#func-usewindow) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Initial`](#func-initial) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
@@ -34,6 +34,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type DragEvent`](#type-dragevent): [`CmdOrCtrl`](#func-dragevent-cmdorctrl) · [`DefaultPrevented`](#func-dragevent-defaultprevented) · [`PreventDefault`](#func-dragevent-preventdefault) · [`StopPropagation`](#func-dragevent-stoppropagation)
   - [`type DropEffect`](#type-dropeffect)
   - [`type Easing`](#type-easing): [`CubicBezier`](#func-cubicbezier)
+  - [`type Edge`](#type-edge): [`String`](#func-edge-string)
   - [`type ElementRef`](#type-elementref): [`UseElementRef`](#func-useelementref) · [`Blur`](#func-elementref-blur) · [`Bounds`](#func-elementref-bounds) · [`Click`](#func-elementref-click) · [`Focus`](#func-elementref-focus) · [`Focused`](#func-elementref-focused) · [`ScrollBy`](#func-elementref-scrollby) · [`ScrollIntoView`](#func-elementref-scrollintoview) · [`ScrollOffset`](#func-elementref-scrolloffset) · [`ScrollTo`](#func-elementref-scrollto) · [`ScrollToIndex`](#func-elementref-scrolltoindex) · [`Select`](#func-elementref-select) · [`SelectionRange`](#func-elementref-selectionrange) · [`SetSelectionRange`](#func-elementref-setselectionrange) · [`Value`](#func-elementref-value)
   - [`type FocusEvent`](#type-focusevent): [`DefaultPrevented`](#func-focusevent-defaultprevented) · [`PreventDefault`](#func-focusevent-preventdefault) · [`StopPropagation`](#func-focusevent-stoppropagation)
   - [`type Font`](#type-font): [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`Emoji`](#func-font-emoji) · [`Mono`](#func-font-mono) · [`Sans`](#func-font-sans) · [`Scripts`](#func-font-scripts) · [`Serif`](#func-font-serif)
@@ -59,6 +60,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type QuitRequestEvent`](#type-quitrequestevent): [`DefaultPrevented`](#func-quitrequestevent-defaultprevented) · [`PreventDefault`](#func-quitrequestevent-preventdefault)
   - [`type Rect`](#type-rect): [`Bottom`](#func-rect-bottom) · [`Contains`](#func-rect-contains) · [`Right`](#func-rect-right)
   - [`type Ref`](#type-ref): [`UseRef`](#func-useref)
+  - [`type ResizeOption`](#type-resizeoption): [`ResizeBand`](#func-resizeband) · [`ResizeEdges`](#func-resizeedges)
   - [`type SchemeColor`](#type-schemecolor)
   - [`type ScrollAlign`](#type-scrollalign): [`String`](#func-scrollalign-string)
   - [`type ScrollEvent`](#type-scrollevent): [`DefaultPrevented`](#func-scrollevent-defaultprevented) · [`PreventDefault`](#func-scrollevent-preventdefault) · [`StopPropagation`](#func-scrollevent-stoppropagation)
@@ -349,6 +351,17 @@ const (
 
 ```go
 const (
+    EdgeTop    = core.EdgeTop
+    EdgeBottom = core.EdgeBottom
+    EdgeLeft   = core.EdgeLeft
+    EdgeRight  = core.EdgeRight
+    // EdgeAll is the four sides, h.WindowResize's default.
+    EdgeAll = core.EdgeAll
+)
+```
+
+```go
+const (
     // BackdropDefault leaves the choice to the system: no material for a
     // plain window.
     BackdropDefault = core.BackdropDefault
@@ -365,6 +378,12 @@ const (
     BackdropAcrylic = core.BackdropAcrylic
 )
 ```
+
+```go
+const DefaultResizeBand = core.DefaultResizeBand
+```
+
+DefaultResizeBand is the width, in logical pixels, of h.WindowResize's band unless [`ResizeBand`](#func-resizeband) sets another.
 
 ## Variables
 
@@ -1639,8 +1658,10 @@ type App struct {
     // the root (RootClass: "p-12 flex items-center justify-center").
     // It needs Frameless (Run panics without it); the OS draws no shadow,
     // border or rounded corners for it, and its edges are not resize
-    // handles (the margin is transparent), so size it with Width and
-    // Height. Where the OS cannot show transparency (X11 without a
+    // handles (the margin is transparent): size it with Width and Height,
+    // and let the user resize it with h.WindowResize on the card. A
+    // Backdrop is a vibrancy material behind the card's shape on macOS,
+    // and ignored elsewhere. Where the OS cannot show transparency (X11 without a
     // compositing manager) the window is an opaque Frameless one, which
     // [WindowState].Transparent reports, read through [UseWindow]: an app
     // can give its root a background there. tela dev shows it as well.
@@ -2884,6 +2905,38 @@ _ = tela.Ease(tela.CubicBezier(0, 0, 0.2, 1))
 // Output:
 // cubic-bezier(0, 0, 0.2, 1)
 // cubic-bezier(0.34, 1.56, 0.64, 1)
+```
+
+### type Edge
+
+```go
+type Edge = core.Edge
+```
+
+Edge is a set of an element's sides, for [`ResizeEdges`](#func-resizeedges); combine them with \|.
+
+`Edge` is an alias of `core.Edge`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type Edge uint8
+```
+
+```go
+const (
+    EdgeTop Edge = 1 << iota
+    EdgeBottom
+    EdgeLeft
+    EdgeRight
+
+    // EdgeAll is the four sides.
+    EdgeAll = EdgeTop | EdgeBottom | EdgeLeft | EdgeRight
+)
+```
+
+#### func (Edge) String
+
+```go
+func (e Edge) String() string
 ```
 
 ### type ElementRef
@@ -4745,6 +4798,42 @@ renders := tela.UseRef(0)
 renders.Current++
 ```
 
+### type ResizeOption
+
+```go
+type ResizeOption = core.ResizeOption
+```
+
+ResizeOption configures h.WindowResize: [`ResizeBand`](#func-resizeband) and [`ResizeEdges`](#func-resizeedges).
+
+`ResizeOption` is an alias of `core.ResizeOption`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type ResizeOption struct {
+    // contains filtered or unexported fields
+}
+```
+
+#### func ResizeBand
+
+```go
+func ResizeBand(width float32) ResizeOption
+```
+
+ResizeBand sets the width of h.WindowResize's band in logical pixels (DefaultResizeBand when not given). It panics unless width is positive and finite.
+
+#### func ResizeEdges
+
+```go
+func ResizeEdges(edges Edge) ResizeOption
+```
+
+ResizeEdges sets the sides h.WindowResize makes resize handles of (EdgeAll when not given); a corner resizes diagonally where both of its sides do. It panics for no side.
+
+```go
+WindowResize(tela.ResizeEdges(tela.EdgeLeft | tela.EdgeRight)) // width only
+```
+
 ### type SchemeColor
 
 ```go
@@ -6179,8 +6268,10 @@ type Window struct {
     // the root (RootClass: "p-12 flex items-center justify-center").
     // It needs Frameless (the window panics without it); the OS draws no shadow,
     // border or rounded corners for it, and its edges are not resize
-    // handles (the margin is transparent), so size it with Width and
-    // Height. Where the OS cannot show transparency (X11 without a
+    // handles (the margin is transparent): size it with Width and Height,
+    // and let the user resize it with h.WindowResize on the card. A
+    // Backdrop is a vibrancy material behind the card's shape on macOS,
+    // and ignored elsewhere. Where the OS cannot show transparency (X11 without a
     // compositing manager) the window is an opaque Frameless one, which
     // [WindowState].Transparent reports, read through [UseWindow]: an app
     // can give its root a background there. tela dev shows it as well.

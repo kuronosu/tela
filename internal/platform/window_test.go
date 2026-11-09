@@ -70,13 +70,13 @@ func TestHitResize(t *testing.T) {
 	edges := []Edge{EdgeTop, EdgeBottom, EdgeLeft, EdgeRight,
 		EdgeTop | EdgeLeft, EdgeTop | EdgeRight, EdgeBottom | EdgeLeft, EdgeBottom | EdgeRight}
 	for i, k := range kinds {
-		if k.Edge() != edges[i] || HitResize(edges[i]) != k {
-			t.Errorf("%v: Edge %v, HitResize(%v) = %v", k, k.Edge(), edges[i], HitResize(edges[i]))
+		if KindEdge(k) != edges[i] || HitResize(edges[i]) != k {
+			t.Errorf("%v: KindEdge %v, HitResize(%v) = %v", k, KindEdge(k), edges[i], HitResize(edges[i]))
 		}
 	}
 	for _, k := range []HitKind{HitClient, HitCaption, HitMinimize, HitMaximize, HitClose, HitKind(99)} {
-		if k.Edge() != 0 {
-			t.Errorf("%v has edge %v", k, k.Edge())
+		if KindEdge(k) != 0 {
+			t.Errorf("%v has edge %v", k, KindEdge(k))
 		}
 	}
 	if HitResize(0) != HitClient || HitResize(EdgeLeft|EdgeRight) != HitClient {

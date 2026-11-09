@@ -140,7 +140,7 @@ type hitInput struct {
 
 // regionCode is the WM_NCHITTEST answer of the region kind k at a point.
 func (in *hitInput) regionCode(k platform.HitKind) uintptr {
-	if e := k.Edge(); e != 0 {
+	if e := platform.KindEdge(k); e != 0 {
 		if in.resizable {
 			return resizeHitCode(e)
 		}

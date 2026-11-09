@@ -130,8 +130,8 @@ const (
 	// resize from that side or corner, and the backend shows its resize
 	// cursor ([Edge.Cursor]), as over the backends' own band. Where the
 	// window cannot be resized (FixedSize, maximized, fullscreen) they
-	// are content. [HitKind.Edge] gives a kind's edge, [HitResize] the
-	// kind of an edge.
+	// are content. [KindEdge] gives a kind's edge, [HitResize] the kind
+	// of an edge.
 	HitResizeTop
 	HitResizeBottom
 	HitResizeLeft
@@ -150,9 +150,11 @@ var hitKindNames = [...]string{"client", "caption", "minimize", "maximize", "clo
 var hitEdges = [...]Edge{EdgeTop, EdgeBottom, EdgeLeft, EdgeRight,
 	EdgeTop | EdgeLeft, EdgeTop | EdgeRight, EdgeBottom | EdgeLeft, EdgeBottom | EdgeRight}
 
-// Edge returns the side or corner of a resize kind (HitResizeTop to
-// HitResizeBottomRight), 0 for every other kind.
-func (k HitKind) Edge() Edge {
+// KindEdge returns the side or corner of a resize kind (HitResizeTop to
+// HitResizeBottomRight), 0 for every other kind. (A function, not a
+// method: telatest re-exports HitKind, whose methods would show this
+// package's Edge type in its API.)
+func KindEdge(k HitKind) Edge {
 	if k >= HitResizeTop && k <= HitResizeBottomRight {
 		return hitEdges[k-HitResizeTop]
 	}
@@ -171,9 +173,9 @@ func HitResize(e Edge) HitKind {
 }
 
 // HitEdge returns the edge of the resize region on top at p
-// (HitTest(regions, p).Edge()), 0 when the region there is not a resize
-// handle. Backends call it only for windows that can be resized.
-func HitEdge(regions []HitRegion, p Point) Edge { return HitTest(regions, p).Edge() }
+// (KindEdge(HitTest(regions, p))), 0 when the region there is not a
+// resize handle. Backends call it only for windows that can be resized.
+func HitEdge(regions []HitRegion, p Point) Edge { return KindEdge(HitTest(regions, p)) }
 
 func (k HitKind) String() string {
 	if int(k) < len(hitKindNames) {
