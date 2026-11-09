@@ -302,7 +302,7 @@ func (b *Backend) pump() {
 			w.applyControl()
 			w.pollPassing() // a transparent window letting the pointer through
 		}
-		b.passEnded() // launch_darwin.go: the launches held for the first pass
+		b.passEnded() // launch_darwin.go: the launches the claims forwarded
 	}()
 	b.menusAfterPass()
 	idle := !b.loop.Ready()

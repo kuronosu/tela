@@ -167,9 +167,39 @@ func (h *Host) desktop() *hostDesktop {
 	return h.desk
 }
 
-// appEvent delivers an app-scoped event (a notification's or a tray
-// icon's) to the listeners of package desktop.
+// appEvent delivers an app-scoped event (a notification's, a tray icon's,
+// a launch) to the listeners of package desktop. Before the main window's
+// first commit nothing is listening yet: the components that listen mount
+// their listeners in the effects of that commit (UseLaunch, Tray,
+// AppMenuBar, GlobalShortcut). So the events that come earlier are held
+// (h.early) and delivered in order right after it (releaseEarly): one rule
+// for every backend, whatever the OS sends before the first frame (a
+// launch forwarded before Run, the file that started a macOS app, a
+// shortcut's status).
 func (h *Host) appEvent(e platform.Event) {
+	if !h.main.committed {
+		h.early = append(h.early, e)
+		return
+	}
+	h.deliverApp(e)
+}
+
+// releaseEarly delivers the app-scoped events held until the main
+// window's first commit, once it happened. It runs after each event
+// (HandleEvent), outside every handler and frame.
+func (h *Host) releaseEarly() {
+	if len(h.early) == 0 || !h.main.committed || h.ended {
+		return
+	}
+	early := h.early
+	h.early = nil
+	for _, e := range early {
+		h.deliverApp(e)
+	}
+}
+
+// deliverApp runs the listeners of package desktop with e.
+func (h *Host) deliverApp(e platform.Event) {
 	if h.desk == nil {
 		return
 	}

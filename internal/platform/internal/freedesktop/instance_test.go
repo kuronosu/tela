@@ -72,7 +72,7 @@ func TestClaimInstance(t *testing.T) {
 		t.Fatalf("second ClaimInstance = %v, %v; want false", primary, err)
 	}
 	e, ok := first.event("the forwarded launch").(platform.LaunchEvent)
-	if !ok || !slices.Equal(e.Launch.Args, l.Args) || e.Launch.Dir != l.Dir || e.Launch.Token != l.Token {
+	if !ok || !slices.Equal(e.Launch.Args, l.Args) || e.Launch.Dir != l.Dir || e.Launch.Token != l.Token || e.Source != platform.LaunchForwarded {
 		t.Fatalf("event = %#v, want LaunchEvent %+v", e, l)
 	}
 	// A launch without arguments.
@@ -89,15 +89,15 @@ func TestClaimInstance(t *testing.T) {
 	if err := obj.Call(ifaceApplication+".Activate", 0, map[string]dbus.Variant{"activation-token": dbus.MakeVariant("tok-a")}).Err; err != nil {
 		t.Fatalf("Activate: %v", err)
 	}
-	if e := first.event("Activate").(platform.LaunchEvent); e.Launch.Args != nil || e.Launch.Token != "tok-a" {
-		t.Errorf("Activate gave %+v", e.Launch)
+	if e := first.event("Activate").(platform.LaunchEvent); e.Launch.Args != nil || e.Launch.Token != "tok-a" || e.Source != platform.LaunchOpened {
+		t.Errorf("Activate gave %+v (%v)", e.Launch, e.Source)
 	}
 	if err := obj.Call(ifaceApplication+".Open", 0, []string{"file:///tmp/a%20b.txt", "notes:x"},
 		map[string]dbus.Variant{"desktop-startup-id": dbus.MakeVariant("tok-x11")}).Err; err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	if e := first.event("Open").(platform.LaunchEvent); !slices.Equal(e.Launch.Args, []string{"/tmp/a b.txt", "notes:x"}) || e.Launch.Token != "tok-x11" {
-		t.Errorf("Open gave %+v", e.Launch)
+	if e := first.event("Open").(platform.LaunchEvent); !slices.Equal(e.Launch.Args, []string{"/tmp/a b.txt", "notes:x"}) || e.Launch.Token != "tok-x11" || e.Source != platform.LaunchOpened {
+		t.Errorf("Open gave %+v (%v)", e.Launch, e.Source)
 	}
 	if err := obj.Call(ifaceApplication+".ActivateAction", 0, "quit", []dbus.Variant{}, map[string]dbus.Variant{}).Err; err == nil {
 		t.Error("ActivateAction succeeded; the app has no actions")

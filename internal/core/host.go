@@ -182,6 +182,9 @@ type Host struct {
 	// later is work deferred to the next WakeEvent (a window that must not
 	// close under its own tree's dispatch, window.go).
 	later []func()
+	// early are the app-scoped events that came before the main window's
+	// first commit, delivered after it (desktop.go, appEvent).
+	early []platform.Event
 	// desk is package desktop's state (desktop.go), nil until used.
 	desk *hostDesktop
 	// services are the backend's OS services, read once on the UI thread
@@ -272,7 +275,8 @@ func (h *Host) Presents() int { return h.main.presents }
 func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 	h.handle(w, e)
 	h.commitPaused()
-	h.syncAccess() // access.go: the accessibility bridges' updates
+	h.releaseEarly() // desktop.go: app-scoped events from before the first commit
+	h.syncAccess()   // access.go: the accessibility bridges' updates
 }
 
 // handle handles one event of the backend.
@@ -670,6 +674,7 @@ func (h *Host) frame(v *winView, now time.Duration) {
 		}()
 	}
 	t.SetScale(float32(m.Scale)) // box edges snap to device pixels
+	defer func() { v.committed = true }() // after the effects below
 	_, changed := t.Frame()
 	defer t.FlushEffects()
 	full := false

@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -21,8 +22,8 @@ import (
 )
 
 // The launch tests: application:openURLs: sent to the app delegate
-// directly (what AppKit does with Launch Services' Apple Event), the hold
-// of the launches until the first pass, and single instance between this
+// directly (what AppKit does with Launch Services' Apple Event), a launch
+// before Run, and single instance between this
 // test process and a helper process (the test binary run again with
 // TELA_COCOA_INSTANCE_HELPER set).
 
@@ -51,6 +52,9 @@ func TestOpenURLs(t *testing.T) {
 			if inCall {
 				t.Errorf("the LaunchEvent was delivered from inside application:openURLs:")
 			}
+			if le.Source != platform.LaunchOpened {
+				t.Errorf("Launch Services' launch has Source %v, want opened", le.Source)
+			}
 			t.Logf("launch: %+v", le.Launch)
 			got = append(got, le.Launch)
 			return true
@@ -63,10 +67,12 @@ func TestOpenURLs(t *testing.T) {
 	}
 }
 
-// TestLaunchHeldForFirstPass: a launch that reaches the backend before
-// its first delivery pass ended (one forwarded before Run, the Apple Event
-// of the start) is delivered after the first frame.
-func TestLaunchHeldForFirstPass(t *testing.T) {
+// TestLaunchBeforeRun: a launch that reaches the backend before Run (the
+// Apple Event of the start comes while [NSApp run] finishes launching) is
+// delivered in Run's passes, before or after the first frame: core holds
+// the app-scoped events until the first commit (ADR-253), not the
+// backend.
+func TestLaunchBeforeRun(t *testing.T) {
 	b := newBackend(t)
 	var order []string
 	onMain(func() {
@@ -74,7 +80,7 @@ func TestLaunchHeldForFirstPass(t *testing.T) {
 			t.Errorf("NewWindow: %v", err)
 			return
 		}
-		b.launch(platform.Launch{Args: []string{"early"}})
+		b.openedLaunch(platform.Launch{Args: []string{"early"}})
 		timer := time.AfterFunc(15*time.Second, b.Quit)
 		defer timer.Stop()
 		_ = b.Run(platform.HandlerFunc(func(w platform.Window, e platform.Event) {
@@ -91,8 +97,8 @@ func TestLaunchHeldForFirstPass(t *testing.T) {
 		}))
 	})
 	t.Logf("order: %v", order)
-	if len(order) < 2 || order[0] != "frame" || order[len(order)-1] != "[early]" {
-		t.Errorf("events %v, want the first frame, then the launch", order)
+	if !slices.Contains(order, "[early]") {
+		t.Errorf("events %v, want the launch delivered", order)
 	}
 }
 
@@ -177,7 +183,10 @@ func TestClaimInstanceProcesses(t *testing.T) {
 		}()
 	}, func(w *Window, e platform.Event) bool {
 		if le, ok := e.(platform.LaunchEvent); ok {
-			t.Logf("launch: %+v", le.Launch)
+			t.Logf("launch: %+v (%v)", le.Launch, le.Source)
+			if le.Source != platform.LaunchForwarded {
+				t.Errorf("the helper's launch has Source %v, want forwarded", le.Source)
+			}
 			got = append(got, le.Launch)
 			w.ActivateWithToken(le.Launch.Token) // what desktop.SingleInstance does
 			activatedAt = time.Now()

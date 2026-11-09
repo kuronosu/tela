@@ -282,7 +282,7 @@ func (d desktop) ClaimInstance(appID string, launch platform.Launch) (bool, erro
 func (b *Backend) receiveLaunch(l platform.Launch) {
 	b.mu.Lock()
 	b.desktop.launches = append(b.desktop.launches, l.Clone())
-	b.loop.Enqueue(nil, platform.LaunchEvent{Launch: l})
+	b.loop.Enqueue(nil, platform.LaunchEvent{Launch: l, Source: platform.LaunchForwarded})
 	b.mu.Unlock()
 	b.signal()
 }

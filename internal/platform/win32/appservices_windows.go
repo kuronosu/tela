@@ -420,7 +420,7 @@ func (b *Backend) onCopyData(lparam uintptr) uintptr {
 	if err != nil {
 		return 0
 	}
-	b.enqueue(nil, platform.LaunchEvent{Launch: launch})
+	b.enqueue(nil, platform.LaunchEvent{Launch: launch, Source: platform.LaunchForwarded})
 	b.notify()
 	return 1
 }

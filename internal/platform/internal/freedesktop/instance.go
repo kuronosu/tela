@@ -27,13 +27,15 @@ import (
 // specifies):
 //
 //   - dev.telaui.Instance.Launch(as args, s dir, s token): a launch
-//     forwarded by a second process, delivered as a LaunchEvent.
+//     forwarded by a second process, delivered as a LaunchEvent
+//     (LaunchForwarded).
 //   - org.freedesktop.Application (Activate, Open, ActivateAction), so
 //     the desktop's own launchers reach the running instance too: a
 //     .desktop file with DBusActivatable=true, and tools such as
 //     "gapplication launch". Activate is a LaunchEvent without
 //     arguments, Open one whose Args are the URIs (file: URIs as local
-//     paths, like a command line), both with the platform_data's
+//     paths, like a command line), both LaunchOpened (the desktop, not a
+//     process of the app, asks) and with the platform_data's
 //     activation-token (or desktop-startup-id) as Token; the app has no
 //     actions, so ActivateAction is an error. Tela does not install the
 //     D-Bus service file that DBusActivatable needs (package assoc writes
@@ -142,15 +144,15 @@ func ownerGone(err error) bool {
 // exportInstance exports the Launch method and org.freedesktop.Application
 // at path; incoming calls run on godbus goroutines and queue LaunchEvents.
 func (d *Desktop) exportInstance(conn *dbus.Conn, path dbus.ObjectPath) error {
-	launch := func(l platform.Launch) {
+	launch := func(l platform.Launch, src platform.LaunchSource) {
 		if len(l.Args) == 0 {
 			l.Args = nil
 		}
-		d.push(item{ev: platform.LaunchEvent{Launch: l}})
+		d.push(item{ev: platform.LaunchEvent{Launch: l, Source: src}})
 	}
 	if err := conn.ExportMethodTable(map[string]any{
 		"Launch": func(args []string, dir, token string) *dbus.Error {
-			launch(platform.Launch{Args: args, Dir: dir, Token: token})
+			launch(platform.Launch{Args: args, Dir: dir, Token: token}, platform.LaunchForwarded)
 			return nil
 		},
 	}, path, ifaceInstance); err != nil {
@@ -158,7 +160,7 @@ func (d *Desktop) exportInstance(conn *dbus.Conn, path dbus.ObjectPath) error {
 	}
 	if err := conn.ExportMethodTable(map[string]any{
 		"Activate": func(data map[string]dbus.Variant) *dbus.Error {
-			launch(platform.Launch{Token: platformDataToken(data)})
+			launch(platform.Launch{Token: platformDataToken(data)}, platform.LaunchOpened)
 			return nil
 		},
 		"Open": func(uris []string, data map[string]dbus.Variant) *dbus.Error {
@@ -169,7 +171,7 @@ func (d *Desktop) exportInstance(conn *dbus.Conn, path dbus.ObjectPath) error {
 					args[i] = p
 				}
 			}
-			launch(platform.Launch{Args: args, Token: platformDataToken(data)})
+			launch(platform.Launch{Args: args, Token: platformDataToken(data)}, platform.LaunchOpened)
 			return nil
 		},
 		"ActivateAction": func(action string, _ []dbus.Variant, _ map[string]dbus.Variant) *dbus.Error {

@@ -155,9 +155,12 @@ func (a *App) FailShortcuts(err error) {
 
 // InjectLaunch plays the user starting the app again while it runs, as
 // a single-instance app sees it (desktop.SingleInstance): the new process
-// forwards l (its Args and Dir; Forwarded is ignored) and exits, the main
-// window comes to the front (shown if hidden), and every desktop.UseLaunch
-// handler gets the launch. The app settles.
+// forwards l (its Args and Dir) and exits, the main window comes to the
+// front (shown if hidden), and every desktop.UseLaunch handler gets the
+// launch, with Source LaunchForwarded. With l.Source LaunchOpened it plays
+// the OS opening links or files with the running app instead (macOS
+// Launch Services: a link clicked, a file opened from the Finder), which
+// needs no SingleInstance. The app settles.
 //
 //	app := telatest.MountApp(t, desktop.SingleInstance(App))
 //	app.InjectLaunch(desktop.Launch{Args: []string{"notes:open?id=3"}})
@@ -165,6 +168,11 @@ func (a *App) FailShortcuts(err error) {
 func (a *App) InjectLaunch(l desktop.Launch) {
 	a.tb.Helper()
 	a.mustRun()
+	if l.Source == desktop.LaunchOpened {
+		a.backend.InjectApp(platform.LaunchEvent{Launch: platform.Launch{Args: slices.Clone(l.Args), Dir: l.Dir}, Source: platform.LaunchOpened})
+		a.settleAfter()
+		return
+	}
 	if len(a.backend.Instances()) == 0 {
 		// The single instance the app would have claimed when Run started
 		// (telatest does not call Run). The fake's registry is shared by

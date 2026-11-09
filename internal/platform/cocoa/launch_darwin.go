@@ -38,20 +38,19 @@ import (
 // schemes or document types, the system hands it the URLs and files the
 // user opens with it (a link clicked in another app, a file opened from
 // the Finder) as an Apple Event, which AppKit gives the app delegate's
-// application:openURLs:. Each call is one LaunchEvent: file URLs as their
-// paths, other URLs as they are, Dir the working directory, no token.
-// That happens whether or not the app claimed single instance: Launch
-// Services sends a running app the event instead of starting a second
-// process. A launch at the start of the app (the user opened a file to
-// start it) comes as the same Apple Event, while [NSApp run] finishes
-// launching, after the start's own Launch was taken (CurrentLaunch, whose
-// Args do not hold it): it is a LaunchEvent like the later ones, so the
-// layers above see it as a launch after the start (desktop.UseLaunch's
-// Forwarded). Launches that reach the backend before its first delivery
-// pass has ended (that one, and those forwarded by a second process
-// before Run) are held until it has: the first pass delivers the main
-// window's first frame, whose commit mounts the listeners of the layers
-// above, which would otherwise miss them.
+// application:openURLs:. Each call is one LaunchEvent with Source
+// LaunchOpened: file URLs as their paths, other URLs as they are, Dir the
+// working directory, no token. That happens whether or not the app
+// claimed single instance: Launch Services sends a running app the event
+// instead of starting a second process. A launch at the start of the app
+// (the user opened a file to start it) comes as the same Apple Event,
+// while [NSApp run] finishes launching, after the start's own Launch was
+// taken (CurrentLaunch, whose Args do not hold it): it is a LaunchOpened
+// like the later ones (desktop.UseLaunch's LaunchOpened), and launches
+// forwarded by a second process are LaunchForwarded. Every launch is
+// delivered when it arrives: core holds the app-scoped events that come
+// before the app's first commit, whose effects mount the listeners of the
+// layers above (ADR-253), so the backend holds none.
 //
 // AppKit also turns the command-line arguments of an unbundled program
 // into application:openURLs: calls (NSTreatUnknownArgumentsAsOpen), which
@@ -63,8 +62,6 @@ import (
 type launchState struct {
 	appID  string                    // SetAppID's, "" until then
 	claims map[string]*instanceClaim // by app ID
-	passed bool                      // a delivery pass has ended
-	held   []platform.Launch         // launches waiting for passed
 
 	// forwarded is the one part used off the main thread, by the claims'
 	// goroutines, under its lock.
@@ -130,38 +127,26 @@ type forwardedQueue struct {
 	closed bool // Run returned
 }
 
-// launch delivers l as an app-scoped LaunchEvent, or holds it until the
-// first delivery pass has ended. Main thread.
-func (b *Backend) launch(l platform.Launch) {
+// openedLaunch delivers l, the URLs Launch Services handed the app, as an
+// app-scoped LaunchEvent (LaunchOpened). Main thread.
+func (b *Backend) openedLaunch(l platform.Launch) {
 	if b.closed {
 		return
 	}
-	if !b.desk.launch.passed {
-		b.desk.launch.held = append(b.desk.launch.held, l)
-		b.notify()
-		return
-	}
-	b.appEvent(platform.LaunchEvent{Launch: l})
+	b.appEvent(platform.LaunchEvent{Launch: l, Source: platform.LaunchOpened})
 }
 
 // passEnded runs after every delivery pass (inside it): it takes the
-// launches the claims forwarded, and queues them with those held for the
-// first pass, once that has ended, as LaunchEvents of the next pass,
-// which pump then signals.
+// launches the claims forwarded and queues them as LaunchEvents
+// (LaunchForwarded) of the next pass, which pump then signals.
 func (b *Backend) passEnded() {
-	st := &b.desk.launch
 	q := &b.desk.launch.forwarded
 	q.Lock()
 	taken := q.items
 	q.items = nil
 	q.Unlock()
-	if !st.passed {
-		st.passed = true
-		taken = append(st.held, taken...)
-		st.held = nil
-	}
 	for _, l := range taken {
-		b.enqueue(nil, platform.LaunchEvent{Launch: l})
+		b.enqueue(nil, platform.LaunchEvent{Launch: l, Source: platform.LaunchForwarded})
 	}
 }
 
@@ -177,7 +162,6 @@ func (b *Backend) stopInstances() {
 		c.close()
 		delete(b.desk.launch.claims, id)
 	}
-	b.desk.launch.held = nil
 }
 
 // yieldActivation lets the first process (pid) take the activation from
@@ -244,7 +228,7 @@ func applicationOpenURLs(_ darwin.ID, _ darwin.SEL, _ darwin.ID, urls darwin.ID)
 			}
 		}
 		if len(l.Args) > 0 {
-			b.launch(l)
+			b.openedLaunch(l)
 		}
 	})
 }

@@ -288,7 +288,8 @@ func (b *Backend) Trays() []TrayRecord {
 // be one a real backend could deliver: an open notification and an
 // existing action; an existing tray and an enabled item without a
 // submenu; a bound shortcut; a status for a registered shortcut (which it
-// records); a launch for a backend that claimed an instance; an enabled
+// records); a forwarded launch for a backend that claimed an instance (a
+// LaunchOpened needs none); an enabled
 // item without a submenu of the app's menu bar or app items. A
 // NotificationClosed marks the notification closed. Safe from any
 // goroutine.
@@ -334,9 +335,14 @@ func (b *Backend) InjectApp(e platform.Event) {
 	case platform.ShortcutStatusEvent:
 		problem = b.applyShortcutStatus(e)
 	case platform.LaunchEvent:
-		if len(b.desktop.instances) == 0 {
-			problem = "the backend claimed no instance (ClaimInstance)"
-		} else {
+		switch {
+		case e.Source > platform.LaunchOpened:
+			problem = fmt.Sprintf("invalid Source %d", e.Source)
+		case e.Source == platform.LaunchForwarded && len(b.desktop.instances) == 0:
+			// Links and files the OS opens with the app (LaunchOpened)
+			// need no claim.
+			problem = "the backend claimed no instance (ClaimInstance), which a forwarded launch needs"
+		default:
 			e.Launch = e.Launch.Clone()
 			b.desktop.launches = append(b.desktop.launches, e.Launch.Clone())
 			queued = e

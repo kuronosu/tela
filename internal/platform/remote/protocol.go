@@ -46,7 +46,9 @@ import (
 //     WindowState.Transparent.
 //   - 11: platform contract v7 (ADR-252): CaptionClickEvent.
 //   - 12: platform contract v8 (ADR-251): Desktop.SetStrings.
-const ProtocolVersion = 12
+//   - 13: platform contract v9 (ADR-253): LaunchEvent.Source and
+//     Association.Role.
+const ProtocolVersion = 13
 
 // magic opens the hello message.
 const magic = "TELA"
@@ -494,6 +496,7 @@ func (e *enc) event(ev platform.Event) {
 	case platform.LaunchEvent:
 		e.u8(evLaunch)
 		e.launch(ev.Launch)
+		e.u8(uint8(ev.Source)) // version 11
 	case platform.QuitRequestedEvent:
 		e.u8(evQuitRequested)
 	case platform.AppMenuEvent:
@@ -623,7 +626,7 @@ func (d *dec) event() platform.Event {
 	case evShortcutStatus:
 		return platform.ShortcutStatusEvent{ID: d.str(), Status: platform.ShortcutStatus(d.u8()), Trigger: d.str(), Reason: d.str()}
 	case evLaunch:
-		return platform.LaunchEvent{Launch: d.launch()}
+		return platform.LaunchEvent{Launch: d.launch(), Source: platform.LaunchSource(d.u8())}
 	case evQuitRequested:
 		return platform.QuitRequestedEvent{}
 	case evAppMenu:

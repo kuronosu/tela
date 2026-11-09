@@ -105,6 +105,9 @@
 //     on it, so it follows the child's pixels.
 //   - Platform contract v7 (protocol 11, ADR-252): CaptionClickEvent is
 //     input like a pointer event, for the active child window.
+//   - Platform contract v9 (protocol 13, ADR-253): LaunchEvent.Source (a launch forwarded by
+//     another process, or links and files the OS opened with the app)
+//     and Association.Role.
 //   - Run returns an error when the connection is lost.
 //
 // The child's loop is internal/loop's (queue, coalesced wake, quit,

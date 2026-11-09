@@ -9,7 +9,6 @@ import (
 	"image/png"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -230,8 +229,8 @@ func TestUseLaunch(t *testing.T) {
 	app.ExpectText("launches: 1")
 	app.ExpectWindowState(telatest.Hidden(false))
 	l := got[0]
-	if !l.Forwarded {
-		t.Error("a forwarded launch has Forwarded false")
+	if l.Source != desktop.LaunchForwarded {
+		t.Errorf("a forwarded launch has Source %v", l.Source)
 	}
 	if want := []string{"notes:open?id=3", "https://example.com/x"}; !slices.Equal(l.URLs(), want) {
 		t.Errorf("URLs = %q, want %q", l.URLs(), want)
@@ -251,7 +250,7 @@ func TestUseLaunchStart(t *testing.T) {
 	listener := func(name string) tela.Component {
 		return tela.C(func() tela.Node {
 			desktop.UseLaunch(func(l desktop.Launch) {
-				got = append(got, name+":"+strings.Join(l.Files(), ",")+":"+strconv.FormatBool(l.Forwarded))
+				got = append(got, name+":"+strings.Join(l.Files(), ",")+":"+l.Source.String())
 			})
 			return nil
 		})
@@ -267,16 +266,25 @@ func TestUseLaunchStart(t *testing.T) {
 	app.Click(telatest.ByRole("button", "Later"))
 	app.Click(telatest.ByRole("button", "Later"))
 	app.Click(telatest.ByRole("button", "Later"))
-	want := []string{"a:" + list + ":false", "b:" + list + ":false"}
+	want := []string{"a:" + list + ":start", "b:" + list + ":start"}
 	if !slices.Equal(got, want) {
 		t.Errorf("launches %q, want %q", got, want)
 	}
 	got = nil
 	app.InjectLaunch(desktop.Launch{Dir: other, Args: []string{"y"}})
 	y := filepath.Join(other, "y")
-	want = []string{"a:" + y + ":true", "b:" + y + ":true", "c:" + y + ":true"}
+	want = []string{"a:" + y + ":forwarded", "b:" + y + ":forwarded", "c:" + y + ":forwarded"}
 	if slices.Sort(got); !slices.Equal(got, want) {
 		t.Errorf("forwarded launch %q, want %q", got, want)
+	}
+	// A file the OS opens with the app (macOS Launch Services) is
+	// LaunchOpened, not a launch of another process (ADR-253).
+	got = nil
+	opened := filepath.Join(other, "z.note")
+	app.InjectLaunch(desktop.Launch{Args: []string{opened}, Source: desktop.LaunchOpened})
+	want = []string{"a:" + opened + ":opened", "b:" + opened + ":opened", "c:" + opened + ":opened"}
+	if slices.Sort(got); !slices.Equal(got, want) {
+		t.Errorf("opened launch %q, want %q", got, want)
 	}
 }
 

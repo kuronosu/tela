@@ -49,12 +49,43 @@ func CurrentLaunch() Launch {
 	return l
 }
 
-// LaunchEvent is delivered, with a nil Window, to the first instance of an
-// app that claimed single instance ([Desktop.ClaimInstance]) when another
-// process of the app was started: the app opens what Launch.Args name and
-// raises a window with Launch.Token.
+// LaunchEvent is delivered, with a nil Window, when the app is asked to
+// open something while it runs: to the first instance of an app that
+// claimed single instance ([Desktop.ClaimInstance]) when another process of
+// the app was started (LaunchForwarded), and to any app the OS hands links
+// or files (LaunchOpened). The app opens what Launch.Args name and raises a
+// window with Launch.Token.
 type LaunchEvent struct {
 	Launch Launch
+	// Source says where the launch comes from.
+	Source LaunchSource
+}
+
+// LaunchSource says where a [LaunchEvent] comes from.
+type LaunchSource uint8
+
+const (
+	// LaunchForwarded: another process of the app was started and
+	// forwarded its own launch (its command line) to this one, the single
+	// instance (Desktop.ClaimInstance), then exited.
+	LaunchForwarded LaunchSource = iota
+	// LaunchOpened: the OS handed the running app links or files to open,
+	// without another process of the app: macOS Launch Services (a link
+	// clicked in another app, a file opened from the Finder, the Dock or
+	// "Open With", including the one that started the app, which arrives
+	// after the start), and on Linux the org.freedesktop.Application
+	// Activate and Open calls of the desktop's launchers.
+	LaunchOpened
+)
+
+func (s LaunchSource) String() string {
+	switch s {
+	case LaunchForwarded:
+		return "forwarded"
+	case LaunchOpened:
+		return "opened"
+	}
+	return "LaunchSource(invalid)"
 }
 
 // CheckAppID panics with an actionable message if id cannot identify an

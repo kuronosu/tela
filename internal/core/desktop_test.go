@@ -1,11 +1,13 @@
 package core
 
 import (
+	"fmt"
 	"image"
 	"strings"
 	"testing"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/headless"
 )
 
 // The app-scoped events of the backend reach the listeners of package
@@ -44,6 +46,57 @@ func TestDesktopListen(t *testing.T) {
 	}
 	if a, b := d.Local("k", func() any { return 1 }), d.Local("k", func() any { return 2 }); a != 1 || b != 1 {
 		t.Errorf("Local = %v then %v, want 1 twice", a, b)
+	}
+}
+
+// TestAppEventsBeforeFirstCommit (ADR-253): app-scoped events the backend
+// delivers before the main window's first commit (a launch forwarded
+// before Run, the file that started a macOS app) reach the listeners that
+// the components mount in that commit's effects, in order, on every
+// backend; later events are delivered at once.
+func TestAppEventsBeforeFirstCommit(t *testing.T) {
+	for _, hidden := range []bool{false, true} {
+		t.Run(map[bool]string{false: "shown", true: "hidden"}[hidden], func(t *testing.T) {
+			var got []string
+			root := Component(func() Node {
+				w := UseWindow()
+				UseMount(func() func() {
+					d, ok := DesktopOf(w)
+					if !ok {
+						t.Error("DesktopOf(main) false in the first commit")
+						return nil
+					}
+					return d.Listen(func(e platform.Event) {
+						if le, ok := e.(platform.LaunchEvent); ok {
+							got = append(got, strings.Join(le.Launch.Args, ","))
+						}
+					})
+				})
+				return div(Text("x"))
+			})
+			b := headless.New(headless.Options{Size: platform.Size{W: 200, H: 100}})
+			h, err := NewHost(b, Options{Root: root, Fonts: testFonts, Window: WindowSpec{Hidden: hidden}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(h.stopTimer)
+			if _, err := b.Desktop().ClaimInstance(fmt.Sprintf("core.test-%p", b), platform.Launch{}); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(b.ReleaseInstances)
+			b.InjectApp(platform.LaunchEvent{Launch: platform.Launch{Args: []string{"one"}}})
+			b.InjectApp(platform.LaunchEvent{Launch: platform.Launch{Args: []string{"two"}}, Source: platform.LaunchOpened})
+			x := &winHarness{t: t, b: b, h: h}
+			x.drain()
+			if strings.Join(got, " ") != "one two" {
+				t.Fatalf("listeners got %q, want the two early launches in order", got)
+			}
+			b.InjectApp(platform.LaunchEvent{Launch: platform.Launch{Args: []string{"three"}}})
+			x.drain()
+			if strings.Join(got, " ") != "one two three" {
+				t.Errorf("listeners got %q after a later launch", got)
+			}
+		})
 	}
 }
 

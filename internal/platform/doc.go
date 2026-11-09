@@ -883,8 +883,14 @@
 // call forwards the process's [Launch] (arguments, working directory,
 // activation token: [CurrentLaunch]) to the first process and returns
 // false, and the caller exits with status 0. The first process receives
-// the launch as an app-scoped [LaunchEvent] and raises a window with
-// [Window.ActivateWithToken]. The claim ends when the process exits.
+// the launch as an app-scoped [LaunchEvent] (Source LaunchForwarded) and
+// raises a window with [Window.ActivateWithToken]. The claim ends when the
+// process exits. Links and files the OS hands the running app itself
+// (macOS Launch Services, also at the start; Linux launchers through
+// org.freedesktop.Application) are LaunchEvents with Source LaunchOpened,
+// delivered as soon as they arrive: the layers above hold the app-scoped
+// events that come before the app's first commit (ADR-253), so backends
+// hold none.
 //
 // # Registration of schemes and file types
 //
@@ -1484,9 +1490,10 @@
 // next one to get the lock. ActivateWithToken ignores the token. Launch
 // Services (phase 15): the app delegate's application:openURLs: (a link
 // or a file opened with the bundled app, also the one that starts it) is
-// a LaunchEvent, file URLs as paths, with or without single instance;
-// launches that arrive before the first delivery pass ended wait for it,
-// and AppKit's opening of command-line arguments
+// a LaunchEvent with Source LaunchOpened, file URLs as paths, with or
+// without single instance, delivered when it arrives (core holds what
+// comes before the first commit, ADR-253), and AppKit's opening of
+// command-line arguments
 // (NSTreatUnknownArgumentsAsOpen) is off. Associations (phase 15): package assoc, on the app
 // bundle of HandlerApp.Exec (else the running executable), whose
 // CFBundleIdentifier must be the app ID: CFBundleURLTypes and

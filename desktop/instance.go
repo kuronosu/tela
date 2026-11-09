@@ -13,21 +13,55 @@ import (
 	"github.com/kuronosu/tela/internal/platform"
 )
 
-// Launch is how the app was started: the command-line arguments and the
-// working directory of a process of the app. [UseLaunch] gives the app its
-// own start's, and, with [SingleInstance], those of every later start
-// that another process forwarded: a file opened from a file manager, a
-// deep link such as "notes:open?id=3" clicked in a browser.
+// Launch is a request to open something: the command-line arguments and
+// the working directory of a process of the app, or the links and files
+// the OS opened with it. [UseLaunch] gives the app its own start's, with
+// [SingleInstance] those of every later start that another process
+// forwarded (a file opened from a file manager, a deep link such as
+// "notes:open?id=3" clicked in a browser), and on macOS the links and
+// files Launch Services hands the app. Source says which.
 type Launch struct {
-	// Args are the command-line arguments after the program's name.
+	// Args are the command-line arguments after the program's name, or
+	// the links and files opened (files as paths).
 	Args []string
 	// Dir is the working directory of the process that was started, for
 	// relative paths in Args.
 	Dir string
-	// Forwarded reports a launch of another process of the app, which
-	// [SingleInstance] forwarded to this one and exited; false for this
-	// process's own start.
-	Forwarded bool
+	// Source says where the launch comes from: this process's own start,
+	// another process of the app, or the OS.
+	Source LaunchSource
+}
+
+// LaunchSource says where a [Launch] comes from.
+type LaunchSource uint8
+
+const (
+	// LaunchStart is this process's own start: its command line.
+	LaunchStart LaunchSource = iota
+	// LaunchForwarded is another process of the app, started while this
+	// one runs, which [SingleInstance] forwarded to this one before it
+	// exited: its command line.
+	LaunchForwarded
+	// LaunchOpened is the OS handing the running app links or files to
+	// open, without another process of the app (Electron's open-url and
+	// open-file events): on macOS a link clicked in another app or a file
+	// opened from the Finder, the Dock or Open With, including the one
+	// that started the app, which arrives just after the start (whose Args
+	// are then empty); on Linux the desktop's launchers that call the
+	// running instance over D-Bus (org.freedesktop.Application).
+	LaunchOpened
+)
+
+func (s LaunchSource) String() string {
+	switch s {
+	case LaunchStart:
+		return "start"
+	case LaunchForwarded:
+		return "forwarded"
+	case LaunchOpened:
+		return "opened"
+	}
+	return "LaunchSource(invalid)"
 }
 
 // URLs returns the arguments that are URLs, in order: any "scheme:…"
@@ -112,8 +146,16 @@ func hasScheme(a, scheme string) bool {
 	return len(a) > len(scheme) && a[len(scheme)] == ':' && strings.EqualFold(a[:len(scheme)], scheme)
 }
 
-func launchOf(l platform.Launch, forwarded bool) Launch {
-	return Launch{Args: slices.Clone(l.Args), Dir: l.Dir, Forwarded: forwarded}
+func launchOf(l platform.Launch, src LaunchSource) Launch {
+	return Launch{Args: slices.Clone(l.Args), Dir: l.Dir, Source: src}
+}
+
+// launchSource returns the Source of a platform LaunchEvent.
+func launchSource(e platform.LaunchEvent) LaunchSource {
+	if e.Source == platform.LaunchOpened {
+		return LaunchOpened
+	}
+	return LaunchForwarded
 }
 
 // The process-wide state of the start of Run (runStart).
@@ -251,10 +293,14 @@ func (r instanceRoot) Build() tela.Node {
 }
 
 // UseLaunch calls f, on the UI thread, with each launch of the app: once
-// with the process's own start, after the component mounts, and with
-// every later start that [SingleInstance] forwarded to this process
-// (Launch.Forwarded). Use Launch.Files and Launch.URLs to open what the
-// user asked for:
+// with the process's own start, after the component mounts
+// (LaunchStart), with every later start that [SingleInstance] forwarded
+// to this process (LaunchForwarded), and with the links and files the OS
+// opens with the running app (LaunchOpened: macOS Launch Services, also
+// the file that started the app, just after the start). Launches that
+// arrive before the app's first frame wait for it, so the UseLaunch calls
+// of the first frame get them. Use Launch.Files and Launch.URLs to open
+// what the user asked for:
 //
 //	desktop.UseLaunch(func(l desktop.Launch) {
 //	    for _, p := range l.Files() {
@@ -281,7 +327,7 @@ func UseLaunch(f func(Launch)) {
 		}
 		st := d.Local(startStateKey{}, func() any { return &startState{} }).(*startState)
 		if l, ok := startLaunch(); ok && !st.given {
-			cur.Current(launchOf(l, false))
+			cur.Current(launchOf(l, LaunchStart))
 			if !st.closing {
 				// Every UseLaunch mounted in this commit gets it: their
 				// effects run before posted functions.
@@ -291,7 +337,7 @@ func UseLaunch(f func(Launch)) {
 		}
 		return d.Listen(func(e platform.Event) {
 			if le, ok := e.(platform.LaunchEvent); ok {
-				cur.Current(launchOf(le.Launch, true))
+				cur.Current(launchOf(le.Launch, launchSource(le)))
 			}
 		})
 	})

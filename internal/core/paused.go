@@ -136,6 +136,7 @@ func (h *Host) commitView(v *winView, now time.Duration) {
 		v.win.RequestFrame() // delivered once the window shows
 	}
 	t.FlushEffects()
+	v.committed = true
 }
 
 // PausedWork reports whether a window that gets no frames (hidden,

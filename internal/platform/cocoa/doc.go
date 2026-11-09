@@ -408,12 +408,13 @@
 //     gets an error and runs on its own. Run's return closes the listener
 //     (removing the socket) and releases the lock.
 //   - Launches: the app delegate's application:openURLs: (the URLs and
-//     files Launch Services hands a bundled app) is one LaunchEvent, file
-//     URLs as paths, whether or not the app claimed single instance; the
-//     URLs that start the app come the same way, after the start's own
-//     Launch. Launches that arrive before the first delivery pass ended
-//     wait for it, so the listeners mounted with the first frame get them.
-//     NSTreatUnknownArgumentsAsOpen is registered as NO, so AppKit does
+//     files Launch Services hands a bundled app) is one LaunchEvent
+//     (LaunchOpened), file URLs as paths, whether or not the app claimed
+//     single instance; the URLs that start the app come the same way,
+//     after the start's own Launch, and a second process's are
+//     LaunchForwarded. Every launch is delivered when it arrives: core
+//     holds the app-scoped events that come before the first commit
+//     (ADR-253). NSTreatUnknownArgumentsAsOpen is registered as NO, so AppKit does
 //     not turn the command-line arguments into launches too.
 //
 // # Menus and quitting

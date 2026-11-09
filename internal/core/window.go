@@ -222,6 +222,10 @@ type winView struct {
 	// the backend time before which no other such commit runs.
 	sized, stale bool
 	commitAt     time.Duration
+	// committed: the tree's first commit (a frame or a commit without
+	// frames) ran, with its effects; the main window's ends the hold of
+	// the app-scoped events (Host.appEvent).
+	committed bool
 	// fbTrimAt is the backend time at which fb, which has more room than
 	// its size needs after a resize, is trimmed to it (trimFramebuffer); 0
 	// for none.
