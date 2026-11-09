@@ -37,26 +37,18 @@ import (
 // Windows underlines the key when it shows access keys (the "Underline
 // keyboard shortcuts and access keys" setting, or after Alt), Alt and the
 // key opens the bar's menu, and inside an open menu the key chooses the
-// item.
-
-// isMnemonicRune reports whether r can be an access key of its own label:
-// an ASCII digit, or a letter the user types with Alt on the layouts of
-// its script. Letters of the scripts typed through an IME (Han, Hiragana,
-// Katakana, Hangul, Bopomofo, Yi) and the fullwidth forms are not: their
-// labels get an appended Latin key instead.
-func isMnemonicRune(r rune) bool { return platform.CheckAccessKey(r) }
+// item. A character is a key of its own label when platform.CheckAccessKey
+// accepts it: the letters of the scripts typed through an IME (Han, kana,
+// Hangul, Bopomofo, Yi), the fullwidth forms and the CJK symbols are not,
+// and their labels get an appended Latin key instead. The rule itself is
+// platform.AutoAccessKeys, which the drawn bars share (ADR-260).
 
 // explicitMnemonic is the mark of an item's own AccessKey k (ADR-259): the
 // first character of label equal to k in either case, else k appended
 // (upper-cased, as "(&F)").
 func explicitMnemonic(label string, k rune) mnemonic {
-	lk := unicode.ToLower(k)
-	for off, r := range label {
-		if unicode.ToLower(r) == lk {
-			return mnemonic{at: off}
-		}
-	}
-	return mnemonic{at: -1, key: unicode.ToUpper(k)}
+	m := platform.ExplicitAccessKey(label, k)
+	return mnemonic{at: m.At, key: m.Key}
 }
 
 // mnemonic is the access key of a menu item: the character at byte offset
@@ -67,74 +59,20 @@ type mnemonic struct {
 	key rune
 }
 
-// roleKeys are the access keys of the standard items and menus in English
-// Windows menus, which an appended key takes when it is free.
-var roleKeys = map[platform.MenuRole]rune{
-	platform.RoleUndo: 'U', platform.RoleRedo: 'R', platform.RoleCut: 'T', platform.RoleCopy: 'C',
-	platform.RolePaste: 'P', platform.RoleSelectAll: 'A', platform.RoleMinimize: 'N', platform.RoleZoom: 'X',
-	platform.RoleClose: 'C', platform.RoleEditMenu: 'E', platform.RoleWindowMenu: 'W', platform.RoleHelpMenu: 'H',
-}
-
-// appendKeys are the keys an item without a character of its own may take,
-// in order.
-const appendKeys = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
-
 // autoMnemonics returns the access key of each item of a menu level (see
-// "Mnemonics of the menu bar"): an item's own AccessKey first (taken
+// "Mnemonics of the menu bar"; platform.AutoAccessKeys, which the drawn
+// bars of package aria share): an item's own AccessKey first (taken
 // before the others choose, even when two items share it), then the rule
 // above for the others; separators and disabled items without an
 // AccessKey get none. The result is nil for an empty menu.
 func autoMnemonics(items []platform.MenuItem) []mnemonic {
-	if len(items) == 0 {
+	marks := platform.AutoAccessKeys(items)
+	if marks == nil {
 		return nil
 	}
-	out := make([]mnemonic, len(items))
-	taken := map[rune]bool{}
-	for i, it := range items {
-		out[i] = mnemonic{at: -1}
-		if k := it.AccessKey; k != 0 && !it.Separator {
-			out[i] = explicitMnemonic(it.Label, k)
-			taken[unicode.ToLower(k)] = true
-		}
-	}
-	var bare []int // the items whose label has no character of its own
-	for i, it := range items {
-		if it.Separator || it.Disabled || it.AccessKey != 0 {
-			continue
-		}
-		own := false
-		for off, r := range it.Label {
-			if !isMnemonicRune(r) {
-				continue
-			}
-			own = true
-			if k := unicode.ToLower(r); !taken[k] {
-				taken[k], out[i].at = true, off
-				break
-			}
-		}
-		if !own {
-			bare = append(bare, i)
-		}
-	}
-	// After every own key, so that an appended key never takes the letter
-	// of a later label; the roles' letters first, so that an item before
-	// the Edit menu does not take its E.
-	for _, i := range bare {
-		if k := roleKeys[items[i].Role]; k != 0 && !taken[unicode.ToLower(k)] {
-			taken[unicode.ToLower(k)], out[i].key = true, k
-		}
-	}
-	for _, i := range bare {
-		if out[i].key != 0 {
-			continue
-		}
-		for _, c := range appendKeys {
-			if k := unicode.ToLower(c); !taken[k] {
-				taken[k], out[i].key = true, c
-				break
-			}
-		}
+	out := make([]mnemonic, len(marks))
+	for i, m := range marks {
+		out[i] = mnemonic{at: m.At, key: m.Key}
 	}
 	return out
 }

@@ -148,7 +148,21 @@ type FocusEvent struct {
 	// blur): the DOM's relatedTarget, nil when there is none (the window
 	// gaining or losing the focus, a blur to nothing).
 	related *Element
+	// nowhere is set on a focus that came from no element of the window
+	// while it had the keyboard: nothing was focused (a blur to nothing
+	// before, or no focus yet). Not on the window gaining the focus, nor
+	// on a focus given back after the focused element unmounted (a
+	// scope's restoration, the recovery of a lost focus).
+	nowhere bool
 }
+
+// FocusFromNowhere reports whether the focus event e is a focus that came
+// from no element: nothing in the active window had the focus (a blur to
+// nothing, or none yet). The window gaining the focus back and the focus
+// a scope gives back after its focused element unmounted do not count.
+// For package aria (a menu bar forgets where the focus came from, ADR-260);
+// it is not exposed by tela.
+func FocusFromNowhere(e FocusEvent) bool { return e.nowhere }
 
 // RelatedTarget returns the element on the other side of a focus change
 // (the DOM's FocusEvent.relatedTarget): for a focus, the element that lost
@@ -188,6 +202,9 @@ func (t *Tree) HandleKey(e platform.KeyEvent) {
 		// unmounted the element (Enter on it) leaves its layout effects
 		// the chance to focus in the frame.
 		t.lostWork()
+		// What the unmount left unfocused is nothing now: a Tab from
+		// here comes from nowhere (FocusFromNowhere).
+		t.foc.gone = false
 	}
 	ke := KeyboardEvent{
 		Key: KeyValue(e.Key), Code: CodeValue(e.Code.String()),

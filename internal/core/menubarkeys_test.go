@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -190,5 +191,170 @@ func TestRelatedTargetAndStableActiveElement(t *testing.T) {
 	}
 	if !Contains(r1, r1) || Contains(a, r1) {
 		t.Errorf("Contains")
+	}
+}
+
+// A lone Alt does not survive what a window manager's Alt+drag leaves the
+// app (ADR-260): the pointer leaving the window (the grab) and a resize.
+// (A change of the window's focus is TestMenuBarKeys'.)
+func TestMenuBarKeysLoneAltGuards(t *testing.T) {
+	var log []string
+	prevent := false
+	x := newKeys(t, menuBarKeysPage(&log, &prevent), 300, 200)
+	altDown := keyEv(platform.KeyPress, platform.KeyAlt, platform.CodeAltLeft, platform.ModAlt)
+	altUp := keyEv(platform.KeyRelease, platform.KeyAlt, platform.CodeAltLeft, 0)
+	px, py := x.center("bar")
+	x.send(platform.PointerEvent{Kind: platform.PointerMouse, Action: platform.PointerMove, Pos: platform.Point{X: px, Y: py}})
+	x.keys(altDown)
+	x.send(platform.PointerEvent{Kind: platform.PointerMouse, Action: platform.PointerLeave, Pos: platform.Point{X: px, Y: py}})
+	x.keys(altUp)
+	x.keys(altDown)
+	x.w.Resize(platform.Size{W: 320, H: 220})
+	x.b.Drain(x.h)
+	x.keys(altUp)
+	if got := strings.Join(log, " "); got != "" {
+		t.Errorf("Alt across a pointer leave or a resize: %q", got)
+	}
+	// And a lone Alt still works after them.
+	x.keys(altDown, altUp)
+	if got := strings.Join(log, " "); got != "Alt" {
+		t.Errorf("lone Alt: %q", got)
+	}
+}
+
+// MenuBarAccess: Alt and a character is the first live bar's Mnemonic as
+// the key's default action, and AltHeld follows Alt held alone.
+func TestMenuBarAccess(t *testing.T) {
+	var log []string
+	take, prevent := true, false
+	root := div(Class("flex flex-col gap-2 p-2"),
+		div(Key("field"), TabIndex(0), Class("h-10 w-40"),
+			On("keydown", func(e KeyboardEvent) {
+				log = append(log, "field:"+string(e.Key))
+				if prevent {
+					e.PreventDefault()
+				}
+			})),
+		div(Key("bar"), Class("h-8 w-40"),
+			MenuBarKeys(func(KeyboardEvent) bool { return true }),
+			MenuBarAccess(MenuBarAccessOptions{
+				Mnemonic: func(e KeyboardEvent) bool { log = append(log, "mnemonic:"+string(e.Key)); return take },
+				AltHeld:  func(held bool) { log = append(log, fmt.Sprintf("held:%v", held)) },
+			})),
+	)
+	x := newKeys(t, root, 300, 200)
+	x.tab()
+	got := func() string {
+		s := strings.Join(log, " ")
+		log = nil
+		return s
+	}
+	altDown := keyEv(platform.KeyPress, platform.KeyAlt, platform.CodeAltLeft, platform.ModAlt)
+	altUp := keyEv(platform.KeyRelease, platform.KeyAlt, platform.CodeAltLeft, 0)
+	// tap presses and releases a key (the release is not logged: only
+	// keydowns are).
+	tap := func(k platform.Key, c platform.KeyCode, mods platform.Modifiers, repeat bool) {
+		e := keyEv(platform.KeyPress, k, c, mods)
+		x.keys(e)
+		if repeat {
+			e.Repeat = true
+			x.keys(e)
+		}
+		x.keys(keyEv(platform.KeyRelease, k, c, mods))
+	}
+	x.keys(altDown)
+	tap("f", platform.CodeKeyF, platform.ModAlt, false)
+	x.keys(altUp)
+	if s := got(); s != "field:Alt held:true field:f mnemonic:f held:false" {
+		t.Errorf("Alt+F: %s", s)
+	}
+	// Not with Ctrl (AltGr on Windows), nor a repeat, nor when the field
+	// prevents it; Shift is allowed.
+	tap("f", platform.CodeKeyF, platform.ModAlt|platform.ModCtrl, false)
+	if s := got(); s != "field:f" {
+		t.Errorf("Ctrl+Alt+F: %s", s)
+	}
+	take = false
+	tap("f", platform.CodeKeyF, platform.ModAlt, true)
+	if s := got(); s != "field:f mnemonic:f field:f" {
+		t.Errorf("Alt+F and its repeat: %s", s)
+	}
+	take = true
+	prevent = true
+	tap("f", platform.CodeKeyF, platform.ModAlt, false)
+	prevent = false
+	if s := got(); s != "field:f" {
+		t.Errorf("a prevented Alt+F: %s", s)
+	}
+	tap("F", platform.CodeKeyF, platform.ModAlt|platform.ModShift, false)
+	if s := got(); s != "field:F mnemonic:F" {
+		t.Errorf("Alt+Shift+F: %s", s)
+	}
+	// A key without Alt ends the cues (a release the window missed), and
+	// so does the window losing the focus.
+	x.keys(altDown)
+	tap("a", platform.CodeKeyA, 0, false)
+	x.keys(altUp)
+	x.keys(altDown)
+	x.w.SetFocused(false)
+	x.b.Drain(x.h)
+	if s := got(); s != "field:Alt held:true field:a held:false field:Alt held:true held:false" {
+		t.Errorf("cues: %s", s)
+	}
+}
+
+// FocusFromNowhere: a focus with nothing focused yet, or after a blur to
+// nothing, comes from nowhere; the window gaining the focus back, and the
+// focus a scope gives back after its focused element unmounted, do not.
+func TestFocusFromNowhere(t *testing.T) {
+	var got []string
+	var setInner Setter[bool]
+	app := func() Node {
+		inner, si := UseState(false)
+		setInner = si
+		return div(Key("page"), Class("h-full"),
+			button(Key("a"), Class("block h-10 w-20"), Text("a"),
+				On("focus", func(e FocusEvent) { got = append(got, fmt.Sprintf("a:%v", FocusFromNowhere(e))) })),
+			If(inner, div(Key("inner"), Scope(ScopeOptions{Restore: true, AutoFocus: true}),
+				button(Key("b"), Class("block h-10 w-20"), Text("b")))))
+	}
+	x := newKeys(t, Component(app), 400, 300)
+	tr := x.tree()
+	take := func() string {
+		s := strings.Join(got, " ")
+		got = nil
+		return s
+	}
+	x.tab()
+	if s := take(); s != "a:true" {
+		t.Errorf("first Tab: %s", s)
+	}
+	x.w.SetFocused(false)
+	x.b.Drain(x.h)
+	x.w.SetFocused(true)
+	x.b.Drain(x.h)
+	if s := take(); s != "a:false" {
+		t.Errorf("window focus back: %s", s)
+	}
+	setInner.Set(true)
+	x.frame()
+	if g := focusedName(tr); g != "b" {
+		t.Fatalf("AutoFocus: %s", g)
+	}
+	setInner.Set(false)
+	x.frame()
+	if g := focusedName(tr); g != "a" {
+		t.Fatalf("restore: %s", g)
+	}
+	if s := take(); s != "a:false" {
+		t.Errorf("restored after the unmount: %s", s)
+	}
+	x.click(x.center("page"))
+	if tr.Focused() != nil {
+		t.Fatalf("press on nothing: %s focused", focusedName(tr))
+	}
+	x.tab()
+	if s := take(); s != "a:true" {
+		t.Errorf("Tab after a blur to nothing: %s", s)
 	}
 }

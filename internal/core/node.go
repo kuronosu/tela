@@ -90,8 +90,10 @@ type desc struct {
 	float   *FloatOptions
 	overlay *OverlayOptions
 	inert   bool
-	// menuKeys is the MenuBarKeys prop (menubarkeys.go).
-	menuKeys func(KeyboardEvent) bool
+	// menuKeys is the MenuBarKeys prop and menuAccess the MenuBarAccess
+	// prop (menubarkeys.go).
+	menuKeys   func(KeyboardEvent) bool
+	menuAccess *MenuBarAccessOptions
 	// animLayout is the AnimateLayout prop and layoutID the LayoutID
 	// prop (layoutanim.go).
 	animLayout bool

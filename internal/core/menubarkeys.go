@@ -1,6 +1,9 @@
 package core
 
 import (
+	"unicode"
+	"unicode/utf8"
+
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/style"
 )
@@ -27,9 +30,32 @@ func MenuBarKeys(f func(KeyboardEvent) bool) Prop {
 	return Prop{name: "MenuBarKeys", apply: func(d *desc) { d.menuKeys = f }}
 }
 
+// MenuBarAccessOptions are the access keys of a menu bar (ADR-260), on
+// the element that has MenuBarKeys.
+type MenuBarAccessOptions struct {
+	// Mnemonic runs as the default action of a keydown of a character
+	// with Alt (Shift allowed; not Ctrl, Meta or a repeat) that no handler
+	// prevented, and reports whether the bar took it (it opened a menu):
+	// the key then has no other default action.
+	Mnemonic func(KeyboardEvent) bool
+	// AltHeld is called when Alt starts or stops being held alone (no
+	// Ctrl or Meta): the keyboard cues of Windows and GTK, which underline
+	// the access keys while it is. It stops at Alt's release, a keydown
+	// without Alt (a release the window never got) and a change of the
+	// window's focus.
+	AltHeld func(held bool)
+}
+
+// MenuBarAccess returns a prop that gives the menu bar of MenuBarKeys
+// (the same element) its access keys: see [MenuBarAccessOptions]. For
+// package aria; it is not exposed by tela or h.
+func MenuBarAccess(o MenuBarAccessOptions) Prop {
+	return Prop{name: "MenuBarAccess", apply: func(d *desc) { d.menuAccess = &o }}
+}
+
 // menuKeyDown tracks the lone Alt at a keydown that st's dispatch did or
-// did not prevent, and runs the bar's F10. It reports whether the bar took
-// the key.
+// did not prevent, and runs the bar's F10 and access keys. It reports
+// whether the bar took the key.
 func (t *Tree) menuKeyDown(ke KeyboardEvent, st *eventState) bool {
 	alone := !ke.Ctrl && !ke.Meta && !ke.Shift
 	if ke.Key == KeyValue(platform.KeyAlt) {
@@ -37,13 +63,30 @@ func (t *Tree) menuKeyDown(ke KeyboardEvent, st *eventState) bool {
 			return false
 		}
 		t.loneAlt = alone && !st.defaultPrevented()
+		t.setAltHeld(!ke.Ctrl && !ke.Meta)
 		return false
 	}
 	t.loneAlt = false
-	if ke.Key != KeyValue(platform.KeyF10) || ke.Repeat || !alone || ke.Alt || st.defaultPrevented() {
+	if !ke.Alt || ke.Ctrl || ke.Meta {
+		t.setAltHeld(false)
+	}
+	if ke.Repeat || st.defaultPrevented() {
+		return false
+	}
+	if ke.Alt && !ke.Ctrl && !ke.Meta && isCharKey(ke.Key) {
+		return t.runMenuBarMnemonic(ke, st)
+	}
+	if ke.Key != KeyValue(platform.KeyF10) || !alone || ke.Alt {
 		return false
 	}
 	return t.runMenuBarKeys(ke, st)
+}
+
+// isCharKey reports whether k is the logical key of a character (one
+// printable rune), not a named key.
+func isCharKey(k KeyValue) bool {
+	r, n := utf8.DecodeRuneInString(string(k))
+	return n > 0 && n == len(k) && r != utf8.RuneError && unicode.IsPrint(r) && r != ' '
 }
 
 // menuKeyUp runs the bar's lone Alt at the release of the Alt that was
@@ -51,10 +94,60 @@ func (t *Tree) menuKeyDown(ke KeyboardEvent, st *eventState) bool {
 func (t *Tree) menuKeyUp(ke KeyboardEvent, st *eventState) {
 	armed := t.loneAlt
 	t.loneAlt = false
+	if ke.Key == KeyValue(platform.KeyAlt) {
+		t.setAltHeld(false)
+	}
 	if !armed || ke.Key != KeyValue(platform.KeyAlt) || st.defaultPrevented() {
 		return
 	}
 	t.runMenuBarKeys(ke, st)
+}
+
+// setAltHeld records whether Alt is held alone and tells the first live
+// bar's AltHeld when it changes.
+func (t *Tree) setAltHeld(held bool) {
+	if t.altHeld == held {
+		return
+	}
+	t.altHeld = held
+	bar := t.menuBarElement()
+	if bar == nil {
+		return
+	}
+	a := bar.node.d.menuAccess
+	if a == nil || a.AltHeld == nil {
+		return
+	}
+	t.handlerDepth++
+	func() {
+		defer func() { t.handlerDepth-- }()
+		a.AltHeld(held)
+	}()
+	t.flushDiscrete()
+}
+
+// runMenuBarMnemonic calls the Mnemonic of the first live bar with ke and
+// reports whether it took the key.
+func (t *Tree) runMenuBarMnemonic(ke KeyboardEvent, st *eventState) bool {
+	bar := t.menuBarElement()
+	if bar == nil {
+		return false
+	}
+	a := bar.node.d.menuAccess
+	if a == nil || a.Mnemonic == nil {
+		return false
+	}
+	if st == nil {
+		st = &eventState{}
+	}
+	(&ke).prepare(t, st, bar)
+	t.handlerDepth++
+	took := func() bool {
+		defer func() { t.handlerDepth-- }()
+		return a.Mnemonic(ke)
+	}()
+	t.flushDiscrete()
+	return took
 }
 
 // runMenuBarKeys calls the MenuBarKeys of the first live bar with ke and
