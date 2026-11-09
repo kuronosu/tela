@@ -337,7 +337,9 @@
 //
 // Transparent windows (ADR-249; transparent.go) have ARGB8888 or ABGR8888
 // buffers, no opaque region, no resize edges, and the input region of the
-// mask of their frames, set before the commit that shows them.
+// mask of their frames and the app's resize handles (ADR-261), set before
+// the commit that shows them; a material backdrop blurs behind the mask
+// with ext-background-effect-v1 where the compositor offers it.
 //
 // # Desktop services
 //

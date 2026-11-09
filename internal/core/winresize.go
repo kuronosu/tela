@@ -19,7 +19,11 @@ import (
 // the OS's resize from them and show its cursors, except where the window
 // cannot be resized (FixedSize, maximized, fullscreen). The band lies on
 // the element's own pixels, so a Transparent window's click-through mask
-// (platform.InputMask) keeps it clickable.
+// (platform.InputMask) keeps it clickable, and the backends take input
+// over the handles' transparent pixels too (the outside of a rounded
+// corner, ADR-261). Content of the portal layers painted over the band (a
+// popover, a menu, a dialog) takes the press there instead: hitRegions
+// punches HitClient holes for it (portalHoles).
 
 // Edge is a set of an element's sides, for ResizeEdges.
 type Edge uint8

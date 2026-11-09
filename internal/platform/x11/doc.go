@@ -130,8 +130,10 @@
 // (wmServer), so unit tests check them without a server.
 //
 // Transparent windows (ADR-249; transparent.go) have the ARGB visual and
-// the input shape of the mask of their frames, and are transparent while
-// a compositing manager runs, which the backend follows.
+// the input shape of the mask of their frames and the app's resize
+// handles (ADR-261), and are transparent while a compositing manager
+// runs, which the backend follows; a material backdrop sets KWin's
+// _KDE_NET_WM_BLUR_BEHIND_REGION to the mask.
 //
 // # Desktop integration (phase 13)
 //

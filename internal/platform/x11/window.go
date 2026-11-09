@@ -56,6 +56,12 @@ type Window struct {
 	depth byte
 	argb  bool
 	input platform.InputMask
+	// handles are the resize handles in the input shape (window pixels),
+	// backdrop the one asked for and blurred whether the blur region
+	// property is set (transparent.go).
+	handles  []image.Rectangle
+	backdrop platform.Backdrop
+	blurred  bool
 	// acc is the window's side of the AT-SPI bridge (access.go).
 	acc  *atspi.Window
 	gc   xproto.Gcontext

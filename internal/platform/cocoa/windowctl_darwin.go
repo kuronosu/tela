@@ -736,6 +736,7 @@ func (w *Window) SetHitRegions(regions []platform.HitRegion) {
 		return
 	}
 	w.ctl.regions = append(w.ctl.regions[:0], regions...)
+	w.syncHandles() // a transparent window's resize handles (transparent_darwin.go)
 	if w.opts.TitleBarOverlay {
 		w.b.notify() // the traffic lights follow the caption's height (applyControl)
 	}

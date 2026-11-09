@@ -248,7 +248,11 @@ func (w *Window) SetCursor(c platform.Cursor) {
 
 // nsCursor returns the NSCursor of the window's cursor.
 func (w *Window) nsCursor() darwin.ID {
-	name := cursorSelector(w.shownCursor())
+	c := w.shownCursor()
+	if id := diagonalNSCursor(c); id != 0 {
+		return id
+	}
+	name := cursorSelector(c)
 	if name == "" {
 		name = "arrowCursor"
 	}
@@ -261,6 +265,37 @@ func (w *Window) nsCursor() darwin.ID {
 }
 
 var cursorSels = map[string]darwin.SEL{}
+
+var dcsel = struct {
+	respondsTo, frameResize darwin.SEL
+}{
+	respondsTo:  darwin.Sel("respondsToSelector:"),
+	frameResize: darwin.Sel("frameResizeCursorFromPosition:inDirections:"),
+}
+
+// diagonalNSCursor returns the diagonal resize cursor c from macOS 15's
+// public class method, else from the private one of older AppKit, 0 when
+// c is not diagonal or neither exists (diagonalCursor).
+func diagonalNSCursor(c platform.Cursor) darwin.ID {
+	pos, dirs, private, ok := diagonalCursor(c)
+	if !ok {
+		return 0
+	}
+	if darwin.SendBool(darwin.ID(app.cursor), dcsel.respondsTo, dcsel.frameResize) {
+		if id := darwin.SendClass(app.cursor, dcsel.frameResize, pos, dirs); id != 0 {
+			return id
+		}
+	}
+	s, ok := cursorSels[private]
+	if !ok {
+		s = darwin.Sel(private)
+		cursorSels[private] = s
+	}
+	if darwin.SendBool(darwin.ID(app.cursor), dcsel.respondsTo, s) {
+		return darwin.SendClass(app.cursor, s)
+	}
+	return 0
+}
 
 // SetSize asks AppKit to resize the content area to size (points, clamped
 // to the size limits). The outcome arrives as a ConfigureEvent

@@ -30,26 +30,37 @@ func TestResizedFrame(t *testing.T) {
 }
 
 // The resize loop's limits are frame sizes: the content limits plus the
-// frame's decoration, and minResizeSide on an axis without MinSize, so a
-// window is never shrunk past grabbing (a zero-width frame before).
+// frame's decoration, and the resize floor on an axis without MinSize
+// (ADR-261), so a window is never shrunk past grabbing its handles again.
 func TestResizeLimits(t *testing.T) {
+	// A 400x300 window whose card sits in a 60 pt shadow margin: the
+	// floor keeps 32 pt of handles and the margin (152 by 152).
+	floor := platform.ResizeFloor(platform.Size{W: 400, H: 300}, []platform.HitRegion{
+		{Kind: platform.HitResizeTopLeft, Rect: platform.Rect{X: 60, Y: 60, W: 16, H: 5}},
+		{Kind: platform.HitResizeBottomRight, Rect: platform.Rect{X: 324, Y: 235, W: 16, H: 5}},
+	})
 	for _, c := range []struct {
 		name     string
 		min, max platform.Size
 		deco     [2]float64
+		floor    platform.Size
 		lo, hi   [2]float64
 	}{
-		{"no limits, frameless", platform.Size{}, platform.Size{}, [2]float64{},
-			[2]float64{minResizeSide, minResizeSide}, [2]float64{noMaxSize, noMaxSize}},
-		{"limits, frameless", platform.Size{W: 100, H: 80}, platform.Size{W: 400, H: 300}, [2]float64{},
+		{"no limits, frameless", platform.Size{}, platform.Size{}, [2]float64{}, platform.Size{W: 32, H: 32},
+			[2]float64{32, 32}, [2]float64{noMaxSize, noMaxSize}},
+		{"no limits, a card in a shadow margin", platform.Size{}, platform.Size{}, [2]float64{}, floor,
+			[2]float64{152, 152}, [2]float64{noMaxSize, noMaxSize}},
+		{"limits, frameless", platform.Size{W: 100, H: 80}, platform.Size{W: 400, H: 300}, [2]float64{}, floor,
 			[2]float64{100, 80}, [2]float64{400, 300}},
-		{"limits, titled (a 28 pt title bar)", platform.Size{W: 100, H: 80}, platform.Size{W: 400, H: 300}, [2]float64{0, 28},
+		{"limits, titled (a 28 pt title bar)", platform.Size{W: 100, H: 80}, platform.Size{W: 400, H: 300}, [2]float64{0, 28}, floor,
 			[2]float64{100, 108}, [2]float64{400, 328}},
-		// The app's own minimum stands, even below minResizeSide.
-		{"a small MinSize on one axis", platform.Size{W: 10}, platform.Size{W: 20}, [2]float64{},
-			[2]float64{10, minResizeSide}, [2]float64{20, noMaxSize}},
+		{"titled, no limits", platform.Size{}, platform.Size{}, [2]float64{0, 28}, platform.Size{W: 32, H: 32},
+			[2]float64{32, 60}, [2]float64{noMaxSize, noMaxSize}},
+		// The app's own minimum stands, even below the floor.
+		{"a small MinSize on one axis", platform.Size{W: 10}, platform.Size{W: 20}, [2]float64{}, floor,
+			[2]float64{10, 152}, [2]float64{20, noMaxSize}},
 	} {
-		lo, hi := resizeLimits(c.min, c.max, c.deco)
+		lo, hi := resizeLimits(c.min, c.max, c.deco, c.floor)
 		if lo != c.lo || hi != c.hi {
 			t.Errorf("%s: %v, %v; want %v, %v", c.name, lo, hi, c.lo, c.hi)
 		}

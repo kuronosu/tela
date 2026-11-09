@@ -278,25 +278,30 @@ func TestIconBGRA(t *testing.T) {
 	}
 }
 
-// A transparent window without MinSize has no minimum track size: Windows'
-// default (SM_CXMINTRACK by SM_CYMINTRACK) would grow a small one, which
-// has WS_THICKFRAME to be resizable. MinSize wins; a framed window keeps
-// the default.
-func TestMinTrack(t *testing.T) {
-	def := image.Pt(136, 39)
+// A frameless or transparent window's minimum content size: MinSize on
+// the axes it sets, else the resize floor of its handles (two corners,
+// the margin kept), never above its size; Windows' default (136x39) is a
+// caption's.
+func TestOwnMinSize(t *testing.T) {
+	card := []platform.HitRegion{
+		{Kind: platform.HitResizeLeft, Rect: platform.Rect{X: 40, Y: 40, W: 5, H: 200}},
+		{Kind: platform.HitResizeRight, Rect: platform.Rect{X: 355, Y: 40, W: 5, H: 200}},
+		{Kind: platform.HitResizeTop, Rect: platform.Rect{X: 40, Y: 40, W: 320, H: 5}},
+		{Kind: platform.HitResizeBottom, Rect: platform.Rect{X: 40, Y: 235, W: 320, H: 5}},
+	}
 	for _, c := range []struct {
-		name        string
-		minOuter    image.Point
-		hasMin      bool
-		transparent bool
-		want        image.Point
+		name    string
+		min     platform.Size
+		size    platform.Size
+		regions []platform.HitRegion
+		want    platform.Size
 	}{
-		{"framed, no MinSize", image.Point{}, false, false, def},
-		{"transparent, no MinSize", image.Point{}, false, true, image.Pt(1, 1)},
-		{"transparent with MinSize", image.Pt(60, 20), true, true, image.Pt(60, 20)},
-		{"framed with MinSize", image.Pt(300, 200), true, false, image.Pt(300, 200)},
+		{"badge, no MinSize", platform.Size{}, platform.Size{W: 100, H: 30}, nil, platform.Size{W: 32, H: 30}},
+		{"card in a shadow margin", platform.Size{}, platform.Size{W: 400, H: 280}, card, platform.Size{W: 112, H: 112}},
+		{"MinSize on one axis", platform.Size{W: 200}, platform.Size{W: 400, H: 280}, card, platform.Size{W: 200, H: 112}},
+		{"MinSize", platform.Size{W: 60, H: 20}, platform.Size{W: 100, H: 30}, nil, platform.Size{W: 60, H: 20}},
 	} {
-		if got := minTrack(def, c.minOuter, c.hasMin, c.transparent); got != c.want {
+		if got := ownMinSize(c.min, c.size, c.regions); got != c.want {
 			t.Errorf("%s: %v, want %v", c.name, got, c.want)
 		}
 	}

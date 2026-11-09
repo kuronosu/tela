@@ -677,7 +677,12 @@
 // WM_TIMER polls the cursor until it is over the input mask again or off
 // the window (ADR-257 keeps the poll: a low-level mouse hook would put
 // every desktop mouse move through the UI thread). Unless FixedSize it
-// has WS_THICKFRAME, for the sizing loop of the app's resize handles.
+// has WS_THICKFRAME, for the sizing loop of the app's resize handles (a
+// FixedSize one is never resized by the user, so it needs none). The
+// handles' transparent pixels are presented with platform.HandleAlpha,
+// so Windows hit-tests them (ADR-261). A frameless or transparent window
+// has no caption to keep, so its minimum tracking size is MinSize, else
+// platform.ResizeFloor instead of Windows' default (ownMinSize).
 //
 // The app's resize handles (HitResize… regions, ADR-257) answer HTLEFT and
 // the other resize codes from WM_NCHITTEST while the window can be

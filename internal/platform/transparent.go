@@ -1,6 +1,9 @@
 package platform
 
-import "image"
+import (
+	"image"
+	"slices"
+)
 
 // Transparent windows (WindowOptions.Transparent, ADR-249). See
 // "Transparent windows" in the package documentation.
@@ -153,19 +156,57 @@ func (m *InputMask) Empty() bool {
 // fewer. Window systems take input regions as rectangles (wl_region, the
 // X11 SHAPE input region); a frame of text over transparent pixels has
 // many runs.
-func (m *InputMask) Rects(limit int) []image.Rectangle {
+func (m *InputMask) Rects(limit int) []image.Rectangle { return rowRects(m.rows, limit) }
+
+// RectsWith returns the union of the mask and the rectangles extra (in
+// the same physical pixels, cut to the mask's size) as Rects does: YX
+// banded, at most limit rectangles. A transparent window's input with its
+// resize handles is one (HandleRects, ADR-261); the mask is unchanged.
+func (m *InputMask) RectsWith(extra []image.Rectangle, limit int) []image.Rectangle {
+	if len(extra) == 0 {
+		return m.Rects(limit)
+	}
+	rows := slices.Clone(m.rows)
+	bounds := image.Rectangle{Max: m.size}
+	for _, r := range extra {
+		r = r.Intersect(bounds)
+		for y := r.Min.Y; y < r.Max.Y; y++ {
+			rows[y] = addSpan(rows[y], span{int32(r.Min.X), int32(r.Max.X)})
+		}
+	}
+	return rowRects(rows, limit)
+}
+
+// addSpan returns the runs of row with s added, in a new slice (row may
+// be the mask's).
+func addSpan(row []span, s span) []span {
+	out := make([]span, 0, len(row)+1)
+	i := 0
+	for ; i < len(row) && row[i].x1 < s.x0; i++ {
+		out = append(out, row[i])
+	}
+	for ; i < len(row) && row[i].x0 <= s.x1; i++ {
+		s.x0, s.x1 = min(s.x0, row[i].x0), max(s.x1, row[i].x1)
+	}
+	out = append(out, s)
+	return append(out, row[i:]...)
+}
+
+// rowRects returns rows of runs as at most limit banded rectangles (see
+// Rects).
+func rowRects(rows [][]span, limit int) []image.Rectangle {
 	if limit < 1 {
 		limit = 1
 	}
-	if out := bands(m.rows, 1, false, limit); out != nil {
+	if out := bands(rows, 1, false, limit); out != nil {
 		return out
 	}
 	// Each row's runs merged into their bounding run, then rows merged in
 	// groups of growing height until the bands fit.
 	for g := 1; ; g *= 2 {
-		if out := bands(m.rows, g, true, limit); out != nil || g >= len(m.rows) {
+		if out := bands(rows, g, true, limit); out != nil || g >= len(rows) {
 			if out == nil {
-				out = bands(m.rows, len(m.rows), true, limit)
+				out = bands(rows, len(rows), true, limit)
 			}
 			return out
 		}

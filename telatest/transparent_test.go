@@ -133,11 +133,11 @@ func TestRenderTransparentApp(t *testing.T) {
 	}
 }
 
-// TestTransparentWindowResize (ADR-257): h.WindowResize on the card makes
-// a band inside its pixels the window's resize handles. A press on the
-// band starts an OS resize (and is not the app's) while the rounded
-// corner's transparent pixels still pass the pointer below; the content
-// inside the band keeps its clicks.
+// TestTransparentWindowResize (ADR-257, ADR-261): h.WindowResize on the
+// card makes a band inside its pixels the window's resize handles. A press
+// on the band starts an OS resize (and is not the app's), over the rounded
+// corner's transparent pixels too, while the margin outside the card
+// passes the pointer below; the content inside the band keeps its clicks.
 func TestTransparentWindowResize(t *testing.T) {
 	var clicks, misses int
 	root := func() tela.Node {
@@ -162,14 +162,16 @@ func TestTransparentWindowResize(t *testing.T) {
 	if got := app.ResizeStarts(); len(got) != 2 || got[0] != tela.EdgeLeft || got[1] != tela.EdgeBottom|tela.EdgeRight {
 		t.Errorf("ResizeStarts = %v, want [left bottom-right]", got)
 	}
-	// The corner pixel of the rounded card is transparent: below the
-	// window, not a resize.
-	if app.TakesInput(16.5, 16.5) {
-		t.Error("the rounded corner's outer pixel takes input")
+	// The corner pixel of the rounded card is transparent, but in the
+	// corner handle: it resizes, as the inside of the curve does. The
+	// margin passes the pointer below.
+	if !app.TakesInput(16.5, 16.5) || app.TakesInput(10, 10) {
+		t.Error("the rounded corner's outer pixel lets the pointer through, or the margin takes it")
 	}
 	app.ClickAt(16.5, 16.5)
-	if n := len(app.ResizeStarts()); n != 2 {
-		t.Errorf("%d resizes after a click through the corner, want 2", n)
+	app.ClickAt(10, 10)
+	if got := app.ResizeStarts(); len(got) != 3 || got[2] != tela.EdgeTop|tela.EdgeLeft {
+		t.Errorf("ResizeStarts = %v after the corner and the margin, want a third, top-left", got)
 	}
 	app.ClickAt(100, 80)
 	if clicks != 1 || misses != 1 {

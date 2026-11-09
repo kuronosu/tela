@@ -60,7 +60,14 @@ import (
 //     lets it through at once (passIfFaint), so a press that no move
 //     preceded does not land on a faint pixel.
 //   - No resize band of the backend's: the edges are usually the
-//     transparent margin; the app marks its own (h.WindowResize).
+//     transparent margin; the app marks its own (h.WindowResize). While
+//     the window can be resized its handles take input over transparent
+//     pixels too (contract v12, ADR-261: the outside of a rounded card's
+//     corner): Windows' own hit test passes zero alpha through before any
+//     WM_NCHITTEST, so the retained bitmap gives those pixels
+//     platform.HandleAlpha (platform.HandleCatch, invisible), and the
+//     handles count as input beside the mask. A change of the handles
+//     without new pixels updates the bitmap's dirty rectangle by itself.
 
 const (
 	wsPopup         = 0x80000000
@@ -117,6 +124,7 @@ type layered struct {
 	bits         []byte
 	size         image.Point
 	mask         platform.InputMask
+	catch        platform.HandleCatch // the resize handles caught in bits
 	passing      bool
 }
 
@@ -154,7 +162,7 @@ func (w *Window) transparentMessage(msg uint32, wparam, lparam uintptr) (uintptr
 		return defWindowProc(w.hwnd, uintptr(msg), wparam, lparam), true
 	case wmNCHitTest:
 		x, y := w.screenPointToApp(lparam)
-		if w.ptr.held == 0 && !w.lay.mask.Contains(image.Pt(x, y)) {
+		if w.ptr.held == 0 && !w.takesInput(x, y) {
 			w.setPassing(true)
 			return htTransparent, true
 		}
@@ -187,26 +195,12 @@ func (w *Window) presentLayered(fb *image.RGBA, rects []image.Rectangle, full bo
 		platform.CopyRGBAToBGRA(l.bits, 4*size.X, fb, r)
 		dirty = dirty.Union(r)
 	}
+	if moved := l.catch.Update(l.bits, 4*size.X, w.layeredHandles()); !moved.Empty() {
+		dirty = dirty.Union(moved)
+	}
 	maskChanged := l.mask.Update(fb, rects)
-	src := point{}
-	sz := sizeL{int32(size.X), int32(size.Y)}
-	blend := blendFunction{op: acSrcOver, alpha: 255, format: acSrcAlpha}
-	info := updateLayeredWindowInfo{
-		size: uint32(unsafe.Sizeof(updateLayeredWindowInfo{})), psize: &sz,
-		hdcSrc: l.dc, pptSrc: &src, pblend: &blend, flags: ulwAlpha,
-	}
-	if !full {
-		d := rectFrom(dirty)
-		info.dirty = &d
-	}
-	ok, _, e := procUpdateLayeredWindowIndirect.Call(w.hwnd, uintptr(unsafe.Pointer(&info)))
-	if ok == 0 && info.dirty != nil {
-		// Some versions refuse a dirty rectangle with a size: all of it.
-		info.dirty = nil
-		ok, _, e = procUpdateLayeredWindowIndirect.Call(w.hwnd, uintptr(unsafe.Pointer(&info)))
-	}
-	if ok == 0 {
-		return winError("UpdateLayeredWindowIndirect", e)
+	if err := w.updateLayered(dirty, full); err != nil {
+		return err
 	}
 	if !w.shown && w.visible {
 		w.show()
@@ -225,6 +219,62 @@ func (w *Window) presentLayered(fb *image.RGBA, rects []image.Rectangle, full bo
 	return nil
 }
 
+// updateLayered hands the bitmap to UpdateLayeredWindowIndirect with the
+// dirty rectangle (all of it when full).
+func (w *Window) updateLayered(dirty image.Rectangle, full bool) error {
+	l := &w.lay
+	src := point{}
+	sz := sizeL{int32(l.size.X), int32(l.size.Y)}
+	blend := blendFunction{op: acSrcOver, alpha: 255, format: acSrcAlpha}
+	info := updateLayeredWindowInfo{
+		size: uint32(unsafe.Sizeof(updateLayeredWindowInfo{})), psize: &sz,
+		hdcSrc: l.dc, pptSrc: &src, pblend: &blend, flags: ulwAlpha,
+	}
+	if !full {
+		d := rectFrom(dirty)
+		info.dirty = &d
+	}
+	ok, _, e := procUpdateLayeredWindowIndirect.Call(w.hwnd, uintptr(unsafe.Pointer(&info)))
+	if ok == 0 && info.dirty != nil {
+		// Some versions refuse a dirty rectangle with a size: all of it.
+		info.dirty = nil
+		ok, _, e = procUpdateLayeredWindowIndirect.Call(w.hwnd, uintptr(unsafe.Pointer(&info)))
+	}
+	if ok == 0 {
+		return winError("UpdateLayeredWindowIndirect", e)
+	}
+	return nil
+}
+
+// layeredHandles returns the app's resize handles in the bitmap's pixels,
+// nil while the window cannot be resized (FixedSize, maximized,
+// fullscreen).
+func (w *Window) layeredHandles() []image.Rectangle {
+	if w.opts.FixedSize || w.fs != nil || isZoomed(w.hwnd) {
+		return nil
+	}
+	return platform.HandleRects(w.regions, w.scale(), w.lay.size)
+}
+
+// syncLayeredHandles catches the resize handles in the bitmap after the
+// hit regions changed (SetHitRegions), and shows the pixels that changed.
+func (w *Window) syncLayeredHandles() {
+	l := &w.lay
+	if !w.opts.Transparent || l.dc == 0 {
+		return
+	}
+	if moved := l.catch.Update(l.bits, 4*l.size.X, w.layeredHandles()); !moved.Empty() {
+		w.updateLayered(moved, false)
+	}
+}
+
+// takesInput reports whether the point x, y (the app's physical pixels)
+// takes the pointer: on the input mask or on a resize handle.
+func (w *Window) takesInput(x, y int) bool {
+	p := image.Pt(x, y)
+	return w.lay.mask.Contains(p) || w.lay.catch.Contains(p)
+}
+
 // passIfFaint lets the pointer through when the cursor rests over the
 // window's client area outside the input mask, with no button held.
 func (w *Window) passIfFaint() {
@@ -236,7 +286,7 @@ func (w *Window) passIfFaint() {
 		return
 	}
 	x, y := w.screenToApp(int(p.x), int(p.y))
-	if w.inClient(x, y) && !w.lay.mask.Contains(image.Pt(x, y)) {
+	if w.inClient(x, y) && !w.takesInput(x, y) {
 		w.setPassing(true)
 	}
 }
@@ -269,6 +319,7 @@ func (w *Window) newLayeredBitmap(size image.Point) error {
 	l.bmp = bmp
 	l.bits = unsafe.Slice((*byte)(ptrFromUintptr(bits)), 4*size.X*size.Y)
 	l.size = size
+	l.catch.Reset() // a new bitmap: nothing caught in it yet
 	return nil
 }
 
@@ -317,7 +368,7 @@ func (w *Window) pollPassing() {
 	var p point
 	procGetCursorPos.Call(uintptr(unsafe.Pointer(&p)))
 	x, y := w.screenToApp(int(p.x), int(p.y))
-	if !w.inClient(x, y) || w.lay.mask.Contains(image.Pt(x, y)) {
+	if !w.inClient(x, y) || w.takesInput(x, y) {
 		w.setPassing(false)
 	}
 }

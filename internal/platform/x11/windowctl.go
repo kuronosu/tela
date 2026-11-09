@@ -382,6 +382,7 @@ func (w *Window) setOSState(st platform.WindowState) {
 		w.edge = 0
 		w.applyCursor()
 	}
+	w.syncHandles() // maximized or fullscreen, the handles are content
 }
 
 // refreshState reads _NET_WM_STATE and WM_STATE after one of them changed
@@ -566,9 +567,16 @@ func (w *Window) SetVisible(visible bool) {
 // SetTitleBarColors does nothing: only Windows 11 draws colored title bars.
 func (w *Window) SetTitleBarColors(platform.TitleBarColors) {}
 
-// SetBackdrop does nothing: system backdrops are a Windows 11 material.
+// SetBackdrop blurs the background of a transparent window behind its
+// input mask when backdrop is a material, through KWin's blur property
+// (transparent.go); other windows ignore it.
 func (w *Window) SetBackdrop(backdrop platform.Backdrop) {
 	platform.CheckBackdrop("SetBackdrop backdrop", backdrop)
+	if w.Closed() || backdrop == w.backdrop {
+		return
+	}
+	w.backdrop = backdrop
+	w.syncBlur() // a transparent window's blur region (transparent.go)
 }
 
 // SetAlwaysOnTop adds or removes _NET_WM_STATE_ABOVE.
@@ -670,6 +678,7 @@ func (w *Window) SetHitRegions(regions []platform.HitRegion) {
 		return
 	}
 	w.regions = slices.Clone(regions)
+	w.syncHandles() // a transparent window's input shape (transparent.go)
 }
 
 // RestoreToken returns "": X11 restores windows by position

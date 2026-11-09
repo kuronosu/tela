@@ -137,3 +137,51 @@ func TestWindowResizeUnmount(t *testing.T) {
 		t.Errorf("%d regions after unmount", n)
 	}
 }
+
+// Content in a portal layer paints above the card, so it takes the
+// presses over the card's resize band and drag area (ADR-261): a
+// popover over the top edge and a menu over the drag area punch HitClient
+// holes after the card's regions; a pointer-events-none overlay and the
+// portal's empty parts punch none, and elements inside a hole add none.
+func TestWindowResizePortalOverBand(t *testing.T) {
+	var clicks int
+	card := div(Class("absolute left-[20px] top-[10px] w-[200px] h-[100px]"), WindowResize(),
+		div(Class("h-8"), WindowDrag()),
+		Portal(
+			div(Class("absolute left-[150px] top-[0px] w-[60px] h-[40px]"), On("click", func(MouseEvent) { clicks++ }),
+				div(Class("w-full h-4")), // inside the popover: no region of its own
+			),
+			div(Class("fixed inset-0 pointer-events-none")), // a toast layer
+		),
+	)
+	far := Portal(div(Class("absolute left-[300px] top-[150px] w-[20px] h-[20px]"))) // over nothing
+	x := newWinHarness(t, Options{Window: WindowSpec{Frameless: true},
+		Root: div(Class("relative w-full h-full"), card, far)})
+	main := x.windows()[0]
+	got := main.HitRegions()
+	hole := platform.HitRegion{Kind: platform.HitClient, Rect: platform.Rect{X: 150, Y: 0, W: 60, H: 40}}
+	if n := len(got); n != 14 || got[n-1] != hole {
+		t.Fatalf("hit regions %v\nwant the card's 13 then %v", got, hole)
+	}
+	for _, c := range []struct {
+		x, y float32
+		want platform.Edge
+	}{
+		{160, 12, 0},                // the popover over the top band
+		{100, 12, platform.EdgeTop}, // the band beside it
+		{218, 50, platform.EdgeRight},
+	} {
+		if e := platform.HitEdge(got, platform.Point{X: c.x, Y: c.y}); e != c.want {
+			t.Errorf("edge at %v,%v = %v, want %v", c.x, c.y, e, c.want)
+		}
+	}
+	if k := platform.HitTest(got, platform.Point{X: 160, Y: 30}); k != platform.HitClient {
+		t.Errorf("the popover over the drag area is %v, want client", k)
+	}
+	main.Inject(down(160, 12))
+	main.Inject(up(160, 12))
+	x.drain()
+	if clicks != 1 || len(main.ResizeStarts()) != 0 {
+		t.Errorf("%d clicks and resizes %v, want the popover's click and no resize", clicks, main.ResizeStarts())
+	}
+}

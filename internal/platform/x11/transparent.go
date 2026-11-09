@@ -43,7 +43,20 @@ import (
 //     windows below. Without a manager, or without SHAPE 1.1, it takes
 //     input everywhere (the input shape is reset to cover the window).
 //     Xwayland passes input shapes to the compositor.
-//   - No resize edges: its edges are usually the transparent margin.
+//   - No resize edges: its edges are usually the transparent margin. The
+//     app's resize handles (HitResize… regions, h.WindowResize) are in
+//     the input shape too while the window can be resized (contract v12,
+//     ADR-261), over transparent pixels as well (the outside of a rounded
+//     card's corner): the shape is the banded union of the mask and the
+//     handles (InputMask.RectsWith), set again when either changes.
+//   - A backdrop that is a material (Mica, Mica Alt, Acrylic;
+//     Backdrop.ClientBackdrop) on a window shown with alpha sets
+//     _KDE_NET_WM_BLUR_BEHIND_REGION (CARDINAL[] of x, y, width, height in
+//     window pixels): the input mask's rectangles, so KWin's blur effect
+//     blurs what is behind the card, not the margin (the property is
+//     deleted for an empty mask, which KWin would read as the whole
+//     window). Other window managers ignore it, and no protocol of KDE's
+//     is vendored: the property is a name and a format (ADR-261).
 //   - _NET_WM_BYPASS_COMPOSITOR is not set: the manager must composite it.
 
 // cmState is the compositing manager, tracked from the first
@@ -131,6 +144,7 @@ func (b *Backend) cmEvent(ev xgb.Event) bool {
 func (w *Window) initTransparent(argb bool) {
 	w.argb = argb
 	w.osState.Transparent = argb && w.b.compositing()
+	w.backdrop = w.opts.Backdrop
 }
 
 // syncTransparent reports the window's transparency after the
@@ -149,21 +163,82 @@ func (w *Window) syncTransparent() {
 	w.osState.Transparent = on
 	if !on {
 		w.input = platform.InputMask{}
+		w.handles = nil
 		w.setInputShape(fullShape)
+		w.syncBlur()
 	}
 	w.b.loop.UpdateState(w, w.osState)
 }
 
 // syncInputShape updates the input mask of a transparent window shown
 // with alpha from the rectangles of fb just copied, and sets the input
-// shape when it changed.
+// shape (and the blur region) when it changed.
 func (w *Window) syncInputShape(fb *image.RGBA, rects []image.Rectangle) {
 	if !w.argb || !w.osState.Transparent {
 		return
 	}
-	if w.input.Update(fb, rects) {
-		w.setInputShape(shapeRects(w.input.Rects(maxShapeRects)))
+	maskChanged := w.input.Update(fb, rects)
+	handles := w.handleRects()
+	if maskChanged || !platform.SameRects(handles, w.handles) {
+		w.handles = handles
+		w.setInputShape(shapeRects(w.input.RectsWith(handles, maxShapeRects)))
 	}
+	if maskChanged {
+		w.syncBlur()
+	}
+}
+
+// handleRects returns the app's resize handles in window pixels, nil
+// while the window cannot be resized (FixedSize, maximized, fullscreen)
+// or before its first frame.
+func (w *Window) handleRects() []image.Rectangle {
+	if w.opts.FixedSize || w.osState.Maximized || w.osState.Fullscreen {
+		return nil
+	}
+	return platform.HandleRects(w.regions, w.b.scale, w.input.Size())
+}
+
+// syncHandles sets the input shape again after the hit regions or the
+// window's state changed, when the handles in it did.
+func (w *Window) syncHandles() {
+	if !w.argb || !w.osState.Transparent || w.input.Size() == (image.Point{}) {
+		return
+	}
+	handles := w.handleRects()
+	if platform.SameRects(handles, w.handles) {
+		return
+	}
+	w.handles = handles
+	w.setInputShape(shapeRects(w.input.RectsWith(handles, maxShapeRects)))
+}
+
+// maxBlurRects bounds the rectangles of the blur region.
+const maxBlurRects = 256
+
+// syncBlur sets _KDE_NET_WM_BLUR_BEHIND_REGION from the input mask while
+// the window is shown with alpha and its backdrop is a material, and
+// deletes it otherwise (or for an empty mask).
+func (w *Window) syncBlur() {
+	var data []byte
+	if w.argb && w.osState.Transparent && w.backdrop.ClientBackdrop() {
+		for _, r := range w.input.Rects(maxBlurRects) {
+			data = append(data, card32s(uint32(r.Min.X), uint32(r.Min.Y), uint32(r.Dx()), uint32(r.Dy()))...)
+		}
+	}
+	if len(data) == 0 && !w.blurred {
+		return
+	}
+	prop := w.b.atom("_KDE_NET_WM_BLUR_BEHIND_REGION")
+	if prop == 0 {
+		return
+	}
+	if len(data) == 0 {
+		w.b.xs.deleteProperty(w.id, prop)
+		w.blurred = false
+		return
+	}
+	w.b.xs.changeProperty(w.id, prop, xproto.AtomCardinal, 32, data)
+	w.blurred = true
 }
 
 // setInputShape sets the window's input shape, where the server has
