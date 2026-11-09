@@ -550,6 +550,9 @@ func (t *Tree) syncBehaviorProps(el *Element, old, d *desc) {
 	if old.winRegion != d.winRegion {
 		t.regionChanged(el, old.winRegion, d.winRegion)
 	}
+	if old.winResize.on != d.winResize.on {
+		t.resizeChanged(el, d.winResize.on)
+	}
 	if old.id != d.id {
 		t.setID(el, old.id)
 	}
@@ -673,6 +676,9 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 		if d.winRegion != regionNone {
 			t.regionChanged(el, regionNone, d.winRegion)
 		}
+		if d.winResize.on {
+			t.resizeChanged(el, true)
+		}
 		if d.float != nil {
 			t.updateFloat(el, nil)
 		}
@@ -754,6 +760,9 @@ func (t *Tree) unmount(el *Element) {
 		}
 		if r := el.node.d.winRegion; r != regionNone {
 			t.regionChanged(el, r, regionNone)
+		}
+		if el.node.d.winResize.on {
+			t.resizeChanged(el, false)
 		}
 	}
 	for _, h := range el.hooks {

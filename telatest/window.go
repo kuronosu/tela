@@ -603,6 +603,17 @@ const (
 	HitMinimize = platform.HitMinimize
 	HitMaximize = platform.HitMaximize
 	HitClose    = platform.HitClose
+	// HitResizeTop to HitResizeBottomRight are the resize handles of
+	// h.WindowResize along a side or at a corner: a press there resizes
+	// the window from that edge (see [App.ResizeStarts]).
+	HitResizeTop         = platform.HitResizeTop
+	HitResizeBottom      = platform.HitResizeBottom
+	HitResizeLeft        = platform.HitResizeLeft
+	HitResizeRight       = platform.HitResizeRight
+	HitResizeTopLeft     = platform.HitResizeTopLeft
+	HitResizeTopRight    = platform.HitResizeTopRight
+	HitResizeBottomLeft  = platform.HitResizeBottomLeft
+	HitResizeBottomRight = platform.HitResizeBottomRight
 )
 
 // HitRegion is one rectangle of a window's custom title bar, in logical
@@ -617,9 +628,9 @@ func (r HitRegion) String() string {
 }
 
 // HitRegions returns the hit regions the window sent to the OS, in order
-// (later regions are on top): the drag areas, the holes in them and the
-// window-control buttons that h.WindowDrag, h.WindowNoDrag and
-// h.WindowControl mark. It is nil for a window without them.
+// (later regions are on top): the drag areas, the holes in them, the
+// window-control buttons and the resize handles that h.WindowDrag,
+// h.WindowNoDrag, h.WindowControl and h.WindowResize mark. It is nil for a window without them.
 func (a *App) HitRegions() []HitRegion {
 	a.tb.Helper()
 	a.mustBeOpen()
@@ -664,6 +675,27 @@ func (a *App) WindowMenus() int {
 	a.mustBeOpen()
 	a.settleQuery()
 	return a.win.WindowMenus()
+}
+
+// ResizeStarts returns the edges the fake window manager started an
+// interactive resize from, one per primary press on a resize handle
+// (h.WindowResize), in order: the side, or both sides at a corner. The
+// press is the OS's: the app does not see it or the rest of its pointer
+// sequence, and the size does not change by itself (resize the window
+// with [App.Resize]). A window that cannot be resized (FixedSize,
+// maximized, fullscreen) treats the handles as content.
+//
+//	app.ClickAt(18, 100) // on the left edge of a card 16 px from the window's
+//	if e := app.ResizeStarts(); len(e) != 1 || e[0] != tela.EdgeLeft { … }
+func (a *App) ResizeStarts() []tela.Edge {
+	a.tb.Helper()
+	a.mustBeOpen()
+	a.settleQuery()
+	var out []tela.Edge
+	for _, e := range a.win.ResizeStarts() {
+		out = append(out, tela.Edge(e))
+	}
+	return out
 }
 
 // ---------------------------------------------------------------------

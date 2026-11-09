@@ -241,6 +241,38 @@ const (
 	WindowClose = core.WindowClose
 )
 
+// ResizeOption configures h.WindowResize: [ResizeBand] and [ResizeEdges].
+type ResizeOption = core.ResizeOption
+
+// Edge is a set of an element's sides, for [ResizeEdges]; combine them
+// with |.
+type Edge = core.Edge
+
+const (
+	EdgeTop    = core.EdgeTop
+	EdgeBottom = core.EdgeBottom
+	EdgeLeft   = core.EdgeLeft
+	EdgeRight  = core.EdgeRight
+	// EdgeAll is the four sides, h.WindowResize's default.
+	EdgeAll = core.EdgeAll
+)
+
+// DefaultResizeBand is the width, in logical pixels, of h.WindowResize's
+// band unless [ResizeBand] sets another.
+const DefaultResizeBand = core.DefaultResizeBand
+
+// ResizeBand sets the width of h.WindowResize's band in logical pixels
+// (DefaultResizeBand when not given). It panics unless width is positive
+// and finite.
+func ResizeBand(width float32) ResizeOption { return core.ResizeBand(width) }
+
+// ResizeEdges sets the sides h.WindowResize makes resize handles of
+// (EdgeAll when not given); a corner resizes diagonally where both of its
+// sides do. It panics for no side.
+//
+//	WindowResize(tela.ResizeEdges(tela.EdgeLeft | tela.EdgeRight)) // width only
+func ResizeEdges(edges Edge) ResizeOption { return core.ResizeEdges(edges) }
+
 // UseWindow returns the handle of the window the component renders in:
 // the main window, or the [Window] it is inside of.
 //

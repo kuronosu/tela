@@ -55,12 +55,45 @@ func TestHitTest(t *testing.T) {
 		t.Errorf("EqualHitRegions")
 	}
 	CheckHitRegions(regions)
-	expectPanic(t, "invalid kind", func() { CheckHitRegions([]HitRegion{{Kind: HitClose + 1}}) })
+	expectPanic(t, "invalid kind", func() { CheckHitRegions([]HitRegion{{Kind: HitResizeBottomRight + 1}}) })
 	expectPanic(t, "negative size", func() { CheckHitRegions([]HitRegion{{Rect: Rect{H: -1}}}) })
 	expectPanic(t, "finite", func() { CheckHitRegions([]HitRegion{{Rect: Rect{X: 1e9}}}) })
 	if HitMaximize.String() != "maximize" || HitKind(77).String() != "HitKind(77)" {
 		t.Errorf("HitKind names")
 	}
+}
+
+// The resize kinds of contract v10 (ADR-257) and their edges.
+func TestHitResize(t *testing.T) {
+	kinds := []HitKind{HitResizeTop, HitResizeBottom, HitResizeLeft, HitResizeRight,
+		HitResizeTopLeft, HitResizeTopRight, HitResizeBottomLeft, HitResizeBottomRight}
+	edges := []Edge{EdgeTop, EdgeBottom, EdgeLeft, EdgeRight,
+		EdgeTop | EdgeLeft, EdgeTop | EdgeRight, EdgeBottom | EdgeLeft, EdgeBottom | EdgeRight}
+	for i, k := range kinds {
+		if k.Edge() != edges[i] || HitResize(edges[i]) != k {
+			t.Errorf("%v: Edge %v, HitResize(%v) = %v", k, k.Edge(), edges[i], HitResize(edges[i]))
+		}
+	}
+	for _, k := range []HitKind{HitClient, HitCaption, HitMinimize, HitMaximize, HitClose, HitKind(99)} {
+		if k.Edge() != 0 {
+			t.Errorf("%v has edge %v", k, k.Edge())
+		}
+	}
+	if HitResize(0) != HitClient || HitResize(EdgeLeft|EdgeRight) != HitClient {
+		t.Error("HitResize of no edge or opposite sides is not HitClient")
+	}
+	if HitResizeTopLeft.String() != "resize-top-left" || HitResizeBottomRight.String() != "resize-bottom-right" {
+		t.Errorf("names %v %v", HitResizeTopLeft, HitResizeBottomRight)
+	}
+	regions := []HitRegion{
+		{Kind: HitCaption, Rect: Rect{W: 100, H: 30}},
+		{Kind: HitResizeTop, Rect: Rect{W: 100, H: 5}},
+		{Kind: HitResizeTopLeft, Rect: Rect{W: 16, H: 5}},
+	}
+	if HitEdge(regions, Point{50, 2}) != EdgeTop || HitEdge(regions, Point{3, 2}) != EdgeTop|EdgeLeft || HitEdge(regions, Point{50, 10}) != 0 {
+		t.Error("HitEdge")
+	}
+	CheckHitRegions(regions)
 }
 
 func TestCaptionClicks(t *testing.T) {

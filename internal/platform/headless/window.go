@@ -237,11 +237,13 @@ func (w *Window) Inject(e platform.Event) {
 		if w.draggedPointer(ev) {
 			return
 		}
-		if w.captionPointer(ev) {
-			w.b.signal() // a caption click may have been queued
+		if w.passPointer(ev) {
+			// Through a transparent window's faint pixels, before any
+			// region: the OS passes them below first.
 			return
 		}
-		if w.passPointer(ev) {
+		if w.captionPointer(ev) {
+			w.b.signal() // a caption click may have been queued
 			return
 		}
 		e = ev

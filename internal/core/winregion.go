@@ -78,12 +78,23 @@ func (t *Tree) regionChanged(el *Element, old, now uint8) {
 	}
 	switch {
 	case old == regionNone && now != regionNone:
-		t.reg.n++
-		for p := el.parent; p != nil && !p.winKids; p = p.parent {
-			p.winKids = true
-		}
+		t.countRegion(el, true)
 	case old != regionNone && now == regionNone:
+		t.countRegion(el, false)
+	}
+}
+
+// countRegion counts a region prop of primitive el (WindowDrag,
+// WindowNoDrag, WindowControlProp or WindowResize) that mounts (on) or
+// unmounts, marking el's ancestors so the walk finds it.
+func (t *Tree) countRegion(el *Element, on bool) {
+	if !on {
 		t.reg.n--
+		return
+	}
+	t.reg.n++
+	for p := el.parent; p != nil && !p.winKids; p = p.parent {
+		p.winKids = true
 	}
 }
 
@@ -126,6 +137,11 @@ func (t *Tree) regionWalk(el *Element, drag bool, vp gfx.Rect, out []platform.Hi
 			}
 		case drag || c.winKids:
 			out = t.regionWalk(c, drag, vp, out)
+		}
+		if rs := c.node.d.winResize; rs.on {
+			// After the subtree: the handles are on top of the regions
+			// inside the element (a drag area along its top edge).
+			out = t.appendResize(out, c, rs, vp)
 		}
 	}
 	return out

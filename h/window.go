@@ -44,3 +44,21 @@ func WindowNoDrag() tela.Prop { return core.WindowNoDrag() }
 //
 //	Button(WindowControl(tela.WindowMaximize), AriaLabel("Maximize"), Icon(lucide.Square, Class("size-4")))
 func WindowControl(c tela.WindowControl) tela.Prop { return core.WindowControlProp(c) }
+
+// WindowResize makes the inside of an element's edges the window's resize
+// handles: pressing there and moving resizes the window from that side, or
+// diagonally from a corner, and the pointer shows the resize cursors, as
+// over an OS window's border. It is for windows whose OS draws no resize
+// border: a transparent window (tela.App.Transparent), whose edges are the
+// transparent margin around the card the app draws, and any frameless one.
+// Put it on the card; the band lies on the card's own pixels (5 logical
+// pixels wide unless tela.ResizeBand says otherwise, corners 16 along each
+// side), on top of what is inside it, so presses there resize instead of
+// reaching the content. tela.ResizeEdges keeps only some sides. The window
+// does not resize while it is maximized or fullscreen, nor with FixedSize.
+//
+//	Div(Class("absolute inset-4 rounded-2xl bg-white shadow-xl"), WindowResize(),
+//	    Div(Class("h-10"), WindowDrag(), Text("Notes")),
+//	    ...
+//	)
+func WindowResize(opts ...tela.ResizeOption) tela.Prop { return core.WindowResize(opts...) }

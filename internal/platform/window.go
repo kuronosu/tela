@@ -124,9 +124,56 @@ const (
 	HitMinimize
 	HitMaximize
 	HitClose
+	// HitResizeTop to HitResizeBottomRight are resize handles the app
+	// marks along its content's edges (h.WindowResize, contract v10,
+	// ADR-257): a press there is the OS's and starts an interactive
+	// resize from that side or corner, and the backend shows its resize
+	// cursor ([Edge.Cursor]), as over the backends' own band. Where the
+	// window cannot be resized (FixedSize, maximized, fullscreen) they
+	// are content. [HitKind.Edge] gives a kind's edge, [HitResize] the
+	// kind of an edge.
+	HitResizeTop
+	HitResizeBottom
+	HitResizeLeft
+	HitResizeRight
+	HitResizeTopLeft
+	HitResizeTopRight
+	HitResizeBottomLeft
+	HitResizeBottomRight
 )
 
-var hitKindNames = [...]string{"client", "caption", "minimize", "maximize", "close"}
+var hitKindNames = [...]string{"client", "caption", "minimize", "maximize", "close",
+	"resize-top", "resize-bottom", "resize-left", "resize-right",
+	"resize-top-left", "resize-top-right", "resize-bottom-left", "resize-bottom-right"}
+
+// hitEdges are the edges of the resize kinds, from HitResizeTop on.
+var hitEdges = [...]Edge{EdgeTop, EdgeBottom, EdgeLeft, EdgeRight,
+	EdgeTop | EdgeLeft, EdgeTop | EdgeRight, EdgeBottom | EdgeLeft, EdgeBottom | EdgeRight}
+
+// Edge returns the side or corner of a resize kind (HitResizeTop to
+// HitResizeBottomRight), 0 for every other kind.
+func (k HitKind) Edge() Edge {
+	if k >= HitResizeTop && k <= HitResizeBottomRight {
+		return hitEdges[k-HitResizeTop]
+	}
+	return 0
+}
+
+// HitResize returns the resize kind of edge e, a side or a corner;
+// HitClient for anything else (no edge, opposite sides).
+func HitResize(e Edge) HitKind {
+	for i, x := range hitEdges {
+		if x == e {
+			return HitResizeTop + HitKind(i)
+		}
+	}
+	return HitClient
+}
+
+// HitEdge returns the edge of the resize region on top at p
+// (HitTest(regions, p).Edge()), 0 when the region there is not a resize
+// handle. Backends call it only for windows that can be resized.
+func HitEdge(regions []HitRegion, p Point) Edge { return HitTest(regions, p).Edge() }
 
 func (k HitKind) String() string {
 	if int(k) < len(hitKindNames) {
@@ -305,7 +352,7 @@ func (c *CaptionClicks) Reset() { c.has = false }
 // invalid kind or a rectangle with a negative, NaN or infinite component.
 func CheckHitRegions(regions []HitRegion) {
 	for i, r := range regions {
-		if r.Kind > HitClose {
+		if r.Kind > HitResizeBottomRight {
 			panicf("platform: SetHitRegions: region %d has invalid kind %d; use one of the platform.Hit… constants", i, r.Kind)
 		}
 		for _, v := range [4]float32{r.Rect.X, r.Rect.Y, r.Rect.W, r.Rect.H} {

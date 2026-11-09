@@ -54,6 +54,8 @@ type desc struct {
 	// winRegion is the custom title bar prop (WindowDrag, WindowNoDrag,
 	// WindowControlProp; winregion.go), regionNone for none.
 	winRegion uint8
+	// winResize is the WindowResize prop (winresize.go), zero for none.
+	winResize resizeSpec
 	// Focus props (focus.go): TabIndex (hasTab false: the kind's
 	// default), AutoFocus, an ElementRef and a focus scope.
 	tabIndex  int32

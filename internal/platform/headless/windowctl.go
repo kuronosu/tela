@@ -40,6 +40,9 @@ type windowCtl struct {
 	tokens        []string // ActivateWithToken tokens
 	captionDrags  int
 	windowMenus   int
+	// resizes are the edges of the injected primary presses on resize
+	// handles (HitResize… regions), in order.
+	resizes []platform.Edge
 
 	// Caption presses: buttons pressed in a caption region and not yet
 	// released (their pointer stream belongs to the "OS"), and the last
@@ -414,6 +417,16 @@ func (w *Window) captionPointer(e platform.PointerEvent) bool {
 		c.captionHeld, c.captionClick = e.Button.Mask(), false
 		return true
 	}
+	if edge := platform.HitEdge(c.regions, e.Pos); edge != 0 && w.resizable() {
+		// A resize handle of the app's (h.WindowResize): the press and
+		// its sequence are the "OS's" interactive resize, which the test
+		// drives with Resize; only the primary button resizes.
+		c.captionHeld, c.captionClick = e.Button.Mask(), false
+		if e.Button == platform.ButtonPrimary {
+			c.resizes = append(c.resizes, edge)
+		}
+		return true
+	}
 	if platform.HitTest(c.regions, e.Pos) != platform.HitCaption {
 		return false
 	}
@@ -553,6 +566,25 @@ func (w *Window) CaptionDrags() int {
 	w.b.mu.Lock()
 	defer w.b.mu.Unlock()
 	return w.ctl.captionDrags
+}
+
+// ResizeStarts returns the edges of the injected primary presses on resize
+// handles (HitResizeTop to HitResizeBottomRight regions) that started an
+// OS resize, in order; the presses and their sequences are not delivered.
+// A window that cannot be resized (FixedSize, maximized, fullscreen)
+// treats the handles as content. The size does not change: drive it with
+// Resize.
+func (w *Window) ResizeStarts() []platform.Edge {
+	w.b.mu.Lock()
+	defer w.b.mu.Unlock()
+	return slices.Clone(w.ctl.resizes)
+}
+
+// resizable reports whether the "OS" resizes the window from its resize
+// handles: not FixedSize, maximized or fullscreen. b.mu is held.
+func (w *Window) resizable() bool {
+	st := w.ctl.osState
+	return !w.opts.FixedSize && !st.Maximized && !st.Fullscreen
 }
 
 // WindowMenus returns how many injected secondary presses in a caption

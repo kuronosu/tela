@@ -132,3 +132,47 @@ func TestRenderTransparentApp(t *testing.T) {
 		t.Errorf("the card has alpha %d, want 255", a)
 	}
 }
+
+// TestTransparentWindowResize (ADR-257): h.WindowResize on the card makes
+// a band inside its pixels the window's resize handles. A press on the
+// band starts an OS resize (and is not the app's) while the rounded
+// corner's transparent pixels still pass the pointer below; the content
+// inside the band keeps its clicks.
+func TestTransparentWindowResize(t *testing.T) {
+	var clicks, misses int
+	root := func() tela.Node {
+		return Div(Class("h-full p-4"), OnClick(func() { misses++ }),
+			Div(Class("flex h-full flex-col rounded-2xl bg-white p-6"), WindowResize(), OnClick(func() { clicks++ }),
+				Div(Class("h-8"), WindowDrag()),
+			),
+		)
+	}
+	app := telatest.Mount(t, tela.C(root), telatest.Transparent(), telatest.Size(200, 120))
+	if k := app.HitAt(18, 60); k != telatest.HitResizeLeft {
+		t.Errorf("HitAt the card's left edge = %v, want resize-left", k)
+	}
+	if k := app.HitAt(100, 18); k != telatest.HitResizeTop {
+		t.Errorf("HitAt the card's top edge, over its drag area = %v, want resize-top", k)
+	}
+	if k := app.HitAt(174, 101); k != telatest.HitResizeBottomRight {
+		t.Errorf("HitAt the bottom-right corner = %v, want resize-bottom-right", k)
+	}
+	app.ClickAt(18, 60)
+	app.ClickAt(174, 101) // inside the rounding
+	if got := app.ResizeStarts(); len(got) != 2 || got[0] != tela.EdgeLeft || got[1] != tela.EdgeBottom|tela.EdgeRight {
+		t.Errorf("ResizeStarts = %v, want [left bottom-right]", got)
+	}
+	// The corner pixel of the rounded card is transparent: below the
+	// window, not a resize.
+	if app.TakesInput(16.5, 16.5) {
+		t.Error("the rounded corner's outer pixel takes input")
+	}
+	app.ClickAt(16.5, 16.5)
+	if n := len(app.ResizeStarts()); n != 2 {
+		t.Errorf("%d resizes after a click through the corner, want 2", n)
+	}
+	app.ClickAt(100, 80)
+	if clicks != 1 || misses != 1 {
+		t.Errorf("clicks %d, misses %d, want the one click inside the card (bubbling to the root)", clicks, misses)
+	}
+}
