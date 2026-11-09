@@ -221,3 +221,47 @@ func TestAppFontsReachTheRender(t *testing.T) {
 		t.Errorf("image is %v, want the App's 300x100", b)
 	}
 }
+
+// TestPreviewThemeAndScheme: a preview's Theme and ColorScheme (ADR-250)
+// win over the package's App in tela snapshot and tela inspect, and over
+// --dark, which the CLI says; the App's apply to the previews without
+// them.
+func TestPreviewThemeAndScheme(t *testing.T) {
+	skipShort(t)
+	red, blue, green, yellow := [3]uint8{0xff, 0, 0}, [3]uint8{0, 0, 0xff}, [3]uint8{0, 0xff, 0}, [3]uint8{0xff, 0xff, 0}
+	rose, emerald := [3]uint8{0xff, 0x20, 0x56}, [3]uint8{0x00, 0xbc, 0x7d}
+	layout, _ := inspectRun(t, 0, "--layout", "--preview", "1 App", "./testdata/previewtheme")
+	tx, ty, tw, th := boxRect(t, layout, "token")
+	sx, sy, sw, sh := boxRect(t, layout, "scheme")
+	for _, c := range []struct {
+		preview      string
+		args         []string
+		token, boxes [3]uint8
+		warn         string
+	}{
+		{"1 App", nil, blue, emerald, ""},     // the App's theme, dark
+		{"2 Light", nil, red, rose, ""},       // the App's theme, light
+		{"3 Theme", nil, yellow, emerald, ""}, // its own theme, the App's dark
+		{"4 Both", nil, green, rose, ""},      // its own theme, light
+		{"2 Light", []string{"--dark"}, red, rose, `--dark has no effect: the ColorScheme of preview "2 Light" is tela.Light`},
+		{"1 App", []string{"--dark"}, blue, emerald, ""},
+	} {
+		args := append(append([]string{"--preview", c.preview}, c.args...), "./testdata/previewtheme")
+		img, _, stderr := snap(t, args...)
+		if got := pixel(img, tx+tw/2, ty+th/2); got != c.token {
+			t.Errorf("%v: brand swatch %v, want %v", args, got, c.token)
+		}
+		if got := pixel(img, sx+sw/2, sy+sh/2); got != c.boxes {
+			t.Errorf("%v: scheme box %v, want %v", args, got, c.boxes)
+		}
+		if c.warn != "" && !strings.Contains(stderr, c.warn) || c.warn == "" && strings.Contains(stderr, "--dark") {
+			t.Errorf("%v: stderr %q, want %q", args, stderr, c.warn)
+		}
+	}
+	// tela inspect sees the preview's scheme too: the box's computed
+	// background.
+	layout, _ = inspectRun(t, 0, "--layout", "--preview", "2 Light", "./testdata/previewtheme")
+	if !strings.Contains(layout, `"background": "#ff2056"`) {
+		t.Errorf("inspect --layout of 2 Light lacks the light box (rose-500):\n%s", layout)
+	}
+}

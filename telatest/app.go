@@ -89,7 +89,8 @@ type appShared struct {
 // unmounted when the test ends, running the cleanups of its effects. root
 // is a node or a component: a struct component value, or a function
 // component through its public wrapper, a function that returns its
-// tela.C or tela.CP node (or use [MountFunc]).
+// tela.C or tela.CP node (or use [MountFunc]). A [tela.Preview]'s Theme
+// and ColorScheme apply after the options, as in `tela snapshot`.
 //
 //	app := telatest.Mount(t, Counter(), telatest.Size(400, 300))
 //	app := telatest.Mount(t, Card{Title: "Inbox"})
@@ -105,7 +106,7 @@ type appShared struct {
 // goldens (see "Windows" in the package documentation).
 func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 	tb.Helper()
-	cfg := newConfig(opts)
+	cfg := newConfig(withPreview(root, opts))
 	if err := cfg.validate(); err != nil {
 		tb.Fatalf("telatest: %v", err)
 	}

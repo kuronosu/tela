@@ -2,6 +2,7 @@ package tela_test
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 	"testing"
 
@@ -91,6 +92,64 @@ func TestPreviewWrap(t *testing.T) {
 	}
 	if !strings.Contains(yaml, "wrapped") || !strings.Contains(yaml, "guest sees the x tab") {
 		t.Errorf("snapshot:\n%s", yaml)
+	}
+}
+
+// swatches is a box in the theme's brand color and one that the dark:
+// variant colors.
+type swatches struct{}
+
+func (swatches) Build() tela.Node {
+	return Div(Class("flex"),
+		Div(TestID("token"), Class("size-8 bg-brand")),
+		Div(TestID("scheme"), Class("size-8 bg-rose-500 dark:bg-emerald-500")))
+}
+
+// TestPreviewThemeAndScheme: a Preview's Theme and ColorScheme (ADR-250)
+// apply where telatest mounts it, after the options, as `tela snapshot`
+// applies them after the package's App; a preview without them keeps the
+// options'.
+func TestPreviewThemeAndScheme(t *testing.T) {
+	brand := tela.Theme{Colors: map[string]tela.SchemeColor{"brand": {Light: tela.Hex("#ff0000"), Dark: tela.Hex("#0000ff")}}}
+	other := &tela.Theme{Colors: map[string]tela.SchemeColor{"brand": {Light: tela.Hex("#00ff00"), Dark: tela.Hex("#ffff00")}}}
+	app := tela.App{ColorScheme: tela.Dark, Theme: &brand}
+	red, blue, green := color.RGBA{0xff, 0, 0, 0xff}, color.RGBA{0, 0, 0xff, 0xff}, color.RGBA{0, 0xff, 0, 0xff}
+	rose, emerald := color.RGBA{0xff, 0x20, 0x56, 0xff}, color.RGBA{0x00, 0xbc, 0x7d, 0xff}
+	for _, c := range []struct {
+		name         string
+		p            tela.Preview
+		token, boxes color.RGBA
+	}{
+		{"none", tela.Preview{Root: swatches{}}, blue, emerald},
+		{"light", tela.Preview{Root: swatches{}, ColorScheme: tela.Light}, red, rose},
+		{"theme", tela.Preview{Root: swatches{}, Theme: other, ColorScheme: tela.Light}, green, rose},
+	} {
+		// The App's settings as options, as the CLI gives them.
+		a := telatest.Mount(t, c.p, telatest.FromApp(app), telatest.Size(100, 40))
+		at := func(id string) color.RGBA {
+			b := a.Bounds(telatest.ByTestID(id))
+			return a.PixelAt(b.X+b.Width/2, b.Y+b.Height/2)
+		}
+		if got := at("token"); got != c.token {
+			t.Errorf("%s: brand %v, want %v", c.name, got, c.token)
+		}
+		if got := at("scheme"); got != c.boxes {
+			t.Errorf("%s: scheme box %v, want %v", c.name, got, c.boxes)
+		}
+		// The headless entry points too.
+		img, err := telatest.Render(c.p, telatest.FromApp(app), telatest.Size(100, 40))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := img.RGBAAt(48, 16); got != c.boxes {
+			t.Errorf("%s: Render: scheme box %v, want %v", c.name, got, c.boxes)
+		}
+	}
+	// The preview wins over an option given after the App's.
+	a := telatest.Mount(t, tela.Preview{Root: swatches{}, ColorScheme: tela.Light, Theme: other}, telatest.ColorScheme(tela.Dark), telatest.Size(100, 40))
+	b := a.Bounds(telatest.ByTestID("scheme"))
+	if got := a.PixelAt(b.X+b.Width/2, b.Y+b.Height/2); got != rose {
+		t.Errorf("an explicit option: scheme box %v, want the preview's light rose", got)
 	}
 }
 

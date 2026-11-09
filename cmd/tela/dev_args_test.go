@@ -131,6 +131,7 @@ func TestDevRunnersCompile(t *testing.T) {
 	for _, c := range []struct{ pkg, preview string }{
 		{"cmd/tela/testdata/preview", ""},
 		{"cmd/tela/testdata/previews", "Nope"},
+		{"cmd/tela/testdata/previewtheme", "Nope"},
 		{"cmd/tela/testdata/apponly", ""},
 		{"cmd/tela/testdata/appstruct", ""},
 		{"examples/dashboard", "Nope"},

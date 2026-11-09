@@ -560,6 +560,9 @@ func TestTelaRun(t *telatesting.T) {
 	if dark {
 		opts = append(opts, telatest.Dark())
 	}
+	// The color scheme that overrides --dark, and whose it is.
+	scheme, schemeOf := telatela.System, ""
+	_, _ = scheme, schemeOf
 {{- if .HasApp}}
 	// The App's settings; an explicit --size beats its Width and Height.
 	if telaHasApp {
@@ -567,11 +570,17 @@ func TestTelaRun(t *telatesting.T) {
 		if getenv({{printf "%q" .Env.SizeSet}}) == "true" {
 			opts = append(opts, telatest.Size(float32(w), float32(h)))
 		}
-		if dark && telaApp.ColorScheme == telatela.Light {
-			telafmt.Fprintln(telaos.Stderr, "tela: warning: --dark has no effect: App.ColorScheme is tela.Light, which overrides the system's preference")
-		}
+		scheme, schemeOf = telaApp.ColorScheme, "App.ColorScheme"
 	}
 {{- end}}
+	// A preview's Theme and ColorScheme beat the App's: telatest applies
+	// them after the options (ADR-250).
+	if p, ok := root.(telatela.Preview); ok && p.ColorScheme != telatela.System {
+		scheme, schemeOf = p.ColorScheme, telafmt.Sprintf("the ColorScheme of preview %q", preview)
+	}
+	if dark && scheme == telatela.Light {
+		telafmt.Fprintf(telaos.Stderr, "tela: warning: --dark has no effect: %s is tela.Light, which overrides the system's preference\n", schemeOf)
+	}
 
 	switch getenv({{printf "%q" .Env.Mode}}) {
 	case {{printf "%q" "snapshot"}}:

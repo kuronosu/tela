@@ -23,7 +23,8 @@ import (
 // [ClassicScrollbars], [InstantScroll], [RootClass], [Theme], [ClassAliases], [NoDev] (they run in
 // dev mode by default, reporting dev errors and warnings on standard error)
 // and [Debug] (overlays are drawn into the image); the others concern
-// mounted apps and are ignored.
+// mounted apps and are ignored. A [tela.Preview] root's Theme and
+// ColorScheme apply after the options, as with [Mount].
 //
 // Each call builds a new tree, runs frames at the given size until the
 // tree has no more work (a few at most, for what the first one measures,
@@ -33,9 +34,10 @@ import (
 // never the system's, so the results are the same on every machine. A panic in the tree (a hook misuse, say) is
 // returned as an error.
 
-// headlessSetup resolves the options of the headless entry points.
-func headlessSetup(opts []Option) (cfg config, size gfx.Size, err error) {
-	cfg = newConfig(opts)
+// headlessSetup resolves the options of the headless entry points for
+// root (a tela.Preview's settings apply after them).
+func headlessSetup(root tela.Component, opts []Option) (cfg config, size gfx.Size, err error) {
+	cfg = newConfig(withPreview(root, opts))
 	if err = cfg.validate(); err != nil {
 		return cfg, size, err
 	}
@@ -75,7 +77,7 @@ func rootOf(root tela.Component) (n tela.Node, err error) {
 // when the tree needs further frames. root is a node or a component, as
 // for [Mount]; a Prop is an error.
 func Render(root tela.Component, opts ...Option) (img *image.RGBA, err error) {
-	cfg, size, err := headlessSetup(opts)
+	cfg, size, err := headlessSetup(root, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +95,7 @@ func Render(root tela.Component, opts ...Option) (img *image.RGBA, err error) {
 // aria snapshot, without a trailing newline: the YAML `tela inspect --aria`
 // prints.
 func AriaSnapshot(root tela.Component, opts ...Option) (yaml string, err error) {
-	cfg, size, err := headlessSetup(opts)
+	cfg, size, err := headlessSetup(root, opts)
 	if err != nil {
 		return "", err
 	}
@@ -112,7 +114,7 @@ func AriaSnapshot(root tela.Component, opts ...Option) (yaml string, err error) 
 // bounds, the same shape: the bounding box of its transformed border box in
 // window coordinates, as tela.ElementRef.Bounds returns it.
 func LayoutJSON(root tela.Component, opts ...Option) (js []byte, err error) {
-	cfg, size, err := headlessSetup(opts)
+	cfg, size, err := headlessSetup(root, opts)
 	if err != nil {
 		return nil, err
 	}

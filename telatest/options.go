@@ -82,6 +82,9 @@ func (c config) validate() error {
 	case c.textScale != 0 && !(c.textScale > 0 && c.textScale <= platform.MaxTextScale):
 		return fmt.Errorf("telatest.TextScale(%g): give a factor above 0 and at most %d, such as telatest.TextScale(1.25)", c.textScale, platform.MaxTextScale)
 	}
+	if c.scheme > tela.Dark {
+		return fmt.Errorf("color scheme %d: a tela.Preview's ColorScheme is tela.Light, tela.Dark or tela.System", c.scheme)
+	}
 	if _, err := core.ParseDebug(strings.Join(c.debug, ",")); err != nil {
 		return fmt.Errorf("telatest.Debug: %v", err)
 	}
@@ -474,6 +477,32 @@ func FromApp(app tela.App) Option {
 			c.win.transparent, c.win.frameless = true, true
 		}
 	}
+}
+
+// withPreview returns opts followed by the settings of root when it is a
+// tela.Preview with a Theme or a ColorScheme (ADR-250): they apply after
+// the options, as `tela snapshot` applies them after the package's App and
+// its flags, so a preview is the same picture in a test and in the CLI.
+func withPreview(root tela.Component, opts []Option) []Option {
+	p, ok := root.(tela.Preview)
+	if !ok || p.Theme == nil && p.ColorScheme == tela.System {
+		return opts
+	}
+	var theme *tela.Theme
+	if p.Theme != nil {
+		t := *p.Theme
+		t.Colors = maps.Clone(t.Colors)
+		theme = &t
+	}
+	scheme := p.ColorScheme
+	return append(opts[:len(opts):len(opts)], func(c *config) {
+		if theme != nil {
+			c.theme = theme
+		}
+		if scheme != tela.System {
+			c.scheme = scheme
+		}
+	})
 }
 
 // finiteRect reports whether r's coordinates are numbers within the range

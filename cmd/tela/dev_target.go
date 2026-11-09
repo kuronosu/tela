@@ -320,6 +320,16 @@ func telaDevRun() {
 	}
 {{- end}}
 	app.Root = telaDevRoot()
+	// A preview's Theme and ColorScheme beat the App's, as in tela snapshot
+	// (ADR-250).
+	if p, ok := app.Root.(telatela.Preview); ok {
+		if p.Theme != nil {
+			app.Theme = p.Theme
+		}
+		if p.ColorScheme != telatela.System {
+			app.ColorScheme = p.ColorScheme
+		}
+	}
 	telatela.Main(app)
 }
 {{if .HasApp}}

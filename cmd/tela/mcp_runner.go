@@ -376,6 +376,7 @@ func (s *telaMCPSession) doMount(req telaMCPReq) (fail, panicked string) {
 		if dark {
 			opts = append(opts, telatest.Dark())
 		}
+		scheme, schemeOf := telatela.System, ""
 {{- if .HasApp}}
 		// The App's settings, as for tela snapshot; an explicit size beats
 		// its Width and Height.
@@ -386,20 +387,26 @@ func (s *telaMCPSession) doMount(req telaMCPReq) (fail, panicked string) {
 			} else if telaApp.Width > 0 && telaApp.Height > 0 {
 				w, h = float64(telaApp.Width), float64(telaApp.Height)
 			}
-			switch telaApp.ColorScheme {
-			case telatela.Light:
-				if dark {
-					s.note = "dark has no effect: App.ColorScheme is tela.Light, which overrides the system's preference"
-				}
-				dark = false
-			case telatela.Dark:
-				if !dark {
-					s.note = "the screen is dark: App.ColorScheme is tela.Dark, which overrides the system's preference"
-				}
-				dark = true
-			}
+			scheme, schemeOf = telaApp.ColorScheme, "App.ColorScheme"
 		}
 {{- end}}
+		// A preview's ColorScheme beats the App's: telatest applies it
+		// after the options (ADR-250).
+		if p, ok := root.(telatela.Preview); ok && p.ColorScheme != telatela.System {
+			scheme, schemeOf = p.ColorScheme, telafmt.Sprintf("the ColorScheme of preview %q", preview)
+		}
+		switch scheme {
+		case telatela.Light:
+			if dark {
+				s.note = "dark has no effect: " + schemeOf + " is tela.Light, which overrides the system's preference"
+			}
+			dark = false
+		case telatela.Dark:
+			if !dark {
+				s.note = "the screen is dark: " + schemeOf + " is tela.Dark, which overrides the system's preference"
+			}
+			dark = true
+		}
 		s.w, s.h, s.scale, s.dark = w, h, req.Scale, dark
 		s.app = telatest.Mount(s.tb, root, opts...)
 	})

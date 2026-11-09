@@ -35,9 +35,19 @@ import (
 //	    },
 //	}
 //
+// A preview can show the screen in a theme and a color scheme of its own,
+// which win over the package's App (ADR-250):
+//
+//	var Previews = tela.Previews{
+//	    "Light": {Root: Main{}},
+//	    "Dark":  {Root: Main{}, ColorScheme: tela.Dark},
+//	    "Brand": {Root: Main{}, Theme: &brandTheme},
+//	}
+//
 // A Preview is itself a Component that builds Wrap(Root): the CLI mounts
 // exactly that, and a test mounts a preview the way the CLI does with
-// telatest.Mount(t, Previews["mocked"]).
+// telatest.Mount(t, Previews["mocked"]), which applies its Theme and
+// ColorScheme too.
 type Preview struct {
 	// Root is the screen. It must not be nil.
 	Root Component
@@ -46,6 +56,15 @@ type Preview struct {
 	// it reads. It runs each time the preview builds and may not use
 	// hooks: put state in a component.
 	Wrap func(Node) Node
+	// Theme, when not nil, replaces the theme of the package's App (or
+	// the default theme) for this preview: its color tokens, radius and
+	// fonts, as App.Theme sets them.
+	Theme *Theme
+	// ColorScheme, when Light or Dark, is the color scheme of this
+	// preview: it wins over the App's and over the system's preference
+	// (tela snapshot --dark), as App.ColorScheme does; System (the zero
+	// value) leaves them.
+	ColorScheme ColorScheme
 }
 
 // Build returns the node the preview mounts: Root, or Wrap(Root) when Wrap
