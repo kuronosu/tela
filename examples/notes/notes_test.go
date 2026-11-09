@@ -73,10 +73,19 @@ func mount(t *testing.T, opts ...telatest.Option) *telatest.App {
 	return mountLook(t, kit.GNOME, opts...)
 }
 
-// mountLook is mount with the conventions of another platform.
+// mountLook is mount with the conventions of another platform: the look's
+// platform keys too (Cmd on a Mac, Ctrl elsewhere), so the shortcut texts do
+// not depend on the OS the test runs on; an option given later wins.
 func mountLook(t *testing.T, look kit.Variant, opts ...telatest.Option) *telatest.App {
 	t.Helper()
-	opts = append([]telatest.Option{telatest.Size(windowW, windowH)}, opts...)
+	keys := "linux"
+	switch look {
+	case kit.MacOS:
+		keys = "darwin"
+	case kit.Windows:
+		keys = "windows"
+	}
+	opts = append([]telatest.Option{telatest.Size(windowW, windowH), telatest.PlatformKeys(keys)}, opts...)
 	return telatest.MountApp(t, appFor(look), opts...)
 }
 

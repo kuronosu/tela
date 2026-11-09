@@ -161,3 +161,36 @@ func TestMenuRadioItemRolePanics(t *testing.T) {
 		})
 	}
 }
+
+// The element a role acts on belongs to the press that opened the menu: a
+// press on the trigger that opened nothing (a right click) leaves no
+// origin, so a later opening by the app acts where the focus was then.
+func TestDropdownRoleOriginBelongsToItsOpening(t *testing.T) {
+	var log []string
+	var setOpen tela.Setter[bool]
+	page := func() tela.Node {
+		open, set := tela.UseState(false)
+		setOpen = set
+		return h.Div(h.Class("flex flex-col gap-4 p-6"),
+			kit.DropdownMenu[string]{AriaLabel: "Edit", Items: editItems(&log), Open: &open, OnOpenChange: set.Set,
+				Trigger: kit.Button{Variant: kit.Outline, Children: h.Text("Edit")}},
+			kit.Input{AriaLabel: "A"}, kit.Input{AriaLabel: "B"})
+	}
+	app := telatest.MountFunc(t, page, telatest.Size(480, 360), telatest.Theme(kit.Theme()))
+	a, b := telatest.ByRole("textbox", "A"), telatest.ByRole("textbox", "B")
+	app.Click(a)
+	app.Type("from a")
+	app.Press("ControlOrMeta+a")
+	app.Click(telatest.ByRole("button", "Edit"), telatest.Right()) // opens nothing
+	app.ExpectCount(telatest.ByRole("menu", "Edit"), 0)
+	app.Click(b)
+	app.Type("from b")
+	app.Press("ControlOrMeta+a")
+	setOpen.Set(true)
+	app.ExpectCount(telatest.ByRole("menu", "Edit"), 1)
+	app.Click(telatest.ByRole("menuitem", "Copy"))
+	if got := app.Clipboard().Text(); got != "from b" {
+		t.Errorf("clipboard %q after Copy, want the text of B", got)
+	}
+	app.ExpectFocused(b)
+}

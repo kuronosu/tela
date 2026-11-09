@@ -334,6 +334,14 @@ type menuStore[K comparable] struct {
 	role      desktop.Role
 	origin    tela.ElementRef
 	hasOrigin bool
+	// cand is the element a press on the closed menu's trigger found
+	// focused: the opening that press asks for (openChange) makes it the
+	// origin, so a press that opens nothing (a right click, a touch
+	// dragged off) leaves no origin for a later opening. open is the
+	// menu's state as of the last build or request.
+	cand    tela.ElementRef
+	hasCand bool
+	open    bool
 }
 
 // useMenuStore is the hook that returns the store of a menu component. It
@@ -362,21 +370,47 @@ func useMenuStore[K comparable]() *menuStore[K] {
 
 // captureOrigin remembers the element that has the focus before a press
 // on a menu's trigger moves it there, for the roles of the menu's items
-// (menuStore.role). A key on the trigger forgets it: the focus is the
-// trigger's already.
-func (s *menuStore[K]) captureOrigin(w tela.WindowHandle, open func() bool) tela.Prop {
+// (menuStore.role); the opening the press asks for makes it the origin
+// (openChange). A key on the trigger forgets it: the focus is the
+// trigger's already. open is the menu's state in this build: a closed
+// menu with no role to carry out has no origin.
+func (s *menuStore[K]) captureOrigin(w tela.WindowHandle, open bool) tela.Prop {
+	s.open = open
+	if !open && s.role == desktop.RoleNone {
+		s.hasOrigin = false
+	}
 	return tela.MergeProps(
 		h.OnPointerDown(func() {
-			if !open() {
-				s.origin, s.hasOrigin = w.ActiveElement()
+			if !s.open {
+				s.cand, s.hasCand = w.ActiveElement()
 			}
 		}),
 		h.OnKeyDown(func() {
-			if !open() {
-				s.hasOrigin = false
+			if !s.open {
+				s.hasCand = false
 			}
 		}),
 	)
+}
+
+// openChange returns the OnOpenChange of the menu's trigger hook, which
+// calls f: an opening asked for by the trigger takes the element its press
+// captured as the origin (none after a key), and a close with no role to
+// carry out forgets it.
+func (s *menuStore[K]) openChange(f func(bool)) func(bool) {
+	return func(open bool) {
+		switch {
+		case open && !s.open:
+			s.origin, s.hasOrigin = s.cand, s.hasCand
+			s.hasCand = false
+		case !open && s.role == desktop.RoleNone:
+			s.hasOrigin = false
+		}
+		s.open = open
+		if f != nil {
+			f(open)
+		}
+	}
 }
 
 func (s *menuStore[K]) isChecked(it MenuItem[K]) bool {

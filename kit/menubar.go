@@ -287,14 +287,21 @@ func (d drawnMenubar[K]) Build() tela.Node {
 	}
 	dir, rootDir := useDirection("Menubar", m.Direction)
 	bar := aria.UseMenuBar(aria.MenuBarOptions[K]{
-		Keys: keys, DisabledKeys: disabled, Open: m.Open, DefaultOpen: m.DefaultOpen, OnOpenChange: m.OnOpenChange,
+		Keys: keys, DisabledKeys: disabled, Open: m.Open, DefaultOpen: m.DefaultOpen, OnOpenChange: func(k K, open bool) {
+			// The bar moves from one open menu to another without a close:
+			// only its first opening takes the origin (openChange).
+			store.openChange(nil)(open)
+			if m.OnOpenChange != nil {
+				m.OnOpenChange(k, open)
+			}
+		},
 		AriaLabel: m.AriaLabel, Direction: dir,
 	})
 
 	kids := []tela.Child{bar.Props, cls(st.Root, m.Class), rootDir, m.Props}
 	// The press on a menu's button takes the focus from the element the
 	// roles of the items act on: remember it first.
-	origin := store.captureOrigin(w, func() bool { return bar.Open })
+	origin := store.captureOrigin(w, bar.Open)
 	for _, mm := range m.Menus {
 		kids = append(kids, h.Button(origin, bar.TriggerProps(mm.Key), h.Key(mm.Key), cls(st.Trigger, m.TriggerClass), h.Text(mm.Label)))
 	}

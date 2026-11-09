@@ -118,7 +118,7 @@ func (d DropdownMenu[K]) Build() tela.Node {
 	store := useMenuStore[K]()
 	w := tela.UseWindow()
 	mt := aria.UseMenuTrigger(aria.MenuTriggerOptions{
-		Open: d.Open, DefaultOpen: d.DefaultOpen, OnOpenChange: d.OnOpenChange, Disabled: d.Disabled || isBusy(d.Trigger), Ref: d.outer.ref,
+		Open: d.Open, DefaultOpen: d.DefaultOpen, OnOpenChange: store.openChange(d.OnOpenChange), Disabled: d.Disabled || isBusy(d.Trigger), Ref: d.outer.ref,
 	})
 	open := mt.Open
 	panel := menuPanel[K]{
@@ -133,7 +133,7 @@ func (d DropdownMenu[K]) Build() tela.Node {
 	}
 	// The press on the trigger takes the focus from the element the roles
 	// of the items act on: remember it first.
-	props := tela.MergeProps(store.captureOrigin(w, func() bool { return open }), d.outer.merge(mt.TriggerProps))
+	props := tela.MergeProps(store.captureOrigin(w, open), d.outer.merge(mt.TriggerProps))
 	return h.Fragment(
 		triggerOf(d.Trigger, props, mt.Ref),
 		h.Portal(h.Presence(h.If(mt.Open, panel))),
