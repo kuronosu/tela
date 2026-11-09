@@ -99,8 +99,10 @@ type Window struct {
 	// the root (RootClass: "p-12 flex items-center justify-center").
 	// It needs Frameless (the window panics without it); the OS draws no shadow,
 	// border or rounded corners for it, and its edges are not resize
-	// handles (the margin is transparent), so size it with Width and
-	// Height. Where the OS cannot show transparency (X11 without a
+	// handles (the margin is transparent): size it with Width and Height,
+	// and let the user resize it with h.WindowResize on the card. A
+	// Backdrop is a vibrancy material behind the card's shape on macOS,
+	// and ignored elsewhere. Where the OS cannot show transparency (X11 without a
 	// compositing manager) the window is an opaque Frameless one, which
 	// [WindowState].Transparent reports, read through [UseWindow]: an app
 	// can give its root a background there. tela dev shows it as well.

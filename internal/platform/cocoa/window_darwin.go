@@ -248,7 +248,7 @@ func (w *Window) SetCursor(c platform.Cursor) {
 
 // nsCursor returns the NSCursor of the window's cursor.
 func (w *Window) nsCursor() darwin.ID {
-	name := cursorSelector(w.cursor)
+	name := cursorSelector(w.shownCursor())
 	if name == "" {
 		name = "arrowCursor"
 	}
@@ -464,8 +464,12 @@ func windowDelegateMethods() []darwin.Method {
 		on("windowDidResize:", func(w *Window) {
 			w.syncState()
 			w.b.reconfigure(w, w.osMetrics())
+			w.passIfFaint() // a transparent window under a resting cursor
 		}),
-		on("windowDidMove:", (*Window).syncState),
+		on("windowDidMove:", func(w *Window) {
+			w.syncState()
+			w.passIfFaint()
+		}),
 		on("windowDidChangeBackingProperties:", func(w *Window) {
 			m := w.osMetrics()
 			darwin.Send(w.layer, sel.setContentsScale, m.Scale)

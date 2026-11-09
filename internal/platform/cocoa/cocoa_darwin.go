@@ -63,6 +63,7 @@ type Backend struct {
 	settings settingsState // system settings and their observer (settings_darwin.go)
 	desk     desktopState  // desktop services (services_darwin.go)
 	dnd      backendDnD    // drag and drop (dnd_darwin.go)
+	pass     passWatch     // transparent windows letting the pointer through (transparent_darwin.go)
 	menus    menuState     // menus and quit requests (menu_darwin.go, quit_darwin.go)
 	accIn    accessInbox   // accessibility events queued off the main thread (access_darwin.go)
 }
@@ -225,6 +226,7 @@ func (b *Backend) shutdown() {
 		w.Close()
 	}
 	b.stopDnD()
+	b.stopPassWatch()
 	b.releaseZombies()
 	b.stopSettings()
 	darwin.PoolPop(pool)
@@ -301,6 +303,7 @@ func (b *Backend) pump() {
 		for _, w := range b.loop.Windows() {
 			w.applyControl()
 			w.pollPassing() // a transparent window letting the pointer through
+			w.pollCaption() // a caption press handed to the window server
 		}
 		b.passEnded() // launch_darwin.go: the launches the claims forwarded
 	}()

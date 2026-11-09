@@ -62,6 +62,7 @@ var wsel = struct {
 	setFrameDisplay, setFrameTopLeftPoint, setFrameOrigin, convertRectToView        darwin.SEL
 	convertRectToScreen, addChildWindow, removeChildWindow, parentWindow            darwin.SEL
 	standardWindowButton, setHidden, setEnabled, setTitlebarTransparent             darwin.SEL
+	setMaskImage                                                                    darwin.SEL
 	setTitleVisibility, setTitlebarSeparator, setOpaque, setBackgroundColor         darwin.SEL
 	clearColor, windowBackgroundColor, invalidateShadow, makeKeyWindow, isKeyWindow darwin.SEL
 	unhide, activate, respondsTo, setMinSize, setMaxSize, setAutoresizingMask       darwin.SEL
@@ -94,6 +95,7 @@ var wsel = struct {
 	setHidden:              darwin.Sel("setHidden:"),
 	setEnabled:             darwin.Sel("setEnabled:"),
 	setTitlebarTransparent: darwin.Sel("setTitlebarAppearsTransparent:"),
+	setMaskImage:           darwin.Sel("setMaskImage:"),
 	setTitleVisibility:     darwin.Sel("setTitleVisibility:"),
 	setTitlebarSeparator:   darwin.Sel("setTitlebarSeparatorStyle:"),
 	setOpaque:              darwin.Sel("setOpaque:"),
@@ -179,6 +181,9 @@ type windowCtl struct {
 	blocked  bool // the standard buttons are disabled for a visible modal child
 	regions  []platform.HitRegion
 	caption  captionInput
+	resize   resizeInput  // the app's resize handles (resize_darwin.go)
+	cwatch   captionWatch // a caption press handed to the window server
+	cwPoll   *time.Timer
 	backdrop platform.Backdrop
 	effect   darwin.ID    // NSVisualEffectView behind TelaView (owned: +1), or 0
 	overlay  overlayState // a TitleBarOverlay window's buttons (overlay_darwin.go)
@@ -223,11 +228,12 @@ func (w *Window) setupWindowCtl() {
 	w.ctl.onTop = opts.AlwaysOnTop
 	w.applyLevel()
 	if opts.Transparent {
-		w.initTransparent() // transparent_darwin.go; no backdrop
-	} else {
-		w.ctl.backdrop = opts.Backdrop
-		w.applyBackdrop()
+		w.initTransparent() // transparent_darwin.go
 	}
+	// A transparent window's backdrop is shaped like its card
+	// (maskEffect).
+	w.ctl.backdrop = opts.Backdrop
+	w.applyBackdrop()
 	w.ctl.fsWant = opts.Fullscreen
 	w.ctl.maxWant, w.ctl.maxPending = opts.Maximized, opts.Maximized
 }
@@ -757,6 +763,7 @@ func (w *Window) captionPress(ev darwin.ID, btn platform.PointerButton, pos plat
 	switch action {
 	case captionDrag:
 		windowDrag(w, ev)
+		w.watchCaption() // a click that moved nothing (resize_darwin.go)
 	case captionDoubleClick:
 		w.ctl.doubleClicks++
 		w.titleBarDoubleClick()
@@ -879,8 +886,8 @@ func (w *Window) PresentsAlpha() bool { return w.ctl.effect != 0 }
 // BackdropNone make the window opaque again.
 func (w *Window) SetBackdrop(backdrop platform.Backdrop) {
 	platform.CheckBackdrop("SetBackdrop backdrop", backdrop)
-	if w.Closed() || backdrop == w.ctl.backdrop || w.opts.Transparent {
-		return // a transparent window shows the desktop, not a material
+	if w.Closed() || backdrop == w.ctl.backdrop {
+		return
 	}
 	pool := darwin.PoolPush()
 	defer darwin.PoolPop(pool)
@@ -913,13 +920,45 @@ func (w *Window) applyBackdrop() {
 		darwin.Send(c.container, wsel.addSubviewPositioned, e, darwin.NSWindowBelow, w.view)
 		c.effect = e
 		w.setOpaque(false)
+		w.maskEffect() // a transparent window: the material behind its card only
 	case glass:
 		darwin.Send(c.effect, wsel.setMaterial, material)
 	case c.effect != 0:
 		darwin.Send(c.effect, wsel.removeFromSuperview)
 		darwin.Release(c.effect)
 		c.effect = 0
-		w.setOpaque(true)
+		if !w.opts.Transparent {
+			w.setOpaque(true)
+		}
+	}
+}
+
+// maskEffect gives the NSVisualEffectView of a transparent window the
+// shape of its input mask (ADR-257): a window-sized NSImage, opaque where
+// the presented frame takes input (the app's card, at least
+// platform.InputAlpha opaque) and clear elsewhere, as its maskImage, so the
+// material shows behind the card and not over the desktop around it nor
+// under the shadows. It runs when the backdrop is set and whenever a
+// Present changes the mask. A layer mask would not do: AppKit documents
+// maskImage as the way to shape a visual effect view's material.
+func (w *Window) maskEffect() {
+	if !w.opts.Transparent || w.ctl.effect == 0 {
+		return
+	}
+	pix := maskImage(&w.trans.mask)
+	var ns darwin.ID
+	if pix != nil {
+		cg, err := w.b.newImage(pix)
+		if err != nil {
+			return
+		}
+		b := darwin.SendRect(w.view, sel.bounds)
+		ns = darwin.Send(darwin.SendClass(darwin.GetClass("NSImage"), sel.alloc), dndSel.initWithCGImageSize, cg, b.Size)
+		darwin.CGImageRelease(cg) // the image keeps it
+	}
+	darwin.Send(w.ctl.effect, wsel.setMaskImage, ns)
+	if ns != 0 {
+		darwin.Release(ns) // the view keeps it
 	}
 }
 

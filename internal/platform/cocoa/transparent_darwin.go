@@ -26,16 +26,86 @@ import (
 //     a non-opaque window's pixels whose alpha is zero. For the pixels
 //     under platform.InputAlpha that are not zero (the faint part of a
 //     shadow), a move or press there sets ignoresMouseEvents, which makes
-//     the whole window transparent to the pointer, and the backend polls
-//     +[NSEvent mouseLocation] every 16 ms until the cursor is over the
-//     input mask again or off the window, when it is cleared (returning
-//     nil from hitTest: would only drop the event: AppKit does not pass
-//     it to the window below). The mask is updated in Present from the
-//     damage (platform.InputMask).
+//     the whole window transparent to the pointer, until the cursor is
+//     over the input mask again or off the window, when it is cleared
+//     (returning nil from hitTest: would only drop the event: AppKit does
+//     not pass it to the window below). The mask is updated in Present
+//     from the damage (platform.InputMask).
+//   - Taking the pointer back is event-driven (ADR-257): while a window
+//     lets it through, a global monitor of mouse moves and drags
+//     (+[NSEvent addGlobalMonitorForEventsMatchingMask:handler:], which
+//     sees the events of other apps; mouse events need no accessibility
+//     permission, key events would) signals a pass, and every pass reads
+//     +[NSEvent mouseLocation] (pollPassing); the moves that reach the
+//     app's own windows run a pass anyway. A slow poll (passSafety) stays
+//     for the moves no app receives (over the Dock or the menu bar), and
+//     the 16 ms poll of before where the monitor cannot be installed.
+//   - A press arrives only after the window server picked the window, so
+//     a press on a faint pixel that no move preceded (the content changed
+//     under a resting cursor, the window appeared or moved under it) used
+//     to be swallowed. Present, when the mask changed, and windowDidMove:
+//     and windowDidResize: check the resting cursor (passIfFaint) and let
+//     it through before any press.
 
 // passPoll is the period of the cursor poll while a transparent window
-// lets the pointer through.
-const passPoll = 16 * time.Millisecond
+// lets the pointer through and the global monitor could not be
+// installed; passSafety the slow poll beside the monitor.
+const (
+	passPoll   = 16 * time.Millisecond
+	passSafety = 250 * time.Millisecond
+)
+
+// passWatch is the global monitor of mouse moves installed while a
+// transparent window lets the pointer through (n windows), or 0.
+type passWatch struct {
+	monitor darwin.ID
+	failed  bool // the monitor could not be installed: poll at passPoll
+	n       int
+}
+
+// eventMaskPassMoves are the events the monitor sees: moves and drags of
+// every button.
+const eventMaskPassMoves = uint64(1)<<darwin.NSEventTypeMouseMoved | uint64(1)<<darwin.NSEventTypeLeftMouseDragged |
+	uint64(1)<<darwin.NSEventTypeRightMouseDragged | uint64(1)<<darwin.NSEventTypeOtherMouseDragged
+
+// watchPasses counts a window that starts (on) or stops letting the
+// pointer through, installing the monitor with the first and removing it
+// with the last.
+func (b *Backend) watchPasses(on bool) {
+	p := &b.pass
+	if on {
+		p.n++
+	} else if p.n > 0 {
+		p.n--
+	}
+	switch {
+	case p.n > 0 && p.monitor == 0 && !p.failed && !b.closed:
+		handler := darwin.NewBlock(func(_ darwin.Block, _ darwin.ID) {
+			if !b.closed {
+				b.notify() // the pass reads the cursor (pollPassing)
+			}
+		})
+		m := darwin.SendClass(app.event, dndSel.addGlobalMonitor, eventMaskPassMoves, handler)
+		handler.Release() // the monitor copied it
+		if m == 0 {
+			p.failed = true
+			return
+		}
+		p.monitor = darwin.Retain(m)
+	case p.n == 0 && p.monitor != 0:
+		b.stopPassWatch()
+	}
+}
+
+// stopPassWatch removes the monitor (no window lets the pointer through,
+// or Run returns).
+func (b *Backend) stopPassWatch() {
+	if m := b.pass.monitor; m != 0 {
+		darwin.SendClass(app.event, dndSel.removeMonitor, m)
+		darwin.Release(m)
+		b.pass.monitor = 0
+	}
+}
 
 var tpsel = struct {
 	setHasShadow, setIgnoresMouseEvents, mouseLocation darwin.SEL
@@ -58,7 +128,8 @@ type transparentState struct {
 func transparentStyle(style uint) uint { return style &^ darwin.NSWindowStyleMaskResizable }
 
 // initTransparent makes a new transparent window non-opaque, clear and
-// without the system's shadow.
+// without the system's shadow. A backdrop (Mica, MicaAlt, Acrylic) is a
+// vibrancy material behind the app's card only (maskEffect, ADR-257).
 func (w *Window) initTransparent() {
 	w.setOpaque(false)
 	darwin.Send(w.ns, tpsel.setHasShadow, false)
@@ -71,9 +142,40 @@ func (w *Window) updateInputMask(fb *image.RGBA, rects []image.Rectangle) {
 	if !w.opts.Transparent {
 		return
 	}
-	if w.trans.mask.Update(fb, rects) && w.trans.passing {
-		w.pollPassing() // the pixels under a resting pointer changed
+	if !w.trans.mask.Update(fb, rects) {
+		return
 	}
+	w.maskEffect() // a backdrop behind the card follows its shape
+	// The pixels under a resting pointer changed.
+	if w.trans.passing {
+		w.pollPassing()
+	} else {
+		w.passIfFaint()
+	}
+}
+
+// passIfFaint lets the pointer through when the cursor rests over the
+// window outside its input mask with no button held, so that a press there
+// reaches what is below (see the top of this file).
+func (w *Window) passIfFaint() {
+	if !w.opts.Transparent || w.trans.passing || w.ptr.held != 0 || w.Closed() || !w.shown {
+		return
+	}
+	p, in := w.cursorInView()
+	if in && !w.takesInput(p) {
+		w.setPassing(true)
+	}
+}
+
+// cursorInView returns the cursor's position in TelaView's points
+// (+[NSEvent mouseLocation]) and whether it is over the view.
+func (w *Window) cursorInView() (platform.Point, bool) {
+	screen := darwin.SendPoint(darwin.ID(app.event), tpsel.mouseLocation)
+	loc := darwin.SendPoint(w.ns, isel.convertFrom, screen)
+	v := darwin.SendPoint(w.view, isel.convertPointFromView, loc, darwin.ID(0))
+	p := platform.Point{X: float32(v.X), Y: float32(v.Y)}
+	b := darwin.SendRect(w.view, sel.bounds)
+	return p, inBounds(p, platform.Size{W: float32(b.Size.Width), H: float32(b.Size.Height)})
 }
 
 // takesInput reports whether the pointer at p (TelaView's points) is over
@@ -106,6 +208,7 @@ func (w *Window) setPassing(on bool) {
 	}
 	t.passing = on
 	darwin.Send(w.ns, tpsel.setIgnoresMouseEvents, on)
+	w.b.watchPasses(on)
 	if on {
 		if w.ptr.inside {
 			// The pointer left the app's input.
@@ -120,12 +223,17 @@ func (w *Window) setPassing(on bool) {
 	}
 }
 
-// armPoll signals a pass after passPoll, where pollPassing runs.
+// armPoll signals a pass after passSafety (passPoll without the
+// monitor), where pollPassing runs.
 func (w *Window) armPoll() {
+	d := passSafety
+	if w.b.pass.monitor == 0 {
+		d = passPoll
+	}
 	if w.trans.poll == nil {
-		w.trans.poll = time.AfterFunc(passPoll, w.b.notify)
+		w.trans.poll = time.AfterFunc(d, w.b.notify)
 	} else {
-		w.trans.poll.Reset(passPoll)
+		w.trans.poll.Reset(d)
 	}
 }
 
@@ -137,12 +245,7 @@ func (w *Window) pollPassing() {
 	if !w.trans.passing || w.Closed() {
 		return
 	}
-	screen := darwin.SendPoint(darwin.ID(app.event), tpsel.mouseLocation)
-	loc := darwin.SendPoint(w.ns, isel.convertFrom, screen)
-	v := darwin.SendPoint(w.view, isel.convertPointFromView, loc, darwin.ID(0))
-	p := platform.Point{X: float32(v.X), Y: float32(v.Y)}
-	b := darwin.SendRect(w.view, sel.bounds)
-	if !inBounds(p, platform.Size{W: float32(b.Size.Width), H: float32(b.Size.Height)}) || w.takesInput(p) {
+	if p, in := w.cursorInView(); !in || w.takesInput(p) {
 		w.setPassing(false)
 		return
 	}
@@ -153,5 +256,9 @@ func (w *Window) pollPassing() {
 func (w *Window) releaseTransparent() {
 	if w.trans.poll != nil {
 		w.trans.poll.Stop()
+	}
+	if w.trans.passing {
+		w.trans.passing = false
+		w.b.watchPasses(false)
 	}
 }

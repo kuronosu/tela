@@ -1017,6 +1017,12 @@ func TestCaptionRegions(t *testing.T) {
 				if len(drags) != 1 || drags[0] != pt(50, 20) {
 					t.Errorf("window drags started at %v, want one at 50,20", drags)
 				}
+				// The primary caption press moved nothing (the stub
+				// drags nothing; the real cursor rests): a click
+				// (ADR-252), reported at its release.
+				if n := captionClicks(c.stepEvents(0)); n != 1 {
+					t.Errorf("%d caption clicks, want 1", n)
+				}
 			}},
 		ctlStep{name: "a double click in the caption",
 			do: func(c *ctl) {
@@ -1040,6 +1046,9 @@ func TestCaptionRegions(t *testing.T) {
 			check: func(c *ctl) {
 				if c.w[0].ctl.doubleClicks != 1 || len(drags) != 2 {
 					t.Errorf("%d double clicks and %d drags, want 1 and 2 (the second press is not a drag)", c.w[0].ctl.doubleClicks, len(drags))
+				}
+				if n := captionClicks(c.stepEvents(0)); n != 1 {
+					t.Errorf("%d caption clicks, want 1 (the first click; the second maximized)", n)
 				}
 				for _, e := range c.stepEvents(0) {
 					if pe, ok := e.e.(platform.PointerEvent); ok && pe.Action != platform.PointerMove {

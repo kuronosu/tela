@@ -271,10 +271,18 @@ func (w *Window) mouseButton(ev darwin.ID, btn platform.PointerButton, down bool
 		if w.ctl.blocked {
 			w.raiseModal()
 		}
+		if !w.ctl.blocked && w.resizePress(btn, pos) {
+			return // a resize handle of the app's (resize_darwin.go)
+		}
 		if w.captionPress(ev, btn, pos) {
 			return
 		}
+	} else if w.resizeRelease(btn) {
+		return
 	} else if w.ctl.caption.release(btn) {
+		if btn == platform.ButtonPrimary {
+			w.endCaption()
+		}
 		return
 	}
 	w.ptr.button(btn, down, pos, w.emitter(ev))
@@ -291,10 +299,18 @@ func (w *Window) mouseMove(ev darwin.ID) {
 	defer w.keepPress(ev)
 	if darwin.SendUint(ev, isel.typ) == darwin.NSEventTypeMouseMoved {
 		w.ctl.caption.moved()
+		w.endCaption() // the release did not reach the window
+		w.ctl.resize.held = false
+	} else if w.ctl.resize.held {
+		w.resizeDrag()
+		return
 	} else if w.ctl.caption.drag(w.ptr.held) {
 		return
 	}
 	pos := w.eventPos(ev)
+	if w.ptr.held == 0 {
+		w.hoverHandles(pos)
+	}
 	if w.passPointer(pos) {
 		return // under a transparent window's input alpha (transparent_darwin.go)
 	}

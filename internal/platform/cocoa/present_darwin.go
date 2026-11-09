@@ -71,6 +71,7 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 	if !w.shown && w.visible {
 		// Not before: the window would show unpainted.
 		w.show()
+		w.passIfFaint() // shown under a resting cursor (transparent_darwin.go)
 	}
 	return nil
 }
