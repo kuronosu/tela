@@ -12,6 +12,28 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
+Phase 20, API and kit gaps.
+
+### Added
+
+- Transparent windows (ADR-249): `tela.App.Transparent` and `tela.Window.Transparent`, with `Frameless`, leave unpainted pixels showing the desktop, so the root's first element floats with its own radius and `shadow-*`. Clicks on pixels under a quarter opaque go to what is below, on Wayland (input region), X11 (SHAPE input; ARGB visual while a compositing manager runs, else opaque and `UseWindow().State().Transparent` is false), Windows (layered window) and macOS (non-opaque window). Goldens and `tela snapshot` keep alpha; `telatest.Transparent()`, `NoCompositing()` and `App.TakesInput`.
+- kit (ADR-248): `kit.Alert` (default, destructive and the new `kit.Success`, `kit.Warning`, `kit.Info` tones, also on Badge), `Badge.Dot`, `Button.Loading` (a spinner, `aria-busy`, presses ignored, size kept), `Input.Icon` and `IconEnd`, `Separator.Caption` ("or continue with"), `Avatar.Name` and `Avatar.Color` (`kit.AvatarAuto` picks one from the name), `kit.AvatarGroup` with a "+N", `Field.LabelContent`, `DescriptionContent`, `LabelEnd` and `DescriptionEnd` slots (a RadioGroup or ToggleGroup inside a Field is named by its label), `Table.AlwaysSorted`, `HideUnsortedIcon` and the `kit.Other` sort.
+- Animation delays (ADR-248): `delay-*` also delays `animate-*` (as tw-animate-css does), `animation-delay-<ms>`, `-animation-delay-<ms>` and the arbitrary property `[animation-delay:-0.3s]`; the `aria-[sort=other]:` and `aria-[sort=none]:` variants.
+- Submenus (ADR-247): `kit.MenuSub` in dropdown, context and menu bar menus (native submenus where the OS draws the menu), on `aria.UseMenu`'s `SubmenuKeys` and `SubmenuTrigger` with React Aria's keys, hover delay and pointer grace. `kit.MenuItem.Role` makes a standard item (Copy, Paste…) next to the app's own; `desktop.PerformRole`; `tela.UsePlatformKeys()`; `WindowHandle.ActiveElement()`.
+- Triggers (ADR-247): Toggle, Checkbox, Switch and Slider are `Trigger`s, and overlays nest (`kit.Tooltip{Trigger: kit.DropdownMenu[K]{Trigger: btn}}`); `aria.ContextMenuTriggerResult.Opening`.
+- Deferred forms (ADR-250): `tela.BackgroundGradientFn` (a gradient repainted without rebuild or relayout), `h.AriaValueNowFn` and `h.AriaValueTextFn`, `kit.Progress.ValueFn`, `kit.ToggleGroup`'s `ValueFn`, `SelectedFn` and `Indicator` (a sliding pill with `LayoutID`), and `tela.Preview.Theme` and `ColorScheme`, which win over the App's and `--dark` in `tela snapshot`, `inspect`, `mcp` and `dev`.
+- Built-in labels (ADR-251): every text Tela shows by itself (the fallback title bar, message boxes, kit's toasts, the macOS app, Edit and Window menus, the save panel's "Format:") has an ID (`tela.Labels()`) translated by `i18n` catalog keys such as `tela.toast.close`; `tela.Label`, `tela.UseLabels`, `i18n.Formatter.Label`, `kit.Toaster.AriaLabel` and `CloseLabel`. Native message box buttons and macOS menus follow the language.
+- looks (ADR-254): `kit.ToggleStyle.IconVariants`; `looks/aqua` tints sidebar glyphs with the accent, draws Sequoia's toolbar search field borderless gray (`looks.Regions.SearchField`) and makes Tahoe dark's destructive text readable (the `destructive-text` token).
+
+### Changed
+
+- A right click, or a Control+click on a Mac, on an unselected list box option selects it before the context menu opens, as Finder does (ADR-247); a context menu opened with Shift+F10 or the Menu key opens below the focused element.
+- `CmdOrCtrl` in a kit menu shortcut follows the app's platform keys, not the build machine's; a shortcut written in glyphs (`⌘T`) is announced as its ARIA key shortcuts.
+- A trigger's own `Disabled` (`kit.Button{Disabled: true}`) now wins over the overlay's trigger props.
+- Numbers and dates use the locale's default numbering system from CLDR 48: `ar-EG` and `ar-SA` give Arabic-Indic digits, as ICU does (ADR-251).
+- The fallback title bar follows a `Dir` on the element that is the window's whole content, and a click on it (Wayland) closes an open dialog or popover that closes on outside presses (ADR-252).
+- Windows menu bars give Chinese, Japanese and Korean labels an appended access key ("ファイル(&F)"), and Cyrillic, Greek, Arabic and Hebrew labels a letter of their own (ADR-252).
+
 ## [0.13.7] - 2026-11-08
 
 Phase 19, Accessibility (ADR-246): screen readers read and operate Tela apps on Linux, Windows and macOS.
