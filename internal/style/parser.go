@@ -384,12 +384,21 @@ func (p *Parser) resolveUtility(tok, util string) ([]Op, error) {
 	c := &pctx{th: p.th}
 	if strings.HasPrefix(util, "[") && strings.HasSuffix(util, "]") {
 		// Arbitrary properties: only [clip-path:...], which has no
-		// utility in Tailwind (ADR-079).
-		if v, ok := strings.CutPrefix(util[1:len(util)-1], "clip-path:"); ok {
+		// utility in Tailwind (ADR-079), and [animation-delay:...], the
+		// stagger of animate-* classes that LLMs write (ADR-248).
+		prop, v, _ := strings.Cut(util[1:len(util)-1], ":")
+		var parse func(string) (Op, error)
+		switch prop {
+		case "clip-path":
+			parse = parseClipPath
+		case "animation-delay":
+			parse = parseAnimationDelay
+		}
+		if parse != nil {
 			v, err := c.substituteVars(arbitrarySpaces(v))
 			var o Op
 			if err == nil {
-				o, err = parseClipPath(v)
+				o, err = parse(v)
 			}
 			if err != nil {
 				var ve *varError
@@ -405,7 +414,7 @@ func (p *Parser) resolveUtility(tok, util string) ([]Op, error) {
 			return []Op{o}, nil
 		}
 		return nil, &UnsupportedClassError{Class: tok,
-			Reason: "arbitrary properties are not supported (except [clip-path:...]); use a utility class, for example w-[320px]"}
+			Reason: "arbitrary properties are not supported (except [clip-path:...] and [animation-delay:...]); use a utility class, for example w-[320px]"}
 	}
 	if alias, ok := reg.aliases[util]; ok {
 		util = alias

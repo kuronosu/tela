@@ -724,6 +724,11 @@ type ComputedStyle struct {
 	// Animation is the raw animation shorthand of an animate-* class
 	// ("spin 1s linear infinite"); core parses it (anim.ParseSpec).
 	Animation string
+	// AnimationDelay is animation-delay ([animation-delay:...], delay-*,
+	// animation-delay-*): it replaces the delay of the shorthand when
+	// AnimationDelaySet. A negative delay starts the animation partway.
+	AnimationDelay    time.Duration
+	AnimationDelaySet bool
 
 	// Interaction (cursor, pointer-events and user-select are inherited).
 	Cursor        Cursor

@@ -390,6 +390,13 @@ func (t *Tree) updateKeyframes(ba *boxAnim, el *Element, cs *style.ComputedStyle
 		ba.dormant = false
 	}
 	if ba.kf != nil && ba.kf.raw == raw {
+		// A new animation-delay changes the timing of the running animation
+		// without restarting it (CSS Animations Level 1).
+		if cs.AnimationDelaySet {
+			ba.kf.spec.Delay = cs.AnimationDelay
+		} else if e := t.animSpec(raw); e.err == "" {
+			ba.kf.spec.Delay = e.spec.Delay
+		}
 		return
 	}
 	e := t.animSpec(raw)
@@ -400,7 +407,11 @@ func (t *Tree) updateKeyframes(ba *boxAnim, el *Element, cs *style.ComputedStyle
 		ba.kf = nil
 		return
 	}
-	ba.kf = &kfRun{raw: raw, spec: e.spec, kfs: e.kfs, start: now}
+	spec := e.spec
+	if cs.AnimationDelaySet {
+		spec.Delay = cs.AnimationDelay
+	}
+	ba.kf = &kfRun{raw: raw, spec: spec, kfs: e.kfs, start: now}
 }
 
 // animSpec parses (once) an animation shorthand and resolves its keyframes.

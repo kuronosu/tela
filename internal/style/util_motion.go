@@ -213,7 +213,28 @@ func registerTransitions(r *registry) {
 		})
 	}
 	times("duration", func(e *env, d time.Duration) { e.s.Transition.Duration, e.sc.durSet = d, true })
-	times("delay", func(e *env, d time.Duration) { e.s.Transition.Delay = d })
+	// delay-* sets transition-delay (Tailwind v4) and animation-delay
+	// (tw-animate-css, which shadcn/ui's projects load, ADR-248): it is how
+	// a list staggers its animate-* classes, delay-100 delay-200...
+	times("delay", func(e *env, d time.Duration) {
+		e.s.Transition.Delay = d
+		e.s.AnimationDelay, e.s.AnimationDelaySet = d, true
+	})
+	// animation-delay-* is the animation-delay alone (the plugins
+	// tailwindcss-animation-delay and tailwindcss-motion), and it may be
+	// negative: -animation-delay-300 starts the animation 300ms in.
+	r.add("animation-delay", true, func(c *pctx, a *arg) (Op, error) {
+		d, err := timeValue(c, a)
+		if err != nil {
+			return Op{}, err
+		}
+		if a.neg {
+			d = -d
+		}
+		return op(func(e *env) { e.s.AnimationDelay, e.s.AnimationDelaySet = d, true }), nil
+	}, func(*Theme) []string {
+		return []string{"0", "75", "100", "150", "200", "300", "500", "700", "1000"}
+	})
 
 	r.add("ease", false, func(c *pctx, a *arg) (Op, error) {
 		var cb CubicBezier
@@ -294,4 +315,18 @@ func parseCubicBezier(s string) (CubicBezier, error) {
 		return CubicBezier{}, fmt.Errorf("the x values of cubic-bezier() must be between 0 and 1, got %q", s)
 	}
 	return CubicBezier{v[0], v[1], v[2], v[3]}, nil
+}
+
+// parseAnimationDelay parses the value of [animation-delay:...], a CSS time
+// that may be negative ([animation-delay:-0.3s], [animation-delay:150ms]).
+func parseAnimationDelay(v string) (Op, error) {
+	v = strings.TrimSpace(v)
+	d, ok := parseTime(v)
+	if !ok && v == "0" {
+		d, ok = 0, true
+	}
+	if !ok {
+		return Op{}, fmt.Errorf("invalid animation delay %q; use a time such as [animation-delay:150ms] or [animation-delay:-0.3s]", v)
+	}
+	return op(func(e *env) { e.s.AnimationDelay, e.s.AnimationDelaySet = d, true }), nil
 }
