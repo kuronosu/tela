@@ -40,8 +40,10 @@ func newDragger(tb testing.TB) *dragger {
 	for range 4 {
 		d.move(5, 0)
 	}
-	if n := countLayers(host.Tree(), "deferred"); n != 1 {
-		tb.Fatalf("%d deferred layers: the card is not being dragged", n)
+	// The card, and the indicator of the sprint bar, which kit.Progress
+	// slides with a TranslateFn: a deferred layer that stays put.
+	if n := countLayers(host.Tree(), "deferred"); n != 2 {
+		tb.Fatalf("%d deferred layers: the card is not being dragged (want it and the sprint bar's indicator)", n)
 	}
 	return d
 }

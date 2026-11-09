@@ -170,26 +170,16 @@ func bell() tela.Node {
 	}
 }
 
-// Segment is the content of an item of a segmented control: the pill under
-// the selected item is its child, and every pill of a control shares a
-// LayoutID, so when the selection moves the new pill grows from where the
-// old one was and slides.
-type Segment struct {
-	Label string
-	Icon  tela.Icon
-	Pill  string // the LayoutID
-	On    bool
+// segmentPill is the pill under the selected item of a segmented control:
+// ToggleGroup.Indicator draws it in every item that is on, and its LayoutID
+// (one per control) makes the new pill grow from where the old one was and
+// slide when the selection moves.
+func segmentPill(id string) tela.Component {
+	return Div(LayoutID(id), Class("absolute inset-0 -z-10 rounded-md bg-white shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10"))
 }
 
-func (s Segment) Build() tela.Node {
-	return Fragment(
-		If(s.On, Div(Key("pill"), LayoutID(s.Pill),
-			Class("absolute inset-0 rounded-md bg-white shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10"))),
-		If(s.Icon.SVG != "", Icon(s.Icon, Class("relative size-3.5"))),
-		Span(Class("relative"), Text(s.Label)))
-}
-
-// segmented is a kit.ToggleGroup of Segments that always has a selection.
+// segmented is a kit.ToggleGroup of icon and label items, with a sliding
+// pill, that always has a selection.
 func segmented[K comparable](label, pill string, value K, set tela.Setter[K], keys []K, text func(K) string, icon func(K) tela.Icon) tela.Component {
 	items := make([]kit.ToggleGroupItem[K], len(keys))
 	for i, k := range keys {
@@ -197,9 +187,10 @@ func segmented[K comparable](label, pill string, value K, set tela.Setter[K], ke
 		if icon != nil {
 			ic = icon(k)
 		}
-		items[i] = kit.ToggleGroupItem[K]{Value: k, Children: Segment{Label: text(k), Icon: ic, Pill: pill, On: k == value}}
+		items[i] = kit.ToggleGroupItem[K]{Value: k, Icon: ic, Label: text(k)}
 	}
-	return kit.ToggleGroup[K]{Items: items, Value: &value, OnValueChange: set.Set, DisallowEmptySelection: true, AriaLabel: label}
+	return kit.ToggleGroup[K]{Items: items, Value: &value, OnValueChange: set.Set, DisallowEmptySelection: true, AriaLabel: label,
+		Indicator: segmentPill(pill)}
 }
 
 // Periods is the 7D / 30D / 90D switch of the overview.

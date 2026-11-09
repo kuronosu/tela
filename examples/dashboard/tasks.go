@@ -7,9 +7,9 @@ import (
 	"github.com/kuronosu/tela/kit"
 )
 
-// Sprint is the strip above the tasks: how many are done, as a bar whose
-// width is a spring read in a layout closure (tela.WidthFn), the team and
-// the New task button.
+// Sprint is the strip above the tasks: how many are done, as a kit.Progress
+// whose ValueFn reads a spring (the bar moves and its value follows without
+// building the strip), the team and the New task button.
 type Sprint struct {
 	Done, Total int
 	Compose     tela.Setter[int]
@@ -22,8 +22,6 @@ func (p Sprint) Build() tela.Node {
 		pct = float32(p.Done) / float32(p.Total)
 	}
 	w := tela.UseSpring(pct, tela.Stiffness(120), tela.Damping(20))
-	track := tela.UseElementRef()
-	size := tela.UseSize(track)
 	return Div(Class("flex items-center gap-8 rounded-xl border border-border bg-card px-5 py-4"),
 		Div(
 			H2(Class(eyebrow), Text("Sprint 24")),
@@ -32,10 +30,8 @@ func (p Sprint) Build() tela.Node {
 			Div(Class("mb-2 flex justify-between text-xs text-muted-foreground"),
 				Span(Textf("%d of %d done", p.Done, p.Total)),
 				Span(Class("tabular-nums"), Textf("%.0f%%", pct*100))),
-			Div(Ref(track), Role("progressbar"), AriaLabel("Sprint progress"), AriaValueNow(float64(pct*100)),
-				Class("relative h-1.5 overflow-hidden rounded-full bg-border"),
-				Div(Class("absolute inset-y-0 left-0 rounded-full bg-primary"),
-					Style(tela.WidthFn(func() float32 { return w.Get() * size.Get().Width }))))),
+			kit.Progress{ValueFn: func() float64 { return float64(w.Get()) * 100 }, AriaLabel: "Sprint progress",
+				Class: "h-1.5 bg-border", IndicatorClass: "rounded-full"}),
 		Div(Class("flex -space-x-1.5"), AriaHidden(true),
 			Map([]string{"AL", "MK", "JS", "OM", "WK"}, func(i string) tela.Node {
 				return Div(Key(i), Class("rounded-full ring-2 ring-background"), kit.Avatar{Fallback: i, Class: "size-8"})

@@ -121,12 +121,13 @@ func graphiteStyle() kit.Style {
 	s.Select.Item = "relative flex w-full cursor-default items-center gap-2 rounded-md py-1.5 pe-8 ps-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground aria-disabled:pointer-events-none aria-disabled:opacity-50"
 
 	// A segmented control: a muted track with a pill under the selected
-	// item; the pill is a child of the item (Segment), so it can slide.
+	// item (ToggleGroup.Indicator, shell.go), which slides.
 	s.ToggleGroup.Root = "flex w-fit items-center rounded-lg bg-muted p-0.5"
 	s.ToggleGroup.Item = "relative"
 	s.ToggleGroup.ItemWithoutSpacing = ""
 	s.Toggle.Root = "inline-flex items-center justify-center gap-1.5 rounded-md text-[13px] font-medium whitespace-nowrap text-muted-foreground transition-colors duration-200 outline-none " +
 		"hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring"
+	s.Toggle.Icon = "pointer-events-none shrink-0 size-3.5"
 	s.Toggle.Sizes[""] = "h-7 px-3"
 	s.Toggle.Sizes[kit.Sm] = "h-6 px-2.5 text-xs"
 	s.Toggle.On = "checked:text-foreground aria-pressed:text-foreground"

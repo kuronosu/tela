@@ -75,14 +75,14 @@ func (p ReportForm) Build() tela.Node {
 	}
 	items := make([]kit.ToggleGroupItem[string], len(formats))
 	for i, f := range formats {
-		items[i] = kit.ToggleGroupItem[string]{Value: f, Children: Segment{Label: f, Pill: "format-pill", On: f == format}}
+		items[i] = kit.ToggleGroupItem[string]{Value: f, Label: f}
 	}
 	return Form(Class("flex flex-col gap-5"), OnSubmit(submit),
 		kit.Field{Label: "Name", Children: kit.Input{Value: &name, OnValueChange: setName.Set, AutoFocus: true, Placeholder: "Report name"}},
 		Div(Class("flex flex-col gap-3"),
 			Span(Class("text-sm leading-none font-medium"), Text("Format")),
 			kit.ToggleGroup[string]{Items: items, Value: &format, OnValueChange: setFormat.Set, DisallowEmptySelection: true,
-				AriaLabel: "Format", Class: "w-full", ItemClass: "flex-1"},
+				AriaLabel: "Format", Class: "w-full", ItemClass: "flex-1", Indicator: segmentPill("format-pill")},
 		),
 		Div(Class("flex items-center justify-between"),
 			kit.Label{For: weeklyID, Children: Text("Send every Monday")},
