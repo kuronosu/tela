@@ -415,3 +415,40 @@ func TestPlacement(t *testing.T) {
 		t.Errorf("PersistApp's placement %+v, want the saved 500x400", next.Placement)
 	}
 }
+
+// A placement saved on a monitor that is gone at the next start (a laptop
+// undocked) opens on a monitor present, keeping its size, and is saved
+// there; one still on a monitor opens where it was saved.
+func TestPlacementOnMissingMonitor(t *testing.T) {
+	telatest.TempDesktopDirs(t)
+	desktop.SetAppID("com.example.placementmonitors")
+	laptop, external := image.Rect(0, 0, 1920, 1040), image.Rect(1920, 0, 4480, 1400)
+	root := tela.C(func() tela.Node { return Text("notes") })
+
+	// The first run, docked: the user leaves the window on the external
+	// monitor.
+	app := telatest.MountApp(t, desktop.PersistApp(tela.App{Width: 800, Height: 600, Root: root}), telatest.Monitors(laptop, external))
+	app.Move(3000, 300)
+	app.Close()
+	if p := desktop.LoadPlacement(desktop.MainWindowKey); !p.HasPosition || p.X != 3000 || p.Y != 300 {
+		t.Fatalf("saved placement %+v, want at 3000,300", p)
+	}
+
+	// Docked again: it opens where it was.
+	app = telatest.MountApp(t, desktop.PersistApp(tela.App{Root: root}), telatest.Monitors(laptop, external))
+	if p := app.Placement(); !p.HasPosition || p.X != 3000 || p.Y != 300 {
+		t.Errorf("placement with both monitors %+v, want at 3000,300", p)
+	}
+	app.Close()
+
+	// Undocked: it opens on the laptop's screen, as near as fits.
+	app = telatest.MountApp(t, desktop.PersistApp(tela.App{Root: root}), telatest.Monitors(laptop))
+	app.ExpectText("notes")
+	if p := app.Placement(); !p.HasPosition || p.X != 1120 || p.Y != 300 || p.Width != 800 || p.Height != 600 {
+		t.Errorf("placement without the external monitor %+v, want 800x600 at 1120,300", p)
+	}
+	app.Close()
+	if p := desktop.LoadPlacement(desktop.MainWindowKey); p.X != 1120 || p.Y != 300 {
+		t.Errorf("placement saved after the undocked run %+v, want at 1120,300", p)
+	}
+}

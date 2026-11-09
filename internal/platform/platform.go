@@ -192,6 +192,8 @@ type Window interface {
 	// (physical pixels; points on Cocoa; the same space as
 	// WindowState.Position). Wayland
 	// clients cannot place windows: no-op there (see "Session restore").
+	// Unlike WindowOptions.Position, the position is not checked against
+	// the monitors present.
 	SetPosition(pos image.Point)
 
 	// Activate asks the OS to raise the window, give it keyboard focus
@@ -360,6 +362,9 @@ type WindowOptions struct {
 	// Position, if HasPosition is set, is where the top-left of the
 	// content area goes, in the OS's desktop coordinates (physical
 	// pixels; points on Cocoa; see Window.SetPosition). Ignored on Wayland.
+	// A window that could not be grabbed there on any monitor present
+	// opens on the nearest one instead ([FitOnScreens]; "Window control"
+	// in the package documentation).
 	Position    image.Point
 	HasPosition bool
 	// Maximized and Fullscreen open the window in that state (restoring a

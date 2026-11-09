@@ -76,6 +76,49 @@ func TestFrameTopLeftRoundTrip(t *testing.T) {
 	}
 }
 
+func TestDesktopRect(t *testing.T) {
+	const primaryTop = 900
+	// The primary screen's visibleFrame: a 25-point menu bar at the top,
+	// a 70.5-point Dock at the bottom.
+	vf := cocoaRect{X: 0, Y: 70.5, W: 1440, H: 900 - 25 - 70.5}
+	if got, want := desktopRect(vf, primaryTop), image.Rect(0, 25, 1440, 829); got != want {
+		t.Errorf("desktopRect = %v, want %v (rounded inward)", got, want)
+	}
+	// A screen above the primary one: negative y.
+	if got, want := desktopRect(cocoaRect{X: -200, Y: 900, W: 1920, H: 1080}, primaryTop), image.Rect(-200, -1080, 1720, 0); got != want {
+		t.Errorf("desktopRect of a screen above = %v, want %v", got, want)
+	}
+}
+
+// fitContent fits the frame, title bar included, and returns the content's
+// position.
+func TestFitContent(t *testing.T) {
+	works := []image.Rectangle{image.Rect(0, 25, 1440, 829)}
+	// A titled window: a 28-point title bar above a 400x300 content.
+	frame := cocoaRect{X: 0, Y: 0, W: 400, H: 328}
+	content := cocoaRect{X: 0, Y: 0, W: 400, H: 300}
+	for _, tt := range []struct {
+		name      string
+		pos, want image.Point
+	}{
+		{"on screen", image.Pt(100, 200), image.Pt(100, 200)},
+		{"title bar under the menu bar", image.Pt(100, 30), image.Pt(100, 53)},
+		{"on a screen that is gone", image.Pt(3000, 200), image.Pt(1040, 200)},
+		{"below the Dock", image.Pt(100, 2000), image.Pt(100, 529)},
+	} {
+		if got := fitContent(tt.pos, frame, content, works); got != tt.want {
+			t.Errorf("%s: fitContent(%v) = %v, want %v", tt.name, tt.pos, got, tt.want)
+		}
+	}
+	// A full-size content view: the content is the frame.
+	if got := fitContent(image.Pt(100, 0), frame, frame, works); got != image.Pt(100, 25) {
+		t.Errorf("full-size content under the menu bar: %v, want (100,25)", got)
+	}
+	if got := fitContent(image.Pt(5000, 5000), frame, content, nil); got != image.Pt(5000, 5000) {
+		t.Errorf("no screens known: %v, want it kept", got)
+	}
+}
+
 func TestSizeLimits(t *testing.T) {
 	cases := []struct {
 		min, max platform.Size

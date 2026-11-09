@@ -194,3 +194,24 @@ func NoServerDecorations() Option { return func(c *config) { c.noServerDeco = tr
 func Screen(width, height float32) Option {
 	return func(c *config) { c.screen = platform.Size{W: width, H: height} }
 }
+
+// Monitors gives the fake desktop monitors whose work areas (the monitor
+// without its task bar) are the given rectangles, the primary first, in
+// physical pixels of the desktop: the space of [App.Move] and of
+// [tela.WindowPlacement] X and Y. A window that opens at a position where
+// it could not be grabbed on any of them (a placement saved while another
+// monitor was connected) opens on the nearest one instead, as on Windows,
+// macOS and X11, and [App.Placement] reports where it went:
+//
+//	saved := tela.WindowPlacement{Width: 800, Height: 600, X: 2500, Y: 100, HasPosition: true}
+//	app := telatest.MountApp(t, tela.App{Placement: saved, Root: Notes{}},
+//	    telatest.Monitors(image.Rect(0, 0, 1920, 1040))) // the second monitor is gone
+//	// app.Placement() is at 1120,100: on the laptop's screen
+//
+// Without it no monitors are known and windows open where they are asked
+// to. Moves after a window opens ([App.Move], tela.WindowHandle
+// SetPosition) are never changed.
+func Monitors(workAreas ...image.Rectangle) Option {
+	areas := append([]image.Rectangle(nil), workAreas...)
+	return func(c *config) { c.monitors = areas }
+}

@@ -68,6 +68,7 @@ var wsel = struct {
 	addSubviewPositioned, addSubview, removeFromSuperview, setMaterial, setBlending darwin.SEL
 	setState, performWindowDrag, standardUserDefaults, stringForKey, boolForKey     darwin.SEL
 	screens, objectAtIndex, count, mainScreen, orderFront                           darwin.SEL
+	visibleFrame                                                                    darwin.SEL
 }{
 	miniaturize:            darwin.Sel("miniaturize:"),
 	deminiaturize:          darwin.Sel("deminiaturize:"),
@@ -123,6 +124,7 @@ var wsel = struct {
 	count:                  darwin.Sel("count"),
 	mainScreen:             darwin.Sel("mainScreen"),
 	orderFront:             darwin.Sel("orderFront:"),
+	visibleFrame:           darwin.Sel("visibleFrame"),
 }
 
 // fsStartTimeout is how long a toggleFullScreen: may go without its
@@ -211,7 +213,8 @@ func (w *Window) setupWindowCtl() {
 	w.applyLimits()
 	switch {
 	case opts.HasPosition:
-		w.moveTo(opts.Position)
+		// A position from an earlier run may be on a screen that is gone.
+		w.moveTo(fitContent(opts.Position, toCocoaRect(darwin.SendRect(w.ns, wsel.frame)), w.contentRect(), screenWorkAreas()))
 	case w.parent != nil:
 		w.centerOnParent()
 	default:
@@ -527,6 +530,24 @@ func primaryTop() float64 {
 	}
 	f := darwin.SendRect(darwin.Send(screens, wsel.objectAtIndex, uint(0)), wsel.frame)
 	return f.Origin.Y + f.Size.Height
+}
+
+// screenWorkAreas returns the visibleFrame of every screen (without the
+// menu bar and the Dock) in desktop coordinates, the primary first
+// (NSScreen.screens lists it first: the screen with the menu bar).
+func screenWorkAreas() []image.Rectangle {
+	screens := darwin.SendClass(app.screen, wsel.screens)
+	if screens == 0 {
+		return nil
+	}
+	n := darwin.SendUint(screens, wsel.count)
+	top := primaryTop()
+	works := make([]image.Rectangle, 0, n)
+	for i := uint64(0); i < n; i++ {
+		vf := darwin.SendRect(darwin.Send(screens, wsel.objectAtIndex, uint(i)), wsel.visibleFrame)
+		works = append(works, desktopRect(toCocoaRect(vf), top))
+	}
+	return works
 }
 
 func toCocoaRect(r darwin.CGRect) cocoaRect {

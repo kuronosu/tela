@@ -90,6 +90,7 @@ var (
 	procIsWindowVisible            = user32.NewProc("IsWindowVisible")
 	procMonitorFromRect            = user32.NewProc("MonitorFromRect")
 	procGetMonitorInfoW            = user32.NewProc("GetMonitorInfoW")
+	procEnumDisplayMonitors        = user32.NewProc("EnumDisplayMonitors")
 	procEnableWindow               = user32.NewProc("EnableWindow")
 	procSetForegroundWindow        = user32.NewProc("SetForegroundWindow")
 	procFlashWindowEx              = user32.NewProc("FlashWindowEx")

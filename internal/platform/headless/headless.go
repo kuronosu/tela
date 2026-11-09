@@ -49,7 +49,8 @@
 // size of a simulated screen (Options.Screen), and return to their earlier
 // size; minimized and hidden windows get no frames and lose the focus;
 // Activate un-minimizes and moves the focus; positions are known once the
-// app sets one. SetState simulates the window manager or the user changing
+// app sets one, and a position given at creation is moved onto the
+// monitors of Options.Screens when there are any. SetState simulates the window manager or the user changing
 // the state, and the inspection methods (OSState, Visible, SizeLimits,
 // Icon, HitRegions, Activations, CaptionDrags, WindowMenus, Children,
 // Blocked) report what a real backend would have sent to the OS. Pointer
@@ -128,6 +129,7 @@ package headless
 
 import (
 	"fmt"
+	"image"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -181,6 +183,17 @@ type Options struct {
 	// everywhere (Window.SetState changes it later, as a compositing
 	// manager that starts or stops).
 	NoCompositing bool
+	// Screens are the work areas of the fake desktop's monitors, the
+	// primary first, in its desktop coordinates (physical pixels, the
+	// space of WindowOptions.Position and WindowState.Position). A window
+	// created at a position where it cannot be grabbed on any of them is
+	// moved onto one, as every backend with positions does
+	// ([platform.FitOnScreens] on the content area: the fake window
+	// manager draws no frame), and its state reports where it went;
+	// Window.Options keeps the position the app asked for. Empty means no
+	// monitors are known: positions are kept as given. Positions given
+	// to SetPosition later are never moved.
+	Screens []image.Rectangle
 }
 
 // Backend is the headless backend. Create it with New.
@@ -232,6 +245,7 @@ func New(opts Options) *Backend {
 	if opts.FrameInterval == 0 {
 		opts.FrameInterval = DefaultFrameInterval
 	}
+	opts.Screens = slices.Clone(opts.Screens)
 	b := &Backend{
 		opts:     opts,
 		start:    time.Now(),
@@ -302,6 +316,10 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	n := b.created
 	b.mu.Unlock()
 	size := w.initCtl(opts, b.opts.Screen, n)
+	if opts.HasPosition && len(b.opts.Screens) > 0 {
+		win := image.Rectangle{Min: opts.Position, Max: opts.Position.Add(platform.PhysicalSize(opts.Size, b.opts.Scale))}
+		w.ctl.osState.Position = platform.FitOnScreens(win, b.opts.Screens).Min
+	}
 	if b.opts.NoServerDecorations {
 		w.ctl.osState.ClientSideDecorations = true
 	}

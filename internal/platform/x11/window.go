@@ -135,6 +135,8 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	}
 	parent := b.parentOf(opts)
 	size := clampPhysical(platform.PhysicalSize(opts.Size, b.scale))
+	// A position from an earlier run may be on a monitor that is gone.
+	opts = b.fitPosition(opts, size)
 
 	id, err := xproto.NewWindowId(b.conn)
 	if err != nil {

@@ -75,6 +75,16 @@
 //     batch once a reparenting window manager put the window in a frame
 //     (xgb drops the SendEvent bit, so synthetic events cannot be told
 //     apart; GTK translates the same way).
+//   - WindowOptions.Position is checked against the monitors present at
+//     creation (screens.go): RandR 1.5 RRGetMonitors on a hand-written
+//     request (active monitors, the primary first; the root window's
+//     geometry without RandR 1.5), with the primary one cut to
+//     _NET_WORKAREA of the current desktop as GTK 3 does (the property is
+//     one rectangle for every monitor), and the content rectangle go to
+//     platform.FitOnScreens: the frame's extents are not known before the
+//     window manager maps the window, and window managers keep the title
+//     bar of a window placed at the top of the work area on screen.
+//     SetPosition is not checked.
 //   - Size limits are PMinSize/PMaxSize in WM_NORMAL_HINTS (a zero
 //     component is 1 or 32767); the icon is _NET_WM_ICON with every
 //     size, sent as one BIG-REQUESTS ChangeProperty (or Replace plus

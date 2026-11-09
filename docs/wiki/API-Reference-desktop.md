@@ -385,7 +385,7 @@ PerformRole carries out the item role r in window w, as package desktop does for
 func PersistApp(app tela.App) tela.App
 ```
 
-PersistApp returns app with the main window's placement remembered: the placement saved under [`MainWindowKey`](#constants) becomes App.Placement (unless it is set), and the root saves it while the app runs and when it quits. When app.AppID is set and [`SetAppID`](#func-setappid) was not called, it names the app's directories ([`SetAppID`](#func-setappid)), so the placement is read before tela.Run from the same folder it is saved to.
+PersistApp returns app with the main window's placement remembered: the placement saved under [`MainWindowKey`](#constants) becomes App.Placement (unless it is set), and the root saves it while the app runs and when it quits. A position saved on a monitor that is gone at the next start opens on the nearest monitor present (telatest.Monitors plays it in tests). When app.AppID is set and [`SetAppID`](#func-setappid) was not called, it names the app's directories ([`SetAppID`](#func-setappid)), so the placement is read before tela.Run from the same folder it is saved to.
 
 ```go
 func main() {

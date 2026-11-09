@@ -149,6 +149,8 @@ const MainWindowKey = "main"
 // PersistApp returns app with the main window's placement remembered: the
 // placement saved under [MainWindowKey] becomes App.Placement (unless it
 // is set), and the root saves it while the app runs and when it quits.
+// A position saved on a monitor that is gone at the next start opens on
+// the nearest monitor present (telatest.Monitors plays it in tests).
 // When app.AppID is set and [SetAppID] was not called, it names the app's
 // directories ([SetAppID]), so the placement is read before tela.Run from
 // the same folder it is saved to.

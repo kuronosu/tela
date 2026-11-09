@@ -139,6 +139,13 @@
 //     the top-left of the content area, rounded to whole points, so a
 //     reported position given back puts the window in the same place on
 //     any screen whatever its scale. HasPosition is always true.
+//     WindowOptions.Position is checked against the screens present at
+//     creation: the window's frame (title bar included) and the
+//     visibleFrame of every NSScreen (without the menu bar and the Dock;
+//     NSScreen.screens lists the primary first) go to
+//     platform.FitOnScreens, since AppKit only keeps a titled window's
+//     title bar below the menu bar of the screen it is on. SetPosition is
+//     not checked.
 //   - Frameless windows are titled windows with a full-size content view,
 //     a transparent title bar, no title, no separator and the standard
 //     buttons hidden, as Electron's: the system's shadow, rounded corners

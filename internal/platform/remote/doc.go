@@ -46,6 +46,9 @@
 //     (frameless, title bar overlay, fixed size, modal, parent); it keeps
 //     its size, position and maximized or fullscreen state. Real windows
 //     the new child does not take over close at the promotion (ADR-184).
+//     WindowOptions.Position travels as given: the host's backend checks
+//     it against the monitors when it creates the real window, and the
+//     WindowStateEvent forwarded reports where it went.
 //   - Events of the sealed set are forwarded by the host: ConfigureEvent,
 //     WindowStateEvent, FrameEvent (the real window's, paced by its
 //     display), focus, close requests, pointer, scroll, key, IME and IME

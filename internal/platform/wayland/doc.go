@@ -240,6 +240,9 @@
 //     the suspended state (also set on hidden workspaces; see Frame
 //     pacing); Activate brings the window back.
 //     SetAlwaysOnTop and SetPosition do nothing: there is no protocol.
+//     WindowOptions.Position is ignored too, so there is nothing to check
+//     against the outputs: the compositor places the window (and
+//     xdg-session-management restores it, see Session restore).
 //   - SetMaximized and SetFullscreen (no output: the compositor picks)
 //     map to set_/unset_maximized and set_/unset_fullscreen; Maximized and
 //     Fullscreen options are asked before the initial commit.

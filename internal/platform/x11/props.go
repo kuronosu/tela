@@ -43,6 +43,8 @@ type atoms struct {
 	netWMIcon         xproto.Atom
 	motifWMHints      xproto.Atom
 	gtkShowWindowMenu xproto.Atom
+	netWorkarea       xproto.Atom // the work area of each desktop (screens.go)
+	netCurrentDesktop xproto.Atom
 
 	// Selections, drag and drop, activation (selection.go, dnd.go,
 	// dragsource.go, phase13.go).
@@ -121,6 +123,8 @@ func (a *atoms) list() []atomEntry {
 		{"_NET_WM_ICON", &a.netWMIcon},
 		{"_MOTIF_WM_HINTS", &a.motifWMHints},
 		{"_GTK_SHOW_WINDOW_MENU", &a.gtkShowWindowMenu},
+		{"_NET_WORKAREA", &a.netWorkarea},
+		{"_NET_CURRENT_DESKTOP", &a.netCurrentDesktop},
 		{"CLIPBOARD", &a.clipboard},
 		{"TARGETS", &a.targets},
 		{"MULTIPLE", &a.multiple},

@@ -347,6 +347,22 @@
 //     scale). They round-trip: a reported position given back
 //     puts the window in the same place. Wayland never reports one
 //     (HasPosition false) and ignores SetPosition.
+//   - WindowOptions.Position is checked against the monitors present
+//     when the window is created (it is usually a placement saved in an
+//     earlier run, whose monitor may be gone: a laptop undocked, a
+//     resolution changed): [FitOnScreens] on the window's rectangle (the
+//     outer frame where the backend knows it, else the content) and the
+//     work areas of the monitors, the primary first, moves a window that
+//     could not be grabbed there onto the nearest one, keeping its size,
+//     and the WindowStateEvent reports where it went. Win32 enumerates
+//     the monitors' rcWork (EnumDisplayMonitors) and fits the outer
+//     window at the DPI of the monitor it lands on; Cocoa uses each
+//     NSScreen's visibleFrame and fits the frame; X11 uses RandR 1.5
+//     RRGetMonitors (else the root window's geometry) with _NET_WORKAREA
+//     cutting the primary monitor, and fits the content (the frame's
+//     extents are not known before map); headless uses Options.Screens.
+//     SetPosition is not checked: a position given while the app runs is
+//     the app's (or the user's) to choose.
 //   - Activate: xdg_activation_v1 with a token from the latest input
 //     serial (Wayland), a _NET_ACTIVE_WINDOW client message with the last
 //     user time (X11), SetForegroundWindow after restoring a minimized
@@ -549,7 +565,8 @@
 // The layer above saves each window's geometry under the app's own window
 // key (size, maximized, fullscreen, and the position where
 // State.HasPosition) and gives it back in WindowOptions at the next start.
-// X11 and Win32 restore the position from that. Wayland clients cannot
+// X11, Win32 and Cocoa restore the position from that, moved onto a monitor
+// present when its own is gone (see "Window control"). Wayland clients cannot
 // place windows; xdg-session-management-v1 lets the compositor restore
 // them instead, which is what [Window.RestoreToken] carries: an opaque
 // token saved with the geometry and passed back as

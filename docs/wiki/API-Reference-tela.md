@@ -1626,7 +1626,9 @@ type App struct {
     // Placement is where the window opens: a WindowPlacement saved from
     // [WindowHandle].Placement in an earlier run, so the window comes back
     // where the user left it. Its size, when set, wins over Width and
-    // Height. The zero value lets the OS place the window.
+    // Height. A position on a monitor that is gone (a laptop undocked)
+    // opens on the nearest monitor present instead. The zero value lets
+    // the OS place the window.
     Placement WindowPlacement
     // OnClose runs when the user asks to close the main window (its close
     // button, Alt+F4, a WindowClose control, [WindowHandle].Close). Nil,
@@ -6099,8 +6101,9 @@ type Window struct {
     RootClass string
     // Placement is where the window opens: a WindowPlacement saved from
     // [WindowHandle].Placement, so the window comes back where the user
-    // left it. Its size, when set, wins over Width and Height. The zero
-    // value lets the OS place the window.
+    // left it. Its size, when set, wins over Width and Height. A position
+    // on a monitor that is gone opens on the nearest monitor present
+    // instead. The zero value lets the OS place the window.
     Placement WindowPlacement
     // OnClose runs when the user asks to close the window. Update the
     // state that renders this Window there.

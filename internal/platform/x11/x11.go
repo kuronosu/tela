@@ -78,6 +78,8 @@ type Backend struct {
 	xi  xiState
 	xkb xkbExt
 	kbd kbd
+	// randr: the monitors of positions given at creation (screens.go).
+	randr randrState
 
 	// UI-thread state.
 	scale    float64

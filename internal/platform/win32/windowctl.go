@@ -57,17 +57,18 @@ func (b *Backend) parentOf(p platform.Window) *Window {
 
 // initialPlacement returns the DPI a new window is created at and the
 // position of its outer top-left (cwUseDefault when Windows chooses): at
-// WindowOptions.Position on the monitor there, centered over the parent
-// (as dialog boxes are), or where Windows puts new windows on the primary
-// monitor.
+// WindowOptions.Position on the monitor there (moved onto a monitor
+// present when it could not be grabbed there, screens_windows.go),
+// centered over the parent (as dialog boxes are), or where Windows puts
+// new windows on the primary monitor.
 func (w *Window) initialPlacement() (x, y uintptr) {
 	opts := w.opts
 	x, y = cwUseDefault, cwUseDefault
 	switch {
 	case opts.HasPosition:
-		w.dpi = monitorDPI(monitorFromRect(rect{int32(opts.Position.X), int32(opts.Position.Y), int32(opts.Position.X) + 1, int32(opts.Position.Y) + 1}))
+		pos := w.fitPosition(opts.Position) // sets w.dpi
 		off := w.frameOffset(w.style, w.exStyle)
-		x, y = uintptr(int32(opts.Position.X+off.X)), uintptr(int32(opts.Position.Y+off.Y))
+		x, y = uintptr(int32(pos.X+off.X)), uintptr(int32(pos.Y+off.Y))
 	case w.parent != nil:
 		w.dpi = w.parent.dpi
 		outer := w.outerSize(clampPhysical(platform.PhysicalSize(opts.Size, w.scale())))

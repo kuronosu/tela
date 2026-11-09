@@ -3,6 +3,7 @@ package headless
 import (
 	"image"
 	"image/color"
+	"strings"
 	"testing"
 	"time"
 
@@ -162,6 +163,40 @@ func TestPositionAndInjectedState(t *testing.T) {
 	}
 	w.SetState(platform.WindowState{Fullscreen: true})
 	expectEvents(t, b, r, "w:state{fullscreen} w:configure(1000x800@1x (1000x800 px)) w:frame(0s)")
+}
+
+// A position given at creation is moved onto the monitors of
+// Options.Screens when the window could not be grabbed there; SetPosition
+// is not, and without screens nothing is.
+func TestCreationPositionOnScreens(t *testing.T) {
+	screens := []image.Rectangle{image.Rect(0, 0, 1920, 1040), image.Rect(1920, 0, 3840, 1080)}
+	for _, tt := range []struct {
+		name    string
+		screens []image.Rectangle
+		scale   float64
+		pos     image.Point
+		want    string
+	}{
+		{"on the primary", screens, 1, image.Pt(100, 50), "state{at 100,50}"},
+		{"on the second", screens, 1, image.Pt(3000, 500), "state{at 3000,500}"},
+		{"on a monitor that is gone", screens, 1, image.Pt(5000, 200), "state{at 3440,200}"},
+		{"above the screens", screens, 1, image.Pt(200, -40), "state{at 200,0}"},
+		{"physical size at scale 2", screens, 2, image.Pt(5000, 200), "state{at 3040,200}"},
+		{"no screens known", nil, 1, image.Pt(5000, 200), "state{at 5000,200}"},
+	} {
+		b := New(Options{Size: platform.Size{W: 400, H: 300}, Scale: tt.scale, Screens: tt.screens})
+		w := newWindow(t, b, platform.WindowOptions{Title: "w", HasPosition: true, Position: tt.pos})
+		r := &recorder{}
+		b.Drain(r)
+		if got := r.take(); !strings.Contains(got, "w:"+tt.want) {
+			t.Errorf("%s: events %s, want w:%s", tt.name, got, tt.want)
+		}
+		if w.Options().Position != tt.pos {
+			t.Errorf("%s: Options().Position = %v, want the asked %v", tt.name, w.Options().Position, tt.pos)
+		}
+		w.SetPosition(image.Pt(9000, 9000))
+		expectEvents(t, b, r, "w:state{at 9000,9000}")
+	}
 }
 
 func TestSizeLimitsAtRuntime(t *testing.T) {

@@ -238,6 +238,14 @@
 //     SetPosition computes the frame offset with AdjustWindowRectExForDpi;
 //     when the move changes the DPI (WM_DPICHANGED resizes the frame), it
 //     moves once more so the content lands where it was asked.
+//   - WindowOptions.Position is checked against the monitors present at
+//     creation (screens_windows.go): the work areas (MONITORINFO.rcWork of
+//     each EnumDisplayMonitors monitor, the MONITORINFOF_PRIMARY one
+//     first) and the outer window at the DPI of the monitor under the
+//     position go to platform.FitOnScreens, and a window that moves is
+//     fitted again at the DPI of the monitor it lands on. CreateWindowExW
+//     itself places a window anywhere, off every monitor too. SetPosition
+//     is not checked.
 //   - Activate restores a minimized window and calls SetForegroundWindow,
 //     which Windows refuses unless the process may take the foreground (it
 //     is the foreground process, got the last input event, or was allowed

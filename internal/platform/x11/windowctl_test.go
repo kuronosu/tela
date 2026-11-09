@@ -26,6 +26,7 @@ type fakeServer struct {
 	sent  []string
 	props map[xproto.Window]map[xproto.Atom][]uint32
 	pos   map[xproto.Window]image.Point
+	mons  []image.Rectangle // the monitors RandR reports
 }
 
 // newFakeServer gives every atom of b a distinct value and makes the
@@ -187,11 +188,14 @@ func (f *fakeServer) rootPosition(win xproto.Window) (image.Point, bool) {
 
 func (f *fakeServer) destroy(win xproto.Window, _ xproto.Gcontext) { f.log("destroy win=%d", win) }
 
+func (f *fakeServer) monitors() []image.Rectangle { return f.mons }
+
 // fakeWindow adds a window to a fake backend the way NewWindow does after
 // creating the server window: control state, first ConfigureEvent, initial
 // WindowStateEvent.
 func fakeWindow(b *Backend, id xproto.Window, size image.Point, opts platform.WindowOptions) *Window {
 	opts = opts.Resolve().OverlayAsFrameless() // as NewWindow
+	opts = b.fitPosition(opts, size)
 	w := &Window{b: b, id: id, osSize: size, opts: opts, parent: b.parentOf(opts)}
 	w.initCtl(opts)
 	b.windows[id] = w

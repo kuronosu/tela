@@ -121,6 +121,9 @@ type wmServer interface {
 	rootPosition(win xproto.Window) (image.Point, bool)
 	// destroy frees a window and its graphics context.
 	destroy(win xproto.Window, gc xproto.Gcontext)
+	// monitors returns the active monitors in root coordinates, the
+	// primary first (round trips; screens.go).
+	monitors() []image.Rectangle
 }
 
 // connServer implements wmServer on the backend's connection.

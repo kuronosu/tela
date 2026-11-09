@@ -2,6 +2,7 @@ package telatest_test
 
 import (
 	"fmt"
+	"image"
 	"slices"
 	"strings"
 	"testing"
@@ -541,4 +542,33 @@ func ExampleApp_WaitForWindow() {
 	settings.ExpectText("Applied 1")
 	fmt.Println(settings.Title(), settings.Modal(), app.Blocked(), len(app.Windows()))
 	// Output: Settings true true 2
+}
+
+// Monitors: a window opened at a position off every monitor (the main
+// window from its placement, a tela.Window from its own) opens on the
+// nearest one; App.Move is never changed.
+func TestMonitors(t *testing.T) {
+	off := tela.WindowPlacement{Width: 400, Height: 300, X: -2000, Y: 100, HasPosition: true}
+	app := telatest.MountApp(t, tela.App{
+		Placement: off,
+		Root: tela.C(func() tela.Node {
+			return tela.Window{Title: "Tool", Placement: tela.WindowPlacement{Width: 200, Height: 100, X: 500, Y: 5000, HasPosition: true},
+				OnClose: func() {}, Root: tela.C(winBody)}
+		}),
+	}, telatest.Monitors(image.Rect(0, 0, 1920, 1040)), telatest.Scale(2))
+	if p := app.Placement(); p.X != 0 || p.Y != 100 {
+		t.Errorf("main window at %d,%d, want 0,100", p.X, p.Y)
+	}
+	// 200x100 logical pixels are 400x200 physical pixels at scale 2.
+	if p := app.Window("Tool").Placement(); p.X != 500 || p.Y != 840 {
+		t.Errorf("tool window at %d,%d, want 500,840", p.X, p.Y)
+	}
+	app.Move(-5000, -5000)
+	if p := app.Placement(); p.X != -5000 || p.Y != -5000 {
+		t.Errorf("moved window at %d,%d, want -5000,-5000", p.X, p.Y)
+	}
+
+	mustFail(t, func(tb testing.TB) {
+		telatest.Mount(tb, tela.C(winBody), telatest.Monitors(image.Rect(0, 0, 1920, 0)))
+	}, "telatest.Monitors", "empty")
 }

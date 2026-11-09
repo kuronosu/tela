@@ -47,6 +47,33 @@ func frameTopLeft(pos image.Point, frame, content cocoaRect, primaryTop float64)
 	return float64(pos.X) - dx, primaryTop - float64(pos.Y) + dTop
 }
 
+// desktopRect returns the AppKit screen rectangle r in desktop
+// coordinates (points, y down from the primary screen's top-left), rounded
+// inward to whole points: a screen's visibleFrame, which a window must
+// stay inside.
+func desktopRect(r cocoaRect, primaryTop float64) image.Rectangle {
+	top := primaryTop - (r.Y + r.H)
+	return image.Rect(roundPoint(math.Ceil(r.X)), roundPoint(math.Ceil(top)), roundPoint(math.Floor(r.X+r.W)), roundPoint(math.Floor(top+r.H)))
+}
+
+// fitContent returns where the content's top-left goes for a new window
+// asked to open with it at pos, given the window's frame and content
+// rectangles (AppKit screen coordinates; their offset is the title bar)
+// and the screens' work areas (desktopRect of their visibleFrame, the
+// primary first): platform.FitOnScreens on the frame, so the title bar
+// ends up on a screen present.
+//
+// AppKit does not do it for us: constrainFrameRect:toScreen:, which it
+// applies to titled windows when they are ordered in, only keeps the title
+// bar below the menu bar of the screen the window is on, and does nothing
+// for a window on no screen or for a borderless one.
+func fitContent(pos image.Point, frame, content cocoaRect, works []image.Rectangle) image.Point {
+	off := image.Pt(roundPoint(content.X-frame.X), roundPoint((frame.Y+frame.H)-(content.Y+content.H)))
+	min := pos.Sub(off)
+	r := image.Rectangle{Min: min, Max: min.Add(image.Pt(roundPoint(frame.W), roundPoint(frame.H)))}
+	return platform.FitOnScreens(r, works).Min.Add(off)
+}
+
 // roundPoint rounds half away from zero, clamped to the int range.
 func roundPoint(v float64) int {
 	r := math.Round(v)

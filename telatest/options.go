@@ -2,6 +2,7 @@ package telatest
 
 import (
 	"fmt"
+	"image"
 	"maps"
 	"os"
 	"strings"
@@ -50,6 +51,8 @@ type config struct {
 	// size of the fake screen maximized and fullscreen windows fill.
 	win    windowConfig
 	screen platform.Size
+	// monitors: Monitors (the work areas of the fake desktop's monitors).
+	monitors []image.Rectangle
 	// noServerDeco: NoServerDecorations; noCompositing: NoCompositing.
 	noServerDeco  bool
 	noCompositing bool
@@ -97,6 +100,11 @@ func (c config) validate() error {
 	}
 	if _, err := headlessServices(c.unsupported); err != nil {
 		return fmt.Errorf("telatest.WithUnsupported%v", err)
+	}
+	for _, m := range c.monitors {
+		if m.Empty() {
+			return fmt.Errorf("telatest.Monitors: the work area %v is empty; give each monitor a rectangle with a positive size in physical pixels, such as image.Rect(0, 0, 1920, 1040)", m)
+		}
 	}
 	if r := c.controls; !finiteRect(r) || r.Width < 0 || r.Height < 0 {
 		return fmt.Errorf("telatest.TitleBarControls(%v): give a finite rectangle in logical pixels with a width and height that are not negative", r)
