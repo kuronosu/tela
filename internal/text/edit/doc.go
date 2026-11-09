@@ -60,8 +60,8 @@
 //
 // Every operation returns a Result: whether the value, the selection and
 // the display changed, the InputType and Data of the edit (W3C Input
-// Events Level 2 names: insertText, insertFromPaste, insertLineBreak,
-// deleteContentBackward, deleteWordBackward, deleteSoftLineBackward,
+// Events Level 2 names: insertText, insertFromPaste, insertFromDrop,
+// insertLineBreak, deleteContentBackward, deleteWordBackward, deleteSoftLineBackward,
 // deleteByCut, historyUndo, insertCompositionText, insertFromComposition,
 // deleteCompositionText...), IsComposing, and the clipboard text of Copy
 // and Cut. The caller builds its input event and its

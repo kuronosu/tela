@@ -8,6 +8,7 @@ import (
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/text/edit"
 )
 
 // Drag and drop (ARCHITECTURE section 14; ADR-209, ADR-211) follows
@@ -42,8 +43,15 @@ import (
 //     custom types the handlers looked up before the drop (Has, Get...).
 //   - drop carries the data; the effect the window reports to the source
 //     is the DataTransfer's DropEffect after the handlers (DropNone: the
-//     data was not taken). PreventDefault is not needed there: Tela has
-//     no default action for a drop.
+//     data was not taken). PreventDefault is not needed there to accept,
+//     only to cancel the one default action, below.
+//   - Text fields take text by default, as HTML's do (ADR-253): over an
+//     editable Input or Textarea a drag that offers text/plain is
+//     accepted without a handler, and its drop, unless a drop handler
+//     called PreventDefault, focuses the field, puts the caret under the
+//     drop point and inserts the text as one insertFromDrop edit
+//     (OnBeforeInput, OnChange). A read-only or disabled field takes
+//     none.
 //   - The OS owns the pointer while a drag is over the window: at the
 //     session's start the tree's pointers are cancelled and leave, so
 //     hover and active states end; the next pointer event after the drag
@@ -179,10 +187,50 @@ func (t *Tree) dragOver(e platform.DragEvent) DropEffect {
 	}
 	dt := t.protectedTransfer()
 	st := fire(t, evDragOver, d.target, t.dndEvent(dt), true)
-	if st.defaultPrevented() {
+	if st.defaultPrevented() || t.dropField(d.target) != nil {
+		// A text field accepts text by default, as HTML's do.
 		d.effect = acceptedEffect(dt.DropEffect, d.allowed, d.mods)
 	}
 	return d.effect
+}
+
+// dropField returns the field the drag's text would be dropped into by
+// default: target is an editable text field (not read-only, not disabled)
+// and the drag offers plain text; else nil.
+func (t *Tree) dropField(target *Element) *field {
+	f := textField(target)
+	if f == nil || !f.alive() || f.readOnly() || !slices.Contains(t.dnd.types, MIMEText) {
+		return nil
+	}
+	return f
+}
+
+// fieldDrop runs the default action of a drop of text into field f at the
+// window point p: the field takes the focus, the caret goes under the drop
+// point, and the text is inserted as one insertFromDrop edit (OnBeforeInput,
+// cancelable, then OnChange), line breaks as spaces in a single-line
+// field, as a paste.
+func (t *Tree) fieldDrop(f *field, p gfx.Point, s string) {
+	if s == "" {
+		return
+	}
+	t.setFocus(f.el, focusMouse)
+	if !f.alive() || t.foc.el != f.el {
+		return
+	}
+	if f.ed.Composing() {
+		t.finishComposition(f)
+		t.ime.reset = true
+		if !f.alive() {
+			return
+		}
+	}
+	if lay := f.layout(); lay != nil {
+		pt := t.fieldPoint(f, p)
+		r := f.ed.Do(edit.Command{Kind: edit.ClickAt, X: pt.X, Y: pt.Y}, lay)
+		t.fieldChangedBy(f, r, false)
+	}
+	t.fieldDo(f, edit.Command{Kind: edit.Drop, Text: s})
 }
 
 // drop fires drop at the element under the drag with the data e carries,
@@ -199,8 +247,11 @@ func (t *Tree) drop(e platform.DragEvent) (DropEffect, []string) {
 	}
 	effect := DropNone
 	if tg := mountedAncestor(d.target); tg != nil {
-		fire(t, evDrop, tg, t.dndEvent(dt), true)
+		st := fire(t, evDrop, tg, t.dndEvent(dt), true)
 		effect = acceptedEffect(dt.DropEffect, d.allowed, d.mods)
+		if f := t.dropField(tg); f != nil && !st.defaultPrevented() && effect != DropNone {
+			t.fieldDrop(f, d.pos, dt.Text())
+		}
 	}
 	t.resetDragSession()
 	t.flushDiscrete()

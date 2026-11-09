@@ -55,6 +55,10 @@ func useDrop(onDrop func(*tela.DataTransfer)) dropState {
 				}
 			}),
 			OnDrop(func(e tela.DragEvent) {
+				// The window imports what is dropped, also over the
+				// editor: without this, text dropped on a text field
+				// would also be inserted there (its default, as in HTML).
+				e.PreventDefault()
 				setDepth.Set(0)
 				onDrop(e.DataTransfer)
 			}),

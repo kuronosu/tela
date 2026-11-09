@@ -15,6 +15,7 @@ const (
 	InputInsertText            InputType = "insertText"
 	InputInsertLineBreak       InputType = "insertLineBreak"
 	InputInsertFromPaste       InputType = "insertFromPaste"
+	InputInsertFromDrop        InputType = "insertFromDrop"
 	InputInsertCompositionText InputType = "insertCompositionText"
 	InputInsertFromComposition InputType = "insertFromComposition"
 	InputDeleteContent         InputType = "deleteContent"
@@ -43,6 +44,10 @@ const (
 	// Paste inserts Command.Text over the selection (insertFromPaste, one
 	// undo step).
 	Paste
+	// Drop inserts Command.Text over the selection, as Paste does, for a
+	// drag and drop (insertFromDrop, one undo step). The caller puts the
+	// caret at the drop point first (ClickAt).
+	Drop
 	// InsertLineBreak inserts a line feed (insertLineBreak, Enter in a
 	// multi-line field); it does nothing in a single-line field, where
 	// Enter belongs to the caller (form submission).
@@ -138,7 +143,7 @@ func (k CommandKind) NeedsLayout() bool {
 // produce them.
 type Command struct {
 	Kind CommandKind
-	// Text is the text of InsertText and Paste.
+	// Text is the text of InsertText, Paste and Drop.
 	Text string
 	// Extend keeps the anchor (shift) for movements and ClickAt.
 	Extend bool
@@ -218,6 +223,10 @@ func (e *Editor) Plan(cmd Command, l *text.Layout) Plan {
 	case Paste:
 		if !ro {
 			e.planInsert(&p, cmd.Text, InputInsertFromPaste, groupNone)
+		}
+	case Drop:
+		if !ro {
+			e.planInsert(&p, cmd.Text, InputInsertFromDrop, groupNone)
 		}
 	case InsertLineBreak:
 		if !ro && e.opts.Multiline {

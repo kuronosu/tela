@@ -560,6 +560,65 @@ func TestDraggableUnsupported(t *testing.T) {
 	}
 }
 
+// TestTextDropIntoField (ADR-253): a text field takes a drag of text
+// without handlers, as HTML's do: the drag is accepted, and the drop
+// focuses the field, puts the caret under the drop point and inserts the
+// text as one insertFromDrop edit (beforeinput, change). A drop handler's
+// PreventDefault cancels the insertion, a read-only field takes nothing,
+// and a drag without text is not accepted.
+func TestTextDropIntoField(t *testing.T) {
+	text := platform.Data{{Type: platform.MIMEText, Bytes: []byte("XY")}}
+	files := platform.Data{{Type: platform.MIMEURIList, Bytes: []byte("file:///tmp/a.txt\r\n")}}
+	for _, tc := range []struct {
+		name     string
+		data     platform.Data
+		readOnly bool
+		cancel   bool
+		accept   bool
+		want     string
+		events   string
+	}{
+		{"inserts", text, false, false, true, "abXY", "beforeinput:insertFromDrop:XY change:insertFromDrop"},
+		{"canceled by a drop handler", text, false, true, true, "ab", ""},
+		{"read-only", text, true, false, false, "ab", ""},
+		{"no text", files, false, false, false, "ab", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var log []string
+			root := div(Class("p-4"),
+				On("drop", func(e DragEvent) {
+					if tc.cancel {
+						e.PreventDefault()
+					}
+				}),
+				input(Key("in"), Class("w-60"), DefaultValue("ab"), ReadOnly(tc.readOnly),
+					On("beforeinput", func(e InputEvent) { log = append(log, "beforeinput:"+e.InputType+":"+e.Data) }),
+					On("change", func(e ChangeEvent) { log = append(log, "change:"+e.InputType) })))
+			x := newWinHarness(t, Options{Root: root})
+			w := x.windows()[0]
+			x.b.StartExternalDrag(tc.data, platform.DropCopy|platform.DropMove)
+			w.Inject(move(200, 26)) // right of the text: the caret goes to its end
+			x.drain()
+			eff, _ := w.DropAnswer()
+			if (eff != platform.DropNone) != tc.accept {
+				t.Fatalf("answer %v, want accepted %v", eff, tc.accept)
+			}
+			w.Inject(up(200, 26))
+			x.drain()
+			f := fieldOf(t, x.h.Tree(), "in")
+			if v := f.ed.RawValue(); v != tc.want {
+				t.Errorf("value %q, want %q", v, tc.want)
+			}
+			if got := strings.Join(log, " "); got != tc.events {
+				t.Errorf("events %q, want %q", got, tc.events)
+			}
+			if focused := x.h.Tree().foc.el == f.el; focused != (tc.events != "") {
+				t.Errorf("field focused %v after the drop", focused)
+			}
+		})
+	}
+}
+
 // The DataTransfer's modes: setters panic outside OnDragStart, the HTML
 // names of the types work, and the zero value is writable.
 func TestDataTransfer(t *testing.T) {
