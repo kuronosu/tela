@@ -25,14 +25,22 @@ Phase 20, API and kit gaps.
 - Built-in labels (ADR-251): every text Tela shows by itself (the fallback title bar, message boxes, kit's toasts, the macOS app, Edit and Window menus, the save panel's "Format:") has an ID (`tela.Labels()`) translated by `i18n` catalog keys such as `tela.toast.close`; `tela.Label`, `tela.UseLabels`, `i18n.Formatter.Label`, `kit.Toaster.AriaLabel` and `CloseLabel`. Native message box buttons and macOS menus follow the language.
 - looks (ADR-254): `kit.ToggleStyle.IconVariants`; `looks/aqua` tints sidebar glyphs with the accent, draws Sequoia's toolbar search field borderless gray (`looks.Regions.SearchField`) and makes Tahoe dark's destructive text readable (the `destructive-text` token).
 
+- App and desktop (ADR-253): `tela.UseCloseRequest` and `tela.UseQuitRequest` answer a window's close request and the app's quit request inside the component tree, before `App.OnClose`, a Window's `OnClose` and `App.OnQuit`; `desktop.Launch.Source` (`LaunchStart`, `LaunchForwarded`, `LaunchOpened`: macOS opened a link or file with the app); `desktop.AppMenuBar.NativeOnly` (the bar only where it is the app's own, with no window bars elsewhere); `desktop.HandlerRole` and `Association.WithRole` (Editor, Viewer, Shell, None) for schemes and file types; `telatest.Monitors` and `InjectLaunch` with `LaunchOpened`.
+
 ### Changed
 
+- Text fields (`Input`, `Textarea`) take text drops by default, as HTML's do; a drop zone that takes the text itself calls `PreventDefault` in `OnDrop` (ADR-253).
+- A saved window position is fitted to the monitors present at the next start; `desktop` stores see changes other programs make to their files (merged per key; a key this process changed and has not written wins); app-scoped events (launches, notifications, tray, shortcuts) that arrive before the first frame reach their listeners on every backend (ADR-253).
 - A right click, or a Control+click on a Mac, on an unselected list box option selects it before the context menu opens, as Finder does (ADR-247); a context menu opened with Shift+F10 or the Menu key opens below the focused element.
 - `CmdOrCtrl` in a kit menu shortcut follows the app's platform keys, not the build machine's; a shortcut written in glyphs (`⌘T`) is announced as its ARIA key shortcuts.
 - A trigger's own `Disabled` (`kit.Button{Disabled: true}`) now wins over the overlay's trigger props.
 - Numbers and dates use the locale's default numbering system from CLDR 48: `ar-EG` and `ar-SA` give Arabic-Indic digits, as ICU does (ADR-251).
 - The fallback title bar follows a `Dir` on the element that is the window's whole content, and a click on it (Wayland) closes an open dialog or popover that closes on outside presses (ADR-252).
 - Windows menu bars give Chinese, Japanese and Korean labels an appended access key ("ファイル(&F)"), and Cyrillic, Greek, Arabic and Hebrew labels a letter of their own (ADR-252).
+
+### Deprecated
+
+- `desktop.Launch.Forwarded`: use `Launch.Source`; it stays true for every launch but the start's until the next minor version (ADR-253).
 
 ## [0.13.7] - 2026-11-08
 
