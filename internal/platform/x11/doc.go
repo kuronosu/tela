@@ -87,7 +87,10 @@
 //     sets before map in answer to _NET_REQUEST_FRAME_EXTENTS, sent at
 //     creation when _NET_SUPPORTED lists it and the window is not
 //     frameless; the first map waits for it at most 100 ms after the
-//     request, then fits the content alone. SetPosition is not checked,
+//     request, then fits the content alone. After one such timeout no
+//     window waits: each is fitted with the last extents the window
+//     manager gave for its kind (dialog or not), else by its content
+//     (ADR-262). SetPosition is not checked,
 //     and one before the first map cancels the fit.
 //   - Size limits are PMinSize/PMaxSize in WM_NORMAL_HINTS (a zero
 //     component is 1 or 32767); the icon is _NET_WM_ICON with every

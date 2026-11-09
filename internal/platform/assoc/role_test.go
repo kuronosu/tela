@@ -83,6 +83,11 @@ func TestLinuxRoles(t *testing.T) {
 	if entry := e.read(e.ownEntry()); !strings.Contains(entry, "MimeType=x-scheme-handler/notes;application/x-notes-note;\n") {
 		t.Errorf("entry as a viewer:\n%s", entry)
 	}
+	// The desktop entry specification has no roles (ADR-262), so none is
+	// reported, whatever role was asked.
+	if s := e.status(withRole(noteFile, platform.HandlerViewer)); !s.Registered || s.Role != platform.HandlerDefault {
+		t.Errorf("status as a viewer = %+v; want registered, role default", s)
+	}
 	if _, err := e.register(declaredFile, false); err != nil {
 		t.Fatal(err)
 	}
@@ -192,6 +197,11 @@ func TestWindowsRoles(t *testing.T) {
 	}
 	if got := r.Dump(); got != editor {
 		t.Errorf("as a viewer:\n%s\nwant:\n%s", got, editor)
+	}
+	// Windows keeps no role (ADR-262: verbs are actions, not roles), so
+	// none is reported, whatever role was asked.
+	if s := mustStatus(t, a, withRole(noteFile, platform.HandlerViewer)); !s.Registered || s.Role != platform.HandlerDefault {
+		t.Errorf("status as a viewer = %+v; want registered, role default", s)
 	}
 	// Unregister of the declaration leaves nothing.
 	_, _ = a.Register(winApp, declaredFile, platform.RegisterOptions{})

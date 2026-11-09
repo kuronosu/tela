@@ -68,7 +68,11 @@ func TestAppEventsBeforeFirstCommit(t *testing.T) {
 					}
 					return d.Listen(func(e platform.Event) {
 						if le, ok := e.(platform.LaunchEvent); ok {
-							got = append(got, strings.Join(le.Launch.Args, ","))
+							s := strings.Join(le.Launch.Args, ",")
+							if le.AtStart {
+								s += "@start"
+							}
+							got = append(got, s)
 						}
 					})
 				})
@@ -88,13 +92,22 @@ func TestAppEventsBeforeFirstCommit(t *testing.T) {
 			b.InjectApp(platform.LaunchEvent{Launch: platform.Launch{Args: []string{"two"}}, Source: platform.LaunchOpened})
 			x := &winHarness{t: t, b: b, h: h}
 			x.drain()
-			if strings.Join(got, " ") != "one two" {
-				t.Fatalf("listeners got %q, want the two early launches in order", got)
+			// The OS's early launch came with the start (ADR-262); the
+			// forwarded one is another process's. A hidden main window
+			// commits without a frame, at once: nothing is held, so
+			// nothing is marked.
+			want := "one two@start"
+			if hidden {
+				want = "one two"
+			}
+			if strings.Join(got, " ") != want {
+				t.Fatalf("listeners got %q, want %q (the two early launches in order)", got, want)
 			}
 			b.InjectApp(platform.LaunchEvent{Launch: platform.Launch{Args: []string{"three"}}})
+			b.InjectApp(platform.LaunchEvent{Launch: platform.Launch{Args: []string{"four"}}, Source: platform.LaunchOpened})
 			x.drain()
-			if strings.Join(got, " ") != "one two three" {
-				t.Errorf("listeners got %q after a later launch", got)
+			if strings.Join(got, " ") != want+" three four" {
+				t.Errorf("listeners got %q after later launches", got)
 			}
 		})
 	}

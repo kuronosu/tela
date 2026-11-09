@@ -39,6 +39,17 @@ func TestFitButtonRow(t *testing.T) {
 	}
 }
 
+// The padding of a renamed button is in the box's dialog units (ADR-262):
+// 12 px a side with the default message font at 96 DPI (an average
+// character of 6 px), scaled with the font and the DPI.
+func TestButtonPaddingPixels(t *testing.T) {
+	for baseX, want := range map[int]int{6: 24, 7: 28, 9: 36, 12: 48, 8: 32} {
+		if got := buttonPaddingPixels(baseX); got != want {
+			t.Errorf("buttonPaddingPixels(%d) = %d, want %d", baseX, got, want)
+		}
+	}
+}
+
 func TestPlainLabel(t *testing.T) {
 	for in, want := range map[string]string{"&Sí": "Sí", "Save && close": "Save & close", "Cancelar": "Cancelar", "x&": "x"} {
 		if got := plainLabel(in); got != want {
