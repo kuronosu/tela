@@ -409,6 +409,9 @@ func (t *Tree) semAriaFields(el *Element, n *semantics.Node) {
 		}
 		n.Checked, n.Pressed, n.Selected, n.Expanded = a.checked, a.pressed, a.selected, a.expanded
 		n.Invalid, n.Sort, n.Current = a.invalid, a.sort, a.current
+		if style.AriaTokenUnset("sort", a.sort) {
+			n.Sort = "" // none
+		}
 		n.Description = t.semDescription(a)
 		n.Range = a.rng
 		t.semWidget(a, n) // ariawidget.go

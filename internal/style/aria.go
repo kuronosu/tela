@@ -27,10 +27,12 @@ type AriaRow struct {
 	// boolean one.
 	Token string
 	// State is the flag the variants test; 0 for a token that no variant
-	// tests ("other" and "none" of aria-sort, "false" of aria-current).
+	// tests ("false" of aria-current).
 	State StateFlags
 	// Unset reports that the token means the attribute is not set (the
-	// ARIA default): "none" for aria-sort, "false" for aria-current.
+	// ARIA default): "none" for aria-sort, "false" for aria-current. The
+	// node has no value for it, but "none" can still have a variant: the
+	// attribute selector [aria-sort=none] matches an element that says so.
 	Unset bool
 }
 
@@ -50,8 +52,8 @@ var ariaTable = []AriaRow{
 
 	{Attr: "sort", Prop: "AriaSort", Token: "ascending", State: StateAriaSortAscending},
 	{Attr: "sort", Prop: "AriaSort", Token: "descending", State: StateAriaSortDescending},
-	{Attr: "sort", Prop: "AriaSort", Token: "other"},
-	{Attr: "sort", Prop: "AriaSort", Token: "none", Unset: true},
+	{Attr: "sort", Prop: "AriaSort", Token: "other", State: StateAriaSortOther},
+	{Attr: "sort", Prop: "AriaSort", Token: "none", State: StateAriaSortNone, Unset: true},
 
 	{Attr: "current", Prop: "AriaCurrent", Token: "page", State: StateAriaCurrentPage},
 	{Attr: "current", Prop: "AriaCurrent", Token: "step", State: StateAriaCurrentStep},

@@ -46,14 +46,13 @@ var sortValues = style.AriaTokens("sort")
 // row header (aria-sort): "ascending", "descending", "other" or "none"
 // (the default), ASCII case-insensitive. Unknown values panic in dev mode
 // with the closest valid one and are ignored otherwise. It sets the node's
-// Sort, and "ascending" and "descending" match the aria-[sort=ascending]:
-// and aria-[sort=descending]: variants; the aria snapshot does not print
-// it (Playwright's does not either).
+// Sort ("none" is no sort there), and each token matches its own variant,
+// aria-[sort=ascending]:, aria-[sort=descending]:, aria-[sort=other]: and
+// aria-[sort=none]: (the last only for an element that says "none", as an
+// attribute selector does); the aria snapshot does not print it
+// (Playwright's does not either).
 func AriaSort(sort string) Prop {
 	v, ok := ariaToken("AriaSort", sort, sortValues)
-	if style.AriaTokenUnset("sort", v) {
-		v = ""
-	}
 	return ariaProp("AriaSort", func(a *ariaProps) {
 		if ok {
 			a.sort = v

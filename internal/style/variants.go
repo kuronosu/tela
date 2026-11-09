@@ -56,11 +56,15 @@ const (
 	StateAriaReadOnly
 	StateAriaRequired
 	StateAriaSelected
-	// StateAriaSortAscending and StateAriaSortDescending: AriaSort set to
-	// "ascending" or "descending", which the arbitrary variants
-	// aria-[sort=ascending]: and aria-[sort=descending]: test (ADR-131).
+	// StateAriaSortAscending to StateAriaSortNone: AriaSort set to that
+	// token, which the arbitrary variants aria-[sort=ascending]:,
+	// aria-[sort=descending]:, aria-[sort=other]: and aria-[sort=none]: test
+	// (ADR-131, ADR-248). "none" is the token set on purpose: an element
+	// with no AriaSort has no state, as an attribute selector has it.
 	StateAriaSortAscending
 	StateAriaSortDescending
+	StateAriaSortOther
+	StateAriaSortNone
 	// StateAriaCurrentPage to StateAriaCurrentTrue: AriaCurrent set to that
 	// token, which aria-[current=page]: and its siblings test (ADR-171).
 	// AriaCurrent("true") is its own flag, as in an attribute selector.

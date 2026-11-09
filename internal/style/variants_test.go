@@ -115,7 +115,7 @@ func TestVariantErrors(t *testing.T) {
 	if _, err := parseVariant(th, "hoverr"); err == nil || err.Error() != `unknown variant "hoverr"; did you mean "hover"?` {
 		t.Errorf("message = %v", err)
 	}
-	for _, v := range []string{"before", "after", "marker", "print", "contrast-less", "forced-colors", "group-hover/item", "data-open", "has-checked", "@lg", "aria-[sort=other]", "aria-[checked=false]", "aria-[checked]", "group-aria-[sort=none]", "aria-[current=foo]", "aria-[current=false]", "aria-[current]"} {
+	for _, v := range []string{"before", "after", "marker", "print", "contrast-less", "forced-colors", "group-hover/item", "data-open", "has-checked", "@lg", "aria-[checked=false]", "aria-[checked]", "aria-[sort=non]", "aria-[current=foo]", "aria-[current=false]", "aria-[current]"} {
 		_, err := parseVariant(th, v)
 		var u *UnsupportedClassError
 		if !errors.As(err, &u) {
@@ -358,6 +358,9 @@ func TestAriaVariantParsing(t *testing.T) {
 	for variant, want := range map[string]Condition{
 		"aria-[sort=ascending]":       {State: StateAriaSortAscending},
 		"aria-[sort=descending]":      {State: StateAriaSortDescending},
+		"aria-[sort=other]":           {State: StateAriaSortOther},
+		"aria-[sort=none]":            {State: StateAriaSortNone},
+		"group-aria-[sort=none]":      {Group: StateAriaSortNone},
 		`aria-[sort="ascending"]`:     {State: StateAriaSortAscending},
 		"aria-[sort='descending']":    {State: StateAriaSortDescending},
 		"group-aria-[sort=ascending]": {Group: StateAriaSortAscending},
@@ -383,11 +386,11 @@ func TestAriaVariantParsing(t *testing.T) {
 }
 
 // TestAriaVariantNoInvalidSuggestion pins that did-you-mean only offers
-// the tokens that have a variant: never "other", "none" or "false", which
-// are valid values of the props but are not classes.
+// the tokens that have a variant: never "false", which is a valid value of
+// AriaCurrent but not a class.
 func TestAriaVariantNoInvalidSuggestion(t *testing.T) {
 	th := DefaultTheme()
-	for _, v := range []string{"aria-[current=false]", "aria-[sort=none]", "aria-[sort=other]", "aria-[current=fals]", "aria-[sort=othr]", "aria-[sort=non]"} {
+	for _, v := range []string{"aria-[current=false]", "aria-[current=fals]", "aria-[sort=othr]", "aria-[sort=non]"} {
 		_, err := parseVariant(th, v)
 		if err == nil {
 			t.Errorf("%s: parsed", v)
@@ -401,13 +404,13 @@ func TestAriaVariantNoInvalidSuggestion(t *testing.T) {
 				t.Errorf("%s: suggests %q, which is not a variant: %v", v, suggestion, perr)
 			}
 		}
-		for _, bad := range []string{"=false]:?", "=none]:?", "=other]:?"} {
+		for _, bad := range []string{"=false]:?"} {
 			if strings.Contains(msg, "did you mean") && strings.Contains(msg, bad) {
 				t.Errorf("%s: suggests an invalid class: %v", v, err)
 			}
 		}
 	}
-	if got := AriaVariantTokens("sort"); len(got) != 2 || got[0] != "ascending" || got[1] != "descending" {
+	if got := AriaVariantTokens("sort"); len(got) != 4 || got[0] != "ascending" || got[3] != "none" {
 		t.Errorf("AriaVariantTokens(sort) = %v", got)
 	}
 	if got := AriaVariantTokens("current"); len(got) != 6 || got[5] != "true" {
@@ -424,8 +427,7 @@ func TestAriaVariantErrors(t *testing.T) {
 		"aria-chekced":            `unknown variant "aria-chekced"; did you mean "aria-checked"?`,
 		"aria-invald":             `unknown variant "aria-invald"; did you mean "aria-invalid"?`,
 		"group-aria-expandd":      `unknown variant "group-aria-expandd"; did you mean "group-aria-expanded"?`,
-		"aria-[sort=other]":       `Tela has no prop for the attribute selector [sort=other]`,
-		"aria-[sort=none]":        `Tela has no prop for the attribute selector [sort=none]`,
+		"aria-[sort=non]":         `did you mean aria-[sort=none]:?`,
 		"aria-[sort]":             `Tela has no prop for the attribute selector [sort]`,
 		"aria-[checked=false]":    `Tela has no prop for the attribute selector [checked=false]`,
 		"peer-aria-[current=foo]": `Tela has no prop for the attribute selector [current=foo]`,
@@ -441,7 +443,7 @@ func TestAriaVariantErrors(t *testing.T) {
 			t.Errorf("%s: err = %v, want it to contain %q", variant, err, want)
 		}
 	}
-	_, err := parseVariant(th, "aria-[sort=other]")
+	_, err := parseVariant(th, "aria-[sort=sideways]")
 	var u *UnsupportedClassError
 	if !errors.As(err, &u) {
 		t.Fatalf("err = %v, want an unsupported variant", err)

@@ -117,7 +117,7 @@ func TestAriaStatesOfProps(t *testing.T) {
 	if got := ariaStates(a); got != want {
 		t.Errorf("ariaStates = %b, want %b", got, want)
 	}
-	for sort, want := range map[string]style.StateFlags{"descending": style.StateAriaSortDescending, "other": 0, "none": 0} {
+	for sort, want := range map[string]style.StateFlags{"descending": style.StateAriaSortDescending, "other": style.StateAriaSortOther, "none": style.StateAriaSortNone} {
 		b := &ariaProps{}
 		AriaSort(sort).apply(&desc{aria: b})
 		if got := ariaStates(b); got != want {
@@ -142,10 +142,10 @@ func TestAriaStatesOfProps(t *testing.T) {
 // Class errors of the new variants name the closest variant.
 func TestNewVariantClassErrors(t *testing.T) {
 	for class, want := range map[string]string{
-		"max-smm:w-4":           `did you mean "max-sm:"?`,
-		"aria-chekced:w-4":      `did you mean "aria-checked:"?`,
-		"aria-[sort=other]:w-4": "Tela has no prop for the attribute selector [sort=other]",
-		"min-[wide]:w-4":        "the width must be a length in px, rem or em",
+		"max-smm:w-4":          `did you mean "max-sm:"?`,
+		"aria-chekced:w-4":     `did you mean "aria-checked:"?`,
+		"aria-[sort=othr]:w-4": "did you mean aria-[sort=other]:?",
+		"min-[wide]:w-4":       "the width must be a length in px, rem or em",
 	} {
 		var logs []string
 		tr := newTestTree(t, 100, 100, Component(func() Node { return div(Class(class)) }), &logs)

@@ -511,7 +511,7 @@ Div(Role("listbox"), AriaSetSize(10_000), VirtualList(...))
 func AriaSort(sort string) tela.Prop
 ```
 
-AriaSort tells how a table is sorted by a column header (aria-sort): "ascending", "descending", "other" or "none" (the default). Unknown values panic in dev mode with the closest valid one. The aria-\[sort=ascending\]: and aria-\[sort=descending\]: variants style the header, and their group- forms what it contains, such as its arrow.
+AriaSort tells how a table is sorted by a column header (aria-sort): "ascending", "descending", "other" or "none" (the default). Unknown values panic in dev mode with the closest valid one. The aria-\[sort=ascending\]:, aria-\[sort=descending\]:, aria-\[sort=other\]: and aria-\[sort=none\]: variants style the header (the last for a header that says "none"), and their group- forms what it contains, such as its arrow.
 
 ```go
 Div(Role("columnheader"), AriaSort(order), OnClick(toggleOrder), Class("group flex gap-1"),

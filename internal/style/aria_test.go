@@ -21,9 +21,6 @@ func TestAriaTable(t *testing.T) {
 		if r.Token == "" && r.State == 0 {
 			t.Errorf("%s: a boolean attribute without a flag", r.Attr)
 		}
-		if r.Unset && r.State != 0 {
-			t.Errorf("%s %q: an unset token cannot have a variant", r.Attr, r.Token)
-		}
 		seen |= r.State
 	}
 	run := StateAriaCurrentTrue<<1 - StateAriaBusy
@@ -39,11 +36,12 @@ func TestAriaTable(t *testing.T) {
 	if AriaTokens("busy") != nil || AriaTokenState("busy", "") != 0 || AriaBoolState("sort") != 0 {
 		t.Error("a boolean attribute has no tokens, a token attribute no boolean state")
 	}
-	if AriaBoolState("readonly") != StateAriaReadOnly || AriaTokenState("sort", "other") != 0 ||
+	if AriaBoolState("readonly") != StateAriaReadOnly || AriaTokenState("sort", "other") != StateAriaSortOther ||
+		AriaTokenState("sort", "none") != StateAriaSortNone || AriaTokenState("current", "false") != 0 ||
 		!AriaTokenUnset("sort", "none") || !AriaTokenUnset("current", "false") || AriaTokenUnset("sort", "other") {
 		t.Error("AriaBoolState, AriaTokenState or AriaTokenUnset is wrong")
 	}
-	const wantHint = "the aria variants test the props AriaBusy, AriaChecked, AriaDisabled, AriaExpanded, AriaHidden, AriaInvalid, AriaPressed, AriaReadOnly, AriaRequired and AriaSelected when they are true: aria-busy:, aria-checked:, aria-disabled:, aria-expanded:, aria-hidden:, aria-invalid:, aria-pressed:, aria-readonly:, aria-required:, aria-selected:, AriaSort with aria-[sort=ascending]: and aria-[sort=descending]:, and AriaCurrent with aria-[current=page]:, aria-[current=step]:, aria-[current=location]:, aria-[current=date]:, aria-[current=time]: and aria-[current=true]: (also group-aria-checked: and peer-aria-[sort=ascending]:)"
+	const wantHint = "the aria variants test the props AriaBusy, AriaChecked, AriaDisabled, AriaExpanded, AriaHidden, AriaInvalid, AriaPressed, AriaReadOnly, AriaRequired and AriaSelected when they are true: aria-busy:, aria-checked:, aria-disabled:, aria-expanded:, aria-hidden:, aria-invalid:, aria-pressed:, aria-readonly:, aria-required:, aria-selected:, AriaSort with aria-[sort=ascending]:, aria-[sort=descending]:, aria-[sort=other]: and aria-[sort=none]:, and AriaCurrent with aria-[current=page]:, aria-[current=step]:, aria-[current=location]:, aria-[current=date]:, aria-[current=time]: and aria-[current=true]: (also group-aria-checked: and peer-aria-[sort=ascending]:)"
 	if ariaVariantHint != wantHint {
 		t.Errorf("ariaVariantHint = %q", ariaVariantHint)
 	}

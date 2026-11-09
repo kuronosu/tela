@@ -200,8 +200,9 @@ func AriaInvalid(invalid bool) tela.Prop { return core.AriaInvalid(invalid) }
 // AriaSort tells how a table is sorted by a column header (aria-sort):
 // "ascending", "descending", "other" or "none" (the default). Unknown
 // values panic in dev mode with the closest valid one. The
-// aria-[sort=ascending]: and aria-[sort=descending]: variants style the
-// header, and their group- forms what it contains, such as its arrow.
+// aria-[sort=ascending]:, aria-[sort=descending]:, aria-[sort=other]: and
+// aria-[sort=none]: variants style the header (the last for a header that
+// says "none"), and their group- forms what it contains, such as its arrow.
 //
 //	Div(Role("columnheader"), AriaSort(order), OnClick(toggleOrder), Class("group flex gap-1"),
 //	    Text("Name"), Icon(arrowUp, Class("size-4 group-aria-[sort=descending]:rotate-180")))
