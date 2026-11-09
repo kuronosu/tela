@@ -138,10 +138,37 @@ type kfRun struct {
 	spec  anim.Spec
 	kfs   *anim.Keyframes
 	start time.Duration
+	// held: animation-play-state is paused. The animation stays where it
+	// was (hold is the time it had run) and asks for no frames; running
+	// again continues from there, as in CSS Animations Level 1.
+	held bool
+	hold time.Duration
 	// finished: the animation ended. It stays (with its raw shorthand) so
 	// that a restyle does not start it again; a forwards fill keeps
 	// applying its last keyframe.
 	finished bool
+}
+
+// elapsed is the time the animation has run at now: the time of the pause
+// while it is held.
+func (k *kfRun) elapsed(now time.Duration) time.Duration {
+	if k.held {
+		return k.hold
+	}
+	return now - k.start
+}
+
+// play applies the play state of cs at now: pausing holds the elapsed
+// time, running again moves the start so that the animation continues from
+// it.
+func (k *kfRun) play(cs *style.ComputedStyle, now time.Duration) {
+	paused := cs.AnimProps.Set&style.AnimPlayState != 0 && cs.AnimProps.Paused
+	switch {
+	case paused && !k.held:
+		k.held, k.hold = true, now-k.start
+	case !paused && k.held:
+		k.held, k.start = false, now-k.hold
+	}
 }
 
 // animLayerDeferred marks the style of a box whose opacity or transform
@@ -182,7 +209,7 @@ func (ba *boxAnim) stateOf() anim.State {
 	if len(ba.trans) > 0 {
 		return anim.Running
 	}
-	if k := ba.kf; k != nil && !k.finished {
+	if k := ba.kf; k != nil && !k.finished && !k.held {
 		if k.spec.Endless() {
 			return anim.Endless
 		}
@@ -198,7 +225,7 @@ func (ba *boxAnim) stateAt(now time.Duration) anim.State {
 			return anim.Running
 		}
 	}
-	if k := ba.kf; k != nil && !k.finished {
+	if k := ba.kf; k != nil && !k.finished && !k.held {
 		if k.spec.Endless() {
 			return anim.Endless
 		}
@@ -392,10 +419,14 @@ func (t *Tree) updateKeyframes(ba *boxAnim, el *Element, cs *style.ComputedStyle
 	if ba.kf != nil && ba.kf.raw == raw {
 		// New animation longhands (delay, duration, count...) change the
 		// timing of the running animation without restarting it (CSS
-		// Animations Level 1).
+		// Animations Level 1): the time it has run is kept, so a new
+		// duration changes the progress (as in Chromium), and a finished
+		// animation that the new timing makes active runs again.
 		if e := t.animSpec(raw); e.err == "" {
 			ba.kf.spec = withAnimProps(e.spec, cs)
+			ba.kf.finished = false
 		}
+		ba.kf.play(cs, now)
 		return
 	}
 	e := t.animSpec(raw)
@@ -408,6 +439,7 @@ func (t *Tree) updateKeyframes(ba *boxAnim, el *Element, cs *style.ComputedStyle
 	}
 	spec := withAnimProps(e.spec, cs)
 	ba.kf = &kfRun{raw: raw, spec: spec, kfs: e.kfs, start: now}
+	ba.kf.play(cs, now)
 }
 
 // withAnimProps is spec, an animation shorthand, with the longhands the
@@ -509,7 +541,7 @@ func (t *Tree) animStyle(ba *boxAnim, target *style.ComputedStyle, now time.Dura
 	if k := ba.kf; k != nil {
 		holds := k.spec.Fill == anim.FillForwards || k.spec.Fill == anim.FillBoth
 		if !k.finished || holds {
-			p, phase, applies := k.spec.Progress(now - k.start)
+			p, phase, applies := k.spec.Progress(k.elapsed(now))
 			if phase == anim.PhaseAfter {
 				k.finished = true
 			}

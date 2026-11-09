@@ -168,7 +168,11 @@ type App struct {
 	// returns tela.C(notes)). It is a
 	// component of its own, so it may use hooks. A [Node] works too, but a
 	// root that uses hooks must be a component. A [Preview] works too, and
-	// its Theme and ColorScheme win over this App's.
+	// its Theme and ColorScheme win over this App's, when the Preview is
+	// the Root itself: the theme and the color scheme belong to the window,
+	// which is set up before anything builds, so a Preview that a component
+	// returns applies its Wrap and not its Theme or ColorScheme (set them
+	// on the App; ADR-263).
 	Root Component
 	// ClassicScrollbars draws always-visible classic scrollbars (a
 	// Windows look) that take space next to the content, instead of the

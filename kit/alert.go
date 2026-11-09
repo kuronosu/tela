@@ -6,6 +6,9 @@
 package kit
 
 import (
+	"fmt"
+	"math"
+
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
 )
@@ -60,6 +63,15 @@ func init() {
 	}
 }
 
+// What the default recipe's pe-18 holds and where the action sits: a width up
+// to alertActionFree (72 px less the action's 12 px inset) fits it; a wider
+// action asks for its width, the inset (end-3) and a gap (ADR-263).
+const (
+	alertActionFree  = 60
+	alertActionInset = 12
+	alertActionGap   = 8
+)
+
 // Alert is a callout that tells the user something, shadcn/ui's Alert: a
 // bordered card with an optional icon, a title and a description.
 //
@@ -74,7 +86,10 @@ func init() {
 //
 // Action puts a button (or a few) at the top end corner, shadcn's
 // AlertAction: a way to undo, retry or dismiss. The alert keeps 72 px free
-// at its end for it; a wider action needs a padding in Class ("pe-32").
+// at its end for it, shadcn's pe-18, which holds an action up to 60 px wide;
+// a wider one (two buttons) makes the room as wide as the action as laid out,
+// with the corner's 12 px and 8 px between it and the text. Class can still
+// set the padding ("pe-32").
 //
 //	kit.Alert{Title: h.Text("Update available"), Description: h.Text("Restart to install it."),
 //	    Action: kit.Button{Size: kit.Xs, Variant: kit.Outline, Children: h.Text("Restart")}}
@@ -110,6 +125,9 @@ type Alert struct {
 // Build returns the alert element.
 func (a Alert) Build() tela.Node {
 	s := &UseStyle().Alert
+	// The same hooks with and without an Action.
+	actionRef := tela.UseElementRef()
+	actionSize := tela.UseSize(actionRef)
 	role := a.Role
 	if role == "" {
 		role = "alert"
@@ -127,8 +145,12 @@ func (a Alert) Build() tela.Node {
 	}
 	var action tela.Child
 	if a.Action != nil {
-		action = h.Div(cls(s.Action), a.Action)
+		action = h.Div(h.Ref(actionRef), cls(s.Action), a.Action)
 	}
-	return h.Div(cls(s.Root, pick("Alert", "Variant", s.Variants, a.Variant), when(hasIcon, s.WithIcon), when(a.Action != nil, s.WithAction), a.Class),
+	room := ""
+	if w := actionSize.Get().Width; a.Action != nil && w > alertActionFree {
+		room = fmt.Sprintf("pe-[%gpx]", math.Ceil(float64(w))+alertActionInset+alertActionGap)
+	}
+	return h.Div(cls(s.Root, pick("Alert", "Variant", s.Variants, a.Variant), when(hasIcon, s.WithIcon), when(a.Action != nil, s.WithAction), room, a.Class),
 		h.Role(role), a.Props, icon(a.Icon, s.Icon), title, desc, action)
 }

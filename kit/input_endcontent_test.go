@@ -111,15 +111,6 @@ func TestInputEndContentMirrorsInRTL(t *testing.T) {
 	}
 }
 
-func TestInputEndContentWithIconEndPanics(t *testing.T) {
-	defer func() {
-		if recover() == nil {
-			t.Error("EndContent with IconEnd did not panic in dev mode")
-		}
-	}()
-	kit.Input{IconEnd: iconX, EndContent: kit.Badge{}}.Build()
-}
-
 // A key on the component works the same with a wrapper: the field keeps its
 // text when its list is reordered.
 type keyedInputs struct{}

@@ -17,6 +17,7 @@ const (
 	AnimIterations
 	AnimDirection
 	AnimFillMode
+	AnimPlayState
 )
 
 // AnimationProps are the animation longhands that classes set and that
@@ -25,7 +26,8 @@ const (
 // direction-*, fill-mode-* (tw-animate-css) and the arbitrary properties
 // [animation-duration:...], [animation-timing-function:...],
 // [animation-iteration-count:...], [animation-direction:...] and
-// [animation-fill-mode:...]. The delay has its own fields
+// [animation-fill-mode:...] and the play state, paused and running
+// (tw-animate-css) and [animation-play-state:...] (ADR-263). The delay has its own fields
 // (AnimationDelay, ADR-248).
 type AnimationProps struct {
 	Set      AnimationLonghand
@@ -37,11 +39,15 @@ type AnimationProps struct {
 	// is none, forwards, backwards or both.
 	Direction string
 	Fill      string
+	// Paused is animation-play-state: paused (running is false).
+	Paused bool
 }
 
 var (
 	animDirections = []string{"normal", "reverse", "alternate", "alternate-reverse"}
 	animFills      = []string{"none", "forwards", "backwards", "both"}
+	// animPlayStates starts with running, the initial value.
+	animPlayStates = []string{"running", "paused"}
 )
 
 func inList(list []string, s string) bool {
@@ -119,6 +125,15 @@ func parseAnimationDirection(v string) (Op, error) {
 	return op(func(e *env) { e.s.AnimProps.setDirection(d) }), nil
 }
 
+// parseAnimationPlayState parses the value of [animation-play-state:...].
+func parseAnimationPlayState(v string) (Op, error) {
+	k, err := parseKeyword("play state", animPlayStates, v)
+	if err != nil {
+		return Op{}, err
+	}
+	return op(func(e *env) { e.s.AnimProps.setPaused(k == "paused") }), nil
+}
+
 // parseAnimationFillMode parses the value of [animation-fill-mode:...].
 func parseAnimationFillMode(v string) (Op, error) {
 	f, err := parseKeyword("fill mode", animFills, v)
@@ -133,6 +148,7 @@ func (p *AnimationProps) setTiming(c CubicBezier)     { p.Timing, p.Set = c, p.S
 func (p *AnimationProps) setIterations(n float64)     { p.Iterations, p.Set = n, p.Set|AnimIterations }
 func (p *AnimationProps) setDirection(d string)       { p.Direction, p.Set = d, p.Set|AnimDirection }
 func (p *AnimationProps) setFill(f string)            { p.Fill, p.Set = f, p.Set|AnimFillMode }
+func (p *AnimationProps) setPaused(v bool)            { p.Paused, p.Set = v, p.Set|AnimPlayState }
 
 // registerAnimationUtilities adds repeat-*, direction-* and fill-mode-*, the
 // animation-duration-* alias, and the animation side of duration-* and
@@ -158,6 +174,10 @@ func registerAnimationUtilities(r *registry) {
 	}
 	keyword("direction", "direction", animDirections, (*AnimationProps).setDirection)
 	keyword("fill-mode", "fill mode", animFills, (*AnimationProps).setFill)
+	// paused and running are tw-animate-css's (and tailwindcss-animate's)
+	// play state utilities; Tailwind v4 itself has none.
+	r.static("paused", op(func(e *env) { e.s.AnimProps.setPaused(true) }))
+	r.static("running", op(func(e *env) { e.s.AnimProps.setPaused(false) }))
 	r.add("repeat", false, func(c *pctx, a *arg) (Op, error) {
 		if a.hasMod {
 			return Op{}, errNoMatch

@@ -6,6 +6,9 @@
 package kit
 
 import (
+	"fmt"
+	"math"
+
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
 )
@@ -32,8 +35,11 @@ type InputStyle struct {
 	// level with the text, taking pointer events (shadcn's
 	// InputGroupAddon with an InputGroupButton, which sits 0.45rem into
 	// the field's padding). ActionDisabled is added to it after, for a
-	// disabled field.
-	Action, ActionDisabled string
+	// disabled field, and ActionAfterIcon when the field also has an
+	// IconEnd: it moves the box past the icon (its inset, width and a gap).
+	// The end padding of the input is PadEnd, or more when the content
+	// is wider than the room PadEnd leaves (see Input).
+	Action, ActionDisabled, ActionAfterIcon string
 }
 
 func init() {
@@ -43,18 +49,32 @@ func init() {
 			"disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30 " +
 			"focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 " +
 			"aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
-		Wrapper:        "relative flex w-full min-w-0",
-		Icon:           "pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 text-muted-foreground",
-		IconStart:      "start-3",
-		IconEnd:        "end-3",
-		IconDisabled:   "peer-disabled:opacity-50",
-		IconInvalid:    "peer-aria-invalid:text-destructive",
-		PadStart:       "ps-9",
-		PadEnd:         "pe-9",
-		Action:         "absolute end-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1 text-muted-foreground",
-		ActionDisabled: "peer-disabled:opacity-50",
+		Wrapper:         "relative flex w-full min-w-0",
+		Icon:            "pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 text-muted-foreground",
+		IconStart:       "start-3",
+		IconEnd:         "end-3",
+		IconDisabled:    "peer-disabled:opacity-50",
+		IconInvalid:     "peer-aria-invalid:text-destructive",
+		PadStart:        "ps-9",
+		PadEnd:          "pe-9",
+		Action:          "absolute end-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1 text-muted-foreground",
+		ActionDisabled:  "peer-disabled:opacity-50",
+		ActionAfterIcon: "end-9",
 	}
 }
+
+// The end padding that fits an EndContent (ADR-263): the default recipe's
+// PadEnd is 36 px, the room of a 24 px button 6 px from the edge with 6 px
+// after it; a wider content, or one after an IconEnd (whose slot ends 36 px
+// from the edge), asks for more. The padding is the measured width of the
+// content plus its distance from the edge (the recipe's end-1.5 or end-9)
+// and a gap.
+const (
+	inputPadEnd      = 36 // pe-9, the recipe's floor
+	inputActionInset = 6  // end-1.5
+	inputActionAfter = 36 // end-9
+	inputActionGap   = 6
+)
 
 // Input is a single-line text field, shadcn/ui's Input. Its value follows
 // the controlled and uncontrolled rule of the whole kit: give Value (a
@@ -83,11 +103,18 @@ func init() {
 //	        AriaLabel: "Show password", OnClick: func() { setShown.Set(!shown) }}}
 //
 // (shadcn's InputGroup with an InputGroupButton). The box is as tall as its
-// content and 6 px from the edge; the field keeps 36 px of padding for it,
-// the room of an icon-sized button (kit.IconXs, 24 px): for a wider piece of
-// content add a padding to InputClass ("pe-16"). A Disabled field dims it;
-// disable a button in it yourself. EndContent and IconEnd take the same
-// place: giving both panics in dev mode.
+// content and 6 px from the edge. The field keeps at least 36 px of padding
+// for it, the room of an icon-sized button (kit.IconXs, 24 px), and more for
+// a wider piece of content: the padding follows the width the content has
+// when it is laid out (a unit label, two buttons), a frame after it appears.
+// InputClass can still set the padding ("pe-16"). A Disabled field dims it;
+// disable a button in it yourself. With an IconEnd too the content sits
+// before the icon (the icon keeps its place), and the padding counts both.
+//
+// An IconXs button draws a 12 px icon, as shadcn's Button does; the 16 px of
+// shadcn's InputGroupButton is IconClass:
+//
+//	kit.Button{Variant: kit.Ghost, Size: kit.IconXs, Icon: lucide.Eye, IconClass: "size-4"}
 //
 // A key for the field in a list goes on the component, tela.WithKey(kit.Input{...}, id),
 // which is the same with and without a wrapper; a Key in Props keys the
@@ -150,14 +177,15 @@ type Input struct {
 // Build returns the input element.
 func (i Input) Build() tela.Node {
 	s := &UseStyle().Input
-	if devMode() && i.EndContent != nil && i.IconEnd != (tela.Icon{}) {
-		panic("kit: Input has both IconEnd and EndContent, which take the same place: keep one (put the icon in the EndContent)")
-	}
+	// The same hooks with and without an EndContent.
+	endRef := tela.UseElementRef()
+	endSize := tela.UseSize(endRef)
 	hasEnd := i.IconEnd != (tela.Icon{}) || i.EndContent != nil
 	hasIcons := i.Icon != (tela.Icon{}) || hasEnd
 	inputClass := joinClass(s.Root, i.Class, i.InputClass)
 	if hasIcons {
-		inputClass = joinClass(s.Root, "peer", when(i.Icon != (tela.Icon{}), s.PadStart), when(hasEnd, s.PadEnd), i.InputClass)
+		inputClass = joinClass(s.Root, "peer", when(i.Icon != (tela.Icon{}), s.PadStart), when(hasEnd, s.PadEnd),
+			endPadding(i, endSize.Get().Width), i.InputClass)
 	}
 	kids := []tela.Child{h.Class(inputClass), i.Props}
 	if i.Type != "" {
@@ -174,9 +202,27 @@ func (i Input) Build() tela.Node {
 	// The icons follow the input so that peer- variants see its state.
 	var action tela.Child
 	if i.EndContent != nil {
-		action = h.Div(cls(s.Action, s.ActionDisabled), i.EndContent)
+		action = h.Div(h.Ref(endRef), cls(s.Action, s.ActionDisabled, when(i.IconEnd != (tela.Icon{}), s.ActionAfterIcon)), i.EndContent)
 	}
 	return h.Div(cls(s.Wrapper, i.Class), h.Input(kids...),
 		icon(i.Icon, s.Icon, s.IconStart, s.IconDisabled, s.IconInvalid),
 		icon(i.IconEnd, s.Icon, s.IconEnd, s.IconDisabled, s.IconInvalid), action)
+}
+
+// endPadding is the padding class that makes room for an EndContent w px
+// wide, when that is more than the recipe's PadEnd gives (w is 0 until the
+// content is laid out, and for a field without one).
+func endPadding(i Input, w float32) string {
+	if i.EndContent == nil || w <= 0 {
+		return ""
+	}
+	inset := float32(inputActionInset)
+	if i.IconEnd != (tela.Icon{}) {
+		inset = inputActionAfter
+	}
+	pad := float32(math.Ceil(float64(inset + w + inputActionGap)))
+	if pad <= inputPadEnd {
+		return ""
+	}
+	return fmt.Sprintf("pe-[%gpx]", pad)
 }

@@ -21,6 +21,10 @@ func TestAppRootPreviewThemeAndScheme(t *testing.T) {
 		{"preview scheme wins", App{Root: Preview{Root: root, ColorScheme: Light}, ColorScheme: Dark}, nil, Light},
 		{"preview dark", App{Root: Preview{Root: root, ColorScheme: Dark}}, nil, Dark},
 		{"preview theme and scheme", App{Root: Preview{Root: root, Theme: &previewTheme, ColorScheme: Dark}, Theme: &appTheme, ColorScheme: Light}, &previewTheme, Dark},
+		// Only the root itself counts (ADR-263): a component that returns a
+		// Preview, or a Preview inside another node, leaves the App's.
+		{"preview below the root", App{Root: C(func() Node { return Preview{Root: root, Theme: &previewTheme, ColorScheme: Dark}.Build() }), Theme: &appTheme, ColorScheme: Light}, &appTheme, Light},
+		{"keyed preview", App{Root: WithKey(Preview{Root: root, ColorScheme: Dark}, 1), ColorScheme: Light}, nil, Light},
 	} {
 		cfg := c.app.options().Config
 		if (*Theme)(cfg.Theme) != c.wantTheme {

@@ -1729,7 +1729,11 @@ type App struct {
     // returns tela.C(notes)). It is a
     // component of its own, so it may use hooks. A [Node] works too, but a
     // root that uses hooks must be a component. A [Preview] works too, and
-    // its Theme and ColorScheme win over this App's.
+    // its Theme and ColorScheme win over this App's, when the Preview is
+    // the Root itself: the theme and the color scheme belong to the window,
+    // which is set up before anything builds, so a Preview that a component
+    // returns applies its Wrap and not its Theme or ColorScheme (set them
+    // on the App; ADR-263).
     Root Component
     // ClassicScrollbars draws always-visible classic scrollbars (a
     // Windows look) that take space next to the content, instead of the
@@ -4574,7 +4578,7 @@ var Previews = tela.Previews{
 }
 ```
 
-A Preview is itself a Component that builds Wrap(Root): the CLI mounts exactly that, and a test mounts a preview the way the CLI does with telatest.Mount(t, Previews\["mocked"\]), which applies its Theme and ColorScheme too, as does an App whose Root is a Preview, for tela.Run and tela.Main (ADR-256).
+A Preview is itself a Component that builds Wrap(Root): the CLI mounts exactly that, and a test mounts a preview the way the CLI does with telatest.Mount(t, Previews\["mocked"\]), which applies its Theme and ColorScheme too, as does an App whose Root is a Preview, for tela.Run and tela.Main (ADR-256). Only a Preview that is the root counts: the theme and the color scheme belong to the window, so one that a component returns, deeper in the tree, applies its Wrap and not its Theme or ColorScheme (ADR-263).
 
 **Example**
 
@@ -5181,7 +5185,7 @@ BackgroundGradient sets a gradient as the background image, over the background 
 func BackgroundGradientFn(fn func() Gradient) StyleProp
 ```
 
-BackgroundGradientFn defers [`BackgroundGradient`](#func-backgroundgradient) to the paint phase: the element's background image is fn's gradient, and a change of the Values fn reads repaints the element without building, computing styles or laying out, recording only the display list that paints it. Like the other Fn props it wins over the background image classes (bg-linear-\*, bg-\[url(...)\]) and the props before it: it is the topmost image layer and replaces the topmost one of the classes. A class with several layers (bg-\[linear-gradient(...),url(a.png)\]) keeps the ones below, so the Fn's gradient can sit over a picture or a pattern; the background color, and the background size, position, repeat and origin classes, still apply. A Gradient without stops paints no image. With a [`UseTween`](#func-usetween) or [`Animate`](#func-animate) of a float32 it turns or recolors a gradient without rebuilding:
+BackgroundGradientFn defers [`BackgroundGradient`](#func-backgroundgradient) to the paint phase: the element's background image is fn's gradient, and a change of the Values fn reads repaints the element without building, computing styles or laying out, recording only the display list that paints it. The Fn's gradient is a layer over the element's other background images (a bg-linear-\* class, a bg-\[url(...)\] picture, a pattern), which stay under it, so it can fade in over a picture or tint a gradient; add bg-none to have it alone. The background color, and the background size, position, repeat and origin classes, still apply to it. A second BackgroundGradientFn is the same layer and wins. A Gradient without stops paints no image. With a [`UseTween`](#func-usetween) or [`Animate`](#func-animate) of a float32 it turns or recolors a gradient without rebuilding:
 
 ```go
 angle := tela.UseTween(target, tela.Duration(600*time.Millisecond)) // a float32, in degrees

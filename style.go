@@ -212,15 +212,15 @@ func BgFn(fn func() Color) StyleProp { return prop(style.BgFn(fn)) }
 // BackgroundGradientFn defers [BackgroundGradient] to the paint phase: the
 // element's background image is fn's gradient, and a change of the Values
 // fn reads repaints the element without building, computing styles or
-// laying out, recording only the display list that paints it. Like the
-// other Fn props it wins over the background image classes (bg-linear-*,
-// bg-[url(...)]) and the props before it: it is the topmost image layer
-// and replaces the topmost one of the classes. A class with several layers
-// (bg-[linear-gradient(...),url(a.png)]) keeps the ones below, so the
-// Fn's gradient can sit over a picture or a pattern; the background color,
-// and the background size, position, repeat and origin classes, still
-// apply. A Gradient without stops paints no image. With a [UseTween] or [Animate]
-// of a float32 it turns or recolors a gradient without rebuilding:
+// laying out, recording only the display list that paints it. The Fn's
+// gradient is a layer over the element's other background images (a
+// bg-linear-* class, a bg-[url(...)] picture, a pattern), which stay under
+// it, so it can fade in over a picture or tint a gradient; add bg-none to
+// have it alone. The background color, and the background size, position,
+// repeat and origin classes, still apply to it. A second BackgroundGradientFn
+// is the same layer and wins. A Gradient without stops paints no image.
+// With a [UseTween] or [Animate] of a float32 it turns or recolors a
+// gradient without rebuilding:
 //
 //	angle := tela.UseTween(target, tela.Duration(600*time.Millisecond)) // a float32, in degrees
 //	Div(Class("h-32 rounded-xl"), Style(tela.BackgroundGradientFn(func() tela.Gradient {

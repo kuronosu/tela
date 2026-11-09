@@ -64,7 +64,7 @@ func TestAnimationDelayErrors(t *testing.T) {
 		{"[animation-delay:150]", "use a time"},
 		{"[animation-delay:150ms,1s]", "use a time"},
 		{"animation-delay-[soon]", "not a time"},
-		{"[animation-play-state:paused]", "[animation-delay:...]"},
+		{"[animation-name:spin]", "[animation-delay:...]"},
 	} {
 		err := Compile(c.class).Err
 		if err == nil || !strings.Contains(err.Error(), c.want) {

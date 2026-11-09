@@ -39,9 +39,9 @@ func linearFills(dl *gfx.DisplayList) (gs []gfx.LinearGradient, rs []gfx.Rect) {
 	return gs, rs
 }
 
-// TestBackgroundGradientFnPaintsOnly: the Fn's gradient replaces the
-// class's, over the background color, and a change of the Value it reads
-// repaints without building, computing styles or laying out.
+// TestBackgroundGradientFnPaintsOnly: the Fn's gradient is a layer over
+// the class's, over the background color, and a change of the Value it
+// reads repaints without building, computing styles or laying out.
 func TestBackgroundGradientFnPaintsOnly(t *testing.T) {
 	var angle *Value[float32]
 	builds := 0
@@ -56,13 +56,13 @@ func TestBackgroundGradientFnPaintsOnly(t *testing.T) {
 	tr := newTestTree(t, 300, 200, Component(comp), nil)
 	dl, _ := tr.Frame()
 	gs, _ := linearFills(dl)
-	if len(gs) != 1 || gs[0].Stops[0].Color != gfx.RGB8(255, 0, 0) {
-		t.Fatalf("gradients %v, want the Fn's red to blue only", gs)
+	if len(gs) != 2 || gs[0].Stops[0].Color == gfx.RGB8(255, 0, 0) || gs[1].Stops[0].Color != gfx.RGB8(255, 0, 0) {
+		t.Fatalf("gradients %v, want the class's green and over it the Fn's red to blue", gs)
 	}
 	if !hasFillPaint(dl, gfx.White) {
 		t.Error("the background color is not painted under the gradient")
 	}
-	right := gs[0]
+	right := gs[1]
 	s0 := tr.Stats()
 	angle.Set(180)
 	if !tr.ApplyUpdates() {
@@ -73,12 +73,15 @@ func TestBackgroundGradientFnPaintsOnly(t *testing.T) {
 		t.Errorf("work %+v, want a paint only", d)
 	}
 	gs, _ = linearFills(dl)
-	if builds != 1 || len(gs) != 1 {
+	if builds != 1 || len(gs) != 2 {
 		t.Fatalf("builds %d, gradients %v", builds, gs)
 	}
 	// 90 degrees runs left to right, 180 top to bottom.
-	if right.Start.Y != right.End.Y || gs[0].Start.X != gs[0].End.X || gs[0].Start.Y >= gs[0].End.Y {
-		t.Errorf("90 degrees %v..%v, 180 degrees %v..%v", right.Start, right.End, gs[0].Start, gs[0].End)
+	if right.Start.Y != right.End.Y || gs[1].Start.X != gs[1].End.X || gs[1].Start.Y >= gs[1].End.Y {
+		t.Errorf("90 degrees %v..%v, 180 degrees %v..%v", right.Start, right.End, gs[1].Start, gs[1].End)
+	}
+	if gs[0].Start.Y != gs[0].End.Y {
+		t.Errorf("the class's layer changed: %v..%v", gs[0].Start, gs[0].End)
 	}
 	// The same angle again changes nothing.
 	angle.Set(180)

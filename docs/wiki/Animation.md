@@ -56,7 +56,10 @@ too), `animation-duration-300`, `repeat-3` or `repeat-infinite`,
 (or `backwards`, `both`), and the arbitrary properties `[animation-duration:2s]`,
 `[animation-timing-function:ease-in-out]`, `[animation-iteration-count:3]`,
 `[animation-direction:reverse]` and `[animation-fill-mode:both]`. A change of
-any of them does not restart a running animation.
+any of them does not restart a running animation: it keeps the time it has run,
+so a new duration changes the progress (as in Chromium). `paused` and `running`
+(or `[animation-play-state:paused]`) hold an animation where it is and let it
+continue from there, and a paused one asks for no frames.
 
 ## Entering: `starting:`
 
@@ -195,9 +198,10 @@ Div(Class("h-32 rounded-xl"), Style(tela.BackgroundGradientFn(func() tela.Gradie
 })))
 ```
 
-[`tela.BackgroundGradientFn`](https://pkg.go.dev/github.com/kuronosu/tela#BackgroundGradientFn) replaces the background image classes; the
-background color and the size, position and repeat classes still apply, and a
-change records only the display list that paints the element.
+[`tela.BackgroundGradientFn`](https://pkg.go.dev/github.com/kuronosu/tela#BackgroundGradientFn) is a layer over the background image classes
+(add `bg-none` to have it alone); the background color and the size, position
+and repeat classes still apply, and a change records only the display list
+that paints the element.
 
 [`tela.TextColorFn`](https://pkg.go.dev/github.com/kuronosu/tela#TextColorFn) also recolors the text of the descendants that inherit
 the element's color (those that set no text color of their own); colors the

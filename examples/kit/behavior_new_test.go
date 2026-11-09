@@ -13,8 +13,11 @@ import (
 // mounted with NoSettle, so the test moves the frame clock itself.
 
 // loading counts the buttons that are Loading: the recipe puts
-// pointer-events-none on them (a Disabled one has the variant only).
-func loading(a *telatest.App) int { return a.Count(telatest.ByClass("pointer-events-none")) }
+// pointer-events-none on them (a Disabled one has the variant only); the
+// icons inside every button have it too, and ByClass finds them (ADR-263).
+func loading(a *telatest.App) int {
+	return a.Count(telatest.ByRole("button", "").Filter(telatest.HasClass("pointer-events-none")))
+}
 
 func TestLoadingButtonsSaveForTwoSeconds(t *testing.T) {
 	a := mount(t, Canvas{Page: "Button"}, telatest.NoSettle())

@@ -229,24 +229,30 @@ func BgFn(fn func() gfx.Color) Op {
 }
 
 // BackgroundGradientFn defers the background image to the paint phase:
-// fn's gradient is the topmost image layer of the element (ADR-250). When
-// the style is computed the op leaves a layer without an image in place of
-// the topmost image layer of the classes and earlier props (the only one,
-// for most boxes), so that the background size, position, repeat and
-// origin classes still apply to it; the layers below it, from a class with
-// several (bg-[linear-gradient(...),url(a.png)]), are kept as they are
-// (ADR-256). The paint phase puts the gradient in. A gradient without
-// stops paints no image. The stops are copied: fn may reuse its slice.
+// fn's gradient is a layer over the element's other background images
+// (ADR-263; ADR-250 and ADR-256 made it replace the topmost one of the
+// classes). When the style is computed the op puts a layer without an
+// image above the layers of the classes and earlier props, which stay as
+// they are (a gradient class, a picture, a pattern), so that the
+// background size, position, repeat and origin classes still apply to it;
+// bg-none leaves the layer alone, and a second BackgroundGradientFn is the
+// same layer (its gradient wins). The paint phase puts the gradient in. A
+// gradient without stops paints no image. The stops are copied: fn may
+// reuse its slice.
 func BackgroundGradientFn(fn func() Gradient) Op {
 	return Op{
 		apply: func(e *env) {
-			if cur := e.sc.bgImage; cur.kind == 5 && len(cur.list) > 0 {
-				list := slices.Clone(cur.list)
-				list[0] = bgImage{kind: bgDeferred}
-				e.sc.bgImage = bgImage{kind: 5, list: list}
-				return
+			cur := e.sc.bgImage
+			switch {
+			case cur.kind == bgDeferred, cur.kind == 5 && len(cur.list) > 0 && cur.list[0].kind == bgDeferred:
+				// One layer already: the gradient of the later Fn wins.
+			case cur.kind == 5 && len(cur.list) > 0:
+				e.sc.bgImage = bgImage{kind: 5, list: append([]bgImage{{kind: bgDeferred}}, cur.list...)}
+			case cur.kind == 1, cur.kind == 2, cur.kind == 4:
+				e.sc.bgImage = bgImage{kind: 5, list: []bgImage{{kind: bgDeferred}, cur}}
+			default:
+				e.sc.bgImage = bgImage{kind: bgDeferred}
 			}
-			e.sc.bgImage = bgImage{kind: bgDeferred}
 		},
 		phase: PhasePaint,
 		def: func(s *ComputedStyle) {

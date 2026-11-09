@@ -369,9 +369,22 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 	semFieldStates(el, n, cinh.disabled)
 	n.Value = t.semValue(el, role)
 	semFieldText(el, n, role)
-	if !n.Has(semantics.StateHidden) {
+	if n.Has(semantics.StateHidden) && decorativeIcon(el, inh) {
+		n.Decorative = true
+	}
+	if !n.Has(semantics.StateHidden) || n.Decorative {
 		t.semBounds(el, n, cinh.none, cinh.transformed)
 	}
+}
+
+// decorativeIcon reports whether primitive el, hidden for accessibility,
+// is an icon that only its own aria-hidden hides (the default of h.Icon
+// without a name): it is displayed, visible and not inert.
+func decorativeIcon(el *Element, inh semInherit) bool {
+	a := el.node.d.aria
+	return el.box.kind == style.KindSVG && a != nil && a.hidden && !inh.hidden && !inh.none &&
+		el.box.cs.Display != style.DisplayNone && el.box.cs.Visibility == style.VisibilityVisible &&
+		!el.inert && el.outside != outsideYes
 }
 
 // childInherit returns what the children of primitive el inherit from it
