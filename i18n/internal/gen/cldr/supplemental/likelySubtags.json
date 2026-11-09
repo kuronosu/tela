@@ -1,0 +1,36 @@
+{
+ "supplemental": {
+  "likelySubtags": {
+   "az": "az-Latn-AZ",
+   "bs": "bs-Latn-BA",
+   "en": "en-Latn-US",
+   "ff": "ff-Latn-SN",
+   "in": "in-Latn-ID",
+   "iw": "iw-Hebr-IL",
+   "ks": "ks-Arab-IN",
+   "ku": "ku-Latn-TR",
+   "kxv": "kxv-Latn-IN",
+   "mni": "mni-Beng-IN",
+   "no": "no-Latn-NO",
+   "pa": "pa-Guru-IN",
+   "pa-PK": "pa-Arab-PK",
+   "sat": "sat-Olck-IN",
+   "sd": "sd-Arab-PK",
+   "sd-IN": "sd-Deva-IN",
+   "shi": "shi-Tfng-MA",
+   "sr": "sr-Cyrl-RS",
+   "sr-ME": "sr-Latn-ME",
+   "su": "su-Latn-ID",
+   "tl": "tl-Latn-PH",
+   "uz": "uz-Latn-UZ",
+   "uz-AF": "uz-Arab-AF",
+   "vai": "vai-Vaii-LR",
+   "yue": "yue-Hant-HK",
+   "yue-CN": "yue-Hans-CN",
+   "zh": "zh-Hans-CN",
+   "zh-HK": "zh-Hant-HK",
+   "zh-MO": "zh-Hant-MO",
+   "zh-TW": "zh-Hant-TW"
+  }
+ }
+}

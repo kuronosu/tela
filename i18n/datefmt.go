@@ -101,9 +101,17 @@ func (d *locData) dateData() dateLocale {
 		if !ok {
 			i = dateIndex[language.English]
 		}
+		d.dateIdx = i
 		d.dates = &dateLocale{rec: &dateData[i]}
 	})
 	return *d.dates
+}
+
+// generatedLocale returns the name of the generated locale (dateTags)
+// the locale's dates, compact patterns and currency names come from.
+func (d *locData) generatedLocale() string {
+	d.dateData()
+	return dateTags[d.dateIdx]
 }
 
 // resolveTag finds the entry of a locale set (index by tag; tags in the

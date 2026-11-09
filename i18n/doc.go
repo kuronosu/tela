@@ -46,25 +46,44 @@
 //
 // # ICU MessageFormat
 //
-// Supported: arguments ({name}), {n, number[, integer|percent]},
+// Supported: arguments ({name}), {n, number[, integer|percent|currency]}
+// (currency is the locale's: its -u-cu-, else its region's), number
+// skeletons after :: ({n, number, ::currency/EUR}, ::compact-short,
+// ::scientific, ::sign-always, ::.00, ::@@#, ::group-off...; the list is in
+// skeleton.go, and other stems fail when the catalog loads),
 // {d, date|time[, short|medium|long|full]}, plural and selectordinal
 // (=N, zero, one, two, few, many, other, offset:N and # for the number),
 // select, nesting, and ICU's apostrophe quoting (two apostrophes are one; a
 // single apostrophe quotes only before a brace, or # in a plural). Plural
 // rules are CLDR 32's, from golang.org/x/text. Not supported: number
-// skeletons and patterns, currencies, units, spellout, and choice.
+// patterns, units, spellout, and choice.
 //
 // # Formatting
 //
 // [FormatNumber], [FormatDate], [FormatTime], [FormatDateTime] and
 // [FormatList] format for the current locale; [Formatter] (from [For] or
-// [UseFormatter]) does the same for a given one. Numbers come from
-// golang.org/x/text/number, which rounds, with the symbols, grouping and
-// percent patterns of CLDR 48 (as ICU writes them: the minus sign and bidi
-// marks of Persian, Urdu and Arabic, Nepali grouping, Spanish and Polish
-// not grouping four digits); dates and lists from CLDR 48 tables generated
-// into this package (go generate), for the locales listed in
-// internal/gen: other locales use the closest one. Dates are Gregorian and
+// [UseFormatter]) does the same for a given one. Numbers are written as
+// ICU's NumberFormatter writes them with Intl.NumberFormat's options and
+// defaults, from CLDR 48 tables generated into this package (go
+// generate): the symbols, grouping and patterns of every CLDR locale (the
+// minus sign and bidi marks of Persian, Urdu and Arabic, Nepali grouping,
+// Spanish and Polish not grouping four digits), rounded half to even.
+// Options ([NumberOption]) add percentages ([Percent]), amounts of money
+// ([Currency], with [CurrencyDisplay] and [CurrencySign]), signs
+// ([SignDisplay]) and scientific, engineering and compact notation
+// ([Notation], [CompactDisplay]):
+//
+//	f.Number(-1234.5, i18n.Currency("EUR"))               // "-€1,234.50", "-1.234,50 €" (de)
+//	f.Number(1234567, i18n.Notation(i18n.NotationCompact)) // "1.2M", "12 लाख" (hi), "123万" (ja)
+//	f.Number(5, i18n.SignDisplay(i18n.SignAlways))         // "+5"
+//	f.Number(2, i18n.Currency("PLN"), i18n.CurrencyDisplay(i18n.CurrencyName))
+//	// "2,00 złotego polskiego" (pl)
+//
+// Currency symbols and patterns cover every CLDR locale; currency names
+// and compact patterns, like dates and lists, the locales listed in
+// internal/gen (other locales use the closest one). Only the currencies
+// some region uses today have symbols and names; others are written with
+// their code. Dates are Gregorian and
 // in the time.Time's own zone. For calendars, [Formatter.MonthName] and
 // [Formatter.WeekdayName] give the names on their own in four widths
 // ([NameWidth]), and [FirstDayOfWeek] the day a week starts on, from
@@ -73,8 +92,12 @@
 // Digits follow the locale's default numbering system in CLDR 48, as ICU's
 // do: ar-EG, ar-SA, ckb and sd write Arabic-Indic digits, fa, ps and ur-IN
 // extended ones, bn, mr, ne and my their own, ar-AE and ar-MA Latin ones; a
-// tag's own -u-nu- (ar-EG-u-nu-latn) wins. Bare "ar" writes Latin digits, as in
-// CLDR 48 (ADR-258); say "ar-EG" or "ar-SA" for Arabic-Indic ones.
+// tag's own -u-nu- (ar-EG-u-nu-latn, en-u-nu-thai: any numeric system of
+// CLDR) wins, with the symbols of that system in the locale, else the
+// root's (arab, arabext), else the locale's Latin ones, as ICU does; an
+// unknown or algorithmic system (-u-nu-roman) is ignored. Bare "ar" writes
+// Latin digits, as in CLDR 48 (ADR-258); say "ar-EG" or "ar-SA" for
+// Arabic-Indic ones.
 //
 // [Dir] tells the direction of a locale ([LTR] or [RTL]); h.Dir with its
 // String lays a subtree out right to left.
