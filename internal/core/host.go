@@ -673,7 +673,7 @@ func (h *Host) frame(v *winView, now time.Duration) {
 			}
 		}()
 	}
-	t.SetScale(float32(m.Scale)) // box edges snap to device pixels
+	t.SetScale(float32(m.Scale))          // box edges snap to device pixels
 	defer func() { v.committed = true }() // after the effects below
 	_, changed := t.Frame()
 	defer t.FlushEffects()
