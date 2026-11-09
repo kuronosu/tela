@@ -233,6 +233,9 @@ func TestUseLaunch(t *testing.T) {
 	if l.Source != desktop.LaunchForwarded {
 		t.Errorf("a forwarded launch has Source %v", l.Source)
 	}
+	if !l.Forwarded {
+		t.Error("a forwarded launch has the deprecated Forwarded false")
+	}
 	if want := []string{"notes:open?id=3", "https://example.com/x"}; !slices.Equal(l.URLs(), want) {
 		t.Errorf("URLs = %q, want %q", l.URLs(), want)
 	}

@@ -30,6 +30,12 @@ type Launch struct {
 	// Source says where the launch comes from: this process's own start,
 	// another process of the app, or the OS.
 	Source LaunchSource
+	// Forwarded is true for every launch but the start's (Source is not
+	// LaunchStart).
+	//
+	// Deprecated: use Source, which tells a forwarded launch from one the
+	// OS opened (ADR-253). Forwarded is removed in a later minor version.
+	Forwarded bool
 }
 
 // LaunchSource says where a [Launch] comes from.
@@ -147,7 +153,7 @@ func hasScheme(a, scheme string) bool {
 }
 
 func launchOf(l platform.Launch, src LaunchSource) Launch {
-	return Launch{Args: slices.Clone(l.Args), Dir: l.Dir, Source: src}
+	return Launch{Args: slices.Clone(l.Args), Dir: l.Dir, Source: src, Forwarded: src != LaunchStart}
 }
 
 // launchSource returns the Source of a platform LaunchEvent.
