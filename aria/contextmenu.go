@@ -34,8 +34,9 @@ type ContextMenuTriggerOptions struct {
 	NoLongPress bool
 	// Intercept, if not nil, is asked before the menu opens (a right
 	// click, a long press, the keys, OpenAt), with the point it would open
-	// at in window coordinates: the pointer, or the area's top-left corner
-	// for the keys. When it returns true it has taken the opening over, by
+	// at in window coordinates: the pointer, or for the keys the
+	// bottom-left corner of the focused element (the area's top-left
+	// corner when the area has no focus). When it returns true it has taken the opening over, by
 	// showing the OS's own context menu there: the hook then neither opens
 	// the menu nor calls OnOpenChange. When it returns false, the menu
 	// opens as usual, in the same event. A menu that is open already is
@@ -65,6 +66,14 @@ type ContextMenuTriggerResult struct {
 	// (opened with a mouse); a move of the open menu keeps it. Pass it to
 	// [MenuOptions].FocusStrategy.
 	FocusStrategy string
+	// Opening numbers the openings of the menu: it changes each time the
+	// menu opens (a right click elsewhere while it is open closes it and
+	// opens it again, as a new opening) and not when an open menu is moved
+	// (a long press or OpenAt while it is open). Key the menu's component
+	// with it, tela.WithKey(menu, cm.Opening), so that each opening mounts
+	// a new menu that takes the focus while the previous one exits in a
+	// Presence at its own point.
+	Opening int
 	// Anchor returns the virtual rectangle the menu is placed at, in window
 	// coordinates: a point where the pointer was or the area's top-left
 	// corner. It is [AnchorRect]'s argument, for a menu placed with
@@ -116,6 +125,11 @@ func (r ContextMenuTriggerResult) PopoverOptions() PopoverOptions {
 //   - Shift+F10 and the ContextMenu key, with the first item focused, at
 //     the top-left corner of the area.
 //
+// A key opens the menu at the element that has the focus, the area itself
+// or an element inside it: below it (its bounds are the anchor, cut to the
+// area's), as a browser opens the menu of the keyboard at the focused
+// element; the area's corner when nothing in it has the focus.
+//
 // The event's default is prevented and its propagation stopped, so the
 // innermost area with a context menu wins. The menu is rendered by the
 // caller, in a Portal, and [UsePopover] places it at the point with
@@ -133,14 +147,14 @@ func (r ContextMenuTriggerResult) PopoverOptions() PopoverOptions {
 // that one, and a right click outside every area just closes it. A menu
 // rendered in a Presence (to fade out) comes back as the same element
 // when it opens again while it exits, at the new point and without taking
-// the focus: give it a new key each time it opens (count the opens in
-// OnOpenChange), as kit's ContextMenu does, and the exiting one fades out
-// at its own point while a new one opens and takes the focus.
+// the focus: key it with the result's Opening, as kit's ContextMenu does,
+// and the exiting one fades out at its own point while a new one opens and
+// takes the focus.
 //
 //	cm := aria.UseContextMenuTrigger(aria.ContextMenuTriggerOptions{})
 //	return Fragment(
 //	    Div(cm.TriggerProps, Class("h-48 w-full rounded-md border"), Text("Right click here")),
-//	    Portal(If(cm.Open, fileMenu{cm})))
+//	    Portal(Presence(If(cm.Open, tela.WithKey(fileMenu{cm}, cm.Opening)))))
 //
 //	type fileMenu struct{ cm aria.ContextMenuTriggerResult }
 //
@@ -154,9 +168,11 @@ func (r ContextMenuTriggerResult) PopoverOptions() PopoverOptions {
 //	}
 //
 // The menu is the one of a dropdown menu: [UseMenu] takes the same results.
-// The area is not focusable by itself; the keys reach it from the element
-// inside it that has the focus, and a keyboard menu opens at the area's
-// corner, not at that element.
+// The area is not focusable by itself (Radix's model); the keys reach it
+// from the element inside it that has the focus. An area that should be
+// reached with Tab is made focusable by the caller: h.TabIndex(0) with a
+// role and a name (h.Role("region"), h.AriaLabel("Canvas")) and a
+// focus-visible: ring.
 func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult {
 	open, st := useBoolState(o.Open, false, o.OnOpenChange)
 	strategy, setStrategy := tela.UseState("")
@@ -172,11 +188,11 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 	if menuRef == (tela.ElementRef{}) {
 		menuRef = ownMenu
 	}
-	openAt := func(x, y float32, s string) {
+	openAt := func(at tela.Rect, s string) {
 		if o.Disabled {
 			return
 		}
-		if !st.cur && o.Intercept != nil && o.Intercept(x, y) {
+		if !st.cur && o.Intercept != nil && o.Intercept(at.X, at.Y+at.Height) {
 			return
 		}
 		p := pos.Latest()
@@ -188,10 +204,11 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 			p.gen++
 			setStrategy.Set(s)
 		}
-		p.at = tela.Rect{X: x, Y: y}
+		p.at = at
 		pos.Set(p)
 		st.request(true)
 	}
+	point := func(x, y float32) tela.Rect { return tela.Rect{X: x, Y: y} }
 	ps := []tela.Prop{
 		h.Ref(ref),
 		h.OnContextMenu(func(e tela.MouseEvent) {
@@ -200,7 +217,7 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 			}
 			e.PreventDefault()
 			e.StopPropagation()
-			openAt(e.X, e.Y, "")
+			openAt(point(e.X, e.Y), "")
 		}),
 		h.OnKeyDown(func(e tela.KeyboardEvent) {
 			if o.Disabled || e.Ctrl || e.Meta || e.Alt {
@@ -214,8 +231,7 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 			if e.Repeat {
 				return
 			}
-			b := ref.Bounds()
-			openAt(b.X, b.Y, FocusFirst)
+			openAt(keyAnchor(ref), FocusFirst)
 		}),
 	}
 	if !o.NoLongPress && !o.Disabled {
@@ -224,7 +240,7 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 		// (h.OnLongPress would recognize the mouse too).
 		ps = append(ps, core.OnTouchLongPress(func(e tela.PointerEvent) {
 			e.StopPropagation()
-			openAt(e.X, e.Y, FocusFirst)
+			openAt(point(e.X, e.Y), FocusFirst)
 			// With the menu open, the pointerdown of this press was outside
 			// it, so its release would close the menu just moved here: the
 			// press is not an interact-outside one for the menu (Radix
@@ -246,13 +262,35 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 			})),
 		Open:          open,
 		FocusStrategy: strategy,
+		Opening:       int(pos.Latest().gen),
 		Anchor:        anchor,
-		OpenAt:        func(x, y float32) { openAt(x, y, "") },
+		OpenAt:        func(x, y float32) { openAt(point(x, y), "") },
 		SetOpen:       func(v bool) { st.request(v) },
 		Close:         func() { st.request(false) },
 		Ref:           ref,
 		MenuRef:       menuRef,
 	}
+}
+
+// keyAnchor is where a menu opened from the keyboard is placed: the
+// bounds of the element that has the focus, the area or one inside it,
+// cut to the area's (a browser opens the keyboard's context menu at the
+// focused element); the area's top-left corner when the focus is
+// elsewhere or the element is out of the area's view.
+func keyAnchor(area tela.ElementRef) tela.Rect {
+	a := area.Bounds()
+	corner := tela.Rect{X: a.X, Y: a.Y}
+	f, ok := core.ActiveElement(area)
+	if !ok || !core.ContainsFocus(area) {
+		return corner
+	}
+	b := f.Bounds()
+	x0, y0 := max(b.X, a.X), max(b.Y, a.Y)
+	x1, y1 := min(b.X+b.Width, a.X+a.Width), min(b.Y+b.Height, a.Y+a.Height)
+	if x1 < x0 || y1 < y0 {
+		return corner
+	}
+	return tela.Rect{X: x0, Y: y0, Width: x1 - x0, Height: y1 - y0}
 }
 
 // ctxPoint is the point a context menu is placed at, and the number of

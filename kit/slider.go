@@ -142,6 +142,25 @@ type Slider struct {
 	ThumbClass string
 	// Props are more props for the root element.
 	Props tela.Child
+
+	// outer holds the props of an overlay that has the slider as its
+	// Trigger.
+	outer outerTrigger
+}
+
+// WithTriggerProps makes Slider a [Trigger], so that it can have a tooltip
+// (Tooltip{Trigger: kit.Slider{...}}): the tooltip's props go to the root
+// element, the slider's track, which the pointer hovers and whose thumbs
+// take the keyboard focus (a tooltip opens for the focus inside its
+// trigger).
+func (s Slider) WithTriggerProps(p tela.Prop) tela.Component {
+	s.outer = outerTrigger{props: p, set: true}
+	return s
+}
+
+func (s Slider) withTrigger(p tela.Prop, ref tela.ElementRef) tela.Component {
+	s.outer = outerTrigger{props: p, ref: ref, set: true}
+	return s
 }
 
 // Build returns the slider element.
@@ -158,7 +177,7 @@ func (s Slider) Build() tela.Node {
 		DefaultValues: s.DefaultValues, OnValuesChange: s.OnValuesChange, OnChangeEnd: s.OnValueCommit,
 		Min: s.Min, Max: s.Max, Step: s.Step, MinStepsBetweenThumbs: s.MinStepsBetweenThumbs,
 		Orientation: string(o), Disabled: s.Disabled, FormatValue: s.FormatValue,
-		AriaLabel: s.AriaLabel, ThumbLabels: s.ThumbLabels,
+		AriaLabel: s.AriaLabel, ThumbLabels: s.ThumbLabels, TrackRef: s.outer.ref,
 	}
 	src := s.ValueSource
 	switch {
@@ -211,7 +230,7 @@ func (s Slider) Build() tela.Node {
 		pct = func(int) float64 { return (min(max(src.Get(), lo), hi) - lo) / (hi - lo) * 100 }
 	}
 	kids := []tela.Child{cls(r.Root, rootClass, when(s.Disabled, r.Disabled), s.Class),
-		rootDir, sl.Props, sl.TrackProps, s.Props}
+		rootDir, sl.Props, sl.TrackProps, s.Props, s.outer.child()}
 	kids = append(kids, h.Div(cls(r.Track, trackClass, s.TrackClass),
 		sliderRange{pct: pct, n: n, track: track, vertical: vertical, rtl: rtl,
 			class: joinClass(r.Range, rangeClass, s.RangeClass)}))

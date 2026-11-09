@@ -108,6 +108,23 @@ type Tooltip struct {
 	ArrowClass string
 	// Props are more props for the tooltip element.
 	Props tela.Child
+
+	// outer holds the props of an overlay that has the tooltip as its
+	// Trigger.
+	outer outerTrigger
+}
+
+// WithTriggerProps makes Tooltip a [Trigger], so that it can be the trigger
+// of another overlay: a DropdownMenu{Trigger: kit.Tooltip{Trigger: button, ...}} is the same as the other way around. The props of the overlay go to the root
+// element of Tooltip's own Trigger, with Tooltip's.
+func (t Tooltip) WithTriggerProps(p tela.Prop) tela.Component {
+	t.outer = outerTrigger{props: p, set: true}
+	return t
+}
+
+func (t Tooltip) withTrigger(p tela.Prop, ref tela.ElementRef) tela.Component {
+	t.outer = outerTrigger{props: p, ref: ref, set: true}
+	return t
 }
 
 // Build returns the trigger and the tooltip's portal.
@@ -119,13 +136,13 @@ func (t Tooltip) Build() tela.Node {
 	}
 	tip := aria.UseTooltipTrigger(aria.TooltipTriggerOptions{
 		Delay: delay, Disabled: t.Disabled,
-		Open: t.Open, DefaultOpen: t.DefaultOpen, OnOpenChange: t.OnOpenChange,
+		Open: t.Open, DefaultOpen: t.DefaultOpen, OnOpenChange: t.OnOpenChange, Ref: t.outer.ref,
 	})
 	arrow := tela.UseElementRef()
 	fl := aria.UseFloating(tip.Ref, aria.Placement(placementOf("Tooltip", t.Placement, t.Align, "top")),
 		aria.Offset(t.Offset), aria.Flip(), aria.Shift(8), aria.Arrow(arrow))
 	return h.Fragment(
-		triggerOf(t.Trigger, tip.TriggerProps),
+		triggerOf(t.Trigger, t.outer.merge(tip.TriggerProps), tip.Ref),
 		h.Portal(h.Presence(h.If(tip.Open,
 			h.Div(tip.TooltipProps, fl.Props, h.Exit(s.Exit),
 				cls(s.Root, s.Sides[fl.Side], t.Class), t.Props,

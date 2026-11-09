@@ -8,6 +8,7 @@ import (
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/aria"
 	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/semantics"
 	"github.com/kuronosu/tela/internal/testutil/rawwin"
@@ -184,10 +185,12 @@ func TestContextMenuKeyboard(t *testing.T) {
 			app.Focus(inner)
 			app.Press(key)
 			app.ExpectFocused(telatest.ByRole("menuitem", "Copy"))
+			// It opens below the focused element, not at the area's
+			// corner.
 			r := app.Bounds(telatest.ByTestID("menu"))
-			a := app.Bounds(telatest.ByTestID("area"))
-			if r.X != a.X || r.Y != a.Y {
-				t.Errorf("menu at (%v, %v), want the area's corner (%v, %v)", r.X, r.Y, a.X, a.Y)
+			b := app.Bounds(inner)
+			if r.X != b.X || r.Y != b.Y+b.Height {
+				t.Errorf("menu at (%v, %v), want below the focused element (%v, %v)", r.X, r.Y, b.X, b.Y+b.Height)
 			}
 			app.Press("ArrowDown")
 			app.ExpectFocused(telatest.ByRole("menuitem", "Paste"))
@@ -322,4 +325,51 @@ func ExampleUseContextMenuTrigger() {
 	//   - menuitem "Paste"
 	//   - menuitem "Delete"
 	// action:copy
+}
+
+// A focusable area opens the keyboard's menu below itself.
+func TestContextMenuKeyboardOnTheArea(t *testing.T) {
+	var ev events
+	app := telatest.MountFunc(t, func() tela.Node {
+		cm := aria.UseContextMenuTrigger(aria.ContextMenuTriggerOptions{})
+		return Div(Class("relative h-full"),
+			Div(cm.TriggerProps, TabIndex(0), Role("region"), AriaLabel("Canvas"), TestID("area"),
+				Class("absolute left-5 top-5 h-[60px] w-[200px]")),
+			Portal(If(cm.Open, ctxMenu{cm, &ev})))
+	}, telatest.Size(400, 300))
+	area := telatest.ByRole("region", "Canvas")
+	app.Focus(area)
+	app.Press("Shift+F10")
+	r, a := app.Bounds(telatest.ByTestID("menu")), app.Bounds(area)
+	if r.X != a.X || r.Y != a.Y+a.Height {
+		t.Errorf("menu at (%v, %v), want below the area (%v, %v)", r.X, r.Y, a.X, a.Y+a.Height)
+	}
+}
+
+// Opening changes with each opening and not when the open menu moves.
+func TestContextMenuOpening(t *testing.T) {
+	var ev events
+	var seen []int
+	b, host, win := rawwin.Mount(t, tela.C(func() tela.Node {
+		cm := aria.UseContextMenuTrigger(aria.ContextMenuTriggerOptions{})
+		if cm.Open && (len(seen) == 0 || seen[len(seen)-1] != cm.Opening) {
+			seen = append(seen, cm.Opening)
+		}
+		return Div(Class("relative h-full"),
+			Div(cm.TriggerProps, Class("absolute left-5 top-5 h-[120px] w-[200px]")),
+			Portal(If(cm.Open, tela.WithKey(ctxMenu{cm, &ev}, cm.Opening))))
+	}), 400, 300, 0, core.Config{})
+	app := &rawApp{t: t, b: b, host: host, win: win, tree: host.Tree()}
+	app.rightClick(90, 60)
+	app.rightClick(40, 40) // closes and opens again: a new opening
+	if len(seen) != 2 || seen[0] == seen[1] {
+		t.Fatalf("openings %v, want two different numbers", seen)
+	}
+	// A long press while it is open moves it: the same opening.
+	app.down(platform.PointerTouch, 210, 60)
+	app.advance(time.Second)
+	app.up(platform.PointerTouch, 210, 60)
+	if !hasMenu(app) || len(seen) != 2 {
+		t.Errorf("after a move: menu %v, openings %v", hasMenu(app), seen)
+	}
 }

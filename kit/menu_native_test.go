@@ -161,8 +161,8 @@ func TestNativeContextMenuFallsBack(t *testing.T) {
 	}
 }
 
-// Shift+F10 and the Menu key open the native menu at the area's top-left
-// corner, as the drawn one.
+// Shift+F10 and the Menu key open the native menu below the focused
+// element, as the drawn one.
 func TestNativeContextMenuFromKeyboard(t *testing.T) {
 	var log []string
 	for _, key := range []string{"Shift+F10", "ContextMenu"} {
@@ -171,8 +171,9 @@ func TestNativeContextMenuFromKeyboard(t *testing.T) {
 		app.Press("Tab") // the button inside the area
 		app.Press(key)
 		ms := app.PopupMenus()
-		if len(ms) != 1 || ms[0].At != (tela.Point{X: 20, Y: 20}) {
-			t.Errorf("%s: popup menus %+v, want one at the area's corner (20, 20)", key, ms)
+		b := app.Bounds(telatest.ByRole("button", "Inner"))
+		if len(ms) != 1 || ms[0].At != (tela.Point{X: b.X, Y: b.Y + b.Height}) {
+			t.Errorf("%s: popup menus %+v, want one below the focused button %v", key, ms, b)
 		}
 		if n := app.Count(cmMenu); n != 0 {
 			t.Errorf("%s: a drawn menu is open beside the native one", key)

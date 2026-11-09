@@ -187,8 +187,10 @@ func delayOf(d, def time.Duration) time.Duration {
 // UseTooltipTrigger returns the props of a tooltip and of its trigger
 // (React Aria's useTooltipTrigger and useTooltip, with
 // useTooltipTriggerState): it opens when the pointer rests on the trigger
-// or the keyboard focuses it, closes when either leaves, when the trigger
-// is pressed (a pointer, or Enter or Space) and with Escape; other keys leave it open.
+// or the keyboard focuses it (or an element inside it, as React's onFocus
+// bubbles: the thumb of a slider), closes when either leaves, when the
+// trigger is pressed (a pointer, or Enter or Space) and with Escape; other
+// keys leave it open.
 //
 //	tip := aria.UseTooltipTrigger(aria.TooltipTriggerOptions{})
 //	fl := aria.UseFloating(tip.Ref, aria.Placement("top"), aria.Offset(6), aria.Flip(), aria.Shift(8))
@@ -279,7 +281,7 @@ func UseTooltipTrigger(o TooltipTriggerOptions) TooltipTriggerResult {
 	trigger := []tela.Prop{
 		h.Ref(ref), hover.Props,
 		h.OnFocus(func() {
-			if !o.Disabled && core.FocusVisible(ref) {
+			if !o.Disabled && core.FocusVisibleWithin(ref) {
 				t.focused = true
 				handleShow()
 			}

@@ -142,10 +142,10 @@ func TestContextMenuKeyboard(t *testing.T) {
 	app.Focus(inner)
 	app.Press("Shift+F10")
 	app.ExpectCount(cmMenu, 1)
-	// The menu opens at the area's corner, on its first item.
+	// The menu opens below the focused element, on its first item.
 	app.ExpectFocused(cmItem("Copy"))
-	if m := app.Bounds(cmMenu); !near(m.X, 20) || !near(m.Y, 20) {
-		t.Errorf("menu at %v, want the area's corner (20, 20)", m)
+	if m, b := app.Bounds(cmMenu), app.Bounds(inner); !near(m.X, b.X) || !near(m.Y, b.Y+b.Height) {
+		t.Errorf("menu at %v, want below the focused button %v", m, b)
 	}
 	app.Press("ArrowDown") // the disabled item is skipped
 	app.ExpectFocused(cmItem("Delete"))

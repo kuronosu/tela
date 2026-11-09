@@ -92,15 +92,36 @@ type Toggle struct {
 	Class string
 	// Props are more props for the button element.
 	Props tela.Child
+
+	// outer holds the props of an overlay that has the toggle as its
+	// Trigger.
+	outer outerTrigger
+}
+
+// WithTriggerProps makes Toggle a [Trigger], so that it can have a tooltip
+// (Tooltip{Trigger: kit.Toggle{...}}) or open another overlay: the
+// overlay's props go to the button, after Toggle's own, and its Disabled wins
+// over theirs.
+func (t Toggle) WithTriggerProps(p tela.Prop) tela.Component {
+	t.outer = outerTrigger{props: p, set: true}
+	return t
+}
+
+func (t Toggle) withTrigger(p tela.Prop, ref tela.ElementRef) tela.Component {
+	t.outer = outerTrigger{props: p, ref: ref, set: true}
+	return t
 }
 
 // Build returns the toggle element.
 func (t Toggle) Build() tela.Node {
 	s := &UseStyle().Toggle
 	tb := aria.UseToggleButton(aria.ToggleOptions{Selected: t.Pressed, DefaultSelected: t.DefaultPressed,
-		OnChange: t.OnPressedChange, Disabled: t.Disabled})
+		OnChange: t.OnPressedChange, Disabled: t.Disabled, Ref: t.outer.ref})
 	kids := []tela.Child{cls(s.Root, pick("Toggle", "Variant", s.Variants, t.Variant),
-		pick("Toggle", "Size", s.Sizes, t.Size), s.On, t.Class), tb.Props, t.Props}
+		pick("Toggle", "Size", s.Sizes, t.Size), s.On, t.Class), tb.Props, t.Props, t.outer.child()}
+	if t.Disabled && t.outer.set {
+		kids = append(kids, h.Disabled(true))
+	}
 	if t.Invalid {
 		kids = append(kids, h.AriaInvalid(true))
 	}

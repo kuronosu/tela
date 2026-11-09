@@ -90,6 +90,24 @@ type Switch struct {
 	ThumbClass string
 	// Props are more props for the switch element.
 	Props tela.Child
+
+	// outer holds the props of an overlay that has the switch as its
+	// Trigger.
+	outer outerTrigger
+}
+
+// WithTriggerProps makes Switch a [Trigger], so that it can have a tooltip
+// (Tooltip{Trigger: kit.Switch{...}}) or open another overlay: the
+// overlay's props go to the switch, after Switch's own, and its Disabled wins
+// over theirs.
+func (s Switch) WithTriggerProps(p tela.Prop) tela.Component {
+	s.outer = outerTrigger{props: p, set: true}
+	return s
+}
+
+func (s Switch) withTrigger(p tela.Prop, ref tela.ElementRef) tela.Component {
+	s.outer = outerTrigger{props: p, ref: ref, set: true}
+	return s
 }
 
 // Build returns the switch element.
@@ -97,8 +115,11 @@ func (s Switch) Build() tela.Node {
 	r := &UseStyle().Switch
 	id, _, field := useChoiceField(s.ID, s.Invalid)
 	sw := aria.UseSwitch(aria.ToggleOptions{Selected: s.Checked, DefaultSelected: s.DefaultChecked,
-		OnChange: s.OnCheckedChange, Disabled: s.Disabled, ID: id})
-	kids := []tela.Child{cls(r.Root, pick("Switch", "Size", r.Sizes, s.Size), s.Class), sw.Props, s.Props}
+		OnChange: s.OnCheckedChange, Disabled: s.Disabled, ID: id, Ref: s.outer.ref})
+	kids := []tela.Child{cls(r.Root, pick("Switch", "Size", r.Sizes, s.Size), s.Class), sw.Props, s.Props, s.outer.child()}
+	if s.Disabled && s.outer.set {
+		kids = append(kids, h.Disabled(true))
+	}
 	kids = append(kids, field...)
 	if s.Required {
 		kids = append(kids, h.AriaRequired(true))

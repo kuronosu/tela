@@ -333,3 +333,11 @@ func UseAccentColor() (gfx.Color, bool) {
 func UseNativeMenus() bool {
 	return currentElement("UseNativeMenus").tree.nativeMenus
 }
+
+// UseFlavor returns the platform flavor the tree follows (Config.Flavor
+// resolved, ADR-221). It is fixed for the life of a tree, so it takes no
+// hook slot and the component does not build again for it; call it while
+// building.
+func UseFlavor() platform.Flavor {
+	return currentElement("UseFlavor").tree.flavor
+}

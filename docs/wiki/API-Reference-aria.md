@@ -61,7 +61,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type MenuBarOptions`](#type-menubaroptions)
   - [`type MenuBarResult`](#type-menubarresult): [`UseMenuBar`](#func-usemenubar) · [`IsOpen`](#func-menubarresultk-isopen) · [`MenuProps`](#func-menubarresultk-menuprops) · [`MenuRef`](#func-menubarresultk-menuref) · [`PopoverOptions`](#func-menubarresultk-popoveroptions) · [`SetOpen`](#func-menubarresultk-setopen) · [`TriggerProps`](#func-menubarresultk-triggerprops) · [`TriggerRef`](#func-menubarresultk-triggerref)
   - [`type MenuOptions`](#type-menuoptions)
-  - [`type MenuResult`](#type-menuresult): [`UseMenu`](#func-usemenu)
+  - [`type MenuResult`](#type-menuresult): [`UseMenu`](#func-usemenu) · [`SubmenuTrigger`](#func-menuresultk-submenutrigger)
   - [`type MenuTriggerOptions`](#type-menutriggeroptions)
   - [`type MenuTriggerResult`](#type-menutriggerresult): [`UseMenuTrigger`](#func-usemenutrigger)
   - [`type MeterOptions`](#type-meteroptions)
@@ -91,6 +91,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type SizeOptions`](#type-sizeoptions)
   - [`type SliderOptions`](#type-slideroptions)
   - [`type SliderResult`](#type-sliderresult): [`UseSlider`](#func-useslider) · [`IsThumbDragging`](#func-sliderresult-isthumbdragging) · [`ThumbPercent`](#func-sliderresult-thumbpercent) · [`ThumbProps`](#func-sliderresult-thumbprops) · [`ThumbRef`](#func-sliderresult-thumbref) · [`ValueText`](#func-sliderresult-valuetext)
+  - [`type SubmenuTriggerResult`](#type-submenutriggerresult): [`PopoverOptions`](#func-submenutriggerresult-popoveroptions)
   - [`type TabsOptions`](#type-tabsoptions)
   - [`type TabsResult`](#type-tabsresult): [`UseTabs`](#func-usetabs) · [`PanelProps`](#func-tabsresultk-panelprops) · [`TabProps`](#func-tabsresultk-tabprops)
   - [`type ToggleGroupOptions`](#type-togglegroupoptions)
@@ -167,7 +168,7 @@ Interactions: [`UsePress`](#func-usepress) (mouse, touch, pen and keyboard as on
 
 Overlays: [`UseOverlay`](#func-useoverlay) (Escape and a press outside close the top overlay; a modal one makes the rest of the window inert), [`UseDialog`](#func-usedialog) (role, name and focus), [`UsePopover`](#func-usepopover) (a floating overlay next to its trigger), [`UseOverlayTrigger`](#func-useoverlaytrigger) (the open state and the trigger's props), [`UseMenuTrigger`](#func-usemenutrigger) (a trigger that opens with press, long press or keys), [`UseContextMenuTrigger`](#func-usecontextmenutrigger) (an area that opens a menu at a right click, a long press or Shift+F10) and [`UseTooltipTrigger`](#func-usetooltiptrigger) (hover and focus with React Aria's delays and warm-up).
 
-Collections, keyed lists of items with a focused key and a selection: [`UseListBox`](#func-uselistbox), [`UseMenu`](#func-usemenu) (the menu of [`UseMenuTrigger`](#func-usemenutrigger)), [`UseMenuBar`](#func-usemenubar) (a row of menus), [`UseTabs`](#func-usetabs), [`UseSelect`](#func-useselect) (a button that opens a list box) and [`UseCombobox`](#func-usecombobox) (a text field that filters one, with the [`Contains`](#func-contains) and [`StartsWith`](#func-startswith) filters), with the [`Selection`](#type-selection) type for what is selected.
+Collections, keyed lists of items with a focused key and a selection: [`UseListBox`](#func-uselistbox), [`UseMenu`](#func-usemenu) (the menu of [`UseMenuTrigger`](#func-usemenutrigger), with submenus: [`MenuResult.SubmenuTrigger`](#func-menuresultk-submenutrigger)), [`UseMenuBar`](#func-usemenubar) (a row of menus), [`UseTabs`](#func-usetabs), [`UseSelect`](#func-useselect) (a button that opens a list box) and [`UseCombobox`](#func-usecombobox) (a text field that filters one, with the [`Contains`](#func-contains) and [`StartsWith`](#func-startswith) filters), with the [`Selection`](#type-selection) type for what is selected.
 
 ### Overlays
 
@@ -323,6 +324,12 @@ const (
 ```
 
 The tooltip delays of React Aria: a tooltip opens 1.5 s after the pointer enters its trigger, and closes 0.5 s after it leaves.
+
+```go
+const SubmenuDelay = 200 * time.Millisecond
+```
+
+SubmenuDelay is how long the pointer rests on a submenu trigger before its submenu opens (React Aria's default delay of useSubmenuTrigger).
 
 ## Functions
 
@@ -1956,8 +1963,9 @@ type ContextMenuTriggerOptions struct {
     NoLongPress bool
     // Intercept, if not nil, is asked before the menu opens (a right
     // click, a long press, the keys, OpenAt), with the point it would open
-    // at in window coordinates: the pointer, or the area's top-left corner
-    // for the keys. When it returns true it has taken the opening over, by
+    // at in window coordinates: the pointer, or for the keys the
+    // bottom-left corner of the focused element (the area's top-left
+    // corner when the area has no focus). When it returns true it has taken the opening over, by
     // showing the OS's own context menu there: the hook then neither opens
     // the menu nor calls OnOpenChange. When it returns false, the menu
     // opens as usual, in the same event. A menu that is open already is
@@ -1992,6 +2000,14 @@ type ContextMenuTriggerResult struct {
     // (opened with a mouse); a move of the open menu keeps it. Pass it to
     // [MenuOptions].FocusStrategy.
     FocusStrategy string
+    // Opening numbers the openings of the menu: it changes each time the
+    // menu opens (a right click elsewhere while it is open closes it and
+    // opens it again, as a new opening) and not when an open menu is moved
+    // (a long press or OpenAt while it is open). Key the menu's component
+    // with it, tela.WithKey(menu, cm.Opening), so that each opening mounts
+    // a new menu that takes the focus while the previous one exits in a
+    // Presence at its own point.
+    Opening int
     // Anchor returns the virtual rectangle the menu is placed at, in window
     // coordinates: a point where the pointer was or the area's top-left
     // corner. It is [AnchorRect]'s argument, for a menu placed with
@@ -2026,13 +2042,15 @@ UseContextMenuTrigger holds the open state of a context menu and returns the pro
 - a touch or a pen that stays down for 500 ms, at the finger, with the first item focused (Radix's rule; a mouse button held down is not a long press here, so it clicks what it is on as usual),
 - Shift+F10 and the ContextMenu key, with the first item focused, at the top-left corner of the area.
 
-The event's default is prevented and its propagation stopped, so the innermost area with a context menu wins. The menu is rendered by the caller, in a Portal, and [`UsePopover`](#func-usepopover) places it at the point with [`AnchorRect`](#func-anchorrect), flipped and shifted to stay in the window; Escape, a press outside it with any mouse button (Radix's DismissableLayer), the focus leaving and choosing an item close it, and the focus goes back to where it was. A right click elsewhere on the area while the menu is open closes it and opens it again at the new point, as a new menu: it takes the focus as when it opens (the right click's contextmenu event comes after the release that closes the menu). A touch or a pen that stays down elsewhere on the area while the menu is open moves the open menu there, and its release does not close it (Radix); a quick tap there closes it, as any press outside does. A right click or a long press in another area with a context menu closes this one and opens that one, and a right click outside every area just closes it. A menu rendered in a Presence (to fade out) comes back as the same element when it opens again while it exits, at the new point and without taking the focus: give it a new key each time it opens (count the opens in OnOpenChange), as kit's ContextMenu does, and the exiting one fades out at its own point while a new one opens and takes the focus.
+A key opens the menu at the element that has the focus, the area itself or an element inside it: below it (its bounds are the anchor, cut to the area's), as a browser opens the menu of the keyboard at the focused element; the area's corner when nothing in it has the focus.
+
+The event's default is prevented and its propagation stopped, so the innermost area with a context menu wins. The menu is rendered by the caller, in a Portal, and [`UsePopover`](#func-usepopover) places it at the point with [`AnchorRect`](#func-anchorrect), flipped and shifted to stay in the window; Escape, a press outside it with any mouse button (Radix's DismissableLayer), the focus leaving and choosing an item close it, and the focus goes back to where it was. A right click elsewhere on the area while the menu is open closes it and opens it again at the new point, as a new menu: it takes the focus as when it opens (the right click's contextmenu event comes after the release that closes the menu). A touch or a pen that stays down elsewhere on the area while the menu is open moves the open menu there, and its release does not close it (Radix); a quick tap there closes it, as any press outside does. A right click or a long press in another area with a context menu closes this one and opens that one, and a right click outside every area just closes it. A menu rendered in a Presence (to fade out) comes back as the same element when it opens again while it exits, at the new point and without taking the focus: key it with the result's Opening, as kit's ContextMenu does, and the exiting one fades out at its own point while a new one opens and takes the focus.
 
 ```go
 cm := aria.UseContextMenuTrigger(aria.ContextMenuTriggerOptions{})
 return Fragment(
     Div(cm.TriggerProps, Class("h-48 w-full rounded-md border"), Text("Right click here")),
-    Portal(If(cm.Open, fileMenu{cm})))
+    Portal(Presence(If(cm.Open, tela.WithKey(fileMenu{cm}, cm.Opening)))))
 
 type fileMenu struct{ cm aria.ContextMenuTriggerResult }
 
@@ -2046,7 +2064,7 @@ func (m fileMenu) Build() tela.Node {
 }
 ```
 
-The menu is the one of a dropdown menu: [`UseMenu`](#func-usemenu) takes the same results. The area is not focusable by itself; the keys reach it from the element inside it that has the focus, and a keyboard menu opens at the area's corner, not at that element.
+The menu is the one of a dropdown menu: [`UseMenu`](#func-usemenu) takes the same results. The area is not focusable by itself (Radix's model); the keys reach it from the element inside it that has the focus. An area that should be reached with Tab is made focusable by the caller: h.TabIndex(0) with a role and a name (h.Role("region"), h.AriaLabel("Canvas")) and a focus-visible: ring.
 
 **Example**
 
@@ -3577,6 +3595,23 @@ type MenuOptions[K comparable] struct {
     // Ref is the menu's ref: pass the trigger's MenuRef, which its
     // MenuProps attach too.
     Ref tela.ElementRef
+
+    // SubmenuKeys are the items that open a submenu (React Aria's
+    // SubmenuTrigger, Radix's MenuSubTrigger): they are not chosen, they
+    // open their submenu, whose state [MenuResult.SubmenuTrigger] returns.
+    // ArrowRight (ArrowLeft under "rtl"), Enter, Space and a click open it,
+    // the keyboard with its first item focused; the pointer resting on the
+    // item for [SubmenuDelay] opens it too. The focus moving to another
+    // item of this menu closes it, except on the way to the submenu: while
+    // the mouse moves toward it, the items it crosses are not hovered
+    // (React Aria's pointer grace).
+    SubmenuKeys []K
+    // Submenu makes this menu the submenu of a parent menu's item: pass the
+    // parent's SubmenuTrigger(key). Ref, FocusStrategy and OnClose then
+    // default to its MenuRef, FocusStrategy and CloseAll (choosing an item
+    // closes the whole menu), and its own submenus chain to it. Direction
+    // is still this menu's own: pass the parent's.
+    Submenu SubmenuTriggerResult
 }
 ```
 
@@ -3637,7 +3672,7 @@ func (m actionMenu) Build() tela.Node {
 }
 ```
 
-Items with SelectionMode "single" or "multiple" are radio and checkbox items: they print as `menuitemradio "Name" [checked]` and `menuitemcheckbox "Name" [checked]`, and `aria-checked:` styles them. The mouse focuses the item under it, as in a native menu. Disabled items are skipped. Submenus are not part of this hook.
+Items with SelectionMode "single" or "multiple" are radio and checkbox items: they print as `menuitemradio "Name" [checked]` and `menuitemcheckbox "Name" [checked]`, and `aria-checked:` styles them. The mouse focuses the item under it, as in a native menu. Disabled items are skipped. Items in SubmenuKeys open submenus (see [`MenuResult.SubmenuTrigger`](#func-menuresultk-submenutrigger)).
 
 **Example**
 
@@ -3660,6 +3695,29 @@ fmt.Println(ev.take())
 //   - menuitem "Archive"
 //   - menuitem "Delete"
 // action:edit
+```
+
+#### func (MenuResult[K]) SubmenuTrigger
+
+```go
+func (r MenuResult[K]) SubmenuTrigger(k K) SubmenuTriggerResult
+```
+
+SubmenuTrigger returns the state of the submenu that the item k opens (an item of [`MenuOptions`](#type-menuoptions).SubmenuKeys; the zero value for another): render the submenu while its Open is true, in a Portal that is a child of the menu's element (so that it is inside the menu for the focus and for presses; not inside the item's element, whose handlers would get the submenu's pointer events), with [`UsePopover`](#func-usepopover)(sub.PopoverOptions()) and a [`UseMenu`](#func-usemenu) that has Submenu: sub.
+
+```go
+sub := menu.SubmenuTrigger("share")
+Div(menu.Props, ...,
+    Div(menu.ItemProps("share"), Key("share"), Text("Share")),
+    Portal(If(sub.Open, shareMenu{sub})))
+
+type shareMenu struct{ sub aria.SubmenuTriggerResult }
+
+func (m shareMenu) Build() tela.Node {
+    pop := aria.UsePopover(m.sub.PopoverOptions())
+    menu := aria.UseMenu(aria.MenuOptions[string]{Keys: targets, OnAction: share, Submenu: m.sub})
+    return Div(pop.Props, m.sub.MenuProps, menu.Props, Class("w-40 rounded-md border bg-popover p-1"), ...)
+}
 ```
 
 ### type MenuTriggerOptions
@@ -5181,6 +5239,10 @@ type SliderOptions struct {
     // thumbs are "Minimum price" and "Maximum price"; a thumb without one
     // takes the slider's name.
     ThumbLabels []string
+    // TrackRef is the track's ref, for a hook used together with this one
+    // on the track's element (a tooltip on a slider whose root is the
+    // track); the zero value makes the hook create its own.
+    TrackRef tela.ElementRef
 }
 ```
 
@@ -5322,6 +5384,48 @@ func (r SliderResult) ValueText(i int) string
 ```
 
 ValueText returns the value of thumb i as people read it: FormatValue of the live value.
+
+### type SubmenuTriggerResult
+
+```go
+type SubmenuTriggerResult struct {
+    // MenuProps go to the submenu's element, with [UsePopover]'s props
+    // (PopoverOptions) and the submenu's own [UseMenu] props: the ref,
+    // aria-labelledby the trigger item, and the keys that close the
+    // submenu and give the focus back to its trigger (ArrowLeft, or
+    // ArrowRight under "rtl", and Escape).
+    MenuProps tela.Prop
+    // Open is whether the submenu is open.
+    Open bool
+    // FocusStrategy is where the focus goes when the submenu opens:
+    // [FocusFirst] when the keyboard (ArrowRight, Enter, Space) or an
+    // assistive technology opened it, "" when the pointer did (the focus
+    // stays on the trigger until the pointer moves into the submenu). The
+    // submenu's [UseMenu] reads it through its Submenu option.
+    FocusStrategy string
+    // Close closes this submenu (and the ones it opened); CloseAll closes
+    // the whole menu, through the root menu's [MenuOptions].OnClose.
+    Close, CloseAll func()
+    // Ref is the trigger item's ref and MenuRef the submenu's.
+    Ref, MenuRef tela.ElementRef
+    // Direction is the parent menu's ("ltr" or "rtl"): the submenu opens on
+    // the right of its trigger, or on its left under "rtl".
+    Direction string
+    // contains filtered or unexported fields
+}
+```
+
+SubmenuTriggerResult is the state of one submenu of a menu, returned by [`MenuResult.SubmenuTrigger`](#func-menuresultk-submenutrigger) for an item of [`MenuOptions`](#type-menuoptions).SubmenuKeys: what the component that renders the submenu while it is open needs (React Aria's useSubmenuTrigger and useSubmenuTriggerState; Radix's MenuSub).
+
+The trigger item's own props (aria-haspopup, aria-expanded, aria-controls, the keys and the hover that open the submenu) are in [`Collection.ItemProps`](#func-collectionk-itemprops) already.
+
+#### func (SubmenuTriggerResult) PopoverOptions
+
+```go
+func (r SubmenuTriggerResult) PopoverOptions() PopoverOptions
+```
+
+PopoverOptions returns the options of [`UsePopover`](#func-usepopover) for the submenu: beside its trigger item ("right-start", "left-start" under "rtl"), flipped and shifted to stay in the window, not modal. Escape and the key back close this submenu only, a press outside every menu of the chain closes the whole menu, and a press inside one of the parent menus is left to that menu (it moves the focus, which closes the submenu, or chooses an item). Change what you need in the value returned (Offset; append to Floating, for a cross-axis offset that lines the first item up with the trigger).
 
 ### type TabsOptions
 
@@ -5858,7 +5962,7 @@ TooltipTriggerResult is what [`UseTooltipTrigger`](#func-usetooltiptrigger) retu
 func UseTooltipTrigger(o TooltipTriggerOptions) TooltipTriggerResult
 ```
 
-UseTooltipTrigger returns the props of a tooltip and of its trigger (React Aria's useTooltipTrigger and useTooltip, with useTooltipTriggerState): it opens when the pointer rests on the trigger or the keyboard focuses it, closes when either leaves, when the trigger is pressed (a pointer, or Enter or Space) and with Escape; other keys leave it open.
+UseTooltipTrigger returns the props of a tooltip and of its trigger (React Aria's useTooltipTrigger and useTooltip, with useTooltipTriggerState): it opens when the pointer rests on the trigger or the keyboard focuses it (or an element inside it, as React's onFocus bubbles: the thumb of a slider), closes when either leaves, when the trigger is pressed (a pointer, or Enter or Space) and with Escape; other keys leave it open.
 
 ```go
 tip := aria.UseTooltipTrigger(aria.TooltipTriggerOptions{})

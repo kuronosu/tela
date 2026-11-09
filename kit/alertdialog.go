@@ -112,8 +112,8 @@ type AlertDialog struct {
 	DefaultOpen  bool
 	OnOpenChange func(open bool)
 	// Disabled disables the trigger, which is then inert and dimmed by its
-	// recipe; the dialog does not open. Set it here: the trigger props
-	// override a Disabled given to the trigger component itself.
+	// recipe; the dialog does not open. A Disabled given to the
+	// trigger component itself (kit.Button{Disabled: true}) does the same.
 	Disabled bool
 
 	// Class is added after the recipe's Root classes, to the panel. The
@@ -128,13 +128,30 @@ type AlertDialog struct {
 	ActionClass      string
 	// Props are more props for the dialog element (the panel).
 	Props tela.Child
+
+	// outer holds the props of an overlay that has the dialog as its
+	// Trigger.
+	outer outerTrigger
+}
+
+// WithTriggerProps makes AlertDialog a [Trigger], so that it can be the trigger
+// of another overlay: a Tooltip{Trigger: kit.AlertDialog{Trigger: button, ...}} explains the button that opens the dialog. The props of the overlay go to the root
+// element of AlertDialog's own Trigger, with AlertDialog's.
+func (a AlertDialog) WithTriggerProps(p tela.Prop) tela.Component {
+	a.outer = outerTrigger{props: p, set: true}
+	return a
+}
+
+func (a AlertDialog) withTrigger(p tela.Prop, ref tela.ElementRef) tela.Component {
+	a.outer = outerTrigger{props: p, ref: ref, set: true}
+	return a
 }
 
 // Build returns the trigger and the dialog's portal.
 func (a AlertDialog) Build() tela.Node {
 	s := &UseStyle().AlertDialog
 	trig := aria.UseOverlayTrigger(aria.OverlayTriggerOptions{
-		Open: a.Open, DefaultOpen: a.DefaultOpen, OnOpenChange: a.OnOpenChange, Disabled: a.Disabled,
+		Open: a.Open, DefaultOpen: a.DefaultOpen, OnOpenChange: a.OnOpenChange, Disabled: a.Disabled, Ref: a.outer.ref,
 	})
 	overlay := aria.UseOverlay(aria.OverlayOptions{Open: trig.Open, OnClose: trig.Close, Modal: true})
 	dlg := aria.UseDialog(aria.DialogOptions{Role: "alertdialog", Modal: true, Ref: trig.OverlayRef})
@@ -143,7 +160,7 @@ func (a AlertDialog) Build() tela.Node {
 
 	root := alertDialogRoot(s, a, size, a.Size, overlay.Props, dlg.Props, dlg.TitleProps, desc, trig.Close)
 	return h.Fragment(
-		triggerOf(a.Trigger, trig.TriggerProps),
+		triggerOf(a.Trigger, a.outer.merge(trig.TriggerProps), trig.Ref),
 		h.Portal(h.Presence(h.If(trig.Open,
 			h.Div(cls(s.Positioner),
 				h.Div(cls(s.Overlay, a.OverlayClass), h.Exit(s.OverlayExit)),

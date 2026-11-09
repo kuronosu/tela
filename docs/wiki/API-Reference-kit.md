@@ -15,7 +15,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Functions](#functions): [`DefaultStyle`](#func-defaultstyle) · [`Initials`](#func-initials) · [`Theme`](#func-theme) · [`ToastAction`](#func-toastaction) · [`ToastDescription`](#func-toastdescription) · [`ToastDuration`](#func-toastduration) · [`ToastOnAutoClose`](#func-toastonautoclose) · [`ToastOnDismiss`](#func-toastondismiss) · [`ToastReplace`](#func-toastreplace) · [`UseStyle`](#func-usestyle) · [`UseToast`](#func-usetoast)
 - [Types](#types)
   - [`type Alert`](#type-alert): [`Build`](#func-alert-build)
-  - [`type AlertDialog`](#type-alertdialog): [`Build`](#func-alertdialog-build)
+  - [`type AlertDialog`](#type-alertdialog): [`Build`](#func-alertdialog-build) · [`WithTriggerProps`](#func-alertdialog-withtriggerprops)
   - [`type AlertDialogStyle`](#type-alertdialogstyle)
   - [`type AlertStyle`](#type-alertstyle)
   - [`type Avatar`](#type-avatar): [`Build`](#func-avatar-build)
@@ -31,7 +31,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type CalendarStyle`](#type-calendarstyle)
   - [`type Card`](#type-card): [`Build`](#func-card-build)
   - [`type CardStyle`](#type-cardstyle)
-  - [`type Checkbox`](#type-checkbox): [`Build`](#func-checkbox-build)
+  - [`type Checkbox`](#type-checkbox): [`Build`](#func-checkbox-build) · [`WithTriggerProps`](#func-checkbox-withtriggerprops)
   - [`type CheckboxStyle`](#type-checkboxstyle)
   - [`type ColorInput`](#type-colorinput): [`Build`](#func-colorinput-build)
   - [`type ColorInputStyle`](#type-colorinputstyle)
@@ -43,9 +43,9 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type DatePicker`](#type-datepicker): [`Build`](#func-datepicker-build)
   - [`type DatePickerStyle`](#type-datepickerstyle)
   - [`type DateRangePicker`](#type-daterangepicker): [`Build`](#func-daterangepicker-build)
-  - [`type Dialog`](#type-dialog): [`Build`](#func-dialog-build)
+  - [`type Dialog`](#type-dialog): [`Build`](#func-dialog-build) · [`WithTriggerProps`](#func-dialog-withtriggerprops)
   - [`type DialogStyle`](#type-dialogstyle)
-  - [`type DropdownMenu`](#type-dropdownmenu): [`Build`](#func-dropdownmenuk-build)
+  - [`type DropdownMenu`](#type-dropdownmenu): [`Build`](#func-dropdownmenuk-build) · [`WithTriggerProps`](#func-dropdownmenuk-withtriggerprops)
   - [`type Field`](#type-field): [`Build`](#func-field-build)
   - [`type FieldSet`](#type-fieldset): [`Build`](#func-fieldset-build)
   - [`type FieldSetStyle`](#type-fieldsetstyle)
@@ -63,7 +63,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type MenubarStyle`](#type-menubarstyle)
   - [`type NativeMode`](#type-nativemode): [`String`](#func-nativemode-string)
   - [`type Orientation`](#type-orientation)
-  - [`type Popover`](#type-popover): [`Build`](#func-popover-build)
+  - [`type Popover`](#type-popover): [`Build`](#func-popover-build) · [`WithTriggerProps`](#func-popover-withtriggerprops)
   - [`type PopoverStyle`](#type-popoverstyle)
   - [`type Progress`](#type-progress): [`Build`](#func-progress-build)
   - [`type ProgressStyle`](#type-progressstyle)
@@ -80,13 +80,13 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Size`](#type-size)
   - [`type Skeleton`](#type-skeleton): [`Build`](#func-skeleton-build)
   - [`type SkeletonStyle`](#type-skeletonstyle)
-  - [`type Slider`](#type-slider): [`Build`](#func-slider-build)
+  - [`type Slider`](#type-slider): [`Build`](#func-slider-build) · [`WithTriggerProps`](#func-slider-withtriggerprops)
   - [`type SliderStyle`](#type-sliderstyle)
   - [`type SortDirection`](#type-sortdirection)
   - [`type SortState`](#type-sortstate)
   - [`type Style`](#type-style): [`DefaultStyle`](#func-defaultstyle) · [`UseStyle`](#func-usestyle)
   - [`type StyleProvider`](#type-styleprovider): [`Build`](#func-styleprovider-build)
-  - [`type Switch`](#type-switch): [`Build`](#func-switch-build)
+  - [`type Switch`](#type-switch): [`Build`](#func-switch-build) · [`WithTriggerProps`](#func-switch-withtriggerprops)
   - [`type SwitchStyle`](#type-switchstyle)
   - [`type Tab`](#type-tab)
   - [`type Table`](#type-table): [`Build`](#func-tablet-build)
@@ -104,12 +104,12 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type ToastPosition`](#type-toastposition)
   - [`type ToastStyle`](#type-toaststyle)
   - [`type Toaster`](#type-toaster): [`Build`](#func-toaster-build)
-  - [`type Toggle`](#type-toggle): [`Build`](#func-toggle-build)
+  - [`type Toggle`](#type-toggle): [`Build`](#func-toggle-build) · [`WithTriggerProps`](#func-toggle-withtriggerprops)
   - [`type ToggleGroup`](#type-togglegroup): [`Build`](#func-togglegroupk-build)
   - [`type ToggleGroupItem`](#type-togglegroupitem)
   - [`type ToggleGroupStyle`](#type-togglegroupstyle)
   - [`type ToggleStyle`](#type-togglestyle)
-  - [`type Tooltip`](#type-tooltip): [`Build`](#func-tooltip-build)
+  - [`type Tooltip`](#type-tooltip): [`Build`](#func-tooltip-build) · [`WithTriggerProps`](#func-tooltip-withtriggerprops)
   - [`type TooltipStyle`](#type-tooltipstyle)
   - [`type Trigger`](#type-trigger)
   - [`type TriggerFunc`](#type-triggerfunc): [`WithTriggerProps`](#func-triggerfunc-withtriggerprops)
@@ -325,7 +325,7 @@ kit.DropdownMenu[string]{
 }
 ```
 
-The checkbox items and radio groups follow the value rule (Checked and OnCheckedChange, Value and OnValueChange, or a default), and an uncontrolled state is kept by the component, so it outlives the menu closing. Choosing an item closes the menu, as Radix's does, unless the item has KeepOpen. There are no submenus yet: a menu is one level (ADR-141).
+The checkbox items and radio groups follow the value rule (Checked and OnCheckedChange, Value and OnValueChange, or a default), and an uncontrolled state is kept by the component, so it outlives the menu closing. Choosing an item closes the menu, as Radix's does, unless the item has KeepOpen. A MenuSub item opens a submenu, and a plain item with a Role (desktop.RoleCopy...) is one of the standard items (ADR-247).
 
 ### The look and its tests
 
@@ -451,8 +451,8 @@ type AlertDialog struct {
     DefaultOpen  bool
     OnOpenChange func(open bool)
     // Disabled disables the trigger, which is then inert and dimmed by its
-    // recipe; the dialog does not open. Set it here: the trigger props
-    // override a Disabled given to the trigger component itself.
+    // recipe; the dialog does not open. A Disabled given to the
+    // trigger component itself (kit.Button{Disabled: true}) does the same.
     Disabled bool
 
     // Class is added after the recipe's Root classes, to the panel. The
@@ -467,6 +467,7 @@ type AlertDialog struct {
     ActionClass      string
     // Props are more props for the dialog element (the panel).
     Props tela.Child
+    // contains filtered or unexported fields
 }
 ```
 
@@ -517,6 +518,14 @@ func (a AlertDialog) Build() tela.Node
 ```
 
 Build returns the trigger and the dialog's portal.
+
+#### func (AlertDialog) WithTriggerProps
+
+```go
+func (a AlertDialog) WithTriggerProps(p tela.Prop) tela.Component
+```
+
+WithTriggerProps makes AlertDialog a [`Trigger`](#type-trigger), so that it can be the trigger of another overlay: a Tooltip{Trigger: kit.AlertDialog{Trigger: button, ...}} explains the button that opens the dialog. The props of the overlay go to the root element of AlertDialog's own Trigger, with AlertDialog's.
 
 ### type AlertDialogStyle
 
@@ -885,7 +894,7 @@ Build returns the button element.
 func (b Button) WithTriggerProps(p tela.Prop) tela.Component
 ```
 
-WithTriggerProps makes Button a [`Trigger`](#type-trigger): the overlay that has it as its Trigger slot puts its props on the button element, after the button's own.
+WithTriggerProps makes Button a [`Trigger`](#type-trigger): the overlay that has it as its Trigger slot puts its props on the button element, after the button's own; the button's Disabled wins over theirs, so a disabled button opens nothing (the overlay's own Disabled does the same).
 
 ### type ButtonStyle
 
@@ -1215,6 +1224,7 @@ type Checkbox struct {
     IconClass      string
     // Props are more props for the checkbox element.
     Props tela.Child
+    // contains filtered or unexported fields
 }
 ```
 
@@ -1258,6 +1268,14 @@ func (c Checkbox) Build() tela.Node
 ```
 
 Build returns the checkbox element.
+
+#### func (Checkbox) WithTriggerProps
+
+```go
+func (c Checkbox) WithTriggerProps(p tela.Prop) tela.Component
+```
+
+WithTriggerProps makes Checkbox a [`Trigger`](#type-trigger), so that it can have a tooltip (Tooltip{Trigger: kit.Checkbox{...}}) or open another overlay: the overlay's props go to the box, after Checkbox's own, and its Disabled wins over theirs.
 
 ### type CheckboxStyle
 
@@ -1638,8 +1656,8 @@ type ContextMenu[K comparable] struct {
     // zero value, kit.NativeAuto, follows tela.App.NativeMenus.
     Native NativeMode
     // CheckIcon and RadioIcon replace the check of a checkbox item and the
-    // dot of a radio item.
-    CheckIcon, RadioIcon tela.Icon
+    // dot of a radio item, SubIcon the chevron of a submenu's item.
+    CheckIcon, RadioIcon, SubIcon tela.Icon
 
     // Open points to the open state of a controlled menu; nil leaves it to
     // the component. OnOpenChange is called with the next state.
@@ -1656,7 +1674,7 @@ type ContextMenu[K comparable] struct {
 }
 ```
 
-ContextMenu is a menu that opens where the user right-clicks inside an area, shadcn/ui's ContextMenu, built on aria.UseContextMenuTrigger: a right click opens it at the pointer, a touch or a pen that stays down opens it under the finger, and Shift+F10 or the ContextMenu key opens it, on its first item, at the area's top-left corner. The keys reach the area from the element that has the focus inside it, as in the browser: an area with nothing focusable inside opens from the keyboard only when it can take the focus itself (Props: h.TabIndex(0), with a focus-visible: ring in Class). The menu closes with Escape, a press outside it with any mouse button or choosing an item, and the focus returns to where it was. A right click elsewhere in the area while the menu is open closes it and opens a new one at the new point (Radix), a right click in another area opens that area's menu instead, and in nested areas the innermost wins.
+ContextMenu is a menu that opens where the user right-clicks inside an area, shadcn/ui's ContextMenu, built on aria.UseContextMenuTrigger: a right click (a Control+click on a Mac) opens it at the pointer, a touch or a pen that stays down opens it under the finger, and Shift+F10 or the ContextMenu key opens it, on its first item, below the element that has the focus. The menu closes with Escape, a press outside it with any mouse button or choosing an item, and the focus returns to where it was. A right click elsewhere in the area while the menu is open closes it and opens a new one at the new point (Radix), a right click in another area opens that area's menu instead, and in nested areas the innermost wins.
 
 ```go
 kit.ContextMenu[string]{
@@ -1672,11 +1690,25 @@ kit.ContextMenu[string]{
 }
 ```
 
-The items are the \[MenuItem\]s of [`DropdownMenu`](#type-dropdownmenu), with no submenus yet (ADR-141). The root element is the area, a div that holds Children; the area is not focusable by itself, the keys reach it from what inside it has the focus, and a keyboard menu opens at the area's corner, not at that element (ADR-133). Open and OnOpenChange are the usual controlled pair (a menu opens at a point, so there is no DefaultOpen).
+The items are the \[MenuItem\]s of [`DropdownMenu`](#type-dropdownmenu), submenus and roles included (Cut, Copy and Paste in the context menu of a text field act on the field). The root element is the area, a div that holds Children. Open and OnOpenChange are the usual controlled pair (a menu opens at a point, so there is no DefaultOpen).
+
+##### The keyboard
+
+The area is not focusable: kit adds no tab stop (Radix's model). The keys reach it from the element inside it that has the focus, as in the browser, and the menu opens below that element. An area with nothing focusable inside (a canvas, a drop zone) opens from the keyboard only when it can take the focus itself: give it a tab stop, a role and a name in Props, and a focus ring in Class:
+
+```go
+kit.ContextMenu[string]{
+    Props: tela.MergeProps(h.TabIndex(0), h.Role("region"), h.AriaLabel("Canvas")),
+    Class: "rounded-md border outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+    ...
+}
+```
+
+The menu then opens below the area. A list of items with selection inside the area (aria.UseListBox) selects the item that is right-clicked before the menu opens, unless it is part of the selection already, as Finder does.
 
 ##### Native context menu
 
-The menu is drawn in the kit's look unless Native (kit.NativeOn), or tela.App.NativeMenus when Native is left at kit.NativeAuto, asks for the OS's context menu (ADR-215). It then opens where the drawn one would (the pointer, or the area's corner for Shift+F10 and the Menu key), and where the platform has no native context menu (Linux) the drawn menu opens instead, in the same event and frame. The area's own Native setting wins over the app's, so one menu can stay drawn while the others are native (kit.NativeOff).
+The menu is drawn in the kit's look unless Native (kit.NativeOn), or tela.App.NativeMenus when Native is left at kit.NativeAuto, asks for the OS's context menu (ADR-215). It then opens where the drawn one would (the pointer, or below the focused element for Shift+F10 and the Menu key), and where the platform has no native context menu (Linux) the drawn menu opens instead, in the same event and frame. The area's own Native setting wins over the app's, so one menu can stay drawn while the others are native (kit.NativeOff).
 
 A native menu shows each item's Label, Shortcut (as its accelerator: text only), Disabled state and separators; checkbox items are check items and the items of a radio group check items with the chosen one checked. Icons, the destructive Variant, Inset, KeepOpen (the OS's menu always closes), Class, ContentClass and the check and radio icons are not shown, a label becomes a disabled item, and a group's items appear without it. Choosing an item does what it does in the drawn menu (OnSelect, OnCheckedChange, OnValueChange and the menu's OnSelect). While a native menu is up the drawn one does not open, and Open and OnOpenChange are not involved: the OS owns the menu and reports only the choice.
 
@@ -1970,8 +2002,8 @@ type Dialog struct {
     DefaultOpen  bool
     OnOpenChange func(open bool)
     // Disabled disables the trigger, which is then inert and dimmed by its
-    // recipe; the dialog does not open. Set it here: the trigger props
-    // override a Disabled given to the trigger component itself.
+    // recipe; the dialog does not open. A Disabled given to the
+    // trigger component itself (kit.Button{Disabled: true}) does the same.
     Disabled bool
 
     // Class is added after the recipe's Root classes, to the panel. The
@@ -1985,6 +2017,7 @@ type Dialog struct {
     CloseClass       string
     // Props are more props for the dialog element (the panel).
     Props tela.Child
+    // contains filtered or unexported fields
 }
 ```
 
@@ -2065,6 +2098,14 @@ func (d Dialog) Build() tela.Node
 
 Build returns the trigger and the dialog's portal.
 
+#### func (Dialog) WithTriggerProps
+
+```go
+func (d Dialog) WithTriggerProps(p tela.Prop) tela.Component
+```
+
+WithTriggerProps makes Dialog a [`Trigger`](#type-trigger), so that it can be the trigger of another overlay: a Tooltip{Trigger: kit.Dialog{Trigger: button, ...}} explains the button that opens the dialog. The props of the overlay go to the root element of Dialog's own Trigger, with Dialog's.
+
 ### type DialogStyle
 
 ```go
@@ -2122,8 +2163,8 @@ type DropdownMenu[K comparable] struct {
     // menu is otherwise named by its trigger.
     AriaLabel string
     // CheckIcon and RadioIcon replace the check of a checkbox item and the
-    // dot of a radio item.
-    CheckIcon, RadioIcon tela.Icon
+    // dot of a radio item, SubIcon the chevron of a submenu's item.
+    CheckIcon, RadioIcon, SubIcon tela.Icon
 
     // Open points to the open state of a controlled menu; nil leaves it to
     // the component, which starts closed unless DefaultOpen is set.
@@ -2137,6 +2178,7 @@ type DropdownMenu[K comparable] struct {
     Class string
     // Props are more props for the panel element.
     Props tela.Child
+    // contains filtered or unexported fields
 }
 ```
 
@@ -2158,7 +2200,7 @@ kit.DropdownMenu[string]{
 }
 ```
 
-The items are \[MenuItem\]s: plain items with an icon, a shortcut and a destructive variant, checkbox items, radio groups, labels, separators and groups. There are no submenus yet (a known gap, ADR-141): a menu is one level.
+The items are \[MenuItem\]s: plain items with an icon, a shortcut and a destructive variant, checkbox items, radio groups, labels, separators, groups, submenus (MenuSub) and standard items with a Role.
 
 The Trigger slot is a [`Trigger`](#type-trigger) (see there): a [`Button`](#type-button), or anything made one with [`TriggerFunc`](#type-triggerfunc). Open, DefaultOpen and OnOpenChange are the usual controlled and uncontrolled pair; the panel exists only while the menu is open. It opens on the side Placement says ("bottom" by default, "top", "left" or "right") and Align puts it along that side ("start", "center" or "end"; Radix's default is the center), 4 px away unless Offset says otherwise, and it flips and shifts to stay in the window; a menu taller than the room left scrolls.
 
@@ -2202,6 +2244,14 @@ func (d DropdownMenu[K]) Build() tela.Node
 ```
 
 Build returns the trigger and the menu's portal.
+
+#### func (DropdownMenu[K]) WithTriggerProps
+
+```go
+func (d DropdownMenu[K]) WithTriggerProps(p tela.Prop) tela.Component
+```
+
+WithTriggerProps makes DropdownMenu a [`Trigger`](#type-trigger), so that it can be the trigger of another overlay: a Tooltip{Trigger: kit.DropdownMenu{Trigger: button, ...}} explains the button that opens the menu. The props of the overlay go to the root element of the menu's own Trigger, with the menu's.
 
 ### type Field
 
@@ -2628,9 +2678,15 @@ type MenuItem[K comparable] struct {
     Label string
     // Icon is drawn before the label of a plain item.
     Icon tela.Icon
-    // Shortcut is text shown at the end of the item, such as "⌘T". It is
-    // only shown: binding the keys is the app's.
+    // Shortcut is text shown at the end of the item, such as "⌘T" or
+    // "CmdOrCtrl+T" (see "Shortcuts"). It is only shown: binding the keys
+    // is the app's.
     Shortcut string
+    // Role makes a plain item one of the standard items (see "Roles"):
+    // desktop.RoleUndo, RoleCopy, RoleMinimize... The zero value,
+    // desktop.RoleNone, is an item of the app's own. A menu role
+    // (RoleEditMenu...) is a MenubarMenu's, and panics here in dev mode.
+    Role desktop.Role
     // Variant is Default or Destructive (a plain item, as shadcn's
     // variant="destructive").
     Variant Variant
@@ -2662,8 +2718,8 @@ type MenuItem[K comparable] struct {
     DefaultValue  *K
     OnValueChange func(K)
 
-    // Items are the radio items of a radio group, or the entries of a
-    // group.
+    // Items are the radio items of a radio group, the entries of a group,
+    // or the entries of a submenu.
     Items []MenuItem[K]
 
     // Class is added after the recipe's classes, to the item.
@@ -2687,7 +2743,40 @@ MenuItem is one entry of a menu, whatever its kind: the model that [`DropdownMen
 }
 ```
 
-Every item that can be chosen (a plain item, a checkbox item, a radio item) needs a Key distinct from the others of its menu; it is what the menu's OnSelect reports and what the keyboard's typeahead and the accessibility tree tell items apart by. A menu with two items of the same Key panics in dev mode. Fields that a kind does not use are ignored.
+Every item that can be chosen (a plain item, a checkbox item, a radio item) and every submenu trigger needs a Key distinct from the others of its menu, its submenus included; it is what the menu's OnSelect reports and what the keyboard's typeahead and the accessibility tree tell items apart by. A menu with two items of the same Key panics in dev mode. Fields that a kind does not use are ignored.
+
+##### Submenus
+
+A MenuSub item opens a submenu beside it (on the right, on the left under right-to-left), whose Items are any entries, submenus too:
+
+```go
+{Kind: kit.MenuSub, Key: "share", Label: "Share", Items: []kit.MenuItem[string]{
+    {Key: "email", Label: "Email link"},
+    {Key: "messages", Label: "Messages"},
+}},
+```
+
+ArrowLeft (ArrowRight under right-to-left) and Escape close the submenu and give the focus back to its item; the focus moving to another item of the parent menu closes it, except while the mouse moves toward it (React Aria's pointer grace); choosing an item in it, or a press outside every menu, closes the whole menu. Each submenu has its own typeahead. In a native menu (ContextMenu and Menubar with Native, ADR-215) it is the OS's submenu.
+
+##### Roles
+
+A plain item with a Role is one of the standard items of desktop.Role (Electron's roles): Undo, Redo, Cut, Copy, Paste, Select All, Minimize, Zoom and Close. An empty Label is the role's English one and an empty Shortcut the role's keys, so an Edit menu can mix the app's items with the standard ones:
+
+```go
+{Key: "undo", Role: desktop.RoleUndo},
+{Key: "redo", Role: desktop.RoleRedo},
+{Kind: kit.MenuSeparator},
+{Key: "cut", Role: desktop.RoleCut},
+{Key: "copy", Role: desktop.RoleCopy},
+{Key: "paste", Role: desktop.RolePaste},
+{Key: "find", Label: "Find…", Shortcut: "CmdOrCtrl+F", OnSelect: find},
+```
+
+Choosing a role item without an OnSelect of its own carries the role out, and neither the item's nor the menu's OnSelect is called (macOS's own items never report the choice either): in a native menu the OS or package desktop does it (ADR-226), and in a drawn one the menu closes and desktop.PerformRole does it once the focus is back where the menu was opened from (the element that had it before the trigger's press took it; a context menu's area keeps it), so Copy acts on the text field the user was in. An item's own OnSelect replaces the role, as in desktop.MenuItem.
+
+##### Shortcuts
+
+Shortcut is shown as written, with two exceptions that follow the platform of the window's key conventions (tela.UsePlatformKeys): a shortcut that names CmdOrCtrl ("CmdOrCtrl+Shift+Z") is shown as a Mac shows it ("⇧⌘Z") under "darwin" and as "Ctrl+Shift+Z" elsewhere, and a role item's default keys are written that way. Assistive technologies get the keys in ARIA's syntax (aria-keyshortcuts: "Shift+Meta+Z") from the glyphs of a Mac ("⇧⌘Z", "⌃⌥⌘K") and from the usual spelling ("Ctrl+Shift+T").
 
 Choosing a plain item calls its OnSelect and the menu's, and closes the menu; a checkbox item toggles and a radio item chooses, and they close the menu too (Radix's default) unless KeepOpen is set. A disabled item is skipped by the keyboard and dimmed.
 
@@ -2724,6 +2813,13 @@ const (
     // Label, when set, is its accessible name (it is not drawn: put a
     // MenuLabel in Items for a visible heading).
     MenuGroup
+    // MenuSub is an item that opens a submenu (DropdownMenuSub, with its
+    // SubTrigger and SubContent): Key, Label, Icon, Inset and Disabled are
+    // the trigger's, Items the submenu's entries, of any kind (a MenuSub
+    // too). It is not chosen: a click, Enter, Space or ArrowRight
+    // (ArrowLeft under right-to-left) opens the submenu, and so does the
+    // pointer resting on it for aria.SubmenuDelay.
+    MenuSub
 )
 ```
 
@@ -2767,6 +2863,13 @@ type MenuStyle struct {
     Separator string
     // Shortcut is the text at the end of an item.
     Shortcut string
+    // SubTrigger is an item that opens a submenu (shadcn's SubTrigger;
+    // aria-expanded: styles it while its submenu is open), SubIcon the
+    // chevron at its end and SubContent the submenu's panel, which enters
+    // and exits as Content does (Exit, Sides).
+    SubTrigger string
+    SubIcon    string
+    SubContent string
 }
 ```
 
@@ -2802,8 +2905,8 @@ type Menubar[K comparable] struct {
     // sets the direction of the layout.
     Direction string
     // CheckIcon and RadioIcon replace the check of a checkbox item and the
-    // dot of a radio item.
-    CheckIcon, RadioIcon tela.Icon
+    // dot of a radio item, SubIcon the chevron of a submenu's item.
+    CheckIcon, RadioIcon, SubIcon tela.Icon
 
     // Open points to the open menu of a controlled bar; nil leaves it to
     // the component, which starts with DefaultOpen (nil: all closed).
@@ -2843,13 +2946,13 @@ kit.Menubar[string]{
 }
 ```
 
-The items are the \[MenuItem\]s of [`DropdownMenu`](#type-dropdownmenu), with no submenus yet (ADR-141). The keys of the menus and of the items have the same type K; an item key needs to be distinct only within its menu. The open menu follows the kit's value rule with Open (a pointer to the key of the open menu; a key no menu has, such as the zero K, means all closed), DefaultOpen and OnOpenChange.
+The items are the \[MenuItem\]s of [`DropdownMenu`](#type-dropdownmenu), submenus and roles included: an Edit menu can mix the app's items with standard ones ({Key: "copy", Role: desktop.RoleCopy}), drawn or native. In a submenu, ArrowRight (ArrowLeft under "rtl") on an item that is not a submenu trigger moves to the next menu of the bar, as the arrows do in a menu. The keys of the menus and of the items have the same type K; an item key needs to be distinct only within its menu (its submenus included). The open menu follows the kit's value rule with Open (a pointer to the key of the open menu; a key no menu has, such as the zero K, means all closed), DefaultOpen and OnOpenChange.
 
 ##### Native menu bar
 
 The bar is drawn in the kit's look unless Native (kit.NativeOn), or tela.App.NativeMenus when Native is left at kit.NativeAuto, asks for the OS's window menu bar (ADR-215): the menus are given to the window (desktop.MenuBar) and the component draws nothing where it is. A window has a native bar on Windows when it has the OS's title bar; a frameless window (kit.TitleBar draws its own), Linux, and a window of a tree with no running app have none, and there the drawn bar replaces it: the native attempt reports it after the component's first frame, so the drawn bar appears one frame later. A bar's own Native setting wins over the app's.
 
-Each menu is a top-level entry with its items, converted as a native ContextMenu's are: Label, Shortcut (shown as text; handle the keys yourself), Disabled, separators, check items for checkbox and radio items; icons, the destructive Variant, Inset, KeepOpen, Class, Direction, the classes of the bar, buttons and panels, and the check and radio icons are not shown, a label becomes a disabled item and a group appears without it. Choosing an item does what it does in the drawn menu. Open, DefaultOpen and OnOpenChange belong to the drawn bar: the OS owns a native one and none of them is called, and the keyboard navigation is the OS's.
+Each menu is a top-level entry with its items, converted as a native ContextMenu's are: Label, Shortcut (shown as text; handle the keys yourself), Disabled, separators, check items for checkbox and radio items, the OS's submenus and the roles of role items; icons, the destructive Variant, Inset, KeepOpen, Class, Direction, the classes of the bar, buttons and panels, and the check and radio icons are not shown, a label becomes a disabled item and a group appears without it. Choosing an item does what it does in the drawn menu. Open, DefaultOpen and OnOpenChange belong to the drawn bar: the OS owns a native one and none of them is called, and the keyboard navigation is the OS's.
 
 ##### The app's menu bar
 
@@ -3016,14 +3119,15 @@ type Popover struct {
     DefaultOpen  bool
     OnOpenChange func(open bool)
     // Disabled disables the trigger, which is then inert and dimmed by its
-    // recipe; the popover does not open. Set it here: the trigger props
-    // override a Disabled given to the trigger component itself.
+    // recipe; the popover does not open. A Disabled given to the
+    // trigger component itself (kit.Button{Disabled: true}) does the same.
     Disabled bool
 
     // Class is added after the recipe's Root classes, to the panel.
     Class string
     // Props are more props for the panel element.
     Props tela.Child
+    // contains filtered or unexported fields
 }
 ```
 
@@ -3070,6 +3174,14 @@ func (p Popover) Build() tela.Node
 ```
 
 Build returns the trigger and the popover's portal.
+
+#### func (Popover) WithTriggerProps
+
+```go
+func (p Popover) WithTriggerProps(props tela.Prop) tela.Component
+```
+
+WithTriggerProps makes Popover a [`Trigger`](#type-trigger), so that it can be the trigger of another overlay: a Tooltip{Trigger: kit.Popover{Trigger: button, ...}} explains the button that opens the popover. The props of the overlay go to the root element of Popover's own Trigger, with Popover's.
 
 ### type PopoverStyle
 
@@ -3799,6 +3911,7 @@ type Slider struct {
     ThumbClass string
     // Props are more props for the root element.
     Props tela.Child
+    // contains filtered or unexported fields
 }
 ```
 
@@ -3845,6 +3958,14 @@ func (s Slider) Build() tela.Node
 ```
 
 Build returns the slider element.
+
+#### func (Slider) WithTriggerProps
+
+```go
+func (s Slider) WithTriggerProps(p tela.Prop) tela.Component
+```
+
+WithTriggerProps makes Slider a [`Trigger`](#type-trigger), so that it can have a tooltip (Tooltip{Trigger: kit.Slider{...}}): the tooltip's props go to the root element, the slider's track, which the pointer hovers and whose thumbs take the keyboard focus (a tooltip opens for the focus inside its trigger).
 
 ### type SliderStyle
 
@@ -4076,6 +4197,7 @@ type Switch struct {
     ThumbClass string
     // Props are more props for the switch element.
     Props tela.Child
+    // contains filtered or unexported fields
 }
 ```
 
@@ -4113,6 +4235,14 @@ func (s Switch) Build() tela.Node
 ```
 
 Build returns the switch element.
+
+#### func (Switch) WithTriggerProps
+
+```go
+func (s Switch) WithTriggerProps(p tela.Prop) tela.Component
+```
+
+WithTriggerProps makes Switch a [`Trigger`](#type-trigger), so that it can have a tooltip (Tooltip{Trigger: kit.Switch{...}}) or open another overlay: the overlay's props go to the switch, after Switch's own, and its Disabled wins over theirs.
 
 ### type SwitchStyle
 
@@ -5061,6 +5191,7 @@ type Toggle struct {
     Class string
     // Props are more props for the button element.
     Props tela.Child
+    // contains filtered or unexported fields
 }
 ```
 
@@ -5097,6 +5228,14 @@ func (t Toggle) Build() tela.Node
 ```
 
 Build returns the toggle element.
+
+#### func (Toggle) WithTriggerProps
+
+```go
+func (t Toggle) WithTriggerProps(p tela.Prop) tela.Component
+```
+
+WithTriggerProps makes Toggle a [`Trigger`](#type-trigger), so that it can have a tooltip (Tooltip{Trigger: kit.Toggle{...}}) or open another overlay: the overlay's props go to the button, after Toggle's own, and its Disabled wins over theirs.
 
 ### type ToggleGroup
 
@@ -5308,6 +5447,7 @@ type Tooltip struct {
     ArrowClass string
     // Props are more props for the tooltip element.
     Props tela.Child
+    // contains filtered or unexported fields
 }
 ```
 
@@ -5354,6 +5494,14 @@ func (t Tooltip) Build() tela.Node
 
 Build returns the trigger and the tooltip's portal.
 
+#### func (Tooltip) WithTriggerProps
+
+```go
+func (t Tooltip) WithTriggerProps(p tela.Prop) tela.Component
+```
+
+WithTriggerProps makes Tooltip a [`Trigger`](#type-trigger), so that it can be the trigger of another overlay: a DropdownMenu{Trigger: kit.Tooltip{Trigger: button, ...}} is the same as the other way around. The props of the overlay go to the root element of Tooltip's own Trigger, with Tooltip's.
+
 ### type TooltipStyle
 
 ```go
@@ -5393,7 +5541,8 @@ Trigger is what a trigger slot takes: the Trigger field of [`Dialog`](#type-dial
 
 One rule holds for every trigger slot of the kit:
 
-- a kit component that can be a trigger implements Trigger, and [`Button`](#type-button) does: Trigger: kit.Button{Variant: kit.Outline, Children: h.Text("Open")};
+- a kit component that can be a trigger implements Trigger: [`Button`](#type-button) (Trigger: kit.Button{Variant: kit.Outline, Children: h.Text("Open")}), [`Toggle`](#type-toggle), [`Checkbox`](#type-checkbox), [`Switch`](#type-switch) and [`Slider`](#type-slider) (so that they can have a tooltip), and the overlays [`Tooltip`](#type-tooltip), [`Popover`](#type-popover), [`Dialog`](#type-dialog), [`AlertDialog`](#type-alertdialog) and [`DropdownMenu`](#type-dropdownmenu), so that one element can have several overlays: Tooltip{Content: h.Text("More actions"), Trigger: kit.DropdownMenu\[string\]{Trigger: kit.Button{...}, Items: items}} is a button with a tooltip that opens a menu (Radix's asChild on both triggers; nest them either way);
+- a trigger's own Disabled wins over the overlay's props, as the overlay's Disabled does: a disabled trigger opens nothing;
 - a component of your own implements it with one method, merging p into the props of its root element (the way a kit component merges it with its Props field);
 - anything else, an element or a function component, is made a Trigger with [`TriggerFunc`](#type-triggerfunc), which receives the props and puts them on the element it chooses.
 

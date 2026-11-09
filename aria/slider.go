@@ -97,6 +97,10 @@ type SliderOptions struct {
 	// thumbs are "Minimum price" and "Maximum price"; a thumb without one
 	// takes the slider's name.
 	ThumbLabels []string
+	// TrackRef is the track's ref, for a hook used together with this one
+	// on the track's element (a tooltip on a slider whose root is the
+	// track); the zero value makes the hook create its own.
+	TrackRef tela.ElementRef
 }
 
 // SliderResult is what [UseSlider] returns. It is the result of one build:
@@ -203,6 +207,9 @@ func UseSlider(o SliderOptions) SliderResult {
 		return &sliderState{track: core.NewElementRef(), label: core.NewElementRef()}
 	})
 	s.bump, s.version, s.t = bump, version, timeout
+	if o.TrackRef != (tela.ElementRef{}) {
+		s.track = o.TrackRef
+	}
 	s.sync(o, orient == "vertical", dir == "rtl")
 
 	name := h.AriaLabelledBy(s.label)

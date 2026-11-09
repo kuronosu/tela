@@ -1,6 +1,9 @@
 package tela
 
-import "github.com/kuronosu/tela/internal/core"
+import (
+	"github.com/kuronosu/tela/internal/core"
+	"github.com/kuronosu/tela/internal/platform"
+)
 
 // ColorScheme is a color scheme: what the app asks for ([System], [Light]
 // or [Dark]) in [App].ColorScheme and [SetColorScheme], and the effective
@@ -85,6 +88,26 @@ func UseAccentColor() (Color, bool) { return core.UseAccentColor() }
 // It is for component libraries: kit's ContextMenu and Menubar combine it
 // with their own Native setting, which wins.
 func UseNativeMenus() bool { return core.UseNativeMenus() }
+
+// UsePlatformKeys returns the platform whose key conventions the window
+// follows, as a GOOS name: "darwin" (Command is the primary modifier of
+// shortcuts, as [KeyboardEvent.CmdOrCtrl] reports), "windows" or "linux".
+// It is the OS the app runs on, except in tests that ask for another
+// (telatest.PlatformKeys, ADR-221). It does not change while the app runs,
+// so the component does not build again for it. It is a hook: call it at
+// the top level of a component.
+//
+// It is for showing shortcuts: kit's menus write "CmdOrCtrl+N" as "⌘N"
+// under "darwin" and "Ctrl+N" elsewhere.
+func UsePlatformKeys() string {
+	switch core.UseFlavor() {
+	case platform.FlavorMac:
+		return "darwin"
+	case platform.FlavorWindows:
+		return "windows"
+	}
+	return "linux"
+}
 
 // SetColorScheme sets the color scheme of the running app: [Light] or
 // [Dark] override the system's preference, [System] follows it again.

@@ -71,6 +71,10 @@ type collConfig[K comparable] struct {
 	// updated, whether or not it changed: same says that the item already
 	// was the selection. A select closes and a combobox commits with it.
 	onChosen func(k K, same bool)
+	// Submenus (menus only): the items that open one, and the submenu
+	// this menu is (the zero value for a root menu).
+	subKeys []K
+	parent  SubmenuTriggerResult
 	// Element.
 	ref        tela.ElementRef
 	role       string
@@ -119,6 +123,9 @@ type collState[K comparable] struct {
 	search                string
 	sections              map[string]*sectionRefs
 	panels                map[K]tela.ElementRef
+
+	// sub is the submenus of a menu (submenu.go).
+	sub subOptions[K]
 }
 
 type sectionRefs struct{ group, heading tela.ElementRef }
@@ -129,10 +136,13 @@ func useCollection[K comparable](cfg collConfig[K]) *collState[K] {
 	_, bump := tela.UseState(0)
 	own := tela.UseElementRef()
 	timeout := core.UseTimeout()
+	subOpen, subGrace := core.UseTimeout(), core.UseTimeout()
 	c := tela.UseOnce(func() *collState[K] {
-		return &collState[K]{keyList: keyList[K]{refs: map[K]tela.ElementRef{}}, sections: map[string]*sectionRefs{}, panels: map[K]tela.ElementRef{}}
+		return &collState[K]{keyList: keyList[K]{refs: map[K]tela.ElementRef{}}, sections: map[string]*sectionRefs{}, panels: map[K]tela.ElementRef{},
+			sub: subOptions[K]{keys: map[K]bool{}, menuRefs: map[K]tela.ElementRef{}}}
 	})
 	c.bump, c.t = bump, timeout
+	c.sub.openT, c.sub.graceT = subOpen, subGrace
 	c.ref = cfg.ref
 	if c.ref == (tela.ElementRef{}) {
 		c.ref = own
@@ -145,7 +155,11 @@ func useCollection[K comparable](cfg collConfig[K]) *collState[K] {
 		if c.hasPending && !c.cfg.virtualFocus {
 			c.scrollToKey(c.pending) // not rendered yet: bring it in
 		}
-		return nil
+		return func() {
+			if p := c.cfg.parent.lvl; p != nil {
+				p.dropChild(c)
+			}
+		}
 	})
 	// After every build: give the focus to the key that took it when its
 	// item vanished (a removed item was focused).
@@ -210,6 +224,9 @@ func (c *collState[K]) sync(cfg collConfig[K]) {
 	}
 	if c.cfg.kind == kindTabs {
 		c.fixTabSelection()
+	}
+	if cfg.kind == kindMenu {
+		c.syncSub(cfg.subKeys)
 	}
 }
 
@@ -473,6 +490,9 @@ func (c *collState[K]) setFocusedState(k K) {
 	c.focused, c.hasFocused = k, true
 	c.focusedIdx = c.index[k]
 	c.invalidate()
+	if c.cfg.kind == kindMenu {
+		c.focusChanged(k)
+	}
 }
 
 // focusElement gives the DOM focus to the element of k; when it is not
@@ -744,6 +764,18 @@ func (c *collState[K]) activate(k K, a activation) {
 	if c.isDisabled(k) {
 		return
 	}
+	if c.isSub(k) {
+		// A submenu trigger opens its submenu (React Aria: a press of the
+		// keyboard or an assistive technology focuses its first item, a
+		// pointer's leaves the focus on the trigger) and does not close
+		// the menu.
+		s := ""
+		if a.kind == PointerKeyboard || a.kind == PointerVirtual {
+			s = FocusFirst
+		}
+		c.openSub(k, s)
+		return
+	}
 	c.onSelect(k, a)
 	c.performAction(k)
 	if f := c.cfg.onClose; f != nil {
@@ -843,6 +875,12 @@ func (c *collState[K]) itemProps(k K) tela.Prop {
 	)
 	if c.cfg.kind == kindListBox {
 		ps = append(ps, h.OnDoubleClick(func(e tela.MouseEvent) { c.onItemDoubleClick(k, e) }))
+		if c.selectable() && !c.cfg.external && c.cfg.onChosen == nil {
+			ps = append(ps, h.OnContextMenu(func() { c.onItemContextMenu(k) }))
+		}
+	}
+	if c.isSub(k) {
+		ps = append(ps, c.subItemProps(k)...)
 	}
 	if c.cfg.focusOnHover {
 		ps = append(ps, h.OnPointerMove(func(e tela.PointerEvent) { c.onItemHover(k, e) }))
@@ -879,6 +917,21 @@ func (c *collState[K]) onItemClick(k K, e tela.MouseEvent) {
 	c.press(k, activation{kind: kind, shift: e.Shift, cmdOrCtrl: e.CmdOrCtrl()})
 }
 
+// onItemContextMenu is a context click on an item (a right click, or a
+// Control+click under the Mac flavor): an item
+// that is not selected becomes the selection and takes the focus before
+// the context menu of an area around the list opens (the event bubbles on
+// to it), as Finder and Explorer do; an item that is part of the selection
+// keeps the selection as it is, so the menu acts on all of it.
+func (c *collState[K]) onItemContextMenu(k K) {
+	if c.isDisabled(k) || c.isSelected(k) || !c.canSelect(k) {
+		return
+	}
+	c.within = true
+	c.moveFocus(k)
+	c.replaceSelection(k)
+}
+
 func (c *collState[K]) onItemDoubleClick(k K, e tela.MouseEvent) {
 	if _, secondary := c.actions(k); secondary && c.downKind == PointerMouse {
 		e.StopPropagation()
@@ -896,11 +949,19 @@ func (c *collState[K]) onItemFocus(k K) {
 }
 
 func (c *collState[K]) onItemHover(k K, e tela.PointerEvent) {
-	if e.Kind == tela.PointerTouch || (c.hasFocused && c.focused == k && c.refFor(k).Focused()) {
+	if e.Kind == tela.PointerTouch {
 		return
 	}
-	c.within = true
-	c.moveFocus(k)
+	if c.graceActive() {
+		// On the way to the open submenu: hovered when the grace ends.
+		c.sub.pending, c.sub.hasPending = k, true
+		return
+	}
+	if !(c.hasFocused && c.focused == k && c.refFor(k).Focused()) {
+		c.within = true
+		c.moveFocus(k)
+	}
+	c.hoverSub(k)
 }
 
 // onItemLeave is Radix's onItemLeave of a menu: when the mouse leaves an
@@ -915,6 +976,17 @@ func (c *collState[K]) onItemHover(k K, e tela.PointerEvent) {
 func (c *collState[K]) onItemLeave(e tela.PointerEvent) {
 	if e.Kind == tela.PointerTouch || !c.within || core.Rehovered(e) {
 		return
+	}
+	if s := &c.sub; s.open {
+		// On the way to the open submenu, or with the focus in it: the
+		// highlight stays on its trigger.
+		if s.grace {
+			s.hasPending = false
+			return
+		}
+		if core.ContainsFocus(c.subMenuRef(s.key)) {
+			return
+		}
 	}
 	c.clearFocus()
 	c.leaving = true
@@ -966,6 +1038,9 @@ func (c *collState[K]) containerProps() tela.Prop {
 		}),
 		h.OnPointerDown(c.syncFocus),
 	)
+	if c.cfg.kind == kindMenu && len(c.cfg.subKeys) > 0 {
+		ps = append(ps, h.OnPointerMove(c.menuPointerMove))
+	}
 	return core.MergeProps(ps...)
 }
 

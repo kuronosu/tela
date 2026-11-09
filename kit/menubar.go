@@ -84,9 +84,13 @@ type MenubarMenu[K comparable] struct {
 //	    OnSelect: func(menu, item string) { run(menu, item) },
 //	}
 //
-// The items are the [MenuItem]s of [DropdownMenu], with no submenus yet
-// (ADR-141). The keys of the menus and of the items have the same type K;
-// an item key needs to be distinct only within its menu. The open menu
+// The items are the [MenuItem]s of [DropdownMenu], submenus and roles
+// included: an Edit menu can mix the app's items with standard ones
+// ({Key: "copy", Role: desktop.RoleCopy}), drawn or native. In a submenu,
+// ArrowRight (ArrowLeft under "rtl") on an item that is not a submenu
+// trigger moves to the next menu of the bar, as the arrows do in a menu.
+// The keys of the menus and of the items have the same type K; an item
+// key needs to be distinct only within its menu (its submenus included). The open menu
 // follows the kit's value rule with Open (a pointer to the key of the
 // open menu; a key no menu has, such as the zero K, means all closed),
 // DefaultOpen and OnOpenChange.
@@ -105,7 +109,8 @@ type MenubarMenu[K comparable] struct {
 //
 // Each menu is a top-level entry with its items, converted as a native
 // ContextMenu's are: Label, Shortcut (shown as text; handle the keys
-// yourself), Disabled, separators, check items for checkbox and radio items;
+// yourself), Disabled, separators, check items for checkbox and radio items,
+// the OS's submenus and the roles of role items;
 // icons, the destructive Variant, Inset, KeepOpen, Class, Direction, the
 // classes of the bar, buttons and panels, and the check and radio icons
 // are not shown, a label becomes a disabled item and a group appears without
@@ -156,8 +161,8 @@ type Menubar[K comparable] struct {
 	// sets the direction of the layout.
 	Direction string
 	// CheckIcon and RadioIcon replace the check of a checkbox item and the
-	// dot of a radio item.
-	CheckIcon, RadioIcon tela.Icon
+	// dot of a radio item, SubIcon the chevron of a submenu's item.
+	CheckIcon, RadioIcon, SubIcon tela.Icon
 
 	// Open points to the open menu of a controlled bar; nil leaves it to
 	// the component, which starts with DefaultOpen (nil: all closed).
@@ -236,17 +241,18 @@ type nativeMenubar[K comparable] struct {
 }
 
 func (n nativeMenubar[K]) Build() tela.Node {
+	mac := tela.UsePlatformKeys() == "darwin"
 	menus := make([]desktop.MenuItem, len(n.menus))
 	for i, mm := range n.menus {
 		k := mm.Key
-		flat := flattenMenu("Menubar", mm.Items)
+		flat := flattenDeep("Menubar", mm.Items)
 		p := menuPanel[K]{items: mm.Items, store: n.store}
 		if onSelect := n.onSelect; onSelect != nil {
 			p.onSelect = func(item K) { onSelect(k, item) }
 		}
 		menus[i] = desktop.MenuItem{
 			Label: mm.Label, Disabled: mm.Disabled, Role: mm.Role,
-			Submenu: nativeItems(mm.Items, n.store, func(item K) { p.choose(flat, item) }),
+			Submenu: nativeItems(mm.Items, n.store, mac, func(item K) { p.choose(flat, item) }),
 		}
 	}
 	if !n.app {
@@ -254,9 +260,9 @@ func (n nativeMenubar[K]) Build() tela.Node {
 	}
 	var appItems []desktop.MenuItem
 	if len(n.appItems) > 0 {
-		flat := flattenMenu("Menubar", n.appItems)
+		flat := flattenDeep("Menubar", n.appItems)
 		p := menuPanel[K]{items: n.appItems, store: n.store, onSelect: n.onAppSelect}
-		appItems = nativeItems(n.appItems, n.store, func(item K) { p.choose(flat, item) })
+		appItems = nativeItems(n.appItems, n.store, mac, func(item K) { p.choose(flat, item) })
 	}
 	return desktop.AppMenuBar{Menus: menus, AppItems: appItems, OnError: n.onError}
 }
@@ -270,6 +276,7 @@ type drawnMenubar[K comparable] struct {
 func (d drawnMenubar[K]) Build() tela.Node {
 	m, store := d.bar, d.store
 	st := &UseStyle().Menubar
+	w := tela.UseWindow()
 	keys := make([]K, len(m.Menus))
 	var disabled []K
 	for i, mm := range m.Menus {
@@ -285,8 +292,11 @@ func (d drawnMenubar[K]) Build() tela.Node {
 	})
 
 	kids := []tela.Child{bar.Props, cls(st.Root, m.Class), rootDir, m.Props}
+	// The press on a menu's button takes the focus from the element the
+	// roles of the items act on: remember it first.
+	origin := store.captureOrigin(w, func() bool { return bar.Open })
 	for _, mm := range m.Menus {
-		kids = append(kids, h.Button(bar.TriggerProps(mm.Key), h.Key(mm.Key), cls(st.Trigger, m.TriggerClass), h.Text(mm.Label)))
+		kids = append(kids, h.Button(origin, bar.TriggerProps(mm.Key), h.Key(mm.Key), cls(st.Trigger, m.TriggerClass), h.Text(mm.Label)))
 	}
 
 	var open tela.Child
@@ -304,7 +314,7 @@ func (d drawnMenubar[K]) Build() tela.Node {
 			panel := menuPanel[K]{
 				component: "Menubar", style: &st.Menu, items: mm.Items, store: store,
 				popover: pop, menuProps: bar.MenuProps(k), ref: bar.MenuRef(k), strategy: bar.FocusStrategy, close: bar.Close,
-				checkIcon: m.CheckIcon, radioIcon: m.RadioIcon, class: m.ContentClass,
+				checkIcon: m.CheckIcon, radioIcon: m.RadioIcon, subIcon: m.SubIcon, class: m.ContentClass, dir: dir,
 			}
 			if onSelect := m.OnSelect; onSelect != nil {
 				panel.onSelect = func(item K) { onSelect(k, item) }

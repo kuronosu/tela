@@ -128,8 +128,8 @@ type Dialog struct {
 	DefaultOpen  bool
 	OnOpenChange func(open bool)
 	// Disabled disables the trigger, which is then inert and dimmed by its
-	// recipe; the dialog does not open. Set it here: the trigger props
-	// override a Disabled given to the trigger component itself.
+	// recipe; the dialog does not open. A Disabled given to the
+	// trigger component itself (kit.Button{Disabled: true}) does the same.
 	Disabled bool
 
 	// Class is added after the recipe's Root classes, to the panel. The
@@ -143,13 +143,30 @@ type Dialog struct {
 	CloseClass       string
 	// Props are more props for the dialog element (the panel).
 	Props tela.Child
+
+	// outer holds the props of an overlay that has the dialog as its
+	// Trigger (a Tooltip on the dialog's button).
+	outer outerTrigger
+}
+
+// WithTriggerProps makes Dialog a [Trigger], so that it can be the trigger
+// of another overlay: a Tooltip{Trigger: kit.Dialog{Trigger: button, ...}} explains the button that opens the dialog. The props of the overlay go to the root
+// element of Dialog's own Trigger, with Dialog's.
+func (d Dialog) WithTriggerProps(p tela.Prop) tela.Component {
+	d.outer = outerTrigger{props: p, set: true}
+	return d
+}
+
+func (d Dialog) withTrigger(p tela.Prop, ref tela.ElementRef) tela.Component {
+	d.outer = outerTrigger{props: p, ref: ref, set: true}
+	return d
 }
 
 // Build returns the trigger and the dialog's portal.
 func (d Dialog) Build() tela.Node {
 	s := &UseStyle().Dialog
 	trig := aria.UseOverlayTrigger(aria.OverlayTriggerOptions{
-		Open: d.Open, DefaultOpen: d.DefaultOpen, OnOpenChange: d.OnOpenChange, Disabled: d.Disabled,
+		Open: d.Open, DefaultOpen: d.DefaultOpen, OnOpenChange: d.OnOpenChange, Disabled: d.Disabled, Ref: d.outer.ref,
 	})
 	overlay := aria.UseOverlay(aria.OverlayOptions{
 		Open: trig.Open, OnClose: trig.Close, Dismissable: true, Modal: true,
@@ -166,7 +183,7 @@ func (d Dialog) Build() tela.Node {
 	}
 	root := panel.root(overlay.Props, dlg.Props, d.Props)
 	return h.Fragment(
-		triggerOf(d.Trigger, trig.TriggerProps),
+		triggerOf(d.Trigger, d.outer.merge(trig.TriggerProps), trig.Ref),
 		h.Portal(h.Presence(h.If(trig.Open,
 			h.Div(cls(s.Positioner),
 				h.Div(cls(s.Overlay, d.OverlayClass), h.Exit(s.OverlayExit)),

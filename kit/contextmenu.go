@@ -21,13 +21,10 @@ func init() {
 
 // ContextMenu is a menu that opens where the user right-clicks inside an
 // area, shadcn/ui's ContextMenu, built on aria.UseContextMenuTrigger: a
-// right click opens it at the pointer, a touch or a pen that stays down
-// opens it under the finger, and Shift+F10 or the ContextMenu key opens it, on its
-// first item, at the area's top-left corner. The keys reach the area from
-// the element that has the focus inside it, as in the browser: an area with
-// nothing focusable inside opens from the keyboard only when it can take the
-// focus itself (Props: h.TabIndex(0), with a focus-visible: ring in Class).
-// The menu closes with Escape,
+// right click (a Control+click on a Mac) opens it at the pointer, a touch
+// or a pen that stays down opens it under the finger, and Shift+F10 or the
+// ContextMenu key opens it, on its first item, below the element that has
+// the focus. The menu closes with Escape,
 // a press outside it with any mouse button or choosing an item, and the
 // focus returns to where it was. A right click elsewhere in the area while
 // the menu is open closes it and opens a new one at the new point (Radix),
@@ -46,19 +43,39 @@ func init() {
 //	    },
 //	}
 //
-// The items are the [MenuItem]s of [DropdownMenu], with no submenus yet
-// (ADR-141). The root element is the area, a div that holds Children; the
-// area is not focusable by itself, the keys reach it from what inside it
-// has the focus, and a keyboard menu opens at the area's corner, not at that
-// element (ADR-133). Open and OnOpenChange are the usual controlled pair
-// (a menu opens at a point, so there is no DefaultOpen).
+// The items are the [MenuItem]s of [DropdownMenu], submenus and roles
+// included (Cut, Copy and Paste in the context menu of a text field act on
+// the field). The root element is the area, a div that holds Children.
+// Open and OnOpenChange are the usual controlled pair (a menu opens at a
+// point, so there is no DefaultOpen).
+//
+// # The keyboard
+//
+// The area is not focusable: kit adds no tab stop (Radix's model). The
+// keys reach it from the element inside it that has the focus, as in the
+// browser, and the menu opens below that element. An area with nothing
+// focusable inside (a canvas, a drop zone) opens from the keyboard only
+// when it can take the focus itself: give it a tab stop, a role and a name
+// in Props, and a focus ring in Class:
+//
+//	kit.ContextMenu[string]{
+//	    Props: tela.MergeProps(h.TabIndex(0), h.Role("region"), h.AriaLabel("Canvas")),
+//	    Class: "rounded-md border outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+//	    ...
+//	}
+//
+// The menu then opens below the area. A list of items with selection
+// inside the area (aria.UseListBox) selects the item that is right-clicked
+// before the menu opens, unless it is part of the selection already, as
+// Finder does.
 //
 // # Native context menu
 //
 // The menu is drawn in the kit's look unless Native (kit.NativeOn), or
 // tela.App.NativeMenus when Native is left at kit.NativeAuto, asks for the
 // OS's context menu (ADR-215). It then opens where the drawn one would
-// (the pointer, or the area's corner for Shift+F10 and the Menu key), and
+// (the pointer, or below the focused element for Shift+F10 and the Menu
+// key), and
 // where the platform has no native context menu (Linux) the drawn menu
 // opens instead, in the same event and frame. The area's own Native
 // setting wins over the app's, so one menu can stay drawn while the
@@ -97,8 +114,8 @@ type ContextMenu[K comparable] struct {
 	// zero value, kit.NativeAuto, follows tela.App.NativeMenus.
 	Native NativeMode
 	// CheckIcon and RadioIcon replace the check of a checkbox item and the
-	// dot of a radio item.
-	CheckIcon, RadioIcon tela.Icon
+	// dot of a radio item, SubIcon the chevron of a submenu's item.
+	CheckIcon, RadioIcon, SubIcon tela.Icon
 
 	// Open points to the open state of a controlled menu; nil leaves it to
 	// the component. OnOpenChange is called with the next state.
@@ -118,51 +135,43 @@ type ContextMenu[K comparable] struct {
 func (c ContextMenu[K]) Build() tela.Node {
 	st := &UseStyle().ContextMenu
 	store := useMenuStore[K]()
-	// opens counts the openings: the panel is keyed by it, so a right
-	// click that closes the menu and opens it again at another point (in
-	// the same event) mounts a new panel, which takes the focus as any
-	// opening does, while the old one fades out where it was (the anchor
-	// of its last build is its opening's: aria's Anchor). Without the key
-	// the Presence would bring the exiting panel back as it was. A long
-	// press while the menu is open is not an opening: it moves the panel.
-	opens, setOpens := tela.UseState(0)
-	onOpenChange := c.OnOpenChange
 	w := tela.UseWindow()
+	mac := tela.UsePlatformKeys() == "darwin"
 	var intercept func(x, y float32) bool
 	if useNative("ContextMenu", c.Native) {
-		intercept = func(x, y float32) bool { return c.popup(w, store, tela.Point{X: x, Y: y}) }
+		intercept = func(x, y float32) bool { return c.popup(w, store, mac, tela.Point{X: x, Y: y}) }
 	}
 	cm := aria.UseContextMenuTrigger(aria.ContextMenuTriggerOptions{
 		Open: c.Open, Disabled: c.Disabled, NoLongPress: c.NoLongPress, Intercept: intercept,
-		OnOpenChange: func(open bool) {
-			if open {
-				setOpens.Update(func(n int) int { return n + 1 })
-			}
-			if onOpenChange != nil {
-				onOpenChange(open)
-			}
-		},
+		OnOpenChange: c.OnOpenChange,
 	})
 	pop := cm.PopoverOptions()
 	pop.Floating = append(pop.Floating, menuFloating()...)
 	panel := menuPanel[K]{
 		component: "ContextMenu", style: st, items: c.Items, store: store, onSelect: c.OnSelect,
 		popover: pop, menuProps: cm.MenuProps, ref: cm.MenuRef, strategy: cm.FocusStrategy, close: cm.Close,
-		ariaLabel: c.AriaLabel, checkIcon: c.CheckIcon, radioIcon: c.RadioIcon, class: c.ContentClass,
+		ariaLabel: c.AriaLabel, checkIcon: c.CheckIcon, radioIcon: c.RadioIcon, subIcon: c.SubIcon, class: c.ContentClass,
 	}
+	// The panel is keyed by the opening: a right click that closes the
+	// menu and opens it again at another point (in the same event) mounts
+	// a new panel, which takes the focus as any opening does, while the
+	// old one fades out where it was (the anchor of its last build is its
+	// opening's: aria's Anchor). Without the key the Presence would bring
+	// the exiting panel back as it was. A long press while the menu is
+	// open is not an opening: it moves the panel.
 	return h.Fragment(
 		h.Div(cm.TriggerProps, cls(c.Class), c.Props, c.Children),
-		h.Portal(h.Presence(h.If(cm.Open, tela.WithKey(panel, opens)))),
+		h.Portal(h.Presence(h.If(cm.Open, tela.WithKey(panel, cm.Opening)))),
 	)
 }
 
 // popup shows the menu as the OS's context menu at the point; false means
 // there is none (an error, such as desktop.ErrUnsupported on Linux), and the
 // drawn menu opens instead.
-func (c ContextMenu[K]) popup(w tela.WindowHandle, store *menuStore[K], at tela.Point) bool {
-	flat := flattenMenu("ContextMenu", c.Items)
+func (c ContextMenu[K]) popup(w tela.WindowHandle, store *menuStore[K], mac bool, at tela.Point) bool {
+	flat := flattenDeep("ContextMenu", c.Items)
 	p := menuPanel[K]{items: c.Items, store: store, onSelect: c.OnSelect}
-	items := nativeItems(c.Items, store, func(k K) { p.choose(flat, k) })
+	items := nativeItems(c.Items, store, mac, func(k K) { p.choose(flat, k) })
 	if len(items) == 0 {
 		return false
 	}

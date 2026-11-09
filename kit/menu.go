@@ -7,8 +7,10 @@ package kit
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/aria"
@@ -48,6 +50,13 @@ const (
 	// Label, when set, is its accessible name (it is not drawn: put a
 	// MenuLabel in Items for a visible heading).
 	MenuGroup
+	// MenuSub is an item that opens a submenu (DropdownMenuSub, with its
+	// SubTrigger and SubContent): Key, Label, Icon, Inset and Disabled are
+	// the trigger's, Items the submenu's entries, of any kind (a MenuSub
+	// too). It is not chosen: a click, Enter, Space or ArrowRight
+	// (ArrowLeft under right-to-left) opens the submenu, and so does the
+	// pointer resting on it for aria.SubmenuDelay.
+	MenuSub
 )
 
 // MenuItem is one entry of a menu, whatever its kind: the model that
@@ -67,10 +76,65 @@ const (
 //	}
 //
 // Every item that can be chosen (a plain item, a checkbox item, a radio
-// item) needs a Key distinct from the others of its menu; it is what the
-// menu's OnSelect reports and what the keyboard's typeahead and the
-// accessibility tree tell items apart by. A menu with two items of the same
-// Key panics in dev mode. Fields that a kind does not use are ignored.
+// item) and every submenu trigger needs a Key distinct from the others of
+// its menu, its submenus included; it is what the menu's OnSelect reports
+// and what the keyboard's typeahead and the accessibility tree tell items
+// apart by. A menu with two items of the same Key panics in dev mode.
+// Fields that a kind does not use are ignored.
+//
+// # Submenus
+//
+// A MenuSub item opens a submenu beside it (on the right, on the left under
+// right-to-left), whose Items are any entries, submenus too:
+//
+//	{Kind: kit.MenuSub, Key: "share", Label: "Share", Items: []kit.MenuItem[string]{
+//	    {Key: "email", Label: "Email link"},
+//	    {Key: "messages", Label: "Messages"},
+//	}},
+//
+// ArrowLeft (ArrowRight under right-to-left) and Escape close the submenu
+// and give the focus back to its item; the focus moving to another item of
+// the parent menu closes it, except while the mouse moves toward it (React
+// Aria's pointer grace); choosing an item in it, or a press outside every
+// menu, closes the whole menu. Each submenu has its own typeahead. In a
+// native menu (ContextMenu and Menubar with Native, ADR-215) it is the OS's
+// submenu.
+//
+// # Roles
+//
+// A plain item with a Role is one of the standard items of desktop.Role
+// (Electron's roles): Undo, Redo, Cut, Copy, Paste, Select All, Minimize,
+// Zoom and Close. An empty Label is the role's English one and an empty
+// Shortcut the role's keys, so an Edit menu can mix the app's items with
+// the standard ones:
+//
+//	{Key: "undo", Role: desktop.RoleUndo},
+//	{Key: "redo", Role: desktop.RoleRedo},
+//	{Kind: kit.MenuSeparator},
+//	{Key: "cut", Role: desktop.RoleCut},
+//	{Key: "copy", Role: desktop.RoleCopy},
+//	{Key: "paste", Role: desktop.RolePaste},
+//	{Key: "find", Label: "Find…", Shortcut: "CmdOrCtrl+F", OnSelect: find},
+//
+// Choosing a role item without an OnSelect of its own carries the role out,
+// and neither the item's nor the menu's OnSelect is called (macOS's own
+// items never report the choice either): in a native menu the OS or
+// package desktop does it (ADR-226), and in a drawn one the menu closes and
+// desktop.PerformRole does it once the focus is back where the menu was
+// opened from (the element that had it before the trigger's press took it;
+// a context menu's area keeps it), so Copy acts on the text field the user
+// was in. An item's own OnSelect replaces the role, as in desktop.MenuItem.
+//
+// # Shortcuts
+//
+// Shortcut is shown as written, with two exceptions that follow the
+// platform of the window's key conventions (tela.UsePlatformKeys): a
+// shortcut that names CmdOrCtrl ("CmdOrCtrl+Shift+Z") is shown as a Mac
+// shows it ("⇧⌘Z") under "darwin" and as "Ctrl+Shift+Z" elsewhere, and a
+// role item's default keys are written that way. Assistive technologies
+// get the keys in ARIA's syntax (aria-keyshortcuts: "Shift+Meta+Z") from
+// the glyphs of a Mac ("⇧⌘Z", "⌃⌥⌘K") and from the usual spelling
+// ("Ctrl+Shift+T").
 //
 // Choosing a plain item calls its OnSelect and the menu's, and closes the
 // menu; a checkbox item toggles and a radio item chooses, and they close
@@ -91,9 +155,15 @@ type MenuItem[K comparable] struct {
 	Label string
 	// Icon is drawn before the label of a plain item.
 	Icon tela.Icon
-	// Shortcut is text shown at the end of the item, such as "⌘T". It is
-	// only shown: binding the keys is the app's.
+	// Shortcut is text shown at the end of the item, such as "⌘T" or
+	// "CmdOrCtrl+T" (see "Shortcuts"). It is only shown: binding the keys
+	// is the app's.
 	Shortcut string
+	// Role makes a plain item one of the standard items (see "Roles"):
+	// desktop.RoleUndo, RoleCopy, RoleMinimize... The zero value,
+	// desktop.RoleNone, is an item of the app's own. A menu role
+	// (RoleEditMenu...) is a MenubarMenu's, and panics here in dev mode.
+	Role desktop.Role
 	// Variant is Default or Destructive (a plain item, as shadcn's
 	// variant="destructive").
 	Variant Variant
@@ -125,8 +195,8 @@ type MenuItem[K comparable] struct {
 	DefaultValue  *K
 	OnValueChange func(K)
 
-	// Items are the radio items of a radio group, or the entries of a
-	// group.
+	// Items are the radio items of a radio group, the entries of a group,
+	// or the entries of a submenu.
 	Items []MenuItem[K]
 
 	// Class is added after the recipe's classes, to the item.
@@ -172,6 +242,13 @@ type MenuStyle struct {
 	Separator string
 	// Shortcut is the text at the end of an item.
 	Shortcut string
+	// SubTrigger is an item that opens a submenu (shadcn's SubTrigger;
+	// aria-expanded: styles it while its submenu is open), SubIcon the
+	// chevron at its end and SubContent the submenu's panel, which enters
+	// and exits as Content does (Exit, Sides).
+	SubTrigger string
+	SubIcon    string
+	SubContent string
 }
 
 // defaultMenuStyle is shadcn/ui's DropdownMenuContent and the items it
@@ -210,8 +287,17 @@ func defaultMenuStyle() MenuStyle {
 		LabelInset:   "ps-8",
 		Separator:    "-mx-1 my-1 h-px bg-border",
 		Shortcut:     "ms-auto text-xs tracking-widest text-muted-foreground",
+		SubTrigger: "flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground " +
+			"aria-expanded:bg-accent aria-expanded:text-accent-foreground aria-disabled:pointer-events-none aria-disabled:opacity-50",
+		SubIcon: "pointer-events-none ms-auto size-4 shrink-0 rtl:rotate-180",
+		SubContent: "z-50 min-w-32 overflow-x-hidden overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-lg outline-hidden " +
+			"transition duration-150 starting:scale-95 starting:opacity-0",
 	}
 }
+
+// menuChevronRight is Lucide's chevron-right (ISC), the end of a submenu's
+// trigger.
+var menuChevronRight = tela.Icon{SVG: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`}
 
 // menuRowKey keys the entries of a menu that have no Key of their own.
 type menuRowKey struct {
@@ -240,16 +326,56 @@ type menuStore[K comparable] struct {
 	checked map[K]bool
 	radio   map[K]K
 	rebuild func()
+	// role is the role of the item chosen last, carried out once the
+	// drawn menu has closed (desktop.PerformRole), in origin when there
+	// is one: the element that had the focus before the trigger's press
+	// took it.
+	role      desktop.Role
+	origin    tela.ElementRef
+	hasOrigin bool
 }
 
-// useMenuStore is the hook that returns the store of a menu component.
+// useMenuStore is the hook that returns the store of a menu component. It
+// carries out a chosen role after the build that closed the menu, when the
+// panel's focus scope has given the focus back.
 func useMenuStore[K comparable]() *menuStore[K] {
 	_, bump := tela.UseState(0)
+	w := tela.UseWindow()
 	s := tela.UseOnce(func() *menuStore[K] {
 		return &menuStore[K]{checked: map[K]bool{}, radio: map[K]K{}}
 	})
 	s.rebuild = func() { bump.Update(func(n int) int { return n + 1 }) }
+	tela.UseEffect(func() func() {
+		if r := s.role; r != desktop.RoleNone {
+			s.role = desktop.RoleNone
+			if s.hasOrigin {
+				s.origin.Focus()
+			}
+			s.hasOrigin = false
+			desktop.PerformRole(w, r)
+		}
+		return nil
+	})
 	return s
+}
+
+// captureOrigin remembers the element that has the focus before a press
+// on a menu's trigger moves it there, for the roles of the menu's items
+// (menuStore.role). A key on the trigger forgets it: the focus is the
+// trigger's already.
+func (s *menuStore[K]) captureOrigin(w tela.WindowHandle, open func() bool) tela.Prop {
+	return tela.MergeProps(
+		h.OnPointerDown(func() {
+			if !open() {
+				s.origin, s.hasOrigin = w.ActiveElement()
+			}
+		}),
+		h.OnKeyDown(func() {
+			if !open() {
+				s.hasOrigin = false
+			}
+		}),
+	)
 }
 
 func (s *menuStore[K]) isChecked(it MenuItem[K]) bool {
@@ -283,10 +409,12 @@ type menuEntry[K comparable] struct {
 	group *MenuItem[K] // the radio group, nil for others
 }
 
-// menuFlat is the items of a menu that can be chosen, in order.
+// menuFlat is the items of a menu that can be chosen, and the items that
+// open its submenus, in order (one level: a submenu has its own).
 type menuFlat[K comparable] struct {
 	keys     []K
 	disabled []K
+	subs     []K
 	entries  map[K]menuEntry[K]
 	text     map[K]string
 }
@@ -312,7 +440,16 @@ func flattenMenu[K comparable](component string, items []MenuItem[K]) *menuFlat[
 		for i := range items {
 			it := items[i]
 			switch it.Kind {
+			case MenuSub:
+				add(it, nil, off)
+				f.subs = append(f.subs, it.Key)
+				if devMode() {
+					checkSubKeys(component, it.Items, f.entries)
+				}
 			case MenuPlain, MenuCheckbox:
+				if it.Role != desktop.RoleNone && devMode() {
+					checkItemRole(component, it)
+				}
 				add(it, nil, off)
 			case MenuRadioGroup:
 				if groups[it.Key] && devMode() {
@@ -329,7 +466,53 @@ func flattenMenu[K comparable](component string, items []MenuItem[K]) *menuFlat[
 		}
 	}
 	walk(items, nil, false)
+	for k, e := range f.entries {
+		if e.item.Label == "" && e.item.Role != desktop.RoleNone {
+			f.text[k] = e.item.Role.Label()
+		}
+	}
 	return f
+}
+
+// checkSubKeys panics, in dev mode, when an entry of a submenu (at any
+// depth) has the Key of an item of the menus above it: the menu's OnSelect
+// could not tell them apart.
+func checkSubKeys[K comparable](component string, items []MenuItem[K], seen map[K]menuEntry[K]) {
+	keys := map[K]bool{}
+	var walk func(items []MenuItem[K])
+	walk = func(items []MenuItem[K]) {
+		for _, it := range items {
+			switch it.Kind {
+			case MenuPlain, MenuCheckbox, MenuSub:
+				if _, dup := seen[it.Key]; dup || keys[it.Key] {
+					panic(fmt.Sprintf("kit: %s has two items with the key %v (one in a submenu); give each item that can be chosen, in every submenu, its own Key", component, it.Key))
+				}
+				keys[it.Key] = true
+				if it.Kind == MenuSub {
+					walk(it.Items)
+				}
+			case MenuRadioGroup:
+				walk(it.Items)
+			case MenuGroup:
+				walk(it.Items)
+			}
+		}
+	}
+	walk(items)
+}
+
+// checkItemRole panics when an item has a Role that is not the role of an
+// item.
+func checkItemRole[K comparable](component string, it MenuItem[K]) {
+	switch it.Role {
+	case desktop.RoleUndo, desktop.RoleRedo, desktop.RoleCut, desktop.RoleCopy, desktop.RolePaste,
+		desktop.RoleSelectAll, desktop.RoleMinimize, desktop.RoleZoom, desktop.RoleClose:
+		if it.Kind != MenuPlain {
+			panic(fmt.Sprintf("kit: %s item %q has Role %v and is not a plain item; only plain items have a role", component, it.Label, it.Role))
+		}
+	default:
+		panic(fmt.Sprintf("kit: %s item %q has Role %v, the role of a menu; an item's Role is desktop.RoleUndo, RoleRedo, RoleCut, RoleCopy, RolePaste, RoleSelectAll, RoleMinimize, RoleZoom or RoleClose (a menu's role goes in MenubarMenu.Role)", component, it.Label, it.Role))
+	}
 }
 
 // menuPanel is an open menu: the popover that places it, the aria menu
@@ -351,29 +534,72 @@ type menuPanel[K comparable] struct {
 	close     func()
 	ariaLabel string
 	checkIcon tela.Icon
+	subIcon   tela.Icon
 	radioIcon tela.Icon
 	class     string
 	props     tela.Child
+	// dir is the direction of the menu ("ltr" or "rtl"), for its
+	// submenus' side and keys; "" is the one at the panel's position.
+	dir string
+	// sub is the submenu this panel is, the zero value for a menu's own
+	// panel: its popover, props, ref and close come from it.
+	sub   aria.SubmenuTriggerResult
+	isSub bool
 }
 
 func (p menuPanel[K]) Build() tela.Node {
 	st := p.style
+	dir := p.dir
+	if dir == "" {
+		dir = tela.UseDirection()
+	}
+	content := st.Content
+	if p.isSub {
+		p.popover = p.sub.PopoverOptions()
+		p.popover.Floating = menuFloating()
+		p.menuProps, p.ref, p.close, content = p.sub.MenuProps, p.sub.MenuRef, p.sub.CloseAll, st.SubContent
+	}
 	pop := aria.UsePopover(p.popover)
 	flat := flattenMenu(p.component, p.items)
 	keepOpen := false
-	menu := aria.UseMenu(aria.MenuOptions[K]{
-		Keys: flat.keys, DisabledKeys: flat.disabled,
+	o := aria.MenuOptions[K]{
+		Keys: flat.keys, DisabledKeys: flat.disabled, SubmenuKeys: flat.subs, Direction: dir,
 		TextValue: func(k K) string { return flat.text[k] },
 		// Each item decides whether the menu closes (KeepOpen).
 		CloseOnSelect: &keepOpen,
 		OnAction:      func(k K) { p.choose(flat, k) },
-		AutoFocus:     true, FocusStrategy: p.strategy, Ref: p.ref, AriaLabel: p.ariaLabel,
-	})
-	r := menuRenderer[K]{component: p.component, st: st, menu: menu, store: p.store, checkIcon: p.checkIcon, radioIcon: p.radioIcon}
+		Ref:           p.ref, AriaLabel: p.ariaLabel,
+	}
+	if p.isSub {
+		o.Submenu = p.sub
+	} else {
+		// CloseAll of the submenus; the items close the menu themselves.
+		o.OnClose, o.AutoFocus, o.FocusStrategy = p.close, true, p.strategy
+	}
+	menu := aria.UseMenu(o)
+	r := menuRenderer[K]{component: p.component, st: st, menu: menu, store: p.store, checkIcon: p.checkIcon, radioIcon: p.radioIcon, subIcon: p.subIcon,
+		mac: tela.UsePlatformKeys() == "darwin"}
 	kids := []tela.Child{pop.Props, p.menuProps, menu.Props, h.Exit(st.Exit),
-		cls(st.Content, st.Sides[pop.Side], p.class), p.props}
-	return h.Div(append(kids, r.entries(p.items)...)...)
+		cls(content, st.Sides[pop.Side], when(!p.isSub, p.class))}
+	if !p.isSub {
+		kids = append(kids, p.props)
+	}
+	kids = append(kids, r.entries(p.items)...)
+	// The submenus are children of the panel, not of their item: the item
+	// would get the submenu's pointer events (aria.MenuResult.SubmenuTrigger).
+	for _, k := range flat.subs {
+		sub := menu.SubmenuTrigger(k)
+		inner := menuPanel[K]{
+			component: p.component, style: st, items: flat.entries[k].item.Items, store: p.store, onSelect: p.onSelect,
+			checkIcon: p.checkIcon, radioIcon: p.radioIcon, subIcon: p.subIcon, dir: dir, sub: sub, isSub: true,
+		}
+		kids = append(kids, h.Portal(h.Key(menuSubKey[K]{k}), h.Presence(h.If(sub.Open, inner))))
+	}
+	return h.Div(kids...)
 }
+
+// menuSubKey keys the portal of a submenu among the entries of its menu.
+type menuSubKey[K comparable] struct{ k K }
 
 // choose runs what choosing the item with key k does.
 func (p menuPanel[K]) choose(flat *menuFlat[K], k K) {
@@ -403,6 +629,17 @@ func (p menuPanel[K]) choose(flat *menuFlat[K], k K) {
 		if it.OnCheckedChange != nil {
 			it.OnCheckedChange(next)
 		}
+	case it.Kind == MenuSub:
+		return // aria opens the submenu; it is not chosen
+	case it.Role != desktop.RoleNone && it.OnSelect == nil:
+		// Carried out once the menu has closed and the focus is back
+		// (useMenuStore).
+		p.store.role = it.Role
+		p.store.rebuild()
+		if p.close != nil {
+			p.close()
+		}
+		return
 	default:
 		if it.OnSelect != nil {
 			it.OnSelect()
@@ -423,7 +660,10 @@ type menuRenderer[K comparable] struct {
 	menu      aria.MenuResult[K]
 	store     *menuStore[K]
 	checkIcon tela.Icon
+	subIcon   tela.Icon
 	radioIcon tela.Icon
+	// mac: the window follows the Mac's key conventions (shortcuts).
+	mac bool
 }
 
 // entries draws a list of entries.
@@ -431,7 +671,7 @@ func (r menuRenderer[K]) entries(items []MenuItem[K]) []tela.Child {
 	var out []tela.Child
 	for i, it := range items {
 		switch it.Kind {
-		case MenuPlain, MenuCheckbox:
+		case MenuPlain, MenuCheckbox, MenuSub:
 			out = append(out, r.item(it, nil))
 		case MenuRadioGroup:
 			g := it
@@ -483,6 +723,10 @@ func (r menuRenderer[K]) item(it MenuItem[K], radio *MenuItem[K]) tela.Child {
 		kids = append(kids, h.Role("menuitemcheckbox"), h.AriaChecked(on),
 			cls(st.CheckboxItem, it.Class),
 			h.Span(cls(st.Indicator), h.If(on, icon(orIcon(r.checkIcon, iconCheck), st.CheckIcon))))
+	case it.Kind == MenuSub:
+		return h.Div(append(kids, cls(st.SubTrigger, when(it.Inset, st.ItemInset), it.Class),
+			icon(it.Icon, st.ItemIcon, st.ItemIconVariants[""]), h.Text(it.Label),
+			icon(orIcon(r.subIcon, menuChevronRight), st.SubIcon))...)
 	default:
 		// The icon's color falls back to the default one for a variant
 		// that has none of its own.
@@ -493,48 +737,208 @@ func (r menuRenderer[K]) item(it MenuItem[K], radio *MenuItem[K]) tela.Child {
 		kids = append(kids, cls(st.Item, r.itemVariant(it.Variant), when(it.Inset, st.ItemInset), it.Class),
 			icon(it.Icon, st.ItemIcon, iconVariant))
 	}
-	kids = append(kids, h.Text(it.Label))
-	if it.Shortcut != "" {
-		if keys := ariaKeyShortcuts(it.Shortcut); keys != "" {
+	label, shortcut := it.Label, it.Shortcut
+	if it.Role != desktop.RoleNone && it.Kind == MenuPlain {
+		if label == "" {
+			label = it.Role.Label()
+		}
+		if shortcut == "" {
+			shortcut = roleShortcut(it.Role)
+		}
+	}
+	kids = append(kids, h.Text(label))
+	if shortcut != "" {
+		shown, keys := formatShortcut(shortcut, r.mac)
+		if keys != "" {
 			kids = append(kids, h.AriaKeyShortcuts(keys))
 		}
-		kids = append(kids, h.Span(cls(st.Shortcut), h.AriaHidden(true), h.Text(it.Shortcut)))
+		kids = append(kids, h.Span(cls(st.Shortcut), h.AriaHidden(true), h.Text(shown)))
 	}
 	return h.Div(kids...)
 }
 
-// ariaKeyShortcuts returns a menu item's Shortcut in ARIA's syntax for
-// h.AriaKeyShortcuts ("Shift+Cmd+P" is "Shift+Meta+P"), so that assistive
-// technologies announce the keys the hidden shortcut text shows; "" when
-// it is not a key combination desktop.ParseKeys reads (a glyph such as
-// "⌘T").
-func ariaKeyShortcuts(shortcut string) string {
-	keys, err := desktop.ParseKeys(shortcut)
-	if err != nil {
-		return ""
+// roleShortcut is the keys a role item shows when it has no Shortcut: the
+// edit roles' (desktop's own), none for the window roles.
+func roleShortcut(r desktop.Role) string {
+	switch r {
+	case desktop.RoleUndo:
+		return "CmdOrCtrl+Z"
+	case desktop.RoleRedo:
+		return "CmdOrCtrl+Shift+Z"
+	case desktop.RoleCut:
+		return "CmdOrCtrl+X"
+	case desktop.RoleCopy:
+		return "CmdOrCtrl+C"
+	case desktop.RolePaste:
+		return "CmdOrCtrl+V"
+	case desktop.RoleSelectAll:
+		return "CmdOrCtrl+A"
 	}
-	mods, key := "", keys
+	return ""
+}
+
+// formatShortcut returns how a menu item shows its Shortcut and the keys in
+// ARIA's syntax for h.AriaKeyShortcuts ("" when it is not a key
+// combination). A shortcut that names CmdOrCtrl follows the window's key
+// conventions (mac): "⇧⌘Z" for "CmdOrCtrl+Shift+Z" on a Mac, "Ctrl+Shift+Z"
+// elsewhere; any other is shown as written, the glyphs of a Mac ("⇧⌘Z")
+// and the usual spelling ("Ctrl+Shift+T") both giving ARIA's keys
+// ("Shift+Meta+Z", "Control+Shift+T").
+func formatShortcut(shortcut string, mac bool) (shown, aria string) {
+	mods, key, ok := parseGlyphs(shortcut)
+	if ok {
+		return shortcut, ariaKeys(mods, key)
+	}
+	if strings.ContainsAny(shortcut, "⌃⌥⇧⌘") {
+		return shortcut, "" // a glyph alone, or glyphs among words
+	}
+	text, named := resolveCmdOrCtrl(shortcut, mac)
+	keys, err := desktop.ParseKeys(text)
+	if err != nil {
+		return shortcut, ""
+	}
+	mods, key = splitKeys(keys)
+	shown = shortcut
+	if named {
+		if mac {
+			shown = macGlyphs(mods, key)
+		} else {
+			shown = keys
+		}
+	}
+	return shown, ariaKeys(mods, key)
+}
+
+// resolveCmdOrCtrl replaces CmdOrCtrl (CommandOrControl) in a shortcut by
+// the primary modifier of the key conventions (Super on a Mac, Ctrl
+// elsewhere), and reports whether it was there: desktop.ParseKeys would
+// take the host's.
+func resolveCmdOrCtrl(s string, mac bool) (string, bool) {
+	primary := "Ctrl"
+	if mac {
+		primary = "Super"
+	}
+	tail := ""
+	t := s
+	if strings.HasSuffix(t, "++") {
+		t, tail = t[:len(t)-2], "++"
+	}
+	parts := strings.Split(t, "+")
+	named := false
+	for i, p := range parts {
+		switch strings.ToLower(strings.TrimSpace(p)) {
+		case "cmdorctrl", "commandorcontrol":
+			parts[i], named = primary, true
+		}
+	}
+	return strings.Join(parts, "+") + tail, named
+}
+
+// splitKeys splits desktop.ParseKeys's canonical form ("Ctrl+Shift+K",
+// "Ctrl++") into its modifiers and key.
+func splitKeys(keys string) (mods []string, key string) {
 	switch {
 	case keys == "+":
-		key = "Plus"
+		return nil, "+"
 	case strings.HasSuffix(keys, "++"):
-		mods, key = keys[:len(keys)-2], "Plus"
-	default:
-		if i := strings.LastIndexByte(keys, '+'); i >= 0 {
-			mods, key = keys[:i], keys[i+1:]
+		return strings.Split(keys[:len(keys)-2], "+"), "+"
+	}
+	parts := strings.Split(keys, "+")
+	return parts[:len(parts)-1], parts[len(parts)-1]
+}
+
+// The glyphs of a Mac's modifiers, in the order its menus show them.
+var macModGlyphs = []struct {
+	glyph rune
+	mod   string // desktop.ParseKeys's name
+}{{'⌃', "Ctrl"}, {'⌥', "Alt"}, {'⇧', "Shift"}, {'⌘', "Super"}}
+
+// macKeyGlyphs are the glyphs of named keys in a Mac's menus.
+var macKeyGlyphs = map[string]string{
+	"Enter": "↩", "Backspace": "⌫", "Delete": "⌦", "Escape": "⎋", "Tab": "⇥",
+	"ArrowLeft": "←", "ArrowRight": "→", "ArrowUp": "↑", "ArrowDown": "↓",
+	"PageUp": "⇞", "PageDown": "⇟", "Home": "↖", "End": "↘", "Space": "Space",
+}
+
+// parseGlyphs reads a shortcut written with a Mac's modifier glyphs
+// ("⇧⌘Z", "⌃⌥⌘K", "⌘↩"): one or more modifiers, then the key. ok is false
+// for anything else.
+func parseGlyphs(s string) (mods []string, key string, ok bool) {
+	rest := strings.TrimSpace(s)
+	seen := map[string]bool{}
+	for rest != "" {
+		r, n := utf8.DecodeRuneInString(rest)
+		found := false
+		for _, g := range macModGlyphs {
+			if g.glyph == r {
+				seen[g.mod], found = true, true
+			}
+		}
+		if !found {
+			break
+		}
+		rest = rest[n:]
+	}
+	if len(seen) == 0 || rest == "" {
+		return nil, "", false
+	}
+	for name, glyph := range macKeyGlyphs {
+		if rest == glyph && glyph != "Space" {
+			key = name
 		}
 	}
-	var out []string
-	if mods != "" {
-		for _, m := range strings.Split(mods, "+") {
-			switch m {
-			case "Ctrl":
-				m = "Control"
-			case "Super":
-				m = "Meta"
+	if key == "" {
+		if rest == "␣" {
+			key = "Space"
+		} else {
+			k, err := desktop.ParseKeys(rest)
+			if err != nil {
+				return nil, "", false
 			}
-			out = append(out, m)
+			key = k
 		}
+	}
+	for _, g := range macModGlyphs {
+		if seen[g.mod] {
+			mods = append(mods, g.mod)
+		}
+	}
+	return mods, key, true
+}
+
+// macGlyphs writes modifiers and a key as a Mac's menus show them: "⇧⌘Z".
+func macGlyphs(mods []string, key string) string {
+	var b strings.Builder
+	for _, g := range macModGlyphs {
+		if slices.Contains(mods, g.mod) {
+			b.WriteRune(g.glyph)
+		}
+	}
+	if g, ok := macKeyGlyphs[key]; ok {
+		key = g
+	}
+	b.WriteString(key)
+	return b.String()
+}
+
+// ariaKeys writes modifiers and a key (desktop.ParseKeys's names) in
+// ARIA's syntax for aria-keyshortcuts: "Shift+Meta+Z", "Control+Plus".
+func ariaKeys(mods []string, key string) string {
+	var out []string
+	for _, m := range []string{"Ctrl", "Alt", "Shift", "Super"} {
+		if !slices.Contains(mods, m) {
+			continue
+		}
+		switch m {
+		case "Ctrl":
+			m = "Control"
+		case "Super":
+			m = "Meta"
+		}
+		out = append(out, m)
+	}
+	if key == "+" {
+		key = "Plus"
 	}
 	return strings.Join(append(out, key), "+")
 }

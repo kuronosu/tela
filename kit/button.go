@@ -148,7 +148,9 @@ type Button struct {
 }
 
 // WithTriggerProps makes Button a [Trigger]: the overlay that has it as its
-// Trigger slot puts its props on the button element, after the button's own.
+// Trigger slot puts its props on the button element, after the button's
+// own; the button's Disabled wins over theirs, so a disabled button opens
+// nothing (the overlay's own Disabled does the same).
 func (b Button) WithTriggerProps(p tela.Prop) tela.Component {
 	b.trigger = p
 	return b
@@ -192,15 +194,17 @@ func (b Button) Build() tela.Node {
 	case b.Type != "":
 		kids = append(kids, h.Type(b.Type))
 	}
-	if b.Disabled {
-		kids = append(kids, h.Disabled(true))
-	}
 	if b.OnClick != nil && !b.Loading {
 		kids = append(kids, h.OnClick(b.OnClick))
 	}
 	if b.AriaLabel != "" {
 		kids = append(kids, h.AriaLabel(b.AriaLabel))
 	}
-	kids = append(kids, b.Props, b.trigger, lead, content, trail, overlay)
+	kids = append(kids, b.Props, b.trigger)
+	if b.Disabled {
+		// After the trigger props, whose button hook enables the element.
+		kids = append(kids, h.Disabled(true))
+	}
+	kids = append(kids, lead, content, trail, overlay)
 	return h.Button(kids...)
 }

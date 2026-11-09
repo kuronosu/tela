@@ -406,6 +406,40 @@ func (t *Tree) windowState() WindowState {
 // IsZero reports whether w is the zero WindowHandle (no window).
 func (w WindowHandle) IsZero() bool { return w.t == nil }
 
+// ActiveElement returns a ref to the element of the window that has the
+// focus (the DOM's document.activeElement), and whether one has. The ref
+// acts on that element while it stays mounted (Focus, Bounds, Focused,
+// Click) and does nothing once it unmounts; it is a new ref, not equal to
+// the refs attached to the element, so compare elements with Focused.
+// Call it on the UI thread, from a handler or an effect: a component that
+// remembers the focus before it moves it (a menu that gives an edit
+// command to the field the user was in) keeps the ref.
+func (w WindowHandle) ActiveElement() (ElementRef, bool) {
+	if w.t == nil {
+		return ElementRef{}, false
+	}
+	return w.t.activeElement()
+}
+
+// ActiveElement is WindowHandle.ActiveElement for the tree that r's
+// element is in (package aria's context menu opens at the focused
+// element).
+func ActiveElement(r ElementRef) (ElementRef, bool) {
+	el := r.element()
+	if el == nil {
+		return ElementRef{}, false
+	}
+	return el.tree.activeElement()
+}
+
+func (t *Tree) activeElement() (ElementRef, bool) {
+	f := t.foc.el
+	if f == nil || !f.mounted {
+		return ElementRef{}, false
+	}
+	return ElementRef{&elemRef{el: f}}, true
+}
+
 // State returns the window's state. Read in a component's build, it
 // subscribes the component: it builds again when the state changes.
 // Elsewhere (handlers, effects, goroutines) it only reads it.

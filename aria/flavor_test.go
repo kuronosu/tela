@@ -103,8 +103,13 @@ func TestListBoxModifierClickPerPlatform(t *testing.T) {
 			want("primary+click again", "cherry")
 			click(4, c.other)
 			if c.fl == platform.FlavorMac {
-				// Control+click is a context click on a Mac: no click.
-				want("other+click", "cherry")
+				// Control+click is a context click on a Mac: no click, but
+				// the item it is on was not selected, so it becomes the
+				// selection, as Finder does (ADR-247).
+				want("other+click", "date")
+				click(1, c.primary)
+				click(4, c.other) // on the selection: it stays
+				want("other+click on the selection", "banana,date")
 			} else {
 				want("other+click", "date")
 			}

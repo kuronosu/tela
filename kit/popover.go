@@ -99,21 +99,38 @@ type Popover struct {
 	DefaultOpen  bool
 	OnOpenChange func(open bool)
 	// Disabled disables the trigger, which is then inert and dimmed by its
-	// recipe; the popover does not open. Set it here: the trigger props
-	// override a Disabled given to the trigger component itself.
+	// recipe; the popover does not open. A Disabled given to the
+	// trigger component itself (kit.Button{Disabled: true}) does the same.
 	Disabled bool
 
 	// Class is added after the recipe's Root classes, to the panel.
 	Class string
 	// Props are more props for the panel element.
 	Props tela.Child
+
+	// outer holds the props of an overlay that has the popover as its
+	// Trigger.
+	outer outerTrigger
+}
+
+// WithTriggerProps makes Popover a [Trigger], so that it can be the trigger
+// of another overlay: a Tooltip{Trigger: kit.Popover{Trigger: button, ...}} explains the button that opens the popover. The props of the overlay go to the root
+// element of Popover's own Trigger, with Popover's.
+func (p Popover) WithTriggerProps(props tela.Prop) tela.Component {
+	p.outer = outerTrigger{props: props, set: true}
+	return p
+}
+
+func (p Popover) withTrigger(props tela.Prop, ref tela.ElementRef) tela.Component {
+	p.outer = outerTrigger{props: props, ref: ref, set: true}
+	return p
 }
 
 // Build returns the trigger and the popover's portal.
 func (p Popover) Build() tela.Node {
 	s := &UseStyle().Popover
 	trig := aria.UseOverlayTrigger(aria.OverlayTriggerOptions{
-		Open: p.Open, DefaultOpen: p.DefaultOpen, OnOpenChange: p.OnOpenChange, Disabled: p.Disabled,
+		Open: p.Open, DefaultOpen: p.DefaultOpen, OnOpenChange: p.OnOpenChange, Disabled: p.Disabled, Ref: p.outer.ref,
 	})
 	offset := p.Offset
 	switch {
@@ -132,7 +149,7 @@ func (p Popover) Build() tela.Node {
 		name = h.AriaLabelledBy(trig.Ref) // the panel has no title of its own
 	}
 	return h.Fragment(
-		triggerOf(p.Trigger, trig.TriggerProps),
+		triggerOf(p.Trigger, p.outer.merge(trig.TriggerProps), trig.Ref),
 		h.Portal(h.Presence(h.If(trig.Open,
 			h.Div(pop.Props, dlg.Props, name, h.Exit(s.Exit),
 				cls(s.Root, s.Sides[pop.Side], p.Class), p.Props, p.Children)))),

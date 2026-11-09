@@ -39,9 +39,8 @@ func init() {
 //	}
 //
 // The items are [MenuItem]s: plain items with an icon, a shortcut and a
-// destructive variant, checkbox items, radio groups, labels, separators and
-// groups. There are no submenus yet (a known gap, ADR-141): a menu is one
-// level.
+// destructive variant, checkbox items, radio groups, labels, separators,
+// groups, submenus (MenuSub) and standard items with a Role.
 //
 // The Trigger slot is a [Trigger] (see there): a [Button], or anything
 // made one with [TriggerFunc]. Open, DefaultOpen and OnOpenChange are the
@@ -73,8 +72,8 @@ type DropdownMenu[K comparable] struct {
 	// menu is otherwise named by its trigger.
 	AriaLabel string
 	// CheckIcon and RadioIcon replace the check of a checkbox item and the
-	// dot of a radio item.
-	CheckIcon, RadioIcon tela.Icon
+	// dot of a radio item, SubIcon the chevron of a submenu's item.
+	CheckIcon, RadioIcon, SubIcon tela.Icon
 
 	// Open points to the open state of a controlled menu; nil leaves it to
 	// the component, which starts closed unless DefaultOpen is set.
@@ -88,15 +87,36 @@ type DropdownMenu[K comparable] struct {
 	Class string
 	// Props are more props for the panel element.
 	Props tela.Child
+
+	// outer holds the props of an overlay that has the menu as its
+	// Trigger.
+	outer outerTrigger
+}
+
+// WithTriggerProps makes DropdownMenu a [Trigger], so that it can be the
+// trigger of another overlay: a Tooltip{Trigger: kit.DropdownMenu{Trigger:
+// button, ...}} explains the button that opens the menu. The props of the
+// overlay go to the root element of the menu's own Trigger, with the
+// menu's.
+func (d DropdownMenu[K]) WithTriggerProps(p tela.Prop) tela.Component {
+	d.outer = outerTrigger{props: p, set: true}
+	return d
+}
+
+func (d DropdownMenu[K]) withTrigger(p tela.Prop, ref tela.ElementRef) tela.Component {
+	d.outer = outerTrigger{props: p, ref: ref, set: true}
+	return d
 }
 
 // Build returns the trigger and the menu's portal.
 func (d DropdownMenu[K]) Build() tela.Node {
 	st := &UseStyle().DropdownMenu
 	store := useMenuStore[K]()
+	w := tela.UseWindow()
 	mt := aria.UseMenuTrigger(aria.MenuTriggerOptions{
-		Open: d.Open, DefaultOpen: d.DefaultOpen, OnOpenChange: d.OnOpenChange, Disabled: d.Disabled,
+		Open: d.Open, DefaultOpen: d.DefaultOpen, OnOpenChange: d.OnOpenChange, Disabled: d.Disabled, Ref: d.outer.ref,
 	})
+	open := mt.Open
 	panel := menuPanel[K]{
 		component: "DropdownMenu", style: st, items: d.Items, store: store, onSelect: d.OnSelect,
 		popover: aria.PopoverOptions{
@@ -105,10 +125,13 @@ func (d DropdownMenu[K]) Build() tela.Node {
 			Floating: menuFloating(),
 		},
 		menuProps: mt.MenuProps, ref: mt.MenuRef, strategy: mt.FocusStrategy, close: mt.Close,
-		ariaLabel: d.AriaLabel, checkIcon: d.CheckIcon, radioIcon: d.RadioIcon, class: d.Class, props: d.Props,
+		ariaLabel: d.AriaLabel, checkIcon: d.CheckIcon, radioIcon: d.RadioIcon, subIcon: d.SubIcon, class: d.Class, props: d.Props,
 	}
+	// The press on the trigger takes the focus from the element the roles
+	// of the items act on: remember it first.
+	props := tela.MergeProps(store.captureOrigin(w, func() bool { return open }), d.outer.merge(mt.TriggerProps))
 	return h.Fragment(
-		triggerOf(d.Trigger, mt.TriggerProps),
+		triggerOf(d.Trigger, props, mt.Ref),
 		h.Portal(h.Presence(h.If(mt.Open, panel))),
 	)
 }

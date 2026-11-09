@@ -85,6 +85,24 @@ type Checkbox struct {
 	IconClass      string
 	// Props are more props for the checkbox element.
 	Props tela.Child
+
+	// outer holds the props of an overlay that has the checkbox as its
+	// Trigger.
+	outer outerTrigger
+}
+
+// WithTriggerProps makes Checkbox a [Trigger], so that it can have a tooltip
+// (Tooltip{Trigger: kit.Checkbox{...}}) or open another overlay: the
+// overlay's props go to the box, after Checkbox's own, and its Disabled wins
+// over theirs.
+func (c Checkbox) WithTriggerProps(p tela.Prop) tela.Component {
+	c.outer = outerTrigger{props: p, set: true}
+	return c
+}
+
+func (c Checkbox) withTrigger(p tela.Prop, ref tela.ElementRef) tela.Component {
+	c.outer = outerTrigger{props: p, ref: ref, set: true}
+	return c
 }
 
 // Build returns the checkbox element.
@@ -92,8 +110,11 @@ func (c Checkbox) Build() tela.Node {
 	s := &UseStyle().Checkbox
 	id, _, field := useChoiceField(c.ID, c.Invalid)
 	box := aria.UseCheckbox(aria.ToggleOptions{Selected: c.Checked, DefaultSelected: c.DefaultChecked,
-		OnChange: c.OnCheckedChange, Disabled: c.Disabled, ID: id})
-	kids := []tela.Child{cls(s.Root, c.Class), box.Props, c.Props}
+		OnChange: c.OnCheckedChange, Disabled: c.Disabled, ID: id, Ref: c.outer.ref})
+	kids := []tela.Child{cls(s.Root, c.Class), box.Props, c.Props, c.outer.child()}
+	if c.Disabled && c.outer.set {
+		kids = append(kids, h.Disabled(true))
+	}
 	kids = append(kids, field...)
 	if c.Required {
 		kids = append(kids, h.AriaRequired(true))

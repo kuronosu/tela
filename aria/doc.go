@@ -105,8 +105,8 @@
 // React Aria's delays and warm-up).
 //
 // Collections, keyed lists of items with a focused key and a selection:
-// [UseListBox], [UseMenu] (the menu of [UseMenuTrigger]), [UseMenuBar] (a
-// row of menus), [UseTabs],
+// [UseListBox], [UseMenu] (the menu of [UseMenuTrigger], with submenus:
+// [MenuResult.SubmenuTrigger]), [UseMenuBar] (a row of menus), [UseTabs],
 // [UseSelect] (a button that opens a list box) and [UseCombobox] (a text
 // field that filters one, with the [Contains] and [StartsWith] filters),
 // with the [Selection] type for what is selected.

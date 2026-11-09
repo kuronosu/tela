@@ -57,6 +57,23 @@ type MenuOptions[K comparable] struct {
 	// Ref is the menu's ref: pass the trigger's MenuRef, which its
 	// MenuProps attach too.
 	Ref tela.ElementRef
+
+	// SubmenuKeys are the items that open a submenu (React Aria's
+	// SubmenuTrigger, Radix's MenuSubTrigger): they are not chosen, they
+	// open their submenu, whose state [MenuResult.SubmenuTrigger] returns.
+	// ArrowRight (ArrowLeft under "rtl"), Enter, Space and a click open it,
+	// the keyboard with its first item focused; the pointer resting on the
+	// item for [SubmenuDelay] opens it too. The focus moving to another
+	// item of this menu closes it, except on the way to the submenu: while
+	// the mouse moves toward it, the items it crosses are not hovered
+	// (React Aria's pointer grace).
+	SubmenuKeys []K
+	// Submenu makes this menu the submenu of a parent menu's item: pass the
+	// parent's SubmenuTrigger(key). Ref, FocusStrategy and OnClose then
+	// default to its MenuRef, FocusStrategy and CloseAll (choosing an item
+	// closes the whole menu), and its own submenus chain to it. Direction
+	// is still this menu's own: pass the parent's.
+	Submenu SubmenuTriggerResult
 }
 
 // MenuResult is what [UseMenu] returns.
@@ -72,6 +89,28 @@ type MenuResult[K comparable] struct {
 	// Ref is the ref attached to the menu by Props.
 	Ref tela.ElementRef
 }
+
+// SubmenuTrigger returns the state of the submenu that the item k opens
+// (an item of [MenuOptions].SubmenuKeys; the zero value for another):
+// render the submenu while its Open is true, in a Portal that is a child
+// of the menu's element (so that it is inside the menu for the focus and
+// for presses; not inside the item's element, whose handlers would get the
+// submenu's pointer events), with [UsePopover](sub.PopoverOptions()) and a
+// [UseMenu] that has Submenu: sub.
+//
+//	sub := menu.SubmenuTrigger("share")
+//	Div(menu.Props, ...,
+//	    Div(menu.ItemProps("share"), Key("share"), Text("Share")),
+//	    Portal(If(sub.Open, shareMenu{sub})))
+//
+//	type shareMenu struct{ sub aria.SubmenuTriggerResult }
+//
+//	func (m shareMenu) Build() tela.Node {
+//	    pop := aria.UsePopover(m.sub.PopoverOptions())
+//	    menu := aria.UseMenu(aria.MenuOptions[string]{Keys: targets, OnAction: share, Submenu: m.sub})
+//	    return Div(pop.Props, m.sub.MenuProps, menu.Props, Class("w-40 rounded-md border bg-popover p-1"), ...)
+//	}
+func (r MenuResult[K]) SubmenuTrigger(k K) SubmenuTriggerResult { return r.c.submenuTrigger(k) }
 
 // UseMenu holds the state of a menu and returns the props of its element
 // and its items (React Aria's useMenu, useMenuItem and useMenuSection with
@@ -113,12 +152,25 @@ type MenuResult[K comparable] struct {
 // items: they print as `menuitemradio "Name" [checked]` and
 // `menuitemcheckbox "Name" [checked]`, and `aria-checked:` styles them. The
 // mouse focuses the item under it, as in a native menu. Disabled items are
-// skipped. Submenus are not part of this hook.
+// skipped. Items in SubmenuKeys open submenus (see
+// [MenuResult.SubmenuTrigger]).
 func UseMenu[K comparable](o MenuOptions[K]) MenuResult[K] {
 	const hook = "UseMenu: MenuOptions."
 	mode := checkChoice(hook, "SelectionMode", o.SelectionMode, "none", "none", "single", "multiple")
 	dir := checkChoice(hook, "Direction", o.Direction, "ltr", "ltr", "rtl")
 	strategy := checkChoice(hook, "FocusStrategy", o.FocusStrategy, "", FocusFirst, FocusLast)
+	auto, onClose, ref := o.AutoFocus, o.OnClose, o.Ref
+	if sub := o.Submenu; sub.lvl != nil {
+		if ref == (tela.ElementRef{}) {
+			ref = sub.MenuRef
+		}
+		if strategy == "" {
+			strategy = sub.FocusStrategy
+		}
+		if onClose == nil {
+			onClose = sub.CloseAll
+		}
+	}
 	c := useCollection(collConfig[K]{
 		kind: kindMenu, role: "menu",
 		keys: o.Keys, textValue: o.TextValue, disabled: o.DisabledKeys,
@@ -129,9 +181,10 @@ func UseMenu[K comparable](o MenuOptions[K]) MenuResult[K] {
 		wrap:          o.ShouldFocusWrap, orientation: "vertical", rtl: dir == "rtl",
 		disableType:  o.DisallowTypeAhead,
 		focusOnHover: true,
-		autoFocus:    o.AutoFocus, strategy: strategy,
-		onAction: o.OnAction, onClose: o.OnClose, closeOnSelect: o.CloseOnSelect,
-		label: o.AriaLabel, ref: o.Ref,
+		autoFocus:    auto, strategy: strategy,
+		onAction: o.OnAction, onClose: onClose, closeOnSelect: o.CloseOnSelect,
+		subKeys: o.SubmenuKeys, parent: o.Submenu,
+		label: o.AriaLabel, ref: ref,
 	})
 	return MenuResult[K]{Collection: Collection[K]{c}, Props: c.containerProps(), Selected: c.sel, Ref: c.ref}
 }

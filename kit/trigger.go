@@ -13,8 +13,17 @@ import "github.com/kuronosu/tela"
 //
 // One rule holds for every trigger slot of the kit:
 //
-//   - a kit component that can be a trigger implements Trigger, and [Button]
-//     does: Trigger: kit.Button{Variant: kit.Outline, Children: h.Text("Open")};
+//   - a kit component that can be a trigger implements Trigger: [Button]
+//     (Trigger: kit.Button{Variant: kit.Outline, Children: h.Text("Open")}),
+//     [Toggle], [Checkbox], [Switch] and [Slider] (so that they can have a
+//     tooltip), and the overlays [Tooltip], [Popover], [Dialog],
+//     [AlertDialog] and [DropdownMenu], so that one element can have
+//     several overlays: Tooltip{Content: h.Text("More actions"), Trigger:
+//     kit.DropdownMenu[string]{Trigger: kit.Button{...}, Items: items}} is a
+//     button with a tooltip that opens a menu (Radix's asChild on both
+//     triggers; nest them either way);
+//   - a trigger's own Disabled wins over the overlay's props, as the
+//     overlay's Disabled does: a disabled trigger opens nothing;
 //   - a component of your own implements it with one method, merging p into
 //     the props of its root element (the way a kit component merges it with
 //     its Props field);
@@ -62,10 +71,50 @@ type triggerRender struct {
 func (r triggerRender) Build() tela.Node { return r.f(r.p) }
 
 // triggerOf returns the component of a trigger slot with the trigger props
-// merged in, or nil for an empty slot.
-func triggerOf(t Trigger, p tela.Prop) tela.Component {
+// merged in, or nil for an empty slot. ref is the ref those props attach
+// (the overlay hook's): a trigger that attaches a ref of its own (a kit
+// overlay, Toggle, Checkbox, Switch, Slider) is given it to share, since
+// an element holds one ref.
+func triggerOf(t Trigger, p tela.Prop, ref tela.ElementRef) tela.Component {
 	if t == nil {
 		return nil
 	}
+	if rt, ok := t.(refTrigger); ok {
+		return rt.withTrigger(p, ref)
+	}
 	return t.WithTriggerProps(p)
+}
+
+// refTrigger is a [Trigger] whose root element has a ref of its own: an
+// aria hook's (the press of a Toggle, the track of a Slider, the trigger of
+// an overlay nested in another's slot). The overlay that holds it in its
+// slot passes its ref, which the trigger's hook takes as its Ref option, so
+// both hooks share the one ref of the element.
+type refTrigger interface {
+	withTrigger(p tela.Prop, ref tela.ElementRef) tela.Component
+}
+
+// outerTrigger is what a component that is the Trigger of another
+// overlay gets from it: the props for its root element and their ref.
+type outerTrigger struct {
+	props tela.Prop
+	ref   tela.ElementRef
+	set   bool
+}
+
+// merge returns the outer props merged before own, the component's own
+// trigger props.
+func (o outerTrigger) merge(own tela.Prop) tela.Prop {
+	if !o.set {
+		return own
+	}
+	return tela.MergeProps(o.props, own)
+}
+
+// child returns the outer props as a child, nil when there are none.
+func (o outerTrigger) child() tela.Child {
+	if !o.set {
+		return nil
+	}
+	return o.props
 }

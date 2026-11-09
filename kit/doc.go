@@ -306,8 +306,8 @@
 // OnCheckedChange, Value and OnValueChange, or a default), and an
 // uncontrolled state is kept by the component, so it outlives the menu
 // closing. Choosing an item closes the menu, as Radix's does, unless the
-// item has KeepOpen. There are no submenus yet: a menu is one level
-// (ADR-141).
+// item has KeepOpen. A MenuSub item opens a submenu, and a plain item with
+// a Role (desktop.RoleCopy...) is one of the standard items (ADR-247).
 //
 // # The look and its tests
 //

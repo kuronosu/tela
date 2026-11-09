@@ -235,6 +235,35 @@ func platformMenus(what string, lists ...[]MenuItem) ([][]platform.MenuItem, men
 	return out, actions
 }
 
+// PerformRole carries out the item role r in window w, as package desktop
+// does for a native menu whose platform only reports the choice:
+// RoleMinimize, RoleZoom and RoleClose act on w, and the edit roles send
+// the element of w that has the focus the role's shortcut (Ctrl+C, or
+// Command+C under the Mac key flavor), so a text field cuts, copies,
+// pastes, undoes and selects all as it does for the keys. It is for menus
+// that Tela draws, such as kit's menus with a Role item: call it from a
+// handler or an effect once the menu has closed and the focus is back on
+// the element the command is for. RoleNone and the menu roles
+// (RoleEditMenu, RoleWindowMenu, RoleHelpMenu) do nothing; so do the edit
+// roles in a tree without a running app (tela snapshot).
+func PerformRole(w tela.WindowHandle, r Role) {
+	if r == RoleNone || !r.valid() || r.isMenu() {
+		return
+	}
+	if d, ok := core.DesktopOf(w); ok {
+		performRole(d, w, r)
+		return
+	}
+	switch r {
+	case RoleMinimize:
+		w.Minimize()
+	case RoleZoom:
+		w.ToggleMaximize()
+	case RoleClose:
+		w.Close()
+	}
+}
+
 // performRole carries out the role r that the platform reported instead of
 // performing it, in window w of d's app.
 func performRole(d core.Desktop, w tela.WindowHandle, r Role) {
