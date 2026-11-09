@@ -57,10 +57,6 @@ func kitTextFor(f i18n.Formatter) kitText {
 	}
 }
 
-// useKitText is kitTextFor for the language of the window; the component
-// builds again when it changes.
-func useKitText() kitText { return kitTextFor(i18n.UseFormatter()) }
-
 // trFunc is the text of a stage in the language of the window: English in
 // the code, Spanish and Arabic in the catalogs under "gallery.<id>", the way
 // every text a demo shows is written:
