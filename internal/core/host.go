@@ -357,6 +357,17 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 		h.updateCursor(v)
 		h.syncTextInput(v)
 		h.armTimer()
+	case platform.CaptionClickEvent:
+		// A click the OS took in a caption region: a press outside the
+		// open overlays (overlay.go, ADR-252).
+		h.tick(e.Time)
+		if h.cut(v, false, e.Time) {
+			return
+		}
+		t.HandleCaptionClick(e)
+		h.updateCursor(v)
+		h.syncTextInput(v)
+		h.armTimer()
 	case platform.ScrollEvent:
 		h.tick(e.Time)
 		if h.cut(v, false, e.Time) {

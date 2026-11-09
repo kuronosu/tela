@@ -3,6 +3,7 @@ package core
 import (
 	"slices"
 
+	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/platform"
 )
 
@@ -54,6 +55,16 @@ import (
 // events of the press and the focus change, input.go), and on the
 // pointerup it cancels the click of the press (React Aria stops that
 // click).
+//
+// A click on a drag area of the window's title bar (h.WindowDrag, the
+// fallback title bar's included) is a press too, although the OS took it
+// (ADR-252): the backend reports a click there that moved nothing as a
+// platform.CaptionClickEvent at its release, and both callbacks run then,
+// one after the other, with the element under the pointer as the target,
+// as for a click on the page's background. Nothing else of it is
+// dispatched (no pointer or mouse events, no focus change). A drag there
+// moves the window and is no press: the overlay stays open, as it does
+// when the user moves the window by the OS's own title bar.
 //
 // # Escape and the focus
 //
@@ -291,6 +302,35 @@ func (t *Tree) outsideUp(ps *pointerState, target *Element, e PointerEvent, st *
 		(&e).prepare(t, st, el)
 		o.OnInteractOutside(e)
 	}
+}
+
+// HandleCaptionClick handles a platform.CaptionClickEvent: a primary click
+// in a caption region that the OS took and that moved nothing. It is a
+// press outside the top overlay when its target is (see "Pressing
+// outside"), and nothing else. Call it on the UI thread.
+func (t *Tree) HandleCaptionClick(e platform.CaptionClickEvent) {
+	t.scr.now = max(t.scr.now, e.Time)
+	if t.topOverlay() == nil {
+		return
+	}
+	pos := gfx.Point{X: e.Pos.X, Y: e.Pos.Y}
+	target, _ := t.hitTest(pos)
+	// The press as a mouse's, which never reached the pointer state of the
+	// tree: its pointerdown with the primary button held, then its
+	// pointerup.
+	ps := &pointerState{key: pointerKey{kind: platform.PointerMouse}, primary: true, inside: true, pos: pos, buttons: platform.ButtonPrimary.Mask()}
+	st := &eventState{}
+	t.outsideDown(ps, target, t.pointerEvent(ps, platform.ButtonPrimary), st)
+	t.flushDiscrete()
+	if ps.outside == nil {
+		return
+	}
+	if target != nil && !target.mounted {
+		target = nil // the down's updates removed it: the root's, outside everything
+	}
+	ps.buttons = 0
+	t.outsideUp(ps, target, t.pointerEvent(ps, platform.ButtonPrimary), &eventState{})
+	t.flushDiscrete()
 }
 
 // KeepOutsidePress takes the element r is attached to (and its subtree,

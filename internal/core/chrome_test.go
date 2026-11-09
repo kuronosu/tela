@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
@@ -357,4 +358,131 @@ func TestFallbackTitleBarLook(t *testing.T) {
 	x.windows()[0].Inject(platform.FocusEvent{Focused: true})
 	x.drain()
 	writeChromePNG(t, x, "chrome")
+}
+
+// The bar follows the direction of the window's content (ADR-252): the
+// outermost Dir along the wrappers that are the whole content, through
+// components, fragments and portals; not a Dir on a part of the screen.
+func TestFallbackTitleBarDirection(t *testing.T) {
+	rtlPage := func(c ...Child) Node { return div(append([]Child{Dir("rtl"), Class("h-full")}, c...)...) }
+	provider := func(kids ...Child) Node { // a component that renders a fragment
+		return Component(func() Node { return Fragment(kids...) })
+	}
+	for _, c := range []struct {
+		name string
+		root Node
+		rtl  bool
+	}{
+		{"no Dir", div(Class("h-full"), Text("Hello")), false},
+		{"Dir on the outermost element", rtlPage(Text("مرحبا")), true},
+		{"Dir on the only child of the outermost element", div(Class("h-full"), rtlPage(Text("مرحبا"))), true},
+		{"Dir below components, a fragment and a portal",
+			Component(func() Node {
+				return provider(provider(div(Class("h-full"), rtlPage(Text("مرحبا")))), Portal(div(Text("toasts"))))
+			}), true},
+		{"the outermost Dir wins", div(Dir("ltr"), Class("h-full"), rtlPage(Text("مرحبا"))), false},
+		{"auto, resolved by its text", div(Class("h-full"), div(Dir("auto"), Class("h-full"), Text("مرحبا"))), true},
+		{"Dir on one of several children", div(Class("flex h-full"), div(Text("Side")), rtlPage(Text("مرحبا"))), false},
+		{"Dir below text", div(Class("h-full"), Text("Title"), rtlPage(Text("مرحبا"))), false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			x := newChromeHarness(t, true, platform.SystemSettings{}, Options{Window: WindowSpec{Title: "App"}, Root: c.root})
+			tr := x.h.Tree()
+			if !barShown(tr) {
+				t.Fatal("no bar")
+			}
+			if tr.chrome.props.rtl != c.rtl {
+				t.Errorf("bar rtl = %v, want %v", tr.chrome.props.rtl, c.rtl)
+			}
+		})
+	}
+
+	// The bar follows a change of that Dir, and the close button moves to
+	// the start (the left) under rtl.
+	var setDir func(string)
+	app := Component(func() Node {
+		dir, set := UseState("ltr")
+		setDir = set.Set
+		return div(Class("h-full"), div(Dir(dir), Class("h-full"), Text("Hello")))
+	})
+	x := newChromeHarness(t, true, platform.SystemSettings{}, Options{Window: WindowSpec{Title: "App"}, Root: app})
+	tr := x.h.Tree()
+	closeX := func() float32 {
+		t.Helper()
+		for _, r := range x.windows()[0].HitRegions() {
+			if r.Kind == platform.HitClose {
+				return r.Rect.X
+			}
+		}
+		t.Fatal("no close button region")
+		return 0
+	}
+	if tr.chrome.props.rtl || closeX() < 200 {
+		t.Fatalf("ltr content: rtl %v, close at x=%v; want ltr, at the right", tr.chrome.props.rtl, closeX())
+	}
+	setDir("rtl")
+	x.drain()
+	if !tr.chrome.props.rtl || closeX() > 200 {
+		t.Errorf("rtl content: rtl %v, close at x=%v; want rtl, at the left", tr.chrome.props.rtl, closeX())
+	}
+}
+
+// A click on the bar's drag area is a press outside the top overlay
+// (ADR-252): its outside callbacks run and a dismissable dialog closes,
+// modal or not; a drag on it moves the window and is no press.
+func TestFallbackTitleBarOutsidePress(t *testing.T) {
+	for _, modal := range []bool{false, true} {
+		var starts, outs int
+		var setOpen func(bool)
+		app := Component(func() Node {
+			open, set := UseState(true)
+			setOpen = set.Set
+			var dialog Node
+			if open {
+				dialog = Portal(div(Key("dialog"), Class("fixed left-20 top-20 h-20 w-40"), Overlay(OverlayOptions{
+					Modal:                  modal,
+					OnInteractOutsideStart: func(PointerEvent) { starts++ },
+					OnInteractOutside:      func(PointerEvent) { outs++; set.Set(false) },
+				}), Text("Dialog")))
+			}
+			return div(Class("h-full"), Text("Content"), dialog)
+		})
+		x := newChromeHarness(t, true, platform.SystemSettings{}, Options{Window: WindowSpec{Title: "App"}, Root: app})
+		tr := x.h.Tree()
+		main := x.windows()[0]
+		if !barShown(tr) {
+			t.Fatal("no bar")
+		}
+		open := func() bool {
+			root := tr.Inspect()
+			return find(&root, "dialog") != nil
+		}
+		// A drag on the bar moves the window: the dialog stays.
+		main.Inject(move(150, 18))
+		main.Inject(down(150, 18))
+		main.Inject(moveHeld(180, 40))
+		main.Inject(ptr(platform.PointerUp, 180, 40, platform.ButtonPrimary, 0))
+		x.drain()
+		if main.CaptionDrags() != 1 || starts != 0 || outs != 0 || !open() {
+			t.Fatalf("modal %v: after a drag: %d caption drags, %d starts, %d outside presses, open %v; want a drag and no press",
+				modal, main.CaptionDrags(), starts, outs, open())
+		}
+		// A click on it closes the dialog, both callbacks running once.
+		x.b.Advance(time.Second) // not a double click with the drag's press
+		x.click(main, 150, 18)
+		if starts != 1 || outs != 1 || open() {
+			t.Errorf("modal %v: after a click on the bar: %d starts, %d outside presses, open %v; want 1, 1 and closed", modal, starts, outs, open())
+		}
+		// Without an overlay a click does nothing.
+		x.b.Advance(time.Second)
+		x.click(main, 150, 18)
+		if starts != 1 || outs != 1 || main.OSState().Maximized {
+			t.Errorf("modal %v: a click with no overlay: %d starts, %d outside presses, maximized %v", modal, starts, outs, main.OSState().Maximized)
+		}
+		setOpen(true)
+		x.drain()
+		if !open() {
+			t.Errorf("modal %v: the dialog did not open again", modal)
+		}
+	}
 }

@@ -54,8 +54,13 @@ import (
 // follow the desktop's button-layout (SystemSettings.TitleBarButtons),
 // minimize, maximize and close at the end without one; a modal window
 // has only close and a FixedSize window no maximize, as GTK's header bar.
-// It follows the direction of the app's outermost element (the Dir of the
-// root component's element), mirroring like kit.TitleBar.
+// It follows the direction of the window's content (contentRTL: the
+// outermost Dir along the chain of wrappers that are the whole content,
+// ADR-252), mirroring like kit.TitleBar. A click on its drag area is a
+// press outside the open overlays (overlay.go), so a dismissable dialog
+// or popover closes; a drag moves the window and leaves them open. There
+// is no opt-out besides the two the app has (ADR-252): an h.WindowDrag
+// area of its own, or a Frameless window.
 
 // chromeHeight is the height of the fallback title bar, in logical pixels
 // (ADR-238: Slim).
@@ -233,30 +238,75 @@ func chromeStyle(cs *style.ComputedStyle) {
 	cs.ZIndex = style.ZIndex{Explicit: true, Value: portalZ - 1}
 }
 
-// contentRTL reports whether the app's outermost element (the first
-// primitive of the root's content, through components) lays out right to
-// left: its Dir, or the direction its style resolved.
+// contentRTL reports whether the window's content lays out right to left
+// (ADR-252): the direction of the outermost element that sets one (Dir;
+// "auto" resolved from its text) along the window's wrapper chain: the
+// root's content and, while an element holds a single box and no text,
+// that box (through components and fragments; portals, which are laid
+// out against the window, do not count). The chain stops at an element
+// with several boxes or text, and without a Dir on it the content is left
+// to right, as the root. So the bar follows a Dir on the app's outermost
+// element or on any wrapper that is the whole window's content (kit's
+// gallery Shell under its providers and Toaster), but not one on a part of
+// a screen (a sidebar, an LTR number).
 func (t *Tree) contentRTL() bool {
 	if t.root == nil || len(t.root.children) == 0 {
 		return false
 	}
-	el := t.root.children[0]
-	for el != nil && el.kind == elemComponent {
-		if len(el.children) == 0 {
+	el := onlyBox(t.root.children[:1]) // the app's content; the bar is the second
+	for ; el != nil && !el.node.d.chrome; el = onlyBox(el.children) {
+		switch el.node.d.dir {
+		case dirLTR:
 			return false
+		case dirRTL:
+			return true
+		case dirAuto:
+			// From its text, as styleDir resolves it: the decision is made
+			// at the end of the build, before the style phase.
+			if f := el.box.fld; f != nil {
+				d, _ := text.StrongDirection(f.ed.Value())
+				return d == text.DirectionRTL
+			}
+			d, _ := t.firstStrongBelow(el)
+			return d == text.DirectionRTL
 		}
-		el = el.children[0]
-	}
-	if el == nil || el.kind != elemPrimitive || el.node.d.chrome {
-		return false
-	}
-	switch el.node.d.dir {
-	case dirRTL:
-		return true
-	case dirAuto:
-		return el.box.cs != nil && el.box.cs.Text.Direction == text.DirectionRTL
 	}
 	return false
+}
+
+// onlyBox returns the single primitive of kids, through components (the
+// boxes they render), when there is one and no text: nil otherwise.
+// Portals are left out. It reads the element tree only (the bar is decided
+// at the end of the build, before the style phase), so a box hidden by its
+// classes still counts.
+func onlyBox(kids []*Element) *Element {
+	var one *Element
+	var walk func(kids []*Element) bool
+	walk = func(kids []*Element) bool {
+		for _, c := range kids {
+			switch c.kind {
+			case elemText:
+				return false
+			case elemComponent:
+				if !walk(c.children) {
+					return false
+				}
+			case elemPrimitive:
+				if isPortal(c) {
+					continue
+				}
+				if one != nil {
+					return false
+				}
+				one = c
+			}
+		}
+		return true
+	}
+	if !walk(kids) {
+		return nil
+	}
+	return one
 }
 
 // chromeBarProp marks the root of the bar: its drag area, which hides

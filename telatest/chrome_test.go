@@ -60,6 +60,14 @@ func TestFallbackTitleBarGoldens(t *testing.T) {
 			Size(480, 120), NoServerDecorations(), Title("ملاحظات"), RootClass("bg-background"))
 		app.GoldenScales("fallback_titlebar_rtl", 1, 2)
 	})
+	t.Run("rtl child", func(t *testing.T) {
+		// A Dir below the outermost element, on the only box it holds, as
+		// kit's gallery sets it (ADR-252): the bar mirrors too.
+		app := Mount(t, tela.C(func() tela.Node {
+			return h.Div(h.Class("h-full"), h.Div(h.Dir("rtl"), h.Class("h-full"), chromeContent()))
+		}), Size(480, 120), NoServerDecorations(), Title("ملاحظات"), RootClass("bg-background"))
+		app.GoldenScales("fallback_titlebar_rtl_child", 1, 2)
+	})
 	t.Run("close only", func(t *testing.T) {
 		app := mountChrome(t)
 		app.backend.SetSettings(platform.SystemSettings{TitleBarButtons: "appmenu:close"})

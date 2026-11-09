@@ -194,12 +194,15 @@ app's `bg-background` with a hairline under it, the window's `Title` centered,
 flat minimize, maximize (restore) and close buttons that tint on hover (close in
 the destructive color), dimmed while the window is not focused. It follows the
 app's theme and color scheme, mirrors under `Dir("rtl")` on the app's outermost
-element, and orders its buttons by the desktop's button layout (GNOME's
+element (or on the element that is its whole content, a wrapper's only child),
+and orders its buttons by the desktop's button layout (GNOME's
 `button-layout`, as GNOME Tweaks sets it; minimize, maximize and close at the
 end without one). A modal `tela.Window` has only close, a `FixedSize` window no
 maximize. Dragging it moves the window, a double click maximizes it, a right
 click opens the window menu, and the window resizes from its edges; the buttons
-work while a dialog is open, as the OS's would. It hides in full screen.
+work while a dialog is open, as the OS's would. A click on it is a press outside
+an open dialog or popover, which closes if a press outside closes it; a drag
+moves the window and leaves it open. It hides in full screen.
 
 The content is laid out below it: the root's `h-full`, `h-screen`, `100vh`, the
 breakpoints, fixed elements and dialogs see the rest of the window as the
@@ -210,7 +213,7 @@ snapshot` or a telatest app unless it mounts with `telatest.NoServerDecorations(
 An app with a title bar of its own replaces it: while the window's content has
 an `h.WindowDrag` area (`kit.TitleBar` is one) the fallback is not drawn, and it
 comes back if that area unmounts, in the same frame, so the window never shows
-two bars or none.
+two bars or none. That, or a `Frameless` window, is the only way to turn it off.
 
 **With `kit`:** [`kit.TitleBar`](Kit#title-bars) is the whole bar, with
 [`kit.WindowControls`](Kit#title-bars) (minimize, maximize or restore, close) in

@@ -38,13 +38,18 @@ import (
 // The window's content is laid out below the bar: the root (h-full,
 // h-screen, 100vh, the breakpoints, fixed and portal content such as
 // dialogs) sees the rest of the window as its viewport, so an app needs no
-// change for it.
+// change for it. The bar mirrors under the direction of the window's
+// content: an h.Dir on the outermost element, or on the element that is
+// the whole content inside it (a wrapper's only child). A click on it
+// closes an open dialog or popover that closes on a press outside it; a
+// drag moves the window and leaves them open.
 //
 // An app that draws its own title bar (an element with h.WindowDrag, such
 // as kit.TitleBar) replaces it: while the window's content has a WindowDrag
 // area the fallback is not shown, and it comes back when that area
 // unmounts, in the same frame. Show your bar only where it is needed by
-// reading State().ClientSideDecorations.
+// reading State().ClientSideDecorations. A Frameless window gets no bar at
+// all; there is no other switch.
 type App struct {
 	// Title is the window title.
 	Title string
