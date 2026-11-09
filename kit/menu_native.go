@@ -91,6 +91,7 @@ func nativeItems[K comparable](items []MenuItem[K], store *menuStore[K], mac boo
 		k := it.Key
 		n := desktop.MenuItem{
 			Label:       it.Label,
+			AccessKey:   it.AccessKey,
 			Accelerator: nativeAccelerator(it.Shortcut, mac),
 			Disabled:    it.Disabled || off,
 			OnSelect:    func() { choose(k) },
@@ -136,7 +137,7 @@ func nativeItems[K comparable](items []MenuItem[K], store *menuStore[K], mac boo
 					out = append(out, desktop.MenuItem{Label: it.Label, Disabled: true})
 					continue
 				}
-				out = append(out, desktop.MenuItem{Label: it.Label, Disabled: it.Disabled || off, Submenu: sub})
+				out = append(out, desktop.MenuItem{Label: it.Label, AccessKey: it.AccessKey, Disabled: it.Disabled || off, Submenu: sub})
 			}
 		}
 		return out

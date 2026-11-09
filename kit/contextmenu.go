@@ -123,6 +123,13 @@ type ContextMenu[K comparable] struct {
 	// the component. OnOpenChange is called with the next state.
 	Open         *bool
 	OnOpenChange func(open bool)
+	// Position is where, in window coordinates, a controlled menu that the
+	// app opens itself (setting Open to true) appears (MUI's
+	// anchorPosition); nil opens it as Shift+F10 does, at the focused
+	// element in the area (else the area's top-left corner, or with
+	// nothing focused the window's, as Chromium). A right click still
+	// opens it at the pointer.
+	Position *tela.Point
 
 	// Class is added to the area (it has no classes of its own);
 	// ContentClass is added after the recipe's Content classes, to the
@@ -144,7 +151,7 @@ func (c ContextMenu[K]) Build() tela.Node {
 		intercept = func(x, y float32) bool { return c.popup(w, store, mac, tela.Point{X: x, Y: y}) }
 	}
 	cm := aria.UseContextMenuTrigger(aria.ContextMenuTriggerOptions{
-		Open: c.Open, Disabled: c.Disabled, NoLongPress: c.NoLongPress, Intercept: intercept,
+		Open: c.Open, Position: c.Position, Disabled: c.Disabled, NoLongPress: c.NoLongPress, Intercept: intercept,
 		OnOpenChange: c.OnOpenChange,
 	})
 	pop := cm.PopoverOptions()

@@ -133,8 +133,9 @@ func (p Popover) triggerBusy() bool { return isBusy(p.Trigger) }
 // Build returns the trigger and the popover's portal.
 func (p Popover) Build() tela.Node {
 	s := &UseStyle().Popover
+	slot := useTriggerSlot()
 	trig := aria.UseOverlayTrigger(aria.OverlayTriggerOptions{
-		Open: p.Open, DefaultOpen: p.DefaultOpen, OnOpenChange: p.OnOpenChange, Disabled: p.Disabled || isBusy(p.Trigger), Ref: p.outer.ref,
+		Open: p.Open, DefaultOpen: p.DefaultOpen, OnOpenChange: p.OnOpenChange, Disabled: p.Disabled || isBusy(p.Trigger) || slot.dyn, Ref: p.outer.ref,
 	})
 	offset := p.Offset
 	switch {
@@ -153,10 +154,10 @@ func (p Popover) Build() tela.Node {
 		name = h.AriaLabelledBy(trig.Ref) // the panel has no title of its own
 	}
 	return h.Fragment(
-		triggerOf(p.Trigger, p.outer.merge(trig.TriggerProps), trig.Ref),
-		h.Portal(h.Presence(h.If(trig.Open,
+		slot.wrap(triggerOf(p.Trigger, slot.props(p.outer.merge(trig.TriggerProps)), trig.Ref)),
+		outsideSlot(h.Portal(h.Presence(h.If(trig.Open,
 			h.Div(pop.Props, dlg.Props, name, h.Exit(s.Exit),
-				cls(s.Root, s.Sides[pop.Side], p.Class), p.Props, p.Children)))),
+				cls(s.Root, s.Sides[pop.Side], p.Class), p.Props, p.Children))))),
 	)
 }
 

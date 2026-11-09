@@ -134,6 +134,7 @@ func (t Tooltip) triggerBusy() bool { return isBusy(t.Trigger) }
 // Build returns the trigger and the tooltip's portal.
 func (t Tooltip) Build() tela.Node {
 	s := &UseStyle().Tooltip
+	slot := useTriggerSlot()
 	delay := t.Delay
 	if delay <= 0 {
 		delay = aria.NoDelay
@@ -146,11 +147,11 @@ func (t Tooltip) Build() tela.Node {
 	fl := aria.UseFloating(tip.Ref, aria.Placement(placementOf("Tooltip", t.Placement, t.Align, "top")),
 		aria.Offset(t.Offset), aria.Flip(), aria.Shift(8), aria.Arrow(arrow))
 	return h.Fragment(
-		triggerOf(t.Trigger, t.outer.merge(tip.TriggerProps), tip.Ref),
-		h.Portal(h.Presence(h.If(tip.Open,
+		slot.wrap(triggerOf(t.Trigger, t.outer.merge(tip.TriggerProps), tip.Ref)),
+		outsideSlot(h.Portal(h.Presence(h.If(tip.Open,
 			h.Div(tip.TooltipProps, fl.Props, h.Exit(s.Exit),
 				cls(s.Root, s.Sides[fl.Side], t.Class), t.Props,
 				t.Content,
-				h.Div(h.Ref(arrow), fl.ArrowProps, cls(s.Arrow, s.ArrowSides[fl.Side], t.ArrowClass)))))),
+				h.Div(h.Ref(arrow), fl.ArrowProps, cls(s.Arrow, s.ArrowSides[fl.Side], t.ArrowClass))))))),
 	)
 }

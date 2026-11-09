@@ -1239,18 +1239,35 @@ ArrowLeft and ArrowRight close it and open the neighbor's, and hovering another
 trigger does the same (the popover is not modal, so the triggers stay under the
 pointer). A press on the open menu's trigger closes it, so do Escape, a press
 outside and choosing an item, and the focus goes back to the trigger. Tab closes
-the menu and leaves the bar. A touch opens a menu on the release. There are no
-submenus, no typeahead on the triggers and no mnemonics (Alt+letter).
+the menu and leaves the bar. A touch opens a menu on the release. A character
+typed on a trigger moves the focus to the next trigger whose text
+(`TextValue`) starts with it (the pattern's typeahead).
+
+Access keys (ADR-260, Windows and Linux; none under the Mac flavor):
+`AccessKey func(K) rune` gives each trigger its key, and `aria.AccessKeys`
+computes them as the Win32 backend's native bars do (an item's own key, else
+the first free letter of its label, else a Latin letter appended, "ファイル(F)").
+The key opens its trigger's menu from a focused trigger, before typeahead; with
+`ActivationKeys` (F10 and a lone Alt: pressed and released with no other key,
+press, wheel, pointer leaving the window, resize or focus change in between),
+Alt and the key do from anywhere in the window. `ShowAccessKeys` is true while
+Alt is held and while the keyboard is in the bar since those keys brought it
+there: underline the keys then (`AccessKey.Split`). A menu's items take keys
+through `MenuOptions.AccessKey`: the key, alone or with Alt, chooses its item
+(several items with one key take turns getting the focus).
 
 ### Context menus: `UseContextMenuTrigger`
 
-`UseContextMenuTrigger(aria.ContextMenuTriggerOptions{Open, OnOpenChange, Disabled, NoLongPress, Ref, MenuRef})`
+`UseContextMenuTrigger(aria.ContextMenuTriggerOptions{Open, OnOpenChange, Disabled, NoLongPress, Intercept, Position, Ref, MenuRef})`
 returns the props of an area that opens a menu at the pointer: `TriggerProps`
 handles a right click (the contextmenu event, at the pointer), a touch that
 stays down 500 ms (at the finger, with the first item focused) and Shift+F10 or
 the ContextMenu key (at the focused element's center, or a text field's caret,
-as Chromium does; the area's top-left corner when nothing in it has the focus;
-with the first item focused). The event's default is prevented and its propagation stopped, so the
+as Chromium does; the area's top-left corner when the focus is outside it, and
+the window's top-left corner plus one pixel when nothing has the focus;
+with the first item focused). A menu that opens with no point (a controlled
+`Open` the app sets, `SetOpen(true)`) is placed as the keys place it, or at
+`Position`. The event's default is prevented and its propagation stopped, so the
 innermost area wins. The result is shaped like `UseMenuTrigger`: `MenuProps`,
 `Open`, `FocusStrategy`, `SetOpen`, `Close`, `Ref`, `MenuRef`, plus `OpenAt(x, y)`
 and `Anchor`, the virtual rectangle that `AnchorRect` takes.
@@ -1286,8 +1303,7 @@ click in another area opens that area's menu instead. A menu rendered in a
 `Presence` must get a new key at each opening (count them in `OnOpenChange`), or
 the exiting menu comes back without the focus. The long press opens the menu for
 a touch or a pen only, and a held mouse button clicks as usual (`NoLongPress`
-turns the gesture off). The keyboard menu opens at the area's corner because a
-key event does not say which element has the focus.
+turns the gesture off).
 
 ### Tabs: `UseTabs`
 
@@ -1518,9 +1534,9 @@ focuses the input; without one, give `AriaLabel`.
   events do not carry the element the focus came from.
 - Menu bar and context menu: React Aria has neither hook. The menu bar follows
   the WAI-ARIA menubar pattern (and Radix's Menubar) on top of the menu trigger's
-  rules, with one press handler per trigger key and a non-modal popover; no
-  submenus, typeahead on the triggers or mnemonics. The context menu follows
-  Radix's ContextMenu; a keyboard menu opens at the area's corner.
+  rules, with one press handler per trigger key and a non-modal popover, and
+  the access keys of Windows' and GTK's bars. The context menu follows
+  Radix's ContextMenu; a keyboard menu opens where Chromium opens one.
 
 ## A complete screen
 

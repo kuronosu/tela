@@ -1697,6 +1697,13 @@ type ContextMenu[K comparable] struct {
     // the component. OnOpenChange is called with the next state.
     Open         *bool
     OnOpenChange func(open bool)
+    // Position is where, in window coordinates, a controlled menu that the
+    // app opens itself (setting Open to true) appears (MUI's
+    // anchorPosition); nil opens it as Shift+F10 does, at the focused
+    // element in the area (else the area's top-left corner, or with
+    // nothing focused the window's, as Chromium). A right click still
+    // opens it at the pointer.
+    Position *tela.Point
 
     // Class is added to the area (it has no classes of its own);
     // ContentClass is added after the recipe's Content classes, to the
@@ -2773,6 +2780,10 @@ type MenuItem[K comparable] struct {
     // KeepOpen keeps the menu open when this item is chosen, such as a
     // checkbox toggled in a row.
     KeepOpen bool
+    // AccessKey is the item's access key (mnemonic), a letter or a digit
+    // (see "Access keys"); 0 leaves it to the menu: a Menubar's menus give
+    // every item one, the other menus none.
+    AccessKey rune
     // OnSelect is called when a plain item is chosen.
     OnSelect func()
 
@@ -2852,6 +2863,10 @@ A plain item with a Role is one of the standard items of desktop.Role (Electron'
 ```
 
 Choosing a role item without an OnSelect of its own carries the role out, and neither the item's nor the menu's OnSelect is called (macOS's own items never report the choice either): in a native menu the OS or package desktop does it (ADR-226), and in a drawn one the menu closes and desktop.PerformRole does it once the focus is back where the menu was opened from (the element that had it before the trigger or the menu bar took it, by a press, Tab or the menu bar's F10 and Alt; a context menu's area keeps it), so Copy acts on the text field the user was in, whether the menu was opened with the pointer or the keyboard. An item's own OnSelect replaces the role, as in desktop.MenuItem.
+
+##### Access keys
+
+On Windows and Linux (not under the Mac's key conventions) an item can have an access key, as in native menus (ADR-260): typed in the open menu, alone or with Alt, it chooses the item (a submenu's item opens the submenu), and the menu shows it underlined while the keyboard's cues are on (Alt held, or the menu opened from the keyboard). AccessKey sets it ('F'): the first character of the label equal to it, in either case, is underlined, else it is appended ("ファイル(F)"). In the menus of a Menubar that is the window's bar (AppMenu, ActivationKeys), every item without one gets one, by the rule of Windows' native menu bars that the Win32 backend also follows: the first letter of its label that no item before it took, or a Latin letter appended to a label written without such letters (Chinese, Japanese, Korean). In the other menus only the items with an AccessKey have one, as in Windows' popup menus. Several items with the same key take turns getting the focus instead. Before typeahead: a key that is an item's is not a search.
 
 ##### Shortcuts
 
@@ -2942,6 +2957,10 @@ type MenuStyle struct {
     Separator string
     // Shortcut is the text at the end of an item.
     Shortcut string
+    // AccessKey is the underlined character of an access key while the
+    // keyboard's cues are shown (see MenuItem's "Access keys"), in the
+    // items and in a Menubar's buttons.
+    AccessKey string
     // SubTrigger is an item that opens a submenu (shadcn's SubTrigger;
     // aria-expanded: styles it while its submenu is open), SubIcon the
     // chevron at its end and SubContent the submenu's panel, which enters
@@ -2972,6 +2991,10 @@ type Menubar[K comparable] struct {
     // the OS's when native menus apply and the platform has one, drawn
     // otherwise. Declare one such Menubar per app.
     AppMenu bool
+    // ActivationKeys makes a drawn bar the window's bar for the keyboard
+    // (see "Keyboard"): F10, a lone Alt and the access keys. An AppMenu
+    // bar, and a bar drawn in place of a native one, have them already.
+    ActivationKeys bool
     // AppItems are the items of macOS's app menu after About
     // ("Settings…"); ignored where the bar is drawn or the platform has no
     // app menu, and without AppMenu. OnAppSelect gets the key of the one
@@ -3037,7 +3060,11 @@ Each menu is a top-level entry with its items, converted as a native ContextMenu
 
 ##### The app's menu bar
 
-AppMenu makes the bar the app's one menu bar (ADR-226; Electron's Menu.setApplicationMenu) instead of a window's: declare it once, anywhere in the tree. A native one is desktop.AppMenuBar: macOS's menu bar for every window, after the app menu it always shows first (About, AppItems such as Settings…, Services, Hide, Quit), and on Windows the bar of every framed window; the component draws nothing where it is. Where the platform has no such bar (Linux), or the app is not asking for native menus, the bar is drawn where it is declared, as any Menubar, usually in the window's title bar (kit.TitleBar's Children) or at the top of the content. A drawn app bar is the window's bar for the keyboard, as a native one is on Windows and Linux (aria.MenuBarOptions.ActivationKeys): F10 or a lone Alt focuses its first menu from anywhere in the window, and the same keys or Escape give the focus back (not under the Mac's key conventions, which have no such keys). A per-window native Menubar (AppMenu false) is unsupported on macOS, where the menu bar belongs to the app, and is drawn there. Shortcuts of the app's bar are key equivalents on macOS: the key chooses the item and does not reach the app (write "CmdOrCtrl+N" to be portable).
+AppMenu makes the bar the app's one menu bar (ADR-226; Electron's Menu.setApplicationMenu) instead of a window's: declare it once, anywhere in the tree. A native one is desktop.AppMenuBar: macOS's menu bar for every window, after the app menu it always shows first (About, AppItems such as Settings…, Services, Hide, Quit), and on Windows the bar of every framed window; the component draws nothing where it is. Where the platform has no such bar (Linux), or the app is not asking for native menus, the bar is drawn where it is declared, as any Menubar, usually in the window's title bar (kit.TitleBar's Children) or at the top of the content. A drawn app bar is the window's bar for the keyboard, as a native one is on Windows and Linux (aria.MenuBarOptions.ActivationKeys): F10 or a lone Alt focuses its first menu from anywhere in the window, and the same keys or Escape give the focus back (not under the Mac's key conventions, which have no such keys; see "Keyboard"). A per-window native Menubar (AppMenu false) is unsupported on macOS, where the menu bar belongs to the app, and is drawn there. Shortcuts of the app's bar are key equivalents on macOS: the key chooses the item and does not reach the app (write "CmdOrCtrl+N" to be portable).
+
+##### Keyboard
+
+A character typed on a focused menu button moves the focus to the next button whose label starts with it (typeahead, the WAI-ARIA menubar's). A drawn bar that is the window's bar has the keys of Windows' and GTK's menu bars on Windows and Linux (ADR-255, ADR-260): an AppMenu bar, a bar drawn because the native one it asked for is not there (Native, or tela.App.NativeMenus), or one with ActivationKeys. F10 and a lone Alt (pressed and released with no other key, press, wheel, pointer leaving or focus change in between) focus its first button; each menu and item has an access key (MenubarMenu.AccessKey and MenuItem.AccessKey, else the first free letter of its label, as the Win32 backend's native bars give them), underlined while Alt is held and while the keyboard is in the bar; Alt and a menu's key, from anywhere in the window, open that menu on its first item, the key alone does so on a focused button (before typeahead), and an item's key in the open menu chooses it. A bar that is not the window's (a row of menus in a card, the default for a Menubar without AppMenu) has typeahead only, as Radix's: one bar per window takes F10 and Alt. Under the Mac's key conventions there are no activation or access keys.
 
 **Example**
 
@@ -3084,6 +3111,10 @@ type MenubarMenu[K comparable] struct {
     Key K
     // Label is the text of the menu's button in the bar.
     Label string
+    // AccessKey is the menu's access key, a letter or a digit: Alt and the
+    // key open the menu (see Menubar's "Keyboard"); 0 leaves it to the
+    // bar, which gives each menu one. It reaches a native bar too.
+    AccessKey rune
     // Disabled makes the menu impossible to open.
     Disabled bool
     // Items are the entries of the menu.
@@ -5703,7 +5734,7 @@ Trigger is what a trigger slot takes: the Trigger field of [`Dialog`](#type-dial
 One rule holds for every trigger slot of the kit:
 
 - a kit component that can be a trigger implements Trigger: [`Button`](#type-button) (Trigger: kit.Button{Variant: kit.Outline, Children: h.Text("Open")}), [`Toggle`](#type-toggle), [`Checkbox`](#type-checkbox), [`Switch`](#type-switch) and [`Slider`](#type-slider) (so that they can have a tooltip), and the overlays [`Tooltip`](#type-tooltip), [`Popover`](#type-popover), [`Dialog`](#type-dialog), [`AlertDialog`](#type-alertdialog) and [`DropdownMenu`](#type-dropdownmenu), so that one element can have several overlays: Tooltip{Content: h.Text("More actions"), Trigger: kit.DropdownMenu\[string\]{Trigger: kit.Button{...}, Items: items}} is a button with a tooltip that opens a menu (Radix's asChild on both triggers; nest them either way);
-- a trigger's own Disabled wins over the overlay's props, as the overlay's Disabled does: a disabled trigger opens nothing, and a Loading [`Button`](#type-button) opens nothing either, from the pointer or the keyboard, while it keeps its tab stop (a loading Button that a [`TriggerFunc`](#type-triggerfunc) renders is the function's: wrap it in [`LoadingTrigger`](#func-loadingtrigger));
+- a trigger's own Disabled wins over the overlay's props, as the overlay's Disabled does: a disabled trigger opens nothing, and a Loading [`Button`](#type-button) opens nothing either, from the pointer or the keyboard, while it keeps its tab stop, also when a [`TriggerFunc`](#type-triggerfunc) renders it (it tells the overlay itself; [`LoadingTrigger`](#func-loadingtrigger) is for a busy element that is not a Button);
 - a component of your own implements it with one method, merging p into the props of its root element (the way a kit component merges it with its Props field);
 - anything else, an element or a function component, is made a Trigger with [`TriggerFunc`](#type-triggerfunc), which receives the props and puts them on the element it chooses.
 
@@ -5717,12 +5748,12 @@ func LoadingTrigger(t Trigger, loading bool) Trigger
 
 LoadingTrigger returns t as a trigger that is busy while loading is true: the overlay that holds it opens nothing, from the pointer or the keyboard, and the trigger's element stays enabled and in the tab order with aria-busy, as a Loading [`Button`](#type-button) in a trigger slot does by itself.
 
-Use it for a trigger the overlay cannot see is busy: a [`TriggerFunc`](#type-triggerfunc) (or a component of your own) that renders a loading Button with the props it is given. The overlay's hook is set up before the function runs, and the function may put the props on any element, so the Button's Loading does not reach the overlay:
+Use it for a trigger the overlay cannot see is busy: a [`TriggerFunc`](#type-triggerfunc) (or a component of your own) that renders a busy element of its own, such as an h.Button with a spinner. A loading kit Button that the function renders needs none: it tells the overlay that holds the slot (ADR-260), which builds again with its hook disabled before the frame paints.
 
 ```go
 kit.DropdownMenu[string]{
     Trigger: kit.LoadingTrigger(kit.TriggerFunc(func(p tela.Prop) tela.Node {
-        return kit.Button{Loading: saving, Props: p, Children: h.Text("Export")}
+        return h.Button(p, h.Class("..."), spinner(saving), h.Text("Export"))
     }), saving),
     Items: formats,
 }
