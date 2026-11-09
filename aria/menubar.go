@@ -109,6 +109,11 @@ type menuBar[K comparable] struct {
 	ref     tela.ElementRef
 	origin  focusOrigin
 	keyMode bool
+	// blurOnClose is set when the bar is left with a menu open and no
+	// origin to give the focus to: the menu's focus scope gives the
+	// focus back to its trigger as it unmounts, so the bar's layout
+	// effect blurs it after that commit.
+	blurOnClose bool
 
 	menuRefs   map[K]tela.ElementRef
 	press      map[K]*pressState
@@ -221,6 +226,15 @@ func UseMenuBar[K comparable](o MenuBarOptions[K]) MenuBarResult[K] {
 			b.keyMode = false
 		}
 	}))
+	tela.UseLayoutEffect(func() func() {
+		if b.blurOnClose {
+			b.blurOnClose = false
+			if f := activeOr(b.ref); !b.has && b.inside(f) {
+				f.Blur()
+			}
+		}
+		return nil
+	})
 	if o.ActivationKeys && !mac && !o.Disabled {
 		ps = append(ps, core.MenuBarKeys(func(core.KeyboardEvent) bool { return b.activate() }))
 	}
@@ -442,6 +456,7 @@ func (b *menuBar[K]) leave() {
 	}
 	if f := activeOr(b.ref); b.inside(f) {
 		f.Blur()
+		b.blurOnClose = b.has // the menu's scope would focus the trigger again
 	}
 	b.close()
 }

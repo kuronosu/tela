@@ -176,6 +176,24 @@ func TestMenubarActivationKeys(t *testing.T) {
 	}
 }
 
+// With a menu opened by a press while nothing had the focus, the keys
+// close it and take the focus out of the bar: the menu's focus scope,
+// which gives it back to the trigger as it closes, does not keep it there.
+func TestMenubarActivationKeysLeaveWithoutOrigin(t *testing.T) {
+	for _, key := range []string{"F10", "Alt"} {
+		t.Run(key, func(t *testing.T) {
+			var log []string
+			app := telatest.MountFunc(t, editBarPage(&log, true), telatest.Size(480, 360),
+				telatest.Theme(kit.Theme()), telatest.PlatformKeys("linux"))
+			app.Click(barItem("File"))
+			app.ExpectCount(menuNamed("File"), 1)
+			app.Press(key)
+			app.ExpectCount(menuNamed("File"), 0)
+			app.Expect(barItem("File"), telatest.Focused(false))
+		})
+	}
+}
+
 // The keys need AppMenu (the window's bar), and the Mac has no such keys.
 func TestMenubarActivationKeysScope(t *testing.T) {
 	cases := []struct {
