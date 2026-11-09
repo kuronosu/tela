@@ -143,8 +143,9 @@ type Button struct {
 	Props tela.Child
 
 	// trigger holds the props an overlay gives a button used as its
-	// trigger (WithTriggerProps).
-	trigger tela.Prop
+	// trigger (WithTriggerProps); triggered says there are some.
+	trigger   tela.Prop
+	triggered bool
 }
 
 // WithTriggerProps makes Button a [Trigger]: the overlay that has it as its
@@ -152,9 +153,13 @@ type Button struct {
 // own; the button's Disabled wins over theirs, so a disabled button opens
 // nothing (the overlay's own Disabled does the same).
 func (b Button) WithTriggerProps(p tela.Prop) tela.Component {
-	b.trigger = p
+	b.trigger, b.triggered = p, true
 	return b
 }
+
+// triggerBusy makes a loading button a busyTrigger: the overlay it opens
+// disables its hook, so a press from the keyboard opens nothing either.
+func (b Button) triggerBusy() bool { return b.Loading }
 
 // Build returns the button element.
 func (b Button) Build() tela.Node {
@@ -201,9 +206,14 @@ func (b Button) Build() tela.Node {
 		kids = append(kids, h.AriaLabel(b.AriaLabel))
 	}
 	kids = append(kids, b.Props, b.trigger)
-	if b.Disabled {
+	switch {
+	case b.Disabled:
 		// After the trigger props, whose button hook enables the element.
 		kids = append(kids, h.Disabled(true))
+	case b.Loading && b.triggered:
+		// The overlay disabled its hook (triggerBusy), which disables the
+		// element: a loading button stays focusable.
+		kids = append(kids, h.Disabled(false))
 	}
 	kids = append(kids, lead, content, trail, overlay)
 	return h.Button(kids...)

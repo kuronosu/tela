@@ -23,7 +23,9 @@ import "github.com/kuronosu/tela"
 //     button with a tooltip that opens a menu (Radix's asChild on both
 //     triggers; nest them either way);
 //   - a trigger's own Disabled wins over the overlay's props, as the
-//     overlay's Disabled does: a disabled trigger opens nothing;
+//     overlay's Disabled does: a disabled trigger opens nothing, and a
+//     Loading [Button] opens nothing either, from the pointer or the
+//     keyboard, while it keeps its tab stop;
 //   - a component of your own implements it with one method, merging p into
 //     the props of its root element (the way a kit component merges it with
 //     its Props field);
@@ -83,6 +85,20 @@ func triggerOf(t Trigger, p tela.Prop, ref tela.ElementRef) tela.Component {
 		return rt.withTrigger(p, ref)
 	}
 	return t.WithTriggerProps(p)
+}
+
+// busyTrigger is a [Trigger] that ignores presses for now: a Loading
+// [Button], or an overlay whose own Trigger is busy. The overlay that holds
+// it in its slot disables its hook, so that neither the pointer nor the
+// keyboard opens it; the trigger keeps its tab stop (a loading Button
+// enables its element again after the overlay's props).
+type busyTrigger interface{ triggerBusy() bool }
+
+// isBusy reports whether the trigger t ignores presses for now
+// (busyTrigger).
+func isBusy(t Trigger) bool {
+	b, ok := t.(busyTrigger)
+	return ok && b.triggerBusy()
 }
 
 // refTrigger is a [Trigger] whose root element has a ref of its own: an

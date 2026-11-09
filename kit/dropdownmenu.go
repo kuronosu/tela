@@ -108,13 +108,17 @@ func (d DropdownMenu[K]) withTrigger(p tela.Prop, ref tela.ElementRef) tela.Comp
 	return d
 }
 
+// triggerBusy forwards its Trigger's busyTrigger, so that an overlay that
+// holds this one in its slot opens nothing from a loading button either.
+func (d DropdownMenu[K]) triggerBusy() bool { return isBusy(d.Trigger) }
+
 // Build returns the trigger and the menu's portal.
 func (d DropdownMenu[K]) Build() tela.Node {
 	st := &UseStyle().DropdownMenu
 	store := useMenuStore[K]()
 	w := tela.UseWindow()
 	mt := aria.UseMenuTrigger(aria.MenuTriggerOptions{
-		Open: d.Open, DefaultOpen: d.DefaultOpen, OnOpenChange: d.OnOpenChange, Disabled: d.Disabled, Ref: d.outer.ref,
+		Open: d.Open, DefaultOpen: d.DefaultOpen, OnOpenChange: d.OnOpenChange, Disabled: d.Disabled || isBusy(d.Trigger), Ref: d.outer.ref,
 	})
 	open := mt.Open
 	panel := menuPanel[K]{

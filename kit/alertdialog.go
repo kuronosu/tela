@@ -147,11 +147,15 @@ func (a AlertDialog) withTrigger(p tela.Prop, ref tela.ElementRef) tela.Componen
 	return a
 }
 
+// triggerBusy forwards its Trigger's busyTrigger, so that an overlay that
+// holds this one in its slot opens nothing from a loading button either.
+func (a AlertDialog) triggerBusy() bool { return isBusy(a.Trigger) }
+
 // Build returns the trigger and the dialog's portal.
 func (a AlertDialog) Build() tela.Node {
 	s := &UseStyle().AlertDialog
 	trig := aria.UseOverlayTrigger(aria.OverlayTriggerOptions{
-		Open: a.Open, DefaultOpen: a.DefaultOpen, OnOpenChange: a.OnOpenChange, Disabled: a.Disabled, Ref: a.outer.ref,
+		Open: a.Open, DefaultOpen: a.DefaultOpen, OnOpenChange: a.OnOpenChange, Disabled: a.Disabled || isBusy(a.Trigger), Ref: a.outer.ref,
 	})
 	overlay := aria.UseOverlay(aria.OverlayOptions{Open: trig.Open, OnClose: trig.Close, Modal: true})
 	dlg := aria.UseDialog(aria.DialogOptions{Role: "alertdialog", Modal: true, Ref: trig.OverlayRef})

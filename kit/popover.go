@@ -126,11 +126,15 @@ func (p Popover) withTrigger(props tela.Prop, ref tela.ElementRef) tela.Componen
 	return p
 }
 
+// triggerBusy forwards its Trigger's busyTrigger, so that an overlay that
+// holds this one in its slot opens nothing from a loading button either.
+func (p Popover) triggerBusy() bool { return isBusy(p.Trigger) }
+
 // Build returns the trigger and the popover's portal.
 func (p Popover) Build() tela.Node {
 	s := &UseStyle().Popover
 	trig := aria.UseOverlayTrigger(aria.OverlayTriggerOptions{
-		Open: p.Open, DefaultOpen: p.DefaultOpen, OnOpenChange: p.OnOpenChange, Disabled: p.Disabled, Ref: p.outer.ref,
+		Open: p.Open, DefaultOpen: p.DefaultOpen, OnOpenChange: p.OnOpenChange, Disabled: p.Disabled || isBusy(p.Trigger), Ref: p.outer.ref,
 	})
 	offset := p.Offset
 	switch {

@@ -127,6 +127,10 @@ func (t Tooltip) withTrigger(p tela.Prop, ref tela.ElementRef) tela.Component {
 	return t
 }
 
+// triggerBusy forwards its Trigger's busyTrigger, so that an overlay that
+// holds this one in its slot opens nothing from a loading button either.
+func (t Tooltip) triggerBusy() bool { return isBusy(t.Trigger) }
+
 // Build returns the trigger and the tooltip's portal.
 func (t Tooltip) Build() tela.Node {
 	s := &UseStyle().Tooltip

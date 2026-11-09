@@ -138,3 +138,45 @@ func TestButtonLoadingIconSlot(t *testing.T) {
 	app := telatest.Mount(t, kit.Button{Loading: true, LoadingIcon: iconCheck, Children: h.Text("Save"), Props: h.TestID("b")})
 	app.ExpectCount(telatest.ByRole("button", "Save"), 1)
 }
+
+// A loading button used as an overlay's Trigger opens nothing, from the
+// pointer or the keyboard, and keeps its focus and aria-busy.
+func TestButtonLoadingTriggerOpensNothing(t *testing.T) {
+	trigger := kit.Button{Loading: true, Variant: kit.Outline, Class: "aria-busy:w-40", Props: h.TestID("busy"), Children: h.Text("Open")}
+	overlays := map[string]tela.Component{
+		"dialog":   kit.Dialog{Trigger: trigger, Title: h.Text("Panel"), Children: h.Text("Body")},
+		"popover":  kit.Popover{Trigger: trigger, Children: h.Text("Body")},
+		"dropdown": kit.DropdownMenu[string]{Trigger: trigger, Items: []kit.MenuItem[string]{{Key: "a", Label: "Item A"}}},
+		"alert":    kit.AlertDialog{Trigger: trigger, Title: h.Text("Panel"), Description: h.Text("Body")},
+		// Nested: the busy trigger is found through the overlay between.
+		"popover over a tooltip": kit.Popover{Trigger: kit.Tooltip{Content: h.Text("Tip"), Trigger: trigger}, Children: h.Text("Body")},
+		"tooltip over a menu": kit.Tooltip{Content: h.Text("Tip"),
+			Trigger: kit.DropdownMenu[string]{Trigger: trigger, Items: []kit.MenuItem[string]{{Key: "a", Label: "Item A"}}}},
+	}
+	for name, ov := range overlays {
+		t.Run(name, func(t *testing.T) {
+			app := telatest.MountFunc(t, func() tela.Node { return h.Div(h.Class("p-6"), ov) }, telatest.Theme(kit.Theme()))
+			open := telatest.ByRole("button", "Open")
+			r := app.Bounds(open)
+			closed := func(after string) {
+				t.Helper()
+				if n := app.Count(telatest.ByText("Body")) + app.Count(telatest.ByRole("menuitem", "Item A")); n != 0 {
+					t.Fatalf("after %s the overlay is open", after)
+				}
+			}
+			app.ClickAt(r.X+r.Width/2, r.Y+r.Height/2)
+			closed("a click")
+			app.Focus(open)
+			app.ExpectFocused(open)
+			for _, k := range []string{"Enter", "Space", "ArrowDown"} {
+				app.Press(k)
+				closed(k)
+			}
+			app.Expect(open, telatest.Expanded(false))
+			app.ExpectFocused(open)
+			if w := app.Bounds(telatest.ByTestID("busy")).Width; w != 160 {
+				t.Errorf("the loading trigger is not aria-busy: width %v", w)
+			}
+		})
+	}
+}
