@@ -5406,6 +5406,10 @@ type ToggleStyle struct {
     On string
     // Icon is what the icon slot has (shadcn's [&_svg]: classes).
     Icon string
+    // IconVariants are added to Icon per variant, after it, so that a look
+    // can tint the glyphs of one variant (an accent sidebar's) without
+    // changing the others. A variant with no entry adds nothing.
+    IconVariants map[Variant]string
 }
 ```
 
