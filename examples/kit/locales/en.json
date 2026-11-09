@@ -18,6 +18,7 @@
   "category": "{count, plural, zero {zero} one {one} two {two} few {few} many {many} other {other}}",
   "add": "Add one",
   "remove": "Remove one",
+  "count": "Count",
   "summary": {
     "discount": "Discount",
     "updated": "Updated",

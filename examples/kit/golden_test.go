@@ -94,7 +94,7 @@ func TestGoldenOpen(t *testing.T) {
 func TestGoldenTitleBarFull(t *testing.T) {
 	for _, s := range schemes {
 		t.Run(s.name, func(t *testing.T) {
-			a := mount(t, Previews["TitleBar"], append([]telatest.Option{telatest.Size(1280, 2200)}, s.opts...)...)
+			a := mount(t, Previews["TitleBar"], append([]telatest.Option{telatest.Size(1280, 2300)}, s.opts...)...)
 			a.GoldenScales("kit_titlebar_full_"+s.name, 1)
 		})
 	}

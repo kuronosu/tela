@@ -123,7 +123,7 @@ func internationalizationPage() tela.Node {
 				Span(Class("min-w-10 text-center text-lg font-semibold tabular-nums"), TestID("count"), Text(f.Number(float64(count)))),
 				kit.Button{Variant: kit.Outline, Size: kit.IconSm, Icon: icons.Plus, AriaLabel: t("add"),
 					OnClick: func() { setCount.Update(func(n int) int { return n + 1 }) }},
-				kit.ToggleGroup[int]{AriaLabel: "Count", Variant: kit.Outline, Size: kit.Sm, DisallowEmptySelection: true,
+				kit.ToggleGroup[int]{AriaLabel: t("count"), Variant: kit.Outline, Size: kit.Sm, DisallowEmptySelection: true,
 					Value: &count, OnValueChange: setCount.Set, Items: presets},
 			),
 			rows(

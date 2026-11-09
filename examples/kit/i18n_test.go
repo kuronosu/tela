@@ -117,15 +117,17 @@ func TestPluralCategories(t *testing.T) {
 // TestCounterButtons counts with the minus and plus buttons, named from the
 // catalog, down to zero (where minus is disabled) and up.
 func TestCounterButtons(t *testing.T) {
-	for _, c := range []struct{ tag, remove, add, zero string }{
-		{"en", "Remove one", "Add one", "No new messages"},
-		{"es", "Quitar uno", "Añadir uno", "Sin mensajes nuevos"},
-		{"ar", "إزالة واحد", "إضافة واحد", "لا توجد رسائل جديدة"},
+	for _, c := range []struct{ tag, remove, add, zero, group string }{
+		{"en", "Remove one", "Add one", "No new messages", "Count"},
+		{"es", "Quitar uno", "Añadir uno", "Sin mensajes nuevos", "Cantidad"},
+		{"ar", "إزالة واحد", "إضافة واحد", "لا توجد رسائل جديدة", "العدد"},
 	} {
 		t.Run(c.tag, func(t *testing.T) {
 			a := canvasIn(t, c.tag)
 			f := i18n.For(c.tag)
 			remove, add := telatest.ByRole("button", c.remove), telatest.ByRole("button", c.add)
+			// The presets are named in the page's language too.
+			a.ExpectCount(telatest.ByRole("radiogroup", c.group), 1)
 			for range 3 {
 				a.Click(remove)
 			}

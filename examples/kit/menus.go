@@ -218,7 +218,8 @@ func menubarPage() tela.Node {
 					}},
 				},
 			}),
-		demo("The window's menu bar", "AppMenu makes a bar the app's: the OS's where native menus apply, drawn where it is declared otherwise (on Linux: in the title bar or at the top of the window). A drawn one is also the window's bar for the keyboard: F10 or a lone Alt focuses its first menu from anywhere in the window, and F10 or Escape gives the focus back. The Mac's key conventions have neither. The gallery has no app bar of its own, so there is nothing to press here.", col,
+		demo("The window's menu bar", "AppMenu makes a bar the app's: the OS's where native menus apply, drawn where it is declared otherwise (on Linux: in the title bar or at the top of the window). A drawn one is also the window's bar for the keyboard: F10 or a lone Alt focuses its first menu from anywhere in the window, and F10 or Escape gives the focus back. The Mac's key conventions have neither. The gallery's own window has no app bar, so the button opens a frameless window with one: press F10 or Alt in it.", col,
+			Div(Class("flex"), DemoWindow{}),
 			snippet("kit.TitleBar{\n\tChildren: kit.Menubar[string]{\n\t\tAppMenu: true, Menus: menus}}")),
 	)
 }

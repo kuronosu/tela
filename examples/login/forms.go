@@ -2,7 +2,9 @@ package main
 
 import (
 	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/examples/login/icons"
 	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/kit"
 )
 
 // Setters are the Setters of the page's state, which the two forms share:
@@ -33,9 +35,11 @@ func (p SignInForm) Build() tela.Node {
 	v := p.Values
 	return Fragment(
 		Header{Title: "Welcome back", Description: "Sign in to your account to continue."},
-		If(p.Failed, Alert{
-			Title:       "Incorrect e-mail or password",
-			Description: "Check your details and try again. The demo password is " + demoPassword + ".",
+		If(p.Failed, kit.Alert{
+			Variant: kit.Destructive, Icon: icons.CircleAlert,
+			Class:       "border-destructive/30 bg-destructive/5 dark:bg-destructive/10",
+			Title:       Text("Incorrect e-mail or password"),
+			Description: Text("Check your details and try again. The demo password is " + demoPassword + "."),
 		}),
 		Form(Class("flex flex-col gap-5"),
 			// Enter in a field and the Sign in button both land here. The
