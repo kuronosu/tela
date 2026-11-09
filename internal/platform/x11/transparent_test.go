@@ -24,7 +24,7 @@ func TestTransparentFollowsCompositingManager(t *testing.T) {
 	w := fakeWindow(g.b, 10, image.Pt(100, 80), platform.WindowOptions{Frameless: true, Transparent: true, Size: platform.Size{W: 100, H: 80}})
 	w.initTransparent(true)
 	g.b.loop.UpdateState(w, w.osState) // as NewWindow, after initTransparent
-	g.feed()                            // the window's first configure, state and frame
+	g.feed()                           // the window's first configure, state and frame
 	if !w.osState.Transparent {
 		t.Fatal("a window with a compositing manager is not transparent")
 	}

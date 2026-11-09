@@ -96,6 +96,13 @@
 //     build is told at its promotion) and AccessActionEvent too, mapped
 //     back to its IDs and dropped while input is frozen or before the
 //     child sent its tree.
+//   - Platform contract v6 (protocol 10, ADR-249): WindowOptions.Transparent
+//     is a creation-only option like Frameless (a reload keeps the real
+//     window only when it is unchanged), and WindowState.Transparent
+//     travels with the window state, so the child renders a transparent
+//     canvas while the host's real window shows its alpha. The real
+//     window computes its input region from the frames the host presents
+//     on it, so it follows the child's pixels.
 //   - Run returns an error when the connection is lost.
 //
 // The child's loop is internal/loop's (queue, coalesced wake, quit,

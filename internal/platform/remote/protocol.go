@@ -41,7 +41,9 @@ import (
 //   - 8: SystemSettings.UIFontFamily and MonoFontFamily (ADR-244).
 //   - 9: platform contract v5 (ADR-246; access.go): SetAccessibility,
 //     AccessibilityEvent and AccessActionEvent.
-const ProtocolVersion = 9
+//   - 10: platform contract v6 (ADR-249): WindowOptions.Transparent and
+//     WindowState.Transparent.
+const ProtocolVersion = 10
 
 // magic opens the hello message.
 const magic = "TELA"
@@ -446,6 +448,7 @@ func (e *enc) event(ev platform.Event) {
 		e.i64(int64(st.Position.X))
 		e.i64(int64(st.Position.Y))
 		e.rect(st.TitleBarControls)
+		e.boolean(st.Transparent)
 	case platform.NotificationEvent:
 		e.u8(evNotification)
 		e.u32(uint32(ev.ID))
@@ -577,6 +580,7 @@ func (d *dec) event() platform.Event {
 			HasPosition:           d.boolean(),
 			Position:              image.Point{X: int(d.i64()), Y: int(d.i64())},
 			TitleBarControls:      d.rect(),
+			Transparent:           d.boolean(),
 		}}
 	case evNotification:
 		return platform.NotificationEvent{
@@ -685,6 +689,7 @@ func (e *enc) windowOptions(o platform.WindowOptions, parent uint32) {
 	e.titleBar(o.TitleBar)
 	e.u8(uint8(o.Backdrop))
 	e.boolean(o.TitleBarOverlay)
+	e.boolean(o.Transparent)
 }
 
 // windowOptions decodes the options of a new window. Parent is left nil:
@@ -711,6 +716,7 @@ func (d *dec) windowOptions() (platform.WindowOptions, uint32) {
 	o.TitleBar = d.titleBar()
 	o.Backdrop = d.backdrop()
 	o.TitleBarOverlay = d.boolean()
+	o.Transparent = d.boolean()
 	return o, parent
 }
 

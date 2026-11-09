@@ -42,7 +42,7 @@ var eventSamples = []platform.Event{
 	platform.IMEEvent{DeleteBefore: 3, DeleteAfter: 4, Commit: "日本", Preedit: "ご", CursorStart: 0, CursorEnd: 3},
 	platform.IMESessionEvent{Active: true},
 	platform.WindowStateEvent{State: platform.WindowState{Maximized: true, Fullscreen: true, Minimized: true,
-		ClientSideDecorations: true, HasPosition: true, Position: image.Point{X: -1920, Y: 37}, TitleBarControls: platform.Rect{X: 8, Y: 6.5, W: 52, H: 16}}},
+		ClientSideDecorations: true, HasPosition: true, Position: image.Point{X: -1920, Y: 37}, TitleBarControls: platform.Rect{X: 8, Y: 6.5, W: 52, H: 16}, Transparent: true}},
 	platform.NotificationEvent{ID: 9, Kind: platform.NotificationActionInvoked, Action: "reply"},
 	platform.TrayEvent{Tray: 2, Kind: platform.TrayMenuItem, Item: 41},
 	platform.DragEvent{Action: platform.DragDrop, Pos: platform.Point{X: 10.5, Y: -3}, Types: []string{platform.MIMEURIList, platform.MIMEText},

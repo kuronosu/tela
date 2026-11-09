@@ -948,7 +948,8 @@ func (h *Host) attach(cw *childWin) {
 
 // findReal returns the real window cw takes over: an open one with cw's
 // key that no window of cw's child has yet, opened with the same options
-// that only apply at creation (frameless, title bar overlay, fixed size, modal) under the
+// that only apply at creation (frameless, title bar overlay, transparent,
+// fixed size, modal) under the
 // same real parent. A window whose creation-only options changed in the
 // new build is opened anew (the old one closes at the promotion).
 func (h *Host) findReal(cw *childWin, parent *realWin) *realWin {
@@ -957,7 +958,8 @@ func (h *Host) findReal(cw *childWin, parent *realWin) *realWin {
 			continue
 		}
 		o := cw.opts
-		if rw.opts.Frameless != o.Frameless || rw.opts.TitleBarOverlay != o.TitleBarOverlay || rw.opts.FixedSize != o.FixedSize || rw.opts.Modal != (o.Modal && parent != nil) {
+		if rw.opts.Frameless != o.Frameless || rw.opts.TitleBarOverlay != o.TitleBarOverlay || rw.opts.Transparent != o.Transparent ||
+			rw.opts.FixedSize != o.FixedSize || rw.opts.Modal != (o.Modal && parent != nil) {
 			continue
 		}
 		if (rw.active != nil && rw.active.c == cw.c) || slices.ContainsFunc(rw.pending, func(x *childWin) bool { return x.c == cw.c }) {
