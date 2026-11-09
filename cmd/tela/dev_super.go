@@ -15,10 +15,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kuronosu/tela/internal/watch"
 	"github.com/kuronosu/tela/internal/devloop"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/remote"
+	"github.com/kuronosu/tela/internal/watch"
 )
 
 // The supervisor of tela dev (ADR-115). It owns the remote host (and so the

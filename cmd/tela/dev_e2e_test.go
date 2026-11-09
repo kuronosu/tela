@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kuronosu/tela/internal/watch"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
 	"github.com/kuronosu/tela/internal/platform/remote"
 	"github.com/kuronosu/tela/internal/testutil/wine"
+	"github.com/kuronosu/tela/internal/watch"
 )
 
 // e2eWait bounds each wait of the end-to-end test; the first build of an

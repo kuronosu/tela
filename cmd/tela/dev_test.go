@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kuronosu/tela/internal/watch"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
 	"github.com/kuronosu/tela/internal/platform/remote"
 	"github.com/kuronosu/tela/internal/testutil/wine"
+	"github.com/kuronosu/tela/internal/watch"
 )
 
 // The supervisor's tests: a real remote host on the headless backend, the
