@@ -125,6 +125,9 @@ type Window struct {
 	// callbacks counts the frame callbacks given up on (voidCallback): a
 	// callback requested before is ignored when it fires late.
 	callbacks uint64
+
+	// input is the input region of a transparent window (transparent.go).
+	input inputState
 }
 
 var _ platform.Window = (*Window)(nil)
@@ -525,16 +528,18 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 		return nil // everything was clipped away: nothing changed
 	}
 	if w.chain.alloc == nil {
+		format := w.windowFormat()
 		w.chain.alloc = func(size image.Point) (*shmBuffer, error) {
-			buf, err := allocShm(b.shm, b.format, size)
+			buf, err := allocShm(b.shm, format, size)
 			if err != nil {
 				return nil, err
 			}
 			buf.wl.SetReleaseHandler(func(protocols.WlBufferReleaseEvent) { w.chain.released(buf) })
 			return buf, nil
 		}
+		// Both copies keep the alpha byte, which the X formats ignore.
 		w.chain.copyRect = copyXRGB
-		if b.format == protocols.WlShmFormatXbgr8888 {
+		if format == protocols.WlShmFormatXbgr8888 || format == protocols.WlShmFormatAbgr8888 {
 			w.chain.copyRect = copyXBGR
 		}
 	}
@@ -567,6 +572,7 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 		}
 	}
 	w.surfaceSize = logical
+	w.syncInputRegion(fb, rects, logical)
 	w.surface.Attach(buf.wl, 0, 0)
 	w.damage(rects, size)
 	w.requestCallback()

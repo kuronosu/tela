@@ -219,9 +219,8 @@ func newBackend(conn *wire.Conn) (*Backend, error) {
 // chooseFormat picks the buffer format. XBGR8888 has the byte order of Go's
 // image.RGBA (R, G, B, X in memory), so frames are copied without a
 // swizzle; it is optional in wl_shm, so XRGB8888 (always supported) is the
-// fallback. Wayland windows are opaque (only Win32 presents alpha, for a
-// Windows 11 backdrop), so the X variants are used: the
-// compositor can skip blending. TELA_WAYLAND_SHM_FORMAT=xrgb8888 forces the
+// fallback. Opaque windows use the X variants, so the compositor can skip
+// blending; transparent ones (ADR-249) their A twins (alphaFormat). TELA_WAYLAND_SHM_FORMAT=xrgb8888 forces the
 // fallback (the live tests check both paths on screen).
 func chooseFormat(formats map[protocols.WlShmFormat]bool) protocols.WlShmFormat {
 	if formats[protocols.WlShmFormatXbgr8888] && os.Getenv("TELA_WAYLAND_SHM_FORMAT") != "xrgb8888" {

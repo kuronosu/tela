@@ -222,6 +222,7 @@ func (w *Window) osState() platform.WindowState {
 		Fullscreen:            w.states.fullscreen,
 		Suspended:             w.suspended(),
 		ClientSideDecorations: w.csd(),
+		Transparent:           w.opts.Transparent, // every compositor composites
 	}
 }
 
@@ -593,7 +594,7 @@ func (w *Window) RestoreToken() string {
 // neither maximized, fullscreen nor FixedSize have resize edges, except
 // along the edges they are tiled against (GTK's rule).
 func (w *Window) resizeEdgeAt(p platform.Point) platform.Edge {
-	if !w.mapped || !w.csd() || w.states.maximized || w.states.fullscreen || w.opts.FixedSize {
+	if !w.mapped || !w.csd() || w.states.maximized || w.states.fullscreen || w.opts.FixedSize || w.opts.Transparent {
 		return 0
 	}
 	return resizeEdge(p, w.surfaceSize, w.states.tiled)
