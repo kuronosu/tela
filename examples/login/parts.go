@@ -31,23 +31,6 @@ func (p Header) Build() tela.Node {
 	)
 }
 
-// Alert is a message above the form. It has the alert role, so a screen
-// reader announces it when it appears (kit has no Alert component).
-type Alert struct {
-	Title, Description string
-}
-
-func (a Alert) Build() tela.Node {
-	return Div(Role("alert"),
-		Class("flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive dark:bg-destructive/10"),
-		Icon(icons.CircleAlert, Class("mt-0.5 size-4 shrink-0")),
-		Div(Class("flex flex-col gap-0.5"),
-			Div(Class("font-medium"), Text(a.Title)),
-			Div(Class("text-destructive/80"), Text(a.Description)),
-		),
-	)
-}
-
 // EmailField is a Field around an e-mail Input. Its Error marks the input
 // invalid (a red border and ring from the recipe, `[invalid]` for assistive
 // technologies) and shows the message below it. Sign in sets it once the
@@ -177,9 +160,8 @@ func (m StrengthMeter) Build() tela.Node {
 // maximum height (the recipe's field-sizing-content with min-h and max-h;
 // past the maximum it scrolls). It is bound to a tela.Value with BindValue,
 // and its counter is a TextFn that reads that Value: a keystroke repaints
-// the counter and nothing builds. The counter sits on the label's line, at
-// the other end (a Field has no slot beside its label, so it is a Span placed
-// with absolute in the relative field).
+// the counter and nothing builds. The counter is the Field's LabelEnd, on
+// the label's line at the other end.
 type BioField struct {
 	Bio *tela.Value[string]
 }
@@ -188,16 +170,13 @@ func (p BioField) Build() tela.Node {
 	bio := p.Bio
 	return kit.Field{
 		Label: "Short bio (optional)",
-		Class: "relative",
-		Children: Fragment(
-			kit.Textarea{
-				Name: "bio", Rows: 3, MaxLength: bioLimit, Placeholder: "Tell us what you build…",
-				Class: "max-h-40 min-h-16 leading-5",
-				Props: BindValue(bio),
-			},
-			Span(Class("absolute top-0 right-0 text-xs text-muted-foreground tabular-nums"),
-				TextFn(func() string { return fmt.Sprintf("%d/%d", units(bio.Get()), bioLimit) })),
-		),
+		LabelEnd: Span(Class("text-xs text-muted-foreground tabular-nums"),
+			TextFn(func() string { return fmt.Sprintf("%d/%d", units(bio.Get()), bioLimit) })),
+		Children: kit.Textarea{
+			Name: "bio", Rows: 3, MaxLength: bioLimit, Placeholder: "Tell us what you build…",
+			Class: "max-h-40 min-h-16 leading-5",
+			Props: BindValue(bio),
+		},
 	}
 }
 
@@ -271,8 +250,7 @@ func (p Alternatives) Build() tela.Node {
 		return kit.Button{Type: "button", Variant: kit.Outline, Icon: icon, Disabled: p.Disabled, Children: Text(label)}
 	}
 	return Div(Class("flex flex-col gap-5"),
-		Div(Class("flex items-center gap-3 text-sm text-muted-foreground"),
-			kit.Separator{Class: "flex-1"}, Text("Or continue with"), kit.Separator{Class: "flex-1"}),
+		kit.Separator{Caption: Text("Or continue with")},
 		Div(Class("grid grid-cols-3 gap-3"),
 			option(icons.KeyRound, "Passkey"),
 			option(icons.Mail, "Magic link"),

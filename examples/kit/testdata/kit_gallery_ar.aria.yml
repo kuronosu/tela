@@ -57,7 +57,7 @@
   - button "إزالة واحد"
   - text: "3"
   - button "إضافة واحد"
-  - radiogroup "Count":
+  - radiogroup "العدد":
     - radio "0"
     - radio "1"
     - radio "2"

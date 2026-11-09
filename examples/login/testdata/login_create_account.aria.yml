@@ -12,9 +12,8 @@
   - button "Show password"
   - progressbar "Password strength"
 - group:
-  - text: Short bio (optional)
+  - text: Short bio (optional) 0/160
   - textbox "Short bio (optional)"
-  - text: 0/160
 - group:
   - checkbox "Accept terms and conditions"
   - text: Accept terms and conditions

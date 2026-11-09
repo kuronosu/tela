@@ -9,7 +9,7 @@
 - button "Quitar uno"
 - text: "3"
 - button "Añadir uno"
-- radiogroup "Count":
+- radiogroup "Cantidad":
   - radio "0"
   - radio "1"
   - radio "2"
