@@ -164,6 +164,29 @@ func TestAppMenuBarOnEveryWindowUnmounts(t *testing.T) {
 	}
 }
 
+// A NativeOnly bar is the app's menu bar where the platform has one
+// (macOS), and nothing on a platform with window menu bars only (Windows):
+// the framed windows keep no bar, and OnError gets ErrUnsupported
+// (ADR-253).
+func TestAppMenuBarNativeOnly(t *testing.T) {
+	menus := []desktop.MenuItem{{Label: "File", Submenu: []desktop.MenuItem{{Label: "New"}}}}
+	var errs []error
+	root := func() tela.Node {
+		return tela.Component(desktop.AppMenuBar{Menus: menus, NativeOnly: true, OnError: func(err error) { errs = append(errs, err) }})
+	}
+	mac := telatest.MountFunc(t, root)
+	if bar := mac.AppMenuBar(); len(bar) != 1 || bar[0].Label != "File" || len(errs) != 0 {
+		t.Errorf("with an app menu bar: bar %+v, errors %v", bar, errs)
+	}
+	win := telatest.MountFunc(t, root, telatest.WithUnsupported(telatest.AppMenu))
+	if bar := win.MenuBar(); bar != nil {
+		t.Errorf("with window menu bars only, the window got the bar %+v", bar)
+	}
+	if len(errs) != 1 || !errors.Is(errs[0], desktop.ErrUnsupported) {
+		t.Errorf("errors %v, want one ErrUnsupported", errs)
+	}
+}
+
 // Without an app bar and without window bars (Linux), a frameless main
 // window, or a tree with no window, OnError gets ErrUnsupported.
 func TestAppMenuBarUnsupported(t *testing.T) {

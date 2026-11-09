@@ -37,7 +37,8 @@ import (
 // becomes the bar of every framed window that has no [MenuBar] of its own,
 // including windows that open later; a window's own MenuBar wins on that
 // window. AppItems are ignored there. Elsewhere (Linux; frameless and TitleBarOverlay windows;
-// a tree with no window of a running app, as in tela snapshot) OnError
+// a tree with no window of a running app, as in tela snapshot; with
+// NativeOnly, everywhere but the platform's app menu bar) OnError
 // receives an error wrapping [ErrUnsupported] after the first build, and
 // the app draws its menu instead (kit's Menubar with AppMenu does). Nil
 // OnError reports it as a dev warning. Two mounted AppMenuBars: the later
@@ -67,6 +68,13 @@ type AppMenuBar struct {
 	// (ErrUnsupported where there is no menu bar to give). Nil reports it
 	// as a dev warning.
 	OnError func(err error)
+	// NativeOnly gives the bar only where the platform has an app menu
+	// bar (macOS): elsewhere it is not put in the windows' menu bars
+	// (Windows), and OnError receives an error wrapping ErrUnsupported
+	// (nil OnError: no dev warning, the app asked for nothing else). An app
+	// that draws its own title bar or menus on Windows and Linux declares
+	// its macOS menu bar this way, unconditionally.
+	NativeOnly bool
 }
 
 // Build sets the app's menu bar while the component is mounted.
@@ -167,6 +175,13 @@ func (s *appBarState) sync(menu, items []platform.MenuItem) {
 		case err == nil:
 			s.mode = barApp
 			s.stopApp = s.d.Listen(s.event)
+		case errors.Is(err, errors.ErrUnsupported) && s.props.NativeOnly:
+			// The app wants the bar only where it is the app's (macOS):
+			// the windows keep their own, and the app draws what it needs.
+			s.mode = barNone
+			if f := s.props.OnError; f != nil {
+				f(fmt.Errorf("desktop: AppMenuBar: %w (the platform has no app menu bar; NativeOnly)", ErrUnsupported))
+			}
 		case errors.Is(err, errors.ErrUnsupported):
 			s.startWindows()
 		default:
