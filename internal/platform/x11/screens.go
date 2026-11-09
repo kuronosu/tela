@@ -272,11 +272,15 @@ func (w *Window) requestFit() {
 func (w *Window) fitCreation() bool {
 	b := w.b
 	if w.extWait {
+		if w.mapWaiting {
+			// The timeout or the answer maps (frameExtentsDone), even
+			// when the time is up and the timeout's callback has not run
+			// yet: one path maps, and stops the timer.
+			return false
+		}
 		if left := frameExtentsTimeout - (b.Now() - w.extSent); left > 0 {
-			if !w.mapWaiting {
-				w.mapWaiting = true
-				w.extStop = b.after(left, w.frameExtentsDone)
-			}
+			w.mapWaiting = true
+			w.extStop = b.after(left, w.frameExtentsDone)
 			return false
 		}
 		w.extWait = false

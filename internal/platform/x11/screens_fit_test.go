@@ -210,6 +210,9 @@ func TestCreationFrameExtentsWait(t *testing.T) {
 	g.feed()
 	g.f.take()
 	g.present(w)
+	// The timeout's time passes before the next Present, its callback not
+	// run yet (a loaded runner, the race detector): the wait goes on.
+	w.extSent -= frameExtentsTimeout
 	g.present(w)
 	g.sent("Present before the answer", "")
 	if len(g.timers) != 1 || g.timers[0].d <= 0 || g.timers[0].d > frameExtentsTimeout {
