@@ -113,6 +113,12 @@ the standard fix. A drag that is canceled (Escape) or leaves the window also end
 with a leave. `examples/notes` wraps the counter in a hook, `useDrop`, that you
 can copy.
 
+**Text fields take text by default**, as HTML's do: an editable `Input` or
+`Textarea` accepts a drag that offers text without any handler, and the drop
+inserts the text at the drop point (an `insertFromDrop` edit, with `OnBeforeInput`
+and `OnChange`). A drop zone around fields that takes the text itself calls
+`e.PreventDefault()` in its `OnDrop`, which cancels the insertion.
+
 ### Sources
 
 An element with [`Draggable(true)`](API-Reference-h#func-draggable) is a source.
@@ -333,7 +339,11 @@ desktop.UseLaunch(func(l desktop.Launch) {
 ```
 
 The handler gets the process's *own* start once, and every forwarded start after
-that (`l.Forwarded` tells them apart). So the same code handles
+that; `l.Source` tells them apart: `LaunchStart`, `LaunchForwarded` (another process
+of the app), or `LaunchOpened` (the OS opened a link or a file with the running app:
+on macOS a link clicked or a file opened from the Finder, including the one that
+started the app, which comes just after the start). Launches that arrive before the
+app's first frame wait for it. So the same code handles
 `notes todo.md` typed into a terminal whether or not the app is running. `Files()`
 and `URLs()` split the arguments: flags are neither, `file:` URIs (which Linux
 launchers pass) count as files, and anything else with a scheme counts as a URL.
@@ -571,6 +581,10 @@ desktop.AppMenuBar{
   `MenuBar` wins on that window. `AppItems` are ignored.
 - **Elsewhere** (Linux, frameless windows): `OnError` gets an error wrapping
   `ErrUnsupported` and the app draws the menu (kit does).
+- **`NativeOnly: true`** gives the bar only where it is the app's (macOS): no window
+  bars on Windows, `ErrUnsupported` to `OnError` elsewhere. An app that handles its
+  keys itself on Windows and Linux declares its macOS bar this way, on every
+  platform.
 - A window's own `desktop.MenuBar` is unsupported on macOS: use the app's bar.
 - Two mounted `AppMenuBar`s: the later one wins, with a dev warning.
 

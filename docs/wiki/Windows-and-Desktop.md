@@ -172,6 +172,24 @@ happened. The handle of a closed window does nothing, and so does the handle in
   quits. A close-to-tray app, whose `OnClose` hides the window, sets
   `OnQuit: tela.Quit`, or its own "ask about unsaved changes, then quit". Tests play
   it with `app.RequestQuit()`.
+- When the answer depends on state (a setting, unsaved changes), answer inside the
+  tree instead: `tela.UseCloseRequest(func(e tela.CloseRequestEvent))` runs for the
+  window the component renders in, before `App.OnClose` (or a `tela.Window`'s
+  `OnClose`), and `e.PreventDefault()` keeps that default from running;
+  `tela.UseQuitRequest` does the same for the app's quit request and `App.OnQuit`
+  (Tauri's `onCloseRequested`, Electron's `close` and `before-quit`):
+
+  ```go
+  tela.UseCloseRequest(func(e tela.CloseRequestEvent) {
+  	if keepInTray {
+  		e.PreventDefault()
+  		e.Window.Hide()
+  	} else if unsaved > 0 {
+  		e.PreventDefault()
+  		askThenQuit() // tela.Quit() once the user answers
+  	}
+  })
+  ```
 - `tela.OpenURL("https://example.com")` opens a URL in the default application
   for its scheme (a web page, a `mailto:` address) and `tela.OpenPath(path)`
   opens a file in its default application or a folder in the file manager. Both
@@ -424,8 +442,11 @@ corrupt file is kept aside rather than overwritten.
 Behind it is a `desktop.Store`: a small JSON key-value file with `Get(key, &v)`,
 `Set`, `Has`, `Keys`, `Delete`, `Watch(key, f)` and `Flush`. `desktop.Settings()` is
 the app's (`settings.json` in `ConfigDir`); `desktop.OpenStore(path)` opens another,
-and `desktop.UseStoreSetting(store, key, default)` is `UseSetting` for it. Stores do
-not see changes other programs make to their files.
+and `desktop.UseStoreSetting(store, key, default)` is `UseSetting` for it. While a
+store has watchers (a mounted `UseSetting`), changes other programs make to its file
+are read back and the components follow. Keys merge one by one: a change of this app
+not yet written wins over the file's, otherwise the file's value does, and a write
+never drops a key another program added.
 
 ## Remembering where windows were
 
