@@ -2,6 +2,8 @@ package win32
 
 import (
 	"fmt"
+	"image"
+	"slices"
 	"strings"
 
 	"github.com/kuronosu/tela/internal/platform"
@@ -215,4 +217,69 @@ func messageBoxAnswer(id int32, buttons platform.MessageButtons) (answer platfor
 		return buttons.DismissAnswer(), true
 	}
 	return answer, true
+}
+
+// fitButtonRow lays out the buttons of a message box whose labels were
+// renamed (ADR-259): MessageBoxW sizes its buttons for its own texts (a
+// fixed width, wider only for long ones), so a longer translation would be
+// clipped. buttons are the buttons' rectangles in the box's client area,
+// left to right, need the width each label needs, and client the width of
+// the client area. Every button gets the width of the widest need, as
+// Windows gives one width to the buttons of a box (never narrower than
+// before); the row stays right-aligned with the same gaps and right
+// margin. grow is how much wider the box must become so the row keeps the
+// right margin on its left too (0 when it fits). Nothing changes when no
+// label needs more than the buttons have.
+func fitButtonRow(buttons []image.Rectangle, need []int, client int) (out []image.Rectangle, grow int) {
+	if len(buttons) == 0 {
+		return buttons, 0
+	}
+	w0, w := 0, 0
+	for _, b := range buttons {
+		w0 = max(w0, b.Dx())
+	}
+	w = w0
+	for _, n := range need {
+		w = max(w, n)
+	}
+	out = slices.Clone(buttons)
+	if w == w0 {
+		return out, 0
+	}
+	n := len(buttons)
+	gap := 0
+	if n > 1 {
+		gap = max(buttons[1].Min.X-buttons[0].Max.X, 0)
+	}
+	margin := max(client-buttons[n-1].Max.X, 0)
+	row := n*w + (n-1)*gap
+	grow = max(row+2*margin-client, 0)
+	x := client + grow - margin
+	for i := n - 1; i >= 0; i-- {
+		out[i] = image.Rect(x-w, buttons[i].Min.Y, x, buttons[i].Max.Y)
+		x -= w + gap
+	}
+	return out, grow
+}
+
+// buttonPadding is the room a message box button leaves around its text,
+// from the button's height (a 23 px button at 96 DPI leaves 12 px on each
+// side, as Windows' own wide buttons do).
+func buttonPadding(height int) int { return height }
+
+// plainLabel is a button label as drawn: "&&" is "&", a lone "&" marks
+// the access key and is not drawn.
+func plainLabel(s string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		if s[i] == '&' {
+			if i+1 < len(s) && s[i+1] == '&' {
+				b.WriteByte('&')
+				i++
+			}
+			continue
+		}
+		b.WriteByte(s[i])
+	}
+	return b.String()
 }

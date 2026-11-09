@@ -23,7 +23,6 @@ import (
 // DPI and resize handling deterministic.
 
 var (
-	procGetWindowTextW   = user32.NewProc("GetWindowTextW")
 	procGetCursor        = user32.NewProc("GetCursor")
 	procGetPixel         = gdi32.NewProc("GetPixel")
 	procOpenInputDesktop = user32.NewProc("OpenInputDesktop")

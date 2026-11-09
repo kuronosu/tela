@@ -3,7 +3,9 @@
 package win32
 
 import (
+	"image"
 	"path/filepath"
+	"slices"
 	"syscall"
 	"unsafe"
 
@@ -230,6 +232,82 @@ func installMessageBoxHook(labels []messageBoxLabel) (remove func()) {
 	}
 }
 
+// The procedures of fitMessageBoxButtons.
+var (
+	procGetDlgItem            = user32.NewProc("GetDlgItem")
+	procGetWindowTextW        = user32.NewProc("GetWindowTextW")
+	procGetTextExtentPoint32W = gdi32.NewProc("GetTextExtentPoint32W")
+)
+
+// fitMessageBoxButtons widens the buttons of the message box dlg to their
+// renamed texts (ADR-259; fitButtonRow), and the box when the row needs
+// it, keeping the box centered where MessageBoxW put it. Each text is
+// measured with the button's own font (WM_GETFONT) on its DC. It runs at
+// HCBT_ACTIVATE, before the box is first drawn. A box whose buttons
+// cannot be read is left as it is.
+func fitMessageBoxButtons(dlg uintptr) {
+	type button struct {
+		hwnd uintptr
+		r    image.Rectangle
+		need int
+	}
+	var row []button
+	for id := idOK; id <= idNo; id++ { // IDOK to IDNO: every button MessageBoxW makes
+		hwnd, _, _ := procGetDlgItem.Call(dlg, uintptr(id))
+		if hwnd == 0 {
+			continue
+		}
+		var buf [256]uint16
+		n, _, _ := procGetWindowTextW.Call(hwnd, uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf)))
+		text := windows.UTF16ToString(buf[:n])
+		wr := getWindowRect(hwnd)
+		x0, y0 := screenToClient(dlg, int(wr.left), int(wr.top))
+		x1, y1 := screenToClient(dlg, int(wr.right), int(wr.bottom))
+		r := image.Rect(x0, y0, x1, y1)
+		row = append(row, button{hwnd, r, textWidth(hwnd, plainLabel(text)) + buttonPadding(r.Dy())})
+	}
+	if len(row) == 0 {
+		return
+	}
+	slices.SortFunc(row, func(a, b button) int { return a.r.Min.X - b.r.Min.X })
+	rects, needs := make([]image.Rectangle, len(row)), make([]int, len(row))
+	for i, b := range row {
+		rects[i], needs[i] = b.r, b.need
+	}
+	var client rect
+	procGetClientRect.Call(dlg, uintptr(unsafe.Pointer(&client)))
+	out, grow := fitButtonRow(rects, needs, int(client.width()))
+	if grow > 0 {
+		wr := getWindowRect(dlg)
+		setWindowPos(dlg, wr.left-int32(grow/2), wr.top, wr.width()+int32(grow), wr.bottom-wr.top, swpNoZOrder|swpNoActivate)
+	}
+	for i, b := range row {
+		if out[i] != b.r {
+			setWindowPos(b.hwnd, int32(out[i].Min.X), int32(out[i].Min.Y), int32(out[i].Dx()), int32(out[i].Dy()), swpNoZOrder|swpNoActivate)
+		}
+	}
+}
+
+// textWidth returns the width of s drawn in the font of the control hwnd.
+func textWidth(hwnd uintptr, s string) int {
+	dc, _, _ := procGetDC.Call(hwnd)
+	if dc == 0 {
+		return 0
+	}
+	defer procReleaseDC.Call(hwnd, dc)
+	if font, _, _ := procSendMessageW.Call(hwnd, wmGetFont, 0, 0); font != 0 {
+		old, _, _ := procSelectObject.Call(dc, font)
+		defer procSelectObject.Call(dc, old)
+	}
+	u := windows.StringToUTF16(s)
+	var size struct{ cx, cy int32 }
+	procGetTextExtentPoint32W.Call(dc, uintptr(unsafe.Pointer(&u[0])), uintptr(len(u)-1), uintptr(unsafe.Pointer(&size)))
+	return int(size.cx)
+}
+
+// wmGetFont is WM_GETFONT.
+const wmGetFont = 0x0031
+
 // messageBoxHookProc is the WH_CBT callback: on the activation of the
 // message box it renames the buttons, once.
 func messageBoxHookProc(code, wParam, lParam uintptr) uintptr {
@@ -242,6 +320,7 @@ func messageBoxHookProc(code, wParam, lParam uintptr) uintptr {
 				procSetDlgItemTextW.Call(wParam, uintptr(l.id), uintptr(unsafe.Pointer(utf16(l.text))))
 			}
 			h.labels = nil
+			fitMessageBoxButtons(wParam)
 		}
 	}
 	r, _, _ := procCallNextHookEx.Call(h.hook, code, wParam, lParam)
