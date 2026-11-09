@@ -214,11 +214,11 @@ func TestMacAppMenuRoles(t *testing.T) {
 	b.ExpectRunning()
 }
 
-// The keys of the menu reach the window only where there is no native bar:
-// there the keyboard handler does what the items do.
+// The keys of the menu reach the window only where there is no native bar
+// (Linux): there the keyboard handler does what the items do.
 func TestShortcutsWhereTheMenuIsNotNative(t *testing.T) {
 	sandbox(t)
-	a := mount(t)
+	a := mount(t, telatest.WithUnsupported(telatest.AppMenu, telatest.NativeMenus))
 	if bar := a.AppMenuBar(); len(bar) != 0 {
 		t.Fatalf("a platform without a native menu bar got one: %+v", bar)
 	}
@@ -233,16 +233,20 @@ func TestShortcutsWhereTheMenuIsNotNative(t *testing.T) {
 	a.WaitForWindow(func() { a.Press("ControlOrMeta+,") })
 }
 
-// Windows and Linux get no menu bar: not in the main window and not in the
-// framed Preferences window, which desktop.AppMenuBar would give one.
+// Windows gets no menu bar: not in the main window and not in the framed
+// Preferences window, which desktop.AppMenuBar would give one without
+// NativeOnly (ADR-253). The bar is declared on every platform.
 func TestNoMenuBarOnWindows(t *testing.T) {
 	sandbox(t)
 	a := mountLook(t, kit.Windows, telatest.WithUnsupported(telatest.AppMenu))
 	if bar := a.AppMenuBar(); len(bar) != 0 {
+		t.Fatalf("the main window got an app menu bar on Windows: %+v", bar)
+	}
+	if bar := a.MenuBar(); len(bar) != 0 {
 		t.Fatalf("the main window got a menu bar on Windows: %+v", bar)
 	}
 	prefs := openPreferences(a)
-	if bar := prefs.AppMenuBar(); len(bar) != 0 {
+	if bar := prefs.MenuBar(); len(bar) != 0 {
 		t.Fatalf("Preferences got a menu bar on Windows: %+v", bar)
 	}
 }

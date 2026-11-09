@@ -49,7 +49,7 @@
 //     under desktop.DataDir, written as you type.
 //   - A tray icon (desktop.Tray) with a menu that follows the window (Show
 //     Notes or Hide Notes: a hidden window still builds). With "Keep
-//     running in the tray" on, closing the window hides it (App.OnClose)
+//     running in the tray" on, closing the window hides it (tela.UseCloseRequest)
 //     and the tray brings it back; Quit is in the tray menu. With it off,
 //     closing asks before it throws unsaved changes away
 //     (desktop.ShowMessage) and quits.
@@ -98,14 +98,14 @@
 // Phase 15 adds, on macOS (see appmenu.go and close.go):
 //
 //   - The traffic lights over the app's own title bar (App.TitleBarOverlay).
-//   - The app's menu bar, declared once with desktop.AppMenuBar: File (New Note,
+//   - The app's menu bar, declared once with desktop.AppMenuBar (NativeOnly): File (New Note,
 //     Open…, Save, Delete Note, Close Window), Edit, View (All Notes, Pinned,
 //     Unsaved) and Window, and Settings… in the app's own menu, which opens
 //     Preferences. Its items call the functions of the buttons and keys
 //     (their accelerators are the keys' Cmd+N, Cmd+O, Cmd+S, Cmd+, ...); there
 //     is no drawn menu bar, and on Linux and Windows the same keys are
 //     handled by the window.
-//   - Cmd+Q, the Dock's Quit and the app menu's Quit (App.OnQuit) really
+//   - Cmd+Q, the Dock's Quit and the app menu's Quit (tela.UseQuitRequest) really
 //     quit, also with "Keep running in the tray" on, after the question that
 //     closing the window asks about unsaved notes. Cmd+W closes the window,
 //     which the tray setting turns into a hide.
@@ -184,11 +184,9 @@ var App = tela.App{
 	Icon:            appIcon(),
 	Theme:           &theme,
 	RootClass:       "overflow-hidden bg-background text-foreground",
-	// What closing the window and quitting the app do depends on state, so
-	// the screen registers them in the gate (close.go).
-	OnClose: gate.closeMain,
-	OnQuit:  gate.quitApp,
-	Root:    Notes{},
+	// What closing the window and quitting the app do depends on state:
+	// the screen answers them (tela.UseCloseRequest, UseQuitRequest).
+	Root: Notes{},
 }
 
 // Previews are the screens, for `tela snapshot --preview "3 Preferences"

@@ -7,7 +7,6 @@ import (
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/desktop"
-	"github.com/kuronosu/tela/kit"
 )
 
 // The app's menu bar (ADR-224, ADR-226). On macOS the menu bar belongs to
@@ -22,12 +21,10 @@ import (
 // OnKeyDown; on Linux and Windows there is no menu bar, and that same
 // handler (screen.go) takes the keys. Notes has no drawn menu bar either.
 //
-// Only a Notes that follows the macOS conventions (Notes.Look) declares it:
-// on Windows desktop.AppMenuBar would put the bar in the framed Preferences
-// window, which has none today, and Linux has nothing to give it.
-
-// menuBarWanted says whether Notes declares the app's menu bar: on macOS.
-func menuBarWanted(look kit.Variant) bool { return platform(look) == kit.MacOS }
+// The bar is NativeOnly: it is the app's menu bar where the platform has
+// one (macOS), and nothing elsewhere. Without it, Windows would put it in
+// the framed Preferences window, which has no menu bar, and Linux has
+// nothing to give it.
 
 // appMenu is the app's menu bar, with the screen's functions for its items.
 // It renders nothing.
@@ -69,7 +66,8 @@ func (m appMenu) Build() tela.Node {
 				{Role: desktop.RoleMinimize}, {Role: desktop.RoleZoom},
 			}},
 		},
-		OnError: menuBarError,
+		NativeOnly: true,
+		OnError:    menuBarError,
 	}
 }
 

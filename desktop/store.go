@@ -527,10 +527,15 @@ func (s *Store) Watch(key string, f func(key string)) (stop func()) {
 // nothing.
 func (s *Store) Flush() error {
 	s.wmu.Lock()
-	defer s.wmu.Unlock()
-	if s.path != "" {
-		s.reload() // merge what other programs wrote since (storewatch.go)
-	}
+	notify := s.reload() // merge what other programs wrote since (storewatch.go)
+	err := s.flushLocked()
+	s.wmu.Unlock()
+	notify()
+	return err
+}
+
+// flushLocked is Flush's write, with s.wmu held.
+func (s *Store) flushLocked() error {
 	s.mu.Lock()
 	if s.timer != nil {
 		s.timer.Stop()

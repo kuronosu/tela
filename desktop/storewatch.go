@@ -61,7 +61,13 @@ func (s *Store) startWatch() {
 	s.fw = &fileWatch{w: w}
 	go func() {
 		for range w.Events() {
-			s.reload()
+			// Under the write lock: a file read just before a write of
+			// this store, applied after it, would bring back the value
+			// the write replaced.
+			s.wmu.Lock()
+			notify := s.reload()
+			s.wmu.Unlock()
+			notify()
 		}
 	}()
 }
@@ -77,9 +83,12 @@ func (s *Store) stopWatch() {
 }
 
 // reload reads the file again and merges it (see the top of the file),
-// then runs the watchers of the keys that changed. Safe from any
-// goroutine.
-func (s *Store) reload() {
+// and returns the function that runs the watchers of the keys that
+// changed. Called with s.wmu held, so no write of the store runs between
+// the read and the merge; the caller runs the watchers after releasing
+// it (they may write the store).
+func (s *Store) reload() (notify func()) {
+	notify = func() {}
 	if s.path == "" {
 		return
 	}
@@ -120,10 +129,12 @@ func (s *Store) reload() {
 	}
 	ws := s.watchersOf(changed)
 	s.mu.Unlock()
-	for i, k := range changed {
-		for _, w := range ws[i] {
-			if !w.stopped.Load() {
-				w.f(k)
+	return func() {
+		for i, k := range changed {
+			for _, w := range ws[i] {
+				if !w.stopped.Load() {
+					w.f(k)
+				}
 			}
 		}
 	}

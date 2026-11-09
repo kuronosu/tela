@@ -638,26 +638,29 @@ func (s screen) Build() tela.Node {
 			tela.Quit() // no message box to ask with; the drafts are kept
 		}
 	}
-	// closeMain is App.OnClose: keep running in the tray, or quit after
-	// asking.
-	closeMain := func(w tela.WindowHandle) {
+	// Closing the main window: keep running in the tray, or quit after
+	// asking. The screen answers the request itself (tela.UseCloseRequest),
+	// since the answer depends on its state; before it mounts, closing
+	// quits (no App.OnClose).
+	tela.UseCloseRequest(func(e tela.CloseRequestEvent) {
+		e.PreventDefault()
 		if prefs.KeepInTray && trayOK {
-			w.Hide()
+			e.Window.Hide()
 			return
 		}
-		askAndQuit(w)
-	}
-	// quitMain is App.OnQuit (Cmd+Q, the Dock's Quit): it quits for real,
-	// also with "keep running in the tray" on, with the same question. A
-	// hidden window is shown first, so that the question has a window.
-	quitMain := func() {
+		askAndQuit(e.Window)
+	})
+	// Quitting (Cmd+Q, the Dock's Quit, the app menu's Quit) quits for
+	// real, also with "keep running in the tray" on, with the same
+	// question. A hidden window is shown first, so that the question has a
+	// window.
+	tela.UseQuitRequest(func(e tela.QuitRequestEvent) {
+		e.PreventDefault()
 		if len(dirty(all)) > 0 {
 			showMain()
 		}
 		askAndQuit(win)
-	}
-	tela.UseEffectDo(func() { gate.set(closeMain, quitMain) })
-	tela.UseMount(func() func() { return func() { gate.set(nil, nil) } })
+	})
 
 	// --- The screen ------------------------------------------------
 
@@ -729,11 +732,11 @@ func (s screen) Build() tela.Node {
 			vlt.clear()
 			bump()
 		}},
-		// The app's menu bar, on macOS (appmenu.go).
-		If(menuBarWanted(s.Look), appMenu{
+		// The app's menu bar, where the platform has one (appmenu.go).
+		appMenu{
 			New: newNote, Open: openFile, Save: save, Delete: deleteOpen, Settings: showPrefs,
 			Show: choose, HasNote: hasCur,
-		}),
+		},
 		notesTray{
 			Toggle: toggleMain,
 			New:    func() { showMain(); newNote() },
