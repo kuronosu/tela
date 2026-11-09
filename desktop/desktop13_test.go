@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -609,6 +610,66 @@ func TestRegistrationInApp(t *testing.T) {
 	var zero desktop.DefaultResult
 	if zero != desktop.DefaultNone || zero.String() != "none" {
 		t.Errorf("the zero DefaultResult is %v, want DefaultNone", zero)
+	}
+}
+
+// A role reaches the backend; it is not part of what a registration is:
+// another role changes the registration, Unregister addresses it whatever
+// the role, and a declaration (HandlerNone) is no handler.
+func TestRegistrationRole(t *testing.T) {
+	doc := desktop.FileType(".note", "application/x-notes-note", "Notes document")
+	app := telatest.MountApp(t, tela.App{AppID: "com.example.Notes", Root: tela.C(func() tela.Node { return Text("notes") })})
+	forApp := desktop.ForApp(desktop.HandlerApp{Exec: "/opt/notes/notes"})
+	if doc.Role() != desktop.HandlerDefault || doc.WithRole(desktop.HandlerViewer).Role() != desktop.HandlerViewer || desktop.HandlerNone.String() != "none" {
+		t.Errorf("WithRole, Role or String")
+	}
+	if changed, err := desktop.Register(doc, forApp); !changed || err != nil {
+		t.Fatalf("Register = %v, %v", changed, err)
+	}
+	if regs := app.Registrations(); len(regs) != 1 || regs[0].Role != desktop.HandlerEditor || !regs[0].Default {
+		t.Errorf("a file type registers as an editor: %+v", regs)
+	}
+	if changed, _ := desktop.Register(doc.WithRole(desktop.HandlerEditor), forApp); changed {
+		t.Errorf("HandlerEditor is the default role of a file type: Register wrote")
+	}
+	if changed, err := desktop.Register(doc.WithRole(desktop.HandlerViewer), forApp); !changed || err != nil {
+		t.Errorf("Register as a viewer = %v, %v; want the role changed", changed, err)
+	}
+	if regs := app.Registrations(); len(regs) != 1 || regs[0].Role != desktop.HandlerViewer {
+		t.Errorf("after the role change %+v", regs)
+	}
+	index := doc.WithRole(desktop.HandlerNone)
+	if changed, err := desktop.Register(index, forApp); !changed || err != nil {
+		t.Errorf("Register with HandlerNone = %v, %v", changed, err)
+	}
+	if s, err := desktop.RegistrationStatus(doc); err != nil || s.Registered || s.Default {
+		t.Errorf("a declared type has no handler: %+v, %v", s, err)
+	}
+	if s, err := desktop.RegistrationStatus(index); err != nil || !s.Registered || s.Default {
+		t.Errorf("the declaration: %+v, %v", s, err)
+	}
+	if regs := app.Registrations(); len(regs) != 1 || regs[0].Role != desktop.HandlerNone || regs[0].Default {
+		t.Errorf("declared %+v", regs)
+	}
+	if changed, err := desktop.Unregister(doc); !changed || err != nil {
+		t.Errorf("Unregister of a declaration = %v, %v", changed, err)
+	}
+	if regs := app.Registrations(); len(regs) != 0 {
+		t.Errorf("after Unregister %+v", regs)
+	}
+	for msg, f := range map[string]func(){
+		"the handler of a scheme opens its links": func() { _, _ = desktop.Register(desktop.URLScheme("notes").WithRole(desktop.HandlerNone), forApp) },
+		"cannot be its default handler":           func() { _, _ = desktop.MakeDefault(index, forApp) },
+		"invalid HandlerRole":                     func() { _, _ = desktop.Register(doc.WithRole(9), forApp) },
+	} {
+		func() {
+			defer func() {
+				if r := recover(); r == nil || !strings.Contains(fmt.Sprint(r), msg) {
+					t.Errorf("want a panic with %q, got %v", msg, r)
+				}
+			}()
+			f()
+		}()
 	}
 }
 

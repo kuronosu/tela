@@ -1057,6 +1057,9 @@ func testIntegration(s *session) {
 				_, _ = a.Register(platform.HandlerApp{ID: app.ID, Name: "x"}, platform.Association{Scheme: "x"}, platform.RegisterOptions{})
 			})
 			s.expectPanic("Associations.Status of a standard scheme", func() { _, _ = a.Status(app, platform.Association{Scheme: "https"}) })
+			s.expectPanic("Associations.Status of a scheme with HandlerNone", func() {
+				_, _ = a.Status(app, platform.Association{Scheme: "x", Role: platform.HandlerNone})
+			})
 		}
 	}, func(w platform.Window, e platform.Event) {
 		switch e.(type) {

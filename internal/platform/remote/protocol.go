@@ -1128,8 +1128,10 @@ func (e *enc) association(a platform.Association) {
 	e.str(a.Extension)
 	e.str(a.MIMEType)
 	e.str(a.Description)
+	e.u8(uint8(a.Role))
 }
 
 func (d *dec) association() platform.Association {
-	return platform.Association{Scheme: d.str(), Extension: d.str(), MIMEType: d.str(), Description: d.str()}
+	return platform.Association{Scheme: d.str(), Extension: d.str(), MIMEType: d.str(), Description: d.str(),
+		Role: platform.HandlerRole(d.u8())}
 }

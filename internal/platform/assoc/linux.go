@@ -45,6 +45,15 @@ import (
 //     Unregister (also from $XDG_CONFIG_HOME/<desktop>-mimeapps.list).
 //     Every other line of the file is kept as it was.
 //
+// Roles (platform.HandlerRole): the desktop entry specification has none,
+// so HandlerEditor, HandlerViewer and HandlerShell write the same entry.
+// A file type with HandlerNone is declared, not handled: the MIME package
+// is written as for any file type, the entry does not list the type (it is
+// removed from the MimeType of Tela's entry, and the entry itself when
+// nothing else keeps it), and the user's defaults naming the app for the
+// type are removed as Unregister removes them. Another program's entry of
+// the app's ID is then no conflict, since nothing is written to it.
+//
 // The caches. GIO (checked with GLib 2.90) and xdg-utils' generic
 // xdg-mime find the applications of a MIME type only through
 // $XDG_DATA_HOME/applications/mimeinfo.cache, not the MimeType keys of
@@ -371,6 +380,12 @@ func (l *linuxAssoc) status(app platform.HandlerApp, a platform.Association) (pl
 	if st.Other == "" && heldBy != "" {
 		st.Other = heldBy
 	}
+	if a.Role == platform.HandlerNone {
+		// A declaration: the type exists, whoever installed it, and the
+		// app is no handler of it.
+		st.Registered, st.Default = mapped, false
+		return st, nil
+	}
 	if st.Other == "" && own != nil && !own.tela && !hasType(own.mime, typ) {
 		st.Other = own.path // what Register would refuse to replace
 	}
@@ -405,6 +420,24 @@ func (l *linuxAssoc) register(app platform.HandlerApp, a platform.Association, r
 	// Plan everything first, so a refusal writes nothing.
 	var changes []change
 	switch {
+	case a.Role == platform.HandlerNone:
+		// The app declares the type (the MIME package below) without
+		// opening it: Tela's entry must not list it, and no default of the
+		// user's may name the app for it (GIO opens a default even when
+		// its entry does not list the type).
+		if own != nil && own.tela && hasType(own.mime, typ) {
+			types := withoutType(own.mime, typ)
+			if len(types) == 0 && !own.app {
+				changes = append(changes, change{own.path, nil})
+			} else {
+				changes = append(changes, change{own.path, desktopFile(app, types, own.app)})
+			}
+		}
+		drops, err := l.dropDefaults(typ, ownID)
+		if err != nil {
+			return false, err
+		}
+		changes = append(changes, drops...)
 	case own != nil && own.tela:
 		types := own.mime
 		if !hasType(types, typ) {
@@ -653,7 +686,7 @@ func (l *linuxAssoc) Unregister(app platform.HandlerApp, a platform.Association)
 	ownID := app.ID + ".desktop"
 	var changes []change
 	if own := l.scanEntries()[ownID]; own != nil && own.tela && hasType(own.mime, typ) {
-		types := slices.DeleteFunc(slices.Clone(own.mime), func(t string) bool { return strings.EqualFold(t, typ) })
+		types := withoutType(own.mime, typ)
 		if len(types) == 0 && !own.app {
 			changes = append(changes, change{own.path, nil})
 		} else {
@@ -680,28 +713,45 @@ func (l *linuxAssoc) Unregister(app platform.HandlerApp, a platform.Association)
 			changes = append(changes, change{l.ownPackagePath(app.ID), pkg.bytes(app.ID)})
 		}
 	}
-	if l.dirs.ConfigHome != "" {
-		var paths []string
-		for _, d := range l.dirs.Desktops {
-			paths = append(paths, filepath.Join(l.dirs.ConfigHome, d+"-mimeapps.list"))
+	drops, err := l.dropDefaults(typ, ownID)
+	if err != nil {
+		return false, err
+	}
+	return l.apply(append(changes, drops...))
+}
+
+// withoutType returns types without typ (any spelling).
+func withoutType(types []string, typ string) []string {
+	return slices.DeleteFunc(slices.Clone(types), func(t string) bool { return strings.EqualFold(t, typ) })
+}
+
+// dropDefaults plans the removal of the defaults of typ that name the
+// desktop ID id from the user's mimeapps.list and <desktop>-mimeapps.list
+// files.
+func (l *linuxAssoc) dropDefaults(typ, id string) ([]change, error) {
+	if l.dirs.ConfigHome == "" {
+		return nil, nil
+	}
+	var paths []string
+	for _, d := range l.dirs.Desktops {
+		paths = append(paths, filepath.Join(l.dirs.ConfigHome, d+"-mimeapps.list"))
+	}
+	paths = append(paths, filepath.Join(l.dirs.ConfigHome, "mimeapps.list"))
+	var changes []change
+	for _, p := range paths {
+		raw, err := readMaybe(p)
+		if err != nil {
+			return nil, fmt.Errorf("assoc: %w", err)
 		}
-		paths = append(paths, filepath.Join(l.dirs.ConfigHome, "mimeapps.list"))
-		for _, p := range paths {
-			raw, err := readMaybe(p)
-			if err != nil {
-				return false, fmt.Errorf("assoc: %w", err)
-			}
-			if raw == nil {
-				continue
-			}
-			kf := parseKeyFile(raw)
-			if !dropDefault(kf, typ, ownID) {
-				continue
-			}
+		if raw == nil {
+			continue
+		}
+		kf := parseKeyFile(raw)
+		if dropDefault(kf, typ, id) {
 			changes = append(changes, change{p, kf.bytes()})
 		}
 	}
-	return l.apply(changes)
+	return changes, nil
 }
 
 // dropDefault removes id from the [Default Applications] entries of typ
@@ -732,7 +782,7 @@ func dropDefault(kf *keyFile, typ, id string) bool {
 
 func (l *linuxAssoc) MakeDefault(app platform.HandlerApp, a platform.Association) (platform.DefaultResult, error) {
 	platform.CheckHandlerApp("Associations.MakeDefault", app, true)
-	platform.CheckAssociation("Associations.MakeDefault", a)
+	platform.CheckMakeDefault("Associations.MakeDefault", a)
 	if err := l.check(); err != nil {
 		return platform.DefaultNone, err
 	}

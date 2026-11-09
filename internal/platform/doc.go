@@ -629,7 +629,7 @@
 // the shared helpers ([CheckData], [CheckMIME], [CheckSetDropEffect],
 // [CheckDragOptions], [CheckMenu], [CheckPopupMenu], [CheckShortcut],
 // [CheckSecret], [CheckAppID], [CheckHandlerApp], [CheckAssociation],
-// [CheckTrashPath]),
+// [CheckMakeDefault], [CheckTrashPath]),
 // asynchronous answers go through the loop, and a missing service returns
 // ErrUnsupported synchronously.
 //
@@ -922,7 +922,14 @@
 // ErrUnsupported naming `tela run`; RegisterApp registers the bundle and
 // UnregisterApp writes nothing. Launch Services makes the only candidate
 // of a scheme or type its handler by itself: the OS's rule, not a default
-// taken. Package assoc documents what is written where; its tests run
+// taken. An association has a role ([HandlerRole], Info.plist's
+// CFBundleTypeRole: editor by default for a file type, viewer for a
+// scheme); it is not part of the association's identity, so Register with
+// another role updates what Tela wrote. Only macOS writes the role itself;
+// HandlerNone (file types only) declares the type without making the app
+// a handler: the MIME package without a MimeType entry on Linux, the
+// ProgID without a verb on Windows, LSHandlerRank None on macOS. Package
+// assoc documents what is written where; its tests run
 // against temporary directories, an in-memory registry and a fake Launch
 // Services, never the real system (except the darwin tests, on a
 // temporary bundle of a unique ID).

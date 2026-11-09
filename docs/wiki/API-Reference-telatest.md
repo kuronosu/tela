@@ -1532,7 +1532,7 @@ Registrations returns the schemes and file types registered by the app (and by o
 
 ```go
 app.Click(telatest.ByRole("button", "Open notes: links with Notes"))
-regs := app.Registrations() // [{notes: {com.example.Notes Notes /path/notes …} true}]
+regs := app.Registrations() // [{notes: {com.example.Notes Notes /path/notes …} viewer true}]
 ```
 
 #### func (*App) ReleaseShortcut
@@ -3015,6 +3015,10 @@ type Registration struct {
     Association string
     // App is what was registered as the handler.
     App desktop.HandlerApp
+    // Role is the role registered (desktop.Association.WithRole),
+    // resolved: desktop.HandlerDefault reads as HandlerEditor for a file
+    // type and HandlerViewer for a scheme.
+    Role desktop.HandlerRole
     // Default: the app is the default handler.
     Default bool
 }

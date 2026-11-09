@@ -18,13 +18,14 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Answer`](#type-answer): [`String`](#func-answer-string)
   - [`type AppMenuBar`](#type-appmenubar): [`Build`](#func-appmenubar-build)
   - [`type AppRegistration`](#type-appregistration): [`AppStatus`](#func-appstatus)
-  - [`type Association`](#type-association): [`FileType`](#func-filetype) · [`URLScheme`](#func-urlscheme) · [`String`](#func-association-string)
+  - [`type Association`](#type-association): [`FileType`](#func-filetype) · [`URLScheme`](#func-urlscheme) · [`Role`](#func-association-role) · [`String`](#func-association-string) · [`WithRole`](#func-association-withrole)
   - [`type Buttons`](#type-buttons): [`DefaultAnswer`](#func-buttons-defaultanswer) · [`DismissAnswer`](#func-buttons-dismissanswer) · [`Has`](#func-buttons-has)
   - [`type DefaultResult`](#type-defaultresult): [`MakeDefault`](#func-makedefault) · [`String`](#func-defaultresult-string)
   - [`type DialogOption`](#type-dialogoption): [`DefaultName`](#func-defaultname) · [`Directory`](#func-directory) · [`Filter`](#func-filter) · [`Filters`](#func-filters) · [`Parent`](#func-parent) · [`Title`](#func-title)
   - [`type FileFilter`](#type-filefilter)
   - [`type GlobalShortcut`](#type-globalshortcut): [`Build`](#func-globalshortcut-build)
   - [`type HandlerApp`](#type-handlerapp)
+  - [`type HandlerRole`](#type-handlerrole): [`String`](#func-handlerrole-string)
   - [`type Launch`](#type-launch): [`Files`](#func-launch-files) · [`URLs`](#func-launch-urls)
   - [`type MenuBar`](#type-menubar): [`Build`](#func-menubar-build)
   - [`type MenuItem`](#type-menuitem)
@@ -531,7 +532,7 @@ ReadClipboardText reads the clipboard's text and calls done, later, on the UI th
 func Register(a Association, opts ...RegisterOption) (changed bool, err error)
 ```
 
-Register makes the app a candidate handler of a URL scheme or a file type, for the current user (no administrator rights): the app appears in "Open with", and links of its scheme open it when no other application is the default. It does not make it the default ([`MakeDefault`](#func-makedefault)). It looks first, and writes nothing when the app is registered already (changed false).
+Register makes the app a candidate handler of a URL scheme or a file type, for the current user (no administrator rights): the app appears in "Open with", and links of its scheme open it when no other application is the default. It does not make it the default ([`MakeDefault`](#func-makedefault)). It looks first, and writes nothing when the app is registered already (changed false). The app registers as an editor of a file type and a viewer of a scheme, unless [`Association.WithRole`](#func-association-withrole) gives another role; [`HandlerNone`](#type-handlerrole) declares a file type without opening it.
 
 ```go
 if _, err := desktop.Register(desktop.URLScheme("notes")); err != nil {
@@ -1032,6 +1033,14 @@ func URLScheme(name string) Association
 
 URLScheme returns the association of a URL scheme of the app's own, given without ':' ("notes" for notes:open?id=3 links): a letter, then letters, digits, '+', '-' or '.'. Standard schemes (http, mailto…) belong to other applications and panic.
 
+#### func (Association) Role
+
+```go
+func (a Association) Role() HandlerRole
+```
+
+Role returns a's role: HandlerDefault unless WithRole set another.
+
 #### func (Association) String
 
 ```go
@@ -1039,6 +1048,26 @@ func (a Association) String() string
 ```
 
 String returns "notes:" for a scheme, ".note" for a file type.
+
+#### func (Association) WithRole
+
+```go
+func (a Association) WithRole(r HandlerRole) Association
+```
+
+WithRole returns a copy of a with the role r. macOS writes it in the bundle's Info.plist (CFBundleTypeRole; HandlerNone also with LSHandlerRank None). Linux and Windows have no roles, so Editor, Viewer and Shell register the same handler there; HandlerNone registers the type's MIME package on Linux and its ProgID (description, icon) on Windows, without the entries that open files with the app.
+
+```go
+// Notes edits .note files, opens .notes-backup ones read-only, and
+// only gives .notes-index files (which it writes) a name and an icon.
+desktop.Register(desktop.FileType(".note", "application/x-notes-note", "Notes document"))
+desktop.Register(desktop.FileType(".notes-backup", "application/x-notes-backup", "Notes backup").
+    WithRole(desktop.HandlerViewer))
+desktop.Register(desktop.FileType(".notes-index", "application/x-notes-index", "Notes index").
+    WithRole(desktop.HandlerNone))
+```
+
+The role is not part of what a registration is: Register with another role changes the registration that is there (changed true), and Unregister and RegistrationStatus address the scheme or extension whatever the role. RegistrationStatus with HandlerNone reports whether the type is declared; with another role, whether the app opens it.
 
 ### type Buttons
 
@@ -1318,6 +1347,41 @@ type HandlerApp struct {
 
 HandlerApp describes the application registered as a handler: what the OS runs to open a link or a file. Its zero fields are the running program's (see [`RegisterOption`](#type-registeroption) ForApp).
 
+### type HandlerRole
+
+```go
+type HandlerRole uint8
+```
+
+HandlerRole is what the app does with the files of a type, or the links of a scheme, it registers for ([`Association.WithRole`](#func-association-withrole)): the role of macOS's CFBundleTypeRole, Tauri's and electron-builder's file associations.
+
+```go
+const (
+    // HandlerDefault (the zero value) is HandlerEditor for a file type and
+    // HandlerViewer for a scheme.
+    HandlerDefault HandlerRole = iota
+    // HandlerEditor: the app opens, edits and saves files of the type.
+    HandlerEditor
+    // HandlerViewer: the app opens files of the type, or links of the
+    // scheme, without editing them.
+    HandlerViewer
+    // HandlerShell: the app provides runtime services for the type
+    // (macOS's Shell role; elsewhere the same as HandlerEditor).
+    HandlerShell
+    // HandlerNone: the app declares the file type, so the desktop knows
+    // its name and icon (and, on Linux, detects its files), without
+    // opening it: no "Open with" entry, never the default. For file types
+    // only; a scheme with it panics, and so does MakeDefault.
+    HandlerNone
+)
+```
+
+#### func (HandlerRole) String
+
+```go
+func (r HandlerRole) String() string
+```
+
 ### type Launch
 
 ```go
@@ -1589,9 +1653,14 @@ Replace lets [`Register`](#func-register) (and MakeDefault, which registers firs
 ```go
 type Registration struct {
     // Registered: the app is a candidate handler (offered in "Open with",
-    // or for the scheme).
+    // or for the scheme), in any role but HandlerNone. Asked about an
+    // Association with HandlerNone, it reports whether the file type is
+    // declared (on Linux its MIME type is known, whoever installed it; on
+    // Windows the app's ProgID exists; on macOS the Info.plist declares it
+    // and Launch Services knows the bundle).
     Registered bool
-    // Default: the app is the default handler.
+    // Default: the app is the default handler; always false asked with
+    // HandlerNone.
     Default bool
     // Other names what holds the association instead of the app (the
     // default handler, the owner of a Windows scheme key, the MIME type

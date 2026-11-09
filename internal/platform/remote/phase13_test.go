@@ -661,6 +661,22 @@ func TestSecretsAndAssociations(t *testing.T) {
 	if _, err := as.Register(app, file, platform.RegisterOptions{}); !errors.Is(err, platform.ErrAssociationTaken) {
 		t.Errorf("Register of a taken type = %v, want ErrAssociationTaken", err)
 	}
+	// The role crosses the wire: the host registers a declaration.
+	p.hb.Associations().SetConflict(file, "")
+	declared := file
+	declared.Role = platform.HandlerNone
+	if changed, err := as.Register(app, declared, platform.RegisterOptions{}); !changed || err != nil {
+		t.Errorf("Register with HandlerNone = %v, %v", changed, err)
+	}
+	if regs := p.hb.Associations().Registrations(); len(regs) != 2 || regs[0].Association != ".note" || regs[0].Role != platform.HandlerNone {
+		t.Errorf("registrations after HandlerNone %+v", regs)
+	}
+	if st, err := as.Status(app, file); st.Registered || err != nil {
+		t.Errorf("Status as a handler of a declared type = %+v, %v; want not registered", st, err)
+	}
+	if st, err := as.Status(app, declared); !st.Registered || err != nil {
+		t.Errorf("Status of the declaration = %+v, %v", st, err)
+	}
 	if changed, err := as.Unregister(app, scheme); !changed || err != nil {
 		t.Errorf("Unregister = %v, %v", changed, err)
 	}

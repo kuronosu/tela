@@ -37,6 +37,19 @@ import (
 //
 // The user's choice is where Windows keeps it, and is only read: UserChoice
 // is protected by a hash that only the settings page can make.
+//
+// Roles (platform.HandlerRole): Windows has none. HandlerEditor,
+// HandlerViewer and HandlerShell write the open verb above, and no "edit"
+// verb: the shell runs a ProgID's default verb (open) on a double click and
+// in "Open with", "edit" only adds a second context menu item running the
+// same command (the app could not tell them apart from its arguments), and
+// Windows' own handlers write "edit" only for types with a separate editor
+// (scripts, images). A file type with HandlerNone is declared, not handled:
+// the ProgID keeps its description and icon (and the extension's default
+// value names it, with the rule above, so Explorer shows the type's name
+// and icon), but it has no shell key, the extension's OpenWithProgids does
+// not list it, and the capabilities do not name it; a user's choice naming
+// it is removed, as Unregister does.
 
 const (
 	classesKey        = `Software\Classes`
@@ -370,6 +383,10 @@ func (t *tx) status(app platform.HandlerApp, a platform.Association, exec string
 	default:
 		s.Other = cur
 	}
+	if a.Role == platform.HandlerNone {
+		// A declaration: the ProgID exists, whatever else names the app.
+		s.Registered, s.Default = t.exists(classesKey+`\`+id), false
+	}
 	return s
 }
 
@@ -414,19 +431,36 @@ func (w *windows) register(t *tx, app platform.HandlerApp, a platform.Associatio
 	} else {
 		id := progID(app, a)
 		pkey := classesKey + `\` + id
+		ext := extKey(a)
 		t.set(pkey, "", a.Description)
 		t.set(pkey+`\DefaultIcon`, "", iconValue(app))
-		t.set(pkey+`\shell\open\command`, "", cmd)
-		ext := extKey(a)
-		t.ensureValue(ext+`\OpenWithProgids`, id)
+		if a.Role == platform.HandlerNone {
+			// Declared, not handled: the ProgID names and draws the type,
+			// and nothing lets the shell open a file with the app.
+			named := strings.EqualFold(t.userChoice(a), id)
+			t.deleteKey(pkey + `\shell`)
+			t.deleteValue(ext+`\OpenWithProgids`, id)
+			t.deleteIfEmpty(ext + `\OpenWithProgids`)
+			if named {
+				w.dropUserChoice(t, a)
+			}
+		} else {
+			t.set(pkey+`\shell\open\command`, "", cmd)
+			t.ensureValue(ext+`\OpenWithProgids`, id)
+		}
 		cur, _ := t.get(ext, "")
 		if cur == "" {
 			cur = t.machine(ext, "")
 		}
 		if cur == "" || (opts.Replace && !strings.EqualFold(cur, id)) {
 			// Nothing else opens the type (or the caller said to take it
-			// over): the fallback handler is the app's.
+			// over): the fallback handler is the app's (with HandlerNone,
+			// the ProgID that gives the type its name and icon).
 			t.set(ext, "", id)
+		}
+		if a.Role == platform.HandlerNone {
+			w.dropCapability(t, app, a)
+			return
 		}
 	}
 	// What the Default apps page lists the app by.
@@ -462,16 +496,22 @@ func (w *windows) Unregister(app platform.HandlerApp, a platform.Association) (b
 		t.deleteIfEmpty(ext + `\OpenWithProgids`)
 		t.deleteIfEmpty(ext)
 	}
-	if named && removed && t.err == nil {
-		// Best effort: the settings page protects UserChoice, and a
-		// stale choice of a removed handler is harmless.
-		if t.exists(userChoiceKey(a)) && w.reg.DeleteKey(userChoiceKey(a)) == nil {
-			t.changed = true
-		}
+	if named && removed {
+		w.dropUserChoice(t, a)
 	}
 	w.dropCapability(t, app, a)
 	err := w.finish(t)
 	return t.changed && err == nil, err
+}
+
+// dropUserChoice removes the user's choice of a handler for a, which named
+// the app's handler that is going away. Best effort: the settings page
+// protects UserChoice, and a stale choice of a removed handler is
+// harmless.
+func (w *windows) dropUserChoice(t *tx, a platform.Association) {
+	if t.err == nil && t.exists(userChoiceKey(a)) && w.reg.DeleteKey(userChoiceKey(a)) == nil {
+		t.changed = true
+	}
 }
 
 // dropCapability removes a from the app's capabilities, and the
@@ -497,7 +537,7 @@ func (w *windows) dropCapability(t *tx, app platform.HandlerApp, a platform.Asso
 
 func (w *windows) MakeDefault(app platform.HandlerApp, a platform.Association) (platform.DefaultResult, error) {
 	platform.CheckHandlerApp("Associations.MakeDefault", app, true)
-	platform.CheckAssociation("Associations.MakeDefault", a)
+	platform.CheckMakeDefault("Associations.MakeDefault", a)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	t := &tx{reg: w.reg}

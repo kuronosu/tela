@@ -404,7 +404,7 @@ func (a childAssoc) AppStatus(app platform.HandlerApp) (platform.AppStatus, erro
 
 func (a childAssoc) MakeDefault(app platform.HandlerApp, as platform.Association) (platform.DefaultResult, error) {
 	platform.CheckHandlerApp("Associations.MakeDefault", app, true)
-	platform.CheckAssociation("Associations.MakeDefault", as)
+	platform.CheckMakeDefault("Associations.MakeDefault", as)
 	r, err := a.call(dAssocMakeDefault, app, as, nil)
 	if err != nil {
 		return platform.DefaultNone, err

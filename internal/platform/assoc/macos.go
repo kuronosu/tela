@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -24,10 +25,17 @@ import (
 //
 //   - A URL scheme: an entry of CFBundleURLTypes, {CFBundleURLName
 //     "<ID>.<scheme>", CFBundleURLSchemes [scheme], CFBundleTypeRole
-//     Viewer}.
+//     the role, Viewer by default}.
 //   - A file type: an entry of CFBundleDocumentTypes, {CFBundleTypeName
-//     the description, CFBundleTypeRole Editor, LSHandlerRank Alternate,
-//     LSItemContentTypes [the extension's content type]}. The content type
+//     the description, CFBundleTypeRole the role (Editor by default,
+//     Viewer, Shell or None), LSHandlerRank Alternate (None with the role
+//     None: Launch Services never opens the type with the app, which only
+//     declares it), LSItemContentTypes [the extension's content type]}.
+//     Register with another role (platform.HandlerRole) changes the role
+//     and rank of the entry Tela wrote (an entry declaring other items too
+//     gives this one up to an entry of its own); an entry Tela did not
+//     write keeps its own. Status asked about a role other than None
+//     counts an entry of the role None as no registration. The content type
 //     is the Uniform Type Identifier that claims the extension: the one
 //     the Info.plist itself declares, else the one Launch Services knows
 //     (UTTypeCreatePreferredIdentifierForTag: public.plain-text for .txt,
@@ -238,10 +246,36 @@ const (
 	// markerKey marks the entries Tela wrote.
 	markerKey = "TelaRegistered"
 
-	docRole  = "Editor"
+	keyRole = "CFBundleTypeRole"
+	keyRank = "LSHandlerRank"
+
 	docRank  = "Alternate"
-	linkRole = "Viewer"
+	noneRank = "None"
+	noneRole = "None"
 )
+
+// bundleRole is the CFBundleTypeRole of a's role.
+func bundleRole(a platform.Association) string {
+	switch a.ResolvedRole() {
+	case platform.HandlerViewer:
+		return "Viewer"
+	case platform.HandlerShell:
+		return "Shell"
+	case platform.HandlerNone:
+		return noneRole
+	}
+	return "Editor"
+}
+
+// handlerRank is the LSHandlerRank of the document type entry of a:
+// Alternate, or None for HandlerNone (Launch Services never uses the app
+// to open the type).
+func handlerRank(a platform.Association) string {
+	if a.Role == platform.HandlerNone {
+		return noneRank
+	}
+	return docRank
+}
 
 // --- the bundle ---
 
@@ -412,27 +446,56 @@ func dropFromList(e plist.Dict, key, s string) (removed, empty bool) {
 	return true, len(rest) == 0
 }
 
-// hasScheme reports whether any CFBundleURLTypes entry declares scheme.
-func hasScheme(d plist.Dict, scheme string) bool {
+// schemeEntry returns the first CFBundleURLTypes entry that declares
+// scheme, nil when none does.
+func schemeEntry(d plist.Dict, scheme string) plist.Dict {
 	for _, v := range entriesOf(d, keyURLTypes) {
 		if e, ok := v.(plist.Dict); ok && containsFold(stringsOf(e["CFBundleURLSchemes"]), scheme) {
-			return true
+			return e
 		}
 	}
-	return false
+	return nil
 }
 
-// addScheme declares scheme for the app unless an entry declares it.
-func addScheme(d plist.Dict, id, scheme string) bool {
-	if hasScheme(d, scheme) {
-		return false
+// hasScheme reports whether any CFBundleURLTypes entry declares scheme.
+func hasScheme(d plist.Dict, scheme string) bool { return schemeEntry(d, scheme) != nil }
+
+// addScheme declares scheme for the app in the CFBundleTypeRole role
+// unless an entry declares it; an entry Tela wrote takes the role
+// (setRole).
+func addScheme(d plist.Dict, id, scheme, role string) bool {
+	if e := schemeEntry(d, scheme); e != nil {
+		return setRole(d, keyURLTypes, "CFBundleURLSchemes", scheme, e, role, "")
 	}
 	d[keyURLTypes] = append(slices.Clone(entriesOf(d, keyURLTypes)), plist.Dict{
 		"CFBundleURLName":    id + "." + strings.ToLower(scheme),
 		"CFBundleURLSchemes": plist.Array{scheme},
-		"CFBundleTypeRole":   linkRole,
+		keyRole:              role,
 		markerKey:            true,
 	})
+	return true
+}
+
+// setRole gives e, the entry of d[key] that declares item in its list
+// listKey, the CFBundleTypeRole role and, unless rank is "", the
+// LSHandlerRank rank, when Tela wrote e (an entry the developer or the
+// packaging step wrote keeps its own): in place when e declares only item,
+// else item moves to a copy of e of its own, so the other items keep
+// their role. It reports whether anything changed.
+func setRole(d plist.Dict, key, listKey, item string, e plist.Dict, role, rank string) bool {
+	if !marked(e) || e[keyRole] == role && (rank == "" || e[keyRank] == rank) {
+		return false
+	}
+	if len(stringsOf(e[listKey])) > 1 {
+		dropFromList(e, listKey, item)
+		e = maps.Clone(e)
+		e[listKey] = plist.Array{item}
+		d[key] = append(slices.Clone(entriesOf(d, key)), e)
+	}
+	e[keyRole] = role
+	if rank != "" {
+		e[keyRank] = rank
+	}
 	return true
 }
 
@@ -482,30 +545,41 @@ func declaredType(d plist.Dict, ext string) (uti string, ours bool) {
 	return "", false
 }
 
-// hasDocType reports whether any CFBundleDocumentTypes entry declares the
-// content type uti, or (the older form) the extension ext.
-func hasDocType(d plist.Dict, uti, ext string) bool {
+// docTypeEntry returns the first CFBundleDocumentTypes entry that declares
+// the content type uti, or (the older form) the extension ext; nil when
+// none does.
+func docTypeEntry(d plist.Dict, uti, ext string) plist.Dict {
 	for _, v := range entriesOf(d, keyDocTypes) {
 		e, ok := v.(plist.Dict)
 		if !ok {
 			continue
 		}
 		if containsFold(stringsOf(e["LSItemContentTypes"]), uti) || containsFold(stringsOf(e["CFBundleTypeExtensions"]), ext) {
-			return true
+			return e
 		}
 	}
-	return false
+	return nil
 }
 
-// addDocType declares the app a handler of uti unless an entry does.
-func addDocType(d plist.Dict, uti, ext, desc string) bool {
-	if hasDocType(d, uti, ext) {
-		return false
+// hasDocType reports whether any CFBundleDocumentTypes entry declares the
+// content type uti, or (the older form) the extension ext.
+func hasDocType(d plist.Dict, uti, ext string) bool { return docTypeEntry(d, uti, ext) != nil }
+
+// opensDocType reports whether a document type entry makes the app a
+// handler: its role or its rank is not None.
+func opensDocType(e plist.Dict) bool { return e[keyRole] != noneRole && e[keyRank] != noneRank }
+
+// addDocType declares the app a handler of uti in the CFBundleTypeRole
+// role, with the LSHandlerRank rank, unless an entry does; an entry Tela
+// wrote takes the role and the rank (setRole).
+func addDocType(d plist.Dict, uti, ext, desc, role, rank string) bool {
+	if e := docTypeEntry(d, uti, ext); e != nil {
+		return setRole(d, keyDocTypes, "LSItemContentTypes", uti, e, role, rank)
 	}
 	d[keyDocTypes] = append(slices.Clone(entriesOf(d, keyDocTypes)), plist.Dict{
 		"CFBundleTypeName":   desc,
-		"CFBundleTypeRole":   docRole,
-		"LSHandlerRank":      docRank,
+		keyRole:              role,
+		keyRank:              rank,
 		"LSItemContentTypes": plist.Array{uti},
 		markerKey:            true,
 	})
@@ -613,35 +687,45 @@ func (m *macOS) Status(app platform.HandlerApp, a platform.Association) (platfor
 		return platform.AssociationStatus{}, err
 	}
 	var (
-		declared bool
+		declared bool // the Info.plist declares a
+		opens    bool // in a role other than None
 		handlers []string
 		def      string
 	)
 	if a.Scheme != "" {
 		declared = hasScheme(b.info, a.Scheme)
+		opens = declared
 		if handlers, err = m.ls.SchemeHandlers(a.Scheme); err == nil {
 			def, err = m.ls.DefaultSchemeHandler(a.Scheme)
 		}
 	} else {
 		var uti string
 		if uti, err = m.typeOf(b, a); err == nil {
-			declared = hasDocType(b.info, uti, extOf(a))
+			e := docTypeEntry(b.info, uti, extOf(a))
+			declared = e != nil
+			opens = declared && opensDocType(e)
 			if handlers, err = m.ls.TypeHandlers(uti); err == nil {
 				def, err = m.ls.DefaultTypeHandler(uti)
 			}
 		}
 	}
+	// A bundle in a temporary folder is never Launch Services' (another
+	// copy of the app may be): it is not registered.
+	inTemp := m.inTempDir(b) != ""
+	declared = declared && !inTemp
+	opens = opens && !inTemp
+	known := false
+	if err == nil && declared && a.Role == platform.HandlerNone {
+		known, err = m.knowsBundle(b, app.ID)
+	}
 	if err != nil {
 		return platform.AssociationStatus{}, fmt.Errorf("assoc: %s(%v): Launch Services: %w", call, a, err)
 	}
 	var st platform.AssociationStatus
-	// A bundle in a temporary folder is never Launch Services' (another
-	// copy of the app may be): it is not registered.
-	declared = declared && m.inTempDir(b) == ""
-	st.Registered = declared && containsFold(handlers, app.ID)
+	st.Registered = opens && containsFold(handlers, app.ID)
 	switch {
 	case strings.EqualFold(def, app.ID):
-		st.Default = declared
+		st.Default = opens
 	case def != "":
 		st.Other = def
 	default:
@@ -651,6 +735,10 @@ func (m *macOS) Status(app platform.HandlerApp, a platform.Association) (platfor
 				break
 			}
 		}
+	}
+	if a.Role == platform.HandlerNone {
+		// A declaration, in any role, of a bundle Launch Services read.
+		st.Registered, st.Default = known, false
 	}
 	return st, nil
 }
@@ -675,7 +763,7 @@ func (m *macOS) registerLocked(call string, app platform.HandlerApp, a platform.
 		return nil, "", false, tempDirError(call, b, tmp)
 	}
 	if a.Scheme != "" {
-		changed = addScheme(b.info, app.ID, a.Scheme)
+		changed = addScheme(b.info, app.ID, a.Scheme, bundleRole(a))
 	} else {
 		ext := extOf(a)
 		if uti, err = m.typeOf(b, a); err != nil {
@@ -686,7 +774,7 @@ func (m *macOS) registerLocked(call string, app platform.HandlerApp, a platform.
 			addImportedType(b.info, a, uti, ext)
 			changed = true
 		}
-		changed = addDocType(b.info, uti, ext, a.Description) || changed
+		changed = addDocType(b.info, uti, ext, a.Description, bundleRole(a), handlerRank(a)) || changed
 	}
 	if changed {
 		if err := b.save(call); err != nil {
@@ -704,8 +792,12 @@ func (m *macOS) registerLocked(call string, app platform.HandlerApp, a platform.
 }
 
 // listed reports whether Launch Services lists the app among a's handlers
-// and knows the bundle's path.
+// (unless a only declares a type, HandlerNone) and knows the bundle's
+// path.
 func (m *macOS) listed(b *appBundle, app platform.HandlerApp, a platform.Association, uti string) (bool, error) {
+	if a.Role == platform.HandlerNone {
+		return m.knowsBundle(b, app.ID)
+	}
 	var handlers []string
 	var err error
 	if a.Scheme != "" {
@@ -760,7 +852,7 @@ func (m *macOS) Unregister(app platform.HandlerApp, a platform.Association) (boo
 func (m *macOS) MakeDefault(app platform.HandlerApp, a platform.Association) (platform.DefaultResult, error) {
 	const call = "Associations.MakeDefault"
 	platform.CheckHandlerApp(call, app, true)
-	platform.CheckAssociation(call, a)
+	platform.CheckMakeDefault(call, a)
 	macMu.Lock()
 	defer macMu.Unlock()
 	_, uti, _, err := m.registerLocked(call, app, a)

@@ -438,7 +438,7 @@ func TestPhase13Encodings(t *testing.T) {
 	sc := platform.Shortcut{ID: "show", Accelerator: platform.Accelerator{Mods: platform.ModCtrl | platform.ModAlt, Key: platform.KeyF1}, Description: "Show"}
 	launch := platform.Launch{Args: []string{"a"}, Dir: "/d", Token: "t"}
 	app := platform.HandlerApp{ID: "com.example.Notes", Name: "Notes", Exec: "/usr/bin/notes", Args: []string{"--open"}, Icon: "/i.png"}
-	as := platform.Association{Extension: ".note", MIMEType: "application/x-note", Description: "Note"}
+	as := platform.Association{Extension: ".note", MIMEType: "application/x-note", Description: "Note", Role: platform.HandlerViewer}
 	menu := []platform.MenuItem{{ID: 1, Label: "Save", Accelerator: "Ctrl+S"}, {Label: "Edit", Role: platform.RoleEditMenu, Submenu: []platform.MenuItem{{ID: 2, Label: "Undo", Accelerator: "Ctrl+Z", Role: platform.RoleUndo}}}}
 
 	e := &enc{}

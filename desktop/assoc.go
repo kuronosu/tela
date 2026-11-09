@@ -24,7 +24,63 @@ import (
 // [URLScheme] or [FileType].
 type Association struct {
 	scheme, ext, mime, desc string
+	role                    HandlerRole
 }
+
+// HandlerRole is what the app does with the files of a type, or the links
+// of a scheme, it registers for ([Association.WithRole]): the role of
+// macOS's CFBundleTypeRole, Tauri's and electron-builder's file
+// associations.
+type HandlerRole uint8
+
+const (
+	// HandlerDefault (the zero value) is HandlerEditor for a file type and
+	// HandlerViewer for a scheme.
+	HandlerDefault HandlerRole = iota
+	// HandlerEditor: the app opens, edits and saves files of the type.
+	HandlerEditor
+	// HandlerViewer: the app opens files of the type, or links of the
+	// scheme, without editing them.
+	HandlerViewer
+	// HandlerShell: the app provides runtime services for the type
+	// (macOS's Shell role; elsewhere the same as HandlerEditor).
+	HandlerShell
+	// HandlerNone: the app declares the file type, so the desktop knows
+	// its name and icon (and, on Linux, detects its files), without
+	// opening it: no "Open with" entry, never the default. For file types
+	// only; a scheme with it panics, and so does MakeDefault.
+	HandlerNone
+)
+
+func (r HandlerRole) String() string { return platform.HandlerRole(r).String() }
+
+// WithRole returns a copy of a with the role r. macOS writes it in the
+// bundle's Info.plist (CFBundleTypeRole; HandlerNone also with
+// LSHandlerRank None). Linux and Windows have no roles, so Editor, Viewer
+// and Shell register the same handler there; HandlerNone registers the
+// type's MIME package on Linux and its ProgID (description, icon) on
+// Windows, without the entries that open files with the app.
+//
+//	// Notes edits .note files, opens .notes-backup ones read-only, and
+//	// only gives .notes-index files (which it writes) a name and an icon.
+//	desktop.Register(desktop.FileType(".note", "application/x-notes-note", "Notes document"))
+//	desktop.Register(desktop.FileType(".notes-backup", "application/x-notes-backup", "Notes backup").
+//	    WithRole(desktop.HandlerViewer))
+//	desktop.Register(desktop.FileType(".notes-index", "application/x-notes-index", "Notes index").
+//	    WithRole(desktop.HandlerNone))
+//
+// The role is not part of what a registration is: Register with another
+// role changes the registration that is there (changed true), and
+// Unregister and RegistrationStatus address the scheme or extension
+// whatever the role. RegistrationStatus with HandlerNone reports whether
+// the type is declared; with another role, whether the app opens it.
+func (a Association) WithRole(r HandlerRole) Association {
+	a.role = r
+	return a
+}
+
+// Role returns a's role: HandlerDefault unless WithRole set another.
+func (a Association) Role() HandlerRole { return a.role }
 
 // URLScheme returns the association of a URL scheme of the app's own, given
 // without ':' ("notes" for notes:open?id=3 links): a letter, then
@@ -50,7 +106,8 @@ func (a Association) String() string {
 }
 
 func (a Association) platform() platform.Association {
-	return platform.Association{Scheme: a.scheme, Extension: a.ext, MIMEType: a.mime, Description: a.desc}
+	return platform.Association{Scheme: a.scheme, Extension: a.ext, MIMEType: a.mime, Description: a.desc,
+		Role: platform.HandlerRole(a.role)}
 }
 
 // HandlerApp describes the application registered as a handler: what the
@@ -136,9 +193,14 @@ var ErrDevExecutable = errors.New("under tela dev the program is a temporary bui
 // Registration is what [RegistrationStatus] reports.
 type Registration struct {
 	// Registered: the app is a candidate handler (offered in "Open with",
-	// or for the scheme).
+	// or for the scheme), in any role but HandlerNone. Asked about an
+	// Association with HandlerNone, it reports whether the file type is
+	// declared (on Linux its MIME type is known, whoever installed it; on
+	// Windows the app's ProgID exists; on macOS the Info.plist declares it
+	// and Launch Services knows the bundle).
 	Registered bool
-	// Default: the app is the default handler.
+	// Default: the app is the default handler; always false asked with
+	// HandlerNone.
 	Default bool
 	// Other names what holds the association instead of the app (the
 	// default handler, the owner of a Windows scheme key, the MIME type
@@ -169,7 +231,9 @@ func (r DefaultResult) String() string { return platform.DefaultResult(r).String
 // in "Open with", and links of its scheme open it when no other
 // application is the default. It does not make it the default
 // ([MakeDefault]). It looks first, and writes nothing when the app is
-// registered already (changed false).
+// registered already (changed false). The app registers as an editor of a
+// file type and a viewer of a scheme, unless [Association.WithRole] gives
+// another role; [HandlerNone] declares a file type without opening it.
 //
 //	if _, err := desktop.Register(desktop.URLScheme("notes")); err != nil {
 //	    log.Print(err)
@@ -249,7 +313,11 @@ func regPrepare(what string, a Association, opts []RegisterOption, needExec bool
 	if a == (Association{}) {
 		panic(fmt.Sprintf("desktop.%s: an empty Association; use desktop.URLScheme(\"notes\") or desktop.FileType(\".note\", \"application/x-notes-note\", \"Notes document\")", what))
 	}
-	platform.CheckAssociation("desktop."+what, a.platform())
+	if what == "MakeDefault" {
+		platform.CheckMakeDefault("desktop."+what, a.platform())
+	} else {
+		platform.CheckAssociation("desktop."+what, a.platform())
+	}
 	return appPrepare(what+"("+a.String()+")", what, opts, needExec)
 }
 

@@ -14,7 +14,10 @@ import (
 // unless Replace, and leaves the default alone; a sole candidate with no
 // explicit default is the default (as GIO and Windows pick it);
 // MakeDefault sets the default, or asks the user for file types when
-// AskForFileDefaults is set (Windows). Tests seed other applications with
+// AskForFileDefaults is set (Windows). A registration keeps its role
+// (resolved): Register with another role changes it, and HandlerNone
+// declares the type without making the app a handler (Status asked with
+// HandlerNone reports the declaration). Tests seed other applications with
 // SetDefault, SetConflict and SetAppEntry, inject failures with SetError,
 // and inspect Registrations, Apps, Writes and Asked. The zero value is
 // ready; it is safe for concurrent use. The headless backend gives each
@@ -23,9 +26,9 @@ type Fake struct {
 	mu sync.Mutex
 	// askFiles: MakeDefault of a file type returns DefaultAsked.
 	askFiles  bool
-	regs      map[string]platform.HandlerApp // by app ID + "\x00" + key
-	defaults  map[string]string              // key -> app ID or other app
-	conflicts map[string]string              // key -> other app
+	regs      map[string]fakeReg // by app ID + "\x00" + key
+	defaults  map[string]string  // key -> app ID or other app
+	conflicts map[string]string  // key -> other app
 	asked     []platform.Association
 	apps      map[string]platform.HandlerApp // RegisterApp's, by app ID
 	appOthers map[string]string              // app ID -> another's entry
@@ -34,6 +37,16 @@ type Fake struct {
 }
 
 var _ platform.Associations = (*Fake)(nil)
+
+// fakeReg is a registration: the app, and the role resolved
+// (Association.ResolvedRole).
+type fakeReg struct {
+	app  platform.HandlerApp
+	role platform.HandlerRole
+}
+
+// opens reports whether the registration makes the app a handler.
+func (r fakeReg) opens() bool { return r.role != platform.HandlerNone }
 
 // fakeKey identifies an association: the lower-cased scheme or
 // extension.
@@ -101,6 +114,9 @@ func (f *Fake) SetError(err error) {
 type Registration struct {
 	App         platform.HandlerApp
 	Association string // "notes:" or ".note"
+	// Role is the role registered, resolved: HandlerDefault is recorded
+	// as HandlerEditor for a file type and HandlerViewer for a scheme.
+	Role platform.HandlerRole
 }
 
 // Registrations returns the registrations, sorted by association then
@@ -109,10 +125,11 @@ func (f *Fake) Registrations() []Registration {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	var out []Registration
-	for k, app := range f.regs {
+	for k, r := range f.regs {
 		_, key, _ := strings.Cut(k, "\x00")
+		app := r.app
 		app.Args = slices.Clone(app.Args)
-		out = append(out, Registration{App: app, Association: key})
+		out = append(out, Registration{App: app, Association: key, Role: r.role})
 	}
 	slices.SortFunc(out, func(a, b Registration) int {
 		if c := strings.Compare(a.Association, b.Association); c != 0 {
@@ -141,22 +158,25 @@ func (f *Fake) Asked() []platform.Association {
 	return slices.Clone(f.asked)
 }
 
-// status computes the status of app for key; f.mu must be held.
-func (f *Fake) status(appID, key string) platform.AssociationStatus {
+// status computes the status of app for key, asked with role (HandlerNone
+// asks whether the declaration exists); f.mu must be held.
+func (f *Fake) status(appID, key string, role platform.HandlerRole) platform.AssociationStatus {
 	var s platform.AssociationStatus
-	_, s.Registered = f.regs[appID+"\x00"+key]
+	r, ok := f.regs[appID+"\x00"+key]
+	s.Registered = ok && r.opens()
+	declared := ok && !r.opens()
 	def := f.defaults[key]
 	switch {
 	case def == appID:
-		s.Default = true
+		s.Default = !declared
 	case def != "":
 		s.Other = def
 	default:
 		// No explicit default: the sole candidate is the default (GIO
 		// and Windows use the only handler there is).
 		n := 0
-		for k := range f.regs {
-			if strings.HasSuffix(k, "\x00"+key) {
+		for k, r := range f.regs {
+			if strings.HasSuffix(k, "\x00"+key) && r.opens() {
 				n++
 			}
 		}
@@ -164,6 +184,9 @@ func (f *Fake) status(appID, key string) platform.AssociationStatus {
 	}
 	if c := f.conflicts[key]; s.Other == "" && c != "" && c != appID {
 		s.Other = c
+	}
+	if role == platform.HandlerNone {
+		s.Registered, s.Default = ok, false
 	}
 	return s
 }
@@ -176,7 +199,7 @@ func (f *Fake) Status(app platform.HandlerApp, a platform.Association) (platform
 	if f.err != nil {
 		return platform.AssociationStatus{}, f.err
 	}
-	return f.status(app.ID, fakeKey(a)), nil
+	return f.status(app.ID, fakeKey(a), a.Role), nil
 }
 
 func (f *Fake) Register(app platform.HandlerApp, a platform.Association, opts platform.RegisterOptions) (bool, error) {
@@ -193,19 +216,25 @@ func (f *Fake) Register(app platform.HandlerApp, a platform.Association, opts pl
 // register is Register; f.mu must be held.
 func (f *Fake) register(app platform.HandlerApp, a platform.Association, opts platform.RegisterOptions) (bool, error) {
 	key := fakeKey(a)
+	role := a.ResolvedRole()
 	if c := f.conflicts[key]; c != "" && c != app.ID {
 		if !opts.Replace {
 			return false, platform.TakenError(a, c)
 		}
 		delete(f.conflicts, key)
-	} else if old, ok := f.regs[app.ID+"\x00"+key]; ok && sameApp(old, app) {
+	} else if old, ok := f.regs[app.ID+"\x00"+key]; ok && sameApp(old.app, app) && old.role == role {
 		return false, nil // looked before writing: nothing changes
 	}
 	if f.regs == nil {
-		f.regs = map[string]platform.HandlerApp{}
+		f.regs = map[string]fakeReg{}
 	}
 	app.Args = slices.Clone(app.Args)
-	f.regs[app.ID+"\x00"+key] = app
+	f.regs[app.ID+"\x00"+key] = fakeReg{app: app, role: role}
+	if role == platform.HandlerNone && f.defaults[key] == app.ID {
+		// The app stops being a handler: a default naming it goes, as
+		// Unregister removes it.
+		delete(f.defaults, key)
+	}
 	f.writes++
 	return true, nil
 }
@@ -240,7 +269,7 @@ func (f *Fake) Unregister(app platform.HandlerApp, a platform.Association) (bool
 
 func (f *Fake) MakeDefault(app platform.HandlerApp, a platform.Association) (platform.DefaultResult, error) {
 	platform.CheckHandlerApp("Associations.MakeDefault", app, true)
-	platform.CheckAssociation("Associations.MakeDefault", a)
+	platform.CheckMakeDefault("Associations.MakeDefault", a)
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.err != nil {

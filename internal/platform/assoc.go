@@ -37,6 +37,79 @@ type HandlerApp struct {
 	Icon string
 }
 
+// HandlerRole is what an app does with the files of a type or the links of
+// a scheme it registers for ([Association].Role): Info.plist's
+// CFBundleTypeRole, and the role of Tauri's and electron-builder's file
+// associations. The role is not part of an association's identity: Status,
+// Unregister and a Register with another role address the same scheme or
+// extension, and that Register updates what Tela wrote (changed true).
+//
+// Per OS:
+//
+//   - macOS writes it as the CFBundleTypeRole of the CFBundleDocumentTypes
+//     or CFBundleURLTypes entry; HandlerNone also sets LSHandlerRank None
+//     (Launch Services never uses the app to open the type).
+//   - Linux and Windows have no roles: HandlerEditor, HandlerViewer and
+//     HandlerShell write the same handler (the MimeType of the desktop
+//     entry; the ProgID's open verb). HandlerNone declares the file type
+//     without making the app a handler: on Linux the MIME package (glob,
+//     description) and no MimeType entry; on Windows the ProgID's
+//     description and icon (and the extension's default value, with
+//     Register's rule), with no shell\open\command, no OpenWithProgids
+//     entry and no Capabilities entry. Changing a registration to
+//     HandlerNone removes what made the app a handler, defaults naming it
+//     included, as Unregister does.
+//
+// HandlerNone is for file types only: a scheme with it panics
+// (CheckAssociation), and so does MakeDefault with it (CheckMakeDefault).
+type HandlerRole uint8
+
+const (
+	// HandlerDefault (the zero value) is HandlerEditor for a file type and
+	// HandlerViewer for a scheme.
+	HandlerDefault HandlerRole = iota
+	// HandlerEditor: the app opens, edits and saves files of the type.
+	HandlerEditor
+	// HandlerViewer: the app opens files of the type, or links of the
+	// scheme, without editing them.
+	HandlerViewer
+	// HandlerShell: the app provides runtime services for the type
+	// (macOS's Shell role; elsewhere the same as HandlerEditor).
+	HandlerShell
+	// HandlerNone: the app declares the file type (its description and
+	// icon) but does not open it.
+	HandlerNone
+)
+
+func (r HandlerRole) String() string {
+	switch r {
+	case HandlerDefault:
+		return "default"
+	case HandlerEditor:
+		return "editor"
+	case HandlerViewer:
+		return "viewer"
+	case HandlerShell:
+		return "shell"
+	case HandlerNone:
+		return "none"
+	}
+	return "HandlerRole(invalid)"
+}
+
+// ResolvedRole returns the role a registers with: its Role, with
+// HandlerDefault replaced by HandlerViewer for a scheme and HandlerEditor
+// for a file type.
+func (a Association) ResolvedRole() HandlerRole {
+	switch {
+	case a.Role != HandlerDefault:
+		return a.Role
+	case a.Scheme != "":
+		return HandlerViewer
+	}
+	return HandlerEditor
+}
+
 // Association is one URL scheme or one file extension an app handles. Set
 // Scheme, or Extension (with MIMEType and Description), not both.
 // Association values are comparable.
@@ -55,6 +128,9 @@ type Association struct {
 	// Description names the file type ("Notes document"), required with
 	// Extension.
 	Description string
+	// Role is what the app does with the type or the links (see
+	// [HandlerRole]); the zero value, HandlerDefault, is the usual one.
+	Role HandlerRole
 }
 
 func (a Association) String() string {
@@ -67,9 +143,17 @@ func (a Association) String() string {
 // AssociationStatus is what Associations.Status reports.
 type AssociationStatus struct {
 	// Registered: the app is a candidate handler (listed in "Open with",
-	// offered for the scheme).
+	// offered for the scheme); false for a type the app only declares
+	// (HandlerNone). HandlerEditor, HandlerViewer and HandlerShell are not
+	// told apart. For an Association with HandlerNone it reports instead
+	// whether the type's declaration exists, whatever the role it was
+	// registered with: on Linux the extension maps to the MIME type
+	// (Tela's MIME package, or one already installed); on Windows the
+	// ProgID Classes\<ID>.<ext> exists; on macOS the Info.plist declares
+	// the type and Launch Services knows the bundle.
 	Registered bool
-	// Default: the app is the default handler.
+	// Default: the app is the default handler; always false for an
+	// Association with HandlerNone.
 	Default bool
 	// Other names what holds the association instead of the app: the
 	// default handler (a .desktop file name, a ProgID), on Windows the
@@ -153,7 +237,8 @@ var ErrAssociationTaken = errors.New("platform: another application holds the as
 // file or registry I/O at once, block, and are safe from any goroutine; a
 // running app is not needed (package internal/platform/assoc gives the
 // OS's implementation directly, for installers). Every method checks its
-// arguments first (CheckHandlerApp, CheckAssociation).
+// arguments first (CheckHandlerApp, CheckAssociation; CheckMakeDefault for
+// MakeDefault).
 type Associations interface {
 	// Status reports whether the app is registered for a, whether it is
 	// the default, and which other application holds a.
@@ -162,9 +247,10 @@ type Associations interface {
 	// Register makes the app a candidate handler of a, not the default
 	// (unless nothing else handles a Windows scheme, where the scheme key
 	// is the handler, or nothing else handles a on macOS, where Launch
-	// Services uses the only candidate). It reads what exists first and
-	// writes nothing when
-	// nothing would change (changed false). It never overwrites another
+	// Services uses the only candidate), in a's role (HandlerNone only
+	// declares a file type; a registration of another role changes to
+	// a's). It reads what exists first and writes nothing when nothing
+	// would change (changed false). It never overwrites another
 	// application's association without opts.Replace
 	// (ErrAssociationTaken).
 	Register(app HandlerApp, a Association, opts RegisterOptions) (changed bool, err error)
@@ -257,8 +343,15 @@ func absAnyOS(p string) bool {
 }
 
 // CheckAssociation panics with an actionable message if a is neither a
-// valid scheme nor a valid file type. what names the call.
+// valid scheme nor a valid file type, or has an invalid Role (HandlerNone
+// with a scheme among them). what names the call.
 func CheckAssociation(what string, a Association) {
+	if a.Role > HandlerNone {
+		panicf("platform: %s: invalid HandlerRole %d; use HandlerDefault, HandlerEditor, HandlerViewer, HandlerShell or HandlerNone", what, a.Role)
+	}
+	if a.Scheme != "" && a.Extension == "" && a.Role == HandlerNone {
+		panicf("platform: %s: scheme %q has HandlerNone, but the handler of a scheme opens its links; register it with HandlerViewer (the default), or do not register it", what, a.Scheme)
+	}
 	switch {
 	case a.Scheme != "" && a.Extension != "":
 		panicf("platform: %s: Association has both Scheme %q and Extension %q; register them separately", what, a.Scheme, a.Extension)
@@ -285,6 +378,16 @@ func CheckAssociation(what string, a Association) {
 		}
 	default:
 		panicf("platform: %s: empty Association; set Scheme or Extension", what)
+	}
+}
+
+// CheckMakeDefault is CheckAssociation for MakeDefault, which also panics
+// for HandlerNone: an app that does not open a type cannot be its default
+// handler.
+func CheckMakeDefault(what string, a Association) {
+	CheckAssociation(what, a)
+	if a.Role == HandlerNone {
+		panicf("platform: %s: %v has HandlerNone: the app does not open it, so it cannot be its default handler; give it another role", what, a)
 	}
 }
 
@@ -331,7 +434,7 @@ func (UnsupportedAssociations) Unregister(app HandlerApp, a Association) (bool, 
 // MakeDefault checks its arguments and returns ErrUnsupported.
 func (UnsupportedAssociations) MakeDefault(app HandlerApp, a Association) (DefaultResult, error) {
 	CheckHandlerApp("Associations.MakeDefault", app, true)
-	CheckAssociation("Associations.MakeDefault", a)
+	CheckMakeDefault("Associations.MakeDefault", a)
 	return DefaultNone, ErrUnsupported
 }
 

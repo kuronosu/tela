@@ -452,6 +452,10 @@ type Registration struct {
 	Association string
 	// App is what was registered as the handler.
 	App desktop.HandlerApp
+	// Role is the role registered (desktop.Association.WithRole),
+	// resolved: desktop.HandlerDefault reads as HandlerEditor for a file
+	// type and HandlerViewer for a scheme.
+	Role desktop.HandlerRole
 	// Default: the app is the default handler.
 	Default bool
 }
@@ -461,7 +465,7 @@ type Registration struct {
 // the app.
 //
 //	app.Click(telatest.ByRole("button", "Open notes: links with Notes"))
-//	regs := app.Registrations() // [{notes: {com.example.Notes Notes /path/notes …} true}]
+//	regs := app.Registrations() // [{notes: {com.example.Notes Notes /path/notes …} viewer true}]
 func (a *App) Registrations() []Registration {
 	a.tb.Helper()
 	a.settleAfter()
@@ -472,6 +476,7 @@ func (a *App) Registrations() []Registration {
 		out = append(out, Registration{
 			Association: r.Association,
 			App:         desktop.HandlerApp{ID: r.App.ID, Name: r.App.Name, Exec: r.App.Exec, Args: slices.Clone(r.App.Args), Icon: r.App.Icon},
+			Role:        desktop.HandlerRole(r.Role),
 			Default:     err == nil && s.Default,
 		})
 	}

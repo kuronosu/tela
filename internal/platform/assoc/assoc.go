@@ -58,15 +58,16 @@
 //     registered; `tela run` builds in the user cache for this reason. A
 //     scheme is an entry of the bundle's Info.plist CFBundleURLTypes; a
 //     file type an entry of CFBundleDocumentTypes for the extension's
-//     content type (LSHandlerRank Alternate, CFBundleTypeRole Editor),
-//     plus a UTImportedTypeDeclarations entry when nothing declares the
+//     content type (LSHandlerRank Alternate, CFBundleTypeRole the
+//     association's role, Editor by default), plus a
+//     UTImportedTypeDeclarations entry when nothing declares the
 //     extension. Entries are marked TelaRegistered=true, other keys and
-//     entries kept, the file rewritten only when an entry is added or
-//     removed (never in a signed bundle). Then LSRegisterURL makes Launch
-//     Services read the bundle again. Launch Services keeps every app's
-//     claims side by side, so nothing is ever taken (Replace changes
-//     nothing), and it makes the only candidate of a scheme or type its
-//     handler by itself. MakeDefault calls LSSetDefaultHandlerForURLScheme
+//     entries kept, the file rewritten only when an entry is added,
+//     removed or given another role (never in a signed bundle). Then
+//     LSRegisterURL makes Launch Services read the bundle again. Launch
+//     Services keeps every app's claims side by side, so nothing is ever
+//     taken (Replace changes nothing), and it makes the only candidate of
+//     a scheme or type its handler by itself. MakeDefault calls LSSetDefaultHandlerForURLScheme
 //     or LSSetDefaultRoleHandlerForContentType; Status reads the
 //     Info.plist and Launch Services' handlers and default (Other: a
 //     bundle ID).
@@ -75,6 +76,14 @@
 //     when its last association goes; on Windows nothing (an app needs no
 //     entry there); on macOS LSRegisterURL of the bundle, which is the
 //     app's registration (UnregisterApp writes nothing).
+//   - Roles (platform.HandlerRole): only macOS writes them
+//     (CFBundleTypeRole). On Linux and Windows the editor, viewer and
+//     shell roles write the same handler; HandlerNone writes the file
+//     type's declaration and none of what makes the app a handler (Linux:
+//     the MIME package, no MimeType entry; Windows: the ProgID's
+//     description and icon, no verb, OpenWithProgids or Capabilities
+//     entry; macOS: LSHandlerRank None too), and removes those, with the
+//     user's defaults naming the app, when a registration changes to it.
 //   - Other OSes: [Native] returns platform.UnsupportedAssociations.
 //
 // # Tests never touch the system
