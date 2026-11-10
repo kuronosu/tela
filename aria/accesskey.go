@@ -39,6 +39,12 @@ func (a AccessKey) Split(label string) (before, key, after string) {
 	return label, "", ""
 }
 
+// ValidAccessKey reports whether k can be an access key: an ASCII digit,
+// or a letter of a script that keyboard layouts type directly (not Han,
+// kana, Hangul, Bopomofo or Yi, which come from an IME, nor the fullwidth
+// forms or the CJK symbols). desktop.MenuItem's rule.
+func ValidAccessKey(k rune) bool { return platform.CheckAccessKey(k) }
+
 // AccessKeyItem is an entry of a menu level for [AccessKeys].
 type AccessKeyItem struct {
 	// Label is the entry's text.
@@ -101,8 +107,8 @@ func accessKeyOf(label string, m platform.AccessKeyMark) AccessKey {
 
 // accessKeyMatches returns the entries among keys whose access key (key)
 // is the one e types: the character of its logical key, in either case,
-// else, when the layout types no ASCII character there, the letter or
-// digit of its physical key ("KeyF", "Digit1"), so that Alt+F reaches
+// else, when the key types one character that is not ASCII, the letter
+// or digit of its physical key ("KeyF", "Digit1"), so that Alt+F reaches
 // "&File" on a Cyrillic or Greek layout too, as Chromium matches
 // Windows' virtual-key codes.
 func accessKeyMatches[K comparable](keys []K, key func(K) rune, usable func(K) bool, e tela.KeyboardEvent) []K {
@@ -119,12 +125,16 @@ func accessKeyMatches[K comparable](keys []K, key func(K) rune, usable func(K) b
 		return out
 	}
 	s := string(e.Key)
-	if r, n := utf8.DecodeRuneInString(s); n > 0 && n == len(s) && unicode.IsPrint(r) && r != ' ' {
-		if m := match(unicode.ToLower(r)); len(m) > 0 || r < utf8.RuneSelf {
-			// A layout that types Latin there (AZERTY's A on the key
-			// of Q) means its own letter.
-			return m
-		}
+	r, n := utf8.DecodeRuneInString(s)
+	if n == 0 || n != len(s) || !unicode.IsPrint(r) || r == ' ' {
+		// A named key (a dead key, an IME's Process, Unidentified) types
+		// no character: no access key, whatever key it is on.
+		return nil
+	}
+	if m := match(unicode.ToLower(r)); len(m) > 0 || r < utf8.RuneSelf {
+		// A layout that types Latin there (AZERTY's A on the key of Q)
+		// means its own letter.
+		return m
 	}
 	code := string(e.Code)
 	switch {

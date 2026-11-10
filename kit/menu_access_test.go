@@ -289,3 +289,32 @@ func TestMenubarAccessKeysGolden(t *testing.T) {
 		app.GoldenScales("menubar_access_keys_"+scheme, 1, 2)
 	}
 }
+
+// Two Buttons in one trigger slot: the one that is not loading does not
+// clear the loading one's report, nor does its unmount (review of
+// ADR-260).
+func TestLoadingButtonBesideAnother(t *testing.T) {
+	items := []kit.MenuItem[string]{{Key: "a", Label: "Item A"}}
+	var setOther, setLoading tela.Setter[bool]
+	app := telatest.MountFunc(t, func() tela.Node {
+		other, so := tela.UseState(true)
+		loading, sl := tela.UseState(true)
+		setOther, setLoading = so, sl
+		return h.Div(h.Class("p-6"), kit.DropdownMenu[string]{Items: items, Trigger: kit.TriggerFunc(func(p tela.Prop) tela.Node {
+			return h.Div(h.Class("flex gap-2"),
+				kit.Button{Loading: loading, Props: p, Children: h.Text("Open")},
+				h.If(other, kit.Button{Children: h.Text("Other")}))
+		})})
+	}, telatest.Theme(kit.Theme()))
+	open := telatest.ByRole("button", "Open")
+	app.Focus(open)
+	app.Press("Enter")
+	app.ExpectCount(cmItem("Item A"), 0)
+	setOther.Set(false) // the other Button unmounts
+	app.ExpectCount(telatest.ByRole("button", "Other"), 0)
+	app.Press("Enter")
+	app.ExpectCount(cmItem("Item A"), 0)
+	setLoading.Set(false)
+	app.Click(open)
+	app.ExpectCount(cmItem("Item A"), 1)
+}

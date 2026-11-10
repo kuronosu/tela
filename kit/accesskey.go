@@ -2,7 +2,6 @@ package kit
 
 import (
 	"slices"
-	"unicode"
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/aria"
@@ -52,18 +51,4 @@ func accessLabel(label string, ak aria.AccessKey, show bool, class string) tela.
 		mark = h.Span(cls(class), h.Text(key))
 	}
 	return h.Span(h.Text(before), mark, h.Text(after))
-}
-
-// validAccessKey reports whether k can be an AccessKey: an ASCII digit,
-// or a letter of a script that keyboard layouts type directly (not Han,
-// Hiragana, Katakana, Hangul, Bopomofo or Yi, which come from an IME, nor
-// the fullwidth forms), desktop.MenuItem's rule.
-func validAccessKey(k rune) bool {
-	switch {
-	case k >= '0' && k <= '9':
-		return true
-	case !unicode.IsLetter(k), k >= 0xff00 && k <= 0xffef, k >= 0x3000 && k <= 0x30ff:
-		return false
-	}
-	return !unicode.In(k, unicode.Han, unicode.Hiragana, unicode.Katakana, unicode.Hangul, unicode.Bopomofo, unicode.Yi)
 }

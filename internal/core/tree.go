@@ -313,7 +313,11 @@ type Tree struct {
 	// altHeld while Alt is down alone (menubarkeys.go).
 	loneAlt bool
 	altHeld bool
-	pubs    []*valueCore
+	// menuBars are the mounted elements with MenuBarKeys, and altBar the
+	// one told that Alt is held (menubarkeys.go).
+	menuBars []*Element
+	altBar   *Element
+	pubs     []*valueCore
 	// env is the color scheme and reduced motion (env.go).
 	env envState
 

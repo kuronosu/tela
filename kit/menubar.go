@@ -334,7 +334,7 @@ func (d drawnMenubar[K]) Build() tela.Node {
 	if d.windowBar && !mac {
 		items := make([]aria.AccessKeyItem, len(m.Menus))
 		for i, mm := range m.Menus {
-			if mm.AccessKey != 0 && devMode() && !validAccessKey(mm.AccessKey) {
+			if mm.AccessKey != 0 && devMode() && !aria.ValidAccessKey(mm.AccessKey) {
 				panic(fmt.Sprintf("kit: Menubar menu %q has the AccessKey %q; an access key is a letter or a digit the keyboard types, such as 'F' (a Japanese label gets it appended: \"ファイル(F)\")", mm.Label, mm.AccessKey))
 			}
 			items[i] = aria.AccessKeyItem{Label: mm.Label, Key: mm.AccessKey, Role: mm.Role, Disabled: mm.Disabled}
