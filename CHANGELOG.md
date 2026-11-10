@@ -23,7 +23,7 @@ Phase 22, Desktop, kit and text details (ADR-260 to ADR-266).
 
 ### Added
 
-- Access keys in drawn menus on Windows and Linux (ADR-260): `kit.MenuItem.AccessKey` and `kit.MenubarMenu.AccessKey` (also given to native menus), underlined while Alt is held or the keyboard is in the bar; Alt+key opens a menu and the key alone chooses an item; items without one get the Win32 bar's letters. `aria.AccessKeys`, `MenuBarOptions.AccessKey`, `MenuBarResult.ShowAccessKeys`, `MenuOptions.AccessKey`.
+- Access keys in drawn menus on Windows and Linux (ADR-260): `kit.MenuItem.AccessKey` and `kit.MenubarMenu.AccessKey` (also given to native menus), underlined while Alt is held or the keyboard is in the bar; Alt+key opens a menu and the key alone chooses an item; items without one get the Win32 bar's letters. `aria.AccessKeys`, `aria.ValidAccessKey`, `MenuBarOptions.AccessKey`, `MenuBarResult.ShowAccessKeys`, `MenuOptions.AccessKey`.
 - Typeahead on menu bar triggers (`aria.MenuBarOptions.TextValue`); `kit.Menubar.ActivationKeys`, and a bar drawn in place of a native one gets F10, Alt and access keys.
 - `aria.ContextMenuTriggerOptions.Position` and `kit.ContextMenu.Position` place a context menu the app opens.
 - `i18n` number options in `Intl.NumberFormat`'s style, from CLDR 48 (ADR-266): `SignDisplay`, `Currency` with `CurrencyDisplay` and `CurrencySign`, `Notation` (scientific, engineering, compact) and `CompactDisplay`; messages accept `{n, number, currency}` and ICU number skeletons (`::currency/EUR`, `::compact-short`, `::scientific`, `::sign-always`, `::.00`…).
