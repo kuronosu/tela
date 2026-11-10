@@ -248,6 +248,25 @@ func TestCreationFrameExtentsLate(t *testing.T) {
 	if len(g.timers) != 1 {
 		t.Errorf("%d timers, want none after the first window's", len(g.timers)-1)
 	}
+
+	// The extents of a fullscreen or maximized window (none, or no side
+	// borders) are not a normal window's frame: not learned.
+	a := &g.b.atoms
+	g.f.set(9, a.netWMState, uint32(a.netWMStateFull))
+	g.feed(xproto.PropertyNotifyEvent{Window: 9, Atom: a.netWMState})
+	g.answer(9, 0, 0, 0, 0)
+	g.f.set(9, a.netWMState, uint32(a.netWMStateMaxVert), uint32(a.netWMStateMaxHorz))
+	g.feed(xproto.PropertyNotifyEvent{Window: 9, Atom: a.netWMState})
+	g.answer(9, 0, 0, 24, 0)
+	// Nor all-zero extents of a decorated window in the normal state.
+	g.f.set(9, a.netWMState)
+	g.feed(xproto.PropertyNotifyEvent{Window: 9, Atom: a.netWMState})
+	g.answer(9, 0, 0, 0, 0)
+	w = fakeWindow(g.b, 11, image.Pt(800, 600), opts)
+	g.feed()
+	g.f.take()
+	g.present(w)
+	g.sent("first Present after fullscreen and maximized extents", mapped(11, 100, 40))
 }
 
 // The first map waits for the window manager's frame extents, at most

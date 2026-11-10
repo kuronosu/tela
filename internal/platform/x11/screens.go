@@ -332,8 +332,8 @@ func (w *Window) fitCreation() bool {
 
 // frameExtentsChanged handles a PropertyNotify of _NET_FRAME_EXTENTS: the
 // answer to the request of requestFit ends the wait. Every value of a
-// decorated window, late or a later change, is learned for the windows
-// that come next (learnExtents).
+// decorated window in the normal state (normalFrame), late or a later
+// change, is learned for the windows that come next (learnExtents).
 func (w *Window) frameExtentsChanged() {
 	if w.opts.Frameless || w.Closed() {
 		return
@@ -343,12 +343,27 @@ func (w *Window) frameExtentsChanged() {
 	if !ok {
 		return
 	}
-	w.b.learnExtents(w, ext)
+	if w.normalFrame() && ext != (frameExtents{}) {
+		w.b.learnExtents(w, ext)
+	}
 	if !w.extWait {
 		return
 	}
 	w.ext = ext
 	w.frameExtentsDone()
+}
+
+// normalFrame reports whether w's frame extents are those of a window in
+// the normal state, which later windows may be fitted with: not
+// fullscreen or maximized, as the window manager reports it or, before
+// the first map, as it is asked to map it (window managers drop the
+// frame of a fullscreen window and, some, the borders of a maximized
+// one). All-zero extents of a decorated window are not learned either.
+func (w *Window) normalFrame() bool {
+	if w.osState.Fullscreen || w.osState.Maximized {
+		return false
+	}
+	return w.mapped || !(w.req.fullscreen || w.req.maximized)
 }
 
 // frameExtentsDone ends the wait for the frame extents (they arrived, or
