@@ -13,6 +13,51 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+Phase 22, Desktop, kit and text details (ADR-260 to ADR-266).
+
+### Breaking
+
+- `tela.BackgroundGradientFn` is a layer over the classes' background images instead of replacing the topmost one (`bg-none` leaves it alone).
+- `telatest.ByClass` and `ByTestID` also match a decorative `h.Icon`, so counts of a class icons share (such as `pointer-events-none`) can change.
+- `i18n` rounds a float from its shortest decimal digits (`2.675` with two fraction digits is "2.68", was "2.67"), and a tag's `-u-nu-` uses ICU's symbols for that numbering system (`en-u-nu-arab` writes the Arabic minus sign).
+
+### Added
+
+- Access keys in drawn menus on Windows and Linux (ADR-260): `kit.MenuItem.AccessKey` and `kit.MenubarMenu.AccessKey` (also given to native menus), underlined while Alt is held or the keyboard is in the bar; Alt+key opens a menu and the key alone chooses an item; items without one get the Win32 bar's letters. `aria.AccessKeys`, `MenuBarOptions.AccessKey`, `MenuBarResult.ShowAccessKeys`, `MenuOptions.AccessKey`.
+- Typeahead on menu bar triggers (`aria.MenuBarOptions.TextValue`); `kit.Menubar.ActivationKeys`, and a bar drawn in place of a native one gets F10, Alt and access keys.
+- `aria.ContextMenuTriggerOptions.Position` and `kit.ContextMenu.Position` place a context menu the app opens.
+- `i18n` number options in `Intl.NumberFormat`'s style, from CLDR 48 (ADR-266): `SignDisplay`, `Currency` with `CurrencyDisplay` and `CurrencySign`, `Notation` (scientific, engineering, compact) and `CompactDisplay`; messages accept `{n, number, currency}` and ICU number skeletons (`::currency/EUR`, `::compact-short`, `::scientific`, `::sign-always`, `::.00`…).
+- `paused`, `running` and `[animation-play-state:…]` (ADR-263).
+- `Backdrop` on a transparent window blurs behind its card on Wayland compositors with `ext-background-effect-v1` and on KWin under X11 (ADR-261).
+- A drag hovering near the edges of an Input or Textarea scrolls it after 0.2 s, at Chromium's speed (ADR-265).
+- The gallery's Title Bar and Menubar pages open a frameless, transparent demo window with a resizable card and its own drawn `AppMenu` bar.
+
+### Changed
+
+- `kit.Input`'s end padding follows the measured `EndContent`, and `IconEnd` and `EndContent` can be used together; `kit.Alert`'s room for `Action` grows with an action wider than 60 px.
+- A loading `kit.Button` inside a `TriggerFunc` blocks its overlay without `kit.LoadingTrigger`.
+- A keyboard context menu with nothing focused opens at the window's corner plus 1 px (Chromium); `SetOpen(true)` places it like a keyboard opening.
+- A lone Alt is also cancelled by the pointer leaving the window, a resize or a focus change.
+- The drag image of a field's selection is its text alone at 75% opacity, without the highlight or the field around it.
+- `h.WindowResize` corners resize over their whole square, outside a rounded card's curve too; resizing a frameless or transparent window on Windows and macOS stops before its handles get closer than two corners; macOS shows AppKit's two-way resize cursors, diagonals included.
+- `desktop.Launch.AtStart` is also true for links and files the OS opens before the main window first shows (Linux D-Bus activation).
+- On Windows, renamed message box buttons are padded in the box's dialog units.
+- `examples/login` builds its alert, counter and separator with `kit.Alert`, `Field.LabelEnd` and `Separator.Caption`.
+
+### Fixed
+
+- Arabic and other fallback-font text in an Input sits centered as in Chromium, and the placeholder sits on the value's baseline.
+- Moving text inside one field by drag and drop is one undo step.
+- Popovers, menus and dialogs over a resize band or a title bar take the press instead of resizing or moving the window.
+- A submenu wider than the room on either side is shifted into the window.
+- `FocusedBefore` no longer keeps a stale origin when the focus came from nowhere.
+- 'ー' and CJK symbols are no longer chosen as access keys, on the Win32 native bar too.
+- On Linux and macOS a store write no longer loses another program's write made at the moment of the replace; stores see a write that keeps size, modification time and inode; on macOS files watched past the open-file limit are polled.
+- A flat watch reports a removed subfolder as a folder on Windows and Linux.
+- On X11, a window manager that answers the frame-extents request late delays only the first window.
+- The gallery's Internationalization page translates its `Count` presets.
+- `telatest`'s message for a click on a `pointer-events-none` element names the cause.
+
 ## [0.14.1] - 2026-11-09
 
 Phase 21, Kit and window follow-ups (ADR-255 to ADR-259). It breaks `telatest.App.Move`.
