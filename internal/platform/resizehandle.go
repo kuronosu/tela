@@ -67,25 +67,34 @@ type HandleCatch struct{ rects []image.Rectangle }
 
 // Update catches the handles now (HandleRects, physical pixels inside the
 // image) in pix, four bytes per pixel with the alpha last (premultiplied
-// RGBA or BGRA), rows stride bytes apart, after the backend copied a
-// frame's damage into it, releasing the ones caught before when they
-// changed. When they did, it returns the bounds of the old and the new
-// handles, which the caller presents beside the damage; otherwise it
-// changed only pixels of the damage it just copied, and returns an empty
-// rectangle.
-func (c *HandleCatch) Update(pix []byte, stride int, now []image.Rectangle) image.Rectangle {
-	var dirty image.Rectangle
-	if !SameRects(now, c.rects) {
-		releaseHandles(pix, stride, c.rects)
-		for _, r := range c.rects {
-			dirty = dirty.Union(r)
+// RGBA or BGRA), rows stride bytes apart, after the backend copied the
+// rectangles damage of a frame into it (nil when it copied nothing). When
+// the handles are the ones caught before, only their part inside the
+// damage can have lost its catch, so only that is scanned again, and the
+// result is an empty rectangle. When they changed, the old ones are
+// released and the new ones caught whole, and the result is the bounds of
+// both, which the caller presents beside the damage.
+func (c *HandleCatch) Update(pix []byte, stride int, now, damage []image.Rectangle) image.Rectangle {
+	if SameRects(now, c.rects) {
+		for _, d := range damage {
+			for _, h := range now {
+				if r := d.Intersect(h); !r.Empty() {
+					catchRect(pix, stride, r)
+				}
+			}
 		}
-		for _, r := range now {
-			dirty = dirty.Union(r)
-		}
-		c.rects = append(c.rects[:0], now...)
+		return image.Rectangle{}
 	}
-	catchHandles(pix, stride, now)
+	var dirty image.Rectangle
+	releaseHandles(pix, stride, c.rects)
+	for _, r := range c.rects {
+		dirty = dirty.Union(r)
+	}
+	for _, r := range now {
+		dirty = dirty.Union(r)
+		catchRect(pix, stride, r)
+	}
+	c.rects = append(c.rects[:0], now...)
 	return dirty
 }
 
@@ -102,22 +111,20 @@ func (c *HandleCatch) Contains(p image.Point) bool {
 // Reset forgets the caught handles (a new image of another size).
 func (c *HandleCatch) Reset() { c.rects = c.rects[:0] }
 
-// catchHandles sets the pixels of rects whose alpha is zero to the color
-// 0 with HandleAlpha.
-func catchHandles(pix []byte, stride int, rects []image.Rectangle) {
-	for _, r := range rects {
-		for y := r.Min.Y; y < r.Max.Y; y++ {
-			row := pix[y*stride+4*r.Min.X : y*stride+4*r.Max.X]
-			for i := 3; i < len(row); i += 4 {
-				if row[i] == 0 {
-					row[i-3], row[i-2], row[i-1], row[i] = 0, 0, 0, HandleAlpha
-				}
+// catchRect sets the pixels of r whose alpha is zero to the color 0 with
+// HandleAlpha.
+func catchRect(pix []byte, stride int, r image.Rectangle) {
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		row := pix[y*stride+4*r.Min.X : y*stride+4*r.Max.X]
+		for i := 3; i < len(row); i += 4 {
+			if row[i] == 0 {
+				row[i-3], row[i-2], row[i-1], row[i] = 0, 0, 0, HandleAlpha
 			}
 		}
 	}
 }
 
-// releaseHandles undoes catchHandles over rects: their pixels of color 0
+// releaseHandles undoes catchRect over rects: their pixels of color 0
 // with HandleAlpha become fully transparent again (a frame's own pixel of
 // that value, the faintest black, becomes transparent too, which shows no
 // difference and takes no input either way).

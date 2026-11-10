@@ -79,7 +79,7 @@ func TestHandleCatch(t *testing.T) {
 	img.Pix[img.PixOffset(1, 1)] = 100
 	var c HandleCatch
 	first := []image.Rectangle{image.Rect(0, 1, 3, 2)}
-	if d := c.Update(img.Pix, img.Stride, first); d != first[0] {
+	if d := c.Update(img.Pix, img.Stride, first, nil); d != first[0] {
 		t.Errorf("first catch dirty %v, want %v", d, first[0])
 	}
 	for x := range 4 {
@@ -100,15 +100,19 @@ func TestHandleCatch(t *testing.T) {
 	if !c.Contains(image.Pt(2, 1)) || c.Contains(image.Pt(3, 1)) {
 		t.Error("Contains disagrees with the handles")
 	}
-	// A copy of damage cleared a caught pixel: the same handles catch it
-	// again and report nothing dirty.
+	// A copy of damage cleared two caught pixels: the same handles catch
+	// again the one in the damage only (the other stays as the copy left
+	// it: nothing else touched it) and report nothing dirty.
 	img.Pix[img.PixOffset(0, 1)+3] = 0
-	if d := c.Update(img.Pix, img.Stride, first); !d.Empty() || img.Pix[img.PixOffset(0, 1)+3] != HandleAlpha {
-		t.Errorf("same handles: dirty %v, alpha %d", d, img.Pix[img.PixOffset(0, 1)+3])
+	img.Pix[img.PixOffset(2, 1)+3] = 0
+	if d := c.Update(img.Pix, img.Stride, first, []image.Rectangle{image.Rect(0, 0, 1, 3)}); !d.Empty() ||
+		img.Pix[img.PixOffset(0, 1)+3] != HandleAlpha || img.Pix[img.PixOffset(2, 1)+3] != 0 {
+		t.Errorf("same handles: dirty %v, alpha %d and %d", d, img.Pix[img.PixOffset(0, 1)+3], img.Pix[img.PixOffset(2, 1)+3])
 	}
+	img.Pix[img.PixOffset(2, 1)+3] = HandleAlpha
 	// The handles move: the old pixels are released.
 	next := []image.Rectangle{image.Rect(3, 0, 4, 3)}
-	if d := c.Update(img.Pix, img.Stride, next); d != image.Rect(0, 0, 4, 3) {
+	if d := c.Update(img.Pix, img.Stride, next, nil); d != image.Rect(0, 0, 4, 3) {
 		t.Errorf("moved handles dirty %v", d)
 	}
 	for i := 3; i < len(img.Pix); i += 4 {
@@ -166,5 +170,46 @@ func TestResizeFloor(t *testing.T) {
 		if got := ResizeFloor(c.size, c.regions); got != c.want {
 			t.Errorf("%s: ResizeFloor = %v, want %v", c.name, got, c.want)
 		}
+	}
+}
+
+// benchHandles are h.WindowResize's handles of a 760x560 card in an
+// 800x600 window at scale 2, in physical pixels.
+func benchHandles() (*image.RGBA, []image.Rectangle) {
+	var regions []HitRegion
+	for _, e := range []Edge{EdgeTop, EdgeBottom, EdgeLeft, EdgeRight} {
+		r := Rect{X: 20, Y: 20, W: 760, H: 560}
+		switch e {
+		case EdgeTop:
+			r.H = 5
+		case EdgeBottom:
+			r.Y, r.H = 575, 5
+		case EdgeLeft:
+			r.W = 5
+		case EdgeRight:
+			r.X, r.W = 775, 5
+		}
+		regions = append(regions, HitRegion{Kind: HitResize(e), Rect: r})
+	}
+	fb := image.NewRGBA(image.Rect(0, 0, 1600, 1200))
+	return fb, HandleRects(regions, 2, fb.Rect.Size())
+}
+
+// BenchmarkHandleCatchUnchanged is a Present's catch of unchanged handles
+// (a frame that damaged a small part of the card, away from its edges);
+// BenchmarkHandleCatchEdge the same with damage across the card's left
+// edge.
+func BenchmarkHandleCatchUnchanged(b *testing.B) {
+	benchCatch(b, image.Rect(400, 400, 600, 440))
+}
+func BenchmarkHandleCatchEdge(b *testing.B) { benchCatch(b, image.Rect(0, 400, 600, 440)) }
+
+func benchCatch(b *testing.B, damage image.Rectangle) {
+	fb, handles := benchHandles()
+	var c HandleCatch
+	c.Update(fb.Pix, fb.Stride, handles, nil)
+	d := []image.Rectangle{damage}
+	for b.Loop() {
+		c.Update(fb.Pix, fb.Stride, handles, d)
 	}
 }

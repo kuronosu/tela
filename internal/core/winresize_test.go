@@ -185,3 +185,59 @@ func TestWindowResizePortalOverBand(t *testing.T) {
 		t.Errorf("%d clicks and resizes %v, want the popover's click and no resize", clicks, main.ResizeStarts())
 	}
 }
+
+// The holes only walk the portal subtrees whose hit bounds meet the
+// regions below (portalHoles): a long popover away from the card's edges
+// and a toast viewport cost a few visits per frame, while a floating
+// popover (its own scroll space, moved to window coordinates for the
+// test) moved over the band still punches its hole.
+func TestWindowResizePortalHolesVisits(t *testing.T) {
+	var setOver func(bool)
+	app := func() Node {
+		over, set := UseState(false)
+		setOver = func(v bool) { set.Set(v) }
+		anchor := UseElementRef()
+		place := func(in FloatInput) FloatResult {
+			if over {
+				return FloatResult{X: 200, Y: 15} // over the card's top band
+			}
+			return FloatResult{X: 200, Y: 100}
+		}
+		items := []Child{Class("absolute left-[60px] top-[60px] grid w-64 grid-cols-10")}
+		for i := range 200 {
+			items = append(items, div(Key(i), Class("h-1")))
+		}
+		toasts := []Child{Class("fixed inset-0 pointer-events-none")}
+		for i := range 4 {
+			toasts = append(toasts, div(Key(i), Class("absolute right-[40px] bottom-[40px] w-40 h-10 pointer-events-auto")))
+		}
+		return div(Class("relative w-full h-full"),
+			div(Class("absolute inset-4"), WindowResize(), div(Class("h-8"), WindowDrag())),
+			div(Class("absolute left-[200px] top-[200px] w-10 h-4"), AttachRef(anchor)),
+			Portal(div(items...)),
+			Portal(div(Class("size-0"), div(Class("w-[80px] h-[30px]"), Floating(FloatOptions{Anchor: anchor, Place: place}),
+				div(Class("h-2")), div(Class("h-2"))))),
+			Portal(div(toasts...)),
+		)
+	}
+	x := newWinHarness(t, Options{Window: WindowSpec{Frameless: true}, Root: Component(app)})
+	tr := x.h.main.tree
+	tr.reg.holeVisits = 0
+	if got := tr.HitRegions(); len(got) != 13 {
+		t.Fatalf("hit regions %v, want the card's 13", got)
+	}
+	// The grid (its 200 cells skipped), the floating box's wrapper (its
+	// bounds are unbounded: a child in another scroll space) and the
+	// floating box (its 2 children skipped), the toast viewport and its 4
+	// toasts.
+	if n := tr.reg.holeVisits; n != 8 {
+		t.Errorf("%d elements visited, want 8", n)
+	}
+	setOver(true)
+	x.drain()
+	got := tr.HitRegions()
+	hole := platform.HitRegion{Kind: platform.HitClient, Rect: platform.Rect{X: 200, Y: 15, W: 80, H: 30}}
+	if n := len(got); n != 14 || got[n-1] != hole {
+		t.Errorf("hit regions %v, want the card's 13 then %v", got, hole)
+	}
+}

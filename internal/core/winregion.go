@@ -46,8 +46,14 @@ const (
 	regionClose
 )
 
-// regionState counts the mounted primitives with a region prop.
-type regionState struct{ n int }
+// regionState counts the mounted primitives with a region prop; below is
+// portalHoles' scratch list of the regions under a portal, holeVisits the
+// elements it examined (tests).
+type regionState struct {
+	n          int
+	below      []gfx.Rect
+	holeVisits int
+}
 
 // WindowDrag returns the prop that makes an element a drag region of the
 // window's title bar (see the comment at the top of winregion.go).
@@ -131,39 +137,61 @@ func (t *Tree) hitRegions(out []platform.HitRegion) []platform.HitRegion {
 // elements that take pointer input (visible, pointer-events auto, not
 // inert), cut by their clips and by the window; an element inside a
 // rectangle already appended for an ancestor adds none.
+//
+// It runs after every frame that ran the pipeline, with mounted portals
+// that may be large (an open popover with a long list, a toast viewport),
+// so it only walks the subtrees that can meet those regions: a box whose
+// hit bounds (Box.hitBounds, everything its subtree can be hit at, kept by
+// the paint for hit testing) meet none of them is skipped with its
+// subtree (a ring of resize handles has the whole card as its bounding
+// box, so each region is tested). Under a transformed box the bounds are not in window
+// coordinates, so the walk descends there without skipping.
 func (t *Tree) portalHoles(p *Element, vp gfx.Rect, out []platform.HitRegion) []platform.HitRegion {
-	below := len(out)
-	hasOther := false
+	below := t.reg.below[:0]
+	var bound gfx.Rect
 	for _, r := range out {
-		if r.Kind != platform.HitClient {
-			hasOther = true
-			break
+		if r.Kind == platform.HitClient {
+			continue
 		}
+		rr := gfx.Rect{X0: r.Rect.X, Y0: r.Rect.Y, X1: r.Rect.X + r.Rect.W, Y1: r.Rect.Y + r.Rect.H}
+		below = append(below, rr)
+		bound = bound.Union(rr)
 	}
-	if !hasOther {
+	t.reg.below = below
+	if len(below) == 0 {
 		return out
 	}
-	covers := func(r gfx.Rect) bool {
-		for _, o := range out[:below] {
-			if o.Kind == platform.HitClient {
-				continue
-			}
-			x0, y0 := max(r.X0, o.Rect.X), max(r.Y0, o.Rect.Y)
-			x1, y1 := min(r.X1, o.Rect.X+o.Rect.W), min(r.Y1, o.Rect.Y+o.Rect.H)
-			if x0 < x1 && y0 < y1 {
+	meets := func(r gfx.Rect) bool {
+		if !overlaps(r, bound) {
+			return false
+		}
+		for _, o := range below {
+			if overlaps(r, o) {
 				return true
 			}
 		}
 		return false
 	}
-	var walk func(el *Element, cover gfx.Rect)
-	walk = func(el *Element, cover gfx.Rect) {
+	// misses reports whether nothing in c's subtree can meet the regions.
+	misses := func(c *Element, transformed bool) bool {
+		bx := c.box
+		if transformed || !t.ownBox(c, false) || !t.inTree(bx) || bx.pcs == nil || bx.hitBounds == unbounded {
+			return false
+		}
+		hb := bx.hitBounds
+		if d := shiftOf(bx.space); d != (gfx.Point{}) {
+			hb = hb.Translate(-d.X, -d.Y) // scroll space to window: toSpace's inverse
+		}
+		return !meets(hb)
+	}
+	var walk func(el *Element, cover gfx.Rect, transformed bool)
+	walk = func(el *Element, cover gfx.Rect, transformed bool) {
 		for _, c := range el.children {
 			switch {
 			case c.kind == elemText || c.inert:
 				continue
 			case c.kind == elemComponent:
-				walk(c, cover)
+				walk(c, cover, transformed)
 				continue
 			case isPortal(c):
 				continue // a layer of its own, later in t.portals
@@ -172,22 +200,35 @@ func (t *Tree) portalHoles(p *Element, vp gfx.Rect, out []platform.HitRegion) []
 			if cs == nil || cs.Display == style.DisplayNone {
 				continue
 			}
+			t.reg.holeVisits++
+			if misses(c, transformed) {
+				continue
+			}
 			next := cover
 			if ps := paintStyle(c.box); ps != nil && ps.Visibility == style.VisibilityVisible && ps.PointerEvents == style.PointerEventsAuto {
 				r := t.clipUp(c, t.elemBounds(c)).Intersect(vp)
 				switch {
 				case r.Empty():
 				case !cover.Empty() && cover.Intersect(r) == r:
-				case covers(r):
+				case meets(r):
 					out = append(out, platform.HitRegion{Kind: platform.HitClient, Rect: platform.Rect{X: r.X0, Y: r.Y0, W: r.Width(), H: r.Height()}})
 					next = r
 				}
 			}
-			walk(c, next)
+			tf := transformed
+			if ps := paintStyle(c.box); ps != nil && !ps.Transform.IsIdentity() {
+				tf = true
+			}
+			walk(c, next, tf)
 		}
 	}
-	walk(p, gfx.Rect{})
+	walk(p, gfx.Rect{}, false)
 	return out
+}
+
+// overlaps reports whether rectangles a and b share an area.
+func overlaps(a, b gfx.Rect) bool {
+	return max(a.X0, b.X0) < min(a.X1, b.X1) && max(a.Y0, b.Y0) < min(a.Y1, b.Y1)
 }
 
 // regionWalk appends the regions of the subtree below el; drag reports
