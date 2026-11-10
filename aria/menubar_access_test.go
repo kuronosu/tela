@@ -370,6 +370,11 @@ func TestAccessKeys(t *testing.T) {
 	if s := strings.Join(got, " "); s != "File[] Format[] Fit[] ファイル[] 編集([E]) Win[d]ow" {
 		t.Errorf("own keys only: %s", s)
 	}
+	for r, want := range map[rune]bool{'F': true, 'ж': true, '7': true, 'ー': false, '漢': false, 'Ａ': false, '-': false} {
+		if aria.ValidAccessKey(r) != want {
+			t.Errorf("ValidAccessKey(%q) != %v", r, want)
+		}
+	}
 }
 
 // Only a typed non-ASCII character falls back to the physical key: a

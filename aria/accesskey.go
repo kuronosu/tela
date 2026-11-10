@@ -39,6 +39,12 @@ func (a AccessKey) Split(label string) (before, key, after string) {
 	return label, "", ""
 }
 
+// ValidAccessKey reports whether k can be an access key: an ASCII digit,
+// or a letter of a script that keyboard layouts type directly (not Han,
+// kana, Hangul, Bopomofo or Yi, which come from an IME, nor the fullwidth
+// forms or the CJK symbols). desktop.MenuItem's rule.
+func ValidAccessKey(k rune) bool { return platform.CheckAccessKey(k) }
+
 // AccessKeyItem is an entry of a menu level for [AccessKeys].
 type AccessKeyItem struct {
 	// Label is the entry's text.

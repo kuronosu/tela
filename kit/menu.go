@@ -493,7 +493,7 @@ func flattenMenu[K comparable](component string, items []MenuItem[K]) *menuFlat[
 				panic(fmt.Sprintf("kit: %s has two items with the key %v (one in a submenu); give each item that can be chosen, in every submenu, its own Key", component, it.Key))
 			}
 		}
-		if it.AccessKey != 0 && devMode() && !validAccessKey(it.AccessKey) {
+		if it.AccessKey != 0 && devMode() && !aria.ValidAccessKey(it.AccessKey) {
 			panic(fmt.Sprintf("kit: %s item %q has the AccessKey %q; an access key is a letter or a digit the keyboard types, such as 'F' (a Japanese label gets it appended: \"ファイル(F)\")", component, it.Label, it.AccessKey))
 		}
 		f.entries[it.Key] = menuEntry[K]{item: it, group: radio}
