@@ -196,20 +196,27 @@ func (o outerTrigger) child() tela.Child {
 // the content of an overlay has no slot: a loading Button in a dialog does
 // not disable the dialog's trigger.
 
-// slotState is the state of one overlay's trigger slot: what the Buttons
-// in it reported last, and the setter that rebuilds the overlay.
+// slotState is the state of one overlay's trigger slot: how many of the
+// components in it (Buttons, nested overlays) are busy, and the setter
+// that rebuilds the overlay. Each reporter counts once, so a sibling that
+// is not busy, or its unmount, leaves another one's report alone.
 type slotState struct {
-	reported bool
-	set      tela.Setter[bool]
+	busy int
+	set  tela.Setter[bool]
 }
 
-// report records that a Button in the slot is, or stops being, loading.
-func (s *slotState) report(busy bool) {
-	if s == nil || s.reported == busy {
+// report records that one reporter of the slot, which was busy (was) or
+// not, now is busy or not.
+func (s *slotState) report(was, busy bool) {
+	if s == nil || was == busy {
 		return
 	}
-	s.reported = busy
-	s.set.Set(busy)
+	if busy {
+		s.busy++
+	} else {
+		s.busy--
+	}
+	s.set.Set(s.busy > 0)
 }
 
 // triggerSlot is the value of triggerSlotCtx: the slot a component is
@@ -237,15 +244,21 @@ func useTriggerSlot() overlaySlot {
 }
 
 // useReportBusy tells the trigger slot that the calling component is in,
-// if any, whether it is busy, and that it is not once it unmounts.
+// if any, whether it is busy, and that it is not once it unmounts or
+// moves to another slot.
 func useReportBusy(busy bool) {
 	outer := tela.UseContext(triggerSlotCtx)
+	told := tela.UseRef(false) // what this component told outer
 	tela.UseLayoutEffect(func() func() {
-		outer.s.report(busy)
+		outer.s.report(told.Current, busy)
+		told.Current = busy
 		return nil
 	}, busy, outer)
 	tela.UseLayoutEffect(func() func() {
-		return func() { outer.s.report(false) }
+		return func() {
+			outer.s.report(told.Current, false)
+			told.Current = false
+		}
 	}, outer)
 }
 
