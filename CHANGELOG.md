@@ -13,7 +13,9 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
-Phase 22, Desktop, kit and text details (ADR-260 to ADR-266).
+## [0.14.2] - 2026-11-09
+
+Phase 22, Desktop, kit and text details (ADR-260 to ADR-266). It breaks `tela.BackgroundGradientFn`'s layering, `telatest.ByClass` counts and `i18n`'s rounding of some floats.
 
 ### Breaking
 
@@ -1072,7 +1074,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.1...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.2...HEAD
+[0.14.2]: https://github.com/kuronosu/tela/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/kuronosu/tela/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/kuronosu/tela/compare/v0.13.7...v0.14.0
 [0.13.7]: https://github.com/kuronosu/tela/compare/v0.13.6...v0.13.7

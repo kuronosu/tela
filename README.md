@@ -27,7 +27,7 @@ text tree you can read. That last part is on purpose: Tela is designed so both
 people and LLM agents can build good-looking interfaces without trial and
 error.
 
-> **Status: pre-1.0 (v0.14.1).** Phases 1–21 are done and tagged: Linux
+> **Status: pre-1.0 (v0.14.2).** Phases 1–22 are done and tagged: Linux
 > (Wayland, X11), Windows and macOS windows, text inputs and IME, CSS grid,
 > transitions and animations, glass effects, theme tokens, i18n, SVG icons,
 > `aria` behavior hooks, `tela dev` (a reload that keeps your state) and
@@ -395,7 +395,8 @@ are done (ADR-208 sets how versions are numbered).
 | 19 | Accessibility: screen readers read and operate Tela apps (Orca through AT-SPI, NVDA and Narrator through UI Automation, VoiceOver through NSAccessibility); live regions and `aria-*` props | ✅ v0.13.7 |
 | 20 | API and kit gaps: submenus, transparent windows, `kit.Alert`, loading buttons, input icons, avatar groups, translated built-in labels, close requests in the tree, text drops | ✅ v0.14.0 |
 | 21 | Kit and window follow-ups: resize handles for frameless windows, F10 for drawn menu bars, a button inside an input, animation longhands, the gallery in Spanish and Arabic, text drags, kqueue on macOS | ✅ v0.14.1 |
-| — | Desktop, kit and text details, accessibility gaps, layout and text fidelity, CPU performance, GPU backend, packaging and auto-update, DevTools, dev loop and testing, canvas, SVG and PDF, audio and video | planned |
+| 22 | Desktop, kit and text details: access keys in drawn menus, Linux backdrops, currency, compact and scientific numbers, drag autoscroll in fields, atomic store writes | ✅ v0.14.2 |
+| — | Desktop and kit follow-ups, touch input, accessibility gaps, layout and text fidelity, CPU performance, GPU backend, packaging and auto-update, DevTools, dev loop and testing, canvas, SVG and PDF, audio and video | planned |
 
 ### What works today
 
