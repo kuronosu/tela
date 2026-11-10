@@ -11,9 +11,6 @@ package aria
 import (
 	"fmt"
 	"slices"
-	"strings"
-	"time"
-	"unicode"
 	"unicode/utf8"
 
 	"github.com/kuronosu/tela"
@@ -96,7 +93,6 @@ type collConfig[K comparable] struct {
 type collState[K comparable] struct {
 	cfg  collConfig[K]
 	bump tela.Setter[int]
-	t    core.Timeout
 	ref  tela.ElementRef
 
 	started bool // the first build ran
@@ -127,7 +123,7 @@ type collState[K comparable] struct {
 	downKey               K
 	hasDown               bool
 	downKind              PointerType
-	search                string
+	typed                 typeBuffer // the typeahead's search (typeahead.go)
 	sections              map[string]*sectionRefs
 	panels                map[K]tela.ElementRef
 
@@ -148,7 +144,7 @@ func useCollection[K comparable](cfg collConfig[K]) *collState[K] {
 		return &collState[K]{keyList: keyList[K]{refs: map[K]tela.ElementRef{}}, sections: map[string]*sectionRefs{}, panels: map[K]tela.ElementRef{},
 			sub: subOptions[K]{keys: map[K]bool{}, menuRefs: map[K]tela.ElementRef{}}}
 	})
-	c.bump, c.t = bump, timeout
+	c.bump, c.typed.t = bump, timeout
 	c.sub.openT, c.sub.graceT = subOpen, subGrace
 	c.ref = cfg.ref
 	if c.ref == (tela.ElementRef{}) {
@@ -445,45 +441,6 @@ func (c *collState[K]) pageKey(k K, down bool) (K, bool) {
 		}
 	}
 	return c.firstKey()
-}
-
-// keyForSearch is getKeyForSearch: the first enabled item from from (it
-// included) whose text starts with the search, ignoring case.
-func (c *collState[K]) keyForSearch(search string, from K, hasFrom bool) (K, bool) {
-	var zero K
-	start := 0
-	if hasFrom {
-		if i, ok := c.index[from]; ok {
-			start = i
-		}
-	}
-	for i := start; i < len(c.keys); i++ {
-		k := c.keys[i]
-		if c.isDisabled(k) {
-			continue
-		}
-		if hasPrefixFold(c.cfg.textValue(k), search) {
-			return k, true
-		}
-	}
-	return zero, false
-}
-
-// hasPrefixFold reports whether s starts with prefix, ignoring case (the
-// base sensitivity of React Aria's collator, for the letters that have a
-// simple case).
-func hasPrefixFold(s, prefix string) bool {
-	for _, p := range prefix {
-		if s == "" {
-			return false
-		}
-		r, n := utf8.DecodeRuneInString(s)
-		if unicode.ToLower(r) != unicode.ToLower(p) {
-			return false
-		}
-		s = s[n:]
-	}
-	return true
 }
 
 // ---------------------------------------------------------------------
@@ -1266,27 +1223,19 @@ func (c *collState[K]) typeAhead(e tela.KeyboardEvent, from K, hasFrom bool) (k 
 	if c.cfg.disableType || e.Ctrl || e.Meta {
 		return
 	}
-	s := string(e.Key)
-	if utf8.RuneCountInString(s) != 1 {
+	search, took, ok := c.typed.add(e)
+	if !ok {
 		return
 	}
-	if r, _ := utf8.DecodeRuneInString(s); !unicode.IsPrint(r) {
-		return
-	}
-	if c.search == "" && s == " " {
-		return
-	}
-	took = s == " " && strings.TrimSpace(c.search) != ""
 	if took {
 		e.PreventDefault()
 		e.StopPropagation()
 	}
-	c.search += s
-	k, found = c.keyForSearch(c.search, from, hasFrom)
-	if !found {
-		k, found = c.keyForSearch(c.search, from, false)
+	start := 0
+	if hasFrom {
+		start = c.index[from]
 	}
-	c.t.Start(time.Second, func() { c.search = "" })
+	k, found = typeMatch(c.keys, start, search, c.cfg.textValue, func(k K) bool { return !c.isDisabled(k) }, false)
 	return
 }
 
@@ -1303,7 +1252,7 @@ func (c *collState[K]) accessKey(e tela.KeyboardEvent) bool {
 	}
 	e.PreventDefault()
 	e.StopPropagation()
-	c.search = ""
+	c.typed.clear()
 	if len(m) > 1 {
 		next := m[0]
 		if c.hasFocused {
@@ -1370,7 +1319,7 @@ func (c *collState[K]) focusOnOpen(strategy string) {
 func (c *collState[K]) closed() {
 	c.hasPending, c.hasFocused, c.autoContainer = false, false, false
 	c.within, c.visible = false, false
-	c.search = ""
+	c.typed.clear()
 }
 
 // ---------------------------------------------------------------------

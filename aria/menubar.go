@@ -8,10 +8,6 @@
 package aria
 
 import (
-	"time"
-	"unicode"
-	"unicode/utf8"
-
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/core"
@@ -147,13 +143,12 @@ type menuBar[K comparable] struct {
 
 	// mac: the window has the Mac flavor (no access keys). altHeld is
 	// whether Alt is held alone (core.MenuBarAccess), setCues asks for a
-	// build when the cues change. search and searchT are the typeahead
-	// on the triggers.
+	// build when the cues change. typed is the typeahead on the
+	// triggers.
 	mac     bool
 	altHeld bool
 	setCues tela.Setter[bool]
-	search  string
-	searchT core.Timeout
+	typed   typeBuffer
 }
 
 // UseMenuBar holds the state of a menu bar and returns the props of the bar
@@ -224,7 +219,7 @@ func UseMenuBar[K comparable](o MenuBarOptions[K]) MenuBarResult[K] {
 		ref = own
 	}
 	b.cfg, b.rtl, b.setPressed, b.ref = o, dir == "rtl", setPressed, ref
-	b.setCues, b.searchT = setCues, searchT
+	b.setCues, b.typed.t = setCues, searchT
 	if b.origin.inside == nil {
 		b.origin.inside = b.inside
 	}
@@ -379,42 +374,16 @@ func (b *menuBar[K]) focusedTrigger() (K, bool) {
 // search stays on the focused one while it still matches. It reports
 // whether e was a character of the search.
 func (b *menuBar[K]) typeahead(k K, e tela.KeyboardEvent) bool {
-	s := string(e.Key)
-	r, n := utf8.DecodeRuneInString(s)
-	if n == 0 || n != len(s) || !unicode.IsPrint(r) || r == ' ' {
+	search, _, ok := b.typed.add(e)
+	if !ok {
 		return false
 	}
 	text := b.cfg.TextValue
 	if text == nil {
 		text = sprintKey[K]
 	}
-	b.search += s
-	b.searchT.Start(time.Second, func() { b.search = "" })
-	search := b.search
-	repeated := true
-	for _, c := range search {
-		if unicode.ToLower(c) != unicode.ToLower(r) {
-			repeated = false
-		}
-	}
-	if repeated {
-		search = s
-	}
-	// From the focused trigger, around the end; a one-character search
-	// leaves it out, so that typing it again moves on.
-	keys := b.r.keys
-	start := b.r.index[k]
-	for step := 0; step < len(keys); step++ {
-		nk := keys[(start+step)%len(keys)]
-		if (step == 0 && utf8.RuneCountInString(search) == 1) || !b.r.enabled(nk) {
-			continue
-		}
-		if hasPrefixFold(text(nk), search) {
-			if nk != k {
-				b.r.refFor(nk).Focus()
-			}
-			break
-		}
+	if nk, ok := typeMatch(b.r.keys, b.r.index[k], search, text, b.r.enabled, true); ok && nk != k {
+		b.r.refFor(nk).Focus()
 	}
 	return true
 }
