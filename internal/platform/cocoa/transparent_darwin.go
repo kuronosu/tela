@@ -133,8 +133,9 @@ type transparentState struct {
 }
 
 // catchHandles catches the resize handles of a transparent window that
-// can be resized in its retained frame, and reports whether they changed.
-func (w *Window) catchHandles() bool {
+// can be resized in its retained frame, after the rectangles damage were
+// copied into it (nil for none), and reports whether they changed.
+func (w *Window) catchHandles(damage []image.Rectangle) bool {
 	if !w.opts.Transparent || w.back == nil {
 		return false
 	}
@@ -142,13 +143,13 @@ func (w *Window) catchHandles() bool {
 	if w.resizable() {
 		handles = platform.HandleRects(w.ctl.regions, w.Metrics().Scale, w.back.Rect.Size())
 	}
-	return !w.trans.catch.Update(w.back.Pix, w.back.Stride, handles).Empty()
+	return !w.trans.catch.Update(w.back.Pix, w.back.Stride, handles, damage).Empty()
 }
 
 // syncHandles catches new resize handles after SetHitRegions or a state
 // change (zoom, full screen), showing the frame again when they changed.
 func (w *Window) syncHandles() {
-	if w.presented && w.catchHandles() {
+	if w.presented && w.catchHandles(nil) {
 		w.showBack()
 	}
 }

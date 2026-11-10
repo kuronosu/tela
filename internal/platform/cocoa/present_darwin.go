@@ -41,7 +41,7 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 	for _, r := range rects {
 		platform.CopyRGBA(w.back, fb, r)
 	}
-	w.catchHandles()             // a transparent window's resize handles (transparent_darwin.go)
+	w.catchHandles(rects)        // a transparent window's resize handles (transparent_darwin.go)
 	w.updateInputMask(fb, rects) // a transparent window (transparent_darwin.go)
 	if err := w.showBack(); err != nil {
 		return err

@@ -195,7 +195,7 @@ func (w *Window) presentLayered(fb *image.RGBA, rects []image.Rectangle, full bo
 		platform.CopyRGBAToBGRA(l.bits, 4*size.X, fb, r)
 		dirty = dirty.Union(r)
 	}
-	if moved := l.catch.Update(l.bits, 4*size.X, w.layeredHandles()); !moved.Empty() {
+	if moved := l.catch.Update(l.bits, 4*size.X, w.layeredHandles(), rects); !moved.Empty() {
 		dirty = dirty.Union(moved)
 	}
 	maskChanged := l.mask.Update(fb, rects)
@@ -263,7 +263,7 @@ func (w *Window) syncLayeredHandles() {
 	if !w.opts.Transparent || l.dc == 0 {
 		return
 	}
-	if moved := l.catch.Update(l.bits, 4*l.size.X, w.layeredHandles()); !moved.Empty() {
+	if moved := l.catch.Update(l.bits, 4*l.size.X, w.layeredHandles(), nil); !moved.Empty() {
 		w.updateLayered(moved, false)
 	}
 }
