@@ -87,10 +87,11 @@ stems separated by spaces, written the long or the concise way.
 | Precision | `precision-integer` `.`, `.00`, `.0#`, `.##`, `.00+`, `precision-unlimited` `.+`, `@@@`, `@@#`, `@+`, `precision-currency-standard` |
 | Sign | `sign-auto`, `sign-always` `+!`, `sign-never` `+_`, `sign-except-zero` `+?`, `sign-negative` `+-`, `sign-accounting` `()`, `sign-accounting-always` `()!`, `sign-accounting-except-zero` `()?`, `sign-accounting-negative` `()-` |
 | Grouping | `group-off` `,_`, `group-min2` `,?`, `group-auto`, `group-on-aligned` `,!`, `group-thousands` `,=` |
-| Other | `scale/100` (powers of ten), `latin`, `numbering-system/arab`, `rounding-mode-half-even`, `decimal-auto` |
+| Rounding | `rounding-mode-half-even` (the default), `-half-up`, `-half-down`, `-half-ceiling`, `-half-floor`, `-ceiling`, `-floor`, `-up`, `-down` (see the modes below) |
+| Other | `scale/100` (powers of ten), `latin`, `numbering-system/arab`, `decimal-auto` |
 
 Other stems (measure units, per mille, integer width, rounding increments
-and modes, options after `scientific/`) fail when the catalog loads. A
+and the modes `half-odd` and `unnecessary`, options after `scientific/`) fail when the catalog loads. A
 skeleton without a precision rounds to 3 fraction digits, as `{n, number}`
 does and as `Intl.NumberFormat` does; ICU's own NumberFormatter keeps 6.
 
@@ -184,8 +185,27 @@ number as it is shown ("1.00 US dollars", but "1 US dollar" with no
 fraction digits). Compact numbers keep two significant digits ("1.2K",
 "12K", "123K") and numbers below the locale's first abbreviation are
 written in full (German and Japanese do not abbreviate thousands). Ties are
-rounded to the even digit, where `Intl.NumberFormat` rounds them away from
-zero (`2.5` with no fraction digits is "2" here, "3" there).
+rounded to the even digit by default, where `Intl.NumberFormat` rounds them
+away from zero (`2.5` with no fraction digits is "2" here, "3" there);
+`i18n.RoundingMode` takes Intl's nine modes, in every style and notation:
+
+```go
+f.Number(2.5, i18n.MaxFractionDigits(0), i18n.RoundingMode(i18n.RoundHalfExpand)) // "3", as Intl
+f.Number(1.21, i18n.MaxFractionDigits(1), i18n.RoundingMode(i18n.RoundCeil))      // "1.3"
+f.Number(1999, i18n.Notation(i18n.NotationCompact), i18n.RoundingMode(i18n.RoundTrunc)) // "1.9K"
+```
+
+| Mode | Rounds | Skeleton stem |
+|---|---|---|
+| `RoundHalfEven` (default) | to the nearest, ties to the even digit | `rounding-mode-half-even` |
+| `RoundHalfExpand` | to the nearest, ties away from zero (Intl's default) | `rounding-mode-half-up` |
+| `RoundHalfTrunc` | to the nearest, ties toward zero | `rounding-mode-half-down` |
+| `RoundHalfCeil` | to the nearest, ties toward +∞ | `rounding-mode-half-ceiling` |
+| `RoundHalfFloor` | to the nearest, ties toward −∞ | `rounding-mode-half-floor` |
+| `RoundCeil` | toward +∞ | `rounding-mode-ceiling` |
+| `RoundFloor` | toward −∞ | `rounding-mode-floor` |
+| `RoundExpand` | away from zero | `rounding-mode-up` |
+| `RoundTrunc` | toward zero | `rounding-mode-down` |
 
 Currency symbols and patterns come from every CLDR locale ("S/" for PEN in
 es-PE, "$" for CAD in en-CA); currency names and compact patterns from the

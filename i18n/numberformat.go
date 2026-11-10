@@ -164,46 +164,94 @@ func (d decimal) shift(n int) decimal {
 	return decimal{d.digits, d.exp + n}
 }
 
-// roundAt rounds d to a multiple of 10^pos, half to even.
-func (d decimal) roundAt(pos int) decimal {
+// roundAt rounds d, the absolute value of a number that is negative when
+// neg is set, to a multiple of 10^pos in a rounding mode.
+func (d decimal) roundAt(pos int, m Rounding, neg bool) decimal {
 	keep := d.exp - pos // digits kept
 	if d.isZero() || keep >= len(d.digits) {
 		return d
 	}
-	if keep < 0 {
-		return decimal{} // below half of 10^pos
+	// What is dropped (never zero: d has no trailing zeros) against half
+	// of 10^pos.
+	half := -1
+	if keep >= 0 {
+		switch first := d.digits[keep]; {
+		case first > '5' || first == '5' && len(d.digits) > keep+1:
+			half = 1
+		case first == '5':
+			half = 0
+		}
 	}
-	up := false
-	switch first := d.digits[keep]; {
-	case first > '5':
-		up = true
-	case first == '5':
-		// More digits after it (none is a trailing zero) are more than
-		// half; exactly half goes to the even digit.
-		up = len(d.digits) > keep+1 || keep > 0 && (d.digits[keep-1]-'0')%2 == 1
+	odd := keep > 0 && (d.digits[keep-1]-'0')%2 == 1
+	if !roundsAway(m, neg, half, odd) {
+		if keep <= 0 {
+			return decimal{}
+		}
+		return decimal{d.digits[:keep], d.exp}.trimmed()
 	}
-	kept := append([]byte(nil), d.digits[:keep]...)
+	var kept []byte
 	exp := d.exp
-	if up {
-		i := len(kept) - 1
-		for i >= 0 && kept[i] == '9' {
-			kept[i] = '0'
-			i--
-		}
-		if i < 0 {
-			kept = append([]byte{'1'}, kept...)
-			exp++
-		} else {
-			kept[i]++
-		}
+	if keep > 0 {
+		kept = append(kept, d.digits[:keep]...)
+	} else {
+		exp = pos // 1 × 10^pos once incremented
 	}
-	for len(kept) > 0 && kept[len(kept)-1] == '0' {
-		kept = kept[:len(kept)-1]
+	i := len(kept) - 1
+	for i >= 0 && kept[i] == '9' {
+		kept[i] = '0'
+		i--
 	}
-	if len(kept) == 0 {
+	if i < 0 {
+		kept = append([]byte{'1'}, kept...)
+		exp++
+	} else {
+		kept[i]++
+	}
+	return decimal{kept, exp}.trimmed()
+}
+
+// trimmed drops the trailing zeros of d's digits.
+func (d decimal) trimmed() decimal {
+	k := d.digits
+	for len(k) > 0 && k[len(k)-1] == '0' {
+		k = k[:len(k)-1]
+	}
+	if len(k) == 0 {
 		return decimal{}
 	}
-	return decimal{kept, exp}
+	return decimal{k, d.exp}
+}
+
+// roundsAway says whether a rounding mode moves a number away from zero
+// (increments the kept digits of its absolute value): half compares what
+// is dropped with half a unit (-1 below, 0 exactly, 1 above), odd is
+// whether the last kept digit is odd, neg whether the number is negative
+// (ceil and floor go toward an infinity, not away from zero).
+func roundsAway(m Rounding, neg bool, half int, odd bool) bool {
+	switch m {
+	case RoundCeil:
+		return !neg
+	case RoundFloor:
+		return neg
+	case RoundExpand:
+		return true
+	case RoundTrunc:
+		return false
+	}
+	if half != 0 {
+		return half > 0
+	}
+	switch m {
+	case RoundHalfCeil:
+		return !neg
+	case RoundHalfFloor:
+		return neg
+	case RoundHalfExpand:
+		return true
+	case RoundHalfTrunc:
+		return false
+	}
+	return odd // RoundHalfEven
 }
 
 // split returns the integer digits (at least "0") and the fraction digits.
@@ -294,6 +342,7 @@ type rounding struct {
 	minFrac, maxFrac int
 	minSig, maxSig   int // 0: fraction digits only
 	morePrecision    bool
+	mode             Rounding
 }
 
 // roundingOf resolves the digits of a configuration as ECMA-402's
@@ -305,7 +354,7 @@ func roundingOf(c numberConfig, currencyDigits int, isAmount bool) rounding {
 		if hi == 0 {
 			hi = 21
 		}
-		return rounding{minSig: lo, maxSig: max(hi, lo)}
+		return rounding{mode: c.rounding, minSig: lo, maxSig: max(hi, lo)}
 	}
 	minDef, maxDef := 0, 3
 	switch {
@@ -318,7 +367,7 @@ func roundingOf(c numberConfig, currencyDigits int, isAmount bool) rounding {
 	switch {
 	case lo < 0 && hi < 0:
 		if c.notation == NotationCompact {
-			return rounding{maxSig: 2, minSig: 1, morePrecision: true}
+			return rounding{mode: c.rounding, maxSig: 2, minSig: 1, morePrecision: true}
 		}
 		lo, hi = minDef, maxDef
 	case lo < 0:
@@ -326,18 +375,18 @@ func roundingOf(c numberConfig, currencyDigits int, isAmount bool) rounding {
 	case hi < 0:
 		hi = max(maxDef, lo)
 	}
-	return rounding{minFrac: lo, maxFrac: max(hi, lo)}
+	return rounding{mode: c.rounding, minFrac: lo, maxFrac: max(hi, lo)}
 }
 
 // apply rounds d.
-func (r rounding) apply(d decimal) decimal {
+func (r rounding) apply(d decimal, neg bool) decimal {
 	switch {
 	case r.morePrecision:
-		return d.roundAt(min(-r.maxFrac, d.magnitude()-r.maxSig+1))
+		return d.roundAt(min(-r.maxFrac, d.magnitude()-r.maxSig+1), r.mode, neg)
 	case r.maxSig > 0:
-		return d.roundAt(d.magnitude() - r.maxSig + 1)
+		return d.roundAt(d.magnitude()-r.maxSig+1, r.mode, neg)
 	}
-	return d.roundAt(-r.maxFrac)
+	return d.roundAt(-r.maxFrac, r.mode, neg)
 }
 
 // fraction returns the fraction digits of a rounded number, padded to the
@@ -565,11 +614,11 @@ func (d *locData) digitsOf(n num, c numberConfig, nl *numberLocale, p *numberPat
 			step = 3
 		}
 		e := floorTo(v.magnitude(), step)
-		q := r.apply(v.shift(-e))
+		q := r.apply(v.shift(-e), n.neg)
 		if !q.isZero() && q.magnitude() >= step {
 			// Rounding carried into the next exponent (9.9996 to 10).
 			e += step
-			q = r.apply(v.shift(-e))
+			q = r.apply(v.shift(-e), n.neg)
 		}
 		if q.isZero() {
 			e = 0
@@ -586,7 +635,7 @@ func (d *locData) digitsOf(n num, c numberConfig, nl *numberLocale, p *numberPat
 		b.WriteString(replaceDigits(strconv.Itoa(e), nl.digits))
 		return formatted{body: b.String(), zero: q.isZero(), ip: ip, fp: fp}
 	}
-	q := r.apply(v)
+	q := r.apply(v, n.neg)
 	ip, fp := r.fraction(q)
 	g := groupingOf(c.grouping, p, int(nl.minGroup), false)
 	return formatted{body: nl.body(ip, fp, g, amount), zero: q.isZero(), ip: ip, fp: fp}
