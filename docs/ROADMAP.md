@@ -5,41 +5,20 @@
 > [`adr/`](adr/README.md); finished phases, old status notes and the session
 > log are in [`HISTORY.md`](HISTORY.md), versions in [`CHANGELOG.md`](../CHANGELOG.md).
 > Future phases have no number: a phase takes the next one when it starts, and
-> every open limitation is a task of the phase that fixes it (ADR-218).
+> every open limitation is a task of the phase that fixes it (ADR-218), or, when
+> it is small and no planned phase covers it, an entry of Known limitations (ADR-267).
 
 ## Current status
 
 - **Done:** phases 1–22. Latest version `v0.14.2` (2026-11-09, phase 22: desktop, kit and text details). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch; the owner may release a small break, such as a rename, as a patch.
 - **Phase in progress:** none. Phase 22 is on `phase-22-desktop-kit-text-details`, to be merged into `main` locally; nothing is pushed.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** the next phase in order, Desktop and kit follow-ups. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** the next phase in order, Layout, text and engine fidelity. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` takes about 15 minutes in one process (2026-11-09; run it with `-timeout 30m`, or shard it), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
 
 In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–22 are done (HISTORY.md).
-
-### Desktop and kit follow-ups
-
-What phase 22's work left (ADR-260 to ADR-266).
-
-- [ ] Windows: on Wayland and X11 the compositor runs the resize, so `platform.ResizeFloor` is not applied there and a card in a wide margin can be shrunk past its handles (set `set_min_size` / `WM_NORMAL_HINTS` at the press); only portal content punches holes in hit regions (an `absolute z-10` sibling over a resize band still resizes)
-- [ ] Menus: Windows' "always underline access keys" setting is not read; context and dropdown menus opened by a touch long press show underlines; several loading Buttons in one trigger slot: the last report wins; a submenu wider than the whole window still overflows on one side (its width is not limited)
-- [ ] kit: `Input` and `Alert` rebuild once after mount to apply their measured padding (one extra frame), and its constants live in Go, not in the recipe; a `Preview` below the root silently ignores its Theme and ColorScheme (a dev warning); the Chromium pages of the Tela-only pieces need the Tailwind CLI to be regenerated
-- [ ] i18n: plural rules are still x/text's CLDR 32 (Icelandic and Macedonian pick other currency-name and compact forms than ICU for some numbers); compact percentages use the percent pattern (ICU uses the percent unit's); currency names and compact patterns cover the 113 generated locales only, and currencies no region uses today show their code; no rounding increments, cash digits, integer width, units, per mille or options after `scientific/` in skeletons; ICU 78.3's data differs from cldr-json 48 in a few places (fr-CH grouping, the new European English variants' currency formats, `my`'s currency-name pattern)
-- [ ] Desktop: an app started hidden (a tray app) gets no `AtStart` for a Linux D-Bus–activated open; the stat poller misses a write that keeps size and modification time (stores and native watchers see it)
-- [ ] telatest: after frames have run, a primary click at a point with no rendered content under it (the empty area of an `h-full` page) does not blur the focused element (found in phase 22; happens on `main` too)
-
-**Done when:** each item has a test or golden, or a decision recorded in an ADR.
-
-### Touch input
-
-Touch pointers from the backends, found while closing phase 22's text drags (ADR-265).
-
-- [ ] No backend reports `PointerTouch`: Wayland's `wl_touch` is not bound, Win32 and X11 deliver touches as emulated mouse input
-- [ ] Touch text selection (long press selects a word, selection handles) and a long-press drag of a selection, with a touch `StartDrag` (Wayland `start_drag` with the touch-down serial)
-
-**Done when:** a touch screen selects and drags text in a field on Wayland and Windows.
 
 ### Layout, text and engine fidelity
 
@@ -128,6 +107,7 @@ Inspecting and driving a running app.
 - [ ] `docs/llms.txt` is a few bytes under `llmsdoc`'s 100 KB limit: raise the limit or split the file; phase 20's proposed lines (transparent windows, built-in labels, `BackgroundGradientFn`, `Progress.ValueFn`, `ToggleGroup.Indicator`, Preview themes) and phase 22's (Linux backdrops, `i18n` number options and skeletons, access keys) wait for it
 - [ ] `telatest`: no public way to read `aria-valuenow` (only `HasValue`; a `HasRange(now, min, max)` state); `Stats.Layouts` counts layout phases, including empty ones of restyle-only frames, so "no relayout" cannot be asserted there (count boxes laid out)
 - [ ] CI: `cmd/tela`'s out-of-repository tests (dev, mcp, new, outside modules) skip when `go mod tidy` cannot resolve offline; the macOS job warms the module cache first, the Linux and Windows jobs do not, so there they likely skip; lint runs staticcheck for Linux only (`watch.(*Watcher).lost` is unused on darwin)
+- [ ] `telatest`: after frames have run, a primary click at a point with no rendered content under it (the empty area of an `h-full` page) does not blur the focused element (found in phase 22; happens on `main` too)
 - [ ] `cmd/tela`'s `TestOverlayCloseButtonAndClear` timed out once on `macos-latest` (2026-11-09, the panel's pixel (0,0) was `{1 0 0}` instead of `{0 0 0}` for 60 s) and passed on a re-run: find the race
 
 **Done when:** each item has a test that failed before it, on Linux and Windows CI.
@@ -164,6 +144,16 @@ What phase 19's bridges (ADR-246) leave out, found while building and checking t
 - [ ] Accessibility updates: set value works only on text fields (sliders and spinbuttons step with increment and decrement); live-region announcements count texts and image names only, not an `aria-label` alone; a busy region that appears after activation announces its old content when it stops being busy; a window's tree is sent only after its first frame; an error that is both a field's description and an alert is spoken twice by Orca while the field has focus (the description change and the announcement)
 - [ ] `tela dev` and accessibility: an assistive technology's action that arrives while input is frozen for a swap is dropped; every reload replaces the bridge's tree (node IDs change with the child's serial), so the reader loses its position
 - [ ] Semantics gaps: radios outside a radiogroup are not grouped by name and tree items without groups are not split by `aria-level` for set positions (Chromium does both); `IncrementNode`/`DecrementNode` need a focusable widget (Chromium sends the key without focusing); a dev warning for a focusable element with no role or name (a focusable `kit.ContextMenu` area has neither unless the app gives them)
+
+## Known limitations (not blocking)
+
+Small gaps that no phase is planned for (ADR-267). They block nothing; a phase that works in the area, or a real application that needs one, picks it up and moves it into its tasks. A limitation found while working goes here unless it is a bug of the work itself or belongs to a planned phase's subject.
+
+- **Windows (ADR-261):** on Wayland and X11 the compositor runs the resize, so `platform.ResizeFloor` is not applied there and a card in a wide margin can be shrunk past its handles (`set_min_size` / `WM_NORMAL_HINTS` at the press); only portal content punches holes in hit regions (an `absolute z-10` sibling over a resize band still resizes)
+- **Menus (ADR-260):** Windows' "always underline access keys" setting is not read; context and dropdown menus opened by a touch long press show underlines; a submenu wider than the whole window still overflows on one side (its width is not limited)
+- **kit (ADR-263):** `Input` and `Alert` rebuild once after mount to apply their measured padding (one extra frame), and its constants live in Go, not in the recipe; a `Preview` below the root silently ignores its Theme and ColorScheme (no dev warning); the Chromium pages of the Tela-only pieces need the Tailwind CLI to be regenerated
+- **i18n (ADR-266):** plural rules are still x/text's CLDR 32 (Icelandic and Macedonian pick other currency-name and compact forms than ICU for some numbers); compact percentages use the percent pattern (ICU uses the percent unit's); currency names and compact patterns cover the 113 generated locales only, and currencies no region uses today show their code; no rounding increments, cash digits, integer width, units, per mille or options after `scientific/` in skeletons; ICU 78.3's data differs from cldr-json 48 in a few places (fr-CH grouping, the new European English variants' currency formats, `my`'s currency-name pattern)
+- **Desktop (ADR-262):** an app started hidden (a tray app) gets no `AtStart` for a Linux D-Bus–activated open; the stat poller misses a write that keeps size and modification time (stores and native watchers see it)
 
 ## Live checks (not blocking)
 
@@ -266,6 +256,7 @@ Out of scope for now, but kept open: a decision to add the platform items needs 
 
 - **WebAssembly / web:** a canvas-backed backend
 - **Android / iOS:** touch, virtual keyboard, app lifecycle, safe areas
+- **Touch input on the desktop** (ADR-265, ADR-267): no backend reports `PointerTouch` (Wayland's `wl_touch` is not bound, Win32 and X11 deliver touches as emulated mouse input), so there is no touch text selection (long press, handles) and no long-press drag of a selection with a touch `StartDrag` (Wayland `start_drag` with the touch-down serial)
 - **Embedded web content:** a webview or HTML component (contradicts "no webview", ADR-001)
 - **Context-click selection in grid, tree and tag collections** (ADR-247): when Tela has such collections with selection, a right or Control click on an unselected item selects it first, as list boxes do (owner, 2026-11-08).
 - **No transitions on a theme or scheme change** (owner, 2026-10-31). `transition-colors` animates every color change, so `tela.SetColorScheme` or `tela.SetTheme` fade every element that has it, as browsers do: in `examples/dashboard` the board cards' hover fade turns a theme switch into ~150 ms of frames that rasterize the cards under the glass (p50 3.7 → 19 ms at x1, 5.6 → 66 ms at x2). Tela could apply a scheme or theme change without transitions (web libraries' `disableTransitionOnChange`), by default or as an option; it needs an ADR.

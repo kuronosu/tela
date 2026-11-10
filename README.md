@@ -396,7 +396,7 @@ are done (ADR-208 sets how versions are numbered).
 | 20 | API and kit gaps: submenus, transparent windows, `kit.Alert`, loading buttons, input icons, avatar groups, translated built-in labels, close requests in the tree, text drops | ✅ v0.14.0 |
 | 21 | Kit and window follow-ups: resize handles for frameless windows, F10 for drawn menu bars, a button inside an input, animation longhands, the gallery in Spanish and Arabic, text drags, kqueue on macOS | ✅ v0.14.1 |
 | 22 | Desktop, kit and text details: access keys in drawn menus, Linux backdrops, currency, compact and scientific numbers, drag autoscroll in fields, atomic store writes | ✅ v0.14.2 |
-| — | Desktop and kit follow-ups, touch input, accessibility gaps, layout and text fidelity, CPU performance, GPU backend, packaging and auto-update, DevTools, dev loop and testing, canvas, SVG and PDF, audio and video | planned |
+| — | Accessibility gaps, layout and text fidelity, CPU performance, GPU backend, packaging and auto-update, DevTools, dev loop and testing, canvas, SVG and PDF, audio and video | planned |
 
 ### What works today
 

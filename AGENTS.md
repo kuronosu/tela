@@ -10,7 +10,7 @@ Tela is a pure-Go desktop UI framework: no cgo, no webview, React-like API, Tail
 
 ## At the end of every session
 
-- In `docs/ROADMAP.md`: check off completed tasks; keep "Current status" to a few lines; add each limitation found as a task of the phase that will fix it (a new unnumbered phase if none fits, or "By design or outside Tela") and remove what was fixed; put checks that need hardware the project lacks under "Live checks"; update "Next step" (ADR-218).
+- In `docs/ROADMAP.md`: check off completed tasks; keep "Current status" to a few lines; add each limitation found as a task of the planned phase whose subject covers it, or else to "Known limitations" (small gaps, non-blocking) or "By design or outside Tela"; never open a new phase to collect them, only the owner opens one (ADR-267); remove what was fixed; put checks that need hardware the project lacks under "Live checks"; update "Next step" (ADR-218).
 - Add user-visible changes to the `Unreleased` section of `CHANGELOG.md`.
 - Append one line to the session log at the end of `docs/HISTORY.md`.
 - Do not record CI results or what was pushed (run outcomes, "green on <hash>", pushed hashes) in the roadmap, and never make a commit only to note them: every commit runs CI again. A CI failure that needs work becomes a task.
