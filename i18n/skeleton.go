@@ -7,7 +7,9 @@ import (
 
 // ICU number skeletons (https://unicode-org.github.io/icu/userguide/format_parse/numbers/skeletons.html),
 // the style of {n, number, ::...} in messages (ADR-266). A skeleton is
-// stems separated by spaces, some with options after "/". Supported, in
+// stems separated by spaces, some with options after "/", at most one of
+// each kind (one unit, one scale, one sign...), so their order does not
+// matter; a second one of a kind fails, as in ICU. Supported, in
 // their long and concise forms:
 //
 //	notation      compact-short K, compact-long KK, scientific, engineering, E0, EE0, notation-simple
@@ -38,12 +40,52 @@ func parseSkeleton(s string) (numberConfig, error) {
 	if len(stems) == 0 {
 		return c, fmt.Errorf("empty skeleton after \"::\"")
 	}
+	// As ICU's, a skeleton has one stem of each kind, so their order does
+	// not matter (%x100 is a unit and a scale).
+	seen := map[string]string{}
 	for _, stem := range stems {
+		for _, kind := range stemKinds(stem) {
+			if prev, ok := seen[kind]; ok {
+				return c, fmt.Errorf("stems %q and %q both set the %s; a skeleton has one of each kind", prev, stem, kind)
+			}
+			seen[kind] = stem
+		}
 		if err := c.stem(stem); err != nil {
 			return c, err
 		}
 	}
 	return c, nil
+}
+
+// stemKinds returns what a stem sets, as ICU's parser checks it.
+func stemKinds(stem string) []string {
+	name, _, _ := strings.Cut(stem, "/")
+	switch {
+	case signStems[stem].sign != 0 || signStems[stem].accounting || stem == "sign-auto":
+		return []string{"sign"}
+	case groupStems[stem] != 0 || stem == "group-auto":
+		return []string{"grouping"}
+	case widthStems[stem] != 0 || stem == "unit-width-short":
+		return []string{"unit width"}
+	case roundingStems[stem] != 0 || stem == "rounding-mode-half-even":
+		return []string{"rounding mode"}
+	case stem == "%x100":
+		return []string{"unit", "scale"}
+	case stem == "percent" || stem == "%" || stem == "base-unit" || name == "currency":
+		return []string{"unit"}
+	case name == "scale":
+		return []string{"scale"}
+	case stem == "latin" || name == "numbering-system":
+		return []string{"numbering system"}
+	case stem == "decimal-auto":
+		return []string{"decimal separator display"}
+	case strings.HasPrefix(stem, ".") || strings.HasPrefix(stem, "@") || strings.HasPrefix(stem, "precision-"):
+		return []string{"precision"}
+	case strings.HasPrefix(stem, "compact-") || stem == "K" || stem == "KK" || stem == "scientific" ||
+		stem == "E0" || stem == "engineering" || stem == "EE0" || stem == "notation-simple":
+		return []string{"notation"}
+	}
+	return nil // unsupported: c.stem fails
 }
 
 var signStems = map[string]struct {
@@ -114,11 +156,11 @@ func (c *numberConfig) stem(stem string) error {
 	case stem == "notation-simple":
 		c.notation = NotationStandard
 	case stem == "percent" || stem == "%":
-		c.style, c.scale = stylePercent, 0
+		c.style = stylePercent
 	case stem == "%x100":
-		c.style, c.scale = stylePercent, 2
+		c.style, c.scale = stylePercent, c.scale+2
 	case stem == "base-unit":
-		c.style, c.scale = styleDecimal, 0
+		c.style = styleDecimal
 	case name == "currency" && hasOpt:
 		if len(opt) != 3 || !isASCIILetters(opt) {
 			return fmt.Errorf("currency/%s: not an ISO 4217 code; use three letters, as in currency/EUR", opt)
