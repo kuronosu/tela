@@ -27,6 +27,7 @@ Phase 22, Desktop, kit and text details (ADR-260 to ADR-266).
 - Typeahead on menu bar triggers (`aria.MenuBarOptions.TextValue`); `kit.Menubar.ActivationKeys`, and a bar drawn in place of a native one gets F10, Alt and access keys.
 - `aria.ContextMenuTriggerOptions.Position` and `kit.ContextMenu.Position` place a context menu the app opens.
 - `i18n` number options in `Intl.NumberFormat`'s style, from CLDR 48 (ADR-266): `SignDisplay`, `Currency` with `CurrencyDisplay` and `CurrencySign`, `Notation` (scientific, engineering, compact) and `CompactDisplay`; messages accept `{n, number, currency}` and ICU number skeletons (`::currency/EUR`, `::compact-short`, `::scientific`, `::sign-always`, `::.00`…).
+- `i18n.RoundingMode` with `Intl.NumberFormat`'s nine rounding modes (`RoundHalfEven`, the default, `RoundHalfExpand`, Intl's default, `RoundCeil`, `RoundFloor`, `RoundExpand`, `RoundTrunc`, `RoundHalfCeil`, `RoundHalfFloor`, `RoundHalfTrunc`) and the skeleton stems `rounding-mode-…`.
 - `paused`, `running` and `[animation-play-state:…]` (ADR-263).
 - `Backdrop` on a transparent window blurs behind its card on Wayland compositors with `ext-background-effect-v1` and on KWin under X11 (ADR-261).
 - A drag hovering near the edges of an Input or Textarea scrolls it after 0.2 s, at Chromium's speed (ADR-265).
