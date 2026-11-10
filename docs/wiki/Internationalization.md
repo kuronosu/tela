@@ -77,7 +77,9 @@ units, spellout and `choice` are not supported and fail at load time.
 
 A number style that starts with `::` is an
 [ICU skeleton](https://unicode-org.github.io/icu/userguide/format_parse/numbers/skeletons.html):
-stems separated by spaces, written the long or the concise way.
+stems separated by spaces, written the long or the concise way, at most one
+of each kind (one unit, one scale, one sign...): their order does not
+matter, and a second stem of a kind fails at load time, as in ICU.
 
 | What | Stems |
 |---|---|

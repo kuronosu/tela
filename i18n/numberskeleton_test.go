@@ -91,6 +91,33 @@ func TestNumberCurrencyStyle(t *testing.T) {
 	}
 }
 
+// ICU's stems are independent of their order: a unit (percent,
+// base-unit) does not reset the scale, which is its own setting. The
+// texts are Intl's for the same settings ({style: "percent"} of 0.5, and
+// {} of 50, Node 26.12).
+func TestNumberSkeletonStemOrder(t *testing.T) {
+	for _, c := range []struct {
+		style string
+		v     float64
+		want  string
+	}{
+		{"::percent scale/100", 0.5, "50%"},
+		{"::scale/100 percent", 0.5, "50%"},
+		{"::% scale/100", 0.5, "50%"},
+		{"::scale/100 %", 0.5, "50%"},
+		{"::scale/100 base-unit", 0.5, "50"},
+		{"::base-unit scale/100", 0.5, "50"},
+		{"::%x100 sign-always", 0.5, "+50%"},
+		{"::sign-always %x100", 0.5, "+50%"},
+		{"::.00 currency/EUR", 1, "€1.00"},
+		{"::currency/EUR .00", 1, "€1.00"},
+	} {
+		if got := msg(t, "en", "{n, number, "+c.style+"}", "n", c.v); got != c.want {
+			t.Errorf("{n, number, %s} with %v = %q, want %q", c.style, c.v, got, c.want)
+		}
+	}
+}
+
 func TestNumberSkeletonErrors(t *testing.T) {
 	for _, c := range []struct{ src, want string }{
 		{"{n, number, ::measure-unit/length-meter}", `unsupported skeleton stem "measure-unit/length-meter"`},
@@ -103,6 +130,12 @@ func TestNumberSkeletonErrors(t *testing.T) {
 		{"{n, number, ::scientific/+ee}", `unsupported skeleton stem "scientific/+ee"`},
 		{"{n, number, ::rounding-mode-half-odd}", `unsupported skeleton stem "rounding-mode-half-odd"`},
 		{"{n, number, money}", "or a skeleton after ::"},
+		{"{n, number, ::scale/100 %x100}", `stems "scale/100" and "%x100" both set the scale`},
+		{"{n, number, ::percent currency/EUR}", `both set the unit`},
+		{"{n, number, ::sign-always ()}", `both set the sign`},
+		{"{n, number, ::.00 @@@}", `both set the precision`},
+		{"{n, number, ::K scientific}", `both set the notation`},
+		{"{n, number, ::rounding-mode-up rounding-mode-half-even}", `both set the rounding mode`},
 	} {
 		_, err := parseMessage(c.src)
 		if err == nil || !strings.Contains(err.Error(), c.want) {
