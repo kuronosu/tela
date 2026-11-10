@@ -371,3 +371,36 @@ func TestAccessKeys(t *testing.T) {
 		t.Errorf("own keys only: %s", s)
 	}
 }
+
+// Only a typed non-ASCII character falls back to the physical key: a
+// dead key, an IME's Process or an Unidentified key on the key of F do
+// not choose the F item; a Cyrillic "а" on the key of F does (review of
+// ADR-260).
+func TestAccessKeyPhysicalFallback(t *testing.T) {
+	var ev events
+	var bar aria.MenuBarResult[string]
+	b, host, win := rawwin.Mount(t, tela.C(accessPage(aria.MenuBarOptions[string]{ActivationKeys: true}, &ev, &bar)), 480, 320, 0, core.Config{Flavor: platform.FlavorLinux})
+	app := &rawApp{t: t, b: b, host: host, win: win, tree: host.Tree()}
+	send := func(k platform.Key, c platform.KeyCode) {
+		e := platform.KeyEvent{Action: platform.KeyPress, Key: k, Code: c}
+		if !k.IsNamed() {
+			e.Text = string(k)
+		}
+		win.Inject(e)
+		app.settle()
+		win.Inject(platform.KeyEvent{Action: platform.KeyRelease, Key: k, Code: c})
+		app.settle()
+	}
+	bar.SetOpen("view", true) // Zoom (Z), Fullscreen (F)
+	app.settle()
+	for _, k := range []platform.Key{platform.KeyDead, platform.KeyProcess, platform.KeyUnidentified} {
+		send(k, platform.CodeKeyF)
+		if got := ev.take(); got != "" {
+			t.Errorf("%s on the key of F chose %q", k, got)
+		}
+	}
+	send("а", platform.CodeKeyF)
+	if got := ev.take(); got != "action:fullscreen" {
+		t.Errorf("a Cyrillic а on the key of F: %q, want the F item", got)
+	}
+}
