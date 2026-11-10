@@ -67,11 +67,12 @@
 // defaults, from CLDR 48 tables generated into this package (go
 // generate): the symbols, grouping and patterns of every CLDR locale (the
 // minus sign and bidi marks of Persian, Urdu and Arabic, Nepali grouping,
-// Spanish and Polish not grouping four digits), rounded half to even.
-// Options ([NumberOption]) add percentages ([Percent]), amounts of money
-// ([Currency], with [CurrencyDisplay] and [CurrencySign]), signs
-// ([SignDisplay]) and scientific, engineering and compact notation
-// ([Notation], [CompactDisplay]):
+// Spanish and Polish not grouping four digits), rounded half to even
+// unless [RoundingMode] says otherwise (Intl's nine modes; Intl's own
+// default is [RoundHalfExpand]). Options ([NumberOption]) add percentages
+// ([Percent]), amounts of money ([Currency], with [CurrencyDisplay] and
+// [CurrencySign]), signs ([SignDisplay]) and scientific, engineering and
+// compact notation ([Notation], [CompactDisplay]):
 //
 //	f.Number(-1234.5, i18n.Currency("EUR"))               // "-€1,234.50", "-1.234,50 €" (de)
 //	f.Number(1234567, i18n.Notation(i18n.NotationCompact)) // "1.2M", "12 लाख" (hi), "123万" (ja)

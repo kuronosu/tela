@@ -149,8 +149,9 @@ func (f Formatter) Dir() Direction { return f.loc().dir }
 // NumberOption changes how [Formatter.Number] writes a number. The options
 // are those of JavaScript's Intl.NumberFormat, with the same defaults:
 // [Percent] and [Currency] are its style, [SignDisplay], [Notation],
-// [CompactDisplay], [CurrencyDisplay] and [CurrencySign] its options of the
-// same names, [MinFractionDigits] and [MaxFractionDigits] its fraction
+// [CompactDisplay], [CurrencyDisplay], [CurrencySign] and [RoundingMode] its
+// options of the same names (but ties go to the even digit by default),
+// [MinFractionDigits] and [MaxFractionDigits] its fraction
 // digits and [NoGrouping] useGrouping: false. When two options set the
 // same thing (Percent and Currency), the last one wins.
 type NumberOption func(*numberConfig)
@@ -191,6 +192,7 @@ type numberConfig struct {
 	compactDisplay   CompactDisplayMode
 	grouping         groupingMode
 	numbering        string // a numbering system of a skeleton ("" the locale's)
+	rounding         Rounding
 }
 
 func defaultNumberConfig() numberConfig { return numberConfig{minFrac: -1, maxFrac: -1} }
@@ -202,9 +204,10 @@ func MinFractionDigits(n int) NumberOption {
 }
 
 // MaxFractionDigits writes at most n digits after the decimal separator,
-// rounding half to even; the default is 3 (0 for a percentage, the
-// currency's digits for an amount, and in compact notation one fraction
-// digit at most, for two significant digits: 1.2K, 12K, 123K).
+// rounding as [RoundingMode] says (half to even by default); the default
+// is 3 (0 for a percentage, the currency's digits for an amount, and in
+// compact notation one fraction digit at most, for two significant
+// digits: 1.2K, 12K, 123K).
 func MaxFractionDigits(n int) NumberOption {
 	return func(c *numberConfig) { c.maxFrac = max(n, 0) }
 }
@@ -218,6 +221,42 @@ func Percent() NumberOption {
 
 // NoGrouping leaves out the thousands separators.
 func NoGrouping() NumberOption { return func(c *numberConfig) { c.grouping = groupOff } }
+
+// Rounding is how a number is rounded to the digits it shows:
+// Intl.NumberFormat's roundingMode. The zero value, [RoundHalfEven], is
+// the default (ICU's; Intl's default is [RoundHalfExpand]).
+type Rounding uint8
+
+const (
+	// RoundHalfEven rounds to the nearest, ties to the even digit (2.5 is
+	// 2, 3.5 is 4), the default.
+	RoundHalfEven Rounding = iota
+	// RoundCeil rounds toward +∞ (1.21 is 1.3, -1.29 is -1.2).
+	RoundCeil
+	// RoundFloor rounds toward -∞ (1.29 is 1.2, -1.21 is -1.3).
+	RoundFloor
+	// RoundExpand rounds away from zero (1.21 is 1.3, -1.21 is -1.3).
+	RoundExpand
+	// RoundTrunc rounds toward zero (1.29 is 1.2, -1.29 is -1.2).
+	RoundTrunc
+	// RoundHalfCeil rounds to the nearest, ties toward +∞ (-2.5 is -2).
+	RoundHalfCeil
+	// RoundHalfFloor rounds to the nearest, ties toward -∞ (2.5 is 2).
+	RoundHalfFloor
+	// RoundHalfExpand rounds to the nearest, ties away from zero (2.5 is 3,
+	// -2.5 is -3): Intl.NumberFormat's default.
+	RoundHalfExpand
+	// RoundHalfTrunc rounds to the nearest, ties toward zero (2.5 is 2).
+	RoundHalfTrunc
+)
+
+// RoundingMode says how a number is rounded to the digits it shows, in
+// every style and notation (FormatNumber(1.21, MaxFractionDigits(1),
+// RoundingMode(RoundCeil)) is "1.3"). The digits rounded are the shortest
+// decimal ones of a float64 (2.675, not its binary 2.67499...).
+func RoundingMode(m Rounding) NumberOption {
+	return func(c *numberConfig) { c.rounding = m }
+}
 
 // SignDisplayMode says which numbers show a sign: Intl.NumberFormat's
 // signDisplay. The signs are the locale's (fa writes "\u200e−", ar-EG

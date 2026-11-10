@@ -241,7 +241,7 @@ func (d *locData) digitsOfAmount(n num, c numberConfig, nl *numberLocale, p *num
 		return d.digitsOf(n, c, nl, p, true)
 	}
 	r := roundingOf(c, currencyDigitsOf(code), true)
-	q := r.apply(n.dec)
+	q := r.apply(n.dec, n.neg)
 	ip, fp := r.fraction(q)
 	g := groupingOf(c.grouping, p, int(nl.minGroup), false)
 	return formatted{body: nl.body(ip, fp, g, true), zero: q.isZero(), ip: ip, fp: fp}
@@ -364,11 +364,11 @@ func (d *locData) compact(n num, c numberConfig, nl *numberLocale, kind compactK
 	v := n.dec.shift(c.scale)
 	mag := v.magnitude()
 	shift := t.shiftFor(mag)
-	q := r.apply(v.shift(-shift))
+	q := r.apply(v.shift(-shift), n.neg)
 	if !q.isZero() && q.magnitude()+shift > mag {
 		if s := t.shiftFor(mag + 1); s != shift {
 			shift = s
-			q = r.apply(v.shift(-shift))
+			q = r.apply(v.shift(-shift), n.neg)
 		}
 	}
 	ip, fp := r.fraction(q)

@@ -15,7 +15,8 @@ import (
 //	unit width    unit-width-short (symbol), unit-width-narrow, unit-width-iso-code, unit-width-full-name
 //	precision     precision-integer ., .00 .0# .## .00+ .+ (fraction digits), @@@ @@# @+ (significant
 //	              digits), precision-unlimited, precision-currency-standard
-//	rounding      rounding-mode-half-even (the only mode)
+//	rounding      rounding-mode-half-even (the default), -half-up, -half-down, -half-ceiling,
+//	              -half-floor, -ceiling, -floor, -up, -down (ICU has no concise forms)
 //	scale         scale/100, scale/0.001... (powers of ten)
 //	grouping      group-off ,_ group-min2 ,? group-auto group-on-aligned ,! group-thousands ,=
 //	sign          sign-auto sign-always +! sign-never +_ sign-except-zero +? sign-negative +-
@@ -24,8 +25,8 @@ import (
 //	numbering     latin, numbering-system/arab
 //	decimal       decimal-auto
 //
-// Other stems (units, permille, integer width, increments, other
-// rounding modes, options of scientific notation, decimal-always) fail
+// Other stems (units, permille, integer width, increments, the modes
+// half-odd and unnecessary, options of scientific notation, decimal-always) fail
 // when the catalog loads. As in Intl.NumberFormat, and unlike ICU's
 // NumberFormatter, a skeleton without a precision rounds to 3 fraction
 // digits as {n, number} does (ICU keeps 6).
@@ -57,6 +58,15 @@ var signStems = map[string]struct {
 	"sign-accounting-always": {SignAlways, true}, "()!": {SignAlways, true},
 	"sign-accounting-except-zero": {SignExceptZero, true}, "()?": {SignExceptZero, true},
 	"sign-accounting-negative": {SignNegative, true}, "()-": {SignNegative, true},
+}
+
+// roundingStems are ICU's rounding modes other than half-even (the zero
+// Rounding): up and down are away from and toward zero.
+var roundingStems = map[string]Rounding{
+	"rounding-mode-ceiling": RoundCeil, "rounding-mode-floor": RoundFloor,
+	"rounding-mode-up": RoundExpand, "rounding-mode-down": RoundTrunc,
+	"rounding-mode-half-up": RoundHalfExpand, "rounding-mode-half-down": RoundHalfTrunc,
+	"rounding-mode-half-ceiling": RoundHalfCeil, "rounding-mode-half-floor": RoundHalfFloor,
 }
 
 var groupStems = map[string]groupingMode{
@@ -120,7 +130,9 @@ func (c *numberConfig) stem(stem string) error {
 		c.minFrac, c.maxFrac, c.minSig, c.maxSig = 0, unlimited, 0, 0
 	case stem == "precision-currency-standard":
 		c.minFrac, c.maxFrac, c.minSig, c.maxSig = -1, -1, 0, 0
-	case stem == "rounding-mode-half-even" || stem == "decimal-auto":
+	case roundingStems[stem] != 0 || stem == "rounding-mode-half-even":
+		c.rounding = roundingStems[stem]
+	case stem == "decimal-auto":
 	case stem == "latin":
 		c.numbering = "latn"
 	case name == "numbering-system" && hasOpt:

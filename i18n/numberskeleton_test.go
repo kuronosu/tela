@@ -101,7 +101,7 @@ func TestNumberSkeletonErrors(t *testing.T) {
 		{"{n, number, ::numbering-system/roman}", "not a numeric numbering system"},
 		{"{n, number, ::}", "empty skeleton"},
 		{"{n, number, ::scientific/+ee}", `unsupported skeleton stem "scientific/+ee"`},
-		{"{n, number, ::rounding-mode-ceiling}", `unsupported skeleton stem "rounding-mode-ceiling"`},
+		{"{n, number, ::rounding-mode-half-odd}", `unsupported skeleton stem "rounding-mode-half-odd"`},
 		{"{n, number, money}", "or a skeleton after ::"},
 	} {
 		_, err := parseMessage(c.src)
