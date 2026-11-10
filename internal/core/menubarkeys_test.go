@@ -358,3 +358,91 @@ func TestFocusFromNowhere(t *testing.T) {
 		t.Errorf("Tab after a blur to nothing: %s", s)
 	}
 }
+
+// The bar told that Alt is held hears its release even when it went
+// inert or another bar became the live one meanwhile (Alt+Enter opened
+// a modal dialog), so its cues do not stay (review of ADR-260).
+func TestMenuBarAltHeldReleaseReachesTheToldBar(t *testing.T) {
+	var log []string
+	var setInert Setter[bool]
+	app := func() Node {
+		inert, si := UseState(false)
+		setInert = si
+		return div(Class("flex flex-col gap-2 p-2"),
+			div(Key("field"), TabIndex(0), Class("h-10 w-40")),
+			div(Key("bar"), Inert(inert), Class("h-8 w-40"),
+				MenuBarKeys(func(KeyboardEvent) bool { return true }),
+				MenuBarAccess(MenuBarAccessOptions{AltHeld: func(held bool) { log = append(log, fmt.Sprintf("bar:%v", held)) }})),
+			div(Key("bar2"), Class("h-8 w-40"),
+				MenuBarKeys(func(KeyboardEvent) bool { return true }),
+				MenuBarAccess(MenuBarAccessOptions{AltHeld: func(held bool) { log = append(log, fmt.Sprintf("bar2:%v", held)) }})))
+	}
+	x := newKeys(t, Component(app), 300, 200)
+	x.tab()
+	x.keys(keyEv(platform.KeyPress, platform.KeyAlt, platform.CodeAltLeft, platform.ModAlt))
+	setInert.Set(true)
+	x.frame()
+	x.keys(keyEv(platform.KeyRelease, platform.KeyAlt, platform.CodeAltLeft, 0))
+	if got := strings.Join(log, " "); got != "bar:true bar:false" {
+		t.Errorf("AltHeld: %s", got)
+	}
+}
+
+// The live bar follows mounts, unmounts, inert changes and display
+// changes in tree order, with the bars kept in a list (no walk of the
+// tree; review of ADR-260).
+func TestMenuBarLiveBarFollowsTheTree(t *testing.T) {
+	var log []string
+	var setFirst, setHidden, setInert Setter[bool]
+	bar := func(name string, extra ...Child) Node {
+		return div(append([]Child{Key(name), Class("h-8 w-40"),
+			MenuBarKeys(func(KeyboardEvent) bool { log = append(log, name); return true })}, extra...)...)
+	}
+	app := func() Node {
+		first, sf := UseState(false)
+		hidden, sh := UseState(false)
+		inert, si := UseState(false)
+		setFirst, setHidden, setInert = sf, sh, si
+		hide := "block"
+		if hidden {
+			hide = "hidden"
+		}
+		return div(Class("flex flex-col gap-2 p-2"),
+			div(Key("field"), TabIndex(0), Class("h-10 w-40")),
+			If(first, bar("first")),
+			div(Key("wrap"), Class(hide), bar("second", Inert(inert))),
+			bar("third"))
+	}
+	x := newKeys(t, Component(app), 300, 200)
+	x.tab()
+	f10 := func() string {
+		log = nil
+		x.press(platform.KeyF10, platform.CodeF10, 0)
+		return strings.Join(log, " ")
+	}
+	if got := f10(); got != "second" {
+		t.Errorf("at mount: %s", got)
+	}
+	setFirst.Set(true)
+	x.frame()
+	if got := f10(); got != "first" {
+		t.Errorf("a bar mounted before: %s", got)
+	}
+	setFirst.Set(false)
+	setHidden.Set(true)
+	x.frame()
+	if got := f10(); got != "third" {
+		t.Errorf("the second hidden by an ancestor: %s", got)
+	}
+	setHidden.Set(false)
+	setInert.Set(true)
+	x.frame()
+	if got := f10(); got != "third" {
+		t.Errorf("the second inert: %s", got)
+	}
+	setInert.Set(false)
+	x.frame()
+	if got := f10(); got != "second" {
+		t.Errorf("the second live again: %s", got)
+	}
+}

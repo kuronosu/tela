@@ -103,15 +103,24 @@ func (t *Tree) menuKeyUp(ke KeyboardEvent, st *eventState) {
 	t.runMenuBarKeys(ke, st)
 }
 
-// setAltHeld records whether Alt is held alone and tells the first live
-// bar's AltHeld when it changes.
+// setAltHeld records whether Alt is held alone and tells a bar's AltHeld
+// when it changes: the first live bar that Alt is held, and at its end
+// the bar that was told (altBar), even when it went inert or another bar
+// became the live one meanwhile (Alt+Enter opened a modal dialog), so
+// that its cues do not stay.
 func (t *Tree) setAltHeld(held bool) {
 	if t.altHeld == held {
 		return
 	}
 	t.altHeld = held
-	bar := t.menuBarElement()
-	if bar == nil {
+	var bar *Element
+	if held {
+		bar = t.menuBarElement()
+		t.altBar = bar
+	} else {
+		bar, t.altBar = t.altBar, nil
+	}
+	if bar == nil || !bar.mounted {
 		return
 	}
 	a := bar.node.d.menuAccess
@@ -170,32 +179,59 @@ func (t *Tree) runMenuBarKeys(ke KeyboardEvent, st *eventState) bool {
 	return took
 }
 
+// updateMenuBars records whether primitive el, whose node was old (nil
+// at mount), has MenuBarKeys: the elements that have it are kept in
+// t.menuBars, so that finding the live bar walks no tree.
+func (t *Tree) updateMenuBars(el *Element, old *desc) {
+	was, is := old != nil && old.menuKeys != nil, el.node.d.menuKeys != nil
+	switch {
+	case is && !was:
+		t.menuBars = append(t.menuBars, el)
+	case was && !is:
+		t.menuBars = removeElement(t.menuBars, el)
+	}
+}
+
+// unmountMenuBar forgets primitive el, unmounted, as a bar.
+func (t *Tree) unmountMenuBar(el *Element) {
+	t.menuBars = removeElement(t.menuBars, el)
+	if t.altBar == el {
+		t.altBar = nil
+	}
+}
+
 // menuBarElement returns the first live element with MenuBarKeys, in tree
-// order, or nil: mounted, displayed and not inert. perf: a walk of the
-// element tree, at an F10 or a lone Alt only.
+// order, or nil: mounted, displayed (it and its ancestors not
+// display:none) and not inert. perf: it looks at the bars only (usually
+// one), each with a walk up its ancestors, at F10, Alt's edges and an
+// Alt+character.
 func (t *Tree) menuBarElement() *Element {
 	var found *Element
-	var walk func(el *Element) bool
-	walk = func(el *Element) bool {
-		if !el.mounted || el.inert || el.outside == outsideYes {
-			return true
+	for _, el := range t.menuBars {
+		if !liveBar(el) {
+			continue
 		}
-		if el.kind == elemPrimitive && (el.box == nil || el.box.cs == nil || el.box.cs.Display == style.DisplayNone) {
-			return true // not rendered, nor is anything inside it
-		}
-		if el.kind == elemPrimitive && el.node.d.menuKeys != nil && el.outside == outsideNo {
+		if found == nil || treeBefore(el, found) {
 			found = el
-			return false
 		}
-		for _, c := range el.children {
-			if !walk(c) {
-				return false
-			}
-		}
-		return true
-	}
-	if t.root != nil {
-		walk(t.root)
 	}
 	return found
+}
+
+// liveBar reports whether el, an element with MenuBarKeys, can take the
+// keys: mounted, not inert, inside the active modal's subtrees, and it
+// and its ancestors rendered and not display:none.
+func liveBar(el *Element) bool {
+	if !el.mounted || el.inert || el.outside != outsideNo {
+		return false
+	}
+	for a := el; a != nil; a = a.parent {
+		if a.kind != elemPrimitive {
+			continue
+		}
+		if !a.mounted || a.inert || a.outside == outsideYes || a.box == nil || a.box.cs == nil || a.box.cs.Display == style.DisplayNone {
+			return false
+		}
+	}
+	return true
 }

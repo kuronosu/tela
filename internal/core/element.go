@@ -544,6 +544,9 @@ func (t *Tree) syncBehaviorProps(el *Element, old, d *desc) {
 	if old.overlay != d.overlay {
 		t.updateOverlay(el, old)
 	}
+	if (old.menuKeys == nil) != (d.menuKeys == nil) {
+		t.updateMenuBars(el, old)
+	}
 	if old.inert != d.inert {
 		t.refreshInert(el)
 	}
@@ -685,6 +688,9 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 		if d.overlay != nil {
 			t.updateOverlay(el, nil)
 		}
+		if d.menuKeys != nil {
+			t.updateMenuBars(el, nil)
+		}
 		if d.ref != nil || d.autoFocus || d.scope != nil {
 			t.mountFocus(el)
 		}
@@ -757,6 +763,9 @@ func (t *Tree) unmount(el *Element) {
 		}
 		if el.node.d.overlay != nil {
 			t.removeOverlay(el)
+		}
+		if el.node.d.menuKeys != nil {
+			t.unmountMenuBar(el)
 		}
 		if r := el.node.d.winRegion; r != regionNone {
 			t.regionChanged(el, r, regionNone)
