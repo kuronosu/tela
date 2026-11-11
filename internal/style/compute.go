@@ -47,6 +47,10 @@ const (
 type Input struct {
 	// Kind selects the element defaults (ADR-038).
 	Kind Kind
+	// Link marks a link (an A with a destination, HTML's :any-link): to
+	// its element defaults it adds cursor: pointer, as the browser's
+	// stylesheet does (a:-webkit-any-link), under its classes.
+	Link bool
 	// Parent is the computed style of the parent element, nil for the root.
 	Parent *ComputedStyle
 	// State is the interaction state of the element, and Group and Peer
@@ -248,6 +252,9 @@ func Compute(cx *Context, in Input) *ComputedStyle {
 		wantFont := pass == 0
 		for _, op := range kindDefaults(in.Kind) {
 			e.run(op, wantFont)
+		}
+		if in.Link && !wantFont {
+			s.Cursor = CursorPointer
 		}
 		if divide != nil && !wantFont {
 			e.applyDivide(divide) // under the element's own classes (:where())

@@ -1696,7 +1696,7 @@ func (t *Tree) rehover() {
 		if !ps.inside || ps.key.kind == platform.PointerTouch || ps.buttons != 0 || ps.capture != nil {
 			continue
 		}
-		target, _ := t.hitTest(ps.pos)
+		target, _ := t.hitPointer(ps)
 		if target != ps.target {
 			ps.target = target
 			t.updateOver(ps, target)

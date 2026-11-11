@@ -173,7 +173,56 @@ func (l *Layout) HighlightRects(s Selection, more bool, dst []gfx.Rect) []gfx.Re
 	return l.selectionRects(s, dst, true, false, more)
 }
 
+// LineRect is a rectangle of the content of line Line of a layout.
+type LineRect struct {
+	gfx.Rect
+	Line int
+}
+
+// AllLayers is the paint layer of HighlightLineRects that takes the
+// clusters of every layer.
+const AllLayers = -2
+
+// HighlightLineRects is HighlightRects with the line of each rectangle
+// (where an offset inline moved it, offset.go, it may be over another
+// line), for the clusters of paint layer layer only: AllLayers for all of
+// them; else -1 for those outside every positioned inline, k for those
+// whose innermost positioned inline is k (InlineLayer), for a paragraph
+// that paints its positioned inlines in layers of their own
+// (PaintLineLayer), so that the highlight is painted with the text it is
+// under, as Chromium paints it with each text fragment. The ellipsis and
+// the breaks of the lines are in layer -1, the paragraph's own.
+func (l *Layout) HighlightLineRects(s Selection, more bool, layer int, dst []LineRect) []LineRect {
+	k := rectSink{lines: dst, byLine: true}
+	l.selectionRectsIn(s, &k, true, false, more, int32(max(layer, AllLayers)))
+	return k.lines
+}
+
+// rectSink collects the rectangles of selectionRectsIn: in rects, or with
+// their lines in lines when byLine.
+type rectSink struct {
+	rects  []gfx.Rect
+	lines  []LineRect
+	byLine bool
+}
+
+func (k *rectSink) add(li int, r gfx.Rect) {
+	if k.byLine {
+		k.lines = append(k.lines, LineRect{r, li})
+	} else {
+		k.rects = append(k.rects, r)
+	}
+}
+
 func (l *Layout) selectionRects(s Selection, dst []gfx.Rect, lineEnds, boxes, more bool) []gfx.Rect {
+	k := rectSink{rects: dst}
+	l.selectionRectsIn(s, &k, lineEnds, boxes, more, AllLayers)
+	return k.rects
+}
+
+// selectionRectsIn is selectionRects for the clusters of paint layer
+// layer (AllLayers for all of them; HighlightLineRects), into out.
+func (l *Layout) selectionRectsIn(s Selection, out *rectSink, lineEnds, boxes, more bool, layer int32) {
 	a, b := l.ordered(s)
 	if more && len(l.lines) > 0 {
 		// Past the end of the text: the end is the end of the text.
@@ -182,11 +231,8 @@ func (l *Layout) selectionRects(s Selection, dst []gfx.Rect, lineEnds, boxes, mo
 			a = b
 		}
 	}
-	if a == b && !more {
-		return dst
-	}
-	if len(l.lines) == 0 {
-		return dst
+	if a == b && !more || len(l.lines) == 0 {
+		return
 	}
 	pa := l.snap(a.Offset)
 	pb := l.snap(b.Offset)
@@ -215,7 +261,7 @@ func (l *Layout) selectionRects(s Selection, dst []gfx.Rect, lineEnds, boxes, mo
 		// When the selection goes on past this line, its break is
 		// highlighted at the end edge.
 		brk := float32(0)
-		if lineEnds && (li < lb && a.Offset < b.Offset || more && li == lb) {
+		if lineEnds && layer < 0 && (li < lb && a.Offset < b.Offset || more && li == lb) {
 			brk = l.breakWidth(int(li))
 		}
 		if l.base == 1 {
@@ -226,9 +272,11 @@ func (l *Layout) selectionRects(s Selection, dst []gfx.Rect, lineEnds, boxes, mo
 			dy = el.dy
 			switch {
 			case el.ci == ciEllipsis:
-				if l.selectsHidden(int(li), a, b) {
+				if layer < 0 && l.selectsHidden(int(li), a, b) {
 					add(el.x0, el.x1)
 				}
+			case layer != AllLayers && l.clusterLayer(el.ci) != layer:
+				// Another layer's.
 			case el.box:
 				k := l.clusterText(el.ci)
 				if boxes && !before(Cursor{k, Upstream}, a) && !before(b, Cursor{k, Downstream}) {
@@ -251,10 +299,9 @@ func (l *Layout) selectionRects(s Selection, dst []gfx.Rect, lineEnds, boxes, mo
 			add(end, end+brk)
 		}
 		for _, v := range iv {
-			dst = append(dst, gfx.Rect{X0: v[0], Y0: ln.top + v[2], X1: v[1], Y1: ln.top + ln.height + v[2]})
+			out.add(int(li), gfx.Rect{X0: v[0], Y0: ln.top + v[2], X1: v[1], Y1: ln.top + ln.height + v[2]})
 		}
 	}
-	return dst
 }
 
 // selectedGraphemes returns the range [j0, j1) of the grapheme clusters of

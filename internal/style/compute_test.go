@@ -209,6 +209,14 @@ func TestElementDefaults(t *testing.T) {
 	eq(t, "code family", of(KindCode).Text.FontFamily[0], "ui-monospace")
 	eq(t, "code size", of(KindCode).Text.FontSize, parent.Text.FontSize)
 	eq(t, "a color", of(KindA).Text.Color, parent.Text.Color)
+	// A link has the hand (the browser's a:-webkit-any-link), under its
+	// classes and inherited; an A without a destination has auto.
+	eq(t, "a cursor", of(KindA).Cursor, CursorAuto)
+	link := Compute(testCx, Input{Kind: KindA, Link: true, Parent: parent})
+	eq(t, "link cursor", link.Cursor, CursorPointer)
+	eq(t, "link cursor-text", Compute(testCx, Input{Kind: KindA, Link: true, Parent: parent,
+		Classes: []*Classes{mustCompile(t, "cursor-text")}}).Cursor, CursorText)
+	eq(t, "in a link", Compute(testCx, Input{Kind: KindSpan, Parent: link}).Cursor, CursorPointer)
 
 	if got := len(KindDefaults(KindImg)); got == 0 {
 		t.Error("KindDefaults(KindImg) is empty")

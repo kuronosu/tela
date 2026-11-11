@@ -1,6 +1,8 @@
 package core
 
 import (
+	"image"
+	"math"
 	"strings"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -42,11 +44,14 @@ import (
 // the range goes on past its end, the break of its last line), with the
 // selection colors of text fields: the selection: background and text
 // colors, or Chromium's (fieldpaint.go). An atomic inline is not
-// highlighted as a box: its own text is. The highlight is part of what
-// painting a paragraph reads (paragraph.ver), so a change records again
-// the layers that paint the paragraphs whose part changed, and damage
-// tracking rasterizes what changed: no layer of its own, and no frame
-// when nothing changes.
+// highlighted as a box: its own text is. The text of a positioned inline
+// element, painted after the rest of its paragraph (inline.go), has its
+// highlight painted with it, over its background and moved by its
+// offset, as Chromium paints the highlight with each text fragment. The
+// highlight is part of what painting a paragraph reads (paragraph.ver),
+// so a change records again the layers that paint the paragraphs whose
+// part changed, and damage tracking rasterizes what changed: no layer of
+// its own, and no frame when nothing changes.
 //
 // # The pointer
 //
@@ -84,8 +89,8 @@ import (
 // A single press without Shift inside the selection does not change it:
 // past the drag slop it starts a drag and drop of the selected text
 // (text/plain, copy), with the selected text alone as its image, as a
-// field's selection is dragged (fielddnd.go); released where it was
-// pressed, it clears the selection.
+// field's selection is dragged (fielddnd.go); released in the device
+// pixel where it was pressed, it clears the selection.
 //
 // The position under a point (posAt) is Chromium's PositionForPoint: the
 // box hit under it (its paragraph for an inline element), then down to a
@@ -139,10 +144,11 @@ type textSel struct {
 	// drag is the pointer whose moves extend the selection, until its
 	// release.
 	drag *pointerState
-	// inSel is a single press inside the selection, at pressAt, which a
-	// drag past the slop drags and a release there clears.
+	// inSel is a single press inside the selection, at the device pixel
+	// pressAt (devicePixel), which a drag past the slop drags and a
+	// release in that pixel clears.
 	inSel   *pointerState
-	pressAt gfx.Point
+	pressAt image.Point
 	// hl are the paragraph boxes that paint a highlight; gen numbers the
 	// walks that compute it (paragraph.selGen).
 	hl  []*Box
@@ -585,12 +591,26 @@ func (t *Tree) paraPoint(bx *Box, p gfx.Point) gfx.Point {
 // paraToWindow returns rectangle r of the text layout of paragraph box bx
 // in window coordinates (the bounding box through transforms).
 func (t *Tree) paraToWindow(bx *Box, r gfx.Rect) gfx.Rect {
+	o := t.paraOrigin(bx)
+	return t.transformUp(bx, r.Translate(o.X, o.Y))
+}
+
+// paraOrigin returns the origin of the text layout of paragraph box bx:
+// its content box in window coordinates before transforms, scrolled.
+func (t *Tree) paraOrigin(bx *Box) gfx.Point {
 	l := bx.ld.Layout()
 	o := t.semOrigin(bx).Add(gfx.Point{X: l.Border.Left + l.Padding.Left, Y: l.Border.Top + l.Padding.Top})
 	if s := bx.scr; s != nil {
 		o = o.Sub(s.soff)
 	}
-	return t.transformUp(bx, r.Translate(o.X, o.Y))
+	return o
+}
+
+// paraTextMatrix returns the map from the text coordinates of paragraph
+// box bx to window coordinates as they are painted (paraToWindow's, as
+// one matrix: a rotation or a skew is kept; transformMatrix).
+func (t *Tree) paraTextMatrix(bx *Box) gfx.Affine {
+	return t.transformMatrix(bx, t.paraOrigin(bx))
 }
 
 // posAt returns the position for the window point p in selection root
@@ -600,6 +620,17 @@ func (t *Tree) posAt(root *Box, p gfx.Point) (selPos, bool) {
 	t.hitTest(p)
 	hb := t.in.hit.box
 	t.in.hit.box, t.in.hit.onText = nil, nil
+	return t.posUnder(root, hb, p)
+}
+
+// posAtPointer is posAt at the position of pointer ps, from the hit test
+// that routed its last event while it holds (pointerHitAt).
+func (t *Tree) posAtPointer(root *Box, ps *pointerState) (selPos, bool) {
+	return t.posUnder(root, t.pointerHitAt(ps).box, ps.pos)
+}
+
+// posUnder is posAt for the box hb that a hit test at p found.
+func (t *Tree) posUnder(root, hb *Box, p gfx.Point) (selPos, bool) {
 	if hb == nil || t.selRoot(hb) != root {
 		hb = root
 	}
@@ -854,7 +885,7 @@ func (t *Tree) selPress(ps *pointerState, target *Element) {
 		}
 		return
 	}
-	pos, found := t.posAt(root, ps.pos)
+	pos, found := t.posAtPointer(root, ps)
 	if !found {
 		t.clearSel()
 		return
@@ -864,7 +895,7 @@ func (t *Tree) selPress(ps *pointerState, target *Element) {
 		t.selExtendTo(pos, ps.pos, true)
 	case ps.clickCount == 1 && t.onSel(ps.pos):
 		// A press on the selection may drag it (selDragRecognizer).
-		s.inSel, s.pressAt = ps, ps.pos
+		s.inSel, s.pressAt = ps, t.devicePixel(ps.pos)
 		return
 	case ps.clickCount == 2:
 		s.unit = selWord
@@ -953,26 +984,29 @@ func (t *Tree) selPointerMove(ps *pointerState) {
 		s.drag = nil
 		return
 	}
-	t.selDragTo(ps.pos)
+	t.selDragTo(ps)
 	if t.selAutoscrolling() {
 		t.requestRepaint()
 	}
 }
 
-// selDragTo extends the selection to the window point p.
-func (t *Tree) selDragTo(p gfx.Point) {
+// selDragTo extends the selection to the position of pointer ps.
+func (t *Tree) selDragTo(ps *pointerState) {
 	s := &t.tsel
 	if !t.posValid(s.anchor, s.root) {
 		t.clearSel()
 		return
 	}
-	if pos, ok := t.posAt(s.root, p); ok {
-		t.selExtendTo(pos, p, false)
+	if pos, ok := t.posAtPointer(s.root, ps); ok {
+		t.selExtendTo(pos, ps.pos, false)
 	}
 }
 
 // selPointerUp ends the press of ps: a release (cancel false) where a
-// press inside the selection was made, with no drag, clears it.
+// press inside the selection was made, with no drag, clears it. Where is
+// the device pixel, as Chromium compares the release with the press
+// (SelectionController::HandleMouseReleaseEvent, its event positions
+// floored to whole pixels of the root frame, which are device pixels).
 func (t *Tree) selPointerUp(ps *pointerState, cancel bool) {
 	s := &t.tsel
 	if s.drag == ps {
@@ -980,10 +1014,17 @@ func (t *Tree) selPointerUp(ps *pointerState, cancel bool) {
 	}
 	if s.inSel == ps {
 		s.inSel = nil
-		if !cancel && ps.pos == s.pressAt && s.active() {
+		if !cancel && t.devicePixel(ps.pos) == s.pressAt && s.active() {
 			t.clearSel()
 		}
 	}
+}
+
+// devicePixel returns the device pixel that holds window point p:
+// Chromium's gfx::ToFlooredPoint of an event's position.
+func (t *Tree) devicePixel(p gfx.Point) image.Point {
+	k := float64(t.scale)
+	return image.Point{X: int(math.Floor(float64(p.X) * k)), Y: int(math.Floor(float64(p.Y) * k))}
 }
 
 // selDragWon is called when a drag gesture of an element won the press
@@ -1074,7 +1115,7 @@ func (t *Tree) selAutoscrolling() bool { return t.selAutoscroll(false) }
 // extends the selection to the text that came under the pointer.
 func (t *Tree) animateSel() {
 	if t.selAutoscroll(true) {
-		t.selDragTo(t.tsel.drag.pos)
+		t.selDragTo(t.tsel.drag)
 	}
 }
 
@@ -1268,51 +1309,54 @@ func (t *Tree) selKey(e KeyboardEvent) bool {
 // ---------------------------------------------------------------------
 // Painting.
 
-// selRect is a snapped highlight rectangle of a paragraph and its line.
-type selRect struct {
-	r    gfx.Rect
-	line int
-}
-
-// selHighlight returns the highlight rectangles of paragraph box bx
-// painted with its content box at origin, snapped like box edges (as
-// fields snap theirs), and the selection's colors (fieldpaint.go's
+// selHighlight returns the highlight rectangles of paragraph box bx, with
+// their lines, and the selection's colors (fieldpaint.go's
 // selectionColors: a nil text paint keeps the text's own colors); none
-// when the paragraph paints no part of the selection.
-func (p *painter) selHighlight(bx *Box) (rects []selRect, bg gfx.Color, fg gfx.Paint) {
+// when the paragraph paints no part of the selection. When layered (the
+// paragraph paints its positioned inlines in their own layers, inline.go)
+// they are those of the text of paint layer layer only
+// (text.Layout.HighlightLineRects).
+func (p *painter) selHighlight(bx *Box, layered bool, layer int) (rects []text.LineRect, bg gfx.Color, fg gfx.Paint) {
 	pa := bx.para
 	if !pa.hl.on || bx.pcs == nil || bx.pcs.Visibility != style.VisibilityVisible {
 		return nil, gfx.Color{}, nil
 	}
 	bg, fg = p.t.selectionColors(bx.pcs)
-	for _, r := range pa.lay.HighlightRects(pa.hl.sel, pa.hl.more, nil) {
-		rects = append(rects, selRect{r, lineAtTop(pa.lay, r.Y0)})
+	if !layered {
+		layer = text.AllLayers
 	}
-	return rects, bg, fg
+	return pa.lay.HighlightLineRects(pa.hl.sel, pa.hl.more, layer, nil), bg, fg
 }
 
 // paintSelBg paints the highlight of the rectangles of line li (all of
-// them when li < 0) of a paragraph whose content box is at origin.
-func (p *painter) paintSelBg(rects []selRect, origin gfx.Point, bg gfx.Color, li int) {
+// them when li < 0) of a paragraph whose content box is at origin,
+// snapped like box edges (as fields snap theirs).
+func (p *painter) paintSelBg(rects []text.LineRect, origin gfx.Point, bg gfx.Color, li int) {
 	for _, sr := range rects {
-		if li < 0 || sr.line == li {
-			p.b.FillRect(p.snapRect(sr.r.Translate(origin.X, origin.Y)), bg)
+		if li < 0 || sr.Line == li {
+			p.b.FillRect(p.snapRect(sr.Rect.Translate(origin.X, origin.Y)), bg)
 		}
 	}
 }
 
 // paintSelText paints the selected text again in the selection's text
-// color fg, clipped to each rectangle of line li (all lines when li < 0).
-func (p *painter) paintSelText(lay *text.Layout, rects []selRect, origin gfx.Point, fg gfx.Paint, li int) {
+// color fg, clipped to each rectangle of line li (all lines when li < 0);
+// when layered, only the text of paint layer layer
+// (text.Layout.PaintLineLayerWith).
+func (p *painter) paintSelText(lay *text.Layout, rects []text.LineRect, origin gfx.Point, fg gfx.Paint, li int, layered bool, layer int) {
 	if fg == nil {
 		return
 	}
 	for _, sr := range rects {
-		if li >= 0 && sr.line != li {
+		if li >= 0 && sr.Line != li {
 			continue
 		}
-		p.b.PushClipRect(p.snapRect(sr.r.Translate(origin.X, origin.Y)))
-		lay.PaintLinesWith(p.b, origin, sr.line, sr.line+1, float32(p.scale), fg)
+		p.b.PushClipRect(p.snapRect(sr.Rect.Translate(origin.X, origin.Y)))
+		if layered {
+			lay.PaintLineLayerWith(p.b, origin, sr.Line, float32(p.scale), fg, layer)
+		} else {
+			lay.PaintLinesWith(p.b, origin, sr.Line, sr.Line+1, float32(p.scale), fg)
+		}
 		p.b.PopClip()
 	}
 }

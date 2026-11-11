@@ -281,8 +281,8 @@ func (t *Tree) textDragImage(d *textDrag, s float64, hot image.Point) (*image.RG
 
 // fieldTextMatrix returns the map from the text coordinates of field f to
 // window coordinates as it is painted: the text's origin and scroll, then
-// the transforms of its box and of its ancestors, innermost first
-// (fieldToWindow's, as one matrix, so that a rotation or a skew is kept).
+// the transforms of its box and of its ancestors (fieldToWindow's, as one
+// matrix, so that a rotation or a skew is kept; transformMatrix).
 func (t *Tree) fieldTextMatrix(f *field) gfx.Affine {
 	bx := f.bx
 	x, y := f.textOrigin()
@@ -290,6 +290,15 @@ func (t *Tree) fieldTextMatrix(f *field) gfx.Affine {
 	if s := bx.scr; s != nil && f.multi {
 		o = o.Sub(s.soff)
 	}
+	return t.transformMatrix(bx, o)
+}
+
+// transformMatrix returns the map from coordinates whose origin is the
+// window point o (before transforms, as semOrigin gives them) in box bx
+// to window coordinates as they are painted: the transforms of bx and of
+// its ancestors, innermost first. It is transformUp as one matrix: a
+// rotation or a skew is kept, where transformUp keeps a bounding box.
+func (t *Tree) transformMatrix(bx *Box, o gfx.Point) gfx.Affine {
 	m := gfx.Translate(o.X, o.Y)
 	for b := bx; b != nil && b != t.rootBox; b = b.parent {
 		cs := paintStyle(b)

@@ -964,7 +964,7 @@ H6 returns a level 6 heading. See H1.
 func Href(url string) tela.Prop
 ```
 
-Href sets the destination of an A. Tela does not open links by itself yet: handle OnClick.
+Href sets the destination of an A. Tela does not open links by itself yet: handle OnClick. As in browsers, the A is then a link: the pointer shows the hand over it (cursor-pointer) unless its classes set another cursor.
 
 ### func ID
 

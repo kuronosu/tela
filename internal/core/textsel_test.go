@@ -278,3 +278,112 @@ func TestTextSelPaintAndIdle(t *testing.T) {
 		t.Error("the drag ran no frame")
 	}
 }
+
+// Over a link the cursor is the hand, from the browser's stylesheet
+// (a:-webkit-any-link { cursor: pointer }), inherited by its content and
+// under its classes; with cursor: auto set on it, Chromium's
+// ShouldShowIBeamForNode shows the I-beam over its text (IsOverLink). An
+// A without a destination is no link: the I-beam over its text.
+func TestTextSelCursorLink(t *testing.T) {
+	root := div(Class("p-4 w-96"),
+		p(Key("p"), Text("Read the "), anchor(Key("ln"), Href("#docs"), Class("px-2"), Text("documentation "), span(Key("in"), Text("inside"))), Text(" first.")),
+		p(Key("q"), Text("Or "), anchor(Key("auto"), Href("#x"), Class("cursor-auto"), Text("this link")), Text(" here.")),
+		p(Key("r"), Text("An "), anchor(Key("plain"), Text("anchor")), Text(" without one.")),
+		p(Key("s"), Text("A "), anchor(Key("txt"), Href("#y"), Class("cursor-text"), Text("text cursor")), Text(" link.")))
+	x := newKeys(t, root, 400, 300)
+	tr := x.tree()
+	at := func(p gfx.Point) platform.Cursor {
+		x.send(move(p.X, p.Y))
+		return tr.Cursor()
+	}
+	if c := at(textAt(t, tr, "ln", 12, 0)); c != platform.CursorPointer {
+		t.Errorf("over link text: %v, want pointer", c)
+	}
+	if c := at(textAt(t, tr, "in", 25, 0)); c != platform.CursorPointer {
+		t.Errorf("over a span in a link: %v, want pointer", c)
+	}
+	// Its padding (8 px before its text): no text, still the link's hand.
+	first := textAt(t, tr, "ln", 9, 0)
+	if c := at(gfx.Point{X: first.X - 4, Y: first.Y}); c != platform.CursorPointer {
+		t.Errorf("over a link's padding: %v, want pointer", c)
+	}
+	if c := at(textAt(t, tr, "auto", 5, 0)); c != platform.CursorText {
+		t.Errorf("over cursor-auto link text: %v, want text", c)
+	}
+	if c := at(textAt(t, tr, "plain", 5, 0)); c != platform.CursorText {
+		t.Errorf("over an A without Href: %v, want text", c)
+	}
+	if c := at(textAt(t, tr, "txt", 4, 0)); c != platform.CursorText {
+		t.Errorf("over a cursor-text link: %v, want text", c)
+	}
+}
+
+// The auto cursor reuses the hit test that routed the pointer event: a
+// move hit-tests once. Content that moves under a resting pointer (a
+// frame without pointer events) gives the cursor of what is under it now.
+func TestTextSelCursorOneHitTest(t *testing.T) {
+	var set Setter[bool]
+	app := func() Node {
+		down, s := UseState(false)
+		set = s
+		pad := "pt-4"
+		if down {
+			pad = "pt-40"
+		}
+		return div(Class("w-96 "+pad), p(Key("a"), Class("px-4"), Text("Some selectable text")))
+	}
+	x := newKeys(t, Component(app), 400, 200)
+	tr := x.tree()
+	a := textAt(t, tr, "a", 2, 0)
+	x.send(move(a.X, a.Y))
+	for i := range 3 {
+		n := tr.in.hitTests
+		x.send(move(a.X+float32(i+1), a.Y))
+		if c := tr.Cursor(); c != platform.CursorText {
+			t.Fatalf("over text: %v, want text", c)
+		}
+		if got := tr.in.hitTests - n; got != 1 {
+			t.Errorf("a move and its cursor ran %d hit tests, want 1", got)
+		}
+	}
+	// The text moves down from under the resting pointer: the default
+	// arrow, and back.
+	set.Set(true)
+	x.settle()
+	if c := tr.Cursor(); c != platform.CursorDefault {
+		t.Errorf("after the text moved away: %v, want default", c)
+	}
+	set.Set(false)
+	x.settle()
+	if c := tr.Cursor(); c != platform.CursorText {
+		t.Errorf("after the text came back: %v, want text", c)
+	}
+}
+
+// An A that gets a destination becomes a link, with its cursor, and an A
+// that loses it stops being one.
+func TestTextSelCursorLinkChanges(t *testing.T) {
+	var set Setter[string]
+	app := func() Node {
+		href, s := UseState("")
+		set = s
+		return div(Class("p-4 w-96"), p(Text("Go "), anchor(Key("a"), Href(href), Text("there")), Text(" now.")))
+	}
+	x := newKeys(t, Component(app), 400, 200)
+	tr := x.tree()
+	pt := textAt(t, tr, "a", 5, 0)
+	x.send(move(pt.X, pt.Y))
+	if c := tr.Cursor(); c != platform.CursorText {
+		t.Errorf("without Href: %v, want text", c)
+	}
+	set.Set("#there")
+	x.settle()
+	if c := tr.Cursor(); c != platform.CursorPointer {
+		t.Errorf("with Href: %v, want pointer", c)
+	}
+	set.Set("")
+	x.settle()
+	if c := tr.Cursor(); c != platform.CursorText {
+		t.Errorf("Href removed: %v, want text", c)
+	}
+}

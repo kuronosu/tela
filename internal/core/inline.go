@@ -51,11 +51,12 @@ import (
 // (opacity, transforms, filters) of inline elements are not painted.
 //
 // A relative (or sticky) inline element is positioned: its content (its
-// decorations, text and atomic inlines, with the inline elements inside
-// it) is painted after the rest of the paragraph, in tree order, as CSS
-// paints positioned descendants after in-flow content (appendix E, step
-// 8), and a relative one is moved by its insets with everything it holds
-// (box.go: offsetInlines; text.Layout.SetInlineOffset, ADR-268).
+// decorations, text with the highlight of the static selection over it,
+// and atomic inlines, with the inline elements inside it) is painted
+// after the rest of the paragraph, in tree order, as CSS paints
+// positioned descendants after in-flow content (appendix E, step 8), and
+// a relative one is moved by its insets with everything it holds (box.go:
+// offsetInlines; text.Layout.SetInlineOffset, ADR-268).
 //
 // # Hit-testing
 //
@@ -220,19 +221,21 @@ func (p *painter) paintParagraph(bx *Box, origin gfx.Point, visible bool) {
 		// culled (record.go).
 		p.dep(k)
 	}
-	var rects []selRect
-	var bg gfx.Color
-	var fg gfx.Paint
-	if visible {
-		// The static selection (textsel.go), line by line: over the
-		// decorations of the inline elements, under the text.
-		rects, bg, fg = p.selHighlight(bx)
-	}
 	// The content of positioned inline elements (relative spans) is
 	// painted after the rest, each in its layer, in tree order (CSS 2.1
 	// appendix E, step 8; text.Layout.InlineLayer).
 	layered := len(para.posInl) > 0
 	paintLayer := func(layer int) {
+		var rects []text.LineRect
+		var bg gfx.Color
+		var fg gfx.Paint
+		if visible {
+			// The static selection (textsel.go), line by line: over the
+			// decorations of the inline elements, under the text, the
+			// part of each layer with it (Chromium paints the highlight
+			// with each text fragment).
+			rects, bg, fg = p.selHighlight(bx, layered, layer)
+		}
 		fi := 0
 		for li := range l.NumLines() {
 			for ; fi < len(frags) && frags[fi].Line == li; fi++ {
@@ -241,17 +244,13 @@ func (p *painter) paintParagraph(bx *Box, origin gfx.Point, visible bool) {
 				}
 			}
 			if visible {
-				if layer < 0 {
-					p.paintSelBg(rects, origin, bg, li)
-				}
+				p.paintSelBg(rects, origin, bg, li)
 				if layered {
 					l.PaintLineLayer(p.b, origin, li, float32(p.scale), paints, layer)
 				} else {
 					l.PaintLineRecolored(p.b, origin, li, float32(p.scale), paints)
 				}
-				if layer < 0 {
-					p.paintSelText(l, rects, origin, fg, li)
-				}
+				p.paintSelText(l, rects, origin, fg, li, layered, layer)
 			}
 			for i, k := range para.atoms {
 				if k.parent == bx && l.BoxLine(para.atomBox[i]) == li && (!layered || l.BoxLayer(para.atomBox[i]) == layer) {

@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
 	"github.com/kuronosu/tela/internal/testutil/golden"
+	"github.com/kuronosu/tela/internal/text"
 )
 
 func TestTextSelDragAndDrop(t *testing.T) {
@@ -42,6 +44,50 @@ func TestTextSelDragAndDrop(t *testing.T) {
 	}
 	if got := tr.SelectedText(); got != want {
 		t.Errorf("the drag changed the selection to %q", got)
+	}
+}
+
+// A press on the selection released where it was pressed clears it, as
+// Chromium compares the release with the press in whole device pixels,
+// rounded down (SelectionController::HandleMouseReleaseEvent's
+// gfx::ToFlooredPoint): a release a fraction of a device pixel away
+// clears it, one a device pixel away keeps it.
+func TestTextSelReleaseInPixel(t *testing.T) {
+	for _, scale := range []float64{1, 2} {
+		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
+			b := headless.New(headless.Options{Size: platform.Size{W: 400, H: 200}, Scale: scale})
+			host, err := NewHost(b, Options{Config: Config{Fonts: testFonts, Flavor: testFlavor}, Root: twoParas()})
+			if err != nil {
+				t.Fatal(err)
+			}
+			b.Drain(host)
+			x := &inputHarness{t: t, b: b, h: host, w: host.Window().(*headless.Window)}
+			t.Cleanup(host.stopTimer)
+			x.w.SetFocused(true)
+			x.b.Drain(x.h)
+			tr := x.tree()
+			// A point inside "brave" whose x is a quarter of a device
+			// pixel past a whole one.
+			k := float32(scale)
+			p := textAt(t, tr, "a", 8, 0)
+			p.X = (float32(math.Floor(float64(p.X*k))) + 0.25) / k
+			for _, c := range []struct {
+				dx    float32 // device pixels
+				clear bool
+			}{{0, true}, {0.5, true}, {1, false}, {-0.5, false}} {
+				x.drag(textAt(t, tr, "a", 6, 0), textAt(t, tr, "a", 11, 0))
+				if got := tr.SelectedText(); got != "brave" {
+					t.Fatalf("selected %q", got)
+				}
+				q := gfx.Point{X: p.X + c.dx/k, Y: p.Y}
+				x.send(move(p.X, p.Y), down(p.X, p.Y), moveHeld(q.X, q.Y), up(q.X, q.Y))
+				x.b.Advance(time.Second)
+				if got := tr.SelectedText(); (got == "") != c.clear {
+					t.Errorf("released %g device px from the press: selection %q, cleared want %v", c.dx, got, c.clear)
+				}
+				x.clickAt(textAt(t, tr, "b", 0, 0)) // clears it for the next case
+			}
+		})
 	}
 }
 
@@ -308,6 +354,188 @@ func TestTextSelUserSelectAll(t *testing.T) {
 	x.drag(textAt(t, tr, "a", 0, 0), textAt(t, tr, "key", 13, 0))
 	if got := tr.SelectedText(); got != "Your key: abc-123-xyz" {
 		t.Errorf("a drag into a select-all span selected %q", got)
+	}
+}
+
+// The selection in a positioned inline element (a relative span, painted
+// after the rest of its paragraph in its own layer, ADR-268) is painted
+// with it, as Chromium paints the highlight with each text fragment: over
+// the span's background, and moved by its offset (by more than half a
+// line in "far": the highlight stays its line's).
+func TestTextSelPositionedInline(t *testing.T) {
+	root := div(Class("p-4 w-96 bg-white text-slate-900 leading-6"),
+		p(Key("a"), Text("Plain "), span(Key("s"), Class("relative bg-yellow-200"), Text("marked")), Text(" after")),
+		p(Key("b"), Class("mt-6"), Text("Plain "), span(Key("o"), Class("relative top-2 bg-yellow-200"), Text("moved")), Text(" after")),
+		p(Key("c"), Class("mt-6"), Text("Plain "), span(Key("far"), Class("relative top-4 bg-yellow-200"), Text("moved")), Text(" after")))
+	x := newKeys(t, root, 400, 200)
+	tr := x.tree()
+	x.ctrl("a", 0)
+	x.settle()
+	img := x.w.Frame()
+	golden.Image(t, "text_selection_positioned", img)
+	// frag returns the window rectangle of the content area of inline
+	// element k's fragment and its baseline.
+	frag := func(k string) (gfx.Rect, float32) {
+		el := keyed(tr, k)
+		pb := el.box.inPara
+		c := contentRect(windowRect(pb), pb.ld.Layout())
+		i := pb.para.inlineIndex(el)
+		for _, f := range pb.para.fragments() {
+			if f.Inline == i {
+				return gfx.Rect{X0: c.X0 + f.X0, Y0: c.Y0 + f.Baseline - f.Ascent, X1: c.X0 + f.X1, Y1: c.Y0 + f.Baseline + f.Descent}, c.Y0 + f.Baseline
+			}
+		}
+		t.Fatalf("no fragment of %s", k)
+		return gfx.Rect{}, 0
+	}
+	want := selectionActiveBg.Premul8()
+	for _, k := range []string{"s", "o", "far"} {
+		r, base := frag(k)
+		// 2 px under the baseline, in the middle: no ink ("marked" and
+		// "moved" have no descenders), the span's background under the
+		// highlight.
+		if got := img.RGBAAt(int(r.Center().X), int(base+2)); got != want {
+			t.Errorf("under the text of the selected %s span at (%v,%v): %v, want the highlight %v", k, r.Center().X, base+2, got, want)
+		}
+		// The selected text of the span is in the selection's color:
+		// white ink over its letters.
+		white := 0
+		for y := int(r.Y0); y < int(base); y++ {
+			for x := int(r.X0); x < int(r.X1); x++ {
+				if p := img.RGBAAt(x, y); p.R > 240 && p.G > 240 && p.B > 240 {
+					white++
+				}
+			}
+		}
+		if white < 10 {
+			t.Errorf("the selected text of the %s span is not in the selection's color (%d white pixels)", k, white)
+		}
+	}
+	// The plain text, for comparison.
+	pl := textAt(t, tr, "a", 2, 0)
+	_, base := frag("s")
+	if got := img.RGBAAt(int(pl.X), int(base+2)); got != want {
+		t.Errorf("under the plain text: %v, want the highlight %v", got, want)
+	}
+}
+
+// Document order (cmpPos) agrees with the order the range walk visits the
+// text in, atomic inlines at their slots: positions taken in walk order
+// compare in that order, for every pair. (The children of a paragraph box
+// are its atomic inlines, so cmpPos never compares an atom with another
+// kind of child of a paragraph.)
+func TestTextSelOrderMatchesWalk(t *testing.T) {
+	root := div(Class("p-4 w-96"),
+		p(Key("a"), Text("one "), span(Class("inline-block"), Text("two")), Text(" three "),
+			span(Class("inline-block"), Text("four "), span(Class("inline-block"), Text("five")), Text(" six")),
+			Text(" seven "), em(Text("eight "), span(Class("inline-block"), Text("nine"))), Text(" ten")),
+		div(Text("eleven "), span(Class("inline-flex"), span(Text("twelve")), span(Text("thirteen"))), Text(" fourteen"),
+			div(Text("fifteen")), Text("sixteen "), span(Class("inline-block"), p(Text("seventeen")), p(Text("eighteen"))),
+			span(Class("absolute"), Text("nineteen")), Text(" twenty")),
+		p(Text("a "), span(Class("relative"), Text("rel "), span(Class("absolute"), Text("abs"))), Text(" b")),
+		p(Dir("rtl"), Text("שלום "), span(Class("inline-block"), Text("עולם")), Text(" טוב")),
+		p(Class("truncate w-24"), Text("a long line "), span(Class("inline-block"), Text("hidden")), Text(" by the ellipsis")),
+		p(Text("x "), button(Text("btn")), Text(" y")))
+	x := newKeys(t, root, 400, 400)
+	tr := x.tree()
+	var pos []selPos
+	w := rangeWalk{start: selPos{}, end: selPos{}}
+	w.state = 1
+	w.emit = func(bx *Box, a, b text.Cursor, _ int) bool {
+		pos = append(pos, selPos{bx, a})
+		if b != a {
+			pos = append(pos, selPos{bx, b})
+		}
+		return true
+	}
+	w.walk(tr.rootBox, false)
+	if len(pos) < 20 {
+		t.Fatalf("the walk gave %d positions", len(pos))
+	}
+	for i := range pos {
+		for j := i + 1; j < len(pos); j++ {
+			if pos[i] == pos[j] {
+				continue
+			}
+			if c := tr.cmpPos(pos[i], pos[j]); c > 0 {
+				t.Errorf("cmpPos(%q@%v, %q@%v) = %d, but the walk visits the first one first",
+					pos[i].bx.para.lay.Text(), pos[i].cur, pos[j].bx.para.lay.Text(), pos[j].cur, c)
+			}
+		}
+	}
+}
+
+// The drag image of a static selection in a rotated container keeps the
+// rotation, as a field's does (TestSelectionDragImageRotated) and
+// Chromium's DragImageForSelection paints it: the text through the
+// transforms as one matrix, into the bounding box of its rectangles as
+// transformed. The text runs down to the right at 30 degrees: ink in the
+// top-left and bottom-right corners of the image, none in the other two.
+func TestTextSelDragImageRotated(t *testing.T) {
+	for _, scale := range []float64{1, 2} {
+		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
+			root := div(Class("p-16 bg-slate-100"), div(Class("w-64 rotate-[30deg] bg-amber-100 text-slate-900"), p(Key("a"), Text("hello brave new world"))))
+			b := headless.New(headless.Options{Size: platform.Size{W: 400, H: 300}, Scale: scale})
+			host, err := NewHost(b, Options{Config: Config{Fonts: testFonts, Flavor: testFlavor}, Root: root})
+			if err != nil {
+				t.Fatal(err)
+			}
+			b.Drain(host)
+			x := &inputHarness{t: t, b: b, h: host, w: host.Window().(*headless.Window)}
+			t.Cleanup(host.stopTimer)
+			x.w.SetFocused(true)
+			x.b.Drain(x.h)
+			tr := x.tree()
+			bx := keyed(tr, "a").box
+			lay := bx.para.lay
+			// "brave", without the space after it, so that the ink reaches
+			// the image's bottom-right corner.
+			s, e := lay.SnapCursor(text.Cursor{Offset: 6}), lay.SnapCursor(text.Cursor{Offset: 11, Affinity: text.Upstream})
+			tr.setSel(tr.rootBox, selPos{bx, s}, selPos{bx, e})
+			x.settle()
+			// The window point of the text at offset 8, in the middle of
+			// the line, through the rotation.
+			ln := lay.Line(0)
+			c := lay.Caret(text.Cursor{Offset: 8})
+			pt := tr.paraToWindow(bx, gfx.Rect{X0: c.X + 1, Y0: ln.Top + ln.Height/2, X1: c.X + 1, Y1: ln.Top + ln.Height/2})
+			px, py := pt.X0, pt.Y0
+			x.send(move(px, py), down(px, py), moveHeld(px+10, py+6))
+			info, ok := x.b.Drag()
+			if !ok || info.Image == nil {
+				t.Fatal("no drag image")
+			}
+			img := info.Image
+			// The bounding box of the selection's rectangle turned by 30
+			// degrees: its width w and line height h give w cos + h sin
+			// across and w sin + h cos down.
+			sw := lay.Caret(e).X - lay.Caret(s).X
+			lh := ln.Height
+			cos, sin := float32(math.Cos(math.Pi/6)), float32(math.Sin(math.Pi/6))
+			wantW, wantH := (sw*cos+lh*sin)*float32(scale), (sw*sin+lh*cos)*float32(scale)
+			if dx, dy := float32(img.Rect.Dx()), float32(img.Rect.Dy()); dx < wantW-1 || dx > wantW+2 || dy < wantH-1 || dy > wantH+2 {
+				t.Errorf("image %vx%v, want the rotated selection's bounding box %vx%v", dx, dy, wantW, wantH)
+			}
+			if hx, hy := info.Hotspot.X, info.Hotspot.Y; hx < 0 || hy < 0 || hx >= img.Rect.Dx() || hy >= img.Rect.Dy() {
+				t.Errorf("hotspot %v outside the %v image", info.Hotspot, img.Rect)
+			}
+			ink := func(x0, y0, x1, y1 int) int {
+				n := 0
+				for y := y0; y < y1; y++ {
+					for x := x0; x < x1; x++ {
+						if img.RGBAAt(x, y).A > 0 {
+							n++
+						}
+					}
+				}
+				return n
+			}
+			W, H := img.Rect.Dx(), img.Rect.Dy()
+			tl, tr2, bl, br := ink(0, 0, W/4, H/4), ink(W-W/4, 0, W, H/4), ink(0, H-H/4, W/4, H), ink(W-W/4, H-H/4, W, H)
+			if tl == 0 || br == 0 || tr2 != 0 || bl != 0 {
+				t.Errorf("ink in the corners: top-left %d, top-right %d, bottom-left %d, bottom-right %d; want the text along the diagonal", tl, tr2, bl, br)
+			}
+			golden.Image(t, fmt.Sprintf("text_drag_image_rotated_x%g", scale), img)
+		})
 	}
 }
 

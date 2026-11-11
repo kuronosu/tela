@@ -68,7 +68,8 @@ func (t *Tree) restyle(el *Element) {
 		peer = peerState(el)
 	}
 	in := style.Input{
-		Kind: bx.kind, Parent: parent, State: state, Group: group, Peer: peer,
+		Kind: bx.kind, Link: bx.kind == style.KindA && el.node.d.href != "",
+		Parent: parent, State: state, Group: group, Peer: peer,
 		Classes: bx.classes, Props: el.node.d.props, Scheme: styleScheme(el.node.d.scheme),
 		Dir: t.styleDir(el), Lang: styleLang(el),
 	}

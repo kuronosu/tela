@@ -67,7 +67,7 @@ func (t *Tree) selDragStart(ps *pointerState, u gesture.DragUpdate) {
 				s.unit = selChar
 				t.setSel(root, pos, pos)
 				s.drag = ps
-				t.selDragTo(ps.pos)
+				t.selDragTo(ps)
 			}
 		}
 		return
@@ -79,31 +79,31 @@ func (t *Tree) selDragStart(ps *pointerState, u gesture.DragUpdate) {
 // pieces at the window's scale s, and the hotspot hot (device pixels of
 // the window) in its coordinates: the selected text alone in its own
 // colors at dragImageAlpha, as a field's (textDragImage) and Chromium's
-// DragImageForSelection paint it, each paragraph through its transforms.
+// DragImageForSelection paint it, each paragraph through its transforms
+// as one matrix (paraTextMatrix: a rotated container drags rotated text,
+// ADR-272), in the bounding box of the transformed rectangles.
 func (t *Tree) selDragImage(pieces []selPiece, s float64, hot image.Point) (*image.RGBA, image.Point) {
 	type placed struct {
 		lay   *text.Layout
 		m     gfx.Affine
-		rects []gfx.Rect
+		rects []text.LineRect
 		g     float32
 	}
 	var ps []placed
 	var b gfx.Rect
-	const k = 1024
 	for _, pc := range pieces {
 		bx := pc.bx
 		if !paraBox(bx) || bx.pcs == nil || !t.inTree(bx) {
 			continue
 		}
 		lay := bx.para.lay
-		rects := lay.HighlightRects(pc.sel, false, nil)
+		rects := lay.HighlightLineRects(pc.sel, false, text.AllLayers, nil)
 		if len(rects) == 0 {
 			continue
 		}
-		u := t.paraToWindow(bx, gfx.Rect{X1: k, Y1: k})
-		m := gfx.Affine{u.Width() / k, 0, 0, u.Height() / k, u.X0, u.Y0}
+		m := t.paraTextMatrix(bx)
 		for _, r := range rects {
-			b = b.Union(m.TransformRect(r))
+			b = b.Union(m.TransformRect(r.Rect))
 		}
 		ps = append(ps, placed{lay, m, rects, 2*max(bx.para.em, 1) + 1})
 	}
@@ -119,9 +119,8 @@ func (t *Tree) selDragImage(pieces []selPiece, s float64, hot image.Point) (*ima
 	for _, p := range ps {
 		bl.PushTransform(gfx.Translate(float32(-float64(pr.Min.X)/s), float32(-float64(pr.Min.Y)/s)).Mul(p.m))
 		for _, r := range p.rects {
-			li := lineAtTop(p.lay, r.Y0)
 			bl.PushClipRect(gfx.Rect{X0: r.X0, Y0: r.Y0 - p.g, X1: r.X1, Y1: r.Y1 + p.g})
-			p.lay.PaintLinesWith(bl, gfx.Point{}, li, li+1, float32(s), nil)
+			p.lay.PaintLinesWith(bl, gfx.Point{}, r.Line, r.Line+1, float32(s), nil)
 			bl.PopClip()
 		}
 		bl.PopTransform()
