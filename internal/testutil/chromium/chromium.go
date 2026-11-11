@@ -71,8 +71,16 @@ func Tailwind(t testing.TB, htmlPath, outCSS, css string) {
 // (--virtual-time-budget=...).
 func Screenshot(t testing.TB, url, shotPath string, w, h, scale int, flags ...string) {
 	t.Helper()
+	ScreenshotAt(t, url, shotPath, w, h, float64(scale), flags...)
+}
+
+// ScreenshotAt is Screenshot at any device scale factor, a fractional one
+// (1.25, 1.5) included: the PNG is w×scale by h×scale device pixels, so w
+// and h should make whole numbers of them.
+func ScreenshotAt(t testing.TB, url, shotPath string, w, h int, scale float64, flags ...string) {
+	t.Helper()
 	args := []string{"--headless", "--disable-gpu", "--hide-scrollbars", "--force-color-profile=srgb",
-		fmt.Sprintf("--force-device-scale-factor=%d", scale), fmt.Sprintf("--window-size=%d,%d", w, h)}
+		fmt.Sprintf("--force-device-scale-factor=%g", scale), fmt.Sprintf("--window-size=%d,%d", w, h)}
 	args = append(args, flags...)
 	args = append(args, "--screenshot="+shotPath, url)
 	if out, err := exec.Command(Bin(), args...).CombinedOutput(); err != nil {
@@ -86,8 +94,14 @@ func Screenshot(t testing.TB, url, shotPath string, w, h, scale int, flags ...st
 // <pre id="out">.
 func DumpJSON(t testing.TB, url string, w, h, scale int, v any) {
 	t.Helper()
+	DumpJSONAt(t, url, w, h, float64(scale), v)
+}
+
+// DumpJSONAt is DumpJSON at any device scale factor.
+func DumpJSONAt(t testing.TB, url string, w, h int, scale float64, v any) {
+	t.Helper()
 	cmd := exec.Command(Bin(), "--headless", "--disable-gpu", "--allow-file-access-from-files", "--virtual-time-budget=10000",
-		fmt.Sprintf("--force-device-scale-factor=%d", scale), fmt.Sprintf("--window-size=%d,%d", w, h), "--dump-dom", url)
+		fmt.Sprintf("--force-device-scale-factor=%g", scale), fmt.Sprintf("--window-size=%d,%d", w, h), "--dump-dom", url)
 	outb, err := cmd.Output()
 	if err != nil {
 		t.Fatalf("%s: %v", Bin(), err)

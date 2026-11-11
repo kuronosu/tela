@@ -383,6 +383,9 @@ type paragraph struct {
 	inl     []*Element
 	atoms   []*Box
 	atomBox []int
+	// edgeK is the display scale the inlines' edges were assembled at:
+	// their border widths are snapped to its device pixels (ADR-273).
+	edgeK float32
 	// spanEls are the elements whose styles the spans have (span i is
 	// style i+1 of the layout), for TextColorFn (paint.go).
 	spanEls []*Element
@@ -427,6 +430,15 @@ func (p *paragraph) targetAt(off int) *Element {
 // (text.Layout.SetScale) and forgets what depends on them: the lines are
 // broken again and box b is laid out again.
 func (p *paragraph) rescale(t *Tree, b *Box) {
+	if p.edgeK != t.scale {
+		// Border widths of its inline elements are snapped at the old
+		// scale in the edges it was shaped with: assembled again.
+		for _, el := range p.inl {
+			if el != nil && el.mounted && el.box.cs != nil && hasBorderWidth(el.box.cs) {
+				t.markBoxes(el)
+			}
+		}
+	}
 	if p.lay == nil || p.lay.Scale() == t.scale {
 		return
 	}
@@ -671,7 +683,7 @@ func (a *paraAssembler) reset() {
 // returns its index; closeInline ends it.
 func (a *paraAssembler) openInline(el *Element) int {
 	cs := el.box.cs
-	left, right := inlineEdges(cs)
+	left, right := inlineEdges(cs, el.box.tree.scale)
 	a.inlines = append(a.inlines, text.Inline{
 		ID: len(a.inlines), Start: a.n, End: a.n, BoxStart: len(a.boxes), BoxEnd: len(a.boxes),
 		Depth: a.open, Style: cs.TextStyle(), Left: left, Right: right,
@@ -688,9 +700,10 @@ func (a *paraAssembler) closeInline(k int) {
 
 // inlineEdges returns the widths that the left and right edges of an
 // inline element with style cs take on its lines: margin, border and
-// padding (CSS inline boxes; percentages and auto margins count as 0).
-func inlineEdges(cs *style.ComputedStyle) (left, right float32) {
-	e := edgeWidths(cs)
+// padding (CSS inline boxes; percentages and auto margins count as 0), at
+// display scale k.
+func inlineEdges(cs *style.ComputedStyle, k float32) (left, right float32) {
+	e := edgeWidths(cs, k)
 	return e.margin.Left + e.border.Left + e.padding.Left, e.margin.Right + e.border.Right + e.padding.Right
 }
 
@@ -790,6 +803,7 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 	p := b.para
 	if p != nil {
 		p.ver++ // its elements, paints or text may change (record.go)
+		p.edgeK = t.scale // the edges were just assembled (inlineEdges)
 	}
 	if p != nil && p.text == s && p.pstyle == pstyle && sameTextStyle(&p.def, &def) &&
 		sameSpans(p.spans, spans) && slices.Equal(p.boxes, a.boxes) && sameInlines(p.inlines, a.inlines) {
@@ -814,7 +828,7 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 		return !p.empty
 	}
 	if p == nil {
-		p = new(paragraph)
+		p = &paragraph{edgeK: t.scale}
 		b.para = p
 	}
 	a.setTargets(p)

@@ -114,9 +114,10 @@ import (
 // pixels, so snapping commutes with them), becomes round(edge × scale) /
 // scale, rounding halves up, so
 // a box keeps whole device pixels and adjacent boxes stay adjacent.
-// Border and outline widths are snapped like CSS line widths: a width of
-// at least one device pixel is floored to whole device pixels, a smaller
-// non-zero one becomes one device pixel. Radii are not snapped. Text and
+// Border and outline widths and outline offsets are snapped like CSS line
+// widths (snapLineWidth): a width of at least one device pixel is floored
+// to whole device pixels, a smaller non-zero one becomes one device pixel;
+// layout uses the same snapped border widths (stylemap.go, inline.go). Radii are not snapped. Text and
 // images are positioned from the unsnapped layout (text is snapped by the
 // rasterizer, ADR-029). Text selection highlights and scrollbar tracks and
 // thumbs are snapped like border boxes, so that at fractional scales the
@@ -940,15 +941,37 @@ func (p *painter) snapRect(r gfx.Rect) gfx.Rect {
 
 // snapWidth snaps a line width (border, outline) like CSS: at least one
 // device pixel is floored to whole device pixels, less becomes one.
-func (p *painter) snapWidth(w float32) float32 {
+func (p *painter) snapWidth(w float32) float32 { return snapLineWidth(w, p.scale) }
+
+// snapLineWidth snaps a border, outline or column-rule width w (logical
+// px) at display scale k "as a border width" (CSS Values 4, 4.3.1), which
+// Blink does when it computes the style (StyleBuilderConverter's
+// ConvertBorderWidth, at the effective zoom that includes the device
+// scale factor): a width of at least one device pixel is floored to whole
+// device pixels, a smaller non-zero one becomes one device pixel. At x1.5
+// a 1px border is 1 device pixel, 0.667 px, in layout as in paint
+// (ADR-273). A width a float32 hair below a whole number of device pixels
+// (a width this function returned, multiplied back) counts as that number.
+func snapLineWidth(w float32, k float64) float32 {
 	if !(w > 0) {
 		return 0
 	}
-	d := float64(float64(w) * p.scale)
+	d := float64(w) * k
 	if d < 1 {
-		return float32(1 / p.scale)
+		return float32(1 / k)
 	}
-	return float32(math.Floor(d) / p.scale)
+	return float32(math.Floor(d+1.0/1024) / k)
+}
+
+// snapLineOffset snaps an outline-offset o (logical px) at display scale
+// k: CSS UI 4 computes it "snapped as a border width", and Blink snaps
+// its magnitude, keeping the sign (at x1.5 a 1px offset is 0.667 px, and
+// -1px is -0.667 px).
+func snapLineOffset(o float32, k float64) float32 {
+	if o < 0 {
+		return -snapLineWidth(-o, k)
+	}
+	return snapLineWidth(o, k)
 }
 
 // rect returns the unsnapped border box of bx where it is painted (u).

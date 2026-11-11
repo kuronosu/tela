@@ -47,6 +47,24 @@ type cssGallery struct {
 	fontCSS string
 	// theme is the tree's theme (nil: the default).
 	theme *Theme
+	// scales are the device scales compared, at most two, in the order of
+	// the bounds above (nil: 1 and 2). Rows and widths should make whole
+	// device pixels at each.
+	scales []float32
+}
+
+// scaleList returns the device scales of the gallery.
+func (g *cssGallery) scaleList() []float32 {
+	if g.scales == nil {
+		return []float32{1, 2}
+	}
+	return g.scales
+}
+
+// devRect returns the device pixels of the logical rect c at scale.
+func devRect(c [4]int, scale float32) image.Rectangle {
+	d := func(v int) int { return int(math.Round(float64(v) * float64(scale))) }
+	return image.Rect(d(c[0]), d(c[1]), d(c[2]), d(c[3]))
 }
 
 // cssRow is one row of a gallery: height logical pixels tall, its
@@ -128,20 +146,22 @@ func (g *cssGallery) regenerate(t *testing.T) {
 	chromium.Tailwind(t, htmlPath, filepath.Join(dir, "gallery.css"), fonts)
 	w, h := g.size()
 	geom := inlineGeometry{}
-	for _, scale := range []int{1, 2} {
+	var keys []string
+	for _, scale := range g.scaleList() {
 		var rects [][][4]float64
-		chromium.DumpJSON(t, "file://"+htmlPath, int(w), int(h), scale, &rects)
-		geom[fmt.Sprintf("x%d", scale)] = rects
-		shot, err := filepath.Abs(filepath.Join(dir, fmt.Sprintf("x%d.png", scale)))
+		chromium.DumpJSONAt(t, "file://"+htmlPath, int(w), int(h), float64(scale), &rects)
+		keys = append(keys, fmt.Sprintf("x%g", scale))
+		geom[fmt.Sprintf("x%g", scale)] = rects
+		shot, err := filepath.Abs(filepath.Join(dir, fmt.Sprintf("x%g.png", scale)))
 		if err != nil {
 			t.Fatal(err)
 		}
-		chromium.Screenshot(t, "file://"+htmlPath, shot, int(w), int(h), scale, "--allow-file-access-from-files", "--virtual-time-budget=10000")
+		chromium.ScreenshotAt(t, "file://"+htmlPath, shot, int(w), int(h), float64(scale), "--allow-file-access-from-files", "--virtual-time-budget=10000")
 		golden.WriteBestPNG(t, shot, golden.ReadRGBA(t, shot))
 	}
 	var sb strings.Builder
 	sb.WriteString("{\n")
-	for k, key := range []string{"x1", "x2"} {
+	for k, key := range keys {
 		fmt.Fprintf(&sb, "%q: [\n", key)
 		for i, r := range geom[key] {
 			b, _ := json.Marshal(r)
@@ -152,7 +172,7 @@ func (g *cssGallery) regenerate(t *testing.T) {
 			fmt.Fprintf(&sb, "  %s%s\n", b, sep)
 		}
 		sep := ","
-		if k == 1 {
+		if k == len(keys)-1 {
 			sep = ""
 		}
 		fmt.Fprintf(&sb, "]%s\n", sep)
@@ -167,15 +187,26 @@ func (g *cssGallery) regenerate(t *testing.T) {
 // rects of every element (window coordinates, document order).
 func (g *cssGallery) render(t *testing.T, scale float32) (*image.RGBA, [][]gfx.Rect) {
 	t.Helper()
+	return g.renderFrom(t, scale, scale)
+}
+
+// renderFrom is render for a tree that renders a frame at scale from
+// first and then changes to scale (Tree.SetScale).
+func (g *cssGallery) renderFrom(t *testing.T, from, scale float32) (*image.RGBA, [][]gfx.Rect) {
+	t.Helper()
 	var logs []string
 	cfg := Config{Fonts: testFonts, RootClass: "bg-white", IDPrefix: "r-", Theme: g.theme, Log: func(m string) { logs = append(logs, m) }}
 	w, h := g.size()
 	tr := NewTree(cfg)
 	tr.SetViewport(gfx.Size{W: w, H: h})
-	tr.SetScale(scale)
+	tr.SetScale(from)
 	id := 0
 	tr.Mount(g.root().node(&id))
 	dl, _ := tr.Frame()
+	if from != scale {
+		tr.SetScale(scale)
+		dl, _ = tr.Frame()
+	}
 	img := tr.Rasterize(dl, scale)
 	for _, m := range logs {
 		t.Errorf("dev message: %s", m)
@@ -259,14 +290,14 @@ func (g *cssGallery) compare(t *testing.T) {
 	dump := os.Getenv("TELA_CHROMIUM_DUMP")
 	cells := g.cells()
 	var report strings.Builder
-	for si, scale := range []int{1, 2} {
-		img, rects := g.render(t, float32(scale))
+	for si, scale := range g.scaleList() {
+		img, rects := g.render(t, scale)
 		if dump != "" {
-			golden.WritePNG(t, filepath.Join(dump, fmt.Sprintf("%s_x%d_tela.png", g.name, scale)), img)
+			golden.WritePNG(t, filepath.Join(dump, fmt.Sprintf("%s_x%g_tela.png", g.name, scale)), img)
 		}
-		want := geom[fmt.Sprintf("x%d", scale)]
+		want := geom[fmt.Sprintf("x%g", scale)]
 		if len(want) != len(rects) {
-			t.Fatalf("x%d: %d elements here, %d in Chromium", scale, len(rects), len(want))
+			t.Fatalf("x%g: %d elements here, %d in Chromium", scale, len(rects), len(want))
 		}
 		worst, worstAt := 0.0, ""
 		for k := range rects {
@@ -281,7 +312,7 @@ func (g *cssGallery) compare(t *testing.T) {
 				continue // display: none: Chromium has no rects, we have an empty one
 			}
 			if len(got) != len(ws) {
-				t.Errorf("x%d element %d (%s): %d rects %v, Chromium %d %v", scale, k, g.rowOf(k), len(got), got, len(ws), ws)
+				t.Errorf("x%g element %d (%s): %d rects %v, Chromium %d %v", scale, k, g.rowOf(k), len(got), got, len(ws), ws)
 				continue
 			}
 			for i := range got {
@@ -293,21 +324,21 @@ func (g *cssGallery) compare(t *testing.T) {
 					worst, worstAt = d, fmt.Sprintf("element %d (%s): %v, Chromium %v", k, g.rowOf(k), got[i], ws[i])
 				}
 				if d > g.geom[si] {
-					t.Errorf("x%d element %d (%s) rect %d: %.3f %.3f %.3f %.3f, Chromium %.3f %.3f %.3f %.3f", scale, k, g.rowOf(k), i,
+					t.Errorf("x%g element %d (%s) rect %d: %.3f %.3f %.3f %.3f, Chromium %.3f %.3f %.3f %.3f", scale, k, g.rowOf(k), i,
 						got[i][0], got[i][1], got[i][2], got[i][3], ws[i][0], ws[i][1], ws[i][2], ws[i][3])
 				}
 			}
 		}
-		fmt.Fprintf(&report, "x%d: largest edge difference %.3f px (%s)\n", scale, worst, worstAt)
-		shot := golden.ReadRGBA(t, filepath.Join(dir, fmt.Sprintf("x%d.png", scale)))
+		fmt.Fprintf(&report, "x%g: largest edge difference %.3f px (%s)\n", scale, worst, worstAt)
+		shot := golden.ReadRGBA(t, filepath.Join(dir, fmt.Sprintf("x%g.png", scale)))
 		if shot.Rect != img.Rect {
-			t.Fatalf("x%d: render %v, Chromium %v", scale, img.Rect, shot.Rect)
+			t.Fatalf("x%g: render %v, Chromium %v", scale, img.Rect, shot.Rect)
 		}
 		for i, c := range cells {
-			d := diffRegion(img, shot, image.Rect(c[0]*scale, c[1]*scale, c[2]*scale, c[3]*scale))
+			d := diffRegion(img, shot, devRect(c, scale))
 			fmt.Fprintf(&report, "  %-18s max %3d mean %.3f >16 %d\n", g.rows[i].name, d.max, d.mean, d.over)
 			if d.mean > g.mean[si] || (g.maxd[si] > 0 && d.max > g.maxd[si]) {
-				t.Errorf("x%d %s: pixels differ from Chromium by max %d mean %.3f (bounds %d, %.3f)", scale, g.rows[i].name, d.max, d.mean, g.maxd[si], g.mean[si])
+				t.Errorf("x%g %s: pixels differ from Chromium by max %d mean %.3f (bounds %d, %.3f)", scale, g.rows[i].name, d.max, d.mean, g.maxd[si], g.mean[si])
 			}
 		}
 	}
@@ -316,8 +347,8 @@ func (g *cssGallery) compare(t *testing.T) {
 
 // golden checks the gallery's render against its golden images.
 func (g *cssGallery) golden(t *testing.T) {
-	for _, scale := range []int{1, 2} {
-		img, _ := g.render(t, float32(scale))
-		golden.Image(t, fmt.Sprintf("%s_x%d", g.name, scale), img)
+	for _, scale := range g.scaleList() {
+		img, _ := g.render(t, scale)
+		golden.Image(t, fmt.Sprintf("%s_x%g", g.name, scale), img)
 	}
 }

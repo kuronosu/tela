@@ -353,7 +353,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
 | Units `cm`, `in`, `pt`, `pc`, `ex` | Supported units (below) |
 | Vertical `writing-mode`, ruby, multi-column, `shape-outside` | Nothing |
 
-**Supported units:** `px` (logical pixels, multiplied by display scale), `rem` (16px default, theme-configurable, times the system's text scale unless the app turns it off: ADR-209), `em`, `%`, `vw`, `vh`, `fr`, `ch` (approximate).
+**Supported units:** `px` (logical pixels, multiplied by display scale), `rem` (16px default, theme-configurable, times the system's text scale unless the app turns it off: ADR-209), `em`, `%`, `vw`, `vh`, `fr`, `ch` (approximate). Border and outline widths and outline offsets snap to whole device pixels (at least one) at the display scale, in layout as in paint, as Blink computes them (ADR-273).
 
 ## 11. Text
 

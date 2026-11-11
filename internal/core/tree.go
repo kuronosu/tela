@@ -552,7 +552,10 @@ func (t *Tree) Scale() float32 { return t.scale }
 // paint phase snaps box edges to device pixels at this scale, so a new
 // scale repaints the tree; and line boxes are quantized in device pixels
 // (text.Paragraph.Scale, ADR-159), so it lays out every paragraph and text
-// field again (without shaping them again).
+// field again (without shaping them again); border widths are snapped to
+// device pixels in layout (snapLineWidth, ADR-273), so it maps the layout
+// styles of bordered boxes again and assembles again the paragraphs whose
+// inline elements have borders.
 func (t *Tree) SetScale(scale float32) {
 	if !(scale > 0) || math.IsInf(float64(scale), 0) {
 		scale = 1
@@ -605,8 +608,11 @@ func (t *Tree) eachTextBox(f func(b *Box)) {
 }
 
 // rescaleBox quantizes the line boxes of box b's paragraph or text field
-// for the tree's scale.
+// for the tree's scale, and queues b for remapping when it has borders.
 func (t *Tree) rescaleBox(b *Box) {
+	if cs := b.cs; cs != nil && hasBorderWidth(cs) {
+		b.queueRemap() // its layout style has the widths snapped at the old scale
+	}
 	if p := b.para; p != nil {
 		p.rescale(t, b)
 	}

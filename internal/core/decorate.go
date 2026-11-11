@@ -466,7 +466,7 @@ func (p *painter) paintOutline(bx *Box) {
 func (p *painter) paintOutlineOf(cs *style.ComputedStyle, g *boxGeom) {
 	o := &cs.Outline
 	w := p.snapWidth(o.Width)
-	off := float32(math.Floor(float64(float64(o.Offset)*p.scale)+0.5) / p.scale)
+	off := snapLineOffset(o.Offset, p.scale)
 	in := gfx.RRect{Rect: g.border.Rect.Outset(off)}
 	out := gfx.RRect{Rect: in.Rect.Outset(w)}
 	for i, r := range g.border.Radii {

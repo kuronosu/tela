@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="gallery.css">
+</head>
+<body class="bg-white">
+<div id="e0" class="w-[400px]"><div id="e1" class="flex h-[64px] shrink-0 items-center px-4 gap-2"><div id="e2" class="w-14 h-12 border border-zinc-900 p-2 text-sm">1</div><div id="e3" class="w-14 h-12 border-2 border-zinc-900 p-2 text-sm">2</div><div id="e4" class="w-14 h-12 border-[3px] border-zinc-900 p-2 text-sm">3</div><div id="e5" class="w-14 h-12 border-[0.5px] border-zinc-900 p-2 text-sm">.5</div><div id="e6" class="w-14 h-12 border-[1.5px] border-zinc-900 p-2 text-sm">1.5</div><div id="e7" class="w-14 h-12 border-[2.5px] border-zinc-900 p-2 text-sm">2.5</div></div><div id="e8" class="flex h-[56px] shrink-0 items-center px-4"><div id="e9" class="border border-zinc-700 p-[3px]"><div id="e10" class="border border-sky-600 p-[3px]"><div id="e11" class="border border-rose-500 px-1 text-sm">deep</div></div></div><div id="e12" class="ml-3 border-2 border-zinc-700 p-[3px]"><div id="e13" class="border border-sky-600 p-[3px]"><div id="e14" class="border-[1.5px] border-rose-500 px-1 text-sm">mixed</div></div></div></div><div id="e15" class="flex h-[44px] shrink-0 items-center px-4"><div id="e16" class="shrink-0 border border-zinc-400 px-2 py-1 text-sm">one</div><div id="e17" class="shrink-0 border border-zinc-400 px-2 py-1 text-sm">two</div><div id="e18" class="shrink-0 border border-zinc-400 px-2 py-1 text-sm">three</div><div id="e19" class="shrink-0 border border-zinc-400 px-2 py-1 text-sm">four</div><div id="e20" class="shrink-0 border border-zinc-400 px-2 py-1 text-sm">five</div><div id="e21" class="shrink-0 border border-zinc-400 px-2 py-1 text-sm">six</div></div><div id="e22" class="flex h-[56px] shrink-0 items-center px-4 gap-3"><div id="e23" class="w-24 h-10 border-t border-l-2 border-r-[3px] border-b-4 border-zinc-800 text-xs">t l r b</div><div id="e24" class="w-24 h-10 border-x border-y-2 border-emerald-600 text-xs">x y</div><div id="e25" class="h-10 border-s border-e-[1.5px] border-violet-600 px-2 text-xs">s e</div></div><div id="e26" class="flex h-[56px] shrink-0 items-center px-4"><p id="e27" class="w-[360px] text-sm">Text with <span id="e28" class="border border-amber-500 px-1">one</span> and <span id="e29" class="border-2 border-sky-500 px-0.5">two <span id="e30" class="border border-rose-500">nested</span></span> inline borders.</p></div><div id="e31" class="flex h-[64px] shrink-0 items-center px-4 gap-5"><div id="e32" class="size-10 bg-zinc-100 outline outline-sky-600"></div><div id="e33" class="size-10 bg-zinc-100 outline outline-offset-1 outline-sky-600"></div><div id="e34" class="size-10 bg-zinc-100 outline-2 outline-offset-2 outline-sky-600"></div><div id="e35" class="size-10 bg-zinc-100 outline outline-offset-[1.5px] outline-sky-600"></div><div id="e36" class="size-10 bg-zinc-100 outline -outline-offset-1 outline-sky-600"></div><div id="e37" class="size-10 rounded-md bg-zinc-100 outline outline-offset-1 outline-sky-600"></div></div><div id="e38" class="flex h-[56px] shrink-0 items-center px-4 gap-3"><div id="e39" class="flex h-9 w-48 items-center rounded-md border border-zinc-300 px-3 py-1 text-sm shadow-xs">An input-like box</div><div id="e40" class="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium">Button</div></div></div>
+<pre id="out" style="display: none"></pre>
+<script>
+document.fonts.ready.then(() => Promise.all([...document.fonts].map(f => f.load()))).then(() => {
+  const out = [];
+  for (let i = 0; i < 41; i++) {
+    const e = document.getElementById("e" + i);
+    out.push([...e.getClientRects()].map(q => [q.left, q.top, q.width, q.height]));
+  }
+  document.getElementById("out").textContent = "BEGIN" + JSON.stringify(out) + "END";
+});
+</script>
+</body>
+</html>
