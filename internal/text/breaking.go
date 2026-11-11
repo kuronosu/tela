@@ -2,6 +2,7 @@ package text
 
 import (
 	"math"
+	"slices"
 	"unicode"
 )
 
@@ -41,6 +42,7 @@ func (l *Layout) setBreaks(segs []uint8) {
 		}
 		soft := segs[p]&segSoft != 0
 		prev := cl[prevReal].flags
+		q := cl[prevReal].r1 // after the last rune of text before i (placeholders have none)
 		prevReal = int32(i)
 		switch l.para.WordBreak {
 		case WordBreakBreakAll:
@@ -58,7 +60,7 @@ func (l *Layout) setBreaks(segs []uint8) {
 		if prev&cfBox != 0 || cur&cfBox != 0 {
 			soft = true
 		}
-		if soft && p > 0 && l.text.runes[p-1] == softHyphen && l.styles[l.text.style[p-1]].Hyphens == HyphensNone {
+		if soft && q > 0 && l.text.runes[q-1] == softHyphen && l.styles[l.text.style[q-1]].Hyphens == HyphensNone {
 			// hyphens: none: a soft hyphen is not a break opportunity
 			// (Blink's LazyLineBreakIterator with soft hyphens disabled).
 			soft = false
@@ -71,10 +73,14 @@ func (l *Layout) setBreaks(segs []uint8) {
 
 // softHyphenBefore reports whether a line that ends before cluster i at a
 // soft wrap opportunity ends with a hyphen: the opportunity follows a soft
-// hyphen (whose hyphens is not none, or there would be none).
+// hyphen (whose hyphens is not none, or there would be none), and the
+// placeholders after it, which have no text.
 func (l *Layout) softHyphenBefore(i int32) bool {
 	if i <= 0 || int(i) > len(l.clusters) {
 		return false
+	}
+	for i > 1 && l.clusters[i-1].flags&cfTag != 0 {
+		i--
 	}
 	p := l.clusters[i-1].r1
 	return p > 0 && l.text.runes[p-1] == softHyphen
@@ -141,7 +147,7 @@ func (l *Layout) breakLines(maxW float32, minContent bool, sizes boxSizes, tabs 
 		end, reason, hy, over := l.breakLine(start, limit, minContent, sizes, tabs)
 		if hy && !over {
 			w := l.scanX[end]
-			if hw := l.hyphenFor(cl[end-1].style).width; w <= limit && w+hw > limit {
+			if hw := l.hyphenFor(l.hyphenStyle(start, end)).width; w <= limit && w+hw > limit {
 				// The hyphen does not fit: break again in the width
 				// without it.
 				end, reason, hy, _ = l.breakLine(start, limit-hw, minContent, sizes, tabs)
@@ -259,9 +265,12 @@ func (l *Layout) clusterWidth(i int32, x float32, sizes boxSizes, tabs []float32
 // opportunity at or before i (opp; the start of the line when there is
 // none, which is how Blink hyphenates what a hyphen left of a word), or,
 // with whole, from the last one in the paragraph, after the spaces there,
-// to the next opportunity after i, before the spaces there. ok is false
-// when there is an opportunity before i itself or the style of i does not
-// hyphenate.
+// to the next opportunity after i, before the spaces there. Placeholders
+// at either end are not part of it either: a placeholder carries no
+// opportunity, so the one after an anchor ending a word ("word <abs>
+// next") is after the anchor, but Blink's out-of-flow and empty inline
+// items have no text (hyphenPoints). ok is false when there is an
+// opportunity before i itself or the style of i does not hyphenate.
 func (l *Layout) hyphenWord(start, i, opp int32, whole bool) (ws, we int32, h *Hyphenator, ok bool) {
 	cl := l.clusters
 	n := int32(len(cl))
@@ -278,14 +287,14 @@ func (l *Layout) hyphenWord(start, i, opp int32, whole bool) (ws, we int32, h *H
 	} else if opp > start {
 		ws = opp
 	}
-	for ws < i && breakableSpace(l.clusters[ws].flags) {
+	for ws < i && outsideWord(cl[ws].flags) {
 		ws++
 	}
 	we = i + 1
 	for we < n && cl[we].flags&(cfSoftBefore|cfMustBefore) == 0 {
 		we++
 	}
-	for we > i+1 && breakableSpace(cl[we-1].flags) {
+	for we > i+1 && outsideWord(cl[we-1].flags) {
 		we--
 	}
 	return ws, we, h, true
@@ -297,18 +306,42 @@ func breakableSpace(f clusterFlag) bool {
 	return f&(cfSpace|cfTab|cfNewline|cfOtherSpace) != 0
 }
 
+// outsideWord reports the clusters left out at the ends of a word to
+// hyphenate: breakable white space and placeholders.
+func outsideWord(f clusterFlag) bool {
+	return breakableSpace(f) || f&cfTag != 0
+}
+
 // hyphenPoints returns the clusters of [ws, we) that start a hyphenation
 // point of h, in increasing order (a point inside a cluster, a
-// ligature, is not one).
+// ligature, is not one). The placeholders inside the word are left out of
+// what Liang's algorithm sees, as Blink's out-of-flow and empty inline
+// items have no text: "interna<abs>tionalization" is one word, and a
+// point at the anchor breaks after it, like a soft wrap.
 func (l *Layout) hyphenPoints(ws, we int32, h *Hyphenator) []int32 {
 	cl := l.clusters
 	r0 := cl[ws].r0
 	r1 := cl[we-1].r1
-	l.hpts = h.points(l.text.runes[r0:r1], l.hpts[:0])
+	word := l.text.runes[r0:r1]
+	var at []int32 // the rune of each rune of word, when placeholders are left out
+	if l.hasPlaceholders() && slices.ContainsFunc(l.text.box[r0:r1], l.isPlaceholder) {
+		l.hword, l.hat = l.hword[:0], l.hat[:0]
+		for r := r0; r < r1; r++ {
+			if !l.isPlaceholder(l.text.box[r]) {
+				l.hword = append(l.hword, l.text.runes[r])
+				l.hat = append(l.hat, r)
+			}
+		}
+		word, at = l.hword, l.hat
+	}
+	l.hpts = h.points(word, l.hpts[:0])
 	out := l.hpts[:0]
 	k := ws
 	for _, p := range l.hpts {
 		r := r0 + p
+		if at != nil {
+			r = at[p]
+		}
 		for k < we && cl[k].r0 < r {
 			k++
 		}
@@ -381,8 +414,8 @@ func (l *Layout) lastWord(opp, we int32) bool {
 
 // contentEnds returns the first and the last rune of the processed text
 // that is not white space Blink's line breaker skips (an inline box
-// counts, the placeholder of an empty inline does not); -1 and -1 when
-// there is none.
+// counts, a placeholder does not: Blink's out-of-flow and empty inline
+// items have no text); -1 and -1 when there is none.
 func (l *Layout) contentEnds() (first, last int32) {
 	if l.cends[0] != 0 {
 		return l.cends[0] - 1, l.cends[1] - 1
@@ -390,7 +423,7 @@ func (l *Layout) contentEnds() (first, last int32) {
 	pt := &l.text
 	first, last = -1, -1
 	for i, r := range pt.runes {
-		if pt.box[i] >= int32(l.nboxes) {
+		if l.isPlaceholder(pt.box[i]) {
 			continue
 		}
 		switch {
@@ -501,7 +534,7 @@ func (l *Layout) measure(maxW float32, minContent bool) float32 {
 	l.breakLines(maxW, minContent, sizes, tabs, func(c0, c1 int32, reason BreakReason, hy bool) {
 		lw, _, _ := l.lineWidth(c0, c1, reason, maxW, adv)
 		if hy {
-			lw += l.hyphenFor(l.clusters[c1-1].style).width
+			lw += l.hyphenFor(l.hyphenStyle(c0, c1)).width
 		}
 		w = max(w, lw)
 	})

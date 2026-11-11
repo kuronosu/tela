@@ -127,11 +127,65 @@ var chromiumHyphenCases = []chromiumHyphenCase{
 	{name: "auto-clamp", width: 120, para: ParagraphStyle{LineClamp: 2}, base: hyStyle(16, HyphensAuto, "en"), spans: one1(autoText, hyStyle(16, HyphensAuto, "en"))},
 	{name: "auto-min-content", minWidth: true, base: hyStyle(16, HyphensAuto, "en"), spans: one1(autoText, hyStyle(16, HyphensAuto, "en"))},
 	{name: "auto-es-min-content", minWidth: true, base: hyStyle(16, HyphensAuto, "es"), spans: one1(autoES, hyStyle(16, HyphensAuto, "es"))},
+	// Out-of-flow boxes (anchors; an empty absolutely positioned span in
+	// Chromium) after, inside and before hyphenated words: Blink's
+	// out-of-flow items have no text, the word is the same without them.
+	{name: "auto-anchor-after", width: 150, base: hyStyle(16, HyphensAuto, "en"), spans: []chromiumSpan{
+		{text: "Words and internationalization ", style: hyStyle(16, HyphensAuto, "en")}, hyAnchor,
+		{text: " more text", style: hyStyle(16, HyphensAuto, "en")},
+	}},
+	{name: "auto-anchor-glued", width: 150, base: hyStyle(16, HyphensAuto, "en"), spans: []chromiumSpan{
+		{text: "Words and internationalization", style: hyStyle(16, HyphensAuto, "en")}, hyAnchor,
+		{text: " more text", style: hyStyle(16, HyphensAuto, "en")},
+	}},
+	{name: "auto-anchor-inside", width: 190, base: hyStyle(16, HyphensAuto, "en"), spans: []chromiumSpan{
+		{text: "Words and interna", style: hyStyle(16, HyphensAuto, "en")}, hyAnchor,
+		{text: "tionalization more text", style: hyStyle(16, HyphensAuto, "en")},
+	}},
+	{name: "auto-anchor-inside-narrow", width: 110, base: hyStyle(16, HyphensAuto, "en"), spans: []chromiumSpan{
+		{text: "Words and interna", style: hyStyle(16, HyphensAuto, "en")}, hyAnchor,
+		{text: "tionalization more text", style: hyStyle(16, HyphensAuto, "en")},
+	}},
+	{name: "auto-anchor-last", width: 150, base: hyStyle(16, HyphensAuto, "en"), spans: []chromiumSpan{
+		{text: "Words before internationalization ", style: hyStyle(16, HyphensAuto, "en")}, hyAnchor,
+	}},
+	{name: "auto-anchor-min-content", minWidth: true, base: hyStyle(16, HyphensAuto, "en"), spans: []chromiumSpan{
+		{text: "Words and internationalization ", style: hyStyle(16, HyphensAuto, "en")}, hyAnchor,
+		{text: " more text", style: hyStyle(16, HyphensAuto, "en")},
+	}},
+	{name: "auto-anchor-balance", width: 200, para: ParagraphStyle{WrapStyle: TextWrapBalance}, base: hyStyle(16, HyphensAuto, "en"), spans: []chromiumSpan{
+		{text: "The typographical considerations ", style: hyStyle(16, HyphensAuto, "en")}, hyAnchor,
+		{text: " of hyphenation demonstrate extraordinary internationalization requirements everywhere", style: hyStyle(16, HyphensAuto, "en")},
+	}},
+	{name: "auto-anchor-inside-balance", width: 150, para: ParagraphStyle{WrapStyle: TextWrapBalance}, base: hyStyle(16, HyphensAuto, "en"), spans: []chromiumSpan{
+		{text: "Words and interna", style: hyStyle(16, HyphensAuto, "en")}, hyAnchor,
+		{text: "tionalization more text", style: hyStyle(16, HyphensAuto, "en")},
+	}},
+	{name: "auto-anchor-pretty", width: 170, para: ParagraphStyle{WrapStyle: TextWrapPretty}, base: hyStyle(16, HyphensAuto, "en"), spans: []chromiumSpan{
+		{text: autoText + " ", style: hyStyle(16, HyphensAuto, "en")}, hyAnchor,
+		{text: " again", style: hyStyle(16, HyphensAuto, "en")},
+	}},
+	{name: "soft-anchor", width: 100, base: hyStyle(16, HyphensManual, ""), spans: []chromiumSpan{
+		{text: "Ex\u00adtra\u00ador\u00addi\u00ad", style: hyStyle(16, HyphensManual, "")}, hyAnchor,
+		{text: "nary in\u00adter\u00adna\u00adtion\u00adal\u00adiza\u00adtion", style: hyStyle(16, HyphensManual, "")},
+	}},
+	{name: "soft-anchor-none", width: 100, base: hyStyle(16, HyphensNone, ""), spans: []chromiumSpan{
+		{text: "Ex\u00adtra\u00ador\u00addi\u00ad", style: hyStyle(16, HyphensNone, "")}, hyAnchor,
+		{text: "nary in\u00adter\u00adna\u00adtion\u00adal\u00adiza\u00adtion", style: hyStyle(16, HyphensNone, "")},
+	}},
 }
+
+// hyAnchor is an out-of-flow box of the hyphenation cases: an anchor, an
+// empty absolutely positioned span in Chromium.
+var hyAnchor = chromiumSpan{box: &InlineBox{Anchor: true}}
 
 func (c *chromiumHyphenCase) paragraph() *Paragraph {
 	p := &Paragraph{Style: c.para, Default: c.base}
 	for _, s := range c.spans {
+		if s.box != nil {
+			p.AddBox(*s.box)
+			continue
+		}
 		p.AddText(s.text, s.style)
 	}
 	return p
@@ -170,6 +224,13 @@ func chromiumHyphenHTML() string {
 		}
 		fmt.Fprintf(&b, "<div class=\"case\" id=\"c%d\"%s style=\"%s\">", i, lang, html.EscapeString(cssHyphenCase(c)))
 		for _, s := range c.spans {
+			if s.box != nil {
+				if !s.box.Anchor {
+					panic("the hyphenation cases have only out-of-flow boxes")
+				}
+				b.WriteString(`<span style="position: absolute;"></span>`)
+				continue
+			}
 			fmt.Fprintf(&b, "<span style=\"%s\">%s</span>", html.EscapeString(cssStyle(s.style)+cssHyphens(s.style.Hyphens)),
 				strings.ReplaceAll(html.EscapeString(s.text), "\u00ad", "&shy;"))
 		}

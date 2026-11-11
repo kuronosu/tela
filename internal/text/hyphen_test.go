@@ -2,6 +2,7 @@ package text
 
 import (
 	"fmt"
+	"math"
 	"slices"
 	"strings"
 	"testing"
@@ -330,5 +331,87 @@ func TestAutoHyphenLayout(t *testing.T) {
 		if l := lay(c.lang, c.h, 150); l.Line(0).Hyphen || l.Line(1).Hyphen {
 			t.Errorf("lang %q hyphens %d hyphenates: %q", c.lang, c.h, lineTexts(l))
 		}
+	}
+}
+
+// TestPlaceholderHyphenation checks that placeholders (anchors and the
+// placeholders of empty inlines) are not part of the words hyphens: auto
+// breaks, as Blink's out-of-flow and empty inline items have no text: a
+// word with one inside or after it breaks as without it, and a point at
+// an anchor breaks after the anchor (like a soft wrap) with a hyphen in
+// the style of the text before it. (Chromium never breaks at the anchor
+// itself: it hyphenates the parts of a word split by an inline item
+// apart, chromium_hyphen_test.go.)
+func TestPlaceholderHyphenation(t *testing.T) {
+	coll := hyphenCollection(t)
+	en := hyText(HyphensAuto, "en")
+	red := hyText(HyphensAuto, "en", func(s *TextStyle) { s.Paint = hyRed })
+	anchor := func(p *Paragraph) { p.AddBox(InlineBox{Anchor: true}) }
+	empty := func(p *Paragraph) { p.CloseInline(p.OpenInline(Inline{Style: en})) }
+	para := func(before, after string, add func(*Paragraph)) *Paragraph {
+		p := &Paragraph{Default: en}
+		p.AddText(before, en)
+		if add != nil {
+			add(p)
+		}
+		p.AddText(after, red)
+		return p
+	}
+	for _, c := range []struct {
+		name          string
+		before, after string
+		add           func(*Paragraph)
+	}{
+		{"anchor-after", "Words and internationalization ", " more text", anchor},
+		{"anchor-glued", "Words and internationalization", " more text", anchor},
+		{"anchor-at-point", "Words and interna", "tionalization more text", anchor},
+		{"anchor-inside", "Words and internat", "ionalization more text", anchor},
+		{"anchor-last", "Words and internationalization ", "", anchor},
+		{"empty-after", "Words and internationalization ", "more text", empty},
+		{"empty-inside", "Words and inter", "nationalization more text", empty},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			p, plain := para(c.before, c.after, c.add), para(c.before, c.after, nil)
+			hyphens := 0
+			for _, w := range []float32{150, 120, 100} {
+				want := NewLayout(coll, plain)
+				want.BreakLines(w)
+				l := NewLayout(coll, p)
+				l.BreakLines(w)
+				if got, exp := fmt.Sprint(lineTexts(l)), fmt.Sprint(lineTexts(want)); got != exp {
+					t.Fatalf("at %g: lines %s, without the placeholder %s", w, got, exp)
+				}
+				for i := range l.NumLines() {
+					// Shaping breaks at a placeholder: kerning may differ.
+					if l.Line(i).Hyphen != want.Line(i).Hyphen || math.Abs(float64(l.Line(i).Width-want.Line(i).Width)) > 0.5 {
+						t.Errorf("at %g: line %d hyphen %v width %g, without the placeholder %v %g",
+							w, i, l.Line(i).Hyphen, l.Line(i).Width, want.Line(i).Hyphen, want.Line(i).Width)
+					}
+					if l.Line(i).Hyphen {
+						hyphens++
+					}
+				}
+			}
+			if hyphens == 0 && c.name != "anchor-last" {
+				t.Error("no line is hyphenated")
+			}
+			if mc, exp := NewLayout(coll, p).MinContentWidth(), NewLayout(coll, plain).MinContentWidth(); math.Abs(float64(mc-exp)) > 0.5 {
+				t.Errorf("min-content %g, without the placeholder %g", mc, exp)
+			}
+		})
+	}
+	// An anchor at the point stays at the end of the hyphenated line,
+	// before the hyphen, which has the style of the text before it.
+	l := NewLayout(coll, para("Words and interna", "tionalization more text", anchor))
+	l.BreakLines(150)
+	l.AlignTo(150)
+	if !l.Line(0).Hyphen || l.Line(0).TextEnd != len("Words and interna") {
+		t.Fatalf("lines %q, hyphen %v", lineTexts(l), l.Line(0).Hyphen)
+	}
+	if pos, ok := l.AnchorPosition(0); !ok || pos.Line != 0 || !near(pos.X, l.Line(0).HyphenX) {
+		t.Errorf("anchor on line %d at %g, want line 0 at the hyphen, %g", pos.Line, pos.X, l.Line(0).HyphenX)
+	}
+	if s := l.lines[0].hyphen; l.styles[s].Paint != en.Paint {
+		t.Errorf("the hyphen has the paint %v of the text after the anchor", l.styles[s].Paint)
 	}
 }
