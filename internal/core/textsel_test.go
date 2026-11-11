@@ -318,6 +318,48 @@ func TestTextSelCursorLink(t *testing.T) {
 	}
 }
 
+// The auto cursor reuses the hit test that routed the pointer event: a
+// move hit-tests once. Content that moves under a resting pointer (a
+// frame without pointer events) gives the cursor of what is under it now.
+func TestTextSelCursorOneHitTest(t *testing.T) {
+	var set Setter[bool]
+	app := func() Node {
+		down, s := UseState(false)
+		set = s
+		pad := "pt-4"
+		if down {
+			pad = "pt-40"
+		}
+		return div(Class("w-96 "+pad), p(Key("a"), Class("px-4"), Text("Some selectable text")))
+	}
+	x := newKeys(t, Component(app), 400, 200)
+	tr := x.tree()
+	a := textAt(t, tr, "a", 2, 0)
+	x.send(move(a.X, a.Y))
+	for i := range 3 {
+		n := tr.in.hitTests
+		x.send(move(a.X+float32(i+1), a.Y))
+		if c := tr.Cursor(); c != platform.CursorText {
+			t.Fatalf("over text: %v, want text", c)
+		}
+		if got := tr.in.hitTests - n; got != 1 {
+			t.Errorf("a move and its cursor ran %d hit tests, want 1", got)
+		}
+	}
+	// The text moves down from under the resting pointer: the default
+	// arrow, and back.
+	set.Set(true)
+	x.settle()
+	if c := tr.Cursor(); c != platform.CursorDefault {
+		t.Errorf("after the text moved away: %v, want default", c)
+	}
+	set.Set(false)
+	x.settle()
+	if c := tr.Cursor(); c != platform.CursorText {
+		t.Errorf("after the text came back: %v, want text", c)
+	}
+}
+
 // An A that gets a destination becomes a link, with its cursor, and an A
 // that loses it stops being one.
 func TestTextSelCursorLinkChanges(t *testing.T) {

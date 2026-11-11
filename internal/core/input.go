@@ -183,6 +183,47 @@ type pointerState struct {
 	// noSelect: a pointerdown handler said the press leaves the static
 	// selection alone (NoTextSelection, textsel.go).
 	noSelect bool
+	// hit is what the last hit test at the pointer found (hitPointer).
+	hit pointerHit
+}
+
+// pointerHit is what a hit test at a pointer's position found, kept for
+// the auto cursor (Cursor) and the position of the static selection under
+// the pointer (posAt), so that a pointer event hit-tests once. It holds
+// while the pointer stays at pos and no paint (which places what is hit)
+// or build (which mounts, unmounts and makes inert what is hit) ran since
+// it was taken (gen, hitGen).
+type pointerHit struct {
+	gen [2]int // zero: none
+	pos gfx.Point
+	el  *Element
+	// box is the box whose hit gave el (hitter.box), and text reports
+	// that pos is on a cluster of its text (hitter.onText).
+	box  *Box
+	text bool
+}
+
+// hitGen returns the generation of what hit tests see: a hit test's
+// answer holds while it stays the same (pointerHit).
+func (t *Tree) hitGen() [2]int { return [2]int{t.stats.Paints + 1, t.stats.Builds} }
+
+// hitPointer hit-tests at the position of pointer ps, as hitTest does,
+// and keeps what it found in ps.hit.
+func (t *Tree) hitPointer(ps *pointerState) (*Element, barHit) {
+	el, bar := t.hitTest(ps.pos)
+	h := &t.in.hit
+	ps.hit = pointerHit{gen: t.hitGen(), pos: ps.pos, el: el, box: h.box, text: h.onText != nil && h.onText == h.box}
+	h.box, h.onText = nil, nil
+	return el, bar
+}
+
+// pointerHitAt returns what a hit test at pointer ps's position finds:
+// ps.hit when it still holds (pointerHit), else a new hit test's.
+func (t *Tree) pointerHitAt(ps *pointerState) pointerHit {
+	if h := ps.hit; h.gen != t.hitGen() || h.pos != ps.pos {
+		t.hitPointer(ps)
+	}
+	return ps.hit
 }
 
 // inputState is the pointer input state of a Tree (UI thread).
@@ -202,6 +243,8 @@ type inputState struct {
 	fsel *fieldSelPress
 	// rehover is set while rehover fires boundary events (Rehovered).
 	rehover bool
+	// hitTests counts the hit tests that walked the box tree, for tests.
+	hitTests int
 }
 
 // HandlePointer dispatches a platform pointer event (see the comment at
@@ -264,7 +307,7 @@ func (t *Tree) pointerTarget(ps *pointerState) (*Element, barHit) {
 	if !ps.inside && ps.key.kind != platform.PointerTouch {
 		return nil, barHit{}
 	}
-	return t.hitTest(ps.pos)
+	return t.hitPointer(ps)
 }
 
 func (t *Tree) pointerMove(ps *pointerState, e platform.PointerEvent) {
@@ -466,7 +509,7 @@ func (t *Tree) endPress(ps *pointerState) {
 		ps.target = nil
 		delete(t.in.ptrs, ps.key)
 	case captured && ps.inside:
-		target, _ := t.hitTest(ps.pos)
+		target, _ := t.hitPointer(ps)
 		ps.target = target
 		t.updateOver(ps, target)
 		t.fireBoundary(ps)
@@ -1131,14 +1174,12 @@ func (t *Tree) Cursor() platform.Cursor {
 // cluster of text whose element may start a selection, or of a link
 // (ShouldShowIBeamForNode's IsOverLink: a link whose classes set cursor:
 // auto, since a link's own cursor is the hand, style.Input.Link), else
-// the default arrow.
+// the default arrow. It reads the hit test that routed the pointer's last
+// event, or hit-tests again when the content under it moved since
+// (pointerHitAt).
 func (t *Tree) autoCursor(ps *pointerState) platform.Cursor {
-	el, _ := t.hitTest(ps.pos)
-	h := &t.in.hit
-	over := h.onText != nil && h.onText == h.box
-	h.box, h.onText = nil, nil
-	if over {
-		if ok, _ := canStartSel(el); ok {
+	if h := t.pointerHitAt(ps); h.text {
+		if ok, _ := canStartSel(h.el); ok {
 			return platform.CursorText
 		}
 	}

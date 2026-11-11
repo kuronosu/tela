@@ -617,6 +617,17 @@ func (t *Tree) posAt(root *Box, p gfx.Point) (selPos, bool) {
 	t.hitTest(p)
 	hb := t.in.hit.box
 	t.in.hit.box, t.in.hit.onText = nil, nil
+	return t.posUnder(root, hb, p)
+}
+
+// posAtPointer is posAt at the position of pointer ps, from the hit test
+// that routed its last event while it holds (pointerHitAt).
+func (t *Tree) posAtPointer(root *Box, ps *pointerState) (selPos, bool) {
+	return t.posUnder(root, t.pointerHitAt(ps).box, ps.pos)
+}
+
+// posUnder is posAt for the box hb that a hit test at p found.
+func (t *Tree) posUnder(root, hb *Box, p gfx.Point) (selPos, bool) {
 	if hb == nil || t.selRoot(hb) != root {
 		hb = root
 	}
@@ -871,7 +882,7 @@ func (t *Tree) selPress(ps *pointerState, target *Element) {
 		}
 		return
 	}
-	pos, found := t.posAt(root, ps.pos)
+	pos, found := t.posAtPointer(root, ps)
 	if !found {
 		t.clearSel()
 		return
@@ -970,21 +981,21 @@ func (t *Tree) selPointerMove(ps *pointerState) {
 		s.drag = nil
 		return
 	}
-	t.selDragTo(ps.pos)
+	t.selDragTo(ps)
 	if t.selAutoscrolling() {
 		t.requestRepaint()
 	}
 }
 
-// selDragTo extends the selection to the window point p.
-func (t *Tree) selDragTo(p gfx.Point) {
+// selDragTo extends the selection to the position of pointer ps.
+func (t *Tree) selDragTo(ps *pointerState) {
 	s := &t.tsel
 	if !t.posValid(s.anchor, s.root) {
 		t.clearSel()
 		return
 	}
-	if pos, ok := t.posAt(s.root, p); ok {
-		t.selExtendTo(pos, p, false)
+	if pos, ok := t.posAtPointer(s.root, ps); ok {
+		t.selExtendTo(pos, ps.pos, false)
 	}
 }
 
@@ -1091,7 +1102,7 @@ func (t *Tree) selAutoscrolling() bool { return t.selAutoscroll(false) }
 // extends the selection to the text that came under the pointer.
 func (t *Tree) animateSel() {
 	if t.selAutoscroll(true) {
-		t.selDragTo(t.tsel.drag.pos)
+		t.selDragTo(t.tsel.drag)
 	}
 }
 

@@ -57,7 +57,8 @@ type hitter struct {
 	// box is the box whose hit gave the element found: the box itself,
 	// or the paragraph box of the inline element hit (textsel.go reads
 	// it); onText is the paragraph box when the point is on a cluster of
-	// its text (not an inline box), for the auto cursor.
+	// its text (not an inline box), for the auto cursor. A pointer keeps
+	// both (hitPointer).
 	box, onText *Box
 }
 
@@ -74,12 +75,13 @@ func (t *Tree) HitTest(x, y float32) *Element {
 // pt is on a visible scrollbar.
 func (t *Tree) hitTest(pt gfx.Point) (*Element, barHit) {
 	rb := t.rootBox
+	h := &t.in.hit
+	h.box, h.onText = nil, nil
 	if rb == nil || rb.pcs == nil || !(gfx.Rect{X1: t.viewport.W, Y1: t.viewport.H}).Contains(pt) {
 		return nil, barHit{}
 	}
-	h := &t.in.hit
 	h.t, h.scale = t, float64(t.scale)
-	h.box, h.onText = nil, nil
+	t.in.hitTests++
 	el := h.stacked(rb, pt)
 	bar := h.bar
 	h.bar = barHit{}

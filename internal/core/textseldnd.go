@@ -67,7 +67,7 @@ func (t *Tree) selDragStart(ps *pointerState, u gesture.DragUpdate) {
 				s.unit = selChar
 				t.setSel(root, pos, pos)
 				s.drag = ps
-				t.selDragTo(ps.pos)
+				t.selDragTo(ps)
 			}
 		}
 		return
