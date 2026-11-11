@@ -13,6 +13,40 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+Phase 23, Layout, text and engine fidelity (ADR-268 to ADR-273).
+
+### Added
+
+- Static text is selectable and copyable, as on the web (ADR-271): press and drag across paragraphs, Shift+click, double and triple click, Ctrl/Cmd+C, Ctrl/Cmd+A, the context menu keys at the selection, a drag of the selection, `select-none`/`select-text`/`select-all`, and `selection:` colors. Buttons, aria presses and kit chrome start no selection.
+- `aria.PressOptions.AllowTextSelectionOnPress`: the aria hooks' presses start no text selection unless it is set; `telatest.App.SelectedText`.
+- `h.Lang(tag)`, HTML's `lang`, inherited like `h.Dir` (ADR-269): text shapes with its language, so pan-CJK fonts draw Japanese, Simplified or Traditional Chinese, Hong Kong or Korean forms, and Han fallback takes the fonts of that region first. `tela.SetDefaultLang` and `tela.DefaultLang` set the language of text with no `h.Lang` above it (default: the user's language); `i18n` keeps it at its current locale, and `i18n.Provider` sets the language of its children.
+- Synthetic bold and oblique as in Chromium (ADR-269): a weight of 600 or more on a font without one is emboldened, italic on an upright font is slanted; advances do not change.
+- `hyphens-none`, `hyphens-manual` and `hyphens-auto` (ADR-270): soft hyphens (U+00AD) break words with a hyphen, and `hyphens-auto` hyphenates in the text's language as Chromium does, with the dictionaries the app registers in `tela.App.Hyphenation` (`tela.Hyphenation`, `tela.HyphenationPatterns`, `telatest.Hyphenation`). Opt-in packages `hyphen/en` (`en.US`, `en.GB`), `hyphen/es` (`es.Spanish`) and `hyphen/fr` (`fr.French`); a binary that imports none carries no patterns.
+- Underlines and overlines skip descenders and other glyph ink, as Chromium's default `text-decoration-skip-ink: auto` (ADR-273).
+- `[grid-template-areas:'head_head'_'side_main']` and `[grid-area:main]` (also `[grid-area:1/2/3/4]`) as arbitrary properties (ADR-268).
+- A drag near the edge of a scroll container, or of the window, scrolls it after 0.2 s as in Chrome, not only text fields (ADR-272): the innermost overflowing container scrolls, outer ones follow once it reaches its end, and a field whose text fits lets its container scroll.
+
+### Changed
+
+- `cursor: auto` shows the text cursor over selectable text instead of the arrow.
+- Border and outline widths and outline offsets snap to whole device pixels at the display scale, in layout too, as Chromium computes them: at x1.25 and x1.5 a 1px border is one device pixel (`border-[0.5px]` is 1 px at x1) (ADR-273).
+- A line broken at a soft hyphen ends with a visible hyphen (CSS `hyphens: manual`), unless `hyphens-none`.
+- Bold or italic text in fonts with one face (CJK fallbacks, Noto Sans Arabic in italic) is synthesized instead of drawn regular.
+- Overlines have the underline's thickness and sit above the text, as in Chromium.
+
+### Fixed
+
+- `aspect-*` flex items with `max-h-*`/`min-h-*` are limited by them only as in Chromium (two `w-full aspect-square max-h-[20px]` in 280 px: 140×20, were 20×20); a `flex` or `grid` box with `aspect-*` takes its height from its width, and an `aspect-*` box grows to fit taller content unless it has `min-h-0` or scrolls; an `aspect-*` item in a `w-fit` flex column is sized from its width (ADR-268).
+- A grid item's percentage min size (`min-w-[50%]`) no longer makes its track as wide as its content.
+- An absolutely positioned element without insets inside text sits at its place on the line, and a `relative` span is the containing block of its absolute children.
+- A growing `Textarea` (`field-sizing-content`) with long text no longer widens its grid column past the card.
+- A family installed in one weight only (such as Noto Sans JP Thin on Windows) no longer draws regular text when a family with a Regular is installed; CJK text of one paragraph is drawn by one installed family.
+- Text baselines and box edges on an exact half device pixel are drawn on Chromium's row (one row higher before, at fractional scales).
+- A soft hyphen no longer switches the text to a fallback font, which changed kerning around it.
+- `ElementRef.ScrollOffset` read in a layout effect returns the offset the scrolls made before it give, clamped to that frame's layout, as `scrollTop` does in Chromium (ADR-272).
+- A popover shown again after `display: none` in a frame where its placement flips enters once, from the final side's `starting:` style; boxes with `AnimateLayout` that appear in such a frame appear at their place.
+- The drag image of text selected in a rotated field keeps the rotation, as in Chrome.
+
 ## [0.14.2] - 2026-11-09
 
 Phase 22, Desktop, kit and text details (ADR-260 to ADR-266). It breaks `tela.BackgroundGradientFn`'s layering, `telatest.ByClass` counts and `i18n`'s rounding of some floats.
