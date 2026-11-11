@@ -27,14 +27,28 @@ func (e *Engine) leafMeasure(n Node, st *Style, in input, measure func(known opt
 
 	// In contentSize mode the node's size styles are ignored.
 	var nodeSize, nodeMin, nodeMax optSize
-	var ratio opt
+	var ratio, ratioMin opt
 	if in.sizing == contentSize {
 		nodeSize = known
 	} else {
 		ratio = st.aspectRatio()
-		nodeSize = known.or(st.size().resolve(parent).applyAspectRatio(ratio))
+		sized := st.size().resolve(parent)
+		nodeSize = known.or(sized.applyAspectRatioToWidth(ratio))
 		nodeMin = st.minSize().resolve(parent).applyAspectRatio(ratio)
 		nodeMax = st.maxSize().resolve(parent)
+		// A height from a known width through the aspect ratio: taller
+		// content makes the box taller while its min-height is auto
+		// (ratioGrowsHeight, as ratioHeight does for containers; text
+		// with an explicit width and aspect-[2] has its lines' height in
+		// Chromium), else it is the height.
+		if w := nodeSize.w; ratio.ok && w.ok && !nodeSize.h.ok {
+			rh := fclampOpt(w.v/ratio.v, nodeMin.h, nodeMax.h)
+			if st.ratioGrowsHeight() {
+				ratioMin = some(rh)
+			} else {
+				nodeSize.h = some(rh)
+			}
+		}
 	}
 
 	// A node that scrolls vertically reserves horizontal space for its
@@ -73,7 +87,17 @@ func (e *Engine) leafMeasure(n Node, st *Style, in input, measure func(known opt
 
 	clamped := known.or(nodeSize).unwrapOr(size{m.w + cbi.hsum(), m.h + cbi.vsum()}).maybeClamp(nodeMin, nodeMax)
 	sz := size{clamped.w, clamped.h}
-	if ratio.ok {
+	switch {
+	case ratioMin.ok && st.Display == DisplayFlex && st.FlexDirection.isRow():
+		// A flex row's content height is measured at its max-content
+		// width (ratioHeight): a leaf here stands for a row whose content
+		// is one anonymous item.
+		mc := measure(optSize{}, availSize{MaxContentConstraint, ah})
+		sz.h = fmax(ratioMin.v, fclampOpt(mc.h+cbi.vsum(), nodeMin.h, nodeMax.h))
+	case ratioMin.ok:
+		sz.h = fmax(sz.h, ratioMin.v)
+	case ratio.ok && !nodeSize.h.ok:
+		// A width from the content.
 		sz.h = fmax(sz.h, clamped.w/ratio.v)
 	}
 	sz = sz.maybeMax(pbSum.opts())

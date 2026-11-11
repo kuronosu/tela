@@ -223,6 +223,13 @@ func (e *Engine) ratioHeight(n Node, st *Style, in input, algo func(*Engine, Nod
 		// perf: an extra size query of the box, uncached.
 		probe := in
 		probe.run, probe.axis, probe.pctH = computeSize, axisVertical, some(h)
+		if st.Display == DisplayFlex && st.FlexDirection.isRow() {
+			// A row's content height is measured with its items at their
+			// max-content widths, as Chromium finds it: aspect-[2] text
+			// in a flex row of 30 px is 30x15, not its 40 px of wrapped
+			// lines (a column's or a grid's is 30x40).
+			probe.sizing, probe.known.w, probe.avail.w = contentSize, none, MaxContentConstraint
+		}
 		content := algo(e, n, st, probe).size.h
 		h = fmax(h, fminOpt(content, maxH))
 	}

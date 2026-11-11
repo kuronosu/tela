@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Boxes with an aspect ratio sized by a grid area, by insets or an explicit width when absolutely positioned, and text with an explicit width: the automatic minimum size lets taller content make them taller, as for boxes in flow (css-sizing-4 section 5.2; ADR-268)</title>
+</head>
+<body>
+
+<div id="test-root" style="display: block; width: 400px;">
+  <div style="display: grid; width: 30px;">
+    <div style="display: block; aspect-ratio: 1;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+  </div>
+  <div style="display: grid; width: 30px;">
+    <div style="display: block; aspect-ratio: 1;"><div style="display: block; width: 5px; height: 10px;"></div></div>
+  </div>
+  <div style="display: grid; width: 30px;">
+    <div style="display: block; aspect-ratio: 1; overflow: hidden;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+  </div>
+  <div style="display: grid; width: 30px;">
+    <div style="display: block; aspect-ratio: 1; max-height: 40px;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+  </div>
+  <div style="display: grid; width: 30px; grid-template-rows: 20px;">
+    <div style="display: block; aspect-ratio: 1;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+  </div>
+  <div style="display: grid; width: 30px;">
+    <div style="display: flex; aspect-ratio: 1;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+  </div>
+  <div style="display: grid; width: 60px; grid-template-columns: 30px 30px;">
+    <div style="display: block; aspect-ratio: 1;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+    <div style="display: block; height: 10px;"></div>
+  </div>
+  <div style="display: grid; width: 30px;">
+    <div style="display: block; width: 20px; aspect-ratio: 1;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+  </div>
+  <div style="display: block; position: relative; width: 100px; height: 100px;">
+    <div style="display: block; position: absolute; width: 30px; aspect-ratio: 1;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+    <div style="display: block; position: absolute; left: 40px; width: 30px; aspect-ratio: 1;"><div style="display: block; width: 5px; height: 10px;"></div></div>
+  </div>
+  <div style="display: block; position: relative; width: 100px; height: 100px;">
+    <div style="display: block; position: absolute; left: 10px; right: 60px; aspect-ratio: 1;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+    <div style="display: block; position: absolute; left: 50px; width: 30px; aspect-ratio: 1; min-height: 0px;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+  </div>
+  <div style="display: block; position: relative; width: 100px; height: 100px;">
+    <div style="display: block; position: absolute; width: 30px; aspect-ratio: 1; overflow: hidden;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+    <div style="display: block; position: absolute; left: 40px; width: 30px; aspect-ratio: 1; max-height: 40px;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+  </div>
+  <div style="display: block; position: relative; width: 100px; height: 100px;">
+    <div style="display: flex; position: absolute; width: 30px; aspect-ratio: 1;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+    <div style="display: block; position: absolute; left: 40px; width: 30px; aspect-ratio: 2;">XX&#8203;XX&#8203;XX&#8203;XX</div>
+  </div>
+  <div style="display: block; width: 100px;">
+    <div style="display: block; width: 30px; aspect-ratio: 2;">XX&#8203;XX&#8203;XX&#8203;XX</div>
+  </div>
+  <div style="display: block; width: 100px;">
+    <div style="display: block; width: 30px; aspect-ratio: 2; min-height: 0px;">XX&#8203;XX&#8203;XX&#8203;XX</div>
+  </div>
+  <div style="display: block; width: 100px;">
+    <div style="display: block; width: 60px; aspect-ratio: 2;">XX&#8203;XX</div>
+  </div>
+  <div style="display: flex; width: 100px; align-items: flex-start;">
+    <div style="display: block; width: 30px; aspect-ratio: 2;">XX&#8203;XX&#8203;XX&#8203;XX</div>
+  </div>
+  <div style="display: grid; width: 30px;">
+    <div style="display: block; aspect-ratio: 2;">XX&#8203;XX&#8203;XX&#8203;XX</div>
+  </div>
+  <div style="display: flex; width: 100px; height: 100px; align-items: flex-start;">
+    <div style="display: block; width: 30px; aspect-ratio: 2;">XX&#8203;XX&#8203;XX&#8203;XX</div>
+  </div>
+  <div style="display: flex; width: 100px; align-items: flex-start;">
+    <div style="display: block; max-width: 30px; aspect-ratio: 2;">XX&#8203;XX&#8203;XX&#8203;XX</div>
+  </div>
+  <div style="display: flex; width: 100px; height: 100px; align-items: flex-start;">
+    <div style="display: block; max-width: 30px; aspect-ratio: 2;">XX&#8203;XX&#8203;XX&#8203;XX</div>
+  </div>
+  <div style="display: flex; width: 100px; align-items: flex-start;">
+    <div style="display: block; width: 30px; aspect-ratio: 1;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+  </div>
+  <div style="display: flex; width: 100px; align-items: flex-start;">
+    <div style="display: block; max-width: 30px; aspect-ratio: 1;"><div style="display: block; width: 50px; height: 60px;"></div></div>
+  </div>
+  <div style="display: flex; width: 100px;">
+    <div style="display: block; width: 30px; aspect-ratio: 2;">XX&#8203;XX&#8203;XX&#8203;XX</div>
+  </div>
+  <div style="display: flex; width: 100px; align-items: flex-start;">
+    <div style="display: flex; width: 30px; aspect-ratio: 1;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+  </div>
+  <div style="display: flex; width: 100px; align-items: flex-start;">
+    <div style="display: grid; width: 30px; aspect-ratio: 1;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+  </div>
+  <div style="display: flex; width: 100px; align-items: flex-start;">
+    <div style="display: flex; width: 30px; aspect-ratio: 2;">XX&#8203;XX&#8203;XX&#8203;XX</div>
+  </div>
+  <div style="display: flex; width: 100px; height: 100px; align-items: flex-start;">
+    <div style="display: flex; max-width: 40px; aspect-ratio: 2;">XX&#8203;XX&#8203;XX&#8203;XX&#8203;XX&#8203;XX</div>
+  </div>
+  <div style="display: flex; width: 100px; height: 100px; align-items: flex-start;">
+    <div style="display: block; max-width: 40px; aspect-ratio: 2;">XX&#8203;XX&#8203;XX&#8203;XX&#8203;XX&#8203;XX</div>
+  </div>
+  <div style="display: block; width: 30px;">
+    <div style="display: flex; aspect-ratio: 2;">XX&#8203;XX&#8203;XX&#8203;XX</div>
+  </div>
+  <div style="display: block; width: 30px;">
+    <div style="display: grid; aspect-ratio: 2;">XX&#8203;XX&#8203;XX&#8203;XX</div>
+  </div>
+  <div style="display: block; width: 30px;">
+    <div style="display: flex; aspect-ratio: 2;"><div style="display: block;">XX&#8203;XX&#8203;XX&#8203;XX</div></div>
+  </div>
+  <div style="display: block; width: 30px;">
+    <div style="display: flex; flex-direction: column; aspect-ratio: 2;">XX&#8203;XX&#8203;XX&#8203;XX</div>
+  </div>
+  <div style="display: block; width: 30px;">
+    <div style="display: flex; aspect-ratio: 2;"><div style="display: block; width: 5px; height: 25px;"></div></div>
+  </div>
+</div>
+
+</body>
+</html>

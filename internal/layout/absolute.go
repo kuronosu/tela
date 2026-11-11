@@ -121,6 +121,16 @@ func (e *Engine) placeAbsolute(p, c Node, st *Style, area size, areaOffset point
 		known = known.applyAspectRatio(ratio).maybeClamp(minSize, maxSize)
 	}
 
+	// A height from the width through the aspect ratio is a minimum that
+	// taller content exceeds while min-height is auto (ratioGrowsHeight),
+	// up to the max height, as Chromium sizes an absolute w-[30px]
+	// aspect-square box with 60 px of content 30x60 (ADR-268).
+	var ratioMin opt
+	if ratio.ok && known.w.ok && known.h.ok && !sizeStyle.resolve(areaOpts).h.ok && !(top.ok && bottom.ok) &&
+		!sizeStyle.h.isSizingKeyword() && st.ratioGrowsHeight() {
+		ratioMin, known.h = known.h, none
+	}
+
 	// The space available to a shrink-to-fit box is the containing block
 	// minus the insets that are set or, without any, minus the static
 	// position (CSS 2 10.3.7; Taffy uses the whole containing block).
@@ -132,12 +142,15 @@ func (e *Engine) placeAbsolute(p, c Node, st *Style, area size, areaOffset point
 	// content (percentages inside it do not resolve against it, a column
 	// wraps at its max height): the box sizes itself again in that axis.
 	// A fit-content width is definite (css-sizing-3).
-	definite := boolSize{true, known.h.ok}
+	definite := boolSize{true, known.h.ok || ratioMin.ok}
 	var final size
 	if known.bothSet() {
 		final = size{known.w.v, known.h.v}
 	} else {
 		final = known.unwrapOr(e.measureChildSizeBoth(p, c, known, areaOpts, avail, contentSize))
+	}
+	if ratioMin.ok {
+		final.h = fmax(ratioMin.v, fminOpt(final.h, maxSize.h))
 	}
 	final = final.maybeClamp(minSize, maxSize)
 	out := e.performChildLayout(p, c, contentKnown(final, definite), areaOpts, avail, contentSize)

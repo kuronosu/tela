@@ -202,7 +202,15 @@ func (e *Engine) positionGridItem(n, c Node, st *Style, area rect, shim float32,
 		}
 	}
 	k := optSize{w, inherent.h}.applyAspectRatio(ratio)
-	if !k.h.ok {
+	// A height from the width through the aspect ratio grows with taller
+	// content (ratioGrowsHeight): the item's own layout transfers it
+	// (ratioHeight, leaf), as Chromium sizes an aspect-square item of a
+	// 30 px column with 60 px of content 30x60.
+	growH := ratio.ok && !st.size().resolve(areaOpts).h.ok && k.w.ok && kh == keywordNone && st.ratioGrowsHeight()
+	if growH {
+		k.h = none
+	}
+	if !k.h.ok && !growH {
 		switch {
 		case kh == keywordExact:
 			k.h = some(eh)
@@ -219,7 +227,11 @@ func (e *Engine) positionGridItem(n, c Node, st *Style, area rect, shim float32,
 			k.h = some(minus.h)
 		}
 	}
-	k = k.applyAspectRatio(ratio).maybeClamp(minSize, maxSize)
+	if growH {
+		k = k.maybeClamp(minSize, maxSize)
+	} else {
+		k = k.applyAspectRatio(ratio).maybeClamp(minSize, maxSize)
+	}
 
 	out := e.performChildLayout(n, c, k, areaOpts, availSize{DefiniteSpace(minus.w), DefiniteSpace(minus.h)}, inherentSize)
 	final := k.unwrapOr(out.size).maybeClamp(minSize, maxSize)

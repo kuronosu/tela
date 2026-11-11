@@ -38,7 +38,13 @@ import (
 //
 // Recorded again for ADR-268's grid percentage min sizes: only its new
 // case changes.
-const wantLayoutDigest uint64 = 0x814d966b66f6970f
+//
+// Recorded again for ADR-268's ratio heights that grow with the content of
+// grid items, absolutely positioned boxes, flex row items and leaves with
+// an explicit width (and are the ratio height, not the content's, under
+// min-height): its new case and 61 of the 200 random trees change; every
+// Taffy fixture and earlier case hashes as before.
+const wantLayoutDigest uint64 = 0xbbe8b88428e965
 
 // layoutDigest hashes the layouts of the Taffy
 // fixtures, Tela's cases and random trees with fractional sizes.
