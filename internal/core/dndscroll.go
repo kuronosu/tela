@@ -32,9 +32,11 @@ import (
 //     scroll containers of its containing-block chain, each in the axes the
 //     user can scroll, the point moving with the content each one
 //     scrolled. So a container scrolls 20 - d px a frame toward its start
-//     and 21 - d toward its end from a pointer d px inside the edge, and,
-//     once it is at its extent, the containers around it scroll only when
-//     the point is past their own edges (it sits at their edge).
+//     and 21 - d toward its end from a pointer d px inside the edge (plus
+//     its border's width: the band is in the border box, the reveal in
+//     the client area), and, once it is at its extent, the containers
+//     around it scroll only when the point is past their own edges (it
+//     sits at their edge).
 //   - Frames run only while a step moves something: the delay is a
 //     deadline (NextDeadline).
 //
