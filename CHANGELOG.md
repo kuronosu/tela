@@ -46,6 +46,7 @@ Phase 23, Layout, text and engine fidelity (ADR-268 to ADR-273).
 - A family installed in one weight only (such as Noto Sans JP Thin on Windows) no longer draws regular text when a family with a Regular is installed; CJK text of one paragraph is drawn by one installed family.
 - Text baselines and box edges on an exact half device pixel are drawn on Chromium's row (one row higher before, at fractional scales).
 - A soft hyphen no longer switches the text to a fallback font, which changed kerning around it.
+- `i18n` no longer sets the default text language to "en" when it has no catalogs and the system names no locale; only a locale the app chose is published.
 - `ElementRef.ScrollOffset` read in a layout effect returns the offset the scrolls made before it give, clamped to that frame's layout, as `scrollTop` does in Chromium (ADR-272).
 - A popover shown again after `display: none` in a frame where its placement flips enters once, from the final side's `starting:` style; boxes with `AnimateLayout` that appear in such a frame appear at their place.
 - The drag image of text selected in a rotated field keeps the rotation, as in Chrome.
