@@ -1,6 +1,8 @@
 package core
 
 import (
+	"image"
+	"math"
 	"strings"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -87,8 +89,8 @@ import (
 // A single press without Shift inside the selection does not change it:
 // past the drag slop it starts a drag and drop of the selected text
 // (text/plain, copy), with the selected text alone as its image, as a
-// field's selection is dragged (fielddnd.go); released where it was
-// pressed, it clears the selection.
+// field's selection is dragged (fielddnd.go); released in the device
+// pixel where it was pressed, it clears the selection.
 //
 // The position under a point (posAt) is Chromium's PositionForPoint: the
 // box hit under it (its paragraph for an inline element), then down to a
@@ -142,10 +144,11 @@ type textSel struct {
 	// drag is the pointer whose moves extend the selection, until its
 	// release.
 	drag *pointerState
-	// inSel is a single press inside the selection, at pressAt, which a
-	// drag past the slop drags and a release there clears.
+	// inSel is a single press inside the selection, at the device pixel
+	// pressAt (devicePixel), which a drag past the slop drags and a
+	// release in that pixel clears.
 	inSel   *pointerState
-	pressAt gfx.Point
+	pressAt image.Point
 	// hl are the paragraph boxes that paint a highlight; gen numbers the
 	// walks that compute it (paragraph.selGen).
 	hl  []*Box
@@ -892,7 +895,7 @@ func (t *Tree) selPress(ps *pointerState, target *Element) {
 		t.selExtendTo(pos, ps.pos, true)
 	case ps.clickCount == 1 && t.onSel(ps.pos):
 		// A press on the selection may drag it (selDragRecognizer).
-		s.inSel, s.pressAt = ps, ps.pos
+		s.inSel, s.pressAt = ps, t.devicePixel(ps.pos)
 		return
 	case ps.clickCount == 2:
 		s.unit = selWord
@@ -1000,7 +1003,10 @@ func (t *Tree) selDragTo(ps *pointerState) {
 }
 
 // selPointerUp ends the press of ps: a release (cancel false) where a
-// press inside the selection was made, with no drag, clears it.
+// press inside the selection was made, with no drag, clears it. Where is
+// the device pixel, as Chromium compares the release with the press
+// (SelectionController::HandleMouseReleaseEvent, its event positions
+// floored to whole pixels of the root frame, which are device pixels).
 func (t *Tree) selPointerUp(ps *pointerState, cancel bool) {
 	s := &t.tsel
 	if s.drag == ps {
@@ -1008,10 +1014,17 @@ func (t *Tree) selPointerUp(ps *pointerState, cancel bool) {
 	}
 	if s.inSel == ps {
 		s.inSel = nil
-		if !cancel && ps.pos == s.pressAt && s.active() {
+		if !cancel && t.devicePixel(ps.pos) == s.pressAt && s.active() {
 			t.clearSel()
 		}
 	}
+}
+
+// devicePixel returns the device pixel that holds window point p:
+// Chromium's gfx::ToFlooredPoint of an event's position.
+func (t *Tree) devicePixel(p gfx.Point) image.Point {
+	k := float64(t.scale)
+	return image.Point{X: int(math.Floor(float64(p.X) * k)), Y: int(math.Floor(float64(p.Y) * k))}
 }
 
 // selDragWon is called when a drag gesture of an element won the press

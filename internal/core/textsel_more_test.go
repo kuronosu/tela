@@ -47,6 +47,50 @@ func TestTextSelDragAndDrop(t *testing.T) {
 	}
 }
 
+// A press on the selection released where it was pressed clears it, as
+// Chromium compares the release with the press in whole device pixels,
+// rounded down (SelectionController::HandleMouseReleaseEvent's
+// gfx::ToFlooredPoint): a release a fraction of a device pixel away
+// clears it, one a device pixel away keeps it.
+func TestTextSelReleaseInPixel(t *testing.T) {
+	for _, scale := range []float64{1, 2} {
+		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
+			b := headless.New(headless.Options{Size: platform.Size{W: 400, H: 200}, Scale: scale})
+			host, err := NewHost(b, Options{Config: Config{Fonts: testFonts, Flavor: testFlavor}, Root: twoParas()})
+			if err != nil {
+				t.Fatal(err)
+			}
+			b.Drain(host)
+			x := &inputHarness{t: t, b: b, h: host, w: host.Window().(*headless.Window)}
+			t.Cleanup(host.stopTimer)
+			x.w.SetFocused(true)
+			x.b.Drain(x.h)
+			tr := x.tree()
+			// A point inside "brave" whose x is a quarter of a device
+			// pixel past a whole one.
+			k := float32(scale)
+			p := textAt(t, tr, "a", 8, 0)
+			p.X = (float32(math.Floor(float64(p.X*k))) + 0.25) / k
+			for _, c := range []struct {
+				dx    float32 // device pixels
+				clear bool
+			}{{0, true}, {0.5, true}, {1, false}, {-0.5, false}} {
+				x.drag(textAt(t, tr, "a", 6, 0), textAt(t, tr, "a", 11, 0))
+				if got := tr.SelectedText(); got != "brave" {
+					t.Fatalf("selected %q", got)
+				}
+				q := gfx.Point{X: p.X + c.dx/k, Y: p.Y}
+				x.send(move(p.X, p.Y), down(p.X, p.Y), moveHeld(q.X, q.Y), up(q.X, q.Y))
+				x.b.Advance(time.Second)
+				if got := tr.SelectedText(); (got == "") != c.clear {
+					t.Errorf("released %g device px from the press: selection %q, cleared want %v", c.dx, got, c.clear)
+				}
+				x.clickAt(textAt(t, tr, "b", 0, 0)) // clears it for the next case
+			}
+		})
+	}
+}
+
 func TestTextSelGestures(t *testing.T) {
 	var drags int
 	root := div(Class("p-4 w-80"),
