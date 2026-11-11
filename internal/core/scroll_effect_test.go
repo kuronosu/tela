@@ -222,3 +222,80 @@ func TestDamageLayoutEffectScrolls(t *testing.T) {
 	runScene(t, "layout_effect_scrolls", effectScrollScene, effectScrollOps, Config{InstantScroll: true}, steps)
 	runScene(t, "layout_effect_scrolls_smooth", effectScrollScene, effectScrollOps, Config{}, steps/2)
 }
+
+// TestLayoutEffectScrollOffsetReadsTheScroll: ScrollOffset read in the
+// layout effect that scrolled returns the offset the scroll gave, clamped
+// to the extents of that frame's layout, as Chromium's scrollTop returns
+// the clamped value right after it is set (reading it forces layout); the
+// scrolls made after the read start from that offset and run at once. A
+// smooth scroll reads the current position, and an offset the new extents
+// clamp reads clamped without any scroll (ADR-272).
+func TestLayoutEffectScrollOffsetReadsTheScroll(t *testing.T) {
+	type reads struct {
+		to, after, by, into, inner, smooth, rtl, shrunk float32
+	}
+	var set Setter[int]
+	var got reads
+	comp := func() Node {
+		n, s := UseState(10)
+		set = s
+		to, by, into, intoLast := UseElementRef(), UseElementRef(), UseElementRef(), UseElementRef()
+		inner, smooth, rtl, shrunk := UseElementRef(), UseElementRef(), UseElementRef(), UseElementRef()
+		UseLayoutEffect(func() func() {
+			to.ScrollTo(0, 1e6)
+			_, got.to = to.ScrollOffset()
+			to.ScrollBy(0, -50)
+			_, got.after = to.ScrollOffset()
+			by.ScrollBy(0, 70)
+			by.ScrollBy(0, 1e6)
+			_, got.by = by.ScrollOffset()
+			intoLast.ScrollIntoView()
+			_, got.into = into.ScrollOffset()
+			_, got.inner = inner.ScrollOffset()
+			smooth.ScrollTo(0, 1e6)
+			_, got.smooth = smooth.ScrollOffset()
+			rtl.ScrollTo(-1e6, 0)
+			got.rtl, _ = rtl.ScrollOffset()
+			_, got.shrunk = shrunk.ScrollOffset()
+			return nil
+		}, n)
+		list := func(k string, ref ElementRef, cls string) Node {
+			return div(append([]Child{Key(k), AttachRef(ref), Class("h-[200px] w-[120px] overflow-y-auto " + cls)}, rowsTo(k, n, nil)...)...)
+		}
+		// "into" holds 300 px above "inner", whose last row is scrolled
+		// into view: both move.
+		innerRows := append([]Child{Key("inner"), AttachRef(inner), Class("h-[100px] overflow-y-auto")}, rowsTo("inner", n, &intoLast)...)
+		return div(Class("flex gap-2"),
+			list("to", to, ""), list("by", by, ""), list("smooth", smooth, "scroll-smooth"),
+			div(Key("into"), AttachRef(into), Class("h-[200px] w-[120px] overflow-y-auto"), div(Class("h-[300px]")), div(innerRows...)),
+			div(Key("rtl"), AttachRef(rtl), Dir("rtl"), Class("flex h-[50px] w-[100px] overflow-x-auto"),
+				div(Class(fmt.Sprintf("h-[10px] w-[%dpx] shrink-0", 30*n)))),
+			list("shrunk", shrunk, ""),
+		)
+	}
+	tr := newTestTree(t, 900, 300, Component(comp), nil)
+	check := func(n int, want reads) {
+		t.Helper()
+		if got != want {
+			t.Errorf("%d rows: read %+v, want %+v", n, got, want)
+		}
+		for k, v := range map[string]float32{"to": want.after, "by": want.by, "into": want.into, "inner": want.inner, "shrunk": want.shrunk} {
+			if p := scr(t, tr, k).pos.Y; p != v {
+				t.Errorf("%d rows: %s painted at %g, want the %g read", n, k, p, v)
+			}
+		}
+		if p := scr(t, tr, "rtl").pos.X; p != -want.rtl {
+			t.Errorf("%d rows: rtl painted at %g from the right, want %g", n, p, -want.rtl)
+		}
+	}
+	end := func(n int) float32 { return float32(50*n - 200) }
+	tr.Frame()
+	check(10, reads{to: end(10), after: end(10) - 50, by: end(10), into: 200, inner: 400, rtl: -200})
+	// The user scrolled "shrunk" to its end; fewer rows clamp it, and the
+	// layout effect reads the clamped offset. The smooth scroll has not
+	// moved (no clock).
+	scr(t, tr, "shrunk").pos.Y = end(10)
+	set.Set(6)
+	tr.Frame()
+	check(6, reads{to: end(6), after: end(6) - 50, by: end(6), into: 200, inner: 200, rtl: -80, shrunk: end(6)})
+}
