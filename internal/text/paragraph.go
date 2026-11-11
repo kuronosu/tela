@@ -334,6 +334,16 @@ func (s *TextStyle) shapesLike(t *TextStyle) bool {
 }
 
 // Span applies a style to the bytes [Start, End) of the paragraph text.
+//
+// A span may start or end inside a grapheme cluster (a combining mark, the
+// rest of a ZWJ emoji sequence in another element). When its style shapes
+// like its neighbor's (shapesLike: only paints or decorations differ), the
+// cluster is shaped whole and takes the style of its first character, as
+// Chromium paints a glyph shaped across an element boundary with the first
+// fragment's color. Otherwise the text is itemized at the span's edge and
+// each side is shaped alone (a lone combining mark, a broken ZWJ
+// sequence), as Chromium does; the edge is then a cluster boundary, where
+// the caret can stop (TestStyleRunInsideGrapheme).
 type Span struct {
 	Start, End int
 	Style      TextStyle
