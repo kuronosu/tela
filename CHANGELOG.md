@@ -38,7 +38,10 @@ Phase 23, Layout, text and engine fidelity (ADR-268 to ADR-273).
 
 - `aspect-*` flex items with `max-h-*`/`min-h-*` are limited by them only as in Chromium (two `w-full aspect-square max-h-[20px]` in 280 px: 140×20, were 20×20); a `flex` or `grid` box with `aspect-*` takes its height from its width, and an `aspect-*` box grows to fit taller content unless it has `min-h-0` or scrolls; an `aspect-*` item in a `w-fit` flex column is sized from its width (ADR-268).
 - A grid item's percentage min size (`min-w-[50%]`) no longer makes its track as wide as its content.
-- An absolutely positioned element without insets inside text sits at its place on the line, and a `relative` span is the containing block of its absolute children.
+- An absolutely positioned element without insets inside text sits where Chromium puts it on the line (its left or right edge by the direction of the text around it, inside split numbers, at the end of a line before a wrap), and a `relative` span is the containing block of its absolute children; Arabic letters joined across such an element no longer break apart.
+- A `relative` span with `top-*`/`left-*`/`start-*` insets moves with its text, decorations, inline boxes and absolute children, and is painted over the text after it.
+- `aspect-*` grid items, absolutely positioned boxes, flex row items and text with an explicit width grow to fit taller content (unless `min-h-*` is set or they scroll), as in Chromium.
+- An `Input` or `Textarea` with no width is as wide as Chromium's at display scales other than 1 (219.5 px for a `text-sm` input at x2).
 - A growing `Textarea` (`field-sizing-content`) with long text no longer widens its grid column past the card.
 - A family installed in one weight only (such as Noto Sans JP Thin on Windows) no longer draws regular text when a family with a Regular is installed; CJK text of one paragraph is drawn by one installed family.
 - Text baselines and box edges on an exact half device pixel are drawn on Chromium's row (one row higher before, at fractional scales).
