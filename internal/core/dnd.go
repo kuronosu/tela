@@ -122,13 +122,16 @@ type dndState struct {
 }
 
 // dragSource is a drag and drop started from a Draggable element, or
-// from a text field's selection (text, fielddnd.go).
+// from a text field's selection (text, fielddnd.go), or from the
+// selection of static text (sel, the parts of its paragraphs;
+// textseldnd.go).
 type dragSource struct {
 	el   *Element
 	dt   *DataTransfer
 	pos  gfx.Point
 	mods platform.Modifiers
 	text *textDrag
+	sel  []selPiece
 }
 
 // HandleDrag dispatches a platform drag event over the tree's window (see
@@ -506,6 +509,9 @@ func (t *Tree) dragImage(src *dragSource, press gfx.Point) (*image.RGBA, image.P
 	hot := image.Pt(devicePx(press.X, s, math.Round), devicePx(press.Y, s, math.Round))
 	if src.text != nil {
 		return t.textDragImage(src.text, s, hot)
+	}
+	if src.sel != nil {
+		return t.selDragImage(src.sel, s, hot)
 	}
 	if v.fb == nil {
 		return nil, image.Point{}

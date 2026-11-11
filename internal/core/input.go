@@ -180,6 +180,9 @@ type pointerState struct {
 	// (dnd.go), which the OS owns: the drag gesture's later updates and
 	// its end are not dispatched.
 	osDrag bool
+	// noSelect: a pointerdown handler said the press leaves the static
+	// selection alone (NoTextSelection, textsel.go).
+	noSelect bool
 }
 
 // inputState is the pointer input state of a Tree (UI thread).
@@ -284,6 +287,7 @@ func (t *Tree) pointerMove(ps *pointerState, e platform.PointerEvent) {
 		t.in.arena.Move(t.gestureEvent(ps, e.Time))
 	}
 	t.fieldPointerMove(ps)
+	t.selPointerMove(ps)
 	t.hoverBars(ps)
 }
 
@@ -336,6 +340,7 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 			dispatchWith(t, evPointerDown, target, pe, true, true, st)
 		}
 		ps.noMouse = st.defaultPrevented()
+		ps.noSelect = st.noSelect
 		t.flushDiscrete()
 	} else {
 		fire(t, evPointerMove, target, t.pointerEvent(ps, e.Button), true)
@@ -358,6 +363,8 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 			// A press in a text field puts its caret (fieldkeys.go), so
 			// focusing it revealed nothing (fieldFocused).
 			t.fieldPress(ps, target, focused)
+			// Elsewhere it may select static text (textsel.go).
+			t.selPress(ps, target)
 		}
 	}
 	if e.Button != platform.ButtonPrimary || ps.pressing {
@@ -405,6 +412,7 @@ func (t *Tree) pointerUp(ps *pointerState, e platform.PointerEvent) {
 	if e.Button == platform.ButtonPrimary && ps.pressing {
 		ps.pressing = false
 		t.fieldPointerUp(ps, false)
+		t.selPointerUp(ps, false)
 		// Routes the release: the click (tap), the end of a drag.
 		t.in.arena.Up(t.gestureEvent(ps, e.Time))
 		ctxClick, ps.ctxClick = ps.ctxClick, false
@@ -435,6 +443,7 @@ func (t *Tree) pointerCancel(ps *pointerState, e platform.PointerEvent) {
 	if ps.pressing {
 		ps.pressing = false
 		t.fieldPointerUp(ps, true)
+		t.selPointerUp(ps, true)
 		t.in.arena.Cancel(t.gestureEvent(ps, e.Time))
 		t.in.clicks.Reset()
 		t.clearActive(ps)
@@ -498,6 +507,10 @@ func (t *Tree) recognizers(ps *pointerState, target *Element) []gesture.Recogniz
 	var rs []gesture.Recognizer
 	if r := t.textDragRecognizer(ps, target); r != nil {
 		// A press on a text field's selection drags it (fielddnd.go).
+		rs = append(rs, r)
+	}
+	if r := t.selDragRecognizer(ps); r != nil {
+		// So does a press on the selection of static text (textsel.go).
 		rs = append(rs, r)
 	}
 	tap := false
@@ -579,6 +592,7 @@ func (t *Tree) drag(ps *pointerState, el *Element, k eventKind, u gesture.DragUp
 	if k == evDragStart {
 		t.in.clicks.Reset()
 		ps.ctxClick = false
+		t.selDragWon(ps) // the drag takes the press (textsel.go)
 	}
 	if ps.osDrag || !el.mounted {
 		// The OS owns a drag and drop: its OnDragEnd comes with the
@@ -648,6 +662,7 @@ func (t *Tree) resetInput() {
 	t.in.clicks.Reset()
 	t.in.fdrag = nil
 	t.in.fsel = nil
+	t.tsel.drag, t.tsel.inSel = nil, nil
 	t.scr.wheel = wheelLatch{}
 	t.dnd = dndState{}
 }
@@ -1086,7 +1101,8 @@ var cursorOf = func() []platform.Cursor {
 
 // Cursor returns the cursor the window should show: the cursor style
 // (inherited) of the element under the mouse or pen, default when there
-// is none. "auto" shows the default arrow (text is not selectable yet).
+// is none. "auto" is Chromium's: the text cursor over text that a press
+// may select (textsel.go), the default arrow elsewhere.
 func (t *Tree) Cursor() platform.Cursor {
 	var ps *pointerState
 	for k, p := range t.in.ptrs {
@@ -1101,8 +1117,28 @@ func (t *Tree) Cursor() platform.Cursor {
 	if el == nil || el.box.cs == nil {
 		return platform.CursorDefault
 	}
+	if el.box.cs.Cursor == style.CursorAuto {
+		return t.autoCursor(ps)
+	}
 	if c := int(el.box.cs.Cursor); c < len(cursorOf) {
 		return cursorOf[c]
+	}
+	return platform.CursorDefault
+}
+
+// autoCursor resolves cursor: auto for pointer ps (Chromium's
+// EventHandler::SelectAutoCursor): the text cursor when it is over a
+// cluster of text whose element may start a selection, else the default
+// arrow.
+func (t *Tree) autoCursor(ps *pointerState) platform.Cursor {
+	el, _ := t.hitTest(ps.pos)
+	h := &t.in.hit
+	over := h.onText != nil && h.onText == h.box
+	h.box, h.onText = nil, nil
+	if over {
+		if ok, _ := canStartSel(el); ok {
+			return platform.CursorText
+		}
 	}
 	return platform.CursorDefault
 }

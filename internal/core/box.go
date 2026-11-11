@@ -396,8 +396,14 @@ type paragraph struct {
 	fragAt [2]float32
 	// ver counts the changes of what painting the paragraph reads beyond
 	// its layout object and width: a commit, new paints, a new scale, a
-	// new style of an inline element (record.go).
+	// new style of an inline element, its part of the static selection
+	// (record.go).
 	ver uint64
+	// hl is what the paragraph paints of the static selection; nsel and
+	// selGen are the scratch state of the walk that computes it
+	// (textsel.go).
+	hl, nsel paraSel
+	selGen   uint64
 }
 
 // paraTarget is a run of paragraph text that belongs to one element.

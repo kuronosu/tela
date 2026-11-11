@@ -244,6 +244,7 @@ func (t *Tree) SetWindowFocused(focused bool) {
 			fld.markPaint()
 		}
 	}
+	t.repaintSel() // the static selection's colors too
 	if !focused {
 		t.cancelSpace()
 		t.syncFocus()
@@ -395,6 +396,9 @@ func (t *Tree) setFocus(el *Element, typ focusType) {
 	t.focusMoved(old, el)
 	t.revealFocused(el, typ)
 	if fld := textField(el); fld != nil {
+		// The field's selection replaces the static one (Chromium has
+		// one selection per document).
+		t.clearSel()
 		t.fieldFocused(fld, typ)
 	}
 	if f.window {
