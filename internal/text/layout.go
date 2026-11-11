@@ -3,6 +3,7 @@ package text
 import (
 	"math"
 	"slices"
+	"sync/atomic"
 
 	ot "github.com/go-text/typesetting/font/opentype"
 	"github.com/go-text/typesetting/harfbuzz"
@@ -92,6 +93,10 @@ type Layout struct {
 	hword []rune
 	hat   []int32
 	cends [2]int32
+
+	// inkHits keeps the skip-ink intercepts of the glyphs (skipink.go),
+	// made by the first paint that needs one.
+	inkHits atomic.Pointer[glyphSlots[inkKept]]
 
 	minContent, maxContent float32 // NaN until computed
 }

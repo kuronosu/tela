@@ -373,7 +373,7 @@ func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask
 					open[kind] = true
 				}
 				if kind < 2 { // skip-ink: not line-throughs
-					s.gaps = l.inkGaps(s.gaps, c, by, y, scale)
+					s.gaps = l.inkGaps(s.gaps, c, y, scale)
 				}
 			}
 		}
