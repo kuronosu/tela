@@ -36,17 +36,18 @@ func (e *Engine) block(n Node, st *Style, in input) output {
 	border := st.Border.resolveOrZero(parent.w)
 	pbSize := padding.add(border).sum()
 
-	minSize := st.minSize().resolve(parent).applyAspectRatio(ratio)
-	maxSize := st.maxSize().resolve(parent).applyAspectRatio(ratio)
+	minSize := st.minSize().resolve(parent).applyAspectRatioToWidth(ratio)
+	maxSize := st.maxSize().resolve(parent).applyAspectRatioToWidth(ratio)
 	var clamped optSize
 	if in.sizing == inherentSize {
-		clamped = st.size().resolve(parent).applyAspectRatio(ratio).maybeClamp(minSize, maxSize)
+		clamped = st.size().resolve(parent).applyAspectRatioToWidth(ratio).maybeClamp(minSize, maxSize)
 	}
 	minMax := optSize{minMaxDefinite(minSize.w, maxSize.w), minMaxDefinite(minSize.h, maxSize.h)}
 	styled := in.known.or(minMax).or(clamped).maybeMaxF(pbSize)
 
-	// The size is all the caller wants and the styles determine it.
-	if in.run == computeSize {
+	// The size is all the caller wants and the styles determine it (a
+	// height that grows with the content does not).
+	if in.run == computeSize && !in.growH {
 		if styled.bothSet() {
 			return outerSize(size{styled.w.v, styled.h.v})
 		}
@@ -76,13 +77,13 @@ func (e *Engine) blockInner(n Node, st *Style, in input) output {
 	pbSize := pb.sum()
 	cbi := pb.add(gutter)
 
-	sz := st.size().resolve(parent).applyAspectRatio(ratio)
-	minSize := st.minSize().resolve(parent).applyAspectRatio(ratio)
-	maxSize := st.maxSize().resolve(parent).applyAspectRatio(ratio)
+	sz := st.size().resolve(parent).applyAspectRatioToWidth(ratio)
+	minSize := st.minSize().resolve(parent).applyAspectRatioToWidth(ratio)
+	maxSize := st.maxSize().resolve(parent).applyAspectRatioToWidth(ratio)
 
 	// A definite size in one axis transfers through aspect-ratio to the
 	// other (css-sizing-4); an incoming known size is left as is.
-	derived := known.applyAspectRatio(ratio).maybeClamp(minSize, maxSize)
+	derived := known.applyAspectRatioToWidth(ratio).maybeClamp(minSize, maxSize)
 	known = optSize{known.w.or(derived.w), known.h.or(derived.h)}
 	pctBasis := known
 	if !in.knownDefinite.h {
@@ -103,7 +104,7 @@ func (e *Engine) blockInner(n Node, st *Style, in input) output {
 		outerW = fmax(fclampOpt(intrinsic, minSize.w, maxSize.w), pbSize.w)
 	}
 
-	if in.run == computeSize && known.h.ok {
+	if in.run == computeSize && known.h.ok && !in.growH {
 		return outerSize(size{outerW, known.h.v})
 	}
 	if in.run == computeSize && in.axis == axisHorizontal {
@@ -122,6 +123,11 @@ func (e *Engine) blockInner(n Node, st *Style, in input) output {
 	inflowOverflow, contentH, firstBaseline, lastBaseline, escapes := e.blockInFlow(n, in.run, items, outerW, pctHeight, rCbi, rBorder, dir, scrolls)
 
 	outerH := fmax(known.h.unwrapOr(fclampOpt(contentH, minSize.h, maxSize.h)), pbSize.h)
+	if in.growH {
+		// A height from the aspect ratio is a minimum: the content makes
+		// the block taller, up to its max height (ratioHeight).
+		outerH = fmax(outerH, fminOpt(contentH, maxSize.h))
+	}
 	final := size{outerW, outerH}
 
 	// align-content moves the in-flow children as one alignment subject
@@ -179,6 +185,22 @@ func (e *Engine) blockInner(n Node, st *Style, in input) output {
 		if it.st.Fixed {
 			continue // laid out by its fixed containing block (fixed.go)
 		}
+		if p, pl := inlineParagraph(items, it); p != nil {
+			if r, ok := pl.ContainingBlock(it.node, p.out.size.w); ok {
+				// A positioned inline element of the paragraph is its
+				// containing block (ADR-268); the overflow is measured from
+				// this box's padding box as for its other children.
+				cbArea := size{fmax(r.X1-r.X0, 0), fmax(r.Y1-r.Y0, 0)}
+				cbOff := point{p.loc.x + r.X0, p.loc.y + r.Y0}
+				loc, fsz, out := e.placeAbsolute(n, it.node, it.st, cbArea, cbOff, it.static, dir, point{})
+				rel := point{loc.x - areaOffset.x, loc.y - areaOffset.y}
+				if dir == RTL {
+					rel.x = area.w - rel.x - fsz.w
+				}
+				absOverflow = absOverflow.union(overflowContribution(rel, fsz, out.overflow, it.st, scrolls))
+				continue
+			}
+		}
 		if cb {
 			absOverflow = absOverflow.union(e.layoutAbsolute(n, it.node, it.st, area, areaOffset, it.static, dir, scrolls, point{}))
 		} else {
@@ -228,9 +250,9 @@ func (e *Engine) blockItems(n Node, inner optSize) []blockItem {
 			st:        cst,
 			replaced:  cst.Replaced,
 			sizeStyle: cst.size(),
-			size:      cst.size().resolve(inner).applyAspectRatio(ratio),
-			minSize:   cst.minSize().resolve(inner).applyAspectRatio(ratio),
-			maxSize:   cst.maxSize().resolve(inner).applyAspectRatio(ratio),
+			size:      cst.size().resolve(inner).applyAspectRatioToWidth(ratio),
+			minSize:   cst.minSize().resolve(inner).applyAspectRatioToWidth(ratio),
+			maxSize:   cst.maxSize().resolve(inner).applyAspectRatioToWidth(ratio),
 			padding:   padding,
 			border:    border,
 			pbSum:     padding.add(border).sum(),
@@ -402,8 +424,53 @@ func (e *Engine) blockInFlow(n Node, run runMode, items []blockItem, outerW floa
 
 		y = loc.y - off.y + final.h + resolved.b
 	}
+	// An absolutely positioned box of a paragraph's inline content has its
+	// static position on its line, which the paragraph knows once it is
+	// laid out (InlineAnchored; ADR-176 put it at the paragraph's edge).
+	if run == performLayout {
+		for i := range items {
+			it := &items[i]
+			if it.st.Position != PositionAbsolute {
+				continue
+			}
+			p, pl := inlineParagraph(items, it)
+			if p == nil {
+				continue
+			}
+			if x, py, ok := pl.StaticPosition(it.node, p.out.size.w); ok {
+				x, py = p.loc.x+x, p.loc.y+py
+				sp := staticPos{x0: x, x1: x, y0: py, y1: py, modeX: alignStartMode, modeY: alignStartMode}
+				if dir == RTL {
+					sp.modeX = alignEndMode
+				}
+				it.static = sp
+			}
+		}
+	}
 	y += rCbi.b
 	return overflow, fmax(0, y), firstBaseline, lastBaseline, escapes
+}
+
+// inlineParagraph returns the in-flow item of items that places the
+// absolutely positioned item it (InlineAnchored), and its placer: nil when
+// it is not in a paragraph's content or the paragraph is not among items.
+func inlineParagraph(items []blockItem, it *blockItem) (*blockItem, InlinePlacer) {
+	a, ok := it.node.(InlineAnchored)
+	if !ok {
+		return nil, nil
+	}
+	para := a.InlineParagraph()
+	if para == nil {
+		return nil, nil
+	}
+	for i := range items {
+		if p := &items[i]; p.inFlow && p.node == para {
+			if pl, ok := para.(InlinePlacer); ok {
+				return p, pl
+			}
+		}
+	}
+	return nil, nil
 }
 
 // relativeOffset returns the offset of a relatively positioned box from

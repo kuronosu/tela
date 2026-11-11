@@ -21,7 +21,24 @@ import (
 //
 // Recorded again when the rounded layout was removed, which dropped the
 // second half of every node's hash.
-const wantLayoutDigest uint64 = 0xf161b70513533bad
+//
+// Recorded again for ADR-268's transferred min and max sizes: its new case
+// and 2 of the 200 random trees (a flex item with an aspect ratio and a
+// max height) change; every Taffy fixture and earlier case hashes as
+// before.
+//
+// Recorded again for ADR-268's ratio boxes (a container's height from its
+// known width, grown by its content): its new case and 37 of the 200
+// random trees change; every Taffy fixture and earlier case hashes as
+// before.
+//
+// Recorded again for ADR-268's column items with an aspect ratio (measured
+// at their fit-content width): its new case and 30 of the 200 random trees
+// change; every Taffy fixture and earlier case hashes as before.
+//
+// Recorded again for ADR-268's grid percentage min sizes: only its new
+// case changes.
+const wantLayoutDigest uint64 = 0x814d966b66f6970f
 
 // layoutDigest hashes the layouts of the Taffy
 // fixtures, Tela's cases and random trees with fractional sizes.

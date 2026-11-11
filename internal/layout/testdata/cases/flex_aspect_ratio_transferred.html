@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Flex items with an aspect ratio: min and max cross sizes transferred through the ratio clamp only a flex base size measured from content and the content size suggestion, never a definite main size, a definite flex basis, the hypothetical main size or the flexed size (ADR-268)</title>
+</head>
+<body>
+
+<div id="test-root" style="display: block; width: 400px;">
+  <div style="display: flex; width: 280px;">
+    <div style="width: 100%; aspect-ratio: 1; max-height: 20px;"></div>
+    <div style="width: 100%; aspect-ratio: 1; max-height: 20px;"></div>
+  </div>
+  <div style="display: flex; width: 280px;">
+    <div style="width: 100%; aspect-ratio: 1; max-height: 20px; flex-shrink: 0;"></div>
+  </div>
+  <div style="display: flex; width: 280px;">
+    <div style="width: 100px; aspect-ratio: 1; max-height: 20px;"></div>
+  </div>
+  <div style="display: flex; width: 280px;">
+    <div style="flex-basis: 100px; aspect-ratio: 1; max-height: 20px;"></div>
+  </div>
+  <div style="display: flex; width: 280px;">
+    <div style="flex-grow: 1; aspect-ratio: 1; max-height: 20px;"></div>
+  </div>
+  <div style="display: flex; width: 280px;">
+    <div style="width: 50px; flex-grow: 1; aspect-ratio: 1; max-height: 20px;"></div>
+  </div>
+  <div style="display: flex; width: 280px;">
+    <div style="aspect-ratio: 1; max-height: 20px; flex-shrink: 0;"><div style="display: block; width: 60px; height: 5px;"></div></div>
+  </div>
+  <div style="display: flex; width: 280px;">
+    <div style="aspect-ratio: 1; max-height: 20px; min-width: 0px;"><div style="display: block; width: 60px; height: 5px;"></div></div>
+  </div>
+  <div style="display: flex; width: 280px;">
+    <div style="width: 10%; aspect-ratio: 1; min-height: 60px;"></div>
+  </div>
+  <div style="display: flex; width: 280px;">
+    <div style="width: 10px; aspect-ratio: 1; min-height: 60px;"></div>
+  </div>
+  <div style="display: flex; width: 280px;">
+    <div style="aspect-ratio: 1; min-height: 60px;"></div>
+  </div>
+  <div style="display: flex; width: 30px;">
+    <div style="aspect-ratio: 1; min-height: 60px; min-width: 0px;"></div>
+  </div>
+  <div style="display: flex; width: 280px;">
+    <div style="flex-basis: 10px; aspect-ratio: 1; min-height: 60px;"></div>
+  </div>
+  <div style="display: flex; width: 280px;">
+    <div style="flex-basis: 10px; aspect-ratio: 1; min-height: 60px; min-width: 0px;"></div>
+  </div>
+  <div style="display: flex; width: 280px; align-items: flex-start;">
+    <div style="height: 100px; aspect-ratio: 1; max-width: 20px;"></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: 300px; height: 280px;">
+    <div style="height: 100%; aspect-ratio: 1; max-width: 20px;"></div>
+    <div style="height: 100%; aspect-ratio: 1; max-width: 20px;"></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: 300px; align-items: flex-start;">
+    <div style="aspect-ratio: 1; max-width: 20px; flex-shrink: 0;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: 300px; align-items: flex-start;">
+    <div style="width: 100px; aspect-ratio: 1; max-width: 20px;"></div>
+  </div>
+</div>
+
+</body>
+</html>

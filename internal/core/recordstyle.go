@@ -31,7 +31,7 @@ func sameStyle(a, b *style.ComputedStyle, layer bool) bool {
 	if !layer && (a.Opacity != b.Opacity || a.Transform != b.Transform) {
 		return false
 	}
-	return a.Display == b.Display && a.Position == b.Position && a.Inset == b.Inset &&
+	return a.Display == b.Display && a.Position == b.Position && a.InlineOrigin == b.InlineOrigin && a.Inset == b.Inset &&
 		a.ZIndex == b.ZIndex && a.Isolate == b.Isolate &&
 		a.OverflowX == b.OverflowX && a.OverflowY == b.OverflowY && a.Visibility == b.Visibility &&
 		a.ScrollBehavior == b.ScrollBehavior && a.Scrollbar == b.Scrollbar &&
@@ -48,6 +48,7 @@ func sameStyle(a, b *style.ComputedStyle, layer bool) bool {
 		a.JustifySelf == b.JustifySelf &&
 		sameTracks(&a.GridTemplateColumns, &b.GridTemplateColumns) &&
 		sameTracks(&a.GridTemplateRows, &b.GridTemplateRows) &&
+		sameAreas(&a.GridTemplateAreas, &b.GridTemplateAreas) &&
 		sameSlice(a.GridAutoColumns, b.GridAutoColumns) && sameSlice(a.GridAutoRows, b.GridAutoRows) &&
 		a.GridAutoFlow == b.GridAutoFlow && a.GridColumn == b.GridColumn && a.GridRow == b.GridRow &&
 		a.BackgroundColor == b.BackgroundColor && sameSlice(a.Backgrounds, b.Backgrounds) &&
@@ -80,6 +81,10 @@ func sameSlice[T any](a, b []T) bool {
 
 func sameTracks(a, b *style.TrackList) bool {
 	return sameSlice(a.Entries, b.Entries) && sameSlice(a.LineNames, b.LineNames)
+}
+
+func sameAreas(a, b *style.GridAreas) bool {
+	return sameSlice(a.Areas, b.Areas) && sameSlice(a.Template, b.Template) && a.Rows == b.Rows && a.Columns == b.Columns
 }
 
 func sameFilters(a, b *style.FilterSet) bool {

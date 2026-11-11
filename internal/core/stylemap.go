@@ -854,18 +854,28 @@ func keepGrid(ls, old *layout.Style) {
 	}
 }
 
-// gridTemplate maps the track lists of a grid container (nil when it has
-// none: implicit auto tracks only).
+// gridTemplate maps the track lists and named areas of a grid container
+// (nil when it has none: implicit auto tracks only).
 func gridTemplate(cs *style.ComputedStyle) *layout.GridTemplate {
-	if cs.GridTemplateColumns.IsNone() && cs.GridTemplateRows.IsNone() && len(cs.GridAutoColumns) == 0 && len(cs.GridAutoRows) == 0 {
+	areas := cs.GridTemplateAreas
+	if cs.GridTemplateColumns.IsNone() && cs.GridTemplateRows.IsNone() && len(cs.GridAutoColumns) == 0 && len(cs.GridAutoRows) == 0 && areas.IsNone() {
 		return nil
 	}
-	return &layout.GridTemplate{
+	g := &layout.GridTemplate{
 		Columns:     trackList(cs.GridTemplateColumns),
 		Rows:        trackList(cs.GridTemplateRows),
 		AutoColumns: trackSizes(cs.GridAutoColumns),
 		AutoRows:    trackSizes(cs.GridAutoRows),
+		AreaRows:    areas.Rows,
+		AreaColumns: areas.Columns,
 	}
+	if len(areas.Areas) > 0 {
+		g.Areas = make([]layout.GridArea, len(areas.Areas))
+		for i, a := range areas.Areas {
+			g.Areas[i] = layout.GridArea{Name: a.Name, RowStart: a.RowStart, RowEnd: a.RowEnd, ColumnStart: a.ColumnStart, ColumnEnd: a.ColumnEnd}
+		}
+	}
+	return g
 }
 
 func trackList(l style.TrackList) layout.TrackList {

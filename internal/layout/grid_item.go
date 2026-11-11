@@ -271,8 +271,17 @@ func (e *Engine) minimumContribution(n Node, it *gridItem, a axis, tracks []grid
 	}
 	// The min size of the other axis does not transfer through the aspect
 	// ratio here: an auto min size is the automatic minimum (Chromium;
-	// Taffy transfers it).
-	if v := st.minSize().resolve(area).get(a); v.ok {
+	// Taffy transfers it). A percentage min size of an indefinite area
+	// counts as 0 (its length part for a calc()), not as auto (CSS Sizing 3
+	// section 5.2.1, as for flex items since ADR-157; Chromium, ADR-268).
+	minStyle := st.minSize().w
+	if a == vertical {
+		minStyle = st.minSize().h
+	}
+	if v := minStyle.resolveSize(area.get(a)); v.ok {
+		return v.v
+	}
+	if v := minStyle.resolveSize(some(0)); v.ok {
 		return v.v
 	}
 	if it.scrollsIn(a) {

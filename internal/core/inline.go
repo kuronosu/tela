@@ -408,3 +408,111 @@ func (p *paragraph) inlineRects(el *Element, dst []gfx.Rect) []gfx.Rect {
 	}
 	return dst
 }
+
+// Out-of-flow boxes in a paragraph's inline content are children of the
+// block that holds the paragraph (structure.go, ADR-176). The box records
+// its paragraph and its place in the text (Box.anchor), and the paragraph
+// box gives layout its static position and, when a positioned inline
+// element holds it, its containing block (ADR-268).
+
+// InlineParagraph implements layout.InlineAnchored: the paragraph box b's
+// content was hoisted from, while it is b's sibling.
+func (b *Box) InlineParagraph() layout.Node {
+	if a := b.anchor; a != nil && a.para != nil && a.parent == b.parent {
+		return a
+	}
+	return nil
+}
+
+// anchoredIn returns the paragraph of b that places box c (laid out at a
+// border-box width w), its lines prepared for that width; nil if b does
+// not place c.
+func (b *Box) anchoredIn(c layout.Node, w float32) (*Box, *paragraph) {
+	cb, _ := c.(*Box)
+	p := b.para
+	if cb == nil || cb.anchor != b || p == nil || p.lay == nil || p.empty {
+		return nil, nil
+	}
+	// An anonymous paragraph box has no edges: its content box is its
+	// border box.
+	p.prepare(b.tree, w)
+	return cb, p
+}
+
+// StaticPosition implements layout.InlinePlacer: the caret position
+// before box c and the top of its line for a box that was inline-level
+// (Chromium: "XX <span absolute>" is 30 px from the left, at the line's
+// top, in a 10 px font), the start of the next line for a block-level one
+// after content on its line (its own line's start otherwise).
+func (b *Box) StaticPosition(c layout.Node, w float32) (x, y float32, ok bool) {
+	cb, p := b.anchoredIn(c, w)
+	if cb == nil {
+		return 0, 0, false
+	}
+	ca := p.lay.Caret(text.Cursor{Offset: int(cb.anchorOff), Affinity: text.Upstream})
+	if cb.cs != nil && cb.cs.InlineOrigin {
+		return ca.X, ca.Top, true
+	}
+	y = ca.Top
+	if int(cb.anchorOff) > p.lay.Line(ca.Line).TextStart {
+		y += ca.Height
+	}
+	if p.lay.RTL() {
+		x = w
+	}
+	return x, y, true
+}
+
+// ContainingBlock implements layout.InlinePlacer: for box c held by a
+// relative or sticky inline element of the paragraph, the padding boxes of
+// the element's fragments on its first and last lines, from the left edge
+// of the first to the right edge of the last (empty when the last ends
+// before the first starts) and from the top of the first to the bottom of
+// the last, as Chromium does across lines (CSS 2.1 section 10.1 leaves it
+// undefined).
+func (b *Box) ContainingBlock(c layout.Node, w float32) (gfx.Rect, bool) {
+	cb, p := b.anchoredIn(c, w)
+	if cb == nil || cb.anchorCB < 0 {
+		return gfx.Rect{}, false
+	}
+	k := int(cb.anchorCB)
+	cs := p.inlineStyle(k)
+	if cs == nil {
+		return gfx.Rect{}, false
+	}
+	e := edgeWidths(cs, p.edgeK)
+	first, last := -1, -1
+	var r gfx.Rect
+	var right float32
+	for _, f := range p.fragments() {
+		if f.Inline != k {
+			continue
+		}
+		pad := fragBorderBox(cs, &f, p.edgeK)
+		pad.Y0 += e.border.Top
+		pad.Y1 -= e.border.Bottom
+		if f.Left {
+			pad.X0 += e.border.Left
+		}
+		if f.Right {
+			pad.X1 -= e.border.Right
+		}
+		switch {
+		case first < 0 || f.Line < first:
+			first, r = f.Line, pad
+		case f.Line == first:
+			r.X0, r.Y0 = min(r.X0, pad.X0), min(r.Y0, pad.Y0)
+		}
+		switch {
+		case f.Line > last:
+			last, right, r.Y1 = f.Line, pad.X1, pad.Y1
+		case f.Line == last:
+			right, r.Y1 = max(right, pad.X1), max(r.Y1, pad.Y1)
+		}
+	}
+	if first < 0 {
+		return gfx.Rect{}, false
+	}
+	r.X1 = max(right, r.X0)
+	return r, true
+}

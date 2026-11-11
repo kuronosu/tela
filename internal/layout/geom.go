@@ -241,6 +241,46 @@ func (s optSize) applyAspectRatio(ratio opt) optSize {
 	return s
 }
 
+// applyAspectRatioToWidth fills an unset width from a set height through
+// ratio. The other transfer, a height from a width, is ratioHeight's
+// (compute.go): the content can make such a box taller.
+func (s optSize) applyAspectRatioToWidth(ratio opt) optSize {
+	if ratio.ok && s.h.ok && !s.w.ok {
+		s.w = some(float32(s.h.v * ratio.v))
+	}
+	return s
+}
+
+// applyAspectRatioClamped is applyAspectRatio with the set axis clamped by
+// its own min and max sizes before the transfer: the ratio carries the
+// size the box takes in that axis (css-sizing-4 section 5; a column item
+// with width 100px, max-width 20px and aspect-ratio 1 is 20 tall in
+// Chromium). The set axis itself is returned unclamped.
+func (s optSize) applyAspectRatioClamped(ratio opt, min, max optSize) optSize {
+	if !ratio.ok {
+		return s
+	}
+	switch {
+	case s.w.ok && !s.h.ok:
+		s.h = some(fclampOpt(s.w.v, min.w, max.w) / ratio.v)
+	case s.h.ok && !s.w.ok:
+		s.w = some(float32(fclampOpt(s.h.v, min.h, max.h) * ratio.v))
+	}
+	return s
+}
+
+// transferToMain converts a cross size through an aspect ratio (width /
+// height) into the main axis of dir.
+func transferToMain(dir FlexDirection, cross opt, ratio opt) opt {
+	if !cross.ok || !ratio.ok {
+		return none
+	}
+	if dir.isRow() {
+		return some(float32(cross.v * ratio.v))
+	}
+	return some(cross.v / ratio.v)
+}
+
 // rect holds four edge values (insets, padding, border, margin) or the
 // edges of a rectangle (scrollable overflow).
 type rect struct{ l, r, t, b float32 }

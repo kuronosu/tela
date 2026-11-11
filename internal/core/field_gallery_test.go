@@ -158,6 +158,12 @@ var fieldGalleryCases = []fieldGalleryCase{
 	{"textarea-placeholder", 64, fm("textarea", "border border-slate-300", "placeholder", "Write a message"), nil},
 	{"fs-input", 40, fm("input", "field-sizing-content border border-slate-300", "value", "Fits its text"), nil},
 	{"fs-textarea", 64, fm("textarea", "field-sizing-content border border-slate-300", "value", "Two\nlines"), nil},
+	// A growing textarea's min-content width is its longest word, so long
+	// text fits a card's 1fr column through a Field-like wrapper instead
+	// of widening it, and a w-min box is that word wide (ADR-268).
+	{"fs-textarea-column", 72, fel("div", "grid w-[300px] grid-cols-[1fr] border border-slate-300",
+		fel("div", "flex flex-col", fm("textarea", "field-sizing-content border border-slate-300", "value", "A growing textarea with long text fits its column"))), nil},
+	{"fs-textarea-min", 64, fel("div", "w-min", fm("textarea", "field-sizing-content border border-slate-300", "value", "Two words")), nil},
 	{"baseline", 40, fel("p", "text-slate-700", ftext("Name "), fm("input", "w-32 border border-slate-300 px-1", "value", "inline"), ftext(" end")), nil},
 	{"selection", 40, fm("input", "border border-slate-300 outline-none", "value", "Selected text"), []int{0, 8}},
 }

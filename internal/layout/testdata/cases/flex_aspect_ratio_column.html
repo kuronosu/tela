@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Flex items with an aspect ratio and an auto or keyword width in a column: the width is the item's fit-content width (stretched only into a definite width), and the height comes from it through the ratio, also when the column's width is indefinite (ADR-268)</title>
+</head>
+<body>
+
+<div id="test-root" style="display: block; width: 400px; height: 1300px;">
+  <div style="display: flex; flex-direction: column; width: fit-content;">
+    <div style="aspect-ratio: 1;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: fit-content;">
+    <div style="aspect-ratio: 2;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: fit-content;">
+    <div style="aspect-ratio: 1;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+    <div style="display: block; width: 50px; height: 5px;"></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: fit-content;">
+    <div style="aspect-ratio: 1;">XX&#8203;XX</div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: max-content; align-items: flex-start;">
+    <div style="aspect-ratio: 1;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: 300px;">
+    <div style="aspect-ratio: 1;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: 300px;">
+    <div style="aspect-ratio: 1; width: fit-content;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: 300px; align-items: flex-start;">
+    <div style="aspect-ratio: 1;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: 300px; align-items: flex-start;">
+    <div style="aspect-ratio: 1; max-width: 20px;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+    <div style="aspect-ratio: 1; min-width: 50px;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+    <div style="aspect-ratio: 1; padding: 5px;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: 20px; align-items: flex-start;">
+    <div style="aspect-ratio: 1;">XX&#8203;XX</div>
+  </div>
+  <div style="display: flex; flex-direction: column; flex-wrap: wrap; width: 300px; height: 40px;">
+    <div style="aspect-ratio: 1;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: fit-content; height: 10px;">
+    <div style="aspect-ratio: 1;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: fit-content; height: 10px;">
+    <div style="aspect-ratio: 1; min-height: 0px;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: fit-content; height: 40px;">
+    <div style="aspect-ratio: 1; flex-grow: 1;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: fit-content;">
+    <div style="aspect-ratio: 1; width: 50%;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: 300px; align-items: flex-start;">
+    <div style="aspect-ratio: 1;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+    <div style="aspect-ratio: 1; min-height: 0px;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+    <div style="aspect-ratio: 1; max-width: 20px; flex-shrink: 0;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+    <div style="flex-basis: 40px; aspect-ratio: 2;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: 300px; height: 100px; align-items: flex-start;">
+    <div style="flex: 1 1 0px; aspect-ratio: 1;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: 30px;">
+    <div style="aspect-ratio: 1;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: fit-content;">
+    <div style="aspect-ratio: 1;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: fit-content; align-items: flex-start;">
+    <div style="aspect-ratio: 1;"><div style="display: block; width: 5px; height: 60px;"></div></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: fit-content; align-items: flex-start;">
+    <div style="flex-basis: 40px; aspect-ratio: 2;"></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: fit-content; align-items: flex-start;">
+    <div style="height: 40px; aspect-ratio: 2;"></div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: fit-content; height: 10px; align-items: flex-start;">
+    <div style="aspect-ratio: 1; min-height: 0px;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+  </div>
+  <div style="display: block; position: relative; height: 40px;">
+    <div style="position: absolute; display: flex; flex-direction: column;">
+      <div style="aspect-ratio: 1;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+    </div>
+    <div style="position: absolute; left: 50px; display: flex; flex-direction: column;">
+      <div style="aspect-ratio: 1; width: fit-content;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+    </div>
+    <div style="position: absolute; left: 100px; display: flex; flex-direction: column;">
+      <div style="aspect-ratio: 1; width: max-content;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+    </div>
+    <div style="position: absolute; left: 150px; display: flex; flex-direction: column;">
+      <div style="aspect-ratio: 1; width: min-content;"><div style="display: block; width: 30px; height: 5px;"></div></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

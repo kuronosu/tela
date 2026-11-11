@@ -620,6 +620,11 @@ type ComputedStyle struct {
 	// Layout and box.
 	Display  Display
 	Position Position
+	// InlineOrigin reports an absolutely positioned or fixed box whose
+	// display was inline-level before blockification (CSS 2.1 section
+	// 9.7): in a paragraph its static position is its place on its line,
+	// not the start of the next line (ADR-268).
+	InlineOrigin bool
 	// Inset are the top, right, bottom and left offsets (auto by default).
 	Inset      Sides[Dim]
 	ZIndex     ZIndex
@@ -672,11 +677,14 @@ type ComputedStyle struct {
 	// Grid.
 	GridTemplateColumns TrackList
 	GridTemplateRows    TrackList
-	GridAutoColumns     []TrackSize
-	GridAutoRows        []TrackSize
-	GridAutoFlow        GridAutoFlow
-	GridColumn          GridPlacement
-	GridRow             GridPlacement
+	// GridTemplateAreas is grid-template-areas, set by the arbitrary
+	// property [grid-template-areas:...] (ADR-268).
+	GridTemplateAreas GridAreas
+	GridAutoColumns   []TrackSize
+	GridAutoRows      []TrackSize
+	GridAutoFlow      GridAutoFlow
+	GridColumn        GridPlacement
+	GridRow           GridPlacement
 
 	// Background. Backgrounds are the image layers, topmost first; the
 	// color is painted below them.

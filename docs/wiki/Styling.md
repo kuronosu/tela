@@ -269,10 +269,25 @@ arbitrary property, with underscores for spaces:
 `polygon(evenodd,…)`). Shapes are relative to the border box; the clip cuts
 everything the element paints (shadows and outline included) and its
 clicks. Variants work on it (`hover:[clip-path:circle(75%)]`), and
-`transition-[clip-path]` animates between shapes of the same kind. The only other
+`transition-[clip-path]` animates between shapes of the same kind. Another
 arbitrary property is `[animation-delay:150ms]` (also negative,
 `[animation-delay:-0.3s]`), the delay of an `animate-*` class; `delay-*` and
 `animation-delay-*` set it too (see [Animation](Animation)).
+
+**Grid areas.** Tailwind has no utility for `grid-template-areas` either:
+write one quoted string per row, with underscores for spaces, and place the
+items with `[grid-area:name]` or Tailwind's `col-[name] row-[name]`:
+
+```go
+Div(Class("grid grid-cols-[200px_1fr] [grid-template-areas:'head_head'_'side_main']"),
+    Div(Class("[grid-area:head]"), Text("Title")),
+    Div(Class("[grid-area:side]"), Text("Menu")),
+    Div(Class("[grid-area:main]"), Text("Content")),
+)
+```
+
+A `.` is an unnamed cell, each name must cover a rectangle, and a name with
+an underscore is written `\_`. `[grid-area:1/2/3/4]` takes lines as in CSS.
 
 ## Variants
 

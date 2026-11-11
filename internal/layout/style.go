@@ -357,6 +357,16 @@ func (s *Style) aspectRatio() opt {
 	return none
 }
 
+// ratioGrowsHeight reports whether a height that comes from the box's
+// width through its aspect ratio is only a minimum that taller content
+// exceeds: min-height is auto and the box is neither a scroll container
+// nor replaced (css-sizing-4 section 5.2: the automatic minimum size of a
+// box with a preferred aspect ratio is its min-content size, capped by its
+// max size; ADR-268).
+func (s *Style) ratioGrowsHeight() bool {
+	return s.aspectRatio().ok && s.MinHeight.isAuto() && !s.isScrollContainer() && !s.Replaced
+}
+
 func (s *Style) isScrollContainer() bool {
 	return s.OverflowX.isScrollContainer() || s.OverflowY.isScrollContainer()
 }

@@ -32,11 +32,11 @@ func (e *Engine) grid(n Node, st *Style, in input) output {
 	border := st.Border.resolveOrZero(parent.w)
 	pb := padding.add(border)
 	pbSize := pb.sum()
-	minSize := st.minSize().resolve(parent).applyAspectRatio(ratio)
-	maxSize := st.maxSize().resolve(parent).applyAspectRatio(ratio)
+	minSize := st.minSize().resolve(parent).applyAspectRatioToWidth(ratio)
+	maxSize := st.maxSize().resolve(parent).applyAspectRatioToWidth(ratio)
 	var preferred optSize
 	if in.sizing == inherentSize {
-		preferred = st.size().resolve(parent).applyAspectRatio(ratio)
+		preferred = st.size().resolve(parent).applyAspectRatioToWidth(ratio)
 	}
 
 	// A vertical scrollbar takes space on the inline-end side.

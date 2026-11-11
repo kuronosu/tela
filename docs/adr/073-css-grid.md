@@ -1,7 +1,7 @@
 # ADR-073: CSS grid
 
 - **Date:** 2026-10-18
-- **Status:** Accepted
+- **Status:** Accepted, amended by ADR-268 (area templates reachable from classes as arbitrary properties; percentage min sizes of an indefinite area count as 0)
 
 ## Decision
 

@@ -344,6 +344,9 @@ func summarize(b *Box) StyleSummary {
 	}
 	if isGridContainer(cs) {
 		g := "cols " + cs.GridTemplateColumns.String() + " rows " + cs.GridTemplateRows.String()
+		if !cs.GridTemplateAreas.IsNone() {
+			g += " areas " + cs.GridTemplateAreas.String()
+		}
 		auto := func(ts []style.TrackSize) string {
 			out := make([]string, len(ts))
 			for i, t := range ts {

@@ -100,7 +100,11 @@
 // its own children. A fixed box (Style.Fixed) skips the positioned
 // ancestors: its containing block is the nearest ancestor with
 // ContainingBlock, or the root (the viewport), and fixed.go lays it out
-// for any container algorithm.
+// for any container algorithm. A box of a paragraph's inline content
+// (InlineAnchored) is laid out by the block that holds the paragraph: its
+// static position is its place on its line, and a positioned inline
+// element of the paragraph can be its containing block (InlinePlacer,
+// ADR-268).
 // Absolutely positioned boxes are laid out by CSS 2's rules (10.3.7,
 // 10.6.4): the available space and auto margins come from the insets that
 // are set, percentages from the containing block's padding box; an auto
@@ -133,10 +137,11 @@
 // does the same for Tela's own cases (testdata/cases: containing blocks,
 // order, and grid placement by name, named areas, auto-fill and auto-fit,
 // dense packing, static positions, baselines and content-sized grids, zero
-// percentages, flex items with an aspect ratio or a keyword cross size),
-// measured by Chromium 154 (the cases measured before by Chromium 152
-// measure the same). Where Chromium and Taffy disagree, layout follows
-// Chromium:
+// percentages, flex items with an aspect ratio or a keyword cross size,
+// boxes with an aspect ratio, grid percentage min sizes), measured by
+// Chromium 155 (the cases measured before by Chromium 152 and 154, and
+// every Taffy fixture, measure the same). Where Chromium and Taffy
+// disagree, layout follows Chromium:
 //
 //   - A flex container sized under definite available space is
 //     fit-content sized (Taffy sums the flex bases).
@@ -145,6 +150,13 @@
 //   - An item with an aspect ratio and a definite cross size has the
 //     transferred size as its content size suggestion, which the min and
 //     max cross sizes transferred through the ratio clamp.
+//   - Min and max cross sizes transferred through an aspect ratio clamp
+//     only a flex base size measured from content and the content size
+//     suggestion, never a definite main size or flex basis, the
+//     hypothetical main size or the flexed size; min and max main sizes
+//     do not transfer into a definite cross size, and a definite size
+//     transfers clamped by its own min and max (ADR-268; Taffy clamps
+//     the hypothetical sizes with the transferred bounds).
 //   - An item with an aspect ratio: a cross size the ratio transfers from
 //     its own main size is not a known or definite cross size (a row of
 //     w-full aspect-square items shrinks to fit), a stretched cross size
@@ -153,6 +165,12 @@
 //     size (Style.NoNaturalSize) has Chromium's content size suggestion:
 //     the container's inner width in a row, the default object size
 //     fitted to the ratio in a column (ADR-157).
+//   - A column item with an aspect ratio, no definite height and an auto
+//     (not definitely stretched) or keyword width is measured at its
+//     fit-content width, which the ratio turns into its flex base size;
+//     the width is its contribution to a column of indefinite width, and
+//     its cross size then follows its used main size (ADR-268; Taffy
+//     measures its content height).
 //   - An item with a min-content, max-content or fit-content cross size
 //     is measured at that size for its flex base size and its content
 //     contribution, not stretched; nor is one with an auto cross margin
@@ -160,6 +178,15 @@
 //   - A percentage min main size of an indefinite basis counts as 0, not
 //     as auto (ADR-157).
 //   - Percentage margins count as zero in a block's intrinsic width.
+//   - A block, flex or grid container with an aspect ratio and a known
+//     width (from its parent or its width style) takes its height from
+//     the ratio; while its min-height is auto and it is neither a scroll
+//     container nor replaced, taller content makes it taller, up to its
+//     max height (css-sizing-4's automatic minimum size, as Chromium; a
+//     block's children resolve percentages against the ratio height, so
+//     do a flex container's items while its content is measured). Taffy
+//     fixes the ratio height of a block and ignores the ratio of a flex
+//     or grid container whose width its parent sets (ADR-268).
 //   - Absolutely positioned boxes: see Containing blocks; Taffy gives them
 //     the whole containing block as available space, has a flex variant
 //     whose auto margins ignore the insets, and treats an auto height as
@@ -182,7 +209,10 @@
 //     contributions, and auto counts as a max-content maximum.
 //   - The automatic minimum size of an item looks at the tracks it spans,
 //     and the min size of the other axis does not transfer through the
-//     aspect ratio into its minimum contribution.
+//     aspect ratio into its minimum contribution. A percentage min size
+//     of an indefinite grid area counts as 0 (its length part for a
+//     calc()) in the minimum contribution, not as auto, as for flex items
+//     (ADR-268).
 //   - Items whose width depends on their height (an aspect ratio and an
 //     auto width) are measured with an estimate of the rows, sized first.
 //   - Named lines follow CSS Grid 1 section 8.3 (see grid_tracks.go).
