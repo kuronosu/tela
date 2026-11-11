@@ -489,6 +489,10 @@ func TestSystemFallbackRanking(t *testing.T) {
 }
 
 func TestSystemRegionPreference(t *testing.T) {
+	// The environment decides only where the OS names no locale (on
+	// Windows GetUserDefaultLocaleName does).
+	defer func(f func() string) { platformLang = f }(platformLang)
+	platformLang = func() string { return "" }
 	t.Setenv("LC_ALL", "")
 	t.Setenv("LC_MESSAGES", "")
 	t.Setenv("LANG", "ko_KR.UTF-8")

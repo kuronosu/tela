@@ -15,7 +15,10 @@ import (
 // (GetUserDefaultLocaleName); "" elsewhere and when it is not set. macOS
 // apps read the environment, which a GUI app started from Finder usually
 // does not have.
-func PlatformLanguage() string { return platformLanguage() }
+func PlatformLanguage() string { return platformLang() }
+
+// platformLang is platformLanguage, replaceable by tests.
+var platformLang = platformLanguage
 
 // getenv is os.Getenv, replaceable by tests.
 var getenv = os.Getenv
