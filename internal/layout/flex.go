@@ -16,7 +16,10 @@ type flexItem struct {
 	node Node
 	st   *Style
 
-	size      optSize // the base size
+	// size is the preferred size; a definite size of one axis, clamped by
+	// that axis' min and max sizes, fills the other through the aspect
+	// ratio.
+	size      optSize
 	sizeStyle dimSize
 	// crossSize is the cross size style resolved. Unlike size's cross
 	// size, it is never transferred from the main size through the aspect
@@ -65,6 +68,20 @@ type flexItem struct {
 }
 
 func (it *flexItem) isScrollContainer() bool { return it.st.isScrollContainer() }
+
+// clampContentByRatio clamps a main size measured from the content of an
+// item with an aspect ratio by its min and max cross sizes transferred
+// through the ratio, as Chromium clamps such a box's intrinsic sizes
+// (css-sizing-4 section 5.2): an aspect-square max-h-[20px] item with
+// 60 px of content has a 20 px flex base size, and an empty aspect-square
+// min-h-[60px] one a 60 px base size. Sizes that do not come from content
+// are never clamped this way (ADR-268).
+func (it *flexItem) clampContentByRatio(dir FlexDirection, measured float32) float32 {
+	if !it.ratio.ok {
+		return measured
+	}
+	return fclampOpt(measured, transferToMain(dir, it.minSize.cross(dir), it.ratio), transferToMain(dir, it.maxSize.cross(dir), it.ratio))
+}
 
 // participatesInBaseline reports whether the item takes part in baseline
 // alignment: align-self baseline and no auto cross margin.
@@ -337,14 +354,15 @@ func (e *Engine) flexItems(n Node, c *flexConsts) []flexItem {
 		if alignSelf == AlignNormal {
 			alignSelf = c.alignItems
 		}
+		minSize, maxSize := st.minSize().resolve(pctRes), st.maxSize().resolve(pctRes)
 		items = append(items, flexItem{
 			node:       ch,
 			st:         st,
-			size:       st.size().resolve(pctRes).applyAspectRatio(ratio),
+			size:       st.size().resolve(pctRes).applyAspectRatioClamped(ratio, minSize, maxSize),
 			sizeStyle:  st.size(),
 			crossSize:  st.size().cross(c.dir).resolveSize(pctRes.cross(c.dir)),
-			minSize:    st.minSize().resolve(pctRes),
-			maxSize:    st.maxSize().resolve(pctRes),
+			minSize:    minSize,
+			maxSize:    maxSize,
 			ratio:      ratio,
 			inset:      st.Inset.resolveInsets(c.nodeInner),
 			margin:     st.Margin.resolveOrZero(c.nodeInner.w),
@@ -480,7 +498,7 @@ func (e *Engine) flexBaseSizes(n Node, c *flexConsts, avail availSize, items []f
 		var ckd optSize
 		var crossKnown opt
 		var crossDefinite bool
-		crossKnown, crossAvail, crossDefinite = measureCross(c, it, crossAvail, transferredMin.cross(dir), transferredMax.cross(dir))
+		crossKnown, crossAvail, crossDefinite = measureCross(c, it, crossAvail, it.minSize.cross(dir), it.maxSize.cross(dir))
 		ckd.setCross(dir, crossKnown)
 
 		// Percentage flex bases resolve against a definite inner main size.
@@ -547,7 +565,7 @@ func (e *Engine) flexBaseSizes(n Node, c *flexConsts, avail availSize, items []f
 				mainSpace = keywordSpace
 			}
 			childAvail := availSize{MaxContentConstraint, MaxContentConstraint}.withMain(dir, mainSpace).withCross(dir, crossAvail)
-			return e.measureChildSize(n, it.node, ckd, childParent, childAvail, contentSize, dir.mainAxis())
+			return it.clampContentByRatio(dir, e.measureChildSize(n, it.node, ckd, childParent, childAvail, contentSize, dir.mainAxis()))
 		}()
 
 		// The flex basis is floored by padding and border (the inner basis
@@ -616,9 +634,14 @@ func (e *Engine) flexBaseSizes(n Node, c *flexConsts, avail availSize, items []f
 			it.resolvedMinMain = fmax(clamped, pbAxes.main(dir))
 		}
 
-		// Transferred sizes clamp the hypothetical main size only.
-		hypoMin := fmax(fmaxOpt(it.resolvedMinMain, transferredMin.main(dir)), pbAxes.main(dir))
-		hypoInner := fclampOpt(it.flexBasis, some(hypoMin), transferredMax.main(dir))
+		// The hypothetical main size is the base size clamped by the min
+		// and max main sizes. Min and max cross sizes transferred through
+		// the aspect ratio do not clamp it: they reach only a base size
+		// measured from content and the content size suggestion (two
+		// w-full aspect-square max-h-[20px] items in a 280 px row are
+		// 140x20 in Chromium, ADR-268).
+		hypoMin := fmax(it.resolvedMinMain, pbAxes.main(dir))
+		hypoInner := fclampOpt(it.flexBasis, some(hypoMin), it.maxSize.main(dir))
 		it.hypoInner.setMain(dir, hypoInner)
 		it.hypoOuter.setMain(dir, hypoInner+it.margin.mainSum(dir))
 	}
@@ -823,7 +846,8 @@ func (e *Engine) flexIntrinsicMainSize(n Node, avail availSize, lines []flexLine
 				measured := e.measureChildSize(n, it.node, ckd, c.nodeInner, childAvail, contentSize, dir.mainAxis())
 
 				// A known cross size transferred through the aspect ratio
-				// floors the measured size.
+				// floors the measured size; without one, the transferred
+				// min and max cross sizes clamp it, as for the base size.
 				if it.ratio.ok {
 					if cross := ckd.cross(dir); cross.ok {
 						if c.isRow {
@@ -831,6 +855,8 @@ func (e *Engine) flexIntrinsicMainSize(n Node, avail availSize, lines []flexLine
 						} else {
 							measured = fmax(measured, cross.v/it.ratio.v)
 						}
+					} else {
+						measured = it.clampContentByRatio(dir, measured)
 					}
 				}
 				content := measured + marginMain
@@ -1026,10 +1052,14 @@ func (e *Engine) hypotheticalCrossSizes(n Node, line *flexLine, c *flexConsts, a
 		pbCross := it.padding.crossSum(dir) + it.border.crossSum(dir)
 		knownMain := DefiniteSpace(c.containerSize.main(dir))
 
-		// Transferred sizes clamp the hypothetical cross size
-		// (csswg-drafts#10997).
-		tMin := it.minSize.applyAspectRatio(it.ratio).cross(dir)
-		tMax := it.maxSize.applyAspectRatio(it.ratio).cross(dir)
+		// The min and max cross sizes clamp the hypothetical cross size.
+		// Min and max main sizes transferred through the aspect ratio do
+		// not: the used main size the ratio converts is already within
+		// them, and a definite cross size keeps its value (an h-[100px]
+		// aspect-square max-w-[20px] item of a row is 20x100 in
+		// Chromium, ADR-268).
+		tMin := it.minSize.cross(dir)
+		tMax := it.maxSize.cross(dir)
 
 		// Without a cross size style, an item with an aspect ratio takes
 		// the cross size of its used main size (a flexed w-full

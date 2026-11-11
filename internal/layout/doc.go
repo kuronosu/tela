@@ -145,6 +145,13 @@
 //   - An item with an aspect ratio and a definite cross size has the
 //     transferred size as its content size suggestion, which the min and
 //     max cross sizes transferred through the ratio clamp.
+//   - Min and max cross sizes transferred through an aspect ratio clamp
+//     only a flex base size measured from content and the content size
+//     suggestion, never a definite main size or flex basis, the
+//     hypothetical main size or the flexed size; min and max main sizes
+//     do not transfer into a definite cross size, and a definite size
+//     transfers clamped by its own min and max (ADR-268; Taffy clamps
+//     the hypothetical sizes with the transferred bounds).
 //   - An item with an aspect ratio: a cross size the ratio transfers from
 //     its own main size is not a known or definite cross size (a row of
 //     w-full aspect-square items shrinks to fit), a stretched cross size
