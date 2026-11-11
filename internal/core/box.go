@@ -803,7 +803,8 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 	p := b.para
 	if p != nil {
 		p.ver++ // its elements, paints or text may change (record.go)
-		p.edgeK = t.scale // the edges were just assembled (inlineEdges)
+		// The edges were just assembled at the tree's scale (inlineEdges).
+		p.edgeK = t.scale
 	}
 	if p != nil && p.text == s && p.pstyle == pstyle && sameTextStyle(&p.def, &def) &&
 		sameSpans(p.spans, spans) && slices.Equal(p.boxes, a.boxes) && sameInlines(p.inlines, a.inlines) {
