@@ -294,7 +294,7 @@ type Constraints struct{ MinW, MaxW, MinH, MaxH float32 } // MaxW may be +Inf
 
 Resolved in this order; on conflict, **last wins**:
 
-1. Primitive defaults (e.g. `Button` has no background but has `cursor-pointer`).
+1. Primitive defaults (e.g. `Button` has no background but has `cursor-pointer`; an `A` with `Href` has `cursor-pointer`, as the browser's `a:any-link`, ADR-271).
 2. Classes in `Class("...")`, in order of appearance. `Class` may repeat; values concatenate.
 3. Typed props in `Style(...)` for dynamic values: `Style(tela.Width(w), tela.Bg(c))`.
 

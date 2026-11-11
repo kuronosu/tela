@@ -28,7 +28,7 @@ Phase 23, Layout, text and engine fidelity (ADR-268 to ADR-273).
 
 ### Changed
 
-- `cursor: auto` shows the text cursor over selectable text instead of the arrow.
+- `cursor: auto` shows the text cursor over selectable text instead of the arrow, and an `A` with `Href` shows the hand by default, as browsers do.
 - Border and outline widths and outline offsets snap to whole device pixels at the display scale, in layout too, as Chromium computes them: at x1.25 and x1.5 a 1px border is one device pixel (`border-[0.5px]` is 1 px at x1) (ADR-273).
 - A line broken at a soft hyphen ends with a visible hyphen (CSS `hyphens: manual`), unless `hyphens-none`.
 - Bold or italic text in fonts with one face (CJK fallbacks, Noto Sans Arabic in italic) is synthesized instead of drawn regular.
