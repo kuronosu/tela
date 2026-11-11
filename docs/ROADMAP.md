@@ -96,7 +96,7 @@ Inspecting and driving a running app.
 - [ ] CI: `cmd/tela`'s out-of-repository tests (dev, mcp, new, outside modules) skip when `go mod tidy` cannot resolve offline; the macOS job warms the module cache first, the Linux and Windows jobs do not, so there they likely skip; lint runs staticcheck for Linux only (`watch.(*Watcher).lost` is unused on darwin)
 - [ ] `telatest`: after frames have run, a primary click at a point with no rendered content under it (the empty area of an `h-full` page) does not blur the focused element (found in phase 22; happens on `main` too)
 - [ ] Tests that rasterize a `text.Layout` at x2 should lay it out at that scale (`Paragraph.Scale`): `TestChromiumClipText` laid out at 1 and drew at 2 (fixed in phase 23); check the others
-- [ ] `cmd/tela`'s `TestOverlayCloseButtonAndClear` timed out once on `macos-latest` (2026-11-09, the panel's pixel (0,0) was `{1 0 0}` instead of `{0 0 0}` for 60 s) and passed on a re-run: find the race
+- [ ] `cmd/tela`'s `TestOverlayCloseButtonAndClear` timed out once on `macos-latest` (2026-11-09, the panel's pixel (0,0) was `{1 0 0}` instead of `{0 0 0}` for 60 s) and passed on a re-run, and `TestOverlayResizeRedraws` failed the same way on 2026-11-11 (passed in the next run of the same commit): find the race
 
 **Done when:** each item has a test that failed before it, on Linux and Windows CI.
 
