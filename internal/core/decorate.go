@@ -330,7 +330,7 @@ func (p *painter) paintBgDoc(l *style.BackgroundLayer, doc *svg.Doc, area gfx.Re
 
 // snapSize rounds a size to whole device pixels, at least one.
 func (p *painter) snapSize(v float32) float32 {
-	d := math.Max(math.Floor(float64(float64(v)*p.scale)+0.5), 1)
+	d := math.Max(gfx.RoundDevice(float64(v)*p.scale), 1)
 	return float32(d / p.scale)
 }
 
@@ -466,7 +466,7 @@ func (p *painter) paintOutline(bx *Box) {
 func (p *painter) paintOutlineOf(cs *style.ComputedStyle, g *boxGeom) {
 	o := &cs.Outline
 	w := p.snapWidth(o.Width)
-	off := float32(math.Floor(float64(float64(o.Offset)*p.scale)+0.5) / p.scale)
+	off := snapLineOffset(o.Offset, p.scale)
 	in := gfx.RRect{Rect: g.border.Rect.Outset(off)}
 	out := gfx.RRect{Rect: in.Rect.Outset(w)}
 	for i, r := range g.border.Radii {

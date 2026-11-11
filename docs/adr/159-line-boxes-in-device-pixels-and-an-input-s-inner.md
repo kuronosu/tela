@@ -1,7 +1,7 @@
 # ADR-159: Line boxes in device pixels, and an Input's inner-editor line height
 
 - **Date:** 2026-10-25
-- **Status:** Accepted
+- **Status:** Accepted. Its known x1.5 half-pixel baseline case is fixed by ADR-273.
 
 ## Decision
 

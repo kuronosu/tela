@@ -113,7 +113,8 @@ func (r *Renderer) useRunPaint(run *glyphRun) {
 // away or too large to be cached; the caller then draws it directly.
 //
 // The device pen position is rounded to a quarter pixel in x and to a whole
-// pixel in y. The glyph is rendered (on a miss) with its pen at
+// pixel in y, halves up (gfx.RoundDevice: a baseline a float32 hair below a
+// half device pixel is on the half, as in Blink's fixed-point layout). The glyph is rendered (on a miss) with its pen at
 // (sub/4, 0), sub in 0..3, and placed at whole pixels: a mask holds exactly
 // the coverage that fillPath gives for the outline under the transform
 // Scale(sx, sy) followed by Translate(sub/4, 0), with the same flattening
@@ -127,7 +128,7 @@ func (r *Renderer) glyphCached(run *glyphRun, id gfx.GlyphID, gb gfx.Rect, lx, l
 	q := math.Floor(X*glyphSubpixels + 0.5)
 	ix := int(math.Floor(q / glyphSubpixels))
 	sub := int(q) - glyphSubpixels*ix
-	iy := int(math.Floor(Y + 0.5))
+	iy := int(gfx.RoundDevice(Y)) // halves up, as Skia (ADR-273)
 	ox := float64(sub) / glyphSubpixels
 
 	// The device box of the glyph's em bounds, relative to (ix, iy). The

@@ -77,13 +77,13 @@ func TestChromiumInputBaselines(t *testing.T) {
 			_, oy := f.textOrigin()
 			base := float64(oy+f.layout().Line(0).Baseline) * float64(s)
 			// The glyphs' baseline snaps to the nearest device row, a half
-			// rounding down, as in Skia (raster, ADR-029). Chromium's
-			// positions are LayoutUnits, Tela's float32 logical px: at
-			// scale 1.5 a baseline Chromium has at 35.5 device px is
-			// 35.49999 here, so the row is accepted within 1e-3 px.
-			row := func(eps float64) int { return int(math.Floor(base+0.5+eps)) - 1 }
-			if (row(1e-3) != c.row[si] && row(-1e-3) != c.row[si]) || math.Abs(float64(h-c.h[si])) > 0.001 {
-				t.Errorf("%s: baseline at %.4f device px (H bottom row %d), height %.4f; Chromium's row %d, height %.4f", name, base, row(0), h, c.row[si], c.h[si])
+			// rounding up, as in Skia; a baseline Chromium has at 35.5
+			// device px (LayoutUnits) can be 35.49999 here (float32
+			// logical px), which gfx.RoundDevice also rounds up (raster,
+			// ADR-273).
+			row := int(gfx.RoundDevice(base)) - 1
+			if row != c.row[si] || math.Abs(float64(h-c.h[si])) > 0.001 {
+				t.Errorf("%s: baseline at %.4f device px (H bottom row %d), height %.4f; Chromium's row %d, height %.4f", name, base, row, h, c.row[si], c.h[si])
 			}
 		}
 	}
@@ -154,9 +154,8 @@ func TestChromiumInputFallbackBaselines(t *testing.T) {
 				base = oy + f.placeholderDY(lay, ph) + ph.Line(0).Baseline
 			}
 			b := float64(base) * float64(s)
-			row := func(eps float64) int { return int(math.Floor(b+0.5+eps)) - 1 }
-			if row(1e-3) != c.rows[si] && row(-1e-3) != c.rows[si] {
-				t.Errorf("%s: baseline at %.4f device px (H bottom row %d); Chromium's row %d", name, b, row(0), c.rows[si])
+			if row := int(gfx.RoundDevice(b)) - 1; row != c.rows[si] {
+				t.Errorf("%s: baseline at %.4f device px (H bottom row %d); Chromium's row %d", name, b, row, c.rows[si])
 			}
 			if h := f.bx.ld.Layout().Size.H; c.val != "" && math.Abs(float64(h-f.lineHeight(f.bx.cs)-8)) > 1e-3 && c.cls != "h-[36px] leading-[20px]" {
 				t.Errorf("%s: height %.4f, want one empty line and the padding", name, h)

@@ -165,7 +165,7 @@ func (t *Tree) invalidateAfterRestyle(el, sp *Element, old, cs *style.ComputedSt
 	if inherited || old.TextOverflow != cs.TextOverflow || old.LineClamp != cs.LineClamp {
 		t.markBoxes(el) // its paragraph, or the one it is part of
 	}
-	if el.box.inPara != nil && inlineBoxChanged(old, cs) {
+	if el.box.inPara != nil && inlineBoxChanged(old, cs, t.scale) {
 		t.markBoxes(el) // the edges of an inline element are laid out
 	}
 	if old.VerticalAlign != cs.VerticalAlign {
@@ -356,10 +356,10 @@ func atomicStyle(cs *style.ComputedStyle) bool {
 }
 
 // inlineBoxChanged reports whether the layout of an inline element's box
-// changed: the widths of its edges (inlineEdges).
-func inlineBoxChanged(a, b *style.ComputedStyle) bool {
-	al, ar := inlineEdges(a)
-	bl, br := inlineEdges(b)
+// changed at display scale k: the widths of its edges (inlineEdges).
+func inlineBoxChanged(a, b *style.ComputedStyle, k float32) bool {
+	al, ar := inlineEdges(a, k)
+	bl, br := inlineEdges(b, k)
 	return al != bl || ar != br
 }
 
@@ -507,7 +507,7 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 	mapPosition(b, cs, &ls)
 	mapOverflow(b, cs, &ls)
 	mapSizing(b, cs, &ls)
-	mapEdges(cs, &ls)
+	mapEdges(cs, &ls, float64(b.tree.scale))
 	mapFlexGrid(cs, &ls)
 	if v := b.virtMark(); v != nil {
 		v.layoutStyle(&ls) // the boxes of a VirtualList (virtual.go)
@@ -624,14 +624,22 @@ func mapSizing(b *Box, cs *style.ComputedStyle, ls *layout.Style) {
 	}
 }
 
-// mapEdges maps the margins, padding and borders of cs onto ls.
-func mapEdges(cs *style.ComputedStyle, ls *layout.Style) {
+// hasBorderWidth reports whether a box with style cs has a border width
+// that the display scale snaps (snapLineWidth).
+func hasBorderWidth(cs *style.ComputedStyle) bool {
+	return cs.Border.Top.Width > 0 || cs.Border.Right.Width > 0 || cs.Border.Bottom.Width > 0 || cs.Border.Left.Width > 0
+}
+
+// mapEdges maps the margins, padding and borders of cs onto ls, the border
+// widths snapped to the device pixels of display scale k as CSS computes
+// them (snapLineWidth), so that layout, paint and hit-testing agree.
+func mapEdges(cs *style.ComputedStyle, ls *layout.Style, k float64) {
 	ls.Margin = layout.Edges{Top: zeroDimOf(cs.Margin.Top), Right: zeroDimOf(cs.Margin.Right),
 		Bottom: zeroDimOf(cs.Margin.Bottom), Left: zeroDimOf(cs.Margin.Left)}
 	ls.Padding = layout.Edges{Top: lpDim(cs.Padding.Top), Right: lpDim(cs.Padding.Right),
 		Bottom: lpDim(cs.Padding.Bottom), Left: lpDim(cs.Padding.Left)}
-	ls.Border = layout.Edges{Top: layout.Px(cs.Border.Top.Width), Right: layout.Px(cs.Border.Right.Width),
-		Bottom: layout.Px(cs.Border.Bottom.Width), Left: layout.Px(cs.Border.Left.Width)}
+	ls.Border = layout.Edges{Top: layout.Px(snapLineWidth(cs.Border.Top.Width, k)), Right: layout.Px(snapLineWidth(cs.Border.Right.Width, k)),
+		Bottom: layout.Px(snapLineWidth(cs.Border.Bottom.Width, k)), Left: layout.Px(snapLineWidth(cs.Border.Left.Width, k))}
 }
 
 // mapFlexGrid maps what flex and grid containers and items read from cs

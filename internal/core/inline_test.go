@@ -66,7 +66,7 @@ func TestInlineHitTest(t *testing.T) {
 	if len(frags) != 2 {
 		t.Fatalf("%d fragments, want 2", len(frags))
 	}
-	a := fragBorderBox(keyed(tr, "a").box.cs, &frags[0])
+	a := fragBorderBox(keyed(tr, "a").box.cs, &frags[0], 1)
 	// The padding of the link: left of its text, and above the line box
 	// is outside the paragraph box (py-1 grows 4 px past the content area,
 	// which is 2 px inside the 24 px line).
@@ -83,7 +83,7 @@ func TestInlineHitTest(t *testing.T) {
 	if got := hitName(tr, bl.Location.X+3, bl.Location.Y+bl.Size.H/2); got != "b" {
 		t.Errorf("on the button's padding: %s, want b", got)
 	}
-	cb := fragBorderBox(keyed(tr, "c").box.cs, &frags[1])
+	cb := fragBorderBox(keyed(tr, "c").box.cs, &frags[1], 1)
 	if got := hitName(tr, cb.X0+1, 12); got != "c" {
 		t.Errorf("on the code's padding: %s, want c", got)
 	}

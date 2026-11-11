@@ -1,7 +1,7 @@
 # ADR-045: Box painting follows Blink where CSS leaves room
 
 - **Date:** 2026-10-12
-- **Status:** Accepted
+- **Status:** Accepted. Amended by ADR-273 (border widths snapped in layout too).
 
 ## Decision
 

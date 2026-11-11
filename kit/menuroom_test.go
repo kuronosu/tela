@@ -162,7 +162,11 @@ func TestContextMenuScrollsInAShortWindow(t *testing.T) {
 			if !scrolls(n) {
 				t.Errorf("the menu does not scroll in a %v px window, shorter than its %v px: %+v", win, natural, n.Bounds)
 			}
-			if n.Bounds.Y0 < -0.01 || n.Bounds.Y1 > win+0.01 {
+			// The size limit is the room from the pointer, and the menu then
+			// moves to whole device pixels (floating.go): it can end up to
+			// half a device pixel past the window (a pointer at 167.5 device
+			// pixels at x1.5, where the menu's 1px border is 0.667 px).
+			if n.Bounds.Y0 < -0.01 || n.Bounds.Y1 > win+float32(0.5/scale)+0.01 {
 				t.Errorf("the menu %+v is outside the %v px window", n.Bounds, win)
 			}
 			if got := n.Bounds.Y1 - n.Bounds.Y0; got >= natural-1 {

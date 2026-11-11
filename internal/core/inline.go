@@ -86,8 +86,9 @@ type inlineEdgeWidths struct {
 }
 
 // edgeWidths returns the edges of an inline element with style cs
-// (percentages and auto margins count as 0).
-func edgeWidths(cs *style.ComputedStyle) inlineEdgeWidths {
+// (percentages and auto margins count as 0), its border widths snapped to
+// the device pixels of display scale k (snapLineWidth).
+func edgeWidths(cs *style.ComputedStyle, k float32) inlineEdgeWidths {
 	m := func(d style.Dim) float32 {
 		if d.Kind == style.DimLength && d.LP.Pct == 0 {
 			return d.LP.Px
@@ -102,16 +103,18 @@ func edgeWidths(cs *style.ComputedStyle) inlineEdgeWidths {
 	}
 	return inlineEdgeWidths{
 		margin: layout.Insets{Top: m(cs.Margin.Top), Right: m(cs.Margin.Right), Bottom: m(cs.Margin.Bottom), Left: m(cs.Margin.Left)},
-		border: layout.Insets{Top: cs.Border.Top.Width, Right: cs.Border.Right.Width, Bottom: cs.Border.Bottom.Width, Left: cs.Border.Left.Width},
+		border: layout.Insets{Top: snapLineWidth(cs.Border.Top.Width, float64(k)), Right: snapLineWidth(cs.Border.Right.Width, float64(k)),
+			Bottom: snapLineWidth(cs.Border.Bottom.Width, float64(k)), Left: snapLineWidth(cs.Border.Left.Width, float64(k))},
 		padding: layout.Insets{Top: lp(cs.Padding.Top), Right: lp(cs.Padding.Right),
 			Bottom: lp(cs.Padding.Bottom), Left: lp(cs.Padding.Left)},
 	}
 }
 
 // fragBorderBox returns the border box of fragment f of an inline element
-// with style cs, in the coordinates of the paragraph's content box.
-func fragBorderBox(cs *style.ComputedStyle, f *text.InlineFragment) gfx.Rect {
-	e := edgeWidths(cs)
+// with style cs, in the coordinates of the paragraph's content box, at
+// display scale k.
+func fragBorderBox(cs *style.ComputedStyle, f *text.InlineFragment, k float32) gfx.Rect {
+	e := edgeWidths(cs, k)
 	x0, x1 := f.X0, f.X1
 	if f.Left {
 		x0 += e.margin.Left
@@ -123,6 +126,13 @@ func fragBorderBox(cs *style.ComputedStyle, f *text.InlineFragment) gfx.Rect {
 		X0: x0, Y0: f.Baseline - f.Ascent - e.padding.Top - e.border.Top,
 		X1: max(x0, x1), Y1: f.Baseline + f.Descent + e.padding.Bottom + e.border.Bottom,
 	}
+}
+
+// fragBox returns the border box of fragment f of an inline element of the
+// paragraph with style cs (fragBorderBox), its borders snapped at the
+// scale the paragraph's inline edges were assembled at.
+func (p *paragraph) fragBox(cs *style.ComputedStyle, f *text.InlineFragment) gfx.Rect {
+	return fragBorderBox(cs, f, p.edgeK)
 }
 
 // inlineStyle returns the style of inline k of the paragraph, or nil when
@@ -159,7 +169,7 @@ func (p *paragraph) stitched(frags []text.InlineFragment, i int, cs *style.Compu
 		if last < 0 || f.Line > frags[last].Line || f.Line == frags[last].Line && (f.X0 > frags[last].X0) != rtl {
 			last = j
 		}
-		w := fragBorderBox(cs, f).Width()
+		w := p.fragBox(cs, f).Width()
 		total += w
 		switch {
 		case f.Line < frags[i].Line:
@@ -240,7 +250,7 @@ func (p *painter) paintParagraph(bx *Box, origin gfx.Point, visible bool) {
 			cs.Outline.Style == style.BorderNone || cs.Outline.Style == style.BorderHidden {
 			continue
 		}
-		r := fragBorderBox(cs, f).Translate(origin.X, origin.Y)
+		r := para.fragBox(cs, f).Translate(origin.X, origin.Y)
 		g := p.geomOf(cs, r)
 		if !g.border.Rect.Empty() {
 			p.paintOutlineOf(cs, &g)
@@ -256,11 +266,11 @@ func (p *painter) paintFragment(para *paragraph, frags []text.InlineFragment, i 
 	if cs == nil || cs.Visibility != style.VisibilityVisible || !hasDecorations(cs) {
 		return
 	}
-	r := fragBorderBox(cs, f)
+	r := para.fragBox(cs, f)
 	if !(r.Width() > 0) || !(r.Height() > 0) {
 		return
 	}
-	pad := edgeWidths(cs).padding
+	pad := edgeWidths(cs, para.edgeK).padding
 	var mask func() *gfx.DisplayList
 	if cs.BackgroundClip == style.BackgroundText {
 		// Its glyphs: those of its line (the background is clipped to the
@@ -314,7 +324,7 @@ func (p *paragraph) decorInk(c gfx.Point) gfx.Rect {
 		if cs == nil {
 			continue
 		}
-		r := fragBorderBox(cs, f)
+		r := p.fragBox(cs, f)
 		g := float32(1)
 		for j := range cs.BoxShadows {
 			if s := &cs.BoxShadows[j]; !s.Inset {
@@ -342,7 +352,7 @@ func (p *paragraph) fragmentsBox(c gfx.Point) gfx.Rect {
 	frags := p.fragments()
 	for i := range frags {
 		if cs := p.inlineStyle(frags[i].Inline); cs != nil {
-			u = u.Union(fragBorderBox(cs, &frags[i]))
+			u = u.Union(p.fragBox(cs, &frags[i]))
 		}
 	}
 	if u.Empty() {
@@ -362,7 +372,7 @@ func (p *paragraph) fragmentAt(pt gfx.Point) (k, line int) {
 		if cs == nil || cs.PointerEvents != style.PointerEventsAuto || cs.Visibility != style.VisibilityVisible {
 			continue
 		}
-		if fragBorderBox(cs, f).Contains(pt) {
+		if p.fragBox(cs, f).Contains(pt) {
 			return f.Inline, f.Line
 		}
 	}
@@ -393,7 +403,7 @@ func (p *paragraph) inlineRects(el *Element, dst []gfx.Rect) []gfx.Rect {
 	}
 	for _, f := range p.fragments() {
 		if f.Inline == k {
-			dst = append(dst, fragBorderBox(cs, &f))
+			dst = append(dst, p.fragBox(cs, &f))
 		}
 	}
 	return dst

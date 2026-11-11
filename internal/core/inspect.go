@@ -246,7 +246,7 @@ func (t *Tree) inspect(b *Box, origin gfx.Point) InspectNode {
 			for _, f := range p.fragments() {
 				if cs := p.inlineStyle(f.Inline); cs != nil {
 					n.Fragments = append(n.Fragments, InspectFragment{Inline: f.Inline, Line: f.Line,
-						Rect: fragBorderBox(cs, &f).Translate(c.X0, c.Y0)})
+						Rect: p.fragBox(cs, &f).Translate(c.X0, c.Y0)})
 				}
 			}
 		}

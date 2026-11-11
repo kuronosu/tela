@@ -360,11 +360,13 @@
 // and the decorations as rectangles (underline and overline below the
 // glyphs, line-through above; positions and auto thicknesses from the
 // style's first available font, so a decoration does not step between
-// fallback fonts). PaintScaled and PaintLine snap underlines to the
-// device pixels of a display scale as Blink does (a tenth of the font
-// size, floored to whole device pixels, below the baseline by half of
-// it). Inline boxes are not painted; BoxRect places them. Neither are
-// inlines; InlineFragments reports their fragments.
+// fallback fonts). PaintScaled and PaintLine snap underlines and overlines
+// to the device pixels of a display scale as Blink does (a tenth of the
+// font size, floored to whole device pixels, below the baseline by half of
+// it, or ending at the top of the ascent), and underlines and overlines
+// skip the glyphs' ink as Chromium's default text-decoration-skip-ink:
+// auto does (skipink.go). Inline boxes are not painted; BoxRect places
+// them. Neither are inlines; InlineFragments reports their fragments.
 //
 // The read-only view (query.go) exposes lines, the runs of a line in
 // visual order and clusters (source byte range, glyph range, x, advance,
@@ -399,8 +401,8 @@
 // TestChromiumSynthetic compares synthetic bold and oblique (a font with
 // one Regular face, in four styles at 14, 24 and 40 px): the ink of every
 // cell is within 2.2% of Chromium's, as close as the face drawn as it is.
-// Not implemented: hyphenation, text-decoration-skip-ink, vertical-align on
-// spans, reshaping across emergency breaks
+// Not implemented: hyphenation, vertical-align on spans, reshaping across
+// emergency breaks
 // (an Arabic word broken by overflow-wrap keeps its joining forms).
 //
 // Determinism: positions come from integers (font units) and px values
