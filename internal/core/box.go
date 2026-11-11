@@ -107,10 +107,13 @@ type Box struct {
 	// inPara is the paragraph box whose text includes this inline box.
 	inPara *Box
 	// anchor is, for an out-of-flow box in a paragraph's inline content,
-	// that paragraph's box (structure.go), and anchorOff the byte offset
-	// of its place in the text (layout.InlinePlacer, ADR-268).
+	// that paragraph's box (structure.go), anchorOff the byte offset of
+	// its place in the text and anchorCB the inline element of the
+	// paragraph that is its containing block, or -1 (layout.InlinePlacer,
+	// ADR-268).
 	anchor    *Box
 	anchorOff int32
+	anchorCB  int32
 	// hiddenAtom reports an atomic inline that its paragraph's
 	// text-overflow or line-clamp hides: it is not painted nor hit.
 	hiddenAtom bool
@@ -656,8 +659,9 @@ type paraAssembler struct {
 	spanEls []*Element
 	// oof are the out-of-flow elements of the content, in tree order:
 	// boxes of the block that holds the paragraph, not part of its text
-	// (structure.go).
-	oof []*Element
+	// (structure.go). stack holds the indices of the open inlines.
+	oof   []*Element
+	stack []int
 }
 
 func (a *paraAssembler) reset() {
@@ -668,7 +672,7 @@ func (a *paraAssembler) reset() {
 	clear(a.spanEls)
 	a.spanEls = a.spanEls[:0]
 	clear(a.oof)
-	a.oof = a.oof[:0]
+	a.oof, a.stack = a.oof[:0], a.stack[:0]
 	a.parts, a.boxes, a.spans, a.n = a.parts[:0], a.boxes[:0], a.spans[:0], 0
 	a.inlines, a.inl, a.atoms, a.atomBox, a.open = a.inlines[:0], a.inl[:0], a.atoms[:0], a.atomBox[:0], 0
 }
@@ -684,19 +688,31 @@ func (a *paraAssembler) openInline(el *Element) int {
 	})
 	a.inl = append(a.inl, el)
 	a.open++
+	a.stack = append(a.stack, len(a.inlines)-1)
 	return len(a.inlines) - 1
 }
 
 func (a *paraAssembler) closeInline(k int) {
 	a.inlines[k].End, a.inlines[k].BoxEnd = a.n, len(a.boxes)
 	a.open--
+	a.stack = a.stack[:len(a.stack)-1]
 }
 
 // addOutOfFlow records out-of-flow element el at the end of the content of
-// the paragraph of box para: its place on the line (ADR-268).
+// the paragraph of box para: its place on the line, and the innermost open
+// inline element that is positioned (relative or sticky), its containing
+// block (ADR-268).
 func (a *paraAssembler) addOutOfFlow(el *Element, para *Box) {
 	a.oof = append(a.oof, el)
-	el.box.anchor, el.box.anchorOff = para, int32(a.n)
+	bx := el.box
+	bx.anchor, bx.anchorOff, bx.anchorCB = para, int32(a.n), -1
+	for i := len(a.stack) - 1; i >= 0; i-- {
+		k := a.stack[i]
+		if cs := a.inl[k].box.cs; cs != nil && (cs.Position == style.PositionRelative || cs.Position == style.PositionSticky) {
+			bx.anchorCB = int32(k)
+			break
+		}
+	}
 }
 
 // inlineEdges returns the widths that the left and right edges of an

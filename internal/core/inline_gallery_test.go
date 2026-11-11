@@ -200,6 +200,11 @@ var inlineGalleryCases = []inlineGalleryCase{
 	{"abs-block", 56, iel("div", "relative w-[400px] text-slate-700", itext("Before "), iel("div", "absolute h-2 w-6 bg-sky-500"), itext("after the block."))},
 	{"abs-wrapped", 64, iel("p", "relative w-[150px] text-slate-700", itext("Some words that wrap "), iel("span", "absolute size-2 bg-rose-500"), itext("here"))},
 	{"abs-centered", 40, iel("p", "relative w-[400px] text-center text-slate-700", iel("span", "absolute size-2 bg-rose-500"), itext("Centered text"))},
+	// An absolute child of a relative span: the span's inline box is its
+	// containing block, across lines too (ADR-268).
+	{"relative-span", 48, iel("p", "w-[400px] text-slate-700", itext("A "), iel("span", "relative rounded bg-amber-100 px-1", itext("tooltip"), iel("span", "absolute top-full left-0 h-1 w-full bg-amber-500")), itext(" anchor."))},
+	{"relative-wrap", 72, iel("p", "w-[200px] text-slate-700", itext("Some "), iel("span", "relative bg-amber-100", itext("relative text that wraps over lines"), iel("span", "absolute inset-0 border border-amber-500")), itext(" end."))},
+	{"relative-static", 40, iel("p", "w-[400px] text-slate-700", itext("Static "), iel("span", "relative bg-amber-100 px-2", itext("ab"), iel("span", "absolute size-2 bg-rose-500"), itext("cd")), itext(" end."))},
 }
 
 func inlineGalleryRoot() inode {

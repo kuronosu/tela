@@ -392,7 +392,8 @@ func (p *paragraph) inlineRects(el *Element, dst []gfx.Rect) []gfx.Rect {
 // Out-of-flow boxes in a paragraph's inline content are children of the
 // block that holds the paragraph (structure.go, ADR-176). The box records
 // its paragraph and its place in the text (Box.anchor), and the paragraph
-// box gives layout its static position (ADR-268).
+// box gives layout its static position and, when a positioned inline
+// element holds it, its containing block (ADR-268).
 
 // InlineParagraph implements layout.InlineAnchored: the paragraph box b's
 // content was hoisted from, while it is b's sibling.
@@ -440,4 +441,58 @@ func (b *Box) StaticPosition(c layout.Node, w float32) (x, y float32, ok bool) {
 		x = w
 	}
 	return x, y, true
+}
+
+// ContainingBlock implements layout.InlinePlacer: for box c held by a
+// relative or sticky inline element of the paragraph, the padding boxes of
+// the element's fragments on its first and last lines, from the left edge
+// of the first to the right edge of the last (empty when the last ends
+// before the first starts) and from the top of the first to the bottom of
+// the last, as Chromium does across lines (CSS 2.1 section 10.1 leaves it
+// undefined).
+func (b *Box) ContainingBlock(c layout.Node, w float32) (gfx.Rect, bool) {
+	cb, p := b.anchoredIn(c, w)
+	if cb == nil || cb.anchorCB < 0 {
+		return gfx.Rect{}, false
+	}
+	k := int(cb.anchorCB)
+	cs := p.inlineStyle(k)
+	if cs == nil {
+		return gfx.Rect{}, false
+	}
+	e := edgeWidths(cs)
+	first, last := -1, -1
+	var r gfx.Rect
+	var right float32
+	for _, f := range p.fragments() {
+		if f.Inline != k {
+			continue
+		}
+		pad := fragBorderBox(cs, &f)
+		pad.Y0 += e.border.Top
+		pad.Y1 -= e.border.Bottom
+		if f.Left {
+			pad.X0 += e.border.Left
+		}
+		if f.Right {
+			pad.X1 -= e.border.Right
+		}
+		switch {
+		case first < 0 || f.Line < first:
+			first, r = f.Line, pad
+		case f.Line == first:
+			r.X0, r.Y0 = min(r.X0, pad.X0), min(r.Y0, pad.Y0)
+		}
+		switch {
+		case f.Line > last:
+			last, right, r.Y1 = f.Line, pad.X1, pad.Y1
+		case f.Line == last:
+			right, r.Y1 = max(right, pad.X1), max(r.Y1, pad.Y1)
+		}
+	}
+	if first < 0 {
+		return gfx.Rect{}, false
+	}
+	r.X1 = max(right, r.X0)
+	return r, true
 }

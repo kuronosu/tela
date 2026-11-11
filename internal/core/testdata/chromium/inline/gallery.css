@@ -212,6 +212,15 @@
   .relative {
     position: relative;
   }
+  .inset-0 {
+    inset: 0px;
+  }
+  .top-full {
+    top: 100%;
+  }
+  .left-0 {
+    left: 0px;
+  }
   .mx-2 {
     margin-inline: calc(var(--spacing) * 2);
   }
@@ -234,6 +243,9 @@
   .size-2\.5 {
     width: calc(var(--spacing) * 2.5);
     height: calc(var(--spacing) * 2.5);
+  }
+  .h-1 {
+    height: var(--spacing);
   }
   .h-2 {
     height: calc(var(--spacing) * 2);
@@ -298,6 +310,9 @@
   .w-\[440px\] {
     width: 440px;
   }
+  .w-full {
+    width: 100%;
+  }
   .items-baseline {
     align-items: baseline;
   }
@@ -356,6 +371,9 @@
   }
   .border-amber-400 {
     border-color: var(--color-amber-400);
+  }
+  .border-amber-500 {
+    border-color: var(--color-amber-500);
   }
   .border-sky-300 {
     border-color: var(--color-sky-300);

@@ -22,7 +22,9 @@ type Node interface {
 // InlineAnchored is implemented by an absolutely positioned node that is
 // part of a paragraph's inline content, laid out by the block container
 // that holds the paragraph (core hoists such boxes out of their lines,
-// ADR-176). Its static position is its place on the line (ADR-268).
+// ADR-176). Its static position is its place on the line, and a
+// positioned inline element of the paragraph may be its containing block
+// (ADR-268).
 type InlineAnchored interface {
 	// InlineParagraph returns the paragraph node that places the node: a
 	// child of the same block container, an InlinePlacer; nil if none.
@@ -40,6 +42,13 @@ type InlinePlacer interface {
 	// that was block-level (Chromium); ok is false if c is not in the
 	// paragraph.
 	StaticPosition(c Node, width float32) (x, y float32, ok bool)
+	// ContainingBlock returns c's containing block when it is a
+	// positioned inline element of the paragraph: the padding boxes of
+	// the element's first and last fragments, from the left edge of the
+	// first to the right edge of the last (at least empty) and from the
+	// top of the first to the bottom of the last (CSS 2.1 section 10.1,
+	// as Chromium does across lines); ok is false otherwise.
+	ContainingBlock(c Node, width float32) (r gfx.Rect, ok bool)
 }
 
 // Measurer is implemented by leaves (nodes without children) that have

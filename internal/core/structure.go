@@ -32,7 +32,9 @@ import (
 //     paragraph boxes: those before any content of a run come before its
 //     paragraph box, the others after it (ADR-176). Each records its
 //     paragraph and its place in the text (Box.anchor), which give layout
-//     its static position on its line (inline.go, ADR-268).
+//     its static position on its line and, inside a relative or sticky
+//     inline element, that element's fragments as its containing block
+//     (inline.go, ADR-268).
 //   - A flex container wraps each run of consecutive texts in an
 //     anonymous paragraph box (anonymous flex item); every primitive child
 //     is a flex item (blockified), inline ones included.
@@ -186,7 +188,7 @@ func (t *Tree) buildBoxes(el *Element) {
 				t.setAtomKids(a)
 				// The ones before its content sit at its start.
 				for _, o := range items[lead:i] {
-					o.box.anchor, o.box.anchorOff = a, 0
+					o.box.anchor, o.box.anchorOff, o.box.anchorCB = a, 0, -1
 				}
 			}
 			for _, h := range hoisted {

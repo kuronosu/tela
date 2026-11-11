@@ -185,6 +185,22 @@ func (e *Engine) blockInner(n Node, st *Style, in input) output {
 		if it.st.Fixed {
 			continue // laid out by its fixed containing block (fixed.go)
 		}
+		if p, pl := inlineParagraph(items, it); p != nil {
+			if r, ok := pl.ContainingBlock(it.node, p.out.size.w); ok {
+				// A positioned inline element of the paragraph is its
+				// containing block (ADR-268); the overflow is measured from
+				// this box's padding box as for its other children.
+				cbArea := size{fmax(r.X1-r.X0, 0), fmax(r.Y1-r.Y0, 0)}
+				cbOff := point{p.loc.x + r.X0, p.loc.y + r.Y0}
+				loc, fsz, out := e.placeAbsolute(n, it.node, it.st, cbArea, cbOff, it.static, dir, point{})
+				rel := point{loc.x - areaOffset.x, loc.y - areaOffset.y}
+				if dir == RTL {
+					rel.x = area.w - rel.x - fsz.w
+				}
+				absOverflow = absOverflow.union(overflowContribution(rel, fsz, out.overflow, it.st, scrolls))
+				continue
+			}
+		}
 		if cb {
 			absOverflow = absOverflow.union(e.layoutAbsolute(n, it.node, it.st, area, areaOffset, it.static, dir, scrolls, point{}))
 		} else {

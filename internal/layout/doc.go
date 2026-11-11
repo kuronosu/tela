@@ -102,7 +102,9 @@
 // ContainingBlock, or the root (the viewport), and fixed.go lays it out
 // for any container algorithm. A box of a paragraph's inline content
 // (InlineAnchored) is laid out by the block that holds the paragraph: its
-// static position is its place on its line (InlinePlacer, ADR-268).
+// static position is its place on its line, and a positioned inline
+// element of the paragraph can be its containing block (InlinePlacer,
+// ADR-268).
 // Absolutely positioned boxes are laid out by CSS 2's rules (10.3.7,
 // 10.6.4): the available space and auto margins come from the insets that
 // are set, percentages from the containing block's padding box; an auto
