@@ -113,7 +113,9 @@ type LineRun struct {
 	Kind RunKind
 	// Level is the bidi embedding level: odd levels are right to left.
 	Level uint8
-	// X and Width place the run on the line, in layout coordinates.
+	// X and Width place the run on the line, in layout coordinates (the
+	// hyphen of a hyphenated line is in the run of the cluster it
+	// follows).
 	X, Width float32
 	// ClusterStart and ClusterEnd are its visible clusters, in logical
 	// order (both -1 for an ellipsis). Right-to-left runs show them from
