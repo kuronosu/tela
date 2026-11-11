@@ -103,10 +103,14 @@
 // fallback order, clusters that no requested, per-script or registered
 // family covers (CJK, Hebrew, Devanagari, Thai...). A script is drawn by
 // one family: the installed families that support it are ranked once per
-// script (sans-serif designs before others, then the region of
-// SystemFontOptions.Lang for CJK families, then the family that covers the
-// fewest characters, then the name) and a cluster takes the first of them
-// that covers it; clusters with no script of their own follow their run's.
+// script and request (sans-serif designs before others, then a font near
+// the requested weight, then the region of the language for CJK families,
+// then the family that covers the fewest characters, then the name) and a
+// cluster takes the first of them that covers it; clusters with no script
+// of their own follow their run's. Within a paragraph, a script (and Han
+// with kana and Bopomofo, as one group) takes one family: the first of
+// that order that has every character of the group the registered fonts
+// lack, else the one that has most of them (paraScope).
 //
 // The scan and the parsing are lazy: the index loads at the first generic
 // or unknown family name or uncovered cluster (or earlier, on the goroutine

@@ -63,7 +63,7 @@ func (c *Collection) Itemize(text []rune, start, end int, q Query, size float32,
 	if start >= end {
 		return out
 	}
-	return c.candidates(q, size).itemize(text, start, end, nil, script, out)
+	return c.candidates(q, size).itemize(text, start, end, nil, script, nil, out)
 }
 
 // itemize is Itemize for 0 <= start < end <= len(text) with the query's
@@ -80,7 +80,7 @@ func (c *Collection) Itemize(text []rune, start, end int, q Query, size float32,
 // boundary). An item that starts inside a cluster of the whole text (a
 // style change between a character and its mark, say) is segmented on its
 // own, as Itemize does.
-func (cs *candidates) itemize(text []rune, start, end int, segs []uint8, script language.Script, out []Run) []Run {
+func (cs *candidates) itemize(text []rune, start, end int, segs []uint8, script language.Script, scope *paraScope, out []Run) []Run {
 	var cur *Face
 	started := false
 	runStart := start
@@ -90,7 +90,7 @@ func (cs *candidates) itemize(text []rune, start, end int, segs []uint8, script 
 		if cur != nil && keepsFace(cluster) {
 			f = cur
 		} else {
-			f = cs.resolve(cluster, script)
+			f = cs.resolve(cluster, script, scope)
 		}
 		if !started || f != cur {
 			if started {
@@ -212,7 +212,7 @@ func covers(f *Face, cluster []rune) bool {
 
 // resolve picks the face of one cluster, or nil when the collection has no
 // font at all.
-func (cs *candidates) resolve(cluster []rune, script language.Script) *Face {
+func (cs *candidates) resolve(cluster []rune, script language.Script, scope *paraScope) *Face {
 	pres := clusterPresentation(cluster)
 	sc := clusterScript(cluster, script)
 
@@ -243,7 +243,7 @@ func (cs *candidates) resolve(cluster []rune, script language.Script) *Face {
 	}
 	// The registered fonts cannot draw the cluster: the system fonts, when
 	// enabled, come last (sysfonts.go).
-	if f := cs.system(cluster, sc, pres == presText); f != nil {
+	if f := cs.system(cluster, sc, pres == presText, scope); f != nil {
 		return f
 	}
 	if pres == presText {

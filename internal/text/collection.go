@@ -732,7 +732,7 @@ func (cs *candidates) systemDefault() *Face {
 			return
 		}
 		s.ensureIndex()
-		names := append(slices.Clone(s.genericList("sans-serif")), s.fallbackFamilies([]rune{'a'}, language.Latin)...)
+		names := append(slices.Clone(s.genericList("sans-serif")), s.fallbackFamilies([]rune{'a'}, language.Latin, cs.sysRequest())...)
 		for _, name := range names {
 			if !s.has(name) {
 				continue

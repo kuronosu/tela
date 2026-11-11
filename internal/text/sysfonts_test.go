@@ -480,7 +480,7 @@ func TestSystemFallbackRanking(t *testing.T) {
 		{"", "ก", nil},
 	} {
 		s := synthetic(c.lang, entries...)
-		got := s.fallbackFamilies([]rune(c.cluster), language.LookupScript([]rune(c.cluster)[0]))
+		got := s.fallbackFamilies([]rune(c.cluster), language.LookupScript([]rune(c.cluster)[0]), defReq(s))
 		n := min(len(got), len(c.want))
 		if len(c.want) == 0 && len(got) != 0 || !equalStrings(got[:n], c.want[:n]) {
 			t.Errorf("lang %q cluster %q: %v, want prefix %v", c.lang, c.cluster, got, c.want)
