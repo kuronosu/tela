@@ -143,6 +143,20 @@ func (l *Layout) PaintLineLayer(b *gfx.Builder, origin gfx.Point, i int, scale f
 	l.paintDecorations(b, origin, i, DecorationLineThrough, scale, o)
 }
 
+// PaintLineLayerWith is PaintLineLayer with every glyph run and
+// decoration painted with paint, as in PaintWith (nil keeps the styles'
+// paints): the selected text of a paint layer drawn again in the
+// selection's color under a clip.
+func (l *Layout) PaintLineLayerWith(b *gfx.Builder, origin gfx.Point, i int, scale float32, paint gfx.Paint, layer int) {
+	if i < 0 || i >= len(l.lines) {
+		return
+	}
+	o := paintOver{all: paint, layered: true, layer: int32(layer)}
+	l.paintDecorations(b, origin, i, DecorationUnderline|DecorationOverline, scale, o)
+	l.paintGlyphs(b, origin, i, nil, o)
+	l.paintDecorations(b, origin, i, DecorationLineThrough, scale, o)
+}
+
 // skips reports whether painting with o leaves out cluster c (another
 // layer's).
 func (o paintOver) skips(l *Layout, c int32) bool {

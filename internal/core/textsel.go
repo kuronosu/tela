@@ -42,11 +42,14 @@ import (
 // the range goes on past its end, the break of its last line), with the
 // selection colors of text fields: the selection: background and text
 // colors, or Chromium's (fieldpaint.go). An atomic inline is not
-// highlighted as a box: its own text is. The highlight is part of what
-// painting a paragraph reads (paragraph.ver), so a change records again
-// the layers that paint the paragraphs whose part changed, and damage
-// tracking rasterizes what changed: no layer of its own, and no frame
-// when nothing changes.
+// highlighted as a box: its own text is. The text of a positioned inline
+// element, painted after the rest of its paragraph (inline.go), has its
+// highlight painted with it, over its background and moved by its
+// offset, as Chromium paints the highlight with each text fragment. The
+// highlight is part of what painting a paragraph reads (paragraph.ver),
+// so a change records again the layers that paint the paragraphs whose
+// part changed, and damage tracking rasterizes what changed: no layer of
+// its own, and no frame when nothing changes.
 //
 // # The pointer
 //
@@ -1268,51 +1271,54 @@ func (t *Tree) selKey(e KeyboardEvent) bool {
 // ---------------------------------------------------------------------
 // Painting.
 
-// selRect is a snapped highlight rectangle of a paragraph and its line.
-type selRect struct {
-	r    gfx.Rect
-	line int
-}
-
-// selHighlight returns the highlight rectangles of paragraph box bx
-// painted with its content box at origin, snapped like box edges (as
-// fields snap theirs), and the selection's colors (fieldpaint.go's
+// selHighlight returns the highlight rectangles of paragraph box bx, with
+// their lines, and the selection's colors (fieldpaint.go's
 // selectionColors: a nil text paint keeps the text's own colors); none
-// when the paragraph paints no part of the selection.
-func (p *painter) selHighlight(bx *Box) (rects []selRect, bg gfx.Color, fg gfx.Paint) {
+// when the paragraph paints no part of the selection. When layered (the
+// paragraph paints its positioned inlines in their own layers, inline.go)
+// they are those of the text of paint layer layer only
+// (text.Layout.HighlightLineRects).
+func (p *painter) selHighlight(bx *Box, layered bool, layer int) (rects []text.LineRect, bg gfx.Color, fg gfx.Paint) {
 	pa := bx.para
 	if !pa.hl.on || bx.pcs == nil || bx.pcs.Visibility != style.VisibilityVisible {
 		return nil, gfx.Color{}, nil
 	}
 	bg, fg = p.t.selectionColors(bx.pcs)
-	for _, r := range pa.lay.HighlightRects(pa.hl.sel, pa.hl.more, nil) {
-		rects = append(rects, selRect{r, lineAtTop(pa.lay, r.Y0)})
+	if !layered {
+		layer = text.AllLayers
 	}
-	return rects, bg, fg
+	return pa.lay.HighlightLineRects(pa.hl.sel, pa.hl.more, layer, nil), bg, fg
 }
 
 // paintSelBg paints the highlight of the rectangles of line li (all of
-// them when li < 0) of a paragraph whose content box is at origin.
-func (p *painter) paintSelBg(rects []selRect, origin gfx.Point, bg gfx.Color, li int) {
+// them when li < 0) of a paragraph whose content box is at origin,
+// snapped like box edges (as fields snap theirs).
+func (p *painter) paintSelBg(rects []text.LineRect, origin gfx.Point, bg gfx.Color, li int) {
 	for _, sr := range rects {
-		if li < 0 || sr.line == li {
-			p.b.FillRect(p.snapRect(sr.r.Translate(origin.X, origin.Y)), bg)
+		if li < 0 || sr.Line == li {
+			p.b.FillRect(p.snapRect(sr.Rect.Translate(origin.X, origin.Y)), bg)
 		}
 	}
 }
 
 // paintSelText paints the selected text again in the selection's text
-// color fg, clipped to each rectangle of line li (all lines when li < 0).
-func (p *painter) paintSelText(lay *text.Layout, rects []selRect, origin gfx.Point, fg gfx.Paint, li int) {
+// color fg, clipped to each rectangle of line li (all lines when li < 0);
+// when layered, only the text of paint layer layer
+// (text.Layout.PaintLineLayerWith).
+func (p *painter) paintSelText(lay *text.Layout, rects []text.LineRect, origin gfx.Point, fg gfx.Paint, li int, layered bool, layer int) {
 	if fg == nil {
 		return
 	}
 	for _, sr := range rects {
-		if li >= 0 && sr.line != li {
+		if li >= 0 && sr.Line != li {
 			continue
 		}
-		p.b.PushClipRect(p.snapRect(sr.r.Translate(origin.X, origin.Y)))
-		lay.PaintLinesWith(p.b, origin, sr.line, sr.line+1, float32(p.scale), fg)
+		p.b.PushClipRect(p.snapRect(sr.Rect.Translate(origin.X, origin.Y)))
+		if layered {
+			lay.PaintLineLayerWith(p.b, origin, sr.Line, float32(p.scale), fg, layer)
+		} else {
+			lay.PaintLinesWith(p.b, origin, sr.Line, sr.Line+1, float32(p.scale), fg)
+		}
 		p.b.PopClip()
 	}
 }

@@ -311,6 +311,68 @@ func TestTextSelUserSelectAll(t *testing.T) {
 	}
 }
 
+// The selection in a positioned inline element (a relative span, painted
+// after the rest of its paragraph in its own layer, ADR-268) is painted
+// with it, as Chromium paints the highlight with each text fragment: over
+// the span's background, and moved by its offset (by more than half a
+// line in "far": the highlight stays its line's).
+func TestTextSelPositionedInline(t *testing.T) {
+	root := div(Class("p-4 w-96 bg-white text-slate-900 leading-6"),
+		p(Key("a"), Text("Plain "), span(Key("s"), Class("relative bg-yellow-200"), Text("marked")), Text(" after")),
+		p(Key("b"), Class("mt-6"), Text("Plain "), span(Key("o"), Class("relative top-2 bg-yellow-200"), Text("moved")), Text(" after")),
+		p(Key("c"), Class("mt-6"), Text("Plain "), span(Key("far"), Class("relative top-4 bg-yellow-200"), Text("moved")), Text(" after")))
+	x := newKeys(t, root, 400, 200)
+	tr := x.tree()
+	x.ctrl("a", 0)
+	x.settle()
+	img := x.w.Frame()
+	golden.Image(t, "text_selection_positioned", img)
+	// frag returns the window rectangle of the content area of inline
+	// element k's fragment and its baseline.
+	frag := func(k string) (gfx.Rect, float32) {
+		el := keyed(tr, k)
+		pb := el.box.inPara
+		c := contentRect(windowRect(pb), pb.ld.Layout())
+		i := pb.para.inlineIndex(el)
+		for _, f := range pb.para.fragments() {
+			if f.Inline == i {
+				return gfx.Rect{X0: c.X0 + f.X0, Y0: c.Y0 + f.Baseline - f.Ascent, X1: c.X0 + f.X1, Y1: c.Y0 + f.Baseline + f.Descent}, c.Y0 + f.Baseline
+			}
+		}
+		t.Fatalf("no fragment of %s", k)
+		return gfx.Rect{}, 0
+	}
+	want := selectionActiveBg.Premul8()
+	for _, k := range []string{"s", "o", "far"} {
+		r, base := frag(k)
+		// 2 px under the baseline, in the middle: no ink ("marked" and
+		// "moved" have no descenders), the span's background under the
+		// highlight.
+		if got := img.RGBAAt(int(r.Center().X), int(base+2)); got != want {
+			t.Errorf("under the text of the selected %s span at (%v,%v): %v, want the highlight %v", k, r.Center().X, base+2, got, want)
+		}
+		// The selected text of the span is in the selection's color:
+		// white ink over its letters.
+		white := 0
+		for y := int(r.Y0); y < int(base); y++ {
+			for x := int(r.X0); x < int(r.X1); x++ {
+				if p := img.RGBAAt(x, y); p.R > 240 && p.G > 240 && p.B > 240 {
+					white++
+				}
+			}
+		}
+		if white < 10 {
+			t.Errorf("the selected text of the %s span is not in the selection's color (%d white pixels)", k, white)
+		}
+	}
+	// The plain text, for comparison.
+	pl := textAt(t, tr, "a", 2, 0)
+	_, base := frag("s")
+	if got := img.RGBAAt(int(pl.X), int(base+2)); got != want {
+		t.Errorf("under the plain text: %v, want the highlight %v", got, want)
+	}
+}
+
 // The drag image of a selection across two paragraphs: their selected
 // text alone, at 75%, in its own colors.
 func TestTextSelDragImageGolden(t *testing.T) {

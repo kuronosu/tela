@@ -167,6 +167,29 @@ func TestInlineOffset(t *testing.T) {
 	if l.InlineLayer(k) != k || l.BoxLayer(0) != k || l.BoxLayer(1) != k {
 		t.Errorf("layers %d %d %d, want %d", l.InlineLayer(k), l.BoxLayer(0), l.BoxLayer(1), k)
 	}
+
+	// The highlight of a selection from "un" on past the end of the text,
+	// by layer: "un " and " now" with the break of the line in the
+	// paragraph's, "go" in the inline's, moved with it and still on line
+	// 0; all of them together.
+	hs := NewSelection(Cursor{Offset: 1}, Cursor{Offset: 10})
+	all := l.HighlightLineRects(hs, true, AllLayers, nil)
+	own := l.HighlightLineRects(hs, true, -1, nil)
+	in := l.HighlightLineRects(hs, true, k, nil)
+	if len(all) != 3 || len(own) != 2 || len(in) != 1 {
+		t.Fatalf("highlights all %v, layer -1 %v, layer %d %v", all, own, k, in)
+	}
+	for _, r := range append(append(all, own...), in...) {
+		if r.Line != 0 {
+			t.Errorf("highlight %v not on line 0", r)
+		}
+	}
+	if !near(in[0].Y0, own[0].Y0+8) || !near(in[0].X0, sel[0].X0) {
+		t.Errorf("the inline's highlight %v, want its selection %v (moved by 8 down)", in[0], sel[0])
+	}
+	if got := l.HighlightRects(hs, true, nil); len(got) != len(all) || got[0] != all[0].Rect || got[2] != all[2].Rect {
+		t.Errorf("HighlightRects %v, HighlightLineRects %v", got, all)
+	}
 }
 
 // An anchor is no caret stop of its own: moving across "ab<anchor>cd" by
