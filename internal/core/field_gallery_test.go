@@ -416,13 +416,12 @@ func TestChromiumFieldGallery(t *testing.T) {
 }
 
 // fieldGeometryTolerance is the largest edge difference accepted. At x1
-// the worst is 0.016 px (glyph advances); at x2 every edge is exact except
-// the width of the "small" input (14 px font, default size=20), 220 px
-// here and 219.5 in Chromium: a layout mismatch of one device pixel in the
-// intrinsic width at the doubled font size, not antialiasing.
+// the worst is 0.016 px (glyph advances); at x2 every edge is exact (the
+// "small" input, 14 px font and default size=20, is 219.5 px wide there as
+// in Chromium, whose character widths are rounded in device pixels).
 func fieldGeometryTolerance(scale int) float64 {
 	if scale == 2 {
-		return 0.5
+		return 0.01
 	}
 	return 0.02
 }
