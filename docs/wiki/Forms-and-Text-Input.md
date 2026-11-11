@@ -178,6 +178,24 @@ func Search() tela.Node {
 }
 ```
 
+## Selecting static text
+
+Text outside fields can be selected with the mouse and copied, as on the web: a press
+and a drag select across paragraphs, Shift+click extends, a double click selects a
+word and a triple click a paragraph; Ctrl+C (Command+C on a Mac) copies, Ctrl+A
+selects all, and the cursor is the I-beam over selectable text. `select-none` turns
+it off for a subtree (`select-text` turns it back on), `select-all` selects an
+element whole, and `selection:bg-* selection:text-*` color the highlight, as in a
+field. Buttons, draggable elements, elements with drag handlers and presses of the
+`aria` hooks (`PressOptions.AllowTextSelectionOnPress` opts in) start no selection;
+an overlay in a `Portal` has a selection of its own, and focusing a field clears it.
+In tests, [`App.SelectedText`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.SelectedText)
+returns the selected text.
+
+```go
+P(Class("text-sm"), Text("Order "), Code(Class("select-all"), Text("#A-1029")), Text(" shipped."))
+```
+
 ## Testing fields
 
 [`App.Fill`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Fill) replaces a field's value like Playwright's `fill`;
