@@ -51,11 +51,12 @@ func TestTextSelGestures(t *testing.T) {
 		p(Key("a"), Text("Hello brave world")),
 		div(Key("handle"), On("drag", func(DragEvent) { drags++ }), Text("Drag handle text")),
 		div(Key("dnd"), Draggable(true), Text("Draggable text")),
-		div(Key("press"), On("pointerdown", func(e PointerEvent) { NoTextSelection(e) }), Text("Pressable text")))
+		div(Key("press"), On("pointerdown", func(e PointerEvent) { NoTextSelection(e) }), Text("Pressable text")),
+		div(WindowDrag(), p(Key("bar"), Text("Title bar text")), div(WindowNoDrag(), p(Key("nodrag"), Text("Content in a bar")))))
 	x := newKeys(t, root, 400, 200)
 	tr := x.tree()
 	x.drag(textAt(t, tr, "a", 0, 0), textAt(t, tr, "a", 5, 0))
-	for _, k := range []string{"handle", "press"} {
+	for _, k := range []string{"handle", "press", "bar"} {
 		x.drag(textAt(t, tr, k, 0, 0), textAt(t, tr, k, 10, 0))
 		if got := tr.SelectedText(); got != "Hello" {
 			t.Errorf("a drag on %s changed the selection to %q", k, got)
@@ -67,6 +68,10 @@ func TestTextSelGestures(t *testing.T) {
 	x.clickAt(textAt(t, tr, "dnd", 2, 0))
 	if got := tr.SelectedText(); got != "Hello" {
 		t.Errorf("a click on a Draggable changed the selection to %q", got)
+	}
+	x.drag(textAt(t, tr, "nodrag", 0, 0), textAt(t, tr, "nodrag", 7, 0))
+	if got := tr.SelectedText(); got != "Content" {
+		t.Errorf("a drag in a no-drag area of a title bar selected %q", got)
 	}
 }
 

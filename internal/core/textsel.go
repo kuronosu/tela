@@ -55,7 +55,8 @@ import (
 // CanStartSelection): not on a Button (which starts none from its text
 // either: the owner's rule, where Chromium starts one from a button's
 // text and none from its padding), a Draggable element or an element with
-// drag gesture handlers (they drag), text whose user-select is none, nor
+// drag gesture handlers (they drag), a title bar's drag area or window
+// control, text whose user-select is none, nor
 // a press that an aria press hook handled (React Aria's usePress sets
 // user-select: none on the pressed element), nor a Mac context click;
 // such a press leaves the selection as it is. A press on a link clears
@@ -789,6 +790,7 @@ func canStartSel(el *Element) (ok, link bool) {
 		return false, false
 	}
 	var first *Element
+	region := false // the nearest window region was seen
 	for e := el; e != nil; e = e.styleParent() {
 		if e.kind != elemPrimitive {
 			continue
@@ -802,6 +804,15 @@ func canStartSel(el *Element) (ok, link bool) {
 			return false, false
 		case e.box.kind == style.KindA && d.href != "":
 			link = true
+		}
+		if !region && d.winRegion != regionNone {
+			// A title bar's drag area or a window control moves or
+			// controls the window (Chromium's app-region: drag is not
+			// even hit); a no-drag area inside one is content.
+			if d.winRegion != regionNoDrag {
+				return false, false
+			}
+			region = true
 		}
 	}
 	if first == nil || first.box.cs == nil || first.box.cs.UserSelect == style.UserSelectNone {
