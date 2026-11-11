@@ -29,9 +29,7 @@ import (
 // v device pixels may be and still be placed on them: 1/1024 px, growing
 // with |v| to absorb the relative error of float32 logical offsets
 // (|v|/2^20: 0.1 px at 100,000 px) and capped at 1/8 px.
-func GridTolerance(v float64) float64 {
-	return min(max(1.0/1024, math.Abs(v)/(1<<20)), 1.0/8)
-}
+func GridTolerance(v float64) float64 { return gfx.DeviceTolerance(v) }
 
 // GridStep returns the device displacement of a translation by t logical
 // pixels at scale s rounded to whole device pixels, and whether it is

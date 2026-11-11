@@ -18,11 +18,13 @@ var borderScaleGallery = &cssGallery{
 	name:   "borderscale",
 	width:  400,
 	scales: []float32{1.25, 1.5},
-	// Text anti-aliasing, and boxes and baselines that Chromium places on
-	// exact half device pixels and Tela a float32 hair below them, which
-	// round one pixel apart. Edges differ by Chromium's text widths in
-	// 1/64 px summed along a row.
-	mean: [2]float64{5, 2},
+	// Text anti-aliasing, and inline fragments whose edges round to
+	// another device pixel: Chromium's text widths are in 1/64 px, and
+	// summed along a row they move edges by up to 0.04 px. (Before
+	// gfx.RoundDevice, boxes and baselines that Chromium places on exact
+	// half device pixels and Tela a float32 hair below them were one pixel
+	// apart: inline x1.25 4.60, nested x1.5 1.58.)
+	mean: [2]float64{2, 2},
 	geom: [2]float64{0.05, 0.05},
 	rows: []cssRow{
 		{name: "widths", height: 64, class: "gap-2", kids: []inode{

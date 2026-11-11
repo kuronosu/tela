@@ -330,7 +330,7 @@ func (p *painter) paintBgDoc(l *style.BackgroundLayer, doc *svg.Doc, area gfx.Re
 
 // snapSize rounds a size to whole device pixels, at least one.
 func (p *painter) snapSize(v float32) float32 {
-	d := math.Max(math.Floor(float64(float64(v)*p.scale)+0.5), 1)
+	d := math.Max(gfx.RoundDevice(float64(v)*p.scale), 1)
 	return float32(d / p.scale)
 }
 

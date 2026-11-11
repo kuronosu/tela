@@ -152,7 +152,8 @@ func (l *Layout) SetPaint(s int, paint, decoration gfx.Paint) {
 // is the style's, or a tenth of the font size (at least 1), floored to
 // whole device pixels (at least 1), and the line starts max(1,
 // ceil(thickness/2)) device pixels below the baseline rounded to the
-// device grid (text-underline-position: auto).
+// device grid, halves up as the glyphs' (gfx.RoundDevice;
+// text-underline-position: auto).
 func snappedUnderline(s *TextStyle, size, y, scale float32) (top, thick float32) {
 	t := s.Decoration.Thickness
 	if !(t > 0) || !finite32(t) {
@@ -161,7 +162,7 @@ func snappedUnderline(s *TextStyle, size, y, scale float32) (top, thick float32)
 	td := float64(t) * float64(scale)
 	gap := max(1, math.Ceil(td/2))
 	th := max(1, math.Floor(td))
-	base := math.Round(float64(y) * float64(scale))
+	base := gfx.RoundDevice(float64(y) * float64(scale))
 	return float32((base+gap)/float64(scale)) - y, float32(th / float64(scale))
 }
 

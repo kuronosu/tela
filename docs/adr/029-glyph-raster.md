@@ -1,7 +1,7 @@
 # ADR-029: Glyph raster
 
 - **Date:** 2026-10-11
-- **Status:** Accepted
+- **Status:** Accepted. Amended by ADR-273 (the baseline rounds halves up with a float32 tolerance).
 
 ## Decision
 

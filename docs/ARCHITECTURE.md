@@ -373,7 +373,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
 - **Properties:** `font-family`, `font-size`, `font-weight` (incl. variable fonts), `font-style`, `line-height`, `letter-spacing`, `text-align`, `text-transform`, `text-decoration`, `white-space`, `text-wrap` (`text-balance` and `text-pretty` break lines as Blink does, ADR-166), `text-overflow: ellipsis`, `line-clamp-*`, `tabular-nums`.
 - **Glyph raster:**
   - Same path machinery as the rasterizer.
-  - Glyph cache keyed by (font, size, quantized subpixel offset), respecting display scale. Under scale/translate transforms the pen x snaps to 1/4 device pixel and the baseline y to whole device pixels; other transforms and large glyphs fill the outline directly (ADR-029).
+  - Glyph cache keyed by (font, size, quantized subpixel offset), respecting display scale. Under scale/translate transforms the pen x snaps to 1/4 device pixel and the baseline y to whole device pixels, halves up like box edges (a float32 hair below a half counts as the half, ADR-273); other transforms and large glyphs fill the outline directly (ADR-029).
   - Grayscale antialiasing (no RGB subpixel) so output is identical across platforms.
 - **Text editing (`Input`, `Textarea`):** cursor, mouse/keyboard selection, undo/redo, clipboard. **IME** composition arrives from the backend as `IMEEvent` batches (delete surrounding text, commit, new preedit; an empty preedit ends the composition) and `IMESessionEvent`s; the field reports its caret area, purpose and surrounding text with `Window.SetTextInput` (ADR-068).
 

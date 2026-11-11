@@ -112,8 +112,9 @@ import (
 // coordinates without the scroll offsets (the coordinates of the enclosing
 // transform's space under a transform; the offsets are whole device
 // pixels, so snapping commutes with them), becomes round(edge × scale) /
-// scale, rounding halves up, so
-// a box keeps whole device pixels and adjacent boxes stay adjacent.
+// scale, rounding halves up (gfx.RoundDevice: an edge a float32 hair below
+// a half device pixel is on the half, as in Blink's fixed-point layout),
+// so a box keeps whole device pixels and adjacent boxes stay adjacent.
 // Border and outline widths and outline offsets are snapped like CSS line
 // widths (snapLineWidth): a width of at least one device pixel is floored
 // to whole device pixels, a smaller non-zero one becomes one device pixel;
@@ -930,7 +931,7 @@ type boxGeom struct {
 
 // snap rounds a logical coordinate to the device pixel grid.
 func (p *painter) snap(v float32) float32 {
-	d := math.Floor(float64(float64(v)*p.scale) + 0.5)
+	d := gfx.RoundDevice(float64(v) * p.scale)
 	return float32(d / p.scale)
 }
 
