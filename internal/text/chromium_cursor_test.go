@@ -406,7 +406,7 @@ func compareChromiumCursor(t *testing.T, c *cursorCase, p cursorProbe, res chrom
 		a, b := byteOf[rg[0]], byteOf[rg[1]]
 		want := mergeByLine(l, res.Ranges[k])
 		got := map[int][][2]float32{}
-		for _, r := range l.selectionRects(NewSelection(Cursor{a, Downstream}, Cursor{b, Upstream}), nil, false) {
+		for _, r := range l.selectionRects(NewSelection(Cursor{a, Downstream}, Cursor{b, Upstream}), nil, false, true, false) {
 			li := l.lineAtY((r.Y0 + r.Y1) / 2)
 			got[li] = append(got[li], [2]float32{r.X0, r.X1})
 		}
