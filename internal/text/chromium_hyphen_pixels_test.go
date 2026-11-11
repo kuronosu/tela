@@ -107,7 +107,7 @@ func hyPixelsHTML() string {
 		for _, s := range c.spans {
 			st := cssStyle(s.style) + cssHyphens(s.style.Hyphens) + " color: " + cssColor(s.style.Paint) + ";"
 			if d := s.style.Decoration; d.Lines&DecorationUnderline != 0 {
-				st += " text-decoration: underline " + cssColor(d.Paint) + "; text-decoration-skip-ink: none;"
+				st += " text-decoration: underline " + cssColor(d.Paint) + ";"
 			}
 			fmt.Fprintf(&b, "<span style=\"%s\">%s</span>", html.EscapeString(st), strings.ReplaceAll(html.EscapeString(s.text), "\u00ad", "&shy;"))
 		}
