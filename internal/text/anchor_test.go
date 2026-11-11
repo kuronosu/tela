@@ -168,3 +168,20 @@ func TestInlineOffset(t *testing.T) {
 		t.Errorf("layers %d %d %d, want %d", l.InlineLayer(k), l.BoxLayer(0), l.BoxLayer(1), k)
 	}
 }
+
+// An anchor is no caret stop of its own: moving across "ab<anchor>cd" by
+// characters takes four steps, as without it.
+func TestAnchorCaretStops(t *testing.T) {
+	l := NewLayout(layoutCollection(t), anchorPara(DirectionLTR, "ab", "cd"))
+	l.BreakLines(400)
+	for _, m := range []Movement{MoveForward, MoveRight} {
+		s := CaretSelection(Cursor{Offset: 0})
+		steps := 0
+		for ; steps < 10 && s.Focus.Offset < 4; steps++ {
+			s = l.Move(s, m, false)
+		}
+		if steps != 4 {
+			t.Errorf("movement %v: %d steps to the end, want 4", m, steps)
+		}
+	}
+}
