@@ -67,6 +67,9 @@ import (
 // from the end farther from the press, Chromium's non-directional
 // selection); a double click selects a word and a triple click a
 // paragraph, with the break after it (Chromium's paragraph granularity).
+// The content of an element whose user-select is all is selected as a
+// whole: a press in it selects all of it, and an end that a drag or a
+// Shift press brings into it goes to its far edge.
 // Moving with the button held extends the focus to the position under
 // the pointer by the unit of the press, without a drag slop, also over
 // other roots and outside the window, and scrolls the scroll containers
@@ -853,16 +856,18 @@ func (t *Tree) selPress(ps *pointerState, target *Element) {
 		return
 	case ps.clickCount == 2:
 		s.unit = selWord
-		s.ustart, s.uend = t.unitAt(selWord, pos, ps.pos)
+		s.ustart, s.uend = t.expandAll(t.unitAt(selWord, pos, ps.pos))
 		t.setSel(root, s.ustart, s.uend)
 	case ps.clickCount >= 3:
 		s.unit = selPara
 		s.root = root
-		s.ustart, s.uend = t.unitAt(selPara, pos, ps.pos)
+		s.ustart, s.uend = t.expandAll(t.unitAt(selPara, pos, ps.pos))
 		t.setSel(root, s.ustart, s.uend)
 	default:
+		// A caret, or the whole of a user-select: all element.
 		s.unit = selChar
-		t.setSel(root, pos, pos)
+		a, b := t.expandAll(pos, pos)
+		t.setSel(root, a, b)
 	}
 	s.drag = ps
 }
@@ -892,6 +897,7 @@ func (t *Tree) selExtendTo(pos selPos, p gfx.Point, click bool) {
 		return
 	}
 	anchor := s.anchor
+	pos = t.allEdge(pos, t.cmpPos(pos, anchor) >= 0)
 	if click && t.flavor == platform.FlavorMac && s.anchor != s.focus {
 		// ExtendSelectionAsNonDirectional: the end farther from the
 		// press stays.
@@ -1117,11 +1123,17 @@ func (t *Tree) selectAll() {
 	if root == nil {
 		return
 	}
-	// The first and last positions in document order: the walk goes
-	// down before it goes on, so the first selectable paragraph starts
-	// first, but the text of a paragraph after an atomic inline comes
-	// after the atom's.
-	var a, b selPos
+	if a, b, ok := t.selBounds(root); ok {
+		t.tsel.unit = selChar
+		t.setSel(root, a, b)
+	}
+}
+
+// selBounds returns the first and last positions of the selectable text
+// in the subtree of bx, in document order: the walk goes down before it
+// goes on, so the first selectable paragraph starts first, but the text
+// of a paragraph after an atomic inline comes after the atom's.
+func (t *Tree) selBounds(bx *Box) (a, b selPos, ok bool) {
 	var walk func(bx *Box)
 	walk = func(bx *Box) {
 		if bx.ls.Display == layout.DisplayNone || bx.cs == nil {
@@ -1142,12 +1154,69 @@ func (t *Tree) selectAll() {
 			}
 		}
 	}
-	walk(root)
-	if a.bx == nil {
-		return
+	walk(bx)
+	return a, b, a.bx != nil
+}
+
+// allRange returns the first and last positions of the outermost element
+// with user-select: all that holds the text at position p, whose content
+// is selected as a whole (Chromium's
+// ExpandSelectionToRespectUserSelectAll), and whether there is one.
+func (t *Tree) allRange(p selPos) (a, b selPos, ok bool) {
+	var all *Element
+	for x := selPosElement(p); x != nil; x = x.styleParent() {
+		if x.kind != elemPrimitive {
+			continue
+		}
+		if x.box.cs == nil || x.box.cs.UserSelect != style.UserSelectAll {
+			break
+		}
+		all = x
 	}
-	t.tsel.unit = selChar
-	t.setSel(root, a, b)
+	if all == nil {
+		return selPos{}, selPos{}, false
+	}
+	if pb := all.box.inPara; pb != nil && paraBox(pb) {
+		// An inline element: its text in its paragraph.
+		for i, el := range pb.para.inl {
+			if el == all && i < len(pb.para.inlines) {
+				in := pb.para.inlines[i]
+				lay := pb.para.lay
+				return selPos{pb, lay.SnapCursor(text.Cursor{Offset: in.Start, Affinity: text.Upstream})},
+					selPos{pb, lay.SnapCursor(text.Cursor{Offset: in.End, Affinity: text.Downstream})}, true
+			}
+		}
+		return selPos{}, selPos{}, false
+	}
+	if bx := t.geomBox(all); bx != nil {
+		return t.selBounds(bx)
+	}
+	return selPos{}, selPos{}, false
+}
+
+// allEdge moves position p, the focus of a selection, to the edge of the
+// user-select: all element that holds it in the direction the selection
+// grows (its end when forward).
+func (t *Tree) allEdge(p selPos, forward bool) selPos {
+	if a, b, ok := t.allRange(p); ok {
+		if forward {
+			return b
+		}
+		return a
+	}
+	return p
+}
+
+// expandAll grows the selection [a, b] (in document order) to the whole
+// of the user-select: all elements that hold its ends.
+func (t *Tree) expandAll(a, b selPos) (selPos, selPos) {
+	if s, _, ok := t.allRange(a); ok && t.cmpPos(s, a) < 0 {
+		a = s
+	}
+	if _, e, ok := t.allRange(b); ok && t.cmpPos(e, b) > 0 {
+		b = e
+	}
+	return a, b
 }
 
 // selKey runs the selection's key bindings for keydown e, with the focus

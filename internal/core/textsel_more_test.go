@@ -249,6 +249,63 @@ func TestTextSelGolden(t *testing.T) {
 	}
 }
 
+// A selection change only paints: no build, style or layout, and the
+// damage covers the text whose highlight changed.
+func TestTextSelPaintsOnly(t *testing.T) {
+	rows := make([]Child, 0, 100)
+	for i := range 100 {
+		rows = append(rows, p(Key(i), Class("p-1"), Text(fmt.Sprintf("row %d of the list", i))))
+	}
+	x := newKeys(t, div(rows...), 400, 300)
+	tr := x.tree()
+	a, b := textAt(t, tr, 5, 0, 0), textAt(t, tr, 5, 3, 0)
+	x.send(move(a.X, a.Y), down(a.X, a.Y), moveHeld(b.X, b.Y))
+	x.settle()
+	s0 := tr.Stats()
+	c := textAt(t, tr, 5, 9, 0)
+	x.send(moveHeld(c.X, c.Y))
+	x.settle()
+	s1 := tr.Stats()
+	if s1.Layouts != s0.Layouts || s1.Builds != s0.Builds || s1.Styles != s0.Styles {
+		t.Errorf("a selection drag: layouts +%d builds +%d styles +%d, want none",
+			s1.Layouts-s0.Layouts, s1.Builds-s0.Builds, s1.Styles-s0.Styles)
+	}
+	row := windowRect(keyed(tr, 5).box)
+	for _, d := range x.w.Damage() {
+		if float32(d.Min.Y) < row.Y0-1 || float32(d.Max.Y) > row.Y1+1 {
+			t.Errorf("damage %v outside the row %v", d, row)
+		}
+	}
+	x.send(up(c.X, c.Y))
+	if got := tr.SelectedText(); got != "row 5 of " {
+		t.Errorf("selected %q", got)
+	}
+}
+
+// user-select: all selects an element's content as a whole (Chromium's
+// ExpandSelectionToRespectUserSelectAll).
+func TestTextSelUserSelectAll(t *testing.T) {
+	root := div(Class("p-4 w-96"),
+		p(Key("a"), Text("Your key: "), span(Key("key"), Class("select-all"), Text("abc-123-xyz")), Text(" is shown once.")),
+		div(Key("blk"), Class("select-all"), p(Key("b1"), Text("First line")), p(Key("b2"), Text("Second line"))))
+	x := newKeys(t, root, 400, 200)
+	tr := x.tree()
+	x.clickAt(textAt(t, tr, "key", 14, 0))
+	if got := tr.SelectedText(); got != "abc-123-xyz" {
+		t.Errorf("a click in a select-all span selected %q", got)
+	}
+	x.clickAt(textAt(t, tr, "b2", 2, 0))
+	if got := tr.SelectedText(); got != "First line\nSecond line" {
+		t.Errorf("a click in a select-all block selected %q", got)
+	}
+	// A drag into it takes all of it.
+	x.clickAt(textAt(t, tr, "a", 0, 0))
+	x.drag(textAt(t, tr, "a", 0, 0), textAt(t, tr, "key", 13, 0))
+	if got := tr.SelectedText(); got != "Your key: abc-123-xyz" {
+		t.Errorf("a drag into a select-all span selected %q", got)
+	}
+}
+
 // The drag image of a selection across two paragraphs: their selected
 // text alone, at 75%, in its own colors.
 func TestTextSelDragImageGolden(t *testing.T) {
