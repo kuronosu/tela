@@ -126,19 +126,22 @@ func (t *Tree) restyle(el *Element) {
 
 // animBefore returns the style the animations of box bx start from
 // (beforeChange): old, the style it had, or nil for a new box (whose
-// first styled frame it records) and for a box that mounted in a frame
-// that builds again (whose animations it resets).
+// first styled frame it records) and for a box that mounted or was shown
+// again in a frame that builds again (whose animations it resets).
 func (t *Tree) animBefore(bx *Box, old *style.ComputedStyle) *style.ComputedStyle {
 	if old == nil {
 		bx.styledFrame = t.frame
 		return nil
 	}
-	if t.rerun && bx.styledFrame >= t.frameStart {
+	if t.rerun && (bx.styledFrame >= t.frameStart || bx.shownFrame >= t.frameStart) {
 		// The frame builds again before painting (the float pass
-		// published a placement): a box that mounted in it has not been
-		// seen yet, so it starts its transitions and animations again
-		// from its starting style, with the classes of the final side.
-		// (>=: the passes of the frame advance t.frame; Tree.frameStart.)
+		// published a placement): a box that mounted in it, or whose
+		// display: none ended in it, has not been seen yet, so it starts
+		// its transitions and animations again from its starting style,
+		// with the classes of the final side: it enters once, as CSS's
+		// @starting-style applies when an element starts being rendered
+		// (ADR-272). (>=: the passes of the frame advance t.frame;
+		// Tree.frameStart.)
 		if ba := bx.anim; ba != nil {
 			t.anim.tk.Remove(ba)
 			ba.dormant = false

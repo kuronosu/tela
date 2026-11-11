@@ -97,8 +97,10 @@ type layoutAnim struct {
 	// as x, y, width and height; running while it is in progress.
 	m       anim.Motion
 	running bool
-	// placed is the place pass that placed the box last (layoutState).
-	placed uint64
+	// placed is the place pass that placed the box last (layoutState);
+	// appeared is Tree.frame when it last appeared (it mounted, or its
+	// display: none ended).
+	placed, appeared uint64
 	// The visual box of the paint memo (layoutState.paints), in Box.u
 	// coordinates; origin is the visual origin of rel's frame and active
 	// reports a flip (the box or its layout parent animates).
@@ -384,6 +386,7 @@ func (p *painter) layoutPlace(bx *Box) {
 		// The box appears (it mounts, or its display: none ended): at
 		// its place, or from the box a LayoutID hands it.
 		la.rel, la.target, la.running = rel, tgt, false
+		la.appeared = t.frame
 		if la.id == "" || !animate {
 			break
 		}
@@ -397,7 +400,11 @@ func (p *painter) layoutPlace(bx *Box) {
 			t.startLayout(la, rectVec(from), anim.Vec{N: 4}, now)
 		}
 	case tgt != la.target || rel != la.rel:
-		if !animate {
+		if !animate || t.rerun && !la.running && la.appeared >= t.frameStart {
+			// No animation, or the box appeared at its place in the
+			// first pass of this Frame, which the float pass ran again
+			// (floating.go) and which was never presented: it appears at
+			// its new place (ADR-272).
 			la.rel, la.target, la.running = rel, tgt, false
 			break
 		}

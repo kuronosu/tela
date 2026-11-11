@@ -295,8 +295,11 @@ func (t *Tree) beforeChange(bx *Box, old, cs *style.ComputedStyle, in style.Inpu
 	if cs.Display == style.DisplayNone {
 		return nil // still not rendered
 	}
-	if ba := bx.anim; ba != nil && old != nil {
-		ba.trans = nil // shown again: what ran while hidden ends
+	if old != nil {
+		bx.shownFrame = t.frame // shown again (animBefore: a rerun enters again)
+		if ba := bx.anim; ba != nil {
+			ba.trans = nil // what ran while hidden ends
+		}
 	}
 	if !bx.startingUse || !t.anim.driven || t.cx.ReducedMotion {
 		return nil

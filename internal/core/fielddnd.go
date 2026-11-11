@@ -2,7 +2,6 @@ package core
 
 import (
 	"image"
-	"time"
 
 	"github.com/kuronosu/tela/internal/gesture"
 	"github.com/kuronosu/tela/internal/gfx"
@@ -63,22 +62,25 @@ import (
 //
 // # Autoscroll
 //
-// While a drag hovers over a text field near its edges, the field
-// scrolls toward them, as Chromium's AutoscrollController does for a drag
-// and drop (kAutoscrollForDragAndDrop), whatever the drag carries and
-// whether the field takes it: the band is kAutoscrollBeltSize, 20 px,
-// inside the box that scrolls (an Input's content box, its inner editor,
-// where hits in its padding land too; a Textarea's border box without its
-// scrollbars; LayoutBox::CalculateAutoscrollDirection), and from 0.2 s
-// after the drag entered the band (kAutoscrollDelay; Chromium waits
-// strictly longer, a frame's difference) every frame scrolls the point 20
-// px past the pointer toward the edge into view (LayoutBox::Autoscroll:
-// a 1 px square, to the edge if needed), so a pointer d px inside the
-// edge scrolls 20 - d px a frame toward the start, 21 - d toward the end.
-// An Input scrolls horizontally, a Textarea on both axes as far as its
+// While a drag hovers over a text field whose text overflows, near its
+// edges, the field scrolls toward them, as Chromium's
+// AutoscrollController does for a drag and drop
+// (kAutoscrollForDragAndDrop), whatever the drag carries and whether the
+// field takes it: the band is kAutoscrollBeltSize, 20 px, inside the box
+// that scrolls (an Input's content box, its inner editor, where hits in
+// its padding land too; a Textarea's border box without its scrollbars;
+// LayoutBox::CalculateAutoscrollDirection), and from 0.2 s after the drag
+// entered the band (kAutoscrollDelay; Chromium waits strictly longer, a
+// frame's difference) every frame scrolls the point 20 px past the
+// pointer toward the edge into view (LayoutBox::Autoscroll: a 1 px
+// square, to the edge if needed), so a pointer d px inside the edge
+// scrolls 20 - d px a frame toward the start, 21 - d toward the end. An
+// Input scrolls horizontally, a Textarea on both axes as far as its
 // extents go (vertically when its lines wrap). The drop caret follows the
 // text that comes under the pointer. Frames run only while a step moves
-// the field: the delay is a deadline (NextDeadline), not frames.
+// the field: the delay is a deadline (NextDeadline), not frames. Over a
+// field whose text fits, and over any other element, the drag scrolls
+// the scroll containers around it the same way (dndscroll.go).
 //
 // # The drop caret
 //
@@ -235,10 +237,11 @@ const dragImageAlpha = 0.75
 // selection highlight or anything of the field around them, at
 // dragImageAlpha, over the selection's rectangles not cut by the field
 // (AbsoluteUnclippedBounds: the part an Input scrolled out of view is in
-// it). The field's transforms scale and move the text as on screen; a
-// rotated field's text is drawn upright, scaled to the bounding box of
-// the rotated one. It is painted on the UI thread from the field's
-// layout, into an image of its own.
+// it), as transformed: Chromium paints the frame with every transform,
+// so the text is drawn through the field's transforms and its ancestors'
+// as on screen, a rotated field's rotated (ADR-272), in the bounding box
+// of the transformed rectangles. It is painted on the UI thread from the
+// field's layout, into an image of its own.
 func (t *Tree) textDragImage(d *textDrag, s float64, hot image.Point) (*image.RGBA, image.Point) {
 	f := d.f
 	lay := f.layout()
@@ -247,11 +250,7 @@ func (t *Tree) textDragImage(d *textDrag, s float64, hot image.Point) (*image.RG
 	}
 	sel := text.NewSelection(text.Cursor{Offset: f.ed.ValueToDisplay(d.start)}, text.Cursor{Offset: f.ed.ValueToDisplay(d.end)})
 	rects := lay.SelectionRects(sel, nil)
-	// The text's coordinates to the window's: a unit square of the text
-	// mapped through the field's origin, scroll and transforms.
-	const k = 1024
-	u := t.fieldToWindow(f, gfx.Rect{X1: k, Y1: k})
-	m := gfx.Affine{u.Width() / k, 0, 0, u.Height() / k, u.X0, u.Y0}
+	m := t.fieldTextMatrix(f)
 	var b gfx.Rect
 	for _, r := range rects {
 		b = b.Union(m.TransformRect(r))
@@ -278,6 +277,28 @@ func (t *Tree) textDragImage(d *textDrag, s float64, hot image.Point) (*image.RG
 	img := image.NewRGBA(image.Rect(0, 0, pr.Dx(), pr.Dy()))
 	raster.Render(img, bl.Finish(), raster.Options{Scale: float32(s), Workers: 1})
 	return img, hot.Sub(pr.Min)
+}
+
+// fieldTextMatrix returns the map from the text coordinates of field f to
+// window coordinates as it is painted: the text's origin and scroll, then
+// the transforms of its box and of its ancestors, innermost first
+// (fieldToWindow's, as one matrix, so that a rotation or a skew is kept).
+func (t *Tree) fieldTextMatrix(f *field) gfx.Affine {
+	bx := f.bx
+	x, y := f.textOrigin()
+	o := t.semOrigin(bx).Add(gfx.Point{X: x, Y: y})
+	if s := bx.scr; s != nil && f.multi {
+		o = o.Sub(s.soff)
+	}
+	m := gfx.Translate(o.X, o.Y)
+	for b := bx; b != nil && b != t.rootBox; b = b.parent {
+		cs := paintStyle(b)
+		if cs == nil || cs.Transform.IsIdentity() {
+			continue
+		}
+		m = cs.Transform.Matrix(gfx.RectFromOriginSize(t.semOrigin(b), b.ld.Layout().Size)).Mul(m)
+	}
+	return m
 }
 
 // appTextDrag returns the selection drag of a field of the app in
@@ -358,86 +379,50 @@ func (t *Tree) deleteDragged(d *textDrag) {
 }
 
 // ---------------------------------------------------------------------
-// The drop caret.
+// Autoscroll (the drag's state and steps are in dndscroll.go).
 
-// Chromium's autoscroll of a drag and drop (AutoscrollController,
-// LayoutBox::CalculateAutoscrollDirection).
-const (
-	dragAutoscrollBelt  = 20                     // kAutoscrollBeltSize, logical px
-	dragAutoscrollDelay = 200 * time.Millisecond // kAutoscrollDelay
-)
-
-// dragAutoscrollTo follows a move of the drag over the window at now
-// (see Autoscroll above): the field under it, when the drag is in its
-// band, is the one that scrolls, and the point to scroll into view the
-// drag's position moved by the band toward the edges it is near. The
-// delay starts when the drag enters a field's band.
-func (t *Tree) dragAutoscrollTo(now time.Duration) {
-	d := &t.dnd
-	t.scr.now = max(t.scr.now, now)
-	f := textField(d.target)
-	var off gfx.Point
-	if f != nil && f.alive() {
-		off = t.dragAutoscrollDir(f, d.pos)
+// fieldOverflows reports whether f's text overflows the box that scrolls
+// it (Chromium's IsUserScrollable for its inner editor): an Input's line
+// wider than its content box, a Textarea's text past its client area. A
+// drag autoscrolls only such a field.
+func (f *field) fieldOverflows() bool {
+	if !f.multi {
+		lo, hi := f.scrollXRange()
+		return hi > lo
 	}
-	if off == (gfx.Point{}) {
-		d.as = nil
-		return
-	}
-	d.asRef, d.asDir = d.pos.Add(off), off
-	if d.as != f {
-		d.as, d.asAt = f, now
-	}
-	if t.dragAutoscrollDue() {
-		t.requestRepaint()
-	}
+	s := f.bx.scr
+	return s != nil && (s.max.X > 0 || s.max.Y > 0)
 }
 
-// dragAutoscrollDir returns the offset by which the drag's position p
-// moves toward the edges of f's band it is in (dragAutoscrollBelt on each
-// axis the field scrolls on), or zero outside it.
-func (t *Tree) dragAutoscrollDir(f *field, p gfx.Point) gfx.Point {
+// fieldAutoscrollDir returns the offset by which the drag's position p
+// moves toward the edges of field f's band it is in (dragAutoscrollBelt
+// on each axis the field scrolls on), or zero outside it.
+func (t *Tree) fieldAutoscrollDir(f *field, p gfx.Point) gfx.Point {
 	l := f.bx.ld.Layout()
 	lp := t.localPoint(f.el, p)
-	// The box that scrolls, in the field's border box coordinates.
-	box := gfx.Rect{X1: l.Size.W - l.ScrollbarSize.W, Y1: l.Size.H - l.ScrollbarSize.H}
 	if !f.multi {
-		box = contentRect(gfx.Rect{X1: l.Size.W, Y1: l.Size.H}, l)
+		// The inner editor: the content box, horizontally.
+		off := autoscrollBand(contentRect(gfx.Rect{X1: l.Size.W, Y1: l.Size.H}, l), lp)
+		off.Y = 0
+		return off
 	}
-	const b = dragAutoscrollBelt
-	var off gfx.Point
-	switch {
-	case lp.X < box.X0+b:
-		off.X = -b
-	case lp.X > box.X1-b:
-		off.X = b
-	}
-	if f.multi {
-		switch {
-		case lp.Y < box.Y0+b:
-			off.Y = -b
-		case lp.Y > box.Y1-b:
-			off.Y = b
-		}
-	}
-	return off
+	return autoscrollBand(scrollingBox(f.bx), lp)
 }
 
-// dragAutoscrollStep returns where one autoscroll step of the drag
-// scrolls its field: an Input's scrollX (x) or a Textarea's scroll
-// offset (p), and whether it moves the field.
-func (t *Tree) dragAutoscrollStep() (x float32, p gfx.Point, ok bool) {
-	d := &t.dnd
-	f := d.as
-	if f == nil || !d.active || !f.alive() || f.layout() == nil {
+// fieldAutoscrollStep returns where one autoscroll step of the drag, at
+// the window point ref moved toward dir, scrolls field f: an Input's
+// scrollX (x) or a Textarea's scroll offset (p), and whether it moves the
+// field.
+func (t *Tree) fieldAutoscrollStep(f *field, ref, dir gfx.Point) (x float32, p gfx.Point, ok bool) {
+	if !f.alive() || f.layout() == nil {
 		return 0, gfx.Point{}, false
 	}
-	pt := t.fieldPoint(f, d.asRef)
+	pt := t.fieldPoint(f, ref)
 	// The 1 px square at the point, toward the edges it goes past.
-	if d.asDir.X > 0 {
+	if dir.X > 0 {
 		pt.X++
 	}
-	if d.asDir.Y > 0 {
+	if dir.Y > 0 {
 		pt.Y++
 	}
 	if f.multi {
@@ -456,58 +441,8 @@ func (t *Tree) dragAutoscrollStep() (x float32, p gfx.Point, ok bool) {
 	return x, gfx.Point{}, x != f.scrollX
 }
 
-// dragAutoscrollDue reports whether the drag's autoscroll moves its field
-// in the next frame: past the delay, with a step that moves it.
-func (t *Tree) dragAutoscrollDue() bool {
-	d := &t.dnd
-	if d.as == nil || t.scr.now < d.asAt+dragAutoscrollDelay {
-		return false
-	}
-	_, _, ok := t.dragAutoscrollStep()
-	return ok
-}
-
-// dragAutoscrollDeadline returns when the drag's autoscroll delay ends,
-// while it waits for it with a step that would move the field.
-func (t *Tree) dragAutoscrollDeadline() (time.Duration, bool) {
-	d := &t.dnd
-	if d.as == nil || t.scr.now >= d.asAt+dragAutoscrollDelay {
-		return 0, false
-	}
-	if _, _, ok := t.dragAutoscrollStep(); !ok {
-		return 0, false
-	}
-	return d.asAt + dragAutoscrollDelay, true
-}
-
-// tickDragAutoscroll asks for the frames of the drag's autoscroll when
-// its delay ended (TickGestures).
-func (t *Tree) tickDragAutoscroll() {
-	if t.dragAutoscrollDue() {
-		t.requestRepaint()
-	}
-}
-
-// animateDragAutoscroll runs one autoscroll step of the drag (Animate),
-// and moves the drop caret to the text now under the drag.
-func (t *Tree) animateDragAutoscroll() {
-	if !t.dragAutoscrollDue() {
-		return
-	}
-	x, p, _ := t.dragAutoscrollStep()
-	f := t.dnd.as
-	if f.multi {
-		t.scrollDirect(f.bx.scr, p)
-	} else {
-		f.scrollX = x
-		f.markPaint()
-	}
-	if t.dnd.caret == f {
-		if c, ok := t.dropCursor(f); ok {
-			t.setDropCaret(f, c)
-		}
-	}
-}
+// ---------------------------------------------------------------------
+// The drop caret.
 
 // dropCursor returns the position of f's text under the drag, where its
 // drop would insert.

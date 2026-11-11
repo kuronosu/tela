@@ -1498,6 +1498,17 @@ func (t *Tree) scrollPhase(laidOut bool) bool {
 	if laidOut || len(t.virt.lists) > 0 {
 		laidOut = t.settleScroll(0, laidOut) || laidOut
 	}
+	revealed := t.runScrollRequests()
+	if revealed && len(t.virt.lists) > 0 {
+		laidOut = t.settleScroll(1, laidOut) || laidOut
+	}
+	return laidOut
+}
+
+// runScrollRequests scrolls the focused element into view and runs the
+// programmatic scrolls that waited for the extents, in call order. It
+// reports whether one ran.
+func (t *Tree) runScrollRequests() bool {
 	revealed := false
 	if el := t.scr.reveal; el != nil {
 		t.scr.reveal = nil
@@ -1514,10 +1525,32 @@ func (t *Tree) scrollPhase(laidOut bool) bool {
 		}
 	}
 	t.scr.requests = nil
-	if revealed && len(t.virt.lists) > 0 {
-		laidOut = t.settleScroll(1, laidOut) || laidOut
+	return revealed
+}
+
+// readExtents makes the scroll offsets current for a read between a
+// layout of the frame and the scroll phase (the layout effects, ADR-272):
+// it reads the extents of that layout, as the scroll phase would, and runs
+// the focus reveal and the programmatic scrolls queued until then, in the
+// scroll phase's order, so that ScrollOffset returns what they give, as
+// Chromium's scrollTop forces layout. The extents are current from then
+// on: the scrolls that follow in the frame run at once, and a later layout
+// of the frame (a focus restyle, classic gutters, a virtual list's
+// measurements) marks them stale again and clamps the offsets to its
+// extents.
+func (t *Tree) readExtents() {
+	if !t.scr.stale || !t.inFrame {
+		return
 	}
-	return laidOut
+	// perf: every container's extents, as the scroll phase reads them;
+	// reads in layout effects are rare.
+	for _, s := range t.scr.list {
+		if s != nil {
+			t.extents(s)
+		}
+	}
+	t.scr.stale = false
+	t.runScrollRequests()
 }
 
 // settleScroll updates the extents and the classic gutters, laying out
@@ -1832,9 +1865,12 @@ func (t *Tree) runRequest(q scrollReq) bool {
 // scrollLeft and scrollTop): zero when it is not a scroll container or
 // not mounted. During a smooth scroll it is the current, animated
 // position. In a right-to-left container x is 0 at the right and
-// negative toward the left.
+// negative toward the left. Read in a layout effect, it is the offset
+// the scrolls made before it in the frame give, clamped to the extents of
+// the frame's layout, like scrollTop right after it is set.
 func (r ElementRef) ScrollOffset() (x, y float32) {
 	if s := scrollerOf(r.element()); s != nil {
+		s.box.tree.readExtents()
 		p := s.flip(s.pos)
 		return p.X, p.Y
 	}

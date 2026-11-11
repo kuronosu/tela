@@ -3079,7 +3079,7 @@ ScrollIntoView scrolls every scroll container around the element so that it is v
 func (r ElementRef) ScrollOffset() (x, y float32)
 ```
 
-ScrollOffset returns the element's scroll offsets (the DOM's scrollLeft and scrollTop): zero when it is not a scroll container or not mounted. During a smooth scroll it is the current, animated position. In a right-to-left container x is 0 at the right and negative toward the left.
+ScrollOffset returns the element's scroll offsets (the DOM's scrollLeft and scrollTop): zero when it is not a scroll container or not mounted. During a smooth scroll it is the current, animated position. In a right-to-left container x is 0 at the right and negative toward the left. Read in a layout effect, it is the offset the scrolls made before it in the frame give, clamped to the extents of the frame's layout, like scrollTop right after it is set.
 
 #### func (ElementRef) ScrollTo
 

@@ -99,7 +99,9 @@ type Box struct {
 	// styledFrame is Tree.frame when the box was styled for the first
 	// time; one at or after Tree.frameStart was styled in the current
 	// Frame, whose rerun starts its animations again (Tree.restyle).
-	styledFrame uint64
+	// shownFrame is Tree.frame when its own display: none last ended, for
+	// the rerun likewise (ADR-272).
+	styledFrame, shownFrame uint64
 
 	// built reports that the box's own structure (kids or paragraph) is
 	// current: it is a block-level or flex-level box, not inline content.
