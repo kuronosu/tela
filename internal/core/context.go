@@ -162,6 +162,9 @@ func (t *Tree) updateProvider(el *Element, n node) {
 			// A consumer in a child window builds in its window's tree.
 			s.el.tree.markBuild(s.el)
 		}
+		if el.comp.ctx == langContext {
+			t.langProviderChanged(el) // lang.go
+		}
 	}
 	t.reconcile(el, d.children)
 	el.dirtyKids = false

@@ -14,6 +14,11 @@ func RegisterDefaultFonts(newCollection func() *Collection) {
 	defaultFonts.Store(&newCollection)
 }
 
+// HasDefaultFonts reports whether a package registered a default font
+// set: the binary is a test, telatest or the tela command, whose output
+// must not depend on the machine.
+func HasDefaultFonts() bool { return defaultFonts.Load() != nil }
+
 // NewDefaultCollection returns a new collection of the default font set
 // that a package registered with RegisterDefaultFonts, or nil when none
 // did: a program that links no font package has no default set, and

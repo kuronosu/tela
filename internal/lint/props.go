@@ -14,7 +14,7 @@ import (
 //	role  h.Role
 //	aria  h.AriaCurrent, h.AriaSort, h.AriaHasPopup, h.AriaOrientation,
 //	      h.AriaAutoComplete (core.AriaTokenProps)
-//	prop  h.Dir; h.Type, and the Type field of kit.Button and kit.Input,
+//	prop  h.Dir, h.Lang; h.Type, and the Type field of kit.Button and kit.Input,
 //	      with the element's own set of types; tela.Ease
 
 func (p *pass) checkPropCall(call *ast.CallExpr, fn *types.Func) {
@@ -36,6 +36,8 @@ func (p *pass) checkPropCall(call *ast.CallExpr, fn *types.Func) {
 		p.checkArg(call, 0, RuleRole, core.CheckRole)
 	case "Dir":
 		p.checkArg(call, 0, RuleProp, core.CheckDir)
+	case "Lang":
+		p.checkArg(call, 0, RuleProp, core.CheckLang)
 	case "Type":
 		if !p.isFunc(fn, "h", name) {
 			return

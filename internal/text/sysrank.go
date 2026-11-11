@@ -1,7 +1,6 @@
 package text
 
 import (
-	"os"
 	"strings"
 
 	"github.com/go-text/typesetting/language"
@@ -31,17 +30,12 @@ func isGenericName(key string) bool { return genericNames[key] }
 // the language is unknown.
 var defaultRegions = []string{"jp", "sc", "kr", "tc", "hk"}
 
-// regionPreference returns the family-name suffixes (Noto Sans CJK JP, ...)
-// in order of preference for lang, or for the environment's language when
-// lang is empty.
+// regionPreference returns the regions of CJK families (jp for Noto Sans
+// CJK JP, Yu Gothic...) in order of preference for lang, or for the user's
+// language (SystemLanguage) when lang is empty.
 func regionPreference(lang string) []string {
 	if lang == "" {
-		for _, name := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
-			if v := os.Getenv(name); v != "" && v != "C" && v != "POSIX" {
-				lang = v
-				break
-			}
-		}
+		lang = SystemLanguage()
 	}
 	parts := strings.FieldsFunc(strings.ToLower(lang), func(r rune) bool { return r == '-' || r == '_' || r == '.' || r == '@' })
 	first := ""

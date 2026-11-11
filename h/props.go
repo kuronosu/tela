@@ -88,6 +88,24 @@ func Key[K comparable](k K) tela.Prop { return core.Key(k) }
 // Any other value panics in dev mode and is ignored otherwise.
 func Dir(dir string) tela.Prop { return core.Dir(dir) }
 
+// Lang sets the language of an element and its subtree, like HTML's lang
+// attribute: a BCP 47 tag such as "en", "ja", "zh-Hans", "zh-TW" or
+// "pt-BR". Text shapes with its language, so a pan-CJK font draws the
+// Japanese, Simplified or Traditional Chinese or Korean forms of the same
+// character, and its fallback takes the CJK fonts of that region first;
+// text-transform follows it (Turkish dotted i):
+//
+//	P(Lang("ja"), Text("直骨角")) // Japanese forms
+//	P(Lang("zh-Hans"), Text("直骨角")) // Simplified Chinese forms
+//
+// Text with no Lang above it has the app's default language: the current
+// locale of package i18n when the app uses it (i18n.Provider sets the
+// language of its children), else the user's (tela.SetDefaultLang). ""
+// has no effect: the element inherits its parent's language. A tag that
+// is not well formed (es_MX, with an underscore) panics in dev mode and
+// is ignored otherwise.
+func Lang(tag string) tela.Prop { return core.Lang(tag) }
+
 // Src sets the image of an Img. Pass the same image.Image value on every
 // build: it is converted for drawing only when another image is given.
 func Src(img image.Image) tela.Prop {

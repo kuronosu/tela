@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/internal/core"
 )
 
 // localeContext carries a locale chosen by [Provider]; "" means none.
@@ -20,6 +21,11 @@ var localeContext = tela.CreateContext("")
 //
 //	app := telatest.Mount(t, i18n.Provider("es", Settings()))
 //
+// The tag is also the language of the children's text, as an h.Lang on
+// each of the first elements below the Provider would make it (the
+// Provider has no box): text shapes with it and falls back to the CJK
+// fonts of its region.
+//
 // Provider("") has no effect: its children follow the current locale. It
 // panics if tag is not a valid BCP 47 tag.
 func Provider(tag string, children ...tela.Child) tela.Node {
@@ -31,7 +37,7 @@ func Provider(tag string, children ...tela.Child) tela.Node {
 		}
 		name = d.name
 	}
-	return localeContext.Provider(name, children...)
+	return localeContext.Provider(name, core.LangProvider(name, children...))
 }
 
 // UseLocale returns the current locale ([Locale], or the one of the

@@ -47,9 +47,11 @@ type SystemFontOptions struct {
 	SkipSystemDirs bool
 	// Lang is the preferred language as a BCP 47 tag ("ja", "ko", "zh-Hans",
 	// "zh-TW"...). Unified Han characters have no language of their own;
-	// Lang chooses among the regional variants of a CJK family (Noto Sans
-	// CJK JP, KR, SC, TC and HK). The default comes from the LC_ALL,
-	// LC_MESSAGES and LANG environment variables, else Japanese forms are
+	// for text whose own language (Query.Lang) is not Chinese, Japanese or
+	// Korean, Lang chooses among the CJK families of each region (Noto
+	// Sans CJK JP, KR, SC, TC and HK; Yu Gothic, Malgun Gothic, Microsoft
+	// YaHei, Microsoft JhengHei...). The default is the user's language
+	// (SystemLanguage); when that is not CJK either, Japanese forms are
 	// preferred, then Simplified Chinese, Korean, Traditional Chinese.
 	Lang string
 	// UIFamily and MonoFamily are the desktop's interface and monospace

@@ -40,6 +40,8 @@ func Props() []tela.Node {
 	return []tela.Node{
 		Div(Dir("rtl"), Dir("AUTO"), Dir("")),
 		Div(Dir("sideways")), // want prop `Dir("sideways")`
+		Div(Lang("ja"), Lang("zh-Hant-TW"), Lang("")),
+		Div(Lang("es_MX")), // want prop `Lang("es_MX")`
 		Input(Type("email")),
 		Input(Type("submit")), // want prop `Type("submit") on <input>`
 		Button(Type("submit")),

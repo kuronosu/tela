@@ -366,6 +366,12 @@ type TextProps struct {
 	// rounded-s-*, start-*...) and the rtl: and ltr: variants read it,
 	// and it is the base direction of the element's paragraphs.
 	Direction text.Direction
+	// Language is the content language (HTML's lang, ADR-269), a BCP 47
+	// tag, "" when unknown. It is inherited, set by an element's lang
+	// (Input.Lang) and at the root by Context.Lang, the app's default.
+	// Text shapes with it (locl: the Japanese, Chinese or Korean forms of
+	// a pan-CJK font) and falls back to the CJK fonts of its region.
+	Language string
 }
 
 // CaretColor is the CSS caret-color: auto (the zero value: the text

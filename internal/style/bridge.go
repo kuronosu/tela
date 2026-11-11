@@ -19,6 +19,7 @@ func (s *ComputedStyle) TextStyle() text.TextStyle {
 		Paint:         t.Color,
 		Transform:     t.TextTransform,
 		Numeric:       t.Numeric,
+		Language:      t.Language,
 	}
 	if t.Decoration.Lines != 0 {
 		st.Decoration = text.TextDecoration{
