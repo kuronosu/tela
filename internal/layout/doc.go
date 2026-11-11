@@ -160,6 +160,12 @@
 //     size (Style.NoNaturalSize) has Chromium's content size suggestion:
 //     the container's inner width in a row, the default object size
 //     fitted to the ratio in a column (ADR-157).
+//   - A column item with an aspect ratio, no definite height and an auto
+//     (not definitely stretched) or keyword width is measured at its
+//     fit-content width, which the ratio turns into its flex base size;
+//     the width is its contribution to a column of indefinite width, and
+//     its cross size then follows its used main size (ADR-268; Taffy
+//     measures its content height).
 //   - An item with a min-content, max-content or fit-content cross size
 //     is measured at that size for its flex base size and its content
 //     contribution, not stretched; nor is one with an auto cross margin

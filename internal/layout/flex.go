@@ -26,6 +26,11 @@ type flexItem struct {
 	// ratio: that one follows the preferred main size, not the used one,
 	// and is not a definite cross size of the item (ADR-157).
 	crossSize opt
+	// fitCross is the fit-content width of a column item with an aspect
+	// ratio that has no known cross size (fitCrossByRatio): its flex base
+	// size through the ratio, and its cross contribution while the
+	// column's width is indefinite.
+	fitCross  opt
 	minSize   optSize
 	maxSize   optSize
 	ratio     opt
@@ -466,6 +471,27 @@ func measureCross(c *flexConsts, it *flexItem, avail AvailableSpace, tMin, tMax 
 	return none, avail, false
 }
 
+// fitCrossByRatio returns the cross size an item of a column is measured
+// at when it has an aspect ratio, no definite height and measureCross gave
+// it no known cross size (an auto width not stretched into a definite one,
+// or a keyword width): its fit-content width in the available cross space,
+// clamped by its min and max widths. Chromium lays a column item out at
+// its inline size first, and the ratio turns that width into the item's
+// content-based flex base size (its content height can still grow it
+// through the automatic minimum): an aspect-square item with 30 px wide
+// content is 30x30 in a column of indefinite width, where measuring its
+// content height gave 5x5 (ADR-268). The item's cross size then follows
+// its used main size, as in rows (hypotheticalCrossSizes). Rows, items
+// without a ratio and replaced items without a natural size (ADR-157) are
+// measured from their content as before.
+func (e *Engine) fitCrossByRatio(n Node, c *flexConsts, it *flexItem, crossAvail AvailableSpace, parent optSize) opt {
+	if c.isRow || !it.ratio.ok || it.st.NoNaturalSize || it.size.main(c.dir).ok {
+		return none
+	}
+	w := e.measureChildSize(n, it.node, optSize{}, parent, availSize{crossAvail, MaxContentConstraint}, contentSize, horizontal)
+	return some(fclampOpt(w, it.minSize.w, it.maxSize.w))
+}
+
 // flexBaseSizes determines the flex base size and the hypothetical main
 // size of each item (9.2.3).
 func (e *Engine) flexBaseSizes(n Node, c *flexConsts, avail availSize, items []flexItem) {
@@ -506,6 +532,13 @@ func (e *Engine) flexBaseSizes(n Node, c *flexConsts, avail availSize, items []f
 		var crossKnown opt
 		var crossDefinite bool
 		crossKnown, crossAvail, crossDefinite = measureCross(c, it, crossAvail, it.minSize.cross(dir), it.maxSize.cross(dir))
+		it.fitCross = none
+		if !crossKnown.ok {
+			if fit := e.fitCrossByRatio(n, c, it, crossAvail, childParent); fit.ok {
+				crossKnown, crossDefinite = fit, true
+				it.fitCross = fit
+			}
+		}
 		ckd.setCross(dir, crossKnown)
 
 		// Percentage flex bases resolve against a definite inner main size.
@@ -848,19 +881,28 @@ func (e *Engine) flexIntrinsicMainSize(n Node, avail availSize, lines []flexLine
 				var ckd optSize
 				var crossKnown opt
 				crossKnown, crossAvail, _ = measureCross(c, it, crossAvail, none, none)
+				if !crossKnown.ok {
+					crossKnown = e.fitCrossByRatio(n, c, it, crossAvail, c.nodeInner)
+				}
 				ckd.setCross(dir, crossKnown)
 				childAvail := avail.withCross(dir, crossAvail)
 				measured := e.measureChildSize(n, it.node, ckd, c.nodeInner, childAvail, contentSize, dir.mainAxis())
 
 				// A known cross size transferred through the aspect ratio
-				// floors the measured size; without one, the transferred
-				// min and max cross sizes clamp it, as for the base size.
+				// floors the measured size: the content grows the box only
+				// through its automatic minimum, so a min main size or a
+				// scroll container keeps the transferred size (an
+				// aspect-square min-h-0 item at 5 px wide contributes 5
+				// px whatever its content, ADR-268). Without a known cross
+				// size, the transferred min and max cross sizes clamp the
+				// measured size, as for the base size.
 				if it.ratio.ok {
 					if cross := ckd.cross(dir); cross.ok {
-						if c.isRow {
-							measured = fmax(measured, float32(cross.v*it.ratio.v))
+						transferred := transferToMain(dir, cross, it.ratio).v
+						if styleMin.ok || automaticMinSize(overflowIn(it.st, dir.mainAxis())).ok {
+							measured = transferred
 						} else {
-							measured = fmax(measured, cross.v/it.ratio.v)
+							measured = fmax(measured, transferred)
 						}
 					} else {
 						measured = it.clampContentByRatio(dir, measured)
@@ -1071,12 +1113,20 @@ func (e *Engine) hypotheticalCrossSizes(n Node, line *flexLine, c *flexConsts, a
 		// Without a cross size style, an item with an aspect ratio takes
 		// the cross size of its used main size (a flexed w-full
 		// aspect-square item stays square); a size query of a leaf or
-		// block in content-size mode would not apply the ratio.
+		// block in content-size mode would not apply the ratio. While a
+		// column's width is indefinite (its intrinsic sizes), an item
+		// measured at its fit-content width contributes that width, as
+		// Chromium's column containers take their items' inline
+		// contributions: an aspect-square item flexed to 10 px still
+		// makes a w-fit column 30 px wide (ADR-268).
 		childCross := it.crossSize
 		if !childCross.ok && it.ratio.ok {
-			if c.isRow {
+			switch {
+			case c.isRow:
 				childCross = some(it.target.w / it.ratio.v)
-			} else {
+			case it.fitCross.ok && !c.hasDefiniteCross:
+				childCross = it.fitCross
+			default:
 				childCross = some(float32(it.target.h * it.ratio.v))
 			}
 		}
