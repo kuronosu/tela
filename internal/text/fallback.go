@@ -142,6 +142,8 @@ func isIgnorable(r rune) bool {
 		return true
 	case r == 0x200C, r == 0x200D, r == 0x200B, r == 0x2060, r == 0xFEFF, r == 0x034F: // ZWNJ, ZWJ, ZWSP, WJ, BOM, CGJ
 		return true
+	case r == softHyphen: // HarfBuzz hides it; the hyphen at a break is shaped apart (hyphenFor)
+		return true
 	case r >= 0x200E && r <= 0x200F, r >= 0x202A && r <= 0x202E, r >= 0x2066 && r <= 0x2069: // bidi controls
 		return true
 	case r >= 0xE0000 && r <= 0xE007F: // tags

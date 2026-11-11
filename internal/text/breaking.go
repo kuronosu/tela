@@ -1,6 +1,9 @@
 package text
 
-import "math"
+import (
+	"math"
+	"unicode"
+)
 
 // setBreaks sets the break flags of the clusters: forced breaks after
 // forced break characters (UAX #14 mandatory breaks), and, when the
@@ -55,10 +58,26 @@ func (l *Layout) setBreaks(segs []uint8) {
 		if prev&cfBox != 0 || cur&cfBox != 0 {
 			soft = true
 		}
+		if soft && p > 0 && l.text.runes[p-1] == softHyphen && l.styles[l.text.style[p-1]].Hyphens == HyphensNone {
+			// hyphens: none: a soft hyphen is not a break opportunity
+			// (Blink's LazyLineBreakIterator with soft hyphens disabled).
+			soft = false
+		}
 		if soft {
 			cl[i].flags |= cfSoftBefore
 		}
 	}
+}
+
+// softHyphenBefore reports whether a line that ends before cluster i at a
+// soft wrap opportunity ends with a hyphen: the opportunity follows a soft
+// hyphen (whose hyphens is not none, or there would be none).
+func (l *Layout) softHyphenBefore(i int32) bool {
+	if i <= 0 || int(i) > len(l.clusters) {
+		return false
+	}
+	p := l.clusters[i-1].r1
+	return p > 0 && l.text.runes[p-1] == softHyphen
 }
 
 // hangable reports whether a cluster at the end of a line hangs (or is
@@ -87,84 +106,304 @@ func (l *Layout) removed(f clusterFlag) bool {
 const fitEpsilon = 1.0 / 1024
 
 // breakLines runs the greedy line breaker over all clusters and calls emit
-// for each line (a cluster range and the reason it ends). Content that
-// fits in maxW stays on the line; at the first cluster that does not fit,
-// the line ends at the last soft wrap opportunity, or else at the last
-// emergency opportunity (any cluster boundary, with overflow-wrap
-// anywhere, or break-word unless minContent), or else the cluster
-// overflows. Hanging white space always fits, the inline edges attached
-// to it (inline.go) do not. A text that ends with a forced break gets a
-// last, empty line. Tab advances depend on the position in the line; they
-// are written to tabs[i] when tabs is not nil. sizes selects the widths of
-// the inline boxes: their own, or their min- or max-content widths
-// (SetBox) for the intrinsic widths.
-func (l *Layout) breakLines(maxW float32, minContent bool, sizes boxSizes, tabs []float32, emit func(c0, c1 int32, reason BreakReason)) {
+// for each line (a cluster range, the reason it ends and whether it ends
+// with a hyphen). Content that fits in maxW stays on the line; at the
+// first cluster that does not fit, the line ends at a hyphenation point of
+// the word that does not fit (hyphens: auto, hyphenateBefore), else at
+// the last soft wrap opportunity, or else at the last emergency
+// opportunity (any cluster boundary, with overflow-wrap anywhere, or
+// break-word unless minContent), or else the content overflows: up to the
+// first hyphenation point after it, else to the next opportunity. A line
+// that ends after a soft hyphen or at a hyphenation point shows a hyphen;
+// when its content fits but not with the hyphen, the line is broken again
+// in the width less the hyphen's (Blink's LineBreaker::BreakText). Hanging
+// white space always fits, the inline edges attached to it (inline.go) do
+// not. A text that ends with a forced break gets a last, empty line. Tab
+// advances depend on the position in the line; they are written to
+// tabs[i] when tabs is not nil. sizes selects the widths of the inline
+// boxes: their own, or their min- or max-content widths (SetBox) for the
+// intrinsic widths. With minContent, words are hyphenated at every point
+// of their dictionary (Blink's fast min-content), not as what is left of
+// them after a hyphen.
+func (l *Layout) breakLines(maxW float32, minContent bool, sizes boxSizes, tabs []float32, emit func(c0, c1 int32, reason BreakReason, hy bool)) {
 	cl := l.clusters
 	n := int32(len(cl))
 	if n == 0 {
-		emit(0, 0, BreakNone)
+		emit(0, 0, BreakNone, false)
 		return
 	}
+	if cap(l.scanX) < int(n)+1 {
+		l.scanX = make([]float32, n+1)
+	}
+	l.scanX = l.scanX[:n+1]
 	limit := maxW + fitEpsilon
+	for start := int32(0); start < n; {
+		end, reason, hy, over := l.breakLine(start, limit, minContent, sizes, tabs)
+		if hy && !over {
+			w := l.scanX[end]
+			if hw := l.hyphenFor(cl[end-1].style).width; w <= limit && w+hw > limit {
+				// The hyphen does not fit: break again in the width
+				// without it.
+				end, reason, hy, _ = l.breakLine(start, limit-hw, minContent, sizes, tabs)
+			}
+		}
+		if end == n && cl[n-1].flags&cfNewline != 0 {
+			emit(start, end, BreakForced, false)
+			emit(n, n, BreakNone, false)
+			return
+		}
+		emit(start, end, reason, hy)
+		start = end
+	}
+}
+
+// breakLine returns where the line that starts at cluster start ends when
+// its content must fit in limit (see breakLines), why, whether it ends
+// with a hyphen and whether it overflows. l.scanX[i] is then the x of
+// cluster i from the start of the line, inline edges included, for the
+// clusters it scanned.
+func (l *Layout) breakLine(start int32, limit float32, minContent bool, sizes boxSizes, tabs []float32) (end int32, reason BreakReason, hy, over bool) {
+	cl := l.clusters
+	n := int32(len(cl))
 	wrap := l.para.WhiteSpace.wraps()
 	emergency := wrap && (l.para.OverflowWrap == OverflowWrapAnywhere || (l.para.OverflowWrap == OverflowWrapBreakWord && !minContent))
 	ext := l.ext
-	for start := int32(0); start < n; {
-		x := float32(0)
-		opp, emg := int32(-1), int32(-1)
-		end, reason := n, BreakNone
-		for i := start; i < n; i++ {
-			c := &cl[i]
-			if i > start {
-				if c.flags&cfMustBefore != 0 {
-					end, reason = i, BreakForced
-					break
-				}
-				if x > 0 {
-					if c.flags&cfSoftBefore != 0 {
-						opp = i
-					} else if emergency {
-						emg = i
-					}
+	x := float32(0)
+	opp, emg := int32(-1), int32(-1)
+	for i := start; i < n; i++ {
+		c := &cl[i]
+		l.scanX[i] = x
+		if i > start {
+			if c.flags&cfMustBefore != 0 {
+				return i, BreakForced, false, over
+			}
+			if x > 0 {
+				if c.flags&cfSoftBefore != 0 {
+					opp = i
+				} else if emergency {
+					emg = i
 				}
 			}
-			a := c.adv
-			switch {
-			case c.flags&cfTab != 0:
-				a = l.tabAdvance(c, x)
-				if tabs != nil {
-					tabs[i] = a
-				}
-			case sizes != boxOwn && c.flags&cfBox != 0:
-				a = l.boxWidth(c, sizes)
+		}
+		a := c.adv
+		switch {
+		case c.flags&cfTab != 0:
+			a = l.tabAdvance(c, x)
+			if tabs != nil {
+				tabs[i] = a
 			}
-			var e float32
-			if ext != nil {
-				e = ext[i]
-			}
-			nx := x + a + e
-			if nx <= limit || a+e <= 0 || (l.hangable(c.flags) && (x+e <= limit || e <= 0)) {
-				x = nx
-				continue
-			}
-			if opp > start {
-				end, reason = opp, BreakSoft
-				break
-			}
-			if emg > start {
-				end, reason = emg, BreakEmergency
-				break
-			}
+		case sizes != boxOwn && c.flags&cfBox != 0:
+			a = l.boxWidth(c, sizes)
+		}
+		var e float32
+		if ext != nil {
+			e = ext[i]
+		}
+		nx := x + a + e
+		if nx <= limit || a+e <= 0 || (l.hangable(c.flags) && (x+e <= limit || e <= 0)) {
 			x = nx
+			continue
 		}
-		if end == n && cl[n-1].flags&cfNewline != 0 {
-			emit(start, end, BreakForced)
-			emit(n, n, BreakNone)
-			return
+		if !over && wrap {
+			if k := l.hyphenateBefore(start, i, opp, minContent); k > start {
+				return k, BreakSoft, true, false
+			}
 		}
-		emit(start, end, reason)
-		start = end
+		if opp > start {
+			return opp, BreakSoft, l.softHyphenBefore(opp), over
+		}
+		if emg > start {
+			return emg, BreakEmergency, false, over
+		}
+		if !over && wrap {
+			over = true
+			if k := l.hyphenateAfter(start, i, minContent); k > start {
+				// Clusters up to k are scanned: their x is needed.
+				for j := i; j < k; j++ {
+					l.scanX[j] = x
+					x += l.clusterWidth(j, x, sizes, tabs)
+				}
+				l.scanX[k] = x
+				return k, BreakSoft, true, true
+			}
+		}
+		over = true
+		x = nx
 	}
+	l.scanX[n] = x
+	return n, BreakNone, false, over
+}
+
+// clusterWidth returns the advance of cluster i at x on its line, with its
+// inline edges, for the intrinsic sizes of sizes (see breakLines).
+func (l *Layout) clusterWidth(i int32, x float32, sizes boxSizes, tabs []float32) float32 {
+	c := &l.clusters[i]
+	a := c.adv
+	switch {
+	case c.flags&cfTab != 0:
+		a = l.tabAdvance(c, x)
+		if tabs != nil {
+			tabs[i] = a
+		}
+	case sizes != boxOwn && c.flags&cfBox != 0:
+		a = l.boxWidth(c, sizes)
+	}
+	if l.ext != nil {
+		a += l.ext[i]
+	}
+	return a
+}
+
+// hyphenWord returns the word around cluster i for hyphenation, as Blink's
+// ShapingLineBreaker::Hyphenate finds it: from the last soft wrap
+// opportunity at or before i (opp; the start of the line when there is
+// none, which is how Blink hyphenates what a hyphen left of a word), or,
+// with whole, from the last one in the paragraph, after the spaces there,
+// to the next opportunity after i, before the spaces there. ok is false
+// when there is an opportunity before i itself or the style of i does not
+// hyphenate.
+func (l *Layout) hyphenWord(start, i, opp int32, whole bool) (ws, we int32, h *Hyphenator, ok bool) {
+	cl := l.clusters
+	n := int32(len(cl))
+	h = l.sinfo[cl[i].style].hyph
+	if h == nil || (i > start && cl[i].flags&cfSoftBefore != 0) {
+		return 0, 0, nil, false
+	}
+	ws = start
+	if whole {
+		ws = i
+		for ws > 0 && cl[ws].flags&(cfSoftBefore|cfMustBefore) == 0 {
+			ws--
+		}
+	} else if opp > start {
+		ws = opp
+	}
+	for ws < i && breakableSpace(l.clusters[ws].flags) {
+		ws++
+	}
+	we = i + 1
+	for we < n && cl[we].flags&(cfSoftBefore|cfMustBefore) == 0 {
+		we++
+	}
+	for we > i+1 && breakableSpace(cl[we-1].flags) {
+		we--
+	}
+	return ws, we, h, true
+}
+
+// breakableSpace reports the white space Blink's line breaker skips around
+// words: spaces, tabs, forced breaks and other space separators.
+func breakableSpace(f clusterFlag) bool {
+	return f&(cfSpace|cfTab|cfNewline|cfOtherSpace) != 0
+}
+
+// hyphenPoints returns the clusters of [ws, we) that start a hyphenation
+// point of h, in increasing order (a point inside a cluster, a
+// ligature, is not one).
+func (l *Layout) hyphenPoints(ws, we int32, h *Hyphenator) []int32 {
+	cl := l.clusters
+	r0 := cl[ws].r0
+	r1 := cl[we-1].r1
+	l.hpts = h.points(l.text.runes[r0:r1], l.hpts[:0])
+	out := l.hpts[:0]
+	k := ws
+	for _, p := range l.hpts {
+		r := r0 + p
+		for k < we && cl[k].r0 < r {
+			k++
+		}
+		if k < we && cl[k].r0 == r {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+// hyphenateBefore returns the cluster before which the line that starts at
+// start ends with a hyphen when cluster i does not fit (hyphens: auto):
+// the last hyphenation point of the word of i that is not after i, else
+// 0 (Blink's ShapingLineBreaker::Hyphenate backwards). Blink does not
+// hyphenate the last word of a paragraph, unless it starts the line or
+// is the paragraph's only word.
+func (l *Layout) hyphenateBefore(start, i, opp int32, minContent bool) int32 {
+	ws, we, h, ok := l.hyphenWord(start, i, opp, minContent)
+	if !ok || we-ws < hyphenMinWord {
+		return 0
+	}
+	if !minContent && opp > start && l.lastWord(opp, we) {
+		return 0
+	}
+	var best int32
+	for _, k := range l.hyphenPoints(ws, we, h) {
+		if k > i {
+			break
+		}
+		if k > start {
+			best = k
+		}
+	}
+	return best
+}
+
+// hyphenateAfter returns the cluster before which an overflowing line that
+// starts at start ends with a hyphen: the first hyphenation point of the
+// word of i (the first cluster that does not fit) not before i, else 0
+// (Blink's ShapingLineBreaker::Hyphenate forwards). With minContent, the
+// first point of the whole word after start.
+func (l *Layout) hyphenateAfter(start, i int32, minContent bool) int32 {
+	ws, we, h, ok := l.hyphenWord(start, i, -1, minContent)
+	if !ok || we-ws < hyphenMinWord {
+		return 0
+	}
+	from := i
+	if minContent {
+		from = start + 1
+	}
+	for _, k := range l.hyphenPoints(ws, we, h) {
+		if k >= from {
+			return k
+		}
+	}
+	return 0
+}
+
+// lastWord reports whether the word that starts after the opportunity at
+// cluster opp and ends before we is the last of the paragraph (only white
+// space follows) and not its only word (Blink's ShouldHyphenate).
+func (l *Layout) lastWord(opp, we int32) bool {
+	first, last := l.contentEnds()
+	cl := l.clusters
+	if int(we) < len(cl) && cl[we].r0 <= last {
+		return false
+	}
+	return cl[opp].r0 > first
+}
+
+// contentEnds returns the first and the last rune of the processed text
+// that is not white space Blink's line breaker skips (an inline box
+// counts, the placeholder of an empty inline does not); -1 and -1 when
+// there is none.
+func (l *Layout) contentEnds() (first, last int32) {
+	if l.cends[0] != 0 {
+		return l.cends[0] - 1, l.cends[1] - 1
+	}
+	pt := &l.text
+	first, last = -1, -1
+	for i, r := range pt.runes {
+		if pt.box[i] >= int32(l.nboxes) {
+			continue
+		}
+		switch {
+		case r == ' ', r == '\t', r == '\n', unicode.Is(unicode.Zs, r), isForcedBreakChar(r):
+			continue
+		}
+		if first < 0 {
+			first = int32(i)
+		}
+		last = int32(i)
+	}
+	l.cends = [2]int32{first + 1, last + 1}
+	return first, last
 }
 
 // tabAdvance returns the advance of a tab at x from the line start: up to
@@ -259,8 +498,11 @@ func (l *Layout) measure(maxW float32, minContent bool) float32 {
 		return c.adv
 	}
 	var w float32
-	l.breakLines(maxW, minContent, sizes, tabs, func(c0, c1 int32, reason BreakReason) {
+	l.breakLines(maxW, minContent, sizes, tabs, func(c0, c1 int32, reason BreakReason, hy bool) {
 		lw, _, _ := l.lineWidth(c0, c1, reason, maxW, adv)
+		if hy {
+			lw += l.hyphenFor(l.clusters[c1-1].style).width
+		}
 		w = max(w, lw)
 	})
 	return w

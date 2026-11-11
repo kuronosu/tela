@@ -301,8 +301,14 @@ type TextStyle struct {
 	// (locl: the Japanese, Chinese or Korean forms of a pan-CJK font), by
 	// font fallback (Query.Lang: the CJK families of its region first) and
 	// by text-transform (Turkish and Azeri dotted i). Each shaped run
-	// keeps it (run.lang).
+	// keeps it (run.lang), and hyphens: auto picks the hyphenation
+	// dictionary of the collection by it.
 	Language string
+	// Hyphens is CSS hyphens: whether soft hyphens (U+00AD) break words
+	// (manual, the zero value, and auto) and whether words also break at
+	// the points of the language's dictionary (auto). A word broken so
+	// ends its line with a hyphen.
+	Hyphens Hyphens
 }
 
 func (s *TextStyle) size() float32 {

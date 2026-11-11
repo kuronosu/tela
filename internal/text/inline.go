@@ -475,6 +475,7 @@ func (l *Layout) inlineEdges(e int32, li int) (start, end bool) {
 // open and close, and sets the fragments' margin boxes.
 func (l *Layout) positionInlines(li int) {
 	ln := &l.lines[li]
+	hc := l.hyphenCluster(ln)
 	x := ln.x
 	fi := ln.f0
 	var stackBuf [16]int32
@@ -513,13 +514,24 @@ func (l *Layout) positionInlines(li int) {
 		}
 		var start, end float32
 		first := true
+		rtl := it.level%2 == 1
 		place := func(c int32) {
 			open()
 			if first {
 				it.x, start, first = x-ln.x, x, false
 			}
+			// The hyphen is inside the inlines of the cluster it follows
+			// (AlignTo).
+			if c == hc && rtl {
+				ln.hyx = x
+				x += ln.hyw
+			}
 			l.cx[c] = x
 			x += l.cadv[c]
+			if c == hc && !rtl {
+				ln.hyx = x
+				x += ln.hyw
+			}
 			end = x
 			shut()
 		}

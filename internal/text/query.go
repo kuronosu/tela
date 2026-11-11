@@ -64,6 +64,11 @@ type Line struct {
 	Break             BreakReason
 	// Ellipsis reports a truncated line (text-overflow or line-clamp).
 	Ellipsis bool
+	// Hyphen reports a line that ends with a hyphen (a break after a
+	// soft hyphen or at a hyphenation point), which Width includes;
+	// HyphenX is its left edge.
+	Hyphen  bool
+	HyphenX float32
 }
 
 // NumLines returns the number of visible lines (at least one).
@@ -77,6 +82,7 @@ func (l *Layout) Line(i int) Line {
 		ClusterStart: int(ln.c0), ClusterEnd: int(ln.c1),
 		Top: ln.top, Height: ln.height, Baseline: ln.baseline, Ascent: ln.ascent, Descent: ln.descent,
 		X: ln.x, Width: ln.width, Hanging: ln.hang, Break: ln.reason, Ellipsis: ln.ellipsis >= 0,
+		Hyphen: ln.hyphen >= 0, HyphenX: ln.hyx,
 	}
 }
 

@@ -196,6 +196,19 @@ func (l *Layout) paintGlyphs(b *gfx.Builder, origin gfx.Point, li int, gs []gfx.
 		flush()
 		face, size, style, x0 = f, sz, s, x
 	}
+	// The hyphen of a hyphenated line, in the style of the cluster it
+	// follows.
+	hc := l.hyphenCluster(ln)
+	hyphen := func() {
+		h := l.sinfo[ln.hyphen].hyphen
+		if h == nil || h.face == nil {
+			return
+		}
+		start(h.face, h.size, int(ln.hyphen), ln.hyx)
+		for _, g := range h.glyphs {
+			gs = append(gs, gfx.Glyph{ID: g.id, X: ln.hyx - x0})
+		}
+	}
 	for k := ln.i0; k < ln.i1; k++ {
 		it := &l.items[k]
 		switch it.kind {
@@ -218,15 +231,20 @@ func (l *Layout) paintGlyphs(b *gfx.Builder, origin gfx.Point, li int, gs []gfx.
 			}
 			visit := func(c int32) {
 				cl := &l.clusters[c]
-				if cl.g0 == cl.g1 {
-					return
+				if c == hc && it.level%2 == 1 {
+					hyphen()
 				}
-				x := l.cx[c]
-				start(r.face, r.size, int(cl.style), x)
-				for g := cl.g0; g < cl.g1; g++ {
-					gd := &l.glyphs[g]
-					gs = append(gs, gfx.Glyph{ID: gd.id, X: x + gd.dx - x0, Y: gd.dy})
-					x += gd.adv
+				if cl.g0 != cl.g1 {
+					x := l.cx[c]
+					start(r.face, r.size, int(cl.style), x)
+					for g := cl.g0; g < cl.g1; g++ {
+						gd := &l.glyphs[g]
+						gs = append(gs, gfx.Glyph{ID: gd.id, X: x + gd.dx - x0, Y: gd.dy})
+						x += gd.adv
+					}
+				}
+				if c == hc && it.level%2 == 0 {
+					hyphen()
 				}
 			}
 			if it.level%2 == 0 {
@@ -249,6 +267,7 @@ func (l *Layout) paintGlyphs(b *gfx.Builder, origin gfx.Point, li int, gs []gfx.
 func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask Decoration, scale float32, over paintOver) {
 	ln := &l.lines[li]
 	by := origin.Y + ln.baseline
+	hc := l.hyphenCluster(ln)
 	type seg struct {
 		x0, x1, y, h float32
 		paint        gfx.Paint
@@ -278,6 +297,10 @@ func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask
 			si := &l.sinfo[cl.style]
 			dp := over.deco(l, int(cl.style))
 			x0, x1 := l.cx[c], l.cx[c]+l.cadv[c]
+			if c == hc {
+				// The line goes under the hyphen too, as in Chromium.
+				x0, x1 = min(x0, ln.hyx), max(x1, ln.hyx+ln.hyw)
+			}
 			for kind := range 3 {
 				bit := Decoration(1 << kind)
 				if lines&bit == 0 {

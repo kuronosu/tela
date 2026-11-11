@@ -30,8 +30,8 @@ func (l *Layout) BreakLines(maxWidth float32) {
 	l.cadv, l.cx, l.cline = l.cadv[:n], l.cx[:n], l.cline[:n]
 	tabs := l.cadv // tab advances land in cadv, copied to the clusters below
 	l.lines, l.items, l.ellipses = l.lines[:0], l.items[:0], l.ellipses[:0]
-	l.breakLines(maxWidth, false, boxOwn, tabs, func(c0, c1 int32, reason BreakReason) {
-		l.lines = append(l.lines, lineData{c0: c0, c1: c1, reason: reason, ellipsis: -1})
+	l.breakLines(maxWidth, false, boxOwn, tabs, func(c0, c1 int32, reason BreakReason, hy bool) {
+		l.lines = append(l.lines, l.newLine(c0, c1, reason, hy))
 	})
 	if l.para.WrapStyle != TextWrapAuto {
 		l.applyWrapStyle(maxWidth, tabs) // text-wrap: balance, pretty (wrapstyle.go)
@@ -75,6 +75,45 @@ func (l *Layout) BreakLines(maxWidth float32) {
 	l.AlignTo(aw)
 }
 
+// newLine returns the line data of the clusters [c0, c1), ended for
+// reason, with a hyphen when hy is set: in the style of its last cluster.
+func (l *Layout) newLine(c0, c1 int32, reason BreakReason, hy bool) lineData {
+	ln := lineData{c0: c0, c1: c1, reason: reason, ellipsis: -1, hyphen: -1, endc: -1}
+	if hy && c1 > c0 {
+		ln.hyphen = int32(l.clusters[c1-1].style)
+	}
+	return ln
+}
+
+// hyphenFor returns the hyphen of a line hyphenated in style s, as Blink
+// shapes it (ComputedStyle::HyphenString, HyphenResult): U+2010 HYPHEN
+// when the style's first available font has it, else U+002D
+// HYPHEN-MINUS, in the first font of the style's fallback list that has
+// it, without letter-spacing.
+func (l *Layout) hyphenFor(s uint16) *ellipsisData {
+	si := &l.sinfo[s]
+	if si.hyphen != nil {
+		return si.hyphen
+	}
+	st := &l.styles[s]
+	e := &ellipsisData{style: s, size: si.size}
+	r := '-'
+	if si.face != nil && si.face.HasRune('\u2010') {
+		r = '\u2010'
+	}
+	runs := l.coll.Itemize([]rune{r}, 0, 1, st.query(), si.size, language.Common, nil)
+	if len(runs) > 0 && runs[0].Face != nil {
+		f := runs[0].Face
+		g, _ := f.GlyphIndex(r)
+		adv := float32(f.Advance(g) * si.size)
+		e.face = f
+		e.glyphs = []glyphData{{id: g, adv: adv}}
+		e.width = adv
+	}
+	si.hyphen = e
+	return e
+}
+
 // clusterAdvance is the advance of cluster i on line ln before
 // justification.
 func (l *Layout) clusterAdvance(ln *lineData, i int32) float32 {
@@ -82,7 +121,43 @@ func (l *Layout) clusterAdvance(ln *lineData, i int32) float32 {
 	if i >= ln.trail && l.removed(c.flags) {
 		return 0
 	}
+	if i == ln.endc {
+		return c.adv + ln.enda
+	}
 	return c.adv
+}
+
+// unkernEnd sets the end adjustment of hyphenated line ln: its last glyph
+// takes its nominal advance, as if the text after the break had not been
+// shaped with it (Blink shapes again the end of a line broken inside a
+// word, so the kerning with the next line's first letter goes away; this
+// is the only reshaping Tela does, and only for the advance).
+func (l *Layout) unkernEnd(ln *lineData) {
+	ln.endc, ln.enda = -1, 0
+	if ln.hyphen < 0 {
+		return
+	}
+	for k := ln.c1 - 1; k >= ln.c0; k-- {
+		c := &l.clusters[k]
+		if c.g1 == c.g0 {
+			continue // the soft hyphen, or another invisible character
+		}
+		r := &l.runs[c.run]
+		if r.kind != runText || r.face == nil {
+			return
+		}
+		g := c.g1 - 1 // the logical last glyph: glyphs are in visual order
+		if r.level%2 == 1 {
+			g = c.g0
+		}
+		gd := &l.glyphs[g]
+		if gd.adv == 0 {
+			return // a mark
+		}
+		ln.endc = k
+		ln.enda = float32(r.face.Advance(gd.id)*r.size) - gd.adv
+		return
+	}
 }
 
 // level returns the bidi level of cluster i on line ln: rule L1 resets
@@ -101,6 +176,12 @@ func (l *Layout) buildLine(li int) {
 	var trail int32
 	ln.width, trail, ln.hang = l.lineWidth(ln.c0, ln.c1, ln.reason, l.maxWidth, adv)
 	ln.trail = trail
+	ln.hyw = 0
+	l.unkernEnd(ln)
+	if ln.hyphen >= 0 {
+		ln.hyw = l.hyphenFor(uint16(ln.hyphen)).width
+		ln.width += ln.hyw + ln.enda
+	}
 	for i := ln.c0; i < ln.c1; i++ {
 		l.cadv[i] = l.clusterAdvance(ln, i)
 		l.cline[i] = int32(li)
@@ -171,6 +252,12 @@ func (l *Layout) truncate(li int, maxW float32) {
 	l.items = l.items[:ln.i0]
 	l.buildItems(li, ln.c0, end)
 	ln.trail, ln.hang = end, 0
+	// The ellipsis replaces the hyphen of a hyphenated line, as in
+	// Chromium (the text before it is truncated to make room).
+	if ln.endc >= 0 {
+		l.cadv[ln.endc] -= ln.enda
+	}
+	ln.hyphen, ln.hyw, ln.endc, ln.enda = -1, 0, -1, 0
 
 	e := l.ellipsisFor(0)
 	content := float32(0)
@@ -437,7 +524,10 @@ func (l *Layout) AlignTo(width float32) {
 			l.positionInlines(li)
 			continue
 		}
-		// Positions.
+		// Positions. The hyphen follows the line's last cluster in its
+		// direction: after it in left-to-right text, before it (to its
+		// left) in right-to-left text.
+		hc := l.hyphenCluster(ln)
 		x := ln.x
 		for k := ln.i0; k < ln.i1; k++ {
 			it := &l.items[k]
@@ -451,9 +541,17 @@ func (l *Layout) AlignTo(width float32) {
 					for c := it.c0; c < it.c1; c++ {
 						l.cx[c] = x
 						x += l.cadv[c]
+						if c == hc {
+							ln.hyx = x
+							x += ln.hyw
+						}
 					}
 				} else {
 					for c := it.c1 - 1; c >= it.c0; c-- {
+						if c == hc {
+							ln.hyx = x
+							x += ln.hyw
+						}
 						l.cx[c] = x
 						x += l.cadv[c]
 					}
@@ -462,6 +560,15 @@ func (l *Layout) AlignTo(width float32) {
 			it.w = x - start
 		}
 	}
+}
+
+// hyphenCluster returns the cluster the hyphen of line ln follows (its
+// last one), or -1 when the line has no hyphen.
+func (l *Layout) hyphenCluster(ln *lineData) int32 {
+	if ln.hyphen < 0 || ln.c1 <= ln.c0 {
+		return -1
+	}
+	return ln.c1 - 1
 }
 
 // justify sets l.justUnits for the content of line li and returns their

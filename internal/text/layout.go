@@ -69,6 +69,13 @@ type Layout struct {
 
 	levels []uint8 // scratch of buildItems: the levels of one line's items
 
+	// Hyphenation (breaking.go): the x of each cluster on the line being
+	// broken, scratch hyphenation points, and the first and last rune of
+	// content plus one (zero until computed).
+	scanX []float32
+	hpts  []int32
+	cends [2]int32
+
 	minContent, maxContent float32 // NaN until computed
 }
 
@@ -92,6 +99,10 @@ type styleInfo struct {
 	features []harfbuzz.Feature
 	lang     language.Language
 	ellipsis *ellipsisData // built on first use
+	hyphen   *ellipsisData // the hyphen of a hyphenated line, built on first use
+	// hyph is the dictionary hyphens: auto breaks words with: the
+	// collection's for the style's language, nil for none.
+	hyph *Hyphenator
 }
 
 type runKind uint8
@@ -185,6 +196,15 @@ type lineData struct {
 	justify               float32 // extra advance per justification opportunity
 	ellipsis              int32   // index into ellipses, -1 if none
 	f0, f1                int32   // inline fragments (Layout.frags)
+	// hyphen is the style of the hyphen that ends the line (a break after
+	// a soft hyphen or at a hyphenation point), -1 if none; it is drawn
+	// after the line's last cluster, at hyx, hyw wide (included in width).
+	hyphen   int32
+	hyx, hyw float32
+	// endc is the cluster whose advance on the line is its own plus enda
+	// (unkernEnd), -1 if none.
+	endc int32
+	enda float32
 }
 
 type itemKind uint8
@@ -292,6 +312,9 @@ func (l *Layout) resolveStyles() {
 		si.features = styleFeatures(st)
 		if st.Language != "" {
 			si.lang = language.NewLanguage(st.Language)
+			if st.Hyphens == HyphensAuto {
+				si.hyph = l.coll.hyphenator(st.Language)
+			}
 		}
 	}
 }

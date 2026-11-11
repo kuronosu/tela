@@ -88,12 +88,15 @@ const (
 // end before cluster at. Positions are from the start of the lines being
 // broken: noBreak is where the next line starts (after the white space
 // that hangs or is removed at the break), ifBreak where this line's
-// content ends if it breaks here (before that white space). penalty is
-// added to the score of a line that ends here.
+// content ends if it breaks here (before that white space; its hyphen
+// included). penalty is added to the score of a line that ends here; hy
+// reports a line that ends with a hyphen (after a soft hyphen or at a
+// hyphenation point).
 type wrapCand struct {
 	at               int32
 	noBreak, ifBreak float32
 	penalty          float32
+	hy               bool
 }
 
 // applyWrapStyle chooses the line breaks of text-wrap: balance and pretty
@@ -130,7 +133,7 @@ func (l *Layout) advFunc(tabs []float32) func(i int32) float32 {
 func (l *Layout) overflows(la, lb int, w float32, adv func(int32) float32) bool {
 	for li := la; li < lb; li++ {
 		ln := &l.lines[li]
-		if l.overflowing(ln.c0, ln.c1, ln.reason, w, adv) {
+		if l.overflowing(ln.c0, ln.c1, ln.reason, ln.hyphen >= 0, w, adv) {
 			return true
 		}
 	}
@@ -138,12 +141,16 @@ func (l *Layout) overflows(la, lb int, w float32, adv func(int32) float32) bool 
 }
 
 // overflowing reports whether the line [c0, c1) broken at width w ends in
-// an emergency break or is wider than w (see overflows).
-func (l *Layout) overflowing(c0, c1 int32, reason BreakReason, w float32, adv func(int32) float32) bool {
+// an emergency break or is wider than w, its hyphen included when hy is
+// set (see overflows).
+func (l *Layout) overflowing(c0, c1 int32, reason BreakReason, hy bool, w float32, adv func(int32) float32) bool {
 	if reason == BreakEmergency {
 		return true
 	}
 	lw, _, _ := l.lineWidth(c0, c1, reason, w, adv)
+	if hy {
+		lw += l.hyphenFor(l.clusters[c1-1].style).width
+	}
 	return lw > w+fitEpsilon
 }
 
@@ -221,8 +228,8 @@ func (l *Layout) balance(maxW float32, tabs []float32) {
 		return
 	}
 	l.lines = l.lines[:0]
-	l.breakLines(w, false, boxOwn, tabs, func(c0, c1 int32, reason BreakReason) {
-		l.lines = append(l.lines, lineData{c0: c0, c1: c1, reason: reason, ellipsis: -1})
+	l.breakLines(w, false, boxOwn, tabs, func(c0, c1 int32, reason BreakReason, hy bool) {
+		l.lines = append(l.lines, l.newLine(c0, c1, reason, hy))
 	})
 }
 
@@ -244,7 +251,7 @@ func (l *Layout) pretty(maxW float32) {
 			// hidden.
 			end = clamp
 		}
-		if start := max(s, end-prettyMaxLines); end-start > 1 && !l.overflows(s, end, maxW, adv) && l.prettyLastLine(end-1, maxW) {
+		if start := max(s, end-prettyMaxLines); end-start > 1 && !l.overflows(s, end, maxW, adv) && l.prettyWorth(start, end, maxW) {
 			l.scoreBreaks(start, end, maxW, false)
 		}
 		if end < e {
@@ -252,6 +259,16 @@ func (l *Layout) pretty(maxW float32) {
 		}
 		s = e
 	}
+}
+
+// prettyWorth reports whether the lines [start, end) are worth
+// prettifying (Blink's ShouldOptimize): the last one is short
+// (prettyLastLine), or the two before it both end with a hyphen.
+func (l *Layout) prettyWorth(start, end int, maxW float32) bool {
+	if l.prettyLastLine(end-1, maxW) {
+		return true
+	}
+	return end-start >= 3 && l.lines[end-2].hyphen >= 0 && l.lines[end-3].hyphen >= 0
 }
 
 // prettyLastLine reports whether line li is worth prettifying (Blink's
@@ -286,20 +303,41 @@ func (l *Layout) scoreBreaks(la, lb int, maxW float32, balanced bool) bool {
 	if len(cands) < 5 {
 		return false
 	}
-	cands[len(cands)-2].penalty += orphanPenalty
+	// Minikin's hyphen penalty (computePenalties, Blink's
+	// SetupParameters): twice the width times the font size, half that
+	// when justified.
+	wfs := float32(maxW * l.sinfo[0].size)
+	hyphenPenalty := float32(wfs * 2)
+	if l.para.Align == AlignJustify {
+		hyphenPenalty = float32(wfs / 2)
+	}
+	for i := range cands {
+		if cands[i].hy {
+			cands[i].penalty += hyphenPenalty
+		}
+	}
+	// The orphan penalty goes to the last opportunity and to the
+	// hyphenated ones before it, up to one that is not.
+	for i := len(cands) - 2; i >= 0; i-- {
+		cands[i].penalty += orphanPenalty
+		if !cands[i].hy {
+			break
+		}
+	}
 	ends := l.scoreLines(cands, maxW, balanced)
 	if len(ends) != lb-la {
 		return false
 	}
 	lastReason := l.lines[lb-1].reason
+	lastHy := l.lines[lb-1].hyphen >= 0
 	start := l.lines[la].c0
 	for k, ci := range ends {
 		end := cands[ci].at
-		reason := BreakSoft
+		reason, hy := BreakSoft, cands[ci].hy
 		if k == len(ends)-1 {
-			reason = lastReason
+			reason, hy = lastReason, lastHy
 		}
-		l.lines[la+k] = lineData{c0: start, c1: end, reason: reason, ellipsis: -1}
+		l.lines[la+k] = l.newLine(start, end, reason, hy)
 		start = end
 	}
 	return true
@@ -336,11 +374,40 @@ func (l *Layout) wrapCandidates(la, lb int) []wrapCand {
 		return wrapCand{at: at, noBreak: adv[at-c0] + e, ifBreak: adv[t-c0] + e}
 	}
 	cands := []wrapCand{{at: c0}}
+	// points adds the hyphenation points of the word [ws, end) (hyphens:
+	// auto; Blink's LineBreaker::AppendCandidates), each a candidate whose
+	// line ends with a hyphen.
+	points := func(ws, end int32) {
+		we := end
+		for we > ws && breakableSpace(cl[we-1].flags) {
+			we--
+		}
+		h := l.sinfo[cl[ws].style].hyph
+		if h == nil || we-ws < hyphenMinWord {
+			return
+		}
+		for _, k := range l.hyphenPoints(ws, we, h) {
+			if k > ws && k < we {
+				x := adv[k-c0] + ext[k-c0]
+				cands = append(cands, wrapCand{at: k, noBreak: x, ifBreak: x + l.hyphenFor(cl[k-1].style).width, hy: true})
+			}
+		}
+	}
+	// soft marks a candidate after a soft hyphen: its line ends with a
+	// hyphen.
+	soft := func(c wrapCand) wrapCand {
+		if l.softHyphenBefore(c.at) {
+			c.ifBreak += l.hyphenFor(cl[c.at-1].style).width
+			c.hy = true
+		}
+		return c
+	}
 	prev := c0
 	for i := c0 + 1; i < c1; i++ {
 		if cl[i].flags&cfSoftBefore == 0 {
 			continue
 		}
+		points(prev, i)
 		at := i
 		for at < c1 && l.hangable(cl[at].flags) {
 			at++ // Blink's AppendTrailingSpaces
@@ -348,8 +415,11 @@ func (l *Layout) wrapCandidates(la, lb int) []wrapCand {
 		if at == c1 {
 			break // the end of the lines is the last candidate
 		}
-		cands = append(cands, cand(at, prev))
+		cands = append(cands, soft(cand(at, prev)))
 		prev, i = at, at // an opportunity at the end of the white space is this one
+	}
+	if prev < c1 {
+		points(prev, c1)
 	}
 	return append(cands, cand(c1, prev))
 }
@@ -455,7 +525,10 @@ func (l *Layout) bisectWidth(maxW float32, num int, stopAt int32, adv func(int32
 	for li := range num {
 		ln := &l.lines[li]
 		w, _, hang := l.lineWidth(ln.c0, ln.c1, ln.reason, maxW, adv)
-		sum += layoutUnitsCeil(float32(w + hang)) // LineInfo::Width, hanging space included
+		if ln.hyphen >= 0 {
+			w += l.hyphenFor(uint16(ln.hyphen)).width
+		}
+		sum += layoutUnitsCeil(float32(w + hang)) // LineInfo::Width, hanging space and hyphen included
 	}
 	avg := sum / int64(num)
 	lower := int64(math.Round(float64(float32(float32(float32(avg)/64)*0.8)) * 64))
@@ -469,12 +542,12 @@ func (l *Layout) bisectWidth(maxW float32, num int, stopAt int32, adv func(int32
 		mid := (upper + lower) / 2
 		w := float32(mid) / 64
 		count, done, ok := 0, false, true
-		l.breakLines(w, false, boxOwn, tabs, func(c0, c1 int32, reason BreakReason) {
+		l.breakLines(w, false, boxOwn, tabs, func(c0, c1 int32, reason BreakReason, hy bool) {
 			if done || !ok {
 				return
 			}
 			count++
-			if l.overflowing(c0, c1, reason, w, tadv) {
+			if l.overflowing(c0, c1, reason, hy, w, tadv) {
 				ok = false
 				return
 			}
