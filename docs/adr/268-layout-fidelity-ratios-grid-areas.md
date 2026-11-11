@@ -10,3 +10,5 @@ Phase 23 layout fixes, each measured in Chromium 155 (amends ADR-073, ADR-157, A
 ## Rationale
 
 Chromium is the reference (ADR-043); each rule has a layout case or a Chromium gallery cell that failed before. Tailwind v4 has no utility for areas, so the arbitrary property is what an LLM writes (§3).
+
+**Amended (phase 23, same measurements):** the place of an out-of-flow box is a zero-size U+FFFC anchor in the text (`text.InlineBox.Anchor`, Blink's out-of-flow inline item: bidi-resolved, transparent to collapsing and breaking), its left edge there when that is left-to-right text, its right edge when right-to-left; a `relative` inline element moves with its content, its absolute children and their static positions, painted after the rest of its paragraph (amends ADR-066); the ratio height grows with content for grid items, absolute boxes, flex row items and leaves with an explicit width too, a flex row's content measured at its max-content width.

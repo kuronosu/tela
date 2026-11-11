@@ -110,11 +110,13 @@ type Box struct {
 	inPara *Box
 	// anchor is, for an out-of-flow box in a paragraph's inline content,
 	// that paragraph's box (structure.go), anchorOff the byte offset of
-	// its place in the text and anchorCB the inline element of the
-	// paragraph that is its containing block, or -1 (layout.InlinePlacer,
-	// ADR-268).
+	// its place in the text, anchorBox the index of its anchor in the
+	// paragraph's boxes (text.InlineBox.Anchor) and anchorCB the inline
+	// element of the paragraph that is its containing block, or -1
+	// (layout.InlinePlacer, ADR-268).
 	anchor    *Box
 	anchorOff int32
+	anchorBox int32
 	anchorCB  int32
 	// hiddenAtom reports an atomic inline that its paragraph's
 	// text-overflow or line-clamp hides: it is not painted nor hit.
@@ -377,6 +379,14 @@ type paragraph struct {
 	em    float32
 	ink   gfx.Rect
 	inkAt [3]float32
+	// relOff is the largest relative offset of its inline elements
+	// (offsetInlines), which the ink includes, and posInl the positioned
+	// ones (relative or sticky), painted after the rest (inline.go).
+	relOff float32
+	posInl []int
+	// positions are the positions and insets of its inline elements at
+	// the last commit (samePositions).
+	positions []inlinePosition
 
 	// brokeAt is the width of the last BreakLines (+Inf after NewLayout)
 	// and alignedAt the width of the last alignment.
@@ -493,6 +503,7 @@ func (p *paragraph) prepare(t *Tree, w float32) {
 		p.sized, p.fragAt = true, [2]float32{}
 		p.brokeAt = float32(math.NaN())
 	}
+	defer p.offsetInlines(w)
 	if p.brokeAt == w && p.alignedAt == w {
 		return
 	}
@@ -505,6 +516,78 @@ func (p *paragraph) prepare(t *Tree, w float32) {
 		return
 	}
 	p.breakAt(t, w)
+}
+
+// offsetInlines marks the positioned inline elements of the paragraph
+// (text.Layout.SetInlinePositioned) and gives the layout the relative
+// offsets of those with position: relative (SetInlineOffset), for a
+// content box of width w, the containing block of their insets (CSS 2.1
+// section 9.4.3, as Chromium moves a relative span with its content):
+// left wins over right in a left-to-right paragraph, right in a
+// right-to-left one, top over bottom. Percentages of left and right are of
+// w; those of top and bottom count as 0 (the containing block's height,
+// which the paragraph does not know, is mostly auto). It forgets the
+// fragments and the ink when an offset changes.
+func (p *paragraph) offsetInlines(w float32) {
+	if p.lay == nil || len(p.inl) == 0 {
+		return
+	}
+	var maxOff float32
+	changed := false
+	p.posInl = p.posInl[:0]
+	for k := range p.inl {
+		var dx, dy float32
+		cs := p.inlineStyle(k)
+		pos := cs != nil && (cs.Position == style.PositionRelative || cs.Position == style.PositionSticky)
+		if pos {
+			p.posInl = append(p.posInl, k)
+			if cs.Position == style.PositionRelative {
+				dx, dy = inlineRelative(cs, w, p.lay.RTL())
+			}
+		}
+		maxOff = max(maxOff, float32(math.Abs(float64(dx))), float32(math.Abs(float64(dy))))
+		if p.lay.SetInlinePositioned(k, pos) {
+			changed = true
+		}
+		if p.lay.SetInlineOffset(k, dx, dy) {
+			changed = true
+		}
+	}
+	if maxOff != p.relOff {
+		p.relOff = maxOff
+		p.inkAt = [3]float32{}
+	}
+	if changed {
+		p.fragAt = [2]float32{}
+		p.ver++ // what painting reads (record.go)
+	}
+}
+
+// inlineRelative returns the relative offset of an inline element with
+// style cs in a containing block of width w (offsetInlines).
+func inlineRelative(cs *style.ComputedStyle, w float32, rtl bool) (dx, dy float32) {
+	set := func(d style.Dim) bool { return d.Kind == style.DimLength }
+	in := &cs.Inset
+	l, r := set(in.Left), set(in.Right)
+	switch {
+	case l && (!r || !rtl):
+		dx = in.Left.LP.Resolve(w)
+	case r:
+		dx = -in.Right.LP.Resolve(w)
+	}
+	switch {
+	case set(in.Top):
+		dy = in.Top.LP.Px
+	case set(in.Bottom):
+		dy = -in.Bottom.LP.Px
+	}
+	if !finite32(dx) {
+		dx = 0
+	}
+	if !finite32(dy) {
+		dy = 0
+	}
+	return dx, dy
 }
 
 // inkRect returns a rectangle that contains what the paragraph paints for
@@ -525,7 +608,7 @@ func (p *paragraph) inkRect(c gfx.Point) gfx.Rect {
 			r.X1 = max(r.X1, ln.X+ln.Width+ln.Hanging)
 			r.Y1 = max(r.Y1, ln.Top+ln.Height)
 		}
-		p.ink, p.inkAt = r.Outset(2*p.em+1), key
+		p.ink, p.inkAt = r.Outset(2*p.em+1+p.relOff), key
 	}
 	return p.ink.Translate(c.X, c.Y)
 }
@@ -620,6 +703,7 @@ func (p *paragraph) measureInline(t *Tree, in layout.MeasureInput, a *layout.Ato
 	if full {
 		l.AlignTo(w)
 		p.alignedAt = w
+		p.offsetInlines(w)
 		for i, bi := range p.atomBox {
 			r, ok := l.BoxRect(bi)
 			if ok {
@@ -719,13 +803,14 @@ func (a *paraAssembler) closeInline(k int) {
 }
 
 // addOutOfFlow records out-of-flow element el at the end of the content of
-// the paragraph of box para: its place on the line, and the innermost open
-// inline element that is positioned (relative or sticky), its containing
-// block (ADR-268).
+// the paragraph of box para: its place on the line, an anchor box of the
+// text (text.InlineBox.Anchor), and the innermost open inline element that
+// is positioned (relative or sticky), its containing block (ADR-268).
 func (a *paraAssembler) addOutOfFlow(el *Element, para *Box) {
 	a.oof = append(a.oof, el)
 	bx := el.box
-	bx.anchor, bx.anchorOff, bx.anchorCB = para, int32(a.n), -1
+	bx.anchor, bx.anchorOff, bx.anchorBox, bx.anchorCB = para, int32(a.n), int32(len(a.boxes)), -1
+	a.boxes = append(a.boxes, text.InlineBox{ID: len(a.boxes), At: a.n, Anchor: true})
 	for i := len(a.stack) - 1; i >= 0; i-- {
 		k := a.stack[i]
 		if cs := a.inl[k].box.cs; cs != nil && (cs.Position == style.PositionRelative || cs.Position == style.PositionSticky) {
@@ -836,12 +921,19 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 	// CSS 2.1 section 9.4.2: a line box without text, preserved white
 	// space, inline boxes or inlines with margins, borders or padding
 	// does not exist.
-	empty := len(a.boxes) == 0 && !inlineEdged(a.inlines) && collapsesAway(s, pstyle.WhiteSpace)
+	// Anchors are not content: a line of out-of-flow boxes alone is none.
+	empty := !hasContentBoxes(a.boxes) && !inlineEdged(a.inlines) && collapsesAway(s, pstyle.WhiteSpace)
 	p := b.para
 	if p != nil {
 		p.ver++ // its elements, paints or text may change (record.go)
 		// The edges were just assembled at the tree's scale (inlineEdges).
 		p.edgeK = t.scale
+	}
+	if p != nil && !p.samePositions(a) {
+		// A relative inline element moved: its absolute children are laid
+		// out again (offsetInlines).
+		t.engine.MarkDirty(b)
+		t.dirty()
 	}
 	if p != nil && p.text == s && p.pstyle == pstyle && sameTextStyle(&p.def, &def) &&
 		sameSpans(p.spans, spans) && slices.Equal(p.boxes, a.boxes) && sameInlines(p.inlines, a.inlines) {
@@ -868,6 +960,7 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 	if p == nil {
 		p = &paragraph{edgeK: t.scale}
 		b.para = p
+		p.samePositions(a)
 	}
 	a.setTargets(p)
 	a.setSources(b)
@@ -907,6 +1000,41 @@ func (t *Tree) shapeParagraph(b *Box, p *paragraph) {
 func (p *paragraph) reshape(t *Tree, b *Box) {
 	p.ver++ // a new layout (record.go)
 	t.shapeParagraph(b, p)
+}
+
+// inlinePosition is what offsetInlines reads of an inline element's style.
+type inlinePosition struct {
+	pos   style.Position
+	inset style.Sides[style.Dim]
+}
+
+// samePositions reports whether the inline elements assembled in a have
+// the positions and insets that p recorded, and records them.
+func (p *paragraph) samePositions(a *paraAssembler) bool {
+	old := p.positions
+	same := len(old) == len(a.inl)
+	p.positions = p.positions[:0]
+	for k, el := range a.inl {
+		var ip inlinePosition
+		if cs := el.box.cs; cs != nil {
+			ip = inlinePosition{cs.Position, cs.Inset}
+		}
+		if same && old[k] != ip { // read before the append writes index k
+			same = false
+		}
+		p.positions = append(p.positions, ip)
+	}
+	return same
+}
+
+// hasContentBoxes reports whether boxes has a box that is not an anchor.
+func hasContentBoxes(boxes []text.InlineBox) bool {
+	for i := range boxes {
+		if !boxes[i].Anchor {
+			return true
+		}
+	}
+	return false
 }
 
 // inlineEdged reports whether an inline has a left or right edge.

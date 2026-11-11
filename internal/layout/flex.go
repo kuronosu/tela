@@ -1120,10 +1120,16 @@ func (e *Engine) hypotheticalCrossSizes(n Node, line *flexLine, c *flexConsts, a
 		// contributions: an aspect-square item flexed to 10 px still
 		// makes a w-fit column 30 px wide (ADR-268).
 		childCross := it.crossSize
+		grows := false
 		if !childCross.ok && it.ratio.ok {
 			switch {
 			case c.isRow:
 				childCross = some(it.target.w / it.ratio.v)
+				// A height from the width through the ratio is a minimum
+				// that taller content exceeds (ratioGrowsHeight; an
+				// aspect-[2] w-[30px] item with 40 px of text is 30x40 in
+				// Chromium).
+				grows = it.st.ratioGrowsHeight()
 			case it.fitCross.ok && !c.hasDefiniteCross:
 				childCross = it.fitCross
 			default:
@@ -1132,6 +1138,14 @@ func (e *Engine) hypotheticalCrossSizes(n Node, line *flexLine, c *flexConsts, a
 		}
 		childCross = childCross.maybeClamp(tMin, tMax).maxF(pbCross)
 		availCross := avail.cross(dir).maybeClamp(tMin, tMax).maxF(pbCross)
+		if grows {
+			out := e.child(n, it.node, input{
+				run: computeSize, sizing: inherentSize, axis: axisRequest(dir.crossAxis()),
+				known: optSize{w: some(it.target.w)}, knownDefinite: itemDefiniteness(c, it),
+				parent: c.nodeInner, avail: availSize{knownMain, availCross},
+			})
+			childCross = some(fmax(childCross.v, fminOpt(out.size.h, tMax)))
+		}
 
 		// A cross size keyword gives the space to measure under; stretch is
 		// handled with the line's cross size.

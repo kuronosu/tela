@@ -78,7 +78,7 @@ var rtlScenes = []*posScene{
 		// Paragraphs: right-to-left base direction, start/end/left
 		// alignment, mixed Latin and Arabic in both base directions,
 		// dir="auto", inline elements and an inline-block, wrapping.
-		name: "rtl_text", w: 500, h: 350, arabic: true,
+		name: "rtl_text", w: 500, h: 350, arabic: true, mono: true,
 		root: iel("div", "space-y-2 p-3 text-sm",
 			idir("rtl", iel("p", "bg-slate-50", itext("مرحبا بالعالم، هذا نص عربي للاختبار"))),
 			idir("rtl", iel("p", "", itext("النسخة 2.5 من Tela تدعم RTL بالكامل"))),
@@ -100,13 +100,10 @@ var rtlScenes = []*posScene{
 		),
 		steps: [][]posScroll{{}},
 		// Paragraph edges within 0.05 px of Chromium (glyph advances,
-		// ADR-034). At x2 the line with the inline-block button is one
-		// device pixel (0.5 px) shorter than Chromium's, a layout
-		// mismatch (not antialiasing; measured elements 0, 9 and 13: 0.5
-		// px, the rest exact) that moves the rows below it; pixels
-		// differ by glyph anti-aliasing (ADR-029).
-		geom: 0.06, geomY2: 0.5,
-		mean: [2]float64{1.1, 1.4}, maxd: [2]int{255, 255},
+		// ADR-034), vertical edges exact; pixels differ by glyph
+		// anti-aliasing (ADR-029).
+		geom: 0.06,
+		mean: [2]float64{0.95, 0.75}, maxd: [2]int{255, 255},
 	},
 	{
 		// Right-to-left scroll containers: the scroll origin is at the

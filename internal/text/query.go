@@ -304,6 +304,8 @@ func (l *Layout) BoxRect(i int) (gfx.Rect, bool) {
 		over, _ := boxExtents(b, &l.sinfo[l.clusters[c].style])
 		top = ln.baseline - over
 	}
-	x := l.cx[c]
+	dx, dy := l.clusterOff(c)
+	x := l.cx[c] + dx
+	top += dy
 	return gfx.Rect{X0: x, Y0: top, X1: x + b.Width, Y1: top + h}, true
 }

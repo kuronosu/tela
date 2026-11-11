@@ -108,11 +108,15 @@ func (l *Layout) shape() {
 	scripts := make([]language.Script, n)
 	resolveScripts(pt.runes, scripts)
 	segs := segmentText(pt.runes)
-	if len(l.boxes) > l.nboxes {
+	if l.hasPlaceholders() {
 		l.tagBreaks(segs)
 	}
 	l.segs = segs
 
+	if l.anchors {
+		l.anchorContext()
+		defer func() { l.ctxRunes, l.ctxIdx = nil, nil }()
+	}
 	shapeMu.Lock()
 	defer shapeMu.Unlock()
 	if shapeBuf == nil {
@@ -143,7 +147,7 @@ func (l *Layout) shape() {
 		case pt.box[i] >= 0:
 			b := l.boxes[pt.box[i]]
 			f := cfBox
-			if int(pt.box[i]) >= l.nboxes {
+			if l.isPlaceholder(pt.box[i]) {
 				f |= cfTag
 			}
 			l.special(runBox, i, levels[i], si, b.Width, f)
@@ -236,13 +240,19 @@ func (l *Layout) shapeRun(f *Face, r0, r1 int32, level uint8, script language.Sc
 	}
 	buf.Props.Script = script
 	buf.Props.Language = si.lang
-	if r0 == 0 {
+	// The context around the run: the text, without the anchors when
+	// there are some (anchorContext).
+	ctx, off := pt.runes, int(r0)
+	if l.ctxIdx != nil {
+		ctx, off = l.ctxRunes, int(l.ctxIdx[r0])
+	}
+	if off == 0 {
 		buf.Flags |= harfbuzz.Bot
 	}
-	if int(r1) == len(pt.runes) {
+	if off+int(r1-r0) == len(ctx) {
 		buf.Flags |= harfbuzz.Eot
 	}
-	buf.AddRunes(pt.runes, int(r0), int(r1-r0))
+	buf.AddRunes(ctx, off, int(r1-r0))
 	buf.Shape(hb, si.features)
 
 	m := f.Metrics()
@@ -276,7 +286,7 @@ func (l *Layout) shapeRun(f *Face, r0, r1 int32, level uint8, script language.Sc
 	starts := make([]bool, cnt+1)
 	starts[0], starts[cnt] = true, true
 	for k := range buf.Info {
-		if c := buf.Info[k].Cluster - int(r0); c >= 0 && c < cnt {
+		if c := buf.Info[k].Cluster - off; c >= 0 && c < cnt {
 			starts[c] = true
 		}
 	}
@@ -308,7 +318,7 @@ func (l *Layout) shapeRun(f *Face, r0, r1 int32, level uint8, script language.Sc
 		p = q
 	}
 	for k := range buf.Info {
-		c := buf.Info[k].Cluster - int(r0)
+		c := buf.Info[k].Cluster - off
 		c = min(max(c, 0), cnt-1)
 		cl := &l.clusters[c0+atomOf[c]]
 		gi := g0 + int32(k)

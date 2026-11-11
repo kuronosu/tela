@@ -1032,15 +1032,18 @@ func (f *field) textWidth() float32 {
 }
 
 // charWidths returns Chromium's average and maximum character widths of
-// the field's primary font (see the comment at the top of field.go).
-func (f *field) charWidths(cs *style.ComputedStyle) (avg, maxW float32) {
+// the field's primary font (see the comment at the top of field.go), in
+// device pixels at display scale k: Chromium sizes the font for the
+// device and rounds them there, so a 14 px Input is 219.5 px wide at x2
+// and 220 at x1.
+func (f *field) charWidths(cs *style.ComputedStyle, k float32) (avg, maxW float32) {
 	ts := cs.TextStyle()
 	size := cs.Text.FontSize
 	face := f.t.fonts.Face(text.Query{Families: ts.Families, Weight: ts.Weight, Style: ts.Style, Stretch: ts.Stretch}, size)
 	if face == nil {
-		return float32(size * 0.5), float32(size)
+		return float32(size * 0.5 * k), float32(size * k)
 	}
-	m := face.Metrics().Scale(size)
+	m := face.Metrics().Scale(float32(size * k))
 	avg = m.AvgCharWidth
 	if r := float32(math.Round(float64(avg))); r > avg {
 		avg = r
@@ -1098,14 +1101,18 @@ func (f *field) measure(in layout.MeasureInput) layout.Measurement {
 			}
 		}
 	default:
-		avg, mx := f.charWidths(cs)
+		k := f.t.scale
+		if !(k > 0) {
+			k = 1
+		}
+		avg, mx := f.charWidths(cs, k)
 		if f.multi {
-			m.Width = float32(math.Ceil(float64(avg) * float64(20)))
+			m.Width = float32(math.Ceil(float64(avg)*float64(20))) / k
 			if f.t.classicBars(cs) {
 				m.Width += classicGutter
 			}
 		} else {
-			m.Width = float32(math.Ceil(float64(avg)*19 + float64(mx)))
+			m.Width = float32(math.Ceil(float64(avg)*19+float64(mx))) / k
 		}
 	}
 	switch {

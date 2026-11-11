@@ -117,6 +117,44 @@ func TestInlineHoverRepaint(t *testing.T) {
 	x.frame("leave chip")
 }
 
+// A relative inline element whose insets change (hover:top-2) moves with
+// its content and its absolute children, repainted where it was and where
+// it goes (ADR-268).
+func TestInlineRelativeOffsetChange(t *testing.T) {
+	root := div(Class("p-4"),
+		p(Key("p"), Class("w-[300px]"), Text("A "),
+			span(Key("s"), Class("relative rounded bg-amber-100 px-1 hover:top-2 hover:left-3"), Text("tooltip"),
+				span(Key("bar"), Class("absolute top-full left-0 h-1 w-full bg-amber-500"))),
+			Text(" anchor.")),
+	)
+	x := newDamageHarness(t, root, 400, 200, 2, Config{}, 1)
+	frag := func() gfx.Rect {
+		pb := keyed(x.tree(), "s").box.inPara
+		r := pb.para.inlineRects(keyed(x.tree(), "s"), nil)[0]
+		c := contentRect(pb.u, pb.ld.Layout())
+		return r.Translate(c.X0, c.Y0)
+	}
+	bar := func() gfx.Rect { return x.tree().boxWindowRect(keyed(x.tree(), "bar").box) }
+	f0, b0 := frag(), bar()
+	if !near(b0.Y0, f0.Y1, 0.01) || !near(b0.X0, f0.X0, 0.01) || !near(b0.Width(), f0.Width(), 0.01) {
+		t.Errorf("bar %v, want under the span %v", b0, f0)
+	}
+	x.move(f0.X0+10, f0.Y0+5)
+	x.frame("hover")
+	f1, b1 := frag(), bar()
+	if !near(f1.X0, f0.X0+12, 0.01) || !near(f1.Y0, f0.Y0+8, 0.01) {
+		t.Errorf("hovered span %v, want %v moved by (12, 8)", f1, f0)
+	}
+	if !near(b1.X0, b0.X0+12, 0.01) || !near(b1.Y0, b0.Y0+8, 0.01) {
+		t.Errorf("hovered bar %v, want %v moved by (12, 8)", b1, b0)
+	}
+	x.move(10, 180)
+	x.frame("leave")
+	if f2 := frag(); !near(f2.X0, f0.X0, 0.01) || !near(f2.Y0, f0.Y0, 0.01) {
+		t.Errorf("span %v after leaving, want %v", f2, f0)
+	}
+}
+
 func TestTruncatedAtomHidden(t *testing.T) {
 	root := div(Class("p-0"), p(Key("p"), Class("w-[120px] truncate"),
 		Text("A long line of text that is truncated "), button(Key("b"), Class("bg-red-500 px-2"), Text("Hidden"))))

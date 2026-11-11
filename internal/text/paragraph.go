@@ -396,6 +396,14 @@ type InlineBox struct {
 	// zero puts the bottom on the baseline, like an image.
 	Descent float32
 	Align   BoxAlign
+	// Anchor makes the box the place of an out-of-flow box in the content
+	// (an absolutely positioned element), as Blink's out-of-flow inline
+	// items: a zero-size U+FFFC placeholder that bidi resolves like any
+	// neutral, transparent to white-space collapsing and, like the
+	// placeholder of an empty inline, to line breaking (anchor.go). Width,
+	// Height, Descent and Align are ignored; AnchorPosition reports where
+	// it is.
+	Anchor bool
 }
 
 // Inline is a CSS inline box (CSS Inline 3): an inline element such as a

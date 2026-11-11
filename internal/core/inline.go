@@ -50,6 +50,13 @@ import (
 // inlines hidden by an ellipsis or line-clamp are not painted. Effects
 // (opacity, transforms, filters) of inline elements are not painted.
 //
+// A relative (or sticky) inline element is positioned: its content (its
+// decorations, text and atomic inlines, with the inline elements inside
+// it) is painted after the rest of the paragraph, in tree order, as CSS
+// paints positioned descendants after in-flow content (appendix E, step
+// 8), and a relative one is moved by its insets with everything it holds
+// (box.go: offsetInlines; text.Layout.SetInlineOffset, ADR-268).
+//
 // # Hit-testing
 //
 // Hit-testing mirrors the painting order: atomic inlines (as boxes, the
@@ -221,23 +228,41 @@ func (p *painter) paintParagraph(bx *Box, origin gfx.Point, visible bool) {
 		// decorations of the inline elements, under the text.
 		rects, bg, fg = p.selHighlight(bx)
 	}
-	fi := 0
-	for li := range l.NumLines() {
-		for ; fi < len(frags) && frags[fi].Line == li; fi++ {
+	// The content of positioned inline elements (relative spans) is
+	// painted after the rest, each in its layer, in tree order (CSS 2.1
+	// appendix E, step 8; text.Layout.InlineLayer).
+	layered := len(para.posInl) > 0
+	paintLayer := func(layer int) {
+		fi := 0
+		for li := range l.NumLines() {
+			for ; fi < len(frags) && frags[fi].Line == li; fi++ {
+				if visible && (!layered || l.InlineLayer(frags[fi].Inline) == layer) {
+					p.paintFragment(para, frags, fi, origin)
+				}
+			}
 			if visible {
-				p.paintFragment(para, frags, fi, origin)
+				if layer < 0 {
+					p.paintSelBg(rects, origin, bg, li)
+				}
+				if layered {
+					l.PaintLineLayer(p.b, origin, li, float32(p.scale), paints, layer)
+				} else {
+					l.PaintLineRecolored(p.b, origin, li, float32(p.scale), paints)
+				}
+				if layer < 0 {
+					p.paintSelText(l, rects, origin, fg, li)
+				}
+			}
+			for i, k := range para.atoms {
+				if k.parent == bx && l.BoxLine(para.atomBox[i]) == li && (!layered || l.BoxLayer(para.atomBox[i]) == layer) {
+					p.paintFlow(k)
+				}
 			}
 		}
-		if visible {
-			p.paintSelBg(rects, origin, bg, li)
-			l.PaintLineRecolored(p.b, origin, li, float32(p.scale), paints)
-			p.paintSelText(l, rects, origin, fg, li)
-		}
-		for i, k := range para.atoms {
-			if k.parent == bx && l.BoxLine(para.atomBox[i]) == li {
-				p.paintFlow(k)
-			}
-		}
+	}
+	paintLayer(-1)
+	for _, k := range para.posInl {
+		paintLayer(k)
 	}
 	if !visible {
 		return
@@ -439,28 +464,38 @@ func (b *Box) anchoredIn(c layout.Node, w float32) (*Box, *paragraph) {
 	return cb, p
 }
 
-// StaticPosition implements layout.InlinePlacer: the caret position
-// before box c and the top of its line for a box that was inline-level
-// (Chromium: "XX <span absolute>" is 30 px from the left, at the line's
-// top, in a 10 px font), the start of the next line for a block-level one
-// after content on its line (its own line's start otherwise).
-func (b *Box) StaticPosition(c layout.Node, w float32) (x, y float32, ok bool) {
+// StaticPosition implements layout.InlinePlacer, as Blink places
+// out-of-flow inline items (text/anchor.go): for a box that was
+// inline-level, its anchor's place on its line and the line's top, with
+// the box's left edge there when the anchor is left-to-right text and its
+// right edge when it is right-to-left ("XX <span absolute>YY" in a
+// right-to-left paragraph has the box's left edge after "XX "); for a
+// block-level one, the start of its line in the paragraph's direction, or
+// of the next line after content on its own.
+func (b *Box) StaticPosition(c layout.Node, w float32) (x, y float32, right, ok bool) {
 	cb, p := b.anchoredIn(c, w)
 	if cb == nil {
-		return 0, 0, false
+		return 0, 0, false, false
 	}
-	ca := p.lay.Caret(text.Cursor{Offset: int(cb.anchorOff), Affinity: text.Upstream})
+	l := p.lay
+	ap, found := l.AnchorPosition(int(cb.anchorBox))
+	if !found {
+		// Hidden by text-overflow or line-clamp: at the ellipsis.
+		ca := l.Caret(text.Cursor{Offset: int(cb.anchorOff), Affinity: text.Upstream})
+		ap = text.AnchorPos{X: ca.X, Top: ca.Top, Height: ca.Height, Line: ca.Line, RTL: l.RTL(),
+			AfterContent: int(cb.anchorOff) > l.Line(ca.Line).TextStart}
+	}
 	if cb.cs != nil && cb.cs.InlineOrigin {
-		return ca.X, ca.Top, true
+		return ap.X, ap.Top, ap.RTL, true
 	}
-	y = ca.Top
-	if int(cb.anchorOff) > p.lay.Line(ca.Line).TextStart {
-		y += ca.Height
+	y = ap.Top
+	if ap.AfterContent {
+		y += ap.Height
 	}
-	if p.lay.RTL() {
+	if l.RTL() {
 		x = w
 	}
-	return x, y, true
+	return x, y, l.RTL(), true
 }
 
 // ContainingBlock implements layout.InlinePlacer: for box c held by a

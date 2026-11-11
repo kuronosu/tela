@@ -437,10 +437,10 @@ func (e *Engine) blockInFlow(n Node, run runMode, items []blockItem, outerW floa
 			if p == nil {
 				continue
 			}
-			if x, py, ok := pl.StaticPosition(it.node, p.out.size.w); ok {
+			if x, py, right, ok := pl.StaticPosition(it.node, p.out.size.w); ok {
 				x, py = p.loc.x+x, p.loc.y+py
 				sp := staticPos{x0: x, x1: x, y0: py, y1: py, modeX: alignStartMode, modeY: alignStartMode}
-				if dir == RTL {
+				if right {
 					sp.modeX = alignEndMode
 				}
 				it.static = sp

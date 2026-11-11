@@ -288,7 +288,8 @@ func (l *Layout) attach(ci, edge int32) caretInfo {
 		return l.hiddenCaret(ci)
 	}
 	rtl := l.clusterLevel(ci)%2 == 1
-	x0, w := l.cx[ci], l.cadv[ci]
+	dx, _ := l.clusterOff(ci)
+	x0, w := l.cx[ci]+dx, l.cadv[ci]
 	var x float32
 	switch {
 	case edge == 0:
@@ -420,6 +421,9 @@ func (l *Layout) caretOut(ci caretInfo) Caret {
 	}
 	switch {
 	case ci.ci >= 0:
+		_, dy := l.clusterOff(ci.ci)
+		out.Top += dy
+		out.Baseline += dy
 		r := &l.runs[l.clusters[ci.ci].run]
 		out.Ascent, out.Descent = r.ascent, r.descent
 		if r.kind == runBox {

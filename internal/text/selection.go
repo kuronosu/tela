@@ -196,20 +196,21 @@ func (l *Layout) selectionRects(s Selection, dst []gfx.Rect, lineEnds, boxes, mo
 		la, lb = lb, la
 	}
 	var buf [lineElemsBuf]velem
-	var spans [16][2]float32
+	var spans [16][3]float32
 	for li := la; li <= lb; li++ {
 		ln := &l.lines[li]
 		elems := l.lineElems(int(li), buf[:0])
 		iv := spans[:0]
+		dy := float32(0) // of the element added (offset.go)
 		add := func(x0, x1 float32) {
 			if !(x1 > x0) {
 				return
 			}
-			if n := len(iv); n > 0 && x0 <= iv[n-1][1]+stopEpsilon {
+			if n := len(iv); n > 0 && x0 <= iv[n-1][1]+stopEpsilon && iv[n-1][2] == dy {
 				iv[n-1][1] = max(iv[n-1][1], x1)
 				return
 			}
-			iv = append(iv, [2]float32{x0, x1})
+			iv = append(iv, [3]float32{x0, x1, dy})
 		}
 		// When the selection goes on past this line, its break is
 		// highlighted at the end edge.
@@ -222,6 +223,7 @@ func (l *Layout) selectionRects(s Selection, dst []gfx.Rect, lineEnds, boxes, mo
 		}
 		for i := range elems {
 			el := &elems[i]
+			dy = el.dy
 			switch {
 			case el.ci == ciEllipsis:
 				if l.selectsHidden(int(li), a, b) {
@@ -244,11 +246,12 @@ func (l *Layout) selectionRects(s Selection, dst []gfx.Rect, lineEnds, boxes, mo
 			}
 		}
 		if l.base == 0 {
+			dy = 0
 			end := ln.x + ln.width + ln.hang
 			add(end, end+brk)
 		}
 		for _, v := range iv {
-			dst = append(dst, gfx.Rect{X0: v[0], Y0: ln.top, X1: v[1], Y1: ln.top + ln.height})
+			dst = append(dst, gfx.Rect{X0: v[0], Y0: ln.top + v[2], X1: v[1], Y1: ln.top + ln.height + v[2]})
 		}
 	}
 	return dst

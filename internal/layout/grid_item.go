@@ -174,6 +174,11 @@ func (it *gridItem) knownDimensions(area optSize) optSize {
 		}
 	}
 	k := optSize{w, inherent.h}.applyAspectRatio(ratio)
+	// A height from the width through the aspect ratio that taller content
+	// exceeds is the item's to find (positionGridItem).
+	if ratio.ok && !st.size().resolve(area).h.ok && k.w.ok && !st.Height.isSizingKeyword() && st.ratioGrowsHeight() {
+		return optSize{w: k.w}.maybeClamp(minSize, maxSize)
+	}
 	if !k.h.ok {
 		switch {
 		case st.Height.isSizingKeyword():
