@@ -1074,17 +1074,28 @@ func (f *field) measure(in layout.MeasureInput) layout.Measurement {
 	case in.HasWidth:
 		m.Width = in.Width
 	case content:
-		w := float32(0)
+		// Chromium: the text's width, the caret's when there is none. A
+		// Textarea wraps, so it is fit-content: its min-content width is
+		// its longest word, not its line (Chromium 155: a Textarea with
+		// long text fits its card's 1fr column through a Field-like
+		// wrapper, and is as wide as "jumps" plus its padding in a
+		// w-min box; ADR-268).
+		w, minW := float32(0), float32(0)
 		if lay := f.layoutAt(cs, float32(math.Inf(1))); lay != nil {
-			w = lay.MaxContentWidth()
+			w, minW = lay.MaxContentWidth(), lay.MinContentWidth()
 		}
 		if ph := f.placeholder(cs, float32(math.Inf(1))); ph != nil && f.ed.RawValue() == "" {
-			w = max(w, ph.MaxContentWidth())
+			w, minW = max(w, ph.MaxContentWidth()), max(minW, ph.MinContentWidth())
 		}
-		// Chromium: the text's width, the caret's when there is none.
 		m.Width = max(w, caretWidth)
-		if f.multi && in.AvailableWidth.Kind == layout.Definite {
-			m.Width = min(m.Width, in.AvailableWidth.Value)
+		if f.multi {
+			minW = max(minW, caretWidth)
+			switch in.AvailableWidth.Kind {
+			case layout.MinContentSpace:
+				m.Width = minW
+			case layout.Definite:
+				m.Width = max(min(m.Width, in.AvailableWidth.Value), minW)
+			}
 		}
 	default:
 		avg, mx := f.charWidths(cs)
