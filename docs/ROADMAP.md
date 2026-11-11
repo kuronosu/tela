@@ -11,16 +11,16 @@
 ## Current status
 
 - **Done:** phases 1–22. Latest version `v0.14.2` (2026-11-09, phase 22: desktop, kit and text details). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch; the owner may release a small break, such as a rename, as a patch.
-- **Phase in progress:** none. Phase 22 is on `phase-22-desktop-kit-text-details`, to be merged into `main` locally; nothing is pushed.
+- **Phase in progress:** 23, Layout, text and engine fidelity, on `phase-23-layout-text-engine-fidelity`. Owner's answers (2026-11-11): static text is selectable by default as on the web (`user-select: auto`; controls and kit chrome `select-none` where Chromium starts no selection), a selection crosses paragraphs inside one container; soft hyphens always and `hyphens-auto` through opt-in language packages, like fonts; `h.Lang` (HTML's `lang`, inherited), set by `i18n`'s provider from the active locale, the system's language otherwise; the work branch may be pushed for CI (ADR-220).
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** the next phase in order, Layout, text and engine fidelity. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** phase 23's tasks, in parallel worktrees. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` takes about 15 minutes in one process (2026-11-09; run it with `-timeout 30m`, or shard it), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
 
 In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–22 are done (HISTORY.md).
 
-### Layout, text and engine fidelity
+### Phase 23: Layout, text and engine fidelity
 
 Differences from Chromium and missing typography; each fix comes with a fixture or golden.
 
