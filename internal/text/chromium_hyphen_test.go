@@ -67,7 +67,7 @@ var chromiumHyphenCases = []chromiumHyphenCase{
 	{name: "soft-center", width: 120, para: ParagraphStyle{Align: AlignCenter}, base: hyStyle(16, HyphensManual, ""),
 		spans: one1("Some "+shyExtra+" text here", hyStyle(16, HyphensManual, ""))},
 	{name: "soft-rtl", width: 90, para: ParagraphStyle{Direction: DirectionRTL}, base: hyStyle(16, HyphensManual, ""),
-		spans: one1("العربية\u00adهي لغة سا\u00admية يتحدث\u00adبها أكثر", hyStyle(16, HyphensManual, ""))},
+		spans: one1("العربية\u00adهي لغة سا\u00adمية يتحدث\u00adبها أكثر", hyStyle(16, HyphensManual, ""))},
 	{name: "soft-spans", width: 100, base: hyStyle(16, HyphensManual, ""), spans: []chromiumSpan{
 		{text: "Ex\u00adtra\u00ador", style: hyStyle(16, HyphensManual, "")},
 		{text: "\u00addi\u00adnary in\u00adter", style: hyStyle(16, HyphensManual, "", func(s *TextStyle) { s.Weight = 700 })},

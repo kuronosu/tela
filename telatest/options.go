@@ -47,6 +47,7 @@ type config struct {
 	theme         *tela.Theme
 	aliases       map[string]string
 	fonts         []tela.Font
+	hyphenation   []tela.Hyphenation
 	// win is the OS window of the main window (winoptions.go), screen the
 	// size of the fake screen maximized and fullscreen windows fill.
 	win    windowConfig
@@ -98,6 +99,11 @@ func (c config) validate() error {
 			return fmt.Errorf("telatest.Fonts: %v", err)
 		}
 	}
+	for _, h := range c.coreHyphenation() {
+		if err := h.Verify(); err != nil {
+			return fmt.Errorf("telatest.Hyphenation: %v", err)
+		}
+	}
 	if _, err := headlessServices(c.unsupported); err != nil {
 		return fmt.Errorf("telatest.WithUnsupported%v", err)
 	}
@@ -142,7 +148,19 @@ func (c config) fontCollection() *text.Collection {
 	// Not an error: validate has checked the fonts and there are no system
 	// fonts to fail.
 	coll, _ := core.NewFontCollection(c.coreFonts(), stdfonts.Sources(), nil)
+	if len(c.hyphenation) > 0 {
+		coll.SetHyphenators(core.Hyphenators(c.coreHyphenation()))
+	}
 	return coll
+}
+
+// coreHyphenation returns the app's hyphenation dictionaries for core.
+func (c config) coreHyphenation() []core.Hyphenation {
+	out := make([]core.Hyphenation, len(c.hyphenation))
+	for i, h := range c.hyphenation {
+		out[i] = core.Hyphenation(h)
+	}
+	return out
 }
 
 // coreConfig returns the tree configuration (without Log and IDPrefix).
@@ -414,11 +432,24 @@ func Fonts(fonts ...tela.Font) Option {
 	return func(c *config) { c.fonts = append(c.fonts, fonts...) }
 }
 
+// Hyphenation adds hyphenation dictionaries to the app, like
+// tela.App.Hyphenation: text with the class hyphens-auto in their
+// languages breaks words with them. Tests have no dictionary unless they
+// add one (or FromApp does), so goldens do not depend on what the binary
+// links. A dictionary that cannot be used (its patterns do not compile)
+// fails the test at Mount.
+//
+//	app := telatest.Mount(t, Article(), telatest.Hyphenation(en.US))
+func Hyphenation(hs ...tela.Hyphenation) Option {
+	hs = append([]tela.Hyphenation(nil), hs...)
+	return func(c *config) { c.hyphenation = append(c.hyphenation, hs...) }
+}
+
 // FromApp applies the settings of a [tela.App] that shape what is drawn, so
 // a test, `tela snapshot` and the window see the same app: the size when
 // both Width and Height are set, RootClass, ColorScheme, Theme,
-// ClassAliases, Fonts, ClassicScrollbars, InstantScroll, NativeMenus,
-// IgnoreTextScale, Dev and Transparent (the picture keeps the frame's
+// ClassAliases, Fonts, Hyphenation, ClassicScrollbars, InstantScroll,
+// NativeMenus, IgnoreTextScale, Dev and Transparent (the picture keeps the frame's
 // alpha, as [Transparent]). It sets only
 // what the app sets, so it never undoes an earlier option, and the options
 // after it override it:
@@ -443,6 +474,7 @@ func FromApp(app tela.App) Option {
 	}
 	aliases := maps.Clone(app.ClassAliases)
 	fonts := append([]tela.Font(nil), app.Fonts...)
+	hyphenation := append([]tela.Hyphenation(nil), app.Hyphenation...)
 	var theme *tela.Theme
 	if app.Theme != nil {
 		t := *app.Theme
@@ -466,6 +498,7 @@ func FromApp(app tela.App) Option {
 			c.aliases = aliases
 		}
 		c.fonts = append(c.fonts, fonts...)
+		c.hyphenation = append(c.hyphenation, hyphenation...)
 		if app.ClassicScrollbars {
 			c.classic = true
 		}

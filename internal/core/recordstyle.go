@@ -104,7 +104,8 @@ func sameText(a, b *style.TextProps) bool {
 		a.TextAlign == b.TextAlign && a.TextTransform == b.TextTransform && a.Decoration == b.Decoration &&
 		a.WhiteSpace == b.WhiteSpace && a.WrapStyle == b.WrapStyle && a.WordBreak == b.WordBreak &&
 		a.OverflowWrap == b.OverflowWrap && a.TabSize == b.TabSize && a.Numeric == b.Numeric &&
-		sameSlice(a.Shadow, b.Shadow) && a.Direction == b.Direction && a.Language == b.Language
+		sameSlice(a.Shadow, b.Shadow) && a.Direction == b.Direction && a.Language == b.Language &&
+		a.Hyphens == b.Hyphens
 }
 
 // same reports whether in and o read the same (the comparison of the

@@ -354,6 +354,10 @@ type TextProps struct {
 	WrapStyle    text.TextWrapStyle
 	WordBreak    text.WordBreak
 	OverflowWrap text.OverflowWrap
+	// Hyphens is CSS hyphens (hyphens-none, hyphens-manual, hyphens-auto):
+	// whether words break at soft hyphens and, with auto, at the points of
+	// the dictionary of the text's language (ADR-270).
+	Hyphens text.Hyphens
 	// TabSize is a multiple of a space's advance.
 	TabSize float32
 	// Numeric is font-variant-numeric (tabular-nums and friends).

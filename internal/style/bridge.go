@@ -20,6 +20,7 @@ func (s *ComputedStyle) TextStyle() text.TextStyle {
 		Transform:     t.TextTransform,
 		Numeric:       t.Numeric,
 		Language:      t.Language,
+		Hyphens:       t.Hyphens,
 	}
 	if t.Decoration.Lines != 0 {
 		st.Decoration = text.TextDecoration{

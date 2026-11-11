@@ -362,16 +362,27 @@ func NewFontCollection(fonts []Font, after []*text.FontSource, system *text.Syst
 // CheckFonts) and the installed ones, else the installed ones or the
 // default set (runFonts).
 func runCollection(opts Options) (*text.Collection, error) {
+	if err := CheckHyphenation(opts.AppHyphenation); err != nil {
+		return nil, err
+	}
+	var c *text.Collection
 	switch {
 	case opts.Fonts != nil:
-		return opts.Fonts, nil
+		c = opts.Fonts
 	case len(opts.AppFonts) > 0:
 		if err := CheckFonts(opts.AppFonts); err != nil {
 			return nil, err
 		}
-		return runAppFonts(opts.AppFonts, errorLog(opts.ErrorLog)), nil
+		c = runAppFonts(opts.AppFonts, errorLog(opts.ErrorLog))
+	default:
+		c = runFonts(errorLog(opts.ErrorLog)) // fonts.go
 	}
-	return runFonts(errorLog(opts.ErrorLog)), nil // fonts.go
+	if len(opts.AppHyphenation) > 0 {
+		// The app's dictionaries (ADR-270); one app per process, so the
+		// shared collection of the system fonts takes them too.
+		c.SetHyphenators(Hyphenators(opts.AppHyphenation))
+	}
+	return c, nil
 }
 
 // runAppFonts returns the fonts of Run with Options.AppFonts: the app's

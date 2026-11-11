@@ -53,6 +53,11 @@ type Options struct {
 	// returns an error before it opens a window when one cannot be used
 	// (CheckFonts). Ignored when Config.Fonts is set.
 	AppFonts []Font
+	// AppHyphenation are the app's hyphenation dictionaries
+	// (tela.App.Hyphenation): Run gives them to its collection (also to
+	// Config.Fonts) and returns an error before it opens a window when one
+	// cannot be used (CheckHyphenation).
+	AppHyphenation []Hyphenation
 	// ErrorLog receives platform errors (a failed Present). Nil means
 	// stderr.
 	ErrorLog io.Writer

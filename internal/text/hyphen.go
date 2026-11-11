@@ -502,6 +502,18 @@ func (c *Collection) hyphenator(lang string) *Hyphenator {
 			}
 		}
 	}
+	if h != nil {
+		if err := h.Load(); err != nil {
+			// Reported once per language; the text is not hyphenated.
+			c.mu.RLock()
+			log := c.log
+			c.mu.RUnlock()
+			if log != nil {
+				log.Printf("tela: %v", err)
+			}
+			h = nil
+		}
+	}
 	set.cache[lang] = h
 	return h
 }

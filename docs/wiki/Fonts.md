@@ -136,3 +136,29 @@ app := telatest.Mount(t, Notes(), telatest.Fonts(inter.Sans))
 So an app on the system's fonts looks like Inter in a golden and like the
 system's face in its window; an app that brings the fonts it uses looks the
 same in both.
+
+## Hyphenation
+
+Hyphenation dictionaries work like fonts: none is in the binary unless the
+app brings one. Soft hyphens (`\u00ad` in a Go string) always let a word
+break with a hyphen, unless the text has `hyphens-none`. With
+`hyphens-auto`, words also break where the dictionary of the text's
+language allows, as in Chromium: only when the language is known (`h.Lang`,
+or `tela.SetDefaultLang` for the whole app) and the app has a dictionary
+for it.
+
+```go
+import (
+    "github.com/kuronosu/tela/hyphen/en" // en.US, en.GB (46 KB)
+    "github.com/kuronosu/tela/hyphen/es" // es.Spanish (10 KB)
+)
+
+tela.Main(tela.App{Hyphenation: []tela.Hyphenation{en.US, es.Spanish}, Root: Article()})
+
+P(Class("hyphens-auto"), Lang("en"), Text("Internationalization..."))
+```
+
+`hyphen/fr` has French. Other languages take TeX patterns, such as
+hyph-utf8's `hyph-it.pat.txt`: `tela.HyphenationPatterns("it", patterns, "")`.
+Tests hyphenate only with the app's dictionaries (`telatest.FromApp`,
+[`telatest.Hyphenation`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#Hyphenation)).
