@@ -3,6 +3,7 @@ package text
 import (
 	"math"
 	"slices"
+	"sync/atomic"
 
 	ot "github.com/go-text/typesetting/font/opentype"
 	"github.com/go-text/typesetting/harfbuzz"
@@ -84,11 +85,18 @@ type Layout struct {
 	levels []uint8 // scratch of buildItems: the levels of one line's items
 
 	// Hyphenation (breaking.go): the x of each cluster on the line being
-	// broken, scratch hyphenation points, and the first and last rune of
-	// content plus one (zero until computed).
+	// broken, scratch hyphenation points, a scratch word without its
+	// placeholders and the rune of each of its runes, and the first and
+	// last rune of content plus one (zero until computed).
 	scanX []float32
 	hpts  []int32
+	hword []rune
+	hat   []int32
 	cends [2]int32
+
+	// inkHits keeps the skip-ink intercepts of the glyphs (skipink.go),
+	// made by the first paint that needs one.
+	inkHits atomic.Pointer[glyphSlots[inkKept]]
 
 	minContent, maxContent float32 // NaN until computed
 }

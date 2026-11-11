@@ -150,7 +150,7 @@ func (l *Layout) overflowing(c0, c1 int32, reason BreakReason, hy bool, w float3
 	}
 	lw, _, _ := l.lineWidth(c0, c1, reason, w, adv)
 	if hy {
-		lw += l.hyphenFor(l.clusters[c1-1].style).width
+		lw += l.hyphenFor(l.hyphenStyle(c0, c1)).width
 	}
 	return lw > w+fitEpsilon
 }
@@ -377,20 +377,30 @@ func (l *Layout) wrapCandidates(la, lb int) []wrapCand {
 	cands := []wrapCand{{at: c0}}
 	// points adds the hyphenation points of the word [ws, end) (hyphens:
 	// auto; Blink's LineBreaker::AppendCandidates), each a candidate whose
-	// line ends with a hyphen.
+	// line ends with a hyphen. White space and placeholders at its ends
+	// are not part of it (hyphenWord). Unlike the greedy breaker
+	// (lastWord, Blink's ShouldHyphenate), AppendCandidates hyphenates the
+	// paragraph's last word too, and Chromium's balanced and pretty lines
+	// break it (TestChromiumHyphens, auto-balance-last-word).
 	points := func(ws, end int32) {
 		we := end
-		for we > ws && breakableSpace(cl[we-1].flags) {
+		for we > ws && outsideWord(cl[we-1].flags) {
 			we--
 		}
+		for ws < we && outsideWord(cl[ws].flags) {
+			ws++
+		}
+		if we-ws < hyphenMinWord {
+			return
+		}
 		h := l.sinfo[cl[ws].style].hyph
-		if h == nil || we-ws < hyphenMinWord {
+		if h == nil {
 			return
 		}
 		for _, k := range l.hyphenPoints(ws, we, h) {
 			if k > ws && k < we {
 				x := adv[k-c0] + ext[k-c0]
-				cands = append(cands, wrapCand{at: k, noBreak: x, ifBreak: x + l.hyphenFor(cl[k-1].style).width, hy: true})
+				cands = append(cands, wrapCand{at: k, noBreak: x, ifBreak: x + l.hyphenFor(l.hyphenStyle(ws, k)).width, hy: true})
 			}
 		}
 	}
@@ -398,7 +408,7 @@ func (l *Layout) wrapCandidates(la, lb int) []wrapCand {
 	// hyphen.
 	soft := func(c wrapCand) wrapCand {
 		if l.softHyphenBefore(c.at) {
-			c.ifBreak += l.hyphenFor(cl[c.at-1].style).width
+			c.ifBreak += l.hyphenFor(l.hyphenStyle(c0, c.at)).width
 			c.hy = true
 		}
 		return c

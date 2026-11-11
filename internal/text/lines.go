@@ -76,13 +76,25 @@ func (l *Layout) BreakLines(maxWidth float32) {
 }
 
 // newLine returns the line data of the clusters [c0, c1), ended for
-// reason, with a hyphen when hy is set: in the style of its last cluster.
+// reason, with a hyphen when hy is set (in hyphenStyle).
 func (l *Layout) newLine(c0, c1 int32, reason BreakReason, hy bool) lineData {
 	ln := lineData{c0: c0, c1: c1, reason: reason, ellipsis: -1, hyphen: -1, endc: -1}
 	if hy && c1 > c0 {
-		ln.hyphen = int32(l.clusters[c1-1].style)
+		ln.hyphen = int32(l.hyphenStyle(c0, c1))
 	}
 	return ln
+}
+
+// hyphenStyle returns the style of the hyphen of the line [c0, c1): that
+// of its last cluster that is not a placeholder (a line broken at a soft
+// hyphen or a hyphenation point before an anchor ends with the anchor,
+// but the hyphen belongs to the text before it).
+func (l *Layout) hyphenStyle(c0, c1 int32) uint16 {
+	c := c1 - 1
+	for c > c0 && l.clusters[c].flags&cfTag != 0 {
+		c--
+	}
+	return l.clusters[c].style
 }
 
 // hyphenFor returns the hyphen of a line hyphenated in style s, as Blink

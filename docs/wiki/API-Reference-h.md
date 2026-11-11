@@ -1275,7 +1275,7 @@ P(Lang("ja"), Text("直骨角")) // Japanese forms
 P(Lang("zh-Hans"), Text("直骨角")) // Simplified Chinese forms
 ```
 
-Text with no Lang above it has the app's default language: the current locale of package i18n when the app uses it (i18n.Provider sets the language of its children), else the user's (tela.SetDefaultLang). "" has no effect: the element inherits its parent's language. A tag that is not well formed (es_MX, with an underscore) panics in dev mode and is ignored otherwise.
+Text with no Lang above it has the app's default language: the locale the app chose with package i18n when it uses it (i18n.Provider sets the language of its children), else the user's (tela.SetDefaultLang). "" has no effect: the element inherits its parent's language. A tag that is not well formed (es_MX, with an underscore) panics in dev mode and is ignored otherwise.
 
 ### func LayoutID
 

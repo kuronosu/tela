@@ -37,9 +37,9 @@ type state struct {
 	explicit    string              // locale set with SetLocale ("" follows the system)
 
 	// computed by build
-	fallback   string // name of the fallback catalog ("" with none)
-	locale     string // the current locale
-	fromSystem bool   // locale is the system's (no SetLocale, no fallback)
+	fallback string // name of the fallback catalog ("" with none)
+	locale   string // the current locale
+	chosen   bool   // the app chose locale: SetLocale's, or the fallback catalog's
 
 	// matching: catalog locales by tag, and a matcher over them
 	tags    []language.Tag // by load order
@@ -120,19 +120,19 @@ func build(s *state) *state {
 	default:
 		s.fallback = ""
 	}
-	s.fromSystem = false
+	s.chosen = false
 	switch {
 	case s.explicit != "":
-		s.locale = s.explicit
+		s.locale, s.chosen = s.explicit, true
 	default:
 		sys, ok := systemLocale()
 		switch {
 		case ok && len(s.cats) > 0 && s.match(sys) != nil:
-			s.locale, s.fromSystem = sys.String(), true
+			s.locale = sys.String()
 		case s.fallback != "":
-			s.locale = s.fallback
+			s.locale, s.chosen = s.fallback, true
 		case ok:
-			s.locale, s.fromSystem = sys.String(), true
+			s.locale = sys.String()
 		default:
 			s.locale = "en"
 		}
@@ -140,16 +140,20 @@ func build(s *state) *state {
 	return s
 }
 
-// publishLang makes the current locale the language of the app's text
-// that has no h.Lang above it (tela.SetDefaultLang, ADR-269). A locale
-// that is the system's leaves Tela's own default, the same system
-// language, which tests and snapshots ignore so that their output does
-// not depend on the machine.
+// publishLang makes the locale the app chose (SetLocale's, or its
+// fallback catalog's when no catalog covers the system's locale) the
+// language of the app's text that has no h.Lang above it
+// (tela.SetDefaultLang, ADR-269). Any other locale leaves Tela's own
+// default: the system's locale is the same system language, which tests
+// and snapshots ignore so that their output does not depend on the
+// machine, and i18n's "en" without catalogs and without a system locale
+// only formats numbers and dates: published, it would make the text of
+// tests English, and hyphenate it, only where LANG is unset or C.
 func publishLang(s *state) {
-	if s.fromSystem {
-		core.SetDefaultLang("")
-	} else {
+	if s.chosen {
 		core.SetDefaultLang(s.locale)
+	} else {
+		core.SetDefaultLang("")
 	}
 }
 

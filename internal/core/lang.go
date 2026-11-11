@@ -17,7 +17,8 @@ import (
 // Korean forms of a pan-CJK font) and falls back to the CJK fonts of its
 // region. Text with no Lang above it has the app's default language
 // (DefaultLang): the one SetDefaultLang sets, which package i18n keeps
-// equal to its current locale, else the user's (text.SystemLanguage). A
+// equal to the locale the app chose, else the user's
+// (text.SystemLanguage). A
 // LangProvider (i18n.Provider) gives a language to its children without a
 // box: the first primitives below it take it.
 
@@ -183,7 +184,8 @@ func PlatformLanguage() string { return text.PlatformLanguage() }
 
 // SetDefaultLang sets the language of the text that has no Lang above it,
 // a BCP 47 tag; "" follows the user's language again. Package i18n calls
-// it with its current locale. The trees restyle when it changes. It is
+// it with the locale the app chose, else "". The trees restyle when it
+// changes. It is
 // safe from any goroutine; a tag that is not well formed panics.
 func SetDefaultLang(tag string) {
 	if tag != "" && !validLangTag(tag) {
