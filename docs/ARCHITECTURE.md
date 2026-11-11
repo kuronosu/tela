@@ -376,6 +376,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
   - Glyph cache keyed by (font, size, quantized subpixel offset), respecting display scale. Under scale/translate transforms the pen x snaps to 1/4 device pixel and the baseline y to whole device pixels; other transforms and large glyphs fill the outline directly (ADR-029).
   - Grayscale antialiasing (no RGB subpixel) so output is identical across platforms.
 - **Text editing (`Input`, `Textarea`):** cursor, mouse/keyboard selection, undo/redo, clipboard. **IME** composition arrives from the backend as `IMEEvent` batches (delete surrounding text, commit, new preedit; an empty preedit ends the composition) and `IMESessionEvent`s; the field reports its caret area, purpose and surrounding text with `Window.SetTextInput` (ADR-068).
+- **Static text** is selectable unless `select-none`, as on the web: one range of paragraphs per root (the window's content, or a portal), made with the mouse as in Chromium, painted with the fields' selection colors, copied with Ctrl/Cmd+C; Buttons, draggables and aria presses start none (ADR-271).
 
 ## 12. Animation
 
@@ -445,7 +446,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
   - No capture phase (can be added by ADR if needed).
 - **Gestures:** a Flutter-style **gesture arena**: tap, double-tap, long-press, drag and pan recognizers compete for a pointer sequence; one wins. High-level handlers (`OnClick`, `OnDrag`…) are built on it.
 - **Focus:** a focus tree with tab order following tree order plus `TabIndex`; focus traps for modals (a containing focus scope keeps the focus inside against Tab, presses and scripts, and takes it back when the focused element unmounts; ADR-160, ADR-168); `focus-visible` only activates on keyboard navigation (text fields match it on mouse focus too, as in Chromium; ADR-069). A modal overlay makes everything outside it inert, and `h.Inert` (HTML's `inert`) a subtree: not hit, not focusable, hidden from the semantics tree (ADR-096).
-- **Cursors:** declared by style (`cursor-*`), resolved by the backend.
+- **Cursors:** declared by style (`cursor-*`), resolved by the backend; `cursor: auto` is the text cursor over selectable text, the arrow elsewhere (ADR-271).
 
 ### Behavior hooks (`aria` package, React Aria model)
 

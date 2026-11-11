@@ -54,6 +54,11 @@ type hitter struct {
 	painter
 	// bar is the scrollbar part the hit test found (scrollbar).
 	bar barHit
+	// box is the box whose hit gave the element found: the box itself,
+	// or the paragraph box of the inline element hit (textsel.go reads
+	// it); onText is the paragraph box when the point is on a cluster of
+	// its text (not an inline box), for the auto cursor.
+	box, onText *Box
 }
 
 // HitTest returns the element under the point (x, y) of the window, in
@@ -74,6 +79,7 @@ func (t *Tree) hitTest(pt gfx.Point) (*Element, barHit) {
 	}
 	h := &t.in.hit
 	h.t, h.scale = t, float64(t.scale)
+	h.box, h.onText = nil, nil
 	el := h.stacked(rb, pt)
 	bar := h.bar
 	h.bar = barHit{}
@@ -192,6 +198,7 @@ func (h *hitter) stackedOrder(bx *Box, items []paintItem, p gfx.Point) *Element 
 		}
 	}
 	if h.self(bx, p) {
+		h.box = bx
 		return hitTarget(bx)
 	}
 	return nil
@@ -230,6 +237,7 @@ func (h *hitter) flowBox(bx *Box, p gfx.Point) *Element {
 		return el
 	}
 	if h.self(bx, p) {
+		h.box = bx
 		return hitTarget(bx)
 	}
 	return nil
@@ -257,7 +265,10 @@ func (h *hitter) inner(bx *Box, p gfx.Point) *Element {
 		}
 	}
 	if bx.mode == modeParagraph && bx.pcs.Visibility == style.VisibilityVisible {
-		return h.text(bx, toSpace(p, bx.space, contentSpace(bx)))
+		if el := h.text(bx, toSpace(p, bx.space, contentSpace(bx))); el != nil {
+			h.box = bx
+			return el
+		}
 	}
 	return nil
 }
@@ -270,6 +281,7 @@ func (h *hitter) scrollbar(bx *Box, p gfx.Point) *Element {
 		return nil
 	}
 	h.bar = barHit{s: bx.scr, axis: i, part: part, at: p}
+	h.box = bx
 	return hitTarget(bx)
 }
 
@@ -315,6 +327,9 @@ func (h *hitter) text(bx *Box, p gfx.Point) *Element {
 		return nil
 	}
 	hit, ok := para.lay.HitTestCluster(lp.X, lp.Y)
+	if ok && hit.Box < 0 {
+		h.onText = bx // on its text or its ellipsis (the auto cursor)
+	}
 	if !ok || hit.Cluster < 0 || hit.Box >= 0 {
 		return frag()
 	}

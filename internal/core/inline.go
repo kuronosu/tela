@@ -203,6 +203,14 @@ func (p *painter) paintParagraph(bx *Box, origin gfx.Point, visible bool) {
 		// culled (record.go).
 		p.dep(k)
 	}
+	var rects []selRect
+	var bg gfx.Color
+	var fg gfx.Paint
+	if visible {
+		// The static selection (textsel.go), line by line: over the
+		// decorations of the inline elements, under the text.
+		rects, bg, fg = p.selHighlight(bx)
+	}
 	fi := 0
 	for li := range l.NumLines() {
 		for ; fi < len(frags) && frags[fi].Line == li; fi++ {
@@ -211,7 +219,9 @@ func (p *painter) paintParagraph(bx *Box, origin gfx.Point, visible bool) {
 			}
 		}
 		if visible {
+			p.paintSelBg(rects, origin, bg, li)
 			l.PaintLineRecolored(p.b, origin, li, float32(p.scale), paints)
+			p.paintSelText(l, rects, origin, fg, li)
 		}
 		for i, k := range para.atoms {
 			if k.parent == bx && l.BoxLine(para.atomBox[i]) == li {

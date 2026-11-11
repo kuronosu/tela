@@ -167,7 +167,7 @@ func TestSelectionRectsProperty(t *testing.T) {
 func checkSelection(t *testing.T, name string, l *Layout, s Selection) {
 	t.Helper()
 	rects := l.SelectionRects(s, nil)
-	plain := l.selectionRects(s, nil, false)
+	plain := l.selectionRects(s, nil, false, true, false)
 	a, b := l.ordered(s)
 	// Order, line boxes and disjointness.
 	for i, r := range rects {

@@ -134,9 +134,13 @@ func (r ContextMenuTriggerResult) PopoverOptions() PopoverOptions {
 //   - Shift+F10 and the ContextMenu key, with the first item focused, at
 //     the element that has the focus.
 //
-// A key opens the menu at the element that has the focus, the area itself
-// or an element inside it, as Chromium does: at the center of the part of
-// it the area shows, or for a text field at the caret (the start of the
+// A key opens the menu at a selection of static text in the area that
+// has the focus (nothing is focused, or the focused element holds the
+// selection's start or is inside the selection), at the middle of the
+// caret at its start, Chromium's rule, also when the key reached no area
+// (core then fires the context menu event at the selection); else at the
+// element that has the focus, the area itself or an element inside it,
+// as Chromium does: at the center of the part of it the area shows, or for a text field at the caret (the start of the
 // selection); at the area's top-left corner when the focused element is
 // outside the area or out of its view; and when nothing in the window
 // has the focus (the keys then reach the area from the window's
@@ -232,7 +236,13 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 			}
 			e.PreventDefault()
 			e.StopPropagation()
-			openAt(point(e.X, e.Y), "")
+			s := ""
+			if core.KeyboardContextMenu(e) {
+				// The keys at the selection of static text, from outside
+				// any area (the key reached no area's OnKeyDown).
+				s = FocusFirst
+			}
+			openAt(point(e.X, e.Y), s)
 		}),
 		h.OnKeyDown(func(e tela.KeyboardEvent) {
 			if o.Disabled || e.Ctrl || e.Meta || e.Alt {
@@ -342,9 +352,12 @@ func nonLocated(area tela.ElementRef, at *tela.Point) tela.Rect {
 }
 
 // keyAnchor is where a menu opened from the keyboard is placed, as
-// Chromium places it (EventHandler::ShowNonLocatedContextMenu): the
-// middle of the caret at the start of the selection when the focus is in
-// a text field, else the center of the focused element (the area or one
+// Chromium places it (EventHandler::ShowNonLocatedContextMenu): at a
+// selection of static text in the area that has the focus (nothing is
+// focused, or the focused element holds its start or is inside it), the
+// middle of the caret at its start (core.SelectionPoint); the middle of
+// the caret at the start of the selection when the focus is in a text
+// field, else the center of the focused element (the area or one
 // inside it), both within the part of the element that the area shows;
 // the area's top-left corner when the focus is elsewhere or the element is
 // out of the area's view; the window's top-left corner plus one pixel
@@ -354,6 +367,10 @@ func nonLocated(area tela.ElementRef, at *tela.Point) tela.Rect {
 func keyAnchor(area tela.ElementRef) tela.Rect {
 	a := area.Bounds()
 	corner := tela.Rect{X: a.X, Y: a.Y}
+	if p, ok := core.SelectionPoint(area); ok && p.X >= a.X && p.Y >= a.Y && p.X <= a.X+a.Width && p.Y <= a.Y+a.Height {
+		// A selection of static text that has the focus (ADR-271).
+		return tela.Rect{X: p.X, Y: p.Y}
+	}
 	f, ok := core.ActiveElement(area)
 	if !ok {
 		return tela.Rect{X: nonLocatedMargin, Y: nonLocatedMargin}

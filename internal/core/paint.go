@@ -1049,7 +1049,12 @@ func (p *painter) paintContent(bx *Box) {
 		// its content layer (paintInner).
 		c := contentRect(p.rect(bx), l)
 		para.prepare(p.t, max(c.Width(), 0))
+		// The static selection (textsel.go): its highlight under the
+		// text, the selected text again in the selection's color.
+		rects, bg, fg := p.selHighlight(bx)
+		p.paintSelBg(rects, c.Origin(), bg, -1)
 		para.lay.PaintRecolored(p.b, c.Origin(), float32(p.scale), p.textPaints(bx))
+		p.paintSelText(para.lay, rects, c.Origin(), fg, -1)
 	case modeField:
 		if bx.fld != nil {
 			p.paintField(bx)

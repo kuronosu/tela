@@ -93,6 +93,9 @@ type eventState struct {
 	// flavor is the flavor of the Tree that dispatches the event, set by
 	// prepare for the events with modifiers (CmdOrCtrl, ADR-221).
 	flavor platform.Flavor
+	// noSelect: a pointerdown handler called NoTextSelection; keyMenu:
+	// the contextmenu event comes from the keyboard (textsel.go).
+	noSelect, keyMenu bool
 }
 
 // cmdOrCtrl is the CmdOrCtrl of an event with dispatch state s: the

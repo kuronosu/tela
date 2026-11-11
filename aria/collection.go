@@ -860,6 +860,9 @@ func (c *collState[K]) onItemPointerDown(k K, e tela.PointerEvent) {
 		return
 	}
 	c.downKey, c.hasDown, c.downKind = k, true, pointerTypeOf(e.Kind)
+	// An item is pressed as React Aria's usePress presses it: no text
+	// selection starts on it.
+	core.NoTextSelection(e)
 	if c.cfg.virtualFocus {
 		// Keep the focus where it is (the combobox's input, or the list
 		// itself) and highlight the item.

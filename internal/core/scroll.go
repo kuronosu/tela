@@ -1359,6 +1359,7 @@ func (t *Tree) Animate(now time.Duration) {
 	st.now = max(st.now, now)
 	now = st.now
 	t.animateFields()
+	t.animateSel()
 	t.animateDragAutoscroll()
 	if len(st.sets[setMoving]) == 0 && len(st.sets[setBars]) == 0 {
 		return
@@ -1681,7 +1682,7 @@ func (t *Tree) scrollAfterFrame() {
 	}
 	// Requests the layout effects of a late pass made (a virtual list's
 	// items mounted after the scroll phase ran them) run in the next frame.
-	if pending || len(t.scr.requests) > 0 || t.scrollAnimating() || t.fieldAutoscrolling() || t.dragAutoscrollDue() {
+	if pending || len(t.scr.requests) > 0 || t.scrollAnimating() || t.fieldAutoscrolling() || t.selAutoscrolling() || t.dragAutoscrollDue() {
 		t.requestRepaint()
 	}
 }

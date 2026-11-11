@@ -43,7 +43,12 @@ import (
 //   - keydown of the arrows, Page Up, Page Down, Home, End (without Ctrl,
 //     Alt or Meta; Home and End also with Ctrl) and Space or Shift+Space
 //     on a target that is not a Button scroll the focused scroll
-//     container or the nearest one around the focus (scroll.go).
+//     container or the nearest one around the focus (scroll.go);
+//   - with the focus outside text fields, Ctrl+C and Ctrl+Insert
+//     (Command+C under the Mac flavor) copy the selection of static
+//     text, Ctrl+A (Command+A) selects all of it, and the ContextMenu key
+//     and Shift+F10 fire OnContextMenu at the selection when it has the
+//     focus (textsel.go).
 //
 // A click from the keyboard is an OnClick with ClickCount 0 (the DOM's
 // detail), the primary button and the key's modifiers, at the center of
@@ -284,6 +289,13 @@ func isButton(el *Element) bool {
 func (t *Tree) keyDownDefault(target *Element, e KeyboardEvent, txt string) {
 	if f := t.focusedField(); f != nil && f.el == target && t.fieldKey(f, e, txt) {
 		return
+	}
+	if t.focusedField() == nil {
+		// The selection of static text (textsel.go): copy, select all,
+		// and the context menu keys at the selection.
+		if t.selKey(e) || isMenuKey(e) && !e.Repeat && t.selContextMenu(e) {
+			return
+		}
 	}
 	switch e.Key {
 	case KeyValue(platform.KeyTab):

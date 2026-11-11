@@ -783,6 +783,20 @@ func (a *App) Cursor() string {
 	return a.win.Cursor().String()
 }
 
+// SelectedText returns the text selected in the window outside text
+// fields, as copying it gives it (what getSelection().toString() returns
+// in a browser), "" when nothing is selected, after settling the app
+// (under [NoSettle], handling only the work due). Select text with
+// [App.DragFromTo], double and triple clicks, or Ctrl+A ([App.Press]); a
+// text field's selection is its own ([App.ExpectValue] and the field's
+// ref).
+func (a *App) SelectedText() string {
+	a.tb.Helper()
+	a.mustBeOpen()
+	a.settleQuery()
+	return a.tree.SelectedText()
+}
+
 // Now returns the app's clock: the time since the window was created, as
 // moved by waits and [App.Advance].
 func (a *App) Now() time.Duration { return a.backend.Now() }

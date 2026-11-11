@@ -1,6 +1,7 @@
 package text
 
 import (
+	"strings"
 	"unicode"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -94,6 +95,52 @@ func (l *Layout) SelectedText(s Selection) string {
 	return l.src[a.Offset:b.Offset]
 }
 
+// RenderedText returns the text of the selection as it is laid out, for
+// copying static text (Chromium's TextIterator, ADR-271): the characters
+// after white-space processing (collapsed spaces once, the spaces removed
+// at the start and end of lines and of the text left out, preserved
+// newlines and tabs kept) and text-transform, without the inline boxes. A
+// soft wrap adds nothing; text hidden by an ellipsis or line-clamp is
+// included, as Chromium copies it.
+func (l *Layout) RenderedText(s Selection) string {
+	a, b := l.ordered(s)
+	if a.Offset >= b.Offset {
+		return ""
+	}
+	var sb strings.Builder
+	for ci := range l.clusters {
+		c := &l.clusters[ci]
+		if c.flags&cfBox != 0 {
+			continue
+		}
+		cs, ce := l.clusterRange(int32(ci))
+		if ce <= a.Offset || cs >= b.Offset {
+			continue
+		}
+		if l.removedSpace(int32(ci)) {
+			// A collapsible space removed at the end of a line: it stands
+			// for the space between two words at a soft wrap, nothing
+			// before a forced break or at the end of the text.
+			if ln := &l.lines[l.cline[ci]]; ln.reason != BreakSoft && ln.reason != BreakEmergency {
+				continue
+			}
+		}
+		for r := c.r0; r < c.r1; r++ {
+			// The runes whose source characters are in the selection (a
+			// ligature or grapheme cluster cut by the selection keeps its
+			// selected characters).
+			off := int(l.text.src[r])
+			if r == 0 {
+				off = int(l.text.first)
+			}
+			if off >= a.Offset && off < b.Offset {
+				sb.WriteRune(l.text.runes[r])
+			}
+		}
+	}
+	return sb.String()
+}
+
 // SelectionRects appends the rectangles that highlight the selection to
 // dst and returns it: one rectangle per run of visually adjacent selected
 // content on a line, lines from top to bottom and rectangles left to right
@@ -111,12 +158,34 @@ func (l *Layout) SelectedText(s Selection) string {
 // breaks; the last line of the paragraph is never extended. The rectangles
 // do not overlap.
 func (l *Layout) SelectionRects(s Selection, dst []gfx.Rect) []gfx.Rect {
-	return l.selectionRects(s, dst, true)
+	return l.selectionRects(s, dst, true, true, false)
 }
 
-func (l *Layout) selectionRects(s Selection, dst []gfx.Rect, lineEnds bool) []gfx.Rect {
+// HighlightRects is SelectionRects for the part of a selection that spans
+// several paragraphs (static text, ADR-271): the inline boxes are left out,
+// since the content of an atomic inline is highlighted by its own
+// paragraph, as Chromium paints it; and when more reports that the
+// selection goes on past the end of this text (into a later paragraph),
+// the break of its last selected line is highlighted too, as Chromium
+// paints the selected end of a block, also when nothing before it on that
+// line is selected (a selection that starts at the very end of the text).
+func (l *Layout) HighlightRects(s Selection, more bool, dst []gfx.Rect) []gfx.Rect {
+	return l.selectionRects(s, dst, true, false, more)
+}
+
+func (l *Layout) selectionRects(s Selection, dst []gfx.Rect, lineEnds, boxes, more bool) []gfx.Rect {
 	a, b := l.ordered(s)
-	if a == b {
+	if more && len(l.lines) > 0 {
+		// Past the end of the text: the end is the end of the text.
+		b = l.docEnd()
+		if before(b, a) {
+			a = b
+		}
+	}
+	if a == b && !more {
+		return dst
+	}
+	if len(l.lines) == 0 {
 		return dst
 	}
 	pa := l.snap(a.Offset)
@@ -145,7 +214,7 @@ func (l *Layout) selectionRects(s Selection, dst []gfx.Rect, lineEnds bool) []gf
 		// When the selection goes on past this line, its break is
 		// highlighted at the end edge.
 		brk := float32(0)
-		if lineEnds && li < lb && a.Offset < b.Offset {
+		if lineEnds && (li < lb && a.Offset < b.Offset || more && li == lb) {
 			brk = l.breakWidth(int(li))
 		}
 		if l.base == 1 {
@@ -160,7 +229,7 @@ func (l *Layout) selectionRects(s Selection, dst []gfx.Rect, lineEnds bool) []gf
 				}
 			case el.box:
 				k := l.clusterText(el.ci)
-				if !before(Cursor{k, Upstream}, a) && !before(b, Cursor{k, Downstream}) {
+				if boxes && !before(Cursor{k, Upstream}, a) && !before(b, Cursor{k, Downstream}) {
 					add(el.x0, el.x1)
 				}
 			default:

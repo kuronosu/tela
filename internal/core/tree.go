@@ -266,9 +266,11 @@ type Tree struct {
 
 	// Pointer input (input.go), focus (focus.go) and scrolling
 	// (scroll.go).
-	in  inputState
-	foc focusState
-	scr scrollState
+	in inputState
+	// tsel is the selection of static text (textsel.go).
+	tsel textSel
+	foc  focusState
+	scr  scrollState
 	// nativeMenus is Config.NativeMenus.
 	nativeMenus bool
 	// virt holds the virtual lists (virtual.go).
@@ -745,6 +747,7 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 		}
 		if full {
 			t.syncSizes() // UseSize (bounds.go): paint-phase readers see it now
+			t.checkSel()  // the static selection follows the tree (textsel.go)
 		}
 		t.lastDL = t.paintPhase(full)
 		// What the float pass published and builds read (the placement

@@ -2112,7 +2112,7 @@ UseContextMenuTrigger holds the open state of a context menu and returns the pro
 - a touch or a pen that stays down for 500 ms, at the finger, with the first item focused (Radix's rule; a mouse button held down is not a long press here, so it clicks what it is on as usual),
 - Shift+F10 and the ContextMenu key, with the first item focused, at the element that has the focus.
 
-A key opens the menu at the element that has the focus, the area itself or an element inside it, as Chromium does: at the center of the part of it the area shows, or for a text field at the caret (the start of the selection); at the area's top-left corner when the focused element is outside the area or out of its view; and when nothing in the window has the focus (the keys then reach the area from the window's content), at the window's top-left corner plus one pixel, Chromium's non-located menu. A menu that opens with no point of its own (a controlled Open the app sets to true, SetOpen(true)) is placed the same way, unless the options give a Position.
+A key opens the menu at a selection of static text in the area that has the focus (nothing is focused, or the focused element holds the selection's start or is inside the selection), at the middle of the caret at its start, Chromium's rule, also when the key reached no area (core then fires the context menu event at the selection); else at the element that has the focus, the area itself or an element inside it, as Chromium does: at the center of the part of it the area shows, or for a text field at the caret (the start of the selection); at the area's top-left corner when the focused element is outside the area or out of its view; and when nothing in the window has the focus (the keys then reach the area from the window's content), at the window's top-left corner plus one pixel, Chromium's non-located menu. A menu that opens with no point of its own (a controlled Open the app sets to true, SetOpen(true)) is placed the same way, unless the options give a Position.
 
 The event's default is prevented and its propagation stopped, so the innermost area with a context menu wins. The menu is rendered by the caller, in a Portal, and [`UsePopover`](#func-usepopover) places it at the point with [`AnchorRect`](#func-anchorrect), flipped and shifted to stay in the window; Escape, a press outside it with any mouse button (Radix's DismissableLayer), the focus leaving and choosing an item close it, and the focus goes back to where it was. A right click elsewhere on the area while the menu is open closes it and opens it again at the new point, as a new menu: it takes the focus as when it opens (the right click's contextmenu event comes after the release that closes the menu). A touch or a pen that stays down elsewhere on the area while the menu is open moves the open menu there, and its release does not close it (Radix); a quick tap there closes it, as any press outside does. A right click or a long press in another area with a context menu closes this one and opens that one, and a right click outside every area just closes it. A menu rendered in a Presence (to fade out) comes back as the same element when it opens again while it exits, at the new point and without taking the focus: key it with the result's Opening, as kit's ContextMenu does, and the exiting one fades out at its own point while a new one opens and takes the focus.
 
@@ -4452,6 +4452,11 @@ type PressOptions struct {
     // goes down on the element (the default action of a press is to focus
     // the nearest focusable element).
     PreventFocusOnPress bool
+    // AllowTextSelectionOnPress lets a press on the element select text:
+    // by default a pointer press neither starts a selection of the text
+    // it is on nor changes the one there is (React Aria sets user-select:
+    // none on the pressed element for the press).
+    AllowTextSelectionOnPress bool
     // Ref is the element's ref, for a hook that is used together with
     // others on one element (see the package documentation); the zero
     // value makes the hook create its own.

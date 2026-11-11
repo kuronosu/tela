@@ -105,6 +105,11 @@ type PressOptions struct {
 	// goes down on the element (the default action of a press is to focus
 	// the nearest focusable element).
 	PreventFocusOnPress bool
+	// AllowTextSelectionOnPress lets a press on the element select text:
+	// by default a pointer press neither starts a selection of the text
+	// it is on nor changes the one there is (React Aria sets user-select:
+	// none on the pressed element for the press).
+	AllowTextSelectionOnPress bool
 	// Ref is the element's ref, for a hook that is used together with
 	// others on one element (see the package documentation); the zero
 	// value makes the hook create its own.
@@ -347,6 +352,9 @@ func (p *presser) onPointerDown(e tela.PointerEvent) {
 	st.kind, st.pointerID = in.kind, e.PointerID
 	if p.c.PreventFocusOnPress {
 		e.PreventDefault()
+	}
+	if !p.c.AllowTextSelectionOnPress {
+		core.NoTextSelection(e)
 	}
 	if e.Kind == tela.PointerMouse {
 		// A mouse goes where it likes while pressed: keep its events.
