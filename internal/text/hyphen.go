@@ -1,3 +1,12 @@
+// Portions of this file are ported from Chromium's Blink
+// (third_party/blink/renderer/platform/text/hyphenation.h, hyphenation.cc
+// and hyphenation/hyphenation_minikin.cc: the hyphenation limits, the
+// word trimming and capitalization rules, and the locale fallback map):
+//
+// Copyright 2016 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file (see THIRD_PARTY.md).
+
 package text
 
 import (

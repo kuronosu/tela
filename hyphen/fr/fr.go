@@ -1,6 +1,6 @@
 // Package fr embeds the French hyphenation dictionary for apps whose text
 // uses the hyphens-auto class (ADR-270): the patterns Chromium hyphenates
-// French with. Importing it adds about 4 KB to the binary; an app that
+// French with. Importing it adds about 12 KB to the binary; an app that
 // does not import it carries no French patterns.
 //
 //	import "github.com/kuronosu/tela/hyphen/fr"

@@ -149,8 +149,8 @@ for it.
 
 ```go
 import (
-    "github.com/kuronosu/tela/hyphen/en" // en.US, en.GB (46 KB)
-    "github.com/kuronosu/tela/hyphen/es" // es.Spanish (10 KB)
+    "github.com/kuronosu/tela/hyphen/en" // en.US, en.GB (54 KB)
+    "github.com/kuronosu/tela/hyphen/es" // es.Spanish (16 KB)
 )
 
 tela.Main(tela.App{Hyphenation: []tela.Hyphenation{en.US, es.Spanish}, Root: Article()})

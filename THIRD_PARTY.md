@@ -157,6 +157,38 @@ their original copyright notice. Add one section per source project.
 - **Notes:** Ported: the score line breaker's candidates, scores and break points (`ComputeScores`, `ComputeBreakPoints`, Minikin's penalties, the orphan penalty, the 6- and 4-line limits) and the bisection of the available width (`AttemptParagraphBalancing`, `EstimateNumLines`, `BisectAvailableWidth`), with the conditions under which Blink uses each. Rewritten on Tela's clusters and greedy breaker, at zoom 1 and in logical px; line widths come from Tela's line breaking (inline edges count at line ends, and line ends are not reshaped). The file keeps the Chromium copyright header. Blink's `ScoreLineBreaker` is itself based on Android's Minikin `OptimalLineBreaker` (Apache-2.0); only its parameters reach Tela through Blink.
 
 
+## Chromium / Blink (ported code: hyphenation)
+
+- **Source:** https://chromium.googlesource.com/chromium/src (`main` in November 2026, read through the GitHub mirror: `third_party/blink/renderer/platform/text/hyphenation.h`, `hyphenation.cc`, `hyphenation/hyphenation_minikin.cc`, `platform/fonts/shaping/shaping_line_breaker.cc` (`Hyphenate`, `ShouldHyphenate`), `core/layout/inline/line_breaker.cc` (`BreakText`, `HandleTextForFastMinContent`, `AppendCandidates`), `core/layout/inline/hyphen_result.cc`, `core/style/computed_style.cc` (`HyphenString`), `platform/text/text_break_iterator.cc`); checked against Chromium 155
+- **License:** BSD-3-Clause, Copyright The Chromium Authors
+- **Used in:** `internal/text/hyphen.go` (with the Chromium header), `internal/text/breaking.go`, `internal/text/lines.go`, `internal/text/wrapstyle.go`
+- **Notes:** Ported: the hyphenation limits (5, 2 and 2 characters, under Minikin's 2 and 3), `WordToHyphenate`'s trimming, `ShouldHyphenateWord` (no capitalized English words), the locale fallback map of `HyphenationMinikin::MapLocale` (CLDR data compiled by AOSP), and, rewritten on Tela's clusters, the backward and forward hyphenation of the overflowing word (`ShapingLineBreaker::Hyphenate`, no last word of a paragraph), the retry in the width less the hyphen (`BreakText`), the min-content parts and the score line breaker's hyphenation candidates, penalties and orphan rule. The hyphen string and its shaping follow `HyphenString` and `HyphenResult::Shape`. Tela's Liang search is its own (a sorted table, not Minikin's packed trie).
+
+## Android Minikin hyphenator (ported code, tests only)
+
+- **Source:** https://android.googlesource.com/platform/frameworks/minikin (`libs/minikin/Hyphenator.cpp`, as copied into Chromium's `third_party/blink/renderer/platform/text/hyphenation/hyphenator_aosp.cc`, and the `.hyb` format of `tools/mk_hyb_file.py`)
+- **License:** Apache-2.0, Copyright (C) 2015 The Android Open Source Project
+- **Used in:** `internal/text/hyphen_minikin_test.go` (with the AOSP header)
+- **Notes:** A reader of `.hyb` dictionaries and Minikin's `hyphenate`, so that a test (run where Chromium has downloaded its hyphen-data component) compares Tela's dictionaries with Chromium's on every word of a word list and random words, and writes the sample of `testdata/hyphenation/*.txt`.
+
+## TeX hyphenation patterns (vendored data)
+
+- **Source:** the patterns of Chromium's hyphen-data component (version 120.0.6050.0, which Chromium 155 downloads): AOSP's https://android.googlesource.com/platform/external/hyphenation-patterns at commit `9ee8012e3501eb35082ddb3d2bec11eed20903aa` (`TeX/en-US`, `TeX/es`, `TeX/fr`; files of the hyph-utf8 project), and hyph-utf8's https://github.com/hyphenation/tex-hyphen (`master`, `hyph-utf8/tex/generic/hyph-utf8/patterns/txt/hyph-en-gb.*.txt`, identical to AOSP's `TeX/en-GB`). Each decoded `.hyb` file of Chromium holds exactly these patterns and exceptions (checked with the reader above)
+- **License:** per language, each kept next to its files in `internal/assets/hyphen/src/<lang>/`:
+  - en-US (`hyph-en-us.pat.txt`, `hyph-en-us.hyp.txt`): Copyright (C) 1990, 2004, 2005 Gerard D.C. Kuiken, "Copying and distribution of this file, with or without modification, are permitted in any medium without royalty provided the copyright notice and this notice are preserved" (an all-permissive notice, more permissive than MIT; accepted as such, ADR-270); the exceptions of `ushyphex.tex` that AOSP appends, Copyright 2008 TeX Users Group, "You may freely use, modify and/or distribute this file" (`hyph-en-us.lic.txt`, `NOTICE`)
+  - en-GB: MIT, Copyright (C) 1992, 1996, 2005, 2016 Dominik Wujastyk, Graham Toal (hyph-utf8's notice in `hyph-en-gb.lic.txt`; AOSP carries the same patterns under the Unicode license, not used)
+  - es: MIT, Copyright (c) 1993, 1997 Javier Bezos, Copyright (c) 2001-2015 Javier Bezos and CervanTeX (`hyph-es.tex` 4.7; `hyph-es.lic.txt`, `NOTICE`)
+  - fr: MIT, Daniel Flipo, Bernard Gaulle 1994-2002 (`hyph-fr.tex` V2.12; `hyph-fr.lic.txt`)
+- **Used in:** `internal/assets/hyphen/src/` (vendored unchanged), compiled by `internal/assets/hyphen/gen` (`go generate`) into `internal/assets/hyphen/en/en-us.hyph` (20.7 KB), `en-gb.hyph` (25.9 KB), `es/es.hyph` (9.4 KB) and `fr/fr.hyph` (3.7 KB), embedded by `hyphen/en`, `hyphen/es` and `hyphen/fr`
+- **Notes:** The compiled form is the patterns and exceptions without comments, sorted, DEFLATE-compressed (`text.EncodeHyphenPatterns`). sha256 of the sources: `hyph-en-us.pat.txt` `adc1dcd2c788a837abdd1269efb815333dc96c8686acc10023fd3d2091c7e3c7`, `hyph-en-us.hyp.txt` `f2c28f00700099564674e1d0a3c96921c120b6c0da267e7a923d5dab886e34ac`, `hyph-en-gb.pat.txt` `651b89b4a0d4051995db8586e81ab109a4c7395d7706c06483893ebab5af013b`, `hyph-en-gb.hyp.txt` `947b7b8e76f6a0d8ebe296178ff92ad624e4912ffbaaf59b26f81a395124e366`, `hyph-es.pat.txt` `b084bacb1d866b72486c5288e2e0f838c9c82f233a5aa1ac5531b3993e11176c`, `hyph-fr.pat.txt` `8c1879d5ccba078694881ae5bb3fef0c4eedb0743327c88faf2a355202867086`. Newer hyph-utf8 releases of en-US (491 more patterns) and es (5.0) are not used: Chromium hyphenates with these.
+
+## Unicode line break classes (data)
+
+- **Source:** https://www.unicode.org/Public/16.0.0/ucd/LineBreak.txt (Unicode 16.0.0)
+- **License:** Unicode License v3 (https://www.unicode.org/license.txt)
+- **Used in:** `internal/text/hyphen.go` (`lineBreakOPQU`)
+- **Notes:** The code points of the classes OP and QU, which Blink strips from the start of a word before hyphenating it, as a `unicode.RangeTable`.
+
 ## winit (design reference)
 
 - **Source:** https://github.com/rust-windowing/winit (v0.30.13)

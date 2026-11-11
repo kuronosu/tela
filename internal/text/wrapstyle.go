@@ -1,6 +1,7 @@
 // Portions of this file are ported from Chromium's Blink
 // (third_party/blink/renderer/core/layout/inline/score_line_breaker.cc,
-// paragraph_line_breaker.cc and line_break_candidate.cc):
+// paragraph_line_breaker.cc, line_break_candidate.cc and the hyphenation
+// candidates of line_breaker.cc):
 //
 // Copyright 2023 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be

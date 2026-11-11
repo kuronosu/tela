@@ -1,6 +1,6 @@
 // Package en embeds the English hyphenation dictionaries for apps whose
 // text uses the hyphens-auto class (ADR-270): the patterns Chromium
-// hyphenates English with. Importing it adds about 46 KB to the binary;
+// hyphenates English with. Importing it adds about 54 KB to the binary;
 // an app that does not import it carries no English patterns.
 //
 //	import "github.com/kuronosu/tela/hyphen/en"
