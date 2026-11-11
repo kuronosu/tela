@@ -588,12 +588,26 @@ func (t *Tree) paraPoint(bx *Box, p gfx.Point) gfx.Point {
 // paraToWindow returns rectangle r of the text layout of paragraph box bx
 // in window coordinates (the bounding box through transforms).
 func (t *Tree) paraToWindow(bx *Box, r gfx.Rect) gfx.Rect {
+	o := t.paraOrigin(bx)
+	return t.transformUp(bx, r.Translate(o.X, o.Y))
+}
+
+// paraOrigin returns the origin of the text layout of paragraph box bx:
+// its content box in window coordinates before transforms, scrolled.
+func (t *Tree) paraOrigin(bx *Box) gfx.Point {
 	l := bx.ld.Layout()
 	o := t.semOrigin(bx).Add(gfx.Point{X: l.Border.Left + l.Padding.Left, Y: l.Border.Top + l.Padding.Top})
 	if s := bx.scr; s != nil {
 		o = o.Sub(s.soff)
 	}
-	return t.transformUp(bx, r.Translate(o.X, o.Y))
+	return o
+}
+
+// paraTextMatrix returns the map from the text coordinates of paragraph
+// box bx to window coordinates as they are painted (paraToWindow's, as
+// one matrix: a rotation or a skew is kept; transformMatrix).
+func (t *Tree) paraTextMatrix(bx *Box) gfx.Affine {
+	return t.transformMatrix(bx, t.paraOrigin(bx))
 }
 
 // posAt returns the position for the window point p in selection root

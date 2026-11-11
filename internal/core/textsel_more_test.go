@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -417,6 +418,80 @@ func TestTextSelOrderMatchesWalk(t *testing.T) {
 					pos[i].bx.para.lay.Text(), pos[i].cur, pos[j].bx.para.lay.Text(), pos[j].cur, c)
 			}
 		}
+	}
+}
+
+// The drag image of a static selection in a rotated container keeps the
+// rotation, as a field's does (TestSelectionDragImageRotated) and
+// Chromium's DragImageForSelection paints it: the text through the
+// transforms as one matrix, into the bounding box of its rectangles as
+// transformed. The text runs down to the right at 30 degrees: ink in the
+// top-left and bottom-right corners of the image, none in the other two.
+func TestTextSelDragImageRotated(t *testing.T) {
+	for _, scale := range []float64{1, 2} {
+		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
+			root := div(Class("p-16 bg-slate-100"), div(Class("w-64 rotate-[30deg] bg-amber-100 text-slate-900"), p(Key("a"), Text("hello brave new world"))))
+			b := headless.New(headless.Options{Size: platform.Size{W: 400, H: 300}, Scale: scale})
+			host, err := NewHost(b, Options{Config: Config{Fonts: testFonts, Flavor: testFlavor}, Root: root})
+			if err != nil {
+				t.Fatal(err)
+			}
+			b.Drain(host)
+			x := &inputHarness{t: t, b: b, h: host, w: host.Window().(*headless.Window)}
+			t.Cleanup(host.stopTimer)
+			x.w.SetFocused(true)
+			x.b.Drain(x.h)
+			tr := x.tree()
+			bx := keyed(tr, "a").box
+			lay := bx.para.lay
+			// "brave", without the space after it, so that the ink reaches
+			// the image's bottom-right corner.
+			s, e := lay.SnapCursor(text.Cursor{Offset: 6}), lay.SnapCursor(text.Cursor{Offset: 11, Affinity: text.Upstream})
+			tr.setSel(tr.rootBox, selPos{bx, s}, selPos{bx, e})
+			x.settle()
+			// The window point of the text at offset 8, in the middle of
+			// the line, through the rotation.
+			ln := lay.Line(0)
+			c := lay.Caret(text.Cursor{Offset: 8})
+			pt := tr.paraToWindow(bx, gfx.Rect{X0: c.X + 1, Y0: ln.Top + ln.Height/2, X1: c.X + 1, Y1: ln.Top + ln.Height/2})
+			px, py := pt.X0, pt.Y0
+			x.send(move(px, py), down(px, py), moveHeld(px+10, py+6))
+			info, ok := x.b.Drag()
+			if !ok || info.Image == nil {
+				t.Fatal("no drag image")
+			}
+			img := info.Image
+			// The bounding box of the selection's rectangle turned by 30
+			// degrees: its width w and line height h give w cos + h sin
+			// across and w sin + h cos down.
+			sw := lay.Caret(e).X - lay.Caret(s).X
+			lh := ln.Height
+			cos, sin := float32(math.Cos(math.Pi/6)), float32(math.Sin(math.Pi/6))
+			wantW, wantH := (sw*cos+lh*sin)*float32(scale), (sw*sin+lh*cos)*float32(scale)
+			if dx, dy := float32(img.Rect.Dx()), float32(img.Rect.Dy()); dx < wantW-1 || dx > wantW+2 || dy < wantH-1 || dy > wantH+2 {
+				t.Errorf("image %vx%v, want the rotated selection's bounding box %vx%v", dx, dy, wantW, wantH)
+			}
+			if hx, hy := info.Hotspot.X, info.Hotspot.Y; hx < 0 || hy < 0 || hx >= img.Rect.Dx() || hy >= img.Rect.Dy() {
+				t.Errorf("hotspot %v outside the %v image", info.Hotspot, img.Rect)
+			}
+			ink := func(x0, y0, x1, y1 int) int {
+				n := 0
+				for y := y0; y < y1; y++ {
+					for x := x0; x < x1; x++ {
+						if img.RGBAAt(x, y).A > 0 {
+							n++
+						}
+					}
+				}
+				return n
+			}
+			W, H := img.Rect.Dx(), img.Rect.Dy()
+			tl, tr2, bl, br := ink(0, 0, W/4, H/4), ink(W-W/4, 0, W, H/4), ink(0, H-H/4, W/4, H), ink(W-W/4, H-H/4, W, H)
+			if tl == 0 || br == 0 || tr2 != 0 || bl != 0 {
+				t.Errorf("ink in the corners: top-left %d, top-right %d, bottom-left %d, bottom-right %d; want the text along the diagonal", tl, tr2, bl, br)
+			}
+			golden.Image(t, fmt.Sprintf("text_drag_image_rotated_x%g", scale), img)
+		})
 	}
 }
 
