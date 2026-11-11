@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"image/color"
 	"testing"
 	"time"
@@ -640,6 +641,184 @@ func TestFloatingPublishAfterEarlierPublish(t *testing.T) {
 		}
 		if tr.Dirty() {
 			t.Errorf("%s publishes %q: the first frame left work", c.by, c.early)
+		}
+	}
+}
+
+// TestFloatingRerunShownAgain: a popover that stays mounted, hidden with
+// display: none while closed, and is shown again in a frame whose float
+// pass flips it (ADR-164's second pass) enters once, from the starting
+// style of the side it is shown on, as one mounted on that side does: the
+// first pass is never presented, so its entrance from the old side's
+// starting style is dropped (CSS @starting-style applies when the element
+// starts being rendered; ADR-272). A popover shown again without a flip,
+// and one whose flip comes a frame after it was shown, keep their
+// entrance.
+func TestFloatingRerunShownAgain(t *testing.T) {
+	var anchor ElementRef
+	var side *Value[string]
+	var shown *Value[bool]
+	var top *Value[int]
+	flip := false
+	place := func(in FloatInput) FloatResult {
+		if flip {
+			PublishValue(side, "top")
+			return FloatResult{X: in.Anchor.X, Y: in.Anchor.Y - in.Floating.Height}
+		}
+		PublishValue(side, "bottom")
+		return FloatResult{X: in.Anchor.X, Y: in.Anchor.Bottom()}
+	}
+	pop := func() Node {
+		cls := "fixed w-40 h-10 starting:translate-y-[-8px] starting:opacity-0 transition duration-200"
+		if side.Get() == "top" {
+			cls = "fixed w-40 h-10 starting:translate-y-[8px] starting:opacity-0 transition duration-200"
+		}
+		if !shown.Get() {
+			cls += " hidden"
+		}
+		return div(Key("pop"), Floating(FloatOptions{Anchor: anchor, Place: place}), Class(cls), Text("Hi"))
+	}
+	comp := func() Node {
+		anchor = UseElementRef()
+		side = UseValue("bottom")
+		shown = UseValue(false)
+		top = UseValue(200)
+		return div(Class(fmt.Sprintf("pt-[%dpx] pl-[100px]", top.Get())),
+			div(Key("anchor"), AttachRef(anchor), Class("h-8 w-20")),
+			Portal(Component(pop)))
+	}
+	tr := newTestTree(t, 400, 300, Component(comp), nil)
+	now := time.Duration(0)
+	step := func(d time.Duration) *style.ComputedStyle {
+		now += d
+		tr.Animate(now)
+		tr.Frame()
+		return keyed(tr, "pop").box.cs
+	}
+	step(0)
+	// Shown on the bottom side: it enters from above, faded out.
+	shown.Set(true)
+	if cs := step(16 * time.Millisecond); cs.Transform.TranslateY != (style.LP{Px: -8}) || cs.Opacity != 0 {
+		t.Errorf("shown on the bottom side: translate-y %v, opacity %g; want the bottom side's starting -8px and 0", cs.Transform.TranslateY, cs.Opacity)
+	}
+	step(time.Second)
+	shown.Set(false)
+	step(16 * time.Millisecond)
+	// Shown again where it flips to the top: it enters from below, once.
+	flip = true
+	shown.Set(true)
+	cs := step(time.Second)
+	if side.Get() != "top" {
+		t.Fatalf("published side %q, want top", side.Get())
+	}
+	if cs.Transform.TranslateY != (style.LP{Px: 8}) || cs.Opacity != 0 {
+		t.Errorf("shown again and flipped: translate-y %v, opacity %g; want the top side's starting 8px and 0", cs.Transform.TranslateY, cs.Opacity)
+	}
+	cs = step(100 * time.Millisecond)
+	if y := cs.Transform.TranslateY.Px; y <= 0 || y >= 8 || cs.Opacity <= 0 || cs.Opacity >= 1 {
+		t.Errorf("halfway: translate-y %v, opacity %g; want between the top side's starting style and its own", cs.Transform.TranslateY, cs.Opacity)
+	}
+	cs = step(time.Second)
+	if cs.Transform.TranslateY != (style.LP{}) || cs.Opacity != 1 {
+		t.Errorf("at rest: translate-y %v, opacity %g", cs.Transform.TranslateY, cs.Opacity)
+	}
+	// Hidden and shown again on the same side: it enters again, from the
+	// top side's starting style, without a second pass.
+	shown.Set(false)
+	step(16 * time.Millisecond)
+	shown.Set(true)
+	if cs := step(time.Second); cs.Transform.TranslateY != (style.LP{Px: 8}) || cs.Opacity != 0 {
+		t.Errorf("shown again on the top side: translate-y %v, opacity %g; want 8px and 0", cs.Transform.TranslateY, cs.Opacity)
+	}
+	// A flip in a later frame (the anchor moved) is no entrance: the
+	// running transitions go on toward the new side's style.
+	step(100 * time.Millisecond)
+	flip = false
+	top.Set(40)
+	cs = step(16 * time.Millisecond)
+	if side.Get() != "bottom" {
+		t.Fatalf("published side %q after the anchor moved, want bottom", side.Get())
+	}
+	if y := cs.Transform.TranslateY.Px; y <= 0 || y >= 8 || cs.Opacity <= 0 || cs.Opacity >= 1 {
+		t.Errorf("flipped back a frame after it was shown: translate-y %v, opacity %g; want the entrance going on", cs.Transform.TranslateY, cs.Opacity)
+	}
+}
+
+// TestFloatingRerunLayoutAnimation: boxes with a layout animation in a
+// popover that appears (mounted, or shown again after display: none) in a
+// frame whose float pass flips it appear at their places on the final
+// side, as boxes that appear do (ADR-081): the places of the first pass,
+// never presented, start no animation (ADR-272).
+func TestFloatingRerunLayoutAnimation(t *testing.T) {
+	for _, mount := range []bool{false, true} {
+		var anchor ElementRef
+		var side *Value[string]
+		var shown *Value[bool]
+		flip := false
+		place := func(in FloatInput) FloatResult {
+			if flip {
+				PublishValue(side, "top")
+				return FloatResult{X: in.Anchor.X, Y: in.Anchor.Y - in.Floating.Height}
+			}
+			PublishValue(side, "bottom")
+			return FloatResult{X: in.Anchor.X, Y: in.Anchor.Bottom()}
+		}
+		pop := func() Node {
+			// The top side is taller and puts its rows in reverse order.
+			cls, rows := "fixed w-40 h-20 flex flex-col", "flex flex-col"
+			if side.Get() == "top" {
+				cls, rows = "fixed w-40 h-32 flex flex-col", "flex flex-col-reverse"
+			}
+			if !shown.Get() {
+				cls += " hidden"
+			}
+			return div(Key("pop"), Floating(FloatOptions{Anchor: anchor, Place: place}), AnimateLayout(), Class(cls),
+				div(Class(rows),
+					div(Key("a"), AnimateLayout(), Class("h-6"), Text("A")),
+					div(Key("b"), AnimateLayout(), Class("h-6"), Text("B"))))
+		}
+		comp := func() Node {
+			anchor = UseElementRef()
+			side = UseValue("bottom")
+			shown = UseValue(!mount)
+			var p Node
+			if shown.Get() || !mount {
+				p = Portal(Component(pop))
+			}
+			return div(Class("pt-[200px] pl-[100px]"),
+				div(Key("anchor"), AttachRef(anchor), Class("h-8 w-20")), p)
+		}
+		tr := newTestTree(t, 400, 300, Component(comp), nil)
+		now := time.Duration(0)
+		step := func(d time.Duration) {
+			now += d
+			tr.Animate(now)
+			tr.Frame()
+		}
+		step(0)
+		if !mount {
+			// Presented once on the bottom side, then hidden.
+			shown.Set(false)
+			step(time.Second)
+		}
+		flip = true
+		shown.Set(true)
+		step(time.Second)
+		if side.Get() != "top" {
+			t.Fatalf("mount %v: published side %q, want top", mount, side.Get())
+		}
+		check := func(when string) {
+			t.Helper()
+			p, a, b := popRect(tr, "pop"), popRect(tr, "a"), popRect(tr, "b")
+			if p.Height() != 128 || !near(b.Y0, p.Y0, 1e-3) || !near(a.Y0, p.Y0+24, 1e-3) {
+				t.Errorf("mount %v, %s: popover %v, a %v, b %v; want a 128 px popover with b above a", mount, when, p, a, b)
+			}
+		}
+		check("first frame")
+		step(50 * time.Millisecond)
+		check("50 ms later")
+		if tr.anim.tk.Active() {
+			t.Errorf("mount %v: a layout animation runs after the popover appeared", mount)
 		}
 	}
 }
