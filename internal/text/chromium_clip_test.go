@@ -66,11 +66,11 @@ div { position: absolute; box-sizing: border-box; white-space: nowrap; font-fami
 	return sb.String()
 }
 
-func clipTextScene(t testing.TB) *gfx.DisplayList {
+func clipTextScene(t testing.TB, scale float32) *gfx.DisplayList {
 	b := gfx.NewBuilder()
 	for _, c := range clipTextCells {
 		st := TextStyle{Families: allFamilies, Size: c.size, Weight: c.weight, LineHeight: LineHeightPixels(c.lh), Paint: gfx.Black}
-		l := NewLayout(layoutCollection(t), &Paragraph{Text: c.text, Style: ParagraphStyle{WhiteSpace: WhiteSpaceNowrap}, Default: st})
+		l := NewLayout(layoutCollection(t), &Paragraph{Text: c.text, Style: ParagraphStyle{WhiteSpace: WhiteSpaceNowrap}, Default: st, Scale: scale})
 		l.BreakLines(float32(math.Inf(1)))
 		origin := gfx.Pt(c.x, c.y)
 		mb := gfx.NewBuilder()
@@ -91,11 +91,14 @@ func clipTextScene(t testing.TB) *gfx.DisplayList {
 }
 
 // The larger mean of scales 1 and 2 measured against Chromium 152, plus
-// 0.3 (x1: 0.47, 2.84, 1.19; x2: 1.56, 3.48, 2.21). The masked
+// 0.3 (x1: 0.47, 2.84, 1.19; x2: 0.39, 0.72, 0.37). The masked
 // backgrounds match; the differences are on glyph edges: anti-aliasing
-// (Skia's against exact area coverage), the color emoji's edges, and at
-// scale 2 Blink's baselines rounded in device pixels (ADR-048).
-var clipTextBounds = []float64{1.9, 3.8, 2.5}
+// (Skia's against exact area coverage) and the color emoji's edges. The
+// layouts are made at the scale being compared (Paragraph.Scale, ADR-159),
+// so the baselines are on Chromium's device pixels; at the scale 1 layout
+// (the test's earlier setup) the x2 text was a device pixel too
+// high and the means were 1.56, 3.48 and 2.21.
+var clipTextBounds = []float64{0.8, 3.2, 1.5}
 
 func TestChromiumClipText(t *testing.T) {
 	dir := filepath.Join("testdata", "chromium")
@@ -111,8 +114,9 @@ func TestChromiumClipText(t *testing.T) {
 	if string(html) != clipTextHTML() {
 		t.Fatal("testdata/chromium/clip_text.html is out of date; regenerate it with TELA_WRITE_HTML=1 and the screenshots with Chromium (see chromium_clip_test.go)")
 	}
-	dl := clipTextScene(t)
+
 	for _, scale := range []float32{1, 2} {
+		dl := clipTextScene(t, scale)
 		name := fmt.Sprintf("clip_text_x%g.png", scale)
 		fh, err := os.Open(filepath.Join(dir, name))
 		if err != nil {

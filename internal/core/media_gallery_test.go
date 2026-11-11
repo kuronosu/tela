@@ -147,10 +147,10 @@ var mediaBounds = map[string][4]float64{
 	"png-down":    {5, 0.9, 5, 0.55},
 	"png-rounded": {35, 0.9, 30, 0.55},
 	"svg-rounded": {65, 0.6, 55, 0.2},
-	// Text: glyph anti-aliasing (Skia's), and at scale 2 the line half a
-	// device pixel apart (Blink rounds line metrics, ADR-048).
-	"icon-text":     {80, 2.1, 210, 8.4},
-	"icon-text-2xl": {145, 1.7, 255, 4.7},
+	// Text: glyph anti-aliasing (Skia's) against exact area coverage; the
+	// lines sit on the same device row as Chromium's (ADR-159).
+	"icon-text":     {80, 2.1, 190, 2.3},
+	"icon-text-2xl": {145, 1.7, 160, 0.6},
 	"icon-button":   {160, 2.1, 175, 1.3},
 	"icon-stroke":   {210, 1.1, 185, 0.6},
 	"icon-inherit":  {50, 0.65, 40, 0.3},
@@ -164,12 +164,11 @@ var mediaBounds = map[string][4]float64{
 var mediaDefaultBound = [4]float64{80, 0.5, 80, 0.5}
 
 func mediaGallery() *cssGallery {
-	// Box edges: within 0.05 px at scale 1 (text widths before the cells
-	// of a row); at scale 2 inline icons sit up to half a device pixel
-	// lower or higher, where Blink rounds the font metrics of the line
-	// (ADR-066, ADR-048).
+	// Box edges: measured worst 0.024 px at scale 1 (text widths before
+	// the cells of a row) and 0.009 px at scale 2; inline icons sit on
+	// Chromium's device pixels since ADR-159 (ADR-066).
 	g := &cssGallery{name: "media", width: 1000, fontCSS: fxFontCSS,
-		mean: [2]float64{100, 100}, geom: [2]float64{0.05, 0.55}}
+		mean: [2]float64{100, 100}, geom: [2]float64{0.03, 0.02}}
 	for _, r := range mediaRows {
 		row := cssRow{name: r.name, height: r.height, class: "gap-6"}
 		for _, c := range r.cells {

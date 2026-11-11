@@ -369,10 +369,10 @@ func inlineGalleryCells() [][4]int {
 // inlineGalleryMean bounds the mean pixel difference of a cell, per
 // scale: text anti-aliasing differs from Skia's on every glyph edge (see
 // chromiumBounds "counter"; single pixels differ by up to 255 levels, so
-// the maximum is not bounded), and at scale 2 Blink rounds line metrics in
-// device pixels, which moves most lines of text, and the fragments and
-// atomic inlines on them, by one device pixel (ADR-048).
-var inlineGalleryMean = [2]float64{1.5, 7}
+// the maximum is not bounded). Measured worst cell: 1.31 at x1 (code-chip)
+// and 1.52 at x2 (link); lines, fragments and atomic inlines sit on
+// Chromium's device pixels since ADR-159.
+var inlineGalleryMean = [2]float64{1.5, 1.7}
 
 func TestChromiumInlineGallery(t *testing.T) {
 	dir := filepath.Join("testdata", "chromium", "inline")
@@ -458,17 +458,16 @@ func TestChromiumInlineGallery(t *testing.T) {
 }
 
 // inlineGeometryTolerance is the largest difference accepted for
-// horizontal and vertical edges: text positions agree within hundredths
-// of a pixel (TestChromiumInline in internal/text); at scale 2 Blink
-// rounds font metrics and line boxes in device pixels, which moves
-// baselines (and the atomic inlines on them) by up to half a logical
-// pixel and the ascent and descent of fragments' content areas by up to
-// half a pixel more (ADR-048: Tela quantizes them in logical pixels).
+// horizontal and vertical edges. Horizontal: text positions agree within
+// hundredths of a pixel (TestChromiumInline in internal/text; measured
+// worst 0.051 px at x1, 0.020 at x2, glyph advances). Vertical: within
+// Blink's LayoutUnit (measured worst 0.004 px; ADR-159 put line boxes and
+// baselines on Chromium's device pixels at every scale).
 func inlineGeometryTolerance(scale int) (x, y float64) {
 	if scale == 2 {
-		return 0.1, 1.01
+		return 0.03, 0.01
 	}
-	return 0.1, 0.1
+	return 0.06, 0.01
 }
 
 // caseOf returns the case that element k is in.

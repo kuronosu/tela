@@ -60,8 +60,8 @@ type posScene struct {
 	geom float64
 	mean [2]float64
 	maxd [2]int
-	// geomY2 is a larger bound for vertical edges at scale 2, where
-	// Blink rounds line boxes in device pixels (ADR-048); 0 is geom.
+	// geomY2 is a larger bound for vertical edges at scale 2 (0 is geom);
+	// a scene that sets it documents the mismatch it allows.
 	geomY2 float64
 	// arabic adds the embedded Noto Sans Arabic to the page's fonts (Tela
 	// falls back to it for Arabic script).
@@ -295,7 +295,7 @@ func (s *posScene) golden(t *testing.T) {
 }
 
 // The scenes. Text is kept short: its anti-aliasing differs from
-// Chromium's by design (ADR-029, ADR-048).
+// Chromium's by design (ADR-029).
 
 func rowsOf(n int, class, label string) []inode {
 	out := make([]inode, n)
