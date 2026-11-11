@@ -205,6 +205,27 @@ var inlineGalleryCases = []inlineGalleryCase{
 	{"relative-span", 48, iel("p", "w-[400px] text-slate-700", itext("A "), iel("span", "relative rounded bg-amber-100 px-1", itext("tooltip"), iel("span", "absolute top-full left-0 h-1 w-full bg-amber-500")), itext(" anchor."))},
 	{"relative-wrap", 72, iel("p", "w-[200px] text-slate-700", itext("Some "), iel("span", "relative bg-amber-100", itext("relative text that wraps over lines"), iel("span", "absolute inset-0 border border-amber-500")), itext(" end."))},
 	{"relative-static", 40, iel("p", "w-[400px] text-slate-700", itext("Static "), iel("span", "relative bg-amber-100 px-2", itext("ab"), iel("span", "absolute size-2 bg-rose-500"), itext("cd")), itext(" end."))},
+	// Static positions as Blink places out-of-flow inline items: the
+	// box's left edge at its place when that is left-to-right text, its
+	// right edge when right-to-left, its place reordered with the bidi
+	// text around it (a number split in two), at the end of a line before
+	// a soft wrap, or on the next line with the inline it opens.
+	{"rtl-on-line", 40, idir("rtl", iel("p", "relative w-[400px] text-slate-700", itext("مرحبا "), iel("span", "absolute size-2 bg-rose-500"), itext("بكم abc "), iel("span", "absolute size-2 bg-sky-500"), itext("def 12"), iel("span", "absolute size-2 bg-emerald-500"), itext("34 عالم")))},
+	{"rtl-in-ltr", 40, iel("div", "relative w-[400px] text-slate-700", idir("rtl", iel("p", "", itext("Total "), iel("span", "absolute size-2 bg-rose-500"), itext("120 دولار"))))},
+	{"ltr-in-rtl", 40, idir("rtl", iel("div", "relative w-[400px] text-slate-700", idir("ltr", iel("p", "", itext("Text "), iel("span", "absolute size-2 bg-rose-500"), itext("after the dot.")))))},
+	{"rtl-leading", 40, idir("rtl", iel("p", "relative w-[400px] text-center text-slate-700", iel("span", "absolute size-2 bg-rose-500"), itext("Centered نص")))},
+	{"rtl-block", 56, idir("rtl", iel("div", "relative w-[400px] text-slate-700", itext("قبل "), iel("div", "absolute h-2 w-6 bg-sky-500"), itext("بعد الكتلة.")))},
+	{"rtl-wrapped", 64, idir("rtl", iel("p", "relative w-[150px] text-slate-700", itext("Some words that wrap "), iel("span", "absolute size-2 bg-rose-500"), itext("here")))},
+	{"abs-wrap-end", 64, iel("p", "relative w-[100px] text-slate-700", itext("aaaa bbbb "), iel("span", "absolute size-2 bg-rose-500"), iel("span", "rounded bg-amber-100 px-2", iel("span", "absolute size-2 bg-sky-500"), itext("cccc")))},
+	// Relative insets move an inline element with its content, its
+	// absolute children and their static positions, painted over the
+	// text after it (CSS 2.1 appendix E).
+	{"relative-offset", 48, iel("p", "w-[400px] text-slate-700", itext("A "), iel("span", "relative top-2 left-3 rounded bg-amber-100 px-1", itext("tooltip"), iel("span", "absolute top-full left-0 h-1 w-full bg-amber-500")), itext(" anchor."))},
+	{"relative-offset-static", 40, iel("p", "w-[400px] text-slate-700", itext("Static "), iel("span", "relative right-3 bottom-2 bg-amber-100 px-2", itext("ab"), iel("span", "absolute size-2 bg-rose-500"), itext("cd")), itext(" end."))},
+	{"relative-offset-rtl", 40, idir("rtl", iel("p", "w-[400px] text-slate-700", itext("مرحبا "), iel("span", "relative start-3 top-1 bg-amber-100 px-2", itext("بكم"), iel("span", "absolute top-0 start-0 size-2 bg-rose-500")), itext(" عالم")))},
+	{"relative-offset-nested", 48, iel("p", "w-[400px] text-slate-700", itext("A "), iel("span", "relative top-1 left-2 bg-amber-100 px-1", itext("outer "), iel("span", "relative bg-amber-200", itext("inner"), iel("span", "absolute top-full left-0 h-1 w-full bg-amber-500")), itext(" "), iel("span", "inline-block size-3 bg-sky-500"), itext(" "), iel("span", "bg-pink-200 px-1 underline", itext("nested"))), itext(" end."))},
+	{"relative-offset-wrap", 72, iel("p", "w-[200px] text-slate-700", itext("Some "), iel("span", "relative top-1 left-2 bg-amber-100", itext("relative text that wraps over"), iel("span", "absolute inset-0 border border-amber-500")), itext(" end."))},
+	{"relative-offset-percent", 40, iel("p", "w-[400px] text-slate-700", itext("A "), iel("span", "relative top-[10%] left-[10%] bg-amber-100 px-1", itext("percent")), itext(" and "), iel("span", "relative -top-1 bg-amber-100 px-1 underline", itext("raised")), itext(" end."))},
 }
 
 func inlineGalleryRoot() inode {

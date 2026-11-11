@@ -296,7 +296,9 @@
 //     newlines and at the start of the paragraph, newlines turned into
 //     spaces (or removed between East Asian wide characters), tabs and
 //     newlines preserved by pre, pre-wrap, pre-line and break-spaces.
-//     Inline boxes become U+FFFC placeholders (bidi neutral, Common script).
+//     Inline boxes become U+FFFC placeholders (bidi neutral, Common script);
+//     anchors, the places of out-of-flow boxes, are inserted after this
+//     processing (anchor.go).
 //     Every processed rune keeps the source offset of the character that
 //     produced it; removed characters belong to the rune before them, so
 //     clusters map to contiguous, non-empty source byte ranges (boxes to an

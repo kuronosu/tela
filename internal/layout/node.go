@@ -37,11 +37,12 @@ type InlineAnchored interface {
 // yet); coordinates are in its border box.
 type InlinePlacer interface {
 	// StaticPosition returns the static position of anchored node c: its
-	// place on its line (the caret position before it) and the line's top
-	// for a box that was inline-level, the start of the next line for one
-	// that was block-level (Chromium); ok is false if c is not in the
+	// place on its line and the line's top for a box that was
+	// inline-level, the start of its line or the next for one that was
+	// block-level (Chromium), and whether the box's right edge goes at x
+	// (its left edge otherwise); ok is false if c is not in the
 	// paragraph.
-	StaticPosition(c Node, width float32) (x, y float32, ok bool)
+	StaticPosition(c Node, width float32) (x, y float32, right, ok bool)
 	// ContainingBlock returns c's containing block when it is a
 	// positioned inline element of the paragraph: the padding boxes of
 	// the element's first and last fragments, from the left edge of the

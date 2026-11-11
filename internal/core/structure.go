@@ -182,16 +182,14 @@ func (t *Tree) buildBoxes(el *Element) {
 			}
 			a := t.anonBox(bx, nAnon, inline && flow)
 			hoisted = hoisted[:0]
-			if t.setParagraph(a, items[i:j], el, &hoisted) {
+			// The ones before its content are anchored at its start and
+			// stay before it.
+			if t.setParagraph(a, items[lead:j], el, &hoisted) {
 				nAnon++
 				kids = append(kids, a)
 				t.setAtomKids(a)
-				// The ones before its content sit at its start.
-				for _, o := range items[lead:i] {
-					o.box.anchor, o.box.anchorOff, o.box.anchorCB = a, 0, -1
-				}
 			}
-			for _, h := range hoisted {
+			for _, h := range hoisted[i-lead:] {
 				t.ensureBuilt(h)
 				kids = append(kids, h.box)
 			}

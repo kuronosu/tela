@@ -91,7 +91,9 @@ func prepareText(p *Paragraph, styles []TextStyle, boxOrder []int) (procText, []
 	for k, r := range srcRunes {
 		b := int(srcOff[k])
 		for bi < len(boxOrder) && p.Boxes[boxOrder[bi]].At <= b {
-			raw = append(raw, rawRune{objectReplacement, int32(p.Boxes[boxOrder[bi]].At), styleAt(p, &span, p.Boxes[boxOrder[bi]].At), int32(boxOrder[bi])})
+			if !p.Boxes[boxOrder[bi]].Anchor { // anchors come after white-space processing
+				raw = append(raw, rawRune{objectReplacement, int32(p.Boxes[boxOrder[bi]].At), styleAt(p, &span, p.Boxes[boxOrder[bi]].At), int32(boxOrder[bi])})
+			}
 			bi++
 		}
 		si := styleAt(p, &span, b)
@@ -115,11 +117,15 @@ func prepareText(p *Paragraph, styles []TextStyle, boxOrder []int) (procText, []
 		}
 	}
 	for ; bi < len(boxOrder); bi++ {
+		if p.Boxes[boxOrder[bi]].Anchor {
+			continue
+		}
 		at := p.Boxes[boxOrder[bi]].At
 		raw = append(raw, rawRune{objectReplacement, int32(at), styleAt(p, &span, at), int32(boxOrder[bi])})
 	}
 
 	kept := collapseWhiteSpace(raw, p.Style.WhiteSpace)
+	kept = insertAnchors(kept, p, boxOrder)
 	kept, tags := addPlaceholders(kept, p, len(styles)-len(p.Inlines))
 
 	pt := procText{

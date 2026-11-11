@@ -49,6 +49,10 @@ func (l *Layout) PaintLinesWith(b *gfx.Builder, origin gfx.Point, i0, i1 int, sc
 type paintOver struct {
 	all    gfx.Paint
 	styles []gfx.Paint
+	// layered limits painting to the clusters of paint layer layer
+	// (PaintLineLayer).
+	layered bool
+	layer   int32
 }
 
 // glyph returns the paint of the glyphs of style s.
@@ -236,14 +240,15 @@ func (l *Layout) paintGlyphs(b *gfx.Builder, origin gfx.Point, li int, gs []gfx.
 			}
 			visit := func(c int32) {
 				cl := &l.clusters[c]
-				if cl.g0 == cl.g1 {
+				if cl.g0 == cl.g1 || over.skips(l, c) {
 					return
 				}
-				x := l.cx[c]
+				dx, dy := l.clusterOff(c)
+				x := l.cx[c] + dx
 				start(r.face, r.size, int(cl.style), x)
 				for g := cl.g0; g < cl.g1; g++ {
 					gd := &l.glyphs[g]
-					gs = append(gs, gfx.Glyph{ID: gd.id, X: x + gd.dx - x0, Y: gd.dy})
+					gs = append(gs, gfx.Glyph{ID: gd.id, X: x + gd.dx - x0, Y: gd.dy + dy})
 					x += gd.adv
 				}
 			}
@@ -300,12 +305,13 @@ func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask
 			cl := &l.clusters[c]
 			st := &l.styles[cl.style]
 			lines := st.Decoration.Lines & mask
-			if c >= ln.trail || cl.flags&cfNewline != 0 {
+			if c >= ln.trail || cl.flags&cfNewline != 0 || over.skips(l, c) {
 				lines = 0
 			}
 			si := &l.sinfo[cl.style]
 			dp := over.deco(l, int(cl.style))
-			x0, x1 := l.cx[c], l.cx[c]+l.cadv[c]
+			dx, dy := l.clusterOff(c)
+			x0, x1 := l.cx[c]+dx, l.cx[c]+dx+l.cadv[c]
 			for kind := range 3 {
 				bit := Decoration(1 << kind)
 				if lines&bit == 0 {
@@ -317,16 +323,17 @@ func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask
 				case DecorationUnderline:
 					y, h = si.underline, si.underlineThick
 					if scale > 0 {
-						y, h = snappedUnderline(st, si.size, by, scale)
+						y, h = snappedUnderline(st, si.size, by+dy, scale)
 					}
 				case DecorationOverline:
 					y, h = si.overline, si.underlineThick
 					if scale > 0 {
-						y, h = snappedOverline(st, si.size, si.ascent, by, scale)
+						y, h = snappedOverline(st, si.size, si.ascent, by+dy, scale)
 					}
 				default:
 					y, h = si.strike, si.strikeThick
 				}
+				y += dy
 				s := &cur[kind]
 				if open[kind] && s.y == y && s.h == h && (s.style == cl.style || samePaint(s.paint, dp)) &&
 					absf(s.x1-x0) < 0.01 {

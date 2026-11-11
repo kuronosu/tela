@@ -38,6 +38,20 @@ type Layout struct {
 	boxes   []InlineBox
 	nboxes  int
 	boxClus []int32 // cluster index of each box, -1 if the box has none
+	anchors bool    // some box is an anchor (anchor.go)
+	// ctxRunes is the text without its anchors while it is shaped, and
+	// ctxIdx the index in it of each rune of the text (anchorContext).
+	ctxRunes []rune
+	ctxIdx   []int32
+	// ioff are the offsets of the inlines (SetInlineOffset; nil when none
+	// has one) and coff, derived from them, those of the clusters
+	// (offset.go).
+	ioff, coff []gfx.Point
+	// ipos marks the positioned inlines (SetInlinePositioned; nil when
+	// none is) and clayer, derived from it, is the paint layer of every
+	// cluster.
+	ipos   []bool
+	clayer []int32
 	// boxMin and boxMax are the min- and max-content widths of the boxes
 	// (SetBox), for the intrinsic widths; nil until SetBox sets one.
 	boxMin, boxMax []float32
@@ -249,6 +263,12 @@ func NewLayout(c *Collection, p *Paragraph) *Layout {
 	}
 	l.boxes = slices.Clone(p.Boxes)
 	l.nboxes = len(p.Boxes)
+	for i := range l.boxes {
+		if b := &l.boxes[i]; b.Anchor {
+			b.Width, b.Height, b.Descent, b.Align = 0, 0, 0, BoxBaseline
+			l.anchors = true
+		}
+	}
 	order := make([]int, len(l.boxes))
 	for i := range order {
 		order[i] = i
@@ -262,6 +282,7 @@ func NewLayout(c *Collection, p *Paragraph) *Layout {
 	l.resolveStyles()
 	l.shape()
 	l.setupInlines(p, tags)
+	l.glueAnchors()
 	l.BreakLines(float32(math.Inf(1)))
 	return l
 }

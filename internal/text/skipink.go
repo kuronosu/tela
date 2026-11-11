@@ -66,10 +66,11 @@ func (l *Layout) inkGaps(gaps []span32, c int32, by, y, k float32) []span32 {
 	y0 := by + y + half
 	y1 := max(y0, by+y+th-half)
 	dil := min(th, inkSkipMaxDilation/k)
-	x := l.cx[c]
+	dx, dy := l.clusterOff(c)
+	x := l.cx[c] + dx
 	for g := cl.g0; g < cl.g1; g++ {
 		gd := &l.glyphs[g]
-		if a, b, ok := glyphIntercept(r.face, gd.id, r.size, x+gd.dx, by+gd.dy, y0, y1, k); ok {
+		if a, b, ok := glyphIntercept(r.face, gd.id, r.size, x+gd.dx, by+dy+gd.dy, y0, y1, k); ok {
 			gaps = append(gaps, span32{a - dil, b + dil})
 		}
 		x += gd.adv

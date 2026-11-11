@@ -15,8 +15,9 @@ const lineElemsBuf = 128
 // box) or the ellipsis.
 type velem struct {
 	x0, x1 float32
-	ci     int32 // cluster index, ciEllipsis for the ellipsis
-	g      int32 // caret stops minus one: grapheme clusters, 1 for boxes and the ellipsis
+	dy     float32 // the vertical offset of its inlines (offset.go)
+	ci     int32   // cluster index, ciEllipsis for the ellipsis
+	g      int32   // caret stops minus one: grapheme clusters, 1 for boxes and the ellipsis
 	rtl    bool
 	box    bool
 }
@@ -34,7 +35,8 @@ func (l *Layout) lineElems(li int, dst []velem) []velem {
 		rtl := it.level%2 == 1
 		add := func(c int32) {
 			cl := &l.clusters[c]
-			e := velem{x0: l.cx[c], x1: l.cx[c] + l.cadv[c], ci: c, g: int32(cl.graph), rtl: rtl, box: cl.flags&cfBox != 0}
+			dx, dy := l.clusterOff(c)
+			e := velem{x0: l.cx[c] + dx, x1: l.cx[c] + dx + l.cadv[c], dy: dy, ci: c, g: int32(cl.graph), rtl: rtl, box: cl.flags&cfBox != 0}
 			if e.box || e.g < 1 {
 				e.g = 1
 			}

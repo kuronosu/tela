@@ -356,11 +356,13 @@ func atomicStyle(cs *style.ComputedStyle) bool {
 }
 
 // inlineBoxChanged reports whether the layout of an inline element's box
-// changed at display scale k: the widths of its edges (inlineEdges).
+// changed at display scale k: the widths of its edges (inlineEdges), or
+// its position and insets (a relative one moves with its content and is
+// the containing block of its absolute children, ADR-268).
 func inlineBoxChanged(a, b *style.ComputedStyle, k float32) bool {
 	al, ar := inlineEdges(a, k)
 	bl, br := inlineEdges(b, k)
-	return al != bl || ar != br
+	return al != bl || ar != br || a.Position != b.Position || a.Inset != b.Inset
 }
 
 // ---------------------------------------------------------------------

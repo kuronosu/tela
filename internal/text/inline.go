@@ -176,13 +176,13 @@ func shapingSplits(kept []rawRune, p *Paragraph) []bool {
 
 // tagBreaks recomputes the line break opportunities of segs, the
 // boundaries of the processed text, as if the placeholders of empty
-// inlines were not there: the opportunity between the characters around
+// inlines and the anchors were not there: the opportunity between the characters around
 // a run of placeholders goes after the run (soft wraps) or before it
 // (forced breaks).
 func (l *Layout) tagBreaks(segs []uint8) {
 	pt := &l.text
 	n := len(pt.runes)
-	tag := func(i int) bool { return pt.box[i] >= int32(l.nboxes) }
+	tag := func(i int) bool { return l.isPlaceholder(pt.box[i]) }
 	real := make([]rune, 0, n)
 	idx := make([]int32, n+1)
 	for i := range n {
@@ -201,7 +201,12 @@ func (l *Layout) tagBreaks(segs []uint8) {
 		after := i > 0 && tag(i-1)
 		switch {
 		case here && !after:
-			segs[i] |= f & segMandatory
+			// The mandatory break at the end of the text (UAX #14 LB3)
+			// is no forced break: placeholders after the last character
+			// stay on its line.
+			if idx[i] < idx[n] {
+				segs[i] |= f & segMandatory
+			}
 		case here:
 		case after:
 			segs[i] |= f & segSoft
@@ -543,7 +548,7 @@ func (l *Layout) positionInlines(li int) {
 // the available width, are laid out this way; SetBoxIntrinsic gives their
 // intrinsic widths.
 func (l *Layout) SetBoxSize(i int, width, height, descent float32) {
-	if i < 0 || i >= l.nboxes {
+	if i < 0 || i >= l.nboxes || l.boxes[i].Anchor {
 		return
 	}
 	width, height, descent = max(finiteOr0(width), 0), max(finiteOr0(height), 0), finiteOr0(descent)
@@ -562,7 +567,7 @@ func (l *Layout) SetBoxSize(i int, width, height, descent float32) {
 // box i, which MinContentWidth and MaxContentWidth use instead of its
 // width from then on.
 func (l *Layout) SetBoxIntrinsic(i int, minWidth, maxWidth float32) {
-	if i < 0 || i >= l.nboxes {
+	if i < 0 || i >= l.nboxes || l.boxes[i].Anchor {
 		return
 	}
 	minWidth, maxWidth = max(finiteOr0(minWidth), 0), max(finiteOr0(maxWidth), 0)
@@ -622,9 +627,10 @@ func (l *Layout) InlineFragments(dst []InlineFragment) []InlineFragment {
 		for f := ln.f0; f < ln.f1; f++ {
 			fr := &l.frags[f]
 			si := &l.sinfo[l.inlines[fr.inline].style]
+			dx, dy := l.inlineOff(fr.inline)
 			dst = append(dst, InlineFragment{
-				Inline: int(fr.inline), Line: li, X0: fr.x0, X1: fr.x1, Left: fr.left, Right: fr.right,
-				Baseline: ln.baseline, Ascent: si.ascent, Descent: si.descent,
+				Inline: int(fr.inline), Line: li, X0: fr.x0 + dx, X1: fr.x1 + dx, Left: fr.left, Right: fr.right,
+				Baseline: ln.baseline + dy, Ascent: si.ascent, Descent: si.descent,
 			})
 		}
 		slices.SortStableFunc(dst[n:], func(a, b InlineFragment) int {
