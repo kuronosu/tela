@@ -1128,8 +1128,10 @@ func (t *Tree) Cursor() platform.Cursor {
 
 // autoCursor resolves cursor: auto for pointer ps (Chromium's
 // EventHandler::SelectAutoCursor): the text cursor when it is over a
-// cluster of text whose element may start a selection, else the default
-// arrow.
+// cluster of text whose element may start a selection, or of a link
+// (ShouldShowIBeamForNode's IsOverLink: a link whose classes set cursor:
+// auto, since a link's own cursor is the hand, style.Input.Link), else
+// the default arrow.
 func (t *Tree) autoCursor(ps *pointerState) platform.Cursor {
 	el, _ := t.hitTest(ps.pos)
 	h := &t.in.hit

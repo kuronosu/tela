@@ -589,8 +589,10 @@ func (t *Tree) syncStyleInputs(el *Element, old, d *desc) {
 	if !slices.Equal(old.classes, d.classes) {
 		bx.classesDirty = true
 		t.markStyle(el)
-	} else if len(old.props) > 0 || len(d.props) > 0 || old.dir != d.dir || old.lang != d.lang {
-		// Typed props hold closures and cannot be compared.
+	} else if len(old.props) > 0 || len(d.props) > 0 || old.dir != d.dir || old.lang != d.lang || (old.href == "") != (d.href == "") {
+		// Typed props hold closures and cannot be compared; an A that
+		// becomes a link, or stops being one, takes or loses the link's
+		// cursor (style.Input.Link).
 		t.markStyle(el)
 	}
 	if d.elem.IsReplaced() {

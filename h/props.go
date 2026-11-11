@@ -160,7 +160,9 @@ func SrcFS(fsys fs.FS, path string) tela.Prop {
 func Tint(c tela.Color) tela.Prop { return core.Tint(c) }
 
 // Href sets the destination of an A. Tela does not open links by itself
-// yet: handle OnClick.
+// yet: handle OnClick. As in browsers, the A is then a link: the pointer
+// shows the hand over it (cursor-pointer) unless its classes set another
+// cursor.
 func Href(url string) tela.Prop { return core.Href(url) }
 
 // Disabled disables an element, like a disabled form control: no pointer

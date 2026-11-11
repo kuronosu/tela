@@ -518,7 +518,9 @@ func SrcImage(img *gfx.Image) Prop {
 }
 
 // Href sets the destination of an A primitive. It is stored (for the
-// semantics tree); Tela does not open links itself.
+// semantics tree); Tela does not open links itself. An A with one is a
+// link: its cursor is the hand unless its classes set another, as the
+// browser's stylesheet gives links cursor: pointer (style.Input.Link).
 func Href(url string) Prop {
 	return Prop{name: "Href", apply: func(d *desc) { d.href = url }}
 }
