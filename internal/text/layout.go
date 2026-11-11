@@ -113,6 +113,9 @@ type run struct {
 	r0, r1 int32 // processed runes
 	c0, c1 int32 // clusters
 	box    int32 // inline box index for runBox
+	// lang is the language of the run's style (TextStyle.Language), the
+	// one shaping used; hyphenation and other language rules read it.
+	lang language.Language
 	// Quantized metrics of face at size, for line-height: normal.
 	ascent, descent, gap float32
 }

@@ -189,7 +189,7 @@ func (l *Layout) special(kind runKind, i int, level uint8, si *styleInfo, adv fl
 	ri := int32(len(l.runs))
 	ci := int32(len(l.clusters))
 	g := int32(len(l.glyphs))
-	rn := run{kind: kind, level: level, face: si.face, size: si.size, r0: int32(i), r1: int32(i + 1), c0: ci, c1: ci + 1, box: -1}
+	rn := run{kind: kind, level: level, face: si.face, size: si.size, r0: int32(i), r1: int32(i + 1), c0: ci, c1: ci + 1, box: -1, lang: si.lang}
 	l.runs = append(l.runs, rn)
 	l.clusters = append(l.clusters, cluster{
 		r0: int32(i), r1: int32(i + 1), g0: g, g1: g, run: ri,
@@ -244,7 +244,7 @@ func (l *Layout) shapeRun(f *Face, r0, r1 int32, level uint8, script language.Sc
 
 	m := f.Metrics()
 	ri := int32(len(l.runs))
-	rn := run{kind: runText, level: level, face: f, size: si.size, r0: r0, r1: r1, box: -1,
+	rn := run{kind: runText, level: level, face: f, size: si.size, r0: r0, r1: r1, box: -1, lang: si.lang,
 		ascent: l.qround(m.Ascent, si.size), descent: l.qround(m.Descent, si.size), gap: l.qround(m.LineGap, si.size)}
 
 	// Glyphs, scaled from font units to px. The nominal advances come from
@@ -354,7 +354,7 @@ func (l *Layout) emptyRun(r0, r1 int32, level uint8, si *styleInfo, segs []uint8
 	pt := &l.text
 	ri := int32(len(l.runs))
 	g := int32(len(l.glyphs))
-	rn := run{kind: runText, level: level, size: si.size, r0: r0, r1: r1, box: -1,
+	rn := run{kind: runText, level: level, size: si.size, r0: r0, r1: r1, box: -1, lang: si.lang,
 		ascent: l.qround(noFontMetrics.Ascent, si.size), descent: l.qround(noFontMetrics.Descent, si.size)}
 	c0 := int32(len(l.clusters))
 	for p := r0; p < r1; {

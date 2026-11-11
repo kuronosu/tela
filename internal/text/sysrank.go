@@ -37,36 +37,72 @@ func regionPreference(lang string) []string {
 	if lang == "" {
 		lang = SystemLanguage()
 	}
-	parts := strings.FieldsFunc(strings.ToLower(lang), func(r rune) bool { return r == '-' || r == '_' || r == '.' || r == '@' })
-	first := ""
-	if len(parts) > 0 {
-		switch parts[0] {
-		case "ja":
-			first = "jp"
-		case "ko":
-			first = "kr"
-		case "zh":
-			first = "sc"
-			for _, p := range parts[1:] {
-				switch p {
-				case "hant", "tw", "mo":
-					first = "tc"
-				case "hk":
-					first = "hk"
-				}
-			}
-		}
-	}
+	first := cjkRegion(lang)
 	if first == "" {
 		return defaultRegions
 	}
-	out := []string{first}
-	for _, r := range defaultRegions {
-		if r != first {
-			out = append(out, r)
-		}
+	return regionsFrom(first)
+}
+
+// regionOrders are the orders of the regions when the first one is
+// known: the closest conventions next (Hong Kong and Taiwan share
+// Traditional characters, and Simplified Chinese follows them), so that
+// zh-HK text without a Hong Kong font takes a Traditional Chinese one.
+var regionOrders = map[string][]string{
+	"jp": defaultRegions,
+	"sc": {"sc", "tc", "hk", "jp", "kr"},
+	"tc": {"tc", "hk", "sc", "jp", "kr"},
+	"hk": {"hk", "tc", "sc", "jp", "kr"},
+	"kr": {"kr", "jp", "sc", "tc", "hk"},
+}
+
+// regionsFrom returns the regions in order of preference when first is
+// the language's (regionOrders).
+func regionsFrom(first string) []string {
+	if o, ok := regionOrders[first]; ok {
+		return o
 	}
-	return out
+	return defaultRegions
+}
+
+// cjkRegion returns the region of the CJK families of a language (a BCP
+// 47 tag or a POSIX locale name): jp for Japanese, kr for Korean, sc for
+// Chinese, tc for Traditional Chinese (Hant, Taiwan, Macau), hk for Hong
+// Kong and Cantonese; "" for any other language.
+func cjkRegion(lang string) string {
+	parts := strings.FieldsFunc(strings.ToLower(lang), func(r rune) bool { return r == '-' || r == '_' || r == '.' || r == '@' })
+	if len(parts) == 0 {
+		return ""
+	}
+	switch parts[0] {
+	case "ja":
+		return "jp"
+	case "ko":
+		return "kr"
+	case "yue":
+		return "hk"
+	case "zh":
+		// The script decides (zh-Hans-HK is Simplified), then the region.
+		var script, region string
+		for _, p := range parts[1:] {
+			switch p {
+			case "hans", "hant":
+				script = p
+			case "tw", "mo", "hk":
+				region = p
+			}
+		}
+		switch {
+		case script == "hans":
+			return "sc"
+		case region == "hk":
+			return "hk"
+		case script == "hant" || region != "":
+			return "tc"
+		}
+		return "sc"
+	}
+	return ""
 }
 
 // regionalBases are the normalized names of the CJK families published in
@@ -181,6 +217,15 @@ func regionSupports(r string, script language.Script) bool {
 		return r == "kr"
 	case language.Bopomofo:
 		return r == "tc" || r == "hk"
+	}
+	return false
+}
+
+// isCJKScript reports the scripts whose fonts come in regional variants.
+func isCJKScript(script language.Script) bool {
+	switch script {
+	case language.Han, language.Hiragana, language.Katakana, language.Katakana_Or_Hiragana, language.Hangul, language.Bopomofo:
+		return true
 	}
 	return false
 }

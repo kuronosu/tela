@@ -560,9 +560,15 @@ func (cs *candidates) system(cluster []rune, script language.Script, avoidColor 
 	return nil
 }
 
-// sysRequest is what ranks the installed families for the query of cs.
+// sysRequest is what ranks the installed families for the query of cs:
+// its weight, and the regions of its language when it is Chinese,
+// Japanese or Korean, else the collection's (SystemFontOptions.Lang).
 func (cs *candidates) sysRequest() fbRequest {
-	return fbRequest{weight: cs.q.weight(), prefs: cs.sys.prefs}
+	prefs := cs.sys.prefs
+	if r := cjkRegion(cs.q.Lang); r != "" {
+		prefs = regionsFrom(r)
+	}
+	return fbRequest{weight: cs.q.weight(), prefs: prefs}
 }
 
 // fbRequest is what ranks the installed families for a fallback, besides
@@ -592,13 +598,7 @@ func (r fbRequest) forScript(script language.Script) fbRequest {
 	if len(r.prefs) > 0 && r.prefs[0] == first {
 		return r
 	}
-	prefs := []string{first}
-	for _, p := range defaultRegions {
-		if p != first {
-			prefs = append(prefs, p)
-		}
-	}
-	r.prefs = prefs
+	r.prefs = regionsFrom(first)
 	return r
 }
 

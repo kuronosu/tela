@@ -25,6 +25,15 @@ type Query struct {
 	Style Style
 	// Stretch is the CSS font-stretch percentage, 50 to 200. Zero means 100.
 	Stretch float32
+	// Lang is the content language, a BCP 47 tag ("" unknown). Font
+	// matching ignores it; fallback for Han characters, which have no
+	// language of their own, tries the CJK families of its region first
+	// (ja: Japanese, zh-Hans: Simplified Chinese, zh-Hant, zh-TW:
+	// Traditional, zh-HK: Hong Kong, ko: Korean), among the registered
+	// families of the script (SetScriptFallback, FontSource.Scripts) and
+	// among the installed ones, as Chromium's per-locale fonts do. Other
+	// languages leave the collection's order (SystemFontOptions.Lang).
+	Lang string
 }
 
 func (q Query) weight() float32 {
@@ -602,7 +611,7 @@ type candidates struct {
 // queryKey is the cache key of a query at an optical size: the families,
 // length-prefixed, then the style values.
 func queryKey(q Query, opsz float32) string {
-	n := 13
+	n := 15
 	for _, f := range q.Families {
 		n += len(f) + binary.MaxVarintLen64
 	}
@@ -615,6 +624,10 @@ func queryKey(q Query, opsz float32) string {
 	b = append(b, byte(q.Style))
 	b = binary.LittleEndian.AppendUint32(b, math.Float32bits(q.stretch()))
 	b = binary.LittleEndian.AppendUint32(b, math.Float32bits(opsz))
+	if r := cjkRegion(q.Lang); r != "" {
+		// Only the region of a CJK language changes the candidates.
+		b = append(b, r...)
+	}
 	return string(b)
 }
 
@@ -684,6 +697,15 @@ func (cs *candidates) scriptList(script language.Script) []*famSlot {
 	}
 	c := cs.c
 	l = c.lazySlots(func() []string { return c.scripts[script] }, cs.seen)
+	if r := cjkRegion(cs.q.Lang); r != "" && isCJKScript(script) {
+		// The registered CJK families of the language's region first, as
+		// for the installed ones (Query.Lang); kana Japanese and Hangul
+		// Korean whatever the language (fbRequest.forScript).
+		prefs := fbRequest{prefs: regionsFrom(r)}.forScript(script).prefs
+		slices.SortStableFunc(l, func(a, b *famSlot) int {
+			return regionRank(a.alts[0].key[1:], prefs) - regionRank(b.alts[0].key[1:], prefs)
+		})
+	}
 	cs.scriptMu.Lock()
 	defer cs.scriptMu.Unlock()
 	if prev, ok := cs.scripts[script]; ok {
