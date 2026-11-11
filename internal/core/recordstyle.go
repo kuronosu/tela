@@ -48,6 +48,7 @@ func sameStyle(a, b *style.ComputedStyle, layer bool) bool {
 		a.JustifySelf == b.JustifySelf &&
 		sameTracks(&a.GridTemplateColumns, &b.GridTemplateColumns) &&
 		sameTracks(&a.GridTemplateRows, &b.GridTemplateRows) &&
+		sameAreas(&a.GridTemplateAreas, &b.GridTemplateAreas) &&
 		sameSlice(a.GridAutoColumns, b.GridAutoColumns) && sameSlice(a.GridAutoRows, b.GridAutoRows) &&
 		a.GridAutoFlow == b.GridAutoFlow && a.GridColumn == b.GridColumn && a.GridRow == b.GridRow &&
 		a.BackgroundColor == b.BackgroundColor && sameSlice(a.Backgrounds, b.Backgrounds) &&
@@ -80,6 +81,10 @@ func sameSlice[T any](a, b []T) bool {
 
 func sameTracks(a, b *style.TrackList) bool {
 	return sameSlice(a.Entries, b.Entries) && sameSlice(a.LineNames, b.LineNames)
+}
+
+func sameAreas(a, b *style.GridAreas) bool {
+	return sameSlice(a.Areas, b.Areas) && sameSlice(a.Template, b.Template) && a.Rows == b.Rows && a.Columns == b.Columns
 }
 
 func sameFilters(a, b *style.FilterSet) bool {

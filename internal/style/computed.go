@@ -666,11 +666,14 @@ type ComputedStyle struct {
 	// Grid.
 	GridTemplateColumns TrackList
 	GridTemplateRows    TrackList
-	GridAutoColumns     []TrackSize
-	GridAutoRows        []TrackSize
-	GridAutoFlow        GridAutoFlow
-	GridColumn          GridPlacement
-	GridRow             GridPlacement
+	// GridTemplateAreas is grid-template-areas, set by the arbitrary
+	// property [grid-template-areas:...] (ADR-268).
+	GridTemplateAreas GridAreas
+	GridAutoColumns   []TrackSize
+	GridAutoRows      []TrackSize
+	GridAutoFlow      GridAutoFlow
+	GridColumn        GridPlacement
+	GridRow           GridPlacement
 
 	// Background. Backgrounds are the image layers, topmost first; the
 	// color is painted below them.

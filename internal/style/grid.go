@@ -557,3 +557,160 @@ func (g GridLine) String() string {
 }
 
 func (p GridPlacement) String() string { return p.Start.String() + " / " + p.End.String() }
+
+// GridAreas is grid-template-areas: the named areas of a template of Rows
+// by Columns cells. Tailwind has no utility for it, so it is written as
+// the arbitrary property [grid-template-areas:'head_head'_'side_main'],
+// with underscores for spaces (ADR-268). The zero value is none.
+type GridAreas struct {
+	// Template holds the template's rows as written (cells separated by
+	// one space), for String.
+	Template      []string
+	Areas         []GridArea
+	Rows, Columns int
+}
+
+// GridArea is one named area of a template, by its grid lines (1-based,
+// the end lines exclusive).
+type GridArea struct {
+	Name                   string
+	RowStart, RowEnd       int
+	ColumnStart, ColumnEnd int
+}
+
+// IsNone reports whether the template is none.
+func (a GridAreas) IsNone() bool { return a.Rows == 0 }
+
+// String returns the template in CSS syntax ("'a b' 'c d'", or none).
+func (a GridAreas) String() string {
+	if a.IsNone() {
+		return "none"
+	}
+	rows := make([]string, len(a.Template))
+	for i, r := range a.Template {
+		rows[i] = "'" + r + "'"
+	}
+	return strings.Join(rows, " ")
+}
+
+// gridAreasExample ends the errors of grid-template-areas.
+const gridAreasExample = "; write one quoted string per row, e.g. [grid-template-areas:'head_head'_'side_main']"
+
+// parseGridTemplateAreas parses the value of grid-template-areas, its
+// underscores already spaces: none, or one quoted string per row (single
+// or double quotes), each with as many cells as the first; a cell is a
+// name or a run of dots (an unnamed cell), and the cells of a name form
+// one rectangle (CSS Grid 1 section 7.3).
+func parseGridTemplateAreas(v string) (GridAreas, error) {
+	v = strings.TrimSpace(v)
+	if v == "none" {
+		return GridAreas{}, nil
+	}
+	var rows [][]string
+	var template []string
+	for rest := v; rest != ""; rest = strings.TrimSpace(rest) {
+		q := rest[0]
+		if q != '\'' && q != '"' {
+			return GridAreas{}, fmt.Errorf("invalid grid-template-areas %q%s", v, gridAreasExample)
+		}
+		end := strings.IndexByte(rest[1:], q)
+		if end < 0 {
+			return GridAreas{}, fmt.Errorf("unterminated string in grid-template-areas %q%s", v, gridAreasExample)
+		}
+		row := rest[1 : end+1]
+		rest = rest[end+2:]
+		var cells []string
+		for _, c := range strings.Fields(row) {
+			switch {
+			case strings.Trim(c, ".") == "":
+				c = "."
+			case !isGridIdent(c):
+				return GridAreas{}, fmt.Errorf("invalid area name %q in grid-template-areas; use letters, digits, - and _ (written \\_ in a class), or . for an unnamed cell", c)
+			}
+			cells = append(cells, c)
+		}
+		if len(cells) == 0 {
+			return GridAreas{}, fmt.Errorf("empty row in grid-template-areas %q%s", v, gridAreasExample)
+		}
+		if len(rows) > 0 && len(cells) != len(rows[0]) {
+			return GridAreas{}, fmt.Errorf("the rows of grid-template-areas must have the same number of cells: %q has %d, the first row %d", row, len(cells), len(rows[0]))
+		}
+		rows = append(rows, cells)
+		template = append(template, strings.Join(cells, " "))
+	}
+	if len(rows) == 0 {
+		return GridAreas{}, fmt.Errorf("invalid grid-template-areas %q%s", v, gridAreasExample)
+	}
+	var areas []GridArea
+	seen := map[string]int{}
+	for r, cells := range rows {
+		for c, name := range cells {
+			if name == "." {
+				continue
+			}
+			i, ok := seen[name]
+			if !ok {
+				seen[name] = len(areas)
+				areas = append(areas, GridArea{Name: name, RowStart: r + 1, RowEnd: r + 2, ColumnStart: c + 1, ColumnEnd: c + 2})
+				continue
+			}
+			a := &areas[i]
+			a.RowEnd = max(a.RowEnd, r+2)
+			a.ColumnStart = min(a.ColumnStart, c+1)
+			a.ColumnEnd = max(a.ColumnEnd, c+2)
+		}
+	}
+	for _, a := range areas {
+		for r := a.RowStart - 1; r < a.RowEnd-1; r++ {
+			for c := a.ColumnStart - 1; c < a.ColumnEnd-1; c++ {
+				if rows[r][c] != a.Name {
+					return GridAreas{}, fmt.Errorf("area %q of grid-template-areas is not a rectangle", a.Name)
+				}
+			}
+		}
+	}
+	return GridAreas{Template: template, Areas: areas, Rows: len(rows), Columns: len(rows[0])}, nil
+}
+
+// parseGridTemplateAreasOp parses [grid-template-areas:...].
+func parseGridTemplateAreasOp(v string) (Op, error) {
+	a, err := parseGridTemplateAreas(v)
+	if err != nil {
+		return Op{}, err
+	}
+	return op(func(e *env) { e.s.GridTemplateAreas = a }), nil
+}
+
+// parseGridArea parses [grid-area:...], the grid-area shorthand: one to
+// four grid lines separated by slashes, row-start / column-start / row-end
+// / column-end. An omitted column-start, row-end or column-end is the
+// row-start, row-start or column-start line when that one is a lone name,
+// else auto (CSS Grid 1 section 8.4): [grid-area:main] places the item in
+// the area named main, as col-[main] row-[main] do.
+func parseGridArea(v string) (Op, error) {
+	parts := strings.Split(v, "/")
+	if len(parts) > 4 {
+		return Op{}, fmt.Errorf("invalid grid-area %q; use an area name or up to four lines, e.g. [grid-area:main] or [grid-area:1/2/3/4]", v)
+	}
+	var lines [4]GridLine
+	for i, p := range parts {
+		l, err := parseGridLine(p)
+		if err != nil {
+			return Op{}, err
+		}
+		lines[i] = l
+	}
+	lone := func(l GridLine) bool { return l.Kind == GridLineNamed && l.N == 0 }
+	if len(parts) < 2 && lone(lines[0]) {
+		lines[1] = lines[0]
+	}
+	if len(parts) < 3 && lone(lines[0]) {
+		lines[2] = lines[0]
+	}
+	if len(parts) < 4 && lone(lines[1]) {
+		lines[3] = lines[1]
+	}
+	row := GridPlacement{Start: lines[0], End: lines[2]}
+	col := GridPlacement{Start: lines[1], End: lines[3]}
+	return op(func(e *env) { e.s.GridRow, e.s.GridColumn = row, col }), nil
+}

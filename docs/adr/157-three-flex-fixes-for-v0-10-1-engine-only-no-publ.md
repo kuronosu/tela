@@ -1,7 +1,7 @@
 # ADR-157: Three flex fixes for `v0.10.1`, engine only, no public API change
 
 - **Date:** 2026-10-25
-- **Status:** Accepted
+- **Status:** Accepted, amended by ADR-268 (its two "not changed" aspect-ratio cases fixed)
 
 ## Decision
 

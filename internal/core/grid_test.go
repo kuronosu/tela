@@ -1,6 +1,9 @@
 package core
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // TestGridItems checks the box structure of a grid container: each
 // element child is a grid item (a span too, blockified) and each run of
@@ -79,4 +82,25 @@ func findBox(tr *Tree, key any) *Box {
 		return nil
 	}
 	return walk(tr.root)
+}
+
+// TestGridTemplateAreasClasses places items in named areas written with
+// the arbitrary properties [grid-template-areas:...] and [grid-area:...],
+// and with Tailwind's col-[name] row-[name] (ADR-268): Tailwind v4 has no
+// utility for areas. The boxes are the CSS ones (a header across both
+// columns, a 100 px sidebar, the main area), as in Chromium.
+func TestGridTemplateAreasClasses(t *testing.T) {
+	root := div(Key("g"), Class("grid w-[300px] grid-cols-[100px_1fr] grid-rows-[20px_30px] [grid-template-areas:'head_head'_'side_main']"),
+		div(Key("m"), Class("[grid-area:main]")),
+		div(Key("h"), Class("[grid-area:head]")),
+		div(Key("s"), Class("col-[side] row-[side]")),
+	)
+	tr := newTestTree(t, 400, 300, root, nil)
+	tr.Frame()
+	wantRect(t, mustFind(t, tr, "h"), 0, 0, 300, 20)
+	wantRect(t, mustFind(t, tr, "s"), 0, 20, 100, 30)
+	wantRect(t, mustFind(t, tr, "m"), 100, 20, 200, 30)
+	if g := mustFind(t, tr, "g"); !strings.Contains(g.Style.Grid, "areas 'head head' 'side main'") {
+		t.Errorf("inspect grid = %q, want the areas", g.Style.Grid)
+	}
 }
