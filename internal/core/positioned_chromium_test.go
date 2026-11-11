@@ -64,8 +64,10 @@ type posScene struct {
 	// a scene that sets it documents the mismatch it allows.
 	geomY2 float64
 	// arabic adds the embedded Noto Sans Arabic to the page's fonts (Tela
-	// falls back to it for Arabic script).
-	arabic bool
+	// falls back to it for Arabic script); mono makes JetBrains Mono, the
+	// font-mono of Tela's test fonts, the page's font-mono (Chromium's
+	// default is a system font with other metrics).
+	arabic, mono bool
 }
 
 func (s *posScene) dir() string { return filepath.Join("testdata", "chromium", "positioned", s.name) }
@@ -132,8 +134,13 @@ func (s *posScene) regenerate(t *testing.T) {
 		fonts += `@font-face { font-family: "Noto Sans Arabic"; src: url("../../../../../assets/fonts/notosansarabic/NotoSansArabic-wdth-wght.ttf"); font-weight: 100 900; font-stretch: 62.5% 100%; }` + "\n"
 		sans = `"Inter", "Noto Sans Arabic"`
 	}
+	theme := fmt.Sprintf("--font-sans: %s;", sans)
+	if s.mono {
+		fonts += `@font-face { font-family: "JetBrains Mono"; src: url("../../../../../assets/fonts/jetbrainsmono/JetBrainsMono-wght.ttf"); font-weight: 100 800; }` + "\n"
+		theme += ` --font-mono: "JetBrains Mono";`
+	}
 	chromium.Tailwind(t, htmlPath, filepath.Join(dir, "gallery.css"),
-		fmt.Sprintf("@theme { --font-sans: %s; }\n%s", sans, fonts))
+		fmt.Sprintf("@theme { %s }\n%s", theme, fonts))
 	geom := posGeometry{}
 	for _, scale := range []int{1, 2} {
 		key := fmt.Sprintf("x%d", scale)
