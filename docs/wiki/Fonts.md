@@ -143,9 +143,9 @@ Hyphenation dictionaries work like fonts: none is in the binary unless the
 app brings one. Soft hyphens (`\u00ad` in a Go string) always let a word
 break with a hyphen, unless the text has `hyphens-none`. With
 `hyphens-auto`, words also break where the dictionary of the text's
-language allows, as in Chromium: only when the language is known (`h.Lang`,
-or `tela.SetDefaultLang` for the whole app) and the app has a dictionary
-for it.
+language allows, as in Chromium: the language of the text (`h.Lang`, else
+the app's default: `tela.SetDefaultLang`, `i18n`'s locale or the user's
+language) when the app has a dictionary for it.
 
 ```go
 import (

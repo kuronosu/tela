@@ -268,8 +268,8 @@ type App struct {
 	// hyphen/fr or tela.HyphenationPatterns (ADR-270). Without them no
 	// word is hyphenated (soft hyphens still break) and the binary
 	// carries no patterns. Text is hyphenated in its language (h.Lang,
-	// tela.SetDefaultLang) when one of them is for it. Child windows share
-	// them.
+	// else the app's default, tela.SetDefaultLang) when one of them is for
+	// it. Child windows share them.
 	//
 	//	tela.Main(tela.App{Title: "Notes", Hyphenation: []tela.Hyphenation{en.US, es.Spanish}, Root: Notes()})
 	Hyphenation []Hyphenation

@@ -1846,8 +1846,8 @@ type App struct {
     // hyphen/fr or tela.HyphenationPatterns (ADR-270). Without them no
     // word is hyphenated (soft hyphens still break) and the binary
     // carries no patterns. Text is hyphenated in its language (h.Lang,
-    // tela.SetDefaultLang) when one of them is for it. Child windows share
-    // them.
+    // else the app's default, tela.SetDefaultLang) when one of them is for
+    // it. Child windows share them.
     //
     //	tela.Main(tela.App{Title: "Notes", Hyphenation: []tela.Hyphenation{en.US, es.Spanish}, Root: Notes()})
     Hyphenation []Hyphenation
@@ -3470,7 +3470,7 @@ StopAt returns a gradient stop at a percentage (0 to 100) of the gradient line.
 type Hyphenation core.Hyphenation
 ```
 
-Hyphenation is the hyphenation dictionary of a language, for [`App`](#type-app).Hyphenation: what the hyphens-auto class breaks words with (ADR-270). Text is hyphenated only where its language is known (h.Lang, or [`SetDefaultLang`](#func-setdefaultlang) for the whole app) and the app brings a dictionary for it, as browsers do; without App.Hyphenation a binary carries no patterns. Soft hyphens (U+00AD, "\\u00ad" in Go strings) break words whatever the dictionaries, unless the class hyphens-none is set.
+Hyphenation is the hyphenation dictionary of a language, for [`App`](#type-app).Hyphenation: what the hyphens-auto class breaks words with (ADR-270). Text is hyphenated in its language (h.Lang, else the app's default language: [`SetDefaultLang`](#func-setdefaultlang), package i18n's locale, else the user's), when the app brings a dictionary for it; text of no known language is not, as in browsers. Declare the language of text that can be in another one than the user's. Without App.Hyphenation a binary carries no patterns. Soft hyphens (U+00AD, "\\u00ad" in Go strings) break words whatever the dictionaries, unless the class hyphens-none is set.
 
 Take one from Tela's packages, hyphen/en (en.US, en.GB), hyphen/es (es.Spanish) and hyphen/fr (fr.French), or make one with [`HyphenationPatterns`](#func-hyphenationpatterns):
 

@@ -4,11 +4,14 @@ import "github.com/kuronosu/tela/internal/core"
 
 // Hyphenation is the hyphenation dictionary of a language, for
 // [App].Hyphenation: what the hyphens-auto class breaks words with
-// (ADR-270). Text is hyphenated only where its language is known (h.Lang,
-// or [SetDefaultLang] for the whole app) and the app brings a dictionary
-// for it, as browsers do; without App.Hyphenation a binary carries no
-// patterns. Soft hyphens (U+00AD, "\u00ad" in Go strings) break words
-// whatever the dictionaries, unless the class hyphens-none is set.
+// (ADR-270). Text is hyphenated in its language (h.Lang, else the app's
+// default language: [SetDefaultLang], package i18n's locale, else the
+// user's), when the app brings a dictionary for it; text of no known
+// language is not, as in browsers. Declare the language of text that
+// can be in another one than the user's. Without App.Hyphenation a binary
+// carries no patterns. Soft hyphens (U+00AD, "\u00ad" in Go strings)
+// break words whatever the dictionaries, unless the class hyphens-none is
+// set.
 //
 // Take one from Tela's packages, hyphen/en (en.US, en.GB), hyphen/es
 // (es.Spanish) and hyphen/fr (fr.French), or make one with
