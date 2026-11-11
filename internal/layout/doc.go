@@ -133,10 +133,11 @@
 // does the same for Tela's own cases (testdata/cases: containing blocks,
 // order, and grid placement by name, named areas, auto-fill and auto-fit,
 // dense packing, static positions, baselines and content-sized grids, zero
-// percentages, flex items with an aspect ratio or a keyword cross size),
-// measured by Chromium 154 (the cases measured before by Chromium 152
-// measure the same). Where Chromium and Taffy disagree, layout follows
-// Chromium:
+// percentages, flex items with an aspect ratio or a keyword cross size,
+// boxes with an aspect ratio, grid percentage min sizes), measured by
+// Chromium 155 (the cases measured before by Chromium 152 and 154, and
+// every Taffy fixture, measure the same). Where Chromium and Taffy
+// disagree, layout follows Chromium:
 //
 //   - A flex container sized under definite available space is
 //     fit-content sized (Taffy sums the flex bases).
@@ -204,7 +205,10 @@
 //     contributions, and auto counts as a max-content maximum.
 //   - The automatic minimum size of an item looks at the tracks it spans,
 //     and the min size of the other axis does not transfer through the
-//     aspect ratio into its minimum contribution.
+//     aspect ratio into its minimum contribution. A percentage min size
+//     of an indefinite grid area counts as 0 (its length part for a
+//     calc()) in the minimum contribution, not as auto, as for flex items
+//     (ADR-268).
 //   - Items whose width depends on their height (an aspect ratio and an
 //     auto width) are measured with an estimate of the rows, sized first.
 //   - Named lines follow CSS Grid 1 section 8.3 (see grid_tracks.go).
