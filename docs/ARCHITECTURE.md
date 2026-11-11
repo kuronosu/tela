@@ -296,7 +296,7 @@ Resolved in this order; on conflict, **last wins**:
 2. Classes in `Class("...")`, in order of appearance. `Class` may repeat; values concatenate.
 3. Typed props in `Style(...)` for dynamic values: `Style(tela.Width(w), tela.Bg(c))`.
 
-There is **no cascade, specificity or selectors**. Inheritance applies only to the properties CSS inherits: text properties (`color`, `font-*`, `line-height`, `letter-spacing`, `text-align`, `text-transform`, `white-space`, `text-decoration`…) plus `cursor`, `visibility`, `pointer-events`, `user-select` (ADR-042), `direction` (set with `h.Dir`, ADR-090) and the SVG paints `fill`, `stroke` and `stroke-width` (ADR-098).
+There is **no cascade, specificity or selectors**. Inheritance applies only to the properties CSS inherits: text properties (`color`, `font-*`, `line-height`, `letter-spacing`, `text-align`, `text-transform`, `white-space`, `text-decoration`…) plus `cursor`, `visibility`, `pointer-events`, `user-select` (ADR-042), `direction` (set with `h.Dir`, ADR-090), the language (`lang`, set with `h.Lang`; at the root the app's default language, ADR-269) and the SVG paints `fill`, `stroke` and `stroke-width` (ADR-098).
 
 ### Classes (Tailwind v4 vocabulary)
 
@@ -367,10 +367,10 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
   - **System fonts by default** (discovery via `go-text` fontscan); the generic families (`system-ui`, `sans-serif`, `serif`, `monospace`, `emoji`…) resolve per OS, and no font is in the binary unless the app imports one (ADR-244).
   - **Opt-in embedded fonts** (`go:embed`, OFL): `tela.App.Fonts`, from the app's own files (`tela.FontData`, `tela.FontFS`) or Tela's packages `fonts/inter`, `fonts/jetbrainsmono`, `fonts/notoemoji`, `fonts/notoarabic`, a serif and `fonts/standard` (all of them). A file is parsed when text first needs it.
   - **Snapshots and tests use the app's fonts and `fonts/standard` only**, never system fonts, so they are deterministic across machines (ADR-008).
-  - **Fallback:** the requested families, a per-script family list, the app's fonts, then the system's.
+  - **Fallback:** the requested families, a per-script family list, the app's fonts, then the system's. CJK lists put the families of the text's language region first; installed families rank by design, weight distance and region, and a paragraph keeps one installed family per script (ADR-269).
 - **Paragraphs:** a text node contains styled runs (`Text`, `Span`, `Strong`, `Em`, `Code`, `A`) and atomic inline-level boxes (`inline-block`, `inline-flex`, buttons, inline images: laid out like any box and placed on the line by `vertical-align`). Inline elements are CSS inline boxes: their horizontal margins, borders and padding take space on the line, and their backgrounds, borders and radii are painted per line fragment (ADR-066).
 - **Line boxes:** CSS 2.1 §10.8, quantized like Blink's in device pixels at the display scale: font ascent, descent and line gap rounded to whole device pixels, half-leadings rounded down to whole device pixels; layout results stay in logical px, so they depend on the scale as Chromium's do (ADR-159).
-- **Properties:** `font-family`, `font-size`, `font-weight` (incl. variable fonts), `font-style`, `line-height`, `letter-spacing`, `text-align`, `text-transform`, `text-decoration`, `white-space`, `text-wrap` (`text-balance` and `text-pretty` break lines as Blink does, ADR-166), `text-overflow: ellipsis`, `line-clamp-*`, `tabular-nums`.
+- **Properties:** `font-family`, `font-size`, `font-weight` (incl. variable fonts), `font-style` (a weight or style no face has is synthesized as in Chromium: emboldened outlines, a -1/4 skew; ADR-269), `lang` (`h.Lang`: shaping picks the language's glyph forms, ADR-269), `line-height`, `letter-spacing`, `text-align`, `text-transform`, `text-decoration`, `white-space`, `text-wrap` (`text-balance` and `text-pretty` break lines as Blink does, ADR-166), `text-overflow: ellipsis`, `line-clamp-*`, `tabular-nums`.
 - **Glyph raster:**
   - Same path machinery as the rasterizer.
   - Glyph cache keyed by (font, size, quantized subpixel offset), respecting display scale. Under scale/translate transforms the pen x snaps to 1/4 device pixel and the baseline y to whole device pixels; other transforms and large glyphs fill the outline directly (ADR-029).
