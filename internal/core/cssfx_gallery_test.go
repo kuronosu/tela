@@ -155,9 +155,9 @@ var fxRows = []fxRow{
 // rounded up. Why they differ:
 //
 //   - text (text-difference, the bg-clip-text cells): glyph edges, Skia's
-//     anti-aliasing against exact area coverage and Blink's baselines in
-//     device pixels at x2 (ADR-048), as in internal/text's
-//     TestChromiumClipText; the emoji's outlines differ a little too;
+//     anti-aliasing against exact area coverage, as in internal/text's
+//     TestChromiumClipText (baselines are on Chromium's device pixels
+//     since ADR-159); the emoji's outlines differ a little too;
 //   - repeated small images at x2 (repeat, round, origin-*, webp,
 //     radial-over-tile): Chromium's repeating image shader interpolates
 //     across tile seams (the last row of a tile with the first of the
@@ -170,7 +170,7 @@ var fxRows = []fxRow{
 //     polygon tips and circle edges.
 var fxBounds = map[string][4]float64{
 	"over-photo":       {17, 0.65, 19, 0.45},
-	"text-difference":  {123, 0.70, 229, 1.00},
+	"text-difference":  {123, 0.70, 45, 0.45},
 	"star-evenodd":     {101, 0.30, 53, 0.15},
 	"overflow-child":   {101, 0.65, 68, 0.30},
 	"contain":          {18, 0.55, 17, 0.65},
@@ -189,11 +189,11 @@ var fxBounds = map[string][4]float64{
 	"zone-88":          {14, 1.00, 22, 1.50},
 	"photo-48":         {14, 0.75, 20, 0.50},
 	"photo-120":        {6, 0.70, 5, 0.40},
-	"gradient-text":    {214, 1.80, 255, 1.65},
-	"photo-text":       {167, 2.30, 255, 1.75},
-	"multi-line":       {161, 1.60, 255, 2.40},
-	"inline-span":      {131, 1.30, 230, 2.20},
-	"emoji":            {226, 3.75, 255, 1.20},
+	"gradient-text":    {214, 1.80, 153, 0.70},
+	"photo-text":       {167, 2.30, 130, 0.80},
+	"multi-line":       {161, 1.60, 225, 1.50},
+	"inline-span":      {131, 1.30, 194, 1.45},
+	"emoji":            {226, 3.75, 255, 1.30},
 }
 
 // fxDefaultBound applies to the cells not in fxBounds.

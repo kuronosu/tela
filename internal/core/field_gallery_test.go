@@ -349,10 +349,10 @@ func fieldGalleryCaseOf(k int) string {
 	return "?"
 }
 
-// fieldGalleryMean bounds the mean pixel difference of a cell (glyph
-// anti-aliasing, and at scale 2 Blink's line metrics in device pixels,
-// ADR-048).
-var fieldGalleryMean = [2]float64{2, 7}
+// fieldGalleryMean bounds the mean pixel difference of a cell: glyph
+// anti-aliasing (measured worst, the multi-line textarea cell: 1.55 at
+// x1, 2.08 at x2).
+var fieldGalleryMean = [2]float64{2, 2.5}
 
 func TestChromiumFieldGallery(t *testing.T) {
 	dir := filepath.Join("testdata", "chromium", "fields")
@@ -415,13 +415,16 @@ func TestChromiumFieldGallery(t *testing.T) {
 	t.Log("difference from Chromium:\n" + report.String())
 }
 
-// fieldGeometryTolerance is the largest edge difference accepted: at scale
-// 2 Blink rounds line metrics in device pixels (ADR-048).
+// fieldGeometryTolerance is the largest edge difference accepted. At x1
+// the worst is 0.016 px (glyph advances); at x2 every edge is exact except
+// the width of the "small" input (14 px font, default size=20), 220 px
+// here and 219.5 in Chromium: a layout mismatch of one device pixel in the
+// intrinsic width at the doubled font size, not antialiasing.
 func fieldGeometryTolerance(scale int) float64 {
 	if scale == 2 {
-		return 1.01
+		return 0.5
 	}
-	return 0.1
+	return 0.02
 }
 
 func TestFieldGallery(t *testing.T) {

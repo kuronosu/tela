@@ -67,11 +67,12 @@ var rtlScenes = []*posScene{
 			)),
 		),
 		steps: [][]posScroll{{}},
-		// Every edge is exact at x1; at x2 the line box of the
-		// inline-blocks is half a pixel shorter than Blink's (ADR-048),
-		// which moves the rows below it.
-		geom: 0.02, geomY2: 0.5,
-		mean: [2]float64{0.1, 0.7}, maxd: [2]int{64, 255},
+		// Every edge is exact at both scales (measured 0.000 px; the
+		// ADR-048 half pixel is gone since ADR-159); the pixels differ
+		// only by edge anti-aliasing (measured max 39 and 61, mean 0.004
+		// and 0.003).
+		geom: 0.02,
+		mean: [2]float64{0.02, 0.02}, maxd: [2]int{45, 70},
 	},
 	{
 		// Paragraphs: right-to-left base direction, start/end/left
@@ -99,8 +100,11 @@ var rtlScenes = []*posScene{
 		),
 		steps: [][]posScroll{{}},
 		// Paragraph edges within 0.05 px of Chromium (glyph advances,
-		// ADR-034), vertical ones at x2 within the line rounding of
-		// ADR-048; pixels differ by glyph anti-aliasing (ADR-029).
+		// ADR-034). At x2 the line with the inline-block button is one
+		// device pixel (0.5 px) shorter than Chromium's, a layout
+		// mismatch (not antialiasing; measured elements 0, 9 and 13: 0.5
+		// px, the rest exact) that moves the rows below it; pixels
+		// differ by glyph anti-aliasing (ADR-029).
 		geom: 0.06, geomY2: 0.5,
 		mean: [2]float64{1.1, 1.4}, maxd: [2]int{255, 255},
 	},
