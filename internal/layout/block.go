@@ -36,17 +36,18 @@ func (e *Engine) block(n Node, st *Style, in input) output {
 	border := st.Border.resolveOrZero(parent.w)
 	pbSize := padding.add(border).sum()
 
-	minSize := st.minSize().resolve(parent).applyAspectRatio(ratio)
-	maxSize := st.maxSize().resolve(parent).applyAspectRatio(ratio)
+	minSize := st.minSize().resolve(parent).applyAspectRatioToWidth(ratio)
+	maxSize := st.maxSize().resolve(parent).applyAspectRatioToWidth(ratio)
 	var clamped optSize
 	if in.sizing == inherentSize {
-		clamped = st.size().resolve(parent).applyAspectRatio(ratio).maybeClamp(minSize, maxSize)
+		clamped = st.size().resolve(parent).applyAspectRatioToWidth(ratio).maybeClamp(minSize, maxSize)
 	}
 	minMax := optSize{minMaxDefinite(minSize.w, maxSize.w), minMaxDefinite(minSize.h, maxSize.h)}
 	styled := in.known.or(minMax).or(clamped).maybeMaxF(pbSize)
 
-	// The size is all the caller wants and the styles determine it.
-	if in.run == computeSize {
+	// The size is all the caller wants and the styles determine it (a
+	// height that grows with the content does not).
+	if in.run == computeSize && !in.growH {
 		if styled.bothSet() {
 			return outerSize(size{styled.w.v, styled.h.v})
 		}
@@ -76,13 +77,13 @@ func (e *Engine) blockInner(n Node, st *Style, in input) output {
 	pbSize := pb.sum()
 	cbi := pb.add(gutter)
 
-	sz := st.size().resolve(parent).applyAspectRatio(ratio)
-	minSize := st.minSize().resolve(parent).applyAspectRatio(ratio)
-	maxSize := st.maxSize().resolve(parent).applyAspectRatio(ratio)
+	sz := st.size().resolve(parent).applyAspectRatioToWidth(ratio)
+	minSize := st.minSize().resolve(parent).applyAspectRatioToWidth(ratio)
+	maxSize := st.maxSize().resolve(parent).applyAspectRatioToWidth(ratio)
 
 	// A definite size in one axis transfers through aspect-ratio to the
 	// other (css-sizing-4); an incoming known size is left as is.
-	derived := known.applyAspectRatio(ratio).maybeClamp(minSize, maxSize)
+	derived := known.applyAspectRatioToWidth(ratio).maybeClamp(minSize, maxSize)
 	known = optSize{known.w.or(derived.w), known.h.or(derived.h)}
 	pctBasis := known
 	if !in.knownDefinite.h {
@@ -103,7 +104,7 @@ func (e *Engine) blockInner(n Node, st *Style, in input) output {
 		outerW = fmax(fclampOpt(intrinsic, minSize.w, maxSize.w), pbSize.w)
 	}
 
-	if in.run == computeSize && known.h.ok {
+	if in.run == computeSize && known.h.ok && !in.growH {
 		return outerSize(size{outerW, known.h.v})
 	}
 	if in.run == computeSize && in.axis == axisHorizontal {
@@ -122,6 +123,11 @@ func (e *Engine) blockInner(n Node, st *Style, in input) output {
 	inflowOverflow, contentH, firstBaseline, lastBaseline, escapes := e.blockInFlow(n, in.run, items, outerW, pctHeight, rCbi, rBorder, dir, scrolls)
 
 	outerH := fmax(known.h.unwrapOr(fclampOpt(contentH, minSize.h, maxSize.h)), pbSize.h)
+	if in.growH {
+		// A height from the aspect ratio is a minimum: the content makes
+		// the block taller, up to its max height (ratioHeight).
+		outerH = fmax(outerH, fminOpt(contentH, maxSize.h))
+	}
 	final := size{outerW, outerH}
 
 	// align-content moves the in-flow children as one alignment subject
@@ -228,9 +234,9 @@ func (e *Engine) blockItems(n Node, inner optSize) []blockItem {
 			st:        cst,
 			replaced:  cst.Replaced,
 			sizeStyle: cst.size(),
-			size:      cst.size().resolve(inner).applyAspectRatio(ratio),
-			minSize:   cst.minSize().resolve(inner).applyAspectRatio(ratio),
-			maxSize:   cst.maxSize().resolve(inner).applyAspectRatio(ratio),
+			size:      cst.size().resolve(inner).applyAspectRatioToWidth(ratio),
+			minSize:   cst.minSize().resolve(inner).applyAspectRatioToWidth(ratio),
+			maxSize:   cst.maxSize().resolve(inner).applyAspectRatioToWidth(ratio),
 			padding:   padding,
 			border:    border,
 			pbSum:     padding.add(border).sum(),

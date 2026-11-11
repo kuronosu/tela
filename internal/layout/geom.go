@@ -241,6 +241,16 @@ func (s optSize) applyAspectRatio(ratio opt) optSize {
 	return s
 }
 
+// applyAspectRatioToWidth fills an unset width from a set height through
+// ratio. The other transfer, a height from a width, is ratioHeight's
+// (compute.go): the content can make such a box taller.
+func (s optSize) applyAspectRatioToWidth(ratio opt) optSize {
+	if ratio.ok && s.h.ok && !s.w.ok {
+		s.w = some(float32(s.h.v * ratio.v))
+	}
+	return s
+}
+
 // applyAspectRatioClamped is applyAspectRatio with the set axis clamped by
 // its own min and max sizes before the transfer: the ratio carries the
 // size the box takes in that axis (css-sizing-4 section 5; a column item

@@ -167,6 +167,15 @@
 //   - A percentage min main size of an indefinite basis counts as 0, not
 //     as auto (ADR-157).
 //   - Percentage margins count as zero in a block's intrinsic width.
+//   - A block, flex or grid container with an aspect ratio and a known
+//     width (from its parent or its width style) takes its height from
+//     the ratio; while its min-height is auto and it is neither a scroll
+//     container nor replaced, taller content makes it taller, up to its
+//     max height (css-sizing-4's automatic minimum size, as Chromium; a
+//     block's children resolve percentages against the ratio height, so
+//     do a flex container's items while its content is measured). Taffy
+//     fixes the ratio height of a block and ignores the ratio of a flex
+//     or grid container whose width its parent sets (ADR-268).
 //   - Absolutely positioned boxes: see Containing blocks; Taffy gives them
 //     the whole containing block as available space, has a flex variant
 //     whose auto margins ignore the insets, and treats an auto height as

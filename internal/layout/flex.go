@@ -98,19 +98,22 @@ type flexLine struct {
 
 // flexConsts are values used throughout the algorithm.
 type flexConsts struct {
-	dir                           FlexDirection
-	layoutDir                     Direction
-	isRow, isColumn               bool
-	isWrap, isWrapReverse         bool
-	minSize, maxSize              optSize
-	margin, border                rect
-	cbi                           rect  // content box inset: padding + border + scrollbar gutter
-	gutter                        point // scrollbar gutter per axis
-	scrolls                       bool
-	gap                           size
-	alignItems, alignContent      Align
-	justifyContent                Align
-	nodeOuter, nodeInner          optSize
+	dir                      FlexDirection
+	layoutDir                Direction
+	isRow, isColumn          bool
+	isWrap, isWrapReverse    bool
+	minSize, maxSize         optSize
+	margin, border           rect
+	cbi                      rect  // content box inset: padding + border + scrollbar gutter
+	gutter                   point // scrollbar gutter per axis
+	scrolls                  bool
+	gap                      size
+	alignItems, alignContent Align
+	justifyContent           Align
+	nodeOuter, nodeInner     optSize
+	// pctInner is the basis of the items' percentages: nodeInner, or the
+	// inner height from input.pctH while it is unknown.
+	pctInner                      optSize
 	knownMainDefinite             bool
 	hasDefiniteMain               bool
 	hasDefiniteCross              bool
@@ -127,11 +130,11 @@ func (e *Engine) flex(n Node, st *Style, in input) output {
 	border := st.Border.resolveOrZero(parent.w)
 	pbSum := padding.sum().add(border.sum())
 
-	minSize := st.minSize().resolve(parent).applyAspectRatio(ratio)
-	maxSize := st.maxSize().resolve(parent).applyAspectRatio(ratio)
+	minSize := st.minSize().resolve(parent).applyAspectRatioToWidth(ratio)
+	maxSize := st.maxSize().resolve(parent).applyAspectRatioToWidth(ratio)
 	var clamped optSize
 	if in.sizing == inherentSize {
-		clamped = st.size().resolve(parent).applyAspectRatio(ratio).maybeClamp(minSize, maxSize)
+		clamped = st.size().resolve(parent).applyAspectRatioToWidth(ratio).maybeClamp(minSize, maxSize)
 	}
 	minMax := optSize{minMaxDefinite(minSize.w, maxSize.w), minMaxDefinite(minSize.h, maxSize.h)}
 	styled := known.or(minMax.or(clamped).maybeMaxF(pbSum))
@@ -155,6 +158,9 @@ func (e *Engine) flex(n Node, st *Style, in input) output {
 func (e *Engine) flexPreliminary(n Node, st *Style, in input) output {
 	known := in.known
 	c := flexConstants(st, known, in.knownDefinite, in.parent, in.avail)
+	if !c.pctInner.h.ok && in.pctH.ok {
+		c.pctInner.h = some(fmax(in.pctH.v-c.cbi.vsum(), 0))
+	}
 
 	// 9.1. Initial setup: generate the flex items.
 	items := e.flexItems(n, &c)
@@ -290,8 +296,8 @@ func flexConstants(st *Style, known optSize, knownDefinite boolSize, parent optS
 		isColumn:           !dir.isRow(),
 		isWrap:             st.FlexWrap != NoWrap,
 		isWrapReverse:      st.FlexWrap == WrapReverse,
-		minSize:            st.minSize().resolve(parent).applyAspectRatio(ratio),
-		maxSize:            st.maxSize().resolve(parent).applyAspectRatio(ratio),
+		minSize:            st.minSize().resolve(parent).applyAspectRatioToWidth(ratio),
+		maxSize:            st.maxSize().resolve(parent).applyAspectRatioToWidth(ratio),
 		margin:             margin,
 		border:             border,
 		cbi:                cbi,
@@ -303,6 +309,7 @@ func flexConstants(st *Style, known optSize, knownDefinite boolSize, parent optS
 		justifyContent:     st.JustifyContent,
 		nodeOuter:          known,
 		nodeInner:          inner,
+		pctInner:           inner,
 		knownMainDefinite:  knownMainDefinite,
 		hasDefiniteMain:    knownMainDefinite && known.main(dir).ok,
 		hasDefiniteCross:   hasDefiniteCross,
@@ -335,7 +342,7 @@ func resolveSelfAlign(a Align, itemDir, containerDir Direction, axisIsInline boo
 // generate boxes, sorted by order.
 func (e *Engine) flexItems(n Node, c *flexConsts) []flexItem {
 	// Percentage sizes resolve against the inner size if it is definite.
-	pctRes := c.nodeInner
+	pctRes := c.pctInner
 	if !c.knownMainDefinite {
 		pctRes.setMain(c.dir, none)
 	}

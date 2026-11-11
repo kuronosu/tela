@@ -62,6 +62,17 @@ type input struct {
 	knownDefinite boolSize
 	parent        optSize
 	avail         availSize
+	// growH reports that known.h is a block's height from its width
+	// through its aspect ratio, which taller content exceeds: the children
+	// are laid out against it and the block grows to them (ratioHeight).
+	// Only ratioHeight sets it, from the request the cache keys, so it is
+	// not part of the key.
+	growH bool
+	// pctH is the height the items of a flex container whose height is not
+	// known resolve their percentages against: its height from the aspect
+	// ratio while ratioHeight measures its content. Only ratioHeight sets
+	// it, so it is not part of the cache key either.
+	pctH opt
 }
 
 // output is a layout result: Taffy's LayoutOutput. Sizes go up.
@@ -137,11 +148,11 @@ func (e *Engine) layout(n Node, in input) output {
 	case inlineContainer(n) != nil:
 		out = e.inline(n, inlineContainer(n), st, in)
 	case st.Display == DisplayFlex:
-		out = e.flex(n, st, in)
+		out = e.ratioHeight(n, st, in, (*Engine).flex, false)
 	case st.Display == DisplayGrid:
-		out = e.grid(n, st, in)
+		out = e.ratioHeight(n, st, in, (*Engine).grid, false)
 	default:
-		out = e.block(n, st, in)
+		out = e.ratioHeight(n, st, in, (*Engine).block, true)
 	}
 	if in.run == computeSize {
 		e.measuring--
@@ -159,6 +170,65 @@ func (e *Engine) layout(n Node, in input) output {
 		d.needLayout = false
 	}
 	return out
+}
+
+// ratioHeight runs a container algorithm (block, flex or grid) for a box
+// with an aspect ratio whose height is not known but whose width is (from
+// the parent or, when its own sizes apply, from its width style): the
+// ratio gives the height, clamped by the min and max heights
+// (css-sizing-4 section 5). While the box's min-height is auto and it is
+// neither a scroll container nor replaced (Style.ratioGrowsHeight), that
+// height is a minimum: taller content makes the box taller, up to its max
+// height, as Chromium applies the automatic minimum size of a box with a
+// preferred aspect ratio. A flex aspect-square box in a 30 px wide block
+// is 30x30 (its content height before), an aspect-square block with 60 px
+// of content 30x60 (30x30 before; ADR-268). The algorithms transfer only
+// heights into widths themselves.
+//
+// A block (selfGrows) lays its children out against the ratio height and
+// grows to them (input.growH), so their percentages resolve against it as
+// in Chromium. A flex or grid container measures its content height first
+// with an indefinite height (Chromium's intrinsic block size), then is laid
+// out at the larger height; in that measurement a flex container's items
+// resolve percentages against the ratio height (input.pctH) and a grid's
+// count them as auto, as Chromium does.
+func (e *Engine) ratioHeight(n Node, st *Style, in input, algo func(*Engine, Node, *Style, input) output, selfGrows bool) output {
+	ratio := st.aspectRatio()
+	if !ratio.ok || in.known.h.ok {
+		return algo(e, n, st, in)
+	}
+	own := in.sizing == inherentSize
+	w, wDefinite := in.known.w, in.knownDefinite.w
+	var minH, maxH opt
+	if own {
+		// A height style of its own (or a sizing keyword) is the
+		// algorithm's.
+		if h := st.Height; !h.isAuto() && (h.resolveSize(in.parent.h).ok || h.isSizingKeyword()) {
+			return algo(e, n, st, in)
+		}
+		if !w.ok {
+			w = st.Width.resolveSize(in.parent.w).maybeClamp(st.MinWidth.resolveSize(in.parent.w), st.MaxWidth.resolveSize(in.parent.w))
+			wDefinite = true
+		}
+		minH, maxH = st.MinHeight.resolveSize(in.parent.h), st.MaxHeight.resolveSize(in.parent.h)
+	}
+	if !w.ok {
+		return algo(e, n, st, in)
+	}
+	h := fclampOpt(w.v/ratio.v, minH, maxH)
+	grows := st.ratioGrowsHeight()
+	if grows && selfGrows {
+		in.growH = true
+	} else if grows && !(in.run == computeSize && in.axis == axisHorizontal) {
+		// perf: an extra size query of the box, uncached.
+		probe := in
+		probe.run, probe.axis, probe.pctH = computeSize, axisVertical, some(h)
+		content := algo(e, n, st, probe).size.h
+		h = fmax(h, fminOpt(content, maxH))
+	}
+	in.known.h = some(h)
+	in.knownDefinite.h = wDefinite
+	return algo(e, n, st, in)
 }
 
 // child lays out child c of parent p, recording p as its parent.
@@ -243,9 +313,9 @@ func (e *Engine) computeRoot(root Node, avail availSize) {
 		ratio := st.aspectRatio()
 		margin := st.Margin.resolveOrZero(parent.w)
 		pb := st.Padding.resolveOrZero(parent.w).add(st.Border.resolveOrZero(parent.w)).sum()
-		minSize := st.minSize().resolve(parent).applyAspectRatio(ratio)
-		maxSize := st.maxSize().resolve(parent).applyAspectRatio(ratio)
-		clamped := st.size().resolve(parent).applyAspectRatio(ratio).maybeClamp(minSize, maxSize)
+		minSize := st.minSize().resolve(parent).applyAspectRatioToWidth(ratio)
+		maxSize := st.maxSize().resolve(parent).applyAspectRatioToWidth(ratio)
+		clamped := st.size().resolve(parent).applyAspectRatioToWidth(ratio).maybeClamp(minSize, maxSize)
 		minMax := optSize{minMaxDefinite(minSize.w, maxSize.w), minMaxDefinite(minSize.h, maxSize.h)}
 		stretch := optSize{w: avail.w.opt().subF(margin.hsum())}
 		known = known.or(minMax).or(clamped).or(stretch).maybeMaxF(pb)
