@@ -2,6 +2,7 @@ package main
 
 import (
 	"image"
+	"runtime"
 	"testing"
 
 	"github.com/kuronosu/tela"
@@ -163,6 +164,12 @@ func TestDateRangePickerReadingOrder(t *testing.T) {
 // dark, mirrored. TELA_UPDATE=1 writes the pictures, which must be looked
 // at before they are committed.
 func TestGoldenPlayground(t *testing.T) {
+	// The demo window's kit.TitleBar has the Default variant, the host's
+	// look (Windows' and macOS' arrangements elsewhere), and the pictures
+	// are Linux's.
+	if runtime.GOOS != "linux" {
+		t.Skip("the title bar follows the host's look; the goldens are Linux's")
+	}
 	_, w := openPlayground(t, "Menubar", "en", "Open a frameless window")
 	w.Press("F10")
 	w.Press("ArrowDown")
