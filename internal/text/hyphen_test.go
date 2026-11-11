@@ -224,6 +224,55 @@ func TestSoftHyphenLayout(t *testing.T) {
 	}
 }
 
+// TestHyphenationEdges breaks paragraphs with soft hyphens and hyphens:
+// auto at many widths, with every wrap style, alignment and white-space
+// mode: the lines cover the text in order, painting works, and a
+// hyphenated line ends where a hyphen may be.
+func TestHyphenationEdges(t *testing.T) {
+	coll := hyphenCollection(t)
+	texts := []string{
+		"",
+		"\u00ad",
+		"a\u00ad\u00adb\u00ad",
+		"internationalization",
+		"Ex\u00adtra\u00ador\u00addi\u00adnary inter\u00adna\u00adtion\u00adal\u00adiza\u00adtion, “hyphenation.”",
+		"The typographical considerations\tof extraordinary\nhyphenation 😀 العربية\u00adهي لغة 日本語の文章 internationalization",
+		strings.Repeat("hyphenation", 7) + " " + strings.Repeat("a", 70),
+	}
+	for _, s := range texts {
+		for _, para := range []ParagraphStyle{
+			{}, {Align: AlignJustify}, {WrapStyle: TextWrapBalance}, {WrapStyle: TextWrapPretty},
+			{Direction: DirectionRTL, Align: AlignCenter}, {WhiteSpace: WhiteSpacePreWrap},
+			{OverflowWrap: OverflowWrapBreakWord}, {OverflowWrap: OverflowWrapAnywhere}, {LineClamp: 2},
+			{TextOverflow: TextOverflowEllipsis, WhiteSpace: WhiteSpaceNowrap},
+		} {
+			p := &Paragraph{Style: para, Default: hyText(HyphensAuto, "en")}
+			p.AddText(s, hyText(HyphensAuto, "en"))
+			p.AddBox(InlineBox{Width: 12, Height: 12})
+			p.AddText(" tail\u00adword", hyText(HyphensManual, "en", func(st *TextStyle) { st.LetterSpacing = 2 }))
+			l := NewLayout(coll, p)
+			_ = l.MinContentWidth()
+			for w := float32(0); w <= 320; w += 9 {
+				l.BreakLines(w)
+				next := 0
+				for i := range l.NumLines() {
+					ln := l.Line(i)
+					if ln.ClusterStart != next {
+						t.Fatalf("%q at %g: line %d starts at cluster %d, want %d", s, w, i, ln.ClusterStart, next)
+					}
+					next = ln.ClusterEnd
+					if ln.Hyphen && (ln.Ellipsis || ln.ClusterEnd <= ln.ClusterStart) {
+						t.Fatalf("%q at %g: line %d has a hyphen and an ellipsis or no content", s, w, i)
+					}
+				}
+				b := gfx.NewBuilder()
+				l.PaintScaled(b, gfx.Pt(0, 0), 2)
+				b.Finish()
+			}
+		}
+	}
+}
+
 func countGlyphs(dl *gfx.DisplayList) int {
 	n := 0
 	for i := range dl.Len() {
