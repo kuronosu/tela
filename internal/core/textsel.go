@@ -822,7 +822,8 @@ func canStartSel(el *Element) (ok, link bool) {
 }
 
 // selPress handles a primary press of ps on target that may select (see
-// "The pointer"), after the focus moved; st is its pointerdown's state.
+// "The pointer"), after the focus moved (ps.noSelect holds what its
+// pointerdown handlers said).
 func (t *Tree) selPress(ps *pointerState, target *Element) {
 	s := &t.tsel
 	s.drag, s.inSel = nil, nil
