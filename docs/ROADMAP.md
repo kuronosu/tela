@@ -10,29 +10,15 @@
 
 ## Current status
 
-- **Done:** phases 1–22. Latest version `v0.14.2` (2026-11-09, phase 22: desktop, kit and text details). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch; the owner may release a small break, such as a rename, as a patch.
-- **Phase in progress:** 23, Layout, text and engine fidelity, on `phase-23-layout-text-engine-fidelity`. Owner's answers (2026-11-11): static text is selectable by default as on the web (`user-select: auto`; controls and kit chrome `select-none` where Chromium starts no selection), a selection crosses paragraphs inside one container; soft hyphens always and `hyphens-auto` through opt-in language packages, like fonts; `h.Lang` (HTML's `lang`, inherited), set by `i18n`'s provider from the active locale, the system's language otherwise; the work branch may be pushed for CI (ADR-220).
+- **Done:** phases 1–23. Latest version `v0.14.3` (2026-11-11, phase 23: layout, text and engine fidelity). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch; the owner may release a small break, such as a rename, as a patch.
+- **Phase in progress:** none. Phase 23 is on `phase-23-layout-text-engine-fidelity`, to be merged into `main` locally; the owner pushes `main` and the tag.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** phase 23's tasks are merged (ADR-268 to ADR-273); the full suite, the race detector, a review over the phase and CI on the work branch remain before closing it. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** the next phase in order, CPU performance. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` takes about 15 minutes in one process (2026-11-09; run it with `-timeout 30m`, or shard it), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
 
-In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–22 are done (HISTORY.md).
-
-### Phase 23: Layout, text and engine fidelity
-
-Differences from Chromium and missing typography; each fix comes with a fixture or golden.
-
-- [x] Layout: two `w-full aspect-square max-h-[20px]` flex items are clamped by the transferred max (Chromium 140×20, Tela 20×20); a ratio item with an auto or keyword width in a column of indefinite width is 5×5 where Chromium gives 30×30; grid items' percentage min sizes keep the old rule; `grid-template-areas` is unreachable from classes; an out-of-flow box with auto insets inside a paragraph sits below the paragraph (Chromium: at its place on the line); an absolute child of a `relative` inline span is placed against the nearest positioned block
-- [x] System CJK fallback on the Windows 11 VM: a Japanese and Chinese paragraph draws in two families, "Noto Sans JP Thin" (a static Thin family the user installed, taken at weight 400) and Microsoft YaHei; `TestSystemFontsLive` with `TELA_SYSTEM_FONTS=1` fails there, on `main` too. Rank a family's weight distance and keep one family per script (checked on the VM on 2026-11-11: the paragraph draws in Microsoft YaHei alone, nothing in Noto Sans JP Thin)
-- [x] A growing textarea (`field-sizing-content`) with long text can widen its grid column past the card unless the column has `min-w-0`; check against Chromium first (Chromium lets it shrink; found while merging signup into login)
-- [x] Text: selectable static text (`P`, `Span`; today only `Input` and `Textarea`), and a keyboard context menu over a selection in it opens at the selection; at x1.5 a baseline on an exact half device pixel can be drawn one row higher; hyphenation, skip-ink, synthetic bold and italic; CJK glyph forms follow the language; a test for a style run that starts inside a grapheme cluster (the itemizer then segments the run alone); a Textarea's placeholder is not checked against Chromium (only the Input's rule was measured, ADR-265)
-- [x] Paint: border widths snap to device pixels at x1.5, as in Chromium
-- [x] Engine: `ScrollOffset` read in the layout effect that scrolled returns the new offset (ADR-176); a box shown again that flips in the same frame restarts its entrance; drag-and-drop autoscroll covers text fields only (Chromium also scrolls scroll containers under a drag); a rotated field's drag image is drawn upright
-- [x] Re-measure the scale-2 tolerances that about 12 Chromium comparison tests in `internal/core` and `internal/text` justify with ADR-048: ADR-159 superseded it (line boxes in device pixels, as Blink), so they may be looser than needed
-
-**Done when:** every case above has a fixture or golden that matches Chromium up to text antialiasing, and static text can be selected and copied.
+In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–23 are done (HISTORY.md).
 
 ### CPU performance
 

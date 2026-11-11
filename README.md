@@ -27,7 +27,7 @@ text tree you can read. That last part is on purpose: Tela is designed so both
 people and LLM agents can build good-looking interfaces without trial and
 error.
 
-> **Status: pre-1.0 (v0.14.2).** Phases 1–22 are done and tagged: Linux
+> **Status: pre-1.0 (v0.14.3).** Phases 1–23 are done and tagged: Linux
 > (Wayland, X11), Windows and macOS windows, text inputs and IME, CSS grid,
 > transitions and animations, glass effects, theme tokens, i18n, SVG icons,
 > `aria` behavior hooks, `tela dev` (a reload that keeps your state) and
@@ -369,7 +369,7 @@ from it) and the common mistakes, with every code block checked against the curr
 
 ## Project status
 
-**Current version: [v0.14.1](CHANGELOG.md)**, tagged 2026-11-09. Phases 1–21
+**Current version: [v0.14.3](CHANGELOG.md)**, tagged 2026-11-11. Phases 1–23
 are done (ADR-208 sets how versions are numbered).
 
 | Phase | Name | State |
@@ -396,7 +396,8 @@ are done (ADR-208 sets how versions are numbered).
 | 20 | API and kit gaps: submenus, transparent windows, `kit.Alert`, loading buttons, input icons, avatar groups, translated built-in labels, close requests in the tree, text drops | ✅ v0.14.0 |
 | 21 | Kit and window follow-ups: resize handles for frameless windows, F10 for drawn menu bars, a button inside an input, animation longhands, the gallery in Spanish and Arabic, text drags, kqueue on macOS | ✅ v0.14.1 |
 | 22 | Desktop, kit and text details: access keys in drawn menus, Linux backdrops, currency, compact and scientific numbers, drag autoscroll in fields, atomic store writes | ✅ v0.14.2 |
-| — | Accessibility gaps, layout and text fidelity, CPU performance, GPU backend, packaging and auto-update, DevTools, dev loop and testing, canvas, SVG and PDF, audio and video | planned |
+| 23 | Layout, text and engine fidelity: selectable static text, `h.Lang` and CJK forms by language, hyphenation, synthetic bold and italic, skip-ink, borders on device pixels, `aspect-*` and grid areas as in Chromium, drag autoscroll of scroll containers | ✅ v0.14.3 |
+| — | CPU performance, accessibility gaps, GPU backend, packaging and auto-update, DevTools, dev loop and testing, canvas, SVG and PDF, audio and video | planned |
 
 ### What works today
 

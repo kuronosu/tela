@@ -13,7 +13,9 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
-Phase 23, Layout, text and engine fidelity (ADR-268 to ADR-273).
+## [0.14.3] - 2026-11-11
+
+Phase 23, Layout, text and engine fidelity (ADR-268 to ADR-273). It breaks no public API, but static text is now selectable by default, `cursor: auto` and links show the cursors browsers do, borders snap to device pixels at fractional scales and a soft hyphen shows its hyphen.
 
 ### Added
 
@@ -1112,7 +1114,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.2...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.3...HEAD
+[0.14.3]: https://github.com/kuronosu/tela/compare/v0.14.2...v0.14.3
 [0.14.2]: https://github.com/kuronosu/tela/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/kuronosu/tela/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/kuronosu/tela/compare/v0.13.7...v0.14.0
