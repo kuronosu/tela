@@ -34,6 +34,14 @@ type Instance struct {
 	// Variations are explicit axis values (CSS font-variation-settings),
 	// applied last.
 	Variations []font.Variation
+	// SyntheticBold emboldens the outlines by a stroke of this width in
+	// em (synth.go; Collection sets it when a bold request finds a face
+	// lighter than 600); zero leaves them.
+	SyntheticBold float32
+	// SyntheticOblique slants the outlines by a quarter of their height
+	// (synth.go; Collection sets it when an italic request finds an
+	// upright face).
+	SyntheticOblique bool
 }
 
 // Face is an instance of a Typeface at fixed variation coordinates. It
@@ -59,6 +67,13 @@ type Face struct {
 	shapingOnce sync.Once
 	shaping     *font.Face
 	hb          *harfbuzz.Font // HarfBuzz font for layout; guarded by shapeMu
+
+	// A synthetic face (synth.go) draws the glyphs of base emboldened by
+	// a stroke of width bold (em) and slanted when oblique; it shapes and
+	// measures as base. base is nil for a face of the font itself.
+	base    *Face
+	bold    float32
+	oblique bool
 }
 
 // glyphEntry is the cached, immutable data of one glyph.
@@ -69,8 +84,17 @@ type glyphEntry struct {
 }
 
 // Face returns the instance of tf selected by inst. The same coordinates
-// always return the same Face.
+// (and synthesis) always return the same Face. A color font is never
+// synthesized: SyntheticBold and SyntheticOblique are ignored for it.
 func (tf *Typeface) Face(inst Instance) *Face {
+	bold, oblique := inst.SyntheticBold, inst.SyntheticOblique
+	if !(bold > 0) || math.IsInf(float64(bold), 0) {
+		bold = 0
+	}
+	if (bold > 0 || oblique) && !tf.IsColor() {
+		inst.SyntheticBold, inst.SyntheticOblique = 0, false
+		return tf.syntheticFace(tf.Face(inst), bold, oblique)
+	}
 	coords, design := tf.coordsFor(inst)
 	key := coordsKey(coords)
 	tf.facesMu.Lock()
@@ -93,6 +117,42 @@ func (tf *Typeface) Face(inst Instance) *Face {
 	tf.faces[key] = f
 	return f
 }
+
+// syntheticFace returns the interned synthetic face of base (synth.go).
+func (tf *Typeface) syntheticFace(base *Face, bold float32, oblique bool) *Face {
+	key := coordsKey(base.coords) + "\x00" + string(binary.LittleEndian.AppendUint32(nil, math.Float32bits(bold)))
+	name := base.name
+	if bold > 0 {
+		name += " (synthetic bold)"
+	}
+	if oblique {
+		key += "o"
+		name += " (synthetic oblique)"
+	}
+	tf.facesMu.Lock()
+	defer tf.facesMu.Unlock()
+	if f := tf.faces[key]; f != nil {
+		return f
+	}
+	f := &Face{
+		tf:      tf,
+		coords:  base.coords,
+		key:     gfx.NewFontKey(),
+		name:    name,
+		upem:    base.upem,
+		metrics: base.metrics,
+		glyphs:  newGlyphSlots[glyphEntry](tf.nGlyphs),
+		base:    base,
+		bold:    bold,
+		oblique: oblique,
+	}
+	tf.faces[key] = f
+	return f
+}
+
+// Synthetic returns the stroke width in em of the face's synthetic bold
+// (0 for none) and whether it is a synthetic oblique (synth.go).
+func (f *Face) Synthetic() (bold float32, oblique bool) { return f.bold, f.oblique }
 
 // coordsFor returns the normalized coordinates of inst, or nil for the
 // default instance, and the design coordinates.
@@ -206,6 +266,9 @@ func (f *Face) Advance(g gfx.GlyphID) float32 { return f.entry(g).advance }
 // their use of it (text layout runs on the UI thread). Raster workers never
 // touch it.
 func (f *Face) ShapingFace() *font.Face {
+	if f.base != nil {
+		return f.base.ShapingFace() // a synthetic face shapes as its base
+	}
 	f.shapingOnce.Do(func() {
 		f.shaping = font.NewFace(f.tf.ft)
 		if f.coords != nil {
@@ -279,6 +342,16 @@ func (f *Face) entry(g gfx.GlyphID) *glyphEntry {
 }
 
 func (f *Face) loadGlyph(gid tables.GlyphID) *glyphEntry {
+	if b := f.base; b != nil {
+		// A synthetic face: the base outline emboldened or slanted, the
+		// same advance (synth.go).
+		be := b.entry(gfx.GlyphID(gid))
+		e := &glyphEntry{path: syntheticPath(be.path, f.bold, f.oblique), advance: be.advance}
+		if !e.path.IsEmpty() {
+			e.bounds = e.path.ControlBounds()
+		}
+		return e
+	}
 	e := &glyphEntry{}
 	tf := f.tf
 	if tf.glyf != nil {

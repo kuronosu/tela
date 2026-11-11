@@ -28,6 +28,9 @@ var shapeCalls atomic.Int64
 // works in font units (the scale is left at units per em), so positions
 // are integers that layout scales to the font size. shapeMu must be held.
 func (f *Face) hbFont() *harfbuzz.Font {
+	if f.base != nil {
+		return f.base.hbFont()
+	}
 	if f.hb == nil {
 		f.hb = harfbuzz.NewFont(f.ShapingFace())
 	}

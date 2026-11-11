@@ -3222,7 +3222,7 @@ A font is used by the CSS font-family names: its own family name ("font-\['Lora'
 func FontData(family string, files ...[]byte) Font
 ```
 
-FontData returns the font of files already in memory, usually embedded with //go:embed. Give the files of one family: an upright file and an italic one, or one variable font. family is the name the font is used by (font-\['Lora'\]); "" takes the family name the first file declares.
+FontData returns the font of files already in memory, usually embedded with //go:embed. Give the files of one family: an upright file and an italic one, or one variable font. family is the name the font is used by (font-\['Lora'\]); "" takes the family name the first file declares. A weight of 600 or more that no file reaches is drawn emboldened, and italic without an italic file slanted, as browsers synthesize them.
 
 A mistake (no files, an empty file) makes [`Run`](#func-run) return an error before the window opens; a file that is not a font is logged when text first needs the family, and the font is left out.
 

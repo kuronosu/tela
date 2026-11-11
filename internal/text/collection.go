@@ -79,9 +79,9 @@ func (q Query) stretch() float32 {
 // typefaces.
 //
 // No system fonts are used unless EnableSystemFonts is called (or the
-// collection comes from NewSystemCollection); synthetic bold and oblique
-// are not implemented: a request for a weight or style that no face covers
-// gets the closest face as CSS matching defines it, unchanged. A
+// collection comes from NewSystemCollection). A request for a weight or
+// style that no face covers gets the closest face as CSS matching defines
+// it, emboldened or slanted as Chromium synthesizes them (synth.go). A
 // collection with no font at all (none registered, none installed) lays
 // text out with fallback metrics and no glyphs (SetNoFontHandler).
 type Collection struct {
@@ -467,6 +467,9 @@ func instance(tf *Typeface, q Query, size float32) *Face {
 			inst.Oblique = true
 		}
 	}
+	// The weight or slope the face lacks is synthesized (synth.go), with
+	// the rounded size of the optical size.
+	inst.SyntheticBold, inst.SyntheticOblique = synthesis(tf, q, inst, inst.OpticalSize)
 	return tf.Face(inst)
 }
 

@@ -69,9 +69,11 @@
 // color fonts. Spaces resolve like any other character (a space between
 // Arabic words takes the first requested family that has it, as in
 // browsers); controls, line and paragraph separators and default
-// ignorables keep the face before them. There is no synthetic bold or
-// oblique: a request no face covers gets the closest face as CSS matching
-// defines it.
+// ignorables keep the face before them. A request no face covers gets the
+// closest face as CSS matching defines it, synthesized as Chromium does
+// (synth.go, ADR-269): emboldened when the request is 600 or more and the
+// face is lighter than 600, slanted by a quarter of the height when
+// italic is requested and the face is upright; advances do not change.
 //
 // A collection without any font (nothing registered, nothing installed: a
 // minimal container) is not an error: Face returns nil, Itemize gives runs
@@ -394,8 +396,11 @@
 // except 7 cases of 1170 where Blink's float32 line-height arithmetic
 // truncates 4/3 of a 30 or 60 px device font below a whole pixel and its
 // baseline is one device pixel higher.
+// TestChromiumSynthetic compares synthetic bold and oblique (a font with
+// one Regular face, in four styles at 14, 24 and 40 px): the ink of every
+// cell is within 2.2% of Chromium's, as close as the face drawn as it is.
 // Not implemented: hyphenation, text-decoration-skip-ink, vertical-align on
-// spans, synthetic bold and oblique, reshaping across emergency breaks
+// spans, reshaping across emergency breaks
 // (an Arabic word broken by overflow-wrap keeps its joining forms).
 //
 // Determinism: positions come from integers (font units) and px values
