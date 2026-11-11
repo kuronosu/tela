@@ -10,6 +10,7 @@ import (
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
 	"github.com/kuronosu/tela/internal/testutil/golden"
+	"github.com/kuronosu/tela/internal/text"
 )
 
 func TestTextSelDragAndDrop(t *testing.T) {
@@ -370,6 +371,52 @@ func TestTextSelPositionedInline(t *testing.T) {
 	_, base := frag("s")
 	if got := img.RGBAAt(int(pl.X), int(base+2)); got != want {
 		t.Errorf("under the plain text: %v, want the highlight %v", got, want)
+	}
+}
+
+// Document order (cmpPos) agrees with the order the range walk visits the
+// text in, atomic inlines at their slots: positions taken in walk order
+// compare in that order, for every pair. (The children of a paragraph box
+// are its atomic inlines, so cmpPos never compares an atom with another
+// kind of child of a paragraph.)
+func TestTextSelOrderMatchesWalk(t *testing.T) {
+	root := div(Class("p-4 w-96"),
+		p(Key("a"), Text("one "), span(Class("inline-block"), Text("two")), Text(" three "),
+			span(Class("inline-block"), Text("four "), span(Class("inline-block"), Text("five")), Text(" six")),
+			Text(" seven "), em(Text("eight "), span(Class("inline-block"), Text("nine"))), Text(" ten")),
+		div(Text("eleven "), span(Class("inline-flex"), span(Text("twelve")), span(Text("thirteen"))), Text(" fourteen"),
+			div(Text("fifteen")), Text("sixteen "), span(Class("inline-block"), p(Text("seventeen")), p(Text("eighteen"))),
+			span(Class("absolute"), Text("nineteen")), Text(" twenty")),
+		p(Text("a "), span(Class("relative"), Text("rel "), span(Class("absolute"), Text("abs"))), Text(" b")),
+		p(Dir("rtl"), Text("שלום "), span(Class("inline-block"), Text("עולם")), Text(" טוב")),
+		p(Class("truncate w-24"), Text("a long line "), span(Class("inline-block"), Text("hidden")), Text(" by the ellipsis")),
+		p(Text("x "), button(Text("btn")), Text(" y")))
+	x := newKeys(t, root, 400, 400)
+	tr := x.tree()
+	var pos []selPos
+	w := rangeWalk{start: selPos{}, end: selPos{}}
+	w.state = 1
+	w.emit = func(bx *Box, a, b text.Cursor, _ int) bool {
+		pos = append(pos, selPos{bx, a})
+		if b != a {
+			pos = append(pos, selPos{bx, b})
+		}
+		return true
+	}
+	w.walk(tr.rootBox, false)
+	if len(pos) < 20 {
+		t.Fatalf("the walk gave %d positions", len(pos))
+	}
+	for i := range pos {
+		for j := i + 1; j < len(pos); j++ {
+			if pos[i] == pos[j] {
+				continue
+			}
+			if c := tr.cmpPos(pos[i], pos[j]); c > 0 {
+				t.Errorf("cmpPos(%q@%v, %q@%v) = %d, but the walk visits the first one first",
+					pos[i].bx.para.lay.Text(), pos[i].cur, pos[j].bx.para.lay.Text(), pos[j].cur, c)
+			}
+		}
 	}
 }
 
