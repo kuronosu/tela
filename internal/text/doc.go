@@ -354,11 +354,13 @@
 // and the decorations as rectangles (underline and overline below the
 // glyphs, line-through above; positions and auto thicknesses from the
 // style's first available font, so a decoration does not step between
-// fallback fonts). PaintScaled and PaintLine snap underlines to the
-// device pixels of a display scale as Blink does (a tenth of the font
-// size, floored to whole device pixels, below the baseline by half of
-// it). Inline boxes are not painted; BoxRect places them. Neither are
-// inlines; InlineFragments reports their fragments.
+// fallback fonts). PaintScaled and PaintLine snap underlines and overlines
+// to the device pixels of a display scale as Blink does (a tenth of the
+// font size, floored to whole device pixels, below the baseline by half of
+// it, or ending at the top of the ascent), and underlines and overlines
+// skip the glyphs' ink as Chromium's default text-decoration-skip-ink:
+// auto does (skipink.go). Inline boxes are not painted; BoxRect places
+// them. Neither are inlines; InlineFragments reports their fragments.
 //
 // The read-only view (query.go) exposes lines, the runs of a line in
 // visual order and clusters (source byte range, glyph range, x, advance,
@@ -390,7 +392,7 @@
 // except 7 cases of 1170 where Blink's float32 line-height arithmetic
 // truncates 4/3 of a 30 or 60 px device font below a whole pixel and its
 // baseline is one device pixel higher.
-// Not implemented: hyphenation, text-decoration-skip-ink, vertical-align on
+// Not implemented: hyphenation, vertical-align on
 // spans, synthetic bold and oblique, reshaping across emergency breaks
 // (an Arabic word broken by overflow-wrap keeps its joining forms).
 //

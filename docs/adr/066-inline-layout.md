@@ -1,7 +1,7 @@
 # ADR-066: Inline layout
 
 - **Date:** 2026-10-13
-- **Status:** Accepted
+- **Status:** Accepted. Amended by ADR-273 (underlines and overlines skip ink; overlines snapped).
 
 ## Decision
 

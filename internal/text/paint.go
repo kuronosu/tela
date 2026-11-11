@@ -166,6 +166,23 @@ func snappedUnderline(s *TextStyle, size, y, scale float32) (top, thick float32)
 	return float32((base+gap)/float64(scale)) - y, float32(th / float64(scale))
 }
 
+// snappedOverline returns the top (relative to the baseline at y, in
+// absolute logical px) and the thickness of an overline of style s, whose
+// font has the quantized ascent asc, for a display scale, as Blink draws
+// it (measured in Chromium 155, TestChromiumSkipInk): the underline's
+// thickness (snappedUnderline), the line ending at the top of the ascent,
+// in device pixels.
+func snappedOverline(s *TextStyle, size, asc, y, scale float32) (top, thick float32) {
+	t := s.Decoration.Thickness
+	if !(t > 0) || !finite32(t) {
+		t = max(1, size/10)
+	}
+	th := max(1, math.Floor(float64(t)*float64(scale)))
+	base := gfx.RoundDevice(float64(y) * float64(scale))
+	bottom := base - math.Round(float64(asc)*float64(scale))
+	return float32((bottom-th)/float64(scale)) - y, float32(th / float64(scale))
+}
+
 // samePaint reports whether two paints are certainly equal (solid colors
 // are compared, gradients only by style).
 func samePaint(a, b gfx.Paint) bool {
@@ -247,6 +264,7 @@ func (l *Layout) paintGlyphs(b *gfx.Builder, origin gfx.Point, li int, gs []gfx.
 
 // paintDecorations draws the decoration lines in mask of line li; at a
 // display scale (not 0), underlines are snapped to its device pixels.
+// Underlines and overlines skip the glyphs' ink (skipink.go).
 func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask Decoration, scale float32, over paintOver) {
 	ln := &l.lines[li]
 	by := origin.Y + ln.baseline
@@ -254,13 +272,22 @@ func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask
 		x0, x1, y, h float32
 		paint        gfx.Paint
 		style        uint16
+		gaps         []span32 // skip-ink gaps, relative to origin.X
 	}
 	var cur [3]seg // underline, overline, line-through
 	var open [3]bool
+	var spare [2][]span32 // the gap buffers, reused by the segments
 	emit := func(k int) {
 		if open[k] && cur[k].x1 > cur[k].x0 && cur[k].h > 0 {
 			s := cur[k]
-			b.FillRect(gfx.Rect{X0: origin.X + s.x0, Y0: by + s.y, X1: origin.X + s.x1, Y1: by + s.y + s.h}, s.paint)
+			if len(s.gaps) > 0 {
+				fillSkipping(b, origin, s.x0, s.x1, by+s.y, by+s.y+s.h, s.gaps, scale, s.paint)
+			} else {
+				b.FillRect(gfx.Rect{X0: origin.X + s.x0, Y0: by + s.y, X1: origin.X + s.x1, Y1: by + s.y + s.h}, s.paint)
+			}
+		}
+		if k < 2 {
+			spare[k] = cur[k].gaps[:0]
 		}
 		open[k] = false
 	}
@@ -294,6 +321,9 @@ func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask
 					}
 				case DecorationOverline:
 					y, h = si.overline, si.underlineThick
+					if scale > 0 {
+						y, h = snappedOverline(st, si.size, si.ascent, by, scale)
+					}
 				default:
 					y, h = si.strike, si.strikeThick
 				}
@@ -301,11 +331,18 @@ func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask
 				if open[kind] && s.y == y && s.h == h && (s.style == cl.style || samePaint(s.paint, dp)) &&
 					absf(s.x1-x0) < 0.01 {
 					s.x1 = x1
-					continue
+				} else {
+					emit(kind)
+					var gaps []span32
+					if kind < 2 {
+						gaps = spare[kind]
+					}
+					cur[kind] = seg{x0, x1, y, h, dp, cl.style, gaps}
+					open[kind] = true
 				}
-				emit(kind)
-				cur[kind] = seg{x0, x1, y, h, dp, cl.style}
-				open[kind] = true
+				if kind < 2 { // skip-ink: not line-throughs
+					s.gaps = l.inkGaps(s.gaps, c, by, y, scale)
+				}
 			}
 		}
 		if it.level%2 == 0 {
