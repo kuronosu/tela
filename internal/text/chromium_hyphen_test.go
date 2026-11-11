@@ -173,6 +173,13 @@ var chromiumHyphenCases = []chromiumHyphenCase{
 		{text: "Ex\u00adtra\u00ador\u00addi\u00ad", style: hyStyle(16, HyphensNone, "")}, hyAnchor,
 		{text: "nary in\u00adter\u00adna\u00adtion\u00adal\u00adiza\u00adtion", style: hyStyle(16, HyphensNone, "")},
 	}},
+	// Balance and pretty hyphenate the paragraph's last word, which the
+	// greedy lines leave whole unless it starts its line: Blink's score
+	// line breaker has no last-word rule.
+	{name: "auto-balance-last-word", width: 95, para: ParagraphStyle{WrapStyle: TextWrapBalance}, base: hyStyle(16, HyphensAuto, "en"),
+		spans: one1("Good typography makes reading easy for internationalization", hyStyle(16, HyphensAuto, "en"))},
+	{name: "auto-pretty-last-word", width: 125, para: ParagraphStyle{WrapStyle: TextWrapPretty}, base: hyStyle(16, HyphensAuto, "en"),
+		spans: one1("Good typography makes reading easy for internationalization", hyStyle(16, HyphensAuto, "en"))},
 }
 
 // hyAnchor is an out-of-flow box of the hyphenation cases: an anchor, an

@@ -378,7 +378,10 @@ func (l *Layout) wrapCandidates(la, lb int) []wrapCand {
 	// points adds the hyphenation points of the word [ws, end) (hyphens:
 	// auto; Blink's LineBreaker::AppendCandidates), each a candidate whose
 	// line ends with a hyphen. White space and placeholders at its ends
-	// are not part of it (hyphenWord).
+	// are not part of it (hyphenWord). Unlike the greedy breaker
+	// (lastWord, Blink's ShouldHyphenate), AppendCandidates hyphenates the
+	// paragraph's last word too, and Chromium's balanced and pretty lines
+	// break it (TestChromiumHyphens, auto-balance-last-word).
 	points := func(ws, end int32) {
 		we := end
 		for we > ws && outsideWord(cl[we-1].flags) {
