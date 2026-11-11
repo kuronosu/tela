@@ -236,27 +236,35 @@ func TestSystemLocale(t *testing.T) {
 			update(func(*state) error { return nil })
 		}
 	}
+	// lang is the language i18n gives the text that has no h.Lang
+	// (tela.DefaultLang; "" in tests when i18n leaves Tela's default, the
+	// system's language): the fallback catalog's, which the app chose, but
+	// neither the system's locale nor i18n's own "en", so that the text
+	// of tests does not depend on the environment.
 	tests := []struct {
 		name string
 		env  map[string]string
 		os   string
 		cats bool
 		want string
+		lang string
 	}{
-		{"LANG covered by language", map[string]string{"LANG": "es_MX.UTF-8"}, "", true, "es-MX"},
-		{"LANG exact", map[string]string{"LANG": "es_ES.UTF-8@euro"}, "", true, "es-ES"},
-		{"LC_ALL wins", map[string]string{"LC_ALL": "en_GB.UTF-8", "LANG": "es_ES.UTF-8"}, "", true, "en-GB"},
-		{"LC_MESSAGES over LANG", map[string]string{"LC_MESSAGES": "es", "LANG": "en_US.UTF-8"}, "", true, "es"},
-		{"not covered: fallback", map[string]string{"LANG": "fr_FR.UTF-8"}, "", true, "en"},
-		{"C: fallback", map[string]string{"LANG": "C"}, "", true, "en"},
-		{"POSIX: fallback", map[string]string{"LC_ALL": "POSIX", "LANG": "es"}, "", true, "en"},
-		{"unset: fallback", nil, "", true, "en"},
-		{"no catalogs: system", map[string]string{"LANG": "fr_FR.UTF-8"}, "", false, "fr-FR"},
-		{"no catalogs, no system", nil, "", false, "en"},
-		{"OS locale (Windows)", nil, "es-MX", true, "es-MX"},
-		{"OS locale not covered", map[string]string{"LANG": "es"}, "ja-JP", true, "en"},
-		{"garbage", map[string]string{"LANG": "!!!"}, "", true, "en"},
+		{"LANG covered by language", map[string]string{"LANG": "es_MX.UTF-8"}, "", true, "es-MX", ""},
+		{"LANG exact", map[string]string{"LANG": "es_ES.UTF-8@euro"}, "", true, "es-ES", ""},
+		{"LC_ALL wins", map[string]string{"LC_ALL": "en_GB.UTF-8", "LANG": "es_ES.UTF-8"}, "", true, "en-GB", ""},
+		{"LC_MESSAGES over LANG", map[string]string{"LC_MESSAGES": "es", "LANG": "en_US.UTF-8"}, "", true, "es", ""},
+		{"not covered: fallback", map[string]string{"LANG": "fr_FR.UTF-8"}, "", true, "en", "en"},
+		{"C: fallback", map[string]string{"LANG": "C"}, "", true, "en", "en"},
+		{"POSIX: fallback", map[string]string{"LC_ALL": "POSIX", "LANG": "es"}, "", true, "en", "en"},
+		{"unset: fallback", nil, "", true, "en", "en"},
+		{"no catalogs: system", map[string]string{"LANG": "fr_FR.UTF-8"}, "", false, "fr-FR", ""},
+		{"no catalogs, no system", nil, "", false, "en", ""},
+		{"no catalogs, C", map[string]string{"LANG": "C"}, "", false, "en", ""},
+		{"OS locale (Windows)", nil, "es-MX", true, "es-MX", ""},
+		{"OS locale not covered", map[string]string{"LANG": "es"}, "ja-JP", true, "en", "en"},
+		{"garbage", map[string]string{"LANG": "!!!"}, "", true, "en", "en"},
 	}
+	t.Cleanup(func() { core.SetDefaultLang("") })
 	for _, tc := range tests {
 		env = tc.env
 		if env == nil {
@@ -267,6 +275,18 @@ func TestSystemLocale(t *testing.T) {
 		update(func(*state) error { return nil })
 		if got := Locale(); got != tc.want {
 			t.Errorf("%s: Locale() = %q, want %q", tc.name, got, tc.want)
+		}
+		if got := tela.DefaultLang(); got != tc.lang {
+			t.Errorf("%s: tela.DefaultLang() = %q, want %q", tc.name, got, tc.lang)
+		}
+		// A locale set with SetLocale is the app's choice.
+		SetLocale("ja")
+		if got := tela.DefaultLang(); got != "ja" {
+			t.Errorf("%s: after SetLocale(\"ja\"), tela.DefaultLang() = %q", tc.name, got)
+		}
+		SetLocale("")
+		if got := tela.DefaultLang(); got != tc.lang {
+			t.Errorf("%s: after SetLocale(\"\"), tela.DefaultLang() = %q, want %q", tc.name, got, tc.lang)
 		}
 	}
 }
