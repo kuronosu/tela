@@ -19,6 +19,29 @@ type Node interface {
 	LayoutData() *Data
 }
 
+// InlineAnchored is implemented by an absolutely positioned node that is
+// part of a paragraph's inline content, laid out by the block container
+// that holds the paragraph (core hoists such boxes out of their lines,
+// ADR-176). Its static position is its place on the line (ADR-268).
+type InlineAnchored interface {
+	// InlineParagraph returns the paragraph node that places the node: a
+	// child of the same block container, an InlinePlacer; nil if none.
+	InlineParagraph() Node
+}
+
+// InlinePlacer is implemented by a paragraph node that places
+// InlineAnchored nodes. Its methods are called after the paragraph's full
+// layout, with the width of its border box (its layout is not committed
+// yet); coordinates are in its border box.
+type InlinePlacer interface {
+	// StaticPosition returns the static position of anchored node c: its
+	// place on its line (the caret position before it) and the line's top
+	// for a box that was inline-level, the start of the next line for one
+	// that was block-level (Chromium); ok is false if c is not in the
+	// paragraph.
+	StaticPosition(c Node, width float32) (x, y float32, ok bool)
+}
+
 // Measurer is implemented by leaves (nodes without children) that have
 // content of their own: text, images. A leaf that is not a Measurer has an
 // empty content box.

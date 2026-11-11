@@ -106,6 +106,11 @@ type Box struct {
 	built bool
 	// inPara is the paragraph box whose text includes this inline box.
 	inPara *Box
+	// anchor is, for an out-of-flow box in a paragraph's inline content,
+	// that paragraph's box (structure.go), and anchorOff the byte offset
+	// of its place in the text (layout.InlinePlacer, ADR-268).
+	anchor    *Box
+	anchorOff int32
 	// hiddenAtom reports an atomic inline that its paragraph's
 	// text-overflow or line-clamp hides: it is not painted nor hit.
 	hiddenAtom bool
@@ -206,6 +211,7 @@ func (b *Box) detach() {
 	b.kids = nil
 	b.anon = nil
 	b.inPara = nil
+	b.anchor = nil
 	b.para = nil
 	b.built = false
 	dropObserver(b.layoutObs)
@@ -684,6 +690,13 @@ func (a *paraAssembler) openInline(el *Element) int {
 func (a *paraAssembler) closeInline(k int) {
 	a.inlines[k].End, a.inlines[k].BoxEnd = a.n, len(a.boxes)
 	a.open--
+}
+
+// addOutOfFlow records out-of-flow element el at the end of the content of
+// the paragraph of box para: its place on the line (ADR-268).
+func (a *paraAssembler) addOutOfFlow(el *Element, para *Box) {
+	a.oof = append(a.oof, el)
+	el.box.anchor, el.box.anchorOff = para, int32(a.n)
 }
 
 // inlineEdges returns the widths that the left and right edges of an

@@ -408,8 +408,53 @@ func (e *Engine) blockInFlow(n Node, run runMode, items []blockItem, outerW floa
 
 		y = loc.y - off.y + final.h + resolved.b
 	}
+	// An absolutely positioned box of a paragraph's inline content has its
+	// static position on its line, which the paragraph knows once it is
+	// laid out (InlineAnchored; ADR-176 put it at the paragraph's edge).
+	if run == performLayout {
+		for i := range items {
+			it := &items[i]
+			if it.st.Position != PositionAbsolute {
+				continue
+			}
+			p, pl := inlineParagraph(items, it)
+			if p == nil {
+				continue
+			}
+			if x, py, ok := pl.StaticPosition(it.node, p.out.size.w); ok {
+				x, py = p.loc.x+x, p.loc.y+py
+				sp := staticPos{x0: x, x1: x, y0: py, y1: py, modeX: alignStartMode, modeY: alignStartMode}
+				if dir == RTL {
+					sp.modeX = alignEndMode
+				}
+				it.static = sp
+			}
+		}
+	}
 	y += rCbi.b
 	return overflow, fmax(0, y), firstBaseline, lastBaseline, escapes
+}
+
+// inlineParagraph returns the in-flow item of items that places the
+// absolutely positioned item it (InlineAnchored), and its placer: nil when
+// it is not in a paragraph's content or the paragraph is not among items.
+func inlineParagraph(items []blockItem, it *blockItem) (*blockItem, InlinePlacer) {
+	a, ok := it.node.(InlineAnchored)
+	if !ok {
+		return nil, nil
+	}
+	para := a.InlineParagraph()
+	if para == nil {
+		return nil, nil
+	}
+	for i := range items {
+		if p := &items[i]; p.inFlow && p.node == para {
+			if pl, ok := para.(InlinePlacer); ok {
+				return p, pl
+			}
+		}
+	}
+	return nil, nil
 }
 
 // relativeOffset returns the offset of a relatively positioned box from

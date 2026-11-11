@@ -388,3 +388,56 @@ func (p *paragraph) inlineRects(el *Element, dst []gfx.Rect) []gfx.Rect {
 	}
 	return dst
 }
+
+// Out-of-flow boxes in a paragraph's inline content are children of the
+// block that holds the paragraph (structure.go, ADR-176). The box records
+// its paragraph and its place in the text (Box.anchor), and the paragraph
+// box gives layout its static position (ADR-268).
+
+// InlineParagraph implements layout.InlineAnchored: the paragraph box b's
+// content was hoisted from, while it is b's sibling.
+func (b *Box) InlineParagraph() layout.Node {
+	if a := b.anchor; a != nil && a.para != nil && a.parent == b.parent {
+		return a
+	}
+	return nil
+}
+
+// anchoredIn returns the paragraph of b that places box c (laid out at a
+// border-box width w), its lines prepared for that width; nil if b does
+// not place c.
+func (b *Box) anchoredIn(c layout.Node, w float32) (*Box, *paragraph) {
+	cb, _ := c.(*Box)
+	p := b.para
+	if cb == nil || cb.anchor != b || p == nil || p.lay == nil || p.empty {
+		return nil, nil
+	}
+	// An anonymous paragraph box has no edges: its content box is its
+	// border box.
+	p.prepare(b.tree, w)
+	return cb, p
+}
+
+// StaticPosition implements layout.InlinePlacer: the caret position
+// before box c and the top of its line for a box that was inline-level
+// (Chromium: "XX <span absolute>" is 30 px from the left, at the line's
+// top, in a 10 px font), the start of the next line for a block-level one
+// after content on its line (its own line's start otherwise).
+func (b *Box) StaticPosition(c layout.Node, w float32) (x, y float32, ok bool) {
+	cb, p := b.anchoredIn(c, w)
+	if cb == nil {
+		return 0, 0, false
+	}
+	ca := p.lay.Caret(text.Cursor{Offset: int(cb.anchorOff), Affinity: text.Upstream})
+	if cb.cs != nil && cb.cs.InlineOrigin {
+		return ca.X, ca.Top, true
+	}
+	y = ca.Top
+	if int(cb.anchorOff) > p.lay.Line(ca.Line).TextStart {
+		y += ca.Height
+	}
+	if p.lay.RTL() {
+		x = w
+	}
+	return x, y, true
+}

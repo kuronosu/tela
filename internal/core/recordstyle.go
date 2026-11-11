@@ -31,7 +31,7 @@ func sameStyle(a, b *style.ComputedStyle, layer bool) bool {
 	if !layer && (a.Opacity != b.Opacity || a.Transform != b.Transform) {
 		return false
 	}
-	return a.Display == b.Display && a.Position == b.Position && a.Inset == b.Inset &&
+	return a.Display == b.Display && a.Position == b.Position && a.InlineOrigin == b.InlineOrigin && a.Inset == b.Inset &&
 		a.ZIndex == b.ZIndex && a.Isolate == b.Isolate &&
 		a.OverflowX == b.OverflowX && a.OverflowY == b.OverflowY && a.Visibility == b.Visibility &&
 		a.ScrollBehavior == b.ScrollBehavior && a.Scrollbar == b.Scrollbar &&

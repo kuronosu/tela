@@ -283,7 +283,7 @@ type Constraints struct{ MinW, MaxW, MinH, MaxH float32 } // MaxW may be +Inf
 
 - **Box model:** always `box-sizing: border-box`.
 - **Direction:** `h.Dir` (HTML's `dir`: `rtl`, `ltr`, `auto`) sets the inline base direction, inherited like CSS `direction`. Under `rtl`, flex rows, grid columns, block auto margins, absolute static positions and scroll origins mirror as in Chromium, and logical utilities resolve against it (ADR-090). Components read it with `tela.UseDirection()` (ADR-155).
-- **Defaults:** `display` is `block`, like an HTML `div`. Inline elements (`Span`, `A`) only exist inside a text context (§11); `absolute` and `fixed` ones are blockified like any positioned box, and out-of-flow boxes do not split the inline content around them (ADR-176).
+- **Defaults:** `display` is `block`, like an HTML `div`. Inline elements (`Span`, `A`) only exist inside a text context (§11); `absolute` and `fixed` ones are blockified like any positioned box, and out-of-flow boxes do not split the inline content around them (ADR-176): their static position is their place on the line (ADR-268).
 - **Virtualization (from TanStack Virtual / Flutter slivers):** `h.VirtualList(count, estimateSize, renderItem)` (`renderItem` is a `func(int) tela.Node`, which may return a struct component; ADR-097, ADR-205) builds only visible items plus overscan. It supports variable item sizes measured on the fly, keeps scroll position stable when measurements correct estimates, and provides `ScrollToIndex`.
 
 ## 10. Style system

@@ -30,7 +30,9 @@ import (
 //     that of the inline elements they are in. They are children of the
 //     block container, which then wraps the inline content in anonymous
 //     paragraph boxes: those before any content of a run come before its
-//     paragraph box, the others after it (ADR-176).
+//     paragraph box, the others after it (ADR-176). Each records its
+//     paragraph and its place in the text (Box.anchor), which give layout
+//     its static position on its line (inline.go, ADR-268).
 //   - A flex container wraps each run of consecutive texts in an
 //     anonymous paragraph box (anonymous flex item); every primitive child
 //     is a flex item (blockified), inline ones included.
@@ -93,6 +95,11 @@ func (t *Tree) buildBoxes(el *Element) {
 	t.stats.Structures++
 
 	items := t.collect(t.itemFree.get(), el)
+	for _, it := range items {
+		if outOfFlow(it) {
+			it.box.anchor = nil // set again when it is in a paragraph's content
+		}
+	}
 	kids := t.boxFree.get()
 	oldMode := bx.mode
 	nAnon := 0
@@ -163,6 +170,7 @@ func (t *Tree) buildBoxes(el *Element) {
 			for j < len(items) && (outOfFlow(items[j]) || t.inlineLevel(items[j])) {
 				j++
 			}
+			lead := i
 			for ; i < j && outOfFlow(items[i]); i++ {
 				t.ensureBuilt(items[i])
 				kids = append(kids, items[i].box)
@@ -176,6 +184,10 @@ func (t *Tree) buildBoxes(el *Element) {
 				nAnon++
 				kids = append(kids, a)
 				t.setAtomKids(a)
+				// The ones before its content sit at its start.
+				for _, o := range items[lead:i] {
+					o.box.anchor, o.box.anchorOff = a, 0
+				}
 			}
 			for _, h := range hoisted {
 				t.ensureBuilt(h)
@@ -402,7 +414,7 @@ func (t *Tree) setParagraph(b *Box, items []*Element, owner *Element, oof *[]*El
 		seen++
 		if outOfFlow(it) {
 			// Its margin from space-x takes no place on the line.
-			a.oof = append(a.oof, it)
+			a.addOutOfFlow(it, b)
 			continue
 		}
 		t.addInlineLevel(a, it, b, owner)
@@ -445,7 +457,7 @@ func (t *Tree) addInline(a *paraAssembler, el *Element, para *Box, owner *Elemen
 		case c.kind == elemText:
 			a.addText(t.textOf(c), t.textStyle(c, para, owner), c.styleParent(), c)
 		case outOfFlow(c):
-			a.oof = append(a.oof, c)
+			a.addOutOfFlow(c, para)
 		default:
 			t.addInlineLevel(a, c, para, owner)
 		}

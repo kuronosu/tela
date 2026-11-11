@@ -614,6 +614,11 @@ type ComputedStyle struct {
 	// Layout and box.
 	Display  Display
 	Position Position
+	// InlineOrigin reports an absolutely positioned or fixed box whose
+	// display was inline-level before blockification (CSS 2.1 section
+	// 9.7): in a paragraph its static position is its place on its line,
+	// not the start of the next line (ADR-268).
+	InlineOrigin bool
 	// Inset are the top, right, bottom and left offsets (auto by default).
 	Inset      Sides[Dim]
 	ZIndex     ZIndex

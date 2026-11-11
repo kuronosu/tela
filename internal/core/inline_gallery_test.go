@@ -192,6 +192,14 @@ var inlineGalleryCases = []inlineGalleryCase{
 	{"centered", 40, iel("p", "w-[400px] text-center text-slate-700", itext("Centered "), iel("span", badge, itext("badge")), itext(" and "), iel("code", chip, itext("code")))},
 	{"space-x", 40, iel("p", "space-x-3 text-slate-700", iel("span", "rounded bg-pink-100 px-1", itext("one")), iel("span", "rounded bg-pink-200 px-1", itext("two")), iel("button", "rounded bg-pink-300 px-1", itext("three")))},
 	{"wrap-atoms", 72, iel("p", "w-[200px] text-slate-700", itext("Tags: "), iel("span", badge, itext("design")), itext(" "), iel("span", badge, itext("systems")), itext(" "), iel("span", badge, itext("typography")), itext(" "), iel("span", badge, itext("layout")))},
+	// Out-of-flow boxes with auto insets in a paragraph (ADR-268): an
+	// inline one at its place on its line, a block-level one at the start
+	// of the next line, one on a wrapped line, a leading one in centered
+	// text.
+	{"abs-on-line", 40, iel("p", "relative w-[400px] text-slate-700", itext("Text "), iel("span", "absolute size-2 bg-rose-500"), itext("after the dot."))},
+	{"abs-block", 56, iel("div", "relative w-[400px] text-slate-700", itext("Before "), iel("div", "absolute h-2 w-6 bg-sky-500"), itext("after the block."))},
+	{"abs-wrapped", 64, iel("p", "relative w-[150px] text-slate-700", itext("Some words that wrap "), iel("span", "absolute size-2 bg-rose-500"), itext("here"))},
+	{"abs-centered", 40, iel("p", "relative w-[400px] text-center text-slate-700", iel("span", "absolute size-2 bg-rose-500"), itext("Centered text"))},
 }
 
 func inlineGalleryRoot() inode {

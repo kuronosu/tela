@@ -264,7 +264,9 @@ func Compute(cx *Context, in Input) *ComputedStyle {
 	}
 	e.finalize()
 	s.Divide = sc.divide.result()
-	s.Display = blockified(s.Display, s.Position)
+	if d := blockified(s.Display, s.Position); d != s.Display {
+		s.Display, s.InlineOrigin = d, true
+	}
 	if pseudo&PseudoPlaceholder != 0 {
 		if ps := computePseudo(cx, th, s, in.Classes, vc, PseudoPlaceholder); ps != nil {
 			t := ps.Text

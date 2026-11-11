@@ -1,7 +1,7 @@
 # ADR-176: Layout-effect scrolls and absolute inline boxes
 
 - **Date:** 2026-10-26
-- **Status:** Accepted
+- **Status:** Accepted, amended by ADR-268 (static positions on the line)
 
 ## Decision
 
