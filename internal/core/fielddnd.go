@@ -237,10 +237,11 @@ const dragImageAlpha = 0.75
 // selection highlight or anything of the field around them, at
 // dragImageAlpha, over the selection's rectangles not cut by the field
 // (AbsoluteUnclippedBounds: the part an Input scrolled out of view is in
-// it). The field's transforms scale and move the text as on screen; a
-// rotated field's text is drawn upright, scaled to the bounding box of
-// the rotated one. It is painted on the UI thread from the field's
-// layout, into an image of its own.
+// it), as transformed: Chromium paints the frame with every transform,
+// so the text is drawn through the field's transforms and its ancestors'
+// as on screen, a rotated field's rotated (ADR-272), in the bounding box
+// of the transformed rectangles. It is painted on the UI thread from the
+// field's layout, into an image of its own.
 func (t *Tree) textDragImage(d *textDrag, s float64, hot image.Point) (*image.RGBA, image.Point) {
 	f := d.f
 	lay := f.layout()
@@ -249,11 +250,7 @@ func (t *Tree) textDragImage(d *textDrag, s float64, hot image.Point) (*image.RG
 	}
 	sel := text.NewSelection(text.Cursor{Offset: f.ed.ValueToDisplay(d.start)}, text.Cursor{Offset: f.ed.ValueToDisplay(d.end)})
 	rects := lay.SelectionRects(sel, nil)
-	// The text's coordinates to the window's: a unit square of the text
-	// mapped through the field's origin, scroll and transforms.
-	const k = 1024
-	u := t.fieldToWindow(f, gfx.Rect{X1: k, Y1: k})
-	m := gfx.Affine{u.Width() / k, 0, 0, u.Height() / k, u.X0, u.Y0}
+	m := t.fieldTextMatrix(f)
 	var b gfx.Rect
 	for _, r := range rects {
 		b = b.Union(m.TransformRect(r))
@@ -280,6 +277,28 @@ func (t *Tree) textDragImage(d *textDrag, s float64, hot image.Point) (*image.RG
 	img := image.NewRGBA(image.Rect(0, 0, pr.Dx(), pr.Dy()))
 	raster.Render(img, bl.Finish(), raster.Options{Scale: float32(s), Workers: 1})
 	return img, hot.Sub(pr.Min)
+}
+
+// fieldTextMatrix returns the map from the text coordinates of field f to
+// window coordinates as it is painted: the text's origin and scroll, then
+// the transforms of its box and of its ancestors, innermost first
+// (fieldToWindow's, as one matrix, so that a rotation or a skew is kept).
+func (t *Tree) fieldTextMatrix(f *field) gfx.Affine {
+	bx := f.bx
+	x, y := f.textOrigin()
+	o := t.semOrigin(bx).Add(gfx.Point{X: x, Y: y})
+	if s := bx.scr; s != nil && f.multi {
+		o = o.Sub(s.soff)
+	}
+	m := gfx.Translate(o.X, o.Y)
+	for b := bx; b != nil && b != t.rootBox; b = b.parent {
+		cs := paintStyle(b)
+		if cs == nil || cs.Transform.IsIdentity() {
+			continue
+		}
+		m = cs.Transform.Matrix(gfx.RectFromOriginSize(t.semOrigin(b), b.ld.Layout().Size)).Mul(m)
+	}
+	return m
 }
 
 // appTextDrag returns the selection drag of a field of the app in
