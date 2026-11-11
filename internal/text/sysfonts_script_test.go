@@ -32,17 +32,17 @@ func TestSystemOneFamilyPerScript(t *testing.T) {
 		entry("notosansthailooped", StyleNormal, 400, thai+latin+runeRange(0x0E81, 0x0E8A)+"0123456789ABCDEF"),
 	}
 	s := synthetic("", entries...)
-	if got := s.scriptFamilies(language.Thai); !equalStrings(got, []string{"notosansthai", "notosansthailooped"}) {
+	if got := s.scriptFamilies(language.Thai, defReq(s)); !equalStrings(got, []string{"notosansthai", "notosansthailooped"}) {
 		t.Fatalf("Thai families %v, want the two that support the script, narrowest first", got)
 	}
 	for _, cluster := range []string{"ก", "ข", "ฯ", "กั", "๏"} {
-		got := s.fallbackFamilies([]rune(cluster), language.Thai)
+		got := s.fallbackFamilies([]rune(cluster), language.Thai, defReq(s))
 		if len(got) == 0 || got[0] != "notosansthai" {
 			t.Errorf("cluster %q: %v, want notosansthai first", cluster, got)
 		}
 	}
 	// A character only the wide family covers still gets it.
-	if got := s.fallbackFamilies([]rune("ກ"), language.Thai); len(got) != 1 || got[0] != "notosansthailooped" {
+	if got := s.fallbackFamilies([]rune("ກ"), language.Thai, defReq(s)); len(got) != 1 || got[0] != "notosansthailooped" {
 		t.Errorf("Lao-range character: %v", got)
 	}
 
@@ -51,7 +51,7 @@ func TestSystemOneFamilyPerScript(t *testing.T) {
 		s := synthetic("", entries...)
 		var out []string
 		for _, c := range clusters {
-			out = append(out, s.fallbackFamilies([]rune(c), language.Thai)[0])
+			out = append(out, s.fallbackFamilies([]rune(c), language.Thai, defReq(s))[0])
 		}
 		return out
 	}
@@ -73,10 +73,10 @@ func TestSystemScriptOfRunDecidesCommon(t *testing.T) {
 		entry("notosansquotes", StyleNormal, 400, "«»"),
 		entry("notosansthai", StyleNormal, 400, thai+"«»"+runeRange('a', 'z')),
 	)
-	if got := s.fallbackFamilies([]rune("«"), language.Thai); got[0] != "notosansthai" {
+	if got := s.fallbackFamilies([]rune("«"), language.Thai, defReq(s)); got[0] != "notosansthai" {
 		t.Errorf("Common cluster in a Thai run: %v, want notosansthai first", got)
 	}
-	if got := s.fallbackFamilies([]rune("«"), language.Common); got[0] != "notosansquotes" {
+	if got := s.fallbackFamilies([]rune("«"), language.Common, defReq(s)); got[0] != "notosansquotes" {
 		t.Errorf("Common cluster in a Common run: %v, want the narrowest first", got)
 	}
 }

@@ -37,8 +37,9 @@ type state struct {
 	explicit    string              // locale set with SetLocale ("" follows the system)
 
 	// computed by build
-	fallback string // name of the fallback catalog ("" with none)
-	locale   string // the current locale
+	fallback   string // name of the fallback catalog ("" with none)
+	locale     string // the current locale
+	fromSystem bool   // locale is the system's (no SetLocale, no fallback)
 
 	// matching: catalog locales by tag, and a matcher over them
 	tags    []language.Tag // by load order
@@ -57,7 +58,11 @@ var (
 	subSeq uint64
 )
 
-func init() { st.Store(build(&state{cats: map[string]*catalog{}})) }
+func init() {
+	s := build(&state{cats: map[string]*catalog{}})
+	st.Store(s)
+	publishLang(s)
+}
 
 func current() *state { return st.Load() }
 
@@ -81,6 +86,7 @@ func update(f func(s *state) error) error {
 	}
 	build(ns)
 	st.Store(ns)
+	publishLang(ns)
 	stMu.Unlock()
 	if ns.locale != old.locale {
 		notify()
@@ -114,6 +120,7 @@ func build(s *state) *state {
 	default:
 		s.fallback = ""
 	}
+	s.fromSystem = false
 	switch {
 	case s.explicit != "":
 		s.locale = s.explicit
@@ -121,16 +128,29 @@ func build(s *state) *state {
 		sys, ok := systemLocale()
 		switch {
 		case ok && len(s.cats) > 0 && s.match(sys) != nil:
-			s.locale = sys.String()
+			s.locale, s.fromSystem = sys.String(), true
 		case s.fallback != "":
 			s.locale = s.fallback
 		case ok:
-			s.locale = sys.String()
+			s.locale, s.fromSystem = sys.String(), true
 		default:
 			s.locale = "en"
 		}
 	}
 	return s
+}
+
+// publishLang makes the current locale the language of the app's text
+// that has no h.Lang above it (tela.SetDefaultLang, ADR-269). A locale
+// that is the system's leaves Tela's own default, the same system
+// language, which tests and snapshots ignore so that their output does
+// not depend on the machine.
+func publishLang(s *state) {
+	if s.fromSystem {
+		core.SetDefaultLang("")
+	} else {
+		core.SetDefaultLang(s.locale)
+	}
 }
 
 // match finds the catalog for a tag: its own, a CLDR parent's, or the

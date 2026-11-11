@@ -1,6 +1,6 @@
 //go:build windows
 
-package i18n
+package text
 
 import (
 	"unsafe"
@@ -10,9 +10,9 @@ import (
 
 var procGetUserDefaultLocaleName = windows.NewLazySystemDLL("kernel32.dll").NewProc("GetUserDefaultLocaleName")
 
-// platformLocale returns the user's default locale name ("es-MX"), from
+// platformLanguage returns the user's default locale name ("es-MX"), from
 // GetUserDefaultLocaleName.
-func platformLocale() string {
+func platformLanguage() string {
 	var buf [85]uint16 // LOCALE_NAME_MAX_LENGTH
 	n, _, _ := procGetUserDefaultLocaleName.Call(uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf)))
 	if n <= 1 {

@@ -468,9 +468,9 @@ func TestSystemFallbackRanking(t *testing.T) {
 		// No language: Japanese forms, then Simplified Chinese, Korean...
 		{"", "日", []string{"notosanscjkjp", "notosanscjksc", "notosanscjkkr", "notosanscjktc", "notosanscjkhk", "somehanfont", "notoserifcjkjp", "notosansmonocjkjp"}},
 		{"ja_JP.UTF-8", "日", []string{"notosanscjkjp"}},
-		{"zh-Hans", "日", []string{"notosanscjksc", "notosanscjkjp"}},
-		{"zh-TW", "日", []string{"notosanscjktc", "notosanscjkjp"}},
-		{"zh-HK", "日", []string{"notosanscjkhk", "notosanscjkjp"}},
+		{"zh-Hans", "日", []string{"notosanscjksc", "notosanscjktc", "notosanscjkhk", "notosanscjkjp"}},
+		{"zh-TW", "日", []string{"notosanscjktc", "notosanscjkhk", "notosanscjksc", "notosanscjkjp"}},
+		{"zh-HK", "日", []string{"notosanscjkhk", "notosanscjktc", "notosanscjksc", "notosanscjkjp"}},
 		{"ko", "日", []string{"notosanscjkkr", "notosanscjkjp"}},
 		// A script-specific sans over a serif and over a wide font.
 		{"", "א", []string{"notosanshebrew", "dejavusans", "notoserifhebrew", "unifont"}},
@@ -480,7 +480,7 @@ func TestSystemFallbackRanking(t *testing.T) {
 		{"", "ก", nil},
 	} {
 		s := synthetic(c.lang, entries...)
-		got := s.fallbackFamilies([]rune(c.cluster), language.LookupScript([]rune(c.cluster)[0]))
+		got := s.fallbackFamilies([]rune(c.cluster), language.LookupScript([]rune(c.cluster)[0]), defReq(s))
 		n := min(len(got), len(c.want))
 		if len(c.want) == 0 && len(got) != 0 || !equalStrings(got[:n], c.want[:n]) {
 			t.Errorf("lang %q cluster %q: %v, want prefix %v", c.lang, c.cluster, got, c.want)

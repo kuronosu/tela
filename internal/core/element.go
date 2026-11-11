@@ -589,7 +589,7 @@ func (t *Tree) syncStyleInputs(el *Element, old, d *desc) {
 	if !slices.Equal(old.classes, d.classes) {
 		bx.classesDirty = true
 		t.markStyle(el)
-	} else if len(old.props) > 0 || len(d.props) > 0 || old.dir != d.dir {
+	} else if len(old.props) > 0 || len(d.props) > 0 || old.dir != d.dir || old.lang != d.lang {
 		// Typed props hold closures and cannot be compared.
 		t.markStyle(el)
 	}

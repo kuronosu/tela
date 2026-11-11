@@ -28,6 +28,9 @@ var shapeCalls atomic.Int64
 // works in font units (the scale is left at units per em), so positions
 // are integers that layout scales to the font size. shapeMu must be held.
 func (f *Face) hbFont() *harfbuzz.Font {
+	if f.base != nil {
+		return f.base.hbFont()
+	}
 	if f.hb == nil {
 		f.hb = harfbuzz.NewFont(f.ShapingFace())
 	}
@@ -120,6 +123,19 @@ func (l *Layout) shape() {
 	// The font candidates of each style index, resolved by its first item:
 	// a text of many lines has many items of one style.
 	cands := make([]*candidates, len(l.styles))
+	candOf := func(i int) *candidates {
+		si := pt.style[i]
+		if cands[si] == nil {
+			cands[si] = l.coll.candidates(l.styles[si].query(), l.sinfo[si].size)
+		}
+		return cands[si]
+	}
+	scope := &paraScope{runes: pt.runes, scripts: scripts, cands: func(i int) *candidates {
+		if pt.box[i] >= 0 {
+			return nil
+		}
+		return candOf(i)
+	}}
 	for i := 0; i < n; {
 		r := pt.runes[i]
 		si := &l.sinfo[pt.style[i]]
@@ -150,12 +166,8 @@ func (l *Layout) shape() {
 			(pt.style[j] == pt.style[i] || l.styles[pt.style[j]].shapesLike(&l.styles[pt.style[i]])) {
 			j++
 		}
-		cs := cands[pt.style[i]]
-		if cs == nil {
-			cs = l.coll.candidates(l.styles[pt.style[i]].query(), si.size)
-			cands[pt.style[i]] = cs
-		}
-		fruns = cs.itemize(pt.runes, i, j, segs, scripts[i], fruns[:0])
+		cs := candOf(i)
+		fruns = cs.itemize(pt.runes, i, j, segs, scripts[i], scope, fruns[:0])
 		for _, fr := range fruns {
 			l.shapeRun(fr.Face, int32(fr.Start), int32(fr.End), levels[i], scripts[i], si, segs)
 		}
@@ -180,7 +192,7 @@ func (l *Layout) special(kind runKind, i int, level uint8, si *styleInfo, adv fl
 	ri := int32(len(l.runs))
 	ci := int32(len(l.clusters))
 	g := int32(len(l.glyphs))
-	rn := run{kind: kind, level: level, face: si.face, size: si.size, r0: int32(i), r1: int32(i + 1), c0: ci, c1: ci + 1, box: -1}
+	rn := run{kind: kind, level: level, face: si.face, size: si.size, r0: int32(i), r1: int32(i + 1), c0: ci, c1: ci + 1, box: -1, lang: si.lang}
 	l.runs = append(l.runs, rn)
 	l.clusters = append(l.clusters, cluster{
 		r0: int32(i), r1: int32(i + 1), g0: g, g1: g, run: ri,
@@ -235,7 +247,7 @@ func (l *Layout) shapeRun(f *Face, r0, r1 int32, level uint8, script language.Sc
 
 	m := f.Metrics()
 	ri := int32(len(l.runs))
-	rn := run{kind: runText, level: level, face: f, size: si.size, r0: r0, r1: r1, box: -1,
+	rn := run{kind: runText, level: level, face: f, size: si.size, r0: r0, r1: r1, box: -1, lang: si.lang,
 		ascent: l.qround(m.Ascent, si.size), descent: l.qround(m.Descent, si.size), gap: l.qround(m.LineGap, si.size)}
 
 	// Glyphs, scaled from font units to px. The nominal advances come from
@@ -345,7 +357,7 @@ func (l *Layout) emptyRun(r0, r1 int32, level uint8, si *styleInfo, segs []uint8
 	pt := &l.text
 	ri := int32(len(l.runs))
 	g := int32(len(l.glyphs))
-	rn := run{kind: runText, level: level, size: si.size, r0: r0, r1: r1, box: -1,
+	rn := run{kind: runText, level: level, size: si.size, r0: r0, r1: r1, box: -1, lang: si.lang,
 		ascent: l.qround(noFontMetrics.Ascent, si.size), descent: l.qround(noFontMetrics.Descent, si.size)}
 	c0 := int32(len(l.clusters))
 	for p := r0; p < r1; {

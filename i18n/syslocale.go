@@ -5,16 +5,19 @@ import (
 	"strings"
 
 	"golang.org/x/text/language"
+
+	"github.com/kuronosu/tela/internal/core"
 )
 
 // The system's locale: on Windows the user's default locale name
-// (syslocale_windows.go); elsewhere, and on Windows when that is empty,
-// the POSIX environment: LC_ALL, then LC_MESSAGES, then LANG. macOS reads
-// the environment too for now (a GUI app launched from Finder usually has
-// none, so it follows the fallback locale until SetLocale is called).
+// (core.PlatformLanguage, the source of Tela's default text language too);
+// elsewhere, and on Windows when that is empty, the POSIX environment:
+// LC_ALL, then LC_MESSAGES, then LANG. macOS reads the environment too for
+// now (a GUI app launched from Finder usually has none, so it follows the
+// fallback locale until SetLocale is called).
 
 // osLocale returns the operating system's own locale name, or "".
-var osLocale = platformLocale
+var osLocale = core.PlatformLanguage
 
 // getenv is os.Getenv, replaceable by tests.
 var getenv = os.Getenv

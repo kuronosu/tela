@@ -24,6 +24,9 @@ type Context struct {
 	// HighContrast selects contrast-more: (the system's high contrast,
 	// CSS prefers-contrast: more; ADR-209).
 	HighContrast bool
+	// Lang is the language of the root's text (ADR-269): the app's
+	// default language, a BCP 47 tag, or "" when it is unknown.
+	Lang string
 }
 
 // Dir is the direction an element sets for itself and its descendants:
@@ -67,6 +70,9 @@ type Input struct {
 	// before any class runs: the rtl: and ltr: variants and the logical
 	// utilities see it.
 	Dir Dir
+	// Lang is the element's own language (its lang attribute), a BCP 47
+	// tag; "" keeps the parent's (Context.Lang at the root).
+	Lang string
 }
 
 // env is the state of one computation, passed to every op.
@@ -204,6 +210,12 @@ func Compute(cx *Context, in Input) *ComputedStyle {
 		s.Text.Direction = text.DirectionLTR
 	case DirRTL:
 		s.Text.Direction = text.DirectionRTL
+	}
+	if in.Parent == nil {
+		s.Text.Language = cx.Lang
+	}
+	if in.Lang != "" {
+		s.Text.Language = in.Lang
 	}
 	dark := s.IsDark(cx)
 	var sc scratch

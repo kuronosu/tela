@@ -106,6 +106,8 @@ type desc struct {
 	scheme ColorScheme
 	// dir is the Dir prop (direction.go).
 	dir dirValue
+	// lang is the Lang prop (lang.go), a well-formed BCP 47 tag or "".
+	lang string
 
 	// Primitives and fragments: the children as given. A zero node is a
 	// hole: it renders nothing but keeps the positions of the siblings

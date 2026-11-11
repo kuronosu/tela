@@ -1,0 +1,33 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+@font-face { font-family: "TelaJP"; src: url("../fonts/NotoSansJP-Subset.otf"); }
+html, body { margin: 0; padding: 0; overflow: hidden; background: #fff; }
+canvas { display: block; }
+</style></head><body><canvas id="c" width="1400" height="200"></canvas>
+<script>
+const items = [
+["400 14px TelaJP", 20, 30, 14],
+["700 14px TelaJP", 360, 30, 14],
+["italic 400 14px TelaJP", 700, 30, 14],
+["italic 700 14px TelaJP", 1040, 30, 14],
+["400 24px TelaJP", 20, 76, 24],
+["700 24px TelaJP", 360, 76, 24],
+["italic 400 24px TelaJP", 700, 76, 24],
+["italic 700 24px TelaJP", 1040, 76, 24],
+["400 40px TelaJP", 20, 150, 40],
+["700 40px TelaJP", 360, 150, 40],
+["italic 400 40px TelaJP", 700, 150, 40],
+["italic 700 40px TelaJP", 1040, 150, 40]
+];
+Promise.all(items.map(([font]) => document.fonts.load(font, "Hamburg 日本語"))).then(() => {
+  const ctx = document.getElementById("c").getContext("2d");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, 1400, 200);
+  ctx.fillStyle = "#111827";
+  ctx.textBaseline = "alphabetic";
+  for (const [font, x, y] of items) {
+    ctx.font = font;
+    ctx.fillText("Hamburg 日本語", x, y);
+  }
+});
+</script></body></html>

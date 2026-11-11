@@ -70,7 +70,7 @@ func (t *Tree) restyle(el *Element) {
 	in := style.Input{
 		Kind: bx.kind, Parent: parent, State: state, Group: group, Peer: peer,
 		Classes: bx.classes, Props: el.node.d.props, Scheme: styleScheme(el.node.d.scheme),
-		Dir: t.styleDir(el),
+		Dir: t.styleDir(el), Lang: styleLang(el),
 	}
 	cs := style.Compute(&t.cx, in)
 	if el == t.root {
@@ -320,7 +320,7 @@ func sameInherited(a, b *style.ComputedStyle) bool {
 		ta.WhiteSpace == tb.WhiteSpace && ta.WrapStyle == tb.WrapStyle && ta.WordBreak == tb.WordBreak &&
 		ta.OverflowWrap == tb.OverflowWrap && ta.TabSize == tb.TabSize &&
 		ta.Numeric == tb.Numeric && slices.Equal(ta.Shadow, tb.Shadow) &&
-		ta.Direction == tb.Direction &&
+		ta.Direction == tb.Direction && ta.Language == tb.Language &&
 		a.Visibility == b.Visibility && a.Cursor == b.Cursor &&
 		a.PointerEvents == b.PointerEvents && a.UserSelect == b.UserSelect
 }

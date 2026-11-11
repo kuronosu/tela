@@ -409,7 +409,7 @@ func NewTree(cfg Config) *Tree {
 	t.textScale = t.env.effectiveTextScale()
 	t.parser = scaledParser(t.parserBase, t.textScale)
 	t.cx = style.Context{Theme: t.parser.Theme(), Viewport: t.viewport, Dark: t.env.effectiveDark(),
-		ReducedMotion: cfg.ReducedMotion, HighContrast: cfg.HighContrast}
+		ReducedMotion: cfg.ReducedMotion, HighContrast: cfg.HighContrast, Lang: DefaultLang()}
 	return t
 }
 

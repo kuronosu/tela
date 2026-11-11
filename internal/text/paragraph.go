@@ -297,8 +297,11 @@ type TextStyle struct {
 	// Features are applied after the ones Numeric implies.
 	Features []Feature
 	Numeric  NumericVariant
-	// Language is a BCP 47 tag, used by shaping (locl) and by
-	// text-transform (Turkish and Azeri dotted i).
+	// Language is a BCP 47 tag (HTML's lang, ADR-269), used by shaping
+	// (locl: the Japanese, Chinese or Korean forms of a pan-CJK font), by
+	// font fallback (Query.Lang: the CJK families of its region first) and
+	// by text-transform (Turkish and Azeri dotted i). Each shaped run
+	// keeps it (run.lang).
 	Language string
 }
 
@@ -314,7 +317,7 @@ func (s *TextStyle) query() Query {
 	if len(fams) == 0 {
 		fams = []string{"sans-serif"}
 	}
-	return Query{Families: fams, Weight: s.Weight, Style: s.Style, Stretch: s.Stretch}
+	return Query{Families: fams, Weight: s.Weight, Style: s.Style, Stretch: s.Stretch, Lang: s.Language}
 }
 
 func (s *TextStyle) paint() gfx.Paint {

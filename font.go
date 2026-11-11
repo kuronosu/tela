@@ -44,7 +44,9 @@ type Font core.Font
 // FontData returns the font of files already in memory, usually embedded
 // with //go:embed. Give the files of one family: an upright file and an
 // italic one, or one variable font. family is the name the font is used by
-// (font-['Lora']); "" takes the family name the first file declares.
+// (font-['Lora']); "" takes the family name the first file declares. A
+// weight of 600 or more that no file reaches is drawn emboldened, and
+// italic without an italic file slanted, as browsers synthesize them.
 //
 // A mistake (no files, an empty file) makes [Run] return an error before
 // the window opens; a file that is not a font is logged when text first
