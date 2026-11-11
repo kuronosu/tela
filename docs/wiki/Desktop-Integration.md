@@ -119,6 +119,13 @@ inserts the text at the drop point (an `insertFromDrop` edit, with `OnBeforeInpu
 and `OnChange`). A drop zone around fields that takes the text itself calls
 `e.PreventDefault()` in its `OnDrop`, which cancels the insertion.
 
+**Scrolling under a drag** works as in Chrome: a drag that rests within 20 px of
+the edge of a scrolling element (`overflow-auto` or `overflow-scroll` with content
+that overflows, the window included, or a field whose text does not fit) scrolls
+it toward that edge after 0.2 s, a little more the closer it is to the edge. The
+innermost one under the drag scrolls; the ones around it follow once it reaches
+its end and sits at their edge.
+
 ### Sources
 
 An element with [`Draggable(true)`](API-Reference-h#func-draggable) is a source.

@@ -397,6 +397,12 @@ func (t *Tree) localPoint(el *Element, p gfx.Point) gfx.Point {
 	if bx == nil {
 		return p
 	}
+	return t.boxPoint(bx, p)
+}
+
+// boxPoint returns the window point p in the coordinates of painted box
+// bx's border box (localPoint).
+func (t *Tree) boxPoint(bx *Box, p gfx.Point) gfx.Point {
 	chain := t.in.chain[:0]
 	for b := bx; b != nil; b = b.parent {
 		chain = append(chain, b)

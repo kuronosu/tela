@@ -61,6 +61,9 @@ import (
 //     hover and active states end; the next pointer event after the drag
 //     brings them back.
 //   - A window blocked by a modal child window refuses every drag.
+//   - A drag that hovers near the edges of a scroll container, or of a
+//     text field whose text overflows, scrolls it, as Chromium does
+//     (dndscroll.go).
 //
 // # Sources
 //
@@ -110,10 +113,11 @@ type dndState struct {
 	// (fielddnd.go).
 	caret   *field
 	caretAt text.Cursor
-	// as is the field the drag autoscrolls (fielddnd.go), since asAt;
-	// asRef is the window point a step scrolls into view, the drag's
-	// position moved by asDir.
+	// as is the field the drag autoscrolls, or asS the scroll container
+	// (dndscroll.go), since asAt; asRef is the window point a step
+	// scrolls into view, the drag's position moved by asDir.
 	as           *field
+	asS          *scroller
 	asAt         time.Duration
 	asRef, asDir gfx.Point
 
@@ -204,7 +208,7 @@ func (t *Tree) dragOver(e platform.DragEvent) DropEffect {
 	d.effect = DropNone
 	if d.target == nil || !d.target.mounted {
 		t.setDropCaret(nil, text.Cursor{})
-		d.as = nil
+		d.as, d.asS = nil, nil
 		return DropNone
 	}
 	dt := t.protectedTransfer()
