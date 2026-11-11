@@ -998,6 +998,12 @@ func TestTypographyClasses(t *testing.T) {
 		{"break-keep", func(t *testing.T, s *ComputedStyle) { eq(t, "WB", s.Text.WordBreak, text.WordBreakKeepAll) }},
 		{"wrap-anywhere", func(t *testing.T, s *ComputedStyle) { eq(t, "OW", s.Text.OverflowWrap, text.OverflowWrapAnywhere) }},
 		{"break-all break-normal", func(t *testing.T, s *ComputedStyle) { eq(t, "WB", s.Text.WordBreak, text.WordBreakNormal) }},
+		{"hyphens-auto", func(t *testing.T, s *ComputedStyle) {
+			eq(t, "H", s.Text.Hyphens, text.HyphensAuto)
+			eq(t, "bridge", s.TextStyle().Hyphens, text.HyphensAuto)
+		}},
+		{"hyphens-none", func(t *testing.T, s *ComputedStyle) { eq(t, "H", s.Text.Hyphens, text.HyphensNone) }},
+		{"hyphens-auto hyphens-manual", func(t *testing.T, s *ComputedStyle) { eq(t, "H", s.Text.Hyphens, text.HyphensManual) }},
 		{"tabular-nums", func(t *testing.T, s *ComputedStyle) { eq(t, "N", s.Text.Numeric, text.NumericTabular) }},
 		{"tabular-nums proportional-nums slashed-zero", func(t *testing.T, s *ComputedStyle) {
 			eq(t, "N", s.Text.Numeric, text.NumericProportional|text.NumericSlashedZero)

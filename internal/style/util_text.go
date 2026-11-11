@@ -402,8 +402,8 @@ func underlineOffsetUtility(c *pctx, a *arg) (Op, error) {
 	}), nil
 }
 
-// registerTextWrapping registers white-space, word breaking, overflow wrap
-// and truncate.
+// registerTextWrapping registers white-space, word breaking, overflow wrap,
+// hyphens and truncate.
 func registerTextWrapping(r *registry) {
 	ws := map[string]text.WhiteSpace{"normal": text.WhiteSpaceNormal, "nowrap": text.WhiteSpaceNowrap,
 		"pre": text.WhiteSpacePre, "pre-line": text.WhiteSpacePreLine, "pre-wrap": text.WhiteSpacePreWrap,
@@ -425,6 +425,14 @@ func registerTextWrapping(r *registry) {
 		"normal":     op(func(e *env) { e.s.Text.OverflowWrap = text.OverflowWrapNormal }),
 		"break-word": op(func(e *env) { e.s.Text.OverflowWrap = text.OverflowWrapBreakWord }),
 		"anywhere":   op(func(e *env) { e.s.Text.OverflowWrap = text.OverflowWrapAnywhere }),
+	})
+	// hyphens-*: CSS hyphens (inherited): manual (the initial value) breaks
+	// words at soft hyphens only, none never, auto also at the points of
+	// the text language's dictionary (ADR-270).
+	r.enum("hyphens", false, map[string]Op{
+		"none":   op(func(e *env) { e.s.Text.Hyphens = text.HyphensNone }),
+		"manual": op(func(e *env) { e.s.Text.Hyphens = text.HyphensManual }),
+		"auto":   op(func(e *env) { e.s.Text.Hyphens = text.HyphensAuto }),
 	})
 	r.static("truncate", op(func(e *env) {
 		e.s.OverflowX, e.s.OverflowY = OverflowHidden, OverflowHidden

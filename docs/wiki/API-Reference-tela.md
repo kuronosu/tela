@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`BackgroundGradientFn`](#func-backgroundgradientfn) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultLang`](#func-defaultlang) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Label`](#func-label) · [`Labels`](#func-labels) · [`LabelsChanged`](#func-labelschanged) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`OpenPath`](#func-openpath) · [`OpenURL`](#func-openurl) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`Quit`](#func-quit) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`ResizeBand`](#func-resizeband) · [`ResizeEdges`](#func-resizeedges) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetDefaultLang`](#func-setdefaultlang) · [`SetLabelSource`](#func-setlabelsource) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseAccentColor`](#func-useaccentcolor) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseCloseRequest`](#func-usecloserequest) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseHighContrast`](#func-usehighcontrast) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLabels`](#func-uselabels) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseNativeMenus`](#func-usenativemenus) · [`UseOnce`](#func-useonce) · [`UsePlatformKeys`](#func-useplatformkeys) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseQuitRequest`](#func-usequitrequest) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTextScale`](#func-usetextscale) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`UseWindow`](#func-usewindow) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`BackgroundGradientFn`](#func-backgroundgradientfn) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultLang`](#func-defaultlang) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`HyphenationPatterns`](#func-hyphenationpatterns) · [`Initial`](#func-initial) · [`Label`](#func-label) · [`Labels`](#func-labels) · [`LabelsChanged`](#func-labelschanged) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`OpenPath`](#func-openpath) · [`OpenURL`](#func-openurl) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`Quit`](#func-quit) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`ResizeBand`](#func-resizeband) · [`ResizeEdges`](#func-resizeedges) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetDefaultLang`](#func-setdefaultlang) · [`SetLabelSource`](#func-setlabelsource) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseAccentColor`](#func-useaccentcolor) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseCloseRequest`](#func-usecloserequest) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseHighContrast`](#func-usehighcontrast) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLabels`](#func-uselabels) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseNativeMenus`](#func-usenativemenus) · [`UseOnce`](#func-useonce) · [`UsePlatformKeys`](#func-useplatformkeys) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseQuitRequest`](#func-usequitrequest) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTextScale`](#func-usetextscale) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`UseWindow`](#func-usewindow) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Initial`](#func-initial) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
@@ -40,6 +40,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Font`](#type-font): [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`Emoji`](#func-font-emoji) · [`Mono`](#func-font-mono) · [`Sans`](#func-font-sans) · [`Scripts`](#func-font-scripts) · [`Serif`](#func-font-serif)
   - [`type Gradient`](#type-gradient): [`LinearGradient`](#func-lineargradient) · [`Paint`](#func-gradient-paint)
   - [`type GradientStop`](#type-gradientstop): [`Stop`](#func-stop) · [`StopAt`](#func-stopat)
+  - [`type Hyphenation`](#type-hyphenation): [`HyphenationPatterns`](#func-hyphenationpatterns)
   - [`type Icon`](#type-icon): [`MustSVG`](#func-mustsvg) · [`ParseSVG`](#func-parsesvg)
   - [`type InputEvent`](#type-inputevent): [`DefaultPrevented`](#func-inputevent-defaultprevented) · [`PreventDefault`](#func-inputevent-preventdefault) · [`StopPropagation`](#func-inputevent-stoppropagation)
   - [`type KeyCode`](#type-keycode)
@@ -1840,6 +1841,16 @@ type App struct {
     //
     //	tela.Main(tela.App{Title: "Notes", Fonts: []tela.Font{inter.Sans}, Root: Notes()})
     Fonts []Font
+    // Hyphenation are the hyphenation dictionaries of the class
+    // hyphens-auto, from Tela's packages hyphen/en, hyphen/es and
+    // hyphen/fr or tela.HyphenationPatterns (ADR-270). Without them no
+    // word is hyphenated (soft hyphens still break) and the binary
+    // carries no patterns. Text is hyphenated in its language (h.Lang,
+    // else the app's default, tela.SetDefaultLang) when one of them is for
+    // it. Child windows share them.
+    //
+    //	tela.Main(tela.App{Title: "Notes", Hyphenation: []tela.Hyphenation{en.US, es.Spanish}, Root: Notes()})
+    Hyphenation []Hyphenation
     // DevState keeps state that lives outside the component tree across
     // the reloads of tela dev: package variables, controllers, the
     // settings of a connection. State in hooks, text fields, scroll
@@ -3452,6 +3463,46 @@ func StopAt(c Color, percent float32) GradientStop
 ```
 
 StopAt returns a gradient stop at a percentage (0 to 100) of the gradient line.
+
+### type Hyphenation
+
+```go
+type Hyphenation core.Hyphenation
+```
+
+Hyphenation is the hyphenation dictionary of a language, for [`App`](#type-app).Hyphenation: what the hyphens-auto class breaks words with (ADR-270). Text is hyphenated in its language (h.Lang, else the app's default language: [`SetDefaultLang`](#func-setdefaultlang), package i18n's locale, else the user's), when the app brings a dictionary for it; text of no known language is not, as in browsers. Declare the language of text that can be in another one than the user's. Without App.Hyphenation a binary carries no patterns. Soft hyphens (U+00AD, "\\u00ad" in Go strings) break words whatever the dictionaries, unless the class hyphens-none is set.
+
+Take one from Tela's packages, hyphen/en (en.US, en.GB), hyphen/es (es.Spanish) and hyphen/fr (fr.French), or make one with [`HyphenationPatterns`](#func-hyphenationpatterns):
+
+```go
+import "github.com/kuronosu/tela/hyphen/en"
+
+tela.Main(tela.App{
+    Hyphenation: []tela.Hyphenation{en.US},
+    Root:        Article(),
+})
+
+P(Class("hyphens-auto"), Lang("en"), Text("Internationalization..."))
+```
+
+A text's language picks a dictionary as Chromium does: "en" and "en-US" use American English, "en-GB" and the other English regions British English, "es-MX" Spanish; without that one, a dictionary of the same language. A word breaks only when it does not fit on its line, at a point that leaves 2 letters before the hyphen and 3 after it; Chromium's rules apply (no break in capitalized English words, nor in the last word of a paragraph). The patterns are compiled when text first needs them.
+
+#### func HyphenationPatterns
+
+```go
+func HyphenationPatterns(lang, patterns, exceptions string) Hyphenation
+```
+
+HyphenationPatterns returns the dictionary of TeX hyphenation patterns for the text whose language is lang, a BCP 47 tag ("it", "pt-BR", "de-1996"; the dictionary Chromium calls so), for languages without a Tela package. patterns is the text of a patterns file in hyph-utf8's format (hyph-\*.pat.txt: letters with the digits of Liang's algorithm between them, such as "hy3ph", separated by white space; % starts a comment) and exceptions that of an exceptions file (hyph-\*.hyp.txt: words with hyphens where they break, such as "ta-ble"), "" for none. The letters of the patterns, and their capitals, are the alphabet: a word with another letter does not break.
+
+An empty pattern text or a malformed tag makes [`Run`](#func-run) return an error before the window opens; patterns that do not compile are logged when text first needs them, and the text is not hyphenated (in tests, telatest fails at Mount).
+
+```go
+//go:embed hyph-it.pat.txt
+var italian string
+
+tela.App{Hyphenation: []tela.Hyphenation{tela.HyphenationPatterns("it", italian, "")}}
+```
 
 ### type Icon
 

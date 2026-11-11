@@ -263,6 +263,16 @@ type App struct {
 	//
 	//	tela.Main(tela.App{Title: "Notes", Fonts: []tela.Font{inter.Sans}, Root: Notes()})
 	Fonts []Font
+	// Hyphenation are the hyphenation dictionaries of the class
+	// hyphens-auto, from Tela's packages hyphen/en, hyphen/es and
+	// hyphen/fr or tela.HyphenationPatterns (ADR-270). Without them no
+	// word is hyphenated (soft hyphens still break) and the binary
+	// carries no patterns. Text is hyphenated in its language (h.Lang,
+	// else the app's default, tela.SetDefaultLang) when one of them is for
+	// it. Child windows share them.
+	//
+	//	tela.Main(tela.App{Title: "Notes", Hyphenation: []tela.Hyphenation{en.US, es.Spanish}, Root: Notes()})
+	Hyphenation []Hyphenation
 	// DevState keeps state that lives outside the component tree across
 	// the reloads of tela dev: package variables, controllers, the
 	// settings of a connection. State in hooks, text fields, scroll
@@ -390,7 +400,8 @@ func (app App) options() core.Options {
 			ClassAliases:      app.ClassAliases,
 			Dev:               core.ResolveDev(app.Dev),
 		},
-		AppFonts: coreFonts(app.Fonts),
+		AppFonts:       coreFonts(app.Fonts),
+		AppHyphenation: coreHyphenation(app.Hyphenation),
 		Window: core.WindowSpec{
 			Title:           app.Title,
 			Width:           app.Width,

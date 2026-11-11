@@ -320,7 +320,7 @@ func sameInherited(a, b *style.ComputedStyle) bool {
 		ta.WhiteSpace == tb.WhiteSpace && ta.WrapStyle == tb.WrapStyle && ta.WordBreak == tb.WordBreak &&
 		ta.OverflowWrap == tb.OverflowWrap && ta.TabSize == tb.TabSize &&
 		ta.Numeric == tb.Numeric && slices.Equal(ta.Shadow, tb.Shadow) &&
-		ta.Direction == tb.Direction && ta.Language == tb.Language &&
+		ta.Direction == tb.Direction && ta.Language == tb.Language && ta.Hyphens == tb.Hyphens &&
 		a.Visibility == b.Visibility && a.Cursor == b.Cursor &&
 		a.PointerEvents == b.PointerEvents && a.UserSelect == b.UserSelect
 }

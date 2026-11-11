@@ -96,6 +96,8 @@ type Collection struct {
 
 	noFont         atomic.Pointer[func()]
 	noFontReported atomic.Bool
+
+	hyph hyphenStore // hyphenation dictionaries (hyphen.go)
 }
 
 // family is a registered family: its parsed typefaces and its sources.

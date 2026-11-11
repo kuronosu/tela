@@ -1018,7 +1018,8 @@ func sameTextShape(a, b *text.TextStyle) bool {
 		a.Style == b.Style && a.Stretch == b.Stretch && a.LetterSpacing == b.LetterSpacing &&
 		a.WordSpacing == b.WordSpacing && a.LineHeight == b.LineHeight &&
 		a.Decoration.Lines == b.Decoration.Lines && a.Decoration.Thickness == b.Decoration.Thickness &&
-		a.Transform == b.Transform && slices.Equal(a.Features, b.Features) && a.Numeric == b.Numeric && a.Language == b.Language
+		a.Transform == b.Transform && slices.Equal(a.Features, b.Features) && a.Numeric == b.Numeric && a.Language == b.Language &&
+		a.Hyphens == b.Hyphens
 }
 
 func samePaint(a, b gfx.Paint) bool {

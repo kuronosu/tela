@@ -322,11 +322,17 @@
 //  6. Break opportunities (breaking.go): UAX #14 from go-text's segmenter,
 //     forced breaks at preserved newlines, word-break (break-all adds
 //     opportunities between letters, keep-all removes them), break-spaces
-//     (after every space) and inline boxes (both sides, always).
+//     (after every space) and inline boxes (both sides, always); the one
+//     after a soft hyphen goes with hyphens: none.
 //  7. Greedy breaking: content that fits stays; at the first cluster that
-//     does not, the line ends at the last soft opportunity, else at the
-//     last cluster boundary when overflow-wrap allows it, else the cluster
-//     overflows. Trailing spaces hang (pre-wrap; only when they do not fit
+//     does not, the line ends at a hyphenation point of its word (hyphens:
+//     auto, see "Hyphenation"), else at the last soft opportunity, else at
+//     the last cluster boundary when overflow-wrap allows it, else the
+//     cluster overflows (up to its word's next hyphenation point, if any).
+//     A line that ends after a soft hyphen or at a hyphenation point
+//     shows a hyphen; when its content fits but not with the hyphen, the
+//     line is broken again in the width without it (Blink's BreakText).
+//     Trailing spaces hang (pre-wrap; only when they do not fit
 //     before a forced break or the end) or are removed (collapsing modes),
 //     and do not count for fitting or alignment. Tabs advance to multiples
 //     of tab-size spaces of the block's font. text-wrap: balance and
@@ -401,9 +407,39 @@
 // TestChromiumSynthetic compares synthetic bold and oblique (a font with
 // one Regular face, in four styles at 14, 24 and 40 px): the ink of every
 // cell is within 2.2% of Chromium's, as close as the face drawn as it is.
-// Not implemented: hyphenation, vertical-align on spans, reshaping across
-// emergency breaks
+// TestChromiumHyphens compares 45 paragraphs with soft hyphens and
+// hyphens: auto (English, Spanish, French; alignments, spans, right to
+// left, balance, pretty, line-clamp, min-content): the same breaks, line
+// edges with the hyphen within 0.024 px.
+// Not implemented: vertical-align on spans, reshaping across emergency
+// breaks
 // (an Arabic word broken by overflow-wrap keeps its joining forms).
+//
+// # Hyphenation
+//
+// hyphen.go holds hyphenation dictionaries (Hyphenator: TeX patterns and
+// exceptions, compiled on first use into a sorted table for Liang's
+// algorithm) and the choice of one of a collection's dictionaries
+// (SetHyphenators) for a language: Blink's locale map, then any of the
+// same primary language. The rules are Chromium's on Linux and Windows (Blink's
+// HyphenationMinikin over Android's Minikin hyphenator): leading spaces,
+// opening punctuation and quotes and trailing punctuation are not part of
+// a word; words of 5 to 62 letters, all in the dictionary's alphabet,
+// break with 2 letters before the point and 3 after; English words that
+// start with a capital do not break. Line breaking hyphenates only the
+// word at the point a line overflows (the rest of a word broken before
+// counts as a word), never the last word of a paragraph unless it starts
+// its line; min-content widths take every point of every word; text-wrap
+// balance and pretty add the points as candidates with Minikin's hyphen
+// penalty. The hyphen is U+2010 in the first font of the style that has
+// it when the style's first available font has U+2010, else U+002D,
+// without letter-spacing; it is drawn and underlined after the line's
+// last cluster in its direction, and the last glyph before it takes its
+// nominal advance (Blink reshapes the end of a line broken inside a word,
+// which drops the kerning with the next line). The dictionaries of the
+// hyphen/... packages are the patterns of Chromium's hyphen-data, and
+// TestHyphenMinikin compares them with its .hyb files on 70 000 words
+// each (TestHyphenGolden keeps a sample).
 //
 // Determinism: positions come from integers (font units) and px values
 // computed with explicit float32 conversions; nominal advances come from

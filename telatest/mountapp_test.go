@@ -112,7 +112,7 @@ func TestMountAppNeedsRoot(t *testing.T) {
 func TestAppFieldsAreClassified(t *testing.T) {
 	applied := map[string]bool{
 		"Width": true, "Height": true, "RootClass": true, "ColorScheme": true, "Theme": true,
-		"ClassAliases": true, "Fonts": true, "ClassicScrollbars": true, "InstantScroll": true, "NativeMenus": true, "IgnoreTextScale": true, "Dev": true, "Transparent": true,
+		"ClassAliases": true, "Fonts": true, "Hyphenation": true, "ClassicScrollbars": true, "InstantScroll": true, "NativeMenus": true, "IgnoreTextScale": true, "Dev": true, "Transparent": true,
 	}
 	// The option that sets each OS-window field by hand.
 	mountApp := map[string]string{

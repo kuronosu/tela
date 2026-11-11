@@ -60,7 +60,7 @@ func TestPrecedence(t *testing.T) {
 }
 
 func TestInheritance(t *testing.T) {
-	parent := style(t, "text-red-500 text-xl font-bold italic tracking-wide leading-7 text-center uppercase underline whitespace-nowrap font-mono tabular-nums cursor-pointer pointer-events-none select-none invisible "+
+	parent := style(t, "text-red-500 text-xl font-bold italic tracking-wide leading-7 text-center uppercase underline whitespace-nowrap font-mono tabular-nums hyphens-auto cursor-pointer pointer-events-none select-none invisible "+
 		"bg-white p-4 w-32 border-2 opacity-50 rotate-45 shadow-lg")
 	child := Compute(testCx, Input{Kind: KindDiv, Parent: parent})
 
@@ -76,6 +76,7 @@ func TestInheritance(t *testing.T) {
 	eq(t, "Deco", child.Text.Decoration, parent.Text.Decoration)
 	eq(t, "WS", child.Text.WhiteSpace, text.WhiteSpaceNowrap)
 	eq(t, "Numeric", child.Text.Numeric, text.NumericTabular)
+	eq(t, "Hyphens", child.Text.Hyphens, text.HyphensAuto)
 	eq(t, "Family", child.Text.FontFamily[0], "ui-monospace")
 	eq(t, "Cursor", child.Cursor, CursorPointer)
 	eq(t, "PE", child.PointerEvents, PointerEventsNone)
