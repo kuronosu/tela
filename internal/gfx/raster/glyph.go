@@ -424,9 +424,14 @@ func (r *Renderer) drawColorInline(cl *gfx.DisplayList, gm gfx.Affine) {
 	r.save()
 	r.ctm, r.dl, r.root = gm, cl, gm
 	r.glyphDepth++
+	// The barriers of a phased render, Options.From and Snap are command
+	// indices of the main list (see renderMask).
+	ph, from, snapped := r.ph, r.from, r.snapped
+	r.ph, r.from, r.snapped = nil, 0, true
 	for i := range cl.Len() {
 		r.visit(i, cl.At(i))
 	}
+	r.ph, r.from, r.snapped = ph, from, snapped
 	r.glyphDepth--
 	r.dl, r.root = dl, root
 	r.restore()

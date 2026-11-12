@@ -214,8 +214,10 @@ func TestBackdropCacheSpares(t *testing.T) {
 			// The second filter leaves the list: its entry is dropped.
 			c.Retain(one, 1, []int{0})
 			r.Render(fb, one, Options{Workers: 1, Backdrops: &c, Region: image.Rect(0, 0, 1, 1)})
-			if c.Bytes() != both || len(c.spare) != 1 {
-				t.Fatalf("the dropped entry's buffer is not a spare: %d bytes, %d spares", c.Bytes(), len(c.spare))
+			// (It is kept as a past entry, in case the filter comes back,
+			// which ages like a spare.)
+			if c.Bytes() != both || len(c.spare)+len(c.past) != 1 {
+				t.Fatalf("the dropped entry's buffer is not kept: %d bytes, %d spares, %d past", c.Bytes(), len(c.spare), len(c.past))
 			}
 			// The frame that dropped the entry ends, then the spare waits
 			// maxIdleFrames frames for an entry to take it.
@@ -226,13 +228,13 @@ func TestBackdropCacheSpares(t *testing.T) {
 				frames = maxIdleFrames + 2
 			}
 			for i := range frames {
-				if len(c.spare) != 1 {
+				if len(c.spare)+len(c.past) != 1 {
 					t.Fatalf("the spare was freed after %d frames", i)
 				}
 				c.EndFrame()
 			}
-			if c.Bytes() != first || len(c.spare) != 0 {
-				t.Errorf("after %d frames: %d bytes, %d spares; want %d bytes, the entry of the remaining filter", frames, c.Bytes(), len(c.spare), first)
+			if c.Bytes() != first || len(c.spare)+len(c.past) != 0 {
+				t.Errorf("after %d frames: %d bytes, %d spares, %d past; want %d bytes, the entry of the remaining filter", frames, c.Bytes(), len(c.spare), len(c.past), first)
 			}
 			if !c.ents[0].ok {
 				t.Error("the entry of the remaining filter was dropped")
@@ -261,7 +263,7 @@ func TestPhasedMaskBarrier(t *testing.T) {
 	b.BackdropFilter(shape, gfx.Blur{StdDev: 6})
 	b.FillRRect(shape, gfx.White.WithAlpha(0.2))
 	dl := b.Finish()
-	bfs, ok := phaseBarriers(dl)
+	bfs, ok := phaseBarriers(dl, 0)
 	if !ok || len(bfs) != 1 || bfs[0] >= mask.Len() {
 		t.Fatalf("barriers %v (phased %v): want one, at an index below the mask's %d commands", bfs, ok, mask.Len())
 	}

@@ -84,9 +84,11 @@ import (
 //
 // # Fallbacks
 //
-// A full rasterization when the damage covers most of the frame, or when
-// the matching gives up (more than matchLookahead commands differ in a
-// row: the rest of the frame is damaged).
+// A full rasterization when rasterizing the damage costs most of a full
+// one (damagebase.go counts what each rectangle reads, and less for one
+// rendered from a base). When more than matchLookahead commands differ in
+// a row, the matching resumes at the next equal draw command (anchor); if
+// there is none, the rest of the middle is damaged command by command.
 
 // matchLookahead bounds the search for the next matching pair.
 const matchLookahead = 48
@@ -141,8 +143,10 @@ type damager struct {
 	// reads. pos is the position add records.
 	rpos []int
 	pos  int
-	// gaveUp: the matching gave up, the frame is full.
-	gaveUp bool
+	// rkind is the kind of each rectangle of rects (rectNew...), kind the
+	// kind add records.
+	rkind []uint8
+	kind  uint8
 	// scratch holds the buffers reused between frames.
 	scratch *damageScratch
 }
@@ -165,17 +169,28 @@ type damageScratch struct {
 	spacesA, spacesB map[*scroller]gfx.Point
 	cand             map[*scroller]bool
 	order            []*scroller
-	// pairB is the old partner of each new command (run).
-	pairB []int
+	// pairB is the old partner of each new command, pairA the new partner
+	// of each old one (run).
+	pairB, pairA []int
 	// carry is, for each backdrop filter of the new frame, the backdrop
 	// filter of the old frame (its index among the old frame's backdrop
-	// filters) whose input is the same pixels, or -1; nil when the
-	// matching gave up. bdc, when not nil, is the cache of filtered
+	// filters) whose input is the same pixels, or -1. bdc, when not nil, is the cache of filtered
 	// backdrops of the framebuffer this damage is rasterized into: it is
 	// carried to the new frame (raster.BackdropCache.Retain), and its hits
 	// count in the cost of the damage.
 	carry, carryBuf []int
 	bdc             *raster.BackdropCache
+	// anchors indexes the new commands of the middle by their bounds for
+	// anchor, once the frame's matching needs it (anchored).
+	anchors  map[gfx.Rect][]int
+	anchored bool
+	// snaps are the snapshots of the old frame (damagebase.go), and devA
+	// and devB the device bounds of the commands of the frames, computed
+	// when a base is checked.
+	snaps      []snapEntry
+	devA, devB []image.Rectangle
+	// canvas is the color the framebuffer is cleared to.
+	canvas gfx.Color
 }
 
 // resized returns buf with length n, reallocated when it is too short;
@@ -194,7 +209,8 @@ func frameDamage(a, b *frame, bounds image.Rectangle, s *damageScratch) Damage {
 		s = new(damageScratch)
 	}
 	d := damager{a: a, b: b, scale: float64(b.scale), bounds: bounds, scratch: s}
-	s.carry = nil
+	s.carry, s.anchored = nil, false
+	s.devA, s.devB = s.devA[:0], s.devB[:0]
 	return d.run()
 }
 
@@ -215,12 +231,10 @@ func (d *damager) run() Damage {
 	matchedA, matchedB := s.matchedA, s.matchedB
 	clear(matchedA)
 	clear(matchedB)
-	// When the matching gives up, the frame is rasterized fully, but the
-	// pairs it found still tell which backdrop filters kept their input
-	// (the rest of the middle is unmatched), so that the full frame draws
-	// them from the cache: a scroll that moves most of the frame under a
-	// fixed glass pane.
-	d.gaveUp = !d.match(seqA, seqB, matchedA, matchedB)
+	// Even when the frame is rasterized fully, the pairs tell which
+	// backdrop filters kept their input, so that the full frame draws them
+	// from the cache.
+	d.match(seqA, seqB, matchedA, matchedB)
 	// The matched pairs are in order: the k-th matched command of seqA
 	// pairs with the k-th of seqB. pairB is the old partner of each new
 	// command (-1: unmatched or not in seqB).
@@ -229,12 +243,14 @@ func (d *damager) run() Damage {
 	for i := range pairB {
 		pairB[i] = -1
 	}
+	d.kind = rectNew
 	for k, j := range seqB {
 		if !matchedB[k] {
 			d.pos = 2 * j
 			d.add(d.devB(j))
 		}
 	}
+	d.kind = rectOld
 	kb := 0 // the next matched command of seqB
 	for k, i := range seqA {
 		for kb < len(seqB) && !matchedB[kb] {
@@ -253,13 +269,15 @@ func (d *damager) run() Damage {
 		}
 		if u := d.unitA[i]; u >= 0 {
 			un := &d.ua[u]
+			d.kind = rectOther
 			d.add(d.devA(i).Add(image.Pt(un.dx, un.dy)).Intersect(un.r))
+			d.kind = rectOld
 		} else {
 			d.add(d.devA(i))
 		}
 	}
 	// The damage of shifted units counts as painted before everything.
-	d.pos = -1
+	d.pos, d.kind = -1, rectOther
 	var shifts []Shift
 	for k := range d.ub {
 		if d.ub[k].group == k {
@@ -268,6 +286,20 @@ func (d *damager) run() Damage {
 	}
 	d.backdropClosure(shifts)
 	s.bdc.Retain(B, d.b.scale, s.carry)
+	// The filters whose input changed find their output if that input is
+	// one they had before (a theme switched back).
+	s.bdc.Revive(s.canvas)
+	// pairA is the new partner of each old command (-1: unmatched or not
+	// in seqA), for the bases of the rectangles (damagebase.go).
+	s.pairA = resized(s.pairA, A.Len())
+	for i := range s.pairA {
+		s.pairA[i] = -1
+	}
+	for j, i := range pairB {
+		if i >= 0 {
+			s.pairA[i] = j
+		}
+	}
 	return d.finish(shifts)
 }
 
@@ -299,13 +331,22 @@ func grow(r image.Rectangle, n int) image.Rectangle {
 	return image.Rect(r.Min.X-n, r.Min.Y-n, r.Max.X+n, r.Max.Y+n)
 }
 
-// add adds a damaged rectangle, at the list position d.pos.
+// add adds a damaged rectangle, at the list position d.pos, of the kind
+// d.kind.
 func (d *damager) add(r image.Rectangle) {
 	if r = r.Intersect(d.bounds); !r.Empty() {
 		d.rects = append(d.rects, r)
 		d.rpos = append(d.rpos, d.pos)
+		d.rkind = append(d.rkind, d.kind)
 	}
 }
+
+// The kinds of damaged rectangles (damager.rkind).
+const (
+	rectNew   = iota // the device bounds of an unmatched new command
+	rectOld          // the device bounds of an unmatched old command
+	rectOther        // a shift's damage, a backdrop filter's grown output
+)
 
 // reaches returns, for every command of dl, the device reach of the
 // filters of the layers around it (pushes and pops count as inside their
@@ -913,10 +954,8 @@ func (d *damager) shiftExact(c gfx.Command) bool {
 	return false
 }
 
-// match marks the matched elements of the two sequences. It reports
-// false when it gives up: the rest of the middle stays unmatched and the
-// frame is rasterized fully.
-func (d *damager) match(sa, sb []int, ma, mb []bool) bool {
+// match marks the matched elements of the two sequences.
+func (d *damager) match(sa, sb []int, ma, mb []bool) {
 	n, m := len(sa), len(sb)
 	p := 0
 	for p < n && p < m && d.eq(sa[p], sb[p]) {
@@ -951,26 +990,76 @@ func (d *damager) match(sa, sb []int, ma, mb []bool) bool {
 			}
 		}
 		if !found {
-			// Everything left in the middle differs.
-			return d.unmatchedArea(sa[i:ei], sb[j:ej])
+			// More than matchLookahead commands differ in a row (the rows
+			// of a table that scrolled over glass): resume on the next
+			// equal draw command, if any.
+			if ni, nj, ok := d.anchor(sa, sb, i, j, ei, ej); ok {
+				i, j = ni, nj
+				continue
+			}
+			// Everything left in the middle differs: it is damaged
+			// command by command.
+			return
 		}
 	}
-	return true
 }
 
-// unmatchedArea decides what to do when the rest of the middle of the two
-// sequences differs: a full rasterization when it covers most of the
-// frame; the caller then damages the unmatched commands one by one.
-func (d *damager) unmatchedArea(ra, rb []int) bool {
-	var u image.Rectangle
-	for _, i := range ra {
-		u = u.Union(d.devA(i).Intersect(d.bounds))
+// anchor finds where the matching resumes after a run of more than
+// matchLookahead differing commands: the first old draw command from sa[i]
+// on (outside the shifted units) that matches a new one from sb[j] on, the
+// nearest of its candidates, which are the new draw commands with its
+// bounds (draw commands match only with equal bounds). The new commands of
+// the middle, sb[j:ej], are indexed by their bounds once per frame (the
+// first resynchronization's middle holds every later one), and at most
+// anchorTries candidates are tried per old command, so a resynchronization costs a pass over the
+// middle. Any pairs in order are a valid matching (see the type's
+// documentation): the commands skipped are damaged.
+func (d *damager) anchor(sa, sb []int, i, j, ei, ej int) (int, int, bool) {
+	s := d.scratch
+	A, B := d.a.dl, d.b.dl
+	if s.anchors == nil {
+		s.anchors = map[gfx.Rect][]int{}
 	}
-	for _, j := range rb {
-		u = u.Union(d.devB(j).Intersect(d.bounds))
+	if !s.anchored {
+		s.anchored = true
+		// The slices of the last frames are reused (a scroll needs the
+		// index every frame), unless the keys pile up.
+		if len(s.anchors) > 4*len(sb) {
+			clear(s.anchors)
+		}
+		for b, ys := range s.anchors {
+			s.anchors[b] = ys[:0]
+		}
+		for y := j; y < ej; y++ {
+			if k := sb[y]; B.Match(k) < 0 && d.unitB[k] < 0 {
+				b := B.BoundsAt(k)
+				s.anchors[b] = append(s.anchors[b], y)
+			}
+		}
 	}
-	return float64(u.Dx()*u.Dy()) <= fullFraction*float64(d.bounds.Dx()*d.bounds.Dy())
+	for x := i; x < ei; x++ {
+		k := sa[x]
+		if A.Match(k) >= 0 || d.unitA[k] >= 0 {
+			continue
+		}
+		tries := 0
+		for _, y := range s.anchors[A.BoundsAt(k)] {
+			if y < j || y >= ej {
+				continue
+			}
+			if d.eq(k, sb[y]) {
+				return x, y, true
+			}
+			if tries++; tries == anchorTries {
+				break
+			}
+		}
+	}
+	return 0, 0, false
 }
+
+// anchorTries bounds the candidates anchor tries for one old command.
+const anchorTries = 8
 
 // ---------------------------------------------------------------------
 // Unit damage.
@@ -1292,31 +1381,6 @@ func (d *damager) backdropClosure(shifts []Shift) {
 			}
 		}
 	}
-}
-
-// finish merges the damage into a few rectangles, or turns it into a full
-// rasterization when rasterizing them (with what their backdrop filters
-// read) costs most of a full one.
-func (d *damager) finish(shifts []Shift) Damage {
-	if d.gaveUp {
-		return Damage{Full: true}
-	}
-	rects := mergeRects(d.rects)
-	area := 0
-	for _, r := range rects {
-		// Rasterizing r renders the pixels its backdrop filters read too
-		// (raster.BackdropRegion). Overlaps count twice: they are
-		// rasterized twice.
-		g := d.scratch.bdc.Region(d.b.dl, d.b.scale, r, d.bounds)
-		area += g.Dx() * g.Dy()
-	}
-	for _, s := range shifts {
-		area += s.Rect.Dx() * s.Rect.Dy() / 8 // a shift costs a copy
-	}
-	if float64(area) > fullFraction*float64(d.bounds.Dx()*d.bounds.Dy()) {
-		return Damage{Full: true}
-	}
-	return Damage{Shifts: shifts, Rects: rects}
 }
 
 // mergeRects merges rectangles whose bounding box covers little more

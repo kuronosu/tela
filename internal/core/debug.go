@@ -363,7 +363,7 @@ const RasterSettle = time.Second
 // TrimRaster would release. A window whose frames need no scratch memory
 // gets no trim, and so no timer.
 func (t *Tree) RasterTrimDue(r *raster.Renderer) bool {
-	return !t.asked && !t.Animating() && !t.Dirty() && (r.ScratchBytes() > 0 || t.lay.bdc.SpareBytes() > 0)
+	return !t.asked && !t.Animating() && !t.Dirty() && (r.ScratchBytes() > 0 || t.lay.bdc.SpareBytes() > 0 || t.lay.snapBytes() > 0)
 }
 
 // RasterTrimAt returns when the owner of r should call TrimRaster after a
@@ -381,11 +381,13 @@ func (t *Tree) RasterTrimAt(r *raster.Renderer, now time.Duration) time.Duration
 
 // TrimRaster releases the scratch memory of r, the Renderer of the
 // tree's frames, and the spare buffers of the tree's cache of filtered
-// backdrops (raster.Renderer.Trim): for a window that rests. The cached
+// backdrops (raster.Renderer.Trim) and the snapshots the next frame could
+// start from (damagebase.go): for a window that rests. The cached
 // backdrops of the current frame stay. It changes no pixel.
 func (t *Tree) TrimRaster(r *raster.Renderer) {
 	r.Trim()
 	t.lay.bdc.Trim()
+	t.lay.dropSnaps()
 }
 
 // rasterizeDebug is RasterizeFrame with overlays on.

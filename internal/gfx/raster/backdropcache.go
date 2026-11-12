@@ -75,7 +75,32 @@ type BackdropCache struct {
 	plan []image.Rectangle
 	// hits counts the filters drawn from the cache (tests).
 	hits int
+	// past holds the entries of filters whose input changed or that left
+	// the list, most recent last, with the list and canvas they were
+	// computed for, so that Revive finds them when the same input comes
+	// back (a theme switched back, a palette opened again); canvas is the
+	// canvas of the current list (Revive). Those of an input that did not
+	// rest for a frame (stable) age like the spares; maxPast and the
+	// memory budget bound the others, and Trim frees them all.
+	past   []pastEntry
+	canvas gfx.Color
+	// revived counts the entries Revive found (tests).
+	revived int
 }
+
+// pastEntry is an entry whose filter's input changed: the output of the
+// filter at command index i of dl, rendered over canvas.
+type pastEntry struct {
+	e      bdEntry
+	dl     *gfx.DisplayList
+	i      int
+	canvas gfx.Color
+	age    useAge // for an entry whose input did not rest (endFrame)
+}
+
+// maxPast bounds the entries kept for inputs that may come back: two
+// generations of a few glass panes.
+const maxPast = 8
 
 // bdEntry is the cached output of one backdrop filter.
 type bdEntry struct {
@@ -135,6 +160,7 @@ func (c *BackdropCache) Retain(dl *gfx.DisplayList, scale float32, prev []int) {
 	}
 	c.old, c.ents = c.ents, c.old[:0]
 	full := c.full
+	oldDL, oldIdx := c.dl, slices.Clone(c.idx)
 	c.index(dl)
 	c.full, c.scale = full, scale
 	c.ents = slices.Grow(c.ents[:0], len(prev))[:len(prev)]
@@ -147,16 +173,179 @@ func (c *BackdropCache) Retain(dl *gfx.DisplayList, scale float32, prev []int) {
 		}
 	}
 	for k := range c.old {
+		if e := &c.old[k]; e.ok {
+			c.remember(e, oldDL, oldIdx[k])
+		}
 		c.drop(&c.old[k])
 	}
 	clear(c.old)
 	c.old = c.old[:0]
 }
 
+// remember keeps entry e, the output of the filter at command index i of
+// dl, among the past entries (taking its buffer: e is emptied), dropping
+// one beyond maxPast (evict).
+func (c *BackdropCache) remember(e *bdEntry, dl *gfx.DisplayList, i int) {
+	c.past = append(c.past, pastEntry{e: *e, dl: dl, i: i, canvas: c.canvas, age: useAge{used: true}})
+	*e = bdEntry{}
+	if len(c.past) > maxPast {
+		c.freePast(c.evict())
+	}
+}
+
+// evict returns the past entry to free first: the oldest of an input that
+// did not rest (a pane that moved or grew frame after frame, whose past
+// outputs are unlikely to come back), else the oldest.
+func (c *BackdropCache) evict() int {
+	for k := range c.past {
+		if !c.past[k].e.stable {
+			return k
+		}
+	}
+	return 0
+}
+
+// Revive gives the backdrop filters of the cache's list that have no
+// entry the past entry of the same filter computed for the same input, if
+// there is one: an input that comes back (a theme switched back, a view
+// shown again) finds its output. The list was or will be rendered over a
+// destination holding canvas (raster.Clear), which the caller vouches for;
+// the rest is checked here: the commands before the filter that touch the
+// pixels its output depends on (its read bounds, grown by those of the
+// earlier backdrop filters that touch them and by the reach of the filter
+// layers around a command) are the same commands with the same bounds in
+// both lists (gfx.Equal), so they paint the same pixels there. A nil cache
+// is ignored.
+func (c *BackdropCache) Revive(canvas gfx.Color) {
+	if c == nil {
+		return
+	}
+	c.canvas = canvas
+	if c.dl == nil || len(c.past) == 0 {
+		return
+	}
+	for k := range c.ents {
+		if c.ents[k].ok || !c.top[k] || c.ctms[k] == (gfx.Affine{}) {
+			continue
+		}
+		i := c.idx[k]
+		f, ok := c.dl.At(i).(gfx.BackdropFilter)
+		if !ok {
+			continue
+		}
+		for n := len(c.past) - 1; n >= 0; n-- {
+			p := &c.past[n]
+			if p.canvas != canvas || p.e.bounds != c.dl.BoundsAt(i) || p.e.ctm != c.ctms[k] || !sameFilters(p.e.filters, f) ||
+				!sameInput(p.dl, p.i, c.dl, i, c.scale) {
+				continue
+			}
+			c.ents[k] = p.e
+			c.ents[k].stable = true
+			c.past = slices.Delete(c.past, n, n+1)
+			c.revived++
+			break
+		}
+	}
+}
+
+// sameInput reports whether the commands of list a before its command ia
+// and those of list b before ib paint the same pixels inside what the
+// backdrop filter ib of b reads at scale (see Revive). The filters are the
+// same command with the same bounds (the caller checked).
+func sameInput(a *gfx.DisplayList, ia int, b *gfx.DisplayList, ib int, scale float32) bool {
+	if a == nil || ia >= a.Len() || !gfx.Equal(a.At(ia), b.At(ib)) {
+		return false
+	}
+	ka, kb := backdropOf(a, ia), backdropOf(b, ib)
+	if ka < 0 || kb < 0 {
+		return false
+	}
+	_, ra, _, _ := a.Backdrop(ka)
+	_, rb, _, _ := b.Backdrop(kb)
+	if ra != rb {
+		return false
+	}
+	// The pixels the output depends on: the read bounds, grown by what the
+	// earlier backdrop filters that touch them read.
+	need := devRootRect(rb, scale)
+	for k := kb - 1; k >= 0; k-- {
+		j, rd, _, _ := b.Backdrop(k)
+		if devRootRect(b.BoundsAt(j), scale).Overlaps(need) {
+			need = need.Union(devRootRect(rd, scale))
+		}
+	}
+	sa, sb := touching(a, ia, need, scale), touching(b, ib, need, scale)
+	if len(sa) != len(sb) {
+		return false
+	}
+	for n := range sa {
+		i, j := sa[n], sb[n]
+		if a.BoundsAt(i) != b.BoundsAt(j) || a.LayerReach(i) != b.LayerReach(j) || !gfx.Equal(a.At(i), b.At(j)) {
+			return false
+		}
+	}
+	return true
+}
+
+// backdropOf returns the index among dl's backdrop filters of the one at
+// command index i, or -1.
+func backdropOf(dl *gfx.DisplayList, i int) int {
+	lo, hi := 0, dl.NumBackdrops()
+	for lo < hi {
+		m := (lo + hi) / 2
+		if j, _, _, _ := dl.Backdrop(m); j < i {
+			lo = m + 1
+		} else {
+			hi = m
+		}
+	}
+	if lo < dl.NumBackdrops() {
+		if j, _, _, _ := dl.Backdrop(lo); j == i {
+			return lo
+		}
+	}
+	return -1
+}
+
+// touching returns the commands of dl before index end that can change
+// pixels of need at scale: those whose bounds, grown by the reach of the
+// filter layers around them, meet it. Pushes and pops count with their
+// blocks; a block that misses need is skipped whole.
+func touching(dl *gfx.DisplayList, end int, need image.Rectangle, scale float32) []int {
+	var out []int
+	var reach []int // the device reach around each open block
+	cur := 0
+	for i := 0; i < end; i++ {
+		m := dl.Match(i)
+		if m >= 0 && m < i { // the pop of a block that meets need
+			out = append(out, i)
+			if n := len(reach); n > 0 {
+				cur, reach = reach[n-1], reach[:n-1]
+			}
+			continue
+		}
+		if !growXY(devRootRect(dl.BoundsAt(i), scale), cur, cur).Overlaps(need) {
+			if m > i {
+				i = m // the block, its pop included
+			}
+			continue
+		}
+		out = append(out, i)
+		if m > i { // a push
+			reach = append(reach, cur)
+			cur += deviceReach(dl.LayerReach(i), scale)
+		}
+	}
+	return out
+}
+
 // bind empties the cache and makes it the cache of dl at scale.
 func (c *BackdropCache) bind(dl *gfx.DisplayList, scale float32) {
 	for k := range c.ents {
 		c.drop(&c.ents[k])
+	}
+	for len(c.past) > 0 {
+		c.freePast(len(c.past) - 1)
 	}
 	clear(c.ents)
 	c.ents = c.ents[:0]
@@ -255,13 +444,21 @@ func (c *BackdropCache) entry(i int) (*bdEntry, int) {
 // their whole output is computed once and cached. A nil cache, or one of
 // another list or scale, is BackdropRegion.
 func (c *BackdropCache) Region(dl *gfx.DisplayList, scale float32, region, bounds image.Rectangle) image.Rectangle {
+	return c.RegionFrom(dl, scale, region, bounds, 0)
+}
+
+// RegionFrom is Region for a render of the commands of dl from index from
+// on (Options.From): the backdrop filters before from do not grow the
+// region. It is the region whose pixels such a render reads from its base,
+// and the pixels a Snapshot at index from holds (Options.Snap).
+func (c *BackdropCache) RegionFrom(dl *gfx.DisplayList, scale float32, region, bounds image.Rectangle, from int) image.Rectangle {
 	if scale == 0 {
 		scale = 1
 	}
 	if c == nil || c.dl != dl || c.scale != scale || (c.full != bounds && !c.full.Empty()) {
-		return BackdropRegion(dl, scale, region, bounds)
+		return backdropRegion(dl, scale, region, bounds, nil, false, from)
 	}
-	return backdropRegion(dl, scale, region, bounds, c, false)
+	return backdropRegion(dl, scale, region, bounds, c, false, from)
 }
 
 // hit reports whether the k-th backdrop filter of the cache's list, at
@@ -414,7 +611,8 @@ func (c *BackdropCache) freeSpare(k int) {
 	c.spare = slices.Delete(c.spare, k, k+1)
 }
 
-// take returns a spare buffer of length n, or nil.
+// take returns a spare buffer of length n, or the buffer of a past entry
+// that holds n bytes and is unlikely to come back, or nil.
 func (c *BackdropCache) take(n int) []uint8 {
 	best := -1
 	for k := range c.spare {
@@ -423,6 +621,16 @@ func (c *BackdropCache) take(n int) []uint8 {
 		}
 	}
 	if best < 0 {
+		// The newest past entry of an input that did not rest: the one a
+		// pane that moves every frame left in the previous frame.
+		for k := len(c.past) - 1; k >= 0; k-- {
+			if p := &c.past[k]; !p.e.stable && cap(p.e.pix) >= n {
+				b := p.e.pix[:n]
+				*p = pastEntry{}
+				c.past = slices.Delete(c.past, k, k+1)
+				return b
+			}
+		}
 		return nil
 	}
 	b := c.spare[best].b[:n]
@@ -430,15 +638,28 @@ func (c *BackdropCache) take(n int) []uint8 {
 	return b
 }
 
-// trim frees spare buffers until the cache holds at most limit bytes.
+// trim frees spare buffers, then past entries (evict), until the cache
+// holds at most limit bytes.
 func (c *BackdropCache) trim(limit int) {
 	for len(c.spare) > 0 && c.bytes > limit {
 		c.freeSpare(len(c.spare) - 1)
 	}
+	for len(c.past) > 0 && c.bytes > limit {
+		c.freePast(c.evict())
+	}
+}
+
+// freePast frees the k-th past entry.
+func (c *BackdropCache) freePast(k int) {
+	c.bytes -= cap(c.past[k].e.pix)
+	c.past[k] = pastEntry{}
+	c.past = slices.Delete(c.past, k, k+1)
 }
 
 // EndFrame ends a frame of the cache's owner (see Renderer.EndFrame): it
-// frees the spare buffers that no entry took in the last few frames. A
+// frees the spare buffers that no entry took in the last few frames, and
+// the past entries of inputs that did not rest that no filter found
+// again in them (Revive). A
 // spare serves the entry of a filter whose input changes from frame to
 // frame (a moving glass pane, dropped by Retain and stored again by the
 // Render that follows); once no frame takes it, it is only memory. The
@@ -446,8 +667,9 @@ func (c *BackdropCache) trim(limit int) {
 // which the next frame draws from. A nil cache is ignored.
 func (c *BackdropCache) EndFrame() { c.endFrame(false) }
 
-// Trim frees all the spare buffers, for a window that rests (see
-// Renderer.Trim). The entries stay. A nil cache is ignored.
+// Trim frees all the spare buffers and the past entries, for a window
+// that rests (see Renderer.Trim). The entries stay. A nil cache is
+// ignored.
 func (c *BackdropCache) Trim() { c.endFrame(true) }
 
 func (c *BackdropCache) endFrame(all bool) {
@@ -457,6 +679,14 @@ func (c *BackdropCache) endFrame(all bool) {
 	for k := len(c.spare) - 1; k >= 0; k-- {
 		if c.spare[k].age.end(all) {
 			c.freeSpare(k)
+		}
+	}
+	for k := len(c.past) - 1; k >= 0; k-- {
+		// An input that rested is kept until the window rests: the
+		// frames between two switches of a theme can be many (a hover, a
+		// tooltip). One that did not ages like a spare.
+		if all || (!c.past[k].e.stable && c.past[k].age.end(false)) {
+			c.freePast(k)
 		}
 	}
 }
@@ -470,8 +700,8 @@ func (c *BackdropCache) Bytes() int {
 	return c.bytes
 }
 
-// SpareBytes returns the bytes of the cache's spare buffers: what Trim
-// frees. A nil cache holds none.
+// SpareBytes returns the bytes of the cache's spare buffers and past
+// entries: what Trim frees. A nil cache holds none.
 func (c *BackdropCache) SpareBytes() int {
 	if c == nil {
 		return 0
@@ -479,6 +709,9 @@ func (c *BackdropCache) SpareBytes() int {
 	n := 0
 	for _, s := range c.spare {
 		n += cap(s.b)
+	}
+	for k := range c.past {
+		n += cap(c.past[k].e.pix)
 	}
 	return n
 }

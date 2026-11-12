@@ -240,13 +240,15 @@ func BackdropRegion(dl *gfx.DisplayList, scale float32, region, bounds image.Rec
 	if scale == 0 {
 		scale = 1
 	}
-	return backdropRegion(dl, scale, region, bounds, nil, false)
+	return backdropRegion(dl, scale, region, bounds, nil, false, 0)
 }
 
 // backdropRegion is BackdropRegion with the filters cached in c (nil:
-// none; otherwise the cache of dl at scale, see BackdropCache.Region).
+// none; otherwise the cache of dl at scale, see BackdropCache.Region),
+// for a render of the commands from index from on (Options.From): the
+// backdrop filters before from are not drawn and do not grow the region.
 // With record, it sets c.exact for the render of the grown region.
-func backdropRegion(dl *gfx.DisplayList, scale float32, region, bounds image.Rectangle, c *BackdropCache, record bool) image.Rectangle {
+func backdropRegion(dl *gfx.DisplayList, scale float32, region, bounds image.Rectangle, c *BackdropCache, record bool, from int) image.Rectangle {
 	region = region.Intersect(bounds)
 	if record {
 		c.exact = slices.Grow(c.exact[:0], len(c.idx))[:len(c.idx)]
@@ -268,6 +270,9 @@ func backdropRegion(dl *gfx.DisplayList, scale float32, region, bounds image.Rec
 	// output of a later filter (the region already holds what they read).
 	for k := dl.NumBackdrops() - 1; k >= 0; k-- {
 		i, _, reach, inFilter := dl.Backdrop(k)
+		if i < from {
+			break // the filters are in list order
+		}
 		if reach <= 0 || !devRootRect(dl.BoundsAt(i), scale).Overlaps(region) {
 			continue
 		}

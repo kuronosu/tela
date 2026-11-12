@@ -4,9 +4,36 @@ import (
 	"os"
 	"testing"
 
+	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/testutil/damagetest"
 	"github.com/kuronosu/tela/telatest"
 )
+
+// TestPartialFrames: frames that rasterized the whole window before
+// ADR-275 draw only what changed above an unchanged base: the orders
+// scrolling over the main pane's glass (from the second frame on, over a
+// snapshot of the pane), and the palette's scrim and first frame (over
+// the page the framebuffer holds).
+func TestPartialFrames(t *testing.T) {
+	r := newRig(t, 1920, 1080, 1, false)
+	r.settle(600)
+	r.tick(nil, r.click("button", "Orders")...)
+	r.settle(600)
+	tb := r.find("table", "Orders").Bounds
+	r.tick(nil, r.move(platform.Point{X: tb.Center().X, Y: tb.Y0 + 200}))
+	for i := range 4 {
+		if _, d := r.rasterStep(r.wheel(12, platform.ScrollPhaseUpdate)); i > 0 && d.Full {
+			t.Errorf("scroll frame %d rasterized the whole window", i)
+		}
+	}
+	r.settle(600)
+	if _, d := r.rasterStep(r.click("button", "Search")...); d.Full {
+		t.Error("the palette's scrim rasterized the whole window")
+	}
+	if _, d := r.rasterStep(); d.Full {
+		t.Error("the palette's first frame rasterized the whole window")
+	}
+}
 
 // The damage tests check every frame against a full rendering, and on the
 // glass page each one costs a full frame: they play each scale once across

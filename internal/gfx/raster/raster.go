@@ -39,6 +39,55 @@ type Options struct {
 	// do not depend on it, as long as its owner carries only the filters
 	// whose input did not change (BackdropCache.Retain).
 	Backdrops *BackdropCache
+	// From, when positive, renders only the commands from index From on:
+	// the pixels the render starts from are those of the destination (or
+	// of Base) as the commands before From left them, which the caller
+	// vouches for, and the commands before From are not drawn (the
+	// transforms and clips open at From still apply). No layer may be open
+	// at From. The backdrop filters before From do not grow the region;
+	// the pixels the render reads are those of the region grown for the
+	// filters from From on (BackdropCache.RegionFrom), which the base must
+	// hold. The pixels of the region are then those of a full render.
+	From int
+	// Base, when not nil, holds the pixels the render starts from (see
+	// From) over the region grown for the backdrop filters from From on;
+	// the destination's pixels there are not read, and only the region is
+	// written. It must not share pixels with the destination. When nil,
+	// the render starts from the destination's pixels.
+	Base *image.RGBA
+	// Snap, when not nil, receives the pixels of the destination as the
+	// commands before Snap.At leave them, over the region grown for the
+	// backdrop filters from Snap.At on, the pixels a later render with
+	// From = Snap.At over the region reads from its base (see Snapshot).
+	Snap *Snapshot
+}
+
+// Snapshot holds the pixels of a render just before one of its commands
+// (Options.Snap): a list's prefix rendered over a rectangle, from which a
+// later render of the same pixels draws only the commands that follow
+// (Options.From and Base), when its caller knows the commands before them
+// paint the same pixels there.
+type Snapshot struct {
+	// At is the index of the command before which the pixels are taken.
+	At int
+	// Pix holds the pixels (premultiplied RGBA, rows of 4*Rect.Dx()
+	// bytes) after the Render; its buffer is reused when large enough.
+	Pix []uint8
+	// Rect is set by the Render: the device pixels held, those of the
+	// region grown for the backdrop filters from At on, which are exact
+	// there (the pixels of a full render). It is empty when the Render
+	// took none: At lies inside a layer, before Options.From or after a
+	// region with nothing to draw.
+	Rect image.Rectangle
+}
+
+// Image returns the pixels of s as an image (sharing Pix), nil when it
+// holds none.
+func (s *Snapshot) Image() *image.RGBA {
+	if s == nil || s.Rect.Empty() {
+		return nil
+	}
+	return &image.RGBA{Pix: s.Pix[:4*s.Rect.Dx()*s.Rect.Dy()], Stride: 4 * s.Rect.Dx(), Rect: s.Rect}
 }
 
 // Renderer renders display lists into RGBA images. It owns the scratch
@@ -126,7 +175,16 @@ type Renderer struct {
 
 	// bdc is the cache of filtered backdrops of the current Render
 	// (Options.Backdrops) while it renders.
-	bdc     *BackdropCache
+	bdc *BackdropCache
+	// from is Options.From of the current Render, and snap its
+	// Options.Snap when it takes pixels (nil otherwise); snapped reports
+	// that the current render (a band) copied its part of them. target
+	// and renderClip are the destination and region of the current render.
+	from       int
+	snap       *Snapshot
+	snapped    bool
+	target     *image.RGBA
+	renderClip image.Rectangle
 	par     *parallel // worker Renderers and the job of a parallel Render
 	scratch []uint8   // the pixels of scratchImage
 	scrAge  useAge    // scratch's age in frames (trim.go)
@@ -223,8 +281,46 @@ func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 	if clip.Empty() {
 		return
 	}
+	from := max(opts.From, 0)
+	if from > 0 && layerOpenAt(dl, from) {
+		panic(fmt.Sprintf("raster: Options.From (%d) lies inside a layer", from))
+	}
 	r.glyphs = opts.GlyphCache
 	r.strk = &r.strokes
+	r.from = from
+	defer func() { r.from, r.snap = 0, nil }()
+	src := dst // the pixels the render starts from
+	if opts.Base != nil {
+		src = opts.Base
+	}
+	// prepare sets target up to hold the starting pixels over rect (the
+	// region, grown for the backdrop filters), and the snapshot to hold the
+	// starting pixels over its rectangle, which every band of the render
+	// updates when it reaches the snapshot's command (takeSnap).
+	prepare := func(target *image.RGBA, rect image.Rectangle, snapRect func() image.Rectangle) {
+		if src != target {
+			if !rect.In(src.Rect) {
+				panic(fmt.Sprintf("raster: Options.Base %v does not hold the pixels the render reads, %v", src.Rect, rect))
+			}
+			copyRect(target, src, rect)
+		}
+		if sn := opts.Snap; sn != nil {
+			sn.Rect = image.Rectangle{}
+			if sn.At < from || layerOpenAt(dl, sn.At) {
+				return
+			}
+			sr := snapRect().Intersect(rect)
+			n := 4 * sr.Dx() * sr.Dy()
+			if cap(sn.Pix) < n {
+				sn.Pix = make([]uint8, n)
+			}
+			sn.Pix, sn.Rect = sn.Pix[:n], sr
+			if !sr.Empty() {
+				copyRect(sn.Image(), target, sr)
+				r.snap = sn
+			}
+		}
+	}
 	if dl.BackdropReach() > 0 {
 		// A backdrop filter that reaches beyond a pixel reads pixels
 		// painted by earlier commands around its output: render on this
@@ -244,15 +340,20 @@ func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 		if bc != nil {
 			bc.prepare(dl, s, full)
 		}
-		grown := backdropRegion(dl, s, clip, full, bc, bc != nil)
+		grown := backdropRegion(dl, s, clip, full, bc, bc != nil, from)
 		target := dst
 		if grown != clip {
 			target = r.scratchImage(grown)
-			copyRect(target, dst, grown)
 		}
+		prepare(target, grown, func() image.Rectangle {
+			// The pixels exact before the snapshot's command: the region
+			// grown for the filters from it on (backdropRegion), with the
+			// cache's decisions of the grown region above.
+			return backdropRegion(dl, s, clip, full, bc, false, opts.Snap.At)
+		})
 		rendered := false
 		if opts.Workers != 1 {
-			if bfs, ok := phaseBarriers(dl); ok {
+			if bfs, ok := phaseBarriers(dl, from); ok {
 				rendered = r.renderPhased(target, dl, s, grown, opts.Workers, bfs, bc)
 			}
 		}
@@ -267,10 +368,50 @@ func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 		}
 		return
 	}
+	prepare(dst, clip, func() image.Rectangle { return clip })
 	if opts.Workers != 1 && r.renderParallel(dst, dl, s, clip, opts.Workers) {
 		return
 	}
 	r.render(dst, dl, gfx.Scale(s, s), clip)
+}
+
+// layerOpenAt reports whether a layer of dl is open before its command at
+// (a PushLayer before it whose PopLayer is at or after it).
+func layerOpenAt(dl *gfx.DisplayList, at int) bool {
+	for i := 0; i < at && i < dl.Len(); i++ {
+		m := dl.Match(i)
+		if m <= i {
+			continue // a draw or a pop
+		}
+		if m < at {
+			i = m // closed before at
+			continue
+		}
+		if _, ok := dl.At(i).(gfx.PushLayer); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// takeSnap copies the pixels of the snapshot inside the region of the
+// current render (a band of a parallel render: its rows) from the
+// destination of the render, which no layer replaces at the snapshot's
+// command (layerOpenAt).
+func (r *Renderer) takeSnap() {
+	r.snapped = true
+	sn := r.snap
+	rect := sn.Rect.Intersect(r.renderClip)
+	if rect.Empty() {
+		return
+	}
+	t := r.target
+	n := 4 * rect.Dx()
+	w := 4 * sn.Rect.Dx()
+	for y := rect.Min.Y; y < rect.Max.Y; y++ {
+		o := (y-sn.Rect.Min.Y)*w + 4*(rect.Min.X-sn.Rect.Min.X)
+		copy(sn.Pix[o:o+n], t.Pix[t.PixOffset(rect.Min.X, y):][:n])
+	}
 }
 
 // blurPool returns the pool that splits the stages of large blurs among
@@ -312,6 +453,8 @@ func (r *Renderer) render(dst *image.RGBA, dl *gfx.DisplayList, root gfx.Affine,
 	}
 	r.blit.pix, r.blit.stride, r.blit.origin, r.blit.clip = dst.Pix, dst.Stride, dst.Rect.Min, clip
 	r.surfBounds = dst.Rect
+	r.target, r.renderClip = dst, clip
+	r.snapped = r.snap == nil
 	r.blit.cm = clipMask{}
 	r.blit.toMask = false
 	r.dl = dl
@@ -334,7 +477,7 @@ func (r *Renderer) render(dst *image.RGBA, dl *gfx.DisplayList, root gfx.Affine,
 	defer func() {
 		// Do not retain dst, the list or the paints.
 		r.blit.pix, r.blit.sh, r.blit.solid, r.blit.cm, r.blit.a8 = nil, nil, nil, clipMask{}, nil
-		r.dl = nil
+		r.dl, r.target = nil, nil
 		r.grad.ramp, r.img.img = nil, nil
 		for i := range r.stack {
 			r.stack[i] = savedState{}
@@ -345,6 +488,9 @@ func (r *Renderer) render(dst *image.RGBA, dl *gfx.DisplayList, root gfx.Affine,
 	}()
 	r.phNext = 0
 	dl.Visit(rootClip, r.visitFn)
+	if !r.snapped {
+		r.takeSnap() // nothing at or after the snapshot's command was visited
+	}
 	if r.ph != nil {
 		r.ph.pass(r, dl.Len(), nil) // the barriers of filters this band culled
 	}
@@ -352,6 +498,24 @@ func (r *Renderer) render(dst *image.RGBA, dl *gfx.DisplayList, root gfx.Affine,
 
 // visit executes one command.
 func (r *Renderer) visit(i int, c gfx.Command) {
+	if !r.snapped && i >= r.snap.At {
+		r.takeSnap()
+	}
+	if i < r.from {
+		// Before Options.From: only the transforms and clips open at From
+		// apply; the blocks closed before it are skipped.
+		switch c.(type) {
+		case gfx.PushTransform, gfx.PushClipRect, gfx.PushClipRRect, gfx.PushClipPath, gfx.PushLayer:
+			if r.dl.Match(i) < r.from {
+				r.save()
+				r.skipping = true
+				return
+			}
+		case gfx.PopTransform, gfx.PopClip, gfx.PopLayer:
+		default:
+			return
+		}
+	}
 	if ph := r.ph; ph != nil && r.phNext < len(ph.bfs) && ph.bfs[r.phNext] <= i {
 		// A band of a phased render reached a backdrop filter barrier.
 		if res, barrier := ph.pass(r, i, c); barrier {

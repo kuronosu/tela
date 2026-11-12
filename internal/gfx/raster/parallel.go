@@ -61,6 +61,10 @@ type parallel struct {
 	failed atomic.Bool  // a band panicked: stop claiming bands
 	wg     sync.WaitGroup
 	ph     *phaser // a phased render: one band per goroutine, with barriers
+	// from and snap are the Render's Options.From and snapshot (see
+	// Renderer.from).
+	from int
+	snap *Snapshot
 
 	// For phased renders: the Renderer that computes the barrier filters
 	// and the pool it uses, kept for later frames.
@@ -142,7 +146,7 @@ func (r *Renderer) renderParallel(dst *image.RGBA, dl *gfx.DisplayList, s float3
 		p.workers = append(p.workers, w)
 	}
 	p.dst, p.dl, p.scale, p.area, p.rows, p.nbands = dst, dl, s, area, rows, int32(nbands)
-	p.glyphs, p.strk = r.glyphs, r.strk
+	p.glyphs, p.strk, p.from, p.snap = r.glyphs, r.strk, r.from, r.snap
 	p.next.Store(0)
 	p.failed.Store(false)
 	p.pval, p.pset = nil, false
@@ -155,7 +159,7 @@ func (r *Renderer) renderParallel(dst *image.RGBA, dl *gfx.DisplayList, s float3
 
 	pval, pset := p.pval, p.pset
 	// Do not retain dst, the list or the panic value.
-	p.dst, p.dl, p.pval, p.pset, p.glyphs, p.strk = nil, nil, nil, false, nil, nil
+	p.dst, p.dl, p.pval, p.pset, p.glyphs, p.strk, p.snap = nil, nil, nil, false, nil, nil, nil
 	if pset {
 		panic(pval)
 	}
@@ -208,7 +212,8 @@ func (p *parallel) bands(r *Renderer) {
 		}
 	}()
 	area := p.area
-	r.glyphs, r.strk = p.glyphs, p.strk
+	r.glyphs, r.strk, r.from, r.snap = p.glyphs, p.strk, p.from, p.snap
+	defer func() { r.from, r.snap = 0, nil }()
 	root := gfx.Scale(p.scale, p.scale)
 	for !p.failed.Load() {
 		b := p.next.Add(1) - 1
@@ -277,7 +282,7 @@ func (r *Renderer) renderPhased(dst *image.RGBA, dl *gfx.DisplayList, s float32,
 	}
 	p.pool.n = workers
 	p.dst, p.dl, p.scale, p.area, p.nbands = dst, dl, s, area, int32(workers)
-	p.glyphs, p.strk = r.glyphs, r.strk
+	p.glyphs, p.strk, p.from, p.snap = r.glyphs, r.strk, r.from, r.snap
 	p.failed.Store(false)
 	p.pval, p.pset = nil, false
 	p.ph = newPhaser(bfs, workers, p.comp, p.pool, dst, area)
@@ -296,7 +301,7 @@ func (r *Renderer) renderPhased(dst *image.RGBA, dl *gfx.DisplayList, s float32,
 		w.r.ph = nil
 	}
 	r.ph = nil
-	p.dst, p.dl, p.pval, p.pset, p.glyphs, p.strk, p.ph = nil, nil, nil, false, nil, nil, nil
+	p.dst, p.dl, p.pval, p.pset, p.glyphs, p.strk, p.ph, p.snap = nil, nil, nil, false, nil, nil, nil, nil
 	if pset {
 		panic(pval)
 	}
@@ -306,11 +311,12 @@ func (r *Renderer) renderPhased(dst *image.RGBA, dl *gfx.DisplayList, s float32,
 // phaseBand renders band k of a phased render with r.
 func (p *parallel) phaseBand(r *Renderer, k int) {
 	defer func() {
-		r.ph = nil
+		r.ph, r.from, r.snap = nil, 0, nil
 		if v := recover(); v != nil {
 			p.fail(v)
 		}
 	}()
+	r.from, r.snap = p.from, p.snap
 	area, n := p.area, int(p.nbands)
 	y0 := area.Min.Y + k*area.Dy()/n
 	y1 := area.Min.Y + (k+1)*area.Dy()/n
