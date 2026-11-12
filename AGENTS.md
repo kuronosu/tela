@@ -37,7 +37,7 @@ Fixes and work between phases are released the same way, with the same rule for 
 
 ## Delegation (Claude Code)
 
-The main session plans, delegates, verifies and updates the roadmap. Run it on Opus. Implementation goes to the project subagents in `.claude/agents/`, which have model and effort fixed in their frontmatter:
+The main session plans, delegates, verifies and updates the roadmap. The owner picks its model (Opus or Fable). Implementation goes to the project subagents in `.claude/agents/`, which have model and effort fixed in their frontmatter:
 
 | Agent | Model / effort | Use for |
 |---|---|---|
@@ -45,6 +45,8 @@ The main session plans, delegates, verifies and updates the roadmap. Run it on O
 | `tela-core` | Opus / high | Rasterizer, shadows/blur, platform interface (`internal/platform`), Wayland/X11/Cocoa backends, XKB, gestures, focus, scrolling/damage, IME and text editing, layout animations, stacking contexts, accessibility backends |
 | `tela-impl` | Sonnet / high | `gfx` basic types, Wayland XML generator, Tailwind generator and class parser, `tela`/`h` API surface, Win32 backend, transitions/springs, filters, `telatest`, debug overlays, `aria`, `kit`, CLI, `llms.txt`, examples |
 | `tela-chore` | Haiku / low | Boilerplate, renames, lint fixes, CI config, codebase searches, roadmap updates |
+
+A phase in `docs/ROADMAP.md` may name a model and effort for its agents' tasks (for example the GPU backend: Fable / high). Pass them as `model` and `effort` in each Agent call of that phase instead of editing the frontmatter, which stays the default.
 
 Main-session workflow per task:
 

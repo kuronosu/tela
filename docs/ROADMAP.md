@@ -44,7 +44,7 @@ The frame cost of the engine and the CPU rasterizer; the GPU backend builds on i
 
 ### GPU backend
 
-The hardest technical item (`tela-hard`). It changes no public API.
+The hardest technical item (`tela-hard`). It changes no public API. Agents: the `tela-hard` and `tela-core` tasks of this phase run with `model: "fable"` and `effort: "high"` in their Agent calls; `tela-impl` and `tela-chore` keep their own.
 
 - [ ] First: an ADR on presenting from the GPU without libwayland or libxcb, since Tela speaks both protocols in Go: dmabuf buffers through `zwp_linux_dmabuf_v1` and DRI3/Present, or a copy into `wl_shm`. It also settles what purego means for Linux binaries (dynamic linking)
 - [ ] Vulkan (Linux, Windows) and Metal (macOS) via purego/syscall over the same DisplayList, with the fixed shader set of ARCHITECTURE §13
