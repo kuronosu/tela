@@ -58,7 +58,11 @@ func TestOutlinesMatchGoText(t *testing.T) {
 		{Query{Families: []string{"Noto Sans Arabic"}, Weight: 300, Stretch: 70}, 0},
 	} {
 		f := c.Face(q.q, q.size)
-		gt := font.NewFace(f.tf.ft)
+		ft := f.tf.ft
+		if f.tf.goTextNoGvar {
+			ft = f.tf.goTextFullFont() // go-text has no outlines otherwise (gotextglyf.go)
+		}
+		gt := font.NewFace(ft)
 		gt.SetCoords(f.coords)
 		tol := float32(1e-6)
 		if f.coords != nil {

@@ -64,6 +64,11 @@ var (
 	tagBloc = ot.MustNewTag("bloc")
 	tagBdat = ot.MustNewTag("bdat")
 	tagMaxp = ot.MustNewTag("maxp")
+	tagLoca = ot.MustNewTag("loca")
+	tagGvar = ot.MustNewTag("gvar")
+	tagGPOS = ot.MustNewTag("GPOS")
+	tagKerx = ot.MustNewTag("kerx")
+	tagHebr = ot.MustNewTag("hebr")
 	tagTIFF = ot.MustNewTag("tiff")
 	tagJPG  = ot.MustNewTag("jpg ")
 )
@@ -84,17 +89,35 @@ func goTextHides(tag ot.Tag) bool {
 	return false
 }
 
+// goTextOutlines is what go-text sees of a TrueType font's outlines (see
+// goTextGlyfStub): stubs of glyf and loca, or nil for the font's own, and
+// whether gvar is hidden.
+type goTextOutlines struct {
+	glyf, loca []byte
+	hideGvar   bool
+}
+
 // goTextLoader returns the Loader for go-text's font.NewFont of src: src's
-// own when the font has no bitmap tables or src does not read the file's
-// table directory (WOFF, dfont), else a Loader over the same file whose
-// directory has the stubs in place of the bitmap tables.
-func goTextLoader(src tableSource) *ot.Loader {
+// own when there is nothing to hide (no bitmap tables, no outline stubs) or
+// src does not read the file's table directory (WOFF, dfont), else a
+// Loader over the same file whose directory has the stubs in place of the
+// bitmap tables and of glyf and loca, and no gvar when out hides it.
+func goTextLoader(src tableSource, out goTextOutlines) *ot.Loader {
 	if src.data == nil {
 		return src.ld
 	}
+	hidden := func(tag ot.Tag) bool {
+		switch tag {
+		case tagGlyf, tagLoca:
+			return out.glyf != nil
+		case tagGvar:
+			return out.hideGvar
+		}
+		return goTextHides(tag)
+	}
 	hide := false
 	for r := src.dir; len(r) >= 16; r = r[16:] {
-		if goTextHides(ot.Tag(binary.BigEndian.Uint32(r))) {
+		if hidden(ot.Tag(binary.BigEndian.Uint32(r))) {
 			hide = true
 			break
 		}
@@ -122,12 +145,15 @@ func goTextLoader(src tableSource) *ot.Loader {
 	if sb := goTextSbixStub(src.table(tagSbix), nGlyphs); sb != nil {
 		stubs = append(stubs, stub{tagSbix, sb})
 	}
+	if out.glyf != nil {
+		stubs = append(stubs, stub{tagGlyf, out.glyf}, stub{tagLoca, out.loca})
+	}
 
 	// The file seen by go-text: a directory, the font file unchanged (its
 	// table offsets shifted by the directory's size) and the stubs.
 	var kept [][]byte
 	for r := src.dir; len(r) >= 16; r = r[16:] {
-		if !goTextHides(ot.Tag(binary.BigEndian.Uint32(r))) {
+		if !hidden(ot.Tag(binary.BigEndian.Uint32(r))) {
 			kept = append(kept, r[:16])
 		}
 	}

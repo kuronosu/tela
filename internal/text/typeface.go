@@ -86,6 +86,15 @@ type Typeface struct {
 	bitmapTabs                *bitmapTables
 	bitmapGlyphs              glyphSlots[bitmapGlyph]
 
+	// goTextNoGvar is set when go-text was given the stubs of glyf and
+	// loca and no gvar of a variable font (gotextglyf.go); goTextSrc then
+	// reads the font again for goTextFullFont, which the Hebrew runs that
+	// need the outlines are shaped with (Face.hbFontFor).
+	goTextNoGvar   bool
+	goTextSrc      tableSource
+	goTextFullOnce sync.Once
+	goTextFull     *font.Font
+
 	facesMu sync.Mutex
 	faces   map[string]*Face // interned instances, keyed by coordinates
 }
@@ -119,26 +128,24 @@ func ParseTypefaces(data []byte, family string) ([]*Typeface, error) {
 	return out, nil
 }
 
-// newTypeface loads the font that src reads. go-text parses the font
-// (font.NewFont, which keeps its own copy of every table it uses, except
-// the bitmap tables, which it sees as small stubs: see goTextLoader); Tela
-// reads the few tables it evaluates itself (metrics, variations, TrueType
-// outlines, color bitmaps) from src, parsing the small ones and keeping
-// glyf, loca, gvar, hmtx and the bitmap tables raw (see glyfTables and
-// bitmap.go).
+// newTypeface loads the font that src reads. Tela reads the few tables it
+// evaluates itself (metrics, variations, TrueType outlines, color bitmaps)
+// from src, parsing the small ones and keeping glyf, loca, gvar, hmtx and
+// the bitmap tables raw (see glyfTables and bitmap.go); then go-text parses
+// the font (font.NewFont, which keeps its own copy of every table it uses,
+// except the bitmap tables and most of the outline tables, which it sees
+// as small stubs: see goTextLoader and goTextFont).
 func newTypeface(src tableSource, family string) (*Typeface, error) {
 	ld := src.ld
-	ft, err := font.NewFont(goTextLoader(src))
-	if err != nil {
-		return nil, err
-	}
-	tf := &Typeface{ft: ft, upem: int(ft.Upem()), faces: map[string]*Face{}}
+	tf := &Typeface{faces: map[string]*Face{}}
 
 	raw := func(tag string) []byte { return src.table(ot.MustNewTag(tag)) }
+	var err error
 	tf.head, _, err = font.LoadHeadTable(ld, nil)
 	if err != nil {
 		return nil, err
 	}
+	tf.upem = int(tf.head.Upem()) // font.Font.Upem
 	maxp, _, err := tables.ParseMaxp(raw("maxp"))
 	if err != nil {
 		return nil, err
@@ -182,6 +189,11 @@ func newTypeface(src tableSource, family string) (*Typeface, error) {
 			}
 		}
 	}
+	ft, err := goTextFont(src, tf)
+	if err != nil {
+		return nil, err
+	}
+	tf.ft = ft
 	if tf.glyf == nil {
 		tf.cff = font.NewFace(ft)
 	}

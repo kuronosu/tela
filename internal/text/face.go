@@ -67,6 +67,7 @@ type Face struct {
 	shapingOnce sync.Once
 	shaping     *font.Face
 	hb          *harfbuzz.Font // HarfBuzz font for layout; guarded by shapeMu
+	hbFull      *harfbuzz.Font // over the full go-text font (hbFontFor); guarded by shapeMu
 
 	// A synthetic face (synth.go) draws the glyphs of base emboldened by
 	// a stroke of width bold (em) and slanted when oblique; it shapes and
