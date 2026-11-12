@@ -33,35 +33,34 @@ The damage of a change under a pane also grows by the blur's reach (about 120 px
 
 ## Performance
 
-`bench_test.go` drives the page without a window through a scripted session of 1,095 ticks of a 60 Hz clock: hover sweeps over the rail, the spectrum and the rows, a period change, a metric tab, scrolling and a fling in the latest orders, the report dialog and its toast, the palette, finishing and sorting a task, dragging a card across the board, and two theme switches. A frame is timed like `core.Host` runs it (input, animate, build/style/layout/paint, rasterization of the damage, the copy to a presentable buffer, effects) and runs only when the tree asked for one. After the session the page must ask for no frames at all.
+`bench_test.go` drives the page without a window through a scripted session of 1,155 ticks of a 60 Hz clock: hover sweeps over the rail, the spectrum and the rows, a period change, a metric tab, scrolling and a fling in the latest orders, the report dialog and its toast, the palette, finishing and sorting a task, dragging a card across the board, and two theme switches. A frame is timed like `core.Host` runs it (input, animate, build/style/layout/paint, rasterization of the damage, the copy to a presentable buffer, effects) and runs only when the tree asked for one. After the session the page must ask for no frames at all.
 
 ```sh
 TELA_PERF=1 CGO_ENABLED=0 go test -run TestSession -v ./examples/dashboard   # the full tables, one session per configuration (without TELA_PERF, 1080p at scale 1 only)
 CGO_ENABLED=0 go test -run xxx -bench Session -benchtime 1x -count 3 ./examples/dashboard
-CGO_ENABLED=0 go test -run xxx -bench 'FullFrame|ScrollFrame|DragMove' ./examples/dashboard
+CGO_ENABLED=0 go test -run xxx -bench 'FullFrame|ScrollFrame|PaletteFrame|ThemeFrame|ThemeSwitch' ./examples/dashboard
 ```
 
-Medians of three runs on an i5-10400 (12 threads, so 12 raster workers), frame time in ms, against the glass page this one replaced (the kit page of ADR-144: a sticky header, cards without blur over an aurora, a page that scrolls under the header), run interleaved on the same machine:
+Medians of three runs on an i5-10400 (12 threads, so 12 raster workers) with a desktop running, frame time in ms (phase 24, 2026-11-11):
 
-| Configuration | Page | frames | p50 | p95 | p99 | max |
+| Configuration | frames | p50 | p95 | p99 | max | over 16.7 ms |
 |---|---|---|---|---|---|---|
-| 1920x1080, scale 1 | before | 527 | 2.9 | 20.7 | 22.5 | 32.4 |
-| | Frosted graphite | 676 | 15.2 | 34.4 | 41.4 | 60.7 |
-| 1920x1080, scale 2 (3840x2160 px) | before | 528 | 6.1 | 65.6 | 70.8 | 74.6 |
-| | Frosted graphite | 676 | 48.4 | 113.1 | 128.5 | 147.3 |
-| 1440x900, scale 2 (2880x1800 px) | before | 486 | 6.3 | 46.9 | 50.2 | 52.4 |
-| | Frosted graphite | 655 | 30.4 | 82.5 | 97.0 | 110.8 |
+| 1920x1080, scale 1 | 700 | 2.1 | 9.7 | 22.8 | 58.3 | 17 |
+| 1920x1080, scale 2 (3840x2160 px) | 700 | 4.4 | 30.9 | 77.0 | 123.6 | 121 |
+| 1440x900, scale 2 (2880x1800 px) | 673 | 4.7 | 26.7 | 54.0 | 91.7 | 92 |
 
-| Benchmark (ms per frame) | Page | 1080p x1 | 1080p x2 | 1440x900 x2 |
-|---|---|---|---|---|
-| `BenchmarkFullFrame` (the whole window) | before | 16.6 | 51.7 | 32.6 |
-| | Frosted graphite | 25.8 | 85.0 | 56.5 |
-| `BenchmarkScrollFrame` | before (the page under the header) | 20.9 | 67.3 | 44.6 |
-| | Frosted graphite (the orders view: a table that fills the main pane) | 36.7 | 108.8 | 72.9 |
+Before phase 24 (v0.14.3, same machine and session, 1080p x1) the session ran 726 frames at p50 4.4 and p95 19.3 ms: the theme switch faded for ~28 frames, scrolls and the palette's scrim were full frames, and every frame that built, restyled or laid out placed and recorded the whole page. The pipeline (build, style, layout, paint) now has a p50 of 0.3 ms and a p95 of 1.4 ms at 1080p x1; the worst phase is always the rasterizer.
 
-The sessions differ (this one has the palette, the tasks and the board), so the percentiles compare the two pages' typical frames, not the same actions. What costs is the glass: with the panes' `backdrop-blur-2xl` taken out, a full frame at 1080p takes 10.5 ms instead of 25.8 and a scroll frame 17.7 instead of 36.7. A frame whose damage is under a pane (a spring of the spectrum, a row that slides, a scrolled table) rasterizes the blur of the wallpaper again for every pixel of it and of the blur's reach around it: the period change runs at 18 ms per frame at 1080p for 0.8 Mpx of damage, a scroll of the latest orders at 16 ms. Frames that change little stay cheap (a hover over the rail or the spectrum: 6 ms, with a tooltip; the settle: 4 ms), and the page at rest asks for no frames (`TestIdle`, `TestGoesIdle`, and the end of every session). Per scene at 1080p, scale 1 (p50, p95 in ms): hover sweep 6.3, 7.6; period 18.0, 20.3; metric tab 14.9, 16.8; scroll and fling 15.6, 32.4; dialog and toast 12.9, 37.1; palette 2.9, 26.0; finish and sort 27.1, 35.1; board drag 14.1, 38.0; theme switch 26.5, 28.8.
+| Benchmark (ms per frame) | 1080p x1 | 1080p x2 | 1440x900 x2 |
+|---|---|---|---|
+| `BenchmarkFullFrame` (the whole window, forced) | 26.4 | 87.0 | 57.7 |
+| `BenchmarkScrollFrame` (the orders table scrolling under the glass main pane) | 11.9 | 33.1 | 21.3 |
+| `BenchmarkPaletteFrame` (the palette's first frame, its scrim frame) | 5.7, 6.0 | 16.6, 14.8 | |
+| `BenchmarkThemeFrame` (raster of the switch after a rest; switched back within a second) | 27.9; 15.9 | 89.8; 62.0 | |
 
-So the CPU path does not reach 60 fps on this page even at scale 1 (253 of 676 frames over 16.7 ms), and at scale 2 its median frame is 48 ms: the gap that the GPU backend has to close. The worst phase is always the rasterizer; the pipeline (build, style, layout, paint) has a p50 of 1.5 ms.
+A scroll is drawn over a snapshot the previous frame took of the page under the moving rows, and a scrim or dialog over the framebuffer (ADR-275), so neither rasterizes the whole window. The theme switch is one frame (ADR-276) and still a full one here, because the dashboard's wallpaper image differs per scheme, so every pixel under the glass changes; switching back within a second reuses the blurred glass at scale 1, and a page whose background is the same in both schemes keeps its blur (core's `TestSchemeSwitchUnderGlass`). About 25 ms of the switch's pipeline is decoding the other scheme's wallpaper, which the image cache released while it was not shown (`BenchmarkThemeSwitch`: 0 boxes laid out, 0 paragraphs shaped). Per scene at 1080p, scale 1 (p50, p95 in ms): hover sweep 0.9, 1.1; period 2.4, 6.4; metric tab 2.0, 4.8; scroll and fling 2.7, 4.1; dialog and toast 1.3, 9.3; palette 0.4, 8.3; finish and sort 4.7, 20.0; board drag 6.2, 16.9; theme switch 57 (two frames); settle 0.6, 1.7. The frames that stay full are the view switches (the board, the palette's jump to Tasks), the board's lane highlight at drag start, the sinking row of finish and sort, the frame that removes a dialog's scrim, and the theme switch.
+
+So the CPU path holds 60 fps at scale 1 for all but 17 of 700 frames; at scale 2 its median frame is 4.4 ms but one in six frames is over 16.7 ms: the gap the GPU backend has to close. The page at rest asks for no frames (`TestIdle`, `TestGoesIdle`, and the end of every session).
 
 ## Run it
 
