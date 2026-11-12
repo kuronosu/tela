@@ -11,16 +11,16 @@
 ## Current status
 
 - **Done:** phases 1–23. Latest version `v0.14.3` (2026-11-11, phase 23: layout, text and engine fidelity). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch; the owner may release a small break, such as a rename, as a patch.
-- **Phase in progress:** none. Phase 23 is on `phase-23-layout-text-engine-fidelity`, to be merged into `main` locally; the owner pushes `main` and the tag.
+- **Phase in progress:** 24, CPU performance, on `phase-24-cpu-performance` (the owner allows pushing it for CI, as few runs as possible). Baseline on 2026-11-11 (1080p x1, a loaded machine): p50 4.40 ms, p95 19.26 ms over 726 frames.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** the next phase in order, CPU performance. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** phase 24's first wave of agents. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` takes about 15 minutes in one process (2026-11-09; run it with `-timeout 30m`, or shard it), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
 
 In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–23 are done (HISTORY.md).
 
-### CPU performance
+### Phase 24: CPU performance
 
 The frame cost of the engine and the CPU rasterizer; the GPU backend builds on it. Baseline, the Frosted graphite dashboard (1080p, 12 raster workers, backdrop cache of ADR-200; quiet i5-10400, 2026-10-31): p50 4.2 ms, p95 17.8 ms at x1 over 726 frames; p50 9.0 ms, p95 40 ms at x2.
 
@@ -38,6 +38,7 @@ The frame cost of the engine and the CPU rasterizer; the GPU backend builds on i
 - [ ] macOS: every `Present` copies the whole retained frame into a new `CFData` and `CGImage`, whatever the damage (about 20 MB per frame for a 2880x1800 Retina window); an `IOSurface`-backed layer would copy only the damage
 - [ ] Allocation churn: the dashboard's 1080p session allocates 859 MiB in about 1150 ticks (1359 MiB at 4K x2; 780 and 1066 before ADR-241, whose 15-frame aging of the rasterizer's scratch trades allocations for a lower heap during activity) (`memreport -profiles`, `alloc_space`): display list recording (`gfx.(*Builder).record`, `recordPush`, `pop`), dashed strokes flattened again every frame (`dashSubpaths`, 89 MiB), `layout.(*Engine).flexItems`, `style.Compute`; it also sets the peak heap, about twice the live one
 - [ ] Wayland: a third `wl_shm` buffer, allocated once when the compositor held two, stays until the next resize (one frame of shared memory, 33 MB at 4K)
+- [ ] A theme or scheme change applies without transitions by default (the owner, 2026-11-11; it was deferred on 2026-10-31): `transition-colors` fades every element on `tela.SetColorScheme`/`tela.SetTheme`, and in the dashboard the board cards' fade turns a switch into ~150 ms of frames that rasterize the cards under the glass (p50 3.7 → 19 ms at x1, 5.6 → 66 ms at x2); an option keeps the fade (needs an ADR)
 - [ ] `examples/dashboard/README.md`'s Performance section was measured before ADR-200 and ADR-204 (676 frames, p50 15.2 ms, p95 34.4 ms at x1): measure again and rewrite it
 
 **Done when:** the dashboard's p95 at x1 is under 16.7 ms on the CPU, a scroll of most of the window and a theme switch cost less than a full frame, and a frame of a plain 2000-row `kit.Table` that is not a scroll no longer lays out the hidden rows.
@@ -257,7 +258,6 @@ Out of scope for now, but kept open: a decision to add the platform items needs 
 - **Touch input on the desktop** (ADR-265, ADR-267): no backend reports `PointerTouch` (Wayland's `wl_touch` is not bound, Win32 and X11 deliver touches as emulated mouse input), so there is no touch text selection (long press, handles) and no long-press drag of a selection with a touch `StartDrag` (Wayland `start_drag` with the touch-down serial)
 - **Embedded web content:** a webview or HTML component (contradicts "no webview", ADR-001)
 - **Context-click selection in grid, tree and tag collections** (ADR-247): when Tela has such collections with selection, a right or Control click on an unselected item selects it first, as list boxes do (owner, 2026-11-08).
-- **No transitions on a theme or scheme change** (owner, 2026-10-31). `transition-colors` animates every color change, so `tela.SetColorScheme` or `tela.SetTheme` fade every element that has it, as browsers do: in `examples/dashboard` the board cards' hover fade turns a theme switch into ~150 ms of frames that rasterize the cards under the glass (p50 3.7 → 19 ms at x1, 5.6 → 66 ms at x2). Tela could apply a scheme or theme change without transitions (web libraries' `disableTransitionOnChange`), by default or as an option; it needs an ADR.
 - **`tela add` and a component registry.** Picked up when `kit` has real users or a third party wants to publish components. `kit` is written meanwhile as self-contained files (no `internal/` imports, tokens instead of fixed colors), so a move to copied-source distribution stays cheap. Design questions for the ADR (options go to `API_PROPOSALS.md`):
   - **Unit of distribution:** copied source (shadcn style), Go modules, or a hybrid (copied source for UI components, modules for logic-heavy packages)
   - **Registry format:** static JSON index plus files over HTTPS with content hashes, the Go module proxy, or a git repository
