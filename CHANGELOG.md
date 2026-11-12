@@ -20,6 +20,7 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 ### Changed
 
 - `tela.SetColorScheme`, `tela.SetTheme`, a system dark-mode or contrast change the app follows, and a text scale change now apply without transitions, as next-themes' `disableTransitionOnChange` (ADR-276): elements with `transition-colors` show the new colors in the next frame, and running transitions toward replaced values jump to their end. An element's `h.Scheme` change still transitions.
+- A hover, a transition step, a hoisted box that mounts, a `TextColorFn` that changes and a layout animation record a few dozen commands at most, instead of the whole window outside scroll content (ADR-274): the dashboard's rail hover records 17 commands instead of 475; an element built again with equal `BgFn`, `BackgroundGradientFn` or `TranslateFn` props records nothing.
 - An emoji or other color glyph that does not use the text color is rendered and cached once for every text color (8 colors: 2 glyph-cache entries instead of 9).
 - Fonts take less memory and load faster: go-text no longer parses the TrueType outlines Tela loads itself (ADR-279; `fonts/standard`: 42 → 17 MiB of heap, 54 → 13 ms to parse; system fonts 40–75% less).
 - Linux: the XDG Desktop Portal's settings are read off the UI thread from the start of `tela.Run`, beside the font index and the display connection; the first frame still waits for them (at most 5 s), and a later answer arrives as a settings change.
