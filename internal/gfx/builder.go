@@ -81,7 +81,19 @@ type Builder struct {
 	rootAcc  Rect // union of top-level command bounds
 	calls    int  // number of Builder calls so far, for messages
 	backdrop float32
+
+	// The slices above are scratch kept from one recording to the next:
+	// Finish hands each list exact-size copies, so a reused Builder does not
+	// grow them again and a small list does not carry a large capacity.
+	// small counts the Finishes in a row that used less than a quarter of
+	// the scratch, which is released after shrinkAfter of them.
+	small int
 }
+
+// shrinkAfter is the number of Finishes in a row that use less than a
+// quarter of a Builder's scratch after which the scratch is released, so
+// that a Builder that once recorded a large list does not keep its memory.
+const shrinkAfter = 64
 
 // frame is an open push block.
 type frame struct {
@@ -105,8 +117,9 @@ func NewBuilder() *Builder {
 }
 
 func (b *Builder) reset() {
-	b.cmds, b.bounds, b.match, b.reach = nil, nil, nil, nil
-	b.tags, b.srcs, b.bds = nil, nil, nil
+	clear(b.cmds) // release the commands' references
+	b.cmds, b.bounds, b.match, b.reach = b.cmds[:0], b.bounds[:0], b.match[:0], b.reach[:0]
+	b.tags, b.srcs, b.bds = b.tags[:0], b.srcs[:0], b.bds[:0]
 	b.tag, b.src = 0, -1
 	b.stack = b.stack[:0]
 	b.ctm = Identity
@@ -586,19 +599,68 @@ func (b *Builder) Finish() *DisplayList {
 		panic(fmt.Sprintf("gfx.Builder.Finish called with %d open block(s), innermost first: %s; add %s",
 			len(b.stack), strings.Join(parts, ", "), strings.Join(pops, ", ")))
 	}
-	d := &DisplayList{
-		cmds:          b.cmds,
-		bounds:        b.bounds,
-		match:         b.match,
-		reach:         b.reach,
-		total:         b.rootAcc,
-		backdropReach: b.backdrop,
-		tags:          b.tags,
-		srcs:          b.srcs,
-		backdrops:     b.bds,
+	d := b.list()
+	if n := len(b.cmds); cap(b.cmds) > 256 && n < cap(b.cmds)/4 {
+		b.small++
+	} else {
+		b.small = 0
+	}
+	if b.small >= shrinkAfter {
+		b.cmds, b.bounds, b.match, b.reach = nil, nil, nil, nil
+		b.tags, b.srcs, b.bds = nil, nil, nil
+		b.small = 0
 	}
 	b.reset()
 	b.calls = 0
+	return d
+}
+
+// list returns the recorded list in storage of its own, of exact size (the
+// Builder keeps its slices for the next recording). The tags, sources and
+// reaches that all have their default value (0, -1 and 0) are left nil,
+// which the accessors read as that value.
+func (b *Builder) list() *DisplayList {
+	n := len(b.cmds)
+	d := &DisplayList{
+		total:         b.rootAcc,
+		backdropReach: b.backdrop,
+	}
+	if n == 0 {
+		return d
+	}
+	d.cmds = append(make([]Command, 0, n), b.cmds...)
+	d.bounds = append(make([]Rect, 0, n), b.bounds...)
+	// match and srcs share one allocation.
+	srcs := -1
+	for _, s := range b.srcs {
+		if s != -1 {
+			srcs = 0
+			break
+		}
+	}
+	if srcs == -1 {
+		d.match = append(make([]int32, 0, n), b.match...)
+	} else {
+		ms := make([]int32, 2*n)
+		copy(ms, b.match)
+		copy(ms[n:], b.srcs)
+		d.match, d.srcs = ms[:n:n], ms[n:]
+	}
+	for _, t := range b.tags {
+		if t != 0 {
+			d.tags = append(make([]uint32, 0, n), b.tags...)
+			break
+		}
+	}
+	for _, r := range b.reach {
+		if r != 0 {
+			d.reach = append(make([]float32, 0, n), b.reach...)
+			break
+		}
+	}
+	if len(b.bds) > 0 {
+		d.backdrops = append(make([]backdropRef, 0, len(b.bds)), b.bds...)
+	}
 	return d
 }
 

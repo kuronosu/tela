@@ -52,6 +52,7 @@ type parallel struct {
 	dl     *gfx.DisplayList
 	scale  float32
 	glyphs *GlyphCache
+	strk   *strokeCache
 	area   image.Rectangle // the pixels to render
 	rows   int             // band height
 	nbands int32
@@ -141,7 +142,7 @@ func (r *Renderer) renderParallel(dst *image.RGBA, dl *gfx.DisplayList, s float3
 		p.workers = append(p.workers, w)
 	}
 	p.dst, p.dl, p.scale, p.area, p.rows, p.nbands = dst, dl, s, area, rows, int32(nbands)
-	p.glyphs = r.glyphs
+	p.glyphs, p.strk = r.glyphs, r.strk
 	p.next.Store(0)
 	p.failed.Store(false)
 	p.pval, p.pset = nil, false
@@ -154,7 +155,7 @@ func (r *Renderer) renderParallel(dst *image.RGBA, dl *gfx.DisplayList, s float3
 
 	pval, pset := p.pval, p.pset
 	// Do not retain dst, the list or the panic value.
-	p.dst, p.dl, p.pval, p.pset, p.glyphs = nil, nil, nil, false, nil
+	p.dst, p.dl, p.pval, p.pset, p.glyphs, p.strk = nil, nil, nil, false, nil, nil
 	if pset {
 		panic(pval)
 	}
@@ -207,7 +208,7 @@ func (p *parallel) bands(r *Renderer) {
 		}
 	}()
 	area := p.area
-	r.glyphs = p.glyphs
+	r.glyphs, r.strk = p.glyphs, p.strk
 	root := gfx.Scale(p.scale, p.scale)
 	for !p.failed.Load() {
 		b := p.next.Add(1) - 1
@@ -276,7 +277,7 @@ func (r *Renderer) renderPhased(dst *image.RGBA, dl *gfx.DisplayList, s float32,
 	}
 	p.pool.n = workers
 	p.dst, p.dl, p.scale, p.area, p.nbands = dst, dl, s, area, int32(workers)
-	p.glyphs = r.glyphs
+	p.glyphs, p.strk = r.glyphs, r.strk
 	p.failed.Store(false)
 	p.pval, p.pset = nil, false
 	p.ph = newPhaser(bfs, workers, p.comp, p.pool, dst, area)
@@ -295,7 +296,7 @@ func (r *Renderer) renderPhased(dst *image.RGBA, dl *gfx.DisplayList, s float32,
 		w.r.ph = nil
 	}
 	r.ph = nil
-	p.dst, p.dl, p.pval, p.pset, p.glyphs, p.ph = nil, nil, nil, false, nil, nil
+	p.dst, p.dl, p.pval, p.pset, p.glyphs, p.strk, p.ph = nil, nil, nil, false, nil, nil, nil
 	if pset {
 		panic(pval)
 	}
@@ -313,7 +314,7 @@ func (p *parallel) phaseBand(r *Renderer, k int) {
 	area, n := p.area, int(p.nbands)
 	y0 := area.Min.Y + k*area.Dy()/n
 	y1 := area.Min.Y + (k+1)*area.Dy()/n
-	r.glyphs = p.glyphs
+	r.glyphs, r.strk = p.glyphs, p.strk
 	r.ph = p.ph
 	r.render(p.dst, p.dl, gfx.Scale(p.scale, p.scale), image.Rect(area.Min.X, y0, area.Max.X, y1))
 }

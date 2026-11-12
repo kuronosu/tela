@@ -167,8 +167,10 @@ func (e *Engine) flexPreliminary(n Node, st *Style, in input) output {
 		c.pctInner.h = some(fmax(in.pctH.v-c.cbi.vsum(), 0))
 	}
 
-	// 9.1. Initial setup: generate the flex items.
+	// 9.1. Initial setup: generate the flex items, in the scratch of this
+	// depth (flexItems).
 	items := e.flexItems(n, &c)
+	defer e.releaseFlexItems(items)
 
 	// 9.2. Line length determination.
 	avail := flexAvailableSpace(known, in.avail, &c)
@@ -352,7 +354,18 @@ func (e *Engine) flexItems(n Node, c *flexConsts) []flexItem {
 		pctRes.setMain(c.dir, none)
 	}
 	count := n.LayoutChildCount()
-	items := make([]flexItem, 0, count) // perf: reuse a per-depth buffer
+	// The items live in a buffer of the Engine per nesting depth of flex
+	// containers being laid out, kept for the next layouts: nothing keeps
+	// them after flexPreliminary returns (releaseFlexItems).
+	d := e.flexDepth
+	e.flexDepth++
+	if d == len(e.flexBufs) {
+		e.flexBufs = append(e.flexBufs, nil)
+	}
+	items := e.flexBufs[d][:0]
+	if cap(items) < count {
+		items = make([]flexItem, 0, count)
+	}
 	sorted := true
 	for i := 0; i < count; i++ {
 		ch := n.LayoutChild(i)
@@ -392,7 +405,16 @@ func (e *Engine) flexItems(n Node, c *flexConsts) []flexItem {
 	if !sorted {
 		sort.SliceStable(items, func(i, j int) bool { return items[i].st.Order < items[j].st.Order })
 	}
+	e.flexBufs[d] = items
 	return items
+}
+
+// releaseFlexItems ends the use of the items flexItems returned: their
+// buffer is free for the next container at that depth, without the nodes
+// it referred to.
+func (e *Engine) releaseFlexItems(items []flexItem) {
+	clear(items)
+	e.flexDepth--
 }
 
 // flexAvailableSpace determines the space available to the items: the

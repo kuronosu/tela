@@ -550,8 +550,13 @@ func (p *painter) paintEdges(outer, inner gfx.RRect, bw [4]float32, sd [4]border
 // nonzero rule: inner runs counterclockwise, so that where the two edges
 // coincide (a side of zero width) their coverage cancels exactly, which
 // the even-odd rule does not do inside anti-aliased pixels.
-func ringPath(outer, inner gfx.RRect) gfx.Path {
-	var path gfx.Path
+//
+// The path is built in the Tree's scratch (ringScratch) and is valid until
+// the next call: the Builder copies the paths it records.
+func (p *painter) ringPath(outer, inner gfx.RRect) gfx.Path {
+	sc := &p.t.ringScratch
+	path, mirror := &sc[0], &sc[1]
+	path.Reset()
 	path.AddRRect(outer)
 	if !inner.Rect.Empty() {
 		// The mirror image of inner with its left and right corners
@@ -559,25 +564,25 @@ func ringPath(outer, inner gfx.RRect) gfx.Path {
 		// counterclockwise.
 		r := inner.Rect
 		sw := gfx.RRect{Rect: r, Radii: [4]gfx.Point{inner.Radii[1], inner.Radii[0], inner.Radii[3], inner.Radii[2]}}
-		var rev gfx.Path
-		rev.AddRRect(sw)
-		rev = rev.Transform(gfx.Affine{-1, 0, 0, 1, r.X0 + r.X1, 0})
-		for el := range rev.Elements() {
+		mirror.Reset()
+		mirror.AddRRect(sw)
+		m := gfx.Affine{-1, 0, 0, 1, r.X0 + r.X1, 0}
+		for el := range mirror.Elements() {
 			switch el.Verb {
 			case gfx.MoveTo:
-				path.MoveTo(el.Pts[0])
+				path.MoveTo(m.Apply(el.Pts[0]))
 			case gfx.LineTo:
-				path.LineTo(el.Pts[0])
+				path.LineTo(m.Apply(el.Pts[0]))
 			case gfx.QuadTo:
-				path.QuadTo(el.Pts[0], el.Pts[1])
+				path.QuadTo(m.Apply(el.Pts[0]), m.Apply(el.Pts[1]))
 			case gfx.CubicTo:
-				path.CubicTo(el.Pts[0], el.Pts[1], el.Pts[2])
+				path.CubicTo(m.Apply(el.Pts[0]), m.Apply(el.Pts[1]), m.Apply(el.Pts[2]))
 			case gfx.Close:
 				path.Close()
 			}
 		}
 	}
-	return path
+	return *path
 }
 
 // paintBand paints the band between outer and inner in one style and
@@ -607,9 +612,9 @@ func (p *painter) paintBand(outer, inner gfx.RRect, bw [4]float32, st style.Bord
 		}
 		mid1 := insetRRect(outer, o[0], o[1], o[2], o[3])
 		mid2 := insetRRect(outer, s[0], s[1], s[2], s[3])
-		p.b.FillPath(ringPath(outer, mid1), gfx.NonZero, c)
+		p.b.FillPath(p.ringPath(outer, mid1), gfx.NonZero, c)
 		if s != bw {
-			p.b.FillPath(ringPath(mid2, inner), gfx.NonZero, c)
+			p.b.FillPath(p.ringPath(mid2, inner), gfx.NonZero, c)
 		}
 	case style.BorderDashed, style.BorderDotted:
 		if side < 0 {
@@ -620,7 +625,7 @@ func (p *painter) paintBand(outer, inner gfx.RRect, bw [4]float32, st style.Bord
 		}
 		p.strokeSide(outer, inner, bw, side, st, c)
 	default:
-		p.b.FillPath(ringPath(outer, inner), gfx.NonZero, c)
+		p.b.FillPath(p.ringPath(outer, inner), gfx.NonZero, c)
 	}
 }
 
@@ -674,7 +679,7 @@ func (p *painter) strokeSide(outer, inner gfx.RRect, bw [4]float32, i int, st st
 		// Blink strokes 10% wider and lets the band's clip cut the edges.
 		ss.Width = float32(w * 1.1)
 	}
-	p.b.PushClipPath(ringPath(outer, inner), gfx.NonZero)
+	p.b.PushClipPath(p.ringPath(outer, inner), gfx.NonZero)
 	p.b.StrokePath(path, ss, c)
 	p.b.PopClip()
 }

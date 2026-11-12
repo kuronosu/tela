@@ -33,7 +33,8 @@ type DisplayList struct {
 	// BackdropFilter.
 	backdropReach float32
 	// tags and srcs are the tag (Builder.SetTag) and the source index
-	// (AppendList) of each command.
+	// (AppendList) of each command. Each is nil when every command has the
+	// default (0, -1), and reach when every command has 0 (Builder.list).
 	tags []uint32
 	srcs []int32
 	// backdrops lists the BackdropFilter commands in order.
@@ -53,11 +54,23 @@ type backdropRef struct {
 
 // Tag returns the tag of command i: the value of Builder.SetTag when it
 // was recorded (0 by default).
-func (d *DisplayList) Tag(i int) uint32 { return d.tags[i] }
+func (d *DisplayList) Tag(i int) uint32 {
+	if d.tags == nil {
+		_ = d.cmds[i] // the same bounds check
+		return 0
+	}
+	return d.tags[i]
+}
 
 // Source returns, for a command recorded by Builder.AppendList, its index
 // in the appended list, and -1 for a command recorded directly.
-func (d *DisplayList) Source(i int) int { return int(d.srcs[i]) }
+func (d *DisplayList) Source(i int) int {
+	if d.srcs == nil {
+		_ = d.cmds[i]
+		return -1
+	}
+	return int(d.srcs[i])
+}
 
 // NumBackdrops returns the number of BackdropFilter commands.
 func (d *DisplayList) NumBackdrops() int { return len(d.backdrops) }
@@ -99,7 +112,13 @@ func (d *DisplayList) Match(i int) int { return int(d.match[i]) }
 // filters of the layer spread content: children that lie up to that
 // distance outside a region can still affect it. It is 0 for other
 // commands and for layers without filters.
-func (d *DisplayList) LayerReach(i int) float32 { return d.reach[i] }
+func (d *DisplayList) LayerReach(i int) float32 {
+	if d.reach == nil {
+		_ = d.cmds[i]
+		return 0
+	}
+	return d.reach[i]
+}
 
 // BackdropReach returns the largest root-space reach of the filters of any
 // BackdropFilter (FiltersOutset times the transform's scale): zero when no
@@ -147,7 +166,7 @@ func (d *DisplayList) Visit(region Rect, fn func(i int, c Command)) {
 			}
 			fn(i, c)
 			stack = append(stack, saved{r})
-			if d.reach[i] > 0 {
+			if d.reach != nil && d.reach[i] > 0 {
 				r = r.Outset(d.reach[i])
 			}
 			continue

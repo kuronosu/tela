@@ -266,7 +266,7 @@ func (r *Renderer) glyphSprite(cl *gfx.DisplayList, sx, sy float32, ox float64) 
 		r.sprite = new(Renderer)
 	}
 	sp := r.sprite
-	sp.glyphs, sp.spriteDepth, sp.tune = r.glyphs, r.glyphDepth+1, r.tune
+	sp.glyphs, sp.strk, sp.spriteDepth, sp.tune = r.glyphs, r.strk, r.glyphDepth+1, r.tune
 	root := gfx.Affine{sx, 0, 0, sy, float32(ox), 0}
 	sp.root = root
 	rect = sp.devBounds(cl.Bounds())

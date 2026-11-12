@@ -569,6 +569,10 @@ func (t *Tree) composite() *gfx.DisplayList {
 		L.marker = t.composeLayer
 	}
 	f := &frame{scale: t.scale}
+	if L.cur != nil {
+		// About as many instances as the last frame: no regrowth.
+		f.inst = make([]instance, 0, len(L.cur.inst))
+	}
 	if L.root != nil && L.root.dl != nil {
 		f.inst = append(f.inst, instance{layer: L.root, dl: L.root.dl, parent: -1})
 		L.compF, L.compCur = f, 0

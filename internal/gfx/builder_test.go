@@ -1014,3 +1014,48 @@ func TestDumpFormat(t *testing.T) {
 		t.Error("fmtF not compact")
 	}
 }
+
+// TestBuilderListsOwnTheirStorage: a reused Builder records into its kept
+// storage and hands each list exact-size copies, so recording a list
+// again allocates the list and not the growth of the Builder's slices,
+// and a finished list does not change when the Builder records the next.
+func TestBuilderListsOwnTheirStorage(t *testing.T) {
+	record := func(b *Builder, c Paint, n int) {
+		b.PushClipRect(Rect{0, 0, 500, 500})
+		for i := range n {
+			b.FillRect(RectXYWH(float32(i), 0, 1, 1), c)
+		}
+		b.PopClip()
+	}
+	b := NewBuilder()
+	record(b, Black, 200)
+	first := b.Finish()
+	record(b, White, 200)
+	second := b.Finish()
+	for i := 1; i <= 200; i++ {
+		if c := first.At(i).(FillRect); c.Paint != Paint(Black) {
+			t.Fatalf("command %d of the first list changed to %v", i, c.Paint)
+		}
+	}
+	if second.Len() != first.Len() {
+		t.Fatalf("lens %d and %d", first.Len(), second.Len())
+	}
+	// The 201 commands stored in interfaces (the paint is the caller's
+	// interface value: a clamped color equal to it is not boxed again),
+	// and a handful for the list and its slices.
+	if n := testing.AllocsPerRun(20, func() { record(b, White, 200); b.Finish() }); n > 206 {
+		t.Errorf("%v allocations to record 202 commands with a reused Builder, want at most 206", n)
+	}
+	// The defaults of the parallel slices a list leaves out.
+	if second.Tag(5) != 0 || second.Source(5) != -1 || second.LayerReach(5) != 0 {
+		t.Errorf("tag %d, source %d, reach %v; want 0, -1, 0", second.Tag(5), second.Source(5), second.LayerReach(5))
+	}
+	// A Builder that records small lists for long gives back its storage.
+	for range shrinkAfter + 1 {
+		b.FillRect(Rect{0, 0, 1, 1}, Black)
+		b.Finish()
+	}
+	if c := cap(b.cmds); c > 256 {
+		t.Errorf("after %d small lists the Builder keeps room for %d commands", shrinkAfter+1, c)
+	}
+}

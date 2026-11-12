@@ -627,13 +627,24 @@ func BenchmarkSession(b *testing.B) {
 		b.Run(c.name, func(b *testing.B) {
 			var all []frameStat
 			ticks := 0
+			var m0, m1 runtime.MemStats
+			var mallocs, bytes uint64
+			b.ReportAllocs()
 			for b.Loop() {
 				b.StopTimer()
 				r := newRig(b, c.w, c.h, c.scale, false)
 				b.StartTimer()
+				runtime.ReadMemStats(&m0)
 				fs, n := runSession(r)
+				runtime.ReadMemStats(&m1)
+				mallocs += m1.Mallocs - m0.Mallocs
+				bytes += m1.TotalAlloc - m0.TotalAlloc
 				all, ticks = append(all, fs...), ticks+n
 			}
+			// The garbage of a frame: what the session allocates, frames,
+			// settling and idle ticks included, per frame drawn.
+			b.ReportMetric(float64(mallocs)/float64(max(len(all), 1)), "allocs/frame")
+			b.ReportMetric(float64(bytes)/float64(max(len(all), 1)), "B/frame")
 			d := distOf(totals(all))
 			b.ReportMetric(d.P50, "p50-ms")
 			b.ReportMetric(d.P95, "p95-ms")
@@ -679,6 +690,7 @@ func BenchmarkScrollFrame(b *testing.B) {
 			p := platform.Point{X: t.Center().X, Y: t.Y0 + 200}
 			r.tick(nil, r.move(p))
 			dy := float32(12)
+			b.ReportAllocs() // one op is one frame
 			b.ResetTimer()
 			for i := 0; b.Loop(); i++ {
 				if i%7 == 0 && i > 0 {

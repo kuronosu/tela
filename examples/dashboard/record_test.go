@@ -1,6 +1,7 @@
 package main
 
 import (
+	"runtime"
 	"slices"
 	"testing"
 	"time"
@@ -44,8 +45,9 @@ func TestRailHoverRecordsLittle(t *testing.T) {
 }
 
 // BenchmarkRailHover moves the pointer between two buttons of the rail
-// and plays their fades: the commands recorded per frame and the median
-// pipeline time of a frame (1080p x1).
+// and plays their fades: the commands recorded per frame, the median
+// pipeline time of a frame and the allocations of a frame, raster
+// included (1080p x1).
 func BenchmarkRailHover(b *testing.B) {
 	r := newRig(b, 1920, 1080, 1, true)
 	r.settle(400)
@@ -54,6 +56,9 @@ func BenchmarkRailHover(b *testing.B) {
 	var pipe []time.Duration
 	cmds, frames := 0, 0
 	i := 0
+	var m0, m1 runtime.MemStats
+	b.ReportAllocs()
+	runtime.ReadMemStats(&m0)
 	for b.Loop() {
 		var st []frameStat
 		r.tick(&st, r.move(center(r.find("button", at[i%2]))))
@@ -67,8 +72,11 @@ func BenchmarkRailHover(b *testing.B) {
 		}
 		i++
 	}
+	runtime.ReadMemStats(&m1)
 	slices.Sort(pipe)
 	b.ReportMetric(float64(cmds)/float64(max(frames, 1)), "cmds/frame")
+	b.ReportMetric(float64(m1.Mallocs-m0.Mallocs)/float64(max(frames, 1)), "allocs/frame")
+	b.ReportMetric(float64(m1.TotalAlloc-m0.TotalAlloc)/float64(max(frames, 1)), "B/frame")
 	if len(pipe) > 0 {
 		b.ReportMetric(float64(pipe[len(pipe)/2].Nanoseconds())/1000, "pipe-µs/frame")
 	}

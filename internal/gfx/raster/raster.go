@@ -115,6 +115,12 @@ type Renderer struct {
 	// starts at (0, or for a sprite Renderer, its glyph's depth plus 1).
 	glyphs      *GlyphCache
 	sprite      *Renderer
+
+	// strokes is the cache of stroke outlines of the Renderer
+	// (strokecache.go) and strk the one the current Render uses: its own,
+	// or for a worker, sprite or filter Renderer, its owner's.
+	strokes strokeCache
+	strk    *strokeCache
 	glyphDepth  int
 	spriteDepth int
 
@@ -218,6 +224,7 @@ func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 		return
 	}
 	r.glyphs = opts.GlyphCache
+	r.strk = &r.strokes
 	if dl.BackdropReach() > 0 {
 		// A backdrop filter that reaches beyond a pixel reads pixels
 		// painted by earlier commands around its output: render on this
@@ -509,7 +516,7 @@ func (r *Renderer) strokePath(c gfx.StrokePath) {
 	if !(s > 0) {
 		return
 	}
-	outline := c.Path.Stroke(c.Style, FlattenTolerance/s)
+	outline := r.strk.stroke(c.Path, c.Style, FlattenTolerance/s)
 	if outline.IsEmpty() {
 		return
 	}
