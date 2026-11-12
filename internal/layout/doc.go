@@ -73,7 +73,14 @@
 // it clears the caches of n and its ancestors up to the nearest relayout
 // boundary. The next Compute runs the algorithms of the dirty nodes only;
 // clean subtrees are reused from their caches (a second Compute with
-// nothing dirty does no work).
+// nothing dirty does no work). Engine.MarkContent(n) records that only the
+// content of leaf n changed (its text, its image): the next Compute lays n
+// out again for the requests its cache holds and goes up only while the
+// results change, through ancestors cheap to check (ADR-280). A request's
+// parent height resolves only the node's own percentage heights, so it is
+// not part of the request of a node without them: a column whose height
+// changes keeps its items' layouts. CheckFull compares the layouts with a
+// fresh layout (core's TELA_CHECK_LAYOUT).
 //
 // A relayout boundary is a node whose size cannot depend on its content: a
 // fixed width and height in px and overflow other than visible or clip in

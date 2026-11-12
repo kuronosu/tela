@@ -10,7 +10,8 @@ const cacheSize = 9
 
 // cacheKey identifies a layout request. Unlike Taffy, the key holds the
 // whole input (both parent size axes and the sizing mode): a cached result
-// is only reused for an identical request.
+// is only reused for an identical request. (Engine.layout drops the parent
+// height of a node that does not read it, Style.usesParentHeight.)
 type cacheKey struct {
 	known         [2]uint32 // float bits of known dimensions or available space
 	kind          [2]uint8  // what known holds per axis: see mixedKind
