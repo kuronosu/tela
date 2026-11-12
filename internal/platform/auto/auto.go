@@ -61,6 +61,21 @@ func New() (platform.Backend, error) {
 	return named(name)
 }
 
+// Prefetch starts, on other goroutines, the reads of system state that
+// the backend New returns needs before its first frame, so that they
+// overlap the work before it instead of following it on the UI thread
+// (core.Run calls it at its start). On Linux, unless TELA_BACKEND selects
+// the headless backend, that is the XDG Desktop Portal's settings
+// (freedesktop.PrefetchSettings), taken over by the Wayland or X11
+// backend's desktop services; elsewhere it does nothing. Safe from any
+// goroutine.
+func Prefetch() {
+	name := strings.TrimSpace(os.Getenv(EnvBackend))
+	if name != "headless" {
+		prefetch(name)
+	}
+}
+
 // errUnknown is the error for an invalid TELA_BACKEND value.
 func errUnknown(name string, valid []string) error {
 	return fmt.Errorf("auto: unknown %s=%q; valid values are %s", EnvBackend, name, strings.Join(valid, ", "))

@@ -103,6 +103,7 @@ type Desktop struct {
 	opts Options
 
 	// UI thread only.
+	pre            *prefetch         // the settings read taken from PrefetchSettings, until it ends (prefetch.go)
 	conn           *dbus.Conn        // the session bus; nil until first use
 	activatable    map[string]bool   // ListActivatableNames, read once per connection
 	versions       map[string]uint32 // portal interface versions (0: missing)
@@ -163,7 +164,7 @@ func New(opts Options) *Desktop {
 	if getenv == nil {
 		getenv = os.Getenv
 	}
-	return &Desktop{
+	d := &Desktop{
 		opts:     opts,
 		kdeFonts: isKDE(getenv("XDG_CURRENT_DESKTOP")),
 		id:       opts.AppID,
@@ -172,6 +173,8 @@ func New(opts Options) *Desktop {
 		byServer: map[uint32]platform.NotificationID{},
 		trays:    map[platform.TrayID]*tray{},
 	}
+	d.pre = takePrefetch(d) // prefetch.go: a settings read started before
+	return d
 }
 
 // push queues work for the UI thread and wakes the loop. Safe from any
@@ -224,6 +227,10 @@ func (d *Desktop) Close() {
 		t.close()
 	}
 	d.closeIntegration()
+	if d.pre != nil {
+		d.pre.abandon() // prefetch.go: its connection closes when it ends
+		d.pre = nil
+	}
 	if d.conn != nil {
 		d.conn.Close()
 		d.conn = nil
@@ -313,6 +320,14 @@ func (d *Desktop) bus() (*dbus.Conn, error) {
 	if d.isClosed() {
 		return nil, errClosed
 	}
+	if d.pre != nil {
+		// The settings read that started before the Desktop (prefetch.go)
+		// has the session bus's connection: wait for it to end (its calls
+		// are bounded by callTimeout, as the UI thread's own would be)
+		// and take it over.
+		<-d.pre.done
+		d.adopt()
+	}
 	if d.conn != nil && d.conn.Connected() {
 		return d.conn, nil
 	}
@@ -324,13 +339,20 @@ func (d *Desktop) bus() (*dbus.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+	d.useConn(conn, nil, nil)
+	return conn, nil
+}
+
+// useConn makes conn the main connection, with what is known of its bus
+// (the caches of has and portal; nil: nothing yet), and handles its
+// signals. UI thread.
+func (d *Desktop) useConn(conn *dbus.Conn, activatable map[string]bool, versions map[string]uint32) {
 	d.conn = conn
-	d.activatable, d.versions, d.caps = nil, nil, nil
+	d.activatable, d.versions, d.caps = activatable, versions, nil
 	d.notifyMatched, d.watcherMatched = false, false
 	ch := make(chan *dbus.Signal, 64)
 	conn.Signal(ch)
 	go d.signals(conn, ch)
-	return conn, nil
 }
 
 // signals handles the signals of the main connection until it closes
@@ -355,23 +377,31 @@ func (d *Desktop) signals(conn *dbus.Conn, ch chan *dbus.Signal) {
 // has reports whether a service is on the bus or can be started by it.
 // UI thread.
 func (d *Desktop) has(conn *dbus.Conn, name string) bool {
+	return hasName(conn, name, &d.activatable)
+}
+
+// hasName reports whether a service is on the bus or can be started by
+// it. *activatable caches the bus's ListActivatableNames (nil: not read
+// yet). Any goroutine that owns *activatable.
+func hasName(conn *dbus.Conn, name string, activatable *map[string]bool) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
 	defer cancel()
 	var owned bool
 	if err := conn.BusObject().CallWithContext(ctx, busIface+".NameHasOwner", 0, name).Store(&owned); err == nil && owned {
 		return true
 	}
-	if d.activatable == nil {
+	if *activatable == nil {
 		var names []string
 		if err := conn.BusObject().CallWithContext(ctx, busIface+".ListActivatableNames", 0).Store(&names); err != nil {
 			return false // not cached: retried next time
 		}
-		d.activatable = map[string]bool{}
+		m := map[string]bool{}
 		for _, n := range names {
-			d.activatable[n] = true
+			m[n] = true
 		}
+		*activatable = m
 	}
-	return d.activatable[name]
+	return (*activatable)[name]
 }
 
 // portal returns the main connection and the version of the portal
@@ -382,10 +412,22 @@ func (d *Desktop) portal(iface string) (*dbus.Conn, uint32, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	v, ok := d.versions[iface]
+	v, err := portalVersion(conn, iface, &d.activatable, &d.versions)
+	if err != nil {
+		return nil, 0, err
+	}
+	return conn, v, nil
+}
+
+// portalVersion returns the version of the portal interface iface, or an
+// ErrUnsupported error when the portal or the interface is missing.
+// *versions caches the versions read (0: missing), *activatable the bus's
+// activatable names (hasName). Any goroutine that owns both maps.
+func portalVersion(conn *dbus.Conn, iface string, activatable *map[string]bool, versions *map[string]uint32) (uint32, error) {
+	v, ok := (*versions)[iface]
 	if !ok {
-		if !d.has(conn, portalName) {
-			return nil, 0, fmt.Errorf("freedesktop: no XDG desktop portal (%s) on the session bus: %w", portalName, platform.ErrUnsupported)
+		if !hasName(conn, portalName, activatable) {
+			return 0, fmt.Errorf("freedesktop: no XDG desktop portal (%s) on the session bus: %w", portalName, platform.ErrUnsupported)
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
 		defer cancel()
@@ -398,17 +440,17 @@ func (d *Desktop) portal(iface string) (*dbus.Conn, uint32, error) {
 		case errors.As(err, &derr) && missingInterface[derr.Name]:
 			v = 0 // the portal answered: it has no such interface
 		default: // no answer, or the portal is not running after all
-			return nil, 0, fmt.Errorf("freedesktop: the XDG desktop portal does not answer (%v): %w", err, platform.ErrUnsupported)
+			return 0, fmt.Errorf("freedesktop: the XDG desktop portal does not answer (%v): %w", err, platform.ErrUnsupported)
 		}
-		if d.versions == nil {
-			d.versions = map[string]uint32{}
+		if *versions == nil {
+			*versions = map[string]uint32{}
 		}
-		d.versions[iface] = v
+		(*versions)[iface] = v
 	}
 	if v == 0 {
-		return nil, 0, fmt.Errorf("freedesktop: the XDG desktop portal has no %s interface (install a portal backend that provides it, such as xdg-desktop-portal-gtk): %w", iface, platform.ErrUnsupported)
+		return 0, fmt.Errorf("freedesktop: the XDG desktop portal has no %s interface (install a portal backend that provides it, such as xdg-desktop-portal-gtk): %w", iface, platform.ErrUnsupported)
 	}
-	return conn, v, nil
+	return v, nil
 }
 
 // missingInterface lists the errors with which a portal answers a version

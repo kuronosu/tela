@@ -335,9 +335,10 @@ func (b *Backend) signal() {
 }
 
 // Settings returns the system settings from the XDG desktop portal (read
-// on the first call; changes arrive as SettingsEvents), shared with
-// Wayland in internal/platform/internal/freedesktop. Zero without a
-// portal (XSETTINGS is not read).
+// on the first call, or before it by auto.Prefetch; changes arrive as
+// SettingsEvents), shared with Wayland in
+// internal/platform/internal/freedesktop. Zero without a portal (XSETTINGS
+// is not read).
 func (b *Backend) Settings() platform.SystemSettings {
 	b.Desktop()
 	return b.desktop.SystemSettings()

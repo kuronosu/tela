@@ -80,6 +80,12 @@ type Options struct {
 // which the node constructors called outside any build check (devNow).
 func Run(opts Options) error {
 	runtime.LockOSThread()
+	if !devStateEnabled {
+		// The system settings the first frame needs (the portal's on
+		// Linux) are read beside the font index and the display
+		// connection; NewHost's Settings waits for them, bounded.
+		auto.Prefetch()
+	}
 	// The app's dev mode is the process default of the node constructors
 	// (one app per process; ADR-085).
 	devAny.Store(configDev(opts.Dev))
@@ -102,6 +108,9 @@ func Run(opts Options) error {
 		}
 	}
 	if b == nil {
+		if devStateEnabled {
+			auto.Prefetch() // as above, for a dev build outside tela dev
+		}
 		if b, err = auto.New(); err != nil {
 			return err
 		}
