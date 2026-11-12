@@ -510,7 +510,11 @@ func (t *Tree) renderRects(fb *image.RGBA, r *raster.Renderer, f *frame, d Damag
 				rc = pl.region
 				o.Region = rc
 			}
-			raster.Clear(fb, rc, canvas)
+			// The render clears the region, and what it reads beyond it
+			// for the backdrop filters, to the canvas: a full frame starts
+			// from it there too (on a transparent canvas, nothing paints
+			// over it opaquely).
+			o.Clear = &canvas
 			o.Snap = sn
 			r.Render(fb, f.dl, o)
 		}

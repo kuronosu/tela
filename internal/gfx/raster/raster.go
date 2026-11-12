@@ -55,6 +55,16 @@ type Options struct {
 	// written. It must not share pixels with the destination. When nil,
 	// the render starts from the destination's pixels.
 	Base *image.RGBA
+	// Clear, when not nil, is the color the frame starts from: the region
+	// is cleared to it (Clear) before the list is drawn, and so are the
+	// pixels the render reads beyond the region when it grows for the
+	// backdrop filters (BackdropRegion), on its scratch copy, as a full
+	// render of a destination cleared to it starts from them. Without it
+	// the render starts from the destination's pixels, and the pixels it
+	// reads beyond the region are those the destination holds (the
+	// previous frame): exact only where the list paints them opaquely
+	// before anything reads them. It must not be set with From.
+	Clear *gfx.Color
 	// Snap, when not nil, receives the pixels of the destination as the
 	// commands before Snap.At leave them, over the region grown for the
 	// backdrop filters from Snap.At on, the pixels a later render with
@@ -270,15 +280,18 @@ func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 	if opts.Workers < 0 {
 		panic(fmt.Sprintf("raster: Options.Workers must not be negative (0 means GOMAXPROCS), got %d", opts.Workers))
 	}
-	if dl == nil || dl.Len() == 0 {
-		return
-	}
 	clip := dst.Rect
 	if !opts.Region.Empty() {
 		clip = clip.Intersect(opts.Region)
 	}
 	clip = clip.Intersect(image.Rect(-coordLimit, -coordLimit, coordLimit, coordLimit))
 	if clip.Empty() {
+		return
+	}
+	if dl == nil || dl.Len() == 0 {
+		if opts.Clear != nil {
+			Clear(dst, clip, *opts.Clear)
+		}
 		return
 	}
 	from := max(opts.From, 0)
@@ -297,8 +310,13 @@ func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 	// region, grown for the backdrop filters), and the snapshot to hold the
 	// starting pixels over its rectangle, which every band of the render
 	// updates when it reaches the snapshot's command (takeSnap).
+	if opts.Clear != nil && from > 0 {
+		panic("raster: Options.Clear and Options.From are both set")
+	}
 	prepare := func(target *image.RGBA, rect image.Rectangle, snapRect func() image.Rectangle) {
-		if src != target {
+		if opts.Clear != nil {
+			Clear(target, rect, *opts.Clear)
+		} else if src != target {
 			if !rect.In(src.Rect) {
 				panic(fmt.Sprintf("raster: Options.Base %v does not hold the pixels the render reads, %v", src.Rect, rect))
 			}
