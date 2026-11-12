@@ -186,11 +186,26 @@ const (
 )
 
 // cullDep is a box that a culling list tested against the interest rect
-// of scroll space space, and what it found (cdep).
+// of scroll space space, and what it found (cdep); with run >= 0, the
+// children of the box in that run of its sums (cdepRun).
 type cullDep struct {
 	box   *Box
 	space *scroller
+	run   int32
 	vis   bool
+}
+
+// ink returns what the test of c reads: the ink of its box or of its run
+// (empty for a run its box no longer has: its list records again as its
+// children changed).
+func (c *cullDep) ink() gfx.Rect {
+	if c.run < 0 {
+		return c.box.ink
+	}
+	if r := c.box.runs; r != nil && int(c.run) < len(r.aggs) {
+		return r.aggs[c.run].cink
+	}
+	return gfx.Rect{}
 }
 
 // deferredLayer reports whether bx is painted in a deferred layer.
@@ -447,9 +462,18 @@ func (p *painter) odep(bx *Box) {
 type colIn struct {
 	kids kidsRef
 	part bool
+	// ver counts the changes of the children a box with many collects
+	// through (kidRuns.ver, paint.go: aggChunks).
+	ver uint32
 }
 
-func colOf(bx *Box) colIn { return colIn{kidsOf(bx.kids), bx.hasPart} }
+func colOf(bx *Box) colIn {
+	c := colIn{kids: kidsOf(bx.kids), part: bx.hasPart}
+	if r := bx.runs; r != nil {
+		c.ver = r.ver
+	}
+	return c
+}
 
 // kdep notes that the list being recorded collects participants through
 // bx (colIn).
@@ -476,7 +500,22 @@ func (p *painter) cdep(bx *Box, s *scroller) bool {
 		if l.cul == nil {
 			l.cul = p.t.lay.spareCuls()
 		}
-		l.cul = append(l.cul, cullDep{bx, s, vis})
+		l.cul = append(l.cul, cullDep{bx, s, -1, vis})
+	}
+	return vis
+}
+
+// cdepRun is cdep for the children of bx in run c of its sums (Box.runs):
+// it reports whether the inks of those painted in flow meet the interest
+// rect, and a list that culls a run whose inks miss it notes the run, not
+// each child.
+func (p *painter) cdepRun(bx *Box, c int, s *scroller) bool {
+	vis := bx.runs.aggs[c].cink.Intersects(p.interestOf(s))
+	if l := p.layer; l != nil && !p.ref && !vis {
+		if l.cul == nil {
+			l.cul = p.t.lay.spareCuls()
+		}
+		l.cul = append(l.cul, cullDep{bx, s, int32(c), vis})
 	}
 	return vis
 }
@@ -547,7 +586,7 @@ func (L *layerState) stale(l *layer, p *painter) bool {
 	}
 	if L.recull {
 		for i := range l.cul {
-			if c := &l.cul[i]; c.box.ink.Intersects(p.interestOf(c.space)) != c.vis {
+			if c := &l.cul[i]; c.ink().Intersects(p.interestOf(c.space)) != c.vis {
 				return true
 			}
 		}

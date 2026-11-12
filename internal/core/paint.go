@@ -281,7 +281,7 @@ func (p *painter) place(bx *Box, parent *Box) {
 	if len(bx.kids) > aggChunk {
 		agg = p.aggChunks(bx, all, deep, chunked)
 	} else {
-		bx.aggs = nil
+		bx.runs = nil
 		agg = p.aggKids(bx, bx.kids, all, deep, chunked)
 	}
 	if p.part && (bx.hasListed || agg.listed) && kidsOf(bx.kids) != bx.placedKids {
@@ -337,6 +337,12 @@ type kidAgg struct {
 	// them (place.go).
 	listed   bool
 	sub, ink gfx.Rect
+	// For a run of the children of a box with many (aggChunks): cink is
+	// the union of the inks of those painted in flow, which a list that
+	// culls tests before the children (innerBody), and rel the indexes
+	// of those a stacking context collects through (collect).
+	cink gfx.Rect
+	rel  []int32
 }
 
 func (a *kidAgg) add(b *kidAgg) {
@@ -346,8 +352,19 @@ func (a *kidAgg) add(b *kidAgg) {
 	a.sub, a.ink = a.sub.Union(b.sub), a.ink.Union(b.ink)
 }
 
+// kidRuns are the sums of the children of a box with many, by runs of
+// aggChunk: aggs per run, dirty the runs that hold a marked child (set by
+// markPlace), all that any may, and ver counts the changes of the runs'
+// rel lists (what collect reads, record.go: colIn).
+type kidRuns struct {
+	aggs  []kidAgg
+	dirty []uint64
+	all   bool
+	ver   uint32
+}
+
 // aggChunk is the number of children whose sums a box with more children
-// keeps per run (Box.aggs), so that a partial place of a box with
+// keeps per run (Box.runs), so that a partial place of a box with
 // thousands of children (a table's cells) sums only the runs that hold a
 // placed child (place.go).
 const aggChunk = 64
@@ -357,7 +374,7 @@ const aggChunk = 64
 // chunked reports that bx's content is a layer.
 func (p *painter) aggKids(bx *Box, kids []*Box, all, deep, chunked bool) kidAgg {
 	var a kidAgg
-	for _, k := range kids {
+	for i, k := range kids {
 		if p.placeKid(k, all) {
 			if deep {
 				k.placeDeep = p.t.plc.gen
@@ -381,6 +398,11 @@ func (p *painter) aggKids(bx *Box, kids []*Box, all, deep, chunked bool) kidAgg 
 		}
 		a.blend = a.blend || blendsIn(k)
 		a.listed = a.listed || k.listed != 0 || k.hasListed
+		if pk := participant(k); !k.hiddenAtom && (pk || k.hasPart) {
+			a.rel = append(a.rel, int32(i))
+		} else if !pk && !k.hiddenAtom {
+			a.cink = a.cink.Union(k.ink)
+		}
 		switch {
 		case k.space == bx.space:
 			a.sub = a.sub.Union(k.hitBounds)
@@ -404,24 +426,37 @@ func (p *painter) aggKids(bx *Box, kids []*Box, all, deep, chunked bool) kidAgg 
 
 // aggChunks is aggKids for a box with more than aggChunk children, by
 // runs: a partial place that places none of a run's children (the run's
-// bit in Box.aggDirty, set by markPlace) takes its sums from the last
+// bit in kidRuns.dirty, set by markPlace) takes its sums from the last
 // place.
 func (p *painter) aggChunks(bx *Box, all, deep, chunked bool) kidAgg {
 	n := (len(bx.kids) + aggChunk - 1) / aggChunk
-	redo := all || !p.part || bx.aggAll || len(bx.aggs) != n || bx.placedKids != kidsOf(bx.kids)
+	r := bx.runs
+	if r == nil {
+		r = &kidRuns{}
+		bx.runs = r
+	}
+	redo := all || !p.part || r.all || len(r.aggs) != n || bx.placedKids != kidsOf(bx.kids)
 	if redo {
-		bx.aggs = slices.Grow(bx.aggs[:0], n)[:n]
-		bx.aggDirty = slices.Grow(bx.aggDirty[:0], (n+63)/64)[:(n+63)/64]
-		clear(bx.aggDirty)
-		bx.aggAll = false
+		r.aggs = slices.Grow(r.aggs[:0], n)[:n]
+		r.dirty = slices.Grow(r.dirty[:0], (n+63)/64)[:(n+63)/64]
+		clear(r.dirty)
+		r.all = false
 	}
 	var total kidAgg
 	for c := range n {
-		if w, m := c/64, uint64(1)<<(c%64); redo || bx.aggDirty[w]&m != 0 {
-			bx.aggDirty[w] &^= m
-			bx.aggs[c] = p.aggKids(bx, bx.kids[c*aggChunk:min((c+1)*aggChunk, len(bx.kids))], all, deep, chunked)
+		if w, m := c/64, uint64(1)<<(c%64); redo || r.dirty[w]&m != 0 {
+			r.dirty[w] &^= m
+			old := r.aggs[c]
+			a := p.aggKids(bx, bx.kids[c*aggChunk:min((c+1)*aggChunk, len(bx.kids))], all, deep, chunked)
+			if !slices.Equal(a.rel, old.rel) {
+				r.ver++ // what collect reads of the run (record.go: colIn)
+			}
+			if a.cink != old.cink && !p.ref {
+				p.t.lay.recull = true // what the lists culled with the run
+			}
+			r.aggs[c] = a
 		}
-		total.add(&bx.aggs[c])
+		total.add(&r.aggs[c])
 	}
 	return total
 }
@@ -647,21 +682,37 @@ func participant(bx *Box) bool {
 // stacking contexts, but it does inside positioned boxes without one, and
 // skips subtrees without participants (hasPart).
 func (p *painter) collect(bx *Box) {
-	for _, k := range bx.kids {
-		p.odep(k)
-		if k.ls.Display == layout.DisplayNone || k.hiddenAtom {
-			continue
-		}
-		if participant(k) {
-			p.items = append(p.items, paintItem{k, zIndex(k)})
-			if stacking(k) {
-				continue
+	if r := bx.runs; r != nil {
+		// Only the children that are participants or have some below
+		// (the runs' rel); what the others are is bx's colIn (ver).
+		p.kdep(bx)
+		for c := range r.aggs {
+			for _, i := range r.aggs[c].rel {
+				p.collectKid(bx.kids[c*aggChunk+int(i)])
 			}
 		}
-		p.kdep(k) // its participants, through its children
-		if k.hasPart {
-			p.collect(k)
+		return
+	}
+	for _, k := range bx.kids {
+		p.collectKid(k)
+	}
+}
+
+// collectKid is collect for child k.
+func (p *painter) collectKid(k *Box) {
+	p.odep(k)
+	if k.ls.Display == layout.DisplayNone || k.hiddenAtom {
+		return
+	}
+	if participant(k) {
+		p.items = append(p.items, paintItem{k, zIndex(k)})
+		if stacking(k) {
+			return
 		}
+	}
+	p.kdep(k) // its participants, through its children
+	if k.hasPart {
+		p.collect(k)
 	}
 }
 
@@ -948,8 +999,22 @@ func (p *painter) innerBody(bx *Box) {
 		if bx.pcs.Visibility == style.VisibilityVisible {
 			p.paintContent(bx)
 		}
-		for _, k := range bx.kids {
-			p.paintFlow(k)
+		if bx.runs == nil || !p.cull {
+			for _, k := range bx.kids {
+				p.paintFlow(k)
+			}
+			return
+		}
+		// A run of children whose inks all miss the interest rect is
+		// culled whole (each would be), noted as a run (record.go: cdepRun).
+		for c := range bx.runs.aggs {
+			kids := bx.kids[c*aggChunk : min((c+1)*aggChunk, len(bx.kids))]
+			if !p.cdepRun(bx, c, p.space) {
+				continue
+			}
+			for _, k := range kids {
+				p.paintFlow(k)
+			}
 		}
 	}
 }

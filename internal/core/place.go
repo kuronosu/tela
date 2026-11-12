@@ -69,12 +69,12 @@ func (t *Tree) markPlace(b *Box) {
 	}
 	b.placeDirty = true
 	for c, a := b, b.parent; a != nil; c, a = a, a.parent {
-		if a.aggs != nil {
+		if r := a.runs; r != nil {
 			// The run of c in a's sums (paint.go: aggChunks).
-			if i := int(c.kidIdx); i < len(a.kids) && a.kids[i] == c && i/aggChunk/64 < len(a.aggDirty) {
-				a.aggDirty[i/aggChunk/64] |= 1 << (i / aggChunk % 64)
+			if i := int(c.kidIdx); i < len(a.kids) && a.kids[i] == c && i/aggChunk/64 < len(r.dirty) {
+				r.dirty[i/aggChunk/64] |= 1 << (i / aggChunk % 64)
 			} else {
-				a.aggAll = true
+				r.all = true
 			}
 		}
 		if a.dirtyBelow {

@@ -227,14 +227,11 @@ type Box struct {
 	placedCB               bool
 	listed                 uint8
 	hasListed              bool // a listed box is below it
-	// kidIdx is the box's index in its parent's children; aggs are the
-	// sums of a box with many children by runs of aggChunk, aggDirty the
-	// runs that hold a marked child and aggAll that they all may (paint.go:
+	// kidIdx is the box's index in its parent's children; runs holds the
+	// sums of the children of a box with more than aggChunk (paint.go:
 	// aggChunks).
-	kidIdx   int32
-	aggs     []kidAgg
-	aggDirty []uint64
-	aggAll   bool
+	kidIdx int32
+	runs   *kidRuns
 }
 
 func newBox(t *Tree, el *Element, kind style.Kind) *Box {

@@ -201,7 +201,7 @@ func perfOps() map[string]func(r *perfRig, i int) {
 		"cell": func(r *perfRig, i int) { perfCellSet[0]([]string{"Paid", "Sent"}[i%2]) },
 		// The amount of the same row changes, in its 140px column: the
 		// cell's new text measures as the old one.
-		"cellpx": func(r *perfRig, i int) { perfCellSet[1](fmt.Sprintf("$%d.00", 250+i%2)) },
+		"cellpx": func(r *perfRig, i int) { perfCellSet[1](fmt.Sprintf("$%d.00", 251+i%2)) },
 		// The pointer crosses from one row to the next (hover styles).
 		"hover": func(r *perfRig, i int) {
 			r.tree.HandlePointer(platform.PointerEvent{Action: platform.PointerMove, Pos: platform.Point{X: 300, Y: 120 + float32(i%8)*41}, Time: r.now})

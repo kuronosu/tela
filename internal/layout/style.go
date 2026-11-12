@@ -417,6 +417,20 @@ func (d Dim) isAuto() bool { return d.Unit == UnitInitial || d.Unit == UnitAuto 
 func (d Dim) isStretch() bool { return d.Unit == UnitStretch }
 
 // isSizingKeyword reports whether d is one of the intrinsic or stretch
+// hasPercent reports whether d resolves against a percentage basis.
+func (d Dim) hasPercent() bool {
+	return d.Unit == UnitPercent || d.Unit == UnitCalc || d.Unit == UnitFitContentPercent
+}
+
+// usesParentHeight reports whether a layout of a node with style s reads
+// the height of the size its parent gives (input.parent): only its own
+// height, min-height and max-height resolve against it (margins, padding
+// and borders resolve against the width; the children get the node's
+// own size).
+func (s *Style) usesParentHeight() bool {
+	return s.Height.hasPercent() || s.MinHeight.hasPercent() || s.MaxHeight.hasPercent()
+}
+
 // sizing keywords (not content).
 func (d Dim) isSizingKeyword() bool {
 	return d.Unit >= UnitMinContent && d.Unit <= UnitStretch

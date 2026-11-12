@@ -60,8 +60,9 @@ import (
 //
 // A paint records again only the layers whose lists can have changed
 // (record.go, ADR-204): a frame that builds, restyles or lays out places
-// every box and compares what each one's painting reads with its last
-// place; a frame that only repaints (scrolling, Values read by paint-phase
+// the boxes whose place can have changed (place.go, ADR-280) and compares
+// what each one's painting reads with its last place; a frame that only
+// repaints (scrolling, Values read by paint-phase
 // deferred props, scrollbar fades and hovers: Tree.markPaint, whose marks
 // stop at these layers; the steps of color transitions) places again the
 // boxes it marked (their on-screen geometry for hit-testing, the deferred

@@ -136,6 +136,14 @@ func (e *Engine) layout(n Node, in input) output {
 		return e.hidden(n)
 	}
 	d := n.LayoutData()
+	st := n.LayoutStyle()
+	if in.parent.h.ok && !st.usesParentHeight() {
+		// The parent's height only resolves percentages of the node's own
+		// heights (its children get its own size): a request that differs
+		// in it alone is the same request, so a column whose height
+		// changes keeps its items' layouts.
+		in.parent.h = none
+	}
 	if out, ok := d.cache.get(&in); ok {
 		return out
 	}
@@ -153,7 +161,6 @@ func (e *Engine) layout(n Node, in input) output {
 			e.clobbers++
 		}
 	}
-	st := n.LayoutStyle()
 	var out output
 	switch {
 	case st.Display == DisplayNone:
