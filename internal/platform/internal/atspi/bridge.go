@@ -111,8 +111,12 @@ type job struct {
 	w    *Window
 	gen  uint64
 	tree *platform.AccessTree
-	ann  []platform.Announcement
-	st   windowState
+	// prev is the tree the update was applied to, changed the IDs of the
+	// nodes it held and removed those it removed (updateView).
+	prev             *platform.AccessTree
+	changed, removed []platform.AccessID
+	ann              []platform.Announcement
+	st               windowState
 }
 
 // windowState is what a backend tells about a window besides its tree.
@@ -211,7 +215,7 @@ func (w *Window) Update(u platform.AccessUpdate) {
 	if w.gone || !w.uiActive || w.refused {
 		return
 	}
-	t, _, err := w.tree.Apply(&u)
+	t, removed, err := w.tree.Apply(&u)
 	if err != nil && w.tree == nil {
 		return // a diff from before the activation (above)
 	}
@@ -222,8 +226,14 @@ func (w *Window) Update(u platform.AccessUpdate) {
 		w.b.opts.Logf("tela: accessibility: %v; the screen reader's view of the window stops here", err)
 		return
 	}
+	changed := make([]platform.AccessID, len(u.Nodes))
+	for i := range u.Nodes {
+		changed[i] = u.Nodes[i].ID
+	}
+	prev := w.tree
 	w.tree = t
-	w.b.push(job{kind: jobUpdate, w: w, gen: w.uiGen, tree: t, ann: slices.Clone(u.Announcements)})
+	w.b.push(job{kind: jobUpdate, w: w, gen: w.uiGen, tree: t, prev: prev, changed: changed, removed: removed,
+		ann: slices.Clone(u.Announcements)})
 }
 
 // SetTitle records the window's title, the frame's name. UI thread.
@@ -426,7 +436,7 @@ func (b *Bridge) runJobs() bool {
 			b.windowChanged(j.w, j.st)
 		case jobUpdate:
 			if b.wk.registered && j.gen == b.wk.gen {
-				b.treeChanged(j.w, j.tree, j.ann)
+				b.treeChanged(j.w, j)
 			}
 		}
 	}
@@ -802,11 +812,26 @@ func (b *Bridge) windowChanged(w *Window, st windowState) {
 }
 
 // treeChanged publishes window w's new tree and tells the AT what
-// changed.
-func (b *Bridge) treeChanged(w *Window, t *platform.AccessTree, ann []platform.Announcement) {
+// changed. The view follows the update's changes when the last one
+// published is of the tree it was applied to (ADR-277); it is built in
+// full otherwise (the first tree, a new root, an update after one the
+// worker skipped).
+func (b *Bridge) treeChanged(w *Window, j job) {
+	t, ann := j.tree, j.ann
 	old := w.snap.Load()
 	s := *old
-	s.view = buildView(t)
+	var touched []platform.AccessID
+	full := old.view.tree == nil || old.view.tree != j.prev || j.prev.Root() != t.Root()
+	if full {
+		s.view = buildView(t)
+	} else {
+		s.view, touched = updateView(old.view, t, j.changed, j.removed)
+		if checkViews {
+			if d := diffViews(s.view, buildView(t)); d != "" {
+				panic("atspi: TELA_CHECK_SEMANTICS: the updated view differs from a full build: " + d)
+			}
+		}
+	}
 	w.snap.Store(&s)
 	if w.removed.Load() {
 		return
@@ -817,7 +842,7 @@ func (b *Bridge) treeChanged(w *Window, t *platform.AccessTree, ann []platform.A
 		// to tell it), then the focus (treeEvents).
 		b.emit(w.path, eventWindowIface, "Activate", "", 0, 0, dbus.MakeVariant(s.title))
 	}
-	b.treeEvents(w, old, &s)
+	b.treeEvents(w, old, &s, touched, full)
 	for _, a := range ann {
 		pol := int32(livePolite)
 		if a.Assertive {
