@@ -162,14 +162,14 @@ type Renderer struct {
 	// the package default), the Renderer that draws color glyph sprites,
 	// the nesting depth of color glyphs, and the depth every render
 	// starts at (0, or for a sprite Renderer, its glyph's depth plus 1).
-	glyphs      *GlyphCache
-	sprite      *Renderer
+	glyphs *GlyphCache
+	sprite *Renderer
 
 	// strokes is the cache of stroke outlines of the Renderer
 	// (strokecache.go) and strk the one the current Render uses: its own,
 	// or for a worker, sprite or filter Renderer, its owner's.
-	strokes strokeCache
-	strk    *strokeCache
+	strokes     strokeCache
+	strk        *strokeCache
 	glyphDepth  int
 	spriteDepth int
 
@@ -185,10 +185,10 @@ type Renderer struct {
 	snapped    bool
 	target     *image.RGBA
 	renderClip image.Rectangle
-	par     *parallel // worker Renderers and the job of a parallel Render
-	scratch []uint8   // the pixels of scratchImage
-	scrAge  useAge    // scratch's age in frames (trim.go)
-	pool    *workPool // blurPool
+	par        *parallel // worker Renderers and the job of a parallel Render
+	scratch    []uint8   // the pixels of scratchImage
+	scrAge     useAge    // scratch's age in frames (trim.go)
+	pool       *workPool // blurPool
 	// A band of a phased render (phase.go): the barriers, and the next one
 	// this band has to pass.
 	ph     *phaser
