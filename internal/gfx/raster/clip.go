@@ -286,13 +286,15 @@ func (r *Renderer) renderMask(m gfx.Mask, comp image.Rectangle) []uint8 {
 	// barriers of a phased render (r.ph) are command indices of the main
 	// list: the mask list's commands must not pass them (its backdrop
 	// filters read the mask's own surface, never the destination).
+	// Options.From and Snap name commands of the main list too: the mask
+	// list is drawn whole, and takes no snapshot.
 	r.dl, r.root = m.List, r.ctm
-	ph := r.ph
-	r.ph = nil
+	ph, from, snapped := r.ph, r.from, r.snapped
+	r.ph, r.from, r.snapped = nil, 0, true
 	for i := range m.List.Len() {
 		r.visit(i, m.List.At(i))
 	}
-	r.ph = ph
+	r.ph, r.from, r.snapped = ph, from, snapped
 	r.dl, r.root = dl, root
 	r.restore()
 	b.pix, b.stride, b.origin = surf, stride, origin
