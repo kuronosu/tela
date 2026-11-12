@@ -51,7 +51,11 @@ import (
 // highlight is part of what painting a paragraph reads (paragraph.ver),
 // so a change records again the layers that paint the paragraphs whose
 // part changed, and damage tracking rasterizes what changed: no layer of
-// its own, and no frame when nothing changes.
+// its own, and no frame when nothing changes. A change of the range (a
+// drag, a Shift press) computes the parts of the paragraphs between the
+// old and the new place of each end that moved, not of the whole range
+// (updateHighlights); a frame that changed the tree walks the whole range
+// (checkSel).
 //
 // # The pointer
 //
@@ -149,10 +153,24 @@ type textSel struct {
 	// release in that pixel clears.
 	inSel   *pointerState
 	pressAt image.Point
-	// hl are the paragraph boxes that paint a highlight; gen numbers the
-	// walks that compute it (paragraph.selGen).
-	hl  []*Box
-	gen uint64
+	// hl are the paragraph boxes that paint a highlight, in no order, and
+	// hlAt the index of each in hl; gen numbers the walks that compute
+	// them (paragraph.selGen).
+	hl   []*Box
+	hlAt map[*Box]int
+	gen  uint64
+	// shown says that the highlights are those of the range [hs, he] of
+	// root shownRoot: a change of the range from there updates only the
+	// paragraphs between the old and the new place of each end
+	// (updateHighlights).
+	shown     bool
+	shownRoot *Box
+	hs, he    selPos
+	// touch is the scratch of updateHighlights, and touched the number of
+	// paragraphs whose part the last change of the highlights computed
+	// (tests).
+	touch   []*Box
+	touched int
 }
 
 // paraSel is what a paragraph paints of the static selection.
@@ -164,6 +182,26 @@ type paraSel struct {
 
 // active reports whether there is a selection (a caret included).
 func (s *textSel) active() bool { return s.anchor.bx != nil }
+
+// list puts paragraph box bx in hl when on, else takes it out.
+func (s *textSel) list(bx *Box, on bool) {
+	i, in := s.hlAt[bx]
+	switch {
+	case on && !in:
+		if s.hlAt == nil {
+			s.hlAt = make(map[*Box]int)
+		}
+		s.hlAt[bx] = len(s.hl)
+		s.hl = append(s.hl, bx)
+	case !on && in:
+		last := len(s.hl) - 1
+		s.hl[i] = s.hl[last]
+		s.hlAt[s.hl[i]] = i
+		s.hl[last] = nil
+		s.hl = s.hl[:last]
+		delete(s.hlAt, bx)
+	}
+}
 
 // ---------------------------------------------------------------------
 // Boxes and positions.
@@ -334,25 +372,34 @@ type rangeWalk struct {
 	start, end selPos
 	state      uint8 // 0 before the start, 1 inside, 2 past the end
 	nl         int
+	// chain is start.bx and its ancestors (chainOfBox): before the start
+	// the walk enters only the boxes on it, as no other box before the
+	// start holds a part of the range, so a walk costs the range it
+	// covers and not the boxes before it.
+	chain []*Box
 	// emit reports a part [a, b] of paragraph bx; it returns whether it
 	// took the pending line breaks.
 	emit func(bx *Box, a, b text.Cursor, nl int) bool
 }
 
-// walk runs w over the subtree of bx, an atomic inline when atom.
-func (w *rangeWalk) walk(bx *Box, atom bool) {
-	if w.state == 2 || bx.ls.Display == layout.DisplayNone || bx.cs == nil {
+// walk runs w over the subtree of bx, an atomic inline when atom; ci is
+// the index of bx in w.chain, or -1 when it is not on it.
+func (w *rangeWalk) walk(bx *Box, atom bool, ci int) {
+	if w.state == 2 || w.state == 0 && ci < 0 || bx.ls.Display == layout.DisplayNone || bx.cs == nil {
 		return
 	}
 	if !atom {
 		w.boundary(1)
 	}
 	if paraBox(bx) {
-		w.para(bx)
+		w.para(bx, ci)
 	} else {
 		for _, k := range bx.kids {
+			if w.state == 2 {
+				break
+			}
 			if !k.portal {
-				w.walk(k, false)
+				w.walk(k, false, w.on(k, ci))
 			}
 		}
 	}
@@ -372,9 +419,18 @@ func (w *rangeWalk) boundary(n int) {
 	}
 }
 
-// para walks paragraph box bx: its text cut at its atomic inlines, whose
-// content comes at their place.
-func (w *rangeWalk) para(bx *Box) {
+// on returns the index in w.chain of k, a child of the box at index ci (-1
+// for a box not on it), or -1.
+func (w *rangeWalk) on(k *Box, ci int) int {
+	if ci > 0 && w.chain[ci-1] == k {
+		return ci - 1
+	}
+	return -1
+}
+
+// para walks paragraph box bx (at index ci of w.chain): its text cut at
+// its atomic inlines, whose content comes at their place.
+func (w *rangeWalk) para(bx *Box, ci int) {
 	pa := bx.para
 	cur, end := docBounds(bx)
 	for i, k := range pa.atoms {
@@ -386,13 +442,20 @@ func (w *rangeWalk) para(bx *Box) {
 		}
 		at := pa.boxes[pa.atomBox[i]].At
 		w.seg(bx, cur, text.Cursor{Offset: at, Affinity: text.Upstream})
-		w.walk(k, true)
+		w.walk(k, true, w.on(k, ci))
 		cur = text.Cursor{Offset: at, Affinity: text.Downstream}
 	}
 	w.seg(bx, cur, end)
 	for _, k := range bx.kids {
+		if w.state == 2 {
+			return
+		}
+		kci := w.on(k, ci)
+		if w.state == 0 && kci < 0 {
+			continue
+		}
 		if _, _, ok := atomSlot(bx, k); !ok && !k.portal {
-			w.walk(k, false) // after the text
+			w.walk(k, false, kci) // after the text
 		}
 	}
 }
@@ -452,10 +515,61 @@ func (t *Tree) walkRange(start, end selPos, emit func(bx *Box, a, b text.Cursor,
 	for i > 0 && j > 0 && ca[i-1] == cb[j-1] {
 		i, j = i-1, j-1
 	}
-	w := rangeWalk{start: start, end: end, emit: emit}
+	w := rangeWalk{start: start, end: end, emit: emit, chain: ca}
 	from := ca[i] // the deepest box that holds both
 	_, _, atom := atomSlot(from.parent, from)
-	w.walk(from, atom)
+	w.walk(from, atom, i)
+}
+
+// partOf returns what paragraph box bx paints of the range [start, end]:
+// the part a walk of the whole range gives it, from a walk of its own
+// subtree (where its atomic inlines' text comes).
+func (t *Tree) partOf(bx *Box, start, end selPos) paraSel {
+	var ps paraSel
+	got := false
+	w := rangeWalk{start: start, end: end, emit: func(b *Box, x, y text.Cursor, _ int) bool {
+		if b == bx {
+			if !got {
+				ps.sel, got = text.NewSelection(x, y), true
+			} else {
+				ps.sel.Focus = y
+			}
+		}
+		return true
+	}}
+	first, last := docBounds(bx)
+	in := func(p selPos) int { // the index of bx in p's chain, or -1
+		i := 0
+		for b := p.bx; b != nil; b = b.parent {
+			if b == bx {
+				return i
+			}
+			i++
+		}
+		return -1
+	}
+	ci := in(start)
+	switch {
+	case ci >= 0: // the start is in bx's text or in what it holds
+		w.chain = chainOfBox(nil, start.bx)
+	case t.cmpPos(start, selPos{bx: bx, cur: first}) > 0:
+		return paraSel{} // bx's subtree is before the start
+	default:
+		w.state = 1
+	}
+	if in(end) < 0 && t.cmpPos(end, selPos{bx: bx, cur: first}) < 0 {
+		return paraSel{} // and after the end
+	}
+	w.walk(bx, true, ci)
+	if !got {
+		return paraSel{}
+	}
+	ps.on = true
+	ps.more = bx != end.bx && cmpCur(ps.sel.Focus, last) == 0
+	if ps.sel.IsCollapsed() && !ps.more {
+		ps.on = false
+	}
+	return ps
 }
 
 // ---------------------------------------------------------------------
@@ -465,7 +579,9 @@ func (t *Tree) walkRange(start, end selPos, emit func(bx *Box, a, b text.Cursor,
 func (t *Tree) setSel(root *Box, anchor, focus selPos) {
 	s := &t.tsel
 	s.root, s.anchor, s.focus = root, anchor, focus
-	t.refreshHighlights()
+	if !t.updateHighlights() {
+		t.refreshHighlights()
+	}
 }
 
 // clearSel removes the selection.
@@ -481,15 +597,16 @@ func (t *Tree) clearSel() {
 }
 
 // refreshHighlights computes the part of the selection each paragraph
-// paints and marks the paragraphs whose part changed.
-// perf: it walks the range on every change (each pointer move of a
-// drag); diffing only its ends would do.
+// paints and marks the paragraphs whose part changed, walking the whole
+// range: for a new tree or a new selection (setSel updates the
+// highlights of a range that changed with updateHighlights).
 func (t *Tree) refreshHighlights() {
 	s := &t.tsel
 	s.gen++
 	gen := s.gen
 	old := s.hl
 	var next []*Box
+	s.touched = 0
 	if s.active() && s.anchor != s.focus {
 		start, end := t.selOrdered()
 		t.walkRange(start, end, func(bx *Box, a, b text.Cursor, _ int) bool {
@@ -498,6 +615,7 @@ func (t *Tree) refreshHighlights() {
 			}
 			pa := bx.para
 			if pa.selGen != gen {
+				s.touched++
 				pa.selGen = gen
 				pa.nsel = paraSel{on: true, sel: text.NewSelection(a, b)}
 				next = append(next, bx)
@@ -527,7 +645,80 @@ func (t *Tree) refreshHighlights() {
 			t.paraSelChanged(bx)
 		}
 	}
-	s.hl = next
+	clear(s.hlAt)
+	clear(old)
+	s.hl = old[:0]
+	for _, bx := range next {
+		if bx.para.hl.on {
+			s.list(bx, true)
+		}
+	}
+	s.shown = s.active() && s.anchor != s.focus
+	s.shownRoot, s.hs, s.he = nil, selPos{}, selPos{}
+	if s.shown {
+		s.shownRoot = s.root
+		s.hs, s.he = t.selOrdered()
+	}
+}
+
+// updateHighlights updates the highlights after a change of the range,
+// from the range they show (textSel.shown): only the paragraphs between
+// the old and the new place of each end that moved can change their part,
+// so only those are walked and computed again; the others keep theirs. A
+// drag that extends the selection by a word computes one paragraph, not
+// every paragraph of the range. It reports false, having changed nothing,
+// when the highlights must be computed from the whole range
+// (refreshHighlights): there is no range shown, or it is in another root,
+// or one of the ends left the tree.
+func (t *Tree) updateHighlights() bool {
+	s := &t.tsel
+	root := s.root
+	if !s.shown || s.shownRoot != root || !s.active() || s.anchor == s.focus {
+		return false
+	}
+	if !t.posValid(s.hs, root) || !t.posValid(s.he, root) || !t.posValid(s.anchor, root) || !t.posValid(s.focus, root) {
+		return false
+	}
+	ns, ne := t.selOrdered()
+	os, oe := s.hs, s.he
+	s.gen++
+	gen := s.gen
+	touched := s.touch[:0]
+	note := func(bx *Box, _, _ text.Cursor, _ int) bool {
+		if pa := bx.para; pa.selGen != gen {
+			pa.selGen = gen
+			touched = append(touched, bx)
+		}
+		return true
+	}
+	between := func(a, b selPos) {
+		if a == b {
+			return
+		}
+		if t.cmpPos(a, b) > 0 {
+			a, b = b, a
+		}
+		t.walkRange(a, b, note)
+	}
+	between(os, ns)
+	between(oe, ne)
+	s.touched = 0
+	for _, bx := range touched {
+		var ps paraSel
+		if selectableBox(bx) {
+			s.touched++
+			ps = t.partOf(bx, ns, ne)
+		}
+		if pa := bx.para; pa.hl != ps {
+			pa.hl = ps
+			t.paraSelChanged(bx)
+		}
+		s.list(bx, ps.on)
+	}
+	clear(touched)
+	s.touch = touched[:0]
+	s.hs, s.he = ns, ne
+	return true
 }
 
 // paraSelChanged records that what paragraph box bx paints of the
@@ -798,7 +989,7 @@ func (t *Tree) nextParaStart(root, bx *Box) (selPos, bool) {
 	_, de := docBounds(bx)
 	var found selPos
 	ok := false
-	w := rangeWalk{start: selPos{bx, de}, end: selPos{}}
+	w := rangeWalk{start: selPos{bx, de}, end: selPos{}, chain: chainOfBox(nil, bx)}
 	w.emit = func(b *Box, a, _ text.Cursor, _ int) bool {
 		if b != bx && selectableBox(b) && !ok {
 			found, ok = selPos{b, a}, true
@@ -806,7 +997,14 @@ func (t *Tree) nextParaStart(root, bx *Box) (selPos, bool) {
 		}
 		return true
 	}
-	w.walk(root, false)
+	ci := -1
+	for i, b := range w.chain {
+		if b == root {
+			ci = i
+			break
+		}
+	}
+	w.walk(root, false, ci)
 	return found, ok
 }
 

@@ -448,7 +448,7 @@ func TestTextSelOrderMatchesWalk(t *testing.T) {
 		}
 		return true
 	}
-	w.walk(tr.rootBox, false)
+	w.walk(tr.rootBox, false, -1)
 	if len(pos) < 20 {
 		t.Fatalf("the walk gave %d positions", len(pos))
 	}

@@ -49,12 +49,17 @@ func (t *Tree) selDragStart(ps *pointerState, u gesture.DragUpdate) {
 	if txt == "" || el == nil {
 		return
 	}
+	// The highlighted paragraphs in document order (hl has none).
 	var pieces []selPiece
-	for _, bx := range s.hl {
-		if pa := bx.para; pa != nil && pa.hl.on && !pa.hl.sel.IsCollapsed() {
+	seen := map[*Box]bool{}
+	start, end := t.selOrdered()
+	t.walkRange(start, end, func(bx *Box, _, _ text.Cursor, _ int) bool {
+		if pa := bx.para; !seen[bx] && pa.hl.on && !pa.hl.sel.IsCollapsed() {
+			seen[bx] = true
 			pieces = append(pieces, selPiece{bx, pa.hl.sel})
 		}
-	}
+		return true
+	})
 	dt := &DataTransfer{EffectAllowed: DropCopy}
 	dt.SetText(txt)
 	ev := DragEvent{X: u.Pos.X, Y: u.Pos.Y, Button: MouseButtonLeft}
