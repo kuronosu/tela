@@ -1,6 +1,8 @@
 package core
 
 import (
+	"image"
+	"reflect"
 	"slices"
 
 	"github.com/kuronosu/tela/internal/style"
@@ -14,11 +16,16 @@ import (
 // layout animation's corrected copy (layoutanim.go).
 
 // sameStyle reports whether a box painted with style a records what it
-// records with style b: every field is equal, slices and pointers by
-// identity (copies of a style share them, and styles are not changed
-// after they are made, so a shared array is the same value), except, for
-// a deferred layer (layer), its opacity and transform, which the
-// compositor applies (layer.go) and its list does not read. The
+// records with style b: every field is equal, except, for a deferred
+// layer (layer), its opacity and transform, which the compositor applies
+// (layer.go) and its list does not read. Slices and pointers are equal
+// when they are the same (copies of a style share them, and styles are
+// not changed after they are made, so a shared array is the same value);
+// those that a style computed again makes anew (the background and mask
+// layers, the shadows, the font families, a clip path's values, the
+// placeholder and selection colors) are compared by content, and the
+// deferred props by what they are (sameDeferred), so that an element
+// built again with equal classes and …Fn props records nothing. The
 // comparison covers every field of style.ComputedStyle (a new field must
 // be added here: TestSameStyleCoversEveryField).
 func sameStyle(a, b *style.ComputedStyle, layer bool) bool {
@@ -49,12 +56,12 @@ func sameStyle(a, b *style.ComputedStyle, layer bool) bool {
 		sameTracks(&a.GridTemplateColumns, &b.GridTemplateColumns) &&
 		sameTracks(&a.GridTemplateRows, &b.GridTemplateRows) &&
 		sameAreas(&a.GridTemplateAreas, &b.GridTemplateAreas) &&
-		sameSlice(a.GridAutoColumns, b.GridAutoColumns) && sameSlice(a.GridAutoRows, b.GridAutoRows) &&
+		slices.Equal(a.GridAutoColumns, b.GridAutoColumns) && slices.Equal(a.GridAutoRows, b.GridAutoRows) &&
 		a.GridAutoFlow == b.GridAutoFlow && a.GridColumn == b.GridColumn && a.GridRow == b.GridRow &&
-		a.BackgroundColor == b.BackgroundColor && sameSlice(a.Backgrounds, b.Backgrounds) &&
+		a.BackgroundColor == b.BackgroundColor && sameLayers(a.Backgrounds, b.Backgrounds) &&
 		a.BackgroundClip == b.BackgroundClip && a.BackgroundBlend == b.BackgroundBlend &&
 		a.Border == b.Border && a.Radius == b.Radius && a.Outline == b.Outline && a.Divide == b.Divide &&
-		sameSlice(a.BoxShadows, b.BoxShadows) && a.MixBlendMode == b.MixBlendMode &&
+		slices.Equal(a.BoxShadows, b.BoxShadows) && a.MixBlendMode == b.MixBlendMode &&
 		sameFilters(&a.Filter, &b.Filter) && sameFilters(&a.BackdropFilter, &b.BackdropFilter) &&
 		sameClipPath(&a.ClipPath, &b.ClipPath) && sameMask(&a.Mask, &b.Mask) &&
 		a.Fill == b.Fill && a.Stroke == b.Stroke && a.StrokeWidth == b.StrokeWidth &&
@@ -66,8 +73,8 @@ func sameStyle(a, b *style.ComputedStyle, layer bool) bool {
 		sameText(&a.Text, &b.Text) && a.TextOverflow == b.TextOverflow && a.LineClamp == b.LineClamp &&
 		a.VerticalAlign == b.VerticalAlign &&
 		a.Caret == b.Caret && a.FieldSizing == b.FieldSizing &&
-		a.Placeholder == b.Placeholder && a.Selection == b.Selection &&
-		sameSlice(a.Deferred, b.Deferred) &&
+		samePtr(a.Placeholder, b.Placeholder, sameText) && samePtr(a.Selection, b.Selection, sameSelection) &&
+		sameDeferred(a.Deferred, b.Deferred) &&
 		a.TextColorSet == b.TextColorSet && a.FontSizeSet == b.FontSizeSet &&
 		a.CurrentColors == b.CurrentColors && a.DecorationInherited == b.DecorationInherited &&
 		a.Scheme == b.Scheme
@@ -77,6 +84,66 @@ func sameStyle(a, b *style.ComputedStyle, layer bool) bool {
 // and, when not empty, the same array.
 func sameSlice[T any](a, b []T) bool {
 	return len(a) == len(b) && (len(a) == 0 || &a[0] == &b[0])
+}
+
+// samePtr reports whether a and b are both nil, or point to values that
+// same reports equal.
+func samePtr[T any](a, b *T, same func(a, b *T) bool) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a == b || same(a, b)
+}
+
+func sameSelection(a, b *style.SelectionColors) bool { return *a == *b }
+
+// sameDeferred reports whether two lists of deferred props are the same
+// props: their closures differ whenever an element builds again, and what
+// they give is compared where it is read (paintIn: the resolved colors and
+// gradient; the layout; the compositor's translation and opacity), so
+// only their phases and kinds count here.
+func sameDeferred(a, b []style.Deferred) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		x, y := &a[i], &b[i]
+		if x.Phase != y.Phase || x.TextColor != y.TextColor || (x.Apply == nil) != (y.Apply == nil) {
+			return false
+		}
+	}
+	return true
+}
+
+// sameLayers reports whether two lists of background (or mask) layers
+// paint the same: equal fields, gradients by content (sameGradient), and
+// decoded images the same image.
+func sameLayers(a, b []style.BackgroundLayer) bool {
+	if sameSlice(a, b) {
+		return true
+	}
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		x, y := &a[i], &b[i]
+		if x.URL != y.URL || x.Size != y.Size || x.PosX != y.PosX || x.PosY != y.PosY || x.Repeat != y.Repeat ||
+			x.Origin != y.Origin || !sameGradient(x.Gradient, y.Gradient) || !sameImage(x.Image, y.Image) {
+			return false
+		}
+	}
+	return true
+}
+
+// sameImage reports whether a and b are the same image (nil for none). An
+// image whose dynamic type is not comparable is only the same as itself
+// when both are nil: it counts as a change.
+func sameImage(a, b image.Image) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	ta, tb := reflect.TypeOf(a), reflect.TypeOf(b)
+	return ta == tb && ta.Comparable() && a == b
 }
 
 func sameTracks(a, b *style.TrackList) bool {
@@ -90,26 +157,26 @@ func sameAreas(a, b *style.GridAreas) bool {
 func sameFilters(a, b *style.FilterSet) bool {
 	return a.Set == b.Set && a.Blur == b.Blur && a.Brightness == b.Brightness && a.Contrast == b.Contrast &&
 		a.Grayscale == b.Grayscale && a.HueRotate == b.HueRotate && a.Invert == b.Invert &&
-		a.Saturate == b.Saturate && a.Sepia == b.Sepia && sameSlice(a.DropShadow, b.DropShadow)
+		a.Saturate == b.Saturate && a.Sepia == b.Sepia && slices.Equal(a.DropShadow, b.DropShadow)
 }
 
 func sameClipPath(a, b *style.ClipPath) bool {
-	return a.Shape == b.Shape && sameSlice(a.Values, b.Values) && a.Radius == b.Radius && a.Rule == b.Rule
+	return a.Shape == b.Shape && slices.Equal(a.Values, b.Values) && a.Radius == b.Radius && a.Rule == b.Rule
 }
 
 func sameMask(a, b *style.Mask) bool {
-	return sameSlice(a.Layers, b.Layers) && a.Mode == b.Mode && a.Composite == b.Composite &&
+	return sameLayers(a.Layers, b.Layers) && a.Mode == b.Mode && a.Composite == b.Composite &&
 		a.Clip == b.Clip && a.NoClip == b.NoClip
 }
 
 func sameText(a, b *style.TextProps) bool {
-	return a.Color == b.Color && sameSlice(a.FontFamily, b.FontFamily) && a.FontSize == b.FontSize &&
+	return a.Color == b.Color && slices.Equal(a.FontFamily, b.FontFamily) && a.FontSize == b.FontSize &&
 		a.FontWeight == b.FontWeight && a.FontStyle == b.FontStyle && a.FontStretch == b.FontStretch &&
 		a.LineHeight == b.LineHeight && a.LetterSpacing == b.LetterSpacing && a.WordSpacing == b.WordSpacing &&
 		a.TextAlign == b.TextAlign && a.TextTransform == b.TextTransform && a.Decoration == b.Decoration &&
 		a.WhiteSpace == b.WhiteSpace && a.WrapStyle == b.WrapStyle && a.WordBreak == b.WordBreak &&
 		a.OverflowWrap == b.OverflowWrap && a.TabSize == b.TabSize && a.Numeric == b.Numeric &&
-		sameSlice(a.Shadow, b.Shadow) && a.Direction == b.Direction && a.Language == b.Language &&
+		slices.Equal(a.Shadow, b.Shadow) && a.Direction == b.Direction && a.Language == b.Language &&
 		a.Hyphens == b.Hyphens
 }
 
