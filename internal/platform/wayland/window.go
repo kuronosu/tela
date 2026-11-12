@@ -538,6 +538,7 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 			buf.wl.SetReleaseHandler(func(protocols.WlBufferReleaseEvent) { w.chain.released(buf) })
 			return buf, nil
 		}
+		w.chain.now = b.Now // unused third buffers are trimmed (shm.go)
 		// Both copies keep the alpha byte, which the X formats ignore.
 		w.chain.copyRect = copyXRGB
 		if format == protocols.WlShmFormatXbgr8888 || format == protocols.WlShmFormatAbgr8888 {
