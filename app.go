@@ -207,6 +207,17 @@ type App struct {
 	// (see [UseTextScale]). Set it for a layout that cannot grow, such as
 	// a fixed-size tool window.
 	IgnoreTextScale bool
+	// ThemeTransitions keeps the transitions when the theme or the color
+	// scheme changes. By default a change of [SetColorScheme], [SetTheme]
+	// or the system's dark mode (when the app follows it), and of an
+	// element's Scheme prop, applies at once, as next-themes'
+	// disableTransitionOnChange does: elements with transition-colors
+	// show the new colors in the next frame, and the transitions running
+	// toward a value the change replaces jump to their end. Later changes,
+	// a hover for instance, transition as usual, and animate-* keyframes
+	// are not affected. Set it for an app that wants its elements to fade
+	// to the new theme, as browsers do.
+	ThemeTransitions bool
 	// ColorScheme is the app's color scheme: Light or Dark override the
 	// system's preference (the dark: classes, UseColorScheme); the zero
 	// value, System, follows it. SetColorScheme changes it while the app
@@ -395,6 +406,7 @@ func (app App) options() core.Options {
 			InstantScroll:     app.InstantScroll,
 			NativeMenus:       app.NativeMenus,
 			IgnoreTextScale:   app.IgnoreTextScale,
+			ThemeTransitions:  app.ThemeTransitions,
 			ColorScheme:       scheme,
 			Theme:             (*core.Theme)(theme),
 			ClassAliases:      app.ClassAliases,

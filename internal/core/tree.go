@@ -68,6 +68,10 @@ type Config struct {
 	// IgnoreTextScale keeps 1rem at the theme's size whatever the
 	// system's text scale (tela.App.IgnoreTextScale).
 	IgnoreTextScale bool
+	// ThemeTransitions keeps the transitions of a change of the theme,
+	// the color scheme or the text scale (tela.App.ThemeTransitions);
+	// by default such a change applies without them (ADR-276).
+	ThemeTransitions bool
 	// ColorScheme is the app's color scheme; the zero value follows the
 	// system (Dark).
 	ColorScheme ColorScheme
@@ -382,6 +386,7 @@ func NewTree(cfg Config) *Tree {
 	t.dbg.clock = cfg.DebugClock
 	t.scr.classic, t.scr.instant = cfg.ClassicScrollbars, cfg.InstantScroll
 	t.nativeMenus = cfg.NativeMenus
+	t.anim.keepFade = cfg.ThemeTransitions
 	t.flavor = cfg.Flavor.Resolve()
 	t.in.clicks.Interval = cfg.DoubleClickInterval
 	if t.fonts == nil {
@@ -780,6 +785,9 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 // outside it (scroll.go's scrollAfterFrame).
 func (t *Tree) afterFrame() {
 	t.inFrame = false
+	if t.anim.instantSeen {
+		t.anim.instant, t.anim.instantSeen = false, false
+	}
 	t.scr.stale = false
 	t.frev.hold = false
 	if t.dirRebuild {

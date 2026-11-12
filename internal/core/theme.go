@@ -155,8 +155,22 @@ func (t *Tree) useParser(p *style.Parser) {
 	if t.root == nil {
 		return
 	}
+	t.noteThemeChange()
 	t.markAllStyle(true)
 	t.dirty()
+}
+
+// noteThemeChange makes the next frame that styles the tree start no
+// transitions (ADR-276): the new colors, and what else a theme, a color
+// scheme or a text scale change restyles, appear at once, as next-themes'
+// disableTransitionOnChange does, and a transition already running toward
+// a value the change replaces jumps to its end. Later changes transition
+// as usual. Config.ThemeTransitions keeps the fade.
+func (t *Tree) noteThemeChange() {
+	if t.anim.keepFade {
+		return
+	}
+	t.anim.instant, t.anim.instantSeen = true, false
 }
 
 // SetTheme sets the theme of the running app (the Tree that receives

@@ -163,6 +163,7 @@ func (t *Tree) applyEnv() {
 		return
 	}
 	t.cx.Dark, t.cx.ReducedMotion, t.cx.HighContrast = dark, reduced, contrast
+	t.noteThemeChange()
 	if !reparsed {
 		t.restyleAll()
 	}

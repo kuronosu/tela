@@ -93,6 +93,23 @@ func main() {
 replaces the theme while the app runs (safe from any goroutine, like
 `SetColorScheme`): every element is styled again.
 
+## Switching without a fade
+
+`transition-colors` (and any `transition`) animates a color change, as in a
+browser. A theme or scheme switch would then fade every element that has it,
+and the fade costs frames of rasterizing the whole window. So Tela applies
+such a change at once, as next-themes' `disableTransitionOnChange` does:
+after `tela.SetColorScheme`, `tela.SetTheme`, or a change of the system's dark
+mode the app follows, the next frame shows the new colors, no transition
+starts, and one that is running toward a value the switch replaces jumps to
+its end. Changes after that frame transition as usual (a hover right after the
+switch fades), and `animate-*` keyframes keep running.
+
+An element's `h.Scheme` prop is not a switch of the app: it changes with the
+app's state like a class does, so it transitions. Write
+`tela.App{ThemeTransitions: true}` to have the app's switches fade too
+(`telatest.ThemeTransitions()` in tests).
+
 ## A different scheme for part of the window
 
 [`h.Scheme`](https://pkg.go.dev/github.com/kuronosu/tela/h#Scheme) gives an

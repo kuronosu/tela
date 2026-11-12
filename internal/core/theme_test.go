@@ -248,9 +248,10 @@ func TestThemeConfigPanics(t *testing.T) {
 }
 
 // TestSchemeChangeTransitionsTokens: a scheme change moves token colors
-// through transition-colors, and a Scheme prop change does too.
+// through transition-colors with Config.ThemeTransitions (otherwise it
+// applies at once, ADR-276), and a Scheme prop change always does (below).
 func TestSchemeChangeTransitionsTokens(t *testing.T) {
-	x := newInput(t, div(div(Key("b"), Class("size-10 bg-background text-foreground transition-colors duration-200 ease-linear"))), 100, 100)
+	x := newInputCfg(t, div(div(Key("b"), Class("size-10 bg-background text-foreground transition-colors duration-200 ease-linear"))), Config{ThemeTransitions: true})
 	x.settle()
 	if x.bg("b") != token("background", false) {
 		t.Fatalf("light: %v", x.bg("b"))

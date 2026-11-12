@@ -716,7 +716,7 @@ func (t *Tree) childConfig(rootClass string, n int) Config {
 	return Config{
 		Fonts: t.fonts, Parser: t.parserBase, RootClass: rootClass,
 		Dark: t.env.sysDark, ReducedMotion: t.env.sysReduced, ColorScheme: t.env.scheme,
-		HighContrast: t.env.sysContrast, TextScale: t.env.sysTextScale, IgnoreTextScale: t.env.ignoreText,
+		HighContrast: t.env.sysContrast, TextScale: t.env.sysTextScale, IgnoreTextScale: t.env.ignoreText, ThemeTransitions: t.anim.keepFade,
 		AccentColor: t.env.accent.c, HasAccentColor: t.env.accent.ok,
 		Dev: t.dev, Log: t.log, Warn: t.warn, DoubleClickInterval: t.in.clicks.Interval,
 		IDPrefix:          t.idPrefix + "w" + strconv.Itoa(n) + "-",

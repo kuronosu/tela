@@ -91,6 +91,14 @@ type animState struct {
 	// inherited is set while the children of a restyled box are styled:
 	// they follow its inherited properties instead of transitioning them.
 	inherited bool
+	// instant: the styles computed now start no transition, and the
+	// running ones whose target changes jump to it (a theme, scheme or
+	// text scale change applies at once; ADR-276). A change sets it
+	// (noteThemeChange) and the first frame that styles clears it
+	// (instantSeen, afterFrame); a Scheme prop change does not set it, being
+	// an ordinary change of the app's tree. keepFade
+	// (Config.ThemeTransitions) turns it off.
+	instant, instantSeen, keepFade bool
 	// dormant are the boxes with keyframe animations that wait to be shown.
 	dormant []*boxAnim
 	// specs caches the parsed animation shorthands.
@@ -313,7 +321,7 @@ func (t *Tree) beforeChange(bx *Box, old, cs *style.ComputedStyle, in style.Inpu
 // allocate nothing when they restyle).
 func (t *Tree) mayTransition(old, cs *style.ComputedStyle) bool {
 	tr := cs.Transition
-	if old == nil || tr.Properties == 0 || !t.anim.driven || t.cx.ReducedMotion {
+	if old == nil || tr.Properties == 0 || !t.anim.driven || t.cx.ReducedMotion || t.anim.instant {
 		return false
 	}
 	if !(anim.Timing{Duration: tr.Duration, Delay: tr.Delay}).Runs() {
@@ -333,9 +341,19 @@ func (t *Tree) mayTransition(old, cs *style.ComputedStyle) bool {
 func (t *Tree) updateTransitions(ba *boxAnim, old, cs *style.ComputedStyle, now time.Duration) {
 	tr := cs.Transition
 	enabled := t.anim.driven && !t.cx.ReducedMotion
+	instant := enabled && t.anim.instant
 	timing := anim.Timing{Duration: tr.Duration, Delay: tr.Delay, Curve: animCurve(tr.Timing)}
 	for p := anim.Prop(0); p < anim.NumProps; p++ {
 		i := ba.find(p)
+		if instant {
+			// A theme or scheme change: no transition starts, and a
+			// running one whose target changed jumps to its end. One whose
+			// target did not change keeps going.
+			if i >= 0 && (ba.target == nil || !anim.Equal(p, ba.target, cs)) {
+				ba.remove(i)
+			}
+			continue
+		}
 		if tr.Properties&p.Mask() == 0 || !enabled {
 			// No matching transition-property (or no time): a running
 			// transition is cancelled and the property takes its value.

@@ -8,11 +8,13 @@ import (
 	"github.com/kuronosu/tela/internal/platform"
 )
 
-// Changes of the environment (dark mode, the window size crossing a
-// breakpoint) restyle boxes like any other change, so they transition.
+// Changes of the environment (the window size crossing a breakpoint, and
+// dark mode with Config.ThemeTransitions) restyle boxes like any other
+// change, so they transition. Dark mode applies at once by default
+// (anim_theme_test.go).
 
 func TestDarkModeChangeTransitions(t *testing.T) {
-	x := newInput(t, div(div(Key("b"), Class("size-10 bg-[#ffffff] dark:bg-[#000000] transition-colors duration-200 ease-linear"))), 100, 100)
+	x := newInputCfg(t, div(div(Key("b"), Class("size-10 bg-[#ffffff] dark:bg-[#000000] transition-colors duration-200 ease-linear"))), Config{ThemeTransitions: true})
 	x.settle()
 	if x.bg("b") != gfx.White {
 		t.Fatalf("light: %v", x.bg("b"))

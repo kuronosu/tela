@@ -32,6 +32,7 @@ type config struct {
 	textScale     float64
 	accent        *tela.Color
 	ignoreText    bool
+	themeFade     bool
 	scheme        tela.ColorScheme
 	classic       bool
 	instant       bool
@@ -189,6 +190,7 @@ func (c config) coreConfig() core.Config {
 		HighContrast:      c.highContrast,
 		TextScale:         c.textScale,
 		IgnoreTextScale:   c.ignoreText,
+		ThemeTransitions:  c.themeFade,
 		ColorScheme:       c.scheme,
 		Dev:               c.devMode(),
 		ClassicScrollbars: c.classic,
@@ -285,6 +287,11 @@ func HighContrast() Option { return func(c *config) { c.highContrast = true } }
 // unless the app sets tela.App.IgnoreTextScale. The scale is above 0 and
 // at most 4.
 func TextScale(scale float64) Option { return func(c *config) { c.textScale = scale } }
+
+// ThemeTransitions keeps the transitions when the color scheme or the
+// theme changes (tela.App.ThemeTransitions). By default tela.SetColorScheme,
+// tela.SetTheme and a change of the system's dark mode apply at once.
+func ThemeTransitions() Option { return func(c *config) { c.themeFade = true } }
 
 // AccentColor sets the system's accent color, which tela.UseAccentColor
 // returns (by default the system has none).
@@ -449,7 +456,7 @@ func Hyphenation(hs ...tela.Hyphenation) Option {
 // a test, `tela snapshot` and the window see the same app: the size when
 // both Width and Height are set, RootClass, ColorScheme, Theme,
 // ClassAliases, Fonts, Hyphenation, ClassicScrollbars, InstantScroll,
-// NativeMenus, IgnoreTextScale, Dev and Transparent (the picture keeps the frame's
+// NativeMenus, IgnoreTextScale, ThemeTransitions, Dev and Transparent (the picture keeps the frame's
 // alpha, as [Transparent]). It sets only
 // what the app sets, so it never undoes an earlier option, and the options
 // after it override it:
@@ -510,6 +517,9 @@ func FromApp(app tela.App) Option {
 		}
 		if app.IgnoreTextScale {
 			c.ignoreText = true
+		}
+		if app.ThemeTransitions {
+			c.themeFade = true
 		}
 		if app.Dev != nil {
 			c.dev = *app.Dev

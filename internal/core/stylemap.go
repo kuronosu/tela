@@ -30,6 +30,9 @@ func (t *Tree) stylePhase() {
 	for len(t.styleQ) > 0 {
 		q := t.styleQ
 		t.styleQ = nil
+		if t.anim.instant {
+			t.anim.instantSeen = true // afterFrame ends the instant change
+		}
 		sortByDepth(q)
 		for _, el := range q {
 			if el.mounted && el.needsStyle {
