@@ -15,11 +15,13 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ### Added
 
+- `telatest.Stats` counts `LaidOut`, `Remapped` and `Placed` (ADR-280).
 - `tela.App.ThemeTransitions` and `telatest.ThemeTransitions()` keep the fade of a theme or scheme change (ADR-276).
 
 ### Changed
 
 - `tela.SetColorScheme`, `tela.SetTheme`, a system dark-mode or contrast change the app follows, and a text scale change now apply without transitions, as next-themes' `disableTransitionOnChange` (ADR-276): elements with `transition-colors` show the new colors in the next frame, and running transitions toward replaced values jump to their end. An element's `h.Scheme` change still transitions.
+- Frames that build, restyle or lay out no longer walk the whole tree (ADR-280): only the changed boxes' layout styles are mapped, a leaf whose text or image changed lays out its ancestors only when its size changes, and the paint phase places only the changed boxes and those that moved; a hover on a plain 2000-row `kit.Table` costs about 1 ms instead of 30 ms, a cell text change in a fixed-width column 1 ms instead of 125 ms.
 - A hover, a transition step, a hoisted box that mounts, a `TextColorFn` that changes and a layout animation record a few dozen commands at most, instead of the whole window outside scroll content (ADR-274): the dashboard's rail hover records 17 commands instead of 475; an element built again with equal `BgFn`, `BackgroundGradientFn` or `TranslateFn` props records nothing.
 - Accessibility: while a screen reader is active, a change updates only the semantics nodes it reaches and the bridges' views of them (AT-SPI, UI Automation, NSAccessibility; ADR-277): in a 10,000-node tree a one-node change went from about 26 ms to about 0.15 ms in core, and from milliseconds to microseconds in each bridge; `tela inspect --aria`, `telatest` and `tela mcp` queries after a small change no longer rebuild the whole semantics tree.
 - Frames allocate about half as much: display lists get exact-size storage from reused builders, stroke outlines (icons, dashed borders) are cached between bands and frames, and layout, style and text painting reuse their scratch memory; the dashboard's 1080p session allocates 378 MiB instead of 702 MiB.

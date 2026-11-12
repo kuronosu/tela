@@ -246,7 +246,7 @@ event/vsync
        └─ after present: UseEffect and pending cleanups
 ```
 
-- **Dirty flags:** `needsBuild`, `needsStyle`, `needsLayout`, `needsPaint`, `needsSemantics`. Marking a node dirty requests a frame; each phase processes only marked nodes.
+- **Dirty flags:** `needsBuild`, `needsStyle`, `needsLayout`, `needsPaint`, `needsSemantics`. Marking a node dirty requests a frame; each phase processes only marked nodes. A leaf whose content changed lays out its ancestors only if its results changed, and the paint phase places only the boxes whose place can have changed (ADR-280).
 - **Scheduler:**
   - Nothing dirty and no active animations → no vsync request (0% idle CPU).
   - Frames align to the backend's vsync/frame callback: `wl_surface.frame`, `DwmFlush` or a timer on Windows, a display link on macOS (`NSView.displayLink`, `CVDisplayLink` on macOS 13; ADR-222).
