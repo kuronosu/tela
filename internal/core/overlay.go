@@ -429,6 +429,7 @@ func (t *Tree) markOutside() {
 		if in[el] || el.kind == elemPrimitive && el.node.d.chrome {
 			out = false // alive, or the fallback title bar (chrome.go)
 		}
+		was := el.outside
 		switch {
 		case !out:
 			el.outside = outsideNo
@@ -436,6 +437,9 @@ func (t *Tree) markOutside() {
 			el.outside = outsideAncestor
 		default:
 			el.outside = outsideYes
+		}
+		if el.outside != was {
+			t.semMark(el, semSelf)
 		}
 		for _, c := range el.children {
 			walk(c, out)

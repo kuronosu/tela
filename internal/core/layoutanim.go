@@ -512,7 +512,9 @@ func (t *Tree) layoutStyle(bx *Box, placing bool) {
 	if len(c.BoxShadows) > 0 && sm != (gfx.Point{X: 1, Y: 1}) {
 		c.BoxShadows = correctShadows(c.BoxShadows, sm)
 	}
+	old := bx.pcs
 	bx.pcs = &c
+	t.semPainted(bx, old)
 }
 
 // scaleCorrected reports whether a box with style cs paints something

@@ -216,6 +216,7 @@ func (t *Tree) beginExit(o *Element) bool {
 	pc := o.presChild()
 	ex := &exitState{el: o, boxes: boxes}
 	pc.exit = ex
+	t.semMark(o, semSelf)
 	t.pres.exits = append(t.pres.exits, ex)
 	t.refreshInert(o)
 	t.inertFocus(o)
@@ -238,6 +239,7 @@ func (t *Tree) beginExit(o *Element) bool {
 func (t *Tree) cancelExit(o *Element) {
 	ex := o.pchild.exit
 	o.pchild.exit = nil
+	t.semMark(o, semSelf)
 	ex.gone = true
 	t.refreshInert(o)
 	t.restoreScopes(o)
@@ -264,6 +266,7 @@ func (t *Tree) refreshInert(el *Element) {
 		return
 	}
 	el.inert = on
+	t.semMark(el, semSelf)
 	if el.kind == elemPrimitive && el.node.d.overlay != nil {
 		t.ovl.dirty = true
 	}
@@ -392,6 +395,7 @@ func (t *Tree) finishExit(ex *exitState) {
 	ex.gone = true
 	o := ex.el
 	o.pchild.exit = nil
+	t.semMark(o, semSelf)
 	p := o.parent
 	kids := make([]*Element, 0, len(p.children)-1)
 	for _, c := range p.children {
@@ -400,6 +404,7 @@ func (t *Tree) finishExit(ex *exitState) {
 		}
 	}
 	p.children = kids
+	t.semMark(p, semSelf)
 	t.unmount(o)
 	pr := p.primitive()
 	t.markBoxes(pr)

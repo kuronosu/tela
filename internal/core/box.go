@@ -982,6 +982,7 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 // b is laid out again.
 func (t *Tree) shapeParagraph(b *Box, p *paragraph) {
 	p.final, p.sized, p.fragAt = nil, false, [2]float32{}
+	t.semGeomBox(b) // the bounds of its texts and inline elements
 	p.inkAt = [3]float32{}
 	p.lay = nil
 	if !p.empty {

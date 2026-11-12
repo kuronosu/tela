@@ -1631,7 +1631,7 @@ func (e *Engine) flexLayoutItem(n Node, it *flexItem, mainOffset *float32, cross
 	if it.st.OverflowX == OverflowScroll {
 		sb.y = it.st.ScrollbarWidth
 	}
-	it.node.LayoutData().setLayout(loc, sz, it.border, it.padding, it.margin, sb, out.overflow, out.firstBaseline)
+	setLayoutOf(it.node, loc, sz, it.border, it.padding, it.margin, sb, out.overflow, out.firstBaseline)
 
 	if rtlRow {
 		*mainOffset -= it.offsetMain + it.margin.mainSum(dir) + sz.main(dir)

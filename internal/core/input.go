@@ -840,6 +840,9 @@ func (t *Tree) setState(el *Element, flag style.StateFlags, on bool) {
 	if changed == 0 || !el.mounted {
 		return
 	}
+	if changed&(style.StateDisabled|style.StateInvalid) != 0 {
+		t.semMark(el, semSelf) // its semantics states
+	}
 	bx := el.box
 	if bx.stateUse&changed != 0 {
 		t.markStyle(el)

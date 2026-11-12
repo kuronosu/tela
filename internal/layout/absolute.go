@@ -214,7 +214,7 @@ func (e *Engine) placeAbsolute(p, c Node, st *Style, area size, areaOffset point
 	if st.OverflowX == OverflowScroll {
 		sb.y = st.ScrollbarWidth
 	}
-	c.LayoutData().setLayout(point{loc.x - parentOff.x, loc.y - parentOff.y}, final, border, padding, resolved, sb, out.overflow, out.firstBaseline)
+	setLayoutOf(c, point{loc.x - parentOff.x, loc.y - parentOff.y}, final, border, padding, resolved, sb, out.overflow, out.firstBaseline)
 	return loc, final, out
 }
 

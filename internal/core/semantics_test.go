@@ -658,7 +658,7 @@ func BenchmarkSemantics10k(b *testing.B) {
 	tr.Semantics().Walk(func(*semantics.Node) bool { nodes++; return true })
 	b.ReportAllocs()
 	for b.Loop() {
-		tr.sem.valid = false
+		tr.sem.root = nil // a full build
 		tr.Semantics()
 	}
 	b.ReportMetric(float64(nodes), "nodes")

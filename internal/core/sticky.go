@@ -81,7 +81,10 @@ func stickyBlock(bx *Box) *Box {
 func (p *painter) placeSticky(bx *Box) {
 	k := bx.stick
 	off := p.stickyOffset(bx, k.up)
-	k.soff = gfx.Point{X: -off.X, Y: -off.Y}
+	if soff := (gfx.Point{X: -off.X, Y: -off.Y}); soff != k.soff {
+		k.soff = soff
+		p.t.semGeomBox(bx) // its sticky shift (ownShift)
+	}
 }
 
 // updateSticky recomputes the offsets of the sticky boxes after scroll

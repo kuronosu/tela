@@ -270,7 +270,7 @@ func (e *Engine) positionGridItem(n, c Node, st *Style, area rect, shim float32,
 	if st.OverflowX == OverflowScroll {
 		sb.y = st.ScrollbarWidth
 	}
-	c.LayoutData().setLayout(point{x, y}, final, border, padding, rect{ml, mr, mt, mb}, sb, out.overflow, out.firstBaseline)
+	setLayoutOf(c, point{x, y}, final, border, padding, rect{ml, mr, mt, mb}, sb, out.overflow, out.firstBaseline)
 
 	// The contribution to the container's scrollable overflow is measured
 	// from its padding box (mirrored in RTL).

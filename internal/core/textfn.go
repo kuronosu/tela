@@ -31,6 +31,9 @@ func (t *Tree) syncText(el *Element, d *desc) bool {
 			dropObserver(el.vobs)
 		}
 		changed := el.text != d.text
+		if changed {
+			t.semMark(el, semSelf)
+		}
 		el.text = d.text
 		return changed
 	}
@@ -57,6 +60,9 @@ func (t *Tree) evalText(el *Element) bool {
 	t.observe(&el.vobs, obsText, el, nil, reads)
 	el.textStale = false
 	changed := s != el.text
+	if changed {
+		t.semMark(el, semSelf)
+	}
 	el.text = s
 	return changed
 }

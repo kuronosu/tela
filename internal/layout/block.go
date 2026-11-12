@@ -164,7 +164,7 @@ func (e *Engine) blockInner(n Node, st *Style, in input) output {
 	for i := range items {
 		it := &items[i]
 		if it.inFlow {
-			it.node.LayoutData().setLayout(it.loc, it.out.size, it.border, it.padding, it.margin, it.sbSize, it.out.overflow, it.out.firstBaseline)
+			setLayoutOf(it.node, it.loc, it.out.size, it.border, it.padding, it.margin, it.sbSize, it.out.overflow, it.out.firstBaseline)
 		}
 	}
 

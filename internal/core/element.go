@@ -60,6 +60,8 @@ type Element struct {
 	paraOff int32
 	// semID is the semantics node ID (semantics.go), 0 until assigned.
 	semID uint64
+	// sem is its incremental semantics state (semincr.go).
+	sem semElemState
 
 	// Primitives.
 	box *Box
@@ -392,6 +394,7 @@ func (t *Tree) reconcileEntries(parent *Element, entries []flatEntry) {
 		t.update(old[j], entries[i].n)
 	}
 	parent.children = kids
+	t.semMark(parent, semSelf)
 	// The content of the nearest primitive changed: its boxes (and the
 	// structural variants of its children) must be computed again, and
 	// the text a Dir("auto") above reads may have changed.
@@ -510,6 +513,7 @@ func (t *Tree) updatePrimitive(el *Element, n node) {
 		return
 	}
 	el.node = n
+	t.semMark(el, semSelf)
 	disabled, since := old.disabled != d.disabled, t.stGen
 	if disabled {
 		t.setState(el, style.StateDisabled, d.disabled)
@@ -750,6 +754,7 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 // (React's order); context and Value subscriptions end.
 func (t *Tree) unmount(el *Element) {
 	el.mounted = false
+	t.semUnmount(el)
 	t.stats.Unmounts++
 	if el.kind == elemPrimitive {
 		if el.node.d.dir == dirAuto {

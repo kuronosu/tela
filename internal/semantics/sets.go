@@ -149,3 +149,107 @@ func number(n *Node, items []*Node, c setClass) {
 		}
 	}
 }
+
+// NumberSet computes the PosInSet and SetSize of the items of n, if n is a
+// set container, as FillSetPositions does for every set of a tree: the
+// incremental form, for a builder that shares unchanged subtrees between
+// trees (package core, ADR-277). The explicit values of an item
+// (AriaPosInSet, AriaSetSize; 0 for none) come from explicit, not from the
+// node, whose fields may hold values computed for an earlier tree; n's own
+// SetSize is its explicit AriaSetSize. An item whose values differ is
+// changed through writable, which returns a node the call may modify: the
+// node itself when it was made for this tree, else a copy that takes its
+// place; the nodes between n and the item are replaced the same way, so
+// that no shared node is modified. writable(n) must return n.
+func NumberSet(n *Node, explicit func(item *Node) (pos, size int), writable func(*Node) *Node) {
+	if c, _ := setContainer(n.Role, setNone); !c || n.Kind != KindElement {
+		return
+	}
+	items := collectItems(n, nil)
+	if len(items) == 0 {
+		return
+	}
+	vals := make([]setVals, len(items))
+	for i, it := range items {
+		vals[i].pos, vals[i].size = explicit(it)
+	}
+	for _, c := range [...]setClass{setOption, setMenuItem, setTab, setRadio, setTreeItem, setListItem} {
+		if _, takes := setContainer(n.Role, c); takes {
+			numberVals(n.SetSize, items, vals, c)
+		}
+	}
+	i := 0
+	applySet(n, vals, &i, writable)
+}
+
+// setVals are the position and set size of an item.
+type setVals struct{ pos, size int }
+
+// numberVals is number over vals instead of the items' fields; setSize is
+// the container's explicit AriaSetSize.
+func numberVals(setSize int, items []*Node, vals []setVals, c setClass) {
+	pos, count, largest := 0, 0, 0
+	for k, it := range items {
+		if itemClass(it.Role) != c {
+			continue
+		}
+		count++
+		if vals[k].pos > 0 {
+			pos = vals[k].pos
+		} else {
+			pos++
+			vals[k].pos = pos
+		}
+		largest = max(largest, pos)
+	}
+	if count == 0 {
+		return
+	}
+	size := setSize
+	if size == 0 {
+		size = max(count, largest)
+	}
+	for k, it := range items {
+		if itemClass(it.Role) == c && vals[k].size == 0 {
+			vals[k].size = size
+		}
+	}
+}
+
+// applySet writes vals to the items below x, in collectItems' order (i is
+// the next one), and returns x or the node that replaces it.
+func applySet(x *Node, vals []setVals, i *int, writable func(*Node) *Node) *Node {
+	var kids []*Node
+	for j, c := range x.Children {
+		if c.Kind != KindElement || c.Has(StateHidden) {
+			continue
+		}
+		nc := c
+		switch {
+		case itemClass(c.Role) != setNone:
+			v := vals[*i]
+			*i++
+			if c.PosInSet != v.pos || c.SetSize != v.size {
+				nc = writable(c)
+				nc.PosInSet, nc.SetSize = v.pos, v.size
+			}
+		default:
+			if container, _ := setContainer(c.Role, setNone); container {
+				continue
+			}
+			nc = applySet(c, vals, i, writable)
+		}
+		if nc != c {
+			if kids == nil {
+				kids = append([]*Node(nil), x.Children...)
+			}
+			kids[j] = nc
+		}
+	}
+	if kids == nil {
+		return x
+	}
+	w := writable(x)
+	w.Children = kids
+	return w
+}

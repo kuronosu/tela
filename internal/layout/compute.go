@@ -272,7 +272,9 @@ func (e *Engine) performChildLayout(p, c Node, known, parent optSize, avail avai
 func (e *Engine) hidden(n Node) output {
 	d := n.LayoutData()
 	d.cache.clear()
-	d.setHidden()
+	if d.setHidden() {
+		layoutChanged(n)
+	}
 	// A hidden node is not a relayout boundary: a change inside it must
 	// not lay it out on its own.
 	d.boundary, d.hasLast, d.needLayout = false, false, false
@@ -290,7 +292,9 @@ func (e *Engine) hideChildren(n Node) {
 	for i, c := 0, n.LayoutChildCount(); i < c; i++ {
 		ch := n.LayoutChild(i)
 		if ch.LayoutStyle().Display == DisplayNone {
-			ch.LayoutData().setHidden()
+			if ch.LayoutData().setHidden() {
+				layoutChanged(ch)
+			}
 			e.child(n, ch, input{run: performLayout, sizing: inherentSize, axis: axisBoth,
 				knownDefinite: boolSize{true, true}, avail: availSize{MaxContentConstraint, MaxContentConstraint}})
 		}
@@ -337,7 +341,7 @@ func (e *Engine) computeRoot(root Node, avail availSize) {
 	if st.Direction == RTL && avail.w.isDefinite() {
 		loc.x = avail.w.Value - out.size.w
 	}
-	root.LayoutData().setLayout(loc, out.size, border, padding, margin, st.scrollbarGutter(), out.overflow, out.firstBaseline)
+	setLayoutOf(root, loc, out.size, border, padding, margin, st.scrollbarGutter(), out.overflow, out.firstBaseline)
 }
 
 // minMaxDefinite returns min when min and max are both set and max <= min:
