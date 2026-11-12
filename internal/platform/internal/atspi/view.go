@@ -3,8 +3,8 @@
 package atspi
 
 import (
-	"image"
 	"fmt"
+	"image"
 	"math"
 	"os"
 	"slices"
