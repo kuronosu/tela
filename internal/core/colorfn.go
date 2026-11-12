@@ -28,6 +28,68 @@ import (
 // give. textColorFns counts the boxes with a TextColorFn, so paragraphs
 // pay for the walk only while some exist.
 
+// The lists that paint recolored text read the TextColorFn above it
+// without noting it: the boxes that paint text and drawings under an
+// element whose paint-phase text color changes (its Value, a new
+// TextColorFn, a text color class that starts or stops stopping the
+// inheritance) are stamped as changed instead (stampText), so that the
+// lists that paint them are recorded again (record.go).
+
+// stampText stamps as changed the inputs of the boxes whose painting can
+// read the text color element el gives at paint time: the paragraphs and
+// drawings of its subtree (an inline element's: of its paragraph).
+func (t *Tree) stampText(el *Element) {
+	if el == nil {
+		return
+	}
+	L := &t.lay
+	stamp := func(b *Box) {
+		if b != nil && b.rinN > 0 && b.rinAt != L.epoch {
+			b.rinAt = L.epoch
+			L.nchg++
+		}
+	}
+	var walk func(e *Element)
+	walk = func(e *Element) {
+		if !e.mounted {
+			return
+		}
+		if b := e.box; e.kind == elemPrimitive && b != nil {
+			stamp(b.inPara)
+			if b.mode == modeParagraph || b.mode == modeImage {
+				stamp(b)
+			}
+			for _, a := range b.anon {
+				if a.mode == modeParagraph {
+					stamp(a)
+				}
+			}
+		}
+		for _, c := range e.children {
+			walk(c)
+		}
+	}
+	walk(el)
+}
+
+// textColorRestyled stamps the text that a restyle of el from old to cs
+// recolors at paint time: a TextColorFn that comes or goes, a text color
+// of its own that starts or stops stopping one above (TextColorSet), or,
+// for an element whose paint-phase text color is not compared when the
+// boxes are placed (inline, display: contents), a TextColorFn built again.
+func (t *Tree) textColorRestyled(el *Element, old, cs *style.ComputedStyle) {
+	if old == nil {
+		return // a new element: its lists are new
+	}
+	fn := cs.HasTextColorFn()
+	switch {
+	case old.HasTextColorFn() != fn,
+		t.textColorFns > 0 && old.TextColorSet != cs.TextColorSet,
+		fn && (el.box.inPara != nil || contentsBox(el.box)):
+		t.stampText(el)
+	}
+}
+
 // countTextColorFn keeps Tree.textColorFns when a box's style changes from
 // old to cs.
 func (t *Tree) countTextColorFn(old, cs *style.ComputedStyle) {

@@ -461,21 +461,19 @@ func (t *Tree) layoutVisual(bx *Box) (gfx.Rect, bool) {
 //
 // placing reports a call from place, which records the layers after it;
 // on a frame that only repaints, a box that starts or stops being a layer
-// of its own asks for placing and recording everything again.
+// of its own asks for placing the boxes again, and the corrected radii
+// and shadows are compared where the box's inputs are (update,
+// notePlaced: its lists are recorded again).
 func (t *Tree) layoutStyle(bx *Box, placing bool) {
 	la := bx.lanim
 	vis, active := t.layoutVisual(bx)
-	prevScale := la.scale
 	la.scale = gfx.Point{X: 1, Y: 1}
 	defer0 := bx.deferPaint
 	bx.deferPaint = hasPhase(bx.cs, style.PhasePaint) || active
 	if bx.deferPaint != defer0 && !placing {
-		t.lay.needFull, t.lay.needPlace = true, true
+		t.lay.needPlace = true
 	}
 	if !active {
-		if !placing && prevScale != la.scale && scaleCorrected(bx.pcs) {
-			t.lay.needFull = true
-		}
 		return
 	}
 	if !la.listed {
@@ -501,11 +499,6 @@ func (t *Tree) layoutStyle(bx *Box, placing bool) {
 		// A⁻¹(vis.min) = r.u.min + (vis.min - rv.min) / sa
 		base = gfx.Point{X: r.u.X0 + (vis.X0-rv.X0)/sa.X, Y: r.u.Y0 + (vis.Y0-rv.Y0)/sa.Y}
 	}
-	if !placing && sm != prevScale && scaleCorrected(bx.pcs) {
-		// The corrected radii and shadows are in the box's layer, which
-		// the compositor does not change: record the layers again.
-		t.lay.needFull = true
-	}
 	la.scale = sm
 	c := *bx.pcs
 	c.Transform = foldFlip(c.Transform, n, s, base.Sub(n.Origin()))
@@ -513,13 +506,6 @@ func (t *Tree) layoutStyle(bx *Box, placing bool) {
 		c.BoxShadows = correctShadows(c.BoxShadows, sm)
 	}
 	bx.pcs = &c
-}
-
-// scaleCorrected reports whether a box with style cs paints something
-// that a scale correction changes: radii with a length, or box shadows.
-func scaleCorrected(cs *style.ComputedStyle) bool {
-	r := &cs.Radius
-	return len(cs.BoxShadows) > 0 || r.TopLeft.Px != 0 || r.TopRight.Px != 0 || r.BottomRight.Px != 0 || r.BottomLeft.Px != 0
 }
 
 // ratio returns a / b, or 1 when b is not positive (a box without width

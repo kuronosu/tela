@@ -391,7 +391,7 @@ func TestAnimationLayersAndPaintOnlyFrames(t *testing.T) {
 	}
 	layers := 0
 	for _, l := range x.tree().lay.layers {
-		if l.kind == layerDeferred && l.box == spin {
+		if l != nil && l.kind == layerDeferred && l.box == spin {
 			layers++
 		}
 	}
@@ -435,7 +435,7 @@ func TestAnimationLayersAndPaintOnlyFrames(t *testing.T) {
 		t.Error("the fade box keeps animation state after its transition")
 	}
 	for _, l := range x.tree().lay.layers {
-		if l.kind == layerDeferred && l.box == fade {
+		if l != nil && l.kind == layerDeferred && l.box == fade {
 			t.Error("the fade box is still a layer after its transition")
 		}
 	}

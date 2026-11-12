@@ -170,11 +170,17 @@ func (p *painter) place(bx *Box, parent *Box) {
 	}
 	t := p.t
 	l := bx.ld.Layout()
+	prev := bx.pcs
 	bx.pcs = bx.cs
 	if bx.deferPaint {
 		// The paint-phase deferred props, evaluated on every paint of
 		// the box; the Values they read repaint it when they change.
 		bx.pcs = t.resolveDeferred(bx, style.PhasePaint)
+		if !p.ref && bx.cs.HasTextColorFn() && (prev == nil || prev.Text.Color != bx.pcs.Text.Color) {
+			// The text below it is recolored when it is painted
+			// (colorfn.go).
+			t.stampText(bx.el)
+		}
 	}
 	loc := l.Location
 	var space *scroller
@@ -232,10 +238,29 @@ func (p *painter) place(bx *Box, parent *Box) {
 	}
 	part, content, blend := false, false, false
 	chunked := bx.scr != nil && bx.scr.chunked
+	// The weight of bx's own painting (record.go, "Groups"): the boxes it
+	// paints in flow outside groups, and the participants its stacking
+	// context paints.
+	wt, parts := 1, 0
+	if bx.mode == modeImage && bx.doc() != nil {
+		wt = 2 // a drawing: its commands
+	}
 	for _, k := range bx.kids {
 		p.place(k, bx)
 		if k.ls.Display == layout.DisplayNone {
 			continue
+		}
+		switch {
+		case participant(k):
+			parts++
+			if !stacking(k) {
+				parts += int(k.parts)
+			}
+		case !chunked && !k.grp && !k.hiddenAtom:
+			wt += int(k.wt)
+			parts += int(k.parts)
+		default:
+			parts += int(k.parts)
 		}
 		blend = blend || blendsIn(k)
 		switch {
@@ -267,6 +292,14 @@ func (p *painter) place(bx *Box, parent *Box) {
 		t.lay.recull = true // the lists check what they culled (record.go)
 	}
 	bx.ink, bx.hasPart, bx.blendDesc = ink, part, blend
+	if stacking(bx) {
+		wt, parts = wt+parts, 0
+	}
+	bx.wt, bx.parts = uint16(min(wt, groupMin)), uint16(min(parts, groupMin))
+	// A group stays one while it paints more than itself, so that a
+	// weight that moves around the threshold (a descendant that starts
+	// being painted out of tree order) does not move its lists.
+	bx.grp = parent != nil && !deferredLayer(bx) && (wt >= groupMin || bx.grp && wt > 1)
 	if sub != unbounded {
 		// Grown by one pixel for the snapping of the painted edges.
 		sub = sub.Outset(1)
@@ -304,12 +337,11 @@ func (p *painter) offset(s *scroller) {
 // without a build, a restyle or a layout: the boxes in marked, the scroll
 // containers whose offsets or bars changed (setScroll and the bars mark
 // them) and the boxes with paint-phase deferred props (whose hit bounds
-// grow their ancestors'). It sets lay.needFull when the layers
-// must be recorded again (a scroll container whose visible content left
-// its interest rect), and lay.needPlace too when the boxes must be placed
-// again first (a scroll container whose content starts or stops moving, a
-// box that starts or stops being a layer of its own: scroll spaces and
-// stacking change).
+// grow their ancestors'). What their lists read is compared (notePlaced;
+// the text a TextColorFn recolors is stamped, stampText); it sets
+// lay.needPlace when the boxes must be placed again first (a scroll
+// container whose content starts or stops moving, a box that starts or
+// stops being a layer of its own: scroll spaces and stacking change).
 func (p *painter) update(marked []*Box) {
 	t := p.t
 	for _, bx := range marked {
@@ -325,8 +357,9 @@ func (p *painter) update(marked []*Box) {
 		if (bx.inPara != nil || contentsBox(bx)) && bx.el != nil && bx.el.mounted && bx.cs != nil && hasPhase(bx.cs, style.PhasePaint) {
 			// An inline element's paint props (BgFn, TextColorFn), and a
 			// display: contents element's TextColorFn, are read when the
-			// paragraphs are recorded (inline.go, colorfn.go).
-			t.lay.needFull = true
+			// paragraphs are recorded (inline.go, colorfn.go): the lists
+			// that paint them are recorded again.
+			t.stampText(bx.el)
 			continue
 		}
 		if !bx.deferPaint || bx.pcs == nil || bx == t.rootBox || !t.inTree(bx) {
@@ -337,21 +370,23 @@ func (p *painter) update(marked []*Box) {
 		if bx.lanim != nil {
 			t.layoutUpdate(bx)
 		}
+		if old.Text.Color != bx.pcs.Text.Color && bx.cs.HasTextColorFn() {
+			// The text below it is recolored when it is painted
+			// (colorfn.go).
+			t.stampText(bx.el)
+		}
 		if stacking(bx) != bx.layerSC {
-			t.lay.needFull, t.lay.needPlace = true, true
-			return
+			// It starts or stops being a layer of its own: the boxes are
+			// placed again, and the lists that place it see it (record.go);
+			// the inline elements marked go on (stampText).
+			t.lay.needPlace = true
+			continue
 		}
-		if old.Text.Color != bx.pcs.Text.Color {
-			// TextColorFn: the text below it is recolored when it is
-			// painted (colorfn.go): record the layers again without
-			// placing.
-			t.lay.needFull = true
-		} else {
-			// BgFn, or a step of an animation of its style: the lists
-			// that read what changed are recorded again (record.go); the
-			// compositor applies the translation and the opacity.
-			p.notePlaced(bx)
-		}
+		// BgFn, TextColorFn, BackgroundGradientFn, a layout animation's
+		// corrections, or a step of an animation of its style: the lists
+		// that read what changed are recorded again (record.go); the
+		// compositor applies the translation and the opacity.
+		p.notePlaced(bx)
 		// The new hit bounds, and those of the ancestors in the same
 		// space (they only grow: bounds that are too large cull less).
 		hb := hitBounds(bx)
@@ -501,6 +536,7 @@ func (p *painter) collect(bx *Box) {
 				continue
 			}
 		}
+		p.kdep(k) // its participants, through its children
 		if k.hasPart {
 			p.collect(k)
 		}
@@ -625,7 +661,8 @@ func (p *painter) hoistChain(root, e *Box, clips []*Box, i int, here bool) {
 	}
 	switch p.enter(e.space, e, e, root) {
 	case enterSame:
-		p.hoistBody(e)
+		p.odep(e) // this list paints it, or holds its group
+		p.groupBody(e)
 	case enterNew:
 		p.hoistBody(e)
 		p.leave()
@@ -647,7 +684,22 @@ func (p *painter) unwind(astart int) {
 	p.acts = p.acts[:astart]
 }
 
-// hoistBody paints hoisted box e in the list being recorded.
+// groupBody paints box e, in flow or hoisted, in the list being
+// recorded: in a group of its own when it is one (record.go, "Groups").
+func (p *painter) groupBody(e *Box) {
+	if !e.grp || e.space != p.space || deferredLayer(e) {
+		p.hoistBody(e)
+		return
+	}
+	if _, kept := p.openLayer(layerGroup, e, p.space, e, nil); kept {
+		return
+	}
+	p.hoistBody(e)
+	p.closeLayer()
+}
+
+// hoistBody paints hoisted box e in the list being recorded (and an
+// in-flow box that is not a participant: paintFlow, a group's recording).
 func (p *painter) hoistBody(e *Box) {
 	if stacking(e) {
 		p.paintStacked(e)
@@ -735,11 +787,7 @@ func (p *painter) paintFlow(bx *Box) {
 	if p.cull && !p.cdep(bx, p.space) {
 		return
 	}
-	p.dep(bx)
-	p.paintSelf(bx)
-	p.paintInner(bx)
-	p.paintScrollbars(bx)
-	p.paintOutline(bx)
+	p.groupBody(bx)
 }
 
 // paintInner paints the content and the in-flow children of bx, clipped

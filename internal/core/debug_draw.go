@@ -50,6 +50,7 @@ var (
 		gfx.RGBA8(236, 72, 153, 255), // deferred
 		gfx.RGBA8(20, 184, 166, 255), // scrollbars
 		gfx.RGBA8(245, 158, 11, 255), // field
+		gfx.RGBA8(132, 204, 22, 255), // group (not drawn: a part of the list around it)
 	}
 )
 
@@ -346,6 +347,9 @@ func (o *overlay) layers() {
 			if n == li.Kind {
 				kind = i
 			}
+		}
+		if kind == int(layerGroup) {
+			continue // recorded apart, composed as part of the list around it
 		}
 		var box *Box
 		if li.Element != nil {

@@ -46,7 +46,13 @@ import (
 //     frame that only repaints when the field asked for it (its caret
 //     blinked or moved, its selection or its value changed). Its lines
 //     are culled by the interest rect of the list that holds its marker,
-//     kept for those recordings.
+//     kept for those recordings;
+//   - a group: the painting of one box (its decorations, content, in-flow
+//     descendants, scrollbars and outline, or a whole stacking context
+//     painted in the list of its parent) recorded apart, so that a change
+//     inside it records the group, not the list around it (record.go,
+//     "Groups"). The compositor appends it where its marker is, with
+//     nothing around it.
 //
 // The set is small on purpose: every layer costs a list and a marker.
 //
@@ -60,12 +66,13 @@ import (
 // stop at these layers; the steps of color transitions) places again the
 // boxes it marked (their on-screen geometry for hit-testing, the deferred
 // props). The scrollbar layers are recorded on every paint. Everything is
-// recorded again (a full recording) on the first paint, for a new scale,
-// viewport or canvas, while paint-phase text colors are mounted, and when
-// a frame that only repaints finds stale layers: a box that starts or stops
-// being a layer, a scroll container whose content starts or stops moving.
-// A scroll container whose visible content leaves its interest rect gets a
-// new one, and the chunks of its space that cull are recorded again.
+// recorded again (a full recording) on the first paint and for a new
+// scale, viewport or canvas; a frame that only repaints and finds a box
+// that starts or stops being a layer, or a scroll container whose content
+// starts or stops moving, places the boxes again first. A scroll container
+// whose visible content leaves its interest rect gets a new one, and the
+// chunks of its space that cull are recorded again (their groups follow
+// their own cull tests).
 //
 // The interest rect of a chunk (Chromium's) is its scrollport in content
 // coordinates grown by one scrollport along each axis that scrolls: a
@@ -97,16 +104,18 @@ const (
 	layerDeferred                  // a stacking context with paint-phase deferred props
 	layerBars                      // the scrollbars of a scroll container
 	layerField                     // the content of a text field
+	layerGroup                     // the painting of one box, recorded apart
 )
 
-var layerKindNames = [...]string{"root", "scroll", "deferred", "scrollbars", "field"}
+var layerKindNames = [...]string{"root", "scroll", "deferred", "scrollbars", "field", "group"}
 
 // layer is one recorded layer.
 type layer struct {
 	id   uint32
 	kind layerKind
 	// box is the box the layer belongs to: the root, the scroll container
-	// of a chunk or of scrollbars, the deferred stacking context.
+	// of a chunk or of scrollbars, the deferred stacking context, the box
+	// of a group.
 	box *Box
 	// space is the scroll space the list is painted in; parent the space
 	// of the list that holds its marker.
@@ -141,11 +150,18 @@ type layer struct {
 	cull    bool
 	in, out []*Box
 	cul     []cullDep
-	// oin and oout are in and out of the previous recording while one
-	// runs (record.go: dropOld).
-	oin, oout []*Box
-	rec       uint64
-	dirty     bool
+	// kin are the boxes whose children it read (kdep); oin, oout and
+	// okin are in, out and kin of the previous recording while one runs
+	// (record.go: dropOld).
+	kin             []*Box
+	oin, oout, okin []*Box
+	rec             uint64
+	dirty           bool
+	// up is the layer whose list holds its marker (nil for the root);
+	// pooled reports that it is in up's pool, up being recorded, and dead
+	// that up's recording ended without it (layerState.dead).
+	up           *layer
+	pooled, dead bool
 	// uses holds the decoded images its list draws (backgrounds and
 	// masks: painter.hold), so that the cache keeps them while they are
 	// shown (assets.go, "Releasing images"); ouses those of the previous
@@ -177,8 +193,15 @@ type layerState struct {
 	// pixels).
 	noCull bool
 	free   []*gfx.Builder
-	// freeIDs are the ids of freed layers (record.go).
+	// freeIDs are the ids of freed layers, dead the layers that the
+	// lists recorded by the paint in progress did not open again, freed
+	// at its end (record.go: bury).
 	freeIDs []uint32
+	dead    []*layer
+	// boxSpare and culSpare are dependency slices of freed layers, for
+	// the layers recorded next (record.go: recycle).
+	boxSpare [][]*Box
+	culSpare [][]cullDep
 	// epoch advances after every paint: the boxes stamp their changed
 	// inputs with it, and nchg counts the stamps since the last paint;
 	// recull reports a changed ink or interest rect since then, for which
@@ -344,10 +367,8 @@ func (t *Tree) paintPhase(full bool) *gfx.DisplayList {
 	}
 	L.needFull, L.needPlace = false, false
 	// What the inputs of the boxes do not cover: the scale (snapping), the
-	// viewport and the canvas, and text recolored by the paint-phase text
-	// colors of its ancestors (colorfn.go).
-	all = all || t.scale != L.recScale || t.viewport != L.recView || t.transCanvas != L.recTrans ||
-		t.textColorFns > 0 && L.nchg > 0
+	// viewport and the canvas.
+	all = all || t.scale != L.recScale || t.viewport != L.recView || t.transCanvas != L.recTrans
 	partial := !all && t.recordDirty(&p)
 	if !partial {
 		t.recordAll(&p)
@@ -366,12 +387,13 @@ func (t *Tree) recordAll(p *painter) {
 	L.gen++
 	for _, l := range L.layers {
 		if l != nil {
-			l.drop()
-			l.kids, l.pool, l.in, l.out, l.oin, l.oout, l.cul = nil, nil, nil, nil, nil, nil, nil
+			L.recycle(l)
+			l.kids, l.pool, l.up = nil, nil, nil
 		}
 	}
 	clear(L.layers)
-	L.layers, L.freeIDs, L.recorded = L.layers[:0], L.freeIDs[:0], 0
+	clear(L.dead)
+	L.layers, L.freeIDs, L.dead, L.recorded = L.layers[:0], L.freeIDs[:0], L.dead[:0], 0
 	root := L.newLayer(layerRoot, t.rootBox, nil, nil)
 	L.root = root
 	p.b, p.layer = L.builder(), root
@@ -404,17 +426,23 @@ func (p *painter) openLayer(kind layerKind, box *Box, space *scroller, lead, hoi
 	if up != nil && len(up.pool) > 0 {
 		l = up.take(kind, box, space, lead, hoist)
 	}
-	if l != nil && !l.dirty && kind != layerBars && l.cull == cull && (!cull || l.rint == interest) &&
+	if l == nil && kind == layerGroup {
+		l = p.adopt(box, space)
+	}
+	if l != nil && !l.dirty && kind != layerBars && l.cull == cull && (!cull || kind == layerGroup || l.rint == interest) &&
 		(kind != layerField || !box.fld.paintDirty) {
-		l.parent = p.space
+		l.parent, l.up = p.space, up
 		up.kids = append(up.kids, l)
 		p.b.Marker(l.id)
 		return l, true
 	}
 	if l == nil {
 		l = L.newLayer(kind, box, space, p.space)
+		if kind == layerGroup && !p.ref {
+			box.glayer = l
+		}
 	}
-	l.parent, l.lead, l.hoist = p.space, lead, hoist
+	l.parent, l.lead, l.hoist, l.up = p.space, lead, hoist, up
 	if up != nil {
 		up.kids = append(up.kids, l)
 	}
@@ -498,7 +526,7 @@ func (p *painter) placeScroller(bx *Box, s *scroller) {
 	}
 	switch {
 	case s.chunked != s.chunkedRec:
-		L.needFull, L.needPlace = true, true
+		L.needPlace = true // its content starts or stops moving: the spaces change
 	case s.chunked && s.recGen == L.gen && !vis.Empty() && !s.interest.ContainsRect(vis):
 		// The visible part left it: the chunks of the space are recorded
 		// again around the new one (record.go).
@@ -753,7 +781,8 @@ func (t *Tree) ReferenceFrame(noCull bool) *gfx.DisplayList {
 
 // LayerInfo describes a recorded layer (debug overlays: layers).
 type LayerInfo struct {
-	// Kind is "root", "scroll", "deferred" or "scrollbars".
+	// Kind is "root", "scroll", "deferred", "scrollbars", "field" or
+	// "group".
 	Kind string
 	// Element is the element of the layer's box (nil for anonymous
 	// boxes).
@@ -776,7 +805,9 @@ func (t *Tree) Layers() []LayerInfo {
 	walk = func(l *layer) {
 		order = append(order, l)
 		for _, k := range l.kids {
-			walk(k)
+			if k != nil {
+				walk(k)
+			}
 		}
 	}
 	if L.root != nil {
