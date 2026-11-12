@@ -298,24 +298,3 @@ func TestSemanticsIncrementalInherited(t *testing.T) {
 		}
 	}
 }
-
-// BenchmarkSemanticsChange10k is a one-node change in the tree of
-// BenchmarkSemantics10k (a row's label), with the frame that lays it out,
-// then the semantics tree: incremental (ADR-277).
-func BenchmarkSemanticsChange10k(b *testing.B) {
-	setters := make([]func(string), benchRows)
-	tr := newTestTree(b, 800, 600, bigList(benchRows, setters), nil)
-	tr.Frame()
-	tr.Semantics()
-	labels := [2]string{"Updated label", "Another label"}
-	i := 0
-	b.ReportAllocs()
-	for b.Loop() {
-		b.StopTimer()
-		setters[benchRows/2](labels[i&1])
-		i++
-		tr.Frame()
-		b.StartTimer()
-		tr.Semantics()
-	}
-}

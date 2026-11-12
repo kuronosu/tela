@@ -32,10 +32,12 @@
 // # Threads
 //
 // The Window methods, Dispatch and Close run on the UI thread. Update
-// applies the update to the window's platform.AccessTree there (O(nodes))
-// and hands the new tree to the worker, which builds the exposed view
-// (view.go), publishes it in an atomic snapshot and sends the events the
-// change implies (events.go); the UI thread never waits for D-Bus. godbus
+// applies the update to the window's platform.AccessTree there (a
+// persistent tree: the cost follows the update, ADR-277) and hands the new
+// tree, with the update's changed and removed IDs, to the worker, which
+// updates the exposed view from them (view.go; in full for the first tree),
+// publishes it in an atomic snapshot and sends the events of the exposed
+// nodes it touched (events.go); the UI thread never waits for D-Bus. godbus
 // runs each method call on a goroutine of its own, which reads the
 // snapshot (object.go). Actions (DoAction, GrabFocus, SetTextContents...)
 // are queued with the generation of the activation they belong to and

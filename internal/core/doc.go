@@ -458,7 +458,9 @@
 // ARCHITECTURE section 16) is not a phase of Frame: Tree.Semantics builds
 // it from the Element and Box trees when a consumer asks (tela inspect
 // --aria, telatest, tela mcp) and keeps it while nothing changes, so it
-// costs nothing per frame. Its roles and names follow HTML-AAM and AccName
+// costs nothing per frame; after a change it builds again only the marked
+// elements, their ancestors and what reads them, sharing the rest with the
+// last tree (semincr.go, ADR-277). Its roles and names follow HTML-AAM and AccName
 // as Playwright computes them, Tree.AriaSnapshot serializes it as a
 // Playwright aria snapshot, and ClickNode, FocusNode and
 // ScrollNodeIntoView act on its nodes. The props Role, AriaLabel,

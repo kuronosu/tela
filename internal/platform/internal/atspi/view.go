@@ -15,10 +15,11 @@ import (
 	"github.com/kuronosu/tela/internal/platform/internal/idmap"
 )
 
-// The exposed view of a window's tree: what the AT sees. It is computed
-// once per update, on the bridge's worker, from the platform.AccessTree
-// core sent, and never changes after: queries on godbus goroutines read
-// it through the window's snapshot without locks.
+// The exposed view of a window's tree: what the AT sees. It is made for
+// each update, on the bridge's worker, from the platform.AccessTree core
+// sent (from the last view and the update's changes, updateView), and
+// never changes after: queries on godbus goroutines read it through the
+// window's snapshot without locks.
 //
 // Rules:
 //

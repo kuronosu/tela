@@ -1291,7 +1291,10 @@
 //     speaks the same thing. A node no longer reachable from the root is
 //     gone. The bridge applies updates in order; [AccessTree] does it as
 //     an immutable value that other threads can read while the next one
-//     is made. When the bridge deactivates it drops its tree; the next
+//     is made, sharing what did not change with the last one, so that an
+//     update costs what it changed (ADR-277); a bridge updates its own
+//     view from the update's nodes and [AccessTree.Apply]'s removed ones.
+//     When the bridge deactivates it drops its tree; the next
 //     activation starts from a full update again.
 //   - [AccessActionEvent] carries an AT's request (the default action,
 //     focus, set value, increment, decrement, expand, collapse, scroll
