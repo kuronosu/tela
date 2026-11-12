@@ -32,7 +32,9 @@ func TestPartialPlaceWork(t *testing.T) {
 		t.Errorf("a new label laid out %d boxes, want its paragraph's and row's requests", w.LaidOut)
 	}
 	// Two lines: the row grows, the rows below it (4 boxes each) move.
-	w = work(func() { setters[300]("A label long enough to wrap to a second line in its row, and a bit more than that") })
+	w = work(func() {
+		setters[300]("A label long enough to wrap to a second line in its row, and a bit more than that")
+	})
 	if w.Placed < 299*4 {
 		t.Errorf("a taller row placed %d boxes, want the rows below it too (about %d)", w.Placed, 300*4)
 	}
