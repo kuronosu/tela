@@ -13,6 +13,14 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+### Added
+
+- `tela.App.ThemeTransitions` and `telatest.ThemeTransitions()` keep the fade of a theme or scheme change (ADR-276).
+
+### Changed
+
+- `tela.SetColorScheme`, `tela.SetTheme`, a system dark-mode or contrast change the app follows, and a text scale change now apply without transitions, as next-themes' `disableTransitionOnChange` (ADR-276): elements with `transition-colors` show the new colors in the next frame, and running transitions toward replaced values jump to their end. An element's `h.Scheme` change still transitions.
+
 ## [0.14.3] - 2026-11-11
 
 Phase 23, Layout, text and engine fidelity (ADR-268 to ADR-273). It breaks no public API, but static text is now selectable by default, `cursor: auto` and links show the cursors browsers do, borders snap to device pixels at fractional scales and a soft hyphen shows its hyphen.
