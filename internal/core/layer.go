@@ -791,6 +791,13 @@ type LayerInfo struct {
 	// last paint recorded it.
 	Commands int
 	Recorded bool
+	// Groups is, for a layer that is not a group, how many commands the
+	// groups inside it (those under it with no other kind of layer
+	// between) add to its list where their markers are: their lengths
+	// less the markers. GroupsRecorded reports that the last paint
+	// recorded one of them.
+	Groups         int
+	GroupsRecorded bool
 	// Bounds is where it was composed in the last frame (logical pixels,
 	// window coordinates), the union of its commands.
 	Bounds gfx.Rect
@@ -801,17 +808,26 @@ type LayerInfo struct {
 func (t *Tree) Layers() []LayerInfo {
 	L := &t.lay
 	var order []*layer
-	var walk func(l *layer)
-	walk = func(l *layer) {
+	var host []int // the layer whose list a group is part of, or -1
+	var walk func(l *layer, h int)
+	walk = func(l *layer, h int) {
+		i := len(order)
 		order = append(order, l)
+		if l.kind != layerGroup {
+			h = -1
+		}
+		host = append(host, h)
+		if h < 0 {
+			h = i
+		}
 		for _, k := range l.kids {
 			if k != nil {
-				walk(k)
+				walk(k, h)
 			}
 		}
 	}
 	if L.root != nil {
-		walk(L.root)
+		walk(L.root, -1)
 	}
 	at := make(map[*layer]int, len(order))
 	out := make([]LayerInfo, len(order))
@@ -825,6 +841,10 @@ func (t *Tree) Layers() []LayerInfo {
 			out[i].Commands = l.dl.Len()
 		}
 		out[i].Recorded = l.paint == L.paints
+		if h := host[i]; h >= 0 {
+			out[h].Groups += out[i].Commands - 1
+			out[h].GroupsRecorded = out[h].GroupsRecorded || out[i].Recorded
+		}
 	}
 	if f := L.cur; f != nil {
 		for i := range f.dl.Len() {

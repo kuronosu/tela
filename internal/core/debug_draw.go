@@ -377,7 +377,7 @@ func (o *overlay) layers() {
 		drawn = append(drawn, r)
 		col := layerColors[kind]
 		w := float32(1)
-		if li.Recorded {
+		if li.Recorded || li.GroupsRecorded {
 			w = 2
 		}
 		o.outline(r.Inset(inset), o.win, w, col)
@@ -388,8 +388,8 @@ func (o *overlay) layers() {
 		case box != nil && box != o.t.rootBox:
 			label += " " + box.kind.String()
 		}
-		label += fmt.Sprintf(" · %d cmds", li.Commands)
-		if li.Recorded {
+		label += fmt.Sprintf(" · %d cmds", li.Commands+li.Groups)
+		if li.Recorded || li.GroupsRecorded {
 			label += " · rec"
 		}
 		o.labels = append(o.labels, ovLabel{text: label, box: r.Inset(inset), accent: col})
