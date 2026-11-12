@@ -236,6 +236,8 @@ func (ph *phaser) compute(i int, res *phaseResult) {
 			return
 		}
 		keep = bc.keep(k, in)
+		w := out.Union(keep)
+		bc.computed += w.Dx() * w.Dy()
 	}
 	r.blurS.par = ph.pool
 	defer func() { r.blurS.par = nil }()

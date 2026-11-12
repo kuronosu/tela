@@ -89,6 +89,8 @@ func (r *Renderer) backdropFilter(i int, c gfx.BackdropFilter) {
 			return
 		}
 		keep = bc.keep(k, in)
+		w := out.Union(keep)
+		bc.computed += w.Dx() * w.Dy()
 	}
 	buf, win, _ := r.filterBackdrop(b, in, out.Union(keep), fs)
 	r.drawBackdrop(c.Shape, buf, win, out, op)

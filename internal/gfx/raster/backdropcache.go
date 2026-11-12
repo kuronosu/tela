@@ -73,8 +73,9 @@ type BackdropCache struct {
 	// from the cache, which holds these pixels. Its other pixels in the
 	// grown region are never presented nor read by a filter's exact output.
 	plan []image.Rectangle
-	// hits counts the filters drawn from the cache (tests).
-	hits int
+	// hits counts the filters drawn from the cache, and computed the
+	// output pixels filtered from the backdrop (Stats).
+	hits, computed int
 	// past holds the entries of filters whose input changed or that left
 	// the list, most recent last, with the list and canvas they were
 	// computed for, so that Revive finds them when the same input comes
@@ -689,6 +690,17 @@ func (c *BackdropCache) endFrame(all bool) {
 			c.freePast(k)
 		}
 	}
+}
+
+// Stats returns, since the cache was created, how many backdrop filters
+// were drawn from it and how many output pixels the Renders that used it
+// filtered from the backdrop (a blur's cost), for tests and measurements.
+// A nil cache has none.
+func (c *BackdropCache) Stats() (hits, computed int) {
+	if c == nil {
+		return 0, 0
+	}
+	return c.hits, c.computed
 }
 
 // Bytes returns the bytes of pixels the cache holds, in its entries and
