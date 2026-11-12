@@ -5,8 +5,11 @@ import (
 	"image"
 	"math"
 	"os"
+	"runtime"
 	"sync"
 	"testing"
+	"time"
+	"weak"
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/gfx/raster"
@@ -224,6 +227,52 @@ func TestBitmapCacheBound(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// The decoded-image cache does not keep a dropped collection's typefaces
+// alive, and their images leave the cache when they are collected.
+func TestBitmapCacheReleasesTypefaces(t *testing.T) {
+	saved := bitmapImages
+	defer func() { bitmapImages = saved }()
+	bitmapImages = newBitmapCache(bitmapCacheBytes)
+
+	ref := func() weak.Pointer[Typeface] {
+		data, err := os.ReadFile(cbdtTestFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c := NewCollection()
+		if _, err := c.Register(data, familyCBDT); err != nil {
+			t.Fatal(err)
+		}
+		f := c.Face(Query{Families: []string{familyCBDT}}, 24)
+		for _, r := range cbdtTestRunes {
+			g, _ := f.GlyphIndex(r)
+			imageOf(t, f.ColorGlyphAt(g, gfx.Black, 24))
+		}
+		return weak.Make(f.Typeface())
+	}()
+	if n, _ := bitmapImages.len(); n == 0 {
+		t.Fatal("no image cached")
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		runtime.GC()
+		n, bytes := bitmapImages.len()
+		if ref.Value() == nil && n == 0 && bytes == 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("after the collection is dropped: typeface alive %v, %d images (%d bytes) cached",
+				ref.Value() != nil, n, bytes)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	bitmapImages.mu.Lock()
+	defer bitmapImages.mu.Unlock()
+	if len(bitmapImages.watched) != 0 {
+		t.Errorf("%d typefaces still watched", len(bitmapImages.watched))
 	}
 }
 

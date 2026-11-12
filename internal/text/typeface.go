@@ -82,6 +82,7 @@ type Typeface struct {
 	// use. Bitmaps do not vary, so the faces of the typeface share them.
 	cblcRaw, cbdtRaw, sbixRaw []byte
 	bitmapOnce                sync.Once
+	bitmapID                  uint64 // the key of its images in bitmapImages
 	bitmapTabs                *bitmapTables
 	bitmapGlyphs              glyphSlots[bitmapGlyph]
 
