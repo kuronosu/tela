@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/kuronosu/tela/internal/platform/internal/idmap"
 )
 
 // Accessibility (platform contract v5, ADR-246). See "Accessibility" in
@@ -500,9 +502,20 @@ func CheckAccessActionEvent(e AccessActionEvent) string {
 // UI thread makes the next (ADR-246's push model). The nil *AccessTree is
 // the empty tree, before the first update. Headless keeps one per window
 // to check core's updates.
+//
+// The trees of successive updates share their structure (a persistent
+// map, ADR-277): Apply costs about what the update changed, and a node the
+// update did not name keeps its *AccessNode, so a bridge can tell the
+// nodes that changed by pointer.
 type AccessTree struct {
-	nodes       map[AccessID]*AccessNode
+	nodes       idmap.Map[accessEntry]
 	root, focus AccessID
+}
+
+// accessEntry is a node of an AccessTree and its parent (0 for the root).
+type accessEntry struct {
+	n      *AccessNode
+	parent AccessID
 }
 
 // Apply returns the tree after update u (checked with CheckAccessUpdate
@@ -510,10 +523,22 @@ type AccessTree struct {
 // the root), in no particular order. It fails, leaving t as it is, when
 // the update names a child that neither it nor t holds, when a node would
 // be reached twice (two parents, or a cycle), or when Focus is not in the
-// tree. It copies the tree: O(nodes) per update.
+// tree. Its cost follows the update: the nodes it holds, their children
+// lists and the nodes it removes, not the tree's size (the first update,
+// or one with a new root, builds the whole tree).
 func (t *AccessTree) Apply(u *AccessUpdate) (*AccessTree, []AccessID, error) {
 	CheckAccessUpdate(u)
-	var old map[AccessID]*AccessNode
+	if t != nil && t.root == u.Root {
+		if nt, removed, ok := t.applyDiff(u); ok {
+			return nt, removed, nil
+		}
+	}
+	return t.applyFull(u)
+}
+
+// applyFull is Apply walking the whole new tree from its root.
+func (t *AccessTree) applyFull(u *AccessUpdate) (*AccessTree, []AccessID, error) {
+	var old idmap.Map[accessEntry]
 	if t != nil {
 		old = t.nodes
 	}
@@ -526,7 +551,8 @@ func (t *AccessTree) Apply(u *AccessUpdate) (*AccessTree, []AccessID, error) {
 		if n := changed[id]; n != nil {
 			return n
 		}
-		return old[id]
+		e, _ := old.Get(uint64(id))
+		return e.n
 	}
 	root := get(u.Root)
 	if root == nil {
@@ -535,39 +561,210 @@ func (t *AccessTree) Apply(u *AccessUpdate) (*AccessTree, []AccessID, error) {
 	if root.Kind != AccessRoot {
 		return t, nil, fmt.Errorf("platform: AccessTree: the root %d is a %v", u.Root, root.Kind)
 	}
-	nodes := make(map[AccessID]*AccessNode, len(old)+len(u.Nodes))
-	stack := []AccessID{u.Root}
-	parent := map[AccessID]AccessID{}
+	var b idmap.Builder[accessEntry]
+	type item struct{ id, parent AccessID }
+	stack := []item{{u.Root, 0}}
 	for len(stack) > 0 {
-		id := stack[len(stack)-1]
+		it := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
+		id := it.id
 		n := get(id)
 		if n == nil {
-			return t, nil, fmt.Errorf("platform: AccessTree: node %d, a child of %d, is neither in the update nor in the tree", id, parent[id])
+			return t, nil, fmt.Errorf("platform: AccessTree: node %d, a child of %d, is neither in the update nor in the tree", id, it.parent)
 		}
-		if _, dup := nodes[id]; dup {
-			return t, nil, fmt.Errorf("platform: AccessTree: node %d is reached twice (children of %d and of another node, or a cycle)", id, parent[id])
+		if _, dup := b.Get(uint64(id)); dup {
+			return t, nil, fmt.Errorf("platform: AccessTree: node %d is reached twice (children of %d and of another node, or a cycle)", id, it.parent)
 		}
 		if n.Kind == AccessRoot && id != u.Root {
-			return t, nil, fmt.Errorf("platform: AccessTree: node %d, a child of %d, is a root", id, parent[id])
+			return t, nil, fmt.Errorf("platform: AccessTree: node %d, a child of %d, is a root", id, it.parent)
 		}
-		nodes[id] = n
+		b.Set(uint64(id), accessEntry{n: n, parent: it.parent})
 		for i := len(n.Children) - 1; i >= 0; i-- {
-			c := n.Children[i]
-			parent[c] = id
-			stack = append(stack, c)
+			stack = append(stack, item{n.Children[i], id})
 		}
 	}
-	if nodes[u.Focus] == nil {
+	nodes := b.Map()
+	if !nodes.Has(uint64(u.Focus)) {
 		return t, nil, fmt.Errorf("platform: AccessTree: the focus %d is not in the tree", u.Focus)
 	}
 	var removed []AccessID
-	for id := range old {
-		if nodes[id] == nil {
-			removed = append(removed, id)
+	old.Range(func(k uint64, _ accessEntry) bool {
+		if !nodes.Has(k) {
+			removed = append(removed, AccessID(k))
+		}
+		return true
+	})
+	return &AccessTree{nodes: nodes, root: u.Root, focus: u.Focus}, removed, nil
+}
+
+// applyDiff is Apply from the children lists the update changed: the
+// nodes they dropped (and their subtrees) are removed, those they gained
+// are new or move from the parent that dropped them. ok is false when the
+// update is anything else (a child with two parents, a cycle, an unknown
+// node, a node attached below one that leaves the tree, a focus outside
+// it): applyFull then decides, with its error.
+func (t *AccessTree) applyDiff(u *AccessUpdate) (nt *AccessTree, removed []AccessID, ok bool) {
+	old := t.nodes
+	changed := make(map[AccessID]*AccessNode, len(u.Nodes))
+	for i := range u.Nodes {
+		n := u.Nodes[i].Clone()
+		changed[n.ID] = &n
+	}
+	lost := map[AccessID]AccessID{}   // a child dropped → the parent that dropped it
+	gained := map[AccessID]AccessID{} // a child added → its new parent
+	var set map[AccessID]struct{}
+	for id, n := range changed {
+		var was []AccessID
+		if e, in := old.Get(uint64(id)); in {
+			was = e.n.Children
+		}
+		if slices.Equal(was, n.Children) {
+			continue
+		}
+		if set == nil {
+			set = map[AccessID]struct{}{}
+		}
+		clear(set)
+		for _, c := range n.Children {
+			set[c] = struct{}{}
+		}
+		if len(set) != len(n.Children) {
+			return nil, nil, false // a child listed twice
+		}
+		for _, c := range was {
+			if _, kept := set[c]; !kept {
+				lost[c] = id
+			}
+		}
+		clear(set)
+		for _, c := range was {
+			set[c] = struct{}{}
+		}
+		for _, c := range n.Children {
+			if _, had := set[c]; had {
+				continue
+			}
+			if _, twice := gained[c]; twice {
+				return nil, nil, false
+			}
+			gained[c] = id
 		}
 	}
-	return &AccessTree{nodes: nodes, root: u.Root, focus: u.Focus}, removed, nil
+	// Every child gained exists, and moves only from the parent that
+	// dropped it.
+	for c := range gained {
+		if c == u.Root {
+			return nil, nil, false
+		}
+		if e, in := old.Get(uint64(c)); in {
+			if p, dropped := lost[c]; !dropped || p != e.parent {
+				return nil, nil, false
+			}
+		} else if changed[c] == nil {
+			return nil, nil, false
+		}
+	}
+	// alive reports whether node id is in the new tree.
+	const (
+		unknown = iota
+		visiting
+		yes
+		no
+	)
+	state := map[AccessID]uint8{u.Root: yes}
+	var alive func(id AccessID) (bool, bool)
+	alive = func(id AccessID) (in, valid bool) {
+		switch state[id] {
+		case yes:
+			return true, true
+		case no:
+			return false, true
+		case visiting:
+			return false, false // a cycle
+		}
+		state[id] = visiting
+		var p AccessID
+		if g, ok := gained[id]; ok {
+			p = g
+		} else if _, dropped := lost[id]; !dropped {
+			if e, in := old.Get(uint64(id)); in {
+				p = e.parent
+			}
+		}
+		in, valid = p != 0, true
+		if in {
+			in, valid = alive(p)
+		}
+		if in {
+			state[id] = yes
+		} else {
+			state[id] = no
+		}
+		return in, valid
+	}
+	for _, p := range gained {
+		if in, valid := alive(p); !in || !valid {
+			return nil, nil, false
+		}
+	}
+	if changed[u.Root] != nil && changed[u.Root].Kind != AccessRoot {
+		return nil, nil, false
+	}
+	if _, in := changed[u.Focus]; !in && !old.Has(uint64(u.Focus)) {
+		return nil, nil, false
+	}
+	if in, valid := alive(u.Focus); !in || !valid {
+		return nil, nil, false
+	}
+	b := idmap.NewBuilder(old)
+	// The nodes that leave: those dropped and not gained elsewhere, with
+	// their subtrees (as the old tree has them), but for what moves.
+	var drop func(id AccessID)
+	drop = func(id AccessID) {
+		if _, moved := gained[id]; moved {
+			return
+		}
+		e, in := b.Get(uint64(id))
+		if !in {
+			return
+		}
+		b.Delete(uint64(id))
+		removed = append(removed, id)
+		for _, c := range e.n.Children {
+			drop(c)
+		}
+	}
+	for c := range lost {
+		drop(c)
+	}
+	for id, n := range changed {
+		in, valid := alive(id)
+		if !valid {
+			return nil, nil, false
+		}
+		if !in {
+			continue // not reachable: not in the tree, as applyFull leaves it
+		}
+		p := AccessID(0)
+		if id != u.Root {
+			if g, ok := gained[id]; ok {
+				p = g
+			} else {
+				e, _ := old.Get(uint64(id))
+				p = e.parent
+			}
+		}
+		b.Set(uint64(id), accessEntry{n: n, parent: p})
+	}
+	for c, p := range gained {
+		if changed[c] != nil {
+			continue
+		}
+		e, _ := old.Get(uint64(c))
+		e.parent = p
+		b.Set(uint64(c), e)
+	}
+	return &AccessTree{nodes: b.Map(), root: u.Root, focus: u.Focus}, removed, true
 }
 
 // Root returns the ID of the root, 0 for the empty tree.
@@ -592,7 +789,7 @@ func (t *AccessTree) Len() int {
 	if t == nil {
 		return 0
 	}
-	return len(t.nodes)
+	return t.nodes.Len()
 }
 
 // Node returns the node with ID id. The node must not be modified.
@@ -600,8 +797,18 @@ func (t *AccessTree) Node(id AccessID) (*AccessNode, bool) {
 	if t == nil {
 		return nil, false
 	}
-	n := t.nodes[id]
-	return n, n != nil
+	e, ok := t.nodes.Get(uint64(id))
+	return e.n, ok
+}
+
+// Parent returns the parent of node id (0 for the root) and whether the
+// node is in the tree.
+func (t *AccessTree) Parent(id AccessID) (AccessID, bool) {
+	if t == nil {
+		return 0, false
+	}
+	e, ok := t.nodes.Get(uint64(id))
+	return e.parent, ok
 }
 
 // Walk calls f for every node in tree order, with its depth (0 for the
@@ -612,7 +819,7 @@ func (t *AccessTree) Walk(f func(n *AccessNode, depth int) bool) {
 	}
 	var walk func(id AccessID, depth int)
 	walk = func(id AccessID, depth int) {
-		n := t.nodes[id]
+		n, _ := t.Node(id)
 		if !f(n, depth) {
 			return
 		}

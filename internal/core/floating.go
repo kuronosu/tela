@@ -532,6 +532,7 @@ func (t *Tree) floatOne(p *painter, bx *Box, relayout bool) (laid bool) {
 	}
 	if soff := off.Neg(); soff != f.space.soff {
 		f.space.soff = soff
+		t.semGeomBox(bx) // its floating shift (ownShift)
 		F.moved = true
 		t.scr.moved = true // hover follows (scrollAfterFrame)
 	}

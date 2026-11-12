@@ -103,6 +103,7 @@ func (t *Tree) setID(el *Element, old string) {
 	if old == id {
 		return
 	}
+	t.semLabelsChanged()
 	if old != "" {
 		indexRemove(t.ids, old, el)
 	}
@@ -158,6 +159,7 @@ func (t *Tree) setLabelFor(el *Element, old string) {
 	if old == id || el.box.kind != style.KindLabel {
 		return
 	}
+	t.semLabelsChanged()
 	if old != "" {
 		indexRemove(t.labels, old, el)
 	}
@@ -168,6 +170,9 @@ func (t *Tree) setLabelFor(el *Element, old string) {
 
 // unmountIndexed forgets primitive el in the indexes of IDs and labels.
 func (t *Tree) unmountIndexed(el *Element) {
+	if el.node.d.id != "" || el.box.kind == style.KindLabel {
+		t.semLabelsChanged()
+	}
 	if id := el.node.d.id; id != "" {
 		indexRemove(t.ids, id, el)
 	}

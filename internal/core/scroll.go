@@ -211,6 +211,9 @@ type scroller struct {
 	fling [2]axisFling
 	// soff is the offset of the last paint, snapped to device pixels.
 	soff gfx.Point
+	// semScroll is the scrollable state the semantics tree was told of
+	// (semScrollable).
+	semScroll bool
 	// Layers (layer.go). chunked reports a content layer: the content can
 	// move (it overflows, or the offset is not zero). interest is the
 	// part of the content recorded in it (u coordinates), recGen the
@@ -801,6 +804,8 @@ func (t *Tree) updateScroller(bx *Box) {
 	if !isScrollContainer(bx.kind, cs) {
 		if bx.scr != nil {
 			t.dropScroller(bx)
+			t.semMark(bx.el, semSelf) // no longer scrollable
+			t.semGeomBox(bx)          // its content is not scrolled any more
 		}
 		return
 	}
@@ -813,6 +818,7 @@ func (t *Tree) updateScroller(bx *Box) {
 	x, y := overflowAxes(cs)
 	s.userX, s.userY = userAxis(x), userAxis(y)
 	s.rtl = cs.Text.Direction == text.DirectionRTL
+	t.semScrollable(s)
 }
 
 // dropScroller removes the scroller of bx.
@@ -860,6 +866,7 @@ func (t *Tree) extents(s *scroller) {
 			H: max(l.Size.H-l.Border.Top-l.Border.Bottom-l.ScrollbarSize.H, 0),
 		}
 	}
+	t.semScrollable(s)
 	t.setScroll(s, s.pos)
 	for i := range 2 {
 		if a := &s.anim[i]; a.active {

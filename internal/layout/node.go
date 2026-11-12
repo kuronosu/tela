@@ -171,9 +171,34 @@ type Data struct {
 // boxes to device pixels itself.
 func (d *Data) Layout() *Layout { return &d.unrounded }
 
-// setLayout records the unrounded layout of a node.
-func (d *Data) setLayout(loc point, sz size, border, padding, margin rect, scrollbar point, overflow rect, baseline opt) {
-	d.unrounded = Layout{
+// ChangeObserver is implemented by nodes that want to know when their
+// layout result changes: Compute calls LayoutChanged after it records a
+// layout (or the zero layout of a hidden node) that differs from the
+// node's previous one, for any field. core marks the semantics bounds of
+// the box's subtree stale (ADR-277). It must not change the tree.
+type ChangeObserver interface {
+	LayoutChanged()
+}
+
+// layoutChanged tells n, if it observes its layout, that it changed.
+func layoutChanged(n Node) {
+	if o, ok := n.(ChangeObserver); ok {
+		o.LayoutChanged()
+	}
+}
+
+// setLayoutOf records the unrounded layout of node n and tells it when
+// the layout changed (ChangeObserver).
+func setLayoutOf(n Node, loc point, sz size, border, padding, margin rect, scrollbar point, overflow rect, baseline opt) {
+	if n.LayoutData().setLayout(loc, sz, border, padding, margin, scrollbar, overflow, baseline) {
+		layoutChanged(n)
+	}
+}
+
+// setLayout records the unrounded layout of a node and reports whether
+// it differs from the previous one.
+func (d *Data) setLayout(loc point, sz size, border, padding, margin rect, scrollbar point, overflow rect, baseline opt) bool {
+	l := Layout{
 		Location:           gfx.Point{X: loc.x, Y: loc.y},
 		Size:               gfx.Size{W: sz.w, H: sz.h},
 		Border:             insets(border),
@@ -184,7 +209,15 @@ func (d *Data) setLayout(loc point, sz size, border, padding, margin rect, scrol
 		FirstBaseline:      baseline.v,
 		HasBaseline:        baseline.ok,
 	}
+	changed := l != d.unrounded
+	d.unrounded = l
+	return changed
 }
 
-// setHidden records the zero layout of a hidden node.
-func (d *Data) setHidden() { d.unrounded = Layout{} }
+// setHidden records the zero layout of a hidden node and reports whether
+// it differs from the previous one.
+func (d *Data) setHidden() bool {
+	changed := d.unrounded != Layout{}
+	d.unrounded = Layout{}
+	return changed
+}

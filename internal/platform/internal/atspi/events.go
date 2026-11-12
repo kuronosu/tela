@@ -107,27 +107,41 @@ func boolInt(v bool) int32 {
 	return 0
 }
 
-// treeEvents reports the changes from old to cur of window w's tree.
-func (b *Bridge) treeEvents(w *Window, old, cur *snapshot) {
+// treeEvents reports the changes from old to cur of window w's tree:
+// those of the exposed nodes touched (in that order, parents first), or of
+// every node when touched is nil (a view built in full).
+func (b *Bridge) treeEvents(w *Window, old, cur *snapshot, touched []platform.AccessID, full bool) {
 	ov, nv := old.view, cur.view
 	bounds := b.boundsListened()
-	// Walk the new tree in order, so that parents report before children.
-	var walk func(x *vnode)
-	walk = func(x *vnode) {
-		o := ov.nodes[x.n.ID]
+	visit := func(x *vnode) {
+		o := ov.get(x.n.ID)
 		if x == nv.root {
 			o = ov.root
 		}
 		if o != nil && (x == nv.root) == (o == ov.root) {
 			b.nodeEvents(w, old, cur, o, x, bounds)
 		}
-		for _, id := range x.children {
-			if c := nv.nodes[id]; c != nil {
-				walk(c)
+	}
+	if full {
+		// Walk the new tree in order, so that parents report before
+		// children.
+		var walk func(x *vnode)
+		walk = func(x *vnode) {
+			visit(x)
+			for _, id := range x.children {
+				if c := nv.get(id); c != nil {
+					walk(c)
+				}
+			}
+		}
+		walk(nv.root)
+	} else {
+		for _, id := range touched {
+			if x := cur.node(id); x != nil {
+				visit(x)
 			}
 		}
 	}
-	walk(nv.root)
 	b.focusEvents(w, old, cur)
 }
 

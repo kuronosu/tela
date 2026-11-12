@@ -162,7 +162,8 @@ type Range struct {
 
 // Node is a semantics node. A tree is built by package core and must not be
 // modified by its consumers: core may hand out the same tree again while
-// nothing changed.
+// nothing changed, and successive trees share the subtrees that did not
+// change (the same *Node), so consumers may compare subtrees by pointer.
 type Node struct {
 	ID   NodeID
 	Kind Kind

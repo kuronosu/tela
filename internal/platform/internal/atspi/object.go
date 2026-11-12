@@ -641,7 +641,7 @@ func (c *call) relations() []relation {
 			out = append(out, relation{relationControllerFor, []ref{c.b.ref(c.w, t)}})
 		}
 	}
-	if ids := c.s.view.controlledBy[c.v.n.ID]; len(ids) > 0 {
+	if ids := c.s.view.controlledByOf(c.v.n.ID); len(ids) > 0 {
 		r := relation{Type: relationControlledBy}
 		for _, id := range ids {
 			r.Targets = append(r.Targets, c.b.ref(c.w, c.s.node(id)))

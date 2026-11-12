@@ -1,7 +1,10 @@
 package core
 
 import (
+	"fmt"
+	"maps"
 	"math"
+	"slices"
 	"strings"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -87,30 +90,45 @@ import (
 
 // accessView is the accessibility state of a window whose bridge is
 // active (winView.acc; nil otherwise). UI thread.
+//
+// The conversion is incremental (ADR-277): the semantics tree shares the
+// subtrees that did not change with the last one (semincr.go), so a node
+// whose pointer is the one last converted stands for a subtree that is
+// sent already; only the others are converted and compared, the nodes
+// that left the tree are found from the children lists that dropped
+// them, and only the live regions whose subtree changed are compared.
 type accessView struct {
 	// first: nothing was sent since the activation.
 	first bool
 	// sem is the semantics tree last converted (nil before the first).
 	sem *semantics.Node
-	// sent are the nodes last sent, by ID (with root and focus), and
-	// spare the map of the previous update, reused.
-	sent, spare map[platform.AccessID]platform.AccessNode
+	// sent are the nodes last sent, by ID (with root and focus).
+	sent        map[platform.AccessID]platform.AccessNode
 	root, focus platform.AccessID
+	// conv holds the semantics node last converted for each node ID, sent
+	// or hidden.
+	conv map[semantics.NodeID]*semantics.Node
 	// regions holds the content of each live region as last compared:
 	// its items' texts by ID.
 	regions map[platform.AccessID]map[platform.AccessID]string
-	// conv is the scratch state of a conversion.
-	conv accessConv
+	// cv is the scratch state of a conversion.
+	cv accessConv
 }
 
-// accessConv converts a semantics tree into AccessNodes.
+// accessConv is the scratch state of one conversion.
 type accessConv struct {
-	nodes []platform.AccessNode
-	// items are the texts (and image names) inside live regions, in tree
-	// order; regions the region roots (index in nodes), in tree order.
-	items   []accessItem
+	// nodes are the nodes converted, in tree order; regions the live
+	// region roots among them (index in nodes).
+	nodes   []platform.AccessNode
 	regions []int
-	focus   platform.AccessID
+	// focus is the converted node with the focused state; lost reports
+	// that the node last focused was converted without it.
+	focus platform.AccessID
+	lost  bool
+	// placed holds the IDs put in a converted node's children, dropped
+	// the children the converted nodes had and may have lost.
+	placed  map[platform.AccessID]struct{}
+	dropped []platform.AccessID
 }
 
 // accessItem is a text, or an image's name, inside a live region.
@@ -171,75 +189,172 @@ func (h *Host) pushAccess(v *winView) {
 }
 
 // update converts root and returns the update from the nodes last sent,
-// and whether there is one to send.
+// and whether there is one to send (see accessView).
 func (a *accessView) update(root *semantics.Node) (platform.AccessUpdate, bool) {
-	c := &a.conv
-	c.nodes, c.items, c.regions, c.focus = c.nodes[:0], c.items[:0], c.regions[:0], 0
-	c.add(root, nil)
-	u := platform.AccessUpdate{Root: platform.AccessID(root.ID), Focus: c.focus}
+	var prev *accessView
+	if checkSemantics {
+		prev = a.clone()
+	}
+	u, send := a.convert(root)
+	if prev != nil {
+		checkAccessUpdate(prev, root, a, u, send)
+	}
+	return u, send
+}
+
+// convert is update without the check.
+func (a *accessView) convert(root *semantics.Node) (platform.AccessUpdate, bool) {
+	c := &a.cv
+	c.nodes, c.regions, c.focus, c.lost, c.dropped = c.nodes[:0], c.regions[:0], 0, false, c.dropped[:0]
+	if c.placed == nil {
+		c.placed = map[platform.AccessID]struct{}{}
+	}
+	clear(c.placed)
+	if a.sent == nil {
+		a.sent = map[platform.AccessID]platform.AccessNode{}
+		a.conv = map[semantics.NodeID]*semantics.Node{}
+	}
+	a.add(root, nil)
+	u := platform.AccessUpdate{Root: platform.AccessID(root.ID)}
+	for i := range c.nodes {
+		n := &c.nodes[i]
+		old, ok := a.sent[n.ID]
+		if ok {
+			for _, id := range old.Children {
+				if _, kept := c.placed[id]; !kept {
+					c.dropped = append(c.dropped, id)
+				}
+			}
+		}
+		if !ok || !old.Equal(n) {
+			u.Nodes = append(u.Nodes, *n)
+		}
+		a.sent[n.ID] = *n
+	}
+	for _, id := range c.dropped {
+		a.drop(id)
+	}
+	if len(a.conv) > 2*len(a.sent)+1024 {
+		a.sweep(root)
+	}
+	u.Focus = a.focus
+	switch {
+	case c.focus != 0:
+		u.Focus = c.focus
+	case a.first || c.lost:
+		u.Focus = 0
+	}
+	if _, ok := a.sent[u.Focus]; !ok {
+		u.Focus = 0
+	}
 	if u.Focus == 0 {
 		u.Focus = u.Root
 	}
-	next := a.spare
-	if next == nil {
-		next = make(map[platform.AccessID]platform.AccessNode, len(c.nodes))
-	}
-	for i := range c.nodes {
-		n := &c.nodes[i]
-		if old, ok := a.sent[n.ID]; !ok || !old.Equal(n) {
-			u.Nodes = append(u.Nodes, *n)
-		}
-		next[n.ID] = *n
-	}
-	clear(a.sent)
-	a.sent, a.spare = next, a.sent
-	u.Announcements = a.announce(next)
+	u.Announcements = a.announce()
 	send := a.first || len(u.Nodes) > 0 || u.Root != a.root || u.Focus != a.focus || len(u.Announcements) > 0
 	a.first = false
 	a.root, a.focus = u.Root, u.Focus
 	return u, send
 }
 
-// add converts n and its descendants, appending the ID of each node it
-// sends to *children (nil for the root).
-func (c *accessConv) add(n *semantics.Node, children *[]platform.AccessID) {
+// add converts n and its descendants, unless n is the node last
+// converted for its ID (its subtree is sent already), appending the ID of
+// each node it sends to *children (nil for the root).
+func (a *accessView) add(n *semantics.Node, children *[]platform.AccessID) {
+	c := &a.cv
+	id := platform.AccessID(n.ID)
+	same := !a.first && a.conv[n.ID] == n
+	a.conv[n.ID] = n
 	if n.Kind != semantics.KindRoot && n.Has(semantics.StateHidden) {
+		if !same {
+			// Not sent: a hidden region is no region, a hidden focus no
+			// focus.
+			delete(a.regions, id)
+			if id == a.focus {
+				c.lost = true
+			}
+		}
 		for _, ch := range n.Children {
-			c.add(ch, children)
+			a.add(ch, children)
 		}
 		return
 	}
-	id := platform.AccessID(n.ID)
 	if children != nil {
 		*children = append(*children, id)
+		c.placed[id] = struct{}{}
+	}
+	if same {
+		return
 	}
 	i := len(c.nodes)
 	c.nodes = append(c.nodes, accessNode(n))
-	if n.Has(semantics.StateFocused) {
+	switch {
+	case n.Has(semantics.StateFocused):
 		c.focus = id
+	case id == a.focus:
+		c.lost = true
 	}
 	if n.Live != "" && n.Kind == semantics.KindElement {
 		c.regions = append(c.regions, i)
-	}
-	if n.LiveRoot != 0 {
-		switch {
-		case n.Kind == semantics.KindText:
-			c.items = append(c.items, accessItem{region: platform.AccessID(n.LiveRoot), id: id, text: n.Text})
-		case n.Role == "img" && n.Name != "":
-			c.items = append(c.items, accessItem{region: platform.AccessID(n.LiveRoot), id: id, text: n.Name})
-		}
+	} else {
+		delete(a.regions, id)
 	}
 	var kids []platform.AccessID
 	if len(n.Children) > 0 {
 		kids = make([]platform.AccessID, 0, len(n.Children))
 		for _, ch := range n.Children {
-			c.add(ch, &kids)
+			a.add(ch, &kids)
 		}
 		if len(kids) == 0 {
 			kids = nil
 		}
 	}
 	c.nodes[i].Children = kids
+}
+
+// drop forgets node id, which a converted node lost from its children,
+// with its descendants, unless the conversion put it elsewhere (a move).
+func (a *accessView) drop(id platform.AccessID) {
+	if _, moved := a.cv.placed[id]; moved {
+		return
+	}
+	n, ok := a.sent[id]
+	if !ok {
+		return
+	}
+	delete(a.sent, id)
+	delete(a.conv, semantics.NodeID(id))
+	delete(a.regions, id)
+	for _, c := range n.Children {
+		a.drop(c)
+	}
+}
+
+// sweep forgets the converted nodes that are no longer in the tree rooted
+// at root (hidden nodes that left it), rarely.
+func (a *accessView) sweep(root *semantics.Node) {
+	keep := make(map[semantics.NodeID]*semantics.Node, len(a.sent))
+	root.Walk(func(n *semantics.Node) bool {
+		keep[n.ID] = n
+		return true
+	})
+	a.conv = keep
+}
+
+// clone returns a copy of a that shares no map with it, for the check.
+func (a *accessView) clone() *accessView {
+	c := &accessView{first: a.first, root: a.root, focus: a.focus,
+		sent: make(map[platform.AccessID]platform.AccessNode, len(a.sent))}
+	for id, n := range a.sent {
+		c.sent[id] = n
+	}
+	if a.regions != nil {
+		c.regions = make(map[platform.AccessID]map[platform.AccessID]string, len(a.regions))
+		for id, m := range a.regions {
+			c.regions[id] = maps.Clone(m)
+		}
+	}
+	return c
 }
 
 // accessNode returns the AccessNode of n, without its children.
@@ -376,14 +491,155 @@ func accessRect(r gfx.Rect) platform.Rect {
 
 // --- announcements ---
 
-// announce compares the live regions of the converted tree (nodes, by
-// ID) with their content last compared and returns the announcements
-// (see the top of access.go), updating the regions' content.
-func (a *accessView) announce(nodes map[platform.AccessID]platform.AccessNode) []platform.Announcement {
-	c := &a.conv
-	if len(c.regions) == 0 {
-		a.regions = nil
-		return nil
+// announce compares the live regions converted (whose subtree changed)
+// with their content last compared and returns the announcements (see the
+// top of access.go), updating the regions' content. The other regions'
+// content did not change.
+func (a *accessView) announce() []platform.Announcement {
+	c := &a.cv
+	var out []platform.Announcement
+	for _, i := range c.regions {
+		r := &c.nodes[i]
+		cur := regionContent(a.sent, r.ID)
+		prev, known := a.regions[r.ID]
+		if a.regions == nil {
+			a.regions = map[platform.AccessID]map[platform.AccessID]string{}
+		}
+		if a.first {
+			a.regions[r.ID] = cur
+			continue // the activation's update announces nothing
+		}
+		if r.Has(platform.AccessBusy) {
+			// A busy region keeps the content it had (none if it is new)
+			// until it is not.
+			if !known {
+				prev = map[platform.AccessID]string{}
+			}
+			a.regions[r.ID] = prev
+			continue
+		}
+		a.regions[r.ID] = cur
+		if text, ok := regionNews(a.sent, r, prev, cur); ok {
+			out = append(out, platform.Announcement{Text: text, Assertive: r.Live == "assertive"})
+		}
+	}
+	return out
+}
+
+// regionContent returns the items of live region id in nodes: the texts
+// and image names whose LiveRoot is the region, by ID.
+func regionContent(nodes map[platform.AccessID]platform.AccessNode, id platform.AccessID) map[platform.AccessID]string {
+	m := map[platform.AccessID]string{}
+	var walk func(id platform.AccessID)
+	walk = func(x platform.AccessID) {
+		n, ok := nodes[x]
+		if !ok {
+			return
+		}
+		if n.LiveRoot == id {
+			switch {
+			case n.Kind == platform.AccessText:
+				m[x] = n.Text
+			case n.Role == "img" && n.Name != "":
+				m[x] = n.Name
+			}
+		}
+		for _, c := range n.Children {
+			walk(c)
+		}
+	}
+	walk(id)
+	return m
+}
+
+// regionNews returns the text to announce for region r, whose content
+// went from prev to cur, and whether there is one.
+func regionNews(nodes map[platform.AccessID]platform.AccessNode, r *platform.AccessNode, prev, cur map[platform.AccessID]string) (string, bool) {
+	changed := func(id platform.AccessID, text string) bool {
+		old, ok := prev[id]
+		return !ok || old != text
+	}
+	news := false
+	for id, text := range cur {
+		if changed(id, text) && semantics.TrimSpace(text) != "" {
+			news = true
+			break
+		}
+	}
+	if !news {
+		return "", false
+	}
+	var text string
+	if r.Has(platform.AccessAtomic) {
+		text = regionText(nodes, r.ID, func(*platform.AccessNode, string) bool { return true })
+	} else {
+		text = regionText(nodes, r.ID, func(n *platform.AccessNode, t string) bool {
+			return n.LiveRoot == r.ID && changed(n.ID, t)
+		})
+	}
+	return text, text != ""
+}
+
+// --- check (TELA_CHECK_SEMANTICS) ---
+
+// checkAccessUpdate panics when the incremental update u (send) that
+// turned prev into cur differs from what a full conversion of root
+// gives: the nodes sent, the update's nodes, root, focus and
+// announcements.
+func checkAccessUpdate(prev *accessView, root *semantics.Node, cur *accessView, u platform.AccessUpdate, send bool) {
+	fu, fsend, fsent, fregions := accessFull(prev, root)
+	fail := func(format string, args ...any) {
+		panic(fmt.Sprintf("core: TELA_CHECK_SEMANTICS: the incremental accessibility update differs from a full conversion: "+format, args...))
+	}
+	if len(fsent) != len(cur.sent) {
+		fail("%d nodes sent, full %d", len(cur.sent), len(fsent))
+	}
+	for id, n := range fsent {
+		if m, ok := cur.sent[id]; !ok || !m.Equal(&n) {
+			fail("node %d: %+v, full %+v", id, m, n)
+		}
+	}
+	if send != fsend || u.Root != fu.Root || u.Focus != fu.Focus {
+		fail("send %v root %d focus %d, full send %v root %d focus %d", send, u.Root, u.Focus, fsend, fu.Root, fu.Focus)
+	}
+	if len(u.Nodes) != len(fu.Nodes) {
+		fail("%d nodes in the update, full %d", len(u.Nodes), len(fu.Nodes))
+	}
+	for i := range u.Nodes {
+		if !u.Nodes[i].Equal(&fu.Nodes[i]) {
+			fail("node %d of the update: %+v, full %+v", i, u.Nodes[i], fu.Nodes[i])
+		}
+	}
+	if !slices.Equal(u.Announcements, fu.Announcements) {
+		fail("announcements %q, full %q", u.Announcements, fu.Announcements)
+	}
+	if len(fregions) != len(cur.regions) {
+		fail("%d live regions, full %d", len(cur.regions), len(fregions))
+	}
+	for id, m := range fregions {
+		if !maps.Equal(m, cur.regions[id]) {
+			fail("live region %d: %q, full %q", id, cur.regions[id], m)
+		}
+	}
+}
+
+// accessFull converts root in full from the state prev (ADR-246's
+// conversion, before ADR-277): the update, whether to send it, the nodes
+// sent and the regions' content after it.
+func accessFull(prev *accessView, root *semantics.Node) (platform.AccessUpdate, bool, map[platform.AccessID]platform.AccessNode, map[platform.AccessID]map[platform.AccessID]string) {
+	c := &fullConv{}
+	c.add(root, nil)
+	u := platform.AccessUpdate{Root: platform.AccessID(root.ID), Focus: c.focus}
+	if u.Focus == 0 {
+		u.Focus = u.Root
+	}
+	next := make(map[platform.AccessID]platform.AccessNode, len(c.nodes))
+	for i := range c.nodes {
+		n := &c.nodes[i]
+		if old, ok := prev.sent[n.ID]; !ok || !old.Equal(n) {
+			u.Nodes = append(u.Nodes, *n)
+		}
+		next[n.ID] = *n
 	}
 	// The items of each region, by ID.
 	content := make(map[platform.AccessID]map[platform.AccessID]string, len(c.regions))
@@ -395,51 +651,76 @@ func (a *accessView) announce(nodes map[platform.AccessID]platform.AccessNode) [
 			m[it.id] = it.text
 		}
 	}
-	var out []platform.Announcement
 	for _, i := range c.regions {
 		r := &c.nodes[i]
 		cur := content[r.ID]
-		prev, known := a.regions[r.ID]
-		if a.first {
-			continue // the activation's update announces nothing
+		prevC, known := prev.regions[r.ID]
+		if prev.first {
+			continue
 		}
 		if r.Has(platform.AccessBusy) {
-			// A busy region keeps the content it had (none if it is new)
-			// until it is not.
 			if !known {
-				prev = map[platform.AccessID]string{}
+				prevC = map[platform.AccessID]string{}
 			}
-			content[r.ID] = prev
+			content[r.ID] = prevC
 			continue
 		}
-		changed := func(id platform.AccessID, text string) bool {
-			old, ok := prev[id]
-			return !ok || old != text
-		}
-		news := false
-		for id, text := range cur {
-			if changed(id, text) && semantics.TrimSpace(text) != "" {
-				news = true
-				break
-			}
-		}
-		if !news {
-			continue
-		}
-		var text string
-		if r.Has(platform.AccessAtomic) {
-			text = regionText(nodes, r.ID, func(*platform.AccessNode, string) bool { return true })
-		} else {
-			text = regionText(nodes, r.ID, func(n *platform.AccessNode, t string) bool {
-				return n.LiveRoot == r.ID && changed(n.ID, t)
-			})
-		}
-		if text != "" {
-			out = append(out, platform.Announcement{Text: text, Assertive: r.Live == "assertive"})
+		if text, ok := regionNews(next, r, prevC, cur); ok {
+			u.Announcements = append(u.Announcements, platform.Announcement{Text: text, Assertive: r.Live == "assertive"})
 		}
 	}
-	a.regions = content
-	return out
+	send := prev.first || len(u.Nodes) > 0 || u.Root != prev.root || u.Focus != prev.focus || len(u.Announcements) > 0
+	return u, send, next, content
+}
+
+// fullConv converts a whole semantics tree (accessFull).
+type fullConv struct {
+	nodes   []platform.AccessNode
+	items   []accessItem
+	regions []int
+	focus   platform.AccessID
+}
+
+// add converts n and its descendants, appending the ID of each node it
+// sends to *children (nil for the root).
+func (c *fullConv) add(n *semantics.Node, children *[]platform.AccessID) {
+	if n.Kind != semantics.KindRoot && n.Has(semantics.StateHidden) {
+		for _, ch := range n.Children {
+			c.add(ch, children)
+		}
+		return
+	}
+	id := platform.AccessID(n.ID)
+	if children != nil {
+		*children = append(*children, id)
+	}
+	i := len(c.nodes)
+	c.nodes = append(c.nodes, accessNode(n))
+	if n.Has(semantics.StateFocused) {
+		c.focus = id
+	}
+	if n.Live != "" && n.Kind == semantics.KindElement {
+		c.regions = append(c.regions, i)
+	}
+	if n.LiveRoot != 0 {
+		switch {
+		case n.Kind == semantics.KindText:
+			c.items = append(c.items, accessItem{region: platform.AccessID(n.LiveRoot), id: id, text: n.Text})
+		case n.Role == "img" && n.Name != "":
+			c.items = append(c.items, accessItem{region: platform.AccessID(n.LiveRoot), id: id, text: n.Name})
+		}
+	}
+	var kids []platform.AccessID
+	if len(n.Children) > 0 {
+		kids = make([]platform.AccessID, 0, len(n.Children))
+		for _, ch := range n.Children {
+			c.add(ch, &kids)
+		}
+		if len(kids) == 0 {
+			kids = nil
+		}
+	}
+	c.nodes[i].Children = kids
 }
 
 // regionText returns the text of the items under node id (texts, and the

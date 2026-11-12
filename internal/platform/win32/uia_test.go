@@ -226,10 +226,10 @@ func TestUIASnapshot(t *testing.T) {
 	s := newUIASnapshot(applyTree(t, nil, loginTree()))
 	// The generic wrapper is ignored: the root's children are its; the
 	// checkbox and the button hide their texts; the heading keeps its.
-	if got := s.kids[1]; !slices.Equal(got, []platform.AccessID{3, 5, 6, 8}) {
+	if got := s.kids(1); !slices.Equal(got, []platform.AccessID{3, 5, 6, 8}) {
 		t.Errorf("root's children %v", got)
 	}
-	if got := s.kids[3]; !slices.Equal(got, []platform.AccessID{4}) {
+	if got := s.kids(3); !slices.Equal(got, []platform.AccessID{4}) {
 		t.Errorf("heading's children %v", got)
 	}
 	for _, id := range []platform.AccessID{2, 7, 9} {

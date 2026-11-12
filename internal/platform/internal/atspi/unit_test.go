@@ -172,29 +172,29 @@ func TestViewFolding(t *testing.T) {
 	if got := v.root.children; !slices.Equal(got, []platform.AccessID{3, 6, 10, 12, 14}) {
 		t.Errorf("root children %v", got)
 	}
-	if p := v.nodes[3]; !p.hasText || p.text != "Sign in to your account." || len(p.children) != 0 {
+	if p := v.get(3); !p.hasText || p.text != "Sign in to your account." || len(p.children) != 0 {
 		t.Errorf("paragraph %+v", p)
 	}
-	if b := v.nodes[6]; b.hasText || len(b.children) != 0 {
+	if b := v.get(6); b.hasText || len(b.children) != 0 {
 		t.Errorf("button %+v", b)
 	}
-	g := v.nodes[10]
+	g := v.get(10)
 	if !slices.Equal(g.children, []platform.AccessID{15, 13}) || g.hasText {
 		t.Errorf("group %+v", g)
 	}
-	if l := v.nodes[15]; l.role != roleLabel || l.name() != "Email me" || l.text != "Email  me" || l.parent != 10 || l.index != 0 {
+	if l := v.get(15); l.role != roleLabel || l.name() != "Email me" || l.text != "Email  me" || l.parent != 10 || l.index != 0 {
 		t.Errorf("label %+v name %q", l, l.name())
 	}
-	if l := v.nodes[13]; !l.hasText || l.text != "here" || l.index != 1 {
+	if l := v.get(13); !l.hasText || l.text != "here" || l.index != 1 {
 		t.Errorf("link %+v", l)
 	}
-	if h := v.nodes[12]; h.text != "Line one\nLine two" {
+	if h := v.get(12); h.text != "Line one\nLine two" {
 		t.Errorf("heading text %q", h.text)
 	}
-	if f := v.nodes[14]; !f.hasText || f.text != "ana" {
+	if f := v.get(14); !f.hasText || f.text != "ana" {
 		t.Errorf("field %+v", f)
 	}
-	if v.nodes[2] != nil || v.nodes[11] != nil || v.nodes[4] != nil {
+	if v.get(2) != nil || v.get(11) != nil || v.get(4) != nil {
 		t.Errorf("ignored or folded nodes are exposed")
 	}
 	// Hit testing goes to the deepest node.

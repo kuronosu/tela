@@ -505,7 +505,9 @@ func (t *Tree) layoutStyle(bx *Box, placing bool) {
 	if len(c.BoxShadows) > 0 && sm != (gfx.Point{X: 1, Y: 1}) {
 		c.BoxShadows = correctShadows(c.BoxShadows, sm)
 	}
+	old := bx.pcs
 	bx.pcs = &c
+	t.semPainted(bx, old)
 }
 
 // ratio returns a / b, or 1 when b is not positive (a box without width

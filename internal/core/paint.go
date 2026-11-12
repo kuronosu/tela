@@ -171,6 +171,7 @@ func (p *painter) place(bx *Box, parent *Box) {
 	t := p.t
 	l := bx.ld.Layout()
 	prev := bx.pcs
+	oldPCS, oldSpace := bx.pcs, bx.space
 	bx.pcs = bx.cs
 	if bx.deferPaint {
 		// The paint-phase deferred props, evaluated on every paint of
@@ -213,6 +214,10 @@ func (p *painter) place(bx *Box, parent *Box) {
 		bx.space = stickySpace(bx, space)
 		p.placeSticky(bx)
 		t.stickies = append(t.stickies, bx)
+	}
+	t.semPainted(bx, oldPCS)
+	if bx.space != oldSpace && (bx.flt != nil || bx.stick != nil) {
+		t.semGeomBox(bx) // its sticky or floating shift applies, or no longer (ownShift)
 	}
 	if bx.lanim != nil || t.wantsLayoutAnim(bx) {
 		// Layout animations (layoutanim.go): the flip of this frame.
@@ -328,6 +333,7 @@ func (p *painter) offset(s *scroller) {
 	off := gfx.Point{X: p.snap(pos.X), Y: p.snap(pos.Y)}
 	if off != s.soff {
 		s.soff = off
+		p.t.semGeomBox(s.box) // its content moved
 		p.t.scr.moved = true
 	}
 	s.chunked = s.max.X > 0 || s.max.Y > 0 || off != (gfx.Point{})
@@ -367,6 +373,7 @@ func (p *painter) update(marked []*Box) {
 		}
 		old := bx.pcs
 		bx.pcs = t.resolveDeferred(bx, style.PhasePaint)
+		t.semPainted(bx, old)
 		if bx.lanim != nil {
 			t.layoutUpdate(bx)
 		}

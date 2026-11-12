@@ -40,8 +40,8 @@ func (w *Window) rootElements() []darwin.ID {
 	if v == nil {
 		return nil
 	}
-	out := make([]darwin.ID, 0, len(v.kids[v.root()]))
-	for _, id := range v.kids[v.root()] {
+	out := make([]darwin.ID, 0, len(v.kids(v.root())))
+	for _, id := range v.kids(v.root()) {
 		if e := w.element(id); e != 0 {
 			out = append(out, e)
 		}

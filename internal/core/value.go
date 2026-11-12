@@ -524,7 +524,7 @@ func (t *Tree) valueChangedSkip(v *valueCore, skip obsKind) bool {
 		case obsSem:
 			// Not a hit: nothing is built, laid out or painted, so no frame.
 			if o.el.mounted {
-				o.el.tree.semanticsStale()
+				o.el.tree.semanticsStale(o.el)
 			}
 		}
 	}

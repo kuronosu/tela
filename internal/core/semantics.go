@@ -24,23 +24,23 @@ import (
 // On demand only: Semantics builds the whole tree when a consumer asks
 // (tela inspect --aria, telatest, tela mcp, the semantics overlay) and
 // nothing runs per frame, so a tree that nobody inspects costs nothing.
-// The tree is kept and handed out again while no Frame ran, nothing is
-// dirty and no Value an AriaLabelFn (or AriaValueNowFn, AriaValueTextFn)
-// read changed. A full build of a
-// 10k-element tree takes a few milliseconds (BenchmarkSemantics10k);
-// incremental updates (§8's needsSemantics marks) are a later performance
-// task of the OS accessibility bridges (ADR-246).
+// The tree is kept and handed out again while nothing it shows changed.
+// The first build is a full one (a 10k-element tree takes a few
+// milliseconds, BenchmarkSemantics10k); later ones are incremental
+// (semincr.go, ADR-277): the changes mark the elements whose nodes they
+// may change (§8's needsSemantics), and only those, their ancestors and
+// what depends on them are built again, the rest of the tree being shared
+// with the last one.
 //
 // # Staleness
 //
-// A Frame or a dirty tree makes the last tree stale, and so does a change
-// of a Value read by an AriaLabelFn, AriaValueNowFn or AriaValueTextFn
-// (obsSem), which needs no frame: it
-// rebuilds nothing, it only invalidates the kept tree. SemanticsStale
-// reports it, and the listener set with OnSemanticsStale is told of the
-// changes that need no frame, so that a consumer that keeps a copy of the
-// tree (the OS accessibility bridges) knows to build it again; after a
-// Frame the consumer checks SemanticsStale itself.
+// A mark makes the last tree stale, a change of a Value read by an
+// AriaLabelFn, AriaValueNowFn or AriaValueTextFn (obsSem) included, which
+// needs no frame: it rebuilds nothing, it only marks its element.
+// SemanticsStale reports it, and the listener set with OnSemanticsStale
+// is told of the changes that need no frame, so that a consumer that
+// keeps a copy of the tree (the OS accessibility bridges) knows to build
+// it again; after a Frame the consumer checks SemanticsStale itself.
 //
 // # Nodes
 //
@@ -95,11 +95,27 @@ import (
 // semState is the semantics tree of a Tree (UI thread).
 type semState struct {
 	root *semantics.Node
-	// frame is t.frame when root was built, valid that nothing was dirty
-	// then.
-	frame uint64
-	valid bool
-	// byID maps the node IDs of root to their elements.
+	// pending reports a mark since root was built (semincr.go); focus,
+	// viewport and rootEl are the focused element, the viewport and the
+	// root element it was built with.
+	pending  bool
+	focus    *Element
+	viewport gfx.Size
+	rootEl   *Element
+	// gen numbers the passes of the builds; reuse reports that the pass
+	// may keep the nodes of unmarked elements, checking that it is the
+	// full build of TELA_CHECK_SEMANTICS (which changes no element's
+	// state); last is the root the last pass built.
+	gen      uint64
+	reuse    bool
+	checking bool
+	last     *semantics.Node
+	// volatile holds the elements whose semantics read elements outside
+	// their subtree; labels reports a change of the IDs or of a Label's
+	// For since the last build.
+	volatile map[*Element]semVolatile
+	labels   bool
+	// byID maps node IDs to the mounted elements that have them.
 	byID map[semantics.NodeID]*Element
 	next uint64
 	// Scratch state of the name computation and of text bounds.
@@ -119,13 +135,11 @@ type semState struct {
 }
 
 // SemanticsStale reports whether the tree Semantics last returned is out
-// of date: a Frame ran since, the tree is dirty (updates wait, an element
-// must be built), or a Value an AriaLabelFn (or AriaValueNowFn,
-// AriaValueTextFn) read changed. Call it on the UI thread.
-func (t *Tree) SemanticsStale() bool {
-	s := &t.sem
-	return !s.valid || s.root == nil || s.frame != t.frame || t.Dirty()
-}
+// of date: something it shows changed since (an element was built,
+// restyled, laid out, moved or focused), or a Value an AriaLabelFn (or
+// AriaValueNowFn, AriaValueTextFn) read changed. Call it on the UI
+// thread.
+func (t *Tree) SemanticsStale() bool { return t.semPending() }
 
 // OnSemanticsStale sets the function called on the UI thread when the
 // semantics tree becomes stale without a frame: a Value read by an
@@ -137,12 +151,11 @@ func (t *Tree) SemanticsStale() bool {
 // SemanticsStale after each Frame. nil removes the listener.
 func (t *Tree) OnSemanticsStale(f func()) { t.sem.onStale = f }
 
-// semanticsStale invalidates the kept semantics tree (an AriaLabelFn's
-// Value changed) and tells the listener.
-func (t *Tree) semanticsStale() {
+// semanticsStale marks the semantics of el stale (a Value its AriaLabelFn
+// read changed) and tells the listener.
+func (t *Tree) semanticsStale(el *Element) {
 	s := &t.sem
-	s.valid = false
-	clear(s.fns)
+	t.semMark(el, semSelf)
 	if s.onStale != nil && !s.told {
 		s.told = true
 		s.onStale()
@@ -179,6 +192,9 @@ func (t *Tree) semFns(el *Element, a *ariaProps) semFnVals {
 		return v
 	}
 	mark := t.beginTrack()
+	if s.checking {
+		defer t.endTrack(mark) // the check reads, it does not subscribe
+	}
 	var v semFnVals
 	func() {
 		done := false
@@ -198,6 +214,9 @@ func (t *Tree) semFns(el *Element, a *ariaProps) semFnVals {
 		}
 		done = true
 	}()
+	if s.checking {
+		return v
+	}
 	t.observe(&el.vobs, obsSem, el, nil, t.endTrack(mark))
 	if s.fns == nil {
 		s.fns = make(map[*Element]semFnVals)
@@ -214,41 +233,13 @@ func (t *Tree) semFns(el *Element, a *ariaProps) semFnVals {
 // nothing is dirty, the same tree is returned again. Call it on the UI
 // thread.
 func (t *Tree) Semantics() *semantics.Node {
-	s := &t.sem
-	if s.valid && s.root != nil && s.frame == t.frame && !t.Dirty() {
-		return s.root
+	if t.semPending() {
+		t.buildSemantics()
 	}
-	if s.byID == nil {
-		s.byID = make(map[semantics.NodeID]*Element)
-	} else {
-		clear(s.byID)
+	if checkSemantics {
+		t.checkSemanticsTree(t.sem.root)
 	}
-	clear(s.fns)
-	s.told = false
-	root := &semantics.Node{Kind: semantics.KindRoot}
-	if t.root != nil && t.rootBox.cs != nil {
-		root.ID = t.semID(t.root)
-		root.Bounds = gfx.Rect{X1: t.viewport.W, Y1: t.viewport.H}
-		if sc := t.rootBox.scr; sc != nil && (sc.userX && sc.max.X > 0 || sc.userY && sc.max.Y > 0) {
-			root.States |= semantics.StateScrollable
-			root.Actions |= semantics.ActionScroll
-		}
-		inh := semInherit{blockify: blockifies(t.rootBox.cs)}
-		s.portal = nil
-		for _, c := range t.root.children {
-			t.semElement(c, root, inh)
-		}
-		// The portals' content after the root's, as if appended to the
-		// body (portal.go).
-		for _, p := range t.portalsIn(t.root, nil) {
-			s.portal = p
-			t.semElement(p, root, semInherit{})
-		}
-		s.portal = nil
-		semantics.FillSetPositions(root)
-	}
-	s.root, s.frame, s.valid = root, t.frame, !t.Dirty()
-	return root
+	return t.sem.root
 }
 
 // AriaSnapshot returns the Playwright aria snapshot of the semantics tree
@@ -266,7 +257,9 @@ func (t *Tree) semID(el *Element) semantics.NodeID {
 	return id
 }
 
-// semInherit is what an element's semantics take from its ancestors.
+// semInherit is what an element's semantics take from its ancestors. It
+// is comparable: an element whose inherited state is the one of its last
+// build may keep its node (semincr.go).
 type semInherit struct {
 	hidden   bool // display: none or AriaHidden on an ancestor
 	none     bool // display: none on an ancestor: no layout
@@ -278,6 +271,15 @@ type semInherit struct {
 	// transformed: an ancestor has a transform, so bounds go through
 	// transformUp.
 	transformed bool
+	// invisible: the parent primitive's visibility is not visible (its
+	// texts are hidden).
+	invisible bool
+	// unnumbered: an ancestor's node is hidden, so the sets below are not
+	// numbered (semantics.FillSetPositions skips hidden subtrees).
+	unnumbered bool
+	// inLabel: a Label is an ancestor (the labels of a field or a button,
+	// semTrackVolatile).
+	inLabel bool
 	// liveRoot is the node ID of the live region around (0 for none).
 	liveRoot semantics.NodeID
 }
@@ -293,55 +295,81 @@ func blockifies(cs *style.ComputedStyle) bool {
 }
 
 // semElement appends the nodes of el (components: of their children) to
-// parent.
-func (t *Tree) semElement(el *Element, parent *semantics.Node, inh semInherit) {
+// parent. force builds the whole subtree again (its bounds may have
+// moved); otherwise an element that can keep its last node keeps it with
+// its subtree (semincr.go).
+func (t *Tree) semElement(el *Element, parent *semantics.Node, inh semInherit, force bool) {
 	if el.exiting() {
 		return // an exiting Presence child is gone for semantics (presence.go)
 	}
+	if el.sem.flags&semGeom != 0 {
+		force = true
+	}
 	switch el.kind {
 	case elemComponent:
+		sticky := false
 		for _, c := range el.children {
-			t.semElement(c, parent, inh)
+			t.semElement(c, parent, inh, force)
+			sticky = sticky || c.sem.flags != 0
+		}
+		if !t.sem.checking {
+			el.sem.flags = 0
+			if sticky {
+				el.sem.flags = semKids
+			}
 		}
 	case elemText:
-		if el.text == "" {
+		if t.semReuse(el, parent, inh, force) {
 			return
 		}
-		n := &semantics.Node{ID: t.semID(el), Kind: semantics.KindText, Text: el.text, Inline: true, LiveRoot: inh.liveRoot}
-		sp := el.styleParent()
-		if inh.hidden || el.inert || el.outside == outsideYes || sp == nil || sp.box.cs == nil || sp.box.cs.Visibility != style.VisibilityVisible {
-			n.States |= semantics.StateHidden
-		} else {
-			n.Bounds = t.textBounds(el, inh.transformed)
+		old, oldGen := el.sem.node, el.sem.gen
+		var n *semantics.Node
+		if el.text != "" {
+			n = &semantics.Node{ID: t.semID(el), Kind: semantics.KindText, Text: el.text, Inline: true, LiveRoot: inh.liveRoot}
+			if inh.hidden || inh.invisible || el.inert || el.outside == outsideYes {
+				n.States |= semantics.StateHidden
+			} else {
+				n.Bounds = t.textBounds(el, inh.transformed)
+			}
 		}
-		parent.Children = append(parent.Children, n)
+		if n = t.semKeep(el, old, oldGen, n, inh, false); n != nil {
+			parent.Children = append(parent.Children, n)
+		}
 	case elemPrimitive:
 		if isPortal(el) && el != t.sem.portal {
 			return // built after the root's content
 		}
-		t.semPrimitive(el, parent, inh)
+		if t.semReuse(el, parent, inh, force) {
+			return
+		}
+		t.semPrimitive(el, parent, inh, force)
 	}
 }
 
 // semPrimitive appends the node of primitive el and its subtree to
 // parent.
-func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit) {
+func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit, force bool) {
+	s := &t.sem
 	bx := el.box
 	cs := bx.cs
 	if cs == nil {
 		return // mounted since the last frame
 	}
+	old, oldGen := el.sem.node, el.sem.gen
 	d := el.node.d
 	role, explicit := t.semRole(el)
 	n := &semantics.Node{ID: t.semID(el), Kind: semantics.KindElement, Role: role, ExplicitRole: explicit}
 	if role == "" {
 		n.Role = "generic"
 	}
+	if old != nil && d.virt != nil && d.virt.role == virtList && old.Role != n.Role {
+		force = true // the implicit roles of its items follow its role (implicitRole)
+	}
 	n.Inline = cs.Display == style.DisplayInline && !inh.blockify
 	cinh := t.semStates(el, n, inh)
 	t.semAriaFields(el, n)
 	cinh.liveRoot = semLive(d.aria, n, inh.liveRoot) // aria_live.go
-	if el.vobs != nil && !d.aria.hasSemFn() {
+	if el.vobs != nil && !d.aria.hasSemFn() && !s.checking {
 		dropObserver(el.vobs) // an AriaLabelFn (or a value's) removed by a build
 	}
 	if bx.kind == style.KindA {
@@ -354,6 +382,7 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 		n.Actions |= semantics.ActionScrollIntoView
 	}
 	semWidgetActions(el, n)
+	idx := len(parent.Children)
 	parent.Children = append(parent.Children, n)
 
 	cinh.transformed = inh.transformed || !paintStyle(bx).Transform.IsIdentity()
@@ -361,8 +390,19 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 	if cs.Display == style.DisplayContents {
 		cinh.blockify = inh.blockify // its children are laid out by its parent
 	}
+	cinh.invisible = cs.Visibility != style.VisibilityVisible
+	cinh.unnumbered = inh.unnumbered || n.Has(semantics.StateHidden)
+	cinh.inLabel = inh.inLabel || bx.kind == style.KindLabel
+	sticky := false
 	for _, c := range el.children {
-		t.semElement(c, n, cinh)
+		t.semElement(c, n, cinh, force)
+		sticky = sticky || c.sem.flags != 0
+	}
+	if !cinh.unnumbered && !s.checking {
+		// The node is the element's while its items are numbered
+		// (semWritable); semKeep decides which one stays.
+		el.sem.node, el.sem.gen = n, s.gen
+		t.semNumber(n)
 	}
 
 	n.Name = semantics.NormalizeWhiteSpace(t.accName(el, role, n.Has(semantics.StateHidden)))
@@ -375,6 +415,8 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 	if !n.Has(semantics.StateHidden) || n.Decorative {
 		t.semBounds(el, n, cinh.none, cinh.transformed)
 	}
+	parent.Children[idx] = t.semKeep(el, old, oldGen, n, inh, sticky)
+	t.semTrackVolatile(el, inh)
 }
 
 // decorativeIcon reports whether primitive el, hidden for accessibility,

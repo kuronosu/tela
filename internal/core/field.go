@@ -662,6 +662,7 @@ func (t *Tree) fieldChangedBy(f *field, r edit.Result, pad bool) {
 	if !r.ValueChanged && !r.SelectionChanged && !r.DisplayChanged {
 		return
 	}
+	t.semMark(f.el, semSelf)
 	if r.DisplayChanged {
 		t.fieldResized(f)
 		t.fieldStates(f)
@@ -699,6 +700,7 @@ func (t *Tree) fieldResized(f *field) {
 func (f *field) markPaint() {
 	t := f.t
 	f.paintDirty = true
+	t.semMark(f.el, semSelf) // its value, caret and selection
 	t.requestRepaint()
 }
 

@@ -642,6 +642,7 @@ func (t *Tree) animApply(bx *Box, old, u *style.ComputedStyle) {
 		return
 	}
 	bx.cs = u
+	t.semStyled(bx, old, u)
 	changed := !sameStyle(old, u, false)
 	inkCh := false
 	for p := anim.Prop(0); p < anim.NumProps; p++ {
@@ -659,7 +660,9 @@ func (t *Tree) animApply(bx *Box, old, u *style.ComputedStyle) {
 		t.fieldRestyled(bx.fld, old, u)
 	}
 	if bx.pcs != nil && !bx.deferPaint {
+		prev := bx.pcs
 		bx.pcs = u
+		t.semPainted(bx, prev)
 	}
 	L := &t.lay
 	same := wasDeferred == bx.deferPaint

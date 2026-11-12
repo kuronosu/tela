@@ -250,11 +250,22 @@ func (w *Window) SetAccessibility(update platform.AccessUpdate) {
 	if old != nil {
 		prev = old.tree
 	}
-	t, _, err := prev.Apply(&update)
+	t, removed, err := prev.Apply(&update)
 	if err != nil {
 		panic(fmt.Sprintf("cocoa: SetAccessibility: %v", err))
 	}
-	cur := newAXTree(t)
+	// The exposed structure follows the update's changes when there is
+	// one of the tree it was applied to (ADR-277).
+	var cur *axTree
+	if prev != nil && prev.Root() == t.Root() {
+		changed := make([]platform.AccessID, len(update.Nodes))
+		for i := range update.Nodes {
+			changed[i] = update.Nodes[i].ID
+		}
+		cur = updateAXTree(old, t, changed, removed)
+	} else {
+		cur = newAXTree(t)
+	}
 	pool := darwin.PoolPush()
 	defer darwin.PoolPop(pool)
 	w.updateGeometry()
@@ -264,9 +275,17 @@ func (w *Window) SetAccessibility(update platform.AccessUpdate) {
 	}
 	// Elements that are no longer exposed die (their destruction was
 	// posted above when an AT could know them).
-	for id, e := range w.cachedElements() {
-		if !cur.exposed(id) {
-			w.killElement(id, e)
+	if cur.full {
+		for id, e := range w.cachedElements() {
+			if !cur.exposed(id) {
+				w.killElement(id, e)
+			}
+		}
+	} else {
+		for _, id := range cur.lost {
+			if e, ok := w.cached(id); ok {
+				w.killElement(id, e)
+			}
 		}
 	}
 }
@@ -706,8 +725,8 @@ func elementMethods() []darwin.Method {
 		}),
 		integer(axSelIndex, func(c axCall) int { i, _ := c.v.index(c.n.ID); return i }),
 		integer(axSelDisclosureLevel, func(c axCall) int { return max(c.n.Level-1, 0) }),
-		obj("accessibilityParent", func(c axCall) darwin.ID { return c.w.element(c.v.up[c.n.ID]) }),
-		obj("accessibilityChildren", func(c axCall) darwin.ID { return c.w.elements(c.v.kids[c.n.ID]) }),
+		obj("accessibilityParent", func(c axCall) darwin.ID { return c.w.element(c.v.up(c.n.ID)) }),
+		obj("accessibilityChildren", func(c axCall) darwin.ID { return c.w.elements(c.v.kids(c.n.ID)) }),
 		obj(axSelSelectedChildren, func(c axCall) darwin.ID { return c.w.elements(c.v.selectedChildren(c.n.ID)) }),
 		obj(axSelRows, func(c axCall) darwin.ID { return c.w.elements(c.v.rows(c.n.ID)) }),
 		obj("accessibilityWindow", func(c axCall) darwin.ID { return c.w.ns }),
