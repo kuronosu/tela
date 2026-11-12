@@ -16,4 +16,4 @@ Measured (loaded machine, medians of 5 interleaved runs; commands recorded per f
 
 ## What it changes
 
-The dashboard's overview has 121 groups; a frame that records everything allocates 17% more objects (+5% bytes, time within the noise: 2.95 → 2.97 ms); a box is 40 bytes larger, a layer 64. `Tree.Layers` lists groups (the layers overlay skips them). Same pixels: `TELA_CHECK_LAYERS=1` and the damage checks pass in core, kit and the dashboard.
+The dashboard's overview has 121 groups; a frame that records everything allocates 17% more objects (+5% bytes, time within the noise: 2.95 → 2.97 ms); a box is 40 bytes larger, a layer 64. `Tree.Layers` lists groups (the layers overlay counts them with the layer that holds them). Same pixels: `TELA_CHECK_LAYERS=1` and the damage checks pass in core, kit and the dashboard.
