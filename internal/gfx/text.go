@@ -61,6 +61,21 @@ type SizedColorFont interface {
 	ColorGlyphAt(g GlyphID, fg Color, ppem float32) *DisplayList
 }
 
+// ForegroundColorFont is a Font that tells which of its color glyphs paint
+// with the foreground color. Rasterizers key the sprites of the other color
+// glyphs (bitmap glyphs, COLR glyphs without a foreground layer) without
+// the text color, so one emoji drawn in several colors is rendered and
+// cached once. A Font that does not implement it is treated as if every
+// color glyph used the foreground.
+type ForegroundColorFont interface {
+	Font
+	// ColorGlyphUsesForeground reports whether color glyph g paints with
+	// the foreground color. When it is false, ColorGlyph (and ColorGlyphAt)
+	// must paint the same pixels for every fg; for a given glyph the result
+	// must never change.
+	ColorGlyphUsesForeground(g GlyphID) bool
+}
+
 var nextFontKey atomic.Uint64
 
 // NewFontKey returns a process-unique, non-zero font key for a new Font.

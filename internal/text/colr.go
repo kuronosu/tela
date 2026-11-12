@@ -96,8 +96,9 @@ func (f *Face) clipBox(gid tables.GlyphID) (gfx.Rect, bool) {
 	return r, !r.Empty()
 }
 
-// list returns the display list of the color glyph for foreground fg.
-func (c *colorEntry) list(f *Face, g gfx.GlyphID, fg gfx.Color) *gfx.DisplayList {
+// init builds the glyph's list for fg the first time it is called and
+// finds whether the graph uses the foreground color.
+func (c *colorEntry) init(f *Face, g gfx.GlyphID, fg gfx.Color) {
 	c.once.Do(func() {
 		l, uses := f.buildColor(c, tables.GlyphID(g), fg)
 		c.usesFG = uses
@@ -107,6 +108,11 @@ func (c *colorEntry) list(f *Face, g gfx.GlyphID, fg gfx.Color) *gfx.DisplayList
 			c.shared = l
 		}
 	})
+}
+
+// list returns the display list of the color glyph for foreground fg.
+func (c *colorEntry) list(f *Face, g gfx.GlyphID, fg gfx.Color) *gfx.DisplayList {
+	c.init(f, g, fg)
 	if !c.usesFG {
 		return c.shared
 	}

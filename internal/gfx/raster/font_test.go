@@ -22,11 +22,12 @@ const (
 	gBadge   gfx.GlyphID = 6 // color: gradient disc, fg star, translucent layer
 	gLoop    gfx.GlyphID = 7 // color: draws itself (nesting limit)
 	gMissing gfx.GlyphID = 8 // missing from the font
+	gMedal   gfx.GlyphID = 9 // color: gradient disc and highlight, no fg
 )
 
 // testRunes maps the characters of the test strings to glyphs.
 var testRunes = map[rune]gfx.GlyphID{
-	' ': gSpace, 'o': gO, 'A': gA, 'S': gS, 'l': gL, 'i': gI, '*': gBadge, '@': gLoop, '?': gMissing,
+	' ': gSpace, 'o': gO, 'A': gA, 'S': gS, 'l': gL, 'i': gI, '*': gBadge, '@': gLoop, '?': gMissing, '%': gMedal,
 }
 
 type testGlyph struct {
@@ -34,6 +35,7 @@ type testGlyph struct {
 	bounds gfx.Rect
 	adv    float32
 	color  func(f *testFont, fg gfx.Color) *gfx.DisplayList
+	noFG   bool // the color glyph does not paint with fg
 }
 
 // testFont implements gfx.Font. It counts the calls that a cache saves.
@@ -71,6 +73,12 @@ func (f *testFont) ColorGlyph(g gfx.GlyphID, fg gfx.Color) *gfx.DisplayList {
 	}
 	f.colors.Add(1)
 	return tg.color(f, fg)
+}
+
+// ColorGlyphUsesForeground implements gfx.ForegroundColorFont.
+func (f *testFont) ColorGlyphUsesForeground(g gfx.GlyphID) bool {
+	tg := f.glyphs[g]
+	return tg != nil && tg.color != nil && !tg.noFG
 }
 
 func (f *testFont) advance(g gfx.GlyphID) float32 {
@@ -146,6 +154,24 @@ func badgeList(_ *testFont, fg gfx.Color) *gfx.DisplayList {
 	return b.Finish()
 }
 
+// medalList is the color glyph gMedal: gBadge without its star, so it
+// does not paint with the foreground color.
+func medalList(_ *testFont, _ gfx.Color) *gfx.DisplayList {
+	b := gfx.NewBuilder()
+	var disc gfx.Path
+	addEllipse(&disc, 0.4, -0.35, 0.36, 0.36, false)
+	b.FillPath(disc, gfx.NonZero, gfx.LinearGradient{
+		Start: gfx.Pt(0.04, -0.71), End: gfx.Pt(0.76, 0.01),
+		Stops: stops(amber, rose, fuchsia),
+	})
+	b.PushLayer(0.5, gfx.SrcOver)
+	var hl gfx.Path
+	addEllipse(&hl, 0.3, -0.56, 0.14, 0.06, false)
+	b.FillPath(hl, gfx.NonZero, gfx.White)
+	b.PopLayer()
+	return b.Finish()
+}
+
 // loopList is the color glyph gLoop: a ring in fg and, inside it, the same
 // glyph at half size, which draws itself again until the nesting limit.
 func loopList(f *testFont, fg gfx.Color) *gfx.DisplayList {
@@ -198,6 +224,7 @@ func newTestFont(name string) *testFont {
 	add(gI, i, 0.28)
 
 	f.glyphs[gBadge] = &testGlyph{bounds: badgeList(f, gfx.Black).Bounds(), adv: 0.8, color: badgeList}
+	f.glyphs[gMedal] = &testGlyph{bounds: medalList(f, gfx.Black).Bounds(), adv: 0.8, color: medalList, noFG: true}
 	f.glyphs[gLoop] = &testGlyph{bounds: gfx.Rect{X0: 0, Y0: -0.8, X1: 0.8, Y1: 0}, adv: 0.84, color: loopList}
 	return f
 }

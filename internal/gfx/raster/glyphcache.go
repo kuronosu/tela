@@ -57,13 +57,15 @@ type glyphKey struct {
 	kind   uint8       // keyGlyph or keySprite
 	// keySprite: the nesting depth of the sprite's color glyph, which
 	// decides how deep the color glyphs inside it are drawn (see
-	// maxGlyphNesting), and the float32 bits of the foreground color.
+	// maxGlyphNesting), and the float32 bits of the foreground color, zero
+	// for a glyph that does not paint with it (glyphEntry.fg).
 	depth uint8
 	fg    [4]uint32
 }
 
 // Key kinds: a glyph's mask (or the knowledge that it is empty or a color
-// glyph), and a color glyph's sprite for one foreground color.
+// glyph), and a color glyph's sprite: for one foreground color if the glyph
+// paints with it, for every color otherwise.
 const (
 	keyGlyph = iota
 	keySprite
@@ -85,6 +87,9 @@ type glyphEntry struct {
 	key        glyphKey
 	prev, next *glyphEntry
 	kind       uint8
+	// fg is set on an entryColor whose glyph paints with the foreground
+	// color (gfx.ForegroundColorFont), so its sprites are keyed by it.
+	fg bool
 	// rect holds the device pixels of data, relative to the snapped pen
 	// position (whole pixels); data is row-major with no padding.
 	rect image.Rectangle
