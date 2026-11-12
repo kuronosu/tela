@@ -204,11 +204,11 @@ type Box struct {
 	inlineVal   bool
 	// inlineOOF: an inline element whose content has out-of-flow
 	// elements (inlineLevel), hoisted out of its paragraph.
-	inlineOOF   bool
-	sibFrame    uint64
-	sibIndex    int32
-	sibCount    int32
-	restyled    bool
+	inlineOOF bool
+	sibFrame  uint64
+	sibIndex  int32
+	sibCount  int32
+	restyled  bool
 	// remapQueued: in Tree.remapQ (its children's layout styles are
 	// mapped again); remapSelf: in Tree.remapSelfQ (its own is);
 	// mappedAt is Tree.remapGen when its layout style was last mapped.

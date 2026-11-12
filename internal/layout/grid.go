@@ -14,7 +14,6 @@
 
 package layout
 
-
 // emptyGrid is the template of a grid container without one.
 var emptyGrid GridTemplate
 
