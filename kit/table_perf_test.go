@@ -91,6 +91,23 @@ func (perfHeader) Build() tela.Node {
 	return h.Div(h.Class("p-2"), h.Text(fmt.Sprintf("updates: %d", n)))
 }
 
+// perfCellSet are the setters of the texts of the perfCells of the
+// fourth row: its second column (auto) and its last one (140px).
+var perfCellSet [2]func(string)
+
+// perfCell is a body cell's content with a state of its own, so that its
+// text changes without building the table again (a live value in a cell).
+type perfCell struct {
+	v   string
+	set int
+}
+
+func (c perfCell) Build() tela.Node {
+	v, set := tela.UseState(c.v)
+	perfCellSet[c.set] = set.Set
+	return h.Text(v)
+}
+
 // perfPage is a header and a table in a scroll container. With owner true
 // the counter is the page's own state, so a bump rebuilds the page (and
 // the table, whose func props never compare equal); otherwise it is the
@@ -113,7 +130,12 @@ func perfTable(rows int, virtual bool) kit.Table[trow] {
 	cols := make([]kit.Column[trow], len(widths))
 	for c := range cols {
 		cols[c] = kit.Column[trow]{Header: fmt.Sprintf("Column %d", c), Width: widths[c],
-			Cell: func(r trow) tela.Node { return h.Text(r.v[c]) }}
+			Cell: func(r trow) tela.Node {
+				if r.i == 3 && (c == 1 || c == 5) {
+					return perfCell{r.v[c], c / 5}
+				}
+				return h.Text(r.v[c])
+			}}
 	}
 	cols[5].Align = kit.AlignRight
 	cols[5].Sort = func(a, b trow) int { return cmp.Compare(a.v[5], b.v[5]) }
@@ -158,17 +180,28 @@ func perfCase(b *testing.B, p perfPage, op func(r *perfRig, i int)) {
 	b.ReportMetric(float64(last.Styles), "styles")
 	b.ReportMetric(float64(last.Layouts), "layouts")
 	b.ReportMetric(float64(last.Paints), "paints")
+	b.ReportMetric(float64(last.LaidOut), "laidout")
+	b.ReportMetric(float64(last.Remapped), "remapped")
+	b.ReportMetric(float64(last.Placed), "placed")
 }
 
 func statsOf(a, b core.Stats) core.Stats {
 	return core.Stats{Builds: b.Builds - a.Builds, Styles: b.Styles - a.Styles, Layouts: b.Layouts - a.Layouts,
-		Paints: b.Paints - a.Paints, Mounts: b.Mounts - a.Mounts, Unmounts: b.Unmounts - a.Unmounts}
+		Paints: b.Paints - a.Paints, Mounts: b.Mounts - a.Mounts, Unmounts: b.Unmounts - a.Unmounts,
+		LaidOut: b.LaidOut - a.LaidOut, Remapped: b.Remapped - a.Remapped, Placed: b.Placed - a.Placed}
 }
 
 func perfOps() map[string]func(r *perfRig, i int) {
 	return map[string]func(r *perfRig, i int){
 		// A state outside the table changes (a spring value, a counter).
 		"bump": func(r *perfRig, i int) { perfBump(i + 1) },
+		// The text of a visible cell of an auto column changes (its own
+		// state): "Paid" and "Sent" in turn, narrower than the column's
+		// widest cell ("Pending"), so the column keeps its width.
+		"cell": func(r *perfRig, i int) { perfCellSet[0]([]string{"Paid", "Sent"}[i%2]) },
+		// The amount of the same row changes, in its 140px column: the
+		// cell's new text measures as the old one.
+		"cellpx": func(r *perfRig, i int) { perfCellSet[1](fmt.Sprintf("$%d.00", 250+i%2)) },
 		// The pointer crosses from one row to the next (hover styles).
 		"hover": func(r *perfRig, i int) {
 			r.tree.HandlePointer(platform.PointerEvent{Action: platform.PointerMove, Pos: platform.Point{X: 300, Y: 120 + float32(i%8)*41}, Time: r.now})
@@ -196,7 +229,7 @@ func perfOps() map[string]func(r *perfRig, i int) {
 func BenchmarkTablePerf(b *testing.B) {
 	for _, rows := range []int{240, 2000} {
 		for _, owner := range []bool{false, true} {
-			for _, op := range []string{"bump", "hover", "scroll", "fling"} {
+			for _, op := range []string{"bump", "hover", "cell", "cellpx", "scroll", "fling"} {
 				if owner && op != "bump" {
 					continue
 				}

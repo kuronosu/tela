@@ -14,7 +14,6 @@
 
 package layout
 
-import "sort"
 
 // emptyGrid is the template of a grid container without one.
 var emptyGrid GridTemplate
@@ -279,7 +278,7 @@ func (e *Engine) grid(n Node, st *Style, in input) output {
 	alignTracks(content.h, padding.t, border.t, rows, alignContent, false)
 
 	// 9. Size, align and position the items, in tree order.
-	sort.Slice(items, func(i, j int) bool { return items[i].order < items[j].order })
+	e.sortItems(items, func(a, b *gridItem) int { return a.order - b.order })
 	gs := &gridItemSizing{justifyItems: justifyItems, alignItems: alignItems, dir: dir, containerW: borderBox.w, border: border, scrolls: scrolls}
 	var of rect
 	escapes := false

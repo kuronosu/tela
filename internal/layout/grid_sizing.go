@@ -6,7 +6,7 @@ package layout
 
 import (
 	"math"
-	"sort"
+	"slices"
 )
 
 // trackEstimate estimates the size of a track of the other axis while
@@ -144,7 +144,7 @@ func gutterAlignmentAdjustment(align Align, size opt, estimate trackEstimate, tr
 func (ts *trackSizer) resolveBaselines() {
 	items := ts.items
 	other := otherAxis(ts.a)
-	sort.SliceStable(items, func(i, j int) bool { return items[i].lines(other).start < items[j].lines(other).start })
+	ts.e.sortItems(items, func(a, b *gridItem) int { return a.lines(other).start - b.lines(other).start })
 	for i := 0; i < len(items); {
 		j := i + 1
 		for j < len(items) && items[j].lines(other).start == items[i].lines(other).start {
@@ -186,6 +186,32 @@ func (ts *trackSizer) resolveBaselines() {
 			}
 		}
 	}
+}
+
+// sortItems sorts items stably by cmp, as sort.SliceStable would. A
+// gridItem is large, and the swaps of sorting the items themselves were
+// most of the layout time of a grid of thousands of items: the indexes are
+// sorted, the items moved once, and items already in order not at all.
+func (e *Engine) sortItems(items []gridItem, cmp func(a, b *gridItem) int) {
+	sorted := true
+	for i := 1; i < len(items) && sorted; i++ {
+		sorted = cmp(&items[i-1], &items[i]) <= 0
+	}
+	if sorted {
+		return
+	}
+	idx := slices.Grow(e.gridIdx[:0], len(items))[:len(items)]
+	for i := range idx {
+		idx[i] = int32(i)
+	}
+	slices.SortStableFunc(idx, func(a, b int32) int { return cmp(&items[a], &items[b]) })
+	tmp := slices.Grow(e.gridTmp[:0], len(items))[:len(items)]
+	for i, j := range idx {
+		tmp[i] = items[j]
+	}
+	copy(items, tmp)
+	clear(tmp) // no node outlives its layout here
+	e.gridIdx, e.gridTmp = idx[:0], tmp[:0]
 }
 
 // Contributions with margins (Taffy's IntrinsicSizeMeasurer).
@@ -242,16 +268,18 @@ func (ts *trackSizer) resolveIntrinsic(avail AvailableSpace) {
 
 	// Items are processed by increasing span, the ones crossing flexible
 	// tracks last, all together.
-	sort.SliceStable(items, func(i, j int) bool {
-		fi, fj := items[i].crossesFlex[a], items[j].crossesFlex[a]
-		if fi != fj {
-			return !fi
+	ts.e.sortItems(items, func(x, y *gridItem) int {
+		fx, fy := x.crossesFlex[a], y.crossesFlex[a]
+		if fx != fy {
+			if fy {
+				return -1
+			}
+			return 1
 		}
-		si, sj := items[i].span(a), items[j].span(a)
-		if si != sj {
-			return si < sj
+		if sx, sy := x.span(a), y.span(a); sx != sy {
+			return sx - sy
 		}
-		return items[i].lines(a).start < items[j].lines(a).start
+		return x.lines(a).start - y.lines(a).start
 	})
 
 	constrained := avail.Kind != Definite

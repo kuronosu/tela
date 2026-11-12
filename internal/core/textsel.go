@@ -535,6 +535,7 @@ func (t *Tree) refreshHighlights() {
 // next frame (record.go).
 func (t *Tree) paraSelChanged(bx *Box) {
 	bx.para.ver++
+	t.markPlace(bx)
 	if bx.pcs != nil && !t.inFrame {
 		p := painter{t: t, scale: float64(t.scale)}
 		p.notePlaced(bx)

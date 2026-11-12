@@ -128,6 +128,9 @@ type layoutState struct {
 	// ticker marks for painting.
 	active []*Box
 	tick   *layoutTicker
+	// boxes are the boxes given a layout animation state, which every
+	// place places (place.go); those that dropped it are skipped.
+	boxes []*Box
 }
 
 // layoutTicker is the anim.Animator of the layout animations of a tree.
@@ -204,6 +207,7 @@ func (t *Tree) syncLayoutAnim(bx *Box) {
 	if la == nil {
 		la = &layoutAnim{bx: bx, scale: gfx.Point{X: 1, Y: 1}}
 		bx.lanim = la
+		t.la.boxes = append(t.la.boxes, bx)
 	} else if la.id == id {
 		return
 	}

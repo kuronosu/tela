@@ -393,6 +393,7 @@ func (t *Tree) noteStyle(bx *Box, old *style.ComputedStyle) bool {
 		if pb.para != nil {
 			pb.para.ver++
 		}
+		t.markPlace(pb)
 		bx = pb
 	}
 	if bx.pcs == nil {

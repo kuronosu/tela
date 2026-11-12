@@ -24,6 +24,7 @@ func TestMain(m *testing.M) {
 	if f := flag.Lookup("test.bench"); f == nil || f.Value.String() == "" {
 		checkLayers = true
 		checkSemantics = true
+		checkLayout = true
 	}
 	code := m.Run()
 	if os.Getenv("TELA_PEAK_RSS") == "1" {

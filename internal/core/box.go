@@ -209,7 +209,32 @@ type Box struct {
 	sibIndex    int32
 	sibCount    int32
 	restyled    bool
-	remapQueued bool
+	// remapQueued: in Tree.remapQ (its children's layout styles are
+	// mapped again); remapSelf: in Tree.remapSelfQ (its own is);
+	// mappedAt is Tree.remapGen when its layout style was last mapped.
+	remapQueued, remapSelf bool
+	mappedAt               uint64
+
+	// Partial places (place.go): placeDirty marks the box for the next
+	// place, dirtyBelow a box below it; placeDeep is the place in which
+	// its whole subtree is placed; placedKids and placedCB are its
+	// children and whether it contained positioned boxes at its last
+	// place; listed says which list of the sticky boxes and floating
+	// elements it is in.
+	placeDirty, dirtyBelow bool
+	placeDeep              uint64
+	placedKids             kidsRef
+	placedCB               bool
+	listed                 uint8
+	hasListed              bool // a listed box is below it
+	// kidIdx is the box's index in its parent's children; aggs are the
+	// sums of a box with many children by runs of aggChunk, aggDirty the
+	// runs that hold a marked child and aggAll that they all may (paint.go:
+	// aggChunks).
+	kidIdx   int32
+	aggs     []kidAgg
+	aggDirty []uint64
+	aggAll   bool
 }
 
 func newBox(t *Tree, el *Element, kind style.Kind) *Box {
@@ -327,7 +352,8 @@ func (t *Tree) updateImage(el *Element) {
 		// From a decoded source back to Src or SrcImage (or none).
 		b.med = nil
 		b.img, b.imgSrc = nil, nil
-		t.engine.MarkDirty(b)
+		t.markPlace(b)
+		t.markContent(b)
 		b.queueRemap()
 		t.markMediaPaint(b)
 	}
@@ -343,26 +369,54 @@ func (t *Tree) updateImage(el *Element) {
 	}
 	old := b.img
 	b.img, b.imgSrc = img, d.src
+	t.markPlace(b)
 	if old == nil || img == nil || old.Width() != img.Width() || old.Height() != img.Height() {
-		t.engine.MarkDirty(b)
+		t.markContent(b)
 		b.queueRemap() // the natural aspect ratio is part of the layout style
 	}
 	t.dirty()
 }
 
+// markContent tells layout that the content of box b changed (its
+// paragraph's text or text styles, its image, its field's text) and not
+// its layout style: layout measures it again and lays out its ancestors
+// only if its results changed (layout.Engine.MarkContent, ADR-280). A
+// paragraph whose parent reads more of it than its size, its atomic
+// inlines (its children) or the out-of-flow boxes anchored in its text,
+// is marked dirty.
+func (t *Tree) markContent(b *Box) {
+	if len(b.kids) > 0 || b.para != nil && hasAnchors(b.para.boxes) {
+		t.engine.MarkDirty(b)
+		return
+	}
+	t.engine.MarkContent(b)
+}
+
+// hasAnchors reports whether a paragraph's inline boxes hold the place of
+// an out-of-flow box.
+func hasAnchors(boxes []text.InlineBox) bool {
+	for i := range boxes {
+		if boxes[i].Anchor {
+			return true
+		}
+	}
+	return false
+}
+
 // queueRemap asks the layout phase to map the layout styles of b's
-// children and of b again. A box is mapped by its parent's remap, so both
-// are queued: b may already be queued as the parent of a child that asked
-// first (a child whose structure changed in the box phase), which maps
-// b's children but not b.
+// children and of b again. b is mapped on its own (Tree.remapSelfQ), not
+// with its siblings: a sibling's layout style reads its parent, not b
+// (mapLayoutStyle), and a change that moves the parent's last element (a
+// child that starts or stops being display: contents, mounts or unmounts)
+// changes the parent's children, which queues the parent.
 func (b *Box) queueRemap() {
 	if !b.remapQueued {
 		b.remapQueued = true
 		b.tree.remapQ = append(b.tree.remapQ, b)
 	}
-	if p := b.parent; p != nil && !p.remapQueued {
-		p.remapQueued = true
-		b.tree.remapQ = append(b.tree.remapQ, p)
+	if !b.remapSelf {
+		b.remapSelf = true
+		b.tree.remapSelfQ = append(b.tree.remapSelfQ, b)
 	}
 }
 
@@ -486,9 +540,10 @@ func (p *paragraph) rescale(t *Tree, b *Box) {
 	}
 	p.lay.SetScale(t.scale)
 	p.ver++
+	t.markPlace(b)
 	p.inkAt, p.fragAt = [3]float32{}, [2]float32{}
 	p.brokeAt = float32(math.NaN())
-	t.engine.MarkDirty(b)
+	t.markContent(b)
 	t.dirty()
 }
 
@@ -724,7 +779,10 @@ func (p *paragraph) measureInline(t *Tree, in layout.MeasureInput, a *layout.Ato
 			if ok {
 				a.Place(i, r.X0, r.Y0)
 			}
-			p.atoms[i].hiddenAtom = !ok
+			if a := p.atoms[i]; a.hiddenAtom == ok {
+				a.hiddenAtom = !ok
+				t.markPlace(a)
+			}
 		}
 	}
 	m := layout.Measurement{Width: w, Height: l.Height()}
@@ -941,6 +999,7 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 	p := b.para
 	if p != nil {
 		p.ver++ // its elements, paints or text may change (record.go)
+		t.markPlace(b)
 		// The edges were just assembled at the tree's scale (inlineEdges).
 		p.edgeK = t.scale
 	}
@@ -998,6 +1057,7 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 func (t *Tree) shapeParagraph(b *Box, p *paragraph) {
 	p.final, p.sized, p.fragAt = nil, false, [2]float32{}
 	t.semGeomBox(b) // the bounds of its texts and inline elements
+	t.markPlace(b)
 	p.inkAt = [3]float32{}
 	p.lay = nil
 	if !p.empty {
@@ -1006,7 +1066,7 @@ func (t *Tree) shapeParagraph(b *Box, p *paragraph) {
 	}
 	inf := float32(math.Inf(1))
 	p.brokeAt, p.alignedAt = inf, inf
-	t.engine.MarkDirty(b)
+	t.markContent(b)
 	t.dirty()
 }
 

@@ -104,6 +104,11 @@ func outerSize(s size) output { return output{size: s} }
 // layout.
 type Engine struct {
 	pending []Node // dirty relayout boundaries
+	content []Node // nodes passed to MarkContent since the last Compute
+
+	// gridIdx and gridTmp are the scratch of sortItems.
+	gridIdx []int32
+	gridTmp []gridItem
 
 	// measuring counts the computeSize runs on the call stack; clobbers
 	// counts full layouts done inside them (see layout).
@@ -113,6 +118,11 @@ type Engine struct {
 	measureCalls int
 	runs         int
 }
+
+// Runs returns the number of layout algorithm runs since the Engine was
+// created: the requests (full layouts and size queries) that missed the
+// caches, one per node and request. A Compute with nothing dirty adds none.
+func (e *Engine) Runs() int { return e.runs }
 
 // layout computes the layout of node n for request in, from the cache if
 // possible (Taffy's compute_child_layout).

@@ -99,11 +99,13 @@ func (t *Tree) restyle(el *Element) {
 	cs = t.animRestyle(el, bx, t.beforeChange(bx, before, cs, in), cs)
 	t.countTextColorFn(old, cs)
 	bx.cs = cs
+	t.markPlace(bx)
 	t.textColorRestyled(el, old, cs)
 	t.semStyled(bx, old, cs)
 	if pb := bx.inPara; pb != nil && pb.para != nil {
 		// Its paragraph paints its decorations with its style (record.go).
 		pb.para.ver++
+		t.markPlace(pb)
 	}
 	if bx.fld != nil {
 		t.fieldRestyled(bx.fld, old, cs)
@@ -375,9 +377,11 @@ func inlineBoxChanged(a, b *style.ComputedStyle, k float32) bool {
 // ComputedStyle to layout.Style.
 
 // remapPhase maps the layout styles of the boxes whose style or
-// structure changed, and of their siblings and children (which depend on
-// the parent's display, space-* and text-align).
+// structure changed, and of their children (which depend on the parent's
+// display, mode, space-* and text-align). Each box is mapped once per
+// pass.
 func (t *Tree) remapPhase() {
+	t.remapGen++
 	for _, b := range t.restyled {
 		b.restyled = false
 		b.queueRemap()
@@ -391,6 +395,14 @@ func (t *Tree) remapPhase() {
 	}
 	clear(t.remapQ)
 	t.remapQ = t.remapQ[:0]
+	for _, b := range t.remapSelfQ {
+		b.remapSelf = false
+		if p := b.parent; p != nil && b.inPara == nil && b.mappedAt != t.remapGen {
+			t.remapKid(p, b, spaceLast(p))
+		}
+	}
+	clear(t.remapSelfQ)
+	t.remapSelfQ = t.remapSelfQ[:0]
 	// Boxes whose layout-phase deferred props read a Value that changed
 	// (a box remapped above is evaluated twice, with the same result).
 	for _, b := range t.relayoutQ {
@@ -400,27 +412,49 @@ func (t *Tree) remapPhase() {
 	clear(t.relayoutQ)
 	t.relayoutQ = t.relayoutQ[:0]
 	if t.rootBox != nil && t.rootBox.cs != nil {
-		ls := mapLayoutStyle(t.rootBox, nil, false)
-		ls.Width, ls.Height = layout.Px(t.viewport.W), layout.Px(t.viewport.H)
-		t.chromeBorder(&ls) // the fallback title bar's band (chrome.go)
-		keepGrid(&ls, &t.rootBox.ls)
+		ls := t.rootLayoutStyle()
 		if ls != t.rootBox.ls {
 			t.rootBox.ls = ls
 			t.engine.MarkDirty(t.rootBox)
 		}
 	}
+	if checkLayout {
+		t.checkLayoutStyles()
+	}
+}
+
+// rootLayoutStyle returns the layout style of the root box: the
+// viewport's size.
+func (t *Tree) rootLayoutStyle() layout.Style {
+	ls := mapLayoutStyle(t.rootBox, nil, false)
+	ls.Width, ls.Height = layout.Px(t.viewport.W), layout.Px(t.viewport.H)
+	t.chromeBorder(&ls) // the fallback title bar's band (chrome.go)
+	keepGrid(&ls, &t.rootBox.ls)
+	return ls
 }
 
 // remap maps the layout styles of p's children.
 func (t *Tree) remap(p *Box) {
 	last := spaceLast(p)
 	for _, k := range p.kids {
-		ls := mapLayoutStyle(k, p, hasSpaceAfter(k, last))
-		keepGrid(&ls, &k.ls)
-		if ls != k.ls {
-			k.ls = ls
-			t.engine.MarkDirty(k)
+		if k.mappedAt != t.remapGen {
+			t.remapKid(p, k, last)
 		}
+	}
+}
+
+// remapKid maps the layout style of box k, a child of p whose last
+// element is last (spaceLast), and marks it dirty for layout when it
+// changed.
+func (t *Tree) remapKid(p, k *Box, last *Element) {
+	t.stats.Remapped++
+	k.mappedAt = t.remapGen
+	ls := mapLayoutStyle(k, p, hasSpaceAfter(k, last))
+	keepGrid(&ls, &k.ls)
+	if ls != k.ls {
+		k.ls = ls
+		t.engine.MarkDirty(k)
+		t.markPlace(k)
 	}
 }
 

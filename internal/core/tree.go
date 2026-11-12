@@ -135,6 +135,14 @@ type Stats struct {
 	Breaks     int // paragraph line breakings (text.Layout.BreakLines)
 	Layouts    int // layout passes (layout.Engine.Compute)
 	Paints     int // paint passes
+	// LaidOut counts the boxes laid out: the layout requests of a box
+	// (full layouts and size queries) that missed its caches
+	// (layout.Engine.Runs). Remapped counts the layout styles mapped
+	// from computed styles, and Placed the boxes the paint phase placed
+	// (paint.go).
+	LaidOut  int
+	Remapped int
+	Placed   int
 }
 
 // Tree is a mounted UI: the Element tree, the box tree and the frame
@@ -206,7 +214,8 @@ type Tree struct {
 	// Work queues of the phases (UI thread).
 	buildQ, styleQ, boxQ []*Element
 	restyled             []*Box
-	remapQ               []*Box
+	remapQ, remapSelfQ   []*Box
+	remapGen             uint64 // numbers the remap passes (Box.mappedAt)
 	frame                uint64 // frame counter: the validity of per-frame scratch state
 	// frameStart is frame at the start of the current Frame: the passes
 	// inside it (a rerun, a virtual list's relayout) advance frame so that
@@ -300,8 +309,10 @@ type Tree struct {
 	// disabledChanged skips the fields the reconciliation updated already.
 	stGen uint64
 
-	// lay holds the layers and the composed frames (layer.go).
+	// lay holds the layers and the composed frames (layer.go), plc the
+	// state of the partial places (place.go).
 	lay layerState
+	plc placeState
 	// stickies are the sticky boxes of the last place, in tree order
 	// (sticky.go).
 	stickies []*Box
@@ -862,7 +873,14 @@ func (t *Tree) layoutPhase() {
 	}
 	t.remapPhase()
 	t.stats.Layouts++
+	runs := t.engine.Runs()
 	t.engine.Compute(t.rootBox, layout.DefiniteSpace(t.viewport.W), layout.DefiniteSpace(t.viewport.H))
+	t.stats.LaidOut += t.engine.Runs() - runs
+	if checkLayout {
+		st := t.stats
+		t.checkLayoutResults()
+		t.stats = st
+	}
 	// The extents follow in the scroll phase (or floatRelayout): the
 	// programmatic scrolls of the layout effects wait for them (scroll.go).
 	t.scr.stale = true

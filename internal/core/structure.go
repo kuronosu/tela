@@ -205,8 +205,8 @@ func (t *Tree) buildBoxes(el *Element) {
 	clear(bx.anon[nAnon:])
 	bx.anon = bx.anon[:nAnon]
 
-	for _, k := range kids {
-		k.parent = bx
+	for i, k := range kids {
+		k.parent, k.kidIdx = bx, int32(i)
 		if bx.mode != modeParagraph {
 			k.hiddenAtom = false // block-level: on no line
 		}
@@ -219,6 +219,7 @@ func (t *Tree) buildBoxes(el *Element) {
 		}
 		t.engine.MarkDirty(bx)
 		bx.queueRemap()
+		t.markPlace(bx)
 		t.dirty()
 	}
 	t.boxFree.put(kids)
@@ -339,8 +340,8 @@ func atomicInline(bx *Box) bool {
 // children.
 func (t *Tree) setAtomKids(a *Box) {
 	atoms := a.para.atoms
-	for _, k := range atoms {
-		k.parent = a
+	for i, k := range atoms {
+		k.parent, k.kidIdx = a, int32(i)
 	}
 	if slices.Equal(atoms, a.kids) {
 		return
@@ -351,6 +352,7 @@ func (t *Tree) setAtomKids(a *Box) {
 	}
 	t.engine.MarkDirty(a)
 	a.queueRemap()
+	t.markPlace(a)
 	t.dirty()
 }
 
@@ -376,6 +378,7 @@ func (t *Tree) anonBox(owner *Box, i int, lines bool) *Box {
 			a.cs.TextOverflow, a.cs.LineClamp = owner.cs.TextOverflow, owner.cs.LineClamp
 		}
 		a.anonFrom, a.anonLines = owner.cs, lines
+		t.markPlace(a)
 	}
 	a.built = true
 	a.mode = modeParagraph

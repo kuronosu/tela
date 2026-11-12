@@ -161,6 +161,8 @@ type Data struct {
 	hasLast    bool
 	boundary   bool // the node is a relayout boundary (see MarkDirty)
 	needLayout bool // the node is a dirty relayout boundary
+	// contentDirty: the node is in Engine.content (MarkContent).
+	contentDirty bool
 
 	// static is the static position of an absolutely positioned node,
 	// relative to its parent's border box, recorded by the parent.

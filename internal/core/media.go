@@ -542,7 +542,7 @@ func (t *Tree) updateMedia(el *Element, s *srcSpec) {
 		b.img = a.raster
 	}
 	if w, h, r := b.imageSize(); w != ow || h != oh || r != or || b.noNaturalSize() != onn {
-		t.engine.MarkDirty(b)
+		t.markContent(b)
 		b.queueRemap() // the natural aspect ratio is part of the layout style
 	}
 	t.markMediaPaint(b)
@@ -550,6 +550,7 @@ func (t *Tree) updateMedia(el *Element, s *srcSpec) {
 
 // markMediaPaint repaints b after a change of its image or tint.
 func (t *Tree) markMediaPaint(b *Box) {
+	t.markPlace(b)
 	if b.parent != nil || b.inPara != nil {
 		t.markPaint(b)
 	}

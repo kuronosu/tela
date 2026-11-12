@@ -539,6 +539,9 @@ func (t *Tree) syncBehaviorProps(el *Element, old, d *desc) {
 	if old.ref != d.ref || old.scope != d.scope || el.fscope != nil {
 		t.updateFocus(el, old)
 	}
+	if old.animLayout != d.animLayout || old.layoutID != d.layoutID {
+		t.markPlace(el.box) // its place makes its layout animation state
+	}
 	if old.float != d.float {
 		// A new prop (each build makes one) places the element again:
 		// its Place and AnchorRect closures cannot be compared, and
