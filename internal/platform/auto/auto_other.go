@@ -27,3 +27,6 @@ func native() (platform.Backend, error) {
 	return nil, fmt.Errorf("auto: the native backend for GOOS=%s is not implemented yet; "+
 		"set %s=headless to run without a window: %w", runtime.GOOS, EnvBackend, platform.ErrUnavailable)
 }
+
+// prefetch does nothing: this OS reads no system state ahead.
+func prefetch(string) {}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/internal/freedesktop"
 	"github.com/kuronosu/tela/internal/platform/wayland"
 	"github.com/kuronosu/tela/internal/platform/x11"
 )
@@ -52,4 +53,13 @@ func native() (platform.Backend, error) {
 	return nil, fmt.Errorf("auto: no display server available (wayland: %w; x11: %w); "+
 		"run inside a Wayland or X11 session, or set %s=headless to run without a window",
 		wlErr, xErr, EnvBackend)
+}
+
+// prefetch starts reading the portal's settings when the backend named
+// name ("" for the native choice) is Wayland or X11, which share the
+// freedesktop services that take the read over.
+func prefetch(name string) {
+	if name == "" || name == "wayland" || name == "x11" {
+		freedesktop.PrefetchSettings()
+	}
 }

@@ -34,3 +34,6 @@ func native() (platform.Backend, error) {
 	}
 	return b, nil
 }
+
+// prefetch does nothing: the Win32 backend's settings are local reads.
+func prefetch(string) {}

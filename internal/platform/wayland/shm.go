@@ -7,6 +7,7 @@ import (
 	"image"
 	"slices"
 	"sync/atomic"
+	"time"
 
 	"golang.org/x/sys/unix"
 
@@ -31,6 +32,30 @@ import (
 // newest frame and may be read even while the compositor holds it, then the
 // current damage from the framebuffer. This is the buffer-age technique
 // (EGL_EXT_buffer_age) with exact regions instead of an age.
+//
+// Trimming: a third buffer is allocated when the compositor still holds
+// both others at a Present (it held the front buffer and a queued one, or
+// was slow to release once). Once two suffice again, the third stays free
+// and unused (acquire prefers the buffer with the least to repair, which
+// alternates between the two newest), a frame of shared memory (33 MB at
+// 4K). The chain destroys a free buffer beyond keepBuffers once it has
+// gone unused for trimDelay: on the backend's clock, so an idle app, which
+// presents nothing, releases it too (the loop waits for trimDeadline).
+// Each trim doubles the next delay (trimAfter, 2x, 4x... up to
+// maxTrimAfter): a compositor that needs a third buffer only now and then
+// gets its memory back within a second, and one that needs it regularly
+// reallocates it at most once a minute instead of every second.
+
+// keepBuffers is the number of buffers a chain never trims below.
+const keepBuffers = 2
+
+// trimAfter is the first delay after which an unused buffer beyond
+// keepBuffers is destroyed; maxTrimAfter bounds the doubled delays.
+// Variables for tests.
+var (
+	trimAfter    = time.Second
+	maxTrimAfter = time.Minute
+)
 
 // maxStaleRects bounds a buffer's stale list; beyond it the list collapses
 // into its bounding box.
@@ -44,6 +69,7 @@ type shmBuffer struct {
 	stride int
 
 	busy  bool              // attached and not yet released by the compositor
+	used  time.Duration     // when acquire last returned it (swapchain.now)
 	dead  bool              // no longer the chain's size: destroy on release
 	stale []image.Rectangle // regions older than the newest frame
 	free  func()            // releases wl and data
@@ -82,6 +108,12 @@ type swapchain struct {
 	// copyRect writes the pixels of r from fb into a buffer, converting to
 	// the buffer's pixel format.
 	copyRect func(dst *shmBuffer, fb *image.RGBA, r image.Rectangle)
+	// now is the clock of the buffers' uses and of trims (the backend's
+	// Now); nil never trims.
+	now func() time.Duration
+	// trims counts the trims made, which lengthen the next delay
+	// (trimDelay). A resize keeps it: it describes the compositor.
+	trims int
 }
 
 // acquire returns a free buffer of the given size, allocating one when
@@ -99,16 +131,76 @@ func (c *swapchain) acquire(size image.Point) (*shmBuffer, error) {
 			best = b
 		}
 	}
-	if best != nil {
-		return best, nil
+	if best == nil {
+		b, err := c.alloc(size)
+		if err != nil {
+			return nil, err
+		}
+		b.stale = []image.Rectangle{{Max: size}}
+		c.bufs = append(c.bufs, b)
+		best = b
 	}
-	b, err := c.alloc(size)
-	if err != nil {
-		return nil, err
+	if c.now != nil {
+		best.used = c.now()
 	}
-	b.stale = []image.Rectangle{{Max: size}}
-	c.bufs = append(c.bufs, b)
-	return b, nil
+	return best, nil
+}
+
+// trimDelay is how long a buffer beyond keepBuffers stays unused before
+// trim destroys it: trimAfter, doubled by every trim made, at most
+// maxTrimAfter.
+func (c *swapchain) trimDelay() time.Duration {
+	d := trimAfter
+	for range c.trims {
+		if d >= maxTrimAfter {
+			break
+		}
+		d *= 2
+	}
+	return min(d, maxTrimAfter)
+}
+
+// trimmable reports whether b may be trimmed: free, and not the newest
+// frame (the source of the other buffers' repairs).
+func (c *swapchain) trimmable(b *shmBuffer) bool {
+	return !b.busy && b != c.prev
+}
+
+// trimDeadline returns when trim may next destroy a buffer: the oldest
+// use of a trimmable buffer plus trimDelay, while the chain has more than
+// keepBuffers. A busy buffer gives none: its release wakes the loop,
+// which asks again.
+func (c *swapchain) trimDeadline() (time.Duration, bool) {
+	if c.now == nil || len(c.bufs) <= keepBuffers {
+		return 0, false
+	}
+	var at time.Duration
+	found := false
+	for _, b := range c.bufs {
+		if c.trimmable(b) && (!found || b.used < at) {
+			at, found = b.used, true
+		}
+	}
+	return at + c.trimDelay(), found
+}
+
+// trim destroys the trimmable buffers unused for trimDelay at now, the
+// oldest first, while the chain has more than keepBuffers.
+func (c *swapchain) trim(now time.Duration) {
+	trimmed := false
+	for len(c.bufs) > keepBuffers {
+		at, ok := c.trimDeadline()
+		if !ok || now < at {
+			break
+		}
+		i := slices.IndexFunc(c.bufs, func(b *shmBuffer) bool { return c.trimmable(b) && b.used+c.trimDelay() == at })
+		c.bufs[i].destroy()
+		c.bufs = slices.Delete(c.bufs, i, i+1)
+		trimmed = true
+	}
+	if trimmed {
+		c.trims++
+	}
 }
 
 // retire drops every buffer from the chain. Busy ones move to the retired
@@ -268,6 +360,25 @@ func allocShm(shm *protocols.WlShm, format protocols.WlShmFormat, size image.Poi
 		shmMappings.Add(-1)
 	}
 	return b, nil
+}
+
+// trimBuffers trims the windows' unused buffers that are due (swapchain.trim).
+func (b *Backend) trimBuffers(now time.Duration) {
+	for _, w := range b.surfaces {
+		w.chain.trim(now)
+	}
+}
+
+// trimDeadline returns the earliest trim of a window's unused buffer.
+func (b *Backend) trimDeadline() (time.Duration, bool) {
+	var at time.Duration
+	found := false
+	for _, w := range b.surfaces {
+		if d, ok := w.chain.trimDeadline(); ok && (!found || d < at) {
+			at, found = d, true
+		}
+	}
+	return at, found
 }
 
 // shmMappings counts the wl_shm buffers whose memory is still mapped in

@@ -3,7 +3,6 @@
 package freedesktop
 
 import (
-	"context"
 	"image/color"
 	"math"
 	"strconv"
@@ -18,7 +17,8 @@ import (
 // System settings v2 (ADR-209) from org.freedesktop.portal.Settings,
 // shared by the Wayland and X11 backends. The portal is read once, with
 // ReadAll, on the first SystemSettings call (core asks before its first
-// frame); SettingChanged signals keep the cache current, and a change of
+// frame), or before it on another goroutine when core.Run started a
+// prefetch (prefetch.go); SettingChanged signals keep the cache current, and a change of
 // the derived platform.SystemSettings is delivered as a SettingsEvent
 // through the loop.
 //
@@ -86,8 +86,9 @@ type settingKey struct{ ns, key string }
 // settingsState is the settings cache of a Desktop.
 type settingsState struct {
 	// UI thread only.
-	read bool                    // the portal was read (or found missing)
-	ui   platform.SystemSettings // what SystemSettings returns: the last value delivered
+	read  bool                    // SystemSettings answered once
+	taken bool                    // a prefetched read was taken over (prefetch.go): no read of its own
+	ui    platform.SystemSettings // what SystemSettings returns: the last value delivered
 
 	// Guarded by Desktop.mu: the signal goroutine writes them.
 	raw      map[settingKey]any // the portal's values, variants unwrapped
@@ -100,9 +101,28 @@ type settingsState struct {
 // a timeout; without a portal every value is zero) and subscribes to its
 // changes; later calls return the value of the last SettingsEvent
 // delivered (or of the first read). UI thread.
+//
+// When the Desktop took a read started by PrefetchSettings (prefetch.go),
+// the first call waits for that one instead, at most settingsWait: the
+// first frame shows the real settings, as with the read of its own. A
+// read that ends later leaves this call's zero values and delivers what
+// it read as a SettingsEvent.
 func (d *Desktop) SystemSettings() platform.SystemSettings {
-	if !d.settings.read {
-		d.settings.read = true
+	if d.settings.read {
+		return d.settings.ui
+	}
+	if d.pre != nil && d.pre.wait(settingsWait) {
+		d.adopt()
+	}
+	d.settings.read = true
+	switch {
+	case d.pre != nil:
+		// Still reading: zero values until it ends (adopt).
+	case d.settings.taken:
+		d.mu.Lock()
+		d.settings.ui = d.settings.reported
+		d.mu.Unlock()
+	default:
 		d.settings.ui = d.readSettings()
 	}
 	return d.settings.ui
@@ -126,25 +146,10 @@ func (d *Desktop) readSettings() platform.SystemSettings {
 		dbus.WithMatchInterface(ifaceSettings),
 		dbus.WithMatchMember("SettingChanged"))
 
-	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
-	defer cancel()
-	var all map[string]map[string]dbus.Variant
-	if err := conn.Object(portalName, portalPath).CallWithContext(ctx, ifaceSettings+".ReadAll", 0, settingsNamespaces).Store(&all); err != nil {
-		all = nil // the namespaces are unknown: zero values, changes still followed
-	}
+	all := readAll(conn)
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if d.settings.raw == nil {
-		d.settings.raw = map[settingKey]any{}
-	}
-	for ns, keys := range all {
-		for key, v := range keys {
-			k := settingKey{ns, key}
-			if _, changed := d.settings.raw[k]; !changed {
-				d.settings.raw[k] = unwrapVariant(v.Value())
-			}
-		}
-	}
+	d.settings.raw = mergeRead(d.settings.raw, all)
 	s := settingsFrom(d.settings.raw, d.kdeFonts)
 	d.settings.ready = true
 	d.settings.reported = s
@@ -155,18 +160,23 @@ func (d *Desktop) readSettings() platform.SystemSettings {
 // connection until it closes.
 func (d *Desktop) settingSignals(ch chan *dbus.Signal) {
 	for s := range ch {
-		if s.Name != ifaceSettings+".SettingChanged" || s.Path != portalPath {
-			continue
+		if ns, key, v, ok := settingChange(s); ok {
+			d.settingChanged(ns, key, v)
 		}
-		var (
-			ns, key string
-			v       dbus.Variant
-		)
-		if dbus.Store(s.Body, &ns, &key, &v) != nil {
-			continue
-		}
-		d.settingChanged(ns, key, unwrapVariant(v.Value()))
 	}
+}
+
+// settingChange decodes a SettingChanged signal of the portal; ok is
+// false for any other signal.
+func settingChange(s *dbus.Signal) (ns, key string, v any, ok bool) {
+	if s.Name != ifaceSettings+".SettingChanged" || s.Path != portalPath {
+		return "", "", nil, false
+	}
+	var variant dbus.Variant
+	if dbus.Store(s.Body, &ns, &key, &variant) != nil {
+		return "", "", nil, false
+	}
+	return ns, key, unwrapVariant(variant.Value()), true
 }
 
 // settingChanged records a changed value and, when the derived settings

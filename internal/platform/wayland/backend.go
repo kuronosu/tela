@@ -384,8 +384,9 @@ func (b *Backend) signal() {
 }
 
 // Settings returns the system settings from the XDG desktop portal (read
-// on the first call; changes arrive as SettingsEvents), shared with X11 in
-// internal/platform/internal/freedesktop. Zero without a portal.
+// on the first call, or before it by auto.Prefetch; changes arrive as
+// SettingsEvents), shared with X11 in internal/platform/internal/freedesktop.
+// Zero without a portal.
 func (b *Backend) Settings() platform.SystemSettings {
 	b.Desktop()
 	return b.desktop.SystemSettings()
@@ -424,6 +425,7 @@ func (b *Backend) Run(h platform.Handler) error {
 		now := b.Now()
 		b.keyRepeats(now)
 		b.expireTransfers(now)
+		b.trimBuffers(now)
 		b.dispatchDesktop()
 		b.dispatchAccess()
 		b.loop.Deliver(h)
@@ -441,6 +443,10 @@ func (b *Backend) Run(h platform.Handler) error {
 		// So is the deadline of a stalled clipboard transfer.
 		if td, ok := b.transferDeadline(); ok && (!timed || td < deadline) {
 			deadline, timed = td, true
+		}
+		// And the trim of a window's unused third buffer (shm.go).
+		if sd, ok := b.trimDeadline(); ok && (!timed || sd < deadline) {
+			deadline, timed = sd, true
 		}
 		// The text input changes of this iteration (the handler's
 		// SetTextInput calls, enter and leave) go out with one commit

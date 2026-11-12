@@ -38,3 +38,6 @@ func native() (platform.Backend, error) {
 	}
 	return b, nil
 }
+
+// prefetch does nothing: the Cocoa backend's settings are local reads.
+func prefetch(string) {}

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/godbus/dbus/v5"
 )
@@ -37,6 +38,10 @@ type fakePortal13 struct {
 	senders  map[string]bool          // senders that made a portal call
 	regErr   []string                 // Register calls made after another call (the portal refuses them)
 	readAlls int
+	// readAllDelay delays ReadAll's answer, a snapshot of the values when
+	// it was called; readAllCalled receives a value as it is called.
+	readAllDelay  time.Duration
+	readAllCalled chan struct{}
 
 	registry   bool              // the Registry interface is exported
 	dataDirs   []string          // where Register looks for <ID>.desktop (applications/)
@@ -51,20 +56,22 @@ type portal13Options struct {
 	// dataDirs are the XDG data directories in which Register looks for
 	// applications/<app ID>.desktop (none: it refuses every ID).
 	dataDirs []string
+	// readAllDelay delays ReadAll's answer (a slow portal).
+	readAllDelay time.Duration
 }
 
 func startPortal13(t *testing.T, addr string, o portal13Options) *fakePortal13 {
 	t.Helper()
 	p := &fakePortal13{t: t, conn: connect(t, addr), settings: o.settings,
 		closed: map[dbus.ObjectPath]bool{}, senders: map[string]bool{},
-		registry: o.registry, dataDirs: o.dataDirs, registered: map[string]string{}}
+		registry: o.registry, dataDirs: o.dataDirs, registered: map[string]string{},
+		readAllDelay: o.readAllDelay, readAllCalled: make(chan struct{}, 1)}
 	versions := map[string]uint32{}
 	if o.settings != nil {
 		versions[ifaceSettings] = 2
 		if err := p.conn.ExportMethodTable(map[string]any{
 			"ReadAll": func(sender dbus.Sender, namespaces []string) (map[string]map[string]dbus.Variant, *dbus.Error) {
 				p.mu.Lock()
-				defer p.mu.Unlock()
 				p.called(sender, "ReadAll")
 				p.readAlls++
 				out := map[string]map[string]dbus.Variant{}
@@ -75,6 +82,13 @@ func startPortal13(t *testing.T, addr string, o portal13Options) *fakePortal13 {
 						out[ns] = maps.Clone(keys)
 					}
 				}
+				delay := p.readAllDelay
+				p.mu.Unlock()
+				select {
+				case p.readAllCalled <- struct{}{}:
+				default:
+				}
+				time.Sleep(delay)
 				return out, nil
 			},
 		}, portalPath, ifaceSettings); err != nil {
