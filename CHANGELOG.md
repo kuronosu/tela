@@ -20,6 +20,8 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 ### Changed
 
 - `tela.SetColorScheme`, `tela.SetTheme`, a system dark-mode or contrast change the app follows, and a text scale change now apply without transitions, as next-themes' `disableTransitionOnChange` (ADR-276): elements with `transition-colors` show the new colors in the next frame, and running transitions toward replaced values jump to their end. An element's `h.Scheme` change still transitions.
+- Linux: the XDG Desktop Portal's settings are read off the UI thread from the start of `tela.Run`, beside the font index and the display connection; the first frame still waits for them (at most 5 s), and a later answer arrives as a settings change.
+- Wayland: a third shared-memory buffer, allocated when the compositor held two, is released after a second unused (the delay doubles with each release, up to a minute) instead of staying until the next resize.
 - macOS: a frame copies only its damaged pixels, through IOSurfaces shown by the window's layer, instead of the whole window twice (about 41 MB per frame for a 2880x1800 Retina window) (ADR-278).
 
 ## [0.14.3] - 2026-11-11
