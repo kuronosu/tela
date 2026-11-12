@@ -10,7 +10,8 @@ const cacheSize = 9
 
 // cacheKey identifies a layout request. Unlike Taffy, the key holds the
 // whole input (both parent size axes and the sizing mode): a cached result
-// is only reused for an identical request.
+// is only reused for an identical request. (Engine.layout drops the parent
+// height of a node that does not read it, Style.usesParentHeight.)
 type cacheKey struct {
 	known         [2]uint32 // float bits of known dimensions or available space
 	kind          [2]uint8  // what known holds per axis: see mixedKind
@@ -65,6 +66,35 @@ func makeKey(in *input) cacheKey {
 	}
 }
 
+// request returns a request with key k and run mode run: the request the
+// key was made from, as far as a leaf's layout reads it (Engine.leaf: a
+// known dimension makes the available space of its axis irrelevant, and
+// leaves ignore knownDefinite, growH and pctH).
+func (k *cacheKey) request(run runMode) input {
+	in := input{run: run, sizing: k.sizing, axis: k.axis}
+	var known, parent [2]opt
+	var avail [2]AvailableSpace
+	for a := range 2 {
+		v := math.Float32frombits(k.known[a])
+		if k.kind[a] == 0 {
+			known[a] = some(v)
+		} else {
+			avail[a] = AvailableSpace{Kind: SpaceKind(k.kind[a] - 1)}
+			if avail[a].Kind == Definite {
+				avail[a].Value = v
+			}
+		}
+		if k.parent[a] != infBits {
+			parent[a] = some(math.Float32frombits(k.parent[a]))
+		}
+	}
+	in.known = optSize{known[0], known[1]}
+	in.knownDefinite = boolSize{k.knownDefinite[0], k.knownDefinite[1]}
+	in.avail = availSize{avail[0], avail[1]}
+	in.parent = optSize{parent[0], parent[1]}
+	return in
+}
+
 // sizeValidFor reports whether a measurement computed for k is usable for
 // a request with key o: sizes computed for one axis may hold garbage in the
 // other axis.
@@ -96,6 +126,10 @@ type cache struct {
 	recent   uint16 // entries used since the eviction cursor last passed them
 	next     uint8  // the next entry to consider replacing
 	nonEmpty bool
+	// evicted reports that a size result was replaced by another since
+	// the cache was cleared: a parent may hold a result computed from it
+	// (Engine.MarkContent cannot check it).
+	evicted bool
 }
 
 // get returns a cached result for in.
@@ -144,6 +178,9 @@ func (c *cache) store(in *input, out output) {
 			}
 		}
 		i := c.next
+		if c.used[i] {
+			c.evicted = true
+		}
 		c.entries[i] = measureEntry{key: key, size: out.size, base: out.firstBaseline, last: out.lastBaseline}
 		c.used[i] = true
 		c.recent |= 1 << i

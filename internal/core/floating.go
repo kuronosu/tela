@@ -289,6 +289,7 @@ func (t *Tree) updateFloat(el *Element, old *desc) {
 	bx := el.box
 	switch {
 	case d.float == nil && bx.flt != nil:
+		t.placeAll() // the floating elements are listed again (place.go)
 		f := bx.flt
 		dropObserver(f.obs)
 		dropObserver(f.aobs)
@@ -298,6 +299,7 @@ func (t *Tree) updateFloat(el *Element, old *desc) {
 		}
 		t.dirty()
 	case d.float != nil && bx.flt == nil:
+		t.placeAll()
 		bx.flt = &floatState{opts: d.float, forced: true}
 		t.dirty()
 	case d.float != nil && (old == nil || old.float != d.float):

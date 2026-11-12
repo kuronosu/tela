@@ -678,7 +678,7 @@ func (t *Tree) fieldChangedBy(f *field, r edit.Result, pad bool) {
 // content (field-sizing-content), and updates a Textarea's extents.
 func (t *Tree) fieldResized(f *field) {
 	if cs := f.bx.cs; cs != nil && cs.FieldSizing == style.FieldSizingContent {
-		t.engine.MarkDirty(f.bx)
+		t.markContent(f.bx)
 		t.dirty()
 		return
 	}
@@ -825,7 +825,7 @@ func (t *Tree) fieldRestyled(f *field, old, cs *style.ComputedStyle) {
 	ots.Decoration.Paint, nts.Decoration.Paint = nil, nil
 	if !sameTextStyle(&ots, &nts) || f.paraStyle(old) != f.paraStyle(cs) || old.FieldSizing != cs.FieldSizing ||
 		old.Placeholder != cs.Placeholder || t.classicBars(old) != t.classicBars(cs) {
-		t.engine.MarkDirty(f.bx)
+		t.markContent(f.bx) // a new layout style is remapped
 		f.ph = nil
 	}
 }
@@ -889,7 +889,7 @@ func (f *field) rescale() {
 		}
 	}
 	f.brokeAt, f.phBroke = nan32(), nan32()
-	f.t.engine.MarkDirty(f.bx)
+	f.t.markContent(f.bx)
 	f.markPaint()
 	f.t.dirty()
 }
@@ -900,7 +900,7 @@ func (f *field) rescale() {
 func (f *field) reshape() {
 	f.lay, f.ph, f.empty = nil, nil, nil
 	f.brokeAt, f.phBroke = nan32(), nan32()
-	f.t.engine.MarkDirty(f.bx)
+	f.t.markContent(f.bx)
 	f.markPaint()
 	f.t.dirty()
 }

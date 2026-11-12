@@ -136,10 +136,11 @@ type painter struct {
 	// painted; each stacking context uses the part it appended.
 	items []paintItem
 	clips []*Box // scratch for hoisted boxes' ancestor clips
-	// full: place places every box (layer.go). ref: a reference recording
+	// full: place places every box (layer.go), or, with part, the boxes
+	// whose place can have changed (place.go). ref: a reference recording
 	// (Tree.ReferenceFrame, record.go's check), which leaves the boxes'
 	// noted inputs and the kept interest rects alone.
-	full, ref bool
+	full, part, ref bool
 	// The list being recorded (layer.go): the scroll space it is painted
 	// in, its interest rect, whether boxes outside the interest rect are
 	// skipped, its layer, and the lists of the enclosing layers.
@@ -169,9 +170,17 @@ func (p *painter) place(bx *Box, parent *Box) {
 		return
 	}
 	t := p.t
+	t.stats.Placed++
+	// Its marks are taken now: one made while its subtree is placed is
+	// for the next place (place.go).
+	bx.placeDirty, bx.dirtyBelow = false, false
 	l := bx.ld.Layout()
 	prev := bx.pcs
-	oldPCS, oldSpace := bx.pcs, bx.space
+	oldPCS, oldSpace, oldOrigin := bx.pcs, bx.space, bx.u.Origin()
+	oldContent := oldSpace
+	if s := bx.scr; s != nil && s.chunked {
+		oldContent = s
+	}
 	bx.pcs = bx.cs
 	if bx.deferPaint {
 		// The paint-phase deferred props, evaluated on every paint of
@@ -198,22 +207,24 @@ func (p *painter) place(bx *Box, parent *Box) {
 	}
 	bx.space = space
 	bx.u = gfx.RectFromOriginSize(loc, l.Size)
-	if parent == nil {
-		clear(t.stickies)
-		t.stickies = t.stickies[:0]
-		clear(t.flt.boxes)
-		t.flt.boxes = t.flt.boxes[:0]
-	} else if bx.flt != nil {
+	switch {
+	case parent == nil:
+		if !p.part {
+			t.unlistAll()
+		}
+	case bx.flt != nil:
 		// A floating element is painted in a scroll space of its own,
 		// moved to its place by the float pass (floating.go).
 		bx.space = floatSpace(bx, space)
-		t.flt.boxes = append(t.flt.boxes, bx)
-	} else if isSticky(bx) {
+		p.listIn(bx, listedFloat)
+	case isSticky(bx):
 		// Painted in a scroll space of its own, moved by its sticky
 		// offset (sticky.go).
 		bx.space = stickySpace(bx, space)
 		p.placeSticky(bx)
-		t.stickies = append(t.stickies, bx)
+		p.listIn(bx, listedSticky)
+	default:
+		p.listIn(bx, 0)
 	}
 	t.semPainted(bx, oldPCS)
 	if bx.space != oldSpace && (bx.flt != nil || bx.stick != nil) {
@@ -250,42 +261,43 @@ func (p *painter) place(bx *Box, parent *Box) {
 	if bx.mode == modeImage && bx.doc() != nil {
 		wt = 2 // a drawing: its commands
 	}
-	for _, k := range bx.kids {
-		p.place(k, bx)
-		if k.ls.Display == layout.DisplayNone {
-			continue
-		}
-		switch {
-		case participant(k):
-			parts++
-			if !stacking(k) {
-				parts += int(k.parts)
-			}
-		case !chunked && !k.grp && !k.hiddenAtom:
-			wt += int(k.wt)
-			parts += int(k.parts)
-		default:
-			parts += int(k.parts)
-		}
-		blend = blend || blendsIn(k)
-		switch {
-		case k.space == bx.space:
-			sub = sub.Union(k.hitBounds)
-		case chunked && k.space == bx.scr && k.hitBounds != unbounded:
-			content = true
-		default:
-			sub = unbounded
-		}
-		pk := participant(k)
-		part = part || pk || k.hasPart
-		switch {
-		case pk:
-		case chunked:
-			content = true
-		default:
-			ink = ink.Union(k.ink)
-		}
+	// A partial place (place.go) places the children that hold a change,
+	// all of them when what they read of bx changed (its origin, its paint
+	// style, its children, the scroll space of its content), and the whole
+	// subtree when what the out-of-flow boxes in it read changed (the
+	// scroll space of its content, its position, its containment).
+	all, deep := true, false
+	if p.part {
+		g := t.plc.gen
+		cb := containsPositioned(bx)
+		deep = bx.placeDeep == g || contentSpace(bx) != oldContent || cb != bx.placedCB ||
+			oldPCS == nil || oldPCS.Position != bx.pcs.Position
+		all = deep || bx.u.Origin() != oldOrigin || bx.pcs != oldPCS || kidsOf(bx.kids) != bx.placedKids
+		bx.placedCB = cb
+	} else {
+		bx.placedCB = containsPositioned(bx)
 	}
+	var agg kidAgg
+	if len(bx.kids) > aggChunk {
+		agg = p.aggChunks(bx, all, deep, chunked)
+	} else {
+		bx.runs = nil
+		agg = p.aggKids(bx, bx.kids, all, deep, chunked)
+	}
+	if p.part && (bx.hasListed || agg.listed) && kidsOf(bx.kids) != bx.placedKids {
+		// The sticky boxes and floating elements below may have changed
+		// their order (a sort): they are listed again (place.go).
+		t.plc.relist = true
+	}
+	bx.placedKids, bx.hasListed = kidsOf(bx.kids), agg.listed
+	wt, parts = wt+agg.wt, parts+agg.parts
+	blend, part, content = agg.blend, agg.part, agg.content
+	if agg.unb {
+		sub = unbounded
+	} else {
+		sub = sub.Union(agg.sub)
+	}
+	ink = ink.Union(agg.ink)
 	if content {
 		pad := paddingRect(bx.u, l)
 		ink = ink.Union(pad)
@@ -312,6 +324,141 @@ func (p *painter) place(bx *Box, parent *Box) {
 	bx.hitSub = sub
 	bx.hitBounds = hitBounds(bx)
 	p.notePlaced(bx)
+}
+
+// kidAgg is what place sums of the children of a box: the weights of
+// their painting (record.go, "Groups"), whether they blend, have
+// participants or paint in the box's content layer, and the union of
+// their hit bounds (unb: unbounded) and inks.
+type kidAgg struct {
+	wt, parts                 int
+	blend, part, content, unb bool
+	// listed: a sticky box or a floating element is among them or below
+	// them (place.go).
+	listed   bool
+	sub, ink gfx.Rect
+	// For a run of the children of a box with many (aggChunks): cink is
+	// the union of the inks of those painted in flow, which a list that
+	// culls tests before the children (innerBody), and rel the indexes
+	// of those a stacking context collects through (collect).
+	cink gfx.Rect
+	rel  []int32
+}
+
+func (a *kidAgg) add(b *kidAgg) {
+	a.wt, a.parts = a.wt+b.wt, a.parts+b.parts
+	a.blend, a.part, a.content, a.unb = a.blend || b.blend, a.part || b.part, a.content || b.content, a.unb || b.unb
+	a.listed = a.listed || b.listed
+	a.sub, a.ink = a.sub.Union(b.sub), a.ink.Union(b.ink)
+}
+
+// kidRuns are the sums of the children of a box with many, by runs of
+// aggChunk: aggs per run, dirty the runs that hold a marked child (set by
+// markPlace), all that any may, and ver counts the changes of the runs'
+// rel lists (what collect reads, record.go: colIn).
+type kidRuns struct {
+	aggs  []kidAgg
+	dirty []uint64
+	all   bool
+	ver   uint32
+}
+
+// aggChunk is the number of children whose sums a box with more children
+// keeps per run (Box.runs), so that a partial place of a box with
+// thousands of children (a table's cells) sums only the runs that hold a
+// placed child (place.go).
+const aggChunk = 64
+
+// aggKids places the children kids of bx that the place places (all of
+// them in a full place; with deep, their whole subtrees) and sums them.
+// chunked reports that bx's content is a layer.
+func (p *painter) aggKids(bx *Box, kids []*Box, all, deep, chunked bool) kidAgg {
+	var a kidAgg
+	for i, k := range kids {
+		if p.placeKid(k, all) {
+			if deep {
+				k.placeDeep = p.t.plc.gen
+			}
+			p.place(k, bx)
+		}
+		if k.ls.Display == layout.DisplayNone {
+			continue
+		}
+		switch {
+		case participant(k):
+			a.parts++
+			if !stacking(k) {
+				a.parts += int(k.parts)
+			}
+		case !chunked && !k.grp && !k.hiddenAtom:
+			a.wt += int(k.wt)
+			a.parts += int(k.parts)
+		default:
+			a.parts += int(k.parts)
+		}
+		a.blend = a.blend || blendsIn(k)
+		a.listed = a.listed || k.listed != 0 || k.hasListed
+		if pk := participant(k); !k.hiddenAtom && (pk || k.hasPart) {
+			a.rel = append(a.rel, int32(i))
+		} else if !pk && !k.hiddenAtom {
+			a.cink = a.cink.Union(k.ink)
+		}
+		switch {
+		case k.space == bx.space:
+			a.sub = a.sub.Union(k.hitBounds)
+		case chunked && k.space == bx.scr && k.hitBounds != unbounded:
+			a.content = true
+		default:
+			a.unb = true
+		}
+		pk := participant(k)
+		a.part = a.part || pk || k.hasPart
+		switch {
+		case pk:
+		case chunked:
+			a.content = true
+		default:
+			a.ink = a.ink.Union(k.ink)
+		}
+	}
+	return a
+}
+
+// aggChunks is aggKids for a box with more than aggChunk children, by
+// runs: a partial place that places none of a run's children (the run's
+// bit in kidRuns.dirty, set by markPlace) takes its sums from the last
+// place.
+func (p *painter) aggChunks(bx *Box, all, deep, chunked bool) kidAgg {
+	n := (len(bx.kids) + aggChunk - 1) / aggChunk
+	r := bx.runs
+	if r == nil {
+		r = &kidRuns{}
+		bx.runs = r
+	}
+	redo := all || !p.part || r.all || len(r.aggs) != n || bx.placedKids != kidsOf(bx.kids)
+	if redo {
+		r.aggs = slices.Grow(r.aggs[:0], n)[:n]
+		r.dirty = slices.Grow(r.dirty[:0], (n+63)/64)[:(n+63)/64]
+		clear(r.dirty)
+		r.all = false
+	}
+	var total kidAgg
+	for c := range n {
+		if w, m := c/64, uint64(1)<<(c%64); redo || r.dirty[w]&m != 0 {
+			r.dirty[w] &^= m
+			old := r.aggs[c]
+			a := p.aggKids(bx, bx.kids[c*aggChunk:min((c+1)*aggChunk, len(bx.kids))], all, deep, chunked)
+			if !slices.Equal(a.rel, old.rel) {
+				r.ver++ // what collect reads of the run (record.go: colIn)
+			}
+			if a.cink != old.cink && !p.ref {
+				p.t.lay.recull = true // what the lists culled with the run
+			}
+			r.aggs[c] = a
+		}
+		total.add(&r.aggs[c])
+	}
+	return total
 }
 
 // unbounded is the hit bounds of a subtree that cannot be culled.
@@ -395,9 +542,11 @@ func (p *painter) update(marked []*Box) {
 		// compositor applies the translation and the opacity.
 		p.notePlaced(bx)
 		// The new hit bounds, and those of the ancestors in the same
-		// space (they only grow: bounds that are too large cull less).
+		// space (they only grow: bounds that are too large cull less;
+		// the next place, marked, makes them what a full place would).
 		hb := hitBounds(bx)
 		bx.hitBounds = hb
+		t.markPlace(bx)
 		for c, a := bx, bx.parent; a != nil && hb != unbounded; c, a = a, a.parent {
 			if c.space != a.space || a.hitSub.ContainsRect(hb) {
 				break // a scrollport (unchanged) or nothing new
@@ -405,6 +554,7 @@ func (p *painter) update(marked []*Box) {
 			a.hitSub = a.hitSub.Union(hb)
 			hb = hitBounds(a)
 			a.hitBounds = hb
+			t.markPlace(a)
 		}
 	}
 }
@@ -532,21 +682,37 @@ func participant(bx *Box) bool {
 // stacking contexts, but it does inside positioned boxes without one, and
 // skips subtrees without participants (hasPart).
 func (p *painter) collect(bx *Box) {
-	for _, k := range bx.kids {
-		p.odep(k)
-		if k.ls.Display == layout.DisplayNone || k.hiddenAtom {
-			continue
-		}
-		if participant(k) {
-			p.items = append(p.items, paintItem{k, zIndex(k)})
-			if stacking(k) {
-				continue
+	if r := bx.runs; r != nil {
+		// Only the children that are participants or have some below
+		// (the runs' rel); what the others are is bx's colIn (ver).
+		p.kdep(bx)
+		for c := range r.aggs {
+			for _, i := range r.aggs[c].rel {
+				p.collectKid(bx.kids[c*aggChunk+int(i)])
 			}
 		}
-		p.kdep(k) // its participants, through its children
-		if k.hasPart {
-			p.collect(k)
+		return
+	}
+	for _, k := range bx.kids {
+		p.collectKid(k)
+	}
+}
+
+// collectKid is collect for child k.
+func (p *painter) collectKid(k *Box) {
+	p.odep(k)
+	if k.ls.Display == layout.DisplayNone || k.hiddenAtom {
+		return
+	}
+	if participant(k) {
+		p.items = append(p.items, paintItem{k, zIndex(k)})
+		if stacking(k) {
+			return
 		}
+	}
+	p.kdep(k) // its participants, through its children
+	if k.hasPart {
+		p.collect(k)
 	}
 }
 
@@ -833,8 +999,22 @@ func (p *painter) innerBody(bx *Box) {
 		if bx.pcs.Visibility == style.VisibilityVisible {
 			p.paintContent(bx)
 		}
-		for _, k := range bx.kids {
-			p.paintFlow(k)
+		if bx.runs == nil || !p.cull {
+			for _, k := range bx.kids {
+				p.paintFlow(k)
+			}
+			return
+		}
+		// A run of children whose inks all miss the interest rect is
+		// culled whole (each would be), noted as a run (record.go: cdepRun).
+		for c := range bx.runs.aggs {
+			kids := bx.kids[c*aggChunk : min((c+1)*aggChunk, len(bx.kids))]
+			if !p.cdepRun(bx, c, p.space) {
+				continue
+			}
+			for _, k := range kids {
+				p.paintFlow(k)
+			}
 		}
 	}
 }

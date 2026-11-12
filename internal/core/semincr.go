@@ -134,7 +134,11 @@ func (t *Tree) semGeomBox(bx *Box) {
 
 // LayoutChanged implements layout.ChangeObserver: the box's bounds, and
 // its subtree's, may have moved.
-func (b *Box) LayoutChanged() { b.tree.semGeomBox(b) }
+// Its place reads its layout (place.go).
+func (b *Box) LayoutChanged() {
+	b.tree.semGeomBox(b)
+	b.tree.markPlace(b)
+}
 
 // semStyled notes the computed style cs that replaces old on bx (nil when
 // it had none): the display and the visibility are semantics, the

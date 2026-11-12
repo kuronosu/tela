@@ -430,7 +430,9 @@
 // transform and opacity the compositor applies; and the scrollbars. Each
 // layer skips the boxes outside its interest rect (the visible part of a
 // scroll container grown by a scrollport per scrolling axis). A frame that
-// builds, restyles or lays out places every box again; a paint records
+// builds, restyles or lays out places the boxes whose place can have
+// changed and those below a box that moved (place.go, ADR-280); a paint
+// records
 // again only the layers whose lists read a box that changed (record.go:
 // the boxes each list read, noted while it was recorded), and the
 // scrollbars, unless a layer became stale (a box that starts or stops

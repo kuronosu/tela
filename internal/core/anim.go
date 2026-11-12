@@ -642,6 +642,7 @@ func (t *Tree) animApply(bx *Box, old, u *style.ComputedStyle) {
 		return
 	}
 	bx.cs = u
+	t.markPlace(bx)
 	t.semStyled(bx, old, u)
 	changed := !sameStyle(old, u, false)
 	inkCh := false

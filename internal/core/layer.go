@@ -60,8 +60,9 @@ import (
 //
 // A paint records again only the layers whose lists can have changed
 // (record.go, ADR-204): a frame that builds, restyles or lays out places
-// every box and compares what each one's painting reads with its last
-// place; a frame that only repaints (scrolling, Values read by paint-phase
+// the boxes whose place can have changed (place.go, ADR-280) and compares
+// what each one's painting reads with its last place; a frame that only
+// repaints (scrolling, Values read by paint-phase
 // deferred props, scrollbar fades and hovers: Tree.markPaint, whose marks
 // stop at these layers; the steps of color transitions) places again the
 // boxes it marked (their on-screen geometry for hit-testing, the deferred
@@ -346,7 +347,8 @@ func (t *Tree) paintPhase(full bool) *gfx.DisplayList {
 		L.root, L.layers, L.freeIDs = nil, L.layers[:0], L.freeIDs[:0]
 		return t.composite()
 	}
-	place := full || L.root == nil || L.needPlace
+	needPlace := L.needPlace
+	place := full || L.root == nil || needPlace
 	all := L.root == nil || L.needFull
 	L.needFull, L.needPlace = false, false
 	p := painter{t: t, scale: float64(t.scale), full: place}
@@ -355,13 +357,25 @@ func (t *Tree) paintPhase(full bool) *gfx.DisplayList {
 		// placed again, also when the layers are recorded again anyway.
 		p.update(marked)
 		place = L.needPlace // stale layers, or an interest rect moves
+		needPlace = place
 		all = all || L.needFull
 		L.needFull, L.needPlace = false, false
 	}
 	p.full = place
 	if place {
 		t.la.places++
+		// A frame that builds, restyles or lays out places the boxes whose
+		// place can have changed (place.go); what needs every box placed
+		// again (a box that starts or stops being a layer, a content that
+		// starts or stops moving) places them all.
+		partial := t.beginPlace(&p, marked, full && !needPlace)
 		p.place(t.rootBox, nil)
+		switch {
+		case partial && !t.endPlace(&p):
+			p.place(t.rootBox, nil) // the sticky or floating boxes changed
+		case partial && checkLayout:
+			t.checkPlace(&p)
+		}
 	}
 	// The floating elements follow their anchors (floating.go), before
 	// anything is recorded.
@@ -771,13 +785,13 @@ func (t *Tree) ReferenceFrame(noCull bool) *gfx.DisplayList {
 			keep[i] = saved{s.interest, s.recGen, s.geo}
 		}
 	}
-	lay, paints, moved := t.lay, t.stats.Paints, t.scr.moved
+	lay, stats, moved := t.lay, t.stats, t.scr.moved
 	t.lay = layerState{noCull: noCull, gen: lay.gen + 1}
 	p := painter{t: t, scale: float64(t.scale), full: true, ref: true}
 	p.place(t.rootBox, nil)
 	t.recordAll(&p)
 	dl := t.composite()
-	t.lay, t.stats.Paints, t.scr.moved = lay, paints, moved
+	t.lay, t.stats, t.scr.moved = lay, stats, moved
 	for i, s := range t.scr.list {
 		if s != nil {
 			s.interest, s.recGen, s.geo = keep[i].interest, keep[i].recGen, keep[i].geo

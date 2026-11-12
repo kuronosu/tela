@@ -290,6 +290,68 @@ func TestCacheReuse(t *testing.T) {
 	checkIncremental(t, root)
 }
 
+// TestMarkContent checks MarkContent's cut-off: a leaf whose new content
+// measures as the old one is laid out alone, one whose measurements
+// change lays out its ancestors, and both end as a fresh layout.
+func TestMarkContent(t *testing.T) {
+	var cells []*testNode
+	var rows []*testNode
+	for r := 0; r < 30; r++ {
+		var row []*testNode
+		for c := 0; c < 4; c++ {
+			l := text("HH\u200bHHH")
+			cells = append(cells, l)
+			row = append(row, l)
+		}
+		rows = append(rows, box(styleOf(func(s *Style) { s.Display = DisplayFlex }), row...))
+	}
+	root := box(styleOf(func(s *Style) {
+		s.Display = DisplayGrid
+		s.Grid = &GridTemplate{Columns: TrackList{Entries: []TrackListEntry{Single(Track(Px(120)))}}}
+	}), rows...)
+	var e Engine
+	compute(&e, root, 800, 600)
+	cell := cells[45]
+
+	// The same measurements ("HHH\u200bHH" breaks like "HH\u200bHHH"):
+	// the cell alone runs.
+	cell.measure = ahemMeasure("HHH\u200bHH")
+	e.MarkContent(cell)
+	runs := e.runs
+	compute(&e, root, 800, 600)
+	if n := e.runs - runs; n == 0 || n > 10 {
+		t.Errorf("%d layout runs for content that measures the same, want the cell's own requests", n)
+	}
+	if !root.data.cache.hasFinal {
+		t.Error("the root's layout was dropped")
+	}
+	checkIncremental(t, root)
+
+	// Wider content: the row and the grid run again.
+	cell.measure = ahemMeasure("HHHHHHHHHHHH")
+	e.MarkContent(cell)
+	runs = e.runs
+	compute(&e, root, 800, 600)
+	if n := e.runs - runs; n < 3 {
+		t.Errorf("%d layout runs for content that measures otherwise, want the ancestors too", n)
+	}
+	checkIncremental(t, root)
+	if got := rectOf(cell); got[2] != 120 {
+		t.Errorf("the cell is %g wide, want 120 (its row's track)", got[2])
+	}
+
+	// MarkContent and then MarkDirty in the same frame: dirty wins.
+	cell.style.Padding = EdgesAll(Px(3))
+	cell.measure = ahemMeasure("HH")
+	e.MarkContent(cell)
+	e.MarkDirty(cell)
+	compute(&e, root, 800, 600)
+	checkIncremental(t, root)
+	if n, err := CheckFull(root, DefiniteSpace(800), DefiniteSpace(600)); err != nil {
+		t.Errorf("CheckFull: %v at %v", err, n)
+	}
+}
+
 // TestRelayoutBoundary checks that a change inside a fixed-size box with
 // overflow hidden does not lay out its ancestors, unless its baseline
 // changes.
@@ -605,7 +667,8 @@ func TestIncrementalRandom(t *testing.T) {
 		all := nodes(root)
 		for step := 0; step < 8; step++ {
 			n := all[rng.IntN(len(all))]
-			switch rng.IntN(3) {
+			content := false
+			switch rng.IntN(4) {
 			case 0:
 				if n.measure != nil {
 					n.measure = ahemMeasure("HHH\u200bH")
@@ -616,8 +679,19 @@ func TestIncrementalRandom(t *testing.T) {
 				n.style.Width = Px(float32(rng.IntN(100)))
 				n.style.Height = Px(float32(rng.IntN(100)))
 				n.style.OverflowX, n.style.OverflowY = OverflowHidden, OverflowHidden
+			case 3:
+				// New content only, of the same measurements or not
+				// (MarkContent's cut-off).
+				if n.measure != nil {
+					n.measure = ahemMeasure([]string{"HHH\u200bH", "HHHH", "HH\u200bHH", "H"}[rng.IntN(4)])
+					content = true
+				}
 			}
-			e.MarkDirty(n)
+			if content {
+				e.MarkContent(n)
+			} else {
+				e.MarkDirty(n)
+			}
 			compute(&e, root, w, h)
 			if t.Failed() {
 				return

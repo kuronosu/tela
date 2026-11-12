@@ -104,6 +104,11 @@ func outerSize(s size) output { return output{size: s} }
 // layout.
 type Engine struct {
 	pending []Node // dirty relayout boundaries
+	content []Node // nodes passed to MarkContent since the last Compute
+
+	// gridIdx and gridTmp are the scratch of sortItems.
+	gridIdx []int32
+	gridTmp []gridItem
 
 	// measuring counts the computeSize runs on the call stack; clobbers
 	// counts full layouts done inside them (see layout).
@@ -119,6 +124,11 @@ type Engine struct {
 	runs         int
 }
 
+// Runs returns the number of layout algorithm runs since the Engine was
+// created: the requests (full layouts and size queries) that missed the
+// caches, one per node and request. A Compute with nothing dirty adds none.
+func (e *Engine) Runs() int { return e.runs }
+
 // layout computes the layout of node n for request in, from the cache if
 // possible (Taffy's compute_child_layout).
 func (e *Engine) layout(n Node, in input) output {
@@ -126,6 +136,14 @@ func (e *Engine) layout(n Node, in input) output {
 		return e.hidden(n)
 	}
 	d := n.LayoutData()
+	st := n.LayoutStyle()
+	if in.parent.h.ok && !st.usesParentHeight() {
+		// The parent's height only resolves percentages of the node's own
+		// heights (its children get its own size): a request that differs
+		// in it alone is the same request, so a column whose height
+		// changes keeps its items' layouts.
+		in.parent.h = none
+	}
 	if out, ok := d.cache.get(&in); ok {
 		return out
 	}
@@ -143,7 +161,6 @@ func (e *Engine) layout(n Node, in input) output {
 			e.clobbers++
 		}
 	}
-	st := n.LayoutStyle()
 	var out output
 	switch {
 	case st.Display == DisplayNone:
