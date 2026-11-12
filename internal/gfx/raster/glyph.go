@@ -156,6 +156,7 @@ func (r *Renderer) glyphCached(run *glyphRun, id gfx.GlyphID, gb gfx.Rect, lx, l
 		switch {
 		case cl != nil:
 			e.kind = entryColor
+			e.fg = usesForeground(font, id)
 		case !run.paint:
 			// The outline would not show: draw nothing and cache nothing.
 			return true
@@ -181,7 +182,12 @@ func (r *Renderer) glyphCached(run *glyphRun, id gfx.GlyphID, gb gfx.Rect, lx, l
 		}
 		ks := k
 		ks.kind, ks.depth = keySprite, uint8(r.glyphDepth)
-		ks.fg = [4]uint32{math.Float32bits(run.fg.R), math.Float32bits(run.fg.G), math.Float32bits(run.fg.B), math.Float32bits(run.fg.A)}
+		if e.fg {
+			ks.fg = [4]uint32{math.Float32bits(run.fg.R), math.Float32bits(run.fg.G), math.Float32bits(run.fg.B), math.Float32bits(run.fg.A)}
+		}
+		// Otherwise the sprite is the same for every text color: its key
+		// has a zero fg. The text color's alpha still fades it, when it is
+		// composited (blitSprite), so it is not part of the sprite.
 		s := cache.get(&ks)
 		if s == nil {
 			if cl == nil {
@@ -383,6 +389,16 @@ func colorGlyph(f gfx.Font, id gfx.GlyphID, fg gfx.Color, ppem float32) *gfx.Dis
 		return sf.ColorGlyphAt(id, fg, ppem)
 	}
 	return f.ColorGlyph(id, fg)
+}
+
+// usesForeground reports whether color glyph id of f may paint with the
+// foreground color: what gfx.ForegroundColorFont says, and true for a font
+// that does not implement it.
+func usesForeground(f gfx.Font, id gfx.GlyphID) bool {
+	if ff, ok := f.(gfx.ForegroundColorFont); ok {
+		return ff.ColorGlyphUsesForeground(id)
+	}
+	return true
 }
 
 // devEm returns the device size of the em square under the glyph

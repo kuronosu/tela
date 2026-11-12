@@ -5,8 +5,11 @@ import (
 	"container/list"
 	"encoding/binary"
 	"image/png"
+	"runtime"
 	"sort"
 	"sync"
+	"sync/atomic"
+	"unsafe"
 
 	ot "github.com/go-text/typesetting/font/opentype"
 	"github.com/go-text/typesetting/font/opentype/tables"
@@ -85,6 +88,7 @@ func (tf *Typeface) bitmaps() *bitmapTables {
 		return nil
 	}
 	tf.bitmapOnce.Do(func() {
+		tf.bitmapID = nextBitmapID.Add(1)
 		tf.bitmapTabs = parseBitmapTables(tf.cblcRaw, tf.cbdtRaw, tf.sbixRaw, tf.nGlyphs)
 		if len(tf.bitmapTabs.strikes) > 0 {
 			tf.bitmapGlyphs = newGlyphSlots[bitmapGlyph](tf.nGlyphs)
@@ -441,20 +445,33 @@ var bitmapImages = newBitmapCache(bitmapCacheBytes)
 // It is safe for concurrent use (raster workers decode in parallel). Its
 // content never changes pixels: a PNG decodes to the same image every
 // time.
+//
+// The cache does not keep typefaces, nor their font files, alive: its keys
+// hold numbers, and the images of a typeface that is collected (a dropped
+// Collection's, a system font no longer used) are removed by a cleanup
+// (runtime.AddCleanup) registered with its first image.
 type bitmapCache struct {
-	mu    sync.Mutex
-	m     map[bitmapKey]*list.Element
-	lru   list.List // of *bitmapItem, most recent first
-	bytes int64
-	limit int64
+	mu      sync.Mutex
+	m       map[bitmapKey]*list.Element
+	lru     list.List // of *bitmapItem, most recent first
+	bytes   int64
+	limit   int64
+	watched map[uint64]bool // typefaces with a cleanup for this cache
 }
 
-// bitmapKey identifies an image by the address of its data in the font
-// file, which sbix 'dupe' glyphs share.
+// bitmapKey identifies an image by its typeface (Typeface.bitmapID) and
+// the address of its data in the font file, which sbix 'dupe' glyphs share.
+// The address is kept as a number: a typeface's file does not move (the Go
+// heap does not move objects, and mapped files are never unmapped) while
+// the typeface lives, and the entries of a dead typeface are dropped with
+// it, so a number never names other data than the image's.
 type bitmapKey struct {
-	tf  *Typeface
-	png *byte
+	tf  uint64
+	png uintptr
 }
+
+// nextBitmapID numbers the typefaces that draw bitmap glyphs.
+var nextBitmapID atomic.Uint64
 
 type bitmapItem struct {
 	key  bitmapKey
@@ -463,12 +480,12 @@ type bitmapItem struct {
 }
 
 func newBitmapCache(limit int64) *bitmapCache {
-	return &bitmapCache{m: map[bitmapKey]*list.Element{}, limit: limit}
+	return &bitmapCache{m: map[bitmapKey]*list.Element{}, limit: limit, watched: map[uint64]bool{}}
 }
 
 // image returns the decoded image of sg, decoding it on a miss.
 func (c *bitmapCache) image(tf *Typeface, sg *strikeGlyph) *gfx.Image {
-	k := bitmapKey{tf, &sg.png[0]}
+	k := bitmapKey{tf.bitmapID, uintptr(unsafe.Pointer(unsafe.SliceData(sg.png)))}
 	c.mu.Lock()
 	if e := c.m[k]; e != nil {
 		c.lru.MoveToFront(e)
@@ -505,7 +522,26 @@ func (c *bitmapCache) image(tf *Typeface, sg *strikeGlyph) *gfx.Image {
 	}
 	c.m[k] = c.lru.PushFront(it)
 	c.bytes += it.size
+	if !c.watched[k.tf] {
+		c.watched[k.tf] = true
+		runtime.AddCleanup(tf, c.drop, k.tf)
+	}
 	return img
+}
+
+// drop removes the images of the typeface whose bitmapID is id, which has
+// been collected.
+func (c *bitmapCache) drop(id uint64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.watched, id)
+	for k, e := range c.m {
+		if k.tf == id {
+			c.lru.Remove(e)
+			delete(c.m, k)
+			c.bytes -= e.Value.(*bitmapItem).size
+		}
+	}
 }
 
 // len returns the number of cached images and their charged size.

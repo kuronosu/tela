@@ -7,6 +7,7 @@ import (
 	"unicode"
 
 	"github.com/go-text/typesetting/bidi"
+	"github.com/go-text/typesetting/font"
 	"github.com/go-text/typesetting/harfbuzz"
 	"github.com/go-text/typesetting/language"
 	"github.com/go-text/typesetting/segmenter"
@@ -35,6 +36,32 @@ func (f *Face) hbFont() *harfbuzz.Font {
 		f.hb = harfbuzz.NewFont(f.ShapingFace())
 	}
 	return f.hb
+}
+
+// hbFontFor returns the HarfBuzz font of f for a run of script: hbFont,
+// except for a Hebrew run at a variable instance of a typeface whose
+// go-text font has no gvar and whose GPOS has no Hebrew script. HarfBuzz
+// then positions marks from glyph extents (its Hebrew shaper disables such
+// a GPOS), which need the outlines: the run is shaped with the typeface's
+// full go-text font (gotextglyf.go). shapeMu must be held.
+func (f *Face) hbFontFor(script language.Script) *harfbuzz.Font {
+	if f.base != nil {
+		return f.base.hbFontFor(script)
+	}
+	tf := f.tf
+	if script != language.Hebrew || f.coords == nil || !tf.goTextNoGvar || tf.ft.GPOS.FindScript(tagHebr) >= 0 {
+		return f.hbFont()
+	}
+	if f.hbFull == nil {
+		ft := tf.goTextFullFont()
+		if ft == nil {
+			return f.hbFont()
+		}
+		face := font.NewFace(ft)
+		face.SetCoords(f.coords)
+		f.hbFull = harfbuzz.NewFont(face)
+	}
+	return f.hbFull
 }
 
 // advanceUnits returns the advance of g in font units, the fusion-safe
@@ -231,7 +258,7 @@ func (l *Layout) shapeRun(f *Face, r0, r1 int32, level uint8, script language.Sc
 	}
 	shapeCalls.Add(1)
 	pt := &l.text
-	hb := f.hbFont()
+	hb := f.hbFontFor(script)
 	buf := shapeBuf
 	buf.Clear()
 	buf.Props.Direction = harfbuzz.LeftToRight

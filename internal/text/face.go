@@ -67,6 +67,7 @@ type Face struct {
 	shapingOnce sync.Once
 	shaping     *font.Face
 	hb          *harfbuzz.Font // HarfBuzz font for layout; guarded by shapeMu
+	hbFull      *harfbuzz.Font // over the full go-text font (hbFontFor); guarded by shapeMu
 
 	// A synthetic face (synth.go) draws the glyphs of base emboldened by
 	// a stroke of width bold (em) and slanted when oblique; it shapes and
@@ -319,6 +320,20 @@ func (f *Face) ColorGlyphAt(g gfx.GlyphID, fg gfx.Color, ppem float32) *gfx.Disp
 		return f.tf.bitmapList(b, ppem)
 	}
 	return nil
+}
+
+// ColorGlyphUsesForeground implements gfx.ForegroundColorFont: a COLR glyph
+// uses the foreground if its paint graph refers to palette index 0xFFFF
+// (COLRv0 layers and COLRv1 solids and color stops alike); a bitmap glyph
+// never does. Rasterizers ask once per glyph and size, after ColorGlyphAt,
+// so the graph has been walked already.
+func (f *Face) ColorGlyphUsesForeground(g gfx.GlyphID) bool {
+	c := f.color(g)
+	if c == nil {
+		return false
+	}
+	c.init(f, g, gfx.Black)
+	return c.usesFG
 }
 
 var emptyEntry = &glyphEntry{}

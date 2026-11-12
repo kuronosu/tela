@@ -475,6 +475,46 @@ func TestColorGlyph(t *testing.T) {
 	}
 }
 
+// A color glyph that does not paint with the foreground color has one
+// sprite for every text color (gfx.ForegroundColorFont), with the pixels of
+// a sprite keyed by the color: a translucent color still fades it.
+func TestColorGlyphSpriteWithoutForeground(t *testing.T) {
+	f := newTestFont("Medal")
+	at := func(fg gfx.Paint, cache *GlyphCache) *image.RGBA {
+		dl := build(func(b *gfx.Builder) {
+			b.DrawGlyphRun(gfx.DrawGlyphRun{Font: f, Size: 32, Origin: gfx.Pt(6.25, 40), Paint: fg,
+				Glyphs: []gfx.Glyph{{ID: gMedal}, {ID: gMedal, X: 40}}})
+		})
+		return renderWith(NewRenderer(), 100, 60, dl, Options{Scale: 1, Workers: 1, GlyphCache: cache})
+	}
+	paints := []gfx.Paint{red, blue, gfx.Color{R: 1, A: 0.5}, gfx.Color{B: 1, A: 0.25},
+		gfx.LinearGradient{Start: gfx.Pt(0, 0), End: gfx.Pt(100, 0), Stops: stops(red, blue)}}
+	shared := NewGlyphCache(1 << 20)
+	got := make([]*image.RGBA, len(paints))
+	for i, p := range paints {
+		got[i] = at(p, shared)
+	}
+	// 1 color marker + 1 sprite, whatever the colors.
+	if n := shared.Len(); n != 2 {
+		t.Errorf("%d cache entries after %d text colors, want 2", n, len(paints))
+	}
+	if colors := f.colors.Load(); colors != 1 {
+		t.Errorf("ColorGlyph called %d times, want 1", colors)
+	}
+	// The pixels are those of sprites keyed by the color (the glyph seen
+	// as one that uses the foreground), each from a cache of its own.
+	f.glyphs[gMedal].noFG = false
+	for i, p := range paints {
+		want := at(p, NewGlyphCache(1<<20))
+		if d, n := pixDiff(got[i], want); d != 0 {
+			t.Errorf("paint %d: the shared sprite differs by %d (%d pixels)", i, d, n)
+		}
+	}
+	if bytes.Equal(got[0].Pix, got[2].Pix) {
+		t.Error("a translucent text color does not fade the color glyph")
+	}
+}
+
 // A color glyph too large for a sprite is drawn inline, and the cache
 // remembers it: later frames call ColorGlyph once per glyph, for the inline
 // drawing only.

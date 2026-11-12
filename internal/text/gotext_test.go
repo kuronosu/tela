@@ -63,7 +63,7 @@ func TestGoTextStubs(t *testing.T) {
 		}
 		for i, ld := range lds {
 			src := newTableSource(ld, data, i)
-			stub := goTextLoader(src)
+			stub := goTextLoader(src, goTextOutlines{})
 			if stub == ld {
 				t.Errorf("%s (%d): no stub loader for a font with bitmap tables", name, i)
 				continue
@@ -141,7 +141,7 @@ func compareGoTextFonts(t *testing.T, name string, n int, want, got *font.Font) 
 	it := want.Cmap.Iter()
 	for it.Next() {
 		r, g := it.Char()
-		if g2, ok := got.NominalGlyph(r); !ok || g2 != g {
+		if g2, ok := got.NominalGlyph(r); (!ok && g != 0) || g2 != g { // a record of glyph 0 is no mapping
 			t.Errorf("%s: %U maps to %d, want %d", name, r, g2, g)
 		}
 		text = append(text, r, ' ', r, 0x20E3, ' ', r, 0x0301, ' ')
@@ -173,7 +173,7 @@ func TestGoTextLoaderUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ld := goTextLoader(newTableSource(lds[0], data, 0)); ld != lds[0] {
+	if ld := goTextLoader(newTableSource(lds[0], data, 0), goTextOutlines{}); ld != lds[0] {
 		t.Error("Inter (no bitmap tables) got another Loader")
 	}
 }

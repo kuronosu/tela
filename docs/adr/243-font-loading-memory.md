@@ -1,7 +1,7 @@
 # ADR-243: Fonts load their outlines on demand from the file bytes (phase 17)
 
 - **Date:** 2026-11-07
-- **Status:** Accepted
+- **Status:** Accepted. Amended by ADR-279 (go-text sees a glyf of glyph headers and no gvar).
 
 ## Decision
 

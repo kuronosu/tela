@@ -137,8 +137,8 @@
 // # Memory
 //
 // A typeface holds go-text's parse of the font (font.NewFont: cmap, layout
-// tables, COLR, and its own glyf and gvar, which it parses whole), and the
-// few tables this package evaluates itself. Of those, the outline tables
+// tables, COLR, and stubs of glyf and gvar: see below), and the few tables
+// this package evaluates itself. Of those, the outline tables
 // (glyf, loca, gvar) and hmtx are kept raw and read on demand: a glyph and
 // its variation data are parsed when a Face first needs its outline or
 // advance, and the Face caches the result (glyfTables). The tables are
@@ -147,10 +147,12 @@
 // WOFF and dfont files go through go-text's copies. A Face allocates its
 // per-glyph caches in pages of 128 glyphs on first use (glyphSlots).
 //
-// go-text's own parse is most of a typeface's memory (about 35 MB for the
-// six files of the standard set, three quarters of it glyf and gvar that
-// Tela does not use, since it loads TrueType outlines itself): see
-// docs/adr/243-font-loading-memory.md. Since a FontSource parses a font
+// go-text's own parse is most of a typeface's memory. It parses glyf and
+// gvar whole, while Tela loads TrueType outlines itself, so it gets a glyf
+// of glyph headers (bounding boxes, which give the same glyph extents) and,
+// for a variable font with HVAR and GPOS, no gvar (gotextglyf.go): the
+// eight files of the standard set take 17 MiB of heap instead of 42, and
+// parse in 13 ms instead of 54. Since a FontSource parses a font
 // only when text draws with it (ADR-244), a program pays for the faces it
 // uses: text in Inter upright parses that one file. go-text does not see
 // the bitmap tables (CBLC/CBDT, EBLC/EBDT, sbix): it gets stubs of a few

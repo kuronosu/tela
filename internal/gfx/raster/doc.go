@@ -165,8 +165,11 @@
 // color glyph (Font.ColorGlyph) is a premultiplied RGBA sprite, its
 // DisplayList rendered by a nested Renderer onto a transparent surface at
 // the same size and offset and trimmed to its painted pixels, keyed further
-// by the foreground color's float32 bits and the color glyph nesting depth;
-// it is composited with source-over through the clip like a layer. A font
+// by the color glyph nesting depth and by the foreground color's float32
+// bits, unless the font is a gfx.ForegroundColorFont that says the glyph
+// does not paint with the foreground (bitmap glyphs, most COLR emoji): one
+// sprite then serves every text color. It is composited with source-over
+// through the clip like a layer, faded by the alpha of a solid paint. A font
 // that implements gfx.SizedColorFont (bitmap glyphs) is asked for the list
 // at the device em size (the larger of the two axes'), which is part of
 // the key already.
