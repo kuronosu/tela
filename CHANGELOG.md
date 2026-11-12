@@ -13,6 +13,10 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+## [0.14.4] - 2026-11-12
+
+Phase 24, CPU performance (ADR-274 to ADR-280). It breaks no public API; a theme or scheme change now applies without transitions by default. The dashboard's session at 1080p x1 runs at p50 2.1 ms and p95 9.7 ms on the CPU (p95 19.3 ms before).
+
 ### Added
 
 - `telatest.Stats` counts `LaidOut`, `Remapped` and `Placed` (ADR-280).
@@ -1139,7 +1143,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.3...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.4...HEAD
+[0.14.4]: https://github.com/kuronosu/tela/compare/v0.14.3...v0.14.4
 [0.14.3]: https://github.com/kuronosu/tela/compare/v0.14.2...v0.14.3
 [0.14.2]: https://github.com/kuronosu/tela/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/kuronosu/tela/compare/v0.14.0...v0.14.1
