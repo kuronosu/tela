@@ -1065,7 +1065,7 @@
 // ConfigureEvent is always full.
 //
 // Ownership: the backend copies what it needs before Present returns (into
-// a wl_shm buffer, an XImage/SHM segment, a DIB section, a CGImage), and
+// a wl_shm buffer, an XImage/SHM segment, a DIB section, an IOSurface), and
 // never retains fb. The caller may reuse fb for the next frame immediately.
 // Because the backend keeps its own copy, it can answer OS repaint requests
 // (Win32 WM_PAINT, X11 Expose) without involving the app.
@@ -1155,8 +1155,9 @@
 // a link that stops ticking (100 ms), and is stopped when no frame waits
 // (a CFRunLoopTimer fired only every 100 ms or so on the CI runner). Sizes are points (logical); scale is backingScaleFactor. The content view hosts a
 // CALayer (contentsScale = backing scale, top-left gravity); Present sets
-// its contents to a CGImage made from the copied pixels (RGBA premultiplied
-// is native: kCGImageAlphaPremultipliedLast; sRGB color space) inside a
+// its contents to one of two or three IOSurfaces into which it copied only
+// the damaged pixels (BGRA premultiplied, tagged sRGB; ADR-278; a CGImage
+// of the whole frame where IOSurface is missing) inside a
 // CATransaction without implicit animations. Quit calls [NSApp stop:] and
 // posts an application-defined event so that run returns. Input: the
 // content view's NSResponder methods; keys through the macOS half of
