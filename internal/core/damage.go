@@ -35,7 +35,8 @@ import (
 //     before it: when they meet the damage of what is painted before it,
 //     its output within its reach is damaged too (until nothing changes);
 //     the damage of its element's content, painted after it, is not
-//     grown (ADR-200);
+//     grown (ADR-200); the damage that a later opaque cover hides is
+//     dropped first (occlude.go, ADR-275);
 //   - rasterizing a damage rectangle as a region renders, on a scratch
 //     image, the pixels that the backdrop filters reaching it read
 //     (raster.BackdropRegion), so that its pixels are those of a full
@@ -189,8 +190,10 @@ type damageScratch struct {
 	// when a base is checked.
 	snaps      []snapEntry
 	devA, devB []image.Rectangle
-	// canvas is the color the framebuffer is cleared to.
+	// canvas is the color the framebuffer is cleared to, and opaque
+	// whether the images seen are opaque (occlude.go).
 	canvas gfx.Color
+	opaque map[uint64]bool
 }
 
 // resized returns buf with length n, reallocated when it is too short;
@@ -276,6 +279,8 @@ func (d *damager) run() Damage {
 			d.add(d.devA(i))
 		}
 	}
+	// What an opaque command paints over is not seen (occlude).
+	d.occlude()
 	// The damage of shifted units counts as painted before everything.
 	d.pos, d.kind = -1, rectOther
 	var shifts []Shift
