@@ -36,8 +36,10 @@ type Window struct {
 	focused   bool
 	ctl       windowCtl // window control (windowctl_darwin.go)
 	cursor    platform.Cursor
-	gravity   darwin.ID   // the layer's contentsGravity, set at Present
-	back      *image.RGBA // the frame as last presented (damage-only presents)
+	gravity   darwin.ID    // the layer's contentsGravity, set at Present
+	back      *image.RGBA  // the frame as last presented (damage-only presents)
+	chain     surfaceChain // the IOSurfaces that show back (present_darwin.go)
+	chainErr  error        // why the window presents CGImages instead, or nil
 
 	// Input (input_darwin.go).
 	held         keyboard.Held // keys whose press was delivered
@@ -422,6 +424,7 @@ func (w *Window) Close() {
 	w.b.releaseLater(w.layer, w.delegate, w.ns, w.ctl.effect)
 	w.ctl.effect = 0
 	w.back = nil
+	w.releaseChain()
 }
 
 // setFocused reports a change of the key window status. A window that

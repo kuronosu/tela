@@ -87,10 +87,14 @@
 // is flipped, the layer's contentsScale follows backingScaleFactor, and
 // its contentsGravity pins the frame to the top-left corner, pixel for
 // pixel. Sizes are points (logical) and the scale is backingScaleFactor.
-// Present keeps a copy of the frame (damage-only presents update it),
-// copies it into a CGImage in the sRGB color space
-// (kCGImageAlphaPremultipliedLast, Go's image.RGBA layout) and sets it as
-// the layer's contents inside a CATransaction without implicit animations.
+// Present keeps a copy of the frame (damage-only presents update it) and
+// shows it through a swap chain of two or three IOSurfaces (BGRA, tagged
+// sRGB; ADR-278): it writes into a surface the layer does not show only
+// the rectangles that surface lacks (the damage and what it missed while
+// the others were shown) and sets it as the layer's contents inside a
+// CATransaction without implicit animations. Without IOSurface it falls
+// back to a CGImage of the whole frame (kCGImageAlphaPremultipliedLast,
+// Go's image.RGBA layout, sRGB). present_darwin.go lists the quirks.
 // The window is ordered front at its first Present. Closing a window
 // releases its objects at the next pass, outside any AppKit method that
 // might still use them.
