@@ -74,9 +74,10 @@ type phaseResult struct {
 var errPhaseAborted = errors.New("raster: phased render aborted")
 
 // phaseBarriers returns the command indices of the backdrop filters of dl
-// that spread pixels, in list order, and whether all of them lie outside
-// layers (only then can the list be rendered in phases).
-func phaseBarriers(dl *gfx.DisplayList) ([]int, bool) {
+// from index from on that spread pixels, in list order, and whether all of
+// them lie outside layers (only then can the list be rendered in phases).
+// The filters before from are not drawn (Options.From).
+func phaseBarriers(dl *gfx.DisplayList, from int) ([]int, bool) {
 	var bfs []int
 	k, nb := 0, dl.NumBackdrops()
 	next := -1 // the command index of backdrop k
@@ -88,7 +89,7 @@ func phaseBarriers(dl *gfx.DisplayList) ([]int, bool) {
 	for i := range dl.Len() {
 		if i == next {
 			_, _, reach, _ := dl.Backdrop(k)
-			if reach > 0 {
+			if reach > 0 && i >= from {
 				if layers > 0 {
 					return nil, false
 				}

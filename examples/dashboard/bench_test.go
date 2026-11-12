@@ -627,13 +627,24 @@ func BenchmarkSession(b *testing.B) {
 		b.Run(c.name, func(b *testing.B) {
 			var all []frameStat
 			ticks := 0
+			var m0, m1 runtime.MemStats
+			var mallocs, bytes uint64
+			b.ReportAllocs()
 			for b.Loop() {
 				b.StopTimer()
 				r := newRig(b, c.w, c.h, c.scale, false)
 				b.StartTimer()
+				runtime.ReadMemStats(&m0)
 				fs, n := runSession(r)
+				runtime.ReadMemStats(&m1)
+				mallocs += m1.Mallocs - m0.Mallocs
+				bytes += m1.TotalAlloc - m0.TotalAlloc
 				all, ticks = append(all, fs...), ticks+n
 			}
+			// The garbage of a frame: what the session allocates, frames,
+			// settling and idle ticks included, per frame drawn.
+			b.ReportMetric(float64(mallocs)/float64(max(len(all), 1)), "allocs/frame")
+			b.ReportMetric(float64(bytes)/float64(max(len(all), 1)), "B/frame")
 			d := distOf(totals(all))
 			b.ReportMetric(d.P50, "p50-ms")
 			b.ReportMetric(d.P95, "p95-ms")
@@ -665,9 +676,9 @@ func BenchmarkFullFrame(b *testing.B) {
 
 // BenchmarkScrollFrame is one frame of scrolling the orders view by 12 px
 // back and forth: the table fills the main pane, so its rows move over the
-// pane's glass. The pane and the wallpaper do not move, so the blur of the
-// wallpaper comes from the framebuffer's cache of filtered backdrops
-// (ADR-200) and only the rows are rasterized.
+// pane's glass. The pane and the wallpaper do not move, so the rows are
+// drawn over a snapshot of what lies under them, the wallpaper, the
+// pane's blur and its fill, that the previous frame took (ADR-275).
 func BenchmarkScrollFrame(b *testing.B) {
 	for _, c := range configs {
 		b.Run(c.name, func(b *testing.B) {
@@ -679,6 +690,7 @@ func BenchmarkScrollFrame(b *testing.B) {
 			p := platform.Point{X: t.Center().X, Y: t.Y0 + 200}
 			r.tick(nil, r.move(p))
 			dy := float32(12)
+			b.ReportAllocs() // one op is one frame
 			b.ResetTimer()
 			for i := 0; b.Loop(); i++ {
 				if i%7 == 0 && i > 0 {
@@ -688,6 +700,97 @@ func BenchmarkScrollFrame(b *testing.B) {
 					b.Fatalf("iteration %d: the scroll did not draw a frame (asked=%v dirty=%v)", i, r.asked, r.tree.Dirty())
 				}
 			}
+		})
+	}
+}
+
+// rasterStep runs one frame like tick, with the events as its input, and
+// returns how long the rasterization of its damage took and what it did.
+// The input, the pipeline and the presenting copy are not counted: the
+// frames it measures are the rasterizer's (BenchmarkFullFrame's
+// counterpart for a theme switch and a palette that opens).
+func (r *rig) rasterStep(events ...func()) (time.Duration, core.Damage) {
+	r.now += frameInterval
+	r.ticks++
+	for _, f := range events {
+		f()
+	}
+	r.asked = false
+	r.tree.Animate(r.now)
+	r.tree.SetScale(float32(r.scale))
+	r.tree.Frame()
+	t0 := time.Now()
+	d := r.tree.RasterizeFrame(r.fb, &r.rr, false)
+	el := time.Since(t0)
+	r.tree.FlushEffects()
+	return el, d
+}
+
+// BenchmarkThemeFrame is the rasterization of the frame of a theme switch
+// (one frame, ADR-276). The wallpaper changes with the scheme, so every
+// pixel changes and the glass panes' input too. "rested" switches a
+// window at rest (the deferred trim ran: ADR-241), whose frame blurs the
+// new wallpaper; "toggled" switches back and forth without a rest, so the
+// blurred wallpaper of the scheme it returns to is the one it computed
+// before (raster.BackdropCache.Revive, ADR-275).
+func BenchmarkThemeFrame(b *testing.B) {
+	for _, c := range configs[:2] {
+		for _, rested := range []bool{true, false} {
+			name := c.name + "/toggled"
+			if rested {
+				name = c.name + "/rested"
+			}
+			b.Run(name, func(b *testing.B) {
+				r := newRig(b, c.w, c.h, c.scale, false)
+				r.settle(600)
+				var total time.Duration
+				full := 0
+				for i := 0; i < b.N; i++ {
+					if rested {
+						r.tree.TrimRaster(&r.rr)
+					}
+					el, d := r.rasterStep(r.click("button", "Switch theme")...)
+					total += el
+					if d.Full {
+						full++
+					}
+					r.settle(600)
+				}
+				b.ReportMetric(ms(total)/float64(b.N), "raster-ms")
+				b.ReportMetric(float64(full)/float64(b.N), "full/op")
+			})
+		}
+	}
+}
+
+// BenchmarkPaletteFrame is the rasterization of the frame that opens the
+// command palette: the scrim over the window, drawn over the page the
+// framebuffer holds (ADR-275), and the palette's first frame after it.
+func BenchmarkPaletteFrame(b *testing.B) {
+	for _, c := range configs[:2] {
+		b.Run(c.name, func(b *testing.B) {
+			r := newRig(b, c.w, c.h, c.scale, false)
+			r.settle(600)
+			escape := func() {
+				r.tree.HandleKey(platform.KeyEvent{Action: platform.KeyPress, Key: platform.KeyEscape, Time: r.now})
+			}
+			var scrim, first time.Duration
+			full := 0
+			for i := 0; i < b.N; i++ {
+				el, d := r.rasterStep(r.click("button", "Search")...)
+				scrim += el
+				if d.Full {
+					full++
+				}
+				el, _ = r.rasterStep()
+				first += el
+				r.settle(600)
+				r.tick(nil, escape)
+				r.settle(600)
+			}
+			b.ReportMetric(ms(scrim)/float64(b.N), "scrim-ms")
+			b.ReportMetric(ms(first)/float64(b.N), "palette-ms")
+			b.ReportMetric(float64(full)/float64(b.N), "full/op")
 		})
 	}
 }

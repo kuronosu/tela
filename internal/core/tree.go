@@ -150,6 +150,11 @@ type Stats struct {
 // (and SetWake) must be used from one goroutine, the UI thread.
 type Tree struct {
 	fonts *text.Collection
+	// layoutCS holds the style mapLayoutStyle resolves the layout-phase
+	// deferred props in, while it maps it (stylemap.go).
+	layoutCS style.ComputedStyle
+	// ringScratch holds the paths painter.ringPath builds (decorate.go).
+	ringScratch [2]gfx.Path
 	// parser compiles the classes: parserBase (the theme's and the class
 	// aliases') at the text scale textScale (theme.go, env.go).
 	parser     *style.Parser

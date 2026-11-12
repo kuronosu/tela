@@ -808,6 +808,12 @@ type ComputedStyle struct {
 // entry without Apply only marks its phase (core's animated layers) and
 // applies nothing.
 func (s *ComputedStyle) Resolved(phase Phase) *ComputedStyle {
+	return s.ResolvedInto(phase, nil)
+}
+
+// ResolvedInto is Resolved, writing the copy into dst when dst is not nil
+// (a copy is allocated otherwise), for a caller that does not keep it.
+func (s *ComputedStyle) ResolvedInto(phase Phase, dst *ComputedStyle) *ComputedStyle {
 	has := false
 	for i := range s.Deferred {
 		if d := &s.Deferred[i]; d.Phase == phase && d.Apply != nil {
@@ -818,13 +824,17 @@ func (s *ComputedStyle) Resolved(phase Phase) *ComputedStyle {
 	if !has {
 		return s
 	}
-	c := *s
+	c := dst
+	if c == nil {
+		c = new(ComputedStyle)
+	}
+	*c = *s
 	for _, d := range s.Deferred {
 		if d.Phase == phase && d.Apply != nil {
-			d.Apply(&c)
+			d.Apply(c)
 		}
 	}
-	return &c
+	return c
 }
 
 func enumName(names []string, i int) string {

@@ -250,47 +250,57 @@ type FocalGradient struct {
 // nothing (non-finite geometry or colors, a nil paint, a fully transparent
 // solid color).
 func sanitizePaint(p Paint) (Paint, bool) {
-	switch p := p.(type) {
+	switch q := p.(type) {
 	case Color:
-		if !p.IsFinite() {
+		if !q.IsFinite() {
 			return nil, false
 		}
-		p = p.Clamp()
-		return p, p.A > 0
+		c := q.Clamp()
+		if sameColorBits(c, q) {
+			return p, c.A > 0 // the caller's value: no new interface value
+		}
+		return c, c.A > 0
 	case LinearGradient:
-		if !p.Start.IsFinite() || !p.End.IsFinite() {
+		if !q.Start.IsFinite() || !q.End.IsFinite() {
 			return nil, false
 		}
 		var ok bool
-		p.Stops, ok = sanitizeStops(p.Stops)
-		return p, ok
+		q.Stops, ok = sanitizeStops(q.Stops)
+		return q, ok
 	case RadialGradient:
-		if !p.Center.IsFinite() || !p.Radius.IsFinite() {
+		if !q.Center.IsFinite() || !q.Radius.IsFinite() {
 			return nil, false
 		}
 		var ok bool
-		p.Stops, ok = sanitizeStops(p.Stops)
-		return p, ok
+		q.Stops, ok = sanitizeStops(q.Stops)
+		return q, ok
 	case ConicGradient:
-		if !p.Center.IsFinite() || !finite(p.StartAngle) {
+		if !q.Center.IsFinite() || !finite(q.StartAngle) {
 			return nil, false
 		}
 		var ok bool
-		p.Stops, ok = sanitizeStops(p.Stops)
-		return p, ok
+		q.Stops, ok = sanitizeStops(q.Stops)
+		return q, ok
 	case FocalGradient:
-		if !p.Focal.IsFinite() || !p.Center.IsFinite() || !finite(p.FocalRadius) || !finite(p.Radius) {
+		if !q.Focal.IsFinite() || !q.Center.IsFinite() || !finite(q.FocalRadius) || !finite(q.Radius) {
 			return nil, false
 		}
-		p.FocalRadius, p.Radius = max(p.FocalRadius, 0), max(p.Radius, 0)
-		if p.Focal == p.Center && p.FocalRadius == p.Radius {
+		q.FocalRadius, q.Radius = max(q.FocalRadius, 0), max(q.Radius, 0)
+		if q.Focal == q.Center && q.FocalRadius == q.Radius {
 			return nil, false // equal circles: nothing is painted
 		}
 		var ok bool
-		p.Stops, ok = sanitizeStops(p.Stops)
-		return p, ok
+		q.Stops, ok = sanitizeStops(q.Stops)
+		return q, ok
 	}
 	return nil, false
+}
+
+// sameColorBits reports whether a and b have the same components, bit for
+// bit.
+func sameColorBits(a, b Color) bool {
+	f := math.Float32bits
+	return f(a.R) == f(b.R) && f(a.G) == f(b.G) && f(a.B) == f(b.B) && f(a.A) == f(b.A)
 }
 
 func sanitizeStops(stops []GradientStop) ([]GradientStop, bool) {

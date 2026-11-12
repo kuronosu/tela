@@ -7,7 +7,8 @@ import "math"
 // A Renderer keeps the memory it rendered with for the next Render, so that
 // steady-state frames do not allocate: the free list of mask, layer and
 // filter buffers (getBuf, putBuf), the blur planes and strips, the shadow
-// tables, the scratch copy of a grown region (scratchImage), and the same
+// tables, the scratch copy of a grown region (scratchImage), the cached
+// stroke outlines (strokecache.go), and the same
 // for its worker Renderers, the Renderer that computes the filters of a
 // phased render, the goroutines of its work pools and its sprite Renderer.
 // Without more, all of it stays at the high-water mark of the largest frame
@@ -112,6 +113,7 @@ func (r *Renderer) endFrame(all bool) {
 	if r.shd.age.end(all) {
 		r.shd = shadowScratch{age: r.shd.age}
 	}
+	r.strokes.endFrame(all)
 	r.pool.endFrame(all)
 	if p := r.par; p != nil {
 		for _, w := range p.workers {
@@ -142,10 +144,11 @@ func (p *workPool) endFrame(all bool) {
 
 // ScratchBytes returns the bytes of scratch memory r and the Renderers it
 // owns keep between Renders: the buffers of the free lists, the blur
-// planes, the shadow tables and the scratch copies, for tests and memory
-// measurements. It must not be called while r renders.
+// planes, the shadow tables, the scratch copies and the cached stroke
+// outlines, for tests and memory measurements. It must not be called while
+// r renders.
 func (r *Renderer) ScratchBytes() int {
-	n := cap(r.scratch) + r.blurS.bytes() + r.shd.bytes()
+	n := cap(r.scratch) + r.blurS.bytes() + r.shd.bytes() + r.strokes.size()
 	for _, f := range r.free {
 		n += cap(f.b)
 	}

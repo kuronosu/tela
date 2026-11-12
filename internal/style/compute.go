@@ -2,6 +2,7 @@ package style
 
 import (
 	"image"
+	"sync"
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/text"
@@ -196,6 +197,20 @@ type bgImage struct {
 // without an image, which the paint phase fills.
 const bgDeferred = 6
 
+// scratches holds the scratch of Compute between calls: it is a couple of
+// kilobytes, and Compute runs for every box restyled.
+var scratches = sync.Pool{New: func() any { return new(scratch) }}
+
+// getScratch returns a zeroed scratch.
+func getScratch() *scratch {
+	sc := scratches.Get().(*scratch)
+	*sc = scratch{} // the slices it held may be part of a style now
+	return sc
+}
+
+// putScratch returns sc to the pool.
+func putScratch(sc *scratch) { scratches.Put(sc) }
+
 // Compute resolves the style of an element: the element defaults, then the
 // classes in order of appearance, then the typed props (last wins), on top
 // of the inherited text properties of the parent (ARCHITECTURE section 10).
@@ -222,8 +237,9 @@ func Compute(cx *Context, in Input) *ComputedStyle {
 		s.Text.Language = in.Lang
 	}
 	dark := s.IsDark(cx)
-	var sc scratch
-	e := env{s: s, sc: &sc, theme: th, viewport: cx.Viewport, dark: dark}
+	sc := getScratch()
+	defer putScratch(sc)
+	e := env{s: s, sc: sc, theme: th, viewport: cx.Viewport, dark: dark}
 	e.parentFontSize = s.Text.FontSize
 	e.fontSize = s.Text.FontSize
 
@@ -346,8 +362,9 @@ type pseudoStyle struct {
 func computePseudo(cx *Context, th *Theme, s *ComputedStyle, classes []*Classes, vc VariantContext, kind Pseudo) *pseudoStyle {
 	ps := new(ComputedStyle)
 	initStyle(ps, s, th)
-	var sc scratch
-	e := env{s: ps, sc: &sc, theme: th, viewport: cx.Viewport, dark: vc.Dark}
+	sc := getScratch()
+	defer putScratch(sc)
+	e := env{s: ps, sc: sc, theme: th, viewport: cx.Viewport, dark: vc.Dark}
 	e.parentFontSize = ps.Text.FontSize
 	e.fontSize = ps.Text.FontSize
 	matched := false

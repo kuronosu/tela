@@ -168,7 +168,10 @@ func sanitizeGlyphPaint(p Paint) (Paint, bool) {
 		if !c.IsFinite() {
 			return nil, false
 		}
-		return c.Clamp(), true
+		if k := c.Clamp(); !sameColorBits(k, c) {
+			return k, true
+		}
+		return p, true // the caller's value: no new interface value
 	}
 	if s, ok := sanitizePaint(p); ok {
 		return s, true

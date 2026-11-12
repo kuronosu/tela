@@ -233,6 +233,11 @@ type layerState struct {
 	// (ADR-200): frameDamage carries the filters whose input did not
 	// change to the next frame.
 	bdc raster.BackdropCache
+	// snaps are the snapshots of ras that the next frame's rectangles may
+	// start from, snapBuf the other slice of their double buffer, and
+	// snapSpare a released snapshot buffer (damagebase.go).
+	snaps, snapBuf []snapEntry
+	snapSpare      []uint8
 	// recorded counts the layers recorded by the last paint.
 	recorded int
 }
@@ -582,6 +587,10 @@ func (t *Tree) composite() *gfx.DisplayList {
 		L.marker = t.composeLayer
 	}
 	f := &frame{scale: t.scale}
+	if L.cur != nil {
+		// About as many instances as the last frame: no regrowth.
+		f.inst = make([]instance, 0, len(L.cur.inst))
+	}
 	if L.root != nil && L.root.dl != nil {
 		f.inst = append(f.inst, instance{layer: L.root, dl: L.root.dl, parent: -1})
 		L.compF, L.compCur = f, 0
@@ -655,6 +664,10 @@ type Damage struct {
 	Shifts []Shift
 	// Rects are the device rectangles rasterized after the shifts.
 	Rects []image.Rectangle
+	// plans are the bases of Rects, and snapAt the position of the
+	// snapshot a full frame takes (damagebase.go).
+	plans  []basePlan
+	snapAt int
 }
 
 // Shift is a block of pixels moved by a scroll: every pixel (x, y) of
@@ -698,26 +711,20 @@ func (t *Tree) rasterizeApp(fb *image.RGBA, r *raster.Renderer, full bool) Damag
 	switch {
 	case full || L.ras == nil || L.ras.scale != f.scale || L.rasRect != fb.Rect:
 		L.bdc.Reset()
-		raster.Clear(fb, image.Rectangle{}, t.clearColor())
-		r.Render(fb, f.dl, raster.Options{Scale: f.scale, Backdrops: &L.bdc})
+		t.renderFull(fb, r, f, 0)
 		d.Full = true
 	case L.ras != f:
-		L.dmg.bdc = &L.bdc
+		L.dmg.bdc, L.dmg.snaps, L.dmg.canvas = &L.bdc, L.snaps, t.clearColor()
 		d = frameDamage(L.ras, f, fb.Rect, &L.dmg)
-		L.dmg.bdc = nil
+		L.dmg.bdc, L.dmg.snaps = nil, nil
 		if d.Full {
-			raster.Clear(fb, image.Rectangle{}, t.clearColor())
-			r.Render(fb, f.dl, raster.Options{Scale: f.scale, Backdrops: &L.bdc})
+			t.renderFull(fb, r, f, d.snapAt)
 			break
 		}
 		for _, s := range d.Shifts {
 			shiftPixels(fb, s)
 		}
-		canvas := t.clearColor()
-		for _, rc := range d.Rects {
-			raster.Clear(fb, rc, canvas)
-			r.Render(fb, f.dl, raster.Options{Scale: f.scale, Region: rc, Backdrops: &L.bdc})
-		}
+		t.renderRects(fb, r, f, d)
 	}
 	L.ras, L.rasRect, L.damage = f, fb.Rect, d
 	return d

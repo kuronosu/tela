@@ -69,7 +69,7 @@ func TestPhasedMatchesSequential(t *testing.T) {
 		{"glass", 1920, 1080, glassScene(1), 1},
 	}
 	for _, c := range cases {
-		bfs, ok := phaseBarriers(c.dl)
+		bfs, ok := phaseBarriers(c.dl, 0)
 		if !ok || len(bfs) == 0 {
 			t.Fatalf("%s: not phased (%v, %v)", c.name, bfs, ok)
 		}
@@ -105,7 +105,7 @@ func TestPhasedMatchesSequential(t *testing.T) {
 		b.BackdropFilter(gfx.NewRRect(gfx.RectXYWH(10, 10, 60, 60), 8), gfx.Blur{StdDev: 3})
 		b.PopLayer()
 	})
-	if _, ok := phaseBarriers(inLayer); ok {
+	if _, ok := phaseBarriers(inLayer, 0); ok {
 		t.Errorf("a backdrop filter inside a layer: phased")
 	}
 }

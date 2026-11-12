@@ -114,6 +114,11 @@ type Engine struct {
 	// counts full layouts done inside them (see layout).
 	measuring, clobbers int
 
+	// flexBufs holds the flex items of the flex containers being laid out,
+	// one buffer per nesting depth; flexDepth is the depth (flexItems).
+	flexBufs  [][]flexItem
+	flexDepth int
+
 	// Statistics for tests: Measure calls and uncached layout runs.
 	measureCalls int
 	runs         int

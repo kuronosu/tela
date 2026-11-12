@@ -266,7 +266,7 @@ func (r *Renderer) glyphSprite(cl *gfx.DisplayList, sx, sy float32, ox float64) 
 		r.sprite = new(Renderer)
 	}
 	sp := r.sprite
-	sp.glyphs, sp.spriteDepth, sp.tune = r.glyphs, r.glyphDepth+1, r.tune
+	sp.glyphs, sp.strk, sp.spriteDepth, sp.tune = r.glyphs, r.strk, r.glyphDepth+1, r.tune
 	root := gfx.Affine{sx, 0, 0, sy, float32(ox), 0}
 	sp.root = root
 	rect = sp.devBounds(cl.Bounds())
@@ -424,9 +424,14 @@ func (r *Renderer) drawColorInline(cl *gfx.DisplayList, gm gfx.Affine) {
 	r.save()
 	r.ctm, r.dl, r.root = gm, cl, gm
 	r.glyphDepth++
+	// The barriers of a phased render, Options.From and Snap are command
+	// indices of the main list (see renderMask).
+	ph, from, snapped := r.ph, r.from, r.snapped
+	r.ph, r.from, r.snapped = nil, 0, true
 	for i := range cl.Len() {
 		r.visit(i, cl.At(i))
 	}
+	r.ph, r.from, r.snapped = ph, from, snapped
 	r.glyphDepth--
 	r.dl, r.root = dl, root
 	r.restore()

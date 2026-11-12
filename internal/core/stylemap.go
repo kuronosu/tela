@@ -541,7 +541,11 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 		// The layout-phase deferred props: evaluated when the style or
 		// the structure changes, and when a Value they read changes
 		// (Tree.remapOne).
-		cs = b.tree.resolveDeferred(b, style.PhaseLayout)
+		// The resolved style is read here only: it goes into the Tree's
+		// scratch, emptied once the layout style is mapped.
+		t := b.tree
+		cs = t.resolveDeferredInto(b, style.PhaseLayout, &t.layoutCS)
+		defer func() { t.layoutCS = style.ComputedStyle{} }()
 	}
 	ls := layout0
 	ls.Direction = directionOf(cs.Text.Direction)

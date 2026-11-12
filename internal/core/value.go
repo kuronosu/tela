@@ -547,6 +547,12 @@ func hasPhase(cs *style.ComputedStyle, phase style.Phase) bool {
 // resolveDeferred returns the style of box b with its deferred props of
 // phase (layout or paint) applied, tracking the Values they read.
 func (t *Tree) resolveDeferred(b *Box, phase style.Phase) *style.ComputedStyle {
+	return t.resolveDeferredInto(b, phase, nil)
+}
+
+// resolveDeferredInto is resolveDeferred, writing the resolved style into
+// dst when there is one and dst is not nil (see style.ResolvedInto).
+func (t *Tree) resolveDeferredInto(b *Box, phase style.Phase, dst *style.ComputedStyle) *style.ComputedStyle {
 	mark := t.beginTrack()
 	var cs *style.ComputedStyle
 	func() {
@@ -556,7 +562,7 @@ func (t *Tree) resolveDeferred(b *Box, phase style.Phase) *style.ComputedStyle {
 				t.endTrack(mark)
 			}
 		}()
-		cs = b.cs.Resolved(phase)
+		cs = b.cs.ResolvedInto(phase, dst)
 		done = true
 	}()
 	reads := t.endTrack(mark)

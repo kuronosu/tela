@@ -2,6 +2,7 @@ package text
 
 import (
 	"math"
+	"sync"
 
 	"github.com/kuronosu/tela/internal/gfx"
 )
@@ -195,7 +196,24 @@ func samePaint(a, b gfx.Paint) bool {
 	return ok1 && ok2 && ca == cb
 }
 
+// glyphBufs holds the glyph buffers of paintGlyphs between paints: the
+// Builder copies the glyphs of a run, so the buffer is scratch.
+var glyphBufs = sync.Pool{New: func() any { return new([]gfx.Glyph) }}
+
+// paintGlyphs draws the glyph runs of line li, collecting each run's
+// glyphs in gs, and returns gs for the next line. With a nil gs it uses a
+// pooled buffer, and returns nil.
 func (l *Layout) paintGlyphs(b *gfx.Builder, origin gfx.Point, li int, gs []gfx.Glyph, over paintOver) []gfx.Glyph {
+	if gs == nil {
+		bp := glyphBufs.Get().(*[]gfx.Glyph)
+		buf := (*bp)[:0]
+		if buf == nil {
+			buf = make([]gfx.Glyph, 0, 64)
+		}
+		*bp = l.paintGlyphs(b, origin, li, buf, over)[:0]
+		glyphBufs.Put(bp)
+		return nil
+	}
 	ln := &l.lines[li]
 	by := origin.Y + ln.baseline
 	var (
