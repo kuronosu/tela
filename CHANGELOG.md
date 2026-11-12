@@ -20,6 +20,7 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 ### Changed
 
 - `tela.SetColorScheme`, `tela.SetTheme`, a system dark-mode or contrast change the app follows, and a text scale change now apply without transitions, as next-themes' `disableTransitionOnChange` (ADR-276): elements with `transition-colors` show the new colors in the next frame, and running transitions toward replaced values jump to their end. An element's `h.Scheme` change still transitions.
+- macOS: a frame copies only its damaged pixels, through IOSurfaces shown by the window's layer, instead of the whole window twice (about 41 MB per frame for a 2880x1800 Retina window) (ADR-278).
 
 ## [0.14.3] - 2026-11-11
 
