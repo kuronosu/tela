@@ -43,7 +43,7 @@ The frame cost of the engine and the CPU rasterizer; the GPU backend builds on i
 - [x] A theme or scheme change applies without transitions by default (the owner, 2026-11-11; it was deferred on 2026-10-31): `transition-colors` fades every element on `tela.SetColorScheme`/`tela.SetTheme`, and in the dashboard the board cards' fade turns a switch into ~150 ms of frames that rasterize the cards under the glass (p50 3.7 → 19 ms at x1, 5.6 → 66 ms at x2); an option keeps the fade (needs an ADR)
 - [ ] `examples/dashboard/README.md`'s Performance section was measured before ADR-200 and ADR-204 (676 frames, p50 15.2 ms, p95 34.4 ms at x1): measure again and rewrite it
 
-**Done when:** the dashboard's p95 at x1 is under 16.7 ms on the CPU, a scroll of most of the window and a theme switch cost less than a full frame, and a frame of a plain 2000-row `kit.Table` that is not a scroll no longer lays out the hidden rows.
+**Done when:** the dashboard's p95 at x1 is under 16.7 ms on the CPU, a scroll of most of the window costs less than a full frame, a theme switch is one frame and costs less than a full frame where the pixels under the glass do not change (the owner, 2026-11-11: the dashboard's own switch swaps its wallpaper, so it stays a full frame), and a frame of a plain 2000-row `kit.Table` that is not a scroll no longer lays out the hidden rows.
 
 ### GPU backend
 
