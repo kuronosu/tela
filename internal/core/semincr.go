@@ -270,7 +270,7 @@ func (t *Tree) semPass() {
 		}
 		force := t.root.sem.flags&semGeom != 0 || !s.reuse
 		sticky := false
-		inh := semInherit{blockify: blockifies(t.rootBox.cs)}
+		inh := semInherit{blockify: blockifies(t.rootBox.cs), invisible: t.rootBox.cs.Visibility != style.VisibilityVisible}
 		s.portal = nil
 		for _, c := range t.root.children {
 			t.semElement(c, root, inh, force)
