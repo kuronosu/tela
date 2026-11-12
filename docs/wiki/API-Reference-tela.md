@@ -1785,6 +1785,18 @@ type App struct {
     // (see [UseTextScale]). Set it for a layout that cannot grow, such as
     // a fixed-size tool window.
     IgnoreTextScale bool
+    // ThemeTransitions keeps the transitions when the theme, the color
+    // scheme or the text scale changes. By default a change of
+    // [SetColorScheme], [SetTheme], the system's dark mode or high
+    // contrast (when the app follows it) or the text scale applies at
+    // once, as next-themes' disableTransitionOnChange does: elements with
+    // transition-colors show the new colors in the next frame, and the
+    // transitions running toward a value the change replaces jump to their
+    // end. Later changes, a hover for instance, transition as usual; an
+    // element's Scheme prop is an ordinary prop change and transitions;
+    // animate-* keyframes are not affected. Set it for an app that wants
+    // its elements to fade to the new theme, as browsers do.
+    ThemeTransitions bool
     // ColorScheme is the app's color scheme: Light or Dark override the
     // system's preference (the dark: classes, UseColorScheme); the zero
     // value, System, follows it. SetColorScheme changes it while the app
