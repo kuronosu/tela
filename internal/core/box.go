@@ -164,6 +164,21 @@ type Box struct {
 	rinAt, routAt uint64
 	rinN, routN   int32
 	sb            styleBits
+	// grp reports that the box's painting is recorded apart, in a group
+	// of its own (record.go, "Groups"); wt is the weight of its painting
+	// (the boxes it paints in its list outside groups, a drawing as two,
+	// and for a stacking context the participants it paints), and parts
+	// how many participants of its enclosing stacking context are below
+	// it, both as of its last place and at most groupMin.
+	grp       bool
+	wt, parts uint16
+	// glayer is the box's group layer, nil when it has none (adopt);
+	// rcol is what a stacking context that collects its participants
+	// through it read (kdep), rcolAt and rcolN as for rin.
+	glayer *layer
+	rcol   colIn
+	rcolAt uint64
+	rcolN  int32
 
 	// anim holds the running transitions and keyframe animation of the box
 	// (anim.go); nil when none.

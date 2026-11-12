@@ -665,9 +665,9 @@ func (t *Tree) animApply(bx *Box, old, u *style.ComputedStyle) {
 	same := wasDeferred == bx.deferPaint
 	switch {
 	case !same:
-		// The box starts or stops being a layer: place and record
-		// everything again.
-		L.needFull, L.needPlace = true, true
+		// The box starts or stops being a layer: the boxes are placed
+		// again, and the lists that place it see it (record.go).
+		L.needPlace = true
 		t.repaint = true
 	case inkCh:
 		// It paints beyond its border box: the boxes are placed again

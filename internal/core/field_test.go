@@ -664,7 +664,7 @@ func TestFieldPointer(t *testing.T) {
 func countKind(tr *Tree, k layerKind) int {
 	n := 0
 	for _, l := range tr.lay.layers {
-		if l.kind == k {
+		if l != nil && l.kind == k {
 			n++
 		}
 	}

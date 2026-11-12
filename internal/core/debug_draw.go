@@ -50,6 +50,7 @@ var (
 		gfx.RGBA8(236, 72, 153, 255), // deferred
 		gfx.RGBA8(20, 184, 166, 255), // scrollbars
 		gfx.RGBA8(245, 158, 11, 255), // field
+		gfx.RGBA8(132, 204, 22, 255), // group (not drawn: a part of the list around it)
 	}
 )
 
@@ -347,6 +348,9 @@ func (o *overlay) layers() {
 				kind = i
 			}
 		}
+		if kind == int(layerGroup) {
+			continue // recorded apart, composed as part of the list around it
+		}
 		var box *Box
 		if li.Element != nil {
 			box = li.Element.box
@@ -373,7 +377,7 @@ func (o *overlay) layers() {
 		drawn = append(drawn, r)
 		col := layerColors[kind]
 		w := float32(1)
-		if li.Recorded {
+		if li.Recorded || li.GroupsRecorded {
 			w = 2
 		}
 		o.outline(r.Inset(inset), o.win, w, col)
@@ -384,8 +388,8 @@ func (o *overlay) layers() {
 		case box != nil && box != o.t.rootBox:
 			label += " " + box.kind.String()
 		}
-		label += fmt.Sprintf(" · %d cmds", li.Commands)
-		if li.Recorded {
+		label += fmt.Sprintf(" · %d cmds", li.Commands+li.Groups)
+		if li.Recorded || li.GroupsRecorded {
 			label += " · rec"
 		}
 		o.labels = append(o.labels, ovLabel{text: label, box: r.Inset(inset), accent: col})

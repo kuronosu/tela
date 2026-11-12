@@ -99,6 +99,7 @@ func (t *Tree) restyle(el *Element) {
 	cs = t.animRestyle(el, bx, t.beforeChange(bx, before, cs, in), cs)
 	t.countTextColorFn(old, cs)
 	bx.cs = cs
+	t.textColorRestyled(el, old, cs)
 	if pb := bx.inPara; pb != nil && pb.para != nil {
 		// Its paragraph paints its decorations with its style (record.go).
 		pb.para.ver++
