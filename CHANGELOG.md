@@ -33,6 +33,7 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ### Fixed
 
+- On a transparent window (a root without a background), a glass pane over translucent content blurred pixels left from the previous frame when only part of the window was redrawn.
 - The decoded emoji bitmap cache no longer keeps the typefaces and font files of a dropped font collection alive.
 
 ## [0.14.3] - 2026-11-11
