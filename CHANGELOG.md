@@ -20,9 +20,15 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 ### Changed
 
 - `tela.SetColorScheme`, `tela.SetTheme`, a system dark-mode or contrast change the app follows, and a text scale change now apply without transitions, as next-themes' `disableTransitionOnChange` (ADR-276): elements with `transition-colors` show the new colors in the next frame, and running transitions toward replaced values jump to their end. An element's `h.Scheme` change still transitions.
+- An emoji or other color glyph that does not use the text color is rendered and cached once for every text color (8 colors: 2 glyph-cache entries instead of 9).
+- Fonts take less memory and load faster: go-text no longer parses the TrueType outlines Tela loads itself (ADR-279; `fonts/standard`: 42 → 17 MiB of heap, 54 → 13 ms to parse; system fonts 40–75% less).
 - Linux: the XDG Desktop Portal's settings are read off the UI thread from the start of `tela.Run`, beside the font index and the display connection; the first frame still waits for them (at most 5 s), and a later answer arrives as a settings change.
 - Wayland: a third shared-memory buffer, allocated when the compositor held two, is released after a second unused (the delay doubles with each release, up to a minute) instead of staying until the next resize.
 - macOS: a frame copies only its damaged pixels, through IOSurfaces shown by the window's layer, instead of the whole window twice (about 41 MB per frame for a 2880x1800 Retina window) (ADR-278).
+
+### Fixed
+
+- The decoded emoji bitmap cache no longer keeps the typefaces and font files of a dropped font collection alive.
 
 ## [0.14.3] - 2026-11-11
 
