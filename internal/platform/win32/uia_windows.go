@@ -492,24 +492,47 @@ func out(ret uintptr, u *uiaNode, i int) uintptr {
 
 // apply applies update u (UI thread) and raises its events.
 func (b *uiaBridge) apply(u *platform.AccessUpdate) {
-	tree, _, err := b.tree.Apply(u)
+	prev := b.tree
+	tree, removed, err := prev.Apply(u)
 	if err != nil {
 		panic(err) // core's updates are valid by contract; headless panics too
 	}
 	b.tree = tree
-	cur := newUIASnapshot(tree)
-	b.mu.Lock()
+	// The snapshot follows the update's changes when the last one is of
+	// the tree it was applied to (ADR-277).
 	old := b.snap.Load()
+	var cur *uiaSnapshot
+	if old != nil && prev != nil && old.tree == prev && prev.Root() == tree.Root() {
+		changed := make([]platform.AccessID, len(u.Nodes))
+		for i := range u.Nodes {
+			changed[i] = u.Nodes[i].ID
+		}
+		cur = updateUIASnapshot(old, tree, changed, removed)
+	} else {
+		cur = newUIASnapshot(tree)
+	}
+	b.mu.Lock()
 	b.snap.Store(cur)
 	var gone map[platform.AccessID]*uiaNode
-	for id, n := range b.nodes {
-		if _, ok := cur.up[id]; !ok {
-			n.dead.Store(true)
-			delete(b.nodes, id)
-			if gone == nil {
-				gone = map[platform.AccessID]*uiaNode{}
+	kill := func(id platform.AccessID, n *uiaNode) {
+		n.dead.Store(true)
+		delete(b.nodes, id)
+		if gone == nil {
+			gone = map[platform.AccessID]*uiaNode{}
+		}
+		gone[id] = n
+	}
+	if cur.full {
+		for id, n := range b.nodes {
+			if !cur.exposed(id) {
+				kill(id, n)
 			}
-			gone[id] = n
+		}
+	} else {
+		for _, id := range cur.lost {
+			if n, ok := b.nodes[id]; ok {
+				kill(id, n)
+			}
 		}
 	}
 	b.mu.Unlock()

@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/internal/idmap"
 	"github.com/kuronosu/tela/internal/utf16x"
 )
 
@@ -18,57 +19,236 @@ import (
 // answers AppKit from these. See "Accessibility" in doc.go.
 
 // axTree is a window's accessibility tree as the bridge exposes it: the
-// platform tree and, computed once per update, the structure AppKit
-// sees. It is immutable once built, like the AccessTree it wraps.
+// platform tree and, computed per update, the structure AppKit sees. It
+// is immutable once built, like the AccessTree it wraps. Successive trees
+// share what did not change (a persistent map, ADR-277): updateAXTree
+// makes the next one from an update's changes.
 type axTree struct {
 	tree *platform.AccessTree
-	// parent is every node's parent in the platform tree (0 for the root).
-	parent map[platform.AccessID]platform.AccessID
-	// up is the exposed parent of each exposed node: the nearest ancestor
-	// that is exposed, or the root (the content view). A node is exposed
-	// when it has an entry.
-	up map[platform.AccessID]platform.AccessID
-	// kids are the exposed children of the root and of each exposed node,
-	// in order: the children of ignored nodes take their place, and the
-	// children of a node whose children are presentational are hidden.
-	kids map[platform.AccessID][]platform.AccessID
+	// ents holds the root's entry and one for each exposed node: its
+	// exposed parent (the nearest ancestor that is exposed, or the root,
+	// the content view) and its exposed children, in order (the children
+	// of ignored nodes take their place, and the children of a node whose
+	// children are presentational are hidden). A node is exposed when it
+	// has an entry, the root apart.
+	ents idmap.Map[axEntry]
+	// lost are the nodes exposed in the tree this one was made from and
+	// not in this one; full reports a tree built in full, which has none
+	// (lostSince compares in full).
+	lost []platform.AccessID
+	full bool
+}
+
+// axEntry is the exposed structure of a node.
+type axEntry struct {
+	up   platform.AccessID
+	kids []platform.AccessID
+	// leaf: the node's children are presentational (hidden).
+	leaf bool
 }
 
 // newAXTree computes what the bridge exposes of t (nil for the empty
 // tree).
 func newAXTree(t *platform.AccessTree) *axTree {
-	v := &axTree{
-		tree:   t,
-		parent: make(map[platform.AccessID]platform.AccessID, t.Len()),
-		up:     make(map[platform.AccessID]platform.AccessID, t.Len()),
-		kids:   map[platform.AccessID][]platform.AccessID{},
+	b := &axBuild{t: t, m: &idmap.Builder[axEntry]{}}
+	if root, ok := t.Node(t.Root()); ok {
+		b.m.Set(uint64(root.ID), axEntry{})
+		b.region(root.ID, root)
 	}
-	root, ok := t.Node(t.Root())
-	if !ok {
-		return v
+	return &axTree{tree: t, ents: b.m.Map(), full: true}
+}
+
+// axBuild makes an axTree's entries.
+type axBuild struct {
+	t *platform.AccessTree
+	m *idmap.Builder[axEntry]
+	// In an update: old is the tree it starts from, seeds the nodes whose
+	// exposed children it must find again, done those it found again, lost
+	// the nodes no longer exposed.
+	old   *axTree
+	seeds map[platform.AccessID]bool
+	done  map[platform.AccessID]bool
+	lost  map[platform.AccessID]bool
+}
+
+// set records the entry of exposed node id.
+func (b *axBuild) set(id platform.AccessID, e axEntry) {
+	if b.lost != nil {
+		delete(b.lost, id)
 	}
-	var collect func(anc platform.AccessID, n *platform.AccessNode, hidden bool)
-	collect = func(anc platform.AccessID, n *platform.AccessNode, hidden bool) {
+	b.m.Set(uint64(id), e)
+}
+
+// unexpose forgets node id's entry, if it has one.
+func (b *axBuild) unexpose(id platform.AccessID) {
+	if _, ok := b.m.Get(uint64(id)); ok {
+		b.m.Delete(uint64(id))
+		if b.lost != nil {
+			b.lost[id] = true
+		}
+	}
+}
+
+// region finds the exposed children of k (the root or an exposed node,
+// node n) through its ignored descendants, or hides its descendants when
+// its children are presentational.
+func (b *axBuild) region(k platform.AccessID, n *platform.AccessNode) {
+	if b.done != nil {
+		b.done[k] = true
+	}
+	e, _ := b.m.Get(uint64(k))
+	e.leaf = k != b.t.Root() && childrenPresentational(n)
+	if e.leaf {
+		e.kids = nil
+		b.m.Set(uint64(k), e)
+		b.hide(n)
+		return
+	}
+	var kids []platform.AccessID
+	var walk func(n *platform.AccessNode)
+	walk = func(n *platform.AccessNode) {
 		for _, c := range n.Children {
-			cn, ok := t.Node(c)
+			cn, ok := b.t.Node(c)
 			if !ok {
 				continue
 			}
-			v.parent[c] = n.ID
-			switch {
-			case hidden:
-				collect(anc, cn, true)
-			case cn.Ignored():
-				collect(anc, cn, false)
-			default:
-				v.kids[anc] = append(v.kids[anc], c)
-				v.up[c] = anc
-				collect(c, cn, childrenPresentational(cn))
+			if cn.Ignored() {
+				b.unexpose(c)
+				walk(cn)
+				continue
+			}
+			b.child(c, cn, k)
+			kids = append(kids, c)
+		}
+	}
+	walk(n)
+	e.kids = kids
+	b.m.Set(uint64(k), e)
+}
+
+// child exposes c (node cn) below k: in an update, an exposed node that
+// keeps its presentational state and is not a seed keeps its children.
+func (b *axBuild) child(c platform.AccessID, cn *platform.AccessNode, k platform.AccessID) {
+	o, had := b.m.Get(uint64(c))
+	e := axEntry{up: k, leaf: childrenPresentational(cn)}
+	if b.old != nil && had && o.leaf == e.leaf && !b.seeds[c] {
+		e.kids = o.kids
+		b.set(c, e)
+		return
+	}
+	b.set(c, e)
+	b.region(c, cn)
+}
+
+// hide forgets the entries of the descendants of n.
+func (b *axBuild) hide(n *platform.AccessNode) {
+	for _, c := range n.Children {
+		if cn, ok := b.t.Node(c); ok {
+			b.unexpose(c)
+			b.hide(cn)
+		}
+	}
+}
+
+// updateAXTree returns the exposed structure of t made from old, that of
+// the tree an update turned into t, which held the nodes changed and
+// removed the nodes removed: only the children of the exposed nodes they
+// reach are found again. old's tree must have t's root.
+func updateAXTree(old *axTree, t *platform.AccessTree, changed, removed []platform.AccessID) *axTree {
+	b := &axBuild{t: t, m: idmap.NewBuilder(old.ents), old: old,
+		seeds: map[platform.AccessID]bool{}, done: map[platform.AccessID]bool{}, lost: map[platform.AccessID]bool{}}
+	// The seeds: a changed node that is not ignored (its children may
+	// differ) and the nearest ancestor of each changed node that is not
+	// ignored (the changed node may be its exposed child, or lift its
+	// children into it).
+	for _, id := range changed {
+		n, ok := t.Node(id)
+		if !ok {
+			continue
+		}
+		if !n.Ignored() {
+			b.seeds[id] = true
+		}
+		for p, _ := t.Parent(id); p != 0; p, _ = t.Parent(p) {
+			if pn, _ := t.Node(p); !pn.Ignored() {
+				b.seeds[p] = true
+				break
 			}
 		}
 	}
-	collect(root.ID, root, false)
+	root := t.Root()
+	for _, id := range removed {
+		if id != root {
+			b.unexpose(id)
+		}
+	}
+	order := make([]platform.AccessID, 0, len(b.seeds))
+	depth := make(map[platform.AccessID]int, len(b.seeds))
+	for id := range b.seeds {
+		order = append(order, id)
+		d := 0
+		for p, _ := t.Parent(id); p != 0; p, _ = t.Parent(p) {
+			d++
+		}
+		depth[id] = d
+	}
+	// Ancestors first: a seed found again inside another's children is
+	// done with it.
+	slices.SortFunc(order, func(a, c platform.AccessID) int {
+		if d := depth[a] - depth[c]; d != 0 {
+			return d
+		}
+		return int(a) - int(c)
+	})
+	for _, id := range order {
+		if b.done[id] {
+			continue
+		}
+		n, _ := t.Node(id)
+		if id == root {
+			b.region(root, n)
+			continue
+		}
+		hidden := false
+		for p, _ := t.Parent(id); p != 0 && !hidden; p, _ = t.Parent(p) {
+			pn, _ := t.Node(p)
+			hidden = p != root && childrenPresentational(pn)
+		}
+		if hidden {
+			b.unexpose(id)
+			b.hide(n)
+			continue
+		}
+		if _, exposed := b.m.Get(uint64(id)); !exposed {
+			continue // only a seed's region exposes a node anew
+		}
+		b.region(id, n)
+	}
+	v := &axTree{tree: t, ents: b.m.Map()}
+	for id := range b.lost {
+		v.lost = append(v.lost, id)
+	}
+	slices.Sort(v.lost)
 	return v
+}
+
+// lostSince returns the nodes exposed in old (the tree v was made from)
+// that v does not expose, in ID order.
+func (v *axTree) lostSince(old *axTree) []platform.AccessID {
+	if !v.full {
+		return v.lost
+	}
+	var lost []platform.AccessID
+	if old != nil {
+		old.ents.Range(func(k uint64, _ axEntry) bool {
+			if id := platform.AccessID(k); id != old.root() && !v.exposed(id) {
+				lost = append(lost, id)
+			}
+			return true
+		})
+	}
+	slices.Sort(lost)
+	return lost
 }
 
 // root returns the root's ID (0 for the empty tree).
@@ -76,8 +256,27 @@ func (v *axTree) root() platform.AccessID { return v.tree.Root() }
 
 // exposed reports whether node id has an element of its own.
 func (v *axTree) exposed(id platform.AccessID) bool {
-	_, ok := v.up[id]
+	if id == v.root() {
+		return false
+	}
+	_, ok := v.ents.Get(uint64(id))
 	return ok
+}
+
+// up returns the exposed parent of exposed node id (the root for one at
+// the top), 0 for a node that is not exposed.
+func (v *axTree) up(id platform.AccessID) platform.AccessID {
+	if !v.exposed(id) {
+		return 0
+	}
+	e, _ := v.ents.Get(uint64(id))
+	return e.up
+}
+
+// kids returns the exposed children of the root or of exposed node id.
+func (v *axTree) kids(id platform.AccessID) []platform.AccessID {
+	e, _ := v.ents.Get(uint64(id))
+	return e.kids
 }
 
 // node returns the exposed node id, or nil.
@@ -94,7 +293,7 @@ func (v *axTree) node(id platform.AccessID) *platform.AccessNode {
 func (v *axTree) exposedAncestor(id platform.AccessID) platform.AccessID {
 	root := v.root()
 	for id != 0 && id != root && !v.exposed(id) {
-		id = v.parent[id]
+		id, _ = v.tree.Parent(id)
 	}
 	if id == 0 {
 		return root
@@ -112,7 +311,7 @@ func (v *axTree) focus() platform.AccessID { return v.exposedAncestor(v.tree.Foc
 // from itself when no child contains the point, and 0 when from is the
 // root and nothing does.
 func (v *axTree) hitTest(from platform.AccessID, x, y float32) platform.AccessID {
-	kids := v.kids[from]
+	kids := v.kids(from)
 	for i := len(kids) - 1; i >= 0; i-- {
 		n, ok := v.tree.Node(kids[i])
 		if !ok {
@@ -131,7 +330,7 @@ func (v *axTree) hitTest(from platform.AccessID, x, y float32) platform.AccessID
 
 // walk calls f for every exposed node under id in tree order.
 func (v *axTree) walk(id platform.AccessID, f func(n *platform.AccessNode) bool) {
-	for _, c := range v.kids[id] {
+	for _, c := range v.kids(id) {
 		n, ok := v.tree.Node(c)
 		if !ok {
 			continue
@@ -166,7 +365,7 @@ func (v *axTree) rows(id platform.AccessID) []platform.AccessID {
 
 // tableOf returns the nearest exposed table-like ancestor of id, or 0.
 func (v *axTree) tableOf(id platform.AccessID) platform.AccessID {
-	for a := v.up[id]; a != 0 && a != v.root(); a = v.up[a] {
+	for a := v.up(id); a != 0 && a != v.root(); a = v.up(a) {
 		if n := v.node(a); n != nil && tableLike(n.Role) {
 			return a
 		}
@@ -1021,6 +1220,67 @@ func (n axNote) String() string {
 	return s
 }
 
+// changedTables returns, in tree order, the exposed table-like nodes of
+// cur whose rows update u (which turned old into cur, and left the nodes
+// lost no longer exposed) may have changed: every table of a tree built in
+// full, else the table-like exposed ancestors of the changed nodes and of
+// the nodes lost (and those nodes themselves). A table's rows change only
+// below it, where the update changed something.
+func (cur *axTree) changedTables(old *axTree, u *platform.AccessUpdate, lost []platform.AccessID) []platform.AccessID {
+	var tables []platform.AccessID
+	if cur.full {
+		cur.walk(cur.root(), func(n *platform.AccessNode) bool {
+			if tableLike(n.Role) {
+				tables = append(tables, n.ID)
+			}
+			return true
+		})
+		return tables
+	}
+	found := map[platform.AccessID]bool{}
+	add := func(t *platform.AccessTree, seen map[platform.AccessID]bool, id platform.AccessID) {
+		for ; id != 0; id, _ = t.Parent(id) {
+			if seen[id] {
+				return
+			}
+			seen[id] = true
+			if n := cur.node(id); n != nil && tableLike(n.Role) && !found[id] {
+				found[id] = true
+				tables = append(tables, id)
+			}
+		}
+	}
+	seen := map[platform.AccessID]bool{}
+	for i := range u.Nodes {
+		add(cur.tree, seen, u.Nodes[i].ID)
+	}
+	seen = map[platform.AccessID]bool{}
+	for _, id := range lost {
+		add(old.tree, seen, id)
+	}
+	// Tree order: by the path of child indexes from the root.
+	path := func(id platform.AccessID) []int {
+		var p []int
+		for id != 0 {
+			parent, _ := cur.tree.Parent(id)
+			if parent == 0 {
+				break
+			}
+			pn, _ := cur.tree.Node(parent)
+			p = append(p, slices.Index(pn.Children, id))
+			id = parent
+		}
+		slices.Reverse(p)
+		return p
+	}
+	paths := make(map[platform.AccessID][]int, len(tables))
+	for _, t := range tables {
+		paths[t] = path(t)
+	}
+	slices.SortFunc(tables, func(a, b platform.AccessID) int { return slices.Compare(paths[a], paths[b]) })
+	return tables
+}
+
 // axNotes returns the notifications that update u, which turned the tree
 // old (nil: the first update since the activation) into cur, posts, in
 // order: the elements destroyed (exposed in old, not in cur), one layout
@@ -1043,13 +1303,7 @@ func axNotes(old, cur *axTree, u *platform.AccessUpdate) []axNote {
 		notes = append(notes, axNote{kind: noteLayout})
 		return announce()
 	}
-	var destroyed []platform.AccessID
-	for id := range old.up {
-		if !cur.exposed(id) {
-			destroyed = append(destroyed, id)
-		}
-	}
-	slices.Sort(destroyed)
+	destroyed := cur.lostSince(old)
 	for _, id := range destroyed {
 		notes = append(notes, axNote{kind: noteDestroyed, id: id})
 	}
@@ -1063,21 +1317,14 @@ func axNotes(old, cur *axTree, u *platform.AccessUpdate) []axNote {
 		a := cur.exposedAncestor(id)
 		if !checked[a] {
 			checked[a] = true
-			if !slices.Equal(old.kids[a], cur.kids[a]) {
+			if !slices.Equal(old.kids(a), cur.kids(a)) {
 				layout = true
 			}
 		}
 	}
 	if layout {
 		notes = append(notes, axNote{kind: noteLayout})
-		var tables []platform.AccessID
-		cur.walk(cur.root(), func(n *platform.AccessNode) bool {
-			if tableLike(n.Role) {
-				tables = append(tables, n.ID)
-			}
-			return true
-		})
-		for _, t := range tables {
+		for _, t := range cur.changedTables(old, u, destroyed) {
 			if old.exposed(t) && len(old.rows(t)) != len(cur.rows(t)) {
 				notes = append(notes, axNote{kind: noteRowCount, id: t})
 			}
@@ -1100,7 +1347,7 @@ func axNotes(old, cur *axTree, u *platform.AccessUpdate) []axNote {
 			notes = append(notes, axNote{kind: noteSelectedText, id: n.ID})
 		}
 		if o.Selected != n.Selected {
-			if c := cur.up[n.ID]; c != cur.root() && !containers[c] {
+			if c := cur.up(n.ID); c != cur.root() && !containers[c] {
 				containers[c] = true
 				notes = append(notes, axNote{kind: noteSelectedChildren, id: c})
 			}

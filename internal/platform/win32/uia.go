@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/internal/idmap"
 )
 
 // The UI Automation bridge (ADR-246): the OS-independent half, pure Go so
@@ -762,71 +763,306 @@ func uiaAriaProperties(n *platform.AccessNode) string {
 // the UI thread and then read by any thread: the nodes that are not
 // ignored (AccessNode.Ignored), with the ignored ones' children lifted to
 // their nearest exposed ancestor, and no children under the roles whose
-// children are presentational. It is immutable.
+// children are presentational. It is immutable. Successive snapshots share
+// what did not change (a persistent map, ADR-277): updateUIASnapshot makes
+// the next one from an update's changes.
 type uiaSnapshot struct {
 	tree *platform.AccessTree
-	// up is the exposed parent of each exposed node (0 for the root),
-	// kids the exposed children of each exposed node that has any, pos a
-	// node's index among its parent's kids.
-	up   map[platform.AccessID]platform.AccessID
-	kids map[platform.AccessID][]platform.AccessID
-	pos  map[platform.AccessID]int
-	// anc is the nearest exposed ancestor of every node but the root,
-	// exposed or not.
-	anc map[platform.AccessID]platform.AccessID
+	// ents holds an entry for every node of the tree.
+	ents idmap.Map[uiaEntry]
 	// focus is the exposed node that has the focus: the tree's focus, or
 	// its nearest exposed ancestor; the root when no element has it.
 	focus platform.AccessID
+	// lost are the nodes exposed in the snapshot this one was made from
+	// and not in this one; full reports a snapshot built from the whole
+	// tree, which has none (lostSince compares in full).
+	lost []platform.AccessID
+	full bool
+}
+
+// uiaEntry is what a snapshot knows of a node.
+type uiaEntry struct {
+	// exposed: the node is exposed; up is then its exposed parent (0 for
+	// the root), pos its index among up's kids, kids its own exposed
+	// children and leaf whether its role makes its children
+	// presentational (uiaLeafRoles), which hides its descendants.
+	exposed bool
+	up      platform.AccessID
+	pos     int
+	kids    []platform.AccessID
+	leaf    bool
+	// anc is the nearest exposed ancestor of every node but the root,
+	// exposed or not.
+	anc platform.AccessID
+}
+
+// uiaIsLeaf reports whether n's exposed descendants are hidden.
+func uiaIsLeaf(n *platform.AccessNode) bool {
+	return n.Kind == platform.AccessElement && uiaLeafRoles[n.Role]
+}
+
+// entry returns the entry of node id.
+func (s *uiaSnapshot) entry(id platform.AccessID) (uiaEntry, bool) {
+	if s == nil {
+		return uiaEntry{}, false
+	}
+	return s.ents.Get(uint64(id))
+}
+
+// exposed reports whether node id is exposed.
+func (s *uiaSnapshot) exposed(id platform.AccessID) bool {
+	e, _ := s.entry(id)
+	return e.exposed
+}
+
+// up returns the exposed parent of exposed node id (0 for the root), and
+// whether it is exposed.
+func (s *uiaSnapshot) up(id platform.AccessID) (platform.AccessID, bool) {
+	e, _ := s.entry(id)
+	return e.up, e.exposed
+}
+
+// kids returns the exposed children of exposed node id.
+func (s *uiaSnapshot) kids(id platform.AccessID) []platform.AccessID {
+	e, _ := s.entry(id)
+	return e.kids
+}
+
+// anc returns the nearest exposed ancestor of node id (0 for the root).
+func (s *uiaSnapshot) anc(id platform.AccessID) platform.AccessID {
+	e, _ := s.entry(id)
+	return e.anc
 }
 
 // newUIASnapshot returns the exposed tree of t (nil: the empty tree, a
-// window whose first update has not come).
+// window whose first update has not come), built from the whole tree.
 func newUIASnapshot(t *platform.AccessTree) *uiaSnapshot {
-	s := &uiaSnapshot{tree: t, up: map[platform.AccessID]platform.AccessID{},
-		kids: map[platform.AccessID][]platform.AccessID{}, pos: map[platform.AccessID]int{},
-		anc: map[platform.AccessID]platform.AccessID{}}
+	b := &uiaBuild{t: t, m: &idmap.Builder[uiaEntry]{}}
 	root := t.Root()
-	if root == 0 {
-		return s
+	s := &uiaSnapshot{tree: t, full: true}
+	if root != 0 {
+		rn, _ := t.Node(root)
+		b.set(root, uiaEntry{exposed: true})
+		b.region(root, rn)
 	}
-	s.up[root] = 0
-	var walk func(id, exposed platform.AccessID, leaf bool)
-	walk = func(id, exposed platform.AccessID, leaf bool) {
-		n, _ := t.Node(id)
+	s.ents = b.m.Map()
+	s.focus = s.focusOf()
+	return s
+}
+
+// lostSince returns the nodes exposed in old (the snapshot cur was made
+// from) that cur does not expose, in ID order.
+func (cur *uiaSnapshot) lostSince(old *uiaSnapshot) []platform.AccessID {
+	if !cur.full {
+		return cur.lost
+	}
+	var lost []platform.AccessID
+	if old != nil {
+		old.ents.Range(func(k uint64, e uiaEntry) bool {
+			if e.exposed && !cur.exposed(platform.AccessID(k)) {
+				lost = append(lost, platform.AccessID(k))
+			}
+			return true
+		})
+	}
+	slices.Sort(lost)
+	return lost
+}
+
+// focusOf returns the snapshot's focus (see uiaSnapshot.focus).
+func (s *uiaSnapshot) focusOf() platform.AccessID {
+	f := s.tree.Focus()
+	if f == 0 || s.exposed(f) {
+		return f
+	}
+	if a := s.anc(f); a != 0 {
+		return a
+	}
+	return s.tree.Root()
+}
+
+// uiaBuild makes a snapshot's entries.
+type uiaBuild struct {
+	t *platform.AccessTree
+	m *idmap.Builder[uiaEntry]
+	// old is the snapshot an update starts from (nil for a full build);
+	// seeds are the exposed nodes whose children it must find again, done
+	// those it found again; lost collects the nodes no longer exposed.
+	old   *uiaSnapshot
+	seeds map[platform.AccessID]bool
+	done  map[platform.AccessID]bool
+	lost  map[platform.AccessID]bool
+}
+
+// set records the entry of node id.
+func (b *uiaBuild) set(id platform.AccessID, e uiaEntry) {
+	if b.lost != nil {
+		if o, ok := b.m.Get(uint64(id)); ok && o.exposed && !e.exposed {
+			b.lost[id] = true
+		} else if e.exposed {
+			delete(b.lost, id)
+		}
+	}
+	b.m.Set(uint64(id), e)
+}
+
+// region finds the exposed children of exposed node k (node n), through
+// its ignored descendants, or hides its descendants when it is a leaf.
+func (b *uiaBuild) region(k platform.AccessID, n *platform.AccessNode) {
+	if b.done != nil {
+		b.done[k] = true
+	}
+	e, _ := b.m.Get(uint64(k))
+	e.leaf = k != b.t.Root() && uiaIsLeaf(n)
+	if e.leaf {
+		e.kids = nil
+		b.set(k, e)
+		b.hide(n, k)
+		return
+	}
+	var kids []platform.AccessID
+	var walk func(n *platform.AccessNode)
+	walk = func(n *platform.AccessNode) {
 		for _, c := range n.Children {
-			cn, ok := t.Node(c)
+			cn, ok := b.t.Node(c)
 			if !ok {
 				continue
 			}
-			s.anc[c] = exposed
-			if leaf || cn.Ignored() {
-				walk(c, exposed, leaf)
+			if cn.Ignored() {
+				b.set(c, uiaEntry{anc: k})
+				walk(cn)
 				continue
 			}
-			s.up[c] = exposed
-			s.pos[c] = len(s.kids[exposed])
-			s.kids[exposed] = append(s.kids[exposed], c)
-			walk(c, c, cn.Kind == platform.AccessElement && uiaLeafRoles[cn.Role])
+			b.child(c, cn, k, len(kids))
+			kids = append(kids, c)
 		}
 	}
-	walk(root, root, false)
-	s.focus = t.Focus()
-	if _, ok := s.up[s.focus]; !ok {
-		s.focus = s.anc[s.focus]
-		if s.focus == 0 {
-			s.focus = root
+	walk(n)
+	e.kids = kids
+	b.set(k, e)
+}
+
+// child makes c (node cn) the exposed child at pos of k: in an update, an
+// exposed node that keeps its role class and is not a seed keeps its
+// children; the others find theirs (region).
+func (b *uiaBuild) child(c platform.AccessID, cn *platform.AccessNode, k platform.AccessID, pos int) {
+	o, had := b.m.Get(uint64(c))
+	e := uiaEntry{exposed: true, up: k, pos: pos, anc: k, leaf: uiaIsLeaf(cn)}
+	if b.old != nil && had && o.exposed && o.leaf == e.leaf && !b.seeds[c] {
+		e.kids = o.kids
+		b.set(c, e)
+		return
+	}
+	b.set(c, e)
+	b.region(c, cn)
+}
+
+// hide records the descendants of n as hidden, below exposed node k.
+func (b *uiaBuild) hide(n *platform.AccessNode, k platform.AccessID) {
+	for _, c := range n.Children {
+		cn, ok := b.t.Node(c)
+		if !ok {
+			continue
+		}
+		b.set(c, uiaEntry{anc: k})
+		b.hide(cn, k)
+	}
+}
+
+// updateUIASnapshot returns the snapshot of t made from old, the snapshot
+// of the tree an update turned into t, which held the nodes changed and
+// removed the nodes removed: only the children of the exposed nodes they
+// reach are found again. old's tree must have t's root.
+func updateUIASnapshot(old *uiaSnapshot, t *platform.AccessTree, changed, removed []platform.AccessID) *uiaSnapshot {
+	b := &uiaBuild{t: t, m: idmap.NewBuilder(old.ents), old: old,
+		seeds: map[platform.AccessID]bool{}, done: map[platform.AccessID]bool{}, lost: map[platform.AccessID]bool{}}
+	// The seeds: a changed node that is not ignored (its children may
+	// differ) and the nearest ancestor of each changed node that is not
+	// ignored (the changed node may be its exposed child, or lift its
+	// children into it).
+	for _, id := range changed {
+		n, ok := t.Node(id)
+		if !ok {
+			continue
+		}
+		if !n.Ignored() {
+			b.seeds[id] = true
+		}
+		for p, _ := t.Parent(id); p != 0; p, _ = t.Parent(p) {
+			if pn, _ := t.Node(p); !pn.Ignored() {
+				b.seeds[p] = true
+				break
+			}
 		}
 	}
+	for _, id := range removed {
+		if o, ok := b.m.Get(uint64(id)); ok && o.exposed {
+			b.lost[id] = true
+		}
+		b.m.Delete(uint64(id))
+	}
+	order := make([]platform.AccessID, 0, len(b.seeds))
+	depth := make(map[platform.AccessID]int, len(b.seeds))
+	for id := range b.seeds {
+		order = append(order, id)
+		d := 0
+		for p, _ := t.Parent(id); p != 0; p, _ = t.Parent(p) {
+			d++
+		}
+		depth[id] = d
+	}
+	// Ancestors first: a seed found again inside another's children is
+	// done with it.
+	slices.SortFunc(order, func(a, c platform.AccessID) int {
+		if d := depth[a] - depth[c]; d != 0 {
+			return d
+		}
+		return int(a) - int(c)
+	})
+	root := t.Root()
+	for _, id := range order {
+		if b.done[id] {
+			continue
+		}
+		n, _ := t.Node(id)
+		if id == root {
+			b.region(root, n)
+			continue
+		}
+		// Hidden below a leaf: the nodes below the topmost leaf ancestor
+		// are hidden, their exposed ancestor is that leaf.
+		top := platform.AccessID(0)
+		for p, _ := t.Parent(id); p != 0; p, _ = t.Parent(p) {
+			if pn, _ := t.Node(p); uiaIsLeaf(pn) {
+				top = p
+			}
+		}
+		if top != 0 {
+			b.set(id, uiaEntry{anc: top})
+			b.hide(n, top)
+			continue
+		}
+		// Exposed where it was (its exposed parent is no seed, so its
+		// place did not change): its children are found again.
+		e, _ := b.m.Get(uint64(id))
+		if !e.exposed {
+			continue // only a seed's region exposes a node anew
+		}
+		b.region(id, n)
+	}
+	s := &uiaSnapshot{tree: t, ents: b.m.Map()}
+	for id := range b.lost {
+		s.lost = append(s.lost, id)
+	}
+	slices.Sort(s.lost)
+	s.focus = s.focusOf()
 	return s
 }
 
 // node returns the exposed node id, or false when the snapshot does not
 // expose it.
 func (s *uiaSnapshot) node(id platform.AccessID) (*platform.AccessNode, bool) {
-	if s == nil {
-		return nil, false
-	}
-	if _, ok := s.up[id]; !ok {
+	if s == nil || !s.exposed(id) {
 		return nil, false
 	}
 	return s.tree.Node(id)
@@ -840,21 +1076,22 @@ func (s *uiaSnapshot) root() platform.AccessID { return s.tree.Root() }
 func (s *uiaSnapshot) navigate(id platform.AccessID, dir int32) platform.AccessID {
 	switch dir {
 	case uiaNavigateParent:
-		return s.up[id]
+		p, _ := s.up(id)
+		return p
 	case uiaNavigateFirstChild:
-		if k := s.kids[id]; len(k) > 0 {
+		if k := s.kids(id); len(k) > 0 {
 			return k[0]
 		}
 	case uiaNavigateLastChild:
-		if k := s.kids[id]; len(k) > 0 {
+		if k := s.kids(id); len(k) > 0 {
 			return k[len(k)-1]
 		}
 	case uiaNavigateNextSibling, uiaNavigatePreviousSibling:
-		p, ok := s.up[id]
-		if !ok || p == 0 {
+		e, _ := s.entry(id)
+		if !e.exposed || e.up == 0 {
 			return 0
 		}
-		k, i := s.kids[p], s.pos[id]
+		k, i := s.kids(e.up), e.pos
 		if dir == uiaNavigateNextSibling {
 			i++
 		} else {
@@ -876,7 +1113,7 @@ func (s *uiaSnapshot) at(x, y float32) platform.AccessID {
 		return 0
 	}
 	for {
-		kids := s.kids[id]
+		kids := s.kids(id)
 		next := platform.AccessID(0)
 		for i := len(kids) - 1; i >= 0; i-- {
 			n, _ := s.tree.Node(kids[i])
@@ -912,7 +1149,7 @@ func (s *uiaSnapshot) offscreen(n *platform.AccessNode) bool {
 // selectionContainer returns the nearest exposed ancestor of id with the
 // Selection pattern, or 0.
 func (s *uiaSnapshot) selectionContainer(id platform.AccessID) platform.AccessID {
-	for p := s.up[id]; p != 0; p = s.up[p] {
+	for p, _ := s.up(id); p != 0; p, _ = s.up(p) {
 		if n, ok := s.tree.Node(p); ok && uiaHasSelection(n) {
 			return p
 		}
@@ -927,7 +1164,7 @@ func (s *uiaSnapshot) selected(id platform.AccessID) []platform.AccessID {
 	var out []platform.AccessID
 	var walk func(id platform.AccessID)
 	walk = func(id platform.AccessID) {
-		for _, c := range s.kids[id] {
+		for _, c := range s.kids(id) {
 			n, _ := s.tree.Node(c)
 			if uiaHasSelectionItem(n) && uiaIsSelected(n) {
 				out = append(out, c)
@@ -994,13 +1231,13 @@ func uiaChanges(old, cur *uiaSnapshot, u *platform.AccessUpdate, out []uiaEvent)
 		if invalid[id] {
 			return
 		}
-		if _, ok := cur.up[id]; !ok {
+		if !cur.exposed(id) {
 			return
 		}
-		if _, was := old.up[id]; !was {
+		if !old.exposed(id) {
 			return // new: its parent's list changed
 		}
-		if !slices.Equal(old.kids[id], cur.kids[id]) {
+		if !slices.Equal(old.kids(id), cur.kids(id)) {
 			invalid[id] = true
 			out = append(out, uiaEvent{kind: uiaEventStructure, node: id})
 		}
@@ -1008,9 +1245,9 @@ func uiaChanges(old, cur *uiaSnapshot, u *platform.AccessUpdate, out []uiaEvent)
 	for i := range u.Nodes {
 		id := u.Nodes[i].ID
 		check(id)
-		if p, ok := cur.up[id]; ok && p != 0 {
+		if p, ok := cur.up(id); ok && p != 0 {
 			check(p)
-		} else if p := cur.anc[id]; !ok && p != 0 {
+		} else if p := cur.anc(id); !ok && p != 0 {
 			check(p) // an ignored node: its children are its exposed ancestor's
 		}
 	}
@@ -1037,10 +1274,7 @@ func uiaChanges(old, cur *uiaSnapshot, u *platform.AccessUpdate, out []uiaEvent)
 		out = uiaNodeChanges(cur, o, n, out)
 	}
 	// Menus that went away.
-	for id := range old.up {
-		if _, ok := cur.up[id]; ok {
-			continue
-		}
+	for _, id := range cur.lostSince(old) {
 		if n, _ := old.tree.Node(id); n != nil && n.Role == "menu" {
 			out = append(out, uiaEvent{kind: uiaEventAutomation, node: id, id: uiaMenuClosedEventID})
 		}

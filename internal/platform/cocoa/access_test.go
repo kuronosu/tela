@@ -75,9 +75,9 @@ func TestAXTreeExposure(t *testing.T) {
 		{5, nil},                                // a button's children are presentational
 		{9, []platform.AccessID{10, 11}},
 	} {
-		t.Logf("kids of %d: %v", c.id, v.kids[c.id])
-		if !slices.Equal(v.kids[c.id], c.kids) {
-			t.Errorf("kids of %d = %v, want %v", c.id, v.kids[c.id], c.kids)
+		t.Logf("kids of %d: %v", c.id, v.kids(c.id))
+		if !slices.Equal(v.kids(c.id), c.kids) {
+			t.Errorf("kids of %d = %v, want %v", c.id, v.kids(c.id), c.kids)
 		}
 	}
 	for id, want := range map[platform.AccessID]bool{1: false, 2: true, 3: true, 4: false, 5: true, 6: false, 10: true} {
@@ -86,7 +86,7 @@ func TestAXTreeExposure(t *testing.T) {
 		}
 	}
 	for id, want := range map[platform.AccessID]platform.AccessID{5: 1, 3: 2, 10: 9} {
-		if got := v.up[id]; got != want {
+		if got := v.up(id); got != want {
 			t.Errorf("up[%d] = %d, want %d", id, got, want)
 		}
 	}
