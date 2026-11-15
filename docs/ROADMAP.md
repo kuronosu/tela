@@ -11,7 +11,7 @@
 ## Current status
 
 - **Done:** phases 1–24. Latest version `v0.14.4` (2026-11-12, phase 24: CPU performance; the tag waits for the owner). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch; the owner may release a small break, such as a rename, as a patch.
-- **Phase in progress:** none. Phase 24 is on `phase-24-cpu-performance`, merged into `main` locally; the owner pushes `main` and the tag.
+- **Phase in progress:** 25, the GPU backend, on `phase-25-gpu-backend` (started 2026-11-15). ADR-281 settles presenting and linking: opt-in by the build tag `telagpu`, readback everywhere and dmabufs on Linux.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
 - **Next step:** the next phase in order, the GPU backend (its first task is the ADR on presenting from the GPU). R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` takes about 15 minutes in one process (2026-11-09; run it with `-timeout 30m`, or shard it; longer since phase 24's `TELA_CHECK_SEMANTICS` and `TELA_CHECK_LAYOUT` are on in core's tests), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
@@ -20,11 +20,11 @@
 
 In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–24 are done (HISTORY.md).
 
-### GPU backend
+### Phase 25: GPU backend
 
 The hardest technical item (`tela-hard`). It changes no public API. Agents: the `tela-hard` and `tela-core` tasks of this phase run with `model: "fable"` and `effort: "high"` in their Agent calls; `tela-impl` and `tela-chore` keep their own.
 
-- [ ] First: an ADR on presenting from the GPU without libwayland or libxcb, since Tela speaks both protocols in Go: dmabuf buffers through `zwp_linux_dmabuf_v1` and DRI3/Present, or a copy into `wl_shm`. It also settles what purego means for Linux binaries (dynamic linking)
+- [x] First: an ADR on presenting from the GPU without libwayland or libxcb, and on what purego means for Linux binaries: ADR-281 (the build tag `telagpu`; readback into the framebuffer everywhere, dmabufs through `zwp_linux_dmabuf_v1` and DRI3/Present)
 - [ ] Vulkan (Linux, Windows) and Metal (macOS) via purego/syscall over the same DisplayList, with the fixed shader set of ARCHITECTURE §13
 - [ ] D3D11 on Windows optional
 - [ ] The CPU rasterizer stays the reference for goldens; GPU output is checked against it within a tolerance

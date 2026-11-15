@@ -68,7 +68,7 @@ Contributions that break these are rejected.
 | `golang.org/x/image` | Image decoders, font utilities |
 | `github.com/go-text/typesetting` | Shaping (HarfBuzz port), bidi, segmentation, font discovery |
 | `golang.org/x/text` | `i18n`: language tags and matching, CLDR plural rules (ADR-087; numbers are formatted by `i18n` itself from CLDR data, ADR-266); the X11 backend's COMPOUND_TEXT decoding for XIM (ADR-231) |
-| `github.com/ebitengine/purego` | macOS backend only (and a future GPU backend) |
+| `github.com/ebitengine/purego` | macOS backend; the GPU backend on Linux and macOS, only with the build tag `telagpu`, since it makes a Linux binary dynamically linked (ADR-281) |
 | `github.com/godbus/dbus/v5` | Linux D-Bus: desktop services (portal, notifications, tray; ADR-178) and accessibility (AT-SPI) |
 | `github.com/jezek/xgb` | X11 client (chosen in phase 1); from phase 4 a patched copy of its core, `xproto` and `bigreq` is vendored under `internal/` (ADR-025). XInput2 and XKB are hand-written on its connection |
 
@@ -151,7 +151,7 @@ platform → gfx → svg → text → style → layout → {anim, gesture, seman
 ```
 
 - `platform` does not know `gfx`; it receives an `*image.RGBA` framebuffer and damage rects.
-- Leaf packages that import nothing from Tela (`internal/fmath`, `internal/utf16x`, `internal/editdist`, `internal/plist`, the XML property lists of macOS bundles, ADR-227; `internal/darwin`, the macOS system bindings over purego shared by the `cocoa` backend and the future Metal backend, ADR-222; `internal/watch`, the file watcher of `desktop`'s stores and `tela dev` (kqueue on macOS), ADR-253, ADR-259) may be imported by every layer, `platform` included (ADR-189).
+- Leaf packages that import nothing from Tela (`internal/fmath`, `internal/utf16x`, `internal/editdist`, `internal/plist`, the XML property lists of macOS bundles, ADR-227; `internal/darwin`, the macOS system bindings over purego shared by the `cocoa` backend and the future Metal backend, ADR-222; `internal/vk`, the Vulkan bindings of the GPU backend, ADR-281; `internal/watch`, the file watcher of `desktop`'s stores and `tela dev` (kqueue on macOS), ADR-253, ADR-259) may be imported by every layer, `platform` included (ADR-189).
 - `layout` does not know `core`; it works on a layout-node interface that `core` implements.
 - **Public API:** `tela`, `h`, `desktop`, `i18n`, `aria`, `kit`, `telatest`, `cmd/tela`.
 - `internal/icongen` (the engine of `tela icons gen`) imports only `internal/svg` and `internal/gfx` and is used only by `cmd/tela`. `internal/lint` (the engine of `tela lint`, ADR-173) imports `internal/style` and `internal/core` (whose role check reads `internal/semantics`) for their validation functions, type-checks with the standard library, and is used only by `cmd/tela` and by the test that checks `docs/llms.txt` (`internal/gen/llmsdoc`, ADR-177). The `fonts/…` packages (ADR-244) import only `tela` and their font files in `internal/assets/fonts`; `telatest` imports them, nothing below it does; `internal/stdfonts` (the deterministic set over `internal/assets/fonts/…`) is imported only by test files, `telatest` and `cmd/tela`. The `hyphen/…` packages (ADR-270) import only `tela` and their dictionaries in `internal/assets/hyphen`; only tests import them. `icons/lucide` is a separate module (ADR-102): outside this list, it may import only the public packages (`tela`, `h`, `telatest`), and nothing in the core module imports it.
@@ -174,6 +174,7 @@ tela/
 │   │   └── wayland/protocols/   # generated from protocol XML (§15)
 │   ├── darwin/           # macOS bindings over purego (Objective-C runtime, CoreFoundation, CoreGraphics; ADR-222)
 │   ├── gfx/  gfx/raster/  svg/
+│   ├── gfx/gpu/  vk/     # GPU renderer and its Vulkan bindings, only with the build tag telagpu (ADR-281)
 │   ├── icongen/          # SVG directory -> Go file of tela.Icon variables, behind `tela icons gen` (ADR-102)
 │   ├── text/  style/  layout/  anim/  gesture/  semantics/  core/
 │   ├── style/gen/        # go:generate from Tailwind v4 theme (§10)
@@ -431,6 +432,8 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
 - Consumes the **same DisplayList**; nothing above `gfx` changes.
 - **Fixed set of precompiled shaders** (rounded rect with border and analytic shadow as one primitive, like GPUI's quads; gradient; blur; glyph atlas; image; composite). No runtime shader generation (Impeller's lesson).
 - Vulkan (Linux, Windows), Metal (macOS), optional D3D11 (Windows), via purego/syscall.
+- **Opt-in** (ADR-281): compiled only with the build tag `telagpu`, chosen at run time with `TELA_RENDERER=cpu|gpu` (the GPU by default under the tag, the CPU rasterizer when no device initializes). Without the tag a Linux binary stays static.
+- **Presenting** (ADR-281): the renderer (`internal/gfx/gpu`, over the Vulkan bindings of the leaf `internal/vk`) draws into images it owns. It reads the damage back into the framebuffer for `Window.Present`, or, on Linux, exports the images as dmabufs for an optional window capability (`zwp_linux_dmabuf_v1`, DRI3 with Present), since Vulkan's own Wayland and XCB surfaces need libwayland and libxcb. Windows uses a swapchain on the HWND, macOS a `CAMetalLayer`.
 - The CPU rasterizer stays the reference for goldens and headless.
 
 ## 14. Input, events and focus
