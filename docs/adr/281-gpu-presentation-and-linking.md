@@ -7,7 +7,7 @@
 
 **Opt-in by build tag.** The GPU backend is compiled only with `-tags telagpu`. Without the tag nothing changes: the CPU rasterizer, and on Linux a static binary. With it, `TELA_RENDERER=cpu|gpu` chooses at run time; the default is the GPU when a device initializes, else the CPU rasterizer with one log line. Headless rendering, goldens and `telatest` always use the CPU rasterizer.
 
-**Loading.** Vulkan is loaded at run time: `libvulkan.so.1` on Linux and `vulkan-1.dll` on Windows, called through purego (on Windows it wraps `syscall` and links nothing). macOS uses Metal through purego. The bindings are a hand-written subset in the leaf `internal/vk`; the renderer is `internal/gfx/gpu`, beside `raster`.
+**Loading.** Vulkan is loaded at run time: `libvulkan.so.1` on Linux and `vulkan-1.dll` on Windows, called through purego (on Windows it wraps `syscall` and links nothing). macOS uses Metal through purego. The bindings are a hand-written subset in the leaf `internal/vk`, checked against the real headers by a table of struct layouts and constants; the renderer is `internal/gfx/gpu`, beside `raster`. They need Vulkan 1.1 and use render passes, not dynamic rendering, so 1.1 and 1.2 drivers work. Commands are called with integer and pointer arguments only (no floats by value).
 
 **Presenting on Linux, without WSI.** Vulkan's Wayland and XCB surfaces need libwayland and libxcb objects, which Tela does not have. The renderer draws into images it owns and presents them in one of two ways:
 

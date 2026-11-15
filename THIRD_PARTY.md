@@ -451,3 +451,10 @@ their original copyright notice. Add one section per source project.
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
   ```
+
+## Vulkan headers (declarations)
+
+- **Source:** https://github.com/KhronosGroup/Vulkan-Headers (`include/vulkan/vulkan_core.h`, header version 1.4.363 as packaged by the distribution)
+- **License:** Apache-2.0 OR MIT, Copyright 2015-2026 The Khronos Group Inc.
+- **Used in:** `internal/vk/` (`structs.go`, `enums.go`, `handles.go`, the command names of `funcs.go`; `layout_table_test.go` and `internal/layoutgen/c/layout.c`, which are generated)
+- **Notes:** The hand-written Vulkan bindings of the GPU backend (ADR-281). The structs, constants and command names of the subset Tela uses are transcribed from the header: same members in the same order, same values, the names in Go's form. The header itself is not vendored and no generator of bindings is used; `internal/vk/internal/layoutgen` reads an installed copy to write the C program and the table that check every struct layout and constant value against it. `structs.go` and `enums.go` carry the notice. The comments are Tela's own.
