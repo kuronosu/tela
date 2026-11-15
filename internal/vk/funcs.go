@@ -39,6 +39,10 @@ type instanceFuncs struct {
 
 	CreateDebugUtilsMessengerEXT  uintptr `vk:"optional"` // VK_EXT_debug_utils
 	DestroyDebugUtilsMessengerEXT uintptr `vk:"optional"`
+
+	// Exporting images as dmabufs (dmabuf.go).
+	GetPhysicalDeviceFormatProperties2      uintptr `vk:"optional"` // Vulkan 1.1
+	GetPhysicalDeviceImageFormatProperties2 uintptr `vk:"optional"` // Vulkan 1.1
 }
 
 // deviceFuncs are the commands that dispatch on a device, a queue or a
@@ -129,6 +133,11 @@ type deviceFuncs struct {
 	CmdPipelineBarrier    uintptr
 
 	SetDebugUtilsObjectNameEXT uintptr `vk:"optional"` // VK_EXT_debug_utils
+
+	// Exporting images as dmabufs (dmabuf.go).
+	GetImageSubresourceLayout              uintptr
+	GetMemoryFdKHR                         uintptr `vk:"optional"` // VK_KHR_external_memory_fd
+	GetImageDrmFormatModifierPropertiesEXT uintptr `vk:"optional"` // VK_EXT_image_drm_format_modifier
 }
 
 // loadFuncs fills table, a pointer to one of the structs above, with what

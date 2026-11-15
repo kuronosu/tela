@@ -203,6 +203,7 @@ func (i *Instance) CreateDevice(pd PhysicalDevice, info *DeviceCreateInfo) (*Dev
 	if !i.hasDebugUtils {
 		dev.fn.SetDebugUtilsObjectNameEXT = 0 // as in CreateInstance
 	}
+	dev.forgetDisabled(info) // the dmabuf export's extensions (dmabuf.go)
 	return dev, nil
 }
 

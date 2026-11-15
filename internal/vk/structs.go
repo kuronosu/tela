@@ -1172,3 +1172,157 @@ type ClearColorValue [4]uint32
 // ClearValue is the union VkClearValue: a clear color, or a depth and a
 // stencil value. See [ClearColor] and [ClearDepthStencil].
 type ClearValue [4]uint32
+
+// --- Exporting images as dmabufs (ADR-281, ADR-283): external memory and
+// dedicated allocations (Vulkan 1.1), VK_KHR_external_memory_fd,
+// VK_EXT_external_memory_dma_buf and VK_EXT_image_drm_format_modifier.
+// Their wrappers are in dmabuf.go. ---
+
+// ImageSubresource is VkImageSubresource.
+type ImageSubresource struct {
+	_          structs.HostLayout
+	AspectMask ImageAspectFlags
+	MipLevel   uint32
+	ArrayLayer uint32
+}
+
+// SubresourceLayout is VkSubresourceLayout.
+type SubresourceLayout struct {
+	_          structs.HostLayout
+	Offset     uint64
+	Size       uint64
+	RowPitch   uint64
+	ArrayPitch uint64
+	DepthPitch uint64
+}
+
+// FormatProperties2 is VkFormatProperties2.
+type FormatProperties2 struct {
+	_                structs.HostLayout
+	SType            StructureType
+	PNext            unsafe.Pointer
+	FormatProperties FormatProperties
+}
+
+// PhysicalDeviceImageFormatInfo2 is VkPhysicalDeviceImageFormatInfo2.
+type PhysicalDeviceImageFormatInfo2 struct {
+	_      structs.HostLayout
+	SType  StructureType
+	PNext  unsafe.Pointer
+	Format Format
+	Type   ImageType
+	Tiling ImageTiling
+	Usage  ImageUsageFlags
+	Flags  ImageCreateFlags
+}
+
+// ImageFormatProperties2 is VkImageFormatProperties2.
+type ImageFormatProperties2 struct {
+	_                     structs.HostLayout
+	SType                 StructureType
+	PNext                 unsafe.Pointer
+	ImageFormatProperties ImageFormatProperties
+}
+
+// ExternalMemoryProperties is VkExternalMemoryProperties.
+type ExternalMemoryProperties struct {
+	_                             structs.HostLayout
+	ExternalMemoryFeatures        ExternalMemoryFeatureFlags
+	ExportFromImportedHandleTypes ExternalMemoryHandleTypeFlags
+	CompatibleHandleTypes         ExternalMemoryHandleTypeFlags
+}
+
+// PhysicalDeviceExternalImageFormatInfo is VkPhysicalDeviceExternalImageFormatInfo.
+type PhysicalDeviceExternalImageFormatInfo struct {
+	_          structs.HostLayout
+	SType      StructureType
+	PNext      unsafe.Pointer
+	HandleType ExternalMemoryHandleTypeFlags
+}
+
+// ExternalImageFormatProperties is VkExternalImageFormatProperties.
+type ExternalImageFormatProperties struct {
+	_                        structs.HostLayout
+	SType                    StructureType
+	PNext                    unsafe.Pointer
+	ExternalMemoryProperties ExternalMemoryProperties
+}
+
+// ExternalMemoryImageCreateInfo is VkExternalMemoryImageCreateInfo.
+type ExternalMemoryImageCreateInfo struct {
+	_           structs.HostLayout
+	SType       StructureType
+	PNext       unsafe.Pointer
+	HandleTypes ExternalMemoryHandleTypeFlags
+}
+
+// ExportMemoryAllocateInfo is VkExportMemoryAllocateInfo.
+type ExportMemoryAllocateInfo struct {
+	_           structs.HostLayout
+	SType       StructureType
+	PNext       unsafe.Pointer
+	HandleTypes ExternalMemoryHandleTypeFlags
+}
+
+// MemoryDedicatedAllocateInfo is VkMemoryDedicatedAllocateInfo.
+type MemoryDedicatedAllocateInfo struct {
+	_      structs.HostLayout
+	SType  StructureType
+	PNext  unsafe.Pointer
+	Image  Image
+	Buffer Buffer
+}
+
+// MemoryGetFdInfoKHR is VkMemoryGetFdInfoKHR.
+type MemoryGetFdInfoKHR struct {
+	_          structs.HostLayout
+	SType      StructureType
+	PNext      unsafe.Pointer
+	Memory     DeviceMemory
+	HandleType ExternalMemoryHandleTypeFlags
+}
+
+// DrmFormatModifierPropertiesEXT is VkDrmFormatModifierPropertiesEXT.
+type DrmFormatModifierPropertiesEXT struct {
+	_                               structs.HostLayout
+	DrmFormatModifier               uint64
+	DrmFormatModifierPlaneCount     uint32
+	DrmFormatModifierTilingFeatures FormatFeatureFlags
+}
+
+// DrmFormatModifierPropertiesListEXT is VkDrmFormatModifierPropertiesListEXT.
+type DrmFormatModifierPropertiesListEXT struct {
+	_                            structs.HostLayout
+	SType                        StructureType
+	PNext                        unsafe.Pointer
+	DrmFormatModifierCount       uint32
+	PDrmFormatModifierProperties *DrmFormatModifierPropertiesEXT
+}
+
+// PhysicalDeviceImageDrmFormatModifierInfoEXT is VkPhysicalDeviceImageDrmFormatModifierInfoEXT.
+type PhysicalDeviceImageDrmFormatModifierInfoEXT struct {
+	_                     structs.HostLayout
+	SType                 StructureType
+	PNext                 unsafe.Pointer
+	DrmFormatModifier     uint64
+	SharingMode           SharingMode
+	QueueFamilyIndexCount uint32
+	PQueueFamilyIndices   *uint32
+}
+
+// ImageDrmFormatModifierListCreateInfoEXT is VkImageDrmFormatModifierListCreateInfoEXT.
+type ImageDrmFormatModifierListCreateInfoEXT struct {
+	_                      structs.HostLayout
+	SType                  StructureType
+	PNext                  unsafe.Pointer
+	DrmFormatModifierCount uint32
+	PDrmFormatModifiers    *uint64
+}
+
+// ImageDrmFormatModifierPropertiesEXT is VkImageDrmFormatModifierPropertiesEXT.
+type ImageDrmFormatModifierPropertiesEXT struct {
+	_                 structs.HostLayout
+	SType             StructureType
+	PNext             unsafe.Pointer
+	DrmFormatModifier uint64
+}

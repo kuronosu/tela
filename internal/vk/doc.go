@@ -46,6 +46,12 @@
 // vkGetPhysicalDeviceProperties2 and for the external memory the dmabuf
 // path builds on.
 //
+// The export of images as dmabufs is in dmabuf.go (the wrappers of
+// VK_KHR_external_memory_fd, VK_EXT_external_memory_dma_buf and
+// VK_EXT_image_drm_format_modifier, [DmabufExtensions] and
+// [Instance.DmabufModifiers]) and, on Linux, dmabuf_linux.go
+// ([Device.CreateDmabufImage]); TestDmabufExport is its worked example.
+//
 // # Calls and pointers
 //
 // Every command goes through the call layer of call.go, over
@@ -83,7 +89,9 @@
 // One place per thing: structs in structs.go, constants in enums.go (each
 // with its C name in a trailing comment), handle types in handles.go,
 // entry points in the tables of funcs.go, and the wrappers in instance.go,
-// device.go and commands.go. Struct layouts and constant values are not
+// device.go and commands.go (dmabuf.go for the dmabuf export, whose
+// structs, constants and entry points are a marked block at the end of
+// their files). Struct layouts and constant values are not
 // trusted: internal/layoutgen writes a C program (internal/layoutgen/c)
 // that prints sizeof, alignof and offsetof of every struct of structs.go
 // with the member list of the real header, and the value of every

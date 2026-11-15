@@ -769,3 +769,72 @@ const (
 	DebugUtilsMessageTypeValidationEXT  DebugUtilsMessageTypeFlagsEXT = 0x2 // VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
 	DebugUtilsMessageTypePerformanceEXT DebugUtilsMessageTypeFlagsEXT = 0x4 // VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
 )
+
+// --- Exporting images as dmabufs (ADR-281, ADR-283): external memory and
+// dedicated allocations (Vulkan 1.1), VK_KHR_external_memory_fd,
+// VK_EXT_external_memory_dma_buf, VK_EXT_image_drm_format_modifier and
+// VK_EXT_queue_family_foreign. ---
+
+// Names of the extensions of the dmabuf export.
+const (
+	KhrExternalMemoryFdExtensionName       = "VK_KHR_external_memory_fd"        // VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME
+	ExtExternalMemoryDmaBufExtensionName   = "VK_EXT_external_memory_dma_buf"   // VK_EXT_EXTERNAL_MEMORY_DMA_BUF_EXTENSION_NAME
+	ExtImageDrmFormatModifierExtensionName = "VK_EXT_image_drm_format_modifier" // VK_EXT_IMAGE_DRM_FORMAT_MODIFIER_EXTENSION_NAME
+	KhrImageFormatListExtensionName        = "VK_KHR_image_format_list"         // VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME
+	ExtQueueFamilyForeignExtensionName     = "VK_EXT_queue_family_foreign"      // VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME
+)
+
+// The queue families of the other side of a shared image, for the
+// ownership transfers of barriers: another Vulkan instance or driver
+// ([QueueFamilyExternal]), or anything else, such as a compositor
+// ([QueueFamilyForeignEXT], VK_EXT_queue_family_foreign).
+const (
+	QueueFamilyExternal   uint32 = 1<<32 - 2 // VK_QUEUE_FAMILY_EXTERNAL
+	QueueFamilyForeignEXT uint32 = 1<<32 - 3 // VK_QUEUE_FAMILY_FOREIGN_EXT
+)
+
+// The structure types of the dmabuf export.
+const (
+	StructureTypeFormatProperties2                           StructureType = 1000059002 // VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2
+	StructureTypeImageFormatProperties2                      StructureType = 1000059003 // VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2
+	StructureTypePhysicalDeviceImageFormatInfo2              StructureType = 1000059004 // VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2
+	StructureTypePhysicalDeviceExternalImageFormatInfo       StructureType = 1000071000 // VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO
+	StructureTypeExternalImageFormatProperties               StructureType = 1000071001 // VK_STRUCTURE_TYPE_EXTERNAL_IMAGE_FORMAT_PROPERTIES
+	StructureTypeExternalMemoryImageCreateInfo               StructureType = 1000072001 // VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO
+	StructureTypeExportMemoryAllocateInfo                    StructureType = 1000072002 // VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO
+	StructureTypeMemoryGetFdInfoKHR                          StructureType = 1000074002 // VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR
+	StructureTypeMemoryDedicatedAllocateInfo                 StructureType = 1000127001 // VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO
+	StructureTypeDrmFormatModifierPropertiesListEXT          StructureType = 1000158000 // VK_STRUCTURE_TYPE_DRM_FORMAT_MODIFIER_PROPERTIES_LIST_EXT
+	StructureTypePhysicalDeviceImageDrmFormatModifierInfoEXT StructureType = 1000158002 // VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_DRM_FORMAT_MODIFIER_INFO_EXT
+	StructureTypeImageDrmFormatModifierListCreateInfoEXT     StructureType = 1000158003 // VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_LIST_CREATE_INFO_EXT
+	StructureTypeImageDrmFormatModifierPropertiesEXT         StructureType = 1000158005 // VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_PROPERTIES_EXT
+)
+
+// The memory planes of an image with a DRM format modifier, for
+// vkGetImageSubresourceLayout (VK_EXT_image_drm_format_modifier).
+const (
+	ImageAspectMemoryPlane0EXT ImageAspectFlags = 0x80  // VK_IMAGE_ASPECT_MEMORY_PLANE_0_BIT_EXT
+	ImageAspectMemoryPlane1EXT ImageAspectFlags = 0x100 // VK_IMAGE_ASPECT_MEMORY_PLANE_1_BIT_EXT
+	ImageAspectMemoryPlane2EXT ImageAspectFlags = 0x200 // VK_IMAGE_ASPECT_MEMORY_PLANE_2_BIT_EXT
+	ImageAspectMemoryPlane3EXT ImageAspectFlags = 0x400 // VK_IMAGE_ASPECT_MEMORY_PLANE_3_BIT_EXT
+)
+
+// ExternalMemoryHandleTypeFlags are kinds of handles to memory shared with
+// other APIs and processes; one bit is a kind
+// (VkExternalMemoryHandleTypeFlags, VkExternalMemoryHandleTypeFlagBits).
+type ExternalMemoryHandleTypeFlags uint32
+
+const (
+	ExternalMemoryHandleTypeOpaqueFd  ExternalMemoryHandleTypeFlags = 0x1   // VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT
+	ExternalMemoryHandleTypeDmaBufEXT ExternalMemoryHandleTypeFlags = 0x200 // VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT
+)
+
+// ExternalMemoryFeatureFlags say what an image or buffer with a handle
+// type can do (VkExternalMemoryFeatureFlags).
+type ExternalMemoryFeatureFlags uint32
+
+const (
+	ExternalMemoryFeatureDedicatedOnly ExternalMemoryFeatureFlags = 0x1 // VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT
+	ExternalMemoryFeatureExportable    ExternalMemoryFeatureFlags = 0x2 // VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT
+	ExternalMemoryFeatureImportable    ExternalMemoryFeatureFlags = 0x4 // VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT
+)
