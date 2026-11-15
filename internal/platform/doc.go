@@ -762,6 +762,12 @@
 // [AssociationStatus].Role (the role the app is registered with); Win32
 // message boxes widen their buttons to renamed texts.
 //
+// Contract v13 (ADR-283) adds the optional [DmabufPresenter]: a window
+// that shows buffers the caller rendered into dmabufs, without a copy
+// ([DmabufFeedback], [DmabufDescriptor], [DmabufBuffer]; see "Presenting
+// dmabufs"). Only Wayland windows implement it. Nothing else changes:
+// Present is as it was, and the remote protocol is unchanged.
+//
 // # Drag and drop and the clipboard
 //
 // One data type, [Data], carries a drag and the clipboard: an ordered set
@@ -1079,6 +1085,85 @@
 // transparent window ([WindowState].Transparent, ADR-249), which show the
 // frame's alpha; other backends may ignore alpha.
 //
+// # Presenting dmabufs
+//
+// A renderer that draws on the GPU has its frame in device memory, and
+// copying it into a framebuffer for Present is the cost it was meant to
+// avoid. A window that implements [DmabufPresenter] (contract v13,
+// ADR-283, ADR-281) shows such memory as it is: the caller exports its
+// images as dmabufs (file descriptors of kernel buffers), registers each
+// once, and presents one a frame. This layer sees descriptors, a DRM
+// format code, a format modifier, planes and a size, never the graphics
+// API that made them. The capability is optional: the caller asks with a
+// type assertion and with [DmabufPresenter.DmabufFeedback], and uses
+// Present whenever the answer is no or a registration fails. Present
+// always works.
+//
+//   - Feedback. DmabufFeedback reports the OS's main device, by the
+//     numbers of one of its DRM nodes (the primary or the render node:
+//     compare with both), and the pairs of format and modifier it takes,
+//     the preferred ones first. A renderer picks the device named, so that
+//     the OS reads the memory where it is, and a pair it can export. The
+//     feedback may change while the window is open; its Serial changes
+//     with its content and only then, and the caller compares it once a
+//     frame (no event is sent: a change makes no buffer invalid, the next
+//     ones are just made differently).
+//   - Registering. [DmabufPresenter.CreateDmabuf] takes a
+//     [DmabufDescriptor] and returns a [DmabufBuffer] once the OS has
+//     imported it, so the call waits for the OS. The descriptors stay the
+//     caller's: the backend duplicates what it keeps, and the caller may
+//     close its own when the call returns (the image still owns its
+//     memory; the OS's reference keeps a frame on screen alive). An error
+//     is not fatal: it means Present for this window, at least at this
+//     size and format.
+//   - Presenting. [DmabufPresenter.PresentDmabuf] follows Present's rules:
+//     the buffer has exactly Metrics().Physical() pixels, the damage is in
+//     buffer pixels and nil means everything, the first present after a
+//     ConfigureEvent is full, the first present shows the window, and a
+//     present to a hidden window is dropped. The differences come from
+//     there being no copy: the whole buffer must hold the whole frame (a
+//     renderer that draws only the damage repairs the rest itself, from
+//     the buffer it presented before), and the pixels must be finished
+//     when the call is made, because nothing in the contract waits for
+//     the GPU (no fence travels with the buffer, and not every driver
+//     attaches one to the dmabuf).
+//   - Release. A presented buffer is busy until the OS no longer reads
+//     it, which it says some time after another frame replaced it. The
+//     caller learns it by asking ([DmabufBuffer].Busy) when it needs a
+//     buffer: no event is delivered, and nothing wakes the loop. Two
+//     buffers are enough when the OS releases the old frame as soon as it
+//     has the new one; a caller that finds every buffer busy registers
+//     another (or presents this frame with Present), as the wl_shm
+//     swapchain does.
+//   - Resizing. Buffers have the size they were registered with; after a
+//     ConfigureEvent the caller destroys them and registers new ones.
+//     Destroying a busy buffer is allowed.
+//   - Hiding and showing. Buffers stay registered while the window is
+//     hidden. The window keeps no copy of a dmabuf frame, so one whose
+//     latest frame was a dmabuf is not shown again by the backend alone:
+//     it asks for a frame (a FrameEvent follows the show), and the next
+//     present, in full, shows it.
+//   - Alternating. Present and PresentDmabuf may follow each other on one
+//     window, in either order: a renderer may fall back in the middle of
+//     the window's life. The first present of one kind after the other is
+//     treated as full, so a Present after a PresentDmabuf must be given
+//     the whole frame.
+//   - Transparency. A Transparent window does not present dmabufs: it
+//     reports no feedback and CreateDmabuf returns ErrUnsupported. Its
+//     input region is computed from the pixels of the frames it presents
+//     ("Transparent windows"), which this layer cannot read from a dmabuf,
+//     so its renderer reads the frame back and uses Present. Buffers are
+//     therefore opaque ([DmabufDescriptor].Alpha is refused), also in a
+//     format with an alpha channel.
+//
+// Wayland: zwp_linux_dmabuf_v1 (see the wayland package: version 4
+// feedback with its format table, modifier events on version 3, create
+// with a round trip instead of create_immed, the opaque region).
+// X11 (DRI3 PixmapFromBuffers with the Present extension) is planned;
+// Win32 and Cocoa present GPU frames through a swap chain on the window
+// and have no use for it. Headless and remote windows do not implement
+// the interface: their frames are read by tests and sent over a socket.
+//
 // # Errors
 //
 // Platform and resource errors are returned as error: a missing display
@@ -1106,7 +1191,9 @@
 // both; otherwise integer via wl_surface.preferred_buffer_scale (or
 // wl_output.scale) and set_buffer_scale. xdg_surface.configure
 // is acked right before the commit of the first buffer of the new size,
-// which is the Present following the ConfigureEvent.
+// which is the Present following the ConfigureEvent. PresentDmabuf is the
+// same commit with a wl_buffer of zwp_linux_dmabuf_v1 instead of a copy
+// into a wl_shm one.
 //
 // X11 via a vendored, patched jezek/xgb (ADR-025; XInput2 and XKB requests
 // are written by hand on its connection). xgb runs its own reader

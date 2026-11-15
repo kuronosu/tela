@@ -128,6 +128,9 @@ type Window struct {
 
 	// input is the input region of a transparent window (transparent.go).
 	input inputState
+
+	// dmabuf is the window's side of presenting dmabufs (dmabuf.go).
+	dmabuf dmabufState
 }
 
 var _ platform.Window = (*Window)(nil)
@@ -340,6 +343,7 @@ func (w *Window) onConfigure(e protocols.XdgSurfaceConfigureEvent) {
 		// maps it now, or else the app's next Present.
 		w.ackPending, w.ackSerial, w.ackSize = true, e.Serial, size
 		w.mapRetained()
+		w.remapDmabuf()
 	default:
 		// Nothing for the app to redraw (activation, a no-op resize):
 		// ack and commit now, so the compositor applies the new state
@@ -552,6 +556,21 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 	w.chain.fill(buf, fb, rects)
 	w.ClearNeedsFull()
 
+	logical := w.beginCommit(m)
+	w.syncInputRegion(fb, rects, logical)
+	w.commitBuffer(buf.wl, rects, size)
+	w.chain.submitted(buf, rects)
+	w.dmabuf.shown = false // the newest frame is the swapchain's (dmabuf.go)
+	w.committed()
+	return nil
+}
+
+// beginCommit sends the surface state that goes with a buffer for the
+// metrics m, before the buffer is attached: the ack of the configure this
+// size answers, and the viewport's destination or the buffer scale. It
+// returns the logical size of the surface. Present and PresentDmabuf share
+// it, with commitBuffer and committed, so both show a buffer the same way.
+func (w *Window) beginCommit(m platform.Metrics) image.Point {
 	logical := logicalPoint(m.Size)
 	if w.ackPending && logical == w.ackSize {
 		w.xdgSurface.AckConfigure(w.ackSerial)
@@ -574,17 +593,25 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 		}
 	}
 	w.surfaceSize = logical
-	w.syncInputRegion(fb, rects, logical)
-	w.surface.Attach(buf.wl, 0, 0)
+	return logical
+}
+
+// commitBuffer attaches a buffer of the given physical size with its
+// damage and a frame callback, and commits the surface.
+func (w *Window) commitBuffer(buf *protocols.WlBuffer, rects []image.Rectangle, size image.Point) {
+	w.surface.Attach(buf, 0, 0)
 	w.damage(rects, size)
 	w.requestCallback()
 	w.surface.Commit()
-	w.chain.submitted(buf, rects)
+}
+
+// committed records that a buffer was committed: the first one maps the
+// window.
+func (w *Window) committed() {
 	if !w.mapped {
 		w.mapped = true
 		w.onMapped()
 	}
-	return nil
 }
 
 // damage sends the damaged rectangles of a buffer of the given physical
@@ -743,4 +770,5 @@ func (w *Window) Close() {
 	w.releaseBlur()
 	w.surface.Destroy()
 	w.chain.destroy()
+	w.releaseDmabuf()
 }

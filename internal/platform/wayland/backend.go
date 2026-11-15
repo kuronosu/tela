@@ -85,6 +85,9 @@ type Backend struct {
 	// (transparent.go).
 	backgroundEffect *protocols.ExtBackgroundEffectManagerV1
 	canBlur          bool
+	// dmabuf is zwp_linux_dmabuf_v1 and what the compositor accepts
+	// through it (dmabuf.go).
+	dmabuf dmabufGlobal
 
 	shmFormats map[protocols.WlShmFormat]bool
 	format     protocols.WlShmFormat // pixel format of every buffer
@@ -296,6 +299,13 @@ func (b *Backend) onGlobal(e protocols.WlRegistryGlobalEvent) {
 		}
 	case protocols.ExtBackgroundEffectManagerV1InterfaceName:
 		b.bindBackgroundEffect(e.Name, e.Version)
+	case protocols.ZwpLinuxDmabufV1InterfaceName:
+		// Only noted: bound when a window is first asked for its dmabuf
+		// feedback (dmabuf.go), so an app that never presents dmabufs
+		// gets none of its events.
+		if b.dmabuf.version == 0 {
+			b.dmabuf.name, b.dmabuf.version = e.Name, e.Version
+		}
 	case protocols.WlDataDeviceManagerInterfaceName:
 		b.bindDataDeviceManager(e.Name, e.Version)
 	case protocols.ZwpTextInputManagerV3InterfaceName:
@@ -586,6 +596,7 @@ func (b *Backend) release() {
 		if b.backgroundEffect != nil {
 			b.backgroundEffect.Destroy()
 		}
+		b.releaseDmabuf()
 		b.releaseCtl()
 		b.wm.Destroy()
 		// Best effort: the compositor frees everything when the socket

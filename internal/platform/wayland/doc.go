@@ -42,6 +42,14 @@
 //     start (foreign.go, see Desktop services). Without it portal
 //     dialogs have no parent.
 //   - xdg_wm_base version 6: the suspended state (see Frame pacing).
+//   - zwp_linux_dmabuf_v1 (optional, version up to 4, bound at its first
+//     use): windows show dmabufs the GPU renderer exported, without a copy
+//     (platform.DmabufPresenter, contract v13, ADR-283). dmabuf.go has
+//     the whole of it: the feedback and its format table, registering
+//     buffers with create and a round trip, PresentDmabuf beside Present,
+//     and what happens at a hide, a resize and a change of kind. Without
+//     the global, and for transparent windows, the window reports no
+//     feedback and frames go through wl_shm.
 //
 // # Loop
 //
