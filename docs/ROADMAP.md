@@ -25,9 +25,19 @@ In order. Each phase ends with verifiable criteria and is not done unless they p
 The hardest technical item (`tela-hard`). It changes no public API. Agents: the `tela-hard` and `tela-core` tasks of this phase run with `model: "fable"` and `effort: "high"` in their Agent calls; `tela-impl` and `tela-chore` keep their own.
 
 - [x] First: an ADR on presenting from the GPU without libwayland or libxcb, and on what purego means for Linux binaries: ADR-281 (the build tag `telagpu`; readback into the framebuffer everywhere, dmabufs through `zwp_linux_dmabuf_v1` and DRI3/Present)
-- [ ] Vulkan (Linux, Windows) and Metal (macOS) via purego/syscall over the same DisplayList, with the fixed shader set of ARCHITECTURE §13
+- [x] `internal/vk`: Vulkan 1.1 bindings without cgo (purego), structs and constants checked against the real headers, device selection (`TELA_GPU_DEVICE`); an offscreen render read back on both of the owner's GPUs, clean under the validation layer
+- [x] `internal/gfx/gpu` (ADR-282): the encoder, the Vulkan device, the quad pipeline (rectangles, rounded rectangles, gradients, analytic shadows, transforms, rectangle clips) and the harness that compares every scene with the CPU rasterizer at scales 1, 1.5 and 2 on every device
+- [ ] Coverage atlas and textures: glyph runs, filled and stroked paths, images, rounded and path clips, any nesting of clips
+- [ ] Layers (opacity, masks, blend modes, filters) and backdrop filters
+- [ ] `internal/core` renders through the GPU under `telagpu` (`TELA_RENDERER`), reading the damage back into the framebuffer; the dashboard compared with the CPU frame by frame
+- [ ] Zero-copy presenting on Linux: dmabufs through `zwp_linux_dmabuf_v1` (Wayland) and DRI3 with Present (X11), as an optional window capability of the platform contract
+- [ ] Windows: a `VK_KHR_win32_surface` swapchain on the HWND (the bindings cross-compile; nothing was run on Windows yet)
+- [ ] Metal (macOS): a second device under the same encoder
+- [ ] CI: a `telagpu` job (build, vet, the layout table and encoder tests run without a GPU; lavapipe for the device tests if it is fast enough)
+- [ ] Decide: shadows under a skew differ between the backends (the GPU evaluates them in local space, as CSS defines; the rasterizer blurs in device space), up to 15 levels over the whole shadow; the rasterizer could do the same and its goldens change
+- [ ] Shadow shader cost on integrated GPUs (UHD 630: 5.4 ms for `tailwind_shadows` at x2 against 0.36 ms on the RTX 3060 Ti; an erf table or per-instance precompute)
 - [ ] D3D11 on Windows optional
-- [ ] The CPU rasterizer stays the reference for goldens; GPU output is checked against it within a tolerance
+- [ ] The CPU rasterizer stays the reference for goldens; GPU output is checked against it within a tolerance (ADR-282: 2 levels for 99.5% of the pixels, 24 for the rest; overrides with their cause in `internal/gfx/gpu/compare_test.go`), for every command and for the examples
 
 **Done when:** the `dashboard` example renders at 60 fps at scale 2 on the GPU backend on the owner's Linux machine (RTX 3060 Ti and UHD 630), and GPU snapshots stay within the agreed tolerance of the CPU goldens; Metal and Windows GPUs are in the live checks (the Windows VM has no GPU).
 
