@@ -116,10 +116,10 @@ func TestPhasedMatchesSequential(t *testing.T) {
 func TestPhasedPanic(t *testing.T) {
 	const msg = "raster test: color glyph panics"
 	pf := newTestFont("Panicking")
-	pf.glyphs[gBadge].color = func(*testFont, gfx.Color) *gfx.DisplayList { panic(msg) }
+	pf.Glyphs[gBadge].Color = func(*testFont, gfx.Color) *gfx.DisplayList { panic(msg) }
 	at := []func(b *gfx.Builder){
-		func(b *gfx.Builder) { b.DrawGlyphRun(pf.run("*", 16, 20, 230, gfx.Black)) },
-		func(b *gfx.Builder) { b.DrawGlyphRun(pf.run("*", 16, 250, 20, gfx.Black)) },
+		func(b *gfx.Builder) { b.DrawGlyphRun(pf.Run("*", 16, 20, 230, gfx.Black)) },
+		func(b *gfx.Builder) { b.DrawGlyphRun(pf.Run("*", 16, 250, 20, gfx.Black)) },
 	}
 	good := build(multiBackdrop)
 	want := image.NewRGBA(image.Rect(0, 0, 300, 240))

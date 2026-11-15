@@ -28,24 +28,56 @@ type Options struct {
 // coordLimit bounds device coordinates, as in the rasterizer.
 const coordLimit = 1 << 20
 
-// An Encoder turns display lists into Frames. It keeps its buffers and
-// the ramps of the gradients it has seen between calls; the zero value is
-// ready to use. It is not safe for concurrent use.
+// An Encoder turns display lists into Frames. It keeps its buffers between
+// calls, and the resources its frames draw with on the device: the ramps
+// of the gradients it has seen, the atlases, the image textures (see
+// "Resources" in the package documentation). The zero value is ready to
+// use. It is not safe for concurrent use.
+//
+// The frames of an Encoder are drawn by one device, in the order they
+// were encoded; Renderer does that, and starts over when a frame was lost.
 type Encoder struct {
+	// Limits bounds the resources. It is read when the Encoder is first
+	// used and after Trim.
+	Limits Limits
+	// GlyphCache holds the glyphs rendered on the CPU, shared with the
+	// rasterizer; nil selects the cache of package raster.
+	GlyphCache *raster.GlyphCache
+
 	frame   Frame
-	pass    [1]Pass
+	passes  []Pass
+	marks   []passMark // where each pass ends in batches and uploads
 	clear   Clear
 	batches []Batch
+	uploads []Upload
 	stack   []state
 	clips   []softClip
+	masks   []maskNode
 	target  image.Rectangle
+	// flushes counts the times an atlas was emptied in the frame being
+	// encoded: what was acquired before one is no longer there.
+	flushes int
+	// image is the texture of the instance being emitted, or 0.
+	image uint64
+	// glyphDepth is the nesting of color glyphs drawn as lists.
+	glyphDepth int
+	src        coverSrc
+	glyph      raster.Glyph
+
+	res *resources
+	// dataPeak is the largest Frame.Data since the last EndFrame, and
+	// dataIdle the frames ended since the buffer was last worth its size.
+	dataPeak, dataIdle int
+
+	visitFn func(int, gfx.Command)
 
 	ramps  []*bakedRamp
 	serial uint64 // of the frame being encoded
 	tick   uint64
-
-	visitFn func(int, gfx.Command)
 }
+
+// passMark is where a pass ends.
+type passMark struct{ batches, uploads int }
 
 // state is what a push saves and its pop restores.
 type state struct {
@@ -58,16 +90,32 @@ type state struct {
 	// region makes the decisions, and the pixels, of a full render.
 	scissor, bound image.Rectangle
 	// clip is the index in Encoder.clips of the anti-aliased clip whose
-	// coverage multiplies what is drawn, or -1.
-	clip int
+	// coverage the shader computes, or -1; mask is the index in
+	// Encoder.masks of the clip mask that multiplies it, or -1.
+	clip, mask int
 }
 
-// softClip is a clip whose edges do not fall on pixel boundaries.
+// softClip is a rectangle or rounded rectangle clip whose edges do not
+// fall on pixel boundaries, as an instance carries it.
 type softClip struct {
 	sh shape
-	// full are the pixels the clip covers entirely (maybe none): where the
-	// scissor lies inside them, the clip changes nothing.
-	full image.Rectangle
+	// full and full2 are two rectangles of pixels the clip covers entirely
+	// (maybe none): where the pixels the clips leave lie inside one of
+	// them, the clip changes nothing.
+	full, full2 image.Rectangle
+}
+
+// covers reports whether the clip covers every pixel of r entirely, as far
+// as its two rectangles tell.
+func (c *softClip) covers(r image.Rectangle) bool { return r.In(c.full) || r.In(c.full2) }
+
+// resources returns the Encoder's resources, made on first use.
+func (e *Encoder) resources() *resources {
+	if e.res == nil {
+		e.res = new(resources)
+		e.res.init(e.Limits)
+	}
+	return e.res
 }
 
 // Encode returns the frame that renders dl into a target of the given size
@@ -87,54 +135,130 @@ func (e *Encoder) Encode(dl *gfx.DisplayList, size image.Point, opts Options) *F
 	if e.visitFn == nil {
 		e.visitFn = e.visit
 	}
+	res := e.resources()
+	res.frame++
+	res.dirty = false
+	res.bound()
+	for i := range res.atlas {
+		res.atlas[i].peak = len(res.atlas[i].pages)
+	}
 	e.serial++
 	e.batches = e.batches[:0]
+	e.uploads = e.uploads[:0]
+	e.passes = e.passes[:0]
+	e.marks = e.marks[:0]
 	e.clips = e.clips[:0]
+	clear(e.masks)
+	e.masks = e.masks[:0]
 	e.stack = e.stack[:0]
+	e.flushes, e.image, e.glyphDepth = 0, 0, 0
 	f := &e.frame
 	*f = Frame{
 		Size:         size,
 		Instances:    f.Instances[:0],
 		Ramps:        f.Ramps[:0],
 		RampSegments: f.RampSegments[:0],
+		Data:         f.Data[:0],
+		Images:       f.Images[:0],
+		Releases:     append(f.Releases[:0], res.released...),
 		Unsupported:  f.Unsupported[:0],
 	}
+	res.released = res.released[:0]
 	e.target = image.Rectangle{Max: size}
 	region := e.target
 	if !opts.Region.Empty() {
 		region = region.Intersect(opts.Region)
 	}
 	region = region.Intersect(image.Rect(-coordLimit, -coordLimit, coordLimit, coordLimit))
-	if region.Empty() {
-		return f
+	cleared := false
+	if !region.Empty() {
+		if opts.Clear != nil {
+			e.clear = Clear{Rect: region, Color: premul8(*opts.Clear)}
+			cleared = true
+		}
+		if dl != nil && dl.Len() > 0 {
+			e.stack = append(e.stack, state{ctm: gfx.Scale(s, s), scissor: region, bound: e.target, clip: -1, mask: -1})
+			// The region in root space, grown by one device pixel so that
+			// float32 rounding in the list's bounds never culls a command that
+			// touches a pixel of the region (as raster does).
+			fs := float64(s)
+			dl.Visit(gfx.Rect{
+				X0: float32(float64(region.Min.X-1) / fs), Y0: float32(float64(region.Min.Y-1) / fs),
+				X1: float32(float64(region.Max.X+1) / fs), Y1: float32(float64(region.Max.Y+1) / fs),
+			}, e.visitFn)
+		}
 	}
-	e.pass[0] = Pass{}
-	if opts.Clear != nil {
-		e.clear = Clear{Rect: region, Color: premul8(*opts.Clear)}
-		e.pass[0].Clear = &e.clear
+	e.endPass()
+	// The passes, as slices of the frame's batches and uploads: one unless
+	// an atlas was emptied on the way.
+	b0, u0 := 0, 0
+	for i, m := range e.marks {
+		p := Pass{Batches: e.batches[b0:m.batches:m.batches], Uploads: e.uploads[u0:m.uploads:m.uploads]}
+		if i == 0 && cleared {
+			p.Clear = &e.clear
+		}
+		b0, u0 = m.batches, m.uploads
+		if p.Clear != nil || len(p.Batches) > 0 || len(p.Uploads) > 0 {
+			e.passes = append(e.passes, p)
+		}
 	}
-	if dl != nil && dl.Len() > 0 {
-		e.stack = append(e.stack, state{ctm: gfx.Scale(s, s), scissor: region, bound: e.target, clip: -1})
-		// The region in root space, grown by one device pixel so that
-		// float32 rounding in the list's bounds never culls a command that
-		// touches a pixel of the region (as raster does).
-		fs := float64(s)
-		dl.Visit(gfx.Rect{
-			X0: float32(float64(region.Min.X-1) / fs), Y0: float32(float64(region.Min.Y-1) / fs),
-			X1: float32(float64(region.Max.X+1) / fs), Y1: float32(float64(region.Max.Y+1) / fs),
-		}, e.visitFn)
+	f.Passes = e.passes
+	for i := range res.atlas {
+		a := &res.atlas[i]
+		f.Atlases[i] = AtlasInfo{PageSize: a.pageSize, Pages: max(a.peak, len(a.pages))}
 	}
-	e.pass[0].Batches = e.batches
-	if e.pass[0].Clear != nil || len(e.batches) > 0 {
-		f.Passes = e.pass[:]
+	if len(f.Releases) > 0 || len(f.Images) > 0 {
+		res.dirty = true
+	}
+	e.dataPeak = max(e.dataPeak, len(f.Data))
+	f.Res = ResourceSync{ID: res.id, Base: res.serial, Next: res.serial}
+	if res.dirty {
+		res.serial++
+		f.Res.Next = res.serial
 	}
 	return f
 }
 
+// endPass closes the pass being encoded.
+func (e *Encoder) endPass() {
+	e.marks = append(e.marks, passMark{len(e.batches), len(e.uploads)})
+}
+
+// EndFrame ends a frame: the Encodes since the previous EndFrame. The
+// pictures in the atlases, the image textures and the cached shapes that
+// no frame used for a while (idleFrames frames) are given up, so that what
+// one screen needed is not kept while others follow; the frames after it
+// tell the device. An Encoder that never sees EndFrame keeps everything
+// until its limits make it evict. The pixels do not depend on it.
+func (e *Encoder) EndFrame() {
+	if e.res != nil {
+		e.res.endFrame()
+	}
+	// The buffer of uploads follows what recent frames upload: the one a
+	// first frame filled is not kept for frames that upload a few glyphs.
+	if c := cap(e.frame.Data); c > 1<<16 && 4*e.dataPeak < c {
+		if e.dataIdle++; e.dataIdle > idleFrames {
+			e.frame.Data, e.dataIdle = nil, 0
+		}
+	} else {
+		e.dataIdle = 0
+	}
+	e.dataPeak = 0
+}
+
+// Trim forgets every resource, for a window that rests: the next frame
+// starts from nothing and uploads what it draws with. The device's own
+// memory is released by Device.Trim (Renderer.Trim does both).
+func (e *Encoder) Trim() {
+	e.res = nil
+	e.ramps = nil
+	e.frame.Data, e.frame.Images = nil, nil
+}
+
 // Unsupported returns the names of what dl holds that the renderer does
 // not draw yet (see Frame.Unsupported), wherever it is in the list, or nil
-// when it draws all of it. The cases that depend on the transform (nested
-// anti-aliased clips) are only known to Encode.
+// when it draws all of it. What depends on the device (an image larger
+// than its textures) is only known to Encode.
 func Unsupported(dl *gfx.DisplayList) []string {
 	var out []string
 	if dl == nil {
@@ -151,14 +275,11 @@ func Unsupported(dl *gfx.DisplayList) []string {
 // unsupported reports whether the renderer does not draw c yet, and the
 // name it is reported under.
 func unsupported(c gfx.Command) (string, bool) {
-	switch c := c.(type) {
-	case gfx.FillRect, gfx.FillRRect, gfx.DrawShadow, gfx.PushClipRect, gfx.PopClip,
-		gfx.PushTransform, gfx.PopTransform, gfx.PopLayer, gfx.Marker:
-		return "", false
-	case gfx.PushClipRRect:
-		return c.Name(), !c.RRect.IsRect()
+	switch c.(type) {
+	case gfx.PushLayer, gfx.BackdropFilter:
+		return c.Name(), true
 	}
-	return c.Name(), true
+	return "", false
 }
 
 func appendOnce(list []string, name string) []string {
@@ -168,6 +289,10 @@ func appendOnce(list []string, name string) []string {
 		}
 	}
 	return append(list, name)
+}
+
+func (e *Encoder) unsupported(name string) {
+	e.frame.Unsupported = appendOnce(e.frame.Unsupported, name)
 }
 
 func (e *Encoder) top() *state { return &e.stack[len(e.stack)-1] }
@@ -185,10 +310,9 @@ func (e *Encoder) visit(_ int, c gfx.Command) {
 		if !st.skip {
 			// Inside a block that shows nothing the command would not be
 			// drawn anyway.
-			e.frame.Unsupported = appendOnce(e.frame.Unsupported, name)
+			e.unsupported(name)
 		}
-		switch c.(type) {
-		case gfx.PushClipRRect, gfx.PushClipPath, gfx.PushLayer:
+		if _, ok := c.(gfx.PushLayer); ok {
 			e.push().skip = true
 		}
 		return
@@ -201,6 +325,26 @@ func (e *Encoder) visit(_ int, c gfx.Command) {
 	case gfx.FillRRect:
 		if !e.top().skip {
 			e.fill(c.RRect, c.Paint)
+		}
+	case gfx.FillPath:
+		if st := e.top(); !st.skip {
+			if pe, ok := e.paint(c.Paint, &st.ctm); ok {
+				e.cover(&st.ctm, c.Path, c.Rule, nil, &pe, st)
+			}
+		}
+	case gfx.StrokePath:
+		if st := e.top(); !st.skip {
+			if pe, ok := e.paint(c.Paint, &st.ctm); ok {
+				e.cover(&st.ctm, c.Path, gfx.NonZero, &c.Style, &pe, st)
+			}
+		}
+	case gfx.DrawImage:
+		if !e.top().skip {
+			e.drawImage(c)
+		}
+	case gfx.DrawGlyphRun:
+		if !e.top().skip {
+			e.glyphRun(c)
 		}
 	case gfx.DrawShadow:
 		if !e.top().skip {
@@ -218,65 +362,21 @@ func (e *Encoder) visit(_ int, c gfx.Command) {
 		}
 	case gfx.PushClipRect:
 		if st := e.push(); !st.skip {
-			e.clipRect(st, c.Rect)
+			e.clipRRect(st, gfx.RRect{Rect: c.Rect})
 		}
-	case gfx.PushClipRRect: // with square corners
+	case gfx.PushClipRRect:
 		if st := e.push(); !st.skip {
-			e.clipRect(st, c.RRect.Rect)
+			e.clipRRect(st, c.RRect)
+		}
+	case gfx.PushClipPath:
+		if st := e.push(); !st.skip {
+			e.clipPath(st, c.Path, c.Rule)
 		}
 	case gfx.PopTransform, gfx.PopClip, gfx.PopLayer:
 		e.stack = e.stack[:len(e.stack)-1]
 	case gfx.Marker:
 		// A placeholder of a composed list: it paints nothing.
 	}
-}
-
-// clipRect intersects the clip of st, a state just pushed, with a local
-// rectangle (raster's clipRect). A rectangle whose device edges fall on
-// pixel boundaries only narrows the scissor. Any other becomes the
-// anti-aliased clip of the instances inside it, unless the pixels left by
-// the clips lie within those it covers entirely. One instance carries one
-// such clip, so a second one that still matters is reported as
-// unsupported.
-func (e *Encoder) clipRect(st *state, rect gfx.Rect) {
-	var sc softClip
-	var outer image.Rectangle
-	if st.ctm.IsAxisAligned() {
-		sh, bounds, ok := deviceShape(&st.ctm, gfx.RRect{Rect: rect})
-		if !ok {
-			st.skip = true // snapped to nothing
-			return
-		}
-		outer = bounds
-		sc = softClip{sh: sh, full: rectNoSwap(
-			int(math.Ceil(sh.rect[0])), int(math.Ceil(sh.rect[1])),
-			int(math.Floor(sh.rect[2])), int(math.Floor(sh.rect[3])))}
-	} else {
-		sh, bounds, ok := localShape(&st.ctm, gfx.RRect{Rect: rect})
-		if !ok {
-			st.skip = true
-			return
-		}
-		outer, sc = bounds, softClip{sh: sh}
-	}
-	st.scissor, st.bound = st.scissor.Intersect(outer), st.bound.Intersect(outer)
-	if st.scissor.Empty() {
-		st.skip = true
-		return
-	}
-	if st.clip >= 0 && st.bound.In(e.clips[st.clip].full) {
-		st.clip = -1 // the enclosing clip covers every pixel left
-	}
-	if st.bound.In(sc.full) {
-		return // pixel aligned, or nothing left at its edges
-	}
-	if st.clip >= 0 {
-		e.frame.Unsupported = appendOnce(e.frame.Unsupported, "PushClipRect (nested anti-aliased)")
-		st.skip = true
-		return
-	}
-	e.clips = append(e.clips, sc)
-	st.clip = len(e.clips) - 1
 }
 
 // rectNoSwap is image.Rect without the swapping of inverted coordinates:
@@ -308,22 +408,34 @@ func (e *Encoder) fill(rr gfx.RRect, p gfx.Paint) {
 	}
 	sh.put(&in, SlotShape, ox, oy)
 	flags |= pe.put(&in, ox, oy)
-	e.emit(&in, flags, st, ox, oy)
+	e.emit(&in, flags, st, quad, nil)
 }
 
 // begin starts an instance whose pixels lie in bounds, and returns its
-// quad: the bounds inside the target. The quad does not depend on the
-// region, so that an instance has the same bytes, and its pixels the same
-// values, in a render of a region and in a full one.
+// quad: the bounds inside the target, whose top-left corner is the origin
+// of the instance's coordinates. The quad does not depend on the region,
+// so that an instance has the same bytes, and its pixels the same values,
+// in a render of a region and in a full one.
 func (e *Encoder) begin(in *instance, bounds image.Rectangle) image.Rectangle {
 	quad := bounds.Intersect(e.target)
 	in.floats(SlotBounds, float64(quad.Min.X), float64(quad.Min.Y), float64(quad.Max.X), float64(quad.Max.Y))
+	in.floats(SlotOrigin, float64(quad.Min.X), float64(quad.Min.Y), 0, 0)
 	return quad
 }
 
-// emit finishes an instance with its clip and flags and appends it to the
-// frame, in the batch of the current scissor.
-func (e *Encoder) emit(in *instance, flags uint32, st *state, ox, oy float64) {
+// emit finishes an instance with its clips and appends it to the frame, in
+// the batch of the current scissor. quad is what begin returned. src, when
+// not nil, says where the instance's own pixels in an atlas come from.
+//
+// Under a clip mask the instance is cut along the mask's tiles, each piece
+// reading its tile: the pieces are copies but for their quads and where
+// they read, so they have the pixels of the whole.
+func (e *Encoder) emit(in *instance, flags uint32, st *state, quad image.Rectangle, src *coverSrc) {
+	vis := quad.Intersect(st.scissor)
+	if vis.Empty() {
+		return
+	}
+	ox, oy := float64(quad.Min.X), float64(quad.Min.Y)
 	if st.clip >= 0 {
 		sc := &e.clips[st.clip]
 		if sc.sh.local {
@@ -333,29 +445,103 @@ func (e *Encoder) emit(in *instance, flags uint32, st *state, ox, oy float64) {
 		}
 		sc.sh.put(in, SlotClip, ox, oy)
 	}
-	in[SlotHead][0] = flags
 	// A coordinate beyond float32 (a transform that scales out of range)
 	// would reach the shader as an infinity: nothing sensible is drawn.
-	for slot := range in {
-		if slot == SlotHead {
-			continue
-		}
-		for _, v := range in[slot] {
-			if v&0x7f800000 == 0x7f800000 {
-				return
-			}
-		}
-	}
-	f := &e.frame
-	n := len(f.Instances) / InstanceSize
-	f.Instances = in.appendTo(f.Instances)
-	// perf: instances of different scissors could share a draw if the
-	// scissor moved into the instance (its quad clipped by it).
-	if k := len(e.batches) - 1; k >= 0 && e.batches[k].Pipeline == PipelineQuad && e.batches[k].Scissor == st.scissor {
-		e.batches[k].Count++
+	if !in.finite() {
 		return
 	}
-	e.batches = append(e.batches, Batch{Pipeline: PipelineQuad, Scissor: st.scissor, First: n, Count: 1})
+	if st.mask < 0 || quad.Intersect(st.bound).In(e.masks[st.mask].full) {
+		e.emitPiece(in, flags, st, quad, quad, src, false, 0, 0)
+		return
+	}
+	t := e.res.atlas[AtlasCoverage].tile
+	for j := vis.Min.Y / t; j*t < vis.Max.Y; j++ {
+		for i := vis.Min.X / t; i*t < vis.Max.X; i++ {
+			piece := quad.Intersect(image.Rect(i*t, j*t, (i+1)*t, (j+1)*t))
+			e.emitPiece(in, flags, st, quad, piece, src, true, i, j)
+		}
+	}
+}
+
+// emitPiece appends the part of an instance inside piece, with the atlas
+// entries it reads: its own (src) and, when masked, tile (mi, mj) of the
+// clip mask.
+func (e *Encoder) emitPiece(in *instance, flags uint32, st *state, quad, piece image.Rectangle, src *coverSrc, masked bool, mi, mj int) {
+	var own, mask *atlasEntry
+	var maskRect image.Rectangle
+	// Both entries must be in the atlas together. Making room for one may
+	// empty the atlas (a flush) and lose the other: then both are acquired
+	// again, in the emptied atlas, where an instance's two tiles fit.
+	for try := 0; ; try++ {
+		flushes := e.flushes
+		fits := true
+		if src != nil {
+			own = e.acquire(src)
+			if own != nil && own.state == tileEmpty {
+				return // nothing is covered here
+			}
+			fits = own != nil
+		}
+		if masked && fits {
+			mask, maskRect = e.maskTile(st.mask, mi, mj)
+			if mask != nil && mask.state == tileEmpty {
+				return // everything is clipped away here
+			}
+			fits = mask != nil
+		}
+		if fits && flushes == e.flushes {
+			break
+		}
+		if !fits || try == 2 {
+			// Only with limits so small that an emptied atlas cannot hold
+			// the two tiles of one instance.
+			e.unsupported("an atlas too small for one instance")
+			return
+		}
+	}
+	out := *in
+	ox, oy := float64(quad.Min.X), float64(quad.Min.Y)
+	out.floats(SlotBounds, float64(piece.Min.X), float64(piece.Min.Y), float64(piece.Max.X), float64(piece.Max.Y))
+	page, maskPage := 0, 0
+	if own != nil {
+		if own.state == tileFull {
+			// Covered entirely: the tile's rectangle, filled.
+			flags &^= FlagKindMask
+			full := shape{rect: [4]float64{float64(src.rect.Min.X), float64(src.rect.Min.Y), float64(src.rect.Max.X), float64(src.rect.Max.Y)}}
+			full.put(&out, SlotShape, ox, oy)
+		} else {
+			out[SlotTex][0], out[SlotTex][1] = uint32(int32(own.x-src.rect.Min.X)), uint32(int32(own.y-src.rect.Min.Y))
+			page = own.page
+		}
+	}
+	if mask != nil && mask.state == tilePixels {
+		flags |= FlagMask
+		out[SlotTex][2], out[SlotTex][3] = uint32(int32(mask.x-maskRect.Min.X)), uint32(int32(mask.y-maskRect.Min.Y))
+		maskPage = mask.page
+	}
+	out.floats(SlotOrigin, ox, oy, float64(page), float64(maskPage))
+	out[SlotHead][0] = flags
+
+	f := &e.frame
+	n := len(f.Instances) / InstanceSize
+	f.Instances = out.appendTo(f.Instances)
+	// perf: instances of different scissors could share a draw if the
+	// scissor moved into the instance (its quad clipped by it).
+	first := 0
+	if len(e.marks) > 0 {
+		first = e.marks[len(e.marks)-1].batches // of the pass being encoded
+	}
+	if k := len(e.batches) - 1; k >= first {
+		b := &e.batches[k]
+		if b.Pipeline == PipelineQuad && b.Scissor == st.scissor && (e.image == 0 || b.Image == 0 || b.Image == e.image) {
+			b.Count++
+			if e.image != 0 {
+				b.Image = e.image
+			}
+			return
+		}
+	}
+	e.batches = append(e.batches, Batch{Pipeline: PipelineQuad, Scissor: st.scissor, First: n, Count: 1, Image: e.image})
 }
 
 func premul8(c gfx.Color) [4]uint8 {

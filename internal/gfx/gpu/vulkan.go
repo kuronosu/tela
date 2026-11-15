@@ -24,7 +24,15 @@ var (
 
 // targetFormat holds premultiplied sRGB-encoded values as they are: no
 // sRGB format, so that blending happens on the encoded values (ADR-007).
+// It is also the format of images, sprites and ramps.
 const targetFormat = vk.FormatR8G8B8A8Unorm
+
+// coverageFormat is the format of the coverage atlas.
+const coverageFormat = vk.FormatR8Unorm
+
+// imageSetsPerPool is the number of image textures one descriptor pool
+// serves.
+const imageSetsPerPool = 64
 
 // waitTimeout bounds the wait for one submission, in nanoseconds.
 const waitTimeout = 30e9
@@ -86,7 +94,8 @@ type vkDevice struct {
 
 	renderPass     vk.RenderPass
 	sampler        vk.Sampler
-	setLayout      vk.DescriptorSetLayout
+	setLayout      vk.DescriptorSetLayout // set 0: the frame's data and the atlases
+	imageLayout    vk.DescriptorSetLayout // set 1: the image of a batch
 	descPool       vk.DescriptorPool
 	set            vk.DescriptorSet
 	pipelineLayout vk.PipelineLayout
@@ -95,15 +104,45 @@ type vkDevice struct {
 
 	instances hostBuffer // the instances of the frame (a storage buffer)
 	segments  hostBuffer // Frame.RampSegments (a storage buffer)
-	staging   hostBuffer // ramp rows on their way to the texture
+	staging   hostBuffer // pixels on their way to the textures
 	readback  hostBuffer // pixels on their way back
 	ramps     texture    // Frame.Ramps
 	rampRows  int        // rows of the ramp texture
 	uploaded  []byte     // the ramp bytes the texture holds
-	setStale  bool       // a buffer or the texture changed: write the set
+	setStale  bool       // a buffer or a texture changed: write the set
+
+	// The resources of the frames' Encoder (see Frame.Res): the atlases,
+	// the image textures by ID, and whose they are.
+	atlases    [NumAtlases]vkAtlas
+	images     map[uint64]*vkImage
+	noImage    *vkImage // bound while a batch reads no image
+	imagePools []*imagePool
+	resID      uint64
+	resSerial  uint64
 
 	targets map[*vkTarget]struct{}
 	closed  bool
+}
+
+// vkAtlas is the array texture of an atlas: a 1x1 placeholder while the
+// frames use no page.
+type vkAtlas struct {
+	tex      texture
+	pageSize int
+	pages    int
+}
+
+// vkImage is the texture of an image and the descriptor set that binds it.
+type vkImage struct {
+	tex  texture
+	set  vk.DescriptorSet
+	pool *imagePool
+}
+
+// imagePool allocates the descriptor sets of imageSetsPerPool images.
+type imagePool struct {
+	pool vk.DescriptorPool
+	used int
 }
 
 // hostBuffer is a buffer in host-visible memory, mapped for its lifetime.
@@ -121,14 +160,15 @@ type texture struct {
 }
 
 var (
-	colorRange  = vk.ImageSubresourceRange{AspectMask: vk.ImageAspectColor, LevelCount: 1, LayerCount: 1}
+	// colorRange is every layer of a color image.
+	colorRange  = vk.ImageSubresourceRange{AspectMask: vk.ImageAspectColor, LevelCount: 1, LayerCount: vk.RemainingArrayLayers}
 	colorLayers = vk.ImageSubresourceLayers{AspectMask: vk.ImageAspectColor, LayerCount: 1}
 )
 
 // OpenVulkan creates the device of one physical device of inst. The
 // instance must outlive it; Close does not destroy the instance.
 func OpenVulkan(inst *vk.Instance, info vk.DeviceInfo) (Device, error) {
-	d := &vkDevice{inst: inst, info: info, targets: map[*vkTarget]struct{}{}}
+	d := &vkDevice{inst: inst, info: info, targets: map[*vkTarget]struct{}{}, images: map[uint64]*vkImage{}}
 	if err := d.init(); err != nil {
 		d.Close()
 		return nil, fmt.Errorf("gpu: %s: %w", info.Name, err)
@@ -141,6 +181,9 @@ func (d *vkDevice) init() error {
 	const needed = vk.FormatFeatureColorAttachment | vk.FormatFeatureColorAttachmentBlend | vk.FormatFeatureSampledImage | vk.FormatFeatureTransferSrc | vk.FormatFeatureTransferDst
 	if got := d.inst.GetPhysicalDeviceFormatProperties(pd, targetFormat).OptimalTilingFeatures; got&needed != needed {
 		return fmt.Errorf("R8G8B8A8_UNORM lacks features (has %#x, needs %#x)", got, vk.FormatFeatureFlags(needed))
+	}
+	if got := d.inst.GetPhysicalDeviceFormatProperties(pd, coverageFormat).OptimalTilingFeatures; got&(vk.FormatFeatureSampledImage|vk.FormatFeatureTransferDst|vk.FormatFeatureTransferSrc) != vk.FormatFeatureSampledImage|vk.FormatFeatureTransferDst|vk.FormatFeatureTransferSrc {
+		return fmt.Errorf("R8_UNORM lacks features (has %#x)", got)
 	}
 	d.maxSize = int(d.inst.GetPhysicalDeviceProperties(pd).Limits.MaxImageDimension2D)
 	d.mem = d.inst.GetPhysicalDeviceMemoryProperties(pd)
@@ -228,7 +271,7 @@ func (d *vkDevice) init() error {
 		return fmt.Errorf("creating the render pass: %w", err)
 	}
 
-	// Ramps are looked up texel by texel (texelFetch): the sampler's
+	// Every texture is read texel by texel (texelFetch): the sampler's
 	// filters do not matter.
 	if d.sampler, err = dev.CreateSampler(&vk.SamplerCreateInfo{
 		SType:        vk.StructureTypeSamplerCreateInfo,
@@ -243,18 +286,28 @@ func (d *vkDevice) init() error {
 		return fmt.Errorf("creating the sampler: %w", err)
 	}
 
-	// Descriptors: the instances, the ramp segments and the ramps (the
-	// bindings of shaders/quad.frag).
+	// Descriptors (the bindings of shaders/quad.frag). Set 0: the
+	// instances, the ramp segments, the ramps and the two atlases. Set 1:
+	// the image of a batch.
 	if d.setLayout, err = dev.CreateDescriptorSetLayout(&vk.DescriptorSetLayoutCreateInfo{
 		SType:        vk.StructureTypeDescriptorSetLayoutCreateInfo,
-		BindingCount: 3,
+		BindingCount: 5,
 		PBindings: unsafe.SliceData([]vk.DescriptorSetLayoutBinding{
 			{Binding: 0, DescriptorType: vk.DescriptorTypeStorageBuffer, DescriptorCount: 1, StageFlags: vk.ShaderStageVertex | vk.ShaderStageFragment},
 			{Binding: 1, DescriptorType: vk.DescriptorTypeStorageBuffer, DescriptorCount: 1, StageFlags: vk.ShaderStageFragment},
 			{Binding: 2, DescriptorType: vk.DescriptorTypeCombinedImageSampler, DescriptorCount: 1, StageFlags: vk.ShaderStageFragment},
+			{Binding: 3, DescriptorType: vk.DescriptorTypeCombinedImageSampler, DescriptorCount: 1, StageFlags: vk.ShaderStageFragment},
+			{Binding: 4, DescriptorType: vk.DescriptorTypeCombinedImageSampler, DescriptorCount: 1, StageFlags: vk.ShaderStageFragment},
 		}),
 	}); err != nil {
 		return fmt.Errorf("creating the descriptor set layout: %w", err)
+	}
+	if d.imageLayout, err = dev.CreateDescriptorSetLayout(&vk.DescriptorSetLayoutCreateInfo{
+		SType:        vk.StructureTypeDescriptorSetLayoutCreateInfo,
+		BindingCount: 1,
+		PBindings:    &vk.DescriptorSetLayoutBinding{Binding: 0, DescriptorType: vk.DescriptorTypeCombinedImageSampler, DescriptorCount: 1, StageFlags: vk.ShaderStageFragment},
+	}); err != nil {
+		return fmt.Errorf("creating the image descriptor set layout: %w", err)
 	}
 	if d.descPool, err = dev.CreateDescriptorPool(&vk.DescriptorPoolCreateInfo{
 		SType:         vk.StructureTypeDescriptorPoolCreateInfo,
@@ -262,7 +315,7 @@ func (d *vkDevice) init() error {
 		PoolSizeCount: 2,
 		PPoolSizes: unsafe.SliceData([]vk.DescriptorPoolSize{
 			{Type: vk.DescriptorTypeStorageBuffer, DescriptorCount: 2},
-			{Type: vk.DescriptorTypeCombinedImageSampler, DescriptorCount: 1},
+			{Type: vk.DescriptorTypeCombinedImageSampler, DescriptorCount: 3},
 		}),
 	}); err != nil {
 		return fmt.Errorf("creating the descriptor pool: %w", err)
@@ -280,8 +333,8 @@ func (d *vkDevice) init() error {
 
 	if d.pipelineLayout, err = dev.CreatePipelineLayout(&vk.PipelineLayoutCreateInfo{
 		SType:                  vk.StructureTypePipelineLayoutCreateInfo,
-		SetLayoutCount:         1,
-		PSetLayouts:            &d.setLayout,
+		SetLayoutCount:         2,
+		PSetLayouts:            unsafe.SliceData([]vk.DescriptorSetLayout{d.setLayout, d.imageLayout}),
 		PushConstantRangeCount: 1,
 		PPushConstantRanges:    &vk.PushConstantRange{StageFlags: vk.ShaderStageVertex, Offset: 0, Size: 8},
 	}); err != nil {
@@ -297,15 +350,27 @@ func (d *vkDevice) init() error {
 		return fmt.Errorf("creating the quad pipeline: %w", err)
 	}
 
-	// The buffers and the ramp texture start small and grow with the
-	// frames; the set always names valid ones.
+	// The buffers and the textures start small and grow with the frames;
+	// the sets always name valid ones.
 	if err := d.growBuffer(&d.instances, 64*InstanceSize, vk.BufferUsageStorageBuffer); err != nil {
 		return err
 	}
 	if err := d.growBuffer(&d.segments, 64*4*RampSegmentSize, vk.BufferUsageStorageBuffer); err != nil {
 		return err
 	}
-	return d.growRamps(8)
+	if err := d.growRamps(8); err != nil {
+		return err
+	}
+	for i := range d.atlases {
+		if err := d.sizeAtlas(i, AtlasInfo{}); err != nil {
+			return err
+		}
+	}
+	// A transparent pixel stands for the image while a batch reads none.
+	if d.noImage, err = d.newImage(ImageUpload{Width: 1, Height: 1}); err != nil {
+		return err
+	}
+	return d.run(func(cb vk.CommandBuffer) { d.clearTexture(cb, d.noImage.tex.img, 0) })
 }
 
 func (d *vkDevice) module(code []byte) (vk.ShaderModule, error) {
@@ -398,6 +463,18 @@ func (d *vkDevice) Close() {
 			t.destroy()
 		}
 		d.targets = nil
+		d.releaseResources()
+		if d.noImage != nil {
+			d.destroyImage(d.noImage)
+			d.noImage = nil
+		}
+		for _, p := range d.imagePools {
+			dev.DestroyDescriptorPool(p.pool)
+		}
+		d.imagePools = nil
+		for i := range d.atlases {
+			d.destroyTexture(&d.atlases[i].tex)
+		}
 		d.destroyTexture(&d.ramps)
 		for _, b := range []*hostBuffer{&d.instances, &d.segments, &d.staging, &d.readback} {
 			d.destroyBuffer(b)
@@ -419,6 +496,9 @@ func (d *vkDevice) Close() {
 		}
 		if d.setLayout != 0 {
 			dev.DestroyDescriptorSetLayout(d.setLayout)
+		}
+		if d.imageLayout != 0 {
+			dev.DestroyDescriptorSetLayout(d.imageLayout)
 		}
 		if d.sampler != 0 {
 			dev.DestroySampler(d.sampler)
@@ -500,10 +580,20 @@ func (d *vkDevice) destroyBuffer(b *hostBuffer) {
 	*b = hostBuffer{}
 }
 
-// newTexture creates a 2D R8G8B8A8_UNORM image in device memory, with a
-// view when it is sampled or drawn into.
-func (d *vkDevice) newTexture(width, height int, usage vk.ImageUsageFlags) (t texture, err error) {
+// newTexture creates a 2D R8G8B8A8_UNORM image in device memory, with its
+// view.
+func (d *vkDevice) newTexture(width, height int, usage vk.ImageUsageFlags) (texture, error) {
+	return d.newTextureOf(targetFormat, width, height, 0, usage)
+}
+
+// newTextureOf creates a 2D image in device memory, with its view: an
+// array of the given number of layers, or with 0 a plain image.
+func (d *vkDevice) newTextureOf(format vk.Format, width, height, layers int, usage vk.ImageUsageFlags) (t texture, err error) {
 	dev := d.dev
+	viewType := vk.ImageViewType2DArray
+	if layers == 0 {
+		layers, viewType = 1, vk.ImageViewType2D
+	}
 	defer func() {
 		if err != nil {
 			d.destroyTexture(&t)
@@ -512,17 +602,17 @@ func (d *vkDevice) newTexture(width, height int, usage vk.ImageUsageFlags) (t te
 	if t.img, err = dev.CreateImage(&vk.ImageCreateInfo{
 		SType:         vk.StructureTypeImageCreateInfo,
 		ImageType:     vk.ImageType2D,
-		Format:        targetFormat,
+		Format:        format,
 		Extent:        vk.Extent3D{Width: uint32(width), Height: uint32(height), Depth: 1},
 		MipLevels:     1,
-		ArrayLayers:   1,
+		ArrayLayers:   uint32(layers),
 		Samples:       vk.SampleCount1,
 		Tiling:        vk.ImageTilingOptimal,
 		Usage:         usage,
 		SharingMode:   vk.SharingModeExclusive,
 		InitialLayout: vk.ImageLayoutUndefined,
 	}); err != nil {
-		return t, fmt.Errorf("creating a %dx%d image: %w", width, height, err)
+		return t, fmt.Errorf("creating a %dx%d image of %d layers: %w", width, height, layers, err)
 	}
 	req := dev.GetImageMemoryRequirements(t.img)
 	typ, ok := d.mem.FindMemoryType(req.MemoryTypeBits, vk.MemoryPropertyDeviceLocal)
@@ -542,8 +632,8 @@ func (d *vkDevice) newTexture(width, height int, usage vk.ImageUsageFlags) (t te
 	if t.view, err = dev.CreateImageView(&vk.ImageViewCreateInfo{
 		SType:    vk.StructureTypeImageViewCreateInfo,
 		Image:    t.img,
-		ViewType: vk.ImageViewType2D,
-		Format:   targetFormat,
+		ViewType: viewType,
+		Format:   format,
 		Components: vk.ComponentMapping{
 			R: vk.ComponentSwizzleIdentity, G: vk.ComponentSwizzleIdentity, B: vk.ComponentSwizzleIdentity, A: vk.ComponentSwizzleIdentity,
 		},
@@ -567,8 +657,8 @@ func (d *vkDevice) destroyTexture(t *texture) {
 	*t = texture{}
 }
 
-// transition returns the barrier that moves the whole of an image from one
-// layout to another.
+// transition returns the barrier that moves the whole of an image, every
+// layer, from one layout to another.
 func transition(img vk.Image, from, to vk.ImageLayout, srcAccess, dstAccess vk.AccessFlags) vk.ImageMemoryBarrier {
 	return vk.ImageMemoryBarrier{
 		SType:               vk.StructureTypeImageMemoryBarrier,
@@ -645,7 +735,190 @@ func (d *vkDevice) writeSet() {
 			DescriptorType: vk.DescriptorTypeCombinedImageSampler,
 			PImageInfo:     &vk.DescriptorImageInfo{Sampler: d.sampler, ImageView: d.ramps.view, ImageLayout: vk.ImageLayoutShaderReadOnlyOptimal},
 		},
+		{
+			SType: vk.StructureTypeWriteDescriptorSet, DstSet: d.set, DstBinding: 3, DescriptorCount: 1,
+			DescriptorType: vk.DescriptorTypeCombinedImageSampler,
+			PImageInfo:     &vk.DescriptorImageInfo{Sampler: d.sampler, ImageView: d.atlases[AtlasCoverage].tex.view, ImageLayout: vk.ImageLayoutShaderReadOnlyOptimal},
+		},
+		{
+			SType: vk.StructureTypeWriteDescriptorSet, DstSet: d.set, DstBinding: 4, DescriptorCount: 1,
+			DescriptorType: vk.DescriptorTypeCombinedImageSampler,
+			PImageInfo:     &vk.DescriptorImageInfo{Sampler: d.sampler, ImageView: d.atlases[AtlasColor].tex.view, ImageLayout: vk.ImageLayoutShaderReadOnlyOptimal},
+		},
 	}, nil)
+}
+
+// clearTexture records the commands that make a new texture transparent
+// and ready to be read by the shader. With keep layers of old content to
+// copy in afterwards, it leaves the texture ready for the copy instead.
+func (d *vkDevice) clearTexture(cb vk.CommandBuffer, img vk.Image, keep int) {
+	d.dev.CmdPipelineBarrier(cb, vk.PipelineStageTopOfPipe, vk.PipelineStageTransfer, 0, nil, nil, []vk.ImageMemoryBarrier{
+		transition(img, vk.ImageLayoutUndefined, vk.ImageLayoutTransferDstOptimal, 0, vk.AccessTransferWrite),
+	})
+	zero := vk.ClearColorFloat(0, 0, 0, 0)
+	d.dev.CmdClearColorImage(cb, img, vk.ImageLayoutTransferDstOptimal, &zero, []vk.ImageSubresourceRange{colorRange})
+	to := vk.ImageLayout(vk.ImageLayoutShaderReadOnlyOptimal)
+	stage, access := vk.PipelineStageFlags(vk.PipelineStageFragmentShader), vk.AccessFlags(vk.AccessShaderRead)
+	if keep > 0 {
+		// The copy writes after the clear.
+		to, stage, access = vk.ImageLayoutTransferDstOptimal, vk.PipelineStageTransfer, vk.AccessTransferWrite
+	}
+	d.dev.CmdPipelineBarrier(cb, vk.PipelineStageTransfer, stage, 0, nil, nil, []vk.ImageMemoryBarrier{
+		transition(img, vk.ImageLayoutTransferDstOptimal, to, vk.AccessTransferWrite, access),
+	})
+}
+
+// sizeAtlas makes the texture of atlas i what a frame needs: pages of the
+// given size, as many as the frame has, with the pixels of the pages it
+// had before; a 1x1 placeholder for an atlas without pages. The texture
+// has exactly the pages asked for, so an atlas that shrinks gives its
+// memory back.
+func (d *vkDevice) sizeAtlas(i int, want AtlasInfo) error {
+	a := &d.atlases[i]
+	size, pages := want.PageSize, want.Pages
+	if pages == 0 {
+		size, pages = 1, 1
+	}
+	if a.tex.img != 0 && a.pageSize == size && a.pages == pages {
+		return nil
+	}
+	if size > d.maxSize {
+		return fmt.Errorf("atlas pages of %d pixels: the device's textures are at most %d", size, d.maxSize)
+	}
+	format := vk.Format(coverageFormat)
+	if i == AtlasColor {
+		format = targetFormat
+	}
+	t, err := d.newTextureOf(format, size, size, pages, vk.ImageUsageSampled|vk.ImageUsageTransferDst|vk.ImageUsageTransferSrc)
+	if err != nil {
+		return err
+	}
+	// The pages both have keep their pixels.
+	keep := 0
+	if a.tex.img != 0 && a.pageSize == size {
+		keep = min(a.pages, pages)
+	}
+	err = d.run(func(cb vk.CommandBuffer) {
+		d.clearTexture(cb, t.img, keep)
+		if keep == 0 {
+			return
+		}
+		dev := d.dev
+		dev.CmdPipelineBarrier(cb, vk.PipelineStageFragmentShader, vk.PipelineStageTransfer, 0, nil, nil, []vk.ImageMemoryBarrier{
+			transition(a.tex.img, vk.ImageLayoutShaderReadOnlyOptimal, vk.ImageLayoutTransferSrcOptimal, vk.AccessShaderRead, vk.AccessTransferRead),
+		})
+		layers := vk.ImageSubresourceLayers{AspectMask: vk.ImageAspectColor, LayerCount: uint32(keep)}
+		dev.CmdCopyImage(cb, a.tex.img, vk.ImageLayoutTransferSrcOptimal, t.img, vk.ImageLayoutTransferDstOptimal, []vk.ImageCopy{{
+			SrcSubresource: layers, DstSubresource: layers,
+			Extent: vk.Extent3D{Width: uint32(size), Height: uint32(size), Depth: 1},
+		}})
+		dev.CmdPipelineBarrier(cb, vk.PipelineStageTransfer, vk.PipelineStageFragmentShader, 0, nil, nil, []vk.ImageMemoryBarrier{
+			transition(t.img, vk.ImageLayoutTransferDstOptimal, vk.ImageLayoutShaderReadOnlyOptimal, vk.AccessTransferWrite, vk.AccessShaderRead),
+		})
+	})
+	if err != nil {
+		d.destroyTexture(&t)
+		return err
+	}
+	d.destroyTexture(&a.tex)
+	*a = vkAtlas{tex: t, pageSize: size, pages: pages}
+	d.setStale = true
+	return nil
+}
+
+// newImage creates the texture of an image, without its pixels, and the
+// descriptor set that binds it.
+func (d *vkDevice) newImage(up ImageUpload) (*vkImage, error) {
+	dev := d.dev
+	im := &vkImage{}
+	var err error
+	if im.tex, err = d.newTexture(up.Width, up.Height, vk.ImageUsageSampled|vk.ImageUsageTransferDst); err != nil {
+		return nil, err
+	}
+	for _, p := range d.imagePools {
+		if p.used < imageSetsPerPool {
+			im.pool = p
+			break
+		}
+	}
+	if im.pool == nil {
+		pool, err := dev.CreateDescriptorPool(&vk.DescriptorPoolCreateInfo{
+			SType:         vk.StructureTypeDescriptorPoolCreateInfo,
+			Flags:         vk.DescriptorPoolCreateFreeDescriptorSet,
+			MaxSets:       imageSetsPerPool,
+			PoolSizeCount: 1,
+			PPoolSizes:    &vk.DescriptorPoolSize{Type: vk.DescriptorTypeCombinedImageSampler, DescriptorCount: imageSetsPerPool},
+		})
+		if err != nil {
+			d.destroyTexture(&im.tex)
+			return nil, fmt.Errorf("creating a descriptor pool: %w", err)
+		}
+		im.pool = &imagePool{pool: pool}
+		d.imagePools = append(d.imagePools, im.pool)
+	}
+	sets, err := dev.AllocateDescriptorSets(&vk.DescriptorSetAllocateInfo{
+		SType:              vk.StructureTypeDescriptorSetAllocateInfo,
+		DescriptorPool:     im.pool.pool,
+		DescriptorSetCount: 1,
+		PSetLayouts:        &d.imageLayout,
+	})
+	if err != nil {
+		d.destroyTexture(&im.tex)
+		return nil, fmt.Errorf("allocating a descriptor set: %w", err)
+	}
+	im.set = sets[0]
+	im.pool.used++
+	dev.UpdateDescriptorSets([]vk.WriteDescriptorSet{{
+		SType: vk.StructureTypeWriteDescriptorSet, DstSet: im.set, DstBinding: 0, DescriptorCount: 1,
+		DescriptorType: vk.DescriptorTypeCombinedImageSampler,
+		PImageInfo:     &vk.DescriptorImageInfo{Sampler: d.sampler, ImageView: im.tex.view, ImageLayout: vk.ImageLayoutShaderReadOnlyOptimal},
+	}}, nil)
+	return im, nil
+}
+
+// destroyImage destroys the texture of an image and frees its set. Nothing
+// is in flight when it is called.
+func (d *vkDevice) destroyImage(im *vkImage) {
+	// An error leaves the set to its pool, which is destroyed with it.
+	_ = d.dev.FreeDescriptorSets(im.pool.pool, []vk.DescriptorSet{im.set})
+	im.pool.used--
+	d.destroyTexture(&im.tex)
+}
+
+// releaseResources destroys the image textures and the pools they leave
+// empty, and forgets whose resources the device holds: the next frame
+// must bring its own (Frame.Res.Base 0).
+func (d *vkDevice) releaseResources() {
+	for id, im := range d.images {
+		d.destroyImage(im)
+		delete(d.images, id)
+	}
+	kept := d.imagePools[:0]
+	for _, p := range d.imagePools {
+		if p.used == 0 {
+			d.dev.DestroyDescriptorPool(p.pool)
+		} else {
+			kept = append(kept, p) // the placeholder's
+		}
+	}
+	clear(d.imagePools[len(kept):])
+	d.imagePools = kept
+	d.resID, d.resSerial = 0, 0
+}
+
+// Trim releases the atlases, the image textures and the buffers of
+// uploads and readbacks.
+func (d *vkDevice) Trim() {
+	if d.closed || d.dev == nil {
+		return
+	}
+	d.releaseResources()
+	for i := range d.atlases {
+		// An error keeps the atlas as it is: its pixels are not read again.
+		_ = d.sizeAtlas(i, AtlasInfo{})
+	}
+	d.destroyBuffer(&d.staging)
+	d.destroyBuffer(&d.readback)
 }
 
 // run records commands into the device's command buffer, submits them and
@@ -683,7 +956,8 @@ func (d *vkDevice) run(record func(cb vk.CommandBuffer)) error {
 // ---------------------------------------------------------------------------
 
 type vkTarget struct {
-	d           *vkDevice
+	d           *vkDevice // nil once closed
+	owner       *vkDevice
 	size        image.Point
 	tex         texture
 	framebuffer vk.Framebuffer
@@ -696,7 +970,7 @@ func (d *vkDevice) NewTarget(width, height int) (Target, error) {
 	if width < 1 || height < 1 || width > d.maxSize || height > d.maxSize {
 		return nil, fmt.Errorf("gpu: a target of %dx%d: the size must be between 1 and %d", width, height, d.maxSize)
 	}
-	t := &vkTarget{d: d, size: image.Pt(width, height)}
+	t := &vkTarget{d: d, owner: d, size: image.Pt(width, height)}
 	var err error
 	if t.tex, err = d.newTexture(width, height, vk.ImageUsageColorAttachment|vk.ImageUsageTransferSrc|vk.ImageUsageTransferDst); err != nil {
 		return nil, fmt.Errorf("gpu: %w", err)
@@ -733,6 +1007,7 @@ func (d *vkDevice) NewTarget(width, height int) (Target, error) {
 }
 
 func (t *vkTarget) Size() image.Point { return t.size }
+func (t *vkTarget) Device() Device    { return t.owner }
 
 // Close destroys the target. It may be called more than once, and after
 // the device was closed.
@@ -765,13 +1040,37 @@ func (t *vkTarget) Draw(f *Frame) error {
 	if f.Size != t.size {
 		return fmt.Errorf("gpu: a frame encoded for %v drawn into a target of %v", f.Size, t.size)
 	}
-	if len(f.Passes) == 0 {
-		return nil
+	for i := range f.Passes {
+		if f.Passes[i].Target != 0 {
+			return errors.New("gpu: the Vulkan device draws into the destination only")
+		}
 	}
-	if len(f.Passes) != 1 || f.Passes[0].Target != 0 {
-		return errors.New("gpu: the Vulkan device draws one pass, into the destination")
+	// Whose resources the device holds, and how far it followed them.
+	if f.Res.ID != d.resID || f.Res.Base != d.resSerial {
+		if f.Res.Base != 0 {
+			return ErrResourcesLost
+		}
+		// A frame that brings everything it draws with: start from it.
+		d.releaseResources()
 	}
-	pass := &f.Passes[0]
+	if err := d.draw(t, f); err != nil {
+		// What the frame left on the device is not known.
+		d.releaseResources()
+		return err
+	}
+	d.resID, d.resSerial = f.Res.ID, f.Res.Next
+	return nil
+}
+
+// stagedImage is a new image on its way to its texture.
+type stagedImage struct {
+	im  *vkImage
+	up  *ImageUpload
+	off int // of its pixels in the staging buffer
+}
+
+// draw executes a frame whose resources follow the device's.
+func (d *vkDevice) draw(t *vkTarget, f *Frame) error {
 	dev := d.dev
 
 	// The frame's data.
@@ -788,69 +1087,199 @@ func (t *vkTarget) Draw(f *Frame) error {
 	rampRows := len(f.Ramps) / (4 * RampWidth)
 	// perf: the ramps are uploaded whole whenever they differ from the
 	// previous frame's.
-	upload := rampRows > 0 && !bytes.Equal(f.Ramps, d.uploaded)
-	if upload {
+	rampUpload := rampRows > 0 && !bytes.Equal(f.Ramps, d.uploaded)
+	if rampUpload {
 		if err := d.growRamps(rampRows); err != nil {
 			return fmt.Errorf("gpu: %w", err)
 		}
-		if err := d.growBuffer(&d.staging, len(f.Ramps), vk.BufferUsageTransferSrc); err != nil {
+	}
+	for i := range f.Atlases {
+		if err := d.sizeAtlas(i, f.Atlases[i]); err != nil {
 			return fmt.Errorf("gpu: %w", err)
 		}
-		copy(d.staging.bytes, f.Ramps)
+	}
+	// The textures of the new images.
+	var created []stagedImage
+	for i := range f.Images {
+		up := &f.Images[i]
+		if d.images[up.ID] != nil {
+			continue // an image never changes
+		}
+		if up.Width < 1 || up.Height < 1 || up.Width > d.maxSize || up.Height > d.maxSize || len(up.Pix) != 4*up.Width*up.Height {
+			return fmt.Errorf("gpu: an image of %dx%d with %d bytes: the size must be between 1 and %d", up.Width, up.Height, len(up.Pix), d.maxSize)
+		}
+		im, err := d.newImage(*up)
+		if err != nil {
+			return fmt.Errorf("gpu: %w", err)
+		}
+		d.images[up.ID] = im
+		created = append(created, stagedImage{im: im, up: up})
+	}
+	for i := range f.Passes {
+		for _, b := range f.Passes[i].Batches {
+			if b.Image != 0 && d.images[b.Image] == nil {
+				return fmt.Errorf("gpu: a batch reads the image %d, which the device does not hold", b.Image)
+			}
+		}
+		for _, u := range f.Passes[i].Uploads {
+			if u.Atlas < 0 || u.Atlas >= NumAtlases {
+				return fmt.Errorf("gpu: an upload to the atlas %d", u.Atlas)
+			}
+			a := &d.atlases[u.Atlas]
+			if u.Page < 0 || u.Page >= a.pages || !u.Rect.In(image.Rect(0, 0, a.pageSize, a.pageSize)) || u.Rect.Empty() {
+				return fmt.Errorf("gpu: an upload to %v of page %d of atlas %d, which has %d pages of %d pixels", u.Rect, u.Page, u.Atlas, a.pages, a.pageSize)
+			}
+		}
+	}
+
+	// Everything on its way to a texture goes through the staging buffer:
+	// the ramps, the atlas uploads of every pass (Frame.Data, at the
+	// offsets the uploads name) and the pixels of the new images.
+	rampOff, dataOff := 0, 0
+	if rampUpload {
+		dataOff = len(f.Ramps)
+	}
+	staged := dataOff + (len(f.Data)+3)&^3
+	for i := range created {
+		created[i].off = staged
+		staged += len(created[i].up.Pix)
+	}
+	if staged == 0 && len(d.staging.bytes) > 1<<20 {
+		// What a large upload needed is not kept by frames that upload
+		// nothing; small uploads keep their buffer.
+		d.destroyBuffer(&d.staging)
+	}
+	if staged > 0 {
+		if err := d.growBuffer(&d.staging, staged, vk.BufferUsageTransferSrc); err != nil {
+			return fmt.Errorf("gpu: %w", err)
+		}
+		if rampUpload {
+			copy(d.staging.bytes[rampOff:], f.Ramps)
+		}
+		copy(d.staging.bytes[dataOff:], f.Data)
+		for _, c := range created {
+			copy(d.staging.bytes[c.off:], c.up.Pix)
+		}
 	}
 	d.writeSet()
 
+	if len(f.Passes) == 0 && !rampUpload && len(created) == 0 {
+		d.release(f.Releases)
+		return nil // nothing to record
+	}
 	whole := vk.Rect2D{Extent: vk.Extent2D{Width: uint32(t.size.X), Height: uint32(t.size.Y)}}
 	err := d.run(func(cb vk.CommandBuffer) {
-		if upload {
-			dev.CmdPipelineBarrier(cb, vk.PipelineStageFragmentShader, vk.PipelineStageTransfer, 0, nil, nil, []vk.ImageMemoryBarrier{
-				transition(d.ramps.img, vk.ImageLayoutShaderReadOnlyOptimal, vk.ImageLayoutTransferDstOptimal, vk.AccessShaderRead, vk.AccessTransferWrite),
+		toDst := func(img vk.Image, from vk.ImageLayout) {
+			stage, access := vk.PipelineStageFlags(vk.PipelineStageFragmentShader), vk.AccessFlags(vk.AccessShaderRead)
+			if from == vk.ImageLayoutUndefined {
+				stage, access = vk.PipelineStageTopOfPipe, 0
+			}
+			dev.CmdPipelineBarrier(cb, stage, vk.PipelineStageTransfer, 0, nil, nil, []vk.ImageMemoryBarrier{
+				transition(img, from, vk.ImageLayoutTransferDstOptimal, access, vk.AccessTransferWrite),
 			})
+		}
+		toRead := func(img vk.Image) {
+			dev.CmdPipelineBarrier(cb, vk.PipelineStageTransfer, vk.PipelineStageFragmentShader, 0, nil, nil, []vk.ImageMemoryBarrier{
+				transition(img, vk.ImageLayoutTransferDstOptimal, vk.ImageLayoutShaderReadOnlyOptimal, vk.AccessTransferWrite, vk.AccessShaderRead),
+			})
+		}
+		if rampUpload {
+			toDst(d.ramps.img, vk.ImageLayoutShaderReadOnlyOptimal)
 			dev.CmdCopyBufferToImage(cb, d.staging.buf, d.ramps.img, vk.ImageLayoutTransferDstOptimal, []vk.BufferImageCopy{{
+				BufferOffset:     uint64(rampOff),
 				ImageSubresource: colorLayers,
 				ImageExtent:      vk.Extent3D{Width: RampWidth, Height: uint32(rampRows), Depth: 1},
 			}})
-			dev.CmdPipelineBarrier(cb, vk.PipelineStageTransfer, vk.PipelineStageFragmentShader, 0, nil, nil, []vk.ImageMemoryBarrier{
-				transition(d.ramps.img, vk.ImageLayoutTransferDstOptimal, vk.ImageLayoutShaderReadOnlyOptimal, vk.AccessTransferWrite, vk.AccessShaderRead),
-			})
+			toRead(d.ramps.img)
 		}
-		dev.CmdBeginRenderPass(cb, &vk.RenderPassBeginInfo{
-			SType:       vk.StructureTypeRenderPassBeginInfo,
-			RenderPass:  d.renderPass,
-			Framebuffer: t.framebuffer,
-			RenderArea:  whole,
-		}, vk.SubpassContentsInline)
-		if c := pass.Clear; c != nil {
-			if r := c.Rect.Intersect(image.Rectangle{Max: t.size}); !r.Empty() {
-				dev.CmdClearAttachments(cb,
-					[]vk.ClearAttachment{{AspectMask: vk.ImageAspectColor, ColorAttachment: 0, ClearValue: vk.ClearColor(
-						float32(c.Color[0])/255, float32(c.Color[1])/255, float32(c.Color[2])/255, float32(c.Color[3])/255)}},
-					[]vk.ClearRect{{Rect: rect2D(r), LayerCount: 1}})
+		for _, c := range created {
+			toDst(c.im.tex.img, vk.ImageLayoutUndefined)
+			dev.CmdCopyBufferToImage(cb, d.staging.buf, c.im.tex.img, vk.ImageLayoutTransferDstOptimal, []vk.BufferImageCopy{{
+				BufferOffset:     uint64(c.off),
+				ImageSubresource: colorLayers,
+				ImageExtent:      vk.Extent3D{Width: uint32(c.up.Width), Height: uint32(c.up.Height), Depth: 1},
+			}})
+			toRead(c.im.tex.img)
+		}
+		scale := &[2]float32{2 / float32(t.size.X), 2 / float32(t.size.Y)}
+		for pi := range f.Passes {
+			pass := &f.Passes[pi]
+			// The pictures new in the atlases, after the draws of the
+			// passes before, which may have read the same places.
+			for ai := range d.atlases {
+				var regions []vk.BufferImageCopy
+				for _, u := range pass.Uploads {
+					if u.Atlas != ai {
+						continue
+					}
+					regions = append(regions, vk.BufferImageCopy{
+						BufferOffset:     uint64(dataOff + u.Offset),
+						ImageSubresource: vk.ImageSubresourceLayers{AspectMask: vk.ImageAspectColor, BaseArrayLayer: uint32(u.Page), LayerCount: 1},
+						ImageOffset:      vk.Offset3D{X: int32(u.Rect.Min.X), Y: int32(u.Rect.Min.Y)},
+						ImageExtent:      vk.Extent3D{Width: uint32(u.Rect.Dx()), Height: uint32(u.Rect.Dy()), Depth: 1},
+					})
+				}
+				if len(regions) > 0 {
+					img := d.atlases[ai].tex.img
+					toDst(img, vk.ImageLayoutShaderReadOnlyOptimal)
+					dev.CmdCopyBufferToImage(cb, d.staging.buf, img, vk.ImageLayoutTransferDstOptimal, regions)
+					toRead(img)
+				}
 			}
-		}
-		if len(pass.Batches) > 0 {
-			dev.CmdBindPipeline(cb, vk.PipelineBindPointGraphics, d.quad)
-			dev.CmdSetViewport(cb, 0, []vk.Viewport{{Width: float32(t.size.X), Height: float32(t.size.Y), MinDepth: 0, MaxDepth: 1}})
-			dev.CmdBindDescriptorSets(cb, vk.PipelineBindPointGraphics, d.pipelineLayout, 0, []vk.DescriptorSet{d.set}, nil)
-			scale := &[2]float32{2 / float32(t.size.X), 2 / float32(t.size.Y)}
-			dev.CmdPushConstants(cb, d.pipelineLayout, vk.ShaderStageVertex, 0, 8, unsafe.Pointer(scale))
-			for i := range pass.Batches {
-				b := &pass.Batches[i]
-				// perf: one scissor command per batch, each a small heap
-				// allocation (see internal/vk's doc).
-				dev.CmdSetScissor(cb, 0, []vk.Rect2D{rect2D(b.Scissor)})
-				dev.CmdDraw(cb, 4, uint32(b.Count), 0, uint32(b.First))
+			dev.CmdBeginRenderPass(cb, &vk.RenderPassBeginInfo{
+				SType:       vk.StructureTypeRenderPassBeginInfo,
+				RenderPass:  d.renderPass,
+				Framebuffer: t.framebuffer,
+				RenderArea:  whole,
+			}, vk.SubpassContentsInline)
+			if c := pass.Clear; c != nil {
+				if r := c.Rect.Intersect(image.Rectangle{Max: t.size}); !r.Empty() {
+					dev.CmdClearAttachments(cb,
+						[]vk.ClearAttachment{{AspectMask: vk.ImageAspectColor, ColorAttachment: 0, ClearValue: vk.ClearColor(
+							float32(c.Color[0])/255, float32(c.Color[1])/255, float32(c.Color[2])/255, float32(c.Color[3])/255)}},
+						[]vk.ClearRect{{Rect: rect2D(r), LayerCount: 1}})
+				}
 			}
+			if len(pass.Batches) > 0 {
+				dev.CmdBindPipeline(cb, vk.PipelineBindPointGraphics, d.quad)
+				dev.CmdSetViewport(cb, 0, []vk.Viewport{{Width: float32(t.size.X), Height: float32(t.size.Y), MinDepth: 0, MaxDepth: 1}})
+				dev.CmdBindDescriptorSets(cb, vk.PipelineBindPointGraphics, d.pipelineLayout, 0, []vk.DescriptorSet{d.set, d.noImage.set}, nil)
+				dev.CmdPushConstants(cb, d.pipelineLayout, vk.ShaderStageVertex, 0, 8, unsafe.Pointer(scale))
+				bound := uint64(0)
+				for i := range pass.Batches {
+					b := &pass.Batches[i]
+					if b.Image != 0 && b.Image != bound {
+						bound = b.Image
+						dev.CmdBindDescriptorSets(cb, vk.PipelineBindPointGraphics, d.pipelineLayout, 1, []vk.DescriptorSet{d.images[bound].set}, nil)
+					}
+					// perf: one scissor command per batch, each a small heap
+					// allocation (see internal/vk's doc).
+					dev.CmdSetScissor(cb, 0, []vk.Rect2D{rect2D(b.Scissor)})
+					dev.CmdDraw(cb, 4, uint32(b.Count), 0, uint32(b.First))
+				}
+			}
+			dev.CmdEndRenderPass(cb)
 		}
-		dev.CmdEndRenderPass(cb)
 	})
 	if err != nil {
 		return err
 	}
-	if upload {
+	if rampUpload {
 		d.uploaded = append(d.uploaded[:0], f.Ramps...)
 	}
+	// The frame is drawn: what it gave up can go.
+	d.release(f.Releases)
 	return nil
+}
+
+// release destroys the textures of the images a frame gave up.
+func (d *vkDevice) release(ids []uint64) {
+	for _, id := range ids {
+		if im := d.images[id]; im != nil {
+			d.destroyImage(im)
+			delete(d.images, id)
+		}
+	}
 }
 
 func rect2D(r image.Rectangle) vk.Rect2D {

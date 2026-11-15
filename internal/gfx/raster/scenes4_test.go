@@ -9,7 +9,7 @@ import (
 )
 
 // Scenes of blend modes, mask layers and focal gradients, defined in package
-// gfxtest except masks_more, which needs the test font. The first three
+// gfxtest. The first three
 // (blend, masks, focal) are also written as HTML (blendHTML, masksHTML,
 // focalHTML) and compared with Chromium (chromium4_test.go); the others
 // cover what CSS cannot express (glyph masks, under rotations, nested in
@@ -31,61 +31,9 @@ func blendCells() []blendCell { return gfxtest.BlendCells() }
 
 var maskCells = gfxtest.MaskCells
 
-func maskList(draw func(b *gfx.Builder)) *gfx.DisplayList { return gfxtest.MaskList(draw) }
-
 func focalCells() []focalCell { return gfxtest.FocalCells() }
 
-// scenes4 is gfxtest.Scenes4 with masks_more between blend_more and
-// focal_more: tests index the scenes by position and the goldens are named
-// after them.
-var scenes4 = func() []scene {
-	shared := fromGfxtest(gfxtest.Scenes4)
-	var out []scene
-	for _, s := range shared {
-		if s.name == "focal_more" {
-			out = append(out, scene{"masks_more", 240, 200, drawMasksMore})
-		}
-		out = append(out, s)
-	}
-	return out
-}()
-
-// drawMasksMore covers glyph masks (background-clip: text with the
-// synthetic font, color glyphs included), a luminance mask under a
-// rotation whose list has its own layers and transforms, a mask with a
-// blurred (filter) list, and a masked filter layer.
-func drawMasksMore(b *gfx.Builder) {
-	text := maskList(func(mb *gfx.Builder) {
-		mb.DrawGlyphRun(testFontA.run("AoSil*", 36, 12, 50, gfx.Black))
-	})
-	b.PushMaskLayer(gfx.Mask{List: text}, 1, gfx.SrcOver)
-	b.FillRect(gfx.RectXYWH(10, 10, 220, 50), gfx.LinearGradient{Start: gfx.Pt(10, 10), End: gfx.Pt(230, 60), Stops: stops(indigo, fuchsia, amber)})
-	b.PopLayer()
-
-	lum := maskList(func(mb *gfx.Builder) {
-		mb.FillRect(gfx.RectXYWH(10, 70, 100, 120), gfx.Color{R: 0.3, G: 0.3, B: 0.3, A: 1})
-		mb.PushTransform(gfx.RotateAbout(0.5, gfx.Pt(60, 130)))
-		mb.PushLayer(0.8, gfx.SrcOver)
-		mb.FillRRect(gfx.NewRRect(gfx.RectXYWH(30, 100, 60, 60), 14), gfx.White)
-		mb.PopLayer()
-		mb.PopTransform()
-	})
-	b.PushTransform(gfx.RotateAbout(-0.2, gfx.Pt(60, 130)))
-	b.PushMaskLayer(gfx.Mask{List: lum, Mode: gfx.MaskLuminance}, 1, gfx.SrcOver)
-	b.FillRect(gfx.RectXYWH(0, 60, 120, 140), gfx.RadialGradient{Center: gfx.Pt(60, 130), Radius: gfx.Pt(60, 60), Stops: stops(rose, indigo)})
-	b.PopLayer()
-	b.PopTransform()
-
-	blurred := maskList(func(mb *gfx.Builder) {
-		mb.PushLayer(1, gfx.SrcOver, gfx.Blur{StdDev: 6})
-		mb.FillPath(starPath(175, 130, 50), gfx.NonZero, gfx.Black)
-		mb.PopLayer()
-	})
-	b.PushMaskLayer(gfx.Mask{List: blurred}, 1, gfx.SrcOver, gfx.DropShadow{Offset: gfx.Pt(4, 4), StdDev: 2, Color: slate})
-	b.FillRect(gfx.RectXYWH(130, 80, 90, 100), gfx.LinearGradient{Start: gfx.Pt(130, 80), End: gfx.Pt(220, 180), Stops: stops(emerald, sky)})
-	b.FillRect(gfx.RectXYWH(150, 100, 30, 30), gfx.White)
-	b.PopLayer()
-}
+var scenes4 = fromGfxtest(gfxtest.Scenes4)
 
 // ---------------------------------------------------------------------------
 // HTML for Chromium

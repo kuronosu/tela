@@ -193,18 +193,18 @@ func TestParallelPanic(t *testing.T) {
 	// A font whose color glyph panics: user code that fails in a band.
 	const msg = "raster test: color glyph panics"
 	pf := newTestFont("Panicking")
-	pf.glyphs[gBadge].color = func(*testFont, gfx.Color) *gfx.DisplayList { panic(msg) }
+	pf.Glyphs[gBadge].Color = func(*testFont, gfx.Color) *gfx.DisplayList { panic(msg) }
 	cases := []struct {
 		draw func(b *gfx.Builder)
 		want string
 	}{
 		{func(b *gfx.Builder) { // only in the bottom bands
 			b.FillRect(gfx.Rect{X1: 200, Y1: 200}, sky)
-			b.DrawGlyphRun(pf.run("*", 16, 20, 196, gfx.Black))
+			b.DrawGlyphRun(pf.Run("*", 16, 20, 196, gfx.Black))
 		}, msg},
 		{func(b *gfx.Builder) { // in every band
 			for y := float32(10); y < 200; y += 6 {
-				b.DrawGlyphRun(pf.run("*", 8, 20, y, gfx.Black))
+				b.DrawGlyphRun(pf.Run("*", 8, 20, y, gfx.Black))
 			}
 		}, msg},
 	}

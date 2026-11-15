@@ -81,7 +81,7 @@ func BenchmarkMask512AlphaMultiply(b *testing.B) { benchMask(b, gfx.MaskAlpha, g
 func BenchmarkMask512Text(b *testing.B) {
 	mask := build(func(mb *gfx.Builder) {
 		for i := range 12 {
-			mb.DrawGlyphRun(testFontA.run("AoSil AoSil AoSil AoSil", 36, 4, float32(40+i*40), gfx.Black))
+			mb.DrawGlyphRun(testFontA.Run("AoSil AoSil AoSil AoSil", 36, 4, float32(40+i*40), gfx.Black))
 		}
 	})
 	bench512(b, build(func(bb *gfx.Builder) {

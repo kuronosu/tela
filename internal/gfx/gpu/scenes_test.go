@@ -33,7 +33,7 @@ func allScenes() []testScene {
 	}
 	out = append(out, testScene{Scene: gfxtest.Scene{Name: "showcase", W: 960, H: 640}, clear: gfx.White,
 		list: func() *gfx.DisplayList { return showcase.Scene(960, 640) }})
-	return append(out, gpuScenes...)
+	return append(append(out, gpuScenes...), textureScenes...)
 }
 
 var (
@@ -313,11 +313,13 @@ var gpuScenes = []testScene{
 		shadowCard(b, gfx.Translate(70, 60).Mul(gfx.Skew(0.4, 0)), 12)
 		shadowCard(b, gfx.Translate(205, 60).Mul(gfx.Rotate(0.5)).Mul(gfx.Scale(1.3, 0.6)), 14)
 	}}, clear: gfx.White},
-	// Pixel centers exactly on a discontinuity of a gradient: a hard stop,
-	// the seam of a conic gradient, the edge of a focal gradient's cone,
-	// the wrap of a repeated gradient; and hard stops in a focal gradient,
-	// whose parameter is the root of a quadratic. Which side a pixel on
-	// one takes depends on the last bits of the gradient parameter.
+	// Pixel centers exactly on a discontinuity of a paint: a hard stop of a
+	// gradient, the seam of a conic gradient, the edge of a focal
+	// gradient's cone, the wrap of a repeated gradient, the boundary of
+	// two pixels of an image sampled by its nearest pixel; and hard stops
+	// in a focal gradient, whose parameter is the root of a quadratic.
+	// Which side a pixel on one takes depends on the last bits of the
+	// paint's coordinate.
 	{Scene: gfxtest.Scene{Name: "gpu_discontinuities", W: 300, H: 110, Draw: func(b *gfx.Builder) {
 		half := []gfx.GradientStop{stop(0, rose), stop(0.5, rose), stop(0.5, indigo), stop(1, indigo)}
 		// 101 pixels wide: the center of the middle column is at 0.5.
@@ -335,6 +337,10 @@ var gpuScenes = []testScene{
 		// Rings with hard stops at whole radii around a pixel center.
 		b.FillRect(gfx.RectXYWH(124, 8, 88, 96), gfx.RadialGradient{Center: gfx.Pt(168.5, 56.5), Radius: gfx.Pt(40, 40),
 			Stops: []gfx.GradientStop{stop(0, amber), stop(0.25, amber), stop(0.25, slate), stop(0.75, slate), stop(0.75, sky), stop(1, sky)}})
+		// An image sampled by its nearest pixel, one and a half times its
+		// size: every third pixel center falls on the boundary of two
+		// image pixels (at scales 1 and 2).
+		b.DrawImage(gfxtest.TestImage, gfx.Rect{}, gfx.RectXYWH(112, 60, 9, 9), gfx.SampleNearest)
 		// Hard stops in a reflected focal gradient.
 		b.FillRect(gfx.RectXYWH(220, 8, 72, 96), gfx.FocalGradient{
 			Focal: gfx.Pt(236.3, 41.2), FocalRadius: 6, Center: gfx.Pt(256.3, 56.2), Radius: 30,

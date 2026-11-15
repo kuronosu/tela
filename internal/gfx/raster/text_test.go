@@ -9,44 +9,13 @@ import (
 	"testing"
 
 	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/gfx/gfxtest"
 	"github.com/kuronosu/tela/internal/testutil/golden"
 )
 
-// textScenes draw synthetic text (font_test.go): small and large sizes,
-// fractional origins, solid and gradient paints, color glyphs, a clip with
-// an opacity layer, a rotation and a non-uniform scale (path fallback), and
-// glyphs too large to be cached.
-var textScenes = []scene{
-	{"text", 320, 240, func(b *gfx.Builder) {
-		f := testFontA
-		run := func(s string, size, x, y float32, p gfx.Paint) { b.DrawGlyphRun(f.run(s, size, x, y, p)) }
-		run("olAS iolS loo Ail", 14, 8.3, 20, slate)
-		run("SolA il ? Soil", 9, 8, 34.4, slate)
-		run("AoS lio", 20, 190.6, 24.2, indigo)
-		run("SAlo*oil", 26, 8, 66, gfx.LinearGradient{Start: gfx.Pt(8, 46), End: gfx.Pt(140, 66), Stops: stops(indigo, fuchsia)})
-		run("o*A*S", 24, 170, 66, rose)
-
-		b.PushClipRRect(gfx.NewRRect(gfx.RectXYWH(8, 76, 150, 40), 10))
-		b.FillRect(gfx.RectXYWH(8, 76, 150, 40), twGray100)
-		b.PushLayer(0.6, gfx.SrcOver)
-		run("SoAlSoAl", 30, 2.7, 108, emerald)
-		b.PopLayer()
-		b.PopClip()
-
-		b.PushTransform(gfx.RotateAbout(-0.3, gfx.Pt(240, 110)))
-		run("AoS*l", 18, 196, 115, amber)
-		b.PopTransform()
-
-		b.PushTransform(gfx.Translate(170, 140).Mul(gfx.Scale(1.6, 1)))
-		run("lioS", 16, 0, 0, sky)
-		b.PopTransform()
-
-		run("o", 110, 8, 232, slate.WithAlpha(0.8))
-		run("*", 64, 76, 230, indigo)
-		run("@", 40, 140, 230, rose)
-		run("S", 150, 196, 236, gfx.RadialGradient{Center: gfx.Pt(240, 180), Radius: gfx.Pt(60, 60), Stops: stops(sky, indigo)})
-	}},
-}
+// textScenes draw synthetic text; they are defined in package gfxtest
+// (text.go).
+var textScenes = fromGfxtest(gfxtest.TextScenes)
 
 func TestTextGoldens(t *testing.T) {
 	for _, s := range textScenes {
@@ -116,13 +85,13 @@ func TestGlyphCacheHitMatchesMiss(t *testing.T) {
 		cache := NewGlyphCache(DefaultGlyphCacheBytes)
 		r := NewRenderer()
 		opts := Options{Scale: scale, Workers: 1, GlyphCache: cache}
-		before := testFontA.outline.Load()
+		before := testFontA.Outlines.Load()
 		miss := renderWith(r, w, h, dl, opts)
-		n, calls := cache.Len(), testFontA.outline.Load()-before
+		n, calls := cache.Len(), testFontA.Outlines.Load()-before
 		if n == 0 {
 			t.Fatal("the cache is empty after a render")
 		}
-		before = testFontA.outline.Load()
+		before = testFontA.Outlines.Load()
 		hit := renderWith(r, w, h, dl, opts)
 		sameImages(t, fmt.Sprintf("x%g hit vs miss", scale), hit, miss)
 		if cache.Len() != n {
@@ -130,7 +99,7 @@ func TestGlyphCacheHitMatchesMiss(t *testing.T) {
 		}
 		// Only the glyphs drawn without the cache (rotated or too large)
 		// call the font again.
-		again := testFontA.outline.Load() - before
+		again := testFontA.Outlines.Load() - before
 		if again >= calls {
 			t.Errorf("x%g: second render made %d outline calls, not fewer than the first", scale, again)
 		}
@@ -177,7 +146,7 @@ func TestGlyphSubpixel(t *testing.T) {
 	cache := NewGlyphCache(1 << 20)
 	dl := build(func(b *gfx.Builder) {
 		for i, x := range []float32{3, 13.1, 23.24, 33.26, 43.5, 53.75, 63.9} {
-			b.DrawGlyphRun(f.run("o", 14, x, float32(10+i)+0.3, slate))
+			b.DrawGlyphRun(f.Run("o", 14, x, float32(10+i)+0.3, slate))
 		}
 	})
 	renderWith(NewRenderer(), 80, 30, dl, Options{Workers: 1, GlyphCache: cache})
@@ -236,7 +205,7 @@ func TestGlyphCachedMatchesPaths(t *testing.T) {
 		for _, onGrid := range []bool{true, false} {
 			var runs []gfx.DrawGlyphRun
 			for i, size := range []float32{7, 11, 14, 16, 23, 40, 64} {
-				run := f.run("olAS iSo Al", size, 4.37, float32(12+i*28)+0.31, slate.WithAlpha(0.9))
+				run := f.Run("olAS iSo Al", size, 4.37, float32(12+i*28)+0.31, slate.WithAlpha(0.9))
 				if onGrid {
 					run = gridRun(run, s)
 				}
@@ -275,7 +244,7 @@ func TestGlyphRotationFallback(t *testing.T) {
 		gfx.Translate(10, 0).Mul(gfx.Skew(0.3, 0)),
 		gfx.Translate(120, 0).Mul(gfx.Scale(-1, 1)),
 	} {
-		run := f.run("SoA li", 18, 8.3, 50.7, indigo)
+		run := f.Run("SoA li", 18, 8.3, 50.7, indigo)
 		dl := build(func(b *gfx.Builder) {
 			b.PushTransform(m)
 			b.DrawGlyphRun(run)
@@ -306,7 +275,7 @@ func TestGlyphRotationFallback(t *testing.T) {
 // Glyphs too large for the cache are filled as paths and not cached.
 func TestGlyphHugeFallback(t *testing.T) {
 	f := testFontA
-	run := f.run("oS", 300, 10.3, 280.6, rose)
+	run := f.Run("oS", 300, 10.3, 280.6, rose)
 	dl := build(func(b *gfx.Builder) { b.DrawGlyphRun(run) })
 	cache := NewGlyphCache(64 << 20)
 	got := renderWith(NewRenderer(), 400, 300, dl, Options{Workers: 1, GlyphCache: cache})
@@ -325,7 +294,7 @@ func TestGlyphHugeFallback(t *testing.T) {
 // equivalent paths.
 func TestGlyphClipLayer(t *testing.T) {
 	f := testFontA
-	run := f.run("SoAl*iS", 22, 6.5, 40, emerald)
+	run := f.Run("SoAl*iS", 22, 6.5, 40, emerald)
 	scene := func(text func(b *gfx.Builder)) *gfx.DisplayList {
 		return build(func(b *gfx.Builder) {
 			b.FillRect(gfx.Rect{X1: 200, Y1: 60}, twGray100)
@@ -378,7 +347,7 @@ func TestGlyphGradientPaint(t *testing.T) {
 			}
 			opts := Options{Scale: s, Workers: 1, GlyphCache: NewGlyphCache(1 << 20)}
 			text := func(p gfx.Paint) *gfx.DisplayList {
-				return build(func(b *gfx.Builder) { b.DrawGlyphRun(f.run("SAlo iSoA", 30, 4.6, 40.3, p)) })
+				return build(func(b *gfx.Builder) { b.DrawGlyphRun(f.Run("SAlo iSoA", 30, 4.6, 40.3, p)) })
 			}
 			got := renderWith(r(), w, h, text(grad), opts)
 			cov := renderWith(r(), w, h, text(gfx.White), opts)
@@ -498,12 +467,12 @@ func TestColorGlyphSpriteWithoutForeground(t *testing.T) {
 	if n := shared.Len(); n != 2 {
 		t.Errorf("%d cache entries after %d text colors, want 2", n, len(paints))
 	}
-	if colors := f.colors.Load(); colors != 1 {
+	if colors := f.Colors.Load(); colors != 1 {
 		t.Errorf("ColorGlyph called %d times, want 1", colors)
 	}
 	// The pixels are those of sprites keyed by the color (the glyph seen
 	// as one that uses the foreground), each from a cache of its own.
-	f.glyphs[gMedal].noFG = false
+	f.Glyphs[gMedal].NoFG = false
 	for i, p := range paints {
 		want := at(p, NewGlyphCache(1<<20))
 		if d, n := pixDiff(got[i], want); d != 0 {
@@ -521,8 +490,8 @@ func TestColorGlyphSpriteWithoutForeground(t *testing.T) {
 func TestColorGlyphTooLargeForSprite(t *testing.T) {
 	const gWide gfx.GlyphID = 100
 	f := newTestFont("Wide")
-	f.glyphs[gWide] = &testGlyph{bounds: gfx.Rect{X0: 0, Y0: -0.8, X1: 0.8, Y1: 0}, adv: 1,
-		color: func(_ *testFont, fg gfx.Color) *gfx.DisplayList {
+	f.Glyphs[gWide] = &gfxtest.TestGlyph{Bounds: gfx.Rect{X0: 0, Y0: -0.8, X1: 0.8, Y1: 0}, Adv: 1,
+		Color: func(_ *testFont, fg gfx.Color) *gfx.DisplayList {
 			b := gfx.NewBuilder()
 			b.FillRect(gfx.Rect{X0: -2, Y0: -0.8, X1: 3, Y1: 0}, fg)
 			return b.Finish()
@@ -538,9 +507,9 @@ func TestColorGlyphTooLargeForSprite(t *testing.T) {
 		return renderWith(r, 300, 240, dl, Options{Scale: 1, Workers: 1, GlyphCache: cache})
 	}
 	first := render(false)
-	before := f.colors.Load()
+	before := f.Colors.Load()
 	second := render(false)
-	if n := f.colors.Load() - before; n != 1 {
+	if n := f.Colors.Load() - before; n != 1 {
 		t.Errorf("%d ColorGlyph calls in a cached frame, want 1", n)
 	}
 	sameImages(t, "second frame", second, first)
@@ -553,7 +522,7 @@ func TestColorGlyphTooLargeForSprite(t *testing.T) {
 // A color glyph that draws itself stops at the nesting limit.
 func TestColorGlyphNesting(t *testing.T) {
 	f := testFontA
-	dl := build(func(b *gfx.Builder) { b.DrawGlyphRun(f.run("@", 80, 4, 76, rose)) })
+	dl := build(func(b *gfx.Builder) { b.DrawGlyphRun(f.Run("@", 80, 4, 76, rose)) })
 	for _, paths := range []bool{false, true} {
 		r := NewRenderer()
 		r.tune.glyphPaths = paths

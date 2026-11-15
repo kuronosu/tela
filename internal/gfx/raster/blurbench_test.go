@@ -23,7 +23,7 @@ func glassScene(tile int) *gfx.DisplayList {
 	const line = "olAS iolS loo Ail SoAl iS lo AoS lil oSA Sol iAo lSi oAl S" // 59 glyphs
 	for i := 0; i < 20; i++ {
 		s := line + line
-		b.DrawGlyphRun(testFontA.run(s[:100], 14, 40.37+float32(i)*3.1, 60+float32(i)*48.6, gfx.White))
+		b.DrawGlyphRun(testFontA.Run(s[:100], 14, 40.37+float32(i)*3.1, 60+float32(i)*48.6, gfx.White))
 	}
 	tiles := [2]gfx.Color{sky, amber}
 	b.FillRRect(gfx.NewRRect(glassTile, 16), tiles[tile&1])

@@ -38,8 +38,9 @@ type tolerance struct {
 	share  float64
 	hard   int
 	// flatten, when not zero, adds a second comparison that must meet the
-	// general rule: against a rasterizer that flattens curves at this
-	// tolerance instead of raster.FlattenTolerance.
+	// general rule: with curves flattened at this tolerance instead of
+	// raster.FlattenTolerance, by the rasterizer and by what the renderer
+	// rasterizes with its code (paths, strokes, glyphs, clip masks).
 	flatten float32
 }
 
@@ -65,13 +66,27 @@ var overrides = map[string]tolerance{
 	// transform). The two differ over the whole shadow, by up to 15
 	// levels.
 	"gpu_shadows_skewed": {levels: tolLevels, share: 0.25, hard: tolHard},
-	// Pixel centers exactly on a discontinuity of a gradient (a hard stop,
-	// a conic seam, the edge of a cone, the wrap of a repeat), and hard
-	// stops in a focal gradient, whose parameter the shader solves in
-	// float32: which side such a pixel takes depends on the last bits of
-	// the parameter, float64 in the rasterizer. The pixels are few, and
-	// each takes the color of one side or the other.
+	// The shared scene has one card of that kind: a shadow under a skew
+	// ("the mask-and-blur path"), up to 6 levels over its soft edge. The
+	// rest of the scene is within 2.
+	"shadows": {levels: tolLevels, share: 0.02, hard: tolHard},
+	// Pixel centers exactly on a discontinuity of a paint (a hard stop of a
+	// gradient, a conic seam, the edge of a cone, the wrap of a repeat,
+	// the boundary of two pixels of an image sampled by its nearest
+	// pixel), and hard stops in a focal gradient, whose parameter the
+	// shader solves in float32: which side such a pixel takes depends on
+	// the last bits of the coordinate, float64 in the rasterizer. The
+	// pixels are few, and each takes the color of one side or the other.
 	"gpu_discontinuities": {levels: tolLevels, share: tolShare, hard: 255},
+	// Rounded clips under a rotation, a skew and a quarter turn, whose
+	// corners the rasterizer flattens within raster.FlattenTolerance (see
+	// gpu_transforms): the pixels along them differ by up to a tenth of
+	// their coverage, of content with much contrast (23 levels). The
+	// scenes meet the general rule; this adds the second comparison, with
+	// curves flattened fifty times finer on both sides (the paths of the
+	// scenes are flattened by the same code), where the corners agree.
+	"gpu_clips_shapes": {levels: tolLevels, share: tolShare, hard: tolHard, flatten: 1.0 / 512},
+	"gpu_clips_nested": {levels: tolLevels, share: tolShare, hard: tolHard, flatten: 1.0 / 512},
 }
 
 func toleranceOf(scene string) tolerance {
@@ -362,16 +377,17 @@ func TestCompare(t *testing.T) {
 							m.max, m.worst, tol.hard, 100*share, tol.levels, 100*tol.share)
 					}
 					if tol.flatten != 0 {
-						// The same against a rasterizer that flattens finer.
+						// The same with curves flattened finer.
 						old := raster.FlattenTolerance
 						raster.FlattenTolerance = tol.flatten
+						gpu, _ := renderGPU(t, dev, w, h, dl, Options{Scale: scale, Clear: &s.clear})
 						fine := renderCPU(w, h, dl, scale, s.clear)
 						raster.FlattenTolerance = old
 						fm := compare(gpu, fine)
 						dump(t, fmt.Sprintf("%s_%g_%s_fine", s.Name, scale, label), gpu, fine)
 						if fm.max > tolHard || fm.over2 > tolShare {
 							result = "FAIL"
-							t.Errorf("against a rasterizer flattening at %g: largest difference %d at %v; %.3f%% of the pixels differ by more than 2 levels",
+							t.Errorf("flattening at %g: largest difference %d at %v; %.3f%% of the pixels differ by more than 2 levels",
 								tol.flatten, fm.max, fm.worst, 100*fm.over2)
 						}
 						result += fmt.Sprintf(" (override; flattening at 1/%g px: max %d, >2 %.3f%%)", 1/tol.flatten, fm.max, 100*fm.over2)
@@ -397,6 +413,13 @@ func regionScene() *gfx.DisplayList {
 				b.PopTransform()
 			}
 		}
+		for i := range textureScenes {
+			if n := textureScenes[i].Name; n != "gpu_textures_transparent" && n != "gpu_text_transformed" {
+				b.PushTransform(gfx.Translate(float32(i)*6, float32(i)*2))
+				textureScenes[i].Draw(b)
+				b.PopTransform()
+			}
+		}
 	})
 }
 
@@ -409,6 +432,9 @@ func TestRegion(t *testing.T) {
 	eachDevice(t, func(t *testing.T, dev Device) {
 		for _, scale := range []float32{1, 1.5} {
 			full, _ := renderGPU(t, dev, w, h, dl, Options{Scale: scale, Clear: &gfx.White})
+			// One Renderer for every region: each finds in the atlases what
+			// the regions before it drew with, and adds its own.
+			var r Renderer
 			for _, region := range []image.Rectangle{
 				image.Rect(0, 0, 64, 64), image.Rect(37, 51, 190, 143), image.Rect(200, 1, 201, 300),
 				image.Rect(100, 100, 101, 101), image.Rect(300, 200, 500, 400), image.Rect(-50, -50, 30, 30),
@@ -418,7 +444,6 @@ func TestRegion(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				var r Renderer
 				if _, err := r.Render(target, nil, Options{Clear: &sentinel}); err != nil {
 					t.Fatal(err)
 				}
@@ -464,6 +489,13 @@ func TestKeepsPixels(t *testing.T) {
 		shadow(b, gfx.NewRRect(gfx.RectXYWH(40, 30, 80, 50), 10), 0, 6, 14, 0, gfx.Black.WithAlpha(0.6), false)
 		b.FillRRect(gfx.NewRRect(gfx.RectXYWH(40, 30, 80, 50), 10), gfx.LinearGradient{
 			Start: gfx.Pt(40, 30), End: gfx.Pt(120, 80), Stops: stops(amber.WithAlpha(0.3), rose)})
+		// What comes from textures, translucent too: text, a sprite, a
+		// path, an image, through a clip mask.
+		text(b, "SoA*", 28, 6.3, 100.6, indigo.WithAlpha(0.6))
+		b.PushClipPath(gfx.CirclePath(gfx.Pt(150, 70), 44), gfx.NonZero)
+		b.FillPath(gfxtest.StarPath(150, 70, 46), gfx.EvenOdd, emerald.WithAlpha(0.5))
+		b.DrawImage(gfxtest.TestImage, gfx.Rect{}, gfx.RectXYWH(130, 20, 60, 40), gfx.SampleLinear)
+		b.PopClip()
 	})
 	const w, h = 200, 120
 	eachDevice(t, func(t *testing.T, dev Device) {
@@ -498,14 +530,17 @@ func TestKeepsPixels(t *testing.T) {
 
 // TestSizes renders into targets of odd sizes, down to one pixel.
 func TestSizes(t *testing.T) {
-	s := &gpuScenes[1] // gpu_rrects
-	dl := s.displayList()
 	eachDevice(t, func(t *testing.T, dev Device) {
-		for _, size := range []image.Point{{1, 1}, {1, 7}, {3, 5}, {127, 61}, {255, 3}, {333, 257}} {
-			gpu, _ := renderGPU(t, dev, size.X, size.Y, dl, Options{Scale: 1.25, Clear: &gfx.White})
-			cpu := renderCPU(size.X, size.Y, dl, 1.25, gfx.White)
-			if m := compare(gpu, cpu); m.max > tolHard || m.over2 > tolShare {
-				t.Errorf("size %v: largest difference %d at %v, %.3f%% of the pixels over 2 levels", size, m.max, m.worst, 100*m.over2)
+		for _, s := range []*testScene{&gpuScenes[1], &textureScenes[0], &textureScenes[2]} { // gpu_rrects, gpu_text, gpu_paths
+			dl := s.displayList()
+			for _, size := range []image.Point{{1, 1}, {1, 7}, {3, 5}, {127, 61}, {255, 3}, {333, 257}} {
+				gpu, _ := renderGPU(t, dev, size.X, size.Y, dl, Options{Scale: 1.25, Clear: &gfx.White})
+				cpu := renderCPU(size.X, size.Y, dl, 1.25, gfx.White)
+				// A single pixel over the limit is a large share of a
+				// target of a few pixels: there, only the hard limit.
+				if m := compare(gpu, cpu); m.max > tolHard || (m.over2 > tolShare && m.pixels > 1000) || (m.pixels <= 1000 && m.max > tolLevels+1) {
+					t.Errorf("%s, size %v: largest difference %d at %v, %.3f%% of the pixels over 2 levels", s.Name, size, m.max, m.worst, 100*m.over2)
+				}
 			}
 		}
 		if _, err := dev.NewTarget(0, 10); err == nil {

@@ -54,25 +54,21 @@ type glyphRun struct {
 	key    glyphKey  // the key of the glyph being drawn, gid and sub aside
 }
 
-// drawGlyphRun draws a run: through the glyph cache under a transform that
-// is a positive scale and a translation, by filling outlines (and drawing
-// color glyphs inline) otherwise.
-func (r *Renderer) drawGlyphRun(c gfx.DrawGlyphRun) {
-	if r.blit.clip.Empty() {
-		return
-	}
-	run := glyphRun{c: &c, paint: true, alpha: 255}
+// newGlyphRun returns the state of a run drawn under the transform m, and
+// false when the run draws nothing (a transparent solid paint). paths makes
+// every glyph a path, as under a rotation (tune.glyphPaths).
+func newGlyphRun(c *gfx.DrawGlyphRun, m *gfx.Affine, paths bool) (glyphRun, bool) {
+	run := glyphRun{c: c, paint: true, alpha: 255}
 	if col, ok := c.Paint.(gfx.Color); ok {
 		if !(col.A > 0) {
 			// Like Chromium, a transparent text color hides color
 			// glyphs too (ADR-079: bg-clip-text with text-transparent).
-			return
+			return run, false
 		}
 		run.fg = col
 		run.alpha = uint8(math.Round(float64(min(col.A, 1) * 255)))
 	}
-	m := &r.ctm
-	if m[1] == 0 && m[2] == 0 && !r.tune.glyphPaths {
+	if m[1] == 0 && m[2] == 0 && !paths {
 		// The device em size is what ctm.Mul(Scale(Size)) gives: the
 		// product rounded once to float32.
 		run.sx = float32(float64(m[0]) * float64(c.Size))
@@ -85,6 +81,20 @@ func (r *Renderer) drawGlyphRun(c gfx.DrawGlyphRun) {
 			sx:   math.Float32bits(run.sx), sy: math.Float32bits(run.sy),
 			tol: math.Float32bits(FlattenTolerance),
 		}
+	}
+	return run, true
+}
+
+// drawGlyphRun draws a run: through the glyph cache under a transform that
+// is a positive scale and a translation, by filling outlines (and drawing
+// color glyphs inline) otherwise.
+func (r *Renderer) drawGlyphRun(c gfx.DrawGlyphRun) {
+	if r.blit.clip.Empty() {
+		return
+	}
+	run, ok := newGlyphRun(&c, &r.ctm, r.tune.glyphPaths)
+	if !ok {
+		return
 	}
 	for _, g := range c.Glyphs {
 		gb := c.Font.GlyphBounds(g.ID)
@@ -108,9 +118,35 @@ func (r *Renderer) useRunPaint(run *glyphRun) {
 	}
 }
 
+// What cachedGlyph found.
+const (
+	glyphFound    = iota // the entry is the mask or the sprite to draw
+	glyphNothing         // nothing to draw
+	glyphUncached        // too far away or too large for the cache: draw it directly
+)
+
 // glyphCached draws glyph id with its pen at local (lx, ly) from the glyph
 // cache. It reports false, having drawn nothing, if the glyph is too far
 // away or too large to be cached; the caller then draws it directly.
+func (r *Renderer) glyphCached(run *glyphRun, id gfx.GlyphID, gb gfx.Rect, lx, ly float32) bool {
+	e, ix, iy, res := r.cachedGlyph(run, id, gb, lx, ly, r.blit.clip)
+	if res != glyphFound {
+		return res == glyphNothing
+	}
+	if e.kind == entrySprite {
+		r.blitSprite(e, ix, iy, run.alpha)
+	} else if run.paint {
+		r.useRunPaint(run)
+		r.blitMask(e, ix, iy)
+	}
+	return true
+}
+
+// cachedGlyph returns the cached mask (entryMask) or sprite (entrySprite)
+// of glyph id with its pen at local (lx, ly) under r.ctm, rendering it on a
+// miss, and the whole device pixels (ix, iy) it is placed at. clip is the
+// device rectangle being drawn: a glyph whose box misses it is not looked
+// up.
 //
 // The device pen position is rounded to a quarter pixel in x and to a whole
 // pixel in y, halves up (gfx.RoundDevice: a baseline a float32 hair below a
@@ -119,16 +155,16 @@ func (r *Renderer) useRunPaint(run *glyphRun) {
 // the coverage that fillPath gives for the outline under the transform
 // Scale(sx, sy) followed by Translate(sub/4, 0), with the same flattening
 // tolerance, moved by whole pixels, which do not change coverage.
-func (r *Renderer) glyphCached(run *glyphRun, id gfx.GlyphID, gb gfx.Rect, lx, ly float32) bool {
+func (r *Renderer) cachedGlyph(run *glyphRun, id gfx.GlyphID, gb gfx.Rect, lx, ly float32, clip image.Rectangle) (entry *glyphEntry, ix, iy, res int) {
 	X, Y := apply(&r.ctm, gfx.Pt(lx, ly)) // exact products
 	if !(math.Abs(X) <= glyphPosLimit && math.Abs(Y) <= glyphPosLimit) {
-		return false
+		return nil, 0, 0, glyphUncached
 	}
 	// X*glyphSubpixels and the division are exact (powers of two).
 	q := math.Floor(X*glyphSubpixels + 0.5)
-	ix := int(math.Floor(q / glyphSubpixels))
+	ix = int(math.Floor(q / glyphSubpixels))
 	sub := int(q) - glyphSubpixels*ix
-	iy := int(gfx.RoundDevice(Y)) // halves up, as Skia (ADR-273)
+	iy = int(gfx.RoundDevice(Y)) // halves up, as Skia (ADR-273)
 	ox := float64(sub) / glyphSubpixels
 
 	// The device box of the glyph's em bounds, relative to (ix, iy). The
@@ -137,11 +173,11 @@ func (r *Renderer) glyphCached(run *glyphRun, id gfx.GlyphID, gb gfx.Rect, lx, l
 	bx0, bx1 := float64(gb.X0)*sx+ox, float64(gb.X1)*sx+ox
 	by0, by1 := float64(gb.Y0)*sy, float64(gb.Y1)*sy
 	if !(bx1-bx0 <= maxGlyphSide && by1-by0 <= maxGlyphSide) {
-		return false
+		return nil, 0, 0, glyphUncached
 	}
 	box := pixelBounds(bx0, by0, bx1, by1).Add(image.Pt(ix, iy))
-	if !box.Overlaps(r.blit.clip) {
-		return true // nothing to draw in this region
+	if !box.Overlaps(clip) {
+		return nil, ix, iy, glyphNothing // nothing to draw in this region
 	}
 
 	cache := r.glyphCache()
@@ -159,7 +195,7 @@ func (r *Renderer) glyphCached(run *glyphRun, id gfx.GlyphID, gb gfx.Rect, lx, l
 			e.fg = usesForeground(font, id)
 		case !run.paint:
 			// The outline would not show: draw nothing and cache nothing.
-			return true
+			return nil, ix, iy, glyphNothing
 		default:
 			if p, ok := font.GlyphOutline(id); ok && !p.IsEmpty() {
 				e.rect, e.data = r.glyphMask(p, run.sx, run.sy, ox)
@@ -172,13 +208,10 @@ func (r *Renderer) glyphCached(run *glyphRun, id gfx.GlyphID, gb gfx.Rect, lx, l
 	}
 	switch e.kind {
 	case entryMask:
-		if run.paint {
-			r.useRunPaint(run)
-			r.blitMask(e, ix, iy)
-		}
+		return e, ix, iy, glyphFound
 	case entryColor:
 		if r.glyphDepth >= maxGlyphNesting {
-			return true
+			return nil, ix, iy, glyphNothing
 		}
 		ks := k
 		ks.kind, ks.depth = keySprite, uint8(r.glyphDepth)
@@ -208,12 +241,12 @@ func (r *Renderer) glyphCached(run *glyphRun, id gfx.GlyphID, gb gfx.Rect, lx, l
 		}
 		switch s.kind {
 		case entrySprite:
-			r.blitSprite(s, ix, iy, run.alpha)
+			return s, ix, iy, glyphFound
 		case entryDirect:
-			return false // too large for a sprite: draw it inline
+			return nil, 0, 0, glyphUncached // too large for a sprite: draw it inline
 		}
 	}
-	return true
+	return nil, ix, iy, glyphNothing
 }
 
 // glyphMask rasterizes an em-space outline under Scale(sx, sy) followed by
@@ -353,24 +386,13 @@ func (r *Renderer) blitSprite(e *glyphEntry, ix, iy int, alpha uint8) {
 // cache: the outline is filled under the glyph's full transform, and a
 // color glyph's list is drawn inline under it.
 func (r *Renderer) glyphDirect(run *glyphRun, id gfx.GlyphID, gb gfx.Rect, lx, ly float32) {
-	c := run.c
-	gm := r.ctm.Mul(gfx.Translate(lx, ly)).Mul(gfx.Scale(c.Size, c.Size))
-	if !gm.IsFinite() || gm.Det() == 0 {
+	gm, cl, p, ok := directGlyph(run, &r.ctm, id, gb, lx, ly, r.blit.clip)
+	if !ok {
 		return
 	}
-	if !affineBounds(&gm, gb).Overlaps(r.blit.clip) {
-		return
-	}
-	if cl := colorGlyph(c.Font, id, run.fg, devEm(&gm)); cl != nil {
+	if cl != nil {
 		r.drawColorInline(cl, gm)
 		run.shaded = false // the list changed the shader
-		return
-	}
-	if !run.paint {
-		return
-	}
-	p, ok := c.Font.GlyphOutline(id)
-	if !ok || p.IsEmpty() {
 		return
 	}
 	r.useRunPaint(run)
@@ -378,6 +400,33 @@ func (r *Renderer) glyphDirect(run *glyphRun, id gfx.GlyphID, gb gfx.Rect, lx, l
 	r.ctm = gm
 	r.fillPath(p, gfx.NonZero)
 	r.ctm = saved
+}
+
+// directGlyph returns what draws glyph id with its pen at local (lx, ly)
+// under ctm without the cache: the glyph's full transform gm and, under it,
+// the list of a color glyph (cl) or else the outline to fill with NonZero.
+// ok is false when nothing is drawn: a transform that is not finite or
+// singular, a glyph whose bounds miss clip, no outline.
+func directGlyph(run *glyphRun, ctm *gfx.Affine, id gfx.GlyphID, gb gfx.Rect, lx, ly float32, clip image.Rectangle) (gm gfx.Affine, cl *gfx.DisplayList, p gfx.Path, ok bool) {
+	c := run.c
+	gm = ctm.Mul(gfx.Translate(lx, ly)).Mul(gfx.Scale(c.Size, c.Size))
+	if !gm.IsFinite() || gm.Det() == 0 {
+		return gm, nil, p, false
+	}
+	if !affineBounds(&gm, gb).Overlaps(clip) {
+		return gm, nil, p, false
+	}
+	if cl = colorGlyph(c.Font, id, run.fg, devEm(&gm)); cl != nil {
+		return gm, cl, p, true
+	}
+	if !run.paint {
+		return gm, nil, p, false
+	}
+	p, ok = c.Font.GlyphOutline(id)
+	if !ok || p.IsEmpty() {
+		return gm, nil, p, false
+	}
+	return gm, nil, p, true
 }
 
 // colorGlyph returns the color glyph list of id drawn at ppem device pixels

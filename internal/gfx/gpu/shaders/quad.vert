@@ -7,11 +7,11 @@
 //
 // Compiled to quad.vert.spv by `go generate ./internal/gfx/gpu`.
 
-// The layout of an instance is defined in instance.go (InstanceSize bytes:
-// 22 slots of 16 bytes); only the first slot matters here.
+// The layout of an instance is defined in frame.go (InstanceSize bytes:
+// 24 slots of 16 bytes); only the first slot matters here.
 struct Instance {
     vec4 bounds;   // x0, y0, x1, y1 in device pixels (whole numbers)
-    vec4 rest[21];
+    vec4 rest[23];
 };
 
 layout(std430, set = 0, binding = 0) readonly buffer Instances {

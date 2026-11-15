@@ -121,7 +121,7 @@ func (e *Encoder) shadow(c gfx.DrawShadow) {
 		return // an outer shadow of nothing
 	}
 	flags |= mode << FlagBlurShift
-	e.emit(&in, flags, st, ox, oy)
+	e.emit(&in, flags, st, quad, nil)
 }
 
 // deviceBlurShape maps the shape of a shadow through the scale and

@@ -203,8 +203,7 @@ func DrawFocalCell(b *gfx.Builder, c FocalCell) {
 	b.FillRect(cell, c.Paint())
 }
 
-// Scenes4 are the blend, mask and focal scenes. The raster tests add a
-// masks_more scene (it needs a test font) between blend_more and focal_more.
+// Scenes4 are the blend, mask and focal scenes.
 var Scenes4 = []Scene{
 	{"blend", 600, 300, func(b *gfx.Builder) {
 		for _, c := range BlendCells() {
@@ -222,6 +221,7 @@ var Scenes4 = []Scene{
 		}
 	}},
 	{"blend_more", 240, 200, DrawBlendMore},
+	{"masks_more", 240, 200, DrawMasksMore},
 	{"focal_more", 240, 120, DrawFocalMore},
 }
 
@@ -272,4 +272,41 @@ func DrawFocalMore(b *gfx.Builder) {
 	b.FillRect(gfx.RectXYWH(120, 0, 120, 120), gfx.FocalGradient{Focal: gfx.Pt(150, 60), FocalRadius: 8, Center: gfx.Pt(195, 60), Radius: 20,
 		Stops: []gfx.GradientStop{Stop(0, Rose), Stop(0.5, Rose), Stop(0.5, Amber), Stop(1, Sky.WithAlpha(0))}, Interp: gfx.InterpSRGB})
 	b.PopTransform()
+}
+
+// DrawMasksMore covers glyph masks (background-clip: text with the
+// synthetic font, color glyphs included), a luminance mask under a
+// rotation whose list has its own layers and transforms, a mask with a
+// blurred (filter) list, and a masked filter layer.
+func DrawMasksMore(b *gfx.Builder) {
+	text := MaskList(func(mb *gfx.Builder) {
+		mb.DrawGlyphRun(FontA.Run("AoSil*", 36, 12, 50, gfx.Black))
+	})
+	b.PushMaskLayer(gfx.Mask{List: text}, 1, gfx.SrcOver)
+	b.FillRect(gfx.RectXYWH(10, 10, 220, 50), gfx.LinearGradient{Start: gfx.Pt(10, 10), End: gfx.Pt(230, 60), Stops: Stops(Indigo, Fuchsia, Amber)})
+	b.PopLayer()
+
+	lum := MaskList(func(mb *gfx.Builder) {
+		mb.FillRect(gfx.RectXYWH(10, 70, 100, 120), gfx.Color{R: 0.3, G: 0.3, B: 0.3, A: 1})
+		mb.PushTransform(gfx.RotateAbout(0.5, gfx.Pt(60, 130)))
+		mb.PushLayer(0.8, gfx.SrcOver)
+		mb.FillRRect(gfx.NewRRect(gfx.RectXYWH(30, 100, 60, 60), 14), gfx.White)
+		mb.PopLayer()
+		mb.PopTransform()
+	})
+	b.PushTransform(gfx.RotateAbout(-0.2, gfx.Pt(60, 130)))
+	b.PushMaskLayer(gfx.Mask{List: lum, Mode: gfx.MaskLuminance}, 1, gfx.SrcOver)
+	b.FillRect(gfx.RectXYWH(0, 60, 120, 140), gfx.RadialGradient{Center: gfx.Pt(60, 130), Radius: gfx.Pt(60, 60), Stops: Stops(Rose, Indigo)})
+	b.PopLayer()
+	b.PopTransform()
+
+	blurred := MaskList(func(mb *gfx.Builder) {
+		mb.PushLayer(1, gfx.SrcOver, gfx.Blur{StdDev: 6})
+		mb.FillPath(StarPath(175, 130, 50), gfx.NonZero, gfx.Black)
+		mb.PopLayer()
+	})
+	b.PushMaskLayer(gfx.Mask{List: blurred}, 1, gfx.SrcOver, gfx.DropShadow{Offset: gfx.Pt(4, 4), StdDev: 2, Color: Slate})
+	b.FillRect(gfx.RectXYWH(130, 80, 90, 100), gfx.LinearGradient{Start: gfx.Pt(130, 80), End: gfx.Pt(220, 180), Stops: Stops(Emerald, Sky)})
+	b.FillRect(gfx.RectXYWH(150, 100, 30, 30), gfx.White)
+	b.PopLayer()
 }

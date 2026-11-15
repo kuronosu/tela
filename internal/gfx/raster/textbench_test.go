@@ -15,7 +15,7 @@ func benchText() *gfx.DisplayList {
 	const line = "olAS iolS loo Ail SoAl iS lo AoS lil oSA Sol iAo lSi oAl S" // 59 glyphs
 	for i := 0; i < 20; i++ {
 		s := line + line
-		run := testFontA.run(s[:100], 14, 40.37+float32(i)*3.1, 60+float32(i)*48.6, slate)
+		run := testFontA.Run(s[:100], 14, 40.37+float32(i)*3.1, 60+float32(i)*48.6, slate)
 		b.DrawGlyphRun(run)
 	}
 	return b.Finish()

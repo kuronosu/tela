@@ -7,7 +7,7 @@ import "testing"
 func TestScenes(t *testing.T) {
 	seen := map[string]bool{}
 	scenes := Scenes()
-	if want := len(Scenes1) + len(Scenes2) + len(Scenes3) + len(Scenes4); len(scenes) != want {
+	if want := len(Scenes1) + len(Scenes2) + len(Scenes3) + len(Scenes4) + len(TextScenes); len(scenes) != want {
 		t.Fatalf("Scenes() has %d scenes, want %d", len(scenes), want)
 	}
 	for _, s := range scenes {

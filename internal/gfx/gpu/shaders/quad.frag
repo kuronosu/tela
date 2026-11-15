@@ -2,15 +2,18 @@
 
 // Fragment shader of the quad pipeline (ADR-282): rectangles and rounded
 // rectangles with analytic coverage, rounded-rectangle shadows in closed
-// form, solid and gradient paints, and one anti-aliased clip shape.
+// form, coverage read from the atlas (glyphs, paths, strokes), solid and
+// gradient paints, images and sprites, one anti-aliased clip shape and one
+// clip mask.
 //
 // It follows the CPU rasterizer (internal/gfx/raster), whose output is the
 // reference: the same coverage (the exact area of the pixel inside the
-// shape, rounded to 8 bits), the same shadow formula (raster/shadow.go),
-// the same gradient geometry sampled at pixel centers (raster/gradient.go)
-// with the ramps the rasterizer bakes. Every quantity is a function of the
-// pixel's coordinates and of the instance only, so a render of a region
-// gives the pixels of a full render.
+// shape, rounded to 8 bits; the rasterizer's own for what comes from the
+// atlas), the same shadow formula (raster/shadow.go), the same gradient
+// geometry sampled at pixel centers (raster/gradient.go) with the ramps
+// the rasterizer bakes, the same image sampling (raster/image.go). Every
+// quantity is a function of the pixel's coordinates and of the instance
+// only, so a render of a region gives the pixels of a full render.
 //
 // Compiled to quad.frag.spv by `go generate ./internal/gfx/gpu`.
 
@@ -30,18 +33,20 @@ struct Shape {
     vec4 invT; // e, f
 };
 
-// The layout is defined in instance.go; std430 gives every member 16 bytes.
+// The layout is defined in frame.go; std430 gives every member 16 bytes.
 struct Instance {
-    vec4 bounds;  // the quad; bounds.xy is the origin of the instance
+    vec4 bounds;  // the quad
     uvec4 head;   // flags, first ramp row, first color, last color
     vec4 paint0;  // p = paint0.x*X + paint0.y*Y + paint0.z; w: conic start (turns)
     vec4 paint1;  // q likewise; w: unused
-    vec4 paint2;  // focal: d.x, d.y, dr, r0
+    vec4 paint2;  // focal: d.x, d.y, dr, r0; image: the clamp range of u, then of v
     vec4 paint3;  // focal: a; lo, hi: the first and last stop offsets
     Shape shape;  // the fill, or the box of a shadow
     Shape clip;
     Shape blur;   // the shape a shadow blurs, in the frame of its Gaussian
     vec4 sigma;   // shadow: sx, sy, and the size wx, wy of a pixel in that frame
+    vec4 origin;  // xy: the origin of the coordinates; z: the atlas page; w: the clip mask's page
+    ivec4 tex;    // pixel + tex.xy: the texel in the atlas; pixel + tex.zw: the clip mask's
 };
 
 layout(std430, set = 0, binding = 0) readonly buffer Instances {
@@ -57,19 +62,33 @@ layout(std430, set = 0, binding = 1) readonly buffer RampSegments {
 // The ramps: 256 premultiplied colors per row.
 layout(set = 0, binding = 2) uniform sampler2D ramps;
 
+// The atlases: pages of 8-bit coverage, and of premultiplied colors. They
+// are read texel by texel.
+layout(set = 0, binding = 3) uniform sampler2DArray coverage;
+layout(set = 0, binding = 4) uniform sampler2DArray sprites;
+
+// The image of the batch, read texel by texel.
+layout(set = 1, binding = 0) uniform sampler2D image;
+
 layout(location = 0) flat in int inIndex;
 layout(location = 0) out vec4 outColor;
 
-// Bits of head.x (instance.go).
-const uint KIND_MASK = 3u;         // 0 fill, 1 outer shadow, 2 inset shadow
+// Bits of head.x (frame.go).
+const uint KIND_MASK = 3u;         // 0 fill, 1 outer shadow, 2 inset shadow, 3 atlas
 const uint KIND_OUTER = 1u;
 const uint KIND_INSET = 2u;
+const uint KIND_ATLAS = 3u;
 const uint SHAPE_LOCAL = 4u;
 const uint CLIP_SHIFT = 3u;        // 0 none, 1 device, 2 local
-const uint PAINT_SHIFT = 5u;       // 0 solid, 1 linear, 2 radial, 3 conic, 4 focal
+const uint PAINT_SHIFT = 5u;       // 0 solid, 1 linear, 2 radial, 3 conic, 4 focal, 5 image, 6 image (nearest), 7 sprite
 const uint SPREAD_SHIFT = 8u;      // 0 pad, 1 reflect, 2 repeat
 const uint BLUR_SHIFT = 10u;       // 0 analytic, 1 hard device, 2 hard local, 3 empty
+const uint CLIP_MASK = 4096u;      // a clip mask in the coverage atlas
 const uint SEGMENTS_SHIFT = 16u;
+
+const uint PAINT_IMAGE = 5u;
+const uint PAINT_NEAREST = 6u;
+const uint PAINT_SPRITE = 7u;
 
 // ---------------------------------------------------------------------------
 // Coverage
@@ -535,12 +554,42 @@ float focalT(Instance it, float u, float v, out bool ok) {
     return lo;
 }
 
+// texel8 returns the 8-bit values of a texel of the image, clamped to it.
+uvec4 texel8(ivec2 p, ivec2 size) {
+    return uvec4(texelFetch(image, clamp(p, ivec2(0), size - 1), 0) * 255.0 + 0.5);
+}
+
+// imageColor samples the batch's image at the image coordinates uv
+// (raster's imageShader): the pixel that contains the point, or the four
+// around it with weights quantized to 1/256 and summed in integers, in
+// both cases clamped to the range of the source rectangle (paint2).
+vec4 imageColor(Instance it, vec2 uv, bool nearest) {
+    ivec2 size = textureSize(image, 0);
+    vec2 lo = it.paint2.xz, hi = it.paint2.yw;
+    if (nearest) {
+        return texelFetch(image, clamp(ivec2(clamp(floor(uv), lo, hi)), ivec2(0), size - 1), 0);
+    }
+    vec2 f = floor(clamp(uv - 0.5, lo, hi) * 256.0);
+    ivec2 i = ivec2(f) >> 8;
+    uvec2 w = uvec2(ivec2(f) & 255);
+    // The second tap has weight 0 where it would leave the image.
+    ivec2 d = ivec2(w.x == 0u ? 0 : 1, w.y == 0u ? 0 : 1);
+    uvec4 sum = texel8(i, size) * ((256u - w.x) * (256u - w.y))
+              + texel8(i + ivec2(d.x, 0), size) * (w.x * (256u - w.y))
+              + texel8(i + ivec2(0, d.y), size) * ((256u - w.x) * w.y)
+              + texel8(i + d, size) * (w.x * w.y);
+    return vec4((sum + 32768u) >> 16) / 255.0;
+}
+
 // paintColor returns the premultiplied color of the instance's paint at
-// the pixel center rel (relative to the origin).
-vec4 paintColor(Instance it, vec2 rel) {
+// the pixel center rel (relative to the origin) of the pixel px.
+vec4 paintColor(Instance it, vec2 rel, ivec2 px) {
     uint kind = (it.head.x >> PAINT_SHIFT) & 7u;
     if (kind == 0u) {
         return unpackUnorm4x8(it.head.z);
+    }
+    if (kind == PAINT_SPRITE) {
+        return texelFetch(sprites, ivec3(px + it.tex.xy, int(it.origin.z)), 0);
     }
     uint spread = (it.head.x >> SPREAD_SHIFT) & 3u;
     float p = it.paint0.x * rel.x + it.paint0.y * rel.y + it.paint0.z;
@@ -548,6 +597,9 @@ vec4 paintColor(Instance it, vec2 rel) {
         return rampColor(it, spreadT(p, spread));
     }
     float q = it.paint1.x * rel.x + it.paint1.y * rel.y + it.paint1.z;
+    if (kind == PAINT_IMAGE || kind == PAINT_NEAREST) {
+        return imageColor(it, vec2(p, q), kind == PAINT_NEAREST);
+    }
     if (kind == 2u) {
         return rampColor(it, spreadT(sqrt(p * p + q * q), spread));
     }
@@ -569,36 +621,50 @@ vec4 paintColor(Instance it, vec2 rel) {
 void main() {
     Instance it = instances.items[inIndex];
     uint flags = it.head.x;
-    vec2 rel = gl_FragCoord.xy - it.bounds.xy; // the pixel's center
+    vec2 rel = gl_FragCoord.xy - it.origin.xy; // the pixel's center
+    ivec2 px = ivec2(gl_FragCoord.xy);
 
-    float cov = cover8(it.shape, (flags & SHAPE_LOCAL) != 0u, rel);
     uint kind = flags & KIND_MASK;
-    if (kind != 0u) {
-        // A shadow paints outside its box (outer) or inside it (inset):
-        // box is the part of the pixel where it may paint.
-        float box = kind == KIND_INSET ? cov : 255.0 - cov;
-        if (box == 0.0) {
-            discard;
+    float cov;
+    if (kind == KIND_ATLAS) {
+        // The rasterizer's own coverage.
+        cov = floor(texelFetch(coverage, ivec3(px + it.tex.xy, int(it.origin.z)), 0).r * 255.0 + 0.5);
+    } else {
+        cov = cover8(it.shape, (flags & SHAPE_LOCAL) != 0u, rel);
+        if (kind != 0u) {
+            // A shadow paints outside its box (outer) or inside it (inset):
+            // box is the part of the pixel where it may paint.
+            float box = kind == KIND_INSET ? cov : 255.0 - cov;
+            if (box == 0.0) {
+                discard;
+            }
+            uint mode = (flags >> BLUR_SHIFT) & 3u;
+            float v = 0.0;
+            if (mode == 0u) {
+                vec2 w = it.sigma.zw;
+                vec2 p = vec2(it.blur.inv.x * rel.x + it.blur.inv.z * rel.y + it.blur.invT.x,
+                              it.blur.inv.y * rel.x + it.blur.inv.w * rel.y + it.blur.invT.y) - 0.5 * w;
+                v = clamp(blurred(it.blur, it.sigma.xy, w, p), 0.0, 1.0);
+            } else if (mode != 3u) {
+                v = cover8(it.blur, mode == 2u, rel) / 255.0;
+            }
+            cov = floor((kind == KIND_INSET ? 1.0 - v : v) * box + 0.5);
         }
-        uint mode = (flags >> BLUR_SHIFT) & 3u;
-        float v = 0.0;
-        if (mode == 0u) {
-            vec2 w = it.sigma.zw;
-            vec2 p = vec2(it.blur.inv.x * rel.x + it.blur.inv.z * rel.y + it.blur.invT.x,
-                          it.blur.inv.y * rel.x + it.blur.inv.w * rel.y + it.blur.invT.y) - 0.5 * w;
-            v = clamp(blurred(it.blur, it.sigma.xy, w, p), 0.0, 1.0);
-        } else if (mode != 3u) {
-            v = cover8(it.blur, mode == 2u, rel) / 255.0;
-        }
-        cov = floor((kind == KIND_INSET ? 1.0 - v : v) * box + 0.5);
+    }
+    if (((flags >> PAINT_SHIFT) & 7u) == PAINT_SPRITE) {
+        // A sprite is composited at the alpha of its run.
+        cov = mul8(cov, float(it.head.z >> 24));
     }
 
     uint clip = (flags >> CLIP_SHIFT) & 3u;
     if (clip != 0u) {
         cov = mul8(cov, cover8(it.clip, clip == 2u, rel));
     }
+    if ((flags & CLIP_MASK) != 0u) {
+        cov = mul8(cov, floor(texelFetch(coverage, ivec3(px + it.tex.zw, int(it.origin.w)), 0).r * 255.0 + 0.5));
+    }
     if (cov == 0.0) {
         discard;
     }
-    outColor = paintColor(it, rel) * (cov / 255.0);
+    outColor = paintColor(it, rel, px) * (cov / 255.0);
 }

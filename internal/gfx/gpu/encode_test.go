@@ -35,6 +35,15 @@ func floats(f *Frame, i, s int) [4]float32 {
 	return out
 }
 
+// slotInts returns slot s of instance i as int32 values.
+func slotInts(f *Frame, i, s int) [4]int32 {
+	var out [4]int32
+	for k := range out {
+		out[k] = int32(binary.LittleEndian.Uint32(f.Instances[i*InstanceSize+16*s+4*k:]))
+	}
+	return out
+}
+
 // head returns the four uint32 of SlotHead of instance i.
 func head(f *Frame, i int) [4]uint32 {
 	var out [4]uint32
@@ -65,7 +74,7 @@ func TestLayoutMatchesShaders(t *testing.T) {
 			t.Fatalf("no struct %s in quad.frag", name)
 		}
 		var out []string
-		for _, f := range regexp.MustCompile(`(?m)^\s*(u?vec4|Shape) (\w+);`).FindAllStringSubmatch(m[1], -1) {
+		for _, f := range regexp.MustCompile(`(?m)^\s*([ui]?vec4|Shape) (\w+);`).FindAllStringSubmatch(m[1], -1) {
 			out = append(out, f[1]+" "+f[2])
 		}
 		return out
@@ -73,7 +82,7 @@ func TestLayoutMatchesShaders(t *testing.T) {
 	if got := len(members("Shape")); got != ShapeSlots {
 		t.Errorf("struct Shape has %d vec4 members, ShapeSlots is %d", got, ShapeSlots)
 	}
-	want := map[string]int{"bounds": SlotBounds, "head": SlotHead, "paint0": SlotPaint, "shape": SlotShape, "clip": SlotClip, "blur": SlotBlur, "sigma": SlotSigma}
+	want := map[string]int{"bounds": SlotBounds, "head": SlotHead, "paint0": SlotPaint, "shape": SlotShape, "clip": SlotClip, "blur": SlotBlur, "sigma": SlotSigma, "origin": SlotOrigin, "tex": SlotTex}
 	slot := 0
 	for _, m := range members("Instance") {
 		typ, name, _ := strings.Cut(m, " ")
@@ -98,7 +107,8 @@ func TestLayoutMatchesShaders(t *testing.T) {
 	for name, v := range map[string]uint32{
 		"KIND_MASK": FlagKindMask, "KIND_OUTER": FlagOuterShadow, "KIND_INSET": FlagInsetShadow, "SHAPE_LOCAL": FlagShapeLocal,
 		"CLIP_SHIFT": FlagClipShift, "PAINT_SHIFT": FlagPaintShift, "SPREAD_SHIFT": FlagSpreadShift, "BLUR_SHIFT": FlagBlurShift,
-		"SEGMENTS_SHIFT": FlagSegmentsShift,
+		"SEGMENTS_SHIFT": FlagSegmentsShift, "KIND_ATLAS": FlagCoverAtlas, "CLIP_MASK": FlagMask,
+		"PAINT_IMAGE": PaintImageLinear, "PAINT_NEAREST": PaintImageNearest, "PAINT_SPRITE": PaintSprite,
 	} {
 		m := regexp.MustCompile(`const uint ` + name + ` = (\d+)u;`).FindStringSubmatch(frag)
 		if m == nil {
@@ -281,8 +291,8 @@ func TestEncodeClips(t *testing.T) {
 		t.Errorf("the scissor of the aligned clip inside: %v, want %v", got, want)
 	}
 
-	// Two clips between pixels that share edge pixels: not drawn, and
-	// reported; what follows the block is drawn.
+	// Two clips between pixels that share edge pixels: the instances inside
+	// carry the first, and read the second from a clip mask in the atlas.
 	f = encode(100, 100, Options{}, func(b *gfx.Builder) {
 		b.PushClipRect(gfx.RectXYWH(10.5, 10.5, 80, 80))
 		b.PushClipRect(gfx.RectXYWH(10.25, 20.25, 30, 30))
@@ -291,8 +301,34 @@ func TestEncodeClips(t *testing.T) {
 		fill(b)
 		b.PopClip()
 	})
-	if want := []string{"PushClipRect (nested anti-aliased)"}; !reflect.DeepEqual(f.Unsupported, want) || instances(f) != 1 {
-		t.Errorf("clips sharing edge pixels: %d instances, unsupported %v", instances(f), f.Unsupported)
+	if len(f.Unsupported) != 0 || instances(f) != 2 {
+		t.Fatalf("clips sharing edge pixels: %d instances, unsupported %v", instances(f), f.Unsupported)
+	}
+	if h := head(f, 0)[0]; clipOf(f, 0) != ClipDevice || h&FlagMask == 0 {
+		t.Errorf("the instance inside both: flags %#x, want a clip and a mask", h)
+	}
+	if h := head(f, 1)[0]; clipOf(f, 1) != ClipDevice || h&FlagMask != 0 {
+		t.Errorf("the instance inside the first only: flags %#x, want a clip and no mask", h)
+	}
+	if got, want := floats(f, 0, SlotClip), [4]float32{10.5, 10.5, 90.5, 90.5}; got != want {
+		t.Errorf("the clip of the instance inside both: %v, want %v", got, want)
+	}
+	// The mask is the second clip over the pixels both leave, with the
+	// rasterizer's coverage: 3/4 of the first column and row.
+	ups := f.Passes[0].Uploads
+	if len(ups) != 1 || ups[0].Atlas != AtlasCoverage || ups[0].Rect.Size() != image.Pt(31, 31) {
+		t.Fatalf("the mask's upload: %+v", ups)
+	}
+	mask := f.Data[ups[0].Offset:][:31*31]
+	if mask[0] != 143 || mask[1] != 191 || mask[31] != 191 || mask[32] != 255 || mask[30] != 48 || mask[31*31-1] != 16 {
+		t.Errorf("the mask's pixels: corner %d, top %d, left %d, inside %d, top right %d, bottom right %d",
+			mask[0], mask[1], mask[31], mask[32], mask[30], mask[31*31-1])
+	}
+	// The instance reads it where it is in the atlas: the texel of device
+	// pixel (10, 20) is the upload's corner.
+	tex := slotInts(f, 0, SlotTex)
+	if got, want := image.Pt(10+int(tex[2]), 20+int(tex[3])), ups[0].Rect.Min; got != want {
+		t.Errorf("the mask's texel of pixel (10, 20): %v, want %v", got, want)
 	}
 
 	// A clip that leaves nothing.
@@ -315,38 +351,33 @@ func TestEncodeUnsupported(t *testing.T) {
 	star.LineTo(gfx.Pt(50, 20))
 	star.LineTo(gfx.Pt(20, 50))
 	star.Close()
-	img := gfxtest.TestImage
 	draw := func(b *gfx.Builder) {
 		b.FillRect(gfx.RectXYWH(0, 0, 10, 10), gfx.Black) // drawn
-		b.FillPath(star, gfx.NonZero, gfx.Black)
-		b.StrokePath(star, gfx.NewStrokeStyle(2), gfx.Black)
-		b.DrawImage(img, gfx.Rect{}, gfx.RectXYWH(0, 0, 20, 20), gfx.SampleNearest)
-		b.PushClipRRect(gfx.NewRRect(gfx.RectXYWH(0, 0, 50, 50), 8))
-		b.FillRect(gfx.RectXYWH(0, 0, 10, 10), gfx.Black) // inside: not drawn
-		b.PopClip()
-		b.PushClipPath(star, gfx.NonZero)
-		b.FillRect(gfx.RectXYWH(20, 20, 10, 10), gfx.Black)
-		b.PopClip()
 		b.PushLayer(0.5, gfx.SrcOver)
 		b.FillRect(gfx.RectXYWH(0, 0, 10, 10), gfx.Black)
-		b.PushClipRRect(gfx.NewRRect(gfx.RectXYWH(0, 0, 50, 50), 8)) // nested in a skipped block
+		b.PushClipPath(star, gfx.NonZero) // nested in a skipped block
 		b.FillRect(gfx.RectXYWH(0, 0, 10, 10), gfx.Black)
+		b.PushLayer(1, gfx.Multiply)
+		b.FillPath(star, gfx.NonZero, gfx.Black)
+		b.PopLayer()
 		b.PopClip()
 		b.PopLayer()
 		b.BackdropFilter(gfx.NewRRect(gfx.RectXYWH(0, 0, 50, 50), 8), gfx.Blur{StdDev: 2})
-		// A rounded clip with square corners is a rectangle clip.
-		b.PushClipRRect(gfx.RRectFromRect(gfx.RectXYWH(0, 0, 50, 50)))
+		b.PushClipRRect(gfx.NewRRect(gfx.RectXYWH(0, 0, 50, 50), 8))
 		b.FillRect(gfx.RectXYWH(20, 20, 10, 10), gfx.Black) // drawn
 		b.PopClip()
 		b.Marker(7)
 	}
 	f := encode(100, 100, Options{}, draw)
-	want := []string{"FillPath", "StrokePath", "DrawImage", "PushClipRRect", "PushClipPath", "PushLayer", "BackdropFilter"}
+	want := []string{"PushLayer", "BackdropFilter"}
 	if !reflect.DeepEqual(f.Unsupported, want) {
 		t.Errorf("unsupported %v, want %v", f.Unsupported, want)
 	}
 	if instances(f) != 2 {
 		t.Errorf("%d instances, want the 2 outside the blocks that are not drawn", instances(f))
+	}
+	if len(f.Data) != 0 {
+		t.Errorf("%d bytes uploaded for blocks that are not drawn", len(f.Data))
 	}
 	if got := Unsupported(gfxtest.Build(draw)); !reflect.DeepEqual(got, want) {
 		t.Errorf("Unsupported: %v, want %v", got, want)
@@ -357,11 +388,34 @@ func TestEncodeUnsupported(t *testing.T) {
 	if len(f.Unsupported) != 0 || instances(f) != 0 {
 		t.Errorf("a region without them: unsupported %v, %d instances", f.Unsupported, instances(f))
 	}
-	if got := Unsupported(gfxtest.Build(func(b *gfx.Builder) { b.FillRect(gfx.RectXYWH(0, 0, 1, 1), gfx.Black) })); got != nil {
-		t.Errorf("Unsupported of a list of rectangles: %v", got)
+	// Everything else is drawn.
+	everything := gfxtest.Build(func(b *gfx.Builder) {
+		b.FillRect(gfx.RectXYWH(0, 0, 1, 1), gfx.Black)
+		b.FillPath(star, gfx.EvenOdd, gfx.Black)
+		b.StrokePath(star, gfx.NewStrokeStyle(2), gfx.Black)
+		b.DrawImage(gfxtest.TestImage, gfx.Rect{}, gfx.RectXYWH(0, 0, 20, 20), gfx.SampleNearest)
+		b.DrawGlyphRun(gfxtest.FontA.Run("So*", 20, 10, 40, gfx.Black))
+		b.PushClipRRect(gfx.NewRRect(gfx.RectXYWH(0, 0, 50, 50), 8))
+		b.PushClipPath(star, gfx.NonZero)
+		b.FillRect(gfx.RectXYWH(20, 20, 10, 10), gfx.Black)
+		b.PopClip()
+		b.PopClip()
+	})
+	if got := Unsupported(everything); got != nil {
+		t.Errorf("Unsupported of a list without layers: %v", got)
+	}
+	var e Encoder
+	if f := e.Encode(everything, image.Pt(100, 100), Options{}); len(f.Unsupported) != 0 || instances(f) < 8 {
+		t.Errorf("a list without layers: unsupported %v, %d instances", f.Unsupported, instances(f))
 	}
 	if Unsupported(nil) != nil {
 		t.Error("Unsupported(nil) is not nil")
+	}
+	// An image larger than the device's textures is reported, not drawn.
+	e = Encoder{Limits: Limits{MaxTextureSize: 4}}
+	f = e.Encode(everything, image.Pt(100, 100), Options{})
+	if want := []string{"DrawImage (an image larger than the device's textures)"}; !reflect.DeepEqual(f.Unsupported, want) || len(f.Images) != 0 {
+		t.Errorf("an image too large: unsupported %v, %d images", f.Unsupported, len(f.Images))
 	}
 }
 
@@ -384,22 +438,7 @@ func TestEncodeRegion(t *testing.T) {
 	}
 	// Every instance of the region is an instance of the full frame, byte
 	// for byte and in the same order: the pixels cannot differ.
-	rest := all
-	for i := 0; i < n; i++ {
-		in := f.Instances[i*InstanceSize : (i+1)*InstanceSize]
-		found := false
-		for len(rest) > 0 {
-			same := bytes.Equal(rest[:InstanceSize], in)
-			rest = rest[InstanceSize:]
-			if same {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Fatalf("instance %d of the region is not in the full frame, or out of order", i)
-		}
-	}
+	subsequence(t, "gpu_rects", f.Instances, all)
 	// A region without area is the whole target; one outside draws
 	// nothing.
 	if f := e.Encode(dl, size, Options{Region: image.Rect(5, 5, 5, 50)}); !bytes.Equal(f.Instances, all) {
@@ -407,6 +446,80 @@ func TestEncodeRegion(t *testing.T) {
 	}
 	if f := e.Encode(dl, size, Options{Region: image.Rect(300, 0, 400, 100), Clear: &gfx.White}); len(f.Passes) != 0 {
 		t.Errorf("a region outside the target: %d passes", len(f.Passes))
+	}
+
+	// The same for what reads textures: the instances of a region are
+	// those of the full frame, with the same places in the atlases (the
+	// region finds the pictures the full frame made), in tiles small enough
+	// that pictures and clip masks are cut into several; and a region
+	// encoded first, in a new Encoder, makes the pictures the full frame
+	// then finds.
+	limits := Limits{CoveragePage: 256, CoveragePages: 64, ColorPage: 128, ColorPages: 64}
+	for i := range textureScenes {
+		s := &textureScenes[i]
+		dl := s.displayList()
+		size := image.Pt(2*s.W, 2*s.H)
+		e := Encoder{Limits: limits}
+		all := append([]byte(nil), e.Encode(dl, size, Options{Scale: 2}).Instances...)
+		first := Encoder{Limits: limits}
+		for _, region := range []image.Rectangle{image.Rect(100, 60, 420, 300), image.Rect(0, 0, 130, 130), image.Rect(500, 300, 501, 600), image.Rect(256, 128, 512, 384)} {
+			f := e.Encode(dl, size, Options{Scale: 2, Region: region})
+			if uploads(f) != 0 {
+				t.Errorf("%s, region %v: %d uploads after a full frame", s.Name, region, uploads(f))
+			}
+			subsequence(t, s.Name, f.Instances, all)
+			f = first.Encode(dl, size, Options{Scale: 2, Region: region})
+			for _, b := range batches(f) {
+				if !b.Scissor.In(region) {
+					t.Errorf("%s: scissor %v outside the region %v", s.Name, b.Scissor, region)
+				}
+			}
+		}
+		f := first.Encode(dl, size, Options{Scale: 2})
+		if instances(f) != len(all)/InstanceSize {
+			t.Errorf("%s: a full frame after regions has %d instances, alone %d", s.Name, instances(f), len(all)/InstanceSize)
+		}
+		// The pictures are at other places, but they are the same pictures.
+		a, b := (&atlasSim{t: t}), (&atlasSim{t: t})
+		e.Trim()
+		if !reflect.DeepEqual(readsOf(a, &first, dl, size), readsOf(b, &e, dl, size)) {
+			t.Errorf("%s: after regions, the instances of a full frame read other pixels", s.Name)
+		}
+	}
+}
+
+// readsOf starts e over, encodes dl with it and returns what the frame's
+// instances read from the atlases.
+func readsOf(sim *atlasSim, e *Encoder, dl *gfx.DisplayList, size image.Point) []instanceRead {
+	e.Trim()
+	return sim.draw(e.Encode(dl, size, Options{Scale: 2}))
+}
+
+// subsequence checks that the instances of part are instances of all, in
+// the same order. The first ramp row of an instance is left out: the rows
+// of a frame's ramps are in the order the frame meets its gradients, and
+// a region meets fewer (the rows hold the same colors).
+func subsequence(t *testing.T, what string, part, all []byte) {
+	t.Helper()
+	const row = 16*SlotHead + 4
+	same := func(a, b []byte) bool {
+		return bytes.Equal(a[:row], b[:row]) && bytes.Equal(a[row+4:], b[row+4:])
+	}
+	rest := all
+	for i := 0; i < len(part)/InstanceSize; i++ {
+		in := part[i*InstanceSize : (i+1)*InstanceSize]
+		found := false
+		for len(rest) > 0 {
+			same := same(rest[:InstanceSize], in)
+			rest = rest[InstanceSize:]
+			if same {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("%s: instance %d of the region is not in the full frame, or out of order", what, i)
+		}
 	}
 }
 
@@ -645,7 +758,7 @@ func TestEncodeScenes(t *testing.T) {
 			}
 			for i := 0; i < instances(f); i++ {
 				for slot := 0; slot < InstanceSlots; slot++ {
-					if slot == SlotHead {
+					if slot == SlotHead || slot == SlotTex {
 						continue
 					}
 					for _, v := range floats(f, i, slot) {
