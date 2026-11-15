@@ -431,10 +431,11 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
 
 - Consumes the **same DisplayList**; nothing above `gfx` changes.
 - **Fixed set of precompiled shaders** (rounded rect with border and analytic shadow as one primitive, like GPUI's quads; gradient; blur; glyph atlas; image; composite). No runtime shader generation (Impeller's lesson).
+- **Design** (ADR-282): an encoder without build tags turns a list into passes and instance batches, and a device (Vulkan first) executes them. One instanced quad pipeline draws rectangles, rounded rectangles, analytic shadows, images and coverage masks, with solid paints or gradient ramps baked by the rasterizer's code; glyphs, paths, strokes and path clips are coverage rasterized on the CPU into an atlas. Layers and backdrop filters use blur, color matrix, blend and composite passes on pooled targets.
 - Vulkan (Linux, Windows), Metal (macOS), optional D3D11 (Windows), via purego/syscall.
 - **Opt-in** (ADR-281): compiled only with the build tag `telagpu`, chosen at run time with `TELA_RENDERER=cpu|gpu` (the GPU by default under the tag, the CPU rasterizer when no device initializes). Without the tag a Linux binary stays static.
 - **Presenting** (ADR-281): the renderer (`internal/gfx/gpu`, over the Vulkan bindings of the leaf `internal/vk`) draws into images it owns. It reads the damage back into the framebuffer for `Window.Present`, or, on Linux, exports the images as dmabufs for an optional window capability (`zwp_linux_dmabuf_v1`, DRI3 with Present), since Vulkan's own Wayland and XCB surfaces need libwayland and libxcb. Windows uses a swapchain on the HWND, macOS a `CAMetalLayer`.
-- The CPU rasterizer stays the reference for goldens and headless.
+- The CPU rasterizer stays the reference for goldens and headless; GPU output is compared with it within a tolerance kept in the comparison test (ADR-282).
 
 ## 14. Input, events and focus
 
