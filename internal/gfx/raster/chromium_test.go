@@ -37,8 +37,8 @@ func cssColor(c gfx.Color) string {
 func cssShadows(layers []cssShadow) string {
 	var parts []string
 	for _, l := range layers {
-		s := fmt.Sprintf("%gpx %gpx %gpx %gpx %s", l.x, l.y, l.blur, l.spread, cssColor(l.color))
-		if l.inset {
+		s := fmt.Sprintf("%gpx %gpx %gpx %gpx %s", l.X, l.Y, l.Blur, l.Spread, cssColor(l.Color))
+		if l.Inset {
 			s = "inset " + s
 		}
 		parts = append(parts, s)
@@ -54,20 +54,20 @@ func tailwindHTML() string {
 	fmt.Fprintf(&sb, "body { width: 640px; height: 600px; background: %s; position: relative; }\n", cssColor(twGray100))
 	sb.WriteString("div { position: absolute; box-sizing: border-box; }\n</style></head><body>\n")
 	for _, c := range twCards() {
-		r := c.box.Rect
-		rad := c.box.Radii
+		r := c.Box.Rect
+		rad := c.Box.Radii
 		style := fmt.Sprintf("left: %gpx; top: %gpx; width: %gpx; height: %gpx; background: %s; "+
 			"border-radius: %gpx %gpx %gpx %gpx / %gpx %gpx %gpx %gpx;",
-			r.X0, r.Y0, r.Width(), r.Height(), cssColor(c.bgColor),
+			r.X0, r.Y0, r.Width(), r.Height(), cssColor(c.BGColor),
 			rad[0].X, rad[1].X, rad[2].X, rad[3].X, rad[0].Y, rad[1].Y, rad[2].Y, rad[3].Y)
-		layers := append(append([]cssShadow(nil), c.inner...), c.outer...)
+		layers := append(append([]cssShadow(nil), c.Inner...), c.Outer...)
 		if len(layers) > 0 {
 			style += " box-shadow: " + cssShadows(layers) + ";"
 		}
-		if c.rotate != 0 {
-			style += fmt.Sprintf(" transform: rotate(%gdeg);", c.rotate)
+		if c.Rotate != 0 {
+			style += fmt.Sprintf(" transform: rotate(%gdeg);", c.Rotate)
 		}
-		fmt.Fprintf(&sb, "<div title=%q style=%q></div>\n", c.name, style)
+		fmt.Fprintf(&sb, "<div title=%q style=%q></div>\n", c.Name, style)
 	}
 	sb.WriteString("</body></html>\n")
 	return sb.String()
@@ -129,17 +129,17 @@ func TestChromiumShadows(t *testing.T) {
 		for _, c := range twCards() {
 			c := c
 			mark(func(b *gfx.Builder) {
-				if c.rotate != 0 {
-					b.PushTransform(gfx.RotateAbout(float32(float64(c.rotate)*math.Pi/180), c.box.Rect.Center()))
+				if c.Rotate != 0 {
+					b.PushTransform(gfx.RotateAbout(float32(float64(c.Rotate)*math.Pi/180), c.Box.Rect.Center()))
 				}
-				b.FillRRect(c.box, gfx.Black)
-				if c.rotate != 0 {
+				b.FillRRect(c.Box, gfx.Black)
+				if c.Rotate != 0 {
 					b.PopTransform()
 				}
 			})
-			for _, l := range append(append([]cssShadow(nil), c.inner...), c.outer...) {
-				if l.blur == 0 {
-					shape, _ := shadowShape(gfx.DrawShadow{RRect: c.box, Offset: gfx.Pt(l.x, l.y), Spread: l.spread, Inset: l.inset})
+			for _, l := range append(append([]cssShadow(nil), c.Inner...), c.Outer...) {
+				if l.Blur == 0 {
+					shape, _ := shadowShape(gfx.DrawShadow{RRect: c.Box, Offset: gfx.Pt(l.X, l.Y), Spread: l.Spread, Inset: l.Inset})
 					mark(func(b *gfx.Builder) { b.FillRRect(shape, gfx.Black) })
 				}
 			}

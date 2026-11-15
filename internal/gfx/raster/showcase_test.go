@@ -6,16 +6,17 @@ import (
 	"testing"
 
 	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/gfx/gfxtest/showcase"
 	"github.com/kuronosu/tela/internal/gfx/raster"
 	"github.com/kuronosu/tela/internal/testutil/golden"
 )
 
-// The showcase is the phase-1 scene of showcase_scene_test.go: a 4x3 grid of
+// The showcase is the phase-1 scene of package gfxtest/showcase: a 4x3 grid of
 // cards with shadows, gradients, filters and strokes, rendered at a 960x640
-// window. It lives in the external test package so that its helpers do not
-// collide with the ones of the other scenes.
+// window. It lives in its own package so that its helpers do not collide with
+// the ones of the shared scenes (gfxtest).
 
-// renderShowcase renders Scene the way the CLI snapshot did, at a logical
+// renderShowcase renders showcase.Scene the way the CLI snapshot did, at a logical
 // size and scale.
 func renderShowcase(w, h float32, scale float64) *image.RGBA {
 	// Physical size: logical x scale, rounded half away from zero (the
@@ -23,7 +24,7 @@ func renderShowcase(w, h float32, scale float64) *image.RGBA {
 	phys := func(l float32) int { return int(math.Round(float64(l) * scale)) }
 	img := image.NewRGBA(image.Rect(0, 0, phys(w), phys(h)))
 	raster.Clear(img, image.Rectangle{}, gfx.White)
-	raster.Render(img, Scene(w, h), raster.Options{Scale: float32(scale)})
+	raster.Render(img, showcase.Scene(w, h), raster.Options{Scale: float32(scale)})
 	return img
 }
 

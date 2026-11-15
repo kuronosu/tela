@@ -1,4 +1,6 @@
-package raster_test
+// Package showcase holds the phase-1 shapes showcase scene, a display list
+// drawn straight with the Builder. It is imported only by tests.
+package showcase
 
 import (
 	"math"

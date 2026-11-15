@@ -19,7 +19,7 @@ func parallelBenchScenes() []struct {
 		dl   *gfx.DisplayList
 	}{
 		{"scene", benchScene(true, true)},
-		{"shadowcards", benchShadowCards(twShadows[5].layers)},
+		{"shadowcards", benchShadowCards(twShadows[5].Layers)},
 		{"shadowcards_rotated", benchShadowCardsRotated()},
 		{"blur8", benchLayerBlur()},
 		{"blur32", benchLayerBlurSigma(32)},
@@ -42,7 +42,7 @@ func benchBlobs() *gfx.DisplayList {
 	for i := 0; i < 100; i++ {
 		x, y := float32(i%10)*190+25, float32(i/10)*106+12
 		card := gfx.NewRRect(gfx.RectXYWH(x, y, 140, 70), 12)
-		drawShadows(b, card, twShadows[5].layers)
+		drawShadows(b, card, twShadows[5].Layers)
 		b.FillRRect(card, gfx.White.WithAlpha(0.8))
 	}
 	return b.Finish()

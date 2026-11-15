@@ -47,19 +47,19 @@ type chromiumPage struct {
 func chromiumPages() []chromiumPage {
 	var blend []chromiumCell
 	for _, c := range blendCells() {
-		name := c.mode.String()
-		if c.clip {
+		name := c.Mode.String()
+		if c.Clip {
 			name = "clip " + name
 		}
-		blend = append(blend, chromiumCell{name, gfx.RectXYWH(c.x, c.y, 100, 100), blendBounds[name]})
+		blend = append(blend, chromiumCell{name, gfx.RectXYWH(c.X, c.Y, 100, 100), blendBounds[name]})
 	}
 	var masks []chromiumCell
 	for _, c := range maskCells {
-		masks = append(masks, chromiumCell{c.name, gfx.RectXYWH(c.x, c.y, 160, 130), maskBounds[c.name]})
+		masks = append(masks, chromiumCell{c.Name, gfx.RectXYWH(c.X, c.Y, 160, 130), maskBounds[c.Name]})
 	}
 	var focal []chromiumCell
 	for _, c := range focalCells() {
-		focal = append(focal, chromiumCell{c.name, gfx.RectXYWH(c.x, c.y, 150, 150), focalBounds[c.name]})
+		focal = append(focal, chromiumCell{c.Name, gfx.RectXYWH(c.X, c.Y, 150, 150), focalBounds[c.Name]})
 	}
 	return []chromiumPage{
 		{"blend", scenes4[0], blendHTML, blend},

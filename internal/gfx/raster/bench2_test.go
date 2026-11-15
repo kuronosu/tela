@@ -24,12 +24,12 @@ func benchShadowCards(layers []cssShadow) *gfx.DisplayList {
 
 // BenchmarkShadowCards1080p renders 100 cards with shadow-xl.
 func BenchmarkShadowCards1080p(b *testing.B) {
-	benchRender(b, benchShadowCards(twShadows[5].layers), 1, image.Rectangle{})
+	benchRender(b, benchShadowCards(twShadows[5].Layers), 1, image.Rectangle{})
 }
 
 // BenchmarkShadowCards1080pScale2 is the same at 3840x2160.
 func BenchmarkShadowCards1080pScale2(b *testing.B) {
-	benchRender(b, benchShadowCards(twShadows[5].layers), 2, image.Rectangle{})
+	benchRender(b, benchShadowCards(twShadows[5].Layers), 2, image.Rectangle{})
 }
 
 // BenchmarkShadowCardsRotated1080p renders the cards under a small
@@ -45,7 +45,7 @@ func benchShadowCardsRotated() *gfx.DisplayList {
 		x, y := float32(i%10)*190+25, float32(i/10)*106+12
 		card := gfx.NewRRect(gfx.RectXYWH(x, y, 140, 70), 12)
 		bl.PushTransform(gfx.RotateAbout(0.05, card.Rect.Center()))
-		drawShadows(bl, card, twShadows[5].layers)
+		drawShadows(bl, card, twShadows[5].Layers)
 		bl.FillRRect(card, gfx.White)
 		bl.PopTransform()
 	}

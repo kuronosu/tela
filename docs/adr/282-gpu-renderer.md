@@ -17,7 +17,7 @@
 
 Clips that are device-pixel rectangles are scissors; the others are coverage that multiplies what is drawn inside them.
 
-**Tolerance.** GPU output is compared with the CPU rasterizer's for the same list, in the form of `telatest.Tolerance`: per scene, a largest channel difference for all pixels but a small share, and a hard limit for those. The numbers live in the comparison test (`internal/gfx/gpu`), start at 2 levels for 99.5% of the pixels and 24 for the rest, and only tighten. Goldens stay CPU-only.
+**Tolerance.** GPU output is compared with the CPU rasterizer's for the same list, in the form of `telatest.Tolerance`: per scene, a largest channel difference for all pixels but a small share, and a hard limit for those. The numbers live in the comparison test (`internal/gfx/gpu`), start at 2 levels for 99.5% of the pixels and 24 for the rest, and only tighten. A scene whose difference is the rasterizer's own approximation (rounded corners under rotation, flattened at 0.1 px; shadows under a skew, blurred in device space) or a pixel center exactly on a gradient discontinuity has an override there, with its cause. Goldens stay CPU-only.
 
 ## Rationale
 

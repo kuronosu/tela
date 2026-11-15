@@ -46,11 +46,11 @@ func compositingDigest() uint64 {
 		}
 	}
 	r := NewRenderer()
-	for _, c := range append(focalCells(), focalCell{fx: 3.7, fy: -1.3, fr: 0.5, cx: 0.25, cy: 0.5, r: 9.75, stops: []gfx.Color{rose, sky}}) {
+	for _, c := range append(focalCells(), focalCell{FX: 3.7, FY: -1.3, FR: 0.5, CX: 0.25, CY: 0.5, R: 9.75, Stops: []gfx.Color{rose, sky}}) {
 		m := gfx.RotateAbout(0.3, gfx.Pt(20, 20)).Mul(gfx.Scale(1.25, 0.8))
 		r.ctm = m
 		inv, _ := invert(m)
-		g := r.focalShader(c.paint(), inv)
+		g := r.focalShader(c.Paint(), inv)
 		gs := g.(*gradShader)
 		put(gs.pa, gs.pb, gs.pc, gs.qa, gs.qb, gs.qc, gs.a, gs.r0dr)
 		for k := 0; k < 200; k++ {
