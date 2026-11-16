@@ -29,7 +29,7 @@ func passOf(p *Pass) string {
 		s += "+clear"
 	}
 	for _, b := range p.Batches {
-		s += [...]string{" quad", " blend", " filter"}[b.Pipeline]
+		s += [...]string{" quad", " blend", " filter", " plain", " opaque"}[b.Pipeline]
 	}
 	return s
 }

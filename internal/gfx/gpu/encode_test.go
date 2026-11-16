@@ -20,8 +20,11 @@ import (
 )
 
 // encode encodes what draw records for a target of w x h pixels.
+// encode encodes what draw draws, with the quad pipeline only: the tests
+// of the structure of frames look at its batches (TestEncodePlain looks at
+// the plain ones).
 func encode(w, h int, opts Options, draw func(b *gfx.Builder)) *Frame {
-	var e Encoder
+	e := Encoder{noPlain: true}
 	return e.Encode(gfxtest.Build(draw), image.Pt(w, h), opts)
 }
 
@@ -786,7 +789,7 @@ func checkFrameKept(t *testing.T, what string, f *Frame, kept []int) {
 			if b.Count <= 0 || b.First < 0 || b.First+b.Count > len(seen) || b.Scissor.Empty() || !b.Scissor.In(rect) {
 				t.Fatalf("%s: pass %d into %v: batch %+v", what, pi, rect, b)
 			}
-			if (b.Pipeline != PipelineFilter && format != FormatRGBA8) || b.Pipeline > PipelineFilter {
+			if (b.Pipeline != PipelineFilter && format != FormatRGBA8) || b.Pipeline > PipelineOpaque {
 				t.Fatalf("%s: pass %d: pipeline %d in a target of the format %d", what, pi, b.Pipeline, format)
 			}
 			if b.Image != 0 && b.Sources[0] != 0 {
@@ -890,5 +893,92 @@ func TestOpenWithoutBackend(t *testing.T) {
 	}
 	if !errors.Is(err, ErrUnavailable) || dev != nil {
 		t.Errorf("Open: %v, %v; want ErrUnavailable", dev, err)
+	}
+}
+
+// TestEncodePlain checks which instances the plain pipelines take: the
+// insides of solid fills (PipelineOpaque for an opaque color), of layers
+// composited source-over without a mask, and the copies between targets
+// (PipelineOpaque, marked as copies); not edges, gradients, images, clips
+// or blend modes.
+func TestEncodePlain(t *testing.T) {
+	var e Encoder
+	pipelines := func(f *Frame) map[Pipeline]int {
+		n := map[Pipeline]int{}
+		for _, p := range f.Passes {
+			for _, b := range p.Batches {
+				n[b.Pipeline] += b.Count
+			}
+		}
+		return n
+	}
+	size := image.Pt(300, 200)
+	f := e.Encode(gfxtest.Build(func(b *gfx.Builder) {
+		b.FillRRect(gfx.NewRRect(gfx.RectXYWH(10.5, 10, 200, 150), 12), gfx.White.WithAlpha(0.5))
+	}), size, Options{})
+	checkFrame(t, "translucent", f)
+	if n := pipelines(f); n[PipelinePlain] != 1 || n[PipelineOpaque] != 0 || n[PipelineQuad] == 0 {
+		t.Errorf("a translucent rounded fill: %v, want its inside plain and its edges quads", n)
+	}
+	f = e.Encode(gfxtest.Build(func(b *gfx.Builder) {
+		b.FillRect(gfx.RectXYWH(0, 0, 300, 200), slate)
+	}), size, Options{})
+	if n := pipelines(f); n[PipelineOpaque] != 1 || len(n) != 1 {
+		t.Errorf("an opaque fill on pixel boundaries: %v, want one opaque instance", n)
+	}
+	for _, c := range []struct {
+		name string
+		draw func(b *gfx.Builder)
+	}{
+		{"a gradient", func(b *gfx.Builder) {
+			b.FillRect(gfx.RectXYWH(0, 0, 300, 200), gfx.LinearGradient{Start: gfx.Pt(0, 0), End: gfx.Pt(300, 0), Stops: stops(rose, sky)})
+		}},
+		{"an image", func(b *gfx.Builder) {
+			b.DrawImage(gfxtest.TestImage, gfx.Rect{}, gfx.RectXYWH(0, 0, 300, 200), gfx.SampleLinear)
+		}},
+		{"a fill under a rounded clip", func(b *gfx.Builder) {
+			b.PushClipRRect(gfx.NewRRect(gfx.RectXYWH(20, 20, 200, 150), 20))
+			b.PushClipPath(gfx.CirclePath(gfx.Pt(100, 100), 90), gfx.NonZero)
+			b.FillRect(gfx.RectXYWH(0, 0, 300, 200), slate.WithAlpha(0.5))
+			b.PopClip()
+			b.PopClip()
+		}},
+		{"a layer with a blend mode", func(b *gfx.Builder) {
+			b.PushLayer(1, gfx.Multiply)
+			b.FillRect(gfx.RectXYWH(20.5, 20, 200, 150), rose.WithAlpha(0.5))
+			b.PopLayer()
+		}},
+	} {
+		f := e.Encode(gfxtest.Build(c.draw), size, Options{})
+		checkFrame(t, c.name, f)
+		// (The layer's content is drawn plain inside, and the backdrop its
+		// blend mode reads is a copy: its composite is not.)
+		if n := pipelines(&Frame{Passes: f.Passes[len(f.Passes)-1:]}); n[PipelinePlain] != 0 || n[PipelineOpaque] != 0 {
+			t.Errorf("%s: %v, want no plain instance", c.name, n)
+		}
+	}
+	// A layer that fades two shapes is composited plain inside.
+	f = e.Encode(gfxtest.Build(func(b *gfx.Builder) {
+		b.PushLayer(0.5, gfx.SrcOver)
+		b.FillRect(gfx.RectXYWH(20.5, 20, 200, 150), rose)
+		b.FillRect(gfx.RectXYWH(40.5, 40, 200, 150), sky.WithAlpha(0.5))
+		b.PopLayer()
+	}), size, Options{})
+	checkFrame(t, "layer", f)
+	last := f.Passes[len(f.Passes)-1]
+	if n := pipelines(&Frame{Passes: []Pass{last}}); n[PipelinePlain] != 1 {
+		t.Errorf("a layer's composite: %v, want its inside plain", n)
+	}
+	// A region grown for a backdrop filter is copied back with the opaque
+	// pipeline, as a copy.
+	f = e.Encode(gfxtest.Build(func(b *gfx.Builder) {
+		b.FillRect(gfx.RectXYWH(0, 0, 300, 200), slate)
+		b.BackdropFilter(gfx.NewRRect(gfx.RectXYWH(40, 30, 200, 120), 12), gfx.Blur{StdDev: 4})
+	}), size, Options{Region: image.Rect(100, 80, 140, 100), Clear: &gfx.White})
+	checkFrame(t, "grown", f)
+	last = f.Passes[len(f.Passes)-1]
+	cb := last.Batches[len(last.Batches)-1]
+	if last.Target != 0 || cb.Pipeline != PipelineOpaque || head(f, cb.First)[1]&(1<<25) == 0 || cb.Scissor != image.Rect(100, 80, 140, 100) {
+		t.Errorf("the copy of a grown region: %+v (head %v)", cb, head(f, cb.First))
 	}
 }

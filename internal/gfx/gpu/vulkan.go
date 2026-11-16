@@ -23,6 +23,8 @@ var (
 	quadFragSPV []byte
 	//go:embed shaders/filter.frag.spv
 	filterFragSPV []byte
+	//go:embed shaders/plain.frag.spv
+	plainFragSPV []byte
 )
 
 // targetFormat holds premultiplied sRGB-encoded values as they are: no
@@ -145,7 +147,9 @@ type vkDevice struct {
 	pipelineLayout vk.PipelineLayout
 	vert, frag     vk.ShaderModule
 	filterFrag     vk.ShaderModule
+	plainFrag      vk.ShaderModule
 	quad, blend    vk.Pipeline
+	plain, opaque  vk.Pipeline
 	filter         [2]vk.Pipeline
 
 	instances hostBuffer // the instances of the frame (a storage buffer)
@@ -478,11 +482,20 @@ func (d *vkDevice) init() error {
 	if d.filterFrag, err = d.module(filterFragSPV); err != nil {
 		return fmt.Errorf("creating the filter shader: %w", err)
 	}
+	if d.plainFrag, err = d.module(plainFragSPV); err != nil {
+		return fmt.Errorf("creating the plain shader: %w", err)
+	}
 	if d.quad, err = d.pipeline(d.frag, FormatRGBA8, true); err != nil {
 		return fmt.Errorf("creating the quad pipeline: %w", err)
 	}
 	if d.blend, err = d.pipeline(d.frag, FormatRGBA8, false); err != nil {
 		return fmt.Errorf("creating the blend pipeline: %w", err)
+	}
+	if d.plain, err = d.pipeline(d.plainFrag, FormatRGBA8, true); err != nil {
+		return fmt.Errorf("creating the plain pipeline: %w", err)
+	}
+	if d.opaque, err = d.pipeline(d.plainFrag, FormatRGBA8, false); err != nil {
+		return fmt.Errorf("creating the opaque pipeline: %w", err)
 	}
 	for i := range d.filter {
 		if d.filter[i], err = d.pipeline(d.filterFrag, TargetFormat(i), false); err != nil {
@@ -638,12 +651,12 @@ func (d *vkDevice) Close() {
 		for _, b := range []*hostBuffer{&d.instances, &d.segments, &d.taps, &d.staging, &d.readback} {
 			d.destroyBuffer(b)
 		}
-		for _, p := range []vk.Pipeline{d.quad, d.blend, d.filter[0], d.filter[1]} {
+		for _, p := range []vk.Pipeline{d.quad, d.blend, d.plain, d.opaque, d.filter[0], d.filter[1]} {
 			if p != 0 {
 				dev.DestroyPipeline(p)
 			}
 		}
-		for _, m := range []vk.ShaderModule{d.vert, d.frag, d.filterFrag} {
+		for _, m := range []vk.ShaderModule{d.vert, d.frag, d.filterFrag, d.plainFrag} {
 			if m != 0 {
 				dev.DestroyShaderModule(m)
 			}
@@ -1506,6 +1519,10 @@ func (d *vkDevice) planFrame(t *vkTarget, f *Frame) error {
 				pb.pipeline = d.quad
 			case b.Pipeline == PipelineBlend && s.format == FormatRGBA8:
 				pb.pipeline = d.blend
+			case b.Pipeline == PipelinePlain && s.format == FormatRGBA8:
+				pb.pipeline = d.plain
+			case b.Pipeline == PipelineOpaque && s.format == FormatRGBA8:
+				pb.pipeline = d.opaque
 			case b.Pipeline == PipelineFilter:
 				pb.pipeline = d.filter[s.format]
 			default:

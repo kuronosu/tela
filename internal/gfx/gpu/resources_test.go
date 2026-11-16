@@ -1075,7 +1075,7 @@ func TestEncodeImages(t *testing.T) {
 		b.DrawImage(b2, gfx.Rect{}, gfx.RectXYWH(50, 10, 48, 32), gfx.SampleLinear)
 	})
 	size := image.Pt(120, 80)
-	var e Encoder
+	e := Encoder{noPlain: true} // the batches of the quad pipeline
 	f := e.Encode(both, size, Options{})
 	if len(f.Images) != 2 || f.Images[0].ID != a.ID() || f.Images[1].ID != b2.ID() || f.Images[1].Width != 96 || f.Images[1].Height != 64 || len(f.Images[1].Pix) != 4*96*64 {
 		t.Fatalf("the first frame's images: %+v", f.Images)

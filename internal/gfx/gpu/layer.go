@@ -365,6 +365,8 @@ type layerPaint struct {
 	backOrg  image.Point
 	// inside holds pixels the instance's shape covers entirely (emitShape).
 	inside image.Rectangle
+	// opaque: every pixel of src is opaque.
+	opaque bool
 }
 
 // emitLayer finishes an instance that paints the pixels of a target and
@@ -386,6 +388,7 @@ func (e *Encoder) emitLayer(in *instance, flags uint32, st *state, quad image.Re
 		e.sources[2] = Source(lp.back.id)
 		e.pipeline = PipelineBlend
 	}
+	e.srcOpaque = lp.opaque
 	e.emitShape(in, flags|FlagLayer, st, quad, lp.inside, false)
-	e.sources, e.pipeline = [3]Source{}, PipelineQuad
+	e.sources, e.pipeline, e.srcOpaque = [3]Source{}, PipelineQuad, false
 }

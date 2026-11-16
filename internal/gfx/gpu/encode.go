@@ -122,6 +122,12 @@ type Encoder struct {
 	src        coverSrc
 	glyph      raster.Glyph
 
+	// noPlain draws everything PipelinePlain and PipelineOpaque would
+	// with PipelineQuad, and copies with PipelineFilter (the tests compare
+	// the two). srcOpaque: every pixel of the layer being composited is
+	// opaque (a filtered backdrop of an opaque surface).
+	noPlain, srcOpaque bool
+
 	res *resources
 	// dataPeak is the largest Frame.Data since the last EndFrame, and
 	// dataIdle the frames ended since the buffer was last worth its size.
@@ -912,9 +918,16 @@ func (e *Encoder) emitPiece(in *instance, flags uint32, st *state, quad, piece i
 	if len(e.marks) > 0 {
 		first = e.marks[len(e.marks)-1].batches // of the pass being encoded
 	}
+	pl := e.pipeline
+	if pl == PipelineQuad && !e.noPlain && plain(flags, out[SlotHead][1]) {
+		pl = PipelinePlain
+		if (flags&FlagLayer == 0 && flags&FlagOpacity == 0 && out[SlotHead][2]>>24 == 255) || (flags&FlagLayer != 0 && e.srcOpaque && out[SlotHead][1]&255 == 255) {
+			pl = PipelineOpaque // source-over gives the source
+		}
+	}
 	if k := len(e.batches) - 1; k >= first {
 		b := &e.batches[k]
-		if b.Pipeline == e.pipeline && b.Scissor == st.scissor && b.First+b.Count == n && e.joins(b) {
+		if b.Pipeline == pl && b.Scissor == st.scissor && b.First+b.Count == n && e.joins(b) {
 			b.Count++
 			if e.image != 0 {
 				b.Image = e.image
@@ -927,7 +940,22 @@ func (e *Encoder) emitPiece(in *instance, flags uint32, st *state, quad, piece i
 			return
 		}
 	}
-	e.batches = append(e.batches, Batch{Pipeline: e.pipeline, Scissor: st.scissor, First: n, Count: 1, Image: e.image, Sources: e.sources})
+	e.batches = append(e.batches, Batch{Pipeline: pl, Scissor: st.scissor, First: n, Count: 1, Image: e.image, Sources: e.sources})
+}
+
+// plain reports whether an instance of the quad pipeline with the flags
+// and the second value of SlotHead (a layer's opacity, blend mode and
+// mask) is one PipelinePlain draws: the inside of a fill with a solid
+// paint, or of a layer or a filtered backdrop composited source-over
+// without a mask, with neither clip nor clip mask.
+func plain(flags, head1 uint32) bool {
+	if flags&FlagFull == 0 || flags&FlagMask != 0 || (flags>>FlagClipShift)&3 != 0 || flags&FlagKindMask != 0 || (flags>>FlagPaintShift)&7 != PaintSolid {
+		return false
+	}
+	if flags&FlagLayer == 0 {
+		return true
+	}
+	return (head1>>8)&255 == uint32(gfx.SrcOver) && (head1>>16)&255 == LayerMaskNone
 }
 
 // joins reports whether the instance being emitted can be drawn with the

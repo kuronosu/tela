@@ -52,6 +52,17 @@
 //     a second pipeline, the filter (shaders/filter.frag), between
 //     offscreen targets (filter.go).
 //
+// The insides of shapes that the quad draws without coverage, clips or a
+// paint of its own (FlagFull: a solid fill, a layer or a filtered backdrop
+// composited source-over without a mask) are drawn by the plain pipeline
+// (shaders/plain.frag) instead: the same arithmetic in a shader without
+// the quad's shape, clip and paint code, which a device runs faster
+// (measured on the UHD 630: solid insides 1.6 to 2.1 Gpx/s, backdrops
+// painted from the cache 0.4 to 0.8), and without the device's blending
+// (PipelineOpaque) where the source is opaque. Copies of pixels between targets of
+// FormatRGBA8 go the same way. TestPlain checks that they draw the quad's
+// pixels, bit for bit.
+//
 // What a device cannot draw is never drawn wrong silently:
 // Frame.Unsupported, and the Result of a Render, name it. That is only
 // what is larger than the device's textures (an image, or a layer grown
@@ -309,7 +320,8 @@
 //
 // # Shaders
 //
-// The shaders are GLSL sources compiled to SPIR-V by go generate
+// The shaders are GLSL sources (quad.vert, quad.frag, plain.frag,
+// filter.frag) compiled to SPIR-V by go generate
 // (glslangValidator, a development tool); the .spv files are checked in
 // and embedded. The set is fixed: nothing is generated at run time.
 package gpu
@@ -317,3 +329,4 @@ package gpu
 //go:generate glslangValidator --quiet -V -o shaders/quad.vert.spv shaders/quad.vert
 //go:generate glslangValidator --quiet -V -o shaders/quad.frag.spv shaders/quad.frag
 //go:generate glslangValidator --quiet -V -o shaders/filter.frag.spv shaders/filter.frag
+//go:generate glslangValidator --quiet -V -o shaders/plain.frag.spv shaders/plain.frag

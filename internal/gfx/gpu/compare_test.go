@@ -650,7 +650,20 @@ func TestBlend(t *testing.T) {
 			name string
 			dl   *gfx.DisplayList
 		}{{"whole 8-bit sources", whole}, {"sources between 8-bit values", fractional}} {
-			gpu, res := renderGPU(t, dev, 256, 256, c.dl, Options{Clear: &gfx.White})
+			// The quad pipeline's draws (the plain ones blend the same,
+			// TestPlain).
+			target, err := dev.NewTarget(256, 256)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := Renderer{enc: Encoder{noPlain: true}}
+			res, err := r.Render(target, c.dl, Options{Clear: &gfx.White})
+			if err != nil {
+				t.Fatal(err)
+			}
+			gpu := readAll(t, target)
+			target.Close()
+			r.Trim()
 			if res.Draws != 1 || res.Instances != 511 { // the transparent row is dropped
 				t.Errorf("%s: %d instances in %d draws, want 511 in 1", c.name, res.Instances, res.Draws)
 			}

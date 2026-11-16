@@ -111,7 +111,14 @@ func (p *gpuRenderer) rasterize(r *rig, fs *frameStat) core.Damage {
 	fs.renders, fs.instances, fs.draws, fs.passes, fs.uploads, fs.uploadBytes = st.Renders, st.Instances, st.Draws, st.Passes, st.Uploads, st.UploadBytes
 	fs.culled, fs.glass = st.Culled, [4]int{st.Backdrops.Hits, st.Backdrops.Patched, st.Backdrops.Stored, st.Backdrops.Computed}
 	if p.prof != nil {
-		p.profile(r.scene, d.Full)
+		name := r.scene
+		if v := os.Getenv("TELA_PROF_TICKS"); v != "" {
+			var a, b int
+			if n, _ := fmt.Sscanf(v, "%d-%d", &a, &b); n == 2 && r.ticks >= a && r.ticks <= b {
+				name = fmt.Sprintf("%s#%d", r.scene, r.ticks) // a table of its own
+			}
+		}
+		p.profile(name, d.Full)
 	}
 	if m := p.g.Memory(); m.Total() > p.peak.Total() {
 		p.peak = m
@@ -537,7 +544,8 @@ var perfConfigs = []struct {
 // without a copy keep two buffers busy, as an X server that flips (three
 // buffers, each two frames behind), and TELA_PERF_NOTRIM=1 keeps the GPU
 // renderer's memory at rest, to see what the trim (core.RasterSettle)
-// costs the frames after a pause.
+// costs the frames after a pause. With TELA_GPU_PROFILE=1,
+// TELA_PROF_TICKS=a-b profiles the frames of ticks a to b one by one.
 func TestSessionPerfGPU(t *testing.T) {
 	if os.Getenv("TELA_PERF") == "" {
 		t.Skip("a measurement only: set TELA_PERF=1 to play it")

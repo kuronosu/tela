@@ -442,7 +442,33 @@ func (e *Encoder) filter(bounds image.Rectangle, fs *filterStep) {
 // encoded with the pixels at the same coordinates of another target, whose
 // pixels rect are valid and whose first pixel is at org.
 func (e *Encoder) copyPixels(bounds image.Rectangle, from Source, rect image.Rectangle, org image.Point) {
+	if !e.noPlain && bounds.In(rect) && e.formatOf(Source(e.pass.target)) == FormatRGBA8 && e.formatOf(from) == FormatRGBA8 {
+		// The shader of PipelineOpaque copies: a layer's pixels at full
+		// opacity, without blending.
+		var in instance
+		in.floats(SlotBounds, float64(bounds.Min.X), float64(bounds.Min.Y), float64(bounds.Max.X), float64(bounds.Max.Y))
+		in[SlotHead][0] = FlagLayer | FlagFull
+		in[SlotHead][1] = 255 | 1<<24 | 1<<25 // full opacity, a copy
+		in[SlotTex][0], in[SlotTex][1] = uint32(int32(-org.X)), uint32(int32(-org.Y))
+		n := len(e.frame.Instances) / InstanceSize
+		e.frame.Instances = in.appendTo(e.frame.Instances)
+		e.batches = append(e.batches, Batch{Pipeline: PipelineOpaque, Scissor: bounds, First: n, Count: 1, Sources: [3]Source{from}})
+		return
+	}
 	e.filter(bounds, &filterStep{step: FilterCopy, flags: FilterFlagRound, src: plane{from: from, org: org, rect: rect}})
+}
+
+// formatOf returns the format of a target as a Source (0 or SourceDest:
+// the destination).
+func (e *Encoder) formatOf(s Source) TargetFormat {
+	if s > 0 {
+		for _, t := range e.res.targets {
+			if t.id == int(s) {
+				return t.format
+			}
+		}
+	}
+	return FormatRGBA8
 }
 
 // newPlane starts a pass into a target of the pool that holds the pixels
@@ -696,7 +722,7 @@ func (e *Encoder) backdropFilter(i int, c gfx.BackdropFilter) {
 			return
 		}
 		e.glass.Hits++
-		e.paintBackdrop(st, &sh, bounds, plane{from: Source(en.t.id), org: en.in.Min, rect: en.in}, out, op)
+		e.paintBackdrop(st, &sh, bounds, plane{from: Source(en.t.id), org: en.in.Min, rect: en.in}, out, op, en.opaque)
 		return
 	}
 	first := len(e.dfs)
@@ -753,14 +779,16 @@ func (e *Encoder) backdropFilter(i int, c gfx.BackdropFilter) {
 	if res.from == 0 {
 		return
 	}
-	e.paintBackdrop(st, &sh, bounds, res, out, op)
+	// An entry the render kept or patched says whether the pixels are all
+	// opaque.
+	e.paintBackdrop(st, &sh, bounds, res, out, op, en != nil && en.t != nil && en.opaque && e.bdc.holds(slot))
 	e.releaseTarget(res.t) // unless the cache keeps it
 }
 
 // paintBackdrop paints a filtered backdrop, the picture res, through the
 // shape sh (whose pixels are bounds) and the clips of st, inside out, at
 // the opacity op.
-func (e *Encoder) paintBackdrop(st *state, sh *shape, bounds image.Rectangle, res plane, out image.Rectangle, op uint8) {
+func (e *Encoder) paintBackdrop(st *state, sh *shape, bounds image.Rectangle, res plane, out image.Rectangle, op uint8, opaque bool) {
 	var inst instance
 	quad := e.begin(&inst, bounds)
 	var flags uint32
@@ -770,7 +798,7 @@ func (e *Encoder) paintBackdrop(st *state, sh *shape, bounds image.Rectangle, re
 	sh.put(&inst, SlotShape, float64(quad.Min.X), float64(quad.Min.Y))
 	cs := *st
 	cs.scissor = st.scissor.Intersect(out)
-	e.emitLayer(&inst, flags, &cs, quad, &layerPaint{src: res, opacity: op, fade: true, inside: sh.inside()})
+	e.emitLayer(&inst, flags, &cs, quad, &layerPaint{src: res, opacity: op, fade: true, inside: sh.inside(), opaque: opaque})
 }
 
 // keepBackdrop gives the cache what a render computed of the output of

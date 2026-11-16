@@ -177,6 +177,12 @@ func classify(pipeline Pipeline, in []byte) (class string, taps int) {
 	if flags&FlagMask != 0 {
 		class += " +mask"
 	}
+	switch pipeline {
+	case PipelinePlain:
+		class += " (plain)"
+	case PipelineOpaque:
+		class += " (opaque)"
+	}
 	return class, 0
 }
 

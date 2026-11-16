@@ -234,6 +234,19 @@ const (
 	// color matrices that follow. Its instances have the layout of the
 	// Filter constants, and it replaces the pixels it draws.
 	PipelineFilter
+	// PipelinePlain draws instances of the quad's layout that cover their
+	// pixels entirely (FlagFull) with a solid paint, or with the pixels of
+	// a layer or a filtered backdrop composited source-over without a
+	// mask, source-over (shaders/plain.frag): the quad's pixels, in a
+	// shader without its shape, clip and paint code, which the device runs
+	// faster.
+	PipelinePlain
+	// PipelineOpaque is PipelinePlain without the device's blending, for
+	// what is opaque (a solid fill of an opaque color, a filtered backdrop
+	// whose pixels are all opaque, at full opacity), where source-over
+	// gives the source, and for the copies of pixels between targets of
+	// FormatRGBA8: the shader's output replaces the pixel.
+	PipelineOpaque
 )
 
 // The layout of an instance of PipelineQuad: InstanceSlots slots of four

@@ -62,7 +62,8 @@ func keptTargets(e *Encoder) []int {
 func TestBackdropCache(t *testing.T) {
 	size := image.Pt(400, 300)
 	inside := image.Rect(60, 100, 120, 140) // in the first pane, away from its edges
-	var e Encoder
+	// The copies are filter steps.
+	e := Encoder{noPlain: true}
 	var bc BackdropCache
 	white := gfx.White
 	opts := func(region image.Rectangle) Options {
