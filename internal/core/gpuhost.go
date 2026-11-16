@@ -15,14 +15,16 @@ package core
 // Run opens the GPU after the main window exists: the device
 // TELA_GPU_DEVICE names, else the one the main window's display server
 // composites with, when the window says (its dmabuf feedback names a DRM
-// node, and a Vulkan device has it), else the first discrete one
-// (gpu.Open). The environment variable TELA_RENDERER chooses: "cpu" keeps
-// the CPU rasterizer, "gpu" asks for the GPU whatever the device, and
-// nothing at all for the GPU only when the device chosen is a discrete
-// one: an integrated or a software device draws a page of glass slower
-// than the rasterizer does (ADR-284), so it is used when asked for, and
-// otherwise the app is drawn by the CPU rasterizer, without a word
-// (a line of the error log when TELA_GPU_DEVICE named the device). When
+// node, and a Vulkan device has it), else the first discrete one, else
+// the first integrated one (gpu.Open). The environment variable
+// TELA_RENDERER chooses: "cpu" keeps the CPU rasterizer, "gpu" asks for
+// the GPU whatever the device, and nothing at all for the GPU on every
+// hardware device, integrated ones included (ADR-288: since ADR-287 the
+// UHD 630 draws the dashboard faster than the rasterizer). A software
+// device (lavapipe, llvmpipe) draws a page of glass far slower than the
+// rasterizer, so it is used when asked for, and otherwise the app is
+// drawn by the CPU rasterizer, without a word (a line of the error log
+// when TELA_GPU_DEVICE named the device). When
 // no device initializes, the app is drawn by the CPU rasterizer and one
 // line of the error log says why. A Host that Run did not start (NewHost:
 // tests, telatest, the headless backend) never opens one by itself, so

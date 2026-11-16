@@ -144,9 +144,11 @@
 //
 // Open chooses the device: the one Config.Device or TELA_GPU_DEVICE
 // names, else the one that has the DRM node of Config.DRM (the display
-// server's, whose buffers need no copy), else the first discrete one; and
-// with Config.DiscreteOnly it refuses, before creating anything, a device
-// that is not a discrete GPU (ErrNotDiscrete; ADR-284).
+// server's, whose buffers need no copy), else the first discrete one, else
+// the first integrated one; and with Config.HardwareOnly it refuses,
+// before creating anything, a software renderer (ErrSoftwareDevice;
+// ADR-288: every hardware device, integrated ones included, draws the
+// frames faster than the CPU rasterizer since ADR-287).
 //
 // # Resources
 //

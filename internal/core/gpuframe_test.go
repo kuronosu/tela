@@ -1386,10 +1386,11 @@ func (namedBackend) Name() string { return "test" }
 
 // TestGPURendererChoice checks what a Host opens (openGPU, which Run
 // calls): nothing on the headless backend and with TELA_RENDERER=cpu; by
-// default the GPU when the device chosen is a discrete one, and the CPU
-// rasterizer, silently, when it is not; that device too with
-// TELA_RENDERER=gpu; the device the main window's display server names
-// before the first discrete one, and the one TELA_GPU_DEVICE names before
+// default the GPU when the device chosen is a hardware one, integrated
+// ones included, and the CPU rasterizer, silently, when it is a software
+// one; that device too with TELA_RENDERER=gpu; the device the main
+// window's display server names before the first discrete one, and the
+// one TELA_GPU_DEVICE names before
 // both; and the CPU rasterizer with one line of the log when no device
 // initializes, or when a device named is not used.
 func TestGPURendererChoice(t *testing.T) {
@@ -1404,7 +1405,7 @@ func TestGPURendererChoice(t *testing.T) {
 		t.Skip("no devices")
 	}
 	first, _ := vk.SelectDevice(devices, "")
-	discrete := func(d vk.DeviceInfo) bool { return d.Type == vk.PhysicalDeviceTypeDiscreteGPU }
+	hardware := func(d vk.DeviceInfo) bool { return d.Type != vk.PhysicalDeviceTypeCPU }
 	type choice struct {
 		name          string
 		renderer, dev string
@@ -1417,25 +1418,29 @@ func TestGPURendererChoice(t *testing.T) {
 	cases := []choice{
 		{name: "headless"},
 		{name: "headless_gpu", renderer: "gpu"},
-		{name: "default", named: true, gpu: discrete(devices[first]), device: devices[first].Name},
+		{name: "default", named: true, gpu: hardware(devices[first]), device: devices[first].Name},
 		{name: "gpu", renderer: "gpu", named: true, gpu: true, device: devices[first].Name},
 		{name: "cpu", renderer: "cpu", named: true},
-		{name: "unknown", renderer: "metal", named: true, gpu: discrete(devices[first]), log: `TELA_RENDERER="metal"`},
+		{name: "unknown", renderer: "metal", named: true, gpu: hardware(devices[first]), log: `TELA_RENDERER="metal"`},
 		{name: "no_device", dev: "no such device", named: true, log: "using the CPU rasterizer"},
 	}
 	for i := range devices {
 		d := devices[i]
 		label := gputest.Label(d.Name)
-		if !discrete(d) {
-			// A device that is not discrete is used only when asked for.
+		if !hardware(d) {
+			// A software device is used only when asked for.
 			cases = append(cases,
 				choice{name: "named_" + label, dev: d.Name, named: true, log: "TELA_RENDERER=gpu draws with the GPU"},
 				choice{name: "named_gpu_" + label, renderer: "gpu", dev: d.Name, named: true, gpu: true, device: d.Name})
+		} else {
+			// A hardware device named is used, integrated ones included.
+			cases = append(cases,
+				choice{name: "named_" + label, dev: d.Name, named: true, gpu: true, device: d.Name})
 		}
 		if d.DRM.HasRender || d.DRM.HasPrimary {
 			// The display server's device is the one opened.
 			cases = append(cases,
-				choice{name: "server_" + label, named: true, server: &d, gpu: discrete(d), device: d.Name},
+				choice{name: "server_" + label, named: true, server: &d, gpu: hardware(d), device: d.Name},
 				choice{name: "server_gpu_" + label, renderer: "gpu", named: true, server: &d, gpu: true, device: d.Name},
 				choice{name: "server_named_" + label, renderer: "gpu", dev: devices[first].Name, named: true, server: &d, gpu: true, device: devices[first].Name})
 		}

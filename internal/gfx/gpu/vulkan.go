@@ -52,9 +52,10 @@ const waitTimeout = 30e9
 
 // Open opens the Vulkan device ADR-281 chooses: cfg.Device, else
 // TELA_GPU_DEVICE, else the device of the display server (cfg.DRM), else
-// the first discrete one. It returns an error, and the caller renders with
-// the CPU rasterizer, when Vulkan or a usable device is missing, and
-// ErrNotDiscrete when cfg.DiscreteOnly refuses the device chosen.
+// the first discrete one, else the first integrated one. It returns an
+// error, and the caller renders with the CPU rasterizer, when Vulkan or a
+// usable device is missing, and ErrSoftwareDevice when cfg.HardwareOnly
+// refuses the device chosen.
 func Open(cfg Config) (Device, error) {
 	icfg := vk.InstanceConfig{AppName: "tela", Validation: cfg.Validate}
 	if cfg.Log != nil {
@@ -86,8 +87,8 @@ func Open(cfg Config) (Device, error) {
 // selectDevice returns the index of the device Open opens among devices:
 // the one cfg.Device names, else the one env (TELA_GPU_DEVICE) names, else
 // the one that has the DRM node of cfg, else vk.SelectDevice's (the first
-// discrete one, else the first). With cfg.DiscreteOnly a device of
-// another type is ErrNotDiscrete.
+// discrete one, else the first integrated one, else the first). With
+// cfg.HardwareOnly a software device is ErrSoftwareDevice.
 func selectDevice(devices []vk.DeviceInfo, cfg Config, env string) (int, error) {
 	override := cfg.Device
 	if override == "" {
@@ -110,8 +111,8 @@ func selectDevice(devices []vk.DeviceInfo, cfg Config, env string) (int, error) 
 			return 0, fmt.Errorf("gpu: %w", err)
 		}
 	}
-	if cfg.DiscreteOnly && devices[n].Type != vk.PhysicalDeviceTypeDiscreteGPU {
-		return 0, fmt.Errorf("%w: %s", ErrNotDiscrete, devices[n])
+	if cfg.HardwareOnly && devices[n].Type == vk.PhysicalDeviceTypeCPU {
+		return 0, fmt.Errorf("%w: %s", ErrSoftwareDevice, devices[n])
 	}
 	return n, nil
 }

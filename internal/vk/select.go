@@ -153,8 +153,8 @@ func graphicsQueueFamily(families []QueueFamilyProperties) (uint32, bool) {
 // non-empty override (the value of [DeviceEnv]) wins: an index into the
 // list when it is a number, else a part of a device's name, compared
 // without case, where the first match is taken; an override that names no
-// device is an error that lists them. Otherwise it is the first discrete device, else the first
-// one.
+// device is an error that lists them. Otherwise it is the first discrete
+// device, else the first integrated one, else the first one (ADR-288).
 func SelectDevice(devices []DeviceInfo, override string) (int, error) {
 	if len(devices) == 0 {
 		return 0, fmt.Errorf("vk: no usable Vulkan device (Vulkan 1.1 with a graphics queue)")
@@ -181,9 +181,11 @@ func SelectDevice(devices []DeviceInfo, override string) (int, error) {
 		}
 		return 0, fmt.Errorf("vk: %s=%q names none of the Vulkan devices:%s", DeviceEnv, override, list.String())
 	}
-	for i := range devices {
-		if devices[i].Type == PhysicalDeviceTypeDiscreteGPU {
-			return i, nil
+	for _, typ := range []PhysicalDeviceType{PhysicalDeviceTypeDiscreteGPU, PhysicalDeviceTypeIntegratedGPU} {
+		for i := range devices {
+			if devices[i].Type == typ {
+				return i, nil
+			}
 		}
 	}
 	return 0, nil

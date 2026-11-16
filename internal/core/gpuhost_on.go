@@ -76,10 +76,10 @@ type viewGPU struct {
 // openGPU opens the GPU for the Host's windows, unless TELA_RENDERER asks
 // for the CPU rasterizer or the backend is the headless one: the device
 // the main window's display server composites with, when it names one and
-// TELA_GPU_DEVICE names none, else the first discrete one. A device that
-// is not a discrete GPU is used only when TELA_RENDERER=gpu asks for it
-// (ADR-284). When no device initializes, one line of the error log says
-// why and the CPU rasterizer draws the app.
+// TELA_GPU_DEVICE names none, else the first discrete one, else the first
+// integrated one. A software device is used only when TELA_RENDERER=gpu
+// asks for it (ADR-288). When no device initializes, one line of the error
+// log says why and the CPU rasterizer draws the app.
 func (h *Host) openGPU() {
 	if h.gpu.g != nil || h.backend.Name() == "headless" {
 		return
@@ -93,7 +93,7 @@ func (h *Host) openGPU() {
 		fmt.Fprintf(h.log, "tela: %s=%q is neither cpu nor gpu; using the GPU if there is one\n", EnvRenderer, renderer)
 	}
 	trace := os.Getenv(EnvGPUTrace) != ""
-	cfg := gpu.Config{DiscreteOnly: renderer != "gpu"}
+	cfg := gpu.Config{HardwareOnly: renderer != "gpu"}
 	if p, ok := h.win.(platform.DmabufPresenter); ok {
 		// Presenting from another device than the display server's costs
 		// a copy at best.
@@ -103,9 +103,10 @@ func (h *Host) openGPU() {
 	}
 	g, err := OpenGPUWith(cfg, func(msg string) { fmt.Fprintln(h.log, "tela: gpu:", msg) })
 	switch {
-	case errors.Is(err, gpu.ErrNotDiscrete):
-		// The default on most laptops: not worth a line, unless a device
-		// was asked for by name.
+	case errors.Is(err, gpu.ErrSoftwareDevice):
+		// A machine whose only Vulkan device is a software one (a virtual
+		// machine, a server): not worth a line, unless a device was asked
+		// for by name.
 		if trace || os.Getenv("TELA_GPU_DEVICE") != "" {
 			fmt.Fprintf(h.log, "tela: using the CPU rasterizer, %s=gpu draws with the GPU: %s\n", EnvRenderer, oneLine(err))
 		}

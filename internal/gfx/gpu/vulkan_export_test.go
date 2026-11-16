@@ -173,9 +173,9 @@ func (f DmabufFormat) fourccString() string {
 }
 
 // TestSelectDevice checks the device Open opens: a name wins over the
-// display server's device, which wins over the first discrete one, and a
-// device that is not discrete is refused when only a discrete one is
-// wanted.
+// display server's device, which wins over the first discrete one, which
+// wins over the first integrated one, and a software device is refused
+// when only a hardware one is wanted.
 func TestSelectDevice(t *testing.T) {
 	devices := []vk.DeviceInfo{
 		{Name: "Intel UHD", Type: vk.PhysicalDeviceTypeIntegratedGPU, DRM: vk.DRMNodes{HasPrimary: true, PrimaryMajor: 226, PrimaryMinor: 0, HasRender: true, RenderMajor: 226, RenderMinor: 128}},
@@ -183,7 +183,8 @@ func TestSelectDevice(t *testing.T) {
 		{Name: "llvmpipe", Type: vk.PhysicalDeviceTypeCPU},
 	}
 	node := func(minor uint32) Config { return Config{DRM: DRMNode{Major: 226, Minor: minor}, HasDRM: true} }
-	discrete := func(c Config) Config { c.DiscreteOnly = true; return c }
+	hardware := func(c Config) Config { c.HardwareOnly = true; return c }
+	integrated := []vk.DeviceInfo{devices[2], devices[0]}
 	for _, c := range []struct {
 		name string
 		cfg  Config
@@ -197,9 +198,10 @@ func TestSelectDevice(t *testing.T) {
 		{"a node of no device", node(7), "", 1, nil},
 		{"the environment wins over the server", node(128), "llvm", 2, nil},
 		{"the configuration wins over both", Config{Device: "nvidia", DRM: DRMNode{Major: 226, Minor: 128}, HasDRM: true}, "llvm", 1, nil},
-		{"discrete only: the discrete one", discrete(Config{}), "", 1, nil},
-		{"discrete only: the server's integrated device", discrete(node(0)), "", 0, ErrNotDiscrete},
-		{"discrete only: a software device by name", discrete(Config{}), "2", 0, ErrNotDiscrete},
+		{"hardware only: the discrete one", hardware(Config{}), "", 1, nil},
+		{"hardware only: the server's integrated device", hardware(node(0)), "", 0, nil},
+		{"hardware only: an integrated device by name", hardware(Config{}), "intel", 0, nil},
+		{"hardware only: a software device by name", hardware(Config{}), "2", 0, ErrSoftwareDevice},
 	} {
 		n, err := selectDevice(devices, c.cfg, c.env)
 		if !errors.Is(err, c.err) || err == nil && n != c.want || c.err == nil && err != nil {
@@ -208,5 +210,10 @@ func TestSelectDevice(t *testing.T) {
 	}
 	if _, err := selectDevice(devices, Config{}, "no such device"); err == nil {
 		t.Error("a name of no device returned no error")
+	}
+	// Without a discrete device, the first integrated one, before a
+	// software one listed first.
+	if n, err := selectDevice(integrated, hardware(Config{}), ""); n != 1 || err != nil {
+		t.Errorf("software and integrated devices: selectDevice = %d, %v; want 1 (the integrated one)", n, err)
 	}
 }

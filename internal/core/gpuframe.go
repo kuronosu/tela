@@ -41,7 +41,8 @@ type GPU struct {
 }
 
 // OpenGPU opens the device ADR-281 chooses (the environment variable
-// TELA_GPU_DEVICE, else the first discrete device). With TELA_VK_VALIDATE=1
+// TELA_GPU_DEVICE, else the first discrete device, else the first
+// integrated one). With TELA_VK_VALIDATE=1
 // the device runs under the API's validation layer, whose messages go to
 // log. It returns an error when the build has no GPU backend
 // (gpu.ErrUnavailable) or no device initializes: the caller then draws
@@ -49,8 +50,8 @@ type GPU struct {
 func OpenGPU(log func(msg string)) (*GPU, error) { return OpenGPUWith(gpu.Config{}, log) }
 
 // OpenGPUWith is OpenGPU with a choice of the device: the display server's
-// (cfg.DRM), and only a discrete one (cfg.DiscreteOnly, which fails with
-// gpu.ErrNotDiscrete).
+// (cfg.DRM), and only a hardware one (cfg.HardwareOnly, which fails with
+// gpu.ErrSoftwareDevice).
 func OpenGPUWith(cfg gpu.Config, log func(msg string)) (*GPU, error) {
 	if os.Getenv("TELA_VK_VALIDATE") == "1" {
 		cfg.Validate, cfg.Log = true, log

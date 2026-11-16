@@ -120,7 +120,7 @@ func liveMainDevice(t *testing.T, devices []vk.DeviceInfo) int {
 		t.Logf("  %s: modifiers %#x", f.Name, fb.Modifiers(f.Fourcc))
 	}
 	if !fb.HasDevice {
-		// The renderer's choice then (ADR-281): the first discrete one.
+		// The renderer's choice then (ADR-281, ADR-288): the first discrete one, else the first integrated one.
 		main, _ := vk.SelectDevice(devices, "")
 		t.Logf("the compositor names no main device; taking Vulkan device %d for it", main)
 		return main
