@@ -8,9 +8,10 @@
 //
 // # Two halves
 //
-// The Encoder turns a display list into a Frame: passes of batches of
-// instances, in a byte layout the shaders read, with the gradient ramps
-// they look up and the pixels new in the textures they read. It knows no
+// The Encoder turns a display list into a Frame: passes over targets, each
+// of batches of instances, in a byte layout the shaders read, with the
+// gradient ramps they look up, the kernels of their filters and the pixels
+// new in the textures they read. It knows no
 // graphics API, has no build tag and is tested without a GPU. The geometry
 // it computes on the CPU (snapping to the rasterizer's 1/256 pixel grid,
 // inverse transforms, gradient coefficients) is in float64 and fusion-safe
@@ -23,9 +24,10 @@
 //
 // # What is drawn
 //
-// One pipeline, the quad (shaders/quad.vert, quad.frag): an instance is a
-// device rectangle whose fragment shader evaluates, per pixel, a coverage,
-// the clips, and a paint.
+// Every command of a display list is drawn. Most of it by one pipeline,
+// the quad (shaders/quad.vert, quad.frag): an instance is a device
+// rectangle whose fragment shader evaluates, per pixel, a coverage, the
+// clips, and a paint.
 //
 //   - FillRect, FillRRect and DrawShadow: the coverage of a rectangle or
 //     rounded rectangle, and the closed-form shadow of one (ADR-017),
@@ -43,16 +45,63 @@
 //     scissor, one shape in the instance, and one clip mask in the
 //     coverage atlas that holds the product of the others (clip.go).
 //   - PushTransform and Marker.
+//   - PushLayer and PopLayer: the layer is drawn into an offscreen target
+//     and composited by an instance that paints its pixels, with its
+//     opacity, its mask and its blend mode, through the clip around it
+//     (layer.go). Its filters, and those of a BackdropFilter, are steps of
+//     a second pipeline, the filter (shaders/filter.frag), between
+//     offscreen targets (filter.go).
 //
-// PushLayer (opacity, blend modes, filters, masks) and BackdropFilter are
-// not drawn yet, and never drawn wrong silently: Frame.Unsupported, and
-// the Result of a Render, name what was left out, and a layer is left out
-// with everything inside it.
+// What a device cannot draw is never drawn wrong silently:
+// Frame.Unsupported, and the Result of a Render, name it. That is only
+// what is larger than the device's textures (an image, or a layer grown
+// for its filters, beyond 16384 pixels on the devices of today).
+//
+// # Targets and passes
+//
+// A frame is a list of passes, executed in order. A pass draws into the
+// destination or into an offscreen target of a pool the Encoder keeps on
+// the device (target.go), with the pixels of other targets as textures;
+// a pass never reads the target it draws into. A pass that does not clear
+// goes on over the pixels its target holds: the pass of a surface ends
+// where a layer or a backdrop filter starts and goes on after it, and
+// where an atlas is emptied in the middle of a frame.
+//
+// A layer is a pass into a target as large as the pixels it composites
+// (grown by the reach of its filters, as the rasterizer's surface is),
+// cleared first, encoded without the clip around the layer; its mask is
+// its list drawn into another target; a blend mode other than source-over
+// reads the pixels under the layer from a copy, since a fragment cannot
+// read the target it writes, and its shader computes the W3C formula on
+// 8-bit values, with the rasterizer's integers where it has them. A
+// backdrop filter ends the pass of its surface, filters the surface's
+// pixels into a target (mirrored at the shape's bounds, like the
+// rasterizer's) and paints the result through the shape when the pass
+// goes on.
+//
+// A blur is a kernel per axis whose weights are data: the rasterizer's
+// own kernel for small deviations, and for larger ones blocks of pixels,
+// blurred and interpolated back, as the rasterizer's large blurs are
+// (filter.go says how the two differ, and by how much). Texels are read
+// by their whole coordinates and never filtered by the device, so the
+// pixels of a filter do not depend on the target it runs in.
+//
+// A region that backdrop filters read beyond is grown as the rasterizer
+// grows it (raster.BackdropRegion) and rendered into an offscreen target
+// that starts from the destination's pixels there, or from the clear
+// color, and only the region is copied to the destination: the pixels
+// beyond the region are the previous frame's final ones, not the backdrop
+// a filter in the middle of the list is to read.
 //
 // # Resources
 //
 // Frames draw with textures that outlive them. The Encoder decides what
 // they hold; the device only stores pixels.
+//
+// The offscreen targets are a pool (target.go): textures in a few sizes,
+// that a layer drawn frame after frame finds again, listed by every frame
+// (Frame.Targets) and bounded like the rest. Their pixels live for a
+// frame.
 //
 // The coverage atlas is an array texture of 8-bit pages (atlas.go) packed
 // in shelves. It holds glyph masks, the coverage of paths and strokes, and
@@ -78,8 +127,9 @@
 // instances encoded so far, which read the atlas as it is, and a new pass
 // goes on in the emptied atlas with uploads of its own, so the pixels are
 // right whatever the limits. EndFrame, called once per frame, gives up the
-// pictures, images and cached shapes that no frame used for idleFrames
-// frames, and the pages left empty; Trim gives up everything, on the
+// pictures, images, offscreen targets and cached shapes that no frame
+// used for idleFrames frames, and the pages left empty; Trim gives up
+// everything, on the
 // device too, for a window that rests. Without either an Encoder keeps
 // what it has until its limits make it evict.
 //
@@ -88,8 +138,11 @@
 // A pixel's value is a function of its coordinates and of its instance
 // only, and an instance does not depend on the region rendered (nor do the
 // pictures it reads: a path's coverage and a clip's mask are rasterized by
-// whole tiles, never cut to the region), so a render of a region gives the
-// pixels of a full render.
+// whole tiles, never cut to the region; a layer's target is as large as
+// the region needs, but its pixels are functions of their device
+// coordinates), so a render of a region gives the pixels of a full
+// render, bit for bit (TestRegion), through layers, filters and backdrop
+// filters too.
 //
 // Coverage is the area of the pixel inside the shape, rounded to 8 bits
 // like the rasterizer's, and multiplied like it by the clip's. Under
@@ -141,6 +194,15 @@
 // exactly on the boundary of two pixels of an image sampled by its nearest
 // pixel can take the other one.
 //
+// A layer is composited on 8-bit values: its opacity times its mask's
+// coverage times the clip's, each product rounded like the rasterizer's,
+// and for the blend modes the rasterizer's exact integer formulas (its
+// float64 ones in float32 for color-dodge, color-burn, soft-light and the
+// non-separable modes, a level of difference in places). A color matrix
+// is the rasterizer's arithmetic in float32; a drop shadow's composite
+// its integers. Blurs are within a level or two of the rasterizer's (see
+// filter.go), which a color matrix after them scales.
+//
 // Blending is the device's: source-over on the encoded values, which the
 // API only requires at the precision of the target. Measured (TestBlend):
 // Mesa on Intel blends at high precision, within a level of the
@@ -162,7 +224,9 @@
 // alive included. The logic of the resources (packing, eviction, keys,
 // flushes, clip stacks) is tested without a device, by applying the
 // uploads of frames to atlases in memory and checking what every instance
-// reads (resources_test.go).
+// reads (resources_test.go); so are the passes of layers and filters,
+// their targets and what they read (layer_test.go), and the kernels of the
+// blurs against the rasterizer's (TestBlurKernels).
 //
 // # Shaders
 //
@@ -173,3 +237,4 @@ package gpu
 
 //go:generate glslangValidator --quiet -V -o shaders/quad.vert.spv shaders/quad.vert
 //go:generate glslangValidator --quiet -V -o shaders/quad.frag.spv shaders/quad.frag
+//go:generate glslangValidator --quiet -V -o shaders/filter.frag.spv shaders/filter.frag

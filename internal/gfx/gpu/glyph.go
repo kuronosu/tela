@@ -18,7 +18,8 @@ import (
 //   - an outline that the rasterizer fills directly (rotations, skews,
 //     large sizes) is a path like any other, under the glyph's transform;
 //   - a color glyph too large or too transformed for a sprite is its
-//     display list, encoded in place under the glyph's transform.
+//     display list, encoded in place under the glyph's transform, its
+//     layers included.
 
 // glyphRun encodes a DrawGlyphRun.
 func (e *Encoder) glyphRun(c gfx.DrawGlyphRun) {
@@ -65,9 +66,14 @@ func (e *Encoder) inline(cl *gfx.DisplayList, gm gfx.Affine) {
 	depth := len(e.stack)
 	e.push().ctm = gm
 	e.glyphDepth++
+	// The root space of the glyph's list is the em square: its layers take
+	// their bounds from it.
+	dl, root := e.dl, e.root
+	e.dl, e.root = cl, gm
 	for i := range cl.Len() {
 		e.visit(i, cl.At(i))
 	}
+	e.dl, e.root = dl, root
 	e.glyphDepth--
 	e.stack = e.stack[:depth]
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"image"
 	"math"
 	"os"
@@ -351,44 +352,7 @@ func TestEncodeUnsupported(t *testing.T) {
 	star.LineTo(gfx.Pt(50, 20))
 	star.LineTo(gfx.Pt(20, 50))
 	star.Close()
-	draw := func(b *gfx.Builder) {
-		b.FillRect(gfx.RectXYWH(0, 0, 10, 10), gfx.Black) // drawn
-		b.PushLayer(0.5, gfx.SrcOver)
-		b.FillRect(gfx.RectXYWH(0, 0, 10, 10), gfx.Black)
-		b.PushClipPath(star, gfx.NonZero) // nested in a skipped block
-		b.FillRect(gfx.RectXYWH(0, 0, 10, 10), gfx.Black)
-		b.PushLayer(1, gfx.Multiply)
-		b.FillPath(star, gfx.NonZero, gfx.Black)
-		b.PopLayer()
-		b.PopClip()
-		b.PopLayer()
-		b.BackdropFilter(gfx.NewRRect(gfx.RectXYWH(0, 0, 50, 50), 8), gfx.Blur{StdDev: 2})
-		b.PushClipRRect(gfx.NewRRect(gfx.RectXYWH(0, 0, 50, 50), 8))
-		b.FillRect(gfx.RectXYWH(20, 20, 10, 10), gfx.Black) // drawn
-		b.PopClip()
-		b.Marker(7)
-	}
-	f := encode(100, 100, Options{}, draw)
-	want := []string{"PushLayer", "BackdropFilter"}
-	if !reflect.DeepEqual(f.Unsupported, want) {
-		t.Errorf("unsupported %v, want %v", f.Unsupported, want)
-	}
-	if instances(f) != 2 {
-		t.Errorf("%d instances, want the 2 outside the blocks that are not drawn", instances(f))
-	}
-	if len(f.Data) != 0 {
-		t.Errorf("%d bytes uploaded for blocks that are not drawn", len(f.Data))
-	}
-	if got := Unsupported(gfxtest.Build(draw)); !reflect.DeepEqual(got, want) {
-		t.Errorf("Unsupported: %v, want %v", got, want)
-	}
-	// A region away from them does not meet them; Unsupported looks at the
-	// whole list.
-	f = encode(100, 100, Options{Region: image.Rect(80, 80, 100, 100)}, draw)
-	if len(f.Unsupported) != 0 || instances(f) != 0 {
-		t.Errorf("a region without them: unsupported %v, %d instances", f.Unsupported, instances(f))
-	}
-	// Everything else is drawn.
+	// Every command is drawn.
 	everything := gfxtest.Build(func(b *gfx.Builder) {
 		b.FillRect(gfx.RectXYWH(0, 0, 1, 1), gfx.Black)
 		b.FillPath(star, gfx.EvenOdd, gfx.Black)
@@ -400,22 +364,32 @@ func TestEncodeUnsupported(t *testing.T) {
 		b.FillRect(gfx.RectXYWH(20, 20, 10, 10), gfx.Black)
 		b.PopClip()
 		b.PopClip()
+		b.PushLayer(0.5, gfx.Multiply, gfx.Blur{StdDev: 3})
+		b.FillPath(star, gfx.NonZero, gfx.Black)
+		b.PopLayer()
+		b.BackdropFilter(gfx.NewRRect(gfx.RectXYWH(0, 0, 50, 50), 8), gfx.Blur{StdDev: 2})
+		b.Marker(7)
 	})
-	if got := Unsupported(everything); got != nil {
-		t.Errorf("Unsupported of a list without layers: %v", got)
-	}
 	var e Encoder
-	if f := e.Encode(everything, image.Pt(100, 100), Options{}); len(f.Unsupported) != 0 || instances(f) < 8 {
-		t.Errorf("a list without layers: unsupported %v, %d instances", f.Unsupported, instances(f))
+	if f := e.Encode(everything, image.Pt(100, 100), Options{}); len(f.Unsupported) != 0 || instances(f) < 10 {
+		t.Errorf("a list of every command: unsupported %v, %d instances", f.Unsupported, instances(f))
 	}
-	if Unsupported(nil) != nil {
-		t.Error("Unsupported(nil) is not nil")
-	}
-	// An image larger than the device's textures is reported, not drawn.
+	// What is larger than the device's textures is reported, not drawn: an
+	// image, a layer, the backdrop of a backdrop filter.
 	e = Encoder{Limits: Limits{MaxTextureSize: 4}}
-	f = e.Encode(everything, image.Pt(100, 100), Options{})
-	if want := []string{"DrawImage (an image larger than the device's textures)"}; !reflect.DeepEqual(f.Unsupported, want) || len(f.Images) != 0 {
-		t.Errorf("an image too large: unsupported %v, %d images", f.Unsupported, len(f.Images))
+	f := e.Encode(everything, image.Pt(100, 100), Options{})
+	want := []string{
+		"DrawImage (an image larger than the device's textures)",
+		"PushLayer (a layer larger than the device's textures)",
+		"BackdropFilter (a backdrop larger than the device's textures)",
+	}
+	if !reflect.DeepEqual(f.Unsupported, want) || len(f.Images) != 0 || len(f.Targets) != 0 {
+		t.Errorf("too large: unsupported %v, %d images, %d targets", f.Unsupported, len(f.Images), len(f.Targets))
+	}
+	for i := range f.Passes {
+		if f.Passes[i].Target != 0 {
+			t.Errorf("too large: a pass into the target %d", f.Passes[i].Target)
+		}
 	}
 }
 
@@ -738,46 +712,131 @@ func TestEncodeShadows(t *testing.T) {
 // no instance carries a value that is not finite, that batches cover the
 // instances in order, and that an Encoder gives the same frame when
 // reused.
-func TestEncodeScenes(t *testing.T) {
-	var e Encoder
-	for _, s := range allScenes() {
-		dl := s.displayList()
-		for _, scale := range []float32{1, 1.5, 2, 0.37} {
-			size := image.Pt(int(float32(s.W)*scale)+1, int(float32(s.H)*scale)+1)
-			f := e.Encode(dl, size, Options{Scale: scale, Clear: &s.clear})
-			first := append([]byte(nil), f.Instances...)
-			next := 0
-			for _, b := range batches(f) {
-				if b.First != next || b.Count <= 0 || b.Scissor.Empty() || !b.Scissor.In(image.Rectangle{Max: size}) {
-					t.Fatalf("%s x%g: batch %+v after %d instances", s.Name, scale, b, next)
+// checkFrame checks that a frame is well formed: every instance drawn by
+// exactly one batch, scissors and clears inside their targets, pipelines
+// that suit them, and a pass graph a device can execute, in which every
+// target is listed, none is read by a pass that draws into it, and none is
+// read before a pass of the frame has drawn into it.
+func checkFrame(t *testing.T, what string, f *Frame) {
+	t.Helper()
+	targets := map[int]TargetInfo{}
+	for _, info := range f.Targets {
+		if _, dup := targets[info.ID]; dup || info.ID <= 0 || info.Width < 1 || info.Height < 1 || info.Format > FormatRGBA16F {
+			t.Fatalf("%s: target %+v (listed twice: %v)", what, info, dup)
+		}
+		targets[info.ID] = info
+	}
+	drawn := map[int]bool{}
+	seen := make([]bool, instances(f))
+	for pi := range f.Passes {
+		p := &f.Passes[pi]
+		rect, format := image.Rectangle{Max: f.Size}, FormatRGBA8
+		if p.Target != 0 {
+			info, ok := targets[p.Target]
+			if !ok {
+				t.Fatalf("%s: pass %d draws into the target %d, which is not listed", what, pi, p.Target)
+			}
+			rect, format = image.Rectangle{Min: p.Origin, Max: p.Origin.Add(image.Pt(info.Width, info.Height))}, info.Format
+		} else if p.Origin != (image.Point{}) {
+			t.Fatalf("%s: pass %d draws into the destination with the origin %v", what, pi, p.Origin)
+		}
+		if p.Clear != nil && p.Clear.Rect.Intersect(rect).Empty() {
+			t.Fatalf("%s: pass %d clears %v of a target that holds %v", what, pi, p.Clear.Rect, rect)
+		}
+		if p.Clear == nil && len(p.Batches) == 0 && len(p.Uploads) == 0 {
+			t.Fatalf("%s: pass %d does nothing", what, pi)
+		}
+		for _, b := range p.Batches {
+			if b.Count <= 0 || b.First < 0 || b.First+b.Count > len(seen) || b.Scissor.Empty() || !b.Scissor.In(rect) {
+				t.Fatalf("%s: pass %d into %v: batch %+v", what, pi, rect, b)
+			}
+			if (b.Pipeline != PipelineFilter && format != FormatRGBA8) || b.Pipeline > PipelineFilter {
+				t.Fatalf("%s: pass %d: pipeline %d in a target of the format %d", what, pi, b.Pipeline, format)
+			}
+			if b.Image != 0 && b.Sources[0] != 0 {
+				t.Fatalf("%s: pass %d: a batch with an image and a first source: %+v", what, pi, b)
+			}
+			for _, src := range b.Sources {
+				switch {
+				case src == 0 || (src == SourceDest && p.Target != 0):
+				case src == SourceDest || int(src) == p.Target:
+					t.Fatalf("%s: pass %d into the target %d reads it", what, pi, p.Target)
+				case src < 0 || targets[int(src)].ID == 0:
+					t.Fatalf("%s: pass %d reads the target %d, which is not listed", what, pi, src)
+				case !drawn[int(src)]:
+					t.Fatalf("%s: pass %d reads the target %d before any pass drew into it", what, pi, src)
 				}
-				next += b.Count
 			}
-			if next != instances(f) {
-				t.Fatalf("%s x%g: batches cover %d of %d instances", s.Name, scale, next, instances(f))
-			}
-			for i := 0; i < instances(f); i++ {
+			for i := b.First; i < b.First+b.Count; i++ {
+				if seen[i] {
+					t.Fatalf("%s: instance %d is drawn twice", what, i)
+				}
+				seen[i] = true
+				bd := floats(f, i, SlotBounds)
+				if !(bd[0] < bd[2] && bd[1] < bd[3]) {
+					t.Fatalf("%s: instance %d: bounds %v", what, i, bd)
+				}
+				if b.Pipeline == PipelineFilter {
+					continue
+				}
 				for slot := 0; slot < InstanceSlots; slot++ {
 					if slot == SlotHead || slot == SlotTex {
 						continue
 					}
 					for _, v := range floats(f, i, slot) {
 						if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
-							t.Fatalf("%s x%g: instance %d, slot %d: %v", s.Name, scale, i, slot, floats(f, i, slot))
+							t.Fatalf("%s: instance %d, slot %d: %v", what, i, slot, floats(f, i, slot))
 						}
 					}
 				}
-				if b := floats(f, i, SlotBounds); !(b[0] < b[2] && b[1] < b[3]) || b[0] < 0 || b[1] < 0 || int(b[2]) > size.X || int(b[3]) > size.Y {
-					t.Fatalf("%s x%g: instance %d: bounds %v outside the target %v", s.Name, scale, i, b, size)
+				if p.Target == 0 && (bd[0] < 0 || bd[1] < 0 || int(bd[2]) > f.Size.X || int(bd[3]) > f.Size.Y) {
+					t.Fatalf("%s: instance %d: bounds %v outside the target %v", what, i, bd, f.Size)
 				}
 			}
-			if len(f.Ramps)%(4*RampWidth) != 0 || len(f.Ramps)/(4*RampWidth) != len(f.RampSegments)/RampSegmentSize {
-				t.Fatalf("%s x%g: %d ramp bytes, %d segment values", s.Name, scale, len(f.Ramps), len(f.RampSegments))
+		}
+		drawn[p.Target] = true
+	}
+	for i, ok := range seen {
+		if !ok {
+			t.Fatalf("%s: instance %d is in no batch", what, i)
+		}
+	}
+	if len(f.Ramps)%(4*RampWidth) != 0 || len(f.Ramps)/(4*RampWidth) != len(f.RampSegments)/RampSegmentSize {
+		t.Fatalf("%s: %d ramp bytes, %d segment values", what, len(f.Ramps), len(f.RampSegments))
+	}
+	if len(f.Taps)%2 != 0 {
+		t.Fatalf("%s: %d tap values", what, len(f.Taps))
+	}
+}
+
+func TestEncodeScenes(t *testing.T) {
+	var e Encoder
+	for _, s := range allScenes() {
+		dl := s.displayList()
+		for _, scale := range []float32{1, 1.5, 2, 0.37} {
+			size := image.Pt(int(float32(s.W)*scale)+1, int(float32(s.H)*scale)+1)
+			what := fmt.Sprintf("%s x%g", s.Name, scale)
+			f := e.Encode(dl, size, Options{Scale: scale, Clear: &s.clear})
+			if len(f.Unsupported) != 0 {
+				t.Fatalf("%s: not drawn: %v", what, f.Unsupported)
 			}
-			if f = e.Encode(dl, size, Options{Scale: scale, Clear: &s.clear}); !bytes.Equal(f.Instances, first) {
-				t.Fatalf("%s x%g: a second encode gives other instances", s.Name, scale)
+			checkFrame(t, what, f)
+			first := append([]byte(nil), f.Instances...)
+			passes := len(f.Passes)
+			if f = e.Encode(dl, size, Options{Scale: scale, Clear: &s.clear}); !bytes.Equal(f.Instances, first) || len(f.Passes) != passes {
+				t.Fatalf("%s: a second encode gives other instances", what)
+			}
+			// Regions, backdrop filters included: well-formed frames too.
+			for _, region := range []image.Rectangle{image.Rect(10, 10, 90, 70), image.Rect(size.X/2, size.Y/3, size.X, size.Y)} {
+				checkFrame(t, fmt.Sprintf("%s, region %v", what, region), e.Encode(dl, size, Options{Scale: scale, Region: region}))
+			}
+			for _, tg := range e.res.targets {
+				if tg.busy {
+					t.Fatalf("%s: the target %d is still in use after the frame", what, tg.id)
+				}
 			}
 		}
+		e.EndFrame()
 	}
 }
 

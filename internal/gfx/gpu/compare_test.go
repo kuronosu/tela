@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"image/png"
 	"math"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -268,13 +269,6 @@ func compare(a, b *image.RGBA) metrics {
 	return m
 }
 
-func absInt(v int) int {
-	if v < 0 {
-		return -v
-	}
-	return v
-}
-
 // overShare returns the share of pixels of m that differ by more than n
 // levels, for the n the metrics keep.
 func (m metrics) overShare(a, b *image.RGBA, n int) float64 {
@@ -344,9 +338,9 @@ func dump(t testing.TB, name string, gpu, cpu *image.RGBA) {
 }
 
 // TestCompare renders every scene at three scales on every physical
-// device and compares the pixels read back with the rasterizer's. Scenes
-// with commands the renderer does not draw yet are skipped, by name. The
-// table of differences is logged per device (go test -v).
+// device and compares the pixels read back with the rasterizer's. A scene
+// with anything the renderer does not draw fails. The table of
+// differences is logged per device (go test -v).
 func TestCompare(t *testing.T) {
 	scenes := allScenes()
 	eachDevice(t, func(t *testing.T, dev Device) {
@@ -362,8 +356,9 @@ func TestCompare(t *testing.T) {
 					w, h := sceneSize(s, scale)
 					gpu, res := renderGPU(t, dev, w, h, dl, Options{Scale: scale, Clear: &s.clear})
 					if len(res.Unsupported) > 0 {
-						fmt.Fprintf(&table, "%-26s %5g %4s %8s %8s %8s  skipped: %s\n", s.Name, scale, "", "", "", "", strings.Join(res.Unsupported, ", "))
-						t.Skipf("not drawn yet: %s", strings.Join(res.Unsupported, ", "))
+						// Every command is drawn: nothing is left to skip.
+						fmt.Fprintf(&table, "%-26s %5g %4s %8s %8s %8s  FAIL: not drawn: %s\n", s.Name, scale, "", "", "", "", strings.Join(res.Unsupported, ", "))
+						t.Fatalf("not drawn: %s", strings.Join(res.Unsupported, ", "))
 					}
 					cpu := renderCPU(w, h, dl, scale, s.clear)
 					m := compare(gpu, cpu)
@@ -423,57 +418,112 @@ func regionScene() *gfx.DisplayList {
 	})
 }
 
+// regionCase is a scene of TestRegion with the regions it is rendered in.
+type regionCase struct {
+	name    string
+	dl      *gfx.DisplayList
+	w, h    int // logical size
+	regions []image.Rectangle
+}
+
+// regionCases returns the scenes of TestRegion: every primitive, then the
+// scenes of layers, filters and backdrop filters, whose regions cross
+// layers, clips, blurred edges and glass panels, inside them, at their
+// edges and across several.
+func regionCases() []regionCase {
+	cases := []regionCase{{name: "primitives", dl: regionScene(), w: 421, h: 303}}
+	for i := range layerScenes {
+		s := &layerScenes[i]
+		switch s.Name {
+		case "gpu_blend_clips", "gpu_opacity", "gpu_masks", "gpu_filters", "gpu_blur_edges", "gpu_drop_shadows",
+			"gpu_backdrop", "gpu_backdrop_layers", "gpu_glass":
+			cases = append(cases, regionCase{name: s.Name, dl: s.displayList(), w: s.W, h: s.H})
+		}
+	}
+	rng := rand.New(rand.NewSource(11))
+	for i := range cases {
+		c := &cases[i]
+		w, h := c.w, c.h
+		c.regions = []image.Rectangle{
+			image.Rect(0, 0, 64, 64), image.Rect(37, 51, 190, 143), image.Rect(200, 1, 201, h-3),
+			image.Rect(100, 100, 101, 101), image.Rect(w-121, h-103, w+79, h+97), image.Rect(-50, -50, 30, 30),
+			image.Rect(119, 40, 262, h-13), image.Rect(0, h/2, w, h/2+9),
+		}
+		// Regions inside a backdrop filter, across its edges and its
+		// corners, where two overlap, inside the layers that hold them and
+		// across those, at the target's edges.
+		c.regions = append(c.regions, map[string][]image.Rectangle{
+			"gpu_backdrop": {image.Rect(5, 75, 40, 100), image.Rect(60, 100, 90, 130), image.Rect(125, 90, 150, 120), image.Rect(90, 230, 160, 280),
+				image.Rect(500, 270, 520, 340), image.Rect(396, 196, 420, 214), image.Rect(130, 180, 190, 200), image.Rect(0, 300, 30, 340)},
+			"gpu_backdrop_layers": {image.Rect(50, 40, 100, 70), image.Rect(130, 20, 160, 60), image.Rect(100, 180, 180, 230), image.Rect(330, 40, 350, 60),
+				image.Rect(150, 130, 200, 150), image.Rect(240, 130, 270, 160)},
+			"gpu_glass": {image.Rect(200, 40, 260, 70), image.Rect(430, 110, 470, 150), image.Rect(300, 330, 360, 345), image.Rect(10, 10, 30, 30),
+				image.Rect(320, 150, 360, 170)},
+			"gpu_masks": {image.Rect(260, 180, 300, 210)},
+		}[c.name]...)
+		// Small and middle-sized regions anywhere, as damage is.
+		for k := 0; k < 8; k++ {
+			x, y := rng.Intn(w), rng.Intn(h)
+			c.regions = append(c.regions, image.Rect(x, y, x+3+rng.Intn(60+k*20), y+3+rng.Intn(40+k*12)))
+		}
+	}
+	return cases
+}
+
 // TestRegion checks that a render of a region writes only the region, and
-// there the pixels of a full render.
+// there the pixels of a full render, bit for bit: also through layers,
+// filters and backdrop filters, which read beyond the region.
 func TestRegion(t *testing.T) {
-	dl := regionScene()
-	const w, h = 421, 303
+	cases := regionCases()
 	sentinel := gfx.RGB8(1, 2, 3)
 	eachDevice(t, func(t *testing.T, dev Device) {
-		for _, scale := range []float32{1, 1.5} {
-			full, _ := renderGPU(t, dev, w, h, dl, Options{Scale: scale, Clear: &gfx.White})
-			// One Renderer for every region: each finds in the atlases what
-			// the regions before it drew with, and adds its own.
-			var r Renderer
-			for _, region := range []image.Rectangle{
-				image.Rect(0, 0, 64, 64), image.Rect(37, 51, 190, 143), image.Rect(200, 1, 201, 300),
-				image.Rect(100, 100, 101, 101), image.Rect(300, 200, 500, 400), image.Rect(-50, -50, 30, 30),
-				image.Rect(119, 40, 262, 290),
-			} {
+		for _, c := range cases {
+			for _, scale := range []float32{1, 1.5} {
+				w, h := int(float32(c.w)*scale), int(float32(c.h)*scale)
+				full, res := renderGPU(t, dev, w, h, c.dl, Options{Scale: scale, Clear: &gfx.White})
+				if res.Unsupported != nil {
+					t.Fatalf("%s has commands that are not drawn: %v", c.name, res.Unsupported)
+				}
+				// One Renderer for every region: each finds in the atlases what
+				// the regions before it drew with, and adds its own.
+				var r Renderer
 				target, err := dev.NewTarget(w, h)
 				if err != nil {
 					t.Fatal(err)
 				}
-				if _, err := r.Render(target, nil, Options{Clear: &sentinel}); err != nil {
-					t.Fatal(err)
-				}
-				res, err := r.Render(target, dl, Options{Scale: scale, Region: region, Clear: &gfx.White})
-				if err != nil {
-					t.Fatal(err)
-				}
-				if res.Unsupported != nil {
-					t.Fatalf("the scene has commands that are not drawn: %v", res.Unsupported)
-				}
-				got := readAll(t, target)
-				target.Close()
-				bad := 0
-				for y := 0; y < h; y++ {
-					for x := 0; x < w; x++ {
-						want := color.RGBA{1, 2, 3, 255}
-						if image.Pt(x, y).In(region) {
-							want = full.RGBAAt(x, y)
-						}
-						if g := got.RGBAAt(x, y); g != want {
-							if bad < 5 {
-								t.Errorf("scale %g, region %v: pixel (%d, %d) is %v, want %v", scale, region, x, y, g, want)
+				for _, region := range c.regions {
+					region = image.Rect(int(float32(region.Min.X)*scale), int(float32(region.Min.Y)*scale), int(float32(region.Max.X)*scale), int(float32(region.Max.Y)*scale))
+					if _, err := r.Render(target, nil, Options{Clear: &sentinel}); err != nil {
+						t.Fatal(err)
+					}
+					res, err := r.Render(target, c.dl, Options{Scale: scale, Region: region, Clear: &gfx.White})
+					if err != nil {
+						t.Fatal(err)
+					}
+					if res.Unsupported != nil {
+						t.Fatalf("%s has commands that are not drawn: %v", c.name, res.Unsupported)
+					}
+					got := readAll(t, target)
+					bad := 0
+					for y := 0; y < h; y++ {
+						for x := 0; x < w; x++ {
+							want := color.RGBA{1, 2, 3, 255}
+							if image.Pt(x, y).In(region) {
+								want = full.RGBAAt(x, y)
 							}
-							bad++
+							if g := got.RGBAAt(x, y); g != want {
+								if bad < 3 {
+									t.Errorf("%s, scale %g, region %v: pixel (%d, %d) is %v, want %v", c.name, scale, region, x, y, g, want)
+								}
+								bad++
+							}
 						}
 					}
+					if bad > 0 {
+						t.Errorf("%s, scale %g, region %v: %d pixels differ", c.name, scale, region, bad)
+					}
 				}
-				if bad > 0 {
-					t.Errorf("scale %g, region %v: %d pixels differ", scale, region, bad)
-				}
+				target.Close()
 			}
 		}
 	})

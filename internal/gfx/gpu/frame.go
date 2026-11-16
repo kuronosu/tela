@@ -50,13 +50,66 @@ type Frame struct {
 	// Releases are the image textures the device may destroy once the frame
 	// is drawn (their IDs).
 	Releases []uint64
-	// Unsupported names what the display list holds that the renderer does
-	// not draw yet, each once, in the order met: command names such as
-	// "FillPath", sometimes with the case in parentheses. Such commands
-	// are left out of the frame, with everything inside them when they
-	// open a block; a frame with any is not the list's picture.
+	// Targets are the offscreen targets the device holds for the frame's
+	// Encoder once the frame is drawn: those the frame's passes draw into
+	// and read, and those kept for the frames that follow. The device
+	// creates the ones it does not have before it draws and destroys the
+	// ones it has that are not listed. Their pixels do not outlive a
+	// frame.
+	Targets []TargetInfo
+	// Taps holds the kernels of the filter instances, an offset and a
+	// weight per tap (see FilterTaps), and their color matrices
+	// (FilterSlotPost).
+	Taps []float32
+	// Unsupported names what the display list holds that this device
+	// cannot draw, each once, in the order met: a command name with the
+	// case in parentheses, such as an image or a layer larger than the
+	// device's textures. Such commands are left out of the frame, with
+	// everything inside them when they open a block; a frame with any is
+	// not the list's picture.
 	Unsupported []string
 }
+
+// TargetFormat is the pixel format of an offscreen target.
+type TargetFormat uint8
+
+const (
+	// FormatRGBA8 is the format of the destination: premultiplied RGBA8
+	// holding sRGB-encoded values. Layers, masks and the results of
+	// filters have it.
+	FormatRGBA8 TargetFormat = iota
+	// FormatRGBA16F holds half floats: what a blur keeps between its
+	// passes, where 8 bits would round each time.
+	FormatRGBA16F
+)
+
+// bytesPerPixel returns the size of a pixel of the format.
+func (f TargetFormat) bytesPerPixel() int {
+	if f == FormatRGBA16F {
+		return 8
+	}
+	return 4
+}
+
+// TargetInfo describes an offscreen target.
+type TargetInfo struct {
+	// ID names the target in Pass.Target and Batch.Sources; it is
+	// positive and never reused by an Encoder for another size or format
+	// until it starts over.
+	ID int
+	// Width and Height are the size in pixels, at least 1.
+	Width, Height int
+	Format        TargetFormat
+}
+
+// A Source names the texture of a target that the instances of a batch
+// read: 0 is none, SourceDest the destination, and a positive value the
+// offscreen target of that ID. A pass never reads the target it draws
+// into.
+type Source int32
+
+// SourceDest is the destination as a Source.
+const SourceDest Source = -1
 
 // ResourceSync places a frame in the history of its Encoder's resources.
 type ResourceSync struct {
@@ -113,11 +166,19 @@ type ImageUpload struct {
 	Pix []byte
 }
 
-// A Pass draws into one target.
+// A Pass draws into one target. A target may be drawn into by several
+// passes of a frame: a pass without a Clear goes on over the pixels the
+// passes before it left.
 type Pass struct {
-	// Target is the surface drawn into: 0 is the destination. (Layers will
-	// add offscreen targets.)
+	// Target is the surface drawn into: 0 is the destination, a positive
+	// value the offscreen target of that ID (Frame.Targets).
 	Target int
+	// Origin is the coordinates of the target's first pixel in the space
+	// of the pass, the one of its scissors, its Clear and the bounds of
+	// its instances: device pixels for the destination (whose origin is
+	// zero), for a layer and for what is filtered at full resolution; the
+	// blocks of a blur at a reduced resolution along the axes it reduces.
+	Origin image.Point
 	// Clear, when not nil, is done first: the pixels of Rect are replaced
 	// by Color, premultiplied RGBA8.
 	Clear *Clear
@@ -136,26 +197,43 @@ type Clear struct {
 }
 
 // A Batch is a run of consecutive instances drawn by one pipeline under
-// one scissor, with one image texture: one draw call.
+// one scissor, with the same textures: one draw call.
 type Batch struct {
 	Pipeline Pipeline
-	// Scissor is the device rectangle that may be written; it lies inside
-	// the target and is not empty.
+	// Scissor is the rectangle that may be written, in the space of the
+	// pass; it lies inside the target and is not empty.
 	Scissor image.Rectangle
 	// First and Count select the instances.
 	First, Count int
 	// Image is the ID of the image texture the instances that paint an
 	// image read (they all read the same one), or 0.
 	Image uint64
+	// Sources are the targets whose textures the instances read. For the
+	// quad pipelines: the layer or the filtered backdrop they paint (in
+	// the place of Image, which is then 0), the mask of the layer, and the
+	// copy of the backdrop a blend mode reads. For the filter pipeline:
+	// the picture filtered, and the content a drop shadow goes under.
+	Sources [3]Source
 }
 
 // Pipeline names one of the fixed pipelines (ADR-282).
 type Pipeline uint8
 
-// PipelineQuad draws rectangles, rounded rectangles and their shadows,
-// coverage from the atlas, images and sprites, with a solid or gradient
-// paint, source-over.
-const PipelineQuad Pipeline = iota
+const (
+	// PipelineQuad draws rectangles, rounded rectangles and their
+	// shadows, coverage from the atlas, images and sprites, with a solid
+	// or gradient paint, and layers and filtered backdrops, source-over.
+	PipelineQuad Pipeline = iota
+	// PipelineBlend is the quad pipeline without the device's blending:
+	// its instances are layers composited with a blend mode, whose shader
+	// reads the backdrop from a copy and writes the result.
+	PipelineBlend
+	// PipelineFilter runs one step of a filter over a rectangle
+	// (shaders/filter.frag): a pass of a blur's kernel or a copy, with the
+	// color matrices that follow. Its instances have the layout of the
+	// Filter constants, and it replaces the pixels it draws.
+	PipelineFilter
+)
 
 // The layout of an instance of PipelineQuad: InstanceSlots slots of four
 // 32-bit values, little-endian, which is the std430 layout of the struct
@@ -252,6 +330,19 @@ const (
 	// FlagMask says the coverage is multiplied by a clip mask read from
 	// the coverage atlas (SlotTex).
 	FlagMask = 1 << 12
+	// FlagLayer says the instance paints the pixels of a target, the
+	// batch's first source: a layer, or a filtered backdrop. SlotTex's
+	// first two values are what to add to a device pixel to get the
+	// texel. The second value of SlotHead holds the opacity (8 bits),
+	// then the gfx.BlendMode (8 bits), how the batch's second source
+	// masks the layer (a LayerMask constant, 8 bits) and whether the
+	// opacity scales the colors before the coverage does (1: a backdrop
+	// filter; 0: a layer, whose opacity is coverage). SlotPaint+1 holds,
+	// as whole numbers, what to add to a device pixel to get the texel of
+	// the mask, and of the backdrop's copy (the batch's third source,
+	// read by the blend modes other than gfx.SrcOver, under
+	// PipelineBlend).
+	FlagLayer = 1 << 13
 	// FlagSegmentsShift is where the number of ramp rows of a gradient is
 	// (16 bits).
 	FlagSegmentsShift = 16
@@ -271,6 +362,87 @@ const (
 	// PaintSprite copies the pixels of the color atlas (SlotTex), faded by
 	// the alpha of the first color.
 	PaintSprite
+)
+
+// How the second source of a layer's batch masks it.
+const (
+	LayerMaskNone = iota
+	// LayerMaskAlpha takes the alpha of the mask's pixels.
+	LayerMaskAlpha
+	// LayerMaskLuminance takes 0.2126 R + 0.7152 G + 0.0722 B of the
+	// premultiplied values, in the rasterizer's fixed point.
+	LayerMaskLuminance
+)
+
+// The layout of an instance of PipelineFilter, in the slots of an instance
+// (the struct Instance of shaders/filter.frag). With p the pixel drawn, in
+// the space of its pass, and coordinates of the source in the space of the
+// passes that drew it:
+const (
+	// FilterSlotHead holds four uint32: the step (Filter constants), its
+	// flags (FilterFlag constants), and the first tap and the number of
+	// taps of its kernel in Frame.Taps.
+	FilterSlotHead = 1
+	// FilterSlotSrc holds four int32: what to add to coordinates of the
+	// source to get a texel, x and y, and the stride: the step reads the
+	// source at p times the stride.
+	FilterSlotSrc = 2
+	// FilterSlotSrcRect holds four int32: the coordinates that hold the
+	// source's picture (x0, y0, x1, y1). Outside them it is transparent.
+	FilterSlotSrcRect = 3
+	// FilterSlotAxis holds four int32. FilterTaps: the step of a tap, x
+	// and y (the tap at offset t reads t times it farther). FilterUp: the
+	// size of the blocks along x and y, and the shift of the output along
+	// x and y.
+	FilterSlotAxis = 4
+	// FilterSlotAux holds four int32: what to add to p to get the texel
+	// of the content a drop shadow goes under (the second source), then
+	// nothing.
+	FilterSlotAux = 5
+	// FilterSlotAuxRect is FilterSlotSrcRect for the second source, in
+	// the space of p.
+	FilterSlotAuxRect = 6
+	// FilterSlotColor holds four uint32: the premultiplied color of a
+	// drop shadow, 0 to 255 per channel.
+	FilterSlotColor = 7
+	// FilterSlotMirror holds four int32: the first pixel and the size of
+	// the rectangle a mirrored source is mirrored at (FilterFlagMirror).
+	FilterSlotMirror = 8
+	// FilterSlotPost holds two uint32: where the color matrices applied
+	// to the step's result start in Frame.Taps (in taps: a matrix is ten,
+	// its 20 values row by row), and how many they are.
+	FilterSlotPost = 9
+)
+
+// The steps of PipelineFilter.
+const (
+	// FilterTaps is one pass of a kernel: the sum over its taps (an
+	// offset t and a weight, in Frame.Taps) of the weight times the
+	// source at the tap. With a stride it reduces the resolution too:
+	// block b reads the source at b times the stride, plus the taps.
+	FilterTaps = iota
+	// FilterUp brings a blur at a reduced resolution back: the blocks of
+	// the source interpolated linearly at the center of each pixel, with
+	// the rasterizer's weights.
+	FilterUp
+	// FilterCopy copies the source.
+	FilterCopy
+)
+
+// The flags of a filter instance.
+const (
+	// FilterFlagRound rounds the result to 8 bits, half up like the
+	// rasterizer: every step that writes a FormatRGBA8 target.
+	FilterFlagRound = 1 << iota
+	// FilterFlagDrop makes the step the last of a drop shadow: its result
+	// is the shadow's coverage, tinted and put under the content.
+	FilterFlagDrop
+	// FilterFlagMirror says the source's picture is the pixels of its
+	// texture inside a rectangle (FilterSlotMirror), mirrored beyond it:
+	// the backdrop a backdrop filter reads. FilterFlagMirrorAux says the
+	// same of a drop shadow's content.
+	FilterFlagMirror
+	FilterFlagMirrorAux
 )
 
 // How a shadow's blurred shape is evaluated.

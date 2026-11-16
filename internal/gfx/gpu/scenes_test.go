@@ -33,7 +33,7 @@ func allScenes() []testScene {
 	}
 	out = append(out, testScene{Scene: gfxtest.Scene{Name: "showcase", W: 960, H: 640}, clear: gfx.White,
 		list: func() *gfx.DisplayList { return showcase.Scene(960, 640) }})
-	return append(append(out, gpuScenes...), textureScenes...)
+	return append(append(append(out, gpuScenes...), textureScenes...), layerScenes...)
 }
 
 var (

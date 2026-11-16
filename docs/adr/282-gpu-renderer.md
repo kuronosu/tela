@@ -13,7 +13,7 @@
 
 - *Quad:* one instanced pipeline for rectangles and rounded rectangles (analytic coverage), rounded-rectangle shadows (the closed-form erf of ADR-017, inset too), images and coverage masks, with a solid or gradient paint. Gradients read ramps the CPU bakes with the rasterizer's own code, so stops and Oklab interpolation match.
 - *Coverage atlas:* glyphs, filled paths, strokes and path clips are rasterized by the CPU rasterizer into an 8-bit atlas, cached, and drawn as quads. Glyphs use the rasterizer's cache keys, so text has the same coverage on both backends.
-- *Blur* (separable, reduced resolution for large radii), *color matrix*, *blend* (W3C modes, reading a copy of the backdrop) and *composite* (opacity and masks) for layers and backdrop filters, on pooled offscreen targets.
+- *Blur* (separable, with the rasterizer's own kernels as tap data; from 6 device pixels on at a reduced resolution behind a tent prefilter, where the rasterizer starts near 21), *color matrix*, *blend* (W3C modes, reading a copy of the backdrop) and *composite* (opacity and masks) for layers and backdrop filters, on pooled offscreen targets.
 
 Clips that are device-pixel rectangles are scissors; the others are coverage that multiplies what is drawn inside them.
 

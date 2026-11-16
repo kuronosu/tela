@@ -20,6 +20,8 @@ var (
 	quadVertSPV []byte
 	//go:embed shaders/quad.frag.spv
 	quadFragSPV []byte
+	//go:embed shaders/filter.frag.spv
+	filterFragSPV []byte
 )
 
 // targetFormat holds premultiplied sRGB-encoded values as they are: no
@@ -27,8 +29,16 @@ var (
 // It is also the format of images, sprites and ramps.
 const targetFormat = vk.FormatR8G8B8A8Unorm
 
+// floatFormat is the format of FormatRGBA16F targets: what a blur keeps
+// between its passes.
+const floatFormat = vk.FormatR16G16B16A16Sfloat
+
 // coverageFormat is the format of the coverage atlas.
 const coverageFormat = vk.FormatR8Unorm
+
+// sourceSetsPerPool is the number of descriptor sets one pool serves to
+// the batches of a frame that read targets.
+const sourceSetsPerPool = 128
 
 // imageSetsPerPool is the number of image textures one descriptor pool
 // serves.
@@ -92,18 +102,24 @@ type vkDevice struct {
 	cb    vk.CommandBuffer
 	fence vk.Fence
 
-	renderPass     vk.RenderPass
+	// The render passes of the two target formats, and the pipelines:
+	// the quad's with and without the device's blending, and the filter's
+	// for each format.
+	renderPass     [2]vk.RenderPass
 	sampler        vk.Sampler
 	setLayout      vk.DescriptorSetLayout // set 0: the frame's data and the atlases
-	imageLayout    vk.DescriptorSetLayout // set 1: the image of a batch
+	imageLayout    vk.DescriptorSetLayout // set 1: the textures of a batch
 	descPool       vk.DescriptorPool
 	set            vk.DescriptorSet
 	pipelineLayout vk.PipelineLayout
 	vert, frag     vk.ShaderModule
-	quad           vk.Pipeline
+	filterFrag     vk.ShaderModule
+	quad, blend    vk.Pipeline
+	filter         [2]vk.Pipeline
 
 	instances hostBuffer // the instances of the frame (a storage buffer)
 	segments  hostBuffer // Frame.RampSegments (a storage buffer)
+	taps      hostBuffer // Frame.Taps (a storage buffer)
 	staging   hostBuffer // pixels on their way to the textures
 	readback  hostBuffer // pixels on their way back
 	ramps     texture    // Frame.Ramps
@@ -119,9 +135,47 @@ type vkDevice struct {
 	imagePools []*imagePool
 	resID      uint64
 	resSerial  uint64
+	// The offscreen targets of the frames' Encoder (Frame.Targets), by ID.
+	offscreen map[int]*surface
+	gen       uint64 // of the frame whose targets are being listed
+	// The descriptor sets of the batches of the frame being drawn that
+	// read targets: they live for the frame.
+	sourcePools []vk.DescriptorPool
+	sourceSets  map[[3]vk.ImageView]vk.DescriptorSet
+	sourceUsed  int
+	plan        []plannedBatch
+	undo        []layoutChange
 
 	targets map[*vkTarget]struct{}
 	closed  bool
+}
+
+// surface is a color image the device draws into and its shaders read: a
+// target's, or an offscreen one's.
+type surface struct {
+	tex         texture
+	framebuffer vk.Framebuffer
+	w, h        int
+	format      TargetFormat
+	// layout is the layout the commands recorded so far leave the image
+	// in.
+	layout vk.ImageLayout
+	gen    uint64
+}
+
+// layoutChange is a change of a surface's layout by the commands being
+// recorded, undone if they are not executed.
+type layoutChange struct {
+	s    *surface
+	from vk.ImageLayout
+}
+
+// plannedBatch is what a batch is drawn with.
+type plannedBatch struct {
+	pipeline vk.Pipeline
+	set      vk.DescriptorSet
+	scissor  vk.Rect2D
+	skip     bool
 }
 
 // vkAtlas is the array texture of an atlas: a 1x1 placeholder while the
@@ -168,7 +222,8 @@ var (
 // OpenVulkan creates the device of one physical device of inst. The
 // instance must outlive it; Close does not destroy the instance.
 func OpenVulkan(inst *vk.Instance, info vk.DeviceInfo) (Device, error) {
-	d := &vkDevice{inst: inst, info: info, targets: map[*vkTarget]struct{}{}, images: map[uint64]*vkImage{}}
+	d := &vkDevice{inst: inst, info: info, targets: map[*vkTarget]struct{}{}, images: map[uint64]*vkImage{},
+		offscreen: map[int]*surface{}, sourceSets: map[[3]vk.ImageView]vk.DescriptorSet{}}
 	if err := d.init(); err != nil {
 		d.Close()
 		return nil, fmt.Errorf("gpu: %s: %w", info.Name, err)
@@ -181,6 +236,9 @@ func (d *vkDevice) init() error {
 	const needed = vk.FormatFeatureColorAttachment | vk.FormatFeatureColorAttachmentBlend | vk.FormatFeatureSampledImage | vk.FormatFeatureTransferSrc | vk.FormatFeatureTransferDst
 	if got := d.inst.GetPhysicalDeviceFormatProperties(pd, targetFormat).OptimalTilingFeatures; got&needed != needed {
 		return fmt.Errorf("R8G8B8A8_UNORM lacks features (has %#x, needs %#x)", got, vk.FormatFeatureFlags(needed))
+	}
+	if got := d.inst.GetPhysicalDeviceFormatProperties(pd, floatFormat).OptimalTilingFeatures; got&(vk.FormatFeatureColorAttachment|vk.FormatFeatureSampledImage) != vk.FormatFeatureColorAttachment|vk.FormatFeatureSampledImage {
+		return fmt.Errorf("R16G16B16A16_SFLOAT lacks features (has %#x)", got)
 	}
 	if got := d.inst.GetPhysicalDeviceFormatProperties(pd, coverageFormat).OptimalTilingFeatures; got&(vk.FormatFeatureSampledImage|vk.FormatFeatureTransferDst|vk.FormatFeatureTransferSrc) != vk.FormatFeatureSampledImage|vk.FormatFeatureTransferDst|vk.FormatFeatureTransferSrc {
 		return fmt.Errorf("R8_UNORM lacks features (has %#x)", got)
@@ -227,48 +285,32 @@ func (d *vkDevice) init() error {
 		return fmt.Errorf("creating the fence: %w", err)
 	}
 
-	// The render pass of every target: it keeps the pixels (a render of a
-	// region leaves the rest) and leaves the image ready to be read back.
-	if d.renderPass, err = dev.CreateRenderPass(&vk.RenderPassCreateInfo{
-		SType:           vk.StructureTypeRenderPassCreateInfo,
-		AttachmentCount: 1,
-		PAttachments: &vk.AttachmentDescription{
-			Format:         targetFormat,
-			Samples:        vk.SampleCount1,
-			LoadOp:         vk.AttachmentLoadOpLoad,
-			StoreOp:        vk.AttachmentStoreOpStore,
-			StencilLoadOp:  vk.AttachmentLoadOpDontCare,
-			StencilStoreOp: vk.AttachmentStoreOpDontCare,
-			InitialLayout:  vk.ImageLayoutTransferSrcOptimal,
-			FinalLayout:    vk.ImageLayoutTransferSrcOptimal,
-		},
-		SubpassCount: 1,
-		PSubpasses: &vk.SubpassDescription{
-			PipelineBindPoint:    vk.PipelineBindPointGraphics,
-			ColorAttachmentCount: 1,
-			PColorAttachments:    &vk.AttachmentReference{Attachment: 0, Layout: vk.ImageLayoutColorAttachmentOptimal},
-		},
-		DependencyCount: 2,
-		PDependencies: unsafe.SliceData([]vk.SubpassDependency{
-			{
-				SrcSubpass:    vk.SubpassExternal,
-				DstSubpass:    0,
-				SrcStageMask:  vk.PipelineStageColorAttachmentOutput | vk.PipelineStageTransfer,
-				DstStageMask:  vk.PipelineStageColorAttachmentOutput,
-				SrcAccessMask: vk.AccessTransferWrite,
-				DstAccessMask: vk.AccessColorAttachmentRead | vk.AccessColorAttachmentWrite,
+	// The render passes: they keep the pixels (a render of a region
+	// leaves the rest, and a pass goes on where another stopped). The
+	// layouts are changed by barriers around them (use).
+	for i, format := range [2]vk.Format{FormatRGBA8: targetFormat, FormatRGBA16F: floatFormat} {
+		if d.renderPass[i], err = dev.CreateRenderPass(&vk.RenderPassCreateInfo{
+			SType:           vk.StructureTypeRenderPassCreateInfo,
+			AttachmentCount: 1,
+			PAttachments: &vk.AttachmentDescription{
+				Format:         format,
+				Samples:        vk.SampleCount1,
+				LoadOp:         vk.AttachmentLoadOpLoad,
+				StoreOp:        vk.AttachmentStoreOpStore,
+				StencilLoadOp:  vk.AttachmentLoadOpDontCare,
+				StencilStoreOp: vk.AttachmentStoreOpDontCare,
+				InitialLayout:  vk.ImageLayoutColorAttachmentOptimal,
+				FinalLayout:    vk.ImageLayoutColorAttachmentOptimal,
 			},
-			{
-				SrcSubpass:    0,
-				DstSubpass:    vk.SubpassExternal,
-				SrcStageMask:  vk.PipelineStageColorAttachmentOutput,
-				DstStageMask:  vk.PipelineStageTransfer,
-				SrcAccessMask: vk.AccessColorAttachmentWrite,
-				DstAccessMask: vk.AccessTransferRead,
+			SubpassCount: 1,
+			PSubpasses: &vk.SubpassDescription{
+				PipelineBindPoint:    vk.PipelineBindPointGraphics,
+				ColorAttachmentCount: 1,
+				PColorAttachments:    &vk.AttachmentReference{Attachment: 0, Layout: vk.ImageLayoutColorAttachmentOptimal},
 			},
-		}),
-	}); err != nil {
-		return fmt.Errorf("creating the render pass: %w", err)
+		}); err != nil {
+			return fmt.Errorf("creating the render pass: %w", err)
+		}
 	}
 
 	// Every texture is read texel by texel (texelFetch): the sampler's
@@ -286,26 +328,33 @@ func (d *vkDevice) init() error {
 		return fmt.Errorf("creating the sampler: %w", err)
 	}
 
-	// Descriptors (the bindings of shaders/quad.frag). Set 0: the
-	// instances, the ramp segments, the ramps and the two atlases. Set 1:
-	// the image of a batch.
+	// Descriptors (the bindings of shaders/quad.frag and filter.frag). Set
+	// 0: the instances, the ramp segments, the ramps, the two atlases and
+	// the kernels. Set 1: the textures of a batch (an image or a layer,
+	// its mask, the copy of its backdrop; the source of a filter and a
+	// drop shadow's content).
 	if d.setLayout, err = dev.CreateDescriptorSetLayout(&vk.DescriptorSetLayoutCreateInfo{
 		SType:        vk.StructureTypeDescriptorSetLayoutCreateInfo,
-		BindingCount: 5,
+		BindingCount: 6,
 		PBindings: unsafe.SliceData([]vk.DescriptorSetLayoutBinding{
 			{Binding: 0, DescriptorType: vk.DescriptorTypeStorageBuffer, DescriptorCount: 1, StageFlags: vk.ShaderStageVertex | vk.ShaderStageFragment},
 			{Binding: 1, DescriptorType: vk.DescriptorTypeStorageBuffer, DescriptorCount: 1, StageFlags: vk.ShaderStageFragment},
 			{Binding: 2, DescriptorType: vk.DescriptorTypeCombinedImageSampler, DescriptorCount: 1, StageFlags: vk.ShaderStageFragment},
 			{Binding: 3, DescriptorType: vk.DescriptorTypeCombinedImageSampler, DescriptorCount: 1, StageFlags: vk.ShaderStageFragment},
 			{Binding: 4, DescriptorType: vk.DescriptorTypeCombinedImageSampler, DescriptorCount: 1, StageFlags: vk.ShaderStageFragment},
+			{Binding: 5, DescriptorType: vk.DescriptorTypeStorageBuffer, DescriptorCount: 1, StageFlags: vk.ShaderStageFragment},
 		}),
 	}); err != nil {
 		return fmt.Errorf("creating the descriptor set layout: %w", err)
 	}
 	if d.imageLayout, err = dev.CreateDescriptorSetLayout(&vk.DescriptorSetLayoutCreateInfo{
 		SType:        vk.StructureTypeDescriptorSetLayoutCreateInfo,
-		BindingCount: 1,
-		PBindings:    &vk.DescriptorSetLayoutBinding{Binding: 0, DescriptorType: vk.DescriptorTypeCombinedImageSampler, DescriptorCount: 1, StageFlags: vk.ShaderStageFragment},
+		BindingCount: 3,
+		PBindings: unsafe.SliceData([]vk.DescriptorSetLayoutBinding{
+			{Binding: 0, DescriptorType: vk.DescriptorTypeCombinedImageSampler, DescriptorCount: 1, StageFlags: vk.ShaderStageFragment},
+			{Binding: 1, DescriptorType: vk.DescriptorTypeCombinedImageSampler, DescriptorCount: 1, StageFlags: vk.ShaderStageFragment},
+			{Binding: 2, DescriptorType: vk.DescriptorTypeCombinedImageSampler, DescriptorCount: 1, StageFlags: vk.ShaderStageFragment},
+		}),
 	}); err != nil {
 		return fmt.Errorf("creating the image descriptor set layout: %w", err)
 	}
@@ -314,7 +363,7 @@ func (d *vkDevice) init() error {
 		MaxSets:       1,
 		PoolSizeCount: 2,
 		PPoolSizes: unsafe.SliceData([]vk.DescriptorPoolSize{
-			{Type: vk.DescriptorTypeStorageBuffer, DescriptorCount: 2},
+			{Type: vk.DescriptorTypeStorageBuffer, DescriptorCount: 3},
 			{Type: vk.DescriptorTypeCombinedImageSampler, DescriptorCount: 3},
 		}),
 	}); err != nil {
@@ -336,7 +385,7 @@ func (d *vkDevice) init() error {
 		SetLayoutCount:         2,
 		PSetLayouts:            unsafe.SliceData([]vk.DescriptorSetLayout{d.setLayout, d.imageLayout}),
 		PushConstantRangeCount: 1,
-		PPushConstantRanges:    &vk.PushConstantRange{StageFlags: vk.ShaderStageVertex, Offset: 0, Size: 8},
+		PPushConstantRanges:    &vk.PushConstantRange{StageFlags: vk.ShaderStageVertex | vk.ShaderStageFragment, Offset: 0, Size: 16},
 	}); err != nil {
 		return fmt.Errorf("creating the pipeline layout: %w", err)
 	}
@@ -346,8 +395,19 @@ func (d *vkDevice) init() error {
 	if d.frag, err = d.module(quadFragSPV); err != nil {
 		return fmt.Errorf("creating the fragment shader: %w", err)
 	}
-	if d.quad, err = d.quadPipeline(); err != nil {
+	if d.filterFrag, err = d.module(filterFragSPV); err != nil {
+		return fmt.Errorf("creating the filter shader: %w", err)
+	}
+	if d.quad, err = d.pipeline(d.frag, FormatRGBA8, true); err != nil {
 		return fmt.Errorf("creating the quad pipeline: %w", err)
+	}
+	if d.blend, err = d.pipeline(d.frag, FormatRGBA8, false); err != nil {
+		return fmt.Errorf("creating the blend pipeline: %w", err)
+	}
+	for i := range d.filter {
+		if d.filter[i], err = d.pipeline(d.filterFrag, TargetFormat(i), false); err != nil {
+			return fmt.Errorf("creating the filter pipeline: %w", err)
+		}
 	}
 
 	// The buffers and the textures start small and grow with the frames;
@@ -356,6 +416,9 @@ func (d *vkDevice) init() error {
 		return err
 	}
 	if err := d.growBuffer(&d.segments, 64*4*RampSegmentSize, vk.BufferUsageStorageBuffer); err != nil {
+		return err
+	}
+	if err := d.growBuffer(&d.taps, 64*8, vk.BufferUsageStorageBuffer); err != nil {
 		return err
 	}
 	if err := d.growRamps(8); err != nil {
@@ -382,16 +445,22 @@ func (d *vkDevice) module(code []byte) (vk.ShaderModule, error) {
 	})
 }
 
-// quadPipeline creates the quad pipeline: four vertices per instance as a
-// triangle strip, no vertex buffers, premultiplied source-over.
-func (d *vkDevice) quadPipeline() (vk.Pipeline, error) {
+// pipeline creates a pipeline of instanced quads for the targets of a
+// format: four vertices per instance as a triangle strip, no vertex
+// buffers, the given fragment shader, and either premultiplied source-over
+// or no blending (the shader's output replaces the pixel).
+func (d *vkDevice) pipeline(frag vk.ShaderModule, format TargetFormat, blend bool) (vk.Pipeline, error) {
 	entry := vk.CString("main")
+	enable := vk.Bool32(vk.False)
+	if blend {
+		enable = vk.True
+	}
 	pipelines, err := d.dev.CreateGraphicsPipelines(0, []vk.GraphicsPipelineCreateInfo{{
 		SType:      vk.StructureTypeGraphicsPipelineCreateInfo,
 		StageCount: 2,
 		PStages: unsafe.SliceData([]vk.PipelineShaderStageCreateInfo{
 			{SType: vk.StructureTypePipelineShaderStageCreateInfo, Stage: vk.ShaderStageVertex, Module: d.vert, PName: entry},
-			{SType: vk.StructureTypePipelineShaderStageCreateInfo, Stage: vk.ShaderStageFragment, Module: d.frag, PName: entry},
+			{SType: vk.StructureTypePipelineShaderStageCreateInfo, Stage: vk.ShaderStageFragment, Module: frag, PName: entry},
 		}),
 		PVertexInputState: &vk.PipelineVertexInputStateCreateInfo{
 			SType: vk.StructureTypePipelineVertexInputStateCreateInfo,
@@ -420,7 +489,7 @@ func (d *vkDevice) quadPipeline() (vk.Pipeline, error) {
 			SType:           vk.StructureTypePipelineColorBlendStateCreateInfo,
 			AttachmentCount: 1,
 			PAttachments: &vk.PipelineColorBlendAttachmentState{
-				BlendEnable:         vk.True,
+				BlendEnable:         enable,
 				SrcColorBlendFactor: vk.BlendFactorOne,
 				DstColorBlendFactor: vk.BlendFactorOneMinusSrcAlpha,
 				ColorBlendOp:        vk.BlendOpAdd,
@@ -436,7 +505,7 @@ func (d *vkDevice) quadPipeline() (vk.Pipeline, error) {
 			PDynamicStates:    unsafe.SliceData([]vk.DynamicState{vk.DynamicStateViewport, vk.DynamicStateScissor}),
 		},
 		Layout:            d.pipelineLayout,
-		RenderPass:        d.renderPass,
+		RenderPass:        d.renderPass[format],
 		Subpass:           0,
 		BasePipelineIndex: -1,
 	}})
@@ -464,6 +533,10 @@ func (d *vkDevice) Close() {
 		}
 		d.targets = nil
 		d.releaseResources()
+		for _, p := range d.sourcePools {
+			dev.DestroyDescriptorPool(p)
+		}
+		d.sourcePools = nil
 		if d.noImage != nil {
 			d.destroyImage(d.noImage)
 			d.noImage = nil
@@ -476,17 +549,18 @@ func (d *vkDevice) Close() {
 			d.destroyTexture(&d.atlases[i].tex)
 		}
 		d.destroyTexture(&d.ramps)
-		for _, b := range []*hostBuffer{&d.instances, &d.segments, &d.staging, &d.readback} {
+		for _, b := range []*hostBuffer{&d.instances, &d.segments, &d.taps, &d.staging, &d.readback} {
 			d.destroyBuffer(b)
 		}
-		if d.quad != 0 {
-			dev.DestroyPipeline(d.quad)
+		for _, p := range []vk.Pipeline{d.quad, d.blend, d.filter[0], d.filter[1]} {
+			if p != 0 {
+				dev.DestroyPipeline(p)
+			}
 		}
-		if d.vert != 0 {
-			dev.DestroyShaderModule(d.vert)
-		}
-		if d.frag != 0 {
-			dev.DestroyShaderModule(d.frag)
+		for _, m := range []vk.ShaderModule{d.vert, d.frag, d.filterFrag} {
+			if m != 0 {
+				dev.DestroyShaderModule(m)
+			}
 		}
 		if d.pipelineLayout != 0 {
 			dev.DestroyPipelineLayout(d.pipelineLayout)
@@ -503,8 +577,10 @@ func (d *vkDevice) Close() {
 		if d.sampler != 0 {
 			dev.DestroySampler(d.sampler)
 		}
-		if d.renderPass != 0 {
-			dev.DestroyRenderPass(d.renderPass)
+		for _, p := range d.renderPass {
+			if p != 0 {
+				dev.DestroyRenderPass(p)
+			}
 		}
 		if d.fence != 0 {
 			dev.DestroyFence(d.fence)
@@ -745,6 +821,11 @@ func (d *vkDevice) writeSet() {
 			DescriptorType: vk.DescriptorTypeCombinedImageSampler,
 			PImageInfo:     &vk.DescriptorImageInfo{Sampler: d.sampler, ImageView: d.atlases[AtlasColor].tex.view, ImageLayout: vk.ImageLayoutShaderReadOnlyOptimal},
 		},
+		{
+			SType: vk.StructureTypeWriteDescriptorSet, DstSet: d.set, DstBinding: 5, DescriptorCount: 1,
+			DescriptorType: vk.DescriptorTypeStorageBuffer,
+			PBufferInfo:    &vk.DescriptorBufferInfo{Buffer: d.taps.buf, Range: vk.WholeSize},
+		},
 	}, nil)
 }
 
@@ -847,7 +928,7 @@ func (d *vkDevice) newImage(up ImageUpload) (*vkImage, error) {
 			Flags:         vk.DescriptorPoolCreateFreeDescriptorSet,
 			MaxSets:       imageSetsPerPool,
 			PoolSizeCount: 1,
-			PPoolSizes:    &vk.DescriptorPoolSize{Type: vk.DescriptorTypeCombinedImageSampler, DescriptorCount: imageSetsPerPool},
+			PPoolSizes:    &vk.DescriptorPoolSize{Type: vk.DescriptorTypeCombinedImageSampler, DescriptorCount: 3 * imageSetsPerPool},
 		})
 		if err != nil {
 			d.destroyTexture(&im.tex)
@@ -868,12 +949,28 @@ func (d *vkDevice) newImage(up ImageUpload) (*vkImage, error) {
 	}
 	im.set = sets[0]
 	im.pool.used++
-	dev.UpdateDescriptorSets([]vk.WriteDescriptorSet{{
-		SType: vk.StructureTypeWriteDescriptorSet, DstSet: im.set, DstBinding: 0, DescriptorCount: 1,
-		DescriptorType: vk.DescriptorTypeCombinedImageSampler,
-		PImageInfo:     &vk.DescriptorImageInfo{Sampler: d.sampler, ImageView: im.tex.view, ImageLayout: vk.ImageLayoutShaderReadOnlyOptimal},
-	}}, nil)
+	// The other textures of the set are the placeholder (which is this
+	// image, for the placeholder itself).
+	none := im.tex.view
+	if d.noImage != nil {
+		none = d.noImage.tex.view
+	}
+	d.writeTextures(im.set, [3]vk.ImageView{im.tex.view, none, none})
 	return im, nil
+}
+
+// writeTextures points the three textures of a set of a batch at views.
+func (d *vkDevice) writeTextures(set vk.DescriptorSet, views [3]vk.ImageView) {
+	infos := make([]vk.DescriptorImageInfo, 3)
+	writes := make([]vk.WriteDescriptorSet, 3)
+	for i, v := range views {
+		infos[i] = vk.DescriptorImageInfo{Sampler: d.sampler, ImageView: v, ImageLayout: vk.ImageLayoutShaderReadOnlyOptimal}
+		writes[i] = vk.WriteDescriptorSet{
+			SType: vk.StructureTypeWriteDescriptorSet, DstSet: set, DstBinding: uint32(i), DescriptorCount: 1,
+			DescriptorType: vk.DescriptorTypeCombinedImageSampler, PImageInfo: &infos[i],
+		}
+	}
+	d.dev.UpdateDescriptorSets(writes, nil)
 }
 
 // destroyImage destroys the texture of an image and frees its set. Nothing
@@ -903,11 +1000,16 @@ func (d *vkDevice) releaseResources() {
 	}
 	clear(d.imagePools[len(kept):])
 	d.imagePools = kept
+	d.resetSourceSets()
+	for id, s := range d.offscreen {
+		d.destroySurface(s)
+		delete(d.offscreen, id)
+	}
 	d.resID, d.resSerial = 0, 0
 }
 
-// Trim releases the atlases, the image textures and the buffers of
-// uploads and readbacks.
+// Trim releases the atlases, the image textures, the offscreen targets and
+// the buffers of uploads and readbacks.
 func (d *vkDevice) Trim() {
 	if d.closed || d.dev == nil {
 		return
@@ -921,9 +1023,9 @@ func (d *vkDevice) Trim() {
 	d.destroyBuffer(&d.readback)
 }
 
-// run records commands into the device's command buffer, submits them and
-// waits until they are done.
-func (d *vkDevice) run(record func(cb vk.CommandBuffer)) error {
+// submit records commands into the device's command buffer, submits them
+// and waits until they are done (see run).
+func (d *vkDevice) submit(record func(cb vk.CommandBuffer)) error {
 	dev := d.dev
 	if err := dev.BeginCommandBuffer(d.cb, &vk.CommandBufferBeginInfo{
 		SType: vk.StructureTypeCommandBufferBeginInfo,
@@ -952,15 +1054,170 @@ func (d *vkDevice) run(record func(cb vk.CommandBuffer)) error {
 }
 
 // ---------------------------------------------------------------------------
+// Surfaces
+// ---------------------------------------------------------------------------
+
+// newSurface creates a color image that is drawn into and read by the
+// shaders, with its framebuffer. Its pixels are undefined.
+func (d *vkDevice) newSurface(width, height int, format TargetFormat) (*surface, error) {
+	if width < 1 || height < 1 || width > d.maxSize || height > d.maxSize || format > FormatRGBA16F {
+		return nil, fmt.Errorf("a surface of %dx%d in the format %d: the size must be between 1 and %d", width, height, format, d.maxSize)
+	}
+	s := &surface{w: width, h: height, format: format, layout: vk.ImageLayoutUndefined}
+	vf := vk.Format(targetFormat)
+	if format == FormatRGBA16F {
+		vf = floatFormat
+	}
+	var err error
+	if s.tex, err = d.newTextureOf(vf, width, height, 0, vk.ImageUsageColorAttachment|vk.ImageUsageSampled|vk.ImageUsageTransferSrc|vk.ImageUsageTransferDst); err != nil {
+		return nil, err
+	}
+	if s.framebuffer, err = d.dev.CreateFramebuffer(&vk.FramebufferCreateInfo{
+		SType:           vk.StructureTypeFramebufferCreateInfo,
+		RenderPass:      d.renderPass[format],
+		AttachmentCount: 1,
+		PAttachments:    &s.tex.view,
+		Width:           uint32(width),
+		Height:          uint32(height),
+		Layers:          1,
+	}); err != nil {
+		d.destroySurface(s)
+		return nil, fmt.Errorf("creating the framebuffer: %w", err)
+	}
+	return s, nil
+}
+
+func (d *vkDevice) destroySurface(s *surface) {
+	if s.framebuffer != 0 {
+		d.dev.DestroyFramebuffer(s.framebuffer)
+		s.framebuffer = 0
+	}
+	d.destroyTexture(&s.tex)
+}
+
+// layoutSync returns the stage and the access of what uses an image in a
+// layout.
+func layoutSync(l vk.ImageLayout) (vk.PipelineStageFlags, vk.AccessFlags) {
+	switch l {
+	case vk.ImageLayoutColorAttachmentOptimal:
+		return vk.PipelineStageColorAttachmentOutput, vk.AccessColorAttachmentRead | vk.AccessColorAttachmentWrite
+	case vk.ImageLayoutShaderReadOnlyOptimal:
+		return vk.PipelineStageFragmentShader, vk.AccessShaderRead
+	case vk.ImageLayoutTransferSrcOptimal:
+		return vk.PipelineStageTransfer, vk.AccessTransferRead
+	case vk.ImageLayoutTransferDstOptimal:
+		return vk.PipelineStageTransfer, vk.AccessTransferWrite
+	}
+	return vk.PipelineStageTopOfPipe, 0 // undefined: nothing to wait for
+}
+
+// use records the barrier that brings a surface to a layout: to be drawn
+// into, read by a shader or copied from. It is not called inside a render
+// pass.
+func (d *vkDevice) use(cb vk.CommandBuffer, s *surface, to vk.ImageLayout) {
+	if s.layout == to {
+		return
+	}
+	srcStage, srcAccess := layoutSync(s.layout)
+	dstStage, dstAccess := layoutSync(to)
+	d.dev.CmdPipelineBarrier(cb, srcStage, dstStage, 0, nil, nil, []vk.ImageMemoryBarrier{
+		transition(s.tex.img, s.layout, to, srcAccess, dstAccess),
+	})
+	d.undo = append(d.undo, layoutChange{s, s.layout})
+	s.layout = to
+}
+
+// syncTargets makes the offscreen targets those of a frame's list: the
+// ones missing are created, the ones not listed destroyed. Nothing is in
+// flight.
+func (d *vkDevice) syncTargets(list []TargetInfo) error {
+	d.gen++
+	for _, info := range list {
+		s := d.offscreen[info.ID]
+		if s != nil && (s.w != info.Width || s.h != info.Height || s.format != info.Format) {
+			d.destroySurface(s)
+			delete(d.offscreen, info.ID)
+			s = nil
+		}
+		if s == nil {
+			if info.ID <= 0 {
+				return fmt.Errorf("gpu: an offscreen target with the ID %d", info.ID)
+			}
+			var err error
+			if s, err = d.newSurface(info.Width, info.Height, info.Format); err != nil {
+				return fmt.Errorf("gpu: %w", err)
+			}
+			d.offscreen[info.ID] = s
+		}
+		s.gen = d.gen
+	}
+	for id, s := range d.offscreen {
+		if s.gen != d.gen {
+			d.destroySurface(s)
+			delete(d.offscreen, id)
+		}
+	}
+	return nil
+}
+
+// resetSourceSets frees the descriptor sets of the batches of the last
+// frame. Nothing is in flight.
+func (d *vkDevice) resetSourceSets() {
+	if len(d.sourceSets) == 0 {
+		return
+	}
+	for _, p := range d.sourcePools {
+		// An error leaves the sets allocated: the pool is then full, and
+		// the next allocation fails with a message.
+		_ = d.dev.ResetDescriptorPool(p)
+	}
+	clear(d.sourceSets)
+	d.sourceUsed = 0
+}
+
+// sourceSet returns the descriptor set that binds three textures for a
+// batch of the frame being drawn.
+func (d *vkDevice) sourceSet(views [3]vk.ImageView) (vk.DescriptorSet, error) {
+	if set, ok := d.sourceSets[views]; ok {
+		return set, nil
+	}
+	pi := d.sourceUsed / sourceSetsPerPool
+	if pi == len(d.sourcePools) {
+		pool, err := d.dev.CreateDescriptorPool(&vk.DescriptorPoolCreateInfo{
+			SType:         vk.StructureTypeDescriptorPoolCreateInfo,
+			MaxSets:       sourceSetsPerPool,
+			PoolSizeCount: 1,
+			PPoolSizes:    &vk.DescriptorPoolSize{Type: vk.DescriptorTypeCombinedImageSampler, DescriptorCount: 3 * sourceSetsPerPool},
+		})
+		if err != nil {
+			return 0, fmt.Errorf("gpu: creating a descriptor pool: %w", err)
+		}
+		d.sourcePools = append(d.sourcePools, pool)
+	}
+	sets, err := d.dev.AllocateDescriptorSets(&vk.DescriptorSetAllocateInfo{
+		SType:              vk.StructureTypeDescriptorSetAllocateInfo,
+		DescriptorPool:     d.sourcePools[pi],
+		DescriptorSetCount: 1,
+		PSetLayouts:        &d.imageLayout,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("gpu: allocating a descriptor set: %w", err)
+	}
+	d.sourceUsed++
+	d.writeTextures(sets[0], views)
+	d.sourceSets[views] = sets[0]
+	return sets[0], nil
+}
+
+// ---------------------------------------------------------------------------
 // Targets
 // ---------------------------------------------------------------------------
 
 type vkTarget struct {
-	d           *vkDevice // nil once closed
-	owner       *vkDevice
-	size        image.Point
-	tex         texture
-	framebuffer vk.Framebuffer
+	d     *vkDevice // nil once closed
+	owner *vkDevice
+	size  image.Point
+	surf  *surface
 }
 
 func (d *vkDevice) NewTarget(width, height int) (Target, error) {
@@ -972,31 +1229,16 @@ func (d *vkDevice) NewTarget(width, height int) (Target, error) {
 	}
 	t := &vkTarget{d: d, owner: d, size: image.Pt(width, height)}
 	var err error
-	if t.tex, err = d.newTexture(width, height, vk.ImageUsageColorAttachment|vk.ImageUsageTransferSrc|vk.ImageUsageTransferDst); err != nil {
+	if t.surf, err = d.newSurface(width, height, FormatRGBA8); err != nil {
 		return nil, fmt.Errorf("gpu: %w", err)
 	}
-	if t.framebuffer, err = d.dev.CreateFramebuffer(&vk.FramebufferCreateInfo{
-		SType:           vk.StructureTypeFramebufferCreateInfo,
-		RenderPass:      d.renderPass,
-		AttachmentCount: 1,
-		PAttachments:    &t.tex.view,
-		Width:           uint32(width),
-		Height:          uint32(height),
-		Layers:          1,
-	}); err != nil {
-		t.destroy()
-		return nil, fmt.Errorf("gpu: creating the framebuffer: %w", err)
-	}
-	// Transparent, and in the layout the render pass starts from.
+	// Transparent, and in the layout it rests in between frames: ready to
+	// be read back.
 	err = d.run(func(cb vk.CommandBuffer) {
-		d.dev.CmdPipelineBarrier(cb, vk.PipelineStageTopOfPipe, vk.PipelineStageTransfer, 0, nil, nil, []vk.ImageMemoryBarrier{
-			transition(t.tex.img, vk.ImageLayoutUndefined, vk.ImageLayoutTransferDstOptimal, 0, vk.AccessTransferWrite),
-		})
+		d.use(cb, t.surf, vk.ImageLayoutTransferDstOptimal)
 		zero := vk.ClearColorFloat(0, 0, 0, 0)
-		d.dev.CmdClearColorImage(cb, t.tex.img, vk.ImageLayoutTransferDstOptimal, &zero, []vk.ImageSubresourceRange{colorRange})
-		d.dev.CmdPipelineBarrier(cb, vk.PipelineStageTransfer, vk.PipelineStageTransfer, 0, nil, nil, []vk.ImageMemoryBarrier{
-			transition(t.tex.img, vk.ImageLayoutTransferDstOptimal, vk.ImageLayoutTransferSrcOptimal, vk.AccessTransferWrite, vk.AccessTransferRead),
-		})
+		d.dev.CmdClearColorImage(cb, t.surf.tex.img, vk.ImageLayoutTransferDstOptimal, &zero, []vk.ImageSubresourceRange{colorRange})
+		d.use(cb, t.surf, vk.ImageLayoutTransferSrcOptimal)
 	})
 	if err != nil {
 		t.destroy()
@@ -1024,11 +1266,10 @@ func (t *vkTarget) destroy() {
 	if d == nil {
 		return
 	}
-	if t.framebuffer != 0 {
-		d.dev.DestroyFramebuffer(t.framebuffer)
-		t.framebuffer = 0
+	if t.surf != nil {
+		d.destroySurface(t.surf)
+		t.surf = nil
 	}
-	d.destroyTexture(&t.tex)
 	t.d = nil
 }
 
@@ -1039,11 +1280,6 @@ func (t *vkTarget) Draw(f *Frame) error {
 	}
 	if f.Size != t.size {
 		return fmt.Errorf("gpu: a frame encoded for %v drawn into a target of %v", f.Size, t.size)
-	}
-	for i := range f.Passes {
-		if f.Passes[i].Target != 0 {
-			return errors.New("gpu: the Vulkan device draws into the destination only")
-		}
 	}
 	// Whose resources the device holds, and how far it followed them.
 	if f.Res.ID != d.resID || f.Res.Base != d.resSerial {
@@ -1069,6 +1305,118 @@ type stagedImage struct {
 	off int // of its pixels in the staging buffer
 }
 
+// surfaceOf returns the surface of a target of a frame drawn into t: the
+// destination's (0), or an offscreen one's.
+func (d *vkDevice) surfaceOf(t *vkTarget, id int) *surface {
+	if id == 0 {
+		return t.surf
+	}
+	return d.offscreen[id]
+}
+
+// run records commands into the device's command buffer, submits them and
+// waits until they are done. The layouts the commands leave the surfaces
+// in are forgotten when they are not executed.
+func (d *vkDevice) run(record func(cb vk.CommandBuffer)) error {
+	d.undo = d.undo[:0]
+	err := d.submit(record)
+	if err != nil {
+		for i := len(d.undo) - 1; i >= 0; i-- {
+			d.undo[i].s.layout = d.undo[i].from
+		}
+	}
+	clear(d.undo)
+	d.undo = d.undo[:0]
+	return err
+}
+
+// plan resolves what every batch of the frame is drawn with, into d.plan
+// in the order of the passes, and checks the passes against the device's
+// targets.
+func (d *vkDevice) planFrame(t *vkTarget, f *Frame) error {
+	d.plan = d.plan[:0]
+	d.resetSourceSets()
+	none := d.noImage.tex.view
+	for pi := range f.Passes {
+		pass := &f.Passes[pi]
+		s := d.surfaceOf(t, pass.Target)
+		if s == nil {
+			return fmt.Errorf("gpu: a pass draws into the target %d, which the frame does not list", pass.Target)
+		}
+		whole := image.Rect(0, 0, s.w, s.h)
+		for _, u := range pass.Uploads {
+			if u.Atlas < 0 || u.Atlas >= NumAtlases {
+				return fmt.Errorf("gpu: an upload to the atlas %d", u.Atlas)
+			}
+			a := &d.atlases[u.Atlas]
+			if u.Page < 0 || u.Page >= a.pages || !u.Rect.In(image.Rect(0, 0, a.pageSize, a.pageSize)) || u.Rect.Empty() {
+				return fmt.Errorf("gpu: an upload to %v of page %d of atlas %d, which has %d pages of %d pixels", u.Rect, u.Page, u.Atlas, a.pages, a.pageSize)
+			}
+		}
+		for bi := range pass.Batches {
+			b := &pass.Batches[bi]
+			var pb plannedBatch
+			switch {
+			case b.Pipeline == PipelineQuad && s.format == FormatRGBA8:
+				pb.pipeline = d.quad
+			case b.Pipeline == PipelineBlend && s.format == FormatRGBA8:
+				pb.pipeline = d.blend
+			case b.Pipeline == PipelineFilter:
+				pb.pipeline = d.filter[s.format]
+			default:
+				return fmt.Errorf("gpu: a batch of the pipeline %d in a target of the format %d", b.Pipeline, s.format)
+			}
+			if b.First < 0 || b.Count < 0 || (b.First+b.Count)*InstanceSize > len(f.Instances) {
+				return fmt.Errorf("gpu: a batch of the instances %d to %d of %d", b.First, b.First+b.Count, len(f.Instances)/InstanceSize)
+			}
+			sc := b.Scissor.Sub(pass.Origin).Intersect(whole)
+			pb.scissor, pb.skip = rect2D(sc), sc.Empty() || b.Count == 0
+			views := [3]vk.ImageView{none, none, none}
+			reads := false
+			if b.Image != 0 {
+				im := d.images[b.Image]
+				if im == nil {
+					return fmt.Errorf("gpu: a batch reads the image %d, which the device does not hold", b.Image)
+				}
+				if b.Sources[0] != 0 {
+					return fmt.Errorf("gpu: a batch reads the image %d and the target %d as one texture", b.Image, b.Sources[0])
+				}
+				views[0] = im.tex.view
+				pb.set = im.set
+			}
+			for i, src := range b.Sources {
+				if src == 0 {
+					continue
+				}
+				id := int(src)
+				if src == SourceDest {
+					id = 0
+				}
+				from := d.surfaceOf(t, id)
+				if from == nil || id < 0 {
+					return fmt.Errorf("gpu: a batch reads the target %d, which the frame does not list", src)
+				}
+				if from == s {
+					return fmt.Errorf("gpu: a pass into the target %d reads it", pass.Target)
+				}
+				views[i] = from.tex.view
+				reads = true
+			}
+			switch {
+			case reads:
+				var err error
+				if pb.set, err = d.sourceSet(views); err != nil {
+					return err
+				}
+			case b.Image == 0:
+				pb.set = d.noImage.set
+			}
+			d.plan = append(d.plan, pb)
+		}
+	}
+	return nil
+}
+
 // draw executes a frame whose resources follow the device's.
 func (d *vkDevice) draw(t *vkTarget, f *Frame) error {
 	dev := d.dev
@@ -1084,6 +1432,12 @@ func (d *vkDevice) draw(t *vkTarget, f *Frame) error {
 	if n := len(f.RampSegments); n > 0 {
 		copy(d.segments.bytes, unsafe.Slice((*byte)(unsafe.Pointer(&f.RampSegments[0])), 4*n))
 	}
+	if err := d.growBuffer(&d.taps, 4*len(f.Taps), vk.BufferUsageStorageBuffer); err != nil {
+		return fmt.Errorf("gpu: %w", err)
+	}
+	if n := len(f.Taps); n > 0 {
+		copy(d.taps.bytes, unsafe.Slice((*byte)(unsafe.Pointer(&f.Taps[0])), 4*n))
+	}
 	rampRows := len(f.Ramps) / (4 * RampWidth)
 	// perf: the ramps are uploaded whole whenever they differ from the
 	// previous frame's.
@@ -1097,6 +1451,12 @@ func (d *vkDevice) draw(t *vkTarget, f *Frame) error {
 		if err := d.sizeAtlas(i, f.Atlases[i]); err != nil {
 			return fmt.Errorf("gpu: %w", err)
 		}
+	}
+	// The sets of the last frame's batches go before the targets they
+	// name do.
+	d.resetSourceSets()
+	if err := d.syncTargets(f.Targets); err != nil {
+		return err
 	}
 	// The textures of the new images.
 	var created []stagedImage
@@ -1115,21 +1475,8 @@ func (d *vkDevice) draw(t *vkTarget, f *Frame) error {
 		d.images[up.ID] = im
 		created = append(created, stagedImage{im: im, up: up})
 	}
-	for i := range f.Passes {
-		for _, b := range f.Passes[i].Batches {
-			if b.Image != 0 && d.images[b.Image] == nil {
-				return fmt.Errorf("gpu: a batch reads the image %d, which the device does not hold", b.Image)
-			}
-		}
-		for _, u := range f.Passes[i].Uploads {
-			if u.Atlas < 0 || u.Atlas >= NumAtlases {
-				return fmt.Errorf("gpu: an upload to the atlas %d", u.Atlas)
-			}
-			a := &d.atlases[u.Atlas]
-			if u.Page < 0 || u.Page >= a.pages || !u.Rect.In(image.Rect(0, 0, a.pageSize, a.pageSize)) || u.Rect.Empty() {
-				return fmt.Errorf("gpu: an upload to %v of page %d of atlas %d, which has %d pages of %d pixels", u.Rect, u.Page, u.Atlas, a.pages, a.pageSize)
-			}
-		}
+	if err := d.planFrame(t, f); err != nil {
+		return err
 	}
 
 	// Everything on its way to a texture goes through the staging buffer:
@@ -1167,7 +1514,6 @@ func (d *vkDevice) draw(t *vkTarget, f *Frame) error {
 		d.release(f.Releases)
 		return nil // nothing to record
 	}
-	whole := vk.Rect2D{Extent: vk.Extent2D{Width: uint32(t.size.X), Height: uint32(t.size.Y)}}
 	err := d.run(func(cb vk.CommandBuffer) {
 		toDst := func(img vk.Image, from vk.ImageLayout) {
 			stage, access := vk.PipelineStageFlags(vk.PipelineStageFragmentShader), vk.AccessFlags(vk.AccessShaderRead)
@@ -1201,9 +1547,12 @@ func (d *vkDevice) draw(t *vkTarget, f *Frame) error {
 			}})
 			toRead(c.im.tex.img)
 		}
-		scale := &[2]float32{2 / float32(t.size.X), 2 / float32(t.size.Y)}
+		next := 0 // in d.plan
 		for pi := range f.Passes {
 			pass := &f.Passes[pi]
+			s := d.surfaceOf(t, pass.Target)
+			plan := d.plan[next : next+len(pass.Batches)]
+			next += len(pass.Batches)
 			// The pictures new in the atlases, after the draws of the
 			// passes before, which may have read the same places.
 			for ai := range d.atlases {
@@ -1226,40 +1575,65 @@ func (d *vkDevice) draw(t *vkTarget, f *Frame) error {
 					toRead(img)
 				}
 			}
+			// The targets the pass reads, then the one it draws into.
+			for bi := range pass.Batches {
+				for _, src := range pass.Batches[bi].Sources {
+					switch {
+					case src == SourceDest:
+						d.use(cb, t.surf, vk.ImageLayoutShaderReadOnlyOptimal)
+					case src > 0:
+						d.use(cb, d.offscreen[int(src)], vk.ImageLayoutShaderReadOnlyOptimal)
+					}
+				}
+			}
+			d.use(cb, s, vk.ImageLayoutColorAttachmentOptimal)
+			whole := image.Rect(0, 0, s.w, s.h)
 			dev.CmdBeginRenderPass(cb, &vk.RenderPassBeginInfo{
 				SType:       vk.StructureTypeRenderPassBeginInfo,
-				RenderPass:  d.renderPass,
-				Framebuffer: t.framebuffer,
-				RenderArea:  whole,
+				RenderPass:  d.renderPass[s.format],
+				Framebuffer: s.framebuffer,
+				RenderArea:  rect2D(whole),
 			}, vk.SubpassContentsInline)
 			if c := pass.Clear; c != nil {
-				if r := c.Rect.Intersect(image.Rectangle{Max: t.size}); !r.Empty() {
+				if r := c.Rect.Sub(pass.Origin).Intersect(whole); !r.Empty() {
 					dev.CmdClearAttachments(cb,
 						[]vk.ClearAttachment{{AspectMask: vk.ImageAspectColor, ColorAttachment: 0, ClearValue: vk.ClearColor(
 							float32(c.Color[0])/255, float32(c.Color[1])/255, float32(c.Color[2])/255, float32(c.Color[3])/255)}},
 						[]vk.ClearRect{{Rect: rect2D(r), LayerCount: 1}})
 				}
 			}
-			if len(pass.Batches) > 0 {
-				dev.CmdBindPipeline(cb, vk.PipelineBindPointGraphics, d.quad)
-				dev.CmdSetViewport(cb, 0, []vk.Viewport{{Width: float32(t.size.X), Height: float32(t.size.Y), MinDepth: 0, MaxDepth: 1}})
-				dev.CmdBindDescriptorSets(cb, vk.PipelineBindPointGraphics, d.pipelineLayout, 0, []vk.DescriptorSet{d.set, d.noImage.set}, nil)
-				dev.CmdPushConstants(cb, d.pipelineLayout, vk.ShaderStageVertex, 0, 8, unsafe.Pointer(scale))
-				bound := uint64(0)
-				for i := range pass.Batches {
-					b := &pass.Batches[i]
-					if b.Image != 0 && b.Image != bound {
-						bound = b.Image
-						dev.CmdBindDescriptorSets(cb, vk.PipelineBindPointGraphics, d.pipelineLayout, 1, []vk.DescriptorSet{d.images[bound].set}, nil)
+			if len(plan) > 0 {
+				// Pixels of the pass to clip space, and to device pixels.
+				constants := &[4]float32{2 / float32(s.w), 2 / float32(s.h), float32(pass.Origin.X), float32(pass.Origin.Y)}
+				dev.CmdSetViewport(cb, 0, []vk.Viewport{{Width: float32(s.w), Height: float32(s.h), MinDepth: 0, MaxDepth: 1}})
+				dev.CmdBindDescriptorSets(cb, vk.PipelineBindPointGraphics, d.pipelineLayout, 0, []vk.DescriptorSet{d.set}, nil)
+				dev.CmdPushConstants(cb, d.pipelineLayout, vk.ShaderStageVertex|vk.ShaderStageFragment, 0, 16, unsafe.Pointer(constants))
+				var pipeline vk.Pipeline
+				var set vk.DescriptorSet
+				for i := range plan {
+					pb := &plan[i]
+					if pb.skip {
+						continue
+					}
+					if pb.pipeline != pipeline {
+						pipeline = pb.pipeline
+						dev.CmdBindPipeline(cb, vk.PipelineBindPointGraphics, pipeline)
+					}
+					if pb.set != set {
+						set = pb.set
+						dev.CmdBindDescriptorSets(cb, vk.PipelineBindPointGraphics, d.pipelineLayout, 1, []vk.DescriptorSet{set}, nil)
 					}
 					// perf: one scissor command per batch, each a small heap
 					// allocation (see internal/vk's doc).
-					dev.CmdSetScissor(cb, 0, []vk.Rect2D{rect2D(b.Scissor)})
+					dev.CmdSetScissor(cb, 0, []vk.Rect2D{pb.scissor})
+					b := &pass.Batches[i]
 					dev.CmdDraw(cb, 4, uint32(b.Count), 0, uint32(b.First))
 				}
 			}
 			dev.CmdEndRenderPass(cb)
 		}
+		// The destination rests ready to be read back.
+		d.use(cb, t.surf, vk.ImageLayoutTransferSrcOptimal)
 	})
 	if err != nil {
 		return err
@@ -1304,7 +1678,8 @@ func (t *vkTarget) ReadPixels(dst *image.RGBA, r image.Rectangle) error {
 	}
 	dev := d.dev
 	err := d.run(func(cb vk.CommandBuffer) {
-		dev.CmdCopyImageToBuffer(cb, t.tex.img, vk.ImageLayoutTransferSrcOptimal, d.readback.buf, []vk.BufferImageCopy{{
+		d.use(cb, t.surf, vk.ImageLayoutTransferSrcOptimal)
+		dev.CmdCopyImageToBuffer(cb, t.surf.tex.img, vk.ImageLayoutTransferSrcOptimal, d.readback.buf, []vk.BufferImageCopy{{
 			ImageSubresource: colorLayers,
 			ImageOffset:      vk.Offset3D{X: int32(r.Min.X), Y: int32(r.Min.Y)},
 			ImageExtent:      vk.Extent3D{Width: uint32(r.Dx()), Height: uint32(r.Dy()), Depth: 1},

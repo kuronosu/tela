@@ -2,6 +2,7 @@ package raster
 
 import (
 	"image"
+	"math"
 
 	"github.com/kuronosu/tela/internal/gfx"
 )
@@ -10,8 +11,9 @@ import (
 // rasterizer: the pieces whose values must be the same on both backends
 // and that are not worth computing twice. The geometry of rectangle fills,
 // gradients and shadows is evaluated per pixel by the GPU's own shaders;
-// the colors of a gradient, the shape of a shadow and the coverage of
-// paths, strokes, clips and glyphs (Masker) come from here.
+// the colors of a gradient, the shape of a shadow, the coverage of paths,
+// strokes, clips and glyphs (Masker) and the kernels of blurs (BlurKernel)
+// come from here.
 
 // RampSize is the number of colors in the lookup table of one segment of a
 // gradient (see Ramp).
@@ -284,3 +286,120 @@ func (k *Masker) Glyph(g gfx.Glyph, visible image.Rectangle, out *Glyph) {
 		out.Kind, out.Transform, out.Outline = GlyphOutline, gm, p
 	}
 }
+
+// BlurKernel is the kernel a Blur or a DropShadow applies along one device
+// axis, as the rasterizer computes it (blur.go): what the GPU renderer
+// reproduces, or approximates within its tolerance.
+type BlurKernel struct {
+	// Sigma and Offset are the device standard deviation and the shift of
+	// the output, clamped as the rasterizer clamps them.
+	Sigma, Offset float64
+	// Down is the size of the blocks of a kernel applied at a reduced
+	// resolution (1: none), and Shift the whole pixels its output is
+	// shifted by.
+	Down, Shift int
+	// Lo and W are the weights: out[i] is the sum of W[t]*in[i+Lo+t], on
+	// pixels, or on the means of blocks when Down > 1. The weights add up
+	// to 1; three box passes are their convolution. A kernel that changes
+	// nothing has Lo 0 and a single weight.
+	Lo int
+	W  []float64
+	// Left and Right are how far the kernel reads before and after a
+	// pixel, in pixels.
+	Left, Right int
+	// Variance is the variance, in pixels², of the three box passes the
+	// kernel is made of, or of those a kernel at a reduced resolution
+	// stands for. It is 0 for the exact kernels of small deviations.
+	Variance float64
+	// Limit is the reach the kernel may not exceed: 3*Sigma + |Offset|
+	// (gfx.FilterOutset), which is what keeps regions exact.
+	Limit float64
+}
+
+// Identity reports whether the kernel changes nothing.
+func (k *BlurKernel) Identity() bool { return k.Down <= 1 && k.Lo == 0 && len(k.W) == 1 }
+
+// NewBlurKernel returns the kernel of a Gaussian of device standard
+// deviation sigma whose output is shifted by offset device pixels.
+func NewBlurKernel(sigma, offset float64) BlurKernel {
+	if !(sigma >= 0) {
+		sigma = 0
+	}
+	sigma = min(sigma, maxSigma)
+	offset = min(max(offset, -maxOffset), maxOffset)
+	k, _ := newKernel(sigma, offset, nil)
+	out := BlurKernel{Sigma: sigma, Offset: offset, Down: k.factor(), Shift: k.sh, Left: k.left, Right: k.right,
+		Limit: float64(3*sigma) + math.Abs(offset)}
+	switch {
+	case k.down > 1:
+		out.Variance = boxVariance(boxSize(sigma))
+		out.W = fracBoxWeights(k.fm, k.fa, k.fb)
+		out.Lo = -(len(out.W) / 2)
+	case k.box:
+		out.Variance = boxVariance(boxSize(sigma))
+		w := []float64{1}
+		for p := range 3 {
+			box := make([]float64, k.l[p]+k.r[p]+1)
+			for i := range box {
+				box[i] = 1 / float64(len(box))
+			}
+			w = convolve(w, box)
+		}
+		out.W, out.Lo = w, -(k.l[0] + k.l[1] + k.l[2])
+	default:
+		out.Lo = k.lo
+		out.W = make([]float64, len(k.w))
+		for i, v := range k.w {
+			out.W[i] = float64(v) / weightOne
+		}
+	}
+	return out
+}
+
+// FracBoxKernel returns the weights of three passes of the fractional box
+// (fracBox) whose variances add up to v, in samples²: the kernel a blur at
+// a reduced resolution applies to its blocks. The weights are centered on
+// the middle one and add up to 1.
+func FracBoxKernel(v float64) []float64 {
+	m, a, b := fracBox(v / 3)
+	return fracBoxWeights(m, a, b)
+}
+
+// fracBoxWeights returns the convolution of three fractional boxes of
+// 2m+1 samples of weight a and an end of weight b on each side, in units
+// of 2^-boxFracBits, normalized.
+func fracBoxWeights(m int, a, b uint64) []float64 {
+	box := make([]float64, 2*m+3)
+	var sum float64
+	for i := range box {
+		box[i] = float64(a)
+		if i == 0 || i == len(box)-1 {
+			box[i] = float64(b)
+		}
+		sum += box[i]
+	}
+	for i := range box {
+		box[i] /= sum
+	}
+	return convolve(convolve(box, box), box)
+}
+
+// convolve returns the convolution of two kernels.
+func convolve(a, b []float64) []float64 {
+	out := make([]float64, len(a)+len(b)-1)
+	for i, x := range a {
+		for j, y := range b {
+			out[i+j] += float64(x * y)
+		}
+	}
+	return out
+}
+
+// DeviceSigmas returns the standard deviations along device x and y of a
+// local Gaussian of standard deviation s under m, as the filters of a
+// layer take them (filter.go).
+func DeviceSigmas(m gfx.Affine, s float64) (sx, sy float64) { return deviceSigmas(&m, s) }
+
+// Unit8 converts a value in [0, 1] to 8 bits as the rasterizer does for
+// opacities: rounded to nearest, clamped.
+func Unit8(v float64) uint8 { return unit8(v) }

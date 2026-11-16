@@ -4,7 +4,8 @@
 // rectangles with analytic coverage, rounded-rectangle shadows in closed
 // form, coverage read from the atlas (glyphs, paths, strokes), solid and
 // gradient paints, images and sprites, one anti-aliased clip shape and one
-// clip mask.
+// clip mask; and the pixels of a layer or of a filtered backdrop, with an
+// opacity, a mask and a blend mode.
 //
 // It follows the CPU rasterizer (internal/gfx/raster), whose output is the
 // reference: the same coverage (the exact area of the pixel inside the
@@ -36,9 +37,9 @@ struct Shape {
 // The layout is defined in frame.go; std430 gives every member 16 bytes.
 struct Instance {
     vec4 bounds;  // the quad
-    uvec4 head;   // flags, first ramp row, first color, last color
+    uvec4 head;   // flags, first ramp row (a layer: its opacity, blend mode and mask), first color, last color
     vec4 paint0;  // p = paint0.x*X + paint0.y*Y + paint0.z; w: conic start (turns)
-    vec4 paint1;  // q likewise; w: unused
+    vec4 paint1;  // q likewise; w: unused. A layer: pixel + xy is the mask's texel, pixel + zw the backdrop's
     vec4 paint2;  // focal: d.x, d.y, dr, r0; image: the clamp range of u, then of v
     vec4 paint3;  // focal: a; lo, hi: the first and last stop offsets
     Shape shape;  // the fill, or the box of a shadow
@@ -46,7 +47,7 @@ struct Instance {
     Shape blur;   // the shape a shadow blurs, in the frame of its Gaussian
     vec4 sigma;   // shadow: sx, sy, and the size wx, wy of a pixel in that frame
     vec4 origin;  // xy: the origin of the coordinates; z: the atlas page; w: the clip mask's page
-    ivec4 tex;    // pixel + tex.xy: the texel in the atlas; pixel + tex.zw: the clip mask's
+    ivec4 tex;    // pixel + tex.xy: the texel in the atlas, or of a layer; pixel + tex.zw: the clip mask's
 };
 
 layout(std430, set = 0, binding = 0) readonly buffer Instances {
@@ -67,8 +68,17 @@ layout(set = 0, binding = 2) uniform sampler2D ramps;
 layout(set = 0, binding = 3) uniform sampler2DArray coverage;
 layout(set = 0, binding = 4) uniform sampler2DArray sprites;
 
-// The image of the batch, read texel by texel.
+// The image of the batch, or the layer its instances paint, read texel by
+// texel; the mask of the layer; and the copy of the pixels under it that a
+// blend mode reads.
 layout(set = 1, binding = 0) uniform sampler2D image;
+layout(set = 1, binding = 1) uniform sampler2D layerMask;
+layout(set = 1, binding = 2) uniform sampler2D backdrop;
+
+layout(push_constant) uniform Target {
+    vec2 scale;
+    vec2 origin; // the device coordinates of the target's first pixel
+} target;
 
 layout(location = 0) flat in int inIndex;
 layout(location = 0) out vec4 outColor;
@@ -84,6 +94,7 @@ const uint PAINT_SHIFT = 5u;       // 0 solid, 1 linear, 2 radial, 3 conic, 4 fo
 const uint SPREAD_SHIFT = 8u;      // 0 pad, 1 reflect, 2 repeat
 const uint BLUR_SHIFT = 10u;       // 0 analytic, 1 hard device, 2 hard local, 3 empty
 const uint CLIP_MASK = 4096u;      // a clip mask in the coverage atlas
+const uint LAYER = 8192u;          // the paint is the pixels of a layer
 const uint SEGMENTS_SHIFT = 16u;
 
 const uint PAINT_IMAGE = 5u;
@@ -617,12 +628,174 @@ vec4 paintColor(Instance it, vec2 rel, ivec2 px) {
 }
 
 // ---------------------------------------------------------------------------
+// Layers (raster/blend.go)
+// ---------------------------------------------------------------------------
+
+// The blend modes (gfx.BlendMode).
+const uint BLEND_MULTIPLY = 1u;
+const uint BLEND_SCREEN = 2u;
+const uint BLEND_OVERLAY = 3u;
+const uint BLEND_DARKEN = 4u;
+const uint BLEND_LIGHTEN = 5u;
+const uint BLEND_COLOR_DODGE = 6u;
+const uint BLEND_COLOR_BURN = 7u;
+const uint BLEND_HARD_LIGHT = 8u;
+const uint BLEND_SOFT_LIGHT = 9u;
+const uint BLEND_DIFFERENCE = 10u;
+const uint BLEND_EXCLUSION = 11u;
+const uint BLEND_HUE = 12u;
+const uint BLEND_SATURATION = 13u;
+const uint BLEND_COLOR = 14u;
+const uint BLEND_LUMINOSITY = 15u;
+const uint BLEND_PLUS_LIGHTER = 16u;
+
+// imul8 is round(a*b/255) for 8-bit values, in integers (raster.mul8).
+int imul8(int a, int b) {
+    int t = a * b + 128;
+    return (t + (t >> 8)) >> 8;
+}
+
+// rdiv255 is round(v / 255) for v >= 0 (255 is odd: no ties).
+int rdiv255(int v) {
+    return (v + 127) / 255;
+}
+
+// chan8 rounds a color numerator over 255² to 8 bits, at most alpha a.
+int chan8(int v, int a) {
+    return min(rdiv255(max(v, 0)), a);
+}
+
+// hardLight returns as*ab*HardLight(Cb, Cs) over 255² for premultiplied
+// s, d.
+int hardLight(int s, int sa, int d, int da) {
+    return 2 * s <= sa ? 2 * s * d : sa * da - 2 * (da - d) * (sa - s);
+}
+
+// The non-separable helpers of W3C Compositing and Blending Level 1.
+float lum(vec3 c) {
+    return 0.3 * c.r + 0.59 * c.g + 0.11 * c.b;
+}
+
+vec3 setLum(vec3 c, float l) {
+    c += l - lum(c);
+    l = lum(c);
+    float n = min(c.r, min(c.g, c.b));
+    float x = max(c.r, max(c.g, c.b));
+    if (n < 0.0 && l - n != 0.0) {
+        c = l + (c - l) * l / (l - n);
+    }
+    if (x > 1.0 && x - l != 0.0) {
+        c = l + (c - l) * (1.0 - l) / (x - l);
+    }
+    return c;
+}
+
+float sat(vec3 c) {
+    return max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
+}
+
+vec3 setSat(vec3 c, float s) {
+    float mn = min(c.r, min(c.g, c.b));
+    float mx = max(c.r, max(c.g, c.b));
+    return mx > mn ? (c - mn) * s / (mx - mn) : vec3(0.0);
+}
+
+// blendPixel composites the premultiplied 8-bit source s onto the backdrop
+// d with a blend mode other than source-over (raster's blendRow and
+// blendFloat): exact integers, rounded once, for the modes whose formula
+// is a polynomial; floats for the others.
+ivec4 blendPixel(uint mode, ivec4 s, ivec4 d) {
+    if (mode == BLEND_PLUS_LIGHTER) {
+        return min(s + d, ivec4(255));
+    }
+    if (s.a == 0) {
+        return d;
+    }
+    if (d.a == 0) {
+        return s;
+    }
+    int sa = s.a, da = d.a;
+    int a = rdiv255(255 * (sa + da) - sa * da);
+    ivec4 o = ivec4(0, 0, 0, a);
+    bool exact = mode <= BLEND_LIGHTEN || mode == BLEND_HARD_LIGHT || mode == BLEND_DIFFERENCE || mode == BLEND_EXCLUSION;
+    if (exact) {
+        for (int c = 0; c < 3; c++) {
+            int sc = s[c], dc = d[c];
+            int v;
+            if (mode == BLEND_MULTIPLY) {
+                v = sc * (255 - da) + dc * (255 - sa) + sc * dc;
+            } else if (mode == BLEND_SCREEN) {
+                v = 255 * (sc + dc) - sc * dc;
+            } else if (mode == BLEND_OVERLAY) {
+                v = sc * (255 - da) + dc * (255 - sa) + hardLight(dc, da, sc, sa);
+            } else if (mode == BLEND_HARD_LIGHT) {
+                v = sc * (255 - da) + dc * (255 - sa) + hardLight(sc, sa, dc, da);
+            } else if (mode == BLEND_DARKEN) {
+                v = 255 * (sc + dc) - max(sc * da, dc * sa);
+            } else if (mode == BLEND_LIGHTEN) {
+                v = 255 * (sc + dc) - min(sc * da, dc * sa);
+            } else if (mode == BLEND_DIFFERENCE) {
+                v = 255 * (sc + dc) - 2 * min(sc * da, dc * sa);
+            } else {
+                v = 255 * (sc + dc) - 2 * sc * dc;
+            }
+            o[c] = chan8(v, a);
+        }
+        return o;
+    }
+    float fsa = float(sa) / 255.0, fda = float(da) / 255.0;
+    vec3 ps = vec3(s.rgb) / 255.0, pd = vec3(d.rgb) / 255.0;
+    // Unpremultiplied; 1 exactly when a channel equals its alpha.
+    vec3 cs = vec3(1.0), cb = vec3(1.0);
+    for (int c = 0; c < 3; c++) {
+        if (s[c] < sa) {
+            cs[c] = float(s[c]) / float(sa);
+        }
+        if (d[c] < da) {
+            cb[c] = float(d[c]) / float(da);
+        }
+    }
+    vec3 bl = vec3(0.0);
+    if (mode == BLEND_COLOR_DODGE) {
+        for (int c = 0; c < 3; c++) {
+            bl[c] = cb[c] == 0.0 ? 0.0 : (cs[c] >= 1.0 ? 1.0 : min(1.0, cb[c] / (1.0 - cs[c])));
+        }
+    } else if (mode == BLEND_COLOR_BURN) {
+        for (int c = 0; c < 3; c++) {
+            bl[c] = cb[c] >= 1.0 ? 1.0 : (cs[c] <= 0.0 ? 0.0 : 1.0 - min(1.0, (1.0 - cb[c]) / cs[c]));
+        }
+    } else if (mode == BLEND_SOFT_LIGHT) {
+        for (int c = 0; c < 3; c++) {
+            float b = cb[c], f = cs[c];
+            if (f <= 0.5) {
+                bl[c] = b - (1.0 - 2.0 * f) * b * (1.0 - b);
+            } else {
+                float dd = b <= 0.25 ? ((16.0 * b - 12.0) * b + 4.0) * b : sqrt(b);
+                bl[c] = b + (2.0 * f - 1.0) * (dd - b);
+            }
+        }
+    } else if (mode == BLEND_HUE) {
+        bl = setLum(setSat(cs, sat(cb)), lum(cb));
+    } else if (mode == BLEND_SATURATION) {
+        bl = setLum(setSat(cb, sat(cs)), lum(cb));
+    } else if (mode == BLEND_COLOR) {
+        bl = setLum(cs, lum(cb));
+    } else {
+        bl = setLum(cb, lum(cs));
+    }
+    vec3 v = ps * (1.0 - fda) + pd * (1.0 - fsa) + fsa * fda * bl;
+    o.rgb = min(ivec3(floor(clamp(v, 0.0, 1.0) * 255.0 + 0.5)), ivec3(a));
+    return o;
+}
+
+// ---------------------------------------------------------------------------
 
 void main() {
     Instance it = instances.items[inIndex];
     uint flags = it.head.x;
-    vec2 rel = gl_FragCoord.xy - it.origin.xy; // the pixel's center
-    ivec2 px = ivec2(gl_FragCoord.xy);
+    vec2 center = gl_FragCoord.xy + target.origin; // in device pixels: whole numbers and a half
+    vec2 rel = center - it.origin.xy;
+    ivec2 px = ivec2(floor(center));
 
     uint kind = flags & KIND_MASK;
     float cov;
@@ -666,5 +839,51 @@ void main() {
     if (cov == 0.0) {
         discard;
     }
-    outColor = paintColor(it, rel, px) * (cov / 255.0);
+    if ((flags & LAYER) == 0u) {
+        outColor = paintColor(it, rel, px) * (cov / 255.0);
+        return;
+    }
+
+    // The pixels of a layer (raster's composite and compositeLayer) or of
+    // a filtered backdrop (drawBackdrop), on 8-bit values.
+    uint lp = it.head.y;
+    int op = int(lp & 255u);
+    uint mode = (lp >> 8) & 255u;
+    uint maskKind = (lp >> 16) & 255u;
+    ivec4 s = ivec4(texelFetch(image, px + it.tex.xy, 0) * 255.0 + 0.5);
+    int k = op; // the opacity, times the mask's coverage
+    if (maskKind != 0u) {
+        uvec4 m = uvec4(texelFetch(layerMask, px + ivec2(it.paint1.xy), 0) * 255.0 + 0.5);
+        // The alpha, or the luminance of the premultiplied color in the
+        // rasterizer's 16-bit fixed point.
+        uint mc = maskKind == 2u ? (13933u * m.r + 46871u * m.g + 4732u * m.b + 32768u) >> 16 : m.a;
+        k = imul8(k, int(mc));
+    }
+    int c = int(cov); // of the shape and the clips
+    if (mode == 0u) {
+        // Source-over: the device blends.
+        if ((lp >> 24) != 0u) {
+            // A backdrop filter's opacity scales its colors.
+            s = ivec4(imul8(s.r, k), imul8(s.g, k), imul8(s.b, k), imul8(s.a, k));
+        } else {
+            c = imul8(k, c);
+        }
+        if (c == 0 || s.a == 0) {
+            discard;
+        }
+        outColor = vec4(s) * (float(c) / 65025.0);
+        return;
+    }
+    // A blend mode: the source scaled by the opacity and the mask, blended
+    // with the copy of the backdrop, and the clip's coverage interpolates
+    // between the backdrop and the result. Nothing blends this output.
+    if (k != 255) {
+        s = ivec4(imul8(s.r, k), imul8(s.g, k), imul8(s.b, k), imul8(s.a, k));
+    }
+    if (s.a == 0 && s.rgb == ivec3(0)) {
+        discard; // every mode leaves the backdrop
+    }
+    ivec4 d = ivec4(texelFetch(backdrop, px + ivec2(it.paint1.zw), 0) * 255.0 + 0.5);
+    ivec4 r = blendPixel(mode, s, d);
+    outColor = vec4((r * c + d * (255 - c) + 127) / 255) / 255.0;
 }

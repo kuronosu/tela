@@ -45,8 +45,9 @@ type Device interface {
 	// destination image of the CPU rasterizer does.
 	NewTarget(width, height int) (Target, error)
 	// Trim releases the textures the device keeps for its frames (the
-	// atlases and the images) and the buffers it grew for uploads. The
-	// frames that follow must come from an Encoder that started over.
+	// atlases, the images and the offscreen targets) and the buffers it
+	// grew for uploads. The frames that follow must come from an Encoder
+	// that started over.
 	Trim()
 	// Close destroys the device and the targets it still has.
 	Close()
@@ -73,7 +74,8 @@ type Target interface {
 
 // A Renderer renders display lists into targets: an Encoder, the buffers
 // it reuses from frame to frame and the textures its frames keep on the
-// device. A device mirrors the textures of one Renderer at a time, so the
+// device (the atlases, the images, the offscreen targets of layers and
+// filters). A device mirrors the textures of one Renderer at a time, so the
 // targets of a device share one Renderer; another Renderer on the same
 // device works, and uploads again whenever the two alternate. The zero
 // value is ready to use. It is not safe for concurrent use.
@@ -84,15 +86,16 @@ type Renderer struct {
 
 // Result describes one Render.
 type Result struct {
-	// Unsupported names what the list holds that was not drawn (see
-	// Frame.Unsupported). When it is not empty the target does not show
-	// the list's picture: the caller draws with the CPU rasterizer
-	// instead.
+	// Unsupported names what the list holds that this device cannot draw
+	// (see Frame.Unsupported): something larger than its textures. When it
+	// is not empty the target does not show the list's picture: the caller
+	// draws with the CPU rasterizer instead.
 	Unsupported []string
 	// Instances and Draws count what the frame drew, and Passes the passes
-	// it took: one, unless the frame needed more pictures than an atlas
-	// holds.
-	Instances, Draws, Passes int
+	// it took: one, and more for each layer, filter and backdrop filter,
+	// or when the frame needed more pictures than an atlas holds. Targets
+	// is the number of offscreen targets the device holds after the frame.
+	Instances, Draws, Passes, Targets int
 	// Uploads counts the pictures the frame added to the atlases and the
 	// image textures it created, and UploadBytes their bytes: both are 0
 	// for a frame that draws what earlier frames drew.
@@ -120,7 +123,7 @@ func (r *Renderer) Render(t Target, dl *gfx.DisplayList, opts Options) (Result, 
 		f = r.enc.Encode(dl, t.Size(), opts)
 		err = t.Draw(f)
 	}
-	res := Result{Instances: len(f.Instances) / InstanceSize, Passes: len(f.Passes), Uploads: len(f.Images), UploadBytes: len(f.Data)}
+	res := Result{Instances: len(f.Instances) / InstanceSize, Passes: len(f.Passes), Targets: len(f.Targets), Uploads: len(f.Images), UploadBytes: len(f.Data)}
 	for i := range f.Passes {
 		res.Draws += len(f.Passes[i].Batches)
 		res.Uploads += len(f.Passes[i].Uploads)

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/gfx/gfxtest"
 	"github.com/kuronosu/tela/internal/gfx/raster"
 	"github.com/kuronosu/tela/internal/vk"
 )
@@ -235,4 +236,153 @@ func benchScene(name string) bool {
 		}
 	}
 	return false
+}
+
+// glassRegion is a small damaged rectangle inside a glass card of
+// glassDashboard at scale 2: a line of text that changed.
+var glassRegion = image.Rect(700, 480, 1100, 540)
+
+// BenchmarkGlass measures the glass dashboard at 3840x2160 (scale 2) on
+// every device: a full frame, and a small region inside a card, encoding,
+// drawing and waiting for the GPU, without reading back.
+// BenchmarkGlassRaster is the rasterizer on the same frames, on every core
+// and on one, without the cache of filtered backdrops core gives it.
+func BenchmarkGlass(b *testing.B) {
+	if err := vk.Load(); err != nil {
+		b.Skipf("Vulkan is not available: %v", err)
+	}
+	inst, err := vk.NewInstance(vk.InstanceConfig{AppName: "tela gpu benchmarks"})
+	if err != nil {
+		b.Skipf("no Vulkan instance: %v", err)
+	}
+	defer inst.Destroy()
+	devices, err := inst.Devices()
+	if err != nil {
+		b.Fatal(err)
+	}
+	dl := gfxtest.Build(glassDashboard)
+	for _, info := range devices {
+		dev, err := OpenVulkan(inst, info)
+		if err != nil {
+			b.Fatal(err)
+		}
+		target, err := dev.NewTarget(3840, 2160)
+		if err != nil {
+			b.Fatal(err)
+		}
+		for _, c := range []struct {
+			name   string
+			region image.Rectangle
+		}{{"full", image.Rectangle{}}, {"region", glassRegion}} {
+			b.Run(deviceLabel(info.Name)+"/"+c.name, func(b *testing.B) {
+				var r Renderer
+				for i := 0; i < b.N; i++ {
+					res, err := r.Render(target, dl, Options{Scale: 2, Region: c.region, Clear: &gfx.Black})
+					if err != nil || res.Unsupported != nil {
+						b.Fatal(err, res.Unsupported)
+					}
+					r.EndFrame()
+				}
+			})
+		}
+		target.Close()
+		dev.Close()
+	}
+}
+
+func BenchmarkGlassRaster(b *testing.B) {
+	dl := gfxtest.Build(glassDashboard)
+	img := image.NewRGBA(image.Rect(0, 0, 3840, 2160))
+	for _, c := range []struct {
+		name    string
+		region  image.Rectangle
+		workers int
+	}{{"full", image.Rectangle{}, 0}, {"full_one_core", image.Rectangle{}, 1}, {"region", glassRegion, 0}, {"region_one_core", glassRegion, 1}} {
+		b.Run(c.name, func(b *testing.B) {
+			var r raster.Renderer
+			for i := 0; i < b.N; i++ {
+				r.Render(img, dl, raster.Options{Scale: 2, Region: c.region, Clear: &gfx.Black, Workers: c.workers})
+				r.EndFrame()
+			}
+		})
+	}
+}
+
+// blurScenes are the frames of BenchmarkBlur: a wallpaper over 1920x1080
+// and, over all of it, a backdrop filter, by its standard deviation in
+// device pixels at scale 2 (0: the wallpaper alone; the last one with a
+// color matrix after the blur).
+var blurScenes = func() (out []struct {
+	name string
+	dl   *gfx.DisplayList
+}) {
+	full := gfx.NewRRect(gfx.RectXYWH(0, 0, 1920, 1080), 0)
+	add := func(name string, fs ...gfx.Filter) {
+		out = append(out, struct {
+			name string
+			dl   *gfx.DisplayList
+		}{name, gfxtest.Build(func(b *gfx.Builder) {
+			b.DrawImage(wallpaper, gfx.Rect{}, full.Rect, gfx.SampleLinear)
+			if len(fs) > 0 {
+				b.BackdropFilter(full, fs...)
+			}
+		})})
+	}
+	add("none")
+	for _, s := range []float32{2, 5, 8, 16, 32, 48, 96} {
+		add(fmt.Sprintf("sigma_%g", s), gfx.Blur{StdDev: s / 2})
+	}
+	add("sigma_32_saturate", gfx.Blur{StdDev: 16}, gfx.Saturate(1.6))
+	return out
+}()
+
+// BenchmarkBlur measures a backdrop blur of a whole 3840x2160 frame on
+// every device, by its size; BenchmarkBlurRaster is the rasterizer.
+func BenchmarkBlur(b *testing.B) {
+	if err := vk.Load(); err != nil {
+		b.Skipf("Vulkan is not available: %v", err)
+	}
+	inst, err := vk.NewInstance(vk.InstanceConfig{AppName: "tela gpu benchmarks"})
+	if err != nil {
+		b.Skipf("no Vulkan instance: %v", err)
+	}
+	defer inst.Destroy()
+	devices, err := inst.Devices()
+	if err != nil {
+		b.Fatal(err)
+	}
+	for _, info := range devices {
+		dev, err := OpenVulkan(inst, info)
+		if err != nil {
+			b.Fatal(err)
+		}
+		target, err := dev.NewTarget(3840, 2160)
+		if err != nil {
+			b.Fatal(err)
+		}
+		for _, s := range blurScenes {
+			b.Run(deviceLabel(info.Name)+"/"+s.name, func(b *testing.B) {
+				var r Renderer
+				for i := 0; i < b.N; i++ {
+					if _, err := r.Render(target, s.dl, Options{Scale: 2, Clear: &gfx.Black}); err != nil {
+						b.Fatal(err)
+					}
+				}
+			})
+		}
+		target.Close()
+		dev.Close()
+	}
+}
+
+func BenchmarkBlurRaster(b *testing.B) {
+	img := image.NewRGBA(image.Rect(0, 0, 3840, 2160))
+	for _, s := range blurScenes {
+		b.Run(s.name, func(b *testing.B) {
+			var r raster.Renderer
+			for i := 0; i < b.N; i++ {
+				r.Render(img, s.dl, raster.Options{Scale: 2, Clear: &gfx.Black})
+			}
+		})
+	}
 }

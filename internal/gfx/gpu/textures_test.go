@@ -316,3 +316,146 @@ func TestTextureLifetime(t *testing.T) {
 		}
 	})
 }
+
+// layeredScene is a frame with every kind of offscreen target: a layer, a
+// mask, a blend mode's copy of the backdrop, the steps of filters at full
+// and at reduced resolution, a backdrop filter.
+func layeredScene(shift float32) *gfx.DisplayList {
+	return gfxtest.Build(func(b *gfx.Builder) {
+		busy(b, gfx.RectXYWH(0, 0, 300, 200))
+		b.PushLayer(0.8, gfx.Multiply, gfx.Blur{StdDev: 2}, gfx.Saturate(1.5))
+		b.FillRRect(gfx.NewRRect(gfx.RectXYWH(20+shift, 20, 110, 70), 12), amber)
+		text(b, "SoAl", 30, 30+shift, 70, indigo)
+		b.PopLayer()
+		mask := maskOf(gfx.MaskAlpha, func(m *gfx.Builder) { text(m, "iSo", 60, 150, 80, gfx.Black) })
+		b.PushMaskLayer(mask, 1, gfx.SrcOver, gfx.DropShadow{Offset: gfx.Pt(2, 3), StdDev: 9, Color: gfx.Black.WithAlpha(0.6)})
+		b.FillRect(gfx.RectXYWH(140, 20, 150, 80), gfx.LinearGradient{Start: gfx.Pt(140, 20), End: gfx.Pt(290, 100), Stops: stops(rose, sky)})
+		b.PopLayer()
+		glass(b, gfx.NewRRect(gfx.RectXYWH(40+shift, 100, 200, 80), 16), 10, gfx.White.WithAlpha(0.2))
+		text(b, "olAS iolS", 22, 60+shift, 150, slate)
+	})
+}
+
+// TestTargetLifetime follows the offscreen targets on the device through
+// frames, EndFrame, Trim and Close: the device holds the targets the
+// frames list, no more, and none is left when it is closed (which the
+// validation layer checks, TELA_VK_VALIDATE=1).
+func TestTargetLifetime(t *testing.T) {
+	const w, h = 300, 200
+	plain := gfxtest.Build(func(b *gfx.Builder) { busy(b, gfx.RectXYWH(0, 0, 300, 200)) })
+	eachDevice(t, func(t *testing.T, dev Device) {
+		vd := dev.(*vkDevice)
+		target, err := dev.NewTarget(w, h)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var r Renderer
+		frame := func(what string, dl *gfx.DisplayList, opts Options) Result {
+			t.Helper()
+			res, err := r.Render(target, dl, opts)
+			if err != nil {
+				t.Fatalf("%s: %v", what, err)
+			}
+			if res.Unsupported != nil {
+				t.Fatalf("%s: not drawn: %v", what, res.Unsupported)
+			}
+			if len(vd.offscreen) != len(r.enc.res.targets) {
+				t.Errorf("%s: the device holds %d offscreen targets, the renderer's pool %d", what, len(vd.offscreen), len(r.enc.res.targets))
+			}
+			return res
+		}
+		dl := layeredScene(0)
+		frame("the first frame", dl, Options{Clear: &gfx.White})
+		within(t, "the first frame", readAll(t, target), renderCPU(w, h, dl, 1, gfx.White))
+		n := len(vd.offscreen)
+		if n < 4 {
+			t.Fatalf("a frame of layers and filters left %d offscreen targets", n)
+		}
+		// The same frame, and the same moved a little, draw with the same
+		// targets and upload nothing.
+		for i := 0; i < 5; i++ {
+			res := frame("a frame again", layeredScene(float32(i%2)), Options{Clear: &gfx.White})
+			r.EndFrame()
+			if len(vd.offscreen) != n || (i > 1 && res.Uploads != 0) {
+				t.Errorf("frame %d: %d offscreen targets (the first frame left %d), %d uploads", i, len(vd.offscreen), n, res.Uploads)
+			}
+		}
+		// A region inside the glass: one more target, for the grown region.
+		frame("a region", dl, Options{Clear: &gfx.White, Region: image.Rect(100, 130, 140, 150)})
+		within(t, "a region", readAll(t, target), renderCPU(w, h, dl, 1, gfx.White))
+		// Frames without layers: the targets go once they were idle long
+		// enough, and the device destroys them with the next frame.
+		for i := 0; i <= idleFrames+1; i++ {
+			r.EndFrame()
+		}
+		frame("a frame without layers", plain, Options{Clear: &gfx.White})
+		if len(vd.offscreen) != 0 {
+			t.Errorf("%d offscreen targets after %d frames without layers", len(vd.offscreen), idleFrames)
+		}
+		// Layers again, then at rest.
+		frame("layers again", dl, Options{Clear: &gfx.White})
+		within(t, "layers again", readAll(t, target), renderCPU(w, h, dl, 1, gfx.White))
+		r.Trim()
+		if len(vd.offscreen) != 0 {
+			t.Errorf("%d offscreen targets after Trim", len(vd.offscreen))
+		}
+		// A frame lost between two frames of layers: the device starts over
+		// with the renderer.
+		frame("after Trim", dl, Options{Clear: &gfx.White})
+		r.enc.Encode(layeredScene(40), image.Pt(w, h), Options{})
+		frame("after a lost frame", dl, Options{Clear: &gfx.White})
+		within(t, "after a lost frame", readAll(t, target), renderCPU(w, h, dl, 1, gfx.White))
+		// The device is closed with its offscreen targets alive, and the
+		// target after it.
+		if len(vd.offscreen) == 0 {
+			t.Error("no offscreen target is alive when the device is closed")
+		}
+		dev.Close()
+		target.Close()
+	})
+}
+
+// TestKeepsPixelsLayers checks that layers, blend modes and backdrop
+// filters composite over what the target holds from earlier renders, as
+// the rasterizer does over its image: a render without Clear, whole and
+// of a region that its backdrop filters read beyond.
+func TestKeepsPixelsLayers(t *testing.T) {
+	const w, h = 300, 200
+	first := gfxtest.Build(func(b *gfx.Builder) { busy(b, gfx.RectXYWH(0, 0, 300, 200)) })
+	second := layeredScene(0)
+	third := gfxtest.Build(func(b *gfx.Builder) {
+		// Nothing opaque under the filters: they read the earlier frames.
+		b.BackdropFilter(gfx.NewRRect(gfx.RectXYWH(30, 30, 240, 140), 20), gfx.Blur{StdDev: 6}, gfx.Contrast(1.3))
+		b.PushLayer(0.7, gfx.Difference)
+		b.FillPath(gfx.CirclePath(gfx.Pt(150, 100), 60), gfx.NonZero, sky)
+		b.PopLayer()
+		b.BackdropFilterOpacity(gfx.NewRRect(gfx.RectXYWH(100, 60, 150, 100), 30), 0.6, gfx.Blur{StdDev: 14})
+	})
+	eachDevice(t, func(t *testing.T, dev Device) {
+		target, err := dev.NewTarget(w, h)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer target.Close()
+		var r Renderer
+		cpu := image.NewRGBA(image.Rect(0, 0, w, h))
+		for i, c := range []struct {
+			dl     *gfx.DisplayList
+			region image.Rectangle
+		}{{first, image.Rectangle{}}, {second, image.Rectangle{}}, {third, image.Rect(120, 70, 200, 120)}, {third, image.Rect(0, 0, 150, 200)}, {third, image.Rectangle{}}} {
+			if _, err := r.Render(target, c.dl, Options{Region: c.region}); err != nil {
+				t.Fatal(err)
+			}
+			raster.Render(cpu, c.dl, raster.Options{Region: c.region})
+			gpu := readAll(t, target)
+			m := compare(gpu, cpu)
+			dump(t, fmt.Sprintf("keeps_layers_%d_%s", i, deviceLabel(dev.Name())), gpu, cpu)
+			t.Logf("after render %d: largest difference %d, %.3f%% of the pixels over 1 level, %.3f%% over 2", i+1, m.max, 100*m.over1, 100*m.over2)
+			// The differences of a level of each render add up, and the
+			// filters of the next one read them.
+			if m.max > tolHard || m.over2 > 4*tolShare {
+				t.Errorf("after render %d: largest difference %d at %v, %.3f%% of the pixels over 2 levels", i+1, m.max, m.worst, 100*m.over2)
+			}
+		}
+	})
+}

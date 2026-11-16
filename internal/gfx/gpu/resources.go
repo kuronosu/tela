@@ -28,8 +28,13 @@ type Limits struct {
 	ImageBytes int64
 	// MaxTextureSize is the largest width and height of a texture of the
 	// device (default 4096, which every Vulkan device has). An image larger
-	// than that is not drawn, and reported.
+	// than that is not drawn, and reported; so is a layer whose surface,
+	// grown for its filters, is larger.
 	MaxTextureSize int
+	// TargetBytes is the memory of the offscreen targets kept between
+	// frames, those of layers and filters (default 256 MiB). A frame that
+	// draws with more than that keeps what it draws with.
+	TargetBytes int64
 }
 
 func (l Limits) withDefaults() Limits {
@@ -47,6 +52,9 @@ func (l Limits) withDefaults() Limits {
 	l.CoveragePage, l.ColorPage = max(l.CoveragePage&^1, minPage), max(l.ColorPage&^1, minPage)
 	if l.ImageBytes <= 0 {
 		l.ImageBytes = 256 << 20
+	}
+	if l.TargetBytes <= 0 {
+		l.TargetBytes = 256 << 20
 	}
 	return l
 }
@@ -83,6 +91,11 @@ type resources struct {
 	// next frame tells the device to destroy.
 	imageBytes int64
 	released   []uint64
+
+	// targets is the pool of offscreen targets (target.go).
+	targets     []*poolTarget
+	targetBytes int64
+	nextTarget  int
 
 	paths   pathTable
 	styles  map[uint64][]*styleRec
@@ -164,6 +177,7 @@ func (r *resources) endFrame() {
 		}
 	}
 	r.paths.endFrame(r.mark)
+	r.endFrameTargets(r.mark)
 	r.masker.EndFrame()
 	r.mark = r.frame
 	// Only a frame with new pictures needs the scratch: a large one is not
