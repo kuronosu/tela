@@ -21,7 +21,9 @@ func (b *Backend) translate(e xevent) {
 		// X errors of unchecked requests. The expected ones are races
 		// with the window manager or with Close (BadWindow for a window
 		// destroyed while a request was in flight); nothing here can be
-		// recovered, and checked requests report their own errors.
+		// recovered, and checked requests report their own errors. A
+		// failed PresentPixmap frees its buffer (dmabuf.go).
+		b.dmabufError(e.err)
 		return
 	}
 	if p, ok := e.ev.(xproto.KeyPressEvent); !ok || p.Event != b.root {
@@ -65,6 +67,7 @@ func (b *Backend) translate(e xevent) {
 			size := image.Pt(int(ev.Width), int(ev.Height))
 			if size != w.osSize {
 				w.osSize = size
+				w.dmabuf.stale = true // the modifiers are asked again
 				b.queueConfigure(w)
 			}
 		}

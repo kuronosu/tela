@@ -82,6 +82,9 @@ type Window struct {
 	pix     []byte
 	pixSize image.Point
 	expose  image.Rectangle // Expose rectangles accumulated until Count == 0
+	// dmabuf is the window's side of presenting dmabufs (dmabuf.go): while
+	// its front buffer holds the frame there is no retained copy.
+	dmabuf dmabufState
 
 	// Pointer state.
 	inside       bool
@@ -343,6 +346,7 @@ func (w *Window) Close() {
 	}
 	b.kbd.dropWindow(w)
 	delete(b.windows, w.id)
+	w.releaseDmabuf() // pixmaps are not freed with the window
 	w.destroy()
 }
 
@@ -383,6 +387,10 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 		platform.CopyRGBAToBGRA(w.pix, stride, fb, r)
 	}
 	w.syncInputShape(fb, rects) // a transparent window (transparent.go)
+	// The retained copy holds the frame again: a dmabuf that did is no
+	// longer what Expose is answered from (dmabuf.go). The copy above was
+	// a full one, since a dmabuf present drops the retained copy.
+	w.setFront(nil)
 	if !w.mapped {
 		// An unmapped window has no contents, so drawing now would be
 		// lost. The Expose that follows the map paints the retained copy.

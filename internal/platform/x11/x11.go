@@ -61,6 +61,11 @@ type Backend struct {
 	bigRequests bool
 	maxRequest  int // bytes, capped at maxPutImageBytes
 	reqBuf      []byte
+	// ps is the server side of frames (PutImage, and DRI3 and Present for
+	// dmabufs; a fake in unit tests), and dmabuf what presenting dmabufs
+	// keeps for the backend (dmabuf.go).
+	ps     presentServer
+	dmabuf dmabufBackend
 
 	// Cross-goroutine state.
 	notify     chan struct{} // buffer 1; Wake and Quit signal the loop
@@ -217,6 +222,7 @@ func newBackend(conn *xgb.Conn) (*Backend, error) {
 	b.kbd.fetch = b.coreMapping
 	b.srv = connServer{b}
 	b.xs = connServer{b}
+	b.ps = connServer{b}
 	var err error
 	if b.atoms, err = internAtoms(conn); err != nil {
 		return nil, fmt.Errorf("x11: interning atoms: %w", err)

@@ -9,8 +9,9 @@ import (
 )
 
 // XFixes, hand-written on the vendored xgb like XInput2 and XKB (ext.go):
-// only what follows a selection's owner, SelectSelectionInput (XFixes 2.0),
-// for the compositing manager's _NET_WM_CM_S<screen> (transparent.go). A
+// what follows a selection's owner, SelectSelectionInput (XFixes 2.0),
+// for the compositing manager's _NET_WM_CM_S<screen> (transparent.go); the
+// regions of Present's updates are in dri3.go. A
 // manager that takes the selection without the ICCCM MANAGER message is
 // seen at once, as GTK 3 (gdk_x11_display_request_selection_notification)
 // and Qt (QXcbConnection's xfixes selection events) see it.
@@ -80,18 +81,7 @@ func selectSelectionInputRequest(opcode byte, win xproto.Window, sel xproto.Atom
 
 func (s connServer) watchSelection(sel xproto.Atom) bool {
 	b := s.b
-	if !b.xfixes.checked {
-		b.xfixes.checked = true
-		if e := b.queryExtension("XFIXES"); e.present {
-			req := newRequest(e.opcode, xfixesOpQueryVersion, 12)
-			le.PutUint32(req[4:], xfixesClientMajor)
-			le.PutUint32(req[8:], xfixesClientMinor)
-			if r, err := b.roundTrip(req, 16); err == nil && le.Uint32(r[8:]) >= 2 {
-				b.xfixes = xfixesExt{checked: true, ok: true, extension: e}
-			}
-		}
-	}
-	if !b.xfixes.ok || sel == 0 {
+	if !b.ensureXFixes() || sel == 0 { // dri3.go
 		return false
 	}
 	b.sendRequest(selectSelectionInputRequest(b.xfixes.opcode, b.root, sel,

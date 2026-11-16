@@ -109,11 +109,15 @@ func encodePutImage(buf []byte, big bool, drawable xproto.Drawable, gc xproto.Gc
 // putImage sends rectangle r of the retained copy to the window, split to
 // the request size limit.
 func (w *Window) putImage(r image.Rectangle) {
-	b := w.b
 	r = r.Intersect(image.Rectangle{Max: w.pixSize})
 	if r.Empty() || w.pix == nil {
 		return
 	}
+	w.b.ps.putImage(w, r)
+}
+
+func (s connServer) putImage(w *Window, r image.Rectangle) {
+	b := s.b
 	for _, c := range splitForRequests(r, b.maxRequest, putImageHeaderLen(b.bigRequests)) {
 		// A request that fits the 16-bit length is sent in the standard
 		// form even when BIG-REQUESTS is on.
@@ -124,11 +128,12 @@ func (w *Window) putImage(r image.Rectangle) {
 }
 
 // flushExpose repaints the accumulated Expose region from the retained
-// copy.
+// copy, or from the front buffer when the window's frame is a dmabuf
+// (dmabuf.go).
 func (w *Window) flushExpose() {
 	r := w.expose
 	w.expose = image.Rectangle{}
-	if !r.Empty() {
+	if !r.Empty() && !w.exposeDmabuf(r) {
 		w.putImage(r)
 	}
 }

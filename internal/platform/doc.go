@@ -765,7 +765,7 @@
 // Contract v13 (ADR-283) adds the optional [DmabufPresenter]: a window
 // that shows buffers the caller rendered into dmabufs, without a copy
 // ([DmabufFeedback], [DmabufDescriptor], [DmabufBuffer]; see "Presenting
-// dmabufs"). Only Wayland windows implement it. Nothing else changes:
+// dmabufs"). Wayland and X11 windows implement it. Nothing else changes:
 // Present is as it was, and the remote protocol is unchanged.
 //
 // # Drag and drop and the clipboard
@@ -1142,7 +1142,10 @@
 //     hidden. The window keeps no copy of a dmabuf frame, so one whose
 //     latest frame was a dmabuf is not shown again by the backend alone:
 //     it asks for a frame (a FrameEvent follows the show), and the next
-//     present, in full, shows it.
+//     present, in full, shows it. A backend that can show the window
+//     again by itself does (X11, below) and asks for a frame only when
+//     a present was dropped while the window was hidden; the caller does
+//     the same either way: it presents when a FrameEvent comes.
 //   - Alternating. Present and PresentDmabuf may follow each other on one
 //     window, in either order: a renderer may fall back in the middle of
 //     the window's life. The first present of one kind after the other is
@@ -1159,7 +1162,19 @@
 // Wayland: zwp_linux_dmabuf_v1 (see the wayland package: version 4
 // feedback with its format table, modifier events on version 3, create
 // with a round trip instead of create_immed, the opaque region).
-// X11 (DRI3 PixmapFromBuffers with the Present extension) is planned;
+// X11: DRI3 1.2 and the Present extension (see the x11 package). The
+// device is the one DRI3 Open returns. A pixmap has a depth and no format,
+// so the feedback lists one format, XRGB8888 for the 24-bit windows, with
+// the modifiers of GetSupportedModifiers. Registering is PixmapFromBuffers
+// as a checked request, presenting PresentPixmap at the next vertical
+// blank with the damage as its update region, and Busy follows
+// PresentIdleNotify. The latest buffer presented is the window's front
+// buffer and stays busy until another present of either kind replaces
+// it, also while the window is hidden: its pixmap answers Expose and maps
+// the window again, as the retained copy does for Present. A server that
+// flips (Xwayland) gives a buffer back only after the next present
+// replaced it, so a caller there needs three buffers where two do on
+// Wayland. Frames are paced by the backend's timer as before.
 // Win32 and Cocoa present GPU frames through a swap chain on the window
 // and have no use for it. Headless and remote windows do not implement
 // the interface: their frames are read by tests and sent over a socket.
@@ -1207,6 +1222,8 @@
 // extension). Sizes are physical (ConfigureNotify); the scale comes
 // from Xft.dpi / 96 when set, else 1; logical = LogicalSize(physical,
 // scale). Present uses PutImage (MIT-SHM later), keeping a copy for Expose.
+// PresentDmabuf is PresentPixmap of a pixmap DRI3 made of the dmabufs,
+// which is kept for Expose in the copy's place.
 //
 // Win32. GetMessageW / TranslateMessage / DispatchMessageW on the UI thread;
 // WndProc translates messages into events. Wake posts a private message to a

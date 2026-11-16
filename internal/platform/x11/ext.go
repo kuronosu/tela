@@ -13,7 +13,8 @@ import (
 // XInput2 and XKB have no Go packages in the vendored xgb (ADR-025): their
 // few requests are encoded by hand here and in xi2.go and xkbext.go, and
 // their events arrive as xgb.RawEvent (the patched reader frames
-// GenericEvents). The connection is little-endian (xgb's setup).
+// GenericEvents). So are XFixes (xfixes.go), and DRI3 and Present
+// (dri3.go). The connection is little-endian (xgb's setup).
 
 var le = binary.LittleEndian
 
@@ -70,8 +71,11 @@ func (b *Backend) rawEvent(raw xgb.RawEvent) {
 	switch {
 	case len(raw) < 32:
 	case raw.Code() == xgb.GenericEventCode:
-		if b.xi.present && raw[1] == b.xi.opcode {
+		switch {
+		case b.xi.present && raw[1] == b.xi.opcode:
 			b.xiEvent(raw)
+		case b.dmabuf.caps.ok && raw[1] == b.dmabuf.caps.presentOpcode:
+			b.presentEvent(raw) // dmabuf.go
 		}
 	case b.xkb.present && raw.Code() == b.xkb.firstEvent:
 		b.xkbEvent(raw)

@@ -6,9 +6,11 @@
 // core, xproto and bigreq packages, ADR-025) and implements the platform
 // contract documented in package platform. The vendored reader is patched
 // to read GenericEvents whole and to deliver the events and errors it
-// cannot decode (XInput2, XKB) raw instead of dropping them; the XInput2
-// and XKB requests this package needs are encoded by hand (ext.go,
-// xi2.go, xkbext.go).
+// cannot decode (XInput2, XKB, Present) raw instead of dropping them, and
+// the connection to pass file descriptors with requests and replies
+// (DRI3; xgb's fd.go); the XInput2, XKB, XFixes, DRI3 and Present
+// requests this package needs are encoded by hand (ext.go, xi2.go,
+// xkbext.go, xfixes.go, dri3.go).
 //
 // # Input
 //
@@ -181,11 +183,15 @@
 //
 // # Frames
 //
-// The core protocol has no frame callbacks (the Present extension is a
-// later optimization), so frames are paced by a timer at a fixed 60 Hz: a
-// requested frame is delivered on the next iteration if the window has not
-// had a frame in the last interval, otherwise when the interval elapses.
-// A ConfigureEvent's frame is delivered immediately.
+// The core protocol has no frame callbacks, so frames are paced by a timer
+// at a fixed 60 Hz: a requested frame is delivered on the next iteration
+// if the window has not had a frame in the last interval, otherwise when
+// the interval elapses. A ConfigureEvent's frame is delivered immediately.
+// The Present extension's PresentCompleteNotify, which windows that
+// present dmabufs receive, is not used as a display signal: it comes once
+// a second for a window Xwayland does not draw, the loop's gate has no
+// timeout for a signal that never comes, and the PutImage path has none
+// (dmabuf.go).
 //
 // # Sizes and scale
 //
@@ -205,4 +211,44 @@
 // when the server has it). The retained copy answers Expose. A window is
 // mapped at its first Present; the pixels of that Present reach the screen
 // through the Expose that follows the map. MIT-SHM is a later optimization.
+//
+// # Presenting dmabufs
+//
+// Windows implement platform.DmabufPresenter (contract v13, ADR-283), the
+// zero-copy path of the GPU renderer, on a server with DRI3 1.2 and the
+// Present extension reached over a unix socket; dmabuf.go has the whole of
+// it and dri3.go the wire side. Nothing is asked of the server before a
+// window's first DmabufFeedback or CreateDmabuf.
+//
+//   - Feedback: the device of DRI3 Open (the node of the descriptor in its
+//     reply), and XRGB8888, the format of a depth-24 pixmap at 32 bits per
+//     pixel, with the modifiers of DRI3 GetSupportedModifiers, the
+//     window's first; asked again after the window's size changed.
+//   - Buffers: DRI3 PixmapFromBuffers, checked, so a failed import is the
+//     error of CreateDmabuf. The dmabufs' descriptors go with the request
+//     and stay the caller's.
+//   - Presents: PresentPixmap at the next vertical blank, with an XFixes
+//     region of the damage as update unless an earlier present is still
+//     waiting (the server replaces a waiting present only by one without
+//     a region). PresentIdleNotify frees a buffer.
+//   - The front buffer: the latest buffer presented stays busy until
+//     another frame replaces it. Expose is answered with a CopyArea from
+//     its pixmap, and a window is mapped with it: the first present maps
+//     the window and is painted at the Expose that follows, and a window
+//     hidden and shown comes back with it. A hidden window drops its
+//     presents and asks for a frame when it is shown.
+//   - A dmabuf present drops the retained copy and a Present drops the
+//     front buffer: the first present of a kind is a full one.
+//   - Transparent windows report no feedback: their input shape is
+//     computed from the frames Present receives.
+//
+// Measured on Xwayland 24.1 (Hyprland 0.56, NVIDIA 615): DRI3 1.4 and
+// Present 1.4; the device is the render node; the server lists the
+// driver's tiled modifiers and the implicit one, not the linear one, and
+// no window modifiers; presents are flips, except the first after the
+// window was mapped or resized, which is a copy; on a workspace no
+// monitor shows a present is answered after a second or two; GetImage
+// reads the frames back from the window and from the buffers' pixmaps;
+// buffers of the other GPU (linear, under the implicit modifier) are
+// refused with BadAlloc.
 package x11

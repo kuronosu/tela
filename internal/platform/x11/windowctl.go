@@ -558,10 +558,15 @@ func (w *Window) SetVisible(visible bool) {
 		w.b.srv.mapWindow(w.id, false)
 		w.b.srv.withdrawn(w.id)
 		w.mapped = false
-	case visible && w.pix != nil:
+	case visible && (w.pix != nil || w.dmabuf.front != nil):
+		// The Expose that follows paints the retained frame: the copy of
+		// Present's, or the front buffer of a dmabuf's.
 		w.mapWindow()
 	}
 	w.updateHidden()
+	if visible {
+		w.shownDmabuf() // a dmabuf present dropped while hidden (dmabuf.go)
+	}
 }
 
 // SetTitleBarColors does nothing: only Windows 11 draws colored title bars.
