@@ -3,6 +3,7 @@ package gpu
 import (
 	"errors"
 	"image"
+	"time"
 
 	"github.com/kuronosu/tela/internal/gfx"
 )
@@ -18,6 +19,12 @@ var ErrUnavailable = errors.New("gpu: no GPU backend in this build (it needs the
 // the device was trimmed. Nothing is drawn. The Encoder starts over
 // (Encoder.Trim) and encodes the frame again; Renderer does that.
 var ErrResourcesLost = errors.New("gpu: the device does not hold the resources of the frame's encoder")
+
+// ErrDeviceLost is returned by a device and its targets once the device is
+// gone (a driver that was reset, a GPU that was removed): nothing more can
+// be drawn with it. The caller closes it and renders with the CPU
+// rasterizer, or opens a device again.
+var ErrDeviceLost = errors.New("gpu: the device is lost")
 
 // Config configures Open.
 type Config struct {
@@ -64,10 +71,16 @@ type Target interface {
 	// pixels are drawn. It returns ErrResourcesLost, having drawn nothing,
 	// when the device does not hold what the frame draws with.
 	Draw(f *Frame) error
-	// ReadPixels copies the pixels of r into dst, at the same
-	// coordinates. Only the pixels of r inside both the target and dst
-	// are copied.
-	ReadPixels(dst *image.RGBA, r image.Rectangle) error
+	// ReadPixels copies the pixels of the rectangles into dst, at the same
+	// coordinates. Only the pixels inside both the target and dst are
+	// copied. The rectangles are read in one submission: reading the damage
+	// of a frame with one call costs one wait, not one per rectangle.
+	ReadPixels(dst *image.RGBA, rects ...image.Rectangle) error
+	// Shift moves pixels inside the target, as a scroll does: every pixel
+	// (x, y) of r takes the value that the pixel (x-dx, y-dy) had before
+	// the call. The pixels of r whose source lies outside the target are
+	// left as they are. Source and destination may overlap.
+	Shift(r image.Rectangle, dx, dy int) error
 	// Close destroys the target.
 	Close()
 }
@@ -100,6 +113,10 @@ type Result struct {
 	// image textures it created, and UploadBytes their bytes: both are 0
 	// for a frame that draws what earlier frames drew.
 	Uploads, UploadBytes int
+	// Encode is the time the Encoder took to turn the list into the frame
+	// (on the calling goroutine), and Draw the time the device took to
+	// execute it, the wait for the GPU included.
+	Encode, Draw time.Duration
 }
 
 // Render draws dl into t, over the pixels t holds (after clearing the
@@ -116,14 +133,21 @@ func (r *Renderer) Render(t Target, dl *gfx.DisplayList, opts Options) (Result, 
 	if r.enc.Limits.MaxTextureSize == 0 && r.dev != nil {
 		r.enc.Limits.MaxTextureSize = r.dev.MaxTargetSize()
 	}
+	t0 := time.Now()
 	f := r.enc.Encode(dl, t.Size(), opts)
+	t1 := time.Now()
 	err := t.Draw(f)
+	t2 := time.Now()
+	encode, draw := t1.Sub(t0), t2.Sub(t1)
 	if errors.Is(err, ErrResourcesLost) {
 		r.enc.Trim()
 		f = r.enc.Encode(dl, t.Size(), opts)
+		t3 := time.Now()
 		err = t.Draw(f)
+		encode, draw = encode+t3.Sub(t2), draw+time.Since(t3)
 	}
-	res := Result{Instances: len(f.Instances) / InstanceSize, Passes: len(f.Passes), Targets: len(f.Targets), Uploads: len(f.Images), UploadBytes: len(f.Data)}
+	res := Result{Instances: len(f.Instances) / InstanceSize, Passes: len(f.Passes), Targets: len(f.Targets), Uploads: len(f.Images), UploadBytes: len(f.Data),
+		Encode: encode, Draw: draw}
 	for i := range f.Passes {
 		res.Draws += len(f.Passes[i].Batches)
 		res.Uploads += len(f.Passes[i].Uploads)

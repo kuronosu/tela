@@ -37,9 +37,20 @@ type damageHarness struct {
 	trace []string
 	// Counters of what the frames did.
 	frames, full, shifted, partial, skipped int
+	// checkFn, when set, checks a frame in the place of check's
+	// comparison with the reference (the frames drawn by the GPU,
+	// gpuframe_test.go).
+	checkFn func(what string)
 }
 
 func newDamageHarness(t *testing.T, root Node, w, h float32, scale float64, cfg Config, seed uint64) *damageHarness {
+	t.Helper()
+	return newDamageHarnessWith(t, root, w, h, scale, cfg, seed, nil)
+}
+
+// newDamageHarnessWith is newDamageHarness with setup called on the
+// harness before its first frame.
+func newDamageHarnessWith(t *testing.T, root Node, w, h float32, scale float64, cfg Config, seed uint64, setup func(*damageHarness)) *damageHarness {
 	t.Helper()
 	b := headless.New(headless.Options{Size: platform.Size{W: w, H: h}, Scale: scale})
 	cfg.Fonts = testFonts
@@ -49,6 +60,9 @@ func newDamageHarness(t *testing.T, root Node, w, h float32, scale float64, cfg 
 	}
 	x := &damageHarness{t: t, b: b, h: host, w: host.Window().(*headless.Window), rng: rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))}
 	t.Cleanup(host.stopTimer)
+	if setup != nil {
+		setup(x)
+	}
 	b.Drain(host)
 	x.check("mount")
 	return x
@@ -76,6 +90,10 @@ func (x *damageHarness) check(what string) {
 	x.trace = append(x.trace, what)
 	if len(x.trace) > 12 {
 		x.trace = x.trace[1:]
+	}
+	if x.checkFn != nil {
+		x.checkFn(what)
+		return
 	}
 	tr := x.tree()
 	if tr.Dirty() {
@@ -422,10 +440,16 @@ func virtualScene(st *sceneState) Node {
 
 // runScene drives a scene with random operations and scene-specific ones.
 func runScene(t *testing.T, name string, root func(*sceneState) Node, ops func(*damageHarness, *sceneState) string, cfg Config, steps int) {
-	for _, scale := range damageScales() {
+	runSceneWith(t, name, root, ops, cfg, steps, damageScales(), nil)
+}
+
+// runSceneWith is runScene at the given scales, with setup called on each
+// harness before its first frame.
+func runSceneWith(t *testing.T, name string, root func(*sceneState) Node, ops func(*damageHarness, *sceneState) string, cfg Config, steps int, scales []float64, setup func(*damageHarness)) {
+	for _, scale := range scales {
 		t.Run(fmt.Sprintf("%s_x%g", name, scale), func(t *testing.T) {
 			st := &sceneState{refs: make([]ElementRef, 4), setters: make([]Setter[int], 200), values: make([]*Value[float32], 4)}
-			x := newDamageHarness(t, root(st), 360, 280, scale, cfg, damageSeed+uint64(len(name))*1000+uint64(scale*100)/100+uint64(scale*100)%100*7)
+			x := newDamageHarnessWith(t, root(st), 360, 280, scale, cfg, damageSeed+uint64(len(name))*1000+uint64(scale*100)/100+uint64(scale*100)%100*7, setup)
 			n := steps
 			if scale == 1.25 || scale == 1.75 {
 				n = max(steps/4, 10) // the other fractional scales, shorter (1.5 runs in full)

@@ -211,8 +211,11 @@ type winView struct {
 	modal  bool
 
 	// The pipeline (host.go).
-	fb         *image.RGBA
-	renderer   raster.Renderer
+	fb       *image.RGBA
+	renderer raster.Renderer
+	// gpu is the window's part of the GPU renderer in a build that has
+	// one (gpuhost.go): the target its frames are drawn into.
+	gpu        viewGPU
 	scale      float64
 	configured bool // a ConfigureEvent arrived since the last Present
 	presents   int
@@ -354,6 +357,7 @@ func (v *winView) setHidden(hidden bool) {
 		v.fb, v.fbTrimAt = nil, 0
 		v.rasterTrimAt = 0
 		v.tree.TrimRaster(&v.renderer)
+		v.dropGPU() // gpuhost.go: the GPU's target goes with the framebuffer
 	}
 	v.win.SetVisible(!hidden)
 	v.syncState()
@@ -1093,6 +1097,7 @@ func (t *Tree) cancelPointers(now time.Duration) {
 
 // removeView forgets the closed window v.
 func (h *Host) removeView(v *winView) {
+	v.dropGPU() // gpuhost.go: its target on the GPU
 	if i := slices.Index(h.views, v); i > 0 {
 		h.views = slices.Delete(h.views, i, i+1)
 	}

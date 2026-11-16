@@ -122,10 +122,13 @@ type vkDevice struct {
 	taps      hostBuffer // Frame.Taps (a storage buffer)
 	staging   hostBuffer // pixels on their way to the textures
 	readback  hostBuffer // pixels on their way back
-	ramps     texture    // Frame.Ramps
-	rampRows  int        // rows of the ramp texture
-	uploaded  []byte     // the ramp bytes the texture holds
-	setStale  bool       // a buffer or a texture changed: write the set
+	// scratch holds the pixels a Shift moves, between its two copies: a
+	// copy of an image onto itself may not overlap. nil until a Shift.
+	scratch  *surface
+	ramps    texture // Frame.Ramps
+	rampRows int     // rows of the ramp texture
+	uploaded []byte  // the ramp bytes the texture holds
+	setStale bool    // a buffer or a texture changed: write the set
 
 	// The resources of the frames' Encoder (see Frame.Res): the atlases,
 	// the image textures by ID, and whose they are.
@@ -148,6 +151,31 @@ type vkDevice struct {
 
 	targets map[*vkTarget]struct{}
 	closed  bool
+	// lost: a call returned VK_ERROR_DEVICE_LOST. Every call fails from
+	// then on (ErrDeviceLost).
+	lost bool
+}
+
+// check notes an error of a call into the device: a lost device stays
+// lost, and its errors are ErrDeviceLost.
+func (d *vkDevice) check(err error) error {
+	if err != nil && !errors.Is(err, ErrDeviceLost) && errors.Is(err, vk.ErrorDeviceLost) {
+		d.lost = true
+		return fmt.Errorf("%w: %w", ErrDeviceLost, err)
+	}
+	return err
+}
+
+// usable returns the error of a call into a device that is closed or
+// lost, or nil.
+func (d *vkDevice) usable() error {
+	switch {
+	case d == nil || d.closed:
+		return errors.New("gpu: the device is closed")
+	case d.lost:
+		return ErrDeviceLost
+	}
+	return nil
 }
 
 // surface is a color image the device draws into and its shaders read: a
@@ -533,6 +561,7 @@ func (d *vkDevice) Close() {
 		}
 		d.targets = nil
 		d.releaseResources()
+		d.dropScratch()
 		for _, p := range d.sourcePools {
 			dev.DestroyDescriptorPool(p)
 		}
@@ -620,7 +649,16 @@ func (d *vkDevice) growBuffer(b *hostBuffer, size int, usage vk.BufferUsageFlags
 	}
 	b.buf = buf
 	req := dev.GetBufferMemoryRequirements(buf)
-	typ, ok := d.mem.FindMemoryType(req.MemoryTypeBits, vk.MemoryPropertyHostVisible|vk.MemoryPropertyHostCoherent)
+	typ, ok := uint32(0), false
+	if usage&vk.BufferUsageTransferDst != 0 {
+		// A buffer the host reads: cached memory, where the device has it.
+		// Measured: reading 4K back from the write-combined memory NVIDIA
+		// lists first takes 95 ms, 350 MB/s; from cached memory, 7 ms.
+		typ, ok = d.mem.FindMemoryType(req.MemoryTypeBits, vk.MemoryPropertyHostVisible|vk.MemoryPropertyHostCoherent|vk.MemoryPropertyHostCached)
+	}
+	if !ok {
+		typ, ok = d.mem.FindMemoryType(req.MemoryTypeBits, vk.MemoryPropertyHostVisible|vk.MemoryPropertyHostCoherent)
+	}
 	if !ok {
 		return errors.New("no host-visible coherent memory type for a buffer")
 	}
@@ -1016,11 +1054,23 @@ func (d *vkDevice) Trim() {
 	}
 	d.releaseResources()
 	for i := range d.atlases {
+		if d.lost {
+			break // nothing can be submitted; Close destroys the atlases
+		}
 		// An error keeps the atlas as it is: its pixels are not read again.
 		_ = d.sizeAtlas(i, AtlasInfo{})
 	}
 	d.destroyBuffer(&d.staging)
 	d.destroyBuffer(&d.readback)
+	d.dropScratch()
+}
+
+// dropScratch destroys the surface of the shifts. Nothing is in flight.
+func (d *vkDevice) dropScratch() {
+	if d.scratch != nil {
+		d.destroySurface(d.scratch)
+		d.scratch = nil
+	}
 }
 
 // submit records commands into the device's command buffer, submits them
@@ -1221,8 +1271,8 @@ type vkTarget struct {
 }
 
 func (d *vkDevice) NewTarget(width, height int) (Target, error) {
-	if d.closed {
-		return nil, errors.New("gpu: the device is closed")
+	if err := d.usable(); err != nil {
+		return nil, err
 	}
 	if width < 1 || height < 1 || width > d.maxSize || height > d.maxSize {
 		return nil, fmt.Errorf("gpu: a target of %dx%d: the size must be between 1 and %d", width, height, d.maxSize)
@@ -1230,7 +1280,7 @@ func (d *vkDevice) NewTarget(width, height int) (Target, error) {
 	t := &vkTarget{d: d, owner: d, size: image.Pt(width, height)}
 	var err error
 	if t.surf, err = d.newSurface(width, height, FormatRGBA8); err != nil {
-		return nil, fmt.Errorf("gpu: %w", err)
+		return nil, d.check(fmt.Errorf("gpu: %w", err))
 	}
 	// Transparent, and in the layout it rests in between frames: ready to
 	// be read back.
@@ -1242,7 +1292,7 @@ func (d *vkDevice) NewTarget(width, height int) (Target, error) {
 	})
 	if err != nil {
 		t.destroy()
-		return nil, err
+		return nil, d.check(err)
 	}
 	d.targets[t] = struct{}{}
 	return t, nil
@@ -1273,10 +1323,19 @@ func (t *vkTarget) destroy() {
 	t.d = nil
 }
 
+// usable returns the error of a call into a target that is closed, or
+// whose device is closed or lost, or nil.
+func (t *vkTarget) usable() error {
+	if t.d == nil || t.d.closed {
+		return errors.New("gpu: the target is closed")
+	}
+	return t.d.usable()
+}
+
 func (t *vkTarget) Draw(f *Frame) error {
 	d := t.d
-	if d == nil || d.closed {
-		return errors.New("gpu: the target is closed")
+	if err := t.usable(); err != nil {
+		return err
 	}
 	if f.Size != t.size {
 		return fmt.Errorf("gpu: a frame encoded for %v drawn into a target of %v", f.Size, t.size)
@@ -1292,7 +1351,7 @@ func (t *vkTarget) Draw(f *Frame) error {
 	if err := d.draw(t, f); err != nil {
 		// What the frame left on the device is not known.
 		d.releaseResources()
-		return err
+		return d.check(err)
 	}
 	d.resID, d.resSerial = f.Res.ID, f.Res.Next
 	return nil
@@ -1663,27 +1722,38 @@ func rect2D(r image.Rectangle) vk.Rect2D {
 	}
 }
 
-func (t *vkTarget) ReadPixels(dst *image.RGBA, r image.Rectangle) error {
+func (t *vkTarget) ReadPixels(dst *image.RGBA, rects ...image.Rectangle) error {
 	d := t.d
-	if d == nil || d.closed {
-		return errors.New("gpu: the target is closed")
+	if err := t.usable(); err != nil {
+		return err
 	}
-	r = r.Intersect(image.Rectangle{Max: t.size}).Intersect(dst.Rect)
-	if r.Empty() {
+	// The rectangles, clipped, one after the other in the buffer.
+	whole := image.Rectangle{Max: t.size}.Intersect(dst.Rect)
+	var one [1]vk.BufferImageCopy
+	regions := one[:0]
+	n := 0
+	for _, r := range rects {
+		if r = r.Intersect(whole); r.Empty() {
+			continue
+		}
+		regions = append(regions, vk.BufferImageCopy{
+			BufferOffset:     uint64(n),
+			ImageSubresource: colorLayers,
+			ImageOffset:      vk.Offset3D{X: int32(r.Min.X), Y: int32(r.Min.Y)},
+			ImageExtent:      vk.Extent3D{Width: uint32(r.Dx()), Height: uint32(r.Dy()), Depth: 1},
+		})
+		n += 4 * r.Dx() * r.Dy()
+	}
+	if len(regions) == 0 {
 		return nil
 	}
-	n := 4 * r.Dx() * r.Dy()
 	if err := d.growBuffer(&d.readback, n, vk.BufferUsageTransferDst); err != nil {
-		return fmt.Errorf("gpu: %w", err)
+		return d.check(fmt.Errorf("gpu: %w", err))
 	}
 	dev := d.dev
 	err := d.run(func(cb vk.CommandBuffer) {
 		d.use(cb, t.surf, vk.ImageLayoutTransferSrcOptimal)
-		dev.CmdCopyImageToBuffer(cb, t.surf.tex.img, vk.ImageLayoutTransferSrcOptimal, d.readback.buf, []vk.BufferImageCopy{{
-			ImageSubresource: colorLayers,
-			ImageOffset:      vk.Offset3D{X: int32(r.Min.X), Y: int32(r.Min.Y)},
-			ImageExtent:      vk.Extent3D{Width: uint32(r.Dx()), Height: uint32(r.Dy()), Depth: 1},
-		}})
+		dev.CmdCopyImageToBuffer(cb, t.surf.tex.img, vk.ImageLayoutTransferSrcOptimal, d.readback.buf, regions)
 		dev.CmdPipelineBarrier(cb, vk.PipelineStageTransfer, vk.PipelineStageHost, 0, []vk.MemoryBarrier{{
 			SType:         vk.StructureTypeMemoryBarrier,
 			SrcAccessMask: vk.AccessTransferWrite,
@@ -1691,12 +1761,79 @@ func (t *vkTarget) ReadPixels(dst *image.RGBA, r image.Rectangle) error {
 		}}, nil, nil)
 	})
 	if err != nil {
-		return err
+		return d.check(err)
 	}
-	row := 4 * r.Dx()
-	for y := r.Min.Y; y < r.Max.Y; y++ {
-		o := dst.PixOffset(r.Min.X, y)
-		copy(dst.Pix[o:o+row], d.readback.bytes[(y-r.Min.Y)*row:])
+	// perf: a second copy of every pixel, from the mapped buffer into the
+	// image; a window that presents the device's images has neither
+	// (ADR-281).
+	for i := range regions {
+		rg := &regions[i]
+		x, y, w, h := int(rg.ImageOffset.X), int(rg.ImageOffset.Y), int(rg.ImageExtent.Width), int(rg.ImageExtent.Height)
+		src := d.readback.bytes[rg.BufferOffset:]
+		row := 4 * w
+		for j := 0; j < h; j++ {
+			o := dst.PixOffset(x, y+j)
+			copy(dst.Pix[o:o+row], src[j*row:])
+		}
 	}
 	return nil
+}
+
+// growScratch makes the surface of the shifts hold at least width by
+// height pixels. Its pixels are undefined.
+func (d *vkDevice) growScratch(width, height int) error {
+	if s := d.scratch; s != nil {
+		if s.w >= width && s.h >= height {
+			return nil
+		}
+		width, height = max(width, s.w), max(height, s.h)
+		d.dropScratch()
+	}
+	s, err := d.newSurface(width, height, FormatRGBA8)
+	if err != nil {
+		return err
+	}
+	d.scratch = s
+	return nil
+}
+
+func (t *vkTarget) Shift(r image.Rectangle, dx, dy int) error {
+	d := t.d
+	if err := t.usable(); err != nil {
+		return err
+	}
+	// The pixels whose source is in the target too.
+	whole := image.Rectangle{Max: t.size}
+	delta := image.Pt(dx, dy)
+	r = r.Intersect(whole).Intersect(whole.Add(delta))
+	if r.Empty() || delta == (image.Point{}) {
+		return nil
+	}
+	if err := d.growScratch(r.Dx(), r.Dy()); err != nil {
+		return d.check(fmt.Errorf("gpu: %w", err))
+	}
+	dev := d.dev
+	from := r.Sub(delta)
+	extent := vk.Extent3D{Width: uint32(r.Dx()), Height: uint32(r.Dy()), Depth: 1}
+	err := d.run(func(cb vk.CommandBuffer) {
+		// Through the scratch surface: the regions of one copy inside an
+		// image may not overlap.
+		d.use(cb, t.surf, vk.ImageLayoutTransferSrcOptimal)
+		d.use(cb, d.scratch, vk.ImageLayoutTransferDstOptimal)
+		dev.CmdCopyImage(cb, t.surf.tex.img, vk.ImageLayoutTransferSrcOptimal, d.scratch.tex.img, vk.ImageLayoutTransferDstOptimal, []vk.ImageCopy{{
+			SrcSubresource: colorLayers, DstSubresource: colorLayers,
+			SrcOffset: vk.Offset3D{X: int32(from.Min.X), Y: int32(from.Min.Y)},
+			Extent:    extent,
+		}})
+		d.use(cb, d.scratch, vk.ImageLayoutTransferSrcOptimal)
+		d.use(cb, t.surf, vk.ImageLayoutTransferDstOptimal)
+		dev.CmdCopyImage(cb, d.scratch.tex.img, vk.ImageLayoutTransferSrcOptimal, t.surf.tex.img, vk.ImageLayoutTransferDstOptimal, []vk.ImageCopy{{
+			SrcSubresource: colorLayers, DstSubresource: colorLayers,
+			DstOffset: vk.Offset3D{X: int32(r.Min.X), Y: int32(r.Min.Y)},
+			Extent:    extent,
+		}})
+		// The destination rests ready to be read back.
+		d.use(cb, t.surf, vk.ImageLayoutTransferSrcOptimal)
+	})
+	return d.check(err)
 }

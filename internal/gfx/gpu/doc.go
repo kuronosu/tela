@@ -93,6 +93,25 @@
 // beyond the region are the previous frame's final ones, not the backdrop
 // a filter in the middle of the list is to read.
 //
+// # Pixels of a target
+//
+// A target that holds a window's frames (core's GPU frame, ADR-281's
+// readback) is also copied from and inside. Neither goes through the
+// Encoder, and each call is one submission that is waited for:
+//
+//   - ReadPixels copies rectangles into an image: the damage of a frame in
+//     one call. The pixels cross a buffer in cached host memory (the
+//     write-combined memory some drivers list first is read at a fifteenth
+//     of the speed) and are copied again into the image;
+//   - Shift moves a rectangle inside the target, as a scroll does to the
+//     pixels of a framebuffer, through a surface the device keeps for it
+//     (a copy of an image onto itself may not overlap), which Trim gives
+//     up.
+//
+// A device that reports that it is lost stays lost: every call returns
+// ErrDeviceLost from then on, Close still destroys what it holds, and the
+// caller draws with the CPU rasterizer.
+//
 // # Resources
 //
 // Frames draw with textures that outlive them. The Encoder decides what

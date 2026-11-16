@@ -494,6 +494,11 @@
 // fade or a caret waits to blink, the Host keeps one goroutine timer that
 // calls Wake at the deadline (the platform layer has no timer API); idle,
 // it has none.
+// In a build with the tag telagpu, the Host of Run draws the frames of
+// its windows on the GPU and reads their damage back into the framebuffers
+// (Tree.RasterizeFrameGPU in the place of RasterizeFrame; gpuhost.go has
+// the design, the choice by TELA_RENDERER and the fallback to the CPU
+// rasterizer); without the tag nothing of it is linked.
 // A tree requests a frame (Window.RequestFrame) only when something
 // becomes dirty, so an idle window costs no CPU. Run opens a window with
 // the native backend and quits when it is closed (unless

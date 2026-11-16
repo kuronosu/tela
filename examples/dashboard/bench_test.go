@@ -66,6 +66,33 @@ type frameStat struct {
 	pixels int // device pixels rasterized (damage area)
 	full   bool
 	tick   int // the tick of the session
+	// gpu splits the raster phase of a frame drawn by the GPU
+	// (gpu_test.go): the encoder, the device's draws, its shifts and the
+	// readback, each with its wait; renders counts its renders (one per
+	// damaged rectangle, one for a full frame).
+	gpu     [numGPUParts]time.Duration
+	renders int
+}
+
+// The parts of frameStat.gpu.
+const (
+	gpuEncode = iota
+	gpuDraw
+	gpuShift
+	gpuRead
+	numGPUParts
+)
+
+// rigRenderer draws the rig's frames in the place of the CPU rasterizer:
+// the GPU path (gpu_test.go, with the build tag telagpu).
+type rigRenderer interface {
+	// rasterize brings r.fb to the tree's frame, like Tree.RasterizeFrame,
+	// and returns the parts of its time and the number of its renders.
+	rasterize(r *rig) (core.Damage, [numGPUParts]time.Duration, int)
+	// trimAt is Tree.RasterTrimAt for the renderer's memory, and trim
+	// Tree.TrimRaster.
+	trimAt(r *rig) time.Duration
+	trim(r *rig)
 }
 
 // rig is the page in a tree without a window, with the framebuffer a Host
@@ -93,6 +120,11 @@ type rig struct {
 	// sample, when set, is called after each frame that ran (the memory
 	// measurement reads the heap there, memory_test.go).
 	sample func(r *rig)
+	// renderer, when set, draws the frames in the place of the CPU
+	// rasterizer, and checked is called after each frame that drew, with
+	// r.fb holding it.
+	renderer rigRenderer
+	checked  func(r *rig, d core.Damage)
 }
 
 // newRig mounts the dashboard at w x h logical pixels and scale, light or
@@ -146,7 +178,11 @@ func (r *rig) tick(st *[]frameStat, events ...func()) bool {
 	if r.trimAt != 0 && r.trimAt <= r.now {
 		// The Host's timer: the window rested for RasterSettle.
 		r.trimAt = 0
-		r.tree.TrimRaster(&r.rr)
+		if r.renderer != nil {
+			r.renderer.trim(r)
+		} else {
+			r.tree.TrimRaster(&r.rr)
+		}
 	}
 	t0 := time.Now()
 	for _, f := range events {
@@ -177,9 +213,16 @@ func (r *rig) tick(st *[]frameStat, events ...func()) bool {
 	r.tree.SetScale(float32(r.scale))
 	_, changed := r.tree.Frame()
 	lap(phPipeline)
+	var drawn *core.Damage
 	if changed {
-		d := r.tree.RasterizeFrame(r.fb, &r.rr, false)
+		var d core.Damage
+		if r.renderer != nil {
+			d, fs.gpu, fs.renders = r.renderer.rasterize(r)
+		} else {
+			d = r.tree.RasterizeFrame(r.fb, &r.rr, false)
+		}
 		lap(phRaster)
+		drawn = &d
 		fs.full = d.Full
 		if d.Full {
 			fs.pixels = r.fb.Rect.Dx() * r.fb.Rect.Dy()
@@ -197,13 +240,20 @@ func (r *rig) tick(st *[]frameStat, events ...func()) bool {
 		}
 		lap(phPresent)
 	}
-	r.trimAt = r.tree.RasterTrimAt(&r.rr, r.now) // as core.Host does after every frame
+	if r.renderer != nil {
+		r.trimAt = r.renderer.trimAt(r)
+	} else {
+		r.trimAt = r.tree.RasterTrimAt(&r.rr, r.now) // as core.Host does after every frame
+	}
 	r.tree.FlushEffects()
 	lap(phEffects)
 	if r.sample != nil {
 		r.sample(r)
 	}
 	fs.total = time.Since(t0)
+	if r.checked != nil && drawn != nil {
+		r.checked(r, *drawn) // not timed
+	}
 	if st != nil {
 		*st = append(*st, fs)
 	}

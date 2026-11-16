@@ -194,6 +194,10 @@ type damageScratch struct {
 	// whether the images seen are opaque (occlude.go).
 	canvas gfx.Color
 	opaque map[uint64]bool
+	// finish, when set, takes the place of damager.finish: the GPU path's
+	// (gpuframe.go), whose renderer has neither bases nor a cache of
+	// filtered backdrops, and pays for the pixels it reads back.
+	finish func(d *damager, shifts []Shift) Damage
 }
 
 // resized returns buf with length n, reallocated when it is too short;
@@ -304,6 +308,9 @@ func (d *damager) run() Damage {
 		if i >= 0 {
 			s.pairA[i] = j
 		}
+	}
+	if s.finish != nil {
+		return s.finish(d, shifts)
 	}
 	return d.finish(shifts)
 }

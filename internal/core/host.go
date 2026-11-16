@@ -127,6 +127,9 @@ func Run(opts Options) error {
 	if err != nil {
 		return err
 	}
+	// The renderer of the windows' frames: the CPU rasterizer, or the GPU
+	// in a build that has it (gpuhost.go, ADR-281).
+	h.openGPU()
 	// The window's tree runs the functions given to Post, including the
 	// ones posted before Run.
 	stop := h.tree.ReceivePosts()
@@ -154,6 +157,7 @@ func (h *Host) end() {
 		v.tree.SetRequestFrame(nil)
 	}
 	h.tree.Unmount() // the child windows close with it (window.go)
+	h.closeGPU()     // gpuhost.go: the windows' targets and the device
 }
 
 func errorLog(w io.Writer) io.Writer {
@@ -214,6 +218,10 @@ type Host struct {
 	// rasterized, presented or not (tests check the window's pixels
 	// there).
 	AfterFrame func()
+
+	// gpu is the GPU renderer of the windows' frames in a build that has
+	// one (gpuhost.go, ADR-281); empty otherwise.
+	gpu hostGPU
 
 	// timer wakes the loop at timerAt (backend clock) for the gesture
 	// arenas (a long press); nil when nothing waits.
@@ -351,6 +359,9 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 		v.placementMoved()
 	case platform.WindowStateEvent:
 		v.os, v.opening = e.State, false
+		if e.State.Minimized {
+			v.dropGPU() // gpuhost.go: a minimized window holds no target
+		}
 		v.notePlacement(platform.Size{})
 		v.placementMoved()
 		v.syncCanvas() // a Transparent window the OS shows opaque, or again with alpha
@@ -484,14 +495,18 @@ func (h *Host) tick(now time.Duration) {
 			v.tree.TrimRaster(&v.renderer)
 		}
 	}
+	h.gpuTick(now) // gpuhost.go: the trim of the GPU renderer's memory
 	h.armTimer()
 }
 
 // nextDeadline returns the earliest deadline of the windows' trees, of
 // the trims of their framebuffers (trimFramebuffer) and renderers
-// (Tree.TrimRaster), and of the commits that windows without frames wait
-// for (paused.go).
+// (Tree.TrimRaster; the GPU renderer's, gpuhost.go), and of the commits
+// that windows without frames wait for (paused.go).
 func (h *Host) nextDeadline() (at time.Duration, ok bool) {
+	if d := h.gpuTrimAt(); d != 0 {
+		at, ok = d, true
+	}
 	for _, v := range h.views {
 		if d, has := v.tree.NextDeadline(); has && (!ok || d < at) {
 			at, ok = d, true
@@ -613,10 +628,11 @@ func (h *Host) syncRegions(v *winView) {
 // after the last frame; none while frames come). A later deadline needs no
 // new timer: one that fires early re-arms.
 func (h *Host) scheduleRasterTrim(v *winView) {
-	at := v.tree.RasterTrimAt(&v.renderer, h.backend.Now())
+	now := h.backend.Now()
+	at := v.tree.RasterTrimAt(&v.renderer, now)
 	was := v.rasterTrimAt
 	v.rasterTrimAt = at
-	if (was == 0) != (at == 0) {
+	if h.gpuScheduleTrim(now) || (was == 0) != (at == 0) {
 		h.armTimer()
 	}
 }
@@ -719,8 +735,10 @@ func (h *Host) frame(v *winView, now time.Duration) {
 	}
 	// The framebuffer keeps the previous frame: only the damage is
 	// rasterized (layer.go), and presented. The first Present after a
-	// ConfigureEvent is full for the platform anyway.
-	d := t.RasterizeFrame(v.fb, &v.renderer, full || h.FullFrames)
+	// ConfigureEvent is full for the platform anyway. rasterize is
+	// Tree.RasterizeFrame, or the GPU's frame read back into the
+	// framebuffer (gpuhost.go).
+	d := h.rasterize(v, full || h.FullFrames)
 	h.scheduleRasterTrim(v)
 	if t.Debug() != 0 {
 		switch app := t.LastDamage(); {

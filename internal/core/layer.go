@@ -228,6 +228,10 @@ type layerState struct {
 	cur, ras *frame
 	rasRect  image.Rectangle
 	damage   Damage
+	// rasGPU: ras was drawn by the GPU path (gpuframe.go, only with the
+	// build tag telagpu), which keeps neither bdc nor snaps: the frame a
+	// rasterizer draws after the other one is a full frame.
+	rasGPU bool
 	// dmg holds the buffers frameDamage reuses.
 	dmg damageScratch
 	// bdc caches the filtered backdrops of ras in the framebuffer
@@ -710,7 +714,7 @@ func (t *Tree) rasterizeApp(fb *image.RGBA, r *raster.Renderer, full bool) Damag
 	}
 	var d Damage
 	switch {
-	case full || L.ras == nil || L.ras.scale != f.scale || L.rasRect != fb.Rect:
+	case full || L.ras == nil || L.rasGPU || L.ras.scale != f.scale || L.rasRect != fb.Rect:
 		L.bdc.Reset()
 		t.renderFull(fb, r, f, 0)
 		d.Full = true
@@ -727,7 +731,7 @@ func (t *Tree) rasterizeApp(fb *image.RGBA, r *raster.Renderer, full bool) Damag
 		}
 		t.renderRects(fb, r, f, d)
 	}
-	L.ras, L.rasRect, L.damage = f, fb.Rect, d
+	L.ras, L.rasRect, L.damage, L.rasGPU = f, fb.Rect, d, false
 	return d
 }
 

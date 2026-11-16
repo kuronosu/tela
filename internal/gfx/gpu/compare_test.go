@@ -27,10 +27,12 @@ const hasBackend = true
 // The tolerance of GPU output against the CPU rasterizer's (ADR-282), on
 // premultiplied 8-bit channels: all pixels but a small share differ by at
 // most tolLevels, and none by more than tolHard. The numbers only tighten.
+// They are gfxtest's, which the tests of core's GPU frames and of the
+// examples share.
 const (
-	tolLevels = 2
-	tolShare  = 0.005
-	tolHard   = 24
+	tolLevels = gfxtest.GPULevels
+	tolShare  = gfxtest.GPUShare
+	tolHard   = gfxtest.GPUHard
 )
 
 // tolerance is the rule of one scene.
@@ -222,76 +224,11 @@ func readAll(t testing.TB, target Target) *image.RGBA {
 	return img
 }
 
-// metrics describes how two images of the same size differ: the largest
-// difference of a channel, and the share of the pixels with a channel
-// that differs by more than 1, 2 and 8 levels.
-type metrics struct {
-	max           int
-	over1, over2  float64
-	over8         float64
-	worst         image.Point
-	pixels, over0 int
-}
+// metrics describes how two images of the same size differ
+// (gfxtest.Diff, shared with the tests of core's GPU frames).
+type metrics = gfxtest.Diff
 
-func compare(a, b *image.RGBA) metrics {
-	var m metrics
-	var n1, n2, n8 int
-	r := a.Rect
-	for y := r.Min.Y; y < r.Max.Y; y++ {
-		for x := r.Min.X; x < r.Max.X; x++ {
-			i, j := a.PixOffset(x, y), b.PixOffset(x, y)
-			d := 0
-			for c := 0; c < 4; c++ {
-				d = max(d, absInt(int(a.Pix[i+c])-int(b.Pix[j+c])))
-			}
-			if d > m.max {
-				m.max, m.worst = d, image.Pt(x, y)
-			}
-			if d > 0 {
-				m.over0++
-			}
-			if d > 1 {
-				n1++
-			}
-			if d > 2 {
-				n2++
-			}
-			if d > 8 {
-				n8++
-			}
-		}
-	}
-	m.pixels = r.Dx() * r.Dy()
-	if m.pixels > 0 {
-		p := float64(m.pixels)
-		m.over1, m.over2, m.over8 = float64(n1)/p, float64(n2)/p, float64(n8)/p
-	}
-	return m
-}
-
-// overShare returns the share of pixels of m that differ by more than n
-// levels, for the n the metrics keep.
-func (m metrics) overShare(a, b *image.RGBA, n int) float64 {
-	switch n {
-	case 1:
-		return m.over1
-	case 2:
-		return m.over2
-	case 8:
-		return m.over8
-	}
-	count := 0
-	for i := 0; i < len(a.Pix); i += 4 {
-		d := 0
-		for c := 0; c < 4; c++ {
-			d = max(d, absInt(int(a.Pix[i+c])-int(b.Pix[i+c])))
-		}
-		if d > n {
-			count++
-		}
-	}
-	return float64(count) / float64(m.pixels)
-}
+func compare(a, b *image.RGBA) metrics { return gfxtest.Compare(a, b) }
 
 // dump writes the two images and their difference when TELA_GPU_DUMP names
 // a directory. In the difference a pixel is black where the images agree
@@ -364,12 +301,12 @@ func TestCompare(t *testing.T) {
 					m := compare(gpu, cpu)
 					dump(t, fmt.Sprintf("%s_%g_%s", s.Name, scale, label), gpu, cpu)
 					tol := toleranceOf(s.Name)
-					share := m.overShare(gpu, cpu, tol.levels)
+					share := m.OverShare(gpu, cpu, tol.levels)
 					result := "ok"
-					if m.max > tol.hard || share > tol.share {
+					if m.Max > tol.hard || share > tol.share {
 						result = "FAIL"
 						t.Errorf("largest difference %d at %v (limit %d); %.3f%% of the pixels differ by more than %d levels (limit %.3f%%)",
-							m.max, m.worst, tol.hard, 100*share, tol.levels, 100*tol.share)
+							m.Max, m.Worst, tol.hard, 100*share, tol.levels, 100*tol.share)
 					}
 					if tol.flatten != 0 {
 						// The same with curves flattened finer.
@@ -380,16 +317,16 @@ func TestCompare(t *testing.T) {
 						raster.FlattenTolerance = old
 						fm := compare(gpu, fine)
 						dump(t, fmt.Sprintf("%s_%g_%s_fine", s.Name, scale, label), gpu, fine)
-						if fm.max > tolHard || fm.over2 > tolShare {
+						if fm.Max > tolHard || fm.Over2 > tolShare {
 							result = "FAIL"
 							t.Errorf("flattening at %g: largest difference %d at %v; %.3f%% of the pixels differ by more than 2 levels",
-								tol.flatten, fm.max, fm.worst, 100*fm.over2)
+								tol.flatten, fm.Max, fm.Worst, 100*fm.Over2)
 						}
-						result += fmt.Sprintf(" (override; flattening at 1/%g px: max %d, >2 %.3f%%)", 1/tol.flatten, fm.max, 100*fm.over2)
+						result += fmt.Sprintf(" (override; flattening at 1/%g px: max %d, >2 %.3f%%)", 1/tol.flatten, fm.Max, 100*fm.Over2)
 					} else if _, ok := overrides[s.Name]; ok {
 						result += " (override)"
 					}
-					fmt.Fprintf(&table, "%-26s %5g %4d %7.3f%% %7.3f%% %7.3f%%  %s\n", s.Name, scale, m.max, 100*m.over1, 100*m.over2, 100*m.over8, result)
+					fmt.Fprintf(&table, "%-26s %5g %4d %7.3f%% %7.3f%% %7.3f%%  %s\n", s.Name, scale, m.Max, 100*m.Over1, 100*m.Over2, 100*m.Over8, result)
 				})
 			}
 		}
@@ -557,8 +494,8 @@ func TestKeepsPixels(t *testing.T) {
 		var r Renderer
 		cpu := image.NewRGBA(image.Rect(0, 0, w, h))
 		// A new target is transparent, like a new image.
-		if m := compare(readAll(t, target), cpu); m.max != 0 {
-			t.Fatalf("a new target is not transparent: largest channel %d at %v", m.max, m.worst)
+		if m := compare(readAll(t, target), cpu); m.Max != 0 {
+			t.Fatalf("a new target is not transparent: largest channel %d at %v", m.Max, m.Worst)
 		}
 		for i, dl := range []*gfx.DisplayList{first, second, second} {
 			if _, err := r.Render(target, dl, Options{}); err != nil {
@@ -568,11 +505,11 @@ func TestKeepsPixels(t *testing.T) {
 			gpu := readAll(t, target)
 			m := compare(gpu, cpu)
 			dump(t, fmt.Sprintf("keeps_%d_%s", i, deviceLabel(dev.Name())), gpu, cpu)
-			t.Logf("after render %d: largest difference %d, %.3f%% of the pixels over 1 level", i+1, m.max, 100*m.over1)
+			t.Logf("after render %d: largest difference %d, %.3f%% of the pixels over 1 level", i+1, m.Max, 100*m.Over1)
 			// Differences of one level add up over renders: each render
 			// rounds, on both sides.
-			if m.max > tolHard || m.over2 > tolShare {
-				t.Errorf("after render %d: largest difference %d at %v, %.3f%% of the pixels over 2 levels", i+1, m.max, m.worst, 100*m.over2)
+			if m.Max > tolHard || m.Over2 > tolShare {
+				t.Errorf("after render %d: largest difference %d at %v, %.3f%% of the pixels over 2 levels", i+1, m.Max, m.Worst, 100*m.Over2)
 			}
 		}
 	})
@@ -588,8 +525,8 @@ func TestSizes(t *testing.T) {
 				cpu := renderCPU(size.X, size.Y, dl, 1.25, gfx.White)
 				// A single pixel over the limit is a large share of a
 				// target of a few pixels: there, only the hard limit.
-				if m := compare(gpu, cpu); m.max > tolHard || (m.over2 > tolShare && m.pixels > 1000) || (m.pixels <= 1000 && m.max > tolLevels+1) {
-					t.Errorf("%s, size %v: largest difference %d at %v, %.3f%% of the pixels over 2 levels", s.Name, size, m.max, m.worst, 100*m.over2)
+				if m := compare(gpu, cpu); m.Max > tolHard || (m.Over2 > tolShare && m.Pixels > 1000) || (m.Pixels <= 1000 && m.Max > tolLevels+1) {
+					t.Errorf("%s, size %v: largest difference %d at %v, %.3f%% of the pixels over 2 levels", s.Name, size, m.Max, m.Worst, 100*m.Over2)
 				}
 			}
 		}
@@ -611,8 +548,8 @@ func TestEmpty(t *testing.T) {
 	eachDevice(t, func(t *testing.T, dev Device) {
 		check := func(what string, gpu, cpu *image.RGBA) {
 			t.Helper()
-			if m := compare(gpu, cpu); m.max != 0 {
-				t.Errorf("%s: largest difference %d at %v: GPU %v, CPU %v", what, m.max, m.worst, gpu.RGBAAt(m.worst.X, m.worst.Y), cpu.RGBAAt(m.worst.X, m.worst.Y))
+			if m := compare(gpu, cpu); m.Max != 0 {
+				t.Errorf("%s: largest difference %d at %v: GPU %v, CPU %v", what, m.Max, m.Worst, gpu.RGBAAt(m.Worst.X, m.Worst.Y), cpu.RGBAAt(m.Worst.X, m.Worst.Y))
 			}
 		}
 		for _, dl := range []*gfx.DisplayList{nil, empty} {
@@ -638,8 +575,8 @@ func TestEmpty(t *testing.T) {
 			gpu, _ := renderGPU(t, dev, w, h, scene, Options{Clear: &gfx.White, Region: region})
 			cpu := image.NewRGBA(image.Rect(0, 0, w, h))
 			raster.Render(cpu, scene, raster.Options{Clear: &gfx.White, Region: region})
-			if m := compare(gpu, cpu); m.max > 1 {
-				t.Errorf("region %v: largest difference %d at %v", region, m.max, m.worst)
+			if m := compare(gpu, cpu); m.Max > 1 {
+				t.Errorf("region %v: largest difference %d at %v", region, m.Max, m.Worst)
 			}
 			if region.Empty() == (cpu.RGBAAt(0, 0) == color.RGBA{}) {
 				t.Errorf("region %v: the rasterizer's pixel (0, 0) is %v", region, cpu.RGBAAt(0, 0))
@@ -719,9 +656,9 @@ func TestBlend(t *testing.T) {
 			}
 			cpu := renderCPU(256, 256, c.dl, 1, gfx.White)
 			m := compare(gpu, cpu)
-			t.Logf("%s: largest difference %d, %d of %d pixels differ", c.name, m.max, m.over0, m.pixels)
-			if m.max > 1 {
-				t.Errorf("%s: largest difference %d at %v: GPU %v, CPU %v", c.name, m.max, m.worst, gpu.RGBAAt(m.worst.X, m.worst.Y), cpu.RGBAAt(m.worst.X, m.worst.Y))
+			t.Logf("%s: largest difference %d, %d of %d pixels differ", c.name, m.Max, m.Over0, m.Pixels)
+			if m.Max > 1 {
+				t.Errorf("%s: largest difference %d at %v: GPU %v, CPU %v", c.name, m.Max, m.Worst, gpu.RGBAAt(m.Worst.X, m.Worst.Y), cpu.RGBAAt(m.Worst.X, m.Worst.Y))
 			}
 		}
 	})

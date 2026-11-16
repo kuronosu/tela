@@ -343,7 +343,7 @@ func (t *Tree) RasterizeFrame(fb *image.RGBA, r *raster.Renderer, full bool) Dam
 	if t.dbg.flags == 0 {
 		d = t.rasterizeApp(fb, r, full)
 	} else {
-		d = t.rasterizeDebug(fb, r, full)
+		d = t.rasterizeDebug(fb, r, full, nil)
 	}
 	r.EndFrame()
 	t.lay.bdc.EndFrame()
@@ -390,8 +390,11 @@ func (t *Tree) TrimRaster(r *raster.Renderer) {
 	t.lay.dropSnaps()
 }
 
-// rasterizeDebug is RasterizeFrame with overlays on.
-func (t *Tree) rasterizeDebug(fb *image.RGBA, r *raster.Renderer, full bool) Damage {
+// rasterizeDebug is RasterizeFrame with overlays on. draw, when not nil,
+// brings the clean copy to the application's frame in the place of
+// rasterizeApp (the GPU path, gpuframe.go); the overlays are rasterized
+// over a copy of it by r either way.
+func (t *Tree) rasterizeDebug(fb *image.RGBA, r *raster.Renderer, full bool, draw func(clean *image.RGBA, full bool) Damage) Damage {
 	d := &t.dbg
 	if t.lay.cur == nil {
 		return Damage{}
@@ -401,7 +404,12 @@ func (t *Tree) rasterizeDebug(fb *image.RGBA, r *raster.Renderer, full bool) Dam
 		d.prev = nil
 		full = true
 	}
-	app := t.rasterizeApp(d.clean, r, full)
+	var app Damage
+	if draw != nil {
+		app = draw(d.clean, full)
+	} else {
+		app = t.rasterizeApp(d.clean, r, full)
+	}
 	scale := t.lay.cur.scale
 	if d.flags&DebugPaintFlash != 0 {
 		t.addFlashes(app)

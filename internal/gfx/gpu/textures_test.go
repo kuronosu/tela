@@ -20,8 +20,8 @@ import (
 // within checks a render against the rasterizer's under the general rule.
 func within(t *testing.T, what string, gpu, cpu *image.RGBA) {
 	t.Helper()
-	if m := compare(gpu, cpu); m.max > tolHard || m.over2 > tolShare {
-		t.Errorf("%s: largest difference %d at %v, %.3f%% of the pixels over 2 levels", what, m.max, m.worst, 100*m.over2)
+	if m := compare(gpu, cpu); m.Max > tolHard || m.Over2 > tolShare {
+		t.Errorf("%s: largest difference %d at %v, %.3f%% of the pixels over 2 levels", what, m.Max, m.Worst, 100*m.Over2)
 	}
 }
 
@@ -61,9 +61,9 @@ func TestAtlasLimits(t *testing.T) {
 				// another tile.
 				roomy, _ := renderGPU(t, dev, w, h, dl, Options{Scale: scale, Clear: &s.clear})
 				dump(t, fmt.Sprintf("limits_%s_%d_%s", s.Name, round, label), gpu, roomy)
-				if m := compare(gpu, roomy); m.max > 1 {
+				if m := compare(gpu, roomy); m.Max > 1 {
 					t.Errorf("%s, round %d (%d passes): differs from a render with room: largest difference %d at %v, %d pixels",
-						s.Name, round, res.Passes, m.max, m.worst, m.over0)
+						s.Name, round, res.Passes, m.Max, m.Worst, m.Over0)
 				}
 			}
 			target.Close()
@@ -450,11 +450,11 @@ func TestKeepsPixelsLayers(t *testing.T) {
 			gpu := readAll(t, target)
 			m := compare(gpu, cpu)
 			dump(t, fmt.Sprintf("keeps_layers_%d_%s", i, deviceLabel(dev.Name())), gpu, cpu)
-			t.Logf("after render %d: largest difference %d, %.3f%% of the pixels over 1 level, %.3f%% over 2", i+1, m.max, 100*m.over1, 100*m.over2)
+			t.Logf("after render %d: largest difference %d, %.3f%% of the pixels over 1 level, %.3f%% over 2", i+1, m.Max, 100*m.Over1, 100*m.Over2)
 			// The differences of a level of each render add up, and the
 			// filters of the next one read them.
-			if m.max > tolHard || m.over2 > 4*tolShare {
-				t.Errorf("after render %d: largest difference %d at %v, %.3f%% of the pixels over 2 levels", i+1, m.max, m.worst, 100*m.over2)
+			if m.Max > tolHard || m.Over2 > 4*tolShare {
+				t.Errorf("after render %d: largest difference %d at %v, %.3f%% of the pixels over 2 levels", i+1, m.Max, m.Worst, 100*m.Over2)
 			}
 		}
 	})
