@@ -73,8 +73,48 @@ type Device interface {
 	// grew for uploads. The frames that follow must come from an Encoder
 	// that started over.
 	Trim()
+	// Rest applies a frame without passes that an Encoder made for
+	// windows that rest (Encoder.Rest): the image textures and the
+	// offscreen targets the frame gives up are destroyed, with the
+	// device's own buffers of uploads and readbacks and the surface of its
+	// shifts; the atlases and what the frame still lists stay. It returns
+	// ErrResourcesLost, having released everything as Trim does, when the
+	// device does not hold the resources of the frame's Encoder.
+	Rest(f *Frame) error
 	// Close destroys the device and the targets it still has.
 	Close()
+}
+
+// A Profiler is a Device that can measure where the time of its frames
+// goes, for the development of the renderer: a caller asks a Device for it
+// with a type assertion. While profiling, every pass of a frame is a
+// submission of its own and the instances of each class are drawn again,
+// alone, into a surface apart, so frames take many times longer; their
+// pixels are the same.
+type Profiler interface {
+	// SetProfiling turns the measurement on or off.
+	SetProfiling(on bool)
+	// TakeProfile returns what the frames drawn since the last call cost,
+	// by class, and starts over.
+	TakeProfile() []ProfileRow
+}
+
+// ProfileRow is what the draws of one class cost a device.
+type ProfileRow struct {
+	// Class names what was drawn: a kind of instance of the quad pipeline
+	// (a fill, a shadow, coverage from the atlas, a layer...), a step of
+	// the filter pipeline, or in parentheses a total: "(passes)" is every
+	// pass as the frame draws it, "(submit)" what the submissions of the
+	// measurement cost with nothing to draw.
+	Class string
+	// Runs counts the draws (or the passes), Pixels the pixels they cover
+	// inside their scissors, and Texels the texels the steps of a filter
+	// read (its pixels times its taps).
+	Runs           int
+	Pixels, Texels int64
+	// Time is the time the device took, with the cost of an empty
+	// submission taken away.
+	Time time.Duration
 }
 
 // A Target is a surface a Device draws into: premultiplied RGBA8 holding
@@ -130,6 +170,12 @@ type Result struct {
 	// image textures it created, and UploadBytes their bytes: both are 0
 	// for a frame that draws what earlier frames drew.
 	Uploads, UploadBytes int
+	// Culled counts the commands of the list that were not drawn because
+	// an opaque command painted after them covers what this render shows
+	// of them, and Backdrops what the render did with the backdrop filters
+	// of Options.Backdrops.
+	Culled    int
+	Backdrops BackdropStats
 	// Encode is the time the Encoder took to turn the list into the frame
 	// (on the calling goroutine), and Draw the time the device took to
 	// execute it, the wait for the GPU included.
@@ -163,8 +209,12 @@ func (r *Renderer) Render(t Target, dl *gfx.DisplayList, opts Options) (Result, 
 		err = t.Draw(f)
 		encode, draw = encode+t3.Sub(t2), draw+time.Since(t3)
 	}
+	if err != nil {
+		// What the frame left in the cache's targets is not known.
+		opts.Backdrops.Reset()
+	}
 	res := Result{Instances: len(f.Instances) / InstanceSize, Passes: len(f.Passes), Targets: len(f.Targets), Uploads: len(f.Images), UploadBytes: len(f.Data),
-		Encode: encode, Draw: draw}
+		Culled: r.enc.culled, Backdrops: r.enc.glass, Encode: encode, Draw: draw}
 	for i := range f.Passes {
 		res.Draws += len(f.Passes[i].Batches)
 		res.Uploads += len(f.Passes[i].Uploads)
@@ -184,11 +234,50 @@ func (r *Renderer) Render(t Target, dl *gfx.DisplayList, opts Options) (Result, 
 // that draws frames calls it once per frame.
 func (r *Renderer) EndFrame() { r.enc.EndFrame() }
 
-// Trim releases everything the Renderer keeps, on the device too, for a
-// window that rests: the next Render uploads what it draws with.
+// Trim releases everything the Renderer keeps, on the device too: the
+// next Render uploads what it draws with.
 func (r *Renderer) Trim() {
 	r.enc.Trim()
 	if r.dev != nil {
 		r.dev.Trim()
 	}
 }
+
+// Rest releases what the Renderer keeps only to draw the next frame
+// faster, on the device too, for windows that rest (Encoder.Rest): the
+// offscreen targets, the buffers, and the textures of the images that none
+// of lists, what the windows show, draws. The atlases, the images on
+// screen and the cached backdrops stay, so the frame after a rest uploads
+// nothing for what was drawn before it.
+func (r *Renderer) Rest(lists ...*gfx.DisplayList) {
+	if r.dev == nil {
+		r.enc.Trim()
+		return
+	}
+	f := r.enc.Rest(lists...)
+	if f == nil {
+		r.dev.Trim()
+		return
+	}
+	if err := r.dev.Rest(f); err != nil {
+		// The device holds nothing of the Encoder's any more.
+		r.enc.Trim()
+	}
+}
+
+// Memory describes what a Renderer holds on its device, in bytes.
+type Memory struct {
+	// Atlases is the pages of the coverage and color atlases, Images the
+	// image textures, Targets the offscreen targets of the pool (layers,
+	// the steps of filters), and Backdrops the filtered backdrops that
+	// BackdropCaches keep in targets of their own.
+	Atlases, Images, Targets, Backdrops int64
+}
+
+// Total returns the sum of m's parts.
+func (m Memory) Total() int64 { return m.Atlases + m.Images + m.Targets + m.Backdrops }
+
+// Memory returns what the Renderer holds on its device. The targets
+// themselves (a window's frame) and the buffers of a swapchain are their
+// owners' to count.
+func (r *Renderer) Memory() Memory { return r.enc.Memory() }

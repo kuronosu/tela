@@ -72,6 +72,12 @@ type frameStat struct {
 	// damaged rectangle, one for a full frame).
 	gpu     [numGPUParts]time.Duration
 	renders int
+	// What the frame's renders drew on the GPU (core.GPUFrameStats).
+	instances, draws, passes, uploads, uploadBytes int
+	// culled is the commands an opaque one hid, and glass what the frame
+	// did with the cached backdrop filters: hits, patched, stored, computed.
+	culled int
+	glass  [4]int
 }
 
 // The parts of frameStat.gpu.
@@ -88,8 +94,8 @@ const (
 // the GPU path (gpu_test.go, with the build tag telagpu).
 type rigRenderer interface {
 	// rasterize brings r.fb to the tree's frame, like Tree.RasterizeFrame,
-	// and returns the parts of its time and the number of its renders.
-	rasterize(r *rig) (core.Damage, [numGPUParts]time.Duration, int)
+	// and notes in fs the parts of its time and what it drew.
+	rasterize(r *rig, fs *frameStat) core.Damage
 	// trimAt is Tree.RasterTrimAt for the renderer's memory, and trim
 	// Tree.TrimRaster.
 	trimAt(r *rig) time.Duration
@@ -221,7 +227,7 @@ func (r *rig) tick(st *[]frameStat, events ...func()) bool {
 	if changed {
 		var d core.Damage
 		if r.renderer != nil {
-			d, fs.gpu, fs.renders = r.renderer.rasterize(r)
+			d = r.renderer.rasterize(r, &fs)
 		} else {
 			d = r.tree.RasterizeFrame(r.fb, &r.rr, false)
 		}

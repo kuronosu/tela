@@ -522,6 +522,41 @@ var layerScenes = []testScene{
 		text(b, "Sio lAo", 30, 262, 200, slate)
 		b.PopLayer()
 	}}},
+	// Layers that only fade one rectangle (a scrim), drawn without a target
+	// (Encoder.fades): opaque and translucent colors at several opacities,
+	// over a picture, through a rounded clip, a path clip and both, under a
+	// scale that keeps the edges on pixels; and the ones that are not such
+	// layers beside them: an edge between pixels, a gradient, two commands.
+	{clear: gfx.White, Scene: gfxtest.Scene{Name: "gpu_fades", W: 360, H: 200, Draw: func(b *gfx.Builder) {
+		busy(b, gfx.RectXYWH(0, 0, 360, 200))
+		fade := func(op float32, r gfx.Rect, p gfx.Paint) {
+			b.PushLayer(op, gfx.SrcOver)
+			b.FillRect(r, p)
+			b.PopLayer()
+		}
+		for i, op := range []float32{0.1, 0.35, 0.5, 0.75, 0.999} {
+			x := float32(10 + 70*i)
+			fade(op, gfx.RectXYWH(x, 10, 60, 40), slate)
+			fade(op, gfx.RectXYWH(x, 55, 60, 40), rose.WithAlpha(0.6))
+		}
+		fade(0.5, gfx.RectXYWH(0, 0, 360, 200), gfx.Black) // the scrim
+		b.PushClipRRect(gfx.NewRRect(gfx.RectXYWH(10.5, 105.5, 100, 85), 18))
+		fade(0.6, gfx.RectXYWH(0, 100, 130, 100), amber)
+		b.PushClipPath(gfxtest.StarPath(60, 148, 44), gfx.NonZero)
+		fade(0.7, gfx.RectXYWH(20, 110, 80, 80), indigo)
+		b.PopClip()
+		b.PopClip()
+		b.PushTransform(gfx.Translate(125, 105).Mul(gfx.Scale(2, 1.5)))
+		fade(0.45, gfx.RectXYWH(0, 0, 30, 56), emerald)
+		b.PopTransform()
+		// Not such layers.
+		fade(0.5, gfx.RectXYWH(195.3, 105.6, 45, 85), sky)
+		fade(0.5, gfx.RectXYWH(245, 105, 45, 85), gfx.LinearGradient{Start: gfx.Pt(245, 105), End: gfx.Pt(290, 190), Stops: stops(rose, indigo)})
+		b.PushLayer(0.5, gfx.SrcOver)
+		b.FillRect(gfx.RectXYWH(295, 105, 55, 85), fuchsia)
+		b.FillRect(gfx.RectXYWH(305, 115, 35, 65), gfx.White)
+		b.PopLayer()
+	}}},
 	// A desktop: a wallpaper, glass cards with text and shadows, one over
 	// another, a dock, a translucent menu and a dialog that fades in.
 	{clear: gfx.Black, Scene: gfxtest.Scene{Name: "gpu_glass", W: 640, H: 400, Draw: func(b *gfx.Builder) { glassDesktop(b, 640, 400) }}},

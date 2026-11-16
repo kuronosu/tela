@@ -145,7 +145,7 @@
 // The offscreen targets are a pool (target.go): textures in a few sizes,
 // that a layer drawn frame after frame finds again, listed by every frame
 // (Frame.Targets) and bounded like the rest. Their pixels live for a
-// frame.
+// frame, but for the targets a BackdropCache keeps (below).
 //
 // The coverage atlas is an array texture of 8-bit pages (atlas.go) packed
 // in shelves. It holds glyph masks, the coverage of paths and strokes, and
@@ -153,7 +153,12 @@
 // glyph key; a path's content, its transform up to whole pixels, its rule
 // or stroke style; the chain of a mask's clips). A picture larger than
 // half a page is cut into tiles, and a tile that is empty or entirely
-// covered is only noted. The color atlas is the same for the RGBA sprites
+// covered is only noted. A large path is cut into pieces instead
+// (pieces.go): the rectangles no edge comes near are drawn as plain fills
+// or not at all, and a piece crossed only by vertical edges is one row
+// rasterized and repeated. The mask of a rounded clip is cut into small
+// tiles, and what is drawn where a clip or a mask covers entirely reads
+// neither. The color atlas is the same for the RGBA sprites
 // of color glyphs. An image has a texture of its own, named by its ID.
 //
 // A frame uploads only what is new: Frame.Data and Pass.Uploads for the
@@ -172,10 +177,40 @@
 // goes on in the emptied atlas with uploads of its own, so the pixels are
 // right whatever the limits. EndFrame, called once per frame, gives up the
 // pictures, images, offscreen targets and cached shapes that no frame
-// used for idleFrames frames, and the pages left empty; Trim gives up
-// everything, on the
-// device too, for a window that rests. Without either an Encoder keeps
-// what it has until its limits make it evict.
+// used for idleFrames frames, and the pages left empty. Rest, for windows
+// that rest, gives up what only saves an allocation (the pool's targets,
+// the scratch, the device's staging and readback buffers, the images no
+// window shows) and keeps what saves work (the atlases, the images on
+// screen, the cached backdrops), so the frame after a rest uploads nothing
+// it drew before; Trim gives up everything, on the device too. Without
+// either an Encoder keeps what it has until its limits make it evict.
+//
+// # Work not done
+//
+// A BackdropCache (backdropcache.go, Options.Backdrops) keeps the output
+// of each backdrop filter of a target's frames in a target of its own, as
+// raster.BackdropCache does for the rasterizer (ADR-200): its owner says
+// which filters kept their input from one frame to the next, and which
+// changed it only inside the frame's damage (those are written over by
+// the frame's renders). A filter drawn from its entry reads nothing, so
+// the region does not grow for it. The frames that draw from an entry
+// need the device that drew it: a frame that makes one counts as a change
+// of the resources.
+//
+// What an opaque command hides is not drawn (cull.go): an opaque fill or
+// image, or a backdrop drawn from an opaque entry, hides what the list
+// paints before it inside the pixels it covers entirely, unless something
+// in between reads them. A command it hides whole is skipped, a large one
+// it hides in part is cut around it. Most of a glass pane's backdrop
+// comes from the cache, so a render inside it starts at the pane.
+//
+// The inside of a large shape (a fill, an image, a layer's or a backdrop's
+// composite) is drawn apart from its edges with FlagFull: the shader
+// computes neither its coverage nor the clips there, and an outer shadow
+// skips the inside of its box, where it paints nothing. A layer that only
+// fades one rectangle on pixel boundaries (a scrim) is that rectangle with
+// the opacity on its coverage (FlagOpacity), without a target. None of
+// this depends on the region rendered, nor changes a pixel.
 //
 // # How it follows the rasterizer
 //

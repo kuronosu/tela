@@ -10,6 +10,9 @@ import "image"
 // A target's pixels live for the frame only: every use starts by clearing
 // what will be read or by writing all of it. What lasts is the texture,
 // so that a layer drawn frame after frame does not create one each time.
+// The exception is a target a BackdropCache keeps (backdropcache.go): it
+// leaves the pool for as long as the cache holds a filtered backdrop in
+// it, and a device keeps the pixels of every target a frame lists.
 // Sizes are rounded up to a few steps, so that a layer that grows or
 // shrinks a little finds its texture again; a target drawn into is used
 // from its first pixel, whatever its size.
@@ -28,6 +31,10 @@ type poolTarget struct {
 	busy   bool   // in use by the frame being encoded
 	used   uint64 // the frame that used it last
 	idle   uint16 // frames ended since its last use (EndFrame)
+	// kept: the target holds pixels that outlive the frames, the filtered
+	// backdrop of a BackdropCache: it is no one else's to use, and does not
+	// age, until the cache gives it up.
+	kept bool
 }
 
 func (t *poolTarget) bytes() int64 { return int64(t.w) * int64(t.h) * int64(t.format.bytesPerPixel()) }
@@ -91,7 +98,7 @@ func (e *Encoder) acquireTarget(size image.Point, format TargetFormat) (*poolTar
 
 // releaseTarget gives a target back to the pool. nil is ignored.
 func (e *Encoder) releaseTarget(t *poolTarget) {
-	if t != nil {
+	if t != nil && !t.kept {
 		t.busy = false
 	}
 }
@@ -112,7 +119,7 @@ func (r *resources) dropTarget(i int) {
 func (r *resources) endFrameTargets(mark uint64) {
 	for i := 0; i < len(r.targets); i++ {
 		t := r.targets[i]
-		if t.used > mark {
+		if t.used > mark || t.kept {
 			t.idle = 0
 		} else if t.idle++; t.idle > idleFrames {
 			r.dropTarget(i)

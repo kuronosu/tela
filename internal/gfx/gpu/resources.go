@@ -1,6 +1,7 @@
 package gpu
 
 import (
+	"image"
 	"math"
 	"slices"
 	"sync/atomic"
@@ -87,6 +88,9 @@ type resources struct {
 
 	atlas  [NumAtlases]atlas
 	images map[uint64]*imageTex
+	// opaque remembers, by ID, whether the images seen are opaque
+	// (cull.go).
+	opaque map[uint64]bool
 	// imageBytes is the memory of the images; released are the IDs the
 	// next frame tells the device to destroy.
 	imageBytes int64
@@ -104,8 +108,10 @@ type resources struct {
 	nextID  uint64
 
 	masker raster.Masker
-	// Scratch for rasterizing tiles.
+	// Scratch for rasterizing tiles, and for cutting a shape into pieces.
 	tmp, tmp2 []uint8
+	cells     []uint8
+	rectBuf   []image.Rectangle
 }
 
 func (r *resources) init(l Limits) {
@@ -185,6 +191,9 @@ func (r *resources) endFrame() {
 	if cap(r.tmp) > 1<<16 {
 		r.tmp, r.tmp2 = nil, nil
 	}
+	if cap(r.cells) > 1<<16 {
+		r.cells = nil
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -196,6 +205,26 @@ type imageTex struct {
 	bytes int64
 	used  uint64
 	idle  uint16
+}
+
+// markImages marks the images that dl draws, the lists of its masks
+// included, as used by the frame being encoded.
+func (r *resources) markImages(dl *gfx.DisplayList, depth int) {
+	if dl == nil || depth > 8 {
+		return
+	}
+	for _, c := range dl.All() {
+		switch c := c.(type) {
+		case gfx.DrawImage:
+			if c.Image != nil {
+				if im := r.images[c.Image.ID()]; im != nil {
+					im.used = r.frame
+				}
+			}
+		case gfx.PushLayer:
+			r.markImages(c.Mask.List, depth+1)
+		}
+	}
 }
 
 func (r *resources) releaseImage(id uint64, im *imageTex) {

@@ -136,6 +136,9 @@ type blurAxis struct {
 	// left and right are how far the axis reads before and after a pixel,
 	// in device pixels.
 	left, right int
+	// unit: the weights of each of its kernels, as the shader reads them,
+	// sum to one: an opaque picture stays opaque.
+	unit bool
 }
 
 func (a *blurAxis) support() int { return max(a.left, a.right) }
@@ -156,8 +159,33 @@ func (e *Encoder) addTaps(lo int, w []float64) tapRange {
 	return r
 }
 
+// unitTaps reports whether the weights of a kernel of the frame sum to
+// one, within a part in ten thousand, in the shader's arithmetic.
+func (e *Encoder) unitTaps(r tapRange) bool {
+	var sum float32
+	for i := range r.n {
+		sum += e.frame.Taps[2*(r.first+i)+1]
+	}
+	return sum > 1-1e-4 && sum < 1+1e-4
+}
+
+// kernelRec is a kernel the Encoder computed: an axis without its taps in
+// a frame, and the weights of its two kernels.
+type kernelRec struct {
+	sigma, off uint64 // float64 bits
+	axis       blurAxis
+	pre, w     []float64
+	used       uint64 // the frame that used it last
+}
+
+// maxKernels bounds the kernels an Encoder remembers.
+const maxKernels = 32
+
 // kernel returns the kernel of a Gaussian of device standard deviation
 // sigma whose output is shifted by off pixels, with its taps in the frame.
+// The kernels are remembered from frame to frame (the rasterizer's is a
+// convolution of three boxes): a frame that blurs as the frames before it
+// computes none.
 func (e *Encoder) kernel(sigma, off float64) blurAxis {
 	sb, ob := math.Float64bits(sigma), math.Float64bits(off)
 	for i := range e.kernels {
@@ -165,14 +193,50 @@ func (e *Encoder) kernel(sigma, off float64) blurAxis {
 			return k.axis
 		}
 	}
-	// perf: the rasterizer's kernel is computed again in every frame that
-	// blurs (a convolution of three boxes).
+	var rec *kernelRec
+	for i := range e.kcache {
+		if k := &e.kcache[i]; k.sigma == sb && k.off == ob {
+			rec = k
+			break
+		}
+	}
+	if rec == nil {
+		if len(e.kcache) >= maxKernels {
+			// The one unused for longest goes.
+			old := 0
+			for i := range e.kcache {
+				if e.kcache[i].used < e.kcache[old].used {
+					old = i
+				}
+			}
+			e.kcache[old] = e.kcache[len(e.kcache)-1]
+			e.kcache = e.kcache[:len(e.kcache)-1]
+		}
+		e.kcache = append(e.kcache, newKernel(sigma, off))
+		rec = &e.kcache[len(e.kcache)-1]
+	}
+	rec.used = e.serial
+	a := rec.axis
+	if rec.pre != nil {
+		a.pre = e.addTaps(a.plo, rec.pre)
+	}
+	if rec.w != nil {
+		a.taps = e.addTaps(a.lo, rec.w)
+	}
+	a.unit = a.ident || (e.unitTaps(a.taps) && (a.g == 1 || e.unitTaps(a.pre)))
+	e.kernels = append(e.kernels, frameKernel{sigma: sb, off: ob, axis: a})
+	return a
+}
+
+// newKernel computes the kernel of kernel.
+func newKernel(sigma, off float64) kernelRec {
+	rec := kernelRec{sigma: math.Float64bits(sigma), off: math.Float64bits(off)}
 	k := raster.NewBlurKernel(sigma, off)
 	a := blurAxis{g: 1}
 	switch {
 	case k.Identity():
 		a.ident = true
-	case e.reduced(&a, &k):
+	case reduced(&a, &k, &rec):
 	case k.Down > 1:
 		// The rasterizer's own blocks: their mean, its kernel.
 		g := k.Down
@@ -181,21 +245,21 @@ func (e *Encoder) kernel(sigma, off float64) blurAxis {
 			box[i] = 1 / float64(g)
 		}
 		a.g, a.sh = g, k.Shift
-		a.pre, a.plo, a.phi = e.addTaps(0, box), 0, g-1
-		a.taps, a.lo, a.hi = e.addTaps(k.Lo, k.W), k.Lo, k.Lo+len(k.W)-1
+		rec.pre, a.plo, a.phi = box, 0, g-1
+		rec.w, a.lo, a.hi = k.W, k.Lo, k.Lo+len(k.W)-1
 		a.left, a.right = k.Left, k.Right
 	default:
-		a.taps, a.lo, a.hi = e.addTaps(k.Lo, k.W), k.Lo, k.Lo+len(k.W)-1
+		rec.w, a.lo, a.hi = k.W, k.Lo, k.Lo+len(k.W)-1
 		a.left, a.right = k.Left, k.Right
 	}
-	e.kernels = append(e.kernels, frameKernel{sigma: sb, off: ob, axis: a})
-	return a
+	rec.axis = a
+	return rec
 }
 
 // reduced makes a the kernel k applied at a reduced resolution, when k is
 // three box passes wide enough for one (see the comment at the top of the
-// file), and reports whether it did.
-func (e *Encoder) reduced(a *blurAxis, k *raster.BlurKernel) bool {
+// file), with its weights in rec, and reports whether it did.
+func reduced(a *blurAxis, k *raster.BlurKernel, rec *kernelRec) bool {
 	if !(k.Variance > 0) {
 		return false
 	}
@@ -242,8 +306,8 @@ func (e *Encoder) reduced(a *blurAxis, k *raster.BlurKernel) bool {
 			tent[i] = (float64(g) - d) / gg
 		}
 		a.g, a.sh = g, sh
-		a.pre, a.plo, a.phi = e.addTaps(-g/2, tent), -g/2, 3*g/2-1
-		a.taps, a.lo, a.hi = e.addTaps(-ext, w), -ext, ext
+		rec.pre, a.plo, a.phi = tent, -g/2, 3*g/2-1
+		rec.w, a.lo, a.hi = w, -ext, ext
 		a.left, a.right = max((ext+2)*g-1+sh, 0), max((ext+2)*g-1-sh, 0)
 		return true
 	}
@@ -584,39 +648,6 @@ func floorDiv(a, b int) int {
 	return q
 }
 
-// backdropNeeds returns, for a render of region grown to grown for the
-// backdrop filters of the frame's list (raster.BackdropRegion), the pixels
-// of each filter's output that the render needs, by the filter's order in
-// the list: the region, grown by what the filters after it read. The
-// rasterizer computes each over all of the grown region; the others are
-// pixels nothing exact reads. It returns nil when the outputs cannot be
-// told apart (a filter inside a layer with filters, which makes the
-// rasterizer render the whole frame).
-func backdropNeeds(dl *gfx.DisplayList, scale float32, region, grown, bounds image.Rectangle, needs []image.Rectangle) []image.Rectangle {
-	n := dl.NumBackdrops()
-	needs = slices.Grow(needs[:0], n)[:n]
-	reg := region
-	for k := n - 1; k >= 0; k-- {
-		needs[k] = reg
-		_, _, reach, inFilter := dl.Backdrop(k)
-		if !(reach > 0) {
-			continue
-		}
-		rd := raster.BackdropReadRegion(dl, scale, k, reg).Intersect(bounds)
-		if rd.Empty() {
-			continue
-		}
-		if inFilter {
-			return nil
-		}
-		reg = reg.Union(rd)
-	}
-	if reg != grown {
-		return nil // not the rasterizer's region: take no shortcut
-	}
-	return needs
-}
-
 // backdropFilter encodes the BackdropFilter at index i of the list being
 // encoded (raster's backdropFilter): the pixels of the surface being drawn
 // into inside the device bounds of the shape, mirrored beyond them as far
@@ -627,12 +658,45 @@ func (e *Encoder) backdropFilter(i int, c gfx.BackdropFilter) {
 	st := e.top()
 	op := raster.Unit8(float64(c.Opacity))
 	r := c.Shape.Rect
-	in := touchBounds(&st.ctm, [4]float64{float64(r.X0), float64(r.Y0), float64(r.X1), float64(r.Y1)}).Intersect(st.surf)
+	all := touchBounds(&st.ctm, [4]float64{float64(r.X0), float64(r.Y0), float64(r.X1), float64(r.Y1)})
+	in := all.Intersect(st.surf)
 	if op == 0 || in.Empty() || !in.Overlaps(st.scissor) {
+		return
+	}
+	// The filter's entry in the cache of filtered backdrops, when it is one
+	// of the frame's list drawn on the frame's surface: its output is
+	// painted from the entry, or computed and kept in it
+	// (backdropcache.go).
+	var en *glassEntry
+	slot := -1
+	if bc := e.bdc; bc != nil && e.dl == e.frameDL && len(e.layers) == 0 {
+		en, slot = bc.entry(i)
+	}
+	// An entry that holds the output but for the frame's damage is whole
+	// again only when every render of the frame writes what it computes of
+	// it: one that computes nothing here leaves it behind, and it goes.
+	unpatched := func() {
+		if en != nil && en.state == glassPatch {
+			e.bdc.epoch++
+			en.drop()
+		}
+	}
+	if e.hidden(i) {
+		unpatched()
 		return
 	}
 	sh, bounds, ok := shapeFor(&st.ctm, c.Shape)
 	if !ok {
+		unpatched()
+		return
+	}
+	if en != nil && e.bdc.hit(slot) {
+		out := in.Intersect(st.scissor).Intersect(en.in)
+		if out.Empty() || !bounds.Overlaps(out) {
+			return
+		}
+		e.glass.Hits++
+		e.paintBackdrop(st, &sh, bounds, plane{from: Source(en.t.id), org: en.in.Min, rect: en.in}, out, op)
 		return
 	}
 	first := len(e.dfs)
@@ -665,6 +729,7 @@ func (e *Encoder) backdropFilter(i int, c gfx.BackdropFilter) {
 		Intersect(image.Rect(in.Min.X-rx, in.Min.Y-ry, in.Max.X+rx, in.Max.Y+ry))
 	if tl := e.res.limits.MaxTextureSize; win.Dx() > tl || win.Dy() > tl {
 		e.unsupported("BackdropFilter (a backdrop larger than the device's textures)")
+		unpatched()
 		return
 	}
 	below := e.pass
@@ -679,12 +744,23 @@ func (e *Encoder) backdropFilter(i int, c gfx.BackdropFilter) {
 			e.filter(out, &filterStep{step: FilterCopy, flags: FilterFlagRound, src: back})
 		}
 	}
+	if res.from == 0 {
+		unpatched()
+	} else if en != nil {
+		e.keepBackdrop(en, slot, &c, i, &st.ctm, all.Intersect(e.target), out, &res, fs)
+	}
 	e.setTarget(below.target, below.origin, nil)
 	if res.from == 0 {
 		return
 	}
-	// The filtered backdrop, through the shape and the clips, at the
-	// command's opacity.
+	e.paintBackdrop(st, &sh, bounds, res, out, op)
+	e.releaseTarget(res.t) // unless the cache keeps it
+}
+
+// paintBackdrop paints a filtered backdrop, the picture res, through the
+// shape sh (whose pixels are bounds) and the clips of st, inside out, at
+// the opacity op.
+func (e *Encoder) paintBackdrop(st *state, sh *shape, bounds image.Rectangle, res plane, out image.Rectangle, op uint8) {
 	var inst instance
 	quad := e.begin(&inst, bounds)
 	var flags uint32
@@ -694,6 +770,78 @@ func (e *Encoder) backdropFilter(i int, c gfx.BackdropFilter) {
 	sh.put(&inst, SlotShape, float64(quad.Min.X), float64(quad.Min.Y))
 	cs := *st
 	cs.scissor = st.scissor.Intersect(out)
-	e.emitLayer(&inst, flags, &cs, quad, &layerPaint{src: res, opacity: op, fade: true})
-	e.releaseTarget(res.t)
+	e.emitLayer(&inst, flags, &cs, quad, &layerPaint{src: res, opacity: op, fade: true, inside: sh.inside()})
+}
+
+// keepBackdrop gives the cache what a render computed of the output of
+// the backdrop filter c at command index i, drawn under ctm: the picture
+// res, which holds out. full is the device bounds of the filter's shape in
+// the target, the pixels an entry holds.
+//
+//   - A render that computed all of the output (out is full) leaves its
+//     target to the cache, which takes it from the pool, in the place of
+//     what the entry held.
+//   - Else an entry that holds the output but for the frame's damage
+//     (glassPatch) is written over out, by a copy: it stays whole.
+//
+// The pass being encoded when it returns is another one: the caller starts
+// the pass of its surface again.
+func (e *Encoder) keepBackdrop(en *glassEntry, slot int, c *gfx.BackdropFilter, i int, ctm *gfx.Affine, full, out image.Rectangle, res *plane, fs []devFilter) {
+	bc := e.bdc
+	bc.epoch++ // the entry changes, one way or another
+	// The output is opaque when the surface under it is and the filters
+	// keep it so.
+	opaque := e.opaque && keepOpaque(fs)
+	whole := out == full && res.t != nil && res.org == out.Min
+	if bc.holds(slot) && !whole {
+		// state is glassPatch (a hit is painted from the entry).
+		e.setTarget(en.t.id, en.in.Min, nil)
+		e.copyPixels(out.Intersect(en.in), res.from, res.rect, res.org)
+		en.opaque = en.opaque && opaque
+		en.t.used = e.res.frame
+		e.glass.Patched++
+		return
+	}
+	// tried: the render computed all it could of the filter for an entry
+	// (BackdropCache.whole), in vain.
+	stable, tried := en.stable, en.tried || bc.whole(slot)
+	if !whole || !bc.fits(slot) {
+		en.drop() // what it held, if anything, is not this filter's
+		en.stable, en.tried = stable, tried
+		e.glass.Computed++
+		return
+	}
+	en.drop()
+	*en = glassEntry{state: glassValid, stable: stable, opaque: opaque, t: res.t, ctm: *ctm, in: full,
+		filters: c.Filters, bounds: e.dl.BoundsAt(i)}
+	res.t.kept = true
+	// The frames that draw from the entry need the device to hold its
+	// pixels: a device that did not draw this frame does not, so the frame
+	// counts as a change of the resources (Frame.Res), and a device that
+	// started over refuses the frames after it (ErrResourcesLost).
+	e.res.dirty = true
+	e.glass.Stored++
+}
+
+// keepOpaque reports whether the filters fs give opaque pixels for an
+// opaque picture: blurs whose kernels sum to one (a weight of 1 within a
+// part in ten thousand rounds to 255 through the half floats between the
+// passes), and color matrices that leave the alpha as it is.
+func keepOpaque(fs []devFilter) bool {
+	for k := range fs {
+		f := &fs[k]
+		switch f.kind {
+		case filterBlur:
+			if !f.kx.unit || !f.ky.unit {
+				return false
+			}
+		case filterMatrix:
+			if f.m[15] != 0 || f.m[16] != 0 || f.m[17] != 0 || f.m[18] != 1 || f.m[19] != 0 {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
 }

@@ -54,8 +54,9 @@ type Frame struct {
 	// Encoder once the frame is drawn: those the frame's passes draw into
 	// and read, and those kept for the frames that follow. The device
 	// creates the ones it does not have before it draws and destroys the
-	// ones it has that are not listed. Their pixels do not outlive a
-	// frame.
+	// ones it has that are not listed. A target that stays listed keeps
+	// its pixels from frame to frame; the Encoder relies on that only for
+	// the filtered backdrops of a BackdropCache.
 	Targets []TargetInfo
 	// Taps holds the kernels of the filter instances, an offset and a
 	// weight per tap (see FilterTaps), and their color matrices
@@ -343,6 +344,16 @@ const (
 	// read by the blend modes other than gfx.SrcOver, under
 	// PipelineBlend).
 	FlagLayer = 1 << 13
+	// FlagFull says every pixel of the quad is covered entirely by the
+	// instance's shape and by the clips: the shader computes neither (the
+	// inside of a large shape is drawn apart from its edges, emitShape).
+	// The kind is a fill.
+	FlagFull = 1 << 14
+	// FlagOpacity says a solid fill is faded by an opacity, 1 to 255 in the
+	// second value of SlotHead, which multiplies its coverage after the
+	// clips: a layer that holds nothing but that fill, drawn without the
+	// layer (pushLayer).
+	FlagOpacity = 1 << 15
 	// FlagSegmentsShift is where the number of ramp rows of a gradient is
 	// (16 bits).
 	FlagSegmentsShift = 16

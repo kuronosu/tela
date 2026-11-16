@@ -181,6 +181,15 @@ type damageScratch struct {
 	// count in the cost of the damage.
 	carry, carryBuf []int
 	bdc             *raster.BackdropCache
+	// patch is, for each backdrop filter of the new frame, the backdrop
+	// filter of the old frame it is (an equal command with equal bounds,
+	// under equal pushes, outside the shifted units and every layer with
+	// filters) when its input changed only inside damaged rectangles
+	// painted before it, or -1: its output differs from the old one only
+	// inside the frame's damage (backdropClosure adds it), so a cache that
+	// holds the old output whole is brought up to date by the frame's own
+	// renders (the GPU path's, gpu.BackdropCache.Retain).
+	patch, patchBuf []int
 	// anchors indexes the new commands of the middle by their bounds for
 	// anchor, once the frame's matching needs it (anchored).
 	anchors  map[gfx.Rect][]int
@@ -216,7 +225,7 @@ func frameDamage(a, b *frame, bounds image.Rectangle, s *damageScratch) Damage {
 		s = new(damageScratch)
 	}
 	d := damager{a: a, b: b, scale: float64(b.scale), bounds: bounds, scratch: s}
-	s.carry, s.anchored = nil, false
+	s.carry, s.patch, s.anchored = nil, nil, false
 	s.devA, s.devB = s.devA[:0], s.devB[:0]
 	return d.run()
 }
@@ -1356,12 +1365,14 @@ func (d *damager) backdropClosure(shifts []Shift) {
 	n := B.NumBackdrops()
 	s.carryBuf = resized(s.carryBuf, n)
 	s.carry = s.carryBuf
+	s.patchBuf = resized(s.patchBuf, n)
+	s.patch = s.patchBuf
 	ka, na := 0, A.NumBackdrops() // the old filters, in list order
 	for k := range n {
 		i, read, _, inFilter := B.Backdrop(k)
 		rd := d.devRect(read)
 		var o image.Rectangle
-		changed := false
+		changed, shifted := false, false
 		for m, r := range d.rects {
 			if d.rpos[m] >= 2*i || !r.Overlaps(rd) {
 				continue
@@ -1375,17 +1386,21 @@ func (d *damager) backdropClosure(shifts []Shift) {
 		}
 		for _, sh := range shifts {
 			if sh.Rect.Overlaps(rd) || sh.Rect.Sub(image.Pt(sh.DX, sh.DY)).Overlaps(rd) {
-				changed = true
+				changed, shifted = true, true
 			}
 		}
 		d.pos = 2 * i
 		d.add(o)
-		s.carry[k] = -1
-		if p := s.pairB[i]; p >= 0 && !changed && d.unitB[i] < 0 {
+		s.carry[k], s.patch[k] = -1, -1
+		if p := s.pairB[i]; p >= 0 && d.unitB[i] < 0 && (!changed || (!shifted && !inFilter)) {
 			for ka < na {
 				if j, _, _, _ := A.Backdrop(ka); j >= p {
 					if j == p {
-						s.carry[k] = ka
+						if changed {
+							s.patch[k] = ka
+						} else {
+							s.carry[k] = ka
+						}
 					}
 					break
 				}

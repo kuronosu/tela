@@ -121,6 +121,12 @@ func (e *Encoder) shadow(c gfx.DrawShadow) {
 		return // an outer shadow of nothing
 	}
 	flags |= mode << FlagBlurShift
+	if !c.Inset && boxOK {
+		// An outer shadow paints nothing where its box covers entirely:
+		// under a pane, that is most of its pixels.
+		e.emitShape(&in, flags, st, quad, box.inside(), true)
+		return
+	}
 	e.emit(&in, flags, st, quad, nil)
 }
 

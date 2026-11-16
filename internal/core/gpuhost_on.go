@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/gfx/gpu"
 	"github.com/kuronosu/tela/internal/platform"
 )
@@ -291,8 +292,8 @@ func (h *Host) rasterize(v *winView, full bool) Damage {
 	d, err := v.tree.RasterizeFrameGPU(v.fb, v.gpu.surf, &v.renderer, full)
 	if h.gpu.trace {
 		st := v.gpu.surf.Stats
-		fmt.Fprintf(h.log, "tela: gpu: frame %dx%d full=%v direct=%v renders=%d shifts=%d read=%dpx encode=%v draw=%v shift=%v readback=%v fallback=%v\n",
-			v.fb.Rect.Dx(), v.fb.Rect.Dy(), d.Full, st.Direct, st.Renders, st.Shifts, st.Pixels, st.Encode, st.Draw, st.Shift, st.Read, st.Fallback)
+		fmt.Fprintf(h.log, "tela: gpu: frame %dx%d full=%v direct=%v renders=%d shifts=%d read=%dpx instances=%d draws=%d passes=%d uploads=%d (%d bytes) encode=%v draw=%v shift=%v readback=%v fallback=%v\n",
+			v.fb.Rect.Dx(), v.fb.Rect.Dy(), d.Full, st.Direct, st.Renders, st.Shifts, st.Pixels, st.Instances, st.Draws, st.Passes, st.Uploads, st.UploadBytes, st.Encode, st.Draw, st.Shift, st.Read, st.Fallback)
 	}
 	if err != nil {
 		h.gpuFailed(v, err)
@@ -438,7 +439,14 @@ func (h *Host) gpuTick(now time.Duration) {
 	if at := h.gpu.trimAt; at != 0 && at <= now {
 		h.gpu.trimAt = 0
 		if g := h.gpu.g; g != nil {
-			g.Trim()
+			// What the windows show stays on the device.
+			var lists []*gfx.DisplayList
+			for _, v := range h.views {
+				if v.gpu.surf != nil && !v.gpu.off {
+					lists = append(lists, v.tree.LastFrame())
+				}
+			}
+			g.Trim(lists...)
 			for _, v := range h.views {
 				if v.gpu.chain != nil {
 					v.gpu.chain.Trim() // the buffers a slower OS needed

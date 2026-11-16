@@ -269,6 +269,7 @@ func TestEncodeLayerKinds(t *testing.T) {
 		content(b)
 		b.PushLayer(0.7, gfx.SrcOver)
 		content(b)
+		content(b)
 		b.PopLayer()
 		content(b)
 		b.PopLayer()
@@ -276,6 +277,7 @@ func TestEncodeLayerKinds(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			b.PushLayer(0.5, gfx.SrcOver)
 			content(b)
+			content(b) // (a layer of one rectangle alone needs no target)
 			b.PopLayer()
 		}
 	}), image.Pt(100, 100), Options{})
@@ -323,6 +325,104 @@ func TestEncodeLayerKinds(t *testing.T) {
 		if f := encode(100, 100, Options{Region: image.Rect(0, 0, 40, 40)}, draw); len(f.Passes) != 0 || len(f.Targets) != 0 {
 			t.Errorf("%s: passes %q, %d targets", name, passesOf(f), len(f.Targets))
 		}
+	}
+}
+
+// TestEncodeFade checks that a layer that only fades one rectangle on
+// pixel boundaries is drawn without a target, as the rectangle with the
+// layer's opacity on its coverage, and that every other layer keeps its
+// target.
+func TestEncodeFade(t *testing.T) {
+	rect := gfx.RectXYWH(10, 20, 60, 40)
+	one := func(op float32, blend gfx.BlendMode, r gfx.Rect, p gfx.Paint, fs ...gfx.Filter) func(b *gfx.Builder) {
+		return func(b *gfx.Builder) {
+			b.PushLayer(op, blend, fs...)
+			b.FillRect(r, p)
+			b.PopLayer()
+		}
+	}
+	f := encode(100, 100, Options{}, func(b *gfx.Builder) {
+		b.FillRect(gfx.RectXYWH(0, 0, 100, 100), slate.WithAlpha(0.5))
+		b.PushClipRRect(gfx.NewRRect(gfx.RectXYWH(15.5, 25.5, 80, 70), 12))
+		one(0.4, gfx.SrcOver, rect, rose)(b) // over the clip's corner
+		b.PopClip()
+	})
+	checkFrame(t, "fade", f)
+	if len(f.Passes) != 1 || len(f.Targets) != 0 || instances(f) != 2 {
+		t.Fatalf("a layer of one rectangle: passes %q, %d targets, %d instances", passesOf(f), len(f.Targets), instances(f))
+	}
+	h := head(f, 1)
+	if h[0]&FlagOpacity == 0 || h[0]&FlagLayer != 0 || h[1] != 102 || h[0]>>FlagClipShift&3 != ClipDevice {
+		t.Errorf("the faded rectangle: flags %#x, opacity %d, want FlagOpacity, the clip around the layer and 102", h[0], h[1])
+	}
+	if got, want := f.Passes[0].Batches[1].Scissor, image.Rect(15, 25, 71, 61); got != want {
+		t.Errorf("the faded rectangle's scissor: %v, want the clip inside the layer's bounds, %v", got, want)
+	}
+	if h0 := head(f, 0); h0[0]&FlagOpacity != 0 {
+		t.Errorf("a fill outside the layer is faded (flags %#x)", h0[0])
+	}
+	// Everything else is a layer in a target of its own.
+	for _, c := range []struct {
+		name string
+		draw func(b *gfx.Builder)
+	}{
+		{"an edge between pixels", one(0.4, gfx.SrcOver, gfx.RectXYWH(10.5, 20, 60, 40), rose)},
+		{"a gradient", one(0.4, gfx.SrcOver, rect, gfx.LinearGradient{End: gfx.Pt(100, 0), Stops: stops(rose, sky)})},
+		{"a blend mode", one(0.4, gfx.Multiply, rect, rose)},
+		{"a filter", one(0.4, gfx.SrcOver, rect, rose, gfx.Blur{StdDev: 2})},
+		{"a rotation", func(b *gfx.Builder) {
+			b.PushTransform(gfx.RotateAbout(0.2, gfx.Pt(40, 40)))
+			one(0.4, gfx.SrcOver, rect, rose)(b)
+			b.PopTransform()
+		}},
+		{"a rounded rectangle", func(b *gfx.Builder) {
+			b.PushLayer(0.4, gfx.SrcOver)
+			b.FillRRect(gfx.NewRRect(rect, 6), rose)
+			b.PopLayer()
+		}},
+		{"two rectangles", func(b *gfx.Builder) {
+			b.PushLayer(0.4, gfx.SrcOver)
+			b.FillRect(rect, rose)
+			b.FillRect(rect, sky)
+			b.PopLayer()
+		}},
+		{"a rectangle in a clip", func(b *gfx.Builder) {
+			b.PushLayer(0.4, gfx.SrcOver)
+			b.PushClipRect(gfx.RectXYWH(20, 20, 20, 20))
+			b.FillRect(rect, rose)
+			b.PopClip()
+			b.PopLayer()
+		}},
+		{"a mask", func(b *gfx.Builder) {
+			b.PushMaskLayer(maskOf(gfx.MaskAlpha, func(b *gfx.Builder) { b.FillRect(rect, gfx.Black) }), 0.4, gfx.SrcOver)
+			b.FillRect(rect, rose)
+			b.PopLayer()
+		}},
+	} {
+		f := encode(100, 100, Options{}, c.draw)
+		checkFrame(t, c.name, f)
+		faded := false
+		for i := range instances(f) {
+			for pi := range f.Passes {
+				for _, bt := range f.Passes[pi].Batches {
+					if bt.Pipeline != PipelineFilter && i >= bt.First && i < bt.First+bt.Count && head(f, i)[0]&(FlagOpacity|FlagLayer) == FlagOpacity {
+						faded = true
+					}
+				}
+			}
+		}
+		if len(f.Targets) == 0 || faded {
+			t.Errorf("%s: %d targets, faded without a layer: %v (passes %q)", c.name, len(f.Targets), faded, passesOf(f))
+		}
+	}
+	// An opaque layer is no layer; one of opacity 0 draws nothing.
+	if f := encode(100, 100, Options{}, one(1, gfx.SrcOver, rect, rose)); len(f.Targets) == 0 {
+		// (The rasterizer's layer at opacity 1 is still a layer here: one
+		// rectangle in a target, composited whole.)
+		t.Log("a layer at opacity 1 is drawn without a target")
+	}
+	if f := encode(100, 100, Options{}, one(0, gfx.SrcOver, rect, rose)); instances(f) != 0 {
+		t.Errorf("a layer of opacity 0 draws %d instances", instances(f))
 	}
 }
 
@@ -599,7 +699,7 @@ func TestTargetPool(t *testing.T) {
 	layer := func(w, h float32, fs ...gfx.Filter) *gfx.DisplayList {
 		return gfxtest.Build(func(b *gfx.Builder) {
 			b.PushLayer(0.5, gfx.SrcOver, fs...)
-			b.FillRect(gfx.RectXYWH(10, 10, w, h), rose)
+			b.FillRRect(gfx.NewRRect(gfx.RectXYWH(10, 10, w, h), 4), rose) // (a rectangle alone needs no target)
 			b.PopLayer()
 		})
 	}

@@ -215,7 +215,8 @@ func TestEncodeRadiiFollowTheTransform(t *testing.T) {
 }
 
 func TestEncodeClips(t *testing.T) {
-	fill := func(b *gfx.Builder) { b.FillRect(gfx.RectXYWH(0, 0, 100, 100), gfx.Black) }
+	// (Translucent: an opaque fill would hide the fills before it, cull.go.)
+	fill := func(b *gfx.Builder) { b.FillRect(gfx.RectXYWH(0, 0, 100, 100), gfx.Black.WithAlpha(0.5)) }
 	clipOf := func(f *Frame, i int) uint32 { return head(f, i)[0] >> FlagClipShift & 3 }
 
 	// On pixel boundaries: a scissor, no clip in the instance.
@@ -302,34 +303,58 @@ func TestEncodeClips(t *testing.T) {
 		fill(b)
 		b.PopClip()
 	})
-	if len(f.Unsupported) != 0 || instances(f) != 2 {
-		t.Fatalf("clips sharing edge pixels: %d instances, unsupported %v", instances(f), f.Unsupported)
+	// The fill inside both is drawn in parts: the one where the second
+	// clip covers entirely reads no mask, the pieces along its edges read
+	// their tile of it; all carry the first clip, and so does the fill
+	// inside the first only, the last instance.
+	n := instances(f)
+	if len(f.Unsupported) != 0 || n < 3 {
+		t.Fatalf("clips sharing edge pixels: %d instances, unsupported %v", n, f.Unsupported)
 	}
-	if h := head(f, 0)[0]; clipOf(f, 0) != ClipDevice || h&FlagMask == 0 {
-		t.Errorf("the instance inside both: flags %#x, want a clip and a mask", h)
+	masked, plain := 0, 0
+	for i := 0; i < n-1; i++ {
+		h := head(f, i)[0]
+		if clipOf(f, i) != ClipDevice {
+			t.Errorf("part %d of the instance inside both: flags %#x, want a clip", i, h)
+		}
+		if got, want := floats(f, i, SlotClip), [4]float32{10.5, 10.5, 90.5, 90.5}; got != want {
+			t.Errorf("the clip of part %d of the instance inside both: %v, want %v", i, got, want)
+		}
+		if h&FlagMask != 0 {
+			masked++
+		} else {
+			plain++
+		}
 	}
-	if h := head(f, 1)[0]; clipOf(f, 1) != ClipDevice || h&FlagMask != 0 {
+	if masked == 0 || plain != 1 {
+		t.Errorf("the instance inside both: %d parts read the mask and %d do not, want some and one", masked, plain)
+	}
+	if h := head(f, n-1)[0]; clipOf(f, n-1) != ClipDevice || h&FlagMask != 0 {
 		t.Errorf("the instance inside the first only: flags %#x, want a clip and no mask", h)
 	}
-	if got, want := floats(f, 0, SlotClip), [4]float32{10.5, 10.5, 90.5, 90.5}; got != want {
-		t.Errorf("the clip of the instance inside both: %v, want %v", got, want)
-	}
 	// The mask is the second clip over the pixels both leave, with the
-	// rasterizer's coverage: 3/4 of the first column and row.
-	ups := f.Passes[0].Uploads
-	if len(ups) != 1 || ups[0].Atlas != AtlasCoverage || ups[0].Rect.Size() != image.Pt(31, 31) {
-		t.Fatalf("the mask's upload: %+v", ups)
+	// rasterizer's coverage, 3/4 of the first column and row, read by the
+	// parts where they are in the atlas.
+	sim := &atlasSim{t: t}
+	mask := map[image.Point]uint8{}
+	sc := f.Passes[0].Batches[0].Scissor
+	for i, rd := range sim.draw(f)[:n-1] {
+		vis := rd.quad.Intersect(sc)
+		k := 0
+		for y := vis.Min.Y; y < vis.Max.Y; y++ {
+			for x := vis.Min.X; x < vis.Max.X; x++ {
+				mask[image.Pt(x, y)] = 255
+				if head(f, i)[0]&FlagMask != 0 {
+					mask[image.Pt(x, y)] = rd.mask[k]
+				}
+				k++
+			}
+		}
 	}
-	mask := f.Data[ups[0].Offset:][:31*31]
-	if mask[0] != 143 || mask[1] != 191 || mask[31] != 191 || mask[32] != 255 || mask[30] != 48 || mask[31*31-1] != 16 {
-		t.Errorf("the mask's pixels: corner %d, top %d, left %d, inside %d, top right %d, bottom right %d",
-			mask[0], mask[1], mask[31], mask[32], mask[30], mask[31*31-1])
-	}
-	// The instance reads it where it is in the atlas: the texel of device
-	// pixel (10, 20) is the upload's corner.
-	tex := slotInts(f, 0, SlotTex)
-	if got, want := image.Pt(10+int(tex[2]), 20+int(tex[3])), ups[0].Rect.Min; got != want {
-		t.Errorf("the mask's texel of pixel (10, 20): %v, want %v", got, want)
+	at := func(x, y int) uint8 { return mask[image.Pt(10+x, 20+y)] }
+	if len(mask) != 31*31 || at(0, 0) != 143 || at(1, 0) != 191 || at(0, 1) != 191 || at(1, 1) != 255 || at(30, 0) != 48 || at(30, 30) != 16 {
+		t.Errorf("the mask's pixels (%d of them): corner %d, top %d, left %d, inside %d, top right %d, bottom right %d",
+			len(mask), at(0, 0), at(1, 0), at(0, 1), at(1, 1), at(30, 0), at(30, 30))
 	}
 
 	// A clip that leaves nothing.
@@ -719,6 +744,14 @@ func TestEncodeShadows(t *testing.T) {
 // read before a pass of the frame has drawn into it.
 func checkFrame(t *testing.T, what string, f *Frame) {
 	t.Helper()
+	checkFrameKept(t, what, f, nil)
+}
+
+// checkFrameKept is checkFrame for a frame that may read the targets kept,
+// which hold pixels of earlier frames (a BackdropCache's), before it draws
+// into them.
+func checkFrameKept(t *testing.T, what string, f *Frame, kept []int) {
+	t.Helper()
 	targets := map[int]TargetInfo{}
 	for _, info := range f.Targets {
 		if _, dup := targets[info.ID]; dup || info.ID <= 0 || info.Width < 1 || info.Height < 1 || info.Format > FormatRGBA16F {
@@ -727,6 +760,9 @@ func checkFrame(t *testing.T, what string, f *Frame) {
 		targets[info.ID] = info
 	}
 	drawn := map[int]bool{}
+	for _, id := range kept {
+		drawn[id] = true
+	}
 	seen := make([]bool, instances(f))
 	for pi := range f.Passes {
 		p := &f.Passes[pi]

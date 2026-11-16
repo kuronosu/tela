@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -40,6 +41,15 @@ type gpuRenderer struct {
 	// display server of the test's own (useDirect).
 	chain *core.GPUSwapchain
 	win   *perfWindow
+	// prof, when not nil, is the device measuring where its time goes
+	// (TELA_GPU_PROFILE=1), by kind of frame.
+	prof         gpu.Profiler
+	profiles     map[string]*profileGroup
+	profileOrder []string
+	// peak is the most the Renderer held on the device after a frame, and
+	// rest what it held after each trim at rest (the last one).
+	peak, rest gpu.Memory
+	rests      int
 }
 
 // useGPU makes the GPU of dev draw the rig's frames. The caller closes the
@@ -47,6 +57,11 @@ type gpuRenderer struct {
 func useGPU(tb testing.TB, r *rig, dev gpu.Device) *gpuRenderer {
 	g := core.NewGPU(dev)
 	p := &gpuRenderer{tb: tb, g: g, surf: g.NewSurface()}
+	if prof, ok := dev.(gpu.Profiler); ok && os.Getenv("TELA_GPU_PROFILE") != "" {
+		prof.SetProfiling(true)
+		prof.TakeProfile()
+		p.prof, p.profiles = prof, map[string]*profileGroup{}
+	}
 	r.renderer = p
 	return p
 }
@@ -75,6 +90,9 @@ func useDirect(tb testing.TB, r *rig, dev gpu.Device, hold int) (p *gpuRenderer,
 }
 
 func (p *gpuRenderer) close() {
+	if p.prof != nil {
+		p.prof.SetProfiling(false)
+	}
 	if p.chain != nil {
 		p.chain.Release()
 	}
@@ -82,13 +100,22 @@ func (p *gpuRenderer) close() {
 	p.g.Close()
 }
 
-func (p *gpuRenderer) rasterize(r *rig) (core.Damage, [numGPUParts]time.Duration, int) {
+func (p *gpuRenderer) rasterize(r *rig, fs *frameStat) core.Damage {
 	d, err := r.tree.RasterizeFrameGPU(r.fb, p.surf, &r.rr, false)
 	if err != nil {
 		p.tb.Fatalf("the GPU failed (the frame was drawn by the CPU rasterizer): %v", err)
 	}
 	st := p.surf.Stats
-	parts := [numGPUParts]time.Duration{gpuEncode: st.Encode, gpuDraw: st.Draw, gpuShift: st.Shift, gpuRead: st.Read}
+	parts := &fs.gpu
+	*parts = [numGPUParts]time.Duration{gpuEncode: st.Encode, gpuDraw: st.Draw, gpuShift: st.Shift, gpuRead: st.Read}
+	fs.renders, fs.instances, fs.draws, fs.passes, fs.uploads, fs.uploadBytes = st.Renders, st.Instances, st.Draws, st.Passes, st.Uploads, st.UploadBytes
+	fs.culled, fs.glass = st.Culled, [4]int{st.Backdrops.Hits, st.Backdrops.Patched, st.Backdrops.Stored, st.Backdrops.Computed}
+	if p.prof != nil {
+		p.profile(r.scene, d.Full)
+	}
+	if m := p.g.Memory(); m.Total() > p.peak.Total() {
+		p.peak = m
+	}
 	if p.chain != nil {
 		if ok, why, _ := p.chain.Ready(false); !ok {
 			p.tb.Fatalf("the swapchain is not ready: %s", why)
@@ -99,7 +126,78 @@ func (p *gpuRenderer) rasterize(r *rig) (core.Damage, [numGPUParts]time.Duration
 		}
 		parts[gpuCopy] = p.chain.Stats.Copy
 	}
-	return d, parts, st.Renders
+	return d
+}
+
+// profile adds what the device measured of the frame just drawn to the
+// tables of its scene, of the full or partial frames, and of all.
+func (p *gpuRenderer) profile(scene string, full bool) {
+	rows := p.prof.TakeProfile()
+	kind := "(partial frames)"
+	if full {
+		kind = "(full frames)"
+	}
+	for _, name := range []string{scene, kind, "(all)"} {
+		g := p.profiles[name]
+		if g == nil {
+			g = &profileGroup{rows: map[string]*gpu.ProfileRow{}}
+			p.profiles[name] = g
+			p.profileOrder = append(p.profileOrder, name)
+		}
+		g.frames++
+		for _, r := range rows {
+			a := g.rows[r.Class]
+			if a == nil {
+				a = &gpu.ProfileRow{Class: r.Class}
+				g.rows[r.Class] = a
+			}
+			a.Runs += r.Runs
+			a.Pixels += r.Pixels
+			a.Texels += r.Texels
+			a.Time += r.Time
+		}
+	}
+}
+
+// profileGroup is the device's measurement of the frames of one kind.
+type profileGroup struct {
+	frames int
+	rows   map[string]*gpu.ProfileRow
+}
+
+// profileTable formats the device's measurement (TELA_GPU_PROFILE=1): for
+// each kind of frame, the classes of what the device drew by the time they
+// took, per frame: the draws, the megapixels, the milliseconds, and the
+// fill rate that makes (gigapixels per second; for a filter, also the
+// gigatexels it read per second).
+func (p *gpuRenderer) profileTable() string {
+	var sb strings.Builder
+	for _, name := range p.profileOrder {
+		g := p.profiles[name]
+		n := float64(g.frames)
+		rows := make([]*gpu.ProfileRow, 0, len(g.rows))
+		var sum time.Duration
+		for _, r := range g.rows {
+			rows = append(rows, r)
+			if !strings.HasPrefix(r.Class, "(") {
+				sum += r.Time
+			}
+		}
+		sort.Slice(rows, func(i, j int) bool { return rows[i].Time > rows[j].Time })
+		fmt.Fprintf(&sb, "\n-- %s: %d frames, classes %.2f ms/frame\n%-44s %8s %9s %9s %8s %8s\n", name, g.frames, ms(sum)/n, "class", "draws/f", "Mpx/f", "ms/f", "Gpx/s", "Gtx/s")
+		for _, r := range rows {
+			if ms(r.Time)/n < 0.01 && r.Pixels == 0 {
+				continue
+			}
+			rate, trate := 0.0, 0.0
+			if r.Time > 0 {
+				rate = float64(r.Pixels) / r.Time.Seconds() / 1e9
+				trate = float64(r.Texels) / r.Time.Seconds() / 1e9
+			}
+			fmt.Fprintf(&sb, "%-44s %8.1f %9.3f %9.3f %8.2f %8.2f\n", r.Class, float64(r.Runs)/n, float64(r.Pixels)/n/1e6, ms(r.Time)/n, rate, trate)
+		}
+	}
+	return sb.String()
 }
 
 // perfWindow is the display server of the measurement of frames presented
@@ -158,11 +256,24 @@ func (p *gpuRenderer) trimAt(r *rig) time.Duration {
 	return 0
 }
 
-func (p *gpuRenderer) trim(*rig) {
-	p.g.Trim()
+func (p *gpuRenderer) trim(r *rig) {
+	p.g.Trim(r.tree.LastFrame())
 	if p.chain != nil {
 		p.chain.Trim()
 	}
+	p.rest = p.g.Memory()
+	p.rests++
+}
+
+// memoryLine describes what the Renderer held on the device: its peak
+// after a frame and what it kept after the last trim at rest, in MiB (the
+// window's target and the swapchain's buffers apart).
+func (p *gpuRenderer) memoryLine() string {
+	mib := func(n int64) float64 { return float64(n) / (1 << 20) }
+	f := func(m gpu.Memory) string {
+		return fmt.Sprintf("%.1f MiB (atlases %.1f, images %.1f, targets %.1f, backdrops %.1f)", mib(m.Total()), mib(m.Atlases), mib(m.Images), mib(m.Targets), mib(m.Backdrops))
+	}
+	return fmt.Sprintf("renderer memory: peak %s; at rest after %d trims %s", f(p.peak), p.rests, f(p.rest))
 }
 
 // savePNG writes img for a failure's report.
@@ -372,13 +483,23 @@ func overTable(fs []frameStat) string {
 			n++
 		}
 	}
-	if n == 0 || n > 40 {
+	// TELA_PERF_FRAMES lists every frame of the scenes it names (or of all
+	// with "all") instead.
+	list := os.Getenv("TELA_PERF_FRAMES")
+	listed := func(f *frameStat) bool {
+		if list != "" {
+			return list == "all" || strings.Contains(list, f.scene)
+		}
+		return f.total > frameInterval
+	}
+	if list == "" && (n == 0 || n > 40) {
 		return fmt.Sprintf("%d frames over %.1f ms", n, ms(frameInterval))
 	}
-	fmt.Fprintf(&sb, "\nthe %d frames over %.1f ms:\n%-18s %5s %5s %7s | %8s %7s %7s %7s %7s %7s %7s %7s %6s\n", n, ms(frameInterval),
-		"scene", "tick", "full", "total", "pipeline", "raster", "encode", "draw", "shift", "read", "copy", "Mpx", "rects")
-	for _, f := range fs {
-		if f.total <= frameInterval {
+	fmt.Fprintf(&sb, "\n%d frames over %.1f ms; the frames listed:\n%-18s %5s %5s %7s | %8s %7s %7s %7s %7s %7s %7s %7s %6s %6s %6s %6s %9s %6s %s\n", n, ms(frameInterval),
+		"scene", "tick", "full", "total", "pipeline", "raster", "encode", "draw", "shift", "read", "copy", "Mpx", "rects", "inst", "passes", "upl", "upl bytes", "hidden", "glass h/p/s/c")
+	for i := range fs {
+		f := &fs[i]
+		if !listed(f) {
 			continue
 		}
 		pipe := f.phase[phInput] + f.phase[phAnimate] + f.phase[phPipeline] + f.phase[phEffects]
@@ -386,8 +507,9 @@ func overTable(fs []frameStat) string {
 		for _, v := range f.gpu {
 			rest -= v
 		}
-		fmt.Fprintf(&sb, "%-18s %5d %5v %7.2f | %8.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %6d\n", f.scene, f.tick, f.full, ms(f.total),
-			ms(pipe), ms(rest), ms(f.gpu[gpuEncode]), ms(f.gpu[gpuDraw]), ms(f.gpu[gpuShift]), ms(f.gpu[gpuRead]), ms(f.gpu[gpuCopy]), float64(f.pixels)/1e6, f.renders)
+		fmt.Fprintf(&sb, "%-18s %5d %5v %7.2f | %8.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %6d %6d %6d %6d %9d %6d %d/%d/%d/%d\n", f.scene, f.tick, f.full, ms(f.total),
+			ms(pipe), ms(rest), ms(f.gpu[gpuEncode]), ms(f.gpu[gpuDraw]), ms(f.gpu[gpuShift]), ms(f.gpu[gpuRead]), ms(f.gpu[gpuCopy]), float64(f.pixels)/1e6, f.renders,
+			f.instances, f.passes, f.uploads, f.uploadBytes, f.culled, f.glass[0], f.glass[1], f.glass[2], f.glass[3])
 	}
 	return sb.String()
 }
@@ -460,6 +582,10 @@ func TestSessionPerfGPU(t *testing.T) {
 					frames := playPerf(r)
 					t.Log(perfTable(fmt.Sprintf("%s, GPU presented without a copy (the server keeps %d busy; %d buffers registered over the session), %s%s", c.name, hold, p.win.created, dev.Name(), suffix), frames))
 					t.Log(overTable(frames))
+					t.Log(p.memoryLine())
+					if p.prof != nil {
+						t.Log(p.profileTable())
+					}
 					p.close()
 				}
 			})

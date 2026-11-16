@@ -81,6 +81,10 @@ layout(push_constant) uniform Target {
 } target;
 
 layout(location = 0) flat in int inIndex;
+
+// The instance being drawn. Its members are read where they are used:
+// a path of the shader pays for the ones it needs.
+#define IT instances.items[inIndex]
 layout(location = 0) out vec4 outColor;
 
 // Bits of head.x (frame.go).
@@ -95,6 +99,8 @@ const uint SPREAD_SHIFT = 8u;      // 0 pad, 1 reflect, 2 repeat
 const uint BLUR_SHIFT = 10u;       // 0 analytic, 1 hard device, 2 hard local, 3 empty
 const uint CLIP_MASK = 4096u;      // a clip mask in the coverage atlas
 const uint LAYER = 8192u;          // the paint is the pixels of a layer
+const uint FULL = 16384u;          // every pixel of the quad is covered entirely: no shape, no clip
+const uint OPACITY = 32768u;       // a solid fill faded by the opacity in head.y (a layer of one rectangle)
 const uint SEGMENTS_SHIFT = 16u;
 
 const uint PAINT_IMAGE = 5u;
@@ -499,15 +505,15 @@ float blurred(Shape sh, vec2 s, vec2 w, vec2 p) {
 // ---------------------------------------------------------------------------
 
 // rampColor returns the color at the gradient parameter t.
-vec4 rampColor(Instance it, float t) {
-    if (!(t >= it.paint3.y)) { // also NaN
-        return unpackUnorm4x8(it.head.z);
+vec4 rampColor(float t) {
+    if (!(t >= IT.paint3.y)) { // also NaN
+        return unpackUnorm4x8(IT.head.z);
     }
-    if (t >= it.paint3.z) {
-        return unpackUnorm4x8(it.head.w);
+    if (t >= IT.paint3.z) {
+        return unpackUnorm4x8(IT.head.w);
     }
-    uint row = it.head.y;
-    uint n = it.head.x >> SEGMENTS_SHIFT;
+    uint row = IT.head.y;
+    uint n = IT.head.x >> SEGMENTS_SHIFT;
     uint k = 0u;
     while (k + 1u < n && t >= segments.items[row + k + 1u].x) {
         k++;
@@ -531,9 +537,9 @@ float spreadT(float t, uint spread) {
 // focalT solves the two-point conical gradient for the local point
 // Focal + (u, v): the largest t whose circle passes through it with a
 // radius of 0 or more. ok is false outside the cone.
-float focalT(Instance it, float u, float v, out bool ok) {
-    float dx = it.paint2.x, dy = it.paint2.y, dr = it.paint2.z, r0 = it.paint2.w;
-    float qa = it.paint3.x;
+float focalT(float u, float v, out bool ok) {
+    float dx = IT.paint2.x, dy = IT.paint2.y, dr = IT.paint2.z, r0 = IT.paint2.w;
+    float qa = IT.paint3.x;
     float b = u * dx + v * dy + r0 * dr;
     float c = u * u + v * v - r0 * r0;
     if (qa == 0.0) {
@@ -574,9 +580,9 @@ uvec4 texel8(ivec2 p, ivec2 size) {
 // (raster's imageShader): the pixel that contains the point, or the four
 // around it with weights quantized to 1/256 and summed in integers, in
 // both cases clamped to the range of the source rectangle (paint2).
-vec4 imageColor(Instance it, vec2 uv, bool nearest) {
+vec4 imageColor(vec2 uv, bool nearest) {
     ivec2 size = textureSize(image, 0);
-    vec2 lo = it.paint2.xz, hi = it.paint2.yw;
+    vec2 lo = IT.paint2.xz, hi = IT.paint2.yw;
     if (nearest) {
         return texelFetch(image, clamp(ivec2(clamp(floor(uv), lo, hi)), ivec2(0), size - 1), 0);
     }
@@ -594,37 +600,37 @@ vec4 imageColor(Instance it, vec2 uv, bool nearest) {
 
 // paintColor returns the premultiplied color of the instance's paint at
 // the pixel center rel (relative to the origin) of the pixel px.
-vec4 paintColor(Instance it, vec2 rel, ivec2 px) {
-    uint kind = (it.head.x >> PAINT_SHIFT) & 7u;
+vec4 paintColor(vec2 rel, ivec2 px) {
+    uint kind = (IT.head.x >> PAINT_SHIFT) & 7u;
     if (kind == 0u) {
-        return unpackUnorm4x8(it.head.z);
+        return unpackUnorm4x8(IT.head.z);
     }
     if (kind == PAINT_SPRITE) {
-        return texelFetch(sprites, ivec3(px + it.tex.xy, int(it.origin.z)), 0);
+        return texelFetch(sprites, ivec3(px + IT.tex.xy, int(IT.origin.z)), 0);
     }
-    uint spread = (it.head.x >> SPREAD_SHIFT) & 3u;
-    float p = it.paint0.x * rel.x + it.paint0.y * rel.y + it.paint0.z;
+    uint spread = (IT.head.x >> SPREAD_SHIFT) & 3u;
+    float p = IT.paint0.x * rel.x + IT.paint0.y * rel.y + IT.paint0.z;
     if (kind == 1u) {
-        return rampColor(it, spreadT(p, spread));
+        return rampColor(spreadT(p, spread));
     }
-    float q = it.paint1.x * rel.x + it.paint1.y * rel.y + it.paint1.z;
+    float q = IT.paint1.x * rel.x + IT.paint1.y * rel.y + IT.paint1.z;
     if (kind == PAINT_IMAGE || kind == PAINT_NEAREST) {
-        return imageColor(it, vec2(p, q), kind == PAINT_NEAREST);
+        return imageColor(vec2(p, q), kind == PAINT_NEAREST);
     }
     if (kind == 2u) {
-        return rampColor(it, spreadT(sqrt(p * p + q * q), spread));
+        return rampColor(spreadT(sqrt(p * p + q * q), spread));
     }
     if (kind == 3u) {
         // The angle from up (-Y), clockwise on screen.
-        float t = atan(p, -q) * 0.15915494309189535 - it.paint0.w;
-        return rampColor(it, t - floor(t));
+        float t = atan(p, -q) * 0.15915494309189535 - IT.paint0.w;
+        return rampColor(t - floor(t));
     }
     bool ok;
-    float t = focalT(it, p, q, ok);
+    float t = focalT(p, q, ok);
     if (!ok) {
         return vec4(0.0);
     }
-    return rampColor(it, spreadT(t, spread));
+    return rampColor(spreadT(t, spread));
 }
 
 // ---------------------------------------------------------------------------
@@ -791,19 +797,22 @@ ivec4 blendPixel(uint mode, ivec4 s, ivec4 d) {
 // ---------------------------------------------------------------------------
 
 void main() {
-    Instance it = instances.items[inIndex];
-    uint flags = it.head.x;
+    uint flags = IT.head.x;
     vec2 center = gl_FragCoord.xy + target.origin; // in device pixels: whole numbers and a half
-    vec2 rel = center - it.origin.xy;
+    vec2 rel = center - IT.origin.xy;
     ivec2 px = ivec2(floor(center));
 
     uint kind = flags & KIND_MASK;
     float cov;
-    if (kind == KIND_ATLAS) {
+    if ((flags & FULL) != 0u) {
+        // The inside of a shape, where the shape and the clips cover
+        // every pixel entirely: the values the paths below compute there.
+        cov = 255.0;
+    } else if (kind == KIND_ATLAS) {
         // The rasterizer's own coverage.
-        cov = floor(texelFetch(coverage, ivec3(px + it.tex.xy, int(it.origin.z)), 0).r * 255.0 + 0.5);
+        cov = floor(texelFetch(coverage, ivec3(px + IT.tex.xy, int(IT.origin.z)), 0).r * 255.0 + 0.5);
     } else {
-        cov = cover8(it.shape, (flags & SHAPE_LOCAL) != 0u, rel);
+        cov = cover8(IT.shape, (flags & SHAPE_LOCAL) != 0u, rel);
         if (kind != 0u) {
             // A shadow paints outside its box (outer) or inside it (inset):
             // box is the part of the pixel where it may paint.
@@ -814,46 +823,51 @@ void main() {
             uint mode = (flags >> BLUR_SHIFT) & 3u;
             float v = 0.0;
             if (mode == 0u) {
-                vec2 w = it.sigma.zw;
-                vec2 p = vec2(it.blur.inv.x * rel.x + it.blur.inv.z * rel.y + it.blur.invT.x,
-                              it.blur.inv.y * rel.x + it.blur.inv.w * rel.y + it.blur.invT.y) - 0.5 * w;
-                v = clamp(blurred(it.blur, it.sigma.xy, w, p), 0.0, 1.0);
+                vec2 w = IT.sigma.zw;
+                vec2 p = vec2(IT.blur.inv.x * rel.x + IT.blur.inv.z * rel.y + IT.blur.invT.x,
+                              IT.blur.inv.y * rel.x + IT.blur.inv.w * rel.y + IT.blur.invT.y) - 0.5 * w;
+                v = clamp(blurred(IT.blur, IT.sigma.xy, w, p), 0.0, 1.0);
             } else if (mode != 3u) {
-                v = cover8(it.blur, mode == 2u, rel) / 255.0;
+                v = cover8(IT.blur, mode == 2u, rel) / 255.0;
             }
             cov = floor((kind == KIND_INSET ? 1.0 - v : v) * box + 0.5);
         }
     }
     if (((flags >> PAINT_SHIFT) & 7u) == PAINT_SPRITE) {
         // A sprite is composited at the alpha of its run.
-        cov = mul8(cov, float(it.head.z >> 24));
+        cov = mul8(cov, float(IT.head.z >> 24));
     }
 
     uint clip = (flags >> CLIP_SHIFT) & 3u;
     if (clip != 0u) {
-        cov = mul8(cov, cover8(it.clip, clip == 2u, rel));
+        cov = mul8(cov, cover8(IT.clip, clip == 2u, rel));
     }
     if ((flags & CLIP_MASK) != 0u) {
-        cov = mul8(cov, floor(texelFetch(coverage, ivec3(px + it.tex.zw, int(it.origin.w)), 0).r * 255.0 + 0.5));
+        cov = mul8(cov, floor(texelFetch(coverage, ivec3(px + IT.tex.zw, int(IT.origin.w)), 0).r * 255.0 + 0.5));
+    }
+    if ((flags & (LAYER | OPACITY)) == OPACITY) {
+        // The rectangle is all its layer holds: the layer's opacity
+        // multiplies the coverage, as it does when a layer is composited.
+        cov = mul8(cov, float(IT.head.y & 255u));
     }
     if (cov == 0.0) {
         discard;
     }
     if ((flags & LAYER) == 0u) {
-        outColor = paintColor(it, rel, px) * (cov / 255.0);
+        outColor = paintColor(rel, px) * (cov / 255.0);
         return;
     }
 
     // The pixels of a layer (raster's composite and compositeLayer) or of
     // a filtered backdrop (drawBackdrop), on 8-bit values.
-    uint lp = it.head.y;
+    uint lp = IT.head.y;
     int op = int(lp & 255u);
     uint mode = (lp >> 8) & 255u;
     uint maskKind = (lp >> 16) & 255u;
-    ivec4 s = ivec4(texelFetch(image, px + it.tex.xy, 0) * 255.0 + 0.5);
+    ivec4 s = ivec4(texelFetch(image, px + IT.tex.xy, 0) * 255.0 + 0.5);
     int k = op; // the opacity, times the mask's coverage
     if (maskKind != 0u) {
-        uvec4 m = uvec4(texelFetch(layerMask, px + ivec2(it.paint1.xy), 0) * 255.0 + 0.5);
+        uvec4 m = uvec4(texelFetch(layerMask, px + ivec2(IT.paint1.xy), 0) * 255.0 + 0.5);
         // The alpha, or the luminance of the premultiplied color in the
         // rasterizer's 16-bit fixed point.
         uint mc = maskKind == 2u ? (13933u * m.r + 46871u * m.g + 4732u * m.b + 32768u) >> 16 : m.a;
@@ -883,7 +897,7 @@ void main() {
     if (s.a == 0 && s.rgb == ivec3(0)) {
         discard; // every mode leaves the backdrop
     }
-    ivec4 d = ivec4(texelFetch(backdrop, px + ivec2(it.paint1.zw), 0) * 255.0 + 0.5);
+    ivec4 d = ivec4(texelFetch(backdrop, px + ivec2(IT.paint1.zw), 0) * 255.0 + 0.5);
     ivec4 r = blendPixel(mode, s, d);
     outColor = vec4((r * c + d * (255 - c) + 127) / 255) / 255.0;
 }

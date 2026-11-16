@@ -152,6 +152,12 @@ func (e *Encoder) pushLayer(i int, c gfx.PushLayer) {
 	if !e.narrow(st, bb) {
 		return
 	}
+	if e.fades(i, &c, st, op) {
+		// The layer's one rectangle is drawn in its place, faded: no
+		// target, no pass.
+		st.fade = op
+		return
+	}
 	outer := *st
 	comp := st.scissor // the pixels the layer composites onto
 	surf, in, lim := comp, comp, st.bound
@@ -202,6 +208,38 @@ func (e *Encoder) pushLayer(i int, c gfx.PushLayer) {
 		// color matrix can make transparent pixels visible).
 		st.skip = true
 	}
+}
+
+// fades reports whether the layer of the PushLayer c at index i, with the
+// opacity op, is drawn without a target: it only fades (source-over, no
+// filter, no mask) and holds one command, a rectangle filled with a color
+// whose device edges fall on pixel boundaries. In its own target the
+// rectangle's pixels would hold that color, exactly, and the composite
+// would paint them at the layer's opacity times the clip's coverage: what
+// the fill's instance computes when the opacity multiplies its coverage
+// (FlagOpacity). A scrim that fades in is such a layer, over the whole
+// window: three passes of its size less.
+func (e *Encoder) fades(i int, c *gfx.PushLayer, st *state, op uint8) bool {
+	if op == 255 || c.Blend != gfx.SrcOver || len(c.Filters) != 0 || c.Mask.List != nil || e.dl.Match(i) != i+2 {
+		return false
+	}
+	fr, ok := e.dl.At(i + 1).(gfx.FillRect)
+	if !ok || !st.ctm.IsAxisAligned() {
+		return false
+	}
+	if _, ok := fr.Paint.(gfx.Color); !ok {
+		return false
+	}
+	sh, _, ok := deviceShape(&st.ctm, gfx.RRect{Rect: fr.Rect})
+	if !ok {
+		return false
+	}
+	for _, v := range sh.rect {
+		if v != math.Floor(v) {
+			return false
+		}
+	}
+	return true
 }
 
 // popLayer ends the layer the state on top of the stack opened: its
@@ -258,7 +296,7 @@ func (e *Encoder) popLayer() {
 	ox, oy := float64(quad.Min.X), float64(quad.Min.Y)
 	sh := shape{rect: [4]float64{float64(b.Min.X), float64(b.Min.Y), float64(b.Max.X), float64(b.Max.Y)}}
 	sh.put(&in, SlotShape, ox, oy)
-	lp := layerPaint{src: src, opacity: rec.opacity, blend: rec.blend}
+	lp := layerPaint{src: src, opacity: rec.opacity, blend: rec.blend, inside: b}
 	if rec.mask != nil {
 		lp.mask, lp.maskOrg, lp.maskKind = rec.mask, rec.maskOrg, LayerMaskAlpha
 		if rec.maskMode == gfx.MaskLuminance {
@@ -325,6 +363,8 @@ type layerPaint struct {
 	maskKind uint32
 	back     *poolTarget
 	backOrg  image.Point
+	// inside holds pixels the instance's shape covers entirely (emitShape).
+	inside image.Rectangle
 }
 
 // emitLayer finishes an instance that paints the pixels of a target and
@@ -346,6 +386,6 @@ func (e *Encoder) emitLayer(in *instance, flags uint32, st *state, quad image.Re
 		e.sources[2] = Source(lp.back.id)
 		e.pipeline = PipelineBlend
 	}
-	e.emit(in, flags|FlagLayer, st, quad, nil)
+	e.emitShape(in, flags|FlagLayer, st, quad, lp.inside, false)
 	e.sources, e.pipeline = [3]Source{}, PipelineQuad
 }

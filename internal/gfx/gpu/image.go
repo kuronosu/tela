@@ -98,7 +98,7 @@ func (e *Encoder) drawImage(c gfx.DrawImage) {
 	}
 	e.useImage(img)
 	e.image = img.ID()
-	e.emit(&in, flags, st, quad, nil)
+	e.emitShape(&in, flags, st, quad, sh.inside(), false)
 	e.image = 0
 }
 

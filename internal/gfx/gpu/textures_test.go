@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"math"
+	"strings"
 	"testing"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -455,6 +457,156 @@ func TestKeepsPixelsLayers(t *testing.T) {
 			// filters of the next one read them.
 			if m.Max > tolHard || m.Over2 > 4*tolShare {
 				t.Errorf("after render %d: largest difference %d at %v, %.3f%% of the pixels over 2 levels", i+1, m.Max, m.Worst, 100*m.Over2)
+			}
+		}
+	})
+}
+
+// glassPage is a page of two glass panes over an opaque background with a
+// horizontal stripe at stripe under them, labels painted after the
+// filters, and, when card is not empty, an opaque card painted over
+// everything.
+func glassPage(stripe, label float32, card gfx.Rect) *gfx.DisplayList {
+	return gfxtest.Build(func(b *gfx.Builder) {
+		b.FillRect(gfx.RectXYWH(0, 0, 400, 300), slate)
+		b.FillRect(gfx.RectXYWH(0, stripe, 400, 12), rose)
+		b.FillRect(gfx.RectXYWH(130, 0, 14, 300), amber)
+		for i, x := range []float32{20, 210} {
+			box := gfx.NewRRect(gfx.RectXYWH(x, 20, 170, 260), 16)
+			b.BackdropFilter(box, gfx.Blur{StdDev: 8})
+			b.FillRRect(box, gfx.White.WithAlpha(0.3))
+			b.FillRect(gfx.RectXYWH(x+20+label*float32(i+1), 60, 40, 12), emerald)
+		}
+		if !card.Empty() {
+			b.FillRect(card, indigo)
+		}
+	})
+}
+
+// TestBackdropCachePixels renders sequences of frames into one target
+// with a BackdropCache, each frame as the regions of its damage, and
+// checks after every frame that the target holds the pixels of a full
+// render of its list without a cache, bit for bit: filters drawn from
+// their entries, entries patched by the renders of a frame whose damage
+// changed their input, entries made by a full frame or by a filter whose
+// input rested, and entries under covers.
+func TestBackdropCachePixels(t *testing.T) {
+	type frame struct {
+		what        string
+		dl          *gfx.DisplayList
+		prev, patch []int
+		regions     []gfx.Rect // logical; none: a full frame
+	}
+	same, changed := []int{0, 1}, []int{-1, -1}
+	// The output of the filters within their reach (3 sigma, rounded up)
+	// of a change of rows y0 to y1 under both panes.
+	rows := func(y0, y1 float32) gfx.Rect { return gfx.Rect{X0: 0, Y0: y0 - 30, X1: 400, Y1: y1 + 30} }
+	card, band := gfx.RectXYWH(0, 10, 400, 280), gfx.RectXYWH(0, 100, 400, 100)
+	sequences := []struct {
+		name   string
+		frames []frame
+		want   BackdropStats // what the renders of the sequence did
+	}{
+		{"hits and patches", []frame{
+			{"full", glassPage(200, 0, gfx.Rect{}), nil, nil, nil},
+			{"a label moves", glassPage(200, 4, gfx.Rect{}), same, nil, []gfx.Rect{gfx.RectXYWH(40, 60, 70, 12), gfx.RectXYWH(230, 60, 80, 12)}},
+			{"the stripe moves", glassPage(210, 4, gfx.Rect{}), changed, same, []gfx.Rect{rows(200, 222)}},
+			{"a label again", glassPage(210, 8, gfx.Rect{}), same, nil, []gfx.Rect{gfx.RectXYWH(40, 60, 70, 12), gfx.RectXYWH(230, 60, 90, 12)}},
+			{"the stripe in two regions", glassPage(240, 8, gfx.Rect{}), changed, same, []gfx.Rect{rows(210, 222), rows(240, 252)}},
+			{"a full frame", glassPage(240, 8, gfx.Rect{}), same, nil, nil},
+		}, BackdropStats{Hits: 6, Patched: 6, Stored: 2}},
+		{"a patch under a cover", []frame{
+			// The filters are hidden by the card in the render of the
+			// stripe, whose region they grow: the card covers the panes.
+			{"full", glassPage(140, 0, gfx.Rect{}), nil, nil, nil},
+			{"a card comes", glassPage(140, 0, card), same, nil, []gfx.Rect{card}},
+			{"the stripe moves under the card", glassPage(150, 0, card), changed, same, []gfx.Rect{rows(140, 162)}},
+			{"the card goes", glassPage(150, 0, gfx.Rect{}), same, nil, []gfx.Rect{card}},
+		}, BackdropStats{Stored: 4}}, // the entries left behind are made again
+		{"a patch under a cover, in part", []frame{
+			// The render of the stripe shows the filters around the card.
+			{"full, with a card", glassPage(140, 0, band), nil, nil, nil},
+			{"the stripe moves under the card", glassPage(150, 0, band), changed, same, []gfx.Rect{rows(140, 162)}},
+			{"the card goes", glassPage(150, 0, gfx.Rect{}), same, nil, []gfx.Rect{band}},
+		}, BackdropStats{Hits: 2, Patched: 2, Stored: 2}},
+		{"entries made after a rest", []frame{
+			{"full, another list", glassPage(60, 0, gfx.Rect{}), nil, nil, nil},
+			{"a list the cache was not moved to", glassPage(60, 3, gfx.Rect{}), nil, nil, []gfx.Rect{gfx.RectXYWH(40, 60, 70, 12), gfx.RectXYWH(230, 60, 80, 12)}},
+			{"the input rested", glassPage(60, 6, gfx.Rect{}), same, nil, []gfx.Rect{gfx.RectXYWH(40, 60, 70, 12), gfx.RectXYWH(230, 60, 90, 12)}},
+			{"drawn from the entry made", glassPage(60, 9, gfx.Rect{}), same, nil, []gfx.Rect{gfx.RectXYWH(40, 60, 80, 12), gfx.RectXYWH(230, 60, 90, 12)}},
+		}, BackdropStats{Hits: 2, Stored: 4, Computed: 2}},
+	}
+	white := gfx.White
+	eachDevice(t, func(t *testing.T, dev Device) {
+		for _, scale := range []float32{1, 2, 0} {
+			// Scale 0: scale 1 with another Renderer drawing on the device
+			// between the frames, which makes it start over: what the cache
+			// held is gone, and the Renderer finds it out.
+			intrude := scale == 0
+			if intrude {
+				scale = 1
+			}
+			w, h := int(400*scale), int(300*scale)
+			for _, sq := range sequences {
+				target, err := dev.NewTarget(w, h)
+				if err != nil {
+					t.Fatal(err)
+				}
+				ref, err := dev.NewTarget(w, h)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var r Renderer
+				var bc BackdropCache
+				var glass BackdropStats
+				for fi, fr := range sq.frames {
+					if fr.prev != nil || fr.regions == nil {
+						bc.Retain(fr.dl, scale, fr.prev, fr.patch)
+					}
+					regions := []image.Rectangle{{}}
+					if fr.regions != nil {
+						regions = regions[:0]
+						for _, lr := range fr.regions {
+							regions = append(regions, image.Rect(int(lr.X0*scale), int(lr.Y0*scale), int(math.Ceil(float64(lr.X1*scale))), int(math.Ceil(float64(lr.Y1*scale)))).Intersect(image.Rect(0, 0, w, h)))
+						}
+					}
+					for _, region := range regions {
+						res, err := r.Render(target, fr.dl, Options{Scale: scale, Region: region, Clear: &white, Backdrops: &bc})
+						if err != nil {
+							t.Fatal(err)
+						}
+						glass.Hits += res.Backdrops.Hits
+						glass.Patched += res.Backdrops.Patched
+						glass.Stored += res.Backdrops.Stored
+						glass.Computed += res.Backdrops.Computed
+						if testing.Verbose() {
+							t.Logf("x%g, %s, %s, %v: %+v, %d hidden", scale, sq.name, fr.what, region, res.Backdrops, res.Culled)
+						}
+					}
+					r.EndFrame()
+					got := readAll(t, target)
+					// By the same Renderer, which a device follows (another one
+					// would make it start over), into a target of its own.
+					if _, err := r.Render(ref, fr.dl, Options{Scale: scale, Clear: &white}); err != nil {
+						t.Fatal(err)
+					}
+					want := readAll(t, ref)
+					if intrude {
+						renderGPU(t, dev, w, h, fr.dl, Options{Scale: scale, Clear: &white})
+					}
+					if m := compare(got, want); m.Max != 0 {
+						dump(t, fmt.Sprintf("bdcache_%s_x%g_%d_%s", strings.ReplaceAll(sq.name, " ", "_"), scale, fi, deviceLabel(dev.Name())), got, want)
+						t.Errorf("x%g, %s, %s: differs from a full render without a cache: largest difference %d at %v, %d pixels (cache %+v)",
+							scale, sq.name, fr.what, m.Max, m.Worst, m.Over0, glass)
+					}
+				}
+				if glass != sq.want && !intrude {
+					t.Errorf("x%g, %s: the renders did %+v with the cache, want %+v", scale, sq.name, glass, sq.want)
+				}
+				bc.Reset()
+				r.Trim()
+				target.Close()
+				ref.Close()
 			}
 		}
 	})

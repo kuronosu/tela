@@ -1,6 +1,7 @@
 package gpu
 
 import (
+	"bytes"
 	"image"
 	"math"
 
@@ -45,9 +46,12 @@ type coverShape struct {
 	rule gfx.FillRule
 	// rel holds the pixels the shape can touch, relative to the whole
 	// pixels of its translation.
-	rel  image.Rectangle
-	used uint64
-	idle uint16
+	rel image.Rectangle
+	// pieces are the parts of rel that hold coverage (pieces.go), made
+	// when the shape is first drawn.
+	pieces []coverPiece
+	used   uint64
+	idle   uint16
 }
 
 // coverSrc says where the pixels of an instance's own atlas tile come
@@ -56,9 +60,13 @@ type coverSrc struct {
 	atlas int
 	key   atlasKey
 	rect  image.Rectangle // the device pixels of the tile
-	// The pixels: the coverage of shape over rel, rasterized on a miss...
+	// The pixels: the coverage of shape over rel, rasterized on a miss (or
+	// with full, known to be covered entirely: nothing is in the atlas)...
+	// With rows, every row of the picture is its first one.
 	shape *coverShape
 	rel   image.Rectangle
+	full  bool
+	rows  bool
 	// ...or a part of a picture in memory, whose first pixel is the device
 	// pixel org, with stride bytes per row.
 	pix    []uint8
@@ -122,23 +130,28 @@ func (e *Encoder) cover(m *gfx.Affine, p gfx.Path, rule gfx.FillRule, style *gfx
 	if vis.Empty() {
 		return
 	}
-	t := r.atlas[AtlasCoverage].tile
-	x0, y0 := sh.rel.Min.X, sh.rel.Min.Y
-	for j := (vis.Min.Y - y0) / t; y0+j*t < vis.Max.Y; j++ {
-		for i := (vis.Min.X - x0) / t; x0+i*t < vis.Max.X; i++ {
-			rel := image.Rect(x0+i*t, y0+j*t, x0+(i+1)*t, y0+(j+1)*t).Intersect(sh.rel)
-			dev := rel.Add(org)
-			var in instance
-			quad := e.begin(&in, dev)
-			flags := FlagCoverAtlas | pe.put(&in, float64(quad.Min.X), float64(quad.Min.Y))
-			e.src = coverSrc{
-				atlas: AtlasCoverage, key: atlasKey{kind: keyCover, id: sh.id, tx: int32(i), ty: int32(j)},
-				rect: dev, shape: sh, rel: rel,
-			}
-			e.emit(&in, flags, st, quad, &e.src)
+	if sh.pieces == nil {
+		r.buildPieces(sh, r.atlas[AtlasCoverage].tile)
+	}
+	for k := range sh.pieces {
+		pc := &sh.pieces[k]
+		if !pc.rel.Overlaps(vis) {
+			continue
 		}
+		dev := pc.rel.Add(org)
+		var in instance
+		quad := e.begin(&in, dev)
+		flags := FlagCoverAtlas | pe.put(&in, float64(quad.Min.X), float64(quad.Min.Y))
+		e.src = coverSrc{
+			atlas: AtlasCoverage, key: atlasKey{kind: keyCover, id: sh.id, tx: int32(k)},
+			rect: dev, shape: sh, rel: pc.rel, full: pc.full, rows: pc.rows,
+		}
+		e.emit(&in, flags, st, quad, &e.src)
 	}
 }
+
+// fullTile is the entry of a piece known to be covered entirely.
+var fullTile = atlasEntry{state: tileFull}
 
 // picture encodes a picture in memory: a glyph's mask (pix holds the
 // coverage of the device pixels rect, painted with pe) or, when pe is nil,
@@ -185,13 +198,35 @@ func (e *Encoder) picture(key atlasKey, rect image.Rectangle, pix []uint8, st *s
 func (e *Encoder) acquire(s *coverSrc) *atlasEntry {
 	r := e.res
 	a := &r.atlas[s.atlas]
+	if s.full {
+		return &fullTile
+	}
 	if ent := a.get(&s.key, r.frame); ent != nil {
 		return ent
 	}
 	w, h := s.rect.Dx(), s.rect.Dy()
 	if s.shape != nil {
 		buf := scratch(&r.tmp, w*h)
-		r.masker.Fill(buf, s.rel, s.shape.m, s.shape.path, s.shape.rule)
+		if s.rows {
+			// One row, repeated (pieces.go), when the last row is the first:
+			// the edges are monotonic, so a row between them is too. (An
+			// edge vertical in this package's arithmetic and a hair off it in
+			// the rasterizer's, a fused product apart, is rasterized whole.)
+			first, last := s.rel, s.rel
+			first.Max.Y, last.Min.Y = first.Min.Y+1, last.Max.Y-1
+			top, bottom := buf[:w], buf[(h-1)*w:h*w]
+			r.masker.Fill(top, first, s.shape.m, s.shape.path, s.shape.rule)
+			r.masker.Fill(bottom, last, s.shape.m, s.shape.path, s.shape.rule)
+			if bytes.Equal(top, bottom) {
+				for y := 1; y < h-1; y++ {
+					copy(buf[y*w:(y+1)*w], top)
+				}
+			} else {
+				r.masker.Fill(buf, s.rel, s.shape.m, s.shape.path, s.shape.rule)
+			}
+		} else {
+			r.masker.Fill(buf, s.rel, s.shape.m, s.shape.path, s.shape.rule)
+		}
 		return e.store(s.atlas, s.key, w, h, buf, w)
 	}
 	off := (s.rect.Min.Y-s.org.Y)*s.stride + (s.rect.Min.X-s.org.X)*a.bpp

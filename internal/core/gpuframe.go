@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/gfx/gpu"
 	"github.com/kuronosu/tela/internal/gfx/raster"
 )
@@ -91,15 +92,25 @@ func (g *GPU) NewSurface() *GPUSurface { return &GPUSurface{g: g} }
 // releases: a frame was drawn since the last one.
 func (g *GPU) TrimDue() bool { return g.used && !g.lost }
 
-// Trim releases what the Renderer keeps for its frames, on the device
-// too (gpu.Renderer.Trim): for windows that rest. The surfaces keep their
-// pixels, and the next frame uploads what it draws with.
-func (g *GPU) Trim() {
+// Trim releases what the Renderer keeps only to draw the next frame
+// faster, on the device too (gpu.Renderer.Rest), for windows that rest:
+// the offscreen targets of layers and filters, the buffers of uploads and
+// readbacks, and the textures of the images that none of lists, the frames
+// the GPU's windows show, draws. The surfaces keep their pixels, and what
+// is costly to make again stays, within its limits: the atlases of glyphs
+// and path coverage, the images on screen and the filtered backdrops. The
+// next frame uploads nothing for what the frames before the rest drew
+// (ADR-241's rule: memory that only saves an allocation goes, memory that
+// saves work stays).
+func (g *GPU) Trim(lists ...*gfx.DisplayList) {
 	g.used = false
 	if !g.lost {
-		g.r.Trim()
+		g.r.Rest(lists...)
 	}
 }
+
+// Memory returns what the Renderer holds on the device (gpu.Memory).
+func (g *GPU) Memory() gpu.Memory { return g.r.Memory() }
 
 // Close releases the Renderer's memory and closes the device OpenGPU
 // opened, with the targets of the surfaces that were not released.
@@ -135,6 +146,11 @@ type GPUSurface struct {
 	// they are not read back into the framebuffer. behind: the target
 	// holds pixels the framebuffer does not, drawn by direct frames.
 	direct, behind bool
+	// bdc caches the filtered backdrops of ras in the target
+	// (gpu.BackdropCache), as layerState.bdc caches them for the CPU
+	// rasterizer: the damage of two frames tells it which filters kept
+	// their input.
+	bdc gpu.BackdropCache
 	// Stats describes the last RasterizeFrameGPU.
 	Stats GPUFrameStats
 }
@@ -147,6 +163,16 @@ type GPUFrameStats struct {
 	// rectangle), Shifts the shifts, and Pixels the device pixels read
 	// back.
 	Renders, Shifts, Pixels int
+	// Instances, Draws and Passes count what the renders drew, Uploads the
+	// pictures and images they added to the device's textures and
+	// UploadBytes their bytes (gpu.Result): a frame that draws what earlier
+	// frames drew uploads nothing.
+	Instances, Draws, Passes, Uploads, UploadBytes int
+	// Culled counts the commands the renders did not draw because an
+	// opaque command after them hides them, and Backdrops what they did
+	// with the backdrop filters of the surface's cache (gpu.Result).
+	Culled    int
+	Backdrops gpu.BackdropStats
 	// Encode is the time the encoder took on the CPU, Draw the time the
 	// device took to draw, Shift to move the scrolled pixels and Read to
 	// copy the damage back into the framebuffer, each with its wait for
@@ -168,7 +194,12 @@ func (s *GPUSurface) Release() {
 		s.target = nil
 	}
 	s.ras = nil
+	s.bdc.Reset()
 }
+
+// BackdropBytes returns the bytes of filtered backdrops the surface's
+// cache holds on the device.
+func (s *GPUSurface) BackdropBytes() int64 { return s.bdc.Bytes() }
 
 // Held reports whether the surface has a target.
 func (s *GPUSurface) Held() bool { return s.target != nil }
@@ -339,19 +370,39 @@ func (t *Tree) rasterizeAppGPU(fb *image.RGBA, s *GPUSurface, full bool) (Damage
 	case full || !L.rasGPU || L.ras == nil || s.ras != L.ras || L.ras.scale != f.scale || L.rasRect != fb.Rect,
 		// Direct frames left fb behind, and this one is read back.
 		!s.direct && s.behind:
+		// A full frame without the damage of two frames: nothing is known
+		// of what the cache of filtered backdrops holds.
 		d.Full = true
+		s.bdc.Reset()
 	case L.ras != f:
-		L.dmg.bdc, L.dmg.snaps, L.dmg.canvas, L.dmg.finish = nil, nil, canvas, finishGPU
+		// The damage tells the cache of filtered backdrops which filters
+		// kept their input, before the cost of its rectangles is counted:
+		// those are drawn from the cache.
+		L.dmg.bdc, L.dmg.snaps, L.dmg.canvas = nil, nil, canvas
+		L.dmg.finish = func(dm *damager, shifts []Shift) Damage {
+			s.bdc.Retain(f.dl, f.scale, L.dmg.carry, L.dmg.patch)
+			return finishGPU(dm, shifts, &s.bdc)
+		}
 		d = frameDamage(L.ras, f, fb.Rect, &L.dmg)
 		L.dmg.finish = nil
 	}
 	// Until the frame is whole, the target holds none.
 	s.ras = nil
 	render := func(region image.Rectangle) error {
-		res, err := g.r.Render(s.target, f.dl, gpu.Options{Scale: f.scale, Region: region, Clear: &canvas})
+		res, err := g.r.Render(s.target, f.dl, gpu.Options{Scale: f.scale, Region: region, Clear: &canvas, Backdrops: &s.bdc})
 		st.Renders++
 		st.Encode += res.Encode
 		st.Draw += res.Draw
+		st.Instances += res.Instances
+		st.Draws += res.Draws
+		st.Passes += res.Passes
+		st.Uploads += res.Uploads
+		st.UploadBytes += res.UploadBytes
+		st.Culled += res.Culled
+		st.Backdrops.Hits += res.Backdrops.Hits
+		st.Backdrops.Patched += res.Backdrops.Patched
+		st.Backdrops.Stored += res.Backdrops.Stored
+		st.Backdrops.Computed += res.Backdrops.Computed
 		if err != nil {
 			return err
 		}
@@ -434,18 +485,17 @@ const gpuMaxRects = 8
 // much as one.
 //
 // The cost of a rectangle is the pixels its render draws, which are the
-// rectangle grown by what the backdrop filters over it read
-// (raster.BackdropRegion: the renderer has no cache of filtered
-// backdrops, so a rectangle in a glass pane draws the pane's backdrop
-// within the blur's reach again), the pixels read back, which are the
+// rectangle grown by what the backdrop filters over it that are computed
+// read (gpu.BackdropCache.Region: those whose filtered backdrop is in bdc,
+// the surface's cache, read nothing), the pixels read back, which are the
 // rectangle, and gpuRectCost. Two rectangles are drawn as one when that
 // costs no more: those of one pane share most of what they draw. The CPU
 // path's fullFraction does not apply: a full frame is worth it only when
 // the rectangles cost what the whole window does.
-func finishGPU(d *damager, shifts []Shift) Damage {
+func finishGPU(d *damager, shifts []Shift, bdc *gpu.BackdropCache) Damage {
 	dl, scale := d.b.dl, d.b.scale
 	cost := func(r image.Rectangle) int {
-		g := raster.BackdropRegion(dl, scale, r, d.bounds)
+		g := bdc.Region(dl, scale, r, d.bounds)
 		return g.Dx()*g.Dy() + r.Dx()*r.Dy() + gpuRectCost
 	}
 	rects := mergeGPU(mergeRects(d.rects), cost)

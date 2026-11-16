@@ -533,65 +533,218 @@ func TestEncodePathCache(t *testing.T) {
 	}
 }
 
-// TestEncodeTiles checks that a shape larger than a tile is cut into
-// tiles, that only the tiles drawn are rasterized, and that the tiles that
-// are empty or entirely covered take no room.
-func TestEncodeTiles(t *testing.T) {
-	e := Encoder{Limits: Limits{CoveragePage: 128, CoveragePages: 8}} // tiles of 64
-	var ring gfx.Path
-	ring.AddRect(gfx.RectXYWH(10.5, 10.5, 300, 300))
-	ring.AddRect(gfx.RectXYWH(140, 140, 40, 40)) // a hole inside tile (2, 2)
-	dl := gfxtest.Build(func(b *gfx.Builder) { b.FillPath(ring, gfx.EvenOdd, slate) })
-	sim := &atlasSim{t: t}
-	f := e.Encode(dl, image.Pt(400, 400), Options{})
-	// The shape spans pixels 10 to 311: 5 x 5 tiles of 64 from 10. The
-	// border tiles hold an edge (16), the one with the hole too, and the 8
-	// others inside are entirely covered.
-	if n := instances(f); n != 25 || uploads(f) != 17 {
-		t.Fatalf("%d instances and %d uploads, want 25 and 17", n, uploads(f))
-	}
-	fills := 0
-	for i, rd := range sim.draw(f) {
-		flags := head(f, i)[0]
-		if flags&FlagKindMask == 0 {
-			fills++
-			// A plain rectangle, the tile itself.
-			if sh, bd, org := floats(f, i, SlotShape), floats(f, i, SlotBounds), floats(f, i, SlotOrigin); sh != [4]float32{bd[0] - org[0], bd[1] - org[1], bd[2] - org[0], bd[3] - org[1]} {
-				t.Errorf("instance %d: a covered tile fills %v, its quad is %v", i, sh, bd)
+// coverageOf executes a frame of one filled shape on the simulated
+// atlases and returns the coverage its instances give the pixels of size:
+// what an instance reads from the atlas, or 255 over a plain rectangle. It
+// fails when two instances draw the same pixel, and returns the pixels
+// uploaded.
+func coverageOf(t *testing.T, sim *atlasSim, f *Frame, size image.Point) (cov []uint8, uploaded int) {
+	t.Helper()
+	cov = make([]uint8, size.X*size.Y)
+	seen := make([]bool, size.X*size.Y)
+	reads := sim.draw(f)
+	n := 0
+	for pi := range f.Passes {
+		for _, u := range f.Passes[pi].Uploads {
+			uploaded += u.Rect.Dx() * u.Rect.Dy()
+		}
+		for _, b := range f.Passes[pi].Batches {
+			for i := b.First; i < b.First+b.Count; i++ {
+				rd := reads[n]
+				n++
+				vis := rd.quad.Intersect(b.Scissor)
+				plain := head(f, i)[0]&FlagKindMask == 0
+				if plain {
+					// A plain rectangle: the piece itself.
+					if sh, bd, org := floats(f, i, SlotShape), floats(f, i, SlotBounds), floats(f, i, SlotOrigin); sh != [4]float32{bd[0] - org[0], bd[1] - org[1], bd[2] - org[0], bd[3] - org[1]} {
+						t.Errorf("instance %d: a covered piece fills %v, its quad is %v", i, sh, bd)
+					}
+				}
+				k := 0
+				for y := vis.Min.Y; y < vis.Max.Y; y++ {
+					for x := vis.Min.X; x < vis.Max.X; x++ {
+						if seen[y*size.X+x] {
+							t.Fatalf("instance %d draws the pixel (%d, %d) another one drew", i, x, y)
+						}
+						seen[y*size.X+x] = true
+						if plain {
+							cov[y*size.X+x] = 255
+						} else {
+							cov[y*size.X+x] = rd.own[k]
+						}
+						k++
+					}
+				}
 			}
-			continue
-		}
-		full := true
-		for _, v := range rd.own {
-			full = full && v == 255
-		}
-		if full || len(rd.own) == 0 {
-			t.Errorf("instance %d reads a tile that is entirely covered, or nothing", i)
 		}
 	}
-	if fills != 8 {
-		t.Errorf("%d tiles are plain rectangles, want 8", fills)
+	return cov, uploaded
+}
+
+// TestEncodePieces checks that a filled path drawn by pieces (pieces.go)
+// has the rasterizer's coverage at every pixel, in a full render and in
+// regions, with any size of tile; that the pieces do not overlap; that
+// what is inside a shape is plain rectangles and what is outside is not
+// drawn; and that the border of a panel uploads its edges, not its bounds.
+func TestEncodePieces(t *testing.T) {
+	const w, h = 400, 400
+	var ring, border, cross, diag gfx.Path
+	ring.AddRect(gfx.RectXYWH(10.5, 10.5, 300, 300))
+	ring.AddRect(gfx.RectXYWH(140, 140, 40, 40))
+	// The band of a 1.5 pixel border with round corners, as core records
+	// it: the inner shape runs the other way.
+	border.AddRRect(gfx.NewRRect(gfx.RectXYWH(20.25, 30.75, 350, 330), 41.2))
+	inner := gfx.NewRRect(gfx.RectXYWH(21.75, 32.25, 347, 327), 39.7)
+	var back gfx.Path
+	back.AddRRect(inner)
+	mirror := gfx.Affine{-1, 0, 0, 1, inner.Rect.X0 + inner.Rect.X1, 0}
+	border = appendPath(border, back.Transform(mirror))
+	cross.AddRect(gfx.RectXYWH(0, 90, 192, 12))
+	cross.AddRect(gfx.RectXYWH(90, 0, 12, 192))
+	diag.MoveTo(gfx.Pt(5, 8))
+	diag.LineTo(gfx.Pt(390, 371))
+	diag.LineTo(gfx.Pt(380, 395))
+	diag.Close()
+	var blob, loop gfx.Path
+	blob.MoveTo(gfx.Pt(20, 120))
+	blob.QuadTo(gfx.Pt(60, 0), gfx.Pt(120, 80))
+	blob.QuadTo(gfx.Pt(390, 160), gfx.Pt(100, 200))
+	blob.QuadTo(gfx.Pt(0, 220), gfx.Pt(20, 120))
+	blob.Close()
+	loop.MoveTo(gfx.Pt(100, 300))
+	loop.CubicTo(gfx.Pt(500, 20), gfx.Pt(-100, 40), gfx.Pt(320, 380)) // open: closed by the fill
+	// Vertical sides whose rows are not all the same: a wide rectangle
+	// crosses a tall one, another starts inside its side's cells, and two
+	// sides meet on one line.
+	var stack gfx.Path
+	stack.AddRect(gfx.RectXYWH(100.5, 10, 3.25, 380))
+	stack.AddRect(gfx.RectXYWH(20, 150.5, 300, 97.25))
+	stack.AddRect(gfx.RectXYWH(103.75, 70.3, 40, 200))
+	stack.AddRect(gfx.RectXYWH(300, 20, 60.5, 100))
+	stack.AddRect(gfx.RectXYWH(300, 137, 60.5, 240))
+	scenes := []struct {
+		name string
+		path gfx.Path
+		rule gfx.FillRule
+		// most is the largest share of the target's pixels the shape may
+		// upload at the default page size (0: not checked).
+		most float64
+	}{
+		{"a ring of rectangles", ring, gfx.EvenOdd, 0.3},
+		{"a border", border, gfx.NonZero, 0.2},
+		{"a cross", cross, gfx.NonZero, 0.2},
+		{"rectangles across each other", stack, gfx.NonZero, 0},
+		{"rectangles across each other, even-odd", stack, gfx.EvenOdd, 0},
+		{"a thin triangle", diag, gfx.NonZero, 0.3},
+		{"a blob of quadratic curves", blob, gfx.NonZero, 0},
+		{"a cubic loop", loop, gfx.EvenOdd, 0},
+		{"a disc", gfx.CirclePath(gfx.Pt(200.3, 190.7), 180), gfx.NonZero, 0.3},
+		{"a star", gfxtest.StarPath(200, 200, 190), gfx.EvenOdd, 0},
+		{"a small star", gfxtest.StarPath(30, 30, 20.5), gfx.NonZero, 0},
 	}
-	// A region: only its tiles are rasterized, in a new Encoder.
-	e2 := Encoder{Limits: e.Limits}
-	f = e2.Encode(dl, image.Pt(400, 400), Options{Region: image.Rect(0, 0, 70, 70)})
-	if instances(f) != 1 || uploads(f) != 1 || f.Passes[0].Uploads[0].Rect.Size() != image.Pt(64, 64) {
-		t.Errorf("a region inside one tile: %d instances, %d uploads", instances(f), uploads(f))
+	for _, sc := range scenes {
+		dl := gfxtest.Build(func(b *gfx.Builder) { b.FillPath(sc.path, sc.rule, slate) })
+		want := make([]uint8, w*h)
+		var m raster.Masker
+		m.Fill(want, image.Rect(0, 0, w, h), gfx.Identity, sc.path, sc.rule)
+		for _, page := range []int{0, 128, 48, 16} {
+			e := Encoder{Limits: Limits{CoveragePage: page, CoveragePages: 64}}
+			sim := &atlasSim{t: t}
+			f := e.Encode(dl, image.Pt(w, h), Options{})
+			got, up := coverageOf(t, sim, f, image.Pt(w, h))
+			if len(f.Unsupported) > 0 {
+				t.Fatalf("%s, pages of %d: %v", sc.name, page, f.Unsupported)
+			}
+			for i := range want {
+				if got[i] != want[i] {
+					t.Fatalf("%s, pages of %d: the pixel (%d, %d) has the coverage %d, the rasterizer's is %d", sc.name, page, i%w, i/w, got[i], want[i])
+				}
+			}
+			if page == 0 && sc.most > 0 && float64(up) > sc.most*w*h {
+				t.Errorf("%s: %d pixels uploaded, want at most %.0f%% of the target's %d", sc.name, up, 100*sc.most, w*h)
+			}
+			// Regions, in an Encoder of their own and in the one that drew
+			// the whole: the same pixels.
+			for _, region := range []image.Rectangle{image.Rect(0, 0, 70, 70), image.Rect(150, 20, 260, 45), image.Rect(190, 190, 215, 330), image.Rect(300, 300, 400, 400)} {
+				for _, enc := range []*Encoder{{Limits: e.Limits}, &e} {
+					rs := sim
+					if enc != &e {
+						rs = &atlasSim{t: t}
+					}
+					f := enc.Encode(dl, image.Pt(w, h), Options{Region: region})
+					got, _ := coverageOf(t, rs, f, image.Pt(w, h))
+					for y := region.Min.Y; y < region.Max.Y; y++ {
+						for x := region.Min.X; x < region.Max.X; x++ {
+							if got[y*w+x] != want[y*w+x] {
+								t.Fatalf("%s, pages of %d, the region %v: the pixel (%d, %d) has the coverage %d, the rasterizer's is %d", sc.name, page, region, x, y, got[y*w+x], want[y*w+x])
+							}
+						}
+					}
+				}
+			}
+		}
 	}
-	// A shape far larger than the target: only the tiles on it.
+
+	// What is inside is plain rectangles, without the atlas; what is
+	// outside (the hole, the corners between a cross's arms) is not drawn.
+	e := Encoder{}
+	f := e.Encode(gfxtest.Build(func(b *gfx.Builder) { b.FillPath(ring, gfx.EvenOdd, slate) }), image.Pt(w, h), Options{})
+	plain, area := 0, 0
+	for i := range instances(f) {
+		bd := floats(f, i, SlotBounds)
+		area += int(bd[2]-bd[0]) * int(bd[3]-bd[1])
+		if head(f, i)[0]&FlagKindMask == 0 {
+			plain += int(bd[2]-bd[0]) * int(bd[3]-bd[1])
+		}
+	}
+	if plain < 60000 || area > 301*301-10*10 {
+		t.Errorf("a ring of 301 pixels with a hole of 40: %d pixels of plain rectangles and %d drawn, want most of it plain and the middle of the hole left out", plain, area)
+	}
+	// A region draws the pieces on it only, and uploads no more.
+	e2 := Encoder{}
+	f = e2.Encode(gfxtest.Build(func(b *gfx.Builder) { b.FillPath(border, gfx.NonZero, slate) }), image.Pt(w, h), Options{Region: image.Rect(100, 100, 200, 200)})
+	if instances(f) != 0 || uploads(f) != 0 {
+		t.Errorf("a region inside a border: %d instances and %d uploads, want none", instances(f), uploads(f))
+	}
+	// A shape far larger than the target: only what is on it.
 	huge := gfxtest.Build(func(b *gfx.Builder) { b.FillPath(gfx.CirclePath(gfx.Pt(0, 0), 5000), gfx.NonZero, slate) })
 	f = e2.Encode(huge, image.Pt(100, 100), Options{})
 	if n := instances(f); n < 1 || n > 4 || uploads(f) != 0 {
-		t.Errorf("a disc of 10000 pixels over a target of 100: %d instances, %d uploads, want up to 4 covered tiles", n, uploads(f))
+		t.Errorf("a disc of 10000 pixels over a target of 100: %d instances, %d uploads, want up to 4 covered pieces", n, uploads(f))
 	}
-	// An empty tile is not drawn: the tiles between the arms of a cross.
-	var cross gfx.Path
-	cross.AddRect(gfx.RectXYWH(0, 90, 192, 12))
-	cross.AddRect(gfx.RectXYWH(90, 0, 12, 192))
-	f = e2.Encode(gfxtest.Build(func(b *gfx.Builder) { b.FillPath(cross, gfx.NonZero, slate) }), image.Pt(200, 200), Options{})
-	if n := instances(f); n != 5 {
-		t.Errorf("a cross over 3 x 3 tiles: %d instances, want its 5 tiles", n)
+	// A shape that moves by a part of a pixel every frame (an animated
+	// row) is a new picture every frame, of its edges only.
+	for i := range 3 {
+		e3 := &e2
+		dl := gfxtest.Build(func(b *gfx.Builder) {
+			b.PushTransform(gfx.Translate(0, 0.3*float32(i+1)))
+			b.FillPath(border, gfx.NonZero, slate)
+			b.PopTransform()
+		})
+		f := e3.Encode(dl, image.Pt(w, h), Options{})
+		if len(f.Data) == 0 || len(f.Data) > w*h/5 {
+			t.Errorf("a border moved by %.1f pixel: %d bytes uploaded, want its edges (under %d)", 0.3*float32(i+1), len(f.Data), w*h/5)
+		}
 	}
+}
+
+// appendPath returns a with the elements of b after its own.
+func appendPath(a, b gfx.Path) gfx.Path {
+	for el := range b.Elements() {
+		switch el.Verb {
+		case gfx.MoveTo:
+			a.MoveTo(el.Pts[0])
+		case gfx.LineTo:
+			a.LineTo(el.Pts[0])
+		case gfx.QuadTo:
+			a.QuadTo(el.Pts[0], el.Pts[1])
+		case gfx.CubicTo:
+			a.CubicTo(el.Pts[0], el.Pts[1], el.Pts[2])
+		case gfx.Close:
+			a.Close()
+		}
+	}
+	return a
 }
 
 // TestEncodeFlush checks what happens when a frame needs more pictures
@@ -833,29 +986,66 @@ func TestEncodeClipStack(t *testing.T) {
 		var e Encoder
 		dl := gfxtest.Build(func(b *gfx.Builder) { c.draw(b, func() { fill(b) }) })
 		f := e.Encode(dl, image.Pt(size, size), Options{})
-		if len(f.Unsupported) != 0 || instances(f) != 1 {
+		if len(f.Unsupported) != 0 || instances(f) == 0 {
 			t.Errorf("%s: %d instances, unsupported %v", c.name, instances(f), f.Unsupported)
 			continue
 		}
-		flags := head(f, 0)[0]
-		if got := (want{flags >> FlagClipShift & 3, uploads(f), flags&FlagMask != 0}); got != c.want {
+		// The fill is one instance, or its parts: the part where the mask
+		// covers entirely, which does not read it, and the pieces along
+		// the mask's tiles. A part carries the clip unless it lies where
+		// the clip covers entirely.
+		got := want{masks: uploads(f)}
+		if got.masks > 1 {
+			got.masks = 1 // the tiles of one mask
+		}
+		for i := range instances(f) {
+			flags := head(f, i)[0]
+			if clip := flags >> FlagClipShift & 3; clip != 0 {
+				if got.clip != 0 && got.clip != clip {
+					t.Errorf("%s: the parts carry clips of two kinds", c.name)
+				}
+				got.clip = clip
+			}
+			got.mask = got.mask || flags&FlagMask != 0
+		}
+		if got != c.want {
 			t.Errorf("%s: %+v, want %+v", c.name, got, c.want)
 			continue
 		}
 		if c.mask == nil {
 			continue
 		}
+		// Every pixel the mask leaves is drawn once, by a part that reads
+		// the mask's value there, or by one that reads none where it is
+		// 255.
 		sim := &atlasSim{t: t}
-		rd := sim.draw(f)[0]
 		sc := f.Passes[0].Batches[0].Scissor
-		vis := rd.quad.Intersect(sc)
-		i := 0
-		for y := vis.Min.Y; y < vis.Max.Y; y++ {
-			for x := vis.Min.X; x < vis.Max.X; x++ {
-				if got, w := rd.mask[i], c.mask[y*size+x]; got != w {
-					t.Fatalf("%s: the mask of pixel (%d, %d) is %d, the rasterizer's nested clips give %d", c.name, x, y, got, w)
+		drawn := make([]bool, size*size)
+		for n, rd := range sim.draw(f) {
+			vis := rd.quad.Intersect(sc)
+			i := 0
+			for y := vis.Min.Y; y < vis.Max.Y; y++ {
+				for x := vis.Min.X; x < vis.Max.X; x++ {
+					got, w := uint8(255), c.mask[y*size+x]
+					if head(f, n)[0]&FlagMask != 0 {
+						got = rd.mask[i]
+					}
+					if got != w {
+						t.Fatalf("%s: the mask of pixel (%d, %d) is %d, the rasterizer's nested clips give %d", c.name, x, y, got, w)
+					}
+					if drawn[y*size+x] {
+						t.Fatalf("%s: the pixel (%d, %d) is drawn twice", c.name, x, y)
+					}
+					drawn[y*size+x] = true
+					i++
 				}
-				i++
+			}
+		}
+		for y := sc.Min.Y; y < sc.Max.Y; y++ {
+			for x := sc.Min.X; x < sc.Max.X; x++ {
+				if c.mask[y*size+x] != 0 && !drawn[y*size+x] {
+					t.Fatalf("%s: the pixel (%d, %d), where the mask is %d, is not drawn", c.name, x, y, c.mask[y*size+x])
+				}
 			}
 		}
 		// A second frame finds the mask again.

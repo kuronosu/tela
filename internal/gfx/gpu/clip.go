@@ -31,7 +31,9 @@ import (
 //
 // A mask is cut into tiles on a grid fixed to the device pixels, each
 // rasterized when an instance first draws through it and found again, by
-// the clips that make it, in the frames that follow.
+// the clips that make it, in the frames that follow. What is drawn where
+// a mask covers entirely does not read it (emitIn): the tiles a frame
+// makes are those along the mask's edges.
 
 // maskNode is a clip mask: a shape, times the mask it is nested in.
 type maskNode struct {
@@ -46,7 +48,17 @@ type maskNode struct {
 	// of the clips at the push, inside the target. full are pixels where it
 	// is 255.
 	rect, full image.Rectangle
+	// tile is the size of the tiles the mask is cut into, on a grid fixed
+	// to the device pixels.
+	tile int
 }
+
+// maskCell is the size of the tiles of the mask of a rectangle or rounded
+// rectangle: what is drawn through one lies mostly where it covers
+// entirely, which is drawn without the mask, so its tiles hold edges and
+// corners, and small ones hold little else. (The mask of a path is cut
+// into the atlas's own tiles: nothing is known of where it covers.)
+const maskCell = 64
 
 // maskDef is what makes the pixels of a mask: equal values mean identical
 // pixels.
@@ -128,6 +140,9 @@ func (e *Encoder) clipPath(st *state, p gfx.Path, rule gfx.FillRule) {
 func (e *Encoder) pushMask(st *state, n maskNode) {
 	r := e.res
 	n.parent, n.ctm, n.rect = st.mask, st.ctm, st.bound
+	if n.tile = r.atlas[AtlasCoverage].tile; !n.isPath {
+		n.tile = min(n.tile, maskCell)
+	}
 	def := maskDef{rule: n.rule, rr: n.rr, ctm: n.ctm, rect: n.rect, tol: raster.FlattenTolerance}
 	if n.isPath {
 		def.path = r.pathID(n.path)
@@ -153,7 +168,7 @@ func (e *Encoder) maskTile(mi, i, j int) (*atlasEntry, image.Rectangle) {
 	r := e.res
 	n := &e.masks[mi]
 	a := &r.atlas[AtlasCoverage]
-	rect := image.Rect(i*a.tile, j*a.tile, (i+1)*a.tile, (j+1)*a.tile).Intersect(n.rect)
+	rect := image.Rect(i*n.tile, j*n.tile, (i+1)*n.tile, (j+1)*n.tile).Intersect(n.rect)
 	key := atlasKey{kind: keyMask, id: n.id, tx: int32(i), ty: int32(j)}
 	if ent := a.get(&key, r.frame); ent != nil {
 		return ent, rect

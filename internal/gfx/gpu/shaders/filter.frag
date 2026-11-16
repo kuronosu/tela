@@ -57,6 +57,9 @@ layout(push_constant) uniform Target {
 } target;
 
 layout(location = 0) flat in int inIndex;
+
+// The instance being drawn. Its members are read where they are used.
+#define IT instances.items[inIndex]
 layout(location = 0) out vec4 outColor;
 
 // The steps and the flags (frame.go).
@@ -147,26 +150,26 @@ uvec4 colorMatrix(uvec4 s, uint at) {
 }
 
 void main() {
-    Instance it = instances.items[inIndex];
-    uint step_ = it.head.x;
-    uint flags = it.head.y;
+    uint step_ = IT.head.x;
+    uint flags = IT.head.y;
     ivec2 p = ivec2(floor(gl_FragCoord.xy + target.origin));
     vec4 v = vec4(0.0);
-    srcRect = it.srcRect;
-    srcOffset = it.src.xy;
-    srcMirror = it.mirror;
+    srcRect = IT.srcRect;
+    srcOffset = IT.src.xy;
+    srcMirror = IT.mirror;
     srcMirrored = (flags & FLAG_MIRROR) != 0u;
 
     if (step_ == STEP_TAPS) {
-        ivec2 base = p * it.src.zw;
-        uint first = it.head.z, n = it.head.w;
+        ivec2 base = p * IT.src.zw;
+        uint first = IT.head.z, n = IT.head.w;
         // The taps are in the order of their offsets. Where the first and
         // the last one read inside the picture (and inside the rectangle a
         // backdrop is mirrored at), every one does: most pixels take the
         // loop without the tests, which sums the same values in the same
         // order.
-        ivec2 a = base + it.axis.xy * int(taps.items[first].x);
-        ivec2 b = base + it.axis.xy * int(taps.items[first + n - 1u].x);
+        ivec2 ax = IT.axis.xy;
+        ivec2 a = base + ax * int(taps.items[first].x);
+        ivec2 b = base + ax * int(taps.items[first + n - 1u].x);
         ivec4 r = srcRect;
         if (srcMirrored) {
             r = ivec4(max(r.xy, srcMirror.xy), min(r.zw, srcMirror.xy + srcMirror.zw));
@@ -175,20 +178,20 @@ void main() {
             base += srcOffset;
             for (uint k = 0u; k < n; k++) {
                 vec2 tw = taps.items[first + k];
-                v += tw.y * texelFetch(source, base + it.axis.xy * int(tw.x), 0);
+                v += tw.y * texelFetch(source, base + ax * int(tw.x), 0);
             }
         } else {
             for (uint k = 0u; k < n; k++) {
                 vec2 tw = taps.items[first + k];
-                v += tw.y * texel(base + it.axis.xy * int(tw.x));
+                v += tw.y * texel(base + ax * int(tw.x));
             }
         }
     } else if (step_ == STEP_UP) {
         // raster's blurDown: with t = 2(X - shift) + 1 - f, the blocks
         // floor(t / 2f) and the next, with weights 2f - n and n over 2f,
         // n = t mod 2f; a block of one pixel is the pixel.
-        ivec2 f = it.axis.xy;
-        ivec2 t = 2 * (p - it.axis.zw) + 1 - f;
+        ivec2 f = IT.axis.xy;
+        ivec2 t = 2 * (p - IT.axis.zw) + 1 - f;
         ivec2 i = floorDiv(t, 2 * f);
         vec2 w1 = vec2(t - 2 * f * i) / vec2(2 * f);
         vec2 w0 = 1.0 - w1;
@@ -203,7 +206,7 @@ void main() {
               + w1.y * (w0.x * texel(i + ivec2(0, 1)) + w1.x * texel(i + ivec2(1, 1)));
         }
     } else {
-        v = texel(p * it.src.zw);
+        v = texel(p * IT.src.zw);
     }
 
     if ((flags & FLAG_DROP) != 0u) {
@@ -211,21 +214,21 @@ void main() {
         // alpha, under the content, rounded once over 255².
         ivec2 q = p;
         uvec4 c = uvec4(0u);
-        if (q.x >= it.auxRect.x && q.y >= it.auxRect.y && q.x < it.auxRect.z && q.y < it.auxRect.w) {
+        if (q.x >= IT.auxRect.x && q.y >= IT.auxRect.y && q.x < IT.auxRect.z && q.y < IT.auxRect.w) {
             if ((flags & FLAG_MIRROR_AUX) != 0u) {
-                q = mirrored(q, it.mirror);
+                q = mirrored(q, IT.mirror);
             }
-            c = uvec4(texelFetch(content, q + it.aux.xy, 0) * 255.0 + 0.5);
+            c = uvec4(texelFetch(content, q + IT.aux.xy, 0) * 255.0 + 0.5);
         }
         uint k = uint(unit8(v.a)) * (255u - c.a);
-        v = vec4((c * 65025u + it.color * k + 32512u) / 65025u) / 255.0;
+        v = vec4((c * 65025u + IT.color * k + 32512u) / 65025u) / 255.0;
     } else if ((flags & FLAG_ROUND) != 0u) {
         v = floor(clamp(v, 0.0, 1.0) * 255.0 + 0.5) / 255.0;
     }
     // The color matrices that follow, each on the 8-bit result of what
     // is before it.
-    for (uint k = 0u; k < it.post.y; k++) {
-        v = vec4(colorMatrix(uvec4(v * 255.0 + 0.5), it.post.x + 10u * k)) / 255.0;
+    for (uint k = 0u; k < IT.post.y; k++) {
+        v = vec4(colorMatrix(uvec4(v * 255.0 + 0.5), IT.post.x + 10u * k)) / 255.0;
     }
     outColor = v;
 }

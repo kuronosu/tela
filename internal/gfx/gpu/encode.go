@@ -24,6 +24,13 @@ type Options struct {
 	// the list is drawn. Without it the list is drawn over the pixels the
 	// target holds.
 	Clear *gfx.Color
+	// Backdrops, when not nil, is the cache of the filtered backdrops of
+	// the target's frames (BackdropCache): the backdrop filters whose
+	// output it holds are drawn from it. Its owner tells it which filters
+	// kept their input from one frame's list to the next
+	// (BackdropCache.Retain); a list it was not moved to empties it. The
+	// pixels are those of a render without it.
+	Backdrops *BackdropCache
 }
 
 // coordLimit bounds device coordinates, as in the rasterizer.
@@ -71,6 +78,8 @@ type Encoder struct {
 	layers  []layerRec
 	dfs     []devFilter
 	kernels []frameKernel
+	// kcache holds the kernels of the frames before (filter.go).
+	kcache []kernelRec
 	// When the render grew its region for the backdrop filters of the
 	// frame's list, needList is that list, and needs holds, for the
 	// backdrop filter at the command index needIdx[k], the pixels of its
@@ -79,6 +88,27 @@ type Encoder struct {
 	needs    []image.Rectangle
 	needIdx  []int
 	needBuf  []image.Rectangle
+	// frameDL is the list of the frame being encoded, bdc the cache of its
+	// filtered backdrops (nil: none), and opaque whether the frame draws
+	// over opaque pixels (an opaque Clear).
+	frameDL *gfx.DisplayList
+	bdc     *BackdropCache
+	opaque  bool
+	// The opaque covers of the frame's list and the state of their search
+	// (cull.go); cmd is the command of the frame's list being encoded.
+	covers   []cover
+	readers  []reader
+	coverKey occluderKey
+	scan     bool
+	cmd      int
+	// cuts: a cover hides a part of the command being encoded.
+	cuts bool
+	// listImages are the IDs of the images the list of coverKey draws.
+	listImages []uint64
+	// culled counts the commands of the frame hidden by a cover, and
+	// glass what the frame did with the cached backdrop filters.
+	culled int
+	glass  BackdropStats
 	// flushes counts the times an atlas was emptied in the frame being
 	// encoded: what was acquired before one is no longer there.
 	flushes int
@@ -139,6 +169,9 @@ type state struct {
 	// layer is the index in Encoder.layers of the layer the push of this
 	// state opened, or -1.
 	layer int
+	// fade, when not 0, is the opacity of a layer drawn without a target:
+	// the one rectangle it holds is faded by it (pushLayer).
+	fade uint8
 }
 
 // softClip is a rectangle or rounded rectangle clip whose edges do not
@@ -205,7 +238,7 @@ func (e *Encoder) Encode(dl *gfx.DisplayList, size image.Point, opts Options) *F
 	e.dfs = e.dfs[:0]
 	e.kernels = e.kernels[:0]
 	for _, t := range res.targets {
-		t.busy = false
+		t.busy = t.kept
 	}
 	f := &e.frame
 	*f = Frame{
@@ -226,12 +259,22 @@ func (e *Encoder) Encode(dl *gfx.DisplayList, size image.Point, opts Options) *F
 	e.pass = passHead{}
 	e.dl, e.root = dl, gfx.Scale(s, s)
 	e.needList, e.needs = nil, nil
+	e.frameDL, e.bdc, e.scan, e.cmd, e.cuts, e.culled, e.glass = dl, nil, false, -1, false, 0, BackdropStats{}
+	e.opaque = opts.Clear != nil && premul8(*opts.Clear)[3] == 255
 	region := e.target
 	if !opts.Region.Empty() {
 		region = region.Intersect(opts.Region)
 	}
 	box := image.Rect(-coordLimit, -coordLimit, coordLimit, coordLimit)
 	region = region.Intersect(box)
+	if bc := opts.Backdrops; bc != nil {
+		if dl != nil && dl.NumBackdrops() > 0 && !region.Empty() && e.target.In(box) {
+			bc.prepare(res, dl, s, size)
+			e.bdc = bc
+		} else if dl != bc.dl {
+			bc.Reset() // another list: its entries are not this one's
+		}
+	}
 	if !region.Empty() {
 		draws := dl != nil && dl.Len() > 0
 		// The pixels rendered: the region, or when backdrop filters read
@@ -240,11 +283,14 @@ func (e *Encoder) Encode(dl *gfx.DisplayList, size image.Point, opts Options) *F
 		render := region
 		var scratch *poolTarget
 		if draws && dl.BackdropReach() > 0 {
-			if grown := raster.BackdropRegion(dl, s, region, e.target.Intersect(box)); grown != region {
+			grown, needs := planBackdrops(dl, s, region, e.target.Intersect(box), e.bdc, e.needBuf)
+			if needs != nil {
+				e.needBuf = needs
+			}
+			if grown != region {
 				if t, ok := e.acquireTarget(grown.Size(), FormatRGBA8); ok {
 					scratch, render = t, grown
-					e.needBuf = backdropNeeds(dl, s, region, grown, e.target.Intersect(box), e.needBuf)
-					if e.needs = e.needBuf; e.needs != nil {
+					if e.needs = needs; e.needs != nil {
 						e.needList, e.needIdx = dl, e.needIdx[:0]
 						for k := range dl.NumBackdrops() {
 							i, _, _, _ := dl.Backdrop(k)
@@ -270,15 +316,19 @@ func (e *Encoder) Encode(dl *gfx.DisplayList, size image.Point, opts Options) *F
 			e.pass.clear, e.pass.hasClear = Clear{Rect: render, Color: premul8(*opts.Clear)}, true
 		}
 		if draws {
-			e.stack = append(e.stack, state{ctm: e.root, scissor: render, bound: e.target, clip: -1, mask: -1, surf: surf, layer: -1})
 			// The region in root space, grown by one device pixel so that
 			// float32 rounding in the list's bounds never culls a command that
 			// touches a pixel of the region (as raster does).
 			fs := float64(s)
-			dl.Visit(gfx.Rect{
+			visible := gfx.Rect{
 				X0: float32(float64(render.Min.X-1) / fs), Y0: float32(float64(render.Min.Y-1) / fs),
 				X1: float32(float64(render.Max.X+1) / fs), Y1: float32(float64(render.Max.Y+1) / fs),
-			}, e.visitFn)
+			}
+			// What the opaque commands of the list hide is not drawn
+			// (cull.go).
+			e.findCovers(dl, s)
+			e.stack = append(e.stack, state{ctm: e.root, scissor: render, bound: e.target, clip: -1, mask: -1, surf: surf, layer: -1})
+			dl.Visit(visible, e.visitFn)
 		}
 		if scratch != nil {
 			// Only the region goes to the destination.
@@ -288,7 +338,13 @@ func (e *Encoder) Encode(dl *gfx.DisplayList, size image.Point, opts Options) *F
 		}
 	}
 	e.endPass()
-	e.dl, e.needList, e.needs = nil, nil, nil
+	if bc := e.bdc; bc != nil {
+		bc.stats.Hits += e.glass.Hits
+		bc.stats.Patched += e.glass.Patched
+		bc.stats.Stored += e.glass.Stored
+		bc.stats.Computed += e.glass.Computed
+	}
+	e.dl, e.needList, e.needs, e.frameDL, e.bdc = nil, nil, nil, nil, nil
 	// The passes, as slices of the frame's batches and uploads.
 	nc := 0
 	for i := range e.marks {
@@ -311,6 +367,16 @@ func (e *Encoder) Encode(dl *gfx.DisplayList, size image.Point, opts Options) *F
 		}
 	}
 	f.Passes = e.passes
+	e.dataPeak = max(e.dataPeak, len(f.Data))
+	e.sync(f)
+	return f
+}
+
+// sync finishes a frame with the state of the resources it leaves: the
+// offscreen targets, the atlases, and where the frame stands in the
+// resources' history.
+func (e *Encoder) sync(f *Frame) {
+	res := e.res
 	f.Targets = res.listTargets(f.Targets)
 	for i := range res.atlas {
 		a := &res.atlas[i]
@@ -319,12 +385,59 @@ func (e *Encoder) Encode(dl *gfx.DisplayList, size image.Point, opts Options) *F
 	if len(f.Releases) > 0 || len(f.Images) > 0 {
 		res.dirty = true
 	}
-	e.dataPeak = max(e.dataPeak, len(f.Data))
 	f.Res = ResourceSync{ID: res.id, Base: res.serial, Next: res.serial}
 	if res.dirty {
 		res.serial++
 		f.Res.Next = res.serial
 	}
+}
+
+// Rest gives up what the Encoder keeps only to draw the next frame
+// faster, for windows that rest (ADR-241's rule): the offscreen targets of
+// the pool, its scratch memory and its buffers, and the textures of the
+// images that none of lists, the display lists the windows show, draws.
+// What is costly to make again and bounded stays: the atlases with their
+// pictures, within their limits, the textures of the images on screen, and
+// the filtered backdrops a BackdropCache holds. The frame after a rest
+// uploads nothing for what the frames before it drew.
+//
+// It returns the frame that tells the device (Device.Rest): one without
+// passes, valid until the next call of the Encoder; nil when the Encoder
+// holds nothing.
+func (e *Encoder) Rest(lists ...*gfx.DisplayList) *Frame {
+	res := e.res
+	if res == nil {
+		return nil
+	}
+	res.frame++
+	res.dirty = false
+	// The images on screen stay.
+	for _, dl := range lists {
+		res.markImages(dl, 0)
+	}
+	for id, im := range res.images {
+		if im.used != res.frame {
+			res.releaseImage(id, im)
+		}
+	}
+	for i := 0; i < len(res.targets); i++ {
+		if t := res.targets[i]; !t.kept {
+			res.dropTarget(i)
+			i--
+		}
+	}
+	for i := range res.atlas {
+		res.atlas[i].shrink()
+		res.atlas[i].peak = len(res.atlas[i].pages)
+	}
+	res.tmp, res.tmp2, res.cells, res.rectBuf = nil, nil, nil, nil
+	res.masker.Trim()
+	e.passes, e.marks, e.clears, e.batches, e.uploads = nil, nil, nil, nil, nil
+	e.dataPeak, e.dataIdle = 0, 0
+	f := &e.frame
+	*f = Frame{Releases: append(f.Releases[:0], res.released...)}
+	res.released = res.released[:0]
+	e.sync(f)
 	return f
 }
 
@@ -379,9 +492,32 @@ func (e *Encoder) EndFrame() {
 	e.dataPeak = 0
 }
 
-// Trim forgets every resource, for a window that rests: the next frame
-// starts from nothing and uploads what it draws with. The device's own
-// memory is released by Device.Trim (Renderer.Trim does both).
+// Memory returns what the Encoder's resources hold on the device.
+func (e *Encoder) Memory() Memory {
+	var m Memory
+	res := e.res
+	if res == nil {
+		return m
+	}
+	for i := range res.atlas {
+		a := &res.atlas[i]
+		m.Atlases += int64(len(a.pages)) * int64(a.pageSize) * int64(a.pageSize) * int64(a.bpp)
+	}
+	m.Images = res.imageBytes
+	for _, t := range res.targets {
+		if t.kept {
+			m.Backdrops += t.bytes()
+		} else {
+			m.Targets += t.bytes()
+		}
+	}
+	return m
+}
+
+// Trim forgets every resource: the next frame starts from nothing and
+// uploads what it draws with. The device's own memory is released by
+// Device.Trim (Renderer.Trim does both). A window that rests is given
+// Rest, which keeps what is costly to make again.
 func (e *Encoder) Trim() {
 	e.res = nil
 	e.ramps = nil
@@ -407,43 +543,46 @@ func (e *Encoder) top() *state { return &e.stack[len(e.stack)-1] }
 func (e *Encoder) push() *state {
 	e.stack = append(e.stack, *e.top())
 	st := e.top()
-	st.layer = -1
+	st.layer, st.fade = -1, 0
 	return st
 }
 
 // visit encodes command i of the list being encoded.
 func (e *Encoder) visit(i int, c gfx.Command) {
+	if e.dl == e.frameDL {
+		e.cmd, e.cuts = i, false
+	}
 	switch c := c.(type) {
 	case gfx.FillRect:
-		if !e.top().skip {
+		if !e.top().skip && !e.hidden(i) {
 			e.fill(gfx.RRect{Rect: c.Rect}, c.Paint)
 		}
 	case gfx.FillRRect:
-		if !e.top().skip {
+		if !e.top().skip && !e.hidden(i) {
 			e.fill(c.RRect, c.Paint)
 		}
 	case gfx.FillPath:
-		if st := e.top(); !st.skip {
+		if st := e.top(); !st.skip && !e.hidden(i) {
 			if pe, ok := e.paint(c.Paint, &st.ctm); ok {
 				e.cover(&st.ctm, c.Path, c.Rule, nil, &pe, st)
 			}
 		}
 	case gfx.StrokePath:
-		if st := e.top(); !st.skip {
+		if st := e.top(); !st.skip && !e.hidden(i) {
 			if pe, ok := e.paint(c.Paint, &st.ctm); ok {
 				e.cover(&st.ctm, c.Path, gfx.NonZero, &c.Style, &pe, st)
 			}
 		}
 	case gfx.DrawImage:
-		if !e.top().skip {
+		if !e.top().skip && !e.hidden(i) {
 			e.drawImage(c)
 		}
 	case gfx.DrawGlyphRun:
-		if !e.top().skip {
+		if !e.top().skip && !e.hidden(i) {
 			e.glyphRun(c)
 		}
 	case gfx.DrawShadow:
-		if !e.top().skip {
+		if !e.top().skip && !e.hidden(i) {
 			e.shadow(c)
 		}
 	case gfx.PushTransform:
@@ -470,10 +609,15 @@ func (e *Encoder) visit(i int, c gfx.Command) {
 		}
 	case gfx.PushLayer:
 		if st := e.push(); !st.skip {
-			e.pushLayer(i, c)
+			if e.hidden(i) {
+				st.skip = true // nothing of the layer shows
+			} else {
+				e.pushLayer(i, c)
+			}
 		}
 	case gfx.PopLayer:
 		if e.top().layer >= 0 {
+			e.cuts = true // the composite may lie under covers
 			e.popLayer()
 		}
 		e.stack = e.stack[:len(e.stack)-1]
@@ -517,7 +661,21 @@ func (e *Encoder) fill(rr gfx.RRect, p gfx.Paint) {
 	}
 	sh.put(&in, SlotShape, ox, oy)
 	flags |= pe.put(&in, ox, oy)
-	e.emit(&in, flags, st, quad, nil)
+	if st.fade != 0 {
+		flags |= FlagOpacity
+		in[SlotHead][1] = uint32(st.fade)
+	}
+	e.emitShape(&in, flags, st, quad, sh.inside(), false)
+}
+
+// inside returns pixels the shape covers entirely: the larger of the two
+// rectangles of deviceFull for a device shape, none for a local one.
+func (s *shape) inside() image.Rectangle {
+	if s.local {
+		return image.Rectangle{}
+	}
+	full, _ := deviceFull(s)
+	return full
 }
 
 // begin starts an instance whose pixels lie in bounds, and returns its
@@ -541,35 +699,148 @@ func (e *Encoder) begin(in *instance, bounds image.Rectangle) image.Rectangle {
 // reading its tile: the pieces are copies but for their quads and where
 // they read, so they have the pixels of the whole.
 func (e *Encoder) emit(in *instance, flags uint32, st *state, quad image.Rectangle, src *coverSrc) {
-	vis := quad.Intersect(st.scissor)
+	e.emitIn(in, flags, st, quad, quad, src)
+}
+
+// emitIn is emit for the part of the instance inside part, a rectangle of
+// its quad: the parts of an instance are copies but for their quads, so
+// they have the pixels of the whole.
+//
+// The clip is left out of a part that lies where it covers entirely: what
+// it would multiply by is 255. That, like everything about a part, does not
+// depend on the region.
+func (e *Encoder) emitIn(in *instance, flags uint32, st *state, quad, part image.Rectangle, src *coverSrc) {
+	if e.cuts && e.culls() {
+		// Without what the opaque commands after this one hide (cull.go).
+		var buf [maxCuts + 4]image.Rectangle
+		for _, p := range e.cut(e.cmd, part, buf[:0]) {
+			e.emitPart(in, flags, st, quad, p, src)
+		}
+		return
+	}
+	e.emitPart(in, flags, st, quad, part, src)
+}
+
+// emitPart is emitIn after the covers.
+func (e *Encoder) emitPart(in *instance, flags uint32, st *state, quad, part image.Rectangle, src *coverSrc) {
+	vis := part.Intersect(st.scissor)
 	if vis.Empty() {
 		return
 	}
 	ox, oy := float64(quad.Min.X), float64(quad.Min.Y)
-	if st.clip >= 0 {
-		sc := &e.clips[st.clip]
-		if sc.sh.local {
-			flags |= ClipLocal << FlagClipShift
-		} else {
-			flags |= ClipDevice << FlagClipShift
+	full := flags&FlagFull != 0
+	if st.clip >= 0 && !full {
+		if sc := &e.clips[st.clip]; !sc.covers(part.Intersect(st.bound)) {
+			if sc.sh.local {
+				flags |= ClipLocal << FlagClipShift
+			} else {
+				flags |= ClipDevice << FlagClipShift
+			}
+			// In a copy: the other parts of the instance are what they are
+			// whichever parts a region shows.
+			clipped := *in
+			sc.sh.put(&clipped, SlotClip, ox, oy)
+			in = &clipped
 		}
-		sc.sh.put(in, SlotClip, ox, oy)
 	}
 	// A coordinate beyond float32 (a transform that scales out of range)
 	// would reach the shader as an infinity: nothing sensible is drawn.
 	if !in.finite() {
 		return
 	}
-	if st.mask < 0 || quad.Intersect(st.bound).In(e.masks[st.mask].full) {
-		e.emitPiece(in, flags, st, quad, quad, src, false, 0, 0)
+	if full || st.mask < 0 || part.Intersect(st.bound).In(e.masks[st.mask].full) {
+		e.emitPiece(in, flags, st, quad, part, src, false, 0, 0)
 		return
 	}
-	t := e.res.atlas[AtlasCoverage].tile
-	for j := vis.Min.Y / t; j*t < vis.Max.Y; j++ {
-		for i := vis.Min.X / t; i*t < vis.Max.X; i++ {
-			piece := quad.Intersect(image.Rect(i*t, j*t, (i+1)*t, (j+1)*t))
-			e.emitPiece(in, flags, st, quad, piece, src, true, i, j)
+	// Under a clip mask: what lies where the mask covers entirely is drawn
+	// without it, and the strips around that are cut along the mask's
+	// tiles, each piece reading its tile.
+	m := &e.masks[st.mask]
+	inside := part.Intersect(m.full)
+	parts := [5]image.Rectangle{part}
+	if !inside.Empty() {
+		e.emitPiece(in, flags, st, quad, inside, src, false, 0, 0)
+		parts = [5]image.Rectangle{
+			rectNoSwap(part.Min.X, part.Min.Y, part.Max.X, inside.Min.Y),
+			rectNoSwap(part.Min.X, inside.Min.Y, inside.Min.X, inside.Max.Y),
+			rectNoSwap(inside.Max.X, inside.Min.Y, part.Max.X, inside.Max.Y),
+			rectNoSwap(part.Min.X, inside.Max.Y, part.Max.X, part.Max.Y),
 		}
+	}
+	t := m.tile
+	for _, strip := range parts {
+		sv := strip.Intersect(st.scissor)
+		if sv.Empty() {
+			continue
+		}
+		for j := floorDiv(sv.Min.Y, t); j*t < sv.Max.Y; j++ {
+			for i := floorDiv(sv.Min.X, t); i*t < sv.Max.X; i++ {
+				if piece := strip.Intersect(image.Rect(i*t, j*t, (i+1)*t, (j+1)*t)); !piece.Empty() {
+					e.emitPiece(in, flags, st, quad, piece, src, true, i, j)
+				}
+			}
+		}
+	}
+}
+
+// minInside is the fewest pixels the inside of a shape must hold to be
+// drawn apart from its edges.
+const minInside = 96 * 96
+
+// emitShape is emit for an instance whose coverage is that of a shape (a
+// fill, an image, a layer or a filtered backdrop painted through one):
+// own holds pixels the shape covers entirely. Where the clips cover
+// entirely too, the coverage is 255 without a look at the shape or at the
+// clips, and the instance says so (FlagFull): all of it when its quad lies
+// there, else, when that inside is large, the inside drawn apart from up to
+// four strips around it, which carry the shape. A pane, a card, a row: most
+// of their pixels are inside, and the shader's work for a pixel inside is
+// its paint.
+//
+// With hole, the inside is not drawn at all: an outer shadow paints
+// nothing where its box covers entirely.
+//
+// The pieces are copies but for their quads and that flag, and where the
+// flag is set the shader's coverage would be 255: the pixels are those of
+// the instance drawn whole. Nothing here looks at the region.
+func (e *Encoder) emitShape(in *instance, flags uint32, st *state, quad, own image.Rectangle, hole bool) {
+	inside := own.Intersect(quad)
+	if !hole {
+		// What is drawn of the instance lies in st.bound.
+		inside = inside.Intersect(st.bound)
+		if st.clip >= 0 {
+			sc := &e.clips[st.clip]
+			a, b := inside.Intersect(sc.full), inside.Intersect(sc.full2)
+			if inside = a; b.Dx()*b.Dy() > a.Dx()*a.Dy() {
+				inside = b
+			}
+		}
+		if st.mask >= 0 {
+			inside = inside.Intersect(e.masks[st.mask].full)
+		}
+		if !inside.Empty() && quad.Intersect(st.bound) == inside {
+			e.emitIn(in, flags|FlagFull, st, quad, quad, nil)
+			return
+		}
+	}
+	if inside.Dx()*inside.Dy() < minInside {
+		e.emitIn(in, flags, st, quad, quad, nil)
+		return
+	}
+	// The strips around the inside: above and below over the whole width,
+	// left and right beside it.
+	for _, part := range [4]image.Rectangle{
+		rectNoSwap(quad.Min.X, quad.Min.Y, quad.Max.X, inside.Min.Y),
+		rectNoSwap(quad.Min.X, inside.Min.Y, inside.Min.X, inside.Max.Y),
+		rectNoSwap(inside.Max.X, inside.Min.Y, quad.Max.X, inside.Max.Y),
+		rectNoSwap(quad.Min.X, inside.Max.Y, quad.Max.X, quad.Max.Y),
+	} {
+		if !part.Empty() {
+			e.emitIn(in, flags, st, quad, part, nil)
+		}
+	}
+	if !hole {
+		e.emitIn(in, flags|FlagFull, st, quad, inside, nil)
 	}
 }
 
