@@ -9,19 +9,20 @@ import (
 	"image/color"
 	"os"
 	"os/exec"
-	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/internal/dmabuftest"
 	"github.com/kuronosu/tela/internal/vk"
 )
 
 // The live check of dmabuf.go, with the Vulkan bindings on the other side
-// (ADR-281, ADR-283): what the unit tests cannot tell is whether a real
-// compositor imports what a real driver exports. It needs TELA_LIVE=1 and
+// (ADR-281, ADR-283; the device that renders is the package dmabuftest,
+// shared with the X11 backend): what the unit tests cannot tell is whether
+// a real compositor imports what a real driver exports. It needs TELA_LIVE=1 and
 // the tag telagpu:
 //
 //	go test -c -tags telagpu -o bin/wayland.test ./internal/platform/wayland
@@ -66,22 +67,6 @@ func placeDmabufWindow(t *testing.T) {
 	})
 }
 
-// liveFormats are the formats the test can render, the opaque ones first:
-// a DRM fourcc and the Vulkan format with the same bytes in memory.
-var liveFormats = []struct {
-	name   string
-	fourcc uint32
-	format vk.Format
-}{
-	{"XRGB8888", platform.DRMFormatXRGB8888, vk.FormatB8G8R8A8Unorm},
-	{"XBGR8888", platform.DRMFormatXBGR8888, vk.FormatR8G8B8A8Unorm},
-	{"ARGB8888", platform.DRMFormatARGB8888, vk.FormatB8G8R8A8Unorm},
-	{"ABGR8888", platform.DRMFormatABGR8888, vk.FormatR8G8B8A8Unorm},
-}
-
-// liveUsage is how the renderer uses the images it presents.
-const liveUsage = vk.ImageUsageColorAttachment | vk.ImageUsageTransferSrc | vk.ImageUsageTransferDst
-
 // TestLiveDmabuf presents Vulkan images to the real compositor as
 // dmabufs, once per physical device. On the device the compositor named
 // as its main device every step must work. On another device the buffers
@@ -91,28 +76,7 @@ const liveUsage = vk.ImageUsageColorAttachment | vk.ImageUsageTransferSrc | vk.I
 // and never a failure.
 func TestLiveDmabuf(t *testing.T) {
 	skipUnlessLive(t)
-	if err := vk.Load(); err != nil {
-		t.Skipf("Vulkan is not available: %v", err)
-	}
-	validate := os.Getenv("TELA_VK_VALIDATE") == "1"
-	var messages []vk.DebugMessage
-	inst, err := vk.NewInstance(vk.InstanceConfig{AppName: "tela live dmabuf", Validation: validate, Debug: func(m vk.DebugMessage) {
-		messages = append(messages, m) // the test is single-threaded while Vulkan runs
-	}})
-	if err != nil {
-		t.Skipf("no Vulkan instance: %v", err)
-	}
-	defer inst.Destroy()
-	report := func(t *testing.T) {
-		for _, m := range messages {
-			if validate {
-				t.Errorf("%s", m)
-			} else {
-				t.Logf("%s", m)
-			}
-		}
-		messages = nil
-	}
+	inst, report := dmabuftest.NewInstance(t, "tela live dmabuf")
 	devices, err := inst.Devices()
 	if err != nil || len(devices) == 0 {
 		t.Skipf("no usable Vulkan device: %v", err)
@@ -152,8 +116,8 @@ func liveMainDevice(t *testing.T, devices []vk.DeviceInfo) int {
 		t.Skip("the compositor reports no dmabuf feedback (no zwp_linux_dmabuf_v1, or nothing listed)")
 	}
 	t.Logf("zwp_linux_dmabuf_v1 version %d (the compositor has %d); %d format and modifier pairs", b.dmabuf.wl.Version(), b.dmabuf.version, len(fb.Formats))
-	for _, f := range liveFormats {
-		t.Logf("  %s: modifiers %#x", f.name, fb.Modifiers(f.fourcc))
+	for _, f := range dmabuftest.Formats {
+		t.Logf("  %s: modifiers %#x", f.Name, fb.Modifiers(f.Fourcc))
 	}
 	if !fb.HasDevice {
 		// The renderer's choice then (ADR-281): the first discrete one.
@@ -163,7 +127,7 @@ func liveMainDevice(t *testing.T, devices []vk.DeviceInfo) int {
 	}
 	main := -1
 	for i, d := range devices {
-		if liveSameDevice(fb, d) {
+		if dmabuftest.SameDevice(fb, d) {
 			main = i
 		}
 		t.Logf("  Vulkan device %d: %s", i, d)
@@ -172,389 +136,10 @@ func liveMainDevice(t *testing.T, devices []vk.DeviceInfo) int {
 	return main
 }
 
-// liveSameDevice reports whether the feedback's main device is one of the
-// DRM nodes of a Vulkan device. The compositor may name either node.
-func liveSameDevice(fb platform.DmabufFeedback, d vk.DeviceInfo) bool {
-	major, minor := int64(fb.DeviceMajor), int64(fb.DeviceMinor)
-	return fb.HasDevice && (d.DRM.HasRender && d.DRM.RenderMajor == major && d.DRM.RenderMinor == minor ||
-		d.DRM.HasPrimary && d.DRM.PrimaryMajor == major && d.DRM.PrimaryMinor == minor)
-}
-
-// liveScene is frame n of the test's animation for a buffer of a size:
-// a background that changes every third frame, a square of a fixed color
-// in each corner (so a flipped or channel-swapped image shows), and a
-// patch in the middle that changes with every frame. Everything is
-// opaque and lies on pixel boundaries.
-type liveScene struct {
-	size       image.Point
-	background color.RGBA
-	rects      []image.Rectangle
-	colors     []color.RGBA
-}
-
-var (
-	liveBackgrounds = []color.RGBA{{24, 32, 48, 255}, {200, 208, 216, 255}, {64, 24, 96, 255}}
-	liveCorners     = [4]color.RGBA{{230, 30, 30, 255}, {30, 200, 60, 255}, {40, 60, 220, 255}, {240, 220, 40, 255}}
-	livePatches     = []color.RGBA{{220, 40, 220, 255}, {40, 220, 230, 255}, {250, 250, 250, 255}, {250, 140, 20, 255}}
-)
-
-func newLiveScene(n int, size image.Point) liveScene {
-	q := image.Pt(size.X/4, size.Y/4)
-	s := liveScene{size: size, background: liveBackgrounds[n/3%len(liveBackgrounds)]}
-	for i, at := range []image.Point{{0, 0}, {size.X - q.X, 0}, {0, size.Y - q.Y}, {size.X - q.X, size.Y - q.Y}} {
-		s.rects = append(s.rects, image.Rectangle{Min: at, Max: at.Add(q)})
-		s.colors = append(s.colors, liveCorners[i])
-	}
-	s.rects = append(s.rects, s.patch())
-	s.colors = append(s.colors, livePatches[n%len(livePatches)])
-	return s
-}
-
-// patch is the rectangle that changes with every frame.
-func (s liveScene) patch() image.Rectangle {
-	return image.Rect(3*s.size.X/8, 3*s.size.Y/8, 5*s.size.X/8, 5*s.size.Y/8)
-}
-
-// at is the color of a pixel.
-func (s liveScene) at(p image.Point) color.RGBA {
-	c := s.background
-	for i, r := range s.rects {
-		if p.In(r) {
-			c = s.colors[i]
-		}
-	}
-	return c
-}
-
-// draw paints the scene into a framebuffer, for the wl_shm presents.
-func (s liveScene) draw(fb *image.RGBA) {
-	fill(fb, fb.Rect, s.background)
-	for i, r := range s.rects {
-		fill(fb, r, s.colors[i])
-	}
-}
-
-// liveGPU is the Vulkan side of one run.
-type liveGPU struct {
-	t       *testing.T
-	inst    *vk.Instance
-	info    vk.DeviceInfo
-	dev     *vk.Device
-	queue   vk.Queue
-	mem     *vk.PhysicalDeviceMemoryProperties
-	pool    vk.CommandPool
-	cb      vk.CommandBuffer
-	fence   vk.Fence
-	foreign bool // VK_EXT_queue_family_foreign
-
-	format     vk.Format
-	modifiers  []vk.DmabufModifier
-	renderPass vk.RenderPass
-	// implicit: the buffers are registered without a modifier
-	// (DRM_FORMAT_MOD_INVALID), see choose.
-	implicit bool
-}
-
-// liveImage is one buffer of the test's swapchain.
-type liveImage struct {
-	img  *vk.DmabufImage
-	view vk.ImageView
-	fb   vk.Framebuffer
-	buf  platform.DmabufBuffer
-	// handed: the image was given to the foreign queue family (or just
-	// left in the general layout) by a present.
-	handed bool
-	// held: presented, and its release not seen yet.
-	held bool
-}
-
-func newLiveGPU(t *testing.T, inst *vk.Instance, info vk.DeviceInfo) *liveGPU {
-	extensions, ok := vk.DmabufExtensions(&info)
-	if !ok {
-		t.Skipf("%s lacks an extension of the dmabuf export", info.Name)
-	}
-	priority := float32(1)
-	count, names := vk.CStringArray(extensions)
-	dev, err := inst.CreateDevice(info.Device, &vk.DeviceCreateInfo{
-		SType:                vk.StructureTypeDeviceCreateInfo,
-		QueueCreateInfoCount: 1,
-		PQueueCreateInfos: &vk.DeviceQueueCreateInfo{
-			SType:            vk.StructureTypeDeviceQueueCreateInfo,
-			QueueFamilyIndex: info.GraphicsQueueFamily,
-			QueueCount:       1,
-			PQueuePriorities: &priority,
-		},
-		EnabledExtensionCount:   count,
-		PpEnabledExtensionNames: names,
-		PEnabledFeatures:        &vk.PhysicalDeviceFeatures{},
-	})
-	if err != nil {
-		t.Fatalf("CreateDevice on %s: %v", info.Name, err)
-	}
-	g := &liveGPU{
-		t: t, inst: inst, info: info, dev: dev,
-		queue:   dev.GetQueue(info.GraphicsQueueFamily, 0),
-		mem:     inst.GetPhysicalDeviceMemoryProperties(info.Device),
-		foreign: info.HasExtension(vk.ExtQueueFamilyForeignExtensionName),
-	}
-	t.Cleanup(func() {
-		dev.WaitIdle()
-		if g.renderPass != 0 {
-			dev.DestroyRenderPass(g.renderPass)
-		}
-		if g.fence != 0 {
-			dev.DestroyFence(g.fence)
-		}
-		if g.pool != 0 {
-			dev.DestroyCommandPool(g.pool)
-		}
-		dev.Destroy()
-	})
-	g.pool, err = dev.CreateCommandPool(&vk.CommandPoolCreateInfo{
-		SType:            vk.StructureTypeCommandPoolCreateInfo,
-		Flags:            vk.CommandPoolCreateResetCommandBuffer,
-		QueueFamilyIndex: info.GraphicsQueueFamily,
-	})
-	g.check("CreateCommandPool", err)
-	cbs, err := dev.AllocateCommandBuffers(&vk.CommandBufferAllocateInfo{
-		SType:              vk.StructureTypeCommandBufferAllocateInfo,
-		CommandPool:        g.pool,
-		Level:              vk.CommandBufferLevelPrimary,
-		CommandBufferCount: 1,
-	})
-	g.check("AllocateCommandBuffers", err)
-	g.cb = cbs[0]
-	g.fence, err = dev.CreateFence(&vk.FenceCreateInfo{SType: vk.StructureTypeFenceCreateInfo})
-	g.check("CreateFence", err)
-	return g
-}
-
-func (g *liveGPU) check(what string, err error) {
-	g.t.Helper()
-	if err != nil {
-		g.t.Fatalf("%s on %s: %v", what, g.info.Name, err)
-	}
-}
-
-// choose picks the format and the modifiers to render with: the first of
-// liveFormats that the device can export with a modifier the compositor
-// lists, with those modifiers, explicit ones only, and the tiled ones
-// before the linear one. ok is false when there is no such format.
-//
-// With implicit set (a device that is not the compositor's), a format
-// without a common modifier is still tried when the device exports it
-// linear and the compositor lists it without a modifier
-// (DRM_FORMAT_MOD_INVALID): the protocol's rule for a buffer of another
-// device is a linear layout under the implicit modifier.
-func (g *liveGPU) choose(fb platform.DmabufFeedback, implicit bool) (fourcc uint32, ok bool) {
-	for _, pass := range []bool{false, true} {
-		if fourcc, ok = g.chooseFormat(fb, pass); ok || !implicit {
-			return fourcc, ok
-		}
-	}
-	return 0, false
-}
-
-func (g *liveGPU) chooseFormat(fb platform.DmabufFeedback, implicit bool) (fourcc uint32, ok bool) {
-	for _, f := range liveFormats {
-		accepted := fb.Modifiers(f.fourcc)
-		exportable := g.inst.DmabufModifiers(g.info.Device, f.format, liveUsage)
-		var common []vk.DmabufModifier
-		for _, m := range exportable {
-			switch {
-			case implicit:
-				if m.Modifier == platform.DRMModifierLinear && slices.Contains(accepted, platform.DRMModifierInvalid) {
-					common = append(common, m)
-				}
-			case m.Modifier != platform.DRMModifierInvalid && slices.Contains(accepted, m.Modifier):
-				common = append(common, m)
-			}
-		}
-		if implicit {
-			if len(common) == 0 {
-				continue
-			}
-			g.t.Logf("%s: no common modifier; trying a linear image under the implicit modifier", f.name)
-			g.implicit = true
-		} else {
-			var exported []uint64
-			for _, m := range exportable {
-				exported = append(exported, m.Modifier)
-			}
-			g.t.Logf("%s: %s exports %#x; common with the compositor: %d", f.name, g.info.Name, exported, len(common))
-			if len(common) == 0 {
-				continue
-			}
-		}
-		slices.SortStableFunc(common, func(a, b vk.DmabufModifier) int {
-			switch {
-			case a.Modifier == platform.DRMModifierLinear && b.Modifier != platform.DRMModifierLinear:
-				return 1
-			case b.Modifier == platform.DRMModifierLinear && a.Modifier != platform.DRMModifierLinear:
-				return -1
-			}
-			return 0
-		})
-		g.format, g.modifiers = f.format, common
-		var err error
-		g.renderPass, err = g.dev.CreateRenderPass(&vk.RenderPassCreateInfo{
-			SType:           vk.StructureTypeRenderPassCreateInfo,
-			AttachmentCount: 1,
-			PAttachments: &vk.AttachmentDescription{
-				Format:         f.format,
-				Samples:        vk.SampleCount1,
-				LoadOp:         vk.AttachmentLoadOpClear,
-				StoreOp:        vk.AttachmentStoreOpStore,
-				StencilLoadOp:  vk.AttachmentLoadOpDontCare,
-				StencilStoreOp: vk.AttachmentStoreOpDontCare,
-				InitialLayout:  vk.ImageLayoutColorAttachmentOptimal,
-				FinalLayout:    vk.ImageLayoutColorAttachmentOptimal,
-			},
-			SubpassCount: 1,
-			PSubpasses: &vk.SubpassDescription{
-				PipelineBindPoint:    vk.PipelineBindPointGraphics,
-				ColorAttachmentCount: 1,
-				PColorAttachments:    &vk.AttachmentReference{Attachment: 0, Layout: vk.ImageLayoutColorAttachmentOptimal},
-			},
-		})
-		g.check("CreateRenderPass", err)
-		return f.fourcc, true
-	}
-	return 0, false
-}
-
-// newImage creates an exported image of a size with its view and
-// framebuffer.
-func (g *liveGPU) newImage(size image.Point) (*liveImage, error) {
-	img, err := g.dev.CreateDmabufImage(g.mem, g.format, uint32(size.X), uint32(size.Y), liveUsage, g.modifiers)
-	if err != nil {
-		return nil, err
-	}
-	li := &liveImage{img: img}
-	li.view, err = g.dev.CreateImageView(&vk.ImageViewCreateInfo{
-		SType:    vk.StructureTypeImageViewCreateInfo,
-		Image:    img.Image,
-		ViewType: vk.ImageViewType2D,
-		Format:   g.format,
-		SubresourceRange: vk.ImageSubresourceRange{
-			AspectMask: vk.ImageAspectColor, LevelCount: 1, LayerCount: 1,
-		},
-	})
-	g.check("CreateImageView", err)
-	li.fb, err = g.dev.CreateFramebuffer(&vk.FramebufferCreateInfo{
-		SType:           vk.StructureTypeFramebufferCreateInfo,
-		RenderPass:      g.renderPass,
-		AttachmentCount: 1,
-		PAttachments:    &li.view,
-		Width:           uint32(size.X),
-		Height:          uint32(size.Y),
-		Layers:          1,
-	})
-	g.check("CreateFramebuffer", err)
-	return li, nil
-}
-
-// destroy destroys an image, after the device finished with it. Its
-// platform buffer is destroyed first: the compositor keeps the memory of
-// a frame it still shows.
-func (g *liveGPU) destroy(li *liveImage) {
-	if li.buf != nil {
-		li.buf.Destroy()
-	}
-	g.dev.WaitIdle()
-	g.dev.DestroyFramebuffer(li.fb)
-	g.dev.DestroyImageView(li.view)
-	g.dev.DestroyDmabufImage(li.img)
-}
-
-// render draws a scene into an image and waits until the device has
-// finished: the buffer is handed over fully rendered (no fence travels
-// with a dmabuf of a driver without implicit synchronization).
-func (g *liveGPU) render(li *liveImage, s liveScene) {
-	dev, cb := g.dev, g.cb
-	g.check("BeginCommandBuffer", dev.BeginCommandBuffer(cb, &vk.CommandBufferBeginInfo{
-		SType: vk.StructureTypeCommandBufferBeginInfo,
-		Flags: vk.CommandBufferUsageOneTimeSubmit,
-	}))
-	whole := vk.ImageSubresourceRange{AspectMask: vk.ImageAspectColor, LevelCount: 1, LayerCount: 1}
-	// Take the image back from whoever read it; its old pixels are not
-	// needed, the scene covers it.
-	acquire := vk.ImageMemoryBarrier{
-		SType:               vk.StructureTypeImageMemoryBarrier,
-		DstAccessMask:       vk.AccessColorAttachmentWrite,
-		OldLayout:           vk.ImageLayoutUndefined,
-		NewLayout:           vk.ImageLayoutColorAttachmentOptimal,
-		SrcQueueFamilyIndex: vk.QueueFamilyIgnored,
-		DstQueueFamilyIndex: vk.QueueFamilyIgnored,
-		Image:               li.img.Image,
-		SubresourceRange:    whole,
-	}
-	if li.handed && g.foreign {
-		acquire.OldLayout = vk.ImageLayoutGeneral
-		acquire.SrcQueueFamilyIndex = vk.QueueFamilyForeignEXT
-		acquire.DstQueueFamilyIndex = g.info.GraphicsQueueFamily
-	}
-	dev.CmdPipelineBarrier(cb, vk.PipelineStageTopOfPipe, vk.PipelineStageColorAttachmentOutput, 0, nil, nil, []vk.ImageMemoryBarrier{acquire})
-
-	bg := s.background
-	area := vk.Rect2D{Extent: vk.Extent2D{Width: uint32(s.size.X), Height: uint32(s.size.Y)}}
-	clear := liveClear(bg)
-	dev.CmdBeginRenderPass(cb, &vk.RenderPassBeginInfo{
-		SType:           vk.StructureTypeRenderPassBeginInfo,
-		RenderPass:      g.renderPass,
-		Framebuffer:     li.fb,
-		RenderArea:      area,
-		ClearValueCount: 1,
-		PClearValues:    &clear,
-	}, vk.SubpassContentsInline)
-	for i, r := range s.rects {
-		dev.CmdClearAttachments(cb,
-			[]vk.ClearAttachment{{AspectMask: vk.ImageAspectColor, ClearValue: liveClear(s.colors[i])}},
-			[]vk.ClearRect{{
-				Rect: vk.Rect2D{
-					Offset: vk.Offset2D{X: int32(r.Min.X), Y: int32(r.Min.Y)},
-					Extent: vk.Extent2D{Width: uint32(r.Dx()), Height: uint32(r.Dy())},
-				},
-				LayerCount: 1,
-			}})
-	}
-	dev.CmdEndRenderPass(cb)
-
-	// Hand it over: the layout other APIs read, and the foreign family.
-	release := vk.ImageMemoryBarrier{
-		SType:               vk.StructureTypeImageMemoryBarrier,
-		SrcAccessMask:       vk.AccessColorAttachmentWrite,
-		OldLayout:           vk.ImageLayoutColorAttachmentOptimal,
-		NewLayout:           vk.ImageLayoutGeneral,
-		SrcQueueFamilyIndex: vk.QueueFamilyIgnored,
-		DstQueueFamilyIndex: vk.QueueFamilyIgnored,
-		Image:               li.img.Image,
-		SubresourceRange:    whole,
-	}
-	if g.foreign {
-		release.SrcQueueFamilyIndex = g.info.GraphicsQueueFamily
-		release.DstQueueFamilyIndex = vk.QueueFamilyForeignEXT
-	}
-	dev.CmdPipelineBarrier(cb, vk.PipelineStageColorAttachmentOutput, vk.PipelineStageBottomOfPipe, 0, nil, nil, []vk.ImageMemoryBarrier{release})
-	g.check("EndCommandBuffer", dev.EndCommandBuffer(cb))
-	g.check("QueueSubmit", dev.QueueSubmit(g.queue, []vk.SubmitInfo{{
-		SType:              vk.StructureTypeSubmitInfo,
-		CommandBufferCount: 1,
-		PCommandBuffers:    &cb,
-	}}, g.fence))
-	g.check("WaitForFences", dev.WaitForFences([]vk.Fence{g.fence}, true, 10e9))
-	g.check("ResetFences", dev.ResetFences([]vk.Fence{g.fence}))
-	li.handed = true
-}
-
-func liveClear(c color.RGBA) vk.ClearValue {
-	return vk.ClearColor(float32(c.R)/255, float32(c.G)/255, float32(c.B)/255, float32(c.A)/255)
-}
-
 // liveDmabuf is one run of the test with one rendering device. own says
 // that it is the compositor's device, where every step must work.
 func liveDmabuf(t *testing.T, inst *vk.Instance, info vk.DeviceInfo, own bool) {
-	g := newLiveGPU(t, inst, info)
+	g := dmabuftest.NewGPU(t, inst, info)
 	b := liveBackend(t)
 	title := "tela live dmabuf"
 	win, err := b.NewWindow(platform.WindowOptions{Title: title, AppID: liveDmabufAppID, Size: platform.Size{W: 480, H: 320}})
@@ -577,7 +162,7 @@ func liveDmabuf(t *testing.T, inst *vk.Instance, info vk.DeviceInfo, own bool) {
 	var (
 		fourcc   uint32
 		modifier uint64
-		images   []*liveImage
+		images   []*dmabuftest.Image
 		second   platform.Window // the window whose opening resizes the first
 		// onScreen: the window's workspace is on a monitor, so the screen
 		// can be compared; asked once, at the first comparison.
@@ -600,7 +185,7 @@ func liveDmabuf(t *testing.T, inst *vk.Instance, info vk.DeviceInfo, own bool) {
 	)
 	destroyImages := func() {
 		for _, li := range images {
-			g.destroy(li)
+			g.Destroy(li)
 		}
 		images = nil
 	}
@@ -610,26 +195,19 @@ func liveDmabuf(t *testing.T, inst *vk.Instance, info vk.DeviceInfo, own bool) {
 	// size.
 	register := func() bool {
 		size := w.Metrics().Physical()
-		li, err := g.newImage(size)
+		li, err := g.NewImage(size)
 		if err != nil {
 			cross("creating an exportable %v image: %v", size, err)
 			return false
 		}
-		if len(images) == 0 || images[0].img.Modifier != li.img.Modifier {
-			t.Logf("%v image: modifier %#x, planes %+v", size, li.img.Modifier, li.img.Planes)
+		if len(images) == 0 || images[0].Img.Modifier != li.Img.Modifier {
+			t.Logf("%v image: modifier %#x, planes %+v", size, li.Img.Modifier, li.Img.Planes)
 		}
-		modifier = li.img.Modifier
-		d := platform.DmabufDescriptor{Size: size, Fourcc: fourcc, Modifier: li.img.Modifier}
-		if g.implicit {
-			d.Modifier = platform.DRMModifierInvalid
-		}
-		for _, p := range li.img.Planes {
-			d.Planes = append(d.Planes, platform.DmabufPlane{FD: li.img.FD, Offset: uint32(p.Offset), Stride: uint32(p.Stride)})
-		}
-		li.buf, err = w.CreateDmabuf(d)
+		modifier = li.Img.Modifier
+		li.Buf, err = w.CreateDmabuf(g.Descriptor(li, size, fourcc))
 		if err != nil {
-			g.destroy(li)
-			cross("the compositor did not take a %v buffer with modifier %#x: %v", size, li.img.Modifier, err)
+			g.Destroy(li)
+			cross("the compositor did not take a %v buffer with modifier %#x: %v", size, li.Img.Modifier, err)
 			return false
 		}
 		images = append(images, li)
@@ -641,7 +219,7 @@ func liveDmabuf(t *testing.T, inst *vk.Instance, info vk.DeviceInfo, own bool) {
 	// reports false while it waits for the compositor to release one.
 	presentGPU := func(full bool) bool {
 		size := w.Metrics().Physical()
-		if len(images) > 0 && images[0].buf.Size() != size {
+		if len(images) > 0 && images[0].Buf.Size() != size {
 			// A ConfigureEvent changed the size: the swapchain is made
 			// again. The old buffers go while the compositor may still
 			// hold one.
@@ -649,9 +227,9 @@ func liveDmabuf(t *testing.T, inst *vk.Instance, info vk.DeviceInfo, own bool) {
 			recreated++
 			sizes = append(sizes, size)
 		}
-		var free *liveImage
+		var free *dmabuftest.Image
 		for _, li := range images {
-			if !li.buf.Busy() {
+			if !li.Buf.Busy() {
 				free = li
 				break
 			}
@@ -676,31 +254,31 @@ func liveDmabuf(t *testing.T, inst *vk.Instance, info vk.DeviceInfo, own bool) {
 		if full {
 			next = (frame/3 + 1) * 3 // a new background
 		}
-		scene := newLiveScene(next, size)
-		g.render(free, scene)
-		damage := []image.Rectangle{scene.patch()}
+		scene := dmabuftest.NewScene(next, size)
+		g.Render(free, scene)
+		damage := []image.Rectangle{scene.Patch()}
 		if full {
 			damage = nil
 		}
-		if free.buf.Busy() {
+		if free.Buf.Busy() {
 			t.Fatal("a buffer became busy while it was rendered into")
 		}
-		if err := w.PresentDmabuf(free.buf, damage); err != nil {
+		if err := w.PresentDmabuf(free.Buf, damage); err != nil {
 			t.Fatalf("PresentDmabuf: %v", err)
 		}
-		if !free.buf.Busy() {
+		if !free.Buf.Busy() {
 			t.Fatalf("a presented buffer is not busy (window hidden? %v)", !w.showable())
 		}
-		free.held = true
+		free.Held = true
 		frame = next
 		presents++
 		return true
 	}
 	presentShm := func() bool {
 		frame++
-		scene := newLiveScene(frame, w.Metrics().Physical())
-		fb := image.NewRGBA(image.Rectangle{Max: scene.size})
-		scene.draw(fb)
+		scene := dmabuftest.NewScene(frame, w.Metrics().Physical())
+		fb := image.NewRGBA(image.Rectangle{Max: scene.Size})
+		scene.Draw(fb)
 		if err := w.Present(fb, nil); err != nil {
 			t.Fatalf("Present: %v", err)
 		}
@@ -734,7 +312,7 @@ func liveDmabuf(t *testing.T, inst *vk.Instance, info vk.DeviceInfo, own bool) {
 			t.Errorf("%s: %v", what, err)
 			return true
 		}
-		if bad := liveCompare(img, newLiveScene(frame, w.Metrics().Physical())); len(bad) > 0 {
+		if bad := liveCompare(img, dmabuftest.NewScene(frame, w.Metrics().Physical())); len(bad) > 0 {
 			t.Errorf("%s (frame %d): the screen differs from the frame presented: %s", what, frame, strings.Join(bad, "; "))
 		} else {
 			checked++
@@ -743,7 +321,7 @@ func liveDmabuf(t *testing.T, inst *vk.Instance, info vk.DeviceInfo, own bool) {
 	}
 	resized := func(what string) func() bool {
 		return func() bool {
-			if size := w.Metrics().Physical(); len(images) > 0 && images[0].buf.Size() != size {
+			if size := w.Metrics().Physical(); len(images) > 0 && images[0].Buf.Size() != size {
 				t.Logf("%s: the window is now %v", what, size)
 				return true
 			}
@@ -804,8 +382,8 @@ func liveDmabuf(t *testing.T, inst *vk.Instance, info vk.DeviceInfo, own bool) {
 		// Releases arrive while the loop dispatches: seen here as buffers
 		// that are no longer busy.
 		for _, li := range images {
-			if li.held && !li.buf.Busy() {
-				li.held = false
+			if li.Held && !li.Buf.Busy() {
+				li.Held = false
 				releases++
 			}
 		}
@@ -874,10 +452,10 @@ func liveDmabuf(t *testing.T, inst *vk.Instance, info vk.DeviceInfo, own bool) {
 				b.Quit()
 				return
 			}
-			if got := liveSameDevice(fb, info); got != own {
+			if got := dmabuftest.SameDevice(fb, info); got != own {
 				t.Logf("the window's feedback names the device %d:%d (this device: %v)", fb.DeviceMajor, fb.DeviceMinor, got)
 			}
-			if fourcc, ok = g.choose(fb, !own); !ok {
+			if fourcc, ok = g.Choose(fb, !own); !ok {
 				finished = true
 				b.Quit()
 				return
@@ -991,7 +569,7 @@ func liveOnScreen(t *testing.T, title string) bool {
 // background between them), with the tolerance of TestLivePixels: the
 // desktop may dim or tint a window that is not focused. It returns what
 // differs.
-func liveCompare(img image.Image, s liveScene) []string {
+func liveCompare(img image.Image, s dmabuftest.Scene) []string {
 	bounds := img.Bounds()
 	var bad []string
 	for _, at := range [][2]float64{
@@ -1003,7 +581,7 @@ func liveCompare(img image.Image, s liveScene) []string {
 		y := bounds.Min.Y + int(at[1]*float64(bounds.Dy()))
 		r, g, b, _ := img.At(x, y).RGBA()
 		got := color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), 255}
-		want := s.at(image.Pt(int(at[0]*float64(s.size.X)), int(at[1]*float64(s.size.Y))))
+		want := s.At(image.Pt(int(at[0]*float64(s.Size.X)), int(at[1]*float64(s.Size.Y))))
 		if !near(got, want, 24) {
 			bad = append(bad, fmt.Sprintf("at (%.3f, %.3f) the screen has %v, the frame %v", at[0], at[1], got, want))
 		}
