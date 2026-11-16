@@ -13,6 +13,10 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+### Added
+
+- A GPU renderer, opt-in with the build tag `telagpu` (ADR-281, ADR-282, ADR-284): on Linux and Windows, windows are drawn with Vulkan and read back into the framebuffer. `TELA_RENDERER=cpu|gpu` chooses at run time and `TELA_GPU_DEVICE` the device; any GPU error falls back to the CPU rasterizer. Without the tag nothing changes and Linux binaries stay static; with it a Linux binary is dynamically linked to glibc. Windows was only cross-compiled, never run.
+
 ## [0.14.4] - 2026-11-12
 
 Phase 24, CPU performance (ADR-274 to ADR-280). It breaks no public API; a theme or scheme change now applies without transitions by default. The dashboard's session at 1080p x1 runs at p50 2.1 ms and p95 9.7 ms on the CPU (p95 19.3 ms before).
