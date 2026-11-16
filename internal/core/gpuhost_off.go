@@ -4,6 +4,7 @@ package core
 
 import (
 	"fmt"
+	"image"
 	"os"
 	"time"
 )
@@ -33,9 +34,23 @@ func (h *Host) rasterize(v *winView, full bool) Damage {
 	return v.tree.RasterizeFrame(v.fb, &v.renderer, full)
 }
 
+// present shows window v its framebuffer.
+func (h *Host) present(v *winView, d Damage, damage []image.Rectangle) (bool, error) {
+	return true, v.win.Present(v.fb, damage)
+}
+
+// presentOwed reports whether a frame must present although nothing
+// changed: never, when every frame is presented from the framebuffer.
+func (h *Host) presentOwed(*winView) bool { return false }
+
 func (h *Host) gpuTrimAt() time.Duration               { return 0 }
 func (h *Host) gpuScheduleTrim(now time.Duration) bool { return false }
 func (h *Host) gpuTick(now time.Duration)              {}
 
 // dropGPU releases the window's target on the GPU: it has none.
 func (v *winView) dropGPU() { v.gpu = viewGPU{} }
+
+// shownGPU and syncPixels are for windows presented from the GPU's
+// images: the framebuffer always holds the frame here.
+func (v *winView) shownGPU()        {}
+func (v *winView) syncPixels() bool { return true }

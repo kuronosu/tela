@@ -26,12 +26,29 @@ var ErrResourcesLost = errors.New("gpu: the device does not hold the resources o
 // rasterizer, or opens a device again.
 var ErrDeviceLost = errors.New("gpu: the device is lost")
 
+// ErrNotDiscrete is returned by Open, with Config.DiscreteOnly, when the
+// device chosen is not a discrete GPU: an integrated or a software one,
+// which draws a page of glass slower than the CPU rasterizer does
+// (ADR-284). No device was created.
+var ErrNotDiscrete = errors.New("gpu: the device is not a discrete GPU")
+
 // Config configures Open.
 type Config struct {
 	// Device selects the physical device by index or by a part of its
 	// name. Empty means the environment variable TELA_GPU_DEVICE, and
-	// without it the first discrete device (ADR-281).
+	// without it the device of DRM, else the first discrete device
+	// (ADR-281).
 	Device string
+	// DRM, with HasDRM, is the device number of a DRM node of the device
+	// the display server composites with (a window's dmabuf feedback):
+	// the device that has that node, primary or render, is chosen, so
+	// that its images are shown without a copy. It is ignored when Device
+	// or TELA_GPU_DEVICE names a device, and when no device has the node.
+	DRM    DRMNode
+	HasDRM bool
+	// DiscreteOnly makes Open fail with ErrNotDiscrete, before it creates
+	// a device, when the one chosen is not a discrete GPU.
+	DiscreteOnly bool
 	// Validate enables the API's validation layer (Vulkan:
 	// VK_LAYER_KHRONOS_validation); Open fails when it is not installed.
 	Validate bool

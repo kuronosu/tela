@@ -517,7 +517,8 @@ func (t *Tree) dragImage(src *dragSource, press gfx.Point) (*image.RGBA, image.P
 	if src.sel != nil {
 		return t.selDragImage(src.sel, s, hot)
 	}
-	if v.fb == nil {
+	// gpuhost.go: a frame presented from the GPU's images is read back.
+	if !v.syncPixels() || v.fb == nil {
 		return nil, image.Point{}
 	}
 	pr := dragPixels(t.elemBounds(src.el), s).Intersect(v.fb.Rect)

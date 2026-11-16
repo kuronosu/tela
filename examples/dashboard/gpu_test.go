@@ -36,6 +36,10 @@ type gpuRenderer struct {
 	// noTrim keeps the renderer's memory at rest (a measurement of what
 	// the trim costs the frame after it).
 	noTrim bool
+	// chain, when not nil, presents the frames without a copy to win, a
+	// display server of the test's own (useDirect).
+	chain *core.GPUSwapchain
+	win   *perfWindow
 }
 
 // useGPU makes the GPU of dev draw the rig's frames. The caller closes the
@@ -47,7 +51,33 @@ func useGPU(tb testing.TB, r *rig, dev gpu.Device) *gpuRenderer {
 	return p
 }
 
+// useDirect is useGPU with the frames presented without a copy, as a Host
+// presents them in a window that shows dmabufs: the frame stays on the
+// device, and a swapchain copies what changed into a buffer the window is
+// given. hold is the number of presented buffers the display server keeps
+// busy (perfWindow). ok is false on a device that exports no dmabufs.
+func useDirect(tb testing.TB, r *rig, dev gpu.Device, hold int) (p *gpuRenderer, ok bool) {
+	exp, isExp := dev.(gpu.Exporter)
+	if !isExp || len(exp.ExportFormats()) == 0 {
+		return nil, false
+	}
+	p = useGPU(tb, r, dev)
+	p.win = &perfWindow{size: r.fb.Rect.Size(), hold: hold, feedback: platform.DmabufFeedback{Serial: 1}}
+	for _, f := range exp.ExportFormats() {
+		if f.Fourcc == gpu.FourccXRGB8888 { // what an X server takes, and every Wayland compositor
+			p.win.feedback.Formats = append(p.win.feedback.Formats, platform.DmabufFormat{Fourcc: f.Fourcc, Modifier: f.Modifier})
+		}
+	}
+	p.chain = core.NewGPUSwapchain(p.g, p.win)
+	p.surf.SetDirect(true)
+	r.direct = true
+	return p, true
+}
+
 func (p *gpuRenderer) close() {
+	if p.chain != nil {
+		p.chain.Release()
+	}
 	p.surf.Release()
 	p.g.Close()
 }
@@ -58,7 +88,65 @@ func (p *gpuRenderer) rasterize(r *rig) (core.Damage, [numGPUParts]time.Duration
 		p.tb.Fatalf("the GPU failed (the frame was drawn by the CPU rasterizer): %v", err)
 	}
 	st := p.surf.Stats
-	return d, [numGPUParts]time.Duration{gpuEncode: st.Encode, gpuDraw: st.Draw, gpuShift: st.Shift, gpuRead: st.Read}, st.Renders
+	parts := [numGPUParts]time.Duration{gpuEncode: st.Encode, gpuDraw: st.Draw, gpuShift: st.Shift, gpuRead: st.Read}
+	if p.chain != nil {
+		if ok, why, _ := p.chain.Ready(false); !ok {
+			p.tb.Fatalf("the swapchain is not ready: %s", why)
+		}
+		res, err := p.chain.Present(p.surf, d, d.Full)
+		if err != nil || res != core.GPUPresentShown {
+			p.tb.Fatalf("presenting without a copy: result %d, %v", res, err)
+		}
+		parts[gpuCopy] = p.chain.Stats.Copy
+	}
+	return d, parts, st.Renders
+}
+
+// perfWindow is the display server of the measurement of frames presented
+// without a copy: a platform.DmabufPresenter that takes XRGB8888 with the
+// device's modifiers, registers what it is given and keeps the hold
+// latest buffers presented busy (1: a Wayland compositor releases a
+// buffer when the next is committed; 2: an X server that flips). It costs
+// nothing, as registering (once per buffer) and presenting (a request on
+// a socket) cost next to nothing in a real one: the frame's cost is the
+// copy into the buffer and the wait for the device, which are real here.
+type perfWindow struct {
+	size     image.Point
+	hold     int
+	feedback platform.DmabufFeedback
+	held     []*perfBuffer
+	created  int
+}
+
+type perfBuffer struct {
+	size image.Point
+	busy bool
+}
+
+func (b *perfBuffer) Size() image.Point { return b.size }
+func (b *perfBuffer) Busy() bool        { return b.busy }
+func (b *perfBuffer) Destroy()          { b.busy = false }
+
+func (w *perfWindow) DmabufFeedback() (platform.DmabufFeedback, bool) { return w.feedback, true }
+
+func (w *perfWindow) CreateDmabuf(d platform.DmabufDescriptor) (platform.DmabufBuffer, error) {
+	platform.CheckDmabuf(d)
+	w.created++
+	return &perfBuffer{size: d.Size}, nil
+}
+
+func (w *perfWindow) PresentDmabuf(pb platform.DmabufBuffer, damage []image.Rectangle) error {
+	b := pb.(*perfBuffer)
+	if b.busy || b.size != w.size {
+		panic("the swapchain presented a busy buffer, or one of another size")
+	}
+	b.busy = true
+	w.held = append(w.held, b)
+	for len(w.held) > w.hold {
+		w.held[0].busy = false
+		w.held = w.held[1:]
+	}
+	return nil
 }
 
 // trimAt is what core.Host does for its GPU: a trim RasterSettle after a
@@ -70,7 +158,12 @@ func (p *gpuRenderer) trimAt(r *rig) time.Duration {
 	return 0
 }
 
-func (p *gpuRenderer) trim(*rig) { p.g.Trim() }
+func (p *gpuRenderer) trim(*rig) {
+	p.g.Trim()
+	if p.chain != nil {
+		p.chain.Trim()
+	}
+}
 
 // savePNG writes img for a failure's report.
 func savePNG(t *testing.T, dir, name string, img *image.RGBA) {
@@ -210,15 +303,16 @@ func playPerf(r *rig) []frameStat {
 // p95 and largest frame time, and the mean of each part of a frame, in ms:
 // the pipeline (input, animations, build to paint, effects), the damage
 // and what else the raster phase does outside the renderer, the encoder,
-// the device's draws, its shifts, the readback, and the copy to the buffer
-// a backend presents from; then the device pixels a frame draws and its
-// renders (one per damaged rectangle). A frame of the CPU rasterizer has
-// its time under "raster".
+// the device's draws, its shifts, the readback, the copy on the device
+// into the buffer of a window presented without a copy ("copy"), and the
+// copy in main memory to the buffer a backend presents from ("present");
+// then the device pixels a frame draws and its renders (one per damaged
+// rectangle). A frame of the CPU rasterizer has its time under "raster".
 func perfTable(label string, fs []frameStat) string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "\n== %s: %d frames, GOMAXPROCS=%d\n", label, len(fs), runtime.GOMAXPROCS(0))
-	fmt.Fprintf(&sb, "%-18s %5s %5s %7s %7s %7s | %8s %7s %7s %7s %7s %7s %7s %7s %7s\n", "kind", "n", ">16.7", "p50", "p95", "max",
-		"pipeline", "raster", "encode", "draw", "shift", "read", "present", "Mpx/f", "rects/f")
+	fmt.Fprintf(&sb, "%-18s %5s %5s %7s %7s %7s | %8s %7s %7s %7s %7s %7s %7s %7s %7s %7s\n", "kind", "n", ">16.7", "p50", "p95", "max",
+		"pipeline", "raster", "encode", "draw", "shift", "read", "copy", "present", "Mpx/f", "rects/f")
 	row := func(name string, g []frameStat) {
 		if len(g) == 0 {
 			return
@@ -244,8 +338,8 @@ func perfTable(label string, fs []frameStat) string {
 			px += f.pixels
 		}
 		n := float64(len(g))
-		fmt.Fprintf(&sb, "%-18s %5d %5d %7.2f %7.2f %7.2f | %8.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f\n", name, len(g), over, d.P50, d.P95, d.Max,
-			ms(pipe)/n, ms(raster)/n, ms(parts[gpuEncode])/n, ms(parts[gpuDraw])/n, ms(parts[gpuShift])/n, ms(parts[gpuRead])/n, ms(present)/n, float64(px)/n/1e6, float64(renders)/n)
+		fmt.Fprintf(&sb, "%-18s %5d %5d %7.2f %7.2f %7.2f | %8.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f\n", name, len(g), over, d.P50, d.P95, d.Max,
+			ms(pipe)/n, ms(raster)/n, ms(parts[gpuEncode])/n, ms(parts[gpuDraw])/n, ms(parts[gpuShift])/n, ms(parts[gpuRead])/n, ms(parts[gpuCopy])/n, ms(present)/n, float64(px)/n/1e6, float64(renders)/n)
 	}
 	var order []string
 	byScene := map[string][]frameStat{}
@@ -267,45 +361,107 @@ func perfTable(label string, fs []frameStat) string {
 	return sb.String()
 }
 
-// perfConfigs are the sizes of the measurement: 2560x1440 at scale 1, and
-// 3840x2160 at scale 2.
+// overTable lists the frames of a session that took more than a frame
+// interval, with the time of each part in ms, when there are few enough
+// to read: where the frames that miss 60 fps spend their time.
+func overTable(fs []frameStat) string {
+	var sb strings.Builder
+	n := 0
+	for _, f := range fs {
+		if f.total > frameInterval {
+			n++
+		}
+	}
+	if n == 0 || n > 40 {
+		return fmt.Sprintf("%d frames over %.1f ms", n, ms(frameInterval))
+	}
+	fmt.Fprintf(&sb, "\nthe %d frames over %.1f ms:\n%-18s %5s %5s %7s | %8s %7s %7s %7s %7s %7s %7s %7s %6s\n", n, ms(frameInterval),
+		"scene", "tick", "full", "total", "pipeline", "raster", "encode", "draw", "shift", "read", "copy", "Mpx", "rects")
+	for _, f := range fs {
+		if f.total <= frameInterval {
+			continue
+		}
+		pipe := f.phase[phInput] + f.phase[phAnimate] + f.phase[phPipeline] + f.phase[phEffects]
+		rest := f.phase[phRaster]
+		for _, v := range f.gpu {
+			rest -= v
+		}
+		fmt.Fprintf(&sb, "%-18s %5d %5v %7.2f | %8.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %7.2f %6d\n", f.scene, f.tick, f.full, ms(f.total),
+			ms(pipe), ms(rest), ms(f.gpu[gpuEncode]), ms(f.gpu[gpuDraw]), ms(f.gpu[gpuShift]), ms(f.gpu[gpuRead]), ms(f.gpu[gpuCopy]), float64(f.pixels)/1e6, f.renders)
+	}
+	return sb.String()
+}
+
+// perfConfigs are the sizes of the measurement: 2560x1440 at scale 1, the
+// dashboard's own window at scale 2 (2880x1800, the size of the GPU
+// backend's criterion), and 3840x2160 at scale 2.
 var perfConfigs = []struct {
 	name  string
 	w, h  float32
 	scale float64
 }{
 	{"2560x1440_x1", 2560, 1440, 1},
+	{"2880x1800_x2", 1440, 900, 2},
 	{"3840x2160_x2", 1920, 1080, 2},
 }
 
 // TestSessionPerfGPU measures the session, and a scene of typing after
-// it, drawn by the CPU rasterizer and by the GPU of every device, and logs
-// a table for each (go test -v). It only measures: set TELA_PERF=1 to play
-// it. TELA_PERF_CONFIG selects one configuration by name, and
-// TELA_PERF_NOTRIM=1 keeps the GPU renderer's memory at rest, to see what
-// the trim (core.RasterSettle) costs the frames after a pause.
+// it, drawn by the CPU rasterizer and by the GPU of every device, read
+// back into the framebuffer and presented without a copy (useDirect), and
+// logs a table for each (go test -v). It only measures: set TELA_PERF=1
+// to play it. TELA_PERF_CONFIG selects one configuration by name,
+// TELA_PERF_PATH one way of presenting (cpu, copy or dmabuf),
+// TELA_PERF_HOLD=2 makes the display server of the frames presented
+// without a copy keep two buffers busy, as an X server that flips (three
+// buffers, each two frames behind), and TELA_PERF_NOTRIM=1 keeps the GPU
+// renderer's memory at rest, to see what the trim (core.RasterSettle)
+// costs the frames after a pause.
 func TestSessionPerfGPU(t *testing.T) {
 	if os.Getenv("TELA_PERF") == "" {
 		t.Skip("a measurement only: set TELA_PERF=1 to play it")
+	}
+	path := os.Getenv("TELA_PERF_PATH")
+	hold := 1
+	if os.Getenv("TELA_PERF_HOLD") == "2" {
+		hold = 2
 	}
 	for _, c := range perfConfigs {
 		if only := os.Getenv("TELA_PERF_CONFIG"); only != "" && only != c.name {
 			continue
 		}
 		t.Run(c.name, func(t *testing.T) {
-			t.Run("cpu", func(t *testing.T) {
-				r := newRig(t, c.w, c.h, c.scale, false)
-				t.Log(perfTable(c.name+", CPU rasterizer", playPerf(r)))
-			})
+			if path == "" || path == "cpu" {
+				t.Run("cpu", func(t *testing.T) {
+					r := newRig(t, c.w, c.h, c.scale, false)
+					t.Log(perfTable(c.name+", CPU rasterizer", playPerf(r)))
+				})
+			}
 			gputest.EachDevice(t, func(t *testing.T, dev gpu.Device) {
-				r := newRig(t, c.w, c.h, c.scale, false)
-				p := useGPU(t, r, dev)
-				defer p.close()
-				label := c.name + ", GPU with readback, " + dev.Name()
-				if p.noTrim = os.Getenv("TELA_PERF_NOTRIM") != ""; p.noTrim {
-					label += ", no trim at rest"
+				noTrim := os.Getenv("TELA_PERF_NOTRIM") != ""
+				suffix := ""
+				if noTrim {
+					suffix = ", no trim at rest"
 				}
-				t.Log(perfTable(label, playPerf(r)))
+				if path == "" || path == "copy" {
+					r := newRig(t, c.w, c.h, c.scale, false)
+					p := useGPU(t, r, dev)
+					p.noTrim = noTrim
+					t.Log(perfTable(c.name+", GPU with readback, "+dev.Name()+suffix, playPerf(r)))
+					p.close()
+				}
+				if path == "" || path == "dmabuf" {
+					r := newRig(t, c.w, c.h, c.scale, false)
+					p, ok := useDirect(t, r, dev, hold)
+					if !ok {
+						t.Logf("%s exports no dmabufs: no frames presented without a copy", dev.Name())
+						return
+					}
+					p.noTrim = noTrim
+					frames := playPerf(r)
+					t.Log(perfTable(fmt.Sprintf("%s, GPU presented without a copy (the server keeps %d busy; %d buffers registered over the session), %s%s", c.name, hold, p.win.created, dev.Name(), suffix), frames))
+					t.Log(overTable(frames))
+					p.close()
+				}
 			})
 		})
 	}

@@ -147,6 +147,14 @@ func Run(opts Options) error {
 	return err
 }
 
+// End ends a Host whose loop the caller ran itself (b.Run(h) on a Host of
+// NewHost: a live test), as Run does after its own: the timer stops, the
+// windows unmount and the GPU closes. The backend is not called.
+func (h *Host) End() {
+	h.stopTimer()
+	h.end()
+}
+
 // end runs after the loop: the windows unmount, running the cleanups of
 // their effects, without waking the loop, asking for frames or calling
 // the backend (it is gone once Run returned).
@@ -729,15 +737,17 @@ func (h *Host) frame(v *winView, now time.Duration) {
 		v.stale = false
 		changed, full = true, true
 	}
-	if !changed && !v.configured && !t.DebugPending() {
+	if !changed && !v.configured && !t.DebugPending() && !h.presentOwed(v) {
 		h.scheduleRasterTrim(v) // the frame that ends an animation may draw nothing new
 		return                  // nothing new to show
 	}
 	// The framebuffer keeps the previous frame: only the damage is
 	// rasterized (layer.go), and presented. The first Present after a
 	// ConfigureEvent is full for the platform anyway. rasterize is
-	// Tree.RasterizeFrame, or the GPU's frame read back into the
-	// framebuffer (gpuhost.go).
+	// Tree.RasterizeFrame, or the GPU's frame, read back into the
+	// framebuffer or kept on the device for a window presented without a
+	// copy (gpuhost.go); present is Window.Present, or that window's
+	// PresentDmabuf.
 	d := h.rasterize(v, full || h.FullFrames)
 	h.scheduleRasterTrim(v)
 	if t.Debug() != 0 {
@@ -753,17 +763,35 @@ func (h *Host) frame(v *winView, now time.Duration) {
 	}
 	var damage []image.Rectangle
 	if !v.configured {
-		if d.Empty() {
+		if d.Empty() && !h.presentOwed(v) {
 			return // nothing visible changed
 		}
 		damage = d.Changed()
 	}
 	v.configured = false
-	if err := v.win.Present(v.fb, damage); err != nil {
+	shown, err := h.present(v, d, damage)
+	if err != nil {
 		fmt.Fprintln(h.log, "tela: present:", err)
 		return
 	}
-	v.presents++
+	if shown {
+		v.presents++
+	}
+}
+
+// FramePixels returns the pixels of the last frame rasterized for window
+// w: the Host's own framebuffer, valid until the window's next frame and
+// not to be modified. A window the GPU presents without a copy has its
+// frame read back for the call. It returns nil before the window's first
+// frame, while it is hidden, and when such a window's frame is gone from
+// the device (minimized). For what looks at a window's pixels outside the
+// frame's own path (AfterFrame, tests).
+func (h *Host) FramePixels(w platform.Window) *image.RGBA {
+	v := h.viewOf(w)
+	if v == nil || !v.syncPixels() {
+		return nil
+	}
+	return v.fb
 }
 
 // NeedsFrame reports that a frame must still render: a ConfigureEvent

@@ -80,6 +80,7 @@ const (
 	gpuDraw
 	gpuShift
 	gpuRead
+	gpuCopy // the copy into the buffer a window presents without a copy, with its wait
 	numGPUParts
 )
 
@@ -125,6 +126,9 @@ type rig struct {
 	// r.fb holding it.
 	renderer rigRenderer
 	checked  func(r *rig, d core.Damage)
+	// direct: the renderer presents its frames itself, without the copy
+	// to the buffer a backend presents from (gpu_test.go).
+	direct bool
 }
 
 // newRig mounts the dashboard at w x h logical pixels and scale, light or
@@ -226,7 +230,9 @@ func (r *rig) tick(st *[]frameStat, events ...func()) bool {
 		fs.full = d.Full
 		if d.Full {
 			fs.pixels = r.fb.Rect.Dx() * r.fb.Rect.Dy()
-			platform.CopyRGBAToBGRA(r.out, r.outStr, r.fb, r.fb.Rect)
+			if !r.direct {
+				platform.CopyRGBAToBGRA(r.out, r.outStr, r.fb, r.fb.Rect)
+			}
 		} else {
 			for _, s := range d.Shifts {
 				fs.pixels += s.Rect.Dx() * s.Rect.Dy()
@@ -235,7 +241,9 @@ func (r *rig) tick(st *[]frameStat, events ...func()) bool {
 				fs.pixels += rc.Dx() * rc.Dy()
 			}
 			for _, rc := range d.Changed() {
-				platform.CopyRGBAToBGRA(r.out, r.outStr, r.fb, rc)
+				if !r.direct {
+					platform.CopyRGBAToBGRA(r.out, r.outStr, r.fb, rc)
+				}
 			}
 		}
 		lap(phPresent)

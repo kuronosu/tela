@@ -45,8 +45,12 @@ type GPU struct {
 // log. It returns an error when the build has no GPU backend
 // (gpu.ErrUnavailable) or no device initializes: the caller then draws
 // with the CPU rasterizer.
-func OpenGPU(log func(msg string)) (*GPU, error) {
-	var cfg gpu.Config
+func OpenGPU(log func(msg string)) (*GPU, error) { return OpenGPUWith(gpu.Config{}, log) }
+
+// OpenGPUWith is OpenGPU with a choice of the device: the display server's
+// (cfg.DRM), and only a discrete one (cfg.DiscreteOnly, which fails with
+// gpu.ErrNotDiscrete).
+func OpenGPUWith(cfg gpu.Config, log func(msg string)) (*GPU, error) {
 	if os.Getenv("TELA_VK_VALIDATE") == "1" {
 		cfg.Validate, cfg.Log = true, log
 	}
@@ -67,6 +71,17 @@ func (g *GPU) Name() string { return g.dev.Name() }
 // Lost reports that the device is gone: its surfaces draw nothing more,
 // and every frame is the CPU rasterizer's.
 func (g *GPU) Lost() bool { return g.lost }
+
+// Exporter returns the device as one that exports images as dmabufs, for
+// a window presented without a copy (gpuchain.go); nil when it is not one
+// (no Linux, or a device without the extensions) or is lost.
+func (g *GPU) Exporter() gpu.Exporter {
+	if g.lost || g.dev == nil {
+		return nil
+	}
+	exp, _ := g.dev.(gpu.Exporter)
+	return exp
+}
 
 // NewSurface returns the surface of a window's frames. Its target is
 // created by the first frame.
@@ -116,6 +131,10 @@ type GPUSurface struct {
 	// ras is the frame the target holds (and the framebuffer with it), nil
 	// when it holds none.
 	ras *frame
+	// direct: the frames are presented from the target (gpuchain.go), so
+	// they are not read back into the framebuffer. behind: the target
+	// holds pixels the framebuffer does not, drawn by direct frames.
+	direct, behind bool
 	// Stats describes the last RasterizeFrameGPU.
 	Stats GPUFrameStats
 }
@@ -136,6 +155,9 @@ type GPUFrameStats struct {
 	// Fallback reports that the GPU failed and the CPU rasterizer drew the
 	// frame.
 	Fallback bool
+	// Direct reports that the frame was not read back: it is presented
+	// from the target (GPUSwapchain).
+	Direct bool
 }
 
 // Release destroys the surface's target: for a window that is hidden,
@@ -150,6 +172,44 @@ func (s *GPUSurface) Release() {
 
 // Held reports whether the surface has a target.
 func (s *GPUSurface) Held() bool { return s.target != nil }
+
+// SetDirect chooses what RasterizeFrameGPU does with the pixels it draws.
+// Off, the default, it reads them back, so the framebuffer holds the
+// frame, for Window.Present. On, the frame stays in the target, which a
+// GPUSwapchain presents without a copy, and the framebuffer is left
+// behind until a reader asks for it (Sync) or the surface is no longer
+// direct: the first frame after that is drawn and read back in full. With
+// the debug overlays on, which the CPU rasterizer draws over the frame
+// read back, a frame is read back whatever SetDirect says.
+func (s *GPUSurface) SetDirect(on bool) { s.direct = on }
+
+// Direct reports the value of the last SetDirect.
+func (s *GPUSurface) Direct() bool { return s.direct }
+
+// Behind reports whether the framebuffer of the last RasterizeFrameGPU
+// lacks pixels of the frame: direct frames were drawn since it was read
+// back. It stays so when the target is released, until a frame is read
+// back.
+func (s *GPUSurface) Behind() bool { return s.behind }
+
+// Sync brings fb, the framebuffer of the surface's frames, to the frame
+// the target holds, when direct frames left it behind: the whole target is
+// read back. For what reads a window's pixels once in a while (a drag
+// image). It does nothing when fb is current, and cannot do anything once
+// the target was released (Behind still reports true).
+func (s *GPUSurface) Sync(fb *image.RGBA) error {
+	if !s.behind || s.target == nil {
+		return nil
+	}
+	if fb.Rect != (image.Rectangle{Max: s.target.Size()}) {
+		return fmt.Errorf("gpu: a framebuffer of %v beside a target of %v", fb.Rect, s.target.Size())
+	}
+	if err := s.target.ReadPixels(fb, fb.Rect); err != nil {
+		return s.g.note(err)
+	}
+	s.behind = false
+	return nil
+}
 
 // fit gives the surface a target of the given size: a new one, which
 // holds no frame, unless it has one of that size.
@@ -225,13 +285,18 @@ func (t *Tree) RasterizeFrameGPU(fb *image.RGBA, s *GPUSurface, r *raster.Render
 		err = s.g.note(e)
 		s.Release()
 		s.Stats.Fallback = true
+		s.behind = false // the CPU rasterizer draws the whole of dst
 		return t.rasterizeApp(dst, r, true)
 	}
 	var d Damage
 	if t.dbg.flags == 0 {
 		d = draw(fb, full)
 	} else {
+		// The overlays are drawn over the frame read back.
+		direct := s.direct
+		s.direct = false
 		d = t.rasterizeDebug(fb, r, full, draw)
+		s.direct = direct
 	}
 	if !s.g.lost {
 		s.g.r.EndFrame()
@@ -268,9 +333,12 @@ func (t *Tree) rasterizeAppGPU(fb *image.RGBA, s *GPUSurface, full bool) (Damage
 	}
 	canvas := t.clearColor()
 	st := &s.Stats
+	st.Direct = s.direct
 	var d Damage
 	switch {
-	case full || !L.rasGPU || L.ras == nil || s.ras != L.ras || L.ras.scale != f.scale || L.rasRect != fb.Rect:
+	case full || !L.rasGPU || L.ras == nil || s.ras != L.ras || L.ras.scale != f.scale || L.rasRect != fb.Rect,
+		// Direct frames left fb behind, and this one is read back.
+		!s.direct && s.behind:
 		d.Full = true
 	case L.ras != f:
 		L.dmg.bdc, L.dmg.snaps, L.dmg.canvas, L.dmg.finish = nil, nil, canvas, finishGPU
@@ -293,6 +361,11 @@ func (t *Tree) rasterizeAppGPU(fb *image.RGBA, s *GPUSurface, full bool) (Damage
 		return nil
 	}
 	read := func(rects ...image.Rectangle) error {
+		if s.direct {
+			// The frame is presented from the target; fb is left behind.
+			s.behind = true
+			return nil
+		}
 		t0 := time.Now()
 		err := s.target.ReadPixels(fb, rects...)
 		st.Read += time.Since(t0)
@@ -310,6 +383,7 @@ func (t *Tree) rasterizeAppGPU(fb *image.RGBA, s *GPUSurface, full bool) (Damage
 		if err := read(fb.Rect); err != nil {
 			return d, err
 		}
+		s.behind = s.direct
 	case !d.Empty():
 		g.used = true
 		// The scrolled pixels move on the device and, with the same
@@ -322,7 +396,9 @@ func (t *Tree) rasterizeAppGPU(fb *image.RGBA, s *GPUSurface, full bool) (Damage
 			if err != nil {
 				return d, err
 			}
-			shiftPixels(fb, sh)
+			if !s.direct {
+				shiftPixels(fb, sh)
+			}
 		}
 		// A region is cleared to the canvas and drawn from the list's
 		// start, with what its backdrop filters read beyond it (the

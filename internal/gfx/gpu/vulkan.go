@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"image"
 	"os"
+	"strings"
 	"unsafe"
 
 	"github.com/kuronosu/tela/internal/vk"
@@ -47,10 +48,11 @@ const imageSetsPerPool = 64
 // waitTimeout bounds the wait for one submission, in nanoseconds.
 const waitTimeout = 30e9
 
-// Open opens the Vulkan device ADR-281 chooses (cfg.Device, else
-// TELA_GPU_DEVICE, else the first discrete one). It returns an error, and
-// the caller renders with the CPU rasterizer, when Vulkan or a usable
-// device is missing.
+// Open opens the Vulkan device ADR-281 chooses: cfg.Device, else
+// TELA_GPU_DEVICE, else the device of the display server (cfg.DRM), else
+// the first discrete one. It returns an error, and the caller renders with
+// the CPU rasterizer, when Vulkan or a usable device is missing, and
+// ErrNotDiscrete when cfg.DiscreteOnly refuses the device chosen.
 func Open(cfg Config) (Device, error) {
 	icfg := vk.InstanceConfig{AppName: "tela", Validation: cfg.Validate}
 	if cfg.Log != nil {
@@ -65,14 +67,10 @@ func Open(cfg Config) (Device, error) {
 		inst.Destroy()
 		return nil, fmt.Errorf("gpu: %w", err)
 	}
-	override := cfg.Device
-	if override == "" {
-		override = os.Getenv(vk.DeviceEnv)
-	}
-	n, err := vk.SelectDevice(devices, override)
+	n, err := selectDevice(devices, cfg, os.Getenv(vk.DeviceEnv))
 	if err != nil {
 		inst.Destroy()
-		return nil, fmt.Errorf("gpu: %w", err)
+		return nil, err
 	}
 	d, err := OpenVulkan(inst, devices[n])
 	if err != nil {
@@ -81,6 +79,39 @@ func Open(cfg Config) (Device, error) {
 	}
 	d.(*vkDevice).ownInstance = true
 	return d, nil
+}
+
+// selectDevice returns the index of the device Open opens among devices:
+// the one cfg.Device names, else the one env (TELA_GPU_DEVICE) names, else
+// the one that has the DRM node of cfg, else vk.SelectDevice's (the first
+// discrete one, else the first). With cfg.DiscreteOnly a device of
+// another type is ErrNotDiscrete.
+func selectDevice(devices []vk.DeviceInfo, cfg Config, env string) (int, error) {
+	override := cfg.Device
+	if override == "" {
+		override = env
+	}
+	n := -1
+	if strings.TrimSpace(override) == "" && cfg.HasDRM {
+		major, minor := int64(cfg.DRM.Major), int64(cfg.DRM.Minor)
+		for i := range devices {
+			if drm := devices[i].DRM; drm.HasRender && drm.RenderMajor == major && drm.RenderMinor == minor ||
+				drm.HasPrimary && drm.PrimaryMajor == major && drm.PrimaryMinor == minor {
+				n = i
+				break
+			}
+		}
+	}
+	if n < 0 {
+		var err error
+		if n, err = vk.SelectDevice(devices, override); err != nil {
+			return 0, fmt.Errorf("gpu: %w", err)
+		}
+	}
+	if cfg.DiscreteOnly && devices[n].Type != vk.PhysicalDeviceTypeDiscreteGPU {
+		return 0, fmt.Errorf("%w: %s", ErrNotDiscrete, devices[n])
+	}
+	return n, nil
 }
 
 // vkDevice is the Vulkan Device. Every frame is recorded into one command
@@ -150,7 +181,17 @@ type vkDevice struct {
 	undo        []layoutChange
 
 	targets map[*vkTarget]struct{}
-	closed  bool
+	// exports are the images exported as dmabufs (vulkan_export_linux.go);
+	// nil when the device was created without the extensions they need.
+	// foreign: the device has VK_EXT_queue_family_foreign.
+	exports map[*vkExport]struct{}
+	foreign bool
+	// exportable are the pairs of format and modifier the device exports,
+	// asked once; exportMods the modifiers by Vulkan format.
+	exportable []DmabufFormat
+	exportMods map[vk.Format][]vk.DmabufModifier
+	exportAsk  bool
+	closed     bool
 	// lost: a call returned VK_ERROR_DEVICE_LOST. Every call fails from
 	// then on (ErrDeviceLost).
 	lost bool
@@ -275,7 +316,7 @@ func (d *vkDevice) init() error {
 	d.mem = d.inst.GetPhysicalDeviceMemoryProperties(pd)
 
 	priority := float32(1)
-	dev, err := d.inst.CreateDevice(pd, &vk.DeviceCreateInfo{
+	create := &vk.DeviceCreateInfo{
 		SType:                vk.StructureTypeDeviceCreateInfo,
 		QueueCreateInfoCount: 1,
 		PQueueCreateInfos: &vk.DeviceQueueCreateInfo{
@@ -285,7 +326,15 @@ func (d *vkDevice) init() error {
 			PQueuePriorities: &priority,
 		},
 		PEnabledFeatures: &vk.PhysicalDeviceFeatures{},
-	})
+	}
+	// The extensions of the dmabuf export, on the devices that have them
+	// (Linux): what presenting without a copy needs (export.go).
+	if names, ok := vk.DmabufExtensions(&d.info); ok && exportSupported {
+		create.EnabledExtensionCount, create.PpEnabledExtensionNames = vk.CStringArray(names)
+		d.exports = map[*vkExport]struct{}{}
+		d.foreign = d.info.HasExtension(vk.ExtQueueFamilyForeignExtensionName)
+	}
+	dev, err := d.inst.CreateDevice(pd, create)
 	if err != nil {
 		return fmt.Errorf("creating the device: %w", err)
 	}
@@ -560,6 +609,10 @@ func (d *vkDevice) Close() {
 			t.destroy()
 		}
 		d.targets = nil
+		for e := range d.exports {
+			e.destroy()
+		}
+		d.exports = nil
 		d.releaseResources()
 		d.dropScratch()
 		for _, p := range d.sourcePools {

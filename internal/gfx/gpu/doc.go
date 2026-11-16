@@ -112,6 +112,31 @@
 // ErrDeviceLost from then on, Close still destroys what it holds, and the
 // caller draws with the CPU rasterizer.
 //
+// # Presenting without a copy
+//
+// A window that shows dmabufs (ADR-281, ADR-283) is given images the
+// device exports (export.go): the Vulkan device on Linux is an Exporter
+// when the driver has the extensions (external memory as dmabufs, DRM
+// format modifiers). NewExport makes an image in the format ChooseExport
+// picks among the pairs of DRM format and modifier a window accepts and
+// the pairs the device exports, with the modifier the driver prefers, and
+// Export.CopyFrom copies rectangles of a target into it in one
+// submission that is waited for: the image is handed over finished, since
+// no fence travels with it. An exported image is only ever copied into,
+// never drawn into, so the modifiers a device cannot render with still
+// serve (NVIDIA's linear one); a format in the other byte order (XRGB8888,
+// all an X server takes) is written by a blit, which converts and, between
+// two 8-bit formats at the same size, changes no value (TestExport).
+// The target stays the frame: the buffers of a window are copies that lag
+// it, each by its own number of frames, and what each lacks is their
+// owner's to track (core's GPUSwapchain).
+//
+// Open chooses the device: the one Config.Device or TELA_GPU_DEVICE
+// names, else the one that has the DRM node of Config.DRM (the display
+// server's, whose buffers need no copy), else the first discrete one; and
+// with Config.DiscreteOnly it refuses, before creating anything, a device
+// that is not a discrete GPU (ErrNotDiscrete; ADR-284).
+//
 // # Resources
 //
 // Frames draw with textures that outlive them. The Encoder decides what

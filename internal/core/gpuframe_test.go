@@ -20,6 +20,7 @@ import (
 	"github.com/kuronosu/tela/internal/gfx/raster"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
+	"github.com/kuronosu/tela/internal/vk"
 )
 
 // The frames a Host draws with the GPU (gpuhost.go, gpuframe.go). On every
@@ -48,6 +49,82 @@ type fakeDevice struct {
 	live, made int
 	// max, when positive, is the largest target size the device reports.
 	max int
+	// exports are the images exported alive, by the descriptor of their
+	// dmabuf; exportsLive counts them, exportsMade those created.
+	exports                  map[int]*fakeExport
+	exportsLive, exportsMade int
+}
+
+// fakeDevice is an Exporter when its device is one: it counts the images
+// exported, and fails NewExport and CopyFrom when a test says so.
+var _ gpu.Exporter = (*fakeDevice)(nil)
+
+func (d *fakeDevice) exporter() gpu.Exporter {
+	exp, _ := d.Device.(gpu.Exporter)
+	return exp
+}
+
+func (d *fakeDevice) DRMNodes() []gpu.DRMNode {
+	if exp := d.exporter(); exp != nil {
+		return exp.DRMNodes()
+	}
+	return nil
+}
+
+func (d *fakeDevice) ExportFormats() []gpu.DmabufFormat {
+	if exp := d.exporter(); exp != nil {
+		return exp.ExportFormats()
+	}
+	return nil
+}
+
+func (d *fakeDevice) NewExport(w, h int, accepted []gpu.DmabufFormat) (gpu.Export, error) {
+	exp := d.exporter()
+	if exp == nil {
+		return nil, gpu.ErrNoExport
+	}
+	if err := d.failing("NewExport"); err != nil {
+		return nil, err
+	}
+	e, err := exp.NewExport(w, h, accepted)
+	if err != nil {
+		return nil, err
+	}
+	fe := &fakeExport{Export: e, d: d, fd: e.Planes()[0].FD}
+	if d.exports == nil {
+		d.exports = map[int]*fakeExport{}
+	}
+	d.exports[fe.fd] = fe
+	d.exportsLive++
+	d.exportsMade++
+	return fe, nil
+}
+
+// fakeExport is an image exported by a fakeDevice.
+type fakeExport struct {
+	gpu.Export
+	d      *fakeDevice
+	fd     int
+	closed bool
+}
+
+func (e *fakeExport) CopyFrom(t gpu.Target, rects ...image.Rectangle) error {
+	if err := e.d.failing("CopyFrom"); err != nil {
+		return err
+	}
+	if ft, ok := t.(*fakeTarget); ok {
+		t = ft.Target
+	}
+	return e.Export.CopyFrom(t, rects...)
+}
+
+func (e *fakeExport) Close() {
+	if !e.closed {
+		e.closed = true
+		e.d.exportsLive--
+		delete(e.d.exports, e.fd)
+	}
+	e.Export.Close()
 }
 
 func (d *fakeDevice) failing(op string) error {
@@ -133,6 +210,18 @@ type gpuChecker struct {
 	worst gfxtest.Diff
 	over2 float64
 	seen  map[*Tree]*frame
+	// pw maps a headless window to the window the Host knows, when the
+	// test wraps its windows (gpuchain_test.go); nil when they are the
+	// same.
+	pw func(*headless.Window) platform.Window
+}
+
+// win returns the window the Host knows w by.
+func (c *gpuChecker) win(w *headless.Window) platform.Window {
+	if c.pw != nil {
+		return c.pw(w)
+	}
+	return w
 }
 
 func newGPUChecker(t *testing.T, dev gpu.Device) *gpuChecker {
@@ -190,7 +279,7 @@ func cpuFrame(f *frame, size image.Point, canvas gfx.Color) *image.RGBA {
 func (c *gpuChecker) checkWindow(h *Host, w *headless.Window, what string) {
 	t := c.t
 	t.Helper()
-	v := h.viewOf(w)
+	v := h.viewOf(c.win(w))
 	if v == nil {
 		t.Fatalf("%s: the window %q is not the host's", what, w.Title())
 	}
@@ -200,7 +289,9 @@ func (c *gpuChecker) checkWindow(h *Host, w *headless.Window, what string) {
 	if f == nil || got == nil {
 		t.Fatalf("%s: window %q: nothing rasterized (%v) or presented (%v)", what, w.Title(), f != nil, got != nil)
 	}
-	if fb := v.fb; fb != nil && fb.Rect == got.Rect {
+	// A window presented without a copy leaves its framebuffer behind
+	// (TestGPUDirectReaders reads it).
+	if fb := v.fb; fb != nil && fb.Rect == got.Rect && !(v.gpu.surf != nil && v.gpu.surf.Behind()) {
 		// What drag images are cut from, and what the next frame's damage
 		// is drawn over.
 		if p, ok := firstDiff(fb, got); !ok {
@@ -284,6 +375,9 @@ func (c *gpuChecker) finish(h *Host) {
 	if c.fake.live != 0 {
 		c.t.Errorf("%d of the %d targets created are left alive after the host ended", c.fake.live, c.fake.made)
 	}
+	if c.fake.exportsLive != 0 {
+		c.t.Errorf("%d of the %d exported images created are left alive after the host ended", c.fake.exportsLive, c.fake.exportsMade)
+	}
 	if h.GPU() != nil {
 		c.t.Error("the host still has a GPU after it ended")
 	}
@@ -310,14 +404,29 @@ type gpuRig struct {
 	b   *headless.Backend
 	h   *Host
 	log *bytes.Buffer // the host's error log
+	// d, when not nil, is the backend whose windows present dmabufs
+	// (gpuchain_test.go): the Host's windows wrap the headless ones.
+	d *dmabufBackend
 }
 
 func newGPURig(t *testing.T, dev gpu.Device, opts Options, w, h float32, scale float64) *gpuRig {
+	return newGPURigOn(t, dev, opts, w, h, scale, nil)
+}
+
+// newGPURigOn is newGPURig with windows that present dmabufs as dm says,
+// when it is not nil.
+func newGPURigOn(t *testing.T, dev gpu.Device, opts Options, w, h float32, scale float64, dm *dmabufConfig) *gpuRig {
 	t.Helper()
 	x := &gpuRig{t: t, c: newGPUChecker(t, dev), log: &bytes.Buffer{}}
 	x.b = headless.New(headless.Options{Size: platform.Size{W: w, H: h}, Scale: scale})
+	var pb platform.Backend = x.b
+	if dm != nil {
+		x.d = newDmabufBackend(t, x.b, x.c.fake, *dm)
+		x.c.pw = x.d.wrapped
+		pb = x.d
+	}
 	opts.Fonts, opts.Flavor, opts.ErrorLog = testFonts, testFlavor, x.log
-	host, err := NewHost(x.b, opts)
+	host, err := NewHost(pb, opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -327,14 +436,31 @@ func newGPURig(t *testing.T, dev gpu.Device, opts Options, w, h float32, scale f
 	return x
 }
 
-func (x *gpuRig) main() *headless.Window { return x.h.Window().(*headless.Window) }
+func (x *gpuRig) main() *headless.Window {
+	if x.d != nil {
+		return x.h.Window().(*dmabufWindow).Window
+	}
+	return x.h.Window().(*headless.Window)
+}
+
+// pw returns the window the Host knows the headless window w by.
+func (x *gpuRig) pw(w *headless.Window) platform.Window { return x.c.win(w) }
+
+// drain delivers what is queued to the Host.
+func (x *gpuRig) drain() {
+	if x.d != nil {
+		x.d.Drain(x.h)
+		return
+	}
+	x.b.Drain(x.h)
+}
 
 // deliver handles what is queued and the timer deadlines that are due.
 func (x *gpuRig) deliver() {
 	if at, ok := x.h.TimerArmed(); ok && at <= x.b.Now() {
 		x.b.Wake()
 	}
-	x.b.Drain(x.h)
+	x.drain()
 }
 
 // step advances the clock by a frame, delivers, and checks every window.
@@ -348,7 +474,7 @@ func (x *gpuRig) step(what string) {
 func (x *gpuRig) check(what string) {
 	x.t.Helper()
 	for _, w := range x.b.Windows() {
-		if x.h.viewOf(w) != nil && w.Frame() != nil {
+		if x.h.viewOf(x.pw(w)) != nil && w.Frame() != nil {
 			x.c.checkWindow(x.h, w, what)
 		}
 	}
@@ -375,7 +501,7 @@ func (x *gpuRig) settle(what string) {
 // at returns the center of the element with key k in window w.
 func (x *gpuRig) at(w *headless.Window, k any) (float32, float32) {
 	x.t.Helper()
-	tr := x.h.TreeOf(w)
+	tr := x.h.TreeOf(x.pw(w))
 	el := keyed(tr, k)
 	if el == nil {
 		x.t.Fatalf("no element with the key %v", k)
@@ -388,7 +514,7 @@ func (x *gpuRig) click(w *headless.Window, px, py float32) {
 	w.Inject(move(px, py))
 	w.Inject(down(px, py))
 	w.Inject(up(px, py))
-	x.b.Drain(x.h)
+	x.drain()
 }
 
 func (x *gpuRig) typeText(w *headless.Window, s string) {
@@ -397,13 +523,13 @@ func (x *gpuRig) typeText(w *headless.Window, s string) {
 		w.Inject(platform.KeyEvent{Action: platform.KeyPress, Code: platform.CodeUnidentified, Key: k, Text: string(r)})
 		w.Inject(platform.KeyEvent{Action: platform.KeyRelease, Code: platform.CodeUnidentified, Key: k})
 	}
-	x.b.Drain(x.h)
+	x.drain()
 }
 
 // view returns the host's view of window w.
 func (x *gpuRig) view(w *headless.Window) *winView {
 	x.t.Helper()
-	v := x.h.viewOf(w)
+	v := x.h.viewOf(x.pw(w))
 	if v == nil {
 		x.t.Fatalf("the window %q is not the host's", w.Title())
 	}
@@ -483,188 +609,196 @@ func TestGPUSession(t *testing.T) {
 			t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
 				st := &sessionState{}
 				x := newGPURig(t, dev, Options{Root: sessionPage(st)}, 640, 420, scale)
-				w := x.main()
-				tr := x.h.Tree()
-				w.SetFocused(true)
-				x.b.Drain(x.h)
-				x.check("mount")
-				if !x.held(w) || !tr.lay.rasGPU {
-					t.Fatalf("the first frame was not drawn by the GPU (log: %q)", x.log)
-				}
-
-				// Hover down the list, then the button (a transition).
-				for i := 0; i < 5; i++ {
-					px, py := x.at(w, fmt.Sprintf("row%d", i))
-					w.Inject(move(px, py))
-					x.step(fmt.Sprintf("hover row %d", i))
-				}
-				bx, by := x.at(w, "open")
-				w.Inject(move(bx, by))
-				x.settle("hover the button")
-
-				// The wheel over the list: its pixels are shifted.
-				lx, ly := x.at(w, "list")
-				w.Inject(move(lx, ly))
-				for i := 0; i < 4; i++ {
-					w.Inject(platform.ScrollEvent{Pos: platform.Point{X: lx, Y: ly}, Steps: platform.Point{Y: 1}})
-					x.settle(fmt.Sprintf("wheel %d", i))
-				}
-				st.list.ScrollBy(0, -53)
-				x.settle("list back up")
-				// The rows of the glass pane scroll over its blur.
-				for i := 0; i < 4; i++ {
-					st.glass.ScrollBy(0, 37)
-					x.settle(fmt.Sprintf("glass scroll %d", i))
-				}
-
-				// Text edits.
-				ix, iy := x.at(w, "in")
-				x.click(w, ix, iy)
-				x.step("focus the field")
-				for _, s := range []string{"H", "el", "lo GPU"} {
-					x.typeText(w, s)
-					x.step("type " + s)
-				}
-				w.Inject(platform.KeyEvent{Action: platform.KeyPress, Code: platform.CodeBackspace, Key: platform.KeyBackspace})
-				x.b.Drain(x.h)
-				x.step("backspace")
-				x.b.Advance(600 * time.Millisecond) // the caret blinks
-				x.deliver()
-				x.step("caret blink")
-
-				// A dialog over the glass, its content changing, a row
-				// changing under it, and away.
-				st.setDialog.Set(1)
-				x.settle("open the dialog")
-				st.setDialog.Set(2)
-				x.settle("change the dialog")
-				st.setRow.Update(func(v int) int { return v + 1 })
-				x.settle("a row under the scrim")
-				st.setDialog.Set(0)
-				x.settle("close the dialog")
-
-				// Resizes: the target is made again, no pixel is stale.
-				for _, s := range []platform.Size{{W: 700, H: 460}, {W: 520, H: 380}, {W: 640, H: 420}} {
-					made := x.c.fake.made
-					w.Resize(s)
-					x.settle(fmt.Sprintf("resize to %v", s))
-					if x.c.fake.made == made {
-						t.Errorf("resize to %v: no new target", s)
-					}
-				}
-				// A scale change.
-				w.SetScale(scale + 0.5)
-				x.settle("scale up")
-				st.glass.ScrollBy(0, -20)
-				x.settle("glass scroll at the new scale")
-				w.SetScale(scale)
-				x.settle("scale back")
-
-				// Hidden: the target goes with the framebuffer. The tree
-				// commits meanwhile, and the frame that shows it is whole.
-				handle := x.h.Handle(w)
-				handle.Hide()
-				x.step("hide")
-				if x.held(w) || x.view(w).fb != nil || x.c.live() != 0 {
-					t.Errorf("hidden: target held %v, framebuffer %v, %d targets alive", x.held(w), x.view(w).fb != nil, x.c.live())
-				}
-				st.setRow.Update(func(v int) int { return v + 1 })
-				x.step("a row while hidden")
-				handle.Show()
-				x.settle("show")
-				if !x.held(w) {
-					t.Error("shown again: no target")
-				}
-				// Minimized: the target is released, the framebuffer stays
-				// (as on the CPU path).
-				w.Minimize()
-				x.step("minimize")
-				if x.held(w) {
-					t.Error("minimized: the target is held")
-				}
-				st.setRow.Update(func(v int) int { return v + 1 })
-				x.step("a row while minimized")
-				handle.Focus()
-				x.settle("restore")
-				if !x.held(w) {
-					t.Error("restored: no target")
-				}
-
-				// The theme, there and back.
-				tr.SetColorScheme(ColorSchemeDark)
-				x.settle("dark")
-				px, py := x.at(w, "row2")
-				w.Inject(move(px, py))
-				x.settle("hover in the dark")
-				tr.SetColorScheme(ColorSchemeLight)
-				x.settle("light")
-
-				// Full frames on demand.
-				x.h.FullFrames = true
-				px, py = x.at(w, "row4")
-				w.Inject(move(px, py))
-				x.step("hover with full frames")
-				if !tr.LastDamage().Full {
-					t.Errorf("FullFrames: damage %+v", tr.LastDamage())
-				}
-				x.h.FullFrames = false
-
-				// At rest the renderer's memory is trimmed by the host's
-				// timer: no frame is drawn or presented for it, and the
-				// frame after it is right. (A window with the focus does
-				// not rest while its field's caret blinks.)
-				w.SetFocused(false)
-				x.settle("the window loses the focus")
-				if !x.c.g.TrimDue() {
-					t.Fatal("after frames, the GPU has nothing to trim")
-				}
-				if at := x.h.gpuTrimAt(); at == 0 {
-					t.Fatal("at rest, no trim of the GPU is scheduled")
-				}
-				// What still waits plays out first (the list's scrollbar
-				// fades): each of its frames moves the trim.
-				trimmed := false
-				for i := 0; i < 60 && !trimmed; i++ {
-					x.b.Advance(100 * time.Millisecond)
-					x.deliver()
-					trimmed = !x.c.g.TrimDue()
-				}
-				if !trimmed || x.h.gpuTrimAt() != 0 {
-					t.Errorf("after a rest the GPU was not trimmed (due %v, at %v)", x.c.g.TrimDue(), x.h.gpuTrimAt())
-				}
-				presents, frames := w.Presents(), tr.Stats().Frames
-				for i := 0; i < 5; i++ {
-					x.b.Advance(x.b.FrameInterval())
-					x.deliver()
-				}
-				if w.Presents() != presents || tr.Stats().Frames != frames {
-					t.Errorf("the trim asked for frames: %d presents and %d frames, were %d and %d", w.Presents(), tr.Stats().Frames, presents, frames)
-				}
-				if at, armed := x.h.TimerArmed(); armed {
-					t.Errorf("at rest after the trim the host's timer is armed for %v (now %v)", at, x.b.Now())
-				}
-				if !x.held(w) {
-					t.Error("the trim released the window's target")
-				}
-				x.check("after the trim")
-				px, py = x.at(w, "row1")
-				w.Inject(move(px, py))
-				x.settle("hover after the trim")
-				if d := tr.LastDamage(); d.Full {
-					t.Errorf("the frame after the trim was a full frame: %+v", d)
-				}
-
-				if x.log.Len() > 0 {
-					t.Errorf("the host logged: %s", x.log)
-				}
-				if x.c.cpuFrames != 0 || x.c.shifted == 0 || x.c.partial < 20 || x.c.full < 8 {
-					t.Errorf("the session did not exercise what it should: %s", x.c.summary())
-				}
-				t.Log(x.c.summary())
+				playGPUSession(t, x, st, scale)
 				x.c.finish(x.h)
 			})
 		}
 	})
+}
+
+// playGPUSession plays the session of TestGPUSession on a rig whose root
+// is sessionPage(st), and checks every frame. direct, when not nil, runs
+// at the points of the session where a window presented without a copy
+// has something more to check.
+func playGPUSession(t *testing.T, x *gpuRig, st *sessionState, scale float64) {
+	w := x.main()
+	tr := x.h.Tree()
+	w.SetFocused(true)
+	x.drain()
+	x.check("mount")
+	if !x.held(w) || !tr.lay.rasGPU {
+		t.Fatalf("the first frame was not drawn by the GPU (log: %q)", x.log)
+	}
+
+	// Hover down the list, then the button (a transition).
+	for i := 0; i < 5; i++ {
+		px, py := x.at(w, fmt.Sprintf("row%d", i))
+		w.Inject(move(px, py))
+		x.step(fmt.Sprintf("hover row %d", i))
+	}
+	bx, by := x.at(w, "open")
+	w.Inject(move(bx, by))
+	x.settle("hover the button")
+
+	// The wheel over the list: its pixels are shifted.
+	lx, ly := x.at(w, "list")
+	w.Inject(move(lx, ly))
+	for i := 0; i < 4; i++ {
+		w.Inject(platform.ScrollEvent{Pos: platform.Point{X: lx, Y: ly}, Steps: platform.Point{Y: 1}})
+		x.settle(fmt.Sprintf("wheel %d", i))
+	}
+	st.list.ScrollBy(0, -53)
+	x.settle("list back up")
+	// The rows of the glass pane scroll over its blur.
+	for i := 0; i < 4; i++ {
+		st.glass.ScrollBy(0, 37)
+		x.settle(fmt.Sprintf("glass scroll %d", i))
+	}
+
+	// Text edits.
+	ix, iy := x.at(w, "in")
+	x.click(w, ix, iy)
+	x.step("focus the field")
+	for _, s := range []string{"H", "el", "lo GPU"} {
+		x.typeText(w, s)
+		x.step("type " + s)
+	}
+	w.Inject(platform.KeyEvent{Action: platform.KeyPress, Code: platform.CodeBackspace, Key: platform.KeyBackspace})
+	x.drain()
+	x.step("backspace")
+	x.b.Advance(600 * time.Millisecond) // the caret blinks
+	x.deliver()
+	x.step("caret blink")
+
+	// A dialog over the glass, its content changing, a row
+	// changing under it, and away.
+	st.setDialog.Set(1)
+	x.settle("open the dialog")
+	st.setDialog.Set(2)
+	x.settle("change the dialog")
+	st.setRow.Update(func(v int) int { return v + 1 })
+	x.settle("a row under the scrim")
+	st.setDialog.Set(0)
+	x.settle("close the dialog")
+
+	// Resizes: the target is made again, no pixel is stale.
+	for _, s := range []platform.Size{{W: 700, H: 460}, {W: 520, H: 380}, {W: 640, H: 420}} {
+		made := x.c.fake.made
+		w.Resize(s)
+		x.settle(fmt.Sprintf("resize to %v", s))
+		if x.c.fake.made == made {
+			t.Errorf("resize to %v: no new target", s)
+		}
+	}
+	// A scale change.
+	w.SetScale(scale + 0.5)
+	x.settle("scale up")
+	st.glass.ScrollBy(0, -20)
+	x.settle("glass scroll at the new scale")
+	w.SetScale(scale)
+	x.settle("scale back")
+
+	// Hidden: the target goes with the framebuffer. The tree
+	// commits meanwhile, and the frame that shows it is whole.
+	handle := x.h.Handle(x.pw(w))
+	handle.Hide()
+	x.step("hide")
+	if x.held(w) || x.view(w).fb != nil || x.c.live() != 0 || x.c.fake.exportsLive != 0 {
+		t.Errorf("hidden: target held %v, framebuffer %v, %d targets and %d exported images alive", x.held(w), x.view(w).fb != nil, x.c.live(), x.c.fake.exportsLive)
+	}
+	st.setRow.Update(func(v int) int { return v + 1 })
+	x.step("a row while hidden")
+	handle.Show()
+	x.settle("show")
+	if !x.held(w) {
+		t.Error("shown again: no target")
+	}
+	// Minimized: the target is released, the framebuffer stays
+	// (as on the CPU path).
+	w.Minimize()
+	x.step("minimize")
+	if x.held(w) || x.c.fake.exportsLive != 0 {
+		t.Errorf("minimized: the target is held (%v), %d exported images alive", x.held(w), x.c.fake.exportsLive)
+	}
+	st.setRow.Update(func(v int) int { return v + 1 })
+	x.step("a row while minimized")
+	handle.Focus()
+	x.settle("restore")
+	if !x.held(w) {
+		t.Error("restored: no target")
+	}
+
+	// The theme, there and back.
+	tr.SetColorScheme(ColorSchemeDark)
+	x.settle("dark")
+	px, py := x.at(w, "row2")
+	w.Inject(move(px, py))
+	x.settle("hover in the dark")
+	tr.SetColorScheme(ColorSchemeLight)
+	x.settle("light")
+
+	// Full frames on demand.
+	x.h.FullFrames = true
+	px, py = x.at(w, "row4")
+	w.Inject(move(px, py))
+	x.step("hover with full frames")
+	if !tr.LastDamage().Full {
+		t.Errorf("FullFrames: damage %+v", tr.LastDamage())
+	}
+	x.h.FullFrames = false
+
+	// At rest the renderer's memory is trimmed by the host's
+	// timer: no frame is drawn or presented for it, and the
+	// frame after it is right. (A window with the focus does
+	// not rest while its field's caret blinks.)
+	w.SetFocused(false)
+	x.settle("the window loses the focus")
+	if !x.c.g.TrimDue() {
+		t.Fatal("after frames, the GPU has nothing to trim")
+	}
+	if at := x.h.gpuTrimAt(); at == 0 {
+		t.Fatal("at rest, no trim of the GPU is scheduled")
+	}
+	// What still waits plays out first (the list's scrollbar
+	// fades): each of its frames moves the trim.
+	trimmed := false
+	for i := 0; i < 60 && !trimmed; i++ {
+		x.b.Advance(100 * time.Millisecond)
+		x.deliver()
+		trimmed = !x.c.g.TrimDue()
+	}
+	if !trimmed || x.h.gpuTrimAt() != 0 {
+		t.Errorf("after a rest the GPU was not trimmed (due %v, at %v)", x.c.g.TrimDue(), x.h.gpuTrimAt())
+	}
+	presents, frames := w.Presents(), tr.Stats().Frames
+	for i := 0; i < 5; i++ {
+		x.b.Advance(x.b.FrameInterval())
+		x.deliver()
+	}
+	if w.Presents() != presents || tr.Stats().Frames != frames {
+		t.Errorf("the trim asked for frames: %d presents and %d frames, were %d and %d", w.Presents(), tr.Stats().Frames, presents, frames)
+	}
+	if at, armed := x.h.TimerArmed(); armed {
+		t.Errorf("at rest after the trim the host's timer is armed for %v (now %v)", at, x.b.Now())
+	}
+	if !x.held(w) {
+		t.Error("the trim released the window's target")
+	}
+	x.check("after the trim")
+	px, py = x.at(w, "row1")
+	w.Inject(move(px, py))
+	x.settle("hover after the trim")
+	if d := tr.LastDamage(); d.Full {
+		t.Errorf("the frame after the trim was a full frame: %+v", d)
+	}
+
+	if x.log.Len() > 0 {
+		t.Errorf("the host logged: %s", x.log)
+	}
+	if x.c.cpuFrames != 0 || x.c.shifted == 0 || x.c.partial < 20 || x.c.full < 8 {
+		t.Errorf("the session did not exercise what it should: %s", x.c.summary())
+	}
+	t.Log(x.c.summary())
 }
 
 // TestGPUDamageMatchesFullRender plays the random sessions of
@@ -870,9 +1004,18 @@ func TestGPUDebugOverlays(t *testing.T) {
 	gputest.EachDevice(t, func(t *testing.T, dev gpu.Device) {
 		st := &sessionState{}
 		x := newGPURig(t, dev, Options{Config: Config{Debug: DebugPaintFlash | DebugLayers}, Root: sessionPage(st)}, 640, 420, 1.5)
+		playGPUDebug(t, x, st, nil)
+	})
+}
+
+// playGPUDebug plays the session of TestGPUDebugOverlays on a rig whose
+// root is sessionPage(st). each, when not nil, runs after the frames of
+// every set of flags.
+func playGPUDebug(t *testing.T, x *gpuRig, st *sessionState, each func(f DebugFlags)) {
+	{
 		w := x.main()
 		tr := x.h.Tree()
-		x.b.Drain(x.h)
+		x.drain()
 		x.check("mount")
 		for _, f := range []DebugFlags{DebugPaintFlash | DebugLayers, DebugAll, 0, DebugLayout | DebugFPS, DebugPaintFlash, 0} {
 			tr.SetDebug(f)
@@ -905,13 +1048,16 @@ func TestGPUDebugOverlays(t *testing.T) {
 			if f == 0 && (tr.dbg.clean != nil || tr.dbg.prev != nil) {
 				t.Errorf("overlays off but the overlay state is kept")
 			}
+			if each != nil {
+				each(f)
+			}
 		}
 		if x.c.cpuFrames != 0 {
 			t.Errorf("frames drawn by the CPU rasterizer: %s", x.c.summary())
 		}
 		t.Log(x.c.summary())
 		x.c.finish(x.h)
-	})
+	}
 }
 
 // errInjected is the error the fallback tests inject.
@@ -1239,59 +1385,118 @@ type namedBackend struct{ *headless.Backend }
 func (namedBackend) Name() string { return "test" }
 
 // TestGPURendererChoice checks what a Host opens (openGPU, which Run
-// calls): nothing on the headless backend and with TELA_RENDERER=cpu, the
-// GPU by default and with TELA_RENDERER=gpu, and the CPU rasterizer with
-// one line of the log when no device initializes.
+// calls): nothing on the headless backend and with TELA_RENDERER=cpu; by
+// default the GPU when the device chosen is a discrete one, and the CPU
+// rasterizer, silently, when it is not; that device too with
+// TELA_RENDERER=gpu; the device the main window's display server names
+// before the first discrete one, and the one TELA_GPU_DEVICE names before
+// both; and the CPU rasterizer with one line of the log when no device
+// initializes, or when a device named is not used.
 func TestGPURendererChoice(t *testing.T) {
 	gputest.Need(t) // skips without Vulkan
-	open := func(t *testing.T, named bool) (*Host, *bytes.Buffer) {
-		t.Helper()
-		b := headless.New(headless.Options{Size: platform.Size{W: 200, H: 120}})
-		var pb platform.Backend = b
-		if named {
-			pb = namedBackend{b}
-		}
-		log := &bytes.Buffer{}
-		h, err := NewHost(pb, Options{Config: Config{Fonts: testFonts}, Root: div(Class("h-screen bg-sky-300")), ErrorLog: log})
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { h.stopTimer(); h.end() })
-		h.openGPU()
-		b.Drain(h)
-		return h, log
+	inst, err := vk.NewInstance(vk.InstanceConfig{AppName: "tela gpu tests"})
+	if err != nil {
+		t.Skip(err)
 	}
-	for _, c := range []struct {
+	devices, err := inst.Devices()
+	inst.Destroy()
+	if err != nil || len(devices) == 0 {
+		t.Skip("no devices")
+	}
+	first, _ := vk.SelectDevice(devices, "")
+	discrete := func(d vk.DeviceInfo) bool { return d.Type == vk.PhysicalDeviceTypeDiscreteGPU }
+	type choice struct {
 		name          string
 		renderer, dev string
 		named         bool
+		server        *vk.DeviceInfo // the device the window's feedback names
 		gpu           bool
+		device        string // the name of the device opened, when it matters
 		log           string // what the one line of the log holds; "": no line
-	}{
-		{"headless", "", "", false, false, ""},
-		{"headless_gpu", "gpu", "", false, false, ""},
-		{"default", "", "", true, true, ""},
-		{"gpu", "gpu", "", true, true, ""},
-		{"cpu", "cpu", "", true, false, ""},
-		{"unknown", "metal", "", true, true, `TELA_RENDERER="metal"`},
-		{"no_device", "", "no such device", true, false, "using the CPU rasterizer"},
-	} {
+	}
+	cases := []choice{
+		{name: "headless"},
+		{name: "headless_gpu", renderer: "gpu"},
+		{name: "default", named: true, gpu: discrete(devices[first]), device: devices[first].Name},
+		{name: "gpu", renderer: "gpu", named: true, gpu: true, device: devices[first].Name},
+		{name: "cpu", renderer: "cpu", named: true},
+		{name: "unknown", renderer: "metal", named: true, gpu: discrete(devices[first]), log: `TELA_RENDERER="metal"`},
+		{name: "no_device", dev: "no such device", named: true, log: "using the CPU rasterizer"},
+	}
+	for i := range devices {
+		d := devices[i]
+		label := gputest.Label(d.Name)
+		if !discrete(d) {
+			// A device that is not discrete is used only when asked for.
+			cases = append(cases,
+				choice{name: "named_" + label, dev: d.Name, named: true, log: "TELA_RENDERER=gpu draws with the GPU"},
+				choice{name: "named_gpu_" + label, renderer: "gpu", dev: d.Name, named: true, gpu: true, device: d.Name})
+		}
+		if d.DRM.HasRender || d.DRM.HasPrimary {
+			// The display server's device is the one opened.
+			cases = append(cases,
+				choice{name: "server_" + label, named: true, server: &d, gpu: discrete(d), device: d.Name},
+				choice{name: "server_gpu_" + label, renderer: "gpu", named: true, server: &d, gpu: true, device: d.Name},
+				choice{name: "server_named_" + label, renderer: "gpu", dev: devices[first].Name, named: true, server: &d, gpu: true, device: devices[first].Name})
+		}
+	}
+	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Setenv(EnvRenderer, c.renderer)
 			t.Setenv("TELA_GPU_DEVICE", c.dev)
 			t.Setenv("TELA_VK_VALIDATE", "") // the host's own device: not under this test's validation
-			h, log := open(t, c.named)
+			t.Setenv(EnvPresent, "copy")     // the fake display server's buffers are not this test's subject
+			b := headless.New(headless.Options{Size: platform.Size{W: 200, H: 120}})
+			var pb platform.Backend = b
+			drain := func(h *Host) { b.Drain(h) }
+			switch {
+			case c.server != nil:
+				d := newDmabufBackend(t, b, &fakeDevice{}, dmabufConfig{})
+				d.feedback.HasDevice = true
+				if n := c.server.DRM; n.HasRender {
+					d.feedback.DeviceMajor, d.feedback.DeviceMinor = uint32(n.RenderMajor), uint32(n.RenderMinor)
+				} else {
+					d.feedback.DeviceMajor, d.feedback.DeviceMinor = uint32(n.PrimaryMajor), uint32(n.PrimaryMinor)
+				}
+				pb = namedDmabuf{d}
+				drain = func(h *Host) { d.Drain(h) }
+			case c.named:
+				pb = namedBackend{b}
+			}
+			log := &bytes.Buffer{}
+			h, err := NewHost(pb, Options{Config: Config{Fonts: testFonts}, Root: div(Class("h-screen bg-sky-300")), ErrorLog: log})
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { h.stopTimer(); h.end() })
+			h.openGPU()
+			drain(h)
 			if got := h.GPU() != nil; got != c.gpu {
-				t.Errorf("the host has a GPU: %v, want %v (log %q)", got, c.gpu, log)
+				t.Fatalf("the host has a GPU: %v, want %v (log %q)", got, c.gpu, log)
+			}
+			if c.gpu && c.device != "" && h.GPU().Name() != c.device {
+				t.Errorf("the host opened %q, want %q", h.GPU().Name(), c.device)
 			}
 			if got := h.Tree().lay.rasGPU; got != c.gpu {
 				t.Errorf("the first frame was drawn by the GPU: %v, want %v", got, c.gpu)
 			}
-			lines := strings.Count(log.String(), "\n")
-			if c.log == "" && lines != 0 || c.log != "" && (lines != 1 || !strings.Contains(log.String(), c.log)) {
-				t.Errorf("the log is %q, want one line with %q", log, c.log)
+			// The line of TELA_PRESENT=copy is this test's own.
+			var lines []string
+			for _, l := range strings.Split(strings.TrimSpace(log.String()), "\n") {
+				if l != "" && !strings.Contains(l, EnvPresent+"=copy") {
+					lines = append(lines, l)
+				}
 			}
-			if w := h.Window().(*headless.Window); w.Frame() == nil {
+			if c.log == "" && len(lines) != 0 || c.log != "" && (len(lines) != 1 || !strings.Contains(lines[0], c.log)) {
+				t.Errorf("the log is %q, want one line with %q", lines, c.log)
+			}
+			var w *headless.Window
+			if dw, ok := h.Window().(*dmabufWindow); ok {
+				w = dw.Window
+			} else {
+				w = h.Window().(*headless.Window)
+			}
+			if w.Frame() == nil {
 				t.Error("nothing presented")
 			} else if px := w.Frame().RGBAAt(10, 10); px.A != 255 || px.B < 200 {
 				t.Errorf("the window shows %v", px)
@@ -1299,3 +1504,9 @@ func TestGPURendererChoice(t *testing.T) {
 		})
 	}
 }
+
+// namedDmabuf is a backend whose windows present dmabufs under a name of
+// its own, as namedBackend.
+type namedDmabuf struct{ *dmabufBackend }
+
+func (namedDmabuf) Name() string { return "test" }

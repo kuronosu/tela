@@ -360,6 +360,9 @@ func (v *winView) setHidden(hidden bool) {
 		v.dropGPU() // gpuhost.go: the GPU's target goes with the framebuffer
 	}
 	v.win.SetVisible(!hidden)
+	if !hidden {
+		v.shownGPU() // gpuhost.go: its next frame presents
+	}
 	v.syncState()
 }
 
