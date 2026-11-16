@@ -95,6 +95,20 @@ Inspecting and driving a running app.
 
 **Done when:** each item has a test that failed before it, on Linux and Windows CI.
 
+### External textures
+
+GPU content an application renders itself, composed by Tela (the owner, 2026-11-15): a 3D view, a video decoded in hardware, a map, a game view. Flutter's `Texture` model: the application draws with the graphics API it chooses and hands Tela a texture; Tela never exposes its own device. Placed before Canvas and Audio and video because both build on it: one model for content drawn by the application inside the tree, and `Video` shows its frames through it.
+
+- [ ] First: an ADR on the public element (such as `h.Texture`) and its source type: what the application hands over on each platform, who allocates, how a new frame is announced, and how sizes are negotiated on resize and scale changes
+- [ ] Linux: a dmabuf (descriptors, fourcc, modifier, planes) imported by the GPU renderer as an image source, on the exchange the GPU backend's presenting already has (`internal/vk`'s external memory); Windows: a shared handle; macOS: an IOSurface
+- [ ] Composed as any image: clips, rounded corners, opacity, transforms, filters and blend modes, hit testing, a semantics role and name
+- [ ] Frames: the application announces a new frame from any goroutine and only that element is damaged; a fence or an acquire and release pair so that Tela never reads a frame being drawn; 0% CPU while the content rests
+- [ ] Without the GPU backend (a default build, or `TELA_RENDERER=cpu`) the same element works through a copy: pixels the application gives, or the mapped buffer
+- [ ] `telatest`: a fake source, so screens with a texture have headless goldens
+- [ ] An example whose application renders an animated scene with its own code
+
+**Done when:** the example shows animated content rendered by the application inside a rounded, clipped card at 60 fps at scale 2 on Linux with no copy through the CPU, and the same binary without the GPU backend shows it through the copy; Windows and macOS go to the live checks.
+
 ### Canvas, SVG and PDF
 
 Vector output on the `DisplayList`.
@@ -111,7 +125,7 @@ Highest uncertainty of the roadmap: pure-Go decoders limit the codecs.
 
 - [ ] Audio playback and capture: pure-Go decoders (WAV, MP3, OGG/Vorbis, FLAC, Opus where one exists), output through ALSA/PulseAudio/PipeWire, WASAPI, CoreAudio
 - [ ] Video playback: patent-free subset first (VP8/VP9/AV1 if a pure-Go decoder is viable), A/V sync, a `Video` component with `kit` controls; an ADR settles codec scope before work starts
-- [ ] 3D (exploratory, ADR first; transforms stay 2D until then) lives here or in the backlog
+- [ ] 3D (exploratory, ADR first; transforms stay 2D until then) lives here or in the backlog; an application can already show its own 3D rendering through External textures
 
 **Done when:** a "player" example plays an audio file and a video with synced controls.
 
