@@ -45,7 +45,8 @@ The hardest technical item (`tela-hard`). It changes no public API. Agents: the 
 - [ ] Decide (ADR-285): on a hybrid laptop whose compositor runs on the integrated GPU the default is the CPU rasterizer, not the discrete GPU, since zero copy needs the compositor's device and an integrated device is not a default
 - [ ] Windows: a `VK_KHR_win32_surface` swapchain on the HWND (the bindings cross-compile; nothing was run on Windows yet)
 - [ ] Metal (macOS): a second device under the same encoder
-- [ ] CI: a `telagpu` job (build, vet, the layout table and encoder tests run without a GPU; lavapipe for the device tests if it is fast enough)
+- [x] CI: the lint job vets, builds and lints with `telagpu` on every target, runs `internal/vk` and `internal/gfx/gpu` without a GPU (device tests skip) and fails if a build without the tag links the GPU path
+- [ ] CI with a software device (lavapipe) so the device tests run there too
 - [ ] Decide: shadows under a skew differ between the backends (the GPU evaluates them in local space, as CSS defines; the rasterizer blurs in device space), up to 15 levels over the whole shadow; the rasterizer could do the same and its goldens change
 - [ ] Shadow shader cost on integrated GPUs (UHD 630: 5.4 ms for `tailwind_shadows` at x2 against 0.36 ms on the RTX 3060 Ti; an erf table or per-instance precompute)
 - [ ] D3D11 on Windows optional
