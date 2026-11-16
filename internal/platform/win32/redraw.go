@@ -42,8 +42,8 @@ import "unsafe"
 // repaint repaints the whole client area from the retained copy. With full
 // set, the next Present also draws everything.
 func (w *Window) repaint(full bool) {
-	if w.Closed() || w.creating || w.dib.pix == nil {
-		return
+	if w.Closed() || w.creating || w.surfaceRepaint() || w.dib.pix == nil {
+		return // a window whose frames come through a swapchain asks for one (surface.go)
 	}
 	if full {
 		w.RequestFull()

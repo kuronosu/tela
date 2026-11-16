@@ -57,7 +57,9 @@ const waitTimeout = 30e9
 // usable device is missing, and ErrSoftwareDevice when cfg.HardwareOnly
 // refuses the device chosen.
 func Open(cfg Config) (Device, error) {
-	icfg := vk.InstanceConfig{AppName: "tela", Validation: cfg.Validate}
+	// On Windows the instance makes surfaces of windows, for the
+	// swapchains that present to them (swapchain.go).
+	icfg := vk.InstanceConfig{AppName: "tela", Validation: cfg.Validate, Win32Surface: surfaceSupported}
 	if cfg.Log != nil {
 		icfg.Debug = func(m vk.DebugMessage) { cfg.Log(m.String()) }
 	}
@@ -191,12 +193,16 @@ type vkDevice struct {
 	// foreign: the device has VK_EXT_queue_family_foreign.
 	exports map[*vkExport]struct{}
 	foreign bool
-	// exportable are the pairs of format and modifier the device exports,
-	// asked once; exportMods the modifiers by Vulkan format.
-	exportable []DmabufFormat
-	exportMods map[vk.Format][]vk.DmabufModifier
-	exportAsk  bool
-	closed     bool
+	// exportCache is what the driver said of the exports, asked once
+	// (vulkan_export_linux.go).
+	exportCache
+	// windows are the swapchains on windows' surfaces
+	// (vulkan_swapchain_windows.go); nil when the device was created
+	// without VK_KHR_swapchain. incremental: the device has
+	// VK_KHR_incremental_present.
+	windows     map[*vkSwapchain]struct{}
+	incremental bool
+	closed      bool
 	// prof, when not nil, measures the frames instead of only drawing them
 	// (vulkan_profile.go).
 	prof *profiler
@@ -336,12 +342,21 @@ func (d *vkDevice) init() error {
 		PEnabledFeatures: &vk.PhysicalDeviceFeatures{},
 	}
 	// The extensions of the dmabuf export, on the devices that have them
-	// (Linux): what presenting without a copy needs (export.go).
+	// (Linux): what presenting without a copy needs (export.go). And on
+	// Windows those of a swapchain on a window (swapchain.go), when the
+	// instance makes surfaces of windows.
+	var extensions []string
 	if names, ok := vk.DmabufExtensions(&d.info); ok && exportSupported {
-		create.EnabledExtensionCount, create.PpEnabledExtensionNames = vk.CStringArray(names)
+		extensions = append(extensions, names...)
 		d.exports = map[*vkExport]struct{}{}
 		d.foreign = d.info.HasExtension(vk.ExtQueueFamilyForeignExtensionName)
 	}
+	if names, incremental, ok := vk.SwapchainExtensions(&d.info); ok && surfaceSupported && d.inst.HasWin32Surface() {
+		extensions = append(extensions, names...)
+		d.windows = map[*vkSwapchain]struct{}{}
+		d.incremental = incremental
+	}
+	create.EnabledExtensionCount, create.PpEnabledExtensionNames = vk.CStringArray(extensions)
 	dev, err := d.inst.CreateDevice(pd, create)
 	if err != nil {
 		return fmt.Errorf("creating the device: %w", err)
@@ -630,6 +645,11 @@ func (d *vkDevice) Close() {
 			e.destroy()
 		}
 		d.exports = nil
+		d.exportCache.forget()
+		for s := range d.windows {
+			s.destroy() // the swapchain and the surface, before the instance
+		}
+		d.windows = nil
 		d.releaseResources()
 		d.dropScratch()
 		d.dropProfile()
@@ -1173,9 +1193,11 @@ func (d *vkDevice) dropScratch() {
 	}
 }
 
-// submit records commands into the device's command buffer, submits them
-// and waits until they are done (see run).
-func (d *vkDevice) submit(record func(cb vk.CommandBuffer)) error {
+// submitWith records commands into the device's command buffer, submits
+// them and waits until they are done (see run), with a semaphore the
+// commands wait for at a stage and one they signal, either zero for none:
+// a swapchain's image acquired, and its present.
+func (d *vkDevice) submitWith(wait vk.Semaphore, waitStage vk.PipelineStageFlags, signal vk.Semaphore, record func(cb vk.CommandBuffer)) error {
 	dev := d.dev
 	if err := dev.BeginCommandBuffer(d.cb, &vk.CommandBufferBeginInfo{
 		SType: vk.StructureTypeCommandBufferBeginInfo,
@@ -1187,11 +1209,18 @@ func (d *vkDevice) submit(record func(cb vk.CommandBuffer)) error {
 	if err := dev.EndCommandBuffer(d.cb); err != nil {
 		return fmt.Errorf("gpu: ending the command buffer: %w", err)
 	}
-	if err := dev.QueueSubmit(d.queue, []vk.SubmitInfo{{
+	info := vk.SubmitInfo{
 		SType:              vk.StructureTypeSubmitInfo,
 		CommandBufferCount: 1,
 		PCommandBuffers:    &d.cb,
-	}}, d.fence); err != nil {
+	}
+	if wait != 0 {
+		info.WaitSemaphoreCount, info.PWaitSemaphores, info.PWaitDstStageMask = 1, &wait, &waitStage
+	}
+	if signal != 0 {
+		info.SignalSemaphoreCount, info.PSignalSemaphores = 1, &signal
+	}
+	if err := dev.QueueSubmit(d.queue, []vk.SubmitInfo{info}, d.fence); err != nil {
 		return fmt.Errorf("gpu: submitting: %w", err)
 	}
 	if err := dev.WaitForFences([]vk.Fence{d.fence}, true, waitTimeout); err != nil {
@@ -1477,8 +1506,13 @@ func (d *vkDevice) surfaceOf(t *vkTarget, id int) *surface {
 // waits until they are done. The layouts the commands leave the surfaces
 // in are forgotten when they are not executed.
 func (d *vkDevice) run(record func(cb vk.CommandBuffer)) error {
+	return d.runWith(0, 0, 0, record)
+}
+
+// runWith is run with the semaphores of submitWith.
+func (d *vkDevice) runWith(wait vk.Semaphore, waitStage vk.PipelineStageFlags, signal vk.Semaphore, record func(cb vk.CommandBuffer)) error {
 	d.undo = d.undo[:0]
-	err := d.submit(record)
+	err := d.submitWith(wait, waitStage, signal, record)
 	if err != nil {
 		for i := len(d.undo) - 1; i >= 0; i-- {
 			d.undo[i].s.layout = d.undo[i].from

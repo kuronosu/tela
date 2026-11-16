@@ -378,6 +378,9 @@ func (w *Window) SetVisible(visible bool) {
 	w.visible = visible
 	w.syncHidden()
 	if visible {
+		if w.surfaceShow() {
+			return // shown by the next present through the swapchain (surface.go)
+		}
 		if w.dib.pix != nil {
 			w.show() // the retained frame answers WM_PAINT
 		}

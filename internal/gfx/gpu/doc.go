@@ -142,6 +142,24 @@
 // it, each by its own number of frames, and what each lacks is their
 // owner's to track (core's GPUSwapchain).
 //
+// # Presenting through a swapchain on a window
+//
+// On Windows the Vulkan device is a WindowPresenter (swapchain.go,
+// ADR-289): NewSwapchain makes a VkSurfaceKHR of a window's HWND
+// (VK_KHR_win32_surface, which Open enables on the instance there) and
+// returns a Swapchain, which makes a FIFO swapchain of the surface's extent
+// with its minimum image count and one more, 8-bit BGRA (or RGBA) in the
+// sRGB color space and no sRGB format, opaque alpha. A present acquires
+// an image without waiting, copies into it the rectangles of the target
+// it lacks (each image keeps its own account; a new image lacks
+// everything) and presents it with the rectangles the window lacks
+// (VK_KHR_incremental_present where the driver has it). A swapchain out of
+// date or suboptimal is made again, a minimized window (an extent of 0x0)
+// gets no present, and a frame that finds no image free or the window at
+// another size is presented at the next one. The state machine is written
+// against SwapchainOps and tested with a fake; the Vulkan side
+// (vulkan_swapchain_windows.go) runs only on Windows.
+//
 // Open chooses the device: the one Config.Device or TELA_GPU_DEVICE
 // names, else the one that has the DRM node of Config.DRM (the display
 // server's, whose buffers need no copy), else the first discrete one, else

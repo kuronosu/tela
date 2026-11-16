@@ -109,6 +109,10 @@ type Window struct {
 	// lay is a transparent window's layered presentation and input mask
 	// (transparent_windows.go, ADR-249).
 	lay layered
+
+	// surf is the window's side of a renderer's swapchain on it
+	// (surface.go, ADR-289).
+	surf surfaceState
 }
 
 var _ platform.Window = (*Window)(nil)

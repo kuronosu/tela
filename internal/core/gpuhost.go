@@ -44,8 +44,8 @@ package core
 // Tree.RasterizeFrame: the same damage between the frame the target holds
 // and the new one (frameDamage), the scrolled pixels moved on the device
 // (gpu.Target.Shift), and each damaged rectangle rendered as a region.
-// The target is the frame; how it reaches the window is one of two ways,
-// chosen per window and per frame (Host.direct).
+// The target is the frame; how it reaches the window is one of three
+// ways, chosen per window and per frame (Host.direct).
 //
 // Read back: the damaged rectangles are read into the window's
 // framebuffer in one submission (and the scrolled pixels moved in it), so
@@ -70,10 +70,33 @@ package core
 // presented: its damage is kept and the next frame tries again. A resize,
 // a change of the format the feedback prefers, hiding and minimizing
 // destroy the buffers (the OS keeps the memory of the frame on screen).
-// TELA_PRESENT=copy forces the first way, TELA_PRESENT=dmabuf the second
+// TELA_PRESENT=copy forces the first way (for the third too),
+// TELA_PRESENT=dmabuf the second
 // also from another device than the display server's; a window that
 // could be presented without a copy and is not says why in one line of
 // the error log.
+//
+// Through a swapchain on the window (gpuwin.go, ADR-289): a Win32 window
+// (platform.Win32SurfacePresenter) hands out its HWND, of which the device
+// (gpu.WindowPresenter) makes a surface and a FIFO swapchain
+// (gpu.Swapchain). A frame acquires an image without waiting, copies into
+// it what it lacks of the target (each image keeps its own account, as
+// the dmabuf buffers do), presents it with the rectangles the window
+// lacks, and tells the window, whose first present shows it. No image
+// free, a window at another size than the frame (a resize under way) or
+// a swapchain out of date: the frame's damage is kept and the next frame,
+// asked for, presents it; minimized, nothing is presented and the
+// swapchain stays (the restore animation shows its last image). Hiding
+// destroys the swapchain, closing the window destroys it and the surface
+// first. A window that loses what it showed (WM_PAINT, a reconnect) asks
+// for a whole present (Win32Surface().Full), which the next frame makes
+// although nothing changed. Transparent windows, ones with a client-area
+// backdrop and title bar overlays report no surface and are read back,
+// without a line of the log; the swapchain goes before every
+// Window.Present of the window (a debug overlay, a fallback), whose pixels
+// would not show under it. Frames stay paced by the backend (DwmFlush), so
+// FIFO never queues more than one present and the UI thread never waits
+// in the presentation engine.
 //
 // A frame a backend asks for. A window whose frames are dmabufs is not
 // shown again by its backend alone, which asks for a frame instead

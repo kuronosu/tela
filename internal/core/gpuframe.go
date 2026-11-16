@@ -85,6 +85,17 @@ func (g *GPU) Exporter() gpu.Exporter {
 	return exp
 }
 
+// WindowPresenter returns the device as one that presents to windows
+// through a swapchain on their surfaces, for a Win32 window (gpuwin.go);
+// nil when it is not one (not Windows) or is lost.
+func (g *GPU) WindowPresenter() gpu.WindowPresenter {
+	if g.lost || g.dev == nil {
+		return nil
+	}
+	wp, _ := g.dev.(gpu.WindowPresenter)
+	return wp
+}
+
 // NewSurface returns the surface of a window's frames. Its target is
 // created by the first frame.
 func (g *GPU) NewSurface() *GPUSurface { return &GPUSurface{g: g} }

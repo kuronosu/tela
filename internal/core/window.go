@@ -835,6 +835,7 @@ func (t *Tree) closeWindow(s *windowSlot) {
 	ct.Unmount()
 	ct.SetWake(nil)
 	h.removeView(v)
+	v.endGPU() // gpuhost.go: a swapchain on the window goes before it
 	if !h.ended {
 		v.win.Close()
 	}
@@ -996,6 +997,11 @@ func (h *Host) closeDefault(v *winView) {
 		// the app quits; Run unmounts the trees.
 		if !h.ended {
 			v.dead.Store(true)
+			// The swapchains on the windows go before them (gpuhost.go):
+			// the child windows close with the main one.
+			for _, cv := range h.views {
+				cv.endGPU()
+			}
 			v.win.Close()
 		}
 		h.Quit()

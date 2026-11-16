@@ -57,6 +57,10 @@ type viewGPU struct {
 	// chain presents the window's frames without a copy; nil for a window
 	// that does not present dmabufs, and until its first frame on the GPU.
 	chain *GPUSwapchain
+	// wsurf presents the frames of a Win32 window through a swapchain on
+	// the window (gpuwin.go); nil for other windows, and until the first
+	// frame on the GPU.
+	wsurf *GPUWindowSurface
 	// copied: presenting without a copy failed for this window, whose
 	// frames are read back from then on.
 	copied bool
@@ -157,6 +161,11 @@ type GPUWindow struct {
 	// had one), and Busy the number of its buffers the OS still reads.
 	Stats GPUPresentStats
 	Busy  int
+	// Surface reports that the window is presented through a swapchain on
+	// the window itself (a Win32 window, gpuwin.go), and Swapchain is that
+	// swapchain's stats.
+	Surface   bool
+	Swapchain gpu.SwapchainStats
 }
 
 // GPUWindow returns how the GPU's frames of window w reach it; the zero
@@ -179,6 +188,9 @@ func (h *Host) GPUWindow(w platform.Window) GPUWindow {
 			}
 		}
 	}
+	if c := v.gpu.wsurf; c != nil {
+		out.Surface, out.Swapchain = true, c.Stats
+	}
 	return out
 }
 
@@ -195,7 +207,8 @@ func (h *Host) closeGPU() {
 	for _, v := range h.views {
 		v.lagGPU()
 		v.dropGPU()
-		v.gpu.surf, v.gpu.chain = nil, nil // they are g's
+		v.endGPU()
+		v.gpu.surf, v.gpu.chain, v.gpu.wsurf = nil, nil, nil // they are g's
 	}
 	h.gpu.g, h.gpu.trimAt = nil, 0
 	g.Close()
@@ -219,8 +232,21 @@ func (v *winView) dropGPU() {
 	if v.gpu.chain != nil {
 		v.gpu.chain.Release()
 	}
+	if v.gpu.wsurf != nil && !v.os.Minimized {
+		// A minimized window keeps its swapchain: what the OS shows of it
+		// (the restore animation) is the swapchain's last image.
+		v.gpu.wsurf.Release()
+	}
 	if v.gpu.surf != nil {
 		v.gpu.surf.Release()
+	}
+}
+
+// endGPU destroys the swapchain on the window and its surface, before the
+// window closes (platform, "Presenting through a swapchain").
+func (v *winView) endGPU() {
+	if v.gpu.wsurf != nil {
+		v.gpu.wsurf.Close()
 	}
 }
 
@@ -229,7 +255,7 @@ func (v *winView) dropGPU() {
 // instead (platform, "Presenting dmabufs"), and that frame must present
 // whether or not anything changed.
 func (v *winView) shownGPU() {
-	if v.gpu.chain != nil {
+	if v.gpu.chain != nil || v.gpu.wsurf != nil {
 		v.gpu.owed = true
 	}
 }
@@ -237,7 +263,9 @@ func (v *winView) shownGPU() {
 // presentOwed reports whether window v must be presented at its next
 // frame although nothing changed: a frame drawn for it did not reach the
 // screen.
-func (h *Host) presentOwed(v *winView) bool { return v.gpu.owed }
+func (h *Host) presentOwed(v *winView) bool {
+	return v.gpu.owed || v.gpu.wsurf != nil && v.gpu.wsurf.Owed()
+}
 
 // direct reports whether window v's next frame stays on the device, to be
 // presented without a copy: the window presents dmabufs and reports a
@@ -248,8 +276,27 @@ func (h *Host) presentOwed(v *winView) bool { return v.gpu.owed }
 // line of the error log says why, once per reason.
 func (h *Host) direct(v *winView) bool {
 	g := h.gpu.g
+	if v.gpu.copied || h.gpu.present == "copy" {
+		return false
+	}
+	if p, ok := v.win.(platform.Win32SurfacePresenter); ok {
+		// A Win32 window: a swapchain on the window (gpuwin.go).
+		if v.gpu.wsurf == nil {
+			v.gpu.wsurf = NewGPUWindowSurface(g, p)
+		}
+		ready, why, expected := v.gpu.wsurf.Ready()
+		if !ready {
+			if expected && why != v.gpu.why {
+				v.gpu.why = why
+				fmt.Fprintf(h.log, "tela: the GPU's frames of this window are read back and presented from the framebuffer: %s\n", why)
+			}
+			return false
+		}
+		v.gpu.why = ""
+		return v.tree.Debug() == 0
+	}
 	p, ok := v.win.(platform.DmabufPresenter)
-	if !ok || v.gpu.copied || h.gpu.present == "copy" {
+	if !ok {
 		return false
 	}
 	if v.gpu.chain == nil {
@@ -290,6 +337,11 @@ func (h *Host) rasterize(v *winView, full bool) Damage {
 		// buffers are made again when the window is direct again.
 		v.gpu.chain.Release()
 	}
+	if !direct && v.gpu.wsurf != nil {
+		// Read back: Window.Present's pixels show only once the swapchain
+		// on the window is gone.
+		v.gpu.wsurf.Release()
+	}
 	d, err := v.tree.RasterizeFrameGPU(v.fb, v.gpu.surf, &v.renderer, full)
 	if h.gpu.trace {
 		st := v.gpu.surf.Stats
@@ -309,8 +361,8 @@ func (h *Host) rasterize(v *winView, full bool) Damage {
 // the frame; when it was not (every buffer busy, a hidden window), the
 // frame is owed and presented at a later one (presentOwed).
 func (h *Host) present(v *winView, d Damage, damage []image.Rectangle) (bool, error) {
-	s, c := v.gpu.surf, v.gpu.chain
-	if h.gpu.g == nil || v.gpu.off || s == nil || c == nil || !s.Direct() || !s.Held() || !s.Stats.Direct {
+	s, c, wc := v.gpu.surf, v.gpu.chain, v.gpu.wsurf
+	if h.gpu.g == nil || v.gpu.off || s == nil || c == nil && wc == nil || !s.Direct() || !s.Held() || !s.Stats.Direct {
 		v.gpu.owed = false
 		return true, v.win.Present(v.fb, damage)
 	}
@@ -318,10 +370,20 @@ func (h *Host) present(v *winView, d Damage, damage []image.Rectangle) (bool, er
 	// empty one is a frame presented because one is owed: the swapchain
 	// knows what the window lacks (everything after a dropped present,
 	// the damage of the frames it could not present otherwise).
-	res, err := c.Present(s, d, damage == nil)
-	if h.gpu.trace {
-		st := c.Stats
-		fmt.Fprintf(h.log, "tela: gpu: present result=%d buffers=%d copied=%dpx register=%v copy=%v present=%v\n", res, st.Buffers, st.Pixels, st.Register, st.Copy, st.Present)
+	var res GPUPresent
+	var err error
+	if wc != nil {
+		res, err = wc.Present(s, d, damage == nil)
+		if h.gpu.trace {
+			st := wc.Stats
+			fmt.Fprintf(h.log, "tela: gpu: present result=%d images=%d copied=%dpx rects=%d time=%v created=%d out-of-date=%d\n", res, st.Images, st.Pixels, st.Rects, st.Time, st.Created, st.OutOfDate)
+		}
+	} else {
+		res, err = c.Present(s, d, damage == nil)
+		if h.gpu.trace {
+			st := c.Stats
+			fmt.Fprintf(h.log, "tela: gpu: present result=%d buffers=%d copied=%dpx register=%v copy=%v present=%v\n", res, st.Buffers, st.Pixels, st.Register, st.Copy, st.Present)
+		}
 	}
 	if err != nil {
 		return true, h.directFailed(v, err)
@@ -349,7 +411,12 @@ func (h *Host) present(v *winView, d Damage, damage []image.Rectangle) (bool, er
 func (h *Host) directFailed(v *winView, err error) error {
 	g := h.gpu.g
 	v.gpu.copied, v.gpu.owed = true, false
-	v.gpu.chain.Release()
+	if v.gpu.chain != nil {
+		v.gpu.chain.Release()
+	}
+	if v.gpu.wsurf != nil {
+		v.gpu.wsurf.Close() // before Window.Present: its pixels show without it
+	}
 	v.gpu.surf.SetDirect(false)
 	if !g.Lost() {
 		fmt.Fprintf(h.log, "tela: this window's frames cannot be presented without a copy, they are read back from now on: %s\n", oneLine(err))

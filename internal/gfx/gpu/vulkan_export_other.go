@@ -9,7 +9,13 @@ package gpu
 // exportSupported: this build exports no images.
 const exportSupported = false
 
-// vkExport is never created here.
-type vkExport struct{}
+// vkExport is never created here, and the device asks the driver nothing
+// of exports.
+type (
+	vkExport    struct{}
+	exportCache struct{}
+)
+
+func (c *exportCache) forget() {}
 
 func (e *vkExport) destroy() {}

@@ -47,8 +47,10 @@ func (h *Host) gpuTrimAt() time.Duration               { return 0 }
 func (h *Host) gpuScheduleTrim(now time.Duration) bool { return false }
 func (h *Host) gpuTick(now time.Duration)              {}
 
-// dropGPU releases the window's target on the GPU: it has none.
+// dropGPU releases the window's target on the GPU, and endGPU the
+// swapchain on the window: it has neither.
 func (v *winView) dropGPU() { v.gpu = viewGPU{} }
+func (v *winView) endGPU()  {}
 
 // shownGPU and syncPixels are for windows presented from the GPU's
 // images: the framebuffer always holds the frame here.

@@ -17,6 +17,18 @@ import (
 // exportSupported: this build exports images.
 const exportSupported = true
 
+// exportCache is what a device asked its driver of the exports, once:
+// the pairs of format and modifier it exports (exportable) and the
+// modifiers by Vulkan format (exportMods).
+type exportCache struct {
+	exportable []DmabufFormat
+	exportMods map[vk.Format][]vk.DmabufModifier
+	exportAsk  bool
+}
+
+// forget drops what the driver said, when the device closes.
+func (c *exportCache) forget() { *c = exportCache{} }
+
 // exportUsage is how an exported image is used: copied into, and read
 // back by the tests. It is never drawn into, which leaves the device the
 // modifiers it cannot render with.

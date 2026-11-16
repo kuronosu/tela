@@ -23,7 +23,10 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 	}
 	platform.CheckFramebuffer(fb, w.Metrics())
 	size := fb.Rect.Size()
-	full := w.NeedsFull() || w.dib.size != size
+	// The first Present after frames that came through a swapchain is
+	// whole: the retained copy is stale (surface.go).
+	ended := w.surfaceEnded()
+	full := ended || w.NeedsFull() || w.dib.size != size
 	rects := platform.ClipDamage(damage, fb.Rect, full)
 	if len(rects) == 0 {
 		return nil // every damage rectangle was clipped away: nothing changed
@@ -131,6 +134,9 @@ func (w *Window) blitClear(hdc uintptr, r image.Rectangle) {
 // the window was uncovered, after a resize, and when it is shown. The app
 // is not involved.
 func (w *Window) onPaint() {
+	if w.surfacePaint() {
+		return // the frames come through a swapchain (surface.go)
+	}
 	var ps paintStruct
 	hdc, _, _ := procBeginPaint.Call(w.hwnd, uintptr(unsafe.Pointer(&ps)))
 	if hdc == 0 {

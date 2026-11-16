@@ -768,6 +768,15 @@
 // dmabufs"). Wayland and X11 windows implement it. Nothing else changes:
 // Present is as it was, and the remote protocol is unchanged.
 //
+// Contract v14 (ADR-289) adds the optional [Win32SurfacePresenter]: a
+// Win32 window hands out its HINSTANCE and HWND ([Win32Surface]) to a
+// renderer that presents through a swapchain on it, reports the size the
+// swapchain must have and when a present must be whole, and is told of
+// each present (see "Presenting through a swapchain"). Win32 windows
+// implement it, except transparent ones, ones with a client-area backdrop
+// and TitleBarOverlay ones, which report that they cannot. Present is as
+// it was, and the remote protocol is unchanged.
+//
 // # Drag and drop and the clipboard
 //
 // One data type, [Data], carries a drag and the clipboard: an ordered set
@@ -1175,9 +1184,58 @@
 // flips (Xwayland) gives a buffer back only after the next present
 // replaced it, so a caller there needs three buffers where two do on
 // Wayland. Frames are paced by the backend's timer as before.
-// Win32 and Cocoa present GPU frames through a swap chain on the window
-// and have no use for it. Headless and remote windows do not implement
-// the interface: their frames are read by tests and sent over a socket.
+// Win32 presents GPU frames through a swapchain on the window instead
+// (next section), and Cocoa will through a CAMetalLayer. Headless and
+// remote windows do not implement the interface: their frames are read
+// by tests and sent over a socket.
+//
+// # Presenting through a swapchain
+//
+// On Windows a GPU renderer presents through a swapchain on the window
+// itself (Vulkan's VK_KHR_win32_surface; DXGI would be the same): the
+// presentation engine and DWM show its images, and nothing crosses main
+// memory. A window that implements [Win32SurfacePresenter] (contract v14,
+// ADR-289) hands out what such a swapchain is made from and what it must
+// follow; this layer never sees the graphics API. The capability is
+// optional, and Present always works.
+//
+//   - Handles. [Win32SurfacePresenter.Win32Surface] returns the window's
+//     HINSTANCE and HWND, with ok false for the windows a swapchain cannot
+//     present: Transparent ones (a layered window's input mask needs the
+//     pixels), ones with a client-area backdrop (DWM shows the alpha of
+//     the frames, which the swapchain's opaque images do not carry), and
+//     TitleBarOverlay ones (DWM's caption buttons show only where the
+//     presented pixels are transparent). The answer can change while the
+//     window is open (SetBackdrop): the caller asks once a frame.
+//   - Size. [Win32Surface].Size is the client area now, the extent the
+//     swapchain must have (VkSurfaceCapabilitiesKHR.currentExtent says the
+//     same). Resizes, DPI changes and minimizing arrive as ConfigureEvents
+//     as before; a minimized window's size is empty and nothing is
+//     presented to it; a frame drawn at a size the window no longer has is
+//     not presented through the swapchain (the next one is).
+//   - Presenting. The caller presents through its swapchain, then calls
+//     [Win32SurfacePresenter.SurfacePresented] with the damage. The first
+//     such call shows the window, as the first Present does, so that it
+//     does not flash; a present while the app hides the window shows
+//     nothing. The pixels are the caller's to finish: the window waits for
+//     nothing. Frames are paced by the backend as before (DwmFlush): a
+//     frame comes once a refresh, so a FIFO swapchain never holds more
+//     than one present waiting, and a caller that acquires its images
+//     without waiting never blocks the UI thread.
+//   - Whole presents. The window keeps no copy of these frames, so what
+//     it would repaint itself (WM_PAINT, a reconnected session, a display
+//     or theme change, a resume) it asks the caller for instead: it sets
+//     [Win32Surface].Full and asks for a frame, and the caller presents
+//     the whole frame at it, changed or not. A window the app shows again
+//     after hiding it is shown by the next present, which is whole, and
+//     the window asks for its frame.
+//   - Alternating. A caller that falls back (an error, a window that can
+//     no longer be presented this way, a debug overlay) destroys its
+//     swapchain first and presents the whole frame with Present, which
+//     the window then treats as full. Presenting through a swapchain after
+//     a Present starts whole (Full is set).
+//   - Closing. The caller destroys its swapchain and its surface before it
+//     closes the window.
 //
 // # Errors
 //

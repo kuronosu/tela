@@ -53,6 +53,9 @@ type fakeDevice struct {
 	// dmabuf; exportsLive counts them, exportsMade those created.
 	exports                  map[int]*fakeExport
 	exportsLive, exportsMade int
+	// surfaces is the backend whose windows the device presents to
+	// through swapchains (gpuwin_test.go), nil when none.
+	surfaces *surfaceBackend
 }
 
 // fakeDevice is an Exporter when its device is one: it counts the images
@@ -405,8 +408,11 @@ type gpuRig struct {
 	h   *Host
 	log *bytes.Buffer // the host's error log
 	// d, when not nil, is the backend whose windows present dmabufs
-	// (gpuchain_test.go): the Host's windows wrap the headless ones.
+	// (gpuchain_test.go), and s the one whose windows are presented
+	// through a swapchain on them (gpuwin_test.go): the Host's windows
+	// wrap the headless ones.
 	d *dmabufBackend
+	s *surfaceBackend
 }
 
 func newGPURig(t *testing.T, dev gpu.Device, opts Options, w, h float32, scale float64) *gpuRig {
@@ -437,8 +443,11 @@ func newGPURigOn(t *testing.T, dev gpu.Device, opts Options, w, h float32, scale
 }
 
 func (x *gpuRig) main() *headless.Window {
-	if x.d != nil {
+	switch {
+	case x.d != nil:
 		return x.h.Window().(*dmabufWindow).Window
+	case x.s != nil:
+		return x.h.Window().(*surfaceWindow).Window
 	}
 	return x.h.Window().(*headless.Window)
 }
@@ -448,8 +457,12 @@ func (x *gpuRig) pw(w *headless.Window) platform.Window { return x.c.win(w) }
 
 // drain delivers what is queued to the Host.
 func (x *gpuRig) drain() {
-	if x.d != nil {
+	switch {
+	case x.d != nil:
 		x.d.Drain(x.h)
+		return
+	case x.s != nil:
+		x.s.Drain(x.h)
 		return
 	}
 	x.b.Drain(x.h)

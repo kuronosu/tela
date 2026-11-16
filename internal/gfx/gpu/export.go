@@ -23,8 +23,9 @@ import (
 // (general) and, where the device has VK_EXT_queue_family_foreign, a
 // transfer to the foreign queue family and back, which keeps the pixels.
 //
-// Only the Vulkan device on Linux implements Exporter; elsewhere a device
-// is not one, and the caller reads the frame back.
+// Only the Vulkan device on Linux implements Exporter; on Windows it is a
+// WindowPresenter instead (swapchain.go), and elsewhere the caller reads
+// the frame back.
 
 // The DRM formats (fourcc codes of drm_fourcc.h) a device exports: 32-bit
 // pixels named from the most significant byte of a little-endian word, so

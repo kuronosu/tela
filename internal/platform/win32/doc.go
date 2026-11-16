@@ -88,6 +88,15 @@
 // the frame's premultiplied alpha. The window is shown at its first
 // Present.
 //
+// A GPU renderer may present through a Vulkan swapchain on the window
+// instead (platform.Win32SurfacePresenter, contract v14, ADR-289;
+// surface.go): the window hands out its HINSTANCE and HWND, is told of
+// each present (the first one shows it), and while its frames come that
+// way paints nothing from the stale copy: WM_PAINT and the repaints of
+// redraw.go ask the renderer for a whole frame. Transparent windows, ones
+// with a client-area backdrop and TitleBarOverlay windows report no
+// surface and keep Present. Pacing stays DwmFlush's.
+//
 // # Pointer
 //
 // Mouse messages (WM_MOUSEMOVE, buttons, WM_MOUSELEAVE via TrackMouseEvent,
