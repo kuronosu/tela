@@ -13,9 +13,13 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+## [0.14.5] - 2026-11-16
+
+Phase 25, the GPU backend (ADR-281 to ADR-289). It breaks no public API: the GPU renderer is compiled only with the build tag `telagpu`.
+
 ### Added
 
-- A GPU renderer, opt-in with the build tag `telagpu` (ADR-281, ADR-282, ADR-284): on Linux and Windows, windows are drawn with Vulkan; on Wayland and X11 the frames reach the compositor as dmabufs, without a copy (ADR-283, ADR-285), and elsewhere they are read back into the framebuffer. The GPU is the default only on a discrete device. On the dashboard at 2880x1800 x2, frames over 16.7 ms: 99 of 704 on the CPU, 2 on an RTX 3060 Ti, 25–26 on a UHD 630 (with `TELA_RENDERER=gpu`). `TELA_RENDERER=cpu|gpu` chooses at run time and `TELA_GPU_DEVICE` the device; any GPU error falls back to the CPU rasterizer. Without the tag nothing changes and Linux binaries stay static; with it a Linux binary is dynamically linked to glibc. Windows was only cross-compiled, never run.
+- A GPU renderer, opt-in with the build tag `telagpu` (ADR-281, ADR-282, ADR-284): on Linux and Windows, windows are drawn with Vulkan; on Wayland and X11 the frames reach the compositor as dmabufs, without a copy (ADR-283, ADR-285), and elsewhere they are read back into the framebuffer. The GPU is the default on hardware devices, integrated ones included (ADR-288); Windows presents through a swapchain (ADR-289), never run on Windows yet. On the dashboard at 2880x1800 x2, frames over 16.7 ms: 99 of 704 on the CPU, 2 on an RTX 3060 Ti, 25–26 on a UHD 630. `TELA_RENDERER=cpu|gpu` chooses at run time and `TELA_GPU_DEVICE` the device; any GPU error falls back to the CPU rasterizer. Without the tag nothing changes and Linux binaries stay static; with it a Linux binary is dynamically linked to glibc.
 
 ## [0.14.4] - 2026-11-12
 
@@ -1147,7 +1151,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.4...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.5...HEAD
+[0.14.5]: https://github.com/kuronosu/tela/compare/v0.14.4...v0.14.5
 [0.14.4]: https://github.com/kuronosu/tela/compare/v0.14.3...v0.14.4
 [0.14.3]: https://github.com/kuronosu/tela/compare/v0.14.2...v0.14.3
 [0.14.2]: https://github.com/kuronosu/tela/compare/v0.14.1...v0.14.2
