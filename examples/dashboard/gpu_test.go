@@ -21,6 +21,32 @@ import (
 	"github.com/kuronosu/tela/internal/testutil/golden"
 )
 
+// gpuStat is the part of frameStat that a frame drawn by the GPU fills.
+type gpuStat struct {
+	// gpu splits the raster phase of a frame drawn by the GPU
+	// (gpu_test.go): the encoder, the device's draws, its shifts and the
+	// readback, each with its wait; renders counts its renders (one per
+	// damaged rectangle, one for a full frame).
+	gpu     [numGPUParts]time.Duration
+	renders int
+	// What the frame's renders drew on the GPU (core.GPUFrameStats).
+	instances, draws, passes, uploads, uploadBytes int
+	// culled is the commands an opaque one hid, and glass what the frame
+	// did with the cached backdrop filters: hits, patched, stored, computed.
+	culled int
+	glass  [4]int
+}
+
+// The parts of frameStat.gpu.
+const (
+	gpuEncode = iota
+	gpuDraw
+	gpuShift
+	gpuRead
+	gpuCopy // the copy into the buffer a window presents without a copy, with its wait
+	numGPUParts
+)
+
 // The dashboard drawn by the GPU (ADR-281, ADR-282): the rig of
 // bench_test.go with core's GPU frame in the place of the CPU rasterizer
 // (Tree.RasterizeFrameGPU: the damage drawn on the device and read back

@@ -66,29 +66,11 @@ type frameStat struct {
 	pixels int // device pixels rasterized (damage area)
 	full   bool
 	tick   int // the tick of the session
-	// gpu splits the raster phase of a frame drawn by the GPU
-	// (gpu_test.go): the encoder, the device's draws, its shifts and the
-	// readback, each with its wait; renders counts its renders (one per
-	// damaged rectangle, one for a full frame).
-	gpu     [numGPUParts]time.Duration
-	renders int
-	// What the frame's renders drew on the GPU (core.GPUFrameStats).
-	instances, draws, passes, uploads, uploadBytes int
-	// culled is the commands an opaque one hid, and glass what the frame
-	// did with the cached backdrop filters: hits, patched, stored, computed.
-	culled int
-	glass  [4]int
+	// gpuStat holds what a frame drawn by the GPU measured (gpu_test.go);
+	// it is empty in builds without the GPU backend.
+	//lint:ignore U1000 read only by gpu_test.go, under the build tag telagpu
+	gpuStat
 }
-
-// The parts of frameStat.gpu.
-const (
-	gpuEncode = iota
-	gpuDraw
-	gpuShift
-	gpuRead
-	gpuCopy // the copy into the buffer a window presents without a copy, with its wait
-	numGPUParts
-)
 
 // rigRenderer draws the rig's frames in the place of the CPU rasterizer:
 // the GPU path (gpu_test.go, with the build tag telagpu).

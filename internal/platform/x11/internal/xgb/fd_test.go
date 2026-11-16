@@ -21,10 +21,13 @@ import (
 func unixServer(t *testing.T) (*xgb.Conn, *net.UnixConn) {
 	t.Helper()
 	t.Setenv("XAUTHORITY", t.TempDir()+"/none")
-	pair, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_STREAM|syscall.SOCK_CLOEXEC, 0)
+	// SOCK_CLOEXEC does not exist on darwin: set the flag afterwards.
+	pair, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_STREAM, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
+	syscall.CloseOnExec(pair[0])
+	syscall.CloseOnExec(pair[1])
 	end := func(fd int) *net.UnixConn {
 		f := os.NewFile(uintptr(fd), "x11")
 		defer f.Close() // FileConn duplicates it
