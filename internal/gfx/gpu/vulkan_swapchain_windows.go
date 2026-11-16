@@ -236,7 +236,12 @@ func (s *vkSwapchain) dropChain(chain vk.SwapchainKHR) {
 		return
 	}
 	dev := d.dev
-	dev.QueueWaitIdle(d.queue) // an error leaves nothing to wait for
+	if err := dev.QueueWaitIdle(d.queue); err != nil {
+		// The queue may still use the semaphores: the device counts as
+		// lost, as after a failed fence wait (submitWith), so that nothing
+		// is submitted or reused any more and its Close waits for it.
+		d.lost = true
+	}
 	if chain != 0 {
 		dev.DestroySwapchainKHR(chain)
 	}

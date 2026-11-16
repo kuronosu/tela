@@ -47,7 +47,11 @@ const sourceSetsPerPool = 128
 // serves.
 const imageSetsPerPool = 64
 
-// waitTimeout bounds the wait for one submission, in nanoseconds.
+// waitTimeout bounds the wait for one submission, in nanoseconds. A
+// submission that is not done by then may still run, and may still read
+// and write what it was recorded with: the device is treated as lost
+// (submitWith), so that nothing is submitted, reused or destroyed under
+// it before Close waits for the queue.
 const waitTimeout = 30e9
 
 // Open opens the Vulkan device ADR-281 chooses: cfg.Device, else
@@ -206,9 +210,13 @@ type vkDevice struct {
 	// prof, when not nil, measures the frames instead of only drawing them
 	// (vulkan_profile.go).
 	prof *profiler
-	// lost: a call returned VK_ERROR_DEVICE_LOST. Every call fails from
-	// then on (ErrDeviceLost).
+	// lost: a call returned VK_ERROR_DEVICE_LOST, or the wait for a
+	// submission failed (submitWith). Every call fails from then on
+	// (ErrDeviceLost).
 	lost bool
+	// waitErr, when set, replaces the result of the wait for a submission:
+	// a test's timeout. Nil outside tests.
+	waitErr func(error) error
 }
 
 // check notes an error of a call into the device: a lost device stays
@@ -636,7 +644,9 @@ func (d *vkDevice) Close() {
 	d.closed = true
 	dev := d.dev
 	if dev != nil {
-		dev.WaitIdle() // nothing is in flight; an error leaves nothing to do
+		// Nothing is in flight, unless the wait for a submission failed
+		// (submitWith): it is waited for here. An error leaves nothing to do.
+		dev.WaitIdle()
 		for t := range d.targets {
 			t.destroy()
 		}
@@ -1223,11 +1233,24 @@ func (d *vkDevice) submitWith(wait vk.Semaphore, waitStage vk.PipelineStageFlags
 	if err := dev.QueueSubmit(d.queue, []vk.SubmitInfo{info}, d.fence); err != nil {
 		return fmt.Errorf("gpu: submitting: %w", err)
 	}
-	if err := dev.WaitForFences([]vk.Fence{d.fence}, true, waitTimeout); err != nil {
-		return fmt.Errorf("gpu: waiting for the frame: %w", err)
+	// A wait that fails, VK_TIMEOUT included, leaves a submission that may
+	// still run: its command buffer and fence are pending, and the images
+	// and buffers it uses must not be written, read back or destroyed. So
+	// the device is lost, whatever the error: the caller draws with the
+	// CPU rasterizer and closes the device, whose Close waits for the
+	// queue before it destroys anything. The same for a fence that cannot
+	// be reset, which the next submission could not use.
+	err := dev.WaitForFences([]vk.Fence{d.fence}, true, waitTimeout)
+	if d.waitErr != nil {
+		err = d.waitErr(err)
+	}
+	if err != nil {
+		d.lost = true
+		return fmt.Errorf("%w: waiting for the frame: %w", ErrDeviceLost, err)
 	}
 	if err := dev.ResetFences([]vk.Fence{d.fence}); err != nil {
-		return fmt.Errorf("gpu: resetting the fence: %w", err)
+		d.lost = true
+		return fmt.Errorf("%w: resetting the fence: %w", ErrDeviceLost, err)
 	}
 	return nil
 }

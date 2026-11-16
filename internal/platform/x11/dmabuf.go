@@ -364,7 +364,9 @@ func (b *dmabufBuffer) free() {
 // CreateDmabuf registers a buffer; see platform.DmabufPresenter and the
 // notes at the top of this file.
 func (w *Window) CreateDmabuf(d platform.DmabufDescriptor) (platform.DmabufBuffer, error) {
-	platform.CheckDmabuf(d)
+	if err := platform.CheckDmabuf(d); err != nil {
+		return nil, err
+	}
 	if w.Closed() {
 		return nil, fmt.Errorf("x11: CreateDmabuf on a closed window: %w", platform.ErrUnsupported)
 	}

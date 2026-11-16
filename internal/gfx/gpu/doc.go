@@ -121,7 +121,9 @@
 //
 // A device that reports that it is lost stays lost: every call returns
 // ErrDeviceLost from then on, Close still destroys what it holds, and the
-// caller draws with the CPU rasterizer.
+// caller draws with the CPU rasterizer. A wait for a submission that fails,
+// a timeout included, counts as lost too: the submission may still run,
+// so nothing it uses may be reused or destroyed until Close waits for it.
 //
 // # Presenting without a copy
 //

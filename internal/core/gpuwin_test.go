@@ -118,6 +118,8 @@ type surfaceWindow struct {
 	active, full bool
 	// ops is the surface on the window, nil without one.
 	ops *fakeWindowOps
+	// closer is the caller's (SetSurfaceCloser).
+	closer func()
 	// What the window was told: swapchain presents, the whole ones among
 	// them, the damage of the last one; Presents of a framebuffer.
 	presented, wholes, copies int
@@ -168,11 +170,25 @@ func (w *surfaceWindow) Present(fb *image.RGBA, damage []image.Rectangle) error 
 	return w.Window.Present(fb, damage)
 }
 
+// SetSurfaceCloser keeps the closer, which destroy calls.
+func (w *surfaceWindow) SetSurfaceCloser(close func()) { w.closer = close }
+
 func (w *surfaceWindow) Close() {
 	if w.ops != nil {
 		w.b.t.Errorf("the window %q closes with a surface on it", w.Title())
 	}
 	w.Window.Close()
+}
+
+// destroy is what a Win32 window does when something else than its caller
+// destroys it (the backend's shutdown as its loop ends, Windows): the
+// closer runs, then the window closes.
+func (w *surfaceWindow) destroy() {
+	if f := w.closer; f != nil {
+		w.closer = nil
+		f()
+	}
+	w.Close()
 }
 
 // repaint is what a Win32 window does for a WM_PAINT while its frames come
@@ -592,6 +608,43 @@ func TestGPUSurfaceFallback(t *testing.T) {
 			}
 			x.finishSurfaces()
 		})
+		t.Run("minimized", func(t *testing.T) {
+			// A failure while the window is minimized, which keeps its
+			// swapchain otherwise: the swapchain goes with the GPU, or it
+			// would hide every frame of the CPU rasterizer.
+			x := open(t, nil)
+			sw := x.sw()
+			counterFrames(x, &set, "direct", 2)
+			x.main().Minimize()
+			x.step("minimize")
+			if x.s.chainsLive != 1 {
+				t.Fatalf("minimized: %d swapchains alive, want the one kept", x.s.chainsLive)
+			}
+			x.c.fake.fail = func(string) error { return boom }
+			set.Update(func(v int) int { return v + 1 })
+			x.step("a change while minimized")
+			// A frame the backend delivers while the window is minimized
+			// (one asked for before, a drag image, FramePixels): the GPU
+			// fails, the CPU rasterizer draws it.
+			x.h.HandleEvent(sw, platform.FrameEvent{Time: x.b.Now()})
+			if !x.h.main.gpu.off {
+				t.Fatal("the frame while minimized did not fail on the GPU")
+			}
+			if x.s.chainsLive != 0 || x.s.surfacesLive != 0 {
+				t.Errorf("after the failure: %d swapchains and %d surfaces alive", x.s.chainsLive, x.s.surfacesLive)
+			}
+			x.h.Handle(x.h.Window()).Focus()
+			x.settle("restore")
+			copies := sw.copies
+			counterFrames(x, &set, "after the failure", 3)
+			if sw.copies < copies+3 || x.direct() || x.s.surfacesLive != 0 {
+				t.Errorf("after the failure: %d frames from the framebuffer (were %d), direct %v, %d surfaces", sw.copies, copies, x.direct(), x.s.surfacesLive)
+			}
+			if n := strings.Count(x.log.String(), "\n"); n != 1 || !strings.Contains(x.log.String(), "the GPU renderer failed") {
+				t.Errorf("the log is %q, want one line of the failure", x.log)
+			}
+			x.finishSurfaces()
+		})
 		t.Run("debug_overlays", func(t *testing.T) {
 			st := &sessionState{}
 			x := newSurfaceRig(t, dev, Options{Config: Config{Debug: DebugPaintFlash | DebugLayers}, Root: sessionPage(st)}, 640, 420, 1.5)
@@ -642,5 +695,84 @@ func TestGPUSurfaceChildWindow(t *testing.T) {
 			t.Errorf("after the child closed: %d surfaces alive, want 1", x.s.surfacesLive)
 		}
 		x.finishSurfaces()
+	})
+}
+
+// TestGPUSurfaceQuit checks that no swapchain outlives its window when the
+// app ends with windows open, as a Win32 backend destroys every window
+// when its loop ends, before Run returns and the Host ends: Host.Quit
+// ends the swapchains before it tells the backend (and the frames handled
+// until the loop ends are read back, without a swapchain made again), and
+// a loop that ends without Quit (the session ends, the connection fails)
+// has each window call the surface's closer before it is destroyed. Two
+// windows, the main one and a child.
+func TestGPUSurfaceQuit(t *testing.T) {
+	gputest.EachDevice(t, func(t *testing.T, dev gpu.Device) {
+		open := func(t *testing.T) (*gpuRig, *Setter[int]) {
+			var set Setter[int]
+			inner := div(Key("c"), Class("h-screen bg-emerald-200 p-2"), Text("child"))
+			root := Component(func() Node {
+				n, sn := UseState(0)
+				set = sn
+				return div(Class("h-screen bg-sky-200"), Textf("%d", n),
+					WithKey(win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "child", Width: 200, Height: 150}, Root: inner}), "child"))
+			})
+			x := newSurfaceRig(t, dev, Options{Root: root}, 320, 240, 1)
+			x.drain()
+			x.settle("mount")
+			if x.s.surfacesLive != 2 {
+				t.Fatalf("%d surfaces alive, want 2", x.s.surfacesLive)
+			}
+			return x, &set
+		}
+		// shutdown destroys the windows as a backend's loop does when it
+		// ends, the children before the main one, then the Host ends.
+		shutdown := func(x *gpuRig) {
+			main := x.sw()
+			for _, w := range x.s.wins {
+				if w != main {
+					w.destroy()
+				}
+			}
+			main.destroy()
+			if x.s.surfacesLive != 0 || x.s.chainsLive != 0 {
+				x.t.Errorf("the windows were destroyed with %d surfaces and %d swapchains alive", x.s.surfacesLive, x.s.chainsLive)
+			}
+			x.finishSurfaces()
+		}
+		t.Run("quit", func(t *testing.T) {
+			x, set := open(t)
+			sw := x.sw()
+			x.h.Quit()
+			if x.s.surfacesLive != 0 || x.s.chainsLive != 0 {
+				t.Errorf("after Quit: %d surfaces and %d swapchains alive", x.s.surfacesLive, x.s.chainsLive)
+			}
+			if !x.b.Quitting() {
+				t.Error("Quit did not reach the backend")
+			}
+			// A frame the backend still delivers before its loop ends is
+			// presented from the framebuffer, with no swapchain made again.
+			made, copies := x.s.surfacesMade, sw.copies
+			set.Update(func(v int) int { return v + 1 })
+			x.h.HandleEvent(sw, platform.WakeEvent{})
+			x.h.HandleEvent(sw, platform.FrameEvent{Time: x.b.Now() + x.b.FrameInterval()})
+			if x.s.surfacesMade != made || sw.copies != copies+1 {
+				t.Errorf("a frame after Quit: %d surfaces made, %d frames from the framebuffer", x.s.surfacesMade-made, sw.copies-copies)
+			}
+			if x.log.Len() != 0 {
+				t.Errorf("the host logged: %s", x.log)
+			}
+			// Nothing is left for the closers.
+			for _, w := range x.s.wins {
+				if w.closer != nil {
+					t.Errorf("the window %q keeps a closer after Quit", w.Title())
+				}
+			}
+			shutdown(x)
+		})
+		t.Run("loop_ends", func(t *testing.T) {
+			x, _ := open(t)
+			shutdown(x)
+		})
 	})
 }

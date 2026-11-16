@@ -44,6 +44,11 @@ type hostGPU struct {
 	trace  bool
 	// present is the value of EnvPresent: "", "copy" or "dmabuf".
 	present string
+	// quitting: the app quits (Host.Quit), and the swapchains on the
+	// windows are gone, before the backend destroys the windows when its
+	// loop ends: the frames handled until then are read back, and no
+	// swapchain is made again (quitGPU).
+	quitting bool
 }
 
 // viewGPU is a window's part of the GPU renderer.
@@ -131,7 +136,7 @@ func (h *Host) openGPU() {
 // gives a Host on the headless backend the GPU of the device it tests.
 func (h *Host) UseGPU(g *GPU) {
 	h.closeGPU()
-	h.gpu.g = g
+	h.gpu.g, h.gpu.quitting = g, false
 	switch v := os.Getenv(EnvPresent); v {
 	case "", "copy", "dmabuf":
 		h.gpu.present = v
@@ -250,6 +255,24 @@ func (v *winView) endGPU() {
 	}
 }
 
+// quitGPU runs when the app quits, before the backend is told: the loop
+// ends after the current event, and a backend destroys its windows when
+// its loop ends (win32's shutdown), before Run returns and the Host ends.
+// So the swapchains on the windows and their surfaces go now, and the
+// frames handled before the loop ends are read back and presented from
+// the framebuffer. A loop that ends without Quit (the session ends, the
+// connection fails) is covered by the window itself, which tells the
+// presenter before it is destroyed (GPUWindowSurface's closer).
+func (h *Host) quitGPU() {
+	if h.gpu.g == nil || h.gpu.quitting {
+		return
+	}
+	h.gpu.quitting = true
+	for _, v := range h.views {
+		v.endGPU()
+	}
+}
+
 // shownGPU notes that the window is shown again: a window whose frames
 // are dmabufs is not mapped by the backend alone, which asks for a frame
 // instead (platform, "Presenting dmabufs"), and that frame must present
@@ -280,7 +303,11 @@ func (h *Host) direct(v *winView) bool {
 		return false
 	}
 	if p, ok := v.win.(platform.Win32SurfacePresenter); ok {
-		// A Win32 window: a swapchain on the window (gpuwin.go).
+		// A Win32 window: a swapchain on the window (gpuwin.go), unless the
+		// app quits (quitGPU).
+		if h.gpu.quitting {
+			return false
+		}
 		if v.gpu.wsurf == nil {
 			v.gpu.wsurf = NewGPUWindowSurface(g, p)
 		}
@@ -324,6 +351,11 @@ func (h *Host) rasterize(v *winView, full bool) Damage {
 	g := h.gpu.g
 	if g == nil || v.gpu.off {
 		v.gpu.lag = false // a frame of the CPU rasterizer after the GPU's is whole
+		if v.gpu.wsurf != nil {
+			// Window.Present's pixels show only once the swapchain on the
+			// window is gone (gpuFailed closed it already).
+			v.gpu.wsurf.Close()
+		}
 		return v.tree.RasterizeFrame(v.fb, &v.renderer, full)
 	}
 	if v.gpu.surf == nil {
@@ -459,6 +491,10 @@ func (h *Host) gpuFailed(v *winView, err error) {
 	g := h.gpu.g
 	v.lagGPU()
 	v.dropGPU()
+	// The swapchain on a window goes too, minimized or not (dropGPU keeps
+	// a minimized window's): it would hide every Window.Present of the
+	// CPU rasterizer's frames from then on.
+	v.endGPU()
 	v.gpu.off = true
 	if !g.Lost() {
 		fmt.Fprintf(h.log, "tela: the GPU renderer failed, this window is drawn by the CPU rasterizer from now on: %s\n", oneLine(err))

@@ -9,6 +9,7 @@ import (
 	"image"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -56,6 +57,9 @@ type fakeDevice struct {
 	// surfaces is the backend whose windows the device presents to
 	// through swapchains (gpuwin_test.go), nil when none.
 	surfaces *surfaceBackend
+	// strideless: the exported images report planes without a stride, as
+	// a driver may for a plane of some modifiers.
+	strideless bool
 }
 
 // fakeDevice is an Exporter when its device is one: it counts the images
@@ -119,6 +123,17 @@ func (e *fakeExport) CopyFrom(t gpu.Target, rects ...image.Rectangle) error {
 		t = ft.Target
 	}
 	return e.Export.CopyFrom(t, rects...)
+}
+
+func (e *fakeExport) Planes() []gpu.DmabufPlane {
+	planes := e.Export.Planes()
+	if e.d.strideless {
+		planes = slices.Clone(planes)
+		for i := range planes {
+			planes[i].Stride = 0
+		}
+	}
+	return planes
 }
 
 func (e *fakeExport) Close() {

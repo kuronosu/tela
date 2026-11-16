@@ -26,8 +26,10 @@ import (
 // (a resize under way), is presented at the next frame, which is asked
 // for; a minimized window gets nothing until it comes back. A minimized
 // window keeps its swapchain (the restore animation shows its last image),
-// a hidden one does not; closing the window, and the GPU going, destroy
-// the swapchain and the surface first.
+// a hidden one does not; closing the window, the GPU going and the app
+// quitting destroy the swapchain and the surface first, and the window
+// calls Close before it is destroyed by anything else (the backend's loop
+// ending destroys its windows before Run returns).
 
 // GPUWindowSurface presents the frames of a GPUSurface in a window through
 // a swapchain on the window. It belongs to the UI thread, like the
@@ -99,6 +101,10 @@ func (c *GPUWindowSurface) Present(s *GPUSurface, d Damage, full bool) (GPUPrese
 			return 0, c.g.note(err)
 		}
 		c.sc = sc
+		// The window may be destroyed before the Host closes this (a
+		// backend's loop that ends destroys its windows first): it calls
+		// Close then.
+		c.win.SetSurfaceCloser(c.Close)
 	}
 	var damage []image.Rectangle
 	if !d.Full {
@@ -133,11 +139,14 @@ func (c *GPUWindowSurface) Release() {
 }
 
 // Close destroys the swapchain and the window's surface: before the
-// window closes, after an error, and when the GPU goes.
+// window closes, after an error, when the GPU goes and when the app quits;
+// the window calls it too, right before it is destroyed, when nothing did
+// before (platform.Win32SurfacePresenter.SetSurfaceCloser).
 func (c *GPUWindowSurface) Close() {
 	if c.sc != nil {
 		c.sc.Close()
 		c.sc = nil
+		c.win.SetSurfaceCloser(nil)
 	}
 	c.presented = false
 }

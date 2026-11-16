@@ -999,9 +999,7 @@ func (h *Host) closeDefault(v *winView) {
 			v.dead.Store(true)
 			// The swapchains on the windows go before them (gpuhost.go):
 			// the child windows close with the main one.
-			for _, cv := range h.views {
-				cv.endGPU()
-			}
+			h.quitGPU()
 			v.win.Close()
 		}
 		h.Quit()
@@ -1025,6 +1023,9 @@ func (h *Host) closeDefault(v *winView) {
 // (core.Quit routes it there from any goroutine).
 func (h *Host) Quit() {
 	if !h.ended {
+		// The swapchains on the windows go first (gpuhost.go): the backend
+		// may destroy the windows when its loop ends, before Run returns.
+		h.quitGPU()
 		h.backend.Quit()
 	}
 }

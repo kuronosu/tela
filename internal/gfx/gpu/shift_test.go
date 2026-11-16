@@ -197,3 +197,61 @@ func TestDeviceLost(t *testing.T) {
 		target.Close()
 	})
 }
+
+// TestWaitTimeout checks that a submission whose wait fails, a timeout
+// included, loses the device: the submission may still run, so the call
+// fails with ErrDeviceLost (the caller moves every window to the CPU) and
+// nothing is submitted or reused after it, for every kind of wait (a
+// render, a read, a shift).
+func TestWaitTimeout(t *testing.T) {
+	for _, op := range []string{"Render", "ReadPixels", "Shift"} {
+		t.Run(op, func(t *testing.T) {
+			eachDevice(t, func(t *testing.T, dev Device) {
+				target, err := dev.NewTarget(32, 32)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer target.Close()
+				var r Renderer
+				defer r.Trim()
+				if _, err := r.Render(target, regionScene(), Options{Clear: &gfx.White}); err != nil {
+					t.Fatal(err)
+				}
+				d := dev.(*vkDevice)
+				waits := 0
+				d.waitErr = func(err error) error {
+					// The submission did finish (the fence is signaled): the
+					// wait says it did not, as one that timed out does.
+					waits++
+					if err != nil {
+						return err
+					}
+					return vk.Timeout
+				}
+				defer func() { d.waitErr = nil }()
+				switch op {
+				case "Render":
+					_, err = r.Render(target, regionScene(), Options{Clear: &gfx.Black})
+				case "ReadPixels":
+					err = target.ReadPixels(image.NewRGBA(image.Rect(0, 0, 32, 32)), image.Rect(0, 0, 32, 32))
+				case "Shift":
+					err = target.Shift(image.Rect(0, 0, 32, 32), 1, 1)
+				}
+				if !errors.Is(err, ErrDeviceLost) || !errors.Is(err, vk.Timeout) || !d.lost {
+					t.Fatalf("%s whose wait timed out: %v (lost %v), want an error that wraps ErrDeviceLost and the timeout", op, err, d.lost)
+				}
+				// Nothing is submitted after it.
+				before := waits
+				if err := target.ReadPixels(image.NewRGBA(image.Rect(0, 0, 32, 32)), image.Rect(0, 0, 32, 32)); !errors.Is(err, ErrDeviceLost) {
+					t.Errorf("ReadPixels after the timeout: %v", err)
+				}
+				if _, err := r.Render(target, regionScene(), Options{Clear: &gfx.White}); !errors.Is(err, ErrDeviceLost) {
+					t.Errorf("Render after the timeout: %v", err)
+				}
+				if waits != before {
+					t.Errorf("%d submissions after the timeout", waits-before)
+				}
+			})
+		})
+	}
+}

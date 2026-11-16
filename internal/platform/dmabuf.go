@@ -125,10 +125,12 @@ type DmabufDescriptor struct {
 
 // CheckDmabuf panics with an actionable message when d cannot describe a
 // buffer: an empty size, no format, no planes or more than
-// [MaxDmabufPlanes], a plane without a descriptor or without a stride.
-// Whether the OS takes the buffer is another matter, and an error of
-// CreateDmabuf.
-func CheckDmabuf(d DmabufDescriptor) {
+// [MaxDmabufPlanes], a plane without a descriptor. A plane without a
+// stride is an error that wraps [ErrUnsupported] instead: the stride is
+// what the driver reported for the image (vkGetImageSubresourceLayout),
+// not the caller's mistake, and the caller falls back to Present. Whether
+// the OS takes the buffer is another matter, and an error of CreateDmabuf.
+func CheckDmabuf(d DmabufDescriptor) error {
 	if d.Size.X <= 0 || d.Size.Y <= 0 {
 		panicf("platform: CreateDmabuf with the size %v; a buffer has the window's Metrics().Physical(), which is never empty when a frame is due", d.Size)
 	}
@@ -142,10 +144,13 @@ func CheckDmabuf(d DmabufDescriptor) {
 		if p.FD < 0 {
 			panicf("platform: CreateDmabuf plane %d has the file descriptor %d; every plane names an open dmabuf", i, p.FD)
 		}
+	}
+	for i, p := range d.Planes {
 		if p.Stride == 0 {
-			panicf("platform: CreateDmabuf plane %d has no stride; it is the number of bytes from one row to the next", i)
+			return fmt.Errorf("platform: CreateDmabuf plane %d has no stride (the number of bytes from one row to the next), which the OS cannot be told: %w", i, ErrUnsupported)
 		}
 	}
+	return nil
 }
 
 // DmabufBuffer is a buffer registered with a window by
@@ -198,8 +203,8 @@ type DmabufPresenter interface {
 	// OS does not take is an error, after which the caller falls back to
 	// Present: one that wraps [ErrUnsupported] when the window cannot
 	// show dmabufs at all, the feedback does not list the format with
-	// this modifier, or Alpha is set on a window that does not show
-	// alpha.
+	// this modifier, Alpha is set on a window that does not show alpha,
+	// or a plane has no stride.
 	CreateDmabuf(d DmabufDescriptor) (DmabufBuffer, error)
 
 	// PresentDmabuf shows a buffer of this window that is not busy, as

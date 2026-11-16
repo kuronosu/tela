@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"errors"
 	"image"
 	"slices"
 	"strings"
@@ -40,22 +41,39 @@ func TestCheckDmabuf(t *testing.T) {
 			Planes: []DmabufPlane{{FD: 3, Stride: 2560}},
 		}
 	}
-	CheckDmabuf(good()) // does not panic
+	if err := CheckDmabuf(good()); err != nil {
+		t.Errorf("a good descriptor: %v", err)
+	}
 	four := good()
 	four.Planes = append(four.Planes, four.Planes[0], four.Planes[0], four.Planes[0])
-	CheckDmabuf(four)
+	if err := CheckDmabuf(four); err != nil {
+		t.Errorf("four planes: %v", err)
+	}
+	// A plane without a stride is what a driver reported, not a mistake of
+	// the caller: an error it falls back to Present on, not a panic.
+	strideless := good()
+	strideless.Planes = append(strideless.Planes, DmabufPlane{FD: 4})
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("a strideless plane panics: %v", r)
+			}
+		}()
+		if err := CheckDmabuf(strideless); !errors.Is(err, ErrUnsupported) || !strings.Contains(err.Error(), "plane 1 has no stride") {
+			t.Errorf("a strideless plane: %v, want an error that wraps ErrUnsupported", err)
+		}
+	}()
 
 	for what, tc := range map[string]struct {
 		change func(*DmabufDescriptor)
 		says   string
 	}{
-		"an empty size":      {func(d *DmabufDescriptor) { d.Size.X = 0 }, "size"},
-		"a negative size":    {func(d *DmabufDescriptor) { d.Size.Y = -1 }, "size"},
-		"no format":          {func(d *DmabufDescriptor) { d.Fourcc = 0 }, "Fourcc"},
-		"no planes":          {func(d *DmabufDescriptor) { d.Planes = nil }, "0 planes"},
-		"five planes":        {func(d *DmabufDescriptor) { d.Planes = make([]DmabufPlane, 5) }, "5 planes"},
-		"a closed plane":     {func(d *DmabufDescriptor) { d.Planes[0].FD = -1 }, "file descriptor -1"},
-		"a strideless plane": {func(d *DmabufDescriptor) { d.Planes[0].Stride = 0 }, "stride"},
+		"an empty size":   {func(d *DmabufDescriptor) { d.Size.X = 0 }, "size"},
+		"a negative size": {func(d *DmabufDescriptor) { d.Size.Y = -1 }, "size"},
+		"no format":       {func(d *DmabufDescriptor) { d.Fourcc = 0 }, "Fourcc"},
+		"no planes":       {func(d *DmabufDescriptor) { d.Planes = nil }, "0 planes"},
+		"five planes":     {func(d *DmabufDescriptor) { d.Planes = make([]DmabufPlane, 5) }, "5 planes"},
+		"a closed plane":  {func(d *DmabufDescriptor) { d.Planes[0].FD = -1 }, "file descriptor -1"},
 	} {
 		d := good()
 		tc.change(&d)

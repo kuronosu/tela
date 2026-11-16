@@ -772,7 +772,8 @@
 // Win32 window hands out its HINSTANCE and HWND ([Win32Surface]) to a
 // renderer that presents through a swapchain on it, reports the size the
 // swapchain must have and when a present must be whole, and is told of
-// each present (see "Presenting through a swapchain"). Win32 windows
+// each present, and calls the renderer's closer before its HWND is
+// destroyed (see "Presenting through a swapchain"). Win32 windows
 // implement it, except transparent ones, ones with a client-area backdrop
 // and TitleBarOverlay ones, which report that they cannot. Present is as
 // it was, and the remote protocol is unchanged.
@@ -1235,7 +1236,12 @@
 //     the window then treats as full. Presenting through a swapchain after
 //     a Present starts whole (Full is set).
 //   - Closing. The caller destroys its swapchain and its surface before it
-//     closes the window.
+//     closes the window. A backend destroys its windows when its loop ends,
+//     before Run returns, whatever ended it (Quit, a lost connection, the
+//     session), and Windows may destroy a window on its own, so the caller
+//     also registers a closer ([Win32SurfacePresenter.SetSurfaceCloser]):
+//     the window calls it once, on the UI thread, right before its HWND is
+//     destroyed, and the caller destroys its swapchain and surface there.
 //
 // # Errors
 //

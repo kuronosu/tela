@@ -29,6 +29,10 @@ func (h *Host) openGPU() {
 
 func (h *Host) closeGPU() { h.gpu = hostGPU{} }
 
+// quitGPU ends the swapchains on the windows before the loop ends: there
+// are none.
+func (h *Host) quitGPU() {}
+
 // rasterize brings window v's framebuffer to its tree's frame.
 func (h *Host) rasterize(v *winView, full bool) Damage {
 	return v.tree.RasterizeFrame(v.fb, &v.renderer, full)

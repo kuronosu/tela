@@ -427,7 +427,9 @@ func (b *dmabufBuffer) Destroy() {
 // notes at the top of this file (create and a round trip, not
 // create_immed; what is checked before the request).
 func (w *Window) CreateDmabuf(d platform.DmabufDescriptor) (platform.DmabufBuffer, error) {
-	platform.CheckDmabuf(d)
+	if err := platform.CheckDmabuf(d); err != nil {
+		return nil, err
+	}
 	if w.Closed() {
 		return nil, fmt.Errorf("wayland: CreateDmabuf on a closed window: %w", platform.ErrUnsupported)
 	}

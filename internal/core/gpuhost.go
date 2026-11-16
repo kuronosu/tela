@@ -88,7 +88,11 @@ package core
 // asked for, presents it; minimized, nothing is presented and the
 // swapchain stays (the restore animation shows its last image). Hiding
 // destroys the swapchain, closing the window destroys it and the surface
-// first. A window that loses what it showed (WM_PAINT, a reconnect) asks
+// first, and so does quitting (Host.Quit, before the backend destroys the
+// windows as its loop ends; the frames until then are read back); a
+// window destroyed otherwise calls the surface's closer first
+// (SetSurfaceCloser). A GPU error closes the swapchain, minimized or not,
+// before the CPU rasterizer's frames are presented. A window that loses what it showed (WM_PAINT, a reconnect) asks
 // for a whole present (Win32Surface().Full), which the next frame makes
 // although nothing changed. Transparent windows, ones with a client-area
 // backdrop and title bar overlays report no surface and are read back,

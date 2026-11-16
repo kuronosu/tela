@@ -62,4 +62,16 @@ type Win32SurfacePresenter interface {
 	// copy, which is stale) until the next Present, which must be whole
 	// and comes after the caller destroyed its swapchain.
 	SurfacePresented(damage []image.Rectangle)
+
+	// SetSurfaceCloser registers close, which the window calls on the UI
+	// thread right before its HWND is destroyed, whatever destroys it:
+	// Close (the caller's, or an owner window's), the backend when its
+	// loop ends (Run returns after a Quit, a lost connection or the end of
+	// the session, and destroys every window first), or Windows itself.
+	// The caller destroys its swapchain and surface in it, which it could
+	// not do once the window is gone. The window calls it at most once and
+	// forgets it; nil unregisters it. A caller that destroyed its
+	// swapchain and surface itself may leave it registered: it then has
+	// nothing to do.
+	SetSurfaceCloser(close func())
 }

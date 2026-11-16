@@ -187,7 +187,9 @@ func (w *dmabufWindow) DmabufFeedback() (platform.DmabufFeedback, bool) {
 }
 
 func (w *dmabufWindow) CreateDmabuf(d platform.DmabufDescriptor) (platform.DmabufBuffer, error) {
-	platform.CheckDmabuf(d)
+	if err := platform.CheckDmabuf(d); err != nil {
+		return nil, err
+	}
 	if err := w.b.failCreate; err != nil {
 		return nil, err
 	}
@@ -625,6 +627,15 @@ func TestGPUDirectFallback(t *testing.T) {
 				t.Errorf("the first frame: %d from the framebuffer, %d from a dmabuf", dw.copies, dw.shown)
 			}
 			after(r, "cannot be presented without a copy", false)
+		})
+		t.Run("strideless_plane", func(t *testing.T) {
+			// A plane the driver reports without a stride: an error of
+			// CreateDmabuf (platform.CheckDmabuf), not a panic.
+			r := open(t, func(x *gpuRig) { x.c.fake.strideless = true })
+			if dw := r.x.dw(); dw.copies != 1 || dw.shown != 0 {
+				t.Errorf("the first frame: %d from the framebuffer, %d from a dmabuf", dw.copies, dw.shown)
+			}
+			after(r, "has no stride", false)
 		})
 		t.Run("create_after_resize", func(t *testing.T) {
 			r := open(t, nil)

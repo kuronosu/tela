@@ -42,6 +42,13 @@ import (
 // there. Winit and Gio hand the HWND to the graphics API the same way and
 // leave the swapchain's pacing to it; here the backend keeps its own, as
 // for Present, so that both paths deliver frames alike.
+//
+// Closing. The renderer destroys its swapchain and surface before the
+// window goes. It does when it closes the window itself, but the backend
+// destroys every window when Run's loop ends (shutdown), before Run
+// returns to the app, whatever ended it: a Quit, a failed GetMessageW, a
+// panic of the handler. So the renderer also registers a closer
+// (SetSurfaceCloser), which the window calls before its HWND is destroyed.
 
 // surfaceState is a window's side of a renderer's swapchain.
 type surfaceState struct {
@@ -51,6 +58,10 @@ type surfaceState struct {
 	// full: the next swapchain present must be whole and happen even
 	// when nothing changed.
 	full bool
+	// closer is the renderer's (SetSurfaceCloser): it destroys the
+	// swapchain and the surface on the window, called before the HWND is
+	// destroyed (surfaceGone).
+	closer func()
 }
 
 var _ platform.Win32SurfacePresenter = (*Window)(nil)
@@ -97,6 +108,24 @@ func (w *Window) SurfacePresented(damage []image.Rectangle) {
 	if whole {
 		// Its WM_PAINT asks for nothing: the whole frame was presented.
 		procValidateRect.Call(w.hwnd, 0)
+	}
+}
+
+// SetSurfaceCloser implements platform.Win32SurfacePresenter.
+func (w *Window) SetSurfaceCloser(close func()) { w.surf.closer = close }
+
+// surfaceGone calls the renderer's closer, once, while the HWND is still
+// valid: from Close before DestroyWindow (the app's, an owner's, or the
+// backend's shutdown when Run returns, whatever ended the loop), and at
+// WM_DESTROY for a window Windows destroys on its own. A Vulkan surface
+// and swapchain must go before their window, which they reference. Winit
+// leaves that order to the app (a wgpu surface dropped before the
+// window); Gio tells its renderer at WM_DESTROY (an empty
+// Win32ViewEvent), which then destroys its GPU context, as here.
+func (w *Window) surfaceGone() {
+	if f := w.surf.closer; f != nil {
+		w.surf.closer = nil
+		f()
 	}
 }
 

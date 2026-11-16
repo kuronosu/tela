@@ -221,6 +221,7 @@ const (
 	wmEraseBkgnd            = 0x0014
 	wmSetCursor             = 0x0020
 	wmGetMinMaxInfo         = 0x0024
+	wmDestroy               = 0x0002
 	wmNCDestroy             = 0x0082
 	wmCancelMode            = 0x001F
 	wmMouseMove             = 0x0200

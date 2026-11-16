@@ -324,6 +324,7 @@ func (w *Window) Close() {
 			c.Close()
 		}
 	}
+	w.surfaceGone() // a renderer's swapchain on the HWND goes first (surface.go)
 	w.setBlocking(false)
 	w.closeIME()
 	w.b.loop.Remove(w) // marks it closed and drops its queued events

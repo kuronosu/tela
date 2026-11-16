@@ -21,8 +21,8 @@ var ErrUnavailable = errors.New("gpu: no GPU backend in this build (it needs the
 var ErrResourcesLost = errors.New("gpu: the device does not hold the resources of the frame's encoder")
 
 // ErrDeviceLost is returned by a device and its targets once the device is
-// gone (a driver that was reset, a GPU that was removed): nothing more can
-// be drawn with it. The caller closes it and renders with the CPU
+// gone (a driver that was reset, a GPU that was removed) or a submission
+// did not finish in time: nothing more can be drawn with it. The caller closes it and renders with the CPU
 // rasterizer, or opens a device again.
 var ErrDeviceLost = errors.New("gpu: the device is lost")
 

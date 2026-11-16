@@ -151,6 +151,13 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		w.b.enqueue(w, platform.CloseRequestedEvent{})
 		return 0
 
+	case wmDestroy:
+		// Windows destroys the window on its own (Close unregisters it
+		// first, so its own WM_DESTROY does not come here): the HWND is
+		// still valid, as it is not at WM_NCDESTROY, and a renderer's
+		// swapchain on it goes now (surface.go).
+		w.surfaceGone()
+
 	case wmNCDestroy:
 		w.destroyed()
 
