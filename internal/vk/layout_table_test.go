@@ -980,6 +980,74 @@ var layoutTable = []structLayout{
 		{"pNext", unsafe.Offsetof(ImageDrmFormatModifierPropertiesEXT{}.PNext), unsafe.Sizeof(ImageDrmFormatModifierPropertiesEXT{}.PNext), 8, 8},
 		{"drmFormatModifier", unsafe.Offsetof(ImageDrmFormatModifierPropertiesEXT{}.DrmFormatModifier), unsafe.Sizeof(ImageDrmFormatModifierPropertiesEXT{}.DrmFormatModifier), 16, 8},
 	}},
+	{"VkSurfaceCapabilitiesKHR", reflect.TypeOf(SurfaceCapabilitiesKHR{}), 52, 4, false, []fieldLayout{
+		{"minImageCount", unsafe.Offsetof(SurfaceCapabilitiesKHR{}.MinImageCount), unsafe.Sizeof(SurfaceCapabilitiesKHR{}.MinImageCount), 0, 4},
+		{"maxImageCount", unsafe.Offsetof(SurfaceCapabilitiesKHR{}.MaxImageCount), unsafe.Sizeof(SurfaceCapabilitiesKHR{}.MaxImageCount), 4, 4},
+		{"currentExtent", unsafe.Offsetof(SurfaceCapabilitiesKHR{}.CurrentExtent), unsafe.Sizeof(SurfaceCapabilitiesKHR{}.CurrentExtent), 8, 8},
+		{"minImageExtent", unsafe.Offsetof(SurfaceCapabilitiesKHR{}.MinImageExtent), unsafe.Sizeof(SurfaceCapabilitiesKHR{}.MinImageExtent), 16, 8},
+		{"maxImageExtent", unsafe.Offsetof(SurfaceCapabilitiesKHR{}.MaxImageExtent), unsafe.Sizeof(SurfaceCapabilitiesKHR{}.MaxImageExtent), 24, 8},
+		{"maxImageArrayLayers", unsafe.Offsetof(SurfaceCapabilitiesKHR{}.MaxImageArrayLayers), unsafe.Sizeof(SurfaceCapabilitiesKHR{}.MaxImageArrayLayers), 32, 4},
+		{"supportedTransforms", unsafe.Offsetof(SurfaceCapabilitiesKHR{}.SupportedTransforms), unsafe.Sizeof(SurfaceCapabilitiesKHR{}.SupportedTransforms), 36, 4},
+		{"currentTransform", unsafe.Offsetof(SurfaceCapabilitiesKHR{}.CurrentTransform), unsafe.Sizeof(SurfaceCapabilitiesKHR{}.CurrentTransform), 40, 4},
+		{"supportedCompositeAlpha", unsafe.Offsetof(SurfaceCapabilitiesKHR{}.SupportedCompositeAlpha), unsafe.Sizeof(SurfaceCapabilitiesKHR{}.SupportedCompositeAlpha), 44, 4},
+		{"supportedUsageFlags", unsafe.Offsetof(SurfaceCapabilitiesKHR{}.SupportedUsageFlags), unsafe.Sizeof(SurfaceCapabilitiesKHR{}.SupportedUsageFlags), 48, 4},
+	}},
+	{"VkSurfaceFormatKHR", reflect.TypeOf(SurfaceFormatKHR{}), 8, 4, false, []fieldLayout{
+		{"format", unsafe.Offsetof(SurfaceFormatKHR{}.Format), unsafe.Sizeof(SurfaceFormatKHR{}.Format), 0, 4},
+		{"colorSpace", unsafe.Offsetof(SurfaceFormatKHR{}.ColorSpace), unsafe.Sizeof(SurfaceFormatKHR{}.ColorSpace), 4, 4},
+	}},
+	{"VkWin32SurfaceCreateInfoKHR", reflect.TypeOf(Win32SurfaceCreateInfoKHR{}), 40, 8, false, []fieldLayout{
+		{"sType", unsafe.Offsetof(Win32SurfaceCreateInfoKHR{}.SType), unsafe.Sizeof(Win32SurfaceCreateInfoKHR{}.SType), 0, 4},
+		{"pNext", unsafe.Offsetof(Win32SurfaceCreateInfoKHR{}.PNext), unsafe.Sizeof(Win32SurfaceCreateInfoKHR{}.PNext), 8, 8},
+		{"flags", unsafe.Offsetof(Win32SurfaceCreateInfoKHR{}.Flags), unsafe.Sizeof(Win32SurfaceCreateInfoKHR{}.Flags), 16, 4},
+		{"hinstance", unsafe.Offsetof(Win32SurfaceCreateInfoKHR{}.Hinstance), unsafe.Sizeof(Win32SurfaceCreateInfoKHR{}.Hinstance), 24, 8},
+		{"hwnd", unsafe.Offsetof(Win32SurfaceCreateInfoKHR{}.Hwnd), unsafe.Sizeof(Win32SurfaceCreateInfoKHR{}.Hwnd), 32, 8},
+	}},
+	{"VkSwapchainCreateInfoKHR", reflect.TypeOf(SwapchainCreateInfoKHR{}), 104, 8, false, []fieldLayout{
+		{"sType", unsafe.Offsetof(SwapchainCreateInfoKHR{}.SType), unsafe.Sizeof(SwapchainCreateInfoKHR{}.SType), 0, 4},
+		{"pNext", unsafe.Offsetof(SwapchainCreateInfoKHR{}.PNext), unsafe.Sizeof(SwapchainCreateInfoKHR{}.PNext), 8, 8},
+		{"flags", unsafe.Offsetof(SwapchainCreateInfoKHR{}.Flags), unsafe.Sizeof(SwapchainCreateInfoKHR{}.Flags), 16, 4},
+		{"surface", unsafe.Offsetof(SwapchainCreateInfoKHR{}.Surface), unsafe.Sizeof(SwapchainCreateInfoKHR{}.Surface), 24, 8},
+		{"minImageCount", unsafe.Offsetof(SwapchainCreateInfoKHR{}.MinImageCount), unsafe.Sizeof(SwapchainCreateInfoKHR{}.MinImageCount), 32, 4},
+		{"imageFormat", unsafe.Offsetof(SwapchainCreateInfoKHR{}.ImageFormat), unsafe.Sizeof(SwapchainCreateInfoKHR{}.ImageFormat), 36, 4},
+		{"imageColorSpace", unsafe.Offsetof(SwapchainCreateInfoKHR{}.ImageColorSpace), unsafe.Sizeof(SwapchainCreateInfoKHR{}.ImageColorSpace), 40, 4},
+		{"imageExtent", unsafe.Offsetof(SwapchainCreateInfoKHR{}.ImageExtent), unsafe.Sizeof(SwapchainCreateInfoKHR{}.ImageExtent), 44, 8},
+		{"imageArrayLayers", unsafe.Offsetof(SwapchainCreateInfoKHR{}.ImageArrayLayers), unsafe.Sizeof(SwapchainCreateInfoKHR{}.ImageArrayLayers), 52, 4},
+		{"imageUsage", unsafe.Offsetof(SwapchainCreateInfoKHR{}.ImageUsage), unsafe.Sizeof(SwapchainCreateInfoKHR{}.ImageUsage), 56, 4},
+		{"imageSharingMode", unsafe.Offsetof(SwapchainCreateInfoKHR{}.ImageSharingMode), unsafe.Sizeof(SwapchainCreateInfoKHR{}.ImageSharingMode), 60, 4},
+		{"queueFamilyIndexCount", unsafe.Offsetof(SwapchainCreateInfoKHR{}.QueueFamilyIndexCount), unsafe.Sizeof(SwapchainCreateInfoKHR{}.QueueFamilyIndexCount), 64, 4},
+		{"pQueueFamilyIndices", unsafe.Offsetof(SwapchainCreateInfoKHR{}.PQueueFamilyIndices), unsafe.Sizeof(SwapchainCreateInfoKHR{}.PQueueFamilyIndices), 72, 8},
+		{"preTransform", unsafe.Offsetof(SwapchainCreateInfoKHR{}.PreTransform), unsafe.Sizeof(SwapchainCreateInfoKHR{}.PreTransform), 80, 4},
+		{"compositeAlpha", unsafe.Offsetof(SwapchainCreateInfoKHR{}.CompositeAlpha), unsafe.Sizeof(SwapchainCreateInfoKHR{}.CompositeAlpha), 84, 4},
+		{"presentMode", unsafe.Offsetof(SwapchainCreateInfoKHR{}.PresentMode), unsafe.Sizeof(SwapchainCreateInfoKHR{}.PresentMode), 88, 4},
+		{"clipped", unsafe.Offsetof(SwapchainCreateInfoKHR{}.Clipped), unsafe.Sizeof(SwapchainCreateInfoKHR{}.Clipped), 92, 4},
+		{"oldSwapchain", unsafe.Offsetof(SwapchainCreateInfoKHR{}.OldSwapchain), unsafe.Sizeof(SwapchainCreateInfoKHR{}.OldSwapchain), 96, 8},
+	}},
+	{"VkPresentInfoKHR", reflect.TypeOf(PresentInfoKHR{}), 64, 8, false, []fieldLayout{
+		{"sType", unsafe.Offsetof(PresentInfoKHR{}.SType), unsafe.Sizeof(PresentInfoKHR{}.SType), 0, 4},
+		{"pNext", unsafe.Offsetof(PresentInfoKHR{}.PNext), unsafe.Sizeof(PresentInfoKHR{}.PNext), 8, 8},
+		{"waitSemaphoreCount", unsafe.Offsetof(PresentInfoKHR{}.WaitSemaphoreCount), unsafe.Sizeof(PresentInfoKHR{}.WaitSemaphoreCount), 16, 4},
+		{"pWaitSemaphores", unsafe.Offsetof(PresentInfoKHR{}.PWaitSemaphores), unsafe.Sizeof(PresentInfoKHR{}.PWaitSemaphores), 24, 8},
+		{"swapchainCount", unsafe.Offsetof(PresentInfoKHR{}.SwapchainCount), unsafe.Sizeof(PresentInfoKHR{}.SwapchainCount), 32, 4},
+		{"pSwapchains", unsafe.Offsetof(PresentInfoKHR{}.PSwapchains), unsafe.Sizeof(PresentInfoKHR{}.PSwapchains), 40, 8},
+		{"pImageIndices", unsafe.Offsetof(PresentInfoKHR{}.PImageIndices), unsafe.Sizeof(PresentInfoKHR{}.PImageIndices), 48, 8},
+		{"pResults", unsafe.Offsetof(PresentInfoKHR{}.PResults), unsafe.Sizeof(PresentInfoKHR{}.PResults), 56, 8},
+	}},
+	{"VkRectLayerKHR", reflect.TypeOf(RectLayerKHR{}), 20, 4, false, []fieldLayout{
+		{"offset", unsafe.Offsetof(RectLayerKHR{}.Offset), unsafe.Sizeof(RectLayerKHR{}.Offset), 0, 8},
+		{"extent", unsafe.Offsetof(RectLayerKHR{}.Extent), unsafe.Sizeof(RectLayerKHR{}.Extent), 8, 8},
+		{"layer", unsafe.Offsetof(RectLayerKHR{}.Layer), unsafe.Sizeof(RectLayerKHR{}.Layer), 16, 4},
+	}},
+	{"VkPresentRegionKHR", reflect.TypeOf(PresentRegionKHR{}), 16, 8, false, []fieldLayout{
+		{"rectangleCount", unsafe.Offsetof(PresentRegionKHR{}.RectangleCount), unsafe.Sizeof(PresentRegionKHR{}.RectangleCount), 0, 4},
+		{"pRectangles", unsafe.Offsetof(PresentRegionKHR{}.PRectangles), unsafe.Sizeof(PresentRegionKHR{}.PRectangles), 8, 8},
+	}},
+	{"VkPresentRegionsKHR", reflect.TypeOf(PresentRegionsKHR{}), 32, 8, false, []fieldLayout{
+		{"sType", unsafe.Offsetof(PresentRegionsKHR{}.SType), unsafe.Sizeof(PresentRegionsKHR{}.SType), 0, 4},
+		{"pNext", unsafe.Offsetof(PresentRegionsKHR{}.PNext), unsafe.Sizeof(PresentRegionsKHR{}.PNext), 8, 8},
+		{"swapchainCount", unsafe.Offsetof(PresentRegionsKHR{}.SwapchainCount), unsafe.Sizeof(PresentRegionsKHR{}.SwapchainCount), 16, 4},
+		{"pRegions", unsafe.Offsetof(PresentRegionsKHR{}.PRegions), unsafe.Sizeof(PresentRegionsKHR{}.PRegions), 24, 8},
+	}},
 }
 
 // The same layouts as assertions the compiler checks: an index is out of
@@ -2707,6 +2775,126 @@ var (
 	_ = [1]struct{}{}[unsafe.Sizeof(ImageDrmFormatModifierPropertiesEXT{}.PNext)-8]
 	_ = [1]struct{}{}[unsafe.Offsetof(ImageDrmFormatModifierPropertiesEXT{}.DrmFormatModifier)-16]
 	_ = [1]struct{}{}[unsafe.Sizeof(ImageDrmFormatModifierPropertiesEXT{}.DrmFormatModifier)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(SurfaceCapabilitiesKHR{})-52]
+	_ = [1]struct{}{}[unsafe.Alignof(SurfaceCapabilitiesKHR{})-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SurfaceCapabilitiesKHR{}.MinImageCount)-0]
+	_ = [1]struct{}{}[unsafe.Sizeof(SurfaceCapabilitiesKHR{}.MinImageCount)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SurfaceCapabilitiesKHR{}.MaxImageCount)-4]
+	_ = [1]struct{}{}[unsafe.Sizeof(SurfaceCapabilitiesKHR{}.MaxImageCount)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SurfaceCapabilitiesKHR{}.CurrentExtent)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(SurfaceCapabilitiesKHR{}.CurrentExtent)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(SurfaceCapabilitiesKHR{}.MinImageExtent)-16]
+	_ = [1]struct{}{}[unsafe.Sizeof(SurfaceCapabilitiesKHR{}.MinImageExtent)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(SurfaceCapabilitiesKHR{}.MaxImageExtent)-24]
+	_ = [1]struct{}{}[unsafe.Sizeof(SurfaceCapabilitiesKHR{}.MaxImageExtent)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(SurfaceCapabilitiesKHR{}.MaxImageArrayLayers)-32]
+	_ = [1]struct{}{}[unsafe.Sizeof(SurfaceCapabilitiesKHR{}.MaxImageArrayLayers)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SurfaceCapabilitiesKHR{}.SupportedTransforms)-36]
+	_ = [1]struct{}{}[unsafe.Sizeof(SurfaceCapabilitiesKHR{}.SupportedTransforms)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SurfaceCapabilitiesKHR{}.CurrentTransform)-40]
+	_ = [1]struct{}{}[unsafe.Sizeof(SurfaceCapabilitiesKHR{}.CurrentTransform)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SurfaceCapabilitiesKHR{}.SupportedCompositeAlpha)-44]
+	_ = [1]struct{}{}[unsafe.Sizeof(SurfaceCapabilitiesKHR{}.SupportedCompositeAlpha)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SurfaceCapabilitiesKHR{}.SupportedUsageFlags)-48]
+	_ = [1]struct{}{}[unsafe.Sizeof(SurfaceCapabilitiesKHR{}.SupportedUsageFlags)-4]
+	_ = [1]struct{}{}[unsafe.Sizeof(SurfaceFormatKHR{})-8]
+	_ = [1]struct{}{}[unsafe.Alignof(SurfaceFormatKHR{})-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SurfaceFormatKHR{}.Format)-0]
+	_ = [1]struct{}{}[unsafe.Sizeof(SurfaceFormatKHR{}.Format)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SurfaceFormatKHR{}.ColorSpace)-4]
+	_ = [1]struct{}{}[unsafe.Sizeof(SurfaceFormatKHR{}.ColorSpace)-4]
+	_ = [1]struct{}{}[unsafe.Sizeof(Win32SurfaceCreateInfoKHR{})-40]
+	_ = [1]struct{}{}[unsafe.Alignof(Win32SurfaceCreateInfoKHR{})-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(Win32SurfaceCreateInfoKHR{}.SType)-0]
+	_ = [1]struct{}{}[unsafe.Sizeof(Win32SurfaceCreateInfoKHR{}.SType)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(Win32SurfaceCreateInfoKHR{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(Win32SurfaceCreateInfoKHR{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(Win32SurfaceCreateInfoKHR{}.Flags)-16]
+	_ = [1]struct{}{}[unsafe.Sizeof(Win32SurfaceCreateInfoKHR{}.Flags)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(Win32SurfaceCreateInfoKHR{}.Hinstance)-24]
+	_ = [1]struct{}{}[unsafe.Sizeof(Win32SurfaceCreateInfoKHR{}.Hinstance)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(Win32SurfaceCreateInfoKHR{}.Hwnd)-32]
+	_ = [1]struct{}{}[unsafe.Sizeof(Win32SurfaceCreateInfoKHR{}.Hwnd)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(SwapchainCreateInfoKHR{})-104]
+	_ = [1]struct{}{}[unsafe.Alignof(SwapchainCreateInfoKHR{})-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(SwapchainCreateInfoKHR{}.SType)-0]
+	_ = [1]struct{}{}[unsafe.Sizeof(SwapchainCreateInfoKHR{}.SType)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SwapchainCreateInfoKHR{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(SwapchainCreateInfoKHR{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(SwapchainCreateInfoKHR{}.Flags)-16]
+	_ = [1]struct{}{}[unsafe.Sizeof(SwapchainCreateInfoKHR{}.Flags)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SwapchainCreateInfoKHR{}.Surface)-24]
+	_ = [1]struct{}{}[unsafe.Sizeof(SwapchainCreateInfoKHR{}.Surface)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(SwapchainCreateInfoKHR{}.MinImageCount)-32]
+	_ = [1]struct{}{}[unsafe.Sizeof(SwapchainCreateInfoKHR{}.MinImageCount)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SwapchainCreateInfoKHR{}.ImageFormat)-36]
+	_ = [1]struct{}{}[unsafe.Sizeof(SwapchainCreateInfoKHR{}.ImageFormat)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SwapchainCreateInfoKHR{}.ImageColorSpace)-40]
+	_ = [1]struct{}{}[unsafe.Sizeof(SwapchainCreateInfoKHR{}.ImageColorSpace)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SwapchainCreateInfoKHR{}.ImageExtent)-44]
+	_ = [1]struct{}{}[unsafe.Sizeof(SwapchainCreateInfoKHR{}.ImageExtent)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(SwapchainCreateInfoKHR{}.ImageArrayLayers)-52]
+	_ = [1]struct{}{}[unsafe.Sizeof(SwapchainCreateInfoKHR{}.ImageArrayLayers)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SwapchainCreateInfoKHR{}.ImageUsage)-56]
+	_ = [1]struct{}{}[unsafe.Sizeof(SwapchainCreateInfoKHR{}.ImageUsage)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SwapchainCreateInfoKHR{}.ImageSharingMode)-60]
+	_ = [1]struct{}{}[unsafe.Sizeof(SwapchainCreateInfoKHR{}.ImageSharingMode)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SwapchainCreateInfoKHR{}.QueueFamilyIndexCount)-64]
+	_ = [1]struct{}{}[unsafe.Sizeof(SwapchainCreateInfoKHR{}.QueueFamilyIndexCount)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SwapchainCreateInfoKHR{}.PQueueFamilyIndices)-72]
+	_ = [1]struct{}{}[unsafe.Sizeof(SwapchainCreateInfoKHR{}.PQueueFamilyIndices)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(SwapchainCreateInfoKHR{}.PreTransform)-80]
+	_ = [1]struct{}{}[unsafe.Sizeof(SwapchainCreateInfoKHR{}.PreTransform)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SwapchainCreateInfoKHR{}.CompositeAlpha)-84]
+	_ = [1]struct{}{}[unsafe.Sizeof(SwapchainCreateInfoKHR{}.CompositeAlpha)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SwapchainCreateInfoKHR{}.PresentMode)-88]
+	_ = [1]struct{}{}[unsafe.Sizeof(SwapchainCreateInfoKHR{}.PresentMode)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SwapchainCreateInfoKHR{}.Clipped)-92]
+	_ = [1]struct{}{}[unsafe.Sizeof(SwapchainCreateInfoKHR{}.Clipped)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(SwapchainCreateInfoKHR{}.OldSwapchain)-96]
+	_ = [1]struct{}{}[unsafe.Sizeof(SwapchainCreateInfoKHR{}.OldSwapchain)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(PresentInfoKHR{})-64]
+	_ = [1]struct{}{}[unsafe.Alignof(PresentInfoKHR{})-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(PresentInfoKHR{}.SType)-0]
+	_ = [1]struct{}{}[unsafe.Sizeof(PresentInfoKHR{}.SType)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(PresentInfoKHR{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(PresentInfoKHR{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(PresentInfoKHR{}.WaitSemaphoreCount)-16]
+	_ = [1]struct{}{}[unsafe.Sizeof(PresentInfoKHR{}.WaitSemaphoreCount)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(PresentInfoKHR{}.PWaitSemaphores)-24]
+	_ = [1]struct{}{}[unsafe.Sizeof(PresentInfoKHR{}.PWaitSemaphores)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(PresentInfoKHR{}.SwapchainCount)-32]
+	_ = [1]struct{}{}[unsafe.Sizeof(PresentInfoKHR{}.SwapchainCount)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(PresentInfoKHR{}.PSwapchains)-40]
+	_ = [1]struct{}{}[unsafe.Sizeof(PresentInfoKHR{}.PSwapchains)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(PresentInfoKHR{}.PImageIndices)-48]
+	_ = [1]struct{}{}[unsafe.Sizeof(PresentInfoKHR{}.PImageIndices)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(PresentInfoKHR{}.PResults)-56]
+	_ = [1]struct{}{}[unsafe.Sizeof(PresentInfoKHR{}.PResults)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(RectLayerKHR{})-20]
+	_ = [1]struct{}{}[unsafe.Alignof(RectLayerKHR{})-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(RectLayerKHR{}.Offset)-0]
+	_ = [1]struct{}{}[unsafe.Sizeof(RectLayerKHR{}.Offset)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(RectLayerKHR{}.Extent)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(RectLayerKHR{}.Extent)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(RectLayerKHR{}.Layer)-16]
+	_ = [1]struct{}{}[unsafe.Sizeof(RectLayerKHR{}.Layer)-4]
+	_ = [1]struct{}{}[unsafe.Sizeof(PresentRegionKHR{})-16]
+	_ = [1]struct{}{}[unsafe.Alignof(PresentRegionKHR{})-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(PresentRegionKHR{}.RectangleCount)-0]
+	_ = [1]struct{}{}[unsafe.Sizeof(PresentRegionKHR{}.RectangleCount)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(PresentRegionKHR{}.PRectangles)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(PresentRegionKHR{}.PRectangles)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(PresentRegionsKHR{})-32]
+	_ = [1]struct{}{}[unsafe.Alignof(PresentRegionsKHR{})-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(PresentRegionsKHR{}.SType)-0]
+	_ = [1]struct{}{}[unsafe.Sizeof(PresentRegionsKHR{}.SType)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(PresentRegionsKHR{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(PresentRegionsKHR{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(PresentRegionsKHR{}.SwapchainCount)-16]
+	_ = [1]struct{}{}[unsafe.Sizeof(PresentRegionsKHR{}.SwapchainCount)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(PresentRegionsKHR{}.PRegions)-24]
+	_ = [1]struct{}{}[unsafe.Sizeof(PresentRegionsKHR{}.PRegions)-8]
 )
 
 // constTable is the value of the C constants that enums.go binds, beside
@@ -3134,6 +3322,20 @@ var constTable = []constValue{
 	{"VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT", u64(ExternalMemoryFeatureDedicatedOnly), 0x1},
 	{"VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT", u64(ExternalMemoryFeatureExportable), 0x2},
 	{"VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT", u64(ExternalMemoryFeatureImportable), 0x4},
+	{"VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR", u64(StructureTypeSwapchainCreateInfoKHR), 0x3b9acde8},
+	{"VK_STRUCTURE_TYPE_PRESENT_INFO_KHR", u64(StructureTypePresentInfoKHR), 0x3b9acde9},
+	{"VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR", u64(StructureTypeWin32SurfaceCreateInfoKHR), 0x3b9aed28},
+	{"VK_STRUCTURE_TYPE_PRESENT_REGIONS_KHR", u64(StructureTypePresentRegionsKHR), 0x3b9c1220},
+	{"VK_COLOR_SPACE_SRGB_NONLINEAR_KHR", u64(ColorSpaceSrgbNonlinearKHR), 0},
+	{"VK_PRESENT_MODE_IMMEDIATE_KHR", u64(PresentModeImmediateKHR), 0},
+	{"VK_PRESENT_MODE_MAILBOX_KHR", u64(PresentModeMailboxKHR), 0x1},
+	{"VK_PRESENT_MODE_FIFO_KHR", u64(PresentModeFifoKHR), 0x2},
+	{"VK_PRESENT_MODE_FIFO_RELAXED_KHR", u64(PresentModeFifoRelaxedKHR), 0x3},
+	{"VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR", u64(SurfaceTransformIdentityKHR), 0x1},
+	{"VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR", u64(CompositeAlphaOpaqueKHR), 0x1},
+	{"VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR", u64(CompositeAlphaPreMultipliedKHR), 0x2},
+	{"VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR", u64(CompositeAlphaPostMultipliedKHR), 0x4},
+	{"VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR", u64(CompositeAlphaInheritKHR), 0x8},
 }
 
 // stringConstTable is the same for the string constants.
@@ -3146,4 +3348,8 @@ var stringConstTable = []stringConst{
 	{"VK_EXT_IMAGE_DRM_FORMAT_MODIFIER_EXTENSION_NAME", ExtImageDrmFormatModifierExtensionName, "VK_EXT_image_drm_format_modifier"},
 	{"VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME", KhrImageFormatListExtensionName, "VK_KHR_image_format_list"},
 	{"VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME", ExtQueueFamilyForeignExtensionName, "VK_EXT_queue_family_foreign"},
+	{"VK_KHR_SURFACE_EXTENSION_NAME", KhrSurfaceExtensionName, "VK_KHR_surface"},
+	{"VK_KHR_WIN32_SURFACE_EXTENSION_NAME", KhrWin32SurfaceExtensionName, "VK_KHR_win32_surface"},
+	{"VK_KHR_SWAPCHAIN_EXTENSION_NAME", KhrSwapchainExtensionName, "VK_KHR_swapchain"},
+	{"VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME", KhrIncrementalPresentExtensionName, "VK_KHR_incremental_present"},
 }

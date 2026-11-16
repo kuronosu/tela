@@ -838,3 +838,60 @@ const (
 	ExternalMemoryFeatureExportable    ExternalMemoryFeatureFlags = 0x2 // VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT
 	ExternalMemoryFeatureImportable    ExternalMemoryFeatureFlags = 0x4 // VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT
 )
+
+// --- Presenting to a window (ADR-289): VK_KHR_surface,
+// VK_KHR_win32_surface, VK_KHR_swapchain and VK_KHR_incremental_present. ---
+
+// Names of the extensions of presenting to a window.
+const (
+	KhrSurfaceExtensionName            = "VK_KHR_surface"             // VK_KHR_SURFACE_EXTENSION_NAME
+	KhrWin32SurfaceExtensionName       = "VK_KHR_win32_surface"       // VK_KHR_WIN32_SURFACE_EXTENSION_NAME
+	KhrSwapchainExtensionName          = "VK_KHR_swapchain"           // VK_KHR_SWAPCHAIN_EXTENSION_NAME
+	KhrIncrementalPresentExtensionName = "VK_KHR_incremental_present" // VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME
+)
+
+// The structure types of presenting to a window.
+const (
+	StructureTypeSwapchainCreateInfoKHR    StructureType = 1000001000 // VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR
+	StructureTypePresentInfoKHR            StructureType = 1000001001 // VK_STRUCTURE_TYPE_PRESENT_INFO_KHR
+	StructureTypeWin32SurfaceCreateInfoKHR StructureType = 1000009000 // VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR
+	StructureTypePresentRegionsKHR         StructureType = 1000084000 // VK_STRUCTURE_TYPE_PRESENT_REGIONS_KHR
+)
+
+// ColorSpaceKHR is how a presentation engine reads the values of a
+// swapchain's images (VkColorSpaceKHR).
+type ColorSpaceKHR int32
+
+const (
+	ColorSpaceSrgbNonlinearKHR ColorSpaceKHR = 0 // VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
+)
+
+// PresentModeKHR is how presents are queued (VkPresentModeKHR).
+type PresentModeKHR int32
+
+const (
+	PresentModeImmediateKHR   PresentModeKHR = 0 // VK_PRESENT_MODE_IMMEDIATE_KHR
+	PresentModeMailboxKHR     PresentModeKHR = 1 // VK_PRESENT_MODE_MAILBOX_KHR
+	PresentModeFifoKHR        PresentModeKHR = 2 // VK_PRESENT_MODE_FIFO_KHR
+	PresentModeFifoRelaxedKHR PresentModeKHR = 3 // VK_PRESENT_MODE_FIFO_RELAXED_KHR
+)
+
+// SurfaceTransformFlagsKHR are transforms of a surface's images
+// (VkSurfaceTransformFlagsKHR, VkSurfaceTransformFlagBitsKHR).
+type SurfaceTransformFlagsKHR uint32
+
+const (
+	SurfaceTransformIdentityKHR SurfaceTransformFlagsKHR = 0x1 // VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR
+)
+
+// CompositeAlphaFlagsKHR say how a presentation engine composites the
+// alpha of a swapchain's images (VkCompositeAlphaFlagsKHR,
+// VkCompositeAlphaFlagBitsKHR).
+type CompositeAlphaFlagsKHR uint32
+
+const (
+	CompositeAlphaOpaqueKHR         CompositeAlphaFlagsKHR = 0x1 // VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
+	CompositeAlphaPreMultipliedKHR  CompositeAlphaFlagsKHR = 0x2 // VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR
+	CompositeAlphaPostMultipliedKHR CompositeAlphaFlagsKHR = 0x4 // VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR
+	CompositeAlphaInheritKHR        CompositeAlphaFlagsKHR = 0x8 // VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR
+)

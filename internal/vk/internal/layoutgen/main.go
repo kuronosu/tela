@@ -4,7 +4,7 @@
 // compiler; nothing builds or runs it otherwise.
 //
 // It reads structs.go and enums.go of the package (as source, so it needs
-// no build tag) and vulkan_core.h, and writes two files:
+// no build tag), vulkan_core.h and vulkan_win32.h, and writes two files:
 //
 //   - internal/layoutgen/c/layout.c, a C program that prints the size and
 //     alignment of every struct of structs.go and the offset and size of
@@ -47,6 +47,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -63,9 +64,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	header, err := os.ReadFile(filepath.Join(dir, "vulkan", "vulkan_core.h"))
-	if err != nil {
-		log.Fatal(err)
+	var header []byte
+	for _, name := range headers {
+		h, err := os.ReadFile(filepath.Join(dir, "vulkan", name))
+		if err != nil {
+			log.Fatal(err)
+		}
+		header = append(header, h...)
 	}
 	types, err := goTypes(filepath.Join(*pkg, "structs.go"))
 	if err != nil {
@@ -125,6 +130,20 @@ func main() {
 		}
 	}
 }
+
+// headers are the Vulkan headers the bindings transcribe: the core API and
+// the Windows surface (VkWin32SurfaceCreateInfoKHR, ADR-289).
+var headers = []string{"vulkan_core.h", "vulkan_win32.h"}
+
+// win32Prelude declares the few Windows types vulkan_win32.h names, so that
+// the program compiles without windows.h on every target: handles are
+// pointers and DWORD is 32 bits, as on Windows.
+const win32Prelude = `typedef void *HINSTANCE, *HWND, *HANDLE, *HMONITOR;
+typedef unsigned int DWORD;
+typedef const unsigned short *LPCWSTR;
+typedef struct _SECURITY_ATTRIBUTES SECURITY_ATTRIBUTES;
+#include <vulkan/vulkan_win32.h>
+`
 
 // crossTargets are the clang triples of Tela's GPU targets (ADR-281).
 var crossTargets = []string{
@@ -318,6 +337,8 @@ func program(types []goType, consts []goConst) []byte {
 
 #include <vulkan/vulkan_core.h>
 
+// The types of vulkan_win32.h, without windows.h.
+` + win32Prelude + `
 // What layouts prints.
 enum { TABLE, GO_ASSERTS, C_ASSERTS };
 static int mode;
@@ -375,7 +396,7 @@ static void layouts(void) {
 int main(int argc, char **argv) {
 	if (argc > 1 && strcmp(argv[1], "assert") == 0) {
 		mode = C_ASSERTS;
-		printf("#include <stddef.h>\n#include <vulkan/vulkan_core.h>\n\n");
+		printf("#include <stddef.h>\n#include <vulkan/vulkan_core.h>\n\n%s\n", ` + strconv.Quote(win32Prelude) + `);
 		layouts();
 		return 0;
 	}

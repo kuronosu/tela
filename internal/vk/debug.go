@@ -131,6 +131,12 @@ type InstanceConfig struct {
 	// has it; without it Debug is never called, unless Validation is set,
 	// which then fails.
 	Debug func(DebugMessage)
+
+	// Win32Surface enables VK_KHR_surface and VK_KHR_win32_surface when
+	// the loader has both, so that the instance can make surfaces of
+	// windows (surface.go, ADR-289); [Instance.HasWin32Surface] tells.
+	// Without them the instance is made as without the option.
+	Win32Surface bool
 }
 
 // NewInstance creates an instance for Vulkan 1.1, the version the
@@ -167,6 +173,13 @@ func NewInstance(cfg InstanceConfig) (*Instance, error) {
 		case cfg.Validation:
 			return nil, fmt.Errorf("vk: validation was asked for and its messages cannot be received: no %s", ExtDebugUtilsExtensionName)
 		}
+	}
+	if cfg.Win32Surface {
+		names, err := win32SurfaceExtensions()
+		if err != nil {
+			return nil, err
+		}
+		extensions = append(extensions, names...)
 	}
 
 	info := &InstanceCreateInfo{

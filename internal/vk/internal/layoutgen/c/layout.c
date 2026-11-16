@@ -21,6 +21,13 @@
 
 #include <vulkan/vulkan_core.h>
 
+// The types of vulkan_win32.h, without windows.h.
+typedef void *HINSTANCE, *HWND, *HANDLE, *HMONITOR;
+typedef unsigned int DWORD;
+typedef const unsigned short *LPCWSTR;
+typedef struct _SECURITY_ATTRIBUTES SECURITY_ATTRIBUTES;
+#include <vulkan/vulkan_win32.h>
+
 // What layouts prints.
 enum { TABLE, GO_ASSERTS, C_ASSERTS };
 static int mode;
@@ -1029,12 +1036,80 @@ static void layouts(void) {
 	FIELD(VkImageDrmFormatModifierPropertiesEXT, ImageDrmFormatModifierPropertiesEXT, pNext, PNext);
 	FIELD(VkImageDrmFormatModifierPropertiesEXT, ImageDrmFormatModifierPropertiesEXT, drmFormatModifier, DrmFormatModifier);
 	END();
+	STRUCT(VkSurfaceCapabilitiesKHR, SurfaceCapabilitiesKHR);
+	FIELD(VkSurfaceCapabilitiesKHR, SurfaceCapabilitiesKHR, minImageCount, MinImageCount);
+	FIELD(VkSurfaceCapabilitiesKHR, SurfaceCapabilitiesKHR, maxImageCount, MaxImageCount);
+	FIELD(VkSurfaceCapabilitiesKHR, SurfaceCapabilitiesKHR, currentExtent, CurrentExtent);
+	FIELD(VkSurfaceCapabilitiesKHR, SurfaceCapabilitiesKHR, minImageExtent, MinImageExtent);
+	FIELD(VkSurfaceCapabilitiesKHR, SurfaceCapabilitiesKHR, maxImageExtent, MaxImageExtent);
+	FIELD(VkSurfaceCapabilitiesKHR, SurfaceCapabilitiesKHR, maxImageArrayLayers, MaxImageArrayLayers);
+	FIELD(VkSurfaceCapabilitiesKHR, SurfaceCapabilitiesKHR, supportedTransforms, SupportedTransforms);
+	FIELD(VkSurfaceCapabilitiesKHR, SurfaceCapabilitiesKHR, currentTransform, CurrentTransform);
+	FIELD(VkSurfaceCapabilitiesKHR, SurfaceCapabilitiesKHR, supportedCompositeAlpha, SupportedCompositeAlpha);
+	FIELD(VkSurfaceCapabilitiesKHR, SurfaceCapabilitiesKHR, supportedUsageFlags, SupportedUsageFlags);
+	END();
+	STRUCT(VkSurfaceFormatKHR, SurfaceFormatKHR);
+	FIELD(VkSurfaceFormatKHR, SurfaceFormatKHR, format, Format);
+	FIELD(VkSurfaceFormatKHR, SurfaceFormatKHR, colorSpace, ColorSpace);
+	END();
+	STRUCT(VkWin32SurfaceCreateInfoKHR, Win32SurfaceCreateInfoKHR);
+	FIELD(VkWin32SurfaceCreateInfoKHR, Win32SurfaceCreateInfoKHR, sType, SType);
+	FIELD(VkWin32SurfaceCreateInfoKHR, Win32SurfaceCreateInfoKHR, pNext, PNext);
+	FIELD(VkWin32SurfaceCreateInfoKHR, Win32SurfaceCreateInfoKHR, flags, Flags);
+	FIELD(VkWin32SurfaceCreateInfoKHR, Win32SurfaceCreateInfoKHR, hinstance, Hinstance);
+	FIELD(VkWin32SurfaceCreateInfoKHR, Win32SurfaceCreateInfoKHR, hwnd, Hwnd);
+	END();
+	STRUCT(VkSwapchainCreateInfoKHR, SwapchainCreateInfoKHR);
+	FIELD(VkSwapchainCreateInfoKHR, SwapchainCreateInfoKHR, sType, SType);
+	FIELD(VkSwapchainCreateInfoKHR, SwapchainCreateInfoKHR, pNext, PNext);
+	FIELD(VkSwapchainCreateInfoKHR, SwapchainCreateInfoKHR, flags, Flags);
+	FIELD(VkSwapchainCreateInfoKHR, SwapchainCreateInfoKHR, surface, Surface);
+	FIELD(VkSwapchainCreateInfoKHR, SwapchainCreateInfoKHR, minImageCount, MinImageCount);
+	FIELD(VkSwapchainCreateInfoKHR, SwapchainCreateInfoKHR, imageFormat, ImageFormat);
+	FIELD(VkSwapchainCreateInfoKHR, SwapchainCreateInfoKHR, imageColorSpace, ImageColorSpace);
+	FIELD(VkSwapchainCreateInfoKHR, SwapchainCreateInfoKHR, imageExtent, ImageExtent);
+	FIELD(VkSwapchainCreateInfoKHR, SwapchainCreateInfoKHR, imageArrayLayers, ImageArrayLayers);
+	FIELD(VkSwapchainCreateInfoKHR, SwapchainCreateInfoKHR, imageUsage, ImageUsage);
+	FIELD(VkSwapchainCreateInfoKHR, SwapchainCreateInfoKHR, imageSharingMode, ImageSharingMode);
+	FIELD(VkSwapchainCreateInfoKHR, SwapchainCreateInfoKHR, queueFamilyIndexCount, QueueFamilyIndexCount);
+	FIELD(VkSwapchainCreateInfoKHR, SwapchainCreateInfoKHR, pQueueFamilyIndices, PQueueFamilyIndices);
+	FIELD(VkSwapchainCreateInfoKHR, SwapchainCreateInfoKHR, preTransform, PreTransform);
+	FIELD(VkSwapchainCreateInfoKHR, SwapchainCreateInfoKHR, compositeAlpha, CompositeAlpha);
+	FIELD(VkSwapchainCreateInfoKHR, SwapchainCreateInfoKHR, presentMode, PresentMode);
+	FIELD(VkSwapchainCreateInfoKHR, SwapchainCreateInfoKHR, clipped, Clipped);
+	FIELD(VkSwapchainCreateInfoKHR, SwapchainCreateInfoKHR, oldSwapchain, OldSwapchain);
+	END();
+	STRUCT(VkPresentInfoKHR, PresentInfoKHR);
+	FIELD(VkPresentInfoKHR, PresentInfoKHR, sType, SType);
+	FIELD(VkPresentInfoKHR, PresentInfoKHR, pNext, PNext);
+	FIELD(VkPresentInfoKHR, PresentInfoKHR, waitSemaphoreCount, WaitSemaphoreCount);
+	FIELD(VkPresentInfoKHR, PresentInfoKHR, pWaitSemaphores, PWaitSemaphores);
+	FIELD(VkPresentInfoKHR, PresentInfoKHR, swapchainCount, SwapchainCount);
+	FIELD(VkPresentInfoKHR, PresentInfoKHR, pSwapchains, PSwapchains);
+	FIELD(VkPresentInfoKHR, PresentInfoKHR, pImageIndices, PImageIndices);
+	FIELD(VkPresentInfoKHR, PresentInfoKHR, pResults, PResults);
+	END();
+	STRUCT(VkRectLayerKHR, RectLayerKHR);
+	FIELD(VkRectLayerKHR, RectLayerKHR, offset, Offset);
+	FIELD(VkRectLayerKHR, RectLayerKHR, extent, Extent);
+	FIELD(VkRectLayerKHR, RectLayerKHR, layer, Layer);
+	END();
+	STRUCT(VkPresentRegionKHR, PresentRegionKHR);
+	FIELD(VkPresentRegionKHR, PresentRegionKHR, rectangleCount, RectangleCount);
+	FIELD(VkPresentRegionKHR, PresentRegionKHR, pRectangles, PRectangles);
+	END();
+	STRUCT(VkPresentRegionsKHR, PresentRegionsKHR);
+	FIELD(VkPresentRegionsKHR, PresentRegionsKHR, sType, SType);
+	FIELD(VkPresentRegionsKHR, PresentRegionsKHR, pNext, PNext);
+	FIELD(VkPresentRegionsKHR, PresentRegionsKHR, swapchainCount, SwapchainCount);
+	FIELD(VkPresentRegionsKHR, PresentRegionsKHR, pRegions, PRegions);
+	END();
 }
 
 int main(int argc, char **argv) {
 	if (argc > 1 && strcmp(argv[1], "assert") == 0) {
 		mode = C_ASSERTS;
-		printf("#include <stddef.h>\n#include <vulkan/vulkan_core.h>\n\n");
+		printf("#include <stddef.h>\n#include <vulkan/vulkan_core.h>\n\n%s\n", "typedef void *HINSTANCE, *HWND, *HANDLE, *HMONITOR;\ntypedef unsigned int DWORD;\ntypedef const unsigned short *LPCWSTR;\ntypedef struct _SECURITY_ATTRIBUTES SECURITY_ATTRIBUTES;\n#include <vulkan/vulkan_win32.h>\n");
 		layouts();
 		return 0;
 	}
@@ -1480,6 +1555,20 @@ int main(int argc, char **argv) {
 	CONST(VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT, ExternalMemoryFeatureDedicatedOnly);
 	CONST(VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT, ExternalMemoryFeatureExportable);
 	CONST(VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT, ExternalMemoryFeatureImportable);
+	CONST(VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR, StructureTypeSwapchainCreateInfoKHR);
+	CONST(VK_STRUCTURE_TYPE_PRESENT_INFO_KHR, StructureTypePresentInfoKHR);
+	CONST(VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR, StructureTypeWin32SurfaceCreateInfoKHR);
+	CONST(VK_STRUCTURE_TYPE_PRESENT_REGIONS_KHR, StructureTypePresentRegionsKHR);
+	CONST(VK_COLOR_SPACE_SRGB_NONLINEAR_KHR, ColorSpaceSrgbNonlinearKHR);
+	CONST(VK_PRESENT_MODE_IMMEDIATE_KHR, PresentModeImmediateKHR);
+	CONST(VK_PRESENT_MODE_MAILBOX_KHR, PresentModeMailboxKHR);
+	CONST(VK_PRESENT_MODE_FIFO_KHR, PresentModeFifoKHR);
+	CONST(VK_PRESENT_MODE_FIFO_RELAXED_KHR, PresentModeFifoRelaxedKHR);
+	CONST(VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR, SurfaceTransformIdentityKHR);
+	CONST(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR, CompositeAlphaOpaqueKHR);
+	CONST(VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR, CompositeAlphaPreMultipliedKHR);
+	CONST(VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR, CompositeAlphaPostMultipliedKHR);
+	CONST(VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR, CompositeAlphaInheritKHR);
 
 	printf("}\n\n");
 	printf("// stringConstTable is the same for the string constants.\n");
@@ -1493,6 +1582,10 @@ int main(int argc, char **argv) {
 	STRCONST(VK_EXT_IMAGE_DRM_FORMAT_MODIFIER_EXTENSION_NAME, ExtImageDrmFormatModifierExtensionName);
 	STRCONST(VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME, KhrImageFormatListExtensionName);
 	STRCONST(VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME, ExtQueueFamilyForeignExtensionName);
+	STRCONST(VK_KHR_SURFACE_EXTENSION_NAME, KhrSurfaceExtensionName);
+	STRCONST(VK_KHR_WIN32_SURFACE_EXTENSION_NAME, KhrWin32SurfaceExtensionName);
+	STRCONST(VK_KHR_SWAPCHAIN_EXTENSION_NAME, KhrSwapchainExtensionName);
+	STRCONST(VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME, KhrIncrementalPresentExtensionName);
 
 	printf("}\n");
 	return 0;

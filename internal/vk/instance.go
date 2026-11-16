@@ -16,6 +16,9 @@ type Instance struct {
 	debug         *DebugCallback
 	debugHandle   DebugUtilsMessengerEXT
 	hasDebugUtils bool
+	// hasWin32Surface: VK_KHR_surface and VK_KHR_win32_surface are enabled
+	// (surface.go).
+	hasWin32Surface bool
 }
 
 // CreateInstance is vkCreateInstance. It also binds the commands of the
@@ -50,6 +53,7 @@ func CreateInstance(info *InstanceCreateInfo) (*Instance, error) {
 		inst.fn.CreateDebugUtilsMessengerEXT = 0
 		inst.fn.DestroyDebugUtilsMessengerEXT = 0
 	}
+	inst.forgetSurfaces(info) // presenting to a window's extensions (surface.go)
 	return inst, nil
 }
 
@@ -203,7 +207,8 @@ func (i *Instance) CreateDevice(pd PhysicalDevice, info *DeviceCreateInfo) (*Dev
 	if !i.hasDebugUtils {
 		dev.fn.SetDebugUtilsObjectNameEXT = 0 // as in CreateInstance
 	}
-	dev.forgetDisabled(info) // the dmabuf export's extensions (dmabuf.go)
+	dev.forgetDisabled(info)  // the dmabuf export's extensions (dmabuf.go)
+	dev.forgetSwapchain(info) // presenting to a window's (surface.go)
 	return dev, nil
 }
 

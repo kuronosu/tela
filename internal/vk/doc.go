@@ -38,9 +38,10 @@
 // pools and buffers, buffers, images, views, samplers, memory, render
 // passes and framebuffers, shader modules, descriptors, pipeline layouts
 // and graphics pipelines, fences and semaphores, and the commands to draw,
-// copy, blit and synchronize. There is no window system integration: on
-// Linux the renderer presents by reading back or through dmabufs
-// (ADR-281). Rendering uses render passes and framebuffers, not the
+// copy, blit and synchronize. The one window system integration is
+// Windows': on Linux the renderer presents by reading back or through
+// dmabufs (ADR-281), and on Windows through a swapchain on the window's
+// HWND (ADR-289). Rendering uses render passes and framebuffers, not the
 // dynamic rendering of Vulkan 1.3, so that drivers that stop at Vulkan 1.1
 // or 1.2 work (older Windows drivers, older Mesa); 1.1 is required for
 // vkGetPhysicalDeviceProperties2 and for the external memory the dmabuf
@@ -51,6 +52,13 @@
 // VK_EXT_image_drm_format_modifier, [DmabufExtensions] and
 // [Instance.DmabufModifiers]) and, on Linux, dmabuf_linux.go
 // ([Device.CreateDmabufImage]); TestDmabufExport is its worked example.
+// Presenting to a window is in surface.go: VK_KHR_surface and
+// VK_KHR_win32_surface ([InstanceConfig].Win32Surface,
+// [Instance.CreateWin32SurfaceKHR]), VK_KHR_swapchain and
+// VK_KHR_incremental_present ([SwapchainExtensions],
+// [Device.CreateSwapchainKHR], [Device.QueuePresentKHR]); the one struct of
+// vulkan_win32.h is checked like the others (layoutgen declares the
+// Windows types it names).
 //
 // # Calls and pointers
 //
@@ -89,9 +97,9 @@
 // One place per thing: structs in structs.go, constants in enums.go (each
 // with its C name in a trailing comment), handle types in handles.go,
 // entry points in the tables of funcs.go, and the wrappers in instance.go,
-// device.go and commands.go (dmabuf.go for the dmabuf export, whose
-// structs, constants and entry points are a marked block at the end of
-// their files). Struct layouts and constant values are not
+// device.go and commands.go (dmabuf.go for the dmabuf export and
+// surface.go for presenting to a window, whose structs, constants and
+// entry points are marked blocks at the end of their files). Struct layouts and constant values are not
 // trusted: internal/layoutgen writes a C program (internal/layoutgen/c)
 // that prints sizeof, alignof and offsetof of every struct of structs.go
 // with the member list of the real header, and the value of every

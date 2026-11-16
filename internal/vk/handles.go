@@ -67,3 +67,11 @@ type (
 	// DebugUtilsMessengerEXT is VkDebugUtilsMessengerEXT.
 	DebugUtilsMessengerEXT uint64
 )
+
+// The handles of presenting to a window (surface.go).
+type (
+	// SurfaceKHR is VkSurfaceKHR.
+	SurfaceKHR uint64
+	// SwapchainKHR is VkSwapchainKHR.
+	SwapchainKHR uint64
+)

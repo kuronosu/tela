@@ -1326,3 +1326,101 @@ type ImageDrmFormatModifierPropertiesEXT struct {
 	PNext             unsafe.Pointer
 	DrmFormatModifier uint64
 }
+
+// --- Presenting to a window (ADR-289): VK_KHR_surface,
+// VK_KHR_win32_surface (whose struct is in vulkan_win32.h), VK_KHR_swapchain
+// and VK_KHR_incremental_present. Their wrappers are in surface.go. ---
+
+// SurfaceCapabilitiesKHR is VkSurfaceCapabilitiesKHR.
+type SurfaceCapabilitiesKHR struct {
+	_                       structs.HostLayout
+	MinImageCount           uint32
+	MaxImageCount           uint32
+	CurrentExtent           Extent2D
+	MinImageExtent          Extent2D
+	MaxImageExtent          Extent2D
+	MaxImageArrayLayers     uint32
+	SupportedTransforms     SurfaceTransformFlagsKHR
+	CurrentTransform        SurfaceTransformFlagsKHR
+	SupportedCompositeAlpha CompositeAlphaFlagsKHR
+	SupportedUsageFlags     ImageUsageFlags
+}
+
+// SurfaceFormatKHR is VkSurfaceFormatKHR.
+type SurfaceFormatKHR struct {
+	_          structs.HostLayout
+	Format     Format
+	ColorSpace ColorSpaceKHR
+}
+
+// Win32SurfaceCreateInfoKHR is VkWin32SurfaceCreateInfoKHR. Hinstance and
+// Hwnd are the HINSTANCE and the HWND of a window: handles of the OS, not
+// Go memory.
+type Win32SurfaceCreateInfoKHR struct {
+	_         structs.HostLayout
+	SType     StructureType
+	PNext     unsafe.Pointer
+	Flags     uint32
+	Hinstance uintptr
+	Hwnd      uintptr
+}
+
+// SwapchainCreateInfoKHR is VkSwapchainCreateInfoKHR.
+type SwapchainCreateInfoKHR struct {
+	_                     structs.HostLayout
+	SType                 StructureType
+	PNext                 unsafe.Pointer
+	Flags                 uint32
+	Surface               SurfaceKHR
+	MinImageCount         uint32
+	ImageFormat           Format
+	ImageColorSpace       ColorSpaceKHR
+	ImageExtent           Extent2D
+	ImageArrayLayers      uint32
+	ImageUsage            ImageUsageFlags
+	ImageSharingMode      SharingMode
+	QueueFamilyIndexCount uint32
+	PQueueFamilyIndices   *uint32
+	PreTransform          SurfaceTransformFlagsKHR
+	CompositeAlpha        CompositeAlphaFlagsKHR
+	PresentMode           PresentModeKHR
+	Clipped               Bool32
+	OldSwapchain          SwapchainKHR
+}
+
+// PresentInfoKHR is VkPresentInfoKHR.
+type PresentInfoKHR struct {
+	_                  structs.HostLayout
+	SType              StructureType
+	PNext              unsafe.Pointer
+	WaitSemaphoreCount uint32
+	PWaitSemaphores    *Semaphore
+	SwapchainCount     uint32
+	PSwapchains        *SwapchainKHR
+	PImageIndices      *uint32
+	PResults           *Result
+}
+
+// RectLayerKHR is VkRectLayerKHR.
+type RectLayerKHR struct {
+	_      structs.HostLayout
+	Offset Offset2D
+	Extent Extent2D
+	Layer  uint32
+}
+
+// PresentRegionKHR is VkPresentRegionKHR.
+type PresentRegionKHR struct {
+	_              structs.HostLayout
+	RectangleCount uint32
+	PRectangles    *RectLayerKHR
+}
+
+// PresentRegionsKHR is VkPresentRegionsKHR.
+type PresentRegionsKHR struct {
+	_              structs.HostLayout
+	SType          StructureType
+	PNext          unsafe.Pointer
+	SwapchainCount uint32
+	PRegions       *PresentRegionKHR
+}

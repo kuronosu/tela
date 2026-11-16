@@ -43,6 +43,15 @@ type instanceFuncs struct {
 	// Exporting images as dmabufs (dmabuf.go).
 	GetPhysicalDeviceFormatProperties2      uintptr `vk:"optional"` // Vulkan 1.1
 	GetPhysicalDeviceImageFormatProperties2 uintptr `vk:"optional"` // Vulkan 1.1
+
+	// Presenting to a window (surface.go).
+	DestroySurfaceKHR                            uintptr `vk:"optional"` // VK_KHR_surface
+	GetPhysicalDeviceSurfaceSupportKHR           uintptr `vk:"optional"`
+	GetPhysicalDeviceSurfaceCapabilitiesKHR      uintptr `vk:"optional"`
+	GetPhysicalDeviceSurfaceFormatsKHR           uintptr `vk:"optional"`
+	GetPhysicalDeviceSurfacePresentModesKHR      uintptr `vk:"optional"`
+	CreateWin32SurfaceKHR                        uintptr `vk:"optional"` // VK_KHR_win32_surface
+	GetPhysicalDeviceWin32PresentationSupportKHR uintptr `vk:"optional"`
 }
 
 // deviceFuncs are the commands that dispatch on a device, a queue or a
@@ -138,6 +147,13 @@ type deviceFuncs struct {
 	GetImageSubresourceLayout              uintptr
 	GetMemoryFdKHR                         uintptr `vk:"optional"` // VK_KHR_external_memory_fd
 	GetImageDrmFormatModifierPropertiesEXT uintptr `vk:"optional"` // VK_EXT_image_drm_format_modifier
+
+	// Presenting to a window (surface.go).
+	CreateSwapchainKHR    uintptr `vk:"optional"` // VK_KHR_swapchain
+	DestroySwapchainKHR   uintptr `vk:"optional"`
+	GetSwapchainImagesKHR uintptr `vk:"optional"`
+	AcquireNextImageKHR   uintptr `vk:"optional"`
+	QueuePresentKHR       uintptr `vk:"optional"`
 }
 
 // loadFuncs fills table, a pointer to one of the structs above, with what
