@@ -81,6 +81,12 @@ type Conn struct {
 
 	idRangeFuncMu sync.RWMutex
 	idRangeFunc   func(*Conn) (uint32, uint32, error)
+
+	// Tela patch: the file descriptors the reader received and no reply
+	// took yet, and its buffer for ancillary data (fd.go). Reader
+	// goroutine only.
+	inFds []int
+	oob   []byte
 }
 
 // NewConn creates a new connection instance. It initializes locks, data
@@ -377,6 +383,8 @@ func (c *Conn) generateSeqIds() {
 type request struct {
 	buf    []byte
 	cookie *Cookie
+	// Tela patch: the file descriptors sent with the request (fd.go).
+	fds []int
 
 	// seq is closed when the request (cookie) has been sequenced by the Conn.
 	seq chan struct{}
@@ -401,9 +409,15 @@ type request struct {
 // In all likelihood, you should be able to copy and paste with some minor
 // edits the generated code for the request you want to issue.
 func (c *Conn) NewRequest(buf []byte, cookie *Cookie) {
+	c.newRequest(buf, nil, cookie)
+}
+
+// Tela patch: newRequest is NewRequest with the file descriptors of
+// NewRequestFds (fd.go).
+func (c *Conn) newRequest(buf []byte, fds []int, cookie *Cookie) {
 	seq := make(chan struct{})
 	select {
-	case c.reqChan <- &request{buf: buf, cookie: cookie, seq: seq}:
+	case c.reqChan <- &request{buf: buf, cookie: cookie, fds: fds, seq: seq}:
 		// request is in buffer
 		// wait until request is processed or connection is closed
 		select {
@@ -451,7 +465,9 @@ func (c *Conn) sendRequests() {
 			}
 			req.cookie.Sequence = c.newSequenceId()
 			c.cookieChan <- req.cookie
-			if err := c.writeBuffer(req.buf); err != nil {
+			// Tela patch: writeFds sends the request's file descriptors
+			// with it (fd.go); without any it is writeBuffer.
+			if err := c.writeFds(req.buf, req.fds); err != nil {
 				c.conn.Close()
 				<-c.doneRead
 				return
@@ -498,7 +514,11 @@ func (c *Conn) readResponses() {
 	defer close(c.eventChan)
 	defer c.conn.Close()
 	defer close(c.doneRead)
+	defer c.closeFds() // Tela patch: descriptors no reply took (fd.go)
 
+	// Tela patch: every read below is c.readFull, which is io.ReadFull on
+	// the connection and also takes the file descriptors that arrive with
+	// the bytes (fd.go).
 	var (
 		err        Error
 		seq        uint16
@@ -508,7 +528,7 @@ func (c *Conn) readResponses() {
 	for {
 		buf := make([]byte, 32)
 		err, seq = nil, 0
-		if _, err := io.ReadFull(c.conn, buf); err != nil {
+		if _, err := c.readFull(buf); err != nil {
 			select {
 			case <-c.doneSend:
 				// gracefully closing
@@ -544,7 +564,7 @@ func (c *Conn) readResponses() {
 				byteCount := 32 + size*4
 				biggerBuf := make([]byte, byteCount)
 				copy(biggerBuf[:32], buf)
-				if _, err := io.ReadFull(c.conn, biggerBuf[32:]); err != nil {
+				if _, err := c.readFull(biggerBuf[32:]); err != nil {
 					Logger.Printf("A read error is unrecoverable: %s", err)
 					c.eventChan <- err
 					return
@@ -571,7 +591,7 @@ func (c *Conn) readResponses() {
 				if extra := Get32(buf[4:]); extra > 0 {
 					whole := make([]byte, 32+int(extra)*4)
 					copy(whole, buf)
-					if _, err := io.ReadFull(c.conn, whole[32:]); err != nil {
+					if _, err := c.readFull(whole[32:]); err != nil {
 						Logger.Printf("A read error is unrecoverable: %s", err)
 						c.eventChan <- err
 						return
@@ -621,6 +641,12 @@ func (c *Conn) readResponses() {
 							"have a cookie with a valid reply channel.", seq)
 						continue
 					} else {
+						// Tela patch: a reply that carries file descriptors
+						// hands them over first; its second byte counts
+						// them (fd.go).
+						if cookie.fdChan != nil {
+							cookie.fdChan <- c.takeFds(int(replyBytes[1]))
+						}
 						cookie.replyChan <- replyBytes
 					}
 				}

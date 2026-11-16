@@ -22,6 +22,9 @@ type Cookie struct {
 	replyChan chan []byte
 	errorChan chan error
 	pingChan  chan bool
+	// Tela patch: the file descriptors of the reply, for a cookie made by
+	// NewCookieFds (fd.go); nil otherwise.
+	fdChan chan []int
 }
 
 // NewCookie creates a new cookie with the correct channels initialized
