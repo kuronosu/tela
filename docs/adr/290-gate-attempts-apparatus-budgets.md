@@ -1,7 +1,7 @@
 # ADR-290: One gate, three attempts, apparatus by approval, counted budgets
 
 - **Date:** 2026-11-16
-- **Status:** Accepted. Amends ADR-219 (what agents run before finishing).
+- **Status:** Accepted. Amends ADR-219 (what agents run before finishing) and ADR-267 (where the limitations live).
 
 ## Decision
 
@@ -9,6 +9,7 @@
 - **Three attempts per failure.** After three, the agent stops and reports each attempt (hypothesis, change, result) with a way out: a test that reproduces it, a roadmap task, or a decision for the main session. Regenerating goldens, raising a tolerance, skipping a test, lengthening a timeout or retrying inside a test is descoping, not a fix. The main session delegates one failure at most three times, then asks the owner.
 - **Apparatus by approval.** Agents may remove apparatus (CI jobs, tools, agent instructions, `TELA_*` switches, skips, lint ignores, tolerance overrides, documents) and may add it only with the owner's approval; the gate lists it.
 - **Budgets are trades.** Raising one names what was given up, in an ADR. Performance budgets are counted where the result is deterministic (idle frames, work and allocations per interaction, binary size), so they run in the gate; the rest are timed at phase close on the owner's machine (§18).
+- **Limitations leave the roadmap.** Known limitations and live checks move to `docs/LIMITATIONS.md`, read only for the area a task works in; the roadmap (budget 6,000 words) keeps status, phases and the next step. Cutting them to fit lost about 60 distinct problems, so they moved instead.
 
 ## Why
 
@@ -16,4 +17,4 @@ Measured 2026-11-16 (12 threads): the full suite takes 185 s and `-short` 135 s,
 
 ## What it changes
 
-`internal/gate`, CI's lint job, `AGENTS.md` (Rules, Commands, Verify), the agent definitions' "Before finishing" and report, §18, and the roadmap's size.
+`internal/gate`, CI's lint job, `AGENTS.md` (Rules, Commands, Verify), the agent definitions' "Before finishing" and report, §5, §18, `docs/ROADMAP.md` and the new `docs/LIMITATIONS.md`.

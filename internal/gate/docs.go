@@ -24,6 +24,8 @@ var docBudgets = []docBudget{
 	{Label: "AGENTS.md", File: "AGENTS.md", Budget: 1200},
 	{Label: "docs/ARCHITECTURE.md", File: "docs/ARCHITECTURE.md", Budget: 10500},
 	{Label: "docs/ARCHITECTURE.md §1-§5, §19", File: "docs/ARCHITECTURE.md", Sections: []int{1, 2, 3, 4, 5, 19}, Budget: 2000},
+	{Label: "docs/ROADMAP.md", File: "docs/ROADMAP.md", Budget: 6000},
+	{Label: "docs/LIMITATIONS.md", File: "docs/LIMITATIONS.md", Budget: 5000},
 }
 
 // docCount is the result of counting one budget.

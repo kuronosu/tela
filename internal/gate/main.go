@@ -149,7 +149,7 @@ func repoRoot() (string, error) {
 type failure struct {
 	Title  string `json:"title"`
 	Detail string `json:"detail,omitempty"`
-	Note   string `json:"note,omitempty"` // e.g. "known flake (docs/ROADMAP.md:67)"
+	Note   string `json:"note,omitempty"` // e.g. "named in docs/ROADMAP.md:67 (a known flake?)"
 }
 
 // commandInfo is the time of one subprocess of a step.

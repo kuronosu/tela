@@ -26,15 +26,27 @@ const maxTail = 30
 
 // gate holds what the steps share.
 type gate struct {
-	root    string
-	sem     chan struct{} // bounds concurrent subprocesses
-	roadmap []string      // lines of docs/ROADMAP.md, for the known flakes
+	root      string
+	sem       chan struct{} // bounds concurrent subprocesses
+	flakeDocs []flakeDoc    // documents that name known flakes
 }
+
+// flakeDoc is a document whose lines may name a flaky test.
+type flakeDoc struct {
+	file  string
+	lines []string
+}
+
+// flakeFiles are searched in order for the name of a failing test: open
+// tasks in the roadmap, small limitations in LIMITATIONS.md (ADR-290).
+var flakeFiles = []string{"docs/ROADMAP.md", "docs/LIMITATIONS.md"}
 
 func newGate(root string) *gate {
 	g := &gate{root: root, sem: make(chan struct{}, 4)}
-	if data, err := os.ReadFile(filepath.Join(root, "docs", "ROADMAP.md")); err == nil {
-		g.roadmap = strings.Split(string(data), "\n")
+	for _, f := range flakeFiles {
+		if data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(f))); err == nil {
+			g.flakeDocs = append(g.flakeDocs, flakeDoc{f, strings.Split(string(data), "\n")})
+		}
 	}
 	return g
 }
@@ -341,8 +353,9 @@ func (g *gate) testStep() stepResult {
 	return r
 }
 
-// describeFailure turns a failing test into a report entry, labeling the
-// known flakes of docs/ROADMAP.md. A known flake still fails the step.
+// describeFailure turns a failing test into a report entry, labeling a
+// test that the roadmap or LIMITATIONS.md names: likely a known flake. It
+// still fails the step.
 func (g *gate) describeFailure(f testFailure) failure {
 	short := shortPkg(f.Package)
 	title := short + " " + f.Test
@@ -350,8 +363,11 @@ func (g *gate) describeFailure(f testFailure) failure {
 		title = short + " (" + f.Reason + ")"
 	}
 	out := failure{Title: title, Detail: tail(strings.Join(f.Output, "\n"), maxTail)}
-	if line, ok := findFlake(g.roadmap, f.Test); ok {
-		out.Note = fmt.Sprintf("known flake (docs/ROADMAP.md:%d)", line)
+	for _, d := range g.flakeDocs {
+		if line, ok := findFlake(d.lines, f.Test); ok {
+			out.Note = fmt.Sprintf("named in %s:%d (a known flake?)", d.file, line)
+			break
+		}
 	}
 	return out
 }
