@@ -80,6 +80,7 @@ func (r *run) run(patterns []string) (*Result, error) {
 		pkgs = append(pkgs, more...)
 	}
 	r.l = newLoader(pkgs)
+	r.l.useExports(r.dir)
 
 	res := &Result{}
 	var targets []*listPackage

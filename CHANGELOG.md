@@ -13,6 +13,10 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+### Changed
+
+- `tela lint` reads the standard library and the packages it does not lint from the compiled export data in the go command's build cache instead of type-checking them from source; the findings, `-json` and `-fix` are the same, the run over the repository takes about 20% less time, and the lint tests of a process share what they read, which makes them about three times faster. A package that does not compile is still checked from source. The first run after a dependency changed waits for the go command to compile it, as `go vet` does.
+
 ### Fixed
 
 - `telatest`: an app mounted in a parallel test is released once its cleanups ran; Go keeps a parallel test's cleanups until the whole run ends, so every app and its framebuffers stayed alive (a package of parallel tests reached 10 GB).

@@ -20,7 +20,8 @@ import (
 // Package loading: `go list` finds the packages and their files (it applies
 // build constraints and resolves modules), and the standard library parses
 // and type-checks them. The packages to lint are checked with their
-// function bodies; everything they import is checked from source without
+// function bodies; everything they import is read from the go command's
+// export data when it can be (export.go), else checked from source without
 // bodies, once per run and shared by all of them.
 
 // listPackage is the part of `go list -json` that the loader uses.
@@ -101,6 +102,11 @@ type loader struct {
 	state map[string]*state
 	// parsed caches the syntax of target files (with comments), by path.
 	parsed map[string]*parsedFile
+
+	// exported are the packages that gen imports from export data, instead
+	// of this loader checking them (export.go).
+	exported map[string]bool
+	gen      *generation
 }
 
 type state struct {
@@ -237,6 +243,9 @@ func (im importer) Import(path string) (*types.Package, error) {
 	}
 	if m, ok := im.lp.ImportMap[path]; ok {
 		path = m
+	}
+	if im.l.exported[path] {
+		return im.l.gen.Import(path)
 	}
 	lp := im.l.pkgs[path]
 	switch {
