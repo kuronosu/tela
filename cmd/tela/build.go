@@ -22,8 +22,9 @@ import (
 
 const buildUsage = `Usage:
 
-	tela build [-o path] [-id ID] [-name NAME] [-tags list] [-ldflags flags]
-	           [-gcflags flags] [-trimpath] [-v] [pkg]
+	tela build [-o path] [-id ID] [-name NAME] [-version V] [-icon file]
+	           [-console] [-tags list] [-ldflags flags] [-gcflags flags]
+	           [-trimpath] [-v] [pkg]
 
 Builds the program of a package main (default ".") with CGO_ENABLED=0 for
 the target GOOS and GOARCH of the environment, so GOOS=darwin
@@ -47,8 +48,34 @@ them; without an ID the command stops and says so. The name defaults to the
 package's name. The version is the module's, when the build knows it, else
 0.0.0.
 
+When the target is windows, the program is a GUI program: it is linked with
+-H=windowsgui, so Windows opens no console window next to it, and -console
+keeps the console subsystem (for a command-line program; a GUI program has
+no standard output, so Tela apps log to a file instead). The executable
+also gets the app's icon and its version information, the ones Explorer, the
+task bar and Task Manager show: the icon is icon.svg or icon.png (a square
+of 512 px or more) in the package's folder, or the file of -icon, drawn at
+16 to 256 px; the version information has the name (App.Title, or -name),
+the publisher (App.Publisher), the description (App.Description) and the
+version. A package without an icon gets the version information only. They
+are added to the linked executable, so the package's folder is not touched;
+a package that has resources of its own (a .syso file) keeps them and gets
+none from tela.
+
 On any other target the output is the plain executable, like go build, and
 -id and -name are ignored.
+
+The version of the app is the module's, as the go command stamps it from a
+version control tag (v1.2.3, or a pseudo-version after it), or the one -version
+gives (1.2.3, 1.2.3-rc.1), which tela writes into the program with the
+linker's -X flag, merged into the flags of -ldflags (or GOFLAGS), so the
+running program reports it (the update check reads it) and the Info.plist
+and the Windows version information carry it.
+
+The rest of App's declaration (Publisher, Description, Category, Schemes,
+FileTypes, Services) is read the same way, from constants, and is used by
+tela package; a value that is not a constant is an error that says which
+field and how to write it.
 
 Rebuilding an existing bundle writes only what changed, so Launch Services
 keeps seeing the same app, and it keeps the keys a running app added to the
@@ -69,12 +96,20 @@ Flags:
 	               current folder)
 	-id ID         the app's ID (CFBundleIdentifier): letters, digits,
 	               hyphens and periods, such as com.example.notes
-	-name NAME     the app's name (CFBundleName and the bundle's file name)
+	-name NAME     the app's name (CFBundleName and the bundle's file name; the
+	               product name of a Windows executable)
+	-version V     the app's version, such as 1.2.3 or 1.2.3-rc.1, written
+	               into the program (default: the module's version)
+	-icon file     the icon, icon.svg or icon.png (default: the one in the
+	               package's folder)
+	-console       a Windows program keeps the console subsystem (default:
+	               the GUI subsystem)
 	-tags list     build tags, comma-separated, as go build -tags
-	-ldflags f     linker flags, as go build -ldflags
+	-ldflags f     linker flags, as go build -ldflags; tela adds its own
+	               (-X for the version, -H=windowsgui), and yours win for -H
 	-gcflags f     compiler flags, as go build -gcflags
 	-trimpath      remove file system paths from the program, as go build
-	-v             say where the ID and the name came from
+	-v             say where the ID and the name came from, and the icon
 
 The build uses go build's defaults otherwise: no -tags teladev, no stripping.
 GOFLAGS applies as for any go command.
@@ -82,7 +117,7 @@ GOFLAGS applies as for any go command.
 
 const runUsage = `Usage:
 
-	tela run [-id ID] [-name NAME] [-tags list] [-ldflags flags]
+	tela run [-id ID] [-name NAME] [-version V] [-tags list] [-ldflags flags]
 	         [-gcflags flags] [-trimpath] [-v] [pkg [args...]]
 
 Builds the program of a package main (default ".") and runs it, like go
@@ -105,12 +140,16 @@ rebuild writes only what changed.
 
 On the other systems tela run builds the program in a temporary folder and
 runs it; -id and -name are ignored. The target is always the machine's own:
-tela run does not run a cross-built program.
+tela run does not run a cross-built program. On Windows the program keeps the
+console subsystem (tela run is a development command: its output stays in the
+terminal), and it has no icon or version information: tela build adds them.
 
 Flags:
 
 	-id ID         the app's ID (macOS), such as com.example.notes
 	-name NAME     the app's name (macOS)
+	-version V     the app's version, written into the program (see "tela
+	               help build")
 	-tags list     build tags, comma-separated, as go build -tags
 	-ldflags f     linker flags, as go build -ldflags
 	-gcflags f     compiler flags, as go build -gcflags

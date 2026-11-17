@@ -7,8 +7,8 @@
 //	tela lint     [-json] [-tests] [-fix] [packages]
 //	tela dev      [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [-v] [pkg]
 //	tela mcp      [--size WxH] [--scale N] [--dark] [--preview NAME] [-v] [pkg]
-//	tela build    [-o path] [-id ID] [-name NAME] [-tags list] [-ldflags f] [-gcflags f] [-trimpath] [-v] [pkg]
-//	tela run      [-id ID] [-name NAME] [-tags list] [-ldflags f] [-gcflags f] [-trimpath] [-v] [pkg [args...]]
+//	tela build    [-o path] [-id ID] [-name NAME] [-version V] [-icon file] [-console] [-tags list] [-ldflags f] [-gcflags f] [-trimpath] [-v] [pkg]
+//	tela run      [-id ID] [-name NAME] [-version V] [-tags list] [-ldflags f] [-gcflags f] [-trimpath] [-v] [pkg [args...]]
 //	tela icons gen -pkg <name> [-o outdir] [flags] <dir>
 //	tela new      [-module path] [-skip-deps] <dir>
 //	tela version
@@ -60,7 +60,9 @@
 // build builds the program of a package main for the environment's GOOS and
 // GOARCH. For darwin it writes a macOS application bundle, <Name>.app, whose
 // Info.plist names the app's ID (read from the package's tela.App, or -id);
-// elsewhere it writes the plain executable. run builds the same bundle in
+// for windows it writes the executable as a GUI program with the app's icon
+// and version information (ADR-294); elsewhere it writes the plain
+// executable. run builds the same bundle in
 // the user cache folder, under a folder named by the app's ID, and runs the
 // executable inside it with the terminal attached (ADR-224, ADR-227).
 //

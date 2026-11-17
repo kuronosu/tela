@@ -102,10 +102,10 @@ func TestVersionInfo(t *testing.T) {
 	if sig := le.Uint32(root.value); sig != 0xFEEF04BD {
 		t.Errorf("signature %#x", sig)
 	}
-	if ms, ls := le.Uint32(root.value[8:]), le.Uint32(root.value[12:]); ms != 1<<16|2 || ls != 3<<16|0 {
+	if ms, ls := le.Uint32(root.value[8:]), le.Uint32(root.value[12:]); ms != 1<<16|2 || ls != 3<<16 {
 		t.Errorf("file version %#x %#x, want 1.2.3.0", ms, ls)
 	}
-	if ms, ls := le.Uint32(root.value[16:]), le.Uint32(root.value[20:]); ms != 1<<16|2 || ls != 3<<16|0 {
+	if ms, ls := le.Uint32(root.value[16:]), le.Uint32(root.value[20:]); ms != 1<<16|2 || ls != 3<<16 {
 		t.Errorf("product version %#x %#x, want 1.2.3.0", ms, ls)
 	}
 	if len(root.children) != 2 || root.children[0].key != "StringFileInfo" || root.children[1].key != "VarFileInfo" {

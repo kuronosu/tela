@@ -13,6 +13,12 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+### Added
+
+- `tela.App` declares the app for the packaging commands (ADR-294): `Publisher`, `Description`, `Category`, `Schemes`, `FileTypes` (`tela.FileType` with `Ext`, `MIME`, `Description` and `Role`, a `tela.HandlerRole`) and `Services` (`tela.Services`: usage strings for the camera, microphone, location, contacts, calendars, photos and Bluetooth, and booleans for the network, notifications, secrets, global shortcuts and files outside the user's choices). `Run` ignores them, and in dev mode panics with the fix for a malformed scheme or file type; `tela build` reads them from the source like `AppID` and `Title`, and a value that is not a constant is an error that names the field.
+- `tela build`: for Windows targets the program is a GUI program (`-H=windowsgui`; `-console` keeps the console subsystem) and the executable gets the app's icon and version information (`icon.svg` or `icon.png` in the package's folder, or `-icon`; the name, publisher, description and version of the declaration), added to the linked file without touching the package's folder. `tela run` keeps the console.
+- `tela build` and `tela run` take `-version`, written into the program with the linker's `-X` flag (merged into `-ldflags`) for `internal/appver`; the macOS `Info.plist`'s version uses it too.
+
 ## [0.14.6] - 2026-11-17
 
 Work on the dev loop between phases (ADR-290 to ADR-293). It breaks no public API.
