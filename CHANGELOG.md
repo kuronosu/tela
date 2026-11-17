@@ -13,6 +13,11 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+### Fixed
+
+- `telatest`: an app mounted in a parallel test is released once its cleanups ran; Go keeps a parallel test's cleanups until the whole run ends, so every app and its framebuffers stayed alive (a package of parallel tests reached 10 GB).
+- A data race when a value was published during a frame (floating positions, color pickers) while another tree was building on another goroutine, as apps mounted in parallel tests do.
+
 ## [0.14.5] - 2026-11-16
 
 Phase 25, the GPU backend (ADR-281 to ADR-289). It breaks no public API: the GPU renderer is compiled only with the build tag `telagpu`.
