@@ -179,6 +179,7 @@ func TestMenubarSubmenuArrows(t *testing.T) {
 }
 
 func TestNativeContextMenuSubmenu(t *testing.T) {
+	t.Parallel()
 	var log []string
 	page := contextPage(kit.ContextMenu[string]{Native: kit.NativeOn, Items: subItems(&log),
 		OnSelect: func(k string) { log = append(log, "select:"+k) }})

@@ -1,9 +1,12 @@
 package core
 
 import (
+	"context"
+	"maps"
 	"reflect"
 	"slices"
 	"sync"
+	"sync/atomic"
 )
 
 // Hooks keep their state in slots on the component Element being built
@@ -398,7 +401,9 @@ func (t *Tree) ApplyUpdates() bool {
 // ---------------------------------------------------------------------
 // Post.
 
-// posts routes Post to the Tree of the running app.
+// posts routes Post, and the calls that act on the running app (Quit,
+// SetColorScheme, RunningDesktop...), to the Tree of the app they belong
+// to (ADR-292).
 var posts struct {
 	mu     sync.Mutex
 	target *Tree
@@ -406,8 +411,21 @@ var posts struct {
 	// last one is the target. Stopping a receiver hands posts back to
 	// the previous one still receiving (a test that mounts an app while
 	// another is alive).
-	stack   []*Tree
+	stack   []postReceiver
 	pending []update
+	// n is len(stack), read without mu: with one receiver the route
+	// needs no goroutine id.
+	n atomic.Int32
+	// gos maps the goroutines UseGo runs to the Tree of their app.
+	gos map[uint64]*Tree
+}
+
+// postReceiver is a Tree that receives posts and its UI thread: the
+// goroutine that called ReceivePosts (Run's, or the test's that mounted
+// the app).
+type postReceiver struct {
+	t *Tree
+	g uint64
 }
 
 // Post runs fn on the UI thread of the running app, in order with the
@@ -417,8 +435,11 @@ var posts struct {
 // window's tree receive them). Until one does (before Run starts, or in
 // headless trees and tests that do not call ReceivePosts), the functions
 // are kept in order and handed to the next Tree that receives posts.
-// Post is process-wide: when several Trees receive posts at once (tests
-// that mount apps in parallel), the most recent one runs them.
+// When several Trees receive posts at once (tests that mount apps in
+// parallel), a post goes to the one whose UI thread makes it (the newest
+// of them if one goroutine called ReceivePosts for several), or to the
+// app of the UseGo goroutine that makes it; any other post goes to the
+// most recent receiver.
 func Post(fn func()) {
 	if fn == nil {
 		panic("tela: Post(nil): pass the function to run on the UI thread")
@@ -428,24 +449,94 @@ func Post(fn func()) {
 
 // postUpdate queues u like Post queues a function.
 func postUpdate(u update) {
+	g := postCaller()
 	posts.mu.Lock()
 	defer posts.mu.Unlock()
-	if t := posts.target; t != nil {
+	if t := postTargetLocked(g); t != nil {
 		t.enqueue(u)
 		return
 	}
 	posts.pending = append(posts.pending, u)
 }
 
-// ReceivePosts makes t the Tree that runs the functions given to Post: in
-// ApplyUpdates (on a WakeEvent or at the start of a Frame), in order with
-// the state updates. The functions posted before are queued now. stop
-// ends it: posts go back to the previous Tree still receiving them, or
-// wait for the next receiver if there is none.
-func (t *Tree) ReceivePosts() (stop func()) {
+// postCaller returns the id of the calling goroutine when several Trees
+// receive posts (the route depends on it), else 0, without reading the
+// id: an app, with one receiver, never pays for it.
+func postCaller() uint64 {
+	if posts.n.Load() < 2 {
+		return 0
+	}
+	return goid()
+}
+
+// postTargetLocked returns the Tree that a post made by goroutine g
+// (postCaller) goes to, nil when no Tree receives posts. With several
+// receivers it is the newest one whose UI thread is g, else the app of
+// the UseGo goroutine g, else the newest receiver. posts.mu is held.
+func postTargetLocked(g uint64) *Tree {
+	if g != 0 && len(posts.stack) > 1 {
+		for i := len(posts.stack) - 1; i >= 0; i-- {
+			if posts.stack[i].g == g {
+				return posts.stack[i].t
+			}
+		}
+		if t := posts.gos[g]; t != nil {
+			for _, r := range posts.stack {
+				if r.t == t {
+					return t
+				}
+			}
+		}
+	}
+	return posts.target
+}
+
+// postTarget returns the Tree of the running app for the calling
+// goroutine, as Post routes it, or nil; g is the goroutine's id when
+// postCaller read it, else 0.
+func postTarget() (t *Tree, g uint64) {
+	g = postCaller()
 	posts.mu.Lock()
 	defer posts.mu.Unlock()
-	posts.stack = append(posts.stack, t)
+	return postTargetLocked(g), g
+}
+
+// goWithApp runs f, the function of a UseGo, on its goroutine: while it
+// runs, the goroutine's posts go to app, the Tree of the app of the
+// component (postTargetLocked).
+func goWithApp(ctx context.Context, app *Tree, f func(ctx context.Context)) {
+	if app == nil {
+		f(ctx)
+		return
+	}
+	g := goid()
+	posts.mu.Lock()
+	if posts.gos == nil {
+		posts.gos = map[uint64]*Tree{}
+	}
+	posts.gos[g] = app
+	posts.mu.Unlock()
+	defer func() {
+		posts.mu.Lock()
+		delete(posts.gos, g)
+		posts.mu.Unlock()
+	}()
+	f(ctx)
+}
+
+// ReceivePosts makes t the Tree that runs the functions given to Post: in
+// ApplyUpdates (on a WakeEvent or at the start of a Frame), in order with
+// the state updates. The functions posted before are queued now. The
+// calling goroutine is t's UI thread for the routing of posts when several
+// Trees receive them (Post). stop ends it: posts go back to the previous
+// Tree still receiving them, or wait for the next receiver if there is
+// none.
+func (t *Tree) ReceivePosts() (stop func()) {
+	g := goid()
+	posts.mu.Lock()
+	defer posts.mu.Unlock()
+	posts.stack = append(posts.stack, postReceiver{t, g})
+	posts.n.Store(int32(len(posts.stack)))
 	posts.target = t
 	if len(posts.pending) > 0 {
 		pending := posts.pending
@@ -467,16 +558,19 @@ func (t *Tree) ReceivePosts() (stop func()) {
 		}
 		stopped = true
 		for i := len(posts.stack) - 1; i >= 0; i-- {
-			if posts.stack[i] == t {
+			if posts.stack[i].t == t {
 				// slices.Delete clears the vacated slot: the stack does not
 				// keep a stopped Tree (and its app) reachable.
 				posts.stack = slices.Delete(posts.stack, i, i+1)
 				break
 			}
 		}
+		posts.n.Store(int32(len(posts.stack)))
+		// Nor do the goroutines of its UseGo that outlive it.
+		maps.DeleteFunc(posts.gos, func(_ uint64, app *Tree) bool { return app == t })
 		posts.target = nil
 		if n := len(posts.stack); n > 0 {
-			posts.target = posts.stack[n-1]
+			posts.target = posts.stack[n-1].t
 		}
 	}
 }

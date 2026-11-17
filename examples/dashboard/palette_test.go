@@ -21,6 +21,7 @@ var (
 // moves the virtual focus with the arrows while the input keeps the focus,
 // and runs a command with Enter.
 func TestPaletteKeyboard(t *testing.T) {
+	t.Parallel()
 	a := mount(t, windowW, windowH)
 	a.Click(telatest.ByRole("radio", "30D")) // the focus is in the page
 	a.Press("ControlOrMeta+k")

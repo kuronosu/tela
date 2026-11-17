@@ -103,6 +103,7 @@ func TestSidebarTabOrder(t *testing.T) {
 // move the focus, Enter or Space choose, one is always on) and the switch
 // flips with Space.
 func TestHeaderKeyboard(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Gallery{Page: "Button"})
 	a.Press("Tab")
 	a.Expect(telatest.ByRole("radio", "Default"), telatest.Checked(true))

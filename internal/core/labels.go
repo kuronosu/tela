@@ -246,7 +246,9 @@ func (h *Host) syncStrings() {
 }
 
 // WatchStrings keeps the backend's strings current until the returned
-// function is called.
+// function is called. The change is applied on h's UI thread, through its
+// main tree's queue: with several apps in a process (tests in parallel),
+// each host syncs its own backend.
 func (h *Host) WatchStrings() func() {
-	return OnLabelsChanged(func() { Post(h.syncStrings) })
+	return OnLabelsChanged(func() { h.tree.enqueue(update{post: h.syncStrings}) })
 }

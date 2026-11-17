@@ -318,6 +318,7 @@ func TestSliderDragRepaintsOnly(t *testing.T) {
 // the Value moves the knob with no build, and a drag stores its values in
 // it, also with no build.
 func TestSliderValueSource(t *testing.T) {
+	t.Parallel()
 	var pos *tela.Value[float64]
 	builds := 0
 	app := telatest.MountFunc(t, func() tela.Node {

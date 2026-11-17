@@ -277,6 +277,7 @@ func TestToastPauseOnHover(t *testing.T) {
 }
 
 func TestToastActionAndClose(t *testing.T) {
+	t.Parallel()
 	var undone int
 	var dismissed []string
 	app, handle := newToastApp(t, kit.Toaster{Duration: kit.ToastForever, CloseButton: true})
@@ -295,6 +296,7 @@ func TestToastActionAndClose(t *testing.T) {
 }
 
 func TestToastDismissAndAutoCloseCallbacks(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app, handle := newToastApp(t, kit.Toaster{}, telatest.NoSettle())
 	a := handle.Show("A", kit.ToastOnDismiss(func() { log = append(log, "dismiss A") }))

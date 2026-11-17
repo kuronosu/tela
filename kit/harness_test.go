@@ -56,16 +56,17 @@ import (
 // Under -short, sheet.golden checks light at scale 1 and dark at scale 2,
 // and sheet.chromium compares each sheet at one scale (shortScaleIndex).
 //
-// The tests run in parallel (t.Parallel), except those that reach the app
-// through the process's one Post receiver, the Tree mounted last, which a
-// test running beside them would be (a native context menu asks
-// desktop.PopupMenu; a toast's callbacks and a slider's value source run
-// through tela.Post), those that set i18n's locale or fallback, and those
-// of the files that measure time or use package variables
-// (table_perf_test.go, table_sticky_test.go and the internal tests). Go
-// runs the sequential tests first and the parallel ones after them, so the
-// two never overlap. A new test that does one of those things leaves out
-// t.Parallel.
+// The tests run in parallel (t.Parallel), except those that set i18n's
+// locale or fallback (process-wide state), and those of the files that
+// measure time or use package variables (table_perf_test.go,
+// table_sticky_test.go and the internal tests). A native context menu
+// (desktop.PopupMenu), a toast's callbacks and a slider's value source
+// reach their own app through tela.Post from the test's goroutine
+// (ADR-292); a test whose app posts from another goroutine (a plain go
+// statement) would reach the app mounted last, so it stays sequential
+// too. Go runs the sequential tests first and the parallel ones after
+// them, so the two never overlap. A new test that does one of those
+// things leaves out t.Parallel.
 
 // cell is one entry of a sheet.
 type cell struct {

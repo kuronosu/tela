@@ -18,12 +18,11 @@ import (
 // Dev mode is on, so any dev message (an unknown class, a hook misuse, a
 // variant the active style does not define) fails the test.
 //
-// The tests run in parallel (t.Parallel), except those that switch the
-// scheme or the style with the gallery's controls, set i18n's locale or
-// answer a message box (all of them reach the app through the process's
-// one Post receiver, the Tree mounted last, which a test running beside
-// them would be), the damage test and the measurements of work_test.go.
-// Go runs the sequential tests first and the parallel ones after them.
+// The tests run in parallel (t.Parallel), except those that set i18n's
+// locale (process-wide state) and the measurements of work_test.go. The
+// scheme switch (tela.SetColorScheme), the toasts and the message boxes
+// reach their own app from the test's goroutine (ADR-292). Go runs the
+// sequential tests first and the parallel ones after them.
 func mount(t *testing.T, root tela.Component, opts ...telatest.Option) *telatest.App {
 	t.Helper()
 	return telatest.Mount(t, root, append([]telatest.Option{telatest.FromApp(App)}, opts...)...)

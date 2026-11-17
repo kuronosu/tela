@@ -646,8 +646,8 @@ var configs = []struct {
 // the page's rest after them TestIdle's and TestGoesIdle's; the frames of
 // this rig TestPartialFrames' and TestRailHoverRecordsLittle's; and the
 // scratch released at rest core's TestRasterMemoryAfterPalette and
-// TestHostRasterTrim. It is the longest sequential test of the package
-// (it switches the scheme, through tela.Post).
+// TestHostRasterTrim. It is the longest sequential test of the package: it
+// times the frames it reports.
 func TestSession(t *testing.T) {
 	if testing.Short() && os.Getenv("TELA_PERF") == "" {
 		t.Skip("-short: the session's paths are covered by the damage, idle and rig tests (see the comment)")

@@ -11,13 +11,13 @@ import (
 
 const windowW, windowH = 1440, 900
 
-// Most tests of the package run in parallel (t.Parallel). The ones that
-// switch the scheme (tela.SetColorScheme: the theme button, the palette's
-// command, the session) or drop a dragged card (DragState.Drop runs
-// through tela.Post) stay sequential: both reach the app through the
-// process's one Post receiver, the Tree mounted last, which a test
-// running beside them would be. Go runs the sequential tests first and
-// the parallel ones after them, so the two never overlap.
+// The tests of the package run in parallel (t.Parallel), except those
+// that measure time (the session, the GPU's and the dev state's) or memory.
+// A scheme switch (tela.SetColorScheme: the theme button, the palette's
+// command) and a dropped card (DragState.Drop runs through tela.Post)
+// reach their own app, since they are made on the test's goroutine
+// (ADR-292). Go runs the sequential tests first and the parallel ones
+// after them, so the two never overlap.
 
 // mount opens App's window at a size; dev mode is on, so any dev message
 // (an unknown class, a hook misuse) fails the test.
@@ -365,6 +365,7 @@ func TestToast(t *testing.T) {
 // TestThemeSwitch switches the scheme from the top bar and back: the
 // wallpaper and the glass go dark.
 func TestThemeSwitch(t *testing.T) {
+	t.Parallel()
 	a := mount(t, windowW, windowH)
 	light := a.Screenshot().RGBAAt(700, 600)
 	a.Click(telatest.ByRole("button", "Switch theme"))

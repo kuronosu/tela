@@ -354,7 +354,8 @@ func UseTimeout(d time.Duration, f func(), deps ...any) { core.UseTimeoutAfter(d
 // cleanup, when the dependencies change again or the component unmounts,
 // before the next run starts. f must return soon after ctx is done (it is
 // not waited for) and must change the UI only through what is safe from
-// any goroutine: a [Setter], a [Value], [Post].
+// any goroutine: a [Setter], a [Value], [Post] (whose functions go to the
+// component's app).
 //
 //	tela.UseGo(func(ctx context.Context) {
 //	    for page := range fetchPages(ctx, query) {
@@ -657,5 +658,9 @@ func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool, key ...Child
 //
 // Functions posted before [Run] starts run once its window is up. Headless
 // trees (tests, snapshots) do not run posted functions unless they receive
-// them (telatest.Mount does); until then they wait, in order.
+// them (telatest.Mount does); until then they wait, in order. When several
+// apps receive them (tests that mount apps in parallel), a function goes
+// to the app whose UI thread posts it (its handlers, effects and timers:
+// the test's goroutine) or whose [UseGo] goroutine does; one posted from
+// another goroutine goes to the app mounted last.
 func Post(fn func()) { core.Post(fn) }

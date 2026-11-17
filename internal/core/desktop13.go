@@ -68,14 +68,15 @@ func runStartHooks(rs RunStart) bool {
 // app runs. Safe from any goroutine; only Desktop.WarnAnyGoroutine may be
 // called on d off the UI thread.
 func RunningServices() (svc platform.Desktop, d Desktop, onUI, ok bool) {
-	posts.mu.Lock()
-	t := posts.target
-	posts.mu.Unlock()
+	t, g := postTarget()
 	if t == nil || t.wv == nil {
 		return nil, Desktop{}, false, false
 	}
 	h := t.wv.host
-	return h.services, Desktop{h}, h.uiG != 0 && goid() == h.uiG, true
+	if g == 0 && h.uiG != 0 {
+		g = goid()
+	}
+	return h.services, Desktop{h}, h.uiG != 0 && g == h.uiG, true
 }
 
 // WarnAnyGoroutine reports a dev warning once per key, like Warn, from

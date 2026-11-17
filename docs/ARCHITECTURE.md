@@ -224,7 +224,7 @@ tela/
 - **Concurrency:**
   - The whole tree lives on the **UI thread**.
   - State setters and `UseValue.Set` are safe from any goroutine: they enqueue the update and request a frame.
-  - `tela.Post(func())` runs arbitrary code on the UI thread.
+  - `tela.Post(func())` runs arbitrary code on the UI thread; with several apps in a process (parallel tests), on the one whose UI thread or `UseGo` goroutine posts (ADR-292).
 - **Effects:** `UseEffect` runs after the frame is presented; `UseLayoutEffect` after layout, before paint. Cleanups run on unmount or before the effect re-runs.
 - **Reloads:** under `tela dev`, a hook slot is the same slot in the next build when its component's path from the root and its whole hook signature (kind and value type of every hook) are unchanged; then serializable state is kept (ADR-113).
 

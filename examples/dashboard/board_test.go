@@ -138,6 +138,7 @@ func TestStartLayout(t *testing.T) {
 // TestDragToAnotherColumn drags the first card of To do onto the empty end
 // of In progress.
 func TestDragToAnotherColumn(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t)
 	cx, cy := centerOf(a, cardLoc("Fix failed invoice retries"))
 	d := a.Bounds(laneLoc(1))
@@ -158,6 +159,7 @@ func TestDragToAnotherColumn(t *testing.T) {
 // TestDropBetweenCards drops onto a card of another column: the dragged
 // card goes before it.
 func TestDropBetweenCards(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t)
 	a.Drag(cardLoc("Set up the staging pipeline"), cardLoc("Dark mode for the invoice PDF"))
 	want := []string{"Audit color contrast", "Set up the staging pipeline", "Dark mode for the invoice PDF", "Migrate settings to forms", "Publish the API changelog"}
@@ -172,6 +174,7 @@ func TestDropBetweenCards(t *testing.T) {
 
 // TestReorderInsideColumn moves the first card to the end of its column.
 func TestReorderInsideColumn(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t)
 	_, cy := centerOf(a, cardLoc("Fix failed invoice retries"))
 	l := a.Bounds(laneLoc(0))
@@ -184,6 +187,7 @@ func TestReorderInsideColumn(t *testing.T) {
 
 // TestDropOutsideReturnsTheCard releases above the board.
 func TestDropOutsideReturnsTheCard(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t)
 	_, cy := centerOf(a, cardLoc("Review the onboarding emails"))
 	a.DragBy(cardLoc("Review the onboarding emails"), 300, 30-cy)
@@ -212,6 +216,7 @@ func TestClickDoesNotMove(t *testing.T) {
 // each pointer move only repaints it. It is lifted, drawn at the pointer,
 // and nothing builds or lays out.
 func TestCardFollowsThePointer(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t)
 	card := cardLoc("Ship the CSV export")
 	r := a.Bounds(card)
@@ -259,6 +264,7 @@ func TestCardFollowsThePointer(t *testing.T) {
 
 // TestDropTargetFeedback checks the ring on the column under the pointer.
 func TestDropTargetFeedback(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t)
 	cx, cy := centerOf(a, cardLoc("Audit color contrast"))
 	d := a.Bounds(laneLoc(2))
@@ -422,6 +428,7 @@ func TestDeleteAsksFirst(t *testing.T) {
 // TestDeleteEverythingLeavesTheDropHint deletes the cards of a column; a
 // card can still be dragged into it.
 func TestDeleteEverythingLeavesTheDropHint(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t)
 	for _, title := range []string{"Audit color contrast", "Dark mode for the invoice PDF", "Migrate settings to forms", "Publish the API changelog"} {
 		a.Click(actionsOf(title))

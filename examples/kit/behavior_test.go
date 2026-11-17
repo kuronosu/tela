@@ -44,6 +44,7 @@ func TestStylePickerChangesEveryPage(t *testing.T) {
 
 // TestDarkSwitchWithPointer flips the scheme with a click and back.
 func TestDarkSwitchWithPointer(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Gallery{Page: "Card"})
 	a.Click(darkSwitch)
 	a.Expect(darkSwitch, telatest.Checked(true))

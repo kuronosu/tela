@@ -170,6 +170,7 @@ func TestDragMoveRecordsLittle(t *testing.T) {
 // Under -short only every 16th frame, and the last, is compared with a
 // full rendering (damagesample); every frame is still drawn incrementally.
 func TestDragDamage(t *testing.T) {
+	t.Parallel()
 	damagesample.Short(t, 16)
 	app := App
 	app.Root = Previews["2 Board"].Root
