@@ -23,7 +23,7 @@ func lintRun(t *testing.T, args ...string) (code int, stdout, stderr string) {
 }
 
 func TestLintClean(t *testing.T) {
-	t.Parallel()
+	parallelLint(t)
 	needGo(t)
 	code, stdout, stderr := lintRun(t, "./testdata/lint/clean")
 	if code != 0 || stdout != "" || stderr != "" {
@@ -32,7 +32,7 @@ func TestLintClean(t *testing.T) {
 }
 
 func TestLintReportsAndExitsOne(t *testing.T) {
-	t.Parallel()
+	parallelLint(t)
 	needGo(t)
 	code, stdout, stderr := lintRun(t, "./testdata/lint/dirty")
 	if code != 1 {
@@ -59,7 +59,7 @@ func TestLintReportsAndExitsOne(t *testing.T) {
 }
 
 func TestLintJSON(t *testing.T) {
-	t.Parallel()
+	parallelLint(t)
 	needGo(t)
 	code, stdout, _ := lintRun(t, "-json", "./testdata/lint/dirty")
 	if code != 1 {
@@ -97,7 +97,7 @@ func TestLintJSON(t *testing.T) {
 }
 
 func TestLintPatternsAndFlagsInAnyOrder(t *testing.T) {
-	t.Parallel()
+	parallelLint(t)
 	needGo(t)
 	code, stdout, _ := lintRun(t, "./testdata/lint/clean", "-json", "./testdata/lint/dirty")
 	if code != 1 || !strings.HasPrefix(stdout, "[") || !strings.Contains(stdout, "dirty.go") {
@@ -106,7 +106,7 @@ func TestLintPatternsAndFlagsInAnyOrder(t *testing.T) {
 }
 
 func TestLintBrokenPackageExitsTwo(t *testing.T) {
-	t.Parallel()
+	parallelLint(t)
 	needGo(t)
 	code, stdout, stderr := lintRun(t, "./testdata/lint/broken", "./testdata/lint/dirty")
 	if code != 2 {
@@ -121,7 +121,7 @@ func TestLintBrokenPackageExitsTwo(t *testing.T) {
 }
 
 func TestLintUsageErrors(t *testing.T) {
-	t.Parallel()
+	parallelLint(t)
 	code, _, stderr := lintRun(t, "-frobnicate")
 	if code != 2 || !strings.Contains(stderr, "flag provided but not defined") || !strings.Contains(stderr, "tela help lint") {
 		t.Errorf("unknown flag: exit %d, stderr %q", code, stderr)
@@ -148,6 +148,20 @@ func TestLintTestsFlag(t *testing.T) {
 
 // needGo skips a test that runs the go command when there is none: under
 // Wine, and on a Windows machine without Go, the test binary runs alone.
+// lintSlots bounds the lint tests that run at once (parallelLint): each
+// type-checks its packages and their dependencies from source, a few
+// hundred MB of syntax and types.
+var lintSlots = make(chan struct{}, 4)
+
+// parallelLint runs a lint test in parallel with the others, at most
+// cap(lintSlots) at a time; the fixed copies go to directories of their
+// own.
+func parallelLint(t *testing.T) {
+	t.Parallel()
+	lintSlots <- struct{}{}
+	t.Cleanup(func() { <-lintSlots })
+}
+
 func needGo(t *testing.T) {
 	t.Helper()
 	if _, err := exec.LookPath("go"); err != nil {
@@ -156,7 +170,7 @@ func needGo(t *testing.T) {
 }
 
 func TestLintFix(t *testing.T) {
-	t.Parallel()
+	parallelLint(t)
 	needGo(t)
 	dir, err := os.MkdirTemp("testdata/lint", "fix-")
 	if err != nil {
