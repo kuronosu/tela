@@ -58,9 +58,7 @@ func DesktopOf(w WindowHandle) (Desktop, bool) {
 // RunningAppID returns the AppID of the running app (Options.AppID); false
 // when no app runs or its AppID is empty. Safe from any goroutine.
 func RunningAppID() (string, bool) {
-	posts.mu.Lock()
-	t := posts.target
-	posts.mu.Unlock()
+	t, _ := postTarget()
 	if t == nil || t.wv == nil {
 		return "", false
 	}

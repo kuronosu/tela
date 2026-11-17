@@ -35,13 +35,20 @@ func init() {
 // mode); everything else, a root built before Mount or a node made in a
 // goroutine, follows devAny.
 //
-// Go has no goroutine-local storage, and reading the goroutine's id costs
-// a stack header (goid), so the id is only recorded and compared when the
-// process has, or had, Trees of both modes, or one whose mode differs from
-// devAny (devMixed): a release app, or a test binary whose Trees are all
-// in dev mode, never pays for it. buildDev is written before buildG by the
-// owner and read only by a goroutine that finds its own id in buildG,
-// which can only be the owner, so the pair needs no lock.
+// Go has no goroutine-local storage, so the phase is told apart by the
+// stack. It is only looked at when the process has, or had, Trees of both
+// modes, or one whose mode differs from devAny (devMixed), and a phase is
+// recorded (buildG): a release app, or a test binary whose Trees are all
+// in dev mode, never pays for it. The build phases and every component
+// function run inside buildFrame, so a caller that finds buildFrame's
+// frame among the nearest frames of its stack (inBuildFrame, a short
+// runtime.Callers) is the goroutine of the phase, and holds buildMu.
+// Only a stack deeper than that scan without the frame falls back to the
+// goroutine's id (goid, the header of a stack trace, which formats the
+// whole stack: 15 to 60 µs, against about 0.6 µs for the scan). buildDev
+// is written before buildG by the owner and read only by the owner (the
+// goroutine in buildFrame, or one that finds its own id in buildG), so the
+// pair needs no lock.
 var (
 	buildG                     atomic.Uint64 // goid of the goroutine in a build phase, 0 when none is recorded
 	buildDev                   atomic.Bool   // the dev mode of the Tree of that phase
@@ -53,13 +60,64 @@ var (
 // else the process default (devAny).
 func devNow() bool {
 	d := devAny.Load()
-	if !devMixed(d) {
+	if !devMixed(d) || buildG.Load() == 0 {
+		// One mode, or no phase that recorded its own: the default.
 		return d
 	}
-	if g := buildG.Load(); g != 0 && g == goid() {
+	in, known := inBuildFrame()
+	if !known {
+		// A stack deeper than the scan: the goroutine's id decides.
+		g := buildG.Load()
+		in = g != 0 && g == goid()
+	}
+	if in && buildG.Load() != 0 {
+		// The goroutine of the phase: buildG is its own (0 when its
+		// phase recorded nothing, which leaves the default).
 		return buildDev.Load()
 	}
 	return d
+}
+
+// devMaybe reports whether devNow may report true (a Tree in dev mode
+// exists, or it is the default), without looking at the stack: a
+// constructor whose check is cheaper than devNow runs it first when
+// devMaybe, and asks devNow only about a value the check rejects.
+func devMaybe() bool { return devAny.Load() || devTreeSeen.Load() }
+
+// buildScan is how many frames above devNow inBuildFrame looks at. A node
+// constructor called from a component function is a few frames below
+// buildFrame (constructor, helpers, the function, compDesc.run): at most
+// 12 in the tests of kit, aria and examples/kit, measured.
+const buildScan = 16
+
+// buildFrame runs f as the frame devNow looks for: the build phases
+// (withBuildLock) and each component function (build) run inside it, on
+// the goroutine that holds buildMu.
+//
+//go:noinline
+func buildFrame(f func()) { f() }
+
+// buildFramePC is the return address of buildFrame's call of f, as
+// runtime.Callers records it for the frame of buildFrame: the same for
+// every f, since buildFrame makes one call.
+var buildFramePC = func() uintptr {
+	var pc [1]uintptr
+	buildFrame(func() { runtime.Callers(2, pc[:]) })
+	return pc[0]
+}()
+
+// inBuildFrame reports whether the caller of its caller runs inside
+// buildFrame, from the nearest buildScan frames; known is false when the
+// stack is deeper and buildFrame is not among them.
+func inBuildFrame() (in, known bool) {
+	var pcs [buildScan]uintptr
+	n := runtime.Callers(3, pcs[:])
+	for _, pc := range pcs[:n] {
+		if pc == buildFramePC {
+			return true, true
+		}
+	}
+	return false, n < len(pcs)
 }
 
 // DevNow reports whether dev mode is on for code that knows no Tree, such
@@ -88,23 +146,22 @@ func noteTreeDev(dev bool) {
 	}
 }
 
-// lockBuild starts a build phase of t (buildMu), publishing its goroutine
-// for devNow when another mode may be the default. A transition of devAny
-// or of the modes seen while the phase runs (a Tree of the other mode
-// created by another goroutine at that moment) is seen from the next phase
-// on.
-func (t *Tree) lockBuild() {
+// withBuildLock runs f as a build phase of t: under buildMu, inside
+// buildFrame, publishing its goroutine for devNow when another mode may be
+// the default. A transition of devAny or of the modes seen while the phase
+// runs (a Tree of the other mode created by another goroutine at that
+// moment) is seen from the next phase on.
+func (t *Tree) withBuildLock(f func()) {
 	buildMu.Lock()
+	defer func() {
+		buildG.Store(0)
+		buildMu.Unlock()
+	}()
 	if t.dev != devAny.Load() || devMixed(t.dev) {
 		buildDev.Store(t.dev)
 		buildG.Store(goid())
 	}
-}
-
-// unlockBuild ends the build phase lockBuild started.
-func unlockBuild() {
-	buildG.Store(0)
-	buildMu.Unlock()
+	buildFrame(f)
 }
 
 // goid returns the id of the calling goroutine, read from the header of

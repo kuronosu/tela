@@ -79,6 +79,7 @@ func TestScrollDamage(t *testing.T) {
 // (damagesample): each interaction still runs, and what a wrong frame
 // leaves in the window is still found by a later comparison.
 func TestInteractionDamage(t *testing.T) {
+	t.Parallel()
 	damagesample.Short(t, 32)
 	scales := []float64{1.5}
 	if checkEveryScale {

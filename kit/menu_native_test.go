@@ -43,6 +43,7 @@ func nativeMenuPage(log *[]string, edit func(*kit.ContextMenu[string])) func() t
 }
 
 func TestNativeContextMenuFromApp(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := mountContext(t, nativeMenuPage(&log, nil), 480, 320)
 	app.ClickAt(100, 80, telatest.Right())
@@ -112,6 +113,7 @@ func TestNativeContextMenuFromApp(t *testing.T) {
 }
 
 func TestNativeContextMenuOverrides(t *testing.T) {
+	t.Parallel()
 	var log []string
 	// The app asks for native menus; this menu stays drawn.
 	app := telatest.MountFunc(t, nativeMenuPage(&log, func(m *kit.ContextMenu[string]) { m.Native = kit.NativeOff }),
@@ -138,6 +140,7 @@ func TestNativeContextMenuOverrides(t *testing.T) {
 // Where the platform has no native menus the drawn menu opens at once, at
 // the same point, and works as always.
 func TestNativeContextMenuFallsBack(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := mountContext(t, nativeMenuPage(&log, func(m *kit.ContextMenu[string]) { m.Native = kit.NativeOn }), 480, 320)
 	app.Unsupported(telatest.NativeMenus)
@@ -164,6 +167,7 @@ func TestNativeContextMenuFallsBack(t *testing.T) {
 // Shift+F10 and the Menu key open the native menu at the focused element's
 // center, as the drawn one.
 func TestNativeContextMenuFromKeyboard(t *testing.T) {
+	t.Parallel()
 	var log []string
 	for _, key := range []string{"Shift+F10", "ContextMenu"} {
 		app := telatest.MountFunc(t, nativeMenuPage(&log, func(m *kit.ContextMenu[string]) { m.Native = kit.NativeOn }),
@@ -184,6 +188,7 @@ func TestNativeContextMenuFromKeyboard(t *testing.T) {
 
 // A label is a disabled native item, so a menu of labels is still native.
 func TestNativeContextMenuOnlyLabels(t *testing.T) {
+	t.Parallel()
 	app := mountContext(t, contextPage(kit.ContextMenu[string]{
 		Native: kit.NativeOn, Items: []kit.MenuItem[string]{{Kind: kit.MenuLabel, Label: "Nothing"}},
 	}), 480, 320)

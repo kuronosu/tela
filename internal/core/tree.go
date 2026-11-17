@@ -509,8 +509,11 @@ func (t *Tree) Mount(root Node) {
 
 // mountLocked is Mount under the build lock.
 func (t *Tree) mountLocked(root Node) {
-	t.lockBuild()
-	defer unlockBuild()
+	t.withBuildLock(func() { t.mountRoot(root) })
+}
+
+// mountRoot mounts or updates the root (mountLocked).
+func (t *Tree) mountRoot(root Node) {
 	t.chrome.content = nodeOf(root, "the root is")
 	n := t.rootNode() // with the fallback title bar while it is shown (chrome.go)
 	if t.root == nil {
@@ -540,10 +543,10 @@ func (t *Tree) Unmount() {
 	t.FlushEffects()
 	t.resetInput()
 	if t.root != nil {
-		t.lockBuild()
-		t.update(t.root, node{&desc{kind: nodeElement, elem: style.KindRoot, classes: t.rootClasses}})
-		t.resetChrome()
-		unlockBuild()
+		t.withBuildLock(func() {
+			t.update(t.root, node{&desc{kind: nodeElement, elem: style.KindRoot, classes: t.rootClasses}})
+			t.resetChrome()
+		})
 		t.syncModal()
 		t.closeDetached() // the windows opened by code close too (desktop.go)
 		if len(t.winQ) > 0 {
@@ -850,9 +853,10 @@ func (t *Tree) buildPhase() {
 }
 
 // buildLocked is the build phase under the build lock.
-func (t *Tree) buildLocked() {
-	t.lockBuild()
-	defer unlockBuild()
+func (t *Tree) buildLocked() { t.withBuildLock(t.buildQueued) }
+
+// buildQueued builds the queued components (buildLocked).
+func (t *Tree) buildQueued() {
 	// The builds may mount, unmount or exit overlays (overlay.go).
 	defer t.syncModal()
 	for len(t.buildQ) > 0 || t.chrome.check {

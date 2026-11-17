@@ -76,6 +76,58 @@ func TestDevNowConcurrentTrees(t *testing.T) {
 	}
 }
 
+// TestDevNowFindsThePhase: devNow tells the goroutine of a build phase by
+// buildFrame's frame near the caller, and by the goroutine's id when the
+// caller is deeper than the scan: a constructor called shallow or deep in
+// a component function follows its Tree, code of the phase outside any
+// component function too, and another goroutine asking while the phase
+// runs gets the process default.
+func TestDevNowFindsThePhase(t *testing.T) {
+	defer devAny.Store(devAny.Load())
+	if buildFramePC == 0 {
+		t.Fatal("buildFramePC was not found")
+	}
+	// Both modes exist, so devNow looks at the stack.
+	NewTree(Config{Fonts: testFonts, Dev: true, Log: func(string) {}})
+	NewTree(Config{Fonts: testFonts, Log: func(string) {}})
+	var deep func(n int) bool
+	deep = func(n int) bool {
+		if n == 0 {
+			return devNow()
+		}
+		return deep(n - 1)
+	}
+	for _, def := range []bool{true, false} {
+		for _, dev := range []bool{true, false} {
+			devAny.Store(def)
+			tr := NewTree(Config{Fonts: testFonts, Dev: dev, Log: func(string) {}})
+			devAny.Store(def) // a dev Tree turns the default on
+			var shallow, far, other bool
+			tr.Mount(Component(func() Node {
+				shallow, far = devNow(), deep(3*buildScan)
+				ch := make(chan bool)
+				go func() { ch <- devNow() }()
+				other = <-ch
+				return Text("x")
+			}))
+			if shallow != dev || far != dev {
+				t.Errorf("default %v, tree dev %v: in a build devNow = %v, %v deeper than the scan; want the tree's", def, dev, shallow, far)
+			}
+			if other != def {
+				t.Errorf("default %v, tree dev %v: another goroutine during the build got %v, want the default", def, dev, other)
+			}
+			var phase bool
+			tr.withBuildLock(func() { phase = devNow() })
+			if phase != dev {
+				t.Errorf("default %v, tree dev %v: in the phase outside a component devNow = %v", def, dev, phase)
+			}
+			if got := devNow(); got != def {
+				t.Errorf("default %v, tree dev %v: outside the phase devNow = %v", def, dev, got)
+			}
+		}
+	}
+}
+
 // TestSetThemeKeepsWarningDedup: a new theme reports the class errors
 // again (they may differ under it), but not the warnings given once per
 // call site (one mechanism, Tree.once, with class errors on their own).

@@ -68,6 +68,7 @@ func TestOpenOverlaysGoIdle(t *testing.T) {
 // Under -short only every fourth frame, and the last, is compared with a
 // full rendering (damagesample); every frame is still drawn incrementally.
 func TestDamage(t *testing.T) {
+	t.Parallel()
 	damagesample.Short(t, 4)
 	a := mount(t, Gallery{}, telatest.CheckDamage())
 	a.Click(tabFor("Dialog"))

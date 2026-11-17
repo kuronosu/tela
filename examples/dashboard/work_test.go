@@ -38,6 +38,7 @@ func themeSwitch(r *rig) (time.Duration, core.Stats) {
 // every element) restyles and places the boxes but lays nothing out and
 // shapes no text again (ADR-161, ADR-280).
 func TestThemeSwitchWork(t *testing.T) {
+	t.Parallel()
 	r := newRig(t, 1920, 1080, 1, false)
 	r.settle(600)
 	r.rest()

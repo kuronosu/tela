@@ -1154,11 +1154,10 @@ func (h *Host) Handle(w platform.Window) WindowHandle {
 // The default application.
 
 // runningHost returns the Host of the running app (the Tree that receives
-// Post, Run's or telatest's), or an error naming what for.
+// Post, Run's or telatest's, routed like Post), or an error naming what
+// for.
 func runningHost(what string) (*Host, error) {
-	posts.mu.Lock()
-	t := posts.target
-	posts.mu.Unlock()
+	t, g := postTarget()
 	if t == nil || t.wv == nil {
 		return nil, fmt.Errorf("tela: %s needs a running app: call it from a handler or an effect of an app started with tela.Run", what)
 	}
@@ -1166,7 +1165,10 @@ func runningHost(what string) (*Host, error) {
 	if h.ended {
 		return nil, fmt.Errorf("tela: %s after the app quit", what)
 	}
-	if h.uiG != 0 && goid() != h.uiG {
+	if g == 0 && h.uiG != 0 {
+		g = goid()
+	}
+	if h.uiG != 0 && g != h.uiG {
 		panic(fmt.Sprintf("tela: %s called from a goroutine other than the UI thread; call it in a handler or an effect, or from a goroutine with tela.Post(func() { ... })", what))
 	}
 	return h, nil

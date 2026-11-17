@@ -641,7 +641,7 @@ go func() {
 }()
 ```
 
-Functions posted before [`Run`](#func-run) starts run once its window is up. Headless trees (tests, snapshots) do not run posted functions unless they receive them (telatest.Mount does); until then they wait, in order.
+Functions posted before [`Run`](#func-run) starts run once its window is up. Headless trees (tests, snapshots) do not run posted functions unless they receive them (telatest.Mount does); until then they wait, in order. When several apps receive them (tests that mount apps in parallel), a function goes to the app whose UI thread posts it (its handlers, effects and timers: the test's goroutine) or whose [`UseGo`](#func-usego) goroutine does; one posted from another goroutine goes to the app mounted last.
 
 ### func Quit
 
@@ -892,7 +892,7 @@ fmt.Println(title)
 func UseGo(f func(ctx context.Context), deps ...any)
 ```
 
-UseGo runs f on a goroutine of its own after the frame is presented, when its dependencies changed, like [`UseEffect`](#func-useeffect); ctx is cancelled at cleanup, when the dependencies change again or the component unmounts, before the next run starts. f must return soon after ctx is done (it is not waited for) and must change the UI only through what is safe from any goroutine: a [`Setter`](#type-setter), a [`Value`](#type-value), [`Post`](#func-post).
+UseGo runs f on a goroutine of its own after the frame is presented, when its dependencies changed, like [`UseEffect`](#func-useeffect); ctx is cancelled at cleanup, when the dependencies change again or the component unmounts, before the next run starts. f must return soon after ctx is done (it is not waited for) and must change the UI only through what is safe from any goroutine: a [`Setter`](#type-setter), a [`Value`](#type-value), [`Post`](#func-post) (whose functions go to the component's app).
 
 ```go
 tela.UseGo(func(ctx context.Context) {

@@ -68,8 +68,9 @@
 // update, drops the updates of unmounted components, and marks the
 // components whose state changed (not == for comparable types) for
 // building, which requests a frame. Post queues a function on the same
-// queue of the Tree that receives posts (ReceivePosts; Run's tree);
-// until one does, posted functions wait in order.
+// queue of the Tree that receives posts (ReceivePosts; Run's tree; with
+// several, the one of the posting goroutine, ADR-292); until one does,
+// posted functions wait in order.
 //
 // Builds: marking a component needsBuild marks its ancestors dirtyKids.
 // The build phase descends from the root along those marks, so

@@ -66,6 +66,7 @@ func TestIntroductionInAPreview(t *testing.T) {
 // TestIntroductionFollowsTheSchemeAndTheStyle: the page is made of theme
 // tokens, so Dark and the Rounded style reach it without a class of its own.
 func TestIntroductionFollowsTheSchemeAndTheStyle(t *testing.T) {
+	t.Parallel()
 	for _, style := range []string{"default", "rounded"} {
 		light := mount(t, Gallery{Style: style})
 		dark := mount(t, Gallery{Style: style}, telatest.Dark())

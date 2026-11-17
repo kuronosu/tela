@@ -155,16 +155,33 @@ func UseUpdateEffect(effect func() func(), deps ...any) {
 // when its dependencies changed, like UseEffect; the cleanup cancels ctx
 // (when the dependencies change again or the component unmounts) before
 // the next run starts. The goroutine is not waited for: f must return
-// soon after ctx is done.
+// soon after ctx is done. Its posts go to the component's app (Post).
 func UseGo(f func(ctx context.Context), deps ...any) {
 	if f == nil {
 		panic("tela: UseGo(nil, ...): pass the function to run on a goroutine, a func(ctx context.Context) that returns when ctx is done")
 	}
+	var t *Tree
+	if current != nil { // nil: useEffect panics with the fix
+		t = current.tree
+	}
 	useEffect(hookGo, func() func() {
 		ctx, cancel := context.WithCancel(context.Background())
-		go f(ctx)
+		go goWithApp(ctx, t.app(), f)
 		return cancel
 	}, deps)
+}
+
+// app returns the Tree of t's app: the main window's for a window's tree
+// (its Host's), t itself for a Tree without a Host. It runs on t's UI
+// thread.
+func (t *Tree) app() *Tree {
+	if t == nil {
+		return nil
+	}
+	if v := t.wv; v != nil {
+		return v.host.tree
+	}
+	return t
 }
 
 // queueEffects moves the effects recorded by the build of el to the

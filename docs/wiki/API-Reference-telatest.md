@@ -268,7 +268,7 @@ app := telatest.Mount(t, Counter(), telatest.Size(400, 300))
 app := telatest.Mount(t, Card{Title: "Inbox"})
 ```
 
-Mount makes the app receive the functions given to tela.Post, which are delivered to one tree per process: do not mount apps that use Post from parallel tests.
+Mount makes the app receive the functions given to tela.Post, and the calls that act on the running app (tela.SetColorScheme, tela.SetTheme, tela.Quit, package desktop's). Apps of parallel tests each get the ones made on their test's goroutine (their handlers, effects and timers, and the test itself) and by their tela.UseGo goroutines; any other goroutine's go to the app mounted last, so an app that posts from such a goroutine (a plain go statement, a time.AfterFunc) belongs in a test that does not run in parallel.
 
 The windows a tela.Window opens are opened in the headless backend too, by a fake window manager. The returned App is scoped to the main window; [`App.Windows`](#func-app-windows), [`App.Window`](#func-app-window) and [`App.WaitForWindow`](#func-app-waitforwindow) give an App scoped to each of the others, with the same queries, actions, snapshots and goldens (see "Windows" in the package documentation).
 
