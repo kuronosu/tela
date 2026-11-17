@@ -159,3 +159,65 @@ func TestSizeMismatch(t *testing.T) {
 		t.Fatalf("unexpected result: %v", f.errors)
 	}
 }
+
+// TestReadRGBAFastPath checks ReadRGBA's direct premultiplication of a
+// picture that decodes to *image.NRGBA against image.RGBA.Set, for every
+// pair of channel and alpha values.
+func TestReadRGBAFastPath(t *testing.T) {
+	src := image.NewNRGBA(image.Rect(0, 0, 256, 256))
+	for y := range 256 {
+		for x := range 256 {
+			copy(src.Pix[src.PixOffset(x, y):][:4], []uint8{uint8(x), 255 - uint8(x), uint8(x) / 2, uint8(y)})
+		}
+	}
+	path := filepath.Join(t.TempDir(), "nrgba.png")
+	if err := writePNG(path, src); err != nil {
+		t.Fatal(err)
+	}
+	got := ReadRGBA(t, path)
+	want := image.NewRGBA(src.Rect)
+	for y := range 256 {
+		for x := range 256 {
+			want.Set(x, y, src.At(x, y))
+		}
+	}
+	for y := range 256 {
+		for x := range 256 {
+			if g, w := got.RGBAAt(x, y), want.RGBAAt(x, y); g != w {
+				t.Fatalf("at (%d, %d): %v, want %v", x, y, g, w)
+			}
+		}
+	}
+}
+
+// TestToNRGBAFastPaths checks the direct conversions of *image.RGBA and
+// *image.NRGBA against the generic one (color.NRGBAModel), for every pair
+// of channel and alpha values (premultiplied or not) and for sub-images
+// whose origin is not (0, 0).
+func TestToNRGBAFastPaths(t *testing.T) {
+	r := image.Rect(3, -2, 3+256, -2+256)
+	rgba, nrgba := image.NewRGBA(r), image.NewNRGBA(r)
+	for y := range 256 {
+		for x := range 256 {
+			c := uint8(x)
+			px := []uint8{c, 255 - c, c / 2, uint8(y)}
+			copy(rgba.Pix[rgba.PixOffset(r.Min.X+x, r.Min.Y+y):][:4], px)
+			copy(nrgba.Pix[nrgba.PixOffset(r.Min.X+x, r.Min.Y+y):][:4], px)
+		}
+	}
+	for _, img := range []image.Image{rgba, nrgba, rgba.SubImage(image.Rect(10, 5, 200, 90)), nrgba.SubImage(image.Rect(10, 5, 200, 90))} {
+		got := toNRGBA(img)
+		b := img.Bounds()
+		if got.Rect != image.Rect(0, 0, b.Dx(), b.Dy()) {
+			t.Fatalf("%T: bounds %v", img, got.Rect)
+		}
+		for y := range b.Dy() {
+			for x := range b.Dx() {
+				want := color.NRGBAModel.Convert(img.At(b.Min.X+x, b.Min.Y+y)).(color.NRGBA)
+				if g := got.NRGBAAt(x, y); g != want {
+					t.Fatalf("%T at (%d, %d): %v, want %v", img, x, y, g, want)
+				}
+			}
+		}
+	}
+}

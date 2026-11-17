@@ -108,6 +108,10 @@ func Image(t testing.TB, name string, img image.Image, opts ...Option) {
 		return
 	}
 
+	if bytes.Equal(got.Pix, want.Pix) {
+		removeStale(actualPath, diffPath) // identical (both start at (0, 0), same size): nothing to measure
+		return
+	}
 	d := compare(got, want, cfg.maxDelta)
 	if d.count > cfg.maxPixels {
 		writeArtifact(t, actualPath, got)
@@ -126,6 +130,22 @@ func Image(t testing.TB, name string, img image.Image, opts ...Option) {
 func toNRGBA(img image.Image) *image.NRGBA {
 	b := img.Bounds()
 	out := image.NewNRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
+	// The images of the tests (renders, and the goldens image/png decodes)
+	// are *image.RGBA or *image.NRGBA: their rows are converted directly,
+	// with color.NRGBAModel's arithmetic (TestToNRGBAFastPaths), instead of
+	// an interface call and an allocation per pixel.
+	switch src := img.(type) {
+	case *image.NRGBA:
+		for y := 0; y < b.Dy(); y++ {
+			copy(out.Pix[out.PixOffset(0, y):][:4*b.Dx()], src.Pix[src.PixOffset(b.Min.X, b.Min.Y+y):])
+		}
+		return out
+	case *image.RGBA:
+		for y := 0; y < b.Dy(); y++ {
+			unpremulRow(out.Pix[out.PixOffset(0, y):][:4*b.Dx()], src.Pix[src.PixOffset(b.Min.X, b.Min.Y+y):])
+		}
+		return out
+	}
 	for y := 0; y < b.Dy(); y++ {
 		for x := 0; x < b.Dx(); x++ {
 			c := color.NRGBAModel.Convert(img.At(b.Min.X+x, b.Min.Y+y)).(color.NRGBA)
@@ -134,6 +154,30 @@ func toNRGBA(img image.Image) *image.NRGBA {
 		}
 	}
 	return out
+}
+
+// unpremulRow converts the premultiplied pixels of src into the
+// non-premultiplied pixels of dst (len(dst) bytes), as color.NRGBAModel
+// converts a color.RGBA.
+func unpremulRow(dst, src []uint8) {
+	for i := 0; i < len(dst); i += 4 {
+		s := src[i : i+4 : i+4]
+		d := dst[i : i+4 : i+4]
+		switch a := uint32(s[3]); a {
+		case 0xff:
+			d[0], d[1], d[2], d[3] = s[0], s[1], s[2], 0xff
+		case 0:
+			d[0], d[1], d[2], d[3] = 0, 0, 0, 0
+		default:
+			// color.RGBA.RGBA widens each channel to 16 bits (x*0x101), and
+			// the model divides by the widened alpha.
+			a16 := a * 0x101
+			d[0] = uint8((uint32(s[0]) * 0x101 * 0xffff / a16) >> 8)
+			d[1] = uint8((uint32(s[1]) * 0x101 * 0xffff / a16) >> 8)
+			d[2] = uint8((uint32(s[2]) * 0x101 * 0xffff / a16) >> 8)
+			d[3] = uint8(a)
+		}
+	}
 }
 
 type diff struct {
