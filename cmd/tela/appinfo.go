@@ -4,12 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
-	"go/constant"
 	"go/parser"
 	"go/token"
 	"go/types"
 	"path/filepath"
 	"strconv"
+
+	"github.com/kuronosu/tela"
 )
 
 // The app's ID and title for the bundle of tela build and tela run
@@ -23,9 +24,15 @@ import (
 //     the first one that leads to a tela.App literal is the app.
 //  2. Otherwise the package-level var App, resolved the same way.
 //
-// The fields AppID and Title are read as constant strings: string
+// The fields AppID and Title, and the declaration's Publisher, Description
+// and Category (ADR-294), are read as constant strings: string
 // literals, constants (also of the package's own packages, or computed from
-// constants), and concatenations. go/types evaluates them; the packages of
+// constants), and concatenations. Schemes is a slice literal of constant
+// strings, FileTypes a slice literal of tela.FileType literals whose Ext,
+// MIME and Description are constant strings and whose Role is one of
+// tela.HandlerEditor and its siblings, and Services a tela.Services
+// literal of constant strings and booleans (appdecl.go); a package-level
+// variable or a local one that holds such a literal stands for it. go/types evaluates them; the packages of
 // the main module that the package imports are type-checked from source for
 // it, and everything else is replaced by an empty package, since only the
 // constants of the app's own code matter and nothing is compiled. A value
@@ -41,6 +48,16 @@ type appSource struct {
 	// not a constant string.
 	ID, Title       string
 	IDErr, TitleErr error
+
+	// The declaration (ADR-294): the fields that are there and readable.
+	Publisher, Description, Category string
+	Schemes                          []string
+	FileTypes                        []tela.FileType
+	Services                         tela.Services
+	// Errs says, by the name of the field, which of them are there but
+	// cannot be read without running the program (not constants). They are
+	// reported when the build needs the field, never guessed.
+	Errs map[string]error
 }
 
 // telaImportPath is the import path of the tela package.
@@ -137,6 +154,7 @@ func readAppSource(target listedPackage, deps map[string]listedPackage) (appSour
 	out := appSource{Found: true}
 	out.ID, out.IDErr = s.stringField(lit, "AppID")
 	out.Title, out.TitleErr = s.stringField(lit, "Title")
+	s.readDeclaration(lit, &out)
 	return out, nil
 }
 
@@ -237,25 +255,14 @@ func (s *appScan) literal(e ast.Expr, depth int) *ast.CompositeLit {
 // "" and nil when the field is missing, and an error when it is there but
 // not constant.
 func (s *appScan) stringField(lit *ast.CompositeLit, name string) (string, error) {
-	for _, el := range lit.Elts {
-		kv, ok := el.(*ast.KeyValueExpr)
-		if !ok {
-			continue
-		}
-		if k, ok := kv.Key.(*ast.Ident); !ok || k.Name != name {
-			continue
-		}
-		if tv, ok := s.info.Types[kv.Value]; ok && tv.Value != nil && tv.Value.Kind() == constant.String {
-			return constant.StringVal(tv.Value), nil
-		}
-		if bl, ok := kv.Value.(*ast.BasicLit); ok && bl.Kind == token.STRING {
-			if v, err := strconv.Unquote(bl.Value); err == nil {
-				return v, nil
-			}
-		}
-		return "", fmt.Errorf("the %s of the tela.App is not a constant string that tela can read without running the program (a literal, a constant or a concatenation of them)", name)
+	e, ok := fieldExpr(lit, name)
+	if !ok {
+		return "", nil
 	}
-	return "", nil
+	if v, ok := s.constString(e); ok {
+		return v, nil
+	}
+	return "", fmt.Errorf("the %s of the tela.App is not a constant string that tela can read without running the program (a literal, a constant or a concatenation of them)", name)
 }
 
 // sourceImporter resolves the imports of the package whose constants are
