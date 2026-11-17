@@ -382,9 +382,19 @@ if err != nil {
 ```
 
 The callbacks run on the UI thread. `Notify` returns the `ShownNotification`
-(`Close()` withdraws it; its callbacks are not called any more). **Windows shows
-no action buttons** (its notifications are balloons for now), so keep every action
-reachable from the app too; `OnClick` and `OnClose` work.
+(`Close()` withdraws it; its callbacks are not called any more). On Windows 10
+1809 and later a notification is a toast with its actions as buttons; older
+Windows shows balloons without buttons, so keep every action reachable from the
+app too.
+
+The callbacks live as long as the process. On Windows a toast stays in the Action
+Center after the app exits, and clicking it there starts the app again (through a
+COM activator Tela registers for the current user with the app's ID; an MSIX
+package declares it instead). The app starts as it always does, with
+`-ToastActivated` on its command line (COM may add `-Embedding`), so an app that
+parses flags must accept them; the earlier run's callbacks are not called. While
+the app runs, a click on an old toast reaches the running process and starts
+nothing.
 
 ## The tray
 
@@ -549,7 +559,7 @@ freedesktop D-Bus services; on macOS the desktop services are the next phase and
 |---|---|---|
 | File dialogs | Portal `FileChooser` (the `xdg-desktop-portal` service with a backend such as `xdg-desktop-portal-gtk`, `-kde`, `-gnome` or `-wlr`; minimal sessions and containers often lack it); `ErrUnsupported` without a portal, and there is no fallback dialog. On Wayland the dialog is not parented to the window (no exported handle yet) | Common item dialogs |
 | Message boxes | Drawn by Tela (modal window) | The OS's (`MessageBoxW`) |
-| Notifications | `org.freedesktop.Notifications`, with actions | Balloons: no action buttons; each one adds a notification-area icon while it lives |
+| Notifications | `org.freedesktop.Notifications`, with actions | Toasts with actions (Windows 10 1809 and later); a click after the app exited starts it. Before 1809, balloons without buttons, each adding a notification-area icon while it lives |
 | Tray | StatusNotifierItem; `ErrUnsupported` on GNOME without the AppIndicator extension | `Shell_NotifyIconW`; icons are not redrawn on DPI changes |
 | Window position | Wayland: cannot be set or restored without session restore. X11: yes | Yes |
 | Always on top | Not on Wayland | Yes |
