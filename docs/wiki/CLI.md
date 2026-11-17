@@ -49,6 +49,7 @@ CGO_ENABLED=0 go run ./cmd/tela snapshot -o counter.png ./examples/counter
 | `tela mcp` | Serves a package's screen to agents over the Model Context Protocol: snapshot, screenshot, click, fill... on an instance that stays up and rebuilds on edits (see [tela mcp](#tela-mcp)) |
 | `tela build` | Builds a program; for `GOOS=darwin`, as a macOS application bundle `<Name>.app`, for `GOOS=windows` as a GUI program with the app's icon and version information (see [tela build and tela run](#tela-build-and-tela-run)) |
 | `tela run` | Builds a program and runs it, like `go run`; on macOS as a bundle in the user cache, so notifications, URL schemes and the Dock name work |
+| `tela package` | Builds a program for each target and writes its packages: on Linux an AppImage, a deb and a flatpak manifest, the same bytes for the same inputs (see [tela package](#tela-package)) |
 | `tela icons gen` | Generates a Go package of `tela.Icon` variables from a directory of SVG files (see [Icons](Icons)) |
 | `tela version` | Prints the version of the tela module the binary was built from, its VCS revision when known, and the Go version and platform |
 | `tela help [command]` | Shows the help |
@@ -640,6 +641,155 @@ reads) is `-version` when given, else the module's version the go command
 stamps from a version control tag. `-version` is written with the linker's
 `-X` flag, merged into your `-ldflags`; macOS's `Info.plist` and the Windows
 version information carry the same value.
+
+## tela package
+
+```bash
+tela package ./cmd/notes                                  # this machine's GOOS and GOARCH, its default formats
+tela package -os linux -arch amd64,arm64 ./cmd/notes      # dist/notes-1.2.0-linux-amd64.AppImage, .deb, ... for both
+tela package -format flatpak -o out .                     # the flatpak manifest and its folder
+tela package -sign-cmd "gpg --detach-sign --armor" .      # a .asc next to each package
+```
+
+Builds the program of a package `main` as `tela build` does (the same flags:
+`-id`, `-name`, `-version`, `-icon`, `-console`, `-tags`, `-ldflags`, `-gcflags`,
+`-trimpath`, `-v`) for every `-os` with every `-arch` (default: the `GOOS` and
+`GOARCH` of the environment), then writes its packages into `-o` (default
+`./dist`), named `<name>-<version>-<os>-<arch>.<ext>` as
+[`tela update manifest`](Updates) reads them. `<name>` is the last part of the
+app ID, lowercase (`com.example.Notes` gives `notes`), also the installed
+program's name.
+
+| OS | `-format` | Writes |
+|---|---|---|
+| linux | `appimage` (default) | An AppImage on Tela's own runtime, which updates itself with package `update` |
+| linux | `deb` (default) | A Debian package |
+| linux | `flatpak` | A flatpak-builder manifest and the folder it builds from; the `.flatpak` bundle too when `flatpak-builder` and `flatpak` are installed and the target is this machine's architecture |
+| windows | `zip`, `msix` (defaults) | Not implemented yet |
+| darwin | `app` (default), `dmg` | Not implemented yet |
+
+Everything comes from the package's `tela.App`, read from the source as
+`tela build` reads it: `AppID` is required, `Title` is the name, and
+`Publisher`, `Description`, `Category` (a freedesktop.org main category,
+`Utility` by default), `Schemes`, `FileTypes` and `Services` fill the metadata.
+They are checked before anything is built (the schemes and file types as
+`tela.Run` checks them, the category, what each format needs), so a mistake
+costs no build. The icon is `icon.svg` or `icon.png` (512 px or more) in the
+package's folder, or `-icon`. The version is `-version`, else the module's
+version as the go command stamps it, else `0.0.0`.
+
+Each Linux package holds the program as `usr/bin/<name>` and the freedesktop.org
+metadata, written once for all of them:
+
+- `<AppID>.desktop`: `Name`, `Comment` (the description), `Exec` (with `%U` when
+  the app opens files or URLs), `Icon` (the app ID), `Categories`,
+  `StartupWMClass` (the app ID, which Tela sets as the Wayland app ID and the X11
+  class) and `MimeType` (the file types the app opens and
+  `x-scheme-handler/<scheme>` for its schemes);
+- `<AppID>.metainfo.xml`, the AppStream metainfo: ID, name, summary, developer
+  (`Publisher`), the desktop entry it launches, the program and media types it
+  provides, and the release with its version and date (metadata license
+  CC0-1.0);
+- a shared-mime-info package for the file types, `mime/packages/<AppID>.xml`;
+- the icon in the hicolor theme at 16 to 512 px, and the SVG as the scalable
+  one.
+
+**Same bytes.** The same inputs (the program's source, the go toolchain, tela's
+version) give the same files: every time is `SOURCE_DATE_EPOCH` when it is set,
+else the time of the commit the go command stamped into the program, else
+1980-01-01; entries are sorted, owned by root, with fixed modes. The flatpak
+bundle is the exception: flatpak writes it.
+
+### AppImage
+
+The AppImage project's runtime mounts the payload with FUSE and links libfuse3;
+Tela writes its own runtime, in Go, without FUSE. `tela package` builds it from
+the copy of its source in the `tela` command (so it is the runtime of the tela
+that packages), for the target architecture, and writes the AppImage type 2
+layout: the runtime with `AI\x02` at offset 8 and the sections `.upd_info`,
+`.sha256_sig` and `.sig_key` that AppImage tools read (the signature is empty),
+then a squashfs image (version 4.0, zlib) where the ELF file ends. The payload:
+
+```text
+AppRun -> usr/bin/<name>
+<AppID>.desktop
+<AppID>.png, .DirIcon -> <AppID>.png
+usr/bin/<name>
+usr/share/applications/<AppID>.desktop
+usr/share/metainfo/<AppID>.metainfo.xml
+usr/share/mime/packages/<AppID>.xml
+usr/share/icons/hicolor/...
+```
+
+On the first start of a version the runtime checks the payload's SHA-256
+(recorded in its section `.tela_payload`; a damaged or incomplete download is
+refused with a message), extracts it into
+`$XDG_CACHE_HOME/tela-appimage/<AppID>/<version>-<hash>/` (else
+`~/.cache/...`), and `exec`s its `AppRun` with `APPIMAGE`, `APPDIR`, `ARGV0` and
+`OWD` set and the arguments forwarded, so the app's process is the one you
+started. Extraction holds a lock, so a second instance started at the same time
+waits for it, and goes into a temporary folder renamed into place when complete;
+what a crashed start left is removed by the next one. Each later start checks
+the extracted files against a sealed list (types, modes, sizes; a file's content
+only when its time changed) and extracts again when something was changed or
+deleted, then removes the other versions of the app that no running instance
+uses (each instance holds a shared lock on its folder). The options are the
+usual ones: `--appimage-extract [pattern]` (into `./squashfs-root`),
+`--appimage-offset`, `--appimage-updateinformation`, `--appimage-signature`,
+`--appimage-version`, `--appimage-help`, `--appimage-extract-and-run`; there is
+no `--appimage-mount`.
+
+An arm64 AppImage is built from any machine. To run one under `qemu-user` on
+another architecture, start it through `qemu-aarch64` itself: the AppImage magic
+at offset 8 keeps it from matching a `binfmt_misc` entry, as with any AppImage.
+
+### deb
+
+An ar archive of `debian-binary`, `control.tar.gz` and `data.tar.gz`. The
+control file has `Package` (the name), `Version` (the version made valid for
+Debian: `1.2.0-rc.1` is `1.2.0~rc.1`, so it sorts before `1.2.0`),
+`Architecture` (`amd64`, `arm64`, ...), `Maintainer` (`Publisher`: write it as
+`Name <email>`; without one it is `unknown`, and tela says so), `Description`,
+`Section` (from the category), `Priority` and `Installed-Size`; no `Depends`,
+since the program is static. `postinst` and `postrm` run `update-mime-database`
+and `update-desktop-database` when they are installed. apt manages the install,
+so package `update` reports `ErrManaged` there.
+
+### flatpak
+
+`<name>-<version>-linux-<arch>-flatpak/` holds `<AppID>.json`, a flatpak-builder
+manifest for `org.freedesktop.Platform` 25.08 (the Freedesktop SDK of August
+2025, supported until August 2027) whose `simple` build installs the prebuilt
+files of `files/`. The app ID needs three parts or more. The permissions
+(`finish-args`):
+
+| From | Permission |
+|---|---|
+| always | `--socket=wayland`, `--socket=fallback-x11`, `--share=ipc`, `--device=dri`; the tray: `--talk-name=org.kde.StatusNotifierWatcher` and `--own-name=org.kde.*` (Tela's tray item owns `org.kde.StatusNotifierItem-<pid>-<n>`) |
+| `Services.Network` | `--share=network` |
+| `Services.Notifications` | `--talk-name=org.freedesktop.Notifications` |
+| `Services.Secrets` | `--talk-name=org.freedesktop.secrets` |
+| `Services.Files` | `--filesystem=home` |
+| `Services.Microphone` | `--socket=pulseaudio` |
+| `Services.Bluetooth` | `--allow=bluetooth` |
+| `Services.Camera`, `Location`, `GlobalShortcuts` | none: their portals ask the user |
+| `Services.Contacts`, `Calendars`, `Photos` | none: flatpak has no permission for them (tela says so) |
+
+The file chooser, settings, trash and open-URI portals need no permission, and
+flatpak gives the accessibility bus by itself. With `flatpak-builder` and
+`flatpak` installed, `tela package` also runs them to write
+`<name>-<version>-linux-<arch>.flatpak` (for this machine's architecture);
+otherwise it says how. flatpak manages the install, so package `update` reports
+`ErrManaged` there.
+
+### Signing
+
+Linux packages have no signing tool to run: `-sign` does nothing there and says
+so. `-sign-cmd command` runs a command on each file to sign, every package file
+(and, for Windows, each program before it is packaged): an argument `{}` is
+replaced by the file's path, else the path is added at the end. The output says
+`(signed)` or `(unsigned)` after each file; unsigned packages are written all
+the same.
 
 ## tela icons gen
 
