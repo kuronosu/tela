@@ -32,7 +32,7 @@ import (
 const totalBudget = 60 * time.Second
 
 // stepNames lists the steps in the order they are reported.
-var stepNames = []string{"fmt", "vet", "build", "gpu-deps", "staticcheck", "lint", "test", "docs"}
+var stepNames = []string{"fmt", "vet", "build", "gpu-deps", "size", "staticcheck", "lint", "test", "docs"}
 
 type options struct {
 	tests   bool
@@ -178,6 +178,13 @@ type stepResult struct {
 	Commands []commandInfo `json:"commands,omitempty"`
 	Docs     []docCount    `json:"docs,omitempty"`
 	Tests    *testSummary  `json:"tests,omitempty"`
+	Size     *sizeInfo     `json:"size,omitempty"`
+}
+
+// sizeInfo is the size step's measure of the examples/hello binary.
+type sizeInfo struct {
+	Bytes  int64 `json:"bytes"`
+	Budget int64 `json:"budget"`
 }
 
 // runSteps runs the enabled steps concurrently and returns their results
@@ -188,6 +195,7 @@ func (g *gate) runSteps(enabled map[string]bool) []stepResult {
 		"vet":         g.vetStep,
 		"build":       g.buildStep,
 		"gpu-deps":    g.gpuDepsStep,
+		"size":        g.sizeStep,
 		"staticcheck": g.staticcheckStep,
 		"lint":        g.lintStep,
 		"test":        g.testStep,

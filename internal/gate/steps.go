@@ -294,6 +294,41 @@ func (g *gate) gpuDepsStep() stepResult {
 	return r
 }
 
+// sizeBudget is the largest size of the examples/hello binary on
+// linux/amd64, in bytes (ADR-290: 21,548,342 on 2026-11-16). Raising it is
+// a trade: name in an ADR what the bytes bought.
+const sizeBudget = 22_000_000
+
+// sizeStep builds examples/hello for linux/amd64 and checks its size
+// against sizeBudget: what every app pays before its own code.
+func (g *gate) sizeStep() stepResult {
+	dir, err := os.MkdirTemp("", "tela-gate-size")
+	if err != nil {
+		return stepResult{Failures: []failure{{Title: "size", Detail: err.Error()}}}
+	}
+	defer os.RemoveAll(dir)
+	bin := filepath.Join(dir, "hello")
+	o := g.run(goCmd("go build ./examples/hello (linux/amd64)", []string{"GOOS=linux", "GOARCH=amd64"}, "build", "-o", bin, "./examples/hello"))
+	r := stepResult{Commands: cmdInfos([]cmdOut{o})}
+	if !o.ok() {
+		r.Failures = []failure{{Title: o.spec.label, Detail: failureDetail(o)}}
+		return r
+	}
+	fi, err := os.Stat(bin)
+	if err != nil {
+		r.Failures = []failure{{Title: "size", Detail: err.Error()}}
+		return r
+	}
+	r.Size = &sizeInfo{Bytes: fi.Size(), Budget: sizeBudget}
+	if fi.Size() > sizeBudget {
+		r.Failures = []failure{{
+			Title:  "examples/hello is over its size budget",
+			Detail: fmt.Sprintf("%d bytes on linux/amd64, budget %d (sizeBudget in internal/gate/steps.go): find what grew with `go tool nm -size -sort size`", fi.Size(), sizeBudget),
+		}}
+	}
+	return r
+}
+
 func (g *gate) staticcheckStep() stepResult {
 	pkg := "honnef.co/go/tools/cmd/staticcheck@" + staticcheckVersion
 	return g.commandStep([]cmdSpec{

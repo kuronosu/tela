@@ -109,6 +109,9 @@ func printText(w io.Writer, results []stepResult, rep reportData, total time.Dur
 	}
 
 	for _, r := range results {
+		if z := r.Size; z != nil {
+			fmt.Fprintf(w, "\nexamples/hello (linux/amd64): %d / %d bytes\n", z.Bytes, z.Budget)
+		}
 		if r.Docs != nil {
 			fmt.Fprintln(w, "\nWord budgets:")
 			for _, d := range r.Docs {
