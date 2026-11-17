@@ -3,10 +3,9 @@
 // into the files of one kind of package, deterministically.
 //
 // tela package does the build (the one of tela build) and calls the
-// formats; a format only writes files. The formats of Linux are here
-// (appimage, deb and flatpak) and those of macOS (app, dmg, macformats.go).
-// Those of Windows (zip, msix) are registered as not yet written, and
-// replace those entries.
+// formats; a format only writes files. The formats of Linux (appimage,
+// deb, flatpak), Windows (zip, msix) and macOS (app, dmg; macformats.go)
+// are here.
 //
 // Determinism: every file a format writes depends only on the Job. Times
 // are Job.Time, entries are sorted, owners are root (0:0) and modes are
@@ -14,7 +13,6 @@
 package pkgfmt
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -75,6 +73,9 @@ type Job struct {
 	Tool string
 	// Sign signs the files a format produces; see Signer.
 	Sign Signer
+	// ProgramSigned says Sign signed Program before the formats ran (a
+	// Windows executable, SignProgram).
+	ProgramSigned bool
 	// Log receives notes for the person packaging (what was skipped and
 	// why); Verbose says whether to say more.
 	Log     io.Writer
@@ -223,29 +224,14 @@ func (a App) summary() string {
 	return a.Name
 }
 
-// errNotYet is the error of the formats the next step of the phase
-// writes.
-var errNotYet = errors.New("not implemented yet")
-
-// pending is a format that is not written yet.
-type pending struct{ name, goos string }
-
-func (p pending) Name() string { return p.name }
-func (p pending) OS() string   { return p.goos }
-func (p pending) Check(App, Target) error {
-	return fmt.Errorf("the %s format (%s) is %w; package for Linux (-os linux) for now", p.name, p.goos, errNotYet)
-}
-func (p pending) Write(Job) ([]Output, error) { return nil, p.Check(App{}, Target{}) }
-
 func init() {
 	Register(appImageFormat{})
 	Register(debFormat{})
 	Register(flatpakFormat{})
 	Register(appFormat{})
 	Register(dmgFormat{})
-	for _, p := range []pending{{"zip", "windows"}, {"msix", "windows"}} {
-		Register(p)
-	}
+	Register(zipFormat{})
+	Register(NewMSIX(MSIXOptions{}))
 }
 
 // writeOut writes data to dir/name through a temporary file renamed into

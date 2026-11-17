@@ -656,6 +656,8 @@ tela package -os linux -arch amd64,arm64 ./cmd/notes      # dist/notes-1.2.0-lin
 tela package -format flatpak -o out .                     # the flatpak manifest and its folder
 tela package -sign-cmd "gpg --detach-sign --armor" .      # a .asc next to each package
 tela package -os darwin -arch universal .                 # dist/notes-1.2.0-darwin-universal.zip
+tela package -os windows -arch amd64,arm64 \
+  -appinstaller-url https://example.com/notes ./cmd/notes  # zip, msix and .appinstaller for both
 ```
 
 Builds the program of a package `main` as `tela build` does (the same flags:
@@ -672,7 +674,8 @@ program's name.
 | linux | `appimage` (default) | An AppImage on Tela's own runtime, which updates itself with package `update` |
 | linux | `deb` (default) | A Debian package |
 | linux | `flatpak` | A flatpak-builder manifest and the folder it builds from; the `.flatpak` bundle too when `flatpak-builder` and `flatpak` are installed and the target is this machine's architecture |
-| windows | `zip`, `msix` (defaults) | Not implemented yet |
+| windows | `zip` (default) | The program in a folder, which updates itself with package `update` |
+| windows | `msix` (default) | An MSIX package, and its `.appinstaller` file with `-appinstaller-url` |
 | darwin | `app` (default) | The bundle `<Name>.app` in a zip, which updates itself with package `update` |
 | darwin | `dmg` | A disk image with the bundle and a link to `/Applications`, made by `hdiutil`: on a Mac only |
 
@@ -846,6 +849,82 @@ reaches only the files the user picks through the system's own dialogs, cannot
 register global shortcuts, and cannot have its schemes and file types
 registered the way Tela does; a sandboxed variant is later work. The other
 services need no entitlement outside the sandbox.
+### Windows zip
+
+`<name>-<version>-windows-<arch>.zip` holds one folder:
+
+```text
+<name>/<name>.exe          the program, as tela build makes it (GUI, icon, version information)
+<name>/tela-install.json   the install's marker for package update
+```
+
+The marker is [`update.Marker`](https://pkg.go.dev/github.com/kuronosu/tela/update#Marker):
+the format `zip`, the app ID, the version, the program and the entries the
+package put in the folder. Unpacked anywhere the user can write, the folder is
+an install that updates itself: package `update` finds the marker next to the
+running program and replaces only the entries it lists, so files the user adds
+to the folder stay.
+
+### MSIX
+
+`<name>-<version>-windows-<arch>.msix` is written in Go, as the MSIX SDK's
+packer writes one: the program, the tiles `Assets/Square44x44Logo.png`,
+`Square150x150Logo.png` and `StoreLogo.png` (drawn from the icon; a gray square
+without one), `AppxManifest.xml`, `AppxBlockMap.xml` (the SHA-256 of every
+64 KiB block of every file and of the manifest, each block deflated on its own)
+and `[Content_Types].xml`, in a zip with no folders or data descriptors and the
+zip64 end records. The manifest comes from the declaration:
+
+| Element | From |
+|---|---|
+| `Identity` | `Name` the app ID (3 to 50 characters), `Version` the version as four numbers (`1.2.3` is `1.2.3.0`; a pre-release or build metadata has no place in it, which tela says, and Windows updates only to a higher version), `ProcessorArchitecture` `x64`, `arm64` or `x86`, `Publisher` (below) |
+| `Properties` | `DisplayName` the name, `PublisherDisplayName` `App.Publisher` without an e-mail in angle brackets (else the name), `Logo` the store logo |
+| `Dependencies` | `Windows.Desktop` from 10.0.17763.0 (Windows 10 1809, the first with toasts for desktop apps), tested on 10.0.26100.0 |
+| `Application` | `App`, the program with `EntryPoint="Windows.FullTrustApplication"`, its tiles and description |
+| `Extensions` | a `uap:Protocol` per scheme (lowercase), a `uap:FileTypeAssociation` per MIME type the app opens (types of role `HandlerNone` have none), the toast activator: a `com:ExeServer` of the program with `-ToastActivated` and the class `ToastActivatorCLSID(AppID)`, named in `desktop:ToastNotificationActivation` (ADR-297) |
+| `Capabilities` | `runFullTrust` always, and from `App.Services`: |
+
+| Service | Capability |
+|---|---|
+| `Network` | `internetClient` |
+| `Contacts` | `uap:Capability contacts` |
+| `Calendars` | `uap:Capability appointments` |
+| `Photos` | `uap:Capability picturesLibrary` |
+| `Files` | `rescap:Capability broadFileSystemAccess` |
+| `Camera`, `Microphone`, `Location`, `Bluetooth` | `DeviceCapability` `webcam`, `microphone`, `location`, `bluetooth` |
+| `Notifications`, `Secrets`, `GlobalShortcuts` | none: desktop programs need none |
+
+Windows starts the program with the URL (for a scheme) or the file's path (for a
+file type) as its argument, as it does for an install that registered them.
+
+**The publisher.** An MSIX's `Publisher` is a distinguished name that must be
+the subject of the certificate that signs it: give it with
+`-msix-publisher "CN=Example Ltd, O=Example Ltd, C=US"`. Without the flag it is
+`CN=<App.Publisher>` (quoted when it holds `,+="<>#;`), and when `-sign` does
+not sign the package with signtool, tela adds Windows 11's mark of unsigned
+packages, `OID.2.25.311729368913984317654407730594956997722=1`, so it installs
+without a signature:
+
+```powershell
+Add-AppxPackage -AllowUnsigned .\notes-1.2.0-windows-amd64.msix
+```
+
+Such a package cannot be signed afterwards (its publisher is no certificate's
+subject): package again with `-msix-publisher` to sign.
+
+**Updates.** With `-appinstaller-url <URL>`, the URL of the folder where the
+files are published, tela also writes `<name>-windows-<arch>.appinstaller`, the
+same name for every version: its `Uri` is `<URL>/<name>-windows-<arch>.appinstaller`
+and its package's `<URL>/<name>-<version>-windows-<arch>.msix`. People install
+from it (App Installer opens it from a link or a file), and Windows checks it
+for a higher version at each start of the app (`OnLaunch` with
+`HoursBetweenUpdateChecks="0"`, without a prompt: the update is installed when
+the app is not running) and every 8 hours (`AutomaticBackgroundTask`). Publish
+the new `.msix` and the new `.appinstaller` over the old one for each release.
+App Installer installs only signed packages, and the server must send the files
+with their types (`application/msix`, `application/appinstaller`). package
+`update` reports `ErrManaged` in an MSIX install: the `.appinstaller` updates
+it. Without the flag, tela says that no `.appinstaller` was written.
 
 ### Signing
 
@@ -889,6 +968,31 @@ codesign --verify --deep --strict --verbose=2 "/tmp/n/Notes.app"
 spctl --assess --type execute --verbose=2 "/tmp/n/Notes.app"   # Gatekeeper: "Notarized Developer ID"
 xcrun stapler validate "/tmp/n/Notes.app"
 ```
+so. For Windows targets on a Windows machine, `-sign` runs `signtool` (from
+`PATH`, else the newest Windows SDK) on each program, after its icon and version
+information are added and before it goes into the zip and the MSIX, and on each
+MSIX once it is written:
+
+```text
+signtool sign /fd SHA256 /tr <-timestamp-url> /td SHA256 <certificate> <file>
+```
+
+| Flag | Certificate |
+|---|---|
+| `-cert-file f.pfx` | `/f f.pfx`, with `-cert-password-file f` read into `/p` (signtool takes the password on its command line) |
+| `-cert-sha1 hash` | `/sha1 hash`: the certificate of that thumbprint in the store |
+| neither | `/a`: the best certificate signtool finds in the store |
+| `-timestamp-url URL` | the RFC 3161 time-stamp server, by default `http://timestamp.digicert.com` |
+
+The zip itself is not signed by signtool; the output says that its program is.
+On Linux and macOS signtool is not available, which tela says: sign with
+`-sign-cmd` and a signer that runs there, such as
+[jsign](https://ebourg.github.io/jsign/), which signs executables and MSIX
+packages in place. `-sign-cmd command` runs a command on each file to sign, every package file
+(and, for Windows, each program before it is packaged): an argument `{}` is
+replaced by the file's path, else the path is added at the end. The output says
+`(signed)` or `(unsigned)` after each file; unsigned packages are written all
+the same.
 
 ## tela icons gen
 
