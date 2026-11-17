@@ -47,9 +47,14 @@ func heading(text string) telatest.Locator { return telatest.ByRole("heading", t
 
 // TestPreviewsRenderClean mounts every preview, in both schemes, with dev
 // mode on: no unknown class, hook misuse or undefined variant on any page.
+// Under -short each preview is mounted in one scheme, light and dark in
+// turn.
 func TestPreviewsRenderClean(t *testing.T) {
-	for _, name := range Previews.Names() {
-		for _, s := range schemes {
+	for i, name := range Previews.Names() {
+		for j, s := range schemes {
+			if testing.Short() && j != i%len(schemes) {
+				continue
+			}
 			t.Run(name+"/"+s.name, func(t *testing.T) {
 				a := mount(t, Previews[name], s.opts...)
 				if got := a.Count(telatest.ByRole("heading", "")); got == 0 {
@@ -63,9 +68,13 @@ func TestPreviewsRenderClean(t *testing.T) {
 // TestEveryPageInBothStyles opens the whole gallery on each page in each
 // style and scheme: the second style must define every variant and size
 // the pages use. The Introduction draws its own heading, a headline.
+// Under -short each page is opened in one style, the two in turn.
 func TestEveryPageInBothStyles(t *testing.T) {
-	for _, p := range sidebar() {
-		for _, style := range []string{"default", "rounded"} {
+	for i, p := range sidebar() {
+		for j, style := range []string{"default", "rounded"} {
+			if testing.Short() && j != i%2 {
+				continue
+			}
 			t.Run(p.Name+"/"+style, func(t *testing.T) {
 				a := mount(t, Gallery{Page: p.Name, Style: style}, telatest.Dark())
 				a.Expect(tabFor(p.Label), telatest.Selected(true))
@@ -81,10 +90,14 @@ func TestEveryPageInBothStyles(t *testing.T) {
 
 // TestEveryPageInEveryLanguage opens every page in Spanish and in Arabic
 // (right to left) with dev mode on: nothing breaks when the language or the
-// direction changes, whatever the page.
+// direction changes, whatever the page. Under -short each page is opened
+// in one of them, Spanish and Arabic in turn.
 func TestEveryPageInEveryLanguage(t *testing.T) {
-	for _, p := range sidebar() {
-		for _, tag := range languages[1:] {
+	for i, p := range sidebar() {
+		for j, tag := range languages[1:] {
+			if testing.Short() && j != i%len(languages[1:]) {
+				continue
+			}
 			t.Run(p.Name+"/"+tag, func(t *testing.T) {
 				a := mount(t, Gallery{Page: p.Name, Locale: tag})
 				a.Expect(tabFor(p.Label), telatest.Selected(true))

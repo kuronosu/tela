@@ -15,9 +15,14 @@ import (
 // The pages chosen are the ones with no animation running (a skeleton or an
 // indeterminate bar would pulse), and between them they cover the kit's text
 // fields, choices, dates, color, tables and tabs.
+//
+// Under -short each page is checked in one scheme, light and dark in turn.
 func TestGolden(t *testing.T) {
-	for _, name := range []string{"Gallery", "Gallery Rounded", "Introduction", "Button", "Card", "Field", "Calendar", "Table", "Tabs", "ColorPicker", "Select", "ToggleGroup", "TitleBar"} {
-		for _, s := range schemes {
+	for i, name := range []string{"Gallery", "Gallery Rounded", "Introduction", "Button", "Card", "Field", "Calendar", "Table", "Tabs", "ColorPicker", "Select", "ToggleGroup", "TitleBar"} {
+		for j, s := range schemes {
+			if testing.Short() && j != i%len(schemes) {
+				continue
+			}
 			t.Run(fmt.Sprintf("%s/%s", name, s.name), func(t *testing.T) {
 				a := mount(t, Previews[name], s.opts...)
 				a.GoldenScales(fmt.Sprintf("kit_%s_%s", slug(name), s.name), 1)

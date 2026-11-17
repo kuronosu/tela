@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kuronosu/tela/internal/testutil/damagesample"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -61,7 +62,11 @@ func TestOpenOverlaysGoIdle(t *testing.T) {
 // (telatest.CheckDamage): the page changes of the sidebar, the style and
 // scheme switches (every class of the window changes), a modal dialog, a
 // menu and a toast entering and leaving.
+//
+// Under -short only every fourth frame, and the last, is compared with a
+// full rendering (damagesample); every frame is still drawn incrementally.
 func TestDamage(t *testing.T) {
+	damagesample.Short(t, 4)
 	a := mount(t, Gallery{}, telatest.CheckDamage())
 	a.Click(tabFor("Dialog"))
 	a.Click(telatest.ByRole("button", "Edit profile"))
