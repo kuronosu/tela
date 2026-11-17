@@ -22,9 +22,6 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-env:
-  STATICCHECK_VERSION: "2026.2.2"
-
 jobs:
   lint:
     name: lint (gofmt, vet, staticcheck)
@@ -35,56 +32,18 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: gofmt
-        run: |
-          unformatted="$(gofmt -l .)"
-          if [ -n "$unformatted" ]; then
-            echo "not gofmt-formatted:"
-            echo "$unformatted"
-            exit 1
-          fi
-      - name: go vet (linux)
+      - name: gate (gofmt, vet, build, staticcheck, tela lint, word budgets)
+        # The same program agents and the owner run locally, minus the tests
+        # (the test jobs below run them): `go run ./internal/gate`. It pins
+        # staticcheck, runs the telagpu vets and builds, and checks that a
+        # build without telagpu does not link the GPU path (ADR-281, ADR-290).
+        run: go run ./internal/gate -tests=false
+      - name: GPU backend tests (build tag telagpu, ADR-281)
+        # Without a GPU the device tests skip; the binding layouts, the
+        # encoder and core's GPU logic against fake devices still run.
         env:
           CGO_ENABLED: "0"
-        run: go vet ./...
-      - name: go vet (windows)
-        env:
-          CGO_ENABLED: "0"
-          GOOS: windows
-        run: go vet ./...
-      - name: go vet (darwin)
-        env:
-          CGO_ENABLED: "0"
-          GOOS: darwin
-        run: go vet ./...
-      - name: staticcheck
-        env:
-          CGO_ENABLED: "0"
-        run: |
-          go install honnef.co/go/tools/cmd/staticcheck@${STATICCHECK_VERSION}
-          staticcheck ./...
-      - name: GPU backend (build tag telagpu, ADR-281)
-        # The GPU path is compiled only with the tag. Without a GPU the
-        # device tests skip; the binding layouts, the encoder and core's
-        # GPU logic against fake devices still run.
-        env:
-          CGO_ENABLED: "0"
-        run: |
-          go vet -tags telagpu ./...
-          GOOS=windows go vet -tags telagpu ./...
-          GOOS=darwin go build -tags telagpu ./...
-          GOARCH=arm64 go build -tags telagpu ./...
-          staticcheck -tags telagpu ./internal/... .
-          go test -tags telagpu ./internal/vk/... ./internal/gfx/gpu/...
-          if go list -deps ./examples/hello | grep -E 'gfx/gpu|internal/vk|purego'; then
-            echo "a build without telagpu links the GPU path"; exit 1
-          fi
-      - name: tela lint
-        # The static form of the dev-mode checks (ADR-173): classes, roles,
-        # aria tokens, keys and hooks in the repository's own source.
-        env:
-          CGO_ENABLED: "0"
-        run: go run ./cmd/tela lint ./...
+        run: go test -tags telagpu ./internal/vk/... ./internal/gfx/gpu/...
 
   build:
     name: build ${{ matrix.goos }}/${{ matrix.goarch }}

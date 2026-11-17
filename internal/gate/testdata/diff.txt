@@ -1,0 +1,89 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 1111111..2222222 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -30,3 +30,2 @@ jobs:
+-      - name: gofmt
++      - name: gate
+diff --git a/internal/gate/main.go b/internal/gate/main.go
+new file mode 100644
+index 0000000..3333333
+--- /dev/null
++++ b/internal/gate/main.go
+@@ -0,0 +1,2 @@
++package main
++var _ = os.Getenv("TELA_GATEFIXTURE_NEW")
+diff --git a/docs/adr/290-gate.md b/docs/adr/290-gate.md
+new file mode 100644
+index 0000000..4444444
+--- /dev/null
++++ b/docs/adr/290-gate.md
+@@ -0,0 +1 @@
++# ADR-290
+diff --git a/docs/notes.md b/docs/notes.md
+new file mode 100644
+index 0000000..5555555
+--- /dev/null
++++ b/docs/notes.md
+@@ -0,0 +1 @@
++notes
+diff --git a/docs/ROADMAP.md b/docs/ROADMAP.md
+index 6666666..7777777 100644
+--- a/docs/ROADMAP.md
++++ b/docs/ROADMAP.md
+@@ -1 +1 @@
+-old
++new
+diff --git a/AGENTS.md b/AGENTS.md
+index 8888888..9999999 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -1 +1 @@
+-old
++new
+diff --git a/internal/gfx/gpu/compare_test.go b/internal/gfx/gpu/compare_test.go
+index aaaaaaa..bbbbbbb 100644
+--- a/internal/gfx/gpu/compare_test.go
++++ b/internal/gfx/gpu/compare_test.go
+@@ -10 +10 @@ func x() {
+-	tol := 2
++	tol := 9
+diff --git a/internal/core/thing.go b/internal/core/thing.go
+index ccccccc..ddddddd 100644
+--- a/internal/core/thing.go
++++ b/internal/core/thing.go
+@@ -5,0 +6,4 @@ func f() {
++	v := os.Getenv("TELA_GATEFIXTURE_NEW")
++	w := os.Getenv("TELA_GATEFIXTURE_KNOWN")
++	t.Skip("no GPU here")
++	x := f() //lint:ignore SA1019 reason
+@@ -20,2 +24,1 @@ func f() {
+-	t.Skipf("was skipped %d", 1)
+-	//tela:ignore unknown-class
++	// unrelated
+diff --git a/internal/core/gone.go b/internal/core/gone.go
+deleted file mode 100644
+index eeeeeee..0000000
+--- a/internal/core/gone.go
++++ /dev/null
+@@ -1,2 +0,0 @@
+-package core
+-var _ = os.Getenv("TELA_GATEFIXTURE_OLD")
+diff --git a/internal/style/testdata/a.png b/internal/style/testdata/a.png
+index ffffffff..00000000 100644
+Binary files a/internal/style/testdata/a.png and b/internal/style/testdata/a.png differ
+diff --git a/testdata/new.png b/testdata/new.png
+new file mode 100644
+index 0000000..1111111
+Binary files /dev/null and b/testdata/new.png differ
+diff --git a/internal/style/testdata/gone.png b/internal/style/testdata/gone.png
+deleted file mode 100644
+index 2222222..0000000
+Binary files a/internal/style/testdata/gone.png and /dev/null differ
+diff --git a/README.md b/README.md
+index 1..2 100644
+--- a/README.md
++++ b/README.md
+@@ -1 +1 @@
+-x
++y

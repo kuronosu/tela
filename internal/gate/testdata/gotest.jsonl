@@ -1,0 +1,49 @@
+{"Action":"start","Package":"m/a"}
+{"Action":"run","Package":"m/a","Test":"TestOK"}
+{"Action":"pass","Package":"m/a","Test":"TestOK","Elapsed":0.5}
+{"Action":"run","Package":"m/a","Test":"TestSub"}
+{"Action":"run","Package":"m/a","Test":"TestSub/good"}
+{"Action":"pass","Package":"m/a","Test":"TestSub/good","Elapsed":0.01}
+{"Action":"run","Package":"m/a","Test":"TestSub/native"}
+{"Action":"output","Package":"m/a","Test":"TestSub/native","Output":"=== RUN   TestSub/native\n"}
+{"Action":"output","Package":"m/a","Test":"TestSub/native","Output":"    sub_test.go:12: batch too early\n"}
+{"Action":"output","Package":"m/a","Test":"TestSub/native","Output":"    --- FAIL: TestSub/native (2.00s)\n"}
+{"Action":"fail","Package":"m/a","Test":"TestSub/native","Elapsed":2}
+{"Action":"output","Package":"m/a","Test":"TestSub","Output":"--- FAIL: TestSub (2.01s)\n"}
+{"Action":"fail","Package":"m/a","Test":"TestSub","Elapsed":2.01}
+{"Action":"run","Package":"m/a","Test":"TestPlain"}
+{"Action":"output","Package":"m/a","Test":"TestPlain","Output":"    plain_test.go:3: got 1, want 2\n"}
+{"Action":"fail","Package":"m/a","Test":"TestPlain","Elapsed":0.2}
+{"Action":"run","Package":"m/a","Test":"TestSkipped"}
+{"Action":"skip","Package":"m/a","Test":"TestSkipped","Elapsed":0}
+{"Action":"output","Package":"m/a","Output":"FAIL\n"}
+{"Action":"output","Package":"m/a","Output":"FAIL\tm/a\t2.72s\n"}
+{"Action":"fail","Package":"m/a","Elapsed":2.72}
+{"Action":"start","Package":"m/b"}
+{"Action":"run","Package":"m/b","Test":"TestFast"}
+{"Action":"pass","Package":"m/b","Test":"TestFast","Elapsed":9}
+{"Action":"output","Package":"m/b","Output":"PASS\n"}
+{"Action":"output","Package":"m/b","Output":"ok  \tm/b\t(cached)\n"}
+{"Action":"pass","Package":"m/b","Elapsed":9.5}
+{"Action":"output","Package":"m/c","Output":"?   \tm/c\t[no test files]\n"}
+{"Action":"skip","Package":"m/c","Elapsed":0}
+{"Action":"start","Package":"m/d"}
+{"Action":"run","Package":"m/d","Test":"TestPanics"}
+{"Action":"run","Package":"m/d","Test":"TestSlowParallel"}
+{"Action":"output","Package":"m/d","Output":"panic: boom [recovered]\n"}
+{"Action":"output","Package":"m/d","Output":"FAIL\tm/d\t0.31s\n"}
+{"Action":"fail","Package":"m/d","Elapsed":0.31}
+{"ImportPath":"m/e [m/e.test]","Action":"build-output","Output":"# m/e [m/e.test]\n"}
+{"ImportPath":"m/e [m/e.test]","Action":"build-output","Output":"e_test.go:5:2: undefined: nope\n"}
+{"ImportPath":"m/e [m/e.test]","Action":"build-fail"}
+{"Action":"start","Package":"m/e"}
+{"Action":"output","Package":"m/e","Output":"FAIL\tm/e [build failed]\n"}
+{"Action":"fail","Package":"m/e","Elapsed":0,"FailedBuild":"m/e [m/e.test]"}
+{"Action":"start","Package":"m/f"}
+{"Action":"run","Package":"m/f","Test":"TestSlow"}
+{"Action":"pass","Package":"m/f","Test":"TestSlow","Elapsed":4.5}
+{"Action":"run","Package":"m/f","Test":"TestQuick"}
+{"Action":"pass","Package":"m/f","Test":"TestQuick","Elapsed":0.1}
+{"Action":"output","Package":"m/f","Output":"ok  \tm/f\t4.700s\n"}
+{"Action":"pass","Package":"m/f","Elapsed":4.7}
+go: some stray line that is not JSON
