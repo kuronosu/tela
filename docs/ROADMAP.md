@@ -79,6 +79,7 @@ Inspecting and driving a running app.
 - [ ] Counted budgets in the gate (ADR-290; `examples/hello` and `examples/kit` are idle once settled, `internal/testutil/idle`): the dashboard asks for no frame and no timer once settled; builds, layouts and paints per hover, key and scroll frame of the dashboard; allocations per steady frame (the `examples/hello` binary's 22 MB is the gate's `size` step)
 - [ ] Timed budgets at phase close, a table in ARCHITECTURE §18: cold start to first frame (hello, kit; Wayland and X11), the `tela dev` swap, `VirtualList` p95 at 100,000 rows, dashboard frames over 16.7 ms (CPU, RTX 3060 Ti, UHD 630), `gpu.Open`; the README's numbers come from that table
 - [ ] The gate after an edit of a package nothing depends on: under 10 s (the gate does not check it)
+- [ ] The gate after an edit of `internal/core` (2026-11-16, 12 threads): 46 s when its exported API is unchanged, 122 s when it changes (vet of 7 targets and 24 test binaries rebuilt). What is left: `examples/dashboard`'s `-short` tests take 54 s because those that reach the one process-wide Post receiver (scheme switches, dropped cards, toasts, `i18n.SetLocale`) stay sequential (a telatest option to not receive posts, or per-app routing, needs an ADR); `core.goid` (`runtime.Stack` in `devNow` once a NoDev tree exists) is about 6% of kit's test CPU; `internal/lint` type-checks every dependency from source on each run
 
 **Done when:** each item has a test that failed before it, on Linux and Windows CI.
 
