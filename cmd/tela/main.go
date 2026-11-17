@@ -11,6 +11,7 @@
 //	tela run      [-id ID] [-name NAME] [-tags list] [-ldflags f] [-gcflags f] [-trimpath] [-v] [pkg [args...]]
 //	tela icons gen -pkg <name> [-o outdir] [flags] <dir>
 //	tela new      [-module path] [-skip-deps] <dir>
+//	tela update   keygen|sign|manifest [flags]
 //	tela version
 //
 // snapshot and inspect render a package headlessly: the package defines func Preview()
@@ -95,6 +96,7 @@ Commands:
 	run         build a program and run it; on macOS, as a bundle
 	new         create a new Tela app in a directory
 	icons       generate a Go package of tela.Icon variables from SVG files
+	update      make signing keys, update manifests and their signatures
 	version     print the tela version
 	help        show this help
 
@@ -133,6 +135,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runNew(args[1:], stdout, stderr)
 	case "version":
 		return runVersion(args[1:], stdout, stderr)
+	case "update":
+		return runUpdate(args[1:], stdout, stderr)
 	case "help", "-h", "-help", "--help":
 		if len(args) > 1 {
 			switch args[1] {
@@ -170,6 +174,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 			case "version":
 				fmt.Fprint(stdout, versionUsage)
 				return 0
+			case "update":
+				return runUpdate(append([]string{"help"}, args[2:]...), stdout, stderr)
 			default:
 				fmt.Fprintf(stderr, "tela: unknown help topic %q; run \"tela help\" for the list of commands\n", args[1])
 				return 2
