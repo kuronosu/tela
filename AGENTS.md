@@ -33,6 +33,8 @@ Fixes and work between phases are released the same way, with the same rule for 
 - **Respect layer dependency rules** (ARCHITECTURE §5). Nothing in `internal/` becomes public without an ADR.
 - **Everything in English:** code, comments, commits and docs.
 - **Visual work is tested with headless goldens.** When you change rendering, generate a snapshot and look at it.
+- **Three attempts per failure (ADR-290).** After three failed fixes, stop and report each attempt (hypothesis, change, result) with a way out: a test that reproduces it, a roadmap task, or a decision for the main session. Regenerating goldens, raising a tolerance, skipping a test, lengthening a timeout or retrying inside a test is descoping, reported as such. The main session delegates one failure at most three times, then asks the owner.
+- **Apparatus by approval (ADR-290).** Remove apparatus freely; add it only with the owner's approval (a subagent: when its brief asks): CI jobs, tools, agent instructions, `TELA_*` switches, skips, lint ignores, tolerance overrides, documents.
 - **Pushing (ADR-220).** By default nothing is pushed: the owner pushes. When the owner allows it in a session, the main session may push commits to a work branch (never `main`) to run CI there, and watch the runs with `gh` (`gh run watch`, `gh run view --log-failed`). Never push tags, never force-push, never push `main`; merging the branch into `main` stays local, and the owner pushes it. Subagents never push.
 
 ## Delegation (Claude Code)
@@ -53,7 +55,7 @@ Main-session workflow per task:
 1. **Plan.** Split the phase into tasks of a size worth a fresh agent (one package or one algorithm). Don't delegate tiny edits; do them directly.
 2. **Brief.** Give each agent a self-contained prompt: goal, files/packages in scope, the ARCHITECTURE sections to read (agents always read §1–§5 and §19, then only those, ADR-219), done criteria. Agents start without conversation context.
 3. **Sequence.** Run agents sequentially by default, because layers depend on each other. Run in parallel only for independent packages, each with `isolation: "worktree"`, then integrate.
-4. **Verify.** Never accept a report at face value: rerun the build/vet/test/cross-compile commands below and look at any snapshot.
+4. **Verify.** Never accept a report at face value: rerun the gate and look at any snapshot and changed golden.
 5. **Record.** Update `docs/ROADMAP.md` yourself, or via `tela-chore`.
 
 If an agent reports a design conflict, the main session decides. If the decision changes ARCHITECTURE, record it as an ADR.
@@ -61,18 +63,12 @@ If an agent reports a design conflict, the main session decides. If the decision
 ## Commands
 
 ```bash
-CGO_ENABLED=0 go build ./...
-CGO_ENABLED=0 go vet ./...
-CGO_ENABLED=0 staticcheck ./...                     # lint; config in staticcheck.conf
-CGO_ENABLED=0 go test ./...
+CGO_ENABLED=0 go run ./internal/gate                # the gate: every check but the full suite (ADR-290)
+CGO_ENABLED=0 go test ./...                         # the full suite: end of a batch, phase close
 TELA_UPDATE=1 CGO_ENABLED=0 go test ./...           # regenerate goldens (review the diff)
 TELA_LIVE=1 CGO_ENABLED=0 go test ./internal/platform/...  # tests that open real windows
 CGO_ENABLED=1 go test -race -timeout 30m ./internal/core/... . ./internal/platform/...  # race detector (verification only; internal/core takes ~15 min)
 CGO_ENABLED=0 GOARCH=arm64 go test -short -timeout 40m -exec qemu-aarch64-static ./internal/gfx/...  # pixel determinism (ADR-027)
-
-# Cross-compilation (must always build)
-CGO_ENABLED=0 GOOS=windows go build ./...
-CGO_ENABLED=0 GOOS=darwin  go build ./...
 
 # Windows via Wine (if installed)
 CGO_ENABLED=0 GOOS=windows go test -exec wine ./...

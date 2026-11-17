@@ -29,15 +29,14 @@ You implement one well-scoped task in Tela, a pure-Go desktop UI framework.
 
 ## Before finishing
 
-Run:
+Run the gate (ADR-290: fmt, vet and build for every system, staticcheck, `tela lint`, `go test -short`), then the full tests of the packages you changed:
 
 ```bash
-CGO_ENABLED=0 go build ./...
-CGO_ENABLED=0 go vet ./...
-CGO_ENABLED=0 go test ./...
-CGO_ENABLED=0 GOOS=windows go build ./...
-CGO_ENABLED=0 GOOS=darwin go build ./...
+CGO_ENABLED=0 go run ./internal/gate
+CGO_ENABLED=0 go test ./<package you changed>/...
 ```
+
+Both must pass. Look at every golden the gate lists as changed. If a fix fails three times, stop and report it (AGENTS.md, "Three attempts per failure").
 
 ## Report
 
@@ -45,3 +44,4 @@ CGO_ENABLED=0 GOOS=darwin go build ./...
 2. The exact test/build commands you ran, with their results. Include failures verbatim.
 3. Deviations from ARCHITECTURE, and why.
 4. Open issues and suggested next steps.
+5. The gate's "Needs owner approval" list, each item with why the task needed it, and every failure you stopped on, with its attempts (hypothesis, change, result).

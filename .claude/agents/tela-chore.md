@@ -16,14 +16,12 @@ You do one small, mechanical task in Tela, a pure-Go desktop UI framework.
 
 ## Before finishing
 
-If you changed Go code, run:
+If you changed Go code, run the gate (ADR-290); it must pass:
 
 ```bash
-CGO_ENABLED=0 go build ./...
-CGO_ENABLED=0 go vet ./...
-CGO_ENABLED=0 go test ./...
+CGO_ENABLED=0 go run ./internal/gate
 ```
 
 ## Report
 
-What you changed (files) and the command results, in a few lines.
+What you changed (files) and the command results, in a few lines, with the gate's "Needs owner approval" list if it has one.

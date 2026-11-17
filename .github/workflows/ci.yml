@@ -37,6 +37,8 @@ jobs:
         # (the test jobs below run them): `go run ./internal/gate`. It pins
         # staticcheck, runs the telagpu vets and builds, and checks that a
         # build without telagpu does not link the GPU path (ADR-281, ADR-290).
+        env:
+          CGO_ENABLED: "0"
         run: go run ./internal/gate -tests=false
       - name: GPU backend tests (build tag telagpu, ADR-281)
         # Without a GPU the device tests skip; the binding layouts, the
