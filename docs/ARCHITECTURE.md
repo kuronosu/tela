@@ -616,6 +616,15 @@ This is also a design constraint:
   - Wine is not real Windows (DPI, DWM, IME and accessibility differ), so CI also runs the tests on `windows-latest` on every push and pull request, and weekly.
 - **macOS:** with the macOS backend, `macos-latest` runners, with `cocoa` backend snapshots to validate presentation (today CI only cross-compiles for darwin).
 - **Benchmarks:** typical-scene raster (dashboard, long scrolling list, heavy blur), 10k-node layout, paragraph shaping. Regressions are tracked.
+- **Timed budgets** (ADR-290): medians of 2026-11-17 on the owner's i5-10400 (12 threads), RTX 3060 Ti, UHD 630, Hyprland 0.56.2. A regression is a roadmap task; a raise needs an ADR.
+
+| Budget | Measured | Rerun |
+|---|---|---|
+| Release start to window shown: hello ≤ 40 ms, kit ≤ 55 | Wayland 35, 49; X11 32, 49 | `TELA_LIVE=1 go test -run TestLiveColdStart -v ./examples/hello` |
+| `gpu.Open` ≤ 110 ms | RTX 95, UHD 76 | its `telagpu` rows minus `cpu` |
+| `tela dev` swap ≤ 0.7 s | 0.65 s | `-run TestDevEndToEnd -v ./cmd/tela` |
+| `VirtualList` 100k p95 ≤ 2.5 ms | 2.15 | `-bench 'ScrollP95Virtual100k$' -benchtime 1200x ./internal/core` |
+| Dashboard 2880x1800 x2, frames > 16.7 ms of 704: CPU ≤ 110, RTX ≤ 4, UHD ≤ 32 | 104, 2, 27; p50/p95 4.4/26.4, 1.2/4.5, 5.1/15.7 ms | `TELA_PERF=1 go test -tags telagpu -run TestSessionPerfGPU -v ./examples/dashboard` |
 
 ## 19. Conventions
 

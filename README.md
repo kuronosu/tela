@@ -75,12 +75,12 @@ error.
 - **Fast when it matters, silent when it doesn't.** Frames on demand, 0% CPU
   when idle, layers with exact damage tracking, and phase-deferred values that
   repaint or relayout one element without rebuilding anything. A 100,000-row
-  `VirtualList` scrolls with a p95 of 2.3 ms per frame on the CPU rasterizer.
+  `VirtualList` scrolls with a p95 of 2.2 ms per frame on the CPU rasterizer.
 - **Observable.** Everything renders headlessly and can be inspected as an
   aria snapshot or a layout tree. Errors teach:
   `unknown class "rounded-xxl"; did you mean "rounded-2xl"?`.
 - **Fast to iterate.** `tela dev` rebuilds in the background and swaps the new
-  build into the same window in about half a second, with your hook state,
+  build into the same window in about 0.65 s, with your hook state,
   text, scroll and focus kept.
 
 ## A first look
@@ -196,8 +196,9 @@ tasks as a sortable `kit.Table` (a finished task slides to the end with
 table; a command palette (Ctrl+K) and tooltips built directly on `aria` hooks
 (`UseOverlay`, `UseDialog`, `UseCombobox`, `UseTooltipTrigger`,
 `UseFloating`); `LayoutID` pills, toasts and a theme switch. It is the screen
-of the GPU backend's criterion: the CPU rasterizer does not draw it
-at 60 fps at scale 2. Its benchmarks and its "glass budget" are in its README.
+of the GPU backend's criterion: at 2880x1800 (scale 2) 104 of the 704
+frames of its session take the CPU rasterizer over 16.7 ms, 2 on an RTX
+3060 Ti and 27 on a UHD 630 with `-tags telagpu`. Its benchmarks and its "glass budget" are in its README.
 
 <p align="center">
   <img src="docs/images/dashboard.png" alt="dashboard example, light" width="49%">
@@ -355,7 +356,7 @@ Because the whole pipeline is headless, a loop of *write → `tela snapshot` →
 look at the PNG → `tela inspect` → fix* needs no window and no human. Unknown
 classes come with suggestions, and `tela inspect --layout` prints boxes as
 JSON. For people, `tela dev ./yourapp` reloads the open window on every save in
-about half a second, keeping its state: hooks, text fields, scroll and focus
+about 0.65 s, keeping its state: hooks, text fields, scroll and focus
 (see the [CLI](docs/wiki/CLI.md#tela-dev) page). `tela lint ./...` reports
 unknown classes, roles and ARIA values, duplicate keys and misused hooks in the
 source, with the same suggestions, so they fail in CI. `tela mcp ./yourapp`
@@ -433,7 +434,8 @@ overlays; the `tela` CLI (`snapshot`, `inspect`, `dev`, `icons gen`).
   notifications, links and file types need the app to run from a bundle
   (`tela run`, or a `.app` from `tela build`).
 - **Glass pages at 2x are not 60 fps** on CPU (the dashboard example's p95 is
-  40 ms per frame at 1080p and scale 2, 17.8 ms at scale 1).
+  26 ms per frame at 2880x1800 and scale 2, with 104 of 704 frames over
+  16.7 ms).
 - Transforms are 2D only; SVG has no text, filters or patterns; no
   `grid-template-areas` from classes; menus have no submenus yet.
 - In `tela dev` an IME composition is lost across a reload, and a renamed
