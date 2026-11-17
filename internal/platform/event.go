@@ -331,6 +331,14 @@ type NotificationEvent struct {
 	Kind NotificationEventKind
 	// Action is the NotificationAction.ID for NotificationActionInvoked.
 	Action string
+	// Earlier marks a click on a notification an earlier process of the
+	// app showed (contract v15, ADR-297): Win32's toasts stay in the
+	// Action Center after the app exits, and a click on one starts the app
+	// through its COM activator, or reaches the running one. ID and Action
+	// are that process's, so they name none of this process's
+	// notifications; Kind is NotificationActivated or
+	// NotificationActionInvoked. Only Win32 sends it.
+	Earlier bool
 }
 
 // TrayEventKind is what happened to a tray icon.

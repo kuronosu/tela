@@ -155,6 +155,9 @@ func (b *Backend) Run(h platform.Handler) error {
 	b.ran = true
 	b.handler = h
 	defer b.shutdown()
+	// The class object of the toast activator: COM calls it through this
+	// loop (ADR-297).
+	b.serveToastActivator()
 
 	b.pump() // the ConfigureEvents queued by NewWindow
 	for !b.loop.Quitting() && !b.failed {

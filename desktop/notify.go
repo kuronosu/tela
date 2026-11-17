@@ -19,9 +19,9 @@ type Notification struct {
 	// Icon is the notification's image, the same picture at one or more
 	// sizes; empty uses the app's icon.
 	Icon []image.Image
-	// Actions are buttons on the notification. Windows shows none (its
-	// balloon notifications have no buttons): keep every action reachable
-	// from the app too.
+	// Actions are buttons on the notification. Windows before 10 1809
+	// shows none (its balloon notifications have no buttons): keep every
+	// action reachable from the app too.
 	Actions []NotificationAction
 	// OnClick runs when the user clicks the notification itself.
 	OnClick func()
@@ -80,6 +80,14 @@ func (n ShownNotification) Close() error {
 // [ErrUnsupported])), where the app should show the news itself. Tests
 // read the notifications with telatest's App.Notifications and click them
 // with App.ClickNotification.
+//
+// The callbacks live as long as the process. On Windows a notification
+// stays in the Action Center after the app exits, and clicking it there
+// starts the app again (its main window opens as at any start; while a
+// process of the app runs, the click reaches it instead): the process
+// started so has "-ToastActivated" on its command line, and COM may add
+// "-Embedding", so an app that parses flags must accept them. The
+// callbacks of the earlier run are not called.
 func Notify(n Notification) (ShownNotification, error) {
 	if n.Title == "" {
 		panic("desktop.Notify: the Notification has no Title; give it a short summary, such as desktop.Notification{Title: \"Export finished\", Body: \"notes.pdf was saved.\"}")
@@ -128,7 +136,10 @@ func (ns *notifications) forget(id platform.NotificationID) { delete(ns.shown, i
 // does not follow.
 func (ns *notifications) event(e platform.Event) {
 	ne, ok := e.(platform.NotificationEvent)
-	if !ok {
+	if !ok || ne.Earlier {
+		// A click on an earlier run's toast (Windows, ADR-297): its
+		// callbacks went with that process, and its ID may be one of
+		// this run's.
 		return
 	}
 	n, ok := ns.shown[ne.ID]

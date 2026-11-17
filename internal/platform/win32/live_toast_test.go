@@ -3,9 +3,13 @@
 package win32
 
 import (
+	"flag"
 	"fmt"
 	"image/color"
 	"os"
+	"path/filepath"
+	"slices"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -13,6 +17,7 @@ import (
 	winreg "golang.org/x/sys/windows/registry"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/assoc"
 )
 
 // Live tests of the WinRT toasts (toast_windows.go). They need an attended
@@ -32,6 +37,10 @@ func liveToastBackend(t *testing.T) *Backend {
 	names, _ := hkcuRegistry{}.ValueNames(key)
 	if names == nil {
 		t.Cleanup(func() { _ = winreg.DeleteKey(winreg.CURRENT_USER, key) })
+	}
+	server := clsidKeyPrefix + "{" + assoc.ToastActivatorCLSID(liveToastAppID) + "}"
+	if names, _ := (hkcuRegistry{}).ValueNames(server); names == nil {
+		t.Cleanup(func() { deleteRegistryTree(t, server) })
 	}
 	b := liveBackend(t)
 	b.Desktop().SetAppID(liveToastAppID)
@@ -207,5 +216,125 @@ func TestLiveToastClick(t *testing.T) {
 	}
 	if fmt.Sprint(events) != fmt.Sprint(want) {
 		t.Errorf("events = %+v, want %+v", events, want)
+	}
+}
+
+// TestLiveToastActivator shows a toast and ends Run, as an app that exits
+// with its toast still on screen or in the Action Center, and checks the
+// registration that lets a click start the app again (ADR-297): the
+// CLSID's LocalServer32 command and Tela's marker, and the AUMID's
+// CustomActivator. With TELA_LIVE_CLICK=1 it asks a person to click the
+// toast's "Second" button within 60 s: COM starts this test binary again
+// (TestLiveToastActivatedChild), whose Run gets the click as an Earlier
+// NotificationEvent and writes it to a file this test reads.
+func TestLiveToastActivator(t *testing.T) {
+	click := os.Getenv("TELA_LIVE_CLICK") == "1"
+	result := filepath.Join(t.TempDir(), "activated.txt")
+	if click {
+		exe, err := os.Executable()
+		if err != nil {
+			t.Fatal(err)
+		}
+		// The child test: flag.Args() after "--" are what the app would
+		// see after its executable (COM may append -Embedding).
+		old := toastActivatorCommand
+		toastActivatorCommand = func() (string, error) {
+			return `"` + exe + `" -test.run=^TestLiveToastActivatedChild$ -test.v -- ` + assoc.ToastActivatorFlag + ` "` + result + `"`, nil
+		}
+		t.Cleanup(func() { toastActivatorCommand = old })
+	}
+	b := liveToastBackend(t)
+	d := b.Desktop()
+	var (
+		started atomic.Bool
+		id      platform.NotificationID
+	)
+	runLive(t, b, openWindow(t, b), func(w platform.Window, e platform.Event) {
+		if _, ok := e.(platform.FrameEvent); !ok {
+			return
+		}
+		presentSolid(t, w, color.RGBA{G: 160, B: 255, A: 255})
+		if started.Swap(true) {
+			return
+		}
+		var err error
+		if id, err = d.Notify(liveToast("Click \"Second\" after this window closed")); err != nil {
+			t.Errorf("Notify: %v", err)
+		} else if b.desk.toast.entries[id] == nil {
+			t.Errorf("the notification was a balloon (%v): this test needs Windows 10 1809 or later", b.desk.toast.err)
+		}
+		b.Quit() // the app exits; its toast stays
+	})
+	if t.Failed() {
+		return
+	}
+	if b.desk.activator.clsid != "" {
+		t.Errorf("the class object is still registered after Run")
+	}
+	reg := hkcuRegistry{}
+	clsid := assoc.ToastActivatorCLSID(liveToastAppID)
+	server := clsidKeyPrefix + "{" + clsid + "}"
+	want, _ := toastActivatorCommand()
+	if v, ok, err := reg.String(server+`\LocalServer32`, ""); !ok || err != nil || v != want {
+		t.Errorf("HKCU\\%s\\LocalServer32 = %q, %v, %v; want %q", server, v, ok, err, want)
+	}
+	if _, ok, _ := reg.String(server, aumidMarker); !ok {
+		t.Errorf("HKCU\\%s has no %s", server, aumidMarker)
+	}
+	aumidKey := aumidKeyPrefix + toastAUMID(liveToastAppID)
+	if v, ok, err := reg.String(aumidKey, customActivatorValue); !ok || err != nil || v != "{"+clsid+"}" {
+		t.Errorf("HKCU\\%s\\%s = %q, %v, %v; want {%s}", aumidKey, customActivatorValue, v, ok, err, clsid)
+	}
+	if !click {
+		return
+	}
+	t.Logf("click the button \"Second\" of the toast %d (on screen or in the Action Center) within 60 s", id)
+	wantEvent := fmt.Sprint([]platform.NotificationEvent{{ID: id, Kind: platform.NotificationActionInvoked, Action: "second", Earlier: true}})
+	for deadline := time.Now().Add(60 * time.Second); time.Now().Before(deadline); time.Sleep(250 * time.Millisecond) {
+		if _, err := os.Stat(result); err != nil {
+			continue
+		}
+		time.Sleep(250 * time.Millisecond) // the child may still be writing
+		data, _ := os.ReadFile(result)
+		got, cmdline, _ := strings.Cut(string(data), "\n")
+		if got != wantEvent {
+			t.Errorf("the process COM started reported %s, want %s (its command line: %s)", got, wantEvent, cmdline)
+		}
+		return
+	}
+	t.Errorf("no process reported the click within 60 s (COM runs: %s)", want)
+}
+
+// TestLiveToastActivatedChild is the app COM starts for
+// TestLiveToastActivator's click; it skips in any other run. Its Run
+// registers the activator of the test's app ID, waits up to 30 s for the
+// click, and writes the NotificationEvents and its command line to the
+// file named after the flag.
+func TestLiveToastActivatedChild(t *testing.T) {
+	args := flag.Args()
+	i := slices.Index(args, assoc.ToastActivatorFlag)
+	if i < 0 || i+1 >= len(args) {
+		t.Skip("started by COM for TestLiveToastActivator only")
+	}
+	result := args[i+1]
+	b, err := New()
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	b.Desktop().SetAppID(liveToastAppID)
+	timer := time.AfterFunc(30*time.Second, b.Quit)
+	defer timer.Stop()
+	var events []platform.NotificationEvent
+	err = b.Run(platform.HandlerFunc(func(_ platform.Window, e platform.Event) {
+		if ne, ok := e.(platform.NotificationEvent); ok {
+			events = append(events, ne)
+			time.AfterFunc(time.Second, b.Quit) // a second report would show
+		}
+	}))
+	if err != nil {
+		t.Errorf("Run: %v", err)
+	}
+	if err := os.WriteFile(result, []byte(fmt.Sprint(events)+"\n"+strings.Join(os.Args, " ")), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
