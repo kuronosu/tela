@@ -90,6 +90,7 @@ func expectEntersUpwards(t *testing.T, frames []gfx.Rect, final gfx.Rect) {
 }
 
 func TestContextMenuFlippedAboveIsStyledForItsSideInTheFirstFrame(t *testing.T) {
+	t.Parallel()
 	app := mountMenuRaw(t, roomPage, 600, 400)
 	frames, final := app.pressFrames(platform.ButtonSecondary, 100, 350, "menu", 8)
 	if final.Y1 > 350.5 {
@@ -99,6 +100,7 @@ func TestContextMenuFlippedAboveIsStyledForItsSideInTheFirstFrame(t *testing.T) 
 }
 
 func TestDropdownMenuFlippedAboveIsStyledForItsSideInTheFirstFrame(t *testing.T) {
+	t.Parallel()
 	page := func() tela.Node {
 		return h.Div(h.Class("relative h-full w-full"), h.Div(h.Class("absolute bottom-4 left-20"), kit.DropdownMenu[string]{
 			AriaLabel: "More",
@@ -117,6 +119,7 @@ func TestDropdownMenuFlippedAboveIsStyledForItsSideInTheFirstFrame(t *testing.T)
 }
 
 func TestPopoverFlippedAboveIsStyledForItsSideInTheFirstFrame(t *testing.T) {
+	t.Parallel()
 	page := func() tela.Node {
 		return h.Div(h.Class("relative h-full w-full"), h.Div(h.Class("absolute bottom-4 left-20"), kit.Popover{
 			AriaLabel: "More",

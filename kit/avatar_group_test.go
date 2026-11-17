@@ -37,7 +37,10 @@ func avatarGroupSheet() *sheet {
 	}}
 }
 
-func TestAvatarGroupGolden(t *testing.T) { avatarGroupSheet().golden(t) }
+func TestAvatarGroupGolden(t *testing.T) {
+	t.Parallel()
+	avatarGroupSheet().golden(t)
+}
 
 func avatarColorSheet() *sheet {
 	var cells []cell
@@ -55,9 +58,13 @@ func avatarColorSheet() *sheet {
 	return &sheet{name: "avatar_color", slot: 64, cells: cells}
 }
 
-func TestAvatarColorGolden(t *testing.T) { avatarColorSheet().golden(t) }
+func TestAvatarColorGolden(t *testing.T) {
+	t.Parallel()
+	avatarColorSheet().golden(t)
+}
 
 func TestAvatarGroupRTLGolden(t *testing.T) {
+	t.Parallel()
 	s := avatarGroupSheet()
 	s.name, s.rtl = "avatar_group_rtl", true
 	s.cells = s.cells[:3]
@@ -65,6 +72,7 @@ func TestAvatarGroupRTLGolden(t *testing.T) {
 }
 
 func TestAvatarInitials(t *testing.T) {
+	t.Parallel()
 	for name, want := range map[string]string{
 		"Mei Tanaka":           "MT",
 		"ada lovelace":         "AL",
@@ -83,6 +91,7 @@ func TestAvatarInitials(t *testing.T) {
 }
 
 func TestAvatarNameIsTheFallbackAndTheAlt(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Avatar{Name: "Mei Tanaka"})
 	app.ExpectText("MT")
 	// An explicit Fallback wins over the initials.
@@ -98,6 +107,7 @@ func TestAvatarNameIsTheFallbackAndTheAlt(t *testing.T) {
 // A name always gets the same color, and the colors spread over the
 // palette.
 func TestAvatarAutoColorFollowsTheName(t *testing.T) {
+	t.Parallel()
 	colors := map[string]bool{}
 	pick := func(name string) string {
 		app := telatest.Mount(t, kit.Avatar{Name: name, Color: kit.AvatarAuto})
@@ -126,12 +136,14 @@ func TestAvatarAutoColorFollowsTheName(t *testing.T) {
 }
 
 func TestAvatarGivenColor(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Avatar{Name: "Mei Tanaka", Color: "indigo"})
 	app.ExpectCount(telatest.ByClass("bg-indigo-600", "text-white"), 1)
 	app.ExpectCount(telatest.ByClass("bg-muted"), 1) // the recipe's classes stay under it
 }
 
 func TestAvatarColorIsChecked(t *testing.T) {
+	t.Parallel()
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("a color the recipe does not define did not panic in dev mode")
@@ -141,6 +153,7 @@ func TestAvatarColorIsChecked(t *testing.T) {
 }
 
 func TestAvatarColorFromTheRecipe(t *testing.T) {
+	t.Parallel()
 	s := kit.DefaultStyle()
 	s.Avatar.Colors["brand"] = "bg-fuchsia-600 text-white"
 	s.Avatar.AutoColors = map[kit.AvatarColor]bool{"brand": true}
@@ -149,6 +162,7 @@ func TestAvatarColorFromTheRecipe(t *testing.T) {
 }
 
 func TestAvatarGroupCountsWhatDoesNotFit(t *testing.T) {
+	t.Parallel()
 	for name, c := range map[string]struct {
 		g    kit.AvatarGroup
 		more string
@@ -177,12 +191,14 @@ func TestAvatarGroupCountsWhatDoesNotFit(t *testing.T) {
 }
 
 func TestAvatarGroupIsAGroup(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.AvatarGroup{AriaLabel: "Team", Avatars: team[:2], Max: 1})
 	app.ExpectCount(telatest.ByRole("group", "Team"), 1)
 }
 
 // The avatars overlap by 8 px, the next one over the previous.
 func TestAvatarGroupOverlaps(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("w-80"), kit.AvatarGroup{Avatars: []kit.Avatar{
 			{Name: "Ada Lovelace", Props: h.TestID("a")}, {Name: "Alan Turing", Props: h.TestID("b")}}})
@@ -196,6 +212,7 @@ func TestAvatarGroupOverlaps(t *testing.T) {
 // Under a right-to-left direction the overlap mirrors: the next avatar is
 // at the left.
 func TestAvatarGroupMirrors(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Dir("rtl"), h.Class("w-80"), kit.AvatarGroup{Avatars: []kit.Avatar{
 			{Name: "Ada Lovelace", Props: h.TestID("a")}, {Name: "Alan Turing", Props: h.TestID("b")}}})
@@ -207,6 +224,7 @@ func TestAvatarGroupMirrors(t *testing.T) {
 }
 
 func TestAvatarGroupSizeAppliesToTheOnesWithout(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return kit.AvatarGroup{Size: kit.Lg, Max: 2, Avatars: []kit.Avatar{
 			{Name: "Ada Lovelace", Props: h.TestID("a")}, {Name: "Alan Turing", Size: kit.Sm, Props: h.TestID("b")}, {Name: "Grace Hopper"}}}

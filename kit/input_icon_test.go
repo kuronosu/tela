@@ -29,9 +29,13 @@ func inputIconSheet() *sheet {
 	}}
 }
 
-func TestInputIconGolden(t *testing.T) { inputIconSheet().golden(t) }
+func TestInputIconGolden(t *testing.T) {
+	t.Parallel()
+	inputIconSheet().golden(t)
+}
 
 func TestInputIconRTLGolden(t *testing.T) {
+	t.Parallel()
 	s := inputIconSheet()
 	s.name, s.rtl = "input_icon_rtl", true
 	s.cells = s.cells[:4]
@@ -40,6 +44,7 @@ func TestInputIconRTLGolden(t *testing.T) {
 
 // focusedInput is an input with the focus, for the ring.
 func TestInputIconFocusGolden(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("flex w-72 flex-col gap-4 bg-background p-6 text-foreground"),
 			kit.Input{Icon: iconSearch, Placeholder: "Search...", AriaLabel: "Search"},
@@ -50,6 +55,7 @@ func TestInputIconFocusGolden(t *testing.T) {
 }
 
 func TestInputIconPadding(t *testing.T) {
+	t.Parallel()
 	// The text starts after the icon: the field's padding is 36 px at the
 	// start with an icon, 12 px without (ps-9, px-3), and the same at the
 	// end.
@@ -73,6 +79,7 @@ func TestInputIconPadding(t *testing.T) {
 }
 
 func TestInputIconClassGoesToTheWrapper(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("flex"),
 			kit.Input{Icon: iconSearch, Class: "w-48", InputClass: "bg-muted", AriaLabel: "s"},
@@ -90,11 +97,13 @@ func TestInputIconClassGoesToTheWrapper(t *testing.T) {
 // The icons are decorative: the input keeps its role and name, and the
 // icons leave the pointer to the input, so a press on one focuses it.
 func TestInputIconIsDecorative(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Input{Icon: iconSearch, AriaLabel: "Search", Placeholder: "Search..."})
 	app.ExpectAria(`- textbox "Search"`)
 }
 
 func TestInputIconInAField(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Field{Label: "Email", Description: "We never share it.",
 		Children: kit.Input{Icon: iconMail, Type: "email"}})
 	app.Expect(telatest.ByRole("textbox", "Email"), telatest.HasName("Email"))
@@ -106,6 +115,7 @@ func TestInputIconInAField(t *testing.T) {
 
 // Icons mirror in a right-to-left page: the leading one is at the right.
 func TestInputIconMirrors(t *testing.T) {
+	t.Parallel()
 	left := func(dir string) float32 {
 		app := telatest.MountFunc(t, func() tela.Node {
 			return h.Div(h.Dir(dir), h.Class("w-72"),
@@ -123,6 +133,7 @@ func TestInputIconMirrors(t *testing.T) {
 // Typing in the field works as without icons, and the Invalid state reaches
 // the input.
 func TestInputIconInvalid(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Input{Icon: iconMail, Invalid: true, AriaLabel: "Email"})
 	app.Expect(telatest.ByRole("textbox", "Email"), telatest.Invalid(true))
 }

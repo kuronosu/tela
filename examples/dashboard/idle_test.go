@@ -15,6 +15,7 @@ import (
 // after 5 s of real time on a starved machine and would capture the page
 // mid-animation.
 func TestGoesIdle(t *testing.T) {
+	t.Parallel()
 	for _, scale := range []float64{1, 2} {
 		a := mount(t, windowW, windowH, telatest.NoSettle(), telatest.Scale(scale))
 		// The springs of the numbers and bars come to rest in about 1.5 s

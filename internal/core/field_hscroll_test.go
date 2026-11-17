@@ -364,6 +364,7 @@ func TestTextareaNowrapClassicGutter(t *testing.T) {
 }
 
 func TestTextareaNowrapDamage(t *testing.T) {
+	t.Parallel()
 	for _, scale := range []float64{1, 1.5} {
 		for _, cfg := range []Config{{}, {ClassicScrollbars: true, InstantScroll: true}} {
 			t.Run(fmt.Sprintf("x%v_classic=%v", scale, cfg.ClassicScrollbars), func(t *testing.T) {

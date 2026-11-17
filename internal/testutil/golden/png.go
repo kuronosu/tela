@@ -27,12 +27,36 @@ func ReadRGBA(t testing.TB, path string) *image.RGBA {
 	}
 	b := img.Bounds()
 	out := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
+	if n, ok := img.(*image.NRGBA); ok {
+		// What image/png decodes a picture with alpha to: premultiplied
+		// directly, as color.RGBAModel converts a color.NRGBA
+		// (TestReadRGBAFastPath).
+		for y := range b.Dy() {
+			premulRow(out.Pix[out.PixOffset(0, y):][:4*b.Dx()], n.Pix[n.PixOffset(b.Min.X, b.Min.Y+y):])
+		}
+		return out
+	}
 	for y := range b.Dy() {
 		for x := range b.Dx() {
 			out.Set(x, y, img.At(b.Min.X+x, b.Min.Y+y))
 		}
 	}
 	return out
+}
+
+// premulRow converts the non-premultiplied pixels of src into the
+// premultiplied pixels of dst (len(dst) bytes) with color.NRGBA.RGBA's
+// arithmetic: each channel widened to 16 bits, times alpha over 0xff.
+func premulRow(dst, src []uint8) {
+	for i := 0; i < len(dst); i += 4 {
+		s := src[i : i+4 : i+4]
+		d := dst[i : i+4 : i+4]
+		a := uint32(s[3])
+		d[0] = uint8((uint32(s[0]) * 0x101 * a / 0xff) >> 8)
+		d[1] = uint8((uint32(s[1]) * 0x101 * a / 0xff) >> 8)
+		d[2] = uint8((uint32(s[2]) * 0x101 * a / 0xff) >> 8)
+		d[3] = s[3]
+	}
 }
 
 // WritePNG writes img to path with the default compression (a debug dump,

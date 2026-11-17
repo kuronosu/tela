@@ -47,11 +47,6 @@ func refI(t float64) float64 {
 	return t*refPhi(t) + math.Exp(-t*t/2)/math.Sqrt(2*math.Pi)
 }
 
-// refStep is the average over the pixel [p, p+1] of Phi((x-a)/s).
-func refStep(p, a, s float64) float64 {
-	return s * (refI((p+1-a)/s) - refI((p-a)/s))
-}
-
 // refBlur returns, for the pixels of zone, the shape convolved with a
 // Gaussian (sx, sy) and averaged over each pixel. The horizontal integral of
 // each row of the shape is closed form; the vertical one is a midpoint rule
@@ -88,20 +83,32 @@ func refBlur(q refShape, sx, sy float64, zone image.Rectangle) [][]float64 {
 	// vertical kernel K, to the rows within 9 sigma; H is computed per sample
 	// so that memory stays at one image even with many samples.
 	hrow := make([]float64, w)
+	// The average over the pixel [p, p+1] of Phi((x-a)/sx) is
+	// sx*(refI((p+1-a)/sx) - refI((p-a)/sx)), and the
+	// pixels are consecutive integers (p+1 is exact), so each integral is
+	// evaluated once at each pixel edge and shared by the two pixels it
+	// bounds: the same values, half the calls.
 	for _, s := range ss {
 		a, b := q.span(s.v)
 		if !(b > a) {
 			continue
 		}
+		p := float64(zone.Min.X)
+		ia, ib := refI((p-a)/sx), refI((p-b)/sx)
 		for x := range hrow {
 			p := float64(zone.Min.X + x)
-			hrow[x] = refStep(p, a, sx) - refStep(p, b, sx)
+			na, nb := refI((p+1-a)/sx), refI((p+1-b)/sx)
+			hrow[x] = sx*(na-ia) - sx*(nb-ib)
+			ia, ib = na, nb
 		}
 		y0 := max(int(math.Floor(s.v-9*sy))-zone.Min.Y, 0)
 		y1 := min(int(math.Ceil(s.v+9*sy))-zone.Min.Y+1, h)
+		phi := refPhi((float64(zone.Min.Y+y0) - s.v) / sy)
 		for y := y0; y < y1; y++ {
 			p := float64(zone.Min.Y + y)
-			k := (refPhi((p+1-s.v)/sy) - refPhi((p-s.v)/sy)) * s.dv
+			next := refPhi((p + 1 - s.v) / sy)
+			k := (next - phi) * s.dv
+			phi = next
 			row := out[y]
 			for x, hv := range hrow {
 				row[x] += k * hv

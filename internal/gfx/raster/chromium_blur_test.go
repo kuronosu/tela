@@ -256,6 +256,7 @@ var blurBounds = map[string]blurBound{
 }
 
 func TestChromiumBlur(t *testing.T) {
+	t.Parallel()
 	dir := filepath.Join("testdata", "chromium")
 	if os.Getenv("TELA_WRITE_HTML") == "1" {
 		if err := os.WriteFile(filepath.Join(dir, "blur.html"), []byte(blurHTML()), 0o644); err != nil {

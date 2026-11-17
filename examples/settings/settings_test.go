@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/internal/testutil/damagesample"
 	"github.com/kuronosu/tela/internal/testutil/damagetest"
 	"github.com/kuronosu/tela/kit"
 	"github.com/kuronosu/tela/telatest"
@@ -98,17 +99,25 @@ func TestNoDevMessages(t *testing.T) {
 }
 
 // TestGolden renders each preview, light and dark, at scale 1, and the
-// Safelight page, the richest one, at scale 2.
+// Safelight page, the richest one, at scale 2. Under -short each preview
+// is checked in one scheme, light and dark in turn, and Safelight at scale
+// 2 in light only.
 func TestGolden(t *testing.T) {
-	for _, n := range Previews.Names() {
+	for i, n := range Previews.Names() {
 		t.Run(n, func(t *testing.T) {
-			mount(t, Previews[n], windowW, windowH).Golden(fmt.Sprintf("settings_%s_x1.png", strings.ToLower(n)))
-			mount(t, Previews[n], windowW, windowH, telatest.Dark()).Golden(fmt.Sprintf("settings_%s_dark_x1.png", strings.ToLower(n)))
+			if !testing.Short() || i%2 == 0 {
+				mount(t, Previews[n], windowW, windowH).Golden(fmt.Sprintf("settings_%s_x1.png", strings.ToLower(n)))
+			}
+			if !testing.Short() || i%2 == 1 {
+				mount(t, Previews[n], windowW, windowH, telatest.Dark()).Golden(fmt.Sprintf("settings_%s_dark_x1.png", strings.ToLower(n)))
+			}
 		})
 	}
 	t.Run("Safelight/x2", func(t *testing.T) {
 		mount(t, Previews["Safelight"], windowW, windowH, telatest.Scale(2)).Golden("settings_safelight_x2.png")
-		mount(t, Previews["Safelight"], windowW, windowH, telatest.Scale(2), telatest.Dark()).Golden("settings_safelight_dark_x2.png")
+		if !testing.Short() {
+			mount(t, Previews["Safelight"], windowW, windowH, telatest.Scale(2), telatest.Dark()).Golden("settings_safelight_dark_x2.png")
+		}
 	})
 }
 
@@ -631,7 +640,11 @@ func TestScrollDamage(t *testing.T) {
 // TestDamage plays the interactions most likely to paint wrong
 // incrementally, checking every frame against a full rendering: a theme and
 // accent switch that restyles the whole window, the dialogs and the toast.
+//
+// Under -short only every sixth frame, and the last, is compared with a
+// full rendering (damagesample); every frame is still drawn incrementally.
 func TestDamage(t *testing.T) {
+	damagesample.Short(t, 6)
 	a := open(t, "Safelight", telatest.CheckDamage())
 	a.Click(radio("Dark The natural habitat."))
 	a.Click(radio("Amber"))

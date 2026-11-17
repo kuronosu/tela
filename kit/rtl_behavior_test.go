@@ -36,6 +36,7 @@ func mountRTL(t *testing.T, scenario string, build func(direction string) tela.C
 }
 
 func TestRTLSwitchThumbSide(t *testing.T) {
+	t.Parallel()
 	thumb := telatest.ByClass("pointer-events-none", "block", "rounded-full")
 	for _, c := range []struct {
 		dir string
@@ -60,6 +61,7 @@ func TestRTLSwitchThumbSide(t *testing.T) {
 }
 
 func TestRTLSliderKeys(t *testing.T) {
+	t.Parallel()
 	for _, sc := range rtlScenarios {
 		t.Run(sc, func(t *testing.T) {
 			app := mountRTL(t, sc, func(dir string) tela.Component {
@@ -90,6 +92,7 @@ func TestRTLSliderKeys(t *testing.T) {
 }
 
 func TestRTLSliderPointer(t *testing.T) {
+	t.Parallel()
 	for _, sc := range rtlScenarios {
 		t.Run(sc, func(t *testing.T) {
 			var committed []float64
@@ -118,6 +121,7 @@ func TestRTLSliderPointer(t *testing.T) {
 // end: the pixel near the right end of a 30% slider is filled, the left is
 // not.
 func TestRTLSliderFill(t *testing.T) {
+	t.Parallel()
 	app := mountRTL(t, "field", func(dir string) tela.Component {
 		return kit.Slider{AriaLabel: "Volume", DefaultValue: new(30.0), Props: h.TestID("s"), Direction: dir}
 	})
@@ -133,6 +137,7 @@ func TestRTLSliderFill(t *testing.T) {
 }
 
 func TestRTLSliderVerticalUnchanged(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("h-[200px] p-4"), h.Dir("rtl"), kit.Slider{
 			AriaLabel: "Volume", Orientation: kit.Vertical, DefaultValue: new(50.0)})
@@ -146,6 +151,7 @@ func TestRTLSliderVerticalUnchanged(t *testing.T) {
 }
 
 func TestRTLToggleGroupKeys(t *testing.T) {
+	t.Parallel()
 	for _, sc := range rtlScenarios {
 		t.Run(sc, func(t *testing.T) {
 			app := mountRTL(t, sc, func(dir string) tela.Component {
@@ -168,6 +174,7 @@ func TestRTLToggleGroupKeys(t *testing.T) {
 }
 
 func TestRTLTabsKeys(t *testing.T) {
+	t.Parallel()
 	for _, sc := range rtlScenarios {
 		t.Run(sc, func(t *testing.T) {
 			app := mountRTL(t, sc, func(dir string) tela.Component {
@@ -185,6 +192,7 @@ func TestRTLTabsKeys(t *testing.T) {
 }
 
 func TestRTLRadioGroupKeys(t *testing.T) {
+	t.Parallel()
 	for _, sc := range rtlScenarios {
 		t.Run(sc, func(t *testing.T) {
 			app := mountRTL(t, sc, func(dir string) tela.Component {
@@ -201,6 +209,7 @@ func TestRTLRadioGroupKeys(t *testing.T) {
 }
 
 func TestRTLMenubarKeys(t *testing.T) {
+	t.Parallel()
 	app := mountBar(t, appBar(func(m *kit.Menubar[string]) { m.Direction = "rtl" }))
 	app.Focus(barItem("File"))
 	app.Press("ArrowLeft")
@@ -210,6 +219,7 @@ func TestRTLMenubarKeys(t *testing.T) {
 }
 
 func TestRTLColorPickerKeys(t *testing.T) {
+	t.Parallel()
 	for _, sc := range rtlScenarios {
 		t.Run(sc, func(t *testing.T) {
 			app := mountRTL(t, sc, func(dir string) tela.Component {
@@ -229,6 +239,7 @@ func TestRTLColorPickerKeys(t *testing.T) {
 }
 
 func TestRTLCalendarFollowsDir(t *testing.T) {
+	t.Parallel()
 	app := calMount(t, h.Div(h.Dir("rtl"), kit.Calendar{
 		Today: calToday, DefaultValue: calDate(2026, time.October, 14), AriaLabel: "Dates"}))
 	app.Focus(calCell(calDate(2026, time.October, 14)))
@@ -237,6 +248,7 @@ func TestRTLCalendarFollowsDir(t *testing.T) {
 }
 
 func TestRTLTableStickyColumns(t *testing.T) {
+	t.Parallel()
 	for _, dir := range []string{"ltr", "rtl"} {
 		t.Run(dir, func(t *testing.T) {
 			app := mountSticky(t, h.Div(h.Dir(dir), stickyTable(20, nil)))
@@ -270,6 +282,7 @@ func TestRTLTableStickyColumns(t *testing.T) {
 }
 
 func TestRTLDialogCloseAndHeader(t *testing.T) {
+	t.Parallel()
 	for _, dir := range []string{"ltr", "rtl"} {
 		t.Run(dir, func(t *testing.T) {
 			app := telatest.MountFunc(t, func() tela.Node {
@@ -290,6 +303,7 @@ func TestRTLDialogCloseAndHeader(t *testing.T) {
 }
 
 func TestRTLMenuIndicatorAndShortcut(t *testing.T) {
+	t.Parallel()
 	items := []kit.MenuItem[string]{
 		{Key: "bar", Label: "Status bar", Kind: kit.MenuCheckbox, DefaultChecked: true},
 		{Key: "open", Label: "Open", Shortcut: "\u2318O"},
@@ -335,6 +349,7 @@ func TestRTLMenuIndicatorAndShortcut(t *testing.T) {
 }
 
 func TestRTLToastActionAndPosition(t *testing.T) {
+	t.Parallel()
 	var handle kit.ToastHandle
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Dir("rtl"), toastApp{&handle, kit.Toaster{Duration: kit.ToastForever, Position: kit.ToastBottomRight}})
@@ -356,6 +371,7 @@ func TestRTLToastActionAndPosition(t *testing.T) {
 // change of the h.Dir above it (tela.UseDirection builds it again): its
 // arrow keys swap with the layout.
 func TestRTLFollowsDirChange(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		dir, setDir := tela.UseState("ltr")
 		return h.Div(h.Class("w-[300px] p-4"),
@@ -378,6 +394,7 @@ func TestRTLFollowsDirChange(t *testing.T) {
 // TestRTLFieldWinsOverDir: a Direction field wins over the h.Dir above the
 // component, for its keys and its layout.
 func TestRTLFieldWinsOverDir(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Dir("rtl"), h.Class("w-[300px] p-4"),
 			kit.Tabs[string]{Tabs: demoTabs(), AriaLabel: "Settings", Direction: "ltr"})
@@ -392,6 +409,7 @@ func TestRTLFieldWinsOverDir(t *testing.T) {
 }
 
 func TestRTLDirectionFieldRejectsOtherValues(t *testing.T) {
+	t.Parallel()
 	defer func() {
 		r := recover()
 		if r == nil {
@@ -408,6 +426,7 @@ func TestRTLDirectionFieldRejectsOtherValues(t *testing.T) {
 // trigger's left edge, or at its right edge in a right-to-left page, as
 // Floating UI's start alignment does.
 func TestRTLMenuAlignsToTheTriggersStart(t *testing.T) {
+	t.Parallel()
 	for _, dir := range []string{"ltr", "rtl"} {
 		t.Run(dir, func(t *testing.T) {
 			var log []string

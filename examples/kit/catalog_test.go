@@ -32,6 +32,7 @@ func placeholders(s string) string {
 // "gallery.<id>" with the same {placeholders}, no catalog has a message that
 // no code uses, and one id never has two English texts.
 func TestCatalogsHaveEveryText(t *testing.T) {
+	t.Parallel()
 	files, err := filepath.Glob("*.go")
 	if err != nil {
 		t.Fatal(err)
@@ -88,6 +89,7 @@ func TestCatalogsHaveEveryText(t *testing.T) {
 // shows itself (tela.Labels) in Spanish and Arabic, with the same
 // {placeholders}; English is Tela's own default.
 func TestBuiltinTextsAreTranslated(t *testing.T) {
+	t.Parallel()
 	// The ones that Spanish spells as English does.
 	same := map[string]bool{"tela.menu.zoom": true, "tela.messagebox.error": true, "tela.messagebox.no": true}
 	for _, tag := range []string{"es", "ar"} {

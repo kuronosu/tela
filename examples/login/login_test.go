@@ -126,8 +126,11 @@ func mountPreview(t *testing.T, name string, w, h float32, opts ...telatest.Opti
 
 // TestGolden renders each preview at scale 1 and 2.
 func TestGolden(t *testing.T) {
-	for _, name := range Previews.Names() {
-		for _, scale := range []float64{1, 2} {
+	for i, name := range Previews.Names() {
+		for j, scale := range []float64{1, 2} {
+			if testing.Short() && j != i%2 {
+				continue // under -short each preview at one scale, 1 and 2 in turn
+			}
 			t.Run(fmt.Sprintf("%s/x%g", name, scale), func(t *testing.T) {
 				mountPreview(t, name, windowW, windowH, telatest.Scale(scale)).
 					Golden(fmt.Sprintf("login_%s_x%g.png", slug(name), scale))

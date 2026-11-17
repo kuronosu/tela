@@ -3,6 +3,7 @@ package kit
 import "testing"
 
 func TestFormatShortcut(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		in          string
 		mac         bool
@@ -39,6 +40,7 @@ func TestFormatShortcut(t *testing.T) {
 }
 
 func TestNativeAcceleratorFollowsTheFlavor(t *testing.T) {
+	t.Parallel()
 	if got := nativeAccelerator("CmdOrCtrl+S", true); got != "Super+S" {
 		t.Errorf("mac: %q", got)
 	}

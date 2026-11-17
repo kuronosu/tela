@@ -12,6 +12,7 @@ import (
 // The room kept for the action follows its width when it is wider than
 // shadcn's pe-18 holds (ADR-263).
 func TestAlertActionRoomFollowsTheAction(t *testing.T) {
+	t.Parallel()
 	two := tela.C(func() tela.Node {
 		return h.Div(h.Class("flex gap-2"),
 			kit.Button{Size: kit.Xs, Variant: kit.Outline, Children: h.Text("Discard"), Props: h.TestID("discard")},

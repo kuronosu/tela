@@ -14,6 +14,7 @@ import (
 // the div it is by default; a level outside 0 to 6 panics in dev mode and
 // is clamped otherwise (ADR-154, D7).
 func TestCardTitleLevel(t *testing.T) {
+	t.Parallel()
 	for level := 1; level <= 6; level++ {
 		app := telatest.Mount(t, kit.Card{TitleLevel: level, Title: h.Text("Notifications"), Description: h.Text("Choose.")})
 		app.ExpectAria(fmt.Sprintf(`

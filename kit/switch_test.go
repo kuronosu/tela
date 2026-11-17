@@ -68,12 +68,20 @@ func switchSheet() *sheet {
 	}}
 }
 
-func TestSwitchGolden(t *testing.T)   { switchSheet().golden(t) }
-func TestChromiumSwitch(t *testing.T) { switchSheet().chromium(t) }
+func TestSwitchGolden(t *testing.T) {
+	t.Parallel()
+	switchSheet().golden(t)
+}
+
+func TestChromiumSwitch(t *testing.T) {
+	t.Parallel()
+	switchSheet().chromium(t)
+}
 
 func switchRole(name string) telatest.Locator { return telatest.ByRole("switch", name) }
 
 func TestSwitchUncontrolled(t *testing.T) {
+	t.Parallel()
 	var got []bool
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(kit.Switch{AriaLabel: "Wi-Fi", OnCheckedChange: func(b bool) { got = append(got, b) }},
@@ -101,6 +109,7 @@ func (controlledSwitch) Build() tela.Node {
 }
 
 func TestSwitchControlled(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, controlledSwitch{})
 	app.ExpectText("sync is true")
 	app.Click(switchRole("Sync"))
@@ -109,6 +118,7 @@ func TestSwitchControlled(t *testing.T) {
 }
 
 func TestSwitchDisabled(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return kit.Switch{AriaLabel: "Locked", Disabled: true}
 	})
@@ -121,6 +131,7 @@ func TestSwitchDisabled(t *testing.T) {
 // TestSwitchThumbMoves checks the knob's position in both states: it is at
 // the left edge when off, and 14 px (its size, less 2) to the right when on.
 func TestSwitchThumbMoves(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("p-4"), kit.Switch{AriaLabel: "Sync", Props: h.TestID("sw")})
 	})
@@ -139,6 +150,7 @@ func TestSwitchThumbMoves(t *testing.T) {
 }
 
 func TestSwitchLabelFieldAndSnapshot(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(
 			kit.Field{Orientation: kit.Horizontal, Label: "Airplane mode", Children: kit.Switch{}},
@@ -155,6 +167,7 @@ func TestSwitchLabelFieldAndSnapshot(t *testing.T) {
 }
 
 func TestSwitchUndefinedSize(t *testing.T) {
+	t.Parallel()
 	_, err := telatest.AriaSnapshot(kit.Switch{Size: "sml"})
 	if err == nil || !strings.Contains(err.Error(), `did you mean "sm"?`) {
 		t.Errorf("error %v, want the closest size", err)

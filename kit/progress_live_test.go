@@ -48,6 +48,7 @@ func shown(app *telatest.App, rtl bool) float32 {
 // its aria-valuenow and aria-valuetext follow the Value in the semantics
 // tree, as assistive technologies read it.
 func TestProgressValueFn(t *testing.T) {
+	t.Parallel()
 	builds := 0
 	var done *tela.Value[float64]
 	app := telatest.Mount(t, liveProgress{builds: &builds, done: &done})
@@ -85,6 +86,7 @@ func TestProgressValueFn(t *testing.T) {
 // TestProgressValueFnFormatAndMax: FormatValue and Max apply to ValueFn,
 // and under rtl the bar fills from the right.
 func TestProgressValueFnFormatAndMax(t *testing.T) {
+	t.Parallel()
 	builds := 0
 	var done *tela.Value[float64]
 	app := telatest.Mount(t, liveProgress{builds: &builds, done: &done, max: 40, dir: "rtl",
@@ -105,6 +107,7 @@ func TestProgressValueFnFormatAndMax(t *testing.T) {
 // (what UseTween and UseSpring give) moves the bar frame by frame without
 // building it.
 func TestProgressValueFnAnimated(t *testing.T) {
+	t.Parallel()
 	builds := 0
 	var pct *tela.Value[float32]
 	app := telatest.Mount(t, tela.C(func() tela.Node {
@@ -137,6 +140,7 @@ func TestProgressValueFnAnimated(t *testing.T) {
 
 // A Progress may switch between Value and ValueFn (same hooks).
 func TestProgressValueFnSwitch(t *testing.T) {
+	t.Parallel()
 	var setLive tela.Setter[bool]
 	app := telatest.Mount(t, tela.C(func() tela.Node {
 		live, set := tela.UseState(false)

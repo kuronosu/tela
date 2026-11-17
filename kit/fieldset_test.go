@@ -109,13 +109,21 @@ func fieldSetSheet() *sheet {
 	}}
 }
 
-func TestFieldSetGolden(t *testing.T)   { fieldSetSheet().golden(t) }
-func TestChromiumFieldSet(t *testing.T) { fieldSetSheet().chromium(t) }
+func TestFieldSetGolden(t *testing.T) {
+	t.Parallel()
+	fieldSetSheet().golden(t)
+}
+
+func TestChromiumFieldSet(t *testing.T) {
+	t.Parallel()
+	fieldSetSheet().chromium(t)
+}
 
 // With ControlAfter the label and the description come first and the
 // control last, while the label still names the control and a click on it
 // presses it. A vertical field ignores it.
 func TestFieldControlAfterOrder(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("flex w-[320px] flex-col gap-4 p-4"),
 			kit.Field{Orientation: kit.Horizontal, ControlAfter: true, Label: "After", Description: "Text first.",
@@ -155,6 +163,7 @@ func TestFieldControlAfterOrder(t *testing.T) {
 // and describes it, and the error comes after the label and the
 // description, inside the text.
 func TestFieldControlAfterInvalidAndError(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("flex w-[320px] flex-col gap-4 p-4"),
 			kit.Field{Orientation: kit.Horizontal, ControlAfter: true, Label: "Terms", Description: "Required.", Error: "Accept to continue.",
@@ -177,6 +186,7 @@ func TestFieldControlAfterInvalidAndError(t *testing.T) {
 // ControlAfter mirrors under right to left: the text is at the right edge
 // and the switch at the left, and it is the reverse of the default order.
 func TestFieldControlAfterRTL(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("w-[320px] p-4"), h.Dir("rtl"),
 			kit.Field{Orientation: kit.Horizontal, ControlAfter: true, Label: "Marketing emails", Description: "News.",
@@ -194,6 +204,7 @@ func TestFieldControlAfterRTL(t *testing.T) {
 // A FieldSet is a group named by its legend and described by its
 // description, with the parts in order.
 func TestFieldSetAriaSnapshot(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("w-[360px] p-4"),
 			kit.FieldSet{Legend: "Address", Description: "Where we send your invoices.",
@@ -217,6 +228,7 @@ func TestFieldSetAriaSnapshot(t *testing.T) {
 // A RadioGroup or a ToggleGroup in a FieldSet is named by the legend, with
 // no AriaLabel and no dev warning; an AriaLabel of its own wins.
 func TestFieldSetNamesItsGroups(t *testing.T) {
+	t.Parallel()
 	var logs []string
 	app := telatest.Mount(logTB{t, &logs}, h.Div(h.Class("flex w-[360px] flex-col gap-6 p-4"),
 		kit.FieldSet{Legend: "Plan", Description: "Choose one.",
@@ -241,6 +253,7 @@ func TestFieldSetNamesItsGroups(t *testing.T) {
 // A group inside a Field inside a FieldSet is not named by the legend: the
 // Field is the nearer caption.
 func TestFieldSetLegendDoesNotReachThroughAField(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.FieldSet{Legend: "Wrapper",
 		Children: kit.Field{Label: "Plan", Children: kit.RadioGroup[string]{Items: plans, AriaLabel: "Plan"}}},
 		telatest.Theme(kit.Theme()), telatest.Size(400, 300))
@@ -257,6 +270,7 @@ func TestFieldSetLegendDoesNotReachThroughAField(t *testing.T) {
 // default one is larger; the description is pulled up under a legend only
 // of the default variant.
 func TestFieldSetLegendVariants(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("flex w-[360px] flex-col gap-6 p-4"),
 			kit.FieldSet{Legend: "Title", Description: "Under a title.", Children: kit.Input{}},
@@ -273,6 +287,7 @@ func TestFieldSetLegendVariants(t *testing.T) {
 }
 
 func TestFieldSetUndefinedLegendVariant(t *testing.T) {
+	t.Parallel()
 	_, err := telatest.Render(kit.FieldSet{Legend: "x", LegendVariant: "labell"})
 	if err == nil || !strings.Contains(err.Error(), `FieldSet.LegendVariant "labell"`) || !strings.Contains(err.Error(), `did you mean "label"?`) {
 		t.Errorf("error %v, want the variant and the closest", err)

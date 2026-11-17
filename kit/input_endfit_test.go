@@ -33,15 +33,20 @@ func endFitSheet() *sheet {
 	}}
 }
 
-func TestInputEndFitGolden(t *testing.T) { endFitSheet().golden(t) }
+func TestInputEndFitGolden(t *testing.T) {
+	t.Parallel()
+	endFitSheet().golden(t)
+}
 
 func TestInputEndFitRTLGolden(t *testing.T) {
+	t.Parallel()
 	s := endFitSheet()
 	s.name, s.rtl = "input_endfit_rtl", true
 	s.golden(t)
 }
 
 func TestInputEndPaddingFollowsTheContent(t *testing.T) {
+	t.Parallel()
 	two := tela.C(func() tela.Node {
 		return h.Div(h.Class("flex gap-1"),
 			kit.Button{Variant: kit.Ghost, Size: kit.IconXs, Icon: iconEye, AriaLabel: "Show", Props: h.TestID("a")},
@@ -67,6 +72,7 @@ func TestInputEndPaddingFollowsTheContent(t *testing.T) {
 }
 
 func TestInputEndPaddingFollowsAChangingContent(t *testing.T) {
+	t.Parallel()
 	var set tela.Setter[bool]
 	app := telatest.Mount(t, tela.C(func() tela.Node {
 		wide, s := tela.UseState(false)
@@ -92,6 +98,7 @@ func TestInputEndPaddingFollowsAChangingContent(t *testing.T) {
 }
 
 func TestInputIconEndWithEndContent(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, h.Div(h.Class("w-72"), kit.Input{AriaLabel: "Both", IconEnd: iconX, Props: h.TestID("in"),
 		EndContent: kit.Button{Variant: kit.Ghost, Size: kit.IconXs, Icon: iconEye, AriaLabel: "Show", Props: h.TestID("btn")}}))
 	in := app.Bounds(telatest.ByTestID("in"))
@@ -110,6 +117,7 @@ func TestInputIconEndWithEndContent(t *testing.T) {
 // An IconXs button draws a 12 px icon; IconClass makes it 16 px, as the
 // reveal button of shadcn's InputGroup.
 func TestIconXsButtonIconSize(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, h.Div(h.Class("flex gap-2"),
 		kit.Button{Size: kit.IconXs, Icon: iconEye, IconClass: "text-red-500", AriaLabel: "Small", Props: h.TestID("small")},
 		kit.Button{Size: kit.IconXs, Icon: iconEye, IconClass: "text-blue-500 size-4", AriaLabel: "Large", Props: h.TestID("large")}))

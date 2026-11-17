@@ -3,6 +3,7 @@ package main
 import (
 	"testing"
 
+	"github.com/kuronosu/tela/internal/testutil/damagesample"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -10,7 +11,11 @@ import (
 // pointer over the list, switching, scrolling the messages, typing, sending,
 // the dots and the reply), checking every frame against a full rendering
 // (telatest.CheckDamage): what a frame repaints is all that changed.
+//
+// Under -short only every fourth frame, and the last, is compared with a
+// full rendering (damagesample); every frame is still drawn incrementally.
 func TestDamage(t *testing.T) {
+	damagesample.Short(t, 4)
 	for _, scale := range []float64{1, 2} {
 		a := mount(t, 900, 560, telatest.Scale(scale), telatest.InstantScroll(), telatest.CheckDamage())
 		a.Hover(dev)

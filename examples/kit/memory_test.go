@@ -15,6 +15,7 @@ import (
 //
 //	go run ./internal/testutil/memreport
 func TestMemory(t *testing.T) {
+	t.Parallel()
 	for _, scale := range []float64{1, 2} {
 		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
 			t.Run("rest", func(t *testing.T) {

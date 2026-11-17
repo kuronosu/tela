@@ -30,6 +30,7 @@ func toSidebar(t *testing.T, a *telatest.App, selected string) {
 // the arrows move the focus and select (the page changes with them), Home
 // and End jump, and the keys wrap at the ends.
 func TestSidebarKeyboard(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Gallery{Page: "AlertDialog"})
 	toSidebar(t, a, "Alert Dialog")
 	a.Expect(tabFor("Alert Dialog"), telatest.Selected(true))
@@ -78,6 +79,7 @@ func TestSidebarKeyboard(t *testing.T) {
 // selected, Tab moves from it to the page, and Shift+Tab goes back to the
 // selected tab, not to the first one.
 func TestSidebarTabOrder(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Gallery{Page: "Button"})
 	toSidebar(t, a, "Button")
 
@@ -137,6 +139,7 @@ func TestHeaderKeyboard(t *testing.T) {
 // banner with its three controls, the 38 tabs and the selected page,
 // the Introduction.
 func TestSidebarSnapshot(t *testing.T) {
+	t.Parallel()
 	mount(t, Gallery{}).AriaGolden("kit_gallery.aria.yml")
 	a := mount(t, Gallery{Page: "DropdownMenu"})
 	a.Click(telatest.ByRole("button", "Open"))
@@ -147,6 +150,7 @@ func TestSidebarSnapshot(t *testing.T) {
 // leaves with Escape: the focus returns to the button every time, as the
 // kit promises of every trigger slot.
 func TestKeyboardOverlay(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Gallery{Page: "Dialog"})
 	edit := telatest.ByRole("button", "Edit profile")
 	a.Focus(edit)

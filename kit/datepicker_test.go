@@ -63,8 +63,15 @@ func datePickerSheet() *sheet {
 	return &sheet{name: "datepicker", cells: datePickerCells(), slot: 320}
 }
 
-func TestDatePickerGolden(t *testing.T)   { datePickerSheet().golden(t) }
-func TestChromiumDatePicker(t *testing.T) { datePickerSheet().chromium(t) }
+func TestDatePickerGolden(t *testing.T) {
+	t.Parallel()
+	datePickerSheet().golden(t)
+}
+
+func TestChromiumDatePicker(t *testing.T) {
+	t.Parallel()
+	datePickerSheet().chromium(t)
+}
 
 func pickerPage(c tela.Component) func() tela.Node {
 	return func() tela.Node {
@@ -83,6 +90,7 @@ func pickerMount(t *testing.T, c tela.Component, opts ...telatest.Option) *telat
 var pickerButton = telatest.ByTestID("picker")
 
 func TestDatePickerOpensChoosesAndCloses(t *testing.T) {
+	t.Parallel()
 	var got []aria.Date
 	app := pickerMount(t, kit.DatePicker{Today: calToday, AriaLabel: "Appointment", Props: h.TestID("picker"), OnValueChange: func(day aria.Date) { got = append(got, day) }})
 	app.Expect(pickerButton, telatest.HasPopup("dialog"), telatest.Expanded(false), telatest.HasName("Appointment"))
@@ -108,6 +116,7 @@ func TestDatePickerOpensChoosesAndCloses(t *testing.T) {
 }
 
 func TestDatePickerKeyboardFlow(t *testing.T) {
+	t.Parallel()
 	app := pickerMount(t, kit.DatePicker{Today: calToday, AriaLabel: "Appointment", Props: h.TestID("picker")})
 	app.Focus(pickerButton)
 	app.Press("Space")
@@ -122,6 +131,7 @@ func TestDatePickerKeyboardFlow(t *testing.T) {
 }
 
 func TestDatePickerEscapeAndOutsidePressChooseNothing(t *testing.T) {
+	t.Parallel()
 	var got []aria.Date
 	app := pickerMount(t, kit.DatePicker{Today: calToday, AriaLabel: "Appointment", Props: h.TestID("picker"), OnValueChange: func(day aria.Date) { got = append(got, day) }})
 	app.Click(pickerButton)
@@ -145,6 +155,7 @@ func TestDatePickerEscapeAndOutsidePressChooseNothing(t *testing.T) {
 }
 
 func TestDatePickerValueAndOpenAreControllable(t *testing.T) {
+	t.Parallel()
 	chosen := calDate(2026, time.October, 3)
 	var asked []aria.Date
 	var opened []bool
@@ -166,6 +177,7 @@ func TestDatePickerValueAndOpenAreControllable(t *testing.T) {
 }
 
 func TestDatePickerKeepOpenAndDefaults(t *testing.T) {
+	t.Parallel()
 	app := pickerMount(t, kit.DatePicker{Today: calToday, AriaLabel: "Appointment", Props: h.TestID("picker"), KeepOpen: true, DefaultOpen: true,
 		DefaultValue: calDate(2026, time.October, 3)})
 	app.ExpectCount(telatest.ByRole("application", ""), 1)
@@ -175,6 +187,7 @@ func TestDatePickerKeepOpenAndDefaults(t *testing.T) {
 }
 
 func TestDatePickerLimitsFormatPlaceholderAndLocale(t *testing.T) {
+	t.Parallel()
 	app := pickerMount(t, kit.DatePicker{
 		Today: calToday, AriaLabel: "Appointment", Props: h.TestID("picker"), Placeholder: "Choose a day", DefaultOpen: true,
 		Min: calDate(2026, time.October, 20), IsDateUnavailable: func(day aria.Date) bool { return day == calDate(2026, time.October, 27) },
@@ -194,6 +207,7 @@ func TestDatePickerLimitsFormatPlaceholderAndLocale(t *testing.T) {
 }
 
 func TestDatePickerInsideAField(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("p-6"), kit.Field{Label: "Appointment", Description: "Weekdays only.", Error: "Pick a weekday.",
 			Children: kit.DatePicker{Today: calToday}})
@@ -208,6 +222,7 @@ func TestDatePickerInsideAField(t *testing.T) {
 }
 
 func TestDatePickerDisabled(t *testing.T) {
+	t.Parallel()
 	app := pickerMount(t, kit.DatePicker{Today: calToday, AriaLabel: "Appointment", Props: h.TestID("picker"), Disabled: true})
 	app.Expect(pickerButton, telatest.Disabled(true))
 	pressDisabled(app, pickerButton)
@@ -215,6 +230,7 @@ func TestDatePickerDisabled(t *testing.T) {
 }
 
 func TestDatePickerStyleAndClasses(t *testing.T) {
+	t.Parallel()
 	s := kit.DefaultStyle()
 	s.DatePicker.Root = "w-[320px] justify-start text-left font-normal"
 	s.DatePicker.Content = "w-auto p-2"
@@ -234,6 +250,7 @@ func TestDatePickerStyleAndClasses(t *testing.T) {
 }
 
 func TestDateRangePickerChoosesAndCloses(t *testing.T) {
+	t.Parallel()
 	var got []aria.DateRange
 	app := pickerMount(t, kit.DateRangePicker{Today: calToday, AriaLabel: "Stay", Props: h.TestID("picker"), OnValueChange: func(r aria.DateRange) { got = append(got, r) }})
 	app.ExpectText("Pick a date range")
@@ -255,6 +272,7 @@ func TestDateRangePickerChoosesAndCloses(t *testing.T) {
 }
 
 func TestDateRangePickerEscapeCancelsTheAnchorBeforeClosing(t *testing.T) {
+	t.Parallel()
 	var got []aria.DateRange
 	app := pickerMount(t, kit.DateRangePicker{Today: calToday, AriaLabel: "Stay", Props: h.TestID("picker"), OnValueChange: func(r aria.DateRange) { got = append(got, r) }})
 	btn := pickerButton
@@ -278,6 +296,7 @@ func TestDateRangePickerEscapeCancelsTheAnchorBeforeClosing(t *testing.T) {
 }
 
 func TestDateRangePickerKeepOpenAndSingleMonth(t *testing.T) {
+	t.Parallel()
 	app := pickerMount(t, kit.DateRangePicker{Today: calToday, AriaLabel: "Stay", Props: h.TestID("picker"), KeepOpen: true, VisibleMonths: 1, DefaultOpen: true})
 	app.ExpectCount(telatest.ByRole("grid", ""), 1)
 	app.Click(calCell(calDate(2026, time.October, 6)))
@@ -287,6 +306,7 @@ func TestDateRangePickerKeepOpenAndSingleMonth(t *testing.T) {
 }
 
 func TestDatePickerOpenGolden(t *testing.T) {
+	t.Parallel()
 	page := func() tela.Node {
 		return h.Div(h.Class("flex flex-col items-start gap-4 p-6"),
 			kit.DatePicker{Today: calToday, AriaLabel: "Appointment", Props: h.TestID("picker"), DefaultValue: calDate(2026, time.October, 14)})
@@ -295,6 +315,7 @@ func TestDatePickerOpenGolden(t *testing.T) {
 }
 
 func TestDateRangePickerOpenGolden(t *testing.T) {
+	t.Parallel()
 	page := func() tela.Node {
 		return h.Div(h.Class("flex flex-col items-start gap-4 p-6"),
 			kit.DateRangePicker{Today: calToday, AriaLabel: "Stay", Props: h.TestID("picker"), DefaultValue: aria.DateRange{
@@ -304,6 +325,7 @@ func TestDateRangePickerOpenGolden(t *testing.T) {
 }
 
 func TestDatePickerIdle(t *testing.T) {
+	t.Parallel()
 	expectIdle(t, pickerPage(kit.DatePicker{Today: calToday, AriaLabel: "Appointment", Props: h.TestID("picker"), DefaultOpen: true}), nil)
 	expectIdle(t, pickerPage(kit.DateRangePicker{Today: calToday, AriaLabel: "Stay", Props: h.TestID("picker"), DefaultOpen: true}), nil)
 }

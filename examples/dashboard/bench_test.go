@@ -640,7 +640,18 @@ var configs = []struct {
 // script and check nothing more, they only measure, and cost five times as
 // much (36 s of the package's run on a 12-thread machine). TELA_PERF set to
 // anything plays every configuration.
+//
+// Under -short (without TELA_PERF) it does not play: its interactions are
+// TestInteractionDamage's and TestDragDamage's, checked frame by frame;
+// the page's rest after them TestIdle's and TestGoesIdle's; the frames of
+// this rig TestPartialFrames' and TestRailHoverRecordsLittle's; and the
+// scratch released at rest core's TestRasterMemoryAfterPalette and
+// TestHostRasterTrim. It is the longest sequential test of the package
+// (it switches the scheme, through tela.Post).
 func TestSession(t *testing.T) {
+	if testing.Short() && os.Getenv("TELA_PERF") == "" {
+		t.Skip("-short: the session's paths are covered by the damage, idle and rig tests (see the comment)")
+	}
 	for _, c := range configs {
 		t.Run(c.name, func(t *testing.T) {
 			if c.name != "1080p_x1" && os.Getenv("TELA_PERF") == "" {

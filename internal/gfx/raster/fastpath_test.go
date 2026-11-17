@@ -168,6 +168,7 @@ func supersampled(w, h, n int, contains func(x, y float64) bool) []float64 {
 // overlap (the outside regions of opposite corners never overlap, which the
 // fast path relies on).
 func TestRRectFastPathExact(t *testing.T) {
+	t.Parallel()
 	rng := rand.New(rand.NewPCG(5, 5))
 	f := func(lo, hi float64) float32 { return float32(lo + rng.Float64()*(hi-lo)) }
 	cases := []gfx.RRect{

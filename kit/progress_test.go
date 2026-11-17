@@ -42,8 +42,15 @@ func progressSheet() *sheet {
 	}}
 }
 
-func TestProgressGolden(t *testing.T)   { progressSheet().golden(t) }
-func TestChromiumProgress(t *testing.T) { progressSheet().chromium(t) }
+func TestProgressGolden(t *testing.T) {
+	t.Parallel()
+	progressSheet().golden(t)
+}
+
+func TestChromiumProgress(t *testing.T) {
+	t.Parallel()
+	progressSheet().chromium(t)
+}
 
 func progressbar(name string) telatest.Locator { return telatest.ByRole("progressbar", name) }
 
@@ -58,6 +65,7 @@ func (movingProgress) Build() tela.Node {
 }
 
 func TestProgressValueAndTransition(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, movingProgress{}, telatest.NoSettle())
 	ind := telatest.ByClass("h-full", "flex-1")
 	bar := app.Bounds(telatest.ByTestID("bar"))
@@ -85,6 +93,7 @@ func TestProgressValueAndTransition(t *testing.T) {
 }
 
 func TestProgressSemantics(t *testing.T) {
+	t.Parallel()
 	got, err := telatest.AriaSnapshot(h.Div(
 		kit.Progress{Value: 40, AriaLabel: "Upload"},
 		kit.Progress{Value: 512, Max: 2048, AriaLabel: "Disk", FormatValue: func(v float64) string { return fmt.Sprintf("%.0f MB", v) }},
@@ -100,6 +109,7 @@ func TestProgressSemantics(t *testing.T) {
 }
 
 func TestProgressMaxAndClamp(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("w-[200px]"), kit.Progress{Value: 500, Max: 1000, AriaLabel: "Half", Props: h.TestID("half")},
 			kit.Progress{Value: 150, AriaLabel: "Over", Props: h.TestID("over")})
@@ -131,6 +141,7 @@ func ExampleProgress() {
 // start, which is the right edge, so its left edge is at 120 px and the
 // track shows the right 80 px of it.
 func TestProgressRTL(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Dir("rtl"), h.Class("w-[200px]"),
 			kit.Progress{Value: 40, AriaLabel: "Upload", Props: h.TestID("bar")})

@@ -54,6 +54,7 @@ func floatScene(st *sceneState) Node {
 // element that follows its anchor through scrolls, translations, size
 // limits, resizes, hovers and open/close (ADR-096), at every scale.
 func TestDamageFloating(t *testing.T) {
+	t.Parallel()
 	steps := 160
 	if testing.Short() {
 		steps = 40
@@ -63,4 +64,53 @@ func TestDamageFloating(t *testing.T) {
 	}
 	runScene(t, "floating", floatScene, commonOps, Config{InstantScroll: true}, steps)
 	runScene(t, "floating_smooth", floatScene, commonOps, Config{}, steps/2)
+}
+
+// TestPublishValueBesideAnotherTreesBuild: a Place function publishes a
+// Value (PublishValue) in the float pass of one Tree while another Tree,
+// on another goroutine (a parallel test), builds its components. Whether
+// the publishing Tree is in a build is its own state, not the build's
+// global current: under the race detector the two do not race.
+func TestPublishValueBesideAnotherTreesBuild(t *testing.T) {
+	t.Parallel()
+	mk := func(root func(*sceneState) Node) (*damageHarness, *sceneState) {
+		st := &sceneState{refs: make([]ElementRef, 4), setters: make([]Setter[int], 200), values: make([]*Value[float32], 4)}
+		x := newDamageHarnessWith(t, root(st), 360, 280, 1, Config{InstantScroll: true}, 1, func(x *damageHarness) {
+			x.checkFn = func(string) {} // the pixels are TestDamageFloating's
+		})
+		return x, st
+	}
+	// The anchor's margin is the state: each frame lays it out elsewhere,
+	// and the Place function publishes the new position.
+	float, fst := mk(func(st *sceneState) Node {
+		return Component(func() Node {
+			anchor := UseElementRef()
+			at := UseValue[float32](0)
+			left, set := UseState(0)
+			st.setters[0] = set
+			place := func(in FloatInput) FloatResult {
+				PublishValue(at, in.Anchor.X)
+				return FloatResult{X: in.Anchor.X, Y: in.Anchor.Bottom()}
+			}
+			return div(Class("relative h-screen bg-slate-100 p-3"),
+				div(AttachRef(anchor), Class("h-8 w-24 bg-indigo-500 ml-["+strconv.Itoa(left)+"px]")),
+				Portal(div(Floating(FloatOptions{Anchor: anchor, Place: place}), Class("fixed h-10 w-20 bg-white"),
+					Style(style.TranslateFn(func() (float32, float32) { return 0, at.Get() / 10 })))),
+			)
+		})
+	})
+	rows, rst := mk(func(st *sceneState) Node { return rowScene(st, 60, "grow overflow-y-auto bg-white") })
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := range 60 {
+			rst.setters[i%20].Update(func(v int) int { return v + 1 })
+			rows.frame("build")
+		}
+	}()
+	for i := range 60 {
+		fst.setters[0].Set(1 + i%40)
+		float.frame("place")
+	}
+	<-done
 }

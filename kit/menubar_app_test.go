@@ -32,6 +32,7 @@ func appMenuPage(log *[]string, edit func(*kit.Menubar[string])) func() tela.Nod
 // Native, on a platform with an app bar: the bar and the app items are the
 // OS's, nothing is drawn, and choosing runs what the drawn menu does.
 func TestMenubarAppMenuNative(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := telatest.MountFunc(t, appMenuPage(&log, nil), telatest.Size(480, 320), telatest.Theme(kit.Theme()), telatest.PreferNativeMenus())
 	bar := app.AppMenuBar()
@@ -58,6 +59,7 @@ func TestMenubarAppMenuNative(t *testing.T) {
 // telatest), when the platform has no app bar, and when Native says so;
 // AppItems are not drawn.
 func TestMenubarAppMenuDrawn(t *testing.T) {
+	t.Parallel()
 	file := telatest.ByRole("menuitem", "File")
 	for name, tc := range map[string]struct {
 		edit func(*kit.Menubar[string])
@@ -89,6 +91,7 @@ func TestMenubarAppMenuDrawn(t *testing.T) {
 // Where only windows have menu bars (Windows), the app's bar is the
 // window's, native and not drawn.
 func TestMenubarAppMenuOnWindows(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := telatest.MountFunc(t, appMenuPage(&log, nil), telatest.Size(480, 320), telatest.Theme(kit.Theme()),
 		telatest.PreferNativeMenus(), telatest.WithUnsupported(telatest.AppMenu))
@@ -105,6 +108,7 @@ func TestMenubarAppMenuOnWindows(t *testing.T) {
 // A per-window native Menubar on a platform whose windows have no bars (a
 // Mac: the bar belongs to the app) is drawn.
 func TestMenubarWindowBarDrawnWhereOnlyTheAppHasOne(t *testing.T) {
+	t.Parallel()
 	page := nativeBar(func(m *kit.Menubar[string]) { m.Native = kit.NativeOn })
 	app := telatest.MountFunc(t, page, telatest.Size(480, 320), telatest.Theme(kit.Theme()),
 		telatest.WithUnsupported(telatest.NativeMenus))
@@ -114,6 +118,7 @@ func TestMenubarWindowBarDrawnWhereOnlyTheAppHasOne(t *testing.T) {
 // A menu with a role is the OS's standard menu in a native bar and is
 // left out of the drawn one when it has no items.
 func TestMenubarRoleMenus(t *testing.T) {
+	t.Parallel()
 	menus := []kit.MenubarMenu[string]{
 		fileMenu(),
 		{Key: "edit", Label: "Edit", Role: desktop.RoleEditMenu},
@@ -134,6 +139,7 @@ func TestMenubarRoleMenus(t *testing.T) {
 }
 
 func TestMenubarMenuRoleMustBeAMenuRole(t *testing.T) {
+	t.Parallel()
 	defer func() {
 		r := recover()
 		if s := fmt.Sprint(r); !strings.Contains(s, "RoleEditMenu") {
@@ -149,6 +155,7 @@ func TestMenubarMenuRoleMustBeAMenuRole(t *testing.T) {
 // every platform (it used to vanish when drawn and panic in desktop when
 // native).
 func TestMenubarEmptyHelpMenuPanics(t *testing.T) {
+	t.Parallel()
 	for _, native := range []bool{false, true} {
 		t.Run(fmt.Sprint("native=", native), func(t *testing.T) {
 			defer func() {

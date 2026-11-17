@@ -86,12 +86,20 @@ func sliderSheet() *sheet {
 	}}
 }
 
-func TestSliderGolden(t *testing.T)   { sliderSheet().golden(t) }
-func TestChromiumSlider(t *testing.T) { sliderSheet().chromium(t) }
+func TestSliderGolden(t *testing.T) {
+	t.Parallel()
+	sliderSheet().golden(t)
+}
+
+func TestChromiumSlider(t *testing.T) {
+	t.Parallel()
+	sliderSheet().chromium(t)
+}
 
 func sliderRole(name string) telatest.Locator { return telatest.ByRole("slider", name) }
 
 func TestSliderKeyboard(t *testing.T) {
+	t.Parallel()
 	var got [][]float64
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("w-[300px] p-4"), kit.Slider{AriaLabel: "Volume", DefaultValue: new(50.0), Step: 5,
@@ -117,6 +125,7 @@ func TestSliderKeyboard(t *testing.T) {
 }
 
 func TestSliderPointer(t *testing.T) {
+	t.Parallel()
 	var committed []float64
 	var changed []float64
 	app := telatest.MountFunc(t, func() tela.Node {
@@ -143,6 +152,7 @@ func TestSliderPointer(t *testing.T) {
 // TestSliderKnobFollowsTheValue checks the knob's place along the track at
 // the ends and in the middle: it stays inside the track, as Radix's.
 func TestSliderKnobFollowsTheValue(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("w-[300px] p-4"), kit.Slider{AriaLabel: "Volume", Props: h.TestID("s"), DefaultValue: new(0.0)})
 	})
@@ -166,6 +176,7 @@ func TestSliderKnobFollowsTheValue(t *testing.T) {
 }
 
 func TestSliderRange(t *testing.T) {
+	t.Parallel()
 	var last []float64
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("w-[300px] p-4"), kit.Slider{DefaultValues: []float64{20, 80}, AriaLabel: "Price", Props: h.TestID("s"),
@@ -203,6 +214,7 @@ func (c controlledSlider) Build() tela.Node {
 }
 
 func TestSliderControlled(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, controlledSlider{})
 	app.ExpectText("level is 30")
 	app.Focus(sliderRole("Level"))
@@ -216,6 +228,7 @@ func TestSliderControlled(t *testing.T) {
 }
 
 func TestSliderVerticalAndDisabled(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("flex h-[200px] gap-8 p-4"),
 			kit.Slider{AriaLabel: "Tall", Orientation: kit.Vertical, DefaultValue: new(0.0), Props: h.TestID("v")},
@@ -241,6 +254,7 @@ func TestSliderVerticalAndDisabled(t *testing.T) {
 }
 
 func TestSliderAriaSnapshot(t *testing.T) {
+	t.Parallel()
 	got, err := telatest.AriaSnapshot(h.Div(
 		kit.Slider{AriaLabel: "Volume", DefaultValue: new(30.0)},
 		kit.Slider{AriaLabel: "Price", DefaultValues: []float64{10, 90}, ThumbLabels: []string{"Minimum", "Maximum"}}))
@@ -259,6 +273,7 @@ func TestSliderAriaSnapshot(t *testing.T) {
 // a one-knob slider does not even lay out again, its range being slid by a
 // paint-phase translate.
 func TestSliderDragRepaintsOnly(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("w-[300px] p-4"), kit.Slider{AriaLabel: "Volume", Props: h.TestID("s")})
 	})
@@ -361,6 +376,7 @@ func TestSliderValueSource(t *testing.T) {
 }
 
 func TestSliderUndefinedOrientation(t *testing.T) {
+	t.Parallel()
 	_, err := telatest.AriaSnapshot(kit.Slider{Orientation: "diagonal"})
 	if err == nil || !strings.Contains(err.Error(), `Slider.Orientation "diagonal"`) {
 		t.Errorf("error %v, want the orientation reported", err)

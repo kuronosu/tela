@@ -189,12 +189,20 @@ func selectSheet() *sheet {
 	}}
 }
 
-func TestSelectGolden(t *testing.T)   { selectSheet().golden(t) }
-func TestChromiumSelect(t *testing.T) { selectSheet().chromium(t) }
+func TestSelectGolden(t *testing.T) {
+	t.Parallel()
+	selectSheet().golden(t)
+}
+
+func TestChromiumSelect(t *testing.T) {
+	t.Parallel()
+	selectSheet().chromium(t)
+}
 
 var _ tela.Component = kit.Select[string]{}
 
 func TestSelectKeyboardAndPointer(t *testing.T) {
+	t.Parallel()
 	var seen []string
 	app := telatest.Mount(t, kit.Select[string]{Items: fruitItems, Placeholder: "Select a fruit", AriaLabel: "Fruit",
 		OnValueChange: func(k string) { seen = append(seen, k) }})
@@ -230,6 +238,7 @@ func TestSelectKeyboardAndPointer(t *testing.T) {
 }
 
 func TestSelectDisabledItemsAreNotChosen(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Select[string]{Items: fruitItems, Placeholder: "Pick", DefaultOpen: true})
 	app.Expect(telatest.ByRole("option", "Grapes"), telatest.Disabled(true))
 	// The keyboard skips it.
@@ -262,6 +271,7 @@ func (c controlledSelect) Build() tela.Node {
 }
 
 func TestSelectControlled(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := telatest.Mount(t, controlledSelect{&log})
 	app.Expect(telatest.ByRole("button", "Apple Fruit"), telatest.Expanded(false))
@@ -282,6 +292,7 @@ func TestSelectControlled(t *testing.T) {
 }
 
 func TestSelectOpenState(t *testing.T) {
+	t.Parallel()
 	var opens []bool
 	open := false
 	app := telatest.MountFunc(t, func() tela.Node {
@@ -297,6 +308,7 @@ func TestSelectOpenState(t *testing.T) {
 }
 
 func TestSelectGroupsAndSeparators(t *testing.T) {
+	t.Parallel()
 	snap, err := telatest.AriaSnapshot(kit.Select[string]{Items: groupedItems, DefaultOpen: true, Placeholder: "Pick"})
 	if err != nil {
 		t.Fatal(err)
@@ -309,6 +321,7 @@ func TestSelectGroupsAndSeparators(t *testing.T) {
 }
 
 func TestSelectInAField(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Field{Label: "Favorite fruit", Description: "Pick one.", Error: "Required.",
 		Children: kit.Select[string]{Items: fruitItems, Placeholder: "Select a fruit"}})
 	trigger := telatest.ByRole("button", "Select a fruit Favorite fruit")
@@ -319,6 +332,7 @@ func TestSelectInAField(t *testing.T) {
 }
 
 func TestSelectUndefinedSizePanics(t *testing.T) {
+	t.Parallel()
 	_, err := telatest.Render(kit.Select[string]{Items: fruitItems, Size: "huge"})
 	if err == nil || !strings.Contains(err.Error(), `Select.Size "huge" is not defined`) {
 		t.Errorf("error %v, want the undefined size reported", err)
@@ -326,6 +340,7 @@ func TestSelectUndefinedSizePanics(t *testing.T) {
 }
 
 func TestSelectOpenListRequestsNoFrames(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Select[string]{Items: fruitItems, Placeholder: "Pick", DefaultOpen: true}, telatest.NoSettle())
 	app.Advance(time.Second)
 	before := app.Stats()

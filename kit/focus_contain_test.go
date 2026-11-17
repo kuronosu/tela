@@ -36,6 +36,7 @@ func (l *focusLog) take() string {
 }
 
 func TestAlertDialogScrimPressKeepsFocus(t *testing.T) {
+	t.Parallel()
 	var log focusLog
 	app := telatest.MountFunc(t, pageUnder(deleteDialog(kit.AlertDialog{Props: log.props()})), telatest.Theme(kit.Theme()))
 	app.Click(deleteButton)
@@ -75,6 +76,7 @@ func TestAlertDialogScrimPressKeepsFocus(t *testing.T) {
 // A dismissable dialog still closes on a press on its scrim, and the focus
 // goes back to the trigger.
 func TestDialogScrimPressStillCloses(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, pageUnder(editDialog(kit.Dialog{})), telatest.Theme(kit.Theme()))
 	app.Click(editButton)
 	app.ExpectFocused(telatest.ByRole("textbox", "Name"))
@@ -87,6 +89,7 @@ func TestDialogScrimPressStillCloses(t *testing.T) {
 // focus scope: they take the focus and give it back, and the dialog does
 // not fight them.
 func TestOverlaysInsideAlertDialog(t *testing.T) {
+	t.Parallel()
 	content := h.Div(h.Class("flex gap-2"),
 		kit.Select[string]{Items: fruitItems, Placeholder: "Select a fruit", AriaLabel: "Fruit"},
 		dimsPopover(kit.Popover{}))
@@ -130,6 +133,7 @@ func TestOverlaysInsideAlertDialog(t *testing.T) {
 // above it, but the focus does not go there: a press on its button and a
 // programmatic focus leave it in the dialog, with no focus events.
 func TestAlertDialogKeepsFocusFromOverlayAbove(t *testing.T) {
+	t.Parallel()
 	var log focusLog
 	var setNote tela.Setter[bool]
 	undone := 0

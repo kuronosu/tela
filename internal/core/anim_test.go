@@ -541,6 +541,7 @@ func TestAnimationsWithoutAClock(t *testing.T) {
 }
 
 func TestAnimationsDamageMatchesFullRender(t *testing.T) {
+	t.Parallel()
 	var set Setter[bool]
 	root := Component(func() Node {
 		on, s := UseState(false)

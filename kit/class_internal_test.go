@@ -6,6 +6,7 @@ import "testing"
 // the order within each group, so a recipe gets Tailwind's stylesheet
 // precedence under Tela's last-wins class order.
 func TestJoinClassOrder(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		parts []string
 		want  string

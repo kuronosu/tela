@@ -9,6 +9,7 @@ import (
 // TestGalleryOpensOnTheIntroduction: the first tab of the sidebar is selected
 // and the hero is the page.
 func TestGalleryOpensOnTheIntroduction(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Gallery{})
 	a.Expect(tabFor("Introduction"), telatest.Selected(true))
 	a.ExpectRole("heading", "Hello, kit.")
@@ -23,6 +24,7 @@ func TestGalleryOpensOnTheIntroduction(t *testing.T) {
 // TestIntroductionListsEveryComponent: one button for each component, and
 // pressing one opens its page, with the sidebar following.
 func TestIntroductionListsEveryComponent(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Gallery{})
 	for _, p := range pages {
 		// The tab and the button have the same name.
@@ -37,6 +39,7 @@ func TestIntroductionListsEveryComponent(t *testing.T) {
 // TestIntroductionKeyboard reaches a component with the keyboard alone: Tab
 // to the page, to a button, Enter.
 func TestIntroductionKeyboard(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Gallery{})
 	button := telatest.ByRole("button", "Date Picker")
 	a.Focus(button)
@@ -53,6 +56,7 @@ func TestIntroductionKeyboard(t *testing.T) {
 // TestIntroductionInAPreview: the preview has no sidebar, and a button changes
 // the page it shows.
 func TestIntroductionInAPreview(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Previews["Introduction"])
 	a.ExpectRole("heading", "Hello, kit.")
 	a.Click(telatest.ByRole("button", "Toggle Group"))

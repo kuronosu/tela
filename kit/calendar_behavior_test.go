@@ -40,6 +40,7 @@ func calMount(t *testing.T, c tela.Component, opts ...telatest.Option) *telatest
 }
 
 func TestCalendarSelectsByClickAndKeyboard(t *testing.T) {
+	t.Parallel()
 	var got []aria.Date
 	app := calMount(t, kit.Calendar{Today: calToday, AriaLabel: "Birthday", OnValueChange: func(day aria.Date) { got = append(got, day) }})
 	app.ExpectRole("application", "Birthday, October 2026")
@@ -65,6 +66,7 @@ func TestCalendarSelectsByClickAndKeyboard(t *testing.T) {
 }
 
 func TestCalendarMonthsByKeyboardAndButtons(t *testing.T) {
+	t.Parallel()
 	app := calMount(t, kit.Calendar{Today: calToday, DefaultValue: calDate(2026, time.October, 31)})
 	app.Focus(calCell(calDate(2026, time.October, 31)))
 	app.Press("PageDown")
@@ -87,6 +89,7 @@ func TestCalendarMonthsByKeyboardAndButtons(t *testing.T) {
 }
 
 func TestCalendarLimitsAndUnavailableDates(t *testing.T) {
+	t.Parallel()
 	var got []aria.Date
 	app := calMount(t, kit.Calendar{
 		Today: calToday, DefaultValue: calDate(2026, time.October, 20),
@@ -120,6 +123,7 @@ func TestCalendarLimitsAndUnavailableDates(t *testing.T) {
 }
 
 func TestCalendarControlledValueRule(t *testing.T) {
+	t.Parallel()
 	// A controlled calendar shows what it is given and asks for changes: a
 	// change the parent does not store is refused.
 	chosen := calDate(2026, time.October, 3)
@@ -135,6 +139,7 @@ func TestCalendarControlledValueRule(t *testing.T) {
 }
 
 func TestCalendarDisabledAndReadOnly(t *testing.T) {
+	t.Parallel()
 	var got []aria.Date
 	app := calMount(t, kit.Calendar{Today: calToday, ReadOnly: true, OnValueChange: func(day aria.Date) { got = append(got, day) }})
 	app.Click(calCell(calDate(2026, time.October, 9)))
@@ -147,6 +152,7 @@ func TestCalendarDisabledAndReadOnly(t *testing.T) {
 }
 
 func TestCalendarVisibleMonthsHideRepeatedOutsideDays(t *testing.T) {
+	t.Parallel()
 	app := calMount(t, kit.Calendar{Today: calToday, VisibleMonths: 2})
 	app.ExpectCount(telatest.ByRole("grid", ""), 2)
 	// Oct 31 (Saturday) is the last day of a row of the first month; the
@@ -158,6 +164,7 @@ func TestCalendarVisibleMonthsHideRepeatedOutsideDays(t *testing.T) {
 }
 
 func TestCalendarFirstWeekdayAndHideOutsideDays(t *testing.T) {
+	t.Parallel()
 	mon := time.Monday
 	app := calMount(t, kit.Calendar{Today: calToday, FirstDayOfWeek: &mon, HideOutsideDays: true})
 	snap := app.AriaSnapshot()
@@ -170,6 +177,7 @@ func TestCalendarFirstWeekdayAndHideOutsideDays(t *testing.T) {
 }
 
 func TestCalendarFixedWeeks(t *testing.T) {
+	t.Parallel()
 	feb := calDate(2026, time.February, 10)
 	four := calMount(t, kit.Calendar{Today: calToday, DefaultFocusedDate: feb})
 	six := calMount(t, kit.Calendar{Today: calToday, DefaultFocusedDate: feb, FixedWeeks: true})
@@ -181,6 +189,7 @@ func TestCalendarFixedWeeks(t *testing.T) {
 }
 
 func TestCalendarLocales(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		locale, heading, first, digit string
 		rtl                           bool
@@ -216,6 +225,7 @@ func TestCalendarLocales(t *testing.T) {
 // TestCalendarNarrowWeekdays writes the column headers with the narrow
 // names, and keeps the full weekday as their accessible name.
 func TestCalendarNarrowWeekdays(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		name          string
 		cal           kit.Calendar
@@ -243,6 +253,7 @@ func TestCalendarNarrowWeekdays(t *testing.T) {
 }
 
 func TestCalendarRTLArrowKeys(t *testing.T) {
+	t.Parallel()
 	// In a right-to-left calendar ArrowLeft moves forward, and the layout
 	// is mirrored.
 	app := calMount(t, kit.Calendar{Today: calToday, Direction: "rtl", DefaultValue: calDate(2026, time.October, 14)})
@@ -256,6 +267,7 @@ func TestCalendarRTLArrowKeys(t *testing.T) {
 }
 
 func TestCalendarCustomLabelsAndIcons(t *testing.T) {
+	t.Parallel()
 	app := calMount(t, kit.Calendar{Today: calToday, PreviousLabel: "Mes anterior", NextLabel: "Mes siguiente", AriaLabel: "Fecha"})
 	app.ExpectRole("button", "Mes anterior")
 	app.ExpectRole("button", "Mes siguiente")
@@ -263,6 +275,7 @@ func TestCalendarCustomLabelsAndIcons(t *testing.T) {
 }
 
 func TestCalendarStyleAndClasses(t *testing.T) {
+	t.Parallel()
 	s := kit.DefaultStyle()
 	s.Calendar.Today = "ring-2 ring-primary"
 	s.Calendar.DayButtonWithSelected = "bg-emerald-600 text-white"
@@ -279,6 +292,7 @@ func TestCalendarStyleAndClasses(t *testing.T) {
 }
 
 func TestRangeCalendarSelectsInTwoPresses(t *testing.T) {
+	t.Parallel()
 	var got []aria.DateRange
 	app := calMount(t, kit.RangeCalendar{Today: calToday, OnValueChange: func(r aria.DateRange) { got = append(got, r) }})
 	app.Click(calCell(calDate(2026, time.October, 20)))
@@ -301,6 +315,7 @@ func TestRangeCalendarSelectsInTwoPresses(t *testing.T) {
 }
 
 func TestRangeCalendarEscapeCancelsTheAnchor(t *testing.T) {
+	t.Parallel()
 	var got []aria.DateRange
 	app := calMount(t, kit.RangeCalendar{Today: calToday, OnValueChange: func(r aria.DateRange) { got = append(got, r) }})
 	app.Focus(calCell(calDate(2026, time.October, 20)))
@@ -318,6 +333,7 @@ func TestRangeCalendarEscapeCancelsTheAnchor(t *testing.T) {
 }
 
 func TestRangeCalendarUnavailableDatesLimitTheRange(t *testing.T) {
+	t.Parallel()
 	var got []aria.DateRange
 	booked := calDate(2026, time.October, 22)
 	app := calMount(t, kit.RangeCalendar{Today: calToday, IsDateUnavailable: func(day aria.Date) bool { return day == booked },
@@ -346,6 +362,7 @@ func TestRangeCalendarUnavailableDatesLimitTheRange(t *testing.T) {
 }
 
 func TestRangeCalendarControlled(t *testing.T) {
+	t.Parallel()
 	r := aria.DateRange{Start: calDate(2026, time.October, 5), End: calDate(2026, time.October, 7)}
 	app := calMount(t, kit.RangeCalendar{Today: calToday, Value: &r})
 	for day := 5; day <= 7; day++ {
@@ -355,6 +372,7 @@ func TestRangeCalendarControlled(t *testing.T) {
 }
 
 func TestCalendarIdle(t *testing.T) {
+	t.Parallel()
 	expectIdle(t, calPage(kit.Calendar{Today: calToday, DefaultValue: calDate(2026, time.October, 14)}), nil)
 	expectIdle(t, calPage(kit.RangeCalendar{Today: calToday, VisibleMonths: 2}), nil)
 }

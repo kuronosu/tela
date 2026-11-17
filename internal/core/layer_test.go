@@ -23,6 +23,11 @@ import (
 // changes, the pixels a window shows (the framebuffer rasterized
 // incrementally, presented with its damage) are bit-identical to a full
 // rasterization of the tree composed from scratch (Tree.ReferenceFrame).
+//
+// The heaviest of these tests run in parallel (t.Parallel): each has its
+// own Host, headless backend and scene state, and none sets the package's
+// state (the environment, Post, the dev mode default). Go runs them after
+// the sequential tests, which may set it and put it back.
 
 // damageHarness runs a tree in a headless window and checks every
 // presented frame against the reference.
@@ -41,6 +46,13 @@ type damageHarness struct {
 	// comparison with the reference (the frames drawn by the GPU,
 	// gpuframe_test.go).
 	checkFn func(what string)
+	// Under -short check compares every other frame (sample), and the
+	// last one when the test ends: owed is the step it skipped last, ""
+	// when the last frame was compared. Every frame is still drawn
+	// incrementally and counted, and what a skipped frame got wrong stays
+	// in the window until the next comparison.
+	sample bool
+	owed   string
 }
 
 func newDamageHarness(t *testing.T, root Node, w, h float32, scale float64, cfg Config, seed uint64) *damageHarness {
@@ -59,7 +71,14 @@ func newDamageHarnessWith(t *testing.T, root Node, w, h float32, scale float64, 
 		t.Fatal(err)
 	}
 	x := &damageHarness{t: t, b: b, h: host, w: host.Window().(*headless.Window), rng: rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))}
+	x.sample = testing.Short()
 	t.Cleanup(host.stopTimer)
+	t.Cleanup(func() { // before stopTimer (cleanups run last first)
+		if what := x.owed; what != "" && !x.tree().Dirty() {
+			x.owed = ""
+			x.compare(what, x.tree().LastDamage())
+		}
+	})
 	if setup != nil {
 		setup(x)
 	}
@@ -112,6 +131,19 @@ func (x *damageHarness) check(what string) {
 		x.partial++
 	}
 	x.frames++
+	if x.sample && x.step%2 == 1 {
+		x.owed = what
+		return
+	}
+	x.owed = ""
+	x.compare(what, d)
+}
+
+// compare compares the window's pixels with the reference, after step
+// x.step (what) whose damage was d.
+func (x *damageHarness) compare(what string, d Damage) {
+	x.t.Helper()
+	tr := x.tree()
 	got := x.w.Frame()
 	if got == nil {
 		x.t.Fatalf("step %d (%s): nothing presented", x.step, what)
@@ -451,7 +483,7 @@ func runSceneWith(t *testing.T, name string, root func(*sceneState) Node, ops fu
 			st := &sceneState{refs: make([]ElementRef, 4), setters: make([]Setter[int], 200), values: make([]*Value[float32], 4)}
 			x := newDamageHarnessWith(t, root(st), 360, 280, scale, cfg, damageSeed+uint64(len(name))*1000+uint64(scale*100)/100+uint64(scale*100)%100*7, setup)
 			n := steps
-			if scale == 1.25 || scale == 1.75 {
+			if (scale == 1.25 || scale == 1.75) && len(scales) > 1 {
 				n = max(steps/4, 10) // the other fractional scales, shorter (1.5 runs in full)
 			}
 			for range n {
@@ -467,6 +499,18 @@ func runSceneWith(t *testing.T, name string, root func(*sceneState) Node, ops fu
 			t.Logf("%d frames checked (%d skipped): %d full, %d shifted, %d partial", x.frames, x.skipped, x.full, x.shifted, x.partial)
 		})
 	}
+}
+
+// sceneScales are the scales of the i-th scene of a test that plays
+// several: damageScales(), or under -short (without TELA_DAMAGE_SCALES)
+// only the i-th of them in turn, so that the scenes of the test still
+// cover every scale, each scene at one of them, with all its steps.
+func sceneScales(i int) []float64 {
+	s := damageScales()
+	if testing.Short() && os.Getenv("TELA_DAMAGE_SCALES") == "" {
+		return s[i%len(s) : i%len(s)+1]
+	}
+	return s
 }
 
 // commonOps are scene operations on the handles: programmatic scrolls,
@@ -533,6 +577,7 @@ func damageScales() []float64 {
 }
 
 func TestDamageMatchesFullRender(t *testing.T) {
+	t.Parallel()
 	steps := 160
 	if testing.Short() {
 		steps = 40
@@ -540,21 +585,29 @@ func TestDamageMatchesFullRender(t *testing.T) {
 	if n, err := strconv.Atoi(os.Getenv("TELA_DAMAGE_STEPS")); err == nil {
 		steps = n
 	}
+	// Under -short each scene plays at one scale, the next one for the
+	// next scene (sceneScales), with 40 steps: every scene and every scale
+	// is still played.
+	i := 0
+	run := func(name string, root func(*sceneState) Node, cfg Config) {
+		runSceneWith(t, name, root, commonOps, cfg, steps, sceneScales(i), nil)
+		i++
+	}
 	rows := func(st *sceneState) Node { return rowScene(st, 120, "grow overflow-y-auto bg-white") }
-	runScene(t, "rows", rows, commonOps, Config{}, steps)
-	runScene(t, "rows_instant_classic", rows, commonOps, Config{InstantScroll: true, ClassicScrollbars: true}, steps)
+	run("rows", rows, Config{})
+	run("rows_instant_classic", rows, Config{InstantScroll: true, ClassicScrollbars: true})
 	rounded := func(st *sceneState) Node {
 		return rowScene(st, 60, "m-3 grow overflow-auto rounded-2xl border-2 border-slate-300 bg-white shadow-lg")
 	}
-	runScene(t, "rounded", rounded, commonOps, Config{InstantScroll: true}, steps)
-	runScene(t, "page", pageScene, commonOps, Config{InstantScroll: true}, steps)
-	runScene(t, "page_smooth", pageScene, commonOps, Config{}, steps)
-	runScene(t, "glass", glassScene, commonOps, Config{InstantScroll: true}, steps)
-	runScene(t, "plainpage", plainPageScene, commonOps, Config{InstantScroll: true}, steps)
-	runScene(t, "plainpage_classic", plainPageScene, commonOps, Config{ClassicScrollbars: true}, steps)
-	runScene(t, "board", boardScene, commonOps, Config{InstantScroll: true}, steps)
-	runScene(t, "virtual", virtualScene, commonOps, Config{InstantScroll: true}, steps)
-	runScene(t, "virtual_smooth", virtualScene, commonOps, Config{}, steps)
+	run("rounded", rounded, Config{InstantScroll: true})
+	run("page", pageScene, Config{InstantScroll: true})
+	run("page_smooth", pageScene, Config{})
+	run("glass", glassScene, Config{InstantScroll: true})
+	run("plainpage", plainPageScene, Config{InstantScroll: true})
+	run("plainpage_classic", plainPageScene, Config{ClassicScrollbars: true})
+	run("board", boardScene, Config{InstantScroll: true})
+	run("virtual", virtualScene, Config{InstantScroll: true})
+	run("virtual_smooth", virtualScene, Config{})
 }
 
 // TestScrollShiftsPixels checks that a steady scroll of a list over an

@@ -314,5 +314,12 @@ func tableSheet() *sheet {
 	return &sheet{name: "table", width: 560, cells: cells, edge: [2]float64{1, 1}, mean: [2]float64{6, 3.5}}
 }
 
-func TestTableGolden(t *testing.T)   { tableSheet().golden(t) }
-func TestTableChromium(t *testing.T) { tableSheet().chromium(t) }
+func TestTableGolden(t *testing.T) {
+	t.Parallel()
+	tableSheet().golden(t)
+}
+
+func TestTableChromium(t *testing.T) {
+	t.Parallel()
+	tableSheet().chromium(t)
+}

@@ -50,9 +50,13 @@ func endContentSheet() *sheet {
 	}}
 }
 
-func TestInputEndContentGolden(t *testing.T) { endContentSheet().golden(t) }
+func TestInputEndContentGolden(t *testing.T) {
+	t.Parallel()
+	endContentSheet().golden(t)
+}
 
 func TestInputEndContentRTLGolden(t *testing.T) {
+	t.Parallel()
 	s := endContentSheet()
 	s.name, s.rtl = "input_endcontent_rtl", true
 	s.cells = s.cells[:4]
@@ -61,6 +65,7 @@ func TestInputEndContentRTLGolden(t *testing.T) {
 
 // The button takes the focus and its own ring, and the field keeps its own.
 func TestInputEndContentFocusGolden(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("flex w-72 flex-col gap-4 bg-background p-6 text-foreground"),
 			revealInput{}, kit.Input{DefaultValue: "x", AriaLabel: "Other"})
@@ -72,6 +77,7 @@ func TestInputEndContentFocusGolden(t *testing.T) {
 }
 
 func TestInputEndContentRevealToggle(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, revealInput{})
 	app.ExpectCount(telatest.ByRole("button", "Show password"), 1)
 	app.Click(telatest.ByRole("button", "Show password"))
@@ -85,6 +91,7 @@ func TestInputEndContentRevealToggle(t *testing.T) {
 // A press on the button does not put the focus in the field, and a press on
 // the field still does; the field leaves room for the button.
 func TestInputEndContentLayout(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, h.Div(h.Class("w-72"), revealInput{}))
 	in := app.Bounds(telatest.ByTestID("reveal-input"))
 	btn := app.Bounds(telatest.ByTestID("reveal-button"))
@@ -101,6 +108,7 @@ func TestInputEndContentLayout(t *testing.T) {
 }
 
 func TestInputEndContentMirrorsInRTL(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Dir("rtl"), h.Class("w-72"), revealInput{})
 	}, telatest.Size(320, 80))
@@ -125,6 +133,7 @@ func (keyedInputs) Build() tela.Node {
 }
 
 func TestInputWithKeyKeepsTextAcrossReorder(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, keyedInputs{})
 	app.Click(telatest.ByRole("textbox", "a"))
 	app.Type("hello")

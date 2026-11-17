@@ -40,5 +40,12 @@ func separatorSheet() *sheet {
 	}}
 }
 
-func TestSeparatorGolden(t *testing.T)   { separatorSheet().golden(t) }
-func TestChromiumSeparator(t *testing.T) { separatorSheet().chromium(t) }
+func TestSeparatorGolden(t *testing.T) {
+	t.Parallel()
+	separatorSheet().golden(t)
+}
+
+func TestChromiumSeparator(t *testing.T) {
+	t.Parallel()
+	separatorSheet().chromium(t)
+}

@@ -66,9 +66,24 @@ func rangeCalendarSheet(t testing.TB) *sheet {
 	}, edge: [2]float64{0.1, 0.5}}
 }
 
-func TestCalendarGolden(t *testing.T)        { calendarSheet(t).golden(t) }
-func TestChromiumCalendar(t *testing.T)      { calendarSheet(t).chromium(t) }
-func TestRangeCalendarGolden(t *testing.T)   { rangeCalendarSheet(t).golden(t) }
-func TestChromiumRangeCalendar(t *testing.T) { rangeCalendarSheet(t).chromium(t) }
+func TestCalendarGolden(t *testing.T) {
+	t.Parallel()
+	calendarSheet(t).golden(t)
+}
+
+func TestChromiumCalendar(t *testing.T) {
+	t.Parallel()
+	calendarSheet(t).chromium(t)
+}
+
+func TestRangeCalendarGolden(t *testing.T) {
+	t.Parallel()
+	rangeCalendarSheet(t).golden(t)
+}
+
+func TestChromiumRangeCalendar(t *testing.T) {
+	t.Parallel()
+	rangeCalendarSheet(t).chromium(t)
+}
 
 var _ tela.Component = kit.Calendar{}

@@ -2,6 +2,7 @@ package core
 
 import (
 	"reflect"
+	"slices"
 	"sync"
 )
 
@@ -32,6 +33,7 @@ func (t *Tree) build(el *Element) {
 	t.stats.Builds++
 	prev := current
 	current = el
+	t.builds++
 	el.hookIdx = 0
 	before, first := len(el.hooks), el.builds == 0
 	el.builds++
@@ -41,6 +43,7 @@ func (t *Tree) build(el *Element) {
 		done := false
 		defer func() {
 			current = prev
+			t.builds--
 			if !done { // the function panicked: keep the old subscriptions
 				t.endTrack(mark)
 			}
@@ -465,7 +468,9 @@ func (t *Tree) ReceivePosts() (stop func()) {
 		stopped = true
 		for i := len(posts.stack) - 1; i >= 0; i-- {
 			if posts.stack[i] == t {
-				posts.stack = append(posts.stack[:i], posts.stack[i+1:]...)
+				// slices.Delete clears the vacated slot: the stack does not
+				// keep a stopped Tree (and its app) reachable.
+				posts.stack = slices.Delete(posts.stack, i, i+1)
 				break
 			}
 		}

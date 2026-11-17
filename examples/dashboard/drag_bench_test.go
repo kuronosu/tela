@@ -6,6 +6,7 @@ import (
 	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
+	"github.com/kuronosu/tela/internal/testutil/damagesample"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -121,6 +122,7 @@ func benchDrag(b *testing.B, full bool) {
 // which does not change). The columns have no transition: a fading drop
 // ring would rasterize a whole column on each of its frames.
 func TestDragMoveRecordsLittle(t *testing.T) {
+	t.Parallel()
 	d := newDragger(t)
 	tr := d.host.Tree()
 	quiet := 0
@@ -164,7 +166,11 @@ func TestDragMoveRecordsLittle(t *testing.T) {
 // full rendering: each move of the pointer, the cards that make room and
 // the drop. Fifteen steps of a drag cross the same columns as thirty did,
 // in fewer frames of 2832x1692 pixels.
+//
+// Under -short only every 16th frame, and the last, is compared with a
+// full rendering (damagesample); every frame is still drawn incrementally.
 func TestDragDamage(t *testing.T) {
+	damagesample.Short(t, 16)
 	app := App
 	app.Root = Previews["2 Board"].Root
 	a := telatest.MountApp(t, app, telatest.Size(1416, 846), telatest.Scale(2), telatest.CheckDamage())

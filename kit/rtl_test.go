@@ -17,6 +17,7 @@ func rtlOf(s *sheet) *sheet {
 }
 
 func TestRTLGoldens(t *testing.T) {
+	t.Parallel()
 	sheets := map[string]func(testing.TB) *sheet{
 		"alertdialog":   func(testing.TB) *sheet { return alertDialogSheet() },
 		"avatar":        func(testing.TB) *sheet { return avatarSheet() },
@@ -52,7 +53,7 @@ func TestRTLGoldens(t *testing.T) {
 		"tooltip":       func(testing.TB) *sheet { return tooltipSheet() },
 	}
 	for name, mk := range sheets {
-		t.Run(name, func(t *testing.T) { rtlOf(mk(t)).golden(t) })
+		t.Run(name, func(t *testing.T) { t.Parallel(); rtlOf(mk(t)).golden(t) })
 	}
 }
 
@@ -60,6 +61,7 @@ func TestRTLGoldens(t *testing.T) {
 // shadcn markup, in its logical classes (rtlMarkup), Chromium renders
 // right to left: the boxes of the probes and the pixels around each cell.
 func TestChromiumRTL(t *testing.T) {
+	t.Parallel()
 	sheets := map[string]func() *sheet{
 		"alertdialog":  alertDialogSheet,
 		"avatar":       avatarSheet,
@@ -89,6 +91,6 @@ func TestChromiumRTL(t *testing.T) {
 		"tooltip":      tooltipSheet,
 	}
 	for name, mk := range sheets {
-		t.Run(name, func(t *testing.T) { rtlOf(mk()).chromium(t) })
+		t.Run(name, func(t *testing.T) { t.Parallel(); rtlOf(mk()).chromium(t) })
 	}
 }

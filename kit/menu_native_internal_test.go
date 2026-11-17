@@ -10,6 +10,7 @@ import (
 // with a Role (which dev mode rejects): it is checked as the group says
 // and choosing it runs the menu's choice, never the role.
 func TestNativeRadioItemIgnoresRole(t *testing.T) {
+	t.Parallel()
 	v := "a"
 	items := []MenuItem[string]{{Kind: MenuRadioGroup, Key: "g", Value: &v, Items: []MenuItem[string]{
 		{Key: "a", Label: "A", Role: desktop.RoleCopy}, {Key: "b", Label: "B"}}}}

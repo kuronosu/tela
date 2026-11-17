@@ -61,6 +61,7 @@ func TestPaletteKeyboard(t *testing.T) {
 // TestPalettePointer opens the palette from the search button, closes it
 // with a press outside, and runs a command with a click.
 func TestPalettePointer(t *testing.T) {
+	t.Parallel()
 	a := mount(t, windowW, windowH)
 	a.Click(searchButon)
 	a.ExpectCount(palette, 1)
@@ -84,6 +85,7 @@ func TestPalettePointer(t *testing.T) {
 
 // TestPaletteAria pins what a screen reader finds in the open palette.
 func TestPaletteAria(t *testing.T) {
+	t.Parallel()
 	a := mountPreview(t, "4 Command palette")
 	a.AriaGolden("palette.aria.yml")
 }
@@ -92,6 +94,7 @@ func TestPaletteAria(t *testing.T) {
 // once, it describes the button, and Escape closes it while the focus
 // stays.
 func TestTooltipKeyboard(t *testing.T) {
+	t.Parallel()
 	a := mount(t, windowW, windowH)
 	a.ExpectCount(telatest.ByRole("tooltip", ""), 0)
 	a.Focus(telatest.ByRole("button", "Overview"))
@@ -107,6 +110,7 @@ func TestTooltipKeyboard(t *testing.T) {
 // trigger for 400 ms and closes after it leaves. The delays run on the
 // frame clock, so the test drives it.
 func TestTooltipPointer(t *testing.T) {
+	t.Parallel()
 	a := mount(t, windowW, windowH, telatest.NoSettle())
 	a.Advance(3 * time.Second)
 	tip := telatest.ByRole("tooltip", "Switch theme")

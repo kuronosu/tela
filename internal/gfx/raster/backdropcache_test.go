@@ -61,6 +61,7 @@ func (s glassState) list(upto int) *gfx.DisplayList {
 // filters are drawn from the cache, at scales 1 and 2, sequentially and in
 // phases.
 func TestBackdropCache(t *testing.T) {
+	t.Parallel()
 	for _, scale := range []float32{1, 2} {
 		for _, workers := range []int{1, 0} {
 			t.Run(fmt.Sprintf("x%g_w%d", scale, workers), func(t *testing.T) {
@@ -87,6 +88,7 @@ func testBackdropCache(t *testing.T, scale float32, workers int) {
 	dl := s.list(-1)
 	r.Render(fb, dl, Options{Scale: scale, Workers: workers, Backdrops: &c})
 	prev, prevImg := s, full(dl)
+	var prevInputs []*image.RGBA
 	steps := 60
 	if testing.Short() {
 		steps = 10 // arm64 under qemu (ADR-027)
@@ -115,14 +117,26 @@ func testBackdropCache(t *testing.T, scale float32, workers int) {
 		dl = s.list(-1)
 		want := full(dl)
 		// The oracle of the carry: a filter whose input pixels are the
-		// same in both frames keeps its entry.
+		// same in both frames keeps its entry. The inputs of the previous
+		// frame are the ones this loop rendered for it (prevInputs): the
+		// same lists, rendered the same way.
 		carry := make([]int, dl.NumBackdrops())
+		inputs := make([]*image.RGBA, len(carry))
 		for k := range carry {
 			carry[k] = -1
-			if bytes.Equal(full(prev.list(k)).Pix, full(s.list(k)).Pix) && filterSame(prev, s, k) {
+			var before *image.RGBA
+			if k < len(prevInputs) {
+				before = prevInputs[k]
+			}
+			if before == nil {
+				before = full(prev.list(k))
+			}
+			inputs[k] = full(s.list(k))
+			if bytes.Equal(before.Pix, inputs[k].Pix) && filterSame(prev, s, k) {
 				carry[k] = k
 			}
 		}
+		prevInputs = inputs
 		c.Retain(dl, scale, carry)
 		changed := diffBounds(prevImg, want)
 		regions := []image.Rectangle{changed}
@@ -306,6 +320,7 @@ func stackScene(panes ...pane) *gfx.DisplayList {
 // honest), sequentially and in phases, and the later filter is drawn from
 // the cache.
 func TestBackdropCacheStack(t *testing.T) {
+	t.Parallel()
 	type geo struct {
 		name string
 		a, b pane
@@ -357,6 +372,7 @@ func TestBackdropCacheStack(t *testing.T) {
 // never changes): every frame equals an uncached full render, whatever the
 // covers the entries were left with, sequentially and in phases.
 func TestBackdropCacheCarry(t *testing.T) {
+	t.Parallel()
 	dl := stackScene(
 		pane{gfx.RectXYWH(10, 10, 300, 270), 6},
 		pane{gfx.RectXYWH(90, 50, 290, 160), 14},

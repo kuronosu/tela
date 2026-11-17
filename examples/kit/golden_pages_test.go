@@ -39,8 +39,13 @@ var newPages = []struct {
 // (light, right to left in Arabic) and the dark English one:
 // `TELA_UPDATE=1 CGO_ENABLED=0 go test -run TestGoldenNewPages ./examples/kit`
 // writes the pictures, which must be looked at before they are committed.
+//
+// Under -short each page is checked in one language, English, Spanish and
+// Arabic in turn, and every other page with colors of its own also in the
+// dark: every page, every language and the dark scheme, 21 goldens of 56.
 func TestGoldenNewPages(t *testing.T) {
-	for _, p := range newPages {
+	t.Parallel()
+	for i, p := range newPages {
 		run := func(t *testing.T, tag string, dark bool) {
 			opts := []telatest.Option{telatest.Size(1280, float32(p.height))}
 			if dark {
@@ -57,10 +62,13 @@ func TestGoldenNewPages(t *testing.T) {
 			a.GoldenScales(name, 1)
 		}
 		t.Run(p.name, func(t *testing.T) {
-			for _, tag := range languages {
+			for k, tag := range languages {
+				if testing.Short() && k != i%len(languages) {
+					continue
+				}
 				t.Run(tag, func(t *testing.T) { run(t, tag, false) })
 			}
-			if p.dark {
+			if p.dark && (!testing.Short() || i%2 == 0) {
 				t.Run("en dark", func(t *testing.T) { run(t, "en", true) })
 			}
 		})
@@ -86,8 +94,15 @@ var arabicPages = []struct {
 // TestGoldenArabicPages renders each of them in Arabic:
 // `TELA_UPDATE=1 CGO_ENABLED=0 go test -run TestGoldenArabicPages ./examples/kit`
 // writes the pictures, which must be looked at before they are committed.
+//
+// Under -short every other page of the list is checked (TestGoldenNewPages
+// checks a third of the new pages in Arabic too).
 func TestGoldenArabicPages(t *testing.T) {
-	for _, p := range arabicPages {
+	t.Parallel()
+	for i, p := range arabicPages {
+		if testing.Short() && i%2 != 0 {
+			continue
+		}
 		t.Run(p.name, func(t *testing.T) {
 			a := mount(t, Canvas{Page: p.name, Locale: "ar"}, telatest.Size(1280, float32(p.height)))
 			a.GoldenScales("kit_page_"+slug(p.name)+"_ar", 1)

@@ -26,6 +26,7 @@ func openPlayground(t *testing.T, page, tag, button string) (*telatest.App, *tel
 // Alt can be tried in the gallery: a press on a card's edge is the OS's
 // resize, and F10 or Alt focus the bar's first menu from anywhere.
 func TestPlaygroundWindow(t *testing.T) {
+	t.Parallel()
 	for _, page := range []string{"TitleBar", "Menubar"} {
 		t.Run(page, func(t *testing.T) {
 			a, w := openPlayground(t, page, "en", "Open a frameless window")
@@ -72,6 +73,7 @@ func TestPlaygroundWindow(t *testing.T) {
 
 // The demo window speaks the gallery's language and direction.
 func TestPlaygroundWindowLanguage(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct{ tag, button, title, bar, size string }{
 		{"es", "Abrir una ventana sin marco", "Ventana sin marco", "Archivo", "Tamaño: 512 × 372"},
 		{"ar", "فتح نافذة بلا إطار", "نافذة بلا إطار", "ملف", "الحجم: 512 × 372"},
@@ -106,6 +108,7 @@ func ink(img, blank *image.RGBA, r image.Rectangle) image.Rectangle {
 // in an Arabic page). The start alone, set in the same button, lies exactly
 // where the start lies in the pair; the end alone does not.
 func TestDateRangePickerReadingOrder(t *testing.T) {
+	t.Parallel()
 	r := aria.DateRange{Start: oct(20), End: aria.Date{Year: 2026, Month: 11, Day: 5}}
 	for _, c := range []struct {
 		tag, dir     string
@@ -164,6 +167,7 @@ func TestDateRangePickerReadingOrder(t *testing.T) {
 // dark, mirrored. TELA_UPDATE=1 writes the pictures, which must be looked
 // at before they are committed.
 func TestGoldenPlayground(t *testing.T) {
+	t.Parallel()
 	// The demo window's kit.TitleBar has the Default variant, the host's
 	// look (Windows' and macOS' arrangements elsewhere), and the pictures
 	// are Linux's.

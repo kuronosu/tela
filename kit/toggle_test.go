@@ -80,12 +80,20 @@ func toggleSheet() *sheet {
 	}}
 }
 
-func TestToggleGolden(t *testing.T)   { toggleSheet().golden(t) }
-func TestChromiumToggle(t *testing.T) { toggleSheet().chromium(t) }
+func TestToggleGolden(t *testing.T) {
+	t.Parallel()
+	toggleSheet().golden(t)
+}
+
+func TestChromiumToggle(t *testing.T) {
+	t.Parallel()
+	toggleSheet().chromium(t)
+}
 
 func toggleButton(name string) telatest.Locator { return telatest.ByRole("button", name) }
 
 func TestToggleUncontrolled(t *testing.T) {
+	t.Parallel()
 	var got []bool
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(
@@ -116,6 +124,7 @@ func (controlledToggle) Build() tela.Node {
 }
 
 func TestToggleControlled(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, controlledToggle{})
 	app.ExpectText("muted is false")
 	app.Click(toggleButton("Mute"))
@@ -124,6 +133,7 @@ func TestToggleControlled(t *testing.T) {
 }
 
 func TestToggleDisabledAndInvalid(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(kit.Toggle{AriaLabel: "Locked", Disabled: true}, kit.Toggle{AriaLabel: "Wrong", Invalid: true})
 	})
@@ -135,6 +145,7 @@ func TestToggleDisabledAndInvalid(t *testing.T) {
 }
 
 func TestToggleAriaSnapshot(t *testing.T) {
+	t.Parallel()
 	got, err := telatest.AriaSnapshot(h.Div(
 		kit.Toggle{AriaLabel: "Bold", DefaultPressed: true},
 		kit.Toggle{AriaLabel: "Italic"},
@@ -150,6 +161,7 @@ func TestToggleAriaSnapshot(t *testing.T) {
 }
 
 func TestToggleUndefinedVariantAndSize(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		c    tela.Component
 		want string

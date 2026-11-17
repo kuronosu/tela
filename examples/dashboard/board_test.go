@@ -22,6 +22,7 @@ func mountBoard(t *testing.T, opts ...telatest.Option) *telatest.App {
 
 // TestMove checks the model on its own.
 func TestMove(t *testing.T) {
+	t.Parallel()
 	b := initialBoard
 	check := func(name string, got Board, want [3][]int) {
 		t.Helper()
@@ -119,6 +120,7 @@ func titles() []string {
 }
 
 func TestStartLayout(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t)
 	a.ExpectCount(telatest.ByTestID("lane"), 3)
 	want := [][]string{
@@ -194,6 +196,7 @@ func TestDropOutsideReturnsTheCard(t *testing.T) {
 
 // TestClickDoesNotMove checks that a click, with no drag, changes nothing.
 func TestClickDoesNotMove(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t)
 	builds := a.Stats().Builds
 	a.Click(cardLoc("Ship the CSV export"))
@@ -284,6 +287,7 @@ func moveVia(a *telatest.App, title, column string) {
 }
 
 func TestMoveFromTheMenu(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t)
 	a.Click(actionsOf("Fix failed invoice retries"))
 	a.ExpectRole("menu", "Actions for Fix failed invoice retries")
@@ -299,6 +303,7 @@ func TestMoveFromTheMenu(t *testing.T) {
 }
 
 func TestMoveFromTheKeyboard(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t)
 	a.Focus(actionsOf("Ship the CSV export"))
 	a.Press("Enter")
@@ -315,6 +320,7 @@ func TestMoveFromTheKeyboard(t *testing.T) {
 // TestFullColumnIsDisabled fills In progress and checks that the menu does
 // not offer it any more.
 func TestFullColumnIsDisabled(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t)
 	for _, title := range []string{"Fix failed invoice retries", "Ship the CSV export", "Review the onboarding emails", "Interview three churned customers"} {
 		moveVia(a, title, "In progress")
@@ -333,6 +339,7 @@ func TestFullColumnIsDisabled(t *testing.T) {
 // TestContextMenuOpensFromTheKeyboard: the card is a ContextMenu area, so
 // Shift+F10 from the card's button opens the same menu.
 func TestContextMenuOpensFromTheKeyboard(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t)
 	a.Focus(actionsOf("Review the onboarding emails"))
 	a.Press("Shift+F10")
@@ -344,6 +351,7 @@ func TestContextMenuOpensFromTheKeyboard(t *testing.T) {
 }
 
 func TestEditTask(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t)
 	a.Click(actionsOf("Ship the CSV export"))
 	a.Click(menuItem("Edit task"))
@@ -368,6 +376,7 @@ func TestEditTask(t *testing.T) {
 }
 
 func TestEditNeedsATitle(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t)
 	a.Click(actionsOf("Ship the CSV export"))
 	a.Click(menuItem("Edit task"))
@@ -387,6 +396,7 @@ func TestEditNeedsATitle(t *testing.T) {
 }
 
 func TestDeleteAsksFirst(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t)
 	a.Click(actionsOf("Review the onboarding emails"))
 	a.Click(menuItem("Delete task"))
@@ -430,6 +440,7 @@ func TestDeleteEverythingLeavesTheDropHint(t *testing.T) {
 // TestMenuButtonDoesNotDrag: a click on the ellipsis is a click, not the
 // start of a drag.
 func TestMenuButtonDoesNotDrag(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t)
 	a.Click(actionsOf("Ship the CSV export"))
 	a.ExpectCount(telatest.ByClass("z-50", "rotate-2"), 0)
@@ -441,6 +452,7 @@ func TestMenuButtonDoesNotDrag(t *testing.T) {
 
 // TestGoldenBoardMenu is a card's menu open, in the dark scheme.
 func TestGoldenBoardMenu(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t, telatest.Dark())
 	a.Click(actionsOf("Fix failed invoice retries"))
 	a.ExpectText("Edit task")

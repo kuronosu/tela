@@ -103,8 +103,15 @@ func dialogSheet() *sheet {
 	}}
 }
 
-func TestDialogGolden(t *testing.T)   { dialogSheet().golden(t) }
-func TestChromiumDialog(t *testing.T) { dialogSheet().chromium(t) }
+func TestDialogGolden(t *testing.T) {
+	t.Parallel()
+	dialogSheet().golden(t)
+}
+
+func TestChromiumDialog(t *testing.T) {
+	t.Parallel()
+	dialogSheet().chromium(t)
+}
 
 // editDialog is the dialog of the behavior tests: a button, a form with a
 // text field, and two buttons in the footer.
@@ -128,6 +135,7 @@ var (
 )
 
 func TestDialogOpenAndClose(t *testing.T) {
+	t.Parallel()
 	page := pageUnder(editDialog(kit.Dialog{}))
 	app := telatest.MountFunc(t, page, telatest.Theme(kit.Theme()))
 	app.ExpectCount(telatest.ByRole("dialog", ""), 0)
@@ -149,6 +157,7 @@ func TestDialogOpenAndClose(t *testing.T) {
 }
 
 func TestDialogIsModal(t *testing.T) {
+	t.Parallel()
 	var saved int
 	page := pageUnder(editDialog(kit.Dialog{}), kit.Button{Children: h.Text("Other"), OnClick: func() { saved++ }})
 	app := telatest.MountFunc(t, page, telatest.Theme(kit.Theme()))
@@ -163,6 +172,7 @@ func TestDialogIsModal(t *testing.T) {
 }
 
 func TestDialogFocus(t *testing.T) {
+	t.Parallel()
 	page := pageUnder(editDialog(kit.Dialog{}))
 	app := telatest.MountFunc(t, page, telatest.Theme(kit.Theme()))
 	app.Focus(editButton)
@@ -191,6 +201,7 @@ func TestDialogFocus(t *testing.T) {
 }
 
 func TestDialogWaysToClose(t *testing.T) {
+	t.Parallel()
 	page := pageUnder(editDialog(kit.Dialog{}))
 	for _, tc := range []struct {
 		name  string
@@ -219,6 +230,7 @@ func TestDialogWaysToClose(t *testing.T) {
 }
 
 func TestDialogFormInside(t *testing.T) {
+	t.Parallel()
 	// State inside the dialog lives while it is open: it starts afresh the
 	// next time.
 	app := telatest.MountFunc(t, pageUnder(editDialog(kit.Dialog{})), telatest.Theme(kit.Theme()))
@@ -233,6 +245,7 @@ func TestDialogFormInside(t *testing.T) {
 // The close button shows by default (shadcn's showCloseButton); HideClose
 // leaves it out; CloseLabel names it.
 func TestDialogHideClose(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, pageUnder(editDialog(kit.Dialog{})), telatest.Theme(kit.Theme()))
 	app.Click(editButton)
 	app.ExpectCount(closeButton, 1)
@@ -248,6 +261,7 @@ func TestDialogHideClose(t *testing.T) {
 }
 
 func TestDialogControlled(t *testing.T) {
+	t.Parallel()
 	var asked []bool
 	closed := false
 	page := pageUnder(editDialog(kit.Dialog{Open: &closed, OnOpenChange: func(next bool) { asked = append(asked, next) }}))
@@ -272,6 +286,7 @@ func (c controlledDialog) Build() tela.Node {
 }
 
 func TestDialogControlledByState(t *testing.T) {
+	t.Parallel()
 	var log []bool
 	app := telatest.Mount(t, controlledDialog{log: &log}, telatest.Theme(kit.Theme()))
 	app.Click(telatest.ByRole("button", "Open from outside"))
@@ -289,6 +304,7 @@ func TestDialogControlledByState(t *testing.T) {
 }
 
 func TestDialogDefaultOpenNotifies(t *testing.T) {
+	t.Parallel()
 	var log []bool
 	app := telatest.MountFunc(t, pageUnder(editDialog(kit.Dialog{DefaultOpen: true, OnOpenChange: func(o bool) { log = append(log, o) }})),
 		telatest.Theme(kit.Theme()))
@@ -315,6 +331,7 @@ func (b profileButton) Build() tela.Node {
 }
 
 func TestTriggerSlotRule(t *testing.T) {
+	t.Parallel()
 	// One rule for every trigger: a kit.Button, a component with
 	// WithTriggerProps and a kit.TriggerFunc all open the dialog, and are
 	// the element the screen reader finds.
@@ -344,6 +361,7 @@ func TestTriggerSlotRule(t *testing.T) {
 }
 
 func TestTriggerKeepsItsProps(t *testing.T) {
+	t.Parallel()
 	// The trigger's own handlers and props still work next to the overlay's.
 	clicks := 0
 	app := telatest.MountFunc(t, func() tela.Node {
@@ -362,6 +380,7 @@ func TestTriggerKeepsItsProps(t *testing.T) {
 }
 
 func TestDialogAriaLabelAndExit(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, pageUnder(kit.Dialog{
 		Trigger:   kit.Button{Children: h.Text("Open")},
 		AriaLabel: "Quick view", Children: h.Text("Content"),
@@ -375,6 +394,7 @@ func TestDialogAriaLabelAndExit(t *testing.T) {
 }
 
 func TestDialogStyleProvider(t *testing.T) {
+	t.Parallel()
 	s := kit.DefaultStyle()
 	s.Dialog.Root += " ring-4"
 	app := telatest.MountFunc(t, func() tela.Node {
@@ -387,11 +407,13 @@ func TestDialogStyleProvider(t *testing.T) {
 }
 
 func TestDialogOpenGolden(t *testing.T) {
+	t.Parallel()
 	page := pageUnder(editDialog(kit.Dialog{}))
 	openGolden(t, "dialog", 800, 500, page, func(a *telatest.App) { a.Click(editButton) })
 }
 
 func TestDialogIdle(t *testing.T) {
+	t.Parallel()
 	// No text field in it, so that no caret blinks.
 	expectIdle(t, pageUnder(kit.Dialog{DefaultOpen: true, Title: h.Text("Delete"), Description: h.Text("This cannot be undone."),
 		Footer: kit.Button{Children: h.Text("Delete")}}), nil)
@@ -399,6 +421,7 @@ func TestDialogIdle(t *testing.T) {
 
 // the entrance and exit run on the frame clock.
 func TestDialogEntranceAndExit(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, pageUnder(editDialog(kit.Dialog{})), telatest.Theme(kit.Theme()), telatest.NoSettle())
 	app.Click(editButton)
 	app.Advance(20 * time.Millisecond)

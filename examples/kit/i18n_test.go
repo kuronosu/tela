@@ -51,6 +51,7 @@ func chooseLanguage(a *telatest.App, name string) {
 // dates, times and lists, and kit's own defaults from the catalog (the date
 // picker's placeholder).
 func TestTranslations(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		tag   string
 		texts []string
@@ -78,6 +79,7 @@ func TestTranslations(t *testing.T) {
 // the six plural categories, and in English, which has two: the message and
 // the category the language's rules choose change with the count.
 func TestPluralCategories(t *testing.T) {
+	t.Parallel()
 	a := canvasIn(t, "ar")
 	for _, c := range []struct {
 		n                 string // the preset, in the language's digits
@@ -117,6 +119,7 @@ func TestPluralCategories(t *testing.T) {
 // TestCounterButtons counts with the minus and plus buttons, named from the
 // catalog, down to zero (where minus is disabled) and up.
 func TestCounterButtons(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct{ tag, remove, add, zero, group string }{
 		{"en", "Remove one", "Add one", "No new messages", "Count"},
 		{"es", "Quitar uno", "Añadir uno", "Sin mensajes nuevos", "Cantidad"},
@@ -145,6 +148,7 @@ func TestCounterButtons(t *testing.T) {
 // language's, wherever a page leaves the default: the date pickers and calendars,
 // the dialogs' close button and the alert dialog's Cancel and Continue.
 func TestKitDefaultsFromTheCatalog(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		tag                                                  string
 		pick, rangeText, previous, next, close, cancel, cont string
@@ -181,6 +185,7 @@ func TestKitDefaultsFromTheCatalog(t *testing.T) {
 // each language, and with the calendar open: the names of the controls, the
 // picker and the calendar come from the catalog.
 func TestAriaSnapshots(t *testing.T) {
+	t.Parallel()
 	for _, tag := range languages {
 		canvasIn(t, tag).AriaGolden("kit_internationalization_" + tag + ".aria.yml")
 	}
@@ -196,6 +201,7 @@ func TestAriaSnapshots(t *testing.T) {
 // the month and year, the weekday order, the digits and the direction are the
 // language's.
 func TestCalendarFollowsTheLanguage(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		tag, heading, first, last string
 		rtl                       bool
@@ -237,6 +243,7 @@ func TestCalendarFollowsTheLanguage(t *testing.T) {
 // TestChooseDeliveryDate picks a date in each language: the picker closes,
 // and its button and the readout show the date as the language writes it.
 func TestChooseDeliveryDate(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		tag, button, readout string
 	}{
@@ -265,6 +272,7 @@ func TestChooseDeliveryDate(t *testing.T) {
 // while the page keeps its state, and the window mirrors for Arabic and comes
 // back for Spanish.
 func TestLanguageMenuSwitchesTheWindow(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Gallery{Page: "Internationalization"})
 	a.Expect(languageMenu, telatest.HasName("English Language"))
 	a.ExpectText("Hello, Ana!")
@@ -326,6 +334,7 @@ func TestLanguageMenuSwitchesTheWindow(t *testing.T) {
 
 // TestLanguageMenuKeyboard chooses a language with the keyboard alone.
 func TestLanguageMenuKeyboard(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Gallery{Page: "Internationalization"})
 	a.Focus(languageMenu)
 	a.Press("ArrowDown")
@@ -340,6 +349,7 @@ func TestLanguageMenuKeyboard(t *testing.T) {
 
 // TestLanguageMenuOptions: each option is named in its own language.
 func TestLanguageMenuOptions(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Gallery{})
 	a.Click(languageMenu)
 	a.ExpectCount(telatest.ByRole("option", ""), len(languages))
@@ -351,6 +361,7 @@ func TestLanguageMenuOptions(t *testing.T) {
 // TestComponentPagesMirrorInArabic opens a few pages of components in Arabic:
 // the window is right to left, so the sidebar is at the right.
 func TestComponentPagesMirrorInArabic(t *testing.T) {
+	t.Parallel()
 	for _, name := range []string{"Button", "Card", "Table"} {
 		t.Run(name, func(t *testing.T) {
 			ltr := mount(t, Gallery{Page: name})

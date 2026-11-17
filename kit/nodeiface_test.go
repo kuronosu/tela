@@ -22,6 +22,7 @@ func statusBadge(s string) tela.Node {
 }
 
 func TestCellReturnsAStructComponent(t *testing.T) {
+	t.Parallel()
 	tbl := invoiceTable(func(tb *kit.Table[trow]) {
 		tb.Columns = append(tb.Columns,
 			kit.Column[trow]{ID: "badge", Header: "Badge", Cell: func(r trow) tela.Node { return statusBadge(r.v[1]) }},

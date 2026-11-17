@@ -17,6 +17,13 @@ import (
 // mount opens a root with the settings of App (size, theme, root class).
 // Dev mode is on, so any dev message (an unknown class, a hook misuse, a
 // variant the active style does not define) fails the test.
+//
+// The tests run in parallel (t.Parallel), except those that switch the
+// scheme or the style with the gallery's controls, set i18n's locale or
+// answer a message box (all of them reach the app through the process's
+// one Post receiver, the Tree mounted last, which a test running beside
+// them would be), the damage test and the measurements of work_test.go.
+// Go runs the sequential tests first and the parallel ones after them.
 func mount(t *testing.T, root tela.Component, opts ...telatest.Option) *telatest.App {
 	t.Helper()
 	return telatest.Mount(t, root, append([]telatest.Option{telatest.FromApp(App)}, opts...)...)
@@ -47,9 +54,15 @@ func heading(text string) telatest.Locator { return telatest.ByRole("heading", t
 
 // TestPreviewsRenderClean mounts every preview, in both schemes, with dev
 // mode on: no unknown class, hook misuse or undefined variant on any page.
+// Under -short each preview is mounted in one scheme, light and dark in
+// turn.
 func TestPreviewsRenderClean(t *testing.T) {
-	for _, name := range Previews.Names() {
-		for _, s := range schemes {
+	t.Parallel()
+	for i, name := range Previews.Names() {
+		for j, s := range schemes {
+			if testing.Short() && j != i%len(schemes) {
+				continue
+			}
 			t.Run(name+"/"+s.name, func(t *testing.T) {
 				a := mount(t, Previews[name], s.opts...)
 				if got := a.Count(telatest.ByRole("heading", "")); got == 0 {
@@ -63,9 +76,14 @@ func TestPreviewsRenderClean(t *testing.T) {
 // TestEveryPageInBothStyles opens the whole gallery on each page in each
 // style and scheme: the second style must define every variant and size
 // the pages use. The Introduction draws its own heading, a headline.
+// Under -short each page is opened in one style, the two in turn.
 func TestEveryPageInBothStyles(t *testing.T) {
-	for _, p := range sidebar() {
-		for _, style := range []string{"default", "rounded"} {
+	t.Parallel()
+	for i, p := range sidebar() {
+		for j, style := range []string{"default", "rounded"} {
+			if testing.Short() && j != i%2 {
+				continue
+			}
 			t.Run(p.Name+"/"+style, func(t *testing.T) {
 				a := mount(t, Gallery{Page: p.Name, Style: style}, telatest.Dark())
 				a.Expect(tabFor(p.Label), telatest.Selected(true))
@@ -81,10 +99,15 @@ func TestEveryPageInBothStyles(t *testing.T) {
 
 // TestEveryPageInEveryLanguage opens every page in Spanish and in Arabic
 // (right to left) with dev mode on: nothing breaks when the language or the
-// direction changes, whatever the page.
+// direction changes, whatever the page. Under -short each page is opened
+// in one of them, Spanish and Arabic in turn.
 func TestEveryPageInEveryLanguage(t *testing.T) {
-	for _, p := range sidebar() {
-		for _, tag := range languages[1:] {
+	t.Parallel()
+	for i, p := range sidebar() {
+		for j, tag := range languages[1:] {
+			if testing.Short() && j != i%len(languages[1:]) {
+				continue
+			}
 			t.Run(p.Name+"/"+tag, func(t *testing.T) {
 				a := mount(t, Gallery{Page: p.Name, Locale: tag})
 				a.Expect(tabFor(p.Label), telatest.Selected(true))
@@ -98,6 +121,7 @@ func TestEveryPageInEveryLanguage(t *testing.T) {
 // that the home page is the first of the sidebar, and that the components are
 // alphabetical.
 func TestPreviewsMatchPages(t *testing.T) {
+	t.Parallel()
 	want := len(sidebar()) + 3 + len(languages) - 1
 	if got := len(Previews); got != want {
 		t.Errorf("Previews has %d entries, want %d (one per page, Gallery, Gallery Rounded, Gallery Arabic and Internationalization in each other language)", got, want)
@@ -130,6 +154,7 @@ func TestPreviewsMatchPages(t *testing.T) {
 // that every exported component (a type with a Build method) is on a page:
 // a component added to the kit without a page fails here.
 func TestEveryKitComponentHasAPage(t *testing.T) {
+	t.Parallel()
 	fset := token.NewFileSet()
 	entries, err := os.ReadDir("../../kit")
 	if err != nil {

@@ -20,6 +20,7 @@ func loading(a *telatest.App) int {
 }
 
 func TestLoadingButtonsSaveForTwoSeconds(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Canvas{Page: "Button"}, telatest.NoSettle())
 	for _, name := range []string{"Save changes", "Save", "Continue"} {
 		btn := telatest.ByRole("button", name).Nth(0)
@@ -42,6 +43,7 @@ func TestLoadingButtonsSaveForTwoSeconds(t *testing.T) {
 }
 
 func TestSubmitButtonLoadsWhileTheFormSubmits(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Canvas{Page: "Button"}, telatest.NoSettle())
 	a.Click(telatest.ByRole("button", "Subscribe"))
 	if got := loading(a); got != 1 {
@@ -54,6 +56,7 @@ func TestSubmitButtonLoadsWhileTheFormSubmits(t *testing.T) {
 }
 
 func TestDropdownSubmenusNest(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Canvas{Page: "DropdownMenu"})
 	a.Click(telatest.ByRole("button", "Team"))
 	a.Click(telatest.ByRole("menuitem", "Invite users"))
@@ -66,6 +69,7 @@ func TestDropdownSubmenusNest(t *testing.T) {
 }
 
 func TestContextClickSelectsTheOptionFirst(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Canvas{Page: "ContextMenu"})
 	a.ExpectText("Nothing is selected.")
 	a.Click(telatest.ByRole("option", "notes.md"), telatest.Right())
@@ -80,6 +84,7 @@ func TestContextClickSelectsTheOptionFirst(t *testing.T) {
 }
 
 func TestContextMenuSubmenuAndFocusableArea(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Canvas{Page: "ContextMenu"})
 	area := telatest.ByRole("region", "Page area")
 	a.Focus(area)
@@ -91,6 +96,7 @@ func TestContextMenuSubmenuAndFocusableArea(t *testing.T) {
 }
 
 func TestMenubarRoleItemsAndFind(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Canvas{Page: "Menubar"})
 	a.Click(telatest.ByRole("menuitem", "Edit").Nth(1)) // the second bar's
 	for _, item := range []string{"Undo", "Redo", "Cut", "Copy", "Paste", "Select All", "Find..."} {
@@ -101,6 +107,7 @@ func TestMenubarRoleItemsAndFind(t *testing.T) {
 }
 
 func TestMenubarRoleItemsFollowTheLanguage(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Canvas{Page: "Menubar", Locale: "es"})
 	a.Click(telatest.ByRole("menuitem", "Edición").Nth(1))
 	for _, item := range []string{"Deshacer", "Cortar", "Copiar", "Pegar", "Seleccionar todo"} {
@@ -109,6 +116,7 @@ func TestMenubarRoleItemsFollowTheLanguage(t *testing.T) {
 }
 
 func TestTooltipOnOtherTriggers(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Canvas{Page: "Tooltip"})
 	for _, c := range []struct {
 		trigger telatest.Locator
@@ -136,6 +144,7 @@ func TestTooltipOnOtherTriggers(t *testing.T) {
 }
 
 func TestDownloadBarRunsOnlyAfterAPress(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Canvas{Page: "Progress"}, telatest.NoSettle())
 	text := telatest.ByTestID("download-text")
 	a.Advance(5 * time.Second)
@@ -150,6 +159,7 @@ func TestDownloadBarRunsOnlyAfterAPress(t *testing.T) {
 }
 
 func TestTweenBarEases(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Canvas{Page: "Progress"}, telatest.NoSettle())
 	bar := telatest.ByRole("progressbar", "Disk cleanup")
 	a.Click(telatest.ByRole("button", "+25%"))
@@ -161,6 +171,7 @@ func TestTweenBarEases(t *testing.T) {
 }
 
 func TestSlidingPillChoosesARange(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Canvas{Page: "ToggleGroup"})
 	a.ExpectText("Showing the last week.")
 	a.Click(telatest.ByRole("radio", "Month").Nth(0))
@@ -170,6 +181,7 @@ func TestSlidingPillChoosesARange(t *testing.T) {
 }
 
 func TestSearchPutsTheTableInTheOtherState(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Canvas{Page: "Table"})
 	rel := telatest.ByRole("columnheader", "Relevance")
 	a.Expect(rel, telatest.Sort("other"))
@@ -181,6 +193,7 @@ func TestSearchPutsTheTableInTheOtherState(t *testing.T) {
 }
 
 func TestAlwaysSortedNeverGoesBackToUnsorted(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Canvas{Page: "Table"})
 	name := telatest.ByRole("button", "Name").Nth(0)
 	head := telatest.ByRole("columnheader", "Name").Nth(0)
@@ -222,6 +235,7 @@ func TestMessageBoxIsTranslated(t *testing.T) {
 }
 
 func TestToasterNamesFollowTheLanguage(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct{ tag, region, trigger, close string }{
 		{"es", "Notificaciones", "Éxito", "Cerrar notificación"},
 		{"ar", "الإشعارات", "نجاح", "إغلاق الإشعار"},
@@ -234,6 +248,7 @@ func TestToasterNamesFollowTheLanguage(t *testing.T) {
 }
 
 func TestDigitsOfALocale(t *testing.T) {
+	t.Parallel()
 	a := mount(t, Canvas{Page: "Internationalization"})
 	a.ExpectText("١٬٢٣٤٫٥٠") // ar-EG; bare ar writes Latin digits
 	a.ExpectText("1,234.50 · 14")

@@ -44,5 +44,12 @@ func badgeSheet() *sheet {
 	return &sheet{name: "badge", cells: cells, slot: 96}
 }
 
-func TestBadgeGolden(t *testing.T)   { badgeSheet().golden(t) }
-func TestChromiumBadge(t *testing.T) { badgeSheet().chromium(t) }
+func TestBadgeGolden(t *testing.T) {
+	t.Parallel()
+	badgeSheet().golden(t)
+}
+
+func TestChromiumBadge(t *testing.T) {
+	t.Parallel()
+	badgeSheet().chromium(t)
+}

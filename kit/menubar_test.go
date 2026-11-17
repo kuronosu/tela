@@ -95,8 +95,15 @@ func menubarSheet() *sheet {
 	}}
 }
 
-func TestMenubarGolden(t *testing.T)   { menubarSheet().golden(t) }
-func TestChromiumMenubar(t *testing.T) { menubarSheet().chromium(t) }
+func TestMenubarGolden(t *testing.T) {
+	t.Parallel()
+	menubarSheet().golden(t)
+}
+
+func TestChromiumMenubar(t *testing.T) {
+	t.Parallel()
+	menubarSheet().chromium(t)
+}
 
 func barItem(name string) telatest.Locator { return telatest.ByRole("menuitem", name) }
 
@@ -113,6 +120,7 @@ func mountBar(t *testing.T, m kit.Menubar[string], opts ...telatest.Option) *tel
 }
 
 func TestMenubarOpensAndCloses(t *testing.T) {
+	t.Parallel()
 	app := mountBar(t, appBar(nil))
 	app.ExpectAria(`
         - button "Before"
@@ -146,6 +154,7 @@ func TestMenubarOpensAndCloses(t *testing.T) {
 }
 
 func TestMenubarKeyboard(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := mountBar(t, appBar(func(m *kit.Menubar[string]) {
 		m.OnSelect = func(menu, item string) { log = append(log, menu+"/"+item) }
@@ -192,6 +201,7 @@ func TestMenubarKeyboard(t *testing.T) {
 }
 
 func TestMenubarHoverSwitches(t *testing.T) {
+	t.Parallel()
 	app := mountBar(t, appBar(nil))
 	// With no menu open, hovering opens nothing.
 	app.Hover(barItem("Edit"))
@@ -207,6 +217,7 @@ func TestMenubarHoverSwitches(t *testing.T) {
 }
 
 func TestMenubarTabLeaves(t *testing.T) {
+	t.Parallel()
 	app := mountBar(t, appBar(nil))
 	app.Focus(barItem("File"))
 	app.Press("Enter")
@@ -217,6 +228,7 @@ func TestMenubarTabLeaves(t *testing.T) {
 }
 
 func TestMenubarChoosingAnItem(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := mountBar(t, appBar(func(m *kit.Menubar[string]) {
 		m.OnSelect = func(menu, item string) { log = append(log, menu+"/"+item) }
@@ -235,6 +247,7 @@ func TestMenubarChoosingAnItem(t *testing.T) {
 }
 
 func TestMenubarCheckboxAndRadioState(t *testing.T) {
+	t.Parallel()
 	app := mountBar(t, appBar(nil))
 	app.Click(barItem("View"))
 	app.Expect(telatest.ByRole("menuitemcheckbox", "Always Show Bookmarks Bar"), telatest.Checked(false))
@@ -253,6 +266,7 @@ func TestMenubarCheckboxAndRadioState(t *testing.T) {
 }
 
 func TestMenubarDisabledMenu(t *testing.T) {
+	t.Parallel()
 	app := mountBar(t, appBar(func(m *kit.Menubar[string]) { m.Menus[1].Disabled = true }))
 	app.Expect(barItem("Edit"), telatest.Disabled(true))
 	app.Focus(barItem("File"))
@@ -261,6 +275,7 @@ func TestMenubarDisabledMenu(t *testing.T) {
 }
 
 func TestMenubarControlledOpen(t *testing.T) {
+	t.Parallel()
 	var log []string
 	open := "edit"
 	app := mountBar(t, appBar(func(m *kit.Menubar[string]) {
@@ -276,12 +291,14 @@ func TestMenubarControlledOpen(t *testing.T) {
 }
 
 func TestMenubarDefaultOpen(t *testing.T) {
+	t.Parallel()
 	file := "file"
 	app := mountBar(t, appBar(func(m *kit.Menubar[string]) { m.DefaultOpen = &file }))
 	app.ExpectCount(menuNamed("File"), 1)
 }
 
 func TestMenubarMenuPlacement(t *testing.T) {
+	t.Parallel()
 	app := mountBar(t, appBar(nil), telatest.Size(600, 400))
 	tr := app.Bounds(barItem("Edit"))
 	app.Click(barItem("Edit"))
@@ -296,6 +313,7 @@ func TestMenubarMenuPlacement(t *testing.T) {
 }
 
 func TestMenubarDuplicateItemKeyPanics(t *testing.T) {
+	t.Parallel()
 	file := "file"
 	app := appBar(func(m *kit.Menubar[string]) {
 		m.DefaultOpen = &file
@@ -308,6 +326,7 @@ func TestMenubarDuplicateItemKeyPanics(t *testing.T) {
 }
 
 func TestMenubarStyleProvider(t *testing.T) {
+	t.Parallel()
 	s := kit.DefaultStyle()
 	s.Menubar.Root += " ring-4"
 	s.Menubar.Menu.Content += " ring-2"
@@ -324,6 +343,7 @@ func TestMenubarStyleProvider(t *testing.T) {
 }
 
 func TestMenubarOpenGolden(t *testing.T) {
+	t.Parallel()
 	page := func() tela.Node {
 		return h.Div(h.Class("flex flex-col items-start gap-4 p-6"), appBar(func(m *kit.Menubar[string]) {
 			open := "view"
@@ -336,6 +356,7 @@ func TestMenubarOpenGolden(t *testing.T) {
 }
 
 func TestMenubarIdle(t *testing.T) {
+	t.Parallel()
 	file := "file"
 	expectIdle(t, func() tela.Node {
 		return h.Div(h.Class("p-6"), appBar(func(m *kit.Menubar[string]) { m.DefaultOpen = &file }))

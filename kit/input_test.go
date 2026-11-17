@@ -55,5 +55,12 @@ func inputSheet() *sheet {
 	}}
 }
 
-func TestInputGolden(t *testing.T)   { inputSheet().golden(t) }
-func TestChromiumInput(t *testing.T) { inputSheet().chromium(t) }
+func TestInputGolden(t *testing.T) {
+	t.Parallel()
+	inputSheet().golden(t)
+}
+
+func TestChromiumInput(t *testing.T) {
+	t.Parallel()
+	inputSheet().chromium(t)
+}

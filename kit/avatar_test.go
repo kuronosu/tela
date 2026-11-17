@@ -15,6 +15,7 @@ import (
 )
 
 func TestAvatarFallbackClass(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Avatar{Fallback: "MT", FallbackClass: "bg-linear-to-br from-sky-400 to-indigo-500 text-white"})
 	app.ExpectCount(telatest.ByClass("from-sky-400", "to-indigo-500", "size-full"), 1)
 	app.ExpectCount(telatest.ByClass("bg-muted"), 1) // the recipe's classes stay under it
@@ -93,5 +94,12 @@ func avatarSheet() *sheet {
 	return &sheet{name: "avatar", cells: cells, slot: 64}
 }
 
-func TestAvatarGolden(t *testing.T)   { avatarSheet().golden(t) }
-func TestChromiumAvatar(t *testing.T) { avatarSheet().chromium(t) }
+func TestAvatarGolden(t *testing.T) {
+	t.Parallel()
+	avatarSheet().golden(t)
+}
+
+func TestChromiumAvatar(t *testing.T) {
+	t.Parallel()
+	avatarSheet().chromium(t)
+}

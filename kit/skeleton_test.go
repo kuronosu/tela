@@ -42,5 +42,12 @@ func skeletonSheet() *sheet {
 	}
 }
 
-func TestSkeletonGolden(t *testing.T)   { skeletonSheet().golden(t) }
-func TestChromiumSkeleton(t *testing.T) { skeletonSheet().chromium(t) }
+func TestSkeletonGolden(t *testing.T) {
+	t.Parallel()
+	skeletonSheet().golden(t)
+}
+
+func TestChromiumSkeleton(t *testing.T) {
+	t.Parallel()
+	skeletonSheet().chromium(t)
+}

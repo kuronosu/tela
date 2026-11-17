@@ -136,6 +136,7 @@ func TestPartialRecording(t *testing.T) {
 // TELA_CHECK_LAYERS=1 every partial recording is checked command for
 // command.
 func TestPartialRecordingClips(t *testing.T) {
+	t.Parallel()
 	st := &sceneState{values: make([]*Value[float32], 1)}
 	scene := func() Node {
 		st.values[0] = UseValue[float32](0)

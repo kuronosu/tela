@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/testutil/damagesample"
 	"github.com/kuronosu/tela/internal/testutil/damagetest"
 	"github.com/kuronosu/tela/telatest"
 )
@@ -15,6 +16,7 @@ import (
 // snapshot of the pane), and the palette's scrim and first frame (over
 // the page the framebuffer holds).
 func TestPartialFrames(t *testing.T) {
+	t.Parallel()
 	r := newRig(t, 1920, 1080, 1, false)
 	r.settle(600)
 	r.tick(nil, r.click("button", "Orders")...)
@@ -49,6 +51,7 @@ var checkEveryScale = os.Getenv(telatest.EnvCheckDamage) == "1"
 // keys both ways, and each step moves the pointer: what 24 steps checked,
 // in half the frames.
 func TestScrollDamage(t *testing.T) {
+	t.Parallel()
 	scales := []float64{1, 1.5}
 	if checkEveryScale {
 		scales = append(scales, 2)
@@ -70,7 +73,13 @@ func TestScrollDamage(t *testing.T) {
 // A pass checks about 700 frames, so the window is a small laptop's
 // (1024x640, 1536x960 device pixels); the pass at scale 1 plays with
 // TELA_CHECK_DAMAGE=1.
+//
+// Under -short every frame is still drawn incrementally, but only every
+// 32nd one (about 22), and the last, is compared with a full rendering
+// (damagesample): each interaction still runs, and what a wrong frame
+// leaves in the window is still found by a later comparison.
 func TestInteractionDamage(t *testing.T) {
+	damagesample.Short(t, 32)
 	scales := []float64{1.5}
 	if checkEveryScale {
 		scales = []float64{1, 1.5}

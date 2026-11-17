@@ -9,6 +9,7 @@ import (
 	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/gfx/raster"
+	"github.com/kuronosu/tela/internal/testutil/damagesample"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -105,7 +106,11 @@ func TestTickRasterizesTheBar(t *testing.T) {
 
 // TestTickDamage plays with the clock running fast and hovers the controls
 // at scale 2, checking every frame against a full rendering.
+//
+// Under -short only every fourth frame, and the last, is compared with a
+// full rendering (damagesample); every frame is still drawn incrementally.
 func TestTickDamage(t *testing.T) {
+	damagesample.Short(t, 4)
 	fast(t, 5*time.Millisecond, 10)
 	a := mount(t, windowW, windowH, Player{}, telatest.Scale(2), telatest.CheckDamage())
 	for range 40 {

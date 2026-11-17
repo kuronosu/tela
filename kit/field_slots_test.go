@@ -42,9 +42,13 @@ func fieldSlotsSheet() *sheet {
 	}}
 }
 
-func TestFieldSlotsGolden(t *testing.T) { fieldSlotsSheet().golden(t) }
+func TestFieldSlotsGolden(t *testing.T) {
+	t.Parallel()
+	fieldSlotsSheet().golden(t)
+}
 
 func TestFieldSlotsRTLGolden(t *testing.T) {
+	t.Parallel()
 	s := fieldSlotsSheet()
 	s.name, s.rtl = "field_slots_rtl", true
 	s.cells = s.cells[:3]
@@ -52,6 +56,7 @@ func TestFieldSlotsRTLGolden(t *testing.T) {
 }
 
 func TestFieldLabelEndIsAtTheEndOfTheLabelLine(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("w-80"),
 			kit.Field{Label: "Password", LabelEnd: h.Span(h.Class("text-xs"), h.Text("Forgot password?"), h.TestID("end")),
@@ -76,6 +81,7 @@ func TestFieldLabelEndIsAtTheEndOfTheLabelLine(t *testing.T) {
 // The slot is outside the label: a press on it neither focuses the control
 // nor is the control's name.
 func TestFieldLabelEndIsOutsideTheLabel(t *testing.T) {
+	t.Parallel()
 	var presses int
 	app := telatest.Mount(t, kit.Field{Label: "Password",
 		LabelEnd: kit.Button{Variant: kit.Link, OnClick: func() { presses++ }, Children: h.Text("Forgot password?")},
@@ -92,6 +98,7 @@ func TestFieldLabelEndIsOutsideTheLabel(t *testing.T) {
 }
 
 func TestFieldRichLabelNamesTheControl(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Field{
 		LabelContent: h.Span(h.Text("Email "), h.Span(h.Text("(required)"))),
 		Children:     kit.Input{Type: "email"}})
@@ -102,6 +109,7 @@ func TestFieldRichLabelNamesTheControl(t *testing.T) {
 }
 
 func TestFieldRichDescriptionDescribesTheControl(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Field{Label: "Website",
 		DescriptionContent: h.Span(h.Text("Your public "), h.Strong(h.Text("page"))),
 		DescriptionEnd:     h.Span(h.Text("0/20")),
@@ -120,6 +128,7 @@ func TestFieldRichDescriptionDescribesTheControl(t *testing.T) {
 // A Field with a group inside names the group by its label, with no
 // AriaLabel and no FieldSet.
 func TestFieldNamesAGroupInsideIt(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Field{Label: "Alignment",
 		Children: kit.ToggleGroup[string]{DefaultValue: new("left"),
 			Items: []kit.ToggleGroupItem[string]{{Value: "left", Label: "Left"}, {Value: "right", Label: "Right"}}}})
@@ -131,6 +140,7 @@ func TestFieldNamesAGroupInsideIt(t *testing.T) {
 }
 
 func TestFieldNamesAMultipleToggleGroup(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Field{Label: "Format",
 		Children: kit.ToggleGroup[string]{Multiple: true,
 			Items: []kit.ToggleGroupItem[string]{{Value: "b", Label: "Bold"}, {Value: "i", Label: "Italic"}}}})
@@ -140,6 +150,7 @@ func TestFieldNamesAMultipleToggleGroup(t *testing.T) {
 // The group's own AriaLabel wins over the field's label, and a FieldSet's
 // legend does not name a group in a Field that has a label.
 func TestFieldGroupNameOrder(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Field{Label: "Plan", Children: kit.RadioGroup[string]{Items: plans, AriaLabel: "Choose one"}})
 	app.ExpectCount(telatest.ByRole("radiogroup", "Choose one"), 1)
 	app = telatest.Mount(t, kit.FieldSet{Legend: "Billing", Children: kit.Field{Label: "Plan", Children: kit.RadioGroup[string]{Items: plans}}})
@@ -151,6 +162,7 @@ func TestFieldGroupNameOrder(t *testing.T) {
 
 // Nothing changes for a Field that has none of the new slots.
 func TestFieldWithoutSlotsIsTheSameTree(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Field{Label: "Name", Description: "As on your card.", Children: kit.Input{}})
 	app.ExpectAria(`- group:
   - text: Name

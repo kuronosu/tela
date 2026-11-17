@@ -105,7 +105,10 @@ func alertChromium() *sheet {
 	return s
 }
 
-func TestChromiumAlert(t *testing.T) { alertChromium().chromium(t) }
+func TestChromiumAlert(t *testing.T) {
+	t.Parallel()
+	alertChromium().chromium(t)
+}
 
 func alertActionChromium() *sheet {
 	restart := func(label string) string {
@@ -122,9 +125,13 @@ func alertActionChromium() *sheet {
 	})
 }
 
-func TestChromiumAlertAction(t *testing.T) { alertActionChromium().chromium(t) }
+func TestChromiumAlertAction(t *testing.T) {
+	t.Parallel()
+	alertActionChromium().chromium(t)
+}
 
 func TestChromiumAlertActionRTL(t *testing.T) {
+	t.Parallel()
 	s := alertActionChromium()
 	s.name, s.rtl = "alert_action_rtl", true
 	s.cells = s.cells[:3]
@@ -173,7 +180,10 @@ func badgeTonesChromium() *sheet {
 	})
 }
 
-func TestChromiumBadgeTones(t *testing.T) { badgeTonesChromium().chromium(t) }
+func TestChromiumBadgeTones(t *testing.T) {
+	t.Parallel()
+	badgeTonesChromium().chromium(t)
+}
 
 // ---- Button loading ----------------------------------------------------------
 
@@ -223,7 +233,10 @@ func buttonLoadingChromium() *sheet {
 	return s
 }
 
-func TestChromiumButtonLoading(t *testing.T) { buttonLoadingChromium().chromium(t) }
+func TestChromiumButtonLoading(t *testing.T) {
+	t.Parallel()
+	buttonLoadingChromium().chromium(t)
+}
 
 // ---- Input icons ---------------------------------------------------------------
 
@@ -287,9 +300,13 @@ func inputIconChromium() *sheet {
 	})
 }
 
-func TestChromiumInputIcon(t *testing.T) { inputIconChromium().chromium(t) }
+func TestChromiumInputIcon(t *testing.T) {
+	t.Parallel()
+	inputIconChromium().chromium(t)
+}
 
 func TestChromiumInputIconRTL(t *testing.T) {
+	t.Parallel()
 	s := inputIconChromium()
 	s.name, s.rtl = "input_icon_rtl", true
 	s.cells = s.cells[:4]
@@ -311,7 +328,10 @@ func inputEndContentChromium() *sheet {
 	})
 }
 
-func TestChromiumInputEndContent(t *testing.T) { inputEndContentChromium().chromium(t) }
+func TestChromiumInputEndContent(t *testing.T) {
+	t.Parallel()
+	inputEndContentChromium().chromium(t)
+}
 
 // ---- Separator caption --------------------------------------------------------
 
@@ -356,7 +376,10 @@ func separatorCaptionChromium() *sheet {
 	}}
 }
 
-func TestChromiumSeparatorCaption(t *testing.T) { separatorCaptionChromium().chromium(t) }
+func TestChromiumSeparatorCaption(t *testing.T) {
+	t.Parallel()
+	separatorCaptionChromium().chromium(t)
+}
 
 func separatorAlignChromium() *sheet {
 	return &sheet{name: "separator_align", slot: 344, cells: []cell{
@@ -368,7 +391,10 @@ func separatorAlignChromium() *sheet {
 	}}
 }
 
-func TestChromiumSeparatorAlign(t *testing.T) { separatorAlignChromium().chromium(t) }
+func TestChromiumSeparatorAlign(t *testing.T) {
+	t.Parallel()
+	separatorAlignChromium().chromium(t)
+}
 
 // ---- AvatarGroup ------------------------------------------------------------------
 
@@ -419,9 +445,13 @@ func avatarGroupChromium() *sheet {
 	}}
 }
 
-func TestChromiumAvatarGroup(t *testing.T) { avatarGroupChromium().chromium(t) }
+func TestChromiumAvatarGroup(t *testing.T) {
+	t.Parallel()
+	avatarGroupChromium().chromium(t)
+}
 
 func TestChromiumAvatarGroupRTL(t *testing.T) {
+	t.Parallel()
 	s := avatarGroupChromium()
 	s.name, s.rtl = "avatar_group_rtl", true
 	s.cells = s.cells[:3]
@@ -490,7 +520,10 @@ func fieldSlotsChromium() *sheet {
 	})
 }
 
-func TestChromiumFieldSlots(t *testing.T) { fieldSlotsChromium().chromium(t) }
+func TestChromiumFieldSlots(t *testing.T) {
+	t.Parallel()
+	fieldSlotsChromium().chromium(t)
+}
 
 func fieldErrorChromium() *sheet {
 	return fieldErrorSheet().withMarkup(map[string]string{
@@ -502,7 +535,10 @@ func fieldErrorChromium() *sheet {
 	})
 }
 
-func TestChromiumFieldError(t *testing.T) { fieldErrorChromium().chromium(t) }
+func TestChromiumFieldError(t *testing.T) {
+	t.Parallel()
+	fieldErrorChromium().chromium(t)
+}
 
 // ---- Table sort states ---------------------------------------------------------------------
 
@@ -527,4 +563,7 @@ func tableSortChromium() *sheet {
 	}}
 }
 
-func TestChromiumTableSort(t *testing.T) { tableSortChromium().chromium(t) }
+func TestChromiumTableSort(t *testing.T) {
+	t.Parallel()
+	tableSortChromium().chromium(t)
+}

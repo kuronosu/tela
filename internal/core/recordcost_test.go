@@ -212,6 +212,7 @@ func TestRecordingFollowsTheChange(t *testing.T) {
 // shows (groups moving between lists, adopted or not), and every partial
 // recording composes what a full one does.
 func TestRecordingFollowsTheChangeDamage(t *testing.T) {
+	t.Parallel()
 	pg := &costPage{}
 	x := newDamageHarness(t, Component(pg.node), 1200, 640, 1.5, Config{}, 7)
 	at := func(key string) {

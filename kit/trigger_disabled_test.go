@@ -13,6 +13,7 @@ import (
 // trigger: the trigger is a disabled button, a press on it opens nothing,
 // and clearing the field enables it again.
 func TestDisabledTrigger(t *testing.T) {
+	t.Parallel()
 	trigger := kit.Button{Variant: kit.Outline, Children: h.Text("Open")}
 	menu := []kit.MenuItem[string]{{Key: "a", Label: "Item"}}
 	cases := []struct {
@@ -65,6 +66,7 @@ func TestDisabledTrigger(t *testing.T) {
 // props, which make the element an enabled button: the button stays
 // disabled and opens nothing (it was lost before, ADR-145).
 func TestTriggerOwnDisabledWins(t *testing.T) {
+	t.Parallel()
 	trigger := kit.Button{Variant: kit.Outline, Disabled: true, Children: h.Text("Open")}
 	menu := []kit.MenuItem[string]{{Key: "a", Label: "Item"}}
 	cases := []struct {

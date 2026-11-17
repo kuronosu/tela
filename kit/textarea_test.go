@@ -42,5 +42,12 @@ func textareaSheet() *sheet {
 	}}
 }
 
-func TestTextareaGolden(t *testing.T)   { textareaSheet().golden(t) }
-func TestChromiumTextarea(t *testing.T) { textareaSheet().chromium(t) }
+func TestTextareaGolden(t *testing.T) {
+	t.Parallel()
+	textareaSheet().golden(t)
+}
+
+func TestChromiumTextarea(t *testing.T) {
+	t.Parallel()
+	textareaSheet().chromium(t)
+}

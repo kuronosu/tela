@@ -15,6 +15,7 @@ import (
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
 	"github.com/kuronosu/tela/internal/semantics"
+	"github.com/kuronosu/tela/internal/testutil/damagesample"
 )
 
 // Stats counts the work of the app's tree since it was mounted: frames,
@@ -62,6 +63,12 @@ type App struct {
 	// dev is whether the tree runs in dev mode (the options and
 	// TELA_DEV).
 	dev bool
+
+	// The damage check's sampling (internal/testutil/damagesample): it
+	// compares every damageEvery-th frame, counted in damageFrames;
+	// damageOwed is set while the last frame drawn was not compared.
+	damageEvery, damageFrames int
+	damageOwed                bool
 }
 
 // appShared is what the windows of one app share: the end of the app, the
@@ -82,6 +89,10 @@ type appShared struct {
 	mu    sync.Mutex // guards logs and warns (dev messages may come from any goroutine)
 	logs  []string   // dev errors
 	warns []string   // dev warnings
+
+	// damage is the App whose frames CheckDamage compares (the main
+	// window's), when it compares only some of them (damagesample).
+	damage *App
 }
 
 // Mount shows root in a headless window and returns the running app. The
@@ -157,6 +168,9 @@ func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 	a.win = host.Window().(*headless.Window)
 	if cfg.checkDamage {
 		host.AfterFrame = a.checkDamage
+		if a.damageEvery = damagesample.Every(tb); a.damageEvery > 1 {
+			a.sh.damage = a
+		}
 	}
 	a.sh.views[a.win] = a
 	if !cfg.win.hidden {
@@ -164,7 +178,16 @@ func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 	}
 	a.sh.stop = a.tree.ReceivePosts()
 	a.sh.stopStrings = host.WatchStrings() // what tela.Run does: a new language reaches the backend
-	tb.Cleanup(a.Close)
+	// The cleanup forgets the app once it has run: the testing package
+	// keeps a parallel test's cleanups until the whole run ends, and an
+	// App holds its windows' framebuffers.
+	open := a
+	tb.Cleanup(func() {
+		if c := open; c != nil {
+			open = nil
+			c.Close()
+		}
+	})
 	a.settleAfter()
 	return a
 }
@@ -176,6 +199,35 @@ func (a *App) checkDamage() {
 	if tr.Dirty() || tr.Debug() != 0 {
 		return // the window shows an older state than the tree, or overlays
 	}
+	if a.damageEvery > 1 {
+		// A test of this repository under -short (damagesample): every
+		// damageEvery-th frame, and the last one when the app closes.
+		if a.damageFrames++; a.damageFrames%a.damageEvery != 0 {
+			a.damageOwed = true
+			return
+		}
+		a.damageOwed = false
+	}
+	a.compareDamage()
+}
+
+// checkOwedDamage compares the last frame with a full rendering if the
+// sampled damage check skipped it.
+func (a *App) checkOwedDamage() {
+	m := a.sh.damage
+	if m == nil || !m.damageOwed {
+		return
+	}
+	m.damageOwed = false
+	if tr := m.tree; !tr.Dirty() && tr.Debug() == 0 {
+		m.compareDamage()
+	}
+}
+
+// compareDamage fails the test on the first pixel of the window that
+// differs from a full rendering of the tree.
+func (a *App) compareDamage() {
+	tr := a.tree
 	got := a.win.Frame()
 	want := tr.Rasterize(tr.ReferenceFrame(false), tr.Scale())
 	if got == nil || got.Rect != want.Rect {
@@ -216,6 +268,7 @@ func (a *App) Close() {
 	if a.sh.closed {
 		return
 	}
+	a.checkOwedDamage()
 	a.end()
 }
 

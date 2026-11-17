@@ -224,6 +224,7 @@ func virtualStickyScene(st *sceneState) Node {
 // TestDamageStickyAndFixed: incremental frames are bit-identical to full
 // ones while sticky and fixed boxes scroll (ADR-061).
 func TestDamageStickyAndFixed(t *testing.T) {
+	t.Parallel()
 	steps := 160
 	if testing.Short() {
 		steps = 40

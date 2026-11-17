@@ -195,6 +195,7 @@ func TestNativeContextMenuOnlyLabels(t *testing.T) {
 }
 
 func TestNativeModeInvalidPanicsInDev(t *testing.T) {
+	t.Parallel()
 	defer func() {
 		r := recover()
 		if s := fmt.Sprint(r); !strings.Contains(s, "kit.NativeAuto") {
@@ -210,6 +211,7 @@ func nativeBar(edit func(*kit.Menubar[string])) func() tela.Node {
 }
 
 func TestNativeMenubar(t *testing.T) {
+	t.Parallel()
 	var log []string
 	page := nativeBar(func(m *kit.Menubar[string]) {
 		m.OnSelect = func(menu, item string) { log = append(log, menu+"/"+item) }
@@ -257,6 +259,7 @@ func TestNativeMenubar(t *testing.T) {
 }
 
 func TestNativeMenubarOverrides(t *testing.T) {
+	t.Parallel()
 	page := nativeBar(func(m *kit.Menubar[string]) { m.Native = kit.NativeOff })
 	app := telatest.MountFunc(t, page, telatest.Size(480, 320), telatest.Theme(kit.Theme()), telatest.PreferNativeMenus())
 	if app.MenuBar() != nil || app.Count(telatest.ByRole("menuitem", "File")) != 1 {
@@ -271,6 +274,7 @@ func TestNativeMenubarOverrides(t *testing.T) {
 
 // A window with no native menu bar gets the drawn one, a frame later.
 func TestNativeMenubarFallsBack(t *testing.T) {
+	t.Parallel()
 	page := nativeBar(func(m *kit.Menubar[string]) { m.Native = kit.NativeOn })
 	file := telatest.ByRole("menuitem", "File")
 
@@ -302,6 +306,7 @@ func TestNativeMenubarFallsBack(t *testing.T) {
 
 // The native bar leaves with the component, and the window keeps none.
 func TestNativeMenubarUnmounts(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		on, setOn := tela.UseState(true)
 		return h.Div(h.Button(h.OnClick(func() { setOn.Set(!on) }), h.Text("Toggle")),
@@ -318,6 +323,7 @@ func TestNativeMenubarUnmounts(t *testing.T) {
 
 // A child window follows the app's setting.
 func TestNativeMenusChildWindowFollowsApp(t *testing.T) {
+	t.Parallel()
 	var got []bool
 	app := telatest.MountApp(t, tela.App{NativeMenus: true, Root: tela.C(func() tela.Node {
 		return tela.Component(tela.Window{Title: "Child", Width: 200, Height: 100, OnClose: func() {}, Root: tela.C(func() tela.Node {

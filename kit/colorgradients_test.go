@@ -89,5 +89,12 @@ func colorGradientSheet() *sheet {
 	}}
 }
 
-func TestColorGradientsGolden(t *testing.T)   { colorGradientSheet().golden(t) }
-func TestChromiumColorGradients(t *testing.T) { colorGradientSheet().chromium(t) }
+func TestColorGradientsGolden(t *testing.T) {
+	t.Parallel()
+	colorGradientSheet().golden(t)
+}
+
+func TestChromiumColorGradients(t *testing.T) {
+	t.Parallel()
+	colorGradientSheet().chromium(t)
+}

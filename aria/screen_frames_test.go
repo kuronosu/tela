@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kuronosu/tela/internal/testutil/damagesample"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -28,9 +29,16 @@ var screenPreviews = []struct {
 // TestScreenNoDevMessages mounts every state at several window sizes: a class
 // typo, a missing key or a hook misuse is reported in dev mode, which fails
 // the test.
+//
+// Under -short each state is mounted at one of the sizes, the next one for
+// the next state: every state and every size.
 func TestScreenNoDevMessages(t *testing.T) {
-	for _, p := range screenPreviews {
-		for _, s := range [][2]float32{{1120, 760}, {720, 600}, {1600, 900}} {
+	sizes := [][2]float32{{1120, 760}, {720, 600}, {1600, 900}}
+	for i, p := range screenPreviews {
+		for j, s := range sizes {
+			if testing.Short() && j != i%len(sizes) {
+				continue
+			}
 			t.Run(fmt.Sprintf("%s/%gx%g", p.name, s[0], s[1]), func(t *testing.T) {
 				screenMount(t, p.page, telatest.Size(s[0], s[1]))
 			})
@@ -44,7 +52,11 @@ func TestScreenNoDevMessages(t *testing.T) {
 // and opacity transitions), the floating elements that are placed in the
 // frame that shows them, the focus rings and the scrolled list of the
 // combobox must paint the same pixels incrementally as from scratch.
+//
+// Under -short only every fourth frame, and the last, is compared with a
+// full rendering (damagesample); every frame is still drawn incrementally.
 func TestScreenDamage(t *testing.T) {
+	damagesample.Short(t, 4)
 	for _, scale := range []float64{1, 1.5} {
 		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
 			a := screenMount(t, screenPage{}, telatest.Scale(scale), telatest.CheckDamage())

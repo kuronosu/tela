@@ -21,6 +21,7 @@ func underlined(app *telatest.App) int { return app.Count(telatest.ByClass("unde
 // it (Edit's Copy takes O, after Cut's C, as a native Windows bar gives
 // it).
 func TestMenubarAccessKeys(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := telatest.MountFunc(t, editBarPage(&log, true), telatest.Size(480, 360),
 		telatest.Theme(kit.Theme()), telatest.PlatformKeys("windows"))
@@ -67,6 +68,7 @@ func TestMenubarAccessKeys(t *testing.T) {
 // The Mac's key conventions have no access keys: nothing is underlined,
 // Alt and a key do nothing, and a key on a focused button is typeahead.
 func TestMenubarAccessKeysMac(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := telatest.MountFunc(t, editBarPage(&log, true), telatest.Size(480, 360),
 		telatest.Theme(kit.Theme()), telatest.PlatformKeys("darwin"))
@@ -86,6 +88,7 @@ func TestMenubarAccessKeysMac(t *testing.T) {
 // (AppMenu), when it is drawn in place of the native bar it asked for,
 // and with ActivationKeys; any other bar has typeahead only.
 func TestMenubarWindowBar(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name string
 		edit func(*kit.Menubar[string])
@@ -122,6 +125,7 @@ func TestMenubarWindowBar(t *testing.T) {
 // native menus of Chinese, Japanese and Korean), and a menu role's English
 // letter goes to a label without letters of its own; on a Mac nothing is.
 func TestMenubarAppendedAccessKeys(t *testing.T) {
+	t.Parallel()
 	for _, goos := range []string{"linux", "darwin"} {
 		t.Run(goos, func(t *testing.T) {
 			page := func() tela.Node {
@@ -154,6 +158,7 @@ func TestMenubarAppendedAccessKeys(t *testing.T) {
 // A context menu's or a dropdown's items have only their own access keys,
 // underlined when the menu opens from the keyboard.
 func TestMenuOwnAccessKeys(t *testing.T) {
+	t.Parallel()
 	var log []string
 	items := []kit.MenuItem[string]{
 		{Key: "rename", Label: "Rename", AccessKey: 'm'},
@@ -187,6 +192,7 @@ func TestMenuOwnAccessKeys(t *testing.T) {
 // keeps its tab stop and aria-busy; a loading Button inside an overlay's
 // content does not make its trigger busy.
 func TestLoadingButtonInTriggerFunc(t *testing.T) {
+	t.Parallel()
 	items := []kit.MenuItem[string]{{Key: "a", Label: "Item A"}}
 	trigger := func(loading bool) kit.Trigger {
 		return kit.TriggerFunc(func(p tela.Prop) tela.Node {
@@ -247,6 +253,7 @@ func TestLoadingButtonInTriggerFunc(t *testing.T) {
 // A submenu wider than the room on either side of its menu is moved into
 // the window, over its parent, as native menus are (it overflowed).
 func TestSubmenuShiftedIntoTheWindow(t *testing.T) {
+	t.Parallel()
 	items := []kit.MenuItem[string]{
 		{Key: "team", Label: "Team"},
 		{Kind: kit.MenuSub, Key: "invite", Label: "Invite users", ContentClass: "w-[300px]", Items: []kit.MenuItem[string]{
@@ -269,6 +276,7 @@ func TestSubmenuShiftedIntoTheWindow(t *testing.T) {
 // the same), and a key appended to a label without letters ("…(T)"; the
 // test fonts have no Japanese for "ツール(T)").
 func TestMenubarAccessKeysGolden(t *testing.T) {
+	t.Parallel()
 	var log []string
 	page := func() tela.Node {
 		return h.Div(h.Class("p-6"), kit.Menubar[string]{AriaLabel: "Application", AppMenu: true, Menus: []kit.MenubarMenu[string]{
@@ -294,6 +302,7 @@ func TestMenubarAccessKeysGolden(t *testing.T) {
 // clear the loading one's report, nor does its unmount (review of
 // ADR-260).
 func TestLoadingButtonBesideAnother(t *testing.T) {
+	t.Parallel()
 	items := []kit.MenuItem[string]{{Key: "a", Label: "Item A"}}
 	var setOther, setLoading tela.Setter[bool]
 	app := telatest.MountFunc(t, func() tela.Node {

@@ -89,12 +89,20 @@ func checkboxSheet() *sheet {
 	}}
 }
 
-func TestCheckboxGolden(t *testing.T)   { checkboxSheet().golden(t) }
-func TestChromiumCheckbox(t *testing.T) { checkboxSheet().chromium(t) }
+func TestCheckboxGolden(t *testing.T) {
+	t.Parallel()
+	checkboxSheet().golden(t)
+}
+
+func TestChromiumCheckbox(t *testing.T) {
+	t.Parallel()
+	checkboxSheet().chromium(t)
+}
 
 func checkbox(name string) telatest.Locator { return telatest.ByRole("checkbox", name) }
 
 func TestCheckboxUncontrolled(t *testing.T) {
+	t.Parallel()
 	var got []bool
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(kit.Checkbox{AriaLabel: "Agree", OnCheckedChange: func(b bool) { got = append(got, b) }},
@@ -127,6 +135,7 @@ func (c controlledCheckbox) Build() tela.Node {
 }
 
 func TestCheckboxControlled(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, controlledCheckbox{})
 	app.Click(checkbox("Notify"))
 	app.Expect(checkbox("Notify"), telatest.Checked(true))
@@ -137,6 +146,7 @@ func TestCheckboxControlled(t *testing.T) {
 }
 
 func TestCheckboxDisabled(t *testing.T) {
+	t.Parallel()
 	changed := false
 	app := telatest.MountFunc(t, func() tela.Node {
 		return kit.Checkbox{AriaLabel: "Locked", Disabled: true, OnCheckedChange: func(bool) { changed = true }}
@@ -151,6 +161,7 @@ func TestCheckboxDisabled(t *testing.T) {
 }
 
 func TestCheckboxInvalidAndRequired(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(
 			kit.Checkbox{AriaLabel: "Terms", Invalid: true, Required: true},
@@ -167,6 +178,7 @@ func TestCheckboxInvalidAndRequired(t *testing.T) {
 }
 
 func TestCheckboxLabelAndField(t *testing.T) {
+	t.Parallel()
 	var on bool
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(
@@ -187,6 +199,7 @@ func TestCheckboxLabelAndField(t *testing.T) {
 }
 
 func TestCheckboxSlots(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return kit.Checkbox{AriaLabel: "x", IndicatorClass: "opacity-90", Icon: iconX}
 	})
@@ -200,6 +213,7 @@ func TestCheckboxSlots(t *testing.T) {
 }
 
 func TestCheckboxAriaSnapshot(t *testing.T) {
+	t.Parallel()
 	page := func() tela.Node {
 		return h.Div(
 			kit.Checkbox{AriaLabel: "Agree"},

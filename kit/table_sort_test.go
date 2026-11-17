@@ -36,7 +36,10 @@ func tableSortSheet() *sheet {
 	}}
 }
 
-func TestTableSortGolden(t *testing.T) { tableSortSheet().golden(t) }
+func TestTableSortGolden(t *testing.T) {
+	t.Parallel()
+	tableSortSheet().golden(t)
+}
 
 func tableSortRTLSheet() *sheet {
 	s := tableSortSheet()
@@ -45,10 +48,14 @@ func tableSortRTLSheet() *sheet {
 	return s
 }
 
-func TestTableSortRTLGolden(t *testing.T) { tableSortRTLSheet().golden(t) }
+func TestTableSortRTLGolden(t *testing.T) {
+	t.Parallel()
+	tableSortRTLSheet().golden(t)
+}
 
 // AlwaysSorted removes the unsorted step of the cycle.
 func TestTableAlwaysSortedNeverUnsorts(t *testing.T) {
+	t.Parallel()
 	app := mountTable(t, invoiceTable(func(tb *kit.Table[trow]) {
 		tb.AlwaysSorted = true
 		tb.DefaultSort = kit.SortState{Column: "Amount", Direction: kit.Ascending}
@@ -78,6 +85,7 @@ func TestTableAlwaysSortedNeverUnsorts(t *testing.T) {
 // An unsorted table that must always be sorted starts when a header is
 // pressed, and is sorted for good from then on.
 func TestTableAlwaysSortedStartsUnsorted(t *testing.T) {
+	t.Parallel()
 	app := mountTable(t, invoiceTable(func(tb *kit.Table[trow]) { tb.AlwaysSorted = true }))
 	app.Expect(telatest.ByRole("columnheader", "Invoice"), telatest.Sort("none"))
 	app.Click(telatest.ByRole("button", "Invoice"))
@@ -85,6 +93,7 @@ func TestTableAlwaysSortedStartsUnsorted(t *testing.T) {
 }
 
 func TestTableAlwaysSortedReportsTheChange(t *testing.T) {
+	t.Parallel()
 	var got []kit.SortState
 	sorted := kit.SortState{Column: "Invoice", Direction: kit.Descending}
 	app := mountTable(t, invoiceTable(func(tb *kit.Table[trow]) {
@@ -101,6 +110,7 @@ func TestTableAlwaysSortedReportsTheChange(t *testing.T) {
 // HideUnsortedIcon keeps the arrow's place, so a header does not change
 // width when it is sorted.
 func TestTableHideUnsortedIconKeepsTheWidth(t *testing.T) {
+	t.Parallel()
 	width := func(hide bool, sort kit.SortState) float32 {
 		app := mountTable(t, invoiceTable(func(tb *kit.Table[trow]) {
 			tb.HideUnsortedIcon = hide
@@ -119,6 +129,7 @@ func TestTableHideUnsortedIconKeepsTheWidth(t *testing.T) {
 
 // The arrow of an unsorted header shows on hover, and the sorted one always.
 func TestTableHideUnsortedIconShowsOnHover(t *testing.T) {
+	t.Parallel()
 	app := mountTable(t, invoiceTable(func(tb *kit.Table[trow]) {
 		tb.HideUnsortedIcon = true
 		tb.DefaultSort = kit.SortState{Column: "Invoice", Direction: kit.Ascending}
@@ -153,6 +164,7 @@ func TestTableHideUnsortedIconShowsOnHover(t *testing.T) {
 }
 
 func TestTableUnsortedHeadersSayNone(t *testing.T) {
+	t.Parallel()
 	app := mountTable(t, invoiceTable(func(tb *kit.Table[trow]) {
 		tb.DefaultSort = kit.SortState{Column: "Invoice", Direction: kit.Descending}
 	}))
@@ -171,6 +183,7 @@ func TestTableUnsortedHeadersSayNone(t *testing.T) {
 // A column sorted by an order the table does not know says "other": it
 // leaves the rows as given and the next press starts ascending.
 func TestTableSortOther(t *testing.T) {
+	t.Parallel()
 	var got []kit.SortState
 	state := kit.SortState{Column: "Status", Direction: kit.Other}
 	app := mountTable(t, invoiceTable(func(tb *kit.Table[trow]) {
@@ -193,6 +206,7 @@ func TestTableSortOther(t *testing.T) {
 }
 
 func TestTableSortVariantsOnTheHeader(t *testing.T) {
+	t.Parallel()
 	app := mountTable(t, invoiceTable(func(tb *kit.Table[trow]) {
 		tb.HeadClass = "aria-[sort=ascending]:w-40 aria-[sort=descending]:w-48"
 	}))

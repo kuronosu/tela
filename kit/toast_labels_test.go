@@ -33,6 +33,7 @@ func loadToastCatalogs(t *testing.T) {
 }
 
 func TestToasterLabelFields(t *testing.T) {
+	t.Parallel()
 	app, handle := newToastApp(t, kit.Toaster{Duration: kit.ToastForever, CloseButton: true, AriaLabel: "Mensajes", CloseLabel: "Descartar"})
 	handle.Show("Hecho")
 	app.ExpectRole("region", "Mensajes")
@@ -41,6 +42,7 @@ func TestToasterLabelFields(t *testing.T) {
 }
 
 func TestToasterLabelsFromTheCatalogs(t *testing.T) {
+	t.Parallel()
 	loadToastCatalogs(t)
 	var handle kit.ToastHandle
 	app := telatest.Mount(t, i18n.Provider("tlh", toastApp{&handle, kit.Toaster{Duration: kit.ToastForever, CloseButton: true}}),

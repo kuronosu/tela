@@ -23,6 +23,7 @@ func intTabs() []kit.Tab[int] {
 // enabled tab (here the second, the zero one being disabled), new(0)
 // selects the zero key.
 func TestTabsZeroKey(t *testing.T) {
+	t.Parallel()
 	ts := intTabs()
 	ts[0].Disabled = true
 	app := telatest.Mount(t, kit.Tabs[int]{Tabs: ts})
@@ -50,6 +51,7 @@ func intItems() []kit.SelectItem[int] {
 // An unset DefaultValue shows the placeholder even when an option is the
 // zero key; new(0) chooses that option.
 func TestSelectZeroKey(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Select[int]{Items: intItems(), Placeholder: "Priority", AriaLabel: "Level"})
 	app.Expect(telatest.ByRole("button", "Priority Level"), telatest.Expanded(false))
 
@@ -63,6 +65,7 @@ func TestSelectZeroKey(t *testing.T) {
 // A radio group of a menu has nothing chosen without a DefaultValue, even
 // when an item has the zero key; new(0) chooses it.
 func TestMenuRadioZeroKey(t *testing.T) {
+	t.Parallel()
 	items := func(def *int) []kit.MenuItem[int] {
 		return []kit.MenuItem[int]{{Kind: kit.MenuRadioGroup, Key: 100, DefaultValue: def, Items: []kit.MenuItem[int]{
 			{Key: 0, Label: "Off"}, {Key: 1, Label: "On"},
@@ -79,6 +82,7 @@ func TestMenuRadioZeroKey(t *testing.T) {
 
 // AriaLabel names an Input and a Textarea that have no label of their own.
 func TestInputAndTextareaAriaLabel(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, h.Div(kit.Input{AriaLabel: "Search", Type: "search"}, kit.Textarea{AriaLabel: "Message"}))
 	app.ExpectCount(telatest.ByRole("searchbox", "Search"), 1)
 	app.ExpectCount(telatest.ByRole("textbox", "Message"), 1)
@@ -88,6 +92,7 @@ func TestInputAndTextareaAriaLabel(t *testing.T) {
 // the description and the invalid state, and the picker is a group named by
 // the label. Dev mode would report a label that points at nothing.
 func TestColorPickerInAField(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Field{Label: "Brand color", Description: "Used for links.", Error: "Pick one.",
 		Children: kit.ColorPicker{DefaultValue: new(tela.Hex("#6366f1"))}})
 	app.ExpectCount(telatest.ByRole("group", "Brand color"), 1)
@@ -116,6 +121,7 @@ func TestColorPickerInAField(t *testing.T) {
 // A ColorInput in a Field: the label points at the button, which is named
 // by it followed by the color, and the panel is named by it too.
 func TestColorInputInAField(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Field{Label: "Brand color", Description: "Used for links.",
 		Children: kit.ColorInput{DefaultValue: new(tela.Hex("#6366f1"))}})
 	btn := telatest.ByRole("button", "Brand color, #6366f1")
@@ -141,6 +147,7 @@ func TestColorInputInAField(t *testing.T) {
 // A nil DefaultValue starts a color picker at opaque black, and a
 // transparent black is a color it can start with.
 func TestColorPickerDefaultValuePointer(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.ColorPicker{})
 	hex := telatest.ByRole("textbox", "Hex")
 	app.Expect(hex, telatest.HasValue("#000000"))

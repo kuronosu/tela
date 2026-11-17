@@ -29,9 +29,13 @@ func fieldErrorSheet() *sheet {
 	}}
 }
 
-func TestFieldErrorContentGolden(t *testing.T) { fieldErrorSheet().golden(t) }
+func TestFieldErrorContentGolden(t *testing.T) {
+	t.Parallel()
+	fieldErrorSheet().golden(t)
+}
 
 func TestFieldErrorContentRTLGolden(t *testing.T) {
+	t.Parallel()
 	s := fieldErrorSheet()
 	s.name, s.rtl = "field_error_rtl", true
 	s.cells = s.cells[:3]
@@ -41,6 +45,7 @@ func TestFieldErrorContentRTLGolden(t *testing.T) {
 // ErrorContent is an error like Error: the field is invalid, the message is
 // an alert, and it describes the control.
 func TestFieldErrorContentIsAnError(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Field{Label: "Username", Description: "Public name.",
 		ErrorContent: h.Span(h.Text("Taken. "), h.A(h.Text("Suggestions"))),
 		Children:     kit.Input{}})
@@ -56,6 +61,7 @@ func TestFieldErrorContentIsAnError(t *testing.T) {
 // A Field's label above a group points its For at no control: the group is
 // labelled by it instead, and dev mode must not warn that it names nothing.
 func TestFieldAroundAGroupDoesNotWarn(t *testing.T) {
+	t.Parallel()
 	for name, group := range map[string]func() tela.Component{
 		"radiogroup": func() tela.Component {
 			return kit.RadioGroup[string]{Items: plans, DefaultValue: new("pro")}

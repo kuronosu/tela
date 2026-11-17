@@ -11,6 +11,7 @@ import (
 // An Indicator slot is mounted inside the selected tab only, so it follows
 // the selection (and a LayoutID on it slides).
 func TestTabsIndicatorSlot(t *testing.T) {
+	t.Parallel()
 	underline := h.Div(h.Class("absolute inset-x-0 -bottom-px h-0.5 bg-primary"), h.LayoutID("underline"))
 	app := telatest.Mount(t, kit.Tabs[string]{Tabs: demoTabs(), Variant: kit.TabsLine, Indicator: underline})
 	line := telatest.ByClass("h-0.5", "bg-primary")

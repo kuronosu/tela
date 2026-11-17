@@ -49,8 +49,15 @@ func tooltipSheet() *sheet {
 	}}
 }
 
-func TestTooltipGolden(t *testing.T)   { tooltipSheet().golden(t) }
-func TestChromiumTooltip(t *testing.T) { tooltipSheet().chromium(t) }
+func TestTooltipGolden(t *testing.T) {
+	t.Parallel()
+	tooltipSheet().golden(t)
+}
+
+func TestChromiumTooltip(t *testing.T) {
+	t.Parallel()
+	tooltipSheet().chromium(t)
+}
 
 // tipPage has two buttons with tooltips, "Save" at (16, 100) and "Print" at
 // (136, 100), and an empty area below.
@@ -75,6 +82,7 @@ func mountTips(t *testing.T, a, b kit.Tooltip, opts ...telatest.Option) *telates
 }
 
 func TestTooltipOpensOnHoverAtOnce(t *testing.T) {
+	t.Parallel()
 	// shadcn's provider has no delay: the tooltip is there as the pointer
 	// arrives, and it is the trigger's description.
 	app := mountTips(t, kit.Tooltip{}, kit.Tooltip{})
@@ -107,6 +115,7 @@ func TestTooltipOpensOnHoverAtOnce(t *testing.T) {
 }
 
 func TestTooltipDelay(t *testing.T) {
+	t.Parallel()
 	app := mountTips(t, kit.Tooltip{Delay: 700 * time.Millisecond}, kit.Tooltip{Delay: 700 * time.Millisecond})
 	save := telatest.ByTestID("save")
 	app.Hover(save)
@@ -134,6 +143,7 @@ func TestTooltipDelay(t *testing.T) {
 }
 
 func TestTooltipKeyboard(t *testing.T) {
+	t.Parallel()
 	app := mountTips(t, kit.Tooltip{Delay: time.Second}, kit.Tooltip{})
 	app.Press("Tab")
 	app.ExpectFocused(telatest.ByRole("button", "Save"))
@@ -156,6 +166,7 @@ func TestTooltipKeyboard(t *testing.T) {
 }
 
 func TestTooltipPressClosesAndTriggerStillWorks(t *testing.T) {
+	t.Parallel()
 	clicks := 0
 	app := mountTips(t, kit.Tooltip{}, kit.Tooltip{})
 	_ = clicks
@@ -171,6 +182,7 @@ func TestTooltipPressClosesAndTriggerStillWorks(t *testing.T) {
 }
 
 func TestTooltipDisabledAndControlled(t *testing.T) {
+	t.Parallel()
 	app := mountTips(t, kit.Tooltip{Disabled: true}, kit.Tooltip{})
 	app.Hover(telatest.ByTestID("save"))
 	app.Advance(time.Second)
@@ -194,6 +206,7 @@ func TestTooltipDisabledAndControlled(t *testing.T) {
 }
 
 func TestTooltipPlacement(t *testing.T) {
+	t.Parallel()
 	app := mountTips(t, kit.Tooltip{Placement: "bottom", Offset: 6}, kit.Tooltip{Placement: "right", Align: "start"})
 	app.Hover(telatest.ByTestID("save"))
 	app.Advance(300 * time.Millisecond)
@@ -210,6 +223,7 @@ func TestTooltipPlacement(t *testing.T) {
 }
 
 func TestTooltipArrowPointsAtTheTrigger(t *testing.T) {
+	t.Parallel()
 	// The tooltip is opened by its state, so the pixels are the same as in
 	// a golden: the arrow is the foreground color under the tooltip, at the
 	// trigger's center, and the page's background beside it.
@@ -231,6 +245,7 @@ func TestTooltipArrowPointsAtTheTrigger(t *testing.T) {
 }
 
 func TestTooltipWithTriggerFuncAndStyle(t *testing.T) {
+	t.Parallel()
 	s := kit.DefaultStyle()
 	s.Tooltip.Root += " ring-2"
 	app := telatest.MountFunc(t, func() tela.Node {
@@ -247,6 +262,7 @@ func TestTooltipWithTriggerFuncAndStyle(t *testing.T) {
 }
 
 func TestTooltipBadAlignPanics(t *testing.T) {
+	t.Parallel()
 	_, err := telatest.AriaSnapshot(tela.C(tipPage(kit.Tooltip{Align: "left"}, kit.Tooltip{})))
 	if err == nil || !strings.Contains(err.Error(), `Tooltip.Align "left"`) {
 		t.Fatalf("error %v, want the alignment reported", err)
@@ -254,6 +270,7 @@ func TestTooltipBadAlignPanics(t *testing.T) {
 }
 
 func TestTooltipOpenGolden(t *testing.T) {
+	t.Parallel()
 	// The tooltips of a window are a group: only one is open at a time.
 	for _, tc := range []struct {
 		name string
@@ -272,6 +289,7 @@ func TestTooltipOpenGolden(t *testing.T) {
 }
 
 func TestTooltipIdle(t *testing.T) {
+	t.Parallel()
 	expectIdle(t, func() tela.Node {
 		return h.Div(h.Class("p-16"), kit.Tooltip{Trigger: kit.Button{Children: h.Text("Hover me")}, Content: h.Text("Add to library"), DefaultOpen: true})
 	}, nil)

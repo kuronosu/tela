@@ -35,6 +35,7 @@ func plainBar(look kit.Variant, st *tela.WindowState) kit.TitleBar {
 // in the middle and on the bottom edge, where the platform's bars have an
 // outline, a background or a border. Windowed or maximized, active or not.
 func TestPlainTitleBarPaintsNothing(t *testing.T) {
+	t.Parallel()
 	for _, l := range plainLooks {
 		for _, st := range []*tela.WindowState{stActive, stInactive, stMaximized} {
 			t.Run(fmt.Sprint(l.name, st.Focused, st.Maximized), func(t *testing.T) {
@@ -58,6 +59,7 @@ func TestPlainTitleBarPaintsNothing(t *testing.T) {
 // the dots of macOS at the start, in the order of their look; the slots are
 // all there; the title is where the look puts it.
 func TestPlainTitleBarArrangement(t *testing.T) {
+	t.Parallel()
 	for _, l := range plainLooks {
 		t.Run(l.name, func(t *testing.T) {
 			a := mountTitleBar(t, plainBar(l.look, stActive))
@@ -97,6 +99,7 @@ func TestPlainTitleBarArrangement(t *testing.T) {
 // Without a Look Plain follows the platform the app runs on, like the zero
 // Variant.
 func TestPlainTitleBarDefaultLook(t *testing.T) {
+	t.Parallel()
 	a := mountTitleBar(t, kit.TitleBar{Variant: kit.Plain, State: stActive, Title: h.Text("Notes")})
 	b := mountTitleBar(t, kit.TitleBar{State: stActive, Title: h.Text("Notes")})
 	if pa, pb := a.Bounds(btnClose), b.Bounds(btnClose); pa.X != pb.X {
@@ -108,6 +111,7 @@ func TestPlainTitleBarDefaultLook(t *testing.T) {
 // hover and a destructive hover on close, none of the look's own colors;
 // the quiet bar still dims when the window is not focused.
 func TestPlainWindowControlsClasses(t *testing.T) {
+	t.Parallel()
 	for _, l := range plainLooks {
 		t.Run(l.name, func(t *testing.T) {
 			a := mountTitleBar(t, plainBar(l.look, stActive))
@@ -131,6 +135,7 @@ func TestPlainWindowControlsClasses(t *testing.T) {
 // Plain WindowControls alone, in each arrangement, with HideMinimize and the
 // Restore name while maximized.
 func TestPlainWindowControls(t *testing.T) {
+	t.Parallel()
 	for _, l := range plainLooks {
 		t.Run(l.name, func(t *testing.T) {
 			a := mountTitleBar(t, kit.WindowControls{Variant: kit.Plain, Look: l.look, State: stActive})
@@ -147,6 +152,7 @@ func TestPlainWindowControls(t *testing.T) {
 
 // An unknown Look panics in dev mode, naming the recipe it is missing from.
 func TestPlainUnknownLook(t *testing.T) {
+	t.Parallel()
 	defer func() {
 		if msg := fmt.Sprint(recover()); !strings.Contains(msg, "WindowControls.Variant") {
 			t.Errorf("panic %q does not name the field", msg)
@@ -157,6 +163,7 @@ func TestPlainUnknownLook(t *testing.T) {
 
 // ControlsSide and rtl work as in the other looks.
 func TestPlainTitleBarSideAndRTL(t *testing.T) {
+	t.Parallel()
 	bar := plainBar(kit.Windows, stActive)
 	bar.ControlsSide = "start"
 	if x := mountTitleBar(t, bar).Bounds(btnClose).X; x > 300 {
@@ -175,6 +182,7 @@ func TestPlainTitleBarSideAndRTL(t *testing.T) {
 // click maximizes and restores, and the accessible tree has the same
 // buttons.
 func TestPlainTitleBarWindowActions(t *testing.T) {
+	t.Parallel()
 	theme := kit.Theme()
 	a := telatest.MountApp(t, tela.App{
 		Width: 600, Height: 200, Frameless: true, Theme: &theme,
@@ -201,6 +209,7 @@ func TestPlainTitleBarWindowActions(t *testing.T) {
 // The hit regions are the other looks': the bar is a caption, the buttons
 // of the slots are holes in it, the three controls are what they say.
 func TestPlainTitleBarHitRegions(t *testing.T) {
+	t.Parallel()
 	b := headless.New(headless.Options{Size: platform.Size{W: 600, H: 200}})
 	theme := kit.Theme()
 	host, err := core.NewHost(b, core.Options{

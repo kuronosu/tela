@@ -15,6 +15,7 @@ import (
 // pointer and key events reach its handlers by bubbling from the cells,
 // and the engine reports its bounds as those of its cells together.
 func TestTableRowProps(t *testing.T) {
+	t.Parallel()
 	var clicked, entered, keys []string
 	tbl := invoiceTable(func(tb *kit.Table[trow]) {
 		tb.Columns = append(tb.Columns, kit.Column[trow]{ID: "open", Header: "Open", Cell: func(r trow) tela.Node {

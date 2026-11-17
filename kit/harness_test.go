@@ -52,6 +52,20 @@ import (
 //	TELA_CHROMIUM=1 TELA_TAILWIND=/tmp/tw/node_modules/.bin/tailwindcss go test -run Chromium ./kit/
 //
 // TELA_CHROMIUM_DUMP=dir writes Tela's rendering of every sheet there.
+//
+// Under -short, sheet.golden checks light at scale 1 and dark at scale 2,
+// and sheet.chromium compares each sheet at one scale (shortScaleIndex).
+//
+// The tests run in parallel (t.Parallel), except those that reach the app
+// through the process's one Post receiver, the Tree mounted last, which a
+// test running beside them would be (a native context menu asks
+// desktop.PopupMenu; a toast's callbacks and a slider's value source run
+// through tela.Post), those that set i18n's locale or fallback, and those
+// of the files that measure time or use package variables
+// (table_perf_test.go, table_sticky_test.go and the internal tests). Go
+// runs the sequential tests first and the parallel ones after them, so the
+// two never overlap. A new test that does one of those things leaves out
+// t.Parallel.
 
 // cell is one entry of a sheet.
 type cell struct {
@@ -237,7 +251,13 @@ func (s *sheet) golden(t *testing.T) {
 	if s.rtl {
 		schemes, scales = schemes[:1], scales[:1]
 	}
-	for _, scheme := range schemes {
+	for i, scheme := range schemes {
+		scales := scales
+		if testing.Short() && len(scales) > 1 {
+			// Under -short, light at scale 1 and dark at scale 2: both
+			// schemes and both scales, half the goldens.
+			scales = scales[i%len(scales) : i%len(scales)+1]
+		}
 		opts := []telatest.Option{telatest.Size(float32(w), float32(light)), telatest.Theme(s.themeOf()),
 			telatest.RootClass("bg-background text-foreground")}
 		if scheme == "dark" {
@@ -493,6 +513,9 @@ func (s *sheet) chromium(t *testing.T) {
 	dump := os.Getenv("TELA_CHROMIUM_DUMP")
 	var report strings.Builder
 	for si, scale := range []int{1, 2} {
+		if testing.Short() && si != shortScaleIndex(s.name) {
+			continue
+		}
 		app := telatest.MountFunc(t, func() tela.Node {
 			return h.Div(h.Class(fmt.Sprintf("w-[%dpx]", w)), s.panel(false), s.panel(true))
 		}, telatest.Size(float32(w), float32(hgt)), telatest.Scale(float64(scale)), telatest.Theme(s.themeOf()))
@@ -549,6 +572,18 @@ func (s *sheet) chromium(t *testing.T) {
 		}
 	}
 	t.Log("difference from Chromium:\n" + report.String())
+}
+
+// shortScaleIndex is the one scale (0 for 1, 1 for 2) at which a sheet is
+// compared with Chromium under -short: a hash of its name (FNV-1a), the
+// same in every run, which splits the sheets about evenly between both
+// scales. Without -short every sheet is compared at both.
+func shortScaleIndex(name string) int {
+	h := uint32(2166136261)
+	for i := 0; i < len(name); i++ {
+		h = (h ^ uint32(name[i])) * 16777619
+	}
+	return int(h % 2)
 }
 
 // edgeDiff is the largest difference between the edges of two rectangles
