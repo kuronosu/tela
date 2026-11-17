@@ -28,8 +28,25 @@ In order. Each phase ends with verifiable criteria and is not done unless they p
 - [ ] Auto-update: signed manifests, delta or full downloads, atomic replace, rollback
 - [ ] A toast clicked after the app exited starts it (a COM activator registered with `ToastActivatorCLSID`, ADR-235); today it only dismisses the toast
 - [ ] Crash reporting hook and structured logging
+- [ ] One declaration of the app (ID, name, icons, URL schemes, file types, the services it uses) generates each package's metadata: `Info.plist` and entitlements with usage strings, the flatpak permissions, the MSIX manifest
+- [ ] Update channels (stable, beta), phased rollout to a share of installs, an activation policy (on the next start, when the app decides, at once) and an end-of-support message for versions that can no longer update
 
 **Done when:** a sample app is packaged for three platforms from one command and updates itself from a signed manifest.
+
+### App building blocks
+
+What a desktop app needs besides its interface: loading data, signing in, navigating, showing formatted text and being present in the system. Each piece is usable alone. Agents: `tela-impl` for the API, router, Markdown, OAuth and templates; `tela-core` for the desktop surfaces.
+
+- [ ] First: an ADR on the phase's public API, and on Markdown parsing (port goldmark, MIT and pure Go, or a parser of Tela's own)
+- [ ] `tela.UseAsync[T]`: runs `f(ctx)` on a goroutine and returns `Async[T]` (`Loading`, `Err`, `Data`, `Reload()`); cancels the context when the deps change and drops stale results; keeps `Data` across `tela dev` reloads. Also `tela.UseDebounced`
+- [ ] Navigation: a router with a stack, parameters, back and forward; the mouse's side buttons and Alt+Left/Right (Cmd+[ and ] on the Mac) navigate as in a browser; deep links from `desktop.UseLaunch` open routes; screen transitions through `LayoutID`
+- [ ] `kit.Markdown`: CommonMark with GFM tables, task lists and strikethrough; selectable text, code blocks in monospace, links opened with `desktop.OpenURI`, images from `tela.Assets`, the theme's tokens. The editor is outside the phase
+- [ ] OAuth for desktop apps: authorization code with PKCE and a loopback redirect (RFC 8252) in the system browser, tokens kept with `desktop` secrets, refresh with rotation, sign-out; optionally the device code flow (RFC 8628); tested against a local fake server
+- [ ] SQLite: a recipe and an example in a module of its own (its own `go.mod`, like `looks/`) with a pure-Go SQLite; the core module gains no dependency
+- [ ] Desktop surfaces (platform contract v15): start at login (`SMAppService` on macOS, the `Run` key on Windows, XDG autostart on Linux); the Dock menu on macOS; jump lists and recent documents (`ICustomDestinationList` and `SHAddToRecentDocs` on Windows, `NSDocumentController` on macOS, `recently-used.xbel` on Linux)
+- [ ] Templates: `tela new -template notes|settings|dashboard`, generated from the examples
+
+**Done when:** `examples/notes` signs in against the fake OAuth server, loads and syncs its notes with `UseAsync`, keeps them in SQLite (from the example's module), shows them as Markdown, navigates back and forward from the mouse and the keyboard, starts at login and appears in the recent documents, with `telatest` tests and goldens on Linux and Windows CI (macOS on CI where it can be driven). Outside the phase: a Markdown editor, sync and offline beyond the example, a webview (ADR-001), push and background tasks.
 
 ### DevTools and agents
 
@@ -43,6 +60,7 @@ Inspecting and driving a running app.
 - [ ] `tela mcp`: refs keep node identity (today role, name and position); `scroll` without an element; a locator that matches nothing does not always wait 2 s; `notifications/cancelled` is honored
 - [ ] `tela snapshot` shows a passive effect's state and toasts set by effects (it renders once)
 - [ ] Debug-overlay labels are laid out at the display scale (today at scale 1)
+- [ ] `tela lsp`: completion, hover and diagnostics of Tailwind classes inside `Class("...")` and `ClassAliases`, on the lint engine
 - [ ] `tela snapshot`, `inspect` and `mcp` give each element the line that created it (`button "Save" [ref=e4] [src=settings.go:42]`), from the call stacks dev mode already captures for hooks
 - [ ] `tela mcp` writes the session it just drove as a `telatest` test (`Click`, `Fill`, `Advance`, `ExpectAria`), so what an agent checked stays as a regression test
 - [ ] `tela mcp` and `tela snapshot` film motion: frames every N ms over a span of the app's clock, as a contact sheet or an APNG (transitions, springs, `UsePresence`)
@@ -60,6 +78,8 @@ Inspecting and driving a running app.
 - [ ] Dev builds can be debugged (DWARF)
 - [ ] `telatest`: clicks with modifiers (Playwright's `click({modifiers})`; aria's Cmd+click tests mount through `rawwin` today); menu accelerators' `CmdOrCtrl` follow the host, not `PlatformKeys` (ADR-221)
 - [ ] A public accessibility check in `telatest` (such as `App.ExpectAccessible()`, needs an ADR) from the axe-like rules of `telatest/a11y_audit_test.go`
+- [ ] `tela check` and `tela verify` (CLI and `tela mcp`): report clipped or overflowing text, overlapping elements, low contrast, small targets and focus problems, for every `Preview` in light and dark, at several widths, with large text, in RTL and in another language
+- [ ] Every change that breaks the public API ships a `tela lint -fix` rule that rewrites the old spelling
 - [ ] `telatest.TrayIcon` reports `Template` (ADR-237)
 - [ ] `telatest`: plays Windows' `DefaultAsked` for file types and gives a start launch; a wait on a long timer of the app's clock advances to the next deadline when nothing else is due (today one frame per try, about 120 tries for 2 s, so it depends on the machine's speed)
 - [ ] `watch`: find why `TestDirectoryMovedInAndOut/native` failed once on `windows-latest` (`c9aff8d`: nothing reported for a directory moved into the tree, no error; the watcher and the test now report more); the Windows poller holds each directory open while it lists it, so a rename of that directory fails for that moment
@@ -101,7 +121,7 @@ GPU content an application renders itself, composed by Tela (the owner, 2026-11-
 
 Vector output on the `DisplayList`.
 
-- [ ] `Canvas` (2D): immediate-mode drawing surface (paths, gradients, text, images) with an animation-frame callback
+- [ ] `Canvas` (2D): immediate-mode drawing surface (paths, gradients, text, images) with an animation-frame callback, with the method names of the browser's Canvas 2D API and compared with Chromium's output
 - [ ] SVG: text, filters, images, patterns and markers
 - [ ] Printing and PDF export: a vector PDF backend over the DisplayList (fonts embedded, gradients, clip, opacity), print dialogs, page-break CSS subset
 
@@ -173,6 +193,7 @@ Optional, outside the core module. Until `tela add` exists (see "Deferred") they
 
 - **Charts:** line, bar, area, pie, scatter, axes, tooltips, built on `Canvas` (Canvas, SVG and PDF) or plain `Div`/SVG until then
 - **DataGrid / TreeView:** sortable, resizable, editable cells, row selection, grouping, tree expansion, on top of `VirtualList`; the simple `Table` in `kit` stays in core
+- **Third-party packages with an implementation per system:** a documented convention (build tags or files per OS, no cgo, a fake for headless tests) so others can publish services like `desktop`'s
 - **Looks (`looks/`, ADR-197, ADR-223):** done for Windows 11, GNOME, KDE and macOS (`win11`, `adwaita`, `breeze`, `aqua` in two designs, `detect`, and a gallery)
 
 ## Deferred (not discarded)
