@@ -39,10 +39,15 @@ Inspecting and driving a running app.
 - [ ] Live inspector: element tree, computed style, hooks and state, re-render counts, accessibility tree
 - [ ] Frame profiler
 - [ ] Connect to a running app and pick an element
-- [ ] `tela mcp` on a running app's real windows, all of them (today headless only, and only the main window)
+- [ ] `tela mcp` on a running app's real windows, all of them (today headless only, and only the main window), for what headless does not show: IME, menus, dialogs, the tray, the accessibility backends, the display scale; a session could attach through the `remote` host of `tela dev`
 - [ ] `tela mcp`: refs keep node identity (today role, name and position); `scroll` without an element; a locator that matches nothing does not always wait 2 s; `notifications/cancelled` is honored
 - [ ] `tela snapshot` shows a passive effect's state and toasts set by effects (it renders once)
 - [ ] Debug-overlay labels are laid out at the display scale (today at scale 1)
+- [ ] `tela snapshot`, `inspect` and `mcp` give each element the line that created it (`button "Save" [ref=e4] [src=settings.go:42]`), from the call stacks dev mode already captures for hooks
+- [ ] `tela mcp` writes the session it just drove as a `telatest` test (`Click`, `Fill`, `Advance`, `ExpectAria`), so what an agent checked stays as a regression test
+- [ ] `tela mcp` and `tela snapshot` film motion: frames every N ms over a span of the app's clock, as a contact sheet or an APNG (transitions, springs, `UsePresence`)
+- [ ] `tela mcp`: `state` (a component's hook values, which `tela dev` already serializes), `logs` (the app's log and dev warnings), `perf` (time per phase of each frame), `prefer` (reduced motion, high contrast, text scale, locale, direction; `open` covers only dark mode and size); merge tools rather than add them, the set stays small
+- [ ] `tela new` also writes `AGENTS.md` and `CLAUDE.md` (read `llms.txt`, the `tela mcp` loop) and a `.mcp.json` that starts `tela mcp`
 
 **Done when:** DevTools shows why a given element re-rendered and where a frame spent its time, and `tela mcp` drives a running app's windows.
 
@@ -59,7 +64,8 @@ Inspecting and driving a running app.
 - [ ] `telatest`: plays Windows' `DefaultAsked` for file types and gives a start launch; a wait on a long timer of the app's clock advances to the next deadline when nothing else is due (today one frame per try, about 120 tries for 2 s, so it depends on the machine's speed)
 - [ ] `watch`: find why `TestDirectoryMovedInAndOut/native` failed once on `windows-latest` (`c9aff8d`: nothing reported for a directory moved into the tree, no error; the watcher and the test now report more); the Windows poller holds each directory open while it lists it, so a rename of that directory fails for that moment
 - [ ] CI: the win32 tests that read the screen (title bar colors, backdrop, frameless modal and glass pixels) or open real dialogs run only with `TELA_LIVE=1`, so CI checks their attributes but not their pixels; the win32 keyboard tests inject their "slow" keys 40 ms apart from a goroutine and check the focus only at the start, so they rely on running alone; a global-shortcut press injected with `keybd_event` or `SendInput` from a scheduled task never arrives, so only a real key press checks it
-- [ ] `docs/llms.txt` is a few bytes under `llmsdoc`'s 100 KB limit: raise the limit or split the file; phase 20's proposed lines (transparent windows, built-in labels, `BackgroundGradientFn`, `Progress.ValueFn`, `ToggleGroup.Indicator`, Preview themes) and phase 22's (Linux backdrops, `i18n` number options and skeletons, access keys) wait for it
+- [ ] `docs/llms.txt` is a few bytes under `llmsdoc`'s 100 KB limit (about 25k tokens an agent reads whole): split it into a short core every agent reads and recipes looked up per question; phase 20's proposed lines (transparent windows, built-in labels, `BackgroundGradientFn`, `Progress.ValueFn`, `ToggleGroup.Indicator`, Preview themes) and phase 22's (Linux backdrops, `i18n` number options and skeletons, access keys) wait for it
+- [ ] Common mistakes in `llms.txt` with a lifecycle: only a mistake reproduced on the current API, written as symptom, cause and fix, marked when `tela lint` could catch it, and removed when lint or a dev error does
 - [ ] `telatest` cannot see a pending timer or deadline (a no-op `UseInterval` leaves no trace in `Stats`), so `internal/testutil/idle` also mounts on `core.Host`: an `App.ExpectIdle()` or `App.Pending()` needs an ADR
 - [ ] `telatest`: no public way to read `aria-valuenow` (only `HasValue`; a `HasRange(now, min, max)` state); `Stats.Layouts` counts layout phases, including empty ones of restyle-only frames, so "no relayout" cannot be asserted there (count boxes laid out)
 - [ ] CI: `cmd/tela`'s out-of-repository tests (dev, mcp, new, outside modules) skip when `go mod tidy` cannot resolve offline; the macOS job warms the module cache first, the Linux and Windows jobs do not, so there they likely skip; lint runs staticcheck for Linux only (`watch.(*Watcher).lost` is unused on darwin)
