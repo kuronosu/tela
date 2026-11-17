@@ -13,6 +13,10 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+## [0.14.6] - 2026-11-17
+
+Work on the dev loop between phases (ADR-290 to ADR-293). It breaks no public API.
+
 ### Added
 
 - `telatest`: `App.ExpectIdle()` fails a test whose settled app would not sleep, naming what keeps it awake, and `App.Pending()` returns that list: a frame request, a running or endless animation, queued updates, and each deadline of the tree, such as a `UseInterval` or `UseTimeout` (with its component and call site), a caret blink or a scrollbar fade (ADR-291).
@@ -1165,7 +1169,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.5...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.6...HEAD
+[0.14.6]: https://github.com/kuronosu/tela/compare/v0.14.5...v0.14.6
 [0.14.5]: https://github.com/kuronosu/tela/compare/v0.14.4...v0.14.5
 [0.14.4]: https://github.com/kuronosu/tela/compare/v0.14.3...v0.14.4
 [0.14.3]: https://github.com/kuronosu/tela/compare/v0.14.2...v0.14.3
