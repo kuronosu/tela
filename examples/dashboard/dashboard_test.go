@@ -11,6 +11,14 @@ import (
 
 const windowW, windowH = 1440, 900
 
+// Most tests of the package run in parallel (t.Parallel). The ones that
+// switch the scheme (tela.SetColorScheme: the theme button, the palette's
+// command, the session) or drop a dragged card (DragState.Drop runs
+// through tela.Post) stay sequential: both reach the app through the
+// process's one Post receiver, the Tree mounted last, which a test
+// running beside them would be. Go runs the sequential tests first and
+// the parallel ones after them, so the two never overlap.
+
 // mount opens App's window at a size; dev mode is on, so any dev message
 // (an unknown class, a hook misuse) fails the test.
 func mount(t *testing.T, w, h float32, opts ...telatest.Option) *telatest.App {
@@ -46,11 +54,17 @@ var goldenPreviews = map[string]bool{"1 Overview": true, "2 Board": true, "4 Com
 // TestNoDevMessages opens the page at several window sizes, up to 4K, and
 // every preview, in both schemes. Every mount of the package is in dev
 // mode, so what the goldens open already passed: this opens the rest (on
-// the Frosted graphite page a mount is costly, mostly at 4K).
+// the Frosted graphite page a mount is costly, mostly at 4K). Under -short
+// each window size is opened in one scheme, light and dark in turn.
 func TestNoDevMessages(t *testing.T) {
-	for _, s := range [][2]float32{{1920, 1080}, {1280, 800}, {3840, 2160}} {
-		mount(t, s[0], s[1])
-		mount(t, s[0], s[1], telatest.Dark())
+	t.Parallel()
+	for i, s := range [][2]float32{{1920, 1080}, {1280, 800}, {3840, 2160}} {
+		if !testing.Short() || i%2 == 0 {
+			mount(t, s[0], s[1])
+		}
+		if !testing.Short() || i%2 == 1 {
+			mount(t, s[0], s[1], telatest.Dark())
+		}
 	}
 	for _, name := range Previews.Names() {
 		if goldenPreviews[name] {
@@ -63,10 +77,15 @@ func TestNoDevMessages(t *testing.T) {
 }
 
 // TestGolden is the overview (the "1 Overview" preview, with the peak's
-// tooltip open) in light and dark, at scale 1 and 2.
+// tooltip open) in light and dark, at scale 1 and 2. Under -short it is
+// light at scale 1 and dark at scale 2: both schemes, both scales.
 func TestGolden(t *testing.T) {
-	for _, sc := range schemes {
-		for _, scale := range []float64{1, 2} {
+	t.Parallel()
+	for i, sc := range schemes {
+		for j, scale := range []float64{1, 2} {
+			if testing.Short() && i != j {
+				continue
+			}
 			t.Run(fmt.Sprintf("%s_x%g", sc, scale), func(t *testing.T) {
 				a := mountPreview(t, "1 Overview", append(scheme(sc), telatest.Scale(scale))...)
 				a.ExpectCount(telatest.ByRole("tooltip", "$7,710 · peak"), 1)
@@ -79,26 +98,45 @@ func TestGolden(t *testing.T) {
 // TestGoldenStates are the other states in both schemes: the board, the
 // command palette, the report dialog, a toast, and the overview scrolled
 // under its top bar.
+//
+// Under -short each state is checked in one scheme, light and dark in turn
+// (the board, the dialog and the scrolled overview in light, the palette
+// and the toast in dark): every state and both schemes, half the goldens.
 func TestGoldenStates(t *testing.T) {
-	for _, sc := range schemes {
-		t.Run(sc, func(t *testing.T) {
+	t.Parallel()
+	states := []func(t *testing.T, sc string){
+		func(t *testing.T, sc string) {
 			mountPreview(t, "2 Board", scheme(sc)...).Golden("board_" + sc + ".png")
-
+		},
+		func(t *testing.T, sc string) {
 			a := mountPreview(t, "4 Command palette", scheme(sc)...)
 			a.ExpectCount(telatest.ByRole("dialog", "Command palette"), 1)
 			a.Golden("palette_" + sc + ".png")
-
-			a = mountPreview(t, "5 Report dialog", scheme(sc)...)
+		},
+		func(t *testing.T, sc string) {
+			a := mountPreview(t, "5 Report dialog", scheme(sc)...)
 			a.ExpectCount(telatest.ByRole("dialog", "New report"), 1)
 			a.Golden("dialog_" + sc + ".png")
-
-			a = mountPreview(t, "6 Toast", scheme(sc)...)
+		},
+		func(t *testing.T, sc string) {
+			a := mountPreview(t, "6 Toast", scheme(sc)...)
 			a.ExpectText("Report queued: Q3 revenue summary")
 			a.Golden("toast_" + sc + ".png")
-
-			a = mount(t, windowW, windowH, append(scheme(sc), telatest.InstantScroll())...)
+		},
+		func(t *testing.T, sc string) {
+			a := mount(t, windowW, windowH, append(scheme(sc), telatest.InstantScroll())...)
 			a.Scroll(telatest.ByRole("heading", "Subscribers"), 0, 320)
 			a.Golden("scrolled_" + sc + ".png")
+		},
+	}
+	for j, sc := range schemes {
+		t.Run(sc, func(t *testing.T) {
+			for i, state := range states {
+				if testing.Short() && (i+j)%2 != 0 {
+					continue
+				}
+				state(t, sc)
+			}
 		})
 	}
 }
@@ -106,6 +144,7 @@ func TestGoldenStates(t *testing.T) {
 // TestRange picks a period: the numbers count to the new period's values,
 // and the frames of the springs build nothing.
 func TestRange(t *testing.T) {
+	t.Parallel()
 	a := mount(t, windowW, windowH)
 	a.ExpectText("$45,231.89")
 	a.Expect(telatest.ByRole("radio", "30D"), telatest.Checked(true))
@@ -127,6 +166,7 @@ func TestRange(t *testing.T) {
 // TestMetricTabs moves the headline's tab: one amber line, under the
 // selected tab, and the number follows the metric.
 func TestMetricTabs(t *testing.T) {
+	t.Parallel()
 	a := mount(t, windowW, windowH)
 	line := telatest.ByClass("h-0.5", "bg-primary")
 	a.ExpectCount(line, 1)
@@ -148,6 +188,7 @@ func TestMetricTabs(t *testing.T) {
 // TestNavigation moves between the views with the rail, the keyboard
 // shortcuts and the overview's link.
 func TestNavigation(t *testing.T) {
+	t.Parallel()
 	a := mount(t, windowW, windowH)
 	a.ExpectRole("heading", "Overview")
 	a.Click(telatest.ByRole("button", "Tasks"))
@@ -169,6 +210,7 @@ func TestNavigation(t *testing.T) {
 // TestTasksTable sorts the table by its headers: the rows are laid out at
 // their new places at once and drawn sliding there (AnimateLayout).
 func TestTasksTable(t *testing.T) {
+	t.Parallel()
 	a := mountPreview(t, "3 Tasks", telatest.NoSettle())
 	a.Advance(2 * time.Second)
 	row := func(title string) float32 { return a.Bounds(telatest.ByText(title, telatest.Exact())).Y }
@@ -202,6 +244,7 @@ func TestTasksTable(t *testing.T) {
 // TestFinishTask checks a task off in the table: it sinks, the sprint
 // counts it, and its card is in Done on the board.
 func TestFinishTask(t *testing.T) {
+	t.Parallel()
 	a := mountPreview(t, "3 Tasks")
 	title := telatest.ByText("Fix failed invoice retries", telatest.Exact())
 	y0 := a.Bounds(title).Y
@@ -225,6 +268,7 @@ func TestFinishTask(t *testing.T) {
 // TestNewTask writes a task from the sprint's button: it needs a title,
 // and it lands at the end of To do with a toast.
 func TestNewTask(t *testing.T) {
+	t.Parallel()
 	a := mountPreview(t, "2 Board")
 	a.Click(telatest.ByRole("button", "New task"))
 	a.ExpectRole("dialog", "New task")
@@ -249,6 +293,7 @@ func TestNewTask(t *testing.T) {
 // weekly report, closes it with Escape and with the scrim, and checks that
 // its form works.
 func TestReportDialog(t *testing.T) {
+	t.Parallel()
 	a := mount(t, windowW, windowH)
 	a.Press("ControlOrMeta+k")
 	a.Click(telatest.ByRole("option", "New report"))
@@ -303,6 +348,7 @@ func waitToast(t *testing.T, a *telatest.App, page string, shown bool) time.Dura
 // TestToast exports from the palette: the toast's countdown (a tween on
 // the frame clock) dismisses it by itself after about 4 s.
 func TestToast(t *testing.T) {
+	t.Parallel()
 	a := mount(t, windowW, windowH, telatest.NoSettle())
 	a.Advance(3 * time.Second) // the numbers and bars have counted up
 	page := toastRegion(a)
@@ -334,6 +380,7 @@ func TestThemeSwitch(t *testing.T) {
 
 // TestBell opens the notifications and marks them read: the dot goes.
 func TestBell(t *testing.T) {
+	t.Parallel()
 	a := mount(t, windowW, windowH)
 	a.Click(telatest.ByRole("button", "Notifications, 3 unread"))
 	a.ExpectRole("dialog", "Notifications")
@@ -347,6 +394,7 @@ func TestBell(t *testing.T) {
 // TestPanesStayPut scrolls the main pane: only its content moves; the
 // rail, the top bar and the Pulse pane stay where they are.
 func TestPanesStayPut(t *testing.T) {
+	t.Parallel()
 	a := mount(t, windowW, 680, telatest.InstantScroll()) // short, so the overview scrolls far
 	at := func(l telatest.Locator) [2]float32 { r := a.Bounds(l); return [2]float32{r.X, r.Y} }
 	period, rail, edit := telatest.ByRole("radiogroup", "Period"), telatest.ByRole("button", "Orders"), telatest.ByRole("button", "Edit the weekly report")
@@ -370,6 +418,7 @@ func TestPanesStayPut(t *testing.T) {
 // TestIdle checks that the page at rest asks for no frames once every
 // interaction has ended: no infinite animation is left running.
 func TestIdle(t *testing.T) {
+	t.Parallel()
 	a := mount(t, windowW, windowH)
 	a.Click(telatest.ByRole("radio", "7D"))
 	a.Click(telatest.ByRole("button", "Edit the weekly report"))

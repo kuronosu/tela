@@ -27,6 +27,7 @@ func recordedCommands(tr *core.Tree) int {
 // button's group, a few commands, not the window's root list of hundreds
 // (ADR-274).
 func TestRailHoverRecordsLittle(t *testing.T) {
+	t.Parallel()
 	r := newRig(t, 1920, 1080, 1, true)
 	r.settle(400)
 	r.rest()
