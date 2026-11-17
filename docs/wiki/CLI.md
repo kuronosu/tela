@@ -918,8 +918,9 @@ same name for every version: its `Uri` is `<URL>/<name>-windows-<arch>.appinstal
 and its package's `<URL>/<name>-<version>-windows-<arch>.msix`. People install
 from it (App Installer opens it from a link or a file), and Windows checks it
 for a higher version at each start of the app (`OnLaunch` with
-`HoursBetweenUpdateChecks="0"`, without a prompt: the update is installed when
-the app is not running) and every 8 hours (`AutomaticBackgroundTask`). Publish
+`HoursBetweenUpdateChecks="0"`, without a prompt: the update found at one start
+is downloaded then, only the blocks that changed, and installed at the next
+start) and every 8 hours (`AutomaticBackgroundTask`). Publish
 the new `.msix` and the new `.appinstaller` over the old one for each release.
 App Installer installs only signed packages, and the server must send the files
 with their types (`application/msix`, `application/appinstaller`). package
@@ -986,6 +987,24 @@ signtool sign /fd SHA256 /tr <-timestamp-url> /td SHA256 <certificate> <file>
 | `-timestamp-url URL` | the RFC 3161 time-stamp server, by default `http://timestamp.digicert.com` |
 
 The zip itself is not signed by signtool; the output says that its program is.
+
+To try the signed path without a bought certificate, make a self-signed one and
+trust it for package installs (the `TrustedPeople` store of the machine, from an
+elevated PowerShell), then give its subject as the publisher:
+
+```powershell
+$c = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=Notes Test" `
+    -CertStoreLocation Cert:\CurrentUser\My -NotBefore (Get-Date).AddDays(-1)
+Export-PfxCertificate -Cert $c -FilePath test.pfx -Password (Read-Host -AsSecureString)
+Export-Certificate -Cert $c -FilePath test.cer
+Import-Certificate -FilePath test.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople
+tela package -os windows -sign -cert-file test.pfx -cert-password-file pw.txt `
+    -msix-publisher "CN=Notes Test" .
+```
+
+`-NotBefore` a day back keeps the certificate valid at the time-stamp server's
+time when the machine's clock runs ahead of it: otherwise `signtool verify /pa`
+says 0x800B0101 ("not within its validity period").
 On Linux and macOS signtool is not available, which tela says: sign with
 `-sign-cmd` and a signer that runs there, such as
 [jsign](https://ebourg.github.io/jsign/), which signs executables and MSIX

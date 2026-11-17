@@ -365,9 +365,12 @@ func AppInstallerName(app App, t Target) string {
 // file name) published under base: App Installer installs from it, and
 // the install checks it for a higher version when the app starts
 // (OnLaunch, every start) and every 8 hours in the background
-// (AutomaticBackgroundTask). An update found at a start is installed
-// after the app exits, without asking, as package update's next-start
-// activation (ADR-296).
+// (AutomaticBackgroundTask). An update found at a start is downloaded
+// then (only the blocks that changed, by the block maps) and installed at
+// the next start, before the app runs, without asking, as package
+// update's next-start activation (ADR-296): Windows does not replace the
+// package of a running app, nor at once when it exits (checked on
+// Windows 11 26200).
 func AppInstaller(id MSIXIdentity, base, self, msix string) []byte {
 	base = strings.TrimRight(base, "/")
 	a := xmlText
