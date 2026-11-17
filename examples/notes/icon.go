@@ -16,10 +16,11 @@ var (
 	iconImages []image.Image
 )
 
-// appIcon is the icon of the window and of the tray: an amber rounded badge
-// with a dark notebook-pen glyph, drawn here so the example needs no image file
-// (an app ships a PNG with go:embed and image/png instead). The pictures
-// are made once.
+// appIcon is the icon of the window and of the tray, the same picture as
+// icon.svg (the packages' icon): a graphite rounded badge with the
+// notebook-pen glyph, the notebook in light ink and the pen in amber, drawn
+// here so the example needs no image file (an app ships a PNG with go:embed
+// and image/png instead). The pictures are made once.
 func appIcon() []image.Image {
 	iconOnce.Do(func() {
 		for _, size := range iconSizes {
@@ -68,25 +69,32 @@ var (
 	}
 )
 
-// iconAt is the color (r, g, b, a in 0..1) of the icon at (x, y) in 0..1: an
-// amber rounded square, a little lighter at the top, with the dark
-// notebook-pen glyph in the middle.
+// iconAt is the color (r, g, b, a in 0..1) of the icon at (x, y) in 0..1:
+// a graphite rounded square, lighter at the top, with a thin lighter rim and
+// the notebook-pen glyph in the middle (icon.svg's 512 px drawing).
 func iconAt(x, y float64) [4]float64 {
-	if !inRoundRect(x, y, 0.04, 0.04, 0.96, 0.96, 0.24) {
+	if !inRoundRect(x, y, 20.0/512, 20.0/512, 492.0/512, 492.0/512, 113.0/512) {
 		return [4]float64{}
 	}
 	// The glyph takes 58% of the square, centered; its strokes are 2.4
 	// units wide (Lucide's 2, a little bolder so that it holds at 16 px).
 	const scale, half = 0.58, 1.2
 	gx, gy := (x-0.5)/scale*24+12, (y-0.5)/scale*24+12
-	for _, line := range notebook {
-		for i := 1; i < len(line); i++ {
-			if distToSegment(gx, gy, line[i-1], line[i]) <= half {
-				return [4]float64{0.106, 0.078, 0.02, 1}
+	for i, line := range notebook {
+		for j := 1; j < len(line); j++ {
+			if distToSegment(gx, gy, line[j-1], line[j]) <= half {
+				if i == len(notebook)-1 { // the pen
+					return [4]float64{0.941, 0.694, 0.227, 1} // #f0b13a
+				}
+				return [4]float64{0.925, 0.925, 0.933, 1} // #ececee
 			}
 		}
 	}
-	return [4]float64{lerp(0.98, 0.92, y), lerp(0.76, 0.63, y), lerp(0.30, 0.12, y), 1}
+	if !inRoundRect(x, y, 28.0/512, 28.0/512, 484.0/512, 484.0/512, 105.0/512) {
+		return [4]float64{0.227, 0.227, 0.247, 1} // the rim, #3a3a3f
+	}
+	// #2a2a2d at the top to #131314 at the bottom.
+	return [4]float64{lerp(0.165, 0.075, y), lerp(0.165, 0.075, y), lerp(0.176, 0.078, y), 1}
 }
 
 // distToSegment is the distance from (x, y) to the segment a-b.
