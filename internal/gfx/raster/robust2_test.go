@@ -11,6 +11,7 @@ import (
 // Robustness of shadows and filters: extreme but finite input renders
 // without panicking and in bounded time.
 func TestRobustnessShadowsFilters(t *testing.T) {
+	t.Parallel()
 	const big, tiny = float32(1e30), float32(1e-30)
 	dl := build(func(b *gfx.Builder) {
 		full := gfx.Rect{X0: -big, Y0: -big, X1: big, Y1: big}

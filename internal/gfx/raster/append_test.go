@@ -17,6 +17,7 @@ import (
 // composed list render like a full render.
 
 func TestAppendListMatchesRecording(t *testing.T) {
+	t.Parallel()
 	all := append(append(append(append([]scene(nil), scenes...), scenes2...), scenes3[1:]...), textScenes...)
 	for seed := uint64(1); seed <= 3; seed++ {
 		all = append(all, randomScene(seed, 150, 110))
@@ -26,8 +27,14 @@ func TestAppendListMatchesRecording(t *testing.T) {
 		gfx.Translate(10, 20).Mul(gfx.Scale(0.75, 0.75)),
 		gfx.Translate(40, -10).Mul(gfx.Rotate(0.2)),
 	}
-	for _, s := range all {
+	for i, s := range all {
 		for k, m := range transforms {
+			if testing.Short() && k != i%len(transforms) {
+				// Under -short each scene is composed under one transform,
+				// the next one for the next scene: every scene and every
+				// transform, at both scales.
+				continue
+			}
 			t.Run(fmt.Sprintf("%s_t%d", s.name, k), func(t *testing.T) {
 				direct := build(func(b *gfx.Builder) {
 					b.PushTransform(m)

@@ -66,6 +66,7 @@ func TestGridMul(t *testing.T) {
 // GridMul some offsets compose to a hair off the grid, and a vertex near a
 // step of the 1/256 px fixed-point grid lands on its other side.
 func TestGridTranslationShifts(t *testing.T) {
+	t.Parallel()
 	const w, h = 64, 48
 	// half returns a logical y that lands exactly halfway between two
 	// steps of the fixed-point grid at scale s (k + 1/512 device px, an

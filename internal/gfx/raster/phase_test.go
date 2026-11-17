@@ -53,6 +53,7 @@ func fadedBackdrop(b *gfx.Builder) {
 // worker counts, the full frame and regions, and that lists with a
 // spreading backdrop filter inside a layer are not phased.
 func TestPhasedMatchesSequential(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name  string
 		w, h  int

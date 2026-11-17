@@ -52,12 +52,19 @@ func fromScene() *gfx.DisplayList {
 // pixels outside the region are not touched. The base is either the
 // snapshot (Base) or the destination holding its pixels.
 func TestRenderFrom(t *testing.T) {
+	t.Parallel()
 	scenes := map[string]*gfx.DisplayList{
 		"plain": fromScene(),
 		"glass": glassState{stripe: 120, box: [2]gfx.Point{gfx.Pt(60, 60), gfx.Pt(20, 20)}, pane2: gfx.Pt(170, 120), fade: 0.6}.list(-1),
 	}
+	// Under -short each scene plays at one scale (plain at 1, glass at 1.5),
+	// with every worker count and cache: both scenes, both scales.
+	shortScale := map[string]float32{"plain": 1, "glass": 1.5}
 	for name, dl := range scenes {
 		for _, scale := range []float32{1, 1.5} {
+			if testing.Short() && scale != shortScale[name] {
+				continue
+			}
 			for _, workers := range []int{1, 0} {
 				for _, cached := range []bool{false, true} {
 					t.Run(fmt.Sprintf("%s_x%g_w%d_cache%v", name, scale, workers, cached), func(t *testing.T) {

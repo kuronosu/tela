@@ -123,6 +123,7 @@ func TestTrim(t *testing.T) {
 // between them, idle or not, with a Renderer whose buffers come and go: each
 // frame equals the render of a new Renderer.
 func TestEndFramePixels(t *testing.T) {
+	t.Parallel()
 	scenes := []*gfx.DisplayList{paletteScene(300, 240), build(multiBackdrop), build(fadedBackdrop), plainScene(300, 240), paletteScene(240, 300)}
 	bounds := image.Rect(0, 0, 300, 240)
 	bg := image.NewRGBA(bounds)

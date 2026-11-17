@@ -53,6 +53,7 @@ func applyBlurKernel(k *BlurKernel, in []float64, ox int) []float64 {
 // computes: its weights applied in floating point give the blurred line
 // within the rounding of the fixed-point passes.
 func TestBlurKernel(t *testing.T) {
+	t.Parallel()
 	rng := rand.New(rand.NewSource(7))
 	const n = 3000
 	line := make([]uint8, n)

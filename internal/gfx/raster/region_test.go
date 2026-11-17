@@ -260,12 +260,15 @@ func cloneRGBA(img *image.RGBA) *image.RGBA {
 // region gives exactly the pixels of a full render, and nothing outside the
 // region changes.
 func TestRegionMatchesFullRender(t *testing.T) {
+	t.Parallel()
 	testRegions(t)
 }
 
 // TestRegionMatchesFullRenderCulled repeats the test with curve culling
 // (flattenCulled) forced for every path, so that curves outside small
-// regions are replaced by their chords.
+// regions are replaced by their chords. It sets the package's nearMargin,
+// so it stays sequential: Go runs the parallel tests (the one above and
+// the other heavy tests of the package) after it has put it back.
 func TestRegionMatchesFullRenderCulled(t *testing.T) {
 	old := nearMargin
 	nearMargin = -1 << 20 // never "near": always cull
@@ -278,8 +281,15 @@ func testRegions(t *testing.T) {
 	for seed := uint64(1); seed <= 4; seed++ {
 		all = append(all, randomScene(seed, 150, 110))
 	}
-	for _, s := range all {
-		for _, scale := range []float32{1, 1.5, 2, 0.75} {
+	scales := []float32{1, 1.5, 2, 0.75}
+	for i, s := range all {
+		for j, scale := range scales {
+			if testing.Short() && j != i%len(scales) {
+				// Under -short each scene plays at one scale, the next one
+				// for the next scene: every scene and every scale is still
+				// checked, a quarter of the pairs.
+				continue
+			}
 			t.Run(fmt.Sprintf("%s_x%g", s.name, scale), func(t *testing.T) {
 				dl := build(s.draw)
 				w := int(math.Ceil(float64(float32(s.w) * scale)))
@@ -333,7 +343,21 @@ func testRegions(t *testing.T) {
 
 func checkRegion(t *testing.T, got, full, bg *image.RGBA, region image.Rectangle) {
 	t.Helper()
+	in := region.Intersect(got.Rect)
 	for y := got.Rect.Min.Y; y < got.Rect.Max.Y; y++ {
+		// Each row is compared as up to three runs of bytes (left of the
+		// region, inside it, right of it); only a row that differs is
+		// walked pixel by pixel, for the message.
+		row := got.PixOffset(got.Rect.Min.X, y)
+		end := row + 4*got.Rect.Dx()
+		x0, x1 := row, row
+		if y >= in.Min.Y && y < in.Max.Y {
+			x0, x1 = got.PixOffset(in.Min.X, y), got.PixOffset(in.Max.X, y)
+		}
+		if bytes.Equal(got.Pix[row:x0], bg.Pix[row:x0]) && bytes.Equal(got.Pix[x0:x1], full.Pix[x0:x1]) &&
+			bytes.Equal(got.Pix[x1:end], bg.Pix[x1:end]) {
+			continue
+		}
 		for x := got.Rect.Min.X; x < got.Rect.Max.X; x++ {
 			i := got.PixOffset(x, y)
 			want := bg.Pix[i : i+4]

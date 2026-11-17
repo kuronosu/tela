@@ -14,11 +14,13 @@ import (
 // then exactly the local squares), and by an arbitrary angle against a
 // brute-force average of the rotation-invariant blur over each pixel.
 func TestShadowRotated(t *testing.T) {
+	t.Parallel()
 	c := gfx.DrawShadow{RRect: gfx.RRectCorners(gfx.RectXYWH(10, 15, 50, 36),
 		gfx.Pt(14, 14), gfx.Pt(4, 4), gfx.Pt(20, 10), gfx.Pt(0, 0)), Offset: gfx.Pt(2, 3), Blur: 6, Spread: 1, Color: gfx.Black}
 	sigma := float64(c.Blur) / 2
 
 	t.Run("90", func(t *testing.T) {
+		t.Parallel()
 		m := gfx.Translate(100, 0).Mul(gfx.Scale(1.5, 1.5)).Mul(gfx.Rotate(math.Pi / 2))
 		shape, _ := shadowShape(c)
 		// (x, y) -> (100 - 1.5y, 1.5x); local corners TL, TR, BR, BL become
@@ -44,6 +46,7 @@ func TestShadowRotated(t *testing.T) {
 	})
 
 	t.Run("angle", func(t *testing.T) {
+		t.Parallel()
 		const theta = 0.4
 		m := gfx.RotateAbout(theta, gfx.Pt(35, 33))
 		zone := image.Rect(-5, -5, 75, 75)
@@ -81,8 +84,12 @@ func TestShadowRotated(t *testing.T) {
 			return s
 		}
 		worst := 0.0
-		for y := zone.Min.Y; y < zone.Max.Y; y++ {
-			for x := zone.Min.X; x < zone.Max.X; x++ {
+		step := 1
+		if testing.Short() {
+			step = 2 // under -short, the brute force at one pixel in four: every other row and column
+		}
+		for y := zone.Min.Y; y < zone.Max.Y; y += step {
+			for x := zone.Min.X; x < zone.Max.X; x += step {
 				var want float64
 				for j := 0; j < 3; j++ {
 					for i := 0; i < 3; i++ {
@@ -112,40 +119,44 @@ func maxDiff(a, b [][]float64) float64 {
 // TestShadowMaskPath measures the mask-and-blur path (skews, extreme
 // geometry) against the reference on axis-aligned shapes.
 func TestShadowMaskPath(t *testing.T) {
+	t.Parallel()
 	for _, tc := range shadowCases {
 		c := tc.c
 		sigma := float64(c.Blur) / 2
 		if sigma < sigmaMin {
 			continue
 		}
-		q := deviceShape(c, gfx.Identity)
-		zone := image.Rect(int(q.x0-3*sigma)-2, int(q.y0-3*sigma)-2, int(q.x1+3*sigma)+3, int(q.y1+3*sigma)+3)
-		r := NewRenderer()
-		r.ctm = gfx.Identity
-		r.blit.clip = zone
-		shape, _ := shadowShape(c)
-		kx, ky := r.shadowKernels(sigma, sigma)
-		ev, _ := r.maskEval(shape, zone, &kx, &ky)
-		got := make([][]float64, zone.Dy())
-		want := make([]uint8, zone.Dx())
-		for i := range want {
-			want[i] = 1
-		}
-		for y := range got {
-			got[y] = make([]float64, zone.Dx())
-			ev.row(zone.Min.Y+y, got[y], want)
-		}
-		worst := maxDiff(got, refBlur(q, sigma, sigma, zone))
-		t.Logf("%s: max error %.2f levels", tc.name, worst*255)
-		// The three-box blur is about 6% narrower than the Gaussian; below
-		// sigma 1, the kernel is truncated at 3 sigma.
-		lim := 10.0
-		if sigma < 1 {
-			lim = 16
-		}
-		if worst*255 > lim {
-			t.Errorf("%s: max error %.2f levels", tc.name, worst*255)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel() // each case has its own renderer and reference
+			q := deviceShape(c, gfx.Identity)
+			zone := image.Rect(int(q.x0-3*sigma)-2, int(q.y0-3*sigma)-2, int(q.x1+3*sigma)+3, int(q.y1+3*sigma)+3)
+			r := NewRenderer()
+			r.ctm = gfx.Identity
+			r.blit.clip = zone
+			shape, _ := shadowShape(c)
+			kx, ky := r.shadowKernels(sigma, sigma)
+			ev, _ := r.maskEval(shape, zone, &kx, &ky)
+			got := make([][]float64, zone.Dy())
+			want := make([]uint8, zone.Dx())
+			for i := range want {
+				want[i] = 1
+			}
+			for y := range got {
+				got[y] = make([]float64, zone.Dx())
+				ev.row(zone.Min.Y+y, got[y], want)
+			}
+			worst := maxDiff(got, refBlur(q, sigma, sigma, zone))
+			t.Logf("%s: max error %.2f levels", tc.name, worst*255)
+			// The three-box blur is about 6% narrower than the Gaussian;
+			// below sigma 1, the kernel is truncated at 3 sigma.
+			lim := 10.0
+			if sigma < 1 {
+				lim = 16
+			}
+			if worst*255 > lim {
+				t.Errorf("%s: max error %.2f levels", tc.name, worst*255)
+			}
+		})
 	}
 }
 
