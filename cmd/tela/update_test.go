@@ -136,10 +136,39 @@ func TestUpdateManifestAndSign(t *testing.T) {
 	}
 }
 
+// TestUpdateManifestFolder: the files may be a whole folder of tela
+// package's outputs; what is not a package of the release is skipped and
+// said.
+func TestUpdateManifestFolder(t *testing.T) {
+	dir := t.TempDir()
+	for _, n := range []string{"notes-1.2.0-linux-amd64.AppImage", "notes-1.1.0-linux-amd64.AppImage", "notes.entitlements",
+		"notes-windows-amd64.appinstaller", "notes-1.2.0-linux-amd64.AppImage.asc", "notes-1.2.0-linux-amd64-flatpak/files/x", "manifest.json.sig"} {
+		writeFile(t, filepath.Join(dir, "dist", filepath.FromSlash(n)), "x")
+	}
+	t.Chdir(dir)
+	files, _ := filepath.Glob(filepath.Join("dist", "*"))
+	code, out := telaIn(t, dir, append([]string{"update", "manifest", "-m", "dist/manifest.json", "-app-id", "a.b", "-version", "1.2.0"}, files...)...)
+	if code != 0 {
+		t.Fatalf("manifest: %d %s", code, out)
+	}
+	for _, s := range []string{
+		"notes-1.1.0-linux-amd64.AppImage: not version 1.2.0", "notes.entitlements: not a package", "notes-windows-amd64.appinstaller: not a package",
+		"notes-1.2.0-linux-amd64.AppImage.asc: not a package", "notes-1.2.0-linux-amd64-flatpak: a folder", "manifest.json.sig: not a package", "with 1 files",
+	} {
+		if !strings.Contains(out, s) {
+			t.Errorf("the output lacks %q:\n%s", s, out)
+		}
+	}
+	if r := readManifest(t, filepath.Join(dir, "dist", "manifest.json")).Channels["stable"][0]; len(r.Artifacts) != 1 || r.Artifacts[0].URL != "notes-1.2.0-linux-amd64.AppImage" {
+		t.Errorf("the artifacts: %+v", r.Artifacts)
+	}
+}
+
 func TestUpdateUsageErrors(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "notes-1.2.0-plan9-amd64.zip"), "x")
 	writeFile(t, filepath.Join(dir, "notes-1.3.0-linux-amd64.AppImage"), "x")
+	writeFile(t, filepath.Join(dir, "release.zip"), "x")
 	for _, args := range [][]string{
 		{"update"},
 		{"update", "frobnicate"},
@@ -149,6 +178,7 @@ func TestUpdateUsageErrors(t *testing.T) {
 		{"update", "manifest", "-app-id", "a.b", "-version", "1.2.0", "-activation", "later"},             // activation
 		{"update", "manifest", "-app-id", "a.b", "-version", "1.2.0", "notes-1.2.0-plan9-amd64.zip"},      // OS
 		{"update", "manifest", "-app-id", "a.b", "-version", "1.2.0", "notes-1.3.0-linux-amd64.AppImage"}, // version
+		{"update", "manifest", "-app-id", "a.b", "-version", "1.2.0", "release.zip"},                      // no target in the name
 		{"update", "manifest", "-app-id", "a.b", "-expires", "soon"},
 		{"update", "sign", "manifest.json"}, // no key
 	} {

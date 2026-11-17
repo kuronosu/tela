@@ -88,6 +88,12 @@ bundle in a zip), .dmg dmg. A darwin file of the arch universal (one program
 for both) is the artifact of darwin/amd64 and of darwin/arm64. Give the
 target explicitly as file=os/arch/format.
 
+So the files may be the whole folder of tela package (dist/*): folders,
+files that are not packages (the manifest, .sig, .entitlements,
+.appinstaller) and packages of other versions are skipped, and the output
+says so. A file of a package's extension whose name does not say its
+target is an error.
+
 Flags:
 
 	-m file           the manifest (default manifest.json)
@@ -351,9 +357,12 @@ func updateManifest(args []string, stdout io.Writer) error {
 	o.set = map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { o.set[f.Name] = true })
 	o.files = pos
-	m, err := buildManifest(o, time.Now().UTC().Truncate(time.Second))
+	m, skipped, err := buildManifest(o, time.Now().UTC().Truncate(time.Second))
 	if err != nil {
 		return err
+	}
+	for _, s := range skipped {
+		fmt.Fprintln(stdout, "skipped "+s)
 	}
 	data, err := m.Encode()
 	if err != nil {
@@ -363,7 +372,7 @@ func updateManifest(args []string, stdout io.Writer) error {
 		return err
 	}
 	if o.version != "" {
-		fmt.Fprintf(stdout, "Wrote %s: %s %s with %d files, valid until %s.\n", o.path, o.channel, o.version, len(o.files), m.Expires.Format(time.RFC3339))
+		fmt.Fprintf(stdout, "Wrote %s: %s %s with %d files, valid until %s.\n", o.path, o.channel, o.version, len(o.files)-len(skipped), m.Expires.Format(time.RFC3339))
 	} else {
 		fmt.Fprintf(stdout, "Wrote %s, valid until %s.\n", o.path, m.Expires.Format(time.RFC3339))
 	}
@@ -379,52 +388,53 @@ func updateManifest(args []string, stdout io.Writer) error {
 }
 
 // buildManifest reads the manifest at o.path (or starts one) and applies
-// o at time now.
-func buildManifest(o manifestOptions, now time.Time) (*update.Manifest, error) {
+// o at time now. It returns the files it left out, each with the reason
+// (see notArtifact).
+func buildManifest(o manifestOptions, now time.Time) (*update.Manifest, []string, error) {
 	m := &update.Manifest{Schema: update.Schema, Channels: map[string][]update.Release{}}
 	if data, err := os.ReadFile(o.path); err == nil {
 		m = &update.Manifest{}
 		if err := json.Unmarshal(data, m); err != nil {
-			return nil, fmt.Errorf("%s: %v", o.path, err)
+			return nil, nil, fmt.Errorf("%s: %v", o.path, err)
 		}
 		if m.Schema != update.Schema {
-			return nil, fmt.Errorf("%s has schema %d; this tela writes schema %d", o.path, m.Schema, update.Schema)
+			return nil, nil, fmt.Errorf("%s has schema %d; this tela writes schema %d", o.path, m.Schema, update.Schema)
 		}
 		if m.Channels == nil {
 			m.Channels = map[string][]update.Release{}
 		}
 	} else if !errors.Is(err, fs.ErrNotExist) {
-		return nil, err
+		return nil, nil, err
 	}
 	if o.appID != "" {
 		if m.AppID != "" && m.AppID != o.appID {
-			return nil, usagef("-app-id %s, but %s is the manifest of %s", o.appID, o.path, m.AppID)
+			return nil, nil, usagef("-app-id %s, but %s is the manifest of %s", o.appID, o.path, m.AppID)
 		}
 		m.AppID = o.appID
 	}
 	if m.AppID == "" {
-		return nil, usagef("a new manifest needs -app-id (the app's tela.App.AppID)")
+		return nil, nil, usagef("a new manifest needs -app-id (the app's tela.App.AppID)")
 	}
 	valid, err := parseDays(o.expires)
 	if err != nil {
-		return nil, usagef("-expires: %v", err)
+		return nil, nil, usagef("-expires: %v", err)
 	}
 	m.Published, m.Expires = now, now.Add(valid)
 	if o.eosBelow != "" {
 		if _, err := update.CompareVersions(o.eosBelow, o.eosBelow); err != nil {
-			return nil, usagef("-end-of-support: %v", err)
+			return nil, nil, usagef("-end-of-support: %v", err)
 		}
 		m.EndOfSupport = &update.EndOfSupport{Below: o.eosBelow, Message: o.eosMessage, URL: o.eosURL}
 	}
 
 	if o.version == "" {
 		if len(o.files) > 0 {
-			return nil, usagef("files without -version")
+			return nil, nil, usagef("files without -version")
 		}
-		return m, nil
+		return m, nil, nil
 	}
 	if _, err := update.CompareVersions(o.version, o.version); err != nil {
-		return nil, usagef("-version: %v", err)
+		return nil, nil, usagef("-version: %v", err)
 	}
 	o.version = strings.TrimPrefix(o.version, "v")
 	rs := m.Channels[o.channel]
@@ -442,14 +452,14 @@ func buildManifest(o manifestOptions, now time.Time) (*update.Manifest, error) {
 	if o.set["date"] {
 		d, err := time.Parse(time.RFC3339, o.date)
 		if err != nil {
-			return nil, usagef("-date: %v", err)
+			return nil, nil, usagef("-date: %v", err)
 		}
 		r.Date = d
 	}
 	if o.set["notes-file"] {
 		b, err := os.ReadFile(o.notesFile)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		r.Notes = strings.TrimSpace(string(b))
 	} else if o.set["notes"] {
@@ -457,7 +467,7 @@ func buildManifest(o manifestOptions, now time.Time) (*update.Manifest, error) {
 	}
 	if o.set["rollout"] || isNew {
 		if !(o.rollout >= 0 && o.rollout <= 1) {
-			return nil, usagef("-rollout %v: use a share from 0 to 1", o.rollout)
+			return nil, nil, usagef("-rollout %v: use a share from 0 to 1", o.rollout)
 		}
 		x := o.rollout
 		r.Rollout = &x
@@ -467,21 +477,32 @@ func buildManifest(o manifestOptions, now time.Time) (*update.Manifest, error) {
 		case update.ActivateNextStart, update.ActivateByApp, update.ActivateNow:
 			r.Activation = a
 		default:
-			return nil, usagef("-activation %q: use next-start, app or now", o.activation)
+			return nil, nil, usagef("-activation %q: use next-start, app or now", o.activation)
 		}
 	}
 	if o.set["min-version"] {
 		if o.minVersion != "" {
 			if _, err := update.CompareVersions(o.minVersion, o.minVersion); err != nil {
-				return nil, usagef("-min-version: %v", err)
+				return nil, nil, usagef("-min-version: %v", err)
 			}
 		}
 		r.MinVersion = o.minVersion
 	}
+	var skipped []string
+	used := 0
 	for _, f := range o.files {
+		why, err := notArtifact(f, o.version)
+		if err != nil {
+			return nil, nil, err
+		}
+		if why != "" {
+			skipped = append(skipped, f+": "+why)
+			continue
+		}
+		used++
 		a, err := artifactOf(f, o.version, o.baseURL)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		// A universal macOS program serves both of macOS's architectures:
 		// clients match their GOARCH.
@@ -503,8 +524,53 @@ func buildManifest(o manifestOptions, now time.Time) (*update.Manifest, error) {
 			}
 		}
 	}
+	if used == 0 && len(o.files) > 0 {
+		return nil, nil, usagef("none of the files is a package of version %s:\n\t%s", o.version, strings.Join(skipped, "\n\t"))
+	}
 	m.Channels[o.channel] = rs
-	return m, nil
+	return m, skipped, nil
+}
+
+// packageExts are the extensions of the files tela package writes as
+// packages, and their formats.
+var packageExts = []struct{ ext, format string }{
+	{".AppImage", "appimage"}, {".deb", "deb"}, {".flatpak", "flatpak"}, {".msix", "msix"}, {".zip", "zip"}, {".dmg", "dmg"},
+}
+
+// notArtifact says why the file argument arg is not an artifact of the
+// release version, so that tela update manifest takes a whole folder of
+// tela package's outputs (dist/*): a folder (a flatpak build folder), a
+// file that is not a package (the manifest and its signature, the macOS
+// .entitlements, an MSIX .appinstaller, a detached signature of
+// -sign-cmd), a package of another version. "" means it is one. A file
+// given with its target (file=os/arch/format) always is; a package whose
+// name does not say its target is an error, as artifactOf reports it.
+func notArtifact(arg, version string) (string, error) {
+	if strings.Contains(arg, "=") {
+		return "", nil
+	}
+	st, err := os.Stat(arg)
+	if err != nil {
+		return "", err
+	}
+	if st.IsDir() {
+		return "a folder", nil
+	}
+	name := filepath.Base(arg)
+	known := false
+	for _, e := range packageExts {
+		known = known || strings.HasSuffix(name, e.ext)
+	}
+	if !known {
+		return "not a package", nil
+	}
+	if _, _, _, err := targetOfName(name, ""); err != nil {
+		return "", err
+	}
+	if _, _, _, err := targetOfName(name, version); err != nil {
+		return "not version " + strings.TrimPrefix(version, "v"), nil
+	}
+	return "", nil
 }
 
 // parseDays parses a Go duration or a number of days ("90d").
@@ -566,11 +632,8 @@ func artifactOf(arg, version, baseURL string) (update.Artifact, error) {
 // targetOfName reads os, arch and format from a file name of tela
 // package, <name>-<version>-<os>-<arch>.<ext>.
 func targetOfName(name, version string) (goos, goarch, format string, err error) {
-	exts := []struct{ ext, format string }{
-		{".AppImage", "appimage"}, {".deb", "deb"}, {".flatpak", "flatpak"}, {".msix", "msix"}, {".zip", "zip"}, {".dmg", "dmg"},
-	}
 	stem := ""
-	for _, e := range exts {
+	for _, e := range packageExts {
 		if s, ok := strings.CutSuffix(name, e.ext); ok {
 			stem, format = s, e.format
 			break
