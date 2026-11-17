@@ -6,6 +6,7 @@ package damagetest
 import (
 	"testing"
 
+	"github.com/kuronosu/tela/internal/testutil/damagesample"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -15,8 +16,14 @@ import (
 // so that each key is one frame). mount receives the options to pass to
 // telatest.Mount or telatest.MountApp: the size w by h, the scale, instant
 // scrolling and the damage check.
+//
+// Under -short every frame is still drawn incrementally, but only every
+// fourth one, and the last, is compared with a full rendering
+// (damagesample): a shift or a hover painted wrong stays in the window
+// until a later comparison finds it.
 func ScrollAround(t *testing.T, mount func(opts ...telatest.Option) *telatest.App, w, h float32, scale float64, steps int) {
 	t.Helper()
+	damagesample.Short(t, 4)
 	a := mount(telatest.Size(w, h), telatest.Scale(scale), telatest.InstantScroll(), telatest.CheckDamage())
 	first := string(a.Screenshot().Pix)
 	for i := range steps {
