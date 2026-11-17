@@ -583,6 +583,7 @@ func TestCounter(t *testing.T) {
 - State assertions without strings (ADR-086): `app.Expect(loc, telatest.Checked(true), telatest.Disabled(false))` (also `Pressed`, `Selected`, `Expanded`, `Focused`, `Invalid`, `Sort`, `Current`, `HasName`, `HasValue`); `ByTestID` finds elements by `h.TestID`; `Bounds` returns a `tela.Rect`; `ClickAt`, `DragFromTo`, `PixelAt`, `Measure`, `GoldenScales` and `MountFunc` shorten the rest.
 - `PlatformKeys(goos)` gives one app another platform's key conventions (text field bindings, `CmdOrCtrl`, what `ControlOrMeta` presses), so Mac behavior is tested on any OS (ADR-221).
 - Several windows (ADR-183): `app.Windows()`, `app.Window(title)` and `app.WaitForWindow(f)` return an `*App` scoped to one window; `ExpectWindowState`, `RequestClose`, `HitRegions` and `ExpectQuit` cover window-level behavior through the headless window manager; `RequestQuit`, `SetTitleBarControls`, `AppMenuBar` and `ChooseAppMenuItem` the macOS integration, and `WithUnsupported` plays platforms without a service (ADR-226).
+- Idle check (ADR-291): `app.ExpectIdle()` fails, naming what is pending (`app.Pending()`: a frame request, an animation, a `UseInterval` or `UseTimeout`, a caret blink, queued updates), unless the settled app would sleep; the clock does not move.
 
 ### Debug overlays (from Chrome DevTools / Flutter DevTools)
 

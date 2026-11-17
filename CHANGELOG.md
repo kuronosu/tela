@@ -13,6 +13,10 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+### Added
+
+- `telatest`: `App.ExpectIdle()` fails a test whose settled app would not sleep, naming what keeps it awake, and `App.Pending()` returns that list: a frame request, a running or endless animation, queued updates, and each deadline of the tree, such as a `UseInterval` or `UseTimeout` (with its component and call site), a caret blink or a scrollbar fade (ADR-291).
+
 ### Changed
 
 - `tela lint` reads the standard library and the packages it does not lint from the compiled export data in the go command's build cache instead of type-checking them from source; the findings, `-json` and `-fix` are the same, the run over the repository takes about 20% less time, and the lint tests of a process share what they read, which makes them about three times faster. A package that does not compile is still checked from source. The first run after a dependency changed waits for the go command to compile it, as `go vet` does.

@@ -7,10 +7,14 @@
 // deterministic and runs in the gate.
 //
 // It is checked twice. [Watch] and [Zero] read the work through telatest,
-// as an app's own test would. [Mount] puts the screen on core.Host over the
-// headless backend (internal/testutil/rawwin) for what telatest does not
-// show: whether a frame is requested and whether the host's timer is armed
-// ([Host.Busy]).
+// as an app's own test would, and what is pending through
+// telatest.App.ExpectIdle (frame requests, animations, the deadlines of
+// the tree, queued updates; ADR-291). [Mount] puts the screen on
+// core.Host over the headless backend (internal/testutil/rawwin) for what
+// only the host shows: its timer, which also waits for the trims of the
+// framebuffer and of the rasterizer's scratch memory a second after the
+// last frame (ADR-241), and the frames the window presents and their
+// damage ([Host.Busy], [Host.Idle]).
 //
 // It imports telatest, so only tests of packages above telatest (the
 // examples) may use it.
@@ -45,14 +49,19 @@ const (
 const settleLimit = 10 * time.Second
 
 // Watch moves the clock of a settled app through the stretch and returns
-// the work its tree did meanwhile.
+// the work its tree did meanwhile. It fails the test, naming what is
+// pending (telatest.App.ExpectIdle), when the app is not idle before the
+// stretch or after it.
 func Watch(a *telatest.App) telatest.Stats {
-	return a.Measure(func() {
+	a.ExpectIdle()
+	w := a.Measure(func() {
 		for range Frames {
 			a.Advance(Frame)
 		}
 		a.Advance(Long)
 	})
+	a.ExpectIdle()
+	return w
 }
 
 // Zero fails tb when w, the work of a settled screen over the stretch, is
@@ -200,13 +209,12 @@ func (h *Host) Run(each func(w core.Stats)) core.Stats {
 }
 
 // Busy names what keeps the app from being idle: events to deliver, a
-// frame request, a dirty tree, a running animation, a deadline of the tree
-// (UseInterval and UseTimeout, a caret blink, a long press, a scrollbar
-// fade) and the host's timer. It is empty for an idle app.
+// frame request, what the tree has pending (core.Tree.Pending: queued
+// updates, changed elements, running animations, each deadline of the
+// tree) and the host's timer. It is empty for an idle app.
 func (h *Host) Busy() []string {
 	var why []string
 	now := h.B.Now()
-	t := h.H.Tree()
 	if h.B.Pending() {
 		why = append(why, "events waiting to be delivered")
 	}
@@ -216,19 +224,7 @@ func (h *Host) Busy() []string {
 	if h.H.NeedsFrame() {
 		why = append(why, "a configured window whose frame has not run")
 	}
-	if t.Dirty() {
-		why = append(why, "a dirty tree (state updates, changed elements or boxes to repaint)")
-	}
-	if t.Animating() {
-		if t.OnlyEndlessAnimations() {
-			why = append(why, "an endless animation (animate-spin, animate-pulse, animate-ping, animate-bounce)")
-		} else {
-			why = append(why, "a running transition or animation")
-		}
-	}
-	if at, ok := t.NextDeadline(); ok {
-		why = append(why, fmt.Sprintf("a deadline of the tree in %v (a UseInterval or UseTimeout, a caret blink, a long press, a scrollbar fade)", at-now))
-	}
+	why = append(why, h.H.Tree().Pending(now)...)
 	if at, ok := h.H.TimerArmed(); ok {
 		why = append(why, fmt.Sprintf("the host's timer, armed for %v from now", at-now))
 	}
