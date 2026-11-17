@@ -160,7 +160,7 @@ func TestToastInvoke(t *testing.T) {
 		return ev[0]
 	}
 
-	act := newFakeArgs(t, iidToastActivatedEventArgs, &fakeArgs{arguments: toastArguments(9, "second")})
+	act := newFakeArgs(t, iidToastActivatedEventArgs, &fakeArgs{arguments: toastArguments(9, "", "second")})
 	defer act.release()
 	if got, want := invoke(toastActivated, act), (queuedToastEvent{toastEvent{id: 9, kind: toastActivated, args: "tela-notification=9&action=second"}, 4}); got != want {
 		t.Errorf("Activated: %+v, want %+v", got, want)

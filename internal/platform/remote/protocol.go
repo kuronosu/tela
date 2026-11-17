@@ -53,7 +53,8 @@ import (
 //     encoding is unchanged, but a host of 13 refuses the kinds.
 //   - 15: platform contract v11 (ADR-259): LaunchEvent.AtStart,
 //     MenuItem.AccessKey and AssociationStatus.Role.
-const ProtocolVersion = 15
+//   - 16: platform contract v15 (ADR-297): NotificationEvent.Earlier.
+const ProtocolVersion = 16
 
 // magic opens the hello message.
 const magic = "TELA"
@@ -466,6 +467,7 @@ func (e *enc) event(ev platform.Event) {
 		e.u32(uint32(ev.ID))
 		e.u8(uint8(ev.Kind))
 		e.str(ev.Action)
+		e.boolean(ev.Earlier)
 	case platform.TrayEvent:
 		e.u8(evTray)
 		e.u32(uint32(ev.Tray))
@@ -602,9 +604,10 @@ func (d *dec) event() platform.Event {
 		}}
 	case evNotification:
 		return platform.NotificationEvent{
-			ID:     platform.NotificationID(d.u32()),
-			Kind:   platform.NotificationEventKind(d.u8()),
-			Action: d.str(),
+			ID:      platform.NotificationID(d.u32()),
+			Kind:    platform.NotificationEventKind(d.u8()),
+			Action:  d.str(),
+			Earlier: d.boolean(),
 		}
 	case evTray:
 		return platform.TrayEvent{

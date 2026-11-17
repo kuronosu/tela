@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/assoc"
 )
 
 // The pure half of the WinRT toast notifications (toast_windows.go, ADR-235):
@@ -62,28 +63,38 @@ func toastAUMID(appID string) string {
 	return s + suffix
 }
 
+// toastRun names the run of the process (its start time, in base 36), which
+// the activation arguments carry.
+func toastRun(start time.Time) string { return strconv.FormatInt(start.UnixNano(), 36) }
+
 // toastGroup is the Group of the process's toasts: tags are notification IDs,
-// which start at 1 in every run, so the group names the run (its start time),
+// which start at 1 in every run, so the group names the run (toastRun),
 // or a toast of this run would replace one the last run left in the Action
 // Center.
-func toastGroup(start time.Time) string {
-	return "tela-" + strconv.FormatInt(start.UnixNano(), 36)
-}
+func toastGroup(start time.Time) string { return "tela-" + toastRun(start) }
 
 // Activation arguments. The body of a toast (its launch attribute) and each
-// button carry a query string with the notification's ID and, for a button,
-// its action ID: "tela-notification=3" and "tela-notification=3&action=save".
-// While the app runs the event's sender already names the toast; the ID is
-// there for a COM activator, which gets only the string.
+// button carry a query string with the notification's ID, the run that
+// showed it (toastRun) and, for a button, its action ID:
+// "tela-notification=3&run=kx3j9a" and
+// "tela-notification=3&run=kx3j9a&action=save". While the app runs the
+// event's sender already names the toast; the ID and the run are there for
+// the COM activator (toastactivator_windows.go), which gets only the
+// string, possibly in a later process: the run tells a toast of this
+// process from an earlier one's, whose ID may be one of this process's.
 const (
 	toastArgNote   = "tela-notification"
+	toastArgRun    = "run"
 	toastArgAction = "action"
 )
 
 // toastArguments returns the activation arguments of a notification's body
-// (action "") or of one of its buttons.
-func toastArguments(id platform.NotificationID, action string) string {
+// (action "") or of one of its buttons; run is "" in tests only.
+func toastArguments(id platform.NotificationID, run, action string) string {
 	s := toastArgNote + "=" + strconv.FormatUint(uint64(id), 10)
+	if run != "" {
+		s += "&" + toastArgRun + "=" + url.QueryEscape(run)
+	}
 	if action != "" {
 		s += "&" + toastArgAction + "=" + url.QueryEscape(action)
 	}
@@ -91,22 +102,44 @@ func toastArguments(id platform.NotificationID, action string) string {
 }
 
 // parseToastArguments decodes toastArguments; ok is false for a string Tela
-// did not write.
-func parseToastArguments(s string) (id platform.NotificationID, action string, ok bool) {
+// did not write. run is "" in the arguments of a Tela that did not write
+// it (before ADR-297).
+func parseToastArguments(s string) (id platform.NotificationID, run, action string, ok bool) {
 	v, err := url.ParseQuery(s)
 	if err != nil || !v.Has(toastArgNote) {
-		return 0, "", false
+		return 0, "", "", false
 	}
 	n, err := strconv.ParseUint(v.Get(toastArgNote), 10, 32)
 	if err != nil || n == 0 {
-		return 0, "", false
+		return 0, "", "", false
 	}
-	return platform.NotificationID(n), v.Get(toastArgAction), true
+	return platform.NotificationID(n), v.Get(toastArgRun), v.Get(toastArgAction), true
+}
+
+// activationEvent maps the arguments a COM activation carries (a toast's
+// launch, or a button's arguments) to the NotificationEvent it reports; run
+// is this process's toastRun. thisRun says the toast is one of this
+// process's, which its Activated delegate reports too (the caller reports
+// the click once, while the toast is still known); any other is Earlier.
+// ok is false for arguments Tela did not write.
+func activationEvent(args, run string) (ev platform.NotificationEvent, thisRun, ok bool) {
+	id, from, action, ok := parseToastArguments(args)
+	if !ok {
+		return ev, false, false
+	}
+	ev = platform.NotificationEvent{ID: id, Kind: platform.NotificationActivated}
+	if action != "" {
+		ev.Kind, ev.Action = platform.NotificationActionInvoked, action
+	}
+	thisRun = from != "" && from == run
+	ev.Earlier = !thisRun
+	return ev, thisRun, true
 }
 
 // toastContent is what a toast shows.
 type toastContent struct {
 	ID      platform.NotificationID
+	Run     string // toastRun of the process
 	Title   string
 	Body    string
 	Image   string // a file: URI of the logo image, or ""
@@ -125,7 +158,7 @@ func (c toastContent) xml() string {
 		_ = xml.EscapeText(&b, []byte(s)) // a strings.Builder does not fail
 	}
 	b.WriteString(`<toast launch="`)
-	esc(toastArguments(c.ID, ""))
+	esc(toastArguments(c.ID, c.Run, ""))
 	b.WriteString(`" activationType="foreground"><visual><binding template="ToastGeneric">`)
 	texts := slices.DeleteFunc([]string{c.Title, c.Body}, func(s string) bool { return s == "" })
 	if len(texts) == 0 {
@@ -152,7 +185,7 @@ func (c toastContent) xml() string {
 			b.WriteString(`<action content="`)
 			esc(label)
 			b.WriteString(`" arguments="`)
-			esc(toastArguments(c.ID, a.ID))
+			esc(toastArguments(c.ID, c.Run, a.ID))
 			b.WriteString(`" activationType="foreground"/>`)
 		}
 		b.WriteString("</actions>")
@@ -210,7 +243,7 @@ func (e toastEvent) notificationEvent() (ev platform.NotificationEvent, report, 
 	switch e.kind {
 	case toastActivated:
 		ev.Kind = platform.NotificationActivated
-		if _, action, ok := parseToastArguments(e.args); ok && action != "" {
+		if _, _, action, ok := parseToastArguments(e.args); ok && action != "" {
 			ev.Kind, ev.Action = platform.NotificationActionInvoked, action
 		}
 		return ev, true, true
@@ -241,6 +274,9 @@ type aumidRegistry interface {
 	// ValueNames returns the names of the values of key, nil when the key
 	// does not exist.
 	ValueNames(key string) ([]string, error)
+	// SubKeys returns the names of the direct subkeys of key, nil when it
+	// does not exist.
+	SubKeys(key string) ([]string, error)
 }
 
 // registerAUMID registers aumid for the current user with displayName and,
@@ -280,6 +316,59 @@ func registerAUMID(reg aumidRegistry, aumid, displayName, iconPath string) (owne
 		}
 	}
 	return true, changed, nil
+}
+
+// The registration of the toast activator (ADR-297), beside the AUMID's:
+// the COM local server HKCU\Software\Classes\CLSID\{clsid}, whose
+// LocalServer32 default value is the command COM runs, with Tela's marker
+// on the CLSID key, and the AUMID key's CustomActivator naming it, what
+// the Windows App SDK writes for an unpackaged app (it registers its own
+// flag; the toast documentation's is -ToastActivated).
+const (
+	clsidKeyPrefix       = `Software\Classes\CLSID\`
+	customActivatorValue = "CustomActivator"
+)
+
+// toastServerCommand returns the LocalServer32 command of the executable
+// exe: the quoted path and the activation flag.
+func toastServerCommand(exe string) string { return `"` + exe + `" ` + assoc.ToastActivatorFlag }
+
+// registerToastActivator registers the COM server clsid (upper case,
+// without braces) with command, and makes it the CustomActivator of aumid,
+// whose key the caller made sure is Tela's (registerAUMID's owned). It
+// writes only what changed: a moved executable rewrites LocalServer32. A
+// CLSID key with values or subkeys and without the marker belongs to the
+// app's installer, which registered the same server: it is left as it is,
+// and the AUMID still names it. The server goes first, so CustomActivator
+// never names a CLSID nothing serves. Nothing is ever removed.
+func registerToastActivator(reg aumidRegistry, aumid, clsid, command string) (changed bool, err error) {
+	set := func(key, name, value string) error {
+		old, ok, err := reg.String(key, name)
+		if err != nil || (ok && old == value) {
+			return err
+		}
+		changed = true
+		return reg.SetString(key, name, value)
+	}
+	key := clsidKeyPrefix + "{" + clsid + "}"
+	names, err := reg.ValueNames(key)
+	if err != nil {
+		return false, err
+	}
+	subs, err := reg.SubKeys(key)
+	if err != nil {
+		return false, err
+	}
+	ours := slices.ContainsFunc(names, func(n string) bool { return strings.EqualFold(n, aumidMarker) })
+	if ours || len(names) == 0 && len(subs) == 0 {
+		if err := set(key, aumidMarker, "1"); err != nil {
+			return changed, err
+		}
+		if err := set(key+`\LocalServer32`, "", command); err != nil {
+			return changed, err
+		}
+	}
+	return changed, set(aumidKeyPrefix+aumid, customActivatorValue, "{"+clsid+"}")
 }
 
 // toastIconMaxAge is how long an icon file the app no longer uses stays in
