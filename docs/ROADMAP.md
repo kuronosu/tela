@@ -29,7 +29,7 @@ Decisions in ADR-294 (the declaration on `tela.App`), ADR-295 (`tela package`, p
 - [ ] Windows targets are GUI programs by default (`-H=windowsgui`, no console window next to the app; ADR-127), with panics and the app's log written to a file in its data directory, since a GUI program has no standard output
 - [ ] Auto-update: signed manifests, delta or full downloads, atomic replace, rollback
 - [ ] A toast clicked after the app exited starts it (a COM activator registered with `ToastActivatorCLSID`, ADR-235); today it only dismisses the toast
-- [ ] Crash reporting hook and structured logging
+- [x] Crash reporting hook and structured logging (ADR-297): `desktop.Logger`, crash reports from panics and fatal errors, `desktop.OnCrash` on the next start
 - [ ] One declaration of the app (ID, name, icons, URL schemes, file types, the services it uses) generates each package's metadata: `Info.plist` and entitlements with usage strings, the flatpak permissions, the MSIX manifest
 - [ ] Update channels (stable, beta), phased rollout to a share of installs, an activation policy (on the next start, when the app decides, at once) and an end-of-support message for versions that can no longer update
 
