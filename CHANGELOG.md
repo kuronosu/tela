@@ -13,6 +13,10 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+### Added
+
+- `telatest`: `App.ExpectIdle()` fails a test whose settled app would not sleep, naming what keeps it awake, and `App.Pending()` returns that list: a frame request, a running or endless animation, queued updates, and each deadline of the tree, such as a `UseInterval` or `UseTimeout` (with its component and call site), a caret blink or a scrollbar fade (ADR-291).
+
 ### Fixed
 
 - `telatest`: an app mounted in a parallel test is released once its cleanups ran; Go keeps a parallel test's cleanups until the whole run ends, so every app and its framebuffers stayed alive (a package of parallel tests reached 10 GB).
