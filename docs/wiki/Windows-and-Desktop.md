@@ -490,6 +490,35 @@ folder or a setting (`PersistApp` does it for you). The `TELA_DESKTOP_DIR` envir
 variable (`desktop.DirEnv`) moves every folder under one directory, for tests and
 portable installs.
 
+## Logs and crash reports
+
+`desktop.Logger()` is the app's `log/slog` logger. It writes JSON lines to
+`LogDir()/<app ID>.log`, opening the file on the first record and rotating it at 5 MB (three
+old files are kept: `.log.1` to `.log.3`), and text to the standard error when the process
+has one. A Windows GUI program (`-ldflags=-H=windowsgui`) has none, so the file is its log.
+`desktop.SetLogLevel(slog.LevelDebug)` changes the level (Info at first). Tela's own dev
+warnings and logged errors are written to the file too, marked `component=tela`.
+
+```go
+desktop.SetAppID("com.example.notes")
+desktop.Logger().Info("note saved", "id", note.ID)
+```
+
+A release build (dev mode off) also writes **crash reports**: a panic on the UI thread
+(handlers, builds, effects, `tela.Post`) or in a `UseGo` goroutine, and a fatal error of the
+Go runtime, produce `LogDir()/crash-<UTC time>.txt` with the version, OS and stack, and the
+program still crashes as before. On the next start, after the first frame, `desktop.OnCrash`
+receives each report not handled yet, once, on the UI thread; the report is then renamed
+`.handled`. Tela sends nothing: the callback decides.
+
+```go
+desktop.OnCrash(func(c desktop.Crash) {
+    // c.Time, c.Version, c.Report (the text), c.Path
+    offerToSend(c.Report)
+})
+tela.Main(app)
+```
+
 ## When a service is missing
 
 Not every desktop has every service. A minimal Linux session has no XDG Desktop Portal

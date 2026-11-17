@@ -63,7 +63,11 @@ func AppID() string {
 // resolveAppID returns the ID and a warning to give when the name changed
 // since the directories were first resolved (an AppID that only the
 // running app has, after a directory was read before tela.Run).
-func resolveAppID() (id, warning string) {
+func resolveAppID() (id, warning string) { return resolveAppIDFrom(core.RunningAppID) }
+
+// resolveAppIDFrom is resolveAppID with the App's AppID read by running
+// (tela.Run's start knows it before the app runs).
+func resolveAppIDFrom(running func() (string, bool)) (id, warning string) {
 	appID.mu.Lock()
 	defer appID.mu.Unlock()
 	fromExe := false
@@ -72,7 +76,7 @@ func resolveAppID() (id, warning string) {
 		id = appID.set
 	default:
 		var ok bool
-		if id, ok = core.RunningAppID(); !ok || strings.ContainsAny(id, `/\:*?"<>|`) {
+		if id, ok = running(); !ok || strings.ContainsAny(id, `/\:*?"<>|`) {
 			id, fromExe = platform.DefaultAppID(), true
 		}
 	}
@@ -141,8 +145,11 @@ func StateDir() (string, error) { return appDir(dirState) }
 func LogDir() (string, error) { return appDir(dirLogs) }
 
 // appDir returns directory k of the app, created with mode 0700.
-func appDir(k dirKind) (string, error) {
-	dir, err := dirPath(k)
+func appDir(k dirKind) (string, error) { return appDirFrom(k, core.RunningAppID) }
+
+// appDirFrom is appDir with the App's AppID read by running.
+func appDirFrom(k dirKind, running func() (string, bool)) (string, error) {
+	dir, err := dirPathFrom(k, running)
 	if err != nil {
 		return "", err
 	}
@@ -153,8 +160,10 @@ func appDir(k dirKind) (string, error) {
 }
 
 // dirPath returns the path of directory k without creating it.
-func dirPath(k dirKind) (string, error) {
-	id, warning := resolveAppID()
+func dirPath(k dirKind) (string, error) { return dirPathFrom(k, core.RunningAppID) }
+
+func dirPathFrom(k dirKind, running func() (string, bool)) (string, error) {
+	id, warning := resolveAppIDFrom(running)
 	if warning != "" {
 		fmt.Fprintln(os.Stderr, warning)
 	}
