@@ -166,7 +166,10 @@ func UseGo(f func(ctx context.Context), deps ...any) {
 	}
 	useEffect(hookGo, func() func() {
 		ctx, cancel := context.WithCancel(context.Background())
-		go goWithApp(ctx, t.app(), f)
+		go func() {
+			defer crashRecover(PanicGo) // logtee.go
+			goWithApp(ctx, t.app(), f)
+		}()
 		return cancel
 	}, deps)
 }

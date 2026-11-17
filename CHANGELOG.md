@@ -13,6 +13,11 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+### Added
+
+- `desktop.Logger()`, a `log/slog` logger that writes JSON lines to `LogDir()/<app ID>.log` (opened on the first record, rotated at 5 MB with three old files kept) and text to the standard error when the process has one (a Windows GUI program has none), with `desktop.SetLogLevel`. Tela's own dev warnings and logged errors are written to the file too once `tela.Run` starts, as before on the standard error (ADR-297).
+- Crash reports: a panic on the UI thread or in a `UseGo` goroutine, and a fatal error of the Go runtime (`runtime/debug.SetCrashOutput`), are written to `LogDir()/crash-<UTC time>.txt` with the version, OS, Go version and stack by a release build (dev mode off) or a program without a standard error, and the program still crashes as before. `desktop.OnCrash(func(desktop.Crash))` receives each report not yet handled on the next start, after the first frame, and marks it handled; Tela sends nothing (ADR-297).
+
 ## [0.14.6] - 2026-11-17
 
 Work on the dev loop between phases (ADR-290 to ADR-293). It breaks no public API.

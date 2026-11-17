@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"log/slog"
 	"math"
 	"os"
 	"strconv"
@@ -484,8 +485,14 @@ func (t *Tree) updatesQueued() bool {
 }
 
 func (t *Tree) logf(format string, args ...any) {
-	if t.log != nil {
-		t.log(fmt.Sprintf(format, args...))
+	// The errors also go to the tee of ADR-297, in a release build too,
+	// where t.log is nil: the app's log file keeps them.
+	if t.log != nil || logTee.Load() != nil {
+		msg := fmt.Sprintf(format, args...)
+		if t.log != nil {
+			t.log(msg)
+		}
+		tee(slog.LevelError, msg)
 	}
 }
 
