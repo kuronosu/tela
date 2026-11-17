@@ -178,7 +178,16 @@ func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 	}
 	a.sh.stop = a.tree.ReceivePosts()
 	a.sh.stopStrings = host.WatchStrings() // what tela.Run does: a new language reaches the backend
-	tb.Cleanup(a.Close)
+	// The cleanup forgets the app once it has run: the testing package
+	// keeps a parallel test's cleanups until the whole run ends, and an
+	// App holds its windows' framebuffers.
+	open := a
+	tb.Cleanup(func() {
+		if c := open; c != nil {
+			open = nil
+			c.Close()
+		}
+	})
 	a.settleAfter()
 	return a
 }
