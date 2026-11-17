@@ -46,6 +46,13 @@ type damageHarness struct {
 	// comparison with the reference (the frames drawn by the GPU,
 	// gpuframe_test.go).
 	checkFn func(what string)
+	// Under -short check compares every other frame (sample), and the
+	// last one when the test ends: owed is the step it skipped last, ""
+	// when the last frame was compared. Every frame is still drawn
+	// incrementally and counted, and what a skipped frame got wrong stays
+	// in the window until the next comparison.
+	sample bool
+	owed   string
 }
 
 func newDamageHarness(t *testing.T, root Node, w, h float32, scale float64, cfg Config, seed uint64) *damageHarness {
@@ -64,7 +71,14 @@ func newDamageHarnessWith(t *testing.T, root Node, w, h float32, scale float64, 
 		t.Fatal(err)
 	}
 	x := &damageHarness{t: t, b: b, h: host, w: host.Window().(*headless.Window), rng: rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))}
+	x.sample = testing.Short()
 	t.Cleanup(host.stopTimer)
+	t.Cleanup(func() { // before stopTimer (cleanups run last first)
+		if what := x.owed; what != "" && !x.tree().Dirty() {
+			x.owed = ""
+			x.compare(what, x.tree().LastDamage())
+		}
+	})
 	if setup != nil {
 		setup(x)
 	}
@@ -117,6 +131,19 @@ func (x *damageHarness) check(what string) {
 		x.partial++
 	}
 	x.frames++
+	if x.sample && x.step%2 == 1 {
+		x.owed = what
+		return
+	}
+	x.owed = ""
+	x.compare(what, d)
+}
+
+// compare compares the window's pixels with the reference, after step
+// x.step (what) whose damage was d.
+func (x *damageHarness) compare(what string, d Damage) {
+	x.t.Helper()
+	tr := x.tree()
 	got := x.w.Frame()
 	if got == nil {
 		x.t.Fatalf("step %d (%s): nothing presented", x.step, what)
