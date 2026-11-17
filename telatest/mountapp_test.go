@@ -128,6 +128,10 @@ func TestAppFieldsAreClassified(t *testing.T) {
 	ignored := map[string]string{
 		"Root":     "mounted by MountApp, not a setting",
 		"DevState": "state outside the tree that only tela dev keeps across reloads",
+		// The declaration (ADR-294) is for the packaging commands.
+		"Publisher": "declaration read by tela build and tela package", "Description": "declaration read by tela build and tela package",
+		"Category": "declaration read by tela build and tela package", "Schemes": "declaration read by tela build and tela package",
+		"FileTypes": "declaration read by tela build and tela package", "Services": "declaration read by tela build and tela package",
 	}
 	typ := reflect.TypeFor[tela.App]()
 	for i := range typ.NumField() {
