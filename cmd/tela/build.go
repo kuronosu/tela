@@ -179,7 +179,13 @@ type buildOptions struct {
 	Console bool
 	// Args are the program's arguments (run only).
 	Args []string
+	// Env is added to the go command's environment: tela package sets
+	// GOOS and GOARCH for each target there.
+	Env []string
 }
+
+// env is the go command's environment for o.
+func (o *buildOptions) env() []string { return append(goEnv(), o.Env...) }
 
 // register adds the flags both commands take.
 func (o *buildOptions) register(fs *flag.FlagSet) {
@@ -323,11 +329,12 @@ const buildListFields = listFields + ",DepOnly"
 // resolveBuildTarget finds the package, checks it is a program and reads
 // the target platform. For a darwin target whose ID or name is not given
 // by flags, or the target is windows (the executable's version information),
-// it lists the dependencies too, for reading the App.
+// it lists the dependencies too, for reading the App, as it does for tela
+// package.
 func resolveBuildTarget(goBin string, opts buildOptions, command string) (*buildTarget, error) {
 	t := &buildTarget{}
 	cmd := exec.Command(goBin, "env", "-json", "GOOS", "GOARCH", "GOFLAGS")
-	cmd.Env = goEnv()
+	cmd.Env = opts.env()
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("go env: %v", err)
@@ -339,7 +346,7 @@ func resolveBuildTarget(goBin string, opts buildOptions, command string) (*build
 	t.goos, t.goarch, t.goflags = env.GOOS, env.GOARCH, env.GOFLAGS
 
 	args := []string{"list", "-e", "-json=" + buildListFields}
-	if t.goos == "darwin" && (opts.ID == "" || opts.Name == "") || t.goos == "windows" && command == "build" {
+	if t.goos == "darwin" && (opts.ID == "" || opts.Name == "") || t.goos == "windows" && command == "build" || command == "package" {
 		args = append(args, "-deps")
 	}
 	if opts.Tags != "" {
@@ -347,7 +354,7 @@ func resolveBuildTarget(goBin string, opts buildOptions, command string) (*build
 	}
 	args = append(args, "--", opts.Pkg)
 	cmd = exec.Command(goBin, args...)
-	cmd.Env = goEnv()
+	cmd.Env = opts.env()
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {
@@ -472,7 +479,7 @@ func goBuild(goBin string, opts buildOptions, out string, stderr io.Writer) erro
 	}
 	args = append(args, "--", opts.Pkg)
 	cmd := exec.Command(goBin, args...)
-	cmd.Env = goEnv()
+	cmd.Env = opts.env()
 	cmd.Stdout, cmd.Stderr = stderr, stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("go build failed: %v", err)
