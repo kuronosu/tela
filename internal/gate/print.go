@@ -27,7 +27,7 @@ func (g *gate) reports(baseFlag string) reportData {
 	if rev == "" {
 		rev = "HEAD"
 	}
-	diffText, err := g.gitRaw("diff", "--no-color", "--no-ext-diff", "--no-renames", "-U0", rev)
+	diffText, err := g.gitRaw("diff", "--no-color", "--no-ext-diff", "--no-renames", "--src-prefix=a/", "--dst-prefix=b/", "-U0", rev)
 	if err != nil {
 		rep.Error = err.Error()
 		return rep

@@ -46,14 +46,6 @@ func parseDiff(text string) []fileDiff {
 				cur.Status = "A"
 			case strings.HasPrefix(line, "deleted file mode"):
 				cur.Status = "D"
-			case strings.HasPrefix(line, "--- "):
-				if p := strings.TrimPrefix(line, "--- "); p != "/dev/null" {
-					cur.Path = trimDiffPath(p, "a/")
-				}
-			case strings.HasPrefix(line, "+++ "):
-				if p := strings.TrimPrefix(line, "+++ "); p != "/dev/null" {
-					cur.Path = trimDiffPath(p, "b/")
-				}
 			}
 		}
 		if m := hunkHeader.FindStringSubmatch(line); m != nil {
@@ -77,13 +69,9 @@ func parseDiff(text string) []fileDiff {
 	return files
 }
 
-func trimDiffPath(p, prefix string) string {
-	p = strings.TrimSuffix(p, "\t")
-	return strings.TrimPrefix(strings.Trim(p, `"`), prefix)
-}
-
-// headerPath reads the path from "diff --git a/p b/p" (the diff is made
-// without renames, so both sides are the same path).
+// headerPath reads the path from "diff --git a/p b/p", whatever two-letter
+// prefixes git uses (diff.mnemonicPrefix gives "c/" and "w/"). The diff is
+// made without renames, so both sides are the same path.
 func headerPath(rest string) string {
 	n := (len(rest) - 5) / 2
 	if n <= 0 || len(rest) != 2*n+5 {

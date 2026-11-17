@@ -129,6 +129,14 @@ func TestParseDiff(t *testing.T) {
 	}
 }
 
+func TestParseDiffMnemonicPrefixes(t *testing.T) {
+	text := "diff --git c/dir with space/x.go w/dir with space/x.go\nindex 1..2 100644\n--- c/dir with space/x.go\n+++ w/dir with space/x.go\n@@ -3 +3 @@\n-old\n+new\n"
+	files := parseDiff(text)
+	if len(files) != 1 || files[0].Path != "dir with space/x.go" || len(files[0].Added) != 1 || files[0].Added[0].N != 3 {
+		t.Errorf("files = %+v", files)
+	}
+}
+
 func TestChangedGoldens(t *testing.T) {
 	got := changedGoldens(parseDiff(readFixture(t, "diff.txt")))
 	want := []goldenChange{
