@@ -155,7 +155,7 @@ func TestFormats(t *testing.T) {
 		}
 	}
 	f, _ := Lookup("msix")
-	if err := f.Check(App{}, Target{"windows", "amd64"}); err == nil || !strings.Contains(err.Error(), "not implemented yet") {
+	if err := f.Check(App{ID: "com.example.notes"}, Target{"windows", "amd64"}); err != nil {
 		t.Errorf("msix: %v", err)
 	}
 	if got := FileName(App{Package: "notes", Version: "1.2.0"}, Target{"linux", "arm64"}, ".deb"); got != "notes-1.2.0-linux-arm64.deb" {

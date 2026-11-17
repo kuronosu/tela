@@ -7,9 +7,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"slices"
 	"strconv"
@@ -26,6 +28,8 @@ const packageUsage = `Usage:
 
 	tela package [-format list] [-os list] [-arch list] [-o dir] [-version V]
 	             [-icon file] [-id ID] [-name NAME] [-sign] [-sign-cmd command]
+	             [-msix-publisher DN] [-appinstaller-url URL] [-cert-file f]
+	             [-cert-password-file f] [-cert-sha1 hash] [-timestamp-url URL]
 	             [-console] [-tags list] [-ldflags flags] [-gcflags flags]
 	             [-trimpath] [-v] [pkg]
 
@@ -44,8 +48,11 @@ The formats (-format, comma-separated; default: each OS's defaults):
 	         flatpak   a flatpak-builder manifest and the folder it builds
 	                   from; the .flatpak bundle too when flatpak-builder
 	                   and flatpak are installed
-	windows  zip, msix (defaults) and darwin app (default), dmg: not
-	                   implemented yet
+	windows  zip       (default) the program in a folder, which updates
+	                   itself (package update)
+	         msix      (default) an MSIX package, and its .appinstaller
+	                   with -appinstaller-url
+	darwin   app (default), dmg: not implemented yet
 
 Each package file is named <name>-<version>-<os>-<arch>.<ext>, as tela
 update manifest reads it, in the folder of -o (default ./dist). <name> is
@@ -72,6 +79,25 @@ theme. A deb's Maintainer is App.Publisher ("unknown" without one, which tela
 says). A flatpak's permissions come from App.Services: see the flatpak
 section of docs/wiki/CLI.md.
 
+On Windows, the zip holds the folder <name>/ with <name>.exe (a GUI program
+with its icon and version information, as tela build makes it) and
+tela-install.json, the marker through which package update finds the
+install and replaces what the package put there. The MSIX holds <name>.exe,
+its tiles and the AppxManifest.xml written from the declaration: the
+identity (the app ID, the version as four numbers: 1.2.3 is 1.2.3.0, and a
+pre-release has no place in it), Windows 10 1809 or later, a protocol per
+scheme, a file type association per MIME type the app opens, the toast
+activator, runFullTrust and the capabilities of App.Services. Its publisher
+must be the subject of the certificate that signs it: give it with
+-msix-publisher. Without it the publisher is CN=<App.Publisher>, and when
+signtool does not sign the package it carries Windows 11's mark of unsigned
+packages, so that it installs with
+"Add-AppxPackage -AllowUnsigned <file>". With -appinstaller-url, the base
+URL where the files are published, tela writes
+<name>-windows-<arch>.appinstaller too, the file people install from and
+through which Windows updates the install (at each start, and every 8
+hours); package update leaves MSIX installs to it.
+
 The AppImage starts with Tela's own runtime, written in Go without FUSE: on
 the first start of a version it checks the content's SHA-256, extracts it
 into ~/.cache/tela-appimage/<AppID>/<version>-<hash>/ under a lock (a second
@@ -86,7 +112,13 @@ set, else the time of the commit the go command stamped into the program,
 else 1980-01-01; entries are sorted, owned by root, with fixed modes.
 
 Signing: Linux packages have no signing tool to run, so -sign does nothing
-there and says so. -sign-cmd runs a command on each package file (and on
+there and says so. For Windows targets on Windows, -sign runs signtool (from
+PATH or the Windows SDK) on each program before it is packaged and on each
+MSIX: "signtool sign /fd SHA256 /tr <-timestamp-url> /td SHA256" with the
+certificate of -cert-file (a .pfx; its password in -cert-password-file) or
+-cert-sha1 (a thumbprint in the certificate store), else the best one in the
+store (/a). Elsewhere signtool is not available, which tela says: sign with
+-sign-cmd and a signer that runs there, such as jsign. -sign-cmd runs a command on each package file (and on
 Windows on each program before it is packaged): every argument {} is replaced
 by the file's path, else the path is added at the end:
 
@@ -108,8 +140,19 @@ Flags:
 	               package's folder)
 	-id ID         the app ID instead of App.AppID
 	-name NAME     the name instead of App.Title
-	-sign          sign with the system's tools (none on Linux)
+	-sign          sign with the system's tools (none on Linux; signtool
+	               for Windows targets on Windows)
 	-sign-cmd cmd  run cmd on each file to sign
+	-msix-publisher DN
+	               the MSIX publisher, the signing certificate's subject,
+	               such as "CN=Example Ltd, O=Example Ltd, C=US"
+	-appinstaller-url URL
+	               write the .appinstaller for the files published at URL
+	-cert-file f, -cert-password-file f, -cert-sha1 hash
+	               signtool's certificate (with -sign)
+	-timestamp-url URL
+	               signtool's time-stamp server (default
+	               http://timestamp.digicert.com)
 	-console       Windows programs keep the console subsystem
 	-tags, -ldflags, -gcflags, -trimpath
 	               as for go build (see "tela help build")
@@ -125,6 +168,13 @@ type packageOptions struct {
 	out     string
 	sign    bool
 	signCmd []string
+	// The Windows formats' flags: the MSIX publisher and App Installer
+	// URL, signtool's certificate and time-stamp server.
+	msixPublisher, appInstallerURL       string
+	certFile, certPasswordFile, certSHA1 string
+	timestampURL                         string
+	// signtool is signtool.exe's path when -sign runs it (packageAll).
+	signtool string
 }
 
 func splitList(s string) []string {
@@ -152,6 +202,12 @@ func parsePackageArgs(args []string) (packageOptions, error) {
 	fs.StringVar(&o.out, "o", "dist", "")
 	fs.BoolVar(&o.sign, "sign", false, "")
 	fs.StringVar(&signCmd, "sign-cmd", "", "")
+	fs.StringVar(&o.msixPublisher, "msix-publisher", "", "")
+	fs.StringVar(&o.appInstallerURL, "appinstaller-url", "", "")
+	fs.StringVar(&o.certFile, "cert-file", "", "")
+	fs.StringVar(&o.certPasswordFile, "cert-password-file", "", "")
+	fs.StringVar(&o.certSHA1, "cert-sha1", "", "")
+	fs.StringVar(&o.timestampURL, "timestamp-url", "", "")
 	pkgs, err := parsePositionals("package", fs, args)
 	if err != nil {
 		return o, err
@@ -173,7 +229,34 @@ func parsePackageArgs(args []string) (packageOptions, error) {
 	if o.out == "" {
 		return o, errors.New("-o is empty; give the folder to write the packages in")
 	}
+	if err := o.validateWindows(); err != nil {
+		return o, err
+	}
 	return o, o.build.validate("package")
+}
+
+// validateWindows checks the flags of the Windows formats.
+func (o packageOptions) validateWindows() error {
+	if o.msixPublisher != "" {
+		if err := pkgfmt.CheckPublisher(o.msixPublisher); err != nil {
+			return fmt.Errorf("-msix-publisher: %v", err)
+		}
+	}
+	if u := o.appInstallerURL; u != "" {
+		pu, err := url.Parse(u)
+		if err != nil || (pu.Scheme != "https" && pu.Scheme != "http") || pu.Host == "" || pu.RawQuery != "" || pu.Fragment != "" {
+			return fmt.Errorf("-appinstaller-url %q is not an http or https URL without a query: give the URL of the folder where the .appinstaller and .msix files go, such as https://example.com/notes", u)
+		}
+	}
+	switch {
+	case o.certFile != "" && o.certSHA1 != "":
+		return errors.New("-cert-file and -cert-sha1 both choose the certificate; give one")
+	case o.certPasswordFile != "" && o.certFile == "":
+		return errors.New("-cert-password-file is the password of -cert-file, which is missing")
+	case !o.sign && (o.certFile != "" || o.certSHA1 != "" || o.timestampURL != ""):
+		return errors.New("-cert-file, -cert-sha1 and -timestamp-url are for signtool, which only -sign runs; add -sign")
+	}
+	return nil
 }
 
 // runPackage implements tela package.
@@ -198,6 +281,7 @@ func runPackage(args []string, stdout, stderr io.Writer) int {
 		switch {
 		case o.Signed:
 			line += " (signed)"
+		case strings.HasSuffix(o.Path, ".appinstaller"):
 		case !strings.HasSuffix(o.Path, "-flatpak"):
 			line += " (unsigned)"
 		}
@@ -224,6 +308,13 @@ type packagePlan struct {
 
 // packageAll checks every target, then builds and packages each one.
 func packageAll(goBin string, opts packageOptions, log io.Writer) ([]pkgfmt.Output, error) {
+	if opts.sign && runtime.GOOS == "windows" {
+		opts.signtool = pkgfmt.FindSigntool(runtime.GOARCH)
+	}
+	pkgfmt.Register(pkgfmt.NewMSIX(pkgfmt.MSIXOptions{
+		Publisher: opts.msixPublisher, AppInstallerURL: opts.appInstallerURL,
+		Signed: opts.signtool != "",
+	}))
 	plans, err := planPackages(goBin, opts, log)
 	if err != nil {
 		return nil, err
@@ -479,6 +570,22 @@ func packageSigner(opts packageOptions, plans []packagePlan, log io.Writer) (pkg
 	if opts.sign && slices.ContainsFunc(plans, func(p packagePlan) bool { return p.target.OS == "linux" }) {
 		fmt.Fprintln(log, "tela package: -sign: there is no signing tool to run for Linux packages; sign them with -sign-cmd (for example -sign-cmd \"gpg --detach-sign --armor\")")
 	}
+	if opts.sign && slices.ContainsFunc(plans, func(p packagePlan) bool { return p.target.OS == "windows" }) {
+		switch {
+		case runtime.GOOS != "windows":
+			fmt.Fprintf(log, "tela package: -sign: signtool is not available on %s, so it signs no Windows program or MSIX package; sign them with -sign-cmd and a signer that runs here, such as jsign (-sign-cmd \"jsign --keystore cert.p12 --storepass ...\"), or package on Windows\n", runtime.GOOS)
+		case opts.signtool == "":
+			fmt.Fprintln(log, "tela package: -sign: signtool was not found (in PATH or the Windows SDK), so the Windows programs and MSIX packages are not signed; install the Windows SDK's signing tools, or sign with -sign-cmd")
+		default:
+			if opts.msixPublisher == "" && slices.ContainsFunc(plans, func(p packagePlan) bool {
+				return slices.ContainsFunc(p.formats, func(f pkgfmt.Format) bool { return f.Name() == "msix" })
+			}) {
+				fmt.Fprintf(log, "tela package: -sign: the MSIX publisher is %s, which must be the signing certificate's subject; give the subject with -msix-publisher\n", pkgfmt.MSIXPublisher(plans[0].app, pkgfmt.MSIXOptions{Signed: true}))
+			}
+			ch = append(ch, pkgfmt.Signtool{Path: opts.signtool, CertFile: opts.certFile, PasswordFile: opts.certPasswordFile,
+				CertSHA1: opts.certSHA1, TimestampURL: opts.timestampURL, Out: log})
+		}
+	}
 	if len(opts.signCmd) > 0 {
 		if _, err := exec.LookPath(opts.signCmd[0]); err != nil {
 			return nil, fmt.Errorf("-sign-cmd: %v", err)
@@ -518,6 +625,14 @@ func packageTarget(goBin string, opts packageOptions, p packagePlan, out string,
 			return nil, err
 		}
 	}
+	// A Windows program is signed once, after its resources (winres
+	// refuses a signed file) and before it goes into the zip and MSIX.
+	programSigned := false
+	if p.target.OS == "windows" && signer != nil {
+		if programSigned, err = signer.Sign(exe, pkgfmt.SignProgram, p.target); err != nil {
+			return nil, fmt.Errorf("signing %s: %v", name, err)
+		}
+	}
 	app := p.app
 	app.Version = strings.TrimPrefix(o.Version, "v")
 	from := "-version"
@@ -545,7 +660,7 @@ func packageTarget(goBin string, opts packageOptions, p packagePlan, out string,
 		}
 		job := pkgfmt.Job{
 			App: app, Target: p.target, Program: exe, Time: t, OutDir: out, Work: fw,
-			GoBin: goBin, GoEnv: goEnv(), Tool: toolVersion(), Sign: signer, Log: log, Verbose: o.Verbose,
+			GoBin: goBin, GoEnv: goEnv(), Tool: toolVersion(), Sign: signer, ProgramSigned: programSigned, Log: log, Verbose: o.Verbose,
 		}
 		written, err := f.Write(job)
 		outs = append(outs, written...)

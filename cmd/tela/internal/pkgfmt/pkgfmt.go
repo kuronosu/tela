@@ -3,8 +3,8 @@
 // into the files of one kind of package, deterministically.
 //
 // tela package does the build (the one of tela build) and calls the
-// formats; a format only writes files. The formats of Linux are here:
-// appimage, deb and flatpak. Those of Windows (zip, msix) and macOS (app,
+// formats; a format only writes files. The formats of Linux (appimage,
+// deb, flatpak) and Windows (zip, msix) are here. Those of macOS (app,
 // dmg) are registered as not yet written, and replace those entries.
 //
 // Determinism: every file a format writes depends only on the Job. Times
@@ -74,6 +74,9 @@ type Job struct {
 	Tool string
 	// Sign signs the files a format produces; see Signer.
 	Sign Signer
+	// ProgramSigned says Sign signed Program before the formats ran (a
+	// Windows executable, SignProgram).
+	ProgramSigned bool
 	// Log receives notes for the person packaging (what was skipped and
 	// why); Verbose says whether to say more.
 	Log     io.Writer
@@ -240,7 +243,9 @@ func init() {
 	Register(appImageFormat{})
 	Register(debFormat{})
 	Register(flatpakFormat{})
-	for _, p := range []pending{{"zip", "windows"}, {"msix", "windows"}, {"app", "darwin"}, {"dmg", "darwin"}} {
+	Register(zipFormat{})
+	Register(NewMSIX(MSIXOptions{}))
+	for _, p := range []pending{{"app", "darwin"}, {"dmg", "darwin"}} {
 		Register(p)
 	}
 }

@@ -374,7 +374,6 @@ func TestPackageLinux(t *testing.T) {
 		{[]string{"-os", "linux", "./badscheme"}, "standard scheme"},
 		{[]string{"-os", "linux", "./badcat"}, `write it as "Office"`},
 		{[]string{"-os", "linux", "-format", "flatpak", "./shortid"}, "not a flatpak application ID"},
-		{[]string{"-os", "windows", "./notes"}, "not implemented yet"},
 		{[]string{"-os", "linux", "-format", "nope", "./notes"}, "no such format"},
 		{[]string{"-os", "linux", "-format", "msix", "./notes"}, "not among the targets"},
 		{[]string{"-os", "linux,windows", "-format", "deb", "./notes"}, "no format for windows"},
