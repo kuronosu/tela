@@ -26,11 +26,11 @@ In order. Each phase ends with verifiable criteria and is not done unless they p
 Decisions in ADR-294 (the declaration on `tela.App`), ADR-295 (`tela package`, pure-Go formats, no MSI), ADR-296 (`update`, a manifest ready for deltas; full downloads in this phase) and ADR-297 (logs, crash reports, the toast activator). Delta updates (bsdiff or chunks, in the manifest's `patches`) are a later task.
 
 - [ ] `tela build` / `tela package`: installers and bundles (`.msi`/MSIX, `.app`/`.dmg` on the development bundle of the macOS desktop phase, AppImage, flatpak, `.deb`), icons, metadata, code-signing hooks (macOS notarization needs an Apple developer account); a signed bundle's `Info.plist` cannot be edited at run time, so a packaged Mac app declares its schemes and file types at build time (`assoc` refuses to edit a signed bundle, ADR-228)
-- [ ] Windows targets are GUI programs by default (`-H=windowsgui`, no console window next to the app; ADR-127), with panics and the app's log written to a file in its data directory, since a GUI program has no standard output
+- [x] Windows targets are GUI programs by default (`-H=windowsgui`, `-console` keeps the console; ADR-127, ADR-295), with panics and the app's log written to files (ADR-297); the executable gets the icon and version info (ADR-294)
 - [ ] Auto-update: signed manifests, delta or full downloads, atomic replace, rollback
 - [ ] A toast clicked after the app exited starts it (a COM activator registered with `ToastActivatorCLSID`, ADR-235); today it only dismisses the toast
 - [x] Crash reporting hook and structured logging (ADR-297): `desktop.Logger`, crash reports from panics and fatal errors, `desktop.OnCrash` on the next start
-- [ ] One declaration of the app (ID, name, icons, URL schemes, file types, the services it uses) generates each package's metadata: `Info.plist` and entitlements with usage strings, the flatpak permissions, the MSIX manifest
+- [ ] One declaration of the app (ID, name, icons, URL schemes, file types, the services it uses) generates each package's metadata (the declaration and its static reading are done, ADR-294; the metadata comes with the formats): `Info.plist` and entitlements with usage strings, the flatpak permissions, the MSIX manifest
 - [ ] Update channels (stable, beta), phased rollout to a share of installs, an activation policy (on the next start, when the app decides, at once) and an end-of-support message for versions that can no longer update
 
 **Done when:** a sample app is packaged for three platforms from one command and updates itself from a signed manifest.
