@@ -74,7 +74,7 @@ The VM has no GPU and runs at scale 1.
 - [ ] Phase 22 (also at 150%): the corner's outer pixel of a transparent card resizes and the margin passes through; a frameless window shrinks below 136×39 but no further than two corners; new handles without a repaint update the layered window; renamed message box buttons padded in dialog units; access keys and a lone Alt on a drawn bar with real keys
 - [ ] Phase 24: NVDA and Narrator follow incremental UIA updates on `login` (ADR-277)
 - [ ] Phase 25: `TELA_LIVE=1 go test -tags telagpu -run TestLiveGPU ./internal/core/` and `go test -tags telagpu ./internal/vk/... ./internal/gfx/gpu/...` on a real GPU (none of the Windows GPU code has run): the first frame appears after `ShowWindow`, images keep their contents across acquires, `PrintWindow` captures flip-model content, minimize and restore, a live resize in the modal loop, no flash of the old GDI copy when the swapchain is released, a driver without a BGRA or RGBA unorm format; the dashboard's frame times
-- [ ] Phase 26 (the VM is enough): an executable from `tela build` for windows/amd64 starts, Explorer shows its icon and `(Get-Item x.exe).VersionInfo` its version (the `.rsrc` section is patched into the linked file, ADR-294); `desktop.Logger` and crash reports with no standard error (a GUI program), and the rename of a still-open log file at rotation
+- [ ] Phase 26 (the VM is enough): `desktop.Logger` in a GUI-subsystem program started from Explorer (no standard error: the file only). Checked on the VM on 2026-11-17: a `tela build` executable shows its icon and `VersionInfo`, and `desktop`'s log rotation and crash tests pass natively
 
 ### Linux desktops
 
