@@ -968,7 +968,8 @@ codesign --verify --deep --strict --verbose=2 "/tmp/n/Notes.app"
 spctl --assess --type execute --verbose=2 "/tmp/n/Notes.app"   # Gatekeeper: "Notarized Developer ID"
 xcrun stapler validate "/tmp/n/Notes.app"
 ```
-so. For Windows targets on a Windows machine, `-sign` runs `signtool` (from
+
+For Windows targets on a Windows machine, `-sign` runs `signtool` (from
 `PATH`, else the newest Windows SDK) on each program, after its icon and version
 information are added and before it goes into the zip and the MSIX, and on each
 MSIX once it is written:
@@ -988,11 +989,7 @@ The zip itself is not signed by signtool; the output says that its program is.
 On Linux and macOS signtool is not available, which tela says: sign with
 `-sign-cmd` and a signer that runs there, such as
 [jsign](https://ebourg.github.io/jsign/), which signs executables and MSIX
-packages in place. `-sign-cmd command` runs a command on each file to sign, every package file
-(and, for Windows, each program before it is packaged): an argument `{}` is
-replaced by the file's path, else the path is added at the end. The output says
-`(signed)` or `(unsigned)` after each file; unsigned packages are written all
-the same.
+packages in place.
 
 ## tela icons gen
 
