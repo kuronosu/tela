@@ -1,9 +1,12 @@
-// Package winres writes the resources of a Windows executable as a COFF
-// object, a .syso file, which the Go linker adds to the .rsrc section of the
-// program (ADR-294): the icon (RT_GROUP_ICON and RT_ICON) and the version
-// information (RT_VERSION) that Explorer, the task bar and Task Manager
-// show. It is a writer of the resource directory format for what tela build
-// needs; Read is its inverse, which the tests use.
+// Package winres adds resources to a Windows executable (ADR-294): the icon
+// (RT_GROUP_ICON and RT_ICON) and the version information (RT_VERSION) that
+// Explorer, the task bar and Task Manager show.
+//
+// The Go linker takes resources from .syso files in the package's folder,
+// which the go command opens by their real path (an -overlay does not reach
+// them), so tela build, which must not touch that folder, adds the .rsrc
+// section to the linked executable instead (Patch). Read is the inverse of
+// the directory writer, for tests and checks.
 //
 // The bytes depend only on the inputs.
 package winres
@@ -11,6 +14,7 @@ package winres
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -193,26 +197,12 @@ func node(key string, typ uint16, value []byte, valueLen int, children ...[]byte
 	return out
 }
 
-// The machines of the COFF file header and their relocation for the
-// address of a resource without the image base (RVA).
-var archs = map[string]struct{ machine, rva uint16 }{
-	"386":   {0x014c, 7}, // IMAGE_REL_I386_DIR32NB
-	"amd64": {0x8664, 3}, // IMAGE_REL_AMD64_ADDR32NB
-	"arm64": {0xAA64, 2}, // IMAGE_REL_ARM64_ADDR32NB
-}
-
-// Arch reports whether Object writes for the GOARCH goarch.
-func Arch(goarch string) bool { _, ok := archs[goarch]; return ok }
-
-// Object returns res as a COFF object file for the GOARCH goarch, the
-// content of a .syso file: one .rsrc section with the resource directory,
-// whose data entries carry a relocation to the section's start so the
-// linker places them.
-func Object(goarch string, res []Resource) ([]byte, error) {
-	a, ok := archs[goarch]
-	if !ok {
-		return nil, fmt.Errorf("no Windows resources for GOARCH=%s; tela writes them for amd64, arm64 and 386", goarch)
-	}
+// Section returns the content of a .rsrc section for res: the resource
+// directory (three levels: type, name, language, sorted), the data entries
+// and the data, with the address of every data entry resolved for a section
+// whose first byte is at rva. Two resources with the same type, name and
+// language are an error.
+func Section(res []Resource, rva uint32) ([]byte, error) {
 	sorted := append([]Resource(nil), res...)
 	sort.SliceStable(sorted, func(i, j int) bool {
 		x, y := sorted[i], sorted[j]
@@ -229,51 +219,12 @@ func Object(goarch string, res []Resource) ([]byte, error) {
 			return nil, fmt.Errorf("two resources have type %d, name %d and language %#x", sorted[i].Type, sorted[i].Name, sorted[i].Lang)
 		}
 	}
-	data, relocs := directory(sorted)
-
-	var out bytes.Buffer
-	le := binary.LittleEndian
-	const headers = 20 + 40
-	relocAt := headers + len(data)
-	symAt := relocAt + 10*len(relocs)
-	// File header.
-	binary.Write(&out, le, a.machine)
-	binary.Write(&out, le, uint16(1))       // sections
-	binary.Write(&out, le, uint32(0))       // time stamp: none, for the same bytes every time
-	binary.Write(&out, le, uint32(symAt))   // symbol table
-	binary.Write(&out, le, uint32(1))       // symbols
-	binary.Write(&out, le, [2]uint16{0, 0}) // no optional header, no flags
-	// Section header.
-	out.WriteString(".rsrc\x00\x00\x00")
-	binary.Write(&out, le, [2]uint32{0, 0}) // virtual size and address
-	binary.Write(&out, le, uint32(len(data)))
-	binary.Write(&out, le, uint32(headers))
-	binary.Write(&out, le, uint32(relocAt))
-	binary.Write(&out, le, uint32(0)) // line numbers
-	binary.Write(&out, le, uint16(len(relocs)))
-	binary.Write(&out, le, uint16(0))
-	binary.Write(&out, le, uint32(0x40000040)) // initialized data, readable
-	out.Write(data)
-	for _, off := range relocs {
-		binary.Write(&out, le, off)
-		binary.Write(&out, le, uint32(0)) // the section's symbol
-		binary.Write(&out, le, a.rva)
-	}
-	// The symbol of the section, and an empty string table.
-	out.WriteString(".rsrc\x00\x00\x00")
-	binary.Write(&out, le, uint32(0))
-	binary.Write(&out, le, uint16(1)) // section 1
-	binary.Write(&out, le, uint16(0))
-	out.Write([]byte{3, 0}) // IMAGE_SYM_CLASS_STATIC, no auxiliary symbols
-	binary.Write(&out, le, uint32(4))
-	return out.Bytes(), nil
+	return directory(sorted, rva), nil
 }
 
-// directory lays out the three levels of the resource directory (type,
-// name, language), the data entries and the data of the resources, sorted
-// by type, name and language. It returns the section's content and the
-// offsets of the data entries' RVA fields, which need a relocation.
-func directory(res []Resource) (data []byte, relocs []uint32) {
+// directory lays out the three levels of the resource directory, the data
+// entries and the data of res, sorted by type, name and language.
+func directory(res []Resource, rva uint32) []byte {
 	// group is a type or a name: its ID, and the resources under it.
 	type group struct {
 		id    uint32
@@ -349,8 +300,7 @@ func directory(res []Resource) (data []byte, relocs []uint32) {
 		}
 	}
 	for i, r := range res {
-		relocs = append(relocs, uint32(b.Len()))
-		binary.Write(&b, le, uint32(dataOff[i])) // the RVA, relative to the section until linked
+		binary.Write(&b, le, rva+uint32(dataOff[i]))
 		binary.Write(&b, le, uint32(len(r.Data)))
 		binary.Write(&b, le, [2]uint32{0, 0}) // code page, reserved
 	}
@@ -360,7 +310,125 @@ func directory(res []Resource) (data []byte, relocs []uint32) {
 			b.WriteByte(0)
 		}
 	}
-	return b.Bytes(), relocs
+	return b.Bytes()
+}
+
+// ErrHasResources is what Patch returns for an executable that already has
+// resources (a .rsrc section or a resource directory): it leaves them as
+// they are.
+var ErrHasResources = errors.New("the executable already has resources")
+
+// Patch returns the PE executable exe (as the Go linker writes it, for
+// 386, amd64 or arm64) with res added as a .rsrc section: a section header
+// in the room the linker leaves for them, the section's data after the last
+// one, the resource entry of the data directory, and the sizes of the image.
+// Nothing else changes, so the bytes depend only on exe and res. It
+// refuses (ErrHasResources) an executable with resources of its own, and an
+// executable with a signature, which the change would invalidate.
+func Patch(exe []byte, res []Resource) ([]byte, error) {
+	le := binary.LittleEndian
+	bad := func(what string) error { return fmt.Errorf("not a PE executable tela can add resources to: %s", what) }
+	if len(exe) < 0x40 || exe[0] != 'M' || exe[1] != 'Z' {
+		return nil, bad("no MZ header")
+	}
+	pe := int(le.Uint32(exe[0x3c:]))
+	if pe < 0 || pe+24 > len(exe) || string(exe[pe:pe+4]) != "PE\x00\x00" {
+		return nil, bad("no PE signature")
+	}
+	coff := pe + 4
+	nsect := int(le.Uint16(exe[coff+2:]))
+	optSize := int(le.Uint16(exe[coff+16:]))
+	opt := coff + 20
+	if opt+optSize > len(exe) || optSize < 96 {
+		return nil, bad("the optional header is cut short")
+	}
+	dirs := opt + 96 // the data directories of PE32
+	switch le.Uint16(exe[opt:]) {
+	case 0x10b:
+	case 0x20b:
+		dirs = opt + 112
+	default:
+		return nil, bad("unknown optional header")
+	}
+	const (
+		dirResource = 2
+		dirSecurity = 4
+	)
+	ndirs := int(le.Uint32(exe[dirs-4:]))
+	if ndirs <= dirSecurity || dirs+8*ndirs > opt+optSize {
+		return nil, bad("no data directories for the resources")
+	}
+	if le.Uint32(exe[dirs+8*dirResource+4:]) != 0 {
+		return nil, ErrHasResources
+	}
+	if le.Uint32(exe[dirs+8*dirSecurity+4:]) != 0 {
+		return nil, errors.New("the executable is signed, and adding resources would break the signature; add them before signing")
+	}
+	secAlign, fileAlign := le.Uint32(exe[opt+32:]), le.Uint32(exe[opt+36:])
+	if secAlign == 0 || fileAlign == 0 || secAlign&(secAlign-1) != 0 || fileAlign&(fileAlign-1) != 0 {
+		return nil, bad("the alignments are not powers of two")
+	}
+	table := opt + optSize // the section headers
+	if table+40*nsect > len(exe) {
+		return nil, bad("the section table is cut short")
+	}
+	var vaEnd, rawEnd uint32
+	firstRaw := uint32(len(exe))
+	for i := range nsect {
+		h := exe[table+40*i:]
+		if string(bytes.TrimRight(h[:8], "\x00")) == ".rsrc" {
+			return nil, ErrHasResources
+		}
+		vsize, va, rawSize, raw := le.Uint32(h[8:]), le.Uint32(h[12:]), le.Uint32(h[16:]), le.Uint32(h[20:])
+		vaEnd = max(vaEnd, va+max(vsize, rawSize))
+		if rawSize > 0 {
+			rawEnd = max(rawEnd, raw+rawSize)
+			firstRaw = min(firstRaw, raw)
+		}
+	}
+	newHeader := table + 40*nsect
+	if uint32(newHeader+40) > firstRaw || !allZero(exe[newHeader:newHeader+40]) {
+		return nil, bad("the headers have no room for another section")
+	}
+	if uint32(len(exe)) < rawEnd {
+		return nil, bad("a section is cut short")
+	}
+
+	rva := alignUp(vaEnd, secAlign)
+	section, err := Section(res, rva)
+	if err != nil {
+		return nil, err
+	}
+	raw := alignUp(uint32(len(exe)), fileAlign)
+	rawSize := alignUp(uint32(len(section)), fileAlign)
+	out := make([]byte, int(raw)+int(rawSize))
+	copy(out, exe)
+	copy(out[raw:], section)
+
+	h := out[newHeader:]
+	copy(h, ".rsrc")
+	le.PutUint32(h[8:], uint32(len(section)))
+	le.PutUint32(h[12:], rva)
+	le.PutUint32(h[16:], rawSize)
+	le.PutUint32(h[20:], raw)
+	le.PutUint32(h[36:], 0x40000040) // initialized data, readable
+	le.PutUint16(out[coff+2:], uint16(nsect+1))
+	le.PutUint32(out[opt+8:], le.Uint32(out[opt+8:])+rawSize) // SizeOfInitializedData
+	le.PutUint32(out[opt+56:], alignUp(rva+uint32(len(section)), secAlign))
+	le.PutUint32(out[dirs+8*dirResource:], rva)
+	le.PutUint32(out[dirs+8*dirResource+4:], uint32(len(section)))
+	return out, nil
+}
+
+func alignUp(v, a uint32) uint32 { return (v + a - 1) &^ (a - 1) }
+
+func allZero(b []byte) bool {
+	for _, c := range b {
+		if c != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // Read parses a resource directory: the content of a .rsrc section whose

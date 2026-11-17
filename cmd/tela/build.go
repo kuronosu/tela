@@ -131,6 +131,13 @@ type buildOptions struct {
 	Gcflags  string
 	Trimpath bool
 	Verbose  bool
+	// Version is the version to write into the program (-version); empty
+	// keeps the one the go command stamps.
+	Version string
+	// Icon and Console are build only: the icon source (-icon) and whether
+	// a Windows program keeps the console subsystem (-console).
+	Icon    string
+	Console bool
 	// Args are the program's arguments (run only).
 	Args []string
 }
@@ -142,6 +149,7 @@ func (o *buildOptions) register(fs *flag.FlagSet) {
 	fs.StringVar(&o.Tags, "tags", "", "")
 	fs.StringVar(&o.Ldflags, "ldflags", "", "")
 	fs.StringVar(&o.Gcflags, "gcflags", "", "")
+	fs.StringVar(&o.Version, "version", "", "")
 	fs.BoolVar(&o.Trimpath, "trimpath", false, "")
 	fs.BoolVar(&o.Verbose, "v", false, "")
 	fs.BoolVar(&o.Verbose, "verbose", false, "")
@@ -155,6 +163,8 @@ func parseBuildArgs(args []string) (buildOptions, error) {
 	fs.SetOutput(io.Discard)
 	o.register(fs)
 	fs.StringVar(&o.Out, "o", "", "")
+	fs.StringVar(&o.Icon, "icon", "", "")
+	fs.BoolVar(&o.Console, "console", false, "")
 	pkgs, err := parsePositionals("build", fs, args)
 	if err != nil {
 		return o, err
@@ -199,6 +209,9 @@ func (o *buildOptions) validate(command string) error {
 	}
 	if strings.HasPrefix(o.Pkg, "-") {
 		return fmt.Errorf("%q looks like a flag, and flags go before the package (see \"tela help %s\")", o.Pkg, command)
+	}
+	if strings.ContainsAny(o.Version, " \t\r\n\"'\\") {
+		return fmt.Errorf("-version %q has spaces or quotes; give a version such as 1.2.3 or 1.2.3-rc.1", o.Version)
 	}
 	return nil
 }
@@ -258,6 +271,8 @@ func runRun(args []string, stdout, stderr io.Writer) int {
 type buildTarget struct {
 	goos, goarch string
 	pkg          listedPackage
+	// goflags is the GOFLAGS the go command applies.
+	goflags string
 	// deps are the packages go list printed besides pkg, by import path
 	// (only when the app's source is read).
 	deps map[string]listedPackage
@@ -268,23 +283,24 @@ const buildListFields = listFields + ",DepOnly"
 
 // resolveBuildTarget finds the package, checks it is a program and reads
 // the target platform. For a darwin target whose ID or name is not given
-// by flags it lists the dependencies too, for reading the App.
+// by flags, or the target is windows (the executable's version information),
+// it lists the dependencies too, for reading the App.
 func resolveBuildTarget(goBin string, opts buildOptions, command string) (*buildTarget, error) {
 	t := &buildTarget{}
-	cmd := exec.Command(goBin, "env", "GOOS", "GOARCH")
+	cmd := exec.Command(goBin, "env", "-json", "GOOS", "GOARCH", "GOFLAGS")
 	cmd.Env = goEnv()
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("go env: %v", err)
 	}
-	if f := strings.Fields(string(out)); len(f) == 2 {
-		t.goos, t.goarch = f[0], f[1]
-	} else {
-		return nil, fmt.Errorf("go env GOOS GOARCH printed %q", strings.TrimSpace(string(out)))
+	var env struct{ GOOS, GOARCH, GOFLAGS string }
+	if err := json.Unmarshal(out, &env); err != nil || env.GOOS == "" || env.GOARCH == "" {
+		return nil, fmt.Errorf("go env -json GOOS GOARCH GOFLAGS printed %q", strings.TrimSpace(string(out)))
 	}
+	t.goos, t.goarch, t.goflags = env.GOOS, env.GOARCH, env.GOFLAGS
 
 	args := []string{"list", "-e", "-json=" + buildListFields}
-	if t.goos == "darwin" && (opts.ID == "" || opts.Name == "") {
+	if t.goos == "darwin" && (opts.ID == "" || opts.Name == "") || t.goos == "windows" && command == "build" {
 		args = append(args, "-deps")
 	}
 	if opts.Tags != "" {
@@ -452,20 +468,27 @@ func numericVersion(v string) string {
 
 // stageBundle builds the program of t into a temporary folder and writes
 // the bundle at bundlePath from it. It returns the executable inside.
-func stageBundle(goBin string, opts buildOptions, id identity, bundlePath string, stderr io.Writer) (appbundle.Result, error) {
+func stageBundle(goBin string, opts buildOptions, t *buildTarget, id identity, bundlePath string, stderr io.Writer) (appbundle.Result, error) {
 	stage, err := os.MkdirTemp("", "tela-bundle-")
 	if err != nil {
 		return appbundle.Result{}, err
 	}
 	defer os.RemoveAll(stage)
 	exe := filepath.Join(stage, "program")
+	opts.Ldflags = linkerFlags(opts, t.goflags, false)
 	if err := goBuild(goBin, opts, exe, stderr); err != nil {
 		return appbundle.Result{}, err
+	}
+	// The Info.plist's version is the one written into the program, else
+	// the one the go command stamped.
+	version := numericVersion(opts.Version)
+	if version == "" {
+		version = moduleVersion(exe)
 	}
 	return appbundle.Write(bundlePath, appbundle.Spec{
 		ID:      id.ID,
 		Name:    id.Name,
-		Version: moduleVersion(exe),
+		Version: version,
 	}, exe)
 }
 
@@ -486,7 +509,7 @@ func buildProgram(goBin string, opts buildOptions, stderr io.Writer) (string, er
 	if err != nil {
 		return "", err
 	}
-	if _, err := stageBundle(goBin, opts, id, bundle, stderr); err != nil {
+	if _, err := stageBundle(goBin, opts, t, id, bundle, stderr); err != nil {
 		return "", err
 	}
 	return bundle, nil
@@ -528,8 +551,22 @@ func buildPlain(goBin string, opts buildOptions, t *buildTarget, stderr io.Write
 	if st, err := os.Stat(abs); err == nil && st.IsDir() {
 		abs = filepath.Join(abs, name)
 	}
+	gui := t.goos == "windows" && !opts.Console
+	opts.Ldflags = linkerFlags(opts, t.goflags, gui)
+	var res *winResources
+	if t.goos == "windows" {
+		var err error
+		if res, err = newWinResources(opts, t, filepath.Base(abs), stderr); err != nil {
+			return "", err
+		}
+	}
 	if err := goBuild(goBin, opts, abs, stderr); err != nil {
 		return "", err
+	}
+	if res != nil {
+		if err := res.apply(abs, stderr); err != nil {
+			return "", err
+		}
 	}
 	return abs, nil
 }
@@ -553,7 +590,7 @@ func runProgram(goBin string, opts buildOptions, stdout, stderr io.Writer) (int,
 		if err != nil {
 			return 1, err
 		}
-		res, err := stageBundle(goBin, opts, id, bundle, stderr)
+		res, err := stageBundle(goBin, opts, probe, id, bundle, stderr)
 		if err != nil {
 			return 1, err
 		}
@@ -572,6 +609,8 @@ func runProgram(goBin string, opts buildOptions, stdout, stderr io.Writer) (int,
 		if probe.goos == "windows" {
 			exe += ".exe"
 		}
+		// A development command: the console subsystem and no resources.
+		opts.Ldflags = linkerFlags(opts, probe.goflags, false)
 		if err := goBuild(goBin, opts, exe, stderr); err != nil {
 			return 1, err
 		}

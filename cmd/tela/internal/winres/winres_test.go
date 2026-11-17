@@ -1,11 +1,8 @@
 package winres
 
 import (
-	"bytes"
-	"debug/pe"
 	"encoding/binary"
 	"reflect"
-	"strings"
 	"testing"
 	"unicode/utf16"
 
@@ -16,85 +13,6 @@ func testIcons() []appicon.Image {
 	return []appicon.Image{
 		{Size: 16, PNG: []byte("\x89PNG-sixteen")},
 		{Size: 256, PNG: []byte("\x89PNG-two-hundred-fifty-six, an odd length")},
-	}
-}
-
-func TestObject(t *testing.T) {
-	info := Info{ProductName: "Notes", CompanyName: "Example Inc.", FileDescription: "Take notes", Version: "1.2.3-rc.1", FileName: "notes.exe"}
-	res := Resources(testIcons(), info)
-	if len(res) != 4 { // two icons, the group, the version
-		t.Fatalf("%d resources, want 4", len(res))
-	}
-	for goarch, want := range map[string]pe.FileHeader{
-		"amd64": {Machine: pe.IMAGE_FILE_MACHINE_AMD64},
-		"arm64": {Machine: pe.IMAGE_FILE_MACHINE_ARM64},
-		"386":   {Machine: pe.IMAGE_FILE_MACHINE_I386},
-	} {
-		t.Run(goarch, func(t *testing.T) {
-			obj, err := Object(goarch, res)
-			if err != nil {
-				t.Fatal(err)
-			}
-			again, _ := Object(goarch, res)
-			if !bytes.Equal(obj, again) {
-				t.Error("the same resources gave different bytes")
-			}
-			f, err := pe.NewFile(bytes.NewReader(obj))
-			if err != nil {
-				t.Fatal(err)
-			}
-			if f.Machine != want.Machine || len(f.Sections) != 1 || len(f.Symbols) != 1 {
-				t.Fatalf("machine %#x, %d sections, %d symbols", f.Machine, len(f.Sections), len(f.Symbols))
-			}
-			sec := f.Sections[0]
-			if sec.Name != ".rsrc" || sec.Characteristics != 0x40000040 {
-				t.Errorf("section %q, characteristics %#x", sec.Name, sec.Characteristics)
-			}
-			if len(sec.Relocs) != len(res) {
-				t.Errorf("%d relocations, want one per resource (%d)", len(sec.Relocs), len(res))
-			}
-			wantType := map[string]uint16{"amd64": 3, "arm64": 2, "386": 7}[goarch]
-			for _, r := range sec.Relocs {
-				if r.Type != wantType || r.SymbolTableIndex != 0 {
-					t.Errorf("relocation %+v, want type %d against symbol 0", r, wantType)
-				}
-			}
-			data, err := sec.Data()
-			if err != nil {
-				t.Fatal(err)
-			}
-			got, err := Read(data, 0)
-			if err != nil {
-				t.Fatal(err)
-			}
-			// The directory is sorted by type, name and language.
-			if len(got) != len(res) {
-				t.Fatalf("read %d resources, want %d", len(got), len(res))
-			}
-			byKey := func(rs []Resource) map[[3]uint32][]byte {
-				m := map[[3]uint32][]byte{}
-				for _, r := range rs {
-					m[[3]uint32{r.Type, r.Name, r.Lang}] = r.Data
-				}
-				return m
-			}
-			if !reflect.DeepEqual(byKey(got), byKey(res)) {
-				t.Errorf("the resources read back differ from the ones written")
-			}
-			var types []uint32
-			for _, r := range got {
-				types = append(types, r.Type)
-			}
-			if !reflect.DeepEqual(types, []uint32{RTIcon, RTIcon, RTGroupIcon, RTVersion}) {
-				t.Errorf("types in order %v", types)
-			}
-		})
-	}
-	if _, err := Object("riscv64", res); err == nil || !strings.Contains(err.Error(), "amd64, arm64 and 386") {
-		t.Errorf("unsupported GOARCH: %v", err)
-	}
-	if _, err := Object("amd64", append(res, res[0])); err == nil || !strings.Contains(err.Error(), "two resources") {
-		t.Errorf("duplicate resource: %v", err)
 	}
 }
 
