@@ -47,7 +47,7 @@ CGO_ENABLED=0 go run ./cmd/tela snapshot -o counter.png ./examples/counter
 | `tela lint` | Checks the Go source for the mistakes that dev mode reports at run time: unknown classes, roles and aria tokens, duplicate or missing keys, misused hooks, a redundant `Fragment`, a prop where a node goes (see [tela lint](#tela-lint)) |
 | `tela dev` | Runs an app and reloads it on every save, keeping the window and the state |
 | `tela mcp` | Serves a package's screen to agents over the Model Context Protocol: snapshot, screenshot, click, fill... on an instance that stays up and rebuilds on edits (see [tela mcp](#tela-mcp)) |
-| `tela build` | Builds a program; for `GOOS=darwin`, as a macOS application bundle `<Name>.app` (see [tela build and tela run](#tela-build-and-tela-run)) |
+| `tela build` | Builds a program; for `GOOS=darwin`, as a macOS application bundle `<Name>.app`, for `GOOS=windows` as a GUI program with the app's icon and version information (see [tela build and tela run](#tela-build-and-tela-run)) |
 | `tela run` | Builds a program and runs it, like `go run`; on macOS as a bundle in the user cache, so notifications, URL schemes and the Dock name work |
 | `tela icons gen` | Generates a Go package of `tela.Icon` variables from a directory of SVG files (see [Icons](Icons)) |
 | `tela version` | Prints the version of the tela module the binary was built from, its VCS revision when known, and the Go version and platform |
@@ -543,6 +543,7 @@ tela run ./cmd/notes                 # build and run; on macOS, as a bundle
 tela run . --some-flag value         # what follows the package goes to the program
 tela build -o dist ./cmd/notes       # dist/Notes.app on macOS, the program elsewhere
 GOOS=darwin GOARCH=arm64 tela build -o dist .   # from Linux or Windows
+GOOS=windows tela build -version 1.2.0 -o dist . # dist/notes.exe: GUI program, icon, version
 ```
 
 Both build the program of a package `main` (the default is `.`) with
@@ -592,16 +593,53 @@ only what changed, and keeps the keys that a running app added to the
 | `-o path` | (build) A folder to create `<Name>.app` in, or a path ending in `.app`; otherwise the executable file or folder. Default: the current folder |
 | `-id ID` | The app's ID, instead of `App.AppID` |
 | `-name NAME` | The app's name, instead of `App.Title` (default: the package's name) |
-| `-tags list`, `-ldflags f`, `-gcflags f`, `-trimpath` | Passed to `go build`; nothing else is added (no `teladev` tag, no stripping) |
-| `-v` | Say where the ID and the name came from (and, for `run`, where the bundle is) |
+| `-version V` | The app's version (`1.2.3`, `1.2.3-rc.1`), written into the program; default: the module's version |
+| `-icon file` | (build) The icon, instead of `icon.svg` or `icon.png` in the package's folder |
+| `-console` | (build) A Windows program keeps the console subsystem instead of the GUI one |
+| `-tags list`, `-ldflags f`, `-gcflags f`, `-trimpath` | Passed to `go build`; tela adds `-X` for the version and, for a Windows GUI program, `-H=windowsgui` to `-ldflags` (yours wins for `-H`); no `teladev` tag, no stripping |
+| `-v` | Say where the ID and the name came from, the icon (and, for `run`, where the bundle is) |
 
 Signing: neither command runs `codesign`. The Go linker ad-hoc signs
 `darwin/arm64` executables, and that signature covers the executable only, not
 the `Info.plist`. A bundle made this way runs on the machine that built it; it
-has no developer identity and is not notarized. Signing, icons and installers
-are the packaging step. On other systems `tela build` writes the plain
-executable and `tela run` builds and runs it in a temporary folder; `-id` and
-`-name` are ignored. `tela run` always runs on the machine's own platform.
+has no developer identity and is not notarized. Signing and installers are the
+packaging step. On Linux `tela build` writes the plain executable and `tela run`
+builds and runs it in a temporary folder; `-id` and `-name` are ignored. `tela
+run` always runs on the machine's own platform.
+
+### Windows
+
+For `GOOS=windows` the program is a GUI program: `tela build` links it with
+`-H=windowsgui`, so Windows opens no console window next to it (`-console` keeps
+the console subsystem, for a command-line tool; a GUI program has no standard
+output, so it cannot print). `tela run` keeps the console, since it is a
+development command.
+
+The executable also gets the resources that Explorer, the task bar and Task
+Manager show, added to the linked file (the package's folder is not touched; a
+package with a `.syso` of its own keeps its resources and gets none):
+
+- the **icon**, from `icon.svg` or `icon.png` in the package's folder, or
+  `-icon`: an SVG is drawn at 16, 24, 32, 48, 64, 128 and 256 px; a PNG must be
+  square and at least 512 px, and is scaled down. A package without one gets no
+  icon.
+- the **version information**: product name (`App.Title`, or `-name`), company
+  (`App.Publisher`), description (`App.Description`) and the version.
+
+### The declaration and the version
+
+`App` carries more than the window: `Publisher`, `Description`, `Category`,
+`Schemes`, `FileTypes` and `Services` describe the app to the packages (URL
+schemes, document types, what the app asks the system for). They are read from
+the source like `AppID` and `Title`, so they must be constants (a literal, a
+constant, a concatenation; a slice or struct literal of them, or a variable that
+holds one); anything else is an error that names the field. `Run` ignores them.
+
+The version the program reports (`internal/appver`, which the update check
+reads) is `-version` when given, else the module's version the go command
+stamps from a version control tag. `-version` is written with the linker's
+`-X` flag, merged into your `-ldflags`; macOS's `Info.plist` and the Windows
+version information carry the same value.
 
 ## tela icons gen
 

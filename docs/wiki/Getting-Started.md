@@ -234,8 +234,10 @@ run the app from a terminal, while you debug. `go run` and `tela dev` need
 nothing: they use the terminal you start them from.
 
 Tela does not hide the console at run time: the window would still flash on
-screen, which looks like malware. A future `tela build` sets the flag for
-Windows targets and writes panics to a log file (ADR-127).
+screen, which looks like malware. `tela build` sets the flag for Windows
+targets and gives the executable its icon and version information (see the
+[CLI](CLI#tela-build-and-tela-run) page); writing panics to a log file is still
+to come (ADR-127).
 
 ## Next steps
 

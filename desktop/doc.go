@@ -71,6 +71,17 @@
 // package performs. [MoveToTrash] moves a file where the user
 // can restore it, never deleting it, also from a goroutine.
 //
+// # Logs and crash reports
+//
+// [Logger] is the app's [log/slog] logger: JSON lines in [LogDir] (rotated
+// by size) and text on the standard error when the process has one, which
+// a Windows GUI program does not; [SetLogLevel] sets its level, and Tela's
+// own warnings and errors reach the file too. A panic on the UI thread or
+// in a UseGo goroutine, and a fatal error of the Go runtime, are written
+// as crash reports in [LogDir] by a release build, and the program still
+// crashes; on the next start [OnCrash] receives each report, once, so the
+// app can offer it to the user. Tela sends nothing anywhere.
+//
 // # When a service is missing
 //
 // Not every desktop has every service: GNOME shows no tray icons without
