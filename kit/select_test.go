@@ -189,8 +189,15 @@ func selectSheet() *sheet {
 	}}
 }
 
-func TestSelectGolden(t *testing.T)   { selectSheet().golden(t) }
-func TestChromiumSelect(t *testing.T) { selectSheet().chromium(t) }
+func TestSelectGolden(t *testing.T) {
+	t.Parallel()
+	selectSheet().golden(t)
+}
+
+func TestChromiumSelect(t *testing.T) {
+	t.Parallel()
+	selectSheet().chromium(t)
+}
 
 var _ tela.Component = kit.Select[string]{}
 

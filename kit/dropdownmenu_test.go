@@ -29,8 +29,15 @@ func dropdownSheet() *sheet {
 	}}
 }
 
-func TestDropdownMenuGolden(t *testing.T)   { dropdownSheet().golden(t) }
-func TestChromiumDropdownMenu(t *testing.T) { dropdownSheet().chromium(t) }
+func TestDropdownMenuGolden(t *testing.T) {
+	t.Parallel()
+	dropdownSheet().golden(t)
+}
+
+func TestChromiumDropdownMenu(t *testing.T) {
+	t.Parallel()
+	dropdownSheet().chromium(t)
+}
 
 var (
 	ddTrigger = telatest.ByRole("button", "Actions")
@@ -66,6 +73,7 @@ func mountDropdown(t *testing.T, d kit.DropdownMenu[string], opts ...telatest.Op
 }
 
 func TestDropdownMenuOpensAndCloses(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := mountDropdown(t, actionsMenu(&log, nil))
 	app.ExpectCount(ddMenu, 0)
@@ -103,6 +111,7 @@ func TestDropdownMenuOpensAndCloses(t *testing.T) {
 }
 
 func TestDropdownMenuKeyboard(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := mountDropdown(t, actionsMenu(&log, nil))
 	app.Focus(ddTrigger)
@@ -150,6 +159,7 @@ func TestDropdownMenuKeyboard(t *testing.T) {
 }
 
 func TestDropdownMenuPointer(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := mountDropdown(t, actionsMenu(&log, nil))
 	app.Click(ddTrigger)
@@ -181,6 +191,7 @@ func TestDropdownMenuPointer(t *testing.T) {
 }
 
 func TestDropdownMenuDisabledItemsAreMarked(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := mountDropdown(t, actionsMenu(&log, nil))
 	app.Click(ddTrigger)
@@ -197,6 +208,7 @@ func TestDropdownMenuDisabledItemsAreMarked(t *testing.T) {
 }
 
 func TestDropdownMenuShortcutIsShownNotNamed(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := mountDropdown(t, actionsMenu(&log, nil))
 	app.Click(ddTrigger)
@@ -211,6 +223,7 @@ func TestDropdownMenuShortcutIsShownNotNamed(t *testing.T) {
 }
 
 func TestDropdownMenuDestructive(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := mountDropdown(t, actionsMenu(&log, nil), telatest.Dark())
 	app.Click(ddTrigger)
@@ -231,6 +244,7 @@ func TestDropdownMenuDestructive(t *testing.T) {
 }
 
 func TestDropdownMenuCheckboxItems(t *testing.T) {
+	t.Parallel()
 	var changes []bool
 	var log []string
 	app := mountDropdown(t, actionsMenu(&log, func(d *kit.DropdownMenu[string]) {
@@ -269,6 +283,7 @@ func TestDropdownMenuCheckboxItems(t *testing.T) {
 }
 
 func TestDropdownMenuControlledCheckbox(t *testing.T) {
+	t.Parallel()
 	var asked []bool
 	page := func() tela.Node {
 		on := true
@@ -291,6 +306,7 @@ func TestDropdownMenuControlledCheckbox(t *testing.T) {
 }
 
 func TestDropdownMenuRadioGroup(t *testing.T) {
+	t.Parallel()
 	var chosen []string
 	app := mountDropdown(t, actionsMenu(nil, func(d *kit.DropdownMenu[string]) {
 		d.Items = []kit.MenuItem[string]{
@@ -321,6 +337,7 @@ func TestDropdownMenuRadioGroup(t *testing.T) {
 }
 
 func TestDropdownMenuControlledRadioGroup(t *testing.T) {
+	t.Parallel()
 	theme := "light"
 	var asked []string
 	page := func() tela.Node {
@@ -343,6 +360,7 @@ func TestDropdownMenuControlledRadioGroup(t *testing.T) {
 }
 
 func TestDropdownMenuGroupsAndLabels(t *testing.T) {
+	t.Parallel()
 	app := mountDropdown(t, actionsMenu(nil, func(d *kit.DropdownMenu[string]) {
 		d.DefaultOpen = true
 		d.Items = []kit.MenuItem[string]{
@@ -364,6 +382,7 @@ func TestDropdownMenuGroupsAndLabels(t *testing.T) {
 }
 
 func TestDropdownMenuDuplicateKeyPanics(t *testing.T) {
+	t.Parallel()
 	d := actionsMenu(nil, func(d *kit.DropdownMenu[string]) {
 		d.DefaultOpen = true
 		d.Items = []kit.MenuItem[string]{{Key: "a", Label: "One"}, {Key: "a", Label: "Two"}}
@@ -375,6 +394,7 @@ func TestDropdownMenuDuplicateKeyPanics(t *testing.T) {
 }
 
 func TestDropdownMenuControlledOpen(t *testing.T) {
+	t.Parallel()
 	var log []bool
 	open := true
 	d := actionsMenu(nil, func(d *kit.DropdownMenu[string]) {
@@ -391,6 +411,7 @@ func TestDropdownMenuControlledOpen(t *testing.T) {
 }
 
 func TestDropdownMenuDisabledTrigger(t *testing.T) {
+	t.Parallel()
 	app := mountDropdown(t, actionsMenu(nil, func(d *kit.DropdownMenu[string]) { d.Disabled = true }))
 	app.Expect(ddTrigger, telatest.Disabled(true))
 	tr := app.Bounds(ddTrigger)
@@ -399,6 +420,7 @@ func TestDropdownMenuDisabledTrigger(t *testing.T) {
 }
 
 func TestDropdownMenuTriggerFunc(t *testing.T) {
+	t.Parallel()
 	d := actionsMenu(nil, func(d *kit.DropdownMenu[string]) {
 		d.Trigger = kit.TriggerFunc(func(p tela.Prop) tela.Node {
 			return h.Button(p, h.AriaLabel("Actions"), h.Class("rounded-full"), kit.Avatar{Fallback: "AB"})
@@ -410,6 +432,7 @@ func TestDropdownMenuTriggerFunc(t *testing.T) {
 }
 
 func TestDropdownMenuPlacement(t *testing.T) {
+	t.Parallel()
 	const w, hgt = 800, 600
 	run := func(name string, x, y float32, edit func(*kit.DropdownMenu[string]), check func(trigger, panel tela.Rect)) {
 		t.Run(name, func(t *testing.T) {
@@ -458,6 +481,7 @@ func TestDropdownMenuPlacement(t *testing.T) {
 }
 
 func TestDropdownMenuLongMenuScrolls(t *testing.T) {
+	t.Parallel()
 	items := make([]kit.MenuItem[string], 40)
 	for i := range items {
 		items[i] = kit.MenuItem[string]{Key: fmt.Sprint(i), Label: fmt.Sprintf("Item %d", i)}
@@ -478,6 +502,7 @@ func TestDropdownMenuLongMenuScrolls(t *testing.T) {
 }
 
 func TestDropdownMenuStyleProvider(t *testing.T) {
+	t.Parallel()
 	s := kit.DefaultStyle()
 	s.DropdownMenu.Item += " ring-4"
 	s.DropdownMenu.ItemVariants["quiet"] = "text-muted-foreground"
@@ -499,6 +524,7 @@ func TestDropdownMenuStyleProvider(t *testing.T) {
 }
 
 func TestDropdownMenuOpenGolden(t *testing.T) {
+	t.Parallel()
 	var log []string
 	d := actionsMenu(&log, func(d *kit.DropdownMenu[string]) {
 		d.Align = "start"
@@ -524,6 +550,7 @@ func TestDropdownMenuOpenGolden(t *testing.T) {
 }
 
 func TestDropdownMenuIdle(t *testing.T) {
+	t.Parallel()
 	var log []string
 	expectIdle(t, pageUnder(actionsMenu(&log, func(d *kit.DropdownMenu[string]) { d.DefaultOpen = true })), nil)
 }

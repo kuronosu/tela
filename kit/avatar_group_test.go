@@ -37,7 +37,10 @@ func avatarGroupSheet() *sheet {
 	}}
 }
 
-func TestAvatarGroupGolden(t *testing.T) { avatarGroupSheet().golden(t) }
+func TestAvatarGroupGolden(t *testing.T) {
+	t.Parallel()
+	avatarGroupSheet().golden(t)
+}
 
 func avatarColorSheet() *sheet {
 	var cells []cell
@@ -55,7 +58,10 @@ func avatarColorSheet() *sheet {
 	return &sheet{name: "avatar_color", slot: 64, cells: cells}
 }
 
-func TestAvatarColorGolden(t *testing.T) { avatarColorSheet().golden(t) }
+func TestAvatarColorGolden(t *testing.T) {
+	t.Parallel()
+	avatarColorSheet().golden(t)
+}
 
 func TestAvatarGroupRTLGolden(t *testing.T) {
 	t.Parallel()

@@ -62,6 +62,7 @@ func mountOverlayPage(t *testing.T, surface string, marked bool, root tela.Compo
 // leading content starts after the OS's buttons, in every way to ask for the
 // macOS arrangement.
 func TestTitleBarLeavesRoomForTheOSButtons(t *testing.T) {
+	t.Parallel()
 	right := telatest.MacTitleBarControls.X + telatest.MacTitleBarControls.Width
 	for name, bar := range map[string]kit.TitleBar{
 		"macos": overlayBar(kit.MacOS, ""),
@@ -91,6 +92,7 @@ func TestTitleBarLeavesRoomForTheOSButtons(t *testing.T) {
 
 // The OS moving its buttons moves the room.
 func TestTitleBarFollowsTheOSButtons(t *testing.T) {
+	t.Parallel()
 	a := mountOverlay(t, overlayBar(kit.MacOS, ""))
 	before := a.Bounds(menuButton).X
 	a.SetTitleBarControls(tela.Rect{X: 8, Y: 13, Width: 120, Height: 14})
@@ -110,6 +112,7 @@ func TestTitleBarFollowsTheOSButtons(t *testing.T) {
 // Without the rectangle (Frameless, or an OS that cannot keep its buttons
 // over the content) nothing changes: the controls are drawn.
 func TestTitleBarWithoutOSButtonsIsUnchanged(t *testing.T) {
+	t.Parallel()
 	// TitleBarOverlay on a platform that treats it as Frameless.
 	a := telatest.MountFunc(t, func() tela.Node { return h.Div(h.Class("w-full"), overlayBar(kit.MacOS, "")) },
 		telatest.Size(480, 160), telatest.Theme(kit.Theme()), telatest.TitleBarOverlay())
@@ -130,6 +133,7 @@ func TestTitleBarWithoutOSButtonsIsUnchanged(t *testing.T) {
 // that side free and the leading side as it is; WindowControls alone draws
 // nothing.
 func TestTitleBarRoomAtTheEnd(t *testing.T) {
+	t.Parallel()
 	a := mountOverlay(t, overlayBar(kit.Windows, ""), telatest.TitleBarControls(tela.Rect{X: 380, Y: 0, Width: 92, Height: 32}))
 	a.ExpectCount(group, 0)
 	if x := a.Bounds(menuButton).X; x > 20 {
@@ -146,6 +150,7 @@ func TestTitleBarRoomAtTheEnd(t *testing.T) {
 // Under rtl the OS's buttons stay at the window's left, which is the end of
 // the bar.
 func TestTitleBarRoomUnderRTL(t *testing.T) {
+	t.Parallel()
 	a := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("w-full"), h.Dir("rtl"), overlayBar(kit.MacOS, ""))
 	}, telatest.Size(480, 160), telatest.Theme(kit.Theme()), telatest.TitleBarOverlay(), telatest.PlatformKeys("darwin"))
@@ -161,6 +166,7 @@ func TestTitleBarRoomUnderRTL(t *testing.T) {
 // leading content sits right of the buttons' rectangle and no dots are
 // drawn.
 func TestTitleBarOverlayGolden(t *testing.T) {
+	t.Parallel()
 	mountOverlayPage(t, "bg-background", true, overlayBar(kit.MacOS, "")).GoldenScales("titlebar_overlay_macos", 1, 2)
 	mountOverlayPage(t, "bg-muted", true, overlayBar(kit.Plain, kit.MacOS)).GoldenScales("titlebar_overlay_plain", 1, 2)
 }
@@ -169,6 +175,7 @@ func TestTitleBarOverlayGolden(t *testing.T) {
 // in a macOS window (the traffic lights at the left) keeps the left free,
 // so its leading content does not sit under the buttons.
 func TestTitleBarRoomFollowsTheRectangleNotTheLook(t *testing.T) {
+	t.Parallel()
 	a := mountOverlay(t, overlayBar(kit.Windows, ""))
 	right := telatest.MacTitleBarControls.X + telatest.MacTitleBarControls.Width
 	a.ExpectCount(group, 0)
@@ -207,6 +214,7 @@ func mountWindowsOverlay(t *testing.T, surface string, root tela.Component) *tel
 // leading content stays at the start; taking the buttons away (fullscreen)
 // brings the drawn controls back at the end.
 func TestTitleBarRoomAtTheEndFromTheOS(t *testing.T) {
+	t.Parallel()
 	for name, bar := range map[string]kit.TitleBar{
 		"windows": overlayBar(kit.Windows, ""),
 		"plain":   overlayBar(kit.Plain, kit.Windows),
@@ -244,6 +252,7 @@ func TestTitleBarRoomAtTheEndFromTheOS(t *testing.T) {
 // Look at the PNGs: the Share button ends left of the box and no drawn
 // controls are under it.
 func TestTitleBarOverlayWindowsGolden(t *testing.T) {
+	t.Parallel()
 	mountWindowsOverlay(t, "bg-background", overlayBar(kit.Windows, "")).GoldenScales("titlebar_overlay_windows", 1, 2)
 	mountWindowsOverlay(t, "bg-muted", overlayBar(kit.Plain, kit.Windows)).GoldenScales("titlebar_overlay_windows_plain", 1, 2)
 }

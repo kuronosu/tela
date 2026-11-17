@@ -50,7 +50,10 @@ func endContentSheet() *sheet {
 	}}
 }
 
-func TestInputEndContentGolden(t *testing.T) { endContentSheet().golden(t) }
+func TestInputEndContentGolden(t *testing.T) {
+	t.Parallel()
+	endContentSheet().golden(t)
+}
 
 func TestInputEndContentRTLGolden(t *testing.T) {
 	t.Parallel()

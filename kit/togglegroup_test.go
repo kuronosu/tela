@@ -119,8 +119,15 @@ func toggleGroupSheet() *sheet {
 	}}
 }
 
-func TestToggleGroupGolden(t *testing.T)   { toggleGroupSheet().golden(t) }
-func TestChromiumToggleGroup(t *testing.T) { toggleGroupSheet().chromium(t) }
+func TestToggleGroupGolden(t *testing.T) {
+	t.Parallel()
+	toggleGroupSheet().golden(t)
+}
+
+func TestChromiumToggleGroup(t *testing.T) {
+	t.Parallel()
+	toggleGroupSheet().chromium(t)
+}
 
 var tgViews = []kit.ToggleGroupItem[string]{
 	{Value: "list", Label: "List"}, {Value: "grid", Label: "Grid"}, {Value: "map", Label: "Map", Disabled: true}, {Value: "table", Label: "Table"},

@@ -106,5 +106,12 @@ func cardSheet() *sheet {
 	return &sheet{name: "card", cells: cells}
 }
 
-func TestCardGolden(t *testing.T)   { cardSheet().golden(t) }
-func TestChromiumCard(t *testing.T) { cardSheet().chromium(t) }
+func TestCardGolden(t *testing.T) {
+	t.Parallel()
+	cardSheet().golden(t)
+}
+
+func TestChromiumCard(t *testing.T) {
+	t.Parallel()
+	cardSheet().chromium(t)
+}

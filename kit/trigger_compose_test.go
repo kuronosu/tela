@@ -24,6 +24,7 @@ func mountTrigger(t *testing.T, c tela.Component) *telatest.App {
 // One button with two overlays: a tooltip that explains it and the menu it
 // opens, nested either way (Radix's asChild on both triggers).
 func TestTooltipAndMenuOnOneTrigger(t *testing.T) {
+	t.Parallel()
 	items := []kit.MenuItem[string]{{Key: "rename", Label: "Rename"}, {Key: "delete", Label: "Delete"}}
 	button := kit.Button{Variant: kit.Outline, Children: h.Text("Actions")}
 	for name, c := range map[string]tela.Component{
@@ -63,6 +64,7 @@ func TestTooltipAndMenuOnOneTrigger(t *testing.T) {
 
 // A dialog's trigger with a tooltip.
 func TestTooltipOnDialogTrigger(t *testing.T) {
+	t.Parallel()
 	app := mountTrigger(t, kit.Tooltip{Content: h.Text("Edit your profile"),
 		Trigger: kit.Dialog{Trigger: kit.Button{Children: h.Text("Edit")}, Title: h.Text("Profile")}})
 	edit := telatest.ByRole("button", "Edit")
@@ -75,6 +77,7 @@ func TestTooltipOnDialogTrigger(t *testing.T) {
 // Toggle, Checkbox, Switch and Slider are Triggers: they keep working as
 // controls with a tooltip on them.
 func TestControlsAsTooltipTriggers(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name    string
 		trigger kit.Trigger
@@ -104,6 +107,7 @@ func TestControlsAsTooltipTriggers(t *testing.T) {
 // A slider's tooltip opens for the pointer over the slider and for the
 // keyboard focus on its thumb, inside the trigger.
 func TestSliderAsTooltipTrigger(t *testing.T) {
+	t.Parallel()
 	app := mountTrigger(t, kit.Tooltip{Content: h.Text("Volume"),
 		Trigger: kit.Slider{AriaLabel: "Volume", DefaultValue: new(50.0), Class: "w-48"}})
 	thumb := telatest.ByRole("slider", "Volume")
@@ -124,6 +128,7 @@ func TestSliderAsTooltipTrigger(t *testing.T) {
 // from the button before it to the one inside it, and an area with nothing
 // focusable is skipped.
 func TestContextMenuAreaIsNotATabStop(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("flex flex-col gap-4 p-6"),
 			h.Button(h.Text("Before")),

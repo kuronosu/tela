@@ -24,7 +24,10 @@ func colorInputSheet() *sheet {
 	}}
 }
 
-func TestColorInputGolden(t *testing.T) { colorInputSheet().golden(t) }
+func TestColorInputGolden(t *testing.T) {
+	t.Parallel()
+	colorInputSheet().golden(t)
+}
 
 var (
 	colorTrigger = telatest.ByRole("button", "#6366f1")

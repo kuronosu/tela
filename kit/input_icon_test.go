@@ -29,7 +29,10 @@ func inputIconSheet() *sheet {
 	}}
 }
 
-func TestInputIconGolden(t *testing.T) { inputIconSheet().golden(t) }
+func TestInputIconGolden(t *testing.T) {
+	t.Parallel()
+	inputIconSheet().golden(t)
+}
 
 func TestInputIconRTLGolden(t *testing.T) {
 	t.Parallel()

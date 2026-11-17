@@ -138,8 +138,15 @@ func toastSheet(t testing.TB) *sheet {
 	}, css: readFixture(t, "styles.css") + sonnerOverrides}
 }
 
-func TestToastGolden(t *testing.T)   { toastSheet(t).golden(t) }
-func TestChromiumToast(t *testing.T) { toastSheet(t).chromium(t) }
+func TestToastGolden(t *testing.T) {
+	t.Parallel()
+	toastSheet(t).golden(t)
+}
+
+func TestChromiumToast(t *testing.T) {
+	t.Parallel()
+	toastSheet(t).chromium(t)
+}
 
 var _ tela.Component = kit.Toaster{}
 
@@ -174,6 +181,7 @@ func newToastApp(t *testing.T, cfg kit.Toaster, opts ...telatest.Option) (*telat
 }
 
 func TestToastShowFromAHandlerAndAutoDismiss(t *testing.T) {
+	t.Parallel()
 	app, _ := newToastApp(t, kit.Toaster{}, telatest.NoSettle())
 	app.Click(telatest.ByRole("button", "Show"))
 	app.Advance(500 * time.Millisecond) // the entrance
@@ -189,6 +197,7 @@ func TestToastShowFromAHandlerAndAutoDismiss(t *testing.T) {
 }
 
 func TestToastFromAGoroutine(t *testing.T) {
+	t.Parallel()
 	app, handle := newToastApp(t, kit.Toaster{Duration: kit.ToastForever})
 	var wg sync.WaitGroup
 	ids := make([]kit.ToastID, 8)
@@ -217,6 +226,7 @@ func TestToastFromAGoroutine(t *testing.T) {
 }
 
 func TestToastHandleIsComparable(t *testing.T) {
+	t.Parallel()
 	_, a := newToastApp(t, kit.Toaster{})
 	_, b := newToastApp(t, kit.Toaster{})
 	same := *a
@@ -230,6 +240,7 @@ func TestToastHandleIsComparable(t *testing.T) {
 }
 
 func TestToastStacksNewestFirstAndShowsThree(t *testing.T) {
+	t.Parallel()
 	app, handle := newToastApp(t, kit.Toaster{Duration: kit.ToastForever})
 	for i := 1; i <= 5; i++ {
 		handle.Show(fmt.Sprintf("Toast %d", i))
@@ -249,6 +260,7 @@ func TestToastStacksNewestFirstAndShowsThree(t *testing.T) {
 }
 
 func TestToastPauseOnHover(t *testing.T) {
+	t.Parallel()
 	app, handle := newToastApp(t, kit.Toaster{}, telatest.NoSettle())
 	handle.Show("Hover me")
 	app.Advance(500 * time.Millisecond)
@@ -298,6 +310,7 @@ func TestToastDismissAndAutoCloseCallbacks(t *testing.T) {
 }
 
 func TestToastReplaceKeepsPlace(t *testing.T) {
+	t.Parallel()
 	app, handle := newToastApp(t, kit.Toaster{})
 	id := handle.Loading("Uploading")
 	handle.Show("Other")
@@ -314,6 +327,7 @@ func TestToastReplaceKeepsPlace(t *testing.T) {
 }
 
 func TestToastRoles(t *testing.T) {
+	t.Parallel()
 	app, handle := newToastApp(t, kit.Toaster{Duration: kit.ToastForever})
 	handle.Show("Plain")
 	handle.Success("Fine")
@@ -324,6 +338,7 @@ func TestToastRoles(t *testing.T) {
 }
 
 func TestToastPositions(t *testing.T) {
+	t.Parallel()
 	var ys []float32
 	for _, pos := range []kit.ToastPosition{kit.ToastTopLeft, kit.ToastTopCenter, kit.ToastTopRight, kit.ToastBottomLeft, kit.ToastBottomCenter, kit.ToastBottomRight} {
 		app, handle := newToastApp(t, kit.Toaster{Position: pos, Duration: kit.ToastForever})
@@ -343,6 +358,7 @@ func TestToastPositions(t *testing.T) {
 }
 
 func TestToastWithoutAToasterPanics(t *testing.T) {
+	t.Parallel()
 	_, err := telatest.Render(toastButtons{new(kit.ToastHandle)})
 	if err == nil || !strings.Contains(err.Error(), "wrap the app in kit.Toaster") {
 		t.Errorf("error %v, want the missing Toaster reported", err)
@@ -357,6 +373,7 @@ func TestToastWithoutAToasterPanics(t *testing.T) {
 }
 
 func TestToastIdleRequestsNoFramesBeyondTheTimer(t *testing.T) {
+	t.Parallel()
 	app, handle := newToastApp(t, kit.Toaster{}, telatest.NoSettle())
 	handle.Show("Waiting")
 	app.Advance(time.Second) // entrance and measurement done
@@ -370,6 +387,7 @@ func TestToastIdleRequestsNoFramesBeyondTheTimer(t *testing.T) {
 }
 
 func TestToastStyleAndClass(t *testing.T) {
+	t.Parallel()
 	s := kit.DefaultStyle()
 	s.Toast.Item += " rounded-none"
 	app := telatest.Mount(t, kit.StyleProvider{Style: &s, Children: toastApp{new(kit.ToastHandle), kit.Toaster{ToastClass: "bg-black", Class: "w-96"}}})
@@ -379,6 +397,7 @@ func TestToastStyleAndClass(t *testing.T) {
 // TestToastHoverFansOutTheStack looks at the stack under the pointer: the
 // toasts spread, each in full, and the timers stop.
 func TestToastHoverFansOutTheStack(t *testing.T) {
+	t.Parallel()
 	app, handle := newToastApp(t, kit.Toaster{})
 	handle.Show("First", kit.ToastDescription("The oldest one."))
 	handle.Success("Second")

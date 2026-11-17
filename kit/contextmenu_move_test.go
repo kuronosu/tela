@@ -58,6 +58,7 @@ func countingPage(builds *int) func() tela.Node {
 // point is a deferred read of the float pass); a quick tap elsewhere on
 // the area still closes it.
 func TestContextMenuLongPressWhileOpenMoves(t *testing.T) {
+	t.Parallel()
 	for _, kind := range rawwin.TouchAndPen {
 		t.Run(rawwin.KindName(kind), func(t *testing.T) {
 			children := 0
@@ -97,6 +98,7 @@ func TestContextMenuLongPressWhileOpenMoves(t *testing.T) {
 // without building the area's children again (the ContextMenu builds, and
 // its Children are the same node).
 func TestContextMenuReopenKeepsChildren(t *testing.T) {
+	t.Parallel()
 	children := 0
 	app := mountContext(t, countingPage(&children), 480, 320)
 	app.ClickAt(100, 80, telatest.Right())

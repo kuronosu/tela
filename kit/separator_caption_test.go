@@ -23,7 +23,10 @@ func separatorCaptionSheet() *sheet {
 	}}
 }
 
-func TestSeparatorCaptionGolden(t *testing.T) { separatorCaptionSheet().golden(t) }
+func TestSeparatorCaptionGolden(t *testing.T) {
+	t.Parallel()
+	separatorCaptionSheet().golden(t)
+}
 
 func TestSeparatorCaptionRTLGolden(t *testing.T) {
 	t.Parallel()

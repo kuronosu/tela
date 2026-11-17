@@ -60,8 +60,15 @@ func popoverSheet() *sheet {
 	}}
 }
 
-func TestPopoverGolden(t *testing.T)   { popoverSheet().golden(t) }
-func TestChromiumPopover(t *testing.T) { popoverSheet().chromium(t) }
+func TestPopoverGolden(t *testing.T) {
+	t.Parallel()
+	popoverSheet().golden(t)
+}
+
+func TestChromiumPopover(t *testing.T) {
+	t.Parallel()
+	popoverSheet().chromium(t)
+}
 
 var (
 	dimsButton = telatest.ByRole("button", "Dimensions")

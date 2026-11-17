@@ -32,7 +32,10 @@ func colorPickerSheet() *sheet {
 	}}
 }
 
-func TestColorPickerGolden(t *testing.T) { colorPickerSheet().golden(t) }
+func TestColorPickerGolden(t *testing.T) {
+	t.Parallel()
+	colorPickerSheet().golden(t)
+}
 
 var (
 	areaThumb  = telatest.ByRole("slider", "Color area")

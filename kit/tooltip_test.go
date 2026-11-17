@@ -49,8 +49,15 @@ func tooltipSheet() *sheet {
 	}}
 }
 
-func TestTooltipGolden(t *testing.T)   { tooltipSheet().golden(t) }
-func TestChromiumTooltip(t *testing.T) { tooltipSheet().chromium(t) }
+func TestTooltipGolden(t *testing.T) {
+	t.Parallel()
+	tooltipSheet().golden(t)
+}
+
+func TestChromiumTooltip(t *testing.T) {
+	t.Parallel()
+	tooltipSheet().chromium(t)
+}
 
 // tipPage has two buttons with tooltips, "Save" at (16, 100) and "Print" at
 // (136, 100), and an empty area below.

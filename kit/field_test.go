@@ -85,5 +85,12 @@ func fieldSheet() *sheet {
 	}}
 }
 
-func TestFieldGolden(t *testing.T)   { fieldSheet().golden(t) }
-func TestChromiumField(t *testing.T) { fieldSheet().chromium(t) }
+func TestFieldGolden(t *testing.T) {
+	t.Parallel()
+	fieldSheet().golden(t)
+}
+
+func TestChromiumField(t *testing.T) {
+	t.Parallel()
+	fieldSheet().chromium(t)
+}

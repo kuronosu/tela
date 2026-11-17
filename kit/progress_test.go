@@ -42,8 +42,15 @@ func progressSheet() *sheet {
 	}}
 }
 
-func TestProgressGolden(t *testing.T)   { progressSheet().golden(t) }
-func TestChromiumProgress(t *testing.T) { progressSheet().chromium(t) }
+func TestProgressGolden(t *testing.T) {
+	t.Parallel()
+	progressSheet().golden(t)
+}
+
+func TestChromiumProgress(t *testing.T) {
+	t.Parallel()
+	progressSheet().chromium(t)
+}
 
 func progressbar(name string) telatest.Locator { return telatest.ByRole("progressbar", name) }
 

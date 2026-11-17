@@ -17,6 +17,7 @@ import (
 // An expanded Toaster only fans the stack out: the timers keep running
 // (sonner's `expand`); only the pointer over the stack pauses them.
 func TestToastExpandDoesNotPauseTheTimers(t *testing.T) {
+	t.Parallel()
 	app, handle := newToastApp(t, kit.Toaster{Expand: true}, telatest.NoSettle())
 	handle.Show("Expanded")
 	app.Advance(500 * time.Millisecond)
@@ -29,6 +30,7 @@ func TestToastExpandDoesNotPauseTheTimers(t *testing.T) {
 // ToastReplace with an id no toast has keeps the automatic ids from
 // reaching it later.
 func TestToastReplaceOfAnUnknownIDReservesIt(t *testing.T) {
+	t.Parallel()
 	app, handle := newToastApp(t, kit.Toaster{Duration: kit.ToastForever})
 	_ = app
 	custom := handle.Show("Custom", kit.ToastReplace(kit.ToastID(2)))
@@ -48,6 +50,7 @@ func TestToastReplaceOfAnUnknownIDReservesIt(t *testing.T) {
 // A toast is as tall as its body plus the padding and border its recipe
 // gives, not a fixed amount.
 func TestToastHeightFollowsTheItemRecipe(t *testing.T) {
+	t.Parallel()
 	height := func(item func(string) string) float32 {
 		s := kit.DefaultStyle()
 		s.Toast.Item = item(s.Toast.Item)
@@ -77,6 +80,7 @@ var _ tela.Component = kit.Toaster{}
 // that begins at 0 has its knob in the middle, and one without a
 // DefaultValue begins at Min.
 func TestSliderDefaultValueZero(t *testing.T) {
+	t.Parallel()
 	knobAt := func(s kit.Slider) (knob, root tela.Rect) {
 		s.AriaLabel, s.Props, s.Min, s.Max = "Offset", h.TestID("s"), -50, 50
 		app := telatest.MountFunc(t, func() tela.Node { return h.Div(h.Class("w-[300px] p-4"), s) })
@@ -106,6 +110,7 @@ func (l logTB) Log(args ...any) { *l.logs = append(*l.logs, fmt.Sprint(args...))
 // A group name, or the run of ungrouped items, that comes back after another
 // group does not repeat the keys of its separator and heading.
 func TestSelectRepeatedGroupsHaveDistinctKeys(t *testing.T) {
+	t.Parallel()
 	items := []kit.SelectItem[string]{
 		{Value: "a1", Label: "A one", Group: "A"},
 		{Value: "b1", Label: "B one", Group: "B"},

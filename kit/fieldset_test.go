@@ -109,8 +109,15 @@ func fieldSetSheet() *sheet {
 	}}
 }
 
-func TestFieldSetGolden(t *testing.T)   { fieldSetSheet().golden(t) }
-func TestChromiumFieldSet(t *testing.T) { fieldSetSheet().chromium(t) }
+func TestFieldSetGolden(t *testing.T) {
+	t.Parallel()
+	fieldSetSheet().golden(t)
+}
+
+func TestChromiumFieldSet(t *testing.T) {
+	t.Parallel()
+	fieldSetSheet().chromium(t)
+}
 
 // With ControlAfter the label and the description come first and the
 // control last, while the label still names the control and a click on it

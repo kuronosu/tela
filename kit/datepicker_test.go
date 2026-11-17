@@ -63,8 +63,15 @@ func datePickerSheet() *sheet {
 	return &sheet{name: "datepicker", cells: datePickerCells(), slot: 320}
 }
 
-func TestDatePickerGolden(t *testing.T)   { datePickerSheet().golden(t) }
-func TestChromiumDatePicker(t *testing.T) { datePickerSheet().chromium(t) }
+func TestDatePickerGolden(t *testing.T) {
+	t.Parallel()
+	datePickerSheet().golden(t)
+}
+
+func TestChromiumDatePicker(t *testing.T) {
+	t.Parallel()
+	datePickerSheet().chromium(t)
+}
 
 func pickerPage(c tela.Component) func() tela.Node {
 	return func() tela.Node {

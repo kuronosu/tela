@@ -120,8 +120,15 @@ func tabsSheet() *sheet {
 	}}
 }
 
-func TestTabsGolden(t *testing.T)   { tabsSheet().golden(t) }
-func TestChromiumTabs(t *testing.T) { tabsSheet().chromium(t) }
+func TestTabsGolden(t *testing.T) {
+	t.Parallel()
+	tabsSheet().golden(t)
+}
+
+func TestChromiumTabs(t *testing.T) {
+	t.Parallel()
+	tabsSheet().chromium(t)
+}
 
 // tabsApp mounts tabs under a Page and returns the app.
 func selectedTab(app *telatest.App, name string) {

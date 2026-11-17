@@ -37,7 +37,10 @@ func alertActionSheet() *sheet {
 	}}
 }
 
-func TestAlertActionGolden(t *testing.T) { alertActionSheet().golden(t) }
+func TestAlertActionGolden(t *testing.T) {
+	t.Parallel()
+	alertActionSheet().golden(t)
+}
 
 func TestAlertActionRTLGolden(t *testing.T) {
 	t.Parallel()

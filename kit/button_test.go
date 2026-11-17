@@ -110,7 +110,14 @@ func buttonSheet() *sheet {
 	return &sheet{name: "button", cells: cells, slot: 176}
 }
 
-func TestButtonGolden(t *testing.T)   { buttonSheet().golden(t) }
-func TestChromiumButton(t *testing.T) { buttonSheet().chromium(t) }
+func TestButtonGolden(t *testing.T) {
+	t.Parallel()
+	buttonSheet().golden(t)
+}
+
+func TestChromiumButton(t *testing.T) {
+	t.Parallel()
+	buttonSheet().chromium(t)
+}
 
 var _ tela.Component = kit.Button{}

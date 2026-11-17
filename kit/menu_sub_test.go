@@ -40,6 +40,7 @@ func subDropdown(log *[]string, dir string) func() tela.Node {
 }
 
 func TestDropdownSubmenuKeyboard(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := telatest.MountFunc(t, subDropdown(&log, ""), telatest.Size(640, 480), telatest.Theme(kit.Theme()))
 	trigger := telatest.ByRole("button", "Open")
@@ -81,6 +82,7 @@ func TestDropdownSubmenuKeyboard(t *testing.T) {
 }
 
 func TestDropdownSubmenuRTL(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := telatest.MountFunc(t, subDropdown(&log, "rtl"), telatest.Size(640, 480), telatest.Theme(kit.Theme()))
 	invite := cmItem("Invite users")
@@ -99,6 +101,7 @@ func TestDropdownSubmenuRTL(t *testing.T) {
 }
 
 func TestDropdownSubmenuPointer(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := telatest.MountFunc(t, subDropdown(&log, ""), telatest.Size(640, 480), telatest.Theme(kit.Theme()))
 	app.Click(telatest.ByRole("button", "Open"))
@@ -122,6 +125,7 @@ func TestDropdownSubmenuPointer(t *testing.T) {
 }
 
 func TestContextMenuSubmenu(t *testing.T) {
+	t.Parallel()
 	var log []string
 	page := contextPage(kit.ContextMenu[string]{Items: subItems(&log), OnSelect: func(k string) { log = append(log, "select:"+k) }})
 	app := mountContext(t, page, 640, 480)
@@ -141,6 +145,7 @@ func TestContextMenuSubmenu(t *testing.T) {
 // (it does not move to the previous menu), and ArrowRight on another item
 // of the submenu moves to the next menu.
 func TestMenubarSubmenuArrows(t *testing.T) {
+	t.Parallel()
 	var log []string
 	file := fileMenu()
 	file.Items = append(file.Items, kit.MenuItem[string]{Kind: kit.MenuSub, Key: "share", Label: "Share", Items: []kit.MenuItem[string]{
@@ -190,6 +195,7 @@ func TestNativeContextMenuSubmenu(t *testing.T) {
 }
 
 func TestMenuSubmenuDuplicateKeyPanics(t *testing.T) {
+	t.Parallel()
 	defer func() {
 		r := recover()
 		if r == nil || !strings.Contains(fmt.Sprint(r), `key team`) {
@@ -209,6 +215,7 @@ func TestMenuSubmenuDuplicateKeyPanics(t *testing.T) {
 // The open submenu, left to right and right to left (the chevron turns,
 // the submenu opens on the other side).
 func TestDropdownSubmenuGolden(t *testing.T) {
+	t.Parallel()
 	for _, dir := range []string{"ltr", "rtl"} {
 		var log []string
 		page := func() tela.Node {
@@ -235,6 +242,7 @@ func TestDropdownSubmenuGolden(t *testing.T) {
 // the same key inside, or an item after a submenu with one of its keys,
 // would make a native menu run the wrong handler (flattenDeep keeps one).
 func TestMenuSubmenuDuplicateKeyAcrossLevelsPanics(t *testing.T) {
+	t.Parallel()
 	sub := func(key string, items ...kit.MenuItem[string]) kit.MenuItem[string] {
 		return kit.MenuItem[string]{Kind: kit.MenuSub, Key: key, Label: key, Items: items}
 	}

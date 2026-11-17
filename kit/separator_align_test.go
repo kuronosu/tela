@@ -21,7 +21,10 @@ func separatorAlignSheet() *sheet {
 	}}
 }
 
-func TestSeparatorAlignGolden(t *testing.T) { separatorAlignSheet().golden(t) }
+func TestSeparatorAlignGolden(t *testing.T) {
+	t.Parallel()
+	separatorAlignSheet().golden(t)
+}
 
 func TestSeparatorAlignRTLGolden(t *testing.T) {
 	t.Parallel()

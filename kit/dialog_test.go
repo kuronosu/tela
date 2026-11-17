@@ -103,8 +103,15 @@ func dialogSheet() *sheet {
 	}}
 }
 
-func TestDialogGolden(t *testing.T)   { dialogSheet().golden(t) }
-func TestChromiumDialog(t *testing.T) { dialogSheet().chromium(t) }
+func TestDialogGolden(t *testing.T) {
+	t.Parallel()
+	dialogSheet().golden(t)
+}
+
+func TestChromiumDialog(t *testing.T) {
+	t.Parallel()
+	dialogSheet().chromium(t)
+}
 
 // editDialog is the dialog of the behavior tests: a button, a form with a
 // text field, and two buttons in the footer.

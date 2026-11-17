@@ -68,8 +68,15 @@ func switchSheet() *sheet {
 	}}
 }
 
-func TestSwitchGolden(t *testing.T)   { switchSheet().golden(t) }
-func TestChromiumSwitch(t *testing.T) { switchSheet().chromium(t) }
+func TestSwitchGolden(t *testing.T) {
+	t.Parallel()
+	switchSheet().golden(t)
+}
+
+func TestChromiumSwitch(t *testing.T) {
+	t.Parallel()
+	switchSheet().chromium(t)
+}
 
 func switchRole(name string) telatest.Locator { return telatest.ByRole("switch", name) }
 

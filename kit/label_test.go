@@ -75,5 +75,12 @@ func labelSheet() *sheet {
 	}}
 }
 
-func TestLabelGolden(t *testing.T)   { labelSheet().golden(t) }
-func TestChromiumLabel(t *testing.T) { labelSheet().chromium(t) }
+func TestLabelGolden(t *testing.T) {
+	t.Parallel()
+	labelSheet().golden(t)
+}
+
+func TestChromiumLabel(t *testing.T) {
+	t.Parallel()
+	labelSheet().chromium(t)
+}

@@ -80,8 +80,15 @@ func toggleSheet() *sheet {
 	}}
 }
 
-func TestToggleGolden(t *testing.T)   { toggleSheet().golden(t) }
-func TestChromiumToggle(t *testing.T) { toggleSheet().chromium(t) }
+func TestToggleGolden(t *testing.T) {
+	t.Parallel()
+	toggleSheet().golden(t)
+}
+
+func TestChromiumToggle(t *testing.T) {
+	t.Parallel()
+	toggleSheet().chromium(t)
+}
 
 func toggleButton(name string) telatest.Locator { return telatest.ByRole("button", name) }
 

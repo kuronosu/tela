@@ -33,7 +33,10 @@ func endFitSheet() *sheet {
 	}}
 }
 
-func TestInputEndFitGolden(t *testing.T) { endFitSheet().golden(t) }
+func TestInputEndFitGolden(t *testing.T) {
+	t.Parallel()
+	endFitSheet().golden(t)
+}
 
 func TestInputEndFitRTLGolden(t *testing.T) {
 	t.Parallel()

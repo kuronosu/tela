@@ -78,6 +78,7 @@ func naturalMenuHeight(t *testing.T, scale float64) float32 {
 // 10 px margin on the limit alone used to take from it) and expects its
 // whole height, at the pointer, with nothing to scroll.
 func TestContextMenuDoesNotScrollWhenItFits(t *testing.T) {
+	t.Parallel()
 	for _, scale := range roomScales {
 		natural := naturalMenuHeight(t, scale)
 		for _, extra := range []float32{1, 4, 7, 9.5, 12, 40} {
@@ -107,6 +108,7 @@ func TestContextMenuDoesNotScrollWhenItFits(t *testing.T) {
 // TestContextMenuFlipsInsteadOfScrolling opens the menu where there is no
 // room below it but plenty above: it goes above the pointer, whole.
 func TestContextMenuFlipsInsteadOfScrolling(t *testing.T) {
+	t.Parallel()
 	for _, scale := range roomScales {
 		natural := naturalMenuHeight(t, scale)
 		for _, short := range []float32{1, 5, 9.5, 30} {
@@ -133,6 +135,7 @@ func TestContextMenuFlipsInsteadOfScrolling(t *testing.T) {
 // TestContextMenuInALargeWindowNeverScrolls opens it at a spread of points
 // of a 1280x800 window, the size of the gallery's.
 func TestContextMenuInALargeWindowNeverScrolls(t *testing.T) {
+	t.Parallel()
 	for _, scale := range roomScales {
 		app := mountMenuRawScale(t, roomPage, 1280, 800, scale)
 		for _, p := range [][2]float32{{5, 5}, {300, 333}, {420.4, 410.3}, {550, 480}, {300, 506}, {300, 512.5}, {1200, 300}, {640, 790}, {900, 760.25}} {
@@ -152,6 +155,7 @@ func TestContextMenuInALargeWindowNeverScrolls(t *testing.T) {
 // window with no room for the menu on either side limits it to the room
 // and the menu scrolls.
 func TestContextMenuScrollsInAShortWindow(t *testing.T) {
+	t.Parallel()
 	for _, scale := range roomScales {
 		natural := naturalMenuHeight(t, scale)
 		t.Run(fmt.Sprintf("scale %v", scale), func(t *testing.T) {

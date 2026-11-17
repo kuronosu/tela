@@ -89,8 +89,15 @@ func checkboxSheet() *sheet {
 	}}
 }
 
-func TestCheckboxGolden(t *testing.T)   { checkboxSheet().golden(t) }
-func TestChromiumCheckbox(t *testing.T) { checkboxSheet().chromium(t) }
+func TestCheckboxGolden(t *testing.T) {
+	t.Parallel()
+	checkboxSheet().golden(t)
+}
+
+func TestChromiumCheckbox(t *testing.T) {
+	t.Parallel()
+	checkboxSheet().chromium(t)
+}
 
 func checkbox(name string) telatest.Locator { return telatest.ByRole("checkbox", name) }
 

@@ -29,6 +29,7 @@ func editItems(log *[]string) []kit.MenuItem[string] {
 // A role item of a context menu on a text field acts on the field: the
 // focus is back in it when the role is carried out.
 func TestContextMenuRoleItems(t *testing.T) {
+	t.Parallel()
 	var log []string
 	page := func() tela.Node {
 		return h.Div(h.Class("p-6"), kit.ContextMenu[string]{
@@ -71,6 +72,7 @@ func TestContextMenuRoleItems(t *testing.T) {
 // pressing the bar: the bar's button took the focus, the role gives it
 // back.
 func TestMenubarRoleItemsActOnTheField(t *testing.T) {
+	t.Parallel()
 	var log []string
 	page := func() tela.Node {
 		return h.Div(h.Class("flex flex-col gap-4 p-6"),
@@ -98,6 +100,7 @@ func TestMenubarRoleItemsActOnTheField(t *testing.T) {
 // OnSelect, so the OS (or package desktop) carries them out; the app's own
 // items keep theirs.
 func TestNativeMenubarRoleItems(t *testing.T) {
+	t.Parallel()
 	var log []string
 	page := func() tela.Node {
 		return h.Div(kit.Menubar[string]{Native: kit.NativeOn, Menus: []kit.MenubarMenu[string]{
@@ -127,6 +130,7 @@ func TestNativeMenubarRoleItems(t *testing.T) {
 }
 
 func TestMenuItemRoleOfAMenuPanics(t *testing.T) {
+	t.Parallel()
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("an item with RoleEditMenu did not panic")
@@ -143,6 +147,7 @@ func TestMenuItemRoleOfAMenuPanics(t *testing.T) {
 // drawn or native (a native menu would make it a role item, a drawn one a
 // radio).
 func TestMenuRadioItemRolePanics(t *testing.T) {
+	t.Parallel()
 	for _, native := range []bool{false, true} {
 		t.Run(fmt.Sprint("native=", native), func(t *testing.T) {
 			defer func() {
@@ -166,6 +171,7 @@ func TestMenuRadioItemRolePanics(t *testing.T) {
 // press on the trigger that opened nothing (a right click) leaves no
 // origin, so a later opening by the app acts where the focus was then.
 func TestDropdownRoleOriginBelongsToItsOpening(t *testing.T) {
+	t.Parallel()
 	var log []string
 	var setOpen tela.Setter[bool]
 	page := func() tela.Node {

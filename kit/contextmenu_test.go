@@ -44,8 +44,15 @@ func contextSheet() *sheet {
 	}}
 }
 
-func TestContextMenuGolden(t *testing.T)   { contextSheet().golden(t) }
-func TestChromiumContextMenu(t *testing.T) { contextSheet().chromium(t) }
+func TestContextMenuGolden(t *testing.T) {
+	t.Parallel()
+	contextSheet().golden(t)
+}
+
+func TestChromiumContextMenu(t *testing.T) {
+	t.Parallel()
+	contextSheet().chromium(t)
+}
 
 var cmMenu = telatest.ByRole("menu", "Actions")
 
@@ -78,6 +85,7 @@ func mountContext(t *testing.T, page func() tela.Node, w, hgt float32) *telatest
 }
 
 func TestContextMenuRightClick(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := mountContext(t, contextPage(kit.ContextMenu[string]{
 		OnSelect: func(k string) { log = append(log, k) },
@@ -115,6 +123,7 @@ func TestContextMenuRightClick(t *testing.T) {
 }
 
 func TestContextMenuOpensAtThePointer(t *testing.T) {
+	t.Parallel()
 	app := mountContext(t, contextPage(kit.ContextMenu[string]{}), 480, 320)
 	app.ClickAt(100, 80, telatest.Right())
 	app.ExpectCount(cmMenu, 1)
@@ -135,6 +144,7 @@ func TestContextMenuOpensAtThePointer(t *testing.T) {
 }
 
 func TestContextMenuKeyboard(t *testing.T) {
+	t.Parallel()
 	var log []string
 	page := contextPage(kit.ContextMenu[string]{OnSelect: func(k string) { log = append(log, k) }})
 	app := telatest.MountFunc(t, page, telatest.Size(480, 320), telatest.Theme(kit.Theme()))
@@ -166,6 +176,7 @@ func TestContextMenuKeyboard(t *testing.T) {
 }
 
 func TestContextMenuItemKinds(t *testing.T) {
+	t.Parallel()
 	var log []string
 	page := contextPage(kit.ContextMenu[string]{Items: browserItems(), OnSelect: func(k string) { log = append(log, k) }})
 	app := telatest.MountFunc(t, page, telatest.Size(480, 480), telatest.Theme(kit.Theme()))
@@ -208,6 +219,7 @@ func TestContextMenuItemKinds(t *testing.T) {
 }
 
 func TestContextMenuDisabled(t *testing.T) {
+	t.Parallel()
 	app := mountContext(t, contextPage(kit.ContextMenu[string]{Disabled: true}), 480, 320)
 	app.ClickAt(100, 80, telatest.Right())
 	if strings.Contains(app.AriaSnapshot(), `menu "Actions"`) {
@@ -216,6 +228,7 @@ func TestContextMenuDisabled(t *testing.T) {
 }
 
 func TestContextMenuControlledOpen(t *testing.T) {
+	t.Parallel()
 	var log []bool
 	open := false
 	app := mountContext(t, contextPage(kit.ContextMenu[string]{Open: &open, OnOpenChange: func(o bool) { log = append(log, o) }}), 480, 320)
@@ -229,6 +242,7 @@ func TestContextMenuControlledOpen(t *testing.T) {
 }
 
 func TestContextMenuInnermostWins(t *testing.T) {
+	t.Parallel()
 	var log []string
 	inner := kit.ContextMenu[string]{
 		AriaLabel: "Inner actions", Class: "m-4 h-24 w-40 border",
@@ -247,6 +261,7 @@ func TestContextMenuInnermostWins(t *testing.T) {
 }
 
 func TestContextMenuStyleProvider(t *testing.T) {
+	t.Parallel()
 	s := kit.DefaultStyle()
 	s.ContextMenu.Content += " ring-2"
 	app := telatest.MountFunc(t, func() tela.Node {
@@ -260,6 +275,7 @@ func TestContextMenuStyleProvider(t *testing.T) {
 }
 
 func TestContextMenuOpenGolden(t *testing.T) {
+	t.Parallel()
 	page := func() tela.Node {
 		return h.Div(h.Class("p-6"), kit.ContextMenu[string]{
 			AriaLabel: "Actions", Items: browserItems(), Class: "flex h-80 w-96 items-start justify-end rounded-md border border-dashed p-4 text-sm",
@@ -275,6 +291,7 @@ func TestContextMenuOpenGolden(t *testing.T) {
 }
 
 func TestContextMenuIdle(t *testing.T) {
+	t.Parallel()
 	expectIdle(t, contextPage(kit.ContextMenu[string]{}), func(a *telatest.App) {
 		a.Focus(telatest.ByRole("button", "Inner"))
 		a.Press("Shift+F10")

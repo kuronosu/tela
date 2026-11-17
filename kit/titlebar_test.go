@@ -47,6 +47,7 @@ func mountTitleBar(t *testing.T, root tela.Component, opts ...telatest.Option) *
 // Every look has the three buttons by name, in a group, with the maximize
 // button turning into Restore while the window is maximized.
 func TestWindowControlsNames(t *testing.T) {
+	t.Parallel()
 	for _, l := range titleBarLooks {
 		t.Run(l.name, func(t *testing.T) {
 			a := mountTitleBar(t, kit.WindowControls{Variant: l.v, State: stActive})
@@ -66,6 +67,7 @@ func TestWindowControlsNames(t *testing.T) {
 // HideMinimize and HideMaximize leave a button out; Close stays. The names
 // can be translated.
 func TestWindowControlsOptions(t *testing.T) {
+	t.Parallel()
 	a := mountTitleBar(t, kit.WindowControls{Variant: kit.Windows, State: stActive, HideMinimize: true, HideMaximize: true})
 	a.ExpectCount(btnMinimize, 0)
 	a.ExpectCount(btnMaximize, 0)
@@ -83,6 +85,7 @@ func TestWindowControlsOptions(t *testing.T) {
 // Aqua orders the dots close, minimize, zoom; the others minimize,
 // maximize, close.
 func TestWindowControlsOrder(t *testing.T) {
+	t.Parallel()
 	order := func(v kit.Variant) []string {
 		snap := mountTitleBar(t, kit.WindowControls{Variant: v, State: stActive}).AriaSnapshot()
 		type at struct {
@@ -119,6 +122,7 @@ func TestWindowControlsOrder(t *testing.T) {
 
 // An unknown look panics in dev mode with the ones there are.
 func TestWindowControlsUnknownVariant(t *testing.T) {
+	t.Parallel()
 	defer func() {
 		msg := fmt.Sprint(recover())
 		if !strings.Contains(msg, `"windows"`) || !strings.Contains(msg, "WindowControls.Variant") {
@@ -131,6 +135,7 @@ func TestWindowControlsUnknownVariant(t *testing.T) {
 // The slots are all there, and the window controls are on the side the
 // look keeps them: the end, except macOS.
 func TestTitleBarSides(t *testing.T) {
+	t.Parallel()
 	for _, l := range titleBarLooks {
 		t.Run(l.name, func(t *testing.T) {
 			a := mountTitleBar(t, kit.TitleBar{
@@ -157,6 +162,7 @@ func TestTitleBarSides(t *testing.T) {
 
 // ControlsSide overrides the look's side.
 func TestTitleBarControlsSide(t *testing.T) {
+	t.Parallel()
 	bar := func(v kit.Variant, side string) float32 {
 		a := mountTitleBar(t, kit.TitleBar{Variant: v, State: stActive, ControlsSide: side, Title: h.Text("Notes")})
 		return a.Bounds(btnClose).X
@@ -177,6 +183,7 @@ func TestTitleBarControlsSide(t *testing.T) {
 
 // Under rtl the bar mirrors: the controls move to the other side.
 func TestTitleBarRTL(t *testing.T) {
+	t.Parallel()
 	for _, l := range titleBarLooks {
 		t.Run(l.name, func(t *testing.T) {
 			bar := kit.TitleBar{Variant: l.v, State: stActive, Title: h.Text("Notes")}
@@ -192,6 +199,7 @@ func TestTitleBarRTL(t *testing.T) {
 // A window that is not focused dims the bar and a maximized one loses the
 // outline: both change the pixels.
 func TestTitleBarStates(t *testing.T) {
+	t.Parallel()
 	for _, l := range titleBarLooks {
 		t.Run(l.name, func(t *testing.T) {
 			shot := func(st *tela.WindowState) []byte {
@@ -211,6 +219,7 @@ func TestTitleBarStates(t *testing.T) {
 // frameless window a click minimizes, maximizes and restores, and the name
 // of the button follows.
 func TestTitleBarWindowActions(t *testing.T) {
+	t.Parallel()
 	theme := kit.Theme()
 	a := telatest.MountApp(t, tela.App{
 		Width: 600, Height: 200, Frameless: true, Theme: &theme,
@@ -232,6 +241,7 @@ func TestTitleBarWindowActions(t *testing.T) {
 // The accessible tree of a bar: its buttons and no more roles than those
 // of its slots (the bar itself is a generic box).
 func TestTitleBarAriaSnapshot(t *testing.T) {
+	t.Parallel()
 	a := mountTitleBar(t, kit.TitleBar{Variant: kit.Windows, State: stActive, Title: h.Text("Notes"),
 		Trailing: kit.Button{Variant: kit.Ghost, Size: kit.IconSm, AriaLabel: "Share"}})
 	snap := a.AriaSnapshot()
@@ -248,6 +258,7 @@ func TestTitleBarAriaSnapshot(t *testing.T) {
 // (minimize 462-508, maximize 508-554, close 554-600), the trailing
 // button just before them.
 func TestTitleBarHitRegions(t *testing.T) {
+	t.Parallel()
 	b := headless.New(headless.Options{Size: platform.Size{W: 600, H: 200}})
 	theme := kit.Theme()
 	host, err := core.NewHost(b, core.Options{

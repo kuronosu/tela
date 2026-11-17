@@ -36,7 +36,10 @@ func tableSortSheet() *sheet {
 	}}
 }
 
-func TestTableSortGolden(t *testing.T) { tableSortSheet().golden(t) }
+func TestTableSortGolden(t *testing.T) {
+	t.Parallel()
+	tableSortSheet().golden(t)
+}
 
 func tableSortRTLSheet() *sheet {
 	s := tableSortSheet()
@@ -45,7 +48,10 @@ func tableSortRTLSheet() *sheet {
 	return s
 }
 
-func TestTableSortRTLGolden(t *testing.T) { tableSortRTLSheet().golden(t) }
+func TestTableSortRTLGolden(t *testing.T) {
+	t.Parallel()
+	tableSortRTLSheet().golden(t)
+}
 
 // AlwaysSorted removes the unsorted step of the cycle.
 func TestTableAlwaysSortedNeverUnsorts(t *testing.T) {

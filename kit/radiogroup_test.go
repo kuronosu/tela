@@ -117,8 +117,15 @@ func radioGroupSheet() *sheet {
 	}}
 }
 
-func TestRadioGroupGolden(t *testing.T)   { radioGroupSheet().golden(t) }
-func TestChromiumRadioGroup(t *testing.T) { radioGroupSheet().chromium(t) }
+func TestRadioGroupGolden(t *testing.T) {
+	t.Parallel()
+	radioGroupSheet().golden(t)
+}
+
+func TestChromiumRadioGroup(t *testing.T) {
+	t.Parallel()
+	radioGroupSheet().chromium(t)
+}
 
 func rgRadio(name string) telatest.Locator { return telatest.ByRole("radio", name) }
 

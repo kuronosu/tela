@@ -31,7 +31,10 @@ func badgeTonesSheet() *sheet {
 	}}
 }
 
-func TestBadgeTonesGolden(t *testing.T) { badgeTonesSheet().golden(t) }
+func TestBadgeTonesGolden(t *testing.T) {
+	t.Parallel()
+	badgeTonesSheet().golden(t)
+}
 
 func TestBadgeDotIsDecorative(t *testing.T) {
 	t.Parallel()

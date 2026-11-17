@@ -26,6 +26,7 @@ func countMenus(n *semantics.Node, name string) int {
 // A right click outside the open menu (and outside the area) closes it,
 // as a primary press does: Radix's DismissableLayer counts any button.
 func TestContextMenuRightClickOutsideCloses(t *testing.T) {
+	t.Parallel()
 	app := mountContext(t, contextPage(kit.ContextMenu[string]{}), 480, 320)
 	app.ClickAt(100, 80, telatest.Right())
 	app.ExpectCount(cmMenu, 1)
@@ -39,6 +40,7 @@ func TestContextMenuRightClickOutsideCloses(t *testing.T) {
 // at the new point (the panel is keyed by the opening, so the Presence
 // does not bring the exiting one back): one menu, which has the focus.
 func TestContextMenuRightClickElsewhereReopens(t *testing.T) {
+	t.Parallel()
 	app := mountContext(t, contextPage(kit.ContextMenu[string]{}), 480, 320)
 	app.ClickAt(100, 80, telatest.Right())
 	app.ClickAt(40, 140, telatest.Right()) // in the area, below its button, outside the menu
@@ -52,6 +54,7 @@ func TestContextMenuRightClickElsewhereReopens(t *testing.T) {
 // A mouse button held on a button inside the area for longer than a long
 // press still clicks it: the area's long press is for touch and pens.
 func TestContextMenuSlowMouseClick(t *testing.T) {
+	t.Parallel()
 	clicks := 0
 	page := func() tela.Node {
 		return h.Div(h.Class("relative h-full w-full"),

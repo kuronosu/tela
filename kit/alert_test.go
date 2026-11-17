@@ -43,7 +43,10 @@ func alertSheet() *sheet {
 	}}
 }
 
-func TestAlertGolden(t *testing.T) { alertSheet().golden(t) }
+func TestAlertGolden(t *testing.T) {
+	t.Parallel()
+	alertSheet().golden(t)
+}
 
 func rtlAlertSheet() *sheet {
 	s := alertSheet()
@@ -53,14 +56,19 @@ func rtlAlertSheet() *sheet {
 	return s
 }
 
-func TestAlertRTLGolden(t *testing.T) { rtlAlertSheet().golden(t) }
+func TestAlertRTLGolden(t *testing.T) {
+	t.Parallel()
+	rtlAlertSheet().golden(t)
+}
 
 func TestAlertIsAnAlert(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Alert{Icon: iconTerminal, Title: h.Text("Heads up!"), Description: h.Text("Add components with the cli.")})
 	app.ExpectAria(`- alert: Heads up! Add components with the cli.`)
 }
 
 func TestAlertRole(t *testing.T) {
+	t.Parallel()
 	for _, role := range []string{"status", "note"} {
 		app := telatest.Mount(t, kit.Alert{Role: role, Title: h.Text("Saved")})
 		app.ExpectCount(telatest.ByRole(role, ""), 1)
@@ -69,6 +77,7 @@ func TestAlertRole(t *testing.T) {
 }
 
 func TestAlertRoleIsChecked(t *testing.T) {
+	t.Parallel()
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("a role the alert does not support did not panic in dev mode")
@@ -80,6 +89,7 @@ func TestAlertRoleIsChecked(t *testing.T) {
 // The icon column has no width without an icon, and the texts line up with
 // the title either way.
 func TestAlertTextColumn(t *testing.T) {
+	t.Parallel()
 	with := telatest.Mount(t, h.Div(h.Class("w-96"), kit.Alert{Icon: iconTerminal, Title: h.Text("Heads up!"), Props: h.TestID("a")}))
 	without := telatest.Mount(t, h.Div(h.Class("w-96"), kit.Alert{Title: h.Text("Heads up!"), Props: h.TestID("a")}))
 	if w, wo := with.Bounds(telatest.ByText("Heads up!")), without.Bounds(telatest.ByText("Heads up!")); w.X-wo.X < 27.5 || w.X-wo.X > 28.5 {

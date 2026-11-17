@@ -57,8 +57,15 @@ func alertDialogSheet() *sheet {
 	}}
 }
 
-func TestAlertDialogGolden(t *testing.T)   { alertDialogSheet().golden(t) }
-func TestChromiumAlertDialog(t *testing.T) { alertDialogSheet().chromium(t) }
+func TestAlertDialogGolden(t *testing.T) {
+	t.Parallel()
+	alertDialogSheet().golden(t)
+}
+
+func TestChromiumAlertDialog(t *testing.T) {
+	t.Parallel()
+	alertDialogSheet().chromium(t)
+}
 
 var (
 	deleteButton = telatest.ByRole("button", "Delete project")

@@ -94,5 +94,12 @@ func avatarSheet() *sheet {
 	return &sheet{name: "avatar", cells: cells, slot: 64}
 }
 
-func TestAvatarGolden(t *testing.T)   { avatarSheet().golden(t) }
-func TestChromiumAvatar(t *testing.T) { avatarSheet().chromium(t) }
+func TestAvatarGolden(t *testing.T) {
+	t.Parallel()
+	avatarSheet().golden(t)
+}
+
+func TestChromiumAvatar(t *testing.T) {
+	t.Parallel()
+	avatarSheet().chromium(t)
+}

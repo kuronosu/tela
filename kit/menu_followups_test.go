@@ -30,6 +30,7 @@ func shareFile() kit.MenubarMenu[string] {
 // does not hover: the mouse switches menus when it enters the button, before
 // its press.
 func TestMenubarPressSwitchesWithASubmenuOpen(t *testing.T) {
+	t.Parallel()
 	var opened []string
 	app := mountBar(t, appBar(func(m *kit.Menubar[string]) {
 		m.Menus[0] = shareFile()
@@ -73,6 +74,7 @@ func editBarPage(log *[]string, appMenu bool) func() tela.Node {
 // A drawn role item of a menu opened from the keyboard acts on the field
 // the focus came from (it acted on the bar's button, where the focus was).
 func TestMenubarRoleFromTheKeyboard(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := telatest.MountFunc(t, editBarPage(&log, false), telatest.Size(480, 360), telatest.Theme(kit.Theme()))
 	note := telatest.ByRole("textbox", "Note")
@@ -111,6 +113,7 @@ func TestMenubarRoleFromTheKeyboard(t *testing.T) {
 // The same for a dropdown menu: Tab from the field to its trigger, then
 // the keys.
 func TestDropdownRoleFromTheKeyboard(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("flex gap-4 p-6"),
@@ -138,6 +141,7 @@ func TestDropdownRoleFromTheKeyboard(t *testing.T) {
 // window (Windows and Linux): the first button gets the focus, and the
 // same keys or Escape give it back.
 func TestMenubarActivationKeys(t *testing.T) {
+	t.Parallel()
 	for _, key := range []string{"F10", "Alt"} {
 		t.Run(key, func(t *testing.T) {
 			var log []string
@@ -180,6 +184,7 @@ func TestMenubarActivationKeys(t *testing.T) {
 // close it and take the focus out of the bar: the menu's focus scope,
 // which gives it back to the trigger as it closes, does not keep it there.
 func TestMenubarActivationKeysLeaveWithoutOrigin(t *testing.T) {
+	t.Parallel()
 	for _, key := range []string{"F10", "Alt"} {
 		t.Run(key, func(t *testing.T) {
 			var log []string
@@ -196,6 +201,7 @@ func TestMenubarActivationKeysLeaveWithoutOrigin(t *testing.T) {
 
 // The keys need AppMenu (the window's bar), and the Mac has no such keys.
 func TestMenubarActivationKeysScope(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name    string
 		appMenu bool
@@ -219,6 +225,7 @@ func TestMenubarActivationKeysScope(t *testing.T) {
 // trigger's); the menu's own Class and ContentClass stay on the root
 // panel.
 func TestMenuSubContentClass(t *testing.T) {
+	t.Parallel()
 	items := []kit.MenuItem[string]{
 		{Key: "team", Label: "Team"},
 		{Kind: kit.MenuSub, Key: "invite", Label: "Invite users", Class: "italic", ContentClass: "min-w-56 ring-2", Items: []kit.MenuItem[string]{
@@ -240,6 +247,7 @@ func TestMenuSubContentClass(t *testing.T) {
 // The submenu with a ContentClass, and a shortcut under right to left
 // (it reads "⌘T", not "T⌘").
 func TestMenuSubContentClassGolden(t *testing.T) {
+	t.Parallel()
 	items := []kit.MenuItem[string]{
 		{Key: "team", Label: "Team", Shortcut: "⇧⌘T"},
 		{Kind: kit.MenuSub, Key: "invite", Label: "Invite users", ContentClass: "w-56 bg-muted", Items: []kit.MenuItem[string]{
@@ -267,6 +275,7 @@ func TestMenuSubContentClassGolden(t *testing.T) {
 // A user's TriggerFunc around a loading Button opens nothing once it is a
 // LoadingTrigger, from the pointer or the keyboard, and keeps the focus.
 func TestLoadingTriggerFunc(t *testing.T) {
+	t.Parallel()
 	trigger := func(loading bool) kit.Trigger {
 		f := kit.TriggerFunc(func(p tela.Prop) tela.Node {
 			return kit.Button{Loading: loading, Variant: kit.Outline, Props: p, Children: h.Text("Open")}

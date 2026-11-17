@@ -42,7 +42,10 @@ func fieldSlotsSheet() *sheet {
 	}}
 }
 
-func TestFieldSlotsGolden(t *testing.T) { fieldSlotsSheet().golden(t) }
+func TestFieldSlotsGolden(t *testing.T) {
+	t.Parallel()
+	fieldSlotsSheet().golden(t)
+}
 
 func TestFieldSlotsRTLGolden(t *testing.T) {
 	t.Parallel()

@@ -30,7 +30,10 @@ func buttonLoadingSheet() *sheet {
 	}}
 }
 
-func TestButtonLoadingGolden(t *testing.T) { buttonLoadingSheet().golden(t) }
+func TestButtonLoadingGolden(t *testing.T) {
+	t.Parallel()
+	buttonLoadingSheet().golden(t)
+}
 
 func rtlButtonLoadingSheet() *sheet {
 	s := buttonLoadingSheet()
@@ -39,11 +42,15 @@ func rtlButtonLoadingSheet() *sheet {
 	return s
 }
 
-func TestButtonLoadingRTLGolden(t *testing.T) { rtlButtonLoadingSheet().golden(t) }
+func TestButtonLoadingRTLGolden(t *testing.T) {
+	t.Parallel()
+	rtlButtonLoadingSheet().golden(t)
+}
 
 // A loading button is as wide and as tall as the idle one, however it shows
 // the spinner: nothing around it moves.
 func TestButtonLoadingKeepsItsSize(t *testing.T) {
+	t.Parallel()
 	for name, b := range map[string]kit.Button{
 		"text":     {Children: h.Text("Save changes")},
 		"icon":     {Icon: iconMail, Children: h.Text("Login with email")},
@@ -65,6 +72,7 @@ func TestButtonLoadingKeepsItsSize(t *testing.T) {
 }
 
 func TestButtonLoadingIgnoresPresses(t *testing.T) {
+	t.Parallel()
 	var clicks int
 	press := func() { clicks++ }
 	app := telatest.MountFunc(t, func() tela.Node {
@@ -93,6 +101,7 @@ func TestButtonLoadingIgnoresPresses(t *testing.T) {
 
 // The text of a loading button still names it.
 func TestButtonLoadingKeepsItsName(t *testing.T) {
+	t.Parallel()
 	for _, b := range []kit.Button{
 		{Children: h.Text("Save")},
 		{Icon: iconMail, Children: h.Text("Save")},
@@ -104,6 +113,7 @@ func TestButtonLoadingKeepsItsName(t *testing.T) {
 }
 
 func TestButtonLoadingIsBusy(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Button{Loading: true, Class: "aria-busy:w-40", Children: h.Text("Save"), Props: h.TestID("b")})
 	if w := app.Bounds(telatest.ByTestID("b")).Width; w != 160 {
 		t.Errorf("a loading button is not aria-busy: width %v", w)
@@ -116,6 +126,7 @@ func TestButtonLoadingIsBusy(t *testing.T) {
 
 // A loading submit button does not submit its form.
 func TestButtonLoadingDoesNotSubmit(t *testing.T) {
+	t.Parallel()
 	var submits int
 	for _, loading := range []bool{true, false} {
 		submits = 0
@@ -133,6 +144,7 @@ func TestButtonLoadingDoesNotSubmit(t *testing.T) {
 }
 
 func TestButtonLoadingIconSlot(t *testing.T) {
+	t.Parallel()
 	// LoadingIcon replaces the spinner; the recipe's classes keep it
 	// turning.
 	app := telatest.Mount(t, kit.Button{Loading: true, LoadingIcon: iconCheck, Children: h.Text("Save"), Props: h.TestID("b")})
@@ -142,6 +154,7 @@ func TestButtonLoadingIconSlot(t *testing.T) {
 // A loading button used as an overlay's Trigger opens nothing, from the
 // pointer or the keyboard, and keeps its focus and aria-busy.
 func TestButtonLoadingTriggerOpensNothing(t *testing.T) {
+	t.Parallel()
 	trigger := kit.Button{Loading: true, Variant: kit.Outline, Class: "aria-busy:w-40", Props: h.TestID("busy"), Children: h.Text("Open")}
 	overlays := map[string]tela.Component{
 		"dialog":   kit.Dialog{Trigger: trigger, Title: h.Text("Panel"), Children: h.Text("Body")},

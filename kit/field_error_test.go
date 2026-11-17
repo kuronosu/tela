@@ -29,7 +29,10 @@ func fieldErrorSheet() *sheet {
 	}}
 }
 
-func TestFieldErrorContentGolden(t *testing.T) { fieldErrorSheet().golden(t) }
+func TestFieldErrorContentGolden(t *testing.T) {
+	t.Parallel()
+	fieldErrorSheet().golden(t)
+}
 
 func TestFieldErrorContentRTLGolden(t *testing.T) {
 	t.Parallel()
