@@ -32,6 +32,7 @@ func (t *Tree) build(el *Element) {
 	t.stats.Builds++
 	prev := current
 	current = el
+	t.builds++
 	el.hookIdx = 0
 	before, first := len(el.hooks), el.builds == 0
 	el.builds++
@@ -41,6 +42,7 @@ func (t *Tree) build(el *Element) {
 		done := false
 		defer func() {
 			current = prev
+			t.builds--
 			if !done { // the function panicked: keep the old subscriptions
 				t.endTrack(mark)
 			}

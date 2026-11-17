@@ -234,6 +234,11 @@ type Tree struct {
 	inFrame bool
 	asked   bool
 	onDirty func()
+	// builds counts the component functions of this tree running on its
+	// UI thread (build): current is one of its elements while it is above
+	// zero. Code that may run outside a build reads it instead of current,
+	// which another tree's build sets (Trees in parallel tests).
+	builds int
 	// handlerDepth counts the event dispatches that are running handlers:
 	// a click made from a handler (ElementRef.Click) leaves applying the
 	// updates and building to the event that is being handled.

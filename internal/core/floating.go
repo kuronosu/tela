@@ -731,7 +731,7 @@ func PublishValue[T any](v *Value[T], x T) {
 	}
 	p := new(T)
 	*p = x
-	if !t.inFrame || (current != nil && current.tree == t) {
+	if !t.inFrame || t.builds > 0 { // in a build of t (current.tree == t, read without the global)
 		v.store(p)
 		return
 	}
