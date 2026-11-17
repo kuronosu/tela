@@ -254,16 +254,18 @@ func (g *gate) vetStep() stepResult {
 		goCmd("go vet ./... (darwin)", goos("darwin"), "vet", "./..."),
 		goCmd("go vet -tags telagpu ./... (linux)", goos("linux"), "vet", "-tags", "telagpu", "./..."),
 		goCmd("go vet -tags telagpu ./... (windows)", goos("windows"), "vet", "-tags", "telagpu", "./..."),
+		goCmd("go vet -tags telagpu ./... (darwin)", goos("darwin"), "vet", "-tags", "telagpu", "./..."),
+		goCmd("go vet -tags telagpu ./... (linux/arm64)", []string{"GOOS=linux", "GOARCH=arm64"}, "vet", "-tags", "telagpu", "./..."),
 	})
 }
 
 func (g *gate) buildStep() stepResult {
+	// Linux only: every other system and tag is type-checked by vet, and a
+	// build for each would link every program of the repository again,
+	// which is most of the gate's time after an edit of internal/core. CI's
+	// build matrix builds all six targets.
 	return g.commandStep([]cmdSpec{
 		goCmd("go build ./... (linux)", goos("linux"), "build", "./..."),
-		goCmd("go build ./... (windows)", goos("windows"), "build", "./..."),
-		goCmd("go build ./... (darwin)", goos("darwin"), "build", "./..."),
-		goCmd("go build -tags telagpu ./... (darwin)", goos("darwin"), "build", "-tags", "telagpu", "./..."),
-		goCmd("go build -tags telagpu ./... (linux/arm64)", []string{"GOOS=linux", "GOARCH=arm64"}, "build", "-tags", "telagpu", "./..."),
 	})
 }
 

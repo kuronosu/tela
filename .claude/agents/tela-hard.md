@@ -29,7 +29,7 @@ You implement one well-scoped task in Tela, a pure-Go desktop UI framework.
 
 ## Before finishing
 
-Run the gate (ADR-290: fmt, vet and build for every system, staticcheck, `tela lint`, `go test -short`), then the full tests of the packages you changed:
+Run the gate (ADR-290: fmt, vet for every system, the Linux build, staticcheck, `tela lint`, `go test -short`), then the full tests of the packages you changed:
 
 ```bash
 CGO_ENABLED=0 go run ./internal/gate
