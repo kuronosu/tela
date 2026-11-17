@@ -29,7 +29,7 @@ Decisions in ADR-294 (the declaration on `tela.App`), ADR-295 (`tela package`, p
 - [x] Windows targets are GUI programs by default (`-H=windowsgui`, `-console` keeps the console; ADR-127, ADR-295), with panics and the app's log written to files (ADR-297); the executable gets the icon and version info (ADR-294)
 - [x] Auto-update (ADR-296): package `update` and `tela update keygen|sign|manifest`; signed manifests, full downloads, atomic replace, rollback until `MarkHealthy`
 - [ ] Delta updates in the manifest's `patches` (bsdiff or content-defined chunks; an ADR picks the kind)
-- [ ] A toast clicked after the app exited starts it (a COM activator registered with `ToastActivatorCLSID`, ADR-235); today it only dismisses the toast
+- [x] A toast clicked after the app exited starts it (a COM activator registered with `ToastActivatorCLSID`, ADR-297; contract v15 `NotificationEvent.Earlier`, protocol 16); the MSIX manifest declares it with the formats
 - [x] Crash reporting hook and structured logging (ADR-297): `desktop.Logger`, crash reports from panics and fatal errors, `desktop.OnCrash` on the next start
 - [ ] One declaration of the app (ID, name, icons, URL schemes, file types, the services it uses) generates each package's metadata (the declaration and its static reading are done, ADR-294; the metadata comes with the formats): `Info.plist` and entitlements with usage strings, the flatpak permissions, the MSIX manifest
 - [x] Update channels (stable, beta), phased rollout to a share of installs, an activation policy (on the next start, when the app decides, at once) and an end-of-support message for versions that can no longer update (ADR-296)
