@@ -18,6 +18,8 @@ import (
 	"syscall"
 
 	"github.com/kuronosu/tela/cmd/tela/internal/appbundle"
+	"github.com/kuronosu/tela/cmd/tela/internal/appicon"
+	"github.com/kuronosu/tela/cmd/tela/internal/pkgfmt"
 )
 
 const buildUsage = `Usage:
@@ -35,6 +37,7 @@ bundle, <Name>.app:
 
 	<Name>.app/Contents/Info.plist
 	<Name>.app/Contents/MacOS/<Name>
+	<Name>.app/Contents/Resources/<name>.icns   (with an icon)
 
 The Info.plist holds the app's ID (CFBundleIdentifier), name, version and
 the system version Tela needs; macOS services that belong to an app (user
@@ -73,19 +76,23 @@ running program reports it (the update check reads it) and the Info.plist
 and the Windows version information carry it.
 
 The rest of App's declaration (Publisher, Description, Category, Schemes,
-FileTypes, Services) is read the same way, from constants, and is used by
-tela package; a value that is not a constant is an error that says which
-field and how to write it.
+FileTypes, Services) is read the same way, from constants; a value that is
+not a constant is an error that says which field and how to write it. A
+bundle's Info.plist gets what tela package writes into it (see "tela help
+package"): the icon (icon.svg or icon.png in the package's folder, or
+-icon, drawn into an .icns file), the category, the usage descriptions of
+the services, and the declared URL schemes and file types.
 
 Rebuilding an existing bundle writes only what changed, so Launch Services
-keeps seeing the same app, and it keeps the keys a running app added to the
-Info.plist (registered URL schemes and file types).
+keeps seeing the same app, and it keeps what a running app added to the
+Info.plist (URL schemes and file types it registered and the declaration
+does not declare).
 
 Signing: tela build does not run codesign. The Go linker ad-hoc signs
 darwin/arm64 executables, and that signature covers the executable only,
 not the Info.plist or the resources. The bundle is for the machine that
 built it: it has no developer identity and is not notarized. Distribution
-(icons, signing, notarization, installers) is the packaging step.
+(signing, notarization, the zip and the dmg) is tela package's.
 
 Flags:
 
@@ -100,8 +107,8 @@ Flags:
 	               product name of a Windows executable)
 	-version V     the app's version, such as 1.2.3 or 1.2.3-rc.1, written
 	               into the program (default: the module's version)
-	-icon file     the icon, icon.svg or icon.png (default: the one in the
-	               package's folder)
+	-icon file     the icon, icon.svg or icon.png, of a bundle or a Windows
+	               program (default: the one in the package's folder)
 	-console       a Windows program keeps the console subsystem (default:
 	               the GUI subsystem)
 	-tags list     build tags, comma-separated, as go build -tags
@@ -327,10 +334,9 @@ type buildTarget struct {
 const buildListFields = listFields + ",DepOnly"
 
 // resolveBuildTarget finds the package, checks it is a program and reads
-// the target platform. For a darwin target whose ID or name is not given
-// by flags, or the target is windows (the executable's version information),
-// it lists the dependencies too, for reading the App, as it does for tela
-// package.
+// the target platform. For a darwin target (the Info.plist), or the target
+// is windows (the executable's version information), it lists the
+// dependencies too, for reading the App, as it does for tela package.
 func resolveBuildTarget(goBin string, opts buildOptions, command string) (*buildTarget, error) {
 	t := &buildTarget{}
 	cmd := exec.Command(goBin, "env", "-json", "GOOS", "GOARCH", "GOFLAGS")
@@ -346,7 +352,7 @@ func resolveBuildTarget(goBin string, opts buildOptions, command string) (*build
 	t.goos, t.goarch, t.goflags = env.GOOS, env.GOARCH, env.GOFLAGS
 
 	args := []string{"list", "-e", "-json=" + buildListFields}
-	if t.goos == "darwin" && (opts.ID == "" || opts.Name == "") || t.goos == "windows" && command == "build" || command == "package" {
+	if t.goos == "darwin" || t.goos == "windows" && command == "build" || command == "package" {
 		args = append(args, "-deps")
 	}
 	if opts.Tags != "" {
@@ -512,9 +518,53 @@ func numericVersion(v string) string {
 	return ""
 }
 
+// bundleApp reads the rest of the declaration (ADR-294) for the bundle's
+// Info.plist, checks it as tela package does, and loads the icon (-icon,
+// else icon.svg or icon.png in the package's folder; none is fine).
+func bundleApp(opts buildOptions, t *buildTarget, id identity, log io.Writer) (pkgfmt.App, error) {
+	src, err := readAppSource(t.pkg, t.deps)
+	if err != nil {
+		return pkgfmt.App{}, err
+	}
+	if err := src.DeclarationErr(); err != nil {
+		return pkgfmt.App{}, fmt.Errorf("%v\nmake it a constant: the bundle's Info.plist is written from it", err)
+	}
+	app := pkgfmt.App{
+		ID: id.ID, Name: id.Name, Package: pkgfmt.PackageName(id.ID, id.Name),
+		Publisher:   strings.TrimSpace(src.Publisher),
+		Description: strings.TrimSpace(src.Description),
+		Category:    strings.TrimSpace(src.Category),
+		Schemes:     src.Schemes,
+		FileTypes:   src.FileTypes,
+		Services:    src.Services,
+	}
+	if err := checkDeclaration(app); err != nil {
+		return app, err
+	}
+	iconPath := opts.Icon
+	if iconPath == "" {
+		iconPath = appicon.Find(t.pkg.Dir)
+	}
+	if iconPath != "" {
+		if app.Icon, err = appicon.Load(iconPath); err != nil {
+			return app, err
+		}
+		if opts.Verbose {
+			fmt.Fprintf(log, "icon %s\n", iconPath)
+		}
+	} else if opts.Verbose {
+		fmt.Fprintf(log, "no icon: put an icon.svg or an icon.png (512 px or more) in %s, or pass -icon\n", t.pkg.Dir)
+	}
+	return app, nil
+}
+
 // stageBundle builds the program of t into a temporary folder and writes
 // the bundle at bundlePath from it. It returns the executable inside.
 func stageBundle(goBin string, opts buildOptions, t *buildTarget, id identity, bundlePath string, stderr io.Writer) (appbundle.Result, error) {
+	app, err := bundleApp(opts, t, id, stderr)
+	if err != nil {
+		return appbundle.Result{}, err
+	}
 	stage, err := os.MkdirTemp("", "tela-bundle-")
 	if err != nil {
 		return appbundle.Result{}, err
@@ -527,15 +577,11 @@ func stageBundle(goBin string, opts buildOptions, t *buildTarget, id identity, b
 	}
 	// The Info.plist's version is the one written into the program, else
 	// the one the go command stamped.
-	version := numericVersion(opts.Version)
-	if version == "" {
-		version = moduleVersion(exe)
+	app.Version = numericVersion(opts.Version)
+	if app.Version == "" {
+		app.Version = moduleVersion(exe)
 	}
-	return appbundle.Write(bundlePath, appbundle.Spec{
-		ID:      id.ID,
-		Name:    id.Name,
-		Version: version,
-	}, exe)
+	return pkgfmt.WriteBundle(bundlePath, app, exe, stage)
 }
 
 // buildProgram implements tela build and returns the path it wrote.

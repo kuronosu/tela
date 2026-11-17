@@ -3,9 +3,10 @@
 // into the files of one kind of package, deterministically.
 //
 // tela package does the build (the one of tela build) and calls the
-// formats; a format only writes files. The formats of Linux are here:
-// appimage, deb and flatpak. Those of Windows (zip, msix) and macOS (app,
-// dmg) are registered as not yet written, and replace those entries.
+// formats; a format only writes files. The formats of Linux are here
+// (appimage, deb and flatpak) and those of macOS (app, dmg, macformats.go).
+// Those of Windows (zip, msix) are registered as not yet written, and
+// replace those entries.
 //
 // Determinism: every file a format writes depends only on the Job. Times
 // are Job.Time, entries are sorted, owners are root (0:0) and modes are
@@ -240,7 +241,9 @@ func init() {
 	Register(appImageFormat{})
 	Register(debFormat{})
 	Register(flatpakFormat{})
-	for _, p := range []pending{{"zip", "windows"}, {"msix", "windows"}, {"app", "darwin"}, {"dmg", "darwin"}} {
+	Register(appFormat{})
+	Register(dmgFormat{})
+	for _, p := range []pending{{"zip", "windows"}, {"msix", "windows"}} {
 		Register(p)
 	}
 }

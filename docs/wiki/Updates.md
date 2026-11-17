@@ -45,8 +45,10 @@ tela update manifest -m dist/manifest.json -app-id com.example.notes \
 
 `tela update manifest` reads each file's target from its name as
 `tela package` writes it (`<name>-<version>-<os>-<arch>.<ext>`), computes its
-size and SHA-256 and lists it under the release. Give an unusual name its
-target as `file=linux/amd64/appimage`. Artifact URLs are relative to the
+size and SHA-256 and lists it under the release; a universal macOS zip
+(`-darwin-universal.zip`) is listed for both `darwin/amd64` and
+`darwin/arm64`. Give an unusual name its target as
+`file=linux/amd64/appimage`. Artifact URLs are relative to the
 manifest unless you give `-base-url`. Upload `dist/` (the files,
 `manifest.json` and `manifest.json.sig`) to your server.
 

@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"slices"
 	"strconv"
@@ -26,6 +27,7 @@ const packageUsage = `Usage:
 
 	tela package [-format list] [-os list] [-arch list] [-o dir] [-version V]
 	             [-icon file] [-id ID] [-name NAME] [-sign] [-sign-cmd command]
+	             [-codesign-identity ID] [-notary-profile profile]
 	             [-console] [-tags list] [-ldflags flags] [-gcflags flags]
 	             [-trimpath] [-v] [pkg]
 
@@ -44,8 +46,11 @@ The formats (-format, comma-separated; default: each OS's defaults):
 	         flatpak   a flatpak-builder manifest and the folder it builds
 	                   from; the .flatpak bundle too when flatpak-builder
 	                   and flatpak are installed
-	windows  zip, msix (defaults) and darwin app (default), dmg: not
-	                   implemented yet
+	darwin   app       (default) the bundle <Name>.app in a zip, which
+	                   updates itself (package update)
+	         dmg       a disk image with the bundle and a link to
+	                   /Applications, made by hdiutil: on a Mac only
+	windows  zip, msix (defaults): not implemented yet
 
 Each package file is named <name>-<version>-<os>-<arch>.<ext>, as tela
 update manifest reads it, in the folder of -o (default ./dist). <name> is
@@ -72,6 +77,22 @@ theme. A deb's Maintainer is App.Publisher ("unknown" without one, which tela
 says). A flatpak's permissions come from App.Services: see the flatpak
 section of docs/wiki/CLI.md.
 
+On macOS, the bundle holds Contents/Info.plist, the program in
+Contents/MacOS and the icon as Contents/Resources/<name>.icns. The Info.plist
+has the ID, the name, the version (its X.Y.Z), macOS 13 or later, the
+category (LSApplicationCategoryType, from App.Category), the copyright
+(App.Publisher), a usage description for each service of App.Services
+(NSCameraUsageDescription and the like), and declares App.Schemes
+(CFBundleURLTypes) and App.FileTypes (CFBundleDocumentTypes; a type of its
+own is exported, UTExportedTypeDeclarations, with the app as its owner): so
+a signed bundle never needs registration to edit it. <name>.entitlements,
+written next to the packages, holds the hardened runtime's entitlements of
+App.Services (camera, microphone, location, contacts, calendars, photos);
+there is no App Sandbox. -arch universal makes one program for amd64 and
+arm64 (<name>-<version>-darwin-universal.zip; tela update manifest lists it
+for both). Unsigned, the program is the linker's file as it is: the arm64
+program keeps the linker's ad-hoc signature, which Apple silicon needs.
+
 The AppImage starts with Tela's own runtime, written in Go without FUSE: on
 the first start of a version it checks the content's SHA-256, extracts it
 into ~/.cache/tela-appimage/<AppID>/<version>-<hash>/ under a lock (a second
@@ -80,8 +101,8 @@ extracted files are unchanged (and extract again when they are not), and
 remove the versions no running instance uses. It takes the options
 --appimage-extract, --appimage-offset, --appimage-help and the like.
 
-The same inputs give the same bytes (the flatpak bundle excepted, which
-flatpak writes): every time in the packages is SOURCE_DATE_EPOCH when it is
+The same inputs give the same bytes (the flatpak bundle and the dmg excepted,
+which flatpak and hdiutil write): every time in the packages is SOURCE_DATE_EPOCH when it is
 set, else the time of the commit the go command stamped into the program,
 else 1980-01-01; entries are sorted, owned by root, with fixed modes.
 
@@ -92,6 +113,22 @@ by the file's path, else the path is added at the end:
 
 	tela package -sign-cmd "gpg --detach-sign --armor" .
 
+On a Mac, -sign signs the darwin packages with codesign and the identity of
+-codesign-identity (a "Developer ID Application: ..." identity; "-" signs
+ad hoc, for a local check): the program, then the bundle, with the
+hardened runtime, a secure timestamp and the entitlements, then a dmg as a
+whole. With -notary-profile, the profile xcrun notarytool store-credentials
+saved, the bundle (for app) or the dmg is sent to Apple's notary service,
+and the ticket is stapled to it once accepted; the app zip is made after.
+Elsewhere codesign does not exist, and -sign says so: sign them with
+-sign-cmd and a tool that runs there, such as rcodesign of apple-codesign
+(-sign-cmd "rcodesign sign {}"), which is called on the program and the
+bundle before the zip is made, then on the zip.
+
+	tela package -os darwin -arch universal -sign \
+	    -codesign-identity "Developer ID Application: Example Ltd (TEAMID)" \
+	    -notary-profile notes .
+
 The output says which files are signed; unsigned packages are written all
 the same.
 
@@ -100,7 +137,8 @@ Flags:
 	-format list   the formats (default: appimage,deb for linux, zip,msix
 	               for windows, app for darwin)
 	-os list       the target systems (default: GOOS)
-	-arch list     the target architectures (default: GOARCH)
+	-arch list     the target architectures (default: GOARCH); universal
+	               for darwin is amd64 and arm64 in one program
 	-o dir         where to write the packages (default ./dist)
 	-version V     the version, such as 1.2.3 or 1.2.3-rc.1 (default: the
 	               module's)
@@ -108,8 +146,14 @@ Flags:
 	               package's folder)
 	-id ID         the app ID instead of App.AppID
 	-name NAME     the name instead of App.Title
-	-sign          sign with the system's tools (none on Linux)
+	-sign          sign with the system's tools (none on Linux; codesign
+	               for darwin, on a Mac)
 	-sign-cmd cmd  run cmd on each file to sign
+	-codesign-identity ID
+	               the identity -sign signs darwin packages with
+	-notary-profile profile
+	               notarize darwin packages with this notarytool keychain
+	               profile, then staple them
 	-console       Windows programs keep the console subsystem
 	-tags, -ldflags, -gcflags, -trimpath
 	               as for go build (see "tela help build")
@@ -125,6 +169,8 @@ type packageOptions struct {
 	out     string
 	sign    bool
 	signCmd []string
+	// codesignIdentity and notaryProfile are -sign's for darwin targets.
+	codesignIdentity, notaryProfile string
 }
 
 func splitList(s string) []string {
@@ -152,6 +198,8 @@ func parsePackageArgs(args []string) (packageOptions, error) {
 	fs.StringVar(&o.out, "o", "dist", "")
 	fs.BoolVar(&o.sign, "sign", false, "")
 	fs.StringVar(&signCmd, "sign-cmd", "", "")
+	fs.StringVar(&o.codesignIdentity, "codesign-identity", "", "")
+	fs.StringVar(&o.notaryProfile, "notary-profile", "", "")
 	pkgs, err := parsePositionals("package", fs, args)
 	if err != nil {
 		return o, err
@@ -173,6 +221,9 @@ func parsePackageArgs(args []string) (packageOptions, error) {
 	if o.out == "" {
 		return o, errors.New("-o is empty; give the folder to write the packages in")
 	}
+	if (o.codesignIdentity != "" || o.notaryProfile != "") && !o.sign {
+		return o, errors.New("-codesign-identity and -notary-profile are for -sign; add -sign")
+	}
 	return o, o.build.validate("package")
 }
 
@@ -193,12 +244,18 @@ func runPackage(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	outs, err := packageAll(goBin, opts, stderr)
+	said := map[string]bool{}
 	for _, o := range outs {
+		// The entitlements file is written by each darwin target.
+		if said[o.Path] {
+			continue
+		}
+		said[o.Path] = true
 		line := "wrote " + o.Path
 		switch {
 		case o.Signed:
 			line += " (signed)"
-		case !strings.HasSuffix(o.Path, "-flatpak"):
+		case !strings.HasSuffix(o.Path, "-flatpak") && !strings.HasSuffix(o.Path, ".entitlements"):
 			line += " (unsigned)"
 		}
 		if o.Note != "" {
@@ -228,11 +285,11 @@ func packageAll(goBin string, opts packageOptions, log io.Writer) ([]pkgfmt.Outp
 	if err != nil {
 		return nil, err
 	}
-	signer, err := packageSigner(opts, plans, log)
+	out, err := filepath.Abs(opts.out)
 	if err != nil {
 		return nil, err
 	}
-	out, err := filepath.Abs(opts.out)
+	signer, err := packageSigner(opts, plans, out, log)
 	if err != nil {
 		return nil, err
 	}
@@ -312,6 +369,14 @@ func planPackages(goBin string, opts packageOptions, log io.Writer) ([]packagePl
 			t := pkgfmt.Target{OS: goos, Arch: goarch}
 			o := opts.build
 			o.Env = []string{"GOOS=" + goos, "GOARCH=" + goarch}
+			if goarch == "universal" {
+				// Both programs of a universal one are built from the
+				// same files; the arm64 build reads the declaration.
+				if goos != "darwin" {
+					return nil, fmt.Errorf("%s: -arch universal is for darwin (one macOS program for amd64 and arm64); give %s its architectures in another run", t, goos)
+				}
+				o.Env = []string{"GOOS=darwin", "GOARCH=arm64"}
+			}
 			bt, err := resolveBuildTarget(goBin, o, "package")
 			if err != nil {
 				return nil, fmt.Errorf("%s: %v", t, err)
@@ -473,11 +538,21 @@ func toolVersion() string {
 
 // packageSigner returns the signer of -sign and -sign-cmd for the targets
 // of plans: -sign adds each system's signing tools to the chain (Linux has
-// none, which it says), -sign-cmd a CommandSigner.
-func packageSigner(opts packageOptions, plans []packagePlan, log io.Writer) (pkgfmt.Signer, error) {
+// none, which it says), -sign-cmd a CommandSigner. out is the packages'
+// folder.
+func packageSigner(opts packageOptions, plans []packagePlan, out string, log io.Writer) (pkgfmt.Signer, error) {
 	var ch pkgfmt.Chain
 	if opts.sign && slices.ContainsFunc(plans, func(p packagePlan) bool { return p.target.OS == "linux" }) {
 		fmt.Fprintln(log, "tela package: -sign: there is no signing tool to run for Linux packages; sign them with -sign-cmd (for example -sign-cmd \"gpg --detach-sign --armor\")")
+	}
+	if opts.sign && slices.ContainsFunc(plans, func(p packagePlan) bool { return p.target.OS == "darwin" }) {
+		s, err := macSigner(opts, plans[0].app, out, log)
+		if err != nil {
+			return nil, err
+		}
+		if s != nil {
+			ch = append(ch, *s)
+		}
 	}
 	if len(opts.signCmd) > 0 {
 		if _, err := exec.LookPath(opts.signCmd[0]); err != nil {
@@ -487,6 +562,37 @@ func packageSigner(opts packageOptions, plans []packagePlan, log io.Writer) (pkg
 	}
 	return ch, nil
 }
+
+// macSigner returns -sign's signer of darwin targets: codesign and
+// notarytool on a Mac (pkgfmt.MacSigner); elsewhere nil, which it says.
+func macSigner(opts packageOptions, app pkgfmt.App, out string, log io.Writer) (*pkgfmt.MacSigner, error) {
+	if hostGOOS != "darwin" {
+		fmt.Fprintln(log, "tela package: -sign: codesign and notarytool are macOS's, so the darwin packages are not signed here; sign them on a Mac, or with -sign-cmd and a signer that runs on this system, such as rcodesign of apple-codesign (-sign-cmd \"rcodesign sign {}\")")
+		return nil, nil
+	}
+	if opts.codesignIdentity == "" {
+		return nil, errors.New("-sign for darwin needs -codesign-identity, the identity to sign with, such as -codesign-identity \"Developer ID Application: Example Ltd (TEAMID)\" (security find-identity -v -p codesigning lists yours)")
+	}
+	tools := []string{"codesign"}
+	if opts.notaryProfile != "" {
+		tools = append(tools, "xcrun")
+	}
+	for _, t := range tools {
+		if _, err := exec.LookPath(t); err != nil {
+			return nil, fmt.Errorf("-sign: %v; install the Xcode command line tools (xcode-select --install)", err)
+		}
+	}
+	if opts.notaryProfile == "" {
+		fmt.Fprintln(log, "tela package: -sign: no -notary-profile, so the darwin packages are signed but not notarized, and Gatekeeper refuses them once downloaded; store a profile with xcrun notarytool store-credentials and pass -notary-profile")
+	}
+	return &pkgfmt.MacSigner{
+		Identity: opts.codesignIdentity, NotaryProfile: opts.notaryProfile,
+		Entitlements: pkgfmt.EntitlementsPath(out, app), Out: log,
+	}, nil
+}
+
+// hostGOOS is the system tela runs on; tests replace it.
+var hostGOOS = runtime.GOOS
 
 // packageTarget builds the program for one target and writes its packages
 // into out.
@@ -510,7 +616,32 @@ func packageTarget(goBin string, opts packageOptions, p packagePlan, out string,
 			return nil, err
 		}
 	}
-	if err := goBuild(goBin, o, exe, log); err != nil {
+	// built is a program of the build (a thin one of a universal program),
+	// which has the build's information.
+	built := exe
+	if p.target.Arch == "universal" {
+		var thin [][]byte
+		for _, arch := range []string{"amd64", "arm64"} {
+			oa := o
+			oa.Env = []string{"GOOS=darwin", "GOARCH=" + arch}
+			built = exe + "-" + arch
+			if err := goBuild(goBin, oa, built, log); err != nil {
+				return nil, err
+			}
+			b, err := os.ReadFile(built)
+			if err != nil {
+				return nil, err
+			}
+			thin = append(thin, b)
+		}
+		fat, err := appbundle.Universal(thin...)
+		if err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(exe, fat, 0o755); err != nil {
+			return nil, err
+		}
+	} else if err := goBuild(goBin, o, exe, log); err != nil {
 		return nil, err
 	}
 	if res != nil {
@@ -522,7 +653,7 @@ func packageTarget(goBin string, opts packageOptions, p packagePlan, out string,
 	app.Version = strings.TrimPrefix(o.Version, "v")
 	from := "-version"
 	if app.Version == "" {
-		from, app.Version = "the module", moduleVersionFull(exe)
+		from, app.Version = "the module", moduleVersionFull(built)
 	}
 	if app.Version == "" {
 		from, app.Version = "no version known", "0.0.0"
@@ -530,7 +661,7 @@ func packageTarget(goBin string, opts packageOptions, p packagePlan, out string,
 	if app.Version[0] < '0' || app.Version[0] > '9' {
 		return nil, fmt.Errorf("the version %q does not start with a digit; give one such as 1.2.3 with -version", app.Version)
 	}
-	t, tFrom, err := packageTime(exe)
+	t, tFrom, err := packageTime(built)
 	if err != nil {
 		return nil, err
 	}

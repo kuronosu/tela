@@ -560,13 +560,18 @@ name in the Dock and the menu bar. An app is a bundle, `<Name>.app`, with an
 ```text
 Notes.app/Contents/Info.plist
 Notes.app/Contents/MacOS/Notes
+Notes.app/Contents/Resources/notes.icns     # with an icon
 ```
 
 The `Info.plist` has `CFBundleIdentifier` (the app's `AppID`), `CFBundleName`
 and `CFBundleDisplayName` (its title), `CFBundleExecutable`, the package type,
 the version (`CFBundleShortVersionString`, `CFBundleVersion`: the module's
 version when the build knows it, else `0.0.0`), `LSMinimumSystemVersion` 13.0
-and the high-resolution and graphics-switching keys.
+and the high-resolution and graphics-switching keys, then what the rest of the
+declaration gives, as `tela package` writes it ([macOS](#macos)): the icon
+(`icon.svg` or `icon.png` in the package's folder, or `-icon`, drawn into
+`Resources/<name>.icns`), the category, the copyright, the usage descriptions
+and the URL schemes and file types.
 
 The ID and the name are read from the source, without running it: the
 `AppID` and `Title` of the `tela.App` passed to `tela.Main` in `main`, or of the
@@ -586,8 +591,9 @@ bundle per app:
 and runs the executable inside it directly (not through `open`), so the
 terminal keeps standard input, output and error and Ctrl+C, and the program's
 exit status is `tela run`'s. `-v` prints where the bundle is. Rebuilding writes
-only what changed, and keeps the keys that a running app added to the
-`Info.plist` when it registered a URL scheme or a file type.
+only what changed, and keeps the entries that a running app added to the
+`Info.plist` when it registered a URL scheme or a file type that the
+declaration does not declare.
 
 | Flag | Does |
 |---|---|
@@ -595,7 +601,7 @@ only what changed, and keeps the keys that a running app added to the
 | `-id ID` | The app's ID, instead of `App.AppID` |
 | `-name NAME` | The app's name, instead of `App.Title` (default: the package's name) |
 | `-version V` | The app's version (`1.2.3`, `1.2.3-rc.1`), written into the program; default: the module's version |
-| `-icon file` | (build) The icon, instead of `icon.svg` or `icon.png` in the package's folder |
+| `-icon file` | (build) The icon of a bundle or a Windows program, instead of `icon.svg` or `icon.png` in the package's folder |
 | `-console` | (build) A Windows program keeps the console subsystem instead of the GUI one |
 | `-tags list`, `-ldflags f`, `-gcflags f`, `-trimpath` | Passed to `go build`; tela adds `-X` for the version and, for a Windows GUI program, `-H=windowsgui` to `-ldflags` (yours wins for `-H`); no `teladev` tag, no stripping |
 | `-v` | Say where the ID and the name came from, the icon (and, for `run`, where the bundle is) |
@@ -603,8 +609,8 @@ only what changed, and keeps the keys that a running app added to the
 Signing: neither command runs `codesign`. The Go linker ad-hoc signs
 `darwin/arm64` executables, and that signature covers the executable only, not
 the `Info.plist`. A bundle made this way runs on the machine that built it; it
-has no developer identity and is not notarized. Signing and installers are the
-packaging step. On Linux `tela build` writes the plain executable and `tela run`
+has no developer identity and is not notarized. Signing, notarization and
+installers are `tela package`'s. On Linux `tela build` writes the plain executable and `tela run`
 builds and runs it in a temporary folder; `-id` and `-name` are ignored. `tela
 run` always runs on the machine's own platform.
 
@@ -649,6 +655,7 @@ tela package ./cmd/notes                                  # this machine's GOOS 
 tela package -os linux -arch amd64,arm64 ./cmd/notes      # dist/notes-1.2.0-linux-amd64.AppImage, .deb, ... for both
 tela package -format flatpak -o out .                     # the flatpak manifest and its folder
 tela package -sign-cmd "gpg --detach-sign --armor" .      # a .asc next to each package
+tela package -os darwin -arch universal .                 # dist/notes-1.2.0-darwin-universal.zip
 ```
 
 Builds the program of a package `main` as `tela build` does (the same flags:
@@ -666,7 +673,8 @@ program's name.
 | linux | `deb` (default) | A Debian package |
 | linux | `flatpak` | A flatpak-builder manifest and the folder it builds from; the `.flatpak` bundle too when `flatpak-builder` and `flatpak` are installed and the target is this machine's architecture |
 | windows | `zip`, `msix` (defaults) | Not implemented yet |
-| darwin | `app` (default), `dmg` | Not implemented yet |
+| darwin | `app` (default) | The bundle `<Name>.app` in a zip, which updates itself with package `update` |
+| darwin | `dmg` | A disk image with the bundle and a link to `/Applications`, made by `hdiutil`: on a Mac only |
 
 Everything comes from the package's `tela.App`, read from the source as
 `tela build` reads it: `AppID` is required, `Title` is the name, and
@@ -698,7 +706,7 @@ metadata, written once for all of them:
 version) give the same files: every time is `SOURCE_DATE_EPOCH` when it is set,
 else the time of the commit the go command stamped into the program, else
 1980-01-01; entries are sorted, owned by root, with fixed modes. The flatpak
-bundle is the exception: flatpak writes it.
+bundle and the dmg are the exceptions: flatpak and `hdiutil` write them.
 
 ### AppImage
 
@@ -782,14 +790,105 @@ flatpak gives the accessibility bus by itself. With `flatpak-builder` and
 otherwise it says how. flatpak manages the install, so package `update` reports
 `ErrManaged` there.
 
+### macOS
+
+`<name>-<version>-darwin-<arch>.zip` holds the bundle at its top level, as
+`ditto -c -k --keepParent` makes it, so Finder's Archive Utility, `ditto -x -k`
+and package `update` unpack it with the program's executable bit and any
+symbolic link (each entry records the Unix host and its mode):
+
+```text
+Notes.app/Contents/Info.plist
+Notes.app/Contents/MacOS/Notes
+Notes.app/Contents/Resources/notes.icns
+Notes.app/Contents/_CodeSignature/CodeResources   # signed
+```
+
+`-arch` takes `amd64`, `arm64` or `universal`: both programs in one file (a fat
+Mach-O written by tela, slices aligned to 16 KiB, each one the linker's file
+byte for byte), named `...-darwin-universal.zip`; `tela update manifest` lists
+it for `darwin/amd64` and `darwin/arm64`. Unsigned, nothing changes the program
+after the linker: the arm64 program keeps the linker's ad-hoc signature, which
+Apple silicon needs to run it (the amd64 one has none).
+
+The `Info.plist`, from the declaration:
+
+| From | Keys |
+|---|---|
+| the icon | `CFBundleIconFile` (`<name>.icns` in `Resources`, 16 to 1024 px) |
+| the version | `CFBundleShortVersionString` and `CFBundleVersion`: its `X.Y.Z` (`1.2.0-rc.1` is `1.2.0`); the program carries all of it |
+| `Category` | `LSApplicationCategoryType`: `AudioVideo` and `Video` are `video`, `Audio` `music`, `Development` `developer-tools`, `Education` and `Science` `education`, `Game` `games`, `Graphics` `graphics-design`, `Office` `productivity`, the rest (`Network`, `Settings`, `System`, `Utility`, none) `utilities`, each as `public.app-category.<x>` |
+| `Publisher` | `NSHumanReadableCopyright`: `© <publisher>` (without an e-mail address) |
+| `Services` | `NSCameraUsageDescription`, `NSMicrophoneUsageDescription`, `NSLocationWhenInUseUsageDescription`, `NSContactsUsageDescription`, `NSCalendarsUsageDescription` and `NSCalendarsFullAccessUsageDescription` (macOS 14), `NSPhotoLibraryUsageDescription`, `NSBluetoothAlwaysUsageDescription`: macOS shows the text when it asks, and ends an app that uses a service without one |
+| `Schemes` | `CFBundleURLTypes`: `<AppID>.<scheme>`, role Viewer |
+| `FileTypes` | `CFBundleDocumentTypes`, and `UTExportedTypeDeclarations` for the app's own types |
+
+A file type is the app's own unless its extension has a public type of the
+system (`.txt`, `.md`, `.json`, `.png`, `.pdf` and other common ones): the
+bundle exports the type `<AppID>.<ext>` (conforming to `public.data` and
+`public.content`, with the extension and MIME type as tags) and declares the
+document type with rank `Owner`, so Launch Services opens those files with the
+app. A public type is declared with rank `Alternate`: the app is offered, and
+never takes the default from the app that owns the format. The role is Editor by
+default, or Viewer or Shell; `HandlerNone` declares the type with role and rank
+None. Because everything is declared when the bundle is built, the registration
+of a running app (`desktop`) finds it declared and only asks Launch Services to
+read the bundle: it never edits a signed bundle's `Info.plist`, which the
+signature seals.
+
+`<name>.entitlements`, next to the packages, holds the hardened runtime's
+entitlements of `Services`, which `codesign` signs with: `Camera` is
+`com.apple.security.device.camera`, `Microphone`
+`com.apple.security.device.audio-input`, `Location`, `Contacts`, `Calendars` and
+`Photos` `com.apple.security.personal-information.location`, `.addressbook`,
+`.calendars` and `.photos-library`. There is no App Sandbox: a sandboxed app
+reaches only the files the user picks through the system's own dialogs, cannot
+register global shortcuts, and cannot have its schemes and file types
+registered the way Tela does; a sandboxed variant is later work. The other
+services need no entitlement outside the sandbox.
+
 ### Signing
 
 Linux packages have no signing tool to run: `-sign` does nothing there and says
 so. `-sign-cmd command` runs a command on each file to sign, every package file
-(and, for Windows, each program before it is packaged): an argument `{}` is
-replaced by the file's path, else the path is added at the end. The output says
-`(signed)` or `(unsigned)` after each file; unsigned packages are written all
-the same.
+(and, for Windows, each program before it is packaged; for macOS, the program
+and the bundle before the zip is made): an argument `{}` is replaced by the
+file's path, else the path is added at the end. The output says `(signed)` or
+`(unsigned)` after each file; unsigned packages are written all the same.
+
+On a Mac, `-sign` runs Apple's tools for the darwin packages:
+
+```bash
+xcrun notarytool store-credentials notes --apple-id you@example.com --team-id TEAMID
+tela package -os darwin -arch universal -format app,dmg -sign \
+    -codesign-identity "Developer ID Application: Example Ltd (TEAMID)" \
+    -notary-profile notes .
+```
+
+`codesign --force --options runtime --timestamp --entitlements <name>.entitlements
+-s <identity>` signs the program, then the bundle (then `codesign --verify
+--deep --strict` checks it); a dmg is signed as a whole. With `-notary-profile`
+(the keychain profile `notarytool store-credentials` saved), `xcrun notarytool
+submit --wait` sends the bundle (in a zip) or the dmg to Apple's notary service,
+and `xcrun stapler staple` attaches the ticket once it is accepted (a rejection
+says how to read the log); the app zip is made after the stapling. Without
+`-notary-profile` the packages are signed but not notarized, and Gatekeeper
+refuses them once downloaded. `-codesign-identity -` signs ad hoc, for a local
+check of the hardened runtime. `security find-identity -v -p codesigning` lists
+your identities.
+
+On Linux or Windows there is no `codesign`: `-sign` says so and writes the
+darwin packages unsigned. [rcodesign](https://github.com/indygreg/apple-platform-rs)
+(apple-codesign) signs and notarizes on any system; run it through `-sign-cmd`,
+for example `-sign-cmd "rcodesign sign {}"`, with its own options for the
+identity. A Mac checks a package with:
+
+```bash
+ditto -x -k notes-1.2.0-darwin-universal.zip /tmp/n   # or open it in Finder
+codesign --verify --deep --strict --verbose=2 "/tmp/n/Notes.app"
+spctl --assess --type execute --verbose=2 "/tmp/n/Notes.app"   # Gatekeeper: "Notarized Developer ID"
+xcrun stapler validate "/tmp/n/Notes.app"
+```
 
 ## tela icons gen
 

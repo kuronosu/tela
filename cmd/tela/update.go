@@ -84,7 +84,9 @@ manifest before it expires. Then sign it (or give -key here).
 A file's target comes from its name as tela package writes it,
 <name>-<version>-<os>-<arch>.<ext>: .AppImage is appimage, .deb deb,
 .flatpak flatpak, .msix msix, .zip zip on windows and app on darwin (the
-bundle in a zip), .dmg dmg. Give it explicitly as file=os/arch/format.
+bundle in a zip), .dmg dmg. A darwin file of the arch universal (one program
+for both) is the artifact of darwin/amd64 and of darwin/arm64. Give the
+target explicitly as file=os/arch/format.
 
 Flags:
 
@@ -481,14 +483,24 @@ func buildManifest(o manifestOptions, now time.Time) (*update.Manifest, error) {
 		if err != nil {
 			return nil, err
 		}
-		replaced := false
-		for i := range r.Artifacts {
-			if x := &r.Artifacts[i]; x.OS == a.OS && x.Arch == a.Arch && x.Format == a.Format {
-				r.Artifacts[i], replaced = a, true
-			}
+		// A universal macOS program serves both of macOS's architectures:
+		// clients match their GOARCH.
+		arts := []update.Artifact{a}
+		if a.OS == "darwin" && a.Arch == "universal" {
+			amd, arm := a, a
+			amd.Arch, arm.Arch = "amd64", "arm64"
+			arts = []update.Artifact{amd, arm}
 		}
-		if !replaced {
-			r.Artifacts = append(r.Artifacts, a)
+		for _, a := range arts {
+			replaced := false
+			for i := range r.Artifacts {
+				if x := &r.Artifacts[i]; x.OS == a.OS && x.Arch == a.Arch && x.Format == a.Format {
+					r.Artifacts[i], replaced = a, true
+				}
+			}
+			if !replaced {
+				r.Artifacts = append(r.Artifacts, a)
+			}
 		}
 	}
 	m.Channels[o.channel] = rs
