@@ -224,13 +224,17 @@ func TestApplyZipFolder(t *testing.T) {
 	}
 }
 
-// inode returns what identifies the file at p, compared with os.SameFile.
+// inode returns what identifies the file at p now, compared with
+// os.SameFile.
 func inode(t *testing.T, p string) os.FileInfo {
 	t.Helper()
 	st, err := os.Stat(p)
 	if err != nil {
 		t.Fatal(err)
 	}
+	// On Windows the file ID is read from the path on the first SameFile
+	// and kept: read it before a rename puts another file at the path.
+	os.SameFile(st, st)
 	return st
 }
 

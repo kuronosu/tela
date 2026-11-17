@@ -105,6 +105,7 @@ func (u *Update) Download(ctx context.Context, progress func(done, total int64))
 		return fmt.Errorf("update: download: %w", err) // keep the part for a resume
 	}
 	if w.done > total {
+		f.Close() // Windows deletes no open file
 		os.Remove(part)
 		return fmt.Errorf("%w: the file is larger than %d bytes", ErrHashMismatch, total)
 	}
@@ -112,7 +113,7 @@ func (u *Update) Download(ctx context.Context, progress func(done, total int64))
 		return fmt.Errorf("update: download: %w after %d of %d bytes", io.ErrUnexpectedEOF, w.done, total)
 	}
 	if got := hex.EncodeToString(h.Sum(nil)); !strings.EqualFold(got, u.Artifact.SHA256) {
-		f.Close()
+		f.Close() // Windows deletes no open file
 		os.Remove(part)
 		return fmt.Errorf("%w: SHA-256 %s, want %s", ErrHashMismatch, got, u.Artifact.SHA256)
 	}
