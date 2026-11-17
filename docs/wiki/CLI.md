@@ -619,6 +619,19 @@ prints them.
 tela icons gen -pkg icons -o ./icons -license-file LICENSE -license ISC ./svg
 ```
 
+## tela update
+
+```text
+tela update keygen [-o file]
+tela update manifest [-m manifest.json] -version V [flags] <file>...
+tela update sign -key file [-key file...] [-o file] <manifest>
+```
+
+Make the ed25519 key that signs an app's updates, add a release to its update
+manifest from the packaged files (sizes, SHA-256 sums, targets read from the
+file names) and sign the manifest for package `update`. The whole flow, the
+manifest's format and its flags are on the [Updates](Updates) page.
+
 ## Debug overlays
 
 For a running app, `TELA_DEBUG` draws diagnostics on top of the window with

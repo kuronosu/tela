@@ -18,6 +18,7 @@
 - [Kit](Kit)
 - [Windows and Desktop](Windows-and-Desktop)
 - [Desktop Integration](Desktop-Integration)
+- [Updates](Updates)
 - [Accessibility](Accessibility)
 - [Testing](Testing)
 - [CLI](CLI)

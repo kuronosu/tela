@@ -13,6 +13,11 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+### Added
+
+- Package `update` (ADR-296): an installed app updates itself from a signed JSON manifest on any web server. `update.Check` verifies the manifest's detached ed25519 signature (key IDs, several keys for rotation) before reading it, refuses expired manifests and ones older than the newest seen, and picks the newest release of the app's channel that is rolled out to the install (a hash of a random install ID and the version), accepts its version (`minVersion`) and has a file for its platform and install format; `EndOfSupportError` for versions that can no longer update, `ManagedError` for deb, flatpak and MSIX installs. `Update.Download` resumes and checks size and SHA-256; `Update.Apply` swaps an AppImage, a macOS bundle or a Windows zip folder (marked by `tela-install.json`) by renames and keeps the old copy; `Restart` starts the new version; a new version not marked healthy (`MarkHealthy`) within two starts is rolled back at the next (`RolledBack`). `UseUpdate` does it all for a banner. The manifest lists patches from older versions for delta updates later; this version downloads full files.
+- `tela update keygen|manifest|sign`: make the signing key, add a release to the manifest from the packaged files, and sign it.
+
 ## [0.14.6] - 2026-11-17
 
 Work on the dev loop between phases (ADR-290 to ADR-293). It breaks no public API.
