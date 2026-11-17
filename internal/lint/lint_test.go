@@ -8,10 +8,19 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"testing"
 )
+
+// TestMain runs the collector half as often as the default (GOGC=200):
+// each test type-checks its dependencies from source, and collecting that
+// garbage took two fifths of the package's CPU.
+func TestMain(m *testing.M) {
+	debug.SetGCPercent(200)
+	os.Exit(m.Run())
+}
 
 // The fixtures in testdata are small packages of Tela code. A line that
 // ends in a comment
