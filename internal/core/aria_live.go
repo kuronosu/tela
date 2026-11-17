@@ -67,8 +67,8 @@ func AriaAtomic(atomic bool) Prop {
 // or a common alias of a key value ("Ctrl", "Cmd", "Option", "Esc")
 // panics with the right name (CheckKeyShortcuts).
 func AriaKeyShortcuts(keys string) Prop {
-	if devNow() {
-		if msg := CheckKeyShortcuts(keys); msg != "" {
+	if devMaybe() {
+		if msg := CheckKeyShortcuts(keys); msg != "" && devNow() { // the check first, as Role
 			panic(msg)
 		}
 	}

@@ -39,7 +39,7 @@ func (t *Tree) build(el *Element) {
 	el.builds++
 	var out Node
 	mark := t.beginTrack()
-	func() {
+	buildFrame(func() { // the frame devNow finds near a node constructor (dev.go)
 		done := false
 		defer func() {
 			current = prev
@@ -53,7 +53,7 @@ func (t *Tree) build(el *Element) {
 			out = t.devFirstBuild(el, out, mark) // tela dev: the hook signature check (ADR-113)
 		}
 		done = true
-	}()
+	})
 	t.observe(&el.vobs, obsBuild, el, nil, t.endTrack(mark))
 	if !first && el.hookIdx != before {
 		t.hookCountPanic(el, el.hookIdx, before)
