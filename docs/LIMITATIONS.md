@@ -76,6 +76,7 @@ The VM has no GPU and runs at scale 1.
 - [ ] Phase 24: NVDA and Narrator follow incremental UIA updates on `login` (ADR-277)
 - [ ] Phase 25: `TELA_LIVE=1 go test -tags telagpu -run TestLiveGPU ./internal/core/` and `go test -tags telagpu ./internal/vk/... ./internal/gfx/gpu/...` on a real GPU (none of the Windows GPU code has run): the first frame appears after `ShowWindow`, images keep their contents across acquires, `PrintWindow` captures flip-model content, minimize and restore, a live resize in the modal loop, no flash of the old GDI copy when the swapchain is released, a driver without a BGRA or RGBA unorm format; the dashboard's frame times
 - [ ] Phase 26 (the VM is enough): `desktop.Logger` in a GUI-subsystem program started from Explorer (no standard error: the file only); a person clicks a toast's button after the app exited (`TELA_LIVE=1 TELA_LIVE_CLICK=1 go test -run 'TestLiveToastClick|TestLiveToastActivator$' ./internal/platform/win32/`). Checked on the VM on 2026-11-17: a `tela build` executable shows its icon and `VersionInfo`; `desktop`'s rotation and crash tests, `update`, and `TestLiveToast` and `TestLiveToastActivator` (registration after exit) pass
+- [ ] Phase 26 with the Windows SDK (needs the owner's approval to install it on the VM): `makeappx unpack` and `signtool verify /pa` of a `tela package` MSIX signed with a test certificate; an install through its `.appinstaller` from a local HTTP server and an update; an arm64 MSIX on arm64 Windows; a toast clicked after an MSIX app exited
 
 ### Linux desktops
 
