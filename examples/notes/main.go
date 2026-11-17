@@ -115,6 +115,11 @@
 //     notifications and the global shortcut (Control+Option+N) are the OS's.
 //   - Registration needs the app's bundle (ADR-228): see "Try it on a Mac".
 //
+// Phase 26 makes Notes the sample app of tela package and package update
+// (README.md, docs/wiki/Updates.md): App declares what the packages need,
+// icon.svg is its icon, and a build given an update URL and key checks for
+// updates and offers a restart when one is in place (updates.go).
+//
 // Try it. Build the program first (go build -o notes ./examples/notes): under
 // go run it is a temporary build, which Notes does not register.
 //
@@ -171,8 +176,23 @@ var theme = themeFor(accents[0].Name)
 // wraps it in desktop.PersistApp, which loads the saved placement from
 // disk, so reading App itself touches nothing.
 var App = tela.App{
-	Title:     "Notes",
-	AppID:     "dev.telaui.notes",
+	Title: "Notes",
+	AppID: "dev.telaui.notes",
+	// The declaration (ADR-294), which tela package writes into the
+	// packages; Run ignores it. The scheme and the file type are the ones
+	// Notes registers itself at run time (link.go: notesScheme and
+	// markdownType), so an install from a package already offers them.
+	Publisher:   "Tela",
+	Description: "Plain-text notes with folders, tags and locked notes",
+	Category:    "Office",
+	Schemes:     []string{"tela-notes"},
+	FileTypes:   []tela.FileType{{Ext: ".md", MIME: "text/markdown", Description: "Markdown document"}},
+	Services: tela.Services{
+		Network:         true, // the update check (updates.go), in packaged builds
+		Notifications:   true, // "Saved" (desktop.Notify)
+		Secrets:         true, // the key of the locked notes (lock.go)
+		GlobalShortcuts: true, // Quick note
+	},
 	Width:     960,
 	Height:    640,
 	MinWidth:  720,

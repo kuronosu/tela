@@ -6,6 +6,7 @@ downloads the file for its platform, verifies it, swaps it in and runs the new
 version at its next start, or at once when you ask. A new version that does
 not start properly is undone on its own.
 
+- [Ship it: Notes from start to update](#ship-it-notes-from-start-to-update)
 - [Publishing a release](#publishing-a-release)
 - [Checking from the app](#checking-from-the-app)
 - [Activation](#activation)
@@ -16,6 +17,79 @@ not start properly is undone on its own.
 - [The manifest](#the-manifest)
 - [The signature file](#the-signature-file)
 - [The Windows install marker](#the-windows-install-marker)
+
+## Ship it: Notes from start to update
+
+`examples/notes` is packaged and updated this way. Its `tela.App` declares
+what the packages need (`AppID`, `Title`, `Publisher`, `Description`,
+`Category`, the `tela-notes` scheme, `.md` files and its `Services`), its
+folder has an `icon.svg`, and `updates.go` holds the update settings as two
+package variables that the build fills in:
+
+```go
+var updateURL, updateKey string // set with -ldflags -X; empty: no check
+
+func (updateCheck) Build() tela.Node {
+    up := update.UseUpdate(update.Config{URL: updateURL, PublicKeys: []update.PublicKey{update.PublicKey(updateKey)}})
+    if up.Status != update.Ready {
+        return nil
+    }
+    return updateReady{Version: up.Update.Version, OnRestart: up.Restart}
+}
+```
+
+The screen mounts `updateCheck{}` only when both are set, so `go run` and
+`tela dev` never check. Then:
+
+1. **Make the key** once, and keep `notes.key` out of the repository:
+
+   ```bash
+   tela update keygen -o notes.key      # prints "ed25519:…"
+   ```
+
+2. **Package** version 1.0.0 for the three systems, with the URL where the
+   files will be and the public key:
+
+   ```bash
+   tela package -os linux,windows,darwin -arch amd64,arm64 -version 1.0.0 \
+       -appinstaller-url https://example.com/notes \
+       -ldflags "-X main.updateURL=https://example.com/notes/manifest.json -X main.updateKey=ed25519:…" \
+       -o dist ./examples/notes
+   ```
+
+   `dist/` gets the AppImage and deb for Linux, the zip and MSIX (and its
+   `.appinstaller`) for Windows, the bundle's zip for macOS and
+   `notes.entitlements`, for every architecture; each target is built once.
+   `-arch universal` for macOS is a run of its own (`-os darwin -arch
+   universal`), since the other systems have no universal program.
+
+3. **Make the manifest** from the folder and **sign** it:
+
+   ```bash
+   tela update manifest -m dist/manifest.json -app-id dev.telaui.notes -version 1.0.0 dist/*
+   tela update sign -key notes.key dist/manifest.json
+   ```
+
+   The command skips, and says so, what is not a package of 1.0.0: the
+   manifest and its signature, `notes.entitlements`, the `.appinstaller`
+   files, folders, the files of other versions.
+
+4. **Publish** `dist/` at `https://example.com/notes/`. People install the
+   AppImage, the Windows zip or the macOS app (which update themselves), the
+   deb, or the MSIX through its `.appinstaller` (which their managers
+   update).
+
+5. **Release 1.1.0**: package again with `-version 1.1.0` into the same
+   folder, run step 3 with `-version 1.1.0` (the manifest keeps 1.0.0's
+   release), and publish. At its next start, an installed 1.0.0 finds 1.1.0,
+   downloads it, checks its hash, puts it in place (keeping 1.0.0 beside it)
+   and shows "Notes 1.1.0 is ready" with Restart; without a restart, 1.1.0
+   runs from the next start. Either way it marks itself healthy once its
+   first frame is up; a 1.1.0 that never gets there is replaced by 1.0.0
+   at its third start.
+
+`go test -run TestNotesAppImageUpdate ./cmd/tela/` plays steps 1 to 5 on
+Linux against a local server, with Notes on the headless backend.
 
 ## Publishing a release
 
@@ -48,7 +122,9 @@ tela update manifest -m dist/manifest.json -app-id com.example.notes \
 size and SHA-256 and lists it under the release; a universal macOS zip
 (`-darwin-universal.zip`) is listed for both `darwin/amd64` and
 `darwin/arm64`. Give an unusual name its target as
-`file=linux/amd64/appimage`. Artifact URLs are relative to the
+`file=linux/amd64/appimage`. Give it the whole folder (`dist/*`) if you
+like: what is not a package of the release is skipped, with a line saying
+why. Artifact URLs are relative to the
 manifest unless you give `-base-url`. Upload `dist/` (the files,
 `manifest.json` and `manifest.json.sig`) to your server.
 

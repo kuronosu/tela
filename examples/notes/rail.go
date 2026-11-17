@@ -17,6 +17,9 @@ type Rail struct {
 	OnFilter func(filter)
 	OnNew    func()
 	OnPrefs  func()
+	// Notice is shown above Preferences: the update notice (updates.go),
+	// or nil.
+	Notice tela.Child
 }
 
 func (r Rail) Build() tela.Node {
@@ -50,6 +53,7 @@ func (r Rail) Build() tela.Node {
 				),
 			)),
 		),
+		r.Notice,
 		Button(OnClick(r.OnPrefs),
 			Class("flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-start text-[13px] text-foreground/70 outline-none transition-colors",
 				"hover:bg-accent/60 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40"),

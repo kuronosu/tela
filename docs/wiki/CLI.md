@@ -1017,8 +1017,10 @@ tela update sign -key file [-key file...] [-o file] <manifest>
 
 Make the ed25519 key that signs an app's updates, add a release to its update
 manifest from the packaged files (sizes, SHA-256 sums, targets read from the
-file names) and sign the manifest for package `update`. The whole flow, the
-manifest's format and its flags are on the [Updates](Updates) page.
+file names; the whole output folder of `tela package` may be given, and what
+is not a package of the release is skipped) and sign the manifest for package
+`update`. The whole flow, with `examples/notes` shipped from start to update,
+the manifest's format and its flags are on the [Updates](Updates) page.
 
 ## Debug overlays
 
