@@ -44,6 +44,7 @@ var newPages = []struct {
 // Arabic in turn, and every other page with colors of its own also in the
 // dark: every page, every language and the dark scheme, 21 goldens of 56.
 func TestGoldenNewPages(t *testing.T) {
+	t.Parallel()
 	for i, p := range newPages {
 		run := func(t *testing.T, tag string, dark bool) {
 			opts := []telatest.Option{telatest.Size(1280, float32(p.height))}
@@ -97,6 +98,7 @@ var arabicPages = []struct {
 // Under -short every other page of the list is checked (TestGoldenNewPages
 // checks a third of the new pages in Arabic too).
 func TestGoldenArabicPages(t *testing.T) {
+	t.Parallel()
 	for i, p := range arabicPages {
 		if testing.Short() && i%2 != 0 {
 			continue

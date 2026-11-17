@@ -14,6 +14,7 @@ import (
 // day restyles the cell and records its chunk and the scrollbars, not the
 // page (ADR-204).
 func TestCalendarHoverRecordsLittle(t *testing.T) {
+	t.Parallel()
 	tr := core.NewTree(core.Config{Theme: (*core.Theme)(App.Theme), RootClass: App.RootClass, Dev: core.ResolveDev(nil)})
 	tr.SetViewport(gfx.Size{W: 1280, H: 800})
 	tr.Mount(core.NodeOf(Gallery{Page: "Calendar"}))

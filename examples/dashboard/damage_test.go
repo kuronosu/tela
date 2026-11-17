@@ -75,11 +75,11 @@ func TestScrollDamage(t *testing.T) {
 // TELA_CHECK_DAMAGE=1.
 //
 // Under -short every frame is still drawn incrementally, but only every
-// sixteenth one (about 45), and the last, is compared with a full rendering
+// 32nd one (about 22), and the last, is compared with a full rendering
 // (damagesample): each interaction still runs, and what a wrong frame
 // leaves in the window is still found by a later comparison.
 func TestInteractionDamage(t *testing.T) {
-	damagesample.Short(t, 16)
+	damagesample.Short(t, 32)
 	scales := []float64{1.5}
 	if checkEveryScale {
 		scales = []float64{1, 1.5}

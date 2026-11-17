@@ -16,6 +16,7 @@ var pulses = map[string]bool{"Skeleton": true, "Progress": true}
 // asks for no frames: no timer, no endless animation. The clock is advanced
 // by hand (NoSettle), so the test does not depend on the machine's speed.
 func TestGoesIdle(t *testing.T) {
+	t.Parallel()
 	for _, name := range Previews.Names() {
 		if pulses[name] {
 			continue
@@ -37,6 +38,7 @@ func TestGoesIdle(t *testing.T) {
 // their entrances over, nothing asks for frames either, apart from the
 // caret of a focused field (frames that only paint it).
 func TestOpenOverlaysGoIdle(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct{ page, open string }{
 		{"DropdownMenu", "View"},
 		{"DatePicker", "Date"},

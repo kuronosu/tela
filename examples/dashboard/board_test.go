@@ -196,6 +196,7 @@ func TestDropOutsideReturnsTheCard(t *testing.T) {
 
 // TestClickDoesNotMove checks that a click, with no drag, changes nothing.
 func TestClickDoesNotMove(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t)
 	builds := a.Stats().Builds
 	a.Click(cardLoc("Ship the CSV export"))
@@ -439,6 +440,7 @@ func TestDeleteEverythingLeavesTheDropHint(t *testing.T) {
 // TestMenuButtonDoesNotDrag: a click on the ellipsis is a click, not the
 // start of a drag.
 func TestMenuButtonDoesNotDrag(t *testing.T) {
+	t.Parallel()
 	a := mountBoard(t)
 	a.Click(actionsOf("Ship the CSV export"))
 	a.ExpectCount(telatest.ByClass("z-50", "rotate-2"), 0)

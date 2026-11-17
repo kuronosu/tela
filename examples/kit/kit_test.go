@@ -17,6 +17,13 @@ import (
 // mount opens a root with the settings of App (size, theme, root class).
 // Dev mode is on, so any dev message (an unknown class, a hook misuse, a
 // variant the active style does not define) fails the test.
+//
+// The tests run in parallel (t.Parallel), except those that switch the
+// scheme or the style with the gallery's controls, set i18n's locale or
+// answer a message box (all of them reach the app through the process's
+// one Post receiver, the Tree mounted last, which a test running beside
+// them would be), the damage test and the measurements of work_test.go.
+// Go runs the sequential tests first and the parallel ones after them.
 func mount(t *testing.T, root tela.Component, opts ...telatest.Option) *telatest.App {
 	t.Helper()
 	return telatest.Mount(t, root, append([]telatest.Option{telatest.FromApp(App)}, opts...)...)
@@ -50,6 +57,7 @@ func heading(text string) telatest.Locator { return telatest.ByRole("heading", t
 // Under -short each preview is mounted in one scheme, light and dark in
 // turn.
 func TestPreviewsRenderClean(t *testing.T) {
+	t.Parallel()
 	for i, name := range Previews.Names() {
 		for j, s := range schemes {
 			if testing.Short() && j != i%len(schemes) {
@@ -70,6 +78,7 @@ func TestPreviewsRenderClean(t *testing.T) {
 // the pages use. The Introduction draws its own heading, a headline.
 // Under -short each page is opened in one style, the two in turn.
 func TestEveryPageInBothStyles(t *testing.T) {
+	t.Parallel()
 	for i, p := range sidebar() {
 		for j, style := range []string{"default", "rounded"} {
 			if testing.Short() && j != i%2 {
@@ -93,6 +102,7 @@ func TestEveryPageInBothStyles(t *testing.T) {
 // direction changes, whatever the page. Under -short each page is opened
 // in one of them, Spanish and Arabic in turn.
 func TestEveryPageInEveryLanguage(t *testing.T) {
+	t.Parallel()
 	for i, p := range sidebar() {
 		for j, tag := range languages[1:] {
 			if testing.Short() && j != i%len(languages[1:]) {
@@ -111,6 +121,7 @@ func TestEveryPageInEveryLanguage(t *testing.T) {
 // that the home page is the first of the sidebar, and that the components are
 // alphabetical.
 func TestPreviewsMatchPages(t *testing.T) {
+	t.Parallel()
 	want := len(sidebar()) + 3 + len(languages) - 1
 	if got := len(Previews); got != want {
 		t.Errorf("Previews has %d entries, want %d (one per page, Gallery, Gallery Rounded, Gallery Arabic and Internationalization in each other language)", got, want)
@@ -143,6 +154,7 @@ func TestPreviewsMatchPages(t *testing.T) {
 // that every exported component (a type with a Build method) is on a page:
 // a component added to the kit without a page fails here.
 func TestEveryKitComponentHasAPage(t *testing.T) {
+	t.Parallel()
 	fset := token.NewFileSet()
 	entries, err := os.ReadDir("../../kit")
 	if err != nil {

@@ -18,6 +18,7 @@ import (
 //
 // Under -short each page is checked in one scheme, light and dark in turn.
 func TestGolden(t *testing.T) {
+	t.Parallel()
 	for i, name := range []string{"Gallery", "Gallery Rounded", "Introduction", "Button", "Card", "Field", "Calendar", "Table", "Tabs", "ColorPicker", "Select", "ToggleGroup", "TitleBar"} {
 		for j, s := range schemes {
 			if testing.Short() && j != i%len(schemes) {
@@ -36,6 +37,7 @@ func TestGolden(t *testing.T) {
 // its groups, a toast and the focus ring of the sidebar reached with the
 // keyboard.
 func TestGoldenOpen(t *testing.T) {
+	t.Parallel()
 	for _, s := range schemes {
 		t.Run("dialog/"+s.name, func(t *testing.T) {
 			a := mount(t, Canvas{Page: "Dialog"}, s.opts...)
@@ -97,6 +99,7 @@ func TestGoldenOpen(t *testing.T) {
 // explicit looks and window states, so the pictures are the same on every
 // platform): the golden above shows its first screen only.
 func TestGoldenTitleBarFull(t *testing.T) {
+	t.Parallel()
 	for _, s := range schemes {
 		t.Run(s.name, func(t *testing.T) {
 			a := mount(t, Previews["TitleBar"], append([]telatest.Option{telatest.Size(1280, 2300)}, s.opts...)...)
@@ -108,6 +111,7 @@ func TestGoldenTitleBarFull(t *testing.T) {
 // TestGoldenIntroductionFull is the whole Introduction (a long page: the hero,
 // what kit is, the code and the list of components), light and dark.
 func TestGoldenIntroductionFull(t *testing.T) {
+	t.Parallel()
 	for _, s := range schemes {
 		t.Run(s.name, func(t *testing.T) {
 			a := mount(t, Previews["Introduction"], append([]telatest.Option{telatest.Size(1280, 1700)}, s.opts...)...)
@@ -119,6 +123,7 @@ func TestGoldenIntroductionFull(t *testing.T) {
 // TestGoldenLanguages is the Internationalization page in each language, and
 // the gallery in Arabic: the window mirrored, with the date picker open.
 func TestGoldenLanguages(t *testing.T) {
+	t.Parallel()
 	for _, tag := range languages {
 		t.Run(tag, func(t *testing.T) {
 			name := "Internationalization"
