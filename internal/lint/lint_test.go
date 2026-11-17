@@ -109,26 +109,31 @@ func compare(t *testing.T, got []Diagnostic, wanted []want) {
 }
 
 func TestClasses(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	checkFixtures(t, "classes")
 }
 
 func TestClassesThroughImports(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	checkFixtures(t, "dotimport", "renamed")
 }
 
 func TestAliasesAndThemeColors(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	checkFixtures(t, "aliases")
 }
 
 func TestPropsRolesAria(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	checkFixtures(t, "props")
 }
 
 func TestKeys(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	res := checkFixtures(t, "keys")
 	for _, d := range res.Diagnostics {
@@ -139,6 +144,7 @@ func TestKeys(t *testing.T) {
 }
 
 func TestHooks(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	res := checkFixtures(t, "hooks")
 	for _, d := range res.Diagnostics {
@@ -149,6 +155,7 @@ func TestHooks(t *testing.T) {
 }
 
 func TestFragment(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	res := checkFixtures(t, "fragment")
 	for _, d := range res.Diagnostics {
@@ -159,6 +166,7 @@ func TestFragment(t *testing.T) {
 }
 
 func TestPropNode(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	res := checkFixtures(t, "propnode")
 	for _, d := range res.Diagnostics {
@@ -203,6 +211,7 @@ func fixFixture(t *testing.T, dir string) (string, *Result) {
 // -fix removes exactly the wrappers the rule reports and formats the
 // result (the golden is the fixture fixed).
 func TestFragmentFix(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	got, res := fixFixture(t, "fragment")
 	if want := len(wants(t, "fragment")); len(res.Fixed) != want {
@@ -228,6 +237,7 @@ func TestFragmentFix(t *testing.T) {
 
 // The fixed text type-checks, and linting it finds nothing left to fix.
 func TestFragmentFixLeavesNothing(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	got, _ := fixFixture(t, "fragment")
 	tmp, err := os.MkdirTemp("testdata", "fixed-")
@@ -251,6 +261,7 @@ func TestFragmentFixLeavesNothing(t *testing.T) {
 }
 
 func TestFixEdits(t *testing.T) {
+	t.Parallel()
 	src := []byte("abcdefghij")
 	got, ok := applyEdits(src, []edit{{"f", 6, 8}, {"f", 1, 3}, {"f", 1, 3}})
 	if !ok || string(got) != "adefij" {
@@ -267,6 +278,7 @@ func TestFixEdits(t *testing.T) {
 // Test files are linted only when asked for: the in-package ones and the
 // external ones.
 func TestTestFiles(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	if res := lintDirs(t, false, "withtests"); len(res.Diagnostics) != 0 {
 		t.Errorf("without Tests: %v", res.Diagnostics)
@@ -277,6 +289,7 @@ func TestTestFiles(t *testing.T) {
 
 // Functions with the names of Tela's, from other packages, are not Tela's.
 func TestLookalikesAreNotReported(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	res := lintDirs(t, false, "lookalike")
 	for _, d := range res.Diagnostics {
@@ -286,6 +299,7 @@ func TestLookalikesAreNotReported(t *testing.T) {
 
 // A class error points at the class inside the literal.
 func TestClassPosition(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	const file = "testdata/classes/classes.go"
 	data, err := os.ReadFile(file)
@@ -318,6 +332,7 @@ func TestClassPosition(t *testing.T) {
 }
 
 func TestOutputOrderAndFormat(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	res := lintDirs(t, false, "classes", "props")
 	sorted := sort.SliceIsSorted(res.Diagnostics, func(i, j int) bool {
@@ -363,6 +378,7 @@ func TestOutputOrderAndFormat(t *testing.T) {
 }
 
 func TestIgnoreDirective(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		text  string
 		rules []string
@@ -394,6 +410,7 @@ func TestIgnoreDirective(t *testing.T) {
 
 // A package that does not type-check is reported and skipped.
 func TestBrokenPackageIsSkipped(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	dir := t.TempDir()
 	write := func(name, src string) {
@@ -417,6 +434,7 @@ func TestBrokenPackageIsSkipped(t *testing.T) {
 
 // A pattern that matches no package is a load error.
 func TestNoPackages(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	dir := writeModule(t, map[string]string{})
 	res, err := Run(Options{Dir: dir, Patterns: []string{"./nothing"}})
@@ -446,6 +464,7 @@ func writeModule(t *testing.T, files map[string]string) string {
 
 // An import cycle is a load error, not a deadlock.
 func TestImportCycle(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	dir := writeModule(t, map[string]string{
 		"a/a.go":  "package a\n\nimport _ \"example.com/m/b\"\n",
@@ -463,6 +482,7 @@ func TestImportCycle(t *testing.T) {
 
 // A directory with only test files is nothing to lint, not an error.
 func TestPackageWithOnlyTests(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	dir := writeModule(t, map[string]string{
 		"x_test.go": "package m\n\nimport \"testing\"\n\nfunc TestX(t *testing.T) {}\n",
@@ -477,6 +497,7 @@ func TestPackageWithOnlyTests(t *testing.T) {
 
 // The repository follows its own rules (CI runs tela lint ./...).
 func TestRepositoryLintsClean(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	res, err := Run(Options{Dir: "../..", Patterns: []string{"./..."}})
 	if err != nil {
@@ -505,6 +526,7 @@ func needGo(t *testing.T) {
 // An import that the fix left without a use is removed; one that still has
 // a use, a dot or blank import, and one that was unused before stay.
 func TestDropUnusedImports(t *testing.T) {
+	t.Parallel()
 	const old = `package p
 
 import (

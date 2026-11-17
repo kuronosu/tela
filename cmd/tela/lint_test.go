@@ -23,6 +23,7 @@ func lintRun(t *testing.T, args ...string) (code int, stdout, stderr string) {
 }
 
 func TestLintClean(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	code, stdout, stderr := lintRun(t, "./testdata/lint/clean")
 	if code != 0 || stdout != "" || stderr != "" {
@@ -31,6 +32,7 @@ func TestLintClean(t *testing.T) {
 }
 
 func TestLintReportsAndExitsOne(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	code, stdout, stderr := lintRun(t, "./testdata/lint/dirty")
 	if code != 1 {
@@ -57,6 +59,7 @@ func TestLintReportsAndExitsOne(t *testing.T) {
 }
 
 func TestLintJSON(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	code, stdout, _ := lintRun(t, "-json", "./testdata/lint/dirty")
 	if code != 1 {
@@ -94,6 +97,7 @@ func TestLintJSON(t *testing.T) {
 }
 
 func TestLintPatternsAndFlagsInAnyOrder(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	code, stdout, _ := lintRun(t, "./testdata/lint/clean", "-json", "./testdata/lint/dirty")
 	if code != 1 || !strings.HasPrefix(stdout, "[") || !strings.Contains(stdout, "dirty.go") {
@@ -102,6 +106,7 @@ func TestLintPatternsAndFlagsInAnyOrder(t *testing.T) {
 }
 
 func TestLintBrokenPackageExitsTwo(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	code, stdout, stderr := lintRun(t, "./testdata/lint/broken", "./testdata/lint/dirty")
 	if code != 2 {
@@ -116,6 +121,7 @@ func TestLintBrokenPackageExitsTwo(t *testing.T) {
 }
 
 func TestLintUsageErrors(t *testing.T) {
+	t.Parallel()
 	code, _, stderr := lintRun(t, "-frobnicate")
 	if code != 2 || !strings.Contains(stderr, "flag provided but not defined") || !strings.Contains(stderr, "tela help lint") {
 		t.Errorf("unknown flag: exit %d, stderr %q", code, stderr)
@@ -150,6 +156,7 @@ func needGo(t *testing.T) {
 }
 
 func TestLintFix(t *testing.T) {
+	t.Parallel()
 	needGo(t)
 	dir, err := os.MkdirTemp("testdata/lint", "fix-")
 	if err != nil {
