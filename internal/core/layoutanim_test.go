@@ -418,6 +418,7 @@ func TestLayoutHitTest(t *testing.T) {
 }
 
 func TestLayoutDamageMatchesFullRender(t *testing.T) {
+	t.Parallel()
 	for _, scale := range []float64{1, 1.5, 2} {
 		t.Run(fmt.Sprint(scale), func(t *testing.T) {
 			var setOrder Setter[[]string]

@@ -115,9 +115,17 @@ func TestNewHostReadsEnv(t *testing.T) {
 // with overlays on: after any sequence of changes, the window equals a full
 // rasterization of the application followed by the overlays.
 func TestDebugOverlayMatchesFullRender(t *testing.T) {
+	t.Parallel()
 	steps := 60
 	if testing.Short() {
 		steps = 20
+	}
+	// Under -short each scene plays at one scale, the next one for the
+	// next scene (sceneScales): every flag and every scale is still played.
+	i := 0
+	run := func(name string, root func(*sceneState) Node, cfg Config) {
+		runSceneWith(t, name, root, commonOps, cfg, steps, sceneScales(i), nil)
+		i++
 	}
 	rows := func(st *sceneState) Node { return rowScene(st, 80, "grow overflow-y-auto bg-white") }
 	for _, tc := range []struct {
@@ -131,11 +139,11 @@ func TestDebugOverlayMatchesFullRender(t *testing.T) {
 		{"semantics", DebugSemantics},
 		{"fps", DebugFPS},
 	} {
-		runScene(t, "rows_"+tc.name, rows, commonOps, Config{Debug: tc.flags}, steps)
+		run("rows_"+tc.name, rows, Config{Debug: tc.flags})
 	}
-	runScene(t, "page_all", pageScene, commonOps, Config{InstantScroll: true, Debug: DebugAll}, steps)
-	runScene(t, "virtual_all", virtualScene, commonOps, Config{InstantScroll: true, Debug: DebugAll}, steps)
-	runScene(t, "board_all", boardScene, commonOps, Config{InstantScroll: true, Debug: DebugAll}, steps)
+	run("page_all", pageScene, Config{InstantScroll: true, Debug: DebugAll})
+	run("virtual_all", virtualScene, Config{InstantScroll: true, Debug: DebugAll})
+	run("board_all", boardScene, Config{InstantScroll: true, Debug: DebugAll})
 }
 
 // TestDebugOffRestoresApp: the application's pixels are those of a window

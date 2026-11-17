@@ -54,6 +54,7 @@ func floatScene(st *sceneState) Node {
 // element that follows its anchor through scrolls, translations, size
 // limits, resizes, hovers and open/close (ADR-096), at every scale.
 func TestDamageFloating(t *testing.T) {
+	t.Parallel()
 	steps := 160
 	if testing.Short() {
 		steps = 40

@@ -96,6 +96,7 @@ func TestBackdropOpacityZero(t *testing.T) {
 // and a moving box: every incremental frame equals a full rasterization,
 // at integer and fractional scales.
 func TestBackdropOpacityDamage(t *testing.T) {
+	t.Parallel()
 	for _, scale := range []float64{1, 1.5, 2} {
 		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
 			var fade *Value[float32]

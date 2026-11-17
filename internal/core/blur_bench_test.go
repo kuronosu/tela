@@ -150,6 +150,7 @@ func glassStickyScene(st *sceneState) Node {
 // TestDamageGlassSticky: incremental frames of glassStickyScene are
 // bit-identical to full rasterizations at every damage scale.
 func TestDamageGlassSticky(t *testing.T) {
+	t.Parallel()
 	steps := 120
 	if testing.Short() {
 		steps = 30
