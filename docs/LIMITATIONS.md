@@ -59,6 +59,7 @@ This session gates v1.0's "macOS supported". Items a phase adds after the sessio
 - [ ] Phase 22: the diagonal resize cursors (private ones on macOS 13/14, `frameResizeCursorFromPosition:inDirections:` on 15+, whose enum values come from the SDK header); a press on a rounded corner's outer pixel resizes and the alpha-1 pixels stay invisible; the resize floor with a wide shadow margin; a store edited in place past `ulimit -n`; `RENAME_SWAP` on APFS; the text-only drag image
 - [ ] Phase 24: VoiceOver follows incremental AX updates (ADR-277); the IOSurface present at Retina scale, a live resize and a transparent window (ADR-278)
 - [ ] After packaging: a signed and notarized `.app`/`.dmg` installs and updates
+- [ ] Phase 26: `go test -run TestPackageMacTools ./cmd/tela` (also on the macOS CI runner); a `tela package -format app,dmg -arch universal` zip opens in Archive Utility and runs; signed with a Developer ID and notarized: `codesign --verify --deep --strict`, `spctl -a -vv -t execute` says Notarized Developer ID, `xcrun stapler validate`; Launch Services opens a declared file type and scheme, and run-time registration leaves the signed bundle valid (commands in `docs/wiki/CLI.md`, macOS)
 
 ### Windows on real hardware
 
