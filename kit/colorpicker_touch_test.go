@@ -65,6 +65,7 @@ func (a *touchApp) point(role, name string, fx, fy float32) (float32, float32) {
 }
 
 func TestColorPickerTouchAndPen(t *testing.T) {
+	t.Parallel()
 	for _, kind := range []platform.PointerKind{platform.PointerTouch, platform.PointerPen} {
 		t.Run(fmt.Sprint(kind), func(t *testing.T) {
 			var committed colorLog

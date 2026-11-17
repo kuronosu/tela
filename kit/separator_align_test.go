@@ -24,6 +24,7 @@ func separatorAlignSheet() *sheet {
 func TestSeparatorAlignGolden(t *testing.T) { separatorAlignSheet().golden(t) }
 
 func TestSeparatorAlignRTLGolden(t *testing.T) {
+	t.Parallel()
 	s := separatorAlignSheet()
 	s.name, s.rtl = "separator_align_rtl", true
 	s.cells = s.cells[:3]
@@ -43,6 +44,7 @@ func captionOffsets(t *testing.T, dir string, a kit.CaptionAlign) (fromStart, fr
 }
 
 func TestSeparatorCaptionAlign(t *testing.T) {
+	t.Parallel()
 	for _, dir := range []string{"ltr", "rtl"} {
 		// start: a 24 px line and a gap of 8 before the caption.
 		s, e := captionOffsets(t, dir, kit.CaptionStart)
@@ -61,6 +63,7 @@ func TestSeparatorCaptionAlign(t *testing.T) {
 }
 
 func TestSeparatorCaptionAlignRejectsUnknown(t *testing.T) {
+	t.Parallel()
 	defer func() {
 		if recover() == nil {
 			t.Error("an unknown CaptionAlign did not panic in dev mode")

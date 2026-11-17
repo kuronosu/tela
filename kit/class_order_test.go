@@ -12,6 +12,7 @@ import (
 // focus-visible:border-ring; as in Tailwind's stylesheet, the focus border
 // must still show when the button has the keyboard focus.
 func TestOutlineButtonFocusBorder(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, h.Div(h.Class("p-8"),
 		kit.Button{Variant: kit.Outline, Children: h.Text("Outline")}), telatest.Size(200, 100))
 	b := app.Bounds(telatest.ByRole("button", "Outline"))

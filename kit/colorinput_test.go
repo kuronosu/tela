@@ -34,11 +34,13 @@ var (
 func colorInputPage(c kit.ColorInput) func() tela.Node { return pageUnder(c) }
 
 func TestColorInputOpenGolden(t *testing.T) {
+	t.Parallel()
 	page := colorInputPage(kit.ColorInput{DefaultValue: new(indigo), Alpha: true, Swatches: presets})
 	openGolden(t, "colorinput", 480, 640, page, func(a *telatest.App) { a.Click(colorTriggerAlpha) })
 }
 
 func TestColorInputOpenClose(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, colorInputPage(kit.ColorInput{DefaultValue: new(indigo)}), telatest.Theme(kit.Theme()))
 	app.ExpectCount(colorPanelEl, 0)
 	app.Expect(colorTrigger, telatest.HasPopup("dialog"), telatest.Expanded(false))
@@ -61,6 +63,7 @@ func TestColorInputOpenClose(t *testing.T) {
 // The color lives in the ColorInput: what was chosen is still there when
 // the panel is opened again, and the trigger shows it.
 func TestColorInputKeepsTheColor(t *testing.T) {
+	t.Parallel()
 	var changed, committed colorLog
 	app := telatest.MountFunc(t, colorInputPage(kit.ColorInput{DefaultValue: new(indigo), Alpha: true, Swatches: presets,
 		OnValueChange: changed.add, OnValueCommit: committed.add}), telatest.Theme(kit.Theme()))
@@ -91,6 +94,7 @@ func TestColorInputKeepsTheColor(t *testing.T) {
 }
 
 func TestColorInputDragRepaintsOnly(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, colorInputPage(kit.ColorInput{DefaultValue: new(indigo), Alpha: true}), telatest.Theme(kit.Theme()))
 	app.Click(colorTriggerAlpha)
 	area := app.Bounds(areaGroup)
@@ -121,6 +125,7 @@ var colorTriggerID = telatest.ByTestID("color-trigger")
 // is a paint-phase text, so a move changes it with no build, and the
 // button's name (a build's) has caught up when the drag ends.
 func TestColorInputCodeFollowsTheDrag(t *testing.T) {
+	t.Parallel()
 	for _, alpha := range []bool{false, true} {
 		t.Run(fmt.Sprintf("alpha=%v", alpha), func(t *testing.T) {
 			var changed colorLog
@@ -166,6 +171,7 @@ func TestColorInputCodeFollowsTheDrag(t *testing.T) {
 // controlled picker builds as often as its state does, ADR-132: the same two
 // builds as before the field followed the drag).
 func TestColorHexFieldFollowsTheDrag(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name       string
 		page       func(onChange func(tela.Color)) func() tela.Node
@@ -221,6 +227,7 @@ func TestColorHexFieldFollowsTheDrag(t *testing.T) {
 // changes from outside (here a controlled value) is shown when the text is
 // committed or reverted, and the field follows it again afterwards.
 func TestColorHexFieldKeepsTheDraft(t *testing.T) {
+	t.Parallel()
 	var setC tela.Setter[tela.Color]
 	app := telatest.MountFunc(t, func() tela.Node {
 		c, s := tela.UseState(indigo)
@@ -249,6 +256,7 @@ func TestColorHexFieldKeepsTheDraft(t *testing.T) {
 // lagged: one frame per move showed the old code in the field and on the
 // button.
 func TestColorControlledCodeInTheFrameOfTheChange(t *testing.T) {
+	t.Parallel()
 	hexShows := func(app *telatest.App, code string) bool {
 		return strings.Contains(app.AriaSnapshot(), `textbox "Hex": "`+code+`"`)
 	}
@@ -297,6 +305,7 @@ func TestColorControlledCodeInTheFrameOfTheChange(t *testing.T) {
 // pointer) keeps the code the field shows: the field writes the color shown
 // now, never an older one.
 func TestColorHexFieldBuildDuringADragKeepsTheCode(t *testing.T) {
+	t.Parallel()
 	var changed colorLog
 	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: new(indigo), OnValueChange: changed.add}),
 		telatest.Theme(kit.Theme()), telatest.NoSettle())
@@ -330,6 +339,7 @@ func TestColorHexFieldBuildDuringADragKeepsTheCode(t *testing.T) {
 // drag's end builds, so the name is current at once; a controlled input
 // builds on every move, so its name is current after each one.
 func TestColorInputTriggerNameAfterTheDrag(t *testing.T) {
+	t.Parallel()
 	for _, controlled := range []bool{false, true} {
 		t.Run(fmt.Sprintf("controlled=%v", controlled), func(t *testing.T) {
 			var changed colorLog
@@ -374,6 +384,7 @@ func TestColorInputTriggerNameAfterTheDrag(t *testing.T) {
 // and the code has a minimum width that fits the widest code of its format
 // (the digits are wider than the letters a to f).
 func TestColorInputTriggerWidthIsStable(t *testing.T) {
+	t.Parallel()
 	for _, alpha := range []bool{false, true} {
 		t.Run(fmt.Sprintf("alpha=%v", alpha), func(t *testing.T) {
 			codes := []string{"#111111", "#000000", "#ffffff", "#dddddd", "#6366f1", "#eeeeee", "#ff0000", "#bdbdbd"}
@@ -400,6 +411,7 @@ func TestColorInputTriggerWidthIsStable(t *testing.T) {
 }
 
 func TestColorInputControlledOpen(t *testing.T) {
+	t.Parallel()
 	open := true
 	app := telatest.MountFunc(t, func() tela.Node {
 		return pageUnder(kit.ColorInput{DefaultValue: new(indigo), Open: &open, OnOpenChange: func(o bool) { open = o }})()
@@ -412,6 +424,7 @@ func TestColorInputControlledOpen(t *testing.T) {
 }
 
 func TestColorInputControlledValue(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		c, setC := tela.UseState(tela.Hex("#336699"))
 		return h.Div(h.Class("p-4 flex flex-col gap-4 items-start"),
@@ -431,6 +444,7 @@ func TestColorInputControlledValue(t *testing.T) {
 }
 
 func TestColorInputCustomTrigger(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("p-6"), kit.ColorInput{DefaultValue: new(indigo),
 			Trigger: kit.TriggerFunc(func(p tela.Prop) tela.Node {
@@ -445,6 +459,7 @@ func TestColorInputCustomTrigger(t *testing.T) {
 }
 
 func TestColorInputDisabled(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, colorInputPage(kit.ColorInput{DefaultValue: new(indigo), Disabled: true}), telatest.Theme(kit.Theme()))
 	app.Expect(colorTrigger, telatest.Disabled(true))
 	// It is a Popover's trigger (Popover.Disabled, ADR-145), not a bare
@@ -454,6 +469,7 @@ func TestColorInputDisabled(t *testing.T) {
 }
 
 func TestColorInputIdle(t *testing.T) {
+	t.Parallel()
 	expectIdle(t, colorInputPage(kit.ColorInput{DefaultValue: new(indigo), DefaultOpen: true, Alpha: true, Swatches: presets}), nil)
 }
 

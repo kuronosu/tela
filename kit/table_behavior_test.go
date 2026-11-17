@@ -46,6 +46,7 @@ func order(app *telatest.App) string {
 }
 
 func TestTableSortCycle(t *testing.T) {
+	t.Parallel()
 	app := mountTable(t, invoiceTable(nil))
 	head := telatest.ByRole("columnheader", "Amount")
 	btn := telatest.ByRole("button", "Amount")
@@ -73,6 +74,7 @@ func TestTableSortCycle(t *testing.T) {
 }
 
 func TestTableSortByKeyboard(t *testing.T) {
+	t.Parallel()
 	app := mountTable(t, invoiceTable(nil))
 	btn := telatest.ByRole("button", "Amount")
 	app.Focus(btn)
@@ -86,6 +88,7 @@ func TestTableSortByKeyboard(t *testing.T) {
 }
 
 func TestTableSortIsStable(t *testing.T) {
+	t.Parallel()
 	app := mountTable(t, invoiceTable(nil))
 	app.Click(telatest.ByRole("button", "Status"))
 	// Paid: 1, 3; Pending: 2, 4.
@@ -100,6 +103,7 @@ func TestTableSortIsStable(t *testing.T) {
 }
 
 func TestTableControlledSort(t *testing.T) {
+	t.Parallel()
 	var reported []kit.SortState
 	state := kit.SortState{Column: "Invoice", Direction: kit.Descending}
 	app := telatest.MountFunc(t, func() tela.Node {
@@ -123,6 +127,7 @@ func TestTableControlledSort(t *testing.T) {
 }
 
 func TestTableControlledSortFollowsState(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		sort, setSort := tela.UseState(kit.SortState{})
 		return h.Div(invoiceTable(func(tb *kit.Table[trow]) {
@@ -139,6 +144,7 @@ func TestTableControlledSortFollowsState(t *testing.T) {
 }
 
 func TestTableUncontrolledReportsAndDefault(t *testing.T) {
+	t.Parallel()
 	var reported []kit.SortState
 	app := mountTable(t, invoiceTable(func(tb *kit.Table[trow]) {
 		tb.DefaultSort = kit.SortState{Column: "Amount", Direction: kit.Descending}
@@ -160,6 +166,7 @@ func TestTableUncontrolledReportsAndDefault(t *testing.T) {
 // A column without a Sort func but Sortable shows and reports the state and
 // leaves the rows alone.
 func TestTableManualSort(t *testing.T) {
+	t.Parallel()
 	var reported kit.SortState
 	app := mountTable(t, invoiceTable(func(tb *kit.Table[trow]) {
 		tb.Columns[2].Sortable = true
@@ -176,6 +183,7 @@ func TestTableManualSort(t *testing.T) {
 }
 
 func TestTableAriaSnapshot(t *testing.T) {
+	t.Parallel()
 	app := mountTable(t, tableSpec{name: "a", caption: "Recent invoices.", cols: invoiceCols(""), rows: invoiceRows[:2], selected: 2,
 		footer: []tfoot{{"Total", 3}, {"$400.00", 1}}}.component())
 	// What Playwright 1.61.1 prints for the equivalent HTML table (a
@@ -209,6 +217,7 @@ func TestTableAriaSnapshot(t *testing.T) {
 }
 
 func TestTableAriaSnapshotSortable(t *testing.T) {
+	t.Parallel()
 	app := mountTable(t, invoiceTable(func(tb *kit.Table[trow]) {
 		tb.AriaLabel = "Invoices"
 		tb.Rows = tb.Rows[:1]
@@ -243,6 +252,7 @@ func (c counter) Build() tela.Node {
 }
 
 func TestTableRowStateFollowsTheRow(t *testing.T) {
+	t.Parallel()
 	app := mountTable(t, invoiceTable(func(tb *kit.Table[trow]) {
 		tb.Columns[2].Cell = func(r trow) tela.Node { return counter{r.v[0]} }
 	}))
@@ -257,6 +267,7 @@ func TestTableRowStateFollowsTheRow(t *testing.T) {
 }
 
 func TestTableEmpty(t *testing.T) {
+	t.Parallel()
 	app := mountTable(t, invoiceTable(func(tb *kit.Table[trow]) {
 		tb.Rows = nil
 		tb.Empty = h.Text("No results.")
@@ -270,10 +281,12 @@ func TestTableEmpty(t *testing.T) {
 }
 
 func TestTableNoColumns(t *testing.T) {
+	t.Parallel()
 	mountTable(t, kit.Table[trow]{Rows: nil})
 }
 
 func TestTableMistakesPanicInDevMode(t *testing.T) {
+	t.Parallel()
 	col := func(id string, sticky bool, w string) kit.Column[trow] {
 		return kit.Column[trow]{ID: id, Header: id, Sticky: sticky, Width: w, Cell: func(r trow) tela.Node { return h.Text(r.v[0]) }}
 	}

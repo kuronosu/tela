@@ -31,6 +31,7 @@ func selectPicture(t *testing.T, style *kit.Style, icon tela.Icon) []byte {
 // Select has no Icon of its own, which wins over it; an empty DefaultIcon is
 // the chevron down.
 func TestSelectDefaultIcon(t *testing.T) {
+	t.Parallel()
 	d1, d2 := kit.DefaultStyle(), kit.DefaultStyle()
 	plain, styled := &d1, &d2
 	styled.Select.DefaultIcon = iconMail

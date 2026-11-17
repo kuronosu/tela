@@ -129,6 +129,7 @@ func selectedTab(app *telatest.App, name string) {
 }
 
 func TestTabsKeyboard(t *testing.T) {
+	t.Parallel()
 	ts := demoTabs()
 	ts[1].Disabled = true
 	app := telatest.Mount(t, kit.Tabs[string]{Tabs: ts, AriaLabel: "Settings"})
@@ -153,6 +154,7 @@ func TestTabsKeyboard(t *testing.T) {
 }
 
 func TestTabsManualActivation(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Tabs[string]{Tabs: demoTabs(), ManualActivation: true})
 	app.Focus(telatest.ByRole("tab", "Account"))
 	app.Press("ArrowRight")
@@ -163,6 +165,7 @@ func TestTabsManualActivation(t *testing.T) {
 }
 
 func TestTabsPointerAndUncontrolled(t *testing.T) {
+	t.Parallel()
 	var seen []string
 	app := telatest.Mount(t, kit.Tabs[string]{Tabs: demoTabs(), DefaultValue: new("password"), OnValueChange: func(k string) { seen = append(seen, k) }})
 	selectedTab(app, "Password")
@@ -191,6 +194,7 @@ func (c controlledTabs) Build() tela.Node {
 }
 
 func TestTabsControlled(t *testing.T) {
+	t.Parallel()
 	var log []string
 	app := telatest.Mount(t, controlledTabs{&log})
 	selectedTab(app, "Account")
@@ -211,6 +215,7 @@ func TestTabsControlled(t *testing.T) {
 }
 
 func TestTabsVerticalUsesUpAndDown(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Tabs[string]{Tabs: demoTabs(), Orientation: kit.Vertical})
 	app.Focus(telatest.ByRole("tab", "Account"))
 	app.Press("ArrowDown")
@@ -222,6 +227,7 @@ func TestTabsVerticalUsesUpAndDown(t *testing.T) {
 }
 
 func TestTabsLineDrawsAnIndicator(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Tabs[string]{Tabs: demoTabs(), Variant: kit.TabsLine})
 	app.ExpectCount(telatest.ByClass("bg-foreground"), 3)
 	plain := telatest.Mount(t, kit.Tabs[string]{Tabs: demoTabs()})
@@ -229,6 +235,7 @@ func TestTabsLineDrawsAnIndicator(t *testing.T) {
 }
 
 func TestTabsAriaSnapshot(t *testing.T) {
+	t.Parallel()
 	snap, err := telatest.AriaSnapshot(kit.Tabs[string]{Tabs: demoTabs(), AriaLabel: "Settings", DefaultValue: new("password")})
 	if err != nil {
 		t.Fatal(err)
@@ -241,6 +248,7 @@ func TestTabsAriaSnapshot(t *testing.T) {
 }
 
 func TestTabsStyleAndClass(t *testing.T) {
+	t.Parallel()
 	s := kit.DefaultStyle()
 	s.Tabs.ListVariants["pill"] = "bg-primary"
 	s.Tabs.TriggerVariants["pill"] = "rounded-full"

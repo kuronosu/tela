@@ -27,6 +27,7 @@ func hasRed(app *telatest.App, l telatest.Locator) bool {
 // ToggleStyle.IconVariants adds classes to the glyph of one variant, in a
 // Toggle and in the items of a ToggleGroup, and leaves the others alone.
 func TestToggleIconVariants(t *testing.T) {
+	t.Parallel()
 	s := kit.DefaultStyle()
 	s.Toggle.IconVariants[kit.Outline] = "text-[#ff0000]"
 	app := telatest.Mount(t, kit.StyleProvider{Style: &s, Children: h.Div(h.Class("flex gap-2 p-4"),
@@ -50,6 +51,7 @@ func TestToggleIconVariants(t *testing.T) {
 
 // A style with no IconVariants (a nil map) still draws the glyph.
 func TestToggleIconVariantsNil(t *testing.T) {
+	t.Parallel()
 	s := kit.DefaultStyle()
 	s.Toggle.IconVariants = nil
 	s.Toggle.Icon = "pointer-events-none size-4 shrink-0 text-[#ff0000]"

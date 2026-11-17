@@ -76,6 +76,7 @@ func deleteDialog(a kit.AlertDialog) kit.AlertDialog {
 }
 
 func TestAlertDialogOpens(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, pageUnder(deleteDialog(kit.AlertDialog{})), telatest.Theme(kit.Theme()))
 	app.Expect(deleteButton, telatest.HasPopup("dialog"), telatest.Expanded(false))
 	app.Click(deleteButton)
@@ -91,6 +92,7 @@ func TestAlertDialogOpens(t *testing.T) {
 }
 
 func TestAlertDialogNeedsAnAnswer(t *testing.T) {
+	t.Parallel()
 	var action, cancel int
 	page := pageUnder(deleteDialog(kit.AlertDialog{OnAction: func() { action++ }, OnCancel: func() { cancel++ }}))
 	app := telatest.MountFunc(t, page, telatest.Theme(kit.Theme()))
@@ -139,6 +141,7 @@ func TestAlertDialogNeedsAnAnswer(t *testing.T) {
 }
 
 func TestAlertDialogDefaultLabelsAndControlled(t *testing.T) {
+	t.Parallel()
 	var log []bool
 	open := true
 	app := telatest.MountFunc(t, pageUnder(kit.AlertDialog{Open: &open, OnOpenChange: func(o bool) { log = append(log, o) },
@@ -155,6 +158,7 @@ func TestAlertDialogDefaultLabelsAndControlled(t *testing.T) {
 }
 
 func TestAlertDialogSizeNeedsADefinedSize(t *testing.T) {
+	t.Parallel()
 	_, err := telatest.AriaSnapshot(tela.C(pageUnder(kit.AlertDialog{Size: "huge", DefaultOpen: true, Title: h.Text("x")})))
 	if err == nil {
 		t.Fatal("an undefined Size did not panic in dev mode")
@@ -162,9 +166,11 @@ func TestAlertDialogSizeNeedsADefinedSize(t *testing.T) {
 }
 
 func TestAlertDialogOpenGolden(t *testing.T) {
+	t.Parallel()
 	openGolden(t, "alertdialog", 800, 500, pageUnder(deleteDialog(kit.AlertDialog{})), func(a *telatest.App) { a.Click(deleteButton) })
 }
 
 func TestAlertDialogIdle(t *testing.T) {
+	t.Parallel()
 	expectIdle(t, pageUnder(deleteDialog(kit.AlertDialog{DefaultOpen: true})), nil)
 }

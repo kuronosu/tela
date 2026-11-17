@@ -63,6 +63,7 @@ func mountV(t testing.TB, c tela.Component, opts ...telatest.Option) *telatest.A
 // A virtual table of thousands of rows builds the ones in view and a few
 // more, and scrolling swaps them.
 func TestTableVirtualBuildsOnlyTheWindow(t *testing.T) {
+	t.Parallel()
 	app := mountV(t, vtable(5000, nil))
 	rows := app.Count(telatest.ByRole("row", ""))
 	if rows < 8 || rows > 30 {
@@ -91,6 +92,7 @@ func TestTableVirtualBuildsOnlyTheWindow(t *testing.T) {
 // The virtual rows have the geometry of a plain table's: RowHeight 37 is the
 // default look.
 func TestTableVirtualMatchesThePlainTable(t *testing.T) {
+	t.Parallel()
 	plain := func(tb *kit.Table[trow]) { tb.RowHeight = 0 }
 	cols := func(tb *kit.Table[trow]) {
 		tb.Columns[2].Width = "150px" // px columns only: the plain grid and the rows' agree
@@ -111,6 +113,7 @@ func TestTableVirtualMatchesThePlainTable(t *testing.T) {
 }
 
 func TestTableVirtualSorting(t *testing.T) {
+	t.Parallel()
 	app := mountV(t, vtable(300, nil))
 	// Unsorted: row 0 is first. Amount ascending puts the last row first.
 	app.Click(telatest.ByRole("button", "Amount"))
@@ -138,6 +141,7 @@ func vtoggle(id int) tela.Node {
 }
 
 func TestTableVirtualRowStateFollowsTheKey(t *testing.T) {
+	t.Parallel()
 	cols := vcols()
 	cols[1].Cell = func(r trow) tela.Node { return tela.CP(vtoggle, r.i) }
 	// Twelve rows are all built (the window is the visible ones plus the
@@ -155,6 +159,7 @@ func TestTableVirtualRowStateFollowsTheKey(t *testing.T) {
 }
 
 func TestTableVirtualSelectionAndRowHandlers(t *testing.T) {
+	t.Parallel()
 	selected, clicked := 3, -1
 	app := mountV(t, vtable(100, func(tb *kit.Table[trow]) {
 		tb.Selected = func(r trow) bool { return r.i == selected }
@@ -178,6 +183,7 @@ func TestTableVirtualSelectionAndRowHandlers(t *testing.T) {
 
 // The tree says how many rows the table has and which one each is.
 func TestTableVirtualAria(t *testing.T) {
+	t.Parallel()
 	_, host, _ := rawwin.Mount(t, tela.C(func() tela.Node {
 		return h.Div(h.Class("p-5"), vtable(5000, func(tb *kit.Table[trow]) {
 			tb.Columns[0].Footer = h.Text("Total")
@@ -219,6 +225,7 @@ func TestTableVirtualAria(t *testing.T) {
 }
 
 func TestTableVirtualEmptyFooterAndCaption(t *testing.T) {
+	t.Parallel()
 	app := mountV(t, vtable(0, func(tb *kit.Table[trow]) {
 		tb.Empty = h.Text("No results.")
 		tb.Caption = "Recent orders."
@@ -239,6 +246,7 @@ func TestTableVirtualEmptyFooterAndCaption(t *testing.T) {
 
 // Columns wider than the table scroll sideways with the header.
 func TestTableVirtualScrollsSideways(t *testing.T) {
+	t.Parallel()
 	app := mountV(t, vtable(200, func(tb *kit.Table[trow]) {
 		tb.Class = "h-[300px] w-[300px] rounded-md border border-border"
 		tb.Columns[2].Width = "300px"
@@ -258,6 +266,7 @@ func TestTableVirtualScrollsSideways(t *testing.T) {
 }
 
 func TestTableVirtualMistakesPanicInDevMode(t *testing.T) {
+	t.Parallel()
 	cell := func(r trow) tela.Node { return h.Text(r.v[0]) }
 	for _, tc := range []struct {
 		name string
@@ -276,6 +285,7 @@ func TestTableVirtualMistakesPanicInDevMode(t *testing.T) {
 }
 
 func TestTableVirtualGolden(t *testing.T) {
+	t.Parallel()
 	for _, sc := range []string{"light", "dark"} {
 		opts := []telatest.Option{}
 		if sc == "dark" {
@@ -301,6 +311,7 @@ func TestTableVirtualGolden(t *testing.T) {
 // overlay and classic bars, in both directions, with rows that overflow the
 // table and with few that do not.
 func TestTableVirtualHeaderAlignsWithClassicScrollbars(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name    string
 		classic bool
@@ -350,6 +361,7 @@ func TestTableVirtualHeaderAlignsWithClassicScrollbars(t *testing.T) {
 // The scrollbar comes and goes with the number of rows (a filter), and the
 // header follows it.
 func TestTableVirtualHeaderFollowsTheScrollbar(t *testing.T) {
+	t.Parallel()
 	many := false
 	app := mountV(t, tela.C(func() tela.Node {
 		n, set := tela.UseState(3)
@@ -388,6 +400,7 @@ func TestTableVirtualHeaderFollowsTheScrollbar(t *testing.T) {
 }
 
 func TestTableVirtualClassicScrollbarsGolden(t *testing.T) {
+	t.Parallel()
 	for _, sc := range []string{"light", "dark"} {
 		opts := []telatest.Option{telatest.ClassicScrollbars()}
 		if sc == "dark" {

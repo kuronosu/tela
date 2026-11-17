@@ -123,6 +123,7 @@ func TestChromiumRadioGroup(t *testing.T) { radioGroupSheet().chromium(t) }
 func rgRadio(name string) telatest.Locator { return telatest.ByRole("radio", name) }
 
 func TestRadioGroupUncontrolled(t *testing.T) {
+	t.Parallel()
 	var got []string
 	app := telatest.MountFunc(t, func() tela.Node {
 		return kit.RadioGroup[string]{Items: plans, AriaLabel: "Plan", DefaultValue: new("pro"),
@@ -142,6 +143,7 @@ func TestRadioGroupUncontrolled(t *testing.T) {
 }
 
 func TestRadioGroupNothingCheckedAndKeyboard(t *testing.T) {
+	t.Parallel()
 	items := []kit.RadioItem[string]{{Value: "a", Label: "A"}, {Value: "b", Label: "B", Disabled: true}, {Value: "c", Label: "C"}}
 	app := telatest.MountFunc(t, func() tela.Node {
 		return kit.RadioGroup[string]{Items: items, AriaLabel: "Letters"}
@@ -179,6 +181,7 @@ func (c controlledRadios) Build() tela.Node {
 }
 
 func TestRadioGroupControlled(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, controlledRadios{})
 	app.ExpectText("plan is free")
 	app.Click(rgRadio("Team"))
@@ -191,6 +194,7 @@ func TestRadioGroupControlled(t *testing.T) {
 }
 
 func TestRadioGroupDisabledReadOnlyInvalid(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(
 			kit.RadioGroup[string]{Items: plans, AriaLabel: "Off", Disabled: true, DefaultValue: new("free")},
@@ -206,6 +210,7 @@ func TestRadioGroupDisabledReadOnlyInvalid(t *testing.T) {
 }
 
 func TestRadioGroupRender(t *testing.T) {
+	t.Parallel()
 	var states []kit.RadioState
 	app := telatest.MountFunc(t, func() tela.Node {
 		return kit.RadioGroup[string]{Items: plans[:2], AriaLabel: "Plan", DefaultValue: new("pro"),
@@ -225,6 +230,7 @@ func TestRadioGroupRender(t *testing.T) {
 }
 
 func TestRadioGroupFieldDescribesAndMarksInvalid(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return kit.Field{Label: "Plan", Error: "Pick a plan.", Children: kit.RadioGroup[string]{Items: plans, AriaLabel: "Plan"}}
 	})

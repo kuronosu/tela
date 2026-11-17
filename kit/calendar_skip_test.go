@@ -18,6 +18,7 @@ import (
 // were slow, as counts: wall time is not a test.
 
 func TestRangeCalendarPreviewBuildsOnlyChangedCells(t *testing.T) {
+	t.Parallel()
 	app := calMount(t, kit.RangeCalendar{Today: calToday, VisibleMonths: 2, AriaLabel: "Stay"})
 	app.Click(calCell(calDate(2026, time.October, 5)))
 	app.Hover(calCell(calDate(2026, time.October, 6)))
@@ -45,6 +46,7 @@ func TestRangeCalendarPreviewBuildsOnlyChangedCells(t *testing.T) {
 }
 
 func TestCalendarPressBuildsOnlyChangedCells(t *testing.T) {
+	t.Parallel()
 	app := calMount(t, kit.Calendar{Today: calToday, DefaultValue: calDate(2026, time.October, 12), AriaLabel: "Date"})
 	app.Hover(calCell(calDate(2026, time.October, 14)))
 	st := app.Measure(func() { app.Click(calCell(calDate(2026, time.October, 14))) })
@@ -68,6 +70,7 @@ func TestCalendarPressBuildsOnlyChangedCells(t *testing.T) {
 // follows every change of what it shows when the calendar builds again:
 // limits, unavailable dates and the selection set from outside.
 func TestCalendarCellsFollowTheirState(t *testing.T) {
+	t.Parallel()
 	type state struct {
 		min    aria.Date
 		booked bool

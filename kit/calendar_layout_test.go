@@ -15,6 +15,7 @@ import (
 // The engine used to measure the calendar's height at the column's width:
 // 685 px tall instead of 291 at 800 px.
 func TestCalendarInStretchingColumn(t *testing.T) {
+	t.Parallel()
 	bounds := func(class string) (cal, day tela.Rect) {
 		app := telatest.MountFunc(t, func() tela.Node {
 			return h.Div(h.Class(class), kit.Calendar{Today: calToday, Props: h.TestID("cal")}, h.P(h.Text("After")))

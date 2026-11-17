@@ -92,6 +92,7 @@ func anchored(x, y float32, p kit.Popover) func() tela.Node {
 func near(a, b float32) bool { return math.Abs(float64(a-b)) < 0.51 }
 
 func TestPopoverOpenAndClose(t *testing.T) {
+	t.Parallel()
 	page := pageUnder(dimsPopover(kit.Popover{}))
 	app := telatest.MountFunc(t, page, telatest.Theme(kit.Theme()))
 	app.ExpectCount(telatest.ByRole("dialog", ""), 0)
@@ -124,6 +125,7 @@ func TestPopoverOpenAndClose(t *testing.T) {
 }
 
 func TestPopoverClosesOnOutsidePress(t *testing.T) {
+	t.Parallel()
 	clicked := 0
 	page := pageUnder(dimsPopover(kit.Popover{}), kit.Button{Class: "fixed top-6 right-6", Children: h.Text("Other"), OnClick: func() { clicked++ }})
 	app := telatest.MountFunc(t, page, telatest.Theme(kit.Theme()))
@@ -145,6 +147,7 @@ func TestPopoverClosesOnOutsidePress(t *testing.T) {
 }
 
 func TestPopoverTabLeavesAndCloses(t *testing.T) {
+	t.Parallel()
 	// Not modal: Tab can leave the panel, and when the focus lands on another
 	// element the popover closes.
 	app := telatest.MountFunc(t, pageUnder(dimsPopover(kit.Popover{})), telatest.Theme(kit.Theme()))
@@ -156,6 +159,7 @@ func TestPopoverTabLeavesAndCloses(t *testing.T) {
 }
 
 func TestPopoverPlacement(t *testing.T) {
+	t.Parallel()
 	const w, hh = 800, 600
 	run := func(name string, x, y float32, p kit.Popover, check func(trigger, panel tela.Rect)) {
 		t.Run(name, func(t *testing.T) {
@@ -217,6 +221,7 @@ func TestPopoverPlacement(t *testing.T) {
 }
 
 func TestPopoverBadAlignPanics(t *testing.T) {
+	t.Parallel()
 	_, err := telatest.AriaSnapshot(tela.C(pageUnder(dimsPopover(kit.Popover{Align: "midle"}))))
 	if err == nil || !strings.Contains(err.Error(), `Popover.Align "midle"`) {
 		t.Fatalf("error %v, want the alignment reported", err)
@@ -224,6 +229,7 @@ func TestPopoverBadAlignPanics(t *testing.T) {
 }
 
 func TestPopoverModal(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, pageUnder(dimsPopover(kit.Popover{Modal: true})), telatest.Theme(kit.Theme()))
 	app.Click(dimsButton)
 	app.ExpectCount(dimsPanel, 1)
@@ -231,6 +237,7 @@ func TestPopoverModal(t *testing.T) {
 }
 
 func TestPopoverControlled(t *testing.T) {
+	t.Parallel()
 	var log []bool
 	open := true
 	app := telatest.MountFunc(t, pageUnder(dimsPopover(kit.Popover{Open: &open, OnOpenChange: func(o bool) { log = append(log, o) }})),
@@ -244,6 +251,7 @@ func TestPopoverControlled(t *testing.T) {
 }
 
 func TestPopoverTriggerFunc(t *testing.T) {
+	t.Parallel()
 	avatar := kit.TriggerFunc(func(p tela.Prop) tela.Node {
 		return h.Button(p, h.AriaLabel("Account"), h.Class("rounded-full"), kit.Avatar{Fallback: "AB"})
 	})
@@ -253,6 +261,7 @@ func TestPopoverTriggerFunc(t *testing.T) {
 }
 
 func TestPopoverStyleProvider(t *testing.T) {
+	t.Parallel()
 	s := kit.DefaultStyle()
 	s.Popover.Root += " ring-4"
 	app := telatest.MountFunc(t, func() tela.Node {
@@ -264,6 +273,7 @@ func TestPopoverStyleProvider(t *testing.T) {
 }
 
 func TestPopoverOpenGolden(t *testing.T) {
+	t.Parallel()
 	page := pageUnder(h.Div(h.Class("self-center"), kit.Popover{
 		Trigger: kit.Button{Variant: kit.Outline, Children: h.Text("Open popover")}, AriaLabel: "Dimensions",
 		Children: dimensions().c,
@@ -272,6 +282,7 @@ func TestPopoverOpenGolden(t *testing.T) {
 }
 
 func TestPopoverIdle(t *testing.T) {
+	t.Parallel()
 	expectIdle(t, pageUnder(kit.Popover{DefaultOpen: true, AriaLabel: "Dimensions",
 		Trigger:  kit.Button{Children: h.Text("Dimensions")},
 		Children: h.P(h.Text("No fields, no caret."))}), nil)

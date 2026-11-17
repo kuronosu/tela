@@ -42,6 +42,7 @@ func listDialog() tela.Node {
 }
 
 func TestDialogKeepsFocusWhenFocusedElementUnmounts(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, listDialog, telatest.Theme(kit.Theme()))
 
 	// By pointer: the removed button's focus goes to the panel.

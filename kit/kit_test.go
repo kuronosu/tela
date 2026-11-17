@@ -11,6 +11,7 @@ import (
 )
 
 func TestDefaultStyleIsACopy(t *testing.T) {
+	t.Parallel()
 	a := kit.DefaultStyle()
 	a.Button.Variants["glass"] = "bg-white/10"
 	a.Button.Sizes[kit.Sm] = "h-1"
@@ -30,6 +31,7 @@ func TestDefaultStyleIsACopy(t *testing.T) {
 }
 
 func TestTheme(t *testing.T) {
+	t.Parallel()
 	th := kit.Theme()
 	if th.Radius != 10 {
 		t.Errorf("radius %v, want shadcn's 10", th.Radius)
@@ -40,6 +42,7 @@ func TestTheme(t *testing.T) {
 }
 
 func TestStyleProviderChangesTheLook(t *testing.T) {
+	t.Parallel()
 	s := kit.DefaultStyle()
 	s.Button.Variants["glass"] = "bg-red-500 text-white"
 	s.Card.Root += " ring-4"
@@ -70,6 +73,7 @@ func TestStyleProviderChangesTheLook(t *testing.T) {
 }
 
 func TestUndefinedVariantAndSizePanicWithTheClosest(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		root tela.Component
 		want string
@@ -92,6 +96,7 @@ func TestUndefinedVariantAndSizePanicWithTheClosest(t *testing.T) {
 }
 
 func TestButtonBehavior(t *testing.T) {
+	t.Parallel()
 	var clicks int
 	submitted := 0
 	app := telatest.MountFunc(t, func() tela.Node {
@@ -131,6 +136,7 @@ func (f form) Build() tela.Node {
 }
 
 func TestInputsFollowTheValueRule(t *testing.T) {
+	t.Parallel()
 	var seen []string
 	app := telatest.Mount(t, form{&seen})
 	name := telatest.ByRole("textbox", "Name")
@@ -150,6 +156,7 @@ func TestInputsFollowTheValueRule(t *testing.T) {
 }
 
 func TestFieldWiresLabelErrorAndDescription(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(
 			kit.Field{Label: "Email", Description: "We never share it.", Children: kit.Input{Type: "email"}},
@@ -176,6 +183,7 @@ func TestFieldWiresLabelErrorAndDescription(t *testing.T) {
 }
 
 func TestSeparatorSemantics(t *testing.T) {
+	t.Parallel()
 	snap, err := telatest.AriaSnapshot(h.Div(kit.Separator{}, kit.Separator{Semantic: true, Orientation: kit.Vertical}))
 	if err != nil {
 		t.Fatal(err)
@@ -186,6 +194,7 @@ func TestSeparatorSemantics(t *testing.T) {
 }
 
 func TestCardSlotsAndAvatarFallback(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(
 			kit.Card{Title: h.Text("Title"), Description: h.Text("Desc"), Children: h.Text("Content"), Footer: h.Text("Footer")},

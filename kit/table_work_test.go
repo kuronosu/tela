@@ -13,6 +13,7 @@ import (
 // and places only its own box and the way to it. The counts are the
 // deterministic side of BenchmarkTablePerf.
 func TestTableFrameWork(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		op                        string
 		laidOut, remapped, placed int // at most
@@ -24,6 +25,8 @@ func TestTableFrameWork(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.op, func(t *testing.T) {
+			// Sequential: the page's setters are package variables
+			// (perfBump, perfCellSet), which no other parallel test uses.
 			r, _ := newPerfRig(t, perfPage{table: perfTable(2000, false)})
 			for i := range 4 {
 				before := r.tree.Stats()

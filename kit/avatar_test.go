@@ -15,6 +15,7 @@ import (
 )
 
 func TestAvatarFallbackClass(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Avatar{Fallback: "MT", FallbackClass: "bg-linear-to-br from-sky-400 to-indigo-500 text-white"})
 	app.ExpectCount(telatest.ByClass("from-sky-400", "to-indigo-500", "size-full"), 1)
 	app.ExpectCount(telatest.ByClass("bg-muted"), 1) // the recipe's classes stay under it

@@ -40,6 +40,7 @@ func alertActionSheet() *sheet {
 func TestAlertActionGolden(t *testing.T) { alertActionSheet().golden(t) }
 
 func TestAlertActionRTLGolden(t *testing.T) {
+	t.Parallel()
 	s := alertActionSheet()
 	s.name, s.rtl = "alert_action_rtl", true
 	s.cells = s.cells[:3]
@@ -49,6 +50,7 @@ func TestAlertActionRTLGolden(t *testing.T) {
 // The action sits in the top end corner, the texts leave room for it, and
 // it takes presses.
 func TestAlertAction(t *testing.T) {
+	t.Parallel()
 	var pressed int
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("w-96"), kit.Alert{Title: h.Text("Update available"),
@@ -81,6 +83,7 @@ func TestAlertAction(t *testing.T) {
 }
 
 func TestAlertActionMirrors(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Dir("rtl"), h.Class("w-96"), kit.Alert{Title: h.Text("Update"), Props: h.TestID("alert"),
 			Action: kit.Button{Size: kit.Xs, Children: h.Text("Restart"), Props: h.TestID("action")}})

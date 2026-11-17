@@ -26,6 +26,7 @@ func separatorCaptionSheet() *sheet {
 func TestSeparatorCaptionGolden(t *testing.T) { separatorCaptionSheet().golden(t) }
 
 func TestSeparatorCaptionRTLGolden(t *testing.T) {
+	t.Parallel()
 	s := separatorCaptionSheet()
 	s.name, s.rtl = "separator_caption_rtl", true
 	s.cells = s.cells[:2]
@@ -34,6 +35,7 @@ func TestSeparatorCaptionRTLGolden(t *testing.T) {
 
 // The caption is centered between two lines of the same length.
 func TestSeparatorCaptionIsCentered(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("w-80"), kit.Separator{Caption: h.Text("or"), Props: h.TestID("sep")})
 	})
@@ -51,6 +53,7 @@ func TestSeparatorCaptionIsCentered(t *testing.T) {
 // The caption is text for assistive technologies, which the lines are not;
 // the separator role would drop it, so a captioned separator has none.
 func TestSeparatorCaptionIsRead(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Separator{Caption: h.Text("Or continue with")})
 	app.ExpectAria(`- text: Or continue with`)
 	app = telatest.Mount(t, kit.Separator{Caption: h.Text("or"), Semantic: true})
@@ -62,6 +65,7 @@ func TestSeparatorCaptionIsRead(t *testing.T) {
 }
 
 func TestSeparatorCaptionVerticalFillsTheHeight(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("flex h-40"), kit.Separator{Orientation: kit.Vertical, Caption: h.Text("or"), Props: h.TestID("sep")})
 	})

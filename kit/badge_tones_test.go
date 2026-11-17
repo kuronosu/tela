@@ -34,12 +34,14 @@ func badgeTonesSheet() *sheet {
 func TestBadgeTonesGolden(t *testing.T) { badgeTonesSheet().golden(t) }
 
 func TestBadgeDotIsDecorative(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, kit.Badge{Variant: kit.Success, Dot: true, Children: h.Text("Active")})
 	app.ExpectAria(`- text: Active`)
 }
 
 // The dot is a 6 px disc and a 4 px gap before the label.
 func TestBadgeDotTakesTenPixels(t *testing.T) {
+	t.Parallel()
 	plain := telatest.Mount(t, kit.Badge{Children: h.Text("Active"), Props: h.TestID("b")})
 	dot := telatest.Mount(t, kit.Badge{Dot: true, DotClass: "bg-emerald-500", Children: h.Text("Active"), Props: h.TestID("b")})
 	w0, w1 := plain.Bounds(telatest.ByTestID("b")).Width, dot.Bounds(telatest.ByTestID("b")).Width
@@ -49,6 +51,7 @@ func TestBadgeDotTakesTenPixels(t *testing.T) {
 }
 
 func TestBadgeToneIsChecked(t *testing.T) {
+	t.Parallel()
 	// The tones are variants of the recipe like the others: an app can
 	// redefine them.
 	s := kit.DefaultStyle()

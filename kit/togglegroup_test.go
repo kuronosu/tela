@@ -129,6 +129,7 @@ var tgViews = []kit.ToggleGroupItem[string]{
 func tgRadio(name string) telatest.Locator { return telatest.ByRole("radio", name) }
 
 func TestToggleGroupSingleUncontrolled(t *testing.T) {
+	t.Parallel()
 	var got []string
 	app := telatest.MountFunc(t, func() tela.Node {
 		return kit.ToggleGroup[string]{Items: tgViews, AriaLabel: "View", DefaultValue: new("list"),
@@ -148,6 +149,7 @@ func TestToggleGroupSingleUncontrolled(t *testing.T) {
 }
 
 func TestToggleGroupDisallowEmptyAndKeyboard(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return kit.ToggleGroup[string]{Items: tgViews, AriaLabel: "View", DefaultValue: new("list"), DisallowEmptySelection: true}
 	})
@@ -182,6 +184,7 @@ func (controlledGroup) Build() tela.Node {
 }
 
 func TestToggleGroupControlled(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, controlledGroup{})
 	app.ExpectText("view is grid")
 	app.Expect(tgRadio("Grid"), telatest.Checked(true))
@@ -205,6 +208,7 @@ func (multipleGroup) Build() tela.Node {
 }
 
 func TestToggleGroupMultiple(t *testing.T) {
+	t.Parallel()
 	app := telatest.Mount(t, multipleGroup{})
 	app.ExpectText("on: [bold]")
 	app.Expect(toggleButton("Bold"), telatest.Pressed(true))
@@ -222,6 +226,7 @@ func TestToggleGroupMultiple(t *testing.T) {
 }
 
 func TestToggleGroupSingleSnapshot(t *testing.T) {
+	t.Parallel()
 	got, err := telatest.AriaSnapshot(kit.ToggleGroup[string]{Items: tgViews[:2], AriaLabel: "View", DefaultValue: new("grid")})
 	if err != nil {
 		t.Fatal(err)
@@ -234,6 +239,7 @@ func TestToggleGroupSingleSnapshot(t *testing.T) {
 }
 
 func TestToggleGroupSpacingAndDisabled(t *testing.T) {
+	t.Parallel()
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(
 			kit.ToggleGroup[string]{Items: tgViews[:2], AriaLabel: "Joined", Props: h.TestID("joined")},
@@ -253,6 +259,7 @@ func TestToggleGroupSpacingAndDisabled(t *testing.T) {
 }
 
 func TestToggleGroupBothValueStylesPanic(t *testing.T) {
+	t.Parallel()
 	_, err := telatest.AriaSnapshot(kit.ToggleGroup[string]{Items: tgViews, Value: new("list"), Selected: aria.SelectionOf("grid")})
 	if err == nil || !strings.Contains(err.Error(), "not both") {
 		t.Errorf("error %v, want the Value and Selected conflict reported", err)

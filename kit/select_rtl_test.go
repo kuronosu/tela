@@ -14,6 +14,7 @@ import (
 // the recipe (ps-2 pe-8, end-2) do: the check at the right and the text at
 // the left in English, the other way round under rtl.
 func TestSelectItemsMirrorInRTL(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		dir string
 		rtl bool

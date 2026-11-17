@@ -125,6 +125,7 @@ func alertActionChromium() *sheet {
 func TestChromiumAlertAction(t *testing.T) { alertActionChromium().chromium(t) }
 
 func TestChromiumAlertActionRTL(t *testing.T) {
+	t.Parallel()
 	s := alertActionChromium()
 	s.name, s.rtl = "alert_action_rtl", true
 	s.cells = s.cells[:3]
@@ -290,6 +291,7 @@ func inputIconChromium() *sheet {
 func TestChromiumInputIcon(t *testing.T) { inputIconChromium().chromium(t) }
 
 func TestChromiumInputIconRTL(t *testing.T) {
+	t.Parallel()
 	s := inputIconChromium()
 	s.name, s.rtl = "input_icon_rtl", true
 	s.cells = s.cells[:4]
@@ -422,6 +424,7 @@ func avatarGroupChromium() *sheet {
 func TestChromiumAvatarGroup(t *testing.T) { avatarGroupChromium().chromium(t) }
 
 func TestChromiumAvatarGroupRTL(t *testing.T) {
+	t.Parallel()
 	s := avatarGroupChromium()
 	s.name, s.rtl = "avatar_group_rtl", true
 	s.cells = s.cells[:3]

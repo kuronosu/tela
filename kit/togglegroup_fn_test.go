@@ -47,6 +47,7 @@ func (c viewContent) Build() tela.Node {
 // click, or from elsewhere) rebuilds the group and the content that reads
 // it, not the component that holds it.
 func TestToggleGroupValueFn(t *testing.T) {
+	t.Parallel()
 	builds := 0
 	var view *tela.Value[string]
 	app := telatest.Mount(t, fnGroup{builds: &builds, view: &view})
@@ -80,6 +81,7 @@ func TestToggleGroupValueFn(t *testing.T) {
 // is on only, follows the choice, and with a LayoutID slides there with
 // frames that only composite.
 func TestToggleGroupIndicator(t *testing.T) {
+	t.Parallel()
 	builds := 0
 	var view *tela.Value[string]
 	pill := h.Div(h.Class("absolute inset-0 -z-10 rounded-md bg-sky-500"), h.LayoutID("view-pill"))
@@ -140,6 +142,7 @@ func (m mountCounter) Build() tela.Node {
 
 // The Indicator comes and goes without remounting the items' content.
 func TestToggleGroupIndicatorKeepsContent(t *testing.T) {
+	t.Parallel()
 	mounts := 0
 	items := []kit.ToggleGroupItem[string]{
 		{Value: "a", Children: mountCounter{"A", &mounts}, AriaLabel: "A"},
@@ -161,6 +164,7 @@ func TestToggleGroupIndicatorKeepsContent(t *testing.T) {
 // TestToggleGroupSelectedFn: the deferred selection of a group with
 // Multiple; the zero Selection is the empty one.
 func TestToggleGroupSelectedFn(t *testing.T) {
+	t.Parallel()
 	var sel *tela.Value[aria.Selection[string]]
 	app := telatest.MountFunc(t, func() tela.Node {
 		sel = tela.UseValue(aria.SelectionOf("bold"))
@@ -184,6 +188,7 @@ func TestToggleGroupSelectedFn(t *testing.T) {
 }
 
 func TestToggleGroupTwoControlledFormsPanic(t *testing.T) {
+	t.Parallel()
 	_, err := telatest.AriaSnapshot(kit.ToggleGroup[string]{Items: tgViews, Value: new("list"), ValueFn: func() string { return "grid" }})
 	if err == nil || !strings.Contains(err.Error(), "one of Value, ValueFn") {
 		t.Errorf("error %v, want the Value and ValueFn conflict reported", err)
