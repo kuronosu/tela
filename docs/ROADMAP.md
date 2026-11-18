@@ -11,30 +11,15 @@
 
 ## Current status
 
-- **Done:** phases 1–25. Latest version `v0.14.6` (2026-11-17, dev-loop work between phases, ADR-290 to ADR-293; the tag waits for the owner to push). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch; the owner may release a small break, such as a rename, as a patch.
-- **Phase in progress:** 26, Packaging and auto-update (ADR-294 to ADR-297), on the branch `phase-26`. The owner pushes `main` and the tags `v0.14.5` and `v0.14.6`.
+- **Done:** phases 1–26. Latest version `v0.14.7` (2026-11-17, phase 26: Packaging and auto-update, ADR-294 to ADR-297; the tag waits for the owner to push). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch; the owner may release a small break, such as a rename, as a patch.
+- **Phase in progress:** none. Phase 26 is merged into `main` locally; the owner pushes `main` and the tags `v0.14.5`, `v0.14.6` and `v0.14.7`.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** phase 26's done criterion passes (`TestNotesPackage`, `TestNotesAppImageUpdate`; the Windows zip round trip on the VM). Left: the owner picks notes' icon and reviews its update notice, decides the open questions (new skips, `-ToastActivated` in the args, earlier toasts), then the phase review and the release. The GPU backend's Windows code has never run: its live check needs a Windows machine with a GPU. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** the next phase in order, App building blocks. Phase 26's Mac checks wait for a macOS CI run or a Mac (`docs/LIMITATIONS.md`). The GPU backend's Windows code has never run: its live check needs a Windows machine with a GPU. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` takes about 15 minutes in one process (2026-11-09; run it with `-timeout 30m`, or shard it; longer since phase 24's `TELA_CHECK_SEMANTICS` and `TELA_CHECK_LAYOUT` are on in core's tests), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
 
-In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–25 are done (HISTORY.md).
-
-### Phase 26: Packaging and auto-update
-
-Decisions in ADR-294 (the declaration on `tela.App`), ADR-295 (`tela package`, pure-Go formats, no MSI), ADR-296 (`update`, a manifest ready for deltas; full downloads in this phase) and ADR-297 (logs, crash reports, the toast activator). Delta updates (bsdiff or chunks, in the manifest's `patches`) are a later task.
-
-- [x] `tela build` / `tela package` (ADR-295): AppImage on Tela's own runtime, `deb`, flatpak, Windows `zip` and MSIX with `.appinstaller`, macOS `app` (universal programs) and `dmg`; `codesign`/`notarytool`, `signtool`, `-sign-cmd`; deterministic outputs
-- [x] Windows targets are GUI programs by default (`-H=windowsgui`, `-console` keeps the console; ADR-127, ADR-295), with panics and the app's log written to files (ADR-297); the executable gets the icon and version info (ADR-294)
-- [x] Auto-update (ADR-296): package `update` and `tela update keygen|sign|manifest`; signed manifests, full downloads, atomic replace, rollback until `MarkHealthy`
-- [ ] Delta updates in the manifest's `patches` (bsdiff or content-defined chunks; an ADR picks the kind)
-- [x] A toast clicked after the app exited starts it (a COM activator registered with `ToastActivatorCLSID`, ADR-297; contract v15 `NotificationEvent.Earlier`, protocol 16); the MSIX manifest declares it with the formats
-- [x] Crash reporting hook and structured logging (ADR-297): `desktop.Logger`, crash reports from panics and fatal errors, `desktop.OnCrash` on the next start
-- [x] One declaration of the app (ADR-294) generates each package's metadata: the desktop entry and metainfo, `Info.plist` with usage strings and entitlements, the flatpak permissions, the MSIX manifest
-- [x] Update channels (stable, beta), phased rollout to a share of installs, an activation policy (on the next start, when the app decides, at once) and an end-of-support message for versions that can no longer update (ADR-296)
-
-**Done when:** a sample app is packaged for three platforms from one command and updates itself from a signed manifest.
+In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–26 are done (HISTORY.md).
 
 ### App building blocks
 

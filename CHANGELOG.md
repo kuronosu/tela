@@ -13,6 +13,10 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+## [0.14.7] - 2026-11-17
+
+Phase 26: Packaging and auto-update (ADR-294 to ADR-297). It breaks no public API; `tela build` for Windows now makes a GUI program by default (`-console` keeps the console).
+
 ### Added
 
 - `desktop.Logger()`, a `log/slog` logger that writes JSON lines to `LogDir()/<app ID>.log` (opened on the first record, rotated at 5 MB with three old files kept) and text to the standard error when the process has one (a Windows GUI program has none), with `desktop.SetLogLevel`. Tela's own dev warnings and logged errors are written to the file too once `tela.Run` starts, as before on the standard error (ADR-297).
@@ -1186,7 +1190,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.6...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.7...HEAD
+[0.14.7]: https://github.com/kuronosu/tela/compare/v0.14.6...v0.14.7
 [0.14.6]: https://github.com/kuronosu/tela/compare/v0.14.5...v0.14.6
 [0.14.5]: https://github.com/kuronosu/tela/compare/v0.14.4...v0.14.5
 [0.14.4]: https://github.com/kuronosu/tela/compare/v0.14.3...v0.14.4
