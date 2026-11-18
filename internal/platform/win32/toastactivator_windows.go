@@ -38,7 +38,7 @@ import (
 //     under ADR-235's rules (registerToastActivator): Tela's marker, only
 //     what changed (a moved executable rewrites the command), keys of
 //     others left alone, nothing ever removed. Inside an MSIX package
-//     (GetCurrentPackageFullName succeeds) nothing is written: the manifest
+//     (assoc.InPackage) nothing is written: the manifest
 //     declares the server. Neither is anything written by tela dev's host
 //     (SetDevHost): its executable is tela's, not the app's.
 //   - Starting. COM runs the command with -ToastActivated (and may append
@@ -69,9 +69,8 @@ import (
 //     of this run's.
 
 var (
-	procCoRegisterClassObject     = ole32.NewProc("CoRegisterClassObject")
-	procCoRevokeClassObject       = ole32.NewProc("CoRevokeClassObject")
-	procGetCurrentPackageFullName = kernel32.NewProc("GetCurrentPackageFullName")
+	procCoRegisterClassObject = ole32.NewProc("CoRegisterClassObject")
+	procCoRevokeClassObject   = ole32.NewProc("CoRevokeClassObject")
 )
 
 // IIDs of the activator's interfaces (unknwn.h; notificationactivationcallback.h).
@@ -84,9 +83,6 @@ const (
 	clsctxLocalServer   = 0x4
 	regclsMultipleUse   = 1
 	classENoAggregation = 0x80040110
-	// GetCurrentPackageFullName with no buffer: a package's full name does
-	// not fit (winerror.h); APPMODEL_ERROR_NO_PACKAGE (15700) outside one.
-	errInsufficientBuffer = 122
 )
 
 // toastActivator is the state of the class object, on the UI thread.
@@ -133,14 +129,7 @@ func initActivatorVtables() {
 func (b *Backend) SetDevHost() { b.desk.activator.devHost = true }
 
 // packaged reports whether the process runs inside an MSIX package.
-var packaged = sync.OnceValue(func() bool {
-	if !available(procGetCurrentPackageFullName) {
-		return false // before Windows 8
-	}
-	var n uint32
-	r, _, _ := procGetCurrentPackageFullName.Call(uintptr(unsafe.Pointer(&n)), 0)
-	return r == 0 || r == errInsufficientBuffer
-})
+var packaged = assoc.InPackage
 
 // toastActivatorCommand returns the LocalServer32 command of this
 // process's executable; the live tests replace it.

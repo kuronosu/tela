@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/kuronosu/tela/internal/platform/assoc"
 )
 
 // MarkerName is the file that makes a folder a Windows zip install that
@@ -78,12 +80,12 @@ type sysEnv struct {
 	// database), "" outside tests.
 	root string
 	// msix reports whether the process runs from an MSIX package
-	// (GetCurrentPackageFullName); always false off Windows.
+	// (assoc.InPackage); always false off Windows.
 	msix func() bool
 }
 
 func osEnv() sysEnv {
-	return sysEnv{goos: runtime.GOOS, getenv: os.Getenv, executable: os.Executable, msix: inPackage}
+	return sysEnv{goos: runtime.GOOS, getenv: os.Getenv, executable: os.Executable, msix: assoc.InPackage}
 }
 
 // detectEnv is the environment detection reads; tests replace it.
