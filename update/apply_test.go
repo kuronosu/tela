@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -172,6 +173,31 @@ func TestApplyBundle(t *testing.T) {
 	}
 }
 
+// A rollback starts the restored bundle's program, also when the new
+// version's program had another name.
+func TestRollbackBundleRenamedProgram(t *testing.T) {
+	f := newFixture(t, "1.0.0")
+	dir := t.TempDir()
+	app := filepath.Join(dir, "Notes.app")
+	writeFiles(t, app, map[string]string{"Contents/MacOS/notes": "v1.0"})
+	useEnv(t, env("darwin", filepath.Join(app, "Contents", "MacOS", "notes"), nil))
+	art := zipOfFiles(t, map[string]string{"Notes.app/Contents/MacOS/notes-next": "v1.1"})
+	f.publish(manifest(release("1.1.0", f.artifact("notes.zip", "app", art))))
+	if err := download(t, f).Apply(); err != nil {
+		t.Fatal(err)
+	}
+	// The new version runs, from its own program.
+	f.setVersion("1.1.0")
+	useEnv(t, env("darwin", filepath.Join(app, "Contents", "MacOS", "notes-next"), nil))
+	want := filepath.Join(app, "Contents", "MacOS", "notes")
+	if got := starts(t, HealthyStarts+1); got != want {
+		t.Fatalf("rollback starts %q, want %s", got, want)
+	}
+	if readFile(t, want) != "v1.0" {
+		t.Errorf("after the rollback: %q", readFile(t, want))
+	}
+}
+
 func TestApplyZipFolder(t *testing.T) {
 	f := newFixture(t, "1.0.0")
 	dir := t.TempDir()
@@ -221,6 +247,148 @@ func TestApplyZipFolder(t *testing.T) {
 	}
 	if !os.SameFile(inode(t, exe), running) {
 		t.Errorf("the rollback did not put the old executable back")
+	}
+}
+
+// zipInstall makes a zip folder install of version 1.0.0 (notes.exe,
+// old.dll, the marker, and the user's data.txt) and makes detection see
+// it; it returns the folder and the program.
+func zipInstall(t *testing.T) (dir, exe string) {
+	t.Helper()
+	dir = t.TempDir()
+	writeFiles(t, dir, map[string]string{
+		MarkerName:  marker("1.0.0", "notes.exe", "old.dll", MarkerName),
+		"notes.exe": "v1.0",
+		"old.dll":   "old",
+		"data.txt":  "the user's",
+	})
+	exe = filepath.Join(dir, "notes.exe")
+	useEnv(t, env("windows", exe, nil))
+	return dir, exe
+}
+
+// zipRelease serves a zip artifact of version v (notes.exe holding
+// "v"+v, new.dll, the marker) and returns its release.
+func zipRelease(f *fixture, v string) Release {
+	art := zipOfFiles(f.t, map[string]string{
+		"Notes/" + MarkerName: marker(v, "notes.exe", "new.dll", MarkerName),
+		"Notes/notes.exe":     "v" + v,
+		"Notes/new.dll":       "new " + v,
+	})
+	return release(v, f.artifact("notes-"+v+".zip", "zip", art))
+}
+
+// failRenames makes the renames of moveEntries fail for the sources and
+// destinations that fail reports, as a sharing violation on Windows does.
+func failRenames(t *testing.T, fail func(src, dst string) bool) {
+	setVar(t, &rename, func(src, dst string) error {
+		if fail(src, dst) {
+			return &os.LinkError{Op: "rename", Old: src, New: dst, Err: errors.New("injected sharing violation")}
+		}
+		return os.Rename(src, dst)
+	})
+}
+
+// isEntry reports whether p is the entry name of the folder dir.
+func isEntry(p, dir, name string) bool { return p == filepath.Join(dir, name) }
+
+func pendingOf(t *testing.T, dir string) *pending {
+	t.Helper()
+	st, err := (&install{format: "zip", path: dir}).loadState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return st.Pending
+}
+
+// A rename that fails while the new entries move in puts the folder back
+// as it was: the old version stays installed, nothing is recorded, and a
+// later Apply works.
+func TestApplyZipFolderInterrupted(t *testing.T) {
+	f := newFixture(t, "1.0.0")
+	dir, exe := zipInstall(t)
+	running := inode(t, exe)
+	f.publish(manifest(zipRelease(f, "1.1.0")))
+	u := download(t, f)
+	next := filepath.Join(dir, ".update", "new")
+	failRenames(t, func(src, _ string) bool { return isEntry(src, next, "new.dll") })
+	if err := u.Apply(); err == nil || !strings.Contains(err.Error(), "injected") {
+		t.Fatalf("Apply = %v, want the injected failure", err)
+	}
+	if readFile(t, exe) != "v1.0" || !os.SameFile(inode(t, exe), running) || readFile(t, filepath.Join(dir, "old.dll")) != "old" ||
+		!strings.Contains(readFile(t, filepath.Join(dir, MarkerName)), `"1.0.0"`) || readFile(t, filepath.Join(dir, "data.txt")) != "the user's" {
+		t.Errorf("the folder was not put back as it was")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "new.dll")); err == nil {
+		t.Errorf("new.dll is in the folder")
+	}
+	if p := pendingOf(t, dir); p != nil {
+		t.Errorf("a failed Apply recorded %+v", p)
+	}
+	setVar(t, &rename, os.Rename)
+	if err := u.Apply(); err != nil {
+		t.Fatalf("Apply after the failure: %v", err)
+	}
+	if readFile(t, exe) != "v1.1.0" {
+		t.Errorf("the second Apply installed %q", readFile(t, exe))
+	}
+}
+
+// Replacing a version on trial that never ran: a failed move puts the
+// trial's entries back, and the old copy stays.
+func TestApplyZipFolderInterruptedReplacing(t *testing.T) {
+	f := newFixture(t, "1.0.0")
+	dir, exe := zipInstall(t)
+	f.publish(manifest(zipRelease(f, "1.1.0")))
+	if err := download(t, f).Apply(); err != nil {
+		t.Fatal(err)
+	}
+	m := manifest(zipRelease(f, "1.1.0"), zipRelease(f, "1.2.0"))
+	m.Published = t0.Add(-30 * time.Minute)
+	f.publish(m)
+	u := download(t, f)
+	next := filepath.Join(dir, ".update", "new")
+	failRenames(t, func(src, _ string) bool { return isEntry(src, next, "new.dll") })
+	if err := u.Apply(); err == nil {
+		t.Fatal("Apply succeeded")
+	}
+	if readFile(t, exe) != "v1.1.0" || readFile(t, filepath.Join(dir, "new.dll")) != "new 1.1.0" {
+		t.Errorf("the trial's entries were not put back: %q", readFile(t, exe))
+	}
+	if p := pendingOf(t, dir); p == nil || p.Version != "1.1.0" {
+		t.Errorf("pending %+v, want 1.1.0's", p)
+	}
+	if readFile(t, filepath.Join(dir, ".update", "old", "notes.exe")) != "v1.0" {
+		t.Errorf("the old copy is gone")
+	}
+}
+
+// When the folder cannot be put back either, Apply records what it holds,
+// so the rollback at the new version's starts restores the old version.
+func TestApplyZipFolderInterruptedUndoFails(t *testing.T) {
+	f := newFixture(t, "1.0.0")
+	dir, exe := zipInstall(t)
+	f.publish(manifest(zipRelease(f, "1.1.0")))
+	u := download(t, f)
+	next := filepath.Join(dir, ".update", "new")
+	failRenames(t, func(src, dst string) bool {
+		return isEntry(src, next, "new.dll") || isEntry(dst, next, "notes.exe")
+	})
+	err := u.Apply()
+	if err == nil || !strings.Contains(err.Error(), "putting the folder back failed too") {
+		t.Fatalf("Apply = %v, want the failed undo reported", err)
+	}
+	p := pendingOf(t, dir)
+	if p == nil || p.Version != "1.1.0" || !slices.Equal(p.Files, []string{MarkerName, "notes.exe"}) || len(p.OldFiles) != 3 {
+		t.Fatalf("pending %+v, want 1.1.0 holding its marker and notes.exe", p)
+	}
+	setVar(t, &rename, os.Rename)
+	f.setVersion("1.1.0")
+	if got := starts(t, HealthyStarts+1); got != exe {
+		t.Fatalf("rollback starts %q", got)
+	}
+	if readFile(t, exe) != "v1.0" || readFile(t, filepath.Join(dir, "old.dll")) != "old" || !strings.Contains(readFile(t, filepath.Join(dir, MarkerName)), `"1.0.0"`) {
+		t.Errorf("the rollback did not restore the old version")
 	}
 }
 

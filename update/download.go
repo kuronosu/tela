@@ -55,10 +55,25 @@ func (u *Update) Download(ctx context.Context, progress func(done, total int64))
 		return err
 	}
 	defer f.Close()
-	// Resume: hash what is there.
-	if n, err := io.Copy(h, f); err == nil && n > 0 && n < total {
+	// Resume: hash what is there. A part with every byte is a download
+	// that ended between its last write and the rename.
+	n, err := io.Copy(h, f)
+	switch {
+	case err == nil && n == total && strings.EqualFold(hex.EncodeToString(h.Sum(nil)), u.Artifact.SHA256):
+		if err := f.Close(); err != nil {
+			return err
+		}
+		if err := os.Rename(part, final); err != nil {
+			return err
+		}
+		u.file = final
+		if progress != nil {
+			progress(total, total)
+		}
+		return nil
+	case err == nil && n > 0 && n < total:
 		done = n
-	} else {
+	default:
 		h.Reset()
 		if err := f.Truncate(0); err != nil {
 			return err

@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -151,6 +152,10 @@ func TestCheckSignatureAndFreshness(t *testing.T) {
 	f.publishBytes(good, f.key)
 	if _, err := Check(ctx, cfg); !errors.Is(err, ErrSignature) {
 		t.Errorf("no public keys: %v", err)
+	}
+	cfg.PublicKeys = []PublicKey{f.pub, "ed25519:not-base64"}
+	if _, err := Check(ctx, cfg); !errors.Is(err, ErrSignature) || !strings.Contains(err.Error(), "not-base64") {
+		t.Errorf("a malformed public key: %v, want ErrSignature naming it", err)
 	}
 
 	m := manifest(release("1.1.0", a))
@@ -391,6 +396,59 @@ func TestDownloadResumes(t *testing.T) {
 	}
 	if got := readFile(t, u.file); got != string(data) {
 		t.Errorf("resumed download differs")
+	}
+}
+
+// A part that holds every byte (the process ended between the last write
+// and the rename) is checked and renamed, not fetched again; a full part
+// of other bytes is fetched again.
+func TestDownloadCompletePart(t *testing.T) {
+	f := newFixture(t, "1.0.0")
+	appImage(t, "v1")
+	data := []byte(strings.Repeat("abcdefghij", 5000))
+	a := f.artifact("a", "appimage", data)
+	f.publish(manifest(release("1.1.0", a)))
+	u, err := Check(context.Background(), f.config())
+	if err != nil {
+		t.Fatal(err)
+	}
+	part := cachePath(t, a) + ".part"
+	os.MkdirAll(filepath.Dir(part), 0o700)
+	if err := os.WriteFile(part, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	n := len(f.requests())
+	var calls [][2]int64
+	if err := u.Download(context.Background(), func(done, total int64) { calls = append(calls, [2]int64{done, total}) }); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.requests()[n:]; len(got) != 0 {
+		t.Errorf("a complete part was fetched again: %v", got)
+	}
+	if u.file != cachePath(t, a) || readFile(t, u.file) != string(data) {
+		t.Errorf("the part was not renamed into place: %q", u.file)
+	}
+	if _, err := os.Stat(part); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("the part is still there: %v", err)
+	}
+	if len(calls) != 1 || calls[0] != [2]int64{int64(len(data)), int64(len(data))} {
+		t.Errorf("progress %v", calls)
+	}
+
+	// A full part of other bytes.
+	os.Remove(u.file)
+	if err := os.WriteFile(part, []byte(strings.Repeat("y", len(data))), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	n = len(f.requests())
+	if err := u.Download(context.Background(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.requests()[n:]; !slices.Equal(got, []string{"GET /files/a"}) {
+		t.Errorf("a wrong full part: requests %v, want one full GET", got)
+	}
+	if readFile(t, u.file) != string(data) {
+		t.Errorf("download differs")
 	}
 }
 

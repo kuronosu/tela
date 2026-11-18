@@ -123,7 +123,7 @@ func Verify(manifest, sig []byte, keys []PublicKey) error {
 	for _, k := range keys {
 		key, err := k.Key()
 		if err != nil {
-			return err
+			return fmt.Errorf("%w: Config.PublicKeys: %w", ErrSignature, err)
 		}
 		trusted[KeyID(key)] = key
 	}

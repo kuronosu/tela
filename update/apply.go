@@ -29,7 +29,12 @@ const HealthyStarts = 2
 //   - zip: the Windows folder's entries listed by the old and new
 //     MarkerName files are moved into the folder's .update folder and the
 //     new ones moved in. Windows lets a running executable be renamed,
-//     not replaced, which is what this does.
+//     not replaced, which is what this does. A rename that fails partway
+//     (a file another process holds open) puts the folder back as it
+//     was, and Apply returns its error; when putting it back fails too,
+//     the error says so and what the folder holds is recorded as
+//     applied, so a rollback (the new version's starts) or the next
+//     Apply finishes the swap.
 //
 // The new copy is unpacked in the cache folder and renamed into place,
 // or copied next to the install first when the cache is on another
@@ -91,6 +96,10 @@ func (u *Update) Apply() error {
 		err = fmt.Errorf("update: cannot apply to a %s install", in.format)
 	}
 	if err != nil {
+		if is := (*interruptedSwap)(nil); errors.As(err, &is) {
+			st.Pending = p
+			_ = in.saveState(st)
+		}
 		return err
 	}
 	st.Pending = p
@@ -260,17 +269,25 @@ func applyFolder(in *install, file, stage string, replacing bool, prev, p *pendi
 	}
 	defer os.RemoveAll(next)
 
+	// aside is where the installed entries go, asideMoved the ones that
+	// went there.
+	var aside string
+	var asideMoved []string
 	if replacing {
 		// The installed entries are the version on trial, which never
-		// ran: set them aside and delete them; the old copy stays.
+		// ran: set them aside, and delete them once the new version is
+		// in; the old copy stays.
+		aside = failed
 		os.RemoveAll(failed)
-		if err := moveEntries(in.path, failed, prev.Files); err != nil {
+		asideMoved, err = moveEntries(in.path, failed, markerLast(prev.Files))
+		if err != nil {
+			moveEntries(failed, in.path, markerFirst(asideMoved))
 			return err
 		}
-		defer os.RemoveAll(failed)
 	} else {
 		// The old copy is the installed entries, the old marker's and
 		// any the new version would overwrite.
+		aside = old
 		olds := slices.Clone(in.marker.Files)
 		for _, n := range news {
 			if !slices.Contains(olds, n) {
@@ -283,7 +300,7 @@ func applyFolder(in *install, file, stage string, replacing bool, prev, p *pendi
 		if err := os.MkdirAll(old, 0o755); err != nil {
 			return err
 		}
-		var moved []string
+		var present []string
 		for _, n := range olds {
 			if !validEntry(n) || n == ".update" {
 				continue
@@ -291,41 +308,123 @@ func applyFolder(in *install, file, stage string, replacing bool, prev, p *pendi
 			if _, err := os.Lstat(filepath.Join(in.path, n)); err != nil {
 				continue
 			}
-			moved = append(moved, n)
+			present = append(present, n)
 		}
 		// The running executable is renamed into old, which Windows
 		// allows (deleting or overwriting it is not).
-		if err := moveEntries(in.path, old, moved); err != nil {
-			moveEntries(old, in.path, moved)
+		asideMoved, err = moveEntries(in.path, old, markerLast(present))
+		if err != nil {
+			moveEntries(old, in.path, markerFirst(asideMoved))
 			return err
 		}
-		p.OldFiles = moved
+		p.OldFiles = asideMoved
 	}
-	if err := moveEntries(next, in.path, news); err != nil {
-		return err
+	movedIn, err := moveEntries(next, in.path, markerFirst(news))
+	if err != nil {
+		// A rename failed partway (on Windows, a file another process
+		// holds open): put the folder back as it was, the new entries
+		// out and the ones set aside in.
+		back, uerr := moveEntries(in.path, next, markerLast(movedIn))
+		var restored []string
+		if uerr == nil {
+			restored, uerr = moveEntries(aside, in.path, markerFirst(asideMoved))
+		}
+		if uerr == nil {
+			return err
+		}
+		// The folder holds part of each version: Apply records it as
+		// applied, listing what it holds, so that a rollback (a start
+		// of the new version) or the next Apply finishes the swap.
+		p.Files = without(movedIn, back)
+		if replacing {
+			p.Files = append(p.Files, restored...)
+		} else {
+			p.OldFiles = without(asideMoved, restored)
+		}
+		return &interruptedSwap{err: err, undo: uerr, aside: aside}
+	}
+	if replacing {
+		os.RemoveAll(failed)
 	}
 	p.Files = news
 	in.exe = filepath.Join(in.path, m.Exe)
 	return nil
 }
 
-// moveEntries renames the entries names of folder from into folder to,
-// stopping at the first error. Missing entries are skipped.
-func moveEntries(from, to string, names []string) error {
-	if err := os.MkdirAll(to, 0o755); err != nil {
-		return err
+// interruptedSwap is applyFolder's error when it could neither finish the
+// swap nor undo it.
+type interruptedSwap struct {
+	err, undo error
+	aside     string // the folder of the entries set aside
+}
+
+func (e *interruptedSwap) Error() string {
+	return fmt.Sprintf("update: %v; putting the folder back failed too (%v): the entries set aside are in %s, and the next Apply or a rollback finishes the swap", e.err, e.undo, e.aside)
+}
+
+func (e *interruptedSwap) Unwrap() error { return e.err }
+
+// without returns the names of a not in b.
+func without(a, b []string) []string {
+	var out []string
+	for _, n := range a {
+		if !slices.Contains(b, n) {
+			out = append(out, n)
+		}
 	}
+	return out
+}
+
+// markerFirst and markerLast order the entries moved into and out of the
+// install folder: the marker moves in first and out last, so the folder
+// holds one whenever a rename fails partway, and the program's next start
+// finds the install (findSelf reads the marker) and can roll back.
+func markerFirst(names []string) []string { return withMarker(names, true) }
+
+func markerLast(names []string) []string { return withMarker(names, false) }
+
+func withMarker(names []string, first bool) []string {
+	if !slices.Contains(names, MarkerName) {
+		return names
+	}
+	out := make([]string, 0, len(names))
+	if first {
+		out = append(out, MarkerName)
+	}
+	for _, n := range names {
+		if n != MarkerName {
+			out = append(out, n)
+		}
+	}
+	if !first {
+		out = append(out, MarkerName)
+	}
+	return out
+}
+
+// Replaced in tests: the renames of moveEntries.
+var rename = os.Rename
+
+// moveEntries renames the entries names of folder from into folder to,
+// stopping at the first error, and returns the names it moved. Missing
+// entries are skipped.
+func moveEntries(from, to string, names []string) ([]string, error) {
+	if err := os.MkdirAll(to, 0o755); err != nil {
+		return nil, err
+	}
+	var moved []string
 	for _, n := range names {
 		src := filepath.Join(from, n)
 		if _, err := os.Lstat(src); errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
 		dst := filepath.Join(to, n)
-		if err := os.Rename(src, dst); err != nil {
-			return err
+		if err := rename(src, dst); err != nil {
+			return moved, err
 		}
+		moved = append(moved, n)
 	}
-	return nil
+	return moved, nil
 }
 
 func validEntry(n string) bool {
@@ -357,8 +456,8 @@ func zipRoot(stage string) (string, *Marker, error) {
 	return "", nil, fmt.Errorf("update: the zip artifact has no %s at its top level or in its one folder", MarkerName)
 }
 
-// rollback puts the old copy of in back, records why, and returns the
-// program to start. Call it with stateMu held.
+// rollback puts the old copy of in back and records why. Call it with
+// stateMu held.
 func rollback(in *install, st *installState, reason string) error {
 	p := st.Pending
 	dir := in.updateDir()
@@ -379,13 +478,10 @@ func rollback(in *install, st *installState, reason string) error {
 		// The running executable is the new version's: renamed aside,
 		// it is deleted at the next Apply or rollback.
 		os.RemoveAll(failed)
-		if err = moveEntries(in.path, failed, p.Files); err == nil {
-			err = moveEntries(old, in.path, p.OldFiles)
+		if _, err = moveEntries(in.path, failed, markerLast(p.Files)); err == nil {
+			_, err = moveEntries(old, in.path, markerFirst(p.OldFiles))
 		}
 		os.RemoveAll(failed)
-		if m, merr := readMarker(filepath.Join(in.path, MarkerName)); merr == nil {
-			in.exe = filepath.Join(in.path, m.Exe)
-		}
 	}
 	if err != nil {
 		return fmt.Errorf("update: rolling back %s: %w", p.Version, err)
@@ -434,9 +530,10 @@ func RolledBack() (Rollback, bool) {
 	return st.Rollbacks[len(st.Rollbacks)-1], true
 }
 
-// startCheck runs at the start of the app (tela.Run, before any window):
-// it counts a start of a version on trial, and past HealthyStarts rolls
-// it back. It returns the program to start instead, "" to go on.
+// startCheck runs at the start of the app (tela.Run, before any window
+// and before package desktop claims the single instance): it counts a
+// start of a version on trial, and past HealthyStarts rolls it back. It
+// returns the program to start instead, "" to go on.
 func startCheck() (restart string) {
 	in, err := findSelf()
 	if err != nil {
@@ -458,5 +555,7 @@ func startCheck() (restart string) {
 		fmt.Fprintln(os.Stderr, err)
 		return ""
 	}
-	return in.exe
+	// The restored copy's program, which may be named otherwise than the
+	// running one (the zip marker's exe, the bundle's one program).
+	return programOf(in)
 }
