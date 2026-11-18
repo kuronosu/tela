@@ -4,7 +4,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -27,10 +26,9 @@ func extractTo(t *testing.T, files map[string]string) (string, error) {
 
 // A chain of links whose targets each stay inside lexically, but which
 // resolve outside on disk, is refused, and nothing is written through it.
+// On Windows the links need an administrator or developer mode, which
+// the test machines have.
 func TestExtractZipLinkChain(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows makes symbolic links only with a privilege")
-	}
 	for _, tc := range []struct {
 		name  string
 		files map[string]string
@@ -76,9 +74,6 @@ func TestExtractZipLinkChain(t *testing.T) {
 
 // The links of a macOS framework go through other links and stay inside.
 func TestExtractZipFrameworkLinks(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows makes symbolic links only with a privilege")
-	}
 	parent, err := extractTo(t, map[string]string{
 		"F.framework/F":                     "->Versions/Current/F",
 		"F.framework/Resources":             "->Versions/Current/Resources",
