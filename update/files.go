@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -33,6 +34,10 @@ func (e unsupportedExchange) Unwrap() error { return e.err }
 // written, each link is resolved on disk, following the links it goes
 // through, and must end inside dir: a chain of links that each stay
 // inside lexically (a/l -> .., b -> a/l/..) cannot reach out.
+//
+// On Windows a link is refused: a Windows install (the zip format) has
+// none, the bundles that do are macOS's, and Wine's links are not seen by
+// Lstat, which the checks above depend on.
 func extractZip(file, dir string) error {
 	zr, err := zip.OpenReader(file)
 	if err != nil {
@@ -57,6 +62,9 @@ func extractZip(file, dir string) error {
 				return err
 			}
 		case mode&fs.ModeSymlink != 0:
+			if runtime.GOOS == "windows" {
+				return fmt.Errorf("update: the zip artifact has a symbolic link, %q, and a Windows install has none", name)
+			}
 			target, err := readEntry(f, 4096)
 			if err != nil {
 				return err

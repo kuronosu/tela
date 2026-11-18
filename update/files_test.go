@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -26,8 +27,7 @@ func extractTo(t *testing.T, files map[string]string) (string, error) {
 
 // A chain of links whose targets each stay inside lexically, but which
 // resolve outside on disk, is refused, and nothing is written through it.
-// On Windows the links need an administrator or developer mode, which
-// the test machines have.
+// On Windows every link is refused (extractZip).
 func TestExtractZipLinkChain(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
@@ -62,9 +62,13 @@ func TestExtractZipLinkChain(t *testing.T) {
 			"q": "->p",
 		}, "loop"},
 	} {
+		want := tc.want
+		if runtime.GOOS == "windows" {
+			want = "a Windows install has none"
+		}
 		parent, err := extractTo(t, tc.files)
-		if err == nil || !strings.Contains(err.Error(), tc.want) {
-			t.Errorf("%s: %v, want an error with %q", tc.name, err, tc.want)
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: %v, want an error with %q", tc.name, err, want)
 		}
 		if _, err := os.Lstat(filepath.Join(parent, "x")); !os.IsNotExist(err) {
 			t.Errorf("%s: a file was written outside the stage folder", tc.name)
@@ -72,7 +76,8 @@ func TestExtractZipLinkChain(t *testing.T) {
 	}
 }
 
-// The links of a macOS framework go through other links and stay inside.
+// The links of a macOS framework go through other links and stay inside;
+// Windows refuses them, as every link.
 func TestExtractZipFrameworkLinks(t *testing.T) {
 	parent, err := extractTo(t, map[string]string{
 		"F.framework/F":                     "->Versions/Current/F",
@@ -82,6 +87,12 @@ func TestExtractZipFrameworkLinks(t *testing.T) {
 		"F.framework/Versions/A/Resources/": "",
 		"F.framework/Versions/Current":      "->A",
 	})
+	if runtime.GOOS == "windows" {
+		if err == nil || !strings.Contains(err.Error(), "a Windows install has none") {
+			t.Errorf("extractZip = %v, want the refusal of links", err)
+		}
+		return
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

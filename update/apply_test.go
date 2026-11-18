@@ -420,6 +420,9 @@ func TestApplyRefusesBadZips(t *testing.T) {
 		{"an escaping link", "points outside its folder", map[string]string{MarkerName: marker("1.1.0", "notes.exe", MarkerName), "notes.exe": "x", "l": "->../../etc/passwd"}},
 		{"a missing file", "which the artifact lacks", map[string]string{MarkerName: marker("1.1.0", "notes.exe", "lib.dll", MarkerName), "notes.exe": "x"}},
 	} {
+		if runtime.GOOS == "windows" && tc.name == "an escaping link" {
+			tc.want = "a Windows install has none"
+		}
 		f.publish(manifest(release("1.1.0", f.artifact("z", "zip", zipOfFiles(t, tc.files)))))
 		if err := download(t, f).Apply(); err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("%s: Apply = %v, want an error with %q", tc.name, err, tc.want)
