@@ -239,7 +239,7 @@ DeleteSecret removes the secret stored under name for this app; a missing one is
 func FlushAll() error
 ```
 
-FlushAll writes the changes of every open store ([`Store.Flush`](#func-store-flush)) and returns the first error. tela.Run calls it when it returns.
+FlushAll writes the changes of every open store ([`Store.Flush`](#func-store-flush)) and returns the first error. It also closes the log file of [`Logger`](#func-logger) (the next record opens it again, in the folder then in use), so that nothing of the app holds a file of its folders: on Windows, a test's temporary folders can be removed (telatest.TempDesktopDirs calls FlushAll before they go). tela.Run calls it when it returns.
 
 ### func LoadPlacement
 
@@ -269,7 +269,7 @@ func Logger() *slog.Logger
 
 Logger returns the app's logger, a [`log/slog`](https://pkg.go.dev/log/slog) logger that writes:
 
-- JSON lines to LogDir()/\<app ID\>.log ([`LogDir`](#func-logdir), [`AppID`](#func-appid)): the file opens when the first record is written, and a failure to open it (no folder, no space) leaves the standard error alone, without panicking or returning an error. It rotates by size: at 5 MB the file becomes \<app ID\>.log.1, the older ones shift up, and three old files are kept.
+- JSON lines to LogDir()/\<app ID\>.log ([`LogDir`](#func-logdir), [`AppID`](#func-appid)): the file opens when the first record is written, and a failure to open it (no folder, no space) leaves the standard error alone, without panicking or returning an error. It rotates by size: at 5 MB the file becomes \<app ID\>.log.1, the older ones shift up, and three old files are kept. [`FlushAll`](#func-flushall) (and so the end of tela.Run) closes it, and the next record opens it again. On Windows it is opened shared for deletion, so other programs can rename and delete it as on Unix.
 - text to the standard error, when the process has one: a program started from a terminal, not a Windows GUI program (built with -ldflags=-H=windowsgui, ADR-127) or one whose standard error is closed.
 
 Records below the level of [`SetLogLevel`](#func-setloglevel) (Info at first) are dropped. Tela's own messages (dev warnings, platform errors) are written to the file too, at the Warn level (the Error level for the errors of the app's content) with the attribute component=tela, once tela.Run started; they keep their place on the standard error as they were. The logger is safe from any goroutine, and is the same value on every call.

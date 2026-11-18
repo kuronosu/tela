@@ -261,3 +261,45 @@ func TestLogTela(t *testing.T) {
 		t.Errorf("Tela's message was printed twice: %q", stderr.String())
 	}
 }
+
+// FlushAll (the end of tela.Run, telatest.TempDesktopDirs' cleanup)
+// closes the log file: its folder can be removed, on Windows too, and the
+// next record opens the file of the folders then in use.
+func TestFlushAllClosesTheLog(t *testing.T) {
+	resetLogging(t, "com.example.flushlog", false)
+	first, _ := LogDir()
+	Logger().Info("first")
+	if err := FlushAll(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(first); err != nil {
+		t.Fatalf("the log folder cannot be removed after FlushAll: %v", err)
+	}
+	t.Setenv(DirEnv, t.TempDir())
+	second, _ := LogDir()
+	Logger().Info("second")
+	lines := readLines(t, filepath.Join(second, "com.example.flushlog.log"))
+	if len(lines) != 1 || lines[0]["msg"] != "second" {
+		t.Errorf("the new folder's file = %v", lines)
+	}
+}
+
+// The open log file can be renamed and removed by others, as on Unix: on
+// Windows it is shared for deletion (openLogFile), so another process of
+// the app can rotate it.
+func TestLogFileRenamedWhileOpen(t *testing.T) {
+	resetLogging(t, "com.example.shared", false)
+	dir, _ := LogDir()
+	path := filepath.Join(dir, "com.example.shared.log")
+	Logger().Info("before")
+	if err := os.Rename(path, path+".1"); err != nil {
+		t.Fatalf("renaming the open log file: %v", err)
+	}
+	Logger().Info("after") // into the renamed file, which this process holds
+	if got := readLines(t, path+".1"); len(got) != 2 {
+		t.Errorf("the renamed file = %v", got)
+	}
+	if err := os.Remove(path + ".1"); err != nil {
+		t.Errorf("removing the open log file: %v", err)
+	}
+}

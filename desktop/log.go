@@ -46,7 +46,10 @@ var logging struct {
 //     (no folder, no space) leaves the standard error alone, without
 //     panicking or returning an error. It rotates by size: at 5 MB the
 //     file becomes <app ID>.log.1, the older ones shift up, and three old
-//     files are kept.
+//     files are kept. [FlushAll] (and so the end of tela.Run) closes it,
+//     and the next record opens it again. On Windows it is opened shared
+//     for deletion, so other programs can rename and delete it as on
+//     Unix.
 //   - text to the standard error, when the process has one: a program
 //     started from a terminal, not a Windows GUI program (built with
 //     -ldflags=-H=windowsgui, ADR-127) or one whose standard error is
@@ -167,7 +170,7 @@ func (r *rotatingFile) start() error {
 }
 
 func (r *rotatingFile) reopen() error {
-	f, err := os.OpenFile(r.path, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
+	f, err := openLogFile(r.path)
 	if err != nil {
 		return err
 	}
@@ -180,9 +183,32 @@ func (r *rotatingFile) reopen() error {
 	return nil
 }
 
-// rotate shifts the files up and starts a new one. When that fails (a
-// file another process holds on Windows), the log goes on in the file
-// that is open, or stops when it cannot be reopened.
+// close closes the file (FlushAll): the next record opens it again, at
+// the path LogDir and AppID give then, and a file that could not be
+// opened is tried again, since the folder may have changed (a test's
+// temporary folders, telatest.TempDesktopDirs).
+func (r *rotatingFile) close() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.f != nil {
+		r.f.Close()
+		r.f = nil
+	}
+	r.failed = false
+}
+
+// closeLog closes the process's log file, when it is open (FlushAll).
+func closeLog() {
+	logging.once.Do(initLogging)
+	logging.file.close()
+}
+
+// rotate shifts the files up and starts a new one. This process closes
+// its file first, as Windows renames no file a process holds without
+// FILE_SHARE_DELETE (openLogFile shares it, so another process of the
+// app holding it does not stop the rotation either). When the renames
+// fail anyway, the log goes on in the file that is open, or stops when it
+// cannot be reopened.
 func (r *rotatingFile) rotate() {
 	r.f.Close()
 	r.f = nil

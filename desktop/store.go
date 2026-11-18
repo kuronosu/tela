@@ -785,8 +785,13 @@ func busyOnWindows(err error) bool {
 }
 
 // FlushAll writes the changes of every open store ([Store.Flush]) and
-// returns the first error. tela.Run calls it when it returns.
+// returns the first error. It also closes the log file of [Logger] (the
+// next record opens it again, in the folder then in use), so that nothing
+// of the app holds a file of its folders: on Windows, a test's temporary
+// folders can be removed (telatest.TempDesktopDirs calls FlushAll before
+// they go). tela.Run calls it when it returns.
 func FlushAll() error {
+	defer closeLog()
 	stores.mu.Lock()
 	all := make([]*Store, 0, len(stores.byPath))
 	for _, s := range stores.byPath {
