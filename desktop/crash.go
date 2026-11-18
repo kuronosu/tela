@@ -91,11 +91,11 @@ var crashes struct {
 	dir, app, fatal string
 }
 
-func init() { core.OnRunStart(runStartLogs) }
-
 // runStartLogs runs when tela.Run starts, after the single instance was
-// claimed (ADR-297): it sends Tela's own messages to the log file, and
-// sets up the crash reports.
+// claimed (ADR-297; instance.go registers it after runStart): it sends
+// Tela's own messages to the log file, and sets up the crash reports. A
+// second instance ends at the claim, so it never makes the runtime's
+// file, which only the end of Run (endCapture) removes.
 func runStartLogs(rs core.RunStart) bool {
 	core.SetLogTee(logTela)
 	crashes.hooks.Do(func() {

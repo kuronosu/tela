@@ -183,7 +183,13 @@ var instance struct {
 	start *platform.Launch
 }
 
-func init() { core.OnRunStart(runStart) }
+func init() {
+	core.OnRunStart(runStart)
+	// After the claim, which ends the start of a second instance: a run
+	// that ends there must not start the crash capture, whose end is an
+	// OnRunEnd function (crash.go).
+	core.OnRunStart(runStartLogs)
+}
 
 // SingleInstance returns app made a single-instance app: when the app is
 // started while it already runs, the new process hands its launch (its

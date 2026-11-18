@@ -24,6 +24,10 @@ import (
 const testAppID = "com.example.notes"
 
 func TestMain(m *testing.M) {
+	if mode := os.Getenv(childEnv); mode != "" {
+		runChild(mode) // run_test.go
+		os.Exit(0)
+	}
 	dir, err := os.MkdirTemp("", "tela-update-test-")
 	if err != nil {
 		panic(err)

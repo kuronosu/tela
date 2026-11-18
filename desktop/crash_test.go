@@ -17,6 +17,8 @@ import (
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/headless"
 )
 
 // The crash tests run the test binary again as a small app (the child),
@@ -78,7 +80,18 @@ func runChild(mode string) {
 			fmt.Printf("CRASH %s\n", b)
 		})
 	}
-	if err := tela.Run(tela.App{AppID: "com.example.crashy", Root: crashChild{mode}}); err != nil {
+	app := tela.App{AppID: "com.example.crashy", Root: crashChild{mode}}
+	if mode == "second" {
+		// Another backend of the process holds the instance: this run
+		// is a second instance, which forwards its launch and ends.
+		first := headless.New(headless.Options{})
+		if ok, err := first.Desktop().ClaimInstance(app.AppID, platform.Launch{}); !ok || err != nil {
+			fmt.Fprintln(os.Stderr, "claim:", ok, err)
+			os.Exit(3)
+		}
+		app = SingleInstance(app)
+	}
+	if err := tela.Run(app); err != nil {
 		fmt.Fprintln(os.Stderr, "run:", err)
 		os.Exit(3)
 	}
@@ -237,6 +250,18 @@ func TestCrashCleanRun(t *testing.T) {
 	}
 	if left, _ := filepath.Glob(filepath.Join(logsOf(dir), "*")); len(left) != 0 {
 		t.Errorf("a clean run left %v", left)
+	}
+}
+
+// A second instance ends at the start of Run, before the crash capture
+// starts: it leaves no file of the runtime's output behind.
+func TestCrashSecondInstanceLeavesNothing(t *testing.T) {
+	dir := t.TempDir()
+	if _, stderr, err := child(t, dir, "second"); err != nil {
+		t.Fatalf("%v\n%s", err, stderr)
+	}
+	if left, _ := filepath.Glob(filepath.Join(logsOf(dir), "*")); len(left) != 0 {
+		t.Errorf("a second instance left %v", left)
 	}
 }
 

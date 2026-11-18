@@ -25,7 +25,11 @@ var (
 )
 
 func init() {
-	core.OnRunStart(func(rs core.RunStart) bool {
+	// First, before package desktop claims the single instance: the old
+	// version started in place of this process must find it free (on
+	// Windows this process holds it until it exits), and a run that ends
+	// here must not have started desktop's crash capture.
+	core.OnRunStartFirst(func(rs core.RunStart) bool {
 		if rs.DevChild || rs.Reload {
 			return true
 		}
@@ -36,20 +40,28 @@ func init() {
 				return false
 			}
 		}
+		return true
+	})
+	// After desktop's start functions: the app runs.
+	core.OnRunStart(func(rs core.RunStart) bool {
+		if rs.DevChild || rs.Reload {
+			return true
+		}
 		run.mu.Lock()
 		run.running = true
 		run.mu.Unlock()
 		return true
 	})
-	core.OnRunEnd(func() {
+	// Last, after every other function of the end of Run: the windows
+	// closed, package desktop wrote its settings and ended its crash
+	// capture. On Unix the exec never returns; on Windows, Run then
+	// returns and the process ends.
+	core.OnRunEndLast(func() {
 		run.mu.Lock()
 		exe := run.restart
 		run.running, run.restart = false, ""
 		run.mu.Unlock()
 		if exe != "" {
-			// After the windows closed and package desktop wrote its
-			// settings (its hooks run first). On Windows, Run then
-			// returns and the process ends.
 			startProgram(exe)
 		}
 	})

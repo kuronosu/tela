@@ -224,22 +224,38 @@ func (h *Host) deliverApp(e platform.Event) {
 
 var runEnd struct {
 	mu sync.Mutex
-	fs []func()
+	// fs are OnRunEnd's, last OnRunEndLast's.
+	fs, last []func()
 }
 
 // OnRunEnd registers f to run when Run returns, after the windows
 // unmounted (their effects' cleanups ran): package desktop writes the
-// settings it still holds there. Process-wide; safe from any goroutine.
+// settings it still holds there. The functions run in the order of
+// registration, before OnRunEndLast's. Process-wide; safe from any
+// goroutine.
 func OnRunEnd(f func()) {
 	runEnd.mu.Lock()
 	defer runEnd.mu.Unlock()
 	runEnd.fs = append(runEnd.fs, f)
 }
 
-// runEndHooks runs the functions given to OnRunEnd, in order.
+// OnRunEndLast registers f as OnRunEnd does, to run after every function
+// given to OnRunEnd, including those registered later (desktop's crash
+// capture registers its end when Run starts): package update's Restart
+// replaces the process there (an exec on Unix, which never returns), once
+// everything else that ends with Run has run. They run in the order of
+// registration.
+func OnRunEndLast(f func()) {
+	runEnd.mu.Lock()
+	defer runEnd.mu.Unlock()
+	runEnd.last = append(runEnd.last, f)
+}
+
+// runEndHooks runs the functions given to OnRunEnd, then those given to
+// OnRunEndLast, in order.
 func runEndHooks() {
 	runEnd.mu.Lock()
-	fs := slices.Clone(runEnd.fs)
+	fs := slices.Concat(runEnd.fs, runEnd.last)
 	runEnd.mu.Unlock()
 	for _, f := range fs {
 		f()
