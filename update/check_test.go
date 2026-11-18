@@ -458,16 +458,27 @@ func TestDetectInstall(t *testing.T) {
 		"var/lib/dpkg/info/notes.list": "/.\n/usr\n/usr/bin\n/usr/bin/notes\n",
 		"var/lib/dpkg/info/other.list": "/usr/bin/other\n",
 	})
-	zipDir := t.TempDir()
+	zipDir := tempDir(t)
 	writeFiles(t, zipDir, map[string]string{MarkerName: marker("1.0.0", "notes.exe", MarkerName), "notes.exe": "v1"})
 
-	for _, tc := range []struct {
+	// An AppImage whose APPDIR is reached through a link: detection
+	// resolves the program's path, and APPDIR's with it.
+	linked := filepath.Join(tempDir(t), "mount")
+	writeFiles(t, root, map[string]string{"mount/usr/bin/notes": "v1"})
+	linkErr := os.Symlink(filepath.Join(root, "mount"), linked)
+
+	type testCase struct {
 		name   string
 		e      sysEnv
 		format string // "" for ErrNotInstalled
 		path   string
 		mgr    string
-	}{
+	}
+	var linkedCase []testCase
+	if linkErr == nil { // Windows makes links only with a privilege
+		linkedCase = append(linkedCase, testCase{name: "AppImage through a link", e: env("linux", filepath.Join(linked, "usr", "bin", "notes"), map[string]string{"APPIMAGE": "/home/u/Notes.AppImage", "APPDIR": linked}), format: "appimage", path: "/home/u/Notes.AppImage"})
+	}
+	for _, tc := range append(linkedCase, []testCase{
 		{name: "flatpak", e: env("linux", "/app/bin/notes", map[string]string{"FLATPAK_ID": testAppID}), format: "flatpak", mgr: "flatpak"},
 		{name: "AppImage", e: env("linux", "/tmp/.mount_x/usr/bin/notes", map[string]string{"APPIMAGE": "/home/u/Notes.AppImage", "APPDIR": "/tmp/.mount_x"}), format: "appimage", path: "/home/u/Notes.AppImage"},
 		{name: "a program started from an AppImage", e: env("linux", "/usr/bin/xterm", map[string]string{"APPIMAGE": "/home/u/Notes.AppImage", "APPDIR": "/tmp/.mount_x"})},
@@ -482,7 +493,7 @@ func TestDetectInstall(t *testing.T) {
 			return e
 		}(), format: "msix", mgr: "msix"},
 		{name: "go run", e: env("linux", "/home/u/.cache/go-build/exe/notes", nil)},
-	} {
+	}...) {
 		tc.e.root = root
 		useEnv(t, tc.e)
 		in, err := findInstall("")

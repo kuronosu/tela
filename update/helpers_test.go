@@ -148,6 +148,22 @@ func release(v string, as ...Artifact) Release {
 
 func share(x float64) *float64 { return &x }
 
+// tempDir returns a new temporary folder by its canonical path. Detection
+// resolves the running program's path (filepath.EvalSymlinks), so the
+// install's paths are canonical: on macOS the temporary folder is reached
+// through a link (/var -> /private/var), and on a Windows runner TMP may
+// hold an 8.3 short name (C:\Users\RUNNER~1), which EvalSymlinks expands.
+// Tests that compare paths with the install's, or match them in a hook,
+// make their folders here.
+func tempDir(t *testing.T) string {
+	t.Helper()
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
 // useEnv makes detection see e.
 func useEnv(t *testing.T, e sysEnv) {
 	setVar(t, &detectEnv, func() sysEnv { return e })

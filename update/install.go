@@ -160,6 +160,12 @@ func detect(format string, scanDpkg bool) (*install, error) {
 		}
 		if p := e.getenv("APPIMAGE"); p != "" {
 			dir := e.getenv("APPDIR")
+			// exe is resolved: compare it with the resolved APPDIR, or a
+			// mount or cache folder reached through a link (a /home
+			// that links to /var/home) would not hold it.
+			if r, err := filepath.EvalSymlinks(dir); dir != "" && err == nil {
+				dir = r
+			}
 			if dir == "" || within(exe, dir) {
 				return &install{format: "appimage", path: p, exe: p}, nil
 			}

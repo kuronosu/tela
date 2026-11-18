@@ -130,7 +130,7 @@ func TestApplyTwiceBeforeRestart(t *testing.T) {
 
 func TestApplyBundle(t *testing.T) {
 	f := newFixture(t, "1.0.0")
-	dir := t.TempDir()
+	dir := tempDir(t)
 	app := filepath.Join(dir, "Notes.app")
 	writeFiles(t, app, map[string]string{"Contents/MacOS/notes": "v1.0", "Contents/Info.plist": "plist 1.0"})
 	exe := filepath.Join(app, "Contents", "MacOS", "notes")
@@ -177,7 +177,7 @@ func TestApplyBundle(t *testing.T) {
 // version's program had another name.
 func TestRollbackBundleRenamedProgram(t *testing.T) {
 	f := newFixture(t, "1.0.0")
-	dir := t.TempDir()
+	dir := tempDir(t)
 	app := filepath.Join(dir, "Notes.app")
 	writeFiles(t, app, map[string]string{"Contents/MacOS/notes": "v1.0"})
 	useEnv(t, env("darwin", filepath.Join(app, "Contents", "MacOS", "notes"), nil))
@@ -200,7 +200,7 @@ func TestRollbackBundleRenamedProgram(t *testing.T) {
 
 func TestApplyZipFolder(t *testing.T) {
 	f := newFixture(t, "1.0.0")
-	dir := t.TempDir()
+	dir := tempDir(t)
 	writeFiles(t, dir, map[string]string{
 		MarkerName:  marker("1.0.0", "notes.exe", "old.dll", MarkerName),
 		"notes.exe": "v1.0",
@@ -255,7 +255,7 @@ func TestApplyZipFolder(t *testing.T) {
 // it; it returns the folder and the program.
 func zipInstall(t *testing.T) (dir, exe string) {
 	t.Helper()
-	dir = t.TempDir()
+	dir = tempDir(t)
 	writeFiles(t, dir, map[string]string{
 		MarkerName:  marker("1.0.0", "notes.exe", "old.dll", MarkerName),
 		"notes.exe": "v1.0",
@@ -408,7 +408,7 @@ func inode(t *testing.T, p string) os.FileInfo {
 
 func TestApplyRefusesBadZips(t *testing.T) {
 	f := newFixture(t, "1.0.0")
-	dir := t.TempDir()
+	dir := tempDir(t)
 	writeFiles(t, dir, map[string]string{MarkerName: marker("1.0.0", "notes.exe", MarkerName), "notes.exe": "v1.0"})
 	useEnv(t, env("windows", filepath.Join(dir, "notes.exe"), nil))
 	for _, tc := range []struct {
