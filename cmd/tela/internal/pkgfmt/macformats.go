@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -223,7 +224,10 @@ func writeZipFile(path, bundle string, t time.Time) error {
 //     links; a zip without them (made on Windows, or by a tool that writes
 //     the MS-DOS host) unpacks a bundle whose program does not run. The
 //     low byte of the version is the zip version, 2.0 here (deflate);
-//     readers look only at the host byte for the mode.
+//     readers look only at the host byte for the mode. Windows keeps no
+//     executable bits (Go reports 0666 or 0444 for every file), so there
+//     the executables are told by place and content instead
+//     (bundleExecutable).
 //   - Folders come before their contents (the entries are in lexical
 //     order of a walk), each with its own entry, so empty folders are kept.
 //   - No AppleDouble (__MACOSX/._*) entries: ditto adds them for extended
@@ -267,12 +271,12 @@ func ZipBundle(w io.Writer, bundle string, t time.Time) error {
 			if err != nil {
 				return err
 			}
-			mode = 0o644
-			if info.Mode()&0o111 != 0 {
-				mode = 0o755
-			}
 			if data, err = os.ReadFile(p); err != nil {
 				return err
+			}
+			mode = 0o644
+			if info.Mode()&0o111 != 0 || hostOS == "windows" && bundleExecutable(name, data) {
+				mode = 0o755
 			}
 		default:
 			return fmt.Errorf("%s is not a file, folder or link, which a zip cannot hold", p)
@@ -283,6 +287,38 @@ func ZipBundle(w io.Writer, bundle string, t time.Time) error {
 		return err
 	}
 	return zw.Close()
+}
+
+// machOMagic are the first bytes of a Mach-O file: thin 32- and 64-bit in
+// either byte order, and fat (universal) 32- and 64-bit, which are stored
+// big-endian.
+var machOMagic = [][]byte{
+	{0xfe, 0xed, 0xfa, 0xce}, {0xce, 0xfa, 0xed, 0xfe},
+	{0xfe, 0xed, 0xfa, 0xcf}, {0xcf, 0xfa, 0xed, 0xfe},
+	{0xca, 0xfe, 0xba, 0xbe}, {0xca, 0xfe, 0xba, 0xbf},
+}
+
+// bundleExecutable reports whether the file name (a slash path in the
+// zip) holding data is one of a bundle's executables, for a host whose
+// folders keep no executable bits (Windows): a file of a Contents/MacOS
+// folder (the bundle's program, or a nested bundle's), a Mach-O file
+// (a framework's library, a helper tool) or a script starting with #!.
+// Without the bit macOS cannot start the program; a library loads either
+// way, so marking one too is harmless.
+func bundleExecutable(name string, data []byte) bool {
+	dir := path.Dir(name)
+	if path.Base(dir) == "MacOS" && path.Base(path.Dir(dir)) == "Contents" {
+		return true
+	}
+	if bytes.HasPrefix(data, []byte("#!")) {
+		return true
+	}
+	for _, m := range machOMagic {
+		if bytes.HasPrefix(data, m) {
+			return true
+		}
+	}
+	return false
 }
 
 // addZipEntry writes one entry: data deflated (nothing for a folder).

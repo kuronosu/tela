@@ -145,7 +145,9 @@ func TestRegistrationFindsDeclarations(t *testing.T) {
 	infoPath := filepath.Join(bundle, "Contents", "Info.plist")
 	before, _ := os.ReadFile(infoPath)
 	// Launch Services ignores bundles in the temporary folder, and so does
-	// registration: the bundle's is not $TMPDIR here.
+	// registration on a Mac: the bundle's is not $TMPDIR here. (Elsewhere
+	// the host's temporary folder does not count, and Windows does not
+	// read $TMPDIR.)
 	t.Setenv("TMPDIR", t.TempDir())
 	for _, types := range []map[string]string{{"txt": "public.plain-text"}, {"txt": "com.example.other-text"}} {
 		ls := &fakeLS{types: types}
@@ -313,6 +315,50 @@ func TestZipBundle(t *testing.T) {
 	r, _ := files["Café.app/Contents/MacOS/Café"].Open()
 	if b, _ := io.ReadAll(r); string(b) != "prog" {
 		t.Errorf("the program holds %q", b)
+	}
+}
+
+// TestZipBundleWithoutExecBits: on Windows, whose folders keep no
+// executable bits, the bundle's executables are told by their place and
+// content, or the zip would unpack a program macOS cannot start.
+func TestZipBundleWithoutExecBits(t *testing.T) {
+	defer func(h string) { hostOS = h }(hostOS)
+	hostOS = "windows"
+	app := filepath.Join(t.TempDir(), "N.app")
+	machO := string([]byte{0xcf, 0xfa, 0xed, 0xfe, 7, 0, 0, 1})
+	fat := string([]byte{0xca, 0xfe, 0xba, 0xbe, 0, 0, 0, 2})
+	want := map[string]fs.FileMode{
+		"Contents/Info.plist":                                   0o644,
+		"Contents/MacOS/N":                                      0o755, // by its place, whatever it holds
+		"Contents/Frameworks/F.framework/Versions/A/F":          0o755, // Mach-O
+		"Contents/Helpers/tool":                                 0o755, // universal Mach-O
+		"Contents/Resources/run.sh":                             0o755, // a script
+		"Contents/Resources/data.bin":                           0o644,
+		"Contents/Library/LoginItems/H.app/Contents/MacOS/H":    0o755,
+		"Contents/Library/LoginItems/H.app/Contents/Info.plist": 0o644,
+		"Contents/Resources/MacOS/notes.txt":                    0o644, // a MacOS folder outside a Contents
+	}
+	data := map[string]string{"Contents/Frameworks/F.framework/Versions/A/F": machO, "Contents/Helpers/tool": fat,
+		"Contents/Resources/run.sh": "#!/bin/sh\n"}
+	for p := range want {
+		os.MkdirAll(filepath.Join(app, filepath.Dir(p)), 0o755)
+		c, ok := data[p]
+		if !ok {
+			c = "plain"
+		}
+		if err := os.WriteFile(filepath.Join(app, p), []byte(c), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var b bytes.Buffer
+	if err := ZipBundle(&b, app, time.Date(2026, 11, 17, 0, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatal(err)
+	}
+	files, _ := readZip(t, b.Bytes())
+	for p, mode := range want {
+		if f := files["N.app/"+p]; f == nil || f.Mode() != mode {
+			t.Errorf("%s: %v, want %v", p, f, mode)
+		}
 	}
 }
 
