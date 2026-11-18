@@ -62,15 +62,16 @@ func bundleFolder(t *testing.T) string {
 //     declares it and Launch Services lists the bundle and the scheme. The
 //     scheme is not notes:, which macOS's Notes app owns (an app never takes
 //     another's association);
-//   - (b) `open 'tela-notes://new?...'`, which Launch Services delivers to
+//   - (b) starting the bundle's executable again with a link forwards it to
+//     the first instance and exits 0, and the note lands in notes.json;
+//   - (c) `open 'tela-notes://new?...'`, which Launch Services delivers to
 //     the running instance (application:openURLs:), makes a note in
-//     notes.json. It runs on CI (CI is set) or with TELA_E2E_OPEN=1: when
+//     notes.json. It runs after (b), once the app has finished launching.
+//     It runs on CI (CI is set) or with TELA_E2E_OPEN=1: when
 //     Launch Services does not know the running process it starts another
 //     Notes outside the test's folders, which is harmless on a runner and
 //     not on a Mac somebody uses (elsewhere it is skipped with that
-//     reason);
-//   - (c) starting the bundle's executable again with a link forwards it to
-//     the first instance and exits 0, and the note lands in notes.json.
+//     reason).
 //
 // The bundle is built under the user's cache folder (a unique one in
 // <user cache>/tela/test, removed at the end), not in a temporary folder:
@@ -132,6 +133,7 @@ func TestNotesMacOS(t *testing.T) {
 	if err := app.Start(); err != nil {
 		t.Fatalf("starting %s: %v", exe, err)
 	}
+	started := time.Now()
 	exited := make(chan error, 1)
 	go func() { exited <- app.Wait() }()
 	step("started %s, pid %d, TELA_DESKTOP_DIR %s", exe, app.Process.Pid, desk)
@@ -199,28 +201,7 @@ func TestNotesMacOS(t *testing.T) {
 		}
 	}
 
-	// --- (b) a link through Launch Services ---------------------------
-	if os.Getenv("CI") == "" && os.Getenv("TELA_E2E_OPEN") == "" {
-		step("(b) SKIPPED: `open` may start another Notes through Launch Services outside the test's folders; set CI=1 or TELA_E2E_OPEN=1 to run it")
-	} else {
-		url := notesScheme + "://new?title=CI&text=from+a+link"
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		cmd := exec.CommandContext(ctx, "open", url)
-		cmd.Env = env
-		o, err := cmd.CombinedOutput()
-		cancel()
-		switch {
-		case err != nil:
-			t.Errorf("(b) `open %s` failed: %v\n%s", url, err, o)
-		case !waitFor(30*time.Second, func() bool { return hasNote(library, "CI", "from a link") }):
-			dump, _ := os.ReadFile(library)
-			t.Errorf("(b) `open %s` returned, but no note CI / \"from a link\" reached %s within 30s\nlibrary: %s\napp output:\n%s", url, library, dump, log.String())
-		default:
-			step("(b) `open %s` reached the running instance: the note is in %s", url, library)
-		}
-	}
-
-	// --- (c) a second start forwards its link and exits 0 -------------
+	// --- (b) a second start forwards its link and exits 0 -------------
 	{
 		url := notesScheme + "://new?title=Second&text=forwarded+by+a+second+start"
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -239,22 +220,69 @@ func TestNotesMacOS(t *testing.T) {
 		switch {
 		case ctx.Err() != nil:
 			_ = syscall.Kill(-second.Process.Pid, syscall.SIGKILL)
-			t.Errorf("(c) the second start did not exit within 30s (killed)\noutput:\n%s", so.String())
+			t.Errorf("(b) the second start did not exit within 30s (killed)\noutput:\n%s", so.String())
 		case errors.As(err, &exit):
-			t.Errorf("(c) the second start exited with status %d after %v, want 0\noutput:\n%s", exit.ExitCode(), took, so.String())
+			t.Errorf("(b) the second start exited with status %d after %v, want 0\noutput:\n%s", exit.ExitCode(), took, so.String())
 		case err != nil:
-			t.Errorf("(c) running the second start: %v", err)
+			t.Errorf("(b) running the second start: %v", err)
 		default:
-			step("(c) the second start exited 0 after %v", took)
+			step("(b) the second start exited 0 after %v", took)
 			if !waitFor(30*time.Second, func() bool { return hasNote(library, "Second", "forwarded by a second start") }) {
 				dump, _ := os.ReadFile(library)
-				t.Errorf("(c) the second start exited 0, but its link did not reach the first instance's library %s within 30s\nlibrary: %s\napp output:\n%s", library, dump, log.String())
+				t.Errorf("(b) the second start exited 0, but its link did not reach the first instance's library %s within 30s\nlibrary: %s\napp output:\n%s", library, dump, log.String())
 			} else {
-				step("(c) the link was forwarded: the note is in %s", library)
+				step("(b) the link was forwarded: the note is in %s", library)
 			}
 		}
 		if s := strings.TrimSpace(so.String()); s != "" {
-			step("(c) the second start's output:\n%s", s)
+			step("(b) the second start's output:\n%s", s)
+		}
+	}
+
+	// --- (c) a link through Launch Services ---------------------------
+	// After (b): the first instance has handled a launch, so [NSApp run]
+	// has finished launching it. The instance socket that (a) waits for
+	// opens at the start of Run, before AppKit finishes launching, and an
+	// Apple Event sent then fails with procNotFound (-600, "application
+	// isn't running"): `open` reported it in phase 26's CI run, when the
+	// build first declared the scheme and (a) stopped waiting for the
+	// app's own Info.plist edit (which came after its first frame).
+	if os.Getenv("CI") == "" && os.Getenv("TELA_E2E_OPEN") == "" {
+		step("(c) SKIPPED: `open` may start another Notes through Launch Services outside the test's folders; set CI=1 or TELA_E2E_OPEN=1 to run it")
+	} else {
+		url := notesScheme + "://new?title=CI&text=from+a+link"
+		openURL := func() ([]byte, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			cmd := exec.CommandContext(ctx, "open", url)
+			cmd.Env = env
+			return cmd.CombinedOutput()
+		}
+		o, err := openURL()
+		switch {
+		case err != nil:
+			// What the next run needs to tell the causes apart: whether
+			// the app is still running and how Launch Services sees it,
+			// and whether the same `open` works a moment later (it does
+			// not count: the check failed).
+			running := "running"
+			select {
+			case err := <-exited:
+				running = fmt.Sprintf("exited (%v)", err)
+				exited <- err
+			default:
+			}
+			time.Sleep(5 * time.Second)
+			o2, err2 := openURL()
+			t.Errorf("(c) `open %s` failed %v after the app's start: %v\n%s\nthe first instance (pid %d): %s\n"+
+				"Launch Services:\n%s\nthe same open 5s later (diagnostic only): %v\n%s\napp output:\n%s",
+				url, time.Since(started).Round(time.Millisecond), err, o, app.Process.Pid, running,
+				lsAppInfo(notesAppID), err2, o2, log.String())
+		case !waitFor(30*time.Second, func() bool { return hasNote(library, "CI", "from a link") }):
+			dump, _ := os.ReadFile(library)
+			t.Errorf("(c) `open %s` returned, but no note CI / \"from a link\" reached %s within 30s\nlibrary: %s\nLaunch Services:\n%s\napp output:\n%s", url, library, dump, lsAppInfo(notesAppID), log.String())
+		default:
+			step("(c) `open %s` reached the running instance: the note is in %s", url, library)
 		}
 	}
 
@@ -311,6 +339,33 @@ func waitFor(d time.Duration, f func() bool) bool {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
+}
+
+// lsAppInfo returns what Launch Services says of the app with bundle ID
+// id (its bundles and the handlers of its scheme) and what lsappinfo says
+// of its running processes, or why it could not: a diagnostic of a failed
+// check.
+func lsAppInfo(id string) string {
+	var b strings.Builder
+	if err := darwin.LoadLaunchServices(); err != nil {
+		fmt.Fprintf(&b, "Launch Services: %v\n", err)
+	} else {
+		fmt.Fprintf(&b, "bundles of %s: %v; handlers of %s: %v (default %q)\n", id, darwin.LSApplicationPaths(id),
+			notesScheme, darwin.LSSchemeHandlers(notesScheme), darwin.LSDefaultSchemeHandler(notesScheme))
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	found, err := exec.CommandContext(ctx, "lsappinfo", "find", "bundleid="+id).CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(&b, "lsappinfo find bundleid=%s: %v\n%s", id, err, found)
+		return b.String()
+	}
+	fmt.Fprintf(&b, "lsappinfo find bundleid=%s: %s\n", id, bytes.TrimSpace(found))
+	for _, asn := range strings.Fields(string(found)) {
+		info, err := exec.CommandContext(ctx, "lsappinfo", "info", "-long", asn).CombinedOutput()
+		fmt.Fprintf(&b, "lsappinfo info -long %s: %v\n%s\n", asn, err, info)
+	}
+	return b.String()
 }
 
 // forgetBundle removes the test's bundle from Launch Services, best

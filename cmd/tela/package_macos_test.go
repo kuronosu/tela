@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"debug/macho"
+	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
@@ -241,10 +242,20 @@ func TestPackageAppUpdates(t *testing.T) {
 	if code := run([]string{"build", "-version", "1.0.0", "-o", filepath.Join(dir, "prog"), "./notes"}, &stdout, &stderr); code != 0 {
 		t.Fatalf("tela build: %d\n%s", code, stderr.String())
 	}
+	// On a Mac tela build makes a bundle in the folder -o names
+	// (prog/Notes Demo.app); its program is the installed one. Elsewhere
+	// prog is the program.
+	prog := filepath.Join(dir, "prog")
+	if runtime.GOOS == "darwin" {
+		prog = filepath.Join(prog, "Notes Demo.app", "Contents", "MacOS", "Notes Demo")
+	}
+	if st, err := os.Stat(prog); err != nil || !st.Mode().IsRegular() || st.Mode().Perm()&0o100 == 0 {
+		t.Fatalf("tela build wrote no program at %s: %v, %v\n%s%s", prog, st, err, stdout.String(), stderr.String())
+	}
 	if err := os.MkdirAll(filepath.Dir(installed), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Rename(filepath.Join(dir, "prog"), installed); err != nil {
+	if err := os.Rename(prog, installed); err != nil {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(bundle, "Contents", "Info.plist"), "the old Info.plist")
@@ -270,7 +281,16 @@ func TestPackageAppUpdates(t *testing.T) {
 	cmd.Env = append(os.Environ(), "NOTES_URL="+srv.URL+"/manifest.json", "NOTES_KEY="+string(key), "TELA_DESKTOP_DIR="+filepath.Join(dir, "state"))
 	out, err := cmd.CombinedOutput()
 	if err != nil || !strings.Contains(string(out), "applied 1.1.0") {
-		t.Fatalf("the update: %v\n%s", err, out)
+		var tree strings.Builder
+		filepath.WalkDir(filepath.Join(dir, "Applications"), func(p string, d fs.DirEntry, err error) error {
+			if err == nil {
+				if info, ierr := d.Info(); ierr == nil {
+					fmt.Fprintf(&tree, "%v %8d %s\n", info.Mode(), info.Size(), p)
+				}
+			}
+			return nil
+		})
+		t.Fatalf("the update: %v\n%s\nthe installs:\n%s", err, out, tree.String())
 	}
 	exe, err := os.ReadFile(installed)
 	if err != nil {

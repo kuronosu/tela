@@ -54,9 +54,29 @@ func TestPackageMacTools(t *testing.T) {
 	if archs := strings.Fields(sh("lipo", "-archs", exe)); len(archs) != 2 || archs[0] != "x86_64" || archs[1] != "arm64" {
 		t.Errorf("lipo -archs: %v", archs)
 	}
-	sh("codesign", "--verify", "--arch", "arm64", exe)
+	// The program runs: the kernel checks the signature of the slice it
+	// runs (arm64 on the runner), its pages against the linker's code
+	// directory, and nothing of the bundle.
 	if out := sh(exe, "x"); !strings.Contains(out, "notes says hi") {
 		t.Errorf("the unpacked program printed %q", out)
+	}
+	// The arm64 slice's signature is valid inside the universal file. It
+	// is checked on a copy outside the bundle: codesign --verify of a
+	// bundle's main executable verifies the bundle, whose resources
+	// (Info.plist, the icon) the linker's signature does not seal, and
+	// fails with "code has no resources but signature indicates they must
+	// be present" (errSecCSResourcesNotFound) for any unsigned bundle,
+	// thin or universal. Sealing them is -sign's work, checked below.
+	loose := filepath.Join(dir, "loose-program")
+	if b, err := os.ReadFile(exe); err != nil {
+		t.Fatal(err)
+	} else if err := os.WriteFile(loose, b, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command("codesign", "--verify", "--verbose=4", "--arch", "arm64", loose).CombinedOutput(); err != nil {
+		info, _ := exec.Command("codesign", "-d", "--verbose=4", "--arch", "arm64", loose).CombinedOutput()
+		fat, _ := exec.Command("lipo", "-detailed_info", loose).CombinedOutput()
+		t.Errorf("codesign --verify --arch arm64 %s (the universal program, copied out of the bundle): %v\n%s\ncodesign -d:\n%s\nlipo -detailed_info:\n%s", loose, err, out, info, fat)
 	}
 	sh("hdiutil", "imageinfo", filepath.Join("dist", "notes-1.0.0-darwin-universal.dmg"))
 
