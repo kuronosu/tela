@@ -122,6 +122,33 @@ func (f *fakeLS) TypeOfExtension(ext string) (string, error) {
 	return "dyn.ah62d4rv4ge8" + ext, nil
 }
 
+// bundleRoot returns a new folder for a bundle that registration accepts.
+// Launch Services ignores bundles in the temporary folders, and so does
+// registration on a Mac (os.TempDir() and /private/var/folders, where
+// t.TempDir is): there the folder is under <user cache>/tela/test,
+// removed at the end of the test. Elsewhere those folders do not count,
+// and t.TempDir serves.
+func bundleRoot(t *testing.T) string {
+	t.Helper()
+	if runtime.GOOS != "darwin" {
+		return t.TempDir()
+	}
+	cache, err := os.UserCacheDir()
+	if err != nil {
+		t.Fatalf("no user cache folder for the bundle: %v", err)
+	}
+	base := filepath.Join(cache, "tela", "test")
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dir, err := os.MkdirTemp(base, "pkgfmt-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	return dir
+}
+
 // TestRegistrationFindsDeclarations is the agreement with the
 // registration of a running app (ADR-228): in a signed bundle (sealed by
 // Contents/_CodeSignature) every scheme and file type of the declaration
@@ -130,7 +157,7 @@ func (f *fakeLS) TypeOfExtension(ext string) (string, error) {
 // another content type for a public extension than the one declared.
 func TestRegistrationFindsDeclarations(t *testing.T) {
 	app := macApp(t)
-	root := t.TempDir()
+	root := bundleRoot(t)
 	exe := filepath.Join(root, "prog")
 	os.WriteFile(exe, []byte("program"), 0o755)
 	bundle := filepath.Join(root, "Notes Pro.app")
@@ -144,11 +171,6 @@ func TestRegistrationFindsDeclarations(t *testing.T) {
 	os.MkdirAll(filepath.Join(bundle, "Contents", "_CodeSignature"), 0o755)
 	infoPath := filepath.Join(bundle, "Contents", "Info.plist")
 	before, _ := os.ReadFile(infoPath)
-	// Launch Services ignores bundles in the temporary folder, and so does
-	// registration on a Mac: the bundle's is not $TMPDIR here. (Elsewhere
-	// the host's temporary folder does not count, and Windows does not
-	// read $TMPDIR.)
-	t.Setenv("TMPDIR", t.TempDir())
 	for _, types := range []map[string]string{{"txt": "public.plain-text"}, {"txt": "com.example.other-text"}} {
 		ls := &fakeLS{types: types}
 		a := assoc.MacOS(ls)
