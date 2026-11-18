@@ -52,9 +52,9 @@ import (
 //     TestPinterfaceIIDs. The delegates are agile (IAgileObject), so WinRT
 //     calls them on its own threads; they only hand the event to the UI
 //     thread (toastInbox, a private message), where it becomes a
-//     NotificationEvent. A click while the app does not run reaches
-//     nothing: Tela registers no COM activator (CustomActivator), so
-//     Windows only removes the toast.
+//     NotificationEvent. A click after the app exited starts it through
+//     the COM toast activator (toastactivator_windows.go, ADR-297), which
+//     the first toast registers with the AUMID (CustomActivator).
 //   - Apartment: the UI thread is in OLE's single-threaded apartment
 //     (initCOM); RoInitialize(RO_INIT_SINGLETHREADED) joins WinRT to it
 //     (S_FALSE) and shutdown balances it before OleUninitialize.
@@ -483,16 +483,22 @@ func (b *Backend) setToastAppID(id string) {
 	if available(procSetCurrentProcessAppUserID) {
 		procSetCurrentProcessAppUserID.Call(uintptr(unsafe.Pointer(utf16(toastAUMID(id)))))
 	}
+	if b.ran {
+		b.serveToastActivator() // the class object of the new ID
+	}
+}
+
+// toastAppID returns the app's ID: SetAppID's, else the executable's name
+// as the services take it.
+func (b *Backend) toastAppID() string {
+	if id := b.desk.toast.appID; id != "" {
+		return id
+	}
+	return platform.ServiceAppID(platform.DefaultAppID())
 }
 
 // toastAppAUMID returns the AppUserModelID of the app.
-func (b *Backend) toastAppAUMID() string {
-	id := b.desk.toast.appID
-	if id == "" {
-		id = platform.ServiceAppID(platform.DefaultAppID())
-	}
-	return toastAUMID(id)
-}
+func (b *Backend) toastAppAUMID() string { return toastAUMID(b.toastAppID()) }
 
 // toastNotifier returns the ToastNotifier of the app's AUMID, registering
 // the AUMID first.
@@ -538,7 +544,12 @@ func (b *Backend) registerToastApp(aumid string) {
 	if img := b.appImage(); img != nil {
 		icon = b.toastIconPath(img)
 	}
-	_, _, _ = registerAUMID(reg, aumid, platform.DefaultAppID(), icon)
+	if owned, _, err := registerAUMID(reg, aumid, platform.DefaultAppID(), icon); owned && err == nil {
+		b.registerToastActivatorFor(reg, aumid) // toastactivator_windows.go
+	}
+	// Serve the activator the registry now names, before the toast shows:
+	// a click on it would otherwise start another process.
+	b.serveToastActivator()
 }
 
 // appImage returns the app's icon at the toast size: the first window's
@@ -626,7 +637,7 @@ func (b *Backend) replaceToast(id platform.NotificationID, n platform.Notificati
 // its events) and shows it.
 func (b *Backend) raiseToast(id platform.NotificationID, n platform.Notification, notifier comObject, aumid string) error {
 	t := &b.desk.toast
-	content := toastContent{ID: id, Title: n.Title, Body: n.Body, Actions: n.Actions}
+	content := toastContent{ID: id, Run: toastRun(b.start), Title: n.Title, Body: n.Body, Actions: n.Actions}
 	if len(n.Icon) > 0 {
 		if p := b.toastIconPath(platform.PickIcon(n.Icon, toastIconSide)); p != "" {
 			content.Image = fileURI(p)
@@ -751,13 +762,17 @@ func (b *Backend) finishToast(e *toastEntry, hide bool) {
 	e.toast, e.notifier = 0, 0
 }
 
-// toastMessages delivers the events the delegates queued.
+// toastMessages delivers the events the delegates and the COM activator
+// queued.
 func (b *Backend) toastMessages() {
 	t := &b.desk.toast
+	queued := b.toastActivations() // toastactivator_windows.go
 	if t.inbox == nil {
+		if queued {
+			b.notify()
+		}
 		return
 	}
-	queued := false
 	for _, ev := range t.inbox.take() {
 		e := t.entries[ev.id]
 		if e == nil || e.serial != ev.serial {
@@ -815,6 +830,22 @@ func (hkcuRegistry) SetString(key, name, value string) error {
 	}
 	defer k.Close()
 	return k.SetStringValue(name, value)
+}
+
+func (hkcuRegistry) SubKeys(key string) ([]string, error) {
+	k, err := winreg.OpenKey(winreg.CURRENT_USER, key, winreg.ENUMERATE_SUB_KEYS)
+	if regMissing(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer k.Close()
+	names, err := k.ReadSubKeyNames(-1)
+	if names == nil && err == nil {
+		names = []string{}
+	}
+	return names, err
 }
 
 func (hkcuRegistry) ValueNames(key string) ([]string, error) {

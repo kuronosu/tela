@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Notes Pro</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>note</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>Note</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.example.Notes.note</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>note2</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>Note</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.example.Notes.note2</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>bak</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>Backup &lt;old&gt;</string>
+			<key>CFBundleTypeRole</key>
+			<string>None</string>
+			<key>LSHandlerRank</key>
+			<string>None</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.example.Notes.bak</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>txt</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>Text</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.plain-text</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleExecutable</key>
+	<string>Notes Pro</string>
+	<key>CFBundleIconFile</key>
+	<string>notes.icns</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.example.Notes</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Notes Pro</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.2.0</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>com.example.Notes.notes</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>notes</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>1.2.0</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.productivity</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Find a pen</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Link meetings</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Link meetings</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Take a picture</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Share with contacts</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>© Example Ltd</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Tag notes with places</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Record a memo</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Attach photos</string>
+	<key>NSSupportsAutomaticGraphicsSwitching</key>
+	<true/>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.content</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Note</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.example.Notes.note</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>note</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/x-note</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.content</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Note</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.example.Notes.note2</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>note2</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/x-note</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.content</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Backup &lt;old&gt;</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.example.Notes.bak</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>bak</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/x-note-bak</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+</dict>
+</plist>

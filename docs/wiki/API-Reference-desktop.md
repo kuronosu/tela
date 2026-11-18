@@ -13,13 +13,14 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`AppID`](#func-appid) · [`AppStatus`](#func-appstatus) · [`CacheDir`](#func-cachedir) · [`ClipboardTypes`](#func-clipboardtypes) · [`ConfigDir`](#func-configdir) · [`DataDir`](#func-datadir) · [`DefaultName`](#func-defaultname) · [`DeleteSecret`](#func-deletesecret) · [`Directory`](#func-directory) · [`FileType`](#func-filetype) · [`Filter`](#func-filter) · [`Filters`](#func-filters) · [`FlushAll`](#func-flushall) · [`ForApp`](#func-forapp) · [`LoadPlacement`](#func-loadplacement) · [`LogDir`](#func-logdir) · [`MakeDefault`](#func-makedefault) · [`MessagePreview`](#func-messagepreview) · [`MoveToTrash`](#func-movetotrash) · [`Notify`](#func-notify) · [`OpenFile`](#func-openfile) · [`OpenFiles`](#func-openfiles) · [`OpenStore`](#func-openstore) · [`Parent`](#func-parent) · [`ParseKeys`](#func-parsekeys) · [`PerformRole`](#func-performrole) · [`PersistApp`](#func-persistapp) · [`PickFolder`](#func-pickfolder) · [`PopupMenu`](#func-popupmenu) · [`ReadClipboard`](#func-readclipboard) · [`ReadClipboardText`](#func-readclipboardtext) · [`Register`](#func-register) · [`RegisterApp`](#func-registerapp) · [`RegistrationStatus`](#func-registrationstatus) · [`Replace`](#func-replace) · [`SaveFile`](#func-savefile) · [`SavePlacement`](#func-saveplacement) · [`Secret`](#func-secret) · [`SetAppID`](#func-setappid) · [`SetSecret`](#func-setsecret) · [`Settings`](#func-settings) · [`ShowMessage`](#func-showmessage) · [`SingleInstance`](#func-singleinstance) · [`StateDir`](#func-statedir) · [`Title`](#func-title) · [`URLScheme`](#func-urlscheme) · [`Unregister`](#func-unregister) · [`UnregisterApp`](#func-unregisterapp) · [`UseLaunch`](#func-uselaunch) · [`UseSavePlacement`](#func-usesaveplacement) · [`UseSetting`](#func-usesetting) · [`UseStoreSetting`](#func-usestoresetting) · [`WriteClipboard`](#func-writeclipboard) · [`WriteClipboardText`](#func-writeclipboardtext)
+- [Functions](#functions): [`AppID`](#func-appid) · [`AppStatus`](#func-appstatus) · [`CacheDir`](#func-cachedir) · [`ClipboardTypes`](#func-clipboardtypes) · [`ConfigDir`](#func-configdir) · [`DataDir`](#func-datadir) · [`DefaultName`](#func-defaultname) · [`DeleteSecret`](#func-deletesecret) · [`Directory`](#func-directory) · [`FileType`](#func-filetype) · [`Filter`](#func-filter) · [`Filters`](#func-filters) · [`FlushAll`](#func-flushall) · [`ForApp`](#func-forapp) · [`LoadPlacement`](#func-loadplacement) · [`LogDir`](#func-logdir) · [`Logger`](#func-logger) · [`MakeDefault`](#func-makedefault) · [`MessagePreview`](#func-messagepreview) · [`MoveToTrash`](#func-movetotrash) · [`Notify`](#func-notify) · [`OnCrash`](#func-oncrash) · [`OpenFile`](#func-openfile) · [`OpenFiles`](#func-openfiles) · [`OpenStore`](#func-openstore) · [`Parent`](#func-parent) · [`ParseKeys`](#func-parsekeys) · [`PerformRole`](#func-performrole) · [`PersistApp`](#func-persistapp) · [`PickFolder`](#func-pickfolder) · [`PopupMenu`](#func-popupmenu) · [`ReadClipboard`](#func-readclipboard) · [`ReadClipboardText`](#func-readclipboardtext) · [`Register`](#func-register) · [`RegisterApp`](#func-registerapp) · [`RegistrationStatus`](#func-registrationstatus) · [`Replace`](#func-replace) · [`SaveFile`](#func-savefile) · [`SavePlacement`](#func-saveplacement) · [`Secret`](#func-secret) · [`SetAppID`](#func-setappid) · [`SetLogLevel`](#func-setloglevel) · [`SetSecret`](#func-setsecret) · [`Settings`](#func-settings) · [`ShowMessage`](#func-showmessage) · [`SingleInstance`](#func-singleinstance) · [`StateDir`](#func-statedir) · [`Title`](#func-title) · [`URLScheme`](#func-urlscheme) · [`Unregister`](#func-unregister) · [`UnregisterApp`](#func-unregisterapp) · [`UseLaunch`](#func-uselaunch) · [`UseSavePlacement`](#func-usesaveplacement) · [`UseSetting`](#func-usesetting) · [`UseStoreSetting`](#func-usestoresetting) · [`WriteClipboard`](#func-writeclipboard) · [`WriteClipboardText`](#func-writeclipboardtext)
 - [Types](#types)
   - [`type Answer`](#type-answer): [`String`](#func-answer-string)
   - [`type AppMenuBar`](#type-appmenubar): [`Build`](#func-appmenubar-build)
   - [`type AppRegistration`](#type-appregistration): [`AppStatus`](#func-appstatus)
   - [`type Association`](#type-association): [`FileType`](#func-filetype) · [`URLScheme`](#func-urlscheme) · [`Role`](#func-association-role) · [`String`](#func-association-string) · [`WithRole`](#func-association-withrole)
   - [`type Buttons`](#type-buttons): [`DefaultAnswer`](#func-buttons-defaultanswer) · [`DismissAnswer`](#func-buttons-dismissanswer) · [`Has`](#func-buttons-has)
+  - [`type Crash`](#type-crash)
   - [`type DefaultResult`](#type-defaultresult): [`MakeDefault`](#func-makedefault) · [`String`](#func-defaultresult-string)
   - [`type DialogOption`](#type-dialogoption): [`DefaultName`](#func-defaultname) · [`Directory`](#func-directory) · [`Filter`](#func-filter) · [`Filters`](#func-filters) · [`Parent`](#func-parent) · [`Title`](#func-title)
   - [`type FileFilter`](#type-filefilter)
@@ -81,6 +82,10 @@ theme, setTheme := desktop.UseSetting("theme", "system")
 ### Clipboard, shortcuts, launches, registration, secrets, menus and the trash
 
 [`ReadClipboard`](#func-readclipboard) and [`WriteClipboard`](#func-writeclipboard) copy and paste a tela.DataTransfer (text, HTML, images, files, custom types). [`GlobalShortcut`](#type-globalshortcut) is a component that registers a system-wide shortcut while mounted. [`SingleInstance`](#func-singleinstance) keeps one process per app: a second start hands its [`Launch`](#type-launch) to the first, whose [`UseLaunch`](#func-uselaunch) handlers open its files and links. [`Register`](#func-register) makes the app a handler of a [`URLScheme`](#func-urlscheme) or a [`FileType`](#func-filetype) for the user, without a running app too (an installer); [`MakeDefault`](#func-makedefault) is a separate, explicit request. [`SetSecret`](#func-setsecret), [`Secret`](#func-secret) and [`DeleteSecret`](#func-deletesecret) keep small secrets in the OS's keyring, from a goroutine. [`PopupMenu`](#func-popupmenu) and [`MenuBar`](#type-menubar) are the OS's menus where it has them, for kit's menus to use. [`AppMenuBar`](#type-appmenubar) is the app's one menu bar (macOS's, or every framed window's on Windows), and a [`Role`](#type-role) marks a [`MenuItem`](#type-menuitem) as a standard one (Copy, the Edit menu) that the OS or this package performs. [`MoveToTrash`](#func-movetotrash) moves a file where the user can restore it, never deleting it, also from a goroutine.
+
+### Logs and crash reports
+
+[`Logger`](#func-logger) is the app's [`log/slog`](https://pkg.go.dev/log/slog) logger: JSON lines in [`LogDir`](#func-logdir) (rotated by size) and text on the standard error when the process has one, which a Windows GUI program does not; [`SetLogLevel`](#func-setloglevel) sets its level, and Tela's own warnings and errors reach the file too. A panic on the UI thread or in a UseGo goroutine, and a fatal error of the Go runtime, are written as crash reports in [`LogDir`](#func-logdir) by a release build, and the program still crashes; on the next start [`OnCrash`](#func-oncrash) receives each report, once, so the app can offer it to the user. Tela sends nothing anywhere.
 
 ### When a service is missing
 
@@ -256,6 +261,37 @@ LogDir returns the app's folder for log files, creating it if needed:
 - Windows: %LOCALAPPDATA%\\\<app ID\>\\logs
 - macOS: \~/Library/Logs/\<app ID\>
 
+### func Logger
+
+```go
+func Logger() *slog.Logger
+```
+
+Logger returns the app's logger, a [`log/slog`](https://pkg.go.dev/log/slog) logger that writes:
+
+- JSON lines to LogDir()/\<app ID\>.log ([`LogDir`](#func-logdir), [`AppID`](#func-appid)): the file opens when the first record is written, and a failure to open it (no folder, no space) leaves the standard error alone, without panicking or returning an error. It rotates by size: at 5 MB the file becomes \<app ID\>.log.1, the older ones shift up, and three old files are kept.
+- text to the standard error, when the process has one: a program started from a terminal, not a Windows GUI program (built with -ldflags=-H=windowsgui, ADR-127) or one whose standard error is closed.
+
+Records below the level of [`SetLogLevel`](#func-setloglevel) (Info at first) are dropped. Tela's own messages (dev warnings, platform errors) are written to the file too, at the Warn level (the Error level for the errors of the app's content) with the attribute component=tela, once tela.Run started; they keep their place on the standard error as they were. The logger is safe from any goroutine, and is the same value on every call.
+
+```go
+desktop.Logger().Info("note saved", "id", note.ID, "bytes", len(body))
+```
+
+Name the app with [`SetAppID`](#func-setappid) (or tela.App.AppID) before the first record: the file is named after the app ID the first record finds.
+
+**Example**
+
+The app's log: JSON lines in LogDir, text on the terminal when there is one. Name the app before the first record.
+
+```go
+desktop.SetAppID("com.example.notes")
+desktop.SetLogLevel(slog.LevelDebug)
+log := desktop.Logger()
+log.Info("note saved", "id", 7, "bytes", 1024)
+log.Error("sync failed", "err", os.ErrDeadlineExceeded)
+```
+
 ### func MessagePreview
 
 ```go
@@ -299,6 +335,39 @@ go func() {
 ```
 
 It needs a running app (tela.Run or telatest). In tests, telatest's headless trash moves the file into a temporary folder and App.Trashed lists what went there; App.FailTrash and App.Unsupported(telatest.Trash) play the failures.
+
+### func OnCrash
+
+```go
+func OnCrash(f func(Crash))
+```
+
+OnCrash makes f receive the crash reports of the earlier runs of the app, so it can offer them to the user or send them where it wants: Tela sends nothing anywhere. Call it at the start of main, before tela.Run.
+
+A report exists when a run ended because of
+
+- a panic on the UI thread (a handler, a build, an effect, a function given to tela.Post) or in a goroutine started by tela.UseGo,
+- a fatal error of the Go runtime (concurrent map writes, out of memory, a stack overflow) or a panic of any other goroutine, which the runtime reports with [`runtime/debug.SetCrashOutput`](https://pkg.go.dev/runtime/debug#SetCrashOutput).
+
+The reports are written in [`LogDir`](#func-logdir) as crash-\<UTC time\>.txt, and only by a release build (dev mode off: go build stamps it, or TELA_DEV=0) or by a program without a usable standard error (a Windows GUI program, ADR-127). The program still crashes as before: Tela records a panic and panics again with the same value. A report of the UI thread or of UseGo has the stack at the panic; a fatal error has the traces the runtime writes (its stack and every goroutine's), but not the line that names the error ("fatal error: concurrent map writes"), which only the standard error gets: the runtime does not copy it. Tela takes over [`runtime/debug.SetCrashOutput`](https://pkg.go.dev/runtime/debug#SetCrashOutput) for them.
+
+On the next start, once the main window made its first commit, f runs on the UI thread once for each report not handled yet, oldest first; when f returns (or panics) the report is marked handled (see [`Crash.Path`](#type-crash)), never earlier. Nothing is delivered, or deleted, while no function is set. A second call replaces f; nil removes it. Called after the first commit, it delivers at once, on the UI thread.
+
+Reports are not written or delivered under telatest, which does not call tela.Run.
+
+**Example**
+
+A crash report of an earlier run reaches the app after its first frame, on the UI thread. It decides what to do with it: Tela sends nothing.
+
+```go
+desktop.OnCrash(func(c desktop.Crash) {
+    desktop.Logger().Warn("the last run crashed", "version", c.Version, "time", c.Time, "report", c.Path)
+    // Offer the user to send c.Report, or keep the file for support.
+})
+tela.Main(tela.App{AppID: "com.example.notes", Root: tela.C(func() tela.Node {
+    return Text("Notes")
+})})
+```
 
 ### func OpenFile
 
@@ -660,6 +729,14 @@ func SetAppID(id string)
 SetAppID sets the name of the app's directories and settings ([`ConfigDir`](#func-configdir) and the others): use the reverse-DNS name given to tela.App.AppID ("com.example.notes"). Call it at the start of main, before anything reads a directory or a setting; [`PersistApp`](#func-persistapp) calls it with the App's AppID. Without it, the directories are named after the running app's App.AppID, or before tela.Run (and without an AppID) after the executable. Safe from any goroutine.
 
 The same ID ([`AppID`](#func-appid)) is the one the desktop knows the app by: the name of its desktop entry ([`RegisterApp`](#func-registerapp)), which the Linux global shortcuts portal needs, and the app of its notifications. tela.Run gives it to the OS services when it starts, so a later SetAppID changes only the directories.
+
+### func SetLogLevel
+
+```go
+func SetLogLevel(l slog.Level)
+```
+
+SetLogLevel sets the least severe level [`Logger`](#func-logger) writes (slog.LevelInfo at first; slog.LevelDebug for everything). It also decides which of Tela's own messages reach the file (they are warnings and errors). Safe from any goroutine.
 
 ### func SetSecret
 
@@ -1117,6 +1194,30 @@ func (b Buttons) Has(a Answer) bool
 ```
 
 Has reports whether the set b has the button a.
+
+### type Crash
+
+```go
+type Crash struct {
+    // Time is when the crash happened: the time of a panic, the time the
+    // runtime last wrote the file of a fatal error.
+    Time time.Time
+    // Version is the app's version of the run that crashed
+    // (tela build -version, or the module's version), "" when none was
+    // stamped.
+    Version string
+    // Report is the text of the report: a header (time, version, OS and
+    // architecture, Go version, app ID, kind of crash), then the panic
+    // value and the stack of every goroutine involved.
+    Report string
+    // Path is the file the report was read from, LogDir()/crash-<time>.txt.
+    // When the function returns, the file is renamed to Path+".handled":
+    // it is delivered once, and the newest ten handled reports are kept.
+    Path string
+}
+```
+
+A Crash is the report of a run of the app that ended in a crash, given to the function of [`OnCrash`](#func-oncrash) on the next start.
 
 ### type DefaultResult
 
@@ -1650,9 +1751,9 @@ type Notification struct {
     // Icon is the notification's image, the same picture at one or more
     // sizes; empty uses the app's icon.
     Icon []image.Image
-    // Actions are buttons on the notification. Windows shows none (its
-    // balloon notifications have no buttons): keep every action reachable
-    // from the app too.
+    // Actions are buttons on the notification. Windows before 10 1809
+    // shows none (its balloon notifications have no buttons): keep every
+    // action reachable from the app too.
     Actions []NotificationAction
     // OnClick runs when the user clicks the notification itself.
     OnClick func()
@@ -1961,6 +2062,8 @@ desktop.Notify(desktop.Notification{
 ```
 
 Call it on the UI thread (a handler, an effect; from a goroutine, wrap it in tela.Post). The error says the notification could not be shown: no running app, or no notification service (errors.Is(err, [`ErrUnsupported`](#variables))), where the app should show the news itself. Tests read the notifications with telatest's App.Notifications and click them with App.ClickNotification.
+
+The callbacks live as long as the process. On Windows a notification stays in the Action Center after the app exits, and clicking it there starts the app again (its main window opens as at any start; while a process of the app runs, the click reaches it instead): the process started so gets "-ToastActivated" from COM, which may add "-Embedding", and Tela removes both from os.Args before main runs, so an app that parses its flags never sees them. The callbacks of the earlier run are not called.
 
 **Example**
 

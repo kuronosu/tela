@@ -36,10 +36,12 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Easing`](#type-easing): [`CubicBezier`](#func-cubicbezier)
   - [`type Edge`](#type-edge): [`String`](#func-edge-string)
   - [`type ElementRef`](#type-elementref): [`UseElementRef`](#func-useelementref) · [`Blur`](#func-elementref-blur) · [`Bounds`](#func-elementref-bounds) · [`Click`](#func-elementref-click) · [`Focus`](#func-elementref-focus) · [`Focused`](#func-elementref-focused) · [`ScrollBy`](#func-elementref-scrollby) · [`ScrollIntoView`](#func-elementref-scrollintoview) · [`ScrollOffset`](#func-elementref-scrolloffset) · [`ScrollTo`](#func-elementref-scrollto) · [`ScrollToIndex`](#func-elementref-scrolltoindex) · [`Select`](#func-elementref-select) · [`SelectionRange`](#func-elementref-selectionrange) · [`SetSelectionRange`](#func-elementref-setselectionrange) · [`Value`](#func-elementref-value)
+  - [`type FileType`](#type-filetype)
   - [`type FocusEvent`](#type-focusevent): [`DefaultPrevented`](#func-focusevent-defaultprevented) · [`PreventDefault`](#func-focusevent-preventdefault) · [`StopPropagation`](#func-focusevent-stoppropagation)
   - [`type Font`](#type-font): [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`Emoji`](#func-font-emoji) · [`Mono`](#func-font-mono) · [`Sans`](#func-font-sans) · [`Scripts`](#func-font-scripts) · [`Serif`](#func-font-serif)
   - [`type Gradient`](#type-gradient): [`LinearGradient`](#func-lineargradient) · [`Paint`](#func-gradient-paint)
   - [`type GradientStop`](#type-gradientstop): [`Stop`](#func-stop) · [`StopAt`](#func-stopat)
+  - [`type HandlerRole`](#type-handlerrole)
   - [`type Hyphenation`](#type-hyphenation): [`HyphenationPatterns`](#func-hyphenationpatterns)
   - [`type Icon`](#type-icon): [`MustSVG`](#func-mustsvg) · [`ParseSVG`](#func-parsesvg)
   - [`type InputEvent`](#type-inputevent): [`DefaultPrevented`](#func-inputevent-defaultprevented) · [`PreventDefault`](#func-inputevent-preventdefault) · [`StopPropagation`](#func-inputevent-stoppropagation)
@@ -66,6 +68,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type ScrollAlign`](#type-scrollalign): [`String`](#func-scrollalign-string)
   - [`type ScrollEvent`](#type-scrollevent): [`DefaultPrevented`](#func-scrollevent-defaultprevented) · [`PreventDefault`](#func-scrollevent-preventdefault) · [`StopPropagation`](#func-scrollevent-stoppropagation)
   - [`type SelectEvent`](#type-selectevent): [`DefaultPrevented`](#func-selectevent-defaultprevented) · [`PreventDefault`](#func-selectevent-preventdefault) · [`StopPropagation`](#func-selectevent-stoppropagation)
+  - [`type Services`](#type-services)
   - [`type Setter`](#type-setter): [`UseState`](#func-usestate) · [`IsZero`](#func-setter-iszero) · [`Set`](#func-setter-set) · [`Update`](#func-setter-update)
   - [`type Shadow`](#type-shadow)
   - [`type Size`](#type-size)
@@ -659,7 +662,7 @@ func Run(app App) error
 
 Run opens a window, shows app.Root and runs the event loop until the app quits: the main window is closed (unless App.OnClose says otherwise) or [`Quit`](#func-quit) is called. The windows unmount before Run returns, running the cleanups of their effects. It must be called from the main goroutine, normally from main. The window is drawn by Tela's own renderer on the native backend: Wayland or X11 on Linux, Win32 on Windows and Cocoa on macOS 13 or later; [`Window`](#type-window) components open more windows.
 
-Run returns an error when the platform cannot open a window (for example, no display is available). It panics when app.Root is nil. [`Main`](#func-main) runs it and handles the error.
+Run returns an error when the platform cannot open a window (for example, no display is available). It panics when app.Root is nil, and in dev mode when App.Schemes or App.FileTypes has a malformed entry. [`Main`](#func-main) runs it and handles the error.
 
 ### func SetColorScheme
 
@@ -1635,6 +1638,38 @@ type App struct {
     // Wayland app_id, the X11 WM_CLASS). Use a reverse-DNS name such as
     // "com.example.notes". Empty lets the platform pick one.
     AppID string
+    // Publisher is who publishes the app: a person or a company. It is
+    // the MSIX publisher name, the CompanyName of the Windows
+    // executable's version info and the vendor of the Linux metadata.
+    // This field and the next ones up to Services are the app's
+    // declaration (ADR-294): tela build and tela package read them from
+    // the source without running the program, so each must be a constant
+    // (a literal, a constant or a concatenation of them), and Run ignores
+    // them.
+    Publisher string
+    // Description is a sentence that says what the app does: the .desktop
+    // file's Comment and the AppStream summary, the MSIX description and
+    // the Windows executable's FileDescription.
+    Description string
+    // Category is the app's main category, one of the freedesktop.org
+    // main categories ("Utility", "Office", "Development", "Graphics",
+    // "AudioVideo", "Network", "Game", "Education", "Science", "System",
+    // "Settings"). It is the .desktop file's Categories, macOS's
+    // LSApplicationCategoryType and the MSIX category.
+    Category string
+    // Schemes are the URL schemes the app opens, without ':' ("notes" for
+    // notes:open?id=3): CFBundleURLTypes in the Info.plist, the .desktop
+    // file's MimeType (x-scheme-handler/...), the MSIX manifest's
+    // protocols. A standard scheme (http, mailto...) panics in dev mode.
+    Schemes []string
+    // FileTypes are the file types the app opens; see [FileType]. They go
+    // to the Info.plist's CFBundleDocumentTypes, the MSIX manifest's file
+    // type associations and a MIME package on Linux.
+    FileTypes []FileType
+    // Services are the parts of the system the app uses: the Info.plist's
+    // usage strings and the macOS entitlements, the MSIX capabilities and
+    // the flatpak permissions; see [Services].
+    Services Services
     // Width and Height are the requested size of the window in logical
     // pixels. Zero means the platform's default size; set both or
     // neither.
@@ -3168,6 +3203,33 @@ func (r ElementRef) Value() string
 
 Value returns the value of the text field the ref is attached to (with the text an IME is composing, as the DOM's input.value), "" for other elements: mainly for uncontrolled fields.
 
+### type FileType
+
+```go
+type FileType struct {
+    // Ext is the extension with its dot (".note"): ASCII letters, digits,
+    // '-' or '_'.
+    Ext string
+    // MIME is the type's MIME type ("application/x-notes-note"), without
+    // parameters.
+    MIME string
+    // Description names the type in the user's language ("Notes document").
+    Description string
+    // Role is what the app does with the files; the zero value is
+    // [HandlerEditor].
+    Role HandlerRole
+}
+```
+
+FileType is a file type the app opens, in [`App`](#type-app).FileTypes. The packages write it where each system keeps it: the Info.plist's CFBundleDocumentTypes on macOS, the MSIX manifest's file type associations on Windows, the .desktop file's MimeType and a MIME package on Linux.
+
+```go
+FileTypes: []tela.FileType{
+    {Ext: ".note", MIME: "application/x-notes-note", Description: "Notes document"},
+    {Ext: ".notes-backup", MIME: "application/x-notes-backup", Description: "Notes backup", Role: tela.HandlerViewer},
+},
+```
+
 ### type FocusEvent
 
 ```go
@@ -3475,6 +3537,32 @@ func StopAt(c Color, percent float32) GradientStop
 ```
 
 StopAt returns a gradient stop at a percentage (0 to 100) of the gradient line.
+
+### type HandlerRole
+
+```go
+type HandlerRole uint8
+```
+
+HandlerRole is what the app does with the files of a [`FileType`](#type-filetype): the role of macOS's CFBundleTypeRole. The names and values are those of the desktop package's HandlerRole, which tela cannot import.
+
+```go
+const (
+    // HandlerDefault (the zero value) is HandlerEditor.
+    HandlerDefault HandlerRole = iota
+    // HandlerEditor: the app opens, edits and saves files of the type.
+    HandlerEditor
+    // HandlerViewer: the app opens files of the type without editing them.
+    HandlerViewer
+    // HandlerShell: the app provides runtime services for the type (macOS's
+    // Shell role; elsewhere the same as HandlerEditor).
+    HandlerShell
+    // HandlerNone: the app declares the type, so the desktop knows its name
+    // and icon, without opening it: no "Open with" entry, never the
+    // default.
+    HandlerNone
+)
+```
 
 ### type Hyphenation
 
@@ -5073,6 +5161,37 @@ func (e SelectEvent) StopPropagation()
 ```
 
 StopPropagation stops the event from bubbling (see MouseEvent).
+
+### type Services
+
+```go
+type Services struct {
+    // Camera, Microphone, Location, Contacts, Calendars, Photos and
+    // Bluetooth are the usage strings, such as "Take a picture for your
+    // profile".
+    Camera, Microphone, Location, Contacts, Calendars, Photos, Bluetooth string
+    // Network: the app connects to the network (macOS's client network
+    // entitlement, the MSIX internetClient capability, flatpak's network
+    // access).
+    Network bool
+    // Notifications: the app shows notifications (desktop.Notify).
+    Notifications bool
+    // Secrets: the app stores secrets in the system's keychain (desktop's
+    // secrets; flatpak's access to the Secret Service).
+    Secrets bool
+    // GlobalShortcuts: the app registers shortcuts that work while another
+    // app has the focus (desktop's global shortcuts).
+    GlobalShortcuts bool
+    // Files: the app reads and writes files outside the ones the user
+    // picks in the system's dialogs (flatpak's home access, MSIX's
+    // broadFileSystemAccess, macOS's user-selected files entitlement).
+    Files bool
+}
+```
+
+Services are the parts of the system the app uses, in [`App`](#type-app).Services. The packages turn them into what each system asks for: the Info.plist's usage descriptions (NS...UsageDescription) and the macOS entitlements, the MSIX manifest's capabilities, the flatpak manifest's permissions. What the app does not declare stays closed in a sandbox, and on macOS the first use of a service without its usage string ends the process, so declare each one the app uses.
+
+The first seven fields are the text the system shows when it asks the user for permission, in the user's language; empty means the app does not use the service. The booleans say the app uses the service.
 
 ### type Setter
 

@@ -118,6 +118,11 @@
 //   - Platform contract v11 (protocol 15, ADR-259): LaunchEvent.AtStart,
 //     MenuItem.AccessKey and AssociationStatus.Role travel with the
 //     rest.
+//   - Platform contract v15 (protocol 16, ADR-297):
+//     NotificationEvent.Earlier travels with the rest. The Win32 toast
+//     activator belongs to the host's backend; [NewHost] tells a backend
+//     that has SetDevHost (Win32) that it hosts tela dev children, so it
+//     never registers its own executable, tela's, as the app's activator.
 //   - Run returns an error when the connection is lost.
 //
 // The child's loop is internal/loop's (queue, coalesced wake, quit,

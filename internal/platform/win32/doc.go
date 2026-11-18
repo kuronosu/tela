@@ -642,9 +642,14 @@
 //     withdrawing and replacing, agile COM delegates for Activated,
 //     Dismissed and Failed whose events reach the UI thread through a
 //     private message. A timeout is not NotificationClosed (the toast is
-//     in the Action Center, where it can still be clicked while the app
-//     runs). Without WinRT or before Windows 10 1809, and when a toast
-//     fails to show, the notification is a balloon.
+//     in the Action Center, where it can still be clicked). A click after
+//     the app exited starts it through a COM toast activator
+//     (toastactivator_windows.go, ADR-297): a class object Run registers
+//     under a CLSID derived from the app ID, the LocalServer32 command and
+//     the AUMID's CustomActivator written with the AUMID, and the click
+//     reported as a NotificationEvent marked Earlier. Without WinRT or
+//     before Windows 10 1809, and when a toast fails to show, the
+//     notification is a balloon.
 //   - Tray icons and balloons: Shell_NotifyIconW on a hidden window
 //     of the backend (tray_windows.go has the details): version 4
 //     callbacks, menus with TrackPopupMenuEx, balloons (shown as toasts on

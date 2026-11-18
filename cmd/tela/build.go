@@ -18,12 +18,15 @@ import (
 	"syscall"
 
 	"github.com/kuronosu/tela/cmd/tela/internal/appbundle"
+	"github.com/kuronosu/tela/cmd/tela/internal/appicon"
+	"github.com/kuronosu/tela/cmd/tela/internal/pkgfmt"
 )
 
 const buildUsage = `Usage:
 
-	tela build [-o path] [-id ID] [-name NAME] [-tags list] [-ldflags flags]
-	           [-gcflags flags] [-trimpath] [-v] [pkg]
+	tela build [-o path] [-id ID] [-name NAME] [-version V] [-icon file]
+	           [-console] [-tags list] [-ldflags flags] [-gcflags flags]
+	           [-trimpath] [-v] [pkg]
 
 Builds the program of a package main (default ".") with CGO_ENABLED=0 for
 the target GOOS and GOARCH of the environment, so GOOS=darwin
@@ -34,6 +37,7 @@ bundle, <Name>.app:
 
 	<Name>.app/Contents/Info.plist
 	<Name>.app/Contents/MacOS/<Name>
+	<Name>.app/Contents/Resources/<name>.icns   (with an icon)
 
 The Info.plist holds the app's ID (CFBundleIdentifier), name, version and
 the system version Tela needs; macOS services that belong to an app (user
@@ -47,18 +51,48 @@ them; without an ID the command stops and says so. The name defaults to the
 package's name. The version is the module's, when the build knows it, else
 0.0.0.
 
+When the target is windows, the program is a GUI program: it is linked with
+-H=windowsgui, so Windows opens no console window next to it, and -console
+keeps the console subsystem (for a command-line program; a GUI program has
+no standard output, so Tela apps log to a file instead). The executable
+also gets the app's icon and its version information, the ones Explorer, the
+task bar and Task Manager show: the icon is icon.svg or icon.png (a square
+of 512 px or more) in the package's folder, or the file of -icon, drawn at
+16 to 256 px; the version information has the name (App.Title, or -name),
+the publisher (App.Publisher), the description (App.Description) and the
+version. A package without an icon gets the version information only. They
+are added to the linked executable, so the package's folder is not touched;
+a package that has resources of its own (a .syso file) keeps them and gets
+none from tela.
+
 On any other target the output is the plain executable, like go build, and
 -id and -name are ignored.
 
+The version of the app is the module's, as the go command stamps it from a
+version control tag (v1.2.3, or a pseudo-version after it), or the one -version
+gives (1.2.3, 1.2.3-rc.1), which tela writes into the program with the
+linker's -X flag, merged into the flags of -ldflags (or GOFLAGS), so the
+running program reports it (the update check reads it) and the Info.plist
+and the Windows version information carry it.
+
+The rest of App's declaration (Publisher, Description, Category, Schemes,
+FileTypes, Services) is read the same way, from constants; a value that is
+not a constant is an error that says which field and how to write it. A
+bundle's Info.plist gets what tela package writes into it (see "tela help
+package"): the icon (icon.svg or icon.png in the package's folder, or
+-icon, drawn into an .icns file), the category, the usage descriptions of
+the services, and the declared URL schemes and file types.
+
 Rebuilding an existing bundle writes only what changed, so Launch Services
-keeps seeing the same app, and it keeps the keys a running app added to the
-Info.plist (registered URL schemes and file types).
+keeps seeing the same app, and it keeps what a running app added to the
+Info.plist (URL schemes and file types it registered and the declaration
+does not declare).
 
 Signing: tela build does not run codesign. The Go linker ad-hoc signs
 darwin/arm64 executables, and that signature covers the executable only,
 not the Info.plist or the resources. The bundle is for the machine that
 built it: it has no developer identity and is not notarized. Distribution
-(icons, signing, notarization, installers) is the packaging step.
+(signing, notarization, the zip and the dmg) is tela package's.
 
 Flags:
 
@@ -69,12 +103,20 @@ Flags:
 	               current folder)
 	-id ID         the app's ID (CFBundleIdentifier): letters, digits,
 	               hyphens and periods, such as com.example.notes
-	-name NAME     the app's name (CFBundleName and the bundle's file name)
+	-name NAME     the app's name (CFBundleName and the bundle's file name; the
+	               product name of a Windows executable)
+	-version V     the app's version, such as 1.2.3 or 1.2.3-rc.1, written
+	               into the program (default: the module's version)
+	-icon file     the icon, icon.svg or icon.png, of a bundle or a Windows
+	               program (default: the one in the package's folder)
+	-console       a Windows program keeps the console subsystem (default:
+	               the GUI subsystem)
 	-tags list     build tags, comma-separated, as go build -tags
-	-ldflags f     linker flags, as go build -ldflags
+	-ldflags f     linker flags, as go build -ldflags; tela adds its own
+	               (-X for the version, -H=windowsgui), and yours win for -H
 	-gcflags f     compiler flags, as go build -gcflags
 	-trimpath      remove file system paths from the program, as go build
-	-v             say where the ID and the name came from
+	-v             say where the ID and the name came from, and the icon
 
 The build uses go build's defaults otherwise: no -tags teladev, no stripping.
 GOFLAGS applies as for any go command.
@@ -82,7 +124,7 @@ GOFLAGS applies as for any go command.
 
 const runUsage = `Usage:
 
-	tela run [-id ID] [-name NAME] [-tags list] [-ldflags flags]
+	tela run [-id ID] [-name NAME] [-version V] [-tags list] [-ldflags flags]
 	         [-gcflags flags] [-trimpath] [-v] [pkg [args...]]
 
 Builds the program of a package main (default ".") and runs it, like go
@@ -105,12 +147,16 @@ rebuild writes only what changed.
 
 On the other systems tela run builds the program in a temporary folder and
 runs it; -id and -name are ignored. The target is always the machine's own:
-tela run does not run a cross-built program.
+tela run does not run a cross-built program. On Windows the program keeps the
+console subsystem (tela run is a development command: its output stays in the
+terminal), and it has no icon or version information: tela build adds them.
 
 Flags:
 
 	-id ID         the app's ID (macOS), such as com.example.notes
 	-name NAME     the app's name (macOS)
+	-version V     the app's version, written into the program (see "tela
+	               help build")
 	-tags list     build tags, comma-separated, as go build -tags
 	-ldflags f     linker flags, as go build -ldflags
 	-gcflags f     compiler flags, as go build -gcflags
@@ -131,9 +177,22 @@ type buildOptions struct {
 	Gcflags  string
 	Trimpath bool
 	Verbose  bool
+	// Version is the version to write into the program (-version); empty
+	// keeps the one the go command stamps.
+	Version string
+	// Icon and Console are build only: the icon source (-icon) and whether
+	// a Windows program keeps the console subsystem (-console).
+	Icon    string
+	Console bool
 	// Args are the program's arguments (run only).
 	Args []string
+	// Env is added to the go command's environment: tela package sets
+	// GOOS and GOARCH for each target there.
+	Env []string
 }
+
+// env is the go command's environment for o.
+func (o *buildOptions) env() []string { return append(goEnv(), o.Env...) }
 
 // register adds the flags both commands take.
 func (o *buildOptions) register(fs *flag.FlagSet) {
@@ -142,6 +201,7 @@ func (o *buildOptions) register(fs *flag.FlagSet) {
 	fs.StringVar(&o.Tags, "tags", "", "")
 	fs.StringVar(&o.Ldflags, "ldflags", "", "")
 	fs.StringVar(&o.Gcflags, "gcflags", "", "")
+	fs.StringVar(&o.Version, "version", "", "")
 	fs.BoolVar(&o.Trimpath, "trimpath", false, "")
 	fs.BoolVar(&o.Verbose, "v", false, "")
 	fs.BoolVar(&o.Verbose, "verbose", false, "")
@@ -155,6 +215,8 @@ func parseBuildArgs(args []string) (buildOptions, error) {
 	fs.SetOutput(io.Discard)
 	o.register(fs)
 	fs.StringVar(&o.Out, "o", "", "")
+	fs.StringVar(&o.Icon, "icon", "", "")
+	fs.BoolVar(&o.Console, "console", false, "")
 	pkgs, err := parsePositionals("build", fs, args)
 	if err != nil {
 		return o, err
@@ -199,6 +261,9 @@ func (o *buildOptions) validate(command string) error {
 	}
 	if strings.HasPrefix(o.Pkg, "-") {
 		return fmt.Errorf("%q looks like a flag, and flags go before the package (see \"tela help %s\")", o.Pkg, command)
+	}
+	if strings.ContainsAny(o.Version, " \t\r\n\"'\\") {
+		return fmt.Errorf("-version %q has spaces or quotes; give a version such as 1.2.3 or 1.2.3-rc.1", o.Version)
 	}
 	return nil
 }
@@ -258,6 +323,8 @@ func runRun(args []string, stdout, stderr io.Writer) int {
 type buildTarget struct {
 	goos, goarch string
 	pkg          listedPackage
+	// goflags is the GOFLAGS the go command applies.
+	goflags string
 	// deps are the packages go list printed besides pkg, by import path
 	// (only when the app's source is read).
 	deps map[string]listedPackage
@@ -267,24 +334,25 @@ type buildTarget struct {
 const buildListFields = listFields + ",DepOnly"
 
 // resolveBuildTarget finds the package, checks it is a program and reads
-// the target platform. For a darwin target whose ID or name is not given
-// by flags it lists the dependencies too, for reading the App.
+// the target platform. For a darwin target (the Info.plist), or the target
+// is windows (the executable's version information), it lists the
+// dependencies too, for reading the App, as it does for tela package.
 func resolveBuildTarget(goBin string, opts buildOptions, command string) (*buildTarget, error) {
 	t := &buildTarget{}
-	cmd := exec.Command(goBin, "env", "GOOS", "GOARCH")
-	cmd.Env = goEnv()
+	cmd := exec.Command(goBin, "env", "-json", "GOOS", "GOARCH", "GOFLAGS")
+	cmd.Env = opts.env()
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("go env: %v", err)
 	}
-	if f := strings.Fields(string(out)); len(f) == 2 {
-		t.goos, t.goarch = f[0], f[1]
-	} else {
-		return nil, fmt.Errorf("go env GOOS GOARCH printed %q", strings.TrimSpace(string(out)))
+	var env struct{ GOOS, GOARCH, GOFLAGS string }
+	if err := json.Unmarshal(out, &env); err != nil || env.GOOS == "" || env.GOARCH == "" {
+		return nil, fmt.Errorf("go env -json GOOS GOARCH GOFLAGS printed %q", strings.TrimSpace(string(out)))
 	}
+	t.goos, t.goarch, t.goflags = env.GOOS, env.GOARCH, env.GOFLAGS
 
 	args := []string{"list", "-e", "-json=" + buildListFields}
-	if t.goos == "darwin" && (opts.ID == "" || opts.Name == "") {
+	if t.goos == "darwin" || t.goos == "windows" && command == "build" || command == "package" {
 		args = append(args, "-deps")
 	}
 	if opts.Tags != "" {
@@ -292,7 +360,7 @@ func resolveBuildTarget(goBin string, opts buildOptions, command string) (*build
 	}
 	args = append(args, "--", opts.Pkg)
 	cmd = exec.Command(goBin, args...)
-	cmd.Env = goEnv()
+	cmd.Env = opts.env()
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {
@@ -417,7 +485,7 @@ func goBuild(goBin string, opts buildOptions, out string, stderr io.Writer) erro
 	}
 	args = append(args, "--", opts.Pkg)
 	cmd := exec.Command(goBin, args...)
-	cmd.Env = goEnv()
+	cmd.Env = opts.env()
 	cmd.Stdout, cmd.Stderr = stderr, stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("go build failed: %v", err)
@@ -450,23 +518,70 @@ func numericVersion(v string) string {
 	return ""
 }
 
+// bundleApp reads the rest of the declaration (ADR-294) for the bundle's
+// Info.plist, checks it as tela package does, and loads the icon (-icon,
+// else icon.svg or icon.png in the package's folder; none is fine).
+func bundleApp(opts buildOptions, t *buildTarget, id identity, log io.Writer) (pkgfmt.App, error) {
+	src, err := readAppSource(t.pkg, t.deps)
+	if err != nil {
+		return pkgfmt.App{}, err
+	}
+	if err := src.DeclarationErr(); err != nil {
+		return pkgfmt.App{}, fmt.Errorf("%v\nmake it a constant: the bundle's Info.plist is written from it", err)
+	}
+	app := pkgfmt.App{
+		ID: id.ID, Name: id.Name, Package: pkgfmt.PackageName(id.ID, id.Name),
+		Publisher:   strings.TrimSpace(src.Publisher),
+		Description: strings.TrimSpace(src.Description),
+		Category:    strings.TrimSpace(src.Category),
+		Schemes:     src.Schemes,
+		FileTypes:   src.FileTypes,
+		Services:    src.Services,
+	}
+	if err := checkDeclaration(app); err != nil {
+		return app, err
+	}
+	iconPath := opts.Icon
+	if iconPath == "" {
+		iconPath = appicon.Find(t.pkg.Dir)
+	}
+	if iconPath != "" {
+		if app.Icon, err = appicon.Load(iconPath); err != nil {
+			return app, err
+		}
+		if opts.Verbose {
+			fmt.Fprintf(log, "icon %s\n", iconPath)
+		}
+	} else if opts.Verbose {
+		fmt.Fprintf(log, "no icon: put an icon.svg or an icon.png (512 px or more) in %s, or pass -icon\n", t.pkg.Dir)
+	}
+	return app, nil
+}
+
 // stageBundle builds the program of t into a temporary folder and writes
 // the bundle at bundlePath from it. It returns the executable inside.
-func stageBundle(goBin string, opts buildOptions, id identity, bundlePath string, stderr io.Writer) (appbundle.Result, error) {
+func stageBundle(goBin string, opts buildOptions, t *buildTarget, id identity, bundlePath string, stderr io.Writer) (appbundle.Result, error) {
+	app, err := bundleApp(opts, t, id, stderr)
+	if err != nil {
+		return appbundle.Result{}, err
+	}
 	stage, err := os.MkdirTemp("", "tela-bundle-")
 	if err != nil {
 		return appbundle.Result{}, err
 	}
 	defer os.RemoveAll(stage)
 	exe := filepath.Join(stage, "program")
+	opts.Ldflags = linkerFlags(opts, t.goflags, false)
 	if err := goBuild(goBin, opts, exe, stderr); err != nil {
 		return appbundle.Result{}, err
 	}
-	return appbundle.Write(bundlePath, appbundle.Spec{
-		ID:      id.ID,
-		Name:    id.Name,
-		Version: moduleVersion(exe),
-	}, exe)
+	// The Info.plist's version is the one written into the program, else
+	// the one the go command stamped.
+	app.Version = numericVersion(opts.Version)
+	if app.Version == "" {
+		app.Version = moduleVersion(exe)
+	}
+	return pkgfmt.WriteBundle(bundlePath, app, exe, stage)
 }
 
 // buildProgram implements tela build and returns the path it wrote.
@@ -486,7 +601,7 @@ func buildProgram(goBin string, opts buildOptions, stderr io.Writer) (string, er
 	if err != nil {
 		return "", err
 	}
-	if _, err := stageBundle(goBin, opts, id, bundle, stderr); err != nil {
+	if _, err := stageBundle(goBin, opts, t, id, bundle, stderr); err != nil {
 		return "", err
 	}
 	return bundle, nil
@@ -528,8 +643,22 @@ func buildPlain(goBin string, opts buildOptions, t *buildTarget, stderr io.Write
 	if st, err := os.Stat(abs); err == nil && st.IsDir() {
 		abs = filepath.Join(abs, name)
 	}
+	gui := t.goos == "windows" && !opts.Console
+	opts.Ldflags = linkerFlags(opts, t.goflags, gui)
+	var res *winResources
+	if t.goos == "windows" {
+		var err error
+		if res, err = newWinResources(opts, t, filepath.Base(abs), stderr); err != nil {
+			return "", err
+		}
+	}
 	if err := goBuild(goBin, opts, abs, stderr); err != nil {
 		return "", err
+	}
+	if res != nil {
+		if err := res.apply(abs, stderr); err != nil {
+			return "", err
+		}
 	}
 	return abs, nil
 }
@@ -553,7 +682,7 @@ func runProgram(goBin string, opts buildOptions, stdout, stderr io.Writer) (int,
 		if err != nil {
 			return 1, err
 		}
-		res, err := stageBundle(goBin, opts, id, bundle, stderr)
+		res, err := stageBundle(goBin, opts, probe, id, bundle, stderr)
 		if err != nil {
 			return 1, err
 		}
@@ -572,6 +701,8 @@ func runProgram(goBin string, opts buildOptions, stdout, stderr io.Writer) (int,
 		if probe.goos == "windows" {
 			exe += ".exe"
 		}
+		// A development command: the console subsystem and no resources.
+		opts.Ldflags = linkerFlags(opts, probe.goflags, false)
 		if err := goBuild(goBin, opts, exe, stderr); err != nil {
 			return 1, err
 		}

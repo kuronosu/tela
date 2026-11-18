@@ -7,10 +7,12 @@
 //	tela lint     [-json] [-tests] [-fix] [packages]
 //	tela dev      [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [-v] [pkg]
 //	tela mcp      [--size WxH] [--scale N] [--dark] [--preview NAME] [-v] [pkg]
-//	tela build    [-o path] [-id ID] [-name NAME] [-tags list] [-ldflags f] [-gcflags f] [-trimpath] [-v] [pkg]
-//	tela run      [-id ID] [-name NAME] [-tags list] [-ldflags f] [-gcflags f] [-trimpath] [-v] [pkg [args...]]
+//	tela build    [-o path] [-id ID] [-name NAME] [-version V] [-icon file] [-console] [-tags list] [-ldflags f] [-gcflags f] [-trimpath] [-v] [pkg]
+//	tela run      [-id ID] [-name NAME] [-version V] [-tags list] [-ldflags f] [-gcflags f] [-trimpath] [-v] [pkg [args...]]
+//	tela package  [-format list] [-os list] [-arch list] [-o dir] [-version V] [-icon file] [-sign] [-sign-cmd cmd] [build flags] [pkg]
 //	tela icons gen -pkg <name> [-o outdir] [flags] <dir>
 //	tela new      [-module path] [-skip-deps] <dir>
+//	tela update   keygen|sign|manifest [flags]
 //	tela version
 //
 // snapshot and inspect render a package headlessly: the package defines func Preview()
@@ -60,9 +62,16 @@
 // build builds the program of a package main for the environment's GOOS and
 // GOARCH. For darwin it writes a macOS application bundle, <Name>.app, whose
 // Info.plist names the app's ID (read from the package's tela.App, or -id);
-// elsewhere it writes the plain executable. run builds the same bundle in
+// for windows it writes the executable as a GUI program with the app's icon
+// and version information (ADR-294); elsewhere it writes the plain
+// executable. run builds the same bundle in
 // the user cache folder, under a folder named by the app's ID, and runs the
 // executable inside it with the terminal attached (ADR-224, ADR-227).
+//
+// package builds the program for each target (-os and -arch lists) and
+// writes its packages from the app's declaration: on Linux an AppImage on
+// Tela's own runtime, a deb and a flatpak manifest, with the same bytes for
+// the same inputs (ADR-295).
 //
 // new creates an app in a new directory: a go.mod that requires Tela, a
 // counter in main.go, a telatest test, a README and a .gitignore (ADR-128).
@@ -93,8 +102,10 @@ Commands:
 	mcp         serve a package's screen to agents (Model Context Protocol)
 	build       build a program; on macOS, as an application bundle
 	run         build a program and run it; on macOS, as a bundle
+	package     build and package a program for each target (AppImage, deb, flatpak)
 	new         create a new Tela app in a directory
 	icons       generate a Go package of tela.Icon variables from SVG files
+	update      make signing keys, update manifests and their signatures
 	version     print the tela version
 	help        show this help
 
@@ -129,10 +140,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runBuild(args[1:], stdout, stderr)
 	case "run":
 		return runRun(args[1:], stdout, stderr)
+	case "package":
+		return runPackage(args[1:], stdout, stderr)
 	case "new":
 		return runNew(args[1:], stdout, stderr)
 	case "version":
 		return runVersion(args[1:], stdout, stderr)
+	case "update":
+		return runUpdate(args[1:], stdout, stderr)
 	case "help", "-h", "-help", "--help":
 		if len(args) > 1 {
 			switch args[1] {
@@ -164,12 +179,17 @@ func run(args []string, stdout, stderr io.Writer) int {
 			case "run":
 				fmt.Fprint(stdout, runUsage)
 				return 0
+			case "package":
+				fmt.Fprint(stdout, packageUsage)
+				return 0
 			case "new":
 				fmt.Fprint(stdout, newUsage)
 				return 0
 			case "version":
 				fmt.Fprint(stdout, versionUsage)
 				return 0
+			case "update":
+				return runUpdate(append([]string{"help"}, args[2:]...), stdout, stderr)
 			default:
 				fmt.Fprintf(stderr, "tela: unknown help topic %q; run \"tela help\" for the list of commands\n", args[1])
 				return 2

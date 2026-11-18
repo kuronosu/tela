@@ -47,8 +47,9 @@ CGO_ENABLED=0 go run ./cmd/tela snapshot -o counter.png ./examples/counter
 | `tela lint` | Checks the Go source for the mistakes that dev mode reports at run time: unknown classes, roles and aria tokens, duplicate or missing keys, misused hooks, a redundant `Fragment`, a prop where a node goes (see [tela lint](#tela-lint)) |
 | `tela dev` | Runs an app and reloads it on every save, keeping the window and the state |
 | `tela mcp` | Serves a package's screen to agents over the Model Context Protocol: snapshot, screenshot, click, fill... on an instance that stays up and rebuilds on edits (see [tela mcp](#tela-mcp)) |
-| `tela build` | Builds a program; for `GOOS=darwin`, as a macOS application bundle `<Name>.app` (see [tela build and tela run](#tela-build-and-tela-run)) |
+| `tela build` | Builds a program; for `GOOS=darwin`, as a macOS application bundle `<Name>.app`, for `GOOS=windows` as a GUI program with the app's icon and version information (see [tela build and tela run](#tela-build-and-tela-run)) |
 | `tela run` | Builds a program and runs it, like `go run`; on macOS as a bundle in the user cache, so notifications, URL schemes and the Dock name work |
+| `tela package` | Builds a program for each target and writes its packages: on Linux an AppImage, a deb and a flatpak manifest, the same bytes for the same inputs (see [tela package](#tela-package)) |
 | `tela icons gen` | Generates a Go package of `tela.Icon` variables from a directory of SVG files (see [Icons](Icons)) |
 | `tela version` | Prints the version of the tela module the binary was built from, its VCS revision when known, and the Go version and platform |
 | `tela help [command]` | Shows the help |
@@ -543,6 +544,7 @@ tela run ./cmd/notes                 # build and run; on macOS, as a bundle
 tela run . --some-flag value         # what follows the package goes to the program
 tela build -o dist ./cmd/notes       # dist/Notes.app on macOS, the program elsewhere
 GOOS=darwin GOARCH=arm64 tela build -o dist .   # from Linux or Windows
+GOOS=windows tela build -version 1.2.0 -o dist . # dist/notes.exe: GUI program, icon, version
 ```
 
 Both build the program of a package `main` (the default is `.`) with
@@ -558,13 +560,18 @@ name in the Dock and the menu bar. An app is a bundle, `<Name>.app`, with an
 ```text
 Notes.app/Contents/Info.plist
 Notes.app/Contents/MacOS/Notes
+Notes.app/Contents/Resources/notes.icns     # with an icon
 ```
 
 The `Info.plist` has `CFBundleIdentifier` (the app's `AppID`), `CFBundleName`
 and `CFBundleDisplayName` (its title), `CFBundleExecutable`, the package type,
 the version (`CFBundleShortVersionString`, `CFBundleVersion`: the module's
 version when the build knows it, else `0.0.0`), `LSMinimumSystemVersion` 13.0
-and the high-resolution and graphics-switching keys.
+and the high-resolution and graphics-switching keys, then what the rest of the
+declaration gives, as `tela package` writes it ([macOS](#macos)): the icon
+(`icon.svg` or `icon.png` in the package's folder, or `-icon`, drawn into
+`Resources/<name>.icns`), the category, the copyright, the usage descriptions
+and the URL schemes and file types.
 
 The ID and the name are read from the source, without running it: the
 `AppID` and `Title` of the `tela.App` passed to `tela.Main` in `main`, or of the
@@ -584,24 +591,424 @@ bundle per app:
 and runs the executable inside it directly (not through `open`), so the
 terminal keeps standard input, output and error and Ctrl+C, and the program's
 exit status is `tela run`'s. `-v` prints where the bundle is. Rebuilding writes
-only what changed, and keeps the keys that a running app added to the
-`Info.plist` when it registered a URL scheme or a file type.
+only what changed, and keeps the entries that a running app added to the
+`Info.plist` when it registered a URL scheme or a file type that the
+declaration does not declare.
 
 | Flag | Does |
 |---|---|
 | `-o path` | (build) A folder to create `<Name>.app` in, or a path ending in `.app`; otherwise the executable file or folder. Default: the current folder |
 | `-id ID` | The app's ID, instead of `App.AppID` |
 | `-name NAME` | The app's name, instead of `App.Title` (default: the package's name) |
-| `-tags list`, `-ldflags f`, `-gcflags f`, `-trimpath` | Passed to `go build`; nothing else is added (no `teladev` tag, no stripping) |
-| `-v` | Say where the ID and the name came from (and, for `run`, where the bundle is) |
+| `-version V` | The app's version (`1.2.3`, `1.2.3-rc.1`), written into the program; default: the module's version |
+| `-icon file` | (build) The icon of a bundle or a Windows program, instead of `icon.svg` or `icon.png` in the package's folder |
+| `-console` | (build) A Windows program keeps the console subsystem instead of the GUI one |
+| `-tags list`, `-ldflags f`, `-gcflags f`, `-trimpath` | Passed to `go build`; tela adds `-X` for the version and, for a Windows GUI program, `-H=windowsgui` to `-ldflags` (yours wins for `-H`); no `teladev` tag, no stripping |
+| `-v` | Say where the ID and the name came from, the icon (and, for `run`, where the bundle is) |
 
 Signing: neither command runs `codesign`. The Go linker ad-hoc signs
 `darwin/arm64` executables, and that signature covers the executable only, not
 the `Info.plist`. A bundle made this way runs on the machine that built it; it
-has no developer identity and is not notarized. Signing, icons and installers
-are the packaging step. On other systems `tela build` writes the plain
-executable and `tela run` builds and runs it in a temporary folder; `-id` and
-`-name` are ignored. `tela run` always runs on the machine's own platform.
+has no developer identity and is not notarized. Signing, notarization and
+installers are `tela package`'s. On Linux `tela build` writes the plain executable and `tela run`
+builds and runs it in a temporary folder; `-id` and `-name` are ignored. `tela
+run` always runs on the machine's own platform.
+
+### Windows
+
+For `GOOS=windows` the program is a GUI program: `tela build` links it with
+`-H=windowsgui`, so Windows opens no console window next to it (`-console` keeps
+the console subsystem, for a command-line tool; a GUI program has no standard
+output, so it cannot print). `tela run` keeps the console, since it is a
+development command.
+
+The executable also gets the resources that Explorer, the task bar and Task
+Manager show, added to the linked file (the package's folder is not touched; a
+package with a `.syso` of its own keeps its resources and gets none):
+
+- the **icon**, from `icon.svg` or `icon.png` in the package's folder, or
+  `-icon`: an SVG is drawn at 16, 24, 32, 48, 64, 128 and 256 px; a PNG must be
+  square and at least 512 px, and is scaled down. A package without one gets no
+  icon.
+- the **version information**: product name (`App.Title`, or `-name`), company
+  (`App.Publisher`), description (`App.Description`) and the version.
+
+### The declaration and the version
+
+`App` carries more than the window: `Publisher`, `Description`, `Category`,
+`Schemes`, `FileTypes` and `Services` describe the app to the packages (URL
+schemes, document types, what the app asks the system for). They are read from
+the source like `AppID` and `Title`, so they must be constants (a literal, a
+constant, a concatenation; a slice or struct literal of them, or a variable that
+holds one); anything else is an error that names the field. `Run` ignores them.
+
+The version the program reports (`internal/appver`, which the update check
+reads) is `-version` when given, else the module's version the go command
+stamps from a version control tag. `-version` is written with the linker's
+`-X` flag, merged into your `-ldflags`; macOS's `Info.plist` and the Windows
+version information carry the same value.
+
+## tela package
+
+```bash
+tela package ./cmd/notes                                  # this machine's GOOS and GOARCH, its default formats
+tela package -os linux -arch amd64,arm64 ./cmd/notes      # dist/notes-1.2.0-linux-amd64.AppImage, .deb, ... for both
+tela package -format flatpak -o out .                     # the flatpak manifest and its folder
+tela package -sign-cmd "gpg --detach-sign --armor" .      # a .asc next to each package
+tela package -os darwin -arch universal .                 # dist/notes-1.2.0-darwin-universal.zip
+tela package -os windows -arch amd64,arm64 \
+  -appinstaller-url https://example.com/notes ./cmd/notes  # zip, msix and .appinstaller for both
+```
+
+Builds the program of a package `main` as `tela build` does (the same flags:
+`-id`, `-name`, `-version`, `-icon`, `-console`, `-tags`, `-ldflags`, `-gcflags`,
+`-trimpath`, `-v`) for every `-os` with every `-arch` (default: the `GOOS` and
+`GOARCH` of the environment), then writes its packages into `-o` (default
+`./dist`), named `<name>-<version>-<os>-<arch>.<ext>` as
+[`tela update manifest`](Updates) reads them. `<name>` is the last part of the
+app ID, lowercase (`com.example.Notes` gives `notes`), also the installed
+program's name.
+
+| OS | `-format` | Writes |
+|---|---|---|
+| linux | `appimage` (default) | An AppImage on Tela's own runtime, which updates itself with package `update` |
+| linux | `deb` (default) | A Debian package |
+| linux | `flatpak` | A flatpak-builder manifest and the folder it builds from; the `.flatpak` bundle too when `flatpak-builder` and `flatpak` are installed and the target is this machine's architecture |
+| windows | `zip` (default) | The program in a folder, which updates itself with package `update` |
+| windows | `msix` (default) | An MSIX package, and its `.appinstaller` file with `-appinstaller-url` |
+| darwin | `app` (default) | The bundle `<Name>.app` in a zip, which updates itself with package `update` |
+| darwin | `dmg` | A disk image with the bundle and a link to `/Applications`, made by `hdiutil`: on a Mac only |
+
+Everything comes from the package's `tela.App`, read from the source as
+`tela build` reads it: `AppID` is required, `Title` is the name, and
+`Publisher`, `Description`, `Category` (a freedesktop.org main category,
+`Utility` by default), `Schemes`, `FileTypes` and `Services` fill the metadata.
+They are checked before anything is built (the schemes and file types as
+`tela.Run` checks them, the category, what each format needs), so a mistake
+costs no build. The icon is `icon.svg` or `icon.png` (512 px or more) in the
+package's folder, or `-icon`. The version is `-version`, else the module's
+version as the go command stamps it, else `0.0.0`.
+
+Each Linux package holds the program as `usr/bin/<name>` and the freedesktop.org
+metadata, written once for all of them:
+
+- `<AppID>.desktop`: `Name`, `Comment` (the description), `Exec` (with `%U` when
+  the app opens files or URLs), `Icon` (the app ID), `Categories`,
+  `StartupWMClass` (the app ID, which Tela sets as the Wayland app ID and the X11
+  class) and `MimeType` (the file types the app opens and
+  `x-scheme-handler/<scheme>` for its schemes);
+- `<AppID>.metainfo.xml`, the AppStream metainfo: ID, name, summary, developer
+  (`Publisher`), the desktop entry it launches, the program and media types it
+  provides, and the release with its version and date (metadata license
+  CC0-1.0);
+- a shared-mime-info package for the file types, `mime/packages/<AppID>.xml`;
+- the icon in the hicolor theme at 16 to 512 px, and the SVG as the scalable
+  one.
+
+**Same bytes.** The same inputs (the program's source, the go toolchain, tela's
+version) give the same files: every time is `SOURCE_DATE_EPOCH` when it is set,
+else the time of the commit the go command stamped into the program, else
+1980-01-01; entries are sorted, owned by root, with fixed modes. The flatpak
+bundle and the dmg are the exceptions: flatpak and `hdiutil` write them.
+
+### AppImage
+
+The AppImage project's runtime mounts the payload with FUSE and links libfuse3;
+Tela writes its own runtime, in Go, without FUSE. `tela package` builds it from
+the copy of its source in the `tela` command (so it is the runtime of the tela
+that packages), for the target architecture, and writes the AppImage type 2
+layout: the runtime with `AI\x02` at offset 8 and the sections `.upd_info`,
+`.sha256_sig` and `.sig_key` that AppImage tools read (the signature is empty),
+then a squashfs image (version 4.0, zlib) where the ELF file ends. The payload:
+
+```text
+AppRun -> usr/bin/<name>
+<AppID>.desktop
+<AppID>.png, .DirIcon -> <AppID>.png
+usr/bin/<name>
+usr/share/applications/<AppID>.desktop
+usr/share/metainfo/<AppID>.metainfo.xml
+usr/share/mime/packages/<AppID>.xml
+usr/share/icons/hicolor/...
+```
+
+On the first start of a version the runtime checks the payload's SHA-256
+(recorded in its section `.tela_payload`; a damaged or incomplete download is
+refused with a message), extracts it into
+`$XDG_CACHE_HOME/tela-appimage/<AppID>/<version>-<hash>/` (else
+`~/.cache/...`), and `exec`s its `AppRun` with `APPIMAGE`, `APPDIR`, `ARGV0` and
+`OWD` set and the arguments forwarded, so the app's process is the one you
+started. Extraction holds a lock, so a second instance started at the same time
+waits for it, and goes into a temporary folder renamed into place when complete;
+what a crashed start left is removed by the next one. Each later start checks
+the extracted files against a sealed list (types, modes, sizes; a file's content
+only when its time changed) and extracts again when something was changed or
+deleted, then removes the other versions of the app that no running instance
+uses (each instance holds a shared lock on its folder). The options are the
+usual ones: `--appimage-extract [pattern]` (into `./squashfs-root`),
+`--appimage-offset`, `--appimage-updateinformation`, `--appimage-signature`,
+`--appimage-version`, `--appimage-help`, `--appimage-extract-and-run`; there is
+no `--appimage-mount`.
+
+An arm64 AppImage is built from any machine. To run one under `qemu-user` on
+another architecture, start it through `qemu-aarch64` itself: the AppImage magic
+at offset 8 keeps it from matching a `binfmt_misc` entry, as with any AppImage.
+
+### deb
+
+An ar archive of `debian-binary`, `control.tar.gz` and `data.tar.gz`. The
+control file has `Package` (the name), `Version` (the version made valid for
+Debian: `1.2.0-rc.1` is `1.2.0~rc.1`, so it sorts before `1.2.0`),
+`Architecture` (`amd64`, `arm64`, ...), `Maintainer` (`Publisher`: write it as
+`Name <email>`; without one it is `unknown`, and tela says so), `Description`,
+`Section` (from the category), `Priority` and `Installed-Size`; no `Depends`,
+since the program is static. `postinst` and `postrm` run `update-mime-database`
+and `update-desktop-database` when they are installed. apt manages the install,
+so package `update` reports `ErrManaged` there.
+
+### flatpak
+
+`<name>-<version>-linux-<arch>-flatpak/` holds `<AppID>.json`, a flatpak-builder
+manifest for `org.freedesktop.Platform` 25.08 (the Freedesktop SDK of August
+2025, supported until August 2027) whose `simple` build installs the prebuilt
+files of `files/`. The app ID needs three parts or more. The permissions
+(`finish-args`):
+
+| From | Permission |
+|---|---|
+| always | `--socket=wayland`, `--socket=fallback-x11`, `--share=ipc`, `--device=dri`; the tray: `--talk-name=org.kde.StatusNotifierWatcher` and `--own-name=org.kde.*` (Tela's tray item owns `org.kde.StatusNotifierItem-<pid>-<n>`) |
+| `Services.Network` | `--share=network` |
+| `Services.Notifications` | `--talk-name=org.freedesktop.Notifications` |
+| `Services.Secrets` | `--talk-name=org.freedesktop.secrets` |
+| `Services.Files` | `--filesystem=home` |
+| `Services.Microphone` | `--socket=pulseaudio` |
+| `Services.Bluetooth` | `--allow=bluetooth` |
+| `Services.Camera`, `Location`, `GlobalShortcuts` | none: their portals ask the user |
+| `Services.Contacts`, `Calendars`, `Photos` | none: flatpak has no permission for them (tela says so) |
+
+The file chooser, settings, trash and open-URI portals need no permission, and
+flatpak gives the accessibility bus by itself. With `flatpak-builder` and
+`flatpak` installed, `tela package` also runs them to write
+`<name>-<version>-linux-<arch>.flatpak` (for this machine's architecture);
+otherwise it says how. flatpak manages the install, so package `update` reports
+`ErrManaged` there.
+
+### macOS
+
+`<name>-<version>-darwin-<arch>.zip` holds the bundle at its top level, as
+`ditto -c -k --keepParent` makes it, so Finder's Archive Utility, `ditto -x -k`
+and package `update` unpack it with the program's executable bit and any
+symbolic link (each entry records the Unix host and its mode):
+
+```text
+Notes.app/Contents/Info.plist
+Notes.app/Contents/MacOS/Notes
+Notes.app/Contents/Resources/notes.icns
+Notes.app/Contents/_CodeSignature/CodeResources   # signed
+```
+
+`-arch` takes `amd64`, `arm64` or `universal`: both programs in one file (a fat
+Mach-O written by tela, slices aligned to 16 KiB, each one the linker's file
+byte for byte), named `...-darwin-universal.zip`; `tela update manifest` lists
+it for `darwin/amd64` and `darwin/arm64`. Unsigned, nothing changes the program
+after the linker: the arm64 program keeps the linker's ad-hoc signature, which
+Apple silicon needs to run it (the amd64 one has none).
+
+The `Info.plist`, from the declaration:
+
+| From | Keys |
+|---|---|
+| the icon | `CFBundleIconFile` (`<name>.icns` in `Resources`, 16 to 1024 px) |
+| the version | `CFBundleShortVersionString` and `CFBundleVersion`: its `X.Y.Z` (`1.2.0-rc.1` is `1.2.0`); the program carries all of it |
+| `Category` | `LSApplicationCategoryType`: `AudioVideo` and `Video` are `video`, `Audio` `music`, `Development` `developer-tools`, `Education` and `Science` `education`, `Game` `games`, `Graphics` `graphics-design`, `Office` `productivity`, the rest (`Network`, `Settings`, `System`, `Utility`, none) `utilities`, each as `public.app-category.<x>` |
+| `Publisher` | `NSHumanReadableCopyright`: `© <publisher>` (without an e-mail address) |
+| `Services` | `NSCameraUsageDescription`, `NSMicrophoneUsageDescription`, `NSLocationWhenInUseUsageDescription`, `NSContactsUsageDescription`, `NSCalendarsUsageDescription` and `NSCalendarsFullAccessUsageDescription` (macOS 14), `NSPhotoLibraryUsageDescription`, `NSBluetoothAlwaysUsageDescription`: macOS shows the text when it asks, and ends an app that uses a service without one |
+| `Schemes` | `CFBundleURLTypes`: `<AppID>.<scheme>`, role Viewer |
+| `FileTypes` | `CFBundleDocumentTypes`, and `UTExportedTypeDeclarations` for the app's own types |
+
+A file type is the app's own unless its extension has a public type of the
+system (`.txt`, `.md`, `.json`, `.png`, `.pdf` and other common ones): the
+bundle exports the type `<AppID>.<ext>` (conforming to `public.data` and
+`public.content`, with the extension and MIME type as tags) and declares the
+document type with rank `Owner`, so Launch Services opens those files with the
+app. A public type is declared with rank `Alternate`: the app is offered, and
+never takes the default from the app that owns the format. The role is Editor by
+default, or Viewer or Shell; `HandlerNone` declares the type with role and rank
+None. Because everything is declared when the bundle is built, the registration
+of a running app (`desktop`) finds it declared and only asks Launch Services to
+read the bundle: it never edits a signed bundle's `Info.plist`, which the
+signature seals.
+
+`<name>.entitlements`, next to the packages, holds the hardened runtime's
+entitlements of `Services`, which `codesign` signs with: `Camera` is
+`com.apple.security.device.camera`, `Microphone`
+`com.apple.security.device.audio-input`, `Location`, `Contacts`, `Calendars` and
+`Photos` `com.apple.security.personal-information.location`, `.addressbook`,
+`.calendars` and `.photos-library`. There is no App Sandbox: a sandboxed app
+reaches only the files the user picks through the system's own dialogs, cannot
+register global shortcuts, and cannot have its schemes and file types
+registered the way Tela does; a sandboxed variant is later work. The other
+services need no entitlement outside the sandbox.
+### Windows zip
+
+`<name>-<version>-windows-<arch>.zip` holds one folder:
+
+```text
+<name>/<name>.exe          the program, as tela build makes it (GUI, icon, version information)
+<name>/tela-install.json   the install's marker for package update
+```
+
+The marker is [`update.Marker`](https://pkg.go.dev/github.com/kuronosu/tela/update#Marker):
+the format `zip`, the app ID, the version, the program and the entries the
+package put in the folder. Unpacked anywhere the user can write, the folder is
+an install that updates itself: package `update` finds the marker next to the
+running program and replaces only the entries it lists, so files the user adds
+to the folder stay.
+
+### MSIX
+
+`<name>-<version>-windows-<arch>.msix` is written in Go, as the MSIX SDK's
+packer writes one: the program, the tiles `Assets/Square44x44Logo.png`,
+`Square150x150Logo.png` and `StoreLogo.png` (drawn from the icon; a gray square
+without one), `AppxManifest.xml`, `AppxBlockMap.xml` (the SHA-256 of every
+64 KiB block of every file and of the manifest, each block deflated on its own)
+and `[Content_Types].xml`, in a zip with no folders or data descriptors and the
+zip64 end records. The manifest comes from the declaration:
+
+| Element | From |
+|---|---|
+| `Identity` | `Name` the app ID (3 to 50 characters), `Version` the version as four numbers (`1.2.3` is `1.2.3.0`; a pre-release or build metadata has no place in it, which tela says, and Windows updates only to a higher version), `ProcessorArchitecture` `x64`, `arm64` or `x86`, `Publisher` (below) |
+| `Properties` | `DisplayName` the name, `PublisherDisplayName` `App.Publisher` without an e-mail in angle brackets (else the name), `Logo` the store logo |
+| `Dependencies` | `Windows.Desktop` from 10.0.17763.0 (Windows 10 1809, the first with toasts for desktop apps), tested on 10.0.26100.0 |
+| `Application` | `App`, the program with `EntryPoint="Windows.FullTrustApplication"`, its tiles and description |
+| `Extensions` | a `uap:Protocol` per scheme (lowercase), a `uap:FileTypeAssociation` per MIME type the app opens (types of role `HandlerNone` have none), the toast activator: a `com:ExeServer` of the program with `-ToastActivated` and the class `ToastActivatorCLSID(AppID)`, named in `desktop:ToastNotificationActivation` (ADR-297) |
+| `Capabilities` | `runFullTrust` always, and from `App.Services`: |
+
+| Service | Capability |
+|---|---|
+| `Network` | `internetClient` |
+| `Contacts` | `uap:Capability contacts` |
+| `Calendars` | `uap:Capability appointments` |
+| `Photos` | `uap:Capability picturesLibrary` |
+| `Files` | `rescap:Capability broadFileSystemAccess` |
+| `Camera`, `Microphone`, `Location`, `Bluetooth` | `DeviceCapability` `webcam`, `microphone`, `location`, `bluetooth` |
+| `Notifications`, `Secrets`, `GlobalShortcuts` | none: desktop programs need none |
+
+Windows starts the program with the URL (for a scheme) or the file's path (for a
+file type) as its argument, as it does for an install that registered them.
+
+**The publisher.** An MSIX's `Publisher` is a distinguished name that must be
+the subject of the certificate that signs it: give it with
+`-msix-publisher "CN=Example Ltd, O=Example Ltd, C=US"`. Without the flag it is
+`CN=<App.Publisher>` (quoted when it holds `,+="<>#;`), and when `-sign` does
+not sign the package with signtool, tela adds Windows 11's mark of unsigned
+packages, `OID.2.25.311729368913984317654407730594956997722=1`, so it installs
+without a signature:
+
+```powershell
+Add-AppxPackage -AllowUnsigned .\notes-1.2.0-windows-amd64.msix
+```
+
+Such a package cannot be signed afterwards (its publisher is no certificate's
+subject): package again with `-msix-publisher` to sign.
+
+**Updates.** With `-appinstaller-url <URL>`, the URL of the folder where the
+files are published, tela also writes `<name>-windows-<arch>.appinstaller`, the
+same name for every version: its `Uri` is `<URL>/<name>-windows-<arch>.appinstaller`
+and its package's `<URL>/<name>-<version>-windows-<arch>.msix`. People install
+from it (App Installer opens it from a link or a file), and Windows checks it
+for a higher version at each start of the app (`OnLaunch` with
+`HoursBetweenUpdateChecks="0"`, without a prompt: the update found at one start
+is downloaded then, only the blocks that changed, and installed at the next
+start) and every 8 hours (`AutomaticBackgroundTask`). Publish
+the new `.msix` and the new `.appinstaller` over the old one for each release.
+App Installer installs only signed packages, and the server must send the files
+with their types (`application/msix`, `application/appinstaller`). package
+`update` reports `ErrManaged` in an MSIX install: the `.appinstaller` updates
+it. Without the flag, tela says that no `.appinstaller` was written.
+
+### Signing
+
+Linux packages have no signing tool to run: `-sign` does nothing there and says
+so. `-sign-cmd command` runs a command on each file to sign, every package file
+(and, for Windows, each program before it is packaged; for macOS, the program
+and the bundle before the zip is made): an argument `{}` is replaced by the
+file's path, else the path is added at the end. The output says `(signed)` or
+`(unsigned)` after each file; unsigned packages are written all the same.
+
+On a Mac, `-sign` runs Apple's tools for the darwin packages:
+
+```bash
+xcrun notarytool store-credentials notes --apple-id you@example.com --team-id TEAMID
+tela package -os darwin -arch universal -format app,dmg -sign \
+    -codesign-identity "Developer ID Application: Example Ltd (TEAMID)" \
+    -notary-profile notes .
+```
+
+`codesign --force --options runtime --timestamp --entitlements <name>.entitlements
+-s <identity>` signs the program, then the bundle (then `codesign --verify
+--deep --strict` checks it); a dmg is signed as a whole. With `-notary-profile`
+(the keychain profile `notarytool store-credentials` saved), `xcrun notarytool
+submit --wait` sends the bundle (in a zip) or the dmg to Apple's notary service,
+and `xcrun stapler staple` attaches the ticket once it is accepted (a rejection
+says how to read the log); the app zip is made after the stapling. Without
+`-notary-profile` the packages are signed but not notarized, and Gatekeeper
+refuses them once downloaded. `-codesign-identity -` signs ad hoc, for a local
+check of the hardened runtime. `security find-identity -v -p codesigning` lists
+your identities.
+
+On Linux or Windows there is no `codesign`: `-sign` says so and writes the
+darwin packages unsigned. [rcodesign](https://github.com/indygreg/apple-platform-rs)
+(apple-codesign) signs and notarizes on any system; run it through `-sign-cmd`,
+for example `-sign-cmd "rcodesign sign {}"`, with its own options for the
+identity. A Mac checks a package with:
+
+```bash
+ditto -x -k notes-1.2.0-darwin-universal.zip /tmp/n   # or open it in Finder
+codesign --verify --deep --strict --verbose=2 "/tmp/n/Notes.app"
+spctl --assess --type execute --verbose=2 "/tmp/n/Notes.app"   # Gatekeeper: "Notarized Developer ID"
+xcrun stapler validate "/tmp/n/Notes.app"
+```
+
+For Windows targets on a Windows machine, `-sign` runs `signtool` (from
+`PATH`, else the newest Windows SDK) on each program, after its icon and version
+information are added and before it goes into the zip and the MSIX, and on each
+MSIX once it is written:
+
+```text
+signtool sign /fd SHA256 /tr <-timestamp-url> /td SHA256 <certificate> <file>
+```
+
+| Flag | Certificate |
+|---|---|
+| `-cert-file f.pfx` | `/f f.pfx`, with `-cert-password-file f` read into `/p` (signtool takes the password on its command line) |
+| `-cert-sha1 hash` | `/sha1 hash`: the certificate of that thumbprint in the store |
+| neither | `/a`: the best certificate signtool finds in the store |
+| `-timestamp-url URL` | the RFC 3161 time-stamp server, by default `http://timestamp.digicert.com` |
+
+The zip itself is not signed by signtool; the output says that its program is.
+
+To try the signed path without a bought certificate, make a self-signed one and
+trust it for package installs (the `TrustedPeople` store of the machine, from an
+elevated PowerShell), then give its subject as the publisher:
+
+```powershell
+$c = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=Notes Test" `
+    -CertStoreLocation Cert:\CurrentUser\My -NotBefore (Get-Date).AddDays(-1)
+Export-PfxCertificate -Cert $c -FilePath test.pfx -Password (Read-Host -AsSecureString)
+Export-Certificate -Cert $c -FilePath test.cer
+Import-Certificate -FilePath test.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople
+tela package -os windows -sign -cert-file test.pfx -cert-password-file pw.txt `
+    -msix-publisher "CN=Notes Test" .
+```
+
+`-NotBefore` a day back keeps the certificate valid at the time-stamp server's
+time when the machine's clock runs ahead of it: otherwise `signtool verify /pa`
+says 0x800B0101 ("not within its validity period").
+On Linux and macOS signtool is not available, which tela says: sign with
+`-sign-cmd` and a signer that runs there, such as
+[jsign](https://ebourg.github.io/jsign/), which signs executables and MSIX
+packages in place.
 
 ## tela icons gen
 
@@ -618,6 +1025,21 @@ prints them.
 ```bash
 tela icons gen -pkg icons -o ./icons -license-file LICENSE -license ISC ./svg
 ```
+
+## tela update
+
+```text
+tela update keygen [-o file]
+tela update manifest [-m manifest.json] -version V [flags] <file>...
+tela update sign -key file [-key file...] [-o file] <manifest>
+```
+
+Make the ed25519 key that signs an app's updates, add a release to its update
+manifest from the packaged files (sizes, SHA-256 sums, targets read from the
+file names; the whole output folder of `tela package` may be given, and what
+is not a package of the release is skipped) and sign the manifest for package
+`update`. The whole flow, with `examples/notes` shipped from start to update,
+the manifest's format and its flags are on the [Updates](Updates) page.
 
 ## Debug overlays
 

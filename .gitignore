@@ -21,6 +21,7 @@ examples/*/notes.exe
 
 # Snapshots and local output
 /out/
+/dist/
 
 # Editors
 .idea/

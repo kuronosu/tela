@@ -284,12 +284,14 @@ import "github.com/kuronosu/tela"
 
 const vendor = "dev.example"
 
-var App = tela.App{Title: "Notes Demo", AppID: vendor + ".notes"}
+var App = tela.App{Title: "Notes Demo", AppID: vendor + ".notes", Schemes: []string{"notes"},
+	Services: tela.Services{Microphone: "Record memos"}}
 
 func main() { tela.Main(wrap(App)) }
 
 func wrap(a tela.App) tela.App { return a }
 `,
+		"notes/icon.svg": packageIcon,
 		"noid/main.go": `package main
 
 import "github.com/kuronosu/tela"
@@ -337,10 +339,19 @@ func main() { tela.Main(tela.App{Title: "No ID"}) }
 		"CFBundlePackageType":     "APPL",
 		"LSMinimumSystemVersion":  "13.0",
 		"NSHighResolutionCapable": true,
+		// The declaration and the icon (ADR-294).
+		"CFBundleIconFile":             "notes.icns",
+		"NSMicrophoneUsageDescription": "Record memos",
 	} {
 		if info[k] != want {
 			t.Errorf("%s = %v, want %v", k, info[k], want)
 		}
+	}
+	if urls, _ := info["CFBundleURLTypes"].(plist.Array); len(urls) != 1 {
+		t.Errorf("CFBundleURLTypes = %v", info["CFBundleURLTypes"])
+	}
+	if b, err := os.ReadFile(filepath.Join(bundle, "Contents", "Resources", "notes.icns")); err != nil || !bytes.HasPrefix(b, []byte("icns")) {
+		t.Errorf("the icon: %v", err)
 	}
 
 	// An unchanged rebuild leaves the bundle as it was.

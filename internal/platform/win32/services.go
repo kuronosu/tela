@@ -77,6 +77,8 @@ type desktopState struct {
 
 	// Toasts (toast_windows.go); notification IDs come from lastNote too.
 	toast toastState
+	// The COM toast activator (toastactivator_windows.go).
+	activator toastActivator
 }
 
 // postedMessage is a message to post later.
@@ -344,6 +346,7 @@ func (b *Backend) desktopMessage(hwnd uintptr, msg uint32, wparam, lparam uintpt
 func (b *Backend) desktopShutdown() {
 	d := &b.desk
 	d.modal, d.later = nil, nil
+	b.stopToastActivator()
 	b.toastShutdown()
 	for _, ic := range b.sortedIcons() {
 		b.deleteIcon(ic)

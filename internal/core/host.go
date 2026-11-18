@@ -79,6 +79,7 @@ type Options struct {
 // opts.Dev (with TELA_DEV) also becomes the process default of dev mode,
 // which the node constructors called outside any build check (devNow).
 func Run(opts Options) error {
+	defer crashRecover(PanicUI) // logtee.go: a panic goes to the crash reports, then on
 	runtime.LockOSThread()
 	if !devStateEnabled {
 		// The system settings the first frame needs (the portal's on
@@ -202,6 +203,8 @@ type Host struct {
 	quitters []*requestListener[QuitRequestEvent]
 	// ended: Run's loop is over, the backend must not be called.
 	ended bool
+	// firstDone: the functions of OnFirstCommit ran (logtee.go).
+	firstDone bool
 	// serial counts the windows opened (UseID prefixes of their trees).
 	serial int
 	// uiG is the UI thread's goroutine in dev mode (0 otherwise), for the
@@ -267,7 +270,7 @@ func NewHost(b platform.Backend, opts Options) (*Host, error) {
 	// animations its first builds start (UseSpring) wait for it instead
 	// of jumping to their targets as in a tree without a clock (Render).
 	t.anim.driven = true
-	h := &Host{backend: b, win: win, tree: t, log: errorLog(opts.ErrorLog), appID: opts.AppID, onClose: opts.OnClose, onQuit: opts.OnQuit, services: b.Desktop()}
+	h := &Host{backend: b, win: win, tree: t, log: hostLog(errorLog(opts.ErrorLog)), appID: opts.AppID, onClose: opts.OnClose, onQuit: opts.OnQuit, services: b.Desktop()}
 	if t.dev {
 		h.uiG = goid()
 	}
@@ -307,8 +310,9 @@ func (h *Host) Presents() int { return h.main.presents }
 func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 	h.handle(w, e)
 	h.commitPaused()
-	h.releaseEarly() // desktop.go: app-scoped events from before the first commit
-	h.syncAccess()   // access.go: the accessibility bridges' updates
+	h.releaseEarly()       // desktop.go: app-scoped events from before the first commit
+	h.releaseFirstCommit() // logtee.go: the functions of OnFirstCommit
+	h.syncAccess()         // access.go: the accessibility bridges' updates
 }
 
 // handle handles one event of the backend.

@@ -141,6 +141,12 @@ type queuedEvent struct {
 
 var _ platform.Handler = (*Host)(nil)
 
+// devHostBackend is a backend that writes the running executable into OS
+// registrations (Win32: the COM toast activator, ADR-297). Under tela dev
+// that executable is tela's, not the app's, so NewHost tells it to skip
+// them; it keeps serving the app's notifications.
+type devHostBackend interface{ SetDevHost() }
+
 // NewHost starts listening for children on opts.Addr. b is the backend of
 // the real windows; NewHost must be called on its UI thread, before Run or
 // from its handler. An invalid opts.Scale panics.
@@ -158,6 +164,9 @@ func NewHost(b platform.Backend, opts HostOptions) (*Host, error) {
 	ln, err := net.Listen("unix", addr)
 	if err != nil {
 		return nil, fmt.Errorf("remote: listen: %w", err)
+	}
+	if d, ok := b.(devHostBackend); ok {
+		d.SetDevHost()
 	}
 	h := &Host{
 		b:         b,

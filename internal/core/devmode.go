@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"runtime/debug"
 	"strings"
@@ -94,7 +95,9 @@ func configDev(dev bool) bool {
 // goroutine when the log functions are.
 func (t *Tree) warnf(format string, args ...any) {
 	if t.warn != nil {
-		t.warn(fmt.Sprintf(format, args...))
+		msg := fmt.Sprintf(format, args...)
+		t.warn(msg)
+		tee(slog.LevelWarn, msg)
 	}
 }
 
@@ -122,7 +125,9 @@ func (t *Tree) once(key string) bool {
 // this tree (once). Safe from any goroutine.
 func (t *Tree) warnOnce(key string, msg func() string) {
 	if t.warn != nil && t.once(key) {
-		t.warn(msg())
+		m := msg()
+		t.warn(m)
+		tee(slog.LevelWarn, m)
 	}
 }
 

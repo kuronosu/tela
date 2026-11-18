@@ -697,7 +697,8 @@
 // documented quirk). Its notifications are WinRT toasts with actions
 // (combase, Windows 10 1809 and later, ADR-235), else NIF_INFO balloons
 // without actions (a click is NotificationActivated, a timeout or
-// dismissal NotificationClosed).
+// dismissal NotificationClosed). A toast clicked after the app exited
+// starts it through a COM activator (contract v15, ADR-297).
 //
 // Phase 13 (ADR-209, ADR-210) adds drag and drop, clipboard data, native
 // menus, global shortcuts, system settings v2, secrets, single instance,
@@ -777,6 +778,15 @@
 // implement it, except transparent ones, ones with a client-area backdrop
 // and TitleBarOverlay ones, which report that they cannot. Present is as
 // it was, and the remote protocol is unchanged.
+//
+// Contract v15 (ADR-297) adds [NotificationEvent].Earlier: a click on a
+// notification an earlier process of the app showed. Win32 registers a
+// COM toast activator, so a toast clicked in the Action Center after the
+// app exited starts it, and the click arrives as the NotificationEvent it
+// would have been, marked Earlier (its ID is the earlier process's). A
+// click on a toast of this process reaches both the toast's delegate and
+// the activator; it is reported once. Remote protocol 16 carries the
+// field.
 //
 // # Drag and drop and the clipboard
 //

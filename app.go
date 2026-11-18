@@ -57,6 +57,38 @@ type App struct {
 	// Wayland app_id, the X11 WM_CLASS). Use a reverse-DNS name such as
 	// "com.example.notes". Empty lets the platform pick one.
 	AppID string
+	// Publisher is who publishes the app: a person or a company. It is
+	// the MSIX publisher name, the CompanyName of the Windows
+	// executable's version info and the vendor of the Linux metadata.
+	// This field and the next ones up to Services are the app's
+	// declaration (ADR-294): tela build and tela package read them from
+	// the source without running the program, so each must be a constant
+	// (a literal, a constant or a concatenation of them), and Run ignores
+	// them.
+	Publisher string
+	// Description is a sentence that says what the app does: the .desktop
+	// file's Comment and the AppStream summary, the MSIX description and
+	// the Windows executable's FileDescription.
+	Description string
+	// Category is the app's main category, one of the freedesktop.org
+	// main categories ("Utility", "Office", "Development", "Graphics",
+	// "AudioVideo", "Network", "Game", "Education", "Science", "System",
+	// "Settings"). It is the .desktop file's Categories, macOS's
+	// LSApplicationCategoryType and the MSIX category.
+	Category string
+	// Schemes are the URL schemes the app opens, without ':' ("notes" for
+	// notes:open?id=3): CFBundleURLTypes in the Info.plist, the .desktop
+	// file's MimeType (x-scheme-handler/...), the MSIX manifest's
+	// protocols. A standard scheme (http, mailto...) panics in dev mode.
+	Schemes []string
+	// FileTypes are the file types the app opens; see [FileType]. They go
+	// to the Info.plist's CFBundleDocumentTypes, the MSIX manifest's file
+	// type associations and a MIME package on Linux.
+	FileTypes []FileType
+	// Services are the parts of the system the app uses: the Info.plist's
+	// usage strings and the macOS entitlements, the MSIX capabilities and
+	// the flatpak permissions; see [Services].
+	Services Services
 	// Width and Height are the requested size of the window in logical
 	// pixels. Zero means the platform's default size; set both or
 	// neither.
@@ -352,11 +384,15 @@ type DevState struct {
 // macOS 13 or later; [Window] components open more windows.
 //
 // Run returns an error when the platform cannot open a window (for
-// example, no display is available). It panics when app.Root is nil.
+// example, no display is available). It panics when app.Root is nil, and
+// in dev mode when App.Schemes or App.FileTypes has a malformed entry.
 // [Main] runs it and handles the error.
 func Run(app App) error {
 	if app.Root == nil {
 		panic("tela: Run(App{...}) needs a Root component; for example tela.Run(tela.App{Title: \"Demo\", Root: tela.C(Counter)}) where Counter is a func() tela.Node, or Root: Counter{} for a struct component with a Build method")
+	}
+	if core.ResolveDev(app.Dev) {
+		app.checkDeclaration()
 	}
 	return core.Run(app.options())
 }

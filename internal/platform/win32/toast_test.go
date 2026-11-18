@@ -70,28 +70,123 @@ func TestToastAUMID(t *testing.T) {
 }
 
 func TestToastArguments(t *testing.T) {
+	run := toastRun(time.Unix(1763337600, 5))
 	for _, tc := range []struct {
-		id     platform.NotificationID
-		action string
-		want   string
+		id          platform.NotificationID
+		run, action string
+		want        string
 	}{
-		{3, "", "tela-notification=3"},
-		{3, "save", "tela-notification=3&action=save"},
-		{4294967295, "a&b=c d", "tela-notification=4294967295&action=a%26b%3Dc+d"},
+		{3, "", "", "tela-notification=3"},
+		{3, "", "save", "tela-notification=3&action=save"},
+		{3, run, "", "tela-notification=3&run=" + run},
+		{3, run, "save", "tela-notification=3&run=" + run + "&action=save"},
+		{4294967295, "a b", "a&b=c d", "tela-notification=4294967295&run=a+b&action=a%26b%3Dc+d"},
 	} {
-		got := toastArguments(tc.id, tc.action)
+		got := toastArguments(tc.id, tc.run, tc.action)
 		if got != tc.want {
-			t.Errorf("toastArguments(%d, %q) = %q, want %q", tc.id, tc.action, got, tc.want)
+			t.Errorf("toastArguments(%d, %q, %q) = %q, want %q", tc.id, tc.run, tc.action, got, tc.want)
 		}
-		id, action, ok := parseToastArguments(got)
-		if !ok || id != tc.id || action != tc.action {
-			t.Errorf("parseToastArguments(%q) = %d, %q, %v", got, id, action, ok)
+		id, r, action, ok := parseToastArguments(got)
+		if !ok || id != tc.id || r != tc.run || action != tc.action {
+			t.Errorf("parseToastArguments(%q) = %d, %q, %q, %v", got, id, r, action, ok)
 		}
 	}
-	for _, s := range []string{"", "default", "action=x", "tela-notification=0", "tela-notification=x", "tela-notification=1;%zz"} {
-		if _, _, ok := parseToastArguments(s); ok {
+	for _, s := range []string{"", "default", "action=x", "run=x", "tela-notification=0", "tela-notification=x", "tela-notification=1;%zz"} {
+		if _, _, _, ok := parseToastArguments(s); ok {
 			t.Errorf("parseToastArguments(%q) ok, want refused", s)
 		}
+	}
+}
+
+// TestActivationEvent maps the arguments a COM activation brings: a toast
+// of this run is reported as its delegate would (not Earlier, thisRun so
+// the caller reports it once), any other run's, or arguments without a
+// run (an earlier Tela), as Earlier.
+func TestActivationEvent(t *testing.T) {
+	now, before := toastRun(time.Unix(1763337600, 0)), toastRun(time.Unix(1763337000, 0))
+	type out struct {
+		ev          platform.NotificationEvent
+		thisRun, ok bool
+	}
+	for _, tc := range []struct {
+		name, args string
+		want       out
+	}{
+		{"this run's body", toastArguments(2, now, ""), out{platform.NotificationEvent{ID: 2, Kind: platform.NotificationActivated}, true, true}},
+		{"this run's button", toastArguments(2, now, "1"), out{platform.NotificationEvent{ID: 2, Kind: platform.NotificationActionInvoked, Action: "1"}, true, true}},
+		{"earlier body", toastArguments(2, before, ""), out{platform.NotificationEvent{ID: 2, Kind: platform.NotificationActivated, Earlier: true}, false, true}},
+		{"earlier button", toastArguments(5, before, "save"), out{platform.NotificationEvent{ID: 5, Kind: platform.NotificationActionInvoked, Action: "save", Earlier: true}, false, true}},
+		{"no run", toastArguments(2, "", ""), out{platform.NotificationEvent{ID: 2, Kind: platform.NotificationActivated, Earlier: true}, false, true}},
+		{"foreign", "something", out{}},
+		{"empty", "", out{}},
+	} {
+		ev, thisRun, ok := activationEvent(tc.args, now)
+		if got := (out{ev, thisRun, ok}); got != tc.want {
+			t.Errorf("%s: activationEvent(%q) = %+v, want %+v", tc.name, tc.args, got, tc.want)
+		}
+	}
+}
+
+// TestRegisterToastActivator checks the registry the activator writes
+// beside the AUMID: the local server under Tela's marker, the AUMID's
+// CustomActivator, nothing when nothing changed, the command again when
+// the executable moved, and an installer's CLSID key left as it is.
+func TestRegisterToastActivator(t *testing.T) {
+	reg := &assoc.MemRegistry{}
+	const aumid = "dev.telaui.notes"
+	clsid := assoc.ToastActivatorCLSID(aumid)
+	if _, _, err := registerAUMID(reg, aumid, "notes", ""); err != nil {
+		t.Fatal(err)
+	}
+	cmd := toastServerCommand(`C:\Program Files\Notes\notes.exe`)
+	if cmd != `"C:\Program Files\Notes\notes.exe" -ToastActivated` {
+		t.Errorf("toastServerCommand = %s", cmd)
+	}
+	changed, err := registerToastActivator(reg, aumid, clsid, cmd)
+	if err != nil || !changed {
+		t.Fatalf("first registration: changed %v, err %v", changed, err)
+	}
+	server := clsidKeyPrefix + "{" + clsid + "}"
+	want := strings.Join([]string{
+		aumidKeyPrefix + aumid + `\` + customActivatorValue + "={" + clsid + "}",
+		aumidKeyPrefix + aumid + `\DisplayName=notes`,
+		aumidKeyPrefix + aumid + `\` + aumidMarker + "=1",
+		server + `\LocalServer32\=` + cmd,
+		server + `\` + aumidMarker + "=1",
+	}, "\n")
+	if got := reg.Dump(); got != want {
+		t.Errorf("registry:\n%s\nwant:\n%s", got, want)
+	}
+	writes := reg.Writes()
+	if changed, err := registerToastActivator(reg, aumid, clsid, cmd); changed || err != nil || reg.Writes() != writes {
+		t.Errorf("same registration again: changed %v, err %v, %d writes", changed, err, reg.Writes()-writes)
+	}
+	moved := toastServerCommand(`D:\Apps\Notes\notes.exe`)
+	if changed, err := registerToastActivator(reg, aumid, clsid, moved); !changed || err != nil || reg.Writes() != writes+1 {
+		t.Errorf("moved executable: changed %v, err %v, %d writes", changed, err, reg.Writes()-writes)
+	}
+	if v, _, _ := reg.String(server+`\LocalServer32`, ""); v != moved {
+		t.Errorf("LocalServer32 = %q after the move, want %q", v, moved)
+	}
+
+	// An installer registered the server itself: its key is left alone,
+	// and the AUMID still names the CLSID.
+	reg = &assoc.MemRegistry{}
+	_ = reg.SetString(server+`\LocalServer32`, "", `"C:\Notes\notes.exe" -ToastActivated -fromInstaller`)
+	if _, _, err := registerAUMID(reg, aumid, "notes", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := registerToastActivator(reg, aumid, clsid, cmd); err != nil {
+		t.Fatal(err)
+	}
+	if v, _, _ := reg.String(server+`\LocalServer32`, ""); !strings.HasSuffix(v, "-fromInstaller") {
+		t.Errorf("an installer's LocalServer32 was replaced by %q", v)
+	}
+	if names, _ := reg.ValueNames(server); len(names) != 0 {
+		t.Errorf("an installer's CLSID key got values %v", names)
+	}
+	if v, _, _ := reg.String(aumidKeyPrefix+aumid, customActivatorValue); v != "{"+clsid+"}" {
+		t.Errorf("CustomActivator = %q", v)
 	}
 }
 
@@ -124,12 +219,12 @@ func parseToast(t *testing.T, s string) toastDoc {
 
 func TestToastXML(t *testing.T) {
 	c := toastContent{
-		ID: 7, Title: `Fish & "Chips" <now>`, Body: "line one\nline two\x01", Image: "file:///C:/t/a%20b.png",
+		ID: 7, Run: "kx3j9a", Title: `Fish & "Chips" <now>`, Body: "line one\nline two\x01", Image: "file:///C:/t/a%20b.png",
 		Actions: []platform.NotificationAction{{ID: "open", Label: "Open & see"}, {ID: "x&y", Label: ""}},
 	}
 	s := c.xml()
 	d := parseToast(t, s)
-	if d.Launch != "tela-notification=7" || d.Binding.Template != "ToastGeneric" {
+	if d.Launch != "tela-notification=7&run=kx3j9a" || d.Binding.Template != "ToastGeneric" {
 		t.Errorf("launch %q, template %q", d.Launch, d.Binding.Template)
 	}
 	if want := []string{`Fish & "Chips" <now>`, "line one\nline two\uFFFD"}; strings.Join(d.Binding.Texts, "|") != strings.Join(want, "|") {
@@ -138,8 +233,8 @@ func TestToastXML(t *testing.T) {
 	if len(d.Binding.Images) != 1 || d.Binding.Images[0].Placement != "appLogoOverride" || d.Binding.Images[0].Src != c.Image {
 		t.Errorf("images = %+v", d.Binding.Images)
 	}
-	if len(d.Actions) != 2 || d.Actions[0].Content != "Open & see" || d.Actions[0].Arguments != "tela-notification=7&action=open" ||
-		d.Actions[1].Content != "x&y" || d.Actions[1].Arguments != toastArguments(7, "x&y") {
+	if len(d.Actions) != 2 || d.Actions[0].Content != "Open & see" || d.Actions[0].Arguments != "tela-notification=7&run=kx3j9a&action=open" ||
+		d.Actions[1].Content != "x&y" || d.Actions[1].Arguments != toastArguments(7, "kx3j9a", "x&y") {
 		t.Errorf("actions = %+v", d.Actions)
 	}
 

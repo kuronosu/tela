@@ -11,27 +11,15 @@
 
 ## Current status
 
-- **Done:** phases 1–25. Latest version `v0.14.6` (2026-11-17, dev-loop work between phases, ADR-290 to ADR-293; the tag waits for the owner to push). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch; the owner may release a small break, such as a rename, as a patch.
-- **Phase in progress:** none. Everything is merged into `main` locally; the owner pushes `main` and the tags `v0.14.5` and `v0.14.6`.
+- **Done:** phases 1–26. Latest version `v0.14.7` (2026-11-17, phase 26: Packaging and auto-update, ADR-294 to ADR-297; the tag waits for the owner to push). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch; the owner may release a small break, such as a rename, as a patch.
+- **Phase in progress:** none. Phase 26 is merged into `main` locally; the owner pushes `main` and the tags `v0.14.5`, `v0.14.6` and `v0.14.7`.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** the next phase in order, Packaging and auto-update. The GPU backend's Windows code has never run: its live check needs a Windows machine with a GPU. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** the next phase in order, App building blocks. Phase 26's Mac checks wait for a macOS CI run or a Mac (`docs/LIMITATIONS.md`). The GPU backend's Windows code has never run: its live check needs a Windows machine with a GPU. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` takes about 15 minutes in one process (2026-11-09; run it with `-timeout 30m`, or shard it; longer since phase 24's `TELA_CHECK_SEMANTICS` and `TELA_CHECK_LAYOUT` are on in core's tests), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
 
-In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–25 are done (HISTORY.md).
-
-### Packaging and auto-update
-
-- [ ] `tela build` / `tela package`: installers and bundles (`.msi`/MSIX, `.app`/`.dmg` on the development bundle of the macOS desktop phase, AppImage, flatpak, `.deb`), icons, metadata, code-signing hooks (macOS notarization needs an Apple developer account); a signed bundle's `Info.plist` cannot be edited at run time, so a packaged Mac app declares its schemes and file types at build time (`assoc` refuses to edit a signed bundle, ADR-228)
-- [ ] Windows targets are GUI programs by default (`-H=windowsgui`, no console window next to the app; ADR-127), with panics and the app's log written to a file in its data directory, since a GUI program has no standard output
-- [ ] Auto-update: signed manifests, delta or full downloads, atomic replace, rollback
-- [ ] A toast clicked after the app exited starts it (a COM activator registered with `ToastActivatorCLSID`, ADR-235); today it only dismisses the toast
-- [ ] Crash reporting hook and structured logging
-- [ ] One declaration of the app (ID, name, icons, URL schemes, file types, the services it uses) generates each package's metadata: `Info.plist` and entitlements with usage strings, the flatpak permissions, the MSIX manifest
-- [ ] Update channels (stable, beta), phased rollout to a share of installs, an activation policy (on the next start, when the app decides, at once) and an end-of-support message for versions that can no longer update
-
-**Done when:** a sample app is packaged for three platforms from one command and updates itself from a signed manifest.
+In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–26 are done (HISTORY.md).
 
 ### App building blocks
 

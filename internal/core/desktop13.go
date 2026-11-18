@@ -32,26 +32,43 @@ type RunStart struct {
 
 var runStart struct {
 	mu sync.Mutex
-	fs []func(RunStart) bool
+	// first are OnRunStartFirst's, fs OnRunStart's.
+	first, fs []func(RunStart) bool
 }
 
 // OnRunStart registers f to run in Run after the backend exists and
 // before the main window opens (package desktop claims the single
 // instance there). f returns false to end Run at once with a nil error,
 // opening nothing: the process is a second instance that forwarded its
-// launch. Process-wide; safe from any goroutine. telatest does not run
-// these functions (it does not call Run).
+// launch. Run then returns without the OnRunEnd functions, so a function
+// that starts something OnRunEnd ends (desktop's crash capture) is
+// registered after the ones that may return false. The functions run in
+// the order of registration, after OnRunStartFirst's. Process-wide; safe
+// from any goroutine. telatest does not run these functions (it does not
+// call Run).
 func OnRunStart(f func(RunStart) bool) {
 	runStart.mu.Lock()
 	defer runStart.mu.Unlock()
 	runStart.fs = append(runStart.fs, f)
 }
 
-// runStartHooks runs the functions given to OnRunStart, in order, until
-// one returns false.
+// OnRunStartFirst registers f as OnRunStart does, to run before every
+// function given to OnRunStart, whatever the order of registration (the
+// packages above desktop are initialized after it): package update rolls
+// back a version on trial there and starts the old one in its place,
+// before package desktop claims the single instance, which the old
+// version must find free. They run in the order of registration.
+func OnRunStartFirst(f func(RunStart) bool) {
+	runStart.mu.Lock()
+	defer runStart.mu.Unlock()
+	runStart.first = append(runStart.first, f)
+}
+
+// runStartHooks runs the functions given to OnRunStartFirst, then those
+// given to OnRunStart, in order, until one returns false.
 func runStartHooks(rs RunStart) bool {
 	runStart.mu.Lock()
-	fs := slices.Clone(runStart.fs)
+	fs := slices.Concat(runStart.first, runStart.fs)
 	runStart.mu.Unlock()
 	for _, f := range fs {
 		if !f(rs) {

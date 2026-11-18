@@ -16,7 +16,8 @@
 //     differ. The keys Spec manages are set from it; every other key is kept,
 //     including the ones a running app added (CFBundleURLTypes and
 //     CFBundleDocumentTypes, written by the registration of URL schemes and
-//     file types) and the ones Spec.Extra sets.
+//     file types); of the keys of Spec.Owned, only the entries registration
+//     marked are kept (see there).
 //   - The executable is replaced only when its bytes differ, by writing a
 //     temporary file and renaming it over the old one, so an instance that is
 //     still running keeps its own file (overwriting a running Mach-O in place
@@ -35,7 +36,10 @@
 // Info.plist later without invalidating anything. A bundle written here is
 // therefore a development bundle: fine to run on the machine that built it,
 // not signed with a developer identity, not notarized, and without the seal
-// a distributed app needs. Signing and notarization belong to packaging.
+// a distributed app needs. Signing and notarization belong to tela package
+// (cmd/tela/internal/pkgfmt, ADR-295). A universal executable ([Universal])
+// keeps the signature of each slice, since the slices are copied byte for
+// byte.
 package appbundle
 
 import (
@@ -47,6 +51,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/kuronosu/tela/internal/plist"
@@ -74,9 +79,19 @@ type Spec struct {
 	BuildVersion string
 	// MinSystem is LSMinimumSystemVersion (default [MinSystemVersion]).
 	MinSystem string
-	// Extra holds more Info.plist keys, set after the ones above, for the
-	// packaging phase (CFBundleIconFile, LSApplicationCategoryType, ...).
+	// Extra holds more Info.plist keys, set after the ones above: the ones
+	// of the app's declaration (CFBundleIconFile, CFBundleURLTypes,
+	// LSApplicationCategoryType, ...).
 	Extra plist.Dict
+	// Owned names keys that Write manages although Extra may lack them: a
+	// key of Owned that Extra does not set is removed from an existing
+	// Info.plist (the declaration no longer has it). For an owned key whose
+	// value is an array (CFBundleURLTypes, CFBundleDocumentTypes, the type
+	// declarations), the entries that the registration of a running app
+	// added (marked TelaRegistered, ADR-228) are kept after the new ones,
+	// unless a new entry declares the same scheme, content type or type
+	// identifier: the declaration now covers it.
+	Owned []string
 	// Resources maps a path inside Contents/Resources (slash-separated) to
 	// the file whose contents go there.
 	Resources map[string]string
@@ -215,6 +230,32 @@ func Write(dir string, spec Spec, exe string) (Result, error) {
 	case !errors.Is(err, fs.ErrNotExist):
 		return res, err
 	}
+	// What the owned arrays declare now: a registered entry of any of
+	// them that declares one of these is dropped.
+	taken := map[string]bool{}
+	for _, k := range spec.Owned {
+		a, _ := info[k].(plist.Array)
+		for _, v := range a {
+			for _, s := range declares(v) {
+				taken[s] = true
+			}
+		}
+	}
+	for _, k := range spec.Owned {
+		kept := registered(merged[k], taken)
+		a, ok := info[k].(plist.Array)
+		switch {
+		case ok && len(kept) > 0:
+			info[k] = append(slices.Clone(a), kept...)
+		case ok:
+		case len(kept) > 0:
+			if _, set := info[k]; !set {
+				info[k] = kept
+			}
+		default:
+			delete(merged, k)
+		}
+	}
 	for k, v := range info {
 		merged[k] = v
 	}
@@ -291,6 +332,51 @@ func Write(dir string, spec Spec, exe string) (Result, error) {
 		}
 	}
 	return res, nil
+}
+
+// RegisteredKey marks the Info.plist entries that the registration of a
+// running app wrote (internal/platform/assoc, ADR-228).
+const RegisteredKey = "TelaRegistered"
+
+// registered returns the entries of old (an array of dictionaries, or
+// anything else) that registration marked and that declare nothing taken
+// holds.
+func registered(old any, taken map[string]bool) plist.Array {
+	a, _ := old.(plist.Array)
+	var out plist.Array
+	for _, v := range a {
+		e, ok := v.(plist.Dict)
+		if mark, _ := e[RegisteredKey].(bool); !ok || !mark {
+			continue
+		}
+		if !slices.ContainsFunc(declares(e), func(s string) bool { return taken[s] }) {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// declares returns what an entry declares, lowercased: its URL schemes,
+// content types and type identifier.
+func declares(v any) []string {
+	e, _ := v.(plist.Dict)
+	var out []string
+	add := func(x any) {
+		switch x := x.(type) {
+		case string:
+			out = append(out, strings.ToLower(x))
+		case plist.Array:
+			for _, s := range x {
+				if s, ok := s.(string); ok {
+					out = append(out, strings.ToLower(s))
+				}
+			}
+		}
+	}
+	add(e["CFBundleURLSchemes"])
+	add(e["LSItemContentTypes"])
+	add(e["UTTypeIdentifier"])
+	return out
 }
 
 // writeAtomic writes r to path through a temporary file in the same folder

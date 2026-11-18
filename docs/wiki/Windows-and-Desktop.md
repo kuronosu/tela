@@ -382,9 +382,20 @@ if err != nil {
 ```
 
 The callbacks run on the UI thread. `Notify` returns the `ShownNotification`
-(`Close()` withdraws it; its callbacks are not called any more). **Windows shows
-no action buttons** (its notifications are balloons for now), so keep every action
-reachable from the app too; `OnClick` and `OnClose` work.
+(`Close()` withdraws it; its callbacks are not called any more). On Windows 10
+1809 and later a notification is a toast with its actions as buttons; older
+Windows shows balloons without buttons, so keep every action reachable from the
+app too.
+
+The callbacks live as long as the process. On Windows a toast stays in the Action
+Center after the app exits, and clicking it there starts the app again (through a
+COM activator Tela registers for the current user with the app's ID; an MSIX
+package declares it instead). The app starts as it always does: COM starts
+it with `-ToastActivated` (and may add `-Embedding`), and Tela removes both from
+`os.Args` before `main` runs, so an app that parses flags never sees them; the
+earlier run's callbacks are not called. While
+the app runs, a click on an old toast reaches the running process and starts
+nothing.
 
 ## The tray
 
@@ -490,6 +501,35 @@ folder or a setting (`PersistApp` does it for you). The `TELA_DESKTOP_DIR` envir
 variable (`desktop.DirEnv`) moves every folder under one directory, for tests and
 portable installs.
 
+## Logs and crash reports
+
+`desktop.Logger()` is the app's `log/slog` logger. It writes JSON lines to
+`LogDir()/<app ID>.log`, opening the file on the first record and rotating it at 5 MB (three
+old files are kept: `.log.1` to `.log.3`), and text to the standard error when the process
+has one. A Windows GUI program (`-ldflags=-H=windowsgui`) has none, so the file is its log.
+`desktop.SetLogLevel(slog.LevelDebug)` changes the level (Info at first). Tela's own dev
+warnings and logged errors are written to the file too, marked `component=tela`.
+
+```go
+desktop.SetAppID("com.example.notes")
+desktop.Logger().Info("note saved", "id", note.ID)
+```
+
+A release build (dev mode off) also writes **crash reports**: a panic on the UI thread
+(handlers, builds, effects, `tela.Post`) or in a `UseGo` goroutine, and a fatal error of the
+Go runtime, produce `LogDir()/crash-<UTC time>.txt` with the version, OS and stack, and the
+program still crashes as before. On the next start, after the first frame, `desktop.OnCrash`
+receives each report not handled yet, once, on the UI thread; the report is then renamed
+`.handled`. Tela sends nothing: the callback decides.
+
+```go
+desktop.OnCrash(func(c desktop.Crash) {
+    // c.Time, c.Version, c.Report (the text), c.Path
+    offerToSend(c.Report)
+})
+tela.Main(app)
+```
+
 ## When a service is missing
 
 Not every desktop has every service. A minimal Linux session has no XDG Desktop Portal
@@ -520,7 +560,7 @@ freedesktop D-Bus services; on macOS the desktop services are the next phase and
 |---|---|---|
 | File dialogs | Portal `FileChooser` (the `xdg-desktop-portal` service with a backend such as `xdg-desktop-portal-gtk`, `-kde`, `-gnome` or `-wlr`; minimal sessions and containers often lack it); `ErrUnsupported` without a portal, and there is no fallback dialog. On Wayland the dialog is not parented to the window (no exported handle yet) | Common item dialogs |
 | Message boxes | Drawn by Tela (modal window) | The OS's (`MessageBoxW`) |
-| Notifications | `org.freedesktop.Notifications`, with actions | Balloons: no action buttons; each one adds a notification-area icon while it lives |
+| Notifications | `org.freedesktop.Notifications`, with actions | Toasts with actions (Windows 10 1809 and later); a click after the app exited starts it. Before 1809, balloons without buttons, each adding a notification-area icon while it lives |
 | Tray | StatusNotifierItem; `ErrUnsupported` on GNOME without the AppIndicator extension | `Shell_NotifyIconW`; icons are not redrawn on DPI changes |
 | Window position | Wayland: cannot be set or restored without session restore. X11: yes | Yes |
 | Always on top | Not on Wayland | Yes |
