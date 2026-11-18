@@ -8,7 +8,6 @@ import (
 	"image/color"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -300,6 +299,9 @@ func TestLiveToastActivator(t *testing.T) {
 		if got != wantEvent {
 			t.Errorf("the process COM started reported %s, want %s (its command line: %s)", got, wantEvent, cmdline)
 		}
+		if strings.Contains(cmdline, assoc.ToastActivatorFlag) || strings.Contains(strings.ToLower(cmdline), "embedding") {
+			t.Errorf("the app saw COM's flags on its command line: %s", cmdline)
+		}
 		return
 	}
 	t.Errorf("no process reported the click within 60 s (COM runs: %s)", want)
@@ -311,12 +313,13 @@ func TestLiveToastActivator(t *testing.T) {
 // click, and writes the NotificationEvents and its command line to the
 // file named after the flag.
 func TestLiveToastActivatedChild(t *testing.T) {
+	// init removed the activator's flags from the command line, which
+	// leaves the result file after "--".
 	args := flag.Args()
-	i := slices.Index(args, assoc.ToastActivatorFlag)
-	if i < 0 || i+1 >= len(args) {
+	if !startedByToast || len(args) != 1 {
 		t.Skip("started by COM for TestLiveToastActivator only")
 	}
-	result := args[i+1]
+	result := args[0]
 	b, err := New()
 	if err != nil {
 		t.Fatalf("New: %v", err)

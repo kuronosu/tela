@@ -2063,7 +2063,7 @@ desktop.Notify(desktop.Notification{
 
 Call it on the UI thread (a handler, an effect; from a goroutine, wrap it in tela.Post). The error says the notification could not be shown: no running app, or no notification service (errors.Is(err, [`ErrUnsupported`](#variables))), where the app should show the news itself. Tests read the notifications with telatest's App.Notifications and click them with App.ClickNotification.
 
-The callbacks live as long as the process. On Windows a notification stays in the Action Center after the app exits, and clicking it there starts the app again (its main window opens as at any start; while a process of the app runs, the click reaches it instead): the process started so has "-ToastActivated" on its command line, and COM may add "-Embedding", so an app that parses flags must accept them. The callbacks of the earlier run are not called.
+The callbacks live as long as the process. On Windows a notification stays in the Action Center after the app exits, and clicking it there starts the app again (its main window opens as at any start; while a process of the app runs, the click reaches it instead): the process started so gets "-ToastActivated" from COM, which may add "-Embedding", and Tela removes both from os.Args before main runs, so an app that parses its flags never sees them. The callbacks of the earlier run are not called.
 
 **Example**
 

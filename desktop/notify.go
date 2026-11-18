@@ -85,9 +85,10 @@ func (n ShownNotification) Close() error {
 // stays in the Action Center after the app exits, and clicking it there
 // starts the app again (its main window opens as at any start; while a
 // process of the app runs, the click reaches it instead): the process
-// started so has "-ToastActivated" on its command line, and COM may add
-// "-Embedding", so an app that parses flags must accept them. The
-// callbacks of the earlier run are not called.
+// started so gets "-ToastActivated" from COM, which may add "-Embedding",
+// and Tela removes both from os.Args before main runs, so an app that
+// parses its flags never sees them. The callbacks of the earlier run are
+// not called.
 func Notify(n Notification) (ShownNotification, error) {
 	if n.Title == "" {
 		panic("desktop.Notify: the Notification has no Title; give it a short summary, such as desktop.Notification{Title: \"Export finished\", Body: \"notes.pdf was saved.\"}")

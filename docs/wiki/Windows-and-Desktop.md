@@ -390,9 +390,10 @@ app too.
 The callbacks live as long as the process. On Windows a toast stays in the Action
 Center after the app exits, and clicking it there starts the app again (through a
 COM activator Tela registers for the current user with the app's ID; an MSIX
-package declares it instead). The app starts as it always does, with
-`-ToastActivated` on its command line (COM may add `-Embedding`), so an app that
-parses flags must accept them; the earlier run's callbacks are not called. While
+package declares it instead). The app starts as it always does: COM starts
+it with `-ToastActivated` (and may add `-Embedding`), and Tela removes both from
+`os.Args` before `main` runs, so an app that parses flags never sees them; the
+earlier run's callbacks are not called. While
 the app runs, a click on an old toast reaches the running process and starts
 nothing.
 

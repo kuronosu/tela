@@ -42,7 +42,9 @@ import (
 //     declares the server. Neither is anything written by tela dev's host
 //     (SetDevHost): its executable is tela's, not the app's.
 //   - Starting. COM runs the command with -ToastActivated (and may append
-//     -Embedding); the app starts as it always does, its main window
+//     -Embedding), which this package's init removes from os.Args before
+//     the app's main runs (toastargs_windows.go); the app starts as it
+//     always does, its main window
 //     opens, and Run registers the class object, which COM then calls. The
 //     NotificationEvent is app-scoped, so core holds it until the main
 //     window's first commit (ADR-253). While a process of the app runs,
@@ -50,8 +52,7 @@ import (
 //     desktop.SingleInstance no second process is started at all. The one
 //     exception is the moment between a process's start and its Run, when
 //     nothing is registered yet: COM then starts another process, which
-//     (as a second instance) forwards its launch, -ToastActivated in its
-//     arguments, and exits before it registers, so the click raises the
+//     (as a second instance) forwards its launch and exits before it registers, so the click raises the
 //     running app's window and its NotificationEvent is lost.
 //   - Threads. The class object lives in the UI thread's single-threaded
 //     apartment (initCOM), so COM calls Activate on the UI thread through
