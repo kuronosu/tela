@@ -7,6 +7,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -169,8 +170,18 @@ func MacOS(ls LaunchServices) platform.Associations {
 
 // systemTempDirs are the temporary folders whose bundles Launch Services
 // ignores: os.TempDir() ($TMPDIR, a folder of /var/folders) and every
-// per-user folder of /private/var/folders.
-func systemTempDirs() []string { return []string{os.TempDir(), "/private/var/folders"} }
+// per-user folder of /private/var/folders. os.TempDir() counts on a Mac
+// only: elsewhere the macOS logic runs on a fake Launch Services (tests,
+// on every OS), and the host's temporary folder (%TEMP% on Windows, /tmp
+// on Linux) is not one Launch Services ever sees. On Windows it is not
+// even named by $TMPDIR, so a test's t.TempDir() bundle would be refused
+// with no way to move the folder aside as the tests do on a Mac.
+func systemTempDirs() []string {
+	if runtime.GOOS != "darwin" {
+		return []string{"/private/var/folders"}
+	}
+	return []string{os.TempDir(), "/private/var/folders"}
+}
 
 // nativeLaunchServices returns the real Launch Services; set on darwin
 // only (launchservices_darwin.go).
