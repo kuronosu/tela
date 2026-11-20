@@ -61,6 +61,41 @@ func Buffer() tela.Node {
 	}
 }
 
+// A directive in the buffer silences the finding below it: whether the
+// comment stands alone on its line is read from the buffer, not from the
+// disk's file (which may be shorter, or another text, or not exist).
+func TestOverlayIgnoreDirective(t *testing.T) {
+	parallelLint(t)
+	needGo(t)
+	dir, err := filepath.Abs(filepath.Join("testdata", "overlay"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(dir, "buffer.go")
+	src := `package overlay
+
+import (
+	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/h"
+)
+
+func Buffer() tela.Node {
+	//tela:ignore class -- the buffer checks the typo
+	return h.Div(h.Class("flex p-4 bg-rde-500"))
+}
+`
+	res, err := Run(Options{
+		Dir: dir, Patterns: []string{"."}, AbsPaths: true,
+		Overlay: map[string][]byte{file: []byte(src)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Diagnostics) != 0 {
+		t.Errorf("diagnostics = %v, want none: the directive above the line is in the buffer", res.Diagnostics)
+	}
+}
+
 // An import that only the buffer has is listed, and a type error does not
 // stop a lenient run from checking what resolved.
 func TestOverlayImportAndLenient(t *testing.T) {

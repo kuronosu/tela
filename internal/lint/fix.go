@@ -75,7 +75,7 @@ func (r *run) applyFixes(diags []Diagnostic) (fixed []Diagnostic, files int, err
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		src, rerr := os.ReadFile(name)
+		src, rerr := r.source(name)
 		if rerr != nil {
 			err = rerr
 			continue

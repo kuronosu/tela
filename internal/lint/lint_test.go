@@ -269,6 +269,48 @@ func TestFragmentFixLeavesNothing(t *testing.T) {
 	}
 }
 
+// With an overlay, the fixes are made on the buffer the findings were found
+// in (their offsets are its), not on the disk's text.
+func TestFixOverlay(t *testing.T) {
+	parallelLint(t)
+	needGo(t)
+	disk, err := os.ReadFile(filepath.Join("testdata", "fragment", "fragment.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmp, err := os.MkdirTemp("testdata", "fix-overlay-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmp) })
+	file, err := filepath.Abs(filepath.Join(tmp, "fragment.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, disk, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	const extra = "// A line only the buffer has, which moves every offset below it.\n"
+	buffer := strings.Replace(string(disk), "import (", extra+"import (", 1)
+	res, err := Run(Options{Patterns: []string{"./" + filepath.ToSlash(tmp)}, Fix: true, Overlay: map[string][]byte{file: []byte(buffer)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.LoadErrors) > 0 || res.FixError != nil {
+		t.Fatalf("load errors %v, fix error %v", res.LoadErrors, res.FixError)
+	}
+	got, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), extra) {
+		t.Errorf("the fix was made on the disk's text, not the buffer's:\n%s", got)
+	}
+	if want, _ := fixFixture(t, "fragment"); strings.Replace(string(got), extra, "", 1) != want {
+		t.Errorf("the buffer was not fixed like the fixture:\n%s", got)
+	}
+}
+
 func TestFixEdits(t *testing.T) {
 	parallelLint(t)
 	src := []byte("abcdefghij")

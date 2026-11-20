@@ -2,6 +2,7 @@ package lint
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -52,7 +53,7 @@ func (r *run) buildIgnores(file string) ignoreSet {
 				continue
 			}
 			if !srcRead {
-				src, _ = os.ReadFile(file)
+				src, _ = r.source(file)
 				srcRead = true
 			}
 			pos := r.l.fset.Position(c.Pos())
@@ -74,6 +75,16 @@ func (r *run) buildIgnores(file string) ignoreSet {
 		}
 	}
 	return set
+}
+
+// source returns the text of a file as the run sees it: the overlay's (an
+// editor's unsaved buffer) when it has the file, else the disk's. The
+// offsets of the syntax tree are in this text.
+func (r *run) source(file string) ([]byte, error) {
+	if b, ok := r.overlay[filepath.Clean(file)]; ok {
+		return b, nil
+	}
+	return os.ReadFile(file)
 }
 
 // parseIgnore returns the rules of an ignore comment.
