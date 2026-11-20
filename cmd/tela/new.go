@@ -23,7 +23,9 @@ const newUsage = `Usage:
 	tela new [flags] <dir>
 
 Creates a Tela app in <dir>: a go.mod, a main.go with a counter, a test for
-it that runs without a window, a README and a .gitignore. <dir> is created
+it that runs without a window, a README and a .gitignore, and for coding
+agents an AGENTS.md (CLAUDE.md imports it) and an .mcp.json that starts
+"tela mcp" on the app. <dir> is created
 when it does not exist; it may be an existing empty directory, or "." for the
 current one. Then it adds the tela module to go.mod and runs go mod tidy, so
 the app is ready to run:
@@ -96,6 +98,9 @@ var templateFiles = map[string]string{
 	"main_test.go.tmpl": "main_test.go",
 	"README.md.tmpl":    "README.md",
 	"gitignore.tmpl":    ".gitignore",
+	"AGENTS.md.tmpl":    "AGENTS.md",
+	"CLAUDE.md.tmpl":    "CLAUDE.md",
+	"mcp.json.tmpl":     ".mcp.json",
 }
 
 // newData is what the templates see.
@@ -180,7 +185,7 @@ func runNew(args []string, stdout, stderr io.Writer) int {
 	if len(written) > 12 {
 		var shown []string
 		for _, f := range written {
-			if f == "go.mod" || f == "main.go" || f == "README.md" || f == ".gitignore" {
+			if f == "go.mod" || f == "main.go" || f == "README.md" || f == ".gitignore" || f == "AGENTS.md" {
 				shown = append(shown, f)
 			}
 		}

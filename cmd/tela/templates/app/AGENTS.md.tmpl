@@ -1,0 +1,50 @@
+# Agent instructions
+
+{{.Title}} is a [Tela](https://github.com/kuronosu/tela) app: a desktop UI in
+pure Go (no cgo, no webview) with a React-like API and Tailwind classes.
+Everything runs with `CGO_ENABLED=0`.
+
+## Read first
+
+Tela's guide for coding agents is `llms.txt`: the API, the `kit` components,
+the agent loop and the common mistakes. Every Go block in it compiles.
+
+- Online: https://telaui.dev/llms.txt
+- The copy that matches the Tela version in `go.mod` (once the module is
+  downloaded): `$(go list -m -f '{{"{{"}}.Dir{{"}}"}}' github.com/kuronosu/tela)/docs/llms.txt`
+
+React names work as written (`UseState`, `UseEffect`, `OnClick`, `Key`) and
+so do Tailwind v4 class names (`Class("flex gap-4 rounded-lg bg-primary")`).
+`tela lint` reports an unknown class, role or key before you run anything.
+
+## The loop
+
+1. Write or change the UI.
+2. Look at it without opening a window:
+   - the `tela mcp` tools, if the client has them (`.mcp.json` starts the
+     server): `snapshot` (aria YAML with refs), `screenshot` (PNG), `click`,
+     `fill`, `press`, `inspect` (layout JSON), `lint`; or
+   - `tela snapshot -o app.png .` and look at the PNG (`--size WxH`,
+     `--scale N`, `--dark`, `--preview NAME`), `tela inspect .` for the aria
+     tree and `tela inspect --layout .` for boxes and computed style.
+3. Fix what is off and look again.
+
+The screen is `var App` in `main.go` (or a `Preview()` function, or a
+`Previews` variable with several named screens).
+
+## Before you finish
+
+```bash
+tela lint ./...
+CGO_ENABLED=0 go test ./...
+```
+
+Tests mount the app with `telatest` and run without a window: click with
+`ByRole`, assert with `ExpectText`, add `Golden("name.png")` for pixels
+(regenerate with `TELA_UPDATE=1` and look at the PNG).
+
+## For a person
+
+`tela dev` runs the app and reloads it on every save, keeping its state.
+`CGO_ENABLED=0 go run .` runs it once. Install the `tela` command with
+`CGO_ENABLED=0 go install github.com/kuronosu/tela/cmd/tela@latest`.

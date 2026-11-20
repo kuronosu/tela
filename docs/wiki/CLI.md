@@ -197,8 +197,9 @@ tela new -template notes my-notes
 
 Creates the directory (it may exist if it is empty) with a `go.mod`, a
 `main.go` with a counter and a `var App`, a `main_test.go` that clicks its
-button through `telatest`, a README and a `.gitignore`. Then it runs `go get`
-and `go mod tidy`, so the app is ready:
+button through `telatest`, a README and a `.gitignore`, and the files for
+coding agents (below). Then it runs `go get` and `go mod tidy`, so the app is
+ready:
 
 ```bash
 cd my-app
@@ -216,6 +217,19 @@ The app requires the `tela` module at the version of the `tela` binary when
 that is a release (`go install ...@v0.9.1` gives apps on v0.9.1), and at the
 latest release when the binary was built from a checkout. A directory that is
 not empty is refused and left untouched.
+
+### Files for coding agents
+
+Every template also writes three small files, so an agent that opens the
+directory knows the loop without being told:
+
+| File | Is |
+|---|---|
+| `AGENTS.md` | A short guide: read `llms.txt` (online, and the copy of the module at the version in `go.mod`, found with `go list -m -f '{{.Dir}}' github.com/kuronosu/tela`), write the UI, look at it with the `tela mcp` tools or `tela snapshot` and `tela inspect`, then `tela lint ./...` and `CGO_ENABLED=0 go test ./...` before finishing |
+| `CLAUDE.md` | One line, `@AGENTS.md`, the import Claude Code reads |
+| `.mcp.json` | The server entry that Claude Code and other MCP clients read: it starts `tela mcp .` in the app's directory, so `tela` must be in `PATH` |
+
+They are the app's to edit.
 
 ### Templates
 

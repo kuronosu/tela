@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -93,6 +95,10 @@ func runNewCmd(t *testing.T, args ...string) (code int, stdout, stderr string) {
 	return code, out.String(), errOut.String()
 }
 
+// unexpandedAction matches a field of newData left in a written file (the
+// AGENTS.md has a literal {{.Dir}}, the go list template it tells to run).
+var unexpandedAction = regexp.MustCompile(`\{\{\s*\.(Module|Binary|Title|GoVersion|Template|Description)\b`)
+
 func TestNewCreatesApp(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "My Notes")
 	code, stdout, stderr := runNewCmd(t, "-skip-deps", dir)
@@ -105,6 +111,9 @@ func TestNewCreatesApp(t *testing.T) {
 		"main_test.go": {"telatest.MountApp(t, App)", `ByRole("button", "Increment")`},
 		"README.md":    {"# My Notes", "tela dev"},
 		".gitignore":   {"/my-notes\n", "/my-notes.exe\n"},
+		"AGENTS.md":    {"My Notes is a [Tela]", "https://telaui.dev/llms.txt", "go list -m -f '{{.Dir}}' github.com/kuronosu/tela)/docs/llms.txt", "tela lint ./...", "CGO_ENABLED=0 go test ./..."},
+		"CLAUDE.md":    {"@AGENTS.md\n"},
+		".mcp.json":    {`"command": "tela"`, `"args": ["mcp", "."]`},
 	} {
 		b, err := os.ReadFile(filepath.Join(dir, file))
 		if err != nil {
@@ -116,7 +125,7 @@ func TestNewCreatesApp(t *testing.T) {
 				t.Errorf("%s does not contain %q:\n%s", file, want, b)
 			}
 		}
-		if strings.Contains(string(b), "{{") {
+		if unexpandedAction.Match(b) {
 			t.Errorf("%s has an unexpanded template action:\n%s", file, b)
 		}
 	}
@@ -125,6 +134,59 @@ func TestNewCreatesApp(t *testing.T) {
 	}
 	if !strings.Contains(stdout, "go get "+telaModule) {
 		t.Errorf("-skip-deps should say how to add the dependencies:\n%s", stdout)
+	}
+}
+
+// TestNewAgentFiles checks the files for coding agents of every template: the
+// guide names only commands and flags the CLI has, CLAUDE.md only imports it
+// and .mcp.json is a valid server entry that starts "tela mcp" on the app.
+func TestNewAgentFiles(t *testing.T) {
+	for _, name := range templateNames {
+		t.Run(name, func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "my-app")
+			if code, stdout, stderr := runNewCmd(t, "-skip-deps", "-template", name, "-module", "example.com/me/my-app", dir); code != 0 {
+				t.Fatalf("exit code %d\nstdout: %s\nstderr: %s", code, stdout, stderr)
+			}
+			agents, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if n := len(strings.Fields(string(agents))); n > 400 {
+				t.Errorf("AGENTS.md has %d words; keep it under 400", n)
+			}
+			for _, want := range []string{"tela snapshot", "tela inspect", "tela lint", "tela mcp", "tela dev", "CGO_ENABLED=0", "llms.txt"} {
+				if !strings.Contains(string(agents), want) {
+					t.Errorf("AGENTS.md does not mention %q", want)
+				}
+			}
+			if unexpandedAction.Match(agents) {
+				t.Errorf("AGENTS.md has an unexpanded template action:\n%s", agents)
+			}
+			if claude, _ := os.ReadFile(filepath.Join(dir, "CLAUDE.md")); string(claude) != "@AGENTS.md\n" {
+				t.Errorf("CLAUDE.md = %q, want only the import of AGENTS.md", claude)
+			}
+			b, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var cfg struct {
+				MCPServers map[string]struct {
+					Command string   `json:"command"`
+					Args    []string `json:"args"`
+				} `json:"mcpServers"`
+			}
+			if err := json.Unmarshal(b, &cfg); err != nil {
+				t.Fatalf(".mcp.json is not valid JSON: %v\n%s", err, b)
+			}
+			srv := cfg.MCPServers["tela"]
+			if srv.Command != "tela" || !slices.Equal(srv.Args, []string{"mcp", "."}) {
+				t.Errorf(".mcp.json server = %+v, want tela mcp .", srv)
+			}
+			// What "tela mcp ." accepts is what the file says.
+			if _, err := parseMCPArgs(srv.Args[1:]); err != nil {
+				t.Errorf(".mcp.json arguments: %v", err)
+			}
+		})
 	}
 }
 
