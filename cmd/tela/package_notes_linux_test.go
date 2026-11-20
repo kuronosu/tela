@@ -56,11 +56,11 @@ func TestNotesAppImageUpdate(t *testing.T) {
 
 	pack := func(version, out string) string {
 		t.Helper()
-		t.Chdir(root)
+		t.Chdir(filepath.Join(root, "examples", "notes")) // a module of its own (ADR-298)
 		var stdout, stderr bytes.Buffer
 		ldflags := fmt.Sprintf("-X main.updateURL=%s/manifest.json -X main.updateKey=%s", srv.URL, key)
 		args := []string{"package", "-os", "linux", "-arch", runtime.GOARCH, "-format", "appimage", "-version", version,
-			"-ldflags", ldflags, "-o", out, "./examples/notes"}
+			"-ldflags", ldflags, "-o", out, "."}
 		if code := run(args, &stdout, &stderr); code != 0 {
 			t.Fatalf("tela package %s: %d\n%s%s", version, code, stdout.String(), stderr.String())
 		}

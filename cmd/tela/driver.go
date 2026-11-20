@@ -118,10 +118,15 @@ type goPackage struct {
 }
 
 // listPackage returns the directory, name and files of pkg.
-func listPackage(goBin, pkg string) (goPackage, error) {
+func listPackage(goBin, pkg string) (goPackage, error) { return listPackageIn(goBin, "", pkg) }
+
+// listPackageIn is listPackage run in dir (the working directory when it is
+// empty): the directory of the module that has the package.
+func listPackageIn(goBin, dir, pkg string) (goPackage, error) {
 	// One line per package: dir|name|file,file...
 	cmd := exec.Command(goBin, "list", "-f", `{{.Dir}}|{{.Name}}|{{join .GoFiles ","}}{{if and .GoFiles .TestGoFiles}},{{end}}{{join .TestGoFiles ","}}`, pkg)
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+	cmd.Dir = dir
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {

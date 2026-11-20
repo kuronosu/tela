@@ -56,6 +56,7 @@ type cmdSpec struct {
 	label     string
 	args      []string
 	env       []string // KEY=VALUE additions (GOOS, GOARCH)
+	dir       string   // working directory relative to the root ("" is the root): a nested module
 	stripTela bool     // remove every TELA_* variable from the environment
 }
 
@@ -99,7 +100,7 @@ func (g *gate) run(s cmdSpec) cmdOut {
 	defer func() { <-g.sem }()
 	start := time.Now()
 	cmd := exec.Command(s.args[0], s.args[1:]...)
-	cmd.Dir = g.root
+	cmd.Dir = filepath.Join(g.root, filepath.FromSlash(s.dir))
 	cmd.Env = buildEnv(os.Environ(), s.env, s.stripTela)
 	var so, se bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &so, &se
@@ -181,6 +182,18 @@ func goCmd(label string, env []string, args ...string) cmdSpec {
 
 func goos(os string) []string { return []string{"GOOS=" + os} }
 
+// notesDir is the example that is a module of its own (ADR-298): the root's
+// ./... does not reach it, so each step that checks the repository runs
+// again inside it.
+const notesDir = "examples/notes"
+
+// inNotes runs spec in the notes module.
+func inNotes(s cmdSpec) cmdSpec {
+	s.label += " (" + notesDir + ")"
+	s.dir = notesDir
+	return s
+}
+
 // fmtStep checks that every Go file of the repository is gofmt-formatted,
 // in process. The files come from git, not from walking the tree: gofmt -l .
 // also walks node_modules.
@@ -256,6 +269,9 @@ func (g *gate) vetStep() stepResult {
 		goCmd("go vet -tags telagpu ./... (windows)", goos("windows"), "vet", "-tags", "telagpu", "./..."),
 		goCmd("go vet -tags telagpu ./... (darwin)", goos("darwin"), "vet", "-tags", "telagpu", "./..."),
 		goCmd("go vet -tags telagpu ./... (linux/arm64)", []string{"GOOS=linux", "GOARCH=arm64"}, "vet", "-tags", "telagpu", "./..."),
+		inNotes(goCmd("go vet ./... (linux)", goos("linux"), "vet", "./...")),
+		inNotes(goCmd("go vet ./... (windows)", goos("windows"), "vet", "./...")),
+		inNotes(goCmd("go vet ./... (darwin)", goos("darwin"), "vet", "./...")),
 	})
 }
 
@@ -336,11 +352,15 @@ func (g *gate) staticcheckStep() stepResult {
 	return g.commandStep([]cmdSpec{
 		{label: "staticcheck ./...", args: []string{"go", "run", pkg, "./..."}},
 		{label: "staticcheck -tags telagpu ./internal/... .", args: []string{"go", "run", pkg, "-tags", "telagpu", "./internal/...", "."}},
+		inNotes(cmdSpec{label: "staticcheck ./...", args: []string{"go", "run", pkg, "./..."}}),
 	})
 }
 
 func (g *gate) lintStep() stepResult {
-	return g.commandStep([]cmdSpec{goCmd("tela lint ./...", nil, "run", "./cmd/tela", "lint", "./...")})
+	return g.commandStep([]cmdSpec{
+		goCmd("tela lint ./...", nil, "run", "./cmd/tela", "lint", "./..."),
+		inNotes(goCmd("tela lint ./...", nil, "run", "github.com/kuronosu/tela/cmd/tela", "lint", "./...")),
+	})
 }
 
 func (g *gate) docsStep() stepResult {
@@ -364,6 +384,7 @@ func (g *gate) testStep() stepResult {
 	outs := g.runAll([]cmdSpec{
 		{label: "go test -short ./...", args: []string{"go", "test", "-short", "-json", "./..."}, stripTela: true},
 		{label: "go test -short -tags telagpu ./internal/vk/... ./internal/gfx/gpu/...", args: []string{"go", "test", "-short", "-json", "-tags", "telagpu", "./internal/vk/...", "./internal/gfx/gpu/..."}, stripTela: true},
+		inNotes(cmdSpec{label: "go test -short ./...", args: []string{"go", "test", "-short", "-json", "./..."}, stripTela: true}),
 	})
 	r := stepResult{Commands: cmdInfos(outs)}
 	sum := &testSummary{}

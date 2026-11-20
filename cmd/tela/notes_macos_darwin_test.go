@@ -5,7 +5,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -63,10 +62,10 @@ func bundleFolder(t *testing.T) string {
 //     scheme is not notes:, which macOS's Notes app owns (an app never takes
 //     another's association);
 //   - (b) starting the bundle's executable again with a link forwards it to
-//     the first instance and exits 0, and the note lands in notes.json;
+//     the first instance and exits 0, and the note lands in the library (notes.db);
 //   - (c) `open 'tela-notes://new?...'`, which Launch Services delivers to
 //     the running instance (application:openURLs:), makes a note in
-//     notes.json. It runs after (b), once the app has finished launching.
+//     the library. It runs after (b), once the app has finished launching.
 //     It runs on CI (CI is set) or with TELA_E2E_OPEN=1: when
 //     Launch Services does not know the running process it starts another
 //     Notes outside the test's folders, which is harmless on a runner and
@@ -100,14 +99,14 @@ func TestNotesMacOS(t *testing.T) {
 
 	// --- Build ----------------------------------------------------------
 	root := repoRoot(t)
-	t.Chdir(root)
+	t.Chdir(filepath.Join(root, "examples", "notes")) // a module of its own (ADR-298)
 	out := bundleFolder(t)
 	step := func(format string, args ...any) {
 		t.Logf("[%s] %s", time.Now().Format("15:04:05.000"), fmt.Sprintf(format, args...))
 	}
 	start := time.Now()
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{"build", "-v", "-o", out, "./examples/notes"}, &stdout, &stderr); code != 0 {
+	if code := run([]string{"build", "-v", "-o", out, "."}, &stdout, &stderr); code != 0 {
 		t.Fatalf("tela build: status %d\nstdout: %s\nstderr: %s", code, stdout.String(), stderr.String())
 	}
 	bundle := filepath.Join(out, "Notes.app")
@@ -119,7 +118,7 @@ func TestNotesMacOS(t *testing.T) {
 
 	// --- Start ----------------------------------------------------------
 	desk := t.TempDir() // TELA_DESKTOP_DIR
-	library := filepath.Join(desk, notesAppID, "data", "notes.json")
+	library := filepath.Join(desk, notesAppID, "data", "notes.db")
 	env := notesEnv(desk)
 	var log syncBuffer
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
@@ -311,20 +310,18 @@ func notesEnv(desk string) []string {
 	return append(env, "TELA_DESKTOP_DIR="+desk)
 }
 
-// hasNote reports whether the library file has a note with that title and
-// text.
+// hasNote reports whether the library has a note with that title and text.
+// The library is a SQLite database of the notes module (ADR-298), which this
+// module cannot open: SQLite keeps text as it is in its pages, so the
+// strings are looked for in the file and in its write-ahead log.
 func hasNote(library, title, text string) bool {
-	b, err := os.ReadFile(library)
-	if err != nil {
-		return false
+	for _, name := range []string{library, library + "-wal"} {
+		b, err := os.ReadFile(name)
+		if err == nil && bytes.Contains(b, []byte(title)) && bytes.Contains(b, []byte(text)) {
+			return true
+		}
 	}
-	var store struct {
-		Notes []struct{ Title, Text string } `json:"notes"`
-	}
-	if json.Unmarshal(b, &store) != nil {
-		return false
-	}
-	return slices.ContainsFunc(store.Notes, func(n struct{ Title, Text string }) bool { return n.Title == title && n.Text == text })
+	return false
 }
 
 // waitFor polls f every 100 ms until it is true or d passes.

@@ -15,10 +15,11 @@ func TestNotesPackage(t *testing.T) {
 	skipShort(t)
 	root := repoRoot(t)
 	out := t.TempDir()
-	t.Chdir(root)
+	// notes is a module of its own (ADR-298): tela runs inside it.
+	t.Chdir(filepath.Join(root, "examples", "notes"))
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{"package", "-os", "linux,windows,darwin", "-arch", "amd64", "-version", "1.1.0",
-		"-appinstaller-url", "https://example.com/notes", "-o", out, "./examples/notes"}, &stdout, &stderr); code != 0 {
+		"-appinstaller-url", "https://example.com/notes", "-o", out, "."}, &stdout, &stderr); code != 0 {
 		t.Fatalf("tela package: %d\n%s%s", code, stdout.String(), stderr.String())
 	}
 	if strings.Contains(stderr.String(), "no icon") {

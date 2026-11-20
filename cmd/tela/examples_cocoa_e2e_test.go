@@ -237,6 +237,7 @@ type captureRead struct {
 type exampleRun struct {
 	t       *testing.T
 	goBin   string
+	modDir  string // the example's own module, when it has one: where go runs
 	name    string
 	capture []byte
 
@@ -256,8 +257,13 @@ type exampleRun struct {
 func (r *exampleRun) run() {
 	t := r.t
 	importPath := "github.com/kuronosu/tela/examples/" + r.name
+	// An example with a go.mod of its own (notes, ADR-298) is built from
+	// inside its module, which resolves its import path.
+	if dir := filepath.Join(repoRoot(t), "examples", r.name); fileExists(filepath.Join(dir, "go.mod")) {
+		r.modDir = dir
+	}
 	var err error
-	if r.pkg, err = listPackage(r.goBin, importPath); err != nil {
+	if r.pkg, err = listPackageIn(r.goBin, r.modDir, importPath); err != nil {
 		t.Fatal(err)
 	}
 	if r.det, err = scanPackage(r.pkg.Dir, r.pkg.GoFiles); err != nil {
@@ -364,6 +370,7 @@ func (r *exampleRun) goRun(what string, args ...string) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, r.goBin, args...)
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+	cmd.Dir = r.modDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		r.t.Fatalf("%s: %v\n%s", what, err, out)
 	}
@@ -755,4 +762,10 @@ func (r *exampleRun) row() string {
 	}
 	return fmt.Sprintf("%-10s %s: %gx%g@%g (declared %s), %s, exit %s; window server: %s; layer: %s",
 		r.name, verdict, w.W, w.H, w.Scale, strings.Join(r.declared, ","), settled, r.exitStatus, diff(r.winDiff), diff(r.layerDiff))
+}
+
+// fileExists reports whether path is a file or a folder.
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
