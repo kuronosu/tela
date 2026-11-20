@@ -28,7 +28,8 @@ Inspecting and driving a running app.
 - [x] Inspect's and LayoutJSON's `font` field shows the first name of the stack (`ui-sans-serif`), not the family that drew the text
 - [ ] Live inspector: element tree, computed style, hooks and state, re-render counts, accessibility tree
   - [x] Core instrumentation (`Tree.SetInstrument`): elements with IDs, creation sites, hooks, props, build counts and causes; a 600-frame profile; pick mode and highlight; a log ring
-  - [ ] The app's `log/slog` output is not captured (wrapping the default handler loops through `log`): the supervisor should tee the child's stderr; element IDs are per Tree, so the transport pairs them with the window
+  - [x] `tela dev`'s tools socket (ADR-299): discovery file, JSON-RPC relay to the child, screenshots, input injected into the Host, the child's stderr kept as logs, notifications
+  - [ ] Tools socket gaps: a dev warning shows twice in `logs` (stderr and app); app logs written while idle wait for a frame or a `logs` call; the supervisor's own lines (build failed) are not logs; a client whose queue fills (256) loses notifications; keys to an unfocused window inject a focus the OS does not have; not run on a real windowed backend or on Windows
   - [ ] Pick mode: wheel scrolls and caption clicks still reach the app; `pointer-events-none` and inert elements cannot be picked; a press held when pick starts loses its release; creation sites keep 8 frames, so deep helper chains fall back to the declaration
 - [ ] Frame profiler
 - [ ] Connect to a running app and pick an element
