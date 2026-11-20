@@ -30,7 +30,8 @@ Inspecting and driving a running app.
 - [ ] Frame profiler
 - [ ] Connect to a running app and pick an element
 - [ ] `tela mcp` on a running app's real windows, all of them (today headless only, and only the main window), for what headless does not show: IME, menus, dialogs, the tray, the accessibility backends, the display scale; a session could attach through the `remote` host of `tela dev`
-- [ ] `tela mcp`: refs keep node identity (today role, name and position); `scroll` without an element; a locator that matches nothing does not always wait 2 s; `notifications/cancelled` is honored
+- [x] `tela mcp`: refs keep node identity; `scroll` without an element; a locator that matches nothing fails at once when nothing is pending; `notifications/cancelled` is honored (ADR-300)
+- [ ] `tela mcp`'s fail-fast reads `App.Pending` by matching its text (caret blink, scrollbar fade, endless animations): give `Pending` kinds; work on goroutines (`UseAsync`, `UseGo`) is not pending, so a miss before a load ends fails at once; `wait` does not fail fast; `scroll` without an element goes to the window's center, not the largest scrollable node, and does not say whether anything moved
 - [ ] `tela snapshot` shows a passive effect's state and toasts set by effects (it renders once)
 - [x] Debug-overlay labels are laid out at the display scale (today at scale 1)
 - [ ] `tela lsp`: completion, hover and diagnostics of Tailwind classes inside `Class("...")` and `ClassAliases`, on the lint engine

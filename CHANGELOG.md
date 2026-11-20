@@ -13,9 +13,14 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+### Added
+
+- `telatest.App.AriaSnapshotNodes`, `NodeLocator` and `ScrollAt` (ADR-300).
+
 ### Changed
 
 - `tela inspect --layout`, `telatest.App.LayoutJSON` and `tela mcp inspect`: the `font` field names the family that drew most of the box's glyphs (`Inter`), not the first name of the font stack (`ui-sans-serif`); a box with no text names the first family of its stack that has a font.
+- `tela mcp`: a ref follows its element across rebuilds, renames and removed siblings, and a ref whose element is gone is an error; `scroll` without an element scrolls at `x`, `y` or the window's center; a locator that matches nothing fails at once when nothing is pending, instead of waiting 2 s; `notifications/cancelled` stops the call.
 
 ### Fixed
 
