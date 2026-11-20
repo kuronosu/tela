@@ -149,7 +149,7 @@ func (s *devtoolsSource) Inspect(ctx context.Context, window uint32, id core.Ele
 
 func (s *devtoolsSource) Semantics(ctx context.Context, window uint32) (devtools.Semantics, error) {
 	r, err := s.c.Semantics(ctx, window)
-	return devtools.Semantics(r), err
+	return devtools.Semantics{YAML: r.YAML, Nodes: r.Nodes, Elements: r.Elements}, err
 }
 
 func (s *devtoolsSource) Profiles(ctx context.Context, window uint32, since int) ([]core.FrameProfile, error) {
