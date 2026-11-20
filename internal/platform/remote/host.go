@@ -82,6 +82,13 @@ type HostOptions struct {
 	// OnError reports a non-fatal error: a failed Present or window
 	// creation, a shared buffer that could not be mapped.
 	OnError func(err error)
+	// OnWindows is called when the real windows changed: one opened or
+	// closed, what one shows (a promotion, a title, a show or hide) or its
+	// focus; not when one is resized.
+	// It runs on the UI thread, where WindowInfos tells the windows as
+	// they are now; it may be called when nothing a WindowInfo holds
+	// changed. tela dev's tools socket tells its clients (ADR-299).
+	OnWindows func()
 	// OnSecondInstance is called when a child's ClaimInstance found the
 	// app ID held by another process (another tela dev of the same app,
 	// or the app itself): the child's launch went to that process, and
@@ -265,6 +272,51 @@ func (h *Host) Windows() []platform.Window {
 	return ws
 }
 
+// WindowInfo describes a real window of the host (Host.WindowInfos).
+type WindowInfo struct {
+	Window platform.Window
+	// ID is the window ID, in its child, of the child window the real
+	// window shows: the active child's, or the last active one's after it
+	// was detached (its last frame stays). 0 when no child window was
+	// ever shown on it (a window a pending child opened).
+	ID uint32
+	// Child is the child of that window (nil with ID 0); Active reports
+	// that it is the active child.
+	Child  *Child
+	Active bool
+	// Title is the title the window shows.
+	Title string
+	// Metrics are those of the real window's latest ConfigureEvent (its
+	// logical size and its real scale, whatever HostOptions.Scale is);
+	// zero before the first one.
+	Metrics platform.Metrics
+	// Focused: the window has the keyboard focus; Visible: it is shown
+	// (not hidden by the app; a minimized window is visible).
+	Focused, Visible bool
+}
+
+// WindowInfos describes the real windows, in creation order. Call it on
+// the UI thread.
+func (h *Host) WindowInfos() []WindowInfo {
+	out := make([]WindowInfo, 0, len(h.order))
+	for _, rw := range h.order {
+		wi := WindowInfo{Window: rw.w, Metrics: rw.metrics, Focused: rw.focused, Visible: rw.visible}
+		if cw := rw.src; cw != nil {
+			wi.ID, wi.Child, wi.Title = cw.id, cw.c, cw.title
+			wi.Active = cw.c.state == stateActive && rw.active == cw
+		}
+		out = append(out, wi)
+	}
+	return out
+}
+
+// windowsChanged calls the OnWindows option.
+func (h *Host) windowsChanged() {
+	if fn := h.opts.OnWindows; fn != nil {
+		fn()
+	}
+}
+
 // --- freeze and swap ---
 
 // Freeze holds input: from now on the real windows' input events (pointer,
@@ -376,6 +428,7 @@ func (h *Host) detach(c *Child) {
 	}
 	h.dropServices(c)
 	h.prune()
+	h.windowsChanged()
 }
 
 // prune closes the real windows that no child uses and that no active
@@ -520,11 +573,15 @@ func (h *Host) windowEvent(rw *realWin, e platform.Event) {
 		}
 		h.flush(rw)
 	case platform.FocusEvent:
+		changed := rw.focused != ev.Focused
 		rw.focused = ev.Focused
 		for _, cw := range rw.pending {
 			h.deliver(cw, ev)
 		}
 		h.input(rw, e)
+		if changed {
+			h.windowsChanged()
+		}
 	case platform.AccessibilityEvent, platform.AccessActionEvent:
 		h.accessEvent(rw, e) // access.go
 	case platform.DragEvent, platform.DragDoneEvent, platform.MenuEvent:
@@ -936,6 +993,7 @@ func (h *Host) attach(cw *childWin) {
 		rw.token = w.RestoreToken()
 		h.byWin[w] = rw
 		h.order = append(h.order, rw)
+		defer h.windowsChanged()
 	}
 	cw.rw = rw
 	c.windows = append(c.windows, cw)
@@ -999,6 +1057,7 @@ func (h *Host) activate(rw *realWin, cw *childWin) {
 		rw.w.RequestFrame()
 	}
 	h.enter(rw, cw)
+	h.windowsChanged()
 }
 
 // enter tells the active cw that the pointer is over the window, if it
@@ -1043,6 +1102,7 @@ func (h *Host) closeReal(rw *realWin) {
 		rw.active.rw = nil
 	}
 	rw.active, rw.pending, rw.src = nil, nil, nil
+	h.windowsChanged()
 }
 
 // live reports whether cw's operations take effect: its child is not
@@ -1345,6 +1405,7 @@ func (c *Child) dispatch(t msgType, d *dec) error {
 			cw.title = s
 			if active {
 				rw.w.SetTitle(s)
+				h.windowsChanged()
 			}
 		})
 	case msgSetCursor:

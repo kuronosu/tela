@@ -342,6 +342,7 @@ func (h *Host) applyVisible(rw *realWin, visible bool) {
 	if visible {
 		rw.full = true // the real window shows the retained frame; the next present is full anyway
 	}
+	h.windowsChanged()
 }
 
 // applyWindow gives the real window the state requests of its active child
