@@ -54,6 +54,11 @@ type refEntry struct {
 	loc      mcpLoc
 	desc     string // `button "Save"`
 	disabled bool
+	// stable is the locator a test can use for the element: its role and
+	// name, with the Nth that tells it from the others like it in the
+	// snapshot (loc may be a node identity, which means nothing outside
+	// the running instance).
+	stable mcpLoc
 }
 
 // refTable numbers the elements of the snapshots of one server.
@@ -212,7 +217,7 @@ func (t *refTable) assign(lines []string, cands []snapCandidate, want, got []int
 		if want[c.group] == 1 {
 			loc.Nth = nil
 		}
-		t.current[ref] = refEntry{loc: loc, desc: c.line.Describe(), disabled: c.line.Disabled}
+		t.current[ref] = refEntry{loc: loc, desc: c.line.Describe(), disabled: c.line.Disabled, stable: loc}
 		t.issued[ref] = true
 		lines[c.index] = c.line.WithSuffix(" [ref=" + ref + "]")
 	}
@@ -243,6 +248,12 @@ func (t *refTable) assignNodes(lines []string, cands []snapCandidate, nodes []ui
 		}
 	}
 	t.carry, t.stale = false, false
+	size := map[int]int{}        // elements of each role and name in the snapshot
+	roleSize := map[string]int{} // elements of each role
+	for _, c := range cands {
+		size[c.group]++
+		roleSize[c.line.Role]++
+	}
 	for i, c := range cands {
 		id := nodes[c.index]
 		if id == 0 {
@@ -258,7 +269,13 @@ func (t *refTable) assignNodes(lines []string, cands []snapCandidate, nodes []ui
 		}
 		t.byKey[c.key], t.keyOf[ref] = ref, c.key
 		t.byNode[id] = ref
-		t.current[ref] = refEntry{loc: mcpLoc{NodeID: id, Ref: ref}, desc: c.line.Describe(), disabled: c.line.Disabled}
+		// Without a printed name the locator is the role alone, which
+		// matches every element of the role.
+		stable := c.loc
+		if c.line.HasName && size[c.group] == 1 || !c.line.HasName && roleSize[c.line.Role] == 1 {
+			stable.Nth = nil
+		}
+		t.current[ref] = refEntry{loc: mcpLoc{NodeID: id, Ref: ref}, desc: c.line.Describe(), disabled: c.line.Disabled, stable: stable}
 		t.issued[ref] = true
 		lines[c.index] = c.line.WithSuffix(" [ref=" + ref + "]")
 	}

@@ -17,6 +17,9 @@ type genFeatures struct {
 	// ComponentOf and Frames (ADR-299), and so the source lines of
 	// elements, the state and perf tools and the preference tool.
 	DevTools bool
+	// Film: telatest has App.Film, so tela snapshot --film and the film
+	// tool of tela mcp can capture frames.
+	Film bool
 	// I18N: the package links tela/i18n, so a locale preference can act.
 	I18N bool
 }
@@ -41,6 +44,7 @@ func detectFeatures(goBin, dir string) genFeatures {
 			f.I18N = true
 		case path == "github.com/kuronosu/tela/telatest":
 			f.DevTools = hasFunc(pkgDir, "func Instrument() Option")
+			f.Film = hasFunc(pkgDir, "func (a *App) Film(")
 		}
 	}
 	return f

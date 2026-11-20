@@ -427,6 +427,7 @@ func (s *mcpSession) toolPrefer(ctx context.Context, args json.RawMessage) mcpRe
 		m.Prefer.Direction = dir
 	}
 	req := mcpReq{Op: "prefer", Dark: m.Dark, Prefer: &m.Prefer, Snapshot: true}
+	before, prev := s.snapshotBefore(ctx, &o), s.mount
 	rep, ok := s.send(ctx, &o, req)
 	if rep.MountError != "" {
 		// The screen could not be mounted with them: mount the previous
@@ -448,13 +449,17 @@ func (s *mcpSession) toolPrefer(ctx context.Context, args json.RawMessage) mcpRe
 		s.mount.Prefer = *rep.Prefer
 	}
 	if rep.Remounted {
-		s.refs.remount()
+		s.remounted()
+		s.rec.newSegment(s.mount, rep.Preview)
 		// The snapshot of the reply is of the new mount: its refs are new.
 		o.snapshot = nil
 		if rep.YAML != nil {
 			snap := s.withRefs(ctx, &o, *rep.YAML, rep.Nodes)
 			o.snapshot = &snap
+			s.noteSnapshot(*rep.YAML)
 		}
+	} else if lines := preferLines(prev, s.mount); len(lines) > 0 {
+		s.rec.add(mcpStep{lines: lines, before: before, after: s.snapCur, w: s.curW, h: s.curH}, s.curPreview)
 	}
 	o.head = "Preferences now: " + describePrefer(s.mount) + ".\n" + "- " + strings.Join(rep.Applied, "\n- ")
 	if len(rep.Applied) == 0 {

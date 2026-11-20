@@ -55,6 +55,9 @@ type mcpLoc struct {
 	NodeID uint64 `json:"node,omitempty"`
 	// Ref is the ref a NodeID stands for, for messages.
 	Ref string `json:"ref,omitempty"`
+	// Stable, on the server only, is the locator a test uses for the
+	// element a ref names (see refEntry).
+	Stable *mcpLoc `json:"-"`
 }
 
 // mcpPoint is a point in logical pixels.
@@ -130,6 +133,11 @@ type mcpReq struct {
 	Submit bool      `json:"submit,omitempty"`
 	Key    string    `json:"key,omitempty"`
 	Ms     float64   `json:"ms,omitempty"`
+	// film: Ms is the span and Every the interval, in milliseconds of the
+	// app's clock, and Inner the command that starts the motion (nil: the
+	// app as it is).
+	Every float64 `json:"every,omitempty"`
+	Inner *mcpReq `json:"inner,omitempty"`
 	// Snapshot asks for the aria snapshot after the command.
 	Snapshot bool `json:"snapshot,omitempty"`
 	// Prefer, with mount and prefer: the preferences the screen is mounted
@@ -143,6 +151,12 @@ type mcpReq struct {
 	Max        int  `json:"max,omitempty"`
 	// Target is the id of the command a cancel stops.
 	Target int `json:"target,omitempty"`
+}
+
+// mcpFilmFrame is a frame of a film: a PNG of the window.
+type mcpFilmFrame struct {
+	At  int64  `json:"at"`
+	PNG []byte `json:"png"`
 }
 
 // mcpReply is the instance's answer to an mcpReq.
@@ -187,6 +201,8 @@ type mcpReply struct {
 	Dark    bool     `json:"dark,omitempty"`
 	// Note is a remark of the mount ("--dark has no effect...").
 	Note string `json:"note,omitempty"`
+	// Film, for film: the frames, At in milliseconds of the app's clock.
+	Film []mcpFilmFrame `json:"film,omitempty"`
 
 	// state: the component of the element, or the components of the screen
 	// that have props or hooks (Total of them in all; Instrumented false
@@ -225,7 +241,8 @@ func generateMCPSource(pkgName string, c contract, hasApp bool, feats ...genFeat
 		Prefix   string
 		DevTools bool
 		I18N     bool
-	}{Package: pkgName, Kind: c.String(), HasApp: hasApp, Prefix: string(prefix), DevTools: f.DevTools, I18N: f.DevTools && f.I18N})
+		Film     bool
+	}{Package: pkgName, Kind: c.String(), HasApp: hasApp, Prefix: string(prefix), DevTools: f.DevTools, I18N: f.DevTools && f.I18N, Film: f.Film})
 	if err != nil {
 		panic(err) // the template is a constant
 	}
@@ -445,6 +462,8 @@ type telaMCPReq struct {
 	Submit   bool          ` + "`json:\"submit\"`" + `
 	Key      string        ` + "`json:\"key\"`" + `
 	Ms       float64       ` + "`json:\"ms\"`" + `
+	Every    float64       ` + "`json:\"every\"`" + `
+	Inner    *telaMCPReq   ` + "`json:\"inner\"`" + `
 	Snapshot bool          ` + "`json:\"snapshot\"`" + `
 	Target   int           ` + "`json:\"target\"`" + `
 {{- if .DevTools}}
@@ -453,6 +472,11 @@ type telaMCPReq struct {
 	FromAction bool           ` + "`json:\"fromAction\"`" + `
 	Max        int            ` + "`json:\"max\"`" + `
 {{- end}}
+}
+
+type telaMCPFilmFrame struct {
+	At  int64  ` + "`json:\"at\"`" + `
+	PNG []byte ` + "`json:\"png\"`" + `
 }
 
 type telaMCPReply struct {
@@ -476,6 +500,7 @@ type telaMCPReply struct {
 	Scale      float64     ` + "`json:\"scale,omitempty\"`" + `
 	Dark       bool        ` + "`json:\"dark,omitempty\"`" + `
 	Note       string      ` + "`json:\"note,omitempty\"`" + `
+	Film       []telaMCPFilmFrame ` + "`json:\"film,omitempty\"`" + `
 {{- if .DevTools}}
 	DevTools   bool            ` + "`json:\"devTools,omitempty\"`" + `
 	Components []telatest.Component ` + "`json:\"components,omitempty\"`" + `
@@ -946,6 +971,29 @@ func (s *telaMCPSession) do(req telaMCPReq, rep *telaMCPReply) {
 			s.scale = req.Scale
 			s.mount.Scale = req.Scale
 		}
+	case "film":
+{{- if .Film}}
+		// The motion that Inner starts (or the app as it is), filmed on the
+		// app's clock; the answer's snapshot, taken after, is the settled
+		// state.
+		span := telatime.Duration(req.Ms * float64(telatime.Millisecond))
+		every := telatime.Duration(req.Every * float64(telatime.Millisecond))
+		for _, f := range app.Film(span, every, func() {
+			if req.Inner != nil {
+				var ignored telaMCPReply
+				s.do(*req.Inner, &ignored)
+			}
+		}) {
+			var buf telaMCPBuffer
+			enc := telapng.Encoder{CompressionLevel: telapng.BestSpeed}
+			if err := enc.Encode(&buf, f.Image); err != nil {
+				panic(telaMCPFail{err.Error()})
+			}
+			rep.Film = append(rep.Film, telaMCPFilmFrame{f.At.Milliseconds(), buf.b})
+		}
+{{- else}}
+		panic(telaMCPFail{"this package's tela module predates telatest's App.Film; update it with go get github.com/kuronosu/tela@latest, and film works after the next rebuild"})
+{{- end}}
 	case "wait":
 		// In steps of 100 ms of app time, so that a cancel ends a long wait
 		// at the next one.
@@ -981,7 +1029,7 @@ func (s *telaMCPSession) do(req telaMCPReq, rep *telaMCPReply) {
 {{if .DevTools}}
 // telaMCPActs are the commands that act on the app: the frames after the
 // start of one are what it caused (perf).
-var telaMCPActs = map[string]bool{"click": true, "hover": true, "fill": true, "press": true, "scroll": true, "drag": true, "resize": true, "wait": true, "prefer": true}
+var telaMCPActs = map[string]bool{"click": true, "hover": true, "fill": true, "press": true, "scroll": true, "drag": true, "resize": true, "wait": true, "prefer": true, "film": true}
 
 // state answers with the component of the element req.Loc names (its
 // node identity), or with the components that have props or hooks.

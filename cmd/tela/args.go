@@ -8,6 +8,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Limits that keep a typo from allocating gigabytes.
@@ -32,6 +33,9 @@ type renderOptions struct {
 	Scale   float64
 	Dark    bool
 	Preview string // name in the package's Previews; empty means the first
+	// Film and Every, for the film mode of tela snapshot: the span of the
+	// app's clock to capture and the interval between frames.
+	Film, Every time.Duration
 }
 
 // parseFlags parses args with flags defined by setup, and returns the single

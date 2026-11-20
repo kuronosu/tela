@@ -67,6 +67,20 @@ Tools:
 	prefer      reduced motion, high contrast, text scale, locale, direction
 	            and dark mode, live where the app can take them
 	lint        tela lint -json on the package
+	film        frames of the motion an action starts (a transition, a
+	            spring, a Presence exit), every few ms of the app's clock, as
+	            a contact sheet image; optionally an animated PNG (apng)
+	test        write the session's actions and what they changed as a Go
+	            telatest test in the package, then run go vet and the test
+
+film takes span and every (ms) and, to start the motion with an action, one
+tool and its arguments: {"span": 600, "action": {"click": "e5"}}. The sheet
+is a grid of at most 24 frames, each scaled down and captioned with its time;
+the clock is the app's, so the frames are deterministic. test records the
+acting calls since the latest mount (a change of the source starts over) and
+writes them as app.Click(telatest.ByRole("button", "Save")) and the like,
+each followed by checks of what changed in the snapshot, in a file the tool
+owns (name_test.go in the package; another file is never overwritten).
 
 Every tool that acts returns the new snapshot, and every result carries the
 dev warnings and errors the screen logged meanwhile. Each element line of a
@@ -90,8 +104,9 @@ position, wait until the app has stopped drawing and answer with the new
 snapshot; screenshot is the frame the window presents, in real pixels at the
 display's scale. tela dev rebuilds on save: the next result says so and refs
 are matched again by role and name. resize, open and prefer are not
-available (the window and the system's preferences are the person's), and
-wait waits real time. Run it in the directory tela dev runs in, so the
+available (the window and the system's preferences are the person's), film
+and test are not either yet (they need the headless app's clock and mount),
+and wait waits real time. Run it in the directory tela dev runs in, so the
 source lines and lint find the package.
 
 Flags:
@@ -304,6 +319,21 @@ type mcpSession struct {
 	lintNote string   // lint findings of the last build, for the next result
 	logs     mcpLogs  // what the screen and the app logged, for the logs tool
 
+	// rec records the acting calls, for the test tool; snapCur is the plain
+	// aria snapshot of the latest call that took one, valid until the screen
+	// is mounted afresh; curPreview and curW, curH are what the latest reply
+	// said of the screen.
+	hasApp     bool // the package declares an App (of the last build)
+	rec        mcpRecorder
+	snapCur    string
+	snapValid  bool
+	curPreview string
+	curW, curH float64
+	// capture, while the film tool runs an acting tool, takes the request
+	// the tool would send instead of sending it.
+	capture  *mcpReq
+	captured bool
+
 	namesMu  sync.Mutex
 	names    []string     // the previews, for the description of open
 	defsFor  []string     // the names toolDefs were built with
@@ -316,6 +346,36 @@ func newMCPSession(goBin string, opts mcpOptions, tmp string, logf func(string, 
 		mount: mcpMount{Preview: opts.Preview, W: opts.W, H: opts.H, SizeSet: opts.SizeSet, Scale: opts.Scale, Dark: opts.Dark},
 		refs:  newRefTable(),
 	}
+}
+
+// remounted records that the screen was mounted afresh: the refs and the
+// snapshot of the latest call say nothing about the new mount.
+func (s *mcpSession) remounted() {
+	s.refs.remount()
+	s.snapValid = false
+}
+
+// noteSnapshot remembers the aria snapshot of a reply, in the plain form
+// the test tool compares.
+func (s *mcpSession) noteSnapshot(yaml string) {
+	s.snapCur, s.snapValid = plainSnapshot(yaml), true
+}
+
+// snapshotBefore returns the plain snapshot before an acting call, taking
+// one when the screen was mounted afresh since the latest.
+func (s *mcpSession) snapshotBefore(ctx context.Context, o *mcpOut) string {
+	if !s.snapValid {
+		if rep, err := s.child.call(ctx, mcpReq{Op: "snapshot", Snapshot: true}); err == nil && rep.YAML != nil {
+			o.absorb(rep)
+			s.noteSnapshot(*rep.YAML)
+		}
+	}
+	return s.snapCur
+}
+
+// record adds an acting call to the recording of the session.
+func (s *mcpSession) record(req mcpReq, before string) {
+	s.rec.add(mcpStep{req: req, before: before, after: s.snapCur, w: s.curW, h: s.curH}, s.curPreview)
 }
 
 // close stops the instance.
@@ -479,13 +539,14 @@ func (s *mcpSession) rebuild(ctx context.Context, fp uint64) (notes []string) {
 	}
 	s.child = child
 	committed = true
-	s.contract = det.contract
+	s.rec.reset(s.mount)
+	s.contract, s.hasApp = det.contract, det.hasApp
 	if setNames {
 		s.namesMu.Lock()
 		s.names = names
 		s.namesMu.Unlock()
 	}
-	s.refs.remount()
+	s.remounted()
 	s.carry = rep
 	s.lintNote = lintNote
 	switch {
@@ -521,7 +582,8 @@ func (s *mcpSession) restart(ctx context.Context) error {
 		return err
 	}
 	s.child = child
-	s.refs.remount()
+	s.remounted()
+	s.rec.reset(s.mount)
 	s.carry = rep
 	return nil
 }
@@ -714,19 +776,22 @@ func (s *mcpSession) send(ctx context.Context, o *mcpOut, req mcpReq) (mcpReply,
 	}
 	o.absorb(rep)
 	o.screen = describeScreen(rep)
+	s.curPreview, s.curW, s.curH = rep.Preview, rep.W, rep.H
 	rep.Error = refGoneError(req, rep.Error)
 	if rep.MountError != "" {
 		msg := "the screen cannot be mounted: " + cleanMountError(rep.MountError)
 		if rep.Panic != "" {
 			msg = "the app panicked: " + trimPanic(rep.Panic) + "\n\nMounting the screen afresh failed too: " + cleanMountError(rep.MountError)
 		}
-		s.refs.remount()
+		s.remounted()
+		s.rec.reset(s.mount)
 		o.fail(msg)
 		o.screen = ""
 		return rep, false
 	}
 	if rep.Panic != "" {
-		s.refs.remount()
+		s.remounted()
+		s.rec.reset(s.mount)
 		o.fail("the app panicked: " + trimPanic(rep.Panic) + "\n\nThe screen was mounted afresh (state reset).")
 	}
 	if rep.Error != "" && rep.Panic == "" {
@@ -735,6 +800,9 @@ func (s *mcpSession) send(ctx context.Context, o *mcpOut, req mcpReq) (mcpReply,
 	if rep.YAML != nil {
 		snap := s.withRefs(ctx, o, *rep.YAML, rep.Nodes)
 		o.snapshot = &snap
+		if rep.Panic == "" {
+			s.noteSnapshot(*rep.YAML)
+		}
 	}
 	return rep, rep.Error == "" && rep.Panic == ""
 }
@@ -853,13 +921,16 @@ func (s *mcpSession) element(ctx context.Context, o *mcpOut, a elementArgs) (mcp
 			if rep, err := s.child.call(ctx, mcpReq{Op: "snapshot", Snapshot: true}); err == nil && rep.YAML != nil {
 				o.absorb(rep)
 				s.withRefs(ctx, o, *rep.YAML, rep.Nodes)
+				s.noteSnapshot(*rep.YAML)
 			}
 		}
 		e, err := s.refs.lookup(a.Ref)
 		if err != nil {
 			return mcpElement{}, err
 		}
-		return mcpElement{loc: e.loc, desc: e.desc + " [ref=" + strings.TrimSpace(a.Ref) + "]", disabled: e.disabled}, nil
+		loc := e.loc
+		loc.Stable = &e.stable
+		return mcpElement{loc: loc, desc: e.desc + " [ref=" + strings.TrimSpace(a.Ref) + "]", disabled: e.disabled}, nil
 	case a.TestID != "":
 		return mcpElement{loc: mcpLoc{TestID: a.TestID, Nth: a.Nth}, desc: "the element with test id " + strconv.Quote(a.TestID)}, nil
 	case a.Role != "":
@@ -967,7 +1038,7 @@ func (s *mcpSession) call(ctx context.Context, name string, args json.RawMessage
 func (s *mcpSession) instructions() string {
 	return fmt.Sprintf(`This server runs the Tela screen of the Go package %s headlessly and keeps it running between calls. Tela is a pure-Go UI framework: React-like components (tela.UseState, h.Div, h.Button...) styled with Tailwind CSS v4 classes (h.Class("flex gap-4 rounded-xl bg-white p-6 shadow-sm dark:bg-zinc-900")).
 The loop: edit the Go source, then call snapshot (structure, cheap) or screenshot (how it looks). Every call first rebuilds and mounts the screen afresh when the source changed (the state resets) and reports compile errors, tela lint findings and dev-mode errors such as unknown classes with a suggestion.
-Act on elements with click, fill, press, hover, scroll and drag, naming them by the [ref=eN] of the latest snapshot (a ref is the element itself: it keeps pointing at it when its label changes or its siblings come and go, and fails with "gone" once it is unmounted); each returns the new snapshot. An element that is not on the screen fails at once when nothing is pending (no animation, timer or update); use wait with a text for data that arrives later. resize keeps the state; open mounts another preview, dark mode or size afresh; wait advances the app's clock for timers and animations; inspect shows the layout tree when something is misplaced. Each snapshot line ends with [src=file:line], the source line that made the element: edit there. state explains why a component rendered and what its hooks hold; perf says how long frames took; logs lists what was logged; prefer tries reduced motion, high contrast, text scale, locale, direction and dark mode.
+Act on elements with click, fill, press, hover, scroll and drag, naming them by the [ref=eN] of the latest snapshot (a ref is the element itself: it keeps pointing at it when its label changes or its siblings come and go, and fails with "gone" once it is unmounted); each returns the new snapshot. An element that is not on the screen fails at once when nothing is pending (no animation, timer or update); use wait with a text for data that arrives later. resize keeps the state; open mounts another preview, dark mode or size afresh; wait advances the app's clock for timers and animations; inspect shows the layout tree when something is misplaced. Each snapshot line ends with [src=file:line], the source line that made the element: edit there. state explains why a component rendered and what its hooks hold; perf says how long frames took; logs lists what was logged; prefer tries reduced motion, high contrast, text scale, locale, direction and dark mode. film shows motion (a transition, a spring, an exit) as frames on the app's clock, starting at an action; test turns what you did into a regression test.
 The package defines its screen as func Preview() tela.Node, var Previews = tela.Previews{...} or var App = tela.App{Root: ...}; if it does not exist yet, write it and call snapshot.`, s.pkgArg)
 }
 
@@ -1061,7 +1132,7 @@ func mcpToolDefs(previews []string) []mcpToolDef {
 	if len(previews) > 0 {
 		openDesc += "\nPreviews: " + strings.Join(previews, ", ")
 	}
-	return []mcpToolDef{
+	return append([]mcpToolDef{
 		def("snapshot", `Show the screen's structure as an aria snapshot (Playwright's YAML): roles, accessible names, states and texts, with [ref=eN] on each element you can act on. Cheap: use it first, after every edit and to get refs; use screenshot to judge how it looks. When the Go source changed, the screen is rebuilt and mounted afresh first (state reset), and compile errors, lint findings and dev errors (unknown Tailwind v4 classes, with a suggestion) are reported. Example: {}`,
 			ro("Aria snapshot"), nil, (*mcpSession).toolSnapshot),
 		def("screenshot", `Render the window, or one element (ref, with an 8 px margin), to a PNG at the current size and scale. Use it to judge the looks: spacing, alignment, colors, typography, dark mode. Classes are Tailwind v4 (rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5 dark:bg-zinc-900). Example: {} or {"ref": "e5"}`,
@@ -1137,7 +1208,7 @@ func mcpToolDefs(previews []string) []mcpToolDef {
 			}, (*mcpSession).toolPrefer),
 		def("lint", `Check the package's Go source for what dev mode reports at run time, without running it: unknown Tailwind classes (with a suggestion), ARIA roles and tokens, duplicate or missing keys, misused hooks. Prints tela lint -json. Example: {}`,
 			ro("Lint"), nil, (*mcpSession).toolLint),
-	}
+	}, mcpFilmDefs()...)
 }
 
 // ---------------------------------------------------------------------
@@ -1200,9 +1271,16 @@ func round2(v float64) float64 { return math.Round(v*100) / 100 }
 // action runs an action on one element (or a point) and answers with the
 // new snapshot.
 func (s *mcpSession) action(ctx context.Context, o *mcpOut, req mcpReq, done string) mcpResult {
+	if s.capture != nil {
+		// The film tool runs the tool to learn what it would send.
+		*s.capture, s.captured = req, true
+		return o.result()
+	}
 	req.Snapshot = true
+	before := s.snapshotBefore(ctx, o)
 	if _, ok := s.send(ctx, o, req); ok {
 		o.head = done
+		s.record(req, before)
 	}
 	return o.result()
 }
@@ -1497,6 +1575,7 @@ func (s *mcpSession) toolResize(ctx context.Context, args json.RawMessage) mcpRe
 		if a.Scale > 0 {
 			s.mount.Scale = a.Scale
 		}
+		s.rec.add(mcpStep{req: mcpReq{Op: "resize", W: a.W, H: a.H, Scale: a.Scale}, before: s.snapCur, after: s.snapCur, w: s.curW, h: s.curH}, s.curPreview)
 		o.head = "Resized the window; the state is kept."
 	}
 	return o.result()
@@ -1574,7 +1653,7 @@ func (s *mcpSession) toolOpen(ctx context.Context, args json.RawMessage) mcpResu
 	}
 	old := s.mount
 	s.mount = m
-	s.refs.remount()
+	s.remounted()
 	rep, err := s.child.call(ctx, s.mountReq(true))
 	if err != nil {
 		s.mount = old
@@ -1596,6 +1675,9 @@ func (s *mcpSession) toolOpen(ctx context.Context, args json.RawMessage) mcpResu
 	o.screen = describeScreen(rep)
 	snap := s.withRefs(ctx, &o, deref(rep.YAML), rep.Nodes)
 	o.snapshot = &snap
+	s.curPreview, s.curW, s.curH = rep.Preview, rep.W, rep.H
+	s.noteSnapshot(deref(rep.YAML))
+	s.rec.newSegment(s.mount, rep.Preview)
 	o.head = "Mounted the screen afresh (state reset)."
 	return o.result()
 }

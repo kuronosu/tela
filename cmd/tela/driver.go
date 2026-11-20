@@ -43,6 +43,7 @@ const (
 	modeSnapshot mode = "snapshot" // render to a PNG
 	modeInspect  mode = "inspect"  // print the layout tree as JSON
 	modeAria     mode = "aria"     // print the aria snapshot as YAML
+	modeFilm     mode = "film"     // capture the frames of the mount's motion (JSON)
 )
 
 // contract is how a package exposes its screens.
@@ -101,10 +102,12 @@ const (
 	envDark    = "TELA_RUN_DARK"
 	envSizeSet = "TELA_RUN_SIZE_SET" // "true" when --size was given, which beats App.Width and Height
 	envPreview = "TELA_RUN_PREVIEW"
-	envOut     = "TELA_RUN_OUT"  // the result: a PNG, JSON or YAML
-	envErr     = "TELA_RUN_ERR"  // a message for the user, when the run fails
-	envInfo    = "TELA_RUN_INFO" // JSON runInfo
-	envLog     = "TELA_RUN_LOG"  // what the run printed on standard error (dev warnings and class errors)
+	envFilm    = "TELA_RUN_FILM"  // span of the film, in milliseconds
+	envEvery   = "TELA_RUN_EVERY" // interval of the film, in milliseconds
+	envOut     = "TELA_RUN_OUT"   // the result: a PNG, JSON or YAML
+	envErr     = "TELA_RUN_ERR"   // a message for the user, when the run fails
+	envInfo    = "TELA_RUN_INFO"  // JSON runInfo
+	envLog     = "TELA_RUN_LOG"   // what the run printed on standard error (dev warnings and class errors)
 )
 
 // generatedFile is the name of the generated test file inside the package
@@ -342,6 +345,9 @@ func runInPackage(m mode, opts renderOptions, ext string, stderr io.Writer) (*ru
 	if m != modeSnapshot {
 		feats = detectFeatures(goBin, pkg.Dir)
 		feats.I18N = false
+		if m == modeFilm {
+			feats.DevTools = false // a film is of the app as it is, not instrumented
+		}
 	}
 	if err := os.WriteFile(src, generateSource(pkg.Name, c, det.hasApp, feats), 0o644); err != nil {
 		return nil, err
@@ -373,6 +379,8 @@ func runInPackage(m mode, opts renderOptions, ext string, stderr io.Writer) (*ru
 		envW+"="+strconv.FormatFloat(opts.W, 'g', -1, 64),
 		envH+"="+strconv.FormatFloat(opts.H, 'g', -1, 64),
 		envScale+"="+strconv.FormatFloat(opts.Scale, 'g', -1, 64),
+		envFilm+"="+strconv.FormatInt(opts.Film.Milliseconds(), 10),
+		envEvery+"="+strconv.FormatInt(opts.Every.Milliseconds(), 10),
 		envDark+"="+strconv.FormatBool(opts.Dark),
 		envSizeSet+"="+strconv.FormatBool(opts.SizeSet),
 		envPreview+"="+opts.Preview,
@@ -494,12 +502,14 @@ func generateSource(pkgName string, c contract, hasApp bool, feats ...genFeature
 		Kind     string
 		HasApp   bool
 		DevTools bool
+		Film     bool
 		Env      map[string]string
 	}{
-		Package: pkgName, Kind: c.String(), HasApp: hasApp, DevTools: f.DevTools,
+		Package: pkgName, Kind: c.String(), HasApp: hasApp, DevTools: f.DevTools, Film: f.Film,
 		Env: map[string]string{
 			"Mode": envMode, "W": envW, "H": envH, "Scale": envScale, "Dark": envDark, "SizeSet": envSizeSet,
 			"Preview": envPreview, "Out": envOut, "Err": envErr, "Info": envInfo, "Log": envLog,
+			"Film": envFilm, "Every": envEvery,
 		},
 	})
 	if err != nil {
@@ -523,6 +533,7 @@ import (
 	telapng "image/png"
 	telasort "sort"
 	telastrings "strings"
+	telatime "time"
 
 	telatela "github.com/kuronosu/tela"
 	telatest "github.com/kuronosu/tela/telatest"
@@ -531,6 +542,7 @@ import (
 var (
 	_ = telasort.Strings
 	_ = telastrings.Join
+	_ = telatime.Second
 )
 
 {{template "contract" .}}
@@ -652,6 +664,11 @@ func TestTelaRun(t *telatesting.T) {
 		dev = true
 	}
 	opts = append(opts, telatest.AllowDev(""))
+	if getenv({{printf "%q" .Env.Mode}}) == {{printf "%q" "film"}} {
+		// The film starts with the mount: its first frame is the screen as
+		// the mount left it, with the motion it started still to run.
+		opts = append(opts, telatest.NoSettle())
+	}
 {{- if .DevTools}}
 	// The elements' source lines are part of what inspect prints.
 	opts = append(opts, telatest.Instrument())
@@ -677,6 +694,30 @@ func TestTelaRun(t *telatesting.T) {
 			yaml += "\n"
 		}
 		write({{printf "%q" .Env.Out}}, []byte(yaml))
+	case {{printf "%q" "film"}}:
+{{- if .Film}}
+		type telaFrame struct {
+			At  int64  ` + "`json:\"at\"`" + `
+			PNG []byte ` + "`json:\"png\"`" + `
+		}
+		var frames []telaFrame
+		span := telatime.Duration(num({{printf "%q" .Env.Film}})) * telatime.Millisecond
+		every := telatime.Duration(num({{printf "%q" .Env.Every}})) * telatime.Millisecond
+		for _, f := range app.Film(span, every, nil) {
+			var buf telaBuffer
+			if err := telapng.Encode(&buf, f.Image); err != nil {
+				t.Fatal(err)
+			}
+			frames = append(frames, telaFrame{f.At.Milliseconds(), buf.b})
+		}
+		js, err := telajson.Marshal(frames)
+		if err != nil {
+			t.Fatal(err)
+		}
+		write({{printf "%q" .Env.Out}}, js)
+{{- else}}
+		fail("this package's tela module predates telatest's App.Film; update it with go get github.com/kuronosu/tela@latest")
+{{- end}}
 	default:
 		t.Fatalf("unknown mode %q", getenv({{printf "%q" .Env.Mode}}))
 	}
