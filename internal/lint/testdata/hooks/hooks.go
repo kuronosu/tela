@@ -6,6 +6,7 @@ import (
 	"github.com/kuronosu/tela/aria"
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/kit"
+	"github.com/kuronosu/tela/oauth"
 )
 
 // A struct component: its Build is the owner of its hooks.
@@ -223,6 +224,13 @@ func Aria(cond bool) tela.Node {
 	go func() {
 		tela.UseState(0) // want hooks `inside a function literal`
 	}()
+	return Div()
+}
+
+func OAuth(cond bool) tela.Node {
+	if cond {
+		oauth.UseSession(oauth.Config{}) // want hooks `hook oauth.UseSession is called conditionally`
+	}
 	return Div()
 }
 
