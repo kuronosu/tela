@@ -35,6 +35,8 @@ import (
 	"os"
 	"sort"
 	"strings"
+
+	"github.com/kuronosu/tela/internal/style"
 )
 
 // The rules.
@@ -98,6 +100,19 @@ type Options struct {
 	// writing the files; the findings that were fixed move from
 	// Result.Diagnostics to Result.Fixed.
 	Fix bool
+	// Overlay replaces the content of files, by absolute path, for what
+	// the run reads: the source of a file is the overlay's, not the
+	// disk's, and a file that is not on disk may be given. This is how an
+	// editor lints a buffer it has not saved (tela lsp). The go command
+	// sees the overlay too, so an import added in a buffer is listed.
+	Overlay map[string][]byte
+	// AbsPaths makes Diagnostic.File an absolute path instead of one
+	// relative to the working directory.
+	AbsPaths bool
+	// Lenient lints a package that does not type-check, with what was
+	// resolved of it, instead of skipping it: a buffer being typed is
+	// rarely well-formed. The type errors are still in Result.LoadErrors.
+	Lenient bool
 }
 
 // Result is the outcome of a Run.
@@ -116,6 +131,22 @@ type Result struct {
 	// FixError is the first problem applying the fixes (a file left as it
 	// was); the findings of that file stay in Diagnostics.
 	FixError error
+	// Parser is the class parser of the run: the default theme plus the
+	// aliases and theme colors found in the linted packages. Editors
+	// complete and describe classes with it.
+	Parser *style.Parser
+	// ClassStrings are the string literals the class rule checked, which
+	// is what tells an editor which strings are classes.
+	ClassStrings []ClassString
+}
+
+// ClassString is a string literal that reaches the class parser.
+type ClassString struct {
+	// File is the path of the file, as in Diagnostic.
+	File string
+	// Start and End are the byte offsets of the literal in the file,
+	// quotes included.
+	Start, End int
 }
 
 // Run lints the packages the options name. It returns an error when no

@@ -49,8 +49,11 @@ type listPackage struct {
 // goList runs `go list -e -deps -json` for the patterns in dir (with cgo
 // off, like every Tela build) and returns the packages in the order go
 // prints them (dependencies first).
-func goList(dir string, patterns []string) ([]*listPackage, error) {
+func goList(dir, overlay string, patterns []string) ([]*listPackage, error) {
 	args := []string{"list", "-e", "-deps", "-json=ImportPath,Dir,Name,Standard,DepOnly,GoFiles,CgoFiles,TestGoFiles,XTestGoFiles,Imports,TestImports,XTestImports,ImportMap,Module,Error", "--"}
+	if overlay != "" {
+		args = append([]string{args[0], "-overlay=" + overlay}, args[1:]...)
+	}
 	cmd := exec.Command("go", append(args, patterns...)...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
@@ -102,6 +105,8 @@ type loader struct {
 	state map[string]*state
 	// parsed caches the syntax of target files (with comments), by path.
 	parsed map[string]*parsedFile
+	// overlay replaces the content of files, by cleaned absolute path.
+	overlay map[string][]byte
 
 	// exported are the packages that gen imports from export data, instead
 	// of this loader checking them (export.go).
@@ -211,7 +216,11 @@ func (l *loader) parse(path string, comments bool) (*ast.File, error) {
 		if comments {
 			mode |= parser.ParseComments
 		}
-		pf.f, pf.err = parser.ParseFile(l.fset, path, nil, mode)
+		var src any
+		if b, ok := l.overlay[filepath.Clean(path)]; ok {
+			src = b
+		}
+		pf.f, pf.err = parser.ParseFile(l.fset, path, src, mode)
 	})
 	return pf.f, pf.err
 }

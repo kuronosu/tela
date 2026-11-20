@@ -171,6 +171,7 @@ func (p *pass) classValue(e ast.Expr) {
 // classString compiles s, a class string written at e, and reports what is
 // wrong with it.
 func (p *pass) classString(e ast.Expr, s string) {
+	p.recordClassLits(e)
 	c := p.r.parser.Compile(s)
 	if c.Err == nil {
 		return
@@ -258,4 +259,21 @@ func (r *run) checkAliasValues() {
 		p := &pass{r: r, u: a.unit, info: a.unit.info}
 		p.classString(a.valueExp, a.value)
 	}
+}
+
+// recordClassLits remembers the string literals in e, which reach the
+// class parser, for Result.ClassStrings.
+func (p *pass) recordClassLits(e ast.Expr) {
+	ast.Inspect(e, func(n ast.Node) bool {
+		lit, ok := n.(*ast.BasicLit)
+		if !ok || lit.Kind != token.STRING {
+			return true
+		}
+		start := p.r.l.fset.Position(lit.Pos())
+		end := p.r.l.fset.Position(lit.End())
+		p.r.classStrings = append(p.r.classStrings, ClassString{
+			File: p.r.rel(start.Filename), Start: start.Offset, End: end.Offset,
+		})
+		return true
+	})
 }

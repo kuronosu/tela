@@ -1,6 +1,7 @@
 package lint
 
 import (
+	"encoding/json"
 	"go/ast"
 	"go/types"
 	"os"
@@ -33,6 +34,11 @@ type run struct {
 	l     *loader
 	units []*unit
 
+	// overlay is Options.Overlay with cleaned paths; overlayJSON is the
+	// file of the go command's -overlay flag for it, or "".
+	overlay     map[string][]byte
+	overlayJSON string
+
 	parser    *style.Parser
 	aliasList []*aliasEntry
 
@@ -54,6 +60,8 @@ type run struct {
 	usesHooksCache map[*types.Func]bool
 
 	diags []Diagnostic
+	// classStrings are the literals the class rule saw.
+	classStrings []ClassString
 	// fixes are the edits of the fixable findings.
 	fixes map[fixKey][]edit
 }
@@ -68,7 +76,13 @@ func (r *run) run(patterns []string) (*Result, error) {
 	if err == nil {
 		r.cwd = cwd
 	}
-	pkgs, err := goList(r.dir, patterns)
+	overlayJSON, cleanup, err := r.writeOverlay()
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+	r.overlayJSON = overlayJSON
+	pkgs, err := goList(r.dir, r.overlayJSON, patterns)
 	if err != nil {
 		return nil, err
 	}
@@ -80,6 +94,7 @@ func (r *run) run(patterns []string) (*Result, error) {
 		pkgs = append(pkgs, more...)
 	}
 	r.l = newLoader(pkgs)
+	r.l.overlay = r.overlay
 	r.l.useExports(r.dir)
 
 	res := &Result{}
@@ -128,7 +143,9 @@ func (r *run) run(patterns []string) (*Result, error) {
 				msg += "could not be type-checked"
 			}
 			res.LoadErrors = append(res.LoadErrors, strings.ReplaceAll(msg, r.cwd+string(filepath.Separator), ""))
-			continue
+			if !r.opts.Lenient || c.pkg == nil || c.info == nil {
+				continue
+			}
 		}
 		r.units = append(r.units, &unit{pkg: c.pkg, info: c.info, files: c.files})
 		if r.opts.Tests {
@@ -148,6 +165,8 @@ func (r *run) run(patterns []string) (*Result, error) {
 
 	sortDiagnostics(r.diags)
 	res.Diagnostics = dedupe(r.diags)
+	res.Parser = r.parser
+	res.ClassStrings = r.classStrings
 	if r.opts.Fix {
 		var left []Diagnostic
 		fixed, files, ferr := r.applyFixes(res.Diagnostics)
@@ -193,7 +212,7 @@ func (r *run) testDeps(pkgs []*listPackage) ([]*listPackage, error) {
 		return nil, nil
 	}
 	sort.Strings(missing)
-	more, err := goList(r.dir, missing)
+	more, err := goList(r.dir, r.overlayJSON, missing)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +245,51 @@ func (r *run) addTestUnits(p *listPackage, c *checked) {
 
 // rel returns the path of a file for output.
 func (r *run) rel(name string) string {
+	if r.opts.AbsPaths {
+		return name
+	}
 	return filepath.ToSlash(relPath(r.cwd, name))
+}
+
+// writeOverlay cleans Options.Overlay into r.overlay and writes the file
+// that the go command's -overlay flag takes: the buffers in a temporary
+// directory, and a JSON file that maps each path to its buffer. It returns
+// that file's name ("" without an overlay) and the function that removes
+// the directory.
+func (r *run) writeOverlay() (string, func(), error) {
+	if len(r.opts.Overlay) == 0 {
+		return "", func() {}, nil
+	}
+	dir, err := os.MkdirTemp("", "tela-overlay-")
+	if err != nil {
+		return "", nil, err
+	}
+	cleanup := func() { os.RemoveAll(dir) }
+	r.overlay = make(map[string][]byte, len(r.opts.Overlay))
+	replace := make(map[string]string, len(r.opts.Overlay))
+	i := 0
+	for name, src := range r.opts.Overlay {
+		name = filepath.Clean(name)
+		r.overlay[name] = src
+		file := filepath.Join(dir, strconv.Itoa(i)+".go")
+		i++
+		if err := os.WriteFile(file, src, 0o600); err != nil {
+			cleanup()
+			return "", nil, err
+		}
+		replace[name] = file
+	}
+	data, err := json.Marshal(map[string]any{"Replace": replace})
+	if err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	file := filepath.Join(dir, "overlay.json")
+	if err := os.WriteFile(file, data, 0o600); err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	return file, cleanup, nil
 }
 
 // dedupe removes findings that repeat another one in position, rule and

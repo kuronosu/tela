@@ -33,7 +33,7 @@ func loadErrors(t *testing.T, dir string, patterns ...string) string {
 // package with the import path from export data.
 func readsFromExport(t *testing.T, dir, pattern, path string) bool {
 	t.Helper()
-	pkgs, err := goList(dir, []string{pattern})
+	pkgs, err := goList(dir, "", []string{pattern})
 	if err != nil {
 		t.Fatal(err)
 	}
