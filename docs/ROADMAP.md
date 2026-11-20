@@ -44,9 +44,10 @@ Inspecting and driving a running app.
 - [ ] `tela lsp`: no quick fix for "did you mean"; constants used as `Class(card)` and aliases of other packages are not seen; the describer shows about 61% of the vocabulary in CSS (`mask-*`, `bg-conic` fall back to the name); the editor snippets of the wiki are untried in real editors
 - [x] `tela snapshot`, `inspect` and `mcp` give each element the line that created it (`button "Save" [ref=e4] [src=settings.go:42]`), from the call stacks dev mode already captures for hooks
 - [ ] `tela mcp` DevTools tools gaps (ADR-302): acting tools do not carry the frames they caused (only `perf {action: true}`); `state` takes only a `ref`; components made at package level (`tela.C(form)` in `Previews`) have no source; `logs` misses output written before the instance's redirect; `open` still has `dark` beside `prefer`
-- [ ] `tela mcp` writes the session it just drove as a `telatest` test (`Click`, `Fill`, `Advance`, `ExpectAria`), so what an agent checked stays as a regression test
-- [ ] `tela mcp` and `tela snapshot` film motion: frames every N ms over a span of the app's clock, as a contact sheet or an APNG (transitions, springs, `UsePresence`)
+- [x] `tela mcp` writes the session it just drove as a `telatest` test (`Click`, `Fill`, `Advance`, `ExpectAria`), so what an agent checked stays as a regression test
+- [x] `tela mcp` and `tela snapshot` film motion: frames every N ms over a span of the app's clock, as a contact sheet or an APNG (transitions, springs, `UsePresence`)
 - [x] `tela mcp`: `state` (a component's hook values, which `tela dev` already serializes), `logs` (the app's log and dev warnings), `perf` (time per phase of each frame), `prefer` (reduced motion, high contrast, text scale, locale, direction; `open` covers only dark mode and size); merge tools rather than add them, the set stays small
+- [ ] Film and session tests (ADR-303): `tela snapshot --film` films only the start after the mount (no action); `film` and `test` are unavailable under `--attach`; recorded tests never infer a `ByTestID`, and locale and direction preferences become comments
 - [x] `tela new` also writes `AGENTS.md` and `CLAUDE.md` (read `llms.txt`, the `tela mcp` loop) and a `.mcp.json` that starts `tela mcp`
 
 **Done when:** DevTools shows why a given element re-rendered and where a frame spent its time, and `tela mcp` drives a running app's windows.

@@ -288,7 +288,7 @@ type Constraints struct{ MinW, MaxW, MinH, MaxH float32 } // MaxW may be +Inf
 
 - **Box model:** always `box-sizing: border-box`.
 - **Direction:** `h.Dir` (HTML's `dir`: `rtl`, `ltr`, `auto`) sets the inline base direction, inherited like CSS `direction`. Under `rtl`, flex rows, grid columns, block auto margins, absolute static positions and scroll origins mirror as in Chromium, and logical utilities resolve against it (ADR-090). Components read it with `tela.UseDirection()` (ADR-155).
-- **Defaults:** `display` is `block`, like an HTML `div`. Inline elements (`Span`, `A`) only exist inside a text context (§11); `absolute` and `fixed` ones are blockified like any positioned box, and out-of-flow boxes do not split the inline content around them (ADR-176): their static position is their place on the line (Blink's out-of-flow inline item: the box's left or right edge there, by the bidi direction), and a `relative` inline element moves with its content and is the containing block of its absolute children (ADR-268).
+- **Defaults:** `display` is `block`. Inline elements (`Span`, `A`) only exist inside a text context (§11); `absolute` and `fixed` ones are blockified like any positioned box, and out-of-flow boxes do not split the inline content around them (ADR-176): their static position is their place on the line (Blink's out-of-flow inline item: the box's left or right edge there, by the bidi direction), and a `relative` inline element moves with its content and is the containing block of its absolute children (ADR-268).
 - **Virtualization (from TanStack Virtual / Flutter slivers):** `h.VirtualList(count, estimateSize, renderItem)` (`renderItem` is a `func(int) tela.Node`, which may return a struct component; ADR-097, ADR-205) builds only visible items plus overscan. It supports variable item sizes measured on the fly, keeps scroll position stable when measurements correct estimates, and provides `ScrollToIndex`.
 
 ## 10. Style system
@@ -551,7 +551,7 @@ type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entr
 
 | Command | Does |
 |---|---|
-| `tela snapshot <pkg> [--size WxH] [--scale 2] [--dark] -o out.png` | Headless render to PNG |
+| `tela snapshot <pkg> [--size WxH] [--scale 2] [--dark] [--film SPAN] -o out.png` | Headless render to PNG |
 | `tela inspect <pkg> [--aria\|--layout]` | Aria snapshot (YAML, default) or layout tree as JSON (geometry and computed style) |
 | `tela lint [-json] [-tests] [packages]` | Static form of the dev-mode checks on constant strings: unknown classes (aliases and theme colors of the linted packages known), roles, aria tokens, duplicate or missing keys, hook misuse; `file:line:col: rule: message`, exit 1 when anything is reported, `//tela:ignore rule` (ADR-173); `tela lsp` serves its class checks, completion and hover to editors (ADR-301) |
 | `tela dev [pkg] [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [-v]` | Watch, rebuild in the background, swap the app process under a window that never closes, keeping hook and engine state; errors as an overlay over the last good frame. Go can't swap code in a process, so the restart is made invisible (ADR-111); state outside the tree: `App.DevState` (ADR-114) |
@@ -563,7 +563,7 @@ type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entr
 | `tela devtools` | DevTools for `tela dev` sessions (ADR-299) |
 | `tela add <component>...` | Deferred (ADR-129): copy `kit` component source into the user's project (shadcn model), rewriting the package name |
 | `tela version` | Print the module version, VCS revision, Go version and platform of the binary |
-| `tela mcp [pkg] [--size WxH] [--scale N] [--dark] [--preview NAME] [-v]` | MCP server over stdio driving a headless instance of the screen that stays up between calls: `snapshot` (aria YAML with `[ref=eN]`), `screenshot` (PNG), `click`, `hover`, `fill`, `press`, `scroll`, `drag`, `resize`, `open`, `wait`, `inspect`, `lint`, `state`, `logs`, `perf`, `prefer`; remounts on source changes (ADR-174, ADR-302) |
+| `tela mcp [pkg] [--size WxH] [--scale N] [--dark] [--preview NAME] [-v]` | MCP server over stdio driving a headless instance of the screen that stays up between calls: `snapshot` (aria YAML with `[ref=eN]`), `screenshot` (PNG), `click`, `hover`, `fill`, `press`, `scroll`, `drag`, `resize`, `open`, `wait`, `inspect`, `lint`, `state`, `logs`, `perf`, `prefer`, `film`, `test`; remounts on source changes (ADR-174, ADR-302, ADR-303) |
 
 ### Contract for `snapshot`, `inspect`, `mcp`
 

@@ -21,6 +21,8 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 - `tela devtools` and `tela dev --devtools`: a DevTools window for a `tela dev` session, with Elements (the tree, pick in the app, source line, props, hooks, why it rendered, box model, computed style), Accessibility, Profiler (frames by phase, what each frame built and why) and Logs (ADR-299).
 - `tela dev` opens a tools socket that DevTools and agents attach to; `-v` prints its address.
 - `tela mcp --attach [addr]`: the MCP server drives a running `tela dev` session's real windows (a `window` argument on every tool and a `windows` tool; screenshots are the presented frames; `resize`, `open` and `prefer` are unavailable, `wait` waits real time).
+- `telatest.App.Film`, `tela snapshot --film SPAN [--every DUR] [--apng file]` and `tela mcp`'s `film`: the frames of a motion over the app's clock, as a contact sheet and an animated PNG (ADR-303).
+- `tela mcp`'s `test`: writes the session it drove as a `telatest` test, with expectations on what each action changed, then vets and runs it (ADR-303).
 - `tela lsp`: a language server editors run beside gopls, with diagnostics, completion and hover (the CSS a class produces) for Tailwind classes in `Class("...")`, class fields and `ClassAliases` (ADR-301).
 - `tela new` also writes `AGENTS.md` (the agent loop with `tela mcp`, `tela lint` and `llms.txt`), `CLAUDE.md` (`@AGENTS.md`) and `.mcp.json`, which starts `tela mcp .`.
 
