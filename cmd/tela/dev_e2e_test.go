@@ -69,8 +69,9 @@ func devAppModule(t *testing.T) string {
 // builder, the watcher and the supervisor (drawing problems over the window
 // too when overlay is set, as tela dev does), without a backend or a host.
 // The caller creates the host on its backend's UI thread, attaches the
-// supervisor to it and calls start.
-func newE2E(t *testing.T, overlay bool) *e2e {
+// supervisor to it and calls start. configure, if any, completes the
+// supervisor's configuration.
+func newE2E(t *testing.T, overlay bool, configure ...func(*supervisorConfig)) *e2e {
 	t.Helper()
 	skipShort(t)
 	wine.Skip(t, "no AF_UNIX sockets (WSAEAFNOSUPPORT), so the remote host cannot listen")
@@ -113,7 +114,7 @@ func newE2E(t *testing.T, overlay bool) *e2e {
 		done: make(chan int, 1),
 		src:  filepath.Join(dir, "main.go"),
 	}
-	e.s = newSupervisor(supervisorConfig{
+	cfg := supervisorConfig{
 		opts:     opts,
 		builder:  b,
 		log:      e.out,
@@ -132,7 +133,11 @@ func newE2E(t *testing.T, overlay bool) *e2e {
 		saveTimeout:       e2eWait,
 		firstFrameTimeout: e2eWait,
 		reportWait:        e2eWait,
-	})
+	}
+	for _, f := range configure {
+		f(&cfg)
+	}
+	e.s = newSupervisor(cfg)
 	e.view.term = terminalView{e.s.log}
 	return e
 }
@@ -144,9 +149,9 @@ func (e *e2e) start() {
 	go func() { e.done <- e.s.run() }()
 }
 
-func startE2E(t *testing.T) *e2e {
+func startE2E(t *testing.T, configure ...func(*supervisorConfig)) *e2e {
 	t.Helper()
-	e := newE2E(t, false)
+	e := newE2E(t, false, configure...)
 	e.hb = headless.New(headless.Options{RealTime: true})
 	host, err := remote.NewHost(e.hb, e.s.hostOptions())
 	if err != nil {

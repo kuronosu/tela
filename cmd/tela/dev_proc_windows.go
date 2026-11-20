@@ -37,3 +37,24 @@ func removeExe(path string) error {
 		time.Sleep(delay)
 	}
 }
+
+// processAlive reports whether process pid runs (a discovery file of tela
+// dev whose process ended is stale): a process that cannot be opened is
+// gone, unless access was denied (it runs as someone else); one that can
+// is running until its exit code is set.
+func processAlive(pid int) bool {
+	if pid <= 0 {
+		return false
+	}
+	h, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(pid))
+	if err != nil {
+		return errors.Is(err, windows.ERROR_ACCESS_DENIED)
+	}
+	defer windows.CloseHandle(h)
+	var code uint32
+	if err := windows.GetExitCodeProcess(h, &code); err != nil {
+		return true
+	}
+	const stillActive = 259 // STILL_ACTIVE
+	return code == stillActive
+}

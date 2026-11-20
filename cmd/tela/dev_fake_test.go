@@ -44,7 +44,9 @@ import (
 // "nullout" checks that its standard output is not a pipe (the null
 // device); "orphan" starts a process ("hold", fakeHolder) that inherits
 // its standard output and error and outlives it. The key "g" panics in
-// another goroutine.
+// another goroutine. "tools" also answers the DevTools kinds
+// (fakeDevTools) and tells the test what it receives: fake.instrument (the
+// state), fake.key (each key press, "Key|Text") and fake.focus.
 const envFake = "TELA_DEV_TEST_FAKE"
 
 const (
@@ -216,6 +218,10 @@ func fakeChild(mode string) int {
 		return 4
 	}
 	clicks := 0
+	picking := false
+	if mode == "tools" {
+		fakeDevTools(b, gen, &picking)
+	}
 	dark := b.Settings().DarkMode
 	dirty, first := true, true
 	var fb *image.RGBA
@@ -228,13 +234,28 @@ func fakeChild(mode string) int {
 			dirty = true
 			w.RequestFrame()
 		case platform.PointerEvent:
+			if picking && e.Action == platform.PointerDown {
+				picking = false
+				b.Notify(devloop.KindToolsPicked, []byte(`{"window":1,"id":7}`))
+				return
+			}
 			if e.Action == platform.PointerDown && e.Button == platform.ButtonPrimary {
 				count++
 				clicks++
 				dirty = true
 				w.RequestFrame()
 			}
+		case platform.FocusEvent:
+			if mode == "tools" {
+				b.Notify("fake.focus", []byte(strconv.FormatBool(e.Focused)))
+			}
 		case platform.KeyEvent:
+			if mode == "tools" {
+				if e.Action == platform.KeyPress {
+					b.Notify("fake.key", []byte(string(e.Key)+"|"+e.Text))
+				}
+				return
+			}
 			if e.Action == platform.KeyPress && e.Key == "g" {
 				// A panic in another goroutine: nobody can recover it, the
 				// runtime prints it and exits with status 2.
@@ -276,6 +297,71 @@ func fakeChild(mode string) int {
 		return 1
 	}
 	return 0
+}
+
+// fakeDevTools answers the DevTools kinds as the child runtime would, with
+// canned results: one element whose text names the window and build, a
+// frame profile pushed when the instrumentation turns on, a log entry.
+// The handlers run on the UI thread, like the event handler, which reads
+// picking.
+func fakeDevTools(b *remote.Backend, gen int, picking *bool) {
+	on := false
+	params := func(p []byte) devloop.ToolsParams {
+		var q devloop.ToolsParams
+		if err := json.Unmarshal(p, &q); err != nil {
+			b.Notify("fake.error", []byte("tools params: "+err.Error()))
+		}
+		return q
+	}
+	reply := func(v any) ([]byte, error) { return json.Marshal(v) }
+	b.Handle(devloop.KindToolsInstrument, func(p []byte) ([]byte, error) {
+		on = params(p).On
+		b.Notify("fake.instrument", []byte(strconv.FormatBool(on)))
+		if on {
+			b.Notify(devloop.KindToolsFrames, []byte(`{"window":1,"profiles":[{"frame":1,"built":1,"builtIDs":[1]}]}`))
+		}
+		return reply(map[string]bool{"on": on})
+	})
+	need := func(fn func(q devloop.ToolsParams) (any, error)) func([]byte) ([]byte, error) {
+		return func(p []byte) ([]byte, error) {
+			if !on {
+				return nil, errors.New("the instrumentation is off")
+			}
+			v, err := fn(params(p))
+			if err != nil {
+				return nil, err
+			}
+			return reply(v)
+		}
+	}
+	b.Handle(devloop.KindToolsElements, need(func(q devloop.ToolsParams) (any, error) {
+		return map[string]any{"elements": []map[string]any{{"id": 1, "kind": "fake", "depth": 0, "text": fmt.Sprintf("window %d build %d", q.Window, gen)}}}, nil
+	}))
+	b.Handle(devloop.KindToolsElement, need(func(q devloop.ToolsParams) (any, error) {
+		if q.ID != 1 {
+			return nil, fmt.Errorf("no element %d", q.ID)
+		}
+		return map[string]any{"id": 1, "kind": "fake", "depth": 0, "recent": []map[string]any{{"frame": 1, "reasons": []map[string]any{{"cause": "state", "hook": 0}}}}}, nil
+	}))
+	b.Handle(devloop.KindToolsInspect, need(func(q devloop.ToolsParams) (any, error) {
+		return map[string]any{"kind": "root"}, nil
+	}))
+	b.Handle(devloop.KindToolsSemantics, need(func(q devloop.ToolsParams) (any, error) {
+		return map[string]any{"yaml": "- button \"Go\"\n", "nodes": []int{3}, "elements": []int{1}}, nil
+	}))
+	b.Handle(devloop.KindToolsProfiles, need(func(q devloop.ToolsParams) (any, error) {
+		return map[string]any{"profiles": []map[string]any{{"frame": q.Since + 1}}}, nil
+	}))
+	b.Handle(devloop.KindToolsLogs, need(func(q devloop.ToolsParams) (any, error) {
+		return map[string]any{"logs": []map[string]any{{"window": 1, "entries": []map[string]any{{"seq": 1, "at": time.Now(), "level": "WARN", "msg": "fake warning"}}}}}, nil
+	}))
+	b.Handle(devloop.KindToolsPick, need(func(q devloop.ToolsParams) (any, error) {
+		*picking = q.On
+		return struct{}{}, nil
+	}))
+	b.Handle(devloop.KindToolsHighlight, need(func(q devloop.ToolsParams) (any, error) {
+		return struct{}{}, nil
+	}))
 }
 
 // fakeHolder is the process an "orphan" child leaves running with its

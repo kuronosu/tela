@@ -3,6 +3,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"syscall"
 )
@@ -22,3 +23,14 @@ func childSysProcAttr() *syscall.SysProcAttr { return &syscall.SysProcAttr{Setpg
 
 // removeExe deletes the executable of a build.
 func removeExe(path string) error { return os.Remove(path) }
+
+// processAlive reports whether process pid runs (a discovery file of tela
+// dev whose process ended is stale). EPERM is a process of another user:
+// it runs.
+func processAlive(pid int) bool {
+	if pid <= 0 {
+		return false
+	}
+	err := syscall.Kill(pid, 0)
+	return err == nil || errors.Is(err, syscall.EPERM)
+}

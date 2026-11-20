@@ -79,6 +79,10 @@ type supervisorConfig struct {
 	// Windows only outside tests).
 	slowStart  time.Duration
 	exclusions []string
+	// tools opens the tools socket (ADR-299, dev_tools.go); toolsDir is
+	// the directory of its discovery file ("": the user cache's).
+	tools    bool
+	toolsDir string
 
 	// Timeouts; zero means devloop's, and reportWait and exitSettle the
 	// defaults below.
@@ -97,6 +101,8 @@ type supervisor struct {
 	log  *devLog
 	view problemView
 	ov   *overlayView // nil without cfg.overlay
+	// tools is the tools socket, nil without cfg.tools.
+	tools *toolsServer
 
 	host     *remote.Host
 	quitHost func()
@@ -263,6 +269,9 @@ func newSupervisor(cfg supervisorConfig) *supervisor {
 		s.ov = newOverlayView(func(err error) { s.log.printf("%v", err) })
 		s.view = multiView{s.view, s.ov}
 	}
+	if cfg.tools {
+		s.tools = newToolsServer(cfg.opts.Pkg, cfg.toolsDir, s.log.verbosef)
+	}
 	s.q.init()
 	return s
 }
@@ -282,6 +291,9 @@ func (s *supervisor) hostOptions() remote.HostOptions {
 		},
 		OnError:          func(err error) { s.push(evHostError{err}) },
 		OnSecondInstance: func(_ *remote.Child, appID string) { s.push(evSecondInstance{appID}) },
+	}
+	if s.tools != nil {
+		o.OnWindows = s.tools.windowsChanged
 	}
 	if s.ov != nil {
 		o.Input = s.ov.handleInput
@@ -337,6 +349,14 @@ func (s *supervisor) attach(h *remote.Host, quitHost func()) {
 		s.push(evAssets{devloop.DecodeAssets(p)})
 		return nil, nil
 	})
+	if s.tools != nil {
+		if err := s.tools.start(h); err != nil {
+			s.log.printf("no tools socket (tela devtools and tela mcp --attach cannot attach): %v", err)
+			s.tools = nil
+		} else {
+			s.log.verbosef("tools: %s", s.tools.addr)
+		}
+	}
 }
 
 // push queues an event. Safe from any goroutine; never blocks.
@@ -745,7 +765,11 @@ func (s *supervisor) startChild(sw *swapState, state []byte) {
 	}
 	cmd := exec.Command(res.exe, res.args...)
 	cmd.Env = s.childEnv(tag, res.env)
-	tail := &tailWriter{w: s.cfg.stderr}
+	var stderr io.Writer = s.cfg.stderr
+	if s.tools != nil {
+		stderr = s.tools.log.stderr(res.gen, stderr) // the tools socket's logs
+	}
+	tail := &tailWriter{w: stderr}
 	out, err := newChildOutput(cmd, s.cfg.stdout, tail)
 	if err != nil {
 		s.swapFailed(problem{kind: problemStart, summary: fmt.Sprintf("cannot start the new build: %v", err)})
@@ -873,6 +897,9 @@ func (s *supervisor) promoted(gen int, err error) {
 	old := s.active
 	s.active = sw.proc
 	s.swap = nil
+	if s.tools != nil {
+		s.tools.setActive(sw.proc.child, sw.proc.gen)
+	}
 	if old != nil && old != sw.proc {
 		s.stop(old)
 	}
@@ -1085,6 +1112,9 @@ func (s *supervisor) exited(p *proc) {
 		}
 	case p == s.active:
 		s.active = nil
+		if s.tools != nil {
+			s.tools.setActive(nil, 0)
+		}
 		if p.waitErr == nil && p.panic == "" {
 			s.quit(0, "")
 			break
@@ -1187,6 +1217,9 @@ func (s *supervisor) finish() {
 		s.quitByTime.Stop()
 	}
 	s.host.Close()
+	if s.tools != nil {
+		s.tools.close()
+	}
 	if s.quitHost != nil {
 		s.quitHost()
 	}

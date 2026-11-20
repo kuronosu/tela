@@ -57,6 +57,11 @@ but a debugger cannot attach) and inlining in the package built
 (-gcflags=-l); a -buildvcs, -ldflags or -gcflags set in GOFLAGS is used
 instead.
 
+While it runs, tela dev serves a DevTools socket (ADR-299) that tools
+attach to: it lists the windows and the elements of the running app, its
+frame profiles and logs, and injects input into its windows. Its address is
+in <user cache>/tela/dev/<pid>.json; -v prints it.
+
 Before a swap the input is held; it reaches the new build once it shows its
 first frame. A build error, or a crash of the app, is printed here and the
 window keeps the last good frame; the next good build takes over.
@@ -237,6 +242,7 @@ func devMain(goBin string, opts devOptions, stdout, stderr io.Writer) (int, erro
 		watching:   watchDescription(w),
 		slowStart:  defaultSlowStart(),
 		exclusions: exclusions(exclude, target),
+		tools:      true,
 	})
 	host, err := remote.NewHost(backend, s.hostOptions())
 	if err != nil {
