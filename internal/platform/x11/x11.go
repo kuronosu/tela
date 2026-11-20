@@ -323,7 +323,12 @@ func (b *Backend) Name() string { return "x11" }
 
 // Now returns the time since the backend was created (monotonic). Safe from
 // any goroutine.
-func (b *Backend) Now() time.Duration { return time.Since(b.start) }
+func (b *Backend) Now() time.Duration {
+	if b.timers.now != nil {
+		return b.timers.now()
+	}
+	return time.Since(b.start)
+}
 
 // Wake makes the loop deliver a WakeEvent. Safe from any goroutine; never
 // blocks; coalesces.

@@ -341,6 +341,10 @@ type timers struct {
 	inbox []func()
 	// hook replaces time.AfterFunc in tests.
 	hook func(d time.Duration, fn func()) (stop func())
+	// now replaces the clock of Now in tests that fake the timers, so a
+	// wait measured against it (the frame extents') does not end because
+	// a loaded machine was slow.
+	now func() time.Duration
 }
 
 // after runs fn on the UI thread after d, unless stop is called first.

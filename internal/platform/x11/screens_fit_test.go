@@ -128,6 +128,10 @@ type timerRig struct {
 
 func newTimerRig(t *testing.T) *timerRig {
 	g := &timerRig{rig: newRig(t)}
+	// The clock stands still: only fire ends a wait, however long the test
+	// takes (the race detector on a loaded runner took over the 100 ms of
+	// frameExtentsTimeout between a window's creation and its Present).
+	g.b.timers.now = func() time.Duration { return 0 }
 	g.b.timers.hook = func(d time.Duration, fn func()) func() {
 		ft := &fakeTimer{d: d, fn: fn}
 		g.timers = append(g.timers, ft)
