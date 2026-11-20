@@ -78,6 +78,10 @@
 //     and kills the process. A child that exits with status 0 on its own
 //     (the user closed the window) makes tela dev quit; one that exits
 //     because of [KindQuit] does not.
+//
+// The DevTools kinds, "tela.dev.tools.*" (ADR-299), carry the calls of tela
+// dev's tools socket that the child answers and what the child pushes to
+// it; they are documented with their constants ([KindToolsInstrument]).
 package devloop
 
 import (

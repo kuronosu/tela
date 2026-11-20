@@ -430,8 +430,13 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 			ins.prof.spanEnd(span)
 		}
 		h.frame(v, e.Time)
-		if devStateEnabled && v == h.main {
-			devAfterFrame(h) // tela dev: the state report
+		if devStateEnabled {
+			if v == h.main {
+				devAfterFrame(h) // tela dev: the state report
+			}
+			if t.ins != nil {
+				devToolsFrame(h) // tela dev: the tools socket's frames and logs (ADR-299)
+			}
 		}
 		h.updateCursor(v)
 		h.syncTextInput(v)

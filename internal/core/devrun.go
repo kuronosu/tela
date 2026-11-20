@@ -130,6 +130,7 @@ func devRun(b platform.Backend, h *Host) error {
 		rb.Quit() // the supervisor replaced this build: exit 0, nothing to save
 		return nil, nil
 	})
+	devToolsRegister(rb, h) // devrun_tools.go: tela dev's tools socket (ADR-299)
 	devRT.mu.Lock()
 	noState := devRT.noState
 	devRT.mu.Unlock()

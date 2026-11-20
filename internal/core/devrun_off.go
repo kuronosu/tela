@@ -17,6 +17,7 @@ func devRecover()                                  {}
 func devBackend(Options) (platform.Backend, error) { return nil, nil }
 func devRun(platform.Backend, *Host) error         { return nil }
 func devAfterFrame(*Host)                          {}
+func devToolsFrame(*Host)                          {}
 func devAssetAdded(fs.FS)                          {}
 func devNewWindow(b platform.Backend, wo platform.WindowOptions, _ *Element) (platform.Window, error) {
 	return b.NewWindow(wo)

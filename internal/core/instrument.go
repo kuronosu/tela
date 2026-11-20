@@ -257,6 +257,22 @@ func (c BuildCause) String() string {
 	return "unknown"
 }
 
+// MarshalText names the cause in JSON ("state"), as String does.
+func (c BuildCause) MarshalText() ([]byte, error) { return []byte(c.String()), nil }
+
+// UnmarshalText reads a name of MarshalText; a name it does not know is
+// CauseUnknown.
+func (c *BuildCause) UnmarshalText(b []byte) error {
+	*c = CauseUnknown
+	for i, n := range causeNames {
+		if n != "" && n == string(b) {
+			*c = BuildCause(i)
+			break
+		}
+	}
+	return nil
+}
+
 // cause is a recorded reason of a build.
 type cause struct {
 	kind     BuildCause
