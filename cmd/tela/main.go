@@ -7,6 +7,7 @@
 //	tela lint     [-json] [-tests] [-fix] [packages]
 //	tela dev      [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [-v] [pkg]
 //	tela mcp      [--size WxH] [--scale N] [--dark] [--preview NAME] [-v] [pkg]
+//	tela lsp      [-v]
 //	tela build    [-o path] [-id ID] [-name NAME] [-version V] [-icon file] [-console] [-tags list] [-ldflags f] [-gcflags f] [-trimpath] [-v] [pkg]
 //	tela run      [-id ID] [-name NAME] [-version V] [-tags list] [-ldflags f] [-gcflags f] [-trimpath] [-v] [pkg [args...]]
 //	tela package  [-format list] [-os list] [-arch list] [-o dir] [-version V] [-icon file] [-sign] [-sign-cmd cmd] [build flags] [pkg]
@@ -59,6 +60,11 @@
 // compile error is that call's result while the last good build keeps
 // answering.
 //
+// lsp is a Language Server Protocol server on standard input and output, for
+// an editor to run beside gopls on the Go files of a Tela app: the findings
+// of lint for the open buffers as diagnostics, and completion and hover for
+// the Tailwind classes in class strings, with the CSS each one produces.
+//
 // build builds the program of a package main for the environment's GOOS and
 // GOARCH. For darwin it writes a macOS application bundle, <Name>.app, whose
 // Info.plist names the app's ID (read from the package's tela.App, or -id);
@@ -100,6 +106,7 @@ Commands:
 	lint        check the source for the mistakes dev mode reports at run time
 	dev         run an app, rebuilding and reloading it as its sources change
 	mcp         serve a package's screen to agents (Model Context Protocol)
+	lsp         serve class diagnostics, completion and hover to editors (Language Server Protocol)
 	build       build a program; on macOS, as an application bundle
 	run         build a program and run it; on macOS, as a bundle
 	package     build and package a program for each target (AppImage, deb, flatpak)
@@ -136,6 +143,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runDev(args[1:], stdout, stderr)
 	case "mcp":
 		return runMCP(args[1:], stdout, stderr)
+	case "lsp":
+		return runLSP(args[1:], stdout, stderr)
 	case "build":
 		return runBuild(args[1:], stdout, stderr)
 	case "run":
@@ -165,6 +174,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 				return 0
 			case "lint":
 				fmt.Fprint(stdout, lintUsage)
+				return 0
+			case "lsp":
+				fmt.Fprint(stdout, lspUsage)
 				return 0
 			case "icons":
 				if len(args) > 2 && args[2] == "gen" {

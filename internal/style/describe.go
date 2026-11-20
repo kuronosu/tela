@@ -1393,3 +1393,12 @@ func describeVariant(th *Theme, v string) string {
 	}
 	return "variant " + v
 }
+
+// VariantNames returns the variants that are plain names ("hover", "md",
+// "group-focus"), sorted: what a class can be prefixed with, before the
+// colon. The parametrized ones (min-[600px], aria-[sort=...]) are not
+// listed.
+func (p *Parser) VariantNames() []string { return variantNames(p.th) }
+
+// DescribeVariant says in words when the variant v applies.
+func (p *Parser) DescribeVariant(v string) string { return describeVariant(p.th, v) }

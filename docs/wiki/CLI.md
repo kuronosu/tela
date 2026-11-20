@@ -47,6 +47,7 @@ CGO_ENABLED=0 go run ./cmd/tela snapshot -o counter.png ./examples/counter
 | `tela lint` | Checks the Go source for the mistakes that dev mode reports at run time: unknown classes, roles and aria tokens, duplicate or missing keys, misused hooks, a redundant `Fragment`, a prop where a node goes (see [tela lint](#tela-lint)) |
 | `tela dev` | Runs an app and reloads it on every save, keeping the window and the state |
 | `tela mcp` | Serves a package's screen to agents over the Model Context Protocol: snapshot, screenshot, click, fill... on an instance that stays up and rebuilds on edits (see [tela mcp](#tela-mcp)) |
+| `tela lsp` | Serves class diagnostics, completion and hover to editors over the Language Server Protocol, beside gopls (see [tela lsp](#tela-lsp)) |
 | `tela build` | Builds a program; for `GOOS=darwin`, as a macOS application bundle `<Name>.app`, for `GOOS=windows` as a GUI program with the app's icon and version information (see [tela build and tela run](#tela-build-and-tela-run)) |
 | `tela run` | Builds a program and runs it, like `go run`; on macOS as a bundle in the user cache, so notifications, URL schemes and the Dock name work |
 | `tela package` | Builds a program for each target and writes its packages: on Linux an AppImage, a deb and a flatpak manifest, the same bytes for the same inputs (see [tela package](#tela-package)) |
@@ -589,6 +590,74 @@ standard error; standard output carries only protocol messages. The instance is
 a test binary built with `go test -c` from a generated `_test.go` file in an
 overlay (nothing is written into the package), so the server works in any
 module that requires Tela.
+
+## tela lsp
+
+```text
+tela lsp [-v]
+```
+
+A Language Server Protocol server on standard input and output, for your editor
+to run **beside gopls** on the Go files of a Tela app. It knows what Tela knows
+about Tailwind classes and nothing else about Go, so it answers three things
+and leaves the rest to gopls:
+
+- **Diagnostics:** the findings of [`tela lint`](#tela-lint) (unknown classes
+  with "did you mean", roles, aria tokens, keys, hooks) for the open files, from
+  their unsaved text. They are published when a file opens, a moment after you
+  stop typing and on save. The aliases of `App.ClassAliases` and the theme
+  colors declared in the package are known. A file that does not compile is
+  still linted with what type-checks.
+- **Completion** inside a class string: utilities and theme keys, variants
+  (`hover:`, `md:`, `dark:`, stacked), your class aliases and arbitrary values
+  (`w-[...]`), each with the CSS it produces (`p-4` is `padding: 1rem`, a color
+  its hex).
+- **Hover** over a class: the CSS it produces once the theme is resolved and
+  when it applies (`hover:`, `dark:`, `md:`); over an alias, its expansion.
+
+A string is a class string when it is an argument of `Class(...)`, the value of
+a field named `Class` or ending in `Class` (`kit.Button{Class: "..."}`,
+`App.RootClass`), or a value of `ClassAliases`; once the file has been linted
+every string that `tela lint` checks is one (the fields of a `kit` recipe, for
+example). Completion and hover read the text, not the type checker, so they
+answer at once and while the file does not compile. Diagnostics need the `go`
+command in `PATH`; a package takes about 150 ms to lint again after the first
+run (the first one builds the export data of its dependencies, as `tela lint`
+does), and the editor sees them 300 ms after the last keystroke.
+
+Configure the editor to start `tela lsp` for Go files, next to gopls. In VS Code,
+an extension that runs a stdio language server, such as Generic LSP Client:
+
+```json
+{
+  "glspc.server.command": "tela",
+  "glspc.server.commandArguments": ["lsp"],
+  "glspc.server.languageId": ["go"]
+}
+```
+
+Neovim 0.11 or later:
+
+```lua
+vim.lsp.config('tela', { cmd = { 'tela', 'lsp' }, filetypes = { 'go' }, root_markers = { 'go.mod' } })
+vim.lsp.enable('tela')
+```
+
+Helix, in `languages.toml`:
+
+```toml
+[language-server.tela]
+command = "tela"
+args = ["lsp"]
+
+[[language]]
+name = "go"
+language-servers = ["gopls", "tela"]
+```
+
+Zed only starts the language servers that an extension declares, so it needs
+one that runs `tela lsp`; there is none yet. With `-v` the server logs what it
+does on standard error; standard output carries only protocol messages.
 
 ## tela build and tela run
 
