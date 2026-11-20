@@ -44,6 +44,14 @@ type Launch struct {
 	// nothing at first, so outside macOS its LaunchOpened launches are not
 	// marked.
 	AtStart bool
+	// AtLogin reports, on the LaunchStart launch, that the desktop started
+	// the app because the user logged in ([SetStartAtLogin]): an app that
+	// starts in its tray then, or minimized, opens no window. Windows and
+	// Linux tell it by an argument their entry adds, which Tela removes
+	// from the command line (and from Args) before main runs; macOS by
+	// the launch's Apple event, known once the app finished launching.
+	// Other launches never have it.
+	AtLogin bool
 }
 
 // LaunchSource says where a [Launch] comes from.
@@ -161,8 +169,12 @@ func hasScheme(a, scheme string) bool {
 }
 
 func launchOf(l platform.Launch, src LaunchSource) Launch {
-	return Launch{Args: slices.Clone(l.Args), Dir: l.Dir, Source: src, AtStart: src == LaunchStart}
+	start := src == LaunchStart
+	return Launch{Args: slices.Clone(l.Args), Dir: l.Dir, Source: src, AtStart: start, AtLogin: start && startedAtLogin()}
 }
+
+// startedAtLogin reports a start at login (a variable for tests).
+var startedAtLogin = platform.StartedAtLogin
 
 // launchSource returns the Source of a platform LaunchEvent.
 func launchSource(e platform.LaunchEvent) LaunchSource {

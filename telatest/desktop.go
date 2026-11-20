@@ -74,6 +74,14 @@ const (
 	// (with NativeMenus unsupported too, as on Linux, nothing is native
 	// and the app draws it).
 	AppMenu
+	// StartAtLogin: desktop.SetStartAtLogin and StartsAtLogin, as for a
+	// macOS program outside a bundle.
+	StartAtLogin
+	// Tasks: desktop.SetTasks, as on a desktop that shows no tasks.
+	Tasks
+	// RecentDocuments: desktop.AddRecentDocument and
+	// ClearRecentDocuments.
+	RecentDocuments
 )
 
 // Unsupported makes the headless desktop lack the given services from now
@@ -126,8 +134,14 @@ func headlessServices(services []DesktopService) ([]headless.Service, error) {
 			hs = append(hs, headless.ServiceTrash)
 		case AppMenu:
 			hs = append(hs, headless.ServiceAppMenu)
+		case StartAtLogin:
+			hs = append(hs, headless.ServiceStartAtLogin)
+		case Tasks:
+			hs = append(hs, headless.ServiceTasks)
+		case RecentDocuments:
+			hs = append(hs, headless.ServiceRecentDocuments)
 		default:
-			return nil, fmt.Errorf("(%d): not a DesktopService; use telatest.FileDialogs, MessageBoxes, Notifications, TrayIcons, OpenURLs, NativeMenus, GlobalShortcuts, Secrets, ClipboardData, Associations, Trash or AppMenu", s)
+			return nil, fmt.Errorf("(%d): not a DesktopService; use telatest.FileDialogs, MessageBoxes, Notifications, TrayIcons, OpenURLs, NativeMenus, GlobalShortcuts, Secrets, ClipboardData, Associations, Trash, AppMenu, StartAtLogin, Tasks or RecentDocuments", s)
 		}
 	}
 	return hs, nil

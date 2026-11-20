@@ -28,6 +28,14 @@ func SetStartLaunchForTest(t *testing.T, dir string, args ...string) {
 	})
 }
 
+// SetStartedAtLoginForTest makes the process's start one at login (or
+// not) until the test ends.
+func SetStartedAtLoginForTest(t *testing.T, on bool) {
+	old := startedAtLogin
+	startedAtLogin = func() bool { return on }
+	t.Cleanup(func() { startedAtLogin = old })
+}
+
 // SetAppIDForTest calls SetAppID(id) and restores the app ID when the
 // test ends: SetAppID is process-wide, and an ID left set leaks into the
 // later tests of the binary (under -count=3, into the next round's
