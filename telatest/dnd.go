@@ -151,7 +151,7 @@ func (a *App) dragConfigOf(opts []DragOption) (cfg dragConfig, mods platform.Mod
 		if !ok {
 			a.fatalf("Modifiers(%q): not a modifier; use \"Shift\", \"Control\", \"Alt\", \"Meta\" or \"ControlOrMeta\"", name)
 		}
-		mods |= m.mod
+		mods |= m.Mod
 	}
 	return cfg, mods
 }
