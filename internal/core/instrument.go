@@ -8,6 +8,7 @@ import (
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/semantics"
+	"github.com/kuronosu/tela/internal/style"
 )
 
 // DevTools instrumentation of a Tree (ADR-299): what `tela devtools`,
@@ -574,7 +575,10 @@ type ElementInfo struct {
 	Node semantics.NodeID `json:"node,omitempty"`
 	// Bounds is the border box it owns as painted in window coordinates
 	// after the last frame (InspectNode.Bounds, or Rect when that is
-	// nil); nil for an element without a box of its own.
+	// nil); for an inline element laid out in a paragraph (a span, a
+	// link), the bounding rectangle of its fragments and content, as the
+	// semantics tree bounds it; nil for an element without a box of its
+	// own (a component, a text, display: contents) or with no area.
 	Bounds *gfx.Rect `json:"bounds,omitempty"`
 	// Builds counts its builds since the instrumentation turned on.
 	Builds int `json:"builds,omitempty"`
@@ -807,9 +811,16 @@ func (ins *instrument) info(el *Element, parent ElementID, depth int, detail boo
 		info.Text = truncateRunes(el.text, 80)
 	case elemPrimitive:
 		info.Classes = strings.Join(el.node.d.classes, " ")
-		if b := el.box; b != nil && b.cs != nil && t.ownBox(el, false) && t.inTree(b) {
-			r := t.boxWindowRect(b)
-			info.Bounds = &r
+		if b := el.box; b != nil && b.cs != nil {
+			switch {
+			case t.ownBox(el, false) && t.inTree(b):
+				r := t.boxWindowRect(b)
+				info.Bounds = &r
+			case b.inPara != nil && b.cs.Display != style.DisplayNone:
+				if r := t.elemBounds(el); !r.Empty() {
+					info.Bounds = &r
+				}
+			}
 		}
 	}
 	info.Node = t.semNodeOf(el)

@@ -1313,16 +1313,37 @@ func (t *Tree) paraBounds(p *Box, rects []gfx.Rect, transformed bool) gfx.Rect {
 	if u.Empty() {
 		return gfx.Rect{}
 	}
-	l := p.ld.Layout()
-	o := t.semOrigin(p).Add(gfx.Point{X: l.Border.Left + l.Padding.Left, Y: l.Border.Top + l.Padding.Top})
-	if p.scr != nil {
-		o = o.Sub(p.scr.soff) // a paragraph that scrolls its own text
-	}
+	o := t.paraContentOrigin(p, false)
 	u = u.Translate(o.X, o.Y)
 	if transformed {
 		u = t.transformUp(p, u)
 	}
 	return u
+}
+
+// paraContentOrigin returns the origin of the coordinates of paragraph box
+// p's text (its content box, moved by its own scroll offset) in window
+// coordinates before transforms: as the last frame painted it (semOrigin),
+// or, target, where it will be when the scroll containers reach their
+// targets (targetRect).
+func (t *Tree) paraContentOrigin(p *Box, target bool) gfx.Point {
+	l := p.ld.Layout()
+	var o gfx.Point
+	if target {
+		r := t.targetRect(p)
+		o = gfx.Point{X: r.X0, Y: r.Y0}
+	} else {
+		o = t.semOrigin(p)
+	}
+	o = o.Add(gfx.Point{X: l.Border.Left + l.Padding.Left, Y: l.Border.Top + l.Padding.Top})
+	if s := p.scr; s != nil { // a paragraph that scrolls its own text
+		if target {
+			o = o.Sub(s.flip(s.target()))
+		} else {
+			o = o.Sub(s.soff)
+		}
+	}
+	return o
 }
 
 // ---------------------------------------------------------------------
