@@ -32,14 +32,14 @@ Inspecting and driving a running app.
 - [ ] `tela mcp` on a running app's real windows, all of them (today headless only, and only the main window), for what headless does not show: IME, menus, dialogs, the tray, the accessibility backends, the display scale; a session could attach through the `remote` host of `tela dev`
 - [x] `tela mcp`: refs keep node identity; `scroll` without an element; a locator that matches nothing fails at once when nothing is pending; `notifications/cancelled` is honored (ADR-300)
 - [ ] `tela mcp`'s fail-fast reads `App.Pending` by matching its text (caret blink, scrollbar fade, endless animations): give `Pending` kinds; work on goroutines (`UseAsync`, `UseGo`) is not pending, so a miss before a load ends fails at once; `wait` does not fail fast; `scroll` without an element goes to the window's center, not the largest scrollable node, and does not say whether anything moved
-- [ ] `tela snapshot` shows a passive effect's state and toasts set by effects (it renders once)
+- [x] `tela snapshot` shows a passive effect's state and toasts set by effects (it renders once)
 - [x] Debug-overlay labels are laid out at the display scale (today at scale 1)
 - [ ] `tela lsp`: completion, hover and diagnostics of Tailwind classes inside `Class("...")` and `ClassAliases`, on the lint engine
 - [ ] `tela snapshot`, `inspect` and `mcp` give each element the line that created it (`button "Save" [ref=e4] [src=settings.go:42]`), from the call stacks dev mode already captures for hooks
 - [ ] `tela mcp` writes the session it just drove as a `telatest` test (`Click`, `Fill`, `Advance`, `ExpectAria`), so what an agent checked stays as a regression test
 - [ ] `tela mcp` and `tela snapshot` film motion: frames every N ms over a span of the app's clock, as a contact sheet or an APNG (transitions, springs, `UsePresence`)
 - [ ] `tela mcp`: `state` (a component's hook values, which `tela dev` already serializes), `logs` (the app's log and dev warnings), `perf` (time per phase of each frame), `prefer` (reduced motion, high contrast, text scale, locale, direction; `open` covers only dark mode and size); merge tools rather than add them, the set stays small
-- [ ] `tela new` also writes `AGENTS.md` and `CLAUDE.md` (read `llms.txt`, the `tela mcp` loop) and a `.mcp.json` that starts `tela mcp`
+- [x] `tela new` also writes `AGENTS.md` and `CLAUDE.md` (read `llms.txt`, the `tela mcp` loop) and a `.mcp.json` that starts `tela mcp`
 
 **Done when:** DevTools shows why a given element re-rendered and where a frame spent its time, and `tela mcp` drives a running app's windows.
 
