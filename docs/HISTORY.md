@@ -622,6 +622,29 @@ What a desktop app needs besides its interface: loading data, signing in, naviga
 
 **Done when:** `examples/notes` signs in against the fake OAuth server, loads and syncs its notes with `UseAsync`, keeps them in SQLite (from the example's module), shows them as Markdown, navigates back and forward from the mouse and the keyboard, starts at login and appears in the recent documents, with `telatest` tests and goldens on Linux and Windows CI (macOS on CI where it can be driven). Outside the phase: a Markdown editor, sync and offline beyond the example, a webview (ADR-001), push and background tasks.
 
+### Phase 28: DevTools and agents (`v0.14.9`)
+
+Inspecting and driving a running app.
+
+- [x] Inspect's and LayoutJSON's `font` field shows the first name of the stack (`ui-sans-serif`), not the family that drew the text
+- [x] Live inspector: element tree, computed style, hooks and state, re-render counts, accessibility tree (`tela devtools`, `tela dev --devtools`)
+  - [x] Core instrumentation (`Tree.SetInstrument`): elements with IDs, creation sites, hooks, props, build counts and causes; a 600-frame profile; pick mode and highlight; a log ring
+  - [x] `tela dev`'s tools socket (ADR-299): discovery file, JSON-RPC relay to the child, screenshots, input injected into the Host, the child's stderr kept as logs, notifications
+- [x] Frame profiler
+- [x] Connect to a running app and pick an element
+- [x] `tela mcp` on a running app's real windows, all of them (today headless only, and only the main window), for what headless does not show: IME, menus, dialogs, the tray, the accessibility backends, the display scale; a session could attach through the `remote` host of `tela dev` (`tela mcp --attach`; IME, OS menus, dialogs, the tray and the accessibility backends are not injectable)
+- [x] `tela mcp`: refs keep node identity; `scroll` without an element; a locator that matches nothing fails at once when nothing is pending; `notifications/cancelled` is honored (ADR-300)
+- [x] `tela snapshot` shows a passive effect's state and toasts set by effects (it renders once)
+- [x] Debug-overlay labels are laid out at the display scale (today at scale 1)
+- [x] `tela lsp`: completion, hover and diagnostics of Tailwind classes inside `Class("...")` and `ClassAliases`, on the lint engine (ADR-301)
+- [x] `tela snapshot`, `inspect` and `mcp` give each element the line that created it (`button "Save" [ref=e4] [src=settings.go:42]`), from the call stacks dev mode already captures for hooks
+- [x] `tela mcp` writes the session it just drove as a `telatest` test (`Click`, `Fill`, `Advance`, `ExpectAria`), so what an agent checked stays as a regression test
+- [x] `tela mcp` and `tela snapshot` film motion: frames every N ms over a span of the app's clock, as a contact sheet or an APNG (transitions, springs, `UsePresence`)
+- [x] `tela mcp`: `state` (a component's hook values, which `tela dev` already serializes), `logs` (the app's log and dev warnings), `perf` (time per phase of each frame), `prefer` (reduced motion, high contrast, text scale, locale, direction; `open` covers only dark mode and size); merge tools rather than add them, the set stays small
+- [x] `tela new` also writes `AGENTS.md` and `CLAUDE.md` (read `llms.txt`, the `tela mcp` loop) and a `.mcp.json` that starts `tela mcp`
+
+**Done when:** DevTools shows why a given element re-rendered and where a frame spent its time, and `tela mcp` drives a running app's windows.
+
 ## Session log
 
 One line per session: date, what was done, what is pending. Append new sessions at the end.
@@ -770,3 +793,4 @@ One line per session: date, what was done, what is pending.
 - **2026-11-17 (phase 26):** Packaging and auto-update with the owner's answers (formats, declaration, deltas later, AppImage runtime of Tela's own, the notes icon, toast flags removed, the Windows SDK on the VM): ADRs 294–297, `tela package` (AppImage, deb, flatpak, MSIX, Windows zip, macOS app and dmg), package `update` and `tela update`, `desktop.Logger` and crash reports, the Windows toast activator, `examples/notes` as the sample; checked on the Windows VM; review fixes in `update`, `desktop` and core's run hooks; the full suite under Wine in a container found Windows-host bugs (links in update zips, a bundle's executable bits from Windows, the open log file); `v0.14.7`.
 - **2026-11-19 (phase 27, first batch):** ADR-298 with the owner's answers (goldmark as a dependency, modernc.org/sqlite, `examples/notes` in its own module); five agents in parallel worktrees: `UseAsync`/`UseDebounced`, `router`, `kit.Markdown`, `oauth` and `oauthtest`, contract v16 desktop surfaces; `llms.txt` and ARCHITECTURE kept under their budgets by trimming stale text.
 - **2026-11-19 (phase 27, close):** `examples/notes` in its own module (SQLite, sign-in and sync with a demo server, Markdown preview, routes, desktop surfaces), `telatest.App.OpenedURLs`, `tela new -template`; full suite and race detector passed locally; the owner approved the apparatus, the push of `phase-27` for CI and `v0.14.8`.
+- **2026-11-20 (phase 28):** DevTools and agents with the owner's answers (a separate Tela window, only under `tela dev`, unattended with a commit per task): ADRs 299–303; `inspect`'s drawn font family, overlay labels at the display scale; `tela mcp` refs by node identity, fail-fast, cancellation, `state`/`logs`/`perf`/`prefer`, source lines, `film`, `test`, `--attach` with hit-testing; `tela new`'s agent files; settled snapshots; `tela lsp`; core instrumentation (every build, off by default); `tela dev`'s tools socket; `tela devtools`; three parallel reviews and their fixes; full suite passed locally.

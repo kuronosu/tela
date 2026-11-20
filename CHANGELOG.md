@@ -13,6 +13,10 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+## [0.14.9] - 2026-11-20
+
+Phase 28: DevTools and agents (ADR-299 to ADR-303). It breaks no public API; `tela inspect`'s output gains source lines.
+
 ### Added
 
 - `telatest.App.AriaSnapshotNodes`, `NodeLocator` and `ScrollAt` (ADR-300).
@@ -1238,7 +1242,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.8...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.9...HEAD
+[0.14.9]: https://github.com/kuronosu/tela/compare/v0.14.8...v0.14.9
 [0.14.8]: https://github.com/kuronosu/tela/compare/v0.14.7...v0.14.8
 [0.14.7]: https://github.com/kuronosu/tela/compare/v0.14.6...v0.14.7
 [0.14.6]: https://github.com/kuronosu/tela/compare/v0.14.5...v0.14.6
