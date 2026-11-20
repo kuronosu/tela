@@ -192,6 +192,7 @@ stays clean.
 tela new my-app
 tela new -module github.com/you/my-app my-app
 tela new .            # in an empty directory
+tela new -template notes my-notes
 ```
 
 Creates the directory (it may exist if it is empty) with a `go.mod`, a
@@ -208,12 +209,35 @@ CGO_ENABLED=0 go test ./...
 | Flag | Does |
 |---|---|
 | `-module path` | The module path (default: the directory name, lowercased) |
+| `-template name` | What to start from: `counter` (the default), `notes`, `settings` or `dashboard`; see below |
 | `-skip-deps` | Do not run `go get` and `go mod tidy` (offline, or no `go` command); the command prints what to run |
 
 The app requires the `tela` module at the version of the `tela` binary when
 that is a release (`go install ...@v0.9.1` gives apps on v0.9.1), and at the
 latest release when the binary was built from a checkout. A directory that is
 not empty is refused and left untouched.
+
+### Templates
+
+`counter` is the small app above. The other three start from a complete app,
+the same one that is in `examples/` of the repository, with its tests:
+
+| Template | Is | Needs |
+|---|---|---|
+| `notes` | A notes app: Markdown notes kept in SQLite, sign-in and sync (`oauth`), a router, a preview (`kit.Markdown`), desktop integration | `modernc.org/sqlite`, written to `go.mod` (see [SQLite](SQLite)) |
+| `settings` | A preferences window: a form of sections, validation that blocks Save, a save bar, dialogs | |
+| `dashboard` | An analytics dashboard: panes of glass over a wallpaper, a task board you can drag, dialogs, a command palette | |
+
+They are copies made by `go generate ./cmd/tela` (a test fails when they are
+out of date): the Go sources and assets of the example with its own import
+paths changed to your module path, and its tests, including the text goldens
+(`AriaGolden`). Left out are the tests that need this repository (benchmarks,
+the GPU backend, memory and damage checks use its `internal/` packages) and
+the **pixel goldens**: they depend on the Tela release that drew them, and
+would add about 11 MB to the `tela` binary. A golden test of your own writes
+its PNG the first time you run it with `TELA_UPDATE=1`. The window title, the
+app name and the `notes:` link scheme are the example's: rename them when the
+app becomes yours.
 
 ## tela snapshot
 
