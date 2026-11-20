@@ -1,0 +1,183 @@
+package main
+
+import (
+	"errors"
+	"fmt"
+	"net/url"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
+	"sync/atomic"
+
+	"github.com/kuronosu/tela/desktop"
+)
+
+// tela-notes: links, the deep links of Notes. A second process that is started
+// with one (a click in a browser, `xdg-open 'tela-notes://new?text=hi'`, `start
+// tela-notes://new?text=hi`, or the program with the link as its argument) hands
+// it to the running one, which shows its window with the result
+// (desktop.SingleInstance and desktop.UseLaunch).
+//
+//	tela-notes://new?title=Groceries&text=milk%20and%20eggs   a new note, with that title and text
+//	tela-notes://new                                          a new, empty note
+//	tela-notes://open?id=3                                    the note with that ID
+//
+// The query form is the one that is documented; "tela-notes:new?..." and
+// "tela-notes:open?id=3", with no slashes, mean the same (some launchers drop
+// them), and so does a slash after the action ("tela-notes://open/?id=3", which
+// browsers add). A note's link is made by "Copy link" in the context menu
+// of its card. The scheme is tela-notes, not notes: macOS's Notes app owns
+// notes:, and an app never takes another's association (ADR-209).
+
+// link is a parsed tela-notes: link.
+type link struct {
+	// Action is "new" or "open".
+	Action string
+	// ID is the note to open (open).
+	ID int
+	// Title and Text are the content of the new note (new).
+	Title, Text string
+}
+
+// errNotOurs is returned by parseLink for a URL of another scheme: the
+// launch gets any URL, and the others are not Notes's to open.
+var errNotOurs = errors.New("not a tela-notes: link")
+
+// parseLink parses a tela-notes: link. A URL of another scheme is errNotOurs;
+// anything else that is wrong has an error that says how to write it.
+func parseLink(raw string) (link, error) {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return link{}, fmt.Errorf("%q is not a valid link", raw)
+	}
+	// The links of earlier builds (notes://...) still work when they reach
+	// the program as an argument; the scheme itself is tela-notes, because
+	// macOS's Notes app owns notes: and the OS would never route it here.
+	if !strings.EqualFold(u.Scheme, "tela-notes") && !strings.EqualFold(u.Scheme, "notes") {
+		return link{}, errNotOurs
+	}
+	action := u.Host
+	if action == "" {
+		action = u.Opaque
+	}
+	if action == "" {
+		action = u.Path
+	}
+	action = strings.ToLower(strings.Trim(action, "/"))
+	q := u.Query()
+	switch action {
+	case "new":
+		return link{Action: "new", Title: strings.TrimSpace(q.Get("title")), Text: q.Get("text")}, nil
+	case "open":
+		id, err := strconv.Atoi(q.Get("id"))
+		if err != nil || id <= 0 {
+			return link{}, fmt.Errorf("%q has no note: write tela-notes://open?id=3, with the number of a note", raw)
+		}
+		return link{Action: "open", ID: id}, nil
+	}
+	return link{}, fmt.Errorf("%q: Notes has tela-notes://new?title=...&text=... and tela-notes://open?id=3", raw)
+}
+
+// The association Notes registers: its URL scheme, and the .md files it
+// offers to open when the user asks.
+var (
+	notesScheme  = desktop.URLScheme("tela-notes")
+	markdownType = desktop.FileType(".md", "text/markdown", "Markdown document")
+)
+
+// autoRegister makes Notes register its scheme when it starts. main turns it
+// on; tests and `tela snapshot` leave it off, so they never write to the
+// folders of the user who runs them.
+var autoRegister atomic.Bool
+
+// registrationBlocked says why Notes cannot register itself now, or "" when
+// it can. What it registers is the path of the running program, and the OS
+// would keep running that path after the program is gone: under `go run` the
+// program is a temporary build, which `go run` deletes when it ends. On
+// macOS the app is its bundle (ADR-228): outside an .app there is nothing
+// for Launch Services to register. (Under tela dev desktop.Register refuses
+// by itself, with ErrDevExecutable.)
+func registrationBlocked() string {
+	if f := blockedBy.Load(); f != nil {
+		return (*f)()
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	return blockedExecutable(runtime.GOOS, exe)
+}
+
+// blockedExecutable is registrationBlocked for the program at exe on goos.
+func blockedExecutable(goos, exe string) string {
+	exe = filepath.ToSlash(exe)
+	if goos == "darwin" {
+		if !strings.Contains(exe, ".app/Contents/MacOS/") {
+			return "Notes registers from its app bundle. Run it with tela run (in examples/notes), or build it with tela build and open the .app, to register it."
+		}
+		return ""
+	}
+	if strings.Contains(exe, "/go-build") {
+		return "This is a temporary build (go run). Build the program with go build -o notes (in examples/notes) and run that one to register it."
+	}
+	return ""
+}
+
+// blockedBy replaces registrationBlocked's check: the tests pretend to be
+// an installed program, or a temporary one. Atomic, so that a test may swap
+// it whichever goroutine reads it.
+var blockedBy atomic.Pointer[func() string]
+
+// registerCalls counts the starts registerAtStart has finished (decided
+// not to register, or registered), for the tests to wait for the goroutine
+// that registers.
+var registerCalls atomic.Int32
+
+// registerApp makes the desktop know Notes before it starts (ADR-217): on
+// Linux its own desktop entry, which the global shortcuts portal needs for
+// Quick note (Windows needs none, and nothing is written there). It runs
+// in main, synchronously, so the entry exists before the shortcut is
+// registered; it looks first, so a start with the entry up to date writes
+// nothing, and an entry Notes did not write (a package's) is left alone.
+// Only the built program registers: under go run it is a temporary build,
+// and under tela dev RegisterApp refuses by itself (ErrDevExecutable). On
+// macOS only a program in its .app bundle (tela run, tela build) does;
+// registerApp asks the bundle to register, which Launch Services needs for
+// the app's scheme and files, and a program outside one gets
+// ErrUnsupported, which is no news to anybody.
+func registerApp() {
+	if registrationBlocked() != "" {
+		return
+	}
+	_, err := desktop.RegisterApp()
+	if err != nil && !errors.Is(err, desktop.ErrUnsupported) && !errors.Is(err, desktop.ErrDevExecutable) {
+		fmt.Fprintln(os.Stderr, "notes:", err)
+	}
+}
+
+// registerAtStart registers the tela-notes: scheme as a handler, unless the user
+// turned it off in Preferences, another application holds it, or the
+// program is not one to register. Nothing here is the user's to be told:
+// Preferences shows the state when they look. It makes Notes a candidate,
+// never the default (that is a button of its own), and never takes another
+// application's association (no desktop.Replace).
+//
+// It decides on the calling goroutine (the UI thread, in the effect of the
+// main window) and registers, which blocks on file or registry I/O, on a
+// goroutine of its own. The decision is not the goroutine's: one the
+// scheduler starts late (a loaded CI machine) would read autoRegister and
+// blockedBy as the next test set them, and register into that test's app
+// (desktop.Register goes to the app running when it is called).
+func registerAtStart(wanted bool) {
+	if !autoRegister.Load() || !wanted || registrationBlocked() != "" {
+		registerCalls.Add(1)
+		return
+	}
+	go func() {
+		defer registerCalls.Add(1)
+		// ErrDevExecutable (tela dev) and ErrAssociationTaken are expected.
+		_, _ = desktop.Register(notesScheme)
+	}()
+}

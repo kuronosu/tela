@@ -1,0 +1,12 @@
+- dialog "Command palette":
+  - combobox "Search commands" [expanded]
+  - listbox "Search commands":
+    - text: Navigate
+    - option "Go to Overview"
+    - option "Go to Tasks 8 open"
+    - option "Go to Orders"
+    - text: Actions
+    - option "New report"
+    - option "New task"
+    - option "Export orders as CSV"
+    - option "Switch theme Dark"

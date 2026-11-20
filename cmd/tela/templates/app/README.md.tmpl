@@ -1,6 +1,11 @@
 # {{.Title}}
 
-A [Tela](https://github.com/kuronosu/tela) app.
+A [Tela](https://github.com/kuronosu/tela) app.{{if .Description}}
+
+It starts from the `{{.Template}}` template of `tela new`: {{.Description}} Its
+tests run without a window; they carry no pixel goldens, which depend on the
+Tela release that drew them. To add one, call `app.Golden("name.png")` in a
+test and run it once with `TELA_UPDATE=1`, then look at the PNG in `testdata`.{{end}}
 
 ```bash
 tela dev                       # run it, reloading on every save

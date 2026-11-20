@@ -1,0 +1,291 @@
+// Command notes is a small plain-text notes app that shows the desktop
+// services of phases 12 and 13: package desktop (native open and save
+// dialogs, a message box, notifications, a tray icon, the app's folders,
+// settings and a remembered window position; and now a global shortcut, a
+// single instance with deep links, registration of a URL scheme and a file
+// type, and secure storage), drag and drop, two windows, and a custom title
+// bar. It is the acceptance test of both phases.
+// Its look is "Graphite, Tela light with amber": stone in the light scheme,
+// graphite in the dark one, and one amber accent (which Preferences can
+// change) in both.
+//
+// What it shows:
+//
+//   - A window with no OS title bar and a kit.TitleBar of its own (kit.Plain,
+//     in the arrangement of the platform: Windows, GNOME or macOS) that holds
+//     the app's badge and the Open and Save buttons. App.TitleBarOverlay,
+//     h.WindowDrag and h.WindowControl are inside the kit components; the OS
+//     moves, resizes and snaps the window. On macOS the OS keeps its traffic
+//     lights over the bar and the bar leaves room for them, as it does for
+//     DWM's caption buttons on Windows 11; elsewhere TitleBarOverlay is
+//     Frameless and the bar draws the window controls.
+//   - Three panes under it. The rail has New note, the views (All notes,
+//     Pinned, Unsaved), the folders and the #tags of the library, with
+//     their counts, and Preferences. Choosing one shows the overview: a
+//     grid of cards of that filter, with a search field. A card opens the
+//     note: the list of the same filter and the editor (the folder menu,
+//     the tags, the pin, delete, a title and the text, and a status line).
+//     Cards have a context menu (pin, delete); deleting asks only when it
+//     would lose something, and has an Undo toast. Escape
+//     in the list, or choosing the rail's item again, goes back to the
+//     overview.
+//   - Tags are the #hashtags written in the text of a note, as in Bear: the
+//     rail lists them all and the cards show them. A note's folder is
+//     chosen from the editor's header (or "New folder...").
+//   - Native dialogs: desktop.OpenFile reads a .txt or .md file into a new
+//     note (titled with the file's name), desktop.SaveFile asks where a
+//     note without a file goes. Both are modal to the main window
+//     (desktop.Parent) and answer on the UI thread, so the callbacks set
+//     state directly. A canceled dialog does nothing; an error is a toast.
+//   - A second window: Preferences is a tela.Window that exists while the
+//     state says it is open (its OnClose sets that state to false). It
+//     shares the app's one component tree, and its position is remembered
+//     (desktop.SavedWindow). Its theme and accent are applied to the whole
+//     app with tela.SetColorScheme and tela.SetTheme.
+//   - Settings: desktop.UseSetting is a useState stored in settings.json.
+//     The Preferences window writes them and the main window, which reads
+//     the same keys, follows with no plumbing between them.
+//   - The library: a SQLite database, notes.db under desktop.DataDir (phase
+//     27, see "Phase 27" below), written as you type.
+//   - A tray icon (desktop.Tray) with a menu that follows the window (Show
+//     Notes or Hide Notes: a hidden window still builds). With "Keep
+//     running in the tray" on, closing the window hides it (tela.UseCloseRequest)
+//     and the tray brings it back; Quit is in the tray menu. With it off,
+//     closing asks before it throws unsaved changes away
+//     (desktop.ShowMessage) and quits.
+//   - A notification (desktop.Notify) when a file is saved, if the setting
+//     is on.
+//   - The main window opens where it was closed: desktop.PersistApp.
+//
+// Phase 13 adds, on Linux and Windows:
+//
+//   - Dropped files: the whole window takes drops (h.OnDragEnter,
+//     OnDragOver, OnDragLeave and OnDrop, see drop.go). .txt and .md files
+//     become notes exactly as Open makes them, a file that is already open
+//     selects its note, and dropped text becomes a note. While a drag that
+//     carries files or text is over the window, an overlay says "Drop to
+//     import"; any other drag gets none and is refused.
+//   - A global shortcut: Quick note, Ctrl+Alt+N, is a desktop.GlobalShortcut
+//     mounted while a setting is on (Preferences, Shortcuts). From any
+//     application it shows and raises the window (also from the tray) and
+//     makes a note. Preferences shows what the OS answered: the keys that
+//     were bound (the Wayland portal may choose others), registered with no
+//     keys (Hyprland: with the hyprland.conf line that binds it), or taken,
+//     refused, removed, not available. On Linux the portal needs the app's
+//     desktop entry, so main calls desktop.RegisterApp first, in the built
+//     program (registerApp, in link.go).
+//   - One instance and deep links: main is
+//     tela.Main(desktop.SingleInstance(...)), and desktop.UseLaunch handles
+//     every start of the program, the first one and the ones another process
+//     hands over before it exits. Files open as notes; tela-notes://new?title=...&text=...
+//     makes a note and tela-notes://open?id=3 opens one ("Copy link" in a card's
+//     menu makes the link). See link.go.
+//   - Registration: at start Notes makes itself a candidate handler of
+//     tela-notes: links (desktop.Register: only its own entries, nothing when
+//     nothing changes, never another application's, and never the default).
+//     Preferences, General, "Links and files" shows the status, registers or
+//     unregisters the scheme, offers to open .md files with Notes
+//     (desktop.FileType) and has a separate "Make default" button, which
+//     on Windows opens the Default apps settings. See links.go.
+//   - Locked notes: a note locked from the editor's header or a card's menu
+//     is stored encrypted in the library (AES-256-GCM) with a key that
+//     desktop.SetSecret keeps in the system keyring. The keyring is asked off
+//     the UI thread. A locked note's card has a lock and no preview, and
+//     the editor says "This note is locked" with an Unlock button. An
+//     unlocked note stays so until it is locked again or the window is
+//     hidden. Without a keyring the lock is off. See lock.go.
+//
+// Phase 15 adds, on macOS (see appmenu.go and close.go):
+//
+//   - The traffic lights over the app's own title bar (App.TitleBarOverlay).
+//   - The app's menu bar, declared once with desktop.AppMenuBar (NativeOnly): File (New Note,
+//     Open…, Save, Delete Note, Close Window), Edit, View (All Notes, Pinned,
+//     Unsaved) and Window, and Settings… in the app's own menu, which opens
+//     Preferences. Its items call the functions of the buttons and keys
+//     (their accelerators are the keys' Cmd+N, Cmd+O, Cmd+S, Cmd+, ...); there
+//     is no drawn menu bar, and on Linux and Windows the same keys are
+//     handled by the window.
+//   - Cmd+Q, the Dock's Quit and the app menu's Quit (tela.UseQuitRequest) really
+//     quit, also with "Keep running in the tray" on, after the question that
+//     closing the window asks about unsaved notes. Cmd+W closes the window,
+//     which the tray setting turns into a hide.
+//   - The system's own parts: the Keychain keeps the key of locked notes, the
+//     Trash takes the file of a note that was locked, the open and save
+//     dialogs and the question before quitting are sheets of the window,
+//     notifications and the global shortcut (Control+Option+N) are the OS's.
+//   - Registration needs the app's bundle (ADR-228): see "Try it on a Mac".
+//
+// Phase 26 makes Notes the sample app of tela package and package update
+// (README.md, docs/wiki/Updates.md): App declares what the packages need,
+// icon.svg is its icon, and a build given an update URL and key checks for
+// updates and offers a restart when one is in place (updates.go).
+//
+// Phase 27 (app building blocks, ADR-298) makes Notes a module of its own
+// (go.mod here: it depends on modernc.org/sqlite, which the core module must
+// not; run everything for it from this folder) and shows the phase's pieces:
+//
+//   - SQLite (store.go, library.go, docs/wiki/SQLite.md): notes.db in WAL
+//     mode with a schema version and migrations, an import of an old
+//     notes.json once, a first screen that needs no disk on a first run,
+//     tela.UseAsync to read a library, and a writer goroutine that stores what
+//     changed after each edit, so typing never waits for the disk.
+//   - An account and sync (account.go, sync.go, demo.go): oauth.UseSession at
+//     the foot of the rail (the system browser, PKCE, tokens in the keyring),
+//     and tela.UseAsync and tela.UseDebounced to sync with a server: last
+//     writer wins by an Updated time, deletions are tombstones, locked notes
+//     stay on the device, and offline keeps working. With no server given
+//     (-server or NOTES_SERVER) the card runs a demo server in the process
+//     (oauth/oauthtest behind a small notes API), so sign-in and sync work on
+//     one machine.
+//   - Markdown (editor.go, preview.go): Edit, Side by side and Preview with
+//     kit.Markdown; a task toggled in the preview edits the source, and links
+//     to other notes (notes:3, a title) open them inside the app.
+//   - A router (route.go): router.Router holds the places (the overview of a
+//     filter, a note), so the mouse's back and forward buttons and Alt+Left
+//     and Alt+Right (Cmd+[ and Cmd+] on a Mac) move between them.
+//   - Desktop surfaces: "Open at login" in Preferences (desktop.SetStartAtLogin;
+//     a program started at login that keeps running in the tray stays hidden,
+//     Launch.AtLogin), desktop.AddRecentDocument for the files it opens and
+//     saves, and desktop.SetTasks with New note.
+//
+// Try it. Build the program first (go build -o notes . in this folder): under
+// go run it is a temporary build, which Notes does not register.
+//
+//   - Drop: drag a .md file from the file manager on the window.
+//   - Quick note: press Ctrl+Alt+N in another application (on Hyprland and
+//     other Wayland desktops the compositor asks to bind it: the shortcuts
+//     portal).
+//   - Deep link, from a terminal: `xdg-open 'tela-notes://new?text=hi'` on Linux,
+//     `start tela-notes://new?text=hi` on Windows (cmd), or the program itself,
+//     `notes 'tela-notes://new?text=hi'` or `notes todo.md`: the running window
+//     comes up with the result. The links work through the OS once Notes is
+//     registered (Preferences, General).
+//   - Locked notes: Lock note in an open note's header.
+//
+// Try it on a Mac. Notifications, links and file types belong to an app
+// bundle, so run Notes with tela run, which builds Notes.app in the user
+// cache and runs it, with the terminal attached (go run and go build give a
+// bare executable: Notes still works, and registration says to use tela
+// run):
+//
+//	tela run .
+//
+// With it running (or once, after tela build -o dist . and
+// opening dist/Notes.app), the system knows Notes's tela-notes: links:
+//
+//	open 'tela-notes://new?text=hi'
+//	open 'tela-notes://new?title=Call&text=ring+back'
+//	open 'tela-notes://open?id=3'
+//
+// The global shortcut is Control+Option+N, from any application; Cmd+, opens
+// Preferences, Cmd+Q quits. tela run keeps the bundle in one place, so
+// Launch Services sees one Notes. The tests play a Mac on any OS
+// (telatest.PlatformKeys, kit.MacOS), and `go test -run TestNotesMacOS
+// ./cmd/tela/` builds the bundle on a Mac and checks registration and a deep
+// link into the running instance.
+//
+// The notes live in the library as you type, so the question when quitting
+// is about files: whether to write the notes that changed since their last
+// Save, or leave them as drafts in the library.
+//
+// `tela snapshot .` (in this folder) renders the main window without a
+// window or a tray, with the welcome notes of a library in memory; add --dark
+// for the dark theme.
+package main
+
+import (
+	"os"
+	"strings"
+
+	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/desktop"
+)
+
+var theme = themeFor(accents[0].Name)
+
+// App is the main window; `tela snapshot` and the tests read it too. main
+// wraps it in desktop.PersistApp, which loads the saved placement from
+// disk, so reading App itself touches nothing.
+var App = tela.App{
+	Title: "Notes",
+	AppID: "dev.telaui.notes",
+	// The declaration (ADR-294), which tela package writes into the
+	// packages; Run ignores it. The scheme and the file type are the ones
+	// Notes registers itself at run time (link.go: notesScheme and
+	// markdownType), so an install from a package already offers them.
+	Publisher:   "Tela",
+	Description: "Plain-text notes with folders, tags and locked notes",
+	Category:    "Office",
+	Schemes:     []string{"tela-notes"},
+	FileTypes:   []tela.FileType{{Ext: ".md", MIME: "text/markdown", Description: "Markdown document"}},
+	Services: tela.Services{
+		Network:         true, // the update check (updates.go), in packaged builds
+		Notifications:   true, // "Saved" (desktop.Notify)
+		Secrets:         true, // the key of the locked notes (lock.go)
+		GlobalShortcuts: true, // Quick note
+	},
+	Width:     960,
+	Height:    640,
+	MinWidth:  720,
+	MinHeight: 400,
+	// The title bar is the app's own; on macOS the OS keeps its traffic
+	// lights over it (kit.TitleBar leaves room for them), elsewhere this is
+	// Frameless.
+	TitleBarOverlay: true,
+	Icon:            appIcon(),
+	Theme:           &theme,
+	RootClass:       "overflow-hidden bg-background text-foreground",
+	// What closing the window and quitting the app do depends on state:
+	// the screen answers them (tela.UseCloseRequest, UseQuitRequest).
+	Root: Notes{},
+}
+
+// Previews are the screens, for `tela snapshot --preview "3 Preferences"
+// --size 540x440 .` in this folder.
+var Previews = tela.Previews{
+	"1 Notes":       {Root: Notes{Preview: true}},
+	"2 Overview":    {Root: Notes{Overview: true, Preview: true}},
+	"3 Preferences": {Root: Preferences{}},
+}
+
+func main() {
+	desktop.SetAppID(App.AppID) // before RegisterApp, which names the entry after it
+	registerApp()
+	autoRegister.Store(true) // register the tela-notes: scheme at start (never in tests or snapshots)
+	app := App
+	app.Root = Notes{Server: serverFromArgs()} // none: the demo server of the account panel
+	tela.Main(desktop.SingleInstance(withAppearance(desktop.PersistApp(app))))
+	closeStores() // writes what is still queued
+}
+
+// serverFromArgs reads the sync server: -server URL (or -server=URL, or
+// NOTES_SERVER) and -client-id ID (NOTES_CLIENT_ID, "tela-notes" by default).
+// The flags are taken out of os.Args, so that they are not mistaken for
+// something to open (desktop.Launch reads the rest). The flag package would
+// refuse the arguments the OS and the launchers add.
+func serverFromArgs() serverInfo {
+	info := serverInfo{URL: os.Getenv("NOTES_SERVER"), ClientID: os.Getenv("NOTES_CLIENT_ID")}
+	rest := []string{os.Args[0]}
+	for args := os.Args[1:]; len(args) > 0; args = args[1:] {
+		name, value, hasValue := strings.Cut(strings.TrimLeft(args[0], "-"), "=")
+		isFlag := strings.HasPrefix(args[0], "-") && (name == "server" || name == "client-id")
+		if !isFlag {
+			rest = append(rest, args[0])
+			continue
+		}
+		if !hasValue && len(args) > 1 {
+			value, args = args[1], args[1:]
+		}
+		if name == "server" {
+			info.URL = value
+		} else {
+			info.ClientID = value
+		}
+	}
+	os.Args = rest
+	info.URL = strings.TrimRight(info.URL, "/")
+	if info.ClientID == "" {
+		info.ClientID = "tela-notes"
+	}
+	return info
+}
