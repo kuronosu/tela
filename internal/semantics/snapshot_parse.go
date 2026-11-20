@@ -83,6 +83,14 @@ func ParseSnapshotLine(line string) (l SnapshotLine, ok bool) {
 		return l, false // "- text: ..." or "- /url: ..."
 	}
 	after := l.Key[len(l.Role):]
+	// The source token ends the key: it comes off before the name, whose
+	// end a name printed as a regular expression finds from what follows
+	// it (states only).
+	if m := snapSrcRe.FindStringSubmatchIndex(after); m != nil {
+		l.Src = after[m[2]:m[3]]
+		l.Key = l.Key[:len(l.Key)-(len(after)-m[0])]
+		after = after[:m[0]]
+	}
 	switch {
 	case after == "":
 	case strings.HasPrefix(after, ` "`):
@@ -109,11 +117,6 @@ func ParseSnapshotLine(line string) (l SnapshotLine, ok bool) {
 		}
 		l.Name, l.HasName = after[1:i], true
 		after = after[i:]
-	}
-	if m := snapSrcRe.FindStringSubmatchIndex(after); m != nil {
-		l.Src = after[m[2]:m[3]]
-		l.Key = l.Key[:len(l.Key)-(len(after)-m[0])]
-		after = after[:m[0]]
 	}
 	if !snapStatesRe.MatchString(after) {
 		return l, false

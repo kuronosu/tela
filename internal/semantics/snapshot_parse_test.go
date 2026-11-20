@@ -191,6 +191,15 @@ func TestSnapshotLineSrc(t *testing.T) {
 		{`- button "Save" [src=settings.go:42]`, `button "Save"`, "settings.go:42", `- button "Save" [ref=e4] [src=settings.go:42]`},
 		{`  - textbox "Email" [disabled] [src=ui/form.go:7]: ana`, `textbox "Email" [disabled]`, "ui/form.go:7", `  - textbox "Email" [disabled] [ref=e4] [src=ui/form.go:7]: ana`},
 		{`- button "Save"`, `button "Save"`, "", `- button "Save" [ref=e4]`},
+		// A name printed as a regular expression ends at a slash that only
+		// states follow: the source token comes off first.
+		{`- button /a+b/ [src=app.go:3]`, `button /a+b/`, "app.go:3", `- button /a+b/ [ref=e4] [src=app.go:3]`},
+		{`- button /docs/ [pressed] [src=app.go:3]`, `button /docs/ [pressed]`, "app.go:3", `- button /docs/ [pressed] [ref=e4] [src=app.go:3]`},
+		{`- button / [src=app.go:3]: x`, `button /`, "app.go:3", `- button / [ref=e4] [src=app.go:3]: x`},
+		{`- button [src=app.go:3]`, `button`, "app.go:3", `- button [ref=e4] [src=app.go:3]`},
+		// A name that holds a source token keeps it.
+		{`- button "x [src=a.go:1]" [src=b.go:2]`, `button "x [src=a.go:1]"`, "b.go:2", `- button "x [src=a.go:1]" [ref=e4] [src=b.go:2]`},
+		{`- button /x [src=a.go:1]/ [src=b.go:2]`, `button /x [src=a.go:1]/`, "b.go:2", `- button /x [src=a.go:1]/ [ref=e4] [src=b.go:2]`},
 	} {
 		l, ok := ParseSnapshotLine(tc.line)
 		if !ok || l.Key != tc.key || l.Src != tc.src || l.Role == "" {
