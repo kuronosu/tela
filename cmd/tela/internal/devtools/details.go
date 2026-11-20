@@ -3,6 +3,8 @@ package devtools
 import (
 	"fmt"
 	"slices"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/kuronosu/tela"
 	. "github.com/kuronosu/tela/h"
@@ -158,8 +160,15 @@ func (r Reason) Build() tela.Node {
 }
 
 // sentence is the reason in plain words: core's own text ("UseState #1 at
-// counter.go:12 was set"), which starts in lower case after the cause's tag.
-func sentence(r core.BuildReason) string { return r.String() }
+// counter.go:12 was set") with a capital, as the other reasons start.
+func sentence(r core.BuildReason) string {
+	s := r.String()
+	if s == "" {
+		return s
+	}
+	c, n := utf8.DecodeRuneInString(s)
+	return string(unicode.ToUpper(c)) + s[n:]
+}
 
 func causeClass(c core.BuildCause) string {
 	switch c {

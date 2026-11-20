@@ -26,8 +26,8 @@ func TestSelectShowsReasonsAndSource(t *testing.T) {
 	app.ExpectText("settings.go:42")
 	app.ExpectText("Why it rendered")
 	app.ExpectText("UseState #2 at settings.go:45 was set")
-	app.ExpectText("props: Title, Sections differ; OnSave cannot be compared")
-	app.ExpectText("mounted")
+	app.ExpectText("Props: Title, Sections differ; OnSave cannot be compared")
+	app.ExpectText("Mounted")
 	if got := app.Count(telatest.ByRole("treeitem", "main.Settings")); got != 1 {
 		t.Errorf("%d rows of main.Settings", got)
 	}
@@ -74,7 +74,7 @@ func TestProfilerFrameClick(t *testing.T) {
 	app.ExpectText("9.50 ms")
 	app.ExpectText("over budget")
 	app.ExpectText("Elements built")
-	app.ExpectText("its parent built")
+	app.ExpectText("Its parent built")
 	app.Click(telatest.ByRole("button", "Stop frames"))
 	app.ExpectRole("button", "Record frames")
 }

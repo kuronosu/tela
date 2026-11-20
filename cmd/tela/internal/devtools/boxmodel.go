@@ -25,8 +25,8 @@ func (b BoxModel) Build() tela.Node {
 			Label: "border", E: n.Border, Class: "border-yellow-500/60 bg-yellow-500/20", Inner: BoxLayer{
 				Label: "padding", E: n.Padding, Class: "border-emerald-500/60 bg-emerald-500/20", Inner: Wrap{content}}}},
 		Div(Class("mt-2 flex justify-between font-mono text-[11px] text-muted-foreground"),
-			Textf("border box %s × %s", fmtPx(n.Rect.Width()), fmtPx(n.Rect.Height())),
-			Textf("at %s, %s", fmtPx(n.Rect.X0), fmtPx(n.Rect.Y0))),
+			Span(Textf("border box %s × %s", fmtPx(n.Rect.Width()), fmtPx(n.Rect.Height()))),
+			Span(Textf("at %s, %s", fmtPx(n.Rect.X0), fmtPx(n.Rect.Y0)))),
 	)
 }
 
