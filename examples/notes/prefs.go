@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"runtime"
@@ -28,6 +29,8 @@ const (
 	// keyRegisterLinks is whether Notes registers the tela-notes: scheme when it
 	// starts; Unregister in Preferences turns it off.
 	keyRegisterLinks = "registerLinks"
+	// keyEditorView is how the editor shows a note: edit, split or preview.
+	keyEditorView = "editorView"
 )
 
 // Prefs are the settings, as the main window reads them.
@@ -255,6 +258,7 @@ func (generalSection) Build() tela.Node {
 	notify, setNotify := desktop.UseSetting(keyNotifyOnSave, true)
 	return Fragment(
 		Div(Class("flex flex-col"),
+			loginRow(),
 			row("Keep running in the tray", "Closing the window hides it. Quit from the tray menu.",
 				kit.Switch{AriaLabel: "Keep running in the tray", Checked: &tray, OnCheckedChange: setTray.Set}),
 			row("Notify when a file is saved", "Show a desktop notification after Save.",
@@ -262,6 +266,58 @@ func (generalSection) Build() tela.Node {
 		),
 		linksSection{},
 	)
+}
+
+// loginRow is "Open at login" (desktop.SetStartAtLogin). The switch shows
+// what the desktop says (desktop.StartsAtLogin: the user may have turned it
+// off in the system's settings), read when Preferences opens, and both calls
+// run off the UI thread, since they write a file or the registry. A desktop
+// that cannot, or a refusal, is said under the label.
+func loginRow() tela.Node { return tela.C(loginControl) }
+
+func loginControl() tela.Node {
+	on, setOn := tela.UseState(false)
+	problem, setProblem := tela.UseState("")
+	asked := tela.UseAsync(func(ctx context.Context) (bool, error) { return desktop.StartsAtLogin() })
+	tela.UseEffectDo(func() {
+		if asked.Err == nil && !asked.Loading {
+			setOn.Set(asked.Data)
+		}
+		if asked.Err != nil {
+			setProblem.Set(loginProblem(asked.Err))
+		}
+	}, asked.Loading, asked.Data)
+	unavailable := asked.Err != nil && errors.Is(asked.Err, desktop.ErrUnsupported)
+	change := func(want bool) {
+		setOn.Set(want)
+		setProblem.Set("")
+		go func() {
+			err := desktop.SetStartAtLogin(want)
+			tela.Post(func() {
+				if err != nil {
+					setOn.Set(!want)
+					setProblem.Set(loginProblem(err))
+				}
+			})
+		}()
+	}
+	hint := "Start Notes when you log in."
+	if problem != "" {
+		hint = problem
+	}
+	return rowNotice("Open at login", hint, problem != "",
+		kit.Switch{AriaLabel: "Open at login", Checked: &on, OnCheckedChange: change, Disabled: unavailable})
+}
+
+// loginProblem says why start at login could not be read or changed.
+func loginProblem(err error) string {
+	switch {
+	case errors.Is(err, desktop.ErrUnsupported):
+		return "This desktop cannot start Notes at login from here (on a Mac, run Notes from its app bundle)."
+	case errors.Is(err, desktop.ErrDevExecutable):
+		return "This is a development build, which must not start at login."
+	}
+	return "Could not change it: " + err.Error()
 }
 
 // useCmdName is the name of the primary modifier of the platform whose key
@@ -295,6 +351,7 @@ func (s shortcutsSection) Build() tela.Node {
 		{"Close the window", mod + " W"},
 		{"All, pinned and unsaved notes", mod + " 1 / 2 / 3"},
 		{"Back to all notes, from the list", "Esc"},
+		{"Back and forward", backForwardKeys(mod)},
 	}
 	// Registered with no keys (Hyprland): the line that binds it.
 	unassigned := quick && info.Unassigned()
@@ -542,4 +599,14 @@ func swatch(a accent, current string, set func(string)) tela.Node {
 		Class("flex size-7 items-center justify-center rounded-full border border-transparent outline-none",
 			"aria-pressed:border-foreground/70 focus-visible:ring-[3px] focus-visible:ring-ring/40"),
 		Span(Class("size-5 rounded-full bg-["+a.Fill+"]")))
+}
+
+// backForwardKeys are the keys that go back and forward in the history of
+// the screens, as the shortcuts list shows them: Alt and the arrows, and Cmd
+// and the brackets on a Mac (the mouse's side buttons do it too).
+func backForwardKeys(mod string) string {
+	if mod == "Cmd" {
+		return "Cmd [ / ]"
+	}
+	return "Alt ← / →"
 }

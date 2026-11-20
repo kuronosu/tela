@@ -36,11 +36,30 @@ type Editor struct {
 	Busy     bool
 	// KeyGone is true when the keyring has no key for the locked notes.
 	KeyGone bool
+	// View is how the note is shown: viewEdit, viewSplit (the text beside
+	// its Markdown preview, when the editor is wide enough) or viewPreview;
+	// OnView changes it. OnLink is called with the destination of a link
+	// of the preview.
+	View   string
+	OnView func(string)
+	OnLink func(string)
 }
+
+// The views of the editor.
+const (
+	viewEdit    = "edit"
+	viewSplit   = "split"
+	viewPreview = "preview"
+)
+
+// splitWidth is how wide the editor must be to offer the split view.
+const splitWidth = 720
 
 func (e Editor) Build() tela.Node {
 	n := e.Note
 	body := tela.UseElementRef()
+	pane := tela.UseElementRef()
+	wide := tela.UseSize(pane).Get().Width >= splitWidth
 	// A new note has the cursor in its title; the others, in their text.
 	titleFirst := tela.UseOnce(func() bool { return n.Title == "" && n.Text == "" })
 
@@ -55,11 +74,14 @@ func (e Editor) Build() tela.Node {
 	case n.Path != "":
 		where = n.Path
 	}
-	var content tela.Child
-	if n.Hidden() {
-		content = lockedPane(e.LockHint, e.Busy, e.KeyGone, e.OnLock)
-	} else {
-		content = Div(Class("flex min-h-0 flex-1 flex-col px-8 pt-7"),
+	view := e.View
+	if view == viewSplit && !wide {
+		view = viewEdit // the window got narrower
+	}
+	// fields are the title and the text; the preview is the same note as
+	// Markdown.
+	fields := func(class string) tela.Node {
+		return Div(Class("flex min-h-0 min-w-0 flex-1 flex-col", class),
 			Input(AriaLabel("Title"), Placeholder("Untitled"), Bind(n.Title, e.OnTitle), AutoFocus(titleFirst),
 				OnKeyDown(func(k tela.KeyboardEvent) {
 					if k.Key == "Enter" {
@@ -74,7 +96,18 @@ func (e Editor) Build() tela.Node {
 					fontClass(e.Prefs.FontSize), spacingClass(e.Prefs.LineSpacing), wrap)),
 		)
 	}
-	return Div(Class("flex min-w-0 flex-1 flex-col"),
+	var content tela.Child
+	switch {
+	case n.Hidden():
+		content = lockedPane(e.LockHint, e.Busy, e.KeyGone, e.OnLock)
+	case view == viewPreview:
+		content = Div(Class("flex min-h-0 flex-1"), preview(n, e, "px-8"))
+	case view == viewSplit:
+		content = Div(Class("flex min-h-0 flex-1"), fields("ps-8 pe-6 pt-7"), preview(n, e, "border-s border-border ps-6 pe-8"))
+	default:
+		content = fields("px-8 pt-7")
+	}
+	return Div(Ref(pane), Class("flex min-w-0 flex-1 flex-col"),
 		Div(Class("flex h-11 shrink-0 items-center gap-2 border-b border-border px-4 text-xs text-muted-foreground"),
 			FolderMenu{Folder: n.Folder, Folders: e.Folders, OnFolder: e.OnFolder},
 			Map(n.Tags(), func(t string) tela.Node {
@@ -83,6 +116,7 @@ func (e Editor) Build() tela.Node {
 			Span(Class("ms-auto flex items-center gap-2"),
 				If(n.Dirty(), Span(Class("flex items-center gap-1.5"),
 					Span(Role("img"), AriaLabel("Unsaved changes"), Class("size-1.5 rounded-full bg-gold")), Text("Unsaved"))),
+				If(!n.Hidden(), viewToggle(view, wide, e.OnView)),
 				lockButton(n, e.LockHint, e.Busy, e.OnLock),
 				pinButton(n.Pinned, e.OnPin),
 				kit.Tooltip{
@@ -98,6 +132,34 @@ func (e Editor) Build() tela.Node {
 			If(!n.Hidden(), Span(Class("shrink-0 tabular-nums"), Textf("%d words · %d characters", n.Words(), n.Characters()))),
 		),
 	)
+}
+
+// preview is the note as Markdown (kit.Markdown): its title above its text.
+// Checking a task edits the text, and a link to another note opens it
+// (OnLink).
+func preview(n Note, e Editor, class string) tela.Node {
+	title := strings.TrimSpace(n.Title)
+	var body tela.Node = kit.Markdown{Source: n.Text, OnLink: e.OnLink, Class: fontClass(e.Prefs.FontSize),
+		OnToggleTask: func(i int, checked bool) { e.OnText(toggleTask(n.Text, i, checked)) }}
+	if strings.TrimSpace(n.Text) == "" {
+		body = P(Class("text-muted-foreground/70"), Text("Nothing to preview yet."))
+	}
+	return Div(Role("region"), AriaLabel("Preview"), Class("min-h-0 min-w-0 flex-1 overflow-y-auto pt-7 pb-6", class),
+		If(title != "", H1(Class("mb-4 text-[28px] leading-9 font-semibold tracking-tight"), Text(title))),
+		body,
+	)
+}
+
+// viewToggle is the segmented control of the header: edit, the text beside
+// its preview (when the editor has the room) and preview.
+func viewToggle(view string, split bool, onView func(string)) tela.Node {
+	items := []kit.ToggleGroupItem[string]{{Value: viewEdit, Icon: icons.Pencil, AriaLabel: "Edit"}}
+	if split {
+		items = append(items, kit.ToggleGroupItem[string]{Value: viewSplit, Icon: icons.Columns2, AriaLabel: "Side by side"})
+	}
+	items = append(items, kit.ToggleGroupItem[string]{Value: viewPreview, Icon: icons.Eye, AriaLabel: "Preview"})
+	return kit.ToggleGroup[string]{Items: items, Size: kit.Sm, Value: &view, OnValueChange: onView, Class: "me-1",
+		ItemClass: "h-7 min-w-7 px-1.5 text-muted-foreground aria-pressed:text-foreground checked:text-foreground"}
 }
 
 // lockButton is the icon button that locks the note: a lock that is open

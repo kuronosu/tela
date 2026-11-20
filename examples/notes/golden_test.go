@@ -134,3 +134,59 @@ func TestGoldenNoKeyring(t *testing.T) {
 	a.ExpectText("Locked notes need a system keyring")
 	a.Golden("notes_no_keyring.png")
 }
+
+// TestGoldenAccount is the rail with an account, light and dark: signed out
+// (the card that offers the sign-in), and signed in and synced (the account
+// with its sync state).
+func TestGoldenAccount(t *testing.T) {
+	sandbox(t)
+	d := demo(t)
+	a := mountSynced(t, d)
+	a.MouseMove(windowW-60, windowH-60)
+	a.Golden("notes_signed_out.png")
+
+	b := signedIn(t, d)
+	b.MouseMove(windowW-60, windowH-60)
+	b.Golden("notes_signed_in.png")
+
+	// The dark scheme, signed in with a change waiting for the server.
+	d2 := demo(t)
+	c := signedIn(t, d2, telatest.Dark())
+	d2.SetDown(true)
+	setClock(t, fixedNow.Add(time.Hour))
+	typeNote(c, "Offline for now\n- [ ] sync later")
+	c.Advance(syncDelay + time.Second)
+	c.ExpectText("Offline")
+	c.MouseMove(windowW-60, windowH-120)
+	c.Golden("notes_offline_dark.png")
+}
+
+// TestGoldenPreview is a note rendered as Markdown, with the segmented
+// control of the header: the preview of the welcome note, a note with tasks,
+// a table and code in the dark scheme, and the split view in a wide window.
+func TestGoldenPreview(t *testing.T) {
+	sandbox(t)
+	a := mount(t)
+	a.Click(previewTab)
+	a.MouseMove(windowW-60, windowH-120)
+	a.Golden("notes_preview.png")
+
+	sandbox(t) // new folders: the window opens at the size asked for, in edit view
+	b := mount(t, telatest.Dark(), telatest.Size(1400, 800))
+	b.Click(newNote)
+	b.Type("Release plan") // the cursor starts in the title
+	b.Press("Enter")
+	b.Type(markdownDemo)
+	b.Click(splitTab)
+	b.MouseMove(1400-60, 800-60)
+	b.Golden("notes_split_dark.png")
+	b.Click(previewTab)
+	b.MouseMove(1400-60, 800-60)
+	b.Golden("notes_preview_dark.png")
+}
+
+// markdownDemo is a note that shows what the preview draws.
+const markdownDemo = "# Plan for the week\n\nA **short** list, with `code`, a [link to the groceries](notes:3) and ~~old~~ news.\n\n" +
+	"- [x] Write the draft\n- [ ] Review it with Ana\n- [ ] Ship on Friday\n\n" +
+	"| Day | Task |\n|---|---|\n| Mon | Draft |\n| Fri | Ship |\n\n" +
+	"> Good notes are short.\n\n```go\nfmt.Println(\"hello\")\n```\n"

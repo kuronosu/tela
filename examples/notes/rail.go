@@ -17,9 +17,10 @@ type Rail struct {
 	OnFilter func(filter)
 	OnNew    func()
 	OnPrefs  func()
-	// Notice is shown above Preferences: the update notice (updates.go),
-	// or nil.
-	Notice tela.Child
+	// Account is the sign-in and the sync status (account.go), shown above
+	// Preferences; Notice is the update notice (updates.go). Either may be
+	// nil.
+	Account, Notice tela.Child
 }
 
 func (r Rail) Build() tela.Node {
@@ -53,6 +54,7 @@ func (r Rail) Build() tela.Node {
 				),
 			)),
 		),
+		r.Account,
 		r.Notice,
 		Button(OnClick(r.OnPrefs),
 			Class("flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-start text-[13px] text-foreground/70 outline-none transition-colors",

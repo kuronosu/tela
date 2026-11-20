@@ -18,13 +18,15 @@ import (
 var now = time.Now
 
 // Note is one note of the library. The library is the list of notes the
-// app keeps in notes.json (desktop.DataDir): every edit is stored there, so
-// nothing typed is lost even if the app is killed. A note can also be tied
-// to a file on disk (Path), which Open and Save do.
+// app keeps in a SQLite database (notes.db in desktop.DataDir, see
+// store.go): every edit is stored there a moment after it, so nothing typed
+// is lost even if the app is killed. A note can also be tied to a file on
+// disk (Path), which Open and Save do.
 //
-// notes.json files of earlier versions have no title, folder, pin or date:
-// those fields read as empty, and the note still looks right (its heading
-// is its first line, it has no folder and no date).
+// The notes.json libraries of earlier versions are imported once, and have
+// no title, folder, pin or date: those fields read as empty, and the note
+// still looks right (its heading is its first line, it has no folder and no
+// date). The JSON tags are the names of that file.
 type Note struct {
 	ID int `json:"id"`
 	// Title is the text of the editor's title field. It is separate from
@@ -55,6 +57,14 @@ type Note struct {
 	// unchanged.
 	Locked bool   `json:"locked,omitempty"`
 	Sealed string `json:"sealed,omitempty"`
+	// UID names the note on the server (sync.go), the same on every device:
+	// the ID is local. It is made when the note is created. Updated is when
+	// a field the server keeps (title, text, folder, pin) last changed, and
+	// Pushed the Updated the server last had: the note waits to be pushed
+	// while they differ. A locked note stays on the device.
+	UID     string    `json:"uid,omitempty"`
+	Updated time.Time `json:"updated,omitempty"`
+	Pushed  time.Time `json:"pushed,omitempty"`
 	// Unlocked is set on the copy of a locked note that the screen shows
 	// while the user has it unlocked (vault.view): Title, Text and Saved
 	// then hold the decrypted content. It is never stored.
@@ -379,9 +389,18 @@ Use Open to read a text file into a new note, and Save to write a note to a file
 // modifier of the platform: "Ctrl", or "Cmd" on a Mac (see useCmdName).
 func shortcutsText(mod string) string {
 	return mod + `+N makes a note, ` + mod + `+O opens a file, ` + mod + `+S saves the note to its file and ` + mod + `+, opens Preferences. ` +
-		mod + `+W closes the window, and ` + mod + `+1, ` + mod + `+2 and ` + mod + `+3 show all notes, the pinned ones and the unsaved ones. Press Escape in the list to go back to all your notes.
+		mod + `+W closes the window, and ` + mod + `+1, ` + mod + `+2 and ` + mod + `+3 show all notes, the pinned ones and the unsaved ones. Press Escape in the list to go back to all your notes. ` +
+		backForwardText(mod) + ` go back and forward between the notes and lists you have seen, as the mouse's side buttons do.
 
 #welcome`
+}
+
+// backForwardText names the keys that go back and forward in the history.
+func backForwardText(mod string) string {
+	if mod == "Cmd" {
+		return "Cmd+[ and Cmd+]"
+	}
+	return "Alt+Left and Alt+Right"
 }
 
 // nextID is an ID no note of ns has.

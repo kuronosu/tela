@@ -1,19 +1,19 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/desktop"
 	"github.com/kuronosu/tela/examples/notes/icons"
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/kit"
+	"github.com/kuronosu/tela/router"
 )
 
 // Notes is the whole app: the main window's content and, declared inside
@@ -27,6 +27,13 @@ import (
 type Notes struct {
 	Look     kit.Variant
 	Overview bool
+	// Server is the server the notes sync with; the zero value runs the demo
+	// server (demo.go) while the app runs.
+	Server serverInfo
+	// Preview shows the screen with the welcome notes of a library in memory,
+	// which no file backs: what `tela snapshot` draws, since the folders it
+	// would read are the developer's.
+	Preview bool
 }
 
 func (n Notes) Build() tela.Node {
@@ -34,59 +41,98 @@ func (n Notes) Build() tela.Node {
 	return kit.Toaster{Children: screen(n)}
 }
 
-// library is the store of the notes (notes.json) and what went wrong
-// opening it.
-type library struct {
-	store *desktop.Store
-	err   error
-}
-
-// openLibrary opens notes.json in the app's data folder. A file that
-// cannot be read gives an error and an empty library, and the store keeps
-// the unreadable file as notes.json.corrupt instead of replacing it. In
-// tela snapshot, where there is no window and the folders are the
-// developer's, the library is a throwaway one in a temporary folder that
-// does not exist until something is typed (the store creates it at its
-// first write, which a snapshot never makes).
-func openLibrary(preview bool) library {
-	dir, err := "", error(nil)
-	if !preview {
-		dir, err = desktop.DataDir()
-	}
-	if preview || err != nil {
-		dir = filepath.Join(os.TempDir(), fmt.Sprintf("tela-notes-%d-%d", os.Getpid(), time.Now().UnixNano()))
-	}
-	store, err := desktop.OpenStore(filepath.Join(dir, "notes.json"))
-	return library{store, err}
-}
-
 // welcomeID is the welcome note, which a library of the first run opens.
 const welcomeID = 1
 
-// screen is the content of the main window.
+// screen is the content of the main window: it opens the library off the UI
+// thread (tela.UseAsync), and shows the workspace once it is read.
 type screen struct {
 	Look     kit.Variant
 	Overview bool
+	Server   serverInfo
+	Preview  bool
 }
 
 func (s screen) Build() tela.Node {
 	win := tela.UseWindow()
-	toast := kit.UseToast()
-	lib := tela.UseOnce(func() library { return openLibrary(win.IsZero()) })
-	// The first run has the welcome notes: they are the default of the
-	// setting, used only while the store has no "notes" key.
-	mod := useCmdName()
-	first := tela.UseOnce(func() []Note { return welcomeNotes(now(), mod) })
-	start := welcomeID
-	if s.Overview {
-		start = 0
+	preview := win.IsZero() || s.Preview
+	// A first run has nothing to read, and shows at once (freshLibrary);
+	// a library on disk is read off the UI thread.
+	fresh := tela.UseOnce(func() *library { return freshLibrary(preview) })
+	read := tela.UseAsync(func(ctx context.Context) (library, error) {
+		if fresh != nil {
+			return library{}, nil
+		}
+		l, err := loadLibrary(preview)
+		if err == nil && ctx.Err() != nil {
+			l.store.Close() // nobody will use it
+		}
+		return l, err
+	})
+	lib := read
+	if fresh != nil {
+		lib = tela.Async[library]{Data: *fresh}
 	}
-	notes, setNotes := desktop.UseStoreSetting(lib.store, "notes", first)
-	selected, setSelected := desktop.UseStoreSetting(lib.store, "selected", start)
-	flt, setFilter := tela.UseState(viewAll)
+	bar := kit.TitleBar{Variant: kit.Plain, Look: s.Look, Class: "bg-sidebar",
+		Leading: Span(Class("flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground"),
+			Icon(icons.NotebookPen, Class("size-3.5"))),
+		Title: Span(Class("font-semibold tracking-tight"), Text("Notes"))}
+	switch {
+	case lib.Err != nil:
+		return Div(Class("flex h-screen flex-col"), bar,
+			Div(Class("flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-10 text-center"),
+				H2(Class("text-lg font-semibold tracking-tight"), Text("Your notes could not be opened")),
+				P(Class("max-w-md text-[13px] leading-5 text-muted-foreground"), Text(lib.Err.Error())),
+				kit.Button{OnClick: lib.Reload, Children: Text("Try again")}))
+	case lib.Data.store == nil:
+		return Div(Class("flex h-screen flex-col"), bar,
+			Div(Class("flex flex-1 items-center justify-center text-[13px] text-muted-foreground"), Text("Opening your notes…")))
+	}
+	// The place the app opens at: the note that was open, and on the first
+	// run the welcome note (the overview in a preview of it).
+	start := place{Filter: viewAll}
+	switch {
+	case lib.Data.data.Fresh && !s.Overview:
+		start.ID = welcomeID
+	case !lib.Data.data.Fresh:
+		start.ID = lib.Data.data.Selected
+	}
+	return router.Router{Initial: start.String(), Children: workspace{Look: s.Look, Server: s.Server, Lib: lib.Data, Preview: s.Preview}}
+}
+
+// workspace is the library on the screen: the notes, the rail, the panes
+// and everything the app does with them. It lives inside the router, which
+// holds where the user is (route.go).
+type workspace struct {
+	Look    kit.Variant
+	Server  serverInfo
+	Lib     library
+	Preview bool
+}
+
+func (s workspace) Build() tela.Node {
+	win := tela.UseWindow()
+	toast := kit.UseToast()
+	lib := s.Lib
+	// The first run has the welcome notes.
+	mod := useCmdName()
+	initial := tela.UseOnce(func() libState {
+		ns := lib.data.Notes
+		if lib.data.Fresh {
+			ns = withSyncFields(welcomeNotes(now(), mod), now())
+		}
+		return libState{Notes: ns, Tombs: lib.data.Tombs}
+	})
+	st, setSt := tela.UseState(initial)
+	notes, setNotes := st.Notes, notesSetter{setSt}
+	loc := router.UseLocation()
+	nav := router.UseNavigate()
+	here := placeOf(loc)
+	selected, flt := here.ID, here.Filter
 	query, setQuery := tela.UseState("")
 	prefs := usePrefs()
 	useAppearance(prefs)
+	view, setView := desktop.UseSetting(keyEditorView, viewEdit)
 	prefsOpen, setPrefsOpen := tela.UseState(false)
 	trayOK, setTrayOK := tela.UseState(true)
 	// confirming is the note the delete dialog asks about (0: none).
@@ -114,6 +160,17 @@ func (s screen) Build() tela.Node {
 	// latest is the library of the latest build, for what finishes later.
 	latest := tela.UseRef(notes)
 	latest.Current = notes
+	latestState := tela.UseRef(st)
+	latestState.Current = st
+
+	// The store writes what changed a moment after it changed, off the UI
+	// thread (store.go): the library, and the note that is open.
+	tela.UseEffectDo(func() {
+		if st.Rev == 0 && selected == lib.data.Selected && !lib.data.Fresh {
+			return // what was just read
+		}
+		lib.store.Put(snapshot{Notes: st.Notes, Tombs: st.Tombs, Selected: selected})
+	}, st.Rev, selected)
 
 	tela.UseMount(func() func() {
 		// A library of an earlier build may hold a locked note with the
@@ -124,11 +181,21 @@ func (s screen) Build() tela.Node {
 				return out
 			})
 		}
-		if lib.err != nil {
+		if lib.data.Corrupt {
 			toast.Error("Your notes could not be read",
-				kit.ToastDescription("The old file was kept next to the library as notes.json.corrupt."))
+				kit.ToastDescription("The unreadable file was kept next to the library, with .corrupt added to its name."))
 		}
-		return nil
+		// A write that fails is told once the UI thread has it; the next
+		// change tries again with everything that was not written.
+		lib.store.OnError(func(err error) {
+			tela.Post(func() {
+				toast.Error("Your notes could not be saved", kit.ToastDescription(err.Error()))
+			})
+		})
+		return func() {
+			lib.store.OnError(nil)
+			lib.store.Close() // writes what is queued
+		}
 	})
 
 	// all is the library as the screen shows it: the notes that are unlocked
@@ -142,11 +209,12 @@ func (s screen) Build() tela.Node {
 	// reveal opens a note, and when the list would not have it (a filter
 	// or a search that does not match it) goes back to all the notes.
 	reveal := func(n Note) {
+		f := flt
 		if !flt.Match(n) || !matchesQuery(n, query) {
-			setFilter.Set(viewAll)
+			f = viewAll
 			setQuery.Set("")
 		}
-		setSelected.Set(n.ID)
+		nav.To(place{f, n.ID}.String())
 	}
 	// freshID is an ID no note has, nor any that was handed out before it
 	// and is still on its way into the library (a launch can make several
@@ -157,9 +225,9 @@ func (s screen) Build() tela.Node {
 		issued.Current = id
 		return id
 	}
-	// place is a note without an ID for the place the user is in: in the
+	// inPlace is a note without an ID for the place the user is in: in the
 	// folder, or pinned, that the rail has chosen.
-	place := func() Note {
+	inPlace := func() Note {
 		n := Note{Modified: now()}
 		switch {
 		case flt.Kind == kindFolder:
@@ -170,7 +238,7 @@ func (s screen) Build() tela.Node {
 		return n
 	}
 	blank := func() Note {
-		n := place()
+		n := inPlace()
 		n.ID = freshID()
 		return n
 	}
@@ -191,9 +259,12 @@ func (s screen) Build() tela.Node {
 	// why, without stopping the others. Unless anyFile (the user chose or
 	// named the files), only .txt and .md files are taken.
 	openFiles := func(paths []string, anyFile bool) {
-		in := importFiles(all, paths, place(), freshID, anyFile)
+		in := importFiles(all, paths, inPlace(), freshID, anyFile)
 		if len(in.Fresh) > 0 {
 			setNotes.Update(func(ns []Note) []Note { return append(append([]Note(nil), ns...), in.Fresh...) })
+			for _, n := range in.Fresh {
+				addRecent(n.Path)
+			}
 		}
 		if n, ok := find(in.Fresh, in.Open); ok {
 			reveal(n)
@@ -217,6 +288,11 @@ func (s screen) Build() tela.Node {
 	// Files open as notes, and tela-notes: links make or show a note (link.go).
 	// The window is raised by SingleInstance.
 	desktop.UseLaunch(func(l desktop.Launch) {
+		// Started by the desktop at login, a program that keeps running in the
+		// tray stays there: the window is not shown.
+		if staysInTray(l, prefs.KeepInTray && trayOK) {
+			win.Hide()
+		}
 		if files := l.Files(); len(files) > 0 {
 			openFiles(files, true)
 		}
@@ -242,6 +318,16 @@ func (s screen) Build() tela.Node {
 	// (link.go).
 	wantLinks := prefs.RegisterLinks
 	tela.UseEffectDo(func() { registerAtStart(wantLinks) }, wantLinks)
+	// The app's tasks, in the jump list of the taskbar, the Dock menu or the
+	// launcher's menu: "New note" starts Notes (or reaches the running one)
+	// with the link that makes a note. Not in a snapshot, and a desktop that
+	// has none says so with an error, which is no problem here.
+	live := !win.IsZero()
+	tela.UseEffectDo(func() {
+		if live {
+			go desktop.SetTasks([]desktop.Task{{Title: "New note", Args: []string{"tela-notes://new"}, Description: "Start a new note"}})
+		}
+	}, live)
 	// copyLink puts the link of a note on the clipboard.
 	copyLink := func(id int) {
 		if err := desktop.WriteClipboardText(fmt.Sprintf("tela-notes://open?id=%d", id)); err != nil {
@@ -259,10 +345,8 @@ func (s screen) Build() tela.Node {
 		}
 	})
 	// choose shows the overview of a filter: no note is open.
-	choose := func(f filter) {
-		setFilter.Set(f)
-		setSelected.Set(0)
-	}
+	choose := func(f filter) { nav.To(place{f, 0}.String()) }
+	selectNote := func(id int) { nav.To(place{flt, id}.String()) }
 	// patch changes the content of a note (its Title, Text and Saved). A
 	// locked note that is unlocked is changed in the vault and sealed again
 	// for the library; touch dates the change now.
@@ -318,17 +402,18 @@ func (s screen) Build() tela.Node {
 		vlt.lock(n.ID)
 		wasOpen := n.ID == selected
 		if next, ok := neighbor(shown, n.ID); wasOpen {
+			// The deleted note's place in the history is the next one's.
 			if ok {
-				setSelected.Set(next.ID)
+				nav.Replace(place{flt, next.ID}.String())
 			} else {
-				setSelected.Set(0)
+				nav.Replace(place{flt, 0}.String())
 			}
 		}
 		setNotes.Update(func(ns []Note) []Note { return without(ns, n.ID) })
 		toast.Show("Deleted "+name, kit.ToastAction("Undo", func() {
 			setNotes.Update(func(ns []Note) []Note { return append(append([]Note(nil), ns...), n) })
 			if wasOpen {
-				setSelected.Set(n.ID)
+				nav.To(place{flt, n.ID}.String())
 			}
 		}))
 	}
@@ -345,7 +430,7 @@ func (s screen) Build() tela.Node {
 		}
 	}
 	deleteOpen := func() { askDelete(cur.ID) }
-	pending, _ := find(all, confirming)
+	toDelete, _ := find(all, confirming)
 
 	// --- Files -----------------------------------------------------
 
@@ -390,6 +475,7 @@ func (s screen) Build() tela.Node {
 			}
 			setNotes.Update(func(ns []Note) []Note { return edit(ns, n.ID, func(x *Note) { x.Path = path }) })
 			patch(n.ID, false, func(x *Note) { x.Saved = n.Text })
+			addRecent(path)
 			if prefs.NotifyOnSave {
 				// A desktop without notifications gets the toast.
 				if _, err := desktop.Notify(desktop.Notification{Title: "Saved " + name, Body: path}); err != nil {
@@ -701,23 +787,55 @@ func (s screen) Build() tela.Node {
 		}
 	})
 
-	var pane tela.Child
+	// openLink follows a link of the preview: another note (by its number
+	// or its title, "notes:3" or "3"), a tela-notes: link, or else the web
+	// page or file the link names, in the system's application.
+	openLink := func(href string) {
+		if ref := noteRef(href); ref != "" {
+			if n, ok := findRef(all, ref); ok {
+				reveal(n)
+			} else {
+				toast.Error("There is no note "+ref, kit.ToastDescription("The link is for a note that is not in this library."))
+			}
+			return
+		}
+		if k, err := parseLink(href); err == nil && k.Action == "open" {
+			if n, ok := find(all, k.ID); ok {
+				reveal(n)
+			} else {
+				toast.Error(fmt.Sprintf("There is no note %d", k.ID), kit.ToastDescription("The link is for a note that is not in this library."))
+			}
+			return
+		}
+		if err := tela.OpenURL(href); err != nil {
+			toast.Error("Could not open the link", kit.ToastDescription(err.Error()))
+		}
+	}
+
+	// The panes are two routes: a note, with the list of its filter beside
+	// it, and everything else, the overview. The screen a navigation leaves
+	// exits through Presence (router.Routes).
+	overview := tela.Node(Overview{Notes: shown, Filter: flt, Query: query, OnQuery: setQuery.Set, OnSelect: selectNote,
+		OnPin: pinNote, OnDelete: askDelete, OnCopyLink: copyLink, Locks: locks})
+	noteView := overview
 	if hasCur {
-		pane = Fragment(
+		noteView = Fragment(
 			List{Notes: shown, Current: cur.ID, Query: query, Previews: prefs.ShowPreviews,
-				OnQuery: setQuery.Set, OnSelect: setSelected.Set, OnBack: func() { choose(flt) },
+				OnQuery: setQuery.Set, OnSelect: selectNote, OnBack: func() { choose(flt) },
 				OnPin: pinNote, OnDelete: askDelete, OnCopyLink: copyLink, Locks: locks},
 			// The editor is new for a note that is unlocked or locked, so
 			// its fields start in the right place.
 			tela.WithKey(Editor{Note: cur, Prefs: prefs, Folders: folders(all),
 				OnTitle: editTitle, OnText: editText, OnFolder: moveToFolder, OnPin: togglePin, OnDelete: deleteOpen,
-				OnLock: func() { toggleLock(cur.ID) }, LockHint: lockHint, Busy: busy, KeyGone: keyGone},
+				OnLock: func() { toggleLock(cur.ID) }, LockHint: lockHint, Busy: busy, KeyGone: keyGone,
+				View: view, OnView: setView.Set, OnLink: openLink},
 				editorKey{cur.ID, cur.Hidden()}),
 		)
-	} else {
-		pane = Overview{Notes: shown, Filter: flt, Query: query, OnQuery: setQuery.Set, OnSelect: setSelected.Set,
-			OnPin: pinNote, OnDelete: askDelete, OnCopyLink: copyLink, Locks: locks}
 	}
+	pane := router.Routes(
+		router.Route{Path: "/notes/:id", Element: noteView},
+		router.Route{Path: "*", Element: overview},
+	)
 
 	return quickNoteCtx.Provider(quickInfo, Div(Class("flex h-screen flex-col"), shortcuts, drop.Props,
 		// The global shortcut that makes a note from any application, and
@@ -749,10 +867,10 @@ func (s screen) Build() tela.Node {
 					setConfirming.Set(0)
 				}
 			},
-			Title:       Text(fmt.Sprintf("Delete %q?", pending.Heading())),
-			Description: Text(deleteWarning(pending)),
+			Title:       Text(fmt.Sprintf("Delete %q?", toDelete.Heading())),
+			Description: Text(deleteWarning(toDelete)),
 			Cancel:      Text("Keep"), Action: Text("Delete"), Destructive: true,
-			OnAction: func() { deleteNote(pending) },
+			OnAction: func() { deleteNote(toDelete) },
 		},
 		// After locking a note that had a file: move the file to the
 		// Trash? Only on the user's word, and never deleting it.
@@ -810,6 +928,15 @@ func (s screen) Build() tela.Node {
 		},
 		Div(Class("flex min-h-0 flex-1"),
 			Rail{Notes: all, Filter: flt, OnFilter: choose, OnNew: newNote, OnPrefs: showPrefs,
+				Account: accountPanel{
+					Server: s.Server, Edits: st.Edits, Pending: pending(st.Notes, st.Tombs),
+					Snapshot: func() snapshot {
+						cur := latestState.Current
+						return snapshot{Notes: cur.Notes, Tombs: cur.Tombs}
+					},
+					Apply:   func(res syncResult) { setNotes.Apply(res, freshID) },
+					Preview: s.Preview,
+				},
 				Notice: If(updatesOn(), updateCheck{})},
 			Div(Class("relative flex min-w-0 flex-1 rounded-ss-xl border-s border-t border-border bg-background"), pane,
 				If(drop.Over, dropOverlay{})),
@@ -986,3 +1113,19 @@ func dialogError(toast kit.ToastHandle, what string, err error) {
 	}
 	toast.Error("Could not show the "+what+" dialog", kit.ToastDescription(err.Error()))
 }
+
+// addRecent adds a file to the app's recent documents (the jump list, the
+// Dock menu, the desktop's Recent list). The call writes a file, the
+// registry or asks D-Bus, so it runs off the UI thread; a desktop that has
+// no such list answers with an error, which does not matter here.
+func addRecent(path string) {
+	if path != "" {
+		go desktop.AddRecentDocument(path)
+	}
+}
+
+// staysInTray reports whether a launch leaves the window hidden: the desktop
+// started the program at login (Launch.AtLogin, which only the start launch
+// has) and it keeps running in the tray, where the user wants it until they
+// ask for it. A start the user made shows the window.
+func staysInTray(l desktop.Launch, keepInTray bool) bool { return l.AtLogin && keepInTray }

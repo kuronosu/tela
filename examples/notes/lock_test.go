@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -147,49 +148,79 @@ var (
 	lockedCard = telatest.ByRole("button", "Locked note, locked")
 )
 
-// libraryFile flushes the library and returns notes.json as it is on disk.
+// libraryFile waits for the writes that are queued and returns the library
+// as it is on disk: the bytes of the database and of its write-ahead log
+// (SQLite keeps text in its pages as it is, so a word that is in the clear in
+// the library is in these bytes).
 func libraryFile(t *testing.T) string {
 	t.Helper()
-	if err := desktop.FlushAll(); err != nil {
-		t.Fatal(err)
-	}
+	flushStores()
 	dir, err := desktop.DataDir()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return read(t, filepath.Join(dir, "notes.json"))
+	var all strings.Builder
+	for _, name := range []string{dbName, dbName + "-wal"} {
+		if data, err := os.ReadFile(filepath.Join(dir, name)); err == nil {
+			all.Write(data)
+		}
+	}
+	return all.String()
 }
 
-// storedNotes decodes the notes of notes.json (the store keeps them under
-// the key "notes", next to the selected one).
-func storedNotes(t *testing.T) []Note {
+// openedLibrary opens the library of the test's data folder as the app
+// does (the same store while the app has it open), and gives it back
+// closed with what it holds.
+func storedLibrary(t *testing.T) snapshot {
 	t.Helper()
-	var file struct {
-		Notes []Note `json:"notes"`
-	}
-	if err := json.Unmarshal([]byte(libraryFile(t)), &file); err != nil {
+	dir, err := desktop.DataDir()
+	if err != nil {
 		t.Fatal(err)
 	}
-	return file.Notes
+	st, err := openStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	st.Flush()
+	snap, err := st.read()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return snap
 }
+
+// storedNotes returns the notes of the library as the database has them.
+func storedNotes(t *testing.T) []Note { return storedLibrary(t).Notes }
 
 // sealedOf returns the sealed value of the stored note id.
 func sealedOf(t *testing.T, id int) string {
 	t.Helper()
 	n, ok := find(storedNotes(t), id)
 	if !ok {
-		t.Fatalf("notes.json has no note %d", id)
+		t.Fatalf("the library has no note %d", id)
 	}
 	return n.Sealed
 }
 
-// noPlaintext fails the test when notes.json says any of the words.
+// noPlaintext fails the test when the library says any of the words in the
+// clear.
 func noPlaintext(t *testing.T, words ...string) {
 	t.Helper()
 	file := libraryFile(t)
 	for _, w := range words {
 		if strings.Contains(file, w) {
-			t.Errorf("notes.json has %q in the clear:\n%s", w, file)
+			t.Errorf("the library has %q in the clear", w)
+		}
+	}
+}
+
+// noneLocked fails the test when the library has a locked note.
+func noneLocked(t *testing.T) {
+	t.Helper()
+	for _, n := range storedNotes(t) {
+		if n.Locked || n.Sealed != "" {
+			t.Errorf("the library has a locked note: %+v", n)
 		}
 	}
 }
@@ -340,7 +371,7 @@ func TestLockCanceled(t *testing.T) {
 	a.Click(lockNote)
 	a.ExpectText("The keyring stayed locked")
 	a.ExpectValue(editor, groceriesText) // not locked
-	noPlaintext(t, `"locked"`)
+	noneLocked(t)
 	if _, ok := a.StoredSecret("library-key"); ok {
 		t.Error("a key was stored although the prompt was canceled")
 	}
@@ -407,7 +438,7 @@ func TestNoKeyring(t *testing.T) {
 	a.Click(lockNote)
 	a.ExpectText("This desktop has no system keyring")
 	a.ExpectValue(editor, groceriesText)
-	noPlaintext(t, `"locked"`)
+	noneLocked(t)
 
 	// The button is off now, and its tooltip says why.
 	a.Expect(lockNote, telatest.Disabled(true))
@@ -438,9 +469,8 @@ func TestLockFromTheCardMenu(t *testing.T) {
 	a.Click(card("Groceries, locked"), telatest.Right())
 	a.Click(telatest.ByRole("menuitem", "Remove lock"))
 	a.ExpectRole("button", "Groceries")
-	file := libraryFile(t)
-	if !strings.Contains(file, "Coffee beans") || strings.Contains(file, "sealed") || strings.Contains(file, `"locked"`) {
-		t.Errorf("a note without its lock is not stored in the clear again:\n%s", file)
+	if n, ok := find(storedNotes(t), grocery); !ok || !strings.Contains(n.Text, "Coffee beans") || n.Sealed != "" || n.Locked {
+		t.Errorf("a note without its lock is not stored in the clear again: %+v", n)
 	}
 }
 

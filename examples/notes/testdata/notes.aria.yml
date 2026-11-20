@@ -19,6 +19,9 @@
   - button "#ideas"
   - button "#travel"
   - button "#welcome"
+- group "Account":
+  - paragraph: Sign in to keep your notes on every device.
+  - button "Sign in"
 - button "Preferences"
 - searchbox "Search notes"
 - navigation "Notes":
@@ -28,6 +31,9 @@
   - button "Weekend in the mountains": "Weekend in the mountains Leave on Friday after lunch, back on Sunday night. A cabin with a stove, a thermos, and no signal. #travel #ideas Ideas Mon"
 - 'button "Folder: Getting started"': Getting started
 - text: "#welcome"
+- radiogroup:
+  - radio "Edit" [checked]
+  - radio "Preview"
 - button "Lock note"
 - button "Pin note" [pressed]
 - button "Delete note"

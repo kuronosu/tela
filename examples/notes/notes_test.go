@@ -19,6 +19,9 @@ import (
 
 const windowW, windowH = 960, 640
 
+// opening is the text of the screen while the library is being read.
+const opening = "Opening your notes"
+
 // sandbox points the app's folders (settings, library, window placements)
 // at a temporary directory for the test, so no test touches the real ones.
 // A test that mounts the app twice calls it once: the second run finds what
@@ -60,9 +63,12 @@ func setClock(t *testing.T, at time.Time) {
 // match on every OS: main leaves it to the OS the app runs on. Like main it
 // goes through desktop.PersistApp, so the window opens where it was left, and
 // desktop.SingleInstance, so a launch raises the window.
-func appFor(look kit.Variant) tela.App {
+func appFor(look kit.Variant) tela.App { return appWith(look, serverInfo{}) }
+
+// appWith is appFor for an app that syncs with a server.
+func appWith(look kit.Variant, server serverInfo) tela.App {
 	app := App
-	app.Root = Notes{Look: look}
+	app.Root = Notes{Look: look, Server: server}
 	return desktop.SingleInstance(withAppearance(desktop.PersistApp(app)))
 }
 
@@ -78,6 +84,12 @@ func mount(t *testing.T, opts ...telatest.Option) *telatest.App {
 // not depend on the OS the test runs on; an option given later wins.
 func mountLook(t *testing.T, look kit.Variant, opts ...telatest.Option) *telatest.App {
 	t.Helper()
+	return mountApp(t, appFor(look), look, opts...)
+}
+
+// mountApp mounts app, whose conventions are look's.
+func mountApp(t *testing.T, app tela.App, look kit.Variant, opts ...telatest.Option) *telatest.App {
+	t.Helper()
 	keys := "linux"
 	switch look {
 	case kit.MacOS:
@@ -86,7 +98,11 @@ func mountLook(t *testing.T, look kit.Variant, opts ...telatest.Option) *telates
 		keys = "windows"
 	}
 	opts = append([]telatest.Option{telatest.Size(windowW, windowH), telatest.PlatformKeys(keys)}, opts...)
-	return telatest.MountApp(t, appFor(look), opts...)
+	a := telatest.MountApp(t, app, opts...)
+	// The library is read off the UI thread (tela.UseAsync): the screen is
+	// there once it is open.
+	a.ExpectNoText(opening)
+	return a
 }
 
 // The parts of the main window.
@@ -196,21 +212,22 @@ func TestNewNoteAndTyping(t *testing.T) {
 	a.ExpectValue(editor, "Groceries\nmilk and eggs")
 }
 
-// The library is a JSON file in the data folder, and the next run finds it.
+// The library is a SQLite database in the data folder, and the next run
+// finds it.
 func TestLibraryIsPersisted(t *testing.T) {
 	sandbox(t)
 	a := mount(t)
 	typeNote(a, "Groceries\nmilk")
 	a.Close()
-	if err := desktop.FlushAll(); err != nil {
-		t.Fatal(err)
+	if n, ok := find(storedNotes(t), 5); !ok || n.Text != "Groceries\nmilk" {
+		t.Errorf("the library does not have the note: %+v", storedNotes(t))
 	}
 	dir, err := desktop.DataDir()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if data := read(t, filepath.Join(dir, "notes.json")); !strings.Contains(data, "milk") {
-		t.Errorf("notes.json does not have the note: %s", data)
+	if _, err := os.Stat(filepath.Join(dir, dbName)); err != nil {
+		t.Errorf("the library is not notes.db: %v", err)
 	}
 
 	b := mount(t)
@@ -218,32 +235,60 @@ func TestLibraryIsPersisted(t *testing.T) {
 	b.ExpectValue(editor, "Groceries\nmilk") // the selected note is kept too
 }
 
-// A library that cannot be parsed starts the app with the welcome note and
-// a toast; the file is kept next to the new one.
+// A library that cannot be read starts the app with the welcome note and a
+// toast; the file is kept next to the new one. That is a database that is
+// not one, and the notes.json of an earlier version that is not JSON.
 func TestCorruptLibrary(t *testing.T) {
+	for _, c := range []struct{ name, file string }{{"database", dbName}, {"notes.json", legacyName}} {
+		t.Run(c.name, func(t *testing.T) {
+			sandbox(t)
+			dir, err := desktop.DataDir()
+			if err != nil {
+				t.Fatal(err)
+			}
+			file := filepath.Join(dir, c.file)
+			if err := os.WriteFile(file, []byte("{not json, and not a database either}"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			a := mount(t)
+			a.ExpectRole("button", "Welcome to Notes")
+			a.ExpectText("Your notes could not be read")
+
+			typeNote(a, "Fresh start")
+			a.Close()
+			if got := read(t, file+".corrupt"); got != "{not json, and not a database either}" {
+				t.Errorf("%s.corrupt = %q, want the unreadable file", c.file, got)
+			}
+			if n, ok := find(storedNotes(t), 5); !ok || n.Text != "Fresh start" {
+				t.Errorf("the new library = %+v, want it to have the new note", storedNotes(t))
+			}
+		})
+	}
+}
+
+// A library made by a newer Notes is not opened (and not set aside): the
+// screen says why.
+func TestNewerLibraryIsRefused(t *testing.T) {
 	sandbox(t)
 	dir, err := desktop.DataDir()
 	if err != nil {
 		t.Fatal(err)
 	}
-	file := filepath.Join(dir, "notes.json")
-	if err := os.WriteFile(file, []byte("{not json"), 0o600); err != nil {
+	st, err := openStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.db.Exec("PRAGMA user_version = 99"); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Close(); err != nil {
 		t.Fatal(err)
 	}
 	a := mount(t)
-	a.ExpectRole("button", "Welcome to Notes")
-	a.ExpectText("Your notes could not be read")
-
-	typeNote(a, "Fresh start")
-	a.Close()
-	if err := desktop.FlushAll(); err != nil {
-		t.Fatal(err)
-	}
-	if got := read(t, file+".corrupt"); got != "{not json" {
-		t.Errorf("notes.json.corrupt = %q, want the unreadable file", got)
-	}
-	if got := read(t, file); !strings.Contains(got, "Fresh start") {
-		t.Errorf("notes.json = %s, want the new library", got)
+	a.ExpectText("Your notes could not be opened")
+	a.ExpectText("made by a newer version of Notes")
+	if _, err := os.Stat(filepath.Join(dir, dbName+".corrupt")); err == nil {
+		t.Error("a library of a newer Notes was set aside as corrupt")
 	}
 }
 

@@ -115,12 +115,12 @@ func blockedExecutable(goos, exe string) string {
 	exe = filepath.ToSlash(exe)
 	if goos == "darwin" {
 		if !strings.Contains(exe, ".app/Contents/MacOS/") {
-			return "Notes registers from its app bundle. Run it with tela run ./examples/notes (or build it with tela build ./examples/notes and open the .app) to register it."
+			return "Notes registers from its app bundle. Run it with tela run (in examples/notes), or build it with tela build and open the .app, to register it."
 		}
 		return ""
 	}
 	if strings.Contains(exe, "/go-build") {
-		return "This is a temporary build (go run). Build the program with go build -o notes ./examples/notes and run that one to register it."
+		return "This is a temporary build (go run). Build the program with go build -o notes (in examples/notes) and run that one to register it."
 	}
 	return ""
 }

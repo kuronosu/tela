@@ -71,7 +71,7 @@ func TestLockDetachesTheFile(t *testing.T) {
 		}
 	}
 	if locked != 1 {
-		t.Errorf("notes.json has %d locked notes, want 1", locked)
+		t.Errorf("the library has %d locked notes, want 1", locked)
 	}
 
 	// Keep file closes the dialog and leaves the file alone.
@@ -240,10 +240,10 @@ func TestOldLockedNoteLosesItsPath(t *testing.T) {
 	a.ExpectValue(editor, "a")
 	file := libraryFile(t)
 	if strings.Contains(file, "secret-plans") {
-		t.Errorf("notes.json keeps the path of a locked note:\n%s", file)
+		t.Errorf("the library keeps the path of a locked note")
 	}
 	if !strings.Contains(file, "/home/ana/plain.md") {
-		t.Errorf("notes.json lost the path of a note that is not locked:\n%s", file)
+		t.Errorf("the library lost the path of a note that is not locked")
 	}
 }
 

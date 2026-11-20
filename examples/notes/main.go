@@ -45,8 +45,8 @@
 //   - Settings: desktop.UseSetting is a useState stored in settings.json.
 //     The Preferences window writes them and the main window, which reads
 //     the same keys, follows with no plumbing between them.
-//   - The library: desktop.UseStoreSetting keeps the notes in notes.json
-//     under desktop.DataDir, written as you type.
+//   - The library: a SQLite database, notes.db under desktop.DataDir (phase
+//     27, see "Phase 27" below), written as you type.
 //   - A tray icon (desktop.Tray) with a menu that follows the window (Show
 //     Notes or Hide Notes: a hidden window still builds). With "Keep
 //     running in the tray" on, closing the window hides it (tela.UseCloseRequest)
@@ -88,7 +88,7 @@
 //     (desktop.FileType) and has a separate "Make default" button, which
 //     on Windows opens the Default apps settings. See links.go.
 //   - Locked notes: a note locked from the editor's header or a card's menu
-//     is stored encrypted in notes.json (AES-256-GCM) with a key that
+//     is stored encrypted in the library (AES-256-GCM) with a key that
 //     desktop.SetSecret keeps in the system keyring. The keyring is asked off
 //     the UI thread. A locked note's card has a lock and no preview, and
 //     the editor says "This note is locked" with an Unlock button. An
@@ -120,7 +120,35 @@
 // icon.svg is its icon, and a build given an update URL and key checks for
 // updates and offers a restart when one is in place (updates.go).
 //
-// Try it. Build the program first (go build -o notes ./examples/notes): under
+// Phase 27 (app building blocks, ADR-298) makes Notes a module of its own
+// (go.mod here: it depends on modernc.org/sqlite, which the core module must
+// not; run everything for it from this folder) and shows the phase's pieces:
+//
+//   - SQLite (store.go, library.go, docs/wiki/SQLite.md): notes.db in WAL
+//     mode with a schema version and migrations, an import of an old
+//     notes.json once, a first screen that needs no disk on a first run,
+//     tela.UseAsync to read a library, and a writer goroutine that stores what
+//     changed after each edit, so typing never waits for the disk.
+//   - An account and sync (account.go, sync.go, demo.go): oauth.UseSession at
+//     the foot of the rail (the system browser, PKCE, tokens in the keyring),
+//     and tela.UseAsync and tela.UseDebounced to sync with a server: last
+//     writer wins by an Updated time, deletions are tombstones, locked notes
+//     stay on the device, and offline keeps working. With no server given
+//     (-server or NOTES_SERVER) the card runs a demo server in the process
+//     (oauth/oauthtest behind a small notes API), so sign-in and sync work on
+//     one machine.
+//   - Markdown (editor.go, preview.go): Edit, Side by side and Preview with
+//     kit.Markdown; a task toggled in the preview edits the source, and links
+//     to other notes (notes:3, a title) open them inside the app.
+//   - A router (route.go): router.Router holds the places (the overview of a
+//     filter, a note), so the mouse's back and forward buttons and Alt+Left
+//     and Alt+Right (Cmd+[ and Cmd+] on a Mac) move between them.
+//   - Desktop surfaces: "Open at login" in Preferences (desktop.SetStartAtLogin;
+//     a program started at login that keeps running in the tray stays hidden,
+//     Launch.AtLogin), desktop.AddRecentDocument for the files it opens and
+//     saves, and desktop.SetTasks with New note.
+//
+// Try it. Build the program first (go build -o notes . in this folder): under
 // go run it is a temporary build, which Notes does not register.
 //
 //   - Drop: drag a .md file from the file manager on the window.
@@ -140,9 +168,9 @@
 // bare executable: Notes still works, and registration says to use tela
 // run):
 //
-//	tela run ./examples/notes
+//	tela run .
 //
-// With it running (or once, after tela build -o dist ./examples/notes and
+// With it running (or once, after tela build -o dist . and
 // opening dist/Notes.app), the system knows Notes's tela-notes: links:
 //
 //	open 'tela-notes://new?text=hi'
@@ -160,12 +188,15 @@
 // is about files: whether to write the notes that changed since their last
 // Save, or leave them as drafts in the library.
 //
-// `tela snapshot ./examples/notes` renders the main window without a
-// window or a tray, with a library in a temporary folder; add --dark for
-// the dark theme.
+// `tela snapshot .` (in this folder) renders the main window without a
+// window or a tray, with the welcome notes of a library in memory; add --dark
+// for the dark theme.
 package main
 
 import (
+	"os"
+	"strings"
+
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/desktop"
 )
@@ -210,10 +241,10 @@ var App = tela.App{
 }
 
 // Previews are the screens, for `tela snapshot --preview "3 Preferences"
-// --size 540x440 ./examples/notes`.
+// --size 540x440 .` in this folder.
 var Previews = tela.Previews{
-	"1 Notes":       {Root: Notes{}},
-	"2 Overview":    {Root: Notes{Overview: true}},
+	"1 Notes":       {Root: Notes{Preview: true}},
+	"2 Overview":    {Root: Notes{Overview: true, Preview: true}},
 	"3 Preferences": {Root: Preferences{}},
 }
 
@@ -221,5 +252,40 @@ func main() {
 	desktop.SetAppID(App.AppID) // before RegisterApp, which names the entry after it
 	registerApp()
 	autoRegister.Store(true) // register the tela-notes: scheme at start (never in tests or snapshots)
-	tela.Main(desktop.SingleInstance(withAppearance(desktop.PersistApp(App))))
+	app := App
+	app.Root = Notes{Server: serverFromArgs()} // none: the demo server of the account panel
+	tela.Main(desktop.SingleInstance(withAppearance(desktop.PersistApp(app))))
+	closeStores() // writes what is still queued
+}
+
+// serverFromArgs reads the sync server: -server URL (or -server=URL, or
+// NOTES_SERVER) and -client-id ID (NOTES_CLIENT_ID, "tela-notes" by default).
+// The flags are taken out of os.Args, so that they are not mistaken for
+// something to open (desktop.Launch reads the rest). The flag package would
+// refuse the arguments the OS and the launchers add.
+func serverFromArgs() serverInfo {
+	info := serverInfo{URL: os.Getenv("NOTES_SERVER"), ClientID: os.Getenv("NOTES_CLIENT_ID")}
+	rest := []string{os.Args[0]}
+	for args := os.Args[1:]; len(args) > 0; args = args[1:] {
+		name, value, hasValue := strings.Cut(strings.TrimLeft(args[0], "-"), "=")
+		isFlag := strings.HasPrefix(args[0], "-") && (name == "server" || name == "client-id")
+		if !isFlag {
+			rest = append(rest, args[0])
+			continue
+		}
+		if !hasValue && len(args) > 1 {
+			value, args = args[1], args[1:]
+		}
+		if name == "server" {
+			info.URL = value
+		} else {
+			info.ClientID = value
+		}
+	}
+	os.Args = rest
+	info.URL = strings.TrimRight(info.URL, "/")
+	if info.ClientID == "" {
+		info.ClientID = "tela-notes"
+	}
+	return info
 }
