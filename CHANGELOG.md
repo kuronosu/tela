@@ -20,6 +20,8 @@ Phase 27: App building blocks (ADR-298), in progress.
 - `tela.UseAsync`: runs a loader on a goroutine and returns a comparable `Async[T]` with `Loading`, `Err`, `Data` and `Reload`; a change of its dependencies cancels the run and resets it, `Reload` keeps `Data`, results of cancelled runs are dropped, and `tela dev` keeps `Data`. Without dependencies it runs once.
 - `tela.UseDebounced`: a value once it has not changed for a duration of the app's clock.
 - `kit.Markdown{Source, OnLink, OnToggleTask}`: CommonMark with GFM tables, task lists, strikethrough and autolinks (parsed by goldmark, a new dependency) as themed, selectable text; links through `OnLink` or `tela.OpenURL`, images from `tela.Assets` only (other sources show their alt text); its look is the recipe `kit.Style.Markdown`. The `examples/kit` gallery has a Markdown page.
+- Package `oauth`: sign in to an OAuth 2.0 server with the authorization code flow and PKCE through the system browser and a loopback redirect (RFC 8252), or the device flow (RFC 8628); `oauth.New(cfg)` gives a `Session` whose tokens are kept in the OS's secret storage, whose `Client` sends and refreshes them (with refresh-token rotation), and whose `SignOut` revokes them (RFC 7009); `oauth.UseSession` gives components the status and the commands.
+- Package `oauth/oauthtest`: a fake OAuth server and browser (approve, deny, expire, refresh-token reuse detection) for the tests of apps that sign in.
 
 ## [0.14.7] - 2026-11-17
 
