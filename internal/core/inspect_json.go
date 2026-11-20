@@ -15,6 +15,7 @@ func (n *InspectNode) UnmarshalJSON(b []byte) error {
 		Key       string        `json:"key"`
 		Component string        `json:"component"`
 		Element   ElementID     `json:"element"`
+		Src       string        `json:"src"`
 		Rect      jsonRect      `json:"rect"`
 		Bounds    *jsonRect     `json:"bounds"`
 		Margin    Edges         `json:"margin"`
@@ -33,7 +34,7 @@ func (n *InspectNode) UnmarshalJSON(b []byte) error {
 	}
 	rect := func(r jsonRect) gfx.Rect { return gfx.RectXYWH(r.X, r.Y, r.Width, r.Height) }
 	*n = InspectNode{
-		Kind: a.Kind, Key: a.Key, Component: a.Component, Element: a.Element,
+		Kind: a.Kind, Key: a.Key, Component: a.Component, Element: a.Element, Src: a.Src,
 		Rect: rect(a.Rect), Margin: a.Margin, Border: a.Border, Padding: a.Padding,
 		Text: a.Text, Lines: a.Lines, Inline: a.Inline, InlineBox: a.InlineBox,
 		Style: a.Style, Children: a.Children,

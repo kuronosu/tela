@@ -1748,8 +1748,8 @@ func (t *Tree) scrollIntoView(el *Element) (moved bool) {
 			to := s.clamp(tgt.Add(s.flip(d)))
 			moved = moved || to != tgt
 			t.scrollScripted(s, to)
-			moved := s.flip(to.Sub(tgt))
-			r = r.Translate(-moved.X, -moved.Y)
+			shift := s.flip(to.Sub(tgt))
+			r = r.Translate(-shift.X, -shift.Y)
 		}
 		b = cb
 	}

@@ -11,7 +11,7 @@ import (
 func TestInspectNodeJSONRoundTrip(t *testing.T) {
 	b := gfx.RectXYWH(5, 6, 70, 80)
 	in := InspectNode{
-		Kind: "div", Key: "k", Component: "main.Row", Element: 7,
+		Kind: "div", Key: "k", Component: "main.Row", Element: 7, Src: "settings.go:42",
 		Rect: gfx.RectXYWH(1, 2, 30, 40), Bounds: &b,
 		Margin: Edges{Top: 1, Right: 2, Bottom: 3, Left: 4}, Padding: Edges{Top: 8, Right: 8, Bottom: 8, Left: 8},
 		Text: "hi", Lines: 1, Inline: []string{"span"}, InlineBox: true,
