@@ -27,6 +27,9 @@ Inspecting and driving a running app.
 
 - [x] Inspect's and LayoutJSON's `font` field shows the first name of the stack (`ui-sans-serif`), not the family that drew the text
 - [ ] Live inspector: element tree, computed style, hooks and state, re-render counts, accessibility tree
+  - [x] Core instrumentation (`Tree.SetInstrument`): elements with IDs, creation sites, hooks, props, build counts and causes; a 600-frame profile; pick mode and highlight; a log ring
+  - [ ] The app's `log/slog` output is not captured (wrapping the default handler loops through `log`): the supervisor should tee the child's stderr; element IDs are per Tree, so the transport pairs them with the window
+  - [ ] Pick mode: wheel scrolls and caption clicks still reach the app; `pointer-events-none` and inert elements cannot be picked; a press held when pick starts loses its release; creation sites keep 8 frames, so deep helper chains fall back to the declaration
 - [ ] Frame profiler
 - [ ] Connect to a running app and pick an element
 - [ ] `tela mcp` on a running app's real windows, all of them (today headless only, and only the main window), for what headless does not show: IME, menus, dialogs, the tray, the accessibility backends, the display scale; a session could attach through the `remote` host of `tela dev`
