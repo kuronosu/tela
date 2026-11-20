@@ -13,11 +13,12 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`BackgroundGradientFn`](#func-backgroundgradientfn) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultLang`](#func-defaultlang) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`HyphenationPatterns`](#func-hyphenationpatterns) · [`Initial`](#func-initial) · [`Label`](#func-label) · [`Labels`](#func-labels) · [`LabelsChanged`](#func-labelschanged) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`OpenPath`](#func-openpath) · [`OpenURL`](#func-openurl) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`Quit`](#func-quit) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`ResizeBand`](#func-resizeband) · [`ResizeEdges`](#func-resizeedges) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetDefaultLang`](#func-setdefaultlang) · [`SetLabelSource`](#func-setlabelsource) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseAccentColor`](#func-useaccentcolor) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseCloseRequest`](#func-usecloserequest) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseHighContrast`](#func-usehighcontrast) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLabels`](#func-uselabels) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseNativeMenus`](#func-usenativemenus) · [`UseOnce`](#func-useonce) · [`UsePlatformKeys`](#func-useplatformkeys) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseQuitRequest`](#func-usequitrequest) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTextScale`](#func-usetextscale) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`UseWindow`](#func-usewindow) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`BackgroundGradientFn`](#func-backgroundgradientfn) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultLang`](#func-defaultlang) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`HyphenationPatterns`](#func-hyphenationpatterns) · [`Initial`](#func-initial) · [`Label`](#func-label) · [`Labels`](#func-labels) · [`LabelsChanged`](#func-labelschanged) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`OpenPath`](#func-openpath) · [`OpenURL`](#func-openurl) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`Quit`](#func-quit) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`ResizeBand`](#func-resizeband) · [`ResizeEdges`](#func-resizeedges) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetDefaultLang`](#func-setdefaultlang) · [`SetLabelSource`](#func-setlabelsource) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseAccentColor`](#func-useaccentcolor) · [`UseAsync`](#func-useasync) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseCloseRequest`](#func-usecloserequest) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDebounced`](#func-usedebounced) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseHighContrast`](#func-usehighcontrast) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLabels`](#func-uselabels) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseNativeMenus`](#func-usenativemenus) · [`UseOnce`](#func-useonce) · [`UsePlatformKeys`](#func-useplatformkeys) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseQuitRequest`](#func-usequitrequest) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTextScale`](#func-usetextscale) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`UseWindow`](#func-usewindow) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Initial`](#func-initial) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
   - [`type App`](#type-app)
+  - [`type Async`](#type-async): [`UseAsync`](#func-useasync) · [`Reload`](#func-async-reload)
   - [`type Backdrop`](#type-backdrop)
   - [`type Callback`](#type-callback): [`UseCallback`](#func-usecallback) · [`Fn`](#func-callback-fn) · [`IsZero`](#func-callback-iszero)
   - [`type ChangeEvent`](#type-changeevent): [`DefaultPrevented`](#func-changeevent-defaultprevented) · [`PreventDefault`](#func-changeevent-preventdefault) · [`StopPropagation`](#func-changeevent-stoppropagation)
@@ -791,6 +792,49 @@ theme := tela.UseContext(Theme)
 ```
 
 In dev mode, reading a context without a Provider above warns (once per context) when its default is not safe to use: nil, or holding a nil function, pointer, map, channel or interface, or a zero [`Setter`](#type-setter) or [`Callback`](#type-callback), in an exported field. Either provide the context above every reader, or give CreateContext a default that works; IsZero tells a zero Setter or Callback apart where a missing Provider is expected.
+
+### func UseDebounced
+
+```go
+func UseDebounced[T comparable](v T, d time.Duration) T
+```
+
+UseDebounced returns v once it has not changed for d (usehooks' useDebounce, lodash's debounce): while v keeps changing it returns the last settled value, so a search box can query a server only when the user pauses.
+
+The wait is on the app's frame clock, like [`UseTimeout`](#func-usetimeout) (telatest's Advance moves it), with no goroutine: nothing is running once the value settled, and App.Pending names the timer while it waits. The first build returns v. d \<= 0 returns v at once.
+
+```go
+query, setQuery := tela.UseState("")
+settled := tela.UseDebounced(query, 300*time.Millisecond)
+results := tela.UseAsync(func(ctx context.Context) ([]Hit, error) {
+    return search(ctx, settled)
+}, settled) // one request per pause, not one per key
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+search := func() tela.Node {
+    query, setQuery := tela.UseState("")
+    settled := tela.UseDebounced(query, 300*time.Millisecond)
+    return Div(
+        Button(OnClick(func(tela.MouseEvent) { setQuery.Set(query + "x") }), Text("Type")),
+        P(Textf("searching %q", settled)))
+}
+app := telatest.Mount(t, tela.C(search))
+app.Click(telatest.ByRole("button", "Type"))
+app.Click(telatest.ByRole("button", "Type"))
+app.Advance(200 * time.Millisecond) // the user is still typing
+fmt.Println(app.Count(telatest.ByText(`searching ""`)))
+app.Advance(200 * time.Millisecond) // 300 ms without a change on the app's clock
+fmt.Println(app.Count(telatest.ByText(`searching "xx"`)))
+app.ExpectIdle() // nothing keeps the app awake once settled
+// Output:
+// 1
+// 1
+```
 
 ### func UseDirection
 
@@ -1937,6 +1981,101 @@ tela.Main(tela.App{
     Root:  tela.C(func() tela.Node { return nil }),
 })
 ```
+
+### type Async
+
+```go
+type Async[T any] = core.Async[T]
+```
+
+Async is the state of a [`UseAsync`](#func-useasync) call: Loading while a run is in flight, Err the error of the latest run that ended and Data its value (React Query's isLoading, error and data). It is a small comparable value, the same on every build when nothing changed, so a struct component that holds one skips its build; a T that is not comparable (a slice) makes it count as changed on every build, like any prop. Reload starts a new run.
+
+`Async` is an alias of `core.Async`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type Async[T any] struct {
+    // Loading is whether a run is in flight: true from the first build
+    // until the first run ends, and again while Reload or a change of the
+    // dependencies runs. Data is the zero value, or the value of the
+    // previous run for Reload, meanwhile.
+    Loading bool
+    // Err is the error of the latest run that ended, nil after a
+    // successful one and after a change of the dependencies.
+    Err error
+    // Data is the value of the latest successful run (the zero value
+    // before the first one and after a change of the dependencies).
+    Data T
+    // contains filtered or unexported fields
+}
+```
+
+#### func UseAsync
+
+```go
+func UseAsync[T any](f func(ctx context.Context) (T, error), deps ...any) Async[T]
+```
+
+UseAsync runs f on a goroutine and returns its state (React Query's useQuery, usehooks' useAsync): Loading is true from the first build, so the first frame already shows the loading state, until f returns; then Data holds its value, or Err its error. f runs under [`UseGo`](#func-usego)'s rules: its ctx is cancelled when the dependencies change or the component unmounts, f must return soon after, and a panic in it is a crash report. The result is applied on the UI thread, in one update, and only when its run is still the current one: the result of a cancelled or superseded run is dropped.
+
+The dependencies are compared like [`UseEffect`](#func-useeffect)'s, but none means [`Once`](#variables): UseAsync runs when it first builds and when the dependencies change, never after every build. A change cancels the running ctx, and resets Data and Err to zero with Loading true. [`Async.Reload`](#func-async-reload) runs f again keeping Data (stale-while-revalidate) and Err until the run ends; when that run fails, Err is set and the previous Data stays. f is always the latest build's closure, so it sees the latest props.
+
+```go
+user := tela.UseAsync(func(ctx context.Context) (User, error) {
+    return api.GetUser(ctx, id)
+}, id) // loads again, cancelling the old request, when id changes
+switch {
+case user.Err != nil:
+    return P(Text(user.Err.Error()))
+case user.Loading && user.Data.ID == "":
+    return P(Text("Loading..."))
+}
+return Div(P(Text(user.Data.Name)), Button(OnClick(func(tela.MouseEvent) { user.Reload() }), Text("Refresh")))
+```
+
+Under tela dev (ADR-113) a Data that the dev state can keep survives a reload of the code, and the run starts again with it shown.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+type user struct{ Name string }
+getUser := func(ctx context.Context, id int) (user, error) {
+    return user{Name: fmt.Sprint("user ", id)}, nil // a slow call that honors ctx
+}
+profile := func() tela.Node {
+    id, setID := tela.UseState(1)
+    u := tela.UseAsync(func(ctx context.Context) (user, error) {
+        return getUser(ctx, id)
+    }, id) // loads again, cancelling the old request, when id changes
+    body := P(Text("Loading..."))
+    switch {
+    case u.Err != nil:
+        body = P(Text("Failed: " + u.Err.Error()))
+    case !u.Loading:
+        body = P(Text(u.Data.Name))
+    }
+    return Div(body,
+        Button(OnClick(func(tela.MouseEvent) { setID.Set(id + 1) }), Text("Next")),
+        Button(OnClick(func(tela.MouseEvent) { u.Reload() }), Text("Refresh")))
+}
+app := telatest.Mount(t, tela.C(profile))
+app.ExpectText("user 1") // expectations wait for the goroutine
+app.Click(telatest.ByRole("button", "Next"))
+app.ExpectText("user 2")
+app.Click(telatest.ByRole("button", "Refresh"))
+app.ExpectText("user 2")
+fmt.Println("ok")
+// Output: ok
+```
+
+#### func (Async) Reload
+
+```go
+func (a Async[T]) Reload()
+```
+
+Reload starts a new run of the function with the latest build's closure, cancelling the context of the one in flight (whose result is dropped). Data stays shown, Err until the run ends. It is safe from any goroutine; on an unmounted component it does nothing.
 
 ### type Backdrop
 

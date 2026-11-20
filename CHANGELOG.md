@@ -13,6 +13,14 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+Phase 27: App building blocks (ADR-298), in progress.
+
+### Added
+
+- `tela.UseAsync`: runs a loader on a goroutine and returns a comparable `Async[T]` with `Loading`, `Err`, `Data` and `Reload`; a change of its dependencies cancels the run and resets it, `Reload` keeps `Data`, results of cancelled runs are dropped, and `tela dev` keeps `Data`. Without dependencies it runs once.
+- `tela.UseDebounced`: a value once it has not changed for a duration of the app's clock.
+- `kit.Markdown{Source, OnLink, OnToggleTask}`: CommonMark with GFM tables, task lists, strikethrough and autolinks (parsed by goldmark, a new dependency) as themed, selectable text; links through `OnLink` or `tela.OpenURL`, images from `tela.Assets` only (other sources show their alt text); its look is the recipe `kit.Style.Markdown`. The `examples/kit` gallery has a Markdown page.
+
 ## [0.14.7] - 2026-11-17
 
 Phase 26: Packaging and auto-update (ADR-294 to ADR-297). It breaks no public API; `tela build` for Windows now makes a GUI program by default (`-console` keeps the console).
