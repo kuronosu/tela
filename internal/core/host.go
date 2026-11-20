@@ -61,6 +61,10 @@ type Options struct {
 	// ErrorLog receives platform errors (a failed Present). Nil means
 	// stderr.
 	ErrorLog io.Writer
+	// Instrument turns the DevTools instrumentation (instrument.go) on
+	// before the root mounts, so the elements built first have their
+	// creation sites and build records; telatest.Instrument sets it.
+	Instrument bool
 }
 
 // Run opens a window on the platform's native backend (platform/auto),
@@ -283,6 +287,9 @@ func NewHost(b platform.Backend, opts Options) (*Host, error) {
 		}
 	}
 	t := NewTree(cfg)
+	if opts.Instrument {
+		t.SetInstrument(true)
+	}
 	if devStateEnabled {
 		t.devAdoptSeed() // tela dev: the state given to SetDevSeed (ADR-113)
 	}

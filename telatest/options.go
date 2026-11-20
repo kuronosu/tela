@@ -63,6 +63,8 @@ type config struct {
 	unsupported []DesktopService
 	// flavor: PlatformKeys (zero: the host's).
 	flavor platform.Flavor
+	// instrument: Instrument.
+	instrument bool
 }
 
 func newConfig(opts []Option) config {

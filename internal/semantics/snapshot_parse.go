@@ -22,6 +22,10 @@ type SnapshotLine struct {
 	HasName  bool   // the line prints a name (a longer one is left out)
 	States   string // " [checked] [disabled]"...
 	Disabled bool
+	// Src is the "[src=file:line]" token that ends the key of a snapshot
+	// with sources ("" for none), without the brackets and the "src=". It
+	// is not part of Key, and WithSuffix puts it back after the suffix.
+	Src string
 }
 
 // snapRoleRe matches an ARIA role at the start of a key.
@@ -29,6 +33,9 @@ var snapRoleRe = regexp.MustCompile(`^[a-z]+`)
 
 // snapStatesRe matches the states after the name.
 var snapStatesRe = regexp.MustCompile(`^(?: \[[a-z]+(?:=[a-z0-9]+)?\])*$`)
+
+// snapSrcRe matches the source token that ends a key.
+var snapSrcRe = regexp.MustCompile(` \[src=([^\]\s]+)\]$`)
 
 // ParseSnapshotLine parses one line of the YAML of [Snapshot]. ok is false
 // for the lines that are not an element with a role (text, /url, a line it
@@ -103,6 +110,11 @@ func ParseSnapshotLine(line string) (l SnapshotLine, ok bool) {
 		l.Name, l.HasName = after[1:i], true
 		after = after[i:]
 	}
+	if m := snapSrcRe.FindStringSubmatchIndex(after); m != nil {
+		l.Src = after[m[2]:m[3]]
+		l.Key = l.Key[:len(l.Key)-(len(after)-m[0])]
+		after = after[:m[0]]
+	}
 	if !snapStatesRe.MatchString(after) {
 		return l, false
 	}
@@ -118,6 +130,9 @@ func ParseSnapshotLine(line string) (l SnapshotLine, ok bool) {
 // same line with the longer key.
 func (l SnapshotLine) WithSuffix(suffix string) string {
 	key := l.Key + suffix
+	if l.Src != "" {
+		key += " [src=" + l.Src + "]"
+	}
 	if l.Quoted {
 		key = "'" + strings.ReplaceAll(key, "'", "''") + "'"
 	} else {

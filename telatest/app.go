@@ -161,6 +161,7 @@ func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 	copts.Config = cc
 	copts.Window.Width, copts.Window.Height = cfg.width, cfg.height
 	copts.Root = rootNode
+	copts.Instrument = cfg.instrument
 	copts.ErrorLog = testWriter{tb}
 	if copts.Window.Title == "" {
 		copts.Window.Title = "telatest"
@@ -285,6 +286,7 @@ func (a *App) end() {
 	sh.stop()
 	sh.stopStrings()
 	a.host.Tree().Unmount()
+	a.host.SetInstrument(false) // the node constructors stop capturing call stacks
 	a.host.Window().Close()
 	a.backend.Quit()
 	a.flushDev()

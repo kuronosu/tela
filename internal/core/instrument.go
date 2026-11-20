@@ -628,7 +628,7 @@ type BuildReason struct {
 func (r BuildReason) String() string {
 	hook := func() string {
 		s := fmt.Sprintf("%s #%d", r.HookKind, r.Hook+1)
-		if site := r.Site.String(); site != "" {
+		if site := r.Site.Rel(); site != "" {
 			s += " at " + site
 		}
 		return s
@@ -774,9 +774,7 @@ func (ins *instrument) info(el *Element, parent ElementID, depth int, detail boo
 	if el.keyed {
 		info.Key = keyString(el.key)
 	}
-	if d := el.node.d; d != nil && d.site != nil {
-		info.Site = ins.creationSite(d.site)
-	}
+	info.Site = ins.siteOf(el)
 	switch el.kind {
 	case elemText:
 		info.Text = truncateRunes(el.text, 80)

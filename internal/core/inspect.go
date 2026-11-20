@@ -28,6 +28,11 @@ type InspectNode struct {
 	// Element is the box's element in an instrumented tree (ElementID,
 	// instrument.go), 0 otherwise.
 	Element ElementID `json:"element,omitempty"`
+	// Src is where the app's code made the element ("settings.go:42": the
+	// path relative to the working directory, else the module's, see
+	// SourceSite.Rel and Tree.AppSite) in an instrumented tree in dev
+	// mode, "" otherwise.
+	Src string `json:"src,omitempty"`
 	// Rect is the border box in absolute logical pixels (unrounded), as
 	// layout placed it: scroll offsets and transforms are not applied.
 	Rect gfx.Rect `json:"rect"`
@@ -88,6 +93,7 @@ func (n InspectNode) MarshalJSON() ([]byte, error) {
 		Key       string        `json:"key,omitempty"`
 		Component string        `json:"component,omitempty"`
 		Element   ElementID     `json:"element,omitempty"`
+		Src       string        `json:"src,omitempty"`
 		Rect      jsonRect      `json:"rect"`
 		Bounds    *jsonRect     `json:"bounds,omitempty"`
 		Margin    Edges         `json:"margin,omitzero"`
@@ -101,7 +107,7 @@ func (n InspectNode) MarshalJSON() ([]byte, error) {
 		Style     StyleSummary  `json:"style"`
 		Children  []InspectNode `json:"children,omitempty"`
 	}{
-		n.Kind, n.Key, n.Component, n.Element,
+		n.Kind, n.Key, n.Component, n.Element, n.Src,
 		jsonRect{n.Rect.X0, n.Rect.Y0, n.Rect.Width(), n.Rect.Height()}, bounds,
 		n.Margin, n.Border, n.Padding, n.Text, n.Lines, n.Inline, jsonFrags(n.Fragments), n.InlineBox, n.Style, n.Children,
 	})
@@ -247,6 +253,7 @@ func (t *Tree) inspect(b *Box, origin gfx.Point) InspectNode {
 		}
 		if t.ins != nil {
 			n.Element = t.ins.idOf(b.el)
+			n.Src = t.ins.appSite(b.el).Rel()
 		}
 		if c := b.el.component(); c != nil {
 			n.Component = c.comp.name()

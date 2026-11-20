@@ -183,3 +183,26 @@ func TestSnapshotLineNested(t *testing.T) {
 		t.Errorf("Describe() = %s", d)
 	}
 }
+
+// A snapshot with sources ends the key of an element with [src=file:line]:
+// the parser keeps it apart, and WithSuffix writes it after the suffix.
+func TestSnapshotLineSrc(t *testing.T) {
+	for _, tc := range []struct{ line, key, src, want string }{
+		{`- button "Save" [src=settings.go:42]`, `button "Save"`, "settings.go:42", `- button "Save" [ref=e4] [src=settings.go:42]`},
+		{`  - textbox "Email" [disabled] [src=ui/form.go:7]: ana`, `textbox "Email" [disabled]`, "ui/form.go:7", `  - textbox "Email" [disabled] [ref=e4] [src=ui/form.go:7]: ana`},
+		{`- button "Save"`, `button "Save"`, "", `- button "Save" [ref=e4]`},
+	} {
+		l, ok := ParseSnapshotLine(tc.line)
+		if !ok || l.Key != tc.key || l.Src != tc.src || l.Role == "" {
+			t.Errorf("%q parsed as %+v (ok %v), want key %q src %q", tc.line, l, ok, tc.key, tc.src)
+			continue
+		}
+		if got := l.WithSuffix(" [ref=e4]"); got != tc.want {
+			t.Errorf("WithSuffix of %q = %q, want %q", tc.line, got, tc.want)
+		}
+	}
+	l, _ := ParseSnapshotLine(`- button "Save" [disabled] [src=a.go:1]`)
+	if !l.Disabled || l.Describe() != `button "Save"` {
+		t.Errorf("states lost: %+v", l)
+	}
+}
