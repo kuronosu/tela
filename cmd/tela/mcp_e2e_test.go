@@ -93,13 +93,22 @@ func mcpAppModule(t *testing.T) string {
 
 func startMCP(t *testing.T, goBin string, opts mcpOptions) *mcpClient {
 	t.Helper()
+	return startMCPServer(t, func(ctx context.Context, in io.Reader, out, stderr io.Writer) error {
+		return serveMCP(ctx, goBin, opts, in, out, stderr)
+	})
+}
+
+// startMCPServer runs serve as an MCP server on pipes and returns its
+// client.
+func startMCPServer(t *testing.T, serve func(ctx context.Context, in io.Reader, out, stderr io.Writer) error) *mcpClient {
+	t.Helper()
 	inR, inW := io.Pipe()
 	outR, outW := io.Pipe()
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &mcpClient{t: t, in: inW, resps: map[int]chan map[string]any{}, done: make(chan error, 1), cancel: cancel}
 	var stderr syncBuffer
 	go func() {
-		err := serveMCP(ctx, goBin, opts, inR, outW, &stderr)
+		err := serve(ctx, inR, outW, &stderr)
 		outW.Close()
 		c.done <- err
 	}()

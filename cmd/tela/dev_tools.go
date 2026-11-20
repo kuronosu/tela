@@ -57,7 +57,7 @@ import (
 //	elements      {window, detail}        → {elements: [ElementInfo]}
 //	element       {window, id}            → ElementInfo
 //	inspect       {window, id}            → InspectNode (id 0: the whole tree)
-//	semantics     {window}                → {yaml, nodes, elements}
+//	semantics     {window}                → {yaml, nodes, elements, srcs}
 //	profiles      {window, since}         → {profiles: [FrameProfile]}
 //	logs          {since}                 → {entries: [{seq, at, level, msg, source, window, build}], last}
 //	pick          {window, on}            → {}         subscribes the caller to picked

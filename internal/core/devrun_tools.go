@@ -98,13 +98,16 @@ func devToolsRegister(rb *remote.Backend, h *Host) {
 		yaml, ids := semantics.SnapshotIDs(t.Semantics())
 		nodes := make([]uint64, len(ids))
 		els := make([]uint64, len(ids))
+		srcs := make([]string, len(ids))
 		for i, id := range ids {
 			nodes[i] = uint64(id)
 			if id != 0 {
-				els[i] = uint64(t.ElementOfNode(id))
+				el := t.ElementOfNode(id)
+				els[i] = uint64(el)
+				srcs[i] = t.AppSite(el).Rel() // "settings.go:42", as the app's working directory shows it
 			}
 		}
-		return map[string]any{"yaml": yaml, "nodes": nodes, "elements": els}, nil
+		return map[string]any{"yaml": yaml, "nodes": nodes, "elements": els, "srcs": srcs}, nil
 	})
 	handle(devloop.KindToolsProfiles, true, func(_ *Host, t *Tree, p devloop.ToolsParams) (any, error) {
 		ps := t.FrameProfiles(p.Since)

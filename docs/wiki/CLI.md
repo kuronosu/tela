@@ -46,7 +46,7 @@ CGO_ENABLED=0 go run ./cmd/tela snapshot -o counter.png ./examples/counter
 | `tela inspect` | Prints a screen's aria snapshot (YAML) or layout tree (JSON) |
 | `tela lint` | Checks the Go source for the mistakes that dev mode reports at run time: unknown classes, roles and aria tokens, duplicate or missing keys, misused hooks, a redundant `Fragment`, a prop where a node goes (see [tela lint](#tela-lint)) |
 | `tela dev` | Runs an app and reloads it on every save, keeping the window and the state |
-| `tela mcp` | Serves a package's screen to agents over the Model Context Protocol: snapshot, screenshot, click, fill... on an instance that stays up and rebuilds on edits (see [tela mcp](#tela-mcp)) |
+| `tela mcp` | Serves a package's screen to agents over the Model Context Protocol: snapshot, screenshot, click, fill... on an instance that stays up and rebuilds on edits; `--attach` drives a running `tela dev`'s real windows instead (see [tela mcp](#tela-mcp)) |
 | `tela lsp` | Serves class diagnostics, completion and hover to editors over the Language Server Protocol, beside gopls (see [tela lsp](#tela-lsp)) |
 | `tela build` | Builds a program; for `GOOS=darwin`, as a macOS application bundle `<Name>.app`, for `GOOS=windows` as a GUI program with the app's icon and version information (see [tela build and tela run](#tela-build-and-tela-run)) |
 | `tela run` | Builds a program and runs it, like `go run`; on macOS as a bundle in the user cache, so notifications, URL schemes and the Dock name work |
@@ -563,6 +563,7 @@ CGO_ENABLED=0 go run github.com/kuronosu/tela/cmd/tela@latest lint ./...
 
 ```text
 tela mcp [--size WxH] [--scale N] [--dark] [--preview NAME] [-v] [pkg]
+tela mcp --attach [-v] [addr]
 ```
 
 A [Model Context Protocol](https://modelcontextprotocol.io) server over
@@ -705,6 +706,45 @@ standard error; standard output carries only protocol messages. The instance is
 a test binary built with `go test -c` from a generated `_test.go` file in an
 overlay (nothing is written into the package), so the server works in any
 module that requires Tela.
+
+### tela mcp --attach
+
+```text
+tela mcp --attach[=addr] [-v] [addr]
+```
+
+The same server, driving the **real windows** of a running [`tela dev`](#tela-dev)
+session instead of a headless instance (ADR-299). It talks to the session's
+tools socket: with no `addr` it finds the only session that runs (the discovery
+files `tela dev` writes in the user cache); with several it fails and lists
+them, so name one by the socket path; with none it says to start `tela dev`,
+and every tool answers that until a session runs. Start it in the directory
+`tela dev` runs in, so the source lines and `lint` resolve the same paths:
+
+```bash
+claude mcp add tela -- tela mcp --attach
+```
+
+The tools are the headless ones with a `window` argument (an ID of the new
+`windows` tool, default the first window the app shows) and these differences,
+because the app, its clock and its window are the person's and `tela dev`'s:
+
+| Tool | In attach mode |
+|---|---|
+| `windows` | New: lists ID, title, logical size, display scale and which window has the keyboard focus |
+| `snapshot` | The real window's aria snapshot, with refs and `[src=file:line]`. Refs are semantics node IDs per window, as in the headless server; after a `tela dev` reload (a new child, whose IDs start again) they are matched again by role, name and position, and the result says the app was built again |
+| `screenshot` | The frame the window presents, in real pixels at the display's scale (the answer says it: 480x400 logical at scale 2 is 960x800 pixels); with a `ref`, that element with an 8 px margin |
+| `click`, `hover`, `fill`, `press`, `scroll`, `drag` | Inject pointer, key and text events into the real window at the element's painted position (the path a person's input takes), wait until the app has drawn no frame for 100 ms (at most 5 s: an animation never settles, and the answer says so), and answer with the new snapshot. `fill` clicks the field, selects all and types the text, so `OnChange` fires per character; `press` with a `ref` clicks the field to focus it, and refuses an element a click would activate (use `Tab`). An element's center must be inside the window: scroll it into view first. `testId` is not available (the snapshot has no test ids): use `ref`, `role` and `name`, or `text` |
+| `wait` | Waits real time (`ms`, at most 60 s) and/or up to 10 s for a `text` to appear or `textGone` to go: the app's clock runs by itself |
+| `inspect`, `state`, `perf`, `logs` | Read the running app through the instrumentation `tela dev` turns on for the attached client: the layout tree, the component behind a `ref`, the frames' time per phase (`action: true` for the frames of the last acting call) and what `tela dev` logged (the dev warnings and errors of Tela, and the app's standard error; standard output is not kept) |
+| `lint` | `tela lint -json` on the session's package, as `tela dev` was given it |
+| `resize`, `open`, `prefer` | Not available (they answer so): the window and the system's preferences are the person's, and there are no previews to mount; use the headless server |
+
+`[src=]` is known for what the app built since the session was instrumented
+(the first call): an element built earlier has none until it rebuilds, so a
+snapshot taken right after attaching shows few until the app changes or
+reloads. The paths are relative to the directory `tela mcp --attach` runs in,
+like `tela dev`'s; the `Site` of a hook is shown as that process sees it.
 
 ## tela lsp
 

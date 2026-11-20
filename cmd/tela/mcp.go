@@ -27,6 +27,7 @@ import (
 const mcpUsage = `Usage:
 
 	tela mcp [--size WxH] [--scale N] [--dark] [--preview NAME] [-v] [pkg]
+	tela mcp --attach [-v] [addr]
 
 Serves the Model Context Protocol on standard input and output (JSON-RPC
 2.0, one message per line), so that an agent can drive the package's screen:
@@ -77,8 +78,26 @@ Clients start the server with a command line, such as, for Claude Code:
 
 	claude mcp add tela -- tela mcp ./myapp
 
+Attach mode (tela mcp --attach [addr]) serves the same tools over the REAL
+windows of a running "tela dev" session, through its tools socket (ADR-299),
+instead of a headless instance: addr is the session's socket (without it,
+the only session that runs; with several, the error lists them; with none,
+start "tela dev"). Every tool takes an optional window (an ID of the new
+windows tool; default the first window the app shows). snapshot, inspect,
+state, perf and logs read the running app; click, hover, fill, press, scroll
+and drag inject real pointer, key and text events at the element's painted
+position, wait until the app has stopped drawing and answer with the new
+snapshot; screenshot is the frame the window presents, in real pixels at the
+display's scale. tela dev rebuilds on save: the next result says so and refs
+are matched again by role and name. resize, open and prefer are not
+available (the window and the system's preferences are the person's), and
+wait waits real time. Run it in the directory tela dev runs in, so the
+source lines and lint find the package.
+
 Flags:
 
+	--attach[=addr]  drive the running tela dev session (above); the other
+	                 flags but -v are for the headless server
 	--size WxH       logical size of the window (default: the App's Width and
 	                 Height when the package defines them, else 960x640)
 	--scale N        display scale (default 1)
@@ -97,6 +116,10 @@ type mcpOptions struct {
 	Dark    bool
 	Preview string
 	Verbose bool
+	// Attach drives a tela dev session instead of a headless instance
+	// (mcp_attach.go); Addr is its socket, "" for the only session.
+	Attach bool
+	Addr   string
 }
 
 // parseMCPArgs parses the arguments of tela mcp. Flags and the package may
@@ -112,9 +135,31 @@ func parseMCPArgs(args []string) (mcpOptions, error) {
 	fs.StringVar(&o.Preview, "preview", "", "")
 	fs.BoolVar(&o.Verbose, "v", false, "")
 	fs.BoolVar(&o.Verbose, "verbose", false, "")
+	fs.Var(attachFlag{&o.Attach, &o.Addr}, "attach", "")
 	pkgs, err := parsePositionals("mcp", fs, args)
 	if err != nil {
 		return o, err
+	}
+	if o.Attach {
+		var headless []string
+		fs.Visit(func(f *flag.Flag) {
+			switch f.Name {
+			case "size", "scale", "dark", "preview":
+				headless = append(headless, "--"+f.Name)
+			}
+		})
+		if len(headless) > 0 {
+			return o, fmt.Errorf("%s only applies to the headless server: with --attach the app is the running tela dev's", strings.Join(headless, ", "))
+		}
+		switch {
+		case len(pkgs) > 1:
+			return o, fmt.Errorf("expected at most one <addr>, got %d (%s)", len(pkgs), strings.Join(pkgs, ", "))
+		case len(pkgs) == 1 && o.Addr != "":
+			return o, fmt.Errorf("the session's address is given twice (--attach=%s and %s)", o.Addr, pkgs[0])
+		case len(pkgs) == 1:
+			o.Addr = pkgs[0]
+		}
+		return o, nil
 	}
 	switch len(pkgs) {
 	case 0:
@@ -142,6 +187,15 @@ func runMCP(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		fmt.Fprintf(stderr, "tela mcp: %v\n\n%s", err, mcpUsage)
 		return 2
+	}
+	if opts.Attach {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		if err := serveAttach(ctx, opts, os.Stdin, stdout, stderr); err != nil {
+			fmt.Fprintf(stderr, "tela mcp: %v\n", err)
+			return 1
+		}
+		return 0
 	}
 	goBin, err := exec.LookPath("go")
 	if err != nil {

@@ -279,6 +279,9 @@ type toolsSemantics struct {
 	YAML     string           `json:"yaml"`
 	Nodes    []uint64         `json:"nodes"`
 	Elements []core.ElementID `json:"elements"`
+	// Srcs is, per line, where the app's code made its element
+	// ("settings.go:42", "" for none).
+	Srcs []string `json:"srcs"`
 }
 
 func (c *toolsClient) Semantics(ctx context.Context, window uint32) (toolsSemantics, error) {
@@ -347,6 +350,11 @@ func (c *toolsClient) Screenshot(ctx context.Context, window uint32) (image.Imag
 // button ("left" by default) at the logical point x, y.
 func (c *toolsClient) Pointer(ctx context.Context, window uint32, action string, x, y float32, button string) error {
 	return c.call(ctx, "pointer", map[string]any{"window": window, "action": action, "x": x, "y": y, "button": button}, nil)
+}
+
+// Clicks injects count clicks (2: a double click) of button at x, y.
+func (c *toolsClient) Clicks(ctx context.Context, window uint32, x, y float32, button string, count int) error {
+	return c.call(ctx, "pointer", map[string]any{"window": window, "action": "click", "x": x, "y": y, "button": button, "count": count}, nil)
 }
 
 // Click is Pointer's left click.
