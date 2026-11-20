@@ -96,3 +96,17 @@ func ExampleApp_RecentDocuments() {
 	// a.md
 	// 0
 }
+
+// A link that opens the browser: the headless desktop records it, so a test
+// reads what the app asked for. (A page that shows how the app's sign-in
+// goes: package oauth's default opens the authorization URL the same way.)
+func ExampleApp_OpenedURLs() {
+	page := func() tela.Node {
+		return Button(OnClick(func() { _ = tela.OpenURL("https://example.com/help") }), Text("Help"))
+	}
+	app := telatest.Mount(t, tela.C(page))
+
+	app.Click(telatest.ByRole("button", "Help"))
+	fmt.Println(app.OpenedURLs())
+	// Output: [https://example.com/help]
+}
