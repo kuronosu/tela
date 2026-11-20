@@ -524,7 +524,7 @@ services are not reachable through the tools yet.
 | `hover` | Moves the pointer over an element |
 | `fill` | Replaces the text of a field; `submit: true` presses Enter after |
 | `press` | Presses a key or combo in Playwright's syntax (`Enter`, `Shift+Tab`, `Control+a`), on the focused element or on one it focuses first |
-| `scroll` | Scrolls the wheel over an element by `dx`, `dy` |
+| `scroll` | Scrolls the wheel over an element by `dx`, `dy`; without an element, at a point (`x`, `y`) or at the center of the window |
 | `drag` | Drags `from` an element or point `to` another, or by `dx`, `dy` |
 | `resize` | Changes the window's `width` and `height` or `scale`, keeping the state |
 | `open` | Mounts another `preview`, `dark` mode, size or scale afresh; without arguments, lists the previews |
@@ -534,14 +534,22 @@ services are not reachable through the tools yet.
 
 An element is named by the `ref` of the latest snapshot, or by `role` and
 `name`, `text` or `testId` (`telatest`'s locators; `nth` picks one of several).
-Every tool that acts answers with the new snapshot. A ref stays with its element
-across actions and rebuilds while the element keeps its role and name (and,
-until the next remount, its position when only the name changed, as a
-counter's label does), so `screenshot {"ref": "e5"}` right after an edit shows
-the same element rebuilt; a ref whose element is gone is an error that asks
-for a new snapshot. A failed action (an element
-not found, a disabled button, a panic in a handler) is an error result of that
-call: the instance keeps running, and after a panic it mounts the screen afresh.
+Every tool that acts answers with the new snapshot. A ref is the element
+itself, not its role and name: it stays with the element across actions
+and rebuilds of the tree whatever happens to its label or its siblings (a
+counter's text changes, rows before it are removed), for as long as the
+element is mounted, and a ref whose element was unmounted is the error `ref
+e4 is gone: take a new snapshot`. After the Go source changed and the screen
+was mounted afresh the refs are matched again by role, name and position, so
+`screenshot {"ref": "e5"}` right after an edit shows the same element
+rebuilt. A failed action (an element not found, a disabled button, a panic in
+a handler) is an error result of that call: the instance keeps running, and
+after a panic it mounts the screen afresh. An element that is not on the
+screen fails at once when nothing is pending (no animation, timer or queued
+update); while something is, the call waits up to two seconds for it to
+appear. Use `wait {"text": "Loaded"}` for data that arrives from a goroutine.
+The client's `notifications/cancelled` stops a wait or an action in progress,
+keeps the app's state and sends no response for that call.
 
 ```text
 → snapshot {}

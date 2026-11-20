@@ -125,16 +125,16 @@ tela mcp [--size WxH] [--scale N] [--dark] [--preview NAME] [pkg]
 | `click {"ref": "e5"}` | Real pointer click; `"button": "right"`, `"double": true`, or `"x"`, `"y"` |
 | `fill {"ref": "e7", "text": "ana@example.com"}` | Replace a text field's value; `"submit": true` presses Enter |
 | `press {"key": "Tab"}` | Key or combo in Playwright syntax (`Enter`, `Shift+Tab`, `Control+a`, `ArrowDown`), optionally on a `ref` |
-| `hover`, `scroll {"ref", "dy": 400}`, `drag {"from", "to" or "dx"/"dy"}` | Pointer moves, wheel, drags |
+| `hover`, `scroll {"ref", "dy": 400}`, `drag {"from", "to" or "dx"/"dy"}` | Pointer moves, wheel (without ref: window center), drags |
 | `resize {"width": 390, "height": 844}` / `{"scale": 2}` | Keeps the state; breakpoints follow |
 | `open {"dark": true}` / `{"preview": "2 Full"}` | Mount afresh (state reset) in dark mode, another preview, size or scale; `{}` lists the previews |
 | `wait {"ms": 500}` / `{"text": "Saved"}` | Advance the app clock (timers, `UseTimeout`, animations, toasts) or wait for a text |
 | `inspect {"ref": "e5"}` | Layout JSON: rects, margin/border/padding, classes, class errors, computed style. Use it when something is misplaced |
 | `lint {}` | `tela lint -json` on the package |
 
-Elements are named by `ref` (from the latest snapshot), or `role` + `name`, `text`, `testId`, with `nth`. Every acting tool returns the new snapshot.
+Elements are named by `ref` (from the latest snapshot), or `role` + `name`, `text`, `testId`, with `nth`. A ref is the element itself (it survives renames; "gone" once unmounted). Every acting tool returns the new snapshot.
 
-**Reading a result.** The text has sections: `### Snapshot` (YAML), `### Dev errors` (unknown classes with "did you mean": fix these first), `### Dev warnings` (missing keys, nil dependencies), `### Lint`, `### Output of the app`. A dev-mode panic (an unknown role, a misused hook) is the error of the call, with the fix in its message, and the screen is mounted afresh. A first line "The source changed: rebuilt ... and mounted afresh (state reset)" means your edit is live. "The package does not compile:" is followed by the compiler's errors, and the previous build keeps answering. "The new build compiles, but its screen cannot be mounted" is a panic while mounting (often a hook misuse; the message names the fix).
+**Reading a result.** The text has sections: `### Snapshot` (YAML), `### Dev errors` (unknown classes with "did you mean": fix these first), `### Dev warnings`, `### Lint`, `### Output of the app`. A dev-mode panic is the error of the call, with the fix in its message, and the screen is mounted afresh. A first line "The source changed: rebuilt ... and mounted afresh (state reset)" means your edit is live. "The package does not compile:" is followed by the compiler's errors, and the previous build keeps answering. "The new build compiles, but its screen cannot be mounted" is a panic while mounting.
 
 **A good loop.** 1) Write the screen with `var App` (or `Preview`). 2) `snapshot`: fix every dev error and lint finding. 3) `screenshot`: fix the look. 4) `open {"dark": true}` + `screenshot`. 5) `click`/`fill` the main interactions and `screenshot` the states (open dialogs, toasts after `wait`). 6) `resize` to a narrow window if it must be responsive.
 

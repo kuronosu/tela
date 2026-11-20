@@ -41,8 +41,9 @@ const mcpReplyPrefix = "\x1etela-mcp "
 // package directory (it exists only in the overlay).
 const mcpGeneratedFile = "zz_tela_mcp_test.go"
 
-// mcpLoc is a telatest locator, as the instance builds it: ByRole (with
-// Name), ByText (Exact) or ByTestID, then Nth.
+// mcpLoc is a telatest locator, as the instance builds it: the element of
+// a node identity (NodeID: a ref of the snapshot, App.NodeLocator), or
+// ByRole (with Name), ByText (Exact) or ByTestID, then Nth.
 type mcpLoc struct {
 	Role   string `json:"role,omitempty"`
 	Name   string `json:"name,omitempty"`
@@ -50,6 +51,9 @@ type mcpLoc struct {
 	Exact  bool   `json:"exact,omitempty"`
 	TestID string `json:"testId,omitempty"`
 	Nth    *int   `json:"nth,omitempty"`
+	NodeID uint64 `json:"node,omitempty"`
+	// Ref is the ref a NodeID stands for, for messages.
+	Ref string `json:"ref,omitempty"`
 }
 
 // mcpPoint is a point in logical pixels.
@@ -57,7 +61,9 @@ type mcpPoint struct{ X, Y float64 }
 
 // mcpReq is a command to the instance. Op is mount, info, snapshot, count,
 // bounds, screenshot, layout, click, hover, fill, press, scroll, drag,
-// resize or wait; the other fields are its arguments.
+// resize or wait; the other fields are its arguments. The op cancel (with
+// Target, the id of the command to stop) is handled the moment it is read,
+// while that command runs, and has no reply.
 type mcpReq struct {
 	ID int    `json:"id"`
 	Op string `json:"op"`
@@ -86,6 +92,8 @@ type mcpReq struct {
 	Ms     float64   `json:"ms,omitempty"`
 	// Snapshot asks for the aria snapshot after the command.
 	Snapshot bool `json:"snapshot,omitempty"`
+	// Target is the id of the command a cancel stops.
+	Target int `json:"target,omitempty"`
 }
 
 // mcpReply is the instance's answer to an mcpReq.
@@ -105,9 +113,13 @@ type mcpReply struct {
 	// Output is what the process printed since the previous reply.
 	Output string `json:"output,omitempty"`
 
-	YAML   *string `json:"yaml,omitempty"`
-	PNG    []byte  `json:"png,omitempty"`
-	Layout string  `json:"layout,omitempty"`
+	YAML *string `json:"yaml,omitempty"`
+	// Nodes, with YAML, is the identity of the element each line prints
+	// (0: none), when the instance's telatest gives them
+	// (AriaSnapshotNodes).
+	Nodes  []uint64 `json:"nodes,omitempty"`
+	PNG    []byte   `json:"png,omitempty"`
+	Layout string   `json:"layout,omitempty"`
 	// Subtree says Layout is the subtree of the located element
 	// (LayoutJSONOf); without it Layout is the whole window's and, for a
 	// located element, Bounds says where it is (an instance built against a
@@ -162,6 +174,7 @@ import (
 	telasort "sort"
 	telastrings "strings"
 	telasync "sync"
+	telaatomic "sync/atomic"
 	telatesting "testing"
 	telatime "time"
 
@@ -187,9 +200,33 @@ type telaMCPTB struct {
 	mu       telasync.Mutex
 	logs     []string
 	cleanups []func()
+	// running is the id of the command being run (0: none, or one that
+	// cannot be cancelled) and cancelled says the client cancelled it:
+	// Helper, which telatest calls at the start of its steps and on each
+	// try of a wait, then ends the command.
+	running      telaatomic.Int64
+	cancelled    telaatomic.Bool
+	cancelTarget telaatomic.Int64 // the id the client last asked to cancel
 }
 
-func (t *telaMCPTB) Helper()      {}
+// cancel is called on the goroutine that reads the commands, while one
+// runs.
+func (t *telaMCPTB) cancel(id int) {
+	t.cancelTarget.Store(int64(id))
+	if id != 0 && t.running.Load() == int64(id) {
+		t.cancelled.Store(true)
+	}
+}
+
+// telaMCPCancelled is the message of the failure that ends a cancelled
+// command.
+const telaMCPCancelled = "cancelled by the client"
+
+func (t *telaMCPTB) Helper() {
+	if t.running.Load() != 0 && t.cancelled.Load() {
+		panic(telaMCPFail{telaMCPCancelled})
+	}
+}
 func (t *telaMCPTB) Name() string { return "TestTelaMCP" }
 func (t *telaMCPTB) Failed() bool { return false }
 func (t *telaMCPTB) Fail()        {}
@@ -265,11 +302,27 @@ type telaMCPLoc struct {
 	Exact  bool   ` + "`json:\"exact\"`" + `
 	TestID string ` + "`json:\"testId\"`" + `
 	Nth    *int   ` + "`json:\"nth\"`" + `
+	NodeID uint64 ` + "`json:\"node\"`" + `
+	Ref    string ` + "`json:\"ref\"`" + `
 }
 
-func (l *telaMCPLoc) locator() telatest.Locator {
+// telaMCPNodes is what an App of a telatest that has AriaSnapshotNodes and
+// NodeLocator does; the user's module may require an older tela, so the
+// instance asks through an interface.
+type telaMCPNodes interface {
+	AriaSnapshotNodes() (string, []uint64)
+	NodeLocator(uint64) telatest.Locator
+}
+
+func (l *telaMCPLoc) locator(app *telatest.App) telatest.Locator {
 	var loc telatest.Locator
 	switch {
+	case l.NodeID != 0:
+		n, ok := any(app).(telaMCPNodes)
+		if !ok {
+			panic(telaMCPFail{"this version of tela cannot name an element by its identity; take a new snapshot"})
+		}
+		loc = n.NodeLocator(l.NodeID)
 	case l.TestID != "":
 		loc = telatest.ByTestID(l.TestID)
 	case l.Role != "":
@@ -313,6 +366,7 @@ type telaMCPReq struct {
 	Key      string        ` + "`json:\"key\"`" + `
 	Ms       float64       ` + "`json:\"ms\"`" + `
 	Snapshot bool          ` + "`json:\"snapshot\"`" + `
+	Target   int           ` + "`json:\"target\"`" + `
 }
 
 type telaMCPReply struct {
@@ -323,6 +377,7 @@ type telaMCPReply struct {
 	Logs       []string    ` + "`json:\"logs,omitempty\"`" + `
 	Output     string      ` + "`json:\"output,omitempty\"`" + `
 	YAML       *string     ` + "`json:\"yaml,omitempty\"`" + `
+	Nodes      []uint64    ` + "`json:\"nodes,omitempty\"`" + `
 	PNG        []byte      ` + "`json:\"png,omitempty\"`" + `
 	Layout     string      ` + "`json:\"layout,omitempty\"`" + `
 	Subtree    bool        ` + "`json:\"subtree,omitempty\"`" + `
@@ -445,7 +500,13 @@ func (s *telaMCPSession) handle(req telaMCPReq) telaMCPReply {
 			s.mountErr = "no screen is mounted"
 		}
 	default:
+		s.tb.cancelled.Store(false)
+		s.tb.running.Store(int64(req.ID))
+		if s.tb.cancelTarget.Load() == int64(req.ID) {
+			s.tb.cancelled.Store(true) // the cancel was read before the command began
+		}
 		fail, panicked := telaMCPProtect(func() { s.do(req, &rep) })
+		s.tb.running.Store(0)
 		rep.Error = fail
 		if panicked != "" {
 			rep.Panic = panicked
@@ -455,8 +516,9 @@ func (s *telaMCPSession) handle(req telaMCPReq) telaMCPReply {
 	rep.MountError = s.mountErr
 	if req.Snapshot && s.app != nil {
 		var y string
-		if fail, panicked := telaMCPProtect(func() { y = s.app.AriaSnapshot() }); fail == "" && panicked == "" {
-			rep.YAML = &y
+		var nodes []uint64
+		if fail, panicked := telaMCPProtect(func() { y, nodes = s.snapshot() }); fail == "" && panicked == "" {
+			rep.YAML, rep.Nodes = &y, nodes
 		} else if panicked != "" {
 			rep.Panic += panicked
 			s.remount()
@@ -485,13 +547,65 @@ func (s *telaMCPSession) output() string {
 	return string(buf[:n])
 }
 
+// snapshot returns the aria snapshot and, when this version of telatest
+// gives them, the identity of the element of each line.
+func (s *telaMCPSession) snapshot() (string, []uint64) {
+	if n, ok := any(s.app).(telaMCPNodes); ok {
+		return n.AriaSnapshotNodes()
+	}
+	return s.app.AriaSnapshot(), nil
+}
+
+// telaMCPQuiet reports whether an item of App.Pending cannot change what
+// is on the screen: the blink of a caret, the fade of a scrollbar, an
+// animation that never ends, the debug overlays. A miss that waits on
+// nothing else will not turn into a match.
+func telaMCPQuiet(why string) bool {
+	for _, q := range []string{"the caret of the focused text field", "overlay scrollbars that start fading", "an endless animation", "the debug overlays"} {
+		if telastrings.Contains(why, q) {
+			return true
+		}
+	}
+	return false
+}
+
+// preflight fails at once for an element that is not on the screen when
+// nothing is pending: telatest waits for it to appear, which only helps
+// while something (a frame, an animation, a timer, a queued update) can
+// still change the screen. It leaves the rest to telatest: a locator that
+// matches, or one that matches several (its strictness message), or an
+// app where something is pending.
+func (s *telaMCPSession) preflight(l *telaMCPLoc) {
+	if l == nil {
+		return
+	}
+	loc := l.locator(s.app)
+	if s.app.Count(loc) > 0 {
+		return
+	}
+	p, ok := any(s.app).(interface{ Pending() []string })
+	if !ok {
+		return // an older telatest: it waits as it always did
+	}
+	for _, why := range p.Pending() {
+		if !telaMCPQuiet(why) {
+			return
+		}
+	}
+	panic(telaMCPFail{"no element matches " + loc.String() + "; the screen is settled (nothing is animating, timed or queued), so waiting would not help"})
+}
+
 func (s *telaMCPSession) do(req telaMCPReq, rep *telaMCPReply) {
 	app := s.app
 	need := func(what string, l *telaMCPLoc) telatest.Locator {
 		if l == nil {
 			panic(telaMCPFail{what + " needs an element"})
 		}
-		return l.locator()
+		return l.locator(app)
+	}
+	if req.Op != "count" {
+		s.preflight(req.Loc)
+		s.preflight(req.To)
 	}
 	switch req.Op {
 	case "snapshot", "info":
@@ -500,7 +614,7 @@ func (s *telaMCPSession) do(req telaMCPReq, rep *telaMCPReply) {
 	case "count":
 		for i := range req.Locs {
 			n := -1
-			if _, panicked := telaMCPProtect(func() { n = app.Count(req.Locs[i].locator()) }); panicked != "" {
+			if _, panicked := telaMCPProtect(func() { n = app.Count(req.Locs[i].locator(app)) }); panicked != "" {
 				panic(panicked)
 			}
 			rep.Counts = append(rep.Counts, n)
@@ -512,7 +626,7 @@ func (s *telaMCPSession) do(req telaMCPReq, rep *telaMCPReply) {
 		img := app.Screenshot()
 		var sub telaimage.Image = img
 		if req.Loc != nil {
-			r := app.Bounds(req.Loc.locator())
+			r := app.Bounds(req.Loc.locator(app))
 			rep.Bounds = &[4]float64{float64(r.X), float64(r.Y), float64(r.Width), float64(r.Height)}
 			const margin = 8
 			sc := s.scale
@@ -538,10 +652,10 @@ func (s *telaMCPSession) do(req telaMCPReq, rep *telaMCPReply) {
 		}
 		switch of, ok := any(app).(layoutOf); {
 		case req.Loc != nil && ok:
-			rep.Layout, rep.Subtree = string(of.LayoutJSONOf(req.Loc.locator())), true
+			rep.Layout, rep.Subtree = string(of.LayoutJSONOf(req.Loc.locator(app))), true
 		case req.Loc != nil:
 			rep.Layout = string(app.LayoutJSON())
-			r := app.Bounds(req.Loc.locator())
+			r := app.Bounds(req.Loc.locator(app))
 			rep.Bounds = &[4]float64{float64(r.X), float64(r.Y), float64(r.Width), float64(r.Height)}
 		default:
 			rep.Layout = string(app.LayoutJSON())
@@ -553,9 +667,9 @@ func (s *telaMCPSession) do(req telaMCPReq, rep *telaMCPReply) {
 		}
 		switch {
 		case req.Loc != nil && req.Double:
-			app.DoubleClick(req.Loc.locator())
+			app.DoubleClick(req.Loc.locator(app))
 		case req.Loc != nil:
-			app.Click(req.Loc.locator(), opts...)
+			app.Click(req.Loc.locator(app), opts...)
 		case req.At != nil:
 			app.ClickAt(float32(req.At.X), float32(req.At.Y), opts...)
 			if req.Double {
@@ -583,19 +697,34 @@ func (s *telaMCPSession) do(req telaMCPReq, rep *telaMCPReply) {
 		}
 	case "press":
 		if req.Loc != nil {
-			app.Focus(req.Loc.locator())
+			app.Focus(req.Loc.locator(app))
 		}
 		app.Press(req.Key)
 	case "scroll":
-		app.Scroll(need("scroll", req.Loc), float32(req.DX), float32(req.DY))
+		if req.Loc != nil {
+			app.Scroll(need("scroll", req.Loc), float32(req.DX), float32(req.DY))
+			break
+		}
+		// Without an element: a wheel at a point (the window's center
+		// unless given), which scrolls the nearest scroll container under
+		// it, as a pointer resting there would.
+		at := telaMCPPoint{s.w / 2, s.h / 2}
+		if req.At != nil {
+			at = *req.At
+		}
+		sc, ok := any(app).(interface{ ScrollAt(x, y, dx, dy float32) })
+		if !ok {
+			panic(telaMCPFail{"this version of tela cannot scroll at a point; name an element to scroll over"})
+		}
+		sc.ScrollAt(float32(at.X), float32(at.Y), float32(req.DX), float32(req.DY))
 	case "drag":
 		switch {
 		case req.At != nil && req.ToAt != nil:
 			app.DragFromTo(telatela.Point{X: float32(req.At.X), Y: float32(req.At.Y)}, telatela.Point{X: float32(req.ToAt.X), Y: float32(req.ToAt.Y)})
 		case req.Loc != nil && req.To != nil:
-			app.Drag(req.Loc.locator(), req.To.locator())
+			app.Drag(req.Loc.locator(app), req.To.locator(app))
 		case req.Loc != nil:
-			app.DragBy(req.Loc.locator(), float32(req.DX), float32(req.DY))
+			app.DragBy(req.Loc.locator(app), float32(req.DX), float32(req.DY))
 		default:
 			panic(telaMCPFail{"drag needs a source and a target"})
 		}
@@ -611,8 +740,12 @@ func (s *telaMCPSession) do(req telaMCPReq, rep *telaMCPReply) {
 			s.mount.Scale = req.Scale
 		}
 	case "wait":
-		if req.Ms > 0 {
-			app.Advance(telatime.Duration(req.Ms * float64(telatime.Millisecond)))
+		// In steps of 100 ms of app time, so that a cancel ends a long wait
+		// at the next one.
+		for left := telatime.Duration(req.Ms * float64(telatime.Millisecond)); left > 0; {
+			step := min(left, 100*telatime.Millisecond)
+			app.Advance(step)
+			left -= step
 		}
 		if req.Text != "" {
 			app.ExpectText(req.Text)
@@ -643,8 +776,36 @@ func TestTelaMCP(t *telatesting.T) {
 	defer s.close()
 	w := telabufio.NewWriter(replies)
 	in := telabufio.NewReader(telaos.Stdin)
+	// The commands are read on a goroutine of their own, so that a cancel
+	// reaches the command that is running (the server sends one command
+	// at a time, so at most one line waits for the loop).
+	type telaMCPLine struct {
+		data []byte
+		err  error
+	}
+	lines := make(chan telaMCPLine)
+	go func() {
+		for {
+			line, err := in.ReadBytes('\n')
+			if telastrings.Contains(string(line), "\"cancel\"") {
+				var c telaMCPReq
+				if telajson.Unmarshal(line, &c) == nil && c.Op == "cancel" {
+					s.tb.cancel(c.Target)
+					line = nil
+					if err == nil {
+						continue
+					}
+				}
+			}
+			lines <- telaMCPLine{line, err}
+			if err != nil {
+				return
+			}
+		}
+	}()
 	for {
-		line, err := in.ReadBytes('\n')
+		l := <-lines
+		line, err := l.data, l.err
 		if len(telastrings.TrimSpace(string(line))) > 0 {
 			var req telaMCPReq
 			var rep telaMCPReply

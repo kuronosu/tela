@@ -50,8 +50,17 @@ type ariaChild struct {
 // HTML (see the package documentation), without a trailing newline. It is
 // empty for a tree without visible content.
 func Snapshot(root *Node) string {
+	yaml, _ := SnapshotIDs(root)
+	return yaml
+}
+
+// SnapshotIDs returns the aria snapshot of [Snapshot] and, for each of its
+// lines, the ID of the node the line prints (0 for a text line and for the
+// /url line of a link). A node keeps its ID for the life of its element,
+// so a tool can name the same element in later snapshots.
+func SnapshotIDs(root *Node) (string, []NodeID) {
 	if root == nil {
-		return ""
+		return "", nil
 	}
 	top := &ariaNode{role: "fragment"}
 	if root.Kind == KindRoot {
@@ -61,15 +70,15 @@ func Snapshot(root *Node) string {
 	}
 	normalizeStrings(top)
 	normalizeGenerics(top)
-	var lines []string
+	var r renderer
 	for _, c := range top.children {
 		if c.node == nil {
-			lines = append(lines, "- text: "+yamlEscapeValue(c.text))
+			r.add("- text: "+yamlEscapeValue(c.text), 0)
 		} else {
-			lines = render(lines, c.node, 0)
+			r.render(c.node, 0)
 		}
 	}
-	return strings.Join(lines, "\n")
+	return strings.Join(r.lines, "\n"), r.ids
 }
 
 // visit adds node n to the aria tree under parent (generateAriaTree's
@@ -225,30 +234,42 @@ func key(an *ariaNode) string {
 	return b.String()
 }
 
+// renderer collects the lines of a snapshot and the node each one prints.
+type renderer struct {
+	lines []string
+	ids   []NodeID
+}
+
+func (r *renderer) add(line string, id NodeID) {
+	r.lines = append(r.lines, line)
+	r.ids = append(r.ids, id)
+}
+
 // render appends the lines of role node an at depth (renderAriaTree's
 // visit).
-func render(lines []string, an *ariaNode, depth int) []string {
+func (r *renderer) render(an *ariaNode, depth int) {
 	indent := strings.Repeat("  ", depth)
 	k := indent + "- " + yamlEscapeKey(key(an))
 	hasProps := an.url != ""
 	switch {
 	case len(an.children) == 0 && !hasProps:
-		return append(lines, k)
+		r.add(k, an.n.ID)
+		return
 	case len(an.children) == 1 && an.children[0].node == nil && !hasProps:
-		return append(lines, k+": "+yamlEscapeValue(an.children[0].text))
+		r.add(k+": "+yamlEscapeValue(an.children[0].text), an.n.ID)
+		return
 	}
-	lines = append(lines, k+":")
+	r.add(k+":", an.n.ID)
 	if hasProps {
-		lines = append(lines, indent+"  - /url: "+yamlEscapeValue(an.url))
+		r.add(indent+"  - /url: "+yamlEscapeValue(an.url), 0)
 	}
 	for _, c := range an.children {
 		if c.node == nil {
-			lines = append(lines, indent+"  - text: "+yamlEscapeValue(c.text))
+			r.add(indent+"  - text: "+yamlEscapeValue(c.text), 0)
 		} else {
-			lines = render(lines, c.node, depth+1)
+			r.render(c.node, depth+1)
 		}
 	}
-	return lines
 }
 
 // ---------------------------------------------------------------------

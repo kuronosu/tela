@@ -464,6 +464,22 @@ func (a *App) Scroll(l Locator, dx, dy float32) {
 	a.settleAfter()
 }
 
+// ScrollAt is [App.Scroll] at a point: it moves the pointer to (x, y), in
+// logical pixels from the window's top-left corner, and scrolls the wheel
+// there by (dx, dy), positive to the right and down. The nearest scroll
+// container under the point that can move scrolls at once; nothing happens
+// when there is none. It fails the test when the point is outside the
+// window.
+//
+//	app.ScrollAt(200, 300, 0, 400) // the list under (200, 300) by 400 px
+func (a *App) ScrollAt(x, y, dx, dy float32) {
+	a.tb.Helper()
+	p := a.windowPoint("ScrollAt", x, y)
+	a.moveTo(p)
+	a.win.Inject(platform.ScrollEvent{Pos: p, Delta: platform.Point{X: dx, Y: dy}})
+	a.settleAfter()
+}
+
 // MouseMove moves the pointer to (x, y), in logical pixels from the window's
 // top-left corner.
 func (a *App) MouseMove(x, y float32) {

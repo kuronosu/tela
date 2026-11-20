@@ -49,7 +49,8 @@ Tools:
 	hover       move the pointer over an element
 	fill        replace the text of a field; submit presses Enter
 	press       press a key or combo ("Enter", "Shift+Tab", "Control+a")
-	scroll      scroll the wheel over an element by dx, dy
+	scroll      scroll the wheel over an element, a point or the window by
+	            dx, dy
 	drag        drag from an element or point to another, or by dx, dy
 	resize      change the window's size or scale, keeping the state
 	open        mount another preview, scheme or size afresh; without
@@ -630,11 +631,18 @@ func (s *mcpSession) begin(ctx context.Context, o *mcpOut) bool {
 func (s *mcpSession) send(ctx context.Context, o *mcpOut, req mcpReq) (mcpReply, bool) {
 	rep, err := s.child.call(ctx, req)
 	if err != nil {
+		if ctx.Err() != nil {
+			// Cancelled: the instance stopped where it was, and what it
+			// logged and printed belongs to the next result.
+			s.carry.Logs = append(s.carry.Logs, rep.Logs...)
+			s.carry.Output += rep.Output
+		}
 		o.fail(err.Error())
 		return rep, false
 	}
 	o.absorb(rep)
 	o.screen = describeScreen(rep)
+	rep.Error = refGoneError(req, rep.Error)
 	if rep.MountError != "" {
 		msg := "the screen cannot be mounted: " + cleanMountError(rep.MountError)
 		if rep.Panic != "" {
@@ -653,10 +661,22 @@ func (s *mcpSession) send(ctx context.Context, o *mcpOut, req mcpReq) (mcpReply,
 		o.fail(rep.Error)
 	}
 	if rep.YAML != nil {
-		snap := s.withRefs(ctx, o, *rep.YAML)
+		snap := s.withRefs(ctx, o, *rep.YAML, rep.Nodes)
 		o.snapshot = &snap
 	}
 	return rep, rep.Error == "" && rep.Panic == ""
+}
+
+// refGoneError rewrites the error of an element named by a ref that is no
+// longer on the screen: telatest says no element matches the identity the
+// ref stands for.
+func refGoneError(req mcpReq, msg string) string {
+	for _, l := range []*mcpLoc{req.Loc, req.To} {
+		if l != nil && l.NodeID != 0 && strings.HasPrefix(msg, "no element matches getByNodeId("+strconv.FormatUint(l.NodeID, 10)+")") {
+			return errRefGone(l.Ref, "the element was removed, or is hidden").Error()
+		}
+	}
+	return msg
 }
 
 // trimPanic keeps a panic's value and the frames of the stack from the
@@ -696,8 +716,13 @@ func cleanMountError(msg string) string {
 }
 
 // withRefs adds the refs to an aria snapshot.
-func (s *mcpSession) withRefs(ctx context.Context, o *mcpOut, yaml string) string {
+// nodes, when the instance gave them, are the identities of the elements of
+// the lines (see refTable.assignNodes).
+func (s *mcpSession) withRefs(ctx context.Context, o *mcpOut, yaml string, nodes []uint64) string {
 	lines, cands, groups, want := prepareRefs(yaml)
+	if len(lines) > 0 && len(nodes) == len(lines) {
+		return s.refs.assignNodes(lines, cands, nodes)
+	}
 	if len(cands) == 0 {
 		s.refs.current, s.refs.stale = map[string]refEntry{}, false
 		return yaml
@@ -755,7 +780,7 @@ func (s *mcpSession) element(ctx context.Context, o *mcpOut, a elementArgs) (mcp
 		if s.refs.stale {
 			if rep, err := s.child.call(ctx, mcpReq{Op: "snapshot", Snapshot: true}); err == nil && rep.YAML != nil {
 				o.absorb(rep)
-				s.withRefs(ctx, o, *rep.YAML)
+				s.withRefs(ctx, o, *rep.YAML, rep.Nodes)
 			}
 		}
 		e, err := s.refs.lookup(a.Ref)
@@ -870,7 +895,7 @@ func (s *mcpSession) call(ctx context.Context, name string, args json.RawMessage
 func (s *mcpSession) instructions() string {
 	return fmt.Sprintf(`This server runs the Tela screen of the Go package %s headlessly and keeps it running between calls. Tela is a pure-Go UI framework: React-like components (tela.UseState, h.Div, h.Button...) styled with Tailwind CSS v4 classes (h.Class("flex gap-4 rounded-xl bg-white p-6 shadow-sm dark:bg-zinc-900")).
 The loop: edit the Go source, then call snapshot (structure, cheap) or screenshot (how it looks). Every call first rebuilds and mounts the screen afresh when the source changed (the state resets) and reports compile errors, tela lint findings and dev-mode errors such as unknown classes with a suggestion.
-Act on elements with click, fill, press, hover, scroll and drag, naming them by the [ref=eN] of the latest snapshot; each returns the new snapshot. resize keeps the state; open mounts another preview, dark mode or size afresh; wait advances the app's clock for timers and animations; inspect shows the layout tree when something is misplaced.
+Act on elements with click, fill, press, hover, scroll and drag, naming them by the [ref=eN] of the latest snapshot (a ref is the element itself: it keeps pointing at it when its label changes or its siblings come and go, and fails with "gone" once it is unmounted); each returns the new snapshot. An element that is not on the screen fails at once when nothing is pending (no animation, timer or update); use wait with a text for data that arrives later. resize keeps the state; open mounts another preview, dark mode or size afresh; wait advances the app's clock for timers and animations; inspect shows the layout tree when something is misplaced.
 The package defines its screen as func Preview() tela.Node, var Previews = tela.Previews{...} or var App = tela.App{Root: ...}; if it does not exist yet, write it and call snapshot.`, s.pkgArg)
 }
 
@@ -981,8 +1006,8 @@ func mcpToolDefs(previews []string) []mcpToolDef {
 				schemaProp{"submit", "boolean", "Press Enter after filling", nil}), (*mcpSession).toolFill, "text"),
 		def("press", `Press a key or a combo, Playwright's syntax ("Enter", "Tab", "Shift+Tab", "Escape", "ArrowDown", "Control+a", "a"), on the focused element, or on an element after focusing it (ref). Returns the new snapshot. Example: {"key": "Tab"}`,
 			act("Press a key"), append([]schemaProp{{"key", "string", `Key or combo, such as "Enter" or "Shift+Tab"`, nil}}, elementProps("element to focus first")...), (*mcpSession).toolPress, "key"),
-		def("scroll", `Scroll the mouse wheel over an element by dx, dy logical pixels (positive: right, down): the nearest scrollable container under it moves. Name any element inside the area to scroll. Returns the new snapshot. Example: {"ref": "e12", "dy": 400}`,
-			act("Scroll"), append(elementProps("element"),
+		def("scroll", `Scroll the mouse wheel over an element by dx, dy logical pixels (positive: right, down): the nearest scrollable container under it moves. Name any element inside the area to scroll. Without an element the wheel goes to x, y, or to the center of the window (the page, or the main area of a layout). Returns the new snapshot. Example: {"ref": "e12", "dy": 400} or {"dy": 400}`,
+			act("Scroll"), append(append(elementProps("element"), point...),
 				schemaProp{"dx", "number", "Horizontal distance in logical pixels (positive: right)", nil},
 				schemaProp{"dy", "number", "Vertical distance in logical pixels (positive: down)", nil}), (*mcpSession).toolScroll),
 		def("drag", `Drag with the primary button: press on from, move in steps, release on to (an element or a point), or by dx, dy from the start. For sliders, reordering, resizable panes. Returns the new snapshot. Example: {"from": {"ref": "e4"}, "dx": 120} or {"from": {"ref": "e4"}, "to": {"ref": "e9"}}`,
@@ -1247,25 +1272,43 @@ func (s *mcpSession) toolScroll(ctx context.Context, args json.RawMessage) mcpRe
 	var o mcpOut
 	var a struct {
 		elementArgs
-		DX float64 `json:"dx"`
-		DY float64 `json:"dy"`
+		DX float64  `json:"dx"`
+		DY float64  `json:"dy"`
+		X  *float64 `json:"x"`
+		Y  *float64 `json:"y"`
 	}
 	if err := decodeArgs(args, &a); err != nil {
 		o.fail(err.Error())
 		return o.result()
 	}
 	if a.DX == 0 && a.DY == 0 {
-		o.fail(`scroll needs a distance: {"ref": "e12", "dy": 400} (positive dy scrolls down)`)
+		o.fail(`scroll needs a distance: {"ref": "e12", "dy": 400} (positive dy scrolls down), or {"dy": 400} for the window`)
+		return o.result()
+	}
+	if !a.given() && (a.X == nil) != (a.Y == nil) {
+		o.fail("give both x and y")
 		return o.result()
 	}
 	if !s.begin(ctx, &o) {
 		return o.result()
 	}
-	loc, desc, ok := s.actionTarget(ctx, &o, a.elementArgs, "scroll", false)
-	if !ok {
-		return o.result()
+	req := mcpReq{Op: "scroll", DX: a.DX, DY: a.DY}
+	var desc string
+	switch {
+	case a.given():
+		loc, d, ok := s.actionTarget(ctx, &o, a.elementArgs, "scroll", false)
+		if !ok {
+			return o.result()
+		}
+		req.Loc, desc = loc, d
+	case a.X != nil:
+		req.At = &mcpPoint{*a.X, *a.Y}
+		desc = fmt.Sprintf("the point (%g, %g)", *a.X, *a.Y)
+	default:
+		// The wheel goes to the center of the window.
+		desc = "the window (at its center)"
 	}
-	return s.action(ctx, &o, mcpReq{Op: "scroll", Loc: loc, DX: a.DX, DY: a.DY}, fmt.Sprintf("Scrolled by (%g, %g) over %s.", a.DX, a.DY, desc))
+	return s.action(ctx, &o, req, fmt.Sprintf("Scrolled by (%g, %g) over %s.", a.DX, a.DY, desc))
 }
 
 // dragEnd is the from or to of drag.
@@ -1455,7 +1498,7 @@ func (s *mcpSession) toolOpen(ctx context.Context, args json.RawMessage) mcpResu
 	}
 	o.absorb(rep)
 	o.screen = describeScreen(rep)
-	snap := s.withRefs(ctx, &o, deref(rep.YAML))
+	snap := s.withRefs(ctx, &o, deref(rep.YAML), rep.Nodes)
 	o.snapshot = &snap
 	o.head = "Mounted the screen afresh (state reset)."
 	return o.result()

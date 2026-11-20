@@ -12,8 +12,11 @@ const title = "Version 1"
 
 // Previews are the screens of the package.
 var Previews = tela.Previews{
-	"Form":  {Root: tela.C(form)},
-	"Other": {Root: tela.C(other)},
+	"Form":    {Root: tela.C(form)},
+	"Other":   {Root: tela.C(other)},
+	"List":    {Root: tela.C(list)},
+	"Long":    {Root: tela.C(long)},
+	"Spinner": {Root: tela.C(busy)},
 }
 
 func form() tela.Node {
@@ -39,4 +42,50 @@ func form() tela.Node {
 
 func other() tela.Node {
 	return Div(Class("min-h-screen bg-amber-100 p-6"), H2(Text("Other screen")))
+}
+
+// list has buttons with the same name, each removing its own row: a ref
+// must stay with its row when the ones before it go.
+func list() tela.Node {
+	items, setItems := tela.UseState([]int{1, 2, 3})
+	return Div(Class("flex flex-col gap-2 p-6"), Map(items, func(i int) tela.Node {
+		return Div(Key(i), Class("flex gap-2"), Span(Textf("Item %d", i)),
+			Button(Text("Remove"), OnClick(func() {
+				var rest []int
+				for _, j := range items {
+					if j != i {
+						rest = append(rest, j)
+					}
+				}
+				setItems.Set(rest)
+			})))
+	}))
+}
+
+// long is a page that scrolls as a whole: a wheel at the center of the
+// window moves it, and "Scrolled" says it did.
+func long() tela.Node {
+	scrolled, setScrolled := tela.UseState(false)
+	return Div(Class("h-screen overflow-y-auto"), OnScroll(func(tela.ScrollEvent) { setScrolled.Set(true) }),
+		If(scrolled, P(Class("fixed right-2 top-2"), Text("Scrolled"))),
+		Map(rows, func(i int) tela.Node {
+			return Div(Key(i), Class("h-10 border-b px-4"), Textf("Row %d", i))
+		}))
+}
+
+var rows = func() []int {
+	r := make([]int, 40)
+	for i := range r {
+		r[i] = i
+	}
+	return r
+}()
+
+// busy never goes idle: a spinner asks for a frame at every vsync, so a
+// long wait takes real time.
+func busy() tela.Node {
+	ticks, setTicks := tela.UseState(0)
+	return Div(Class("flex flex-col gap-3 p-6"),
+		Div(Class("size-8 animate-spin rounded-full border-4 border-stone-300 border-t-stone-800")),
+		Button(OnClick(func() { setTicks.Set(ticks + 1) }), Textf("Ticks: %d", ticks)))
 }

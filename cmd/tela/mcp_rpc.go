@@ -26,6 +26,10 @@ import (
 // 2025-03-26, the one revision that has them) is answered with one array,
 // written when the last of its tool calls is answered. Notifications get
 // no response, and neither do responses (the server sends no requests).
+// A tool call waiting or running is cancelled by the client's
+// notifications/cancelled (params requestId and reason): its context ends,
+// so the tool stops, and no response is sent for it, as the protocol asks.
+// A call that already finished is not affected.
 // Nothing else is ever written to the output.
 
 // mcpProtocolVersions are the protocol revisions the server speaks, the
@@ -120,6 +124,9 @@ type rpcServer struct {
 
 	mu  sync.Mutex // guards out
 	out io.Writer
+
+	cmu      sync.Mutex            // guards inflight
+	inflight map[string]*callState // the tool calls waiting or running, by id
 }
 
 // toolCall is a tools/call waiting for the worker.
@@ -128,6 +135,106 @@ type toolCall struct {
 	name  string
 	args  json.RawMessage
 	batch *batchReply // the batch the call came in, or nil
+	state *callState
+}
+
+// callState is what the client's cancellation reaches of a tool call.
+type callState struct {
+	mu        sync.Mutex
+	cancelled bool
+	cancel    context.CancelFunc // of the running call
+}
+
+// stop cancels the call: before it starts it never will; while it runs
+// its context ends.
+func (cs *callState) stop() {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	cs.cancelled = true
+	if cs.cancel != nil {
+		cs.cancel()
+	}
+}
+
+func (cs *callState) isCancelled() bool {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	return cs.cancelled
+}
+
+// start returns the context of the call, a child of parent that stop
+// ends, or false when the call was cancelled before it began.
+func (cs *callState) start(parent context.Context) (context.Context, bool) {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	if cs.cancelled {
+		return nil, false
+	}
+	ctx, cancel := context.WithCancel(parent)
+	cs.cancel = cancel
+	return ctx, true
+}
+
+// end releases the context of the call.
+func (cs *callState) end() {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	if cs.cancel != nil {
+		cs.cancel()
+	}
+}
+
+// idKey is the key of a request id in the table of calls in flight: its
+// compact JSON, so that "1" and 1 stay two ids.
+func idKey(id json.RawMessage) string {
+	var b bytes.Buffer
+	if json.Compact(&b, id) != nil {
+		return string(id)
+	}
+	return b.String()
+}
+
+// track registers a tool call, so that a cancellation finds it.
+func (s *rpcServer) track(id json.RawMessage) *callState {
+	cs := &callState{}
+	s.cmu.Lock()
+	defer s.cmu.Unlock()
+	if s.inflight == nil {
+		s.inflight = map[string]*callState{}
+	}
+	s.inflight[idKey(id)] = cs
+	return cs
+}
+
+// untrack forgets a tool call that was answered or dropped.
+func (s *rpcServer) untrack(c toolCall) {
+	s.cmu.Lock()
+	defer s.cmu.Unlock()
+	if k := idKey(c.id); s.inflight[k] == c.state {
+		delete(s.inflight, k)
+	}
+}
+
+// cancelRequest handles notifications/cancelled: it stops the tool call
+// with the given requestId, if one is waiting or running.
+func (s *rpcServer) cancelRequest(params json.RawMessage) {
+	var p struct {
+		RequestID json.RawMessage `json:"requestId"`
+		Reason    string          `json:"reason"`
+	}
+	if json.Unmarshal(params, &p) != nil || !validID(p.RequestID) {
+		s.logf("notifications/cancelled without a requestId")
+		return
+	}
+	s.cmu.Lock()
+	cs := s.inflight[idKey(p.RequestID)]
+	s.cmu.Unlock()
+	if cs == nil {
+		s.logf("cancelled request %s is not in progress", p.RequestID)
+		return
+	}
+	s.logf("request %s cancelled by the client: %s", p.RequestID, p.Reason)
+	cs.stop()
 }
 
 // batchReply collects the responses of a batch with tool calls; they go out
@@ -195,30 +302,46 @@ func (s *rpcServer) serve(ctx context.Context, in io.Reader) error {
 	}
 }
 
-// runCall runs a tool call and returns its response.
-func (s *rpcServer) runCall(ctx context.Context, c toolCall) rpcResponse {
-	res, ok := s.tools.call(ctx, c.name, c.args)
+// runCall runs a tool call and returns its response, or nil for a call the
+// client cancelled: the protocol asks the receiver to stop and send no
+// response.
+func (s *rpcServer) runCall(ctx context.Context, c toolCall) *rpcResponse {
+	callCtx, ok := c.state.start(ctx)
 	if !ok {
-		return rpcResponse{ID: c.id, Error: &rpcError{Code: rpcInvalidParams, Message: "unknown tool " + quoteJSON(c.name) + "; tools/list lists the tools"}}
+		return nil
+	}
+	defer c.state.end()
+	res, ok := s.tools.call(callCtx, c.name, c.args)
+	if c.state.isCancelled() {
+		return nil
+	}
+	if !ok {
+		return &rpcResponse{ID: c.id, Error: &rpcError{Code: rpcInvalidParams, Message: "unknown tool " + quoteJSON(c.name) + "; tools/list lists the tools"}}
 	}
 	if res.Content == nil {
 		res.Content = []mcpContent{}
 	}
-	return rpcResponse{ID: c.id, Result: res}
+	return &rpcResponse{ID: c.id, Result: res}
 }
 
-// answer sends the response of a tool call: alone, or with the rest of its
-// batch once the batch's last tool call is answered.
-func (s *rpcServer) answer(c toolCall, r rpcResponse) {
+// answer sends the response of a tool call (none when r is nil, a call
+// that was cancelled): alone, or with the rest of its batch once the
+// batch's last tool call is answered.
+func (s *rpcServer) answer(c toolCall, r *rpcResponse) {
+	s.untrack(c)
 	b := c.batch
 	if b == nil {
-		s.write(r)
+		if r != nil {
+			s.write(*r)
+		}
 		return
 	}
 	b.mu.Lock()
-	b.out = append(b.out, r)
+	if r != nil {
+		b.out = append(b.out, *r)
+	}
 	b.pending--
-	done := b.pending == 0
+	done := b.pending == 0 && len(b.out) > 0
 	b.mu.Unlock()
 	if done {
 		s.write(b.out)
@@ -232,7 +355,7 @@ func (s *rpcServer) enqueue(calls chan<- toolCall, c toolCall) {
 	select {
 	case calls <- c:
 	default:
-		s.answer(c, rpcResponse{ID: c.id, Error: &rpcError{Code: rpcServerBusy,
+		s.answer(c, &rpcResponse{ID: c.id, Error: &rpcError{Code: rpcServerBusy,
 			Message: fmt.Sprintf("server busy: %d tool calls are waiting; send the next one when a result arrives", cap(calls))}})
 	}
 }
@@ -336,9 +459,12 @@ func (s *rpcServer) handleMessage(raw []byte) (*rpcResponse, *toolCall) {
 		return &rpcResponse{ID: id, Error: &rpcError{Code: rpcInvalidParams, Message: "invalid params: params must be an object"}}, nil
 	}
 	if !hasID {
-		// notifications/initialized, notifications/cancelled (a call in
-		// progress finishes; its response is then ignored), and the rest.
+		// notifications/cancelled stops a tool call; notifications/initialized
+		// and the rest need nothing.
 		s.logf("notification %s", method)
+		if method == "notifications/cancelled" {
+			s.cancelRequest(params)
+		}
 		return nil, nil
 	}
 	s.logf("request %s", method)
@@ -379,7 +505,7 @@ func (s *rpcServer) handleMessage(raw []byte) (*rpcResponse, *toolCall) {
 		if err := json.Unmarshal(params, &p); err != nil || p.Name == nil {
 			return &rpcResponse{ID: id, Error: &rpcError{Code: rpcInvalidParams, Message: `invalid params: tools/call needs {"name": "<tool>", "arguments": {...}}`}}, nil
 		}
-		return nil, &toolCall{id: id, name: *p.Name, args: p.Arguments}
+		return nil, &toolCall{id: id, name: *p.Name, args: p.Arguments, state: s.track(id)}
 	}
 	return &rpcResponse{ID: id, Error: &rpcError{Code: rpcMethodNotFound, Message: "method not found: " + method}}, nil
 }

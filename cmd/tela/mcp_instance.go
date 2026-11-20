@@ -294,6 +294,41 @@ func (c *mcpChild) call(ctx context.Context, req mcpReq) (mcpReply, error) {
 			c.kill()
 			return mcpReply{}, &errInstanceGone{fmt.Sprintf("the instance did not answer %s within %v (an endless loop in a handler, a build or an effect?); it was stopped and starts again on the next call, with fresh state", req.Op, mcpCallTimeout)}
 		case <-ctx.Done():
+			return c.cancelCall(ctx, req)
+		}
+	}
+}
+
+// mcpCancelGrace is how long the instance has to stop a cancelled command
+// before it is killed.
+const mcpCancelGrace = 3 * time.Second
+
+// cancelCall stops the command req of a call whose context ended: the
+// instance is told to cancel it, which ends the wait or the action it is in
+// and keeps the app mounted as it is; its reply (the state of the screen
+// when it stopped, with the logs and output) comes back with the context's
+// error. An instance that does not stop (an endless loop in the app) is
+// killed.
+func (c *mcpChild) cancelCall(ctx context.Context, req mcpReq) (mcpReply, error) {
+	b, err := json.Marshal(mcpReq{Op: "cancel", Target: req.ID})
+	if err == nil {
+		_, err = c.stdin.Write(append(b, '\n'))
+	}
+	if err != nil {
+		c.kill()
+		return mcpReply{}, ctx.Err()
+	}
+	timer := time.NewTimer(mcpCancelGrace)
+	defer timer.Stop()
+	for {
+		select {
+		case rep := <-c.replies:
+			if rep.ID == req.ID {
+				return rep, ctx.Err()
+			}
+		case <-c.done:
+			return mcpReply{}, ctx.Err()
+		case <-timer.C:
 			c.kill()
 			return mcpReply{}, ctx.Err()
 		}

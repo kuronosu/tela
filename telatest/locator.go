@@ -30,6 +30,7 @@ type Locator struct {
 	exact   bool
 	classes []string
 	testID  string
+	nodeID  uint64 // locNode: see App.NodeLocator
 	// hasText are the texts every match must contain (Filter), and
 	// hasClass the class names it must have.
 	hasText  []string
@@ -47,6 +48,7 @@ const (
 	locText
 	locClass
 	locTestID
+	locNode
 )
 
 // ByRole locates the elements with an ARIA role (explicit with h.Role or
@@ -169,6 +171,8 @@ func (l Locator) String() string {
 		s = "getByClass(" + strconv.Quote(strings.Join(l.classes, " ")) + ")"
 	case locTestID:
 		s = "getByTestId(" + strconv.Quote(l.testID) + ")"
+	case locNode:
+		s = "getByNodeId(" + strconv.FormatUint(l.nodeID, 10) + ")"
 	default:
 		s = "(empty locator)"
 	}
@@ -209,6 +213,10 @@ func (l Locator) problem() string {
 	case locTestID:
 		if l.testID == "" {
 			return "ByTestID needs the id given to h.TestID, such as ByTestID(\"sidebar\")"
+		}
+	case locNode:
+		if l.nodeID == 0 {
+			return "NodeLocator needs the identity AriaSnapshotNodes gave an element; 0 names none"
 		}
 	default:
 		return "the zero Locator matches nothing; make one with ByRole, ByText, ByClass or ByTestID"
@@ -269,6 +277,17 @@ func (a *App) find(l Locator) []*semantics.Node {
 			}
 			if n.Kind == semantics.KindElement && a.tree.NodeTestID(n.ID) == l.testID {
 				nodes = append(nodes, n)
+			}
+			return true
+		})
+	case locNode:
+		root.Walk(func(n *semantics.Node) bool {
+			if n.Has(semantics.StateHidden) {
+				return false
+			}
+			if n.Kind == semantics.KindElement && uint64(n.ID) == l.nodeID {
+				nodes = append(nodes, n)
+				return false // identities are unique
 			}
 			return true
 		})

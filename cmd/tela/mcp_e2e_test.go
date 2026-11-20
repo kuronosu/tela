@@ -141,8 +141,8 @@ func startMCP(t *testing.T, goBin string, opts mcpOptions) *mcpClient {
 	return c
 }
 
-// request sends a request and waits for its response.
-func (c *mcpClient) request(method string, params any) map[string]any {
+// start sends a request and returns its id and the channel of its response.
+func (c *mcpClient) start(method string, params any) (int, chan map[string]any) {
 	c.t.Helper()
 	c.mu.Lock()
 	c.nextID++
@@ -157,6 +157,25 @@ func (c *mcpClient) request(method string, params any) map[string]any {
 	if _, err := c.in.Write(append(b, '\n')); err != nil {
 		c.t.Fatal(err)
 	}
+	return id, ch
+}
+
+// notify sends a notification.
+func (c *mcpClient) notify(method string, params any) {
+	c.t.Helper()
+	b, err := json.Marshal(map[string]any{"jsonrpc": "2.0", "method": method, "params": params})
+	if err != nil {
+		c.t.Fatal(err)
+	}
+	if _, err := c.in.Write(append(b, '\n')); err != nil {
+		c.t.Fatal(err)
+	}
+}
+
+// request sends a request and waits for its response.
+func (c *mcpClient) request(method string, params any) map[string]any {
+	c.t.Helper()
+	_, ch := c.start(method, params)
 	select {
 	case m := <-ch:
 		return m
@@ -374,7 +393,7 @@ func TestMCPEndToEnd(t *testing.T) {
 
 	// open lists the previews and mounts another.
 	r = c.tool("open", nil)
-	if r.isError || !strings.Contains(r.text, "Form, Other") {
+	if r.isError || !strings.Contains(r.text, "Form, List, Long, Other, Spinner") {
 		t.Errorf("open without arguments:\n%s", r.text)
 	}
 	r = c.tool("open", map[string]any{"preview": "Other"})
