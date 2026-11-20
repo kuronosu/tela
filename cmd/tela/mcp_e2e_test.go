@@ -66,20 +66,33 @@ type mcpClient struct {
 // through a replace directive, with testdata/mcpapp as its package app.
 func mcpAppModule(t *testing.T) string {
 	t.Helper()
+	return fixtureModule(t, "mcpapp")
+}
+
+// fixtureModule is mcpAppModule for any package of testdata: its files are
+// the module's package app.
+func fixtureModule(t *testing.T, fixture string) string {
+	t.Helper()
 	dir := t.TempDir()
-	gomod := fmt.Sprintf("module example.com/mcpapp\n\ngo 1.27\n\nrequire github.com/kuronosu/tela v0.0.0\n\nreplace github.com/kuronosu/tela => %s\n", filepath.ToSlash(repoRoot(t)))
+	gomod := fmt.Sprintf("module example.com/%s\n\ngo 1.27\n\nrequire github.com/kuronosu/tela v0.0.0\n\nreplace github.com/kuronosu/tela => %s\n", fixture, filepath.ToSlash(repoRoot(t)))
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(gomod), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	src, err := os.ReadFile(filepath.Join("testdata", "mcpapp", "mcpapp.go"))
-	if err != nil {
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(filepath.Join(dir, "app"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "app", "mcpapp.go"), src, 0o644); err != nil {
-		t.Fatal(err)
+	files, err := filepath.Glob(filepath.Join("testdata", fixture, "*.go"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no fixture %s: %v", fixture, err)
+	}
+	for _, f := range files {
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "app", filepath.Base(f)), src, 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 	// Resolve the requirements from the module cache, without the network.
 	tidy := exec.Command("go", "mod", "tidy")

@@ -16,8 +16,8 @@ type FilmFrame struct {
 }
 
 // Film captures the motion that act starts, as the frames of a film: the
-// window right after act (At 0), then every [every] of the app's clock up
-// to span, the last frame at exactly span. It is what a test does by hand
+// window right after act (At 0), then one frame each time the app's clock has
+// moved by every, up to span, the last frame at exactly span. It is what a test does by hand
 // under [NoSettle] (act, Screenshot, Advance, Screenshot...), for the
 // transitions, springs and exits that a settled Screenshot never shows:
 //

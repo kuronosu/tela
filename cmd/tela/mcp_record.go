@@ -24,9 +24,6 @@ type mcpStep struct {
 	before, after string
 	// w and h are the window's logical size after the call.
 	w, h float64
-	// note is a remark the test carries as a comment ("the locale was set
-	// to ar in the session; the test does not reproduce it").
-	note string
 	// lines are the Go lines of a step that has no request of its own
 	// (the preferences set live).
 	lines []string

@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"go/format"
 	"image"
 	"image/color"
@@ -13,40 +12,6 @@ import (
 	"strings"
 	"testing"
 )
-
-// fixtureModule creates a module outside the repository that requires tela
-// through a replace directive, with testdata/<fixture> as its package app.
-func fixtureModule(t *testing.T, fixture string) string {
-	t.Helper()
-	dir := t.TempDir()
-	gomod := fmt.Sprintf("module example.com/%s\n\ngo 1.27\n\nrequire github.com/kuronosu/tela v0.0.0\n\nreplace github.com/kuronosu/tela => %s\n", fixture, filepath.ToSlash(repoRoot(t)))
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(gomod), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(dir, "app"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	files, err := filepath.Glob(filepath.Join("testdata", fixture, "*.go"))
-	if err != nil || len(files) == 0 {
-		t.Fatalf("no fixture %s: %v", fixture, err)
-	}
-	for _, f := range files {
-		src, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, "app", filepath.Base(f)), src, 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	tidy := exec.Command("go", "mod", "tidy")
-	tidy.Dir = dir
-	tidy.Env = append(os.Environ(), "CGO_ENABLED=0", "GOFLAGS=-mod=mod", "GOPROXY=off", "GOSUMDB=off")
-	if out, err := tidy.CombinedOutput(); err != nil {
-		t.Skipf("cannot resolve the dependencies of a module outside the repository offline (go mod tidy: %v):\n%s", err, out)
-	}
-	return dir
-}
 
 // sameCanvas reports whether the canvas of an animated PNG frame is the
 // picture img.
@@ -120,7 +85,7 @@ func TestMCPFilmEndToEnd(t *testing.T) {
 	skipShort(t)
 	goBin, err := exec.LookPath("go")
 	if err != nil {
-		t.Skip("the go command is not in PATH")
+		t.Fatal(err)
 	}
 	dir := fixtureModule(t, "motionapp")
 	t.Chdir(dir)
@@ -219,7 +184,7 @@ func TestMCPTestToolEndToEnd(t *testing.T) {
 	skipShort(t)
 	goBin, err := exec.LookPath("go")
 	if err != nil {
-		t.Skip("the go command is not in PATH")
+		t.Fatal(err)
 	}
 	dir := mcpAppModule(t)
 	t.Chdir(dir)
