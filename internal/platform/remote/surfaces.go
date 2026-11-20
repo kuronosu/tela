@@ -58,44 +58,44 @@ func (d childDesktop) ClearRecentDocuments(app platform.HandlerApp) error {
 }
 
 // serveSurface serves a surface call on the host, off its UI thread
-// (serveBlocking); ok is false for another operation.
-func (h *Host) serveSurface(op uint8, d *dec, result *func(*enc)) (err error, ok bool) {
+// (serveBlocking); handled is false for another operation.
+func (h *Host) serveSurface(op uint8, d *dec, result *func(*enc)) (handled bool, err error) {
 	desk := h.desk
 	switch op {
 	case dSetStartAtLogin:
 		app, on := d.handlerApp(), d.boolean()
 		if err := d.end(); err != nil {
-			return err, true
+			return true, err
 		}
-		return desk.SetStartAtLogin(app, on), true
+		return true, desk.SetStartAtLogin(app, on)
 	case dStartsAtLogin:
 		app := d.handlerApp()
 		if err := d.end(); err != nil {
-			return err, true
+			return true, err
 		}
 		on, err := desk.StartsAtLogin(app)
 		*result = func(e *enc) { e.boolean(on) }
-		return err, true
+		return true, err
 	case dSetTasks:
 		app, tasks := d.handlerApp(), d.tasks()
 		if err := d.end(); err != nil {
-			return err, true
+			return true, err
 		}
-		return desk.SetTasks(app, tasks), true
+		return true, desk.SetTasks(app, tasks)
 	case dAddRecentDocument:
 		app, path := d.handlerApp(), d.str()
 		if err := d.end(); err != nil {
-			return err, true
+			return true, err
 		}
-		return desk.AddRecentDocument(app, path), true
+		return true, desk.AddRecentDocument(app, path)
 	case dClearRecentDocuments:
 		app := d.handlerApp()
 		if err := d.end(); err != nil {
-			return err, true
+			return true, err
 		}
-		return desk.ClearRecentDocuments(app), true
+		return true, desk.ClearRecentDocuments(app)
 	}
-	return nil, false
+	return false, nil
 }
 
 // tasks encodes the tasks of SetTasks.

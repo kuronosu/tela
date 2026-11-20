@@ -54,7 +54,6 @@ Version=1.5
 Name=Notes
 Exec=/opt/notes/notes --profile "work space" -tela-at-login
 Terminal=false
-NoDisplay=true
 X-GNOME-Autostart-enabled=true
 X-Tela-Registered=true
 `

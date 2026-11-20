@@ -774,7 +774,7 @@ func (h *Host) blockingRequest(c *Child, in incoming) {
 }
 
 func (h *Host) serveBlocking(op uint8, d *dec, result *func(*enc)) error {
-	if err, ok := h.serveSurface(op, d, result); ok {
+	if handled, err := h.serveSurface(op, d, result); handled {
 		return err
 	}
 	desk := h.desk

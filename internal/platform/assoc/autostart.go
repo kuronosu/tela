@@ -57,7 +57,8 @@ func autostartEntry(app platform.HandlerApp) []byte {
 		b.WriteString("Icon=" + escapeValue(app.Icon) + "\n")
 	}
 	b.WriteString("Terminal=false\n")
-	b.WriteString("NoDisplay=true\n")
+	// No NoDisplay: the desktop's startup settings list the entry, so the
+	// user can turn it off there too.
 	b.WriteString(gnomeEnabledKey + "=true\n")
 	b.WriteString(telaKey + "=true\n")
 	return []byte(b.String())
