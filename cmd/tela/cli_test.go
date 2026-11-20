@@ -422,7 +422,7 @@ func TestSettlesAnimations(t *testing.T) {
 		t.Errorf("stderr %q lacks the note about a screen that never goes quiet", stderr)
 	}
 	out, _ := inspectRun(t, 0, "--size", "400x200", "./testdata/effectloop")
-	if out != "- heading \"Spinning\" [level=1]\n" {
+	if stripSrc(out) != "- heading \"Spinning\" [level=1]\n" {
 		t.Errorf("inspect of the busy screen: %q", out)
 	}
 }

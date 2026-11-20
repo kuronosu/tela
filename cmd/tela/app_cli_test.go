@@ -82,7 +82,7 @@ func TestSeededPreviews(t *testing.T) {
 func TestPreviewComponent(t *testing.T) {
 	skipShort(t)
 	out, _ := inspectRun(t, 0, "./testdata/component")
-	if out != "- heading \"Card 3\" [level=1]\n" {
+	if stripSrc(out) != "- heading \"Card 3\" [level=1]\n" {
 		t.Errorf("inspect: %q", out)
 	}
 	img, _, _ := snap(t, "--size", "60x40", "./testdata/component")
@@ -96,7 +96,7 @@ func TestPreviewComponent(t *testing.T) {
 func TestPreviewWithHooks(t *testing.T) {
 	skipShort(t)
 	out, _ := inspectRun(t, 0, "./testdata/previewhooks")
-	if out != "- heading \"Hooks 7\" [level=1]\n" {
+	if stripSrc(out) != "- heading \"Hooks 7\" [level=1]\n" {
 		t.Errorf("inspect: %q", out)
 	}
 	img, _, _ := snap(t, "--size", "60x40", "./testdata/previewhooks")
@@ -118,7 +118,7 @@ func TestAppOnly(t *testing.T) {
 	if strings.Contains(stdout, "preview") {
 		t.Errorf("stdout %q: App alone is a single screen", stdout)
 	}
-	if out, _ := inspectRun(t, 0, "./testdata/apponly"); out != "- heading \"n=5\" [level=1]\n" {
+	if out, _ := inspectRun(t, 0, "./testdata/apponly"); stripSrc(out) != "- heading \"n=5\" [level=1]\n" {
 		t.Errorf("inspect: %q", out)
 	}
 	if msg := snapFails(t, "--preview", "X", "./testdata/apponly"); !strings.Contains(msg, "defines App") {
@@ -145,7 +145,7 @@ func TestAppStructRootAndNilRoot(t *testing.T) {
 	if got := pixel(img, 158, 78); got != [3]uint8{70, 236, 213} {
 		t.Errorf("background %v, want teal-300", got)
 	}
-	if out, _ := inspectRun(t, 0, "./testdata/appstruct"); out != "- heading \"struct n=7\" [level=1]\n" {
+	if out, _ := inspectRun(t, 0, "./testdata/appstruct"); stripSrc(out) != "- heading \"struct n=7\" [level=1]\n" {
 		t.Errorf("inspect: %q", out)
 	}
 	msg := snapFails(t, "./testdata/appnoroot")
@@ -191,7 +191,7 @@ func TestAppOfAnotherType(t *testing.T) {
 	if stderr != "" {
 		t.Errorf("stderr %q", stderr)
 	}
-	if out, _ := inspectRun(t, 0, "./testdata/otherapp"); out != "- heading \"Other app :8080\" [level=1]\n" {
+	if out, _ := inspectRun(t, 0, "./testdata/otherapp"); stripSrc(out) != "- heading \"Other app :8080\" [level=1]\n" {
 		t.Errorf("inspect: %q", out)
 	}
 	img, _, _ = snap(t, "./testdata/ptrapp")

@@ -434,7 +434,7 @@ func testNewApp(t *testing.T, name string) {
 	if code := run([]string{"inspect", "."}, &out, &errOut); code != 0 {
 		t.Fatalf("inspect: code %d\nstderr: %s", code, errOut.String())
 	}
-	if want := "- text: COUNT\n- heading \"0\" [level=1]\n- button \"Increment\"\n"; out.String() != want {
+	if want := "- text: COUNT\n- heading \"0\" [level=1]\n- button \"Increment\"\n"; stripSrc(out.String()) != want {
 		t.Errorf("inspect printed\n%s\nwant\n%s", out.String(), want)
 	}
 }
