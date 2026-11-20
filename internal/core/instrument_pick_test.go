@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"image"
+	"slices"
 	"testing"
 
 	"github.com/kuronosu/tela/internal/platform"
@@ -16,7 +17,9 @@ func pickPage(hits map[string]int) Node {
 		return []Child{Key(k),
 			On("click", func(MouseEvent) { hits["click:"+k]++ }),
 			On("pointermove", func(PointerEvent) { hits["move:"+k]++ }),
-			On("pointerdown", func(PointerEvent) { hits["down:"+k]++ })}
+			On("pointerdown", func(PointerEvent) { hits["down:"+k]++ }),
+			On("pointerup", func(PointerEvent) { hits["up:"+k]++ }),
+			On("pointercancel", func(PointerEvent) { hits["cancel:"+k]++ })}
 	}
 	row := func(k string) Node {
 		return Primitive(style.KindDiv, append(count(k), Class("h-[80px] bg-slate-200 border-b"))...)
@@ -178,5 +181,105 @@ func TestInstrumentHighlight(t *testing.T) {
 	x.frame()
 	if tr.Debug() != 0 || !sameAsApp(x) {
 		t.Errorf("after SetInstrument(false): flags %v", tr.Debug())
+	}
+}
+
+// A press the app holds when pick mode starts ends with a pointercancel,
+// as when the OS takes the pointer away, and the rest of it stays out of
+// the app; the next press picks, and the one after reaches the app.
+func TestInstrumentPickHeldPress(t *testing.T) {
+	hits := map[string]int{}
+	x := newScrollHost(t, pickPage(hits), 400, 300, Config{Dev: true})
+	tr := x.tree()
+	tr.SetInstrument(true)
+	t.Cleanup(func() { tr.SetInstrument(false) })
+	x.send(move(120, 170), down(120, 170))
+	if hits["down:moved"] != 1 {
+		t.Fatalf("the press: %v", hits)
+	}
+	clear(hits)
+	var picked []ElementID
+	tr.SetPick(true, func(id ElementID) { picked = append(picked, id) })
+	if hits["cancel:moved"] != 1 || hits["cancel:page"] != 1 || len(hits) != 2 {
+		t.Errorf("pick mode began: the app got %v, want one pointercancel (bubbling to the page)", hits)
+	}
+	ps := tr.in.ptrs[pointerKey{platform.PointerMouse, 0}]
+	if ps == nil || ps.buttons != 0 || ps.pressing || ps.down != nil {
+		t.Fatalf("the app's pointer after the cancel: %+v", ps)
+	}
+	// The rest of the press is pick mode's: its moves highlight, its
+	// release reaches nothing.
+	x.send(moveHeld(50, 30))
+	if h := tr.ins.pick.hover; h == nil || h.key != "a" {
+		t.Errorf("hover %v, want a", h)
+	}
+	x.send(up(50, 30))
+	if len(hits) != 2 || len(picked) != 0 || !tr.Picking() {
+		t.Errorf("after the release: hits %v, picked %v, picking %v", hits, picked, tr.Picking())
+	}
+	// The next press picks; the one after reaches the app, a click.
+	x.click(120, 170)
+	if !slices.Equal(picked, []ElementID{pickID(t, tr, "moved")}) || tr.Picking() {
+		t.Fatalf("picked %v, picking %v", picked, tr.Picking())
+	}
+	clear(hits)
+	x.click(120, 170)
+	if hits["click:moved"] != 1 || hits["down:moved"] != 1 || hits["up:moved"] != 1 {
+		t.Errorf("after pick mode: %v", hits)
+	}
+}
+
+// Pick mode keeps the title bar from the app and the OS: no hit regions
+// while it is on, so a press there picks instead of moving the window,
+// and a caption click (one the OS took before) closes no overlay.
+func TestInstrumentPickCaption(t *testing.T) {
+	outs := 0
+	x := newWinHarness(t, Options{Config: Config{Dev: true}, Root: div(Class("h-full"),
+		div(Key("bar"), WindowDrag(), Class("h-[30px] w-full")),
+		Portal(div(Key("dialog"), Class("fixed left-20 top-20 h-20 w-40"), Overlay(OverlayOptions{
+			OnInteractOutside: func(PointerEvent) { outs++ },
+		}), Text("Dialog"))),
+	)})
+	main := x.windows()[0]
+	tr := x.h.Tree()
+	captions := func() int {
+		n := 0
+		for _, r := range main.HitRegions() {
+			if r.Kind == platform.HitCaption {
+				n++
+			}
+		}
+		return n
+	}
+	if captions() == 0 {
+		t.Fatal("no caption region")
+	}
+	tr.SetInstrument(true)
+	t.Cleanup(func() { tr.SetInstrument(false) })
+	var picked []ElementID
+	tr.SetPick(true, func(id ElementID) { picked = append(picked, id) })
+	x.drain()
+	if n := captions(); n != 0 {
+		t.Errorf("%d caption regions while picking", n)
+	}
+	x.h.HandleEvent(main, platform.CaptionClickEvent{Pos: platform.Point{X: 150, Y: 10}, Time: x.b.Now()})
+	if outs != 0 {
+		t.Errorf("a caption click while picking: %d outside presses", outs)
+	}
+	main.Inject(move(150, 10))
+	main.Inject(down(150, 10))
+	main.Inject(up(150, 10))
+	x.drain()
+	if main.CaptionDrags() != 0 || len(picked) != 1 || picked[0] != idOfKey(t, tr, "bar") || outs != 0 {
+		t.Fatalf("a press on the bar while picking: %d caption drags, picked %v (bar %d), %d outside presses",
+			main.CaptionDrags(), picked, idOfKey(t, tr, "bar"), outs)
+	}
+	// Pick mode over, the regions and the caption clicks are back.
+	if captions() == 0 {
+		t.Error("no caption region after pick mode")
+	}
+	x.h.HandleEvent(main, platform.CaptionClickEvent{Pos: platform.Point{X: 150, Y: 10}, Time: x.b.Now()})
+	if outs != 1 {
+		t.Errorf("a caption click after pick mode: %d outside presses, want 1", outs)
 	}
 }

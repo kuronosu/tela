@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/platform"
@@ -19,8 +20,14 @@ import (
 // the element under it, the nearest one that owns a box (the element hit
 // testing finds, through transforms and scroll offsets), calls the
 // callback with its ID and ends pick mode; the rest of that press (its
-// moves and release) is swallowed too. Escape ends it with the callback
-// given 0, and its release does not reach the app either. Highlight shows
+// moves and release) is swallowed too. A press the app holds when pick
+// mode starts ends there with a pointercancel, as when the OS takes the
+// pointer away (cancelPointers), and the rest of it is swallowed. The
+// title bar is pick mode's too: the window gets no hit regions while it
+// is on (Host.syncRegions), so a press there picks instead of moving the
+// window, and a caption click the OS took does not reach the app (it would
+// close its overlays). Escape ends it with the callback given 0, and its
+// release does not reach the app either. Highlight shows
 // the same highlight for an element chosen elsewhere (the selection in
 // tela devtools): a component's are the boxes of the primitives it renders
 // at its top level.
@@ -38,11 +45,12 @@ type pickState struct {
 	hover *Element
 	// hl is the highlighted element.
 	hl ElementID
-	// swallow is the pointer whose press picked, until it is released;
-	// escUp swallows the release of the Escape that ended pick mode.
-	swallow    pointerKey
-	swallowing bool
-	escUp      bool
+	// swallow are the pointers whose presses stay out of the app until
+	// they are released: the press that picked, and those the app held
+	// when pick mode started (cancelled then). escUp swallows the release
+	// of the Escape that ended pick mode.
+	swallow []pointerKey
+	escUp   bool
 }
 
 // SetPick turns pick mode on or off. picked is called on the UI thread
@@ -55,11 +63,40 @@ func (t *Tree) SetPick(on bool, picked func(ElementID)) {
 		return
 	}
 	p := &ins.pick
+	if on && !p.on {
+		// Pick mode takes the pointer: the presses the app holds end.
+		for _, k := range t.cancelPresses() {
+			p.swallowPress(k)
+		}
+	}
 	p.on, p.hover, p.cb = on, nil, nil
 	if on {
 		p.cb = picked
 	}
 	t.syncInspectOverlay()
+}
+
+// cancelPresses sends the app a pointercancel for each pointer it holds
+// pressed, and returns their keys.
+func (t *Tree) cancelPresses() []pointerKey {
+	var out []pointerKey
+	for _, k := range t.pointerKeys() {
+		ps := t.in.ptrs[k]
+		if ps == nil || ps.buttons == 0 && !ps.pressing {
+			continue
+		}
+		t.HandlePointer(platform.PointerEvent{Action: platform.PointerCancel, Kind: k.kind, ID: k.id,
+			Pos: platform.Point{X: ps.pos.X, Y: ps.pos.Y}, Time: t.scr.now})
+		out = append(out, k)
+	}
+	return out
+}
+
+// swallowPress keeps the rest of the press of pointer k from the app.
+func (p *pickState) swallowPress(k pointerKey) {
+	if !slices.Contains(p.swallow, k) {
+		p.swallow = append(p.swallow, k)
+	}
 }
 
 // Picking reports whether pick mode is on.
@@ -128,11 +165,13 @@ func (t *Tree) pickTarget(pos platform.Point) *Element {
 func (t *Tree) pickPointer(e platform.PointerEvent) bool {
 	p := &t.ins.pick
 	key := pointerKey{e.Kind, e.ID}
-	if p.swallowing && p.swallow == key {
+	if i := slices.Index(p.swallow, key); i >= 0 {
 		if e.Action == platform.PointerCancel || e.Action == platform.PointerUp && e.Buttons == 0 {
-			p.swallowing = false
+			p.swallow = slices.Delete(p.swallow, i, i+1)
 		}
-		return true
+		if !p.on {
+			return true
+		}
 	}
 	if !p.on {
 		return false
@@ -149,7 +188,9 @@ func (t *Tree) pickPointer(e platform.PointerEvent) bool {
 		id := t.ins.idOf(t.pickTarget(e.Pos))
 		cb := p.cb
 		p.on, p.cb, p.hover = false, nil, nil
-		p.swallow, p.swallowing = key, e.Buttons != 0
+		if e.Buttons != 0 {
+			p.swallowPress(key)
+		}
 		t.syncInspectOverlay()
 		if cb != nil {
 			cb(id)

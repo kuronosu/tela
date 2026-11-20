@@ -461,9 +461,10 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 		h.armTimer()
 	case platform.CaptionClickEvent:
 		// A click the OS took in a caption region: a press outside the
-		// open overlays (overlay.go, ADR-252).
+		// open overlays (overlay.go, ADR-252). Pick mode keeps it from the
+		// app, as it keeps the pointer (instrument_pick.go).
 		h.tick(e.Time)
-		if h.cut(v, false, e.Time) {
+		if h.cut(v, false, e.Time) || t.Picking() {
 			return
 		}
 		t.HandleCaptionClick(e)
@@ -684,11 +685,17 @@ func (h *Host) syncRegions(v *winView) {
 	if t.reg.n == 0 && len(v.regions) == 0 {
 		return
 	}
-	if f := t.stats.Frames; v.regInit && f == v.regFrame {
+	pick := t.Picking()
+	if f := t.stats.Frames; v.regInit && f == v.regFrame && pick == v.regPick {
 		return
 	}
-	v.regInit, v.regFrame = true, t.stats.Frames
-	out := t.hitRegions(v.regBuf[:0])
+	v.regInit, v.regFrame, v.regPick = true, t.stats.Frames, pick
+	out := v.regBuf[:0]
+	if !pick {
+		// Pick mode sends none: a press on the title bar picks what is
+		// there instead of moving the window (instrument_pick.go).
+		out = t.hitRegions(out)
+	}
 	v.regBuf = out
 	if platform.EqualHitRegions(out, v.regions) {
 		return

@@ -249,10 +249,12 @@ type winView struct {
 
 	// regions are the hit regions sent last (winregion.go), regBuf the
 	// scratch list they are computed into, regFrame the frame count of
-	// the last computation.
+	// the last computation and regPick whether the tree was in pick mode
+	// then (which sends none).
 	regions, regBuf []platform.HitRegion
 	regFrame        int
 	regInit         bool
+	regPick         bool
 
 	// os is the OS state delivered last (seeded with what the options
 	// imply), focused the window focus, hidden whether the app hid it,
@@ -1084,17 +1086,7 @@ func (h *Host) cut(v *winView, press bool, now time.Duration) bool {
 // does when it takes the input away: a pointercancel for the pointers
 // that are pressed, a leave for those inside the window.
 func (t *Tree) cancelPointers(now time.Duration) {
-	keys := make([]pointerKey, 0, len(t.in.ptrs))
-	for k := range t.in.ptrs {
-		keys = append(keys, k)
-	}
-	sort.Slice(keys, func(i, j int) bool {
-		if keys[i].kind != keys[j].kind {
-			return keys[i].kind < keys[j].kind
-		}
-		return keys[i].id < keys[j].id
-	})
-	for _, k := range keys {
+	for _, k := range t.pointerKeys() {
 		ps := t.in.ptrs[k]
 		if ps == nil {
 			continue
@@ -1107,6 +1099,22 @@ func (t *Tree) cancelPointers(now time.Duration) {
 			t.HandlePointer(platform.PointerEvent{Action: platform.PointerLeave, Kind: k.kind, ID: k.id, Pos: pos, Time: now})
 		}
 	}
+}
+
+// pointerKeys returns the keys of the pointers the tree follows, in a
+// fixed order (by kind, then ID).
+func (t *Tree) pointerKeys() []pointerKey {
+	keys := make([]pointerKey, 0, len(t.in.ptrs))
+	for k := range t.in.ptrs {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].kind != keys[j].kind {
+			return keys[i].kind < keys[j].kind
+		}
+		return keys[i].id < keys[j].id
+	})
+	return keys
 }
 
 // removeView forgets the closed window v.
