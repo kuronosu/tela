@@ -56,6 +56,8 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Label`](#type-label): [`Build`](#func-label-build)
   - [`type LabelStyle`](#type-labelstyle)
   - [`type LegendVariant`](#type-legendvariant)
+  - [`type Markdown`](#type-markdown): [`Build`](#func-markdown-build)
+  - [`type MarkdownStyle`](#type-markdownstyle)
   - [`type MenuItem`](#type-menuitem)
   - [`type MenuKind`](#type-menukind)
   - [`type MenuStyle`](#type-menustyle)
@@ -2755,6 +2757,147 @@ const (
 )
 ```
 
+### type Markdown
+
+```go
+type Markdown struct {
+    // Source is the document, in Markdown.
+    Source string
+    // OnLink is called with the destination of a link when it is pressed
+    // (the URL as an HTML renderer would write it: percent-encoded). Nil
+    // opens it with [tela.OpenURL]; a destination that has no scheme (a
+    // relative link, a "#heading") then does nothing. Use it to route the
+    // links your app understands (a [router]'s paths) and to ask before
+    // leaving for a web page.
+    OnLink func(href string)
+    // OnToggleTask is called when the user checks or unchecks a task-list
+    // item: index counts the tasks of the document from 0, in document
+    // order, and checked is the state the user asks for. The document does
+    // not change by itself: edit Source and the box follows it. Nil makes
+    // the tasks read-only.
+    OnToggleTask func(index int, checked bool)
+    // Class is added after the recipe's Root classes.
+    Class string
+    // Props are more props for the root element.
+    Props tela.Child
+}
+```
+
+Markdown renders CommonMark with GitHub's extensions (tables, task lists, strikethrough and autolinks) as Tela elements, in the look of Tailwind Typography's prose at the size of an app, in the theme's tokens. The text is selectable as any static text is, and a selection that crosses blocks copies a blank line between paragraphs and one line break between list items and table cells.
+
+```go
+kit.Markdown{Source: "# Notes\n\nSome **bold** text and a [link](https://tela.dev).\n\n- [x] Done\n- [ ] To do\n"}
+```
+
+The source is parsed once each time Source changes; a rebuild with the same Source builds the elements again (it is proportional to the size of the document) but parses nothing.
+
+What a document draws:
+
+- headings as H1 to H6, with their level for assistive technologies; paragraphs; emphasis, strong text and strikethrough; code spans and fenced or indented code blocks in monospace with the whitespace kept (no syntax highlighting; a block scrolls sideways instead of wrapping); blockquotes; thematic breaks; hard and soft line breaks;
+- ordered lists, which start at their first number, unordered lists, nested at any depth; a task-list item is a checkbox, read-only unless OnToggleTask is set;
+- tables, with the alignment of their columns;
+- links (an A with Href) and autolinks, activated by a press or by Enter: OnLink is called with the destination, or without it the destination is opened with [`tela.OpenURL`](API-Reference-tela#func-openurl);
+- images, only from the files of [`tela.Assets`](API-Reference-tela#func-assets): a destination such as "img/logo.png" is loaded from there, and Tela fetches nothing over the network, so any other destination (a URL with a scheme, a "data:" URL) shows the image's alt text instead;
+- raw HTML, a block or inline, as the text it is. Entities and backslash escapes are decoded.
+
+A document that comes from outside the app is safe to show: nothing in it runs, loads or opens until the user follows a link, and the app decides how with OnLink.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+// A note whose tasks the app keeps in its own source: OnToggleTask asks
+// for a change and the app edits the text; a link goes to OnLink.
+const note = "# Groceries\n\n- [ ] Bread\n- [x] Coffee\n\nSee the [list](https://example.org/list).\n"
+var opened string
+app := telatest.MountFunc(t, func() tela.Node {
+    src, setSrc := tela.UseState(note)
+    return kit.Markdown{
+        Source: src,
+        OnLink: func(href string) { opened = href },
+        OnToggleTask: func(index int, checked bool) {
+            if index == 0 && checked {
+                setSrc.Set(note[:len("# Groceries\n\n- [")] + "x" + note[len("# Groceries\n\n- [ "):])
+            }
+        },
+    }
+})
+app.Click(telatest.ByRole("checkbox", "Bread"))
+app.Click(telatest.ByRole("link", "list"))
+fmt.Println(app.Count(telatest.ByRole("heading", "Groceries")), opened)
+app.Expect(telatest.ByRole("checkbox", "Bread"), telatest.Checked(true))
+// Output: 1 https://example.org/list
+```
+
+#### func (Markdown) Build
+
+```go
+func (m Markdown) Build() tela.Node
+```
+
+Build returns the document's element.
+
+### type MarkdownStyle
+
+```go
+type MarkdownStyle struct {
+    // Root is the box of the whole document: the base text size, line
+    // height and color that every block inherits.
+    Root string
+    // Paragraph is a paragraph and a block of text in a list item. Its
+    // bottom margin is what makes copied text have a blank line between
+    // paragraphs (ADR-271: at least half the font size), and
+    // whitespace-pre-line is what makes a hard line break a break.
+    Paragraph string
+    // H1 to H6 are the headings, with the margins that set them off.
+    H1, H2, H3, H4, H5, H6 string
+    // Blockquote is a quotation; its blocks are inside it.
+    Blockquote string
+    // List is an ordered or unordered list (a column of items).
+    List string
+    // Item is one item: the marker and the body in a row.
+    Item string
+    // ItemBody holds the blocks of an item.
+    ItemBody string
+    // Tight and Loose are added to the blocks of an item of a tight list
+    // (no blank line between its items) and of a loose one, to set the
+    // space between them (the block's own bottom margin comes first).
+    Tight, Loose string
+    // Marker is the marker of an item: the bullet's box and the number.
+    Marker string
+    // BulletDisc, BulletCircle and BulletSquare are the shapes of the
+    // bullets of a list, by depth: the first level, the second, and the
+    // others.
+    BulletDisc, BulletCircle, BulletSquare string
+    // Number is the number of an ordered item, after Marker.
+    Number string
+    // Task is the checkbox of a task-list item. A task whose list has no
+    // OnToggleTask is read-only: TaskReadOnly is added to it.
+    Task, TaskReadOnly string
+    // Code is a code span; CodeBlock the box of a code block (it
+    // scrolls sideways) and CodeBlockCode its text, in monospace with the
+    // whitespace kept.
+    Code, CodeBlock, CodeBlockCode string
+    // Link is a link; Strikethrough is struck text.
+    Link, Strikethrough string
+    // Rule is a thematic break.
+    Rule string
+    // Image is an image of the app's assets; ImageAlt is the alt text that
+    // takes the place of any other image.
+    Image, ImageAlt string
+    // Table is the box of a table (it scrolls sideways) and Grid the table
+    // itself, whose column tracks the component adds; Head is a header
+    // cell, Cell a body cell and LastRow is added to the cells of the last
+    // row.
+    Table, Grid, Head, Cell, LastRow string
+    // HTML is a raw HTML block, shown as the text it is.
+    HTML string
+}
+```
+
+MarkdownStyle is the recipe of [`Markdown`](#type-markdown): the look of a document, as Tailwind Typography's prose scaled to an app, in the theme's tokens, so that it follows the color scheme and the kit's style.
+
 ### type MenuItem
 
 ```go
@@ -4207,6 +4350,7 @@ type Style struct {
     FieldSet       FieldSetStyle
     Input          InputStyle
     Label          LabelStyle
+    Markdown       MarkdownStyle
     Menubar        MenubarStyle
     Popover        PopoverStyle
     Progress       ProgressStyle

@@ -307,6 +307,12 @@ their original copyright notice. Add one section per source project.
 - **License:** BSD-3-Clause, Copyright 2009 The Go Authors
 - **Used in:** `i18n` (`language`, `feature/plural`), a module dependency, not vendored code (ARCHITECTURE §2). Its CLDR 32 tables give the plural rules and language matching; number formats and date patterns do not come from it (ADR-266; it keeps its date tables private). Also `internal/platform/x11/internal/xim/ctext.go` (`encoding/japanese`, `encoding/korean`, `encoding/simplifiedchinese`, `encoding/charmap`): the EUC and ISO 8859 decoders behind the COMPOUND_TEXT the X11 input methods send (ADR-231).
 
+## goldmark (dependency)
+
+- **Source:** https://github.com/yuin/goldmark (v1.8.7)
+- **License:** MIT, Copyright (c) 2019 Yusuke Inuzuka
+- **Used in:** `kit/markdown.go` (`kit.Markdown` parses CommonMark with the GFM extensions: tables, task lists, strikethrough, linkify), a module dependency, not vendored code (ARCHITECTURE §2, ADR-298). Its types stay out of Tela's API. The decoding of backslash escapes and entities of a text is goldmark's own HTML writer; the default look follows Tailwind CSS Typography's `prose` (MIT, Copyright (c) Tailwind Labs, Inc.), scaled to an app.
+
 ## Floating UI (ported code; test oracle)
 
 - **Source:** https://github.com/floating-ui/floating-ui (`@floating-ui/core` 1.7.5 and `@floating-ui/utils` 0.2.11)

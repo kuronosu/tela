@@ -130,6 +130,7 @@ type Style struct {
 	FieldSet       FieldSetStyle
 	Input          InputStyle
 	Label          LabelStyle
+	Markdown       MarkdownStyle
 	Menubar        MenubarStyle
 	Popover        PopoverStyle
 	Progress       ProgressStyle
