@@ -104,12 +104,10 @@ func TestGenerateMCPSourceFeatures(t *testing.T) {
 // detectFeatures finds the telatest of the module and what the package
 // links.
 func TestDetectFeatures(t *testing.T) {
+	skipShort(t)
 	goBin, err := exec.LookPath("go")
 	if err != nil {
-		t.Skip("the go command is not in PATH")
-	}
-	if testing.Short() {
-		t.Skip("runs go list")
+		t.Fatal(err)
 	}
 	if f := detectFeatures(goBin, "testdata/previews"); !f.DevTools || f.I18N {
 		t.Errorf("testdata/previews: %+v, want DevTools without i18n", f)

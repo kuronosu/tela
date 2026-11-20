@@ -249,8 +249,6 @@ type mcpSession struct {
 	contract contract // of the last build
 	lintNote string   // lint findings of the last build, for the next result
 	logs     mcpLogs  // what the screen and the app logged, for the logs tool
-	// feats are what the build's generated code uses (features.go).
-	feats genFeatures
 
 	namesMu  sync.Mutex
 	names    []string     // the previews, for the description of open

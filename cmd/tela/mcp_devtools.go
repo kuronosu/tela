@@ -308,10 +308,7 @@ func (s *mcpSession) toolPerf(ctx context.Context, args json.RawMessage) mcpResu
 	var b strings.Builder
 	for _, f := range fs {
 		fmt.Fprintf(&b, "- frame %d: %s", f.Number, millis(f.Duration))
-		var parts []string
-		for _, p := range topPhases(f.Phases, 4) {
-			parts = append(parts, p)
-		}
+		parts := topPhases(f.Phases, 4)
 		if len(parts) > 0 {
 			b.WriteString(" (" + strings.Join(parts, ", ") + ")")
 		}

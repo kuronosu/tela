@@ -44,7 +44,7 @@ func TestMCPDevTools(t *testing.T) {
 	skipShort(t)
 	goBin, err := exec.LookPath("go")
 	if err != nil {
-		t.Skip("the go command is not in PATH")
+		t.Fatal(err)
 	}
 	dir := mcpAppModule(t)
 	t.Chdir(dir)
