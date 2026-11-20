@@ -221,8 +221,13 @@ func (a *App) release(button platform.PointerButton) {
 }
 
 func buttonName(b platform.PointerButton) string {
-	if b == platform.ButtonSecondary {
+	switch b {
+	case platform.ButtonSecondary:
 		return "secondary"
+	case platform.ButtonBack:
+		return "back"
+	case platform.ButtonForward:
+		return "forward"
 	}
 	return "primary"
 }
@@ -276,6 +281,20 @@ func Delay(d time.Duration) ClickOption { return func(c *clickConfig) { c.delay 
 //	app.ClickAt(120, 80, telatest.Right())
 func Right() ClickOption { return func(c *clickConfig) { c.button = platform.ButtonSecondary } }
 
+// MouseBack makes [App.Click] and [App.ClickAt] press and release the
+// mouse's back side button (X1) instead of the primary one: real pointer
+// events with that button, so the element's OnPointerDown, OnMouseDown,
+// OnPointerUp and OnMouseUp run (not its OnClick), and a router.Router goes
+// back unless one of them stopped or prevented the event. The element must
+// be as actionable as for a primary click.
+//
+//	app.Click(telatest.ByRole("main", ""), telatest.MouseBack())
+//	app.ClickAt(120, 80, telatest.MouseBack())
+func MouseBack() ClickOption { return func(c *clickConfig) { c.button = platform.ButtonBack } }
+
+// MouseForward is [MouseBack] for the forward side button (X2).
+func MouseForward() ClickOption { return func(c *clickConfig) { c.button = platform.ButtonForward } }
+
 func clickConfigOf(opts []ClickOption) clickConfig {
 	cfg := clickConfig{button: platform.ButtonPrimary}
 	for _, o := range opts {
@@ -297,8 +316,13 @@ func (a *App) Click(l Locator, opts ...ClickOption) {
 	a.tb.Helper()
 	cfg := clickConfigOf(opts)
 	verb := "click"
-	if cfg.button == platform.ButtonSecondary {
+	switch cfg.button {
+	case platform.ButtonSecondary:
 		verb = "right-click"
+	case platform.ButtonBack:
+		verb = "click with the back button"
+	case platform.ButtonForward:
+		verb = "click with the forward button"
 	}
 	_, p := a.target(l, verb, true)
 	a.clickPoint(p, cfg)

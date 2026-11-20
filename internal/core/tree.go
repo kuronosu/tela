@@ -244,6 +244,10 @@ type Tree struct {
 	// a click made from a handler (ElementRef.Click) leaves applying the
 	// updates and building to the event that is being handled.
 	handlerDepth int
+	// unhandledKeys and unhandledButtons are the listeners of the
+	// window's unhandled input (windowdefault.go).
+	unhandledKeys    unhandled[KeyboardEvent]
+	unhandledButtons unhandled[MouseButton]
 
 	// State updates from any goroutine.
 	mu      sync.Mutex

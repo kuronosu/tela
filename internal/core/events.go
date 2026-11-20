@@ -123,6 +123,9 @@ func (s *eventState) prevent() {
 
 func (s *eventState) defaultPrevented() bool { return s != nil && s.prevented }
 
+// isStopped reports whether a handler stopped the propagation (nil: none ran).
+func (s *eventState) isStopped() bool { return s != nil && s.stopped }
+
 // MouseEvent is passed to the mouse handlers (OnClick, OnMouseDown...):
 // the compatibility view of the primary pointer, as in the DOM.
 type MouseEvent struct {

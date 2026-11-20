@@ -183,6 +183,12 @@ type pointerState struct {
 	// noSelect: a pointerdown handler said the press leaves the static
 	// selection alone (NoTextSelection, textsel.go).
 	noSelect bool
+	// side is the back or forward button of the mouse that is pressed
+	// (MouseButtonNone: none), and sideTaken that a handler of its press
+	// stopped or prevented it, so the window's default (windowdefault.go)
+	// does not run at its release.
+	side      MouseButton
+	sideTaken bool
 	// hit is what the last hit test at the pointer found (hitPointer).
 	hit pointerHit
 }
@@ -384,6 +390,10 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 		}
 		ps.noMouse = st.defaultPrevented()
 		ps.noSelect = st.noSelect
+		ps.side, ps.sideTaken = MouseButtonNone, false
+		if b := MouseButton(e.Button); isSideButton(b) && ps.key.kind == platform.PointerMouse {
+			ps.side, ps.sideTaken = b, st.stopped || st.defaultPrevented()
+		}
 		t.flushDiscrete()
 	} else {
 		fire(t, evPointerMove, target, t.pointerEvent(ps, e.Button), true)
@@ -395,6 +405,7 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 		if !ps.noMouse {
 			st := fire(t, evMouseDown, target, t.mouseEvent(ps, e.Button, ps.clickCount), true)
 			prevented = st.defaultPrevented()
+			ps.sideTaken = ps.sideTaken || st.isStopped() || prevented
 			t.flushDiscrete()
 		}
 		// The default action of a primary mousedown moves the focus
@@ -430,6 +441,9 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 func (t *Tree) pointerUp(ps *pointerState, e platform.PointerEvent) {
 	target, _ := t.pointerTarget(ps)
 	ps.target = target
+	// side: the release of the back or forward button that nothing took
+	// so far, which the window's default may use (windowdefault.go).
+	side := MouseButton(e.Button) == ps.side && ps.side != MouseButtonNone && !ps.sideTaken && !ps.panned
 	switch {
 	case ps.panned:
 		// Cancelled by a touch pan: the release only ends the gestures.
@@ -443,13 +457,22 @@ func (t *Tree) pointerUp(ps *pointerState, e platform.PointerEvent) {
 		if !st.stopped {
 			dispatchWith(t, evPointerUp, target, pe, true, true, st)
 		}
+		side = side && !st.stopped && !st.defaultPrevented()
 		t.flushDiscrete()
 	default:
 		fire(t, evPointerMove, target, t.pointerEvent(ps, e.Button), true)
+		side = false
 	}
 	if ps.primary && !ps.noMouse && !ps.panned {
-		fire(t, evMouseUp, target, t.mouseEvent(ps, e.Button, ps.clickCount), true)
+		st := fire(t, evMouseUp, target, t.mouseEvent(ps, e.Button, ps.clickCount), true)
+		side = side && !st.isStopped() && !st.defaultPrevented()
 		t.flushDiscrete()
+	}
+	if MouseButton(e.Button) == ps.side {
+		ps.side, ps.sideTaken = MouseButtonNone, false
+	}
+	if side {
+		t.unhandledButtons.run(t, MouseButton(e.Button))
 	}
 	ctxClick := false
 	if e.Button == platform.ButtonPrimary && ps.pressing {

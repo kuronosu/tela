@@ -229,7 +229,9 @@ func (t *Tree) HandleKey(e platform.KeyEvent) {
 			if ke.Key == KeyValue(platform.KeyEscape) && !ke.Repeat && t.escapeOverlay(ke, st) {
 				return // dismissed the top overlay (overlay.go)
 			}
-			t.keyDownDefault(target, ke, e.Text)
+			if !t.keyDownDefault(target, ke, e.Text) && !st.isStopped() {
+				t.unhandledKey(ke) // windowdefault.go
+			}
 		}
 		return
 	}
@@ -286,15 +288,18 @@ func isButton(el *Element) bool {
 	return el != nil && el.kind == elemPrimitive && el.box.kind == style.KindButton
 }
 
-func (t *Tree) keyDownDefault(target *Element, e KeyboardEvent, txt string) {
+// keyDownDefault runs the default actions of keydown e at target, and
+// reports whether a text field or the static selection took the key (what
+// the window's unhandled-key listeners leave alone, windowdefault.go).
+func (t *Tree) keyDownDefault(target *Element, e KeyboardEvent, txt string) bool {
 	if f := t.focusedField(); f != nil && f.el == target && t.fieldKey(f, e, txt) {
-		return
+		return true
 	}
 	if t.focusedField() == nil {
 		// The selection of static text (textsel.go): copy, select all,
 		// and the context menu keys at the selection.
 		if t.selKey(e) || isMenuKey(e) && !e.Repeat && t.selContextMenu(e) {
-			return
+			return true
 		}
 	}
 	switch e.Key {
@@ -313,7 +318,7 @@ func (t *Tree) keyDownDefault(target *Element, e KeyboardEvent, txt string) {
 				el.activeN++
 				t.setState(el, style.StateActive, true)
 			}
-			return
+			return false
 		}
 		if !e.Ctrl && !e.Alt && !e.Meta {
 			dir := float32(1)
@@ -325,6 +330,7 @@ func (t *Tree) keyDownDefault(target *Element, e KeyboardEvent, txt string) {
 	default:
 		t.keyScrollDefault(e)
 	}
+	return false
 }
 
 // keyScrollDefault runs the scrolling default actions of the arrows,
