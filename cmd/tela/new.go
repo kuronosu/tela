@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime/debug"
+	"sort"
 	"strings"
 	"text/template"
 	"unicode"
@@ -33,16 +34,51 @@ the app is ready to run:
 
 Flags:
 
-	-module path   module path of the app (default: the name of <dir>, for
-	               example github.com/you/my-app)
-	-skip-deps     do not run go get and go mod tidy (no network, no go command)
+	-module path     module path of the app (default: the name of <dir>, for
+	                 example github.com/you/my-app)
+	-template name   what to start from (default counter):
+	                   counter    a window with a counter and its test
+	                   notes      a notes app: Markdown notes in SQLite, sign-in
+	                              and sync, a router, desktop integration
+	                              (requires modernc.org/sqlite)
+	                   settings   a preferences window: a form of sections with
+	                              validation, a save bar and dialogs
+	                   dashboard  an analytics dashboard: panes of glass, a
+	                              task board, dialogs and a command palette
+	               notes, settings and dashboard are copies of examples/notes,
+	               examples/settings and examples/dashboard with their tests
+	               (no pixel goldens: see the README they come with)
+	-skip-deps       do not run go get and go mod tidy (no network, no go command)
 
 The tela module is required at the version of this binary when it is a
 release, and at the latest release otherwise.
 `
 
-//go:embed templates/app
-var appTemplates embed.FS
+//go:generate go run ../../internal/gen/apptemplates
+
+// templates holds templates/app (the counter, and the go.mod, README and
+// .gitignore every template shares) and one directory per example template,
+// which "go generate" makes from the examples (internal/gen/apptemplates).
+//
+//go:embed templates
+var templates embed.FS
+
+// templateModule stands for the module path of the new app in the files
+// generated from the examples (internal/gen/apptemplates has the same
+// constant, and a test checks they agree).
+const templateModule = "example.invalid/app"
+
+// templateDescriptions has the valid -template names, each with the line the
+// README says about it (empty for the counter).
+var templateDescriptions = map[string]string{
+	"counter":   "",
+	"notes":     "a notes app: Markdown notes kept in SQLite, sign-in and sync, a router and desktop integration.",
+	"settings":  "a preferences window: a form of sections with validation, a save bar and dialogs.",
+	"dashboard": "an analytics dashboard: panes of glass, a task board, dialogs and a command palette.",
+}
+
+// templateNames are the valid -template values, counter (the default) first.
+var templateNames = []string{"counter", "notes", "settings", "dashboard"}
 
 // telaModule is the module the generated app requires.
 const telaModule = "github.com/kuronosu/tela"
@@ -68,6 +104,9 @@ type newData struct {
 	Binary    string // name of the executable: the last element of Module
 	Title     string // window title and README heading
 	GoVersion string
+
+	Template    string // the -template name
+	Description string // what the template is, for the README; empty for counter
 }
 
 // runNew implements `tela new`.
@@ -76,6 +115,7 @@ func runNew(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(io.Discard)
 	module := fs.String("module", "", "")
 	skipDeps := fs.Bool("skip-deps", false, "")
+	tmplName := fs.String("template", "counter", "")
 
 	// Flags and the directory may come in any order, as in the other commands.
 	dirs, err := parsePositionals("new", fs, args)
@@ -93,6 +133,11 @@ func runNew(args []string, stdout, stderr io.Writer) int {
 		} else {
 			fmt.Fprintf(stderr, "tela new: expected one <dir>, got %d (%s)\n", len(dirs), strings.Join(dirs, ", "))
 		}
+		return 2
+	}
+
+	if _, ok := templateDescriptions[*tmplName]; !ok {
+		fmt.Fprintf(stderr, "tela new: unknown template %q: choose one of %s\n", *tmplName, strings.Join(templateNames, ", "))
 		return 2
 	}
 
@@ -119,7 +164,10 @@ func runNew(args []string, stdout, stderr io.Writer) int {
 	}
 
 	binary := mod[strings.LastIndex(mod, "/")+1:]
-	data := newData{Module: mod, Binary: binary, Title: titleFromName(binary), GoVersion: templateGoVersion}
+	data := newData{
+		Module: mod, Binary: binary, Title: titleFromName(binary), GoVersion: templateGoVersion,
+		Template: *tmplName, Description: templateDescriptions[*tmplName],
+	}
 	written, err := writeApp(dir, data)
 	if err != nil {
 		fmt.Fprintf(stderr, "tela new: %v\n", err)
@@ -128,8 +176,19 @@ func runNew(args []string, stdout, stderr io.Writer) int {
 
 	shown := dirs[0]
 	fmt.Fprintf(stdout, "created %s (module %s):\n", shown, mod)
-	for _, f := range written {
-		fmt.Fprintf(stdout, "\t%s\n", f)
+	// An example template has dozens of files: name the ones to open first.
+	if len(written) > 12 {
+		var shown []string
+		for _, f := range written {
+			if f == "go.mod" || f == "main.go" || f == "README.md" || f == ".gitignore" {
+				shown = append(shown, f)
+			}
+		}
+		fmt.Fprintf(stdout, "\t%s, and %d more files and directories\n", strings.Join(shown, ", "), len(written)-len(shown))
+	} else {
+		for _, f := range written {
+			fmt.Fprintf(stdout, "\t%s\n", f)
+		}
 	}
 
 	if !*skipDeps {
@@ -155,23 +214,30 @@ func runNew(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// writeApp renders the templates into dir, creating it, and returns the names
-// of the files it wrote in a fixed order.
+// writeApp renders the template data.Template into dir, creating it, and
+// returns the names of what it wrote at the top of dir (a directory has a
+// trailing slash) in a fixed order.
 func writeApp(dir string, data newData) ([]string, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
-	entries, err := fs.ReadDir(appTemplates, "templates/app")
+	names := map[string]bool{}
+	// The files every template has, then the template's own: the counter
+	// is templates/app alone, the others add what was generated from the
+	// examples.
+	entries, err := fs.ReadDir(templates, "templates/app")
 	if err != nil {
 		return nil, err
 	}
-	var written []string
 	for _, e := range entries {
 		out, ok := templateFiles[e.Name()]
 		if !ok {
 			return nil, fmt.Errorf("internal error: template %s has no output name", e.Name())
 		}
-		src, err := fs.ReadFile(appTemplates, "templates/app/"+e.Name())
+		if data.Template != "counter" && counterOnly[out] {
+			continue
+		}
+		src, err := fs.ReadFile(templates, "templates/app/"+e.Name())
 		if err != nil {
 			return nil, err
 		}
@@ -183,12 +249,89 @@ func writeApp(dir string, data newData) ([]string, error) {
 		if err := tmpl.Execute(&buf, data); err != nil {
 			return nil, fmt.Errorf("internal error: template %s: %v", e.Name(), err)
 		}
+		if out == "go.mod" && data.Template != "counter" {
+			reqs, err := extraRequires(data.Template)
+			if err != nil {
+				return nil, err
+			}
+			buf.WriteString(reqs)
+		}
 		if err := os.WriteFile(filepath.Join(dir, out), buf.Bytes(), 0o644); err != nil {
 			return nil, err
 		}
-		written = append(written, out)
+		names[out] = true
 	}
+	if data.Template != "counter" {
+		if err := writeExample(dir, "templates/"+data.Template, data.Module, names); err != nil {
+			return nil, err
+		}
+	}
+	written := make([]string, 0, len(names))
+	for n := range names {
+		written = append(written, n)
+	}
+	sort.Strings(written)
 	return written, nil
+}
+
+// counterOnly are the files of templates/app that the example templates
+// bring their own of.
+var counterOnly = map[string]bool{"main.go": true, "main_test.go": true}
+
+// extraRequires is the require block for the modules an example template
+// needs besides tela (its requires.txt, one "path version" per line).
+func extraRequires(name string) (string, error) {
+	b, err := fs.ReadFile(templates, "templates/"+name+"/requires.txt")
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	var out strings.Builder
+	out.WriteString("\nrequire (\n")
+	for _, line := range strings.Split(strings.TrimSpace(string(b)), "\n") {
+		out.WriteString("\t" + line + "\n")
+	}
+	out.WriteString(")\n")
+	return out.String(), nil
+}
+
+// writeExample copies the files of an example template (see
+// internal/gen/apptemplates) into dir: it drops the .tmpl suffix and puts
+// the module path in place of templateModule. It adds the top-level names it
+// wrote to names.
+func writeExample(dir, root, module string, names map[string]bool) error {
+	return fs.WalkDir(templates, root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		rel := strings.TrimPrefix(p, root+"/")
+		if rel == "requires.txt" {
+			return nil
+		}
+		b, err := fs.ReadFile(templates, p)
+		if err != nil {
+			return err
+		}
+		if strings.HasSuffix(rel, ".tmpl") {
+			rel = strings.TrimSuffix(rel, ".tmpl")
+			b = bytes.ReplaceAll(b, []byte(templateModule), []byte(module))
+		}
+		out := filepath.Join(dir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(out, b, 0o644); err != nil {
+			return err
+		}
+		top, _, nested := strings.Cut(rel, "/")
+		if nested {
+			top += "/"
+		}
+		names[top] = true
+		return nil
+	})
 }
 
 // checkTargetDir accepts a directory that does not exist or is empty.

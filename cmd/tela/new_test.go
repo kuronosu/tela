@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -127,6 +128,78 @@ func TestNewCreatesApp(t *testing.T) {
 	}
 }
 
+// TestNewTemplates writes each example template and checks what it has:
+// the module path in place of the placeholder, the requirements of the
+// example, no template suffixes, no repository-only files.
+func TestNewTemplates(t *testing.T) {
+	for _, c := range []struct {
+		name     string
+		requires string   // in go.mod
+		files    []string // written
+		imports  string   // a file that imports the example's icons package, by name
+		pkg      string
+	}{
+		{"notes", "\tmodernc.org/sqlite v", []string{"main.go", "store.go", "icons/icons_gen.go", "icons/LICENSE", "testdata/notes.aria.yml", "notes_test.go"}, "editor.go", "icons"},
+		{"settings", "", []string{"main.go", "form.go", "lucide/icons_gen.go", "testdata/settings.aria.yml", "settings_test.go"}, "main.go", "lucide"},
+		{"dashboard", "", []string{"main.go", "overview.go", "icons/icons_gen.go", "img/dunes-dark.jpg", "testdata/palette.aria.yml", "dashboard_test.go"}, "main.go", "icons"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "my-app")
+			code, stdout, stderr := runNewCmd(t, "-skip-deps", "-template", c.name, "-module", "example.com/me/my-app", dir)
+			if code != 0 {
+				t.Fatalf("exit code %d\nstdout: %s\nstderr: %s", code, stdout, stderr)
+			}
+			for _, f := range c.files {
+				if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(f))); err != nil {
+					t.Errorf("the template did not write %s: %v", f, err)
+				}
+			}
+			b, _ := os.ReadFile(filepath.Join(dir, "go.mod"))
+			if !strings.HasPrefix(string(b), "module example.com/me/my-app\n") || !strings.Contains(string(b), c.requires) {
+				t.Errorf("go.mod (want it to contain %q):\n%s", c.requires, b)
+			}
+			if r, _ := os.ReadFile(filepath.Join(dir, "README.md")); !strings.Contains(string(r), "`"+c.name+"` template") {
+				t.Errorf("README.md does not say which template it is:\n%s", r)
+			}
+			if src, _ := os.ReadFile(filepath.Join(dir, c.imports)); !strings.Contains(string(src), `"example.com/me/my-app/`+c.pkg+`"`) {
+				t.Errorf("%s does not import example.com/me/my-app/%s:\n%s", c.imports, c.pkg, src)
+			}
+			filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+				if err != nil || d.IsDir() {
+					return err
+				}
+				rel, _ := filepath.Rel(dir, p)
+				base := d.Name()
+				switch {
+				case strings.HasSuffix(base, ".tmpl"), base == "go.sum", strings.HasSuffix(base, ".png") && strings.Contains(rel, "testdata"):
+					t.Errorf("%s should not be written", rel)
+				}
+				if strings.HasSuffix(base, ".go") || base == "go.mod" {
+					src, _ := os.ReadFile(p)
+					for _, bad := range []string{templateModule, "kuronosu/tela/examples", "kuronosu/tela/internal"} {
+						if strings.Contains(string(src), bad) {
+							t.Errorf("%s still mentions %s", rel, bad)
+						}
+					}
+				}
+				return nil
+			})
+		})
+	}
+}
+
+// templateModule is the placeholder the generator puts in the templates:
+// internal/gen/apptemplates has the same constant.
+func TestTemplateModulePlaceholder(t *testing.T) {
+	b, err := templates.ReadFile("templates/notes/editor.go.tmpl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"`+templateModule+`/icons"`) {
+		t.Errorf("templates/notes/editor.go.tmpl does not import %s/icons: the generator and new.go disagree on the placeholder", templateModule)
+	}
+}
+
 func TestNewModuleFlagAndExistingEmptyDir(t *testing.T) {
 	dir := t.TempDir() // exists and is empty
 	code, stdout, stderr := runNewCmd(t, "-skip-deps", dir, "-module", "github.com/you/notes")
@@ -178,6 +251,7 @@ func TestNewErrors(t *testing.T) {
 		{"bad module", []string{"-module", "my app", "-skip-deps", filepath.Join(t.TempDir(), "x")}, 2, "invalid module path"},
 		{"name makes no module", []string{"-skip-deps", filepath.Join(t.TempDir(), "日本語")}, 2, "pass one with -module"},
 		{"not empty", []string{"-skip-deps", notEmpty}, 1, "keep.txt"},
+		{"unknown template", []string{"-template", "blog", "-skip-deps", filepath.Join(t.TempDir(), "x")}, 2, `unknown template "blog": choose one of counter, notes, settings, dashboard`},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			code, _, stderr := runNewCmd(t, c.args...)
@@ -207,32 +281,62 @@ func TestNewHelp(t *testing.T) {
 	}
 }
 
-// TestNewAppBuildsAndPasses generates an app, points it at this checkout of
-// tela and runs go vet and go test on it, so the template cannot rot.
+// TestNewAppBuildsAndPasses generates each template, points it at this
+// checkout of tela and runs go vet and go test on it, so the templates
+// cannot rot.
 func TestNewAppBuildsAndPasses(t *testing.T) {
 	skipShort(t)
+	for _, name := range templateNames {
+		t.Run(name, func(t *testing.T) { testNewApp(t, name) })
+	}
+}
+
+func testNewApp(t *testing.T, name string) {
 	dir := filepath.Join(t.TempDir(), "gen")
-	if code, stdout, stderr := runNewCmd(t, "-skip-deps", dir); code != 0 {
+	if code, stdout, stderr := runNewCmd(t, "-skip-deps", "-template", name, dir); code != 0 {
 		t.Fatalf("exit code %d\nstdout: %s\nstderr: %s", code, stdout, stderr)
 	}
 	// Resolve offline: require tela from this checkout and take its own
 	// requirements and checksums, which the module cache already holds
 	// (go mod tidy would ask for the test-only modules of its dependencies).
+	// The notes template also needs what examples/notes requires (SQLite),
+	// with that module's checksums.
 	root := repoRoot(t)
-	telaMod, err := os.ReadFile(filepath.Join(root, "go.mod"))
+	modRoot := root
+	if _, err := os.Stat(filepath.Join(root, "examples", name, "go.mod")); err == nil {
+		modRoot = filepath.Join(root, "examples", name)
+	}
+	gomod, err := os.ReadFile(filepath.Join(dir, "go.mod"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	requires := regexp.MustCompile(`(?s)\nrequire \(.*?\n\)\n`).Find(telaMod)
-	sum, err := os.ReadFile(filepath.Join(root, "go.sum"))
-	if err != nil || requires == nil {
-		t.Fatalf("go.mod or go.sum of tela unreadable: %v", err)
+	telaMod, err := os.ReadFile(filepath.Join(modRoot, "go.mod"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var requires []string
+	for _, block := range regexp.MustCompile(`(?s)\nrequire \(.*?\n\)\n`).FindAll(telaMod, -1) {
+		var keep []string
+		for _, line := range strings.Split(string(block), "\n") {
+			// What the generated go.mod already requires, and tela itself
+			// (replaced below), stay out.
+			fields := strings.Fields(line)
+			if len(fields) > 0 && (fields[0] == telaModule || strings.Contains(string(gomod), "\t"+fields[0]+" ")) {
+				continue
+			}
+			keep = append(keep, line)
+		}
+		requires = append(requires, strings.Join(keep, "\n"))
+	}
+	sum, err := os.ReadFile(filepath.Join(modRoot, "go.sum"))
+	if err != nil || len(requires) == 0 {
+		t.Fatalf("go.mod or go.sum of %s unreadable: %v", modRoot, err)
 	}
 	f, err := os.OpenFile(filepath.Join(dir, "go.mod"), os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Fprintf(f, "\nrequire %s v0.0.0\n\nreplace %s => %s\n%s", telaModule, telaModule, filepath.ToSlash(root), requires)
+	fmt.Fprintf(f, "\nrequire %s v0.0.0\n\nreplace %s => %s\n%s\n", telaModule, telaModule, filepath.ToSlash(root), strings.Join(requires, "\n"))
 	f.Close()
 	if err := os.WriteFile(filepath.Join(dir, "go.sum"), sum, 0o644); err != nil {
 		t.Fatal(err)
@@ -245,10 +349,19 @@ func TestNewAppBuildsAndPasses(t *testing.T) {
 		cmd.Env = env
 		return cmd.CombinedOutput()
 	}
+	// The modules the template adds must be in the module cache.
+	for _, mod := range templateRequirements(t, name) {
+		if out, err := goRun("mod", "download", mod); err != nil {
+			t.Skipf("cannot resolve %s offline (go mod download: %v):\n%s", mod, err, out)
+		}
+	}
 	for _, args := range [][]string{{"vet", "./..."}, {"test", "./..."}} {
 		if out, err := goRun(args...); err != nil {
 			t.Errorf("go %s: %v\n%s", strings.Join(args, " "), err, out)
 		}
+	}
+	if name != "counter" {
+		return
 	}
 
 	// The app is a package tela understands: Previews of the App, aria text.
@@ -262,4 +375,20 @@ func TestNewAppBuildsAndPasses(t *testing.T) {
 	if want := "- text: COUNT\n- heading \"0\" [level=1]\n- button \"Increment\"\n"; out.String() != want {
 		t.Errorf("inspect printed\n%s\nwant\n%s", out.String(), want)
 	}
+}
+
+// templateRequirements are the "path@version" of the modules a template
+// requires besides tela.
+func templateRequirements(t *testing.T, name string) []string {
+	t.Helper()
+	b, err := templates.ReadFile("templates/" + name + "/requires.txt")
+	if err != nil {
+		return nil
+	}
+	var mods []string
+	for _, line := range strings.Split(strings.TrimSpace(string(b)), "\n") {
+		path, version, _ := strings.Cut(line, " ")
+		mods = append(mods, path+"@"+version)
+	}
+	return mods
 }
