@@ -23,6 +23,12 @@ Phase 27: App building blocks (ADR-298), in progress.
 - Package `oauth`: sign in to an OAuth 2.0 server with the authorization code flow and PKCE through the system browser and a loopback redirect (RFC 8252), or the device flow (RFC 8628); `oauth.New(cfg)` gives a `Session` whose tokens are kept in the OS's secret storage, whose `Client` sends and refreshes them (with refresh-token rotation), and whose `SignOut` revokes them (RFC 7009); `oauth.UseSession` gives components the status and the commands.
 - Package `router` (React Router's names over a memory history): `Router`, `Routes`, `Route` (with `Index` and nested `Children`), `Outlet`, `Link`, `UseNavigate`, `UseParams`, `UseLocation`, with ranked matching; screens enter and leave through `Presence`, so `Exit` classes and `LayoutID` animate route changes. Inside a `Router` the mouse's back and forward buttons and Alt+Left/Right (Cmd+[ and Cmd+] under the Mac flavor) navigate when no handler or text field took the event, as in Chromium; with `Router.Scheme` the app's deep links (`notes://notes/3`) open their path.
 - `telatest.MouseBack()` and `telatest.MouseForward()` click options.
+- `desktop.SetStartAtLogin`, `StartsAtLogin` and `Launch.AtLogin` (the Windows Run key, XDG autostart or the Flatpak Background portal, a macOS login item); `desktop.SetTasks` (Windows jump list tasks, the macOS Dock menu, Linux desktop entry actions; a chosen task reaches `UseLaunch` as a forwarded launch everywhere); `desktop.AddRecentDocument` and `ClearRecentDocuments` (jump list, Open Recent, `recently-used.xbel`). `telatest`: `App.StartsAtLogin`, `SetStartsAtLogin`, `Tasks`, `RunTask`, `RecentDocuments`, `FailSurfaces`.
+
+### Changed
+
+- Platform contract v16 and `tela dev`'s remote protocol 17: rebuild `tela` and the app together.
+- `tela dev` no longer warns on every reload about the internal state of `desktop` hooks such as `UseLaunch`.
 - Package `oauth/oauthtest`: a fake OAuth server and browser (approve, deny, expire, refresh-token reuse detection) for the tests of apps that sign in.
 
 ## [0.14.7] - 2026-11-17

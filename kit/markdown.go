@@ -606,7 +606,7 @@ func (r *mdRender) plain(n ast.Node) string {
 // goldmark's HTML writer does: it writes the text escaped, and the escaping
 // is undone.
 func (r *mdRender) decode(v []byte) string {
-	if bytes.IndexAny(v, "\\&\x00") < 0 {
+	if !bytes.ContainsAny(v, "\\&\x00") {
 		return string(v)
 	}
 	r.buf.Reset()

@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`AppID`](#func-appid) · [`AppStatus`](#func-appstatus) · [`CacheDir`](#func-cachedir) · [`ClipboardTypes`](#func-clipboardtypes) · [`ConfigDir`](#func-configdir) · [`DataDir`](#func-datadir) · [`DefaultName`](#func-defaultname) · [`DeleteSecret`](#func-deletesecret) · [`Directory`](#func-directory) · [`FileType`](#func-filetype) · [`Filter`](#func-filter) · [`Filters`](#func-filters) · [`FlushAll`](#func-flushall) · [`ForApp`](#func-forapp) · [`LoadPlacement`](#func-loadplacement) · [`LogDir`](#func-logdir) · [`Logger`](#func-logger) · [`MakeDefault`](#func-makedefault) · [`MessagePreview`](#func-messagepreview) · [`MoveToTrash`](#func-movetotrash) · [`Notify`](#func-notify) · [`OnCrash`](#func-oncrash) · [`OpenFile`](#func-openfile) · [`OpenFiles`](#func-openfiles) · [`OpenStore`](#func-openstore) · [`Parent`](#func-parent) · [`ParseKeys`](#func-parsekeys) · [`PerformRole`](#func-performrole) · [`PersistApp`](#func-persistapp) · [`PickFolder`](#func-pickfolder) · [`PopupMenu`](#func-popupmenu) · [`ReadClipboard`](#func-readclipboard) · [`ReadClipboardText`](#func-readclipboardtext) · [`Register`](#func-register) · [`RegisterApp`](#func-registerapp) · [`RegistrationStatus`](#func-registrationstatus) · [`Replace`](#func-replace) · [`SaveFile`](#func-savefile) · [`SavePlacement`](#func-saveplacement) · [`Secret`](#func-secret) · [`SetAppID`](#func-setappid) · [`SetLogLevel`](#func-setloglevel) · [`SetSecret`](#func-setsecret) · [`Settings`](#func-settings) · [`ShowMessage`](#func-showmessage) · [`SingleInstance`](#func-singleinstance) · [`StateDir`](#func-statedir) · [`Title`](#func-title) · [`URLScheme`](#func-urlscheme) · [`Unregister`](#func-unregister) · [`UnregisterApp`](#func-unregisterapp) · [`UseLaunch`](#func-uselaunch) · [`UseSavePlacement`](#func-usesaveplacement) · [`UseSetting`](#func-usesetting) · [`UseStoreSetting`](#func-usestoresetting) · [`WriteClipboard`](#func-writeclipboard) · [`WriteClipboardText`](#func-writeclipboardtext)
+- [Functions](#functions): [`AddRecentDocument`](#func-addrecentdocument) · [`AppID`](#func-appid) · [`AppStatus`](#func-appstatus) · [`CacheDir`](#func-cachedir) · [`ClearRecentDocuments`](#func-clearrecentdocuments) · [`ClipboardTypes`](#func-clipboardtypes) · [`ConfigDir`](#func-configdir) · [`DataDir`](#func-datadir) · [`DefaultName`](#func-defaultname) · [`DeleteSecret`](#func-deletesecret) · [`Directory`](#func-directory) · [`FileType`](#func-filetype) · [`Filter`](#func-filter) · [`Filters`](#func-filters) · [`FlushAll`](#func-flushall) · [`ForApp`](#func-forapp) · [`LoadPlacement`](#func-loadplacement) · [`LogDir`](#func-logdir) · [`Logger`](#func-logger) · [`MakeDefault`](#func-makedefault) · [`MessagePreview`](#func-messagepreview) · [`MoveToTrash`](#func-movetotrash) · [`Notify`](#func-notify) · [`OnCrash`](#func-oncrash) · [`OpenFile`](#func-openfile) · [`OpenFiles`](#func-openfiles) · [`OpenStore`](#func-openstore) · [`Parent`](#func-parent) · [`ParseKeys`](#func-parsekeys) · [`PerformRole`](#func-performrole) · [`PersistApp`](#func-persistapp) · [`PickFolder`](#func-pickfolder) · [`PopupMenu`](#func-popupmenu) · [`ReadClipboard`](#func-readclipboard) · [`ReadClipboardText`](#func-readclipboardtext) · [`Register`](#func-register) · [`RegisterApp`](#func-registerapp) · [`RegistrationStatus`](#func-registrationstatus) · [`Replace`](#func-replace) · [`SaveFile`](#func-savefile) · [`SavePlacement`](#func-saveplacement) · [`Secret`](#func-secret) · [`SetAppID`](#func-setappid) · [`SetLogLevel`](#func-setloglevel) · [`SetSecret`](#func-setsecret) · [`SetStartAtLogin`](#func-setstartatlogin) · [`SetTasks`](#func-settasks) · [`Settings`](#func-settings) · [`ShowMessage`](#func-showmessage) · [`SingleInstance`](#func-singleinstance) · [`StartsAtLogin`](#func-startsatlogin) · [`StateDir`](#func-statedir) · [`Title`](#func-title) · [`URLScheme`](#func-urlscheme) · [`Unregister`](#func-unregister) · [`UnregisterApp`](#func-unregisterapp) · [`UseLaunch`](#func-uselaunch) · [`UseSavePlacement`](#func-usesaveplacement) · [`UseSetting`](#func-usesetting) · [`UseStoreSetting`](#func-usestoresetting) · [`WriteClipboard`](#func-writeclipboard) · [`WriteClipboardText`](#func-writeclipboardtext)
 - [Types](#types)
   - [`type Answer`](#type-answer): [`String`](#func-answer-string)
   - [`type AppMenuBar`](#type-appmenubar): [`Build`](#func-appmenubar-build)
@@ -43,6 +43,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type ShortcutStatusEvent`](#type-shortcutstatusevent)
   - [`type ShownNotification`](#type-shownnotification): [`Notify`](#func-notify) · [`Close`](#func-shownnotification-close) · [`IsZero`](#func-shownnotification-iszero)
   - [`type Store`](#type-store): [`OpenStore`](#func-openstore) · [`Settings`](#func-settings) · [`Delete`](#func-store-delete) · [`Err`](#func-store-err) · [`Flush`](#func-store-flush) · [`Get`](#func-store-get) · [`Has`](#func-store-has) · [`Keys`](#func-store-keys) · [`Path`](#func-store-path) · [`Set`](#func-store-set) · [`Watch`](#func-store-watch)
+  - [`type Task`](#type-task)
   - [`type Tray`](#type-tray): [`Build`](#func-tray-build)
 
 ## Overview
@@ -171,6 +172,35 @@ errors.Is(err, errors.ErrUnsupported) holds too.
 
 ## Functions
 
+### func AddRecentDocument
+
+```go
+func AddRecentDocument(path string) error
+```
+
+AddRecentDocument adds the file at path (relative paths are taken from the working directory) to the app's recent documents, as an editor does when the user opens or saves a file: the "Recent" category of its jump list on Windows, its Dock menu and the File › Open Recent menu on macOS, recently-used.xbel on Linux (the desktop's and the file choosers' Recent lists). The OS shows a file only for a type the app is registered for on Windows ([`Register`](#func-register)) and declares on macOS (its bundle's document types). A file that does not exist is an error wrapping fs.ErrNotExist.
+
+```go
+desktop.AddRecentDocument(path) // after opening it
+```
+
+**Example**
+
+An editor's recent files: the OS lists them beside the app, and a menu item clears them.
+
+```go
+_ = tela.C(func() tela.Node {
+    open := func(path string) {
+        // ... read the file ...
+        _ = desktop.AddRecentDocument(path)
+    }
+    return Div(
+        Button(OnClick(func() { open("/home/ana/notes/groceries.md") }), Text("Open groceries.md")),
+        Button(OnClick(func() { _ = desktop.ClearRecentDocuments() }), Text("Clear Recent")),
+    )
+})
+```
+
 ### func AppID
 
 ```go
@@ -190,6 +220,14 @@ CacheDir returns the app's folder for data it can download or compute again (thu
 - Linux: $XDG_CACHE_HOME/\<app ID\> (\~/.cache/\<app ID\>)
 - Windows: %LOCALAPPDATA%\\\<app ID\>\\cache
 - macOS: \~/Library/Caches/\<app ID\>
+
+### func ClearRecentDocuments
+
+```go
+func ClearRecentDocuments() error
+```
+
+ClearRecentDocuments removes the app's recent documents, as a "Clear Recent" menu item does. Only the app's go: the lists other applications keep are not touched.
 
 ### func ClipboardTypes
 
@@ -756,6 +794,114 @@ tela.UseGo(func(ctx context.Context) {
 
 The secret functions block: the OS may show a prompt to unlock the keyring and wait for the user. Call them from a goroutine (tela.UseGo), not from a handler or an effect, which would freeze the app; they are safe from any goroutine, and dev mode warns when one runs on the UI thread. A desktop without secure storage returns an error wrapping [`ErrUnsupported`](#variables); a canceled prompt [`ErrSecretCanceled`](#variables). They need a running app (tela.Run or telatest). Tests preset and read secrets with telatest's App.SetStoredSecret and App.StoredSecret.
 
+### func SetStartAtLogin
+
+```go
+func SetStartAtLogin(on bool) error
+```
+
+SetStartAtLogin makes the desktop start the app when the user logs in (on), or stops it (off), as a settings screen's "Open at login" switch does: on Windows the Run key of the user's registry, on Linux an XDG autostart entry ($XDG_CONFIG_HOME/autostart/\<AppID\>.desktop; in a Flatpak sandbox the Background portal, which may ask the user), on macOS 13 and later the app's login item (SMAppService), which needs the app to be a bundle (tela build, tela run) and which the user may have to approve in System Settings › Login Items. A start at login is told by [`Launch`](#type-launch).AtLogin. Nothing is written when nothing changes.
+
+```go
+kit.Switch{Label: "Open at login", Checked: atLogin, OnChange: func(on bool) {
+    if err := desktop.SetStartAtLogin(on); err != nil {
+        toast.Error("Could not change it", kit.ToastDescription(err.Error()))
+        return
+    }
+    setAtLogin.Set(on)
+}}
+```
+
+Where the desktop has no such service (a macOS program outside a bundle) the error wraps [`ErrUnsupported`](#variables). Under tela dev the program is a temporary build, which must not start at login: turning it on returns an error wrapping [`ErrDevExecutable`](#variables).
+
+**Example**
+
+An "Open at login" switch that shows what the desktop will do, and a tray app that opens no window when the desktop started it at login.
+
+```go
+_ = tela.C(func() tela.Node {
+    on, setOn := tela.UseState(false)
+    problem, setProblem := tela.UseState("")
+    tela.UseMount(func() func() {
+        if v, err := desktop.StartsAtLogin(); err == nil {
+            setOn.Set(v)
+        }
+        return nil
+    })
+    win := tela.UseWindow()
+    desktop.UseLaunch(func(l desktop.Launch) {
+        if l.AtLogin {
+            win.Hide() // stay in the tray until the user asks
+        }
+    })
+    return Div(
+        Button(OnClick(func() {
+            if err := desktop.SetStartAtLogin(!on); err != nil {
+                setProblem.Set(err.Error())
+                return
+            }
+            setOn.Set(!on)
+        }), Textf("Open at login: %v", on)),
+        Text(problem),
+    )
+})
+```
+
+### func SetTasks
+
+```go
+func SetTasks(tasks []Task) error
+```
+
+SetTasks replaces the app's tasks; nil removes them. A task is an entry the OS shows beside the app: in its taskbar jump list on Windows (also while the app is not running, once pinned), in its Dock menu on macOS (while it runs), in its launcher's menu on Linux (the actions of the desktop entry that [`RegisterApp`](#func-registerapp) wrote). Choosing one gives the app a [`Launch`](#type-launch) with the task's Args through [`UseLaunch`](#func-uselaunch), the same way on every system: Windows and Linux start a process of the app with them, which [`SingleInstance`](#func-singleinstance) forwards to the running app (Source LaunchForwarded; without SingleInstance it is a new instance of the app, whose own start has them); the Dock menu hands them to the running app directly, also LaunchForwarded.
+
+```go
+desktop.SetTasks([]desktop.Task{
+    {Title: "New note", Args: []string{"notes:new"}},
+    {Title: "Search notes", Args: []string{"notes:search"}},
+})
+
+desktop.UseLaunch(func(l desktop.Launch) {
+    for _, u := range l.URLs() {
+        open(u) // notes:new, notes:search
+    }
+})
+```
+
+On Linux the app needs the entry [`RegisterApp`](#func-registerapp) writes: without it, or when an installer's entry has the app's ID, the error wraps [`ErrAppNotRegistered`](#variables) and nothing is written. Under tela dev the tasks start the current temporary build. Invalid tasks (no Title, a Title of several lines) panic.
+
+**Example**
+
+The tasks of a notes app: the jump list on Windows, the Dock menu on macOS, the launcher's menu on Linux. A chosen task reaches the running app through UseLaunch.
+
+```go
+app := desktop.SingleInstance(tela.App{
+    AppID: "com.example.Notes",
+    Root: tela.C(func() tela.Node {
+        screen, setScreen := tela.UseState("list")
+        tela.UseMount(func() func() {
+            _ = desktop.SetTasks([]desktop.Task{
+                {Title: "New note", Args: []string{"notes:new"}},
+                {Title: "Search notes", Args: []string{"notes:search"}},
+            })
+            return nil
+        })
+        desktop.UseLaunch(func(l desktop.Launch) {
+            for _, u := range l.URLs() {
+                switch u {
+                case "notes:new":
+                    setScreen.Set("editor")
+                case "notes:search":
+                    setScreen.Set("search")
+                }
+            }
+        })
+        return Text(screen)
+    }),
+})
+_ = app // tela.Main(app)
+```
+
 ### func ShowMessage
 
 ```go
@@ -850,6 +996,14 @@ app := desktop.SingleInstance(tela.App{
 })
 _ = app // tela.Main(app)
 ```
+
+### func StartsAtLogin
+
+```go
+func StartsAtLogin() (bool, error)
+```
+
+StartsAtLogin reports whether the desktop starts the app at login: what [`SetStartAtLogin`](#func-setstartatlogin) set, unless the user turned it off since in the OS's own settings (Task Manager's Startup apps, the desktop's autostart settings, System Settings › Login Items, where an item that still waits for the user's approval counts as off). Read it when a settings screen opens, so its switch shows the truth.
 
 ### func StateDir
 
@@ -1518,6 +1672,14 @@ type Launch struct {
     // nothing at first, so outside macOS its LaunchOpened launches are not
     // marked.
     AtStart bool
+    // AtLogin reports, on the LaunchStart launch, that the desktop started
+    // the app because the user logged in ([SetStartAtLogin]): an app that
+    // starts in its tray then, or minimized, opens no window. Windows and
+    // Linux tell it by an argument their entry adds, which Tela removes
+    // from the command line (and from Args) before main runs; macOS by
+    // the launch's Apple event, known once the app finished launching.
+    // Other launches never have it.
+    AtLogin bool
 }
 ```
 
@@ -2235,6 +2397,26 @@ func (s *Store) Watch(key string, f func(key string)) (stop func())
 ```
 
 Watch calls f after each change of key's value (Set with a different value, Delete, another program's write to the file), or of any key when key is "", until stop is called. f runs on the goroutine that made the change (the store's watcher goroutine for another program's), after it, without the store's lock: it may read the store and set values. In components, use [`UseSetting`](#func-usesetting), which builds them again on change.
+
+### type Task
+
+```go
+type Task struct {
+    // Title is the entry's label, one line ("New note").
+    Title string
+    // Args are the command-line arguments the task starts the app with,
+    // as [Launch].Args gives them back ("--new-note", "notes:new").
+    Args []string
+    // Icon is the entry's picture, the same picture at one or more sizes
+    // (16 and 32 px); none shows no picture (on Windows the app's icon).
+    Icon []image.Image
+    // Description is a longer text, shown as the entry's tooltip on
+    // Windows and macOS.
+    Description string
+}
+```
+
+Task is one of the app's tasks ([`SetTasks`](#func-settasks)): an entry of the app's jump list on the Windows taskbar, of its Dock menu on macOS, of its launcher's menu on Linux. Choosing it starts the app with Args, which reach the running app through [`UseLaunch`](#func-uselaunch) (see SetTasks).
 
 ### type Tray
 

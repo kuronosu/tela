@@ -15,7 +15,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Variables](#variables)
 - [Functions](#functions): [`AccentColor`](#func-accentcolor) · [`Active`](#func-active) · [`ActiveDescendant`](#func-activedescendant) · [`AllowDev`](#func-allowdev) · [`Allowed`](#func-allowed) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`AriaSnapshot`](#func-ariasnapshot) · [`Backdrop`](#func-backdrop) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`Carrying`](#func-carrying) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ClientDecorations`](#func-clientdecorations) · [`ColorScheme`](#func-colorscheme) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`DragFiles`](#func-dragfiles) · [`DragHTML`](#func-draghtml) · [`DragPNG`](#func-dragpng) · [`DragText`](#func-dragtext) · [`DragType`](#func-dragtype) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`FixedSize`](#func-fixedsize) · [`Focused`](#func-focused) · [`Fonts`](#func-fonts) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`Fullscreen`](#func-fullscreen) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`Hidden`](#func-hidden) · [`HighContrast`](#func-highcontrast) · [`Hyphenation`](#func-hyphenation) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`Invalid`](#func-invalid) · [`LayoutJSON`](#func-layoutjson) · [`MaxSize`](#func-maxsize) · [`Maximized`](#func-maximized) · [`MinSize`](#func-minsize) · [`Minimized`](#func-minimized) · [`Modifiers`](#func-modifiers) · [`Monitors`](#func-monitors) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`MouseBack`](#func-mouseback) · [`MouseForward`](#func-mouseforward) · [`NoActiveDescendant`](#func-noactivedescendant) · [`NoCompositing`](#func-nocompositing) · [`NoDev`](#func-nodev) · [`NoServerDecorations`](#func-noserverdecorations) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`OnQuit`](#func-onquit) · [`Placement`](#func-placement) · [`PlatformKeys`](#func-platformkeys) · [`PreferNativeMenus`](#func-prefernativemenus) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`Right`](#func-right) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Sort`](#func-sort) · [`StartHidden`](#func-starthidden) · [`Steps`](#func-steps) · [`TempDesktopDirs`](#func-tempdesktopdirs) · [`TextScale`](#func-textscale) · [`Theme`](#func-theme) · [`ThemeTransitions`](#func-themetransitions) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`TitleBar`](#func-titlebar) · [`TitleBarControls`](#func-titlebarcontrols) · [`TitleBarOverlay`](#func-titlebaroverlay) · [`Tolerance`](#func-tolerance) · [`Transparent`](#func-transparent) · [`WithUnsupported`](#func-withunsupported)
 - [Types](#types)
-  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`ActiveDrag`](#func-app-activedrag) · [`Advance`](#func-app-advance) · [`AnswerFileDialog`](#func-app-answerfiledialog) · [`AnswerMessage`](#func-app-answermessage) · [`AppMenuBar`](#func-app-appmenubar) · [`AppMenuItems`](#func-app-appmenuitems) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Backdrop`](#func-app-backdrop) · [`BackendStrings`](#func-app-backendstrings) · [`Blocked`](#func-app-blocked) · [`BlockedBy`](#func-app-blockedby) · [`Blocks`](#func-app-blocks) · [`Bounds`](#func-app-bounds) · [`BringToFront`](#func-app-bringtofront) · [`CancelDrag`](#func-app-canceldrag) · [`CaptionDrags`](#func-app-captiondrags) · [`ChooseAppMenuItem`](#func-app-chooseappmenuitem) · [`ChooseMenuItem`](#func-app-choosemenuitem) · [`ChoosePopupItem`](#func-app-choosepopupitem) · [`ClearAccentColor`](#func-app-clearaccentcolor) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`ClickNotification`](#func-app-clicknotification) · [`ClickNotificationAction`](#func-app-clicknotificationaction) · [`ClickTray`](#func-app-clicktray) · [`ClickTrayItem`](#func-app-clicktrayitem) · [`Clipboard`](#func-app-clipboard) · [`Close`](#func-app-close) · [`Closed`](#func-app-closed) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DismissNotification`](#func-app-dismissnotification) · [`DismissPopupMenu`](#func-app-dismisspopupmenu) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`DragTo`](#func-app-dragto) · [`DragToWindow`](#func-app-dragtowindow) · [`DropData`](#func-app-dropdata) · [`DropFiles`](#func-app-dropfiles) · [`DropOn`](#func-app-dropon) · [`DropOutside`](#func-app-dropoutside) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectClosed`](#func-app-expectclosed) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectIdle`](#func-app-expectidle) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectNoWindow`](#func-app-expectnowindow) · [`ExpectQuit`](#func-app-expectquit) · [`ExpectRole`](#func-app-expectrole) · [`ExpectRunning`](#func-app-expectrunning) · [`ExpectText`](#func-app-expecttext) · [`ExpectTitle`](#func-app-expecttitle) · [`ExpectValue`](#func-app-expectvalue) · [`ExpectWindowCount`](#func-app-expectwindowcount) · [`ExpectWindowState`](#func-app-expectwindowstate) · [`FailSecrets`](#func-app-failsecrets) · [`FailShortcuts`](#func-app-failshortcuts) · [`FailTrash`](#func-app-failtrash) · [`FileDialogs`](#func-app-filedialogs) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`GlobalShortcuts`](#func-app-globalshortcuts) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`HasQuit`](#func-app-hasquit) · [`HitAt`](#func-app-hitat) · [`HitRegions`](#func-app-hitregions) · [`HoldAppEntry`](#func-app-holdappentry) · [`HoldAssociation`](#func-app-holdassociation) · [`Hover`](#func-app-hover) · [`HoverDrag`](#func-app-hoverdrag) · [`InjectLaunch`](#func-app-injectlaunch) · [`LastWindow`](#func-app-lastwindow) · [`LayoutJSON`](#func-app-layoutjson) · [`LayoutJSONOf`](#func-app-layoutjsonof) · [`LeaveDrag`](#func-app-leavedrag) · [`LongPress`](#func-app-longpress) · [`MainWindow`](#func-app-mainwindow) · [`Maximize`](#func-app-maximize) · [`Measure`](#func-app-measure) · [`MenuBar`](#func-app-menubar) · [`MessageBoxes`](#func-app-messageboxes) · [`Minimize`](#func-app-minimize) · [`Modal`](#func-app-modal) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`MoveWindow`](#func-app-movewindow) · [`Notifications`](#func-app-notifications) · [`Now`](#func-app-now) · [`Parent`](#func-app-parent) · [`Pending`](#func-app-pending) · [`PixelAt`](#func-app-pixelat) · [`Placement`](#func-app-placement) · [`PopupMenus`](#func-app-popupmenus) · [`Press`](#func-app-press) · [`PressShortcut`](#func-app-pressshortcut) · [`RegisteredApps`](#func-app-registeredapps) · [`Registrations`](#func-app-registrations) · [`ReleaseShortcut`](#func-app-releaseshortcut) · [`RequestClose`](#func-app-requestclose) · [`RequestQuit`](#func-app-requestquit) · [`Resize`](#func-app-resize) · [`ResizeStarts`](#func-app-resizestarts) · [`Restore`](#func-app-restore) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`SelectedText`](#func-app-selectedtext) · [`SetAccentColor`](#func-app-setaccentcolor) · [`SetClipboard`](#func-app-setclipboard) · [`SetCompositing`](#func-app-setcompositing) · [`SetDarkMode`](#func-app-setdarkmode) · [`SetDefaultHandler`](#func-app-setdefaulthandler) · [`SetFullscreen`](#func-app-setfullscreen) · [`SetHighContrast`](#func-app-sethighcontrast) · [`SetReducedMotion`](#func-app-setreducedmotion) · [`SetScale`](#func-app-setscale) · [`SetShortcutStatus`](#func-app-setshortcutstatus) · [`SetShortcutUnassigned`](#func-app-setshortcutunassigned) · [`SetStoredSecret`](#func-app-setstoredsecret) · [`SetTextScale`](#func-app-settextscale) · [`SetTitleBarControls`](#func-app-settitlebarcontrols) · [`StartDrag`](#func-app-startdrag) · [`Stats`](#func-app-stats) · [`StoredSecret`](#func-app-storedsecret) · [`TakesInput`](#func-app-takesinput) · [`Tap`](#func-app-tap) · [`Title`](#func-app-title) · [`TitleBar`](#func-app-titlebar) · [`Trashed`](#func-app-trashed) · [`Tray`](#func-app-tray) · [`Trays`](#func-app-trays) · [`Type`](#func-app-type) · [`Unmaximize`](#func-app-unmaximize) · [`Unsupported`](#func-app-unsupported) · [`WaitFor`](#func-app-waitfor) · [`WaitForWindow`](#func-app-waitforwindow) · [`Window`](#func-app-window) · [`WindowAt`](#func-app-windowat) · [`WindowMenus`](#func-app-windowmenus) · [`WindowSize`](#func-app-windowsize) · [`WindowState`](#func-app-windowstate) · [`Windows`](#func-app-windows)
+  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`ActiveDrag`](#func-app-activedrag) · [`Advance`](#func-app-advance) · [`AnswerFileDialog`](#func-app-answerfiledialog) · [`AnswerMessage`](#func-app-answermessage) · [`AppMenuBar`](#func-app-appmenubar) · [`AppMenuItems`](#func-app-appmenuitems) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Backdrop`](#func-app-backdrop) · [`BackendStrings`](#func-app-backendstrings) · [`Blocked`](#func-app-blocked) · [`BlockedBy`](#func-app-blockedby) · [`Blocks`](#func-app-blocks) · [`Bounds`](#func-app-bounds) · [`BringToFront`](#func-app-bringtofront) · [`CancelDrag`](#func-app-canceldrag) · [`CaptionDrags`](#func-app-captiondrags) · [`ChooseAppMenuItem`](#func-app-chooseappmenuitem) · [`ChooseMenuItem`](#func-app-choosemenuitem) · [`ChoosePopupItem`](#func-app-choosepopupitem) · [`ClearAccentColor`](#func-app-clearaccentcolor) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`ClickNotification`](#func-app-clicknotification) · [`ClickNotificationAction`](#func-app-clicknotificationaction) · [`ClickTray`](#func-app-clicktray) · [`ClickTrayItem`](#func-app-clicktrayitem) · [`Clipboard`](#func-app-clipboard) · [`Close`](#func-app-close) · [`Closed`](#func-app-closed) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DismissNotification`](#func-app-dismissnotification) · [`DismissPopupMenu`](#func-app-dismisspopupmenu) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`DragTo`](#func-app-dragto) · [`DragToWindow`](#func-app-dragtowindow) · [`DropData`](#func-app-dropdata) · [`DropFiles`](#func-app-dropfiles) · [`DropOn`](#func-app-dropon) · [`DropOutside`](#func-app-dropoutside) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectClosed`](#func-app-expectclosed) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectIdle`](#func-app-expectidle) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectNoWindow`](#func-app-expectnowindow) · [`ExpectQuit`](#func-app-expectquit) · [`ExpectRole`](#func-app-expectrole) · [`ExpectRunning`](#func-app-expectrunning) · [`ExpectText`](#func-app-expecttext) · [`ExpectTitle`](#func-app-expecttitle) · [`ExpectValue`](#func-app-expectvalue) · [`ExpectWindowCount`](#func-app-expectwindowcount) · [`ExpectWindowState`](#func-app-expectwindowstate) · [`FailSecrets`](#func-app-failsecrets) · [`FailShortcuts`](#func-app-failshortcuts) · [`FailSurfaces`](#func-app-failsurfaces) · [`FailTrash`](#func-app-failtrash) · [`FileDialogs`](#func-app-filedialogs) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`GlobalShortcuts`](#func-app-globalshortcuts) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`HasQuit`](#func-app-hasquit) · [`HitAt`](#func-app-hitat) · [`HitRegions`](#func-app-hitregions) · [`HoldAppEntry`](#func-app-holdappentry) · [`HoldAssociation`](#func-app-holdassociation) · [`Hover`](#func-app-hover) · [`HoverDrag`](#func-app-hoverdrag) · [`InjectLaunch`](#func-app-injectlaunch) · [`LastWindow`](#func-app-lastwindow) · [`LayoutJSON`](#func-app-layoutjson) · [`LayoutJSONOf`](#func-app-layoutjsonof) · [`LeaveDrag`](#func-app-leavedrag) · [`LongPress`](#func-app-longpress) · [`MainWindow`](#func-app-mainwindow) · [`Maximize`](#func-app-maximize) · [`Measure`](#func-app-measure) · [`MenuBar`](#func-app-menubar) · [`MessageBoxes`](#func-app-messageboxes) · [`Minimize`](#func-app-minimize) · [`Modal`](#func-app-modal) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`MoveWindow`](#func-app-movewindow) · [`Notifications`](#func-app-notifications) · [`Now`](#func-app-now) · [`Parent`](#func-app-parent) · [`Pending`](#func-app-pending) · [`PixelAt`](#func-app-pixelat) · [`Placement`](#func-app-placement) · [`PopupMenus`](#func-app-popupmenus) · [`Press`](#func-app-press) · [`PressShortcut`](#func-app-pressshortcut) · [`RecentDocuments`](#func-app-recentdocuments) · [`RegisteredApps`](#func-app-registeredapps) · [`Registrations`](#func-app-registrations) · [`ReleaseShortcut`](#func-app-releaseshortcut) · [`RequestClose`](#func-app-requestclose) · [`RequestQuit`](#func-app-requestquit) · [`Resize`](#func-app-resize) · [`ResizeStarts`](#func-app-resizestarts) · [`Restore`](#func-app-restore) · [`RunTask`](#func-app-runtask) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`SelectedText`](#func-app-selectedtext) · [`SetAccentColor`](#func-app-setaccentcolor) · [`SetClipboard`](#func-app-setclipboard) · [`SetCompositing`](#func-app-setcompositing) · [`SetDarkMode`](#func-app-setdarkmode) · [`SetDefaultHandler`](#func-app-setdefaulthandler) · [`SetFullscreen`](#func-app-setfullscreen) · [`SetHighContrast`](#func-app-sethighcontrast) · [`SetReducedMotion`](#func-app-setreducedmotion) · [`SetScale`](#func-app-setscale) · [`SetShortcutStatus`](#func-app-setshortcutstatus) · [`SetShortcutUnassigned`](#func-app-setshortcutunassigned) · [`SetStartsAtLogin`](#func-app-setstartsatlogin) · [`SetStoredSecret`](#func-app-setstoredsecret) · [`SetTextScale`](#func-app-settextscale) · [`SetTitleBarControls`](#func-app-settitlebarcontrols) · [`StartDrag`](#func-app-startdrag) · [`StartsAtLogin`](#func-app-startsatlogin) · [`Stats`](#func-app-stats) · [`StoredSecret`](#func-app-storedsecret) · [`TakesInput`](#func-app-takesinput) · [`Tap`](#func-app-tap) · [`Tasks`](#func-app-tasks) · [`Title`](#func-app-title) · [`TitleBar`](#func-app-titlebar) · [`Trashed`](#func-app-trashed) · [`Tray`](#func-app-tray) · [`Trays`](#func-app-trays) · [`Type`](#func-app-type) · [`Unmaximize`](#func-app-unmaximize) · [`Unsupported`](#func-app-unsupported) · [`WaitFor`](#func-app-waitfor) · [`WaitForWindow`](#func-app-waitforwindow) · [`Window`](#func-app-window) · [`WindowAt`](#func-app-windowat) · [`WindowMenus`](#func-app-windowmenus) · [`WindowSize`](#func-app-windowsize) · [`WindowState`](#func-app-windowstate) · [`Windows`](#func-app-windows)
   - [`type ClickOption`](#type-clickoption): [`Delay`](#func-delay) · [`MouseBack`](#func-mouseback) · [`MouseForward`](#func-mouseforward) · [`Right`](#func-right)
   - [`type DesktopService`](#type-desktopservice)
   - [`type DragInfo`](#type-draginfo)
@@ -1086,6 +1086,14 @@ app.FailShortcuts(desktop.ErrAppNotRegistered)
 app.Click(telatest.ByRole("switch", "Quick note")) // registers again
 ```
 
+#### func (*App) FailSurfaces
+
+```go
+func (a *App) FailSurfaces(err error)
+```
+
+FailSurfaces makes every call of the desktop surfaces (desktop.SetStartAtLogin, StartsAtLogin, SetTasks, AddRecentDocument, ClearRecentDocuments) fail with err from now on, until FailSurfaces(nil), and nothing is recorded: a registry or a folder the user may not write. (A desktop without one of them is App.Unsupported(telatest.StartAtLogin), Tasks or RecentDocuments.)
+
 #### func (*App) FailTrash
 
 ```go
@@ -1553,6 +1561,55 @@ app.PressShortcut("new-note")
 app.ExpectText("Untitled note")
 ```
 
+#### func (*App) RecentDocuments
+
+```go
+func (a *App) RecentDocuments() []string
+```
+
+RecentDocuments returns the app's recent documents (desktop.AddRecentDocument), most recent first, as absolute paths, after settling the app; ClearRecentDocuments empties it.
+
+```go
+app.Click(telatest.ByRole("button", "Open"))
+if got := app.RecentDocuments(); len(got) == 0 || got[0] != path {
+    t.Errorf("recent %v", got)
+}
+```
+
+**Example**
+
+An editor adds each file it opens to the app's recent documents.
+
+```go
+dir, _ := os.MkdirTemp("", "telatest-recent")
+defer os.RemoveAll(dir)
+for _, name := range []string{"a.md", "b.md"} {
+    _ = os.WriteFile(filepath.Join(dir, name), nil, 0o600)
+}
+editor := func() tela.Node {
+    open := func(name string) func() {
+        return func() { _ = desktop.AddRecentDocument(filepath.Join(dir, name)) }
+    }
+    return Div(
+        Button(OnClick(open("a.md")), Text("Open a.md")),
+        Button(OnClick(open("b.md")), Text("Open b.md")),
+    )
+}
+app := telatest.Mount(t, tela.C(editor))
+
+app.Click(telatest.ByRole("button", "Open a.md"))
+app.Click(telatest.ByRole("button", "Open b.md"))
+for _, p := range app.RecentDocuments() {
+    fmt.Println(filepath.Base(p))
+}
+_ = desktop.ClearRecentDocuments()
+fmt.Println(len(app.RecentDocuments()))
+// Output:
+// b.md
+// a.md
+// 0
+```
+
 #### func (*App) RegisteredApps
 
 ```go
@@ -1642,6 +1699,54 @@ func (a *App) Restore()
 ```
 
 Restore brings the window back to its normal state: not minimized, not maximized and not fullscreen.
+
+#### func (*App) RunTask
+
+```go
+func (a *App) RunTask(title string)
+```
+
+RunTask plays the user choosing the app's task titled title in its jump list, Dock menu or launcher: the app gets a launch with the task's Args through desktop.UseLaunch, Source LaunchForwarded, as on every system (Windows and Linux start a second process, which desktop.SingleInstance forwards; macOS's Dock menu hands it over directly), and the app settles. It fails the test when the app has no such task.
+
+```go
+app.RunTask("New note")
+app.ExpectText("Untitled note")
+```
+
+**Example**
+
+Notes sets its jump list, Dock menu or launcher tasks once, and opens what a task's launch names.
+
+```go
+notes := func() tela.Node {
+    opened, setOpened := tela.UseState("nothing")
+    tela.UseMount(func() func() {
+        _ = desktop.SetTasks([]desktop.Task{
+            {Title: "New note", Args: []string{"notes:new"}},
+            {Title: "Search notes", Args: []string{"notes:search"}},
+        })
+        return nil
+    })
+    desktop.UseLaunch(func(l desktop.Launch) {
+        if urls := l.URLs(); len(urls) > 0 {
+            setOpened.Set(urls[0])
+        }
+    })
+    return Textf("opened %s", opened)
+}
+app := telatest.MountApp(t, desktop.SingleInstance(tela.App{Root: tela.C(notes)}))
+
+for _, task := range app.Tasks() {
+    fmt.Println(task.Title, task.Args)
+}
+app.RunTask("Search notes")
+app.ExpectText("opened notes:search")
+fmt.Println("ok")
+// Output:
+// New note [notes:new]
+// Search notes [notes:search]
+// ok
+```
 
 #### func (*App) Screenshot
 
@@ -1776,6 +1881,14 @@ app.SetShortcutUnassigned("new-note")
 app.ExpectText("bind = CTRL ALT, N, global, com.example.notes:new-note")
 ```
 
+#### func (*App) SetStartsAtLogin
+
+```go
+func (a *App) SetStartsAtLogin(on bool)
+```
+
+SetStartsAtLogin plays the user switching the app's start at login in the OS's own settings (Task Manager, System Settings › Login Items): desktop.StartsAtLogin reports on from now on.
+
 #### func (*App) SetStoredSecret
 
 ```go
@@ -1821,6 +1934,46 @@ app.ExpectText("Release to move here") // the drag-over state of the column
 app.DropOn(telatest.ByTestID("column-done"))
 ```
 
+#### func (*App) StartsAtLogin
+
+```go
+func (a *App) StartsAtLogin() bool
+```
+
+StartsAtLogin reports whether the app asked the desktop to start it at login (desktop.SetStartAtLogin), after settling the app; also what SetStartsAtLogin set.
+
+```go
+app.Click(telatest.ByRole("switch", "Open at login"))
+if !app.StartsAtLogin() {
+    t.Error("the switch did not turn start at login on")
+}
+```
+
+**Example**
+
+An "Open at login" switch.
+
+```go
+settings := func() tela.Node {
+    on, setOn := tela.UseState(false)
+    return Button(OnClick(func() {
+        if desktop.SetStartAtLogin(!on) == nil {
+            setOn.Set(!on)
+        }
+    }), Textf("Open at login: %v", on))
+}
+app := telatest.Mount(t, tela.C(settings))
+
+app.Click(telatest.ByRole("button", "Open at login: false"))
+fmt.Println(app.StartsAtLogin())
+app.SetStartsAtLogin(false) // the user turns it off in the OS's settings
+on, _ := desktop.StartsAtLogin()
+fmt.Println(on)
+// Output:
+// true
+// false
+```
+
 #### func (*App) Stats
 
 ```go
@@ -1855,6 +2008,20 @@ Tap taps the element l locates with a finger: it puts a touch pointer down at th
 
 ```go
 app.Tap(telatest.ByRole("button", "Save"))
+```
+
+#### func (*App) Tasks
+
+```go
+func (a *App) Tasks() []desktop.Task
+```
+
+Tasks returns the app's tasks (desktop.SetTasks), in order, after settling the app; nil without any.
+
+```go
+if got := app.Tasks(); len(got) != 2 || got[0].Title != "New note" {
+    t.Errorf("tasks %+v", got)
+}
 ```
 
 #### func (*App) Title
@@ -2131,6 +2298,14 @@ const (
     // (with NativeMenus unsupported too, as on Linux, nothing is native
     // and the app draws it).
     AppMenu
+    // StartAtLogin: desktop.SetStartAtLogin and StartsAtLogin, as for a
+    // macOS program outside a bundle.
+    StartAtLogin
+    // Tasks: desktop.SetTasks, as on a desktop that shows no tasks.
+    Tasks
+    // RecentDocuments: desktop.AddRecentDocument and
+    // ClearRecentDocuments.
+    RecentDocuments
 )
 ```
 

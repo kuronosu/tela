@@ -36,6 +36,7 @@ Small gaps that no phase is planned for (ADR-267). They block nothing; a phase t
 - **Allocations (ADR-291):** the dashboard allocates about 1,280 objects per frame of a hover sweep and 480 per frame of scrolling (`hoverAllocsPerFrame`, `scrollAllocsPerFrame` in `examples/dashboard/budget_test.go`), mostly in paint recording (`gfx.Builder.AppendList`, `Path.Clone`, the glyph clone of `DrawGlyphRun`, `painter.paintBand`); the two budgets count with the local Go toolchain (1.27.4) and may differ on another one
 - **Text fields:** `AutoFocus` puts the caret at the start of a field's existing value (the report dialog of the dashboard types before "Q3 revenue summary"); check where Chromium puts it
 - **Floating:** size limits ignore the device-pixel snap of the position, so a menu limited to the room can end up to half a device pixel past the window at x1.5
+- **Phase 27:** `router`'s history is unbounded, and Alt+Left navigates behind a modal dialog (as Chromium); `kit.Markdown` has no footnotes, heading anchors or per-block skipping; `oauth` has no RFC 9207 `iss` check, DPoP or retry on 401, and a rotated refresh token it fails to store is lost silently; `telatest` cannot report the URLs an app opened, nor play a start at login
 
 ## Live checks (not blocking)
 
@@ -62,6 +63,7 @@ This session gates v1.0's "macOS supported". Items a phase adds after the sessio
 - [ ] Phase 24: VoiceOver follows incremental AX updates (ADR-277); the IOSurface present at Retina scale, a live resize and a transparent window (ADR-278)
 - [ ] After packaging: a signed and notarized `.app`/`.dmg` installs and updates
 - [ ] Phase 26 by hand on a Mac (the macOS CI runner runs `TestPackageMacTools`, `TestPackageAppUpdates` and `TestNotesMacOS`: the unsigned universal program starts, an ad-hoc signed bundle verifies, a bundle updates itself, a declared scheme opens the app): a `tela package -format app,dmg -arch universal` zip opens in Archive Utility and runs; signed with a Developer ID and notarized: `codesign --verify --deep --strict`, `spctl -a -vv -t execute` says Notarized Developer ID, `xcrun stapler validate`; a declared file type opens the app, and run-time registration leaves the signed bundle valid (commands in `docs/wiki/CLI.md`, macOS)
+- [ ] Phase 27: `SetStartAtLogin` in System Settings › Login Items and `Launch.AtLogin` at login (the `'oapp'` event may arrive after the first commit), the Dock menu's tasks, Open Recent
 
 ### Windows on real hardware
 
@@ -79,6 +81,7 @@ The VM has no GPU and runs at scale 1.
 - [ ] Phase 25: `TELA_LIVE=1 go test -tags telagpu -run TestLiveGPU ./internal/core/` and `go test -tags telagpu ./internal/vk/... ./internal/gfx/gpu/...` on a real GPU (none of the Windows GPU code has run): the first frame appears after `ShowWindow`, images keep their contents across acquires, `PrintWindow` captures flip-model content, minimize and restore, a live resize in the modal loop, no flash of the old GDI copy when the swapchain is released, a driver without a BGRA or RGBA unorm format; the dashboard's frame times
 - [ ] Phase 26 (the VM is enough): a person clicks a toast's button after the app exited (`TELA_LIVE=1 TELA_LIVE_CLICK=1 go test -run 'TestLiveToastClick|TestLiveToastActivator$' ./internal/platform/win32/`). Checked on the VM on 2026-11-17: `desktop.Logger` in a GUI-subsystem program started by the Task Scheduler (no console) writes its JSON lines to `%LOCALAPPDATA%\<AppID>\logs`; a `tela build` executable shows its icon and `VersionInfo`; `desktop`'s rotation and crash tests, `update`, and `TestLiveToast` and `TestLiveToastActivator` (registration after exit) pass
 - [ ] Phase 26 with the Windows SDK: an arm64 MSIX on arm64 Windows; a person clicks a toast after the MSIX-installed notes exited (install it from its `.appinstaller`, turn on "Notify when a file is saved" in Preferences, save a note, quit notes, click the toast in the notification center: notes starts again from `WindowsApps`, its command line with `-ToastActivated`). Checked on the VM on 2026-11-17 (SDK 10.0.26100): `makeappx unpack` of an MSIX packaged on Linux, and its block hashes and manifest match `makeappx pack` of the same files; `tela package -sign` on Windows with a self-signed `.pfx` passes `signtool verify /pa` and `Get-AuthenticodeSignature` for the program and the MSIX; App Installer installs it from a local HTTP server (SignatureKind Developer), finds 1.1.0 at the next start, downloads only the changed blocks and installs it at the start after; the installed manifest declares the COM server and toast CLSID, and COM activation of that class starts the packaged program with `-ToastActivated -Embedding`
+- [ ] Phase 27 (the VM is enough): the Run value and `Launch.AtLogin` after a logon, jump list tasks with icons reaching `UseLaunch`, the Recent category and `ClearRecentDocuments`
 
 ### Linux desktops
 
@@ -87,6 +90,7 @@ On the owner's Hyprland, a headless sway, or a GNOME or KDE session.
 - [ ] X11 drag and drop, drags out of a Wayland window, and clipboard data (images, files, rich text) on both, with real apps (so far a fake compositor and a fake X server; a drop from Nautilus into a Wayland window is checked)
 - [ ] The Trash (the portal, and the home trash)
 - [ ] The Secret Service's unlock prompts through `examples/notes`
+- [ ] Phase 27: desktop entry actions in GNOME, KDE and Hyprland launchers (the entry is `NoDisplay`); the Background portal in a Flatpak
 - [ ] X11 at scale 2 (`Xft.dpi`); X11 window positions and interactive moves on a real EWMH window manager
 - [ ] Wayland maximize, the window menu, icons, `xdg-dialog` and session restore on a compositor that has them (sway lacks them)
 - [ ] "Open with" dialogs list an app registered with `NoDisplay=true`
