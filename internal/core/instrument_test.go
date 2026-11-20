@@ -692,6 +692,59 @@ func TestInstrumentChildWindows(t *testing.T) {
 	}
 }
 
+// A Value owned and a Provider mounted in the main window, read in a child
+// window: the reasons give the IDs of the main window's tree and say so,
+// and the child's tree gives no ID to an element of another tree.
+func TestInstrumentReasonOtherWindow(t *testing.T) {
+	var v *Value[int]
+	var setN Setter[int]
+	x := newWinHarness(t, Options{Config: Config{Dev: true}, Root: Component(func() Node {
+		n, s := UseState(0)
+		setN = s
+		v = UseValue(1)
+		return insCtx.Provider(n, Primitive(style.KindDiv, insCtxReader{}, win(ChildWindowSpec{
+			WindowSpec: WindowSpec{Title: "Child"}, OnClose: func() {},
+			Root: Primitive(style.KindDiv, insValueReader{V: v}, insCtxReader{}),
+		})))
+	})})
+	x.h.SetInstrument(true)
+	t.Cleanup(func() { x.h.SetInstrument(false) })
+	trees := x.h.Trees()
+	if len(trees) != 2 {
+		t.Fatalf("%d trees", len(trees))
+	}
+	main, child := trees[0], trees[1]
+	v.Set(2)
+	setN.Set(5)
+	x.drain()
+	owner := insOne(t, main, "core.TestInstrumentReasonOtherWindow.func1")
+	prov := insOne(t, main, "Context[int].Provider")
+	vr := lastReasons(t, insOne(t, child, "core.insValueReader"))
+	if len(vr) != 1 || vr[0].Cause != CauseValue || vr[0].Element != owner.ID || !vr[0].OtherWindow || vr[0].HookKind != "UseValue" {
+		t.Errorf("value reasons %+v; want UseValue of %d in the other window", vr, owner.ID)
+	} else if s := vr[0].String(); !strings.Contains(s, "another window") {
+		t.Errorf("String() = %q", s)
+	}
+	cr := lastReasons(t, insOne(t, child, "core.insCtxReader"))
+	if len(cr) != 1 || cr[0].Cause != CauseContext || cr[0].Element != prov.ID || !cr[0].OtherWindow {
+		t.Errorf("context reasons %+v; want the Provider %d in the other window", cr, prov.ID)
+	}
+	for el := range child.ins.els {
+		if el.tree != child {
+			t.Errorf("the child's tree keeps an element of another tree: %v", elementKindName(el))
+		}
+	}
+	if child.ins.of(main.root).id != 0 || child.ins.idOf(main.root) != 0 {
+		t.Error("the child's instrument gives an ID to the main tree's root")
+	}
+	// Within one window there is no marker.
+	if r := lastReasons(t, insOne(t, main, "core.insCtxReader")); len(r) != 1 || r[0].Element != prov.ID || r[0].OtherWindow {
+		t.Errorf("the main window's reader: %+v", r)
+	}
+}
+
+func elementKindName(el *Element) string { k, _ := elementKind(el); return k }
+
 // The cost of the instrumentation on, against BenchmarkMount10k and
 // BenchmarkUpdateText10k (bench_test.go), which have it off.
 func BenchmarkInstrumentedMount10k(b *testing.B) {

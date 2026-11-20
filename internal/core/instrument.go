@@ -147,12 +147,14 @@ func (t *Tree) Instrumented() bool { return t.ins != nil }
 
 // of returns the state of el, giving it the next ID when it is new. An
 // element that is no longer mounted (a box of one stays in the box tree
-// until the next frame) gets a state of its own with ID 0, not kept.
+// until the next frame) or that is in another window's tree (ADR-180; its
+// own tree's instrument has it, and forgets it when it unmounts) gets a
+// state of its own with ID 0, not kept.
 func (ins *instrument) of(el *Element) *elemIns {
 	if e := ins.els[el]; e != nil {
 		return e
 	}
-	if !el.mounted {
+	if !el.mounted || el.tree != ins.t {
 		return &elemIns{}
 	}
 	ins.t.insNext++
@@ -281,7 +283,8 @@ type cause struct {
 	hook     int32      // hook slot, -1 for none
 	hookKind string     // its kind
 	site     SourceSite // its call site
-	el       ElementID  // the Value's owner, the Provider
+	el       ElementID  // the Value's owner, the Provider, in its own tree
+	other    bool       // that tree is another window's
 	what     string     // the context, the tree value, a detail
 	// fields and noncmp are the props that differ and those that cannot
 	// be compared.
@@ -289,7 +292,7 @@ type cause struct {
 }
 
 func (c *cause) same(d *cause) bool {
-	return c.kind == d.kind && c.hook == d.hook && c.el == d.el && c.what == d.what
+	return c.kind == d.kind && c.hook == d.hook && c.el == d.el && c.other == d.other && c.what == d.what
 }
 
 // note records cause c for the next build of el.
@@ -369,12 +372,17 @@ func (f *scrollFollow) holdsValue(c *valueCore) bool {
 }
 
 // noteValue records that a change of v marked el, which read it in its
-// build, for building (valueChangedSkip).
+// build, for building (valueChangedSkip). The owner of v may be in another
+// window's tree (Values are tracked app-wide, ADR-180): its ID is the one
+// of its own tree, as noteContext gives the Provider's.
 func (ins *instrument) noteValue(el *Element, v *valueCore) {
 	c := cause{kind: CauseValue, hook: -1}
 	if o := v.el; o != nil {
+		c.other = o.tree != ins.t
 		if o.kind == elemComponent {
-			c.el = ins.idOf(o)
+			if oi := o.tree.ins; oi != nil {
+				c.el = oi.idOf(o)
+			}
 			for i, h := range o.hooks {
 				if vh, ok := h.(valueHolder); ok && vh.holdsValue(v) {
 					c.hook = int32(i)
@@ -413,9 +421,11 @@ func treeValueName(t *Tree, v *valueCore) string {
 	return "a value of the tree"
 }
 
-// noteContext records that Provider prov gave consumer el a new value.
+// noteContext records that Provider prov gave consumer el a new value. A
+// consumer in a child window reads a Provider of the window that opened it
+// (Tree.outer): the Provider's ID is the one of its own tree.
 func (ins *instrument) noteContext(el, prov *Element) {
-	c := cause{kind: CauseContext, hook: -1, what: contextName(prov.comp.ctx)}
+	c := cause{kind: CauseContext, hook: -1, what: contextName(prov.comp.ctx), other: prov.tree != ins.t}
 	if prov.tree.ins != nil {
 		c.el = prov.tree.ins.idOf(prov)
 	}
@@ -614,8 +624,16 @@ type BuildReason struct {
 	HookKind string     `json:"hookKind,omitempty"`
 	Site     SourceSite `json:"site,omitzero"`
 	// Element is the component whose Value changed (CauseValue) or the
-	// Provider (CauseContext).
+	// Provider (CauseContext), as an ID of the tree it is in: the tree of
+	// the element that built, or, when OtherWindow is set, the tree of
+	// another window of the app (ADR-180: a Value or a context reaches
+	// across the windows), whose listing has it. 0 when that tree is not
+	// instrumented.
 	Element ElementID `json:"element,omitempty"`
+	// OtherWindow reports that the Value's owner (CauseValue: Element, or
+	// the tree whose Value Context names) or the Provider (CauseContext)
+	// is in another window than the element that built.
+	OtherWindow bool `json:"otherWindow,omitempty"`
 	// Context is the context (CauseContext), the tree's value
 	// (CauseValue without Element) or a detail of CauseProps.
 	Context string `json:"context,omitempty"`
@@ -647,12 +665,19 @@ func (r BuildReason) String() string {
 	case CauseAsync:
 		return hook() + " changed"
 	case CauseContext:
+		if r.OtherWindow {
+			return r.Context + " has a new value (its Provider is in another window)"
+		}
 		return r.Context + " has a new value"
 	case CauseValue:
-		if r.Hook >= 0 {
-			return "the " + hook() + " it reads changed"
+		var where string
+		if r.OtherWindow {
+			where = " (in another window)"
 		}
-		return r.Context + " changed"
+		if r.Hook >= 0 {
+			return "the " + hook() + " it reads changed" + where
+		}
+		return r.Context + " changed" + where
 	case CauseProps:
 		var parts []string
 		if len(r.Fields) > 0 {
@@ -808,7 +833,7 @@ func (ins *instrument) info(el *Element, parent ElementID, depth int, detail boo
 
 func (c *cause) reason() BuildReason {
 	return BuildReason{Cause: c.kind, Hook: int(c.hook), HookKind: c.hookKind, Site: c.site, Element: c.el,
-		Context: c.what, Fields: c.fields, Uncomparable: c.noncmp}
+		OtherWindow: c.other, Context: c.what, Fields: c.fields, Uncomparable: c.noncmp}
 }
 
 // elementKind names el as ElementInfo.Kind does, and reports a component.
