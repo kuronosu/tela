@@ -263,6 +263,12 @@ func devToolsFrame(h *Host) {
 // devToolsFlush pushes the frames recorded and the log entries since the
 // last push.
 func devToolsFlush(h *Host) {
+	// The flush runs as a post inside the next frame's input span: its
+	// marshal and writes are the tools' work, not the app's.
+	if ins := h.tree.ins; ins != nil {
+		d := ins.prof.spanBegin(phaseNone)
+		defer ins.prof.spanEnd(d)
+	}
 	devTools.armed = false
 	devTools.last = time.Now()
 	devToolsPrune(h)
