@@ -84,3 +84,20 @@ func TestSnapshotFilm(t *testing.T) {
 		t.Errorf("-o and --apng the same: exit %d, %s", code, errOut.String())
 	}
 }
+
+// TestSnapshotFilmKeepsSubMillisecondValues checks that the interval the
+// instance films with is the one checkFilm validated, not that value
+// truncated to whole milliseconds: 9ms every 1500us is 7 frames, where an
+// interval of 1ms would make 10.
+func TestSnapshotFilmKeepsSubMillisecondValues(t *testing.T) {
+	skipShort(t)
+	sheetPath := filepath.Join(t.TempDir(), "sheet.png")
+	var out, errOut bytes.Buffer
+	args := []string{"snapshot", "--film", "9ms", "--every", "1500us", "--size", "300x120", "-o", sheetPath, "./testdata/effectanim"}
+	if code := run(args, &out, &errOut); code != 0 {
+		t.Fatalf("tela %v: exit %d\nstdout: %s\nstderr: %s", args, code, out.String(), errOut.String())
+	}
+	if !strings.Contains(out.String(), "(7 frames") {
+		t.Errorf("stdout: %s", out.String())
+	}
+}

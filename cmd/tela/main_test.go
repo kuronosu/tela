@@ -10,6 +10,7 @@ import (
 	"image/draw"
 	"image/png"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -166,7 +167,7 @@ func TestInspectDispatch(t *testing.T) {
 
 func TestGenerateSource(t *testing.T) {
 	for _, c := range []contract{contractPreview, contractPreviews, contractApp} {
-		src := generateSource("main", c, c == contractApp)
+		src := generateSource("main", c, c == contractApp, genFeatures{Settle: true})
 		f, err := parser.ParseFile(token.NewFileSet(), generatedFile, src, parser.AllErrors)
 		if err != nil {
 			t.Fatalf("%v: generated source does not parse: %v\n%s", c, err, src)
@@ -207,6 +208,39 @@ func TestGenerateSource(t *testing.T) {
 		if _, err := parser.ParseFile(token.NewFileSet(), generatedFile, with, parser.AllErrors); err != nil {
 			t.Errorf("%v with an App: does not parse: %v", c, err)
 		}
+	}
+}
+
+// TestGenerateSourceOlderTela checks the form for a module whose tela
+// predates the settled mount: it renders with the telatest functions of
+// before (Render, LayoutJSON, AriaSnapshot of a root) and names nothing that
+// version lacks (ADR-059: the commands work on any module that requires
+// tela).
+func TestGenerateSourceOlderTela(t *testing.T) {
+	for _, c := range []contract{contractPreview, contractPreviews, contractApp} {
+		src := string(generateSource("main", c, c == contractApp, genFeatures{}))
+		if _, err := parser.ParseFile(token.NewFileSet(), generatedFile, src, parser.AllErrors); err != nil {
+			t.Fatalf("%v: generated source does not parse: %v\n%s", c, err, src)
+		}
+		for _, want := range []string{"telatest.Render(root, opts...)", "telatest.LayoutJSON(root, opts...)", "telatest.AriaSnapshot(root, opts...)"} {
+			if !strings.Contains(src, want) {
+				t.Errorf("%v: the form for an older tela lacks %q", c, want)
+			}
+		}
+		for _, bad := range []string{"telatest.Mount(", "NoSettle", "AllowDev", "app.LayoutJSON()", "app.Screenshot()", "app.Film(", "Instrument"} {
+			if strings.Contains(src, bad) {
+				t.Errorf("%v: the form for an older tela uses %q, which a tela before the settled mount lacks", c, bad)
+			}
+		}
+	}
+	// The detection decides: the settled form needs NoSettle, App.LayoutJSON
+	// and AllowDev, which this module's telatest has.
+	goBin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip("the go command is not in PATH")
+	}
+	if f := detectFeatures(goBin, "testdata/previews"); !f.Settle {
+		t.Errorf("detectFeatures of this module's tela: %+v, want Settle", f)
 	}
 }
 

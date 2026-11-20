@@ -13,6 +13,12 @@ import (
 // requires, which may be older than this binary (ADR-194, ADR-300), so
 // the generated source asks first.
 type genFeatures struct {
+	// Settle: telatest mounts the app as a test does and settles it
+	// (Mount with AllowDev and NoSettle, and App.LayoutJSON), so that
+	// tela snapshot and inspect render the screen at rest. An older tela
+	// renders one frame with telatest.Render, LayoutJSON and AriaSnapshot
+	// (ADR-059: the commands work on any module that requires tela).
+	Settle bool
 	// DevTools: telatest has Instrument, AriaSnapshotSources, Components,
 	// ComponentOf and Frames (ADR-299), and so the source lines of
 	// elements, the state and perf tools and the preference tool.
@@ -43,6 +49,7 @@ func detectFeatures(goBin, dir string) genFeatures {
 		case path == "github.com/kuronosu/tela/i18n":
 			f.I18N = true
 		case path == "github.com/kuronosu/tela/telatest":
+			f.Settle = hasFunc(pkgDir, "func NoSettle() Option") && hasFunc(pkgDir, "func (a *App) LayoutJSON(") && hasFunc(pkgDir, "func AllowDev(")
 			f.DevTools = hasFunc(pkgDir, "func Instrument() Option")
 			f.Film = hasFunc(pkgDir, "func (a *App) Film(")
 		}

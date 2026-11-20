@@ -35,6 +35,9 @@ import (
 // Mount settles the app as a test does: passive effects run, the state they
 // set and the toasts they show are built, and finite animations finish, so
 // the output is the screen at rest, as a window shows it after a moment.
+// A module whose tela predates that (genFeatures.Settle: telatest without
+// NoSettle or App.LayoutJSON) gets the form of before, which renders one
+// frame with telatest.Render, LayoutJSON and AriaSnapshot.
 
 // mode is what the generated test does.
 type mode string
@@ -102,13 +105,17 @@ const (
 	envDark    = "TELA_RUN_DARK"
 	envSizeSet = "TELA_RUN_SIZE_SET" // "true" when --size was given, which beats App.Width and Height
 	envPreview = "TELA_RUN_PREVIEW"
-	envFilm    = "TELA_RUN_FILM"  // span of the film, in milliseconds
-	envEvery   = "TELA_RUN_EVERY" // interval of the film, in milliseconds
+	envFilm    = "TELA_RUN_FILM"  // span of the film, in nanoseconds (checkFilm validated these exact values)
+	envEvery   = "TELA_RUN_EVERY" // interval of the film, in nanoseconds
 	envOut     = "TELA_RUN_OUT"   // the result: a PNG, JSON or YAML
 	envErr     = "TELA_RUN_ERR"   // a message for the user, when the run fails
 	envInfo    = "TELA_RUN_INFO"  // JSON runInfo
 	envLog     = "TELA_RUN_LOG"   // what the run printed on standard error (dev warnings and class errors)
 )
+
+// runFeatures is detectFeatures, replaced by a test that runs the form for
+// an older tela.
+var runFeatures = detectFeatures
 
 // generatedFile is the name of the generated test file inside the package
 // directory (it exists only in the overlay).
@@ -341,13 +348,12 @@ func runInPackage(m mode, opts renderOptions, ext string, stderr io.Writer) (*ru
 
 	src := filepath.Join(tmp, generatedFile)
 	// The elements' source lines are part of what inspect prints.
-	var feats genFeatures
-	if m != modeSnapshot {
-		feats = detectFeatures(goBin, pkg.Dir)
-		feats.I18N = false
-		if m == modeFilm {
-			feats.DevTools = false // a film is of the app as it is, not instrumented
-		}
+	// The module's tela may predate the settled mount; the source lines
+	// are only for inspect.
+	feats := runFeatures(goBin, pkg.Dir)
+	feats.I18N = false
+	if m == modeSnapshot || m == modeFilm {
+		feats.DevTools = false // a picture, or a film of the app as it is: not instrumented
 	}
 	if err := os.WriteFile(src, generateSource(pkg.Name, c, det.hasApp, feats), 0o644); err != nil {
 		return nil, err
@@ -379,8 +385,8 @@ func runInPackage(m mode, opts renderOptions, ext string, stderr io.Writer) (*ru
 		envW+"="+strconv.FormatFloat(opts.W, 'g', -1, 64),
 		envH+"="+strconv.FormatFloat(opts.H, 'g', -1, 64),
 		envScale+"="+strconv.FormatFloat(opts.Scale, 'g', -1, 64),
-		envFilm+"="+strconv.FormatInt(opts.Film.Milliseconds(), 10),
-		envEvery+"="+strconv.FormatInt(opts.Every.Milliseconds(), 10),
+		envFilm+"="+strconv.FormatInt(int64(opts.Film), 10),
+		envEvery+"="+strconv.FormatInt(int64(opts.Every), 10),
 		envDark+"="+strconv.FormatBool(opts.Dark),
 		envSizeSet+"="+strconv.FormatBool(opts.SizeSet),
 		envPreview+"="+opts.Preview,
@@ -501,11 +507,12 @@ func generateSource(pkgName string, c contract, hasApp bool, feats ...genFeature
 		Package  string
 		Kind     string
 		HasApp   bool
+		Settle   bool
 		DevTools bool
 		Film     bool
 		Env      map[string]string
 	}{
-		Package: pkgName, Kind: c.String(), HasApp: hasApp, DevTools: f.DevTools, Film: f.Film,
+		Package: pkgName, Kind: c.String(), HasApp: hasApp, Settle: f.Settle || f.Film, DevTools: f.DevTools, Film: f.Film,
 		Env: map[string]string{
 			"Mode": envMode, "W": envW, "H": envH, "Scale": envScale, "Dark": envDark, "SizeSet": envSizeSet,
 			"Preview": envPreview, "Out": envOut, "Err": envErr, "Info": envInfo, "Log": envLog,
@@ -525,6 +532,7 @@ package {{.Package}}
 import (
 	telafmt "fmt"
 	telaos "os"
+	telareflect "reflect"
 	teladebug "runtime/debug"
 	telastrconv "strconv"
 	telatesting "testing"
@@ -543,6 +551,7 @@ var (
 	_ = telasort.Strings
 	_ = telastrings.Join
 	_ = telatime.Second
+	_ = teladebug.Stack
 )
 
 {{template "contract" .}}
@@ -632,13 +641,20 @@ func TestTelaRun(t *telatesting.T) {
 {{- end}}
 	// A preview's Theme and ColorScheme beat the App's: telatest applies
 	// them after the options (ADR-250).
-	if p, ok := root.(telatela.Preview); ok && p.ColorScheme != telatela.System {
-		scheme, schemeOf = p.ColorScheme, telafmt.Sprintf("the ColorScheme of preview %q", preview)
+	// The field is read by reflection: a tela before the one that added it
+	// has no Preview.ColorScheme to name.
+	if p, ok := root.(telatela.Preview); ok {
+		if f := telareflect.ValueOf(p).FieldByName("ColorScheme"); f.IsValid() {
+			if cs, ok := f.Interface().(telatela.ColorScheme); ok && cs != telatela.System {
+				scheme, schemeOf = cs, telafmt.Sprintf("the ColorScheme of preview %q", preview)
+			}
+		}
 	}
 	if dark && scheme == telatela.Light {
 		telafmt.Fprintf(telaos.Stderr, "tela: warning: --dark has no effect: %s is tela.Light, which overrides the system's preference\n", schemeOf)
 	}
 
+{{- if .Settle}}
 	// The screen is mounted as a test mounts it and settled: the effects
 	// that run after the first frame, the state they set and the toasts
 	// they show are part of what is rendered. A panic in the tree is the
@@ -674,21 +690,50 @@ func TestTelaRun(t *telatesting.T) {
 	opts = append(opts, telatest.Instrument())
 {{- end}}
 	app := telatest.Mount(telaTB{t, !dev}, root, opts...)
+{{- end}}
 
 	switch getenv({{printf "%q" .Env.Mode}}) {
 	case {{printf "%q" "snapshot"}}:
+{{- if .Settle}}
 		var buf telaBuffer
 		if err := telapng.Encode(&buf, app.Screenshot()); err != nil {
 			t.Fatal(err)
 		}
 		write({{printf "%q" .Env.Out}}, buf.b)
+{{- else}}
+		// The tela of this module predates the settled mount: one frame.
+		img, err := telatest.Render(root, opts...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var buf telaBuffer
+		if err := telapng.Encode(&buf, img); err != nil {
+			t.Fatal(err)
+		}
+		write({{printf "%q" .Env.Out}}, buf.b)
+{{- end}}
 	case {{printf "%q" "inspect"}}:
+{{- if .Settle}}
 		write({{printf "%q" .Env.Out}}, app.LayoutJSON())
+{{- else}}
+		js, err := telatest.LayoutJSON(root, opts...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		write({{printf "%q" .Env.Out}}, js)
+{{- end}}
 	case {{printf "%q" "aria"}}:
+{{- if .Settle}}
 {{- if .DevTools}}
 		yaml, _ := app.AriaSnapshotSources()
 {{- else}}
 		yaml := app.AriaSnapshot()
+{{- end}}
+{{- else}}
+		yaml, err := telatest.AriaSnapshot(root, opts...)
+		if err != nil {
+			t.Fatal(err)
+		}
 {{- end}}
 		if yaml != "" {
 			yaml += "\n"
@@ -701,8 +746,8 @@ func TestTelaRun(t *telatesting.T) {
 			PNG []byte ` + "`json:\"png\"`" + `
 		}
 		var frames []telaFrame
-		span := telatime.Duration(num({{printf "%q" .Env.Film}})) * telatime.Millisecond
-		every := telatime.Duration(num({{printf "%q" .Env.Every}})) * telatime.Millisecond
+		span := telatime.Duration(num({{printf "%q" .Env.Film}})) // nanoseconds
+		every := telatime.Duration(num({{printf "%q" .Env.Every}}))
 		for _, f := range app.Film(span, every, nil) {
 			var buf telaBuffer
 			if err := telapng.Encode(&buf, f.Image); err != nil {

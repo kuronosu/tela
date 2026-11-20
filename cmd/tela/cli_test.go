@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"image"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -78,6 +79,49 @@ func TestSnapshotPreview(t *testing.T) {
 	}
 	if got := pixel(dark, 2, 2); got != [3]uint8{0x0f, 0x17, 0x2b} {
 		t.Errorf("dark background %v, want slate-900 (#0f172b)", got)
+	}
+}
+
+// TestOlderTelaRendersWithTheFormOfBefore runs snapshot and inspect with the
+// form generated for a module whose tela predates the settled mount (ADR-059:
+// the commands work on any module that requires tela): it compiles against
+// the telatest functions of before and renders the same screen.
+func TestOlderTelaRendersWithTheFormOfBefore(t *testing.T) {
+	skipShort(t)
+	settled, _, _ := snap(t, "--size", "300x160", "./testdata/preview")
+	var layout, aria bytes.Buffer
+	if code := run([]string{"inspect", "--layout", "--size", "300x160", "./testdata/preview"}, &layout, io.Discard); code != 0 {
+		t.Fatalf("inspect --layout: %d", code)
+	}
+	if code := run([]string{"inspect", "--size", "300x160", "./testdata/preview"}, &aria, io.Discard); code != 0 {
+		t.Fatalf("inspect: %d", code)
+	}
+	old := runFeatures
+	runFeatures = func(string, string) genFeatures { return genFeatures{} }
+	t.Cleanup(func() { runFeatures = old })
+	legacy, _, stderr := snap(t, "--size", "300x160", "./testdata/preview")
+	if !bytes.Equal(settled.Pix, legacy.Pix) {
+		t.Errorf("the form for an older tela renders another picture:\n%s", stderr)
+	}
+	var layout2, aria2 bytes.Buffer
+	if code := run([]string{"inspect", "--layout", "--size", "300x160", "./testdata/preview"}, &layout2, io.Discard); code != 0 {
+		t.Fatalf("inspect --layout of an older tela: %d", code)
+	}
+	if code := run([]string{"inspect", "--size", "300x160", "./testdata/preview"}, &aria2, io.Discard); code != 0 {
+		t.Fatalf("inspect of an older tela: %d", code)
+	}
+	// The element numbers and source lines are what an instrumented (settled) form adds.
+	noSrc := func(js string) string {
+		var keep []string
+		for _, l := range strings.Split(js, "\n") {
+			if !strings.Contains(l, `"src":`) && !strings.Contains(l, `"element":`) {
+				keep = append(keep, l)
+			}
+		}
+		return strings.Join(keep, "\n")
+	}
+	if noSrc(layout.String()) != noSrc(layout2.String()) || plainSnapshot(aria.String()) != plainSnapshot(aria2.String()) {
+		t.Errorf("inspect differs for an older tela:\n%s\n%s\n---\n%s\n%s", layout.String(), aria.String(), layout2.String(), aria2.String())
 	}
 }
 
