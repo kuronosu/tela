@@ -10,6 +10,7 @@ import (
 	"mime"
 	"net/url"
 	"os"
+	posix "path"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -80,7 +81,7 @@ func RecentMIMEType(path string, isDir bool) string {
 	if isDir {
 		return "inode/directory"
 	}
-	t := mime.TypeByExtension(filepath.Ext(path))
+	t := mime.TypeByExtension(posix.Ext(path))
 	if i := strings.IndexByte(t, ';'); i >= 0 {
 		t = t[:i]
 	}
@@ -95,7 +96,7 @@ func RecentMIMEType(path string, isDir bool) string {
 // with its modified and visited times and the app's count updated.
 func LinuxAddRecent(dirs LinuxDirs, app platform.HandlerApp, path, typ string, now time.Time) error {
 	platform.CheckHandlerApp("AddRecentDocument", app, true)
-	clean, err := platform.CheckRecentPath(path)
+	clean, err := linuxRecentPath(path)
 	if err != nil {
 		return err
 	}
@@ -693,7 +694,21 @@ func filePathOf(href string) (string, bool) {
 	if err != nil || !strings.EqualFold(u.Scheme, "file") || (u.Host != "" && u.Host != "localhost") || u.Path == "" {
 		return "", false
 	}
-	return filepath.Clean(u.Path), true
+	return posix.Clean(u.Path), true
+}
+
+// linuxRecentPath checks and cleans the path of a recent document. The
+// paths of recently-used.xbel are POSIX ones whatever system runs this
+// code (its tests run on every system), so the checks of
+// platform.CheckRecentPath are made with package path.
+func linuxRecentPath(p string) (string, error) {
+	switch {
+	case p == "" || strings.ContainsRune(p, 0):
+		return "", fmt.Errorf("platform: AddRecentDocument(%q): not a path: %w", p, fs.ErrInvalid)
+	case !posix.IsAbs(p):
+		return "", fmt.Errorf("platform: AddRecentDocument(%q): the path must be absolute: %w", p, fs.ErrInvalid)
+	}
+	return posix.Clean(p), nil
 }
 
 // appCommand returns the app's command line for a shell: the executable

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -86,7 +87,9 @@ func TestXBELNewFile(t *testing.T) {
 	if got := readXBEL(t, dirs); got != want {
 		t.Errorf("new file:\n%s\nwant:\n%s", got, want)
 	}
-	if fi, err := os.Stat(RecentPath(dirs)); err != nil || fi.Mode().Perm() != 0o600 {
+	// Windows has no permission bits (the code runs on Linux; its tests on
+	// every system).
+	if fi, err := os.Stat(RecentPath(dirs)); err != nil || runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Errorf("mode %v, %v; want 0600", fi.Mode(), err)
 	}
 	// Adding it again counts it and moves its times.

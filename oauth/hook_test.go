@@ -72,9 +72,8 @@ func TestUseSessionSignInAndOut(t *testing.T) {
 	app.Click(telatest.ByRole("button", "Sign out"))
 	app.ExpectText("status: signed out")
 	app.WaitFor("the stored tokens deleted", func() bool { _, ok := app.StoredSecret(cfg.SecretName); return !ok })
-	if srv.RevokeRequests() == 0 {
-		t.Error("the tokens were not revoked")
-	}
+	// SignOut deletes the tokens and says so before it revokes them.
+	app.WaitFor("the tokens revoked", func() bool { return srv.RevokeRequests() > 0 })
 }
 
 // The session reads the tokens an earlier run stored.
