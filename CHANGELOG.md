@@ -26,6 +26,7 @@ Phase 27: App building blocks (ADR-298), in progress.
 - `desktop.SetStartAtLogin`, `StartsAtLogin` and `Launch.AtLogin` (the Windows Run key, XDG autostart or the Flatpak Background portal, a macOS login item); `desktop.SetTasks` (Windows jump list tasks, the macOS Dock menu, Linux desktop entry actions; a chosen task reaches `UseLaunch` as a forwarded launch everywhere); `desktop.AddRecentDocument` and `ClearRecentDocuments` (jump list, Open Recent, `recently-used.xbel`). `telatest`: `App.StartsAtLogin`, `SetStartsAtLogin`, `Tasks`, `RunTask`, `RecentDocuments`, `FailSurfaces`.
 - `telatest.App.OpenedURLs`: the URLs the app opened (`tela.OpenURL`, `oauth`'s default sign-in).
 - Wiki pages: Routing, SQLite.
+- `tela new -template counter|notes|settings|dashboard`: start from the notes, settings or dashboard example with its tests (without pixel goldens); counter stays the default. The templates are generated from the examples by `go generate ./cmd/tela`. A template needs a Tela release with the APIs it uses (notes: this one).
 
 ### Changed
 
