@@ -13,7 +13,9 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
-Phase 27: App building blocks (ADR-298), in progress.
+## [0.14.8] - 2026-11-19
+
+Phase 27: App building blocks (ADR-298). It breaks no public API; `examples/notes` is now a module of its own.
 
 ### Added
 
@@ -1212,7 +1214,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.7...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.8...HEAD
+[0.14.8]: https://github.com/kuronosu/tela/compare/v0.14.7...v0.14.8
 [0.14.7]: https://github.com/kuronosu/tela/compare/v0.14.6...v0.14.7
 [0.14.6]: https://github.com/kuronosu/tela/compare/v0.14.5...v0.14.6
 [0.14.5]: https://github.com/kuronosu/tela/compare/v0.14.4...v0.14.5

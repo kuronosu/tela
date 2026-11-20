@@ -11,30 +11,15 @@
 
 ## Current status
 
-- **Done:** phases 1–26. Latest version `v0.14.7` (2026-11-17, phase 26: Packaging and auto-update, ADR-294 to ADR-297; the tag waits for the owner to push). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch; the owner may release a small break, such as a rename, as a patch.
-- **Phase in progress:** 27, App building blocks (ADR-298). The owner pushes `main` and the tags `v0.14.5`, `v0.14.6` and `v0.14.7`.
+- **Done:** phases 1–27. Latest version `v0.14.8` (2026-11-19, phase 27: App building blocks, ADR-298; the tag waits for the owner to push). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch; the owner may release a small break, such as a rename, as a patch.
+- **Phase in progress:** none. Phase 27 is on `main` locally and on the work branch `phase-27`; the owner pushes `main` and the tags `v0.14.5` to `v0.14.8`.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** phase 27's close (full suite, race detector, a CI run of the new `examples-notes` job on Windows and of notes on macOS when the owner allows a push). Phase 26's Mac checks wait for a macOS CI run or a Mac (`docs/LIMITATIONS.md`). The GPU backend's Windows code has never run: its live check needs a Windows machine with a GPU. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** the next phase in order, DevTools and agents. Phase 27's Windows and macOS surfaces wait for their live checks (`docs/LIMITATIONS.md`). Phase 26's Mac checks wait for a macOS CI run or a Mac (`docs/LIMITATIONS.md`). The GPU backend's Windows code has never run: its live check needs a Windows machine with a GPU. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no Wine on the host (it froze it once): Wine runs in a Docker container limited to 4 CPUs and 8 GB (Ubuntu 24.04 with `wine` and `wine64`, `LANG=C.UTF-8`, the host's Go mounted read-only), as CI's job runs it; the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` takes about 15 minutes in one process (2026-11-09; run it with `-timeout 30m`, or shard it; longer since phase 24's `TELA_CHECK_SEMANTICS` and `TELA_CHECK_LAYOUT` are on in core's tests), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
 
-In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–26 are done (HISTORY.md).
-
-### 27. App building blocks
-
-What a desktop app needs besides its interface: loading data, signing in, navigating, showing formatted text and being present in the system. Each piece is usable alone. Agents: `tela-impl` for the API, router, Markdown, OAuth and templates; `tela-core` for the desktop surfaces.
-
-- [x] First: an ADR on the phase's public API, and on Markdown parsing (ADR-298: goldmark as a dependency, the owner's choice; modernc.org/sqlite; `examples/notes` in its own module)
-- [x] `tela.UseAsync[T]`: runs `f(ctx)` on a goroutine and returns `Async[T]` (`Loading`, `Err`, `Data`, `Reload()`); cancels the context when the deps change and drops stale results; keeps `Data` across `tela dev` reloads. Also `tela.UseDebounced`
-- [x] Navigation: a router with a stack, parameters, back and forward; the mouse's side buttons and Alt+Left/Right (Cmd+[ and ] on the Mac) navigate as in a browser; deep links from `desktop.UseLaunch` open routes; screen transitions through `LayoutID`
-- [x] `kit.Markdown`: CommonMark with GFM tables, task lists and strikethrough; selectable text, code blocks in monospace, links opened with `desktop.OpenURI`, images from `tela.Assets`, the theme's tokens. The editor is outside the phase
-- [x] OAuth for desktop apps: authorization code with PKCE and a loopback redirect (RFC 8252) in the system browser, tokens kept with `desktop` secrets, refresh with rotation, sign-out; optionally the device code flow (RFC 8628); tested against a local fake server
-- [x] SQLite: a recipe and an example in a module of its own (its own `go.mod`, like `looks/`) with a pure-Go SQLite; the core module gains no dependency
-- [x] Desktop surfaces (platform contract v16, protocol 17; Windows and macOS in the live checks): start at login (`SMAppService` on macOS, the `Run` key on Windows, XDG autostart on Linux); the Dock menu on macOS; jump lists and recent documents (`ICustomDestinationList` and `SHAddToRecentDocs` on Windows, `NSDocumentController` on macOS, `recently-used.xbel` on Linux)
-- [x] Templates: `tela new -template notes|settings|dashboard`, generated from the examples
-
-**Done when:** `examples/notes` signs in against the fake OAuth server, loads and syncs its notes with `UseAsync`, keeps them in SQLite (from the example's module), shows them as Markdown, navigates back and forward from the mouse and the keyboard, starts at login and appears in the recent documents, with `telatest` tests and goldens on Linux and Windows CI (macOS on CI where it can be driven). Outside the phase: a Markdown editor, sync and offline beyond the example, a webview (ADR-001), push and background tasks.
+In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–27 are done (HISTORY.md).
 
 ### DevTools and agents
 
