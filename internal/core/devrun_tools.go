@@ -31,7 +31,8 @@ var devTools struct {
 	h  *Host
 	rb *remote.Backend
 	on bool
-	// frames and logs are the last frame and log entry pushed per tree.
+	// frames and logs are the last frame and log entry pushed per tree;
+	// the trees of windows that closed are dropped at the next flush.
 	frames map[*Tree]int
 	logs   map[*Tree]uint64
 	// armed: a flush is due (its timer runs); last is when the last one
@@ -114,7 +115,7 @@ func devToolsRegister(rb *remote.Backend, h *Host) {
 		if p.ID == 0 {
 			return t.Inspect(), nil
 		}
-		if _, ok := t.Element(ElementID(p.ID)); !ok {
+		if !t.HasElement(ElementID(p.ID)) {
 			return nil, devToolsNoElement(p)
 		}
 		return t.InspectElementID(ElementID(p.ID))
@@ -178,10 +179,8 @@ func devToolsRegister(rb *remote.Backend, h *Host) {
 		return res, nil
 	})
 	handle(devloop.KindToolsHighlight, true, func(_ *Host, t *Tree, p devloop.ToolsParams) (any, error) {
-		if p.ID != 0 {
-			if _, ok := t.Element(ElementID(p.ID)); !ok {
-				return nil, devToolsNoElement(p)
-			}
+		if p.ID != 0 && !t.HasElement(ElementID(p.ID)) {
+			return nil, devToolsNoElement(p)
 		}
 		t.Highlight(ElementID(p.ID))
 		return struct{}{}, nil
@@ -266,6 +265,7 @@ func devToolsFrame(h *Host) {
 func devToolsFlush(h *Host) {
 	devTools.armed = false
 	devTools.last = time.Now()
+	devToolsPrune(h)
 	for _, v := range h.views {
 		t := v.tree
 		ps := t.FrameProfiles(devTools.frames[t])
@@ -277,6 +277,28 @@ func devToolsFlush(h *Host) {
 	}
 	for _, b := range devToolsNewLogs(h) {
 		devToolsNotify(devloop.KindToolsLogs, b)
+	}
+}
+
+// devToolsPrune drops the entries of the trees whose window closed.
+func devToolsPrune(h *Host) {
+	open := func(t *Tree) bool {
+		for _, v := range h.views {
+			if v.tree == t {
+				return true
+			}
+		}
+		return false
+	}
+	for t := range devTools.frames {
+		if !open(t) {
+			delete(devTools.frames, t)
+		}
+	}
+	for t := range devTools.logs {
+		if !open(t) {
+			delete(devTools.logs, t)
+		}
 	}
 }
 

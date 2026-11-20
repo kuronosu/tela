@@ -34,9 +34,11 @@ import (
 //     the whole tree for 0, as tela inspect --layout gives it. Reply an
 //     InspectNode.
 //   - [KindToolsSemantics]: the aria snapshot of the window (the YAML of
-//     tela inspect) with, per line, the semantics node it prints and that
-//     node's element (0 for text and /url lines). Reply {"yaml": string,
-//     "nodes": [uint64...], "elements": [uint64...]}.
+//     tela inspect) with, per line, the semantics node it prints, that
+//     node's element (0 for text and /url lines) and the element's
+//     creation site in the app ("settings.go:42", "" when unknown). Reply
+//     {"yaml": string, "nodes": [uint64...], "elements": [uint64...],
+//     "srcs": [string...]}.
 //   - [KindToolsProfiles]: the frame profiles recorded after frame
 //     ToolsParams.Since (0 for all, at most the last 600). Reply
 //     {"profiles": [FrameProfile...]}.
