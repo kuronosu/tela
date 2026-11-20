@@ -264,6 +264,9 @@ func (t *Tree) markDirReaders(el *Element, rtl bool) {
 				for _, h := range c.hooks {
 					if s, ok := h.(*dirSlot); ok && s.rtl != rtl {
 						t.markBuild(c)
+						if t.ins != nil {
+							t.ins.noteHook(c, s, CauseDirection) // instrument.go
+						}
 						if t.inStyle {
 							t.dirRebuild = true
 						}

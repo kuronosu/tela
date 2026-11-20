@@ -98,6 +98,7 @@ func (t *Tree) warnf(format string, args ...any) {
 		msg := fmt.Sprintf(format, args...)
 		t.warn(msg)
 		tee(slog.LevelWarn, msg)
+		t.noteLog(slog.LevelWarn, msg) // instrument_log.go
 	}
 }
 
@@ -128,6 +129,7 @@ func (t *Tree) warnOnce(key string, msg func() string) {
 		m := msg()
 		t.warn(m)
 		tee(slog.LevelWarn, m)
+		t.noteLog(slog.LevelWarn, m)
 	}
 }
 

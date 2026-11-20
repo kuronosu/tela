@@ -50,6 +50,9 @@ func Portal(children ...Child) Node {
 		d.float != nil || d.overlay != nil || d.inert || d.winRegion != regionNone || d.winResize.on || d.draggable:
 		panic("h: Portal takes children and a Key only; put handlers, refs and other props on its content (events from it bubble to the Portal's ancestors)")
 	}
+	if insSites.Load() != 0 {
+		noteSite(d) // the creation site (instrument_site.go)
+	}
 	return node{d}
 }
 

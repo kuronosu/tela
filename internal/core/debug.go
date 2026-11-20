@@ -83,6 +83,12 @@ const (
 	// DebugOff in Config.Debug means no overlays and also that NewHost
 	// must not read TELA_DEBUG (the zero value means "unset: read it").
 	DebugOff DebugFlags = 1 << 7
+
+	// debugInspect is the highlight of an instrumented tree's pick mode
+	// and Highlight (instrument_pick.go): not a flag Config.Debug,
+	// TELA_DEBUG or SetDebug set, but Debug reports it while it shows, so
+	// the window takes the overlay path.
+	debugInspect DebugFlags = 1 << 6
 )
 
 // debugNames lists the flags in the order of the documentation.
@@ -250,13 +256,18 @@ var debugEpoch = time.Now()
 
 func defaultDebugClock() time.Duration { return time.Since(debugEpoch) }
 
-// Debug returns the overlays that are on.
+// Debug returns the overlays that are on (with the internal debugInspect
+// while an instrumented tree's highlight shows).
 func (t *Tree) Debug() DebugFlags { return t.dbg.flags }
 
 // SetDebug turns overlays on or off. The next frame draws them (or, when
 // none is left, rasterizes the application alone again).
 func (t *Tree) SetDebug(f DebugFlags) {
-	f &= DebugAll
+	t.setOverlayFlags(f&DebugAll | t.dbg.flags&debugInspect)
+}
+
+// setOverlayFlags sets the overlay flags to f, starting the overlays over.
+func (t *Tree) setOverlayFlags(f DebugFlags) {
 	d := &t.dbg
 	if f == d.flags {
 		return
@@ -339,6 +350,13 @@ func (t *Tree) debugTouch() {
 // trims it (RasterTrimAt, TrimRaster). r should be the Renderer of fb's
 // earlier frames.
 func (t *Tree) RasterizeFrame(fb *image.RGBA, r *raster.Renderer, full bool) Damage {
+	if ins := t.ins; ins != nil {
+		s := ins.prof.spanBegin(PhaseRaster) // the frame profile (instrument_prof.go)
+		defer func() {
+			ins.prof.damage(&t.lay.damage, fb.Rect)
+			ins.prof.spanEnd(s)
+		}()
+	}
 	var d Damage
 	if t.dbg.flags == 0 {
 		d = t.rasterizeApp(fb, r, full)

@@ -135,6 +135,9 @@ func (t *Tree) buildOverlay(bounds image.Rectangle) *gfx.DisplayList {
 	if d.flags&DebugSemantics != 0 {
 		o.semantics()
 	}
+	if d.flags&debugInspect != 0 {
+		o.inspect() // pick mode and Highlight (instrument_pick.go)
+	}
 	if d.flags&DebugFPS != 0 {
 		o.placed = append(o.placed, o.meterRect()) // labels keep clear of it
 	}

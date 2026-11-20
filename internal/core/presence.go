@@ -62,6 +62,9 @@ func Presence(children ...Child) Node {
 	for _, c := range children {
 		d.addGroupChild(c, "Presence", "it has no box (put the prop on its children)")
 	}
+	if insSites.Load() != 0 {
+		noteSite(d) // the creation site (instrument_site.go)
+	}
 	return node{d}
 }
 
@@ -229,6 +232,9 @@ func (t *Tree) beginExit(o *Element) bool {
 		u.gen.Add(1)
 		u.done = false
 		t.markBuild(u.el)
+		if ins := u.el.tree.ins; ins != nil {
+			ins.noteHook(u.el, u, CausePresence) // instrument.go
+		}
 	}
 	return true
 }
@@ -253,6 +259,9 @@ func (t *Tree) cancelExit(o *Element) {
 	for _, u := range o.pchild.users {
 		u.gen.Add(1)
 		t.markBuild(u.el)
+		if ins := u.el.tree.ins; ins != nil {
+			ins.noteHook(u.el, u, CausePresence) // instrument.go
+		}
 	}
 }
 

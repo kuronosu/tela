@@ -351,6 +351,10 @@ func VirtualList(count int, estimateSize func(i int) float32, renderItem func(i 
 		n.key, n.keyed = d.key, true
 		d.key, d.keyed = nil, false
 	}
+	if insSites.Load() != 0 {
+		noteSite(n) // the creation site (instrument_site.go), its scroller's too
+		d.site = n.site
+	}
 	return node{n}
 }
 
@@ -735,6 +739,7 @@ func (t *Tree) virtualScrolled() {
 	for _, vl := range t.virt.lists {
 		if vl.el.mounted && !vl.el.needsBuild && vl.props != nil && !vl.covered() {
 			t.markBuild(vl.el)
+			t.noteVirtual(vl)
 		}
 	}
 }
@@ -809,6 +814,7 @@ func (vl *vlist) pass() bool {
 		if vl.guessed && !vl.el.needsBuild {
 			if _, _, kind := vl.view(); kind == viewHidden {
 				t.markBuild(vl.el)
+				t.noteVirtual(vl)
 			}
 		}
 		return vl.el.needsBuild
@@ -833,6 +839,7 @@ func (vl *vlist) pass() bool {
 	}
 	if !vl.el.needsBuild && !vl.covered() {
 		t.markBuild(vl.el)
+		t.noteVirtual(vl)
 	}
 	return work || vl.el.needsBuild
 }

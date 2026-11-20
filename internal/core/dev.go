@@ -205,25 +205,35 @@ func (s *callStack) capture(skip int) {
 // node constructor of this package and not a wrapper in package tela.
 // It reads "pkg.Func (file.go:12)".
 func (s *callStack) site() string {
+	f, ok := s.userFrame()
+	if !ok {
+		return "an unknown location"
+	}
+	fn := f.Function
+	if i := strings.LastIndexByte(fn, '/'); i >= 0 {
+		fn = fn[i+1:]
+	}
+	return fmt.Sprintf("%s (%s:%d)", fn, filepath.Base(f.File), f.Line)
+}
+
+// userFrame returns the frame of s that site describes, false when there
+// is none.
+func (s *callStack) userFrame() (runtime.Frame, bool) {
 	n := 0
 	for n < len(s) && s[n] != 0 {
 		n++
 	}
 	if n == 0 {
-		return "an unknown location"
+		return runtime.Frame{}, false
 	}
 	frames := runtime.CallersFrames(s[:n])
 	for {
 		f, more := frames.Next()
 		if f.Function != "" && (strings.HasSuffix(f.File, "_test.go") || !apiFrame(f.Function)) {
-			fn := f.Function
-			if i := strings.LastIndexByte(fn, '/'); i >= 0 {
-				fn = fn[i+1:]
-			}
-			return fmt.Sprintf("%s (%s:%d)", fn, filepath.Base(f.File), f.Line)
+			return f, true
 		}
 		if !more {
-			return "an unknown location"
+			return runtime.Frame{}, false
 		}
 	}
 }

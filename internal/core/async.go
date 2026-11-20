@@ -147,12 +147,12 @@ func (s *asyncSlot[T]) reload() {
 		return
 	}
 	s.invalidate()
-	s.el.tree.enqueue(update{el: s.el, apply: func() bool {
+	s.el.tree.enqueue(update{el: s.el, apply: func() (bool, any) {
 		if s.loading {
-			return false
+			return false, s
 		}
 		s.loading = true
-		return true
+		return true, s
 	}})
 	s.run()
 }
@@ -197,14 +197,14 @@ func (s *asyncSlot[T]) finish(ctx context.Context, gen uint64, data T, err error
 	if ctx.Err() != nil || !s.current(gen) {
 		return
 	}
-	s.el.tree.enqueue(update{el: s.el, apply: func() bool {
+	s.el.tree.enqueue(update{el: s.el, apply: func() (bool, any) {
 		if !s.current(gen) {
-			return false
+			return false, s
 		}
 		s.loading, s.err = false, err
 		if err == nil {
 			s.data = data // an error keeps the previous Data, as React Query does
 		}
-		return true
+		return true, s
 	}})
 }

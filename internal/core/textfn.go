@@ -18,7 +18,11 @@ func TextFn(fn func() string) Node {
 	if fn == nil {
 		panic("tela: TextFn(nil): pass a function that returns the text, such as TextFn(func() string { return time.Get() })")
 	}
-	return node{&desc{kind: nodeText, textFn: fn}}
+	d := &desc{kind: nodeText, textFn: fn}
+	if insSites.Load() != 0 {
+		noteSite(d) // the creation site (instrument_site.go)
+	}
+	return node{d}
 }
 
 // syncText makes the text of text element el that of node description d,

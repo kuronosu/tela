@@ -208,6 +208,10 @@ func (t *Tree) commitLayout() {
 	if len(t.layoutFx) == 0 && len(t.passiveFx) == 0 && len(t.layoutGone) == 0 && len(t.passiveGone) == 0 {
 		return
 	}
+	if ins := t.ins; ins != nil {
+		d := ins.prof.spanBegin(PhaseEffects) // the frame profile (instrument_prof.go)
+		defer ins.prof.spanEnd(d)
+	}
 	t.readyGone = append(t.readyGone, t.passiveGone...)
 	t.readyFx = append(t.readyFx, t.passiveFx...)
 	t.passiveGone, t.passiveFx = nil, nil
@@ -231,6 +235,10 @@ func (t *Tree) commitLayout() {
 func (t *Tree) FlushEffects() {
 	if len(t.readyGone) == 0 && len(t.readyFx) == 0 {
 		return
+	}
+	if ins := t.ins; ins != nil {
+		d := ins.prof.spanBegin(PhaseEffects) // the frame profile (instrument_prof.go)
+		defer ins.prof.spanEnd(d)
 	}
 	gone, fx := t.readyGone, t.readyFx
 	t.readyGone, t.readyFx = nil, nil

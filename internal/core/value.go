@@ -493,6 +493,9 @@ func (t *Tree) valueChangedSkip(v *valueCore, skip obsKind) bool {
 		case obsBuild:
 			if o.el.mounted {
 				o.el.tree.markBuild(o.el)
+				if ins := o.el.tree.ins; ins != nil {
+					ins.noteValue(o.el, v) // instrument.go
+				}
 				hit = true
 			}
 		case obsLayout:

@@ -252,6 +252,9 @@ func (t *Tree) markSchemeReaders(el *Element) {
 				for _, h := range c.hooks {
 					if _, ok := h.(*schemeSlot); ok {
 						t.markBuild(c)
+						if t.ins != nil {
+							t.ins.noteHook(c, h, CauseScheme) // instrument.go
+						}
 						break
 					}
 				}

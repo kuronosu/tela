@@ -571,6 +571,9 @@ func Primitive(kind style.Kind, children ...Child) Node {
 	if d.fp != nil {
 		checkFormProps(kind, d)
 	}
+	if insSites.Load() != 0 {
+		noteSite(d) // the creation site (instrument_site.go)
+	}
 	if kind.IsTextField() {
 		for _, c := range d.children {
 			if c.d != nil {
@@ -584,7 +587,13 @@ func Primitive(kind style.Kind, children ...Child) Node {
 // Text returns a text node. Text is laid out in the paragraph of its
 // nearest block-level ancestor, styled by its nearest primitive ancestor
 // (ARCHITECTURE section 11).
-func Text(s string) Node { return node{&desc{kind: nodeText, text: s}} }
+func Text(s string) Node {
+	d := &desc{kind: nodeText, text: s}
+	if insSites.Load() != 0 {
+		noteSite(d) // the creation site (instrument_site.go)
+	}
+	return node{d}
+}
 
 // Textf returns a text node of fmt.Sprintf(format, args...).
 func Textf(format string, args ...any) Node { return Text(fmt.Sprintf(format, args...)) }
@@ -604,9 +613,13 @@ func Component(fn func() Node, key ...Child) Node {
 	if fn == nil {
 		panic("tela: C(nil): pass a component function, such as tela.C(Counter)")
 	}
-	return keyedComponent(&desc{kind: nodeComponent, comp: &compDesc{
+	d := &desc{kind: nodeComponent, comp: &compDesc{
 		typ: reflect.ValueOf(fn).Pointer(), fn: fn, build: fn,
-	}}, "C", key)
+	}}
+	if insSites.Load() != 0 {
+		noteSite(d) // the creation site (instrument_site.go)
+	}
+	return keyedComponent(d, "C", key)
 }
 
 // keyedComponent gives the new component node d the keys of key, which
@@ -654,7 +667,11 @@ func ComponentProps[P comparable](fn func(P) Node, props P, key ...Child) Node {
 	if devNow() {
 		c.anon = noteAnon(c.typ, "CP")
 	}
-	return keyedComponent(&desc{kind: nodeComponent, comp: c}, "CP", key)
+	d := &desc{kind: nodeComponent, comp: c}
+	if insSites.Load() != 0 {
+		noteSite(d) // the creation site (instrument_site.go)
+	}
+	return keyedComponent(d, "CP", key)
 }
 
 // Memo returns a node that builds fn(props), like ComponentProps, but
@@ -680,7 +697,11 @@ func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool, key ...Child
 	if devNow() {
 		c.anon = noteAnon(c.typ, "Memo")
 	}
-	return keyedComponent(&desc{kind: nodeComponent, comp: c}, "Memo", key)
+	d := &desc{kind: nodeComponent, comp: c}
+	if insSites.Load() != 0 {
+		noteSite(d) // the creation site (instrument_site.go)
+	}
+	return keyedComponent(d, "Memo", key)
 }
 
 // WithKey returns a copy of the node of c with key k (see Key). It works

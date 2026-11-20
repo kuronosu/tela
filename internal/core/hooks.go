@@ -39,6 +39,9 @@ func (t *Tree) build(el *Element) {
 	t.builds++
 	el.hookIdx = 0
 	before, first := len(el.hooks), el.builds == 0
+	if t.ins != nil {
+		t.ins.built(el, first) // why it builds (instrument.go)
+	}
 	el.builds++
 	var out Node
 	mark := t.beginTrack()
@@ -76,6 +79,11 @@ func (t *Tree) buildResult(el *Element, out Node) node {
 		return n
 	}
 	n := toNode(out, func() string { return buildName(el.comp) + " returned" })
+	if n.d != nil && insSites.Load() != 0 && n.d.kind == nodeComponent {
+		// A struct component made by this build: its site is the
+		// declaration of the component that returned it (instrument_site.go).
+		n.d.site = declSite(el.comp.typ)
+	}
 	if n.d != nil && t.dev && el.comp.ct != nil && n.d.comp.ct == el.comp.ct {
 		// A struct component (not a node that holds one, such as its
 		// WithKey): the Build that returns its own receiver.
@@ -189,7 +197,7 @@ type Setter[T any] struct{ s *stateSlot[T] }
 // the state when the update applies does not rebuild.
 func (st Setter[T]) Set(v T) {
 	s := st.slot("Set")
-	s.el.tree.enqueue(update{el: s.el, apply: func() bool { return s.store(v) }})
+	s.el.tree.enqueue(update{el: s.el, apply: func() (bool, any) { return s.store(v), s }})
 }
 
 // Update queues f, which receives the state left by the previous queued
@@ -201,7 +209,7 @@ func (st Setter[T]) Update(f func(T) T) {
 	if f == nil {
 		panic("tela: Setter.Update(nil): pass a function that returns the new state from the current one, such as setCount.Update(func(n int) int { return n + 1 })")
 	}
-	s.el.tree.enqueue(update{el: s.el, apply: func() bool { return s.store(f(s.value)) }})
+	s.el.tree.enqueue(update{el: s.el, apply: func() (bool, any) { return s.store(f(s.value)), s }})
 }
 
 // IsZero reports whether st is the zero Setter, which is not tied to any
@@ -271,7 +279,7 @@ type reducerSlot[S, A any] struct {
 }
 
 func (s *reducerSlot[S, A]) dispatch(a A) {
-	s.el.tree.enqueue(update{el: s.el, apply: func() bool { return s.store(s.reducer(s.value, a)) }})
+	s.el.tree.enqueue(update{el: s.el, apply: func() (bool, any) { return s.store(s.reducer(s.value, a)), s }})
 }
 
 // dispatchTarget is a reducer slot of any state type with actions A.
@@ -329,8 +337,9 @@ func UseReducer[S, A any](reducer func(S, A) S, initial S) (S, Dispatcher[A]) {
 type update struct {
 	el *Element
 	// apply changes the state and reports whether the component must be
-	// built again.
-	apply func() bool
+	// built again, with the hook slot it changed (the instrumentation's
+	// build reasons, instrument.go).
+	apply func() (bool, any)
 	// set changes a Value of el (apply is nil): it invalidates the
 	// Value's readers itself and reports whether it invalidated any.
 	set func() bool
@@ -389,9 +398,14 @@ func (t *Tree) ApplyUpdates() bool {
 				if u.set() {
 					changed = true
 				}
-			case u.apply():
-				t.markBuild(u.el)
-				changed = true
+			default:
+				if ok, slot := u.apply(); ok {
+					t.markBuild(u.el)
+					if t.ins != nil {
+						t.ins.noteUpdate(u.el, slot)
+					}
+					changed = true
+				}
 			}
 		}
 	}

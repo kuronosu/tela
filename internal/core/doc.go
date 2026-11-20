@@ -477,6 +477,13 @@
 // enter the layers, the damage, the layout, the hit tests or the semantics
 // of the application, and with none on they cost nothing.
 //
+// The DevTools instrumentation (instrument.go, whose top comment is the
+// reference; ADR-299), off unless Tree.SetInstrument (or Host.SetInstrument)
+// turns it on, lists the elements with IDs, kinds, creation sites, hooks,
+// props and why they built; profiles the last 600 frames by phase; keeps
+// the dev warnings; and draws pick mode and a highlight with the debug
+// overlays. Off, its hook points are nil checks.
+//
 // A Host connects a Tree to a platform window: WakeEvent applies state
 // updates, ConfigureEvent sets the viewport and the scale, FrameEvent
 // runs Frame, brings its framebuffer to the frame (RasterizeFrame; fully

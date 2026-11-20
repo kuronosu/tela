@@ -166,7 +166,27 @@ func (h *Host) end() {
 		v.tree.SetRequestFrame(nil)
 	}
 	h.tree.Unmount() // the child windows close with it (window.go)
-	h.closeGPU()     // gpuhost.go: the windows' targets and the device
+	h.tree.SetInstrument(false)
+	h.closeGPU() // gpuhost.go: the windows' targets and the device
+}
+
+// SetInstrument turns the DevTools instrumentation (instrument.go) on or
+// off in the trees of every window of the app; the windows opened while
+// it is on are instrumented too. Call it on the UI thread.
+func (h *Host) SetInstrument(on bool) {
+	for _, v := range h.views {
+		v.tree.SetInstrument(on)
+	}
+}
+
+// Trees returns the trees of the app's open windows, the main window's
+// first, then the others in the order they opened.
+func (h *Host) Trees() []*Tree {
+	out := make([]*Tree, len(h.views))
+	for i, v := range h.views {
+		out[i] = v.tree
+	}
+	return out
 }
 
 func errorLog(w io.Writer) io.Writer {
@@ -270,7 +290,10 @@ func NewHost(b platform.Backend, opts Options) (*Host, error) {
 	// animations its first builds start (UseSpring) wait for it instead
 	// of jumping to their targets as in a tree without a clock (Render).
 	t.anim.driven = true
-	h := &Host{backend: b, win: win, tree: t, log: hostLog(errorLog(opts.ErrorLog)), appID: opts.AppID, onClose: opts.OnClose, onQuit: opts.OnQuit, services: b.Desktop()}
+	// The log keeps its errors in the main tree's log while it is
+	// instrumented (instrument_log.go).
+	log := insHostLog{w: hostLog(errorLog(opts.ErrorLog)), t: t}
+	h := &Host{backend: b, win: win, tree: t, log: log, appID: opts.AppID, onClose: opts.OnClose, onQuit: opts.OnQuit, services: b.Desktop()}
 	if t.dev {
 		h.uiG = goid()
 	}
@@ -331,7 +354,14 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 			}
 		}
 		for i := 0; i < len(h.views); i++ {
-			h.views[i].tree.ApplyUpdates()
+			vt := h.views[i].tree
+			if ins := vt.ins; ins != nil {
+				d := ins.prof.spanBegin(PhaseInput) // the frame profile (instrument_prof.go)
+				vt.ApplyUpdates()
+				ins.prof.spanEnd(d)
+				continue
+			}
+			vt.ApplyUpdates()
 		}
 		h.tick(h.backend.Now())
 		return
@@ -356,6 +386,10 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 		}
 	}
 	t := v.tree
+	if ins := t.ins; ins != nil && inputEvent(e) {
+		d := ins.prof.spanBegin(PhaseInput) // the frame profile (instrument_prof.go)
+		defer ins.prof.spanEnd(d)
+	}
 	switch e := e.(type) {
 	case platform.ConfigureEvent:
 		// A FrameEvent follows every ConfigureEvent.
@@ -382,10 +416,19 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 		// The state of a new window comes before its first frame, if
 		// it comes at all (an OS that refused to maximize sends none).
 		v.opening = false
+		ins := t.ins
+		var span int
+		if ins != nil {
+			ins.prof.frameEvent() // the frame profile (instrument_prof.go)
+			span = ins.prof.spanBegin(PhaseAnimate)
+		}
 		h.tick(e.Time)
 		// Phase 2 of the pipeline: scroll animations, flings and fades
 		// advance with the frame clock.
 		t.Animate(e.Time)
+		if ins != nil {
+			ins.prof.spanEnd(span)
+		}
 		h.frame(v, e.Time)
 		if devStateEnabled && v == h.main {
 			devAfterFrame(h) // tela dev: the state report
@@ -488,6 +531,18 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 		h.syncTextInput(v)
 		h.armTimer()
 	}
+}
+
+// inputEvent reports the window events whose handling the frame profile
+// charges to PhaseInput: the user's input.
+func inputEvent(e platform.Event) bool {
+	switch e.(type) {
+	case platform.PointerEvent, platform.CaptionClickEvent, platform.ScrollEvent, platform.KeyEvent,
+		platform.IMEEvent, platform.IMESessionEvent, platform.DragEvent, platform.DragDoneEvent,
+		platform.MenuEvent, platform.AccessActionEvent:
+		return true
+	}
+	return false
 }
 
 // tick lets the gesture arenas act on the deadlines at or before now (a
@@ -773,7 +828,15 @@ func (h *Host) frame(v *winView, now time.Duration) {
 		damage = d.Changed()
 	}
 	v.configured = false
-	shown, err := h.present(v, d, damage)
+	var shown bool
+	var err error
+	if ins := t.ins; ins != nil {
+		span := ins.prof.spanBegin(PhasePresent) // the frame profile (instrument_prof.go)
+		shown, err = h.present(v, d, damage)
+		ins.prof.spanEnd(span)
+	} else {
+		shown, err = h.present(v, d, damage)
+	}
 	if err != nil {
 		fmt.Fprintln(h.log, "tela: present:", err)
 		return

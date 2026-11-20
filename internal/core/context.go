@@ -37,6 +37,9 @@ func (c *Context[T]) Provider(value T, children ...Child) Node {
 	for _, ch := range children {
 		d.addGroupChild(ch, "Context.Provider", "a provider has no box (wrap the children in a Div)")
 	}
+	if insSites.Load() != 0 {
+		noteSite(d) // the creation site (instrument_site.go)
+	}
 	return node{d}
 }
 
@@ -161,6 +164,9 @@ func (t *Tree) updateProvider(el *Element, n node) {
 		for _, s := range el.prov.subs {
 			// A consumer in a child window builds in its window's tree.
 			s.el.tree.markBuild(s.el)
+			if ins := s.el.tree.ins; ins != nil {
+				ins.noteContext(s.el, el) // instrument.go
+			}
 		}
 		if el.comp.ctx == langContext {
 			t.langProviderChanged(el) // lang.go

@@ -81,9 +81,13 @@ var (
 func componentOf(c Node) node {
 	rt := reflect.TypeOf(c)
 	ct := compTypeOf(rt)
-	return node{&desc{kind: nodeComponent, comp: &compDesc{
+	d := &desc{kind: nodeComponent, comp: &compDesc{
 		typ: ct.pc, rtype: rt, ct: ct, props: c, mode: compStruct,
-	}}}
+	}}
+	if insSites.Load() != 0 {
+		noteSite(d) // the creation site (instrument_site.go)
+	}
+	return node{d}
 }
 
 // compTypeOf returns what is known about the struct component type rt.

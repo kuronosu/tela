@@ -366,6 +366,13 @@ type Tree struct {
 
 	// dbg is the state of the debug overlays (debug.go).
 	dbg debugState
+	// ins is the DevTools instrumentation, nil while it is off
+	// (instrument.go); insNext is the last ElementID given, kept across
+	// sessions so that IDs are never reused; insLog is the log ring, read
+	// from any goroutine (instrument_log.go).
+	ins     *instrument
+	insNext ElementID
+	insLog  atomic.Pointer[logRing]
 
 	// Windows (window.go). wv is the window the tree is shown in (nil
 	// for a tree without one: Render, tela snapshot); outer is, for the
@@ -490,13 +497,15 @@ func (t *Tree) updatesQueued() bool {
 
 func (t *Tree) logf(format string, args ...any) {
 	// The errors also go to the tee of ADR-297, in a release build too,
-	// where t.log is nil: the app's log file keeps them.
-	if t.log != nil || logTee.Load() != nil {
+	// where t.log is nil: the app's log file keeps them, and to the log of
+	// an instrumented tree (instrument_log.go).
+	if t.log != nil || logTee.Load() != nil || t.insLog.Load() != nil {
 		msg := fmt.Sprintf(format, args...)
 		if t.log != nil {
 			t.log(msg)
 		}
 		tee(slog.LevelError, msg)
+		t.noteLog(slog.LevelError, msg)
 	}
 }
 
@@ -704,6 +713,9 @@ func (t *Tree) markAllStyle(recompile bool) {
 // frame wait for FlushEffects.
 func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 	t.inFrame = true
+	if t.ins != nil {
+		t.ins.prof.begin() // the frame profile (instrument_prof.go)
+	}
 	defer t.afterFrame()
 	t.asked = false
 	// Caret reveals wait for the layout of the frame (field.go), also those
@@ -711,6 +723,7 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 	// first: the build applies their updates.
 	t.frev.hold = true
 	t.FlushEffects()
+	t.phase(PhaseBuild)
 	t.ApplyUpdates()
 	// The scroll events of the offsets changed since the previous frame
 	// (the DOM's scroll steps, before the frame's build).
@@ -744,6 +757,7 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 	t.flt.published = nil
 	for again := false; ; again = true {
 		if full {
+			t.phase(PhaseBuild)
 			t.buildPhase()
 			if len(t.devLabels) > 0 {
 				t.checkLabels()
@@ -751,13 +765,16 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 			if len(t.devIDs) > 0 {
 				t.checkIDs()
 			}
+			t.phase(PhaseStyle)
 			t.stylePhase()
 			if t.dirRebuild {
 				// A dir="auto" element resolved other than what the
 				// UseDirection readers below it read (direction.go): they
 				// build again before anything is laid out.
 				t.dirRebuild = false
+				t.phase(PhaseBuild)
 				t.buildPhase()
+				t.phase(PhaseStyle)
 				t.stylePhase()
 			}
 			if t.presencePhase() {
@@ -769,6 +786,7 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 				t.focusWork()
 				t.stylePhase()
 			}
+			t.phase(PhaseLayout)
 			t.boxPhase()
 			t.layoutPhase()
 		}
@@ -780,13 +798,16 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 			// A layout effect moved the focus (ElementRef.Focus), or the
 			// lost focus came back: style and lay out again before
 			// painting.
+			t.phase(PhaseStyle)
 			t.stylePhase()
 			t.fixFocus()
 			t.stylePhase()
+			t.phase(PhaseLayout)
 			t.boxPhase()
 			t.layoutPhase()
 			full = true
 		}
+		t.phase(PhaseLayout)
 		full = t.scrollPhase(full)
 		t.revealFields()
 		if devStateEnabled {
@@ -796,7 +817,11 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 			t.syncSizes() // UseSize (bounds.go): paint-phase readers see it now
 			t.checkSel()  // the static selection follows the tree (textsel.go)
 		}
+		t.phase(PhasePaint)
 		t.lastDL = t.paintPhase(full)
+		if t.ins != nil {
+			t.ins.prof.layers += t.lay.recorded
+		}
 		// What the float pass published and builds read (the placement
 		// after a flip) is applied before anything is shown: the frame
 		// builds, styles and lays out once more, and the boxes mounted in
@@ -842,6 +867,9 @@ func (t *Tree) afterFrame() {
 	t.scrollAfterFrame()
 	t.animAfterFrame()
 	t.floatAfterFrame()
+	if t.ins != nil {
+		t.ins.prof.end()
+	}
 }
 
 // buildPhase builds the components marked needsBuild in tree order,

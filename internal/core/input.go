@@ -256,6 +256,9 @@ type inputState struct {
 // HandlePointer dispatches a platform pointer event (see the comment at
 // the top of input.go). Call it on the UI thread.
 func (t *Tree) HandlePointer(e platform.PointerEvent) {
+	if t.ins != nil && t.pickPointer(e) {
+		return // pick mode took it (instrument_pick.go)
+	}
 	in := &t.in
 	key := pointerKey{e.Kind, e.ID}
 	ps := in.ptrs[key]

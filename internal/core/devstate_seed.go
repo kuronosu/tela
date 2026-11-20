@@ -122,6 +122,11 @@ func (t *Tree) devSeedNow() *devRestore {
 	return nil
 }
 
+// devReloading reports whether t is being restored from a snapshot: the
+// elements that mount now are mounted by a tela dev reload (the
+// instrumentation's CauseReload).
+func (t *Tree) devReloading() bool { return t.devSeedNow() != nil }
+
 // nodeFor returns the seed node of el: the node of its step under its
 // parent's node, when no other Element took it. The answer is cached per
 // Element for the seed's life (an Element keeps its parent; an unkeyed

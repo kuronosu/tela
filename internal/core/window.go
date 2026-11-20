@@ -686,6 +686,9 @@ func (t *Tree) openWindow(s *windowSlot) {
 	}
 	h.serial++
 	ct := NewTree(t.childConfig(spec.RootClass, h.serial))
+	if t.ins != nil {
+		ct.SetInstrument(true) // instrument.go: the app's windows together
+	}
 	ct.trk = t.trk
 	ct.outer = s.el
 	ct.anim.driven = true
@@ -716,7 +719,7 @@ func (t *Tree) openWindow(s *windowSlot) {
 // the child scales it), environment, dev mode
 // and messages, and an ID prefix of its own.
 func (t *Tree) childConfig(rootClass string, n int) Config {
-	debug := t.dbg.flags
+	debug := t.dbg.flags & DebugAll
 	if debug == 0 {
 		debug = DebugOff
 	}
@@ -834,6 +837,7 @@ func (t *Tree) closeWindow(s *windowSlot) {
 	ct.SetRequestFrame(nil)
 	ct.Unmount()
 	ct.SetWake(nil)
+	ct.SetInstrument(false) // instrument.go: the tree is gone
 	h.removeView(v)
 	v.endGPU() // gpuhost.go: a swapchain on the window goes before it
 	if !h.ended {

@@ -639,6 +639,9 @@ func (t *Tree) updateComponent(el *Element, n node) {
 		}
 		return
 	}
+	if t.ins != nil && old != d {
+		t.ins.noteParent(el, el.comp, d.comp) // why it could not skip (instrument.go)
+	}
 	el.node = n
 	el.comp = d.comp
 	t.build(el)
@@ -757,6 +760,9 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 // (React's order); context and Value subscriptions end.
 func (t *Tree) unmount(el *Element) {
 	el.mounted = false
+	if t.ins != nil {
+		t.ins.forget(el)
+	}
 	t.semUnmount(el)
 	t.stats.Unmounts++
 	if el.kind == elemPrimitive {

@@ -199,6 +199,9 @@ func (t *Tree) HandleKey(e platform.KeyEvent) {
 	if t.root == nil {
 		return
 	}
+	if t.ins != nil && t.pickKey(e) {
+		return // Escape ended pick mode (instrument_pick.go)
+	}
 	t.fixFocus()
 	if e.Action == platform.KeyPress {
 		// A focus lost inside a containing scope by a commit whose frame

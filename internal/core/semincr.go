@@ -211,6 +211,10 @@ func (t *Tree) semPending() bool {
 // buildSemantics builds the semantics tree: in full when none was built,
 // else again from the marks.
 func (t *Tree) buildSemantics() {
+	if ins := t.ins; ins != nil {
+		d := ins.prof.spanBegin(PhaseSemantics) // the frame profile (instrument_prof.go)
+		defer ins.prof.spanEnd(d)
+	}
 	s := &t.sem
 	if s.byID == nil {
 		s.byID = make(map[semantics.NodeID]*Element)

@@ -317,6 +317,13 @@ func (s *GPUSurface) DrawFull(t *Tree, dst *image.RGBA) error {
 // the error is returned with the damage: the caller goes on with
 // RasterizeFrame, or tries again.
 func (t *Tree) RasterizeFrameGPU(fb *image.RGBA, s *GPUSurface, r *raster.Renderer, full bool) (Damage, error) {
+	if ins := t.ins; ins != nil {
+		sp := ins.prof.spanBegin(PhaseRaster) // the frame profile (instrument_prof.go)
+		defer func() {
+			ins.prof.damage(&t.lay.damage, fb.Rect)
+			ins.prof.spanEnd(sp)
+		}()
+	}
 	var err error
 	s.Stats = GPUFrameStats{}
 	draw := func(dst *image.RGBA, full bool) Damage {

@@ -25,6 +25,9 @@ type InspectNode struct {
 	// Component is the function name of the component that produced the
 	// element, if any ("main.Counter").
 	Component string `json:"component,omitempty"`
+	// Element is the box's element in an instrumented tree (ElementID,
+	// instrument.go), 0 otherwise.
+	Element ElementID `json:"element,omitempty"`
 	// Rect is the border box in absolute logical pixels (unrounded), as
 	// layout placed it: scroll offsets and transforms are not applied.
 	Rect gfx.Rect `json:"rect"`
@@ -84,6 +87,7 @@ func (n InspectNode) MarshalJSON() ([]byte, error) {
 		Kind      string        `json:"kind"`
 		Key       string        `json:"key,omitempty"`
 		Component string        `json:"component,omitempty"`
+		Element   ElementID     `json:"element,omitempty"`
 		Rect      jsonRect      `json:"rect"`
 		Bounds    *jsonRect     `json:"bounds,omitempty"`
 		Margin    Edges         `json:"margin,omitzero"`
@@ -97,7 +101,7 @@ func (n InspectNode) MarshalJSON() ([]byte, error) {
 		Style     StyleSummary  `json:"style"`
 		Children  []InspectNode `json:"children,omitempty"`
 	}{
-		n.Kind, n.Key, n.Component,
+		n.Kind, n.Key, n.Component, n.Element,
 		jsonRect{n.Rect.X0, n.Rect.Y0, n.Rect.Width(), n.Rect.Height()}, bounds,
 		n.Margin, n.Border, n.Padding, n.Text, n.Lines, n.Inline, jsonFrags(n.Fragments), n.InlineBox, n.Style, n.Children,
 	})
@@ -199,11 +203,17 @@ func (t *Tree) InspectElement(id semantics.NodeID) (InspectNode, error) {
 	if el == nil {
 		return InspectNode{}, fmt.Errorf("%w: %d", ErrNodeGone, id)
 	}
+	return t.inspectOf(el, fmt.Sprint(id))
+}
+
+// inspectOf is InspectElement for el, a mounted element (what names it in
+// the error).
+func (t *Tree) inspectOf(el *Element, what string) (InspectNode, error) {
 	for el != nil && !(el.mounted && el.kind == elemPrimitive && t.ownBox(el, false) && t.inTree(el.box)) {
 		el = el.styleParent()
 	}
 	if el == nil || t.rootBox == nil || t.rootBox.cs == nil {
-		return InspectNode{}, fmt.Errorf("%w: %d", ErrNodeGone, id)
+		return InspectNode{}, fmt.Errorf("%w: %s", ErrNodeGone, what)
 	}
 	// The box's origin is its parent's absolute one: the layout locations
 	// of the ancestors, which Inspect adds going down.
@@ -234,6 +244,9 @@ func (t *Tree) inspect(b *Box, origin gfx.Point) InspectNode {
 		}
 		if b.el.keyed {
 			n.Key = fmt.Sprint(b.el.key)
+		}
+		if t.ins != nil {
+			n.Element = t.ins.idOf(b.el)
 		}
 		if c := b.el.component(); c != nil {
 			n.Component = c.comp.name()
