@@ -433,7 +433,7 @@ func TestShortValue(t *testing.T) {
 		card Node
 		none Node
 	}
-	if got, want := shortValue(shy{body: Primitive(style.KindDiv), card: insCard{Title: "c"}}),
+	if got, want := shortValue(shy{body: Primitive(style.KindDiv), card: insCard{Title: "c"}, none: nil}),
 		`{body:<div> card:core.insCard{Title:"c" N:0} none:nil}`; got != want {
 		t.Errorf("unexported nodes:\n got %s\nwant %s", got, want)
 	}
