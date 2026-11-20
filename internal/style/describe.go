@@ -45,10 +45,6 @@ type Description struct {
 	Parts     []Description
 }
 
-// Describe describes class, a single class with its variants (hover:p-4).
-// The error is the compile error of the class (an UnknownClassError and
-// the like) when it is not valid; the description then has the class and
-// its variants only.
 // descOnce builds the describer's tables on first use, so that apps,
 // which never describe a class, do not link them (ADR-301).
 var descOnce sync.Once
@@ -64,6 +60,10 @@ func descLoad() {
 	})
 }
 
+// Describe describes class, a single class with its variants (hover:p-4).
+// The error is the compile error of the class (an UnknownClassError and
+// the like) when it is not valid; the description then has the class and
+// its variants only.
 func (p *Parser) Describe(class string) (Description, error) {
 	descLoad()
 	return p.describe(class, nil)
