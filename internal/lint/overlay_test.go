@@ -80,7 +80,7 @@ import (
 )
 
 func Buffer() tela.Node {
-	//tela:ignore class -- the buffer checks the typo
+	` + "//tela:" + `ignore class -- the buffer checks the typo
 	return h.Div(h.Class("flex p-4 bg-rde-500"))
 }
 `

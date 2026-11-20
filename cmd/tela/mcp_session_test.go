@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -86,26 +87,65 @@ func TestMCPOpenFallbackStartsASegment(t *testing.T) {
 	}
 }
 
-// goWrapper writes a script that stands for the go command: it runs the
-// real one, after what the test asks for through the environment (which the
-// tool's go vet and go test inherit).
+// goWrapperSource is a program that stands for the go command: it runs the
+// real one (REALGO), after what the test asks for through the environment,
+// which the tool's go vet and go test inherit.
+const goWrapperSource = `package main
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+)
+
+func main() {
+	args := os.Args[1:]
+	if len(args) > 0 && args[0] == "vet" {
+		if f := os.Getenv("MCPTEST_EDIT"); f != "" {
+			if w, err := os.OpenFile(f, os.O_APPEND|os.O_WRONLY, 0o644); err == nil {
+				fmt.Fprintln(w, "// edited while go vet ran")
+				w.Close()
+			}
+		}
+		if f := os.Getenv("MCPTEST_VETFAIL"); f != "" {
+			fmt.Println(f + ":3:1: boom")
+			os.Exit(1)
+		}
+	}
+	cmd := exec.Command(REALGO, args...)
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+	if err := cmd.Run(); err != nil {
+		if e, ok := err.(*exec.ExitError); ok {
+			os.Exit(e.ExitCode())
+		}
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+`
+
+// goWrapper builds the stand-in for the go command, which runs realGo with
+// the same arguments.
 func goWrapper(t *testing.T, realGo string) string {
 	t.Helper()
-	if runtime.GOOS == "windows" {
-		t.Skip("the wrapper of the go command is a shell script")
-	}
-	script := `#!/bin/sh
-if [ "$1" = vet ]; then
-  if [ -n "$MCPTEST_EDIT" ]; then echo "// edited while go vet ran" >> "$MCPTEST_EDIT"; fi
-  if [ -n "$MCPTEST_VETFAIL" ]; then echo "$MCPTEST_VETFAIL:3:1: boom"; exit 1; fi
-fi
-exec "` + realGo + `" "$@"
-`
-	path := filepath.Join(t.TempDir(), "go")
-	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(strings.Replace(goWrapperSource, "REALGO", strconv.Quote(realGo), 1)), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	return path
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module gowrapper\n\ngo 1.21\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	exe := filepath.Join(dir, "gowrapper")
+	if runtime.GOOS == "windows" {
+		exe += ".exe"
+	}
+	build := exec.Command(realGo, "build", "-o", exe, ".")
+	build.Dir = dir
+	build.Env = append(os.Environ(), "CGO_ENABLED=0", "GOFLAGS=")
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("building the go wrapper: %v\n%s", err, out)
+	}
+	return exe
 }
 
 // TestMCPTestToolFiles checks what the test tool does with the files and
@@ -130,9 +170,8 @@ func TestMCPTestToolFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(appDir, "orig_test.go"), []byte(orig), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink("orig_test.go", filepath.Join(appDir, "link_test.go")); err != nil {
-		t.Skipf("no symlinks: %v", err)
-	}
+	// Not every system lets a test make a symlink.
+	linkErr := os.Symlink("orig_test.go", filepath.Join(appDir, "link_test.go"))
 	c := startMCP(t, goBin, mcpOptions{Pkg: "./app", W: 480, H: 320, Scale: 1})
 	c.request("initialize", map[string]any{"protocolVersion": "2025-06-18", "capabilities": map[string]any{}, "clientInfo": map[string]any{"name": "test", "version": "1"}})
 	if r := c.tool("click", map[string]any{"role": "button", "name": "Count: 0"}); r.isError {
@@ -140,11 +179,13 @@ func TestMCPTestToolFiles(t *testing.T) {
 	}
 
 	// A symlink is not written through, and the file it points at is kept.
-	if r := c.tool("test", map[string]any{"name": "flow", "path": "link_test.go"}); !r.isError || !strings.Contains(r.text, "not a regular file") {
-		t.Errorf("test into a symlink: %v\n%s", r.isError, r.text)
-	}
-	if b, _ := os.ReadFile(filepath.Join(appDir, "orig_test.go")); string(b) != orig {
-		t.Errorf("a file was written through a symlink:\n%s", b)
+	if linkErr == nil {
+		if r := c.tool("test", map[string]any{"name": "flow", "path": "link_test.go"}); !r.isError || !strings.Contains(r.text, "not a regular file") {
+			t.Errorf("test into a symlink: %v\n%s", r.isError, r.text)
+		}
+		if b, _ := os.ReadFile(filepath.Join(appDir, "orig_test.go")); string(b) != orig {
+			t.Errorf("a file was written through a symlink:\n%s", b)
+		}
 	}
 
 	// A good test, written once.

@@ -10,7 +10,6 @@ import (
 	"image/draw"
 	"image/png"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -232,15 +231,6 @@ func TestGenerateSourceOlderTela(t *testing.T) {
 				t.Errorf("%v: the form for an older tela uses %q, which a tela before the settled mount lacks", c, bad)
 			}
 		}
-	}
-	// The detection decides: the settled form needs NoSettle, App.LayoutJSON
-	// and AllowDev, which this module's telatest has.
-	goBin, err := exec.LookPath("go")
-	if err != nil {
-		t.Skip("the go command is not in PATH")
-	}
-	if f := detectFeatures(goBin, "testdata/previews"); !f.Settle {
-		t.Errorf("detectFeatures of this module's tela: %+v, want Settle", f)
 	}
 }
 

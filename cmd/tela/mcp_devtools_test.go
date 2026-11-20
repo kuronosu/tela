@@ -109,13 +109,13 @@ func TestDetectFeatures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f := detectFeatures(goBin, "testdata/previews"); !f.DevTools || f.I18N {
-		t.Errorf("testdata/previews: %+v, want DevTools without i18n", f)
+	if f := detectFeatures(goBin, "testdata/previews"); !f.DevTools || !f.Settle || f.I18N {
+		t.Errorf("testdata/previews: %+v, want DevTools and Settle (the settled mount) without i18n", f)
 	}
 	if f := detectFeatures(goBin, "testdata/mcpapp"); !f.DevTools || !f.I18N {
 		t.Errorf("testdata/mcpapp: %+v, want DevTools and i18n (the Prefs screen reads the locale)", f)
 	}
-	if f := detectFeatures(goBin, t.TempDir()); f.DevTools || f.I18N {
+	if f := detectFeatures(goBin, t.TempDir()); f.DevTools || f.I18N || f.Settle {
 		t.Errorf("a directory outside any module: %+v", f)
 	}
 }

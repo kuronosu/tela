@@ -512,7 +512,7 @@ func generateSource(pkgName string, c contract, hasApp bool, feats ...genFeature
 		Film     bool
 		Env      map[string]string
 	}{
-		Package: pkgName, Kind: c.String(), HasApp: hasApp, Settle: f.Settle || f.Film, DevTools: f.DevTools, Film: f.Film,
+		Package: pkgName, Kind: c.String(), HasApp: hasApp, Settle: f.Settle || f.Film || f.DevTools, DevTools: f.DevTools, Film: f.Film,
 		Env: map[string]string{
 			"Mode": envMode, "W": envW, "H": envH, "Scale": envScale, "Dark": envDark, "SizeSet": envSizeSet,
 			"Preview": envPreview, "Out": envOut, "Err": envErr, "Info": envInfo, "Log": envLog,
