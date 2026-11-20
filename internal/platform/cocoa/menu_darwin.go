@@ -141,6 +141,7 @@ func setupMenus() error {
 		c.target, c.err = darwin.RegisterClass("TelaMenuTarget", darwin.GetClass("NSObject"), nil, []darwin.Method{
 			{Sel: darwin.Sel(appItemAction), Fn: appMenuItemChosen},
 			{Sel: darwin.Sel(popupItemAction), Fn: popupMenuItemChosen},
+			{Sel: darwin.Sel(dockItemAction), Fn: dockMenuItemChosen}, // surfaces_darwin.go
 		})
 		if c.err != nil {
 			c.err = fmt.Errorf("cocoa: registering TelaMenuTarget: %w", c.err)

@@ -403,6 +403,11 @@
 //   - Notifications: UNUserNotificationCenter, only from an app bundle with
 //     a bundle identifier (notify_darwin.go); without one Notify returns
 //     ErrUnsupported naming tela run.
+//   - The desktop surfaces of contract v16 (surfaces_darwin.go): the
+//     login item of SMAppService.mainAppService (a bundle, macOS 13+),
+//     the Dock menu of the tasks (applicationDockMenu:, a click is a
+//     LaunchForwarded LaunchEvent), NSDocumentController's recent
+//     documents; any goroutine.
 //
 // # Shortcuts, single instance and launches
 //

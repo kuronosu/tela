@@ -191,6 +191,52 @@ type Desktop interface {
 	// every backend but Cocoa, headless and remote. An invalid menu panics
 	// ([CheckAppMenu]). See "Native menus" in the package documentation.
 	SetAppMenu(menu, appItems []MenuItem) error
+
+	// --- Platform contract v16 (ADR-298; surfaces.go). ---
+	//
+	// The methods below block (file I/O, the registry, a D-Bus round
+	// trip, COM) and are safe from any goroutine, like the secrets. app
+	// is the app as the desktop knows it ([CheckHandlerApp]; ID always,
+	// Name and Exec where needExec is noted). See "Desktop surfaces" in
+	// the package documentation.
+
+	// SetStartAtLogin makes the desktop start app when the user logs in
+	// (on) or no longer (off): the Run key on Windows, an XDG autostart
+	// entry on Linux (the Background portal in a Flatpak sandbox),
+	// SMAppService.mainAppService on macOS 13 and later. Windows and
+	// Linux start it with AtLoginFlag. Nothing is written when nothing
+	// changes. ErrUnsupported where the OS has no such service (a macOS
+	// program outside a bundle). Exec is needed when on.
+	SetStartAtLogin(app HandlerApp, on bool) error
+
+	// StartsAtLogin reports whether the desktop starts app at login: what
+	// SetStartAtLogin set, unless the user turned it off since (Task
+	// Manager's Startup apps, Hidden=true in the autostart entry, System
+	// Settings' Login Items, where a login item that waits for the user's
+	// approval is not started yet: false).
+	StartsAtLogin(app HandlerApp) (bool, error)
+
+	// SetTasks replaces the app's tasks (nil removes them): Windows jump
+	// list tasks of the app's AppUserModelID (each a shell link to Exec
+	// with the task's arguments), the macOS Dock menu (a click delivers an
+	// app-scoped LaunchEvent with the task's Args, Source
+	// LaunchForwarded), the Linux desktop entry's actions in the entry
+	// RegisterApp wrote (an error wrapping ErrAppNotRegistered when Tela
+	// wrote no entry for app.ID). Exec is needed. Invalid tasks panic
+	// ([CheckTasks]).
+	SetTasks(app HandlerApp, tasks []Task) error
+
+	// AddRecentDocument adds the file at path (absolute, existing; see
+	// [CheckRecent]) to the app's recent documents: SHAddToRecentDocs on
+	// Windows (the app's jump list shows them when it handles the type),
+	// NSDocumentController on macOS (the Dock menu and File › Open
+	// Recent, for a type the bundle declares), recently-used.xbel on
+	// Linux. Exec is needed.
+	AddRecentDocument(app HandlerApp, path string) error
+
+	// ClearRecentDocuments removes the app's recent documents, and only
+	// the app's: other applications' entries stay.
+	ClearRecentDocuments(app HandlerApp) error
 }
 
 // FileFilter is one entry of a file dialog's type list.
@@ -634,6 +680,41 @@ func (UnsupportedDesktop) MoveToTrash(path string) error {
 // ErrUnsupported.
 func (UnsupportedDesktop) SetAppMenu(menu, appItems []MenuItem) error {
 	CheckAppMenu(menu, appItems)
+	return ErrUnsupported
+}
+
+// SetStartAtLogin checks app and returns ErrUnsupported.
+func (UnsupportedDesktop) SetStartAtLogin(app HandlerApp, on bool) error {
+	CheckHandlerApp("SetStartAtLogin", app, on)
+	return ErrUnsupported
+}
+
+// StartsAtLogin checks app and returns ErrUnsupported.
+func (UnsupportedDesktop) StartsAtLogin(app HandlerApp) (bool, error) {
+	CheckHandlerApp("StartsAtLogin", app, false)
+	return false, ErrUnsupported
+}
+
+// SetTasks checks its arguments and returns ErrUnsupported.
+func (UnsupportedDesktop) SetTasks(app HandlerApp, tasks []Task) error {
+	CheckHandlerApp("SetTasks", app, true)
+	CheckTasks("SetTasks", tasks)
+	return ErrUnsupported
+}
+
+// AddRecentDocument checks its arguments ([CheckRecentPath], without
+// looking at the file) and returns ErrUnsupported.
+func (UnsupportedDesktop) AddRecentDocument(app HandlerApp, path string) error {
+	CheckHandlerApp("AddRecentDocument", app, true)
+	if _, err := CheckRecentPath(path); err != nil {
+		return err
+	}
+	return ErrUnsupported
+}
+
+// ClearRecentDocuments checks app and returns ErrUnsupported.
+func (UnsupportedDesktop) ClearRecentDocuments(app HandlerApp) error {
+	CheckHandlerApp("ClearRecentDocuments", app, false)
 	return ErrUnsupported
 }
 

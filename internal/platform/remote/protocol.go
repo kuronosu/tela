@@ -54,7 +54,9 @@ import (
 //   - 15: platform contract v11 (ADR-259): LaunchEvent.AtStart,
 //     MenuItem.AccessKey and AssociationStatus.Role.
 //   - 16: platform contract v15 (ADR-297): NotificationEvent.Earlier.
-const ProtocolVersion = 16
+//   - 17: platform contract v16 (ADR-298; surfaces.go): SetStartAtLogin,
+//     StartsAtLogin, SetTasks, AddRecentDocument, ClearRecentDocuments.
+const ProtocolVersion = 17
 
 // magic opens the hello message.
 const magic = "TELA"

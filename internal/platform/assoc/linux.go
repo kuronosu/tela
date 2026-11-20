@@ -436,7 +436,7 @@ func (l *linuxAssoc) register(app platform.HandlerApp, a platform.Association, r
 			if len(types) == 0 && !own.app {
 				changes = append(changes, change{own.path, nil})
 			} else {
-				changes = append(changes, change{own.path, desktopFile(app, types, own.app)})
+				changes = append(changes, change{own.path, keepActions(desktopFile(app, types, own.app), own)})
 			}
 		}
 		drops, err := l.dropDefaults(typ, ownID)
@@ -449,7 +449,7 @@ func (l *linuxAssoc) register(app platform.HandlerApp, a platform.Association, r
 		if !hasType(types, typ) {
 			types = append(slices.Clone(types), typ)
 		}
-		if data := desktopFile(app, types, own.app); !bytes.Equal(data, own.raw) {
+		if data := keepActions(desktopFile(app, types, own.app), own); !bytes.Equal(data, own.raw) {
 			changes = append(changes, change{l.ownEntryPath(app.ID), data})
 		}
 	case own != nil && !own.hide && hasType(own.mime, typ):
@@ -874,8 +874,11 @@ func (l *linuxAssoc) RegisterApp(app platform.HandlerApp, opts platform.Register
 		return false, nil
 	}
 	data := desktopFile(app, types, true)
-	if own != nil && own.tela && bytes.Equal(data, own.raw) {
-		return false, nil
+	if own != nil && own.tela {
+		data = keepActions(data, own) // SetTasks's
+		if bytes.Equal(data, own.raw) {
+			return false, nil
+		}
 	}
 	return l.apply([]change{{l.ownEntryPath(app.ID), data}})
 }

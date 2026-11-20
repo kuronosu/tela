@@ -123,6 +123,11 @@
 //     activator belongs to the host's backend; [NewHost] tells a backend
 //     that has SetDevHost (Win32) that it hosts tela dev children, so it
 //     never registers its own executable, tela's, as the app's activator.
+//   - Platform contract v16 (protocol 17, ADR-298; surfaces.go): start at
+//     login, the tasks and the recent documents are the host backend's,
+//     served off its UI thread like the secrets, with the child's
+//     HandlerApp (its ID and executable, never the host's). A Dock menu
+//     task is a LaunchEvent for the active child.
 //   - Run returns an error when the connection is lost.
 //
 // The child's loop is internal/loop's (queue, coalesced wake, quit,

@@ -58,6 +58,7 @@ type desktopState struct {
 
 	keys   shortcutState // shortcut_darwin.go
 	launch launchState   // launch_darwin.go: the app ID, single instance, launches
+	dock   dockState     // surfaces_darwin.go: the Dock menu's tasks
 }
 
 // dsel holds the selectors of the desktop services.

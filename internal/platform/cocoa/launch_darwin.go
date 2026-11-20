@@ -150,6 +150,9 @@ var appLaunched bool
 // applicationDidFinishLaunching is -[NSApplicationDelegate
 // applicationDidFinishLaunching:].
 func applicationDidFinishLaunching(_ darwin.ID, _ darwin.SEL, _ darwin.ID) {
+	if !appLaunched {
+		markLoginLaunch() // surfaces_darwin.go: a start as a login item
+	}
 	appLaunched = true
 }
 
@@ -218,6 +221,7 @@ func appDelegateLaunchMethods() []darwin.Method {
 	return []darwin.Method{
 		{Sel: darwin.Sel("application:openURLs:"), Fn: applicationOpenURLs},
 		{Sel: darwin.Sel("applicationDidFinishLaunching:"), Fn: applicationDidFinishLaunching},
+		{Sel: darwin.Sel("applicationDockMenu:"), Fn: applicationDockMenu}, // surfaces_darwin.go
 	}
 }
 

@@ -86,6 +86,13 @@
 //     user's defaults naming the app, when a registration changes to it.
 //   - Other OSes: [Native] returns platform.UnsupportedAssociations.
 //
+// The Linux files of the desktop surfaces (platform contract v16,
+// ADR-298) are written here too, as plain file I/O on [LinuxDirs]: the
+// autostart entry ([LinuxSetStartAtLogin], autostart.go), the actions of
+// the app's desktop entry ([LinuxSetActions], actions.go, which the
+// associations keep when they render the entry again) and
+// recently-used.xbel ([LinuxAddRecent], xbel.go).
+//
 // # Tests never touch the system
 //
 // The OS logic takes where it writes as an argument: [LinuxDirs] (the XDG

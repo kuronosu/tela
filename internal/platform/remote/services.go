@@ -96,6 +96,12 @@ const (
 	dSetAppMenu // menu, app items
 	// Version 12 (ADR-251).
 	dSetStrings // strings
+	// Version 17 (surfaces.go, ADR-298), served off the UI thread.
+	dSetStartAtLogin      // app, on
+	dStartsAtLogin        // app; result: on
+	dSetTasks             // app, tasks
+	dAddRecentDocument    // app, path
+	dClearRecentDocuments // app
 )
 
 // Outcome codes of a desktop call.

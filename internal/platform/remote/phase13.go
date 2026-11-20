@@ -742,15 +742,17 @@ func (h *Host) claimInstance(c *Child, appID string, launch platform.Launch, cal
 // --- host side: blocking services (secrets, associations) ---
 
 // blockingDesktop reports whether a desktop request is one the host
-// serves off its UI thread: the secrets, associations and the trash, which
-// block on the OS and are safe from any goroutine.
+// serves off its UI thread: the secrets, associations, the trash and the
+// surfaces of protocol 17, which block on the OS and are safe from any
+// goroutine.
 func blockingDesktop(payload []byte) bool {
 	if len(payload) == 0 {
 		return false
 	}
 	switch payload[0] {
 	case dSetSecret, dSecret, dDeleteSecret, dAssocStatus, dAssocRegister, dAssocUnregister, dAssocMakeDefault, dMoveToTrash,
-		dAppRegister, dAppUnregister, dAppStatus:
+		dAppRegister, dAppUnregister, dAppStatus,
+		dSetStartAtLogin, dStartsAtLogin, dSetTasks, dAddRecentDocument, dClearRecentDocuments:
 		return true
 	}
 	return false
@@ -772,6 +774,9 @@ func (h *Host) blockingRequest(c *Child, in incoming) {
 }
 
 func (h *Host) serveBlocking(op uint8, d *dec, result *func(*enc)) error {
+	if err, ok := h.serveSurface(op, d, result); ok {
+		return err
+	}
 	desk := h.desk
 	switch op {
 	case dMoveToTrash:

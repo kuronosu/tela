@@ -59,9 +59,11 @@
 //     handler.
 //     Exceptions, safe from any goroutine: [Backend.Wake], [Backend.Quit],
 //     [Backend.Now]; the secret methods of Desktop (SetSecret, Secret,
-//     DeleteSecret), Desktop.MoveToTrash and every method of
-//     [Associations], which block on the OS (an unlock prompt, file and
-//     registry I/O) and are meant to be called off the UI thread. Desktop() itself is called on the UI
+//     DeleteSecret), Desktop.MoveToTrash, the desktop surfaces of contract
+//     v16 (SetStartAtLogin, StartsAtLogin, SetTasks, AddRecentDocument,
+//     ClearRecentDocuments) and every method of [Associations], which
+//     block on the OS (an unlock prompt, file and registry I/O) and are
+//     meant to be called off the UI thread. Desktop() itself is called on the UI
 //     thread; the value it returns may be kept for those calls.
 //   - The handler is never called re-entrantly. If a method the handler calls
 //     makes the OS deliver a message synchronously (Win32 SetWindowPos sends
@@ -654,8 +656,8 @@
 // dialogs, message boxes, notifications and tray icons. Rules for every
 // backend:
 //
-//   - UI thread only (except the secret methods, MoveToTrash and
-//     Associations, see "Threading"). Arguments are checked with the shared helpers
+//   - UI thread only (except the secret methods, MoveToTrash, the
+//     surfaces of contract v16 and Associations, see "Threading"). Arguments are checked with the shared helpers
 //     ([CheckFileDialogOptions], [CheckMessageBoxOptions],
 //     [CheckNotification], [CheckTrayOptions], [CheckURI]) before anything
 //     else, so programmer errors panic on every platform, including where
@@ -787,6 +789,10 @@
 // click on a toast of this process reaches both the toast's delegate and
 // the activator; it is reported once. Remote protocol 16 carries the
 // field.
+//
+// Contract v16 (ADR-298) adds the desktop surfaces: start at login,
+// the app's tasks and recent documents (see "Desktop surfaces"). Remote
+// protocol 17 carries them.
 //
 // # Drag and drop and the clipboard
 //
@@ -994,6 +1000,61 @@
 // fs.ErrNotExist); a dismissed unlock prompt is [ErrSecretCanceled]
 // (the Secret Service; Win32 has no prompt); no secure storage in the
 // session is ErrUnsupported, and the layers above disable what needs it.
+//
+// # Desktop surfaces
+//
+// [Desktop.SetStartAtLogin] and StartsAtLogin, [Desktop.SetTasks],
+// [Desktop.AddRecentDocument] and ClearRecentDocuments take the app as a
+// [HandlerApp] (its ID, name and executable, as the associations do), so
+// that under tela dev the host's backend writes the app's, not its own.
+// They block and are safe from any goroutine; arguments are checked first
+// ([CheckHandlerApp], [CheckTasks], [CheckRecentPath]).
+//
+//   - Start at login. Windows: the value <ID> of
+//     HKCU\Software\Microsoft\Windows\CurrentVersion\Run, the quoted
+//     executable, its arguments and [AtLoginFlag]; the user's switch in
+//     Task Manager (Explorer\StartupApproved\Run, first byte odd: off) is
+//     read by StartsAtLogin and cleared by SetStartAtLogin(on). Linux:
+//     $XDG_CONFIG_HOME/autostart/<ID>.desktop (Exec with AtLoginFlag, and
+//     X-Tela-Registered); off removes it, or writes Hidden=true over a
+//     system entry of $XDG_CONFIG_DIRS/autostart; in a Flatpak sandbox
+//     (/.flatpak-info) org.freedesktop.portal.Background.RequestBackground
+//     with autostart and the command line, and the sandbox's own copy of
+//     the entry records the answer for StartsAtLogin. macOS 13 and later:
+//     +[SMAppService mainAppService] register and unregister (status
+//     enabled is on; requires approval is off until the user approves it
+//     in System Settings); a program outside a bundle and older systems
+//     are ErrUnsupported. A start at login is told by [StartedAtLogin]:
+//     the flag on Windows and Linux (removed from os.Args by this
+//     package's init), on macOS the 'oapp' Apple event's
+//     keyAELaunchedAsLogInItem, read in applicationDidFinishLaunching:.
+//   - Tasks. Windows: an ICustomDestinationList of the app's
+//     AppUserModelID (the AUMID of SetAppID) with the tasks as IShellLinkW
+//     (Exec, the quoted arguments, the title as PKEY_Title, the
+//     description, an .ico written to the user's cache for an icon), and
+//     the Recent category (KDC_RECENT) when the app registered file types;
+//     a task starts a process of the app, which ClaimInstance forwards to
+//     the running one. macOS: the app delegate's applicationDockMenu:
+//     returns an NSMenu of the tasks; a click is an app-scoped
+//     LaunchEvent{Launch{Args, Dir}, Source: LaunchForwarded}, as a
+//     forwarded start is elsewhere. Linux: Actions and [Desktop Action
+//     tela-N] groups (Name, Exec: the entry's Exec without its field code
+//     and the task's quoted arguments, Icon: a PNG under
+//     $XDG_DATA_HOME/tela/tasks) of the entry Tela wrote for the ID
+//     (RegisterApp's or the associations'); the associations keep them
+//     when they rewrite it. Without such an entry the error wraps
+//     ErrAppNotRegistered (an installer's entry is not Tela's to edit).
+//   - Recent documents. Windows: SHAddToRecentDocs(SHARD_PATHW), which
+//     the process's explicit AUMID ties to the app's jump list; clearing
+//     is IApplicationDestinations.RemoveAllDestinations of the AUMID, never
+//     the user's whole list. macOS: -[NSDocumentController
+//     noteNewRecentDocumentURL:] and clearRecentDocuments: on the main
+//     thread (shown for the document types the bundle declares). Linux:
+//     $XDG_DATA_HOME/recently-used.xbel in GTK's format (see package
+//     assoc), merged with what other applications wrote, written
+//     atomically, within GTK's limits (1000 items, 30 days); clearing
+//     removes the app's bookmark:application, and the bookmarks it leaves
+//     with none.
 //
 // # Trash
 //
@@ -1818,7 +1879,10 @@
 // 12 with contract v8 (ADR-251: SetStrings),
 // 13 with contract v9 (ADR-253: launch sources, association roles),
 // 14 with contract v10 (ADR-257: resize handles), 15 with contract v11
-// (ADR-259: launches at the start, access keys, registered roles):
+// (ADR-259: launches at the start, access keys, registered roles), 16
+// with contract v15 (ADR-297: earlier toasts), 17 with contract v16
+// (ADR-298: start at login, tasks and recent documents, served off the
+// host's UI thread):
 // everything is forwarded to the host's backend, which owns the real
 // windows: drags in both directions (the answer to a drag reaches the OS
 // one round trip late, so a drag entering a window is refused until the

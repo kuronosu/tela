@@ -549,6 +549,13 @@
 //     TSF_DELETE_RECYCLE_IF_POSSIBLE: the shell would delete it for good,
 //     so it stays and the call is ErrUnsupported. trash.go says why not
 //     SHFileOperationW.
+//   - The desktop surfaces of contract v16 (ADR-298; surfaces.go,
+//     surfaces_windows.go): the Run value with -tela-at-login and Task
+//     Manager's StartupApproved switch, the jump list's tasks
+//     (ICustomDestinationList, IShellLinkW) and recent documents
+//     (SHAddToRecentDocs with SHARDAPPIDINFO, IApplicationDestinations),
+//     all of the app's AUMID; COM in an STA thread of its own, so any
+//     goroutine.
 //
 // # IME
 //

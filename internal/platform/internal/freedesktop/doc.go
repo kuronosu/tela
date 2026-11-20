@@ -53,12 +53,17 @@
 //   - MoveToTrash: org.freedesktop.portal.Trash on a connection of its
 //     own, else the home trash of the freedesktop Trash specification
 //     written in Go (trash.go). It blocks and is safe from any goroutine.
+//   - The desktop surfaces of contract v16 (surfaces.go): the autostart
+//     entry, the actions of the app's desktop entry and
+//     recently-used.xbel, written by package assoc; in a Flatpak sandbox
+//     start at login goes through org.freedesktop.portal.Background on a
+//     connection of its own. They block and are safe from any goroutine.
 //
 // # Threading
 //
 // The platform.Desktop methods, Dispatch and Close run on the UI thread,
-// except the secret methods, MoveToTrash and Associations (see the
-// contract).
+// except the secret methods, MoveToTrash, the surfaces of contract v16
+// and Associations (see the contract).
 // godbus delivers replies, signals and incoming method calls on its own
 // goroutines; they never call the app. They put callbacks and events in an
 // inbox guarded by a mutex and call Options.Wake, and the backend's loop

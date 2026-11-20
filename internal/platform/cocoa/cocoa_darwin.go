@@ -221,6 +221,7 @@ func (b *Backend) shutdown() {
 	b.closed = true
 	pool := darwin.PoolPush()
 	b.stopDesktop() // ends the sheets before their windows close
+	b.stopDock()    // surfaces_darwin.go
 	b.stopMenus()
 	for _, w := range slices.Clone(b.loop.Windows()) {
 		w.Close()

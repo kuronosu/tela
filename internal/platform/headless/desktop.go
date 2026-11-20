@@ -13,20 +13,23 @@ import (
 type Service uint8
 
 const (
-	ServiceOpen          Service = iota // OpenURI, OpenPath
-	ServiceFileDialogs                  // OpenFiles, SaveFile, PickFolder
-	ServiceMessageBox                   // MessageBox (unsupported on Linux backends)
-	ServiceNotifications                // Notify, CloseNotification
-	ServiceTray                         // NewTray, UpdateTray, RemoveTray
-	ServiceClipboard                    // Clipboard ReadTypes, Read, Write (text always works)
-	ServiceDragDrop                     // Window.StartDrag
-	ServiceMenus                        // Window.SetMenu, Window.PopupMenu (unsupported on Linux backends)
-	ServiceShortcuts                    // RegisterShortcut, UnregisterShortcut
-	ServiceSecrets                      // SetSecret, Secret, DeleteSecret
-	ServiceInstance                     // ClaimInstance
-	ServiceAssociations                 // Associations (platform.UnsupportedAssociations)
-	ServiceTrash                        // MoveToTrash
-	ServiceAppMenu                      // Desktop.SetAppMenu (only macOS has an app menu bar)
+	ServiceOpen            Service = iota // OpenURI, OpenPath
+	ServiceFileDialogs                    // OpenFiles, SaveFile, PickFolder
+	ServiceMessageBox                     // MessageBox (unsupported on Linux backends)
+	ServiceNotifications                  // Notify, CloseNotification
+	ServiceTray                           // NewTray, UpdateTray, RemoveTray
+	ServiceClipboard                      // Clipboard ReadTypes, Read, Write (text always works)
+	ServiceDragDrop                       // Window.StartDrag
+	ServiceMenus                          // Window.SetMenu, Window.PopupMenu (unsupported on Linux backends)
+	ServiceShortcuts                      // RegisterShortcut, UnregisterShortcut
+	ServiceSecrets                        // SetSecret, Secret, DeleteSecret
+	ServiceInstance                       // ClaimInstance
+	ServiceAssociations                   // Associations (platform.UnsupportedAssociations)
+	ServiceTrash                          // MoveToTrash
+	ServiceAppMenu                        // Desktop.SetAppMenu (only macOS has an app menu bar)
+	ServiceStartAtLogin                   // SetStartAtLogin, StartsAtLogin (contract v16)
+	ServiceTasks                          // SetTasks (contract v16)
+	ServiceRecentDocuments                // AddRecentDocument, ClearRecentDocuments (contract v16)
 	serviceCount
 )
 
@@ -137,6 +140,9 @@ type desktopState struct {
 
 	// Platform contract v4 (appmenu.go).
 	appMenu appMenuState
+
+	// Platform contract v16 (surfaces.go).
+	surfaces surfacesState
 }
 
 // Desktop returns the headless desktop services: nothing is shown; every
