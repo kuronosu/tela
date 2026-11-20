@@ -28,10 +28,13 @@ import (
 // path arrives in an environment variable. The overlay means nothing is
 // written into the package's directory.
 //
-// Screens are rendered through the public telatest package (Render,
-// AriaSnapshot, LayoutJSON), so the commands work on any module that
-// requires github.com/kuronosu/tela (ADR-059, which lifts the limitation
-// of ADR-047). The generated file imports only public packages.
+// Screens are mounted through the public telatest package (Mount, then
+// Screenshot, AriaSnapshot and LayoutJSON), so the commands work on any
+// module that requires github.com/kuronosu/tela (ADR-059, which lifts the
+// limitation of ADR-047). The generated file imports only public packages.
+// Mount settles the app as a test does: passive effects run, the state they
+// set and the toasts they show are built, and finite animations finish, so
+// the output is the screen at rest, as a window shows it after a moment.
 
 // mode is what the generated test does.
 type mode string
@@ -501,6 +504,7 @@ package {{.Package}}
 import (
 	telafmt "fmt"
 	telaos "os"
+	teladebug "runtime/debug"
 	telastrconv "strconv"
 	telatesting "testing"
 
@@ -519,6 +523,31 @@ var (
 )
 
 {{template "contract" .}}
+// telaTB is the testing.TB the screen is mounted with: the real test's,
+// except that what telatest logs goes to standard error as Render printed
+// it (the dev messages as they are, the rest after "tela: ").
+// quiet drops the dev messages, as a screen with dev mode off prints none.
+type telaTB struct {
+	telatesting.TB
+	quiet bool
+}
+
+func (b telaTB) Logf(format string, args ...any) {
+	msg := telafmt.Sprintf(format, args...)
+	switch {
+	case telastrings.HasPrefix(msg, "dev message: "), telastrings.HasPrefix(msg, "dev warning: "):
+		if b.quiet {
+			return
+		}
+		msg = msg[telastrings.Index(msg, ": ")+2:]
+	case telastrings.HasPrefix(msg, "telatest: the app was still requesting frames"):
+		msg = "tela: warning: the screen never goes quiet (an endless animation, or state that is set all the time); it is shown at its frame after a few seconds"
+	default:
+		msg = "tela: " + msg
+	}
+	telafmt.Fprintln(telaos.Stderr, msg)
+}
+
 func TestTelaRun(t *telatesting.T) {
 	getenv := func(name string) string { return telaos.Getenv(name) }
 	// What the run prints on standard error (dev warnings, class errors)
@@ -587,28 +616,44 @@ func TestTelaRun(t *telatesting.T) {
 		telafmt.Fprintf(telaos.Stderr, "tela: warning: --dark has no effect: %s is tela.Light, which overrides the system's preference\n", schemeOf)
 	}
 
+	// The screen is mounted as a test mounts it and settled: the effects
+	// that run after the first frame, the state they set and the toasts
+	// they show are part of what is rendered. A panic in the tree is the
+	// error of the run.
+	defer func() {
+		if r := recover(); r != nil {
+			fail("the UI panicked: %v\n%s", r, teladebug.Stack())
+		}
+	}()
+	// Mount keeps the dev messages for the test log whether dev mode is on
+	// or not: telaTB prints them on standard error, except when it is off
+	// (App.Dev, TELA_DEV).
+	dev := true
+{{- if .HasApp}}
+	if telaHasApp && telaApp.Dev != nil {
+		dev = *telaApp.Dev
+	}
+{{- end}}
+	switch getenv("TELA_DEV") {
+	case "0":
+		dev = false
+	case "1":
+		dev = true
+	}
+	opts = append(opts, telatest.AllowDev(""))
+	app := telatest.Mount(telaTB{t, !dev}, root, opts...)
+
 	switch getenv({{printf "%q" .Env.Mode}}) {
 	case {{printf "%q" "snapshot"}}:
-		img, err := telatest.Render(root, opts...)
-		if err != nil {
-			t.Fatal(err)
-		}
 		var buf telaBuffer
-		if err := telapng.Encode(&buf, img); err != nil {
+		if err := telapng.Encode(&buf, app.Screenshot()); err != nil {
 			t.Fatal(err)
 		}
 		write({{printf "%q" .Env.Out}}, buf.b)
 	case {{printf "%q" "inspect"}}:
-		js, err := telatest.LayoutJSON(root, opts...)
-		if err != nil {
-			t.Fatal(err)
-		}
-		write({{printf "%q" .Env.Out}}, js)
+		write({{printf "%q" .Env.Out}}, app.LayoutJSON())
 	case {{printf "%q" "aria"}}:
-		yaml, err := telatest.AriaSnapshot(root, opts...)
-		if err != nil {
-			t.Fatal(err)
-		}
+		yaml := app.AriaSnapshot()
 		if yaml != "" {
 			yaml += "\n"
 		}

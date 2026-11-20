@@ -187,7 +187,7 @@ func TestGenerateSource(t *testing.T) {
 		if strings.Contains(string(src), "tela/internal/") {
 			t.Errorf("%v: generated source imports an internal package, which breaks modules outside tela:\n%s", c, src)
 		}
-		if !strings.Contains(string(src), "telatest.Render(") || !strings.Contains(string(src), "telatest.AriaSnapshot(") || !strings.Contains(string(src), "telatest.LayoutJSON(") {
+		if !strings.Contains(string(src), "telatest.Mount(") || !strings.Contains(string(src), "app.Screenshot()") || !strings.Contains(string(src), "app.AriaSnapshot()") || !strings.Contains(string(src), "app.LayoutJSON()") {
 			t.Errorf("%v: generated source does not use telatest", c)
 		}
 	}

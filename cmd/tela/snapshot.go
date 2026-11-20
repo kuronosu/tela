@@ -18,6 +18,13 @@ Renders a package's screen headlessly, with Tela's own renderer and fonts
 (the App's Fonts, then Tela's standard ones, never the system's), and writes
 it as a PNG.
 
+The screen is rendered at rest, as a window shows it after a moment: the
+effects that run after the first frame have run, the state they set and the
+toasts they show are built, and finite animations are finished. One that
+never ends (a spinner, state set on every frame) is shown at its frame after
+a few seconds of the app's time (state that is set on every frame also gets
+a note on standard error).
+
 <pkg> is a package path or a relative directory, such as ./examples/counter.
 The package must define one of
 

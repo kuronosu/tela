@@ -182,6 +182,13 @@ func main() { tela.Main(App) }
 [`telatest.FromApp`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#FromApp)(App) gives the options of an `App` to
 `Mount` and `Render`.
 
+The screen is rendered at rest, as a window shows it after a moment: passive
+effects have run (`UseEffect`, `UseMount`), the state they set and the toasts
+they show are in the PNG and in `tela inspect`, and finite animations are
+finished. A screen that never goes quiet (an endless animation, state set on
+every frame) is shown at its frame after a few seconds of the app's time (state
+set on every frame also gets a note on standard error).
+
 The screen's dev warnings (a list without keys, a `nil` dependency) and class
 errors are printed on standard error, so a command's output on standard output
 stays clean.

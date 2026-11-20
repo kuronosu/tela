@@ -366,3 +366,58 @@ func TestWriteFileAtomic(t *testing.T) {
 		t.Error("writing under a file succeeded")
 	}
 }
+
+// A screen whose passive effect sets state and shows a toast is rendered as
+// it is at rest, once the effect has run: snapshot and inspect settle the
+// app as a test does instead of rendering one frame.
+func TestSettlesPassiveEffects(t *testing.T) {
+	skipShort(t)
+	img, _, stderr := snap(t, "--size", "400x200", "./testdata/effectstate")
+	if stderr != "" {
+		t.Errorf("stderr %q", stderr)
+	}
+	// The toast is a white card over the amber background, bottom right.
+	if got := pixel(img, 200, 135); got[0] < 0xfa || got[1] < 0xfa || got[2] < 0xfa {
+		t.Errorf("pixel in the toast's card %v: want white (the effect's toast is missing from the PNG)", got)
+	}
+	if got := pixel(img, 5, 135); got == [3]uint8{0xff, 0xff, 0xff} {
+		t.Errorf("pixel outside the toast %v: want the amber background", got)
+	}
+	for _, args := range [][]string{{}, {"--aria"}} {
+		out, _ := inspectRun(t, 0, append(args, "--size", "400x200", "./testdata/effectstate")...)
+		for _, want := range []string{"Status: ready", "Saved from an effect"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("tela inspect %v lacks %q:\n%s", args, want, out)
+			}
+		}
+	}
+	out, _ := inspectRun(t, 0, "--layout", "--size", "400x200", "./testdata/effectstate")
+	for _, want := range []string{"Status: ready", "Saved from an effect"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("tela inspect --layout lacks %q", want)
+		}
+	}
+}
+
+// A finite animation that an effect starts is finished in the PNG; an
+// endless one is shown at its current frame without holding the command; a
+// screen that never stops asking for frames is rendered, with a note.
+func TestSettlesAnimations(t *testing.T) {
+	skipShort(t)
+	img, _, stderr := snap(t, "--size", "400x200", "./testdata/effectanim")
+	if stderr != "" {
+		t.Errorf("stderr %q", stderr)
+	}
+	// w-64 plus the padding: the bar ends at x=272; w-8 would end at 48.
+	if got := pixel(img, 200, 30); got != [3]uint8{0, 0, 0} {
+		t.Errorf("pixel at the end of the transition %v, want black (the transition did not finish)", got)
+	}
+	_, _, stderr = snap(t, "--size", "400x200", "./testdata/effectloop")
+	if !strings.Contains(stderr, "never goes quiet") {
+		t.Errorf("stderr %q lacks the note about a screen that never goes quiet", stderr)
+	}
+	out, _ := inspectRun(t, 0, "--size", "400x200", "./testdata/effectloop")
+	if out != "- heading \"Spinning\" [level=1]\n" {
+		t.Errorf("inspect of the busy screen: %q", out)
+	}
+}

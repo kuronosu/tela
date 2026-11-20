@@ -12,7 +12,9 @@ const inspectUsage = `Usage:
 
 	tela inspect [--aria | --layout] [--size WxH] [--dark] [--preview NAME] <pkg>
 
-Prints what a package's screen contains after a headless render.
+Prints what a package's screen contains after a headless render, with the
+screen at rest as for "tela snapshot": effects have run, and the state they
+set and the toasts they show are included.
 
 --aria (the default) prints its aria snapshot: the semantics tree as the
 YAML of Playwright's locator.ariaSnapshot(), one line per role with its
