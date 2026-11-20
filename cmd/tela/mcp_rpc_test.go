@@ -380,9 +380,9 @@ func TestMCPToolSchemas(t *testing.T) {
 			}
 		}
 	}
-	want := []string{"snapshot", "screenshot", "click", "hover", "fill", "press", "scroll", "drag", "resize", "open", "wait", "inspect", "lint"}
+	want := []string{"snapshot", "screenshot", "click", "hover", "fill", "press", "scroll", "drag", "resize", "open", "wait", "inspect", "state", "logs", "perf", "prefer", "lint"}
 	if !slices.Equal(names, want) {
-		t.Errorf("tools %v, want the set of ADR-174 %v", names, want)
+		t.Errorf("tools %v, want the set of ADR-174 and phase 28 %v", names, want)
 	}
 	for _, d := range defs {
 		if d.tool.Name == "open" && !strings.Contains(d.tool.Description, "Login, Settings") {

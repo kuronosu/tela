@@ -25,15 +25,19 @@ accessible name and states, and the text between them:
 	- button "Save changes" [disabled]
 
 Elements without a role (Div, Span) are left out and their texts merged;
-hidden elements are left out.
+hidden elements are left out. Each line ends with [src=file:line], the line of
+the source that made the element (an element a library component built is at
+the line that wrote the component): the path is relative to the package's
+directory when the file is inside it, else it starts with the module path.
 
 --layout prints the layout tree as JSON: one object per box, with its
 border box in logical pixels (rect: x, y, width, height from the top-left of
 the window, unrounded), its resolved margin, border and padding (each left
 out when all four edges are zero), the text and line count of paragraphs,
 the element's classes and a summary of its computed style (display, size,
-flex settings, color, background, font, opacity) and the class errors of the
-element. Children nest in tree order. The field order is stable.
+flex settings, color, background, font, opacity), the class errors of the
+element, and its source line ("src") as in the aria snapshot. Children nest in
+tree order. The field order is stable.
 
 rect is the box as layout placed it. When the box is painted elsewhere, its
 object also has bounds, in the same shape as rect: the bounding box of the

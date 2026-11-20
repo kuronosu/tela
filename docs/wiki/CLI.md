@@ -299,17 +299,26 @@ snapshot, one line per role with its accessible name and states; elements
 without a role are left out and their text merged:
 
 ```yaml
-- heading "Settings" [level=1]
-- switch "Email notifications" [checked]
-- button "Save changes" [disabled]
+- heading "Settings" [level=1] [src=settings.go:42]
+- switch "Email notifications" [checked] [src=settings.go:47]
+- button "Save changes" [disabled] [src=settings.go:55]
 ```
+
+Each element line ends with `[src=file:line]`, the line of your source that
+made the element (dev mode; an element made by a library component such as
+`kit.Button` is shown at the line that wrote the component). The path is
+relative to the package's directory when the file is inside it
+(`settings.go:42`, `ui/card.go:7`); a file of another directory of the module
+or of another module is named by its module path
+(`example.com/app/internal/ui/card.go:7`).
 
 `--layout` prints the layout tree as JSON, one object per box: its border box
 in logical pixels (`rect`, from the top-left of the window), the resolved
 margin, border and padding, the text and line count of paragraphs, the
 element's classes, a summary of its computed style (display, size, flex
-settings, color, background, font, opacity) and **the class errors** of the
-element. A box painted elsewhere (a transform, scrolled content) also has
+settings, color, background, font, opacity), **the class errors** of the
+element and its source line (`"src": "settings.go:42"`, with `element`, the
+identity of the element, for the tools of `tela dev`). A box painted elsewhere (a transform, scrolled content) also has
 `bounds`, which is what `ElementRef.Bounds` returns. The order of the fields is
 stable.
 
@@ -552,6 +561,10 @@ services are not reachable through the tools yet.
 | `open` | Mounts another `preview`, `dark` mode, size or scale afresh; without arguments, lists the previews |
 | `wait` | Advances the app's clock by `ms` (timers, animations), or waits for a `text` to appear or `textGone` to go |
 | `inspect` | The layout tree of `tela inspect --layout`, whole or of one element |
+| `state` | Why a component rendered and what it holds: props, hooks (kind, call site, value), build count and the reason of each of its last builds, for a `ref` (its nearest component) or for the screen's components that have props or hooks (`max`) |
+| `logs` | The dev warnings and errors and the app's output since the last `logs` call, with levels (`level`, `all`) |
+| `perf` | The last `frames` frames, or with `action: true` the frames the last click, press or wait caused: time per phase, what each built, styled, laid out and repainted, and a summary |
+| `prefer` | `reducedMotion`, `highContrast`, `textScale`, `locale`, `direction` and `dark`; without arguments, the current ones |
 | `lint` | `tela lint -json` on the package |
 
 An element is named by the `ref` of the latest snapshot, or by `role` and
@@ -572,6 +585,54 @@ update); while something is, the call waits up to two seconds for it to
 appear. Use `wait {"text": "Loaded"}` for data that arrives from a goroutine.
 The client's `notifications/cancelled` stops a wait or an action in progress,
 keeps the app's state and sends no response for that call.
+
+**Source lines.** Each element line of `snapshot` and of every acting tool
+ends with its ref and then `[src=file:line]`, the line of the app's source
+that made it, so the agent edits the right place without searching; the
+paths are those of [`tela inspect`](#tela-inspect), and so is the `"src"` of
+`inspect`.
+
+```yaml
+- button "Count: 1" [ref=e4] [src=counter.go:21]
+```
+
+**`state`, `perf`, `logs`.** `state {"ref": "e4"}` answers for the component
+that rendered the element: the setter behind its last build is named with its
+line.
+
+```text
+### app.Counter
+hook #1 UseState at counter.go:14 = 1
+built 2 time(s); why, newest first:
+- frame 2: UseState #1 at counter.go:14 was set
+- frame 1: mounted
+```
+
+`perf {"action": true}` lists the frames the last action caused. Its times
+are those of the instance on this machine (headless, no GPU): compare frames
+with each other, and read the counts (built, styled, laid out, repainted
+pixels) as the exact part. `logs` lists what the screen and the app logged
+since its last call: the dev warnings and errors of Tela (`dev`) and what the
+app printed (`app`; a `log/slog` or `log` line carrying `ERROR` or `WARN` gets
+that level); every other result already carries the ones it caused.
+
+**`prefer`.** What the user of the app prefers, to see the screen in it:
+`{"reducedMotion": true}`, `{"textScale": 1.5}`, `{"highContrast": true}`,
+`{"dark": true}` and `{"locale": "es"}` change while the app runs, as in the
+system's settings: the state is kept, the components that read them rebuild,
+and the answer says each one is `live`. The locale is
+[`tela/i18n`](Internationalization)'s (a package that does not import it says
+the preference has no effect). `{"direction": "rtl"}` puts an `h.Dir` around
+the whole screen, which is part of the tree: the screen is mounted afresh
+(state reset, refs new) with every preference set, and the answer says so.
+The preferences stay across rebuilds and `open`. `dark` is also an argument of
+`open`, which always mounts afresh.
+
+The instance is built against the `tela` your module requires, which may be
+older than the `tela` binary: the source lines, `state`, `perf` and `prefer`
+need the module to be on a version with the DevTools additions of `telatest`
+(`go get github.com/kuronosu/tela@latest`); without them the other tools keep
+working and these say what to update.
 
 ```text
 → snapshot {}
