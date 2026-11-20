@@ -20,6 +20,7 @@
 - [Desktop Integration](Desktop-Integration)
 - [Updates](Updates)
 - [Routing](Routing)
+- [SQLite](SQLite)
 - [Accessibility](Accessibility)
 - [Testing](Testing)
 - [CLI](CLI)

@@ -51,10 +51,11 @@ The screen mounts `updateCheck{}` only when both are set, so `go run` and
    files will be and the public key:
 
    ```bash
+   cd examples/notes # a module of its own (it depends on SQLite): tela runs inside it
    tela package -os linux,windows,darwin -arch amd64,arm64 -version 1.0.0 \
        -appinstaller-url https://example.com/notes \
        -ldflags "-X main.updateURL=https://example.com/notes/manifest.json -X main.updateKey=ed25519:…" \
-       -o dist ./examples/notes
+       -o dist .
    ```
 
    `dist/` gets the AppImage and deb for Linux, the zip and MSIX (and its
