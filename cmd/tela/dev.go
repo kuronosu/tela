@@ -28,7 +28,7 @@ func init() {
 
 const devUsage = `Usage:
 
-	tela dev [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [-v] [pkg]
+	tela dev [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [--devtools] [-v] [pkg]
 
 Runs a package's app in a window that never closes, rebuilds it in the
 background when its sources change and swaps the running process for the
@@ -60,7 +60,8 @@ instead.
 While it runs, tela dev serves a DevTools socket (ADR-299) that tools
 attach to: it lists the windows and the elements of the running app, its
 frame profiles and logs, and injects input into its windows. Its address is
-in <user cache>/tela/dev/<pid>.json; -v prints it.
+in <user cache>/tela/dev/<pid>.json; -v prints it. tela devtools opens a
+DevTools window on it, and --devtools starts that window beside the app.
 
 Before a swap the input is held; it reaches the new build once it shows its
 first frame. A build error, or a crash of the app, is printed here and the
@@ -82,6 +83,7 @@ Flags:
 	               still wins)
 	--preview NAME run the preview NAME of the package's Previews
 	--no-state     do not keep state across reloads
+	--devtools     open the DevTools window (tela devtools) beside the app
 	-v             print the timing of every step of a reload
 
 Keys (when standard input is a terminal):
@@ -100,7 +102,9 @@ type devOptions struct {
 	Dark    bool
 	Preview string
 	NoState bool
-	Verbose bool
+	// DevTools starts tela devtools beside the app.
+	DevTools bool
+	Verbose  bool
 
 	noTerminal bool // tests: leave standard input alone
 }
@@ -117,6 +121,7 @@ func parseDevArgs(args []string) (devOptions, error) {
 	fs.BoolVar(&o.Dark, "dark", false, "")
 	fs.StringVar(&o.Preview, "preview", "", "")
 	fs.BoolVar(&o.NoState, "no-state", false, "")
+	fs.BoolVar(&o.DevTools, "devtools", false, "")
 	fs.BoolVar(&o.Verbose, "v", false, "")
 	fs.BoolVar(&o.Verbose, "verbose", false, "")
 	pkgs, err := parsePositionals("dev", fs, args)
@@ -250,6 +255,15 @@ func devMain(goBin string, opts devOptions, stdout, stderr io.Writer) (int, erro
 	}
 	defer host.Close()
 	s.attach(host, backend.Quit)
+	if opts.DevTools {
+		if s.tools == nil {
+			fmt.Fprintln(stderr, "tela dev: --devtools needs the tools socket, which could not start")
+		} else if stop, err := startDevtools(devtoolsExe(), s.tools.addr, stderr); err != nil {
+			fmt.Fprintf(stderr, "tela dev: cannot start tela devtools: %v\n", err)
+		} else {
+			defer stop()
+		}
+	}
 
 	go s.forward(w)
 	if restore != nil {

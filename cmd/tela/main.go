@@ -5,7 +5,8 @@
 //	tela snapshot [--size WxH] [--scale N] [--dark] [--preview NAME] [-o out.png] <pkg>
 //	tela inspect  [--aria | --layout] [--size WxH] [--dark] [--preview NAME] <pkg>
 //	tela lint     [-json] [-tests] [-fix] [packages]
-//	tela dev      [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [-v] [pkg]
+//	tela dev      [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [--devtools] [-v] [pkg]
+//	tela devtools [-addr ADDRESS]
 //	tela mcp      [--size WxH] [--scale N] [--dark] [--preview NAME] [-v] [pkg]
 //	tela lsp      [-v]
 //	tela build    [-o path] [-id ID] [-name NAME] [-version V] [-icon file] [-console] [-tags list] [-ldflags f] [-gcflags f] [-trimpath] [-v] [pkg]
@@ -50,6 +51,11 @@
 // running process for the new build, keeping the state of its components
 // (ADR-111, ADR-115). Like snapshot, a package that is not a package main
 // runs its Preview, Previews or App.
+//
+// devtools opens the DevTools window of a running tela dev session: the
+// element tree with a pick tool and why each element rendered, the
+// accessibility tree, a frame profiler and the log (ADR-299); tela dev
+// --devtools starts it beside the app.
 //
 // mcp is a Model Context Protocol server on standard input and output
 // (ADR-174): an agent drives the package's screen, mounted headlessly with
@@ -105,6 +111,7 @@ Commands:
 	inspect     print a package's aria snapshot (YAML) or layout tree (JSON)
 	lint        check the source for the mistakes dev mode reports at run time
 	dev         run an app, rebuilding and reloading it as its sources change
+	devtools    open the DevTools of a running tela dev session
 	mcp         serve a package's screen to agents (Model Context Protocol)
 	lsp         serve class diagnostics, completion and hover to editors (Language Server Protocol)
 	build       build a program; on macOS, as an application bundle
@@ -141,6 +148,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runLint(args[1:], stdout, stderr)
 	case "dev":
 		return runDev(args[1:], stdout, stderr)
+	case "devtools":
+		return runDevtools(args[1:], stdout, stderr)
 	case "mcp":
 		return runMCP(args[1:], stdout, stderr)
 	case "lsp":
@@ -168,6 +177,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 				return 0
 			case "dev":
 				fmt.Fprint(stdout, devUsage)
+				return 0
+			case "devtools":
+				fmt.Fprint(stdout, devtoolsUsage)
 				return 0
 			case "mcp":
 				fmt.Fprint(stdout, mcpUsage)
