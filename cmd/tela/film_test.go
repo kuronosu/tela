@@ -9,6 +9,8 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -142,6 +144,67 @@ func TestContactSheetCaptionsDiffer(t *testing.T) {
 	}
 }
 
+// TestContactSheetCaptionsStayInTheirCell checks that a caption wider than
+// its cell (a long time over a narrow frame) is shrunk or clipped, not drawn
+// over the cell beside it.
+func TestContactSheetCaptionsStayInTheirCell(t *testing.T) {
+	img := filmPicture(30, 20, color.RGBA{255, 255, 255, 255}, image.Rectangle{}, color.RGBA{})
+	frames := []filmFrame{{At: 20000 * time.Millisecond, Img: img}, {At: 29950 * time.Millisecond, Img: img}, {At: 30000 * time.Millisecond, Img: img}}
+	sheet := contactSheet(frames)
+	cols, scale := sheetLayout(len(frames), 30, 20)
+	cw := max(1, int(30*scale))
+	if cols < 2 {
+		t.Fatalf("%d columns: the test needs neighbors", cols)
+	}
+	for c := 0; c < cols-1; c++ {
+		// The gap between the cell c and the next one holds no caption ink.
+		x0 := sheetGap + c*(cw+2+sheetGap) + cw + 2
+		for x := x0; x < x0+sheetGap; x++ {
+			for y := sheetGap; y < sheetGap+sheetLabelH; y++ {
+				if sheet.RGBAAt(x, y) == sheetInk {
+					t.Fatalf("the caption of cell %d runs past its cell: ink at (%d, %d)", c, x, y)
+				}
+			}
+		}
+	}
+}
+
+// TestCheckAPNGTarget checks that the film tool writes a new path or
+// replaces an animated PNG it wrote, and refuses any other file: a golden
+// or an asset of the module.
+func TestCheckAPNGTarget(t *testing.T) {
+	dir := t.TempDir()
+	white := color.RGBA{255, 255, 255, 255}
+	plain, err := encodePNG(filmPicture(8, 8, white, image.Rectangle{}, color.RGBA{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	film, err := encodeAPNG([]filmFrame{{At: 0, Img: filmPicture(8, 8, white, image.Rectangle{}, color.RGBA{})}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := map[string][]byte{"golden.png": plain, "mine.png": film, "garbage.png": []byte("not a png"), "empty.png": nil}
+	for name, data := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for name, ok := range map[string]bool{"new.png": true, "mine.png": true, "golden.png": false, "garbage.png": false, "empty.png": false} {
+		err := checkAPNGTarget(filepath.Join(dir, name))
+		if ok && err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
+		if !ok && (err == nil || !strings.Contains(err.Error(), "was not written by the film tool")) {
+			t.Errorf("%s: error %v, want a refusal", name, err)
+		}
+	}
+	if err := os.Symlink(filepath.Join(dir, "mine.png"), filepath.Join(dir, "link.png")); err == nil {
+		if err := checkAPNGTarget(filepath.Join(dir, "link.png")); err == nil || !strings.Contains(err.Error(), "not a regular file") {
+			t.Errorf("a symlink: %v", err)
+		}
+	}
+}
+
 // apngFile is a parsed animated PNG.
 type apngFile struct {
 	w, h   int
@@ -256,6 +319,10 @@ func parseAPNG(data []byte) (*apngFile, error) {
 			}
 			seq++
 			idats = append(idats, c.Data[4:])
+		case "tEXt":
+			if string(c.Data) != apngSoftware {
+				return nil, fmt.Errorf("unexpected tEXt chunk %q", c.Data)
+			}
 		default:
 			return nil, fmt.Errorf("unexpected %s chunk", c.Type)
 		}

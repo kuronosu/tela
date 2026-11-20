@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"go/format"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -39,7 +40,13 @@ type testgenInput struct {
 // "checkout flow" and "TestCheckoutFlow" are both TestCheckoutFlow.
 func testFuncName(name string) (string, error) {
 	name = strings.TrimSpace(name)
-	name = strings.TrimPrefix(name, "Test")
+	// Only the prefix "Test" of a function name: not the start of a word
+	// such as "Testing flow".
+	if rest, ok := strings.CutPrefix(name, "Test"); ok {
+		if r, _ := utf8.DecodeRuneInString(rest); rest == "" || unicode.IsUpper(r) || r == '_' || r == ' ' || r == '-' {
+			name = rest
+		}
+	}
 	var b strings.Builder
 	upper := true
 	for _, r := range name {
@@ -354,8 +361,32 @@ func (s *mcpSession) toolTest(ctx context.Context, args json.RawMessage) mcpResu
 		o.fail(fmt.Sprintf("path %s: the test must be in the package's directory, %s (a relative path is relative to it)", path, pkgDir))
 		return o.result()
 	}
-	if b, err := os.ReadFile(path); err == nil && !strings.HasPrefix(string(b), testgenMarker) {
-		o.fail(fmt.Sprintf("%s exists and was not written by this tool: give another path, or remove it", path))
+	// A file of the tool's is replaced, and kept to put back when the new
+	// test does not vet. Lstat, so that a symlink (to a file outside the
+	// package, say) is refused and not written through.
+	var prev []byte
+	var prevMode os.FileMode
+	switch fi, err := os.Lstat(path); {
+	case err == nil && !fi.Mode().IsRegular():
+		o.fail(fmt.Sprintf("%s exists and is not a regular file (a symlink or a directory): give another path, or remove it", path))
+		return o.result()
+	case err == nil:
+		b, rerr := os.ReadFile(path)
+		if rerr != nil {
+			o.fail(rerr.Error())
+			return o.result()
+		}
+		if !strings.HasPrefix(string(b), testgenMarker) {
+			o.fail(fmt.Sprintf("%s exists and was not written by this tool: give another path, or remove it", path))
+			return o.result()
+		}
+		prev, prevMode = b, fi.Mode().Perm()
+	case !errors.Is(err, fs.ErrNotExist):
+		o.fail(err.Error())
+		return o.result()
+	}
+	if s.rec.interrupted() {
+		o.fail("nothing to write: an action was cancelled while it ran, so part of its effect may be on the screen and the recording after it would not match. Call open to mount the screen afresh (state reset) and act again, then call test")
 		return o.result()
 	}
 	if s.rec.count() == 0 {
@@ -363,21 +394,26 @@ func (s *mcpSession) toolTest(ctx context.Context, args json.RawMessage) mcpResu
 		return o.result()
 	}
 	in := testgenInput{Pkg: s.target.pkg.Name, Func: fn, Segments: s.rec.segs, Contract: s.contract, HasApp: s.hasApp}
-	fpBefore := s.target.fingerprint()
-	synced := s.built && s.builtFP == fpBefore
 	// The test file is part of the package's fingerprint, but not of the
 	// running instance: writing it must not rebuild and remount the screen.
-	defer func() {
-		if synced && s.builtFP == fpBefore {
+	// So the session adopts the fingerprint right after each change it makes
+	// to the file, and only when nothing else changed before it: a source
+	// edit made while go vet or go test run still rebuilds on the next call.
+	touch := func(change func() error) error {
+		before := s.target.fingerprint()
+		synced := s.built && s.builtFP == before
+		err := change()
+		if synced {
 			s.builtFP = s.target.fingerprint()
 		}
-	}()
+		return err
+	}
 	write := func() ([]byte, error) {
 		src, err := generateTestSource(in)
 		if err != nil {
 			return nil, err
 		}
-		return src, os.WriteFile(path, src, 0o644)
+		return src, touch(func() error { return os.WriteFile(path, src, 0o644) })
 	}
 	src, err := write()
 	if err != nil {
@@ -401,8 +437,14 @@ func (s *mcpSession) toolTest(ctx context.Context, args json.RawMessage) mcpResu
 			return o.result()
 		}
 		if strings.Contains(vet, filepath.Base(path)) {
-			os.Remove(path)
-			o.fail(fmt.Sprintf("the test does not compile or vet (go vet %s); it was not kept. This is what it said, and what was written:\n\n%s\n\n```go\n%s\n```", arg, tail(vet, 4000), src))
+			kept := "it was not kept"
+			if prev != nil {
+				touch(func() error { return os.WriteFile(path, prev, prevMode) })
+				kept = "the file it would have replaced was put back"
+			} else {
+				touch(func() error { return os.Remove(path) })
+			}
+			o.fail(fmt.Sprintf("the test does not compile or vet (go vet %s); %s. This is what it said, and what was written:\n\n%s\n\n```go\n%s\n```", arg, kept, tail(vet, 4000), src))
 			return o.result()
 		}
 		o.notes = append(o.notes, "go vet reports problems in the package that are not in the test:\n"+tail(vet, 2000))

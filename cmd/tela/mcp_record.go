@@ -34,6 +34,11 @@ type mcpSegment struct {
 	mount   mcpMount
 	preview string // the preview that was mounted, "" for none
 	steps   []mcpStep
+	// interrupted is set when a call was cancelled while it acted: part of
+	// its effect may have happened, so the steps after it would not follow
+	// what the screen does. Nothing more is recorded in the segment, and the
+	// test tool refuses it; a new mount (open) starts another.
+	interrupted bool
 }
 
 // mcpRecorder is the session's recording.
@@ -46,7 +51,7 @@ func (r *mcpRecorder) reset(m mcpMount) { r.segs = []*mcpSegment{{mount: m}} }
 // newSegment starts a mount that follows the steps so far (open).
 func (r *mcpRecorder) newSegment(m mcpMount, preview string) {
 	if n := len(r.segs); n > 0 && len(r.segs[n-1].steps) == 0 {
-		r.segs[n-1].mount, r.segs[n-1].preview = m, preview
+		r.segs[n-1].mount, r.segs[n-1].preview, r.segs[n-1].interrupted = m, preview, false
 		return
 	}
 	r.segs = append(r.segs, &mcpSegment{mount: m, preview: preview})
@@ -58,10 +63,27 @@ func (r *mcpRecorder) add(st mcpStep, preview string) {
 		return
 	}
 	seg := r.segs[len(r.segs)-1]
+	if seg.interrupted {
+		return
+	}
 	if seg.preview == "" {
 		seg.preview = preview
 	}
 	seg.steps = append(seg.steps, st)
+}
+
+// interrupt marks the current segment as broken by a cancelled call.
+func (r *mcpRecorder) interrupt() {
+	if n := len(r.segs); n > 0 {
+		r.segs[n-1].interrupted = true
+	}
+}
+
+// interrupted reports whether the current segment was broken by a
+// cancelled call.
+func (r *mcpRecorder) interrupted() bool {
+	n := len(r.segs)
+	return n > 0 && r.segs[n-1].interrupted
 }
 
 // count is the number of steps recorded.

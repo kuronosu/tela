@@ -156,7 +156,7 @@ func contactSheet(frames []filmFrame) *image.RGBA {
 	for i, f := range frames {
 		x := sheetGap + (i%cols)*(cw+2+sheetGap)
 		y := sheetGap + (i/cols)*(sheetLabelH+ch+2+sheetGap)
-		drawLabel(sheet, x+2, y+(sheetLabelH-7*sheetScale)/2, filmLabel(f.At), sheetInk)
+		drawLabel(sheet, x+2, y+(sheetLabelH-7*sheetScale)/2, cw, filmLabel(f.At), sheetInk)
 		cell := image.Rect(x, y+sheetLabelH, x+cw+2, y+sheetLabelH+ch+2)
 		draw.Draw(sheet, cell, image.NewUniform(sheetBorder), image.Point{}, draw.Src)
 		scaled := scaleBox(f.Img, cw, ch)
@@ -222,21 +222,29 @@ var labelGlyphs = map[rune][7]string{
 	'-': {".....", ".....", ".....", "#####", ".....", ".....", "....."},
 }
 
-// drawLabel draws text at (x, y) in the font at sheetScale.
-func drawLabel(dst *image.RGBA, x, y int, text string, c color.RGBA) {
+// drawLabel draws text at (x, y) in the font, within the columns x to
+// x+width: at sheetScale when it fits, else at scale 1, and clipped to the
+// cell if it still does not, so a caption never runs into the next cell.
+func drawLabel(dst *image.RGBA, x, y, width int, text string, c color.RGBA) {
+	scale := sheetScale
+	if n := len([]rune(text)); n*6*scale-scale > width {
+		scale = 1
+		y += 7 * (sheetScale - 1) / 2 // stay centered in the caption row
+	}
+	clip := image.Rect(x, dst.Bounds().Min.Y, x+width, dst.Bounds().Max.Y).Intersect(dst.Bounds())
 	for _, r := range text {
 		g, ok := labelGlyphs[r]
 		if ok {
 			for row, line := range g {
 				for col, ch := range line {
 					if ch == '#' {
-						rect := image.Rect(x+col*sheetScale, y+row*sheetScale, x+(col+1)*sheetScale, y+(row+1)*sheetScale)
-						draw.Draw(dst, rect.Intersect(dst.Bounds()), image.NewUniform(c), image.Point{}, draw.Src)
+						rect := image.Rect(x+col*scale, y+row*scale, x+(col+1)*scale, y+(row+1)*scale)
+						draw.Draw(dst, rect.Intersect(clip), image.NewUniform(c), image.Point{}, draw.Src)
 					}
 				}
 			}
 		}
-		x += 6 * sheetScale
+		x += 6 * scale
 	}
 }
 
@@ -263,6 +271,10 @@ func encodePNG(img image.Image) ([]byte, error) {
 // Every frame after the first is cut to the box that changed from the
 // previous one (blend_op SOURCE, dispose_op NONE: it replaces its box), so
 // a small motion in a big window stays small.
+
+// apngSoftware is the tEXt chunk of an animated PNG this tool writes: the
+// film tool replaces a file only while it carries it.
+const apngSoftware = "Software\x00tela film"
 
 const (
 	apngLastHold = time.Second // how long the last frame stays on screen
@@ -421,6 +433,7 @@ func encodeAPNG(frames []filmFrame) ([]byte, error) {
 			ac := make([]byte, 8)
 			binary.BigEndian.PutUint32(ac, uint32(len(frames)))
 			out = appendChunk(out, "acTL", ac)
+			out = appendChunk(out, "tEXt", []byte(apngSoftware))
 		}
 		out = appendChunk(out, "fcTL", fcTL(box, i))
 		for _, c := range chunks {

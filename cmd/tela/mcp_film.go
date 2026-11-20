@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -94,6 +97,10 @@ func (s *mcpSession) toolFilm(ctx context.Context, args json.RawMessage) mcpResu
 			o.fail(err.Error())
 			return o.result()
 		}
+		if err = checkAPNGTarget(apng); err != nil {
+			o.fail(err.Error())
+			return o.result()
+		}
 	}
 	// The action is the tool's own, run to learn the request it would send
 	// (the element resolved, the checks made) without sending it.
@@ -162,12 +169,13 @@ func (s *mcpSession) toolFilm(ctx context.Context, args json.RawMessage) mcpResu
 			o.head += fmt.Sprintf("\nWrote the animated PNG, all %d frames, to %s (%d KB).", len(film), apng, (len(out)+1023)/1024)
 		}
 	}
-	// The test tool replays the action; a film of nothing is time passing.
+	// The test tool replays the action and then the clock the film advanced
+	// (a film of nothing is time passing): the snapshot is of the app once
+	// settled after the span, so its checks follow the wait, not the action.
 	if req.Inner != nil {
-		s.record(*req.Inner, before)
-	} else {
-		s.record(mcpReq{Op: "wait", Ms: req.Ms}, before)
+		s.rec.add(mcpStep{req: *req.Inner, before: before, after: before, w: s.curW, h: s.curH}, s.curPreview)
 	}
+	s.record(mcpReq{Op: "wait", Ms: req.Ms}, before)
 	return o.result()
 }
 
@@ -201,6 +209,34 @@ func mcpFilmDefs() []mcpToolDef {
 		def("film", filmDesc, act("Film motion"), filmProps, (*mcpSession).toolFilm, "span"),
 		def("test", testDesc, act("Write a test"), testProps, (*mcpSession).toolTest, "name"),
 	}
+}
+
+// checkAPNGTarget refuses an apng path that holds a file this tool did not
+// write (a golden, an asset): a new path, or an animated PNG of a former
+// film, which it replaces.
+func checkAPNGTarget(path string) error {
+	fi, err := os.Lstat(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("apng %s: %v", path, err)
+	}
+	if !fi.Mode().IsRegular() {
+		return fmt.Errorf("apng %s exists and is not a regular file (a symlink or a directory): give another path, or remove it", path)
+	}
+	data, err := os.ReadFile(path)
+	if err == nil {
+		var chunks []pngChunk
+		if chunks, err = splitPNG(data); err == nil {
+			for _, c := range chunks {
+				if c.Type == "tEXt" && string(c.Data) == apngSoftware {
+					return nil
+				}
+			}
+		}
+	}
+	return fmt.Errorf("apng %s exists and was not written by the film tool: give a new path (the film replaces only an animated PNG it wrote), or remove the file", path)
 }
 
 // filmPath resolves the apng argument of film: a .png file inside the

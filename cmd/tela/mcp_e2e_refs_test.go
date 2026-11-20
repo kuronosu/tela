@@ -91,6 +91,23 @@ func TestMCPRefsScrollFailFastAndCancel(t *testing.T) {
 		}
 	})
 
+	// A spinner asks for a frame every refresh, so a frame request is
+	// pending beside its endless animation: it does not keep a locator that
+	// cannot match from failing at once.
+	t.Run("fail fast on a spinner", func(t *testing.T) {
+		if r := c.tool("open", map[string]any{"preview": "Spinner"}); r.isError {
+			t.Fatalf("open Spinner:\n%s", r.text)
+		}
+		start := time.Now()
+		r := c.tool("click", map[string]any{"role": "button", "name": "Nowhere"})
+		if !r.isError || !strings.Contains(r.text, "waiting would not help") {
+			t.Errorf("a locator that matches nothing on a screen with a spinner:\n%s", r.text)
+		}
+		if d := time.Since(start); d > 1500*time.Millisecond {
+			t.Errorf("it took %v to fail: telatest's wait is 2 s", d)
+		}
+	})
+
 	// A cancelled wait ends without a response, and the app keeps its
 	// state: it is not mounted again.
 	t.Run("cancel", func(t *testing.T) {
@@ -124,6 +141,19 @@ func TestMCPRefsScrollFailFastAndCancel(t *testing.T) {
 		case m := <-waited:
 			t.Errorf("a response for the cancelled wait: %v", m)
 		default:
+		}
+		// The wait may have advanced the clock before it stopped: the steps
+		// after it would not match, so the test tool refuses until the
+		// screen is mounted afresh.
+		if r := c.tool("test", map[string]any{"name": "ticks"}); !r.isError || !strings.Contains(r.text, "was cancelled while it ran") {
+			t.Errorf("test after a cancelled wait: %v\n%s", r.isError, r.text)
+		}
+		if r := c.tool("open", map[string]any{"preview": "Spinner"}); r.isError {
+			t.Fatalf("open Spinner:\n%s", r.text)
+		}
+		c.tool("click", map[string]any{"role": "button", "name": "Ticks: 0"})
+		if r := c.tool("test", map[string]any{"name": "ticks"}); r.isError || !strings.Contains(r.text, "TestTicks passes") {
+			t.Errorf("test after a new mount: %v\n%s", r.isError, r.text)
 		}
 	})
 }

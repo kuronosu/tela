@@ -158,6 +158,19 @@ func TestMCPFilmEndToEnd(t *testing.T) {
 	if r, _ := filmOf(t, c, filepath.Join(dir, "still.png"), map[string]any{"span": 100, "every": 50}); !strings.Contains(r.text, "the app as it is") {
 		t.Errorf("a film without an action:\n%s", r.text)
 	}
+	// A file of the module that is not an animation of the tool's stays as it
+	// is; the tool's own animations are replaced.
+	golden := filepath.Join(dir, "golden.png")
+	if err := os.WriteFile(golden, []byte("a golden, not an animated PNG"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if r := c.tool("film", map[string]any{"span": 100, "apng": "golden.png"}); !r.isError || !strings.Contains(r.text, "was not written by the film tool") {
+		t.Errorf("film over a golden: %v\n%s", r.isError, r.text)
+	}
+	if b, _ := os.ReadFile(golden); string(b) != "a golden, not an animated PNG" {
+		t.Errorf("the golden was overwritten: %q", b)
+	}
+	filmOf(t, c, filepath.Join(dir, "slide.png"), map[string]any{"span": 100, "every": 50})
 	for _, tc := range []struct {
 		args map[string]any
 		want string
@@ -175,6 +188,25 @@ func TestMCPFilmEndToEnd(t *testing.T) {
 	// The instance still answers.
 	if r := c.tool("snapshot", nil); r.isError {
 		t.Errorf("after the failed films: %s", r.text)
+	}
+
+	// The test tool replays a film's action and then the clock it
+	// advanced, and the checks come after the clock.
+	r = c.tool("test", map[string]any{"name": "toast film"})
+	b, err := os.ReadFile(filepath.Join(dir, "app", "toast_film_test.go"))
+	if err != nil {
+		t.Fatalf("test: %v\n%s", err, r.text)
+	}
+	src := string(b)
+	click := strings.LastIndex(src, "app.Click(")
+	advance := strings.Index(src[max(click, 0):], "app.Advance(400 * time.Millisecond)")
+	if click < 0 || advance < 0 {
+		t.Errorf("the film's action and span are not both in the test:\n%s", src)
+	} else if between := src[click : click+advance]; strings.Contains(between, "app.Expect") {
+		t.Errorf("a check sits between the film's action and its clock:\n%s", src)
+	}
+	if !strings.Contains(src, "app.Advance(100 * time.Millisecond)") {
+		t.Errorf("the film of nothing is not time passing:\n%s", src)
 	}
 }
 

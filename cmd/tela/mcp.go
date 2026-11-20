@@ -411,6 +411,11 @@ func (s *mcpSession) ensure(ctx context.Context) (notes []string, problem string
 			fp = s.target.fingerprint()
 		}
 		notes = append(notes, s.rebuild(ctx, fp)...)
+		if !s.built {
+			// The call was cancelled before the build went in: the next
+			// call builds again.
+			return notes, "cancelled"
+		}
 		if s.broken != "" && s.child == nil {
 			return notes, s.broken
 		}
@@ -519,12 +524,22 @@ func (s *mcpSession) rebuild(ctx context.Context, fp uint64) (notes []string) {
 	child, rep, err := s.startInstance(ctx, exe)
 	if err != nil {
 		removeExe(exe)
+		if ctx.Err() != nil {
+			// The call was cancelled while the instance mounted: nothing is
+			// wrong with the sources, so the next call builds again.
+			s.built = false
+			return nil
+		}
 		s.broken = "The new build does not start: " + err.Error()
 		return nil
 	}
 	if rep.MountError != "" && s.child != nil {
 		child.stop()
 		removeExe(exe)
+		if ctx.Err() != nil {
+			s.built = false
+			return nil
+		}
 		s.broken = "The new build compiles, but its screen cannot be mounted:\n\n" + cleanMountError(rep.MountError)
 		if len(rep.Logs) > 0 {
 			s.broken += "\n\n" + strings.Join(rep.Logs, "\n")
@@ -770,6 +785,13 @@ func (s *mcpSession) send(ctx context.Context, o *mcpOut, req mcpReq) (mcpReply,
 			// logged and printed belongs to the next result.
 			s.carry.Logs = append(s.carry.Logs, rep.Logs...)
 			s.carry.Output += rep.Output
+			if actingOps[req.Op] {
+				// Part of the action may have happened: the snapshot taken
+				// before it says nothing of the screen now, and the test
+				// tool cannot replay what was not recorded.
+				s.snapValid = false
+				s.rec.interrupt()
+			}
 		}
 		o.fail(err.Error())
 		return rep, false
@@ -805,6 +827,13 @@ func (s *mcpSession) send(ctx context.Context, o *mcpOut, req mcpReq) (mcpReply,
 		}
 	}
 	return rep, rep.Error == "" && rep.Panic == ""
+}
+
+// actingOps are the commands that change the screen or its clock, the ones
+// the recording keeps for the test tool.
+var actingOps = map[string]bool{
+	"click": true, "hover": true, "fill": true, "press": true, "scroll": true,
+	"drag": true, "wait": true, "resize": true, "film": true, "prefer": true,
 }
 
 // refGoneError rewrites the error of an element named by a ref that is no
@@ -1667,7 +1696,11 @@ func (s *mcpSession) toolOpen(ctx context.Context, args json.RawMessage) mcpResu
 		back, err := s.child.call(ctx, s.mountReq(false))
 		if err == nil {
 			o.absorb(back)
+			s.curPreview, s.curW, s.curH = back.Preview, back.W, back.H
 		}
+		// The screen is mounted afresh either way: the steps recorded so
+		// far no longer lead to it.
+		s.rec.newSegment(s.mount, s.curPreview)
 		o.fail("cannot open that screen: " + cleanMountError(rep.MountError) + "\n\nThe previous screen was mounted again (state reset).")
 		return o.result()
 	}

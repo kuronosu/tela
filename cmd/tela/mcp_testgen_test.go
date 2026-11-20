@@ -18,6 +18,9 @@ func TestTestFuncName(t *testing.T) {
 		"  two words ":     "TestTwoWords",
 		"añadir":           "TestAñadir",
 		"v2 flow":          "TestV2Flow",
+		"Testing flow":     "TestTestingFlow",
+		"Test checkout":    "TestCheckout",
+		"Tester":           "TestTester",
 	} {
 		got, err := testFuncName(in)
 		if err != nil || got != want {

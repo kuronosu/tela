@@ -819,10 +819,22 @@ func (s *telaMCPSession) preflight(l *telaMCPLoc) {
 	if !ok {
 		return // an older telatest: it waits as it always did
 	}
+	// An endless animation (a spinner) asks for a frame every refresh, so
+	// App.Pending lists a frame request beside it: the request is quiet when
+	// everything else is, and only then.
+	frame, others := false, 0
 	for _, why := range p.Pending() {
+		if telastrings.HasSuffix(why, "a frame request") {
+			frame = true
+			continue
+		}
 		if !telaMCPQuiet(why) {
 			return
 		}
+		others++
+	}
+	if frame && others == 0 {
+		return // a frame is owed: let telatest settle and look again
 	}
 	panic(telaMCPFail{"no element matches " + loc.String() + "; the screen is settled (nothing is animating, timed or queued), so waiting would not help"})
 }
