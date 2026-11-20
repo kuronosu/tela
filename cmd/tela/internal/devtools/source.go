@@ -46,6 +46,7 @@ type Source interface {
 // Info is what the session says about itself.
 type Info struct {
 	Pkg      string    `json:"pkg"`
+	Dir      string    `json:"dir,omitempty"`
 	PID      int       `json:"pid"`
 	Started  time.Time `json:"started"`
 	Build    int       `json:"build"`

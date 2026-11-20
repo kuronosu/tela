@@ -162,7 +162,7 @@ var attachDefs = func() []attachToolDef {
 				{"locale", "string", "A BCP 47 tag", nil},
 				{"direction", "string", `"rtl", "ltr" or "default"`, []string{"ltr", "rtl", "default"}},
 			}, unavailable("prefer", preferWhy)),
-		def("lint", `Check the package's Go source for what dev mode reports at run time, without running it: unknown Tailwind classes (with a suggestion), ARIA roles and tokens, duplicate or missing keys, misused hooks. Prints tela lint -json. It looks for the package of the session from the directory tela mcp runs in. Example: {}`,
+		def("lint", `Check the package's Go source for what dev mode reports at run time, without running it: unknown Tailwind classes (with a suggestion), ARIA roles and tokens, duplicate or missing keys, misused hooks. Prints tela lint -json. It lints the directory of the package tela dev runs. Example: {}`,
 			ro("Lint"), nil, (*attachSession).toolLint),
 	}
 }()
@@ -908,18 +908,34 @@ func (s *attachSession) toolDrag(ctx context.Context, args json.RawMessage) mcpR
 		if err := s.conn.Pointer(ctx, id, "down", x0, y0, ""); err != nil {
 			return err
 		}
+		// letGo releases the button where the pointer is when the drag
+		// stops early (a move failed, the call was cancelled): the app
+		// would keep a button held, and the session would keep dragging
+		// with every later move. Its own context: ctx may be done.
+		x, y := x0, y0
+		letGo := func(err error) error {
+			uctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			s.conn.Pointer(uctx, id, "up", x, y, "")
+			return err
+		}
 		for i := 1; i <= dragSteps; i++ {
 			f := float32(i) / dragSteps
-			if err := s.conn.Pointer(ctx, id, "move", x0+(x1-x0)*f, y0+(y1-y0)*f, ""); err != nil {
-				return err
+			mx, my := x0+(x1-x0)*f, y0+(y1-y0)*f
+			if err := s.conn.Pointer(ctx, id, "move", mx, my, ""); err != nil {
+				return letGo(err)
 			}
+			x, y = mx, my
 			select {
 			case <-ctx.Done():
-				return ctx.Err()
+				return letGo(ctx.Err())
 			case <-time.After(8 * time.Millisecond):
 			}
 		}
-		return s.conn.Pointer(ctx, id, "up", x1, y1, "")
+		if err := s.conn.Pointer(ctx, id, "up", x1, y1, ""); err != nil {
+			return letGo(err)
+		}
+		return nil
 	})
 }
 
@@ -1320,11 +1336,17 @@ func (s *attachSession) toolLint(ctx context.Context, args json.RawMessage) mcpR
 	if !s.begin(ctx, &o) {
 		return o.result()
 	}
+	// The package's directory, from a tela dev of this Tela; an older one
+	// gives only the package as it was given, relative to where it ran.
+	opts := lint.Options{Patterns: []string{s.info.Pkg}}
 	pkg := s.info.Pkg
-	if pkg == "" {
-		pkg = "."
+	if s.info.Dir != "" {
+		opts = lint.Options{Dir: s.info.Dir, Patterns: []string{"."}, AbsPaths: true}
+		pkg = s.info.Dir
+	} else if pkg == "" {
+		pkg, opts.Patterns = ".", []string{"."}
 	}
-	res, err := lint.Run(lint.Options{Patterns: []string{pkg}})
+	res, err := lint.Run(opts)
 	if err != nil {
 		o.fail(fmt.Sprintf("tela lint %s: %v (the package is the one tela dev was given; run tela mcp --attach in the same directory)", pkg, err))
 		return o.result()

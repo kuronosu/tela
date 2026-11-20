@@ -23,8 +23,11 @@ import (
 // inherits the per-user temporary directory's ACL, and AF_UNIX sockets are
 // files with an ACL like any other). Each session writes a discovery file,
 // <user cache>/tela/dev/<pid>.json, removed at its exit; readers skip, and
-// remove, the files of processes that no longer run or whose socket no
-// longer answers (a session that was killed).
+// remove, the files of processes that no longer run (with their socket's
+// directory) or whose socket refuses the connection or is gone (a session
+// that was killed). Before dialing the socket a file names, a reader
+// checks that its directory is private to the user (checkSocketDir): the
+// file is the user's, but what it points to could be another user's.
 
 // devSession is a discovery file.
 type devSession struct {
@@ -32,6 +35,8 @@ type devSession struct {
 	Addr string `json:"addr"`
 	// Pkg is the package tela dev runs, as given on its command line.
 	Pkg string `json:"pkg"`
+	// Dir is the package's absolute directory.
+	Dir string `json:"dir,omitempty"`
 	// PID is the process of tela dev.
 	PID int `json:"pid"`
 	// Started is when the session started.
@@ -79,8 +84,8 @@ func writeDevSession(dir string, s devSession) (string, error) {
 }
 
 // listDevSessions returns the sessions of dir whose tela dev still runs,
-// the oldest first. Files of processes that ended, and unreadable ones,
-// are removed.
+// the oldest first. Files of processes that ended, with their socket's
+// directory, and unreadable ones, are removed.
 func listDevSessions(dir string) ([]devSession, error) {
 	ents, err := os.ReadDir(dir)
 	if errors.Is(err, os.ErrNotExist) {
@@ -103,6 +108,9 @@ func listDevSessions(dir string) ([]devSession, error) {
 			err = json.Unmarshal(b, &s)
 		}
 		if err != nil || s.PID != pid || s.Addr == "" || !processAlive(pid) {
+			if err == nil && s.PID == pid && s.Addr != "" {
+				removeSocketDir(s.Addr) // the session was killed: nothing removed it
+			}
 			os.Remove(path)
 			continue
 		}
@@ -114,18 +122,33 @@ func listDevSessions(dir string) ([]devSession, error) {
 }
 
 // findDevSession returns the session a client attaches to when it names
-// none: the only one that runs and answers. Sessions whose socket does not
-// answer (their process was killed, and its PID reused) are removed.
+// none: the only one that runs, is private to the user and answers.
+// Sessions whose socket refuses the connection or is gone (their process
+// was killed, and its PID reused) are removed; ones whose socket is in a
+// directory that is not private to the user are refused.
 func findDevSession(dir string) (devSession, error) {
 	all, err := listDevSessions(dir)
 	if err != nil {
 		return devSession{}, err
 	}
 	var live []devSession
+	var refused error // the first session not dialed, or that failed
 	for _, s := range all {
+		if err := checkSocketDir(s.Addr); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				os.Remove(s.path)
+			} else if refused == nil {
+				refused = fmt.Errorf("the tela dev session of process %d (%s): %w", s.PID, s.path, err)
+			}
+			continue
+		}
 		nc, err := net.DialTimeout("unix", s.Addr, time.Second)
 		if err != nil {
-			os.Remove(s.path)
+			if dialGone(err) {
+				os.Remove(s.path)
+			} else if refused == nil {
+				refused = fmt.Errorf("cannot reach the tela dev session at %s: %w", s.Addr, err)
+			}
 			continue
 		}
 		nc.Close()
@@ -133,6 +156,9 @@ func findDevSession(dir string) (devSession, error) {
 	}
 	switch len(live) {
 	case 0:
+		if refused != nil {
+			return devSession{}, refused
+		}
 		return devSession{}, errors.New("no tela dev session is running; start one with tela dev [pkg]")
 	case 1:
 		return live[0], nil
@@ -167,4 +193,23 @@ func toolsListen() (ln net.Listener, addr string, cleanup func(), err error) {
 		os.Chmod(addr, 0o600) // the directory already keeps others out
 	}
 	return ln, addr, func() { os.RemoveAll(dir) }, nil
+}
+
+// removeSocketDir removes the socket of a session that ended without
+// removing it, and its directory: only a tools.sock in a tela-dev-*
+// directory private to the user (toolsListen's) that nobody listens on,
+// nothing else.
+func removeSocketDir(addr string) {
+	dir := filepath.Dir(addr)
+	if filepath.Base(addr) != "tools.sock" || !strings.HasPrefix(filepath.Base(dir), "tela-dev-") || checkSocketDir(addr) != nil {
+		return
+	}
+	if nc, err := net.DialTimeout("unix", addr, time.Second); err == nil {
+		nc.Close() // it answers: another session's, whatever the file says
+		return
+	} else if !dialGone(err) {
+		return
+	}
+	os.Remove(addr)
+	os.Remove(dir) // not RemoveAll: what else is there is not the session's
 }

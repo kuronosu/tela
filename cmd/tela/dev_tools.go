@@ -48,10 +48,14 @@ import (
 // recorded too; the creation sites are captured in every child from its
 // first build (internal/core/devrun.go).
 //
+// What a client leaves held is let go when it disconnects: the buttons and
+// keys its input pressed are released (as the real window's events), and
+// the pick mode and highlights it turned on end.
+//
 // Methods (params → result; window is a window ID of windows, 0 or absent
 // for the first window):
 //
-//	info                                  → {pkg, pid, started, build, protocol}
+//	info                                  → {pkg, dir, pid, started, build, protocol}  dir: the package's absolute directory
 //	windows                               → {windows: [{id, title, width, height, scale, focused, visible, active}]}
 //	subscribe     {events: [...]}         → {events}   picked, frames, logs, reload, windows
 //	unsubscribe   {events: [...]}         → {events}   the ones still subscribed
@@ -67,7 +71,7 @@ import (
 //	hit           {window, x, y, id}      → {id, node, within}  what the point hits; within: it reaches element id
 //	reveal        {window, id}            → {visible, moved}    scroll id into view; visible: its visible part, absent for none
 //	screenshot    {window}                → {window, width, height, png}  (base64 PNG at the app's resolution)
-//	pointer       {window, action, x, y, button, mods, count} → {}
+//	pointer       {window, action, x, y, button, mods, count} → {}  count: clicks, 1 to 3
 //	scroll        {window, x, y, dx, dy, mods} → {}
 //	key           {window, key, action}   → {}
 //	text          {window, text}          → {}
@@ -102,10 +106,11 @@ var errNoApp = errors.New("no app is running (it is starting, or it crashed: sav
 
 // toolsServer is the tools socket of a supervisor.
 type toolsServer struct {
-	pkg  string
-	dir  string // the directory of the discovery file
-	logf func(format string, args ...any)
-	log  toolsLog
+	pkg    string
+	pkgDir string // the package's absolute directory
+	dir    string // the directory of the discovery file
+	logf   func(format string, args ...any)
+	log    toolsLog
 
 	host    *remote.Host
 	ln      net.Listener
@@ -123,9 +128,16 @@ type toolsServer struct {
 	armed   bool // a flush of pending runs
 	closed  bool
 
-	// startedOn are the children told to start with the instrumentation
-	// on (KindToolsStart) and not active yet; under mu.
-	startedOn map[*remote.Child]bool
+	// startedOn is the last child told to start with the instrumentation
+	// on (KindToolsStart), until it is promoted; under mu. It only says the
+	// instrumentation may be on in it (the child stops waiting for the
+	// answer after a while), so that it is turned off when nobody holds it
+	// by then.
+	startedOn *remote.Child
+
+	// picker and highlighter are the clients that turned the pick mode and
+	// a highlight on, per window ID as they named it; under mu.
+	picker, highlighter map[uint32]*toolsConn
 
 	// insMu orders the instrument requests; instrumented is the child
 	// the instrumentation is on in.
@@ -138,13 +150,23 @@ type toolsServer struct {
 
 // toolsConn is a client of the socket.
 type toolsConn struct {
-	ts   *toolsServer
-	nc   net.Conn
+	ts *toolsServer
+	nc net.Conn
+	// out is the queue of messages to write: serve closes it once the
+	// connection left ts.conns (so no broadcast sends to it any more), and
+	// the writer writes what is left and closes the connection. The writer
+	// closes dead when it stops, after a write failed too.
 	out  chan []byte
-	done chan struct{}
+	dead chan struct{}
 	// Under ts.mu.
 	subs  map[string]bool
 	holds bool
+	input bool // it injected input
+	// UI thread: what its input holds, per window: the buttons, where the
+	// pointer is, and the keys pressed (in order).
+	buttons map[platform.Window]platform.Buttons
+	pos     map[platform.Window]platform.Point
+	keys    map[platform.Window][]platform.KeyEvent
 }
 
 // toolsWindow is a window as the clients see it.
@@ -161,8 +183,9 @@ type toolsWindow struct {
 	Active bool `json:"active"`
 }
 
-func newToolsServer(pkg, dir string, logf func(string, ...any)) *toolsServer {
-	ts := &toolsServer{pkg: pkg, dir: dir, logf: logf, conns: map[*toolsConn]struct{}{}, buttons: map[platform.Window]platform.Buttons{}}
+func newToolsServer(pkg, pkgDir, dir string, logf func(string, ...any)) *toolsServer {
+	ts := &toolsServer{pkg: pkg, pkgDir: pkgDir, dir: dir, logf: logf, conns: map[*toolsConn]struct{}{},
+		picker: map[uint32]*toolsConn{}, highlighter: map[uint32]*toolsConn{}, buttons: map[platform.Window]platform.Buttons{}}
 	ts.log.added = ts.logAdded
 	return ts
 }
@@ -201,7 +224,7 @@ func (ts *toolsServer) start(h *remote.Host) error {
 			return err
 		}
 	}
-	file, err := writeDevSession(dir, devSession{Addr: addr, Pkg: ts.pkg, PID: os.Getpid(), Started: ts.started})
+	file, err := writeDevSession(dir, devSession{Addr: addr, Pkg: ts.pkg, Dir: ts.pkgDir, PID: os.Getpid(), Started: ts.started})
 	if err != nil {
 		ln.Close()
 		cleanup()
@@ -242,7 +265,7 @@ func (ts *toolsServer) accept() {
 		if err != nil {
 			return
 		}
-		c := &toolsConn{ts: ts, nc: nc, out: make(chan []byte, toolsQueue), done: make(chan struct{}), subs: map[string]bool{}}
+		c := &toolsConn{ts: ts, nc: nc, out: make(chan []byte, toolsQueue), dead: make(chan struct{}), subs: map[string]bool{}}
 		ts.mu.Lock()
 		if ts.closed {
 			ts.mu.Unlock()
@@ -265,6 +288,11 @@ func (ts *toolsServer) setActive(c *remote.Child, build int) {
 	ts.mu.Lock()
 	changed := ts.active != c
 	ts.active, ts.build = c, build
+	if changed {
+		// The new child has no pick mode or highlight.
+		clear(ts.picker)
+		clear(ts.highlighter)
+	}
 	ts.mu.Unlock()
 	if !changed {
 		return
@@ -288,7 +316,13 @@ func (ts *toolsServer) windowsChanged() {
 	if ts.host == nil {
 		return
 	}
-	ws := toolsWindows(ts.host.WindowInfos())
+	infos := ts.host.WindowInfos()
+	for w := range ts.buttons {
+		if !windowOpen(infos, w) {
+			delete(ts.buttons, w)
+		}
+	}
+	ws := toolsWindows(infos)
 	ts.mu.Lock()
 	same := slices.Equal(ws, ts.windows)
 	ts.windows = ws
@@ -296,6 +330,11 @@ func (ts *toolsServer) windowsChanged() {
 	if !same {
 		ts.broadcast("windows", map[string]any{"windows": ws})
 	}
+}
+
+// windowOpen reports whether w is among the host's windows.
+func windowOpen(infos []remote.WindowInfo, w platform.Window) bool {
+	return slices.ContainsFunc(infos, func(wi remote.WindowInfo) bool { return wi.Window == w })
 }
 
 // toolsWindows lists the windows a child window was ever shown on.
@@ -389,10 +428,7 @@ func (ts *toolsServer) startInstrumented(c *remote.Child, _ []byte) ([]byte, err
 	ts.mu.Lock()
 	on := ts.holdersLocked() && !ts.closed
 	if on {
-		if ts.startedOn == nil {
-			ts.startedOn = map[*remote.Child]bool{}
-		}
-		ts.startedOn[c] = true
+		ts.startedOn = c
 	}
 	ts.mu.Unlock()
 	return json.Marshal(map[string]bool{"on": on})
@@ -406,16 +442,11 @@ func (ts *toolsServer) syncInstrument() error {
 	defer ts.insMu.Unlock()
 	ts.mu.Lock()
 	child, want := ts.active, ts.holdersLocked() && !ts.closed
-	started := child != nil && ts.startedOn[child]
-	if started {
-		clear(ts.startedOn)
+	startedOn := child != nil && ts.startedOn == child
+	if startedOn {
+		ts.startedOn = nil
 	}
 	ts.mu.Unlock()
-	if started {
-		// It started with the instrumentation on: it is the instrumented
-		// one now (turned off below when nobody holds it any more).
-		ts.instrumented = child
-	}
 	if ts.instrumented != nil && (!want || ts.instrumented != child) {
 		old := ts.instrumented
 		ts.instrumented = nil
@@ -423,6 +454,14 @@ func (ts *toolsServer) syncInstrument() error {
 			ts.instrument(old, false) // the old child of a reload is stopping
 		}
 	}
+	if startedOn && !want {
+		// It may have started with the instrumentation on, and nobody
+		// holds it any more.
+		ts.instrument(child, false)
+	}
+	// A child told to start instrumented is told again: the answer may
+	// have come after it stopped waiting, and it started without (a no-op
+	// in a child where it is on).
 	if want && child != nil && ts.instrumented != child {
 		if err := ts.instrument(child, true); err != nil {
 			ts.logf("tools: cannot turn the instrumentation on: %v", err)
@@ -449,6 +488,12 @@ func (ts *toolsServer) relay(c *toolsConn, kind string, p devloop.ToolsParams) (
 	if err := ts.syncInstrument(); err != nil {
 		return nil, err
 	}
+	return ts.request(kind, p)
+}
+
+// request sends a request about a tree to the instrumented child, when it
+// is the active one, and returns its reply.
+func (ts *toolsServer) request(kind string, p devloop.ToolsParams) (json.RawMessage, error) {
 	ts.insMu.Lock()
 	child := ts.instrumented
 	ts.insMu.Unlock()
@@ -544,28 +589,29 @@ func (ts *toolsServer) inject(id uint32, build func(wi remote.WindowInfo, now ti
 
 // --- clients ---
 
-// write writes the client's queue to its connection.
+// write writes the client's queue to its connection until serve closes it,
+// then closes the connection. A client that reads nothing for toolsTimeout
+// is disconnected.
 func (c *toolsConn) write() {
-	for {
-		select {
-		case b := <-c.out:
-			if _, err := c.nc.Write(b); err != nil {
-				c.nc.Close()
-				return
-			}
-		case <-c.done:
+	defer close(c.dead)
+	defer c.nc.Close() // the reader stops too
+	for b := range c.out {
+		c.nc.SetWriteDeadline(time.Now().Add(toolsTimeout))
+		if _, err := c.nc.Write(b); err != nil {
 			return
 		}
 	}
 }
 
-// send queues a message; a response waits for room, a notification is
-// dropped when the queue is full.
+// send queues a message; a response waits for room (or for the writer to
+// stop), a notification is dropped when the queue is full. Only serve
+// sends responses, and broadcast notifications under ts.mu to the
+// connections in ts.conns: none sends after serve closed c.out.
 func (c *toolsConn) send(b []byte, wait bool) {
 	if wait {
 		select {
 		case c.out <- b:
-		case <-c.done:
+		case <-c.dead:
 		}
 		return
 	}
@@ -597,10 +643,15 @@ func (c *toolsConn) serve() {
 	defer func() {
 		ts.mu.Lock()
 		delete(ts.conns, c)
+		closed := ts.closed
 		ts.mu.Unlock()
-		close(c.done)
-		c.nc.Close()
-		go ts.syncInstrument()
+		close(c.out) // the writer writes the replies queued, then closes nc
+		go func() {
+			if !closed {
+				ts.release(c)
+			}
+			ts.syncInstrument()
+		}()
 	}()
 	sc := bufio.NewScanner(c.nc)
 	sc.Buffer(make([]byte, 64<<10), 16<<20)
@@ -712,7 +763,7 @@ func (c *toolsConn) call(method string, raw json.RawMessage) (any, error) {
 		ts.mu.Lock()
 		build := ts.build
 		ts.mu.Unlock()
-		return map[string]any{"pkg": ts.pkg, "pid": os.Getpid(), "started": ts.started, "build": build, "protocol": toolsProtocol}, nil
+		return map[string]any{"pkg": ts.pkg, "dir": ts.pkgDir, "pid": os.Getpid(), "started": ts.started, "build": build, "protocol": toolsProtocol}, nil
 	case "windows":
 		var ws []toolsWindow
 		if err := ts.onUI(func() { ws = toolsWindows(ts.host.WindowInfos()) }); err != nil {
@@ -776,9 +827,17 @@ func (c *toolsConn) call(method string, raw json.RawMessage) (any, error) {
 			c.subs["picked"] = true
 			ts.mu.Unlock()
 		}
-		return tree(devloop.KindToolsPick, devloop.ToolsParams{On: on})
+		res, err := tree(devloop.KindToolsPick, devloop.ToolsParams{On: on})
+		if err == nil {
+			ts.own(ts.picker, p.Window, c, on)
+		}
+		return res, err
 	case "highlight":
-		return tree(devloop.KindToolsHighlight, devloop.ToolsParams{ID: p.ID})
+		res, err := tree(devloop.KindToolsHighlight, devloop.ToolsParams{ID: p.ID})
+		if err == nil {
+			ts.own(ts.highlighter, p.Window, c, p.ID != 0)
+		}
+		return res, err
 	case "hit":
 		return tree(devloop.KindToolsHit, devloop.ToolsParams{ID: p.ID, X: p.X, Y: p.Y})
 	case "reveal":
@@ -806,7 +865,7 @@ func (c *toolsConn) call(method string, raw json.RawMessage) (any, error) {
 	case "screenshot":
 		return ts.screenshot(p.Window)
 	case "pointer":
-		return nil, ts.pointer(p)
+		return nil, ts.pointer(c, p)
 	case "scroll":
 		mods, err := modsOf(p.Mods)
 		if err != nil {
@@ -814,6 +873,7 @@ func (c *toolsConn) call(method string, raw json.RawMessage) (any, error) {
 		}
 		pos := platform.Point{X: p.X, Y: p.Y}
 		return nil, ts.inject(p.Window, func(wi remote.WindowInfo, now time.Duration) ([]platform.Event, error) {
+			c.at(wi.Window, pos)
 			return []platform.Event{
 				platform.PointerEvent{Action: platform.PointerMove, Pos: pos, Buttons: ts.buttons[wi.Window], Mods: mods, Time: now},
 				platform.ScrollEvent{Pos: pos, Delta: platform.Point{X: p.DX, Y: p.DY}, Mods: mods, Time: now},
@@ -836,9 +896,9 @@ func (c *toolsConn) call(method string, raw json.RawMessage) (any, error) {
 		if err != nil {
 			return nil, toolsBadParams("key %q: %v", p.Key, err)
 		}
-		return nil, ts.keys(p.Window, keys)
+		return nil, ts.keys(c, p.Window, keys)
 	case "text":
-		return nil, ts.keys(p.Window, keycombo.Type(p.Text))
+		return nil, ts.keys(c, p.Window, keycombo.Type(p.Text))
 	}
 	return nil, &toolsErr{rpcMethodNotFound, "method not found: " + method}
 }
@@ -889,10 +949,14 @@ var pointerButtons = map[string]platform.PointerButton{
 	"middle": platform.ButtonMiddle, "back": platform.ButtonBack, "forward": platform.ButtonForward,
 }
 
-// pointer injects a move, a press, a release or clicks of the mouse at a
-// logical point of the window. A press or a release moves the pointer
-// there first.
-func (ts *toolsServer) pointer(p toolsParams) error {
+// pointerOrder are the buttons in the order a client's held ones are
+// released.
+var pointerOrder = []platform.PointerButton{platform.ButtonPrimary, platform.ButtonSecondary, platform.ButtonMiddle, platform.ButtonBack, platform.ButtonForward}
+
+// pointer injects a move, a press, a release or clicks (1 to 3) of the
+// mouse at a logical point of the window. A press or a release moves the
+// pointer there first.
+func (ts *toolsServer) pointer(c *toolsConn, p toolsParams) error {
 	btn, ok := pointerButtons[p.Button]
 	if !ok {
 		return toolsBadParams(`button %q: use "left", "right", "middle", "back" or "forward"`, p.Button)
@@ -907,7 +971,9 @@ func (ts *toolsServer) pointer(p toolsParams) error {
 		return toolsBadParams(`action %q: use "move", "down", "up" or "click"`, p.Action)
 	}
 	pos := platform.Point{X: p.X, Y: p.Y}
+	c.injects()
 	return ts.inject(p.Window, func(wi remote.WindowInfo, now time.Duration) ([]platform.Event, error) {
+		c.at(wi.Window, pos)
 		held := ts.buttons[wi.Window]
 		ev := func(a platform.PointerAction, b platform.PointerButton) platform.PointerEvent {
 			return platform.PointerEvent{Action: a, Pos: pos, Button: b, Buttons: held, Mods: mods, Time: now}
@@ -915,10 +981,12 @@ func (ts *toolsServer) pointer(p toolsParams) error {
 		evs := []platform.Event{ev(platform.PointerMove, platform.ButtonNone)}
 		down := func() {
 			held |= btn.Mask()
+			c.buttons[wi.Window] |= btn.Mask()
 			evs = append(evs, ev(platform.PointerDown, btn))
 		}
 		up := func() {
 			held &^= btn.Mask()
+			c.buttons[wi.Window] &^= btn.Mask()
 			evs = append(evs, ev(platform.PointerUp, btn))
 		}
 		switch p.Action {
@@ -927,7 +995,7 @@ func (ts *toolsServer) pointer(p toolsParams) error {
 		case "up":
 			up()
 		case "click":
-			for range max(p.Count, 1) {
+			for range min(max(p.Count, 1), 3) { // a triple click at most
 				down()
 				up()
 			}
@@ -939,16 +1007,125 @@ func (ts *toolsServer) pointer(p toolsParams) error {
 
 // keys injects key events into window id, giving it the focus first as
 // the app sees it when it has not.
-func (ts *toolsServer) keys(id uint32, keys []platform.KeyEvent) error {
+func (ts *toolsServer) keys(c *toolsConn, id uint32, keys []platform.KeyEvent) error {
+	c.injects()
 	return ts.inject(id, func(wi remote.WindowInfo, now time.Duration) ([]platform.Event, error) {
 		var evs []platform.Event
 		if !wi.Focused {
 			evs = append(evs, platform.FocusEvent{Focused: true})
 		}
+		if c.keys == nil {
+			c.keys = map[platform.Window][]platform.KeyEvent{}
+		}
 		for _, k := range keys {
 			k.Time = now
 			evs = append(evs, k)
+			held := slices.DeleteFunc(c.keys[wi.Window], func(h platform.KeyEvent) bool { return h.Code == k.Code })
+			if k.Action == platform.KeyPress {
+				held = append(held, k)
+			}
+			c.keys[wi.Window] = held
 		}
 		return evs, nil
 	})
+}
+
+// injects records that c injects input: what it holds is released when it
+// ends.
+func (c *toolsConn) injects() {
+	c.ts.mu.Lock()
+	c.input = true
+	c.ts.mu.Unlock()
+}
+
+// at records where c's input put the pointer in w. UI thread.
+func (c *toolsConn) at(w platform.Window, pos platform.Point) {
+	if c.pos == nil {
+		c.pos = map[platform.Window]platform.Point{}
+		c.buttons = map[platform.Window]platform.Buttons{}
+	}
+	c.pos[w] = pos
+}
+
+// own records c as the client that turned the pick mode or a highlight on
+// in window win (m is ts.picker or ts.highlighter), or forgets the window
+// when it turned it off.
+func (ts *toolsServer) own(m map[uint32]*toolsConn, win uint32, c *toolsConn, on bool) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	if on {
+		m[win] = c
+	} else {
+		delete(m, win)
+	}
+}
+
+// release lets go of what c held when it ended: the buttons and keys its
+// input holds are released in the app, and the pick mode and highlights it
+// turned on end (the instrumentation's end ends them too, so failures are
+// ignored).
+func (ts *toolsServer) release(c *toolsConn) {
+	ts.mu.Lock()
+	input := c.input
+	var picks, highlights []uint32
+	for win, o := range ts.picker {
+		if o == c {
+			picks = append(picks, win)
+			delete(ts.picker, win)
+		}
+	}
+	for win, o := range ts.highlighter {
+		if o == c {
+			highlights = append(highlights, win)
+			delete(ts.highlighter, win)
+		}
+	}
+	ts.mu.Unlock()
+	if input && ts.host != nil {
+		ts.onUI(func() { ts.releaseInput(c) })
+	}
+	for _, win := range picks {
+		ts.request(devloop.KindToolsPick, devloop.ToolsParams{Window: win})
+	}
+	for _, win := range highlights {
+		ts.request(devloop.KindToolsHighlight, devloop.ToolsParams{Window: win})
+	}
+}
+
+// releaseInput injects the releases of the buttons and keys c's input
+// holds, in the windows still open: the buttons where c left the pointer,
+// the keys in the reverse order of their presses. UI thread.
+func (ts *toolsServer) releaseInput(c *toolsConn) {
+	infos := ts.host.WindowInfos()
+	now := ts.host.Backend().Now()
+	for w, held := range c.buttons {
+		if held == 0 || !windowOpen(infos, w) {
+			continue
+		}
+		all := ts.buttons[w]
+		for _, b := range pointerOrder {
+			if held&b.Mask() != 0 {
+				all &^= b.Mask()
+				ts.host.HandleEvent(w, platform.PointerEvent{Action: platform.PointerUp, Pos: c.pos[w], Button: b, Buttons: all, Time: now})
+			}
+		}
+		ts.buttons[w] = all
+	}
+	fl := platform.HostFlavor()
+	for w, keys := range c.keys {
+		if !windowOpen(infos, w) {
+			continue
+		}
+		for i := len(keys) - 1; i >= 0; i-- {
+			// The modifiers still held are the ones pressed before.
+			var mods platform.Modifiers
+			for _, k := range keys[:i] {
+				if m, ok := keycombo.ModifierNamed(string(k.Key), fl); ok {
+					mods |= m.Mod
+				}
+			}
+			k := keys[i]
+			ts.host.HandleEvent(w, platform.KeyEvent{Action: platform.KeyRelease, Code: k.Code, Key: k.Key, Location: k.Location, Mods: mods, Time: now})
+		}
+	}
 }

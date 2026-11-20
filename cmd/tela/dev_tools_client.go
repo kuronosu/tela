@@ -225,6 +225,7 @@ func (c *toolsClient) call(ctx context.Context, method string, params, result an
 // toolsInfo is the session's info.
 type toolsInfo struct {
 	Pkg      string    `json:"pkg"`
+	Dir      string    `json:"dir,omitempty"`
 	PID      int       `json:"pid"`
 	Started  time.Time `json:"started"`
 	Build    int       `json:"build"`

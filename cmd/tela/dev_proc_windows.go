@@ -58,3 +58,18 @@ func processAlive(pid int) bool {
 	const stillActive = 259 // STILL_ACTIVE
 	return code == stillActive
 }
+
+// checkSocketDir checks nothing on Windows: there are no owner and mode
+// bits to read, and the socket's directory is made in the per-user
+// temporary directory (or XDG_RUNTIME_DIR), whose ACL it inherits, so only
+// the user and the administrators can enter it (dev_tools_discover.go).
+// Checking the ACL itself would need the security descriptor APIs for no
+// gain over that inheritance.
+func checkSocketDir(string) error { return nil }
+
+// dialGone reports whether a dial error means that no session listens at
+// the address any more: it refused the connection (WSAECONNREFUSED), or
+// the socket is gone.
+func dialGone(err error) bool {
+	return errors.Is(err, windows.WSAECONNREFUSED) || errors.Is(err, os.ErrNotExist)
+}

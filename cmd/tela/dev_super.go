@@ -83,6 +83,9 @@ type supervisorConfig struct {
 	// the directory of its discovery file ("": the user cache's).
 	tools    bool
 	toolsDir string
+	// pkgDir is the absolute directory of the package that runs, for the
+	// tools' info and discovery file ("" in tests).
+	pkgDir string
 
 	// Timeouts; zero means devloop's, and reportWait and exitSettle the
 	// defaults below.
@@ -270,7 +273,7 @@ func newSupervisor(cfg supervisorConfig) *supervisor {
 		s.view = multiView{s.view, s.ov}
 	}
 	if cfg.tools {
-		s.tools = newToolsServer(cfg.opts.Pkg, cfg.toolsDir, s.log.verbosef)
+		s.tools = newToolsServer(cfg.opts.Pkg, cfg.pkgDir, cfg.toolsDir, s.log.verbosef)
 	}
 	s.q.init()
 	return s

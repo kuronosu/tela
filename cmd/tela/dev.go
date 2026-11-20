@@ -248,12 +248,24 @@ func devMain(goBin string, opts devOptions, stdout, stderr io.Writer) (int, erro
 		slowStart:  defaultSlowStart(),
 		exclusions: exclusions(exclude, target),
 		tools:      true,
+		pkgDir:     target.pkg.Dir,
 	})
 	host, err := remote.NewHost(backend, s.hostOptions())
 	if err != nil {
 		return 1, err
 	}
 	defer host.Close()
+	// The signals are caught before the tools socket and tela devtools
+	// start: one that came in between would end tela dev without removing
+	// the socket and the discovery file, or leave tela devtools running.
+	sigs := make(chan os.Signal, 2)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	defer signal.Stop(sigs)
+	go func() {
+		for range sigs {
+			s.push(evSignal{})
+		}
+	}()
 	s.attach(host, backend.Quit)
 	if opts.DevTools {
 		if s.tools == nil {
@@ -269,14 +281,6 @@ func devMain(goBin string, opts devOptions, stdout, stderr io.Writer) (int, erro
 	if restore != nil {
 		go s.readKeys(os.Stdin)
 	}
-	sigs := make(chan os.Signal, 2)
-	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
-	defer signal.Stop(sigs)
-	go func() {
-		for range sigs {
-			s.push(evSignal{})
-		}
-	}()
 
 	done := make(chan int, 1)
 	go func() { done <- s.run() }()

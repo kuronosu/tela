@@ -46,7 +46,12 @@ import (
 // its standard output and error and outlives it. The key "g" panics in
 // another goroutine. "tools" also answers the DevTools kinds
 // (fakeDevTools) and tells the test what it receives: fake.instrument (the
-// state), fake.key (each key press, "Key|Text") and fake.focus.
+// state), fake.key (each key press, "Key|Text"), fake.release (each key
+// release, "Key"), fake.up (each pointer release, its button), fake.focus
+// and fake.highlight (the element). "toolslate" is "tools" in a child that
+// asks to start instrumented (devloop.KindToolsStart) and starts with the
+// instrumentation off whatever the answer, as a child whose answer came
+// too late does.
 const envFake = "TELA_DEV_TEST_FAKE"
 
 const (
@@ -219,6 +224,15 @@ func fakeChild(mode string) int {
 	}
 	clicks := 0
 	picking := false
+	if mode == "toolslate" {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_, err := b.Request(ctx, devloop.KindToolsStart, nil) // the answer is ignored: it came too late
+		cancel()
+		if err != nil {
+			b.Notify("fake.error", []byte("tools.start: "+err.Error()))
+		}
+		mode = "tools"
+	}
 	if mode == "tools" {
 		fakeDevTools(b, gen, &picking)
 	}
@@ -239,6 +253,9 @@ func fakeChild(mode string) int {
 				b.Notify(devloop.KindToolsPicked, []byte(`{"window":1,"id":7}`))
 				return
 			}
+			if e.Action == platform.PointerUp && mode == "tools" {
+				b.Notify("fake.up", []byte(strconv.Itoa(int(e.Button))))
+			}
 			if e.Action == platform.PointerDown && e.Button == platform.ButtonPrimary {
 				count++
 				clicks++
@@ -253,6 +270,8 @@ func fakeChild(mode string) int {
 			if mode == "tools" {
 				if e.Action == platform.KeyPress {
 					b.Notify("fake.key", []byte(string(e.Key)+"|"+e.Text))
+				} else {
+					b.Notify("fake.release", []byte(string(e.Key)))
 				}
 				return
 			}
@@ -360,6 +379,7 @@ func fakeDevTools(b *remote.Backend, gen int, picking *bool) {
 		return struct{}{}, nil
 	}))
 	b.Handle(devloop.KindToolsHighlight, need(func(q devloop.ToolsParams) (any, error) {
+		b.Notify("fake.highlight", []byte(strconv.FormatUint(q.ID, 10)))
 		return struct{}{}, nil
 	}))
 }
