@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"runtime/debug"
 	"slices"
 	"sync"
 )
@@ -311,7 +312,7 @@ func (s *rpcServer) runCall(ctx context.Context, c toolCall) *rpcResponse {
 		return nil
 	}
 	defer c.state.end()
-	res, ok := s.tools.call(callCtx, c.name, c.args)
+	res, ok := s.callTool(callCtx, c)
 	if c.state.isCancelled() {
 		return nil
 	}
@@ -322,6 +323,20 @@ func (s *rpcServer) runCall(ctx context.Context, c toolCall) *rpcResponse {
 		res.Content = []mcpContent{}
 	}
 	return &rpcResponse{ID: c.id, Result: res}
+}
+
+// callTool runs a tool call. A panic in the tool (a bug of the server, not
+// of the app it drives) answers the call with an error and logs its stack:
+// it must not end the server, which holds the running instance.
+func (s *rpcServer) callTool(ctx context.Context, c toolCall) (res mcpResult, ok bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			s.logf("tool %s panicked: %v\n%s", c.name, r, debug.Stack())
+			res = mcpResult{Content: []mcpContent{{Type: "text", Text: fmt.Sprintf("Error: the %s tool panicked: %v\n\nThis is a bug in tela mcp, not in your app; the server is still running. The stack is in its log (-v).", c.name, r)}}, IsError: true}
+			ok = true
+		}
+	}()
+	return s.tools.call(ctx, c.name, c.args)
 }
 
 // answer sends the response of a tool call (none when r is nil, a call

@@ -117,8 +117,12 @@ func (s *mcpSession) toolFilm(ctx context.Context, args json.RawMessage) mcpResu
 				return o.result()
 			}
 			s.capture, s.captured = &inner, false
-			res := d.run(s, ctx, toolArgs)
-			s.capture = nil
+			// Whatever the tool does, the session stops capturing: a panic
+			// that is recovered above must not leave later calls capturing.
+			res := func() mcpResult {
+				defer func() { s.capture = nil }()
+				return d.run(s, ctx, toolArgs)
+			}()
 			if res.IsError {
 				return res
 			}

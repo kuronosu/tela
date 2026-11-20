@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -223,5 +224,36 @@ func TestMCPCancelledCallInABatch(t *testing.T) {
 	p.close()
 	for m := range p.resps {
 		t.Errorf("a response for the all-cancelled batch: %v", m)
+	}
+}
+
+// panicTools is a tool set whose call panics.
+type panicTools struct{ fakeTools }
+
+func (panicTools) call(_ context.Context, name string, args json.RawMessage) (mcpResult, bool) {
+	if strings.Contains(string(args), "boom") {
+		panic("a bug in a tool")
+	}
+	return fakeTools{}.call(context.Background(), name, args)
+}
+
+// TestMCPToolPanicAnswersAnError checks that a panic in a tool answers the
+// call with an error and leaves the server running: it holds the instance
+// of the app.
+func TestMCPToolPanicAnswersAnError(t *testing.T) {
+	p := startRPC(t, panicTools{})
+	p.call(1, `{"boom":true}`)
+	m := p.next()
+	res, _ := m["result"].(map[string]any)
+	text := ""
+	if c, _ := res["content"].([]any); len(c) > 0 {
+		text, _ = c[0].(map[string]any)["text"].(string)
+	}
+	if res["isError"] != true || !strings.Contains(text, "panicked: a bug in a tool") {
+		t.Fatalf("the response to a tool that panics: %v", m)
+	}
+	p.call(2, `{}`)
+	if m := p.next(); m["id"] != float64(2) || m["error"] != nil {
+		t.Fatalf("the server does not answer after a panic: %v", m)
 	}
 }
