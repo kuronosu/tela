@@ -265,7 +265,7 @@ func devToolsFrame(h *Host) {
 func devToolsFlush(h *Host) {
 	// The flush runs as a post inside the next frame's input span: its
 	// marshal and writes are the tools' work, not the app's.
-	if ins := h.tree.ins; ins != nil {
+	if ins := h.mainIns(); ins != nil {
 		d := ins.prof.spanBegin(phaseNone)
 		defer ins.prof.spanEnd(d)
 	}
@@ -329,4 +329,12 @@ func devToolsNewLogs(h *Host) []devloop.ToolsLogBatch {
 		out = append(out, b)
 	}
 	return out
+}
+
+// mainIns is the main tree's instrumentation, nil when there is none.
+func (h *Host) mainIns() *instrument {
+	if h.tree == nil {
+		return nil
+	}
+	return h.tree.ins
 }
