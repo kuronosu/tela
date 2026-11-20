@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // This file describes a class in CSS terms, for editors (tela lsp: hover and
@@ -48,7 +49,23 @@ type Description struct {
 // The error is the compile error of the class (an UnknownClassError and
 // the like) when it is not valid; the description then has the class and
 // its variants only.
+// descOnce builds the describer's tables on first use, so that apps,
+// which never describe a class, do not link them (ADR-301).
+var descOnce sync.Once
+
+func descLoad() {
+	descOnce.Do(func() {
+		descInitStatic()
+		descInitBorderSides()
+		descInitRadiusSides()
+		descInitGradientDir()
+		descInitVariantWords()
+		descInitRoots()
+	})
+}
+
 func (p *Parser) Describe(class string) (Description, error) {
+	descLoad()
 	return p.describe(class, nil)
 }
 
@@ -390,44 +407,48 @@ func props(properties []string, value string) []Declaration {
 }
 
 // descStatic are the classes without a value.
-var descStatic = map[string][]Declaration{
-	"block": ds("display", "block"), "inline-block": ds("display", "inline-block"),
-	"inline": ds("display", "inline"), "flex": ds("display", "flex"),
-	"inline-flex": ds("display", "inline-flex"), "grid": ds("display", "grid"),
-	"inline-grid": ds("display", "inline-grid"), "contents": ds("display", "contents"),
-	"flow-root": ds("display", "flow-root"), "hidden": ds("display", "none"),
-	"static": ds("position", "static"), "fixed": ds("position", "fixed"),
-	"absolute": ds("position", "absolute"), "relative": ds("position", "relative"),
-	"sticky":  ds("position", "sticky"),
-	"visible": ds("visibility", "visible"), "invisible": ds("visibility", "hidden"),
-	"collapse": ds("visibility", "collapse"),
-	"isolate":  ds("isolation", "isolate"), "isolation-auto": ds("isolation", "auto"),
-	"truncate": ds("overflow", "hidden", "text-overflow", "ellipsis", "white-space", "nowrap"),
-	"italic":   ds("font-style", "italic"), "not-italic": ds("font-style", "normal"),
-	"uppercase": ds("text-transform", "uppercase"), "lowercase": ds("text-transform", "lowercase"),
-	"capitalize": ds("text-transform", "capitalize"), "normal-case": ds("text-transform", "none"),
-	"underline": ds("text-decoration-line", "underline"), "overline": ds("text-decoration-line", "overline"),
-	"line-through": ds("text-decoration-line", "line-through"), "no-underline": ds("text-decoration-line", "none"),
-	"antialiased":          ds("-webkit-font-smoothing", "antialiased"),
-	"subpixel-antialiased": ds("-webkit-font-smoothing", "auto"),
-	"box-border":           ds("box-sizing", "border-box"),
-	"sr-only": ds("position", "absolute", "width", "1px", "height", "1px", "padding", "0", "margin", "-1px",
-		"overflow", "hidden", "clip", "rect(0, 0, 0, 0)", "white-space", "nowrap", "border-width", "0"),
-	"not-sr-only": ds("position", "static", "width", "auto", "height", "auto", "padding", "0", "margin", "0",
-		"overflow", "visible", "clip", "auto", "white-space", "normal"),
-	"grow": ds("flex-grow", "1"), "shrink": ds("flex-shrink", "1"),
-	"break-normal": ds("overflow-wrap", "normal", "word-break", "normal"),
-	"break-words":  ds("overflow-wrap", "break-word"), "break-all": ds("word-break", "break-all"),
-	"break-keep":     ds("word-break", "keep-all"),
-	"transform-none": ds("transform", "none"),
-	"paused":         ds("animation-play-state", "paused"), "running": ds("animation-play-state", "running"),
-	"appearance-none": ds("appearance", "none"), "appearance-auto": ds("appearance", "auto"),
-	"resize-none": ds("resize", "none"),
-	"group":       nil, "peer": nil,
-	"tabular-nums": ds("font-variant-numeric", "tabular-nums"), "normal-nums": ds("font-variant-numeric", "normal"),
-	"ordinal": ds("font-variant-numeric", "ordinal"), "slashed-zero": ds("font-variant-numeric", "slashed-zero"),
-	"lining-nums": ds("font-variant-numeric", "lining-nums"), "oldstyle-nums": ds("font-variant-numeric", "oldstyle-nums"),
-	"proportional-nums": ds("font-variant-numeric", "proportional-nums"),
+var descStatic map[string][]Declaration
+
+func descInitStatic() {
+	descStatic = map[string][]Declaration{
+		"block": ds("display", "block"), "inline-block": ds("display", "inline-block"),
+		"inline": ds("display", "inline"), "flex": ds("display", "flex"),
+		"inline-flex": ds("display", "inline-flex"), "grid": ds("display", "grid"),
+		"inline-grid": ds("display", "inline-grid"), "contents": ds("display", "contents"),
+		"flow-root": ds("display", "flow-root"), "hidden": ds("display", "none"),
+		"static": ds("position", "static"), "fixed": ds("position", "fixed"),
+		"absolute": ds("position", "absolute"), "relative": ds("position", "relative"),
+		"sticky":  ds("position", "sticky"),
+		"visible": ds("visibility", "visible"), "invisible": ds("visibility", "hidden"),
+		"collapse": ds("visibility", "collapse"),
+		"isolate":  ds("isolation", "isolate"), "isolation-auto": ds("isolation", "auto"),
+		"truncate": ds("overflow", "hidden", "text-overflow", "ellipsis", "white-space", "nowrap"),
+		"italic":   ds("font-style", "italic"), "not-italic": ds("font-style", "normal"),
+		"uppercase": ds("text-transform", "uppercase"), "lowercase": ds("text-transform", "lowercase"),
+		"capitalize": ds("text-transform", "capitalize"), "normal-case": ds("text-transform", "none"),
+		"underline": ds("text-decoration-line", "underline"), "overline": ds("text-decoration-line", "overline"),
+		"line-through": ds("text-decoration-line", "line-through"), "no-underline": ds("text-decoration-line", "none"),
+		"antialiased":          ds("-webkit-font-smoothing", "antialiased"),
+		"subpixel-antialiased": ds("-webkit-font-smoothing", "auto"),
+		"box-border":           ds("box-sizing", "border-box"),
+		"sr-only": ds("position", "absolute", "width", "1px", "height", "1px", "padding", "0", "margin", "-1px",
+			"overflow", "hidden", "clip", "rect(0, 0, 0, 0)", "white-space", "nowrap", "border-width", "0"),
+		"not-sr-only": ds("position", "static", "width", "auto", "height", "auto", "padding", "0", "margin", "0",
+			"overflow", "visible", "clip", "auto", "white-space", "normal"),
+		"grow": ds("flex-grow", "1"), "shrink": ds("flex-shrink", "1"),
+		"break-normal": ds("overflow-wrap", "normal", "word-break", "normal"),
+		"break-words":  ds("overflow-wrap", "break-word"), "break-all": ds("word-break", "break-all"),
+		"break-keep":     ds("word-break", "keep-all"),
+		"transform-none": ds("transform", "none"),
+		"paused":         ds("animation-play-state", "paused"), "running": ds("animation-play-state", "running"),
+		"appearance-none": ds("appearance", "none"), "appearance-auto": ds("appearance", "auto"),
+		"resize-none": ds("resize", "none"),
+		"group":       nil, "peer": nil,
+		"tabular-nums": ds("font-variant-numeric", "tabular-nums"), "normal-nums": ds("font-variant-numeric", "normal"),
+		"ordinal": ds("font-variant-numeric", "ordinal"), "slashed-zero": ds("font-variant-numeric", "slashed-zero"),
+		"lining-nums": ds("font-variant-numeric", "lining-nums"), "oldstyle-nums": ds("font-variant-numeric", "oldstyle-nums"),
+		"proportional-nums": ds("font-variant-numeric", "proportional-nums"),
+	}
 }
 
 // enumOf describes root-key as property: value with the value mapped.
@@ -537,18 +558,22 @@ func isNumber(v string) bool { _, ok := number(v); return ok }
 // sideTable maps the side suffix of border, rounded... to properties.
 type descSideProps struct{ width, color []string }
 
-var descBorderSides = map[string]descSideProps{
-	"":   {[]string{"border-width"}, []string{"border-color"}},
-	"x":  {[]string{"border-inline-width"}, []string{"border-inline-color"}},
-	"y":  {[]string{"border-block-width"}, []string{"border-block-color"}},
-	"t":  {[]string{"border-top-width"}, []string{"border-top-color"}},
-	"r":  {[]string{"border-right-width"}, []string{"border-right-color"}},
-	"b":  {[]string{"border-bottom-width"}, []string{"border-bottom-color"}},
-	"l":  {[]string{"border-left-width"}, []string{"border-left-color"}},
-	"s":  {[]string{"border-inline-start-width"}, []string{"border-inline-start-color"}},
-	"e":  {[]string{"border-inline-end-width"}, []string{"border-inline-end-color"}},
-	"bs": {[]string{"border-block-start-width"}, []string{"border-block-start-color"}},
-	"be": {[]string{"border-block-end-width"}, []string{"border-block-end-color"}},
+var descBorderSides map[string]descSideProps
+
+func descInitBorderSides() {
+	descBorderSides = map[string]descSideProps{
+		"":   {[]string{"border-width"}, []string{"border-color"}},
+		"x":  {[]string{"border-inline-width"}, []string{"border-inline-color"}},
+		"y":  {[]string{"border-block-width"}, []string{"border-block-color"}},
+		"t":  {[]string{"border-top-width"}, []string{"border-top-color"}},
+		"r":  {[]string{"border-right-width"}, []string{"border-right-color"}},
+		"b":  {[]string{"border-bottom-width"}, []string{"border-bottom-color"}},
+		"l":  {[]string{"border-left-width"}, []string{"border-left-color"}},
+		"s":  {[]string{"border-inline-start-width"}, []string{"border-inline-start-color"}},
+		"e":  {[]string{"border-inline-end-width"}, []string{"border-inline-end-color"}},
+		"bs": {[]string{"border-block-start-width"}, []string{"border-block-start-color"}},
+		"be": {[]string{"border-block-end-width"}, []string{"border-block-end-color"}},
+	}
 }
 
 func borderFn(side string) descFn {
@@ -580,18 +605,22 @@ func borderFn(side string) descFn {
 	}
 }
 
-var descRadiusSides = map[string][]string{
-	"":   {"border-radius"},
-	"t":  {"border-top-left-radius", "border-top-right-radius"},
-	"r":  {"border-top-right-radius", "border-bottom-right-radius"},
-	"b":  {"border-bottom-right-radius", "border-bottom-left-radius"},
-	"l":  {"border-top-left-radius", "border-bottom-left-radius"},
-	"s":  {"border-start-start-radius", "border-end-start-radius"},
-	"e":  {"border-start-end-radius", "border-end-end-radius"},
-	"tl": {"border-top-left-radius"}, "tr": {"border-top-right-radius"},
-	"br": {"border-bottom-right-radius"}, "bl": {"border-bottom-left-radius"},
-	"ss": {"border-start-start-radius"}, "se": {"border-start-end-radius"},
-	"ee": {"border-end-end-radius"}, "es": {"border-end-start-radius"},
+var descRadiusSides map[string][]string
+
+func descInitRadiusSides() {
+	descRadiusSides = map[string][]string{
+		"":   {"border-radius"},
+		"t":  {"border-top-left-radius", "border-top-right-radius"},
+		"r":  {"border-top-right-radius", "border-bottom-right-radius"},
+		"b":  {"border-bottom-right-radius", "border-bottom-left-radius"},
+		"l":  {"border-top-left-radius", "border-bottom-left-radius"},
+		"s":  {"border-start-start-radius", "border-end-start-radius"},
+		"e":  {"border-start-end-radius", "border-end-end-radius"},
+		"tl": {"border-top-left-radius"}, "tr": {"border-top-right-radius"},
+		"br": {"border-bottom-right-radius"}, "bl": {"border-bottom-left-radius"},
+		"ss": {"border-start-start-radius"}, "se": {"border-start-end-radius"},
+		"ee": {"border-end-end-radius"}, "es": {"border-end-start-radius"},
+	}
 }
 
 func roundedFn(side string) descFn {
@@ -654,7 +683,7 @@ func shadowFn(kind string) descFn {
 	}
 }
 
-var gridTemplate = func(property string) descFn {
+func gridTemplate(property string) descFn {
 	return func(c *descCtx, v string) []Declaration {
 		switch v {
 		case "none", "subgrid":
@@ -854,9 +883,13 @@ func (c *descCtx) neg2(n string) string {
 	return n
 }
 
-var gradientDir = map[string]string{
-	"t": "to top", "tr": "to top right", "r": "to right", "br": "to bottom right",
-	"b": "to bottom", "bl": "to bottom left", "l": "to left", "tl": "to top left",
+var gradientDir map[string]string
+
+func descInitGradientDir() {
+	gradientDir = map[string]string{
+		"t": "to top", "tr": "to top right", "r": "to right", "br": "to bottom right",
+		"b": "to bottom", "bl": "to bottom left", "l": "to left", "tl": "to top left",
+	}
 }
 
 func gradientStop(property string) descFn {
@@ -1138,7 +1171,7 @@ func blurFn(property string) descFn {
 
 var descRoots map[string]descFn
 
-func init() {
+func descInitRoots() {
 	// Spacing.
 	descRoots = map[string]descFn{
 		"p": spaceProps("padding"), "px": spaceProps("padding-inline"), "py": spaceProps("padding-block"),
@@ -1341,18 +1374,22 @@ func rotateFilter(property string, c *descCtx, v string) []Declaration {
 // ---------------------------------------------------------------------
 // Variants.
 
-var variantWords = map[string]string{
-	"hover": "on hover", "active": "while pressed", "focus": "when focused",
-	"focus-visible": "when focused with the keyboard", "focus-within": "when focus is inside",
-	"disabled": "when disabled", "enabled": "when enabled", "checked": "when checked",
-	"invalid": "when invalid", "read-only": "when read-only", "placeholder-shown": "while the placeholder shows",
-	"placeholder": "for the placeholder text", "selection": "for the selected text",
-	"first": "on the first child", "last": "on the last child", "only": "on an only child",
-	"odd": "on odd children", "even": "on even children",
-	"dark": "in dark mode", "motion-reduce": "when the user prefers reduced motion",
-	"motion-safe": "unless the user prefers reduced motion", "contrast-more": "in high contrast",
-	"rtl": "in right-to-left text", "ltr": "in left-to-right text",
-	"starting": "on the first frame (@starting-style)",
+var variantWords map[string]string
+
+func descInitVariantWords() {
+	variantWords = map[string]string{
+		"hover": "on hover", "active": "while pressed", "focus": "when focused",
+		"focus-visible": "when focused with the keyboard", "focus-within": "when focus is inside",
+		"disabled": "when disabled", "enabled": "when enabled", "checked": "when checked",
+		"invalid": "when invalid", "read-only": "when read-only", "placeholder-shown": "while the placeholder shows",
+		"placeholder": "for the placeholder text", "selection": "for the selected text",
+		"first": "on the first child", "last": "on the last child", "only": "on an only child",
+		"odd": "on odd children", "even": "on even children",
+		"dark": "in dark mode", "motion-reduce": "when the user prefers reduced motion",
+		"motion-safe": "unless the user prefers reduced motion", "contrast-more": "in high contrast",
+		"rtl": "in right-to-left text", "ltr": "in left-to-right text",
+		"starting": "on the first frame (@starting-style)",
+	}
 }
 
 // describeVariant says in words when a variant applies.
@@ -1398,7 +1435,7 @@ func describeVariant(th *Theme, v string) string {
 // "group-focus"), sorted: what a class can be prefixed with, before the
 // colon. The parametrized ones (min-[600px], aria-[sort=...]) are not
 // listed.
-func (p *Parser) VariantNames() []string { return variantNames(p.th) }
+func (p *Parser) VariantNames() []string { descLoad(); return variantNames(p.th) }
 
 // DescribeVariant says in words when the variant v applies.
-func (p *Parser) DescribeVariant(v string) string { return describeVariant(p.th, v) }
+func (p *Parser) DescribeVariant(v string) string { descLoad(); return describeVariant(p.th, v) }
