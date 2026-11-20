@@ -279,7 +279,13 @@ func loginControl() tela.Node {
 	on, setOn := tela.UseState(false)
 	problem, setProblem := tela.UseState("")
 	asked := tela.UseAsync(func(ctx context.Context) (bool, error) { return desktop.StartsAtLogin() })
+	// A read that ends after the user changed the switch is older than the
+	// change: it must not undo it.
+	changed := tela.UseRef(false)
 	tela.UseEffectDo(func() {
+		if changed.Current {
+			return
+		}
 		if asked.Err == nil && !asked.Loading {
 			setOn.Set(asked.Data)
 		}
@@ -289,6 +295,7 @@ func loginControl() tela.Node {
 	}, asked.Loading, asked.Data)
 	unavailable := asked.Err != nil && errors.Is(asked.Err, desktop.ErrUnsupported)
 	change := func(want bool) {
+		changed.Current = true
 		setOn.Set(want)
 		setProblem.Set("")
 		go func() {
