@@ -183,6 +183,8 @@ func TestDevClassify(t *testing.T) {
 		{telaPkg + "/aria.useBoolState", "state.go", true, true, false},
 		{telaPkg + "/i18n.UseLocale", "hooks.go", true, true, false},
 		{telaPkg + "/router.Router.Build", "router.go", true, true, false},
+		{telaPkg + "/desktop.UseLaunch", "instance.go", true, true, false},
+		{telaPkg + "/oauth.UseSession", "hook.go", true, true, false},
 		{telaPkg + "/examples/dashboard.Page.Build", "main.go", true, false, false},
 		{"example.com/app.Counter", "counter.go", true, false, false},
 		{telaPkg + "/aria.TestX.func1", "x_test.go", true, false, false},

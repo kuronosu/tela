@@ -446,7 +446,7 @@ func devFrameworkPkg(path string) bool {
 	}
 	first, _, _ := strings.Cut(rest, "/")
 	switch first {
-	case "h", "aria", "i18n", "kit", "router", "telatest", "internal", "icons", "cmd":
+	case "h", "aria", "i18n", "kit", "desktop", "update", "router", "oauth", "telatest", "internal", "icons", "cmd":
 		return true
 	}
 	return false
