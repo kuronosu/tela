@@ -42,11 +42,11 @@ CGO_ENABLED=0 go run ./cmd/tela snapshot -o counter.png ./examples/counter
 | Command | Does |
 |---|---|
 | `tela new` | Creates an app in a new directory (see [tela new](#tela-new)) |
-| `tela snapshot` | Renders a screen to a PNG |
+| `tela snapshot` | Renders a screen to a PNG, or with `--film` the frames of its motion as a contact sheet and an animated PNG |
 | `tela inspect` | Prints a screen's aria snapshot (YAML) or layout tree (JSON) |
 | `tela lint` | Checks the Go source for the mistakes that dev mode reports at run time: unknown classes, roles and aria tokens, duplicate or missing keys, misused hooks, a redundant `Fragment`, a prop where a node goes (see [tela lint](#tela-lint)) |
 | `tela dev` | Runs an app and reloads it on every save, keeping the window and the state |
-| `tela mcp` | Serves a package's screen to agents over the Model Context Protocol: snapshot, screenshot, click, fill... on an instance that stays up and rebuilds on edits; `--attach` drives a running `tela dev`'s real windows instead (see [tela mcp](#tela-mcp)) |
+| `tela mcp` | Serves a package's screen to agents over the Model Context Protocol: snapshot, screenshot, click, fill, film, test... on an instance that stays up and rebuilds on edits; `--attach` drives a running `tela dev`'s real windows instead (see [tela mcp](#tela-mcp)) |
 | `tela lsp` | Serves class diagnostics, completion and hover to editors over the Language Server Protocol, beside gopls (see [tela lsp](#tela-lsp)) |
 | `tela build` | Builds a program; for `GOOS=darwin`, as a macOS application bundle `<Name>.app`, for `GOOS=windows` as a GUI program with the app's icon and version information (see [tela build and tela run](#tela-build-and-tela-run)) |
 | `tela run` | Builds a program and runs it, like `go run`; on macOS as a bundle in the user cache, so notifications, URL schemes and the Dock name work |
@@ -265,6 +265,7 @@ app becomes yours.
 
 ```text
 tela snapshot [--size WxH] [--scale N] [--dark] [--preview NAME] [-o out.png] <pkg>
+tela snapshot --film SPAN [--every DUR] [--apng anim.png] [flags] <pkg>
 ```
 
 | Flag | Meaning |
@@ -273,11 +274,43 @@ tela snapshot [--size WxH] [--scale N] [--dark] [--preview NAME] [-o out.png] <p
 | `--scale N` | Display scale; fractional values such as `1.25` are allowed (default 1). The PNG is `W*N` by `H*N` pixels |
 | `--dark` | Render in dark mode: `dark:` variants apply |
 | `--preview NAME` | The named screen of a `Previews` variable |
-| `-o file` | Output file (default `snapshot.png`) |
+| `-o file` | Output file (default `snapshot.png`, or `film.png` with `--film`: the contact sheet) |
+| `--film SPAN` | Film the first `SPAN` (`600ms`, `1.5s`) of the app's clock instead of a still: see [Film](#film) |
+| `--every DUR` | With `--film`: the time between frames (default `50ms`, at least `1ms`) |
+| `--apng file` | With `--film`: also write every frame as an animated PNG |
 
 ```bash
 tela snapshot --size 480x200 --scale 2 --dark -o counter-dark.png ./examples/counter
 ```
+
+### Film
+
+A still shows a screen at rest: finite animations are finished. `--film` shows
+it moving. The screen is mounted with the controllable clock of `telatest`
+stopped where it is (`NoSettle`) and its clock is advanced `--every` at a time
+up to `SPAN`, a screenshot at each step, so the entrance a passive effect
+starts, a `transition`, a `UseSpring`, a spinner or a `Presence` showing a
+child can be seen. The clock is the app's, not the wall's: the film is the
+same on every run and every machine.
+
+```bash
+tela snapshot --film 600ms --every 50ms --apng motion.png -o motion-sheet.png ./myapp
+```
+
+The output is a **contact sheet**: a grid of the frames, each scaled down
+(the sheet stays within 1600 pixels a side, with the largest frames that fit)
+and captioned with its time (`0 ms`, `50 ms`...). A film of more than 24
+frames is sampled evenly for the sheet, first and last frame always in it. At
+most 60 frames and 30 s: `SPAN / every` must stay within 60.
+
+`--apng` writes every frame as an **animated PNG**, with the standard
+library's `image/png` data inside the `acTL`, `fcTL` and `fdAT` chunks of the
+format: it plays in browsers and image viewers, and a program that does not
+animate shows the first frame. Frames after the first hold only the box that
+changed, so a small motion in a big window is a small file; each lasts until
+the next frame's time and the last stays a second. Browsers play frames
+shorter than 20 ms slower than asked. A film starts at the mount; to film
+what an action starts, use the `film` tool of [`tela mcp`](#tela-mcp).
 
 Rendering uses Tela's own rasterizer and its standard fonts (the fonts of the
 package's `App.Fonts` first, never the system's), so the PNG is the same on
@@ -621,6 +654,8 @@ services are not reachable through the tools yet.
 | `perf` | The last `frames` frames, or with `action: true` the frames the last click, press or wait caused: time per phase, what each built, styled, laid out and repainted, and a summary |
 | `prefer` | `reducedMotion`, `highContrast`, `textScale`, `locale`, `direction` and `dark`; without arguments, the current ones |
 | `lint` | `tela lint -json` on the package |
+| `film` | The frames of the motion an `action` starts, every `every` ms over `span` ms of the app's clock, as a contact sheet image (and, with `apng`, an animated PNG): see [`film`](#film-and-test) |
+| `test` | Writes the session's actions, and what each changed, as a Go `telatest` test in the package, then runs `go vet` and the test: see [`test`](#film-and-test) |
 
 An element is named by the `ref` of the latest snapshot, or by `role` and
 `name`, `text` or `testId` (`telatest`'s locators; `nth` picks one of several).
@@ -683,9 +718,76 @@ the whole screen, which is part of the tree: the screen is mounted afresh
 The preferences stay across rebuilds and `open`. `dark` is also an argument of
 `open`, which always mounts afresh.
 
+### `film` and `test`
+
+**`film`.** A transition, a spring or a `Presence` exit is over by the time
+`screenshot` looks. `film` captures the motion on the app's clock and returns it
+as one image the agent can judge:
+
+```json
+{"span": 600, "every": 50, "action": {"click": "e5"}}
+```
+
+`action` starts the motion: one tool and its arguments, `{"click": "e5"}`,
+`{"hover": "e3"}`, `{"press": "Escape"}`, or an object for the others
+(`{"fill": {"ref": "e7", "text": "ana"}}`, `scroll`, `drag`), resolved like the
+tool itself (refs, role and name). Without it, the app as it is is filmed
+(a spinner, a timer, a `UseInterval`). The result is the **contact sheet** (a
+grid of at most 24 frames, each scaled down and captioned with its time; at most
+60 frames and 30 000 ms in all) and the snapshot of the app once settled, so the
+last frame can be compared with where it ends up. `apng` also writes every frame
+as an animated PNG to a path. The same sheet and animation come from
+[`tela snapshot --film`](#film) for the motion a mount starts.
+
+**`test`.** The session becomes a regression test:
+
+```json
+{"name": "checkout flow"}
+```
+
+writes `checkout_flow_test.go` in the package (or `path`, a `_test.go` file in
+its directory; a relative path is relative to it), then runs `go vet` and
+`go test -run ^TestCheckoutFlow$` on it and reports the result with the source.
+What it records is the acting calls since the screen was last mounted: `click`,
+`fill`, `press`, `hover`, `scroll`, `drag`, `wait`, `resize`, the actions of
+`film`, and `prefer` where `telatest` has the method (dark mode, reduced motion,
+high contrast, text scale). The mount has the session's preview, size, scale,
+dark mode and preferences (and the package's `App`); `open` starts another
+mount in the same test; a change of the Go source starts the recording over,
+because the steps no longer say what the screen does. Each action is the
+`telatest` call for it, and an element is the most specific stable locator for
+it, never a node identity:
+
+```go
+app := telatest.Mount(t, Previews["Form"], telatest.Size(480, 320))
+app.Click(telatest.ByRole("button", "Count: 0"))
+app.ExpectRole("button", "Count: 1")
+app.Fill(telatest.ByRole("textbox", "Name"), "Ana")
+app.ExpectValue(telatest.ByRole("textbox", "Name"), "Ana")
+app.Press("Enter")
+app.ExpectText("Hello, Ana!")
+app.Advance(100 * time.Millisecond)
+```
+
+A ref becomes `ByRole(role, name)`, with `.Nth(i)` only when several elements of
+the snapshot look alike; a `testId` the agent gave stays `ByTestID`, and
+`text` stays `ByText`. After each action come checks of **what changed** in the
+snapshot (an element that appeared, a state that flipped to `Checked(true)` or
+`Expanded(true)`, a field's value, a text shown or gone, an element removed),
+at most eight, not a copy of the whole snapshot: the test breaks when the
+behavior does, not when the layout around it is edited. The file begins with a
+comment that marks it as the tool's; the tool replaces such a file and refuses
+to overwrite another one. If the test does not compile or vet it is not kept
+(the error shows what was written); if it compiles but fails it is kept, with
+the failure.
+
+Neither tool is available over [`--attach`](#tela-mcp---attach) yet: they need
+the headless app's controllable clock and mount.
+
 The instance is built against the `tela` your module requires, which may be
 older than the `tela` binary: the source lines, `state`, `perf` and `prefer`
-need the module to be on a version with the DevTools additions of `telatest`
+need the module to be on a version with the DevTools additions of `telatest`,
+and `film` and `tela snapshot --film` one with `App.Film`
 (`go get github.com/kuronosu/tela@latest`); without them the other tools keep
 working and these say what to update.
 

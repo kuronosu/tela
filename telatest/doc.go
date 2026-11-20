@@ -52,7 +52,9 @@
 // animation, mount with [NoSettle]: actions, screenshots and the queries
 // ([App.AriaSnapshot], [App.Count], [App.Bounds], [App.Stats],
 // [App.Cursor]) then leave running animations where they are, and only
-// Advance moves them (ADR-097).
+// Advance moves them (ADR-097). [App.Film] does it for one action: it
+// returns the frames of the motion the action starts, on an app mounted
+// either way.
 //
 // The expectations ([App.ExpectText], [App.ExpectNoText], [App.ExpectRole],
 // [App.ExpectCount], [App.ExpectFocused], [App.ExpectValue],

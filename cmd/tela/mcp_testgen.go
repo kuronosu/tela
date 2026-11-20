@@ -125,7 +125,7 @@ func generateTestSource(in testgenInput) ([]byte, error) {
 		b.WriteString("\t\"github.com/kuronosu/tela\"\n")
 	}
 	b.WriteString("\t\"github.com/kuronosu/tela/telatest\"\n)\n\n")
-	fmt.Fprintf(&b, "// %s replays a session of tela mcp on the screen of the package: %d actions, %d checks.\n", in.Func, steps, checks)
+	fmt.Fprintf(&b, "// %s replays a session of tela mcp on the screen of the package: %s, %s.\n", in.Func, plural(steps, "action"), plural(checks, "check"))
 	fmt.Fprintf(&b, "func %s(t *testing.T) {\n", in.Func)
 	for _, l := range body {
 		b.WriteString(l + "\n")
@@ -196,6 +196,14 @@ func (in testgenInput) mountLines(seg *mcpSegment, first bool) (lines []string, 
 		call = fmt.Sprintf("app %s telatest.Mount(t, %s,\n%s\n)", op, root, "\t"+strings.Join(opts, ",\n\t")+",")
 	}
 	return append(lines, call), tela, nil
+}
+
+// plural writes a count and its noun.
+func plural(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return fmt.Sprintf("%d %ss", n, noun)
 }
 
 // fnum writes a number as a Go constant.
@@ -329,10 +337,6 @@ func (s *mcpSession) toolTest(ctx context.Context, args json.RawMessage) mcpResu
 	if !s.begin(ctx, &o) {
 		return o.result()
 	}
-	if s.rec.count() == 0 {
-		o.fail("nothing to write: no acting call (click, fill, press, hover, scroll, drag, wait, resize, prefer) has been made since the screen was mounted or the source was last rebuilt. Act on the screen, then call test")
-		return o.result()
-	}
 	pkgDir := filepath.Clean(s.target.pkg.Dir)
 	path := a.Path
 	if path == "" {
@@ -352,6 +356,10 @@ func (s *mcpSession) toolTest(ctx context.Context, args json.RawMessage) mcpResu
 	}
 	if b, err := os.ReadFile(path); err == nil && !strings.HasPrefix(string(b), testgenMarker) {
 		o.fail(fmt.Sprintf("%s exists and was not written by this tool: give another path, or remove it", path))
+		return o.result()
+	}
+	if s.rec.count() == 0 {
+		o.fail("nothing to write: no acting call (click, fill, press, hover, scroll, drag, wait, resize, prefer) has been made since the screen was mounted or the source was last rebuilt. Act on the screen, then call test")
 		return o.result()
 	}
 	in := testgenInput{Pkg: s.target.pkg.Name, Func: fn, Segments: s.rec.segs, Contract: s.contract, HasApp: s.hasApp}

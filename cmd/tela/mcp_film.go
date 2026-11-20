@@ -83,15 +83,17 @@ func (s *mcpSession) toolFilm(ctx context.Context, args json.RawMessage) mcpResu
 			return o.result()
 		}
 	}
+	if !s.begin(ctx, &o) {
+		return o.result()
+	}
+	// The animation goes inside the module: an agent's path must not reach
+	// other files.
 	apng := ""
 	if a.APNG != "" {
-		if apng, err = filepath.Abs(a.APNG); err != nil {
+		if apng, err = filmPath(s.target.modDir, a.APNG); err != nil {
 			o.fail(err.Error())
 			return o.result()
 		}
-	}
-	if !s.begin(ctx, &o) {
-		return o.result()
 	}
 	// The action is the tool's own, run to learn the request it would send
 	// (the element resolved, the checks made) without sending it.
@@ -175,7 +177,7 @@ var (
 		{"span", "number", "Milliseconds of the app's clock to film, after the action", nil},
 		{"every", "number", "Milliseconds between frames (default 50; at least 1)", nil},
 		{"action", "object", `One tool and its arguments that starts the motion: {"click": "e5"} (a ref), {"hover": "e3"}, {"press": "Escape"}, or the tool's arguments as an object: {"fill": {"ref": "e7", "text": "ana"}}, {"scroll": {"ref": "e12", "dy": 400}}, {"drag": {"from": {"ref": "e4"}, "dx": 120}}`, nil},
-		{"apng", "string", "Also write the frames as an animated PNG to this path (relative to the server's directory)", nil},
+		{"apng", "string", "Also write the frames as an animated PNG to this .png path inside the module (relative to its directory)", nil},
 	}
 	testProps = []schemaProp{
 		{"name", "string", `The test's name: "checkout flow" and "TestCheckoutFlow" are both TestCheckoutFlow`, nil},
@@ -199,4 +201,21 @@ func mcpFilmDefs() []mcpToolDef {
 		def("film", filmDesc, act("Film motion"), filmProps, (*mcpSession).toolFilm, "span"),
 		def("test", testDesc, act("Write a test"), testProps, (*mcpSession).toolTest, "name"),
 	}
+}
+
+// filmPath resolves the apng argument of film: a .png file inside the
+// module's directory (a relative path is relative to it).
+func filmPath(modDir, path string) (string, error) {
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(modDir, path)
+	}
+	path = filepath.Clean(path)
+	rel, err := filepath.Rel(filepath.Clean(modDir), path)
+	switch {
+	case err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)):
+		return "", fmt.Errorf("apng %s: the animation is written inside the module, %s", path, modDir)
+	case !strings.HasSuffix(strings.ToLower(path), ".png"):
+		return "", fmt.Errorf("apng %s: an animated PNG is a .png file", path)
+	}
+	return path, nil
 }
