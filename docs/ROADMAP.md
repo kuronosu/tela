@@ -37,7 +37,8 @@ Inspecting and driving a running app.
 - [ ] `tela mcp`'s fail-fast reads `App.Pending` by matching its text (caret blink, scrollbar fade, endless animations): give `Pending` kinds; work on goroutines (`UseAsync`, `UseGo`) is not pending, so a miss before a load ends fails at once; `wait` does not fail fast; `scroll` without an element goes to the window's center, not the largest scrollable node, and does not say whether anything moved
 - [x] `tela snapshot` shows a passive effect's state and toasts set by effects (it renders once)
 - [x] Debug-overlay labels are laid out at the display scale (today at scale 1)
-- [ ] `tela lsp`: completion, hover and diagnostics of Tailwind classes inside `Class("...")` and `ClassAliases`, on the lint engine
+- [x] `tela lsp`: completion, hover and diagnostics of Tailwind classes inside `Class("...")` and `ClassAliases`, on the lint engine (ADR-301)
+- [ ] `tela lsp`: no quick fix for "did you mean"; constants used as `Class(card)` and aliases of other packages are not seen; the describer shows about 61% of the vocabulary in CSS (`mask-*`, `bg-conic` fall back to the name); the editor snippets of the wiki are untried in real editors
 - [ ] `tela snapshot`, `inspect` and `mcp` give each element the line that created it (`button "Save" [ref=e4] [src=settings.go:42]`), from the call stacks dev mode already captures for hooks
 - [ ] `tela mcp` writes the session it just drove as a `telatest` test (`Click`, `Fill`, `Advance`, `ExpectAria`), so what an agent checked stays as a regression test
 - [ ] `tela mcp` and `tela snapshot` film motion: frames every N ms over a span of the app's clock, as a contact sheet or an APNG (transitions, springs, `UsePresence`)

@@ -16,6 +16,7 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 ### Added
 
 - `telatest.App.AriaSnapshotNodes`, `NodeLocator` and `ScrollAt` (ADR-300).
+- `tela lsp`: a language server editors run beside gopls, with diagnostics, completion and hover (the CSS a class produces) for Tailwind classes in `Class("...")`, class fields and `ClassAliases` (ADR-301).
 - `tela new` also writes `AGENTS.md` (the agent loop with `tela mcp`, `tela lint` and `llms.txt`), `CLAUDE.md` (`@AGENTS.md`) and `.mcp.json`, which starts `tela mcp .`.
 
 ### Changed

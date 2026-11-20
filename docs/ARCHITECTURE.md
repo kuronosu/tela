@@ -553,7 +553,7 @@ type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entr
 |---|---|
 | `tela snapshot <pkg> [--size WxH] [--scale 2] [--dark] -o out.png` | Headless render to PNG |
 | `tela inspect <pkg> [--aria\|--layout]` | Aria snapshot (YAML, default) or layout tree as JSON (geometry and computed style) |
-| `tela lint [-json] [-tests] [packages]` | Static form of the dev-mode checks on constant strings: unknown classes (aliases and theme colors of the linted packages known), roles, aria tokens, duplicate or missing keys, hook misuse; `file:line:col: rule: message`, exit 1 when anything is reported, `//tela:ignore rule` (ADR-173) |
+| `tela lint [-json] [-tests] [packages]` | Static form of the dev-mode checks on constant strings: unknown classes (aliases and theme colors of the linted packages known), roles, aria tokens, duplicate or missing keys, hook misuse; `file:line:col: rule: message`, exit 1 when anything is reported, `//tela:ignore rule` (ADR-173); `tela lsp` serves its class checks, completion and hover to editors (ADR-301) |
 | `tela dev [pkg] [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [-v]` | Watch, rebuild in the background, swap the app process under a window that never closes, keeping hook and engine state; errors as an overlay over the last good frame. Go can't swap code in a process, so the restart is made invisible (ADR-111); state outside the tree: `App.DevState` (ADR-114) |
 | `tela build [-o path] [-id ID] [-name NAME] [-version V] [-icon f] [-console] [go flags] [pkg]` | Build the program of a package main for the environment's `GOOS`/`GOARCH` (cross-compiles). For darwin it writes `<Name>.app` (`Info.plist` with the `AppID` read statically from the package's `tela.App` or `-id`, executable in `Contents/MacOS`), rewriting only what changed; for windows a GUI program with icon and version info; elsewhere the plain executable. Nothing is signed beyond the linker's ad-hoc signature (ADR-227, ADR-294) |
 | `tela package [pkg]`, `tela update keygen\|sign\|manifest` | Packages for every target from one machine, metadata from `tela.App`; signed manifests for `update` (ADR-294 to ADR-296) |
@@ -603,7 +603,6 @@ func TestCounter(t *testing.T) {
 
 ### For agents (LLMs)
 
-This is also a design constraint:
 - `docs/llms.txt`: compact API guide with examples.
 - `examples/`: full, beautiful screens to imitate.
 - Errors with suggestions (§3).
@@ -646,7 +645,7 @@ This is also a design constraint:
 
 ## 20. References by layer
 
-Implementation references, not dependencies. Read the relevant entry before starting the matching work.
+Implementation references, not dependencies.
 
 | Layer | Reference | What to take |
 |---|---|---|
