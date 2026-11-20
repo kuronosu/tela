@@ -19,6 +19,7 @@
 - [Windows and Desktop](Windows-and-Desktop)
 - [Desktop Integration](Desktop-Integration)
 - [Updates](Updates)
+- [Routing](Routing)
 - [Accessibility](Accessibility)
 - [Testing](Testing)
 - [CLI](CLI)

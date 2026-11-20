@@ -310,8 +310,9 @@ func clickConfigOf(opts []ClickOption) clickConfig {
 // another, as in Playwright; use [App.DoubleClick] for two. It waits for the element to be visible, enabled, in view and not
 // covered by another element, and fails the test when l matches none or
 // several. With [Right] it presses the secondary button instead (the
-// element's OnContextMenu runs, not its OnClick); [App.Tap] and
-// [App.LongPress] are the touch counterparts.
+// element's OnContextMenu runs, not its OnClick), and [MouseBack] and
+// [MouseForward] the mouse's side buttons; [App.Tap] and [App.LongPress]
+// are the touch counterparts.
 func (a *App) Click(l Locator, opts ...ClickOption) {
 	a.tb.Helper()
 	cfg := clickConfigOf(opts)
