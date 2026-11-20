@@ -337,7 +337,13 @@ func runInPackage(m mode, opts renderOptions, ext string, stderr io.Writer) (*ru
 	defer os.RemoveAll(tmp)
 
 	src := filepath.Join(tmp, generatedFile)
-	if err := os.WriteFile(src, generateSource(pkg.Name, c, det.hasApp), 0o644); err != nil {
+	// The elements' source lines are part of what inspect prints.
+	var feats genFeatures
+	if m != modeSnapshot {
+		feats = detectFeatures(goBin, pkg.Dir)
+		feats.I18N = false
+	}
+	if err := os.WriteFile(src, generateSource(pkg.Name, c, det.hasApp, feats), 0o644); err != nil {
 		return nil, err
 	}
 	overlay := filepath.Join(tmp, "overlay.json")
@@ -477,15 +483,20 @@ func writeFileAtomic(path string, data []byte) error {
 // declares `var App`, whose settings the run applies. All imports have unusual
 // aliases because import names live in the file scope of a package whose
 // declarations they could collide with.
-func generateSource(pkgName string, c contract, hasApp bool) []byte {
+func generateSource(pkgName string, c contract, hasApp bool, feats ...genFeatures) []byte {
+	var f genFeatures
+	if len(feats) > 0 {
+		f = feats[0]
+	}
 	var buf bytes.Buffer
 	err := generatedTemplate.Execute(&buf, struct {
-		Package string
-		Kind    string
-		HasApp  bool
-		Env     map[string]string
+		Package  string
+		Kind     string
+		HasApp   bool
+		DevTools bool
+		Env      map[string]string
 	}{
-		Package: pkgName, Kind: c.String(), HasApp: hasApp,
+		Package: pkgName, Kind: c.String(), HasApp: hasApp, DevTools: f.DevTools,
 		Env: map[string]string{
 			"Mode": envMode, "W": envW, "H": envH, "Scale": envScale, "Dark": envDark, "SizeSet": envSizeSet,
 			"Preview": envPreview, "Out": envOut, "Err": envErr, "Info": envInfo, "Log": envLog,
@@ -641,6 +652,10 @@ func TestTelaRun(t *telatesting.T) {
 		dev = true
 	}
 	opts = append(opts, telatest.AllowDev(""))
+{{- if .DevTools}}
+	// The elements' source lines are part of what inspect prints.
+	opts = append(opts, telatest.Instrument())
+{{- end}}
 	app := telatest.Mount(telaTB{t, !dev}, root, opts...)
 
 	switch getenv({{printf "%q" .Env.Mode}}) {
@@ -653,7 +668,11 @@ func TestTelaRun(t *telatesting.T) {
 	case {{printf "%q" "inspect"}}:
 		write({{printf "%q" .Env.Out}}, app.LayoutJSON())
 	case {{printf "%q" "aria"}}:
+{{- if .DevTools}}
+		yaml, _ := app.AriaSnapshotSources()
+{{- else}}
 		yaml := app.AriaSnapshot()
+{{- end}}
 		if yaml != "" {
 			yaml += "\n"
 		}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"text/template"
+	"time"
 )
 
 // The instance of tela mcp (ADR-174) is a test binary: like tela snapshot
@@ -59,9 +60,48 @@ type mcpLoc struct {
 // mcpPoint is a point in logical pixels.
 type mcpPoint struct{ X, Y float64 }
 
+// mcpPrefer are the preferences the user of the app is said to have, beyond
+// dark mode (mcpReq.Dark): what the tool prefer sets. Reduced motion, high
+// contrast and the text scale are the system's settings telatest changes
+// while the app runs; the locale is tela/i18n's; the direction is an h.Dir
+// around the screen, so changing it mounts the screen afresh.
+type mcpPrefer struct {
+	ReducedMotion bool    `json:"reducedMotion,omitempty"`
+	HighContrast  bool    `json:"highContrast,omitempty"`
+	TextScale     float64 `json:"textScale,omitempty"` // 0: 1
+	Locale        string  `json:"locale,omitempty"`
+	LocaleSet     bool    `json:"localeSet,omitempty"` // Locale "" with it: the system's
+	Direction     string  `json:"direction,omitempty"` // "", "ltr" or "rtl"
+}
+
+// mcpComponent is a telatest.Component as the instance reports it (the
+// fields of the Go struct, matched by name).
+type mcpComponent struct {
+	Name, Key, Source string
+	Props             []struct{ Name, Value string }
+	Hooks             []struct {
+		Index               int
+		Kind, Source, Value string
+	}
+	Builds  int
+	Renders []struct {
+		Frame   int
+		Reasons []string
+	}
+}
+
+// mcpFrame is a telatest.Frame as the instance reports it.
+type mcpFrame struct {
+	Number                 int
+	Duration               time.Duration
+	Phases                 map[string]time.Duration
+	Built, Styled, LaidOut int
+	Damage                 int64
+}
+
 // mcpReq is a command to the instance. Op is mount, info, snapshot, count,
 // bounds, screenshot, layout, click, hover, fill, press, scroll, drag,
-// resize or wait; the other fields are its arguments. The op cancel (with
+// resize, wait, state, perf or prefer; the other fields are its arguments. The op cancel (with
 // Target, the id of the command to stop) is handled the moment it is read,
 // while that command runs, and has no reply.
 type mcpReq struct {
@@ -92,6 +132,15 @@ type mcpReq struct {
 	Ms     float64   `json:"ms,omitempty"`
 	// Snapshot asks for the aria snapshot after the command.
 	Snapshot bool `json:"snapshot,omitempty"`
+	// Prefer, with mount and prefer: the preferences the screen is mounted
+	// with, or the ones to be in (Dark says the same of dark mode).
+	Prefer *mcpPrefer `json:"prefer,omitempty"`
+	// Count and FromAction, with perf: the last Count frames, or the frames
+	// since the last command that acted. Max, with state without an
+	// element: the components to list.
+	Count      int  `json:"count,omitempty"`
+	FromAction bool `json:"fromAction,omitempty"`
+	Max        int  `json:"max,omitempty"`
 	// Target is the id of the command a cancel stops.
 	Target int `json:"target,omitempty"`
 }
@@ -138,20 +187,45 @@ type mcpReply struct {
 	Dark    bool     `json:"dark,omitempty"`
 	// Note is a remark of the mount ("--dark has no effect...").
 	Note string `json:"note,omitempty"`
+
+	// state: the component of the element, or the components of the screen
+	// that have props or hooks (Total of them in all; Instrumented false
+	// when this tela cannot say).
+	Components []mcpComponent `json:"components,omitempty"`
+	Total      int            `json:"total,omitempty"`
+	// perf: the frames, and the number of the last frame of the app.
+	Frames   []mcpFrame `json:"frames,omitempty"`
+	FrameNow int        `json:"frameNow,omitempty"`
+	// prefer: what each preference did ("dark: live", "direction: mounted
+	// the screen afresh"), whether the screen was mounted again, and the
+	// preferences it is in now.
+	Applied   []string   `json:"applied,omitempty"`
+	Remounted bool       `json:"remounted,omitempty"`
+	Prefer    *mcpPrefer `json:"prefer,omitempty"`
+	// DevTools says the instance was built with this tela's DevTools (the
+	// source lines, state, perf and prefer); without it those tools tell
+	// the user to update tela.
+	DevTools bool `json:"devTools,omitempty"`
 }
 
 // generateMCPSource returns the source of the generated test file of tela
 // mcp for a package called pkgName that implements contract c (Preview,
 // Previews or App); hasApp says the package declares `var App`.
-func generateMCPSource(pkgName string, c contract, hasApp bool) []byte {
+func generateMCPSource(pkgName string, c contract, hasApp bool, feats ...genFeatures) []byte {
+	var f genFeatures
+	if len(feats) > 0 {
+		f = feats[0]
+	}
 	var buf bytes.Buffer
 	prefix, _ := json.Marshal(mcpReplyPrefix)
 	err := mcpTemplate.Execute(&buf, struct {
-		Package string
-		Kind    string
-		HasApp  bool
-		Prefix  string
-	}{Package: pkgName, Kind: c.String(), HasApp: hasApp, Prefix: string(prefix)})
+		Package  string
+		Kind     string
+		HasApp   bool
+		Prefix   string
+		DevTools bool
+		I18N     bool
+	}{Package: pkgName, Kind: c.String(), HasApp: hasApp, Prefix: string(prefix), DevTools: f.DevTools, I18N: f.DevTools && f.I18N})
 	if err != nil {
 		panic(err) // the template is a constant
 	}
@@ -179,6 +253,12 @@ import (
 	telatime "time"
 
 	telatela "github.com/kuronosu/tela"
+{{- if .DevTools}}
+	telah "github.com/kuronosu/tela/h"
+{{- end}}
+{{- if .I18N}}
+	telai18n "github.com/kuronosu/tela/i18n"
+{{- end}}
 	telatest "github.com/kuronosu/tela/telatest"
 )
 
@@ -367,6 +447,12 @@ type telaMCPReq struct {
 	Ms       float64       ` + "`json:\"ms\"`" + `
 	Snapshot bool          ` + "`json:\"snapshot\"`" + `
 	Target   int           ` + "`json:\"target\"`" + `
+{{- if .DevTools}}
+	Prefer     *telaMCPPrefer ` + "`json:\"prefer\"`" + `
+	Count      int            ` + "`json:\"count\"`" + `
+	FromAction bool           ` + "`json:\"fromAction\"`" + `
+	Max        int            ` + "`json:\"max\"`" + `
+{{- end}}
 }
 
 type telaMCPReply struct {
@@ -390,7 +476,79 @@ type telaMCPReply struct {
 	Scale      float64     ` + "`json:\"scale,omitempty\"`" + `
 	Dark       bool        ` + "`json:\"dark,omitempty\"`" + `
 	Note       string      ` + "`json:\"note,omitempty\"`" + `
+{{- if .DevTools}}
+	DevTools   bool            ` + "`json:\"devTools,omitempty\"`" + `
+	Components []telatest.Component ` + "`json:\"components,omitempty\"`" + `
+	Total      int             ` + "`json:\"total,omitempty\"`" + `
+	Frames     []telatest.Frame ` + "`json:\"frames,omitempty\"`" + `
+	FrameNow   int             ` + "`json:\"frameNow,omitempty\"`" + `
+	Applied    []string        ` + "`json:\"applied,omitempty\"`" + `
+	Remounted  bool            ` + "`json:\"remounted,omitempty\"`" + `
+	Prefer     *telaMCPPrefer  ` + "`json:\"prefer,omitempty\"`" + `
+{{- end}}
 }
+
+{{if .DevTools -}}
+// telaMCPPrefer is the mcpPrefer of the server.
+type telaMCPPrefer struct {
+	ReducedMotion bool    ` + "`json:\"reducedMotion\"`" + `
+	HighContrast  bool    ` + "`json:\"highContrast\"`" + `
+	TextScale     float64 ` + "`json:\"textScale\"`" + `
+	Locale        string  ` + "`json:\"locale\"`" + `
+	LocaleSet     bool    ` + "`json:\"localeSet\"`" + `
+	Direction     string  ` + "`json:\"direction\"`" + `
+}
+
+// telaMCPStart is the origin of the clock the frame profile reads: real
+// time, unlike telatest's deterministic default, so perf measures.
+var telaMCPStart = telatime.Now()
+
+func telaMCPClock() telatime.Duration { return telatime.Since(telaMCPStart) }
+
+func (p telaMCPPrefer) normalized() telaMCPPrefer {
+	if p.TextScale <= 0 {
+		p.TextScale = 1
+	}
+	return p
+}
+
+// telaMCPDirection mounts root under an h.Dir (a display: contents
+// element, so the layout is the same but for the direction); ""
+// leaves it alone. A preview keeps its Theme and ColorScheme.
+func telaMCPDirection(root telatela.Component, dir string) telatela.Component {
+	if dir == "" {
+		return root
+	}
+	around := func(n telatela.Node) telatela.Node {
+		return telah.Div(telah.Dir(dir), telah.Class("contents"), n)
+	}
+	if p, ok := root.(telatela.Preview); ok {
+		wrap := p.Wrap
+		p.Wrap = func(n telatela.Node) telatela.Node {
+			if wrap != nil {
+				n = wrap(n)
+			}
+			return around(n)
+		}
+		return p
+	}
+	return telatela.Preview{Root: root, Wrap: around}
+}
+{{- if .I18N}}
+
+// telaMCPSetLocale is i18n.SetLocale, which panics for a tag that is not
+// BCP 47.
+func telaMCPSetLocale(tag string) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = telafmt.Errorf("%v", r)
+		}
+	}()
+	telai18n.SetLocale(tag)
+	return nil
+}
+{{- end}}
+{{- end}}
 
 // telaMCPSession is the mounted screen and how it was mounted.
 type telaMCPSession struct {
@@ -406,6 +564,12 @@ type telaMCPSession struct {
 	note     string
 	out      *telaos.File // where the process's output goes
 	outRead  int64
+{{- if .DevTools}}
+	prefer      telaMCPPrefer // the preferences the screen is in
+	fixedScheme bool          // App.ColorScheme or the preview's decides the scheme
+	schemeOf    string
+	actionFrom  int // the frame the last command that acted started at
+{{- end}}
 }
 
 func (s *telaMCPSession) close() {
@@ -428,6 +592,33 @@ func (s *telaMCPSession) doMount(req telaMCPReq) (fail, panicked string) {
 		w, h, dark := req.W, req.H, req.Dark
 		opts := []telatest.Option{telatest.Size(float32(w), float32(h)), telatest.Scale(req.Scale),
 			telatest.AllowDev(""), telatest.Timeout(2 * telatime.Second)}
+{{- if .DevTools}}
+		// The element source lines, the state of the components and the
+		// frame profile come from the instrumentation.
+		opts = append(opts, telatest.Instrument(), telatest.DebugClock(telaMCPClock))
+		var pf telaMCPPrefer
+		if req.Prefer != nil {
+			pf = *req.Prefer
+		}
+		pf = pf.normalized()
+		if pf.ReducedMotion {
+			opts = append(opts, telatest.ReducedMotion())
+		}
+		if pf.HighContrast {
+			opts = append(opts, telatest.HighContrast())
+		}
+		if pf.TextScale != 1 {
+			opts = append(opts, telatest.TextScale(pf.TextScale))
+		}
+{{- if .I18N}}
+		if pf.LocaleSet {
+			if err := telaMCPSetLocale(pf.Locale); err != nil {
+				panic(telaMCPFail{err.Error()})
+			}
+		}
+{{- end}}
+		root = telaMCPDirection(root, pf.Direction)
+{{- end}}
 		if dark {
 			opts = append(opts, telatest.Dark())
 		}
@@ -463,6 +654,10 @@ func (s *telaMCPSession) doMount(req telaMCPReq) (fail, panicked string) {
 			dark = true
 		}
 		s.w, s.h, s.scale, s.dark = w, h, req.Scale, dark
+{{- if .DevTools}}
+		s.prefer, s.fixedScheme, s.schemeOf = pf, scheme != telatela.System, schemeOf
+		s.actionFrom = 0
+{{- end}}
 		s.app = telatest.Mount(s.tb, root, opts...)
 	})
 }
@@ -500,6 +695,12 @@ func (s *telaMCPSession) handle(req telaMCPReq) telaMCPReply {
 			s.mountErr = "no screen is mounted"
 		}
 	default:
+{{- if .DevTools}}
+		if telaMCPActs[req.Op] {
+			// Frames after this one are the ones the command causes.
+			telaMCPProtect(func() { s.actionFrom = s.app.Stats().Frames })
+		}
+{{- end}}
 		s.tb.cancelled.Store(false)
 		s.tb.running.Store(int64(req.ID))
 		if s.tb.cancelTarget.Load() == int64(req.ID) {
@@ -527,6 +728,9 @@ func (s *telaMCPSession) handle(req telaMCPReq) telaMCPReply {
 	}
 	rep.Preview, rep.Names = s.preview, s.names
 	rep.W, rep.H, rep.Scale, rep.Dark, rep.Note = s.w, s.h, s.scale, s.dark, s.note
+{{- if .DevTools}}
+	rep.DevTools = true
+{{- end}}
 	rep.Logs = s.tb.takeLogs()
 	rep.Output = s.output()
 	return rep
@@ -550,6 +754,9 @@ func (s *telaMCPSession) output() string {
 // snapshot returns the aria snapshot and, when this version of telatest
 // gives them, the identity of the element of each line.
 func (s *telaMCPSession) snapshot() (string, []uint64) {
+{{- if .DevTools}}
+	return s.app.AriaSnapshotSources()
+{{- end}}
 	if n, ok := any(s.app).(telaMCPNodes); ok {
 		return n.AriaSnapshotNodes()
 	}
@@ -753,10 +960,112 @@ func (s *telaMCPSession) do(req telaMCPReq, rep *telaMCPReply) {
 		if req.Gone != "" {
 			app.ExpectNoText(req.Gone)
 		}
+{{- if .DevTools}}
+	case "state":
+		s.state(req, rep)
+	case "perf":
+		now := app.Stats().Frames
+		rep.FrameNow = now
+		if req.FromAction {
+			rep.Frames = app.Frames(s.actionFrom)
+		} else {
+			rep.Frames = app.Frames(max(0, now-max(req.Count, 1)))
+		}
+	case "prefer":
+		s.preferOp(req, rep)
+{{- end}}
 	default:
 		panic(telaMCPFail{telafmt.Sprintf("unknown command %q", req.Op)})
 	}
 }
+{{if .DevTools}}
+// telaMCPActs are the commands that act on the app: the frames after the
+// start of one are what it caused (perf).
+var telaMCPActs = map[string]bool{"click": true, "hover": true, "fill": true, "press": true, "scroll": true, "drag": true, "resize": true, "wait": true, "prefer": true}
+
+// state answers with the component of the element req.Loc names (its
+// node identity), or with the components that have props or hooks.
+func (s *telaMCPSession) state(req telaMCPReq, rep *telaMCPReply) {
+	if req.Loc != nil {
+		if req.Loc.NodeID == 0 {
+			panic(telaMCPFail{"state names an element by its ref from the latest snapshot"})
+		}
+		c, ok := s.app.ComponentOf(req.Loc.NodeID)
+		if !ok {
+			panic(telaMCPFail{"the element has no component above it that can be inspected (it was unmounted, or its screen was built before the instrumentation)"})
+		}
+		rep.Components, rep.Total = []telatest.Component{c}, 1
+		return
+	}
+	limit := req.Max
+	if limit <= 0 {
+		limit = 40
+	}
+	for _, c := range s.app.Components() {
+		if len(c.Hooks) == 0 && len(c.Props) == 0 {
+			continue
+		}
+		rep.Total++
+		if len(rep.Components) < limit {
+			rep.Components = append(rep.Components, c)
+		}
+	}
+}
+
+// preferOp puts the screen in the preferences req.Prefer and req.Dark
+// say: reduced motion, high contrast, the text scale, the locale and dark
+// mode as the system changes them while the app runs; the direction, which
+// is part of the tree, by mounting the screen afresh.
+func (s *telaMCPSession) preferOp(req telaMCPReq, rep *telaMCPReply) {
+	app := s.app
+	var want telaMCPPrefer
+	if req.Prefer != nil {
+		want = *req.Prefer
+	}
+	want = want.normalized()
+	cur := s.prefer
+	if want.Direction != cur.Direction {
+		s.mount.Prefer, s.mount.Dark = &want, req.Dark
+		s.remount()
+		rep.Remounted = true
+		rep.Applied = append(rep.Applied, "direction "+telafmt.Sprintf("%q", want.Direction)+": mounted the screen afresh (state reset), with every preference set")
+		rep.Prefer = &want
+		return
+	}
+	live := func(name string, changed bool, set func()) {
+		if changed {
+			set()
+			rep.Applied = append(rep.Applied, name+": live")
+		}
+	}
+	if req.Dark != s.mount.Dark {
+		s.mount.Dark = req.Dark
+		if s.fixedScheme {
+			rep.Applied = append(rep.Applied, "dark: no effect, "+s.schemeOf+" fixes the color scheme")
+		} else {
+			live("dark", true, func() { app.SetDarkMode(req.Dark); s.dark = req.Dark })
+		}
+	}
+	live("reducedMotion", want.ReducedMotion != cur.ReducedMotion, func() { app.SetReducedMotion(want.ReducedMotion) })
+	live("highContrast", want.HighContrast != cur.HighContrast, func() { app.SetHighContrast(want.HighContrast) })
+	live("textScale", want.TextScale != cur.TextScale, func() { app.SetTextScale(want.TextScale) })
+	if want.LocaleSet && (!cur.LocaleSet || want.Locale != cur.Locale) {
+{{- if .I18N}}
+		if err := telaMCPSetLocale(want.Locale); err != nil {
+			panic(telaMCPFail{err.Error()})
+		}
+		app.Advance(telatime.Millisecond) // the components that read the locale build again
+		rep.Applied = append(rep.Applied, "locale: live (the components that read it with i18n.UseLocale, UseT or UseFormatter built again)")
+{{- else}}
+		rep.Applied = append(rep.Applied, "locale: no effect, the package does not import tela/i18n")
+		want.LocaleSet, want.Locale = false, ""
+{{- end}}
+	}
+	s.prefer = want
+	s.mount.Prefer = &want
+	rep.Prefer = &want
+}
+{{end}}
 
 // telaMCPBuffer collects the output of an encoder.
 type telaMCPBuffer struct{ b []byte }

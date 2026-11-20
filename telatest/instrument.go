@@ -34,8 +34,8 @@ func Instrument() Option { return func(c *config) { c.instrument = true } }
 // outside dev mode) keep their plain line. `tela inspect` prints this
 // snapshot.
 //
-//	- button "Save" [src=settings.go:42]
-//	- textbox "Email" [disabled] [src=settings.go:40]: ana@example.com
+//   - button "Save" [src=settings.go:42]
+//   - textbox "Email" [disabled] [src=settings.go:40]: ana@example.com
 func (a *App) AriaSnapshotSources() (yaml string, nodes []uint64) {
 	yaml, nodes = a.AriaSnapshotNodes()
 	if !a.tree.Instrumented() {
@@ -197,10 +197,12 @@ type Frame struct {
 }
 
 // Frames returns the profile of the frames whose number is above since (0
-// for all), oldest first; the app keeps the last 600. Frames of the
-// headless backend take little time, and the times are the machine's, so
-// assert on counts ([Frame.Built], [Frame.LaidOut]) rather than on
-// durations. It returns nil unless the app was mounted with [Instrument].
+// for all), oldest first; the app keeps the last 600. The times come from
+// the clock of [DebugClock], which reads 1 ms longer at every call unless
+// the test gives a real one (a function of time.Since), so by default they
+// count clock readings, not time: assert on counts ([Frame.Built],
+// [Frame.LaidOut]) and pass a real clock to measure. It returns nil unless
+// the app was mounted with [Instrument].
 func (a *App) Frames(since int) []Frame {
 	a.tb.Helper()
 	a.mustBeOpen()

@@ -119,9 +119,9 @@ func mcpBuildFlags(goflags string) []string {
 
 // buildInstance compiles the instance of t into dir as build gen. On
 // failure it returns the go command's output as the error.
-func buildInstance(ctx context.Context, goBin string, t *mcpTarget, c contract, hasApp bool, dir string, gen int) (string, error) {
+func buildInstance(ctx context.Context, goBin string, t *mcpTarget, c contract, hasApp bool, feats genFeatures, dir string, gen int) (string, error) {
 	src := filepath.Join(dir, fmt.Sprintf("runner-%d.go", gen))
-	if err := os.WriteFile(src, generateMCPSource(t.pkg.Name, c, hasApp), 0o644); err != nil {
+	if err := os.WriteFile(src, generateMCPSource(t.pkg.Name, c, hasApp, feats), 0o644); err != nil {
 		return "", err
 	}
 	defer os.Remove(src)
@@ -191,6 +191,9 @@ type mcpChild struct {
 	tail    *tailWriter
 	nextID  int
 	logf    func(format string, args ...any)
+	// onReply, when set, sees every reply the call returns (the log the
+	// logs tool lists).
+	onReply func(mcpReply)
 }
 
 // startChild starts the instance binary exe in the package's directory.
@@ -287,6 +290,9 @@ func (c *mcpChild) call(ctx context.Context, req mcpReq) (mcpReply, error) {
 				continue // the late reply of a call that timed out
 			}
 			c.logf("instance %s in %v", req.Op, time.Since(start).Round(time.Millisecond))
+			if c.onReply != nil {
+				c.onReply(rep)
+			}
 			return rep, nil
 		case <-c.done:
 			return mcpReply{}, c.gone()
@@ -324,6 +330,9 @@ func (c *mcpChild) cancelCall(ctx context.Context, req mcpReq) (mcpReply, error)
 		select {
 		case rep := <-c.replies:
 			if rep.ID == req.ID {
+				if c.onReply != nil {
+					c.onReply(rep)
+				}
 				return rep, ctx.Err()
 			}
 		case <-c.done:

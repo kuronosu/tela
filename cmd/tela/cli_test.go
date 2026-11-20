@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -265,14 +266,18 @@ func TestInspectAria(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stdout != string(want) {
+	// Each element line ends with the line that made it ([src=main.go:31]).
+	if got := stripSrc(stdout); got != string(want) {
 		t.Errorf("tela inspect --aria ./examples/counter:\n%s\nwant (examples/counter/testdata/counter.aria.yml):\n%s", stdout, want)
+	}
+	if !regexp.MustCompile(`(?m)^- button "Increment" \[src=main\.go:\d+\]$`).MatchString(stdout) {
+		t.Errorf("the button line has no source:\n%s", stdout)
 	}
 	if def, _ := inspectRun(t, 0, "--size", "800x600", "../../examples/counter"); def != stdout {
 		t.Errorf("inspect without a mode flag differs from inspect --aria:\n%s", def)
 	}
 	// A screen without semantics content prints nothing.
-	if out, _ := inspectRun(t, 0, "--size", "400x300", "./testdata/preview"); out != "- heading \"Hello & welcome\" [level=1]\n" {
+	if out, _ := inspectRun(t, 0, "--size", "400x300", "./testdata/preview"); stripSrc(out) != "- heading \"Hello & welcome\" [level=1]\n" {
 		t.Errorf("inspect ./testdata/preview: %q", out)
 	}
 }

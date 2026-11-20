@@ -57,10 +57,21 @@ Tools:
 	            arguments, list the previews
 	wait        advance the app's clock (ms), or wait for a text
 	inspect     the layout tree (JSON), whole or one element
+	state       why a component rendered and what its hooks hold, for a ref
+	            or the screen's components
+	logs        dev warnings and errors and the app's output since the last
+	            call, with levels
+	perf        the last frames' time per phase and counts, or the frames the
+	            last action caused
+	prefer      reduced motion, high contrast, text scale, locale, direction
+	            and dark mode, live where the app can take them
 	lint        tela lint -json on the package
 
 Every tool that acts returns the new snapshot, and every result carries the
-dev warnings and errors the screen logged meanwhile.
+dev warnings and errors the screen logged meanwhile. Each element line of a
+snapshot ends with [src=file:line], the line of the app's source that made it
+(relative to the package's directory; another module's files are named with
+the module path), and so does the "src" of inspect's layout JSON.
 
 Clients start the server with a command line, such as, for Claude Code:
 
@@ -210,6 +221,9 @@ type mcpMount struct {
 	SizeSet bool
 	Scale   float64
 	Dark    bool
+	// Prefer are the preferences the prefer tool sets; a rebuild and an
+	// open mount the screen with them.
+	Prefer mcpPrefer
 }
 
 // mcpSession is the state of the server: the package, its build and the
@@ -234,6 +248,9 @@ type mcpSession struct {
 	carry    mcpReply // logs and output of a mount that no call returned yet
 	contract contract // of the last build
 	lintNote string   // lint findings of the last build, for the next result
+	logs     mcpLogs  // what the screen and the app logged, for the logs tool
+	// feats are what the build's generated code uses (features.go).
+	feats genFeatures
 
 	namesMu  sync.Mutex
 	names    []string     // the previews, for the description of open
@@ -368,7 +385,8 @@ func (s *mcpSession) rebuild(ctx context.Context, fp uint64) (notes []string) {
 	lintDone := make(chan string, 1)
 	go func() { lintDone <- s.lintText() }()
 	s.gen++
-	exe, err := buildInstance(ctx, s.goBin, t, det.contract, det.hasApp, s.tmp, s.gen)
+	feats := detectFeatures(s.goBin, pkg.Dir)
+	exe, err := buildInstance(ctx, s.goBin, t, det.contract, det.hasApp, feats, s.tmp, s.gen)
 	lintNote := <-lintDone
 	if err != nil {
 		if ctx.Err() != nil {
@@ -435,6 +453,7 @@ func (s *mcpSession) startInstance(ctx context.Context, exe string) (*mcpChild, 
 	if err != nil {
 		return nil, mcpReply{}, err
 	}
+	child.onReply = s.logs.record
 	rep, err := child.call(ctx, s.mountReq(false))
 	if err != nil {
 		child.kill()
@@ -457,7 +476,8 @@ func (s *mcpSession) restart(ctx context.Context) error {
 
 func (s *mcpSession) mountReq(snapshot bool) mcpReq {
 	m := s.mount
-	return mcpReq{Op: "mount", Preview: m.Preview, W: m.W, H: m.H, SizeSet: m.SizeSet, Scale: m.Scale, Dark: m.Dark, Snapshot: snapshot}
+	p := m.Prefer
+	return mcpReq{Op: "mount", Preview: m.Preview, W: m.W, H: m.H, SizeSet: m.SizeSet, Scale: m.Scale, Dark: m.Dark, Prefer: &p, Snapshot: snapshot}
 }
 
 // lintText runs tela lint on the package and returns its findings, one per
@@ -895,7 +915,7 @@ func (s *mcpSession) call(ctx context.Context, name string, args json.RawMessage
 func (s *mcpSession) instructions() string {
 	return fmt.Sprintf(`This server runs the Tela screen of the Go package %s headlessly and keeps it running between calls. Tela is a pure-Go UI framework: React-like components (tela.UseState, h.Div, h.Button...) styled with Tailwind CSS v4 classes (h.Class("flex gap-4 rounded-xl bg-white p-6 shadow-sm dark:bg-zinc-900")).
 The loop: edit the Go source, then call snapshot (structure, cheap) or screenshot (how it looks). Every call first rebuilds and mounts the screen afresh when the source changed (the state resets) and reports compile errors, tela lint findings and dev-mode errors such as unknown classes with a suggestion.
-Act on elements with click, fill, press, hover, scroll and drag, naming them by the [ref=eN] of the latest snapshot (a ref is the element itself: it keeps pointing at it when its label changes or its siblings come and go, and fails with "gone" once it is unmounted); each returns the new snapshot. An element that is not on the screen fails at once when nothing is pending (no animation, timer or update); use wait with a text for data that arrives later. resize keeps the state; open mounts another preview, dark mode or size afresh; wait advances the app's clock for timers and animations; inspect shows the layout tree when something is misplaced.
+Act on elements with click, fill, press, hover, scroll and drag, naming them by the [ref=eN] of the latest snapshot (a ref is the element itself: it keeps pointing at it when its label changes or its siblings come and go, and fails with "gone" once it is unmounted); each returns the new snapshot. An element that is not on the screen fails at once when nothing is pending (no animation, timer or update); use wait with a text for data that arrives later. resize keeps the state; open mounts another preview, dark mode or size afresh; wait advances the app's clock for timers and animations; inspect shows the layout tree when something is misplaced. Each snapshot line ends with [src=file:line], the source line that made the element: edit there. state explains why a component rendered and what its hooks hold; perf says how long frames took; logs lists what was logged; prefer tries reduced motion, high contrast, text scale, locale, direction and dark mode.
 The package defines its screen as func Preview() tela.Node, var Previews = tela.Previews{...} or var App = tela.App{Root: ...}; if it does not exist yet, write it and call snapshot.`, s.pkgArg)
 }
 
@@ -1039,6 +1059,30 @@ func mcpToolDefs(previews []string) []mcpToolDef {
 			}, (*mcpSession).toolWait),
 		def("inspect", `Show the layout tree as JSON (tela inspect --layout): each box's rect in logical pixels, margin, border, padding, classes, class errors and computed style (display, flex, colors, font). With an element (ref), only its box and what it contains. Use it when something is misplaced, misaligned or has the wrong size. Example: {"ref": "e5"}`,
 			ro("Layout tree"), elementProps("element"), (*mcpSession).toolInspect),
+		def("state", `Show why a component rendered and what it holds: its props, its hooks (kind, call site, current value), how many times it built and the reason of each of its last builds (a hook's setter and its line, a context, new props, its parent). With a ref, the component that rendered that element (the nearest one above it); without, the screen's components that have props or hooks, in tree order (max, default 40). Use it to find the setter behind a change, or a component that renders too often. Example: {"ref": "e5"}`,
+			ro("Component state"), []schemaProp{
+				{"ref", "string", "Ref of an element in the latest snapshot, such as \"e5\"", nil},
+				{"max", "integer", "Without ref: the most components to list (1 to 200, default 40)", nil},
+			}, (*mcpSession).toolState),
+		def("logs", `List what the screen and the app logged since the last logs call, with levels: the dev warnings and errors of Tela (unknown classes, missing keys, misused hooks: "dev"), and what the app printed to standard output and error ("app"; a log/slog or log line carrying ERROR or WARN gets that level). Every other result already carries the dev warnings it caused; logs is the history. Example: {"level": "warn"}`,
+			ro("Logs"), []schemaProp{
+				{"level", "string", `Only this level and above: "info" (everything, the default), "warn" or "error"`, []string{"info", "warn", "error"}},
+				{"all", "boolean", "Everything the server kept (the last 500 entries), not only what is new since the last call", nil},
+			}, (*mcpSession).toolLogs),
+		def("perf", `Show how long the last frames took, per phase of the pipeline (input, animate, build, style, layout, paint, semantics, raster, present, effects), with what each built, styled, laid out and repainted, and a summary (slowest phase, frames over the 16.7 ms of 60 Hz). With action: true, the frames the last click, press, scroll, wait... caused. Times are the headless render's, on this machine: compare frames with each other, and trust the counts. Example: {"action": true}`,
+			ro("Frame profile"), []schemaProp{
+				{"frames", "integer", "The last N frames (1 to 200, default 10)", nil},
+				{"action", "boolean", "Only the frames the last acting call caused", nil},
+			}, (*mcpSession).toolPerf),
+		def("prefer", `Set what the user of the app prefers and show the result: reduced motion, high contrast, the text scale, the locale (with tela/i18n), the writing direction and dark mode. Reduced motion, high contrast, the text scale, dark mode and the locale change while the app runs, as in the system's settings (state kept; the answer says "live"); the direction is part of the tree, so it mounts the screen afresh (state reset; the answer says so). Without arguments, show the current preferences. Returns the new snapshot. Example: {"reducedMotion": true} or {"locale": "ar", "direction": "rtl"}`,
+			act("Set preferences"), []schemaProp{
+				{"dark", "boolean", "The system prefers dark mode (App.ColorScheme or the preview's scheme still wins)", nil},
+				{"reducedMotion", "boolean", "The system asks for reduced motion (motion-reduce: variants, tela.UseReducedMotion)", nil},
+				{"highContrast", "boolean", "The system asks for high contrast (contrast-more: variants)", nil},
+				{"textScale", "number", "The system's text scale, above 0 and at most 4; 1 is the default (rem and type follow)", nil},
+				{"locale", "string", `A BCP 47 tag for tela/i18n, such as "es" or "ar"; "" follows the system's`, nil},
+				{"direction", "string", `"rtl" or "ltr" for the whole screen (an h.Dir around it), or "default" for the screen's own`, []string{"ltr", "rtl", "default"}},
+			}, (*mcpSession).toolPrefer),
 		def("lint", `Check the package's Go source for what dev mode reports at run time, without running it: unknown Tailwind classes (with a suggestion), ARIA roles and tokens, duplicate or missing keys, misused hooks. Prints tela lint -json. Example: {}`,
 			ro("Lint"), nil, (*mcpSession).toolLint),
 	}

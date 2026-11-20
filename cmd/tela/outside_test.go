@@ -144,7 +144,7 @@ func TestOutsideModule(t *testing.T) {
 		if code := run([]string{"inspect", "./screen"}, &out, &errOut); code != 0 {
 			t.Fatalf("inspect: code %d\nstderr: %s", code, errOut.String())
 		}
-		if want := "- heading \"Outside 7\" [level=1]\n- button \"Go\"\n"; out.String() != want {
+		if want := "- heading \"Outside 7\" [level=1]\n- button \"Go\"\n"; stripSrc(out.String()) != want {
 			t.Errorf("inspect --aria printed\n%s\nwant\n%s", out.String(), want)
 		}
 		out.Reset()
@@ -183,7 +183,7 @@ func TestOutsideModule(t *testing.T) {
 			t.Errorf("stdout %q", stdout)
 		}
 		var out, errOut bytes.Buffer
-		if code := run([]string{"inspect", "./screens"}, &out, &errOut); code != 0 || out.String() != "- heading \"First\" [level=2]\n" {
+		if code := run([]string{"inspect", "./screens"}, &out, &errOut); code != 0 || stripSrc(out.String()) != "- heading \"First\" [level=2]\n" {
 			t.Errorf("inspect: code %d, stdout %q, stderr %q", code, out.String(), errOut.String())
 		}
 	})

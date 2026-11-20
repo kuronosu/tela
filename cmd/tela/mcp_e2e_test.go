@@ -275,7 +275,7 @@ func TestMCPEndToEnd(t *testing.T) {
 
 	// A click by ref changes the snapshot; the counter keeps its ref.
 	r = c.tool("click", map[string]any{"ref": count})
-	if r.isError || !strings.Contains(r.text, `'button "Count: 1" [ref=`+count+`]'`) {
+	if r.isError || !strings.Contains(r.text, `'button "Count: 1" [ref=`+count+`] [src=`) {
 		t.Fatalf("click %s:\n%s", count, r.text)
 	}
 
@@ -288,7 +288,7 @@ func TestMCPEndToEnd(t *testing.T) {
 
 	// fill, then press Enter submits the form.
 	r = c.tool("fill", map[string]any{"ref": name, "text": "Ana"})
-	if r.isError || !strings.Contains(r.text, `textbox "Name" [ref=`+name+`]: Ana`) {
+	if r.isError || !strings.Contains(r.text, `textbox "Name" [ref=`+name+`] [src=`) {
 		t.Fatalf("fill:\n%s", r.text)
 	}
 	r = c.tool("press", map[string]any{"key": "Enter"})
@@ -393,7 +393,7 @@ func TestMCPEndToEnd(t *testing.T) {
 
 	// open lists the previews and mounts another.
 	r = c.tool("open", nil)
-	if r.isError || !strings.Contains(r.text, "Form, List, Long, Other, Spinner") {
+	if r.isError || !strings.Contains(r.text, "Form, List, Long, Other, Prefs, Spinner") {
 		t.Errorf("open without arguments:\n%s", r.text)
 	}
 	r = c.tool("open", map[string]any{"preview": "Other"})

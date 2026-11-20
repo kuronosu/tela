@@ -5,6 +5,7 @@ package mcpapp
 import (
 	"github.com/kuronosu/tela"
 	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/i18n"
 )
 
 // title is what the test edits to see a rebuild.
@@ -17,6 +18,7 @@ var Previews = tela.Previews{
 	"List":    {Root: tela.C(list)},
 	"Long":    {Root: tela.C(long)},
 	"Spinner": {Root: tela.C(busy)},
+	"Prefs":   {Root: tela.C(prefs)},
 }
 
 func form() tela.Node {
@@ -88,4 +90,19 @@ func busy() tela.Node {
 	return Div(Class("flex flex-col gap-3 p-6"),
 		Div(Class("size-8 animate-spin rounded-full border-4 border-stone-300 border-t-stone-800")),
 		Button(OnClick(func() { setTicks.Set(ticks + 1) }), Textf("Ticks: %d", ticks)))
+}
+
+// prefs shows what the user prefers, as the app reads it, and a row that
+// follows the direction.
+func prefs() tela.Node {
+	reduced, contrast, scale := tela.UseReducedMotion(), tela.UseHighContrast(), tela.UseTextScale()
+	dark, dir, loc := tela.UseColorScheme() == tela.Dark, tela.UseDirection(), i18n.UseLocale()
+	return Div(Class("flex flex-col gap-2 p-6"),
+		P(Textf("Reduced motion: %v", reduced)),
+		P(Textf("High contrast: %v", contrast)),
+		P(Textf("Text scale: %v", scale)),
+		P(Textf("Dark scheme: %v", dark)),
+		P(Textf("Direction: %s", dir)),
+		P(Textf("Locale: %s", loc)),
+		Div(Class("flex gap-2"), Button(Text("First")), Button(Text("Second"))))
 }
