@@ -1,0 +1,21 @@
+# ADR-298: App building blocks
+
+- **Date:** 2026-11-19
+- **Status:** Accepted. Amends §2, §5, §7, §15 and ADR-128.
+
+## Decision
+
+Phase 27's public API. Each piece is usable alone.
+
+- **`tela.UseAsync[T](f func(ctx context.Context) (T, error), deps ...any) Async[T]`** runs `f` on a goroutine (`UseGo`'s machinery and crash reports). `Async[T]` is comparable: `Loading`, `Err`, `Data` and the method `Reload()`. A deps change cancels the running context and resets `Data` and `Err`; `Reload` keeps `Data` while it loads; a result of a cancelled or superseded run is dropped. Under `tela dev` a keepable `Data` (ADR-113) is kept and the run starts again with it shown. **`tela.UseDebounced[T comparable](v T, d time.Duration) T`** returns `v` once it has not changed for `d` of the app's clock.
+- **Package `router`** (React Router's names, memory history only): `router.Router{Initial, Scheme, Children}` holds a stack with back and forward; `router.Routes(router.Route{Path: "/notes/:id", Element: …}…)`, `router.Outlet()`, `router.Link{To, …}`; `router.UseNavigate()` (`To`, `Replace`, `Back`, `Forward`, `CanGoBack`, `CanGoForward`), `router.UseParams()`, `router.UseLocation()`. Inside a `Router` the mouse's back and forward buttons and Alt+Left/Right (Cmd+[ and ] under the Mac flavor) navigate unless a handler or a text field took the event. With `Scheme` set, links of that scheme from `desktop.UseLaunch` open their path (`notes://notes/3` → `/notes/3`). The leaving screen exits through `Presence`, so `Exit` classes and `LayoutID` animate route changes. The history is hook state, kept by `tela dev`.
+- **`kit.Markdown{Source, OnLink, OnToggleTask, …}`** renders CommonMark with GFM tables, task lists, strikethrough and autolinks, parsed by **goldmark** (`github.com/yuin/goldmark`, MIT, pure Go, no dependencies; added to §2), whose types stay out of Tela's API. Theme tokens, selectable text, code in monospace (no highlighting), links through `OnLink` or else `desktop.OpenURI`, images from `tela.Assets` paths only (Tela fetches nothing; others show their alt text), raw HTML shown as text.
+- **Package `oauth`**: `oauth.Config` (client ID, endpoints, scopes, the secret's name); `SignIn(ctx)` runs authorization code with PKCE (S256) and `state` through the system browser and a loopback redirect on `127.0.0.1` at a free port (RFC 8252); `DeviceSignIn(ctx, show)` (RFC 8628); tokens kept with `desktop` secrets; `Client(ctx)` refreshes before expiry and stores a rotated refresh token; `SignOut` deletes it and revokes where the server allows (RFC 7009); `oauth.UseSession(cfg)` for components. **Package `oauth/oauthtest`**: a local fake server (httptest style) that approves, denies or expires, for apps' tests and `telatest`.
+- **SQLite**: no Tela package. A wiki recipe with **modernc.org/sqlite**, and `examples/notes` becomes a module of its own (`replace ../..`, a CI job and a gate step like `looks/`), the only one that depends on it.
+- **Desktop surfaces, platform contract v16, remote protocol 17:** `desktop.SetStartAtLogin(bool)` and `StartsAtLogin()` (`SMAppService.mainApp`, the `Run` key, an XDG autostart entry), `Launch.AtLogin` where the start can tell; `desktop.SetTasks([]Task)`: tasks start the app with arguments and arrive through `UseLaunch` (Windows jump list tasks, the macOS Dock menu, Linux desktop entry actions of the entry `RegisterApp` wrote), the same on every system; `desktop.AddRecentDocument(path)` and `ClearRecentDocuments()` (`SHAddToRecentDocs`, `NSDocumentController`, `recently-used.xbel`). Headless records them for `telatest`.
+- **Templates:** `tela new -template counter|notes|settings|dashboard` (counter by default), generated from the examples by `go generate` with a test that they are current.
+- **Layers:** `desktop → update → router → oauth → i18n → aria → kit`; `oauth/oauthtest` imports only `oauth`.
+
+## Why
+
+React Router's and React Query's names are what an agent writes. goldmark is the conformant Go parser (the owner chose the dependency over a port). One task model for jump lists, the Dock menu and desktop actions keeps one behavior on every system. SQLite stays out of the core module.
