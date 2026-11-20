@@ -332,7 +332,7 @@ func TestMarkdownSelection(t *testing.T) {
 	t.Parallel()
 	a := mdMount(t, kit.Markdown{Source: "# Title\n\nFirst paragraph with a [link](https://x.org) and `code`.\n\n- one\n- two\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\nLast.\n"})
 	a.Click(telatest.ByRole("heading", "Title"))
-	a.Press("Control+a")
+	a.Press("ControlOrMeta+a")
 	want := "Title\n\nFirst paragraph with a link and code.\n\none\ntwo\na\nb\n1\n2\nLast."
 	if got := a.SelectedText(); got != want {
 		t.Errorf("selected text %q, want %q", got, want)

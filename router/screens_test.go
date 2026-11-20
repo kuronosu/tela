@@ -63,7 +63,8 @@ func notesAppAt(initial string) tela.Node {
 }
 
 func TestTwoScreenAppGoldens(t *testing.T) {
-	app := telatest.Mount(t, tela.C(notesApp), telatest.Size(420, 300))
+	// Alt+Left is the Linux and Windows key (the Mac one is Cmd+[).
+	app := telatest.Mount(t, tela.C(notesApp), telatest.Size(420, 300), telatest.PlatformKeys("linux"))
 	app.ExpectText("Groceries")
 	app.Golden("notes_list.png")
 	app.Click(telatest.ByRole("link", "Call the roofer"))

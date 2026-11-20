@@ -102,6 +102,10 @@ func mountApp(t *testing.T, app tela.App, look kit.Variant, opts ...telatest.Opt
 	// The library is read off the UI thread (tela.UseAsync): the screen is
 	// there once it is open.
 	a.ExpectNoText(opening)
+	// The stored tokens are read off the UI thread too (oauth.UseSession):
+	// the account card shows once they are, and a slower machine (the macOS
+	// runner) would otherwise count or draw the rail before it.
+	a.ExpectRole("group", "Account")
 	return a
 }
 
@@ -284,7 +288,9 @@ func TestNewerLibraryIsRefused(t *testing.T) {
 	if err := st.Close(); err != nil {
 		t.Fatal(err)
 	}
-	a := mount(t)
+	// The screen is the error alone, without the rail and its account card
+	// that mount waits for.
+	a := telatest.MountApp(t, appFor(kit.GNOME), telatest.Size(windowW, windowH), telatest.PlatformKeys("linux"))
 	a.ExpectText("Your notes could not be opened")
 	a.ExpectText("made by a newer version of Notes")
 	if _, err := os.Stat(filepath.Join(dir, dbName+".corrupt")); err == nil {
