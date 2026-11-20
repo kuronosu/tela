@@ -1,5 +1,5 @@
 - banner:
-  - text: Tela kit 37 components Style
+  - text: Tela kit 38 components Style
   - radiogroup "Style":
     - radio "Default" [checked]
     - radio "Rounded"
@@ -27,6 +27,7 @@
   - tab "Field Set"
   - tab "Input"
   - tab "Label"
+  - tab "Markdown"
   - tab "Menubar"
   - tab "Popover"
   - tab "Progress"

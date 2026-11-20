@@ -37,6 +37,7 @@ var pages = []page{
 	{"FieldSet", "Field Set", "kit.FieldSet", "A group of fields under a legend, which names the group and a radio or toggle group inside it.", tela.C(fieldSetPage), false},
 	{"Input", "Input", "kit.Input", "A single-line text field, controlled or not.", tela.C(inputPage), false},
 	{"Label", "Label", "kit.Label", "The caption of a form control. Clicking it focuses the control it names.", tela.C(labelPage), false},
+	{"Markdown", "Markdown", "kit.Markdown", "A CommonMark document with GFM tables, task lists and strikethrough, in the theme's tokens, with selectable text, links and images from the app's assets.", tela.C(markdownPage), false},
 	{"Menubar", "Menubar", "kit.Menubar[K]", "A row of menus, such as the File, Edit and View of an application.", tela.C(menubarPage), false},
 	{"Popover", "Popover", "kit.Popover", "A panel anchored to its trigger. It does not block the page.", tela.C(popoverPage), false},
 	{"Progress", "Progress", "kit.Progress", "A bar that shows how far a task is.", tela.C(progressPage), false},

@@ -25,6 +25,7 @@ var newPages = []struct {
 	{"DropdownMenu", 1000, false, false},
 	{"Field", 1950, false, false},
 	{"Input", 1550, false, false},
+	{"Markdown", 1850, true, false},
 	{"Menubar", 900, false, false},
 	{"Progress", 950, true, true},
 	{"Separator", 1250, true, false},
