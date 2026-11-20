@@ -48,6 +48,25 @@ import (
 //     Reply {}.
 //   - [KindToolsHighlight]: highlight element ToolsParams.ID in the
 //     window, 0 for none (core.Tree.Highlight). Reply {}.
+//   - [KindToolsHit]: what hit testing finds at the point ToolsParams.X,
+//     Y of the window (core.Tree.HitElement, as the last frame painted
+//     it; pick mode plays no part), and whether the point reaches the
+//     element ToolsParams.ID. Reply {"id": the element hit (0 for none),
+//     "node": its semantics node or its nearest ancestor's, "within":
+//     bool}.
+//   - [KindToolsReveal]: scroll element ToolsParams.ID into view
+//     (core.Tree.RevealElement). Reply {"visible": the part of its box
+//     visible once the scroll ends, as a rect, absent when none is;
+//     "moved": bool, a scroll is under way: wait for the frames and ask
+//     again}.
+//
+// Request, child → host, once, before the first build:
+//
+//   - [KindToolsStart]: whether a client of the tools socket holds the
+//     instrumentation, so that the child starts with it on (a reload's
+//     new child, whose first builds then record their creation sites,
+//     reasons and profiles). Payload empty. Reply {"on": bool}. A host
+//     without a handler, or that fails, means off.
 //
 // Notifications, child → host:
 //
@@ -69,6 +88,9 @@ const (
 	KindToolsLogs       = "tela.dev.tools.logs"
 	KindToolsPick       = "tela.dev.tools.pick"
 	KindToolsHighlight  = "tela.dev.tools.highlight"
+	KindToolsHit        = "tela.dev.tools.hit"
+	KindToolsReveal     = "tela.dev.tools.reveal"
+	KindToolsStart      = "tela.dev.tools.start"
 	KindToolsPicked     = "tela.dev.tools.picked"
 	KindToolsFrames     = "tela.dev.tools.frames"
 )
@@ -89,6 +111,9 @@ type ToolsParams struct {
 	Since int `json:"since,omitempty"`
 	// On turns the instrumentation or pick mode on.
 	On bool `json:"on,omitempty"`
+	// X and Y are a point of the window in logical pixels.
+	X float32 `json:"x,omitempty"`
+	Y float32 `json:"y,omitempty"`
 }
 
 // ToolsLogBatch is the log entries of one window (the JSON of

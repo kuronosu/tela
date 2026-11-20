@@ -98,6 +98,22 @@ func TestReloadKeepsSelection(t *testing.T) {
 	app.ExpectText("build 4")
 	app.Expect(telatest.ByRole("treeitem", "main.NavItem key export"), telatest.Selected(true))
 	app.ExpectText("sidebar.go:33")
+
+	// A build that numbers its elements in another order (as it builds
+	// them): the old ID of the selection names another element now.
+	n := len(fake.Els)
+	ids := map[core.ElementID]core.ElementID{}
+	for i := range fake.Els {
+		ids[fake.Els[i].ID] = fake.Els[n-1-i].ID
+	}
+	for i := range fake.Els {
+		fake.Els[i].ID = ids[fake.Els[i].ID]
+		fake.Els[i].Parent = ids[fake.Els[i].Parent]
+	}
+	fake.InfoValue.Build = 5
+	fake.Notify("reload", Reload{Build: 5})
+	app.ExpectText("build 5")
+	app.Expect(telatest.ByRole("treeitem", "main.NavItem key export"), telatest.Selected(true))
 }
 
 func TestLogsFilter(t *testing.T) {

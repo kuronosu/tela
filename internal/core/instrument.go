@@ -48,7 +48,9 @@ import (
 //
 // The instrumentation is in every build, not only teladev ones, so that
 // telatest and tela mcp can use it on their headless trees; tela dev
-// turns it on only while a client is attached (ADR-299).
+// turns it on only while a client is attached (ADR-299), but its children
+// capture creation sites from their first build (devrun.go), so the
+// elements built before a client attached have theirs.
 
 // ElementID identifies an Element of an instrumented Tree. IDs count up
 // from 1 per Tree and are never reused within it: an element keeps its ID

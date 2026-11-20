@@ -355,6 +355,7 @@ func (s *supervisor) attach(h *remote.Host, quitHost func()) {
 			s.tools = nil
 		} else {
 			s.log.verbosef("tools: %s", s.tools.addr)
+			h.Handle(devloop.KindToolsStart, s.tools.startInstrumented)
 		}
 	}
 }

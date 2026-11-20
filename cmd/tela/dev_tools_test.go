@@ -570,6 +570,12 @@ func TestDevToolsEndToEnd(t *testing.T) {
 	if err != nil || !slices.ContainsFunc(els, func(el core.ElementInfo) bool { return el.Kind == "text" && el.Text == "Version B" }) {
 		t.Errorf("elements after the reload: %d, %v", len(els), err)
 	}
+	// The new child started instrumented: its first build is recorded.
+	counter = find(els, func(el core.ElementInfo) bool { return el.Kind == "main.Counter" && el.Component })
+	if info, err = c.Element(ctx, win, counter.ID); err != nil || len(info.Recent) == 0 || info.Recent[0].Frame > 1 || len(info.Recent[0].Reasons) == 0 ||
+		(info.Recent[0].Reasons[0].Cause != core.CauseReload && info.Recent[0].Reasons[0].Cause != core.CauseMount) {
+		t.Errorf("the counter's first build in the new child is not recorded: %+v, %v", info.Recent, err)
+	}
 	es, _, err := c.Logs(ctx, 0)
 	if err != nil || !slices.ContainsFunc(es, func(e toolsLogEntry) bool { return e.Source == "stderr" && strings.Contains(e.Msg, "holds a func") }) {
 		t.Errorf("the logs have no line of the child's standard error about Mixed's func slot (%v):\n%+v", err, es)

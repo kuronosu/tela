@@ -108,7 +108,7 @@ func Run(opts Options) error {
 	if devStateEnabled {
 		// Under tela dev the backend is the supervisor's window, not a
 		// native one; nil, nil when the process is not a tela dev child.
-		if b, err = devBackend(opts); err != nil {
+		if b, err = devBackend(&opts); err != nil {
 			return err
 		}
 	}

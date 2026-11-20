@@ -99,7 +99,10 @@ type Model struct {
 	onChange func()
 	tab      string
 	selPath  string // the path of the selection, to find it after a reload
-	selSeq   int    // the latest selection's number: older answers are dropped
+	// relocate: a reload happened, so the next tree finds the selection
+	// by path; its ID may name another element of the new build.
+	relocate bool
+	selSeq   int // the latest selection's number: older answers are dropped
 	frameSeq int
 	treeSeq  int // the latest tree fetch's number: older answers are dropped
 	logSeq   uint64
@@ -274,6 +277,7 @@ func (m *Model) note(n Note) {
 		m.update(func(v *View) {
 			v.Build = r.Build
 			v.Err = ""
+			m.relocate = true
 			v.Picking = false
 			v.Frame, v.FrameEls, v.FrameMore = 0, nil, 0 // their IDs are the old build's
 		})
@@ -292,7 +296,9 @@ func (m *Model) note(n Note) {
 // --- the tree ---
 
 // refreshTree fetches the elements of the current window and keeps the
-// selection by ID, or by path when the IDs started again (a reload).
+// selection by ID, or by path when the IDs started again (a reload: a new
+// build numbers its elements as it builds them, so an old ID may name
+// another element).
 func (m *Model) refreshTree() {
 	m.mu.Lock()
 	win := m.v.Window
@@ -315,10 +321,12 @@ func (m *Model) refreshTree() {
 		v.Err = ""
 		v.Els, v.Paths, v.Index = els, paths, index
 		v.ElsRev++
+		relocate := m.relocate
+		m.relocate = false
 		if v.Selected == 0 {
 			return
 		}
-		if i, ok := index[v.Selected]; ok {
+		if i, ok := index[v.Selected]; ok && !relocate {
 			m.selPath = paths[i]
 			return
 		}

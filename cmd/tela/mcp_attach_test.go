@@ -43,6 +43,14 @@ type fakeApp struct {
 	disabled bool
 	// noNodes answers semantics without node IDs, as an older Tela would.
 	noNodes bool
+	// cover is a dialog over the window, which hit tests find first.
+	cover *gfx.Rect
+	// scrolls is how many reveal calls still answer that a scroll is
+	// under way; hidden makes every element clipped whole; noReveal
+	// answers reveal and hit as an older Tela does.
+	scrolls  int
+	hidden   bool
+	noReveal bool
 	// closed is Done's channel.
 	closed chan struct{}
 }
@@ -106,10 +114,63 @@ func (f *fakeApp) Semantics(_ context.Context, win uint32) (toolsSemantics, erro
 		Elements: []core.ElementID{core.ElementID(f.base + 11), 0, core.ElementID(f.base + 12)},
 		Srcs:     []string{"main.go:10", "", "main.go:12"},
 	}
+	if f.cover != nil {
+		sem.YAML += "\n- dialog \"Confirm\""
+		sem.Nodes = append(sem.Nodes, f.base+3)
+		sem.Elements = append(sem.Elements, core.ElementID(f.base+13))
+		sem.Srcs = append(sem.Srcs, "main.go:20")
+	}
 	if f.noNodes {
 		sem.Nodes, sem.Elements, sem.Srcs = nil, nil, nil
 	}
 	return sem, nil
+}
+
+func (f *fakeApp) Hit(_ context.Context, win uint32, x, y float32, target core.ElementID) (toolsHit, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.noReveal {
+		return toolsHit{}, &toolsCallError{rpcMethodNotFound, "the app does not answer this DevTools request"}
+	}
+	in := func(r gfx.Rect) bool { return x >= r.X0 && x < r.X1 && y >= r.Y0 && y < r.Y1 }
+	var h toolsHit
+	switch {
+	case f.cover != nil && in(*f.cover):
+		h = toolsHit{ID: core.ElementID(f.base + 13), Node: f.base + 3}
+	case in(fakeButton):
+		h = toolsHit{ID: core.ElementID(f.base + 11), Node: f.base + 1}
+	case in(fakeField):
+		h = toolsHit{ID: core.ElementID(f.base + 12), Node: f.base + 2}
+	}
+	h.Within = h.ID != 0 && h.ID == target
+	return h, nil
+}
+
+func (f *fakeApp) Reveal(_ context.Context, win uint32, id core.ElementID) (toolsReveal, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.note("reveal %d %d", win, id)
+	if f.noReveal {
+		return toolsReveal{}, &toolsCallError{rpcMethodNotFound, "the app does not answer this DevTools request"}
+	}
+	var r gfx.Rect
+	switch uint64(id) - f.base {
+	case 11:
+		r = fakeButton
+	case 12:
+		r = fakeField
+	default:
+		return toolsReveal{}, errors.New("no such element")
+	}
+	if f.scrolls > 0 {
+		f.scrolls--
+		f.drew()
+		return toolsReveal{Visible: &r, Moved: true}, nil
+	}
+	if f.hidden {
+		return toolsReveal{}, nil
+	}
+	return toolsReveal{Visible: &r}, nil
 }
 
 func (f *fakeApp) Element(_ context.Context, win uint32, id core.ElementID) (core.ElementInfo, error) {
@@ -387,6 +448,57 @@ func TestAttachClickFillAndSettle(t *testing.T) {
 	wantIn(t, "press on a field", text, "to focus it and pressed Enter")
 	if text, res := s.tool(t, "press", `{"ref": "e1", "key": "Enter"}`); !res.IsError || !strings.Contains(text, "without activating it") {
 		t.Errorf("press that would activate a button: %v %s", res.IsError, text)
+	}
+}
+
+// An element is scrolled into view before the action, and a point of it
+// that another element covers is not acted on: another point of its
+// visible part is, or the action is refused with what covers it.
+func TestAttachActionability(t *testing.T) {
+	app := newFakeApp()
+	s := newTestAttach(app)
+	s.mustTool(t, "snapshot", `{}`)
+
+	// A scroll under way: reveal is asked again once its frames are drawn.
+	app.scrolls = 1
+	s.mustTool(t, "click", `{"ref": "e1"}`)
+	if got := app.called(); strings.Count(got, "reveal 1 11") != 2 || !strings.Contains(got, `click 1 60,70 "" x1`) {
+		t.Errorf("a click after a scroll into view:\n%s", got)
+	}
+
+	// A dialog over the button's center: the click goes to the center of
+	// its top-left quarter.
+	app.cover = &gfx.Rect{X0: 50, Y0: 0, X1: 300, Y1: 400}
+	s.mustTool(t, "snapshot", `{}`)
+	s.mustTool(t, "click", `{"ref": "e1"}`)
+	if got := app.called(); !strings.Contains(got, `click 1 35,60 "" x1`) {
+		t.Errorf("the click on the button's visible part:\n%s", got)
+	}
+	// The dialog over all of it: refused, naming the dialog.
+	app.cover = &gfx.Rect{X0: 0, Y0: 0, X1: 300, Y1: 400}
+	before := app.count
+	text, res := s.tool(t, "click", `{"ref": "e1"}`)
+	if !res.IsError || app.count != before {
+		t.Fatalf("a click on a covered button: error %v, count %d (was %d): %s", res.IsError, app.count, before, text)
+	}
+	wantIn(t, "the covered click", text, `button "Increment" [ref=e1] is covered by dialog "Confirm" [ref=e3] at (60, 70)`)
+	if text, res := s.tool(t, "fill", `{"ref": "e2", "text": "x"}`); !res.IsError || !strings.Contains(text, "is covered by dialog") {
+		t.Errorf("a fill of a covered field: %v %s", res.IsError, text)
+	}
+	app.cover = nil
+
+	// Clipped whole.
+	app.hidden = true
+	if text, res := s.tool(t, "hover", `{"ref": "e1"}`); !res.IsError || !strings.Contains(text, "is not visible even scrolled into view") {
+		t.Errorf("a hover of a clipped button: %v %s", res.IsError, text)
+	}
+	app.hidden = false
+
+	// An app of an older Tela: the center of the bounds, unchecked.
+	app.noReveal = true
+	s.mustTool(t, "click", `{"ref": "e1"}`)
+	if got := app.called(); strings.Count(got, `click 1 60,70 "" x1`) != 2 {
+		t.Errorf("the click on an older Tela:\n%s", got)
 	}
 }
 

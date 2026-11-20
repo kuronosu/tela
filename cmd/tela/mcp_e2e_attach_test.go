@@ -51,6 +51,12 @@ func TestAttachEndToEnd(t *testing.T) {
 	if !strings.Contains(r.text, "Count: 0") {
 		t.Errorf("snapshot:\n%s", r.text)
 	}
+	// The child captured creation sites from its first build, before the
+	// session attached.
+	srcRE := regexp.MustCompile(`button "Increment" \[ref=e\d+\] \[src=main\.go:\d+\]`)
+	if !srcRE.MatchString(r.text) {
+		t.Errorf("the first snapshot has no source line for the button:\n%s", r.text)
+	}
 
 	// A click by ref, at the button's real position: the app rebuilds and
 	// the new snapshot is of the settled app.
@@ -59,9 +65,7 @@ func TestAttachEndToEnd(t *testing.T) {
 		t.Fatalf("click:\n%s", r.text)
 	}
 	e.expect(0, "devapp: counter", "devapp: counter n=1 pkg=1")
-	// Creation sites exist for what was built since the session was
-	// instrumented (the first snapshot did it): the counter just was.
-	if !regexp.MustCompile(`button "Increment" \[ref=e\d+\] \[src=main\.go:\d+\]`).MatchString(r.text) {
+	if !srcRE.MatchString(r.text) {
 		t.Errorf("the snapshot has no source line for the rebuilt button:\n%s", r.text)
 	}
 	if inc2 := refOf(t, r.text, `button "Increment"`); inc2 != inc {

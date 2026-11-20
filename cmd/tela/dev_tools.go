@@ -42,9 +42,11 @@ import (
 // The instrumentation (internal/core/instrument.go) is on in the active
 // child while a client holds it: from its first call about a tree, its
 // instrument call or its subscription to picked, frames or logs, until it
-// disconnects or calls instrument with on false. After a reload (a new
-// child took over: element IDs start again), it is turned on in the new
-// child.
+// disconnects or calls instrument with on false. A child that starts while
+// a client holds it (a reload's: element IDs start again) asks
+// (devloop.KindToolsStart) and starts with it on, so its first builds are
+// recorded too; the creation sites are captured in every child from its
+// first build (internal/core/devrun.go).
 //
 // Methods (params → result; window is a window ID of windows, 0 or absent
 // for the first window):
@@ -62,6 +64,8 @@ import (
 //	logs          {since}                 → {entries: [{seq, at, level, msg, source, window, build}], last}
 //	pick          {window, on}            → {}         subscribes the caller to picked
 //	highlight     {window, id}            → {}
+//	hit           {window, x, y, id}      → {id, node, within}  what the point hits; within: it reaches element id
+//	reveal        {window, id}            → {visible, moved}    scroll id into view; visible: its visible part, absent for none
 //	screenshot    {window}                → {window, width, height, png}  (base64 PNG at the app's resolution)
 //	pointer       {window, action, x, y, button, mods, count} → {}
 //	scroll        {window, x, y, dx, dy, mods} → {}
@@ -118,6 +122,10 @@ type toolsServer struct {
 	pending []toolsLogEntry
 	armed   bool // a flush of pending runs
 	closed  bool
+
+	// startedOn are the children told to start with the instrumentation
+	// on (KindToolsStart) and not active yet; under mu.
+	startedOn map[*remote.Child]bool
 
 	// insMu orders the instrument requests; instrumented is the child
 	// the instrumentation is on in.
@@ -375,6 +383,21 @@ func (ts *toolsServer) hold(c *toolsConn, on bool) {
 	ts.mu.Unlock()
 }
 
+// startInstrumented answers a starting child's KindToolsStart: whether a
+// client holds the instrumentation, so that the child starts with it on.
+func (ts *toolsServer) startInstrumented(c *remote.Child, _ []byte) ([]byte, error) {
+	ts.mu.Lock()
+	on := ts.holdersLocked() && !ts.closed
+	if on {
+		if ts.startedOn == nil {
+			ts.startedOn = map[*remote.Child]bool{}
+		}
+		ts.startedOn[c] = true
+	}
+	ts.mu.Unlock()
+	return json.Marshal(map[string]bool{"on": on})
+}
+
 // syncInstrument turns the instrumentation on in the active child while a
 // client holds it, and off once none does. The error is the child's
 // refusal to turn it on.
@@ -383,7 +406,16 @@ func (ts *toolsServer) syncInstrument() error {
 	defer ts.insMu.Unlock()
 	ts.mu.Lock()
 	child, want := ts.active, ts.holdersLocked() && !ts.closed
+	started := child != nil && ts.startedOn[child]
+	if started {
+		clear(ts.startedOn)
+	}
 	ts.mu.Unlock()
+	if started {
+		// It started with the instrumentation on: it is the instrumented
+		// one now (turned off below when nobody holds it any more).
+		ts.instrumented = child
+	}
 	if ts.instrumented != nil && (!want || ts.instrumented != child) {
 		old := ts.instrumented
 		ts.instrumented = nil
@@ -443,7 +475,7 @@ func childError(err error) error {
 	case err == nil:
 		return nil
 	case errors.Is(err, remote.ErrNoHandler):
-		return errors.New("the app does not answer DevTools requests: was it built with an older Tela?")
+		return &toolsErr{rpcMethodNotFound, "the app does not answer this DevTools request: was it built with an older Tela?"}
 	case errors.As(err, &re):
 		return errors.New(re.Msg)
 	case errors.Is(err, context.DeadlineExceeded):
@@ -747,6 +779,13 @@ func (c *toolsConn) call(method string, raw json.RawMessage) (any, error) {
 		return tree(devloop.KindToolsPick, devloop.ToolsParams{On: on})
 	case "highlight":
 		return tree(devloop.KindToolsHighlight, devloop.ToolsParams{ID: p.ID})
+	case "hit":
+		return tree(devloop.KindToolsHit, devloop.ToolsParams{ID: p.ID, X: p.X, Y: p.Y})
+	case "reveal":
+		if p.ID == 0 {
+			return nil, toolsBadParams("give the id of an element")
+		}
+		return tree(devloop.KindToolsReveal, devloop.ToolsParams{ID: p.ID})
 	case "logs":
 		// The entries the child has not pushed yet come first.
 		ts.insMu.Lock()

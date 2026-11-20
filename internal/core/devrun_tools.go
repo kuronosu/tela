@@ -3,7 +3,9 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -41,10 +43,33 @@ var devTools struct {
 	gen int
 }
 
+// devToolsAttached asks the supervisor whether a client of its tools
+// socket holds the instrumentation (devloop.KindToolsStart), before the
+// first build: a reload's new child then starts with it on. An older
+// supervisor, or no answer, means no.
+func devToolsAttached(rb *remote.Backend) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	b, err := rb.Request(ctx, devloop.KindToolsStart, nil)
+	if err != nil {
+		return false
+	}
+	var r struct {
+		On bool `json:"on"`
+	}
+	return json.Unmarshal(b, &r) == nil && r.On
+}
+
 // devToolsRegister registers the tools handlers on the connection to the
-// supervisor.
+// supervisor. A child that started instrumented (devToolsAttached) pushes
+// its frames and logs from the start.
 func devToolsRegister(rb *remote.Backend, h *Host) {
 	devTools.h, devTools.rb = h, rb
+	if h.tree.Instrumented() {
+		devTools.on = true
+		devTools.frames = map[*Tree]int{}
+		devTools.logs = map[*Tree]uint64{}
+	}
 	handle := func(kind string, needOn bool, fn func(h *Host, t *Tree, p devloop.ToolsParams) (any, error)) {
 		rb.Handle(kind, func(payload []byte) ([]byte, error) {
 			var p devloop.ToolsParams
@@ -133,6 +158,24 @@ func devToolsRegister(rb *remote.Backend, h *Host) {
 			devToolsNotify(devloop.KindToolsPicked, msg)
 		})
 		return struct{}{}, nil
+	})
+	handle(devloop.KindToolsHit, true, func(_ *Host, t *Tree, p devloop.ToolsParams) (any, error) {
+		id, node, within := t.HitElement(p.X, p.Y, ElementID(p.ID))
+		return map[string]any{"id": id, "node": uint64(node), "within": within}, nil
+	})
+	handle(devloop.KindToolsReveal, true, func(_ *Host, t *Tree, p devloop.ToolsParams) (any, error) {
+		vis, moved, err := t.RevealElement(ElementID(p.ID))
+		if errors.Is(err, ErrNodeGone) {
+			return nil, devToolsNoElement(p)
+		}
+		if err != nil {
+			return nil, err
+		}
+		res := map[string]any{"moved": moved}
+		if !vis.Empty() {
+			res["visible"] = vis
+		}
+		return res, nil
 	})
 	handle(devloop.KindToolsHighlight, true, func(_ *Host, t *Tree, p devloop.ToolsParams) (any, error) {
 		if p.ID != 0 {

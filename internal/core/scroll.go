@@ -1729,23 +1729,24 @@ func scrollerOf(el *Element) *scroller {
 // scrollIntoView scrolls every scroll container on el's containing-block
 // chain so that el's border box is visible, with CSS's "nearest"
 // alignment, each container as its scroll-behavior says. Transforms are
-// ignored.
-func (t *Tree) scrollIntoView(el *Element) {
+// ignored. It reports whether the target of a container changed.
+func (t *Tree) scrollIntoView(el *Element) (moved bool) {
 	bx := t.chainBox(el)
 	if bx == nil {
-		return
+		return false
 	}
 	r := t.targetRect(bx)
 	for b := bx; ; {
 		cb := containingBlock(b)
 		if cb == nil || fixedToWindow(b, cb) {
-			return // no scroll container moves a box fixed to the window
+			return moved // no scroll container moves a box fixed to the window
 		}
 		if s := cb.scr; s != nil {
 			c := t.clientRect(cb)
 			tgt := s.target()
 			d := gfx.Point{X: nearest(r.X0, r.X1, c.X0, c.X1), Y: nearest(r.Y0, r.Y1, c.Y0, c.Y1)}
 			to := s.clamp(tgt.Add(s.flip(d)))
+			moved = moved || to != tgt
 			t.scrollScripted(s, to)
 			moved := s.flip(to.Sub(tgt))
 			r = r.Translate(-moved.X, -moved.Y)

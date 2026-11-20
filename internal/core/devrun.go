@@ -64,7 +64,16 @@ func devActive() bool {
 // process is a tela dev child (TELA_DEVLOOP=1), after fetching the state
 // of the previous build and registering the app's own. It returns nil, nil
 // otherwise.
-func devBackend(opts Options) (platform.Backend, error) {
+//
+// A tela dev child in dev mode captures the creation sites of its nodes
+// from its first build on (instrument_site.go), so that a DevTools client
+// that attaches later sees the source line of every element (ADR-299):
+// the rest of the instrumentation stays off until a client holds it,
+// unless one already does when the child starts (a reload's new child),
+// which sets opts.Instrument. In dev mode the sites cost about 10% of a
+// mount and 3% of a rebuild (the 10k-element benchmarks of bench_test.go),
+// and the whole instrumentation about 1% more.
+func devBackend(opts *Options) (platform.Backend, error) {
 	if os.Getenv(devloop.EnvChild) != "1" {
 		return nil, nil
 	}
@@ -78,6 +87,10 @@ func devBackend(opts Options) (platform.Backend, error) {
 	devRT.noState = noState
 	devRT.mu.Unlock()
 	devSendAssets()
+	if configDev(opts.Dev) {
+		insSites.Add(1) // for the life of the process
+	}
+	opts.Instrument = opts.Instrument || devToolsAttached(b)
 	if noState {
 		return b, nil
 	}

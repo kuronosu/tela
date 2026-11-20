@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/kuronosu/tela/internal/core"
+	"github.com/kuronosu/tela/internal/gfx"
 )
 
 // toolsClient is a client of a tela dev session's tools socket
@@ -328,6 +329,36 @@ type toolsFrames struct {
 
 func (c *toolsClient) Highlight(ctx context.Context, window uint32, id core.ElementID) error {
 	return c.call(ctx, "highlight", map[string]any{"window": window, "id": id}, nil)
+}
+
+// toolsHit is what a point of a window hits: the element, its semantics
+// node or its nearest ancestor's, and whether the point reaches the
+// element asked about.
+type toolsHit struct {
+	ID     core.ElementID `json:"id"`
+	Node   uint64         `json:"node"`
+	Within bool           `json:"within"`
+}
+
+// Hit returns what the point x, y of the window hits, as its last frame
+// painted it, and whether that is element target or inside it.
+func (c *toolsClient) Hit(ctx context.Context, window uint32, x, y float32, target core.ElementID) (toolsHit, error) {
+	var r toolsHit
+	return r, c.call(ctx, "hit", map[string]any{"window": window, "x": x, "y": y, "id": target}, &r)
+}
+
+// toolsReveal is the answer of reveal: the part of the element visible
+// once its scroll containers reach their targets (nil for none), and
+// whether a scroll is under way.
+type toolsReveal struct {
+	Visible *gfx.Rect `json:"visible"`
+	Moved   bool      `json:"moved"`
+}
+
+// Reveal scrolls element id into view.
+func (c *toolsClient) Reveal(ctx context.Context, window uint32, id core.ElementID) (toolsReveal, error) {
+	var r toolsReveal
+	return r, c.call(ctx, "reveal", map[string]any{"window": window, "id": id}, &r)
 }
 
 // Screenshot returns the frame the window presents, at the app's

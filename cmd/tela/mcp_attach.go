@@ -50,6 +50,8 @@ type attachConn interface {
 	Profiles(ctx context.Context, window uint32, since int) ([]core.FrameProfile, error)
 	Logs(ctx context.Context, since uint64) ([]toolsLogEntry, uint64, error)
 	Screenshot(ctx context.Context, window uint32) (image.Image, error)
+	Hit(ctx context.Context, window uint32, x, y float32, target core.ElementID) (toolsHit, error)
+	Reveal(ctx context.Context, window uint32, id core.ElementID) (toolsReveal, error)
 	Pointer(ctx context.Context, window uint32, action string, x, y float32, button string) error
 	Click(ctx context.Context, window uint32, x, y float32) error
 	Clicks(ctx context.Context, window uint32, x, y float32, button string, count int) error

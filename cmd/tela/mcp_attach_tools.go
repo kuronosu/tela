@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"image/png"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/kuronosu/tela/internal/core"
+	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/lint"
 )
 
@@ -87,11 +89,11 @@ var attachDefs = func() []attachToolDef {
 	return []attachToolDef{
 		def("windows", `List the windows the running app shows: ID, title, logical size, display scale and which one has the keyboard focus. Every other tool takes one of these IDs as window; without it, the first window. Example: {}`,
 			ro("Windows"), nil, (*attachSession).toolWindows),
-		def("snapshot", `Show the structure of the real window as an aria snapshot (Playwright's YAML): roles, accessible names, states and texts, with [ref=eN] on each element you can act on and [src=file:line], the source line that made it. Cheap: use it first and after every edit (tela dev rebuilds the app when the source is saved, and the result says so). [src=] is known for what the app built since this session started instrumenting it: an element built earlier has none until it rebuilds. Example: {}`,
+		def("snapshot", `Show the structure of the real window as an aria snapshot (Playwright's YAML): roles, accessible names, states and texts, with [ref=eN] on each element you can act on and [src=file:line], the source line that made it. Cheap: use it first and after every edit (tela dev rebuilds the app when the source is saved, and the result says so). Example: {}`,
 			ro("Aria snapshot"), nil, (*attachSession).toolSnapshot),
 		def("screenshot", `The frame the window presents, as a PNG of its real pixels (at the display's scale: the answer says it); with a ref, only that element with an 8 px margin. Use it to judge the looks. Example: {} or {"ref": "e5"}`,
 			ro("Screenshot"), elementProps("element"), (*attachSession).toolScreenshot),
-		def("click", `Click an element with real pointer events at its painted position (hover, press, release; focus moves to it), wait until the app has stopped drawing, and return the new snapshot. Name it by its ref (or role and name, text), or give x and y. button "right" opens a context menu; double: true double-clicks. A disabled element cannot be clicked. Example: {"ref": "e5"}`,
+		def("click", `Click an element with real pointer events at its painted position (hover, press, release; focus moves to it), wait until the app has stopped drawing, and return the new snapshot. The element is scrolled into view first, and a click where another element covers it (a dialog, a popover) is refused with what covers it. Name it by its ref (or role and name, text), or give x and y. button "right" opens a context menu; double: true double-clicks. A disabled element cannot be clicked. Example: {"ref": "e5"}`,
 			act("Click"), append(append(elementProps("element"), point...),
 				schemaProp{"button", "string", `"left" (default) or "right"`, []string{"left", "right"}},
 				schemaProp{"double", "boolean", "Double-click", nil}), (*attachSession).toolClick),
@@ -266,9 +268,19 @@ func (s *attachSession) resolve(ctx context.Context, winArg uint32, a elementArg
 	return attachTarget{win: w, line: line, desc: line.parsed.Describe(), disabled: line.parsed.Disabled}, nil
 }
 
-// center returns the middle of the element as painted, in logical pixels
-// of its window.
-func (s *attachSession) center(ctx context.Context, t attachTarget) (x, y float32, err error) {
+// revealTries bounds the scrolls into view of one target: a scroll that
+// is still under way after them (a container that keeps moving) is
+// acted on where it is.
+const revealTries = 3
+
+// point returns where to act on the element, in logical pixels of its
+// window, with Playwright's actionability: the element is scrolled into
+// view (its scroll containers move as little as needed, and the session
+// waits for them), and the point is one of its visible part that hit
+// testing sends to it or to a descendant: its center, else the center of
+// a quarter. A point where another element takes the pointer (a dialog,
+// a popover, a sticky header over it) makes the element covered.
+func (s *attachSession) point(ctx context.Context, t attachTarget) (x, y float32, err error) {
 	info, err := s.conn.Element(ctx, t.win.ID, t.line.el)
 	if err != nil {
 		return 0, 0, err
@@ -276,7 +288,89 @@ func (s *attachSession) center(ctx context.Context, t attachTarget) (x, y float3
 	if info.Bounds == nil || info.Bounds.X1 <= info.Bounds.X0 || info.Bounds.Y1 <= info.Bounds.Y0 {
 		return 0, 0, fmt.Errorf("%s has no painted box (it has no size, or is not drawn)", t.desc)
 	}
-	b := *info.Bounds
+	var vis *gfx.Rect
+	for i := 0; ; i++ {
+		s.frameCursor(ctx, t.win.ID)
+		start := time.Now()
+		r, err := s.conn.Reveal(ctx, t.win.ID, t.line.el)
+		if unsupported(err) {
+			return s.center(t, *info.Bounds) // an app of an older Tela
+		}
+		if err != nil {
+			return 0, 0, err
+		}
+		vis = r.Visible
+		if !r.Moved || i == revealTries-1 {
+			break
+		}
+		s.settle(ctx, t.win.ID, start) // the scroll's frames
+	}
+	if vis == nil || vis.Empty() {
+		return 0, 0, fmt.Errorf("%s is not visible even scrolled into view: an ancestor that clips its overflow (overflow-hidden, overflow-clip) or the window's edge cuts it whole", t.desc)
+	}
+	pts := actionPoints(*vis)
+	var first toolsHit
+	for i, p := range pts {
+		h, err := s.conn.Hit(ctx, t.win.ID, p.X, p.Y, t.line.el)
+		if err != nil {
+			return 0, 0, err
+		}
+		if h.Within {
+			return p.X, p.Y, nil
+		}
+		if i == 0 {
+			first = h
+		}
+	}
+	c := pts[0]
+	return 0, 0, fmt.Errorf("%s is covered by %s at (%g, %g), and at the other points of its visible part: close or move what covers it, or act on that instead (an element with pointer-events-none lets the pointer through to what is under it)",
+		t.desc, s.describeHit(ctx, t.win, first), round2(float64(c.X)), round2(float64(c.Y)))
+}
+
+// actionPoints are the points of visible rect r an action tries, in
+// order: its center, then the centers of its quarters.
+func actionPoints(r gfx.Rect) []gfx.Point {
+	c := r.Center()
+	dx, dy := r.Width()/4, r.Height()/4
+	return []gfx.Point{c, {X: c.X - dx, Y: c.Y - dy}, {X: c.X + dx, Y: c.Y - dy}, {X: c.X - dx, Y: c.Y + dy}, {X: c.X + dx, Y: c.Y + dy}}
+}
+
+// describeHit names what a hit found, as the snapshot shows it (with its
+// ref), else by its element's kind.
+func (s *attachSession) describeHit(ctx context.Context, w toolsWindow, h toolsHit) string {
+	if h.Node != 0 {
+		if snap, err := s.snapshot(ctx, w); err == nil {
+			for i := range snap.lines {
+				l := &snap.lines[i]
+				if l.node != h.Node || !l.ok {
+					continue
+				}
+				d := l.parsed.Describe()
+				if ref, ok := s.win(w.ID).refs.byNode[h.Node]; ok {
+					d += " [ref=" + ref + "]"
+				}
+				return d
+			}
+		}
+	}
+	if h.ID != 0 {
+		if info, err := s.conn.Element(ctx, w.ID, h.ID); err == nil && info.Kind != "" {
+			return "a " + info.Kind + " element"
+		}
+	}
+	return "another element"
+}
+
+// unsupported reports the error of a call the app (or tela dev) does not
+// answer: one of an older Tela.
+func unsupported(err error) bool {
+	var ce *toolsCallError
+	return errors.As(err, &ce) && ce.Code == rpcMethodNotFound
+}
+
+// center returns the middle of bounds b of the element, for an app that
+// cannot scroll it into view or hit-test (an older Tela).
+func (s *attachSession) center(t attachTarget, b gfx.Rect) (x, y float32, err error) {
 	x, y = (b.X0+b.X1)/2, (b.Y0+b.Y1)/2
 	if x < 0 || y < 0 || x >= t.win.Width || y >= t.win.Height {
 		return 0, 0, fmt.Errorf("%s is at (%g, %g), outside the window's %gx%g: scroll it into view first", t.desc, round2(float64(x)), round2(float64(y)), round2(float64(t.win.Width)), round2(float64(t.win.Height)))
@@ -296,7 +390,7 @@ func (s *attachSession) target(ctx context.Context, o *mcpOut, winArg uint32, a 
 		o.fail(fmt.Sprintf("cannot %s %s: it is disabled (the snapshot marks it [disabled])", verb, t.desc))
 		return t, 0, 0, false
 	}
-	x, y, err = s.center(ctx, t)
+	x, y, err = s.point(ctx, t)
 	if err != nil {
 		o.fail(err.Error())
 		return t, 0, 0, false

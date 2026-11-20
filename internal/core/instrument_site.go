@@ -40,7 +40,8 @@ import (
 //     (p Page) Build).
 //
 // A node made outside dev mode, or before the instrumentation turned on,
-// has no site until its parent builds again.
+// has no site until its parent builds again; a tela dev child captures
+// sites from its first build (devrun.go).
 
 // maxSiteCache bounds the resolved sites cached per tree (cleared when
 // full).
