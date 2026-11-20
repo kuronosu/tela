@@ -32,10 +32,11 @@ import (
 // tela mcp, the debug overlays) runs in a span of phaseNone, which charges
 // nothing, so it does not land in the frame shown last. The tools' other
 // requests (Elements, Inspect, FrameProfiles...) open no span and are not
-// charged either, unless they run inside one: a function posted to the UI
-// thread runs in the input span of the Host's WakeEvent (its updates), so
-// work posted that way is charged to the next frame's input unless it
-// opens a phaseNone span of its own.
+// charged either, unless they run inside one: a function queued with a
+// tree's updates (tela.Post, Tree.enqueue) runs in the input span of the
+// Host's WakeEvent, so tools work queued that way (tela dev's push of the
+// profiles) is charged to the next frame's input unless it opens a
+// phaseNone span of its own.
 //
 // Where the phases are: Input is the Host's input events and wakes (the
 // handlers and the state updates they queue); Animate the Host's tick of
