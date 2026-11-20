@@ -160,12 +160,20 @@ type StyleSummary struct {
 	Grid string `json:"grid,omitempty"`
 	// GridItem is "col 1 / span 2 row auto / auto" for elements with a
 	// grid placement.
-	GridItem   string  `json:"gridItem,omitempty"`
-	Color      string  `json:"color"`
-	Background string  `json:"background,omitempty"`
-	Font       string  `json:"font"` // "700 48px/1 Inter"
-	TextAlign  string  `json:"textAlign,omitempty"`
-	Opacity    float32 `json:"opacity"`
+	GridItem   string `json:"gridItem,omitempty"`
+	Color      string `json:"color"`
+	Background string `json:"background,omitempty"`
+	// Font is "700 48px/1 Inter": weight, size, line height and the
+	// family that drew the box's text, the family of the faces that
+	// shaped the most of its visible glyphs (text.Layout.DominantFamily;
+	// for a text field, those of its displayed text). A box with no
+	// visible text gives the family its text would start with: the first
+	// family of its font-family stack that has a font (the face of its
+	// span box, text.Collection.StyleFace), the stack's first name only
+	// when the tree has no font at all.
+	Font      string  `json:"font"`
+	TextAlign string  `json:"textAlign,omitempty"`
+	Opacity   float32 `json:"opacity"`
 	// Errors are the class errors of the element's classes.
 	Errors []string `json:"errors,omitempty"`
 }
@@ -297,6 +305,33 @@ func edges(in layout.Insets) Edges {
 	return Edges{Top: in.Top, Right: in.Right, Bottom: in.Bottom, Left: in.Left}
 }
 
+// drawnFamily returns the family of the Font of box b's StyleSummary.
+func drawnFamily(b *Box) string {
+	var lay *text.Layout
+	switch {
+	case b.mode == modeParagraph && b.para != nil:
+		lay = b.para.lay
+	case b.fld != nil:
+		lay = b.fld.lay
+	}
+	if lay != nil {
+		if f := lay.DominantFamily(); f != "" {
+			return f
+		}
+	}
+	cs := b.cs
+	if b.tree != nil && b.tree.fonts != nil {
+		st := cs.TextStyle()
+		if f := b.tree.fonts.StyleFace(&st); f != nil {
+			return f.Typeface().Family()
+		}
+	}
+	if len(cs.Text.FontFamily) > 0 {
+		return cs.Text.FontFamily[0]
+	}
+	return "sans-serif"
+}
+
 func summarize(b *Box) StyleSummary {
 	cs := b.cs
 	s := StyleSummary{
@@ -391,10 +426,7 @@ func summarize(b *Box) StyleSummary {
 		}
 		s.Background += fmt.Sprintf("+%d image layer(s)", len(cs.Backgrounds))
 	}
-	family := "sans-serif"
-	if len(cs.Text.FontFamily) > 0 {
-		family = cs.Text.FontFamily[0]
-	}
+	family := drawnFamily(b)
 	lh := ""
 	switch cs.Text.LineHeight.Kind {
 	case text.LineHeightScale:

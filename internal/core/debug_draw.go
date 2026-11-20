@@ -77,10 +77,12 @@ const (
 	meterMaxScale = 2 * meterBudget
 )
 
-// labelKey identifies a shaped label.
+// labelKey identifies a shaped label: its text, weight and the display
+// scale its line box is quantized for.
 type labelKey struct {
-	s    string
-	bold bool
+	s     string
+	bold  bool
+	scale float32
 }
 
 // ovLabel is a label waiting to be placed.
@@ -431,9 +433,13 @@ func (o *overlay) semantics() {
 // Labels.
 
 // label returns the shaped label s (JetBrains Mono on one line), cached.
+// It is laid out at the display scale, as the application's text is: its
+// line box is quantized in device pixels (ADR-159), so the baseline sits
+// where a paragraph of the same style would put it at that scale, not
+// where it would at scale 1 (half a logical pixel lower at x2).
 func (o *overlay) label(s string, bold bool) *text.Layout {
 	d := &o.t.dbg
-	k := labelKey{s, bold}
+	k := labelKey{s, bold, o.scale}
 	if l := d.labels[k]; l != nil {
 		return l
 	}
@@ -451,6 +457,7 @@ func (o *overlay) label(s string, bold bool) *text.Layout {
 			LineHeight: text.LineHeightPixels(labelLine),
 			Paint:      colPillText,
 		},
+		Scale: o.scale,
 	})
 	if d.labels == nil {
 		d.labels = map[labelKey]*text.Layout{}

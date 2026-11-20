@@ -1,6 +1,7 @@
 package text
 
 import (
+	"slices"
 	"sort"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -308,4 +309,46 @@ func (l *Layout) BoxRect(i int) (gfx.Rect, bool) {
 	x := l.cx[c] + dx
 	top += dy
 	return gfx.Rect{X0: x, Y0: top, X1: x + b.Width, Y1: top + h}, true
+}
+
+// DominantFamily returns the family of the faces that drew the most glyphs
+// of the visible text: the family name of their Typeface, synthetic bold
+// and oblique faces counting as their font's, white space and the glyphs
+// of ellipses and hyphens not counted. Among families with as many glyphs,
+// the one that drew the first glyph in logical order wins. It returns ""
+// when no visible cluster has a glyph (no text, white space only, or
+// everything clamped).
+func (l *Layout) DominantFamily() string {
+	var (
+		fams   []string
+		counts []int
+	)
+	for i := range l.clusters {
+		c := &l.clusters[i]
+		if c.g1 <= c.g0 || c.flags&(cfSpace|cfTab|cfOtherSpace|cfNewline|cfBox) != 0 ||
+			i < len(l.cline) && l.cline[i] < 0 {
+			continue
+		}
+		rn := &l.runs[c.run]
+		if rn.kind != runText || rn.face == nil {
+			continue
+		}
+		fam := rn.face.tf.family
+		k := slices.Index(fams, fam)
+		if k < 0 {
+			k = len(fams)
+			fams, counts = append(fams, fam), append(counts, 0)
+		}
+		counts[k] += int(c.g1 - c.g0)
+	}
+	best := -1
+	for k, n := range counts {
+		if best < 0 || n > counts[best] {
+			best = k
+		}
+	}
+	if best < 0 {
+		return ""
+	}
+	return fams[best]
 }

@@ -13,6 +13,14 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+### Changed
+
+- `tela inspect --layout`, `telatest.App.LayoutJSON` and `tela mcp inspect`: the `font` field names the family that drew most of the box's glyphs (`Inter`), not the first name of the font stack (`ui-sans-serif`); a box with no text names the first family of its stack that has a font.
+
+### Fixed
+
+- `TELA_DEBUG` overlay labels are laid out at the display scale: at x2 their text sat one device pixel low in its pill.
+
 ## [0.14.8] - 2026-11-19
 
 Phase 27: App building blocks (ADR-298). It breaks no public API; `examples/notes` is now a module of its own.

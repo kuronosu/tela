@@ -560,6 +560,7 @@ type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entr
 | `tela run [flags] [pkg [args...]]` | Build and run it with the terminal attached and the exit status forwarded; on macOS as that bundle in `<user cache>/tela/run/<AppID>/<Name>.app`, executable run directly (ADR-227) |
 | `tela new [-module path] [-template counter\|notes\|settings\|dashboard] [-skip-deps] <dir>` | Create an app: `go.mod` (tela at this binary's release version, or the latest), a counter in `main.go` with `var App` (or an example's template, ADR-298), a `telatest` test, README and `.gitignore`, from templates embedded in the binary; runs `go get` and `go mod tidy` (ADR-128) |
 | `tela icons gen -pkg <name> [-o dir] <dir>` | Generate a Go file with one `tela.Icon` variable per SVG file: validated, minified, deterministic (ADR-102) |
+| `tela devtools` | DevTools for `tela dev` sessions (ADR-299) |
 | `tela add <component>...` | Deferred (ADR-129): copy `kit` component source into the user's project (shadcn model), rewriting the package name |
 | `tela version` | Print the module version, VCS revision, Go version and platform of the binary |
 | `tela mcp [pkg] [--size WxH] [--scale N] [--dark] [--preview NAME] [-v]` | MCP server over stdio driving a headless instance of the screen that stays up between calls: `snapshot` (aria YAML with `[ref=eN]`), `screenshot` (PNG), `click`, `hover`, `fill`, `press`, `scroll`, `drag`, `resize`, `open`, `wait`, `inspect`, `lint`; rebuilds and remounts when the sources change (ADR-174) |

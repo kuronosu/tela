@@ -451,6 +451,13 @@ func (c *Collection) Face(q Query, size float32) *Face {
 	return c.candidates(q, size).defaultFace()
 }
 
+// StyleFace returns the face a Layout gives text of style st for its span
+// box and decorations: Face for the families of st (sans-serif when it
+// has none), its weight, style and stretch, at its size.
+func (c *Collection) StyleFace(st *TextStyle) *Face {
+	return c.Face(st.query(), st.size())
+}
+
 // instance returns the face of tf for q at size.
 func instance(tf *Typeface, q Query, size float32) *Face {
 	inst := Instance{Weight: q.weight(), Stretch: q.stretch()}
