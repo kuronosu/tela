@@ -208,10 +208,16 @@ func TestScrollAllocsBudget(t *testing.T) {
 func allocsPerFrame(tb testing.TB, r *rig, steps int, input func(i int) []func()) int {
 	tb.Helper()
 	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(1))
+	// Two passes warm up; each of the three after them is counted, and the
+	// smallest count is the frames' own: the work is the same in every
+	// pass, and what another goroutine allocates meanwhile (the runtime, one
+	// an earlier test left) only adds to a count (the macOS runner once
+	// counted 1276.5 for 1276.4).
 	var before, after runtime.MemStats
 	frames := 0
-	for pass := range 3 {
-		if pass == 2 {
+	best := -1.0
+	for pass := range 5 {
+		if pass >= 2 {
 			runtime.ReadMemStats(&before)
 		}
 		frames = 0
@@ -220,14 +226,16 @@ func allocsPerFrame(tb testing.TB, r *rig, steps int, input func(i int) []func()
 				frames++
 			}
 		}
-		if pass == 2 {
+		if pass >= 2 {
 			runtime.ReadMemStats(&after)
+			if frames == 0 {
+				tb.Fatal("the input ran no frame: nothing to count")
+			}
+			if per := float64(after.Mallocs-before.Mallocs) / float64(frames); best < 0 || per < best {
+				best = per
+			}
 		}
 	}
-	if frames == 0 {
-		tb.Fatal("the input ran no frame: nothing to count")
-	}
-	per := float64(after.Mallocs-before.Mallocs) / float64(frames)
-	tb.Logf("%d frames, %s allocations per frame", frames, fmt.Sprintf("%.1f", per))
-	return int(math.Round(per))
+	tb.Logf("%d frames, %s allocations per frame", frames, fmt.Sprintf("%.1f", best))
+	return int(math.Round(best))
 }
