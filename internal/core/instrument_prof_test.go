@@ -114,11 +114,21 @@ func TestInstrumentProfilePhases(t *testing.T) {
 	if effects != 2 {
 		t.Errorf("%d effects ran", effects)
 	}
-	// A semantics tree built after the frame is charged to it.
+	// A semantics tree built after the frame for a consumer (a tool, a
+	// test: Semantics) is not the app's work: it is not charged.
 	tr.Semantics()
-	q := tr.FrameProfiles(0)[0]
-	if q.Phases[PhaseSemantics] <= 0 || q.Duration-p.Duration != q.Phases[PhaseSemantics]-p.Phases[PhaseSemantics] {
-		t.Errorf("after Semantics: %v (was %v), duration %v (was %v)", q.Phases[PhaseSemantics], p.Phases[PhaseSemantics], q.Duration, p.Duration)
+	if q := tr.FrameProfiles(0)[0]; q.Phases != p.Phases || q.Duration != p.Duration {
+		t.Errorf("after Semantics: %v (was %v), duration %v (was %v)", q.Phases, p.Phases, q.Duration, p.Duration)
+	}
+	// The accessibility bridge's is charged to the frame it follows.
+	set.Set("again")
+	x.frame()
+	ps = tr.FrameProfiles(0)
+	p = ps[len(ps)-1]
+	tr.accessSemantics()
+	q := tr.FrameProfiles(0)[len(ps)-1]
+	if q.Phases[PhaseSemantics] <= p.Phases[PhaseSemantics] || q.Duration-p.Duration != q.Phases[PhaseSemantics]-p.Phases[PhaseSemantics] {
+		t.Errorf("after the bridge's semantics: %v (was %v), duration %v (was %v)", q.Phases[PhaseSemantics], p.Phases[PhaseSemantics], q.Duration, p.Duration)
 	}
 }
 

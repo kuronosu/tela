@@ -209,10 +209,15 @@ func (t *Tree) semPending() bool {
 }
 
 // buildSemantics builds the semantics tree: in full when none was built,
-// else again from the marks.
-func (t *Tree) buildSemantics() {
+// else again from the marks. charged says the app's frame profile charges
+// it (the accessibility bridge's), not a consumer's (instrument_prof.go).
+func (t *Tree) buildSemantics(charged bool) {
 	if ins := t.ins; ins != nil {
-		d := ins.prof.spanBegin(PhaseSemantics) // the frame profile (instrument_prof.go)
+		ph := PhaseSemantics
+		if !charged {
+			ph = phaseNone
+		}
+		d := ins.prof.spanBegin(ph) // the frame profile (instrument_prof.go)
 		defer ins.prof.spanEnd(d)
 	}
 	s := &t.sem

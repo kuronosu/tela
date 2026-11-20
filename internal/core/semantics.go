@@ -231,10 +231,17 @@ func (t *Tree) semFns(el *Element, a *ariaProps) semFnVals {
 // last Frame; elements mounted since the last Frame have no style yet and
 // are left out. The tree must not be modified: while no Frame runs and
 // nothing is dirty, the same tree is returned again. Call it on the UI
-// thread.
-func (t *Tree) Semantics() *semantics.Node {
+// thread. Built for a consumer (a tool, a test), it is not charged to the
+// frame profile (instrument_prof.go).
+func (t *Tree) Semantics() *semantics.Node { return t.semanticsTree(false) }
+
+// accessSemantics is Semantics for the accessibility bridge (access.go),
+// the app's own work, which the frame profile charges.
+func (t *Tree) accessSemantics() *semantics.Node { return t.semanticsTree(true) }
+
+func (t *Tree) semanticsTree(charged bool) *semantics.Node {
 	if t.semPending() {
-		t.buildSemantics()
+		t.buildSemantics(charged)
 	}
 	if checkSemantics {
 		t.checkSemanticsTree(t.sem.root)

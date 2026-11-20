@@ -177,7 +177,7 @@ func (h *Host) pushAccess(v *winView) {
 	if !a.first && !t.SemanticsStale() && t.sem.root == a.sem {
 		return
 	}
-	root := t.Semantics()
+	root := t.accessSemantics()
 	if root == a.sem || root.ID == 0 {
 		return // unchanged, or nothing laid out yet (no frame since the mount)
 	}

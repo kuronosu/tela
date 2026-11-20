@@ -21,10 +21,21 @@ import (
 // records nothing. Its Duration runs from its Animate phase (a Host's
 // FrameEvent) or the start of Frame, to the end of Frame, plus the work
 // charged to it after (its rasterization, its present, its passive
-// effects, a semantics tree built after it). The input handled since the
-// previous frame is in Phases[PhaseInput] and not in Duration: it ran
-// between the frames. Rasterization runs in worker goroutines; PhaseRaster
-// is the time the UI thread waited for them.
+// effects, the semantics tree the accessibility bridge built after it).
+// The input handled since the previous frame is in Phases[PhaseInput] and
+// not in Duration: it ran between the frames. Rasterization runs in
+// worker goroutines; PhaseRaster is the time the UI thread waited for
+// them.
+//
+// The profile measures the app, not the tools that read it: a semantics
+// tree built for a consumer (Tree.Semantics: a tools request, telatest,
+// tela mcp, the debug overlays) runs in a span of phaseNone, which charges
+// nothing, so it does not land in the frame shown last. The tools' other
+// requests (Elements, Inspect, FrameProfiles...) open no span and are not
+// charged either, unless they run inside one: a function posted to the UI
+// thread runs in the input span of the Host's WakeEvent (its updates), so
+// work posted that way is charged to the next frame's input unless it
+// opens a phaseNone span of its own.
 //
 // Where the phases are: Input is the Host's input events and wakes (the
 // handlers and the state updates they queue); Animate the Host's tick of
@@ -63,6 +74,10 @@ const (
 	// NumPhases is the number of phases.
 	NumPhases
 )
+
+// phaseNone is the phase of the work the profile does not charge: the
+// DevTools' own (see the comment at the top of instrument_prof.go).
+const phaseNone = NumPhases
 
 var phaseNames = [NumPhases]string{"input", "animate", "build", "style", "layout", "paint", "semantics", "raster", "present", "effects"}
 
@@ -143,9 +158,11 @@ func (p *profiler) init(t *Tree) {
 func (p *profiler) now() time.Duration { return p.t.DebugNow() }
 
 // charge adds d to phase ph: of the running frame, of the next frame
-// (input and animation before it) or of the frame shown last.
+// (input and animation before it) or of the frame shown last; phaseNone
+// adds it to none.
 func (p *profiler) charge(ph Phase, d time.Duration) {
 	switch {
+	case ph >= NumPhases:
 	case p.open:
 		p.rec.Phases[ph] += d
 	case ph == PhaseInput:
