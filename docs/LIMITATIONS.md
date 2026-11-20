@@ -85,6 +85,8 @@ The VM has no GPU and runs at scale 1.
 
 ### Linux desktops
 
+- Phase 28: `tela dev --devtools ./examples/hello` on Wayland and X11: the DevTools window opens beside the app, pick mode highlights and picks in the real window, hovering a row highlights, the profiler records real frames, and the window survives resizes down to its 760x440 minimum; `tela mcp --attach` on the same session.
+
 On the owner's Hyprland, a headless sway, or a GNOME or KDE session.
 
 - [ ] X11 drag and drop, drags out of a Wayland window, and clipboard data (images, files, rich text) on both, with real apps (so far a fake compositor and a fake X server; a drop from Nautilus into a Wayland window is checked)

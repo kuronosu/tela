@@ -26,13 +26,14 @@ In order. Each phase ends with verifiable criteria and is not done unless they p
 Inspecting and driving a running app.
 
 - [x] Inspect's and LayoutJSON's `font` field shows the first name of the stack (`ui-sans-serif`), not the family that drew the text
-- [ ] Live inspector: element tree, computed style, hooks and state, re-render counts, accessibility tree
+- [x] Live inspector: element tree, computed style, hooks and state, re-render counts, accessibility tree (`tela devtools`, `tela dev --devtools`)
   - [x] Core instrumentation (`Tree.SetInstrument`): elements with IDs, creation sites, hooks, props, build counts and causes; a 600-frame profile; pick mode and highlight; a log ring
   - [x] `tela dev`'s tools socket (ADR-299): discovery file, JSON-RPC relay to the child, screenshots, input injected into the Host, the child's stderr kept as logs, notifications
   - [ ] Tools socket gaps: a dev warning shows twice in `logs` (stderr and app); app logs written while idle wait for a frame or a `logs` call; the supervisor's own lines (build failed) are not logs; a client whose queue fills (256) loses notifications; keys to an unfocused window inject a focus the OS does not have; not run on a real windowed backend or on Windows
+  - [ ] DevTools window gaps: selecting a big root transfers its whole layout subtree (`inspect` needs a depth); the whole tree is fetched again 250 ms after frames that build (no incremental updates); the details pane is a fixed 440 px with no splitter or copy actions; the Accessibility panel does not highlight in the app; it follows the system's scheme (light when the system has no preference)
   - [ ] Pick mode: wheel scrolls and caption clicks still reach the app; `pointer-events-none` and inert elements cannot be picked; a press held when pick starts loses its release; creation sites keep 8 frames, so deep helper chains fall back to the declaration
-- [ ] Frame profiler
-- [ ] Connect to a running app and pick an element
+- [x] Frame profiler
+- [x] Connect to a running app and pick an element
 - [ ] `tela mcp` on a running app's real windows, all of them (today headless only, and only the main window), for what headless does not show: IME, menus, dialogs, the tray, the accessibility backends, the display scale; a session could attach through the `remote` host of `tela dev`
 - [x] `tela mcp`: refs keep node identity; `scroll` without an element; a locator that matches nothing fails at once when nothing is pending; `notifications/cancelled` is honored (ADR-300)
 - [ ] `tela mcp`'s fail-fast reads `App.Pending` by matching its text (caret blink, scrollbar fade, endless animations): give `Pending` kinds; work on goroutines (`UseAsync`, `UseGo`) is not pending, so a miss before a load ends fails at once; `wait` does not fail fast; `scroll` without an element goes to the window's center, not the largest scrollable node, and does not say whether anything moved
