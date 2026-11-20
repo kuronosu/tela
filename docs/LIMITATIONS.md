@@ -36,7 +36,7 @@ Small gaps that no phase is planned for (ADR-267). They block nothing; a phase t
 - **Allocations (ADR-291):** the dashboard allocates about 1,280 objects per frame of a hover sweep and 480 per frame of scrolling (`hoverAllocsPerFrame`, `scrollAllocsPerFrame` in `examples/dashboard/budget_test.go`), mostly in paint recording (`gfx.Builder.AppendList`, `Path.Clone`, the glyph clone of `DrawGlyphRun`, `painter.paintBand`); the two budgets count with the local Go toolchain (1.27.4) and may differ on another one
 - **Text fields:** `AutoFocus` puts the caret at the start of a field's existing value (the report dialog of the dashboard types before "Q3 revenue summary"); check where Chromium puts it
 - **Floating:** size limits ignore the device-pixel snap of the position, so a menu limited to the room can end up to half a device pixel past the window at x1.5
-- **Phase 27:** `router`'s history is unbounded, and Alt+Left navigates behind a modal dialog (as Chromium); `kit.Markdown` has no footnotes, heading anchors or per-block skipping; `oauth` has no RFC 9207 `iss` check, DPoP or retry on 401, and a rotated refresh token it fails to store is lost silently; `telatest` cannot report the URLs an app opened, nor play a start at login
+- **Phase 27:** `router`'s history is unbounded, and Alt+Left navigates behind a modal dialog (as Chromium); `kit.Markdown` has no footnotes, heading anchors or per-block skipping; `oauth` has no RFC 9207 `iss` check, DPoP or retry on 401, and a rotated refresh token it fails to store is lost silently; `examples/notes` reads the keyring at every start, so a locked Secret Service may prompt a user who never signed in
 
 ## Live checks (not blocking)
 
@@ -90,6 +90,7 @@ On the owner's Hyprland, a headless sway, or a GNOME or KDE session.
 - [ ] X11 drag and drop, drags out of a Wayland window, and clipboard data (images, files, rich text) on both, with real apps (so far a fake compositor and a fake X server; a drop from Nautilus into a Wayland window is checked)
 - [ ] The Trash (the portal, and the home trash)
 - [ ] The Secret Service's unlock prompts through `examples/notes`
+- [ ] Phase 27: `examples/notes` signs in through a real browser against its demo server and a real one (Linux, Windows)
 - [ ] Phase 27: desktop entry actions in GNOME, KDE and Hyprland launchers (the entry is `NoDisplay`); the Background portal in a Flatpak
 - [ ] X11 at scale 2 (`Xft.dpi`); X11 window positions and interactive moves on a real EWMH window manager
 - [ ] Wayland maximize, the window menu, icons, `xdg-dialog` and session restore on a compositor that has them (sway lacks them)
