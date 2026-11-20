@@ -563,7 +563,7 @@ type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entr
 | `tela devtools` | DevTools for `tela dev` sessions (ADR-299) |
 | `tela add <component>...` | Deferred (ADR-129): copy `kit` component source into the user's project (shadcn model), rewriting the package name |
 | `tela version` | Print the module version, VCS revision, Go version and platform of the binary |
-| `tela mcp [pkg] [--size WxH] [--scale N] [--dark] [--preview NAME] [-v]` | MCP server over stdio driving a headless instance of the screen that stays up between calls: `snapshot` (aria YAML with `[ref=eN]`), `screenshot` (PNG), `click`, `hover`, `fill`, `press`, `scroll`, `drag`, `resize`, `open`, `wait`, `inspect`, `lint`; rebuilds and remounts when the sources change (ADR-174) |
+| `tela mcp [pkg] [--size WxH] [--scale N] [--dark] [--preview NAME] [-v]` | MCP server over stdio driving a headless instance of the screen that stays up between calls: `snapshot` (aria YAML with `[ref=eN]`), `screenshot` (PNG), `click`, `hover`, `fill`, `press`, `scroll`, `drag`, `resize`, `open`, `wait`, `inspect`, `lint`, `state`, `logs`, `perf`, `prefer`; remounts on source changes (ADR-174, ADR-302) |
 
 ### Contract for `snapshot`, `inspect`, `mcp`
 

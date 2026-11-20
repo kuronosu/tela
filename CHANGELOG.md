@@ -16,11 +16,14 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 ### Added
 
 - `telatest.App.AriaSnapshotNodes`, `NodeLocator` and `ScrollAt` (ADR-300).
+- `telatest.Instrument()` and `App.AriaSnapshotSources`, `Components`, `ComponentOf` and `Frames`: each element's source line, a component's props, hooks and why it rendered, and the time per phase of frames (ADR-302).
+- `tela mcp` tools `state`, `logs`, `perf` and `prefer` (dark, reduced motion, high contrast, text scale, locale, direction) (ADR-302).
 - `tela lsp`: a language server editors run beside gopls, with diagnostics, completion and hover (the CSS a class produces) for Tailwind classes in `Class("...")`, class fields and `ClassAliases` (ADR-301).
 - `tela new` also writes `AGENTS.md` (the agent loop with `tela mcp`, `tela lint` and `llms.txt`), `CLAUDE.md` (`@AGENTS.md`) and `.mcp.json`, which starts `tela mcp .`.
 
 ### Changed
 
+- `tela inspect` and `tela mcp` print the line that created each element: `[src=settings.go:42]` in the aria output and `"src"` in the layout JSON.
 - `tela inspect --layout`, `telatest.App.LayoutJSON` and `tela mcp inspect`: the `font` field names the family that drew most of the box's glyphs (`Inter`), not the first name of the font stack (`ui-sans-serif`); a box with no text names the first family of its stack that has a font.
 - `tela mcp`: a ref follows its element across rebuilds, renames and removed siblings, and a ref whose element is gone is an error; `scroll` without an element scrolls at `x`, `y` or the window's center; a locator that matches nothing fails at once when nothing is pending, instead of waiting 2 s; `notifications/cancelled` stops the call.
 - `tela snapshot` and `tela inspect` render the screen at rest, as `telatest` settles it: state set by effects, toasts and finished animations show (endless ones at their frame after about 5 s of app time); a screen that never goes quiet is rendered with a warning. The render's window starts focused.

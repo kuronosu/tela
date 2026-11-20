@@ -325,7 +325,7 @@ stable.
 ## tela dev
 
 ```text
-tela dev [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [-v] [pkg]
+tela dev [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [--devtools] [-v] [pkg]
 ```
 
 Runs the app and reloads it every time you save, in the same window and with
@@ -434,6 +434,60 @@ Add-MpPreference -ExclusionPath "$env:TEMP\tela-dev", "$(go env GOCACHE)"
 
 `tela dev` never changes these settings itself; whether to exclude them is
 your call.
+
+## tela devtools
+
+```text
+tela devtools [-addr ADDRESS]
+tela dev --devtools [pkg]
+```
+
+A DevTools window for the app a `tela dev` session runs, in the spirit of
+Chrome's and React's: it is a Tela app built with `kit`, inside the `tela`
+binary. Start the session, then the window (or let `tela dev --devtools` start
+both):
+
+```bash
+tela dev ./examples/settings      # in one terminal
+tela devtools                     # in another
+tela dev --devtools ./examples/settings   # or both at once
+```
+
+`tela devtools` attaches to the session's tools socket, which `tela dev` opens
+while it runs (and writes to `<user cache>/tela/dev/<pid>.json`). With one
+session running it needs no argument; with several, name one by the address
+`tela dev -v` prints. Closing the DevTools leaves the session running; when
+the session ends the DevTools close too. Release builds and plain `go run`
+never listen, so there is nothing to attach to outside `tela dev`.
+
+The window follows the app live and survives its reloads. Four panels:
+
+- **Elements**: the element tree of the window (components, primitives and
+  text, with keys and, for components, where in the source they are made),
+  folding, a search over kinds, keys, text and classes, a *Components* view
+  that leaves out the primitives, and a window picker when the app has several
+  windows. The crosshair turns on **pick mode** in the app: the box under the
+  pointer is highlighted, a click selects it here (and does not reach the
+  app), Esc cancels. Hovering a row highlights its element in the app. The
+  selection shows its source line (`settings.go:42`), **why it rendered** (the
+  causes of its last builds, newest first: a `UseState` and the line that
+  declared it, new props and which fields differ, a context, a parent that
+  built it), its hooks with their values, its props, the box model (margin,
+  border, padding and content, as Chrome draws it) and its computed style.
+- **Accessibility**: the semantics tree as `tela inspect` prints it. Selecting
+  a node selects its element, with the same details.
+- **Profiler**: *Record*, use the app, *Stop*. Each frame is a bar stacked by
+  phase (input, animate, build, style, layout, paint, semantics, raster,
+  present, effects) against the 16.7 ms line; a summary counts the frames,
+  the ones over budget and the slowest phase. Click a frame for its time per
+  phase, its counts and damage, and the elements it built with the reason of
+  each build; a row opens the element in the Elements panel.
+- **Logs**: what the app printed on standard error and the warnings and errors
+  of its trees (unknown classes, duplicate keys, state that a reload cannot
+  keep), filterable by level, source and text.
+
+The look follows the system's color scheme: graphite in the dark, a calm grey
+in the light.
 
 ## tela lint
 
