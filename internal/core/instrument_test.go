@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"reflect"
@@ -423,6 +424,50 @@ func TestShortValue(t *testing.T) {
 	c.Next = c
 	if s := shortValue(c); s != "&core.cyc{Next:&core.cyc{…}}" {
 		t.Errorf("a cycle: %q", s)
+	}
+	// Unexported fields are read without Interface: a node, a struct
+	// component, a nil Node, a Stringer, a map and a pointer cycle behind
+	// them.
+	type shy struct {
+		body Node
+		card Node
+		none Node
+	}
+	if got, want := shortValue(shy{body: Primitive(style.KindDiv), card: insCard{Title: "c"}}),
+		`{body:<div> card:core.insCard{Title:"c" N:0} none:nil}`; got != want {
+		t.Errorf("unexported nodes:\n got %s\nwant %s", got, want)
+	}
+	type shy2 struct {
+		err   error
+		m     map[string]Node
+		cycle *cyc
+	}
+	if got, want := shortValue(shy2{err: errors.New("boom"), m: map[string]Node{"b": Text("t"), "a": nil}, cycle: c}),
+		`{err:&errors.errorString{s:"boom"} m:map["a":nil "b":"t"] cycle:&core.cyc{Next:&…}}`; got != want {
+		t.Errorf("unexported fields:\n got %s\nwant %s", got, want)
+	}
+}
+
+// insShy is a struct component with an unexported field of type Node.
+type insShy struct {
+	Title string
+	body  Node
+}
+
+func (c insShy) Build() Node { return Primitive(style.KindDiv, Text(c.Title), c.body) }
+
+// The props of a struct component with an unexported Node field are
+// listed, not a panic.
+func TestInstrumentUnexportedNodeProp(t *testing.T) {
+	tr := newInsTree(t, func() Node {
+		return Primitive(style.KindDiv, insShy{Title: "card", body: Primitive(style.KindP, Text("x"))})
+	})
+	c := insOne(t, tr, "core.insShy")
+	if fmt.Sprint(c.Props) != `[{Title "card"} {body <p>}]` {
+		t.Errorf("props %v", c.Props)
+	}
+	if e, ok := tr.Element(c.ID); !ok || len(e.Props) != 2 {
+		t.Errorf("Element: %+v, %v", e, ok)
 	}
 }
 

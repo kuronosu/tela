@@ -13,8 +13,9 @@ import (
 // keys): like %v (%+v for structs), but bounded in length and depth so a
 // big slice or a deep tree costs what it shows, deterministic (maps by
 // sorted keys, no addresses) and safe (a String method that panics is
-// skipped). Tela's handles (Setter, *Value, Callback...) are their type's
-// name, nodes their tag ("<div>").
+// skipped; unexported fields are read without Interface, which panics on
+// them, so their String methods are not called). Tela's handles (Setter,
+// *Value, Callback...) are their type's name, nodes their tag ("<div>").
 
 const (
 	// maxValueLen bounds a value's short form, in bytes (an ellipsis
@@ -79,7 +80,7 @@ func (w *shortWriter) value(v reflect.Value, depth int) {
 	}
 	rt := v.Type()
 	if rt == nodeRType {
-		w.str(v.Interface().(node).String())
+		w.str(nodeOfValue(v).String())
 		return
 	}
 	if name, ok := handleName(rt); ok {
@@ -216,6 +217,17 @@ func (w *shortWriter) value(v reflect.Value, depth int) {
 	default:
 		w.str(rt.String())
 	}
+}
+
+// nodeOfValue returns the node v holds. A node in an unexported field
+// (a struct component's `body tela.Node`) cannot be read with Interface:
+// its one field, the pointer to its content, is read as a pointer, as fmt
+// reads unexported pointers.
+func nodeOfValue(v reflect.Value) node {
+	if v.CanInterface() {
+		return v.Interface().(node)
+	}
+	return node{d: (*desc)(v.Field(0).UnsafePointer())}
 }
 
 // handleName names a handle of Tela's (a Setter, Callback or Dispatcher,
