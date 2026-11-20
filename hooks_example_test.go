@@ -212,3 +212,59 @@ func ExampleUseTimeout() {
 	// 1
 	// 0
 }
+
+func ExampleUseAsync() {
+	t := &exampleT{}
+	defer t.close()
+	type user struct{ Name string }
+	getUser := func(ctx context.Context, id int) (user, error) {
+		return user{Name: fmt.Sprint("user ", id)}, nil // a slow call that honors ctx
+	}
+	profile := func() tela.Node {
+		id, setID := tela.UseState(1)
+		u := tela.UseAsync(func(ctx context.Context) (user, error) {
+			return getUser(ctx, id)
+		}, id) // loads again, cancelling the old request, when id changes
+		body := P(Text("Loading..."))
+		switch {
+		case u.Err != nil:
+			body = P(Text("Failed: " + u.Err.Error()))
+		case !u.Loading:
+			body = P(Text(u.Data.Name))
+		}
+		return Div(body,
+			Button(OnClick(func(tela.MouseEvent) { setID.Set(id + 1) }), Text("Next")),
+			Button(OnClick(func(tela.MouseEvent) { u.Reload() }), Text("Refresh")))
+	}
+	app := telatest.Mount(t, tela.C(profile))
+	app.ExpectText("user 1") // expectations wait for the goroutine
+	app.Click(telatest.ByRole("button", "Next"))
+	app.ExpectText("user 2")
+	app.Click(telatest.ByRole("button", "Refresh"))
+	app.ExpectText("user 2")
+	fmt.Println("ok")
+	// Output: ok
+}
+
+func ExampleUseDebounced() {
+	t := &exampleT{}
+	defer t.close()
+	search := func() tela.Node {
+		query, setQuery := tela.UseState("")
+		settled := tela.UseDebounced(query, 300*time.Millisecond)
+		return Div(
+			Button(OnClick(func(tela.MouseEvent) { setQuery.Set(query + "x") }), Text("Type")),
+			P(Textf("searching %q", settled)))
+	}
+	app := telatest.Mount(t, tela.C(search))
+	app.Click(telatest.ByRole("button", "Type"))
+	app.Click(telatest.ByRole("button", "Type"))
+	app.Advance(200 * time.Millisecond) // the user is still typing
+	fmt.Println(app.Count(telatest.ByText(`searching ""`)))
+	app.Advance(200 * time.Millisecond) // 300 ms without a change on the app's clock
+	fmt.Println(app.Count(telatest.ByText(`searching "xx"`)))
+	app.ExpectIdle() // nothing keeps the app awake once settled
+	// Output:
+	// 1
+	// 1
+}

@@ -367,6 +367,78 @@ func UseTimeout(d time.Duration, f func(), deps ...any) { core.UseTimeoutAfter(d
 // and [Once] runs one goroutine for the lifetime of the component.
 func UseGo(f func(ctx context.Context), deps ...any) { core.UseGo(f, deps...) }
 
+// Async is the state of a [UseAsync] call: Loading while a run is in
+// flight, Err the error of the latest run that ended and Data its value
+// (React Query's isLoading, error and data). It is a small comparable
+// value, the same on every build when nothing changed, so a struct
+// component that holds one skips its build; a T that is not comparable
+// (a slice) makes it count as changed on every build, like any prop.
+// Reload starts a new run.
+type Async[T any] = core.Async[T]
+
+// UseAsync runs f on a goroutine and returns its state (React Query's
+// useQuery, usehooks' useAsync): Loading is true from the first build,
+// so the first frame already shows the loading state, until f returns;
+// then Data holds its value, or Err its error. f runs under [UseGo]'s
+// rules: its ctx is cancelled when the dependencies change or the
+// component unmounts, f must return soon after, and a panic in it is a
+// crash report. The result is applied on the UI thread, in one update,
+// and only when its run is still the current one: the result of a
+// cancelled or superseded run is dropped.
+//
+// The dependencies are compared like [UseEffect]'s, but none means
+// [Once]: UseAsync runs when it first builds and when the dependencies
+// change, never after every build. A change cancels the running ctx, and
+// resets Data and Err to zero with Loading true. [Async.Reload] runs f
+// again keeping Data (stale-while-revalidate) and Err until the run ends;
+// when that run fails, Err is set and the previous Data stays. f is
+// always the latest build's closure, so it sees the latest props.
+//
+//	user := tela.UseAsync(func(ctx context.Context) (User, error) {
+//	    return api.GetUser(ctx, id)
+//	}, id) // loads again, cancelling the old request, when id changes
+//	switch {
+//	case user.Err != nil:
+//	    return P(Text(user.Err.Error()))
+//	case user.Loading && user.Data.ID == "":
+//	    return P(Text("Loading..."))
+//	}
+//	return Div(P(Text(user.Data.Name)), Button(OnClick(func(tela.MouseEvent) { user.Reload() }), Text("Refresh")))
+//
+// Under tela dev (ADR-113) a Data that the dev state can keep survives
+// a reload of the code, and the run starts again with it shown.
+func UseAsync[T any](f func(ctx context.Context) (T, error), deps ...any) Async[T] {
+	return core.UseAsync(f, deps...)
+}
+
+// UseDebounced returns v once it has not changed for d (usehooks'
+// useDebounce, lodash's debounce): while v keeps changing it returns the
+// last settled value, so a search box can query a server only when the
+// user pauses.
+//
+// The wait is on the app's frame clock, like [UseTimeout] (telatest's
+// Advance moves it), with no goroutine: nothing is running once the value
+// settled, and App.Pending names the timer while it waits. The first
+// build returns v. d <= 0 returns v at once.
+//
+//	query, setQuery := tela.UseState("")
+//	settled := tela.UseDebounced(query, 300*time.Millisecond)
+//	results := tela.UseAsync(func(ctx context.Context) ([]Hit, error) {
+//	    return search(ctx, settled)
+//	}, settled) // one request per pause, not one per key
+func UseDebounced[T comparable](v T, d time.Duration) T {
+	settled, setSettled := UseState(v)
+	wait := d
+	if settled == v {
+		wait = 0 // nothing to wait for
+	}
+	UseTimeout(wait, func() { setSettled.Set(v) }, v)
+	if d <= 0 {
+		return v
+	}
+	return settled
+}
+
 // UseLayoutEffect is [UseEffect], but the effect runs in the frame after
 // layout and before paint, with the same dependencies and cleanups. Its
 // state updates are applied in the next frame. The scrolls it asks for

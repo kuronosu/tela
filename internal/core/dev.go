@@ -385,6 +385,7 @@ const (
 	hookHighContrast  // UseHighContrast (env.go)
 	hookTextScale     // UseTextScale (env.go)
 	hookAccentColor   // UseAccentColor (env.go)
+	hookAsync         // UseAsync (async.go)
 )
 
 // hookNames name the kinds in dev messages and in the hook signatures of
@@ -427,6 +428,7 @@ var hookNames = [...]string{
 	hookHighContrast:  "UseHighContrast",
 	hookTextScale:     "UseTextScale",
 	hookAccentColor:   "UseAccentColor",
+	hookAsync:         "UseAsync",
 }
 
 func (k hookKind) String() string { return hookNames[k] }
