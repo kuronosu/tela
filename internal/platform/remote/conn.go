@@ -105,6 +105,7 @@ type conn struct {
 	mu     sync.Mutex
 	queue  []outItem
 	err    error // set once, when the connection fails or is closed
+	ending bool  // closeClean ends the stream: nothing more is queued
 	signal chan struct{}
 	done   chan struct{} // closed with err
 }
@@ -157,8 +158,11 @@ func (c *conn) flush(timeout time.Duration) {
 
 func (c *conn) enqueue(it outItem) error {
 	c.mu.Lock()
-	if c.err != nil {
+	if c.err != nil || c.ending {
 		err := c.err
+		if err == nil {
+			err = ErrClosed
+		}
 		c.mu.Unlock()
 		if it.file != nil {
 			it.file.Close()
@@ -185,6 +189,9 @@ func (c *conn) fail(err error) {
 		c.mu.Unlock()
 		return
 	}
+	if c.ending && errors.Is(err, io.EOF) {
+		err = ErrClosed // the peer's answer to closeClean
+	}
 	c.err = err
 	q := c.queue
 	c.queue = nil
@@ -194,6 +201,45 @@ func (c *conn) fail(err error) {
 	for _, it := range q {
 		finish(it, err)
 	}
+}
+
+// closeClean ends the connection from this side after the frames queued
+// so far: once they are written it shuts the write side down, so the peer
+// reads them, then EOF, and closes its own side; this side's reader then
+// reads what the peer sent to the end, and closes readerDone; then the
+// connection closes (ErrClosed). A stream socket closed with unread data
+// in it resets the peer (Linux's AF_UNIX gives its next read ECONNRESET
+// instead of EOF; Windows resets too), so closing at once made a clean end
+// depend on whether the peer's last messages had been read. It closes at
+// once after timeout, or when the peer does not close.
+func (c *conn) closeClean(readerDone <-chan struct{}, timeout time.Duration) {
+	t := time.NewTimer(timeout)
+	defer t.Stop()
+	written := make(chan error, 1)
+	c.mu.Lock()
+	if c.err != nil || c.ending {
+		c.mu.Unlock()
+		c.fail(ErrClosed)
+		return
+	}
+	c.ending = true
+	c.queue = append(c.queue, outItem{done: written})
+	c.mu.Unlock()
+	select {
+	case c.signal <- struct{}{}:
+	default:
+	}
+	select {
+	case err := <-written:
+		if cw, ok := c.t.(interface{ CloseWrite() error }); ok && err == nil && cw.CloseWrite() == nil {
+			select {
+			case <-readerDone:
+			case <-t.C:
+			}
+		}
+	case <-t.C:
+	}
+	c.fail(ErrClosed)
 }
 
 // Err returns the error the connection failed with, or nil while it works.

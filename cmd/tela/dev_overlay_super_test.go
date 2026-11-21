@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"sync"
 	"testing"
 	"time"
 
@@ -291,5 +292,63 @@ func TestOverlayCostsNothingWithoutProblem(t *testing.T) {
 	h.ui(func() { active = h.s.ov.active() })
 	if active {
 		t.Error("the overlay is active with no problem")
+	}
+}
+
+// TestOverlayProblemDuringPromotion: a build fails while the supervisor
+// has not yet learned that the host promoted the first build, which the
+// window already shows (the host shows the first child as soon as it
+// presents). The problem is docked over the live app, and the late
+// promotion of the older build does not clear it. On macos-latest
+// TestOverlayCloseButtonAndClear and TestOverlayResizeRedraws so expected
+// a full panel (the problem was not live) and saw the promotion take the
+// panel away: the window showed the plain frame for 60 s.
+func TestOverlayProblemDuringPromotion(t *testing.T) {
+	var (
+		mu   sync.Mutex
+		late []func()
+	)
+	h := newDevHarness(t, devOptions{}, func(c *supervisorConfig) {
+		c.overlay = true
+		c.promotedHook = func(gen int, deliver func()) {
+			mu.Lock()
+			defer mu.Unlock()
+			if gen == 1 {
+				late = append(late, deliver)
+				return
+			}
+			deliver()
+		}
+	})
+	h.startBig()
+	h.fb.mu.Lock()
+	h.fb.fail[2] = overlayBuildError
+	h.fb.mu.Unlock()
+	h.s.push(evKey{'r'})
+	h.logged("build failed", 1)
+	p := h.view.lastProblem()
+	if !p.live {
+		t.Errorf("a build error while the window shows the first build is not live: %+v", p)
+	}
+	h.waitFrame("the panel", h.withOverlay(child(1, 0, 0), p))
+
+	mu.Lock()
+	deliver := late
+	late = nil
+	mu.Unlock()
+	if len(deliver) != 1 {
+		t.Fatalf("%d promotions held, want the first build's", len(deliver))
+	}
+	deliver[0]()
+	h.logged("started in", 1)
+	h.ui(func() {}) // what the promotion posted to the host has run
+	var active bool
+	h.ui(func() { active = h.s.ov.active() })
+	if !active {
+		t.Fatal("the first build's late promotion cleared the newer build's problem")
+	}
+	h.waitFrame("the panel after the promotion", h.withOverlay(child(1, 0, 0), p))
+	if got := h.view.entries(); len(got) != 1 {
+		t.Errorf("problems %v, want only the build error", got)
 	}
 }

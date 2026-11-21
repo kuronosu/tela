@@ -90,6 +90,12 @@ type supervisorConfig struct {
 	// Timeouts; zero means devloop's, and reportWait and exitSettle the
 	// defaults below.
 	saveTimeout, firstFrameTimeout, stopTimeout, reportWait, exitSettle time.Duration
+
+	// promotedHook, in tests, receives the outcome of each promotion as
+	// a function that delivers it to the supervisor, to call when the
+	// test chooses: a supervisor that learns late that the host shows the
+	// new build (nil: delivered at once).
+	promotedHook func(gen int, deliver func())
 }
 
 // defaultReportWait is how long the line of a finished swap waits for the
@@ -123,6 +129,7 @@ type supervisor struct {
 	swap     *swapState
 	held     *heldLine // the line of the latest swap, waiting for the state report
 	problem  bool      // a problem is shown
+	probGen  int       // the build the problem is of
 	started  bool      // a child has been promoted once
 	hinted   bool      // the slow-start hint was printed
 
@@ -875,9 +882,14 @@ func (s *supervisor) firstFrame(c *remote.Child) {
 	sw.first = time.Now()
 	gen := p.gen
 	h := s.host
+	hook := s.cfg.promotedHook
 	h.Post(func() {
-		err := h.Promote(c)
-		s.push(evPromoted{gen, err})
+		ev := evPromoted{gen, h.Promote(c)}
+		if hook != nil {
+			hook(gen, func() { s.push(ev) })
+			return
+		}
+		s.push(ev)
 	})
 }
 
@@ -907,7 +919,10 @@ func (s *supervisor) promoted(gen int, err error) {
 	if old != nil && old != sw.proc {
 		s.stop(old)
 	}
-	if s.problem {
+	// The build shown now clears the problems of the builds up to it; a
+	// newer build's (one that failed while this promotion was under way)
+	// stays until a build after it is shown.
+	if s.problem && s.probGen <= gen {
 		s.problem = false
 		s.view.clear()
 	}
@@ -1268,8 +1283,12 @@ type problemView interface {
 
 func (s *supervisor) show(p problem) {
 	s.flushHeld()
-	s.problem = true
-	p.live = s.active != nil
+	s.problem, s.probGen = true, p.gen
+	// A child whose promotion is under way counts: the host shows it
+	// already (it shows the first child that connects while none is
+	// active, and Promote presents it), though the supervisor learns so
+	// only from evPromoted.
+	p.live = s.active != nil || (s.swap != nil && s.swap.promoting)
 	s.view.show(p)
 }
 
