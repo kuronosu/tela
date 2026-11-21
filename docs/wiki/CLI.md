@@ -358,7 +358,7 @@ stable.
 ## tela dev
 
 ```text
-tela dev [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [--devtools] [-v] [pkg]
+tela dev [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [--devtools] [--debug] [-v] [pkg]
 ```
 
 Runs the app and reloads it every time you save, in the same window and with
@@ -435,7 +435,25 @@ panel and the next good build clears it.
 everything of the dev loop compiles only with it; a plain `go build` links
 none of it. Dev builds also skip the VCS stamp, the symbol table and DWARF,
 and inlining in the app's package, to build faster (panics keep their
-`file:line`, but a debugger cannot attach).
+`file:line`, but a debugger cannot attach without `--debug`).
+
+**Debugging:** with `--debug` the builds keep DWARF and the symbol table, and
+no package is optimized or inlined (`-gcflags=all=-N -l`), so
+[Delve](https://github.com/go-delve/delve) can attach; the first build takes
+longer, as every package is compiled again once. Each reload is a new process,
+so every start prints its process ID and the command to attach to it:
+
+```text
+tela dev: build 3 started (pid 41872); attach a debugger with: dlv attach 41872
+```
+
+Attach again after each reload (in an editor, an "attach to process" launch
+configuration with that PID). On Linux, attaching to a process the debugger did
+not start needs ptrace permission (`kernel.yama.ptrace_scope` set to 0, or
+`sudo dlv attach`). While the debugger holds the app at a breakpoint the window
+does not update, and a reload in the meantime starts without the state. A
+`-gcflags` in `GOFLAGS`, or an `-ldflags` there with `-s` or `-w`, replaces what
+`--debug` needs; `tela dev` warns and leaves it to you.
 
 | Flag | Does |
 |---|---|
@@ -444,6 +462,8 @@ and inlining in the app's package, to build faster (panics keep their
 | `--dark` | The app sees the system in dark mode (`App.ColorScheme` still wins) |
 | `--preview NAME` | Runs the preview `NAME` of the package's `Previews` |
 | `--no-state` | Starts every build fresh |
+| `--devtools` | Opens the DevTools window beside the app (see [tela devtools](#tela-devtools)) |
+| `--debug` | Builds for a debugger (DWARF, no optimizations or inlining) and prints each build's process ID and the `dlv attach` command |
 | `-v` | Prints the timing of every step of a reload, and each hook slot it could not keep, with the reason |
 
 Keys, when standard input is a terminal: `r` reloads keeping state, `R`

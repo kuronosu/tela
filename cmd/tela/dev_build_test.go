@@ -2,10 +2,16 @@ package main
 
 import (
 	"context"
+	"debug/buildinfo"
+	"debug/dwarf"
+	"debug/elf"
+	"debug/macho"
+	"debug/pe"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -122,6 +128,134 @@ func TestBuildArgs(t *testing.T) {
 	}
 }
 
+// TestDevBuildDebugFlags: tela dev --debug keeps the DWARF information and
+// turns off optimizations and inlining in every package, unless GOFLAGS
+// sets those flags itself (the command line would replace them).
+func TestDevBuildDebugFlags(t *testing.T) {
+	for _, c := range []struct{ goflags, want string }{
+		{"", "-tags teladev -buildvcs=false -gcflags=all=-N -l"},
+		{"-ldflags=-X=main.version=1", "-tags teladev -buildvcs=false -gcflags=all=-N -l"},
+		{"-gcflags=-m", "-tags teladev -buildvcs=false"},
+	} {
+		if got := strings.Join(devBuildFlags(c.goflags, true), " "); got != c.want {
+			t.Errorf("--debug, GOFLAGS=%q: %q, want %q", c.goflags, got, c.want)
+		}
+	}
+	for _, c := range []struct {
+		goflags string
+		want    []string
+	}{
+		{"", nil},
+		{"-mod=mod -ldflags=-X=main.v=1", nil},
+		{"-gcflags=-m", []string{"-gcflags"}},
+		{`"-ldflags=-s -w"`, []string{"-ldflags"}},
+		{"-ldflags=-w -gcflags=all=-N", []string{"-gcflags", "-ldflags"}},
+	} {
+		if got := debugFlagConflicts(c.goflags); !slices.Equal(got, c.want) {
+			t.Errorf("debugFlagConflicts(%q) = %q, want %q", c.goflags, got, c.want)
+		}
+	}
+	b := &goBuilder{arg: ".", debug: true}
+	if got, want := strings.Join(b.args("/tmp/app-1"), " "), "build -tags teladev -buildvcs=false -gcflags=all=-N -l -o /tmp/app-1 ."; got != want {
+		t.Errorf("debug args %q, want %q", got, want)
+	}
+}
+
+// TestDevBuildDebugKeepsDWARF builds a program as tela dev does, with and
+// without --debug: the debug build carries DWARF (so Delve can attach) and
+// its build information says optimizations and inlining are off; the
+// default build has no DWARF (ADR-116).
+func TestDevBuildDebugKeepsDWARF(t *testing.T) {
+	skipShort(t)
+	goBin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip(err)
+	}
+	dir := tinyModule(t, "package main\n\nfunc main() { println(\"hi\") }\n")
+	for _, debug := range []bool{false, true} {
+		b := tinyBuilder(t, goBin, dir)
+		b.debug = debug
+		res := b.build(context.Background(), 1)
+		if res.err != nil {
+			t.Fatalf("build (debug %v): %v\n%s", debug, res.err, res.output)
+		}
+		has, err := hasDWARF(res.exe)
+		if err != nil {
+			t.Fatalf("reading %s: %v", res.exe, err)
+		}
+		if has != debug {
+			t.Errorf("debug %v: the binary has DWARF %v, want %v", debug, has, debug)
+		}
+		info, err := buildinfo.ReadFile(res.exe)
+		if err != nil {
+			t.Fatalf("build info: %v", err)
+		}
+		settings := map[string]string{}
+		for _, s := range info.Settings {
+			settings[s.Key] = s.Value
+		}
+		wantGC, wantLD := "-l", "-s -w"
+		if debug {
+			wantGC, wantLD = "all=-N -l", ""
+		}
+		if settings["-gcflags"] != wantGC || settings["-ldflags"] != wantLD {
+			t.Errorf("debug %v: -gcflags %q, -ldflags %q; want %q, %q", debug, settings["-gcflags"], settings["-ldflags"], wantGC, wantLD)
+		}
+		res.remove()
+	}
+}
+
+// hasDWARF reports whether the executable at path carries DWARF debug
+// information that starts with a compile unit, in the object format of
+// the host (ELF, PE or Mach-O).
+func hasDWARF(path string) (bool, error) {
+	type dwarfFile interface {
+		DWARF() (*dwarf.Data, error)
+		Close() error
+	}
+	var f dwarfFile
+	var sections []string
+	switch runtime.GOOS {
+	case "windows":
+		pf, err := pe.Open(path)
+		if err != nil {
+			return false, err
+		}
+		f = pf
+		for _, s := range pf.Sections {
+			sections = append(sections, s.Name)
+		}
+	case "darwin", "ios":
+		mf, err := macho.Open(path)
+		if err != nil {
+			return false, err
+		}
+		f = mf
+		for _, s := range mf.Sections {
+			sections = append(sections, s.Name)
+		}
+	default:
+		ef, err := elf.Open(path)
+		if err != nil {
+			return false, err
+		}
+		f = ef
+		for _, s := range ef.Sections {
+			sections = append(sections, s.Name)
+		}
+	}
+	defer f.Close()
+	if !slices.ContainsFunc(sections, func(s string) bool { return strings.Contains(s, "debug_info") }) {
+		return false, nil
+	}
+	d, err := f.DWARF()
+	if err != nil {
+		return false, nil
+	}
+	e, err := d.Reader().Next()
+	return err == nil && e != nil && e.Tag == dwarf.TagCompileUnit, nil
+}
+
 // TestDevBuildFlagsGOFLAGS leaves the flags the user sets in GOFLAGS to
 // them: the command line would replace them.
 func TestDevBuildFlagsGOFLAGS(t *testing.T) {
@@ -136,7 +270,7 @@ func TestDevBuildFlagsGOFLAGS(t *testing.T) {
 		// The user's tags follow teladev (the command line replaces them).
 		{"-mod=mod -tags=a,b", "-tags teladev,a,b -buildvcs=false -ldflags=-s -w -gcflags=-l"},
 	} {
-		if got := strings.Join(devBuildFlags(c.goflags), " "); got != c.want {
+		if got := strings.Join(devBuildFlags(c.goflags, false), " "); got != c.want {
 			t.Errorf("GOFLAGS=%q: %q, want %q", c.goflags, got, c.want)
 		}
 	}

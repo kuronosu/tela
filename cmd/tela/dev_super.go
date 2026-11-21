@@ -827,7 +827,14 @@ func (s *supervisor) startChild(sw *swapState, state []byte) {
 	})
 	gen := res.gen
 	sw.timer = time.AfterFunc(s.cfg.firstFrameTimeout, func() { s.push(evTimeout{gen}) })
-	s.log.verbosef("build %d started (pid %d)", gen, cmd.Process.Pid)
+	if s.opts.Debug {
+		// Each reload is a new process: a debugger attaches to each one
+		// (ADR-310).
+		pid := cmd.Process.Pid
+		s.log.printf("build %d started (pid %d); attach a debugger with: dlv attach %d", gen, pid, pid)
+	} else {
+		s.log.verbosef("build %d started (pid %d)", gen, cmd.Process.Pid)
+	}
 }
 
 // childEnv is the environment of a child (ADR-115, package devloop).

@@ -7,7 +7,10 @@ import (
 	"image/color"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -363,6 +366,43 @@ func TestDevFirstStartAndSwapWithState(t *testing.T) {
 	}
 	if got := h.view.entries(); len(got) != 0 {
 		t.Errorf("problems shown: %v", got)
+	}
+}
+
+// TestDevDebugPrintsAttach: with --debug every start of a build prints its
+// process ID and the Delve command that attaches to it, since each reload
+// is a new process (ADR-310); without it, only -v names the process.
+func TestDevDebugPrintsAttach(t *testing.T) {
+	h := newDevHarness(t, devOptions{Debug: true}, nil)
+	h.expect("first start", 1, 0, 0)
+	h.s.push(evKey{'r'})
+	h.expect("reload", 2, 0, 0)
+	var pid int
+	h.ui(func() {
+		if c := h.s.host.Active(); c != nil {
+			pid = c.PID()
+		}
+	})
+	out := h.out.String()
+	re := regexp.MustCompile(`build (\d+) started \(pid (\d+)\); attach a debugger with: dlv attach (\d+)\n`)
+	var gens []string
+	for _, m := range re.FindAllStringSubmatch(out, -1) {
+		gens = append(gens, m[1])
+		if m[2] != m[3] {
+			t.Errorf("line %q attaches to another process", m[0])
+		}
+		if m[1] == "2" && m[2] != strconv.Itoa(pid) {
+			t.Errorf("line %q: the running build's pid is %d", m[0], pid)
+		}
+	}
+	if !slices.Equal(gens, []string{"1", "2"}) {
+		t.Errorf("attach lines for builds %v, want 1 and 2:\n%s", gens, out)
+	}
+
+	quiet := newDevHarness(t, devOptions{}, nil)
+	quiet.expect("first start without --debug", 1, 0, 0)
+	if out := quiet.out.String(); strings.Contains(out, "dlv attach") || strings.Contains(out, "started (pid") {
+		t.Errorf("a start without --debug or -v named the process:\n%s", out)
 	}
 }
 
