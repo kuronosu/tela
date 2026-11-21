@@ -511,27 +511,44 @@ The window follows the app live and survives its reloads. Four panels:
   folding, a search over kinds, keys, text and classes, a *Components* view
   that leaves out the primitives, and a window picker when the app has several
   windows. The crosshair turns on **pick mode** in the app: the box under the
-  pointer is highlighted, a click selects it here (and does not reach the
-  app), Esc cancels. Hovering a row highlights its element in the app. The
+  pointer is highlighted, a click selects it here, Esc cancels. Pick mode
+  picks what is painted, as Chrome's picker does (`pointer-events-none` and
+  inert elements too), and keeps the app's input (clicks, the wheel, keys,
+  the title bar) from it until it ends; only the release of a press the app
+  already held reaches it. Hovering a row highlights its element in the app. The
   selection shows its source line (`settings.go:42`), **why it rendered** (the
   causes of its last builds, newest first: a `UseState` and the line that
   declared it, new props and which fields differ, a context, a parent that
   built it), its hooks with their values, its props, the box model (margin,
   border, padding and content, as Chrome draws it) and its computed style.
 - **Accessibility**: the semantics tree as `tela inspect` prints it. Selecting
-  a node selects its element, with the same details.
+  a node selects its element, with the same details; hovering or selecting a
+  node highlights its element in the app, as the Elements panel does.
+
+The details pane of both panels is as wide as you drag the splitter at its
+edge (or move it with the arrow keys once focused; a double click puts the
+default back). Its copy button puts the element on the clipboard as JSON (its
+details and its box), as its source location (`path/settings.go:42`, which
+editors open) or as its line of the aria snapshot. The tree follows the app by
+fetching what changed since the version it has, and a selection fetches its
+own box only, so big trees stay quick.
 - **Profiler**: *Record*, use the app, *Stop*. Each frame is a bar stacked by
   phase (input, animate, build, style, layout, paint, semantics, raster,
   present, effects) against the 16.7 ms line; a summary counts the frames,
   the ones over budget and the slowest phase. Click a frame for its time per
   phase, its counts and damage, and the elements it built with the reason of
   each build; a row opens the element in the Elements panel.
-- **Logs**: what the app printed on standard error and the warnings and errors
+- **Logs**: what the app printed on standard error, the warnings and errors
   of its trees (unknown classes, duplicate keys, state that a reload cannot
-  keep), filterable by level, source and text.
+  keep; once each, though the app prints them on standard error too) and
+  `tela dev`'s own lines (building, a failed build with its errors),
+  filterable by level, source and text. Entries logged while the app is idle
+  arrive at once.
 
-The look follows the system's color scheme: graphite in the dark, a calm grey
-in the light.
+The look follows the system's color scheme, graphite in the dark and a calm
+grey in the light, and is dark when the system states no preference, as
+Chrome's and Flutter's DevTools are; the sun and moon button in the toolbar
+switches it.
 
 ## tela lint
 

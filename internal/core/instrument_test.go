@@ -12,6 +12,7 @@ import (
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/style"
+	"github.com/kuronosu/tela/internal/testutil/sitechain"
 )
 
 // The instrumentation's tests (instrument.go) are not parallel: the
@@ -321,6 +322,37 @@ func TestInstrumentCreationSites(t *testing.T) {
 	}
 	if c := insOne(t, tr, "core.TestInstrumentCreationSites.func1.1"); c.Site.Line != compLine {
 		t.Errorf("the root component made at %v, want line %d", c.Site, compLine)
+	}
+}
+
+// A node made at the end of a chain of helpers that are not the app's,
+// deeper than the frames captured at first, is still at the app's line,
+// not at the declaration of the component around it; a chain that ends
+// in the build machinery has no app frame to find.
+func TestInstrumentCreationSiteDeepChain(t *testing.T) {
+	var deepLine, compLine int
+	tr := newInsTree(t, func() Node {
+		return here(&compLine, Component(func() Node {
+			return Primitive(style.KindDiv,
+				sitechain.Call(20, Primitive, style.KindSpan, here(&deepLine, Child(Key("deep")))),
+				sitechain.Call(3, Primitive, style.KindSpan, Child(Key("shallow"))),
+			)
+		}))
+	})
+	for _, e := range tr.Elements(false) {
+		switch e.Key {
+		case "deep":
+			if !sameFile(e.Site) || e.Site.Line != deepLine {
+				t.Errorf("the node made under 20 helper frames is at %+v, want this file's line %d", e.Site, deepLine)
+			}
+			if s := tr.AppSite(e.ID); s.Line != deepLine {
+				t.Errorf("its app site is %+v, want line %d (not the component's %d)", s, deepLine, compLine)
+			}
+		case "shallow":
+			if !sameFile(e.Site) || e.Site.Line != deepLine+1 {
+				t.Errorf("the node made under 3 helper frames is at %+v, want line %d", e.Site, deepLine+1)
+			}
+		}
 	}
 }
 

@@ -282,6 +282,7 @@ func TestSystemSettingsV2(t *testing.T) {
 	expectPanic(t, "TextScale", func() { CheckSystemSettings(SystemSettings{TextScale: math.NaN()}) })
 	expectPanic(t, "TextScale", func() { CheckSystemSettings(SystemSettings{TextScale: 5}) })
 	expectPanic(t, "negative", func() { CheckSystemSettings(SystemSettings{DoubleClickInterval: -1}) })
+	expectPanic(t, "both DarkMode and LightMode", func() { CheckSystemSettings(SystemSettings{DarkMode: true, LightMode: true}) })
 	// Settings stay comparable (SettingsEvent handling compares them).
 	if (SystemSettings{TextScale: 1}) == (SystemSettings{TextScale: 2}) {
 		t.Errorf("settings compare equal")

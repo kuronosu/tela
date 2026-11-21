@@ -269,10 +269,24 @@ func (c *toolsClient) Element(ctx context.Context, window uint32, id core.Elemen
 	return r, c.call(ctx, "element", map[string]any{"window": window, "id": id}, &r)
 }
 
+// ElementsSince returns the element list as a change from the list of
+// version (0: the whole list).
+func (c *toolsClient) ElementsSince(ctx context.Context, window uint32, version uint64) (core.ElementsDiff, error) {
+	var r core.ElementsDiff
+	return r, c.call(ctx, "elements", map[string]any{"window": window, "diff": true, "version": version}, &r)
+}
+
 // Inspect returns the layout of element id, or of the whole tree for 0.
 func (c *toolsClient) Inspect(ctx context.Context, window uint32, id core.ElementID) (core.InspectNode, error) {
 	var r core.InspectNode
 	return r, c.call(ctx, "inspect", map[string]any{"window": window, "id": id}, &r)
+}
+
+// InspectDepth is Inspect down to depth levels of children (0: the box
+// alone; the last level counts the rest in More).
+func (c *toolsClient) InspectDepth(ctx context.Context, window uint32, id core.ElementID, depth int) (core.InspectNode, error) {
+	var r core.InspectNode
+	return r, c.call(ctx, "inspect", map[string]any{"window": window, "id": id, "depth": depth}, &r)
 }
 
 // toolsSemantics is the aria snapshot of a window with, per line, its node

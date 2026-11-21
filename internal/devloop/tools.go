@@ -27,12 +27,16 @@ import (
 //     pushes [KindToolsFrames] and [KindToolsLogs].
 //   - [KindToolsElements]: the mounted elements of the window's tree, in
 //     tree order (ToolsParams.Detail adds hooks, props and builds). Reply
-//     {"elements": [ElementInfo...]}.
+//     {"elements": [ElementInfo...]}. With ToolsParams.Diff, the change
+//     from the list of version ToolsParams.Version
+//     (core.Tree.ElementsSince): reply an ElementsDiff, {"version",
+//     "full", "elements", "order"}.
 //   - [KindToolsElement]: one element with its details (ToolsParams.ID).
 //     Reply an ElementInfo.
 //   - [KindToolsInspect]: the layout of the element ToolsParams.ID, or of
-//     the whole tree for 0, as tela inspect --layout gives it. Reply an
-//     InspectNode.
+//     the whole tree for 0, as tela inspect --layout gives it, down to
+//     ToolsParams.Depth levels of children (the nodes of the last level
+//     count the ones left out in "more"). Reply an InspectNode.
 //   - [KindToolsSemantics]: the aria snapshot of the window (the YAML of
 //     tela inspect) with, per line, the semantics node it prints, that
 //     node's element (0 for text and /url lines) and the element's
@@ -116,6 +120,13 @@ type ToolsParams struct {
 	// X and Y are a point of the window in logical pixels.
 	X float32 `json:"x,omitempty"`
 	Y float32 `json:"y,omitempty"`
+	// Diff asks KindToolsElements for the change from the list of
+	// version Version (0: none) instead of the list.
+	Diff    bool   `json:"diff,omitempty"`
+	Version uint64 `json:"version,omitempty"`
+	// Depth bounds the levels of children of KindToolsInspect (0: the box
+	// alone); nil for all.
+	Depth *int `json:"depth,omitempty"`
 }
 
 // ToolsLogBatch is the log entries of one window (the JSON of

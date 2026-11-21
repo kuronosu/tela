@@ -105,9 +105,13 @@ type Model struct {
 	selSeq   int // the latest selection's number: older answers are dropped
 	frameSeq int
 	treeSeq  int // the latest tree fetch's number: older answers are dropped
-	logSeq   uint64
-	timer    *time.Timer // the pending tree refresh
-	started  bool
+	// elsVersion is the session's version of v.Els, the tree of window
+	// elsWindow (refreshTree asks for the changes since).
+	elsVersion uint64
+	elsWindow  uint32
+	logSeq     uint64
+	timer      *time.Timer // the pending tree refresh
+	started    bool
 
 	hlMu   sync.Mutex
 	hlWant core.ElementID
@@ -290,6 +294,50 @@ func (m *Model) note(n Note) {
 			m.setWindows(w.Windows)
 			m.scheduleRefresh()
 		}
+	case "dropped":
+		var d struct {
+			Events map[string]int `json:"events"`
+		}
+		json.Unmarshal(n.Params, &d)
+		m.resync(d.Events)
+	}
+}
+
+// resync fetches again what the notifications the session dropped would
+// have brought (its queue for this client was full): the build, the
+// windows and the tree, the log entries and the recorded frames after the
+// last ones the model has. A picked notification ends pick mode, so pick
+// mode is off when one was dropped (what it picked is lost).
+func (m *Model) resync(events map[string]int) {
+	if events["picked"] > 0 {
+		m.update(func(v *View) { v.Picking = false })
+	}
+	if info, err := m.src.Info(m.ctx); err == nil {
+		m.update(func(v *View) {
+			if info.Build != v.Build {
+				m.relocate = true // a reload was missed: the IDs started again
+				v.Frame, v.FrameEls, v.FrameMore = 0, nil, 0
+			}
+			v.Info, v.Build = info, info.Build
+		})
+	}
+	m.loadAll()
+	m.mu.Lock()
+	since, rec, win := m.logSeq, m.v.Recording, m.v.Window
+	last := 0
+	if n := len(m.v.Frames); n > 0 {
+		last = m.v.Frames[n-1].Frame
+	}
+	m.mu.Unlock()
+	if es, seq, err := m.src.Logs(m.ctx, since); err == nil {
+		m.addLogs(es, seq)
+	} else {
+		m.fail("logs", err)
+	}
+	if rec {
+		if ps, err := m.src.Profiles(m.ctx, win, last); err == nil && len(ps) > 0 {
+			m.frames(Frames{Window: win, Profiles: ps})
+		}
 	}
 }
 
@@ -299,17 +347,27 @@ func (m *Model) note(n Note) {
 // selection by ID, or by path when the IDs started again (a reload: a new
 // build numbers its elements as it builds them, so an old ID may name
 // another element).
+//
+// The tree comes as changes (Source.ElementsSince): the session answers
+// with what changed since the version of the list the model has, which
+// it applies to that list, so a frame that rebuilt a counter costs the
+// counter's text and not the whole tree.
 func (m *Model) refreshTree() {
 	m.mu.Lock()
 	win := m.v.Window
 	m.treeSeq++
 	seq := m.treeSeq
+	since, base := m.elsVersion, m.v.Els
+	if m.elsWindow != win {
+		since, base = 0, nil
+	}
 	m.mu.Unlock()
-	els, err := m.src.Elements(m.ctx, win, false)
+	d, err := m.src.ElementsSince(m.ctx, win, since)
 	if err != nil {
 		m.fail("elements", err)
 		return
 	}
+	els := applyElements(base, d)
 	paths, index := pathsOf(els)
 	var reselect core.ElementID
 	var need bool
@@ -317,6 +375,7 @@ func (m *Model) refreshTree() {
 		if seq != m.treeSeq {
 			return // a newer fetch is on its way
 		}
+		m.elsVersion, m.elsWindow = d.Version, win
 		v.Conn = Connected
 		v.Err = ""
 		v.Els, v.Paths, v.Index = els, paths, index
@@ -345,6 +404,48 @@ func (m *Model) refreshTree() {
 	if m.tabIs("a11y") {
 		m.loadSemantics()
 	}
+}
+
+// applyElements returns the list d makes of base, the list of the version
+// d was asked from: d's own when it is whole (or from a session that
+// gives no versions), else base with the changed elements replaced, in
+// d's order when it has one. base is not changed.
+func applyElements(base []core.ElementInfo, d core.ElementsDiff) []core.ElementInfo {
+	if d.Full || d.Version == 0 {
+		if d.Elements == nil {
+			return []core.ElementInfo{}
+		}
+		return d.Elements
+	}
+	if len(d.Elements) == 0 && d.Order == nil {
+		return base
+	}
+	changed := make(map[core.ElementID]core.ElementInfo, len(d.Elements))
+	for _, e := range d.Elements {
+		changed[e.ID] = e
+	}
+	if d.Order == nil {
+		out := slices.Clone(base)
+		for i := range out {
+			if e, ok := changed[out[i].ID]; ok {
+				out[i] = e
+			}
+		}
+		return out
+	}
+	old := make(map[core.ElementID]int, len(base))
+	for i := range base {
+		old[base[i].ID] = i
+	}
+	out := make([]core.ElementInfo, 0, len(d.Order))
+	for _, id := range d.Order {
+		if e, ok := changed[id]; ok {
+			out = append(out, e)
+		} else if i, ok := old[id]; ok {
+			out = append(out, base[i])
+		}
+	}
+	return out
 }
 
 func (m *Model) tabIs(t string) bool {
@@ -481,7 +582,9 @@ func (m *Model) fetchDetail(id core.ElementID) {
 	info, err := m.src.Element(m.ctx, win, id)
 	var box *core.InspectNode
 	if err == nil {
-		if b, berr := m.src.Inspect(m.ctx, win, id); berr == nil {
+		// The box alone: the details show its box model and style, and a
+		// big root's subtree would come whole otherwise.
+		if b, berr := m.src.Inspect(m.ctx, win, id, 0); berr == nil {
 			box = &b
 		}
 	}
@@ -610,6 +713,10 @@ func (m *Model) picked(p Picked) {
 }
 
 // --- semantics ---
+
+// LoadSemantics fetches the aria snapshot of the window (the Elements
+// panel's copy menu needs it), on a goroutine of its own.
+func (m *Model) LoadSemantics() { go m.loadSemantics() }
 
 func (m *Model) loadSemantics() {
 	win := m.View().Window

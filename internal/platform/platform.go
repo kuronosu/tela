@@ -511,6 +511,13 @@ type SystemSettings struct {
 	// DarkMode is the user's color scheme preference (CSS
 	// prefers-color-scheme: dark).
 	DarkMode bool
+	// LightMode reports that the user prefers the light scheme
+	// explicitly (prefers-color-scheme: light). With neither DarkMode nor
+	// LightMode the system states no preference (the portal's
+	// color-scheme 0, a desktop without the setting): the layers above
+	// then show the light scheme unless the app asks for another
+	// (contract v17, ADR-304). Windows and macOS always state one.
+	LightMode bool
 	// ReducedMotion asks for minimal animation (CSS
 	// prefers-reduced-motion: reduce).
 	ReducedMotion bool
@@ -576,6 +583,9 @@ func CheckSystemSettings(s SystemSettings) {
 	}
 	if math.IsNaN(s.TextScale) || s.TextScale < 0 || s.TextScale > MaxTextScale {
 		panicf("platform: SystemSettings.TextScale %v is out of range; give a factor in (0, %d], or 0 for unknown", s.TextScale, MaxTextScale)
+	}
+	if s.DarkMode && s.LightMode {
+		panicf("platform: SystemSettings has both DarkMode and LightMode; set the one the user prefers, or neither for no preference")
 	}
 }
 

@@ -15,22 +15,29 @@ import (
 // In pick mode the box under the pointer is highlighted with its box model
 // (Chrome DevTools' colors: content, padding, border, margin) and a label
 // with its kind and size, laid out at the display scale like the other
-// overlay labels. Pointer events do not reach the app (wheel scrolls do,
-// so the page can be scrolled to what is picked): a primary press picks
-// the element under it, the nearest one that owns a box (the element hit
-// testing finds, through transforms and scroll offsets), calls the
+// overlay labels. A primary press picks the element under it, the nearest
+// one that owns a box (found by PickTest, as Chrome's inspect picker finds
+// it: the box painted there, through transforms and scroll offsets,
+// whatever its pointer-events and inert ones included), calls the
 // callback with its ID and ends pick mode; the rest of that press (its
-// moves and release) is swallowed too. A press the app holds when pick
-// mode starts ends there with a pointercancel, as when the OS takes the
-// pointer away (cancelPointers), and the rest of it is swallowed. The
-// title bar is pick mode's too: the window gets no hit regions while it
-// is on (Host.syncRegions), so a press there picks instead of moving the
-// window, and a caption click the OS took does not reach the app (it would
-// close its overlays). Escape ends it with the callback given 0, and its
-// release does not reach the app either. Highlight shows
-// the same highlight for an element chosen elsewhere (the selection in
-// tela devtools): a component's are the boxes of the primitives it renders
-// at its top level.
+// moves and release) does not reach the app. Escape ends it with the
+// callback given 0.
+//
+// Pick mode swallows the app's input: pointer events, wheel scrolls (the
+// page under the picker stays still, as the DevTools window shows it),
+// keys and IME text, and caption clicks. The title bar is pick mode's
+// too: the window gets no hit regions while it is on (Host.syncRegions),
+// so a press there picks instead of moving the window, and a caption
+// click the OS took does not reach the app (it would close its overlays).
+// The one exception is the end of a press the app saw begin: a pointer
+// held when pick mode starts keeps its releases (and its cancel) for the
+// app, and so does a key pressed before (its repeats are swallowed), so
+// that the app never holds a press it cannot end. Presses swallowed keep
+// their releases from the app after pick mode ends too.
+//
+// Highlight shows the same highlight for an element chosen elsewhere (the
+// selection in tela devtools): a component's are the boxes of the
+// primitives it renders at its top level.
 //
 // While either shows, the tree's overlay flags hold debugInspect, so the
 // window takes the overlay path (Debug reports it, and SetDebug keeps it);
@@ -46,11 +53,14 @@ type pickState struct {
 	// hl is the highlighted element.
 	hl ElementID
 	// swallow are the pointers whose presses stay out of the app until
-	// they are released: the press that picked, and those the app held
-	// when pick mode started (cancelled then). escUp swallows the release
-	// of the Escape that ended pick mode.
+	// they are released: the press that picked, and those made in pick
+	// mode. pass are the pointers the app held pressed when pick mode
+	// started, with the buttons it held: their releases reach it.
 	swallow []pointerKey
-	escUp   bool
+	pass    map[pointerKey]platform.Buttons
+	// keys are the physical keys whose presses pick mode took (Escape's
+	// included): their releases stay out of the app.
+	keys []platform.KeyCode
 }
 
 // SetPick turns pick mode on or off. picked is called on the UI thread
@@ -64,9 +74,22 @@ func (t *Tree) SetPick(on bool, picked func(ElementID)) {
 	}
 	p := &ins.pick
 	if on && !p.on {
-		// Pick mode takes the pointer: the presses the app holds end.
-		for _, k := range t.cancelPresses() {
-			p.swallowPress(k)
+		// The presses the app holds keep their releases (the app's view of
+		// its pointers: what pick mode swallowed never reached it).
+		clear(p.pass)
+		for _, k := range t.pointerKeys() {
+			ps := t.in.ptrs[k]
+			if ps == nil || ps.buttons == 0 && !ps.pressing {
+				continue
+			}
+			held := ps.buttons
+			if held == 0 {
+				held = platform.ButtonPrimary.Mask() // a touch's press holds no button
+			}
+			if p.pass == nil {
+				p.pass = map[pointerKey]platform.Buttons{}
+			}
+			p.pass[k] = held
 		}
 	}
 	p.on, p.hover, p.cb = on, nil, nil
@@ -74,22 +97,6 @@ func (t *Tree) SetPick(on bool, picked func(ElementID)) {
 		p.cb = picked
 	}
 	t.syncInspectOverlay()
-}
-
-// cancelPresses sends the app a pointercancel for each pointer it holds
-// pressed, and returns their keys.
-func (t *Tree) cancelPresses() []pointerKey {
-	var out []pointerKey
-	for _, k := range t.pointerKeys() {
-		ps := t.in.ptrs[k]
-		if ps == nil || ps.buttons == 0 && !ps.pressing {
-			continue
-		}
-		t.HandlePointer(platform.PointerEvent{Action: platform.PointerCancel, Kind: k.kind, ID: k.id,
-			Pos: platform.Point{X: ps.pos.X, Y: ps.pos.Y}, Time: t.scr.now})
-		out = append(out, k)
-	}
-	return out
 }
 
 // swallowPress keeps the rest of the press of pointer k from the app.
@@ -147,11 +154,12 @@ func (t *Tree) syncInspectOverlay() {
 	t.setOverlayFlags(f)
 }
 
-// pickTarget returns the element pick mode picks at pos: the element hit
-// testing finds there, or its nearest ancestor that owns a box (the root
-// over the window's background); nil outside the window.
+// pickTarget returns the element pick mode picks at pos: the element pick
+// mode's hit test finds there (PickTest), or its nearest ancestor that
+// owns a box (the root over the window's background); nil outside the
+// window.
 func (t *Tree) pickTarget(pos platform.Point) *Element {
-	for el := t.HitTest(pos.X, pos.Y); el != nil; el = el.styleParent() {
+	for el := t.PickTest(pos.X, pos.Y); el != nil; el = el.styleParent() {
 		if el.kind == elemPrimitive && el.box != nil && t.ownBox(el, false) && t.inTree(el.box) {
 			return el
 		}
@@ -159,12 +167,28 @@ func (t *Tree) pickTarget(pos platform.Point) *Element {
 	return nil
 }
 
-// pickPointer handles pointer event e in pick mode, and the rest of the
-// press that picked: it reports whether it took e, which then does not
-// reach the app.
+// pickPointer handles pointer event e in pick mode, the rest of the
+// presses it swallowed, and the releases of the presses the app held when
+// it started: it reports whether it took e, which then does not reach the
+// app.
 func (t *Tree) pickPointer(e platform.PointerEvent) bool {
 	p := &t.ins.pick
 	key := pointerKey{e.Kind, e.ID}
+	if held, ok := p.pass[key]; ok {
+		// A press the app saw begin ends in the app, in pick mode or after.
+		switch {
+		case e.Action == platform.PointerCancel:
+			delete(p.pass, key)
+			return false
+		case e.Action == platform.PointerUp && (held&e.Button.Mask() != 0 || e.Buttons == 0):
+			if held &^= e.Button.Mask(); held == 0 || e.Buttons == 0 {
+				delete(p.pass, key)
+			} else {
+				p.pass[key] = held
+			}
+			return false
+		}
+	}
 	if i := slices.Index(p.swallow, key); i >= 0 {
 		if e.Action == platform.PointerCancel || e.Action == platform.PointerUp && e.Buttons == 0 {
 			p.swallow = slices.Delete(p.swallow, i, i+1)
@@ -182,15 +206,13 @@ func (t *Tree) pickPointer(e platform.PointerEvent) bool {
 	case platform.PointerLeave:
 		t.pickHover(nil)
 	case platform.PointerDown:
+		p.swallowPress(key) // any button's: the app never sees this press
 		if e.Button != platform.ButtonPrimary {
 			return true
 		}
 		id := t.ins.idOf(t.pickTarget(e.Pos))
 		cb := p.cb
 		p.on, p.cb, p.hover = false, nil, nil
-		if e.Buttons != 0 {
-			p.swallowPress(key)
-		}
 		t.syncInspectOverlay()
 		if cb != nil {
 			cb(id)
@@ -209,28 +231,40 @@ func (t *Tree) pickHover(el *Element) {
 	t.debugTouch()
 }
 
-// pickKey handles key event e in pick mode: Escape ends it. It reports
-// whether it took e.
+// pickKey handles key event e in pick mode, and the releases of the keys
+// it took: Escape ends it, every other key is swallowed but the release
+// of one pressed before. It reports whether it took e.
 func (t *Tree) pickKey(e platform.KeyEvent) bool {
 	p := &t.ins.pick
-	if e.Key != platform.KeyEscape {
+	if e.Action == platform.KeyRelease {
+		if i := slices.Index(p.keys, e.Code); i >= 0 {
+			p.keys = slices.Delete(p.keys, i, i+1)
+			return true
+		}
+		return false // a key pressed before pick mode: the app ends it
+	}
+	if !p.on {
 		return false
 	}
-	if e.Action == platform.KeyRelease && p.escUp {
-		p.escUp = false
-		return true
+	if !e.Repeat && !slices.Contains(p.keys, e.Code) {
+		// A repeat is of a key held from before: its release still
+		// reaches the app.
+		p.keys = append(p.keys, e.Code)
 	}
-	if !p.on || e.Action != platform.KeyPress {
-		return false
-	}
-	cb := p.cb
-	p.on, p.cb, p.hover, p.escUp = false, nil, nil, true
-	t.syncInspectOverlay()
-	if cb != nil {
-		cb(0)
+	if e.Key == platform.KeyEscape && !e.Repeat {
+		cb := p.cb
+		p.on, p.cb, p.hover = false, nil, nil
+		t.syncInspectOverlay()
+		if cb != nil {
+			cb(0)
+		}
 	}
 	return true
 }
+
+// pickSwallows reports whether pick mode keeps the input that has no
+// press to end (wheel scrolls, IME text) from the app.
+func (t *Tree) pickSwallows() bool { return t.ins != nil && t.ins.pick.on }
 
 // highlightBoxes appends the boxes that show el: its own, or for an
 // element without one (a component, a display: contents primitive) those

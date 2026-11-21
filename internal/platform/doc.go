@@ -794,6 +794,11 @@
 // the app's tasks and recent documents (see "Desktop surfaces"). Remote
 // protocol 17 carries them.
 //
+// Contract v17 (ADR-304) adds SystemSettings.LightMode, so that a system
+// that states no color scheme preference (neither DarkMode nor LightMode)
+// is told from one that prefers light; Windows and macOS always state
+// one, the freedesktop portal may not. Remote protocol 18 carries it.
+//
 // # Drag and drop and the clipboard
 //
 // One data type, [Data], carries a drag and the clipboard: an ordered set
@@ -1653,7 +1658,8 @@
 // Wayland and X11 (freedesktop):
 //
 //   - Settings: org.freedesktop.portal.Settings (ReadAll, SettingChanged):
-//     org.freedesktop.appearance color-scheme (1: dark), accent-color
+//     org.freedesktop.appearance color-scheme (1: dark, 2: light, 0: no
+//     preference), accent-color
 //     ((ddd) in 0..1, else unknown), contrast (1: high);
 //     org.gnome.desktop.interface text-scaling-factor and enable-animations
 //     where the portal exposes them. Wayland and X11 get dark mode this way
@@ -1882,7 +1888,7 @@
 // (ADR-259: launches at the start, access keys, registered roles), 16
 // with contract v15 (ADR-297: earlier toasts), 17 with contract v16
 // (ADR-298: start at login, tasks and recent documents, served off the
-// host's UI thread):
+// host's UI thread), 18 with contract v17 (ADR-304: LightMode):
 // everything is forwarded to the host's backend, which owns the real
 // windows: drags in both directions (the answer to a drag reaches the OS
 // one round trip late, so a drag entering a window is refused until the

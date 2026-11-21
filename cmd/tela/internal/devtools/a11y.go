@@ -85,19 +85,21 @@ func (p A11yPanel) Build() tela.Node {
 		body = VirtualList(len(rows), func(int) float32 { return 26 }, func(i int) tela.Node {
 			r := rows[i]
 			return SemLine{Row: r, Selected: r.Element != 0 && r.Element == v.Selected, M: m}
-		}, ItemHeight(26), Role("tree"), AriaLabel("Accessibility tree"), Class("min-h-0 flex-1"))
+		}, ItemHeight(26), Role("tree"), AriaLabel("Accessibility tree"), Class("min-h-0 flex-1"),
+			// Off the rows, the app shows the selection's bounds.
+			OnMouseLeave(func() { m.Highlight(v.Selected) }))
 	}
-	return Div(Class("flex min-h-0 flex-1"),
-		Div(Class("flex min-w-0 flex-1 flex-col"),
+	// The highlight is this panel's while it shows.
+	tela.UseEffect(func() func() { return func() { m.Highlight(0) } }, tela.Once)
+	return DetailsSplit{Width: p.Details, OnWidth: p.SetDetails, Pane: DetailsPane{V: v, M: m},
+		Main: Fragment(
 			Div(Class("flex h-10 shrink-0 items-center gap-2 border-b border-border bg-card px-3"),
 				Span(Class("text-xs text-muted-foreground"), Textf("%d nodes", len(rows))),
 				Div(Class("flex-1")),
 				kit.Button{Variant: kit.Ghost, Size: kit.Xs, Class: "text-xs", OnClick: m.Refresh, Children: Text("Refresh")},
 			),
 			body,
-		),
-		Div(Class("flex w-[440px] shrink-0 flex-col border-l border-border bg-card"), DetailsPane{V: v, M: m}),
-	)
+		)}
 }
 
 // SemLine is a node of the semantics tree.
@@ -117,7 +119,13 @@ func (s SemLine) Build() tela.Node {
 		Class("flex h-[26px] items-center gap-2 pr-3 text-[12px] whitespace-nowrap", ifs(clickable, "cursor-default", ""),
 			ifs(s.Selected, "bg-primary/20", ifs(clickable, "hover:bg-accent/60", "")),
 			"pl-["+strconv.Itoa(12+r.Depth*16)+"px]"),
-		If(clickable, OnClick(func() { m.Select(r.Element, true) })),
+		// As in the Elements panel, the node's element shows in the app
+		// while the pointer is on its line, and once it is selected.
+		If(clickable, OnClick(func() {
+			m.Select(r.Element, true)
+			m.Highlight(r.Element)
+		})),
+		OnMouseEnter(func() { m.Highlight(r.Element) }), // a text line has none: 0 clears it
 		Span(Class("shrink-0 font-mono", ifs(isText, "text-muted-foreground", "font-medium text-violet-700 dark:text-violet-300")), Text(r.Role)),
 		If(r.Name != "", Span(Class("truncate"), Textf("%q", r.Name))),
 		Map(r.States, func(st string) tela.Node {

@@ -26,7 +26,10 @@ func TestSettingsFrom(t *testing.T) {
 			{nsAppearance, "accent-color"}: []any{0.2, 0.4, 1.0},
 			{nsAppearance, "contrast"}:     uint32(1),
 		}, platform.SystemSettings{DarkMode: true, AccentColor: color.NRGBA{51, 102, 255, 255}, HasAccentColor: true, HighContrast: true}},
-		{"prefer light", kv{{nsAppearance, "color-scheme"}: uint32(2)}, platform.SystemSettings{}},
+		{"prefer light", kv{{nsAppearance, "color-scheme"}: uint32(2)}, platform.SystemSettings{LightMode: true}},
+		{"no preference", kv{{nsAppearance, "color-scheme"}: uint32(0)}, platform.SystemSettings{}},
+		{"GNOME prefer light", kv{{nsGnomeInterface, "color-scheme"}: "prefer-light"}, platform.SystemSettings{LightMode: true}},
+		{"GNOME default", kv{{nsGnomeInterface, "color-scheme"}: "default"}, platform.SystemSettings{}},
 		{"accent out of range is unset", kv{{nsAppearance, "accent-color"}: []any{-1.0, -1.0, -1.0}}, platform.SystemSettings{}},
 		{"accent NaN is unset", kv{{nsAppearance, "accent-color"}: []any{math.NaN(), 0.5, 0.5}}, platform.SystemSettings{}},
 		{"accent of another type", kv{{nsAppearance, "accent-color"}: "blue"}, platform.SystemSettings{}},
@@ -261,7 +264,7 @@ func TestSettingsPortal(t *testing.T) {
 	p.setSetting(nsAppearance, "color-scheme", uint32(2))
 	e := h.event("the color scheme change")
 	se, ok := e.(platform.SettingsEvent)
-	want.DarkMode = false
+	want.DarkMode, want.LightMode = false, true
 	if !ok || se.Settings != want {
 		t.Fatalf("event = %#v, want SettingsEvent %+v", e, want)
 	}

@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -69,9 +70,12 @@ func checkScheme(s ColorScheme) {
 // envState is the environment of a Tree (UI thread).
 type envState struct {
 	// sysDark, sysReduced and sysContrast are the system's preferences;
-	// scheme the app's override.
+	// scheme the app's override. sysLight: the system states a light
+	// preference (with neither it nor sysDark, it states none, and the
+	// scheme of ColorSchemeSystem is noPref).
 	sysDark, sysReduced, sysContrast bool
-	scheme                           ColorScheme
+	sysLight                         bool
+	scheme, noPref                   ColorScheme
 	// sysTextScale is the system's text scale (1 when unknown), and
 	// ignoreText the app's choice to ignore it (Config.IgnoreTextScale).
 	sysTextScale float64
@@ -117,8 +121,27 @@ func textScaleFactor(scale float64) float64 {
 
 // effectiveDark reports whether the effective scheme is dark.
 func (e *envState) effectiveDark() bool {
-	return e.scheme == ColorSchemeDark || e.scheme == ColorSchemeSystem && e.sysDark
+	if e.scheme != ColorSchemeSystem {
+		return e.scheme == ColorSchemeDark
+	}
+	return e.sysDark || !e.sysLight && e.noPref == ColorSchemeDark
 }
+
+// noPrefScheme is SetNoPreferenceScheme's scheme.
+var noPrefScheme atomic.Uint32
+
+// SetNoPreferenceScheme sets the scheme that ColorSchemeSystem gives in
+// the trees created afterwards when the system states no preference
+// (neither platform.SystemSettings.DarkMode nor LightMode): light unless
+// set. It is not public API: an app that wants the dark scheme sets
+// App.ColorScheme. tela devtools sets ColorSchemeDark, Chrome's and
+// Flutter's DevTools default (ADR-304). Safe from any goroutine.
+func SetNoPreferenceScheme(s ColorScheme) {
+	checkScheme(s)
+	noPrefScheme.Store(uint32(s))
+}
+
+func noPreferenceScheme() ColorScheme { return ColorScheme(noPrefScheme.Load()) }
 
 // effectiveTextScale returns the scale of rem: the system's, or 1 when
 // the app ignores it.
@@ -185,6 +208,7 @@ func (t *Tree) SetSystemSettings(s platform.SystemSettings) {
 	t.SetDoubleClickInterval(s.DoubleClickInterval)
 	e := &t.env
 	e.sysDark, e.sysReduced, e.sysContrast = s.DarkMode, s.ReducedMotion, s.HighContrast
+	e.sysLight = s.LightMode
 	e.sysTextScale = s.TextScaleFactor()
 	e.accent = settingsAccent(s)
 	t.applyEnv()
@@ -197,7 +221,7 @@ func (t *Tree) SetSystemSettings(s platform.SystemSettings) {
 // setSystem takes the system's settings into cfg (a Host's initial
 // ones).
 func (cfg *Config) setSystem(s platform.SystemSettings) {
-	cfg.Dark, cfg.ReducedMotion = s.DarkMode, s.ReducedMotion
+	cfg.Dark, cfg.Light, cfg.ReducedMotion = s.DarkMode, s.LightMode, s.ReducedMotion
 	cfg.DoubleClickInterval = s.DoubleClickInterval
 	cfg.HighContrast, cfg.TextScale = s.HighContrast, s.TextScale
 	a := settingsAccent(s)

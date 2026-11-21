@@ -49,7 +49,26 @@ func (t Toolbar) Build() tela.Node {
 		),
 		Div(Class("flex-1")),
 		win,
+		SchemeToggle{},
 	)
+}
+
+// SchemeToggle switches the DevTools between the dark and the light
+// scheme. They follow the system's preference until it is used, and are
+// dark when the system states none (Run).
+type SchemeToggle struct{}
+
+// Build returns the button.
+func (SchemeToggle) Build() tela.Node {
+	dark := tela.UseColorScheme() == tela.Dark
+	icon, label, next := iconSun, "Switch to the light scheme", tela.Light
+	if !dark {
+		icon, label, next = iconMoon, "Switch to the dark scheme", tela.Dark
+	}
+	return kit.Tooltip{Placement: "bottom", Content: Text(label), Trigger: kit.Button{
+		Variant: kit.Ghost, Size: kit.IconSm, Icon: icon, AriaLabel: label, Class: "size-7",
+		OnClick: func() { tela.SetColorScheme(next) },
+	}}
 }
 
 func windowLabel(w Window) string {

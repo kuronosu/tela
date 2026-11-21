@@ -4,8 +4,10 @@ package core
 
 import (
 	"testing"
+	"time"
 
 	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/platform/remote"
 )
 
 // A flush drops the entries of the trees whose window closed: devTools
@@ -26,6 +28,36 @@ func TestDevToolsFlushDropsClosedTrees(t *testing.T) {
 	if _, ok := devTools.logs[closed]; ok || devTools.logs[open] != 1 {
 		t.Errorf("logs %v, want the open tree's only", devTools.logs)
 	}
+}
+
+// An entry logged on another goroutine while the app is idle arms the
+// push from the UI thread: a post reaches the main tree, without a frame.
+func TestDevToolsLoggedWhileIdleArms(t *testing.T) {
+	saved := devTools
+	t.Cleanup(func() { devTools = saved })
+	tr := newTestTree(t, 100, 100, div(Text("idle")), nil)
+	tr.SetInstrument(true)
+	t.Cleanup(func() { tr.SetInstrument(false) })
+	h := &Host{tree: tr, views: []*winView{{tree: tr}}}
+	woke := make(chan struct{}, 8)
+	tr.SetWake(func() { woke <- struct{}{} })
+	devTools.h, devTools.on, devTools.armed = h, true, false
+	devTools.rb = new(remote.Backend) // only compared with nil before the flush
+	logged := devToolsLogged(h)
+	insLogAdded.Store(&logged)
+	t.Cleanup(func() { insLogAdded.Store(nil) })
+
+	go tr.logf("tela: logged while idle")
+	select {
+	case <-woke:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the UI thread was not woken by an entry logged while idle")
+	}
+	tr.ApplyUpdates() // the post: it arms the flush
+	if !devTools.armed {
+		t.Error("the push of the entry is not armed")
+	}
+	devTools.armed = false // the flush would write to the connection
 }
 
 // HasElement tells a mounted element from an unknown one, and is false
