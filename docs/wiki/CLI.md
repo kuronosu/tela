@@ -863,8 +863,11 @@ and leaves the rest to gopls:
   with "did you mean", roles, aria tokens, keys, hooks) for the open files, from
   their unsaved text. They are published when a file opens, a moment after you
   stop typing and on save. The aliases of `App.ClassAliases` and the theme
-  colors declared in the package are known. A file that does not compile is
-  still linted with what type-checks.
+  colors declared in the package, or in another package of the module (the
+  app's main package, a theme package), are known. A file that does not
+  compile is still linted with what type-checks.
+- **Quick fix** on an unknown class: "Replace with" the suggestion of the
+  message (`bg-rde-500` becomes `bg-red-500`, variants kept).
 - **Completion** inside a class string: utilities and theme keys, variants
   (`hover:`, `md:`, `dark:`, stacked), your class aliases and arbitrary values
   (`w-[...]`), each with the CSS it produces (`p-4` is `padding: 1rem`, a color
@@ -876,7 +879,8 @@ A string is a class string when it is an argument of `Class(...)`, the value of
 a field named `Class` or ending in `Class` (`kit.Button{Class: "..."}`,
 `App.RootClass`), or a value of `ClassAliases`; once the file has been linted
 every string that `tela lint` checks is one (the fields of a `kit` recipe, for
-example). Completion and hover read the text, not the type checker, so they
+example, and a constant that is used as a class: `const card = "..."` with
+`Class(card)`, where the finding is reported at the constant). Completion and hover read the text, not the type checker, so they
 answer at once and while the file does not compile. Diagnostics need the `go`
 command in `PATH`; a package takes about 150 ms to lint again after the first
 run (the first one builds the export data of its dependencies, as `tela lint`

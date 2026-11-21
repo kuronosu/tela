@@ -11,10 +11,10 @@ import (
 )
 
 const (
-	cardTypo = "rounded-xxl p-4"
+	cardTypo = "rounded-xxl p-4" // want class `unknown class "rounded-xxl"`
 	base     = "flex items-center "
 	good     = base + "gap-2"
-	bad      = base + "gapp-2"
+	bad      = base + "gapp-2" // want class `unknown class "gapp-2"; did you mean "gap-2"?`
 )
 
 func Sinks(dynamic string, n int) []tela.Node {
@@ -22,9 +22,9 @@ func Sinks(dynamic string, n int) []tela.Node {
 		h.Div(h.Class("flex items-center gap-2 hover:bg-white/10 md:p-4 dark:bg-[#1e1e2e]")),
 		h.Div(h.Class("flex rounded-xxl")),         // want class `unknown class "rounded-xxl"; did you mean "rounded-2xl"?`
 		h.Div(h.Class("flex", "bg-whte", dynamic)), // want class `unknown class "bg-whte"`
-		h.Div(h.Class(cardTypo)),                   // want class `unknown class "rounded-xxl"`
+		h.Div(h.Class(cardTypo)),                   // reported where cardTypo is declared
 		h.Div(h.Class(good)),
-		h.Div(h.Class(bad)),                              // want class `unknown class "gapp-2"; did you mean "gap-2"?`
+		h.Div(h.Class(bad)),                              // reported where bad is declared
 		h.Div(h.Class("flex " + "gapp-3")),               // want class `unknown class "gapp-3"`
 		h.Div(h.Class("hover:bg-reed-500")),              // want class `unknown class "hover:bg-reed-500"`
 		h.Div(h.Class("hovr:bg-red-500")),                // want class `unknown variant "hovr:"`
@@ -51,7 +51,7 @@ func Kit() []tela.Node {
 		h.Div(kit.Button{Class: "px-4 rounded-md"}),
 		h.Div(kit.Button{Class: "px-4 rouded-md"}),                   // want class `unknown class "rouded-md"; did you mean "rounded-md"?`
 		h.Div(kit.Card{HeaderClass: "pb-2", TitleClass: "text-lgg"}), // want class `unknown class "text-lgg"`
-		h.Div(kit.Card{Class: cardTypo}),                             // want class `unknown class "rounded-xxl"`
+		h.Div(kit.Card{Class: cardTypo}),
 		h.Div(kit.Input{Class: "w-full", Type: "text"}),
 	}
 }

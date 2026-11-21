@@ -62,6 +62,62 @@ func TestDescribe(t *testing.T) {
 		{"truncate", "overflow: hidden; text-overflow: ellipsis; white-space: nowrap"},
 		{"inset-0", "inset: 0"},
 		{"top-1/2", "top: 50%"},
+
+		// Masks (Tailwind's composition of custom properties).
+		{"mask-add", "mask-composite: add"},
+		{"mask-match", "mask-mode: match-source"},
+		{"mask-none", "mask-image: none"},
+		{"mask-cover", "mask-size: cover"},
+		{"mask-bottom-right", "mask-position: bottom right"},
+		{"mask-no-repeat", "mask-repeat: no-repeat"},
+		{"mask-clip-fill", "mask-clip: fill-box"},
+		{"mask-origin-padding", "mask-origin: padding-box"},
+		{"mask-type-alpha", "mask-type: alpha"},
+		{"mask-[url(/a.png)]", "mask-image: url(/a.png)"},
+		{"mask-t-from-50%", "--tw-mask-top-from-position: 50%; mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic); mask-composite: intersect"},
+		{"mask-x-to-4", "--tw-mask-left-to-position: 1rem; --tw-mask-right-to-position: 1rem; mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic); mask-composite: intersect"},
+		{"mask-b-from-slate-600", "--tw-mask-bottom-from-color: #45556c; mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic); mask-composite: intersect"},
+		{"-mask-linear-45", "--tw-mask-linear: linear-gradient(-45deg, var(--tw-mask-linear-stops)); mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic); mask-composite: intersect"},
+		{"mask-conic-90", "--tw-mask-conic: conic-gradient(from 90deg, var(--tw-mask-conic-stops)); mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic); mask-composite: intersect"},
+		{"mask-radial-at-center", "--tw-mask-radial-position: center; mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic); mask-composite: intersect"},
+		{"mask-circle", "--tw-mask-radial-shape: circle; mask-image: var(--tw-mask-linear), var(--tw-mask-radial), var(--tw-mask-conic); mask-composite: intersect"},
+
+		// Backgrounds, sizes and the other keywords.
+		{"bg-conic-45", "background-image: conic-gradient(from 45deg in oklab, var(--tw-gradient-stops))"},
+		{"-bg-conic-45", "background-image: conic-gradient(from -45deg in oklab, var(--tw-gradient-stops))"},
+		{"bg-left-bottom", "background-position: left bottom"},
+		{"bg-position-top-right", "background-position: top right"},
+		{"bg-blend-multiply", "background-blend-mode: multiply"},
+		{"bg-clip-padding", "background-clip: padding-box"},
+		{"bg-origin-content", "background-origin: content-box"},
+		{"bg-repeat-round", "background-repeat: round"},
+		{"container", "width: 100%; max-width: 40rem /* from sm up */; max-width: 48rem /* from md up */; max-width: 64rem /* from lg up */; max-width: 80rem /* from xl up */; max-width: 96rem /* from 2xl up */"},
+		{"size-2xl", "width: 42rem; height: 42rem"},
+		{"w-screen-md", "width: 48rem"},
+		{"w-prose", "width: 65ch"},
+		{"object-bottom-left", "object-position: bottom left"},
+		{"object-cover", "object-fit: cover"},
+		{"origin-left-top", "transform-origin: left top"},
+		{"font-stretch-condensed", "font-stretch: 75%"},
+		{"via-50%", "--tw-gradient-via-position: 50%"},
+		{"repeat-3", "animation-iteration-count: 3"},
+		{"repeat-infinite", "animation-iteration-count: infinite"},
+		{"direction-alternate-reverse", "animation-direction: alternate-reverse"},
+		{"fill-mode-both", "animation-fill-mode: both"},
+		{"animation-duration-300", "animation-duration: 300ms"},
+		{"-animation-delay-100", "animation-delay: -100ms"},
+		{"-backdrop-hue-rotate-30", "backdrop-filter: hue-rotate(-30deg)"},
+		{"auto-cols-fr", "grid-auto-columns: minmax(0, 1fr)"},
+		{"overscroll-x-contain", "overscroll-behavior-x: contain"},
+		{"divide-dashed", "border-style: dashed /* between the children */"},
+		{"divide-x-reverse", "--tw-divide-x-reverse: 1 /* between the children */"},
+		{"outline-hidden", "outline-style: none"},
+		{"leading-none", "line-height: 1"},
+		{"scroll-smooth", "scroll-behavior: smooth"},
+		{"wrap-anywhere", "overflow-wrap: anywhere"},
+		{"field-sizing-content", "field-sizing: content"},
+		{"justify-baseline", "justify-content: baseline"},
+		{"mix-blend-plus-lighter", "mix-blend-mode: plus-lighter"},
 	}
 	for _, tc := range tests {
 		d, err := p.Describe(tc.class)
@@ -146,13 +202,13 @@ func TestDescribeAlias(t *testing.T) {
 
 func TestDescribeFallbackAndErrors(t *testing.T) {
 	p := DefaultParser()
-	// Valid, but not in the tables: described by its utility.
-	d, err := p.Describe("mask-t-from-50%")
+	// Valid, with no CSS equivalent: described by its utility.
+	d, err := p.Describe("scrollbar-overlay")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(d.Declarations) != 0 || d.Utility != "mask-t-from" {
-		t.Errorf("mask-t-from-50%%: declarations %v, utility %q; want none and \"mask-t-from\"", d.Declarations, d.Utility)
+	if len(d.Declarations) != 0 || d.Utility != "scrollbar" {
+		t.Errorf("scrollbar-overlay: declarations %v, utility %q; want none and \"scrollbar\"", d.Declarations, d.Utility)
 	}
 	// Markers have no CSS.
 	if d, _ := p.Describe("group"); len(d.Declarations) != 0 || d.Utility != "group" {
@@ -189,5 +245,44 @@ func TestDescribeVocabulary(t *testing.T) {
 	}
 	if described < len(vocab)/2 {
 		t.Errorf("the tables describe %d of %d vocabulary classes; they should cover most of it", described, len(vocab))
+	}
+}
+
+// noCSSEquivalent are the classes of the vocabulary that Describe may show
+// by their utility name only, each because CSS has nothing for them.
+var noCSSEquivalent = map[string]string{
+	"group":             "a marker that variants such as group-hover refer to",
+	"peer":              "a marker that variants such as peer-focus refer to",
+	"scrollbar-classic": "Tela's own: the look of the platform's scrollbars has no CSS property",
+	"scrollbar-overlay": "Tela's own: the look of the platform's scrollbars has no CSS property",
+}
+
+// Every class of the vocabulary is described in CSS: none falls back to
+// its utility name, but the few with no CSS equivalent.
+func TestDescribeCoversVocabulary(t *testing.T) {
+	p := DefaultParser()
+	var missing []string
+	for _, class := range p.Vocabulary() {
+		d, err := p.Describe(class)
+		if err != nil {
+			t.Errorf("%s: %v", class, err)
+			continue
+		}
+		if len(d.Declarations) > 0 || d.Expansion != "" {
+			if _, ok := noCSSEquivalent[class]; ok {
+				t.Errorf("%s is in the exceptions but has a description; remove it from the list", class)
+			}
+			continue
+		}
+		if _, ok := noCSSEquivalent[class]; !ok {
+			missing = append(missing, class)
+		}
+	}
+	if len(missing) > 0 {
+		shown := missing
+		if len(shown) > 40 {
+			shown = shown[:40]
+		}
+		t.Errorf("%d classes of the vocabulary fall back to their utility name (first %d: %v); describe them in describe.go or, when CSS has nothing for them, list them in noCSSEquivalent", len(missing), len(shown), shown)
 	}
 }

@@ -94,6 +94,13 @@ type Options struct {
 	// Patterns are package patterns as `go list` takes them; empty is
 	// "./...".
 	Patterns []string
+	// Context are package patterns, like Patterns, of packages that are
+	// read but not linted: the class aliases and theme colors they declare
+	// are known to the packages that are. Only the packages that mention
+	// ClassAliases or SchemeColor, and what they import in the module, are
+	// type-checked, so the context can be a whole module (tela lsp lints
+	// one package, and an app's aliases are usually declared in another).
+	Context []string
 	// Tests also lints the _test.go files.
 	Tests bool
 	// Fix applies the fixes of the findings that have one (Fixable),

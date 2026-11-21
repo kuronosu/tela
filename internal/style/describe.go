@@ -57,6 +57,7 @@ func descLoad() {
 		descInitGradientDir()
 		descInitVariantWords()
 		descInitRoots()
+		descInitMore()
 	})
 }
 
@@ -272,6 +273,14 @@ func (c *descCtx) size(v string, vertical, containers bool) (string, bool) {
 	if containers {
 		if l, ok := c.th.Containers[v]; ok {
 			return l.String(), true
+		}
+		if v == "prose" {
+			return "65ch", true
+		}
+		if bp, ok := strings.CutPrefix(v, "screen-"); ok {
+			if l, ok := c.th.Breakpoints[bp]; ok {
+				return c.negate(l.String()), true
+			}
 		}
 	}
 	return c.spacing(v)
@@ -833,16 +842,19 @@ func bgFn(c *descCtx, v string) []Declaration {
 	switch v {
 	case "auto", "cover", "contain":
 		return ds("background-size", v)
-	case "center", "top", "bottom", "left", "right", "top-left", "top-right", "bottom-left", "bottom-right":
-		return ds("background-position", strings.ReplaceAll(v, "-", " "))
 	case "repeat", "no-repeat", "repeat-x", "repeat-y", "round", "space":
 		return ds("background-repeat", v)
+	case "repeat-round", "repeat-space":
+		return ds("background-repeat", strings.TrimPrefix(v, "repeat-"))
 	case "fixed", "local", "scroll":
 		return ds("background-attachment", v)
 	case "none":
 		return ds("background-image", "none")
 	case "clip-text":
 		return ds("background-clip", "text")
+	}
+	if p, ok := positionOf(v); ok {
+		return ds("background-position", p)
 	}
 	for _, g := range []struct{ prefix, dir string }{
 		{"gradient-to-", ""}, {"linear-to-", ""},
@@ -894,6 +906,9 @@ func descInitGradientDir() {
 
 func gradientStop(property string) descFn {
 	return func(c *descCtx, v string) []Declaration {
+		if strings.HasSuffix(v, "%") && isNumber(strings.TrimSuffix(v, "%")) {
+			return ds(property+"-position", v)
+		}
 		if s, ok := c.color(v); ok {
 			return ds(property, s)
 		}
@@ -928,7 +943,7 @@ func outlineFn(c *descCtx, v string) []Declaration {
 	switch {
 	case v == "":
 		return ds("outline-style", "var(--tw-outline-style)", "outline-width", "1px")
-	case v == "none":
+	case v == "none" || v == "hidden":
 		return ds("outline-style", "none")
 	case v == "solid" || v == "dashed" || v == "dotted" || v == "double":
 		return ds("outline-style", v)
@@ -1064,6 +1079,9 @@ func zFn(c *descCtx, v string) []Declaration {
 }
 
 func leadingFn(c *descCtx, v string) []Declaration {
+	if v == "none" {
+		return ds("line-height", "1")
+	}
 	if l, ok := c.th.Leading[v]; ok {
 		return ds("line-height", num(l))
 	}
@@ -1150,9 +1168,8 @@ func originFn(c *descCtx, v string) []Declaration {
 	if a, ok := arbitrary(v); ok {
 		return ds("transform-origin", a)
 	}
-	switch v {
-	case "center", "top", "bottom", "left", "right", "top-left", "top-right", "bottom-left", "bottom-right":
-		return ds("transform-origin", strings.ReplaceAll(v, "-", " "))
+	if p, ok := positionOf(v); ok {
+		return ds("transform-origin", p)
 	}
 	return nil
 }
@@ -1194,7 +1211,7 @@ func descInitRoots() {
 
 		// Sizing.
 		"w": sizeProps(false, true, "width"), "h": sizeProps(true, false, "height"),
-		"size":  sizeProps(false, false, "width", "height"),
+		"size":  sizeProps(false, true, "width", "height"),
 		"min-w": sizeProps(false, true, "min-width"), "max-w": sizeProps(false, true, "max-width"),
 		"min-h": sizeProps(true, false, "min-height"), "max-h": sizeProps(true, false, "max-height"),
 		"basis":  sizeProps(false, true, "flex-basis"),
@@ -1203,17 +1220,17 @@ func descInitRoots() {
 		// Flex and grid.
 		"flex": flexFn, "grow": growFn("flex-grow"), "shrink": growFn("flex-shrink"), "order": orderFn,
 		"justify": enumOf("justify-content", map[string]string{"start": "flex-start", "end": "flex-end", "center": "center",
-			"between": "space-between", "around": "space-around", "evenly": "space-evenly", "stretch": "stretch", "normal": "normal"}),
+			"between": "space-between", "around": "space-around", "evenly": "space-evenly", "stretch": "stretch", "normal": "normal", "baseline": "baseline"}),
 		"items": enumOf("align-items", map[string]string{"start": "flex-start", "end": "flex-end", "center": "center",
-			"baseline": "baseline", "stretch": "stretch"}),
+			"baseline": "baseline", "stretch": "stretch", "normal": "normal"}),
 		"content": enumOf("align-content", map[string]string{"start": "flex-start", "end": "flex-end", "center": "center",
-			"between": "space-between", "around": "space-around", "evenly": "space-evenly", "stretch": "stretch", "normal": "normal"}),
+			"between": "space-between", "around": "space-around", "evenly": "space-evenly", "stretch": "stretch", "normal": "normal", "baseline": "baseline"}),
 		"self": enumOf("align-self", map[string]string{"auto": "auto", "start": "flex-start", "end": "flex-end",
 			"center": "center", "baseline": "baseline", "stretch": "stretch"}),
 		"justify-items": enumOf("justify-items", keywords("start", "end", "center", "stretch", "normal")),
 		"justify-self":  enumOf("justify-self", keywords("auto", "start", "end", "center", "stretch")),
 		"place-content": enumOf("place-content", map[string]string{"center": "center", "start": "start", "end": "end",
-			"between": "space-between", "around": "space-around", "evenly": "space-evenly", "stretch": "stretch"}),
+			"between": "space-between", "around": "space-around", "evenly": "space-evenly", "stretch": "stretch", "baseline": "baseline", "normal": "normal"}),
 		"place-items": enumOf("place-items", keywords("start", "end", "center", "stretch", "baseline")),
 		"place-self":  enumOf("place-self", keywords("auto", "start", "end", "center", "stretch")),
 		"grid-cols":   gridTemplate("grid-template-columns"), "grid-rows": gridTemplate("grid-template-rows"),
@@ -1230,8 +1247,12 @@ func descInitRoots() {
 		"overflow-y": enumOf("overflow-y", keywords("auto", "hidden", "clip", "visible", "scroll")),
 		"overscroll": enumOf("overscroll-behavior", keywords("auto", "contain", "none")),
 		"z":          zFn,
-		"object": enumOf("object-fit", merge(keywords("contain", "cover", "fill", "none"),
-			map[string]string{"scale-down": "scale-down", "center": "center", "top": "top", "bottom": "bottom", "left": "left", "right": "right"})),
+		"object": func(c *descCtx, v string) []Declaration {
+			if p, ok := positionOf(v); ok {
+				return ds("object-position", p)
+			}
+			return enumOf("object-fit", keywords("contain", "cover", "fill", "none", "scale-down"))(c, v)
+		},
 
 		// Colors and backgrounds.
 		"bg": bgFn, "from": gradientStop("--tw-gradient-from"), "via": gradientStop("--tw-gradient-via"),
@@ -1242,6 +1263,8 @@ func descInitRoots() {
 			switch v {
 			case "solid", "double", "dotted", "dashed", "wavy":
 				return ds("text-decoration-style", v)
+			case "auto", "from-font":
+				return ds("text-decoration-thickness", v)
 			}
 			if isNumber(v) {
 				return ds("text-decoration-thickness", v+"px")
@@ -1252,6 +1275,10 @@ func descInitRoots() {
 			return nil
 		},
 		"divide": func(c *descCtx, v string) []Declaration {
+			switch v {
+			case "solid", "dashed", "dotted", "double", "none":
+				return ds("border-style", v+" /* between the children */")
+			}
 			if s, ok := c.color(v); ok {
 				return ds("border-color", s+" /* between the children */")
 			}
@@ -1293,9 +1320,8 @@ func descInitRoots() {
 			}
 			return nil
 		},
-		"mix-blend": enumOf("mix-blend-mode", keywords("normal", "multiply", "screen", "overlay", "darken", "lighten",
-			"color-dodge", "color-burn", "hard-light", "soft-light", "difference", "exclusion", "hue", "saturation", "color", "luminosity")),
-		"blur": blurFn("filter"), "backdrop-blur": blurFn("backdrop-filter"),
+		"mix-blend": enumOf("mix-blend-mode", blendModes()),
+		"blur":      blurFn("filter"), "backdrop-blur": blurFn("backdrop-filter"),
 		"brightness": filterFn("filter", "brightness", ""), "contrast": filterFn("filter", "contrast", ""),
 		"saturate": filterFn("filter", "saturate", ""), "grayscale": filterFn("filter", "grayscale", "100%"),
 		"invert": filterFn("filter", "invert", "100%"), "sepia": filterFn("filter", "sepia", "100%"),

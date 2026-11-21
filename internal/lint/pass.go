@@ -28,6 +28,9 @@ type pass struct {
 // (a panic while linting a file is reported, not allowed to stop the run).
 func (r *run) checkAll() (errs []string) {
 	for _, u := range r.units {
+		if u.ctxOnly {
+			continue
+		}
 		p := &pass{r: r, u: u, info: u.info}
 		for _, f := range u.files {
 			func() {

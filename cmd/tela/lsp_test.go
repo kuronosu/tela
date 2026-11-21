@@ -681,9 +681,13 @@ func TestLSPHover(t *testing.T) {
 	if md := hover("func screen() tela.Node { return Div(Class(\"bg-r|de-500\")) }\n"); !strings.Contains(md, `unknown class "bg-rde-500"`) || !strings.Contains(md, `did you mean "bg-red-500"`) {
 		t.Errorf("hover over an unknown class:\n%s", md)
 	}
-	// A class the tables do not describe still says what it is.
-	if md := hover("func screen() tela.Node { return Div(Class(\"mask-t-from-|50%\")) }\n"); !strings.Contains(md, "mask-t-from") {
-		t.Errorf("hover over an undescribed class:\n%s", md)
+	// The mask utilities are described too.
+	if md := hover("func screen() tela.Node { return Div(Class(\"mask-t-from-|50%\")) }\n"); !strings.Contains(md, "--tw-mask-top-from-position: 50%;") {
+		t.Errorf("hover over a mask class:\n%s", md)
+	}
+	// A class with no CSS equivalent still says what it is.
+	if md := hover("func screen() tela.Node { return Div(Class(\"scrollbar-|overlay\")) }\n"); !strings.Contains(md, "scrollbar") || !strings.Contains(md, "no CSS summary") {
+		t.Errorf("hover over a class with no CSS:\n%s", md)
 	}
 	// Between classes, and outside class strings: nothing.
 	for name, body := range map[string]string{
@@ -718,10 +722,22 @@ func TestLSPTypedClassStrings(t *testing.T) {
 	if md := c.hover(uri, pos); !strings.Contains(md, "border-radius: 0.5rem;") {
 		t.Errorf("hover over a recipe field after the lint run:\n%s", md)
 	}
-	// An edit makes the strings of the run stale until the next one.
+	// An edit that leaves the string where it is keeps it a class string
+	// before the next run, and so does one that moves it.
 	c.change(uri, 2, strings.Replace(text, "p-4", "p-8", 1))
+	if md := c.hover(uri, pos); !strings.Contains(md, "border-radius: 0.5rem;") {
+		t.Errorf("hover after an edit inside the string, before the next run:\n%s", md)
+	}
+	cut := strings.Index(text, "rounded-") + len("rounded-")
+	moved, mpos := withCursor(t, "// a comment\n"+text[:cut]+"|"+text[cut:])
+	c.change(uri, 3, moved)
+	if md := c.hover(uri, mpos); !strings.Contains(md, "border-radius: 0.5rem;") {
+		t.Errorf("hover after an edit above the string, before the next run:\n%s", md)
+	}
+	// An edit that breaks the literal does not.
+	c.change(uri, 4, strings.Replace(text, "{Root: \"rounded", "{Root: rounded", 1))
 	if md := c.hover(uri, pos); md != "" {
-		t.Errorf("hover after an edit, before the next run = %q, want none: offsets moved", md)
+		t.Errorf("hover over a broken literal = %q, want none", md)
 	}
 }
 
