@@ -326,12 +326,12 @@ func TestTrayTemplate(t *testing.T) {
 			tela.Component(desktop.Tray{Icon: trayIcon, Tooltip: "Notes", Template: template}),
 		)
 	})
-	if tr := app.Tray(); tr.Updates != 0 {
-		t.Fatalf("%d updates before any change", tr.Updates)
+	if tr := app.Tray(); tr.Updates != 0 || tr.Template {
+		t.Fatalf("%d updates, Template %v before any change", tr.Updates, tr.Template)
 	}
 	app.Click(telatest.ByRole("button", "Toggle"))
-	if tr := app.Tray(); tr.Updates != 1 {
-		t.Errorf("%d updates after Template changed, want 1", tr.Updates)
+	if tr := app.Tray(); tr.Updates != 1 || !tr.Template {
+		t.Errorf("%d updates, Template %v after Template changed, want 1 and true", tr.Updates, tr.Template)
 	}
 	app.Click(telatest.ByRole("button", "Rebuild"))
 	app.ExpectText("builds: 1")

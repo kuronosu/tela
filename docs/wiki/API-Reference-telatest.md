@@ -3602,6 +3602,9 @@ Exact makes [`ByText`](#func-bytext) match the whole text, case sensitive, inste
 type TrayIcon struct {
     Tooltip string
     Menu    []TrayItem
+    // Template is whether the icon is a template image (desktop.Tray's
+    // Template: a single-color shape macOS tints for the menu bar).
+    Template bool
     // Updates counts the changes of the icon since it was added.
     Updates int
 }
