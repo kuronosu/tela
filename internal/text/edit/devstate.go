@@ -12,13 +12,30 @@ import (
 // loop, so release builds do not change.
 
 // DevState is the state of an Editor kept by a reload: the committed value,
-// the selection in value offsets and the undo history. A composition in
-// progress is not kept (its preedit is dropped and the selection collapses
-// where it was).
+// the selection in value offsets and the undo history. During a
+// composition they are the state the composition started from (its value
+// and the selection the preedit replaces, which the history matches), and
+// Composition is the composition itself, which RestoreDevComposition
+// starts again (ADR-309); without it the restore is a clean cancel.
 type DevState struct {
 	Value         string
 	Anchor, Focus text.Cursor
 	Undo, Redo    []DevStep
+	Composition   *DevComposition
+}
+
+// DevComposition is a composition in progress kept by a reload.
+type DevComposition struct {
+	// Value is the committed value during the composition (without the
+	// selection it replaced, with what the IME deleted around it) and At
+	// the byte offset where the preedit sits in it.
+	Value string
+	At    int
+	// Preedit is the composition text and CursorStart, CursorEnd the
+	// IME's cursor in it, in bytes; Hidden reports a hidden cursor.
+	Preedit                string
+	CursorStart, CursorEnd int
+	Hidden                 bool
 }
 
 // DevStep is an undo step of a DevState.
@@ -33,6 +50,20 @@ type DevStep struct {
 
 // DevState returns the editor's state for a reload.
 func (e *Editor) DevState() DevState {
+	if e.composing {
+		b := e.compBefore
+		return DevState{
+			Value:  b.value,
+			Anchor: b.sel.anchor,
+			Focus:  b.sel.focus,
+			Undo:   devSteps(e.hist.undo),
+			Redo:   devSteps(e.hist.redo),
+			Composition: &DevComposition{
+				Value: e.value, At: e.compAt, Preedit: e.preedit,
+				CursorStart: e.preCursor[0], CursorEnd: e.preCursor[1], Hidden: e.preHidden,
+			},
+		}
+	}
 	vs := e.valueSel()
 	return DevState{
 		Value:  e.value,
@@ -41,6 +72,40 @@ func (e *Editor) DevState() DevState {
 		Undo:   devSteps(e.hist.undo),
 		Redo:   devSteps(e.hist.redo),
 	}
+}
+
+// RestoreDevComposition starts the composition c again over the state
+// RestoreDevState restored (the one it started from), as the previous
+// build had it: the value during the composition, the preedit and the
+// IME's cursor, with the composition's undo step to come. The caller gives
+// it only to the field that has the focus, whose IME session goes on. It
+// does nothing for a read-only editor, during a composition, or when c does
+// not fit this editor (a value that cleaning changes, an offset off the
+// value); like RestoreDevState it fires nothing and reports what changed.
+func (e *Editor) RestoreDevComposition(c DevComposition) Result {
+	if e.opts.ReadOnly || e.composing || sanitizeValue(c.Value, e.opts.Multiline) != c.Value ||
+		c.At < 0 || c.At > len(c.Value) || clampRuneStart(c.Value, c.At) != c.At {
+		return Result{}
+	}
+	oldValue, oldSel := e.value, e.sel
+	e.compBefore = snapshot{value: e.value, sel: e.valueSel()}
+	e.value = c.Value
+	e.compAt = c.At
+	e.composing = true
+	e.hist.open = false
+	e.preedit = sanitizeInput(c.Preedit, e.opts.Multiline)
+	e.preHidden = c.Hidden
+	cs, ce := c.CursorStart, c.CursorEnd
+	if e.preHidden {
+		cs, ce = len(e.preedit), len(e.preedit)
+	}
+	cs = snapGrapheme(e.preedit, clampRuneStart(e.preedit, cs), false)
+	ce = snapGrapheme(e.preedit, clampRuneStart(e.preedit, ce), false)
+	e.preCursor = [2]int{cs, ce}
+	dc := e.rebuild()
+	e.sel = e.compositionSel()
+	e.gen++
+	return e.report(oldValue, oldSel, dc)
 }
 
 func devSteps(steps []step) []DevStep {

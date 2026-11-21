@@ -164,6 +164,7 @@ type proc struct {
 	tail      *tailWriter // the end of its standard error
 	panic     string
 	report    *devloop.StateReport
+	reported  bool // the line of its swap was printed (a later report's -v lines print when it comes)
 	stopping  bool
 	lostConn  *time.Timer
 
@@ -538,8 +539,11 @@ func (s *supervisor) handle(e any) {
 		if p := s.procOf(e.c); p != nil {
 			r := e.r
 			p.report = &r
-			if h := s.held; h != nil && h.sw.proc == p {
+			switch h := s.held; {
+			case h != nil && h.sw.proc == p:
 				s.flushHeld() // the line of the swap, now with the counts
+			case p.reported:
+				s.reportLines(p) // the line went out without the report
 			}
 		}
 	case evReportDue:
@@ -1001,6 +1005,7 @@ func (s *supervisor) report(sw *swapState, now time.Time) {
 		line += " (" + state + ")"
 	}
 	s.log.printf("%s", line)
+	p.reported = true
 	if s.cfg.opts.Verbose {
 		var parts []string
 		res := sw.res
@@ -1016,6 +1021,19 @@ func (s *supervisor) report(sw *swapState, now time.Time) {
 		parts = append(parts, fmt.Sprintf("promote %v", ms(now.Sub(sw.first))))
 		s.log.verbosef("timing: %s", strings.Join(parts, ", "))
 	}
+	s.reportLines(p)
+}
+
+// reportLines prints, with -v, the lines of p's state report: each slot the
+// swap could not keep, so that none resets silently (ADR-309).
+func (s *supervisor) reportLines(p *proc) {
+	if p.report == nil {
+		return
+	}
+	for _, l := range p.report.Lines {
+		s.log.verbosef("state: %s", l)
+	}
+	p.report.Lines = nil // printed once
 }
 
 // stays says what the window shows after a failed swap.

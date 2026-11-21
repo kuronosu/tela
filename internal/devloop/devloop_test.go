@@ -9,15 +9,24 @@ import (
 )
 
 func TestStateReport(t *testing.T) {
-	for _, r := range []StateReport{{}, {Kept: 12, Reset: 1}, {Kept: 1 << 20, Reset: 300}} {
+	long := strings.Repeat("x", maxReportLine+10)
+	for _, r := range []StateReport{{}, {Kept: 12, Reset: 1}, {Kept: 1 << 20, Reset: 300},
+		{Kept: 2, Lines: []string{"Toggle's UseRef #3 resets: holds a func()", "", "état ✓"}}} {
 		got, err := DecodeStateReport(r.Encode())
-		if err != nil || got != r {
+		if err != nil || got.Kept != r.Kept || got.Reset != r.Reset || !slices.Equal(got.Lines, r.Lines) {
 			t.Errorf("round trip of %+v: %+v, %v", r, got, err)
 		}
 	}
-	// Trailing bytes are ignored (the report may grow).
-	p := append(StateReport{Kept: 3, Reset: 4}.Encode(), 9, 9, 9)
-	if got, err := DecodeStateReport(p); err != nil || got != (StateReport{3, 4}) {
+	// A long line is cut; the lines are bounded.
+	many := make([]string, maxReportLines+5)
+	got, err := DecodeStateReport(StateReport{Lines: append([]string{long}, many...)}.Encode())
+	if err != nil || len(got.Lines) != maxReportLines || got.Lines[0] != long[:maxReportLine] {
+		t.Errorf("long lines: %d lines, first %d bytes, %v", len(got.Lines), len(got.Lines[0]), err)
+	}
+	// A damaged line ends the lines; the counts stay (an older child sends
+	// none, a newer one may add more after them).
+	p := append(StateReport{Kept: 3, Reset: 4, Lines: []string{"a"}}.Encode(), 9, 9, 9)
+	if got, err := DecodeStateReport(p); err != nil || got.Kept != 3 || got.Reset != 4 || !slices.Equal(got.Lines, []string{"a"}) {
 		t.Errorf("with trailing bytes: %+v, %v", got, err)
 	}
 	for _, bad := range [][]byte{nil, {0x80}, {1}, {0xff, 0xff, 0xff, 0xff, 0x0f, 0}} {

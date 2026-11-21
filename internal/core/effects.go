@@ -360,5 +360,8 @@ func UseOnce[T any](init func() T) T {
 	s := &onceSlot[T]{}
 	el.hooks = append(el.hooks, s)
 	s.value = init()
+	if devStateEnabled {
+		devSeed(el, i) // tela dev: a store of Tela's hooks with a codec (ADR-309)
+	}
 	return s.value
 }

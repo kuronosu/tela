@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -39,7 +40,8 @@ import (
 // presents); "crash" (exits with status 3 before connecting its window);
 // "panic" (reports a panic and exits with status 2 at startup); "nosave"
 // (no state.save handler); "late" (the state report comes 150 ms after
-// start) and "noreport" (none); "stdio" checks that its standard output
+// start), "noreport" (none) and "lines" (the report has fakeReportLines,
+// for -v); "stdio" checks that its standard output
 // and error are pipes and writes fakeLines numbered lines to each;
 // "nullout" checks that its standard output is not a pipe (the null
 // device); "orphan" starts a process ("hold", fakeHolder) that inherits
@@ -58,6 +60,12 @@ const (
 	fakeSlow  = 400 * time.Millisecond
 	fakeLines = 500
 )
+
+// fakeReportLines are the lines of the "lines" mode's state report.
+var fakeReportLines = []string{
+	"Toggle's UseRef #3 (aria.useBoolState) resets: holds an aria.boolState with the unexported field cur (x2)",
+	"Counter's UseRef #2 resets: holds a func()",
+}
 
 // envFakeGo makes this test binary a go command (fakeGo) that runs the real
 // one, named by the variable, except that the GOFLAGS of go env -json is
@@ -156,6 +164,13 @@ func fakeChild(mode string) int {
 		} else if len(data) > 0 {
 			count, _ = strconv.Atoi(string(data))
 			report := devloop.StateReport{Kept: 1, Reset: 2}.Encode()
+			if mode == "lines" {
+				// The lines for -v, on the wire: a length and the bytes each.
+				for _, l := range fakeReportLines {
+					report = binary.AppendUvarint(report, uint64(len(l)))
+					report = append(report, l...)
+				}
+			}
 			switch mode {
 			case "late":
 				// Like the real runtime: once the state is restored, a

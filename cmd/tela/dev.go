@@ -84,7 +84,8 @@ Flags:
 	--preview NAME run the preview NAME of the package's Previews
 	--no-state     do not keep state across reloads
 	--devtools     open the DevTools window (tela devtools) beside the app
-	-v             print the timing of every step of a reload
+	-v             print the timing of every step of a reload, and every
+	               hook slot a reload could not keep, with the reason
 
 Keys (when standard input is a terminal):
 

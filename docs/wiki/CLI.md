@@ -387,11 +387,22 @@ screen `tela snapshot` renders, with the window settings of its `var App`.
 **What is kept:** the values of `UseState`, `UseReducer`, `UseValue` and
 `UseRef` that `encoding/gob` can encode in full (no funcs, channels or
 unexported fields), matched by the component's place in the tree and the
-hook's position, as React Fast Refresh does; the text, selection and undo
-history of text fields; scroll offsets; the focus; the color scheme, theme
-and locale set at run time. A component whose hooks changed (one added,
-removed or of another type) starts fresh, with its children; in dev mode
-every value that cannot be kept is named once on the terminal. Animations
+hook's position, as React Fast Refresh does; the state that `kit`'s
+components and `aria`'s hooks hold themselves (an uncontrolled choice,
+selection, tab, slider value, color, calendar date or menu checkbox, the
+focused item of a list, an `aria.Selection` in your own state); the text,
+selection and undo history of text fields, and an IME composition in
+progress in the focused one (the preedit stays and the IME goes on; if the
+new build has no such field any more, the preedit is committed as text, as
+when a field loses the focus); scroll offsets; the focus; the
+color scheme, theme and locale set at run time. A component whose hooks
+changed (one added, removed or of another type) starts fresh, with its
+children. A component you rename (its function or type, where it is
+declared) keeps its state when it stays at the same place in the tree with
+the same hooks; another component that takes its place does not, even with
+the same hooks. In dev mode every value of yours that cannot be kept is named once
+on the terminal, and `-v` lists at each reload every slot that reset, Tela's
+own included (a press, a hover, a timer, the typeahead's search). Animations
 restart from rest and effects run again, as on a new mount. State outside
 the tree (package variables, controllers) is kept with
 [`App.DevState`](https://pkg.go.dev/github.com/kuronosu/tela#DevState):
@@ -433,7 +444,7 @@ and inlining in the app's package, to build faster (panics keep their
 | `--dark` | The app sees the system in dark mode (`App.ColorScheme` still wins) |
 | `--preview NAME` | Runs the preview `NAME` of the package's `Previews` |
 | `--no-state` | Starts every build fresh |
-| `-v` | Prints the timing of every step of a reload |
+| `-v` | Prints the timing of every step of a reload, and each hook slot it could not keep, with the reason |
 
 Keys, when standard input is a terminal: `r` reloads keeping state, `R`
 reloads with fresh state, `q` quits (as does closing the window or Ctrl+C).
