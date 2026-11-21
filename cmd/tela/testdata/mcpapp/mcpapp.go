@@ -3,6 +3,9 @@
 package mcpapp
 
 import (
+	"context"
+	"time"
+
 	"github.com/kuronosu/tela"
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/i18n"
@@ -19,6 +22,32 @@ var Previews = tela.Previews{
 	"Long":    {Root: tela.C(long)},
 	"Spinner": {Root: tela.C(busy)},
 	"Prefs":   {Root: tela.C(prefs)},
+	"Loader":  {Root: tela.C(loader)},
+	"Panes":   {Root: tela.C(panes)},
+}
+
+// loader shows its button once a UseGo goroutine has loaded, in real time:
+// a click on it before the load ends must wait, not fail at once.
+func loader() tela.Node {
+	ready, setReady := tela.UseState(false)
+	tela.UseGo(func(ctx context.Context) {
+		select {
+		case <-time.After(400 * time.Millisecond):
+			tela.Post(func() { setReady.Set(true) })
+		case <-ctx.Done():
+		}
+	}, tela.Once)
+	return Div(Class("p-6"), If(ready, Button(Text("Loaded"))), If(!ready, P(Text("Loading"))))
+}
+
+// panes has its scroll container on the right, away from the window's
+// center, beside a pane that does not scroll.
+func panes() tela.Node {
+	return Div(Class("flex h-screen"),
+		Div(Class("w-[300px] p-4"), P(Text("Pane"))),
+		Div(Class("h-screen flex-1 overflow-y-auto"), Map(rows, func(i int) tela.Node {
+			return Div(Key(i), Class("h-10 border-b px-4"), Textf("Line %d", i))
+		})))
 }
 
 func form() tela.Node {

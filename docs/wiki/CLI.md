@@ -672,7 +672,7 @@ services are not reachable through the tools yet.
 | `hover` | Moves the pointer over an element |
 | `fill` | Replaces the text of a field; `submit: true` presses Enter after |
 | `press` | Presses a key or combo in Playwright's syntax (`Enter`, `Shift+Tab`, `Control+a`), on the focused element or on one it focuses first |
-| `scroll` | Scrolls the wheel over an element by `dx`, `dy`; without an element, at a point (`x`, `y`) or at the center of the window |
+| `scroll` | Scrolls the wheel over an element by `dx`, `dy`; without an element, at a point (`x`, `y`) or over the largest scroll container that can move that way; the answer says when nothing moved |
 | `drag` | Drags `from` an element or point `to` another, or by `dx`, `dy` |
 | `resize` | Changes the window's `width` and `height` or `scale`, keeping the state |
 | `open` | Mounts another `preview`, `dark` mode, size or scale afresh; without arguments, lists the previews |
@@ -699,8 +699,8 @@ was mounted afresh the refs are matched again by role, name and position, so
 rebuilt. A failed action (an element not found, a disabled button, a panic in
 a handler) is an error result of that call: the instance keeps running, and
 after a panic it mounts the screen afresh. An element that is not on the
-screen fails at once when nothing is pending (no animation, timer or queued
-update); while something is, the call waits up to two seconds for it to
+screen fails at once when nothing that can change the screen is pending (no animation, timer, queued
+update, or load on a `UseAsync` or `UseGo` goroutine; a caret blink, a spinner or a scrollbar fade does not count), and so does `wait` for a `text` that cannot come; while something is, the call waits up to two seconds for it to
 appear. Use `wait {"text": "Loaded"}` for data that arrives from a goroutine.
 The client's `notifications/cancelled` stops a wait or an action in progress,
 keeps the app's state and sends no response for that call.

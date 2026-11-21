@@ -77,7 +77,7 @@ func TestMCPRefsScrollFailFastAndCancel(t *testing.T) {
 			t.Fatalf("open Long:\n%s", r.text)
 		}
 		r = c.tool("scroll", map[string]any{"dy": 400})
-		if r.isError || !strings.Contains(r.text, "over the window") || !strings.Contains(r.text, "]: Scrolled") {
+		if r.isError || !strings.Contains(r.text, "over the largest scroll container") || !strings.Contains(r.text, "]: Scrolled") {
 			t.Errorf("scroll the window:\n%s", r.text)
 		}
 		r = c.tool("open", map[string]any{"preview": "Long"})
@@ -88,6 +88,53 @@ func TestMCPRefsScrollFailFastAndCancel(t *testing.T) {
 		r = c.tool("scroll", map[string]any{"dy": 100, "x": 20})
 		if !r.isError || !strings.Contains(r.text, "give both x and y") {
 			t.Errorf("scroll at half a point:\n%s", r.text)
+		}
+		// The scroll container is away from the window's center: scroll
+		// without an element finds it, and says so; once at its end,
+		// nothing moves and the answer says that too.
+		if r := c.tool("open", map[string]any{"preview": "Panes"}); r.isError {
+			t.Fatalf("open Panes:\n%s", r.text)
+		}
+		r = c.tool("scroll", map[string]any{"dy": 300})
+		if r.isError || !strings.Contains(r.text, "over the largest scroll container") || strings.Contains(r.text, "- text: Line 0\n") {
+			t.Errorf("scroll Panes:\n%s", r.text)
+		}
+		r = c.tool("scroll", map[string]any{"dy": -5000})
+		r = c.tool("scroll", map[string]any{"dy": -100})
+		if r.isError || !strings.Contains(r.text, "Nothing moved") {
+			t.Errorf("scroll past the top:\n%s", r.text)
+		}
+		r = c.tool("scroll", map[string]any{"dy": 100, "x": 100, "y": 100})
+		if r.isError || !strings.Contains(r.text, "Nothing moved: no scroll container under the point (100, 100)") {
+			t.Errorf("scroll over the pane that does not scroll:\n%s", r.text)
+		}
+	})
+
+	// A load on a UseGo goroutine is pending (ADR-308): a click on what
+	// it shows waits for it instead of failing at once.
+	t.Run("wait for a load", func(t *testing.T) {
+		if r := c.tool("open", map[string]any{"preview": "Loader"}); r.isError {
+			t.Fatalf("open Loader:\n%s", r.text)
+		}
+		r := c.tool("click", map[string]any{"role": "button", "name": "Loaded"})
+		if r.isError || !strings.Contains(r.text, `button "Loaded"`) {
+			t.Errorf("a click on what a UseGo load shows:\n%s", r.text)
+		}
+	})
+
+	// wait for a text that cannot come fails at once on a settled screen.
+	t.Run("wait fails fast", func(t *testing.T) {
+		start := time.Now()
+		r := c.tool("wait", map[string]any{"text": "Never shown"})
+		if !r.isError || !strings.Contains(r.text, `the window does not show the text "Never shown"`) || !strings.Contains(r.text, "waiting would not help") {
+			t.Errorf("wait for a text that never comes:\n%s", r.text)
+		}
+		if d := time.Since(start); d > 1500*time.Millisecond {
+			t.Errorf("it took %v to fail: telatest's wait is 2 s", d)
+		}
+		r = c.tool("wait", map[string]any{"textGone": "Loaded"})
+		if !r.isError || !strings.Contains(r.text, `the text "Loaded" is still on the screen`) {
+			t.Errorf("wait for a text to go that stays:\n%s", r.text)
 		}
 	})
 

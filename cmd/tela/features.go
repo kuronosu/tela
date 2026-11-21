@@ -28,6 +28,13 @@ type genFeatures struct {
 	Film bool
 	// I18N: the package links tela/i18n, so a locale preference can act.
 	I18N bool
+	// PendingKinds: App.Pending gives telatest.Pending items with a kind
+	// (ADR-308), so tela mcp tells quiet work (a caret blink) from work
+	// that can change the screen without reading their text.
+	PendingKinds bool
+	// Scrollables: telatest has App.Scrollables, so tela mcp's scroll
+	// without an element scrolls the largest scroll container.
+	Scrollables bool
 }
 
 // detectFeatures asks the go command about the package in dir: the
@@ -52,6 +59,8 @@ func detectFeatures(goBin, dir string) genFeatures {
 			f.Settle = hasFunc(pkgDir, "func NoSettle() Option") && hasFunc(pkgDir, "func (a *App) LayoutJSON(") && hasFunc(pkgDir, "func AllowDev(")
 			f.DevTools = hasFunc(pkgDir, "func Instrument() Option")
 			f.Film = hasFunc(pkgDir, "func (a *App) Film(")
+			f.PendingKinds = hasFunc(pkgDir, "func (a *App) Pending() []Pending")
+			f.Scrollables = hasFunc(pkgDir, "func (a *App) Scrollables() []uint64")
 		}
 	}
 	return f

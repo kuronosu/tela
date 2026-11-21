@@ -224,7 +224,11 @@ func (h *Host) Busy() []string {
 	if h.H.NeedsFrame() {
 		why = append(why, "a configured window whose frame has not run")
 	}
-	why = append(why, h.H.Tree().Pending(now)...)
+	for _, p := range h.H.Tree().Pending(now) {
+		if p.Kind != core.PendingGo { // a goroutine that waits wakes nothing
+			why = append(why, p.What)
+		}
+	}
 	if at, ok := h.H.TimerArmed(); ok {
 		why = append(why, fmt.Sprintf("the host's timer, armed for %v from now", at-now))
 	}

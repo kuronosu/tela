@@ -415,7 +415,7 @@ func TestMCPEndToEnd(t *testing.T) {
 
 	// open lists the previews and mounts another.
 	r = c.tool("open", nil)
-	if r.isError || !strings.Contains(r.text, "Form, List, Long, Other, Prefs, Spinner") {
+	if r.isError || !strings.Contains(r.text, "Form, List, Loader, Long, Other, Panes, Prefs, Spinner") {
 		t.Errorf("open without arguments:\n%s", r.text)
 	}
 	r = c.tool("open", map[string]any{"preview": "Other"})

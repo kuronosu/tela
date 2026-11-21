@@ -1,6 +1,9 @@
 package telatest
 
 import (
+	"sort"
+
+	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/semantics"
 )
 
@@ -30,3 +33,42 @@ func (a *App) AriaSnapshotNodes() (yaml string, nodes []uint64) {
 // method, not a function like [ByRole], so that a tool compiled against an
 // older telatest can ask for it through an interface.
 func (a *App) NodeLocator(id uint64) Locator { return Locator{kind: locNode, nodeID: id} }
+
+// Scrollables returns the scroll containers of the window a user can
+// scroll (overflow auto or scroll, with content that overflows), as the
+// identities of their elements ([App.AriaSnapshotNodes]; [App.NodeLocator]
+// turns one into a locator), the largest visible area first; hidden ones
+// and those wholly outside the window are left out. It
+// is for tools that scroll "the page" without naming an element, as
+// `tela mcp`'s scroll does; tests scroll the container they mean with
+// [App.Scroll].
+func (a *App) Scrollables() []uint64 {
+	a.tb.Helper()
+	a.mustBeOpen()
+	a.settleQuery()
+	a.mustBeOpen()
+	vp := a.tree.Viewport()
+	view := gfx.Rect{X1: vp.W, Y1: vp.H}
+	type scroller struct {
+		id   semantics.NodeID
+		area float32
+	}
+	var found []scroller
+	a.tree.Semantics().Walk(func(n *semantics.Node) bool {
+		if n.Has(semantics.StateHidden) {
+			return false
+		}
+		if n.Has(semantics.StateScrollable) {
+			if r := n.Bounds.Intersect(view); !r.Empty() {
+				found = append(found, scroller{n.ID, r.Width() * r.Height()})
+			}
+		}
+		return true
+	})
+	sort.SliceStable(found, func(i, j int) bool { return found[i].area > found[j].area })
+	ids := make([]uint64, len(found))
+	for i, s := range found {
+		ids[i] = uint64(s.id)
+	}
+	return ids
+}

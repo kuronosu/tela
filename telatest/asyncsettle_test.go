@@ -101,10 +101,10 @@ func TestNoSettleLeavesUseAsyncAlone(t *testing.T) {
 	app.Click(telatest.ByRole("button", "Cancel")) // acts while it loads
 	var found bool
 	for _, p := range app.Pending() {
-		found = found || strings.Contains(p, "UseAsync run")
+		found = found || p.Kind == telatest.PendingAsync && strings.Contains(p.What, "UseAsync run")
 	}
 	if !found {
-		t.Errorf("Pending = %q, want the UseAsync run named", app.Pending())
+		t.Errorf("Pending = %v, want the UseAsync run named", app.Pending())
 	}
 	close(release)
 	app.ExpectText("data: ready")

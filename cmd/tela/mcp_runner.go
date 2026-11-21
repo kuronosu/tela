@@ -190,6 +190,11 @@ type mcpReply struct {
 	Subtree bool        `json:"subtree,omitempty"`
 	Bounds  *[4]float64 `json:"bounds,omitempty"` // x, y, width, height
 	Counts  []int       `json:"counts,omitempty"`
+	// Moved, with scroll, says whether a scroll offset changed (nil: an
+	// instance that cannot say); Scrolled is the identity of the scroll
+	// container the instance picked for a scroll without an element.
+	Moved    *bool  `json:"moved,omitempty"`
+	Scrolled uint64 `json:"scrolled,omitempty"`
 
 	// The mounted screen: its preview and all the names (Previews), the
 	// window's logical size and scale, and whether it is dark.
@@ -242,7 +247,9 @@ func generateMCPSource(pkgName string, c contract, hasApp bool, feats ...genFeat
 		DevTools bool
 		I18N     bool
 		Film     bool
-	}{Package: pkgName, Kind: c.String(), HasApp: hasApp, Prefix: string(prefix), DevTools: f.DevTools, I18N: f.DevTools && f.I18N, Film: f.Film})
+		Kinds    bool
+		Scrolls  bool
+	}{Package: pkgName, Kind: c.String(), HasApp: hasApp, Prefix: string(prefix), DevTools: f.DevTools, I18N: f.DevTools && f.I18N, Film: f.Film, Kinds: f.PendingKinds, Scrolls: f.Scrollables})
 	if err != nil {
 		panic(err) // the template is a constant
 	}
@@ -493,6 +500,8 @@ type telaMCPReply struct {
 	Subtree    bool        ` + "`json:\"subtree,omitempty\"`" + `
 	Bounds     *[4]float64 ` + "`json:\"bounds,omitempty\"`" + `
 	Counts     []int       ` + "`json:\"counts,omitempty\"`" + `
+	Moved      *bool       ` + "`json:\"moved,omitempty\"`" + `
+	Scrolled   uint64      ` + "`json:\"scrolled,omitempty\"`" + `
 	Preview    string      ` + "`json:\"preview,omitempty\"`" + `
 	Names      []string    ` + "`json:\"names,omitempty\"`" + `
 	W          float64     ` + "`json:\"w,omitempty\"`" + `
@@ -788,10 +797,43 @@ func (s *telaMCPSession) snapshot() (string, []uint64) {
 	return s.app.AriaSnapshot(), nil
 }
 
+{{if .Kinds -}}
+// telaMCPQuiet reports whether an item of App.Pending cannot change what
+// is on the screen (ADR-308): the blink of a caret, the fade of a
+// scrollbar, an animation that never ends, the debug overlays. A miss that
+// waits on nothing else will not turn into a match.
+func telaMCPQuiet(k telatest.PendingKind) bool {
+	switch k {
+	case telatest.PendingCaret, telatest.PendingScrollbar, telatest.PendingEndless, telatest.PendingDebug:
+		return true
+	}
+	return false
+}
+
+// settled reports whether nothing pending can change the screen. An
+// endless animation (a spinner) asks for a frame every refresh, so
+// App.Pending lists a frame request beside it: the request is quiet when
+// everything else is, and only then. A UseAsync run or a UseGo goroutine
+// that has not returned can still post what the screen waits for.
+func (s *telaMCPSession) settled() bool {
+	frame, others := false, 0
+	for _, p := range s.app.Pending() {
+		if p.Kind == telatest.PendingFrame {
+			frame = true
+			continue
+		}
+		if !telaMCPQuiet(p.Kind) {
+			return false
+		}
+		others++
+	}
+	return !frame || others > 0 // else a frame is owed: let telatest settle and look again
+}
+{{- else -}}
 // telaMCPQuiet reports whether an item of App.Pending cannot change what
 // is on the screen: the blink of a caret, the fade of a scrollbar, an
-// animation that never ends, the debug overlays. A miss that waits on
-// nothing else will not turn into a match.
+// animation that never ends, the debug overlays. A tela older than
+// ADR-308 names them only by their text.
 func telaMCPQuiet(why string) bool {
 	for _, q := range []string{"the caret of the focused text field", "overlay scrollbars that start fading", "an endless animation", "the debug overlays"} {
 		if telastrings.Contains(why, q) {
@@ -801,27 +843,13 @@ func telaMCPQuiet(why string) bool {
 	return false
 }
 
-// preflight fails at once for an element that is not on the screen when
-// nothing is pending: telatest waits for it to appear, which only helps
-// while something (a frame, an animation, a timer, a queued update) can
-// still change the screen. It leaves the rest to telatest: a locator that
-// matches, or one that matches several (its strictness message), or an
-// app where something is pending.
-func (s *telaMCPSession) preflight(l *telaMCPLoc) {
-	if l == nil {
-		return
-	}
-	loc := l.locator(s.app)
-	if s.app.Count(loc) > 0 {
-		return
-	}
+// settled reports whether nothing pending can change the screen (see the
+// version for kinds); an older telatest without Pending never says so.
+func (s *telaMCPSession) settled() bool {
 	p, ok := any(s.app).(interface{ Pending() []string })
 	if !ok {
-		return // an older telatest: it waits as it always did
+		return false // an older telatest: it waits as it always did
 	}
-	// An endless animation (a spinner) asks for a frame every refresh, so
-	// App.Pending lists a frame request beside it: the request is quiet when
-	// everything else is, and only then.
 	frame, others := false, 0
 	for _, why := range p.Pending() {
 		if telastrings.HasSuffix(why, "a frame request") {
@@ -829,14 +857,48 @@ func (s *telaMCPSession) preflight(l *telaMCPLoc) {
 			continue
 		}
 		if !telaMCPQuiet(why) {
-			return
+			return false
 		}
 		others++
 	}
-	if frame && others == 0 {
-		return // a frame is owed: let telatest settle and look again
+	return !frame || others > 0
+}
+{{- end}}
+
+// telaMCPSettledWhy ends the messages of a miss that waiting cannot help.
+const telaMCPSettledWhy = "the screen is settled (nothing is animating, timed, queued or loading), so waiting would not help"
+
+// preflight fails at once for an element that is not on the screen when
+// nothing is pending: telatest waits for it to appear, which only helps
+// while something (a frame, an animation, a timer, a queued update, a
+// load) can still change the screen. It leaves the rest to telatest: a
+// locator that matches, or one that matches several (its strictness
+// message), or an app where something is pending.
+func (s *telaMCPSession) preflight(l *telaMCPLoc) {
+	if l == nil {
+		return
 	}
-	panic(telaMCPFail{"no element matches " + loc.String() + "; the screen is settled (nothing is animating, timed or queued), so waiting would not help"})
+	loc := l.locator(s.app)
+	if s.app.Count(loc) > 0 || !s.settled() {
+		return
+	}
+	panic(telaMCPFail{"no element matches " + loc.String() + "; " + telaMCPSettledWhy})
+}
+
+// waitFailsFast fails a wait for a text at once when waiting cannot bring
+// it (or, gone, take it away), as preflight does for an element. The
+// locator's match ignores case where the page's text does not, so a text
+// to be gone fails fast only when an element shows exactly it.
+func (s *telaMCPSession) waitFailsFast(text string, gone bool) {
+	if gone {
+		if s.app.Count(telatest.ByText(text, telatest.Exact())) > 0 && s.settled() {
+			panic(telaMCPFail{telafmt.Sprintf("the text %q is still on the screen; %s", text, telaMCPSettledWhy)})
+		}
+		return
+	}
+	if s.app.Count(telatest.ByText(text)) == 0 && s.settled() {
+		panic(telaMCPFail{telafmt.Sprintf("the window does not show the text %q; %s", text, telaMCPSettledWhy)})
+	}
 }
 
 func (s *telaMCPSession) do(req telaMCPReq, rep *telaMCPReply) {
@@ -945,13 +1007,44 @@ func (s *telaMCPSession) do(req telaMCPReq, rep *telaMCPReply) {
 		}
 		app.Press(req.Key)
 	case "scroll":
+		// Whether anything moved: a scroll offset moves the painted bounds
+		// of what the container holds, which the layout tree gives.
+		moved := func(do func()) bool {
+			before := string(app.LayoutJSON())
+			do()
+			return string(app.LayoutJSON()) != before
+		}
+		yes := true
 		if req.Loc != nil {
-			app.Scroll(need("scroll", req.Loc), float32(req.DX), float32(req.DY))
+			loc := need("scroll", req.Loc)
+			if !moved(func() { app.Scroll(loc, float32(req.DX), float32(req.DY)) }) {
+				yes = false
+			}
+			rep.Moved = &yes
 			break
 		}
-		// Without an element: a wheel at a point (the window's center
-		// unless given), which scrolls the nearest scroll container under
-		// it, as a pointer resting there would.
+{{- if .Scrolls}}
+		if req.At == nil {
+			// Without an element or a point: the largest scroll container
+			// that moves that way, as a person scrolls the page; the wheel
+			// at its center may move a container inside it, as it would.
+			ids := app.Scrollables()
+			for _, id := range ids {
+				if moved(func() { app.Scroll(app.NodeLocator(id), float32(req.DX), float32(req.DY)) }) {
+					rep.Moved, rep.Scrolled = &yes, id
+					break
+				}
+			}
+			if rep.Moved == nil {
+				no := false
+				rep.Moved = &no
+			}
+			break
+		}
+{{- end}}
+		// A wheel at a point (the window's center unless given), which
+		// scrolls the nearest scroll container under it, as a pointer
+		// resting there would.
 		at := telaMCPPoint{s.w / 2, s.h / 2}
 		if req.At != nil {
 			at = *req.At
@@ -960,7 +1053,10 @@ func (s *telaMCPSession) do(req telaMCPReq, rep *telaMCPReply) {
 		if !ok {
 			panic(telaMCPFail{"this version of tela cannot scroll at a point; name an element to scroll over"})
 		}
-		sc.ScrollAt(float32(at.X), float32(at.Y), float32(req.DX), float32(req.DY))
+		if !moved(func() { sc.ScrollAt(float32(at.X), float32(at.Y), float32(req.DX), float32(req.DY)) }) {
+			yes = false
+		}
+		rep.Moved = &yes
 	case "drag":
 		switch {
 		case req.At != nil && req.ToAt != nil:
@@ -1015,9 +1111,11 @@ func (s *telaMCPSession) do(req telaMCPReq, rep *telaMCPReply) {
 			left -= step
 		}
 		if req.Text != "" {
+			s.waitFailsFast(req.Text, false)
 			app.ExpectText(req.Text)
 		}
 		if req.Gone != "" {
+			s.waitFailsFast(req.Gone, true)
 			app.ExpectNoText(req.Gone)
 		}
 {{- if .DevTools}}

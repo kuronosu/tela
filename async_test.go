@@ -3,6 +3,7 @@ package tela_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -319,7 +320,7 @@ func TestUseDebounced(t *testing.T) {
 	app.Click(telatest.ByRole("button", "Type")) // restarts the wait
 	app.Advance(200 * time.Millisecond)
 	app.ExpectText("typed 2 settled 0")
-	if p := strings.Join(app.Pending(), ";"); !strings.Contains(p, "UseTimeout") {
+	if p := fmt.Sprint(app.Pending()); !strings.Contains(p, "UseTimeout") {
 		t.Errorf("Pending = %q, want it to name the UseTimeout of the wait", p)
 	}
 	app.Advance(150 * time.Millisecond)

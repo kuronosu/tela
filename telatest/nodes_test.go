@@ -25,6 +25,35 @@ func TestScrollAt(t *testing.T) {
 	}
 }
 
+// TestScrollables lists the scroll containers that can move, the largest
+// first, and leaves out one whose content fits.
+func TestScrollables(t *testing.T) {
+	t.Parallel()
+	rows := func(n int) []tela.Child {
+		var out []tela.Child
+		for i := range n {
+			out = append(out, Div(Key(i), Class("h-[50px]"), Textf("Row %d", i)))
+		}
+		return out
+	}
+	app := telatest.MountFunc(t, func() tela.Node {
+		return Div(Class("flex gap-2"),
+			Div(Class("h-[100px] w-[80px] overflow-y-auto"), TestID("small"), Fragment(rows(10)...)),
+			Div(Class("h-[180px] w-[200px] overflow-y-auto"), TestID("big"), Fragment(rows(10)...)),
+			Div(Class("h-[180px] w-[100px] overflow-y-auto"), TestID("fits"), Fragment(rows(1)...)),
+		)
+	}, telatest.Size(400, 200))
+	got := app.Scrollables()
+	if len(got) != 2 {
+		t.Fatalf("Scrollables() = %v, want the two that overflow", got)
+	}
+	for i, want := range []string{"big", "small"} {
+		if b, w := app.Bounds(app.NodeLocator(got[i])), app.Bounds(telatest.ByTestID(want)); b != w {
+			t.Errorf("Scrollables()[%d] is at %v, want %q at %v", i, b, want, w)
+		}
+	}
+}
+
 // nodesScreen has a counter whose name changes, and a toggle that inserts
 // a button before it and removes one after it.
 func nodesScreen() tela.Node {
