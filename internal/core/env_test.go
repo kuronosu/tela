@@ -4,7 +4,47 @@ import (
 	"testing"
 
 	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/platform"
 )
+
+// With System, a system that states no preference (neither DarkMode nor
+// LightMode) gives the scheme SetNoPreferenceScheme set, light unless set;
+// a stated preference and the app's own scheme win over it.
+func TestNoPreferenceScheme(t *testing.T) {
+	t.Cleanup(func() { SetNoPreferenceScheme(ColorSchemeSystem) })
+	newTree := func(cfg Config) *Tree {
+		cfg.Fonts = testFonts
+		tr := NewTree(cfg)
+		tr.SetViewport(gfx.Size{W: 100, H: 100})
+		tr.Mount(div(Class("h-4")))
+		tr.Frame()
+		return tr
+	}
+	if got := newTree(Config{}).ColorScheme(); got != ColorSchemeLight {
+		t.Errorf("no preference, nothing set: %v, want light", got)
+	}
+	SetNoPreferenceScheme(ColorSchemeDark)
+	tr := newTree(Config{})
+	if got := tr.ColorScheme(); got != ColorSchemeDark {
+		t.Errorf("no preference, dark set: %v, want dark", got)
+	}
+	tr.SetSystemSettings(platform.SystemSettings{LightMode: true})
+	tr.Frame()
+	if got := tr.ColorScheme(); got != ColorSchemeLight {
+		t.Errorf("the system prefers light: %v, want light", got)
+	}
+	tr.SetSystemSettings(platform.SystemSettings{})
+	tr.Frame()
+	if got := tr.ColorScheme(); got != ColorSchemeDark {
+		t.Errorf("no preference again: %v, want dark", got)
+	}
+	if got := newTree(Config{Light: true}).ColorScheme(); got != ColorSchemeLight {
+		t.Errorf("a tree made with a light preference: %v, want light", got)
+	}
+	if got := newTree(Config{ColorScheme: ColorSchemeLight}).ColorScheme(); got != ColorSchemeLight {
+		t.Errorf("the app's light: %v, want light", got)
+	}
+}
 
 // TestColorScheme: the effective scheme is the app's override or the
 // system's preference; a change restyles dark: classes and rebuilds the

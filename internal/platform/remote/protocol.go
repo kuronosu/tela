@@ -56,7 +56,8 @@ import (
 //   - 16: platform contract v15 (ADR-297): NotificationEvent.Earlier.
 //   - 17: platform contract v16 (ADR-298; surfaces.go): SetStartAtLogin,
 //     StartsAtLogin, SetTasks, AddRecentDocument, ClearRecentDocuments.
-const ProtocolVersion = 17
+//   - 18: platform contract v17 (ADR-304): SystemSettings.LightMode.
+const ProtocolVersion = 18
 
 // magic opens the hello message.
 const magic = "TELA"
@@ -224,6 +225,7 @@ func (e *enc) settings(s platform.SystemSettings) {
 	e.str(s.TitleBarButtons) // protocol 7 (ADR-238)
 	e.str(s.UIFontFamily)    // protocol 8 (ADR-244)
 	e.str(s.MonoFontFamily)
+	e.boolean(s.LightMode) // protocol 18 (ADR-304)
 }
 func (e *enc) rects(rs []image.Rectangle) {
 	e.u32(uint32(len(rs)))
@@ -304,6 +306,7 @@ func (d *dec) settings() platform.SystemSettings {
 		TitleBarButtons:     d.str(),
 		UIFontFamily:        d.str(),
 		MonoFontFamily:      d.str(),
+		LightMode:           d.boolean(),
 	}
 }
 func (d *dec) str() string {

@@ -572,6 +572,16 @@ func TestDevToolsEndToEnd(t *testing.T) {
 	if cy < 48 || cy > 88 {
 		t.Errorf("the Increment button is at %v; devapp says y 48 to 88", *button.Bounds)
 	}
+	// The layout of the root a level at a time, and the element list as
+	// changes from a version.
+	root, err := c.InspectDepth(ctx, win, 0, 0)
+	if err != nil || root.Kind != "root" || len(root.Children) != 0 || root.More == 0 {
+		t.Errorf("inspect of the root at depth 0: %d children, more %d, %v", len(root.Children), root.More, err)
+	}
+	full, err := c.ElementsSince(ctx, win, 0)
+	if err != nil || !full.Full || full.Version == 0 || len(full.Elements) != len(els) {
+		t.Fatalf("elements since 0: full %v, version %d, %d of %d, %v", full.Full, full.Version, len(full.Elements), len(els), err)
+	}
 	ps, err := c.Profiles(ctx, win, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -602,6 +612,12 @@ func TestDevToolsEndToEnd(t *testing.T) {
 	})
 	if frame.Built == 0 || frame.Duration <= 0 {
 		t.Errorf("the frame of the click: %+v", frame)
+	}
+	// Only what the click changed comes, the counter's text among it.
+	d, err := c.ElementsSince(ctx, win, full.Version)
+	if err != nil || d.Full || d.Version == full.Version || len(d.Elements) == 0 || len(d.Elements) >= len(full.Elements)/2 ||
+		!slices.ContainsFunc(d.Elements, func(e core.ElementInfo) bool { return e.ID == counter.ID }) {
+		t.Errorf("elements since the click: full %v, version %d (was %d), %d of %d elements, %v", d.Full, d.Version, full.Version, len(d.Elements), len(full.Elements), err)
 	}
 	info, err := c.Element(ctx, win, counter.ID)
 	if err != nil || len(info.Recent) == 0 {

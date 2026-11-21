@@ -135,16 +135,16 @@ func (s *devtoolsSource) Unsubscribe(ctx context.Context, events ...string) erro
 	return s.c.Unsubscribe(ctx, events...)
 }
 
-func (s *devtoolsSource) Elements(ctx context.Context, window uint32, detail bool) ([]core.ElementInfo, error) {
-	return s.c.Elements(ctx, window, detail)
+func (s *devtoolsSource) ElementsSince(ctx context.Context, window uint32, version uint64) (core.ElementsDiff, error) {
+	return s.c.ElementsSince(ctx, window, version)
 }
 
 func (s *devtoolsSource) Element(ctx context.Context, window uint32, id core.ElementID) (core.ElementInfo, error) {
 	return s.c.Element(ctx, window, id)
 }
 
-func (s *devtoolsSource) Inspect(ctx context.Context, window uint32, id core.ElementID) (core.InspectNode, error) {
-	return s.c.Inspect(ctx, window, id)
+func (s *devtoolsSource) Inspect(ctx context.Context, window uint32, id core.ElementID, depth int) (core.InspectNode, error) {
+	return s.c.InspectDepth(ctx, window, id, depth)
 }
 
 func (s *devtoolsSource) Semantics(ctx context.Context, window uint32) (devtools.Semantics, error) {

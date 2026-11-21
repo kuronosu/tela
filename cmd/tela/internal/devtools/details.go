@@ -1,12 +1,15 @@
 package devtools
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/desktop"
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/kit"
@@ -30,8 +33,12 @@ func (d DetailsPane) Build() tela.Node {
 		return empty(iconLayers, "Element is gone", "It was unmounted by a rebuild. Select another one.")
 	}
 	detail := v.Detail != nil
+	var box *core.InspectNode
+	if v.Box != nil && v.Box.Element == el.ID {
+		box = v.Box
+	}
 	var kids []tela.Child
-	kids = append(kids, ElementHeader{El: el})
+	kids = append(kids, ElementHeader{El: el, Copy: CopyMenu{El: el, Box: box, Aria: v.ariaLine(el.ID), M: d.M}})
 	if !detail {
 		kids = append(kids, Div(Class("px-3 py-4 text-xs text-muted-foreground"), Text("Loading details...")))
 	} else {
@@ -72,8 +79,76 @@ func (v View) selection() (core.ElementInfo, bool) {
 	return core.ElementInfo{}, false
 }
 
-// ElementHeader names the element and says where in the source it is.
-type ElementHeader struct{ El core.ElementInfo }
+// ariaLine returns the line of the aria snapshot of the window that prints
+// element id's semantics node, without its indentation ("- button
+// \"Save\""); "" when the snapshot was not fetched or has none.
+func (v View) ariaLine(id core.ElementID) string {
+	if id == 0 {
+		return ""
+	}
+	for i, line := range strings.Split(v.Sem.YAML, "\n") {
+		if i < len(v.Sem.Elements) && v.Sem.Elements[i] == id {
+			return strings.TrimSpace(line)
+		}
+	}
+	return ""
+}
+
+// CopyMenu puts what describes the selection on the clipboard: its JSON
+// (the element with its details, and its layout when it has a box), its
+// source location as an editor opens it (file:line) and its line of the
+// aria snapshot. Opening it fetches the snapshot, which the Elements
+// panel does not otherwise need.
+type CopyMenu struct {
+	El   core.ElementInfo
+	Box  *core.InspectNode
+	Aria string
+	M    *Model
+}
+
+// Build returns the menu.
+func (c CopyMenu) Build() tela.Node {
+	return kit.DropdownMenu[string]{
+		AriaLabel: "Copy", Placement: "bottom", Align: "end",
+		Trigger: kit.Button{Variant: kit.Ghost, Size: kit.IconSm, Icon: iconCopy, AriaLabel: "Copy", Class: "size-7 shrink-0"},
+		Items: []kit.MenuItem[string]{
+			{Key: "json", Label: "Copy as JSON"},
+			{Key: "source", Label: "Copy source location", Disabled: c.El.Site.IsZero()},
+			{Key: "aria", Label: "Copy aria snapshot line", Disabled: c.Aria == ""},
+		},
+		OnOpenChange: func(open bool) {
+			if open && c.M != nil {
+				c.M.LoadSemantics()
+			}
+		},
+		OnSelect: func(k string) { desktop.WriteClipboardText(copyText(k, c.El, c.Box, c.Aria)) },
+	}
+}
+
+// copyText is what CopyMenu copies for item k.
+func copyText(k string, el core.ElementInfo, box *core.InspectNode, aria string) string {
+	switch k {
+	case "source":
+		return fmt.Sprintf("%s:%d", el.Site.File, el.Site.Line)
+	case "aria":
+		return aria
+	}
+	b, err := json.MarshalIndent(struct {
+		core.ElementInfo
+		Layout *core.InspectNode `json:"layout,omitempty"`
+	}{el, box}, "", "  ")
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+// ElementHeader names the element and says where in the source it is;
+// Copy is the menu at its end.
+type ElementHeader struct {
+	El   core.ElementInfo
+	Copy tela.Child
+}
 
 // Build returns the header.
 func (e ElementHeader) Build() tela.Node {
@@ -101,6 +176,7 @@ func (e ElementHeader) Build() tela.Node {
 		Div(Class("flex items-center gap-2"),
 			Div(Class("min-w-0 flex-1 truncate font-mono text-[14px]"), title),
 			kit.Badge{Variant: kit.Secondary, Class: "shrink-0 text-[10px] uppercase tracking-wide", Children: Text(kind)},
+			e.Copy,
 		),
 		Div(Class("mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground"),
 			If(!el.Site.IsZero(), Span(Class("font-mono text-foreground/90"), AriaLabel("Source"), Text(el.Site.String()))),

@@ -318,7 +318,7 @@ func (s *supervisor) hostOptions() remote.HostOptions {
 	}
 	if s.opts.Dark {
 		o.Settings = func(st platform.SystemSettings) platform.SystemSettings {
-			st.DarkMode = true
+			st.DarkMode, st.LightMode = true, false
 			return st
 		}
 	}

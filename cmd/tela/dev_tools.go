@@ -62,8 +62,9 @@ import (
 //	unsubscribe   {events: [...]}         → {events}   the ones still subscribed
 //	instrument    {on}                    → {on}
 //	elements      {window, detail}        → {elements: [ElementInfo]}
+//	elements      {window, diff: true, version} → {version, full, elements, order}  the change since version (core.ElementsDiff)
 //	element       {window, id}            → ElementInfo
-//	inspect       {window, id}            → InspectNode (id 0: the whole tree)
+//	inspect       {window, id, depth}     → InspectNode (id 0: the whole tree; depth: levels of children, absent for all)
 //	semantics     {window}                → {yaml, nodes, elements, srcs}
 //	profiles      {window, since}         → {profiles: [FrameProfile]}
 //	logs          {since}                 → {entries: [{seq, at, level, msg, source, window, build}], last}
@@ -91,7 +92,8 @@ import (
 // (toolsServer.keys), and the OS's focus does not move.
 
 // toolsProtocol is the version info returns; it grows with the methods.
-const toolsProtocol = 1
+// 2: elements with diff, inspect with depth, the dropped notification.
+const toolsProtocol = 2
 
 // toolsTimeout bounds a relayed request and a wait for the host's UI
 // thread.
@@ -807,12 +809,15 @@ func (c *toolsConn) handle(raw []byte) *rpcResponse {
 
 // toolsParams are the parameters of every method; each reads its own.
 type toolsParams struct {
-	Window uint32   `json:"window"`
-	ID     uint64   `json:"id"`
-	Detail bool     `json:"detail"`
-	Since  uint64   `json:"since"`
-	On     *bool    `json:"on"`
-	Events []string `json:"events"`
+	Window  uint32   `json:"window"`
+	ID      uint64   `json:"id"`
+	Detail  bool     `json:"detail"`
+	Since   uint64   `json:"since"`
+	On      *bool    `json:"on"`
+	Events  []string `json:"events"`
+	Diff    bool     `json:"diff"`
+	Version uint64   `json:"version"`
+	Depth   *int     `json:"depth"`
 	// Input.
 	Action string   `json:"action"`
 	X      float32  `json:"x"`
@@ -887,14 +892,14 @@ func (c *toolsConn) call(method string, raw json.RawMessage) (any, error) {
 		}
 		return map[string]any{"on": got}, nil
 	case "elements":
-		return tree(devloop.KindToolsElements, devloop.ToolsParams{Detail: p.Detail})
+		return tree(devloop.KindToolsElements, devloop.ToolsParams{Detail: p.Detail, Diff: p.Diff, Version: p.Version})
 	case "element":
 		if p.ID == 0 {
 			return nil, toolsBadParams("give the id of an element")
 		}
 		return tree(devloop.KindToolsElement, devloop.ToolsParams{ID: p.ID})
 	case "inspect":
-		return tree(devloop.KindToolsInspect, devloop.ToolsParams{ID: p.ID})
+		return tree(devloop.KindToolsInspect, devloop.ToolsParams{ID: p.ID, Depth: p.Depth})
 	case "semantics":
 		return tree(devloop.KindToolsSemantics, devloop.ToolsParams{})
 	case "profiles":

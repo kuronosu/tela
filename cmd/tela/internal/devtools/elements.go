@@ -116,8 +116,8 @@ func (p ElementsPanel) Build() tela.Node {
 	if comps {
 		viewLabel = "components"
 	}
-	return Div(Class("flex min-h-0 flex-1"),
-		Div(Class("flex min-w-0 flex-1 flex-col"),
+	return DetailsSplit{Width: p.Details, OnWidth: p.SetDetails, Pane: DetailsPane{V: v, M: m},
+		Main: Fragment(
 			Div(Class("flex h-10 shrink-0 items-center gap-2 border-b border-border bg-card px-2"),
 				kit.Tooltip{Placement: "bottom", Content: Text("Pick an element in the app (Esc cancels)"), Trigger: kit.Button{
 					Variant: pickVariant(v.Picking), Size: kit.IconSm, Icon: iconCrosshair, AriaLabel: "Pick an element",
@@ -138,10 +138,7 @@ func (p ElementsPanel) Build() tela.Node {
 			Div(Class("flex h-6 shrink-0 items-center justify-between border-t border-border bg-card px-3 text-[11px] text-muted-foreground"),
 				Span(Textf("%d elements", len(v.Els))),
 				Span(Textf("%d shown", len(rows)))),
-		),
-		Div(Class("flex w-[440px] shrink-0 flex-col border-l border-border bg-card"),
-			DetailsPane{V: v, M: m}),
-	)
+		)}
 }
 
 func pickVariant(on bool) kit.Variant {

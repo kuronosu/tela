@@ -24,9 +24,16 @@ const endGrace = 1500 * time.Millisecond
 
 // Run opens the DevTools window on src and returns when it closes, or when
 // the session ends. Call it on the main goroutine, like tela.Main.
-func Run(src Source) {
+func Run(src Source) { tela.Main(app(src)) }
+
+// app is the DevTools' window over src. It makes the process's windows
+// dark when the system states no color scheme preference, as Chrome's and
+// Flutter's DevTools are (ADR-304; the toolbar's toggle switches), so call
+// it only in the process of the DevTools.
+func app(src Source) tela.App {
+	core.SetNoPreferenceScheme(core.ColorSchemeDark)
 	theme := Theme()
-	tela.Main(tela.App{
+	return tela.App{
 		Title:     "Tela DevTools",
 		AppID:     "dev.telaui.devtools",
 		Width:     1280,
@@ -36,7 +43,7 @@ func Run(src Source) {
 		RootClass: "overflow-hidden bg-background text-foreground",
 		Theme:     &theme,
 		Root:      Root{Source: src},
-	})
+	}
 }
 
 var (
@@ -66,6 +73,10 @@ type panelProps struct {
 	V    View
 	M    *Model
 	Open func(core.ElementID)
+	// Details is the width of the details pane (the Elements and the
+	// Accessibility panels share it), SetDetails what its splitter sets.
+	Details    float32
+	SetDetails func(float32)
 }
 
 // Build returns the DevTools.
@@ -92,10 +103,11 @@ func (r Root) Build() tela.Node {
 	}
 	tela.UseTimeout(wait, tela.Quit, v.Conn)
 
+	details, setDetails := tela.UseState(float32(detailsDefault))
 	p := panelProps{V: v, M: m, Open: func(id core.ElementID) {
 		m.Select(id, true)
 		setTab.Set(TabElements)
-	}}
+	}, Details: details, SetDetails: setDetails.Set}
 	return kit.StyleProvider{Style: dtStyle(), Children: tela.C(func() tela.Node {
 		return Div(Class("flex h-full min-h-0 flex-col"),
 			Toolbar{V: v, M: m},

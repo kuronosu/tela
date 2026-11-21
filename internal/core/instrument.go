@@ -75,6 +75,9 @@ type instrument struct {
 	dev  bool
 	prof profiler
 	pick pickState
+	// snaps are the last element lists ElementsSince gave
+	// (instrument_diff.go).
+	snaps []elemSnap
 }
 
 // elemIns is what the instrumentation keeps of an element.
@@ -786,6 +789,21 @@ func (t *Tree) semNodeOf(el *Element) semantics.NodeID {
 // InspectElementID is InspectElement for element id of an instrumented
 // tree: the box it owns, or its nearest ancestor's.
 func (t *Tree) InspectElementID(id ElementID) (InspectNode, error) {
+	return t.InspectDepth(id, -1)
+}
+
+// InspectDepth is InspectElementID down to depth levels of children (0:
+// the box alone; negative: all), the whole tree for id 0. A node at the
+// last level counts the children it leaves out in More, so a client
+// fetches a big subtree a level at a time (tela devtools asks for the box
+// alone).
+func (t *Tree) InspectDepth(id ElementID, depth int) (InspectNode, error) {
+	if id == 0 {
+		if t.rootBox == nil || t.rootBox.cs == nil {
+			return InspectNode{Kind: "root"}, nil
+		}
+		return t.inspect(t.rootBox, gfx.Point{}, depth), nil
+	}
 	var el *Element
 	if t.ins != nil {
 		el = t.ins.element(id)
@@ -793,7 +811,7 @@ func (t *Tree) InspectElementID(id ElementID) (InspectNode, error) {
 	if el == nil {
 		return InspectNode{}, fmt.Errorf("%w: element %d", ErrNodeGone, id)
 	}
-	return t.inspectOf(el, fmt.Sprintf("element %d", id))
+	return t.inspectOf(el, fmt.Sprintf("element %d", id), depth)
 }
 
 // info describes el.

@@ -511,7 +511,16 @@ The window follows the app live and survives its reloads. Four panels:
   built it), its hooks with their values, its props, the box model (margin,
   border, padding and content, as Chrome draws it) and its computed style.
 - **Accessibility**: the semantics tree as `tela inspect` prints it. Selecting
-  a node selects its element, with the same details.
+  a node selects its element, with the same details; hovering or selecting a
+  node highlights its element in the app, as the Elements panel does.
+
+The details pane of both panels is as wide as you drag the splitter at its
+edge (or move it with the arrow keys once focused; a double click puts the
+default back). Its copy button puts the element on the clipboard as JSON (its
+details and its box), as its source location (`path/settings.go:42`, which
+editors open) or as its line of the aria snapshot. The tree follows the app by
+fetching what changed since the version it has, and a selection fetches its
+own box only, so big trees stay quick.
 - **Profiler**: *Record*, use the app, *Stop*. Each frame is a bar stacked by
   phase (input, animate, build, style, layout, paint, semantics, raster,
   present, effects) against the 16.7 ms line; a summary counts the frames,
@@ -525,8 +534,10 @@ The window follows the app live and survives its reloads. Four panels:
   filterable by level, source and text. Entries logged while the app is idle
   arrive at once.
 
-The look follows the system's color scheme: graphite in the dark, a calm grey
-in the light.
+The look follows the system's color scheme, graphite in the dark and a calm
+grey in the light, and is dark when the system states no preference, as
+Chrome's and Flutter's DevTools are; the sun and moon button in the toolbar
+switches it.
 
 ## tela lint
 

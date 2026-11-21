@@ -101,6 +101,9 @@ func devToolsRegister(rb *remote.Backend, h *Host) {
 	}
 	handle(devloop.KindToolsInstrument, false, devToolsInstrument)
 	handle(devloop.KindToolsElements, true, func(_ *Host, t *Tree, p devloop.ToolsParams) (any, error) {
+		if p.Diff && !p.Detail {
+			return t.ElementsSince(p.Version), nil
+		}
 		els := t.Elements(p.Detail)
 		if els == nil {
 			els = []ElementInfo{}
@@ -115,13 +118,14 @@ func devToolsRegister(rb *remote.Backend, h *Host) {
 		return info, nil
 	})
 	handle(devloop.KindToolsInspect, true, func(_ *Host, t *Tree, p devloop.ToolsParams) (any, error) {
-		if p.ID == 0 {
-			return t.Inspect(), nil
+		depth := -1
+		if p.Depth != nil {
+			depth = *p.Depth
 		}
-		if !t.HasElement(ElementID(p.ID)) {
+		if p.ID != 0 && !t.HasElement(ElementID(p.ID)) {
 			return nil, devToolsNoElement(p)
 		}
-		return t.InspectElementID(ElementID(p.ID))
+		return t.InspectDepth(ElementID(p.ID), depth)
 	})
 	handle(devloop.KindToolsSemantics, true, func(_ *Host, t *Tree, _ devloop.ToolsParams) (any, error) {
 		yaml, ids := semantics.SnapshotIDs(t.Semantics())

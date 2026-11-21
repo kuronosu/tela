@@ -41,6 +41,7 @@ type rawSettings struct {
 func settingsFrom(r rawSettings) platform.SystemSettings {
 	return platform.SystemSettings{
 		DarkMode:            r.ThemeKnown && r.AppsUseLightTheme == 0,
+		LightMode:           r.ThemeKnown && r.AppsUseLightTheme != 0,
 		ReducedMotion:       !r.ClientAreaAnimation,
 		DoubleClickInterval: time.Duration(r.DoubleClickMs) * time.Millisecond,
 		AccentColor:         r.Accent,
