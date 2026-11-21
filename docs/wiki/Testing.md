@@ -192,6 +192,24 @@ func signup() tela.Node {
 }
 ```
 
+## Checking accessibility
+
+[`App.ExpectAccessible`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.ExpectAccessible) runs rules after axe-core's on the screen as it is now, and fails the test listing each violation with its rule, the element's line of the aria snapshot, its source when the app is mounted with [`telatest.Instrument()`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#Instrument), and the fix. Call it in each state worth checking, with an overlay open or a form showing its errors:
+
+```go
+app := telatest.Mount(t, Settings(), telatest.Instrument())
+app.ExpectAccessible()
+app.Click(telatest.ByRole("button", "Delete account"))
+app.ExpectAccessible(telatest.DisableRules("target-size"))
+// telatest: ExpectAccessible: 1 accessibility violation:
+//
+// 1. aria-command-name (critical): a button needs an accessible name
+//     element: button [src=settings.go:42]
+//     fix: give it text content, h.AriaLabel("...") or h.AriaLabelledBy(...)
+```
+
+The rules have axe's IDs (`aria-command-name`, `aria-input-field-name`, `aria-toggle-field-name`, `aria-dialog-name`, `aria-required-attr`, `aria-valid-attr-value`, `focus-order-semantics`, `target-size`...); [`telatest.Rules()`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#Rules) lists them with their impact and tags. Options follow `@axe-core/playwright`: `WithRules(ids...)` and `WithTags("wcag2aa")` run only those, `DisableRules(ids...)` accepts one rule's violations for one call, and `Exclude(locator)` leaves out a subtree. [`App.Audit`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Audit) returns the `[]Violation` instead of failing. `target-size` is WCAG 2.2's 2.5.8: 24x24 CSS pixels, or a 24 px circle with no other target in it; inline links and disabled controls are exempt.
+
 ## The clock
 
 The window's clock is **manual**. It starts at zero and moves only when the app
