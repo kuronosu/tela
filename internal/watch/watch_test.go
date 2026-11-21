@@ -355,13 +355,21 @@ func TestDebounce(t *testing.T) {
 		// ReadDirectoryChangesW, the poller's walk) gets them, which a
 		// loaded runner can stall too, unseen by the writer below.
 		const debounce = 500 * time.Millisecond
+		// The writer is descheduled right after its last write, as Wine
+		// in CI was for some 75 ms: the watcher saw that write before the
+		// writer could note the time, so a bound measured from after the
+		// write read "batch 426ms after the last write, before the
+		// debounce". The debounce runs from the last change the watcher
+		// saw, which cannot come before the last write began: the bound
+		// is measured from there.
+		const stall = 100 * time.Millisecond
 		// The burst is a burst only if no gap between its writes came
 		// near the debounce: a loaded runner can stall a sleep or a write
 		// for longer, and the watcher then rightly sees two bursts. Such
 		// an attempt proves nothing, so it is retried.
 		var (
-			h           *harness
-			start, last time.Time
+			h                      *harness
+			start, lastBegan, last time.Time
 		)
 		for attempt := 1; ; attempt++ {
 			// MaxDelay far away: with the default 1 s, a burst that a slow
@@ -377,8 +385,12 @@ func TestDebounce(t *testing.T) {
 				if i > 0 {
 					time.Sleep(20 * time.Millisecond)
 				}
+				lastBegan = time.Now()
 				h.write("a.go", strings.Repeat("x", i+1))
 				h.write("b.go", strings.Repeat("y", i+1))
+				if i == 4 {
+					time.Sleep(stall)
+				}
 				now := time.Now()
 				maxGap = max(maxGap, now.Sub(last))
 				last = now
@@ -397,8 +409,8 @@ func TestDebounce(t *testing.T) {
 		if len(bs) != 1 {
 			t.Errorf("a burst of writes gave %d batches, want 1", len(bs))
 		}
-		if got.Sub(last) < debounce-10*time.Millisecond {
-			t.Errorf("batch %v after the last write, before the debounce", got.Sub(last))
+		if got.Sub(lastBegan) < debounce-10*time.Millisecond {
+			t.Errorf("batch %v after the last write began, before the debounce", got.Sub(lastBegan))
 		}
 		if bs[0].First.Before(start) || bs[0].First.After(last) {
 			t.Errorf("Batch.First %v is not within the burst", bs[0].First)
