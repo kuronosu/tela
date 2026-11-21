@@ -2,6 +2,7 @@ package core
 
 import (
 	"image"
+	"time"
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/gfx/raster"
@@ -14,6 +15,18 @@ import (
 // rendered as of the last of them.
 const MaxRenderFrames = 8
 
+// DefaultAsyncWait is how long a headless render waits for the UseAsync
+// runs in flight (ADR-307), in real time.
+const DefaultAsyncWait = 5 * time.Second
+
+// AsyncWait returns the limit of the wait for UseAsync runs.
+func (o RenderOptions) AsyncWait() time.Duration {
+	if o.AsyncLimit > 0 {
+		return o.AsyncLimit
+	}
+	return DefaultAsyncWait
+}
+
 // RenderOptions configures Render.
 type RenderOptions struct {
 	Config
@@ -23,6 +36,10 @@ type RenderOptions struct {
 	// Scale is the display scale (device pixels per logical pixel); zero
 	// means 1.
 	Scale float32
+	// AsyncLimit is how long, in real time, Render waits for the UseAsync
+	// runs in flight before it draws the screen as it is (their loading
+	// state); zero means DefaultAsyncWait.
+	AsyncLimit time.Duration
 	// Transparent renders over a transparent canvas, as a transparent
 	// window shows the app (tela.App.Transparent, ADR-249): the image
 	// keeps the alpha where the root has no opaque background.
@@ -64,6 +81,9 @@ func Render(root Node, opts RenderOptions) (*gfx.DisplayList, *image.RGBA) {
 	dl, _ := t.Frame()
 	for i := 1; i < MaxRenderFrames && t.Dirty(); i++ {
 		dl, _ = t.Frame()
+	}
+	if last := t.AwaitAsync(opts.AsyncWait()); last != nil {
+		dl = last
 	}
 	var img *image.RGBA
 	if t.Debug() != 0 {

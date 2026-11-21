@@ -530,12 +530,29 @@ func (a *App) settle() {
 		limit = busyFrames * a.backend.FrameInterval()
 	}
 	var st stall
+	var asyncSince time.Time
 	for {
 		a.deliver()
 		if a.sh.closed {
 			return // the app quit
 		}
 		if !a.pendingWork() {
+			if !a.cfg.noSettle && a.asyncInFlight() {
+				// A UseAsync run is on its goroutine and its result comes
+				// in real time: wait for it, up to the timeout (ADR-307).
+				if asyncSince.IsZero() {
+					asyncSince = time.Now()
+				}
+				if time.Since(asyncSince) > a.cfg.timeout {
+					a.fatalf("%s was still in flight after %v of real time: settling waits for the UseAsync runs of the app, and this one has not returned.\n"+
+						"A function that never returns, or waits for something the test controls, keeps the app from settling: make it return when its context is done, "+
+						"test the loading state with telatest.NoSettle(), which leaves the runs alone, or give a longer telatest.Timeout(d)",
+						strings.Join(a.asyncRuns(), ", "), a.cfg.timeout)
+				}
+				time.Sleep(core.AsyncPollInterval)
+				a.backend.Wake()
+				continue
+			}
 			a.sh.busy = false
 			break
 		}

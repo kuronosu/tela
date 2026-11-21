@@ -131,6 +131,7 @@ func (s *asyncSlot[T]) invalidate() {
 	cancel := s.cancel
 	s.cancel = nil
 	s.mu.Unlock()
+	s.el.tree.asyncEnded(s)
 	if cancel != nil {
 		cancel()
 	}
@@ -174,13 +175,38 @@ func (s *asyncSlot[T]) run() {
 	s.cancel = cancel
 	f := s.f
 	s.mu.Unlock()
+	s.el.tree.asyncStarted(s)
 	go func() {
 		defer crashRecover(PanicGo) // logtee.go
 		goWithApp(ctx, s.app, func(ctx context.Context) {
 			data, err := f(ctx)
 			s.finish(ctx, gen, data, err)
+			s.endRun(gen)
 		})
 	}()
+}
+
+// endRun records that run gen has ended, unless a newer one started: its
+// result is queued by now, so the tree is never seen without both.
+func (s *asyncSlot[T]) endRun(gen uint64) {
+	if s.current(gen) {
+		s.el.tree.asyncEnded(s)
+	}
+}
+
+// describeAsync names the slot for Pending and the settle that waits for
+// it: its component and, in dev mode, where UseAsync is called.
+func (s *asyncSlot[T]) describeAsync() string {
+	what := "a UseAsync run in " + s.el.tree.describe(s.el)
+	for i, h := range s.el.hooks {
+		if h == any(s) {
+			if i < len(s.el.hookDev) {
+				what += " (called at " + s.el.hookSite(i) + ")"
+			}
+			break
+		}
+	}
+	return what
 }
 
 // current reports whether run gen is the one that may write the state.

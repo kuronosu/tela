@@ -59,6 +59,9 @@ func (t *Tree) Pending(now time.Duration) []string {
 	if at, ok := t.dragAutoscrollDeadline(); ok {
 		why = append(why, "the autoscroll of a drag "+in(at))
 	}
+	for _, r := range t.AsyncRuns() {
+		why = append(why, r+" in flight (its goroutine has not returned)")
+	}
 	return why
 }
 

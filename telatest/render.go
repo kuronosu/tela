@@ -28,7 +28,10 @@ import (
 //
 // Each call builds a new tree, runs frames at the given size until the
 // tree has no more work (a few at most, for what the first one measures,
-// such as tela.UseBounds) and unmounts it. They use the fonts given with
+// such as tela.UseBounds) and unmounts it. They wait, up to [Timeout] of
+// real time, for the tela.UseAsync runs in flight, so a screen that loads
+// data is captured loaded; a run still going then is named in a dev
+// warning and the capture shows it loading (ADR-307). They use the fonts given with
 // [Fonts] and then Tela's standard fonts (the ones of fonts/standard: Inter,
 // JetBrains Mono, Source Serif 4, Noto Sans Arabic and Noto Color Emoji),
 // never the system's, so the results are the same on every machine. A panic in the tree (a hook misuse, say) is
@@ -87,6 +90,7 @@ func Render(root tela.Component, opts ...Option) (img *image.RGBA, err error) {
 		Width:  size.W, Height: size.H,
 		Scale:       float32(cfg.scale),
 		Transparent: cfg.win.transparent,
+		AsyncLimit:  cfg.timeout,
 	})
 	return img, nil
 }
@@ -143,5 +147,6 @@ func framed(root tela.Component, cfg config, size gfx.Size) *core.Tree {
 	for i := 1; i < core.MaxRenderFrames && t.Dirty(); i++ {
 		t.Frame()
 	}
+	t.AwaitAsync(cfg.timeout)
 	return t
 }

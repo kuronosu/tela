@@ -254,6 +254,18 @@ keep polling, but their first try handles only the work due and the clock moves
 only between failed tries, a frame at a time. See [Animation](Animation) for
 what animates.
 
+### Data that loads (`UseAsync`)
+
+Settling also waits, in real time, for the `tela.UseAsync` runs in flight, so a
+query, an action or a snapshot never captures the loading state. A run that has
+not returned within the `Timeout` fails the test, naming it (its component and
+where `UseAsync` is called). To look at the loading state (a skeleton, a
+spinner) or to act while it loads, mount with `telatest.NoSettle()`: nothing
+waits for the runs then, `app.Pending()` names them, and an expectation finds
+the result once a run ends. `telatest.Render`, `AriaSnapshot` and `LayoutJSON`
+(so `tela snapshot` and `tela inspect`) wait up to the `Timeout` too, then
+capture the loading state with a warning naming the run.
+
 ## Goldens
 
 [`App.Golden`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Golden) compares the window's pixels with `testdata/<name>` next

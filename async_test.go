@@ -62,7 +62,7 @@ func TestUseAsyncLoadingThenData(t *testing.T) {
 		p.add(a)
 		return show(a)
 	}
-	app := telatest.Mount(t, tela.C(page))
+	app := telatest.Mount(t, tela.C(page), telatest.NoSettle()) // a held run is the loading state: NoSettle does not wait for it
 	if f := p.first(); !f.Loading || f.Data != "" || f.Err != nil {
 		t.Fatalf("the first build saw %+v, want Loading with no data", f)
 	}
@@ -96,7 +96,7 @@ func TestUseAsyncDepsChangeCancelsAndDropsLateResult(t *testing.T) {
 		}, id)
 		return Div(Button(OnClick(func(tela.MouseEvent) { setID.Set(2) }), Text("Next")), show(a))
 	}
-	app := telatest.Mount(t, tela.C(page))
+	app := telatest.Mount(t, tela.C(page), telatest.NoSettle()) // a held run is the loading state: NoSettle does not wait for it
 	first := <-ctxs
 	app.ExpectText("loading")
 	app.Click(telatest.ByRole("button", "Next"))
@@ -120,7 +120,7 @@ func TestUseAsyncDepsChangeResetsData(t *testing.T) {
 		}, id)
 		return Div(Button(OnClick(func(tela.MouseEvent) { setID.Set(2) }), Text("Next")), show(a))
 	}
-	app := telatest.Mount(t, tela.C(page))
+	app := telatest.Mount(t, tela.C(page), telatest.NoSettle()) // a held run is the loading state: NoSettle does not wait for it
 	app.ExpectText("data: v1")
 	app.Click(telatest.ByRole("button", "Next"))
 	app.ExpectText(`loading (data "")`) // reset, not stale
@@ -147,7 +147,7 @@ func TestUseAsyncReloadKeepsData(t *testing.T) {
 		reload = a.Reload
 		return show(a)
 	}
-	app := telatest.Mount(t, tela.C(page))
+	app := telatest.Mount(t, tela.C(page), telatest.NoSettle()) // a held run is the loading state: NoSettle does not wait for it
 	app.ExpectText("data: run1")
 	go reload() // safe from any goroutine
 	app.ExpectText(`loading (data "run1")`)
@@ -203,7 +203,7 @@ func TestUseAsyncReloadDropsSupersededResult(t *testing.T) {
 		reload = a.Reload
 		return show(a)
 	}
-	app := telatest.Mount(t, tela.C(page))
+	app := telatest.Mount(t, tela.C(page), telatest.NoSettle()) // a held run is the loading state: NoSettle does not wait for it
 	app.ExpectText("loading")
 	<-started // the first run is the one in flight
 	reload()
@@ -230,7 +230,7 @@ func TestUseAsyncUnmountCancels(t *testing.T) {
 		return Div(Button(OnClick(func(tela.MouseEvent) { setShown.Set(false) }), Text("Hide")),
 			If(shown, tela.C(child)))
 	}
-	app := telatest.Mount(t, tela.C(page))
+	app := telatest.Mount(t, tela.C(page), telatest.NoSettle()) // a held run is the loading state: NoSettle does not wait for it
 	ctx := <-ctxs
 	app.Click(telatest.ByRole("button", "Hide"))
 	waitDone(t, ctx)
