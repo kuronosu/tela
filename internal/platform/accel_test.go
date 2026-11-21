@@ -5,6 +5,20 @@ import (
 	"testing"
 )
 
+// ParseAcceleratorFor resolves CmdOrCtrl by the flavor, not the host.
+func TestParseAcceleratorFor(t *testing.T) {
+	for fl, want := range map[Flavor]Modifiers{FlavorMac: ModSuper, FlavorLinux: ModCtrl, FlavorWindows: ModCtrl} {
+		got, err := ParseAcceleratorFor("CmdOrCtrl+S", fl)
+		if err != nil || got != (Accelerator{want, "s"}) {
+			t.Errorf("flavor %v: %+v, %v; want %v", fl, got, err, want)
+		}
+	}
+	host, _ := ParseAccelerator("CmdOrCtrl+S")
+	if got, _ := ParseAcceleratorFor("CmdOrCtrl+S", FlavorHost); got != host {
+		t.Errorf("FlavorHost: %+v, want the host's %+v", got, host)
+	}
+}
+
 func TestParseAccelerator(t *testing.T) {
 	for _, c := range []struct {
 		in   string
