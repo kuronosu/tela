@@ -21,7 +21,10 @@ import (
 // Stats counts the work of the app's tree since it was mounted: frames,
 // component builds and skipped builds, style, layout and paint passes. A
 // test uses the difference between two readings to assert how narrow an
-// update was.
+// update was. Layouts counts layout phases, including the empty ones of a
+// frame that only restyled (a color change), so "nothing was laid out
+// again" is asserted on LaidOut, the boxes laid out, and Shapes and Breaks
+// for text (ADR-307).
 type Stats = core.Stats
 
 // idPrefix starts the strings of tela.UseID in mounted apps, so they do
