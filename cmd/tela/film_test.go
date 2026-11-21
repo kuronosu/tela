@@ -198,9 +198,15 @@ func TestCheckAPNGTarget(t *testing.T) {
 			t.Errorf("%s: error %v, want a refusal", name, err)
 		}
 	}
-	if err := os.Symlink(filepath.Join(dir, "mine.png"), filepath.Join(dir, "link.png")); err == nil {
-		if err := checkAPNGTarget(filepath.Join(dir, "link.png")); err == nil || !strings.Contains(err.Error(), "not a regular file") {
-			t.Errorf("a symlink: %v", err)
+	// A symlink, where the system makes one: Windows needs a privilege for
+	// it, and Wine's CreateSymbolicLink reports success and makes nothing
+	// (Lstat then finds no file, a new path the film may write).
+	link := filepath.Join(dir, "link.png")
+	if err := os.Symlink(filepath.Join(dir, "mine.png"), link); err == nil {
+		if fi, err := os.Lstat(link); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+			if err := checkAPNGTarget(link); err == nil || !strings.Contains(err.Error(), "not a regular file") {
+				t.Errorf("a symlink: %v", err)
+			}
 		}
 	}
 }
