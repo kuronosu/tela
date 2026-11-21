@@ -220,13 +220,14 @@ func devAfterFrame(h *Host) {
 }
 
 // devSeedCounts is the supervisor's view of a seed report: the hook slots
-// and the engine state kept, and the components that reset.
+// and the engine state kept, the components that reset, and for tela dev
+// -v the slots the previous build could not keep (ADR-309).
 func devSeedCounts(r DevSeedReport) devloop.StateReport {
 	kept := r.Restored + r.Fields + r.Scrolls
 	if r.Focus {
 		kept++
 	}
-	return devloop.StateReport{Kept: kept, Reset: len(r.Remounted)}
+	return devloop.StateReport{Kept: kept, Reset: len(r.Remounted), Lines: r.Dropped}
 }
 
 // devSeedOpen reports whether the tree still holds the snapshot it is

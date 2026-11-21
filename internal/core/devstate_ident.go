@@ -364,9 +364,11 @@ func devCompName(c *compDesc) string {
 // Creators.
 
 // devCreator is what created a hook slot: Tela's own code (a hook of
-// package aria, i18n...), and whether its value follows the pointer.
+// package aria, i18n...), and whether its value follows the pointer; name
+// is the function that called the hook ("aria.useBoolState"), for reports.
 type devCreator struct {
 	framework, transient bool
+	name                 string
 }
 
 // devCreators caches devCreatorOf by call stack.
@@ -431,6 +433,7 @@ func devClassify(fn, file string) (devCreator, bool) {
 	cr.framework = devFrameworkPkg(pkg) && !test
 	named, _ := funcParts(name)
 	cr.transient = cr.framework && devTransient[pkg+"."+named]
+	cr.name = describeFunc(name)
 	return cr, true
 }
 

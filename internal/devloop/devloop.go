@@ -56,7 +56,7 @@
 //   - [KindStateReport], notification, child → host, optional. Payload:
 //     [StateReport.Encode]. Sent after the child restored state (before
 //     its first Present), so the supervisor can print "state: 12 kept, 1
-//     reset".
+//     reset", and with -v the report's lines: every slot that reset.
 //   - [KindPanic], notification, child → host. Payload: UTF-8 text built
 //     by [PanicPayload]: the line "panic: <value>" (the value formatted
 //     with %v; it may span several lines) followed by a blank line and the
@@ -121,19 +121,41 @@ const (
 // StateReport is the payload of KindStateReport: how many hook slots (and
 // engine states) the child restored from the saved state, and how many it
 // had to reset (a component whose hooks changed, a value that could not be
-// decoded).
+// decoded). Lines describe the details for tela dev -v (ADR-309): each slot
+// that reset, warned about or not, and each component kept across a
+// rename.
 type StateReport struct {
 	Kept, Reset int
+	Lines       []string
 }
 
-// Encode returns the payload: two unsigned varints, Kept and Reset.
+// Limits of the lines of a StateReport.
+const (
+	maxReportLines = 1000
+	maxReportLine  = 4096
+)
+
+// Encode returns the payload: two unsigned varints, Kept and Reset, then
+// each line as an unsigned varint length and its UTF-8 bytes (at most 1000
+// lines of 4096 bytes, longer ones cut).
 func (r StateReport) Encode() []byte {
 	b := binary.AppendUvarint(nil, uint64(max(r.Kept, 0)))
-	return binary.AppendUvarint(b, uint64(max(r.Reset, 0)))
+	b = binary.AppendUvarint(b, uint64(max(r.Reset, 0)))
+	for i, l := range r.Lines {
+		if i == maxReportLines {
+			break
+		}
+		if len(l) > maxReportLine {
+			l = l[:maxReportLine]
+		}
+		b = binary.AppendUvarint(b, uint64(len(l)))
+		b = append(b, l...)
+	}
+	return b
 }
 
-// DecodeStateReport decodes a KindStateReport payload. Bytes after the two
-// varints are ignored, so the report can grow.
+// DecodeStateReport decodes a KindStateReport payload. An older child sends
+// no lines; a damaged line ends them.
 func DecodeStateReport(p []byte) (StateReport, error) {
 	kept, n := binary.Uvarint(p)
 	if n <= 0 {
@@ -147,7 +169,16 @@ func DecodeStateReport(p []byte) (StateReport, error) {
 	if kept >= limit || reset >= limit {
 		return StateReport{}, errors.New("devloop: state report out of range")
 	}
-	return StateReport{Kept: int(kept), Reset: int(reset)}, nil
+	r := StateReport{Kept: int(kept), Reset: int(reset)}
+	for rest := p[n+m:]; len(rest) > 0 && len(r.Lines) < maxReportLines; {
+		l, k := binary.Uvarint(rest)
+		if k <= 0 || l > maxReportLine || l > uint64(len(rest)-k) {
+			break
+		}
+		r.Lines = append(r.Lines, string(rest[k:k+int(l)]))
+		rest = rest[k+int(l):]
+	}
+	return r, nil
 }
 
 // EncodeAssets returns the payload of KindAssets: the paths separated by

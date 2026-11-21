@@ -41,8 +41,13 @@ import (
 // Values are encoded with encoding/gob, one slot at a time, after a check
 // by reflection that gob can encode them without dropping anything
 // (devKeepOf); a slot that cannot be kept resets, and dev mode warns once
-// per slot. UseSpring and UseTween start at rest at their target, a Value
-// that Animate moves is kept at its target, and effects run again.
+// per slot. Tela's own types that hold state in unexported fields keep
+// what their codecs save (GobEncode in package aria's and kit's teladev
+// files), and so do the UseOnce stores of Tela's hooks (ADR-309). Every
+// slot that resets, warned about or not, is a line of the next build's
+// report, which tela dev -v prints. UseSpring and UseTween start at rest
+// at their target, a Value that Animate moves is kept at its target, and
+// effects run again.
 //
 // Engine state: the text, selection and undo history of text fields, the
 // scroll offsets of scroll containers (the root's too), the focused
@@ -92,6 +97,10 @@ type devSnapshot struct {
 	Warned []string
 	// Extra holds the state saved by RegisterDevState's functions, by name.
 	Extra map[string][]byte
+	// Resets describes the slots this capture could not keep, warned about
+	// or not (devResetLines), for the next build's report: tela dev -v
+	// prints them (ADR-309).
+	Resets []string
 }
 
 // devNode is the saved state of an Element and its subtree. Only Elements
@@ -219,6 +228,56 @@ type DevSlotReset struct {
 	// (handles such as Setter, Callback or ElementRef, which the new build
 	// makes again, and the internal state of Tela's hooks).
 	Silent bool
+	// Creator names the function that called the hook, when dev mode
+	// recorded it ("aria.useBoolState").
+	Creator string
+}
+
+// devResetLimit bounds the lines of devResetLines.
+const devResetLimit = 60
+
+// devResetLines describes the slots of a capture that reset, one line per
+// slot of a component and hook, with the number of Elements when several
+// share it: "Toggle's UseRef #3 (aria.useBoolState) resets: holds an
+// aria.boolState with the unexported field cur (x11)". tela dev -v prints
+// them, so that no slot resets silently (ADR-309).
+func devResetLines(rs []DevSlotReset) []string {
+	type group struct {
+		line string
+		n    int
+	}
+	var order []*group
+	byKey := map[string]*group{}
+	for _, r := range rs {
+		title := fmt.Sprintf("%s's %s #%d", r.Component, r.Hook, r.Index)
+		if strings.HasPrefix(r.Component, "a ") {
+			title = fmt.Sprintf("%s #%d of %s", r.Hook, r.Index, r.Component)
+		}
+		if c := r.Creator; c != "" && c != r.Component && !strings.HasSuffix(c, "."+r.Component) {
+			title += " (" + c + ")"
+		}
+		line := title + " resets: " + r.Reason
+		g := byKey[line]
+		if g == nil {
+			g = &group{line: line}
+			byKey[line] = g
+			order = append(order, g)
+		}
+		g.n++
+	}
+	var out []string
+	for i, g := range order {
+		if i == devResetLimit {
+			out = append(out, fmt.Sprintf("and %d more slots reset", len(order)-i))
+			break
+		}
+		if g.n > 1 {
+			out = append(out, fmt.Sprintf("%s (x%d)", g.line, g.n))
+		} else {
+			out = append(out, g.line)
+		}
+	}
+	return out
 }
 
 // String summarizes the report in one line.
@@ -280,6 +339,9 @@ type DevSeedReport struct {
 	// Unused is the number of saved components with state that no element
 	// took within the seed frames (removed, moved, or of another type).
 	Unused int
+	// Dropped describes the slots that the previous build could not keep
+	// (devResetLines), silent ones included.
+	Dropped []string
 }
 
 // CaptureDevState returns a snapshot of the tree's state for `tela dev`
@@ -304,6 +366,7 @@ func (t *Tree) CaptureDevState() ([]byte, DevStateReport, error) {
 	snap.FocusType, snap.FocusKey = uint8(t.foc.lastType), t.foc.hadKey
 	snap.Warned = dt.warned
 	snap.Extra = c.extras()
+	snap.Resets = devResetLines(c.rep.Reset)
 	data, err := encodeDevSnapshot(&snap)
 	c.rep.Bytes = len(data)
 	if err != nil {
@@ -378,6 +441,7 @@ func (t *Tree) SeedDevState(data []byte) {
 		return
 	}
 	dt.warned = snap.Warned
+	dt.seedRep.Dropped = snap.Resets
 	for _, k := range snap.Warned {
 		t.once(k)
 	}
@@ -635,12 +699,15 @@ func (c *devCapture) component(el *Element, n *devNode) bool {
 		}
 		cr := devCreatorOf(el, j)
 		if cr.transient {
-			c.reset(el, j, "follows the pointer, which the next build reads again", true)
+			c.reset(el, j, cr, "follows the pointer, which the next build reads again", true)
 			continue
 		}
 		data, why := k.devEncode()
+		if why.skip {
+			continue
+		}
 		if why.reason != "" {
-			c.reset(el, j, why.reason, why.silent || cr.framework)
+			c.reset(el, j, cr, why.reason, why.silent || cr.framework)
 			continue
 		}
 		n.Slots = append(n.Slots, devSlotRec{Index: j, Data: data})
@@ -650,13 +717,14 @@ func (c *devCapture) component(el *Element, n *devNode) bool {
 	return any
 }
 
-// reset records slot j of el as not kept and warns once per slot in the
-// dev session, unless silent.
-func (c *devCapture) reset(el *Element, j int, reason string, silent bool) {
+// reset records slot j of el, created by cr, as not kept and warns once
+// per slot in the dev session, unless silent. Silent or not, the next
+// build's report describes it (devResetLines).
+func (c *devCapture) reset(el *Element, j int, cr devCreator, reason string, silent bool) {
 	kind := devSlotKind(el, j)
 	r := DevSlotReset{
 		Component: devCompName(el.comp), Hook: kind.String(), Index: j + 1,
-		Type: devSlotTypeName(el.hooks[j]), Reason: reason, Silent: silent,
+		Type: devSlotTypeName(el.hooks[j]), Reason: reason, Silent: silent, Creator: cr.name,
 	}
 	c.rep.Reset = append(c.rep.Reset, r)
 	t := c.t

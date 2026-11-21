@@ -813,6 +813,33 @@ func TestDevStateReportAfterPromotion(t *testing.T) {
 	}
 }
 
+// With -v, every slot the reload could not keep is a line of its own,
+// silent ones included (ADR-309); without -v none is.
+func TestDevStateReportLines(t *testing.T) {
+	for _, verbose := range []bool{true, false} {
+		t.Run(fmt.Sprint("verbose=", verbose), func(t *testing.T) {
+			h := newDevHarness(t, devOptions{Verbose: verbose}, func(c *supervisorConfig) { c.reportWait = 5 * time.Second })
+			h.expect("first start", 1, 0, 0)
+			h.click()
+			h.expect("one click", 1, 1, 1)
+			h.fb.set(2, "lines")
+			h.s.push(evKey{'r'})
+			h.expect("reload", 2, 1, 0)
+			h.logged("state: 1 kept, 2 reset", 1)
+			if verbose {
+				for _, l := range fakeReportLines {
+					h.logged("tela dev: state: "+l+"\n", 1)
+				}
+				return
+			}
+			time.Sleep(50 * time.Millisecond)
+			if out := h.out.String(); strings.Contains(out, "resets:") {
+				t.Errorf("the lines of -v without it:\n%s", out)
+			}
+		})
+	}
+}
+
 func TestDevStateReportMissing(t *testing.T) {
 	h := newDevHarness(t, devOptions{}, func(c *supervisorConfig) { c.reportWait = 100 * time.Millisecond })
 	h.expect("first start", 1, 0, 0)

@@ -4,6 +4,7 @@ package core
 
 import (
 	"bytes"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -363,6 +364,32 @@ func TestDevStateNotKept(t *testing.T) {
 	devSnap(t, b)
 	if len(warns) != 3 {
 		t.Errorf("warnings after reload %q, want the 3 of the first capture only", warns)
+	}
+}
+
+// Every slot that resets, silent ones included, is a line of the next
+// build's report, which tela dev -v prints (ADR-309): a ref of Tela's own
+// handles resets as before, but not unseen.
+func TestDevStateReportsEveryReset(t *testing.T) {
+	a := devTestTree(t, div(Component(devHandles), Component(devHandles)), nil, nil)
+	data, rep := devSnap(t, a)
+	b := devTestTree(t, div(Component(devHandles), Component(devHandles)), data, nil)
+	got := b.DevSeedReport().Dropped
+	if len(got) != len(rep.Reset)/2 {
+		t.Fatalf("lines %q, want one per slot of the %d reset (two Elements each)", got, len(rep.Reset))
+	}
+	for _, want := range []string{
+		"devHandles's UseState #1 resets: holds a func() int (x2)",
+		"devHandles's UseRef #3 resets: holds a core.ElementRef with the unexported field r (x2)",
+		"devHandles's UseState #5 resets: holds a core.Setter[int] with the unexported field s (x2)",
+		"devHandles's UseRef #7 resets: holds a strings.Builder with the unexported field addr (x2)",
+	} {
+		if !slices.Contains(got, want) {
+			t.Errorf("no line %q in %q", want, got)
+		}
+	}
+	if lines := devSeedCounts(b.DevSeedReport()).Lines; !slices.Equal(lines, got) {
+		t.Errorf("the supervisor's report has the lines %q, want %q", lines, got)
 	}
 }
 
