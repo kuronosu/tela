@@ -107,7 +107,7 @@ var App = tela.App{
 	tidy.Dir = dir
 	tidy.Env = append(os.Environ(), "CGO_ENABLED=0", "GOFLAGS=-mod=mod", "GOPROXY=off", "GOSUMDB=off")
 	if out, err := tidy.CombinedOutput(); err != nil {
-		t.Skipf("cannot resolve the dependencies of a module outside the repository offline (go mod tidy: %v):\n%s", err, out)
+		offlineUnresolved(t, "cannot resolve the dependencies of a module outside the repository offline (go mod tidy: %v):\n%s", err, out)
 	}
 	return dir
 }

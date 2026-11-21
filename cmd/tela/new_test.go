@@ -414,7 +414,7 @@ func testNewApp(t *testing.T, name string) {
 	// The modules the template adds must be in the module cache.
 	for _, mod := range templateRequirements(t, name) {
 		if out, err := goRun("mod", "download", mod); err != nil {
-			t.Skipf("cannot resolve %s offline (go mod download: %v):\n%s", mod, err, out)
+			offlineUnresolved(t, "cannot resolve %s offline (go mod download: %v):\n%s", mod, err, out)
 		}
 	}
 	for _, args := range [][]string{{"vet", "./..."}, {"test", "./..."}} {

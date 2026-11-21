@@ -86,6 +86,19 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Warm the module cache for the out-of-repository tests
+        # cmd/tela's end-to-end tests (dev, mcp, new, build, outside
+        # modules) run go mod tidy offline on a module that requires tela
+        # and need the cache to resolve it (godbus, go-text's test
+        # modules); on GitHub Actions they fail when it cannot
+        # (offlineUnresolved in cmd/tela/offline_test.go).
+        shell: bash
+        run: |
+          d="$(mktemp -d)"
+          ws="${GITHUB_WORKSPACE//\\//}"
+          printf 'module example.com/warm\n\ngo 1.27\n\nrequire github.com/kuronosu/tela v0.0.0\n\nreplace github.com/kuronosu/tela => %s\n' "$ws" > "$d/go.mod"
+          printf 'package main\n\nimport _ "github.com/kuronosu/tela"\n\nfunc main() {}\n' > "$d/main.go"
+          (cd "$d" && go mod tidy)
       - name: go test
         env:
           CGO_ENABLED: "0"
@@ -393,6 +406,19 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Warm the module cache for the out-of-repository tests
+        # cmd/tela's end-to-end tests (dev, mcp, new, build, outside
+        # modules) run go mod tidy offline on a module that requires tela
+        # and need the cache to resolve it (godbus, go-text's test
+        # modules); on GitHub Actions they fail when it cannot
+        # (offlineUnresolved in cmd/tela/offline_test.go).
+        shell: bash
+        run: |
+          d="$(mktemp -d)"
+          ws="${GITHUB_WORKSPACE//\\//}"
+          printf 'module example.com/warm\n\ngo 1.27\n\nrequire github.com/kuronosu/tela v0.0.0\n\nreplace github.com/kuronosu/tela => %s\n' "$ws" > "$d/go.mod"
+          printf 'package main\n\nimport _ "github.com/kuronosu/tela"\n\nfunc main() {}\n' > "$d/main.go"
+          (cd "$d" && go mod tidy)
       - name: go test (win32, alone)
         shell: bash
         env:
@@ -439,12 +465,16 @@ jobs:
           CGO_ENABLED: "0"
         run: go build ./...
       - name: Warm the module cache for the out-of-repository tests
-        # cmd/tela's end-to-end tests (dev, mcp, new, outside modules) run
-        # go mod tidy offline on a module that requires tela, and skip when
-        # the cache cannot resolve it (godbus, go-text's test modules).
+        # cmd/tela's end-to-end tests (dev, mcp, new, build, outside
+        # modules) run go mod tidy offline on a module that requires tela
+        # and need the cache to resolve it (godbus, go-text's test
+        # modules); on GitHub Actions they fail when it cannot
+        # (offlineUnresolved in cmd/tela/offline_test.go).
+        shell: bash
         run: |
           d="$(mktemp -d)"
-          printf 'module example.com/warm\n\ngo 1.27\n\nrequire github.com/kuronosu/tela v0.0.0\n\nreplace github.com/kuronosu/tela => %s\n' "$GITHUB_WORKSPACE" > "$d/go.mod"
+          ws="${GITHUB_WORKSPACE//\\//}"
+          printf 'module example.com/warm\n\ngo 1.27\n\nrequire github.com/kuronosu/tela v0.0.0\n\nreplace github.com/kuronosu/tela => %s\n' "$ws" > "$d/go.mod"
           printf 'package main\n\nimport _ "github.com/kuronosu/tela"\n\nfunc main() {}\n' > "$d/main.go"
           (cd "$d" && go mod tidy)
       - name: go test (cocoa, verbose)
