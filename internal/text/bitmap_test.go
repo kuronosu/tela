@@ -278,21 +278,23 @@ func TestBitmapCacheReleasesTypefaces(t *testing.T) {
 
 // bitmapScene draws emoji from the CBDT subset in paragraphs of Inter at
 // several sizes, the sbix test font's strikes, translucent and rotated
-// bitmap emoji, and the COLR emoji of the same characters for comparison.
-func bitmapScene(t testing.TB) (*gfx.DisplayList, int, int) {
+// bitmap emoji, and the COLR emoji of the same characters for comparison,
+// laid out at scale k.
+func bitmapScene(t testing.TB, k float32) (*scene, int, int) {
 	c := bitmapCollection(t)
-	b := gfx.NewBuilder()
+	s := newScene(k)
+	b := s.b
 	const W = 520
 	ink := gfx.RGB8(0x11, 0x18, 0x27)
 	y := float32(12)
 	para := func(size float32, text string, paint gfx.Paint, fams ...string) {
 		p := &Paragraph{Text: text, Default: TextStyle{Families: fams, Size: size, Paint: paint}}
-		l := NewLayout(c, p)
+		l := s.layout(c, p)
 		l.BreakLines(W)
 		// The baseline guide shows that emoji sit on the text's baseline.
 		bl := y + l.lines[0].baseline
 		b.FillRect(gfx.Rect{X0: 12, Y0: bl, X1: 12 + l.Width(), Y1: bl + 0.5}, gfx.RGBA8(0xdc, 0x26, 0x26, 0x80))
-		l.Paint(b, gfx.Pt(12, y))
+		s.paint(l, gfx.Pt(12, y))
 		y += l.Height() + 6
 	}
 	const text = "Emoji 😀😍🔥🎉❤️👍🌍🤔 end"
@@ -327,16 +329,16 @@ func bitmapScene(t testing.TB) (*gfx.DisplayList, int, int) {
 		b.PopTransform()
 	}
 	y += 90
-	return b.Finish(), W + 24, int(math.Ceil(float64(y)))
+	return s, W + 24, int(math.Ceil(float64(y)))
 }
 
 func TestGoldenBitmapEmoji(t *testing.T) {
-	dl, w, h := bitmapScene(t)
 	for _, scale := range []float32{1, 2} {
 		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
+			s, w, h := bitmapScene(t, scale)
 			img := image.NewRGBA(image.Rect(0, 0, int(float32(w)*scale), int(float32(h)*scale)))
 			raster.Clear(img, image.Rectangle{}, gfx.White)
-			raster.Render(img, dl, raster.Options{Scale: scale})
+			raster.Render(img, s.b.Finish(), raster.Options{Scale: scale})
 			golden.Image(t, fmt.Sprintf("bitmap_emoji_x%g", scale), img)
 		})
 	}

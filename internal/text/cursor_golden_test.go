@@ -14,10 +14,12 @@ import (
 // cursorScene draws selections (under the text) and carets on a mixed
 // bidi paragraph, a wrapped left-to-right paragraph, a right-to-left
 // paragraph and a pre-wrap sample with hanging spaces, a ligature and an
-// inline box. Upstream carets are orange, Downstream carets blue.
-func cursorScene(t testing.TB) (*gfx.DisplayList, int, int) {
+// inline box. Upstream carets are orange, Downstream carets blue. The text
+// is laid out at the given scale.
+func cursorScene(t testing.TB, scale float32) (*scene, int, int) {
 	c := layoutCollection(t)
-	b := gfx.NewBuilder()
+	s := newScene(scale)
+	b := s.b
 	const W = 330
 	ink := gfx.RGB8(0x11, 0x18, 0x27)
 	frame := gfx.RGB8(0xe5, 0xe7, 0xeb)
@@ -28,7 +30,7 @@ func cursorScene(t testing.TB) (*gfx.DisplayList, int, int) {
 	y := float32(12)
 	x0 := float32(12)
 	panel := func(p *Paragraph, w float32, sel Selection, carets []Cursor) *Layout {
-		l := NewLayout(c, p)
+		l := s.layout(c, p)
 		l.BreakLines(w)
 		h := l.Height()
 		b.FillRect(gfx.RectXYWH(x0-0.5, y-0.5, w+1, h+1), frame)
@@ -41,7 +43,7 @@ func cursorScene(t testing.TB) (*gfx.DisplayList, int, int) {
 				b.FillRRect(gfx.NewRRect(r.Translate(x0, y), 3), gfx.RGB8(0x4f, 0x46, 0xe5))
 			}
 		}
-		l.Paint(b, gfx.Pt(x0, y))
+		s.paint(l, gfx.Pt(x0, y))
 		for _, cu := range carets {
 			col := downColor
 			if cu.Affinity == Upstream {
@@ -82,16 +84,16 @@ func cursorScene(t testing.TB) (*gfx.DisplayList, int, int) {
 	l = panel(p, 200, NewSelection(up(box), cur(box)), []Cursor{up(k), cur(k), cur(lig)})
 	_ = l
 
-	return b.Finish(), W + 24, int(math.Ceil(float64(y)))
+	return s, W + 24, int(math.Ceil(float64(y)))
 }
 
 func TestGoldenCursor(t *testing.T) {
-	dl, w, h := cursorScene(t)
 	for _, scale := range []float32{1, 2} {
 		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
+			s, w, h := cursorScene(t, scale)
 			img := image.NewRGBA(image.Rect(0, 0, int(float32(w)*scale), int(float32(h)*scale)))
 			raster.Clear(img, image.Rectangle{}, gfx.RGB8(0xf9, 0xfa, 0xfb))
-			raster.Render(img, dl, raster.Options{Scale: scale})
+			raster.Render(img, s.b.Finish(), raster.Options{Scale: scale})
 			golden.Image(t, fmt.Sprintf("cursor_x%g", scale), img)
 		})
 	}

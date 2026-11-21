@@ -61,12 +61,12 @@ func measureEmojiHeap(t *testing.T, dir, text string) {
 	c.Preload()
 	before := heapInUse()
 
-	l := NewLayout(c, &Paragraph{Text: text, Default: TextStyle{Families: []string{"emoji"}, Size: 32, Paint: gfx.RGB8(0, 0, 0)}})
+	s := newScene(2)
+	l := s.layout(c, &Paragraph{Text: text, Default: TextStyle{Families: []string{"emoji"}, Size: 32, Paint: gfx.RGB8(0, 0, 0)}})
 	l.BreakLines(600)
-	b := gfx.NewBuilder()
-	l.Paint(b, gfx.Pt(0, 0))
+	s.paint(l, gfx.Pt(0, 0))
 	img := image.NewRGBA(image.Rect(0, 0, 1200, 160))
-	raster.Render(img, b.Finish(), raster.Options{Scale: 2})
+	raster.Render(img, s.b.Finish(), raster.Options{Scale: 2})
 	var runs []LineRun
 	for i := range l.NumLines() {
 		for _, r := range l.LineRuns(i, runs[:0]) {
