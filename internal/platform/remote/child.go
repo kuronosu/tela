@@ -57,6 +57,8 @@ type Backend struct {
 	// ackedCh wakes Close's wait for acknowledgments (waitAcks). Buffer
 	// 1, non-blocking sends.
 	ackedCh chan struct{}
+	// readDone is closed when the reader goroutine ends.
+	readDone chan struct{}
 
 	mu       sync.Mutex // the loop's lock (loop.Options.Lock) and everything below
 	loop     *loop.Loop[*Window]
@@ -155,6 +157,7 @@ func Dial(addr string, opts DialOptions) (*Backend, error) {
 		host:      name,
 		notify:    make(chan struct{}, 1),
 		ackedCh:   make(chan struct{}, 1),
+		readDone:  make(chan struct{}),
 		settings:  settings,
 		windows:   map[uint32]*Window{},
 		closing:   map[uint32]*Window{},
@@ -271,7 +274,10 @@ func (b *Backend) Close() error {
 	// made a Present right before the end fail on the host
 	// ("OpenFileMapping …: The system cannot find the file specified").
 	b.waitAcks(deadline)
-	b.c.fail(ErrClosed)
+	// Ended from here, so the host reads EOF: closed at once, the socket
+	// would reset the host's reader if events it sent were still unread
+	// ("connection reset by peer" for a clean Quit).
+	b.c.closeClean(b.readDone, closeTimeout)
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	for _, w := range b.windows {
@@ -324,6 +330,7 @@ func (b *Backend) unacked() bool {
 
 // readLoop is the reader goroutine.
 func (b *Backend) readLoop() {
+	defer close(b.readDone)
 	var err error
 	for {
 		t, p, e := b.c.r.next()
