@@ -538,8 +538,12 @@ func (a *App) settle() {
 		if a.sh.closed {
 			return // the app quit
 		}
+		// The runs in flight are read before the work: a run queues its
+		// result before it ends (core's endRun), so a run that ends between
+		// the two reads leaves its result in pendingWork, never in neither.
+		inFlight := !a.cfg.noSettle && a.asyncInFlight()
 		if !a.pendingWork() {
-			if !a.cfg.noSettle && a.asyncInFlight() {
+			if inFlight {
 				// A UseAsync run is on its goroutine and its result comes
 				// in real time: wait for it, up to the timeout (ADR-307).
 				if asyncSince.IsZero() {
@@ -710,24 +714,55 @@ func (a *App) Advance(d time.Duration) {
 	a.advance(d)
 }
 
-// idle lets time pass between two checks of a wait: one frame of app time,
-// or, when nothing is due before it, the time to the app's next deadline (a
-// UseTimeout or UseInterval, a caret blink, a fade), so that a wait for a
-// long timer takes a few tries, not one per frame (ADR-307); and a moment
-// for other goroutines (a ticker that sets state) to run.
+// idle lets time pass between two checks of a wait (ADR-311): app time
+// for what the app has on its clock, and a moment of real time for other
+// goroutines (a UseGo, a ticker that sets state) to run.
+//
+// The clock moves one frame while work is due or a frame is owed (an
+// animation), or, when nothing is due before it, to the app's next
+// deadline (a UseTimeout or UseInterval, a long press, a fade), so that a
+// wait for a long timer takes a few tries, not one per frame (ADR-307).
+// The caret's blink is not such a deadline (core.Tree.NextWaitDeadline),
+// and with nothing on the clock the clock stays where it is: what the
+// check waits for comes from a goroutine, in real time, and a clock moved
+// once per failed try would leave the caret in a blink phase that depends
+// on the machine's speed. Blinks on the way to a deadline still run.
 func (a *App) idle(round int) {
-	step := a.backend.FrameInterval()
-	if at, ok := a.nextDeadline(); ok && !a.workDue() {
-		if d := at - a.backend.Now(); d > step {
-			step = d
-		}
+	if step, ok := a.idleStep(); ok {
+		a.advance(step)
 	}
-	a.advance(step)
 	if round < 50 {
 		runtime.Gosched()
 	} else {
 		time.Sleep(time.Millisecond)
 	}
+}
+
+// idleStep reports how far idle moves the clock: false when nothing on
+// the app's clock is due or owed.
+func (a *App) idleStep() (time.Duration, bool) {
+	frame := a.backend.FrameInterval()
+	due := a.workDue()
+	if !due {
+		if at, ok := a.nextWaitDeadline(); ok {
+			return max(at-a.backend.Now(), frame), true
+		}
+	}
+	if _, owed := a.backend.NextFrameTime(); due || owed {
+		return frame, true
+	}
+	return 0, false
+}
+
+// nextWaitDeadline is nextDeadline without the caret's blink
+// (core.Tree.NextWaitDeadline).
+func (a *App) nextWaitDeadline() (at time.Duration, ok bool) {
+	for _, w := range a.host.Windows() {
+		if d, has := a.host.TreeOf(w).NextWaitDeadline(); has && (!ok || d < at) {
+			at, ok = d, true
+		}
+	}
+	return at, ok
 }
 
 // settleQuery brings the app up to date for a query or an expectation:
@@ -758,9 +793,9 @@ func (a *App) waitSettled(check func() (done bool, why string)) {
 }
 
 // wait calls settle and then check until check reports done, or fails the
-// test with the message check returned at the timeout. A failed try lets a
-// frame of app time pass before the next. A check that cannot succeed by
-// waiting fails the test itself.
+// test with the message check returned at the timeout. A failed try lets
+// time pass before the next (idle). A check that cannot succeed by waiting
+// fails the test itself.
 func (a *App) wait(settle func(), check func() (done bool, why string)) {
 	a.tb.Helper()
 	a.waitIn(true, settle, check)
@@ -789,10 +824,13 @@ func (a *App) waitIn(live bool, settle func(), check func() (done bool, why stri
 	}
 }
 
-// WaitFor waits until cond reports true, settling the app and letting a
-// frame of app time and a moment of real time pass between tries, until the
-// timeout (see [Timeout]); under [NoSettle] the first try handles only the
-// work due, and the clock moves only between failed tries. It is for
+// WaitFor waits until cond reports true, settling the app and letting
+// time pass between tries, until the timeout (see [Timeout]): a moment of
+// real time, and the app's clock runs a frame, or to the app's next
+// deadline (a UseTimeout) when nothing is due before it; with nothing on
+// the clock (a caret's blink does not count) the clock stays put. Under
+// [NoSettle] the first try handles only the work due, and the clock moves
+// only between failed tries. It is for
 // conditions the locators cannot see:
 // a value computed from [App.Bounds], or Go state that a goroutine sets.
 // what names the condition in the failure message ("the progress bar

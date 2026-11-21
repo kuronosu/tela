@@ -234,8 +234,8 @@ func (c config) systemSettings() platform.SystemSettings {
 // [App.Cursor] handle the work due (state updates, the frames they ask
 // for) but do not run the clock until running transitions and animations
 // end: the clock moves with [App.Advance]. The expectations poll as ever,
-// but their first try handles only the work due, and the clock moves a
-// frame at a time only between failed tries. What keeps its full
+// but their first try handles only the work due, and the clock moves
+// only between failed tries. What keeps its full
 // auto-wait is the wait before an action: before acting, an action waits
 // for the app to settle (so the animations an earlier step started end
 // first).

@@ -694,12 +694,23 @@ func (t *Tree) drag(ps *pointerState, el *Element, k eventKind, u gesture.DragUp
 // delay of a drag's autoscroll (fielddnd.go). ok is
 // false when nothing waits: an idle app arms no timer.
 func (t *Tree) NextDeadline() (at time.Duration, ok bool) {
+	at, ok = t.NextWaitDeadline()
+	if c, has := t.caretDeadline(); has && (!ok || c < at) {
+		at, ok = c, true
+	}
+	return at, ok
+}
+
+// NextWaitDeadline is NextDeadline without the caret's blink: the next
+// deadline at which something other than the caret's paint changes, the
+// one a test's wait may move the clock to (telatest). A blink changes no
+// state a test waits for, and a wait that moved the clock to it would
+// leave the caret in a phase that depends on how many tries failed, so on
+// the machine's speed.
+func (t *Tree) NextWaitDeadline() (at time.Duration, ok bool) {
 	at, ok = t.in.arena.NextDeadline()
 	if s, has := t.scrollDeadline(); has && (!ok || s < at) {
 		at, ok = s, true
-	}
-	if c, has := t.caretDeadline(); has && (!ok || c < at) {
-		at, ok = c, true
 	}
 	if c, has := t.intervalDeadline(); has && (!ok || c < at) {
 		at, ok = c, true
