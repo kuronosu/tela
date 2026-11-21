@@ -25,6 +25,11 @@ separated by commas), or with `migrate: none -- <why nothing can be rewritten>`
 - `tela lsp`: a quick fix replaces an unknown class with the suggestion; class strings held in constants (`const card = "..."; Class(card)`) and the aliases and theme colors declared in other packages of the module are seen; hover shows the CSS of every utility (`mask-*`, `bg-conic-*` and the rest).
 - `tela lint`: the `migrate` rule rewrites, with `-fix`, the spellings a release removed (`desktop.Launch.Forwarded`, `telatest.App.Move`); a package that no longer type-checks is still checked for it, and `-fix` goes on to the other rules once it compiles (ADR-305).
 
+### Fixed
+
+- `watch` on Windows: a directory moved into a watched tree is no longer missed, a directory being scanned can be renamed meanwhile, and a watch no longer stops when its goroutine's stack grows ("Overlapped I/O incomplete").
+- `tela dev`: a child's clean exit no longer reaches the host as "connection reset by peer"; a build error that happens while the first build is being shown stays on screen, docked.
+
 ### Changed
 
 - `tela lint` reports a class held in a constant where the constant is declared (put `//tela:ignore` there), and finds aliases a package declares in another package's map.
