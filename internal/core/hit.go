@@ -37,7 +37,8 @@ import (
 // Disabled elements are hit like the others; dispatch skips their
 // handlers (input.go). Inert elements (an exiting Presence child, the
 // Inert prop) are not hit, nor are those outside the active modal overlay
-// (overlay.go), whose ancestors are crossed but not hit themselves. The
+// (overlay.go), whose ancestors are crossed but not hit themselves; pick
+// mode's hit test (PickTest) hits both, and ignores pointer-events. The
 // geometry is where boxes are painted (Box.u,
 // the layout without the scroll offsets), and the point is moved into the
 // scroll space of each box it is compared with (toSpace: the offsets of
@@ -60,6 +61,9 @@ type hitter struct {
 	// its text (not an inline box), for the auto cursor. A pointer keeps
 	// both (hitPointer).
 	box, onText *Box
+	// pick: the hit test of pick mode (Tree.PickTest), which ignores
+	// pointer-events and inertness.
+	pick bool
 }
 
 // HitTest returns the element under the point (x, y) of the window, in
@@ -96,6 +100,29 @@ func (t *Tree) hitTest(pt gfx.Point) (*Element, barHit) {
 // exiting Presence child are inert (presence.go).
 func alive(bx *Box) bool {
 	return bx.pcs != nil && bx.owner != nil && bx.owner.mounted && !bx.owner.inert
+}
+
+// takes reports whether box bx may be hit with its subtree: alive and not
+// outside the active modal overlay. For pick mode (hitter.pick), inert
+// boxes and those outside the modal are hit too.
+func (h *hitter) takes(bx *Box) bool {
+	if h.pick {
+		return bx.pcs != nil && bx.owner != nil && bx.owner.mounted
+	}
+	return alive(bx) && !blockedBox(bx)
+}
+
+// PickTest returns the element under the point (x, y) of the window as
+// pick mode finds it (instrument_pick.go), which Chrome's inspect picker
+// follows: the box painted there, whatever its pointer-events, and inert
+// elements (the Inert prop, an exiting Presence child, what an open modal
+// blocks) included; boxes that are not painted (visibility: hidden) are
+// still not hit. Otherwise it is HitTest.
+func (t *Tree) PickTest(x, y float32) *Element {
+	t.in.hit.pick = true
+	el, _ := t.hitTest(gfx.Point{X: x, Y: y})
+	t.in.hit.pick = false
+	return el
 }
 
 // hitTarget returns the element a hit on box bx targets: its own, or the
@@ -211,7 +238,7 @@ func (h *hitter) stackedOrder(bx *Box, items []paintItem, p gfx.Point) *Element 
 // is in root's scroll space.
 func (h *hitter) hoisted(root, e *Box, p gfx.Point) *Element {
 	pe := toSpace(p, root.space, e.space)
-	if !e.hitBounds.Contains(pe) || !alive(e) || blockedBox(e) {
+	if !e.hitBounds.Contains(pe) || !h.takes(e) {
 		return nil
 	}
 	cb := containingBlock(e)
@@ -259,7 +286,7 @@ func (h *hitter) inner(bx *Box, p gfx.Point) *Element {
 	for i := len(bx.kids) - 1; i >= 0; i-- {
 		k := bx.kids[i]
 		pk := toSpace(p, bx.space, k.space)
-		if !k.hitBounds.Contains(pk) || k.ls.Display == layout.DisplayNone || !alive(k) || blockedBox(k) || participant(k) || k.hiddenAtom {
+		if !k.hitBounds.Contains(pk) || k.ls.Display == layout.DisplayNone || !h.takes(k) || participant(k) || k.hiddenAtom {
 			continue
 		}
 		if el := h.flowBox(k, pk); el != nil {
@@ -291,8 +318,14 @@ func (h *hitter) scrollbar(bx *Box, p gfx.Point) *Element {
 // and accepting pointer events.
 func (h *hitter) self(bx *Box, p gfx.Point) bool {
 	cs := bx.pcs
-	if cs.Visibility != style.VisibilityVisible || cs.PointerEvents == style.PointerEventsNone || bx.portal {
+	if cs.Visibility != style.VisibilityVisible || bx.portal {
 		return false // a portal layer is not hit itself (portal.go)
+	}
+	if h.pick {
+		return rrectContains(h.geom(bx).border, p) // pointer-events and the modal play no part
+	}
+	if cs.PointerEvents == style.PointerEventsNone {
+		return false
 	}
 	if bx != h.t.rootBox && bx.owner != nil && bx.owner.outside != outsideNo {
 		return false // outside the active modal (overlay.go); the root takes the press
@@ -340,10 +373,10 @@ func (h *hitter) text(bx *Box, p gfx.Point) *Element {
 	}
 	owner := bx.owner
 	for el := para.targetAt(para.lay.Cluster(hit.Cluster).TextStart); el != nil && el != owner; el = el.styleParent() {
-		if !el.mounted || el.kind != elemPrimitive || el.inert || el.outside != outsideNo {
+		if !el.mounted || el.kind != elemPrimitive || !h.pick && (el.inert || el.outside != outsideNo) {
 			continue
 		}
-		if cs := el.box.cs; cs != nil && cs.PointerEvents == style.PointerEventsAuto && cs.Visibility == style.VisibilityVisible {
+		if cs := el.box.cs; cs != nil && (h.pick || cs.PointerEvents == style.PointerEventsAuto) && cs.Visibility == style.VisibilityVisible {
 			return el
 		}
 	}

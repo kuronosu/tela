@@ -500,8 +500,11 @@ The window follows the app live and survives its reloads. Four panels:
   folding, a search over kinds, keys, text and classes, a *Components* view
   that leaves out the primitives, and a window picker when the app has several
   windows. The crosshair turns on **pick mode** in the app: the box under the
-  pointer is highlighted, a click selects it here (and does not reach the
-  app), Esc cancels. Hovering a row highlights its element in the app. The
+  pointer is highlighted, a click selects it here, Esc cancels. Pick mode
+  picks what is painted, as Chrome's picker does (`pointer-events-none` and
+  inert elements too), and keeps the app's input (clicks, the wheel, keys,
+  the title bar) from it until it ends; only the release of a press the app
+  already held reaches it. Hovering a row highlights its element in the app. The
   selection shows its source line (`settings.go:42`), **why it rendered** (the
   causes of its last builds, newest first: a `UseState` and the line that
   declared it, new props and which fields differ, a context, a parent that

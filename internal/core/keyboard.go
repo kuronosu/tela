@@ -200,7 +200,7 @@ func (t *Tree) HandleKey(e platform.KeyEvent) {
 		return
 	}
 	if t.ins != nil && t.pickKey(e) {
-		return // Escape ended pick mode (instrument_pick.go)
+		return // pick mode took it (instrument_pick.go)
 	}
 	t.fixFocus()
 	if e.Action == platform.KeyPress {

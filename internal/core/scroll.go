@@ -1075,8 +1075,8 @@ func fixedToWindow(bx, cb *Box) bool {
 // default scroll. Call it on the UI thread.
 func (t *Tree) HandleScroll(e platform.ScrollEvent) {
 	t.scr.now = max(t.scr.now, e.Time)
-	if t.root == nil {
-		return
+	if t.root == nil || t.pickSwallows() {
+		return // pick mode takes the wheel (instrument_pick.go)
 	}
 	notch := e.Steps != (platform.Point{})
 	var d gfx.Point
