@@ -20,9 +20,15 @@ separated by commas), or with `migrate: none -- <why nothing can be rewritten>`
 (ADR-305). internal/lint's tests fail on an entry without one.
 -->
 
+### Breaking
+
+- `telatest.ClickOption` and `telatest.DragOption` are interfaces, so one `Modifiers` serves clicks and drags (ADR-307). migrate: none -- only code that declared its own func-typed options breaks, and it has no mechanical rewrite
+
 ### Added
 
 - `tela lsp`: a quick fix replaces an unknown class with the suggestion; class strings held in constants (`const card = "..."; Class(card)`) and the aliases and theme colors declared in other packages of the module are seen; hover shows the CSS of every utility (`mask-*`, `bg-conic-*` and the rest).
+- `telatest.Modifiers("Shift", "ControlOrMeta", …)` holds modifiers during `Click`, `ClickAt`, `DoubleClick` and drags, like Playwright's `click({modifiers})`; `telatest.HasRange(now, min, max)`; `TrayIcon.Template`; `telatest.StartLaunch(desktop.Launch{…, AtLogin})`; `App.AskForFileDefaults` and `App.DefaultsAsked` play Windows' `DefaultAsked` (ADR-307).
+- `App.Pending` and `ExpectIdle` name `UseAsync` runs in flight.
 - `tela lint`: the `migrate` rule rewrites, with `-fix`, the spellings a release removed (`desktop.Launch.Forwarded`, `telatest.App.Move`); a package that no longer type-checks is still checked for it, and `-fix` goes on to the other rules once it compiles (ADR-305).
 
 ### Fixed
@@ -34,6 +40,9 @@ separated by commas), or with `migrate: none -- <why nothing can be rewritten>`
 
 - `tela lint` reports a class held in a constant where the constant is declared (put `//tela:ignore` there), and finds aliases a package declares in another package's map.
 - The gate runs staticcheck for Windows and macOS too.
+- `telatest` settles only when `UseAsync` runs end: a run still going after the `Timeout` fails the test naming it, and `NoSettle()` leaves runs alone; `tela snapshot`, `tela inspect` and `telatest.Render`, `AriaSnapshot` and `LayoutJSON` wait for them (up to the `Timeout`) before capturing.
+- A `telatest` wait on a long timer moves the clock to the next deadline instead of one frame per try.
+- A menu role item's key text and a `GlobalShortcut`'s `CmdOrCtrl` follow the window's key flavor (`telatest.PlatformKeys`), not the host's.
 
 ## [0.14.9] - 2026-11-20
 
