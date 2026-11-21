@@ -28,6 +28,9 @@ type pass struct {
 // (a panic while linting a file is reported, not allowed to stop the run).
 func (r *run) checkAll() (errs []string) {
 	for _, u := range r.units {
+		if u.ctxOnly {
+			continue
+		}
 		p := &pass{r: r, u: u, info: u.info}
 		for _, f := range u.files {
 			func() {
@@ -43,6 +46,10 @@ func (r *run) checkAll() (errs []string) {
 						return false
 					}
 					p.stack = append(p.stack, n)
+					if u.migrateOnly {
+						p.checkMigrations(n)
+						return true
+					}
 					switch n := n.(type) {
 					case *ast.CallExpr:
 						p.checkCall(n)
@@ -54,6 +61,7 @@ func (r *run) checkAll() (errs []string) {
 					if e, ok := n.(ast.Expr); ok {
 						p.checkPropNode(e)
 					}
+					p.checkMigrations(n)
 					return true
 				})
 			}()

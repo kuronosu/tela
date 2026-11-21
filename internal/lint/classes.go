@@ -213,27 +213,71 @@ func errClass(err error) string {
 	return ""
 }
 
-// classPos returns the position of class inside the string literal e, or
-// the start of e when it is not found or e is not a plain literal.
+// classPos returns the position of class inside the string literals that
+// make up e: a literal, a concatenation, a constant (the position is then
+// in the constant's declaration, where the class is fixed, when its source
+// is linted). It is the start of e when the class is not found in one
+// literal, as when it is split by a concatenation.
 func (p *pass) classPos(e ast.Expr, class string) token.Pos {
-	lit, ok := ast.Unparen(e).(*ast.BasicLit)
-	if !ok || lit.Kind != token.STRING || class == "" {
-		return e.Pos()
-	}
-	src := lit.Value
-	for from := 0; from < len(src); {
-		i := strings.Index(src[from:], class)
-		if i < 0 {
-			break
+	if class != "" {
+		if pos, ok := p.classPosIn(e, class, 0); ok {
+			return pos
 		}
-		i += from
-		end := i + len(class)
-		if boundary(src, i-1) && boundary(src, end) {
-			return lit.Pos() + token.Pos(i)
-		}
-		from = i + 1
 	}
 	return e.Pos()
+}
+
+func (p *pass) classPosIn(e ast.Expr, class string, depth int) (token.Pos, bool) {
+	switch x := ast.Unparen(e).(type) {
+	case *ast.BasicLit:
+		if x.Kind != token.STRING {
+			return 0, false
+		}
+		src := x.Value
+		for from := 0; from < len(src); {
+			i := strings.Index(src[from:], class)
+			if i < 0 {
+				break
+			}
+			i += from
+			if boundary(src, i-1) && boundary(src, i+len(class)) {
+				return x.Pos() + token.Pos(i), true
+			}
+			from = i + 1
+		}
+	case *ast.BinaryExpr:
+		if x.Op == token.ADD {
+			if pos, ok := p.classPosIn(x.X, class, depth); ok {
+				return pos, true
+			}
+			return p.classPosIn(x.Y, class, depth)
+		}
+	case *ast.Ident, *ast.SelectorExpr:
+		if d := p.constOf(x); d != nil && depth < 8 {
+			dp := &pass{r: p.r, u: d.unit, info: d.unit.info}
+			return dp.classPosIn(d.expr, class, depth+1)
+		}
+	}
+	return 0, false
+}
+
+// constOf returns the declaration of the constant that the identifier or
+// selector e names, when the linted code declares it with a value.
+func (p *pass) constOf(e ast.Expr) *constDecl {
+	var id *ast.Ident
+	switch x := e.(type) {
+	case *ast.Ident:
+		id = x
+	case *ast.SelectorExpr:
+		id = x.Sel
+	default:
+		return nil
+	}
+	c, ok := p.info.Uses[id].(*types.Const)
+	if !ok {
+		return nil
+	}
+	return p.r.consts[c]
 }
 
 // boundary reports whether src[i] separates classes: white space, a quote
@@ -253,7 +297,7 @@ func boundary(src string, i int) bool {
 // each other.
 func (r *run) checkAliasValues() {
 	for _, a := range r.aliasList {
-		if !a.hasValue {
+		if !a.hasValue || a.unit.ctxOnly || a.unit.migrateOnly {
 			continue
 		}
 		p := &pass{r: r, u: a.unit, info: a.unit.info}
@@ -262,18 +306,34 @@ func (r *run) checkAliasValues() {
 }
 
 // recordClassLits remembers the string literals in e, which reach the
-// class parser, for Result.ClassStrings.
-func (p *pass) recordClassLits(e ast.Expr) {
+// class parser, for Result.ClassStrings: the ones of the constants e names
+// too, wherever the linted code declares them.
+func (p *pass) recordClassLits(e ast.Expr) { p.recordLits(e, 0) }
+
+func (p *pass) recordLits(e ast.Expr, depth int) {
 	ast.Inspect(e, func(n ast.Node) bool {
-		lit, ok := n.(*ast.BasicLit)
-		if !ok || lit.Kind != token.STRING {
-			return true
+		switch x := n.(type) {
+		case *ast.BasicLit:
+			if x.Kind != token.STRING {
+				return true
+			}
+			start := p.r.l.fset.Position(x.Pos())
+			end := p.r.l.fset.Position(x.End())
+			cs := ClassString{File: p.r.rel(start.Filename), Start: start.Offset, End: end.Offset}
+			if !p.r.seenClassLit[cs] {
+				if p.r.seenClassLit == nil {
+					p.r.seenClassLit = map[ClassString]bool{}
+				}
+				p.r.seenClassLit[cs] = true
+				p.r.classStrings = append(p.r.classStrings, cs)
+			}
+		case *ast.Ident, *ast.SelectorExpr:
+			if d := p.constOf(x.(ast.Expr)); d != nil && depth < 8 {
+				dp := &pass{r: p.r, u: d.unit, info: d.unit.info}
+				dp.recordLits(d.expr, depth+1)
+				return false
+			}
 		}
-		start := p.r.l.fset.Position(lit.Pos())
-		end := p.r.l.fset.Position(lit.End())
-		p.r.classStrings = append(p.r.classStrings, ClassString{
-			File: p.r.rel(start.Filename), Start: start.Offset, End: end.Offset,
-		})
 		return true
 	})
 }

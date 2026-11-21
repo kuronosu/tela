@@ -15,7 +15,7 @@ import (
 
 // Fixes (tela lint -fix). A rule that knows a safe rewrite attaches it to
 // its finding as edits: byte ranges of the file as it was read, each
-// deleted (the rewrites so far only remove code). The fixes of a file are
+// replaced by a text (empty to delete), with the import the text needs. The fixes of a file are
 // applied together, the file is formatted with gofmt (a removed wrapper
 // changes the indentation of what it wrapped) and it is written only if the
 // result still parses, so a file is never left broken.
@@ -24,6 +24,9 @@ import (
 type edit struct {
 	file       string
 	start, end int
+	// text replaces the bytes (empty deletes them), and imp is the import
+	// path the text needs the file to have.
+	text, imp string
 }
 
 // fixKey identifies a finding, to find its edits.
@@ -86,6 +89,11 @@ func (r *run) applyFixes(diags []Diagnostic) (fixed []Diagnostic, files int, err
 			continue
 		}
 		out = dropUnusedImports(src, out)
+		for _, e := range byFile[name] {
+			if e.imp != "" {
+				out = addImport(out, e.imp)
+			}
+		}
 		formatted, ferr := format.Source(out)
 		if ferr != nil {
 			err = fmt.Errorf("%s: the fixed file does not parse (%v); it is left as it was", r.rel(name), ferr)
@@ -107,7 +115,7 @@ func (r *run) applyFixes(diags []Diagnostic) (fixed []Diagnostic, files int, err
 	return fixed, files, err
 }
 
-// applyEdits deletes the ranges from src. Identical edits (the same finding
+// applyEdits replaces the ranges of src with their texts. Identical edits (the same finding
 // reached twice) apply once; overlapping different ones are a failure.
 func applyEdits(src []byte, edits []edit) ([]byte, bool) {
 	sort.Slice(edits, func(i, j int) bool {
@@ -127,6 +135,7 @@ func applyEdits(src []byte, edits []edit) ([]byte, bool) {
 			return nil, false
 		}
 		out = append(out, src[pos:e.start]...)
+		out = append(out, e.text...)
 		pos = e.end
 		last = e
 	}
@@ -222,4 +231,40 @@ func lineSpan(src []byte, fset *token.FileSet, from, to token.Pos) [2]int {
 		end++
 	}
 	return [2]int{start, end}
+}
+
+// addImport adds the import of path to src, which already parses, unless it
+// has it. The import goes into the first import declaration that has
+// parentheses, as a new line (format.Source sorts the block), or after the
+// last import (the package clause when there is none) as a declaration of
+// its own.
+func addImport(src []byte, importPath string) []byte {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "src.go", src, parser.ImportsOnly)
+	if err != nil {
+		return src
+	}
+	quoted := strconv.Quote(importPath)
+	for _, imp := range f.Imports {
+		if imp.Path.Value == quoted && (imp.Name == nil || imp.Name.Name != "_") {
+			return src
+		}
+	}
+	insert := func(off int, text string) []byte {
+		out := append([]byte(nil), src[:off]...)
+		out = append(out, text...)
+		return append(out, src[off:]...)
+	}
+	for _, d := range f.Decls {
+		if gen, ok := d.(*ast.GenDecl); ok && gen.Tok == token.IMPORT && gen.Lparen.IsValid() {
+			return insert(fset.Position(gen.Lparen).Offset+1, "\n\t"+quoted)
+		}
+	}
+	end := fset.Position(f.Name.End()).Offset
+	for _, d := range f.Decls {
+		if gen, ok := d.(*ast.GenDecl); ok && gen.Tok == token.IMPORT {
+			end = fset.Position(gen.End()).Offset
+		}
+	}
+	return insert(end, "\n\nimport "+quoted)
 }

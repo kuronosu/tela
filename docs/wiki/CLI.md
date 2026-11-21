@@ -555,6 +555,7 @@ Anything computed (`"p-" + strconv.Itoa(n)`) is skipped, never guessed.
 | `hooks` | A hook (`Use...` of `tela`, `aria`, `kit`, `i18n`, or a custom hook of your code) called conditionally, in a loop, after an early return, from a function that is neither a component nor a custom hook, or in a function literal that is not a component; and a component (a function or `Build` method that uses hooks) called directly instead of through `tela.C`, `tela.CP` or an element. A function with the shape `func() tela.Node` or `func(P) tela.Node` is given the benefit of the doubt. A function is a custom hook when it is named `UseXxx` or `useXxx` and calls a hook |
 | `fragment` | `h.Fragment(x)` with a single child and no spread: a struct component is a `tela.Node` (ADR-205), so write `x`. It has a fix (`-fix`), and is reported only where removing the wrapper still type-checks and keeps the child's identity (its state): `x` is not a `Prop` or a `tela.Child` that could hold one (`Fragment(Key(k))` sets the key of the fragment), the place takes a `tela.Node` or `tela.Child` (an argument, an element or a field of a literal, a result, an assignment to a declared type; not `n := Fragment(x)`, an `any` or a generic parameter), no comment sits inside the call, the first argument of `tela.WithKey` is a struct literal, and the same function (or the same `IfElse`) has no `Fragment` of several children as an alternative: a child that moves between `Fragment(x)` and `Fragment(x, y)` keeps its state, and one that moves between a bare `x` and `Fragment(x, y)` does not |
 | `prop-node` | A `Prop` or `StyleProp` (`h.Class`, `h.Key`, `h.OnClick`, `tela.Width`...) where a `tela.Node` is expected: the result of a function or of a `Map` callback, an element of a `[]tela.Node`, a field of type `tela.Node` or `tela.Component`, an argument of `tela.WithKey`, an `If` of props. A prop has a `Build` method, so it compiles, and it panics when the node is consumed. Props go to an element: `Div(Class("p-4"), ...)`. A `tela.Child` takes props, so it is not reported |
+| `migrate` | A spelling of the public API that a release removed or renamed, such as `desktop.Launch.Forwarded` (now `Launch.Source == desktop.LaunchForwarded`) or `telatest.App.Move` (now `MoveWindow`). Every breaking change ships a rewrite (ADR-305), so `tela lint -fix` moves an app to the new release: the rewrites are in `internal/lint/migrations.go`, each with an example that a test runs. Old code does not type-check, so a package that fails to type-check is checked for this rule alone, and `-fix` goes on to the other rules once it compiles |
 
 Each finding is `file:line:col: rule: message`, sorted by position, with paths
 relative to the current directory. The exit status is 0 when nothing is
@@ -577,7 +578,7 @@ only a reason: `//tela:ignore -- generated`) covers every rule.
 |---|---|
 | `-json` | Prints the findings as a JSON array of `{file, line, col, rule, severity, message, suggestion}` (`suggestion` only when the message proposes a replacement; `severity` is `error` or `warning`; `[]` when there is nothing) |
 | `-tests` | Lints the `_test.go` files too (by default they are skipped: tests often use a wrong class on purpose) |
-| `-fix` | Applies the fixes of the findings that have one (today the `fragment` rule): the files are rewritten and formatted with gofmt, an import that the fix left unused is removed, and a file whose fixed text would not parse is left as it was. It prints `fixed N findings in M files` on standard error and reports what is left. Review the result with `git diff` |
+| `-fix` | Applies the fixes of the findings that have one (the `fragment` and `migrate` rules): the files are rewritten and formatted with gofmt, an import that the fix left unused is removed, and a file whose fixed text would not parse is left as it was. It prints `fixed N findings in M files` on standard error and reports what is left. Review the result with `git diff` |
 
 Limits: only the files that the current platform and build tags select are read;
 aliases and theme colors come from the linted packages, so lint `./...` when you
@@ -863,8 +864,11 @@ and leaves the rest to gopls:
   with "did you mean", roles, aria tokens, keys, hooks) for the open files, from
   their unsaved text. They are published when a file opens, a moment after you
   stop typing and on save. The aliases of `App.ClassAliases` and the theme
-  colors declared in the package are known. A file that does not compile is
-  still linted with what type-checks.
+  colors declared in the package, or in another package of the module (the
+  app's main package, a theme package), are known. A file that does not
+  compile is still linted with what type-checks.
+- **Quick fix** on an unknown class: "Replace with" the suggestion of the
+  message (`bg-rde-500` becomes `bg-red-500`, variants kept).
 - **Completion** inside a class string: utilities and theme keys, variants
   (`hover:`, `md:`, `dark:`, stacked), your class aliases and arbitrary values
   (`w-[...]`), each with the CSS it produces (`p-4` is `padding: 1rem`, a color
@@ -876,7 +880,8 @@ A string is a class string when it is an argument of `Class(...)`, the value of
 a field named `Class` or ending in `Class` (`kit.Button{Class: "..."}`,
 `App.RootClass`), or a value of `ClassAliases`; once the file has been linted
 every string that `tela lint` checks is one (the fields of a `kit` recipe, for
-example). Completion and hover read the text, not the type checker, so they
+example, and a constant that is used as a class: `const card = "..."` with
+`Class(card)`, where the finding is reported at the constant). Completion and hover read the text, not the type checker, so they
 answer at once and while the file does not compile. Diagnostics need the `go`
 command in `PATH`; a package takes about 150 ms to lint again after the first
 run (the first one builds the export data of its dependencies, as `tela lint`
