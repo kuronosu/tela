@@ -29,10 +29,15 @@ separated by commas), or with `migrate: none -- <why nothing can be rewritten>`
 - `tela lsp`: a quick fix replaces an unknown class with the suggestion; class strings held in constants (`const card = "..."; Class(card)`) and the aliases and theme colors declared in other packages of the module are seen; hover shows the CSS of every utility (`mask-*`, `bg-conic-*` and the rest).
 - `telatest.Modifiers("Shift", "ControlOrMeta", …)` holds modifiers during `Click`, `ClickAt`, `DoubleClick` and drags, like Playwright's `click({modifiers})`; `telatest.HasRange(now, min, max)`; `TrayIcon.Template`; `telatest.StartLaunch(desktop.Launch{…, AtLogin})`; `App.AskForFileDefaults` and `App.DefaultsAsked` play Windows' `DefaultAsked` (ADR-307).
 - `App.Pending` and `ExpectIdle` name `UseAsync` runs in flight.
+- `tela dev` keeps the state kit's components and aria's hooks hold themselves (an uncontrolled radio group, tab, toggle group, select, slider, color picker, calendar date and month, menu checkboxes, a list's selection and focused item, an open context menu's place, an `aria.Selection` in your own state), the state of a component whose function or type you rename, and an IME composition in progress; `tela dev -v` lists every hook slot a reload could not keep, with the reason (ADR-309).
+- `tela devtools`: the tree updates incrementally (tools protocol 2: `elements` with a version, `inspect` with a depth), a resizable details pane, copy as JSON, source location or aria line, the Accessibility panel highlights in the app, and a scheme toggle; dark when the system states no preference (ADR-304).
+- Platform contract v17: `SystemSettings.LightMode` tells "light" from "no preference"; remote protocol 18.
 - `tela lint`: the `migrate` rule rewrites, with `-fix`, the spellings a release removed (`desktop.Launch.Forwarded`, `telatest.App.Move`); a package that no longer type-checks is still checked for it, and `-fix` goes on to the other rules once it compiles (ADR-305).
 
 ### Fixed
 
+- `tela dev`'s tools socket lists a dev warning once, receives entries logged while the app is idle and includes `tela dev`'s own lines (a failed build as an error); a client whose queue filled gets a `dropped` notification and DevTools resync; keys sent to an unfocused window lend it the focus only while they reach it.
+- Pick mode keeps the wheel, keys and IME text from the app, picks `pointer-events-none` and inert elements, lets a press the app already held end in the app, and finds the app's source line past deep helper chains.
 - `watch` on Windows: a directory moved into a watched tree is no longer missed, a directory being scanned can be renamed meanwhile, and a watch no longer stops when its goroutine's stack grows ("Overlapped I/O incomplete").
 - `tela dev`: a child's clean exit no longer reaches the host as "connection reset by peer"; a build error that happens while the first build is being shown stays on screen, docked.
 
