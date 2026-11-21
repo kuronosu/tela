@@ -124,7 +124,7 @@ func TestCopyActions(t *testing.T) {
 	fake := NewFakeSource()
 	app := mount(t, fake, TabElements)
 	app.Click(telatest.ByRole("treeitem", "main.Settings"))
-	app.ExpectText("settings.go:42")
+	app.ExpectText("Why it rendered") // the details arrived (the JSON has the hooks)
 	copyItem := func(item string) string {
 		t.Helper()
 		app.Click(telatest.ByRole("button", "Copy"))
