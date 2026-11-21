@@ -27,6 +27,14 @@ func ParseAccelerator(s string) (Accelerator, error) {
 	return parseAccelerator(s, HostFlavor() == FlavorMac)
 }
 
+// ParseAcceleratorFor is ParseAccelerator with CmdOrCtrl following the key
+// conventions of f (FlavorHost resolves to the host's): Super under
+// FlavorMac, Ctrl otherwise. A window's flavor, which tests can set apart
+// from the host (ADR-221), decides what a menu shows for its shortcuts.
+func ParseAcceleratorFor(s string, f Flavor) (Accelerator, error) {
+	return parseAccelerator(s, f.Resolve() == FlavorMac)
+}
+
 // parseAccelerator is ParseAccelerator with CmdOrCtrl's meaning chosen by
 // mac, so the tests cover both on every OS.
 func parseAccelerator(s string, mac bool) (Accelerator, error) {

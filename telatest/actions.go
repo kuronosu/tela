@@ -180,7 +180,7 @@ func (a *App) pointer(act platform.PointerAction, p platform.Point, button platf
 	if act == platform.PointerDown {
 		a.activate()
 	}
-	a.win.Inject(platform.PointerEvent{Action: act, Pos: p, Button: button, Buttons: buttons})
+	a.win.Inject(platform.PointerEvent{Action: act, Pos: p, Button: button, Buttons: buttons, Mods: a.mods})
 	a.settleAfter()
 }
 
@@ -254,12 +254,18 @@ func (a *App) touchUp(p platform.Point) {
 	a.settleAfter()
 }
 
-// ClickOption configures [App.Click] and [App.ClickAt].
-type ClickOption func(*clickConfig)
+// ClickOption configures [App.Click], [App.ClickAt] and [App.DoubleClick].
+type ClickOption interface{ applyClick(*clickConfig) }
+
+// clickOption is a ClickOption made of a function.
+type clickOption func(*clickConfig)
+
+func (f clickOption) applyClick(c *clickConfig) { f(c) }
 
 type clickConfig struct {
-	delay  time.Duration
-	button platform.PointerButton
+	delay     time.Duration
+	button    platform.PointerButton
+	modifiers []string
 }
 
 // Delay holds the button down for d of app time between the press and the
@@ -268,7 +274,7 @@ type clickConfig struct {
 // runs while the button is held and the release then ends the press without
 // a click. For a touch long press, which opens a context menu, use
 // [App.LongPress].
-func Delay(d time.Duration) ClickOption { return func(c *clickConfig) { c.delay = d } }
+func Delay(d time.Duration) ClickOption { return clickOption(func(c *clickConfig) { c.delay = d }) }
 
 // Right makes [App.Click] and [App.ClickAt] press and release the secondary
 // (right) mouse button, like Playwright's click({button: 'right'}): real
@@ -279,7 +285,9 @@ func Delay(d time.Duration) ClickOption { return func(c *clickConfig) { c.delay 
 //
 //	app.Click(telatest.ByTestID("area"), telatest.Right())
 //	app.ClickAt(120, 80, telatest.Right())
-func Right() ClickOption { return func(c *clickConfig) { c.button = platform.ButtonSecondary } }
+func Right() ClickOption {
+	return clickOption(func(c *clickConfig) { c.button = platform.ButtonSecondary })
+}
 
 // MouseBack makes [App.Click] and [App.ClickAt] press and release the
 // mouse's back side button (X1) instead of the primary one: real pointer
@@ -290,15 +298,19 @@ func Right() ClickOption { return func(c *clickConfig) { c.button = platform.But
 //
 //	app.Click(telatest.ByRole("main", ""), telatest.MouseBack())
 //	app.ClickAt(120, 80, telatest.MouseBack())
-func MouseBack() ClickOption { return func(c *clickConfig) { c.button = platform.ButtonBack } }
+func MouseBack() ClickOption {
+	return clickOption(func(c *clickConfig) { c.button = platform.ButtonBack })
+}
 
 // MouseForward is [MouseBack] for the forward side button (X2).
-func MouseForward() ClickOption { return func(c *clickConfig) { c.button = platform.ButtonForward } }
+func MouseForward() ClickOption {
+	return clickOption(func(c *clickConfig) { c.button = platform.ButtonForward })
+}
 
 func clickConfigOf(opts []ClickOption) clickConfig {
 	cfg := clickConfig{button: platform.ButtonPrimary}
 	for _, o := range opts {
-		o(&cfg)
+		o.applyClick(&cfg)
 	}
 	return cfg
 }
@@ -309,7 +321,8 @@ func clickConfigOf(opts []ClickOption) clickConfig {
 // handler. Each Click is a first click (ClickCount 1) even right after
 // another, as in Playwright; use [App.DoubleClick] for two. It waits for the element to be visible, enabled, in view and not
 // covered by another element, and fails the test when l matches none or
-// several. With [Right] it presses the secondary button instead (the
+// several. [Modifiers] holds keys during the click (Playwright's
+// click({modifiers})). With [Right] it presses the secondary button instead (the
 // element's OnContextMenu runs, not its OnClick), and [MouseBack] and
 // [MouseForward] the mouse's side buttons; [App.Tap] and [App.LongPress]
 // are the touch counterparts.
@@ -325,7 +338,9 @@ func (a *App) Click(l Locator, opts ...ClickOption) {
 	case platform.ButtonForward:
 		verb = "click with the forward button"
 	}
+	mods := a.modifierMask(cfg.modifiers)
 	_, p := a.target(l, verb, true)
+	defer a.holdModifiers(mods)()
 	a.clickPoint(p, cfg)
 }
 
@@ -397,7 +412,9 @@ func (a *App) LongPress(l Locator) {
 //	app.ClickAt(r.X+20, r.Y+20, telatest.Right())
 func (a *App) ClickAt(x, y float32, opts ...ClickOption) {
 	a.tb.Helper()
-	a.clickPoint(a.windowPoint("ClickAt", x, y), clickConfigOf(opts))
+	cfg := clickConfigOf(opts)
+	defer a.holdModifiers(a.modifierMask(cfg.modifiers))()
+	a.clickPoint(a.windowPoint("ClickAt", x, y), cfg)
 }
 
 // windowPoint checks that (x, y) is inside the window and returns it as a
@@ -414,10 +431,13 @@ func (a *App) windowPoint(what string, x, y float32) platform.Point {
 }
 
 // DoubleClick clicks the element twice in a row, so the second click has a
-// click count of 2 and OnDoubleClick runs. See [App.Click].
-func (a *App) DoubleClick(l Locator) {
+// click count of 2 and OnDoubleClick runs. See [App.Click]; of its options
+// only [Modifiers] applies.
+func (a *App) DoubleClick(l Locator, opts ...ClickOption) {
 	a.tb.Helper()
+	mods := a.modifierMask(clickConfigOf(opts).modifiers)
 	_, p := a.target(l, "double-click", true)
+	defer a.holdModifiers(mods)()
 	a.moveTo(p)
 	a.tree.BreakClickSequence()
 	a.down()
@@ -506,8 +526,14 @@ func (a *App) MouseUp() {
 	a.up()
 }
 
-// DragOption configures [App.Drag], [App.DragBy] and [App.DragFromTo].
-type DragOption func(*dragConfig)
+// DragOption configures [App.Drag], [App.DragBy] and [App.DragFromTo], and
+// the steps of drag and drop ([App.HoverDrag], [App.DropOn]...).
+type DragOption interface{ applyDrag(*dragConfig) }
+
+// dragOption is a DragOption made of a function.
+type dragOption func(*dragConfig)
+
+func (f dragOption) applyDrag(c *dragConfig) { f(c) }
 
 type dragConfig struct {
 	steps int
@@ -517,14 +543,14 @@ type dragConfig struct {
 // Steps sets how many pointer moves the drag is made of (default 12): the
 // pointer moves in equal steps between the start and the end, and each move
 // runs a frame, as a window would.
-func Steps(n int) DragOption { return func(c *dragConfig) { c.steps = n } }
+func Steps(n int) DragOption { return dragOption(func(c *dragConfig) { c.steps = n }) }
 
-func dragSteps(opts []DragOption) int {
-	cfg := dragConfig{steps: 12}
-	for _, o := range opts {
-		o(&cfg)
-	}
-	return max(cfg.steps, 1)
+// holdModifiers makes the pointer events carry mods until the returned
+// function is called.
+func (a *App) holdModifiers(mods platform.Modifiers) (release func()) {
+	prev := a.mods
+	a.mods = mods
+	return func() { a.mods = prev }
 }
 
 // Drag presses the primary button at the center of from, moves the pointer
@@ -534,7 +560,9 @@ func dragSteps(opts []DragOption) int {
 // once the drag has started.
 func (a *App) Drag(from, to Locator, opts ...DragOption) {
 	a.tb.Helper()
-	steps := dragSteps(opts)
+	cfg, mods := a.dragConfigOf(opts)
+	steps := cfg.steps
+	defer a.holdModifiers(mods)()
 	_, p := a.target(from, "drag", true)
 	a.moveTo(p)
 	a.down()
@@ -547,7 +575,9 @@ func (a *App) Drag(from, to Locator, opts ...DragOption) {
 // center. See [App.Drag].
 func (a *App) DragBy(l Locator, dx, dy float32, opts ...DragOption) {
 	a.tb.Helper()
-	steps := dragSteps(opts)
+	cfg, mods := a.dragConfigOf(opts)
+	steps := cfg.steps
+	defer a.holdModifiers(mods)()
 	_, p := a.target(l, "drag", true)
 	a.moveTo(p)
 	a.down()
@@ -566,7 +596,9 @@ func (a *App) DragBy(l Locator, dx, dy float32, opts ...DragOption) {
 //	app.DragFromTo(tela.Point{X: r.X + 4, Y: r.Y + 8}, tela.Point{X: r.X + r.Width/2, Y: r.Y + 8})
 func (a *App) DragFromTo(from, to tela.Point, opts ...DragOption) {
 	a.tb.Helper()
-	steps := dragSteps(opts)
+	cfg, mods := a.dragConfigOf(opts)
+	steps := cfg.steps
+	defer a.holdModifiers(mods)()
 	p := a.windowPoint("DragFromTo", from.X, from.Y)
 	end := a.windowPoint("DragFromTo", to.X, to.Y)
 	a.moveTo(p)

@@ -186,6 +186,10 @@ type Tree struct {
 	// intervals are the running UseInterval and UseTimeout slots
 	// (interval.go).
 	intervals []*intervalSlot
+	// asyncRuns are the UseAsync slots with a run in flight (asyncwait.go);
+	// asyncMu guards it, as goroutines end runs.
+	asyncMu   sync.Mutex
+	asyncRuns map[asyncRun]struct{}
 	// locals are the values of TreeLocal (engine.go).
 	locals map[any]any
 	// autoDirs are the elements with Dir("auto") and whether their text

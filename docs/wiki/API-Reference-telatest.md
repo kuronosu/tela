@@ -13,14 +13,14 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`AccentColor`](#func-accentcolor) · [`Active`](#func-active) · [`ActiveDescendant`](#func-activedescendant) · [`AllowDev`](#func-allowdev) · [`Allowed`](#func-allowed) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`AriaSnapshot`](#func-ariasnapshot) · [`Backdrop`](#func-backdrop) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`Carrying`](#func-carrying) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ClientDecorations`](#func-clientdecorations) · [`ColorScheme`](#func-colorscheme) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`DragFiles`](#func-dragfiles) · [`DragHTML`](#func-draghtml) · [`DragPNG`](#func-dragpng) · [`DragText`](#func-dragtext) · [`DragType`](#func-dragtype) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`FixedSize`](#func-fixedsize) · [`Focused`](#func-focused) · [`Fonts`](#func-fonts) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`Fullscreen`](#func-fullscreen) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`Hidden`](#func-hidden) · [`HighContrast`](#func-highcontrast) · [`Hyphenation`](#func-hyphenation) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`Instrument`](#func-instrument) · [`Invalid`](#func-invalid) · [`LayoutJSON`](#func-layoutjson) · [`MaxSize`](#func-maxsize) · [`Maximized`](#func-maximized) · [`MinSize`](#func-minsize) · [`Minimized`](#func-minimized) · [`Modifiers`](#func-modifiers) · [`Monitors`](#func-monitors) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`MouseBack`](#func-mouseback) · [`MouseForward`](#func-mouseforward) · [`NoActiveDescendant`](#func-noactivedescendant) · [`NoCompositing`](#func-nocompositing) · [`NoDev`](#func-nodev) · [`NoServerDecorations`](#func-noserverdecorations) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`OnQuit`](#func-onquit) · [`Placement`](#func-placement) · [`PlatformKeys`](#func-platformkeys) · [`PreferNativeMenus`](#func-prefernativemenus) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`Right`](#func-right) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Sort`](#func-sort) · [`StartHidden`](#func-starthidden) · [`Steps`](#func-steps) · [`TempDesktopDirs`](#func-tempdesktopdirs) · [`TextScale`](#func-textscale) · [`Theme`](#func-theme) · [`ThemeTransitions`](#func-themetransitions) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`TitleBar`](#func-titlebar) · [`TitleBarControls`](#func-titlebarcontrols) · [`TitleBarOverlay`](#func-titlebaroverlay) · [`Tolerance`](#func-tolerance) · [`Transparent`](#func-transparent) · [`WithUnsupported`](#func-withunsupported)
+- [Functions](#functions): [`AccentColor`](#func-accentcolor) · [`Active`](#func-active) · [`ActiveDescendant`](#func-activedescendant) · [`AllowDev`](#func-allowdev) · [`Allowed`](#func-allowed) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`AriaSnapshot`](#func-ariasnapshot) · [`Backdrop`](#func-backdrop) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`Carrying`](#func-carrying) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ClientDecorations`](#func-clientdecorations) · [`ColorScheme`](#func-colorscheme) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`DragFiles`](#func-dragfiles) · [`DragHTML`](#func-draghtml) · [`DragPNG`](#func-dragpng) · [`DragText`](#func-dragtext) · [`DragType`](#func-dragtype) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`FixedSize`](#func-fixedsize) · [`Focused`](#func-focused) · [`Fonts`](#func-fonts) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`Fullscreen`](#func-fullscreen) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasRange`](#func-hasrange) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`Hidden`](#func-hidden) · [`HighContrast`](#func-highcontrast) · [`Hyphenation`](#func-hyphenation) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`Instrument`](#func-instrument) · [`Invalid`](#func-invalid) · [`LayoutJSON`](#func-layoutjson) · [`MaxSize`](#func-maxsize) · [`Maximized`](#func-maximized) · [`MinSize`](#func-minsize) · [`Minimized`](#func-minimized) · [`Modifiers`](#func-modifiers) · [`Monitors`](#func-monitors) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`MouseBack`](#func-mouseback) · [`MouseForward`](#func-mouseforward) · [`NoActiveDescendant`](#func-noactivedescendant) · [`NoCompositing`](#func-nocompositing) · [`NoDev`](#func-nodev) · [`NoServerDecorations`](#func-noserverdecorations) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`OnQuit`](#func-onquit) · [`Placement`](#func-placement) · [`PlatformKeys`](#func-platformkeys) · [`PreferNativeMenus`](#func-prefernativemenus) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`Right`](#func-right) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Sort`](#func-sort) · [`StartHidden`](#func-starthidden) · [`StartLaunch`](#func-startlaunch) · [`Steps`](#func-steps) · [`TempDesktopDirs`](#func-tempdesktopdirs) · [`TextScale`](#func-textscale) · [`Theme`](#func-theme) · [`ThemeTransitions`](#func-themetransitions) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`TitleBar`](#func-titlebar) · [`TitleBarControls`](#func-titlebarcontrols) · [`TitleBarOverlay`](#func-titlebaroverlay) · [`Tolerance`](#func-tolerance) · [`Transparent`](#func-transparent) · [`WithUnsupported`](#func-withunsupported)
 - [Types](#types)
-  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`ActiveDrag`](#func-app-activedrag) · [`Advance`](#func-app-advance) · [`AnswerFileDialog`](#func-app-answerfiledialog) · [`AnswerMessage`](#func-app-answermessage) · [`AppMenuBar`](#func-app-appmenubar) · [`AppMenuItems`](#func-app-appmenuitems) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`AriaSnapshotNodes`](#func-app-ariasnapshotnodes) · [`AriaSnapshotSources`](#func-app-ariasnapshotsources) · [`Backdrop`](#func-app-backdrop) · [`BackendStrings`](#func-app-backendstrings) · [`Blocked`](#func-app-blocked) · [`BlockedBy`](#func-app-blockedby) · [`Blocks`](#func-app-blocks) · [`Bounds`](#func-app-bounds) · [`BringToFront`](#func-app-bringtofront) · [`CancelDrag`](#func-app-canceldrag) · [`CaptionDrags`](#func-app-captiondrags) · [`ChooseAppMenuItem`](#func-app-chooseappmenuitem) · [`ChooseMenuItem`](#func-app-choosemenuitem) · [`ChoosePopupItem`](#func-app-choosepopupitem) · [`ClearAccentColor`](#func-app-clearaccentcolor) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`ClickNotification`](#func-app-clicknotification) · [`ClickNotificationAction`](#func-app-clicknotificationaction) · [`ClickTray`](#func-app-clicktray) · [`ClickTrayItem`](#func-app-clicktrayitem) · [`Clipboard`](#func-app-clipboard) · [`Close`](#func-app-close) · [`Closed`](#func-app-closed) · [`ComponentOf`](#func-app-componentof) · [`Components`](#func-app-components) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DismissNotification`](#func-app-dismissnotification) · [`DismissPopupMenu`](#func-app-dismisspopupmenu) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`DragTo`](#func-app-dragto) · [`DragToWindow`](#func-app-dragtowindow) · [`DropData`](#func-app-dropdata) · [`DropFiles`](#func-app-dropfiles) · [`DropOn`](#func-app-dropon) · [`DropOutside`](#func-app-dropoutside) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectClosed`](#func-app-expectclosed) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectIdle`](#func-app-expectidle) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectNoWindow`](#func-app-expectnowindow) · [`ExpectQuit`](#func-app-expectquit) · [`ExpectRole`](#func-app-expectrole) · [`ExpectRunning`](#func-app-expectrunning) · [`ExpectText`](#func-app-expecttext) · [`ExpectTitle`](#func-app-expecttitle) · [`ExpectValue`](#func-app-expectvalue) · [`ExpectWindowCount`](#func-app-expectwindowcount) · [`ExpectWindowState`](#func-app-expectwindowstate) · [`FailSecrets`](#func-app-failsecrets) · [`FailShortcuts`](#func-app-failshortcuts) · [`FailSurfaces`](#func-app-failsurfaces) · [`FailTrash`](#func-app-failtrash) · [`FileDialogs`](#func-app-filedialogs) · [`Fill`](#func-app-fill) · [`Film`](#func-app-film) · [`Focus`](#func-app-focus) · [`Frames`](#func-app-frames) · [`GlobalShortcuts`](#func-app-globalshortcuts) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`HasQuit`](#func-app-hasquit) · [`HitAt`](#func-app-hitat) · [`HitRegions`](#func-app-hitregions) · [`HoldAppEntry`](#func-app-holdappentry) · [`HoldAssociation`](#func-app-holdassociation) · [`Hover`](#func-app-hover) · [`HoverDrag`](#func-app-hoverdrag) · [`InjectLaunch`](#func-app-injectlaunch) · [`LastWindow`](#func-app-lastwindow) · [`LayoutJSON`](#func-app-layoutjson) · [`LayoutJSONOf`](#func-app-layoutjsonof) · [`LeaveDrag`](#func-app-leavedrag) · [`LongPress`](#func-app-longpress) · [`MainWindow`](#func-app-mainwindow) · [`Maximize`](#func-app-maximize) · [`Measure`](#func-app-measure) · [`MenuBar`](#func-app-menubar) · [`MessageBoxes`](#func-app-messageboxes) · [`Minimize`](#func-app-minimize) · [`Modal`](#func-app-modal) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`MoveWindow`](#func-app-movewindow) · [`NodeLocator`](#func-app-nodelocator) · [`Notifications`](#func-app-notifications) · [`Now`](#func-app-now) · [`OpenedURLs`](#func-app-openedurls) · [`Parent`](#func-app-parent) · [`Pending`](#func-app-pending) · [`PixelAt`](#func-app-pixelat) · [`Placement`](#func-app-placement) · [`PopupMenus`](#func-app-popupmenus) · [`Press`](#func-app-press) · [`PressShortcut`](#func-app-pressshortcut) · [`RecentDocuments`](#func-app-recentdocuments) · [`RegisteredApps`](#func-app-registeredapps) · [`Registrations`](#func-app-registrations) · [`ReleaseShortcut`](#func-app-releaseshortcut) · [`RequestClose`](#func-app-requestclose) · [`RequestQuit`](#func-app-requestquit) · [`Resize`](#func-app-resize) · [`ResizeStarts`](#func-app-resizestarts) · [`Restore`](#func-app-restore) · [`RunTask`](#func-app-runtask) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`ScrollAt`](#func-app-scrollat) · [`SelectedText`](#func-app-selectedtext) · [`SetAccentColor`](#func-app-setaccentcolor) · [`SetClipboard`](#func-app-setclipboard) · [`SetCompositing`](#func-app-setcompositing) · [`SetDarkMode`](#func-app-setdarkmode) · [`SetDefaultHandler`](#func-app-setdefaulthandler) · [`SetFullscreen`](#func-app-setfullscreen) · [`SetHighContrast`](#func-app-sethighcontrast) · [`SetReducedMotion`](#func-app-setreducedmotion) · [`SetScale`](#func-app-setscale) · [`SetShortcutStatus`](#func-app-setshortcutstatus) · [`SetShortcutUnassigned`](#func-app-setshortcutunassigned) · [`SetStartsAtLogin`](#func-app-setstartsatlogin) · [`SetStoredSecret`](#func-app-setstoredsecret) · [`SetTextScale`](#func-app-settextscale) · [`SetTitleBarControls`](#func-app-settitlebarcontrols) · [`StartDrag`](#func-app-startdrag) · [`StartsAtLogin`](#func-app-startsatlogin) · [`Stats`](#func-app-stats) · [`StoredSecret`](#func-app-storedsecret) · [`TakesInput`](#func-app-takesinput) · [`Tap`](#func-app-tap) · [`Tasks`](#func-app-tasks) · [`Title`](#func-app-title) · [`TitleBar`](#func-app-titlebar) · [`Trashed`](#func-app-trashed) · [`Tray`](#func-app-tray) · [`Trays`](#func-app-trays) · [`Type`](#func-app-type) · [`Unmaximize`](#func-app-unmaximize) · [`Unsupported`](#func-app-unsupported) · [`WaitFor`](#func-app-waitfor) · [`WaitForWindow`](#func-app-waitforwindow) · [`Window`](#func-app-window) · [`WindowAt`](#func-app-windowat) · [`WindowMenus`](#func-app-windowmenus) · [`WindowSize`](#func-app-windowsize) · [`WindowState`](#func-app-windowstate) · [`Windows`](#func-app-windows)
+  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`ActiveDrag`](#func-app-activedrag) · [`Advance`](#func-app-advance) · [`AnswerFileDialog`](#func-app-answerfiledialog) · [`AnswerMessage`](#func-app-answermessage) · [`AppMenuBar`](#func-app-appmenubar) · [`AppMenuItems`](#func-app-appmenuitems) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`AriaSnapshotNodes`](#func-app-ariasnapshotnodes) · [`AriaSnapshotSources`](#func-app-ariasnapshotsources) · [`AskForFileDefaults`](#func-app-askforfiledefaults) · [`Backdrop`](#func-app-backdrop) · [`BackendStrings`](#func-app-backendstrings) · [`Blocked`](#func-app-blocked) · [`BlockedBy`](#func-app-blockedby) · [`Blocks`](#func-app-blocks) · [`Bounds`](#func-app-bounds) · [`BringToFront`](#func-app-bringtofront) · [`CancelDrag`](#func-app-canceldrag) · [`CaptionDrags`](#func-app-captiondrags) · [`ChooseAppMenuItem`](#func-app-chooseappmenuitem) · [`ChooseMenuItem`](#func-app-choosemenuitem) · [`ChoosePopupItem`](#func-app-choosepopupitem) · [`ClearAccentColor`](#func-app-clearaccentcolor) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`ClickNotification`](#func-app-clicknotification) · [`ClickNotificationAction`](#func-app-clicknotificationaction) · [`ClickTray`](#func-app-clicktray) · [`ClickTrayItem`](#func-app-clicktrayitem) · [`Clipboard`](#func-app-clipboard) · [`Close`](#func-app-close) · [`Closed`](#func-app-closed) · [`ComponentOf`](#func-app-componentof) · [`Components`](#func-app-components) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DefaultsAsked`](#func-app-defaultsasked) · [`DismissNotification`](#func-app-dismissnotification) · [`DismissPopupMenu`](#func-app-dismisspopupmenu) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`DragTo`](#func-app-dragto) · [`DragToWindow`](#func-app-dragtowindow) · [`DropData`](#func-app-dropdata) · [`DropFiles`](#func-app-dropfiles) · [`DropOn`](#func-app-dropon) · [`DropOutside`](#func-app-dropoutside) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectClosed`](#func-app-expectclosed) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectIdle`](#func-app-expectidle) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectNoWindow`](#func-app-expectnowindow) · [`ExpectQuit`](#func-app-expectquit) · [`ExpectRole`](#func-app-expectrole) · [`ExpectRunning`](#func-app-expectrunning) · [`ExpectText`](#func-app-expecttext) · [`ExpectTitle`](#func-app-expecttitle) · [`ExpectValue`](#func-app-expectvalue) · [`ExpectWindowCount`](#func-app-expectwindowcount) · [`ExpectWindowState`](#func-app-expectwindowstate) · [`FailSecrets`](#func-app-failsecrets) · [`FailShortcuts`](#func-app-failshortcuts) · [`FailSurfaces`](#func-app-failsurfaces) · [`FailTrash`](#func-app-failtrash) · [`FileDialogs`](#func-app-filedialogs) · [`Fill`](#func-app-fill) · [`Film`](#func-app-film) · [`Focus`](#func-app-focus) · [`Frames`](#func-app-frames) · [`GlobalShortcuts`](#func-app-globalshortcuts) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`HasQuit`](#func-app-hasquit) · [`HitAt`](#func-app-hitat) · [`HitRegions`](#func-app-hitregions) · [`HoldAppEntry`](#func-app-holdappentry) · [`HoldAssociation`](#func-app-holdassociation) · [`Hover`](#func-app-hover) · [`HoverDrag`](#func-app-hoverdrag) · [`InjectLaunch`](#func-app-injectlaunch) · [`LastWindow`](#func-app-lastwindow) · [`LayoutJSON`](#func-app-layoutjson) · [`LayoutJSONOf`](#func-app-layoutjsonof) · [`LeaveDrag`](#func-app-leavedrag) · [`LongPress`](#func-app-longpress) · [`MainWindow`](#func-app-mainwindow) · [`Maximize`](#func-app-maximize) · [`Measure`](#func-app-measure) · [`MenuBar`](#func-app-menubar) · [`MessageBoxes`](#func-app-messageboxes) · [`Minimize`](#func-app-minimize) · [`Modal`](#func-app-modal) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`MoveWindow`](#func-app-movewindow) · [`NodeLocator`](#func-app-nodelocator) · [`Notifications`](#func-app-notifications) · [`Now`](#func-app-now) · [`OpenedURLs`](#func-app-openedurls) · [`Parent`](#func-app-parent) · [`Pending`](#func-app-pending) · [`PixelAt`](#func-app-pixelat) · [`Placement`](#func-app-placement) · [`PopupMenus`](#func-app-popupmenus) · [`Press`](#func-app-press) · [`PressShortcut`](#func-app-pressshortcut) · [`RecentDocuments`](#func-app-recentdocuments) · [`RegisteredApps`](#func-app-registeredapps) · [`Registrations`](#func-app-registrations) · [`ReleaseShortcut`](#func-app-releaseshortcut) · [`RequestClose`](#func-app-requestclose) · [`RequestQuit`](#func-app-requestquit) · [`Resize`](#func-app-resize) · [`ResizeStarts`](#func-app-resizestarts) · [`Restore`](#func-app-restore) · [`RunTask`](#func-app-runtask) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`ScrollAt`](#func-app-scrollat) · [`SelectedText`](#func-app-selectedtext) · [`SetAccentColor`](#func-app-setaccentcolor) · [`SetClipboard`](#func-app-setclipboard) · [`SetCompositing`](#func-app-setcompositing) · [`SetDarkMode`](#func-app-setdarkmode) · [`SetDefaultHandler`](#func-app-setdefaulthandler) · [`SetFullscreen`](#func-app-setfullscreen) · [`SetHighContrast`](#func-app-sethighcontrast) · [`SetReducedMotion`](#func-app-setreducedmotion) · [`SetScale`](#func-app-setscale) · [`SetShortcutStatus`](#func-app-setshortcutstatus) · [`SetShortcutUnassigned`](#func-app-setshortcutunassigned) · [`SetStartsAtLogin`](#func-app-setstartsatlogin) · [`SetStoredSecret`](#func-app-setstoredsecret) · [`SetTextScale`](#func-app-settextscale) · [`SetTitleBarControls`](#func-app-settitlebarcontrols) · [`StartDrag`](#func-app-startdrag) · [`StartsAtLogin`](#func-app-startsatlogin) · [`Stats`](#func-app-stats) · [`StoredSecret`](#func-app-storedsecret) · [`TakesInput`](#func-app-takesinput) · [`Tap`](#func-app-tap) · [`Tasks`](#func-app-tasks) · [`Title`](#func-app-title) · [`TitleBar`](#func-app-titlebar) · [`Trashed`](#func-app-trashed) · [`Tray`](#func-app-tray) · [`Trays`](#func-app-trays) · [`Type`](#func-app-type) · [`Unmaximize`](#func-app-unmaximize) · [`Unsupported`](#func-app-unsupported) · [`WaitFor`](#func-app-waitfor) · [`WaitForWindow`](#func-app-waitforwindow) · [`Window`](#func-app-window) · [`WindowAt`](#func-app-windowat) · [`WindowMenus`](#func-app-windowmenus) · [`WindowSize`](#func-app-windowsize) · [`WindowState`](#func-app-windowstate) · [`Windows`](#func-app-windows)
   - [`type ClickOption`](#type-clickoption): [`Delay`](#func-delay) · [`MouseBack`](#func-mouseback) · [`MouseForward`](#func-mouseforward) · [`Right`](#func-right)
   - [`type Component`](#type-component)
   - [`type DesktopService`](#type-desktopservice)
   - [`type DragInfo`](#type-draginfo)
-  - [`type DragOption`](#type-dragoption): [`Allowed`](#func-allowed) · [`Carrying`](#func-carrying) · [`Modifiers`](#func-modifiers) · [`Steps`](#func-steps)
+  - [`type DragOption`](#type-dragoption): [`Allowed`](#func-allowed) · [`Carrying`](#func-carrying) · [`Steps`](#func-steps)
   - [`type DragPayload`](#type-dragpayload): [`DragFiles`](#func-dragfiles) · [`DragHTML`](#func-draghtml) · [`DragPNG`](#func-dragpng) · [`DragText`](#func-dragtext) · [`DragType`](#func-dragtype) · [`And`](#func-dragpayload-and)
   - [`type FileDialog`](#type-filedialog)
   - [`type FileDialogKind`](#type-filedialogkind)
@@ -35,13 +35,14 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Locator`](#type-locator): [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`Filter`](#func-locator-filter) · [`Nth`](#func-locator-nth) · [`String`](#func-locator-string)
   - [`type MenuItem`](#type-menuitem)
   - [`type MessageBox`](#type-messagebox)
+  - [`type ModifiersOption`](#type-modifiersoption): [`Modifiers`](#func-modifiers)
   - [`type Notification`](#type-notification)
-  - [`type Option`](#type-option): [`AccentColor`](#func-accentcolor) · [`AllowDev`](#func-allowdev) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`Backdrop`](#func-backdrop) · [`CheckDamage`](#func-checkdamage) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Dev`](#func-dev) · [`FixedSize`](#func-fixedsize) · [`Fonts`](#func-fonts) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`HighContrast`](#func-highcontrast) · [`Hyphenation`](#func-hyphenation) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`Instrument`](#func-instrument) · [`MaxSize`](#func-maxsize) · [`MinSize`](#func-minsize) · [`Monitors`](#func-monitors) · [`NoCompositing`](#func-nocompositing) · [`NoDev`](#func-nodev) · [`NoServerDecorations`](#func-noserverdecorations) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`OnQuit`](#func-onquit) · [`Placement`](#func-placement) · [`PlatformKeys`](#func-platformkeys) · [`PreferNativeMenus`](#func-prefernativemenus) · [`ReducedMotion`](#func-reducedmotion) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Size`](#func-size) · [`StartHidden`](#func-starthidden) · [`TextScale`](#func-textscale) · [`Theme`](#func-theme) · [`ThemeTransitions`](#func-themetransitions) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`TitleBar`](#func-titlebar) · [`TitleBarControls`](#func-titlebarcontrols) · [`TitleBarOverlay`](#func-titlebaroverlay) · [`Transparent`](#func-transparent) · [`WithUnsupported`](#func-withunsupported)
+  - [`type Option`](#type-option): [`AccentColor`](#func-accentcolor) · [`AllowDev`](#func-allowdev) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`Backdrop`](#func-backdrop) · [`CheckDamage`](#func-checkdamage) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Dev`](#func-dev) · [`FixedSize`](#func-fixedsize) · [`Fonts`](#func-fonts) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`HighContrast`](#func-highcontrast) · [`Hyphenation`](#func-hyphenation) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`Instrument`](#func-instrument) · [`MaxSize`](#func-maxsize) · [`MinSize`](#func-minsize) · [`Monitors`](#func-monitors) · [`NoCompositing`](#func-nocompositing) · [`NoDev`](#func-nodev) · [`NoServerDecorations`](#func-noserverdecorations) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`OnQuit`](#func-onquit) · [`Placement`](#func-placement) · [`PlatformKeys`](#func-platformkeys) · [`PreferNativeMenus`](#func-prefernativemenus) · [`ReducedMotion`](#func-reducedmotion) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Size`](#func-size) · [`StartHidden`](#func-starthidden) · [`StartLaunch`](#func-startlaunch) · [`TextScale`](#func-textscale) · [`Theme`](#func-theme) · [`ThemeTransitions`](#func-themetransitions) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`TitleBar`](#func-titlebar) · [`TitleBarControls`](#func-titlebarcontrols) · [`TitleBarOverlay`](#func-titlebaroverlay) · [`Transparent`](#func-transparent) · [`WithUnsupported`](#func-withunsupported)
   - [`type PopupMenu`](#type-popupmenu)
   - [`type Prop`](#type-prop)
   - [`type Registration`](#type-registration)
   - [`type Rendering`](#type-rendering)
-  - [`type State`](#type-state): [`ActiveDescendant`](#func-activedescendant) · [`Checked`](#func-checked) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Disabled`](#func-disabled) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasValue`](#func-hasvalue) · [`Invalid`](#func-invalid) · [`NoActiveDescendant`](#func-noactivedescendant) · [`Pressed`](#func-pressed) · [`Selected`](#func-selected) · [`Sort`](#func-sort)
+  - [`type State`](#type-state): [`ActiveDescendant`](#func-activedescendant) · [`Checked`](#func-checked) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Disabled`](#func-disabled) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasRange`](#func-hasrange) · [`HasValue`](#func-hasvalue) · [`Invalid`](#func-invalid) · [`NoActiveDescendant`](#func-noactivedescendant) · [`Pressed`](#func-pressed) · [`Selected`](#func-selected) · [`Sort`](#func-sort)
   - [`type Stats`](#type-stats)
   - [`type TextOption`](#type-textoption): [`Exact`](#func-exact)
   - [`type TrayIcon`](#type-trayicon)
@@ -69,7 +70,7 @@ func TestCounter(t *testing.T) {
 
 [`App.Click`](#func-app-click) (with [`Right`](#func-right) for the secondary button and [`Delay`](#func-delay) for a held one), [`App.DoubleClick`](#func-app-doubleclick), [`App.Tap`](#func-app-tap), [`App.LongPress`](#func-app-longpress), [`App.Hover`](#func-app-hover), [`App.Focus`](#func-app-focus), [`App.Scroll`](#func-app-scroll), [`App.Drag`](#func-app-drag), [`App.DragBy`](#func-app-dragby), [`App.Press`](#func-app-press), [`App.Type`](#func-app-type) and [`App.Fill`](#func-app-fill) act like a user. The pointer actions move the pointer to the element's center and send pointer events through hit-testing and the gesture arena (hover and :active states, focus on press, click counts, drags); Tap and LongPress use a touch pointer. The keyboard actions send key events to the focused element (typing into a focused text field; Fill replaces a field's value like Playwright's fill).
 
-Before acting, an action waits until the element is visible, enabled, in view and not covered by another element. Before and after, the app is settled: pending state updates are applied and frames run, advancing the app's clock to each one, until nothing is dirty and no animation or scroll fling is running: transitions (hover:, focus:, dark: changes with transition classes) and finite animations run to their end, so a screenshot after an action shows the settled state. Infinite animations (animate-spin, animate-pulse) are never waited for, and use [`App.Advance`](#func-app-advance) to step them. An app that never goes quiet otherwise (a goroutine that updates state all the time) is not waited for either: the first time it is logged, and actions then run only a few frames. Both are decided in app time ([`Timeout`](#func-timeout) of it), so a slow machine never cuts a finite animation short.
+Before acting, an action waits until the element is visible, enabled, in view and not covered by another element. Before and after, the app is settled: pending state updates are applied and frames run, advancing the app's clock to each one, until nothing is dirty and no animation or scroll fling is running: transitions (hover:, focus:, dark: changes with transition classes) and finite animations run to their end, so a screenshot after an action shows the settled state. Infinite animations (animate-spin, animate-pulse) are never waited for, and use [`App.Advance`](#func-app-advance) to step them. An app that never goes quiet otherwise (a goroutine that updates state all the time) is not waited for either: the first time it is logged, and actions then run only a few frames. Both are decided in app time ([`Timeout`](#func-timeout) of it), so a slow machine never cuts a finite animation short. Settling also waits, in real time, for the tela.UseAsync runs in flight, so what loads is loaded by the time a query or an action returns; a run that has not returned within the [`Timeout`](#func-timeout) fails the test, naming it ([`NoSettle`](#func-nosettle) is how a test looks at a loading state). Between two failed tries a wait moves the clock to the app's next deadline (a UseTimeout, say) when nothing else is due.
 
 [`App.Advance`](#func-app-advance) moves the clock by hand: it is how a test waits for a long-press timer, an animation or a fade. To capture the frames of an animation, mount with [`NoSettle`](#func-nosettle): actions, screenshots and the queries ([`App.AriaSnapshot`](#func-app-ariasnapshot), [`App.Count`](#func-app-count), [`App.Bounds`](#func-app-bounds), [`App.Stats`](#func-app-stats), [`App.Cursor`](#func-app-cursor)) then leave running animations where they are, and only Advance moves them (ADR-097). [`App.Film`](#func-app-film) does it for one action: it returns the frames of the motion the action starts, on an app mounted either way.
 
@@ -490,6 +491,20 @@ AriaSnapshotSources is [`App.AriaSnapshotNodes`](#func-app-ariasnapshotnodes) wi
 - button "Save" \[src=settings.go:42\]
 - textbox "Email" \[disabled\] \[src=settings.go:40\]: ana@example.com
 
+#### func (*App) AskForFileDefaults
+
+```go
+func (a *App) AskForFileDefaults(ask bool)
+```
+
+AskForFileDefaults plays Windows' rule for file types: while it is on, desktop.MakeDefault of a file type only opens the system's Default apps settings and returns desktop.DefaultAsked, leaving the default to the user (play their choice with [`App.SetDefaultHandler`](#func-app-setdefaulthandler)); a URL scheme is still set at once. [`App.DefaultsAsked`](#func-app-defaultsasked) lists what the app asked for. Off by default.
+
+```go
+app.AskForFileDefaults(true)
+r, _ := desktop.MakeDefault(desktop.FileType(".note", "application/x-notes-note", "Notes"))
+// r == desktop.DefaultAsked
+```
+
 #### func (*App) Backdrop
 
 ```go
@@ -619,7 +634,7 @@ ClearAccentColor makes the system report no accent color, as a desktop without o
 func (a *App) Click(l Locator, opts ...ClickOption)
 ```
 
-Click moves the pointer to the center of the element l locates, presses the primary button and releases it: real pointer events (hover, :active, focus on press, the gesture arena and the click), not a call to the handler. Each Click is a first click (ClickCount 1) even right after another, as in Playwright; use [`App.DoubleClick`](#func-app-doubleclick) for two. It waits for the element to be visible, enabled, in view and not covered by another element, and fails the test when l matches none or several. With [`Right`](#func-right) it presses the secondary button instead (the element's OnContextMenu runs, not its OnClick), and [`MouseBack`](#func-mouseback) and [`MouseForward`](#func-mouseforward) the mouse's side buttons; [`App.Tap`](#func-app-tap) and [`App.LongPress`](#func-app-longpress) are the touch counterparts.
+Click moves the pointer to the center of the element l locates, presses the primary button and releases it: real pointer events (hover, :active, focus on press, the gesture arena and the click), not a call to the handler. Each Click is a first click (ClickCount 1) even right after another, as in Playwright; use [`App.DoubleClick`](#func-app-doubleclick) for two. It waits for the element to be visible, enabled, in view and not covered by another element, and fails the test when l matches none or several. [`Modifiers`](#func-modifiers) holds keys during the click (Playwright's click({modifiers})). With [`Right`](#func-right) it presses the secondary button instead (the element's OnContextMenu runs, not its OnClick), and [`MouseBack`](#func-mouseback) and [`MouseForward`](#func-mouseforward) the mouse's side buttons; [`App.Tap`](#func-app-tap) and [`App.LongPress`](#func-app-longpress) are the touch counterparts.
 
 #### func (*App) ClickAt
 
@@ -749,6 +764,14 @@ func (a *App) Cursor() string
 
 Cursor returns the CSS name of the mouse cursor the window shows ("default", "pointer", "not-allowed"...), after settling the app (under [`NoSettle`](#func-nosettle), handling only the work due).
 
+#### func (*App) DefaultsAsked
+
+```go
+func (a *App) DefaultsAsked() []string
+```
+
+DefaultsAsked returns the file types desktop.MakeDefault asked the user to choose a default app for ([`App.AskForFileDefaults`](#func-app-askforfiledefaults)), such as ".note", in the order asked, after settling the app.
+
 #### func (*App) DismissNotification
 
 ```go
@@ -768,10 +791,10 @@ DismissPopupMenu closes the open native context menu without choosing (Escape, a
 #### func (*App) DoubleClick
 
 ```go
-func (a *App) DoubleClick(l Locator)
+func (a *App) DoubleClick(l Locator, opts ...ClickOption)
 ```
 
-DoubleClick clicks the element twice in a row, so the second click has a click count of 2 and OnDoubleClick runs. See [`App.Click`](#func-app-click).
+DoubleClick clicks the element twice in a row, so the second click has a click count of 2 and OnDoubleClick runs. See [`App.Click`](#func-app-click); of its options only [`Modifiers`](#func-modifiers) applies.
 
 #### func (*App) Drag
 
@@ -2328,10 +2351,12 @@ for _, w := range app.Windows() {
 ### type ClickOption
 
 ```go
-type ClickOption func(*clickConfig)
+type ClickOption interface {
+    // contains filtered or unexported methods
+}
 ```
 
-ClickOption configures [`App.Click`](#func-app-click) and [`App.ClickAt`](#func-app-clickat).
+ClickOption configures [`App.Click`](#func-app-click), [`App.ClickAt`](#func-app-clickat) and [`App.DoubleClick`](#func-app-doubleclick).
 
 #### func Delay
 
@@ -2481,10 +2506,12 @@ DragInfo describes the drag in progress ([`App.ActiveDrag`](#func-app-activedrag
 ### type DragOption
 
 ```go
-type DragOption func(*dragConfig)
+type DragOption interface {
+    // contains filtered or unexported methods
+}
 ```
 
-DragOption configures [`App.Drag`](#func-app-drag), [`App.DragBy`](#func-app-dragby) and [`App.DragFromTo`](#func-app-dragfromto).
+DragOption configures [`App.Drag`](#func-app-drag), [`App.DragBy`](#func-app-dragby) and [`App.DragFromTo`](#func-app-dragfromto), and the steps of drag and drop ([`App.HoverDrag`](#func-app-hoverdrag), [`App.DropOn`](#func-app-dropon)...).
 
 #### func Allowed
 
@@ -2501,14 +2528,6 @@ func Carrying(payload DragPayload) DragOption
 ```
 
 Carrying makes the step start another application's drag of payload when no drag is in progress, instead of failing. [`App.HoverDrag`](#func-app-hoverdrag) and [`App.DropOn`](#func-app-dropon) take it; [`App.DropData`](#func-app-dropdata) and [`App.DropFiles`](#func-app-dropfiles) are DropOn with it.
-
-#### func Modifiers
-
-```go
-func Modifiers(keys ...string) DragOption
-```
-
-Modifiers holds keys during the step, with Playwright's names ("Shift", "Control", "Alt", "Meta", "ControlOrMeta"). The platform's convention picks the default DropEffect from them: Control copies, Shift moves, Control+Shift links.
 
 #### func Steps
 
@@ -2980,6 +2999,27 @@ type MessageBox struct {
 
 MessageBox is a message box the app shows (desktop.ShowMessage) and the test has not answered.
 
+### type ModifiersOption
+
+```go
+type ModifiersOption []string
+```
+
+ModifiersOption is what [`Modifiers`](#func-modifiers) returns: an option of the clicks ([`App.Click`](#func-app-click), [`App.ClickAt`](#func-app-clickat), [`App.DoubleClick`](#func-app-doubleclick)) and of the drags and drag and drop steps.
+
+#### func Modifiers
+
+```go
+func Modifiers(keys ...string) ModifiersOption
+```
+
+Modifiers holds keys during a click or a drag, with Playwright's names ("Shift", "Control", "Alt", "Meta", "ControlOrMeta"; the last follows [`PlatformKeys`](#func-platformkeys)), like the modifiers option of its click: every pointer event of the action carries them (Shift, Ctrl, Alt and Meta of the event, CmdOrCtrl) and they are released with it. No key events are sent for them. For a drag and drop step the platform's convention picks the default DropEffect from them: Control copies, Shift moves, Control+Shift links.
+
+```go
+app.Click(telatest.ByRole("option", "Banana"), telatest.Modifiers("Shift"))
+app.Click(row, telatest.Modifiers("ControlOrMeta")) // Cmd+click under PlatformKeys("darwin")
+```
+
 ### type Notification
 
 ```go
@@ -3309,6 +3349,8 @@ app.Golden("dialog_100ms.png") // 100 ms into the entrance
 
 With it, Mount, the events of an action, Screenshot and Golden and the queries [`App.AriaSnapshot`](#func-app-ariasnapshot), [`App.Count`](#func-app-count), [`App.Bounds`](#func-app-bounds), [`App.Stats`](#func-app-stats) and [`App.Cursor`](#func-app-cursor) handle the work due (state updates, the frames they ask for) but do not run the clock until running transitions and animations end: the clock moves with [`App.Advance`](#func-app-advance). The expectations poll as ever, but their first try handles only the work due, and the clock moves a frame at a time only between failed tries. What keeps its full auto-wait is the wait before an action: before acting, an action waits for the app to settle (so the animations an earlier step started end first).
 
+NoSettle also leaves the tela.UseAsync runs in flight alone. Without it every settle waits for them in real time (a plain query or snapshot never captures a loading state) and fails the test, naming the run, when one has not returned within the [`Timeout`](#func-timeout): with NoSettle a test sees the loading state, acts while it loads, and finds the result by polling an expectation once the run ends ([`App.Pending`](#func-app-pending) names the runs in flight).
+
 **Example**
 
 ```go
@@ -3427,6 +3469,19 @@ func StartHidden() Option
 ```
 
 StartHidden opens the main window hidden (tela.App.Hidden): an app that starts in the tray. The fake window manager gives a hidden window no frames, so it draws nothing (no screenshot, no goldens, no actions that need a layout) until the app shows it; its components still build and its effects run (its tray icon shows, ADR-185).
+
+#### func StartLaunch
+
+```go
+func StartLaunch(l desktop.Launch) Option
+```
+
+StartLaunch gives the app its own start, as the process that started it would see it: every desktop.UseLaunch mounted with the first one gets l once, with Source LaunchStart and AtStart set, and l's Args (files and links) and Dir. With l.AtLogin it plays the desktop starting the app because the user logged in (desktop.SetStartAtLogin): Launch.AtLogin reports it, so an app that starts in its tray opens no window. Without this option there is no start launch. It applies to one app, so parallel tests do not interfere; [`App.InjectLaunch`](#func-app-injectlaunch) plays the launches that come later.
+
+```go
+app := telatest.MountApp(t, App, telatest.StartLaunch(desktop.Launch{AtLogin: true}))
+app.ExpectCount(telatest.ByRole("heading", "Notes"), 0) // starts in the tray
+```
 
 #### func TextScale
 
@@ -3579,7 +3634,7 @@ type State struct {
 }
 ```
 
-State is one condition on an element that [`App.Expect`](#func-app-expect) checks: a toggle such as [`Checked`](#func-checked), a flag such as [`Disabled`](#func-disabled), its [`HasName`](#func-hasname) and [`HasValue`](#func-hasvalue), or a widget property the aria snapshot does not print: [`HasPopup`](#func-haspopup), [`ActiveDescendant`](#func-activedescendant) and [`Controls`](#func-controls) (which compare the element an ID reference points to with the one a Locator finds). They read the element's semantics node, so they test what assistive technologies are told, without matching strings of the aria snapshot.
+State is one condition on an element that [`App.Expect`](#func-app-expect) checks: a toggle such as [`Checked`](#func-checked), a flag such as [`Disabled`](#func-disabled), its [`HasName`](#func-hasname) and [`HasValue`](#func-hasvalue) and [`HasRange`](#func-hasrange), or a widget property the aria snapshot does not print: [`HasPopup`](#func-haspopup), [`ActiveDescendant`](#func-activedescendant) and [`Controls`](#func-controls) (which compare the element an ID reference points to with the one a Locator finds). They read the element's semantics node, so they test what assistive technologies are told, without matching strings of the aria snapshot.
 
 #### func ActiveDescendant
 
@@ -3671,6 +3726,18 @@ HasPopup expects the element's aria-haspopup to be kind: "menu", "listbox", "tre
 app.Expect(telatest.ByRole("button", "Show suggestions"), telatest.HasPopup("listbox"))
 ```
 
+#### func HasRange
+
+```go
+func HasRange(now, min, max float64) State
+```
+
+HasRange expects the element's aria-valuenow, aria-valuemin and aria-valuemax to be now, min and max (h.AriaValueNow, h.AriaValueMin and h.AriaValueMax; what the aria hooks of a slider, progress bar, meter or scroll bar set). All three must be set: a progress bar with only a value has no bounds. The aria snapshot prints only the value text, so [`HasValue`](#func-hasvalue) cannot read these numbers.
+
+```go
+app.Expect(telatest.ByRole("slider", "Volume"), telatest.HasRange(40, 0, 100))
+```
+
 #### func HasValue
 
 ```go
@@ -3735,7 +3802,7 @@ app.Expect(telatest.ByRole("columnheader", "Name"), telatest.Sort("descending"))
 type Stats = core.Stats
 ```
 
-Stats counts the work of the app's tree since it was mounted: frames, component builds and skipped builds, style, layout and paint passes. A test uses the difference between two readings to assert how narrow an update was.
+Stats counts the work of the app's tree since it was mounted: frames, component builds and skipped builds, style, layout and paint passes. A test uses the difference between two readings to assert how narrow an update was. Layouts counts layout phases, including the empty ones of a frame that only restyled (a color change), so "nothing was laid out again" is asserted on LaidOut, the boxes laid out, and Shapes and Breaks for text (ADR-307).
 
 `Stats` is an alias of `core.Stats`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
 
@@ -3785,6 +3852,9 @@ Exact makes [`ByText`](#func-bytext) match the whole text, case sensitive, inste
 type TrayIcon struct {
     Tooltip string
     Menu    []TrayItem
+    // Template is whether the icon is a template image (desktop.Tray's
+    // Template: a single-color shape macOS tints for the menu bar).
+    Template bool
     // Updates counts the changes of the icon since it was added.
     Updates int
 }

@@ -115,7 +115,7 @@ ones send key events to the focused element.
 
 | Action | Does |
 |---|---|
-| [`App.Click`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Click), [`App.DoubleClick`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.DoubleClick) | Press and release the primary button; `Click(l, telatest.Delay(d))` holds it for `d` of app time (a long press of the mouse); `Click(l, telatest.Right())` presses the secondary button instead, so `h.OnContextMenu` runs and a `kit.ContextMenu` opens (Playwright's `click({button: 'right'})`) |
+| [`App.Click`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Click), [`App.DoubleClick`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.DoubleClick) | Press and release the primary button; `Click(l, telatest.Delay(d))` holds it for `d` of app time (a long press of the mouse); `Click(l, telatest.Right())` presses the secondary button instead, so `h.OnContextMenu` runs and a `kit.ContextMenu` opens (Playwright's `click({button: 'right'})`); `Click(l, telatest.Modifiers("Shift"))` holds keys during the click (`click({modifiers})`; `"ControlOrMeta"` follows `PlatformKeys`), and also drags |
 | [`App.Tap`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Tap), [`App.LongPress`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.LongPress) | A finger on the element: `Tap` is a touch press and release (a click from a touch pointer); `LongPress` holds the touch past the long-press threshold (500 ms of app time), so `h.OnLongPress` runs and a context menu opens, as it does for touch and pen only |
 | [`App.Hover`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Hover) | Moves the pointer onto the element so `hover:` and `group-hover:` apply |
 | [`App.Focus`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Focus) | Focuses the element, like `focus()` |
@@ -253,6 +253,18 @@ animations an earlier step started end before the next action. Expectations
 keep polling, but their first try handles only the work due and the clock moves
 only between failed tries, a frame at a time. See [Animation](Animation) for
 what animates.
+
+### Data that loads (`UseAsync`)
+
+Settling also waits, in real time, for the `tela.UseAsync` runs in flight, so a
+query, an action or a snapshot never captures the loading state. A run that has
+not returned within the `Timeout` fails the test, naming it (its component and
+where `UseAsync` is called). To look at the loading state (a skeleton, a
+spinner) or to act while it loads, mount with `telatest.NoSettle()`: nothing
+waits for the runs then, `app.Pending()` names them, and an expectation finds
+the result once a run ends. `telatest.Render`, `AriaSnapshot` and `LayoutJSON`
+(so `tela snapshot` and `tela inspect`) wait up to the `Timeout` too, then
+capture the loading state with a warning naming the run.
 
 ## Goldens
 
@@ -478,7 +490,7 @@ desktop, and the test plays the part of the OS or the user. As with the other
 | Feature | Calls |
 |---|---|
 | Global shortcuts | `app.GlobalShortcuts()` lists what is registered (`ID`, `Keys`, `Status`, `Trigger`). `app.PressShortcut(id)` and `ReleaseShortcut(id)` are the user pressing it (the test fails if it is not bound). `app.SetShortcutStatus(id, desktop.ShortcutTaken, "")` plays the OS: taken, refused, revoked, or bound to other keys (`desktop.ShortcutBound` with a trigger). `app.SetShortcutUnassigned(id)` is Hyprland, bound with no keys (an empty `Trigger`); `app.FailShortcuts(desktop.ErrAppNotRegistered)` makes later registrations fail as on a Linux desktop without the app's entry |
-| Launches | `app.InjectLaunch(desktop.Launch{Args: ...})` is a second start that forwards its arguments: the window comes forward and `UseLaunch` runs. `SingleInstance` claims nothing in tests, and `UseLaunch` gets no start launch of its own |
+| Launches | `app.InjectLaunch(desktop.Launch{Args: ...})` is a second start that forwards its arguments: the window comes forward and `UseLaunch` runs. `SingleInstance` claims nothing in tests. `telatest.StartLaunch(desktop.Launch{Args: ..., AtLogin: true})` is the app's own start: `UseLaunch` gets it once (Source `LaunchStart`, `AtStart`, and `AtLogin` for a start at login). `app.AskForFileDefaults(true)` plays Windows: `desktop.MakeDefault` of a file type returns `DefaultAsked` (see `app.DefaultsAsked()`) until `app.SetDefaultHandler` plays the user's choice |
 | Clipboard | `app.Clipboard()` returns a `*tela.DataTransfer` with what the app copied. `app.SetClipboard(&dt)` is another application copying (nil empties it); then `app.Press("ControlOrMeta+V")` |
 | Secrets | `app.StoredSecret(name)` and `app.SetStoredSecret(name, b)` read and seed the keyring; `app.FailSecrets(desktop.ErrSecretCanceled)` makes every secret call fail (nil stops it); `app.Unsupported(telatest.Secrets)` is a desktop without a keyring |
 | Trash | `desktop.MoveToTrash` moves the file into a temporary folder of the test, so it leaves its place; `app.Trashed()` lists the paths. `app.FailTrash(err)` makes every call fail (nil stops it); `app.Unsupported(telatest.Trash)` is a desktop without a trash, where the file stays |

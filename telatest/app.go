@@ -21,7 +21,10 @@ import (
 // Stats counts the work of the app's tree since it was mounted: frames,
 // component builds and skipped builds, style, layout and paint passes. A
 // test uses the difference between two readings to assert how narrow an
-// update was.
+// update was. Layouts counts layout phases, including the empty ones of a
+// frame that only restyled (a color change), so "nothing was laid out
+// again" is asserted on LaidOut, the boxes laid out, and Shapes and Breaks
+// for text (ADR-307).
 type Stats = core.Stats
 
 // idPrefix starts the strings of tela.UseID in mounted apps, so they do
@@ -59,6 +62,7 @@ type App struct {
 	pos    platform.Point
 	hasPos bool
 	held   platform.Buttons
+	mods   platform.Modifiers // held by Modifiers during a click or a drag
 
 	// dev is whether the tree runs in dev mode (the options and
 	// TELA_DEV).
@@ -162,6 +166,7 @@ func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 	copts.Window.Width, copts.Window.Height = cfg.width, cfg.height
 	copts.Root = rootNode
 	copts.Instrument = cfg.instrument
+	copts.StartLaunch, copts.StartAtLogin = cfg.start, cfg.startAtLogin
 	copts.ErrorLog = testWriter{tb}
 	if copts.Window.Title == "" {
 		copts.Window.Title = "telatest"
@@ -527,12 +532,29 @@ func (a *App) settle() {
 		limit = busyFrames * a.backend.FrameInterval()
 	}
 	var st stall
+	var asyncSince time.Time
 	for {
 		a.deliver()
 		if a.sh.closed {
 			return // the app quit
 		}
 		if !a.pendingWork() {
+			if !a.cfg.noSettle && a.asyncInFlight() {
+				// A UseAsync run is on its goroutine and its result comes
+				// in real time: wait for it, up to the timeout (ADR-307).
+				if asyncSince.IsZero() {
+					asyncSince = time.Now()
+				}
+				if time.Since(asyncSince) > a.cfg.timeout {
+					a.fatalf("%s was still in flight after %v of real time: settling waits for the UseAsync runs of the app, and this one has not returned.\n"+
+						"A function that never returns, or waits for something the test controls, keeps the app from settling: make it return when its context is done, "+
+						"test the loading state with telatest.NoSettle(), which leaves the runs alone, or give a longer telatest.Timeout(d)",
+						strings.Join(a.asyncRuns(), ", "), a.cfg.timeout)
+				}
+				time.Sleep(core.AsyncPollInterval)
+				a.backend.Wake()
+				continue
+			}
 			a.sh.busy = false
 			break
 		}
@@ -689,9 +711,18 @@ func (a *App) Advance(d time.Duration) {
 }
 
 // idle lets time pass between two checks of a wait: one frame of app time,
-// and a moment for other goroutines (a ticker that sets state) to run.
+// or, when nothing is due before it, the time to the app's next deadline (a
+// UseTimeout or UseInterval, a caret blink, a fade), so that a wait for a
+// long timer takes a few tries, not one per frame (ADR-307); and a moment
+// for other goroutines (a ticker that sets state) to run.
 func (a *App) idle(round int) {
-	a.advance(a.backend.FrameInterval())
+	step := a.backend.FrameInterval()
+	if at, ok := a.nextDeadline(); ok && !a.workDue() {
+		if d := at - a.backend.Now(); d > step {
+			step = d
+		}
+	}
+	a.advance(step)
 	if round < 50 {
 		runtime.Gosched()
 	} else {

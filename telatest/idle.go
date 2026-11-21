@@ -82,3 +82,23 @@ func (a *App) pending() []string {
 	}
 	return why
 }
+
+// asyncRuns names the UseAsync runs in flight in the trees of the app's
+// windows.
+func (a *App) asyncRuns() []string {
+	var out []string
+	for _, w := range a.host.Windows() {
+		out = append(out, a.host.TreeOf(w).AsyncRuns()...)
+	}
+	return out
+}
+
+// asyncInFlight reports whether a UseAsync run is in flight in the app.
+func (a *App) asyncInFlight() bool {
+	for _, w := range a.host.Windows() {
+		if a.host.TreeOf(w).AsyncInFlight() {
+			return true
+		}
+	}
+	return false
+}

@@ -45,7 +45,12 @@
 // updates state all the time) is not waited for either: the first time it
 // is logged, and actions then run only a few frames. Both are decided in
 // app time ([Timeout] of it), so a slow machine never cuts a finite
-// animation short.
+// animation short. Settling also waits, in real time, for the
+// tela.UseAsync runs in flight, so what loads is loaded by the time a
+// query or an action returns; a run that has not returned within the
+// [Timeout] fails the test, naming it ([NoSettle] is how a test looks at a
+// loading state). Between two failed tries a wait moves the clock to the
+// app's next deadline (a UseTimeout, say) when nothing else is due.
 //
 // [App.Advance] moves the clock by hand: it is how a test waits for a
 // long-press timer, an animation or a fade. To capture the frames of an

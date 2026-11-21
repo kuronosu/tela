@@ -19,9 +19,6 @@ import (
 
 const windowW, windowH = 960, 640
 
-// opening is the text of the screen while the library is being read.
-const opening = "Opening your notes"
-
 // sandbox points the app's folders (settings, library, window placements)
 // at a temporary directory for the test, so no test touches the real ones.
 // A test that mounts the app twice calls it once: the second run finds what
@@ -98,15 +95,10 @@ func mountApp(t *testing.T, app tela.App, look kit.Variant, opts ...telatest.Opt
 		keys = "windows"
 	}
 	opts = append([]telatest.Option{telatest.Size(windowW, windowH), telatest.PlatformKeys(keys)}, opts...)
-	a := telatest.MountApp(t, app, opts...)
-	// The library is read off the UI thread (tela.UseAsync): the screen is
-	// there once it is open.
-	a.ExpectNoText(opening)
-	// The stored tokens are read off the UI thread too (oauth.UseSession):
-	// the account card shows once they are, and a slower machine (the macOS
-	// runner) would otherwise count or draw the rail before it.
-	a.ExpectRole("group", "Account")
-	return a
+	// The library and the stored tokens are read off the UI thread
+	// (tela.UseAsync, oauth.UseSession): settling waits for them, so the
+	// screen is there once it is mounted.
+	return telatest.MountApp(t, app, opts...)
 }
 
 // The parts of the main window.

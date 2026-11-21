@@ -65,6 +65,11 @@ type Options struct {
 	// before the root mounts, so the elements built first have their
 	// creation sites and build records; telatest.Instrument sets it.
 	Instrument bool
+	// StartLaunch is the app's own start for Desktop.StartLaunch, in place
+	// of the process's (telatest.StartLaunch), and StartAtLogin whether
+	// the desktop made it at login. Nil: the process's.
+	StartLaunch  *platform.Launch
+	StartAtLogin bool
 }
 
 // Run opens a window on the platform's native backend (platform/auto),
@@ -223,6 +228,9 @@ type Host struct {
 	appID   string
 	onClose func(WindowHandle)
 	onQuit  func()
+	// start is Options.StartLaunch, startAtLogin Options.StartAtLogin.
+	start        *platform.Launch
+	startAtLogin bool
 	// quitters are the UseQuitRequest handlers of the app (closereq.go).
 	quitters []*requestListener[QuitRequestEvent]
 	// ended: Run's loop is over, the backend must not be called.
@@ -300,7 +308,7 @@ func NewHost(b platform.Backend, opts Options) (*Host, error) {
 	// The log keeps its errors in the main tree's log while it is
 	// instrumented (instrument_log.go).
 	log := insHostLog{w: hostLog(errorLog(opts.ErrorLog)), t: t}
-	h := &Host{backend: b, win: win, tree: t, log: log, appID: opts.AppID, onClose: opts.OnClose, onQuit: opts.OnQuit, services: b.Desktop()}
+	h := &Host{backend: b, win: win, tree: t, log: log, appID: opts.AppID, onClose: opts.OnClose, onQuit: opts.OnQuit, services: b.Desktop(), start: opts.StartLaunch, startAtLogin: opts.StartAtLogin}
 	if t.dev {
 		h.uiG = goid()
 	}

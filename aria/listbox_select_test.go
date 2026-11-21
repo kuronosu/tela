@@ -7,9 +7,6 @@ import (
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/aria"
 	. "github.com/kuronosu/tela/h"
-	"github.com/kuronosu/tela/internal/core"
-	"github.com/kuronosu/tela/internal/platform"
-	"github.com/kuronosu/tela/internal/testutil/rawwin"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -125,39 +122,22 @@ func TestListBoxReplaceBehavior(t *testing.T) {
 	app.ExpectText("selected: date")
 }
 
-func (a *rawApp) clickWith(x, y float32, mods platform.Modifiers) {
-	a.t.Helper()
-	for _, act := range []platform.PointerAction{platform.PointerMove, platform.PointerDown, platform.PointerUp} {
-		e := rawwin.PointerEvent(platform.PointerMouse, act, x, y, platform.ButtonPrimary, false)
-		e.Mods = mods
-		a.win.Inject(e)
-		a.settle()
-	}
-}
-
 func TestListBoxShiftAndCtrlClick(t *testing.T) {
 	o := aria.ListBoxOptions[string]{SelectionMode: "multiple", SelectionBehavior: "replace"}
 	// The Linux flavor: Ctrl+click toggles (Cmd+click on a Mac,
 	// TestListBoxModifierClickPerPlatform).
-	b, host, win := rawwin.Mount(t, tela.C(selPage(o, nil)), 300, 400, 0, core.Config{Flavor: platform.FlavorLinux})
-	app := &rawApp{t: t, b: b, host: host, win: win, tree: host.Tree()}
-	click := func(i int, mods platform.Modifiers) {
-		app.clickWith(20, float32(i)*32+16, mods)
+	app := telatest.MountFunc(t, selPage(o, nil), telatest.Size(300, 400), telatest.PlatformKeys("linux"))
+	click := func(i int, mods ...string) {
+		app.ClickAt(20, float32(i)*32+16, telatest.Modifiers(mods...))
 	}
-	want := func(what, sel string) {
-		t.Helper()
-		if s := app.tree.AriaSnapshot(); !strings.Contains(s, "selected: "+sel) {
-			t.Errorf("%s:\n%s", what, s)
-		}
-	}
-	click(1, 0)
-	want("click", "banana")
-	click(4, platform.ModShift)
-	want("shift+click", "banana,blueberry,cherry,date")
-	click(2, platform.ModCtrl)
-	want("ctrl+click", "banana,cherry,date")
-	click(0, 0)
-	want("click", "apple")
+	click(1)
+	app.ExpectText("selected: banana")
+	click(4, "Shift")
+	app.ExpectText("selected: banana,blueberry,cherry,date")
+	click(2, "Control")
+	app.ExpectText("selected: banana,cherry,date")
+	click(0)
+	app.ExpectText("selected: apple")
 }
 
 func TestListBoxControlled(t *testing.T) {

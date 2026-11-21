@@ -150,6 +150,17 @@ func (d Desktop) Local(key any, init func() any) any {
 	return v
 }
 
+// StartLaunch returns the app's own start when the host was given one
+// (Options.StartLaunch: telatest.StartLaunch), whether it was a start at
+// login, and whether there is one; package desktop falls back to the
+// process's own.
+func (d Desktop) StartLaunch() (l platform.Launch, atLogin, ok bool) {
+	if d.h.start == nil {
+		return platform.Launch{}, false, false
+	}
+	return d.h.start.Clone(), d.h.startAtLogin, true
+}
+
 // Warn reports a dev warning once per key, as the main window's tree
 // reports its own (stderr, or the test log under telatest).
 func (d Desktop) Warn(key string, msg func() string) { d.h.tree.warnOnce(key, msg) }

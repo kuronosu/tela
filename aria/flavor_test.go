@@ -1,14 +1,9 @@
 package aria_test
 
 import (
-	"strings"
 	"testing"
 
-	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/aria"
-	"github.com/kuronosu/tela/internal/core"
-	"github.com/kuronosu/tela/internal/platform"
-	"github.com/kuronosu/tela/internal/testutil/rawwin"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -76,42 +71,29 @@ func TestListBoxReplaceKeysPerPlatform(t *testing.T) {
 // with the other modifier it replaces the selection, except on a Mac,
 // where Control+click opens a context menu instead of clicking.
 func TestListBoxModifierClickPerPlatform(t *testing.T) {
-	for _, c := range []struct {
-		fl             platform.Flavor
-		primary, other platform.Modifiers
-	}{
-		{platform.FlavorMac, platform.ModSuper, platform.ModCtrl},
-		{platform.FlavorLinux, platform.ModCtrl, platform.ModSuper},
-		{platform.FlavorWindows, platform.ModCtrl, platform.ModSuper},
-	} {
-		t.Run(c.fl.String(), func(t *testing.T) {
+	for _, goos := range []string{"darwin", "linux", "windows"} {
+		t.Run(goos, func(t *testing.T) {
+			primary, other := primaryOf(goos)
 			o := aria.ListBoxOptions[string]{SelectionMode: "multiple", SelectionBehavior: "replace"}
-			b, host, win := rawwin.Mount(t, tela.C(selPage(o, nil)), 300, 400, 0, core.Config{Flavor: c.fl})
-			app := &rawApp{t: t, b: b, host: host, win: win, tree: host.Tree()}
-			click := func(i int, mods platform.Modifiers) { app.clickWith(20, float32(i)*32+16, mods) }
-			want := func(what, sel string) {
-				t.Helper()
-				if s := app.tree.AriaSnapshot(); !strings.Contains(s, `"selected: `+sel+`"`) {
-					t.Errorf("%s:\n%s", what, s)
-				}
-			}
-			click(1, 0)
-			want("click", "banana")
-			click(3, c.primary)
-			want("primary+click", "banana,cherry")
-			click(1, c.primary)
-			want("primary+click again", "cherry")
-			click(4, c.other)
-			if c.fl == platform.FlavorMac {
+			app := telatest.MountFunc(t, selPage(o, nil), telatest.Size(300, 400), telatest.PlatformKeys(goos))
+			click := func(i int, mods ...string) { app.ClickAt(20, float32(i)*32+16, telatest.Modifiers(mods...)) }
+			click(1)
+			app.ExpectText("selected: banana")
+			click(3, primary)
+			app.ExpectText("selected: banana,cherry")
+			click(1, primary)
+			app.ExpectText("selected: cherry")
+			click(4, other)
+			if goos == "darwin" {
 				// Control+click is a context click on a Mac: no click, but
 				// the item it is on was not selected, so it becomes the
 				// selection, as Finder does (ADR-247).
-				want("other+click", "date")
-				click(1, c.primary)
-				click(4, c.other) // on the selection: it stays
-				want("other+click on the selection", "banana,date")
+				app.ExpectText("selected: date")
+				click(1, primary)
+				click(4, other) // on the selection: it stays
+				app.ExpectText("selected: banana,date")
 			} else {
-				want("other+click", "date")
+				app.ExpectText("selected: date")
 			}
 		})
 	}
@@ -141,30 +123,29 @@ func TestListBoxFlavorsInParallel(t *testing.T) {
 // A Control+click opens a context menu under the Mac flavor (one-button
 // trackpads), without clicking what it is on; elsewhere it is a click.
 func TestContextMenuControlClickPerFlavor(t *testing.T) {
-	for _, fl := range []platform.Flavor{platform.FlavorMac, platform.FlavorLinux, platform.FlavorWindows} {
-		t.Run(fl.String(), func(t *testing.T) {
+	for _, goos := range []string{"darwin", "linux", "windows"} {
+		t.Run(goos, func(t *testing.T) {
 			var ev events
-			b, host, win := rawwin.Mount(t, tela.C(ctxPage(aria.ContextMenuTriggerOptions{}, &ev)), 400, 300, 0, core.Config{Flavor: fl})
-			app := &rawApp{t: t, b: b, host: host, win: win, tree: host.Tree()}
-			app.clickWith(90, 60, platform.ModCtrl)
+			app := telatest.MountFunc(t, ctxPage(aria.ContextMenuTriggerOptions{}, &ev), telatest.Size(400, 300), telatest.PlatformKeys(goos))
+			app.ClickAt(90, 60, telatest.Modifiers("Control"))
 			got := ev.take()
-			if fl != platform.FlavorMac {
-				if hasMenu(app) || got != "inner" {
-					t.Errorf("Control+click: menu %v, events %q; want a click and no menu", hasMenu(app), got)
+			if goos != "darwin" {
+				if n := app.Count(ctxMenuLoc); n != 0 || got != "inner" {
+					t.Errorf("Control+click: %d menus, events %q; want a click and no menu", n, got)
 				}
 				return
 			}
-			if !hasMenu(app) || got != "" {
-				t.Fatalf("Control+click: menu %v, events %q; want the menu and no click", hasMenu(app), got)
+			if app.Count(ctxMenuLoc) != 1 || got != "" {
+				t.Fatalf("Control+click: %d menus, events %q; want the menu and no click", app.Count(ctxMenuLoc), got)
 			}
-			if x, y, _, _ := menuBounds(t, app); x != 90 || y != 60 {
-				t.Errorf("menu at (%v, %v), want (90, 60)", x, y)
+			if m := app.Bounds(ctxMenuLoc); m.X != 90 || m.Y != 60 {
+				t.Errorf("menu at (%v, %v), want (90, 60)", m.X, m.Y)
 			}
 			// A Control+click elsewhere on the area moves it there, as a
 			// right click does.
-			app.clickWith(40, 40, platform.ModCtrl)
-			if x, y, _, _ := menuBounds(t, app); x != 40 || y != 40 {
-				t.Errorf("second Control+click: menu at (%v, %v), want (40, 40)", x, y)
+			app.ClickAt(40, 40, telatest.Modifiers("Control"))
+			if m := app.Bounds(ctxMenuLoc); m.X != 40 || m.Y != 40 {
+				t.Errorf("second Control+click: menu at (%v, %v), want (40, 40)", m.X, m.Y)
 			}
 		})
 	}

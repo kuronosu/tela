@@ -65,6 +65,9 @@ type config struct {
 	flavor platform.Flavor
 	// instrument: Instrument.
 	instrument bool
+	// start: StartLaunch, and whether the desktop made it at login.
+	start        *platform.Launch
+	startAtLogin bool
 }
 
 func newConfig(opts []Option) config {
@@ -236,6 +239,14 @@ func (c config) systemSettings() platform.SystemSettings {
 // auto-wait is the wait before an action: before acting, an action waits
 // for the app to settle (so the animations an earlier step started end
 // first).
+//
+// NoSettle also leaves the tela.UseAsync runs in flight alone. Without it
+// every settle waits for them in real time (a plain query or snapshot
+// never captures a loading state) and fails the test, naming the run,
+// when one has not returned within the [Timeout]: with NoSettle a test
+// sees the loading state, acts while it loads, and finds the result by
+// polling an expectation once the run ends ([App.Pending] names the runs
+// in flight).
 func NoSettle() Option { return func(c *config) { c.noSettle = true } }
 
 // EnvCheckDamage is the environment variable that turns [CheckDamage] on
