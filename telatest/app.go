@@ -162,6 +162,7 @@ func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 	copts.Config = cc
 	copts.Window.Width, copts.Window.Height = cfg.width, cfg.height
 	copts.Root = rootNode
+	copts.StartLaunch, copts.StartAtLogin = cfg.start, cfg.startAtLogin
 	copts.ErrorLog = testWriter{tb}
 	if copts.Window.Title == "" {
 		copts.Window.Title = "telatest"
@@ -688,9 +689,18 @@ func (a *App) Advance(d time.Duration) {
 }
 
 // idle lets time pass between two checks of a wait: one frame of app time,
-// and a moment for other goroutines (a ticker that sets state) to run.
+// or, when nothing is due before it, the time to the app's next deadline (a
+// UseTimeout or UseInterval, a caret blink, a fade), so that a wait for a
+// long timer takes a few tries, not one per frame (ADR-307); and a moment
+// for other goroutines (a ticker that sets state) to run.
 func (a *App) idle(round int) {
-	a.advance(a.backend.FrameInterval())
+	step := a.backend.FrameInterval()
+	if at, ok := a.nextDeadline(); ok && !a.workDue() {
+		if d := at - a.backend.Now(); d > step {
+			step = d
+		}
+	}
+	a.advance(step)
 	if round < 50 {
 		runtime.Gosched()
 	} else {

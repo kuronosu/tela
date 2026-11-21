@@ -63,6 +63,9 @@ type config struct {
 	unsupported []DesktopService
 	// flavor: PlatformKeys (zero: the host's).
 	flavor platform.Flavor
+	// start: StartLaunch, and whether the desktop made it at login.
+	start        *platform.Launch
+	startAtLogin bool
 }
 
 func newConfig(opts []Option) config {

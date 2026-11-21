@@ -343,8 +343,8 @@ func (r instanceRoot) Build() tela.Node {
 // The process's own start is given to the UseLaunch calls mounted when
 // the first of them mounts (normally the app's first frame), not to those
 // that mount later, so a screen that mounts again does not reopen the
-// files. telatest gives no start launch (App.InjectLaunch gives later
-// ones), and neither does a reload of tela dev.
+// files. telatest gives one with its StartLaunch option (App.InjectLaunch
+// gives later ones), and a reload of tela dev gives none.
 func UseLaunch(f func(Launch)) {
 	if f == nil {
 		panic("desktop.UseLaunch(nil): pass the function that opens what the launch names, such as desktop.UseLaunch(func(l desktop.Launch) { open(l.Files()) })")
@@ -358,8 +358,15 @@ func UseLaunch(f func(Launch)) {
 			return nil
 		}
 		st := d.Local(startStateKey{}, func() any { return &startState{} }).(*startState)
-		if l, ok := startLaunch(); ok && !st.given {
-			cur.Current(launchOf(l, LaunchStart))
+		l, atLogin, ok := d.StartLaunch() // a test's own (telatest.StartLaunch)
+		if !ok {
+			l, ok = startLaunch()
+			atLogin = ok && startedAtLogin()
+		}
+		if ok && !st.given {
+			sl := launchOf(l, LaunchStart)
+			sl.AtLogin = atLogin
+			cur.Current(sl)
 			if !st.closing {
 				// Every UseLaunch mounted in this commit gets it: their
 				// effects run before posted functions.

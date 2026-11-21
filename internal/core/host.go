@@ -61,6 +61,11 @@ type Options struct {
 	// ErrorLog receives platform errors (a failed Present). Nil means
 	// stderr.
 	ErrorLog io.Writer
+	// StartLaunch is the app's own start for Desktop.StartLaunch, in place
+	// of the process's (telatest.StartLaunch), and StartAtLogin whether
+	// the desktop made it at login. Nil: the process's.
+	StartLaunch  *platform.Launch
+	StartAtLogin bool
 }
 
 // Run opens a window on the platform's native backend (platform/auto),
@@ -199,6 +204,9 @@ type Host struct {
 	appID   string
 	onClose func(WindowHandle)
 	onQuit  func()
+	// start is Options.StartLaunch, startAtLogin Options.StartAtLogin.
+	start        *platform.Launch
+	startAtLogin bool
 	// quitters are the UseQuitRequest handlers of the app (closereq.go).
 	quitters []*requestListener[QuitRequestEvent]
 	// ended: Run's loop is over, the backend must not be called.
@@ -270,7 +278,7 @@ func NewHost(b platform.Backend, opts Options) (*Host, error) {
 	// animations its first builds start (UseSpring) wait for it instead
 	// of jumping to their targets as in a tree without a clock (Render).
 	t.anim.driven = true
-	h := &Host{backend: b, win: win, tree: t, log: hostLog(errorLog(opts.ErrorLog)), appID: opts.AppID, onClose: opts.OnClose, onQuit: opts.OnQuit, services: b.Desktop()}
+	h := &Host{backend: b, win: win, tree: t, log: hostLog(errorLog(opts.ErrorLog)), appID: opts.AppID, onClose: opts.OnClose, onQuit: opts.OnQuit, services: b.Desktop(), start: opts.StartLaunch, startAtLogin: opts.StartAtLogin}
 	if t.dev {
 		h.uiG = goid()
 	}
