@@ -101,6 +101,10 @@ type devSnapshot struct {
 	// or not (devResetLines), for the next build's report: tela dev -v
 	// prints them (ADR-309).
 	Resets []string
+	// Comps are the identities of every component of the captured tree
+	// (indexes into Idents), for the rename rule (devRestore.renamed): a
+	// component of the next build that one of them names is not new.
+	Comps []uint32
 }
 
 // devNode is the saved state of an Element and its subtree. Only Elements
@@ -112,10 +116,13 @@ type devNode struct {
 	Ident uint32
 	ID    string
 	// Comp marks a component; Sig is its hook signature (indexes into
-	// Idents), Slots the slots it keeps.
+	// Idents), Slots the slots it keeps. Decl is where its function (a
+	// struct component's Build) is declared, "file:line" (devCompDecl), as
+	// 1 + an index into Idents (0: unknown).
 	Comp  bool
 	Sig   []uint32
 	Slots []devSlotRec
+	Decl  uint32
 	// Engine state of a primitive: a text field's editor and, for an
 	// Input, its own horizontal scroll; a scroll container's offset; the
 	// focus.
@@ -182,12 +189,20 @@ func (s *devSnapshot) check() error {
 				return fmt.Errorf("signature entry %d of %d", x, n)
 			}
 		}
+		if d.Decl > n {
+			return fmt.Errorf("declaration %d of %d", d.Decl-1, n)
+		}
 		for i := range d.Kids {
 			if err := walk(&d.Kids[i]); err != nil {
 				return err
 			}
 		}
 		return nil
+	}
+	for _, x := range s.Comps {
+		if x >= n {
+			return fmt.Errorf("component %d of %d", x, n)
+		}
 	}
 	return walk(&s.Root)
 }
@@ -342,6 +357,10 @@ type DevSeedReport struct {
 	// Dropped describes the slots that the previous build could not keep
 	// (devResetLines), silent ones included.
 	Dropped []string
+	// Renamed lists the components that kept the state of the component
+	// they were renamed from ("Tally, renamed from Counter";
+	// devRestore.renamed).
+	Renamed []string
 }
 
 // CaptureDevState returns a snapshot of the tree's state for `tela dev`
@@ -353,13 +372,17 @@ type DevSeedReport struct {
 // encoding/gob's, which the checks make unlikely.
 func (t *Tree) CaptureDevState() ([]byte, DevStateReport, error) {
 	dt := t.devStateMake()
-	c := &devCapture{t: t, dt: dt, idents: map[string]uint32{}}
+	c := &devCapture{t: t, dt: dt, idents: map[string]uint32{}, comps: map[uint32]bool{}}
 	var snap devSnapshot
 	if t.root != nil {
 		if n := c.node(t.root); n != nil {
 			snap.Root = *n
 		}
 	}
+	for x := range c.comps {
+		snap.Comps = append(snap.Comps, x)
+	}
+	slices.Sort(snap.Comps)
 	snap.Idents = c.table
 	snap.Scheme, snap.HasScheme = uint8(dt.scheme), dt.schemeSet
 	snap.Theme = dt.theme
@@ -627,6 +650,7 @@ type devCapture struct {
 	rep    DevStateReport
 	idents map[string]uint32
 	table  []string
+	comps  map[uint32]bool // the identities of the tree's components
 }
 
 // intern returns the index of s in the snapshot's string table.
@@ -661,6 +685,7 @@ func (c *devCapture) node(el *Element) *devNode {
 	case elemComponent:
 		if el.prov == nil && !el.comp.presence {
 			c.rep.Components++
+			c.comps[c.intern(devCompIdent(el.comp))] = true
 			if c.component(el, &n) {
 				has = true
 			}
@@ -669,6 +694,9 @@ func (c *devCapture) node(el *Element) *devNode {
 				n.Sig = make([]uint32, len(el.hooks))
 				for j := range el.hooks {
 					n.Sig[j] = c.intern(devSlotSig(el, j))
+				}
+				if d := devCompDecl(el.comp); d != "" {
+					n.Decl = c.intern(d) + 1
 				}
 			}
 		}

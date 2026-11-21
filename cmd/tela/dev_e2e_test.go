@@ -407,4 +407,21 @@ func TestDevEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 	e.until("the reload after an asset changed", func() bool { return strings.Count(e.out.String(), "reloaded in") > reloads })
+
+	// 6. Rename a component (its function and its use): it keeps its state
+	// (ADR-309), and -v says so.
+	_, mark = e.edit(func(s string) string {
+		s = strings.Replace(s, "func Mixed() tela.Node {", "func Blend() tela.Node {", 1)
+		return strings.Replace(s, "tela.C(Mixed),", "tela.C(Blend),", 1)
+	})
+	e.expect(mark, "devapp: mixed", "devapp: mixed n=1 f=7")
+	e.expect(mark, "devapp: counter", "devapp: counter n=3 pkg=3")
+	e.until("the line of the rename", func() bool {
+		return strings.Contains(e.out.String()[mark:], "tela dev: state: Blend (renamed from main.Mixed) kept its state")
+	})
+	// The slot that cannot be kept is a -v line at each reload, not only
+	// the warning of the first one (ADR-309).
+	if out := e.out.String()[mark:]; !strings.Contains(out, "tela dev: state: Mixed's UseState #2 resets: holds a func() int") {
+		t.Errorf("no -v line for the func slot:\n%s", out)
+	}
 }

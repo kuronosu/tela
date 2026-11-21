@@ -330,7 +330,10 @@ focused item of a list, an `aria.Selection` in your own state); the text,
 selection and undo history of text fields; scroll offsets; the focus; the
 color scheme, theme and locale set at run time. A component whose hooks
 changed (one added, removed or of another type) starts fresh, with its
-children; in dev mode every value of yours that cannot be kept is named once
+children. A component you rename (its function or type, where it is
+declared) keeps its state when it stays at the same place in the tree with
+the same hooks; another component that takes its place does not, even with
+the same hooks. In dev mode every value of yours that cannot be kept is named once
 on the terminal, and `-v` lists at each reload every slot that reset, Tela's
 own included (a press, a hover, a timer, the typeahead's search). Animations
 restart from rest and effects run again, as on a new mount. State outside
