@@ -369,7 +369,7 @@ func (w *Watcher) walk(root string, dir func(path string) error, file func(path 
 // walkTree is walk with the skipped directories (skip, never called for
 // root) and the error report given.
 func walkTree(root string, skip func(path string) bool, report func(error), dir func(path string) error, file func(path string, d fs.DirEntry)) {
-	filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	walkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			if path == root || errors.Is(err, fs.ErrNotExist) {
 				return nil

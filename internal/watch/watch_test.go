@@ -171,12 +171,12 @@ func (h *harness) absent(what string, d time.Duration, paths ...string) {
 	}
 }
 
-// rename renames a directory (or file) of a test. On Windows a directory
-// that a walk (the poller's, or the native watcher's of a new directory)
-// is listing cannot be renamed: "being used by another process" when the
-// walk holds it, "access is denied" when it holds a directory under it. A
-// walk holds it for a moment only, so the rename is retried for a while, as
-// a user would.
+// rename renames a directory (or file) of a test. A walk (the poller's,
+// or the native watcher's of a new directory) lists a directory with a
+// handle that shares delete access, so that directory can be renamed
+// meanwhile; on Windows, a directory with an open handle under it may
+// still refuse ("access is denied"). A walk holds it for a moment only, so
+// the rename is retried for a while, as a user would.
 func rename(t *testing.T, from, to string) {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
@@ -247,9 +247,7 @@ func TestNewSubdirectories(t *testing.T) {
 
 func TestDirectoryMovedInAndOut(t *testing.T) {
 	modes(t, func(t *testing.T, poll bool) {
-		if poll {
-			wine.Skip(t, "renaming a directory the poller scanned fails with a sharing violation")
-		} else {
+		if !poll {
 			wine.Skip(t, "ReadDirectoryChangesW does not report the files of a directory renamed within the watched tree")
 		}
 		h := newHarness(t, poll, Options{})
@@ -283,9 +281,6 @@ func TestDirectoryMovedInAndOut(t *testing.T) {
 // which a removed name was; the watcher knows its tree's directories).
 func TestRemovedNames(t *testing.T) {
 	modes(t, func(t *testing.T, poll bool) {
-		if poll {
-			wine.Skip(t, "renaming a directory the poller scanned fails with a sharing violation")
-		}
 		root, err := filepath.EvalSymlinks(t.TempDir())
 		if err != nil {
 			t.Fatal(err)
@@ -317,9 +312,6 @@ func TestRemovedNames(t *testing.T) {
 // the walk that finds the tree's directories, which then missed it).
 func TestDirectoryGoneRightAfterStart(t *testing.T) {
 	modes(t, func(t *testing.T, poll bool) {
-		if poll {
-			wine.Skip(t, "moving away a directory the poller scanned does not complete (sharing violation, then a timeout)")
-		}
 		root, err := filepath.EvalSymlinks(t.TempDir())
 		if err != nil {
 			t.Fatal(err)
@@ -603,9 +595,6 @@ func TestFlat(t *testing.T) {
 // it as a file, and inotify not at all when it was deleted).
 func TestFlatRemovedDirectory(t *testing.T) {
 	modes(t, func(t *testing.T, poll bool) {
-		if poll {
-			wine.Skip(t, "renaming a directory the poller scanned fails with a sharing violation")
-		}
 		root, err := filepath.EvalSymlinks(t.TempDir())
 		if err != nil {
 			t.Fatal(err)
