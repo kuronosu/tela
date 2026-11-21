@@ -59,6 +59,7 @@ type App struct {
 	pos    platform.Point
 	hasPos bool
 	held   platform.Buttons
+	mods   platform.Modifiers // held by Modifiers during a click or a drag
 
 	// dev is whether the tree runs in dev mode (the options and
 	// TELA_DEV).

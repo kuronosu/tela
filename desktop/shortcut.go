@@ -151,14 +151,17 @@ func (g GlobalShortcut) Build() tela.Node {
 	if strings.TrimSpace(g.Description) == "" {
 		panic(fmt.Sprintf("desktop.GlobalShortcut %q has no Description: say what it does (\"Create a note\"); the desktop's shortcut settings show it", g.ID))
 	}
-	accel, perr := platform.ParseAccelerator(g.Keys)
+	_, perr := platform.ParseAccelerator(g.Keys) // validates; the keys of the window's flavor come below
 	if perr != nil && core.DevNow() {
 		panic(fmt.Sprintf("desktop.GlobalShortcut %q: Keys: %v; write it such as \"Ctrl+Alt+N\" (desktop.ParseKeys checks a combination)", g.ID, perr))
 	}
-	want := platform.Shortcut{ID: g.ID, Accelerator: accel, Description: g.Description}
 	if strings.IndexFunc(g.ID, func(r rune) bool { return r < ' ' || r == 0x7f }) >= 0 || len(g.ID) > 255 {
 		panic(fmt.Sprintf("desktop.GlobalShortcut: invalid ID %q; IDs are printable text of at most 255 bytes, stable across runs", g.ID))
 	}
+	// CmdOrCtrl follows the window's key conventions, as a menu's keys do
+	// (ADR-221).
+	accel, _ := platform.ParseAcceleratorFor(g.Keys, core.UseFlavor())
+	want := platform.Shortcut{ID: g.ID, Accelerator: accel, Description: g.Description}
 	w := tela.UseWindow()
 	s := tela.UseOnce(func() *shortcutState { return &shortcutState{} })
 	s.props = g

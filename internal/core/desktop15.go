@@ -83,6 +83,15 @@ func (d Desktop) PrimaryModifier(w WindowHandle) platform.Modifiers {
 	return platform.ModCtrl
 }
 
+// FlavorOf returns the key conventions of w's window (ADR-221), the
+// host's when w is not a window of this app.
+func (d Desktop) FlavorOf(w WindowHandle) platform.Flavor {
+	if w.t != nil {
+		return w.t.flavor
+	}
+	return platform.FlavorHost
+}
+
 // PressKey delivers a press and a release of the key to w's window as its
 // backend would (a KeyEvent through the window's event path: the modal
 // check, the focused element, the text field's key bindings), and

@@ -436,8 +436,43 @@ func TestRolesPerformedMacFlavor(t *testing.T) {
 	if got := app.Clipboard().Text(); got != "mac text" {
 		t.Errorf("clipboard %q after Copy under the Mac flavor", got)
 	}
-	if it := app.AppMenuBar()[0].Submenu[4]; !strings.Contains(it.Accelerator, "Super") && !strings.Contains(it.Accelerator, "Cmd") && !strings.Contains(it.Accelerator, "⌘") {
-		t.Logf("Copy shows %q", it.Accelerator)
+	if it := app.AppMenuBar()[0].Submenu[4]; it.Accelerator != "Super+C" {
+		t.Errorf("Copy shows %q under the Mac flavor, want Super+C (the key equivalent is Command, whatever the host)", it.Accelerator)
+	}
+}
+
+// The edit roles' key equivalents and the CmdOrCtrl of a global shortcut
+// follow the window's flavor, not the host's (ADR-221, ADR-307): Ctrl under
+// PlatformKeys("linux") and ("windows"), Super (Command) under
+// ("darwin"), in the app menu bar, a window's menu bar and a popup menu,
+// whatever the OS the test runs on.
+func TestRoleAcceleratorsFollowPlatformKeys(t *testing.T) {
+	for _, c := range []struct{ goos, want, shortcut string }{
+		{"darwin", "Super+C", "Super+G"}, {"linux", "Ctrl+C", "Ctrl+G"}, {"windows", "Ctrl+C", "Ctrl+G"}} {
+		t.Run(c.goos, func(t *testing.T) {
+			app := telatest.MountFunc(t, func() tela.Node {
+				return Div(Class("p-2"),
+					tela.Component(desktop.AppMenuBar{Menus: []desktop.MenuItem{{Role: desktop.RoleEditMenu}}}),
+					tela.Component(desktop.MenuBar{Menus: []desktop.MenuItem{{Role: desktop.RoleEditMenu}}}),
+					tela.Component(desktop.GlobalShortcut{ID: "go", Keys: "CmdOrCtrl+G", Description: "Go", OnPress: func() {}}),
+					Button(OnClick(func() {
+						_ = desktop.PopupMenu(tela.WindowHandle{}, tela.Point{X: 5, Y: 5}, []desktop.MenuItem{{Role: desktop.RoleCopy}}, nil)
+					}), Text("Menu")))
+			}, telatest.PlatformKeys(c.goos))
+			if it := app.AppMenuBar()[0].Submenu[4]; it.Accelerator != c.want {
+				t.Errorf("app menu bar: Copy shows %q, want %q", it.Accelerator, c.want)
+			}
+			if it := app.MenuBar()[0].Submenu[4]; it.Accelerator != c.want {
+				t.Errorf("menu bar: Copy shows %q, want %q", it.Accelerator, c.want)
+			}
+			app.Click(telatest.ByRole("button", "Menu"))
+			if ms := app.PopupMenus(); len(ms) != 1 || ms[0].Items[0].Accelerator != c.want {
+				t.Errorf("popup menu: %+v, want Copy with %q", ms, c.want)
+			}
+			if gs := app.GlobalShortcuts(); len(gs) != 1 || gs[0].Keys != c.shortcut {
+				t.Errorf("global shortcut: %+v, want %q", gs, c.shortcut)
+			}
+		})
 	}
 }
 

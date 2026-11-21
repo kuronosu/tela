@@ -19,7 +19,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type ClickOption`](#type-clickoption): [`Delay`](#func-delay) · [`MouseBack`](#func-mouseback) · [`MouseForward`](#func-mouseforward) · [`Right`](#func-right)
   - [`type DesktopService`](#type-desktopservice)
   - [`type DragInfo`](#type-draginfo)
-  - [`type DragOption`](#type-dragoption): [`Allowed`](#func-allowed) · [`Carrying`](#func-carrying) · [`Modifiers`](#func-modifiers) · [`Steps`](#func-steps)
+  - [`type DragOption`](#type-dragoption): [`Allowed`](#func-allowed) · [`Carrying`](#func-carrying) · [`Steps`](#func-steps)
   - [`type DragPayload`](#type-dragpayload): [`DragFiles`](#func-dragfiles) · [`DragHTML`](#func-draghtml) · [`DragPNG`](#func-dragpng) · [`DragText`](#func-dragtext) · [`DragType`](#func-dragtype) · [`And`](#func-dragpayload-and)
   - [`type FileDialog`](#type-filedialog)
   - [`type FileDialogKind`](#type-filedialogkind)
@@ -31,6 +31,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Locator`](#type-locator): [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`Filter`](#func-locator-filter) · [`Nth`](#func-locator-nth) · [`String`](#func-locator-string)
   - [`type MenuItem`](#type-menuitem)
   - [`type MessageBox`](#type-messagebox)
+  - [`type ModifiersOption`](#type-modifiersoption): [`Modifiers`](#func-modifiers)
   - [`type Notification`](#type-notification)
   - [`type Option`](#type-option): [`AccentColor`](#func-accentcolor) · [`AllowDev`](#func-allowdev) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`Backdrop`](#func-backdrop) · [`CheckDamage`](#func-checkdamage) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Dev`](#func-dev) · [`FixedSize`](#func-fixedsize) · [`Fonts`](#func-fonts) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`HighContrast`](#func-highcontrast) · [`Hyphenation`](#func-hyphenation) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`MaxSize`](#func-maxsize) · [`MinSize`](#func-minsize) · [`Monitors`](#func-monitors) · [`NoCompositing`](#func-nocompositing) · [`NoDev`](#func-nodev) · [`NoServerDecorations`](#func-noserverdecorations) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`OnQuit`](#func-onquit) · [`Placement`](#func-placement) · [`PlatformKeys`](#func-platformkeys) · [`PreferNativeMenus`](#func-prefernativemenus) · [`ReducedMotion`](#func-reducedmotion) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Size`](#func-size) · [`StartHidden`](#func-starthidden) · [`TextScale`](#func-textscale) · [`Theme`](#func-theme) · [`ThemeTransitions`](#func-themetransitions) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`TitleBar`](#func-titlebar) · [`TitleBarControls`](#func-titlebarcontrols) · [`TitleBarOverlay`](#func-titlebaroverlay) · [`Transparent`](#func-transparent) · [`WithUnsupported`](#func-withunsupported)
   - [`type PopupMenu`](#type-popupmenu)
@@ -588,7 +589,7 @@ ClearAccentColor makes the system report no accent color, as a desktop without o
 func (a *App) Click(l Locator, opts ...ClickOption)
 ```
 
-Click moves the pointer to the center of the element l locates, presses the primary button and releases it: real pointer events (hover, :active, focus on press, the gesture arena and the click), not a call to the handler. Each Click is a first click (ClickCount 1) even right after another, as in Playwright; use [`App.DoubleClick`](#func-app-doubleclick) for two. It waits for the element to be visible, enabled, in view and not covered by another element, and fails the test when l matches none or several. With [`Right`](#func-right) it presses the secondary button instead (the element's OnContextMenu runs, not its OnClick), and [`MouseBack`](#func-mouseback) and [`MouseForward`](#func-mouseforward) the mouse's side buttons; [`App.Tap`](#func-app-tap) and [`App.LongPress`](#func-app-longpress) are the touch counterparts.
+Click moves the pointer to the center of the element l locates, presses the primary button and releases it: real pointer events (hover, :active, focus on press, the gesture arena and the click), not a call to the handler. Each Click is a first click (ClickCount 1) even right after another, as in Playwright; use [`App.DoubleClick`](#func-app-doubleclick) for two. It waits for the element to be visible, enabled, in view and not covered by another element, and fails the test when l matches none or several. [`Modifiers`](#func-modifiers) holds keys during the click (Playwright's click({modifiers})). With [`Right`](#func-right) it presses the secondary button instead (the element's OnContextMenu runs, not its OnClick), and [`MouseBack`](#func-mouseback) and [`MouseForward`](#func-mouseforward) the mouse's side buttons; [`App.Tap`](#func-app-tap) and [`App.LongPress`](#func-app-longpress) are the touch counterparts.
 
 #### func (*App) ClickAt
 
@@ -721,10 +722,10 @@ DismissPopupMenu closes the open native context menu without choosing (Escape, a
 #### func (*App) DoubleClick
 
 ```go
-func (a *App) DoubleClick(l Locator)
+func (a *App) DoubleClick(l Locator, opts ...ClickOption)
 ```
 
-DoubleClick clicks the element twice in a row, so the second click has a click count of 2 and OnDoubleClick runs. See [`App.Click`](#func-app-click).
+DoubleClick clicks the element twice in a row, so the second click has a click count of 2 and OnDoubleClick runs. See [`App.Click`](#func-app-click); of its options only [`Modifiers`](#func-modifiers) applies.
 
 #### func (*App) Drag
 
@@ -2235,10 +2236,12 @@ for _, w := range app.Windows() {
 ### type ClickOption
 
 ```go
-type ClickOption func(*clickConfig)
+type ClickOption interface {
+    // contains filtered or unexported methods
+}
 ```
 
-ClickOption configures [`App.Click`](#func-app-click) and [`App.ClickAt`](#func-app-clickat).
+ClickOption configures [`App.Click`](#func-app-click), [`App.ClickAt`](#func-app-clickat) and [`App.DoubleClick`](#func-app-doubleclick).
 
 #### func Delay
 
@@ -2363,10 +2366,12 @@ DragInfo describes the drag in progress ([`App.ActiveDrag`](#func-app-activedrag
 ### type DragOption
 
 ```go
-type DragOption func(*dragConfig)
+type DragOption interface {
+    // contains filtered or unexported methods
+}
 ```
 
-DragOption configures [`App.Drag`](#func-app-drag), [`App.DragBy`](#func-app-dragby) and [`App.DragFromTo`](#func-app-dragfromto).
+DragOption configures [`App.Drag`](#func-app-drag), [`App.DragBy`](#func-app-dragby) and [`App.DragFromTo`](#func-app-dragfromto), and the steps of drag and drop ([`App.HoverDrag`](#func-app-hoverdrag), [`App.DropOn`](#func-app-dropon)...).
 
 #### func Allowed
 
@@ -2383,14 +2388,6 @@ func Carrying(payload DragPayload) DragOption
 ```
 
 Carrying makes the step start another application's drag of payload when no drag is in progress, instead of failing. [`App.HoverDrag`](#func-app-hoverdrag) and [`App.DropOn`](#func-app-dropon) take it; [`App.DropData`](#func-app-dropdata) and [`App.DropFiles`](#func-app-dropfiles) are DropOn with it.
-
-#### func Modifiers
-
-```go
-func Modifiers(keys ...string) DragOption
-```
-
-Modifiers holds keys during the step, with Playwright's names ("Shift", "Control", "Alt", "Meta", "ControlOrMeta"). The platform's convention picks the default DropEffect from them: Control copies, Shift moves, Control+Shift links.
 
 #### func Steps
 
@@ -2809,6 +2806,27 @@ type MessageBox struct {
 ```
 
 MessageBox is a message box the app shows (desktop.ShowMessage) and the test has not answered.
+
+### type ModifiersOption
+
+```go
+type ModifiersOption []string
+```
+
+ModifiersOption is what [`Modifiers`](#func-modifiers) returns: an option of the clicks ([`App.Click`](#func-app-click), [`App.ClickAt`](#func-app-clickat), [`App.DoubleClick`](#func-app-doubleclick)) and of the drags and drag and drop steps.
+
+#### func Modifiers
+
+```go
+func Modifiers(keys ...string) ModifiersOption
+```
+
+Modifiers holds keys during a click or a drag, with Playwright's names ("Shift", "Control", "Alt", "Meta", "ControlOrMeta"; the last follows [`PlatformKeys`](#func-platformkeys)), like the modifiers option of its click: every pointer event of the action carries them (Shift, Ctrl, Alt and Meta of the event, CmdOrCtrl) and they are released with it. No key events are sent for them. For a drag and drop step the platform's convention picks the default DropEffect from them: Control copies, Shift moves, Control+Shift links.
+
+```go
+app.Click(telatest.ByRole("option", "Banana"), telatest.Modifiers("Shift"))
+app.Click(row, telatest.Modifiers("ControlOrMeta")) // Cmd+click under PlatformKeys("darwin")
+```
 
 ### type Notification
 

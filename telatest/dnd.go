@@ -113,7 +113,7 @@ type dndConfig struct {
 // [App.DropOn] take it; [App.DropData] and [App.DropFiles] are DropOn with
 // it.
 func Carrying(payload DragPayload) DragOption {
-	return func(c *dragConfig) { c.dnd.payload = &payload }
+	return dragOption(func(c *dragConfig) { c.dnd.payload = &payload })
 }
 
 // Allowed sets the effects the other application allows for the drag that
@@ -121,21 +121,49 @@ func Carrying(payload DragPayload) DragOption {
 // DataTransfer.EffectAllowed in its handlers reports them, and a drop
 // refuses an effect outside them.
 func Allowed(effects ...tela.DropEffect) DragOption {
-	return func(c *dragConfig) {
+	return dragOption(func(c *dragConfig) {
 		c.dnd.allowedSet = true
 		c.dnd.allowed = 0
 		for _, e := range effects {
 			c.dnd.allowed |= e
 		}
-	}
+	})
 }
 
-// Modifiers holds keys during the step, with Playwright's names ("Shift",
-// "Control", "Alt", "Meta", "ControlOrMeta"). The platform's convention
-// picks the default DropEffect from them: Control copies, Shift moves,
+// ModifiersOption is what [Modifiers] returns: an option of the clicks
+// ([App.Click], [App.ClickAt], [App.DoubleClick]) and of the drags and
+// drag and drop steps.
+type ModifiersOption []string
+
+func (m ModifiersOption) applyClick(c *clickConfig) { c.modifiers = append(c.modifiers, m...) }
+func (m ModifiersOption) applyDrag(c *dragConfig)   { c.dnd.modifiers = append(c.dnd.modifiers, m...) }
+
+// Modifiers holds keys during a click or a drag, with Playwright's names
+// ("Shift", "Control", "Alt", "Meta", "ControlOrMeta"; the last follows
+// [PlatformKeys]), like the modifiers option of its click: every pointer
+// event of the action carries them (Shift, Ctrl, Alt and Meta of the
+// event, CmdOrCtrl) and they are released with it. No key events are sent
+// for them. For a drag and drop step the platform's convention picks the
+// default DropEffect from them: Control copies, Shift moves,
 // Control+Shift links.
-func Modifiers(keys ...string) DragOption {
-	return func(c *dragConfig) { c.dnd.modifiers = append(c.dnd.modifiers, keys...) }
+//
+//	app.Click(telatest.ByRole("option", "Banana"), telatest.Modifiers("Shift"))
+//	app.Click(row, telatest.Modifiers("ControlOrMeta")) // Cmd+click under PlatformKeys("darwin")
+func Modifiers(keys ...string) ModifiersOption { return ModifiersOption(keys) }
+
+// modifierMask resolves the names of Modifiers; it fails the test for a
+// name that is not a modifier.
+func (a *App) modifierMask(names []string) platform.Modifiers {
+	a.tb.Helper()
+	var mods platform.Modifiers
+	for _, name := range names {
+		m, ok := modifierNamed(name, a.cfg.flavor)
+		if !ok {
+			a.fatalf("Modifiers(%q): not a modifier; use \"Shift\", \"Control\", \"Alt\", \"Meta\" or \"ControlOrMeta\"", name)
+		}
+		mods |= m.mod
+	}
+	return mods
 }
 
 // dragConfigOf applies opts and resolves the modifiers they hold.
@@ -143,17 +171,10 @@ func (a *App) dragConfigOf(opts []DragOption) (cfg dragConfig, mods platform.Mod
 	a.tb.Helper()
 	cfg = dragConfig{steps: 12}
 	for _, o := range opts {
-		o(&cfg)
+		o.applyDrag(&cfg)
 	}
 	cfg.steps = max(cfg.steps, 1)
-	for _, name := range cfg.dnd.modifiers {
-		m, ok := modifierNamed(name, a.cfg.flavor)
-		if !ok {
-			a.fatalf("Modifiers(%q): not a modifier; use \"Shift\", \"Control\", \"Alt\", \"Meta\" or \"ControlOrMeta\"", name)
-		}
-		mods |= m.mod
-	}
-	return cfg, mods
+	return cfg, a.modifierMask(cfg.dnd.modifiers)
 }
 
 // DragInfo describes the drag in progress ([App.ActiveDrag]).
