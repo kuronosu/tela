@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -61,11 +62,26 @@ func (r *logRing) add(level slog.Level, msg string) {
 	r.next = (r.next + 1) % maxLogs
 }
 
+// insLogAdded, when set, is called with the tree after an entry was added
+// to its log, on the goroutine that logged it (any: a UseGo goroutine's
+// error, a Host error between frames). A tela dev child sets it so that
+// an entry logged while the app is idle is pushed to the supervisor
+// without waiting for a frame (devrun_tools.go); it must not block.
+var insLogAdded atomic.Pointer[func(*Tree)]
+
 // noteLog keeps msg in the log of an instrumented tree. Safe from any
 // goroutine.
 func (t *Tree) noteLog(level slog.Level, msg string) {
 	if r := t.insLog.Load(); r != nil {
 		r.add(level, msg)
+		t.logAdded()
+	}
+}
+
+// logAdded calls insLogAdded.
+func (t *Tree) logAdded() {
+	if f := insLogAdded.Load(); f != nil {
+		(*f)(t)
 	}
 }
 
@@ -102,10 +118,15 @@ type insHostLog struct {
 func (l insHostLog) Write(p []byte) (int, error) {
 	n, err := l.w.Write(p)
 	if r := l.t.insLog.Load(); r != nil {
+		added := false
 		for line := range bytes.SplitSeq(bytes.TrimRight(p, "\r\n"), []byte("\n")) {
 			if len(line) > 0 {
 				r.add(slog.LevelError, string(line))
+				added = true
 			}
+		}
+		if added {
+			l.t.logAdded()
 		}
 	}
 	return n, err

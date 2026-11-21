@@ -515,9 +515,12 @@ The window follows the app live and survives its reloads. Four panels:
   the ones over budget and the slowest phase. Click a frame for its time per
   phase, its counts and damage, and the elements it built with the reason of
   each build; a row opens the element in the Elements panel.
-- **Logs**: what the app printed on standard error and the warnings and errors
+- **Logs**: what the app printed on standard error, the warnings and errors
   of its trees (unknown classes, duplicate keys, state that a reload cannot
-  keep), filterable by level, source and text.
+  keep; once each, though the app prints them on standard error too) and
+  `tela dev`'s own lines (building, a failed build with its errors),
+  filterable by level, source and text. Entries logged while the app is idle
+  arrive at once.
 
 The look follows the system's color scheme: graphite in the dark, a calm grey
 in the light.

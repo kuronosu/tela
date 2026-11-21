@@ -75,7 +75,8 @@ type Semantics struct {
 }
 
 // LogEntry is an entry of the session's log. Source is "stderr" (what the
-// app printed) or "app" (the dev warnings and errors of its trees).
+// app printed), "app" (the dev warnings and errors of its trees) or "tela
+// dev" (the session's own lines: building, a failed build).
 type LogEntry struct {
 	Seq    uint64     `json:"seq"`
 	At     time.Time  `json:"at"`

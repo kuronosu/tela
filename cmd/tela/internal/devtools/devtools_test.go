@@ -1,6 +1,7 @@
 package devtools
 
 import (
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -50,6 +51,21 @@ func TestPickFlow(t *testing.T) {
 	waitCall(t, fake, "pick on", 2)
 	// Escape in the app: pick mode ends, nothing is selected.
 	fake.Notify("picked", Picked{Window: 1})
+}
+
+// The session dropped notifications for a client that did not read them:
+// the model fetches again what they would have brought.
+func TestDroppedResyncs(t *testing.T) {
+	fake := NewFakeSource()
+	app := mount(t, fake, TabLogs)
+	app.ExpectText("darkroom: saved preferences")
+	fake.mu.Lock()
+	last := fake.Log[len(fake.Log)-1]
+	fake.Log = append(fake.Log, LogEntry{Seq: last.Seq + 1, At: last.At, Level: slog.LevelWarn, Msg: "a warning the queue dropped", Source: "app"})
+	fake.Win = append(fake.Win, Window{ID: 3, Title: "Export", Width: 400, Height: 300, Scale: 1, Visible: true, Active: true})
+	fake.mu.Unlock()
+	fake.Notify("dropped", map[string]any{"events": map[string]int{"logs": 1, "windows": 1}})
+	app.ExpectText("a warning the queue dropped")
 }
 
 func TestHoverHighlights(t *testing.T) {

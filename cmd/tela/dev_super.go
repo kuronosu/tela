@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -274,6 +275,7 @@ func newSupervisor(cfg supervisorConfig) *supervisor {
 	}
 	if cfg.tools {
 		s.tools = newToolsServer(cfg.opts.Pkg, cfg.pkgDir, cfg.toolsDir, s.log.verbosef)
+		s.log.tee = s.tools.note
 	}
 	s.q.init()
 	return s
@@ -1278,29 +1280,42 @@ type terminalView struct{ log *devLog }
 
 func (v terminalView) show(p problem) {
 	if p.kind == problemBuild {
-		v.log.printf("%s:\n%s", p.summary, p.text)
+		v.log.print(slog.LevelError, "%s:\n%s", p.summary, p.text)
 		return
 	}
 	// A panic's trace is already on the terminal: the child printed it on
 	// its standard error, which tela dev forwards.
-	v.log.printf("%s", p.summary)
+	v.log.print(slog.LevelError, "%s", p.summary)
 }
 
 func (v terminalView) clear() {}
 
 // --- output ---
 
-// devLog prints the supervisor's lines.
+// devLog prints the supervisor's lines, and gives each to tee (the tools
+// socket's log, source "tela dev") when it is set.
 type devLog struct {
 	mu      sync.Mutex
 	w       io.Writer
 	verbose bool
+	tee     func(level slog.Level, msg string)
 }
 
 func (l *devLog) printf(format string, args ...any) {
+	l.print(slog.LevelInfo, format, args...)
+}
+
+// print prints a line of the given level (the terminal does not show it;
+// the tools socket's log does).
+func (l *devLog) print(level slog.Level, format string, args ...any) {
+	msg := fmt.Sprintf(format, args...)
 	l.mu.Lock()
-	defer l.mu.Unlock()
-	fmt.Fprintf(l.w, "tela dev: "+format+"\n", args...)
+	fmt.Fprintf(l.w, "tela dev: %s\n", msg)
+	tee := l.tee
+	l.mu.Unlock()
+	if tee != nil {
+		tee(level, msg)
+	}
 }
 
 func (l *devLog) verbosef(format string, args ...any) {

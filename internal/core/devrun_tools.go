@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/kuronosu/tela/internal/devloop"
@@ -66,6 +67,8 @@ func devToolsAttached(rb *remote.Backend) bool {
 // its frames and logs from the start.
 func devToolsRegister(rb *remote.Backend, h *Host) {
 	devTools.h, devTools.rb = h, rb
+	logged := devToolsLogged(h)
+	insLogAdded.Store(&logged)
 	if h.tree.Instrumented() {
 		devTools.on = true
 		devTools.frames = map[*Tree]int{}
@@ -241,9 +244,31 @@ func devToolsNotify(kind string, msg any) {
 	devTools.rb.Notify(kind, b)
 }
 
-// devToolsFrame runs after each frame of an instrumented window: the
-// frames recorded and the log entries are pushed at most every
-// devloop.ToolsBatch, from a flush posted to the main tree.
+// devToolsLogPosted is set while a log entry's arming (devToolsLogged) is
+// on its way to the UI thread, so a burst of entries posts once.
+var devToolsLogPosted atomic.Bool
+
+// devToolsLogged is core's insLogAdded in a tela dev child: an entry was
+// logged on any goroutine, maybe while the app is idle, when no frame
+// will come to push it, so the push is armed from the UI thread. It
+// posts from a goroutine of its own: the caller may hold the tree's lock,
+// which enqueue takes.
+func devToolsLogged(h *Host) func(*Tree) {
+	return func(*Tree) {
+		if !devToolsLogPosted.CompareAndSwap(false, true) {
+			return
+		}
+		go h.tree.enqueue(update{post: func() {
+			devToolsLogPosted.Store(false)
+			devToolsFrame(h)
+		}})
+	}
+}
+
+// devToolsFrame runs after each frame of an instrumented window, and
+// after an entry was logged (devToolsLogged): the frames recorded and the
+// log entries are pushed at most every devloop.ToolsBatch, from a flush
+// posted to the main tree. UI thread.
 func devToolsFrame(h *Host) {
 	if !devTools.on || devTools.armed || devTools.rb == nil {
 		return

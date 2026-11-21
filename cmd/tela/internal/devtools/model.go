@@ -290,6 +290,50 @@ func (m *Model) note(n Note) {
 			m.setWindows(w.Windows)
 			m.scheduleRefresh()
 		}
+	case "dropped":
+		var d struct {
+			Events map[string]int `json:"events"`
+		}
+		json.Unmarshal(n.Params, &d)
+		m.resync(d.Events)
+	}
+}
+
+// resync fetches again what the notifications the session dropped would
+// have brought (its queue for this client was full): the build, the
+// windows and the tree, the log entries and the recorded frames after the
+// last ones the model has. A picked notification ends pick mode, so pick
+// mode is off when one was dropped (what it picked is lost).
+func (m *Model) resync(events map[string]int) {
+	if events["picked"] > 0 {
+		m.update(func(v *View) { v.Picking = false })
+	}
+	if info, err := m.src.Info(m.ctx); err == nil {
+		m.update(func(v *View) {
+			if info.Build != v.Build {
+				m.relocate = true // a reload was missed: the IDs started again
+				v.Frame, v.FrameEls, v.FrameMore = 0, nil, 0
+			}
+			v.Info, v.Build = info, info.Build
+		})
+	}
+	m.loadAll()
+	m.mu.Lock()
+	since, rec, win := m.logSeq, m.v.Recording, m.v.Window
+	last := 0
+	if n := len(m.v.Frames); n > 0 {
+		last = m.v.Frames[n-1].Frame
+	}
+	m.mu.Unlock()
+	if es, seq, err := m.src.Logs(m.ctx, since); err == nil {
+		m.addLogs(es, seq)
+	} else {
+		m.fail("logs", err)
+	}
+	if rec {
+		if ps, err := m.src.Profiles(m.ctx, win, last); err == nil && len(ps) > 0 {
+			m.frames(Frames{Window: win, Profiles: ps})
+		}
 	}
 }
 
