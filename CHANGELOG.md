@@ -13,6 +13,13 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+<!--
+Every entry under Breaking ends with the rewrite that `tela lint -fix` applies
+for it, as `migrate: <name>` (a name in internal/lint/migrations.go, several
+separated by commas), or with `migrate: none -- <why nothing can be rewritten>`
+(ADR-305). internal/lint's tests fail on an entry without one.
+-->
+
 ## [0.14.9] - 2026-11-20
 
 Phase 28: DevTools and agents (ADR-299 to ADR-303). It breaks no public API; `tela inspect`'s output gains source lines.

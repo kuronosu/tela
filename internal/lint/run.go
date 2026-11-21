@@ -24,6 +24,9 @@ type unit struct {
 	// ctxOnly marks a package of Options.Context: its aliases and colors
 	// are collected, nothing in it is checked.
 	ctxOnly bool
+	// migrateOnly marks a package that did not type-check: it is checked
+	// for the migrate rule alone, which reads what resolved.
+	migrateOnly bool
 }
 
 // run is the state of one Run, shared by the passes of all packages: the
@@ -61,6 +64,9 @@ type run struct {
 	// consts maps a constant to its declaration, when it is declared with
 	// a value of its own (not by the repetition of the one above).
 	consts map[*types.Const]*constDecl
+
+	// migrations are the rewrites of the migrate rule.
+	migrations []Migration
 
 	// ctxOnly are the import paths of the packages read as context.
 	ctxOnly map[string]bool
@@ -113,6 +119,10 @@ func (r *run) run(patterns []string) (*Result, error) {
 			return nil, err
 		}
 		pkgs = append(pkgs, more...)
+	}
+	r.migrations = r.opts.Migrations
+	if r.migrations == nil {
+		r.migrations = Migrations
 	}
 	r.ctxOnly = map[string]bool{}
 	if len(r.opts.Context) > 0 {
@@ -180,7 +190,14 @@ func (r *run) run(patterns []string) (*Result, error) {
 				msg += "could not be type-checked"
 			}
 			res.LoadErrors = append(res.LoadErrors, strings.ReplaceAll(msg, r.cwd+string(filepath.Separator), ""))
-			if !r.opts.Lenient || c.pkg == nil || c.info == nil {
+			if c.pkg == nil || c.info == nil {
+				continue
+			}
+			if !r.opts.Lenient {
+				// Old code does not type-check against the new API: what
+				// resolved of it is checked for the migrations, which are
+				// what fixes it.
+				r.units = append(r.units, &unit{pkg: c.pkg, info: c.info, files: c.files, migrateOnly: true})
 				continue
 			}
 		}

@@ -255,7 +255,7 @@ func (r *run) buildParser(aliases []*aliasEntry, colors []*colorEntry) {
 		probe := style.DefaultTheme()
 		probe.Tokens[c.name] = style.SchemeColor{}
 		if err := probe.CheckTokens(); err != nil {
-			if c.unit.ctxOnly {
+			if c.unit.ctxOnly || c.unit.migrateOnly {
 				continue
 			}
 			p := &pass{r: r, u: c.unit, info: c.unit.info}
@@ -267,7 +267,7 @@ func (r *run) buildParser(aliases []*aliasEntry, colors []*colorEntry) {
 	valid := map[string]string{}
 	for _, a := range aliases {
 		if err := style.CheckAliases(map[string]string{a.name: ""}); err != nil {
-			if a.unit.ctxOnly {
+			if a.unit.ctxOnly || a.unit.migrateOnly {
 				continue
 			}
 			p := &pass{r: r, u: a.unit, info: a.unit.info}

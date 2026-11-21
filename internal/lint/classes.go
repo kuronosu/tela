@@ -297,7 +297,7 @@ func boundary(src string, i int) bool {
 // each other.
 func (r *run) checkAliasValues() {
 	for _, a := range r.aliasList {
-		if !a.hasValue || a.unit.ctxOnly {
+		if !a.hasValue || a.unit.ctxOnly || a.unit.migrateOnly {
 			continue
 		}
 		p := &pass{r: r, u: a.unit, info: a.unit.info}

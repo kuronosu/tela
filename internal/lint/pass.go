@@ -46,6 +46,10 @@ func (r *run) checkAll() (errs []string) {
 						return false
 					}
 					p.stack = append(p.stack, n)
+					if u.migrateOnly {
+						p.checkMigrations(n)
+						return true
+					}
 					switch n := n.(type) {
 					case *ast.CallExpr:
 						p.checkCall(n)
@@ -57,6 +61,7 @@ func (r *run) checkAll() (errs []string) {
 					if e, ok := n.(ast.Expr); ok {
 						p.checkPropNode(e)
 					}
+					p.checkMigrations(n)
 					return true
 				})
 			}()

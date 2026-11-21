@@ -218,3 +218,41 @@ func Page() tela.Node {
 		t.Errorf("after -fix: exit %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
 }
+
+// The old spelling of a removed API does not type-check: it is reported with
+// its rewrite, and -fix leaves compiling code.
+func TestLintFixMigrates(t *testing.T) {
+	parallelLint(t)
+	needGo(t)
+	dir, err := os.MkdirTemp("testdata/lint", "migrate-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	const src = `package migrate
+
+import "github.com/kuronosu/tela/desktop"
+
+func Second(l desktop.Launch) bool { return l.Forwarded }
+`
+	file := filepath.Join(dir, "migrate.go")
+	if err := os.WriteFile(file, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pattern := "./" + filepath.ToSlash(dir)
+	code, stdout, stderr := lintRun(t, pattern)
+	if code != 2 || !strings.Contains(stdout, "migrate: desktop.Launch.Forwarded was removed in v0.14.0") || !strings.Contains(stderr, "Forwarded") {
+		t.Fatalf("without -fix: exit %d, stdout %q, stderr %q; want the finding and the type error", code, stdout, stderr)
+	}
+	code, stdout, stderr = lintRun(t, "-fix", pattern)
+	if code != 0 || stdout != "" || !strings.Contains(stderr, "fixed 1 findings in 1 files") {
+		t.Errorf("-fix: exit %d, stdout %q, stderr %q", code, stdout, stderr)
+	}
+	got, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := strings.Replace(src, "l.Forwarded", "l.Source == desktop.LaunchForwarded", 1); string(got) != want {
+		t.Errorf("fixed file:\n%s", got)
+	}
+}
