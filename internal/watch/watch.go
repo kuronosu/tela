@@ -247,17 +247,6 @@ func (w *Watcher) changed(path string, dir bool) {
 	w.arm()
 }
 
-// lost records that events were dropped.
-func (w *Watcher) lost() {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	if w.closed {
-		return
-	}
-	w.overflow = true
-	w.arm()
-}
-
 // arm (re)starts the debounce timer. w.mu is held.
 func (w *Watcher) arm() {
 	now := time.Now()

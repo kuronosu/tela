@@ -14,8 +14,8 @@ import (
 )
 
 // staticcheckVersion is the pinned staticcheck release. It is the one place
-// that names it. It runs through `go run`, so the gate never depends on a
-// staticcheck binary on PATH.
+// that names it. The gate installs it into a temporary folder, so it never
+// depends on a staticcheck binary on PATH.
 const staticcheckVersion = "2026.2.2"
 
 // modulePath is trimmed from package paths in reports.
@@ -347,12 +347,31 @@ func (g *gate) sizeStep() stepResult {
 	return r
 }
 
+// staticcheckStep runs staticcheck for Linux (with and without telagpu),
+// Windows and macOS: code that only one system uses (a helper a backend
+// calls) is unused on the others. go run would build staticcheck for the
+// GOOS it checks, so the step installs it for the host first.
 func (g *gate) staticcheckStep() stepResult {
 	pkg := "honnef.co/go/tools/cmd/staticcheck@" + staticcheckVersion
+	bin, err := os.MkdirTemp("", "tela-gate-staticcheck-")
+	if err != nil {
+		return stepResult{Failures: []failure{{Title: "staticcheck", Detail: err.Error()}}}
+	}
+	defer os.RemoveAll(bin)
+	install := g.run(cmdSpec{label: "go install " + pkg, args: []string{"go", "install", pkg}, env: []string{"GOBIN=" + bin}})
+	if !install.ok() {
+		return stepResult{Commands: cmdInfos([]cmdOut{install}), Failures: []failure{{Title: install.spec.label, Detail: failureDetail(install)}}}
+	}
+	sc := filepath.Join(bin, "staticcheck")
+	if runtime.GOOS == "windows" {
+		sc += ".exe"
+	}
 	return g.commandStep([]cmdSpec{
-		{label: "staticcheck ./...", args: []string{"go", "run", pkg, "./..."}},
-		{label: "staticcheck -tags telagpu ./internal/... .", args: []string{"go", "run", pkg, "-tags", "telagpu", "./internal/...", "."}},
-		inNotes(cmdSpec{label: "staticcheck ./...", args: []string{"go", "run", pkg, "./..."}}),
+		{label: "staticcheck ./...", args: []string{sc, "./..."}},
+		{label: "staticcheck -tags telagpu ./internal/... .", args: []string{sc, "-tags", "telagpu", "./internal/...", "."}},
+		{label: "staticcheck ./... (windows)", args: []string{sc, "./..."}, env: goos("windows")},
+		{label: "staticcheck ./... (darwin)", args: []string{sc, "./..."}, env: goos("darwin")},
+		inNotes(cmdSpec{label: "staticcheck ./...", args: []string{sc, "./..."}}),
 	})
 }
 
