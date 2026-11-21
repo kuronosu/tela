@@ -3,6 +3,7 @@ package remote
 import (
 	"math/rand"
 	"reflect"
+	"sync"
 	"testing"
 	"testing/quick"
 
@@ -79,7 +80,15 @@ func accessUpdate(names ...string) platform.AccessUpdate {
 // is activated at its promotion and replaces the tree, and the outgoing
 // build's actions and updates are dropped.
 func TestAccessibilityForwarded(t *testing.T) {
-	p := newPair(t, HostOptions{}, headless.Options{})
+	release, started := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	p := newPair(t, HostOptions{Input: func(w platform.Window, e platform.Event) bool {
+		if _, ok := e.(platform.ScrollEvent); ok {
+			once.Do(func() { close(started); <-release })
+			return true
+		}
+		return false
+	}}, headless.Options{})
 	a := p.dial("a").start()
 	wa := a.newWindow(platform.WindowOptions{Title: "a11y"})
 	a.configured()
@@ -97,8 +106,22 @@ func TestAccessibilityForwarded(t *testing.T) {
 	if got := a.waitEvent("the activation", isType[platform.AccessibilityEvent]); got != (platform.AccessibilityEvent{Active: true}) {
 		t.Fatalf("got %+v", got)
 	}
-	// An action before the child sent its tree is dropped.
+	// An action before the child sent its tree is dropped. The host's UI
+	// thread is held (in Input, by a scroll) while the action is queued,
+	// as a loaded machine may hold it: had the child sent its tree then,
+	// the host would have handled the tree first and rightly delivered the
+	// action ("an action reached a child that had not sent its tree", once
+	// in a full run). So the tree goes only once the host has handled the
+	// action (settled).
+	hw.Inject(platform.ScrollEvent{Pos: platform.Point{X: 1, Y: 1}})
+	<-started
 	hw.Inject(platform.AccessActionEvent{Node: 1<<accessShift | 2, Action: platform.AccessActionDefault})
+	close(release)
+	for _, e := range p.settled(a) {
+		if isType[platform.AccessActionEvent](e.e) {
+			t.Errorf("an action reached a child that had not sent its tree: %+v", e.e)
+		}
+	}
 	a.ui(func() { wa.SetAccessibility(accessUpdate("Save", "Cancel")) })
 	waitFor(t, "the tree on the real window", func() bool { return hw.AccessTree() != nil })
 	tree := hw.AccessTree()
@@ -111,7 +134,7 @@ func TestAccessibilityForwarded(t *testing.T) {
 	}
 	for _, e := range p.settled(a) {
 		if isType[platform.AccessActionEvent](e.e) {
-			t.Errorf("an action reached a child that had not sent its tree: %+v", e.e)
+			t.Errorf("the action dropped before the tree reached the child later: %+v", e.e)
 		}
 	}
 	hw.Inject(platform.AccessActionEvent{Node: sa | 3, Action: platform.AccessActionSetValue, Value: "x"})
