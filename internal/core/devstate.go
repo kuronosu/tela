@@ -49,12 +49,13 @@ import (
 // at their target, a Value that Animate moves is kept at its target, and
 // effects run again.
 //
-// Engine state: the text, selection and undo history of text fields, the
-// scroll offsets of scroll containers (the root's too), the focused
-// element and whether it showed as focus-visible, and the color scheme
-// and theme set at run time with SetColorScheme and SetTheme. Exiting
-// Presence children are dropped. The window's size and scale come from
-// the platform.
+// Engine state: the text, selection and undo history of text fields, an
+// IME composition in progress in the focused one (whose session the host
+// keeps across the swap, ADR-309), the scroll offsets of scroll containers
+// (the root's too), the focused element and whether it showed as
+// focus-visible, and the color scheme and theme set at run time with
+// SetColorScheme and SetTheme. Exiting Presence children are dropped. The
+// window's size and scale come from the platform.
 
 // devStateVersion is the version of the snapshot format: a snapshot of
 // another version starts the app fresh, with a warning.
@@ -361,6 +362,9 @@ type DevSeedReport struct {
 	// they were renamed from ("Tally, renamed from Counter";
 	// devRestore.renamed).
 	Renamed []string
+	// Composition reports that the focused field's IME composition was
+	// restored (devRestoreComposition).
+	Composition bool
 }
 
 // CaptureDevState returns a snapshot of the tree's state for `tela dev`
@@ -815,7 +819,7 @@ func (c *devCapture) primitive(el *Element, n *devNode) bool {
 // pristine reports whether the field shows what mounting it shows: its
 // initial value, the caret at the start, no history.
 func (f *field) pristine() bool {
-	if f.ed.CanUndo() || f.ed.CanRedo() {
+	if f.ed.CanUndo() || f.ed.CanRedo() || f.ed.Composing() {
 		return false
 	}
 	if s, e, _ := f.ed.SelectionRange(); s != 0 || e != 0 {

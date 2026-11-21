@@ -475,9 +475,11 @@ func (s *devRestore) walkEngine(el *Element, n *seedNode, inFrame bool, moved *b
 // own scroll and a scroll container's offset in a frame, after layout.
 func (s *devRestore) applyRecords(el *Element, n *seedNode, inFrame bool, moved *bool) {
 	t := s.t
+	restored := false // the field's editor took the saved state
 	if n.field {
 		if f := el.box.fld; f != nil && t.devRestoreField(f, n.rec.Field) {
 			s.rep.Fields++
+			restored = true
 		}
 		s.done(n, &n.field)
 	}
@@ -491,6 +493,11 @@ func (s *devRestore) applyRecords(el *Element, n *seedNode, inFrame bool, moved 
 		if ok && t.foc.el == nil {
 			t.devFocus(el, s.focusType, s.focusKey)
 			s.rep.Focus = true
+			// The composition of the focused field goes on: the IME's
+			// session is the host's, which keeps it (ADR-309).
+			if st := n.rec.Field; restored && st.Composition != nil && t.devRestoreComposition(el.box.fld, *st.Composition) {
+				s.rep.Composition = true
+			}
 		}
 		s.done(n, &n.focus)
 	}
@@ -574,7 +581,11 @@ func (s *devRestore) done(n *seedNode, flag *bool) {
 // It reports whether it restored.
 func (t *Tree) devRestoreField(f *field, st *edit.DevState) bool {
 	fp := f.props()
-	if (fp.hasValue || fp.bind != nil) && f.ed.Value() != st.Value {
+	shown := st.Value
+	if c := st.Composition; c != nil && c.At >= 0 && c.At <= len(c.Value) {
+		shown = c.Value[:c.At] + c.Preedit + c.Value[c.At:] // what OnChange gave the app
+	}
+	if (fp.hasValue || fp.bind != nil) && f.ed.Value() != shown {
 		return false
 	}
 	composing := f.ed.Composing()
@@ -587,5 +598,28 @@ func (t *Tree) devRestoreField(f *field, st *edit.DevState) bool {
 	t.fieldChanged(f, r)
 	t.fieldStates(f)
 	f.selStart, f.selEnd, _ = f.ed.SelectionRange()
+	return true
+}
+
+// devRestoreComposition starts the saved composition c again in the
+// focused text field f, over the state devRestoreField restored (the one
+// it started from): its preedit is shown from the first frame, its text
+// input state is the one the IME already has, and the IME's next update
+// applies to it. No composition event fires: the composition did not
+// start in this build, it goes on (the Fast Refresh view of the focus).
+// It reports whether the field composes.
+func (t *Tree) devRestoreComposition(f *field, c edit.DevComposition) bool {
+	if f == nil {
+		return false
+	}
+	r := f.ed.RestoreDevComposition(c)
+	if !f.ed.Composing() {
+		return false
+	}
+	f.raw = f.ed.RawValue()
+	t.fieldChanged(f, r)
+	t.fieldStates(f)
+	f.selStart, f.selEnd, _ = f.ed.SelectionRange()
+	t.caretReset(f)
 	return true
 }

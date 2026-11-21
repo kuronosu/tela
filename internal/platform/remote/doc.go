@@ -173,6 +173,15 @@
 // without its press, no IME event outside a session, no event before its
 // ConfigureEvent.
 //
+// The IME session is the real window's, and the platform's IME holds a
+// composition in progress in it, so a promotion does not end it when the
+// new child's window shows the same field (the same purpose, multiline
+// flag and surrounding text: tela dev restored it, its composition
+// included): the session goes on, its state updated, and the new child
+// joins it with an IMESessionEvent. For another field the session restarts,
+// and a child that took over an active session is first told it ended
+// (ADR-309).
+//
 // [HostOptions.Scale] forces the scale children render at (tela dev
 // --scale): their ConfigureEvents carry it, with the real logical size,
 // and the host resamples their frames to the real physical size with

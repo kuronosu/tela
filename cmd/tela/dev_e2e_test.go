@@ -424,4 +424,25 @@ func TestDevEndToEnd(t *testing.T) {
 	if out := e.out.String()[mark:]; !strings.Contains(out, "tela dev: state: Mixed's UseState #2 resets: holds a func() int") {
 		t.Errorf("no -v line for the func slot:\n%s", out)
 	}
+
+	// 7. An IME composition in progress at a reload goes on in the new
+	// build (ADR-309): the window's IME session is not restarted (its text
+	// input state does not even change: the new build reports the same
+	// field, composing), and the IME's commit lands in the new build.
+	mark = len(e.out.String())
+	e.click(60, 188) // the field again (the click of step 3 focused the counter)
+	w := e.window()
+	e.until("the field's IME session", w.IMEActive)
+	w.Inject(platform.IMEEvent{Preedit: "にほ", CursorStart: 6, CursorEnd: 6})
+	e.expect(mark, "devapp: input", `devapp: input "hi!にほ"`)
+	changes := w.TextInputChanges()
+	_, mark = e.edit(func(s string) string { return strings.Replace(s, `Text("Version B")`, `Text("Version C")`, 1) })
+	e.until("the line of the composition", func() bool {
+		return strings.Contains(e.out.String()[mark:], "tela dev: state: the IME composition of the focused field goes on")
+	})
+	if n := w.TextInputChanges() - changes; n != 0 || !w.IMEActive() {
+		t.Errorf("the reload changed the window's text input %d times (session active %v): the IME session restarted", n, w.IMEActive())
+	}
+	w.Inject(platform.IMEEvent{Commit: "日本"})
+	e.expect(mark, "devapp: input", `devapp: input "hi!日本"`)
 }

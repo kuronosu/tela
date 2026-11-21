@@ -327,7 +327,10 @@ hook's position, as React Fast Refresh does; the state that `kit`'s
 components and `aria`'s hooks hold themselves (an uncontrolled choice,
 selection, tab, slider value, color, calendar date or menu checkbox, the
 focused item of a list, an `aria.Selection` in your own state); the text,
-selection and undo history of text fields; scroll offsets; the focus; the
+selection and undo history of text fields, and an IME composition in
+progress in the focused one (the preedit stays and the IME goes on; if the
+new build has no such field any more, the preedit is committed as text, as
+when a field loses the focus); scroll offsets; the focus; the
 color scheme, theme and locale set at run time. A component whose hooks
 changed (one added, removed or of another type) starts fresh, with its
 children. A component you rename (its function or type, where it is

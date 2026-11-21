@@ -298,8 +298,10 @@ func (h *Host) Unfreeze() {
 
 // Promote makes c the active child: its windows take over their real
 // windows (title, cursor, text input state, visibility, always-on-top,
-// size limits, icon and hit regions are applied, the IME session
-// restarts), its latest frame is presented in full, and it receives input,
+// size limits, icon and hit regions are applied; the IME session goes on
+// when c's window shows the same field, a composition included, and
+// restarts for another: handoverIME), its latest frame is presented in
+// full, and it receives input,
 // starting with the input queued since Freeze (Promote implies Unfreeze).
 // The previously active child is detached: it receives nothing more, and
 // the caller stops it. If c has windows, real windows it does not use are
@@ -317,8 +319,16 @@ func (h *Host) Promote(c *Child) error {
 		h.Unfreeze()
 		return nil
 	}
+	// The windows c takes over, with the child window each showed: its IME
+	// session may go on in c's (handover).
+	prev := map[*realWin]*childWin{}
+	for _, cw := range c.windows {
+		if rw := cw.rw; rw != nil && rw.active != nil {
+			prev[rw] = rw.active
+		}
+	}
 	if old := h.active; old != nil {
-		h.detach(old)
+		h.detachKeeping(old, prev)
 	}
 	c.state = stateActive
 	h.active = c
@@ -330,7 +340,7 @@ func (h *Host) Promote(c *Child) error {
 		}
 		used[rw] = true
 		rw.pending = slices.DeleteFunc(rw.pending, func(x *childWin) bool { return x == cw })
-		h.activate(rw, cw)
+		h.activateAfter(rw, cw, prev[rw])
 	}
 	if len(used) > 0 {
 		for _, rw := range slices.Clone(h.order) {
@@ -355,7 +365,12 @@ func (h *Host) Promote(c *Child) error {
 // requests still work); use Child.Close for that.
 func (h *Host) Detach(c *Child) { h.detach(c) }
 
-func (h *Host) detach(c *Child) {
+func (h *Host) detach(c *Child) { h.detachKeeping(c, nil) }
+
+// detachKeeping is detach, leaving the text input state of the real
+// windows in keep to the child that takes them over (Promote's handover of
+// the IME session).
+func (h *Host) detachKeeping(c *Child, keep map[*realWin]*childWin) {
 	if c.state == stateDetached {
 		return
 	}
@@ -370,7 +385,9 @@ func (h *Host) detach(c *Child) {
 		}
 		if rw.active == cw {
 			rw.active = nil
-			h.setTextInput(rw, nil)
+			if _, taken := keep[rw]; !taken {
+				h.setTextInput(rw, nil)
+			}
 		}
 		rw.pending = slices.DeleteFunc(rw.pending, func(x *childWin) bool { return x == cw })
 	}
@@ -980,18 +997,18 @@ func (h *Host) findReal(cw *childWin, parent *realWin) *realWin {
 }
 
 // activate makes cw the active window of rw and applies its state.
-func (h *Host) activate(rw *realWin, cw *childWin) {
+func (h *Host) activate(rw *realWin, cw *childWin) { h.activateAfter(rw, cw, nil) }
+
+// activateAfter is activate for cw taking rw over from prev, the child
+// window that was active on it (nil for none).
+func (h *Host) activateAfter(rw *realWin, cw *childWin, prev *childWin) {
 	rw.active = cw
 	rw.src = cw
 	rw.wasActive = true
 	rw.full = true
 	rw.w.SetTitle(cw.title)
 	rw.w.SetCursor(cw.cursor)
-	if rw.textInput != nil && cw.textInput != nil {
-		// Another process's field: restart the IME session.
-		h.setTextInput(rw, nil)
-	}
-	h.setTextInput(rw, cw.textInput)
+	h.handoverIME(rw, cw, prev)
 	h.applyWindow(rw, cw)
 	h.promoteMenu(rw, cw)
 	h.syncAccess(rw, cw)
@@ -1011,6 +1028,46 @@ func (h *Host) enter(rw *realWin, cw *childWin) {
 	cw.entered = true
 	p := rw.pointer
 	h.deliver(cw, platform.PointerEvent{Action: platform.PointerEnter, Kind: p.Kind, ID: p.ID, Pos: p.Pos, Mods: p.Mods, Time: h.b.Now()})
+}
+
+// handoverIME applies the text input state of cw, which takes rw over from
+// prev, to the real window's IME session (ADR-309). The platform's IME
+// holds the session, and its preedit while a composition is in progress:
+// a swap of tela dev must not end it. When prev was in an active session
+// and cw shows the same field (sameField: the dev state restored it, a
+// composition included), the session goes on, its state updated (the
+// caret area moves with a new layout), and cw joins it: it is told the
+// session is active, and the IME's next events are its own. Otherwise the
+// session restarts for another process's field, and a cw that took over
+// prev's session is told that it ended (an IMESessionEvent that starts and
+// one that ends it, a valid stream for a child that saw none), which
+// finishes a composition its restored state holds, keeping its text.
+func (h *Host) handoverIME(rw *realWin, cw *childWin, prev *childWin) {
+	inherited := prev != nil && prev.imeActive && rw.textInput != nil
+	if inherited && cw.textInput != nil && sameField(rw.textInput, cw.textInput) {
+		h.setTextInput(rw, cw.textInput)
+		h.deliver(cw, platform.IMESessionEvent{Active: true})
+		return
+	}
+	if inherited {
+		h.deliver(cw, platform.IMESessionEvent{Active: true})
+		h.deliver(cw, platform.IMESessionEvent{Active: false})
+	}
+	if rw.textInput != nil && cw.textInput != nil {
+		// Another process's field: restart the IME session.
+		h.setTextInput(rw, nil)
+	}
+	h.setTextInput(rw, cw.textInput)
+}
+
+// sameField reports whether two text input states describe the same field
+// to the IME: the same purpose, multiline flag and text around the caret
+// (a field whose state a reload restored). The caret area may differ.
+func sameField(a, b *platform.TextInputState) bool {
+	if a.Purpose != b.Purpose || a.Multiline != b.Multiline || (a.Surrounding == nil) != (b.Surrounding == nil) {
+		return false
+	}
+	return a.Surrounding == nil || *a.Surrounding == *b.Surrounding
 }
 
 func (h *Host) setTextInput(rw *realWin, st *platform.TextInputState) {

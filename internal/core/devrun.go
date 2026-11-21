@@ -232,6 +232,9 @@ func devSeedCounts(r DevSeedReport) devloop.StateReport {
 	for _, c := range r.Renamed {
 		lines = append(lines, c+" kept its state")
 	}
+	if r.Composition {
+		lines = append(lines, "the IME composition of the focused field goes on")
+	}
 	return devloop.StateReport{Kept: kept, Reset: len(r.Remounted), Lines: lines}
 }
 
