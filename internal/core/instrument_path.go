@@ -66,13 +66,29 @@ func pathInit() {
 	})
 }
 
+// RelTo is Rel with dir as the working directory of rule 1: the form the
+// app's own process shows (its [src=] lines), for a tool that runs
+// elsewhere and knows the app's working directory.
+func (s SourceSite) RelTo(dir string) string {
+	if s.File == "" {
+		return ""
+	}
+	return displayPathIn(strings.TrimRight(filepath.ToSlash(dir), "/"), s.File) + ":" + strconv.Itoa(s.Line)
+}
+
 func displayPath(file string) string {
+	pathInit()
+	return displayPathIn(pathState.cwd, file)
+}
+
+// displayPathIn is displayPath with cwd, slash-separated, as the working
+// directory.
+func displayPathIn(cwd, file string) string {
 	file = filepath.ToSlash(file)
 	if !path.IsAbs(file) && !isWinAbs(file) {
 		return file // already relative (-trimpath): module@version/file.go
 	}
-	pathInit()
-	if rel, ok := under(pathState.cwd, file); ok {
+	if rel, ok := under(cwd, file); ok {
 		return rel
 	}
 	if m := moduleOfDir(path.Dir(file)); m.root != "" {
@@ -200,10 +216,18 @@ func (ins *instrument) appSite(el *Element) SourceSite {
 	return first
 }
 
-// siteOf returns the creation site of el, resolved.
+// siteOf returns the creation site of el, resolved. A component whose node
+// was made before sites were captured (at package level, as the
+// tela.C(form) of a Previews entry or of App.Root, which runs when the
+// package is initialized) has the declaration of its function instead,
+// as a struct component a build returned has (instrument_site.go, rule
+// 3): the node is shared by every mount, so it is not written into.
 func (ins *instrument) siteOf(el *Element) SourceSite {
 	if d := el.node.d; d != nil && d.site != nil {
 		return ins.creationSite(d.site)
+	}
+	if ins.dev && el.kind == elemComponent && el.comp != nil && el.comp.typ != 0 {
+		return ins.creationSite(declSite(el.comp.typ))
 	}
 	return SourceSite{}
 }

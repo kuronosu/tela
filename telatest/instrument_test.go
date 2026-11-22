@@ -26,6 +26,36 @@ func insScreen() tela.Node {
 		Button(OnClick(func() { setN.Set(n + 1) }), Textf("Count %d", n)))
 }
 
+// insPackageRoot is made when the package is initialized, before any tree
+// captures creation sites, as the tela.C of a Previews entry is.
+var insPackageRoot = tela.C(insPackageScreen)
+
+var insPackageLine = insLine() + 2
+
+func insPackageScreen() tela.Node {
+	n, setN := tela.UseState(0)
+	return Button(OnClick(func() { setN.Set(n + 1) }), Textf("Count %d", n))
+}
+
+// TestPackageLevelComponentSource: a component made at package level has
+// the declaration of its function as its source.
+func TestPackageLevelComponentSource(t *testing.T) {
+	app := telatest.Mount(t, insPackageRoot, telatest.Instrument())
+	// The path is relative to the working directory, or the module's
+	// when the two do not compare (a Windows binary built on Linux, run
+	// under Wine): the file and line are the point.
+	want := fmt.Sprintf("instrument_test.go:%d", insPackageLine)
+	for _, c := range app.Components() {
+		if strings.HasSuffix(c.Name, "insPackageScreen") {
+			if c.Source != want && !strings.HasSuffix(c.Source, "/"+want) {
+				t.Errorf("Source = %q, want %q", c.Source, want)
+			}
+			return
+		}
+	}
+	t.Errorf("no insPackageScreen in %v", app.Components())
+}
+
 func TestAriaSnapshotSources(t *testing.T) {
 	app := telatest.MountFunc(t, insScreen, telatest.Instrument())
 	plain := app.AriaSnapshot()

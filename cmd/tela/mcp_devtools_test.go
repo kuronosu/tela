@@ -78,7 +78,7 @@ func TestDescribePrefer(t *testing.T) {
 // only a tela that has them gets the code that needs them (an older tela
 // would not compile it).
 func TestGenerateMCPSourceFeatures(t *testing.T) {
-	for _, f := range []genFeatures{{}, {DevTools: true}, {DevTools: true, I18N: true}} {
+	for _, f := range []genFeatures{{}, {DevTools: true}, {DevTools: true, I18N: true}, {DevTools: true, PendingKinds: true, Scrollables: true}} {
 		src := string(generateMCPSource("widgets", contractPreviews, true, f))
 		if _, err := parser.ParseFile(token.NewFileSet(), mcpGeneratedFile, src, parser.AllErrors); err != nil {
 			t.Fatalf("%+v: does not parse: %v\n%s", f, err, src)
@@ -89,6 +89,8 @@ func TestGenerateMCPSourceFeatures(t *testing.T) {
 			"telatest.Component":                       f.DevTools,
 			`telah "github.com/kuronosu/tela/h"`:       f.DevTools,
 			`telai18n "github.com/kuronosu/tela/i18n"`: f.I18N,
+			"telatest.PendingCaret":                    f.PendingKinds,
+			"app.Scrollables()":                        f.Scrollables,
 		} {
 			if strings.Contains(src, what) != present {
 				t.Errorf("%+v: %q present = %v", f, what, !present)

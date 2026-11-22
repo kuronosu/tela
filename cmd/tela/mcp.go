@@ -650,6 +650,18 @@ type mcpOut struct {
 	output   string
 	lint     string
 	images   []mcpContent
+	// frames sums up the frames an acting call caused (framesLine).
+	frames string
+}
+
+// framesLine sums up the frames an acting call caused, for its result:
+// the frames, their time and the slowest phase, with the call that lists
+// them. Empty without frames (an instance without DevTools sends none).
+func framesLine(fs []mcpFrame) string {
+	if len(fs) == 0 {
+		return ""
+	}
+	return perfSummary(fs, "caused by this call") + ` perf {"action": true} lists them.`
 }
 
 // absorb takes the logs and output of a reply.
@@ -701,6 +713,9 @@ func (o *mcpOut) result() mcpResult {
 		parts = append(parts, "### Snapshot\n```yaml\n"+snap+"\n```")
 	}
 	parts = append(parts, o.sections...)
+	if o.frames != "" {
+		parts = append(parts, "### Frames\n"+o.frames)
+	}
 	list := func(title string, items []string) {
 		if len(items) == 0 {
 			return
@@ -820,11 +835,14 @@ func (s *mcpSession) send(ctx context.Context, o *mcpOut, req mcpReq) (mcpReply,
 		o.fail(rep.Error)
 	}
 	if rep.YAML != nil {
-		snap := s.withRefs(ctx, o, *rep.YAML, rep.Nodes)
+		snap := s.withRefs(ctx, o, rep)
 		o.snapshot = &snap
 		if rep.Panic == "" {
 			s.noteSnapshot(*rep.YAML)
 		}
+	}
+	if actingOps[req.Op] && rep.Panic == "" {
+		o.frames = framesLine(rep.Frames)
 	}
 	return rep, rep.Error == "" && rep.Panic == ""
 }
@@ -887,10 +905,11 @@ func cleanMountError(msg string) string {
 // withRefs adds the refs to an aria snapshot.
 // nodes, when the instance gave them, are the identities of the elements of
 // the lines (see refTable.assignNodes).
-func (s *mcpSession) withRefs(ctx context.Context, o *mcpOut, yaml string, nodes []uint64) string {
+func (s *mcpSession) withRefs(ctx context.Context, o *mcpOut, rep mcpReply) string {
+	yaml, nodes := deref(rep.YAML), rep.Nodes
 	lines, cands, groups, want := prepareRefs(yaml)
 	if len(lines) > 0 && len(nodes) == len(lines) {
-		return s.refs.assignNodes(lines, cands, nodes)
+		return s.refs.assignNodes(lines, cands, nodes, rep.TestIDs)
 	}
 	if len(cands) == 0 {
 		s.refs.current, s.refs.stale = map[string]refEntry{}, false
@@ -949,7 +968,7 @@ func (s *mcpSession) element(ctx context.Context, o *mcpOut, a elementArgs) (mcp
 		if s.refs.stale {
 			if rep, err := s.child.call(ctx, mcpReq{Op: "snapshot", Snapshot: true}); err == nil && rep.YAML != nil {
 				o.absorb(rep)
-				s.withRefs(ctx, o, *rep.YAML, rep.Nodes)
+				s.withRefs(ctx, o, rep)
 				s.noteSnapshot(*rep.YAML)
 			}
 		}
@@ -1008,6 +1027,12 @@ func jsonKind(goKind string) string {
 }
 
 // checkArgNames reports an argument the tool does not take.
+// movedArgs are the arguments a tool no longer takes, by "tool.argument",
+// with where they went.
+var movedArgs = map[string]string{
+	"open.dark": `open no longer takes dark: dark mode is a preference, switched live with prefer {"dark": true} (state kept); open mounts another preview, size or scale`,
+}
+
 func checkArgNames(def *mcpToolDef, args json.RawMessage) error {
 	if len(args) == 0 || string(args) == "null" {
 		return nil
@@ -1019,6 +1044,9 @@ func checkArgNames(def *mcpToolDef, args json.RawMessage) error {
 	var unknown []string
 	for k := range m {
 		if !slices.Contains(def.props, k) && k != "element" {
+			if why, ok := movedArgs[def.tool.Name+"."+k]; ok {
+				return errors.New(why)
+			}
 			unknown = append(unknown, strconv.Quote(k))
 		}
 	}
@@ -1067,7 +1095,7 @@ func (s *mcpSession) call(ctx context.Context, name string, args json.RawMessage
 func (s *mcpSession) instructions() string {
 	return fmt.Sprintf(`This server runs the Tela screen of the Go package %s headlessly and keeps it running between calls. Tela is a pure-Go UI framework: React-like components (tela.UseState, h.Div, h.Button...) styled with Tailwind CSS v4 classes (h.Class("flex gap-4 rounded-xl bg-white p-6 shadow-sm dark:bg-zinc-900")).
 The loop: edit the Go source, then call snapshot (structure, cheap) or screenshot (how it looks). Every call first rebuilds and mounts the screen afresh when the source changed (the state resets) and reports compile errors, tela lint findings and dev-mode errors such as unknown classes with a suggestion.
-Act on elements with click, fill, press, hover, scroll and drag, naming them by the [ref=eN] of the latest snapshot (a ref is the element itself: it keeps pointing at it when its label changes or its siblings come and go, and fails with "gone" once it is unmounted); each returns the new snapshot. An element that is not on the screen fails at once when nothing is pending (no animation, timer or update); use wait with a text for data that arrives later. resize keeps the state; open mounts another preview, dark mode or size afresh; wait advances the app's clock for timers and animations; inspect shows the layout tree when something is misplaced. Each snapshot line ends with [src=file:line], the source line that made the element: edit there. state explains why a component rendered and what its hooks hold; perf says how long frames took; logs lists what was logged; prefer tries reduced motion, high contrast, text scale, locale, direction and dark mode. film shows motion (a transition, a spring, an exit) as frames on the app's clock, starting at an action; test turns what you did into a regression test.
+Act on elements with click, fill, press, hover, scroll and drag, naming them by the [ref=eN] of the latest snapshot (a ref is the element itself: it keeps pointing at it when its label changes or its siblings come and go, and fails with "gone" once it is unmounted); each returns the new snapshot. An element that is not on the screen fails at once when nothing is pending (no animation, timer, update, or load on a goroutine: UseAsync, UseGo), and so does a wait for a text; use wait with a text for data that arrives later. resize keeps the state; open mounts another preview or size afresh; wait advances the app's clock for timers and animations; inspect shows the layout tree when something is misplaced. Each snapshot line ends with [src=file:line], the source line that made the element: edit there. state explains why a component rendered and what its hooks hold; perf says how long frames took; logs lists what was logged; prefer tries reduced motion, high contrast, text scale, locale, direction and dark mode. film shows motion (a transition, a spring, an exit) as frames on the app's clock, starting at an action; test turns what you did into a regression test.
 The package defines its screen as func Preview() tela.Node, var Previews = tela.Previews{...} or var App = tela.App{Root: ...}; if it does not exist yet, write it and call snapshot.`, s.pkgArg)
 }
 
@@ -1157,7 +1185,7 @@ func mcpToolDefs(previews []string) []mcpToolDef {
 		{"x", "number", "X in logical pixels from the window's left edge (instead of an element)", nil},
 		{"y", "number", "Y in logical pixels from the window's top edge", nil},
 	}
-	openDesc := `Mount the screen afresh (state reset): another preview of the package's Previews, dark or light mode, another size or scale. Without arguments, list the previews and the current settings. Returns the new snapshot. Example: {"preview": "Login", "dark": true}`
+	openDesc := `Mount the screen afresh (state reset): another preview of the package's Previews, another size or scale (dark mode and the other preferences are prefer's, live). Without arguments, list the previews and the current settings. Returns the new snapshot. Example: {"preview": "Login"}`
 	if len(previews) > 0 {
 		openDesc += "\nPreviews: " + strings.Join(previews, ", ")
 	}
@@ -1178,7 +1206,7 @@ func mcpToolDefs(previews []string) []mcpToolDef {
 				schemaProp{"submit", "boolean", "Press Enter after filling", nil}), (*mcpSession).toolFill, "text"),
 		def("press", `Press a key or a combo, Playwright's syntax ("Enter", "Tab", "Shift+Tab", "Escape", "ArrowDown", "Control+a", "a"), on the focused element, or on an element after focusing it (ref). Returns the new snapshot. Example: {"key": "Tab"}`,
 			act("Press a key"), append([]schemaProp{{"key", "string", `Key or combo, such as "Enter" or "Shift+Tab"`, nil}}, elementProps("element to focus first")...), (*mcpSession).toolPress, "key"),
-		def("scroll", `Scroll the mouse wheel over an element by dx, dy logical pixels (positive: right, down): the nearest scrollable container under it moves. Name any element inside the area to scroll. Without an element the wheel goes to x, y, or to the center of the window (the page, or the main area of a layout). Returns the new snapshot. Example: {"ref": "e12", "dy": 400} or {"dy": 400}`,
+		def("scroll", `Scroll the mouse wheel over an element by dx, dy logical pixels (positive: right, down): the nearest scrollable container under it moves. Name any element inside the area to scroll. Without an element the wheel goes to x, y, or to the largest scroll container that can move that way (the page, or the main area of a layout). The answer says when nothing moved (no container there, or it is at its end). Returns the new snapshot. Example: {"ref": "e12", "dy": 400} or {"dy": 400}`,
 			act("Scroll"), append(append(elementProps("element"), point...),
 				schemaProp{"dx", "number", "Horizontal distance in logical pixels (positive: right)", nil},
 				schemaProp{"dy", "number", "Vertical distance in logical pixels (positive: down)", nil}), (*mcpSession).toolScroll),
@@ -1198,12 +1226,11 @@ func mcpToolDefs(previews []string) []mcpToolDef {
 		def("open", openDesc,
 			act("Open a screen"), []schemaProp{
 				{"preview", "string", "Name of a preview of the package's Previews", nil},
-				{"dark", "boolean", "The system prefers dark mode (App.ColorScheme still wins)", nil},
 				{"width", "number", "Logical width in pixels (with height)", nil},
 				{"height", "number", "Logical height in pixels (with width)", nil},
 				{"scale", "number", "Display scale", nil},
 			}, (*mcpSession).toolOpen),
-		def("wait", `Advance the app's clock by ms (timers, UseTimeout, transitions, animations: the clock moves only when asked), and/or wait up to 2 s of real time until a text appears (text) or disappears (textGone), as for data loaded by a goroutine. Returns the new snapshot. Example: {"ms": 500}`,
+		def("wait", `Advance the app's clock by ms (timers, UseTimeout, transitions, animations: the clock moves only when asked), and/or wait up to 2 s of real time until a text appears (text) or disappears (textGone), as for data loaded by a goroutine (a text that cannot come, with nothing pending, fails at once). Returns the new snapshot. Example: {"ms": 500}`,
 			act("Wait"), []schemaProp{
 				{"ms", "number", "Milliseconds of app time to run", nil},
 				{"text", "string", "Wait until the window shows this text", nil},
@@ -1211,11 +1238,10 @@ func mcpToolDefs(previews []string) []mcpToolDef {
 			}, (*mcpSession).toolWait),
 		def("inspect", `Show the layout tree as JSON (tela inspect --layout): each box's rect in logical pixels, margin, border, padding, classes, class errors and computed style (display, flex, colors, font). With an element (ref), only its box and what it contains. Use it when something is misplaced, misaligned or has the wrong size. Example: {"ref": "e5"}`,
 			ro("Layout tree"), elementProps("element"), (*mcpSession).toolInspect),
-		def("state", `Show why a component rendered and what it holds: its props, its hooks (kind, call site, current value), how many times it built and the reason of each of its last builds (a hook's setter and its line, a context, new props, its parent). With a ref, the component that rendered that element (the nearest one above it); without, the screen's components that have props or hooks, in tree order (max, default 40). Use it to find the setter behind a change, or a component that renders too often. Example: {"ref": "e5"}`,
-			ro("Component state"), []schemaProp{
-				{"ref", "string", "Ref of an element in the latest snapshot, such as \"e5\"", nil},
-				{"max", "integer", "Without ref: the most components to list (1 to 200, default 40)", nil},
-			}, (*mcpSession).toolState),
+		def("state", `Show why a component rendered and what it holds: its props, its hooks (kind, call site, current value), how many times it built and the reason of each of its last builds (a hook's setter and its line, a context, new props, its parent). With an element (its ref, or role and name, text, testId), the component that rendered it (the nearest one above it); without, the screen's components that have props or hooks, in tree order (max, default 40). Use it to find the setter behind a change, or a component that renders too often. Example: {"ref": "e5"}`,
+			ro("Component state"), append(elementProps("element"),
+				schemaProp{"max", "integer", "Without an element: the most components to list (1 to 200, default 40)", nil}),
+			(*mcpSession).toolState),
 		def("logs", `List what the screen and the app logged since the last logs call, with levels: the dev warnings and errors of Tela (unknown classes, missing keys, misused hooks: "dev"), and what the app printed to standard output and error ("app"; a log/slog or log line carrying ERROR or WARN gets that level). Every other result already carries the dev warnings it caused; logs is the history. Example: {"level": "warn"}`,
 			ro("Logs"), []schemaProp{
 				{"level", "string", `Only this level and above: "info" (everything, the default), "warn" or "error"`, []string{"info", "warn", "error"}},
@@ -1300,18 +1326,26 @@ func round2(v float64) float64 { return math.Round(v*100) / 100 }
 // action runs an action on one element (or a point) and answers with the
 // new snapshot.
 func (s *mcpSession) action(ctx context.Context, o *mcpOut, req mcpReq, done string) mcpResult {
+	s.actionReply(ctx, o, req, done)
+	return o.result()
+}
+
+// actionReply is action, returning the instance's reply instead; ok is
+// false when there is none to use (an error, or a capture by the film
+// tool).
+func (s *mcpSession) actionReply(ctx context.Context, o *mcpOut, req mcpReq, done string) (rep mcpReply, ok bool) {
 	if s.capture != nil {
 		// The film tool runs the tool to learn what it would send.
 		*s.capture, s.captured = req, true
-		return o.result()
+		return rep, false
 	}
 	req.Snapshot = true
 	before := s.snapshotBefore(ctx, o)
-	if _, ok := s.send(ctx, o, req); ok {
+	if rep, ok = s.send(ctx, o, req); ok {
 		o.head = done
 		s.record(req, before)
 	}
-	return o.result()
+	return rep, ok
 }
 
 // actionTarget resolves the element of an acting tool, failing for a
@@ -1508,10 +1542,27 @@ func (s *mcpSession) toolScroll(ctx context.Context, args json.RawMessage) mcpRe
 		req.At = &mcpPoint{*a.X, *a.Y}
 		desc = fmt.Sprintf("the point (%g, %g)", *a.X, *a.Y)
 	default:
-		// The wheel goes to the center of the window.
-		desc = "the window (at its center)"
+		// The instance picks the largest scroll container that moves (an
+		// older tela: the wheel goes to the center of the window).
+		desc = "the window"
 	}
-	return s.action(ctx, &o, req, fmt.Sprintf("Scrolled by (%g, %g) over %s.", a.DX, a.DY, desc))
+	rep, ok := s.actionReply(ctx, &o, req, fmt.Sprintf("Scrolled by (%g, %g) over %s.", a.DX, a.DY, desc))
+	switch {
+	case !ok || rep.Moved == nil:
+	case !*rep.Moved && a.given():
+		o.head = fmt.Sprintf("Nothing moved: the wheel over %s by (%g, %g) found no scroll container under it that can go that way (none, or each is at its end).", desc, a.DX, a.DY)
+	case !*rep.Moved && a.X != nil:
+		o.head = fmt.Sprintf("Nothing moved: no scroll container under %s can go by (%g, %g) (none, or each is at its end).", desc, a.DX, a.DY)
+	case !*rep.Moved:
+		o.head = fmt.Sprintf("Nothing moved: no scroll container of the window can go by (%g, %g) (none overflows, or each is at its end).", a.DX, a.DY)
+	case rep.Scrolled != 0:
+		what := "the largest scroll container that could go that way"
+		if ref, found := s.refs.byNode[rep.Scrolled]; found {
+			what = s.refs.current[ref].desc + " [ref=" + ref + "], " + what
+		}
+		o.head = fmt.Sprintf("Scrolled by (%g, %g) over %s.", a.DX, a.DY, what)
+	}
+	return o.result()
 }
 
 // dragEnd is the from or to of drag.
@@ -1636,7 +1687,6 @@ func (s *mcpSession) toolOpen(ctx context.Context, args json.RawMessage) mcpResu
 	var o mcpOut
 	var a struct {
 		Preview *string `json:"preview"`
-		Dark    *bool   `json:"dark"`
 		W       float64 `json:"width"`
 		H       float64 `json:"height"`
 		Scale   float64 `json:"scale"`
@@ -1652,13 +1702,13 @@ func (s *mcpSession) toolOpen(ctx context.Context, args json.RawMessage) mcpResu
 	if !s.begin(ctx, &o) {
 		return o.result()
 	}
-	if a.Preview == nil && a.Dark == nil && a.W == 0 && a.Scale == 0 {
+	if a.Preview == nil && a.W == 0 && a.Scale == 0 {
 		rep, ok := s.send(ctx, &o, mcpReq{Op: "info"})
 		if ok {
 			if len(rep.Names) > 0 {
 				o.head = "The package's previews: " + strings.Join(rep.Names, ", ") + `. Open one with {"preview": "Name"}.`
 			} else {
-				o.head = "The package defines a single screen (Preview or App), no Previews. open can still switch dark mode or the size: {\"dark\": true}."
+				o.head = "The package defines a single screen (Preview or App), no Previews. open can still change the size: {\"width\": 390, \"height\": 844}; prefer switches dark mode: {\"dark\": true}."
 			}
 		}
 		return o.result()
@@ -1670,9 +1720,6 @@ func (s *mcpSession) toolOpen(ctx context.Context, args json.RawMessage) mcpResu
 			return o.result()
 		}
 		m.Preview = *a.Preview
-	}
-	if a.Dark != nil {
-		m.Dark = *a.Dark
 	}
 	if a.W != 0 {
 		m.W, m.H, m.SizeSet = a.W, a.H, true
@@ -1706,7 +1753,7 @@ func (s *mcpSession) toolOpen(ctx context.Context, args json.RawMessage) mcpResu
 	}
 	o.absorb(rep)
 	o.screen = describeScreen(rep)
-	snap := s.withRefs(ctx, &o, deref(rep.YAML), rep.Nodes)
+	snap := s.withRefs(ctx, &o, rep)
 	o.snapshot = &snap
 	s.curPreview, s.curW, s.curH = rep.Preview, rep.W, rep.H
 	s.noteSnapshot(deref(rep.YAML))

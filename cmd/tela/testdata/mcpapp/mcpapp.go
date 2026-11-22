@@ -3,10 +3,22 @@
 package mcpapp
 
 import (
+	"context"
+	"fmt"
+	"os"
+	"time"
+
 	"github.com/kuronosu/tela"
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/i18n"
 )
+
+// init prints before the instance points os.Stdout and os.Stderr at its
+// own file: the logs tool must keep it all the same.
+func init() {
+	fmt.Println("mcpapp: package initialized")
+	fmt.Fprintln(os.Stderr, "mcpapp: WARN initialized on stderr")
+}
 
 // title is what the test edits to see a rebuild.
 const title = "Version 1"
@@ -19,6 +31,32 @@ var Previews = tela.Previews{
 	"Long":    {Root: tela.C(long)},
 	"Spinner": {Root: tela.C(busy)},
 	"Prefs":   {Root: tela.C(prefs)},
+	"Loader":  {Root: tela.C(loader)},
+	"Panes":   {Root: tela.C(panes)},
+}
+
+// loader shows its button once a UseGo goroutine has loaded, in real time:
+// a click on it before the load ends must wait, not fail at once.
+func loader() tela.Node {
+	ready, setReady := tela.UseState(false)
+	tela.UseGo(func(ctx context.Context) {
+		select {
+		case <-time.After(400 * time.Millisecond):
+			tela.Post(func() { setReady.Set(true) })
+		case <-ctx.Done():
+		}
+	}, tela.Once)
+	return Div(Class("p-6"), If(ready, Button(Text("Loaded"))), If(!ready, P(Text("Loading"))))
+}
+
+// panes has its scroll container on the right, away from the window's
+// center, beside a pane that does not scroll.
+func panes() tela.Node {
+	return Div(Class("flex h-screen"),
+		Div(Class("w-[300px] p-4"), P(Text("Pane"))),
+		Div(Class("h-screen flex-1 overflow-y-auto"), Map(rows, func(i int) tela.Node {
+			return Div(Key(i), Class("h-10 border-b px-4"), Textf("Line %d", i))
+		})))
 }
 
 func form() tela.Node {
@@ -31,7 +69,7 @@ func form() tela.Node {
 		If(doubled, P(Text("The title was double-clicked"))),
 		Form(Class("flex gap-2"),
 			OnSubmit(func() { setGreeting.Set("Hello, " + name + "!") }),
-			Input(AriaLabel("Name"), Class("rounded border px-2 py-1"), Value(name),
+			Input(AriaLabel("Name"), TestID("name"), Class("rounded border px-2 py-1"), Value(name),
 				OnChange(func(e tela.ChangeEvent) { setName.Set(e.Value) })),
 		),
 		If(greeting != "", P(Text(greeting))),

@@ -64,6 +64,11 @@ type hitter struct {
 	// pick: the hit test of pick mode (Tree.PickTest), which ignores
 	// pointer-events and inertness.
 	pick bool
+	// only, when set, restricts the hit test to the boxes of one element
+	// (Tree.ActionPoint): its box onlyBox, onlyBox's ancestors (the keys)
+	// and its descendants; the others are not hit, as if not painted.
+	only    map[*Box]bool
+	onlyBox *Box
 }
 
 // HitTest returns the element under the point (x, y) of the window, in
@@ -106,10 +111,23 @@ func alive(bx *Box) bool {
 // outside the active modal overlay. For pick mode (hitter.pick), inert
 // boxes and those outside the modal are hit too.
 func (h *hitter) takes(bx *Box) bool {
+	if h.only != nil && !h.only[bx] && !boxUnder(bx, h.onlyBox) {
+		return false
+	}
 	if h.pick {
 		return bx.pcs != nil && bx.owner != nil && bx.owner.mounted
 	}
 	return alive(bx) && !blockedBox(bx)
+}
+
+// boxUnder reports whether bx is top or one of its descendants.
+func boxUnder(bx, top *Box) bool {
+	for b := bx; b != nil; b = b.parent {
+		if b == top {
+			return true
+		}
+	}
+	return false
 }
 
 // PickTest returns the element under the point (x, y) of the window as

@@ -15,7 +15,7 @@ import (
 const snapshotUsage = `Usage:
 
 	tela snapshot [--size WxH] [--scale N] [--dark] [--preview NAME] [-o out.png] <pkg>
-	tela snapshot --film SPAN [--every DUR] [--apng film-anim.png] [flags] <pkg>
+	tela snapshot --film SPAN [--every DUR] [--apng film-anim.png] [--click LOC | --hover LOC | --press KEY] [flags] <pkg>
 
 Renders a package's screen headlessly, with Tela's own renderer and fonts
 (the App's Fonts, then Tela's standard ones, never the system's), and writes
@@ -76,8 +76,15 @@ scaled down to keep the sheet within 1600 pixels and captioned with its time
 is the app's, not the wall's, so the film is deterministic. --apng also
 writes every frame as an animated PNG (it plays in browsers and image
 viewers; one frame is the first for programs that do not animate). A film is
-at most 60 frames and 30 s. To film what a click starts, use the film tool
-of tela mcp.
+at most 60 frames and 30 s.
+
+With --click, --hover or --press the film starts with that action instead of
+the mount: the screen is settled first, the action runs, and the first frame
+is right after it (a dialog that opens, a hover transition, a menu a key
+shows). An element is named as Playwright's selectors name it:
+role=button[name="Open"] (the name may be left out), text=Open (any case,
+contained) or text="Open" (exact), or testid=open (an h.TestID). For a
+longer session use the film tool of tela mcp.
 
 Flags:
 
@@ -96,6 +103,10 @@ Flags:
 	                 at least 1ms). Browsers play an animated PNG's frames
 	                 shorter than 20 ms slower
 	--apng file      with --film: also write the animated PNG
+	--click LOC      with --film: film what a click on the element starts
+	--hover LOC      with --film: film what moving the pointer over it starts
+	--press KEY      with --film: film what a key starts, in Playwright's
+	                 syntax (Escape, Enter, Control+k), on the focused element
 `
 
 // snapshotOptions are the parsed arguments of `tela snapshot`.
@@ -103,12 +114,14 @@ type snapshotOptions struct {
 	renderOptions
 	Out  string
 	APNG string // with Film: the animated PNG to write
+	// ActArg is the flag's value of the action, for the output.
+	ActArg string
 }
 
 // parseSnapshotArgs parses the arguments of `tela snapshot`.
 func parseSnapshotArgs(args []string) (snapshotOptions, error) {
 	opts := snapshotOptions{Out: "snapshot.png"}
-	var size, film, every string
+	var size, film, every, click, hover, press string
 	outSet := false
 	pkg, err := parseFlags("snapshot", args, func(fs *flag.FlagSet) {
 		opts.register(fs, &size, true)
@@ -116,6 +129,9 @@ func parseSnapshotArgs(args []string) (snapshotOptions, error) {
 		fs.StringVar(&film, "film", "", "")
 		fs.StringVar(&every, "every", "", "")
 		fs.StringVar(&opts.APNG, "apng", "", "")
+		fs.StringVar(&click, "click", "", "")
+		fs.StringVar(&hover, "hover", "", "")
+		fs.StringVar(&press, "press", "", "")
 	})
 	if err != nil {
 		return opts, err
@@ -133,8 +149,32 @@ func parseSnapshotArgs(args []string) (snapshotOptions, error) {
 			return opts, errors.New("--every needs --film: say how long to film, for example --film 600ms --every 50ms")
 		case opts.APNG != "":
 			return opts, errors.New("--apng needs --film: say how long to film, for example --film 600ms --apng motion.png")
+		case click != "" || hover != "" || press != "":
+			return opts, errors.New(`--click, --hover and --press need --film: say how long to film, for example --film 600ms --click 'role=button[name="Open"]'`)
 		}
 		return opts, nil
+	}
+	given := 0
+	for _, v := range []string{click, hover, press} {
+		if v != "" {
+			given++
+		}
+	}
+	switch {
+	case given > 1:
+		return opts, errors.New("a film starts with one action: give one of --click, --hover and --press")
+	case click != "" || hover != "":
+		op, v := "click", click
+		if hover != "" {
+			op, v = "hover", hover
+		}
+		loc, err := parseFilmLocator(op, v)
+		if err != nil {
+			return opts, err
+		}
+		opts.Act, opts.ActArg = &filmAct{Op: op, Loc: loc}, strings.TrimSpace(v)
+	case press != "":
+		opts.Act, opts.ActArg = &filmAct{Op: "press", Key: strings.TrimSpace(press)}, strings.TrimSpace(press)
 	}
 	if opts.Film, err = parseFilmDuration("film", film); err != nil {
 		return opts, err
@@ -246,7 +286,11 @@ func snapshotFilm(opts snapshotOptions, out string, stdout, stderr io.Writer) er
 	if err := writeFileAtomic(out, sheet); err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "wrote %s (%d frames, 0 to %d ms every %d ms)%s\n", out, len(frames), opts.Film.Milliseconds(), opts.Every.Milliseconds(), res.describe())
+	after := ""
+	if opts.Act != nil {
+		after = ", " + opts.Act.describe(opts.ActArg)
+	}
+	fmt.Fprintf(stdout, "wrote %s (%d frames, 0 to %d ms every %d ms%s)%s\n", out, len(frames), opts.Film.Milliseconds(), opts.Every.Milliseconds(), after, res.describe())
 	if apng != "" {
 		data, err := encodeAPNG(frames)
 		if err != nil {

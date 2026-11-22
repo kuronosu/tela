@@ -253,3 +253,55 @@ func TestInstrumentInlineTarget(t *testing.T) {
 		t.Errorf("the wrapped link's center %v hits %d within %v", wc, hit, within)
 	}
 }
+
+// A target whose visible rectangle's center and quarters are outside the
+// rounded corner of a clip around it (a status dot in the corner of a
+// round avatar): the action point is a point of the rectangle inside the
+// corner, where hit testing reaches it. Another element painted over it
+// does not move the point: covering is HitElement's to report.
+func TestInstrumentActionPointRoundedClip(t *testing.T) {
+	tr := newHitTree(t, div(Class("relative h-full"),
+		// A circle of radius 50 centered at (50, 50); the dot is laid out
+		// at 84 to 100 on both axes, where only a sliver near (84, 84) is
+		// inside the circle.
+		div(Class("absolute left-0 top-0 size-[100px] rounded-full overflow-clip"),
+			div(Key("dot"), Class("absolute right-0 bottom-0 size-[16px]"))),
+		div(Key("plain"), Class("absolute left-[200px] top-0 size-[40px]")),
+		div(Key("cover"), Class("absolute left-[190px] top-0 size-[60px]")),
+	))
+	id := idOfKey(t, tr, "dot")
+	vis, moved, err := tr.RevealElement(id)
+	if err != nil || moved || vis != (gfx.Rect{X0: 84, Y0: 84, X1: 100, Y1: 100}) {
+		t.Fatalf("the dot's visible part %v moved %v err %v", vis, moved, err)
+	}
+	for i, c := range actionCandidates(vis)[:5] {
+		if _, _, within := tr.HitElement(c.X, c.Y, id); within {
+			t.Fatalf("candidate %d %v of the center and quarters reaches the dot: the test no longer needs the grid", i, c)
+		}
+	}
+	p, ok := tr.ActionPoint(id, vis)
+	if !ok || !vis.Contains(p) {
+		t.Fatalf("no action point for the dot: %v %v", p, ok)
+	}
+	if hit, _, within := tr.HitElement(p.X, p.Y, id); !within {
+		t.Errorf("the action point %v hits %d, not the dot", p, hit)
+	}
+	if dx, dy := p.X-50, p.Y-50; dx*dx+dy*dy > 50*50 {
+		t.Errorf("the action point %v is outside the circle", p)
+	}
+
+	// Covered by a later sibling: the point is still the center, and the
+	// hit test there finds the cover.
+	pid := idOfKey(t, tr, "plain")
+	pvis, _, _ := tr.RevealElement(pid)
+	pp, ok := tr.ActionPoint(pid, pvis)
+	if !ok || pp != pvis.Center() {
+		t.Fatalf("the covered box's action point %v %v, want its center %v", pp, ok, pvis.Center())
+	}
+	if hit, _, within := tr.HitElement(pp.X, pp.Y, pid); within || hit != idOfKey(t, tr, "cover") {
+		t.Errorf("the covered box's center hits %d within %v, want the cover", hit, within)
+	}
+	if _, ok := tr.ActionPoint(pid, gfx.Rect{}); ok {
+		t.Error("an empty visible part has an action point")
+	}
+}

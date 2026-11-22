@@ -266,7 +266,7 @@ app becomes yours.
 
 ```text
 tela snapshot [--size WxH] [--scale N] [--dark] [--preview NAME] [-o out.png] <pkg>
-tela snapshot --film SPAN [--every DUR] [--apng anim.png] [flags] <pkg>
+tela snapshot --film SPAN [--every DUR] [--apng anim.png] [--click LOC | --hover LOC | --press KEY] [flags] <pkg>
 ```
 
 | Flag | Meaning |
@@ -279,6 +279,7 @@ tela snapshot --film SPAN [--every DUR] [--apng anim.png] [flags] <pkg>
 | `--film SPAN` | Film the first `SPAN` (`600ms`, `1.5s`) of the app's clock instead of a still: see [Film](#film) |
 | `--every DUR` | With `--film`: the time between frames (default `50ms`, at least `1ms`) |
 | `--apng file` | With `--film`: also write every frame as an animated PNG |
+| `--click LOC`, `--hover LOC`, `--press KEY` | With `--film`: film what that action starts instead of the mount |
 
 ```bash
 tela snapshot --size 480x200 --scale 2 --dark -o counter-dark.png ./examples/counter
@@ -310,8 +311,22 @@ format: it plays in browsers and image viewers, and a program that does not
 animate shows the first frame. Frames after the first hold only the box that
 changed, so a small motion in a big window is a small file; each lasts until
 the next frame's time and the last stays a second. Browsers play frames
-shorter than 20 ms slower than asked. A film starts at the mount; to film
-what an action starts, use the `film` tool of [`tela mcp`](#tela-mcp).
+shorter than 20 ms slower than asked.
+
+A film starts at the mount, or with `--click`, `--hover` or `--press` at an
+action: the screen is settled first, the action runs, and the first frame is
+right after it (a dialog opening, a hover transition, a menu a key shows). The
+element is named as Playwright's selectors name it: `role=button[name="Open"]`
+(the name may be left out), `text=Open` (contained, any case) or `text="Open"`
+(exact), or `testid=open` (an `h.TestID`); a key is in Playwright's syntax
+(`Escape`, `Control+k`). An element that is not on the screen is the error of
+the run, with what the screen has.
+
+```bash
+tela snapshot --film 300ms --every 100ms --preview Slide --click 'role=button[name="Slide"]' ./myapp
+```
+
+For a longer session, use the `film` tool of [`tela mcp`](#tela-mcp).
 
 Rendering uses Tela's own rasterizer and its standard fonts (the fonts of the
 package's `App.Fonts` first, never the system's), so the PNG is the same on
@@ -746,13 +761,13 @@ services are not reachable through the tools yet.
 | `hover` | Moves the pointer over an element |
 | `fill` | Replaces the text of a field; `submit: true` presses Enter after |
 | `press` | Presses a key or combo in Playwright's syntax (`Enter`, `Shift+Tab`, `Control+a`), on the focused element or on one it focuses first |
-| `scroll` | Scrolls the wheel over an element by `dx`, `dy`; without an element, at a point (`x`, `y`) or at the center of the window |
+| `scroll` | Scrolls the wheel over an element by `dx`, `dy`; without an element, at a point (`x`, `y`) or over the largest scroll container that can move that way; the answer says when nothing moved |
 | `drag` | Drags `from` an element or point `to` another, or by `dx`, `dy` |
 | `resize` | Changes the window's `width` and `height` or `scale`, keeping the state |
-| `open` | Mounts another `preview`, `dark` mode, size or scale afresh; without arguments, lists the previews |
+| `open` | Mounts another `preview`, size or scale afresh; without arguments, lists the previews (dark mode is `prefer`'s) |
 | `wait` | Advances the app's clock by `ms` (timers, animations), or waits for a `text` to appear or `textGone` to go |
 | `inspect` | The layout tree of `tela inspect --layout`, whole or of one element |
-| `state` | Why a component rendered and what it holds: props, hooks (kind, call site, value), build count and the reason of each of its last builds, for a `ref` (its nearest component) or for the screen's components that have props or hooks (`max`) |
+| `state` | Why a component rendered and what it holds: props, hooks (kind, call site, value), build count and the reason of each of its last builds, for an element (its nearest component) or for the screen's components that have props or hooks (`max`) |
 | `logs` | The dev warnings and errors and the app's output since the last `logs` call, with levels (`level`, `all`) |
 | `perf` | The last `frames` frames, or with `action: true` the frames the last click, press or wait caused: time per phase, what each built, styled, laid out and repainted, and a summary |
 | `prefer` | `reducedMotion`, `highContrast`, `textScale`, `locale`, `direction` and `dark`; without arguments, the current ones |
@@ -764,7 +779,8 @@ services are not reachable through the tools yet.
 
 An element is named by the `ref` of the latest snapshot, or by `role` and
 `name`, `text` or `testId` (`telatest`'s locators; `nth` picks one of several).
-Every tool that acts answers with the new snapshot. A ref is the element
+Every tool that acts answers with the new snapshot and a line on the frames
+it caused (how many, their time, the slowest phase). A ref is the element
 itself, not its role and name: it stays with the element across actions
 and rebuilds of the tree whatever happens to its label or its siblings (a
 counter's text changes, rows before it are removed), for as long as the
@@ -775,8 +791,8 @@ was mounted afresh the refs are matched again by role, name and position, so
 rebuilt. A failed action (an element not found, a disabled button, a panic in
 a handler) is an error result of that call: the instance keeps running, and
 after a panic it mounts the screen afresh. An element that is not on the
-screen fails at once when nothing is pending (no animation, timer or queued
-update); while something is, the call waits up to two seconds for it to
+screen fails at once when nothing that can change the screen is pending (no animation, timer, queued
+update, or load on a `UseAsync` or `UseGo` goroutine; a caret blink, a spinner or a scrollbar fade does not count), and so does `wait` for a `text` that cannot come; while something is, the call waits up to two seconds for it to
 appear. Use `wait {"text": "Loaded"}` for data that arrives from a goroutine.
 The client's `notifications/cancelled` stops a wait or an action in progress,
 keeps the app's state and sends no response for that call.
@@ -791,9 +807,11 @@ paths are those of [`tela inspect`](#tela-inspect), and so is the `"src"` of
 - button "Count: 1" [ref=e4] [src=counter.go:21]
 ```
 
-**`state`, `perf`, `logs`.** `state {"ref": "e4"}` answers for the component
-that rendered the element: the setter behind its last build is named with its
-line.
+**`state`, `perf`, `logs`.** `state {"ref": "e4"}` (or any element: `role`
+and `name`, `text`, `testId`) answers for the component that rendered the
+element: the setter behind its last build is named with its line. A
+component made at package level, as the `tela.C(Form)` of a `Previews`
+entry, is shown at its function's declaration.
 
 ```text
 ### app.Counter
@@ -808,7 +826,8 @@ are those of the instance on this machine (headless, no GPU): compare frames
 with each other, and read the counts (built, styled, laid out, repainted
 pixels) as the exact part. `logs` lists what the screen and the app logged
 since its last call: the dev warnings and errors of Tela (`dev`) and what the
-app printed (`app`; a `log/slog` or `log` line carrying `ERROR` or `WARN` gets
+app printed (`app`, from its first line: what the package's `init` functions
+print is kept too; a `log/slog` or `log` line carrying `ERROR` or `WARN` gets
 that level); every other result already carries the ones it caused.
 
 **`prefer`.** What the user of the app prefers, to see the screen in it:
@@ -820,8 +839,7 @@ and the answer says each one is `live`. The locale is
 the preference has no effect). `{"direction": "rtl"}` puts an `h.Dir` around
 the whole screen, which is part of the tree: the screen is mounted afresh
 (state reset, refs new) with every preference set, and the answer says so.
-The preferences stay across rebuilds and `open`. `dark` is also an argument of
-`open`, which always mounts afresh.
+The preferences stay across rebuilds and `open`.
 
 ### `film` and `test`
 
@@ -842,7 +860,7 @@ grid of at most 24 frames, each scaled down and captioned with its time; at most
 60 frames and 30 000 ms in all) and the snapshot of the app once settled, so the
 last frame can be compared with where it ends up. `apng` also writes every frame
 as an animated PNG to a path. The same sheet and animation come from
-[`tela snapshot --film`](#film) for the motion a mount starts.
+[`tela snapshot --film`](#film), with `--click`, `--hover` or `--press`.
 
 **`test`.** The session becomes a regression test:
 
@@ -856,8 +874,10 @@ its directory; a relative path is relative to it), then runs `go vet` and
 What it records is the acting calls since the screen was last mounted: `click`,
 `fill`, `press`, `hover`, `scroll`, `drag`, `wait`, `resize`, the actions of
 `film`, and `prefer` where `telatest` has the method (dark mode, reduced motion,
-high contrast, text scale). The mount has the session's preview, size, scale,
-dark mode and preferences (and the package's `App`); `open` starts another
+high contrast, text scale, locale). The mount has the session's preview, size,
+scale, dark mode and preferences (and the package's `App`): a locale is
+`i18n.SetLocale` before it (put back when the test ends), a direction the
+`h.Dir` around the screen that `prefer` put; `open` starts another
 mount in the same test; a change of the Go source starts the recording over,
 because the steps no longer say what the screen does. Each action is the
 `telatest` call for it, and an element is the most specific stable locator for
@@ -867,16 +887,17 @@ it, never a node identity:
 app := telatest.Mount(t, Previews["Form"], telatest.Size(480, 320))
 app.Click(telatest.ByRole("button", "Count: 0"))
 app.ExpectRole("button", "Count: 1")
-app.Fill(telatest.ByRole("textbox", "Name"), "Ana")
+app.Fill(telatest.ByTestID("name"), "Ana")
 app.ExpectValue(telatest.ByRole("textbox", "Name"), "Ana")
 app.Press("Enter")
 app.ExpectText("Hello, Ana!")
 app.Advance(100 * time.Millisecond)
 ```
 
-A ref becomes `ByRole(role, name)`, with `.Nth(i)` only when several elements of
-the snapshot look alike; a `testId` the agent gave stays `ByTestID`, and
-`text` stays `ByText`. After each action come checks of **what changed** in the
+A ref becomes `ByTestID` when its element has an `h.TestID` no other element
+has (Playwright's codegen prefers test ids too), else `ByRole(role, name)`,
+with `.Nth(i)` only when several elements of the snapshot look alike; a
+`testId` the agent gave stays `ByTestID`, and `text` stays `ByText`. After each action come checks of **what changed** in the
 snapshot (an element that appeared, a state that flipped to `Checked(true)` or
 `Expanded(true)`, a field's value, a text shown or gone, an element removed),
 at most eight, not a copy of the whole snapshot: the test breaks when the
@@ -886,8 +907,9 @@ to overwrite another one. If the test does not compile or vet it is not kept
 (the error shows what was written); if it compiles but fails it is kept, with
 the failure.
 
-Neither tool is available over [`--attach`](#tela-mcp---attach) yet: they need
-the headless app's controllable clock and mount.
+Over [`--attach`](#tela-mcp---attach) both work on the real window: `film`
+takes the frames it presents in real time, and `test` writes the session as a
+test of the package `tela dev` runs (see there).
 
 The instance is built against the `tela` your module requires, which may be
 older than the `tela` binary: the source lines, `state`, `perf` and `prefer`
@@ -941,17 +963,19 @@ because the app, its clock and its window are the person's and `tela dev`'s:
 | `windows` | New: lists ID, title, logical size, display scale and which window has the keyboard focus |
 | `snapshot` | The real window's aria snapshot, with refs and `[src=file:line]`. Refs are semantics node IDs per window, as in the headless server; after a `tela dev` reload (a new child, whose IDs start again) they are matched again by role, name and position, and the result says the app was built again |
 | `screenshot` | The frame the window presents, in real pixels at the display's scale (the answer says it: 480x400 logical at scale 2 is 960x800 pixels); with a `ref`, that element with an 8 px margin |
-| `click`, `hover`, `fill`, `press`, `scroll`, `drag` | Inject pointer, key and text events into the real window at the element's painted position (the path a person's input takes), wait until the app has drawn no frame for 100 ms (at most 5 s: an animation never settles, and the answer says so), and answer with the new snapshot. `fill` clicks the field, selects all and types the text, so `OnChange` fires per character; `press` with a `ref` clicks the field to focus it, and refuses an element a click would activate (use `Tab`). An element's center must be inside the window: scroll it into view first. `testId` is not available (the snapshot has no test ids): use `ref`, `role` and `name`, or `text` |
+| `click`, `hover`, `fill`, `press`, `scroll`, `drag` | Inject pointer, key and text events into the real window at the element's painted position (the path a person's input takes), wait until the app has drawn no frame for 100 ms (at most 5 s: an animation never settles, and the answer says so), and answer with the new snapshot. `fill` clicks the field, selects all and types the text, so `OnChange` fires per character; `press` with a `ref` clicks the field to focus it, and refuses an element a click would activate (use `Tab`). The element is scrolled into view first and acted on at a point where the app paints it (inside rounded corners and rotations), and refused when another element covers it there; `drag` presses on its start before it scrolls its end into view. `text` also finds a text of a paragraph that has no box of its own (beside a link or a button). `testId` is not available (the snapshot has no test ids): use `ref`, `role` and `name`, or `text` |
 | `wait` | Waits real time (`ms`, at most 60 s) and/or up to 10 s for a `text` to appear or `textGone` to go: the app's clock runs by itself |
-| `inspect`, `state`, `perf`, `logs` | Read the running app through the instrumentation `tela dev` turns on for the attached client: the layout tree, the component behind a `ref`, the frames' time per phase (`action: true` for the frames of the last acting call) and what `tela dev` logged (the dev warnings and errors of Tela, and the app's standard error; standard output is not kept) |
+| `inspect`, `state`, `perf`, `logs` | Read the running app through the instrumentation `tela dev` turns on for the attached client: the layout tree, the component behind an element, the frames' time per phase (`action: true` for the frames of the last acting call, which its answer sums up) and what `tela dev` logged (the dev warnings and errors of Tela, and the app's standard error; standard output is not kept) |
 | `lint` | `tela lint -json` on the session's package, as `tela dev` was given it |
+| `film` | Takes the frame the window presents every `every` ms of real time over `span` ms, after an `action` or not: the times are the wall clock's, close to the ones asked (each frame is captioned with the time it was taken), and the motion runs at this machine's speed; `apng` writes in the module of `tela dev`'s package |
+| `test` | Writes the acting calls on the app's first window since `tela dev` last built the app as a `telatest` test of its package, which mounts the screen headlessly (the package's `var App`, `Preview` or `tela dev`'s preview) at the window's size and scale, then runs `go vet` and the test. The app's state when the recording started is not in the test: act from a fresh start for a test that passes. An action on another window, or one that failed part-way, stops the recording until the next build |
 | `resize`, `open`, `prefer` | Not available (they answer so): the window and the system's preferences are the person's, and there are no previews to mount; use the headless server |
 
 `[src=]` is known for what the app built since the session was instrumented
 (the first call): an element built earlier has none until it rebuilds, so a
 snapshot taken right after attaching shows few until the app changes or
-reloads. The paths are relative to the directory `tela mcp --attach` runs in,
-like `tela dev`'s; the `Site` of a hook is shown as that process sees it.
+reloads. The paths are relative to the directory `tela dev` runs in, and so
+are those of `state` (its components and hooks).
 
 ## tela lsp
 

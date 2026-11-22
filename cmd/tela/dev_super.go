@@ -283,6 +283,7 @@ func newSupervisor(cfg supervisorConfig) *supervisor {
 	}
 	if cfg.tools {
 		s.tools = newToolsServer(cfg.opts.Pkg, cfg.pkgDir, cfg.toolsDir, s.log.verbosef)
+		s.tools.preview = cfg.opts.Preview
 		s.log.tee = s.tools.note
 	}
 	s.q.init()

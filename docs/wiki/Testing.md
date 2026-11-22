@@ -286,6 +286,12 @@ the result once a run ends. `telatest.Render`, `AriaSnapshot` and `LayoutJSON`
 (so `tela snapshot` and `tela inspect`) wait up to the `Timeout` too, then
 capture the loading state with a warning naming the run.
 
+Each item of `app.Pending()` has a `Kind` (`telatest.PendingTimer`,
+`PendingAsync`, `PendingCaret`...), so a test or a tool checks what keeps the
+app awake without matching text. A `tela.UseGo` goroutine that has not
+returned is pending too (`PendingGo`): nothing waits for it, as it may live as
+long as its component, and `ExpectIdle` does not count it.
+
 ## Goldens
 
 [`App.Golden`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Golden) compares the window's pixels with `testdata/<name>` next

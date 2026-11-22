@@ -115,7 +115,7 @@ func newDevtoolsSource(c *toolsClient) *devtoolsSource {
 
 func (s *devtoolsSource) Info(ctx context.Context) (devtools.Info, error) {
 	i, err := s.c.Info(ctx)
-	return devtools.Info(i), err
+	return devtools.Info{Pkg: i.Pkg, Dir: i.Dir, PID: i.PID, Started: i.Started, Build: i.Build, Protocol: i.Protocol}, err
 }
 
 func (s *devtoolsSource) Windows(ctx context.Context) ([]devtools.Window, error) {

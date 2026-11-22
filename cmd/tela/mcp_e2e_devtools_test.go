@@ -75,6 +75,10 @@ func TestMCPDevTools(t *testing.T) {
 	if r.isError || !strings.Contains(r.text, `button "Count: 1"`) {
 		t.Fatalf("click:\n%s", r.text)
 	}
+	// The acting call carries a summary of the frames it caused.
+	if !regexp.MustCompile(`### Frames\n\d+ frame\(s\), numbered \d+ to \d+ \(caused by this call\)`).MatchString(r.text) || !strings.Contains(r.text, `perf {"action": true} lists them`) {
+		t.Errorf("click lacks the frames it caused:\n%s", r.text)
+	}
 	r = c.tool("perf", map[string]any{"action": true})
 	if r.isError || !strings.Contains(r.text, "(the frames the last acting call caused)") || !strings.Contains(r.text, "Slowest phase:") ||
 		!regexp.MustCompile(`- frame \d+: [0-9.]+ ms .*built [1-9]`).MatchString(r.text) {
@@ -98,8 +102,26 @@ func TestMCPDevTools(t *testing.T) {
 	if r.isError || !strings.Contains(r.text, "### app.form") || !strings.Contains(r.text, "components with props or hooks") {
 		t.Errorf("state of the screen:\n%s", r.text)
 	}
+	// An element named by role and name, not only by ref; the component,
+	// made at package level by the tela.C(form) of Previews, has the
+	// declaration of its function as its source.
+	formLine := fixtureLine(t, src, `func form() tela.Node {`)
+	r = c.tool("state", map[string]any{"role": "button", "name": "Count: 1"})
+	if r.isError || !strings.Contains(r.text, "### app.form made at mcpapp.go:"+strconv.Itoa(formLine)+"\n") {
+		t.Errorf("state of the count button by role and name (form at line %d):\n%s", formLine, r.text)
+	}
+	r = c.tool("state", map[string]any{"text": "Count: 1"})
+	if r.isError || !strings.Contains(r.text, "### app.form") {
+		t.Errorf("state of the count button by text:\n%s", r.text)
+	}
 
-	// logs: a dev error of the screen, with its level, once.
+	// logs: what the package printed when it was initialized, before the
+	// instance redirected its output; then a dev error of the screen, with
+	// its level, once.
+	r = c.tool("logs", nil)
+	if r.isError || !strings.Contains(r.text, "mcpapp: package initialized") || !strings.Contains(r.text, "[warn] app: mcpapp: WARN initialized on stderr") {
+		t.Errorf("logs lacks the output of the package's init:\n%s", r.text)
+	}
 	r = c.tool("logs", nil)
 	if r.isError || !strings.Contains(r.text, "No new log entries") {
 		t.Errorf("logs of a quiet screen:\n%s", r.text)
@@ -122,6 +144,11 @@ func TestMCPDevTools(t *testing.T) {
 	}
 
 	// prefer: live where the app can take it, a remount for the direction.
+	// Dark mode is prefer's, not open's.
+	r = c.tool("open", map[string]any{"preview": "Prefs", "dark": true})
+	if !r.isError || !strings.Contains(r.text, `prefer {"dark": true}`) {
+		t.Errorf("open took dark:\n%s", r.text)
+	}
 	r = c.tool("open", map[string]any{"preview": "Prefs"})
 	if r.isError || !strings.Contains(r.text, "Reduced motion: false") {
 		t.Fatalf("open Prefs:\n%s", r.text)

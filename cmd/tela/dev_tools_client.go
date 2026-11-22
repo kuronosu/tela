@@ -224,8 +224,12 @@ func (c *toolsClient) call(ctx context.Context, method string, params, result an
 
 // toolsInfo is the session's info.
 type toolsInfo struct {
-	Pkg      string    `json:"pkg"`
-	Dir      string    `json:"dir,omitempty"`
+	Pkg string `json:"pkg"`
+	Dir string `json:"dir,omitempty"`
+	// Cwd is tela dev's working directory, which its children inherit,
+	// and Preview its --preview (both empty from an older tela dev).
+	Cwd      string    `json:"cwd,omitempty"`
+	Preview  string    `json:"preview,omitempty"`
 	PID      int       `json:"pid"`
 	Started  time.Time `json:"started"`
 	Build    int       `json:"build"`
@@ -363,11 +367,14 @@ func (c *toolsClient) Hit(ctx context.Context, window uint32, x, y float32, targ
 }
 
 // toolsReveal is the answer of reveal: the part of the element visible
-// once its scroll containers reach their targets (nil for none), and
-// whether a scroll is under way.
+// once its scroll containers reach their targets (nil for none), whether
+// a scroll is under way, and, once none is, a point of the visible part
+// where the element is painted (core.Tree.ActionPoint; nil from an older
+// Tela, or when none is found).
 type toolsReveal struct {
-	Visible *gfx.Rect `json:"visible"`
-	Moved   bool      `json:"moved"`
+	Visible *gfx.Rect  `json:"visible"`
+	Moved   bool       `json:"moved"`
+	Point   *gfx.Point `json:"point,omitempty"`
 }
 
 // Reveal scrolls element id into view.

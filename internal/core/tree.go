@@ -195,6 +195,9 @@ type Tree struct {
 	// asyncMu guards it, as goroutines end runs.
 	asyncMu   sync.Mutex
 	asyncRuns map[asyncRun]struct{}
+	// goRuns are the UseGo goroutines that have not returned (pending.go),
+	// guarded by asyncMu.
+	goRuns map[*goRun]struct{}
 	// locals are the values of TreeLocal (engine.go).
 	locals map[any]any
 	// autoDirs are the elements with Dir("auto") and whether their text

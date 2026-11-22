@@ -181,10 +181,6 @@ func (s *mcpSession) toolState(ctx context.Context, args json.RawMessage) mcpRes
 	}
 	req := mcpReq{Op: "state", Max: a.Max}
 	if a.given() {
-		if a.Ref == "" {
-			o.fail(`state names the element by its ref from the latest snapshot: {"ref": "e5"}; without one it lists the components of the screen`)
-			return o.result()
-		}
 		e, err := s.element(ctx, &o, a.elementArgs)
 		if err != nil {
 			o.fail(err.Error())
@@ -454,7 +450,7 @@ func (s *mcpSession) toolPrefer(ctx context.Context, args json.RawMessage) mcpRe
 		// The snapshot of the reply is of the new mount: its refs are new.
 		o.snapshot = nil
 		if rep.YAML != nil {
-			snap := s.withRefs(ctx, &o, *rep.YAML, rep.Nodes)
+			snap := s.withRefs(ctx, &o, rep)
 			o.snapshot = &snap
 			s.noteSnapshot(*rep.YAML)
 		}
