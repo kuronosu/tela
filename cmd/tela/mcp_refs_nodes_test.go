@@ -9,7 +9,7 @@ import (
 // (ids[i] is the identity of line i).
 func refsForNodes(tab *refTable, yaml string, ids ...uint64) string {
 	lines, cands, _, _ := prepareRefs(yaml)
-	return tab.assignNodes(lines, cands, ids)
+	return tab.assignNodes(lines, cands, ids, nil)
 }
 
 // TestRefsFollowTheirElement checks that a ref is the element, whatever

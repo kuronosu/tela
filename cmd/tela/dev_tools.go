@@ -112,11 +112,12 @@ var errNoApp = errors.New("no app is running (it is starting, or it crashed: sav
 
 // toolsServer is the tools socket of a supervisor.
 type toolsServer struct {
-	pkg    string
-	pkgDir string // the package's absolute directory
-	dir    string // the directory of the discovery file
-	logf   func(format string, args ...any)
-	log    toolsLog
+	pkg     string
+	pkgDir  string // the package's absolute directory
+	preview string // tela dev's --preview, "" for none
+	dir     string // the directory of the discovery file
+	logf    func(format string, args ...any)
+	log     toolsLog
 
 	host    *remote.Host
 	ln      net.Listener
@@ -850,7 +851,7 @@ func (c *toolsConn) call(method string, raw json.RawMessage) (any, error) {
 		// cwd is tela dev's working directory, which its children
 		// inherit: the one their [src=] paths are relative to.
 		cwd, _ := os.Getwd()
-		return map[string]any{"pkg": ts.pkg, "dir": ts.pkgDir, "cwd": cwd, "pid": os.Getpid(), "started": ts.started, "build": build, "protocol": toolsProtocol}, nil
+		return map[string]any{"pkg": ts.pkg, "dir": ts.pkgDir, "cwd": cwd, "preview": ts.preview, "pid": os.Getpid(), "started": ts.started, "build": build, "protocol": toolsProtocol}, nil
 	case "windows":
 		var ws []toolsWindow
 		if err := ts.onUI(func() { ws = toolsWindows(ts.host.WindowInfos()) }); err != nil {

@@ -226,9 +226,10 @@ func (c *toolsClient) call(ctx context.Context, method string, params, result an
 type toolsInfo struct {
 	Pkg string `json:"pkg"`
 	Dir string `json:"dir,omitempty"`
-	// Cwd is tela dev's working directory, which its children inherit
-	// (empty from an older tela dev).
+	// Cwd is tela dev's working directory, which its children inherit,
+	// and Preview its --preview (both empty from an older tela dev).
 	Cwd      string    `json:"cwd,omitempty"`
+	Preview  string    `json:"preview,omitempty"`
 	PID      int       `json:"pid"`
 	Started  time.Time `json:"started"`
 	Build    int       `json:"build"`

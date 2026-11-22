@@ -450,7 +450,7 @@ func (s *mcpSession) toolPrefer(ctx context.Context, args json.RawMessage) mcpRe
 		// The snapshot of the reply is of the new mount: its refs are new.
 		o.snapshot = nil
 		if rep.YAML != nil {
-			snap := s.withRefs(ctx, &o, *rep.YAML, rep.Nodes)
+			snap := s.withRefs(ctx, &o, rep)
 			o.snapshot = &snap
 			s.noteSnapshot(*rep.YAML)
 		}

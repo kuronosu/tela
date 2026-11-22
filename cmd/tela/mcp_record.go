@@ -366,8 +366,9 @@ func fieldRole(role string) bool { return role == "textbox" || role == "searchbo
 
 // preferLines are the Go lines that put a test's app in the preferences cur
 // from prev, as the prefer tool did live: dark mode, reduced motion, high
-// contrast and the text scale. A locale or a direction has no line (the
-// mount takes them, or the test cannot), and comes back as a comment.
+// contrast, the text scale and the locale (tela/i18n's). A direction has
+// no line: the prefer tool mounts the screen afresh for it, and the mount
+// of the next segment takes it.
 func preferLines(prev, cur mcpMount) []string {
 	var out []string
 	if prev.Dark != cur.Dark {
@@ -383,7 +384,14 @@ func preferLines(prev, cur mcpMount) []string {
 		out = append(out, fmt.Sprintf("app.SetTextScale(%g)", c))
 	}
 	if prev.Prefer.Locale != cur.Prefer.Locale || prev.Prefer.LocaleSet != cur.Prefer.LocaleSet {
-		out = append(out, fmt.Sprintf("// the session set the locale to %q; the test does not reproduce it", cur.Prefer.Locale))
+		loc := cur.Prefer.Locale
+		if !cur.Prefer.LocaleSet {
+			loc = ""
+		}
+		out = append(out, fmt.Sprintf("i18n.SetLocale(%q)", loc))
+		if !prev.Prefer.LocaleSet {
+			out = append(out, `t.Cleanup(func() { i18n.SetLocale("") })`)
+		}
 	}
 	return out
 }

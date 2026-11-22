@@ -180,9 +180,13 @@ type mcpReply struct {
 	// Nodes, with YAML, is the identity of the element each line prints
 	// (0: none), when the instance's telatest gives them
 	// (AriaSnapshotNodes).
-	Nodes  []uint64 `json:"nodes,omitempty"`
-	PNG    []byte   `json:"png,omitempty"`
-	Layout string   `json:"layout,omitempty"`
+	Nodes []uint64 `json:"nodes,omitempty"`
+	// TestIDs, with Nodes, is the test id of each line's element when no
+	// other element has it (nil when none has one): the test tool names
+	// it by ByTestID.
+	TestIDs []string `json:"testIds,omitempty"`
+	PNG     []byte   `json:"png,omitempty"`
+	Layout  string   `json:"layout,omitempty"`
 	// Subtree says Layout is the subtree of the located element
 	// (LayoutJSONOf); without it Layout is the whole window's and, for a
 	// located element, Bounds says where it is (an instance built against a
@@ -495,6 +499,7 @@ type telaMCPReply struct {
 	Output     string      ` + "`json:\"output,omitempty\"`" + `
 	YAML       *string     ` + "`json:\"yaml,omitempty\"`" + `
 	Nodes      []uint64    ` + "`json:\"nodes,omitempty\"`" + `
+	TestIDs    []string    ` + "`json:\"testIds,omitempty\"`" + `
 	PNG        []byte      ` + "`json:\"png,omitempty\"`" + `
 	Layout     string      ` + "`json:\"layout,omitempty\"`" + `
 	Subtree    bool        ` + "`json:\"subtree,omitempty\"`" + `
@@ -758,8 +763,9 @@ func (s *telaMCPSession) handle(req telaMCPReq) telaMCPReply {
 	if req.Snapshot && s.app != nil {
 		var y string
 		var nodes []uint64
-		if fail, panicked := telaMCPProtect(func() { y, nodes = s.snapshot() }); fail == "" && panicked == "" {
-			rep.YAML, rep.Nodes = &y, nodes
+		var tids []string
+		if fail, panicked := telaMCPProtect(func() { y, nodes = s.snapshot(); tids = s.testIDs(nodes) }); fail == "" && panicked == "" {
+			rep.YAML, rep.Nodes, rep.TestIDs = &y, nodes, tids
 		} else if panicked != "" {
 			rep.Panic += panicked
 			s.remount()
@@ -789,6 +795,41 @@ func (s *telaMCPSession) output() string {
 	n, _ := s.out.ReadAt(buf, s.outRead)
 	s.outRead += int64(n)
 	return string(buf[:n])
+}
+
+// testIDs returns, for each element of a snapshot, its test id when it
+// has one that no other element of the window has (ByTestID finds it
+// alone), "" otherwise; nil when no element has one, or when this version
+// of telatest cannot say (TestIDOf).
+func (s *telaMCPSession) testIDs(nodes []uint64) []string {
+	t, ok := any(s.app).(interface{ TestIDOf(uint64) string })
+	if !ok {
+		return nil
+	}
+	var out []string
+	alone := map[string]bool{}
+	for i, n := range nodes {
+		if n == 0 {
+			continue
+		}
+		id := t.TestIDOf(n)
+		if id == "" {
+			continue
+		}
+		one, seen := alone[id]
+		if !seen {
+			one = s.app.Count(telatest.ByTestID(id)) == 1
+			alone[id] = one
+		}
+		if !one {
+			continue
+		}
+		if out == nil {
+			out = make([]string, len(nodes))
+		}
+		out[i] = id
+	}
+	return out
 }
 
 // snapshot returns the aria snapshot and, when this version of telatest

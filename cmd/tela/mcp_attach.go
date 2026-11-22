@@ -108,6 +108,11 @@ type attachSession struct {
 	// one the logs tool listed.
 	logSeen, logRead uint64
 	logsInit         bool
+	// rec records the acting calls on the app's first window since the
+	// app was last built, for the test tool; filming, while the film tool
+	// runs an acting tool, takes the frames after its input.
+	rec     mcpRecorder
+	filming *attachFilm
 }
 
 func newAttachSession(addr string, logf func(string, ...any)) *attachSession {
@@ -275,12 +280,14 @@ func (s *attachSession) remount() {
 		w.refs.remount()
 		w.cursor, w.action = 0, nil
 	}
+	s.rec = mcpRecorder{} // the steps no longer say what the app does
 }
 
 // reset forgets everything a session told.
 func (s *attachSession) reset() {
 	s.wins = map[uint32]*attachWin{}
 	s.logsInit = false
+	s.rec = mcpRecorder{}
 }
 
 // window returns the window id (0: the first one the app shows).
@@ -345,6 +352,7 @@ type attachLine struct {
 type attachSnap struct {
 	win   toolsWindow
 	yaml  string // with the refs
+	plain string // without refs and source lines: what the test tool compares
 	lines []attachLine
 	byRef map[string]*attachLine
 }
@@ -357,11 +365,12 @@ func (s *attachSession) snapshot(ctx context.Context, w toolsWindow) (*attachSna
 		return nil, err
 	}
 	yaml := strings.TrimRight(sem.YAML, "\n")
+	plain := yaml
 	var lines []string
 	if yaml != "" {
 		lines = strings.Split(yaml, "\n")
 	}
-	snap := &attachSnap{win: w, byRef: map[string]*attachLine{}}
+	snap := &attachSnap{win: w, plain: plain, byRef: map[string]*attachLine{}}
 	if len(sem.Nodes) != len(lines) || len(sem.Elements) != len(lines) {
 		// An app of a tela that gives no node IDs: the text, no refs.
 		snap.yaml = yaml
@@ -382,7 +391,7 @@ func (s *attachSession) snapshot(ctx context.Context, w toolsWindow) (*attachSna
 	aw := s.win(w.ID)
 	plines, cands, _, _ := prepareRefs(yaml)
 	aw.refs.next = s.nextRef
-	snap.yaml = aw.refs.assignNodes(plines, cands, sem.Nodes)
+	snap.yaml = aw.refs.assignNodes(plines, cands, sem.Nodes, nil)
 	s.nextRef = aw.refs.next
 	if snap.yaml != "" {
 		for i, l := range strings.Split(snap.yaml, "\n") {
@@ -497,5 +506,5 @@ func (s *attachSession) collectLogs(ctx context.Context, o *mcpOut) {
 func (s *attachSession) instructions() string {
 	return `This server drives the REAL windows of a running tela dev session, through its tools socket: the app, its state and its clock are the person's at the desktop, and tela dev rebuilds it when the source is saved (the next result says so; refs are matched again by role and name). Tela is a pure-Go UI framework: React-like components (tela.UseState, h.Div, h.Button...) styled with Tailwind CSS v4 classes.
 Start with windows (the IDs; every tool takes an optional window, default the first the app shows), then snapshot (structure and [ref=eN] of each element you can act on, with the [src=file:line] that made it) or screenshot (the presented frame: real pixels at the display's scale, the answer says it). click, hover, fill, press, scroll and drag inject real pointer, key and text events at the element's painted position, wait until the app has stopped drawing, and answer with the new snapshot. inspect, state, perf and logs read the running app: the layout tree, why a component rendered and what its hooks hold, the frames' time per phase, and what was logged.
-Not available while attached: resize, open and prefer (the window and the system's preferences are the person's; use headless tela mcp for those), and wait advances nothing: it waits real time, or until a text appears. A person may also be using the window: the app can change between two calls.`
+film takes the frames the window presents in real time; test writes the acting calls on the app's first window since tela dev last built it as a telatest test of its package. Not available while attached: resize, open and prefer (the window and the system's preferences are the person's; use headless tela mcp for those), and wait advances nothing: it waits real time, or until a text appears. A person may also be using the window: the app can change between two calls.`
 }

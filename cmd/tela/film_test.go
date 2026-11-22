@@ -466,6 +466,38 @@ func TestParseSnapshotFilmFlags(t *testing.T) {
 	if o, err := parseSnapshotArgs([]string{"./x"}); err != nil || o.Out != "snapshot.png" || o.Film != 0 {
 		t.Errorf("still: %+v, %v", o, err)
 	}
+	// The action that starts the film.
+	for _, tc := range []struct {
+		args []string
+		want filmAct
+	}{
+		{[]string{"--click", `role=button[name="Open dialog"]`}, filmAct{Op: "click", Loc: &mcpLoc{Role: "button", Name: "Open dialog"}}},
+		{[]string{"--click", "role=switch"}, filmAct{Op: "click", Loc: &mcpLoc{Role: "switch"}}},
+		{[]string{"--hover", "role=link[name=Docs]"}, filmAct{Op: "hover", Loc: &mcpLoc{Role: "link", Name: "Docs"}}},
+		{[]string{"--click", "text=open"}, filmAct{Op: "click", Loc: &mcpLoc{Text: "open"}}},
+		{[]string{"--click", `text="Open"`}, filmAct{Op: "click", Loc: &mcpLoc{Text: "Open", Exact: true}}},
+		{[]string{"--hover", "testid=card"}, filmAct{Op: "hover", Loc: &mcpLoc{TestID: "card"}}},
+		{[]string{"--press", "Escape"}, filmAct{Op: "press", Key: "Escape"}},
+	} {
+		o, err := parseSnapshotArgs(append([]string{"--film", "300ms"}, append(tc.args, "./x")...))
+		if err != nil || o.Act == nil || o.Act.env() != tc.want.env() {
+			t.Errorf("%v: %+v, %v; want %s", tc.args, o.Act, err, tc.want.env())
+		}
+	}
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--click", "role=button", "./x"}, "need --film"},
+		{[]string{"--film", "1s", "--click", "Open", "./x"}, `name the element as role=button[name="Open"]`},
+		{[]string{"--film", "1s", "--click", "role=button[label=x]", "./x"}, "invalid --click"},
+		{[]string{"--film", "1s", "--hover", "css=.x", "./x"}, "invalid --hover"},
+		{[]string{"--film", "1s", "--click", "text=a", "--press", "Escape", "./x"}, "one action"},
+	} {
+		if _, err := parseSnapshotArgs(tc.args); err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%v: error = %v, want %q", tc.args, err, tc.want)
+		}
+	}
 }
 
 func TestFilmAction(t *testing.T) {

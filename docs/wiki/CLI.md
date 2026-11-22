@@ -265,7 +265,7 @@ app becomes yours.
 
 ```text
 tela snapshot [--size WxH] [--scale N] [--dark] [--preview NAME] [-o out.png] <pkg>
-tela snapshot --film SPAN [--every DUR] [--apng anim.png] [flags] <pkg>
+tela snapshot --film SPAN [--every DUR] [--apng anim.png] [--click LOC | --hover LOC | --press KEY] [flags] <pkg>
 ```
 
 | Flag | Meaning |
@@ -278,6 +278,7 @@ tela snapshot --film SPAN [--every DUR] [--apng anim.png] [flags] <pkg>
 | `--film SPAN` | Film the first `SPAN` (`600ms`, `1.5s`) of the app's clock instead of a still: see [Film](#film) |
 | `--every DUR` | With `--film`: the time between frames (default `50ms`, at least `1ms`) |
 | `--apng file` | With `--film`: also write every frame as an animated PNG |
+| `--click LOC`, `--hover LOC`, `--press KEY` | With `--film`: film what that action starts instead of the mount |
 
 ```bash
 tela snapshot --size 480x200 --scale 2 --dark -o counter-dark.png ./examples/counter
@@ -309,8 +310,22 @@ format: it plays in browsers and image viewers, and a program that does not
 animate shows the first frame. Frames after the first hold only the box that
 changed, so a small motion in a big window is a small file; each lasts until
 the next frame's time and the last stays a second. Browsers play frames
-shorter than 20 ms slower than asked. A film starts at the mount; to film
-what an action starts, use the `film` tool of [`tela mcp`](#tela-mcp).
+shorter than 20 ms slower than asked.
+
+A film starts at the mount, or with `--click`, `--hover` or `--press` at an
+action: the screen is settled first, the action runs, and the first frame is
+right after it (a dialog opening, a hover transition, a menu a key shows). The
+element is named as Playwright's selectors name it: `role=button[name="Open"]`
+(the name may be left out), `text=Open` (contained, any case) or `text="Open"`
+(exact), or `testid=open` (an `h.TestID`); a key is in Playwright's syntax
+(`Escape`, `Control+k`). An element that is not on the screen is the error of
+the run, with what the screen has.
+
+```bash
+tela snapshot --film 300ms --every 100ms --preview Slide --click 'role=button[name="Slide"]' ./myapp
+```
+
+For a longer session, use the `film` tool of [`tela mcp`](#tela-mcp).
 
 Rendering uses Tela's own rasterizer and its standard fonts (the fonts of the
 package's `App.Fonts` first, never the system's), so the PNG is the same on
@@ -769,7 +784,7 @@ grid of at most 24 frames, each scaled down and captioned with its time; at most
 60 frames and 30 000 ms in all) and the snapshot of the app once settled, so the
 last frame can be compared with where it ends up. `apng` also writes every frame
 as an animated PNG to a path. The same sheet and animation come from
-[`tela snapshot --film`](#film) for the motion a mount starts.
+[`tela snapshot --film`](#film), with `--click`, `--hover` or `--press`.
 
 **`test`.** The session becomes a regression test:
 
@@ -783,8 +798,10 @@ its directory; a relative path is relative to it), then runs `go vet` and
 What it records is the acting calls since the screen was last mounted: `click`,
 `fill`, `press`, `hover`, `scroll`, `drag`, `wait`, `resize`, the actions of
 `film`, and `prefer` where `telatest` has the method (dark mode, reduced motion,
-high contrast, text scale). The mount has the session's preview, size, scale,
-dark mode and preferences (and the package's `App`); `open` starts another
+high contrast, text scale, locale). The mount has the session's preview, size,
+scale, dark mode and preferences (and the package's `App`): a locale is
+`i18n.SetLocale` before it (put back when the test ends), a direction the
+`h.Dir` around the screen that `prefer` put; `open` starts another
 mount in the same test; a change of the Go source starts the recording over,
 because the steps no longer say what the screen does. Each action is the
 `telatest` call for it, and an element is the most specific stable locator for
@@ -794,16 +811,17 @@ it, never a node identity:
 app := telatest.Mount(t, Previews["Form"], telatest.Size(480, 320))
 app.Click(telatest.ByRole("button", "Count: 0"))
 app.ExpectRole("button", "Count: 1")
-app.Fill(telatest.ByRole("textbox", "Name"), "Ana")
+app.Fill(telatest.ByTestID("name"), "Ana")
 app.ExpectValue(telatest.ByRole("textbox", "Name"), "Ana")
 app.Press("Enter")
 app.ExpectText("Hello, Ana!")
 app.Advance(100 * time.Millisecond)
 ```
 
-A ref becomes `ByRole(role, name)`, with `.Nth(i)` only when several elements of
-the snapshot look alike; a `testId` the agent gave stays `ByTestID`, and
-`text` stays `ByText`. After each action come checks of **what changed** in the
+A ref becomes `ByTestID` when its element has an `h.TestID` no other element
+has (Playwright's codegen prefers test ids too), else `ByRole(role, name)`,
+with `.Nth(i)` only when several elements of the snapshot look alike; a
+`testId` the agent gave stays `ByTestID`, and `text` stays `ByText`. After each action come checks of **what changed** in the
 snapshot (an element that appeared, a state that flipped to `Checked(true)` or
 `Expanded(true)`, a field's value, a text shown or gone, an element removed),
 at most eight, not a copy of the whole snapshot: the test breaks when the
@@ -813,8 +831,9 @@ to overwrite another one. If the test does not compile or vet it is not kept
 (the error shows what was written); if it compiles but fails it is kept, with
 the failure.
 
-Neither tool is available over [`--attach`](#tela-mcp---attach) yet: they need
-the headless app's controllable clock and mount.
+Over [`--attach`](#tela-mcp---attach) both work on the real window: `film`
+takes the frames it presents in real time, and `test` writes the session as a
+test of the package `tela dev` runs (see there).
 
 The instance is built against the `tela` your module requires, which may be
 older than the `tela` binary: the source lines, `state`, `perf` and `prefer`
@@ -872,6 +891,8 @@ because the app, its clock and its window are the person's and `tela dev`'s:
 | `wait` | Waits real time (`ms`, at most 60 s) and/or up to 10 s for a `text` to appear or `textGone` to go: the app's clock runs by itself |
 | `inspect`, `state`, `perf`, `logs` | Read the running app through the instrumentation `tela dev` turns on for the attached client: the layout tree, the component behind an element, the frames' time per phase (`action: true` for the frames of the last acting call, which its answer sums up) and what `tela dev` logged (the dev warnings and errors of Tela, and the app's standard error; standard output is not kept) |
 | `lint` | `tela lint -json` on the session's package, as `tela dev` was given it |
+| `film` | Takes the frame the window presents every `every` ms of real time over `span` ms, after an `action` or not: the times are the wall clock's, close to the ones asked (each frame is captioned with the time it was taken), and the motion runs at this machine's speed; `apng` writes in the module of `tela dev`'s package |
+| `test` | Writes the acting calls on the app's first window since `tela dev` last built the app as a `telatest` test of its package, which mounts the screen headlessly (the package's `var App`, `Preview` or `tela dev`'s preview) at the window's size and scale, then runs `go vet` and the test. The app's state when the recording started is not in the test: act from a fresh start for a test that passes. An action on another window, or one that failed part-way, stops the recording until the next build |
 | `resize`, `open`, `prefer` | Not available (they answer so): the window and the system's preferences are the person's, and there are no previews to mount; use the headless server |
 
 `[src=]` is known for what the app built since the session was instrumented

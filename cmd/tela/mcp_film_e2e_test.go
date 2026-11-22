@@ -264,7 +264,7 @@ func TestMCPTestToolEndToEnd(t *testing.T) {
 		`app.Click(telatest.ByRole("button", "Count: 0"))`,
 		`app.ExpectRole("button", "Count: 1")`,
 		`app.Hover(telatest.ByRole("button", "Locked"))`,
-		`app.Fill(telatest.ByRole("textbox", "Name"), "Ana")`,
+		`app.Fill(telatest.ByTestID("name"), "Ana")`, // its test id, which no other element has
 		`app.ExpectValue(telatest.ByRole("textbox", "Name"), "Ana")`,
 		`app.Press("Enter")`,
 		`app.ExpectText("Hello, Ana!")`,

@@ -34,8 +34,10 @@ type renderOptions struct {
 	Dark    bool
 	Preview string // name in the package's Previews; empty means the first
 	// Film and Every, for the film mode of tela snapshot: the span of the
-	// app's clock to capture and the interval between frames.
+	// app's clock to capture and the interval between frames; Act, the
+	// action that starts the motion (nil: the mount's).
 	Film, Every time.Duration
+	Act         *filmAct
 }
 
 // parseFlags parses args with flags defined by setup, and returns the single

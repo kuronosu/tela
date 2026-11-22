@@ -174,6 +174,8 @@ type attachTarget struct {
 	line     *attachLine
 	desc     string
 	disabled bool
+	// loc is the locator a test uses for it (the test tool).
+	loc mcpLoc
 }
 
 // resolve finds the element an element argument names, in the window the
@@ -212,7 +214,8 @@ func (s *attachSession) resolve(ctx context.Context, winArg uint32, a elementArg
 		aw := s.win(w.ID)
 		if line := snap.byRef[ref]; line != nil {
 			e := aw.refs.current[ref]
-			return attachTarget{win: w, line: line, desc: e.desc + " [ref=" + ref + "]", disabled: e.disabled}, nil
+			stable := e.stable
+			return attachTarget{win: w, line: line, desc: e.desc + " [ref=" + ref + "]", disabled: e.disabled, loc: mcpLoc{Ref: ref, Stable: &stable}}, nil
 		}
 		if _, err := aw.refs.lookup(ref); err != nil {
 			return attachTarget{}, err
@@ -268,10 +271,14 @@ func (s *attachSession) resolve(ctx context.Context, winArg uint32, a elementArg
 	if a.Nth != nil {
 		line = found[*a.Nth]
 	}
-	if !line.ok {
-		return attachTarget{win: w, line: line, desc: "the text " + fmt.Sprintf("%q", unquoteValue(strings.TrimSpace(strings.TrimPrefix(line.parsed.Rest, ":"))))}, nil
+	loc := mcpLoc{Role: a.Role, Name: a.Name, Nth: a.Nth}
+	if a.Role == "" {
+		loc = mcpLoc{Text: a.Text, Exact: a.Exact, Nth: a.Nth}
 	}
-	return attachTarget{win: w, line: line, desc: line.parsed.Describe(), disabled: line.parsed.Disabled}, nil
+	if !line.ok {
+		return attachTarget{win: w, line: line, desc: "the text " + fmt.Sprintf("%q", unquoteValue(strings.TrimSpace(strings.TrimPrefix(line.parsed.Rest, ":")))), loc: loc}, nil
+	}
+	return attachTarget{win: w, line: line, desc: line.parsed.Describe(), disabled: line.parsed.Disabled, loc: loc}, nil
 }
 
 // revealTries bounds the scrolls into view of one target: a scroll that
@@ -430,14 +437,25 @@ func atPoint(w toolsWindow, x, y float64) error {
 // The frames the action caused (those after the frame the app was at when
 // it began, a scroll into view during it included) are what perf
 // {"action": true} lists, and the result sums them up.
-func (s *attachSession) act(ctx context.Context, o *mcpOut, w toolsWindow, done string, do func() error) mcpResult {
+//
+// req is the call as the test tool writes it, recorded with the
+// snapshots before and after it.
+func (s *attachSession) act(ctx context.Context, o *mcpOut, w toolsWindow, done string, req mcpReq, do func() error) mcpResult {
 	from := s.frameCursor(ctx, w.ID)
+	before, recorded := s.recordBefore(ctx, w)
 	start := time.Now()
 	o.screen = describeWindow(w)
 	if err := do(); err != nil {
 		o.fail(err.Error())
 		s.collectLogs(ctx, o)
+		if recorded {
+			s.rec.interrupt() // part of it may have happened
+		}
 		return o.result()
+	}
+	if f := s.filming; f != nil {
+		f.frames, f.err = s.filmWindow(ctx, w, f.span, f.every)
+		f.ran = true
 	}
 	_, settled := s.settle(ctx, w.ID, start)
 	aw := s.win(w.ID)
@@ -454,9 +472,45 @@ func (s *attachSession) act(ctx context.Context, o *mcpOut, w toolsWindow, done 
 	if !settled {
 		o.notes = append(o.notes, fmt.Sprintf("The app was still drawing frames after %v (an animation?): the snapshot is of that moment.", s.max))
 	}
+	if recorded {
+		s.rec.add(mcpStep{req: req, before: before, after: snap.plain, w: float64(w.Width), h: float64(w.Height)}, "")
+		if f := s.filming; f != nil && f.ran {
+			// The film ran the app's clock for its span after the action.
+			s.rec.add(mcpStep{req: mcpReq{Op: "wait", Ms: float64(f.span) / float64(time.Millisecond)}, before: snap.plain, after: snap.plain, w: float64(w.Width), h: float64(w.Height)}, "")
+		}
+	}
 	o.snapshot = &snap.yaml
 	s.collectLogs(ctx, o)
 	return o.result()
+}
+
+// recordBefore returns the plain snapshot of window w before an acting
+// call, and whether the call is recorded for the test tool: only the
+// calls on the app's first window are (a test mounts its screen), and a
+// call on another one breaks the recording.
+func (s *attachSession) recordBefore(ctx context.Context, w toolsWindow) (string, bool) {
+	first, err := s.window(ctx, 0)
+	if err != nil {
+		return "", false
+	}
+	if first.ID != w.ID {
+		if len(s.rec.segs) == 0 {
+			s.rec.reset(mcpMount{}) // so that the interruption is kept
+		}
+		s.rec.interrupt()
+		return "", false
+	}
+	if s.rec.interrupted() {
+		return "", false
+	}
+	snap, err := s.snapshot(ctx, w)
+	if err != nil {
+		return "", false
+	}
+	if len(s.rec.segs) == 0 {
+		s.rec.reset(mcpMount{W: round2(float64(w.Width)), H: round2(float64(w.Height)), SizeSet: true, Scale: w.Scale})
+	}
+	return snap.plain, true
 }
 
 // ---------------------------------------------------------------------
@@ -642,6 +696,7 @@ func (s *attachSession) toolClick(ctx context.Context, args json.RawMessage) mcp
 	var w toolsWindow
 	var x, y float32
 	var desc string
+	req := mcpReq{Op: "click", Button: a.Button, Double: a.Double}
 	if !a.given() && a.X != nil {
 		var err error
 		if w, err = s.window(ctx, a.Window); err == nil {
@@ -652,14 +707,16 @@ func (s *attachSession) toolClick(ctx context.Context, args json.RawMessage) mcp
 			return o.result()
 		}
 		x, y, desc = float32(*a.X), float32(*a.Y), fmt.Sprintf("at (%g, %g)", *a.X, *a.Y)
+		req.At = &mcpPoint{*a.X, *a.Y}
 	} else {
 		t, cx, cy, ok := s.target(ctx, &o, a.Window, a.elementArgs, "click", true)
 		if !ok {
 			return o.result()
 		}
 		w, x, y, desc = t.win, cx, cy, t.desc
+		req.Loc = &t.loc
 	}
-	return s.act(ctx, &o, w, verb+" "+desc+".", func() error {
+	return s.act(ctx, &o, w, verb+" "+desc+".", req, func() error {
 		return s.conn.Clicks(ctx, w.ID, x, y, a.Button, count)
 	})
 }
@@ -682,6 +739,7 @@ func (s *attachSession) toolHover(ctx context.Context, args json.RawMessage) mcp
 	var w toolsWindow
 	var x, y float32
 	var desc string
+	req := mcpReq{Op: "hover"}
 	if !a.given() && a.X != nil && a.Y != nil {
 		var err error
 		if w, err = s.window(ctx, a.Window); err == nil {
@@ -692,14 +750,16 @@ func (s *attachSession) toolHover(ctx context.Context, args json.RawMessage) mcp
 			return o.result()
 		}
 		x, y, desc = float32(*a.X), float32(*a.Y), fmt.Sprintf("(%g, %g)", *a.X, *a.Y)
+		req.At = &mcpPoint{*a.X, *a.Y}
 	} else {
 		t, cx, cy, ok := s.target(ctx, &o, a.Window, a.elementArgs, "hover", false)
 		if !ok {
 			return o.result()
 		}
 		w, x, y, desc = t.win, cx, cy, t.desc
+		req.Loc = &t.loc
 	}
-	return s.act(ctx, &o, w, "The pointer is over "+desc+".", func() error {
+	return s.act(ctx, &o, w, "The pointer is over "+desc+".", req, func() error {
 		return s.conn.Pointer(ctx, w.ID, "move", x, y, "")
 	})
 }
@@ -732,7 +792,8 @@ func (s *attachSession) toolFill(ctx context.Context, args json.RawMessage) mcpR
 	if a.Submit {
 		done += " Pressed Enter."
 	}
-	return s.act(ctx, &o, t.win, done, func() error {
+	req := mcpReq{Op: "fill", Loc: &t.loc, Text: *a.Value, Submit: a.Submit}
+	return s.act(ctx, &o, t.win, done, req, func() error {
 		w := t.win.ID
 		if err := s.conn.Click(ctx, w, x, y); err != nil {
 			return err
@@ -780,6 +841,7 @@ func (s *attachSession) toolPress(ctx context.Context, args json.RawMessage) mcp
 	var w toolsWindow
 	var x, y float32
 	focus := false
+	req := mcpReq{Op: "press", Key: a.Key}
 	if a.given() {
 		t, cx, cy, ok := s.target(ctx, &o, a.Window, a.elementArgs, "focus", false)
 		if !ok {
@@ -791,6 +853,7 @@ func (s *attachSession) toolPress(ctx context.Context, args json.RawMessage) mcp
 		}
 		w, x, y, focus = t.win, cx, cy, true
 		done = fmt.Sprintf("Clicked %s to focus it and pressed %s.", t.desc, a.Key)
+		req.Loc = &t.loc
 	} else {
 		var err error
 		if w, err = s.window(ctx, a.Window); err != nil {
@@ -798,7 +861,7 @@ func (s *attachSession) toolPress(ctx context.Context, args json.RawMessage) mcp
 			return o.result()
 		}
 	}
-	return s.act(ctx, &o, w, done, func() error {
+	return s.act(ctx, &o, w, done, req, func() error {
 		if focus {
 			if err := s.conn.Click(ctx, w.ID, x, y); err != nil {
 				return err
@@ -836,6 +899,7 @@ func (s *attachSession) toolScroll(ctx context.Context, args json.RawMessage) mc
 	var w toolsWindow
 	var x, y float32
 	var desc string
+	req := mcpReq{Op: "scroll", DX: a.DX, DY: a.DY}
 	switch {
 	case a.given():
 		t, cx, cy, ok := s.target(ctx, &o, a.Window, a.elementArgs, "scroll", false)
@@ -843,6 +907,7 @@ func (s *attachSession) toolScroll(ctx context.Context, args json.RawMessage) mc
 			return o.result()
 		}
 		w, x, y, desc = t.win, cx, cy, t.desc
+		req.Loc = &t.loc
 	default:
 		var err error
 		if w, err = s.window(ctx, a.Window); err != nil {
@@ -855,11 +920,12 @@ func (s *attachSession) toolScroll(ctx context.Context, args json.RawMessage) mc
 				return o.result()
 			}
 			x, y, desc = float32(*a.X), float32(*a.Y), fmt.Sprintf("the point (%g, %g)", *a.X, *a.Y)
+			req.At = &mcpPoint{*a.X, *a.Y}
 		} else {
 			x, y, desc = w.Width/2, w.Height/2, "the window (at its center)"
 		}
 	}
-	return s.act(ctx, &o, w, fmt.Sprintf("Scrolled by (%g, %g) over %s.", a.DX, a.DY, desc), func() error {
+	return s.act(ctx, &o, w, fmt.Sprintf("Scrolled by (%g, %g) over %s.", a.DX, a.DY, desc), req, func() error {
 		return s.conn.Scroll(ctx, w.ID, x, y, float32(a.DX), float32(a.DY))
 	})
 }
@@ -901,18 +967,21 @@ func (s *attachSession) toolDrag(ctx context.Context, args json.RawMessage) mcpR
 	// start, as Playwright's dragTo does: revealing it before could scroll
 	// the start away. Both ends are in the window of the start.
 	x0, y0, fromDesc := float32(0), float32(0), ""
+	req := mcpReq{Op: "drag", DX: a.DX, DY: a.DY}
 	if f := a.From; !f.given() && f.X != nil && f.Y != nil {
 		if err := atPoint(w, *f.X, *f.Y); err != nil {
 			o.fail(err.Error())
 			return o.result()
 		}
 		x0, y0, fromDesc = float32(*f.X), float32(*f.Y), fmt.Sprintf("(%g, %g)", *f.X, *f.Y)
+		req.At = &mcpPoint{*f.X, *f.Y}
 	} else {
 		t, cx, cy, ok := s.target(ctx, &o, a.Window, f.elementArgs, "drag", true)
 		if !ok {
 			return o.result()
 		}
 		w, x0, y0, fromDesc = t.win, cx, cy, t.desc
+		req.Loc = &t.loc
 	}
 	done := "Dragged " + fromDesc
 	var x1, y1 float32
@@ -928,6 +997,7 @@ func (s *attachSession) toolDrag(ctx context.Context, args json.RawMessage) mcpR
 		}
 		x1, y1 = float32(*e.X), float32(*e.Y)
 		done += fmt.Sprintf(" to (%g, %g).", *e.X, *e.Y)
+		req.ToAt = &mcpPoint{*e.X, *e.Y}
 	default:
 		t, err := s.resolve(ctx, w.ID, e.elementArgs)
 		if err != nil {
@@ -940,8 +1010,9 @@ func (s *attachSession) toolDrag(ctx context.Context, args json.RawMessage) mcpR
 		}
 		to = &t
 		done += " to " + t.desc + "."
+		req.To = &t.loc
 	}
-	return s.act(ctx, &o, w, done, func() error {
+	return s.act(ctx, &o, w, done, req, func() error {
 		id := w.ID
 		if err := s.conn.Pointer(ctx, id, "down", x0, y0, ""); err != nil {
 			return err
@@ -1012,6 +1083,7 @@ func (s *attachSession) toolWait(ctx context.Context, args json.RawMessage) mcpR
 		o.fail(err.Error())
 		return o.result()
 	}
+	before, recorded := s.recordBefore(ctx, w)
 	var did []string
 	if a.Ms > 0 {
 		select {
@@ -1062,6 +1134,9 @@ func (s *attachSession) toolWait(ctx context.Context, args json.RawMessage) mcpR
 	o.screen = describeWindow(w)
 	o.head = "Waited: " + strings.Join(did, "; ") + "."
 	o.snapshot = &snap.yaml
+	if recorded {
+		s.rec.add(mcpStep{req: mcpReq{Op: "wait", Ms: a.Ms, Text: a.Text, Gone: a.Gone}, before: before, after: snap.plain, w: float64(w.Width), h: float64(w.Height)}, "")
+	}
 	s.collectLogs(ctx, &o)
 	return o.result()
 }

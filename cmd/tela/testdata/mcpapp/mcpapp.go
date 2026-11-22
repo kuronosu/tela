@@ -69,7 +69,7 @@ func form() tela.Node {
 		If(doubled, P(Text("The title was double-clicked"))),
 		Form(Class("flex gap-2"),
 			OnSubmit(func() { setGreeting.Set("Hello, " + name + "!") }),
-			Input(AriaLabel("Name"), Class("rounded border px-2 py-1"), Value(name),
+			Input(AriaLabel("Name"), TestID("name"), Class("rounded border px-2 py-1"), Value(name),
 				OnChange(func(e tela.ChangeEvent) { setName.Set(e.Value) })),
 		),
 		If(greeting != "", P(Text(greeting))),

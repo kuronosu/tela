@@ -10,6 +10,8 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -57,8 +59,9 @@ type fakeApp struct {
 	shape   *gfx.Point
 	noPoint bool
 	// cwd is tela dev's working directory, which info reports; with it
-	// the component's sites are absolute paths under it.
-	cwd string
+	// the component's sites are absolute paths under it. dir and preview
+	// are its package's directory and its --preview.
+	cwd, dir, preview string
 	// closed is Done's channel.
 	closed chan struct{}
 }
@@ -103,7 +106,7 @@ func (f *fakeApp) reload() {
 func (f *fakeApp) Info(context.Context) (toolsInfo, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return toolsInfo{Pkg: "./devapp", Cwd: f.cwd, PID: f.pid, Build: f.build, Protocol: 1}, nil
+	return toolsInfo{Pkg: "./devapp", Dir: f.dir, Cwd: f.cwd, Preview: f.preview, PID: f.pid, Build: f.build, Protocol: 1}, nil
 }
 
 func (f *fakeApp) Windows(context.Context) ([]toolsWindow, error) {
@@ -849,4 +852,85 @@ func TestAttachTargets(t *testing.T) {
 	app.cwd = "/work/devapp"
 	text = s.mustTool(t, "state", `{"ref": "e1"}`)
 	wantIn(t, "state", text, "### main.Counter made at ui/counter.go:7", "hook #1 UseState at ui/counter.go:8")
+}
+
+// film over the real window takes the frames it presents after an action,
+// or as it is; test writes the session's acting calls as a telatest test
+// of tela dev's package, which mounts its screen headlessly.
+func TestAttachFilmAndTest(t *testing.T) {
+	app := newFakeApp()
+	s := newTestAttach(app)
+	s.mustTool(t, "snapshot", `{}`)
+
+	text, res := s.tool(t, "film", `{"span": 100, "every": 50, "action": {"click": "e1"}}`)
+	if res.IsError {
+		t.Fatalf("film of a click: %s", text)
+	}
+	wantIn(t, "film of a click", text, "Filmed 3 frames over", "(after click)", "### The action", `Clicked button "Increment" [ref=e1].`)
+	if images := len(res.Content) - 1; images != 1 || app.count != 1 {
+		t.Errorf("film of a click: %d images, count %d", images, app.count)
+	}
+	text = s.mustTool(t, "film", `{"span": 60, "every": 30}`)
+	wantIn(t, "film of the window", text, "Filmed 3 frames over", "(the window as it is)")
+	if text, res := s.tool(t, "film", `{"span": 60, "apng": "m.png"}`); !res.IsError || !strings.Contains(text, "module of tela dev's package is not known") {
+		t.Errorf("an animated PNG without the package's directory: %v %s", res.IsError, text)
+	}
+	if text, res := s.tool(t, "test", `{"name": "flow"}`); !res.IsError || !strings.Contains(text, "does not say where its package is") {
+		t.Errorf("test without the package's directory: %v %s", res.IsError, text)
+	}
+
+	skipShort(t)
+	dir := mcpAppModule(t)
+	screen := `package mcpapp
+
+import (
+	"github.com/kuronosu/tela"
+	. "github.com/kuronosu/tela/h"
+)
+
+func init() { Previews["Fake"] = tela.Preview{Root: tela.C(fakeScreen)} }
+
+// fakeScreen is the screen of the fake app of the attach tests.
+func fakeScreen() tela.Node {
+	n, setN := tela.UseState(0)
+	name, setName := tela.UseState("")
+	return Div(Class("flex flex-col gap-2 p-4"),
+		Button(OnClick(func() { setN.Set(n + 1) }), Text("Increment")),
+		Textf("Count: %d", n),
+		Input(AriaLabel("name"), Value(name), OnChange(func(e tela.ChangeEvent) { setName.Set(e.Value) })))
+}
+`
+	if err := os.WriteFile(filepath.Join(dir, "app", "fake.go"), []byte(screen), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	app.mu.Lock()
+	app.dir, app.preview = filepath.Join(dir, "app"), "Fake"
+	app.mu.Unlock()
+	s.mustTool(t, "fill", `{"ref": "e2", "text": "ana"}`)
+	text = s.mustTool(t, "test", `{"name": "attached flow"}`)
+	wantIn(t, "test", text, "TestAttachedFlow passes")
+	b, err := os.ReadFile(filepath.Join(dir, "app", "attached_flow_test.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantIn(t, "the test file", string(b),
+		`app := telatest.Mount(t, Previews["Fake"], telatest.Size(480, 400), telatest.Scale(2))`,
+		`app.Click(telatest.ByRole("button", "Increment"))`, `app.ExpectText("Count: 1")`,
+		`app.Advance(100 * time.Millisecond)`,
+		`app.Fill(telatest.ByRole("textbox", "name"), "ana")`, `app.ExpectValue(telatest.ByRole("textbox", "name"), "ana")`)
+
+	// A reload starts the recording over.
+	app.reload()
+	if text, res := s.tool(t, "test", `{"name": "attached flow"}`); !res.IsError || !strings.Contains(text, "nothing to write") {
+		t.Errorf("test after a reload: %v %s", res.IsError, text)
+	}
+	// An action on another window: a test of the screen cannot follow.
+	app.mu.Lock()
+	app.wins = append(app.wins, toolsWindow{ID: 2, Title: "Settings", Width: 300, Height: 200, Scale: 1, Visible: true, Active: true})
+	app.mu.Unlock()
+	s.mustTool(t, "hover", `{"x": 5, "y": 5, "window": 2}`)
+	s.mustTool(t, "hover", `{"x": 5, "y": 5}`)
+	if text, res := s.tool(t, "test", `{"name": "attached flow"}`); !res.IsError || !strings.Contains(text, "another window") {
+		t.Errorf("test after an action on another window: %v %s", res.IsError, text)
+	}
 }

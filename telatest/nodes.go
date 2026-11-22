@@ -34,6 +34,16 @@ func (a *App) AriaSnapshotNodes() (yaml string, nodes []uint64) {
 // older telatest can ask for it through an interface.
 func (a *App) NodeLocator(id uint64) Locator { return Locator{kind: locNode, nodeID: id} }
 
+// TestIDOf returns the test id ([h.TestID]) of the element that
+// [App.AriaSnapshotNodes] gave the identity id, "" when it has none or is
+// no longer mounted. It is for tools that write tests from snapshots,
+// such as `tela mcp`'s test, which names an element by [ByTestID] when it
+// has one.
+func (a *App) TestIDOf(id uint64) string {
+	a.mustBeOpen()
+	return a.tree.NodeTestID(semantics.NodeID(id))
+}
+
 // NodeOf returns the identity of the element l locates (the one
 // [App.AriaSnapshotNodes] gives its line), waiting for it as an action
 // does: it fails the test when nothing matches by the timeout, or when

@@ -835,7 +835,7 @@ func (s *mcpSession) send(ctx context.Context, o *mcpOut, req mcpReq) (mcpReply,
 		o.fail(rep.Error)
 	}
 	if rep.YAML != nil {
-		snap := s.withRefs(ctx, o, *rep.YAML, rep.Nodes)
+		snap := s.withRefs(ctx, o, rep)
 		o.snapshot = &snap
 		if rep.Panic == "" {
 			s.noteSnapshot(*rep.YAML)
@@ -905,10 +905,11 @@ func cleanMountError(msg string) string {
 // withRefs adds the refs to an aria snapshot.
 // nodes, when the instance gave them, are the identities of the elements of
 // the lines (see refTable.assignNodes).
-func (s *mcpSession) withRefs(ctx context.Context, o *mcpOut, yaml string, nodes []uint64) string {
+func (s *mcpSession) withRefs(ctx context.Context, o *mcpOut, rep mcpReply) string {
+	yaml, nodes := deref(rep.YAML), rep.Nodes
 	lines, cands, groups, want := prepareRefs(yaml)
 	if len(lines) > 0 && len(nodes) == len(lines) {
-		return s.refs.assignNodes(lines, cands, nodes)
+		return s.refs.assignNodes(lines, cands, nodes, rep.TestIDs)
 	}
 	if len(cands) == 0 {
 		s.refs.current, s.refs.stale = map[string]refEntry{}, false
@@ -967,7 +968,7 @@ func (s *mcpSession) element(ctx context.Context, o *mcpOut, a elementArgs) (mcp
 		if s.refs.stale {
 			if rep, err := s.child.call(ctx, mcpReq{Op: "snapshot", Snapshot: true}); err == nil && rep.YAML != nil {
 				o.absorb(rep)
-				s.withRefs(ctx, o, *rep.YAML, rep.Nodes)
+				s.withRefs(ctx, o, rep)
 				s.noteSnapshot(*rep.YAML)
 			}
 		}
@@ -1752,7 +1753,7 @@ func (s *mcpSession) toolOpen(ctx context.Context, args json.RawMessage) mcpResu
 	}
 	o.absorb(rep)
 	o.screen = describeScreen(rep)
-	snap := s.withRefs(ctx, &o, deref(rep.YAML), rep.Nodes)
+	snap := s.withRefs(ctx, &o, rep)
 	o.snapshot = &snap
 	s.curPreview, s.curW, s.curH = rep.Preview, rep.W, rep.H
 	s.noteSnapshot(deref(rep.YAML))

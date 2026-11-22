@@ -123,6 +123,15 @@ func generateTestSource(in testgenInput) ([]byte, error) {
 	b.WriteString(testgenMarker + ": each action is an action the agent took,\n")
 	b.WriteString("// and each check is what the screen showed after it. Edit it freely; the test tool\n")
 	b.WriteString("// replaces the file only while it still begins with this comment.\n\n")
+	// The direction the session mounted a screen in is an h.Dir around it,
+	// as the prefer tool put it (telaMCPDirection in mcp_runner.go).
+	all := strings.Join(body, "\n")
+	usesDir := strings.Contains(all, "direction(")
+	usesI18n := strings.Contains(all, "i18n.SetLocale(")
+	if usesDir {
+		body = append(strings.Split(directionHelper, "\n"), body...)
+		usesTela = true
+	}
 	fmt.Fprintf(&b, "package %s\n\nimport (\n\t\"testing\"\n", in.Pkg)
 	if usesTime {
 		b.WriteString("\t\"time\"\n")
@@ -130,6 +139,12 @@ func generateTestSource(in testgenInput) ([]byte, error) {
 	b.WriteString("\n")
 	if usesTela {
 		b.WriteString("\t\"github.com/kuronosu/tela\"\n")
+	}
+	if usesDir {
+		b.WriteString("\t\"github.com/kuronosu/tela/h\"\n")
+	}
+	if usesI18n {
+		b.WriteString("\t\"github.com/kuronosu/tela/i18n\"\n")
 	}
 	b.WriteString("\t\"github.com/kuronosu/tela/telatest\"\n)\n\n")
 	fmt.Fprintf(&b, "// %s replays a session of tela mcp on the screen of the package: %s, %s.\n", in.Func, plural(steps, "action"), plural(checks, "check"))
@@ -189,10 +204,12 @@ func (in testgenInput) mountLines(seg *mcpSegment, first bool) (lines []string, 
 		}
 	}
 	if m.Prefer.Direction != "" {
-		lines = append(lines, fmt.Sprintf("// the session mounted the screen with the direction %q; the test does not reproduce it", m.Prefer.Direction))
+		root = fmt.Sprintf("direction(%s, %q)", root, m.Prefer.Direction)
 	}
 	if m.Prefer.LocaleSet {
-		lines = append(lines, fmt.Sprintf("// the session set the locale to %q; the test does not reproduce it", m.Prefer.Locale))
+		// The locale is tela/i18n's, for the whole process: the test puts
+		// it back to the system's when it ends.
+		lines = append(lines, fmt.Sprintf("i18n.SetLocale(%q)", m.Prefer.Locale), `t.Cleanup(func() { i18n.SetLocale("") })`)
 	}
 	op := ":="
 	if !first {
@@ -204,6 +221,25 @@ func (in testgenInput) mountLines(seg *mcpSegment, first bool) (lines []string, 
 	}
 	return append(lines, call), tela, nil
 }
+
+// directionHelper is the function a test that mounts a screen in a
+// direction declares first: the h.Dir the prefer tool put around the
+// screen (a display: contents element), inside a preview's own Wrap so
+// that its theme and scheme stay.
+const directionHelper = `direction := func(root tela.Component, dir string) tela.Component {
+around := func(n tela.Node) tela.Node { return h.Div(h.Dir(dir), h.Class("contents"), n) }
+if p, ok := root.(tela.Preview); ok {
+wrap := p.Wrap
+p.Wrap = func(n tela.Node) tela.Node {
+if wrap != nil {
+n = wrap(n)
+}
+return around(n)
+}
+return p
+}
+return tela.Preview{Root: root, Wrap: around}
+}`
 
 // plural writes a count and its noun.
 func plural(n int, noun string) string {
@@ -302,13 +338,29 @@ func stepLines(st mcpStep, seg *mcpSegment) (lines []string, usesTime, usesTela 
 // ---------------------------------------------------------------------
 // The tool.
 
+// sessionTest is what the test tool needs of a server's session: the
+// package, where go runs, and what was recorded.
+type sessionTest struct {
+	goBin    string
+	modDir   string // the module's directory, where go runs
+	pkgDir   string // the package's directory, where the test goes
+	pkgName  string
+	arg      string // the package as go vet and go test take it in modDir
+	rec      *mcpRecorder
+	contract contract
+	hasApp   bool
+	// touch makes a change to the test file (the headless server keeps the
+	// change from rebuilding its instance); nil runs it as is.
+	touch func(change func() error) error
+}
+
 // goTool runs the go command in the module of the package and returns what
 // it printed.
-func (s *mcpSession) goTool(ctx context.Context, args ...string) (string, error) {
+func (st sessionTest) goTool(ctx context.Context, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, s.goBin, args...)
-	cmd.Dir = s.target.modDir
+	cmd := exec.CommandContext(ctx, st.goBin, args...)
+	cmd.Dir = st.modDir
 	cmd.Env = goEnv()
 	cmd.Cancel = func() error { return interruptProcess(cmd.Process) }
 	cmd.WaitDelay = 2 * time.Second
@@ -326,12 +378,15 @@ func tail(s string, n int) string {
 	return "..." + s[len(s)-n:]
 }
 
+// testArgs are the arguments of the test tool.
+type testArgs struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+}
+
 func (s *mcpSession) toolTest(ctx context.Context, args json.RawMessage) mcpResult {
 	var o mcpOut
-	var a struct {
-		Name string `json:"name"`
-		Path string `json:"path"`
-	}
+	var a testArgs
 	if err := decodeArgs(args, &a); err != nil {
 		o.fail(err.Error())
 		return o.result()
@@ -344,8 +399,34 @@ func (s *mcpSession) toolTest(ctx context.Context, args json.RawMessage) mcpResu
 	if !s.begin(ctx, &o) {
 		return o.result()
 	}
-	pkgDir := filepath.Clean(s.target.pkg.Dir)
-	path := a.Path
+	// The test file is part of the package's fingerprint, but not of the
+	// running instance: writing it must not rebuild and remount the screen.
+	// So the session adopts the fingerprint right after each change it makes
+	// to the file, and only when nothing else changed before it: a source
+	// edit made while go vet or go test run still rebuilds on the next call.
+	touch := func(change func() error) error {
+		before := s.target.fingerprint()
+		synced := s.built && s.builtFP == before
+		err := change()
+		if synced {
+			s.builtFP = s.target.fingerprint()
+		}
+		return err
+	}
+	st := sessionTest{goBin: s.goBin, modDir: s.target.modDir, pkgDir: s.target.pkg.Dir, pkgName: s.target.pkg.Name, arg: s.target.arg,
+		rec: &s.rec, contract: s.contract, hasApp: s.hasApp, touch: touch}
+	return writeSessionTest(ctx, &o, st, fn, a.Path)
+}
+
+// writeSessionTest writes the recording of st as test function fn in path
+// (default: fn's file in the package's directory), then runs go vet and the
+// test, and answers with the result.
+func writeSessionTest(ctx context.Context, o *mcpOut, st sessionTest, fn, path string) mcpResult {
+	touch := st.touch
+	if touch == nil {
+		touch = func(change func() error) error { return change() }
+	}
+	pkgDir := filepath.Clean(st.pkgDir)
 	if path == "" {
 		path = testFileName(fn)
 	}
@@ -385,29 +466,15 @@ func (s *mcpSession) toolTest(ctx context.Context, args json.RawMessage) mcpResu
 		o.fail(err.Error())
 		return o.result()
 	}
-	if s.rec.interrupted() {
-		o.fail("nothing to write: an action was cancelled while it ran, so part of its effect may be on the screen and the recording after it would not match. Call open to mount the screen afresh (state reset) and act again, then call test")
+	if st.rec.interrupted() {
+		o.fail("nothing to write: an action was cancelled while it ran, or acted where a test of the screen cannot follow, so the recording after it would not match. Call open to mount the screen afresh (state reset) and act again, then call test")
 		return o.result()
 	}
-	if s.rec.count() == 0 {
+	if st.rec.count() == 0 {
 		o.fail("nothing to write: no acting call (click, fill, press, hover, scroll, drag, wait, resize, prefer) has been made since the screen was mounted or the source was last rebuilt. Act on the screen, then call test")
 		return o.result()
 	}
-	in := testgenInput{Pkg: s.target.pkg.Name, Func: fn, Segments: s.rec.segs, Contract: s.contract, HasApp: s.hasApp}
-	// The test file is part of the package's fingerprint, but not of the
-	// running instance: writing it must not rebuild and remount the screen.
-	// So the session adopts the fingerprint right after each change it makes
-	// to the file, and only when nothing else changed before it: a source
-	// edit made while go vet or go test run still rebuilds on the next call.
-	touch := func(change func() error) error {
-		before := s.target.fingerprint()
-		synced := s.built && s.builtFP == before
-		err := change()
-		if synced {
-			s.builtFP = s.target.fingerprint()
-		}
-		return err
-	}
+	in := testgenInput{Pkg: st.pkgName, Func: fn, Segments: st.rec.segs, Contract: st.contract, HasApp: st.hasApp}
 	write := func() ([]byte, error) {
 		src, err := generateTestSource(in)
 		if err != nil {
@@ -420,8 +487,8 @@ func (s *mcpSession) toolTest(ctx context.Context, args json.RawMessage) mcpResu
 		o.fail(err.Error())
 		return o.result()
 	}
-	arg := s.target.arg
-	vet, verr := s.goTool(ctx, "vet", arg)
+	arg := st.arg
+	vet, verr := st.goTool(ctx, "vet", arg)
 	if verr != nil && !in.AppPtr && strings.Contains(vet, "FromApp") && strings.Contains(vet, "*tela.App") {
 		// The package's App is a pointer.
 		in.AppPtr = true
@@ -429,7 +496,7 @@ func (s *mcpSession) toolTest(ctx context.Context, args json.RawMessage) mcpResu
 			o.fail(err.Error())
 			return o.result()
 		}
-		vet, verr = s.goTool(ctx, "vet", arg)
+		vet, verr = st.goTool(ctx, "vet", arg)
 	}
 	if verr != nil {
 		if ctx.Err() != nil {
@@ -450,7 +517,7 @@ func (s *mcpSession) toolTest(ctx context.Context, args json.RawMessage) mcpResu
 		o.notes = append(o.notes, "go vet reports problems in the package that are not in the test:\n"+tail(vet, 2000))
 	}
 	run := "^" + fn + "$"
-	out, terr := s.goTool(ctx, "test", "-count=1", "-run", run, arg)
+	out, terr := st.goTool(ctx, "test", "-count=1", "-run", run, arg)
 	if terr != nil {
 		if ctx.Err() != nil {
 			o.fail("cancelled")
