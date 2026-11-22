@@ -27,6 +27,9 @@ type lspClient struct {
 	notes  []lspMessage // notifications read while waiting for something else
 }
 
+// startLSP serves tela lsp to the test in process. The tests that lint run
+// in parallel: each lint loads the module (about 1.5 s), and one after the
+// other they took 27 of cmd/tela's 33 s under go test -short.
 func startLSP(t *testing.T) *lspClient {
 	t.Helper()
 	inR, inW := io.Pipe()
@@ -424,6 +427,7 @@ func TestLSPCommand(t *testing.T) {
 }
 
 func TestLSPDiagnostics(t *testing.T) {
+	t.Parallel()
 	c := startLSP(t)
 	c.initialize()
 	path, uri := bufferFor(t, "buffer.go")
@@ -497,6 +501,7 @@ func utf16Of(s string) []uint16 {
 }
 
 func TestLSPCompletion(t *testing.T) {
+	t.Parallel()
 	c := startLSP(t)
 	c.initialize()
 	_, uri := bufferFor(t, "complete.go")
@@ -602,6 +607,7 @@ func TestLSPCompletion(t *testing.T) {
 }
 
 func TestLSPAliases(t *testing.T) {
+	t.Parallel()
 	c := startLSP(t)
 	c.initialize()
 	_, uri := bufferFor(t, "aliases.go")
@@ -652,6 +658,7 @@ func TestLSPAliases(t *testing.T) {
 }
 
 func TestLSPHover(t *testing.T) {
+	t.Parallel()
 	c := startLSP(t)
 	c.initialize()
 	_, uri := bufferFor(t, "hover.go")
@@ -708,6 +715,7 @@ func TestLSPHover(t *testing.T) {
 // The type-checked strings refine the syntactic ones: the fields of a kit
 // recipe hold classes, which no token of the syntax says.
 func TestLSPTypedClassStrings(t *testing.T) {
+	t.Parallel()
 	c := startLSP(t)
 	c.initialize()
 	_, uri := bufferFor(t, "typed.go")
@@ -834,6 +842,7 @@ func TestSiteAt(t *testing.T) {
 // It asserts nothing about the time (machines differ); the numbers are in
 // the log with -v.
 func TestLSPLatency(t *testing.T) {
+	t.Parallel()
 	file, err := filepath.Abs(filepath.Join("..", "..", "examples", "dashboard", "overview.go"))
 	if err != nil {
 		t.Fatal(err)
