@@ -487,9 +487,10 @@ func (b *Backend) event(id uint32, ev platform.Event) error {
 }
 
 // windowInfo handles the host's msgWindowInfo: the real window's restore
-// token and visibility.
+// token, visibility and alpha. A change of the alpha is followed by a
+// WindowStateEvent, at which the layers above ask PresentsAlpha again.
 func (b *Backend) windowInfo(d *dec) error {
-	id, hidden, token := d.u32(), d.boolean(), d.str()
+	id, hidden, token, alpha := d.u32(), d.boolean(), d.str(), d.boolean()
 	if err := d.end(); err != nil {
 		return err
 	}
@@ -497,6 +498,7 @@ func (b *Backend) windowInfo(d *dec) error {
 	defer b.mu.Unlock()
 	if w := b.windows[id]; w != nil {
 		w.token = token
+		w.alpha = alpha
 		if !w.gotInfo {
 			w.gotInfo, w.hostHidden = true, hidden
 			close(w.info)

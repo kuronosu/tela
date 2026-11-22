@@ -84,10 +84,17 @@ type Window struct {
 	dropSent    bool
 	dropEffect  platform.DropEffect
 	dropTypes   []string
+	// dropping: the app handles a drop; dropFinal is the effect its
+	// SetDropEffect set then (the final effect, sent with msgDropDone).
+	dropping  bool
+	dropFinal platform.DropEffect
 	// From the host's msgWindowInfo: the real window's restore token and
-	// whether it was hidden when this window was mapped onto it.
+	// whether it was hidden when this window was mapped onto it; alpha,
+	// whether the real window shows the alpha of the frames
+	// (PresentsAlpha; protocol 19).
 	token      string
 	hostHidden bool
+	alpha      bool
 	info       chan struct{} // closed at the first msgWindowInfo
 	gotInfo    bool
 

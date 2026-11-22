@@ -40,9 +40,20 @@ type pair struct {
 
 func newPair(t *testing.T, opts HostOptions, hopts headless.Options) *pair {
 	t.Helper()
+	return newPairWrapped(t, opts, hopts, nil)
+}
+
+// newPairWrapped is newPair with a host whose backend is wrap's wrapper of
+// the headless backend (nil: the headless backend itself).
+func newPairWrapped(t *testing.T, opts HostOptions, hopts headless.Options, wrap func(*headless.Backend) platform.Backend) *pair {
+	t.Helper()
 	wine.Skip(t, "no AF_UNIX sockets (WSAEAFNOSUPPORT), so a host cannot listen")
 	hopts.RealTime = true
 	p := &pair{t: t, hb: headless.New(hopts), done: make(chan error, 1), disconnected: map[*Child]error{}}
+	var backend platform.Backend = p.hb
+	if wrap != nil {
+		backend = wrap(p.hb)
+	}
 	user := opts
 	opts.OnConnect = func(c *Child) {
 		p.mu.Lock()
@@ -70,7 +81,7 @@ func newPair(t *testing.T, opts HostOptions, hopts headless.Options) *pair {
 		p.errors = append(p.errors, err)
 		p.mu.Unlock()
 	}
-	h, err := NewHost(p.hb, opts)
+	h, err := NewHost(backend, opts)
 	if err != nil {
 		t.Fatalf("NewHost: %v", err)
 	}
