@@ -614,7 +614,7 @@ func TestCounter(t *testing.T) {
 
 - **Build matrix** with `CGO_ENABLED=0`: `linux/amd64`, `linux/arm64`, `windows/amd64`, `windows/arm64`, `darwin/amd64`, `darwin/arm64`.
 - **Checks:** `go vet`, `staticcheck`, tests and goldens (headless, on Linux).
-- **Gate** (ADR-290): `go run ./internal/gate` runs every check but the full suite (`go test -short` through the test cache) and reports every failure, known flakes, changed goldens and added apparatus; CI's lint job runs it. Budget: 60 s warm after an edit of `internal/core` on the owner's machine.
+- **Gate** (ADR-290): `go run ./internal/gate` runs every check but the full suite (`go test -short` through the test cache) and reports every failure, known flakes, changed goldens and added apparatus; CI's lint job runs it. Budget: 200 s warm after an edit of `internal/core` on the owner's machine (ADR-314).
 - **Windows:**
   - Locally: `GOOS=windows go test -exec wine ./...`, `wine` to run examples (CI runs the tests under Wine with a null graphics driver and no display, not `xvfb-run`).
   - Wine is not real Windows (DPI, DWM, IME and accessibility differ), so CI also runs the tests on `windows-latest` on every push and pull request, and weekly.

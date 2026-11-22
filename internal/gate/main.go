@@ -27,9 +27,10 @@ import (
 	"time"
 )
 
-// totalBudget is the wall time the whole gate should take. Going over is a
-// warning, not a failure: the time depends on the machine.
-const totalBudget = 60 * time.Second
+// totalBudget is the wall time the whole gate should take after an edit of
+// internal/core (ADR-314). Going over is a warning, not a failure: the
+// time depends on the machine.
+const totalBudget = 200 * time.Second
 
 // stepNames lists the steps in the order they are reported.
 var stepNames = []string{"fmt", "vet", "build", "gpu-deps", "size", "staticcheck", "lint", "test", "docs"}
