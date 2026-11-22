@@ -150,7 +150,10 @@ func TestCopyActions(t *testing.T) {
 	// The aria line of the Save button: the menu fetches the snapshot when
 	// it opens (the Elements panel has not).
 	fake.Notify("picked", Picked{Window: 1, ID: FakeSaveBtn + 1})
-	app.Expect(telatest.ByRole("treeitem", "button").Nth(0), telatest.Selected(false)) // settled
+	// The pick took effect: the details are the Save button's. (The first
+	// "button" row unselected held before the pick too, and failed once it
+	// had scrolled the tree, under load: the first row left was Save's.)
+	app.ExpectText("button.go:190")
 	app.Click(telatest.ByRole("button", "Copy"))
 	app.Press("Escape")
 	if line := copyItem("Copy aria snapshot line"); line != `- button "Save"` {

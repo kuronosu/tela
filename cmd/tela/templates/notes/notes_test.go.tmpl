@@ -95,10 +95,37 @@ func mountApp(t *testing.T, app tela.App, look kit.Variant, opts ...telatest.Opt
 		keys = "windows"
 	}
 	opts = append([]telatest.Option{telatest.Size(windowW, windowH), telatest.PlatformKeys(keys)}, opts...)
-	// The library and the stored tokens are read off the UI thread
-	// (tela.UseAsync, oauth.UseSession): settling waits for them, so the
-	// screen is there once it is mounted.
-	return telatest.MountApp(t, app, opts...)
+	// The library is read off the UI thread (tela.UseAsync), which settling
+	// waits for. The stored tokens are too, by oauth.UseSession on a
+	// tela.UseGo goroutine, which settling does not wait for: on a busy
+	// machine a snapshot could be taken before the account card was there,
+	// so the mount waits for the goroutines.
+	a := telatest.MountApp(t, app, opts...)
+	waitGoroutines(t, a)
+	return a
+}
+
+// waitGoroutines waits until no tela.UseGo goroutine of a is running.
+// Pending settles the app as an action does and moves its clock to no
+// deadline, so the screen is the one a fast machine has at once.
+func waitGoroutines(t *testing.T, a *telatest.App) {
+	t.Helper()
+	start := time.Now()
+	for {
+		var running []string
+		for _, p := range a.Pending() {
+			if p.Kind == telatest.PendingGo {
+				running = append(running, p.String())
+			}
+		}
+		if len(running) == 0 {
+			return
+		}
+		if time.Since(start) > 10*time.Second {
+			t.Fatalf("UseGo goroutines still running 10 s after the mount: %s", strings.Join(running, "; "))
+		}
+		time.Sleep(time.Millisecond)
+	}
 }
 
 // The parts of the main window.

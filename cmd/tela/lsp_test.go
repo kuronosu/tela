@@ -27,6 +27,9 @@ type lspClient struct {
 	notes  []lspMessage // notifications read while waiting for something else
 }
 
+// startLSP serves tela lsp to the test in process. The tests that lint run
+// in parallel: each lint loads the module (about 1.5 s), and one after the
+// other they took 27 of cmd/tela's 33 s under go test -short.
 func startLSP(t *testing.T) *lspClient {
 	t.Helper()
 	inR, inW := io.Pipe()
@@ -424,6 +427,7 @@ func TestLSPCommand(t *testing.T) {
 }
 
 func TestLSPDiagnostics(t *testing.T) {
+	t.Parallel()
 	c := startLSP(t)
 	c.initialize()
 	path, uri := bufferFor(t, "buffer.go")
@@ -497,6 +501,7 @@ func utf16Of(s string) []uint16 {
 }
 
 func TestLSPCompletion(t *testing.T) {
+	t.Parallel()
 	c := startLSP(t)
 	c.initialize()
 	_, uri := bufferFor(t, "complete.go")
@@ -602,6 +607,7 @@ func TestLSPCompletion(t *testing.T) {
 }
 
 func TestLSPAliases(t *testing.T) {
+	t.Parallel()
 	c := startLSP(t)
 	c.initialize()
 	_, uri := bufferFor(t, "aliases.go")
@@ -652,6 +658,7 @@ func TestLSPAliases(t *testing.T) {
 }
 
 func TestLSPHover(t *testing.T) {
+	t.Parallel()
 	c := startLSP(t)
 	c.initialize()
 	_, uri := bufferFor(t, "hover.go")
@@ -708,6 +715,7 @@ func TestLSPHover(t *testing.T) {
 // The type-checked strings refine the syntactic ones: the fields of a kit
 // recipe hold classes, which no token of the syntax says.
 func TestLSPTypedClassStrings(t *testing.T) {
+	t.Parallel()
 	c := startLSP(t)
 	c.initialize()
 	_, uri := bufferFor(t, "typed.go")
@@ -832,8 +840,11 @@ func TestSiteAt(t *testing.T) {
 // (a package of 5,000 lines that imports the whole framework) take, the
 // first time and after a change, once the first run has loaded the package.
 // It asserts nothing about the time (machines differ); the numbers are in
-// the log with -v.
+// the log with -v. Under -short it makes one change instead of five: the
+// mean and the worst are the full suite's numbers, and each round is a
+// lint of the whole module (about 2 s with the other LSP tests).
 func TestLSPLatency(t *testing.T) {
+	t.Parallel()
 	file, err := filepath.Abs(filepath.Join("..", "..", "examples", "dashboard", "overview.go"))
 	if err != nil {
 		t.Fatal(err)
@@ -856,7 +867,10 @@ func TestLSPLatency(t *testing.T) {
 	c.diagnostics(uri, func(d []lspDiagnostic) bool { return len(d) == 1 })
 	t.Logf("first diagnostics of overview.go: %v", time.Since(start).Round(time.Millisecond))
 	var worst, total time.Duration
-	const rounds = 5
+	rounds := 5
+	if testing.Short() {
+		rounds = 1 // one change still checks that its findings replace the first ones
+	}
 	for i := range rounds {
 		start := time.Now()
 		c.change(uri, 2+i, probe(500+i))
@@ -868,7 +882,7 @@ func TestLSPLatency(t *testing.T) {
 		worst = max(worst, el)
 	}
 	t.Logf("diagnostics after a change, without the %v pause: mean %v, worst %v",
-		lspDebounce, (total / rounds).Round(time.Millisecond), worst.Round(time.Millisecond))
+		lspDebounce, (total / time.Duration(rounds)).Round(time.Millisecond), worst.Round(time.Millisecond))
 
 	// Completion and hover do not wait for any of it.
 	text, pos := withCursor(t, probe(600)+"\nvar _ = Div(Class(\"flex bg-|\"))\n")

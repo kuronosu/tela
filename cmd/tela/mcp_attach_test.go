@@ -58,6 +58,9 @@ type fakeApp struct {
 	// point unless noPoint.
 	shape   *gfx.Point
 	noPoint bool
+	// animating draws a frame before every Profiles answer, as an app
+	// whose animation never ends has drawn one between any two polls.
+	animating bool
 	// cwd is tela dev's working directory, which info reports; with it
 	// the component's sites are absolute paths under it. dir and preview
 	// are its package's directory and its --preview.
@@ -238,6 +241,9 @@ func (f *fakeApp) Inspect(_ context.Context, win uint32, id core.ElementID) (cor
 func (f *fakeApp) Profiles(_ context.Context, win uint32, since int) ([]core.FrameProfile, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.animating {
+		f.drew()
+	}
 	var out []core.FrameProfile
 	for _, p := range f.frames {
 		if p.Frame > since {
@@ -533,24 +539,16 @@ func TestAttachActionability(t *testing.T) {
 	}
 }
 
+// An animation draws between every two polls of the settle. (A goroutine
+// that drew every 2 ms fell behind the 5 ms quiet window under load, and
+// the call settled early: 2 of 40 runs beside the dashboard's tests.)
 func TestAttachSettleReportsAnAppThatKeepsDrawing(t *testing.T) {
 	app := newFakeApp()
 	s := newTestAttach(app)
 	s.mustTool(t, "snapshot", `{}`)
-	stop := make(chan struct{})
-	defer close(stop)
-	go func() { // an animation
-		for {
-			select {
-			case <-stop:
-				return
-			case <-time.After(2 * time.Millisecond):
-				app.mu.Lock()
-				app.drew()
-				app.mu.Unlock()
-			}
-		}
-	}()
+	app.mu.Lock()
+	app.animating = true
+	app.mu.Unlock()
 	start := time.Now()
 	text := s.mustTool(t, "hover", `{"x": 5, "y": 5}`)
 	if d := time.Since(start); d < s.max {

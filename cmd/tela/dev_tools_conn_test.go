@@ -348,10 +348,16 @@ func TestToolsQueueFullDropped(t *testing.T) {
 	ts.conns[c] = struct{}{}
 	go c.write()
 	// net.Pipe has no buffer: the writer blocks on its first message, so
-	// the queue holds toolsQueue more; the rest is dropped.
+	// the queue holds toolsQueue more; the rest is dropped. The loop waits
+	// for the writer to take the first one: a writer that started late (on
+	// a busy machine) made room in the middle, and the dropped
+	// notification went out with part of the count.
 	const sent = toolsQueue + 40
 	for i := range sent {
 		ts.broadcast("frames", map[string]int{"n": i})
+		for i == 0 && len(c.out) > 0 {
+			time.Sleep(time.Millisecond)
+		}
 	}
 	ts.broadcast("logs", map[string]int{"n": 0})
 	ts.broadcast("windows", map[string]int{"n": 0}) // not subscribed: not counted

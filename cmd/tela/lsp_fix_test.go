@@ -40,6 +40,7 @@ func applyLSPEdits(t *testing.T, text string, edits []lspTextEdit) string {
 
 // An unknown class has a quick fix that replaces it with the suggestion.
 func TestLSPQuickFix(t *testing.T) {
+	t.Parallel()
 	c := startLSP(t)
 	caps := c.initialize()["capabilities"].(map[string]any)
 	if caps["codeActionProvider"] == nil {
@@ -115,6 +116,7 @@ func TestLSPQuickFix(t *testing.T) {
 // declared (hover, completion), also in the first moments after an edit, and
 // its findings are reported there.
 func TestLSPConstantClassStrings(t *testing.T) {
+	t.Parallel()
 	c := startLSP(t)
 	c.initialize()
 	_, uri := bufferFor(t, "consts.go")
