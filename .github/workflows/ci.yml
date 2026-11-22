@@ -107,6 +107,15 @@ jobs:
         # its largest package, runs through nearly all of it: its 10-minute
         # default timeout measured the whole suite. 20m leaves room.
         run: go test -timeout 20m ./...
+      - name: go test -tags teladev (tela dev's kept state)
+        if: success() || failure()
+        env:
+          CGO_ENABLED: "0"
+        # The codecs and restore paths that keep hook state, renamed
+        # components and IME compositions across a tela dev reload exist
+        # only in teladev builds (ADR-113, ADR-309): the default suite
+        # never compiles them.
+        run: go test -short -timeout 20m -tags teladev . ./aria ./i18n ./internal/core/... ./internal/devloop ./internal/text/edit ./kit ./router ./examples/dashboard
       - name: Upload golden diffs
         if: failure()
         uses: actions/upload-artifact@v4
