@@ -108,13 +108,19 @@ func (r *run) run(patterns []string) (*Result, error) {
 	}
 	defer cleanup()
 	r.overlayJSON = overlayJSON
-	// The context is listed while the packages are.
+	// The context is listed while the packages are (ctxwalk.go).
 	var ctx []*listPackage
 	var ctxErr error
 	ctxDone := make(chan struct{})
 	if len(r.opts.Context) > 0 {
 		go func() {
 			defer close(ctxDone)
+			if dirs, ok := r.contextDirs(); ok {
+				if len(dirs) > 0 {
+					ctx, ctxErr = goList(r.dir, r.overlayJSON, dirs)
+				}
+				return
+			}
 			ctx, ctxErr = goList(r.dir, r.overlayJSON, r.opts.Context)
 		}()
 	} else {
