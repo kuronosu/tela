@@ -36,6 +36,8 @@ type renderOptions struct {
 	// Film and Every, for the film mode of tela snapshot: the span of the
 	// app's clock to capture and the interval between frames.
 	Film, Every time.Duration
+	// Spec is the JSON checkSpec of tela check and tela verify.
+	Spec string
 }
 
 // parseFlags parses args with flags defined by setup, and returns the single

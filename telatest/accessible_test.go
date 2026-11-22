@@ -126,7 +126,7 @@ func TestRulesListed(t *testing.T) {
 		}
 		seen[r.ID] = true
 	}
-	for _, id := range []string{"aria-command-name", "aria-required-attr", "target-size"} {
+	for _, id := range []string{"aria-command-name", "aria-required-attr", "target-size", "color-contrast", "focus-visible", "text-clipped"} {
 		if !seen[id] {
 			t.Errorf("no rule %s", id)
 		}

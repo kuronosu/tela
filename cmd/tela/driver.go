@@ -47,6 +47,7 @@ const (
 	modeInspect  mode = "inspect"  // print the layout tree as JSON
 	modeAria     mode = "aria"     // print the aria snapshot as YAML
 	modeFilm     mode = "film"     // capture the frames of the mount's motion (JSON)
+	modeCheck    mode = "check"    // audit the screens in a matrix of variants (JSON, check.go)
 )
 
 // contract is how a package exposes its screens.
@@ -111,6 +112,7 @@ const (
 	envErr     = "TELA_RUN_ERR"   // a message for the user, when the run fails
 	envInfo    = "TELA_RUN_INFO"  // JSON runInfo
 	envLog     = "TELA_RUN_LOG"   // what the run printed on standard error (dev warnings and class errors)
+	envSpec    = "TELA_RUN_SPEC"  // JSON checkSpec, for modeCheck
 )
 
 // runFeatures is detectFeatures, replaced by a test that runs the form for
@@ -351,11 +353,20 @@ func runInPackage(m mode, opts renderOptions, ext string, stderr io.Writer) (*ru
 	// The module's tela may predate the settled mount; the source lines
 	// are only for inspect.
 	feats := runFeatures(goBin, pkg.Dir)
-	feats.I18N = false
+	if m != modeCheck {
+		feats.I18N = false
+	}
 	if m == modeSnapshot || m == modeFilm {
 		feats.DevTools = false // a picture, or a film of the app as it is: not instrumented
 	}
-	if err := os.WriteFile(src, generateSource(pkg.Name, c, det.hasApp, feats), 0o644); err != nil {
+	gen := generateSource(pkg.Name, c, det.hasApp, feats)
+	if m == modeCheck {
+		if !feats.Audit {
+			return nil, errors.New("this package's tela module predates telatest's accessibility audit (App.Audit); update it with go get github.com/kuronosu/tela@latest")
+		}
+		gen = generateCheckSource(pkg.Name, c, det.hasApp, feats)
+	}
+	if err := os.WriteFile(src, gen, 0o644); err != nil {
 		return nil, err
 	}
 	overlay := filepath.Join(tmp, "overlay.json")
@@ -394,6 +405,7 @@ func runInPackage(m mode, opts renderOptions, ext string, stderr io.Writer) (*ru
 		envErr+"="+errFile,
 		envInfo+"="+infoFile,
 		envLog+"="+logFile,
+		envSpec+"="+opts.Spec,
 	)
 	var output bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &output, &output

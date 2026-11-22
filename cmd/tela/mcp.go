@@ -1237,7 +1237,7 @@ func mcpToolDefs(previews []string) []mcpToolDef {
 			}, (*mcpSession).toolPrefer),
 		def("lint", `Check the package's Go source for what dev mode reports at run time, without running it: unknown Tailwind classes (with a suggestion), ARIA roles and tokens, duplicate or missing keys, misused hooks. Prints tela lint -json. Example: {}`,
 			ro("Lint"), nil, (*mcpSession).toolLint),
-	}, mcpFilmDefs()...)
+	}, append(mcpFilmDefs(), mcpCheckDefs()...)...)
 }
 
 // ---------------------------------------------------------------------

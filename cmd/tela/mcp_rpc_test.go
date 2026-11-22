@@ -380,7 +380,7 @@ func TestMCPToolSchemas(t *testing.T) {
 			}
 		}
 	}
-	want := []string{"snapshot", "screenshot", "click", "hover", "fill", "press", "scroll", "drag", "resize", "open", "wait", "inspect", "state", "logs", "perf", "prefer", "lint", "film", "test"}
+	want := []string{"snapshot", "screenshot", "click", "hover", "fill", "press", "scroll", "drag", "resize", "open", "wait", "inspect", "state", "logs", "perf", "prefer", "lint", "film", "test", "check", "verify"}
 	if !slices.Equal(names, want) {
 		t.Errorf("tools %v, want the set of ADR-174 and phase 28 %v", names, want)
 	}

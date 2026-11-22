@@ -708,6 +708,9 @@ func TestAttachUnavailableTools(t *testing.T) {
 		}
 	}
 	for _, d := range mcpToolDefs(nil) {
+		if d.tool.Name == "check" || d.tool.Name == "verify" {
+			continue // they judge the package's source in a process of their own, not a window
+		}
 		headless = append(headless, d.tool.Name)
 	}
 	if strings.Join(attached, " ") != "windows "+strings.Join(headless, " ") {

@@ -26,6 +26,9 @@ type genFeatures struct {
 	// Film: telatest has App.Film, so tela snapshot --film and the film
 	// tool of tela mcp can capture frames.
 	Film bool
+	// Audit: telatest has App.Audit and Rules (ADR-306), which tela check
+	// and tela verify run.
+	Audit bool
 	// I18N: the package links tela/i18n, so a locale preference can act.
 	I18N bool
 }
@@ -52,6 +55,7 @@ func detectFeatures(goBin, dir string) genFeatures {
 			f.Settle = hasFunc(pkgDir, "func NoSettle() Option") && hasFunc(pkgDir, "func (a *App) LayoutJSON(") && hasFunc(pkgDir, "func AllowDev(")
 			f.DevTools = hasFunc(pkgDir, "func Instrument() Option")
 			f.Film = hasFunc(pkgDir, "func (a *App) Film(")
+			f.Audit = hasFunc(pkgDir, "func (a *App) Audit(") && hasFunc(pkgDir, "func Rules() []Rule")
 		}
 	}
 	return f

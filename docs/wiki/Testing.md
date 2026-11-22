@@ -210,6 +210,8 @@ app.ExpectAccessible(telatest.DisableRules("target-size"))
 
 The rules have axe's IDs (`aria-command-name`, `aria-input-field-name`, `aria-toggle-field-name`, `aria-dialog-name`, `aria-required-attr`, `aria-valid-attr-value`, `focus-order-semantics`, `target-size`...); [`telatest.Rules()`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#Rules) lists them with their impact and tags. Options follow `@axe-core/playwright`: `WithRules(ids...)` and `WithTags("wcag2aa")` run only those, `DisableRules(ids...)` accepts one rule's violations for one call, and `Exclude(locator)` leaves out a subtree. [`App.Audit`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Audit) returns the `[]Violation` instead of failing. `target-size` is WCAG 2.2's 2.5.8: 24x24 CSS pixels, or a 24 px circle with no other target in it; inline links and disabled controls are exempt.
 
+Six more rules look at what is on screen rather than at the tree: `color-contrast` (WCAG 1.4.3, on the colors the frame composites) and `click-events-have-key-events` run by default; `text-clipped`, `text-overlap`, `target-overlap` and `focus-visible` (Tab through the screen and compare frames) run when you name them, with `WithRules` or `WithTags("layout")`, since a layout check judges one window size. Each is a heuristic that skips what it cannot judge (text over an image or gradient, truncation on purpose, overlays, text fields' caret); [`tela check` and `tela verify`](CLI#tela-check-and-tela-verify) run them all over a package's screens in light and dark, at several widths, with large text, right-to-left and in another language.
+
 ## The clock
 
 The window's clock is **manual**. It starts at zero and moves only when the app
