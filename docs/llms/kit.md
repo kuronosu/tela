@@ -2,7 +2,7 @@
 
 Questions: which `kit` component to use and its fields; forms with fields, errors and a submit; switch rows, radio groups and cards, select, segmented controls; dialogs, alert dialogs, popovers, tooltips, menus, tabs, tables, toasts, calendars, color pickers; how to customize kit's look.
 
-`kit` has 39 components with shadcn/ui's ("new-york-v4") look, built on the `aria` behavior hooks: keyboard, focus and roles are done. Use them for every control; build layout and decoration with `h` elements and classes around them.
+`kit` is a set of components with shadcn/ui's ("new-york-v4") look, built on the `aria` behavior hooks: keyboard, focus and roles are done. Use them for every control; build layout and decoration with `h` elements and classes around them.
 
 **Rules that hold for every component:**
 - Each is a struct; its fields are its props. `Class` adds classes to the root after the component's own (last wins: `Class: "w-full"` overrides); parts have `...Class` fields (`HeaderClass`, `ContentClass`, `ItemClass`...). `Props` takes one more `h` prop for the root (`Props: TestID("save")`; several: `tela.MergeProps(TestID("x"), AutoComplete("email"))`).

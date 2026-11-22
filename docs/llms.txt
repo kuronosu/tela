@@ -1,8 +1,8 @@
 # Tela
 
-> Tela is a desktop UI framework in pure Go (no cgo, no webview): React-style components and hooks, styled with Tailwind CSS v4 classes, drawn by its own renderer on Linux, Windows and macOS, and rendered headlessly to PNGs and aria snapshots so an agent can see what it built. This file is the core every agent reads: what every screen needs, an index of the recipes and the pitfalls. A question about one area (windows, forms and kit, animation, i18n, testing...) is answered by a recipe in `llms/`, listed under Recipes. Every Go block in this file and in the recipes compiles against the current API.
+> Tela is a desktop UI framework in pure Go (no cgo, no webview): React-style components and hooks, styled with Tailwind CSS v4 classes, drawn by its own renderer on Linux, Windows and macOS, and rendered headlessly to PNGs and aria snapshots so an agent can see what it built. This file is the core every agent reads: what every screen needs, an index of the recipes and the common mistakes. A question about one area (windows, forms and kit, animation, i18n, testing...) is answered by a recipe in `llms/`, listed under Recipes. Every Go block in this file and in the recipes compiles against the current API.
 
-Contents: Start · The agent loop · Elements and props · Components and hooks · Styling · kit · Testing · Recipes · Pitfalls and limits
+Contents: Start · The agent loop · Elements and props · Components and hooks · Styling · kit · Testing · Recipes · Common mistakes
 
 ## Start
 
@@ -204,7 +204,7 @@ Classes are Tailwind CSS v4's, verbatim, parsed into typed styles. If you would 
 
 ## kit
 
-`kit` has 39 components with shadcn/ui's ("new-york-v4") look, built on the `aria` behavior hooks: keyboard, focus and roles are done. Use them for every control; build layout and decoration with `h` elements and classes around them. Components: `kit.Button`, `Badge`, `Alert`, `Card`, `Avatar`, `AvatarGroup`, `Separator`, `Skeleton`, `Markdown`, `Label`, `Input`, `Textarea`, `Field`, `FieldSet`, `Checkbox`, `Switch`, `RadioGroup`, `Toggle`, `ToggleGroup`, `Slider`, `Progress`, `Select`, `Tabs`, `Table`, `Dialog`, `AlertDialog`, `Popover`, `TitleBar`, `WindowControls`, `Tooltip`, `DropdownMenu`, `ContextMenu`, `Menubar`, `Toaster`, `Calendar`, `RangeCalendar`, `DatePicker`, `DateRangePicker`, `ColorPicker`, `ColorInput`, `StyleProvider`. There is no `kit.Sheet`, `Accordion`, `Breadcrumb`, `Sidebar` or `Combobox`: compose them from `Div`s, `kit.Dialog`, `kit.Popover`, `aria.UseCombobox`. The recipe kit has the fields of each, forms, overlays, tables, toasts and customization; recipe settings-screen is a whole screen to copy.
+`kit` is a set of components with shadcn/ui's ("new-york-v4") look, built on the `aria` behavior hooks: keyboard, focus and roles are done. Use them for every control; build layout and decoration with `h` elements and classes around them. Components: `kit.Button`, `Badge`, `Alert`, `Card`, `Avatar`, `AvatarGroup`, `Separator`, `Skeleton`, `Markdown`, `Label`, `Input`, `Textarea`, `Field`, `FieldSet`, `Checkbox`, `Switch`, `RadioGroup`, `Toggle`, `ToggleGroup`, `Slider`, `Progress`, `Select`, `Tabs`, `Table`, `Dialog`, `AlertDialog`, `Popover`, `TitleBar`, `WindowControls`, `Tooltip`, `DropdownMenu`, `ContextMenu`, `Menubar`, `Toaster`, `Calendar`, `RangeCalendar`, `DatePicker`, `DateRangePicker`, `ColorPicker`, `ColorInput`, `StyleProvider`. There is no `kit.Sheet`, `Accordion`, `Breadcrumb`, `Sidebar` or `Combobox`: compose them from `Div`s, `kit.Dialog`, `kit.Popover`, `aria.UseCombobox`. The recipe kit has the fields of each, forms, overlays, tables, toasts and customization; recipe settings-screen is a whole screen to copy.
 
 **Rules that hold for every component:**
 - Each is a struct; its fields are its props. `Class` adds classes to the root after the component's own (last wins); parts have `...Class` fields. `Props` takes one more `h` prop for the root (`Props: TestID("save")`).
@@ -248,40 +248,38 @@ Recipes sit beside this file in `llms/`: `https://telaui.dev/llms/<name>.md`, or
 - [i18n](llms/i18n.md): translating, plurals, number, currency and date formatting, number skeletons, Tela's own texts, RTL, testing a locale.
 - [dev](llms/dev.md): `tela dev` reloads and kept state, `--debug` with Delve, DevTools, attaching an agent, `tela run` and `tela build`.
 
-## 9. Pitfalls and limits
+## Common mistakes
 
-| Mistake | Fix |
-|---|---|
-| `Div("Hello")` does not compile | `Div(Text("Hello"))`; formatted: `Textf("%d", n)` |
-| Calling a function component that uses hooks: `counter()`, `telatest.Mount(t, counter())`, `Card{}.Build()` (dev mode panics: "hook called outside its component") | `tela.C(counter)` (write a public `Counter()` that returns it once), `tela.CP(fn, props)`, or pass the struct value itself: `Card{}` |
-| A hook inside `if`, a loop, a `Map`/`VirtualList` callback, an event handler, or after an early `return` | Call every hook at the top of the component; move per-row state into a row component (`MapKeyed(items, key, func(T) tela.Component { return Row{...} })`) |
-| Returning a prop where a node is expected: `return Class("p-4")`, or a `Map` callback that returns `Key(x.ID)` (it compiles, because a prop has a `Build` method, and panics in dev mode; `tela lint` reports `prop-node`) | Props go to an element: `Div(Class("p-4"), ...)`, `Div(Key(x.ID), ...)` |
-| `Fragment(kit.Button{...})`, `Fragment(x)` around a single node, or `tela.Node{}` / `n.IsZero()` for the empty node (removed) | `kit.Button{...}`, `x`, `nil` / `n == nil`; `tela lint -fix` removes the single-child `Fragment`s |
-| A list from `Map` without keys (dev warning "list without keys"), or index keys on a list that reorders | `Key(item.ID)` on each element; `tela.WithKey(comp, id)` for components; `MapKeyed` |
-| Declaring a name that `h` exports in your package (`Button`, `Label`, `Input`, `Text`, `Icon`, `Form`, `Value`, `Name`, `Type`, `Key`, `Map`, `Range`, `Scale`, `Style`, `Rows`, `ID`, `P`, `A`, `Code`...): "already declared through dot-import" | Name it `SaveButton`, `FieldLabel`, `themes`... |
-| `&Card{}` as a child, or a prop in a `tela.Component` field (`Children: Class("p-4")`): dev panic | Pass `Card{}`; put props in `Class`/`Props` |
-| `setCount.Set(count + 1)` twice in one frame loses one | `setCount.Update(func(n int) int { return n + 1 })`; `tela.Toggle(setOpen)` for bools |
-| `UseEffect(f, nil)` (dev panic) | `tela.UseEffect(f, tela.Once)` or `tela.UseMount(f)` |
-| Unknown or misspelled class (`rounded-xxl`, `bg-primry`) | Dev error with "did you mean"; `tela lint ./...` finds them statically. Unsupported classes say what to use |
-| A `kit.Tooltip` on a wrapper around a `kit.DropdownMenu` | Nest them: `kit.Tooltip{Content: Text("More"), Trigger: kit.DropdownMenu[string]{Trigger: kit.Button{...}}}` |
-| `kit.Field` around `h.Input`, around two controls, or around an overlay trigger (`AlertDialog`, `Dialog`, `Popover`): the label names nothing or the wrong one | One kit control per `Field` (`kit.Input`, `Textarea`, `Select`, `Switch`, `Checkbox`, `DatePicker`, `ColorInput`); a label + button row is a `Div` (`SignOutRow` above); `RadioGroup`/`ToggleGroup` go in a `kit.FieldSet` (legend names them) or take `AriaLabel`; `Slider` and `Progress` take `AriaLabel` |
-| Scrolling to the newest item flickers or lands short | `UseLayoutEffect` + `ref.ScrollIntoView()` (or `ScrollToIndex(i, tela.AlignEnd)` on a `VirtualList`), deps = the item count |
-| A flex child does not scroll or overflows | Give the scroll container a definite height (`h-screen`, `flex-1 min-h-0` in a `flex-col`, `h-96`) and `overflow-y-auto`; `min-w-0` on flex children that hold truncated text |
-| Wanting `kit.Sheet`, `kit.Accordion`, `kit.Breadcrumb`, `kit.Sidebar`, `kit.Combobox` | Not in kit: compose `Div`s with tokens (a `Div` sidebar with `AriaCurrent`), or use `kit.Dialog`/`kit.Popover`; `aria` has `UseCombobox` for a hand-built one |
-| `Variant: "primary"` on a `kit.Button` | The default variant is the zero value; variants are `Secondary`, `Outline`, `Ghost`, `Destructive`, `Link` |
-| `tela snapshot --dark` still renders light (or the other way round), or every render has one scheme | `App.ColorScheme` is set to `tela.Light`/`tela.Dark` and overrides the flag: leave it `tela.System` |
-| A kit page that looks off (square corners, wrong colors) | `Theme: &theme` (`theme := kit.Theme()`) and `RootClass: "bg-background text-foreground"` |
-| Palette colors that ignore dark mode (`bg-white`, `text-zinc-900`) | Tokens (`bg-card`, `text-foreground`), or add `dark:` pairs |
-| The snapshot does not show a toast or effect result | `tela snapshot` renders one frame; in `tela mcp`, act then `wait {"ms": 300}` and `screenshot` |
-| `Div(Class("flex"), children...)` with a `[]tela.Node` slice: Go cannot spread it | `Div(Class("flex"), Nodes(children))` |
-| A `tela.Window` without `OnClose`: its close button does nothing | `OnClose: func() { setOpen.Set(false) }`: state owns whether a window exists |
-| `desktop.OpenFile`, `ShowMessage` or `Notify` from a goroutine (dev panic), or state set in the callback of a goroutine | Call them from handlers and effects, or inside `tela.Post(func() { ... })`; their callbacks run on the UI thread |
-| `App.OnClose` hides the window but nothing can show it again (no tray, or the tray is unsupported) | Pair it with a `desktop.Tray` whose `OnError` turns the hiding off; `tela.Quit` from the menu |
-| `kit.TitleBar` in a window that keeps the OS's title bar: two bars | `Frameless: true`, or draw it only when `tela.UseWindow().State().ClientSideDecorations` |
-| A test reads or writes the real settings and window placements | `telatest.TempDesktopDirs(t)` at its start |
-| A drop zone never gets `OnDrop`, or flickers while the drag moves over its children | Call `e.PreventDefault()` in `OnDragOver`; count enters and leaves (the new element's enter comes before the old one's leave) instead of a bool |
-| `desktop.Secret`/`SetSecret` in a handler, an effect or a build (dev warning; the keyring may wait for the user, so the app freezes) | A goroutine (`go func() {...}()` or `tela.UseGo`) that sets state with a `Setter`; handle `ErrSecretCanceled` and `ErrUnsupported` |
-| `desktop.Register` for a link or file type, then expecting it to be the default or to replace another app's | It makes the app a candidate only. `MakeDefault` on the user's request; `Replace()` only after asking; under `go run`/`tela dev` give `ForApp(HandlerApp{Exec: ...})` |
-| A `GlobalShortcut` that "does nothing" | Show `OnStatus`: it may be taken, refused by the user, or unsupported; a nil `OnStatus` only warns in dev mode |
+<!-- Lifecycle (ADR-313). A mistake stays here only while it is reproduced on the current API, and is written as symptom, cause and fix. It is removed when `tela lint` catches it or a dev error already tells the fix. If `tela lint` could catch it and does not yet, the entry is marked `(lint: could catch)` and follows with its wrong code in a go mistake block that must compile and pass `tela lint`: when lint learns the rule that test fails and the entry goes. Mistakes of one area live in its recipe. Wiki and examples: https://github.com/kuronosu/tela/wiki -->
 
-**Limits.** Linux (Wayland, X11), Windows and macOS 13+. Wayland cannot place windows or keep them on top, and Windows notifications have no action buttons; a tray needs a host on Linux (GNOME needs an extension). `Checkbox` has no indeterminate state; `Select` has no search (build a combobox with `aria.UseCombobox`); `Table` is virtual only with a fixed `RowHeight`, and has no column resizing or row selection UI; no date-time input; no `tela add` yet. No margin collapsing, floats or CSS tables; 2D transforms only; SVG icons have no text, filters or patterns; no `grid-template-areas` from classes; `vertical-align` only on inline-blocks.
+- **A string or a slice as a child.** Symptom: `Div("Hello")` does not compile ("cannot use "Hello" ... missing method Build"), and neither does `Div(Class("flex"), children...)` ("too many arguments in call to Div"). Cause: children are `tela.Child` values, and Go cannot spread a slice after another argument. Fix: `Div(Text("Hello"))`, `Textf("%d", n)`, `Div(Class("flex"), Nodes(children))`. (lint: no)
+- **A name that `h` exports.** Symptom: "Button already declared through dot-import of package h". Cause: `h` is dot-imported, so its names (`Button`, `Label`, `Input`, `Text`, `Icon`, `Form`, `Value`, `Name`, `Type`, `Key`, `Map`, `Range`, `Scale`, `Style`, `Rows`, `ID`, `P`, `A`, `Code`...) are taken in your package. Fix: name yours `SaveButton`, `FieldLabel`, `themes`. (lint: no)
+- **Two updates from the same render.** Symptom: `setCount.Set(count + 1)` twice in one handler adds one, not two; no message. Cause: both calls read the same `count`. Fix: `setCount.Update(func(n int) int { return n + 1 })`. (lint: could catch)
+
+```go mistake
+func Counter2() tela.Node {
+	count, setCount := tela.UseState(0)
+	return Button(OnClick(func() { setCount.Set(count + 1); setCount.Set(count + 1) }), Textf("%d", count))
+}
+```
+
+- **A palette color without its dark pair.** Symptom: `bg-white text-zinc-900` stays light in dark mode; no message. Cause: palette colors are fixed, only theme tokens follow the scheme. Fix: `bg-card text-card-foreground`, or add `dark:bg-zinc-900 dark:text-zinc-50`. (lint: could catch)
+
+```go mistake
+func Panel() tela.Node {
+	return Div(Class("rounded-lg bg-white p-4 text-zinc-900"), Text("Hello"))
+}
+```
+
+- **A `kit.Field` around something that is not one control.** Symptom: the dev warning `Label ... has For("tt-0"), but no mounted element has ID("tt-0")`, and the label names nothing. Cause: `Field` wires its label to the one kit control in it; a `Div` of two inputs or an overlay trigger (`AlertDialog`, `Dialog`, `Popover`) is not one. Fix: one kit control per `Field`; a label + button row is a `Div` with a `Span` label; `RadioGroup` and `ToggleGroup` go in a `kit.FieldSet` or take `AriaLabel`. (lint: could catch)
+
+```go mistake
+func DeleteRow() tela.Node {
+	return kit.Field{Label: "Account", Children: kit.AlertDialog{
+		Trigger: kit.Button{Children: Text("Delete")}, Title: Text("Delete?")}}
+}
+```
+
+- **A kit component that does not exist.** Symptom: `undefined: kit.Sheet` (also `Accordion`, `Breadcrumb`, `Sidebar`, `Combobox`). Cause: kit has the components listed above, no more. Fix: compose `Div`s with tokens (a sidebar with `AriaCurrent`), use `kit.Dialog` or `kit.Popover`, or `aria.UseCombobox`. (lint: no)
+- **An element as a `Trigger`.** Symptom: `Trigger: Div(...)` does not compile ("missing method WithTriggerProps"). Cause: a trigger must take the overlay's props: a kit component, or a function that puts them on an element. Fix: `kit.Button{...}`, or `kit.TriggerFunc(func(p tela.Prop) tela.Node { return Button(p, ...) })`; nest overlays: `kit.Tooltip{Trigger: kit.DropdownMenu[string]{Trigger: btn}}`. (lint: no)
+- **A scroll container with no definite height.** Symptom: `Div(Class("flex flex-col"), ..., Div(Class("overflow-y-auto"), tall))` never scrolls: the box grows to its content and past the window. Cause: `overflow-y-auto` scrolls only inside a height the parent fixes. Fix: give the column a height (`h-screen`, `h-96`, or `flex-1 min-h-0` inside one that has it). (lint: no)

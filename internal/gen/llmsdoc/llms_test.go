@@ -30,9 +30,9 @@ const (
 	settingsFirstLine = "// Command settings is a settings screen on kit:"
 
 	// coreMaxBytes keeps the core short enough that every agent reads it
-	// whole (about 9k tokens): what every screen needs and an index of the
-	// recipes (ADR-313).
-	coreMaxBytes = 36_000
+	// whole (about 8k tokens): what every screen needs, the index of the
+	// recipes and the common mistakes (ADR-313).
+	coreMaxBytes = 31_000
 )
 
 // recipeMaxBytes is the size limit of each recipe, by file name without
@@ -635,6 +635,170 @@ func sectionOf(text, title string) (first int, lines []string, ok bool) {
 		return i + 2, all[i+1 : j], true
 	}
 	return 0, nil, false
+}
+
+// mistakesTitle is the heading of the section that lists mistakes, in the
+// core and in the recipes that have some.
+const mistakesTitle = "Common mistakes"
+
+// lifecycleMark starts the comment at the top of the core's mistakes
+// section that says how a mistake is kept (ADR-313).
+const lifecycleMark = "<!-- Lifecycle"
+
+// mistake is one entry of a mistakes section:
+//
+//   - **Title.** Symptom: what happens. Cause: why. Fix: what to write. (lint: could catch)
+//
+// followed, when lint could catch it, by the wrong code in a ```go mistake
+// block.
+type mistake struct {
+	file   string
+	line   int
+	title  string
+	lint   string // "could catch" or "no"
+	sample *block
+}
+
+var mistakeItem = regexp.MustCompile(`^- \*\*(.+?)\*\* Symptom: (.+?) Cause: (.+?) Fix: (.+?) \(lint: (could catch|no)\)$`)
+
+// parseMistakes reads the mistakes section of a document. It returns the
+// entries and the problems of the section: an entry that does not follow
+// the shape, a "could catch" without its sample, a sample without an entry.
+func parseMistakes(d docFile) (out []mistake, problems []string) {
+	first, lines, ok := sectionOf(d.text, mistakesTitle)
+	if !ok {
+		return nil, nil
+	}
+	where := func(i int) string { return fmt.Sprintf("docs/%s:%d", d.name, first+i) }
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		switch {
+		case strings.HasPrefix(line, "- "):
+			m := mistakeItem.FindStringSubmatch(line)
+			if m == nil {
+				problems = append(problems, where(i)+": a mistake reads \"- **Title.** Symptom: ... Cause: ... Fix: ... (lint: could catch)\" or \"(lint: no)\"")
+				continue
+			}
+			e := mistake{file: d.name, line: first + i, title: m[1], lint: m[5]}
+			j := i + 1
+			for j < len(lines) && strings.TrimSpace(lines[j]) == "" {
+				j++
+			}
+			if j < len(lines) && strings.TrimSpace(lines[j]) == "```go mistake" {
+				k := j + 1
+				for k < len(lines) && strings.TrimSpace(lines[k]) != "```" {
+					k++
+				}
+				e.sample = &block{file: d.name, line: first + j + 1, code: strings.Join(lines[j+1:k], "\n")}
+				i = k
+			}
+			switch {
+			case e.lint == "could catch" && e.sample == nil:
+				problems = append(problems, where(i)+": a mistake that lint could catch needs its wrong code in a ```go mistake block right after it: the test checks that lint does not catch it yet")
+			case e.lint == "no" && e.sample != nil:
+				problems = append(problems, where(i)+": only a mistake that lint could catch has a ```go mistake block")
+			}
+			out = append(out, e)
+		case strings.TrimSpace(line) == "```go mistake":
+			problems = append(problems, where(i)+": a ```go mistake block belongs right after the mistake it shows")
+			for i < len(lines)-1 && strings.TrimSpace(lines[i+1]) != "```" {
+				i++
+			}
+			i++
+		}
+	}
+	return out, problems
+}
+
+// TestMistakeItems: the core has a "## Common mistakes" section that opens
+// with the lifecycle comment, and every entry of it and of the recipes
+// follows the shape: title, symptom, cause, fix and the lint mark.
+func TestMistakeItems(t *testing.T) {
+	docs := readDocs(t)
+	first, lines, ok := sectionOf(docs[0].text, mistakesTitle)
+	if !ok {
+		t.Fatalf("docs/llms.txt has no %q section", "## "+mistakesTitle)
+	}
+	i := 0
+	for i < len(lines) && strings.TrimSpace(lines[i]) == "" {
+		i++
+	}
+	if i == len(lines) || !strings.HasPrefix(strings.TrimSpace(lines[i]), lifecycleMark) {
+		t.Errorf("docs/llms.txt:%d: the mistakes section opens with a comment that starts %q and says how a mistake is kept (ADR-313)", first+i, lifecycleMark)
+	}
+	total := 0
+	for _, d := range docs {
+		ms, problems := parseMistakes(d)
+		total += len(ms)
+		for _, p := range problems {
+			t.Error(p)
+		}
+	}
+	if total == 0 {
+		t.Error("no mistake is listed: a guide with none says so in the section, but the section keeps the shape of its entries")
+	}
+}
+
+// TestMistakeSamples: the wrong code of a mistake that "lint could catch"
+// compiles (so the mistake is reproduced on the current API, not a
+// compile error) and passes `tela lint`. When lint learns the rule this test
+// fails: the entry is removed, since the finding says the fix.
+func TestMistakeSamples(t *testing.T) {
+	needGo(t)
+	if testing.Short() {
+		t.Skip("type-checks the module's packages from source")
+	}
+	var ms []mistake
+	var blocks []block
+	for _, d := range readDocs(t) {
+		parsed, _ := parseMistakes(d)
+		for _, m := range parsed {
+			if m.sample != nil {
+				ms = append(ms, m)
+				blocks = append(blocks, *m.sample)
+			}
+		}
+	}
+	got := lintBlocks(t, "mistakes", blocks)
+	for i, m := range ms {
+		for _, f := range got[i] {
+			if f.lint {
+				t.Errorf("docs/%s:%d: %q: tela lint now catches this (%s): remove the mistake from the guide, lint says the fix", m.file, m.line, m.title, f.text)
+			} else {
+				t.Errorf("docs/%s:%d: %q: the wrong code must compile: %s", m.file, m.line, m.title, f.text)
+			}
+		}
+	}
+	for _, f := range got[-1] {
+		t.Error(f.text)
+	}
+}
+
+// TestParseMistakes covers the shape of an entry on small documents.
+func TestParseMistakes(t *testing.T) {
+	const good = "- **A.** Symptom: s. Cause: c. Fix: f. (lint: no)"
+	const could = "- **B.** Symptom: s. Cause: c. Fix: f. (lint: could catch)"
+	for _, tc := range []struct {
+		name     string
+		section  string
+		entries  int
+		problems int
+	}{
+		{"one entry", good, 1, 0},
+		{"lint could catch with its sample", could + "\n\n```go mistake\nx := 1\n```\n", 1, 0},
+		{"lint could catch without a sample", could, 1, 1},
+		{"a sample for a mistake lint cannot catch", good + "\n```go mistake\nx := 1\n```\n", 1, 1},
+		{"a sample without an entry", "```go mistake\nx := 1\n```\n", 0, 1},
+		{"no cause", "- **A.** Symptom: s. Fix: f. (lint: no)", 0, 1},
+		{"no lint mark", "- **A.** Symptom: s. Cause: c. Fix: f.", 0, 1},
+		{"a table is not an entry", "| Mistake | Fix |\n|---|---|\n| a | b |", 0, 0},
+	} {
+		d := docFile{name: "llms.txt", text: "## " + mistakesTitle + "\n\n" + tc.section + "\n"}
+		ms, problems := parseMistakes(d)
+		if len(ms) != tc.entries || len(problems) != tc.problems {
+			t.Errorf("%s: %d entries and %d problems %v, want %d and %d", tc.name, len(ms), len(problems), problems, tc.entries, tc.problems)
+		}
+	}
 }
 
 // needGo skips a test that runs the go command when there is none: under

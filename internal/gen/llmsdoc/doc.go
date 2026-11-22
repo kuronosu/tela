@@ -14,7 +14,12 @@
 //     catalog exist;
 //   - keeps the core within coreMaxBytes and each recipe within its row of
 //     recipeMaxBytes, and the core's "## Recipes" index in step with the
-//     files of docs/llms/ (one line each).
+//     files of docs/llms/ (one line each);
+//   - keeps the "## Common mistakes" sections to their lifecycle: each entry
+//     reads symptom, cause, fix and a lint mark; an entry marked "lint could
+//     catch" shows its wrong code in a ```go mistake block, which must
+//     compile and must NOT be reported by `tela lint`, so that a rule that
+//     learns the mistake makes the test fail and the entry go.
 //
 // A block is checked as one of three shapes, chosen by its text:
 //
