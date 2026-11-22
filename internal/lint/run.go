@@ -379,9 +379,10 @@ func dedupe(ds []Diagnostic) []Diagnostic {
 // addContext lists Options.Context and adds to pkgs, as targets that are
 // only read, the packages of it that mention what declares aliases and
 // theme colors, and what they import from the same module (the maps are
-// often declared in a package of their own). The other packages of the
-// listing are added as dependencies. A context that cannot be listed adds
-// nothing: it is a help, not a requirement.
+// often declared in a package of their own), but Tela's own packages
+// (telaOwn). The other packages of the listing are added as dependencies.
+// A context that cannot be listed adds nothing: it is a help, not a
+// requirement.
 func (r *run) addContext(pkgs []*listPackage) []*listPackage {
 	ctx, err := goList(r.dir, r.overlayJSON, r.opts.Context)
 	if err != nil {
@@ -397,7 +398,7 @@ func (r *run) addContext(pkgs []*listPackage) []*listPackage {
 	}
 	var visit func(p *listPackage)
 	visit = func(p *listPackage) {
-		if r.ctxOnly[p.ImportPath] || p.Standard || p.Module == nil {
+		if r.ctxOnly[p.ImportPath] || p.Standard || p.Module == nil || telaOwn(p) {
 			return
 		}
 		if t := have[p.ImportPath]; t != nil && !t.DepOnly {
@@ -437,7 +438,7 @@ func mentionsAliases(p *listPackage, cache *Cache) bool {
 	// Tela's own packages mention both everywhere (the App type, the
 	// themes of the looks); only the apps and fixtures inside its module
 	// declare aliases of their own.
-	if p.Module.Path == modulePath && !strings.Contains(p.ImportPath, "/examples/") && !strings.Contains(p.ImportPath, "/testdata/") {
+	if telaOwn(p) {
 		return false
 	}
 	for _, name := range p.GoFiles {
@@ -454,4 +455,14 @@ func mentionsAliases(p *listPackage, cache *Cache) bool {
 		}
 	}
 	return false
+}
+
+// telaOwn reports whether p is a package of Tela itself, not one of the
+// apps and fixtures inside its module. It is never context: it declares no
+// app's aliases, and outside Tela's repository it is another module, which
+// the context does not follow. Following an example's imports into it made
+// most of the framework context, checked from source with bodies: about
+// 1.2 s of every lint of an example, for the same findings.
+func telaOwn(p *listPackage) bool {
+	return p.Module != nil && p.Module.Path == modulePath && !strings.Contains(p.ImportPath, "/examples/") && !strings.Contains(p.ImportPath, "/testdata/")
 }
