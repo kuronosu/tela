@@ -59,6 +59,7 @@ type cmdSpec struct {
 	env       []string // KEY=VALUE additions (GOOS, GOARCH)
 	dir       string   // working directory relative to the root ("" is the root): a nested module
 	stripTela bool     // remove every TELA_* variable from the environment
+	noSlot    bool     // start at once, without waiting for a slot (the tests: the longest commands)
 }
 
 type cmdOut struct {
@@ -95,10 +96,13 @@ func buildEnv(base []string, extra []string, stripTela bool) []string {
 	return append(out, extra...)
 }
 
-// run runs one subprocess in the repository root, waiting for a free slot.
+// run runs one subprocess in the repository root, waiting for a free slot
+// unless the spec has noSlot.
 func (g *gate) run(s cmdSpec) cmdOut {
-	g.sem <- struct{}{}
-	defer func() { <-g.sem }()
+	if !s.noSlot {
+		g.sem <- struct{}{}
+		defer func() { <-g.sem }()
+	}
 	start := time.Now()
 	cmd := exec.Command(s.args[0], s.args[1:]...)
 	cmd.Dir = filepath.Join(g.root, filepath.FromSlash(s.dir))
@@ -546,12 +550,14 @@ func (g *gate) testStep() stepResult {
 	return r
 }
 
-// testSpecs are the test step's commands.
+// testSpecs are the test step's commands. They start at once (noSlot):
+// waiting for a slot behind vet and staticcheck added 4 s to a gate whose
+// time the tests set.
 func testSpecs() []cmdSpec {
 	return []cmdSpec{
-		{label: "go test -short ./...", args: []string{"go", "test", "-short", "-vet=off", "-json", "./..."}, stripTela: true},
-		{label: "go test -short -tags telagpu ./internal/vk/... ./internal/gfx/gpu/...", args: []string{"go", "test", "-short", "-vet=off", "-json", "-tags", "telagpu", "./internal/vk/...", "./internal/gfx/gpu/..."}, stripTela: true},
-		inNotes(cmdSpec{label: "go test -short ./...", args: []string{"go", "test", "-short", "-vet=off", "-json", "./..."}, stripTela: true}),
+		{label: "go test -short ./...", args: []string{"go", "test", "-short", "-vet=off", "-json", "./..."}, stripTela: true, noSlot: true},
+		{label: "go test -short -tags telagpu ./internal/vk/... ./internal/gfx/gpu/...", args: []string{"go", "test", "-short", "-vet=off", "-json", "-tags", "telagpu", "./internal/vk/...", "./internal/gfx/gpu/..."}, stripTela: true, noSlot: true},
+		inNotes(cmdSpec{label: "go test -short ./...", args: []string{"go", "test", "-short", "-vet=off", "-json", "./..."}, stripTela: true, noSlot: true}),
 	}
 }
 
