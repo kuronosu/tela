@@ -377,8 +377,8 @@ func (a *App) describeRef(id semantics.NodeID) string {
 
 // Expect waits until the element l locates satisfies every state, like
 // Playwright's toBeChecked, toBeDisabled and toBeExpanded: it settles the
-// app and checks, and while a state does not hold lets a frame of app time
-// pass and checks again, until it holds or the [Timeout] expires. The
+// app and checks, and while a state does not hold lets time pass (see
+// [App.WaitFor]) and checks again, until it holds or the [Timeout] expires. The
 // locator must match exactly one element (strictness). The failure
 // message says which states differ, shows the element's actual states and
 // its line of the aria snapshot.

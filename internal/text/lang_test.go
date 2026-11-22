@@ -61,26 +61,31 @@ func TestLanguageSelectsLocalForms(t *testing.T) {
 	}
 }
 
-func TestGoldenLanguageForms(t *testing.T) {
+// languageFormsScene draws loclText in each of loclLangs, laid out at
+// scale k.
+func languageFormsScene(t testing.TB, k float32) (*scene, int, int) {
 	c := layoutCollection(t)
 	ink := gfx.RGB8(0x11, 0x18, 0x27)
 	muted := gfx.RGB8(0x6b, 0x72, 0x80)
-	b := gfx.NewBuilder()
+	s := newScene(k)
 	y := float32(12)
 	for _, lang := range loclLangs {
-		lab := NewLayout(c, &Paragraph{Text: lang, Default: TextStyle{Families: []string{"Inter"}, Size: 13, Paint: muted, LineHeight: LineHeightPixels(40)}})
+		lab := s.layout(c, &Paragraph{Text: lang, Default: TextStyle{Families: []string{"Inter"}, Size: 13, Paint: muted, LineHeight: LineHeightPixels(40)}})
 		lab.BreakLines(80)
-		lab.Paint(b, gfx.Pt(12, y))
-		l := NewLayout(c, &Paragraph{Text: loclText, Default: TextStyle{Families: []string{"Inter"}, Size: 28, Paint: ink, LineHeight: LineHeightPixels(40), Language: lang}})
+		s.paint(lab, gfx.Pt(12, y))
+		l := s.layout(c, &Paragraph{Text: loclText, Default: TextStyle{Families: []string{"Inter"}, Size: 28, Paint: ink, LineHeight: LineHeightPixels(40), Language: lang}})
 		l.BreakLines(400)
-		l.Paint(b, gfx.Pt(80, y))
+		s.paint(l, gfx.Pt(80, y))
 		y += 40
 	}
-	dl := b.Finish()
-	const w, h = 380, 12 + 5*40 + 8
+	return s, 380, int(y) + 8
+}
+
+func TestGoldenLanguageForms(t *testing.T) {
+	s, w, h := languageFormsScene(t, 2)
 	img := image.NewRGBA(image.Rect(0, 0, w*2, h*2))
 	raster.Clear(img, image.Rectangle{}, gfx.RGB8(0xf9, 0xfa, 0xfb))
-	raster.Render(img, dl, raster.Options{Scale: 2})
+	raster.Render(img, s.b.Finish(), raster.Options{Scale: 2})
 	golden.Image(t, "language_forms_x2", img)
 }
 

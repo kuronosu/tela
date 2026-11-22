@@ -90,20 +90,20 @@ func TestSystemFontsLive(t *testing.T) {
 		}
 	}
 
-	// Render a mixed paragraph.
+	// Render a mixed paragraph, at scale 2.
 	const W = 640
 	ink := gfx.RGB8(0x11, 0x18, 0x27)
 	muted := gfx.RGB8(0x6b, 0x72, 0x80)
-	b := gfx.NewBuilder()
+	s := newScene(2)
 	y := float32(16)
 	add := func(label, text string, size float32) {
-		lab := NewLayout(c, &Paragraph{Text: label, Default: TextStyle{Families: []string{"Inter"}, Size: 11, Paint: muted, LineHeight: LineHeightPixels(16)}})
+		lab := s.layout(c, &Paragraph{Text: label, Default: TextStyle{Families: []string{"Inter"}, Size: 11, Paint: muted, LineHeight: LineHeightPixels(16)}})
 		lab.BreakLines(W)
-		lab.Paint(b, gfx.Pt(16, y))
+		s.paint(lab, gfx.Pt(16, y))
 		y += lab.Height()
-		l := NewLayout(c, &Paragraph{Text: text, Default: TextStyle{Families: []string{"Inter"}, Size: size, Paint: ink, LineHeight: LineHeightPixels(size * 1.5)}})
+		l := s.layout(c, &Paragraph{Text: text, Default: TextStyle{Families: []string{"Inter"}, Size: size, Paint: ink, LineHeight: LineHeightPixels(size * 1.5)}})
 		l.BreakLines(W)
-		l.Paint(b, gfx.Pt(16, y))
+		s.paint(l, gfx.Pt(16, y))
 		y += l.Height() + 10
 		used := map[string]bool{}
 		var runs []LineRun
@@ -142,7 +142,7 @@ func TestSystemFontsLive(t *testing.T) {
 	const scale = 2
 	img := image.NewRGBA(image.Rect(0, 0, (W+32)*scale, H*scale))
 	raster.Clear(img, image.Rectangle{}, gfx.RGB8(0xf9, 0xfa, 0xfb))
-	raster.Render(img, b.Finish(), raster.Options{Scale: scale})
+	raster.Render(img, s.b.Finish(), raster.Options{Scale: scale})
 	out := os.Getenv("TELA_SYSTEM_FONTS_PNG")
 	if out == "" {
 		out = filepath.Join(t.TempDir(), "system_fonts.png")

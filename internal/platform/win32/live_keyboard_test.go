@@ -22,6 +22,14 @@ import (
 // skip where the window cannot get it (a session without a desktop), and they
 // load other keyboard layouts for the thread (they are restored afterwards).
 //
+// SendInput types into whatever window has the focus, so a window of
+// another program that takes it (a console, a notification) would receive
+// the keys and the case would fail on what it typed there, or time out.
+// The tests check before every injection, slow keys one by one, that the
+// test window is still the foreground window with the focus, and a focus
+// lost during a case fails it naming the window that took it: they do not
+// rely on running alone.
+//
 // TELA_KEYLOG=1 logs what every case produced instead of failing on a
 // difference, to record new expectations.
 
@@ -236,6 +244,16 @@ func layoutSession(t *testing.T, klid string) (hkl uintptr, restore func()) {
 	return h, restore
 }
 
+// foregroundError reports why keys injected now would not reach hwnd: the
+// foreground window, where SendInput delivers them, is another one.
+func foregroundError(hwnd uintptr) error {
+	fg, _, _ := procGetForegroundWindow.Call()
+	if fg == hwnd {
+		return nil
+	}
+	return fmt.Errorf("the foreground window is %s, not the test window %#x", describeWindow(fg), hwnd)
+}
+
 // forceForeground gives hwnd the keyboard focus, which Windows only grants
 // to the process that last received input: a tap of the Alt key (harmless to
 // whatever has the focus now) makes this process that one. The input queue
@@ -314,6 +332,9 @@ func runCases(t *testing.T, hkl uintptr, cases []kbdCase, setup func(t *testing.
 		cur            int
 		got            []string
 		cleanup        func()
+		slow           []sk      // the slow keys of the case not injected yet
+		slowAt         time.Time // when the next one is due
+		lost           string    // why the focus was lost during the case
 	)
 	arm := func(d time.Duration) {
 		deadline = time.Now().Add(d)
@@ -330,6 +351,46 @@ func runCases(t *testing.T, hkl uintptr, cases []kbdCase, setup func(t *testing.
 		}
 		finished = true
 		b.Quit()
+	}
+	// stop ends the run on a case that cannot type into the window: the
+	// cases after it would type elsewhere too.
+	stop := func(why string) {
+		t.Errorf("%s: %s; the %d cases after it did not run (got %s)",
+			cases[cur].name, why, len(cases)-cur-1, strings.Join(got, " ; "))
+		slow = nil
+		cur = len(cases)
+		finish()
+	}
+	// reachable checks, before keys are injected, that they reach the
+	// window: it has the keyboard focus and is the foreground window.
+	reachable := func() bool {
+		if lost != "" {
+			stop(lost)
+			return false
+		}
+		if err := foregroundError(w.hwnd); err != nil || !focused {
+			why := "the window does not have the keyboard focus"
+			if err != nil {
+				why += " (" + err.Error() + ")"
+			}
+			stop(why + ": its keys would go elsewhere")
+			return false
+		}
+		return true
+	}
+	// sendSlow injects the next slow key, if the window can still take it.
+	sendSlow := func() {
+		if !reachable() {
+			return
+		}
+		if sendKeysRaw(slow[0]) != 1 {
+			stop("SendInput refused the key (input blocked: a locked or disconnected session)")
+			return
+		}
+		if slow = slow[1:]; len(slow) > 0 {
+			slowAt = time.Now().Add(40 * time.Millisecond)
+			time.AfterFunc(40*time.Millisecond, b.Wake)
+		}
 	}
 	var next func()
 	next = func() {
@@ -351,23 +412,24 @@ func runCases(t *testing.T, hkl uintptr, cases []kbdCase, setup func(t *testing.
 			return
 		}
 		keys := seq(cases[cur].keys, ktap(scF24))
+		arm(3 * time.Second)
 		if cases[cur].slow {
 			// Windows merges the key-downs that wait in the queue into one
 			// message with a repeat count; typematic repeats come 30 ms
-			// apart. Inject from another thread, pausing between events.
-			go func() {
-				for _, k := range keys {
-					sendKeysRaw(k)
-					time.Sleep(40 * time.Millisecond)
-				}
-			}()
-		} else {
+			// apart. Inject one key per wake, 40 ms apart, so the loop
+			// handles each before the next (and the focus is checked
+			// before each).
+			slow = keys
+			sendSlow()
+		} else if reachable() {
 			sendKeys(t, keys)
 		}
-		arm(3 * time.Second)
 	}
 	var noVK string // set when Wine identifies no key of a case
 	check := func() {
+		if cur == len(cases) {
+			return // an F24 still queued after the run stopped
+		}
 		c := cases[cur]
 		line := strings.Join(got, " ; ")
 		if inWine() && !c.warmup && len(got) > 0 && strings.Count(line, `"Unidentified"`) == len(got) {
@@ -388,6 +450,10 @@ func runCases(t *testing.T, hkl uintptr, cases []kbdCase, setup func(t *testing.
 			}
 		case strings.Join(c.want, " ; ") != line:
 			t.Errorf("%s:\n got  %s\n want %s", c.name, line, strings.Join(c.want, " ; "))
+		}
+		if lost != "" {
+			stop(lost)
+			return
 		}
 		cur++
 		next()
@@ -430,9 +496,20 @@ func runCases(t *testing.T, hkl uintptr, cases []kbdCase, setup func(t *testing.
 			}
 		case platform.FocusEvent:
 			focused = e.Focused
+			if !e.Focused && step == stepCases && lost == "" {
+				// Reported when the case ends: what it typed after this
+				// went to the window that took the focus.
+				lost = "the window lost the keyboard focus during the case"
+				if err := foregroundError(w.hwnd); err != nil {
+					lost += " (" + err.Error() + ")"
+				}
+			}
 		case platform.CloseRequestedEvent:
 			got = append(got, "close")
 		case platform.WakeEvent:
+			if !finished && len(slow) > 0 && !time.Now().Before(slowAt) {
+				sendSlow()
+			}
 			if finished || time.Now().Before(deadline) {
 				return
 			}
@@ -457,6 +534,10 @@ func runCases(t *testing.T, hkl uintptr, cases []kbdCase, setup func(t *testing.
 			case stepProbe:
 				t.Fatalf("the layout probe key did not arrive")
 			case stepCases:
+				if lost != "" {
+					stop(lost)
+					return
+				}
 				t.Errorf("%s: timed out; got %s", cases[cur].name, strings.Join(got, " ; "))
 				finish()
 			case stepRestore:
@@ -567,7 +648,9 @@ func ensureToggle(vk, sc int, on bool) (cleanup func()) {
 	}
 }
 
-func sendKeysRaw(keys ...sk) {
+// sendKeysRaw injects keys and returns how many SendInput took (all of
+// them, or 0 when input is blocked: a locked or disconnected session).
+func sendKeysRaw(keys ...sk) int {
 	ins := make([]input, len(keys))
 	for i, k := range keys {
 		flags := uint32(keyeventfScancode)
@@ -579,7 +662,8 @@ func sendKeysRaw(keys ...sk) {
 		}
 		ins[i] = input{typ: inputKeyboard, ki: keybdInput{scan: k.sc & 0xFF, flags: flags}}
 	}
-	procSendInput.Call(uintptr(len(ins)), uintptr(unsafe.Pointer(&ins[0])), unsafe.Sizeof(ins[0]))
+	n, _, _ := procSendInput.Call(uintptr(len(ins)), uintptr(unsafe.Pointer(&ins[0])), unsafe.Sizeof(ins[0]))
+	return int(n)
 }
 
 // standardToggles puts Caps Lock off and Num Lock on, the state the cases
@@ -604,6 +688,19 @@ func TestKeyboardFocus(t *testing.T) {
 	var log []string
 	var frame, started, finished bool
 	phase := 0
+	// send injects keys once the window is the foreground window (with
+	// the focus or not: phase 2 types at the active window without
+	// focus), and fails the test naming the window that took it otherwise.
+	send := func(keys []sk) bool {
+		if err := foregroundError(w.hwnd); err != nil {
+			t.Errorf("phase %d: %v: the keys would go there; got %s", phase, err, strings.Join(log, " ; "))
+			finished = true
+			b.Quit()
+			return false
+		}
+		sendKeys(t, keys)
+		return true
+	}
 	runLive(t, b, nil, func(win platform.Window, e platform.Event) {
 		switch e := e.(type) {
 		case platform.FrameEvent:
@@ -623,7 +720,7 @@ func TestKeyboardFocus(t *testing.T) {
 				procSetFocus.Call(w.hwnd)
 				// B is still down (the repeat bit is set); its release is
 				// dropped; C is a normal key.
-				sendKeys(t, seq(kdn(scB), kup(scB), ktap(scC), ktap(scF24)))
+				send(seq(kdn(scB), kup(scB), ktap(scC), ktap(scF24)))
 			case !finished:
 				t.Errorf("timed out; got %s", strings.Join(log, " ; "))
 				b.Quit()
@@ -633,7 +730,16 @@ func TestKeyboardFocus(t *testing.T) {
 			switch {
 			case e.Focused && !started:
 				started, phase = true, 1
-				sendKeys(t, kdn(scA))
+				send(kdn(scA))
+			case !e.Focused && started && phase != 2 && !finished:
+				// Only SetFocus(NULL) of phase 2 takes the focus away.
+				why := "focus lost"
+				if err := foregroundError(w.hwnd); err != nil {
+					why = err.Error()
+				}
+				t.Errorf("phase %d: the window lost the keyboard focus (%s); got %s", phase, why, strings.Join(log, " ; "))
+				finished = true
+				b.Quit()
 			case !e.Focused && phase == 2:
 				// The keys sent without focus find the window active and
 				// arrive as system keys; give them time to be dispatched.
@@ -659,7 +765,7 @@ func TestKeyboardFocus(t *testing.T) {
 			if phase == 1 && e.Code == platform.CodeKeyA && e.Action == platform.KeyPress {
 				phase = 2
 				procSetFocus.Call(0)
-				sendKeys(t, seq(kup(scA), kdn(scB)))
+				send(seq(kup(scA), kdn(scB)))
 			}
 		}
 	})

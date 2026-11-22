@@ -102,8 +102,8 @@ func framelessModal(t *testing.T, mode string) {
 		// The real file dialog and the screen capture behind it.
 		requireLiveShell(t)
 	}
-	// Both modes check the pixels on the screen (liveScreen).
-	requireLiveScreen(t)
+	// Both modes check the pixels on the screen.
+	requireScreen(t)
 	b := liveBackend(t)
 	want := color.RGBA{0x30, 0x60, 0x90, 0xff}
 	size := image.Pt(400, 300)
@@ -123,7 +123,7 @@ func framelessModal(t *testing.T, mode string) {
 	report := func(stage string) {
 		time.Sleep(700 * time.Millisecond) // let DWM compose
 		r := getWindowRect(main.hwnd).image()
-		if bad := modalPixelsLost(captureScreenRect(r), size, want); len(bad) > 0 {
+		if bad := modalPixelsLost(screenFor(t, main.hwnd, r), size, want); len(bad) > 0 {
 			problems <- fmt.Sprintf("%s: %d of %d probes lost the app's pixels: %v", stage, len(bad), len(modalProbes(size.X, size.Y)), bad)
 		}
 	}

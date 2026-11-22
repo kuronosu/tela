@@ -63,7 +63,7 @@ func TestStyleRunInsideGrapheme(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			p := &Paragraph{Text: c.text, Default: base, Style: ParagraphStyle{WhiteSpace: WhiteSpaceNowrap},
-				Spans: []Span{{Start: c.start, End: c.end, Style: c.st}}}
+				Spans: []Span{{Start: c.start, End: c.end, Style: c.st}}, Scale: 2}
 			l := NewLayout(layoutCollection(t), p)
 			l.BreakLines(float32(math.Inf(1)))
 			if l.NumClusters() != len(c.want) {
