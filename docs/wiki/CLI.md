@@ -45,6 +45,7 @@ CGO_ENABLED=0 go run ./cmd/tela snapshot -o counter.png ./examples/counter
 | `tela snapshot` | Renders a screen to a PNG, or with `--film` the frames of its motion as a contact sheet and an animated PNG |
 | `tela inspect` | Prints a screen's aria snapshot (YAML) or layout tree (JSON) |
 | `tela lint` | Checks the Go source for the mistakes that dev mode reports at run time: unknown classes, roles and aria tokens, duplicate or missing keys, misused hooks, a redundant `Fragment`, a prop where a node goes (see [tela lint](#tela-lint)) |
+| `tela check`, `tela verify` | Look for cut-off or overlapping text, low contrast, small targets and focus problems on a package's screens: `check` the default preview in light and dark, `verify` every preview in a matrix of widths, large text, right-to-left and another language (see [tela check and tela verify](#tela-check-and-tela-verify)) |
 | `tela dev` | Runs an app and reloads it on every save, keeping the window and the state |
 | `tela mcp` | Serves a package's screen to agents over the Model Context Protocol: snapshot, screenshot, click, fill, film, test... on an instance that stays up and rebuilds on edits; `--attach` drives a running `tela dev`'s real windows instead (see [tela mcp](#tela-mcp)) |
 | `tela lsp` | Serves class diagnostics, completion and hover to editors over the Language Server Protocol, beside gopls (see [tela lsp](#tela-lsp)) |
@@ -641,6 +642,59 @@ Run it in CI after `go vet`:
 CGO_ENABLED=0 go run github.com/kuronosu/tela/cmd/tela@latest lint ./...
 ```
 
+## tela check and tela verify
+
+```text
+tela check  [--preview NAME] [--size WxH] [--rules LIST] [--disable LIST] [-json] <pkg>
+tela verify [--preview NAME] [--size WxH] [--widths LIST] [--text-scale N] [--lang TAG] [--rules LIST] [--disable LIST] [-json] <pkg>
+```
+
+`tela inspect` shows the tree; these commands judge it. They mount the screen
+headlessly as `tela snapshot` does and run the rules of
+[`telatest`'s audit](Testing#checking-accessibility) (ADR-306, ADR-312): text
+that is cut off or lies over other text, targets over targets, contrast under
+WCAG 2.2 AA, targets under 24x24, controls a keyboard cannot operate, focus that
+shows nothing, and missing names and states. `tela check` is the fast pass: the
+screen of `tela snapshot` in light and dark. `tela verify` runs every preview
+(or `--preview`) in a matrix, one change from the baseline at a time:
+
+| Variant | What changes |
+|---|---|
+| `light`, `dark` | The color scheme (skipped when the `App` or the preview fixes it) |
+| `width N` | The window's width, for each of `--widths` (default 360, 768, 1280), at the baseline's height |
+| `text xN` | The text scale, `--text-scale` (default 2, WCAG 1.4.4) |
+| `rtl` | The whole screen under `h.Dir("rtl")` |
+| `lang TAG` | The locale `--lang`, or the first other one of a package that links `tela/i18n` |
+
+Each finding says where it is, so that it can be opened and fixed:
+
+```text
+$ tela verify ./examples/hello
+main.go:17: color-contrast (serious): text is #79716b on #e7e5e4: contrast 3.83:1, text needs 4.5:1 (WCAG 2.2 AA 1.4.3)
+    element: text "TELA / GO UI FRAMEWORK" in span (class "text-sm font-medium tracking-widest text-stone-500")
+    fix: raise the contrast to 4.5:1: darken the text color or lighten its background (a theme's foreground over its background does)
+    in: light, dark, width 360, width 768, width 1280, rtl
+```
+
+The line is where the app made the element (a library component's is the line
+of the app that used it, else the library's own). The same finding in several
+variants is one, with the variants it appears in. `-json` prints one object:
+`package`, `previews`, `variants`, `skipped` (variants that do not apply, with
+why) and `findings` (`preview`, `rule`, `impact`, `message`, `fix`, `element`,
+`src`, `x`, `y`, `width`, `height`, `variants`). The exit status is 0 when
+nothing is found, 1 when something is, 2 on a usage error or when the package
+cannot run. `--rules` and `--disable` take rule IDs (`tela help check` lists
+them with what each rule does not see).
+
+A finding is a judgement of the laid-out screen, so each rule leaves out what
+it cannot judge: text over an image, a gradient, a blur or a filter, and text
+faded to 60% or less (the look of an inactive control) are not checked for
+contrast, only text and not borders or icons; truncation on purpose
+(`truncate`, `line-clamp`), text in a scroll container, `sr-only` text and text
+under a transform are not clipped; overlays, portals and scrolled-out content
+do not overlap; a text field's caret is its focus indicator. `tela mcp` has the
+same two as the tools `check` and `verify`.
+
 ## tela mcp
 
 ```text
@@ -703,6 +757,8 @@ services are not reachable through the tools yet.
 | `perf` | The last `frames` frames, or with `action: true` the frames the last click, press or wait caused: time per phase, what each built, styled, laid out and repainted, and a summary |
 | `prefer` | `reducedMotion`, `highContrast`, `textScale`, `locale`, `direction` and `dark`; without arguments, the current ones |
 | `lint` | `tela lint -json` on the package |
+| `check` | `tela check` on the package's source as it is, in a process of its own: findings with rule, element, `[src=file:line]` and fix (`preview`, `rules`, `disable`) |
+| `verify` | `tela verify`: every preview in light and dark, at several widths, with large text, right-to-left and in another language (`preview`, `widths`, `textScale`, `lang`, `rules`, `disable`) |
 | `film` | The frames of the motion an `action` starts, every `every` ms over `span` ms of the app's clock, as a contact sheet image (and, with `apng`, an animated PNG): see [`film`](#film-and-test) |
 | `test` | Writes the session's actions, and what each changed, as a Go `telatest` test in the package, then runs `go vet` and the test: see [`test`](#film-and-test) |
 

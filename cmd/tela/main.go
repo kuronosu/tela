@@ -5,6 +5,8 @@
 //	tela snapshot [--size WxH] [--scale N] [--dark] [--preview NAME] [-o out.png] <pkg>
 //	tela inspect  [--aria | --layout] [--size WxH] [--dark] [--preview NAME] <pkg>
 //	tela lint     [-json] [-tests] [-fix] [packages]
+//	tela check    [--preview NAME] [--size WxH] [--rules LIST] [--disable LIST] [-json] <pkg>
+//	tela verify   [--preview NAME] [--size WxH] [--widths LIST] [--text-scale N] [--lang TAG] [-json] <pkg>
 //	tela dev      [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [--devtools] [-v] [pkg]
 //	tela devtools [-addr ADDRESS]
 //	tela mcp      [--size WxH] [--scale N] [--dark] [--preview NAME] [-v] [pkg]
@@ -38,6 +40,13 @@
 // icons gen turns a directory of SVG files into a Go package with one
 // tela.Icon variable per file (ADR-102); it does not run the package's code
 // and needs neither the go command nor a module.
+//
+// check and verify mount a package's screens headlessly as snapshot does and
+// run telatest's accessibility audit and layout rules on them (ADR-306,
+// ADR-312): check the default preview in light and dark, verify every
+// preview in a matrix of widths, large text, right-to-left and another
+// language. Each finding names its rule, the element's aria line, its source
+// line and the fix; the exit status is 1 when there is one.
 //
 // lint checks the Go source of the packages (default ./...) for the mistakes
 // that dev mode reports at run time: unknown classes, roles and aria tokens,
@@ -110,6 +119,8 @@ Commands:
 	snapshot    render a package's screen headlessly to a PNG
 	inspect     print a package's aria snapshot (YAML) or layout tree (JSON)
 	lint        check the source for the mistakes dev mode reports at run time
+	check       find cut-off text, overlaps, low contrast, small targets and focus problems on a package's screen
+	verify      the same over every preview, in light and dark, at several widths, with large text, in RTL and in another language
 	dev         run an app, rebuilding and reloading it as its sources change
 	devtools    open the DevTools of a running tela dev session
 	mcp         serve a package's screen to agents (Model Context Protocol)
@@ -146,6 +157,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runIcons(args[1:], stdout, stderr)
 	case "lint":
 		return runLint(args[1:], stdout, stderr)
+	case "check":
+		return runCheck(false, args[1:], stdout, stderr)
+	case "verify":
+		return runCheck(true, args[1:], stdout, stderr)
 	case "dev":
 		return runDev(args[1:], stdout, stderr)
 	case "devtools":
@@ -186,6 +201,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 				return 0
 			case "lint":
 				fmt.Fprint(stdout, lintUsage)
+				return 0
+			case "check":
+				fmt.Fprint(stdout, checkUsage)
+				return 0
+			case "verify":
+				fmt.Fprint(stdout, verifyUsage)
 				return 0
 			case "lsp":
 				fmt.Fprint(stdout, lspUsage)
