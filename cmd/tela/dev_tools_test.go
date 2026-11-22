@@ -688,10 +688,12 @@ func TestDevToolsEndToEnd(t *testing.T) {
 	}
 	// The dev warning about Mixed's func slot is printed on the child's
 	// standard error and kept by its instrumented tree: the log has it once.
+	// (tela dev's own report of the slot's reset, "state: … resets", is
+	// another line, from the supervisor.)
 	es, _, err := c.Logs(ctx, 0)
 	var twins []toolsLogEntry
 	for _, e := range es {
-		if strings.Contains(e.Msg, "holds a func") {
+		if e.Source != "tela dev" && strings.Contains(e.Msg, "holds a func") {
 			twins = append(twins, e)
 		}
 	}
