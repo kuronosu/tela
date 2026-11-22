@@ -363,10 +363,12 @@ source, with the same suggestions, so they fail in CI. `tela mcp ./yourapp`
 serves the same loop to agents over the Model Context Protocol (snapshot,
 screenshot, click, fill... on a headless instance that rebuilds on every
 edit; see the [CLI](docs/wiki/CLI.md#tela-mcp) page), and
-[`docs/llms.txt`](docs/llms.txt) is the one file an LLM reads to build with
-Tela: the API, the `kit` components, the agent loop, a complete settings
-screen (and [`examples/settings`](examples/settings), a larger one an LLM built
-from it) and the common mistakes, with every code block checked against the current API by a test.
+[`docs/llms.txt`](docs/llms.txt) is the short guide an LLM reads to build with
+Tela (the API, the agent loop and the common mistakes), and the recipes in
+[`docs/llms/`](docs/llms) answer one area each: the `kit` components, a complete
+settings screen (and [`examples/settings`](examples/settings), a larger one an
+LLM built from the guide), windows, desktop integration, animation, i18n,
+accessibility, testing. Every code block is checked against the current API by a test.
 
 ## Project status
 

@@ -111,7 +111,7 @@ func TestNewCreatesApp(t *testing.T) {
 		"main_test.go": {"telatest.MountApp(t, App)", `ByRole("button", "Increment")`},
 		"README.md":    {"# My Notes", "tela dev"},
 		".gitignore":   {"/my-notes\n", "/my-notes.exe\n"},
-		"AGENTS.md":    {"My Notes is a [Tela]", "https://telaui.dev/llms.txt", "go list -m -f '{{.Dir}}' github.com/kuronosu/tela)/docs/llms.txt", "tela lint ./...", "CGO_ENABLED=0 go test ./..."},
+		"AGENTS.md":    {"My Notes is a [Tela]", "https://telaui.dev/llms.txt", "https://telaui.dev/llms/NAME.md", "go list -m -f '{{.Dir}}' github.com/kuronosu/tela)/docs/llms.txt", "docs/llms/", "tela check .", "tela lint ./...", "CGO_ENABLED=0 go test ./..."},
 		"CLAUDE.md":    {"@AGENTS.md\n"},
 		".mcp.json":    {`"command": "tela"`, `"args": ["mcp", "."]`},
 	} {

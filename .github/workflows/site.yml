@@ -18,6 +18,7 @@ on:
       - "docs/wiki/**"
       - "docs/images/**"
       - "docs/llms.txt"
+      - "docs/llms/**"
       - ".github/workflows/site.yml"
     tags: ["v*", "site-*"]
   pull_request:
@@ -26,6 +27,7 @@ on:
       - "docs/wiki/**"
       - "docs/images/**"
       - "docs/llms.txt"
+      - "docs/llms/**"
       - ".github/workflows/site.yml"
   workflow_dispatch:
 
@@ -93,7 +95,10 @@ jobs:
           else
             echo "The site of ${GITHUB_REF#refs/*/} with the docs of $tag"
             mkdir -p "$RUNNER_TEMP/docs-src"
-            git archive "$tag" docs/wiki docs/images docs/llms.txt | tar -x -C "$RUNNER_TEMP/docs-src"
+            paths="docs/wiki docs/images docs/llms.txt"
+            # The recipes of docs/llms/ exist from the release that added them.
+            if git cat-file -e "$tag:docs/llms" 2>/dev/null; then paths="$paths docs/llms"; fi
+            git archive "$tag" $paths | tar -x -C "$RUNNER_TEMP/docs-src"
             echo "TELA_DOCS_DIR=$RUNNER_TEMP/docs-src/docs" >> "$GITHUB_ENV"
           fi
           echo "TELA_VERSION=$tag" >> "$GITHUB_ENV"

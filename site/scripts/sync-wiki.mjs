@@ -3,7 +3,8 @@
 // sync first. Generated files are gitignored.
 //
 // The source directory is $TELA_DOCS_DIR, or ../docs relative to site/. It
-// holds wiki/ (the pages), images/ (the screenshots) and llms.txt (served at /llms.txt).
+// holds wiki/ (the pages), images/ (the screenshots), llms.txt (served at
+// /llms.txt) and llms/ (its recipes, served at /llms/<name>.md; ADR-313).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -138,10 +139,32 @@ export function syncWiki() {
 	}
 	prune(assetsDir, keepAssets);
 
-	// llms.txt, the guide for coding agents, served at /llms.txt.
+	// llms.txt, the guide for coding agents, served at /llms.txt, its recipes
+	// (llms/*.md) at /llms/<name>.md, and /llms-full.txt: the core and every
+	// recipe in one file, for tools that cannot follow links (ADR-313). A
+	// release from before the recipes has none: /llms.txt is then all of it.
 	const llms = path.join(src, 'llms.txt');
-	if (fs.existsSync(llms)) writeIfChanged(path.join(publicDir, 'llms.txt'), fs.readFileSync(llms));
-	else console.warn(`sync-wiki: warning: ${llms} does not exist; /llms.txt will not be served`);
+	const recipesDir = path.join(src, 'llms');
+	const keepRecipes = new Set();
+	if (fs.existsSync(llms)) {
+		const core = fs.readFileSync(llms, 'utf8');
+		writeIfChanged(path.join(publicDir, 'llms.txt'), core);
+		const recipes = fs.existsSync(recipesDir)
+			? fs.readdirSync(recipesDir).filter((f) => f.endsWith('.md')).sort()
+			: [];
+		let full = core;
+		for (const f of recipes) {
+			const text = fs.readFileSync(path.join(recipesDir, f), 'utf8');
+			const dest = path.join(publicDir, 'llms', f);
+			keepRecipes.add(dest);
+			writeIfChanged(dest, text);
+			full += `\n---\n\n${text}`;
+		}
+		writeIfChanged(path.join(publicDir, 'llms-full.txt'), full);
+	} else {
+		console.warn(`sync-wiki: warning: ${llms} does not exist; /llms.txt will not be served`);
+	}
+	prune(path.join(publicDir, 'llms'), keepRecipes);
 
 	// Pages.
 	const keepPages = new Set();
@@ -252,14 +275,14 @@ function parseSidebar(file, known, problems) {
 	return { sidebar: sidebar.map((e) => (e.items ? { label: e.label, items: e.items } : e)), listed };
 }
 
-/** Astro integration: re-syncs in dev when the source wiki, images or llms.txt change. */
+/** Astro integration: re-syncs in dev when the source wiki, images, llms.txt or its recipes change. */
 export function wikiWatcher() {
 	return {
 		name: 'tela-wiki-watcher',
 		hooks: {
 			'astro:server:setup': ({ server, logger }) => {
 				const src = docsDir();
-				const dirs = [path.join(src, 'wiki'), path.join(src, 'images')];
+				const dirs = [path.join(src, 'wiki'), path.join(src, 'images'), path.join(src, 'llms')];
 				const llms = path.join(src, 'llms.txt');
 				server.watcher.add([...dirs, llms]);
 				let timer;

@@ -73,8 +73,11 @@ the aliases for those).
 | `kit` | `github.com/kuronosu/tela/kit` | [docs](https://pkg.go.dev/github.com/kuronosu/tela/kit) | [API-Reference-kit](API-Reference-kit) |
 
 For LLM agents, [`docs/llms.txt`](https://github.com/kuronosu/tela/blob/main/docs/llms.txt)
-is the whole guide in one file (the API, the kit, the `tela mcp` loop and a
-complete settings screen), with every code block checked against the API.
+is the short guide (the API, the `tela mcp` loop and the common mistakes) and
+the [recipes](https://github.com/kuronosu/tela/tree/main/docs/llms) answer one
+area each (kit, a complete settings screen, windows, desktop integration,
+animation, i18n, accessibility, testing, `tela dev`), with every code block
+checked against the API.
 
 The design is in
 [`docs/ARCHITECTURE.md`](https://github.com/kuronosu/tela/blob/main/docs/ARCHITECTURE.md);
