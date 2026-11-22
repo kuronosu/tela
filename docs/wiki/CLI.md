@@ -234,7 +234,7 @@ directory knows the loop without being told:
 
 | File | Is |
 |---|---|
-| `AGENTS.md` | A short guide: read `llms.txt` (online, and the copy of the module at the version in `go.mod`, found with `go list -m -f '{{.Dir}}' github.com/kuronosu/tela`), write the UI, look at it with the `tela mcp` tools or `tela snapshot` and `tela inspect`, then `tela lint ./...` and `CGO_ENABLED=0 go test ./...` before finishing |
+| `AGENTS.md` | A short guide: read `llms.txt` (online, and the copy of the module at the version in `go.mod`, found with `go list -m -f '{{.Dir}}' github.com/kuronosu/tela`), then the recipe in `llms/` for the area you work on, write the UI, look at it with the `tela mcp` tools or `tela snapshot` and `tela inspect`, then `tela check`, `tela lint ./...` and `CGO_ENABLED=0 go test ./...` before finishing |
 | `CLAUDE.md` | One line, `@AGENTS.md`, the import Claude Code reads |
 | `.mcp.json` | The server entry that Claude Code and other MCP clients read: it starts `tela mcp .` in the app's directory, so `tela` must be in `PATH` |
 

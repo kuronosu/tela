@@ -1,5 +1,5 @@
 // Command settings is Darkroom's Preferences window, a larger screen than the
-// one in docs/llms.txt: five sections, a form that is one comparable value,
+// one in docs/llms/settings-screen.md: five sections, a form that is one comparable value,
 // validation, confirmations and a theme applied on Save. An LLM built it
 // from docs/llms.txt and the prompt in README.md.
 package main

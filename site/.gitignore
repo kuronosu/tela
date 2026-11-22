@@ -6,3 +6,5 @@ dist/
 /src/content/docs/docs/
 /src/assets/wiki/
 /public/llms.txt
+/public/llms/
+/public/llms-full.txt

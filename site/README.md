@@ -54,4 +54,5 @@ Only tags deploy <https://telaui.dev> (`.github/workflows/site.yml`); pushes to
 - `src/data/compare.json` is the comparison table; `compare-sources.md` has the
   passages behind each cell.
 - `src/assets/brand/` is the logo (see its README); `public/` has the favicons,
-  `og.png` and `llms.txt`.
+  `og.png`, and `llms.txt`, `llms/` and `llms-full.txt` (generated: `docs/llms.txt`,
+  its recipes `docs/llms/*.md` and their concatenation; ADR-313).

@@ -26,7 +26,7 @@
 //	migrate    an API spelling that a release removed or renamed (has a fix, ADR-305)
 //
 // This package is used only by cmd/tela and by the test that checks
-// docs/llms.txt (internal/gen/llmsdoc, ADR-177).
+// docs/llms.txt and docs/llms/ (internal/gen/llmsdoc, ADR-177, ADR-313).
 package lint
 
 import (

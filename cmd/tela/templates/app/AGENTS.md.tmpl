@@ -6,12 +6,16 @@ Everything runs with `CGO_ENABLED=0`.
 
 ## Read first
 
-Tela's guide for coding agents is `llms.txt`: the API, the `kit` components,
-the agent loop and the common mistakes. Every Go block in it compiles.
+Tela's guide for coding agents is `llms.txt`: the API, the agent loop and the
+common mistakes. Read it first. It lists the recipes, one file per area (`kit`
+components, windows, desktop integration, animation, i18n, accessibility,
+testing, `tela dev`): open the one for what you are building. Every Go block
+in them compiles.
 
-- Online: https://telaui.dev/llms.txt
+- Online: https://telaui.dev/llms.txt (recipes: https://telaui.dev/llms/NAME.md)
 - The copy that matches the Tela version in `go.mod` (once the module is
-  downloaded): `$(go list -m -f '{{"{{"}}.Dir{{"}}"}}' github.com/kuronosu/tela)/docs/llms.txt`
+  downloaded): `$(go list -m -f '{{"{{"}}.Dir{{"}}"}}' github.com/kuronosu/tela)/docs/llms.txt`,
+  with the recipes in `docs/llms/` beside it
 
 React names work as written (`UseState`, `UseEffect`, `OnClick`, `Key`) and
 so do Tailwind v4 class names (`Class("flex gap-4 rounded-lg bg-primary")`).
@@ -35,6 +39,7 @@ The screen is `var App` in `main.go` (or a `Preview()` function, or a
 ## Before you finish
 
 ```bash
+tela check .           # cut-off text, low contrast, small targets, missing names
 tela lint ./...
 CGO_ENABLED=0 go test ./...
 ```
