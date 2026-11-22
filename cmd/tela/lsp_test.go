@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/kuronosu/tela/internal/lint"
 )
 
 // lspClient is a client of tela lsp over pipes: it frames what it sends,
@@ -27,17 +29,24 @@ type lspClient struct {
 	notes  []lspMessage // notifications read while waiting for something else
 }
 
-// startLSP serves tela lsp to the test in process. The tests that lint run
-// in parallel: each lint loads the module (about 1.5 s), and one after the
-// other they took 27 of cmd/tela's 33 s under go test -short.
+// startLSP serves tela lsp to the test in process, with the process's
+// cache of the module context, as tela lsp does. The tests that lint run in
+// parallel: the first lint loads the module (about 1.5 s), and the cache
+// makes the others check only what they change.
 func startLSP(t *testing.T) *lspClient {
+	t.Helper()
+	return startLSPCache(t, lspCache())
+}
+
+// startLSPCache is startLSP with a cache of the test's own.
+func startLSPCache(t *testing.T, cache *lint.Cache) *lspClient {
 	t.Helper()
 	inR, inW := io.Pipe()
 	outR, outW := io.Pipe()
 	c := &lspClient{t: t, in: inW, msgs: make(chan lspMessage, 1024), done: make(chan int, 1)}
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		code := serveLSP(ctx, inR, outW, func(format string, args ...any) { t.Logf("server: "+format, args...) })
+		code := serveLSP(ctx, inR, outW, func(format string, args ...any) { t.Logf("server: "+format, args...) }, cache)
 		outW.Close()
 		c.done <- code
 	}()
@@ -840,9 +849,10 @@ func TestSiteAt(t *testing.T) {
 // (a package of 5,000 lines that imports the whole framework) take, the
 // first time and after a change, once the first run has loaded the package.
 // It asserts nothing about the time (machines differ); the numbers are in
-// the log with -v. Under -short it makes one change instead of five: the
-// mean and the worst are the full suite's numbers, and each round is a
-// lint of the whole module (about 2 s with the other LSP tests).
+// the log with -v. The server has a cache of its own, so the first lint is
+// a session's first, not one after the other tests. Under -short it makes
+// one change instead of five: the mean and the worst are the full suite's
+// numbers.
 func TestLSPLatency(t *testing.T) {
 	t.Parallel()
 	file, err := filepath.Abs(filepath.Join("..", "..", "examples", "dashboard", "overview.go"))
@@ -860,7 +870,7 @@ func TestLSPLatency(t *testing.T) {
 	probe := func(n int) string {
 		return string(src) + fmt.Sprintf("\nfunc latencyProbe() tela.Node { return Div(Class(\"flex bg-rde-%d\")) }\n", n)
 	}
-	c := startLSP(t)
+	c := startLSPCache(t, lint.NewCache())
 	c.initialize()
 	start := time.Now()
 	c.open(uri, probe(400))
