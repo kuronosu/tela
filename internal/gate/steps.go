@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -146,6 +147,98 @@ func tail(s string, n int) string {
 		lines = append([]string{fmt.Sprintf("... (%d earlier lines left out)", len(lines)-n)}, lines[len(lines)-n:]...)
 	}
 	return strings.Join(lines, "\n")
+}
+
+// What trimOutput keeps of a long test output: the first and the last
+// message heads, a few lines of each message, and the last lines.
+const (
+	firstHeads  = 6
+	lastHeads   = 4
+	headContext = 3
+	keepLast    = 5
+)
+
+// logHead matches a line of t.Error, t.Fatal or t.Log ("    x_test.go:12:
+// got 1"), at any indentation (subtests indent theirs); testFrame matches a
+// stack frame in a test file ("\t/path/x_test.go:12 +0x45"), the place a
+// panic came from.
+var (
+	logHead   = regexp.MustCompile(`^\s*[^\s:]+\.go:\d+: `)
+	testFrame = regexp.MustCompile(`_test\.go:\d+ \+0x`)
+)
+
+// trimOutput returns the output of a failing test, up to limit lines as it
+// is. A longer one keeps what says why it failed: each message head (a
+// file.go:N: line, a --- FAIL line, a panic) with its first lines, and the
+// last lines; long dumps after a message (an aria snapshot, a goroutine
+// dump) are cut, and every cut is marked. The tail alone lost the error
+// lines when a dump followed them (2026-11-22).
+func trimOutput(lines []string, limit int) string {
+	if len(lines) <= limit {
+		return strings.Join(lines, "\n")
+	}
+	var heads []int
+	for i, l := range lines {
+		t := strings.TrimSpace(l)
+		switch {
+		case logHead.MatchString(l), strings.HasPrefix(t, "--- FAIL"),
+			strings.HasPrefix(t, "panic: "), strings.HasPrefix(t, "fatal error: "):
+			heads = append(heads, i)
+		case testFrame.MatchString(l) && i > 0 && (len(heads) == 0 || heads[len(heads)-1] != i-1):
+			heads = append(heads, i-1) // the function line; the frame follows as its context
+		}
+	}
+	if len(heads) == 0 {
+		return tail(strings.Join(lines, "\n"), limit)
+	}
+	if len(heads) > firstHeads+lastHeads {
+		heads = append(heads[:firstHeads:firstHeads], heads[len(heads)-lastHeads:]...)
+	}
+	keep := make([]bool, len(lines))
+	for _, h := range heads {
+		keep[h] = true
+		ind := indent(lines[h])
+		for j := h + 1; j < len(lines) && j <= h+headContext; j++ {
+			if strings.TrimSpace(lines[j]) == "" || indent(lines[j]) <= ind {
+				break
+			}
+			keep[j] = true
+		}
+	}
+	for i := max(0, len(lines)-keepLast); i < len(lines); i++ {
+		keep[i] = true
+	}
+	var out []string
+	for i := 0; i < len(lines); {
+		if keep[i] {
+			out = append(out, lines[i])
+			i++
+			continue
+		}
+		j := i
+		for j < len(lines) && !keep[j] {
+			j++
+		}
+		out = append(out, fmt.Sprintf("... (%d lines left out)", j-i))
+		i = j
+	}
+	return strings.Join(out, "\n")
+}
+
+// indent is the width of a line's leading white space, a tab as 8.
+func indent(s string) int {
+	n := 0
+	for _, r := range s {
+		switch r {
+		case ' ':
+			n++
+		case '\t':
+			n += 8
+		default:
+			return n
+		}
+	}
+	return n
 }
 
 func cmdInfos(outs []cmdOut) []commandInfo {
@@ -439,7 +532,7 @@ func (g *gate) describeFailure(f testFailure) failure {
 	if f.Test == "" {
 		title = short + " (" + f.Reason + ")"
 	}
-	out := failure{Title: title, Detail: tail(strings.Join(f.Output, "\n"), maxTail)}
+	out := failure{Title: title, Detail: trimOutput(f.Output, maxTail)}
 	for _, d := range g.flakeDocs {
 		if line, ok := findFlake(d.lines, f.Test); ok {
 			out.Note = fmt.Sprintf("named in %s:%d (a known flake?)", d.file, line)
