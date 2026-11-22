@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
-	"time"
 )
 
 // Cache keeps, between runs, the packages that a run checks from source
@@ -43,14 +42,11 @@ type Cache struct {
 	epoch  *cacheEpoch
 	stamps map[string]fileStamp // by file path
 	reused int                  // packages taken from the cache, for tests
-	// exportPaths are the packages the last run in a directory read from
-	// export data, which the next one lists while it lists the rest.
-	exportPaths map[string][]string
 }
 
 // NewCache returns an empty cache.
 func NewCache() *Cache {
-	return &Cache{epoch: newCacheEpoch(), stamps: map[string]fileStamp{}, exportPaths: map[string][]string{}}
+	return &Cache{epoch: newCacheEpoch(), stamps: map[string]fileStamp{}}
 }
 
 // cacheEpoch is the file set and the packages checked into it. The syntax
@@ -158,49 +154,36 @@ func (c *Cache) retire(e *cacheEpoch) {
 	}
 }
 
-// fileStamp is what the cache knows of a file on disk: its size and
-// modification time when it was read, and the hash of what was read.
+// fileStamp is what the cache knows of a file on disk: its identity when
+// it was read (fileid.go), and the hash of what was read.
 type fileStamp struct {
-	size int64
-	mod  time.Time
+	id fileID
 	// trusted is false when the file was read less than stampSlack after
-	// it was modified: a file system with coarse times (one or two
-	// seconds: FAT, HFS+, some network file systems) can write it again
-	// with the same size and time, so it is read again next time.
+	// it was modified, so that it is read again next time (fileID).
 	trusted  bool
 	sum      [sha256.Size]byte
 	mentions bool // the text names ClassAliases or SchemeColor
 }
 
-// stampSlack is the coarsest modification time a file system is expected
-// to keep (FAT's two seconds), the same caution gopls takes with file
-// times.
-const stampSlack = 2 * time.Second
-
-// stamp returns the stamp of a file on disk, reading it only when its size
-// or modification time changed since it was last read (or it was read too
-// soon after a change to tell).
+// stamp returns the stamp of a file on disk, reading it only when its
+// identity changed since it was last read (or it was read too soon after a
+// change to tell).
 func (c *Cache) stamp(path string) (fileStamp, bool) {
-	fi, err := os.Stat(path)
-	if err != nil || !fi.Mode().IsRegular() {
+	id, trusted, ok := statFile(path)
+	if !ok {
 		return fileStamp{}, false
 	}
 	c.mu.Lock()
 	st, ok := c.stamps[path]
 	c.mu.Unlock()
-	if ok && st.trusted && st.size == fi.Size() && st.mod.Equal(fi.ModTime()) {
+	if ok && st.trusted && st.id == id {
 		return st, true
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return fileStamp{}, false
 	}
-	st = fileStamp{
-		size: fi.Size(), mod: fi.ModTime(),
-		trusted:  time.Since(fi.ModTime()) > stampSlack,
-		sum:      sha256.Sum256(data),
-		mentions: mentionsAliasText(data),
-	}
+	st = fileStamp{id: id, trusted: trusted, sum: sha256.Sum256(data), mentions: mentionsAliasText(data)}
 	c.mu.Lock()
 	c.stamps[path] = st
 	c.mu.Unlock()
@@ -390,42 +373,4 @@ func (l *loader) release() {
 			l.fset.RemoveFile(tf)
 		}
 	}
-}
-
-// exportSpec is a listing of export data started before the run knows the
-// packages it needs: those of the last run in the directory, usually the
-// same, since an edit seldom changes what a package imports.
-type exportSpec struct {
-	paths []string
-	done  chan struct{}
-	files map[string]string
-}
-
-// speculateExports starts listing the export data of the packages the last
-// run in dir read from it, or returns nil when there was none.
-func (c *Cache) speculateExports(dir string) *exportSpec {
-	c.mu.Lock()
-	paths := c.exportPaths[dir]
-	c.mu.Unlock()
-	if len(paths) == 0 {
-		return nil
-	}
-	s := &exportSpec{paths: paths, done: make(chan struct{})}
-	go func() {
-		defer close(s.done)
-		s.files = listExports(dir, paths)
-	}()
-	return s
-}
-
-// wait returns the listing once it is done.
-func (s *exportSpec) wait() map[string]string {
-	<-s.done
-	return s.files
-}
-
-func (c *Cache) setExportPaths(dir string, paths []string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.exportPaths[dir] = paths
 }

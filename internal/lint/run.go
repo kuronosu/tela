@@ -108,17 +108,7 @@ func (r *run) run(patterns []string) (*Result, error) {
 	}
 	defer cleanup()
 	r.overlayJSON = overlayJSON
-	// The context is listed while the packages are, and with a cache the
-	// export data of the dependencies the last run read from it is listed
-	// at the same time (export.go): three go commands at once instead of
-	// one after the other.
-	var spec *exportSpec
-	if r.opts.Cache != nil {
-		spec = r.opts.Cache.speculateExports(r.dir)
-		if spec != nil {
-			defer spec.wait() // no go command outlives the run
-		}
-	}
+	// The context is listed while the packages are.
 	var ctx []*listPackage
 	var ctxErr error
 	ctxDone := make(chan struct{})
@@ -165,7 +155,7 @@ func (r *run) run(patterns []string) (*Result, error) {
 		r.l.useCache(r.opts.Cache, fresh)
 		defer r.l.release()
 	}
-	r.l.useExports(r.dir, spec)
+	r.l.useExports(r.dir)
 
 	res := &Result{}
 	var targets []*listPackage
@@ -464,19 +454,22 @@ func mentionsAliases(p *listPackage, cache *Cache) bool {
 		return false
 	}
 	for _, name := range p.GoFiles {
-		file := filepath.Join(p.Dir, name)
-		if cache != nil {
-			if st, ok := cache.stamp(file); ok && st.mentions {
-				return true
-			}
-			continue
-		}
-		data, err := os.ReadFile(file)
-		if err == nil && mentionsAliasText(data) {
+		if mentionsFile(filepath.Join(p.Dir, name), cache) {
 			return true
 		}
 	}
 	return false
+}
+
+// mentionsFile reports whether a file names ClassAliases or SchemeColor,
+// read through the cache's stamps when there is one.
+func mentionsFile(file string, cache *Cache) bool {
+	if cache != nil {
+		st, ok := cache.stamp(file)
+		return ok && st.mentions
+	}
+	data, err := os.ReadFile(file)
+	return err == nil && mentionsAliasText(data)
 }
 
 // telaOwn reports whether p is a package of Tela itself, not one of the
