@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -402,5 +403,52 @@ func TestFailureShortOutputWhole(t *testing.T) {
 	f := (&gate{}).describeFailure(testFailure{Package: "m/a", Test: "TestA", Reason: "failed", Output: out})
 	if want := strings.Join(out, "\n"); f.Detail != want {
 		t.Errorf("detail = %q, want %q", f.Detail, want)
+	}
+}
+
+// The test step turns go test's vet off because the vet step covers what
+// it checked: every test command has a vet command for the same module
+// and tags on each system the tests may run on, for the host's
+// architecture (vet runs a superset of go test's analyzers, test files
+// included).
+func TestTestStepVetIsCovered(t *testing.T) {
+	tags := func(args []string) string {
+		for i, a := range args {
+			if a == "-tags" && i+1 < len(args) {
+				return args[i+1]
+			}
+		}
+		return ""
+	}
+	type key struct{ dir, tags, goos string }
+	vetted := map[key]bool{}
+	for _, s := range vetSpecs() {
+		goos, arch := "", ""
+		for _, e := range s.env {
+			if v, ok := strings.CutPrefix(e, "GOOS="); ok {
+				goos = v
+			}
+			if v, ok := strings.CutPrefix(e, "GOARCH="); ok {
+				arch = v
+			}
+		}
+		if arch == "" {
+			vetted[key{s.dir, tags(s.args), goos}] = true
+		}
+	}
+	n := 0
+	for _, s := range testSpecs() {
+		if !slices.Contains(s.args, "-vet=off") {
+			continue
+		}
+		n++
+		for _, goos := range []string{"linux", "windows", "darwin"} {
+			if !vetted[key{s.dir, tags(s.args), goos}] {
+				t.Errorf("%s: no vet command for dir %q, tags %q, GOOS=%s", s.label, s.dir, tags(s.args), goos)
+			}
+		}
+	}
+	if n == 0 {
+		t.Error("no test command turns vet off: this test checks nothing")
 	}
 }

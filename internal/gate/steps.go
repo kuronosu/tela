@@ -353,8 +353,11 @@ func checkFormatted(path string) string {
 	return ""
 }
 
-func (g *gate) vetStep() stepResult {
-	return g.commandStep([]cmdSpec{
+func (g *gate) vetStep() stepResult { return g.commandStep(vetSpecs()) }
+
+// vetSpecs are the vet step's commands.
+func vetSpecs() []cmdSpec {
+	return []cmdSpec{
 		goCmd("go vet ./... (linux)", goos("linux"), "vet", "./..."),
 		goCmd("go vet ./... (windows)", goos("windows"), "vet", "./..."),
 		goCmd("go vet ./... (darwin)", goos("darwin"), "vet", "./..."),
@@ -365,7 +368,7 @@ func (g *gate) vetStep() stepResult {
 		inNotes(goCmd("go vet ./... (linux)", goos("linux"), "vet", "./...")),
 		inNotes(goCmd("go vet ./... (windows)", goos("windows"), "vet", "./...")),
 		inNotes(goCmd("go vet ./... (darwin)", goos("darwin"), "vet", "./...")),
-	})
+	}
 }
 
 func (g *gate) buildStep() stepResult {
@@ -440,17 +443,37 @@ func (g *gate) sizeStep() stepResult {
 	return r
 }
 
+// staticcheckDir returns the folder staticcheck is installed into, and what
+// to do once the step is done. It is a folder of the user cache, one per
+// version, kept between runs: go install leaves an up-to-date binary alone
+// (it compares build IDs, so a new Go toolchain links it again), which
+// saves linking staticcheck on every run (1.4 of 1.7 s). Without a user
+// cache it is a temporary folder that the step removes.
+func staticcheckDir() (dir string, done func(), err error) {
+	if cache, err := os.UserCacheDir(); err == nil {
+		dir = filepath.Join(cache, "tela-gate", "staticcheck-"+staticcheckVersion)
+		if err := os.MkdirAll(dir, 0o755); err == nil {
+			return dir, func() {}, nil
+		}
+	}
+	dir, err = os.MkdirTemp("", "tela-gate-staticcheck-")
+	if err != nil {
+		return "", nil, err
+	}
+	return dir, func() { os.RemoveAll(dir) }, nil
+}
+
 // staticcheckStep runs staticcheck for Linux (with and without telagpu),
 // Windows and macOS: code that only one system uses (a helper a backend
 // calls) is unused on the others. go run would build staticcheck for the
 // GOOS it checks, so the step installs it for the host first.
 func (g *gate) staticcheckStep() stepResult {
 	pkg := "honnef.co/go/tools/cmd/staticcheck@" + staticcheckVersion
-	bin, err := os.MkdirTemp("", "tela-gate-staticcheck-")
+	bin, done, err := staticcheckDir()
 	if err != nil {
 		return stepResult{Failures: []failure{{Title: "staticcheck", Detail: err.Error()}}}
 	}
-	defer os.RemoveAll(bin)
+	defer done()
 	install := g.run(cmdSpec{label: "go install " + pkg, args: []string{"go", "install", pkg}, env: []string{"GOBIN=" + bin}})
 	if !install.ok() {
 		return stepResult{Commands: cmdInfos([]cmdOut{install}), Failures: []failure{{Title: install.spec.label, Detail: failureDetail(install)}}}
@@ -492,12 +515,12 @@ func (g *gate) docsStep() stepResult {
 }
 
 // testStep runs the short tests with Go's test cache and parses the JSON.
+// go test's own vet is off: it runs a subset of the analyzers that the vet
+// step runs over the same packages and test files (linux, with and
+// without telagpu, and the notes module), and it ran again for every
+// package whose tests ran, before them.
 func (g *gate) testStep() stepResult {
-	outs := g.runAll([]cmdSpec{
-		{label: "go test -short ./...", args: []string{"go", "test", "-short", "-json", "./..."}, stripTela: true},
-		{label: "go test -short -tags telagpu ./internal/vk/... ./internal/gfx/gpu/...", args: []string{"go", "test", "-short", "-json", "-tags", "telagpu", "./internal/vk/...", "./internal/gfx/gpu/..."}, stripTela: true},
-		inNotes(cmdSpec{label: "go test -short ./...", args: []string{"go", "test", "-short", "-json", "./..."}, stripTela: true}),
-	})
+	outs := g.runAll(testSpecs())
 	r := stepResult{Commands: cmdInfos(outs)}
 	sum := &testSummary{}
 	var tests, pkgs []slow
@@ -521,6 +544,15 @@ func (g *gate) testStep() stepResult {
 	sum.SlowestTests, sum.SlowestPackages = top(tests, 10), top(pkgs, 10)
 	r.Tests = sum
 	return r
+}
+
+// testSpecs are the test step's commands.
+func testSpecs() []cmdSpec {
+	return []cmdSpec{
+		{label: "go test -short ./...", args: []string{"go", "test", "-short", "-vet=off", "-json", "./..."}, stripTela: true},
+		{label: "go test -short -tags telagpu ./internal/vk/... ./internal/gfx/gpu/...", args: []string{"go", "test", "-short", "-vet=off", "-json", "-tags", "telagpu", "./internal/vk/...", "./internal/gfx/gpu/..."}, stripTela: true},
+		inNotes(cmdSpec{label: "go test -short ./...", args: []string{"go", "test", "-short", "-vet=off", "-json", "./..."}, stripTela: true}),
+	}
 }
 
 // describeFailure turns a failing test into a report entry, labeling a
