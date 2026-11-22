@@ -25,6 +25,14 @@ type realWin struct {
 	// wasActive: an active child had it (it shows that child's last frame
 	// and is kept for the error overlay when no child uses it).
 	wasActive bool
+	// orphan: it waits for a window of the newly promoted child, which
+	// may open it later; orphanDone, the wait is over (prune closes it);
+	// orphanGen tells the waits apart (reload.go).
+	orphan, orphanDone bool
+	orphanGen          uint64
+	// alpha: w shows the alpha of the frames (platform.AlphaPresenter),
+	// as last read (reload.go).
+	alpha bool
 
 	// What the host last asked of w on behalf of the active child (window
 	// control requests that are state; see applyWindow).

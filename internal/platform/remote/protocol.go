@@ -57,7 +57,10 @@ import (
 //   - 17: platform contract v16 (ADR-298; surfaces.go): SetStartAtLogin,
 //     StartsAtLogin, SetTasks, AddRecentDocument, ClearRecentDocuments.
 //   - 18: platform contract v17 (ADR-304): SystemSettings.LightMode.
-const ProtocolVersion = 18
+//   - 19: desktop services across reloads (ADR-310; reload.go):
+//     msgDropDone, the final effect of a drop, and the real window's
+//     alpha (PresentsAlpha) in msgWindowInfo.
+const ProtocolVersion = 19
 
 // magic opens the hello message.
 const magic = "TELA"
@@ -108,7 +111,7 @@ const (
 
 	// Window control (version 3, ADR-184).
 	msgWindowCtl  // child→host: id, op (ctl…), arguments
-	msgWindowInfo // host→child: id, hidden, restore token of the real window
+	msgWindowInfo // host→child: id, hidden, restore token of the real window, alpha (version 19)
 	msgRunning    // child→host: Run started (the windows of its setup are sent)
 
 	// Drag and drop (version 5, ADR-214).
@@ -116,6 +119,9 @@ const (
 
 	// Accessibility (version 9, ADR-246; access.go).
 	msgSetAccessibility // child→host: id, update
+
+	// Desktop services across reloads (version 19, ADR-310; reload.go).
+	msgDropDone // child→host: id, drag session, the drop's final effect
 )
 
 // Window control operations of msgWindowCtl.

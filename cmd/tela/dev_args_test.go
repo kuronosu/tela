@@ -22,6 +22,9 @@ func TestParseDevArgs(t *testing.T) {
 	if err != nil || o != want {
 		t.Errorf("flags: %+v, %v; want %+v", o, err, want)
 	}
+	if o, err := parseDevArgs([]string{"--debug"}); err != nil || o != (devOptions{Pkg: ".", Debug: true}) {
+		t.Errorf("--debug: %+v, %v", o, err)
+	}
 	if _, err := parseDevArgs([]string{"-h"}); !errors.Is(err, flag.ErrHelp) {
 		t.Errorf("-h: %v", err)
 	}

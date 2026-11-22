@@ -481,6 +481,7 @@ func (h *Host) serveDesktop(c *Child, op uint8, token uint32, d *dec, result *fu
 		}
 		return call(func() error { return desk.OpenPath(h.parentOf(c, parent), target) })
 	case dOpenFiles, dSaveFile, dPickFolder:
+		req := slices.Clone(d.b)
 		opts, parent := d.fileDialog()
 		if err := d.end(); err != nil {
 			return err
@@ -488,24 +489,41 @@ func (h *Host) serveDesktop(c *Child, op uint8, token uint32, d *dec, result *fu
 		if c.state == stateDetached {
 			return errReplaced
 		}
+		// A dialog the replaced build opened at its start is not shown
+		// again (reload.go).
+		rec, show := h.startDialog(c, op, req, token)
+		if !show {
+			return nil
+		}
+		reply := answer
+		if rec != nil {
+			reply = rec.answer
+		}
 		opts.Parent = h.parentOf(c, parent)
+		var err error
 		if op == dOpenFiles {
-			return call(func() error {
+			err = call(func() error {
 				return desk.OpenFiles(opts, func(paths []string, err error) {
-					answer(err, func(e *enc) { e.strs(paths) })
+					reply(err, func(e *enc) { e.strs(paths) })
+				})
+			})
+		} else {
+			pick := desk.SaveFile
+			if op == dPickFolder {
+				pick = desk.PickFolder
+			}
+			err = call(func() error {
+				return pick(opts, func(path string, err error) {
+					reply(err, func(e *enc) { e.str(path) })
 				})
 			})
 		}
-		pick := desk.SaveFile
-		if op == dPickFolder {
-			pick = desk.PickFolder
+		if err != nil && rec != nil {
+			c.dropStartDialog(rec)
 		}
-		return call(func() error {
-			return pick(opts, func(path string, err error) {
-				answer(err, func(e *enc) { e.str(path) })
-			})
-		})
+		return err
 	case dMessageBox:
+		req := slices.Clone(d.b)
 		opts, parent := d.messageBox()
 		if err := d.end(); err != nil {
 			return err
@@ -513,12 +531,24 @@ func (h *Host) serveDesktop(c *Child, op uint8, token uint32, d *dec, result *fu
 		if c.state == stateDetached {
 			return errReplaced
 		}
+		rec, show := h.startDialog(c, op, req, token)
+		if !show {
+			return nil
+		}
+		reply := answer
+		if rec != nil {
+			reply = rec.answer
+		}
 		opts.Parent = h.parentOf(c, parent)
-		return call(func() error {
+		err := call(func() error {
 			return desk.MessageBox(opts, func(a platform.MessageAnswer, err error) {
-				answer(err, func(e *enc) { e.u8(uint8(a)) })
+				reply(err, func(e *enc) { e.u8(uint8(a)) })
 			})
 		})
+		if err != nil && rec != nil {
+			c.dropStartDialog(rec)
+		}
+		return err
 	case dNotify:
 		n := d.notification()
 		if err := d.end(); err != nil {

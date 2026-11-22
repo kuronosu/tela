@@ -30,11 +30,15 @@ import (
 // (DragLeave). Answers carry the child's count of DragEnters, so a late
 // answer never applies to a later session. A drop's data is read by the
 // host's backend, for the types of the latest answer, and travels with
-// the DragDrop. The final effect the source sees is the answer the child
-// gave before the drop: the child's SetDropEffect while it handles the
-// DragDrop arrives after the host's backend finished the drop, so it is
-// not sent (a moving source deletes its data even when the child's OnDrop
-// refuses it, under tela dev only).
+// the DragDrop. The final effect is the child's (protocol 19, ADR-310):
+// the backends read it once the host's handler of the DragDrop returns
+// (Win32 from inside IDropTarget::Drop), so the host, which forwarded the
+// drop, waits on its UI thread for the child's msgDropDone, the effect its
+// window holds once it handled the drop (its SetDropEffect while handling
+// it, else the answer before the drop), at most dropDoneTimeout, and sets
+// it on the real window before it returns. A drop delivered from the
+// queue of a frozen host (a swap in progress) is not waited for: the
+// backend finished it already.
 //
 // Drag and drop, source side. Window.StartDrag is a round trip: the host
 // starts the drag from the real window, under the pointer press its
@@ -55,8 +59,10 @@ import (
 // claims the IDs it registers, and a child that registers an ID the host
 // holds with the same accelerator and description takes it over without
 // a new registration (the Wayland portal may ask the user at each one),
-// getting the latest ShortcutStatusEvent at once. A pending child's
-// changed shortcut is registered at its promotion; an ID no child claims
+// getting the latest ShortcutStatusEvent at once, unless that status is no
+// binding (taken, refused, revoked, failed: protocol 19, ADR-310), which a
+// new build registers again as a restart would. A pending child's changed
+// or unbound shortcut is registered at its promotion; an ID no child claims
 // is unregistered when a child is promoted, or at once while a child is
 // active; with no active child (the app crashed) the shortcuts stay for
 // the next build. Status changes go to every child holding the ID with
@@ -110,8 +116,23 @@ func (t dragTracker) HandleEvent(w platform.Window, e platform.Event) {
 			case platform.DragEnter:
 				cw.dropSession++
 				cw.dragOver, cw.dropSent = true, false
-			case platform.DragLeave, platform.DragDrop:
+			case platform.DragLeave:
 				cw.dragOver, cw.dropSent = false, false
+			case platform.DragDrop:
+				// The handler's SetDropEffect sets the final effect, which
+				// starts as the answer given before the drop and goes to the
+				// host once the drop is handled (protocol 19).
+				final := platform.DropNone
+				if cw.dropSent {
+					final = cw.dropEffect
+				}
+				cw.dragOver, cw.dropSent = false, false
+				cw.dropping, cw.dropFinal = true, final
+				session := cw.dropSession
+				t.b.mu.Unlock()
+				defer cw.dropDone(session)
+				t.h.HandleEvent(w, e)
+				return
 			}
 			t.b.mu.Unlock()
 		}
@@ -119,14 +140,34 @@ func (t dragTracker) HandleEvent(w platform.Window, e platform.Event) {
 	t.h.HandleEvent(w, e)
 }
 
+// dropDone sends the host the final effect of the drop of session, once
+// the app handled it (msgDropDone).
+func (w *Window) dropDone(session uint32) {
+	b := w.b
+	b.mu.Lock()
+	final := w.dropFinal
+	w.dropping = false
+	b.mu.Unlock()
+	w.send(newMsg(msgDropDone), func(e *enc) {
+		e.u32(session)
+		e.u8(uint8(final))
+	})
+}
+
 // SetDropEffect sends the answer to the drag over the window to the host
-// (equal answers within a session are not resent). Without a drag over
-// the window, and while it handles the drop, it does nothing: the host's
-// backend finished that drop already (see the top of phase13.go).
+// (equal answers within a session are not resent). While the window
+// handles the drop it sets the final effect, which the host waits for
+// (see the top of phase13.go); without a drag over the window it does
+// nothing.
 func (w *Window) SetDropEffect(effect platform.DropEffect, types ...string) {
 	platform.CheckSetDropEffect(effect, types)
 	b := w.b
 	b.mu.Lock()
+	if w.dropping {
+		w.dropFinal = effect
+		b.mu.Unlock()
+		return
+	}
 	if w.Closed() || !w.dragOver || (w.dropSent && w.dropEffect == effect && slices.Equal(w.dropTypes, types)) {
 		b.mu.Unlock()
 		return
@@ -570,13 +611,13 @@ func (h *Host) registerShortcut(c *Child, s platform.Shortcut, call func(func() 
 	if hs := h.shortcuts[s.ID]; hs != nil {
 		hs.claims[c] = s
 		switch {
-		case s == hs.reg:
+		case s == hs.reg && !hs.unbound():
 			if hs.status != nil {
 				c.sendEvent(0, *hs.status) // the outcome it is owed, at once
 			}
 			return nil
 		case c.state != stateActive:
-			return nil // changed by a starting build: registered at its promotion
+			return nil // changed, or not bound, for a starting build: registered at its promotion
 		}
 		return h.reregister(hs, s, call)
 	}
@@ -585,6 +626,14 @@ func (h *Host) registerShortcut(c *Child, s platform.Shortcut, call func(func() 
 	}
 	h.shortcuts[s.ID] = &hostShortcut{reg: s, claims: map[*Child]platform.Shortcut{c: s}}
 	return nil
+}
+
+// unbound reports whether the backend's latest answer for hs.reg is not a
+// binding (taken, refused, revoked, failed): a new build registers it
+// again, as a restart of the app would, instead of getting that answer
+// until tela dev restarts (ADR-310).
+func (hs *hostShortcut) unbound() bool {
+	return hs.status != nil && hs.status.Status != platform.ShortcutBound
 }
 
 // reregister asks the backend for s in place of hs.reg. A failed request
@@ -641,11 +690,12 @@ func (h *Host) shortcutStatus(e platform.ShortcutStatusEvent) {
 }
 
 // promoteShortcuts registers the shortcuts c, the new active child,
-// changed while it was pending, and unregisters those no child holds.
+// changed while it was pending or holds without a binding, and
+// unregisters those no child holds.
 func (h *Host) promoteShortcuts(c *Child) {
 	for _, id := range sortedKeys(h.shortcuts) {
 		hs := h.shortcuts[id]
-		if s, held := hs.claims[c]; held && s != hs.reg {
+		if s, held := hs.claims[c]; held && (s != hs.reg || hs.unbound()) {
 			if err := h.reregister(hs, s, callSafe); err != nil {
 				// c's RegisterShortcut returned nil: it is owed a status.
 				c.sendEvent(0, platform.ShortcutStatusEvent{ID: id, Status: platform.ShortcutFailed, Reason: err.Error()})
