@@ -277,8 +277,17 @@ func TestKitAccessibilityAudit(t *testing.T) {
 		{name: "color input open", root: func() tela.Node {
 			return kit.ColorInput{AriaLabel: "Background"}
 		}, act: func(a *App) { a.Click(ByRole("button", "Background, #000000")) }},
-		{name: "title bar", root: func() tela.Node {
-			return kit.TitleBar{Title: h.Text("Notes")}
+		// Each look, not the host's: the audit is the same on every system.
+		{name: "title bar gnome", root: func() tela.Node {
+			return kit.TitleBar{Title: h.Text("Notes"), Variant: kit.GNOME}
+		}},
+		{name: "title bar windows", root: func() tela.Node {
+			return kit.TitleBar{Title: h.Text("Notes"), Variant: kit.Windows}
+		}},
+		// Aqua's dots are 12x12 px, 20 px apart: under WCAG's 24x24 (a
+		// task of the roadmap's Accessibility gaps phase).
+		{name: "title bar macos", disable: []string{"target-size"}, root: func() tela.Node {
+			return kit.TitleBar{Title: h.Text("Notes"), Variant: kit.MacOS}
 		}},
 	})
 }
