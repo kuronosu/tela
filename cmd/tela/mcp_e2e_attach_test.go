@@ -76,6 +76,10 @@ func TestAttachEndToEnd(t *testing.T) {
 	if r = c.tool("perf", map[string]any{"action": true}); r.isError || !strings.Contains(r.text, "frame") {
 		t.Errorf("perf of the action:\n%s", r.text)
 	}
+	// A text with no box of its own, beside the button.
+	if r = c.tool("hover", map[string]any{"text": "Count: 1"}); r.isError || !strings.Contains(r.text, `The pointer is over the text "Count: 1".`) {
+		t.Errorf("hover over a text:\n%s", r.text)
+	}
 	r = c.tool("state", map[string]any{"ref": inc})
 	if r.isError || !strings.Contains(r.text, "main.Counter") || !strings.Contains(r.text, "UseState") {
 		t.Errorf("state:\n%s", r.text)

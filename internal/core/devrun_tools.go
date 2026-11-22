@@ -128,16 +128,19 @@ func devToolsRegister(rb *remote.Backend, h *Host) {
 		return t.InspectDepth(ElementID(p.ID), depth)
 	})
 	handle(devloop.KindToolsSemantics, true, func(_ *Host, t *Tree, _ devloop.ToolsParams) (any, error) {
-		yaml, ids := semantics.SnapshotIDs(t.Semantics())
+		yaml, ids, texts := semantics.SnapshotTexts(t.Semantics())
 		nodes := make([]uint64, len(ids))
 		els := make([]uint64, len(ids))
 		srcs := make([]string, len(ids))
 		for i, id := range ids {
 			nodes[i] = uint64(id)
-			if id != 0 {
+			switch {
+			case id != 0:
 				el := t.ElementOfNode(id)
 				els[i] = uint64(el)
 				srcs[i] = t.AppSite(el).Rel() // "settings.go:42", as the app's working directory shows it
+			case texts[i] != 0:
+				els[i] = uint64(t.ElementOfNode(texts[i])) // the text a text line shows
 			}
 		}
 		return map[string]any{"yaml": yaml, "nodes": nodes, "elements": els, "srcs": srcs}, nil
@@ -182,6 +185,11 @@ func devToolsRegister(rb *remote.Backend, h *Host) {
 		res := map[string]any{"moved": moved}
 		if !vis.Empty() {
 			res["visible"] = vis
+			if !moved {
+				if pt, ok := t.ActionPoint(ElementID(p.ID), vis); ok {
+					res["point"] = pt
+				}
+			}
 		}
 		return res, nil
 	})

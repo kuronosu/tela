@@ -51,6 +51,14 @@ type fakeApp struct {
 	scrolls  int
 	hidden   bool
 	noReveal bool
+	// shape, when set, is the one point of the button that reaches it (a
+	// rounded corner cuts the rest), which reveal reports as its action
+	// point unless noPoint.
+	shape   *gfx.Point
+	noPoint bool
+	// cwd is tela dev's working directory, which info reports; with it
+	// the component's sites are absolute paths under it.
+	cwd string
 	// closed is Done's channel.
 	closed chan struct{}
 }
@@ -58,6 +66,9 @@ type fakeApp struct {
 var (
 	fakeButton = gfx.Rect{X0: 10, Y0: 50, X1: 110, Y1: 90}
 	fakeField  = gfx.Rect{X0: 10, Y0: 170, X1: 210, Y1: 210}
+	// fakeText is the "Count: N" text, laid out in a paragraph with no box
+	// of its own.
+	fakeText = gfx.Rect{X0: 10, Y0: 110, X1: 110, Y1: 130}
 )
 
 func newFakeApp() *fakeApp {
@@ -92,7 +103,7 @@ func (f *fakeApp) reload() {
 func (f *fakeApp) Info(context.Context) (toolsInfo, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return toolsInfo{Pkg: "./devapp", PID: f.pid, Build: f.build, Protocol: 1}, nil
+	return toolsInfo{Pkg: "./devapp", Cwd: f.cwd, PID: f.pid, Build: f.build, Protocol: 1}, nil
 }
 
 func (f *fakeApp) Windows(context.Context) ([]toolsWindow, error) {
@@ -111,7 +122,7 @@ func (f *fakeApp) Semantics(_ context.Context, win uint32) (toolsSemantics, erro
 	sem := toolsSemantics{
 		YAML:     btn + "\n- text: " + fmt.Sprintf("Count: %d", f.count) + "\n- textbox \"name\": " + f.field,
 		Nodes:    []uint64{f.base + 1, 0, f.base + 2},
-		Elements: []core.ElementID{core.ElementID(f.base + 11), 0, core.ElementID(f.base + 12)},
+		Elements: []core.ElementID{core.ElementID(f.base + 11), core.ElementID(f.base + 14), core.ElementID(f.base + 12)},
 		Srcs:     []string{"main.go:10", "", "main.go:12"},
 	}
 	if f.cover != nil {
@@ -137,8 +148,12 @@ func (f *fakeApp) Hit(_ context.Context, win uint32, x, y float32, target core.E
 	switch {
 	case f.cover != nil && in(*f.cover):
 		h = toolsHit{ID: core.ElementID(f.base + 13), Node: f.base + 3}
+	case in(fakeButton) && f.shape != nil && (x != f.shape.X || y != f.shape.Y):
+		h = toolsHit{ID: core.ElementID(f.base + 9)} // the rounded box around it
 	case in(fakeButton):
 		h = toolsHit{ID: core.ElementID(f.base + 11), Node: f.base + 1}
+	case in(fakeText):
+		h = toolsHit{ID: core.ElementID(f.base + 14)}
 	case in(fakeField):
 		h = toolsHit{ID: core.ElementID(f.base + 12), Node: f.base + 2}
 	}
@@ -154,11 +169,17 @@ func (f *fakeApp) Reveal(_ context.Context, win uint32, id core.ElementID) (tool
 		return toolsReveal{}, &toolsCallError{rpcMethodNotFound, "the app does not answer this DevTools request"}
 	}
 	var r gfx.Rect
+	var pt *gfx.Point
 	switch uint64(id) - f.base {
 	case 11:
 		r = fakeButton
+		if !f.noPoint {
+			pt = f.shape
+		}
 	case 12:
 		r = fakeField
+	case 14:
+		r = fakeText
 	default:
 		return toolsReveal{}, errors.New("no such element")
 	}
@@ -170,7 +191,7 @@ func (f *fakeApp) Reveal(_ context.Context, win uint32, id core.ElementID) (tool
 	if f.hidden {
 		return toolsReveal{}, nil
 	}
-	return toolsReveal{Visible: &r}, nil
+	return toolsReveal{Visible: &r, Point: pt}, nil
 }
 
 func (f *fakeApp) Element(_ context.Context, win uint32, id core.ElementID) (core.ElementInfo, error) {
@@ -183,6 +204,8 @@ func (f *fakeApp) Element(_ context.Context, win uint32, id core.ElementID) (cor
 	case 12:
 		r := fakeField
 		return core.ElementInfo{ID: id, Kind: "input", Bounds: &r}, nil
+	case 14:
+		return core.ElementInfo{ID: id, Kind: "text", Text: fmt.Sprintf("Count: %d", f.count)}, nil
 	}
 	return core.ElementInfo{}, errors.New("no such element")
 }
@@ -194,6 +217,10 @@ func (f *fakeApp) Elements(_ context.Context, win uint32, detail bool) ([]core.E
 		Props:  []core.PropInfo{{Name: "Step", Value: "1"}},
 		Hooks:  []core.HookInfo{{Index: 0, Kind: "UseState", Value: fmt.Sprint(f.count)}},
 		Recent: []core.BuildRecord{{Frame: 2, Reasons: []core.BuildReason{{Cause: core.CauseState, Hook: 0, HookKind: "UseState"}}}}}
+	if f.cwd != "" {
+		counter.Site = core.SourceSite{File: f.cwd + "/ui/counter.go", Line: 7}
+		counter.Hooks[0].Site = core.SourceSite{File: f.cwd + "/ui/counter.go", Line: 8}
+	}
 	r := fakeButton
 	return []core.ElementInfo{counter, {ID: core.ElementID(f.base + 11), Parent: counter.ID, Kind: "button", Bounds: &r}}, nil
 }
@@ -546,7 +573,7 @@ func TestAttachRefs(t *testing.T) {
 	if text, res := s.tool(t, "click", `{"testId": "go"}`); !res.IsError || !strings.Contains(text, "testId is not available while attached") {
 		t.Errorf("a test id: %v %s", res.IsError, text)
 	}
-	if text, res := s.tool(t, "click", `{"text": "n"}`); !res.IsError || !strings.Contains(text, "matches 2 elements") {
+	if text, res := s.tool(t, "click", `{"text": "n"}`); !res.IsError || !strings.Contains(text, "matches 3 elements") {
 		t.Errorf("an ambiguous text: %v %s", res.IsError, text)
 	}
 	s.mustTool(t, "click", `{"text": "increm", "nth": 0}`)
@@ -770,4 +797,56 @@ func TestParseAttachArgs(t *testing.T) {
 			t.Errorf("%v: %+v, %v; want %+v", tc.args, got, err, tc.want)
 		}
 	}
+}
+
+// The gaps of a target (ADR-299's actionability): a point of the button
+// that only the app can find (a rounded corner cuts the rest of its
+// rectangle), a text of a paragraph with no box of its own, a drag whose
+// end is scrolled into view only once the button is down at the start,
+// and state's sites relative to the app's working directory.
+func TestAttachTargets(t *testing.T) {
+	app := newFakeApp()
+	s := newTestAttach(app)
+	s.mustTool(t, "snapshot", `{}`)
+
+	// The center and the quarters of the button miss it: the app's point
+	// is clicked.
+	app.shape = &gfx.Point{X: 20, Y: 85}
+	if text, res := s.tool(t, "click", `{"ref": "e1"}`); res.IsError || !strings.Contains(app.called(), `click 1 20,85 "" x1`) {
+		t.Errorf("the click on the app's point of the button: %s\n%s", text, app.called())
+	}
+	app.noPoint = true // an app of an older Tela: no point, the guesses miss
+	if text, res := s.tool(t, "click", `{"ref": "e1"}`); !res.IsError || !strings.Contains(text, "is covered by") {
+		t.Errorf("a click without the app's point: %v %s", res.IsError, text)
+	}
+	app.shape, app.noPoint = nil, false
+
+	// A text with no box of its own, found by its text.
+	text, _ := s.tool(t, "click", `{"text": "Count: 1"}`)
+	wantIn(t, "click on a text", text, `Clicked the text "Count: 1".`)
+	wantIn(t, "click on a text", app.called(), "reveal 1 14", `click 1 60,120 "" x1`)
+	if text, res := s.tool(t, "hover", `{"text": "Count: 1", "exact": true}`); res.IsError {
+		t.Errorf("hover on a text: %s", text)
+	}
+	if text, res := s.tool(t, "click", `{"role": "text"}`); !res.IsError || !strings.Contains(text, "no element matches text") {
+		t.Errorf("a text line is not an element of role text: %v %s", res.IsError, text)
+	}
+
+	// A drag to an element: the button goes down on the start before the
+	// end is scrolled into view.
+	app.mu.Lock()
+	app.calls = nil
+	app.mu.Unlock()
+	text = s.mustTool(t, "drag", `{"from": {"ref": "e1"}, "to": {"ref": "e2"}}`)
+	wantIn(t, "drag to an element", text, `Dragged button "Increment" [ref=e1] to textbox "name" [ref=e2].`)
+	got := app.called()
+	down, reveal, up := strings.Index(got, "pointer 1 down 60,70"), strings.Index(got, "reveal 1 12"), strings.Index(got, "pointer 1 up 110,190")
+	if down < 0 || reveal < down || up < reveal {
+		t.Errorf("the drag must press on the start, then reveal the end, then release on it:\n%s", got)
+	}
+
+	// state: the sites as the app's working directory shows them.
+	app.cwd = "/work/devapp"
+	text = s.mustTool(t, "state", `{"ref": "e1"}`)
+	wantIn(t, "state", text, "### main.Counter made at ui/counter.go:7", "hook #1 UseState at ui/counter.go:8")
 }

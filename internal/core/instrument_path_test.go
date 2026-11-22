@@ -50,6 +50,27 @@ func TestSourceSiteRel(t *testing.T) {
 	}
 }
 
+// RelTo is Rel in another working directory: a file under it is relative
+// to it, the others follow Rel's rules.
+func TestSourceSiteRelTo(t *testing.T) {
+	_, file, line, _ := runtime.Caller(0)
+	file = filepath.ToSlash(file)
+	core := filepath.ToSlash(filepath.Dir(file))
+	root := filepath.ToSlash(filepath.Dir(filepath.Dir(filepath.Dir(file)))) // the module's directory
+	if got, want := (SourceSite{File: file, Line: line}).RelTo(root), fmt.Sprintf("internal/core/instrument_path_test.go:%d", line); got != want {
+		t.Errorf("RelTo(the module's directory) = %q, want %q", got, want)
+	}
+	if got, want := (SourceSite{File: file, Line: line}).RelTo(core+"/"), fmt.Sprintf("instrument_path_test.go:%d", line); got != want {
+		t.Errorf("RelTo(its own directory, with a slash) = %q, want %q", got, want)
+	}
+	if got, want := (SourceSite{File: root + "/app.go", Line: 3}).RelTo(core), "github.com/kuronosu/tela/app.go:3"; got != want {
+		t.Errorf("RelTo(another directory of the module) = %q, want %q", got, want)
+	}
+	if got := (SourceSite{}).RelTo(core); got != "" {
+		t.Errorf("no site: RelTo() = %q", got)
+	}
+}
+
 // The layout JSON of an instrumented tree says where each element was
 // made, and an element a library made is shown at the app's line that
 // wrote the library component.

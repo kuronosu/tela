@@ -39,10 +39,13 @@ type ariaNode struct {
 }
 
 // ariaChild is a child of an ariaNode: a node, or a string when node is
-// nil.
+// nil; src is the text node the string came from (the first of the texts
+// merged into it, 0 for the spaces between blocks and for a field's
+// value).
 type ariaChild struct {
 	node *ariaNode
 	text string
+	src  NodeID
 }
 
 // Snapshot returns the aria snapshot of the tree rooted at root: the YAML
@@ -59,8 +62,18 @@ func Snapshot(root *Node) string {
 // /url line of a link). A node keeps its ID for the life of its element,
 // so a tool can name the same element in later snapshots.
 func SnapshotIDs(root *Node) (string, []NodeID) {
+	yaml, ids, _ := SnapshotTexts(root)
+	return yaml, ids
+}
+
+// SnapshotTexts is [SnapshotIDs] with, for each line, the text node a
+// text line prints: the first of the texts it merges (a line joins the
+// texts that follow each other, "Count: " and "3" of one paragraph), 0
+// for the other lines. A text node has no line ID of its own, since the
+// line may stand for several, but a tool can act on the text it shows.
+func SnapshotTexts(root *Node) (yaml string, ids, texts []NodeID) {
 	if root == nil {
-		return "", nil
+		return "", nil, nil
 	}
 	top := &ariaNode{role: "fragment"}
 	if root.Kind == KindRoot {
@@ -73,12 +86,12 @@ func SnapshotIDs(root *Node) (string, []NodeID) {
 	var r renderer
 	for _, c := range top.children {
 		if c.node == nil {
-			r.add("- text: "+yamlEscapeValue(c.text), 0)
+			r.addText("- text: "+yamlEscapeValue(c.text), c.src)
 		} else {
 			r.render(c.node, 0)
 		}
 	}
-	return strings.Join(r.lines, "\n"), r.ids
+	return strings.Join(r.lines, "\n"), r.ids, r.texts
 }
 
 // visit adds node n to the aria tree under parent (generateAriaTree's
@@ -90,7 +103,7 @@ func visit(parent *ariaNode, n *Node) {
 	switch n.Kind {
 	case KindText:
 		if parent.role != "textbox" && n.Text != "" {
-			parent.children = append(parent.children, ariaChild{text: n.Text})
+			parent.children = append(parent.children, ariaChild{text: n.Text, src: n.ID})
 		}
 		return
 	case KindRoot:
@@ -138,20 +151,24 @@ func normalizeStrings(an *ariaNode) {
 	var out []ariaChild
 	var buf strings.Builder
 	pending := false
+	var src NodeID // the first text with something to show
 	flush := func() {
 		if !pending {
 			return
 		}
 		if s := NormalizeWhiteSpace(buf.String()); s != "" {
-			out = append(out, ariaChild{text: s})
+			out = append(out, ariaChild{text: s, src: src})
 		}
 		buf.Reset()
-		pending = false
+		pending, src = false, 0
 	}
 	for _, c := range an.children {
 		if c.node == nil {
 			buf.WriteString(c.text)
 			pending = true
+			if src == 0 && NormalizeWhiteSpace(c.text) != "" {
+				src = c.src
+			}
 			continue
 		}
 		flush()
@@ -234,15 +251,24 @@ func key(an *ariaNode) string {
 	return b.String()
 }
 
-// renderer collects the lines of a snapshot and the node each one prints.
+// renderer collects the lines of a snapshot, the node each one prints and
+// the text node of each text line.
 type renderer struct {
 	lines []string
 	ids   []NodeID
+	texts []NodeID
 }
 
 func (r *renderer) add(line string, id NodeID) {
 	r.lines = append(r.lines, line)
 	r.ids = append(r.ids, id)
+	r.texts = append(r.texts, 0)
+}
+
+// addText adds a text line made from text node src.
+func (r *renderer) addText(line string, src NodeID) {
+	r.add(line, 0)
+	r.texts[len(r.texts)-1] = src
 }
 
 // render appends the lines of role node an at depth (renderAriaTree's
@@ -265,7 +291,7 @@ func (r *renderer) render(an *ariaNode, depth int) {
 	}
 	for _, c := range an.children {
 		if c.node == nil {
-			r.add(indent+"  - text: "+yamlEscapeValue(c.text), 0)
+			r.addText(indent+"  - text: "+yamlEscapeValue(c.text), c.src)
 		} else {
 			r.render(c.node, depth+1)
 		}

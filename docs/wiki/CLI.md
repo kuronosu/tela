@@ -868,7 +868,7 @@ because the app, its clock and its window are the person's and `tela dev`'s:
 | `windows` | New: lists ID, title, logical size, display scale and which window has the keyboard focus |
 | `snapshot` | The real window's aria snapshot, with refs and `[src=file:line]`. Refs are semantics node IDs per window, as in the headless server; after a `tela dev` reload (a new child, whose IDs start again) they are matched again by role, name and position, and the result says the app was built again |
 | `screenshot` | The frame the window presents, in real pixels at the display's scale (the answer says it: 480x400 logical at scale 2 is 960x800 pixels); with a `ref`, that element with an 8 px margin |
-| `click`, `hover`, `fill`, `press`, `scroll`, `drag` | Inject pointer, key and text events into the real window at the element's painted position (the path a person's input takes), wait until the app has drawn no frame for 100 ms (at most 5 s: an animation never settles, and the answer says so), and answer with the new snapshot. `fill` clicks the field, selects all and types the text, so `OnChange` fires per character; `press` with a `ref` clicks the field to focus it, and refuses an element a click would activate (use `Tab`). An element's center must be inside the window: scroll it into view first. `testId` is not available (the snapshot has no test ids): use `ref`, `role` and `name`, or `text` |
+| `click`, `hover`, `fill`, `press`, `scroll`, `drag` | Inject pointer, key and text events into the real window at the element's painted position (the path a person's input takes), wait until the app has drawn no frame for 100 ms (at most 5 s: an animation never settles, and the answer says so), and answer with the new snapshot. `fill` clicks the field, selects all and types the text, so `OnChange` fires per character; `press` with a `ref` clicks the field to focus it, and refuses an element a click would activate (use `Tab`). The element is scrolled into view first and acted on at a point where the app paints it (inside rounded corners and rotations), and refused when another element covers it there; `drag` presses on its start before it scrolls its end into view. `text` also finds a text of a paragraph that has no box of its own (beside a link or a button). `testId` is not available (the snapshot has no test ids): use `ref`, `role` and `name`, or `text` |
 | `wait` | Waits real time (`ms`, at most 60 s) and/or up to 10 s for a `text` to appear or `textGone` to go: the app's clock runs by itself |
 | `inspect`, `state`, `perf`, `logs` | Read the running app through the instrumentation `tela dev` turns on for the attached client: the layout tree, the component behind an element, the frames' time per phase (`action: true` for the frames of the last acting call, which its answer sums up) and what `tela dev` logged (the dev warnings and errors of Tela, and the app's standard error; standard output is not kept) |
 | `lint` | `tela lint -json` on the session's package, as `tela dev` was given it |
@@ -877,8 +877,8 @@ because the app, its clock and its window are the person's and `tela dev`'s:
 `[src=]` is known for what the app built since the session was instrumented
 (the first call): an element built earlier has none until it rebuilds, so a
 snapshot taken right after attaching shows few until the app changes or
-reloads. The paths are relative to the directory `tela mcp --attach` runs in,
-like `tela dev`'s; the `Site` of a hook is shown as that process sees it.
+reloads. The paths are relative to the directory `tela dev` runs in, and so
+are those of `state` (its components and hooks).
 
 ## tela lsp
 

@@ -66,13 +66,29 @@ func pathInit() {
 	})
 }
 
+// RelTo is Rel with dir as the working directory of rule 1: the form the
+// app's own process shows (its [src=] lines), for a tool that runs
+// elsewhere and knows the app's working directory.
+func (s SourceSite) RelTo(dir string) string {
+	if s.File == "" {
+		return ""
+	}
+	return displayPathIn(strings.TrimRight(filepath.ToSlash(dir), "/"), s.File) + ":" + strconv.Itoa(s.Line)
+}
+
 func displayPath(file string) string {
+	pathInit()
+	return displayPathIn(pathState.cwd, file)
+}
+
+// displayPathIn is displayPath with cwd, slash-separated, as the working
+// directory.
+func displayPathIn(cwd, file string) string {
 	file = filepath.ToSlash(file)
 	if !path.IsAbs(file) && !isWinAbs(file) {
 		return file // already relative (-trimpath): module@version/file.go
 	}
-	pathInit()
-	if rel, ok := under(pathState.cwd, file); ok {
+	if rel, ok := under(cwd, file); ok {
 		return rel
 	}
 	if m := moduleOfDir(path.Dir(file)); m.root != "" {

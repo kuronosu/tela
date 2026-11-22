@@ -847,7 +847,10 @@ func (c *toolsConn) call(method string, raw json.RawMessage) (any, error) {
 		ts.mu.Lock()
 		build := ts.build
 		ts.mu.Unlock()
-		return map[string]any{"pkg": ts.pkg, "dir": ts.pkgDir, "pid": os.Getpid(), "started": ts.started, "build": build, "protocol": toolsProtocol}, nil
+		// cwd is tela dev's working directory, which its children
+		// inherit: the one their [src=] paths are relative to.
+		cwd, _ := os.Getwd()
+		return map[string]any{"pkg": ts.pkg, "dir": ts.pkgDir, "cwd": cwd, "pid": os.Getpid(), "started": ts.started, "build": build, "protocol": toolsProtocol}, nil
 	case "windows":
 		var ws []toolsWindow
 		if err := ts.onUI(func() { ws = toolsWindows(ts.host.WindowInfos()) }); err != nil {

@@ -1,7 +1,9 @@
 package core
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/semantics"
@@ -48,9 +50,16 @@ func (t *Tree) HitElement(x, y float32, target ElementID) (id ElementID, node se
 	if tgt == nil {
 		return id, node, false
 	}
+	return id, node, t.reaches(hit, tgt, gfx.Point{X: x, Y: y})
+}
+
+// reaches reports whether a hit on element hit at point pt reaches
+// element tgt: hit is tgt or a descendant of it, or, for a tgt laid out in
+// a paragraph, an ancestor of it hit on one of tgt's rectangles.
+func (t *Tree) reaches(hit, tgt *Element, pt gfx.Point) bool {
 	for el := hit; el != nil; el = el.parent {
 		if el == tgt {
-			return id, node, true
+			return true
 		}
 	}
 	if inParagraph(tgt) {
@@ -58,16 +67,73 @@ func (t *Tree) HitElement(x, y float32, target ElementID) (id ElementID, node se
 			if el != hit {
 				continue
 			}
-			pt := gfx.Point{X: x, Y: y}
 			for _, r := range t.paraParts(tgt, false, nil) {
 				if r.Contains(pt) {
-					return id, node, true
+					return true
 				}
 			}
 			break
 		}
 	}
-	return id, node, false
+	return false
+}
+
+// ActionPoint returns a point of rect vis (the visible part RevealElement
+// returned for element id) where the element is painted as the last frame
+// drew it: a hit test that sees only the element, its ancestors and its
+// descendants (pick mode's: pointer-events play no part) reaches it there
+// (reaches). So the point is inside the rounded corners of the element's
+// box and of the clips around it, and on the box itself under a rotation,
+// which the rectangle vis cannot follow. It tries the center of vis, then
+// the centers of its quarters, then the cells of an 8 by 8 grid over it,
+// nearest the center first; ok is false when none reaches it (what shows
+// of it is thinner than a cell, or the instrumentation is off). Whether
+// another element covers the point is HitElement's to say.
+func (t *Tree) ActionPoint(id ElementID, vis gfx.Rect) (p gfx.Point, ok bool) {
+	if t.ins == nil || vis.Empty() {
+		return gfx.Point{}, false
+	}
+	tgt := t.ins.element(id)
+	if tgt == nil {
+		return gfx.Point{}, false
+	}
+	bx := t.chainBox(tgt)
+	if bx == nil {
+		return gfx.Point{}, false
+	}
+	h := &t.in.hit
+	h.only, h.onlyBox, h.pick = map[*Box]bool{}, bx, true
+	defer func() { h.only, h.onlyBox, h.pick = nil, nil, false }()
+	for b := bx; b != nil; b = b.parent {
+		h.only[b] = true
+	}
+	for _, c := range actionCandidates(vis) {
+		if hit, _ := t.hitTest(c); hit != nil && t.reaches(hit, tgt, c) {
+			return c, true
+		}
+	}
+	return gfx.Point{}, false
+}
+
+// actionGrid is the number of cells a side of the grid ActionPoint tries.
+const actionGrid = 8
+
+// actionCandidates are the points of r ActionPoint tries, in order: its
+// center, the centers of its quarters, then the centers of the cells of
+// an actionGrid by actionGrid grid, nearest the center first.
+func actionCandidates(r gfx.Rect) []gfx.Point {
+	c := r.Center()
+	w, h := r.Width(), r.Height()
+	out := []gfx.Point{c, {X: c.X - w/4, Y: c.Y - h/4}, {X: c.X + w/4, Y: c.Y - h/4}, {X: c.X - w/4, Y: c.Y + h/4}, {X: c.X + w/4, Y: c.Y + h/4}}
+	grid := make([]gfx.Point, 0, actionGrid*actionGrid)
+	for i := range actionGrid {
+		for j := range actionGrid {
+			grid = append(grid, gfx.Point{X: r.X0 + w*(float32(i)+0.5)/actionGrid, Y: r.Y0 + h*(float32(j)+0.5)/actionGrid})
+		}
+	}
+	dist := func(p gfx.Point) float32 { return (p.X-c.X)*(p.X-c.X) + (p.Y-c.Y)*(p.Y-c.Y) }
+	slices.SortStableFunc(grid, func(a, b gfx.Point) int { return cmp.Compare(dist(a), dist(b)) })
+	return append(out, grid...)
 }
 
 // inParagraph reports whether el is laid out in a paragraph's text: a

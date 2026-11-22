@@ -227,7 +227,11 @@ func (s *attachSession) resolve(ctx context.Context, winArg uint32, a elementArg
 	var desc string
 	for i := range snap.lines {
 		l := &snap.lines[i]
-		if !l.ok || l.node == 0 {
+		// A text line (a text of a paragraph beside a link, with no box
+		// of its own) has no node of its own but the element of its
+		// text: text finds it as telatest's ByText finds the text.
+		isText := !l.ok && l.parsed.Key == "text" && l.el != 0
+		if (!l.ok || l.node == 0) && !(isText && a.Role == "") {
 			continue
 		}
 		switch {
@@ -236,8 +240,9 @@ func (s *attachSession) resolve(ctx context.Context, winArg uint32, a elementArg
 				found = append(found, l)
 			}
 		default:
-			hay := l.parsed.Name + " " + strings.TrimPrefix(l.parsed.Rest, ":")
-			if a.Exact && (l.parsed.Name == a.Text || strings.TrimSpace(strings.TrimPrefix(l.parsed.Rest, ":")) == a.Text) ||
+			value := unquoteValue(strings.TrimSpace(strings.TrimPrefix(l.parsed.Rest, ":")))
+			hay := l.parsed.Name + " " + value
+			if a.Exact && (l.parsed.Name == a.Text && !isText || value == a.Text) ||
 				!a.Exact && strings.Contains(strings.ToLower(hay), strings.ToLower(a.Text)) {
 				found = append(found, l)
 			}
@@ -263,6 +268,9 @@ func (s *attachSession) resolve(ctx context.Context, winArg uint32, a elementArg
 	if a.Nth != nil {
 		line = found[*a.Nth]
 	}
+	if !line.ok {
+		return attachTarget{win: w, line: line, desc: "the text " + fmt.Sprintf("%q", unquoteValue(strings.TrimSpace(strings.TrimPrefix(line.parsed.Rest, ":"))))}, nil
+	}
 	return attachTarget{win: w, line: line, desc: line.parsed.Describe(), disabled: line.parsed.Disabled}, nil
 }
 
@@ -275,38 +283,50 @@ const revealTries = 3
 // window, with Playwright's actionability: the element is scrolled into
 // view (its scroll containers move as little as needed, and the session
 // waits for them), and the point is one of its visible part that hit
-// testing sends to it or to a descendant: its center, else the center of
-// a quarter. A point where another element takes the pointer (a dialog,
-// a popover, a sticky header over it) makes the element covered.
+// testing sends to it or to a descendant: the point the app found where
+// the element is painted (inside rounded corners and rotations, which the
+// visible rectangle cannot follow), else the rectangle's center, else the
+// center of a quarter. A point where another element takes the pointer
+// (a dialog, a popover, a sticky header over it) makes the element
+// covered. An element laid out in a paragraph's text (a link, a text
+// with no box of its own) is acted on at its first rectangle that shows.
 func (s *attachSession) point(ctx context.Context, t attachTarget) (x, y float32, err error) {
-	info, err := s.conn.Element(ctx, t.win.ID, t.line.el)
-	if err != nil {
-		return 0, 0, err
-	}
-	if info.Bounds == nil || info.Bounds.X1 <= info.Bounds.X0 || info.Bounds.Y1 <= info.Bounds.Y0 {
-		return 0, 0, fmt.Errorf("%s has no painted box (it has no size, or is not drawn)", t.desc)
-	}
-	var vis *gfx.Rect
+	var r toolsReveal
 	for i := 0; ; i++ {
 		s.frameCursor(ctx, t.win.ID)
 		start := time.Now()
-		r, err := s.conn.Reveal(ctx, t.win.ID, t.line.el)
+		r, err = s.conn.Reveal(ctx, t.win.ID, t.line.el)
 		if unsupported(err) {
-			return s.center(t, *info.Bounds) // an app of an older Tela
+			// An app of an older Tela: the center of the bounds.
+			info, err := s.conn.Element(ctx, t.win.ID, t.line.el)
+			if err != nil {
+				return 0, 0, err
+			}
+			if info.Bounds == nil || info.Bounds.X1 <= info.Bounds.X0 || info.Bounds.Y1 <= info.Bounds.Y0 {
+				return 0, 0, fmt.Errorf("%s has no painted box (it has no size, or is not drawn)", t.desc)
+			}
+			return s.center(t, *info.Bounds)
 		}
 		if err != nil {
 			return 0, 0, err
 		}
-		vis = r.Visible
 		if !r.Moved || i == revealTries-1 {
 			break
 		}
 		s.settle(ctx, t.win.ID, start) // the scroll's frames
 	}
+	vis := r.Visible
 	if vis == nil || vis.Empty() {
+		if info, err := s.conn.Element(ctx, t.win.ID, t.line.el); err == nil && t.line.parsed.Key != "text" &&
+			(info.Bounds == nil || info.Bounds.X1 <= info.Bounds.X0 || info.Bounds.Y1 <= info.Bounds.Y0) {
+			return 0, 0, fmt.Errorf("%s has no painted box (it has no size, or is not drawn)", t.desc)
+		}
 		return 0, 0, fmt.Errorf("%s is not visible even scrolled into view: an ancestor that clips its overflow (overflow-hidden, overflow-clip) or the window's edge cuts it whole", t.desc)
 	}
 	pts := actionPoints(*vis)
+	if r.Point != nil {
+		pts = append([]gfx.Point{*r.Point}, pts...)
+	}
 	var first toolsHit
 	for i, p := range pts {
 		h, err := s.conn.Hit(ctx, t.win.ID, p.X, p.Y, t.line.el)
@@ -876,39 +896,50 @@ func (s *attachSession) toolDrag(ctx context.Context, args json.RawMessage) mcpR
 		o.fail(err.Error())
 		return o.result()
 	}
-	// end resolves the from or to: an element, or a point of the window.
-	// Both ends are in the window of the first.
-	winArg := a.Window
-	end := func(e *dragEnd, enabled bool) (x, y float32, desc string, ok bool) {
-		if !e.given() && e.X != nil && e.Y != nil {
-			if err := atPoint(w, *e.X, *e.Y); err != nil {
-				o.fail(err.Error())
-				return 0, 0, "", false
-			}
-			return float32(*e.X), float32(*e.Y), fmt.Sprintf("(%g, %g)", *e.X, *e.Y), true
+	// The start is resolved and scrolled into view first. An element at
+	// the end is scrolled into view only once the button is down at the
+	// start, as Playwright's dragTo does: revealing it before could scroll
+	// the start away. Both ends are in the window of the start.
+	x0, y0, fromDesc := float32(0), float32(0), ""
+	if f := a.From; !f.given() && f.X != nil && f.Y != nil {
+		if err := atPoint(w, *f.X, *f.Y); err != nil {
+			o.fail(err.Error())
+			return o.result()
 		}
-		t, cx, cy, ok := s.target(ctx, &o, winArg, e.elementArgs, "drag", enabled)
+		x0, y0, fromDesc = float32(*f.X), float32(*f.Y), fmt.Sprintf("(%g, %g)", *f.X, *f.Y)
+	} else {
+		t, cx, cy, ok := s.target(ctx, &o, a.Window, f.elementArgs, "drag", true)
 		if !ok {
-			return 0, 0, "", false
+			return o.result()
 		}
-		w, winArg = t.win, t.win.ID
-		return cx, cy, t.desc, true
-	}
-	x0, y0, fromDesc, ok := end(a.From, true)
-	if !ok {
-		return o.result()
+		w, x0, y0, fromDesc = t.win, cx, cy, t.desc
 	}
 	done := "Dragged " + fromDesc
 	var x1, y1 float32
-	if a.To != nil {
-		var toDesc string
-		if x1, y1, toDesc, ok = end(a.To, false); !ok {
-			return o.result()
-		}
-		done += " to " + toDesc + "."
-	} else {
+	var to *attachTarget
+	switch e := a.To; {
+	case e == nil:
 		x1, y1 = x0+float32(a.DX), y0+float32(a.DY)
 		done += fmt.Sprintf(" by (%g, %g).", a.DX, a.DY)
+	case !e.given() && e.X != nil && e.Y != nil:
+		if err := atPoint(w, *e.X, *e.Y); err != nil {
+			o.fail(err.Error())
+			return o.result()
+		}
+		x1, y1 = float32(*e.X), float32(*e.Y)
+		done += fmt.Sprintf(" to (%g, %g).", *e.X, *e.Y)
+	default:
+		t, err := s.resolve(ctx, w.ID, e.elementArgs)
+		if err != nil {
+			o.fail(err.Error())
+			return o.result()
+		}
+		if t.win.ID != w.ID {
+			o.fail(fmt.Sprintf("the drag starts in window %d and %s is in window %d: a drag stays in one window", w.ID, t.desc, t.win.ID))
+			return o.result()
+		}
+		to = &t
+		done += " to " + t.desc + "."
 	}
 	return s.act(ctx, &o, w, done, func() error {
 		id := w.ID
@@ -916,15 +947,22 @@ func (s *attachSession) toolDrag(ctx context.Context, args json.RawMessage) mcpR
 			return err
 		}
 		// letGo releases the button where the pointer is when the drag
-		// stops early (a move failed, the call was cancelled): the app
-		// would keep a button held, and the session would keep dragging
-		// with every later move. Its own context: ctx may be done.
+		// stops early (a move failed, the end cannot be reached, the call
+		// was cancelled): the app would keep a button held, and the
+		// session would keep dragging with every later move. Its own
+		// context: ctx may be done.
 		x, y := x0, y0
 		letGo := func(err error) error {
 			uctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 			s.conn.Pointer(uctx, id, "up", x, y, "")
 			return err
+		}
+		if to != nil {
+			var err error
+			if x1, y1, err = s.point(ctx, *to); err != nil {
+				return letGo(fmt.Errorf("the button went down on %s, but the end cannot be reached: %v; the button was released where it went down", fromDesc, err))
+			}
 		}
 		for i := 1; i <= dragSteps; i++ {
 			f := float32(i) / dragSteps
@@ -1071,9 +1109,16 @@ func (s *attachSession) toolInspect(ctx context.Context, args json.RawMessage) m
 	return o.result()
 }
 
-// attachComponent is a component element as writeComponent shows it.
-func attachComponent(e core.ElementInfo) mcpComponent {
-	c := mcpComponent{Name: e.Kind, Key: e.Key, Source: e.Site.Rel(), Builds: e.Builds}
+// attachComponent is a component element as writeComponent shows it, its
+// sites relative to dir, the app's working directory (rel).
+func attachComponent(e core.ElementInfo, dir string) mcpComponent {
+	rel := func(s core.SourceSite) string {
+		if dir == "" {
+			return s.Rel()
+		}
+		return s.RelTo(dir)
+	}
+	c := mcpComponent{Name: e.Kind, Key: e.Key, Source: rel(e.Site), Builds: e.Builds}
 	for _, p := range e.Props {
 		c.Props = append(c.Props, struct{ Name, Value string }{p.Name, p.Value})
 	}
@@ -1081,7 +1126,7 @@ func attachComponent(e core.ElementInfo) mcpComponent {
 		c.Hooks = append(c.Hooks, struct {
 			Index               int
 			Kind, Source, Value string
-		}{h.Index, h.Kind, h.Site.Rel(), h.Value})
+		}{h.Index, h.Kind, rel(h.Site), h.Value})
 	}
 	for _, r := range e.Recent {
 		rr := struct {
@@ -1094,6 +1139,16 @@ func attachComponent(e core.ElementInfo) mcpComponent {
 		c.Renders = append(c.Renders, rr)
 	}
 	return c
+}
+
+// appDir is the working directory of the app tela dev runs, the one the
+// [src=] paths of its snapshots are relative to: tela dev's own, else (an
+// older tela dev) the package's directory; "" when neither is known.
+func (s *attachSession) appDir() string {
+	if s.info.Cwd != "" {
+		return s.info.Cwd
+	}
+	return s.info.Dir
 }
 
 func (s *attachSession) toolState(ctx context.Context, args json.RawMessage) mcpResult {
@@ -1142,7 +1197,7 @@ func (s *attachSession) toolState(ctx context.Context, args json.RawMessage) mcp
 		}
 		for id := el; id != 0; id = byID[id].Parent {
 			if e, ok := byID[id]; ok && e.Component {
-				comps = append(comps, attachComponent(e))
+				comps = append(comps, attachComponent(e, s.appDir()))
 				break
 			}
 		}
@@ -1155,7 +1210,7 @@ func (s *attachSession) toolState(ctx context.Context, args json.RawMessage) mcp
 			if e.Component && (len(e.Props) > 0 || len(e.Hooks) > 0) {
 				total++
 				if len(comps) < limit {
-					comps = append(comps, attachComponent(e))
+					comps = append(comps, attachComponent(e, s.appDir()))
 				}
 			}
 		}

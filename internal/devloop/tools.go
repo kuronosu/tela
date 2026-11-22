@@ -38,9 +38,11 @@ import (
 //     ToolsParams.Depth levels of children (the nodes of the last level
 //     count the ones left out in "more"). Reply an InspectNode.
 //   - [KindToolsSemantics]: the aria snapshot of the window (the YAML of
-//     tela inspect) with, per line, the semantics node it prints, that
-//     node's element (0 for text and /url lines) and the element's
-//     creation site in the app ("settings.go:42", "" when unknown). Reply
+//     tela inspect) with, per line, the semantics node it prints (0 for
+//     text and /url lines), that node's element (for a text line, the
+//     element of the first text it shows; 0 for a /url line) and the
+//     element's creation site in the app ("settings.go:42", "" when
+//     unknown or for a text line). Reply
 //     {"yaml": string, "nodes": [uint64...], "elements": [uint64...],
 //     "srcs": [string...]}.
 //   - [KindToolsProfiles]: the frame profiles recorded after frame
@@ -64,7 +66,9 @@ import (
 //     (core.Tree.RevealElement). Reply {"visible": the part of its box
 //     visible once the scroll ends, as a rect, absent when none is;
 //     "moved": bool, a scroll is under way: wait for the frames and ask
-//     again}.
+//     again; "point": once no scroll is under way, a point of the visible
+//     part where the element is painted, inside rounded corners and
+//     rotations (core.Tree.ActionPoint), absent when none is found}.
 //
 // Request, child → host, once, before the first build:
 //
