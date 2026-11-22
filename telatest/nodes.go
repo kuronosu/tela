@@ -34,6 +34,34 @@ func (a *App) AriaSnapshotNodes() (yaml string, nodes []uint64) {
 // older telatest can ask for it through an interface.
 func (a *App) NodeLocator(id uint64) Locator { return Locator{kind: locNode, nodeID: id} }
 
+// NodeOf returns the identity of the element l locates (the one
+// [App.AriaSnapshotNodes] gives its line), waiting for it as an action
+// does: it fails the test when nothing matches by the timeout, or when
+// several elements do. It is for tools that name elements by identity,
+// such as `tela mcp`'s state of an element given by role and name.
+func (a *App) NodeOf(l Locator) uint64 {
+	a.tb.Helper()
+	a.mustBeOpen()
+	if p := l.problem(); p != "" {
+		a.fatalf("%s", p)
+	}
+	var id semantics.NodeID
+	a.waitSettled(func() (bool, string) {
+		a.tb.Helper()
+		nodes := a.find(l)
+		switch len(nodes) {
+		case 0:
+			return false, a.missMessage(l)
+		case 1:
+		default:
+			a.fatalf("%s", a.strictMessage(l, nodes))
+		}
+		id = nodes[0].ID
+		return true, ""
+	})
+	return uint64(id)
+}
+
 // Scrollables returns the scroll containers of the window a user can
 // scroll (overflow auto or scroll, with content that overflows), as the
 // identities of their elements ([App.AriaSnapshotNodes]; [App.NodeLocator]

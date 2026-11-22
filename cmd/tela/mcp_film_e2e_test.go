@@ -314,13 +314,14 @@ func TestMCPTestToolEndToEnd(t *testing.T) {
 
 	// Other previews and a change of the source: open starts a new mount
 	// in the test; an edit starts the recording over.
-	c.tool("open", map[string]any{"preview": "Other", "dark": true})
+	c.tool("open", map[string]any{"preview": "Other"})
+	c.tool("prefer", map[string]any{"dark": true})
 	c.tool("hover", map[string]any{"role": "heading", "name": "Other screen"})
 	if r := c.tool("test", map[string]any{"name": "two screens"}); r.isError {
 		t.Fatalf("two screens:\n%s", r.text)
 	}
 	b2, _ := os.ReadFile(filepath.Join(dir, "app", "two_screens_test.go"))
-	if !strings.Contains(string(b2), `app = telatest.Mount(t, Previews["Other"],`) || !strings.Contains(string(b2), "telatest.Dark()") || !strings.Contains(string(b2), `Previews["Form"]`) {
+	if !strings.Contains(string(b2), `app = telatest.Mount(t, Previews["Other"],`) || !strings.Contains(string(b2), "app.SetDarkMode(true)") || !strings.Contains(string(b2), `Previews["Form"]`) {
 		t.Errorf("the second screen is not a second mount:\n%s", b2)
 	}
 	srcFile := filepath.Join(dir, "app", "mcpapp.go")

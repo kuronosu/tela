@@ -7,8 +7,8 @@
 
 - **`telatest.App.Pending() []telatest.Pending`** (was `[]string`): each item has a `Kind` (`PendingKind`: `PendingFrame`, `PendingUpdate`, `PendingAnimation`, `PendingEndless`, `PendingScrollbar`, `PendingCaret`, `PendingTimer`, `PendingAsync`, `PendingGo`...), the `Window` it belongs to when not the App's, `What` (the old text) and `In`, the distance of its deadline; `String()` gives the old line. `core.Tree.Pending` returns kinds too. A scrollbar fade is its own kind, apart from a scroll animation.
 - **`UseGo`** goroutines that have not returned are `PendingGo`, named with their component and call site. `ExpectIdle` and the idle budgets do not count them (a goroutine that waits costs nothing) and nothing waits for them (one may live as long as its component).
-- **`App.Scrollables() []uint64`**: the identities of the scroll containers a user can scroll, largest visible area first.
-- **`tela mcp`** reads the kinds: a miss fails at once only when all that is pending only redraws (endless, scrollbar, caret, debug, and the frame request beside them); a load on a goroutine waits. `wait` for a text fails at once the same way. `scroll` without an element or point scrolls the largest container that moves, and every scroll says when nothing moved. A module on an older Tela keeps the text matching and the window's center.
+- **`App.Scrollables() []uint64`**: the identities of the scroll containers a user can scroll, largest visible area first. **`App.NodeOf(l Locator) uint64`**: the identity of the one element `l` finds, waiting as an action does, so `tela mcp`'s `state` takes any element, not only a ref.
+- **`tela mcp`** reads the kinds: a miss fails at once only when all that is pending only redraws (endless, scrollbar, caret, debug, and the frame request beside them); a load on a goroutine waits. `wait` for a text fails at once the same way. `scroll` without an element or point scrolls the largest container that moves, and every scroll says when nothing moved. A module on an older Tela keeps the text matching and the window's center. `open` no longer takes `dark`: `prefer` switches it live.
 
 ## Why
 

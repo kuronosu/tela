@@ -394,7 +394,8 @@ func TestAttachClickFillAndSettle(t *testing.T) {
 	s.mustTool(t, "snapshot", `{}`)
 
 	text := s.mustTool(t, "click", `{"ref": "e1"}`)
-	wantIn(t, "click", text, `Clicked button "Increment" [ref=e1].`, "- text: Count: 1", `[ref=e1] [src=main.go:10]`)
+	wantIn(t, "click", text, `Clicked button "Increment" [ref=e1].`, "- text: Count: 1", `[ref=e1] [src=main.go:10]`,
+		"### Frames\n1 frame(s), numbered 1 to 1 (caused by this call)")
 	if got := app.called(); !strings.Contains(got, `click 1 60,70 "" x1`) {
 		t.Errorf("the click was injected as:\n%s", got)
 	}
@@ -641,6 +642,8 @@ func TestAttachInspectStateLogsWait(t *testing.T) {
 	wantIn(t, "inspect", text, `Layout tree of button "Increment"`, `"src": "main.go:10"`)
 	text = s.mustTool(t, "state", `{"ref": "e1"}`)
 	wantIn(t, "state of a ref", text, "### main.Counter", "props: Step=1", "hook #1 UseState = 0", "built 3 time(s)", "frame 2: UseState #1")
+	text = s.mustTool(t, "state", `{"role": "button", "name": "Increment"}`)
+	wantIn(t, "state by role and name", text, "### main.Counter", "props: Step=1")
 	text = s.mustTool(t, "state", `{}`)
 	wantIn(t, "state", text, "1 components with props or hooks", "### main.Counter")
 

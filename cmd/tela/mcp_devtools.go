@@ -181,10 +181,6 @@ func (s *mcpSession) toolState(ctx context.Context, args json.RawMessage) mcpRes
 	}
 	req := mcpReq{Op: "state", Max: a.Max}
 	if a.given() {
-		if a.Ref == "" {
-			o.fail(`state names the element by its ref from the latest snapshot: {"ref": "e5"}; without one it lists the components of the screen`)
-			return o.result()
-		}
 		e, err := s.element(ctx, &o, a.elementArgs)
 		if err != nil {
 			o.fail(err.Error())

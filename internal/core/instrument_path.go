@@ -200,10 +200,18 @@ func (ins *instrument) appSite(el *Element) SourceSite {
 	return first
 }
 
-// siteOf returns the creation site of el, resolved.
+// siteOf returns the creation site of el, resolved. A component whose node
+// was made before sites were captured (at package level, as the
+// tela.C(form) of a Previews entry or of App.Root, which runs when the
+// package is initialized) has the declaration of its function instead,
+// as a struct component a build returned has (instrument_site.go, rule
+// 3): the node is shared by every mount, so it is not written into.
 func (ins *instrument) siteOf(el *Element) SourceSite {
 	if d := el.node.d; d != nil && d.site != nil {
 		return ins.creationSite(d.site)
+	}
+	if ins.dev && el.kind == elemComponent && el.comp != nil && el.comp.typ != 0 {
+		return ins.creationSite(declSite(el.comp.typ))
 	}
 	return SourceSite{}
 }

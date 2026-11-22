@@ -125,7 +125,6 @@ var attachDefs = func() []attachToolDef {
 		def("open", `Not available while attached to tela dev: there is one running app. Use the headless server for previews.`,
 			act("Open a screen"), []schemaProp{
 				{"preview", "string", "Name of a preview", nil},
-				{"dark", "boolean", "Dark mode", nil},
 				{"width", "number", "Logical width in pixels", nil},
 				{"height", "number", "Logical height in pixels", nil},
 				{"scale", "number", "Display scale", nil},
@@ -138,11 +137,10 @@ var attachDefs = func() []attachToolDef {
 			}, (*attachSession).toolWait),
 		def("inspect", `Show the layout tree of the running app as JSON (tela inspect --layout): each box's rect in logical pixels, margin, border, padding, classes and computed style, with its source line. With an element (ref), only its box and what it contains. Use it when something is misplaced, misaligned or has the wrong size. Example: {"ref": "e5"}`,
 			ro("Layout tree"), elementProps("element"), (*attachSession).toolInspect),
-		def("state", `Show why a component rendered and what it holds: its props, its hooks (kind, call site, current value), how many times it built and the reason of each of its last builds. With a ref, the component that rendered that element (the nearest one above it); without, the window's components that have props or hooks, in tree order (max, default 40). Example: {"ref": "e5"}`,
-			ro("Component state"), []schemaProp{
-				{"ref", "string", "Ref of an element in the latest snapshot, such as \"e5\"", nil},
-				{"max", "integer", "Without ref: the most components to list (1 to 200, default 40)", nil},
-			}, (*attachSession).toolState),
+		def("state", `Show why a component rendered and what it holds: its props, its hooks (kind, call site, current value), how many times it built and the reason of each of its last builds. With an element (its ref, or role and name, text), the component that rendered it (the nearest one above it); without, the window's components that have props or hooks, in tree order (max, default 40). Example: {"ref": "e5"}`,
+			ro("Component state"), append(elementProps("element"),
+				schemaProp{"max", "integer", "Without an element: the most components to list (1 to 200, default 40)", nil}),
+			(*attachSession).toolState),
 		def("logs", `List what tela dev has logged since the last logs call, with levels: the dev warnings and errors of Tela (unknown classes, missing keys, misused hooks: "dev") and what the app wrote on its standard error ("stderr"; standard output is not kept). Every other result already carries the dev warnings it caused. Example: {"level": "warn"}`,
 			ro("Logs"), []schemaProp{
 				{"level", "string", `Only this level and above: "info" (everything, the default), "warn" or "error"`, []string{"info", "warn", "error"}},
@@ -408,8 +406,12 @@ func atPoint(w toolsWindow, x, y float64) error {
 
 // act runs an input on window w, waits until the app has settled and
 // answers with the new snapshot.
+//
+// The frames the action caused (those after the frame the app was at when
+// it began, a scroll into view during it included) are what perf
+// {"action": true} lists, and the result sums them up.
 func (s *attachSession) act(ctx context.Context, o *mcpOut, w toolsWindow, done string, do func() error) mcpResult {
-	s.frameCursor(ctx, w.ID)
+	from := s.frameCursor(ctx, w.ID)
 	start := time.Now()
 	o.screen = describeWindow(w)
 	if err := do(); err != nil {
@@ -418,6 +420,11 @@ func (s *attachSession) act(ctx context.Context, o *mcpOut, w toolsWindow, done 
 		return o.result()
 	}
 	_, settled := s.settle(ctx, w.ID, start)
+	aw := s.win(w.ID)
+	if ps, err := s.conn.Profiles(ctx, w.ID, from); err == nil {
+		aw.action = ps
+	}
+	o.frames = framesLine(profileFrames(aw.action))
 	snap, err := s.snapshot(ctx, w)
 	if err != nil {
 		o.fail(err.Error())
@@ -1114,10 +1121,6 @@ func (s *attachSession) toolState(ctx context.Context, args json.RawMessage) mcp
 	}
 	var el core.ElementID
 	if a.given() {
-		if a.Ref == "" {
-			o.fail(`state names the element by its ref from the latest snapshot: {"ref": "e5"}; without one it lists the components of the window`)
-			return o.result()
-		}
 		t, err := s.resolve(ctx, a.Window, a.elementArgs)
 		if err != nil {
 			o.fail(err.Error())
@@ -1303,16 +1306,7 @@ func (s *attachSession) toolPerf(ctx context.Context, args json.RawMessage) mcpR
 		o.head = fmt.Sprintf("No frames in %s (the app is at frame %d: a window that changes nothing draws none).", what, now)
 		return o.result()
 	}
-	fs := make([]mcpFrame, len(ps))
-	for i, p := range ps {
-		f := mcpFrame{Number: p.Frame, Duration: p.Duration, Phases: map[string]time.Duration{}, Built: p.Built, Styled: p.Styled, LaidOut: p.LaidOut, Damage: p.Damage}
-		for ph, d := range p.Phases {
-			if d > 0 {
-				f.Phases[core.Phase(ph).String()] = d
-			}
-		}
-		fs[i] = f
-	}
+	fs := profileFrames(ps)
 	o.head = perfSummary(fs, what)
 	var b strings.Builder
 	for _, f := range fs {
@@ -1324,6 +1318,22 @@ func (s *attachSession) toolPerf(ctx context.Context, args json.RawMessage) mcpR
 	}
 	o.sections = append(o.sections, "```\n"+strings.TrimRight(b.String(), "\n")+"\n```\nTimes are the real window's on this machine while tela dev instruments it (the instrumentation adds a little); compare frames with each other, and read the counts as the exact part.")
 	return o.result()
+}
+
+// profileFrames turns the frame profiles of the app into the frames the
+// perf summary reads.
+func profileFrames(ps []core.FrameProfile) []mcpFrame {
+	fs := make([]mcpFrame, len(ps))
+	for i, p := range ps {
+		f := mcpFrame{Number: p.Frame, Duration: p.Duration, Phases: map[string]time.Duration{}, Built: p.Built, Styled: p.Styled, LaidOut: p.LaidOut, Damage: p.Damage}
+		for ph, d := range p.Phases {
+			if d > 0 {
+				f.Phases[core.Phase(ph).String()] = d
+			}
+		}
+		fs[i] = f
+	}
+	return fs
 }
 
 func (s *attachSession) toolLint(ctx context.Context, args json.RawMessage) mcpResult {

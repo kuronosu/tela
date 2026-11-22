@@ -4,12 +4,21 @@ package mcpapp
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/kuronosu/tela"
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/i18n"
 )
+
+// init prints before the instance points os.Stdout and os.Stderr at its
+// own file: the logs tool must keep it all the same.
+func init() {
+	fmt.Println("mcpapp: package initialized")
+	fmt.Fprintln(os.Stderr, "mcpapp: WARN initialized on stderr")
+}
 
 // title is what the test edits to see a rebuild.
 const title = "Version 1"

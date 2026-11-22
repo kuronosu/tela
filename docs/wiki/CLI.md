@@ -675,10 +675,10 @@ services are not reachable through the tools yet.
 | `scroll` | Scrolls the wheel over an element by `dx`, `dy`; without an element, at a point (`x`, `y`) or over the largest scroll container that can move that way; the answer says when nothing moved |
 | `drag` | Drags `from` an element or point `to` another, or by `dx`, `dy` |
 | `resize` | Changes the window's `width` and `height` or `scale`, keeping the state |
-| `open` | Mounts another `preview`, `dark` mode, size or scale afresh; without arguments, lists the previews |
+| `open` | Mounts another `preview`, size or scale afresh; without arguments, lists the previews (dark mode is `prefer`'s) |
 | `wait` | Advances the app's clock by `ms` (timers, animations), or waits for a `text` to appear or `textGone` to go |
 | `inspect` | The layout tree of `tela inspect --layout`, whole or of one element |
-| `state` | Why a component rendered and what it holds: props, hooks (kind, call site, value), build count and the reason of each of its last builds, for a `ref` (its nearest component) or for the screen's components that have props or hooks (`max`) |
+| `state` | Why a component rendered and what it holds: props, hooks (kind, call site, value), build count and the reason of each of its last builds, for an element (its nearest component) or for the screen's components that have props or hooks (`max`) |
 | `logs` | The dev warnings and errors and the app's output since the last `logs` call, with levels (`level`, `all`) |
 | `perf` | The last `frames` frames, or with `action: true` the frames the last click, press or wait caused: time per phase, what each built, styled, laid out and repainted, and a summary |
 | `prefer` | `reducedMotion`, `highContrast`, `textScale`, `locale`, `direction` and `dark`; without arguments, the current ones |
@@ -688,7 +688,8 @@ services are not reachable through the tools yet.
 
 An element is named by the `ref` of the latest snapshot, or by `role` and
 `name`, `text` or `testId` (`telatest`'s locators; `nth` picks one of several).
-Every tool that acts answers with the new snapshot. A ref is the element
+Every tool that acts answers with the new snapshot and a line on the frames
+it caused (how many, their time, the slowest phase). A ref is the element
 itself, not its role and name: it stays with the element across actions
 and rebuilds of the tree whatever happens to its label or its siblings (a
 counter's text changes, rows before it are removed), for as long as the
@@ -715,9 +716,11 @@ paths are those of [`tela inspect`](#tela-inspect), and so is the `"src"` of
 - button "Count: 1" [ref=e4] [src=counter.go:21]
 ```
 
-**`state`, `perf`, `logs`.** `state {"ref": "e4"}` answers for the component
-that rendered the element: the setter behind its last build is named with its
-line.
+**`state`, `perf`, `logs`.** `state {"ref": "e4"}` (or any element: `role`
+and `name`, `text`, `testId`) answers for the component that rendered the
+element: the setter behind its last build is named with its line. A
+component made at package level, as the `tela.C(Form)` of a `Previews`
+entry, is shown at its function's declaration.
 
 ```text
 ### app.Counter
@@ -732,7 +735,8 @@ are those of the instance on this machine (headless, no GPU): compare frames
 with each other, and read the counts (built, styled, laid out, repainted
 pixels) as the exact part. `logs` lists what the screen and the app logged
 since its last call: the dev warnings and errors of Tela (`dev`) and what the
-app printed (`app`; a `log/slog` or `log` line carrying `ERROR` or `WARN` gets
+app printed (`app`, from its first line: what the package's `init` functions
+print is kept too; a `log/slog` or `log` line carrying `ERROR` or `WARN` gets
 that level); every other result already carries the ones it caused.
 
 **`prefer`.** What the user of the app prefers, to see the screen in it:
@@ -744,8 +748,7 @@ and the answer says each one is `live`. The locale is
 the preference has no effect). `{"direction": "rtl"}` puts an `h.Dir` around
 the whole screen, which is part of the tree: the screen is mounted afresh
 (state reset, refs new) with every preference set, and the answer says so.
-The preferences stay across rebuilds and `open`. `dark` is also an argument of
-`open`, which always mounts afresh.
+The preferences stay across rebuilds and `open`.
 
 ### `film` and `test`
 
@@ -867,7 +870,7 @@ because the app, its clock and its window are the person's and `tela dev`'s:
 | `screenshot` | The frame the window presents, in real pixels at the display's scale (the answer says it: 480x400 logical at scale 2 is 960x800 pixels); with a `ref`, that element with an 8 px margin |
 | `click`, `hover`, `fill`, `press`, `scroll`, `drag` | Inject pointer, key and text events into the real window at the element's painted position (the path a person's input takes), wait until the app has drawn no frame for 100 ms (at most 5 s: an animation never settles, and the answer says so), and answer with the new snapshot. `fill` clicks the field, selects all and types the text, so `OnChange` fires per character; `press` with a `ref` clicks the field to focus it, and refuses an element a click would activate (use `Tab`). An element's center must be inside the window: scroll it into view first. `testId` is not available (the snapshot has no test ids): use `ref`, `role` and `name`, or `text` |
 | `wait` | Waits real time (`ms`, at most 60 s) and/or up to 10 s for a `text` to appear or `textGone` to go: the app's clock runs by itself |
-| `inspect`, `state`, `perf`, `logs` | Read the running app through the instrumentation `tela dev` turns on for the attached client: the layout tree, the component behind a `ref`, the frames' time per phase (`action: true` for the frames of the last acting call) and what `tela dev` logged (the dev warnings and errors of Tela, and the app's standard error; standard output is not kept) |
+| `inspect`, `state`, `perf`, `logs` | Read the running app through the instrumentation `tela dev` turns on for the attached client: the layout tree, the component behind an element, the frames' time per phase (`action: true` for the frames of the last acting call, which its answer sums up) and what `tela dev` logged (the dev warnings and errors of Tela, and the app's standard error; standard output is not kept) |
 | `lint` | `tela lint -json` on the session's package, as `tela dev` was given it |
 | `resize`, `open`, `prefer` | Not available (they answer so): the window and the system's preferences are the person's, and there are no previews to mount; use the headless server |
 

@@ -466,7 +466,6 @@ func (s *attachSession) settle(ctx context.Context, win uint32, from time.Time) 
 		case <-time.After(s.poll):
 		}
 	}
-	aw.action = frames
 	return frames, settled
 }
 

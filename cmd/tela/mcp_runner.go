@@ -742,6 +742,12 @@ func (s *telaMCPSession) handle(req telaMCPReq) telaMCPReply {
 		}
 		fail, panicked := telaMCPProtect(func() { s.do(req, &rep) })
 		s.tb.running.Store(0)
+{{- if .DevTools}}
+		if telaMCPActs[req.Op] && panicked == "" {
+			// The frames the command caused travel with its reply.
+			telaMCPProtect(func() { rep.Frames = s.app.Frames(s.actionFrom) })
+		}
+{{- end}}
 		rep.Error = fail
 		if panicked != "" {
 			rep.Panic = panicked
@@ -1145,10 +1151,17 @@ var telaMCPActs = map[string]bool{"click": true, "hover": true, "fill": true, "p
 // node identity), or with the components that have props or hooks.
 func (s *telaMCPSession) state(req telaMCPReq, rep *telaMCPReply) {
 	if req.Loc != nil {
-		if req.Loc.NodeID == 0 {
-			panic(telaMCPFail{"state names an element by its ref from the latest snapshot"})
+		id := req.Loc.NodeID
+		if id == 0 {
+			// Role and name, text or test id: the element's identity, asked
+			// through an interface (a telatest older than NodeOf).
+			n, ok := any(s.app).(interface{ NodeOf(telatest.Locator) uint64 })
+			if !ok {
+				panic(telaMCPFail{"this version of tela names an element for state only by its ref from the latest snapshot"})
+			}
+			id = n.NodeOf(req.Loc.locator(s.app))
 		}
-		c, ok := s.app.ComponentOf(req.Loc.NodeID)
+		c, ok := s.app.ComponentOf(id)
 		if !ok {
 			panic(telaMCPFail{"the element has no component above it that can be inspected (it was unmounted, or its screen was built before the instrumentation)"})
 		}

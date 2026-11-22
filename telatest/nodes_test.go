@@ -25,6 +25,19 @@ func TestScrollAt(t *testing.T) {
 	}
 }
 
+// TestNodeOf gives the identity of the element a locator finds, the one
+// the snapshot prints.
+func TestNodeOf(t *testing.T) {
+	t.Parallel()
+	app := telatest.MountFunc(t, nodesScreen)
+	if got, want := app.NodeOf(telatest.ByRole("button", "Toggle")), nodeOf(t, app, `- button "Toggle"`); got != want {
+		t.Errorf("NodeOf(Toggle) = %d, want %d", got, want)
+	}
+	mustFail(t, func(tb testing.TB) {
+		telatest.MountFunc(tb, nodesScreen).NodeOf(telatest.ByRole("button", ""))
+	}, "matches")
+}
+
 // TestScrollables lists the scroll containers that can move, the largest
 // first, and leaves out one whose content fits.
 func TestScrollables(t *testing.T) {
