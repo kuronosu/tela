@@ -71,6 +71,29 @@ func TestSourceSiteRelTo(t *testing.T) {
 	}
 }
 
+// A working directory reached through a symbolic link (macOS's /var is
+// /private/var) still holds the files the compiler recorded under the
+// link's target, and the other way round.
+func TestSourceSiteRelToSymlink(t *testing.T) {
+	base := t.TempDir()
+	real := filepath.Join(base, "real")
+	if err := os.MkdirAll(filepath.Join(real, "ui"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(base, "link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Skip("no symbolic links:", err)
+	}
+	for _, c := range []struct{ cwd, file string }{
+		{link, filepath.Join(real, "ui", "card.go")},
+		{real, filepath.Join(link, "ui", "card.go")},
+	} {
+		if got := (SourceSite{File: filepath.ToSlash(c.file), Line: 7}).RelTo(c.cwd); got != "ui/card.go:7" {
+			t.Errorf("RelTo(%s) of %s = %q, want ui/card.go:7", c.cwd, c.file, got)
+		}
+	}
+}
+
 // The layout JSON of an instrumented tree says where each element was
 // made, and an element a library made is shown at the app's line that
 // wrote the library component.

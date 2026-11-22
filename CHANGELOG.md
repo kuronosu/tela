@@ -42,6 +42,7 @@ separated by commas), or with `migrate: none -- <why nothing can be rewritten>`
 
 ### Fixed
 
+- The `[src=file:line]` of aria snapshots, `tela inspect` and `tela mcp` is relative to the app's directory when that directory is reached through a symbolic link, such as macOS's `/var` (it was qualified by the module path).
 - `tela dev`'s tools socket lists a dev warning once, receives entries logged while the app is idle and includes `tela dev`'s own lines (a failed build as an error); a client whose queue filled gets a `dropped` notification and DevTools resync; keys sent to an unfocused window lend it the focus only while they reach it.
 - Pick mode keeps the wheel, keys and IME text from the app, picks `pointer-events-none` and inert elements, lets a press the app already held end in the app, and finds the app's source line past deep helper chains.
 - `watch` on Windows: a directory moved into a watched tree is no longer missed, a directory being scanned can be renamed meanwhile, and a watch no longer stops when its goroutine's stack grows ("Overlapped I/O incomplete").

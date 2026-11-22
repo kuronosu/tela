@@ -49,6 +49,7 @@ var pathState struct {
 	cwd  string // slash-separated, no trailing slash
 	mu   sync.Mutex
 	mods map[string]modInfo // by directory
+	real map[string]string  // a directory with its symbolic links resolved
 }
 
 // modInfo is the module a directory belongs to.
@@ -63,6 +64,7 @@ func pathInit() {
 			pathState.cwd = strings.TrimRight(filepath.ToSlash(wd), "/")
 		}
 		pathState.mods = map[string]modInfo{}
+		pathState.real = map[string]string{}
 	})
 }
 
@@ -88,7 +90,7 @@ func displayPathIn(cwd, file string) string {
 	if !path.IsAbs(file) && !isWinAbs(file) {
 		return file // already relative (-trimpath): module@version/file.go
 	}
-	if rel, ok := under(cwd, file); ok {
+	if rel, ok := underReal(cwd, file); ok {
 		return rel
 	}
 	if m := moduleOfDir(path.Dir(file)); m.root != "" {
@@ -117,6 +119,41 @@ func under(dir, file string) (string, bool) {
 		}
 	}
 	return file[len(prefix):], true
+}
+
+// underReal is under, also through symbolic links: on macOS the
+// temporary directory /var/folders/... is /private/var/folders/..., and
+// the working directory and the paths the compiler recorded may each be
+// spelled either way.
+func underReal(dir, file string) (string, bool) {
+	if rel, ok := under(dir, file); ok || dir == "" {
+		return rel, ok
+	}
+	rd, rf := realDir(dir), realDir(path.Dir(file))
+	if rd == dir && rf == path.Dir(file) {
+		return "", false
+	}
+	return under(rd, rf+"/"+path.Base(file))
+}
+
+// realDir returns dir, slash-separated, with its symbolic links resolved,
+// cached per directory; dir itself when it cannot be resolved.
+func realDir(dir string) string {
+	pathInit()
+	pathState.mu.Lock()
+	r, ok := pathState.real[dir]
+	pathState.mu.Unlock()
+	if ok {
+		return r
+	}
+	r = dir
+	if e, err := filepath.EvalSymlinks(filepath.FromSlash(dir)); err == nil {
+		r = strings.TrimRight(filepath.ToSlash(e), "/")
+	}
+	pathState.mu.Lock()
+	pathState.real[dir] = r
+	pathState.mu.Unlock()
+	return r
 }
 
 // moduleOfDir finds the module of directory dir by looking for go.mod
@@ -181,7 +218,7 @@ func inAppModule(file string) bool {
 	if app.root == "" {
 		return true
 	}
-	_, ok := under(app.root, file)
+	_, ok := underReal(app.root, file)
 	return ok
 }
 
