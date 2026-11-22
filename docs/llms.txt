@@ -139,7 +139,7 @@ Name elements by `ref` (latest snapshot), or `role` + `name`, `text`, `testId`, 
 
 ```sh
 tela snapshot --size 1040x800 --scale 2 --dark -o out.png ./myapp   # PNG (W*scale x H*scale); one frame: effects, timers and toasts do not show
-tela snapshot --film 600 --click 'role=button[name="Open"]' -o film.png ./myapp   # frames of the motion an action starts (also --hover, --press KEY; selectors role=..., text=..., testid=...)
+tela snapshot --film 600ms --click 'role=button[name="Open"]' -o film.png ./myapp   # frames of the motion an action starts (also --hover, --press KEY; selectors role=..., text=..., testid=...)
 tela inspect ./myapp            # aria snapshot YAML; --layout for the layout JSON
 tela lint ./...                 # unknown classes, roles, aria tokens, keys, hook misuse, a prop where a node goes; file:line:col: rule: message
 tela lint -fix ./...            # also removes redundant single-child Fragment(x) wrappers

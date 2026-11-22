@@ -23,6 +23,8 @@ separated by commas), or with `migrate: none -- <why nothing can be rewritten>`
 ### Breaking
 
 - `telatest.ClickOption` and `telatest.DragOption` are interfaces, so one `Modifiers` serves clicks and drags (ADR-307). migrate: none -- only code that declared its own func-typed options breaks, and it has no mechanical rewrite
+- `telatest.App.Pending` returns `[]telatest.Pending`, each with a kind, so callers no longer match its text (ADR-308). migrate: none -- a result type change; `Pending.String()` gives the old line
+- `tela mcp`'s `open` no longer takes `dark`: use `prefer {"dark": true}` (ADR-308). migrate: none -- an MCP tool argument, not Go code; the server's error names `prefer`
 
 ### Added
 
@@ -34,6 +36,7 @@ separated by commas), or with `migrate: none -- <why nothing can be rewritten>`
 - `telatest`: `App.ExpectAccessible` and `App.Audit` with axe-like rules by ID, plus six rules about what is on screen: `color-contrast`, `click-events-have-key-events`, `text-clipped`, `text-overlap`, `target-overlap`, `focus-visible` (ADR-306, ADR-312).
 - `tela check` and `tela verify`: report cut-off or overlapping text, low contrast, small targets and focus problems on a package's screens, in light and dark, at several widths, with large text, in RTL and in another language; `-json`, exit status 1 on findings; `tela mcp` tools `check` and `verify` (ADR-312).
 - `tela dev --debug`: builds keep DWARF without optimizations or inlining, and each build prints `dlv attach <pid>` (ADR-310).
+- `telatest.App.NodeOf` and `App.TestIDOf`; `tela snapshot --film SPAN --click LOC|--hover LOC|--press KEY` films the motion an action starts; `tela mcp`'s acting tools end with the frames they caused, `state` takes any element, `film` and `test` work under `--attach`, and recorded tests use `ByTestID`, the locale and the direction (ADR-308).
 - Platform contract v17: `SystemSettings.LightMode` tells "light" from "no preference"; remote protocol 18.
 - `tela lint`: the `migrate` rule rewrites, with `-fix`, the spellings a release removed (`desktop.Launch.Forwarded`, `telatest.App.Move`); a package that no longer type-checks is still checked for it, and `-fix` goes on to the other rules once it compiles (ADR-305).
 
@@ -43,10 +46,12 @@ separated by commas), or with `migrate: none -- <why nothing can be rewritten>`
 - Pick mode keeps the wheel, keys and IME text from the app, picks `pointer-events-none` and inert elements, lets a press the app already held end in the app, and finds the app's source line past deep helper chains.
 - `watch` on Windows: a directory moved into a watched tree is no longer missed, a directory being scanned can be renamed meanwhile, and a watch no longer stops when its goroutine's stack grows ("Overlapped I/O incomplete").
 - `tela dev` with desktop services: the effect an `OnDrop` handler sets is the drop's outcome; a global shortcut the OS refused, or another app took, is registered again at the next reload; a window a new build opens from an effect keeps its window; a dialog opened at startup is not shown again on every reload; a reload while a Wayland window is minimized no longer stalls; Windows 11 and macOS backdrops show through. Remote protocol 19 (ADR-310).
+- `tela mcp`: fail-fast and `wait` read the kinds of what is pending and wait for `UseGo` loads; `scroll` without an element scrolls the largest container and says whether anything moved; under `--attach` it acts where the app paints a target (rounded clips, rotations), on text inside a paragraph, drags before it reveals the end, and `state` shows paths from `tela dev`'s directory; `logs` keeps output printed at init; components made at package level have a source (ADR-308).
 - `tela dev`: a child's clean exit no longer reaches the host as "connection reset by peer"; a build error that happens while the first build is being shown stays on screen, docked.
 
 ### Changed
 
+- `docs/llms.txt` is a 31 KB core (it was 100 KB) with an index of recipes in `docs/llms/` (kit, settings-screen, components, styling, animation, windows, desktop-integration, testing, accessibility, i18n, dev), served at `telaui.dev/llms/NAME.md` and, concatenated, at `telaui.dev/llms-full.txt`; its common mistakes are only those reproduced on the current API, as symptom, cause and fix, and leave when `tela lint` catches them (ADR-313). `tela new`'s AGENTS.md and `tela mcp`'s instructions point to the recipes and to `tela check`.
 - `tela lint` reports a class held in a constant where the constant is declared (put `//tela:ignore` there), and finds aliases a package declares in another package's map.
 - The gate runs staticcheck for Windows and macOS too.
 - `telatest` settles only when `UseAsync` runs end: a run still going after the `Timeout` fails the test naming it, and `NoSettle()` leaves runs alone; `tela snapshot`, `tela inspect` and `telatest.Render`, `AriaSnapshot` and `LayoutJSON` wait for them (up to the `Timeout`) before capturing.

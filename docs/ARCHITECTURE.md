@@ -551,7 +551,7 @@ type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entr
 
 | Command | Does |
 |---|---|
-| `tela snapshot <pkg> [--size WxH] [--scale 2] [--dark] [--film SPAN] -o out.png` | Headless render to PNG |
+| `tela snapshot <pkg> [--size WxH] [--scale 2] [--dark] [--film SPAN [--click LOC]] -o out.png` | Headless render to PNG |
 | `tela inspect <pkg> [--aria\|--layout]` | Aria snapshot (YAML, default) or layout tree as JSON (geometry and computed style) |
 | `tela lint [-json] [-tests] [packages]` | Static form of the dev-mode checks on constant strings: unknown classes (aliases and theme colors of the linted packages known), roles, aria tokens, duplicate or missing keys, hook misuse; `file:line:col: rule: message`, exit 1 when anything is reported, `//tela:ignore rule` (ADR-173); `tela lsp` serves its class checks, completion and hover to editors (ADR-301) |
 | `tela dev [pkg] [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [--debug] [-v]` | Watch, rebuild in the background, swap the app process under a window that never closes, keeping hook and engine state; errors as an overlay over the last good frame. Go can't swap code in a process, so the restart is made invisible (ADR-111); state outside the tree: `App.DevState` (ADR-114); `--debug` keeps DWARF for `dlv attach` (ADR-310) |
@@ -604,11 +604,11 @@ func TestCounter(t *testing.T) {
 
 ### For agents (LLMs)
 
-- `docs/llms.txt`: compact API guide with examples.
+- `docs/llms.txt`: a short core with an index of recipes in `docs/llms/`, type-checked (ADR-313).
 - `examples/`: full, beautiful screens to imitate.
 - Errors with suggestions (§3).
 - `kit` components as editable source (`tela add` is deferred, ADR-129).
-- **Agent loop:** write UI → `tela snapshot` → look at the PNG → `tela inspect` if something is off → fix. Or drive the same loop interactively through `tela mcp`.
+- **Agent loop:** write UI → `tela snapshot` → look at the PNG → `tela inspect` if something is off → fix → `tela check`. Or drive the same loop interactively through `tela mcp`.
 
 ## 18. Quality and CI
 
