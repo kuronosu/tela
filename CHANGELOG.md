@@ -31,6 +31,9 @@ separated by commas), or with `migrate: none -- <why nothing can be rewritten>`
 - `App.Pending` and `ExpectIdle` name `UseAsync` runs in flight.
 - `tela dev` keeps the state kit's components and aria's hooks hold themselves (an uncontrolled radio group, tab, toggle group, select, slider, color picker, calendar date and month, menu checkboxes, a list's selection and focused item, an open context menu's place, an `aria.Selection` in your own state), the state of a component whose function or type you rename, and an IME composition in progress; `tela dev -v` lists every hook slot a reload could not keep, with the reason (ADR-309).
 - `tela devtools`: the tree updates incrementally (tools protocol 2: `elements` with a version, `inspect` with a depth), a resizable details pane, copy as JSON, source location or aria line, the Accessibility panel highlights in the app, and a scheme toggle; dark when the system states no preference (ADR-304).
+- `telatest`: `App.ExpectAccessible` and `App.Audit` with axe-like rules by ID, plus six rules about what is on screen: `color-contrast`, `click-events-have-key-events`, `text-clipped`, `text-overlap`, `target-overlap`, `focus-visible` (ADR-306, ADR-312).
+- `tela check` and `tela verify`: report cut-off or overlapping text, low contrast, small targets and focus problems on a package's screens, in light and dark, at several widths, with large text, in RTL and in another language; `-json`, exit status 1 on findings; `tela mcp` tools `check` and `verify` (ADR-312).
+- `tela dev --debug`: builds keep DWARF without optimizations or inlining, and each build prints `dlv attach <pid>` (ADR-310).
 - Platform contract v17: `SystemSettings.LightMode` tells "light" from "no preference"; remote protocol 18.
 - `tela lint`: the `migrate` rule rewrites, with `-fix`, the spellings a release removed (`desktop.Launch.Forwarded`, `telatest.App.Move`); a package that no longer type-checks is still checked for it, and `-fix` goes on to the other rules once it compiles (ADR-305).
 
@@ -39,6 +42,7 @@ separated by commas), or with `migrate: none -- <why nothing can be rewritten>`
 - `tela dev`'s tools socket lists a dev warning once, receives entries logged while the app is idle and includes `tela dev`'s own lines (a failed build as an error); a client whose queue filled gets a `dropped` notification and DevTools resync; keys sent to an unfocused window lend it the focus only while they reach it.
 - Pick mode keeps the wheel, keys and IME text from the app, picks `pointer-events-none` and inert elements, lets a press the app already held end in the app, and finds the app's source line past deep helper chains.
 - `watch` on Windows: a directory moved into a watched tree is no longer missed, a directory being scanned can be renamed meanwhile, and a watch no longer stops when its goroutine's stack grows ("Overlapped I/O incomplete").
+- `tela dev` with desktop services: the effect an `OnDrop` handler sets is the drop's outcome; a global shortcut the OS refused, or another app took, is registered again at the next reload; a window a new build opens from an effect keeps its window; a dialog opened at startup is not shown again on every reload; a reload while a Wayland window is minimized no longer stalls; Windows 11 and macOS backdrops show through. Remote protocol 19 (ADR-310).
 - `tela dev`: a child's clean exit no longer reaches the host as "connection reset by peer"; a build error that happens while the first build is being shown stays on screen, docked.
 
 ### Changed
@@ -46,7 +50,7 @@ separated by commas), or with `migrate: none -- <why nothing can be rewritten>`
 - `tela lint` reports a class held in a constant where the constant is declared (put `//tela:ignore` there), and finds aliases a package declares in another package's map.
 - The gate runs staticcheck for Windows and macOS too.
 - `telatest` settles only when `UseAsync` runs end: a run still going after the `Timeout` fails the test naming it, and `NoSettle()` leaves runs alone; `tela snapshot`, `tela inspect` and `telatest.Render`, `AriaSnapshot` and `LayoutJSON` wait for them (up to the `Timeout`) before capturing.
-- A `telatest` wait on a long timer moves the clock to the next deadline instead of one frame per try.
+- A `telatest` wait on a long timer moves the clock to the next deadline instead of one frame per try, and only for what is on the clock: a caret's blink phase no longer depends on the machine's speed (ADR-311).
 - A menu role item's key text and a `GlobalShortcut`'s `CmdOrCtrl` follow the window's key flavor (`telatest.PlatformKeys`), not the host's.
 
 ## [0.14.9] - 2026-11-20
