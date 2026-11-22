@@ -427,8 +427,12 @@ jobs:
         # keyboard, cursor, DWM). Beside the rest of the suite they share it
         # with other packages' processes, whose console windows can come on
         # top (a console's black was read where a test window was), and the
-        # CPU with the heaviest packages: they run first, alone.
-        run: go test -timeout 20m ./internal/platform/win32/
+        # CPU with the heaviest packages: they run first, alone. The tests
+        # that read the screen (DWM's title bars, backdrops, glass, modal
+        # and overlay pixels), the keyboard tests and the global shortcut's
+        # press run here without TELA_LIVE; they skip where the process has
+        # no interactive desktop, so -v lists which ran and which skipped.
+        run: go test -v -timeout 20m ./internal/platform/win32/
       - name: go test (the rest)
         if: success() || failure()
         shell: bash

@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 	"unsafe"
 
 	winreg "golang.org/x/sys/windows/registry"
@@ -68,13 +69,48 @@ func TestLiveSettings(t *testing.T) {
 	platform.CheckSystemSettings(s)
 }
 
+// requireHotkeys is for the global shortcut test: the session's hotkey
+// table, and keys typed with SendInput from the test process itself. It
+// needs no TELA_LIVE: the combination is one no program takes, and the test
+// registers and unregisters it itself. It runs under Wine too, which
+// implements the table and fires a hotkey for injected keys that carry a
+// virtual key (pressHotkey).
+func requireHotkeys(t *testing.T) {
+	t.Helper()
+	requireInteractiveDesktop(t)
+}
+
+// pressHotkey types Ctrl+Alt+Shift+F12 with SendInput and returns how many
+// of its events SendInput took. The keys carry their virtual keys and scan
+// codes: Wine gives a key injected by scan code alone no virtual key, so no
+// hotkey matches it. Neither these nor keybd_event's reached the hotkey from
+// a scheduled task in the VM's RDP session (2026-11-01, cause not found),
+// so a key press there is checked by hand; on CI's windows-latest runner
+// the test types from its own process on the runner's desktop.
+func pressHotkey() int {
+	const vkF12, scF12 = vkF1 + 11, 0x58
+	keys := []struct {
+		vk, sc uint16
+		up     bool
+	}{{vkControl, scLCtrlK, false}, {vkMenu, scLAltK, false}, {vkShift, scLShiftK, false}, {vkF12, scF12, false},
+		{vkF12, scF12, true}, {vkShift, scLShiftK, true}, {vkMenu, scLAltK, true}, {vkControl, scLCtrlK, true}}
+	ins := make([]input, len(keys))
+	for i, k := range keys {
+		var flags uint32
+		if k.up {
+			flags = keyeventfKeyUp
+		}
+		ins[i] = input{typ: inputKeyboard, ki: keybdInput{vk: k.vk, scan: k.sc, flags: flags}}
+	}
+	n, _, _ := procSendInput.Call(uintptr(len(ins)), uintptr(unsafe.Pointer(&ins[0])), unsafe.Sizeof(ins[0]))
+	return int(n)
+}
+
 func TestLiveGlobalShortcut(t *testing.T) {
-	requireLiveServices(t)
+	requireHotkeys(t)
 	b1, b2 := liveBackend(t), liveBackend(t)
 	// Ctrl+Alt+Shift+F12: a combination no program of the test machine
-	// takes, typed below as scan codes with SendInput like the keyboard
-	// tests (keybd_event's virtual keys from a scheduled task never
-	// reached the hotkey).
+	// takes, typed below with SendInput (pressHotkey).
 	acc := platform.Accelerator{Mods: platform.ModCtrl | platform.ModAlt | platform.ModShift, Key: "F12"}
 	if err := b1.Desktop().RegisterShortcut(platform.Shortcut{ID: "live-a", Accelerator: acc, Description: "Live test"}); err != nil {
 		t.Fatalf("RegisterShortcut: %v", err)
@@ -98,6 +134,8 @@ func TestLiveGlobalShortcut(t *testing.T) {
 	// The first backend holds it: bound, pressed, replaced, released.
 	d := b1.Desktop()
 	stage := 0
+	const pressWait = 5 * time.Second
+	var pressSent time.Time
 	var seen []string
 	defer func() { // also when runLive fails the test on its timeout
 		if stage != 3 {
@@ -116,14 +154,25 @@ func TestLiveGlobalShortcut(t *testing.T) {
 					return
 				}
 				stage = 1
-				const scF12 = 0x58
-				sendKeysRaw(kdn(scLCtrlK)[0], kdn(scLAltK)[0], kdn(scLShiftK)[0], kdn(scF12)[0],
-					kup(scF12)[0], kup(scLShiftK)[0], kup(scLAltK)[0], kup(scLCtrlK)[0])
+				if n := pressHotkey(); n != 8 {
+					t.Errorf("SendInput injected %d of 8 key events (input blocked: a locked or disconnected session)", n)
+					b1.Quit()
+					return
+				}
+				pressSent = time.Now()
+				time.AfterFunc(pressWait, b1.Wake)
 			case 2: // the combination is free again
 				if e.ID != "live-c" || e.Status != platform.ShortcutBound {
 					t.Errorf("status after unregistering = %+v", e)
 				}
 				stage = 3
+				b1.Quit()
+			}
+		case platform.WakeEvent:
+			if stage == 1 && time.Since(pressSent) >= pressWait {
+				// The keys went into the input stream but the hotkey never
+				// fired: injected input does not reach RegisterHotKey here.
+				t.Errorf("SendInput injected Ctrl+Alt+Shift+F12, and no WM_HOTKEY came within %v: injected keys do not reach the hotkey on this desktop (as from a scheduled task in an RDP session, pressHotkey)", pressWait)
 				b1.Quit()
 			}
 		case platform.ShortcutEvent:
