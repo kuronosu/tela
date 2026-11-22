@@ -121,24 +121,25 @@ tela mcp [--size WxH] [--scale N] [--dark] [--preview NAME] [pkg]
 | `press {"key": "Tab"}` | Key or combo in Playwright syntax (`Enter`, `Shift+Tab`, `Control+a`), optionally on a `ref` |
 | `hover`, `scroll {"ref", "dy": 400}`, `drag {"from", "to" or "dx"/"dy"}` | Pointer moves, wheel (without ref: window center), drags |
 | `resize {"width": 390, "height": 844}` / `{"scale": 2}` | Keeps the state; breakpoints follow |
-| `open {"dark": true}` / `{"preview": "2 Full"}` | Mount afresh (state reset): dark mode, preview, size, scale; `{}` lists the previews |
+| `open {"preview": "2 Full"}` | Mount afresh (state reset): preview, size, scale; `{}` lists the previews (dark mode: `prefer {"dark": true}`) |
 | `wait {"ms": 500}` / `{"text": "Saved"}` | Advance the app clock (timers, animations, toasts) or wait for a text |
 | `inspect {"ref": "e5"}` | Layout JSON: rects, spacing, classes, class errors, computed style, `src`. For misplaced boxes |
-| `state {"ref"}`, `perf {"action": true}`, `logs {}`, `prefer {"reducedMotion": true}` | Why a component rendered (hooks, setter line); frame times; dev warnings; reduced motion, `textScale`, `locale`, `"direction": "rtl"`, `dark`, live |
+| `state {"ref"}` (or role/name, text, testId), `perf {"action": true}`, `logs {}`, `prefer {"reducedMotion": true}` | Why a component rendered (hooks, setter line); frame times; dev warnings; reduced motion, `textScale`, `locale`, `"direction": "rtl"`, `dark`, live |
 | `lint {}` | `tela lint -json` on the package |
 | `check {}` / `verify {}` | Audit the screen: cut-off or overlapping text, low contrast, small targets, missing names, focus. `check` in light and dark; `verify` every preview at several widths, large text, RTL and another language. **Run `check` before finishing UI work** |
 | `film {"span": 600, "action": {...}}`, `test {}` | Frames of the motion an action starts; the session as a `telatest` test |
 
-Name elements by `ref` (latest snapshot), or `role` + `name`, `text`, `testId`, with `nth`. A ref is the element itself (survives renames; "gone" once unmounted). Acting tools return the new snapshot.
+Name elements by `ref` (latest snapshot), or `role` + `name`, `text`, `testId`, with `nth`. A ref is the element itself (survives renames; "gone" once unmounted). Acting tools return the new snapshot and end with a `### Frames` summary.
 
 **Reading a result.** The text has sections: `### Snapshot`, `### Dev errors` (unknown classes, "did you mean": fix first), `### Dev warnings`, `### Lint`, `### Output of the app`. A dev-mode panic is the call's error, with the fix in its message; the screen is mounted afresh. "The source changed: rebuilt ... (state reset)" means your edit is live. "The package does not compile:" lists the compiler's errors; the previous build keeps answering.
 
-**A good loop.** 1) Write the screen with `var App` (or `Preview`). 2) `snapshot`: fix every dev error and lint finding. 3) `screenshot`: fix the look. 4) `open {"dark": true}` + `screenshot`. 5) `click`/`fill` the main interactions and `screenshot` the states (dialogs, toasts after `wait`). 6) `resize` to a narrow window. 7) `check`, and a `telatest` test of the main flow.
+**A good loop.** 1) Write the screen with `var App` (or `Preview`). 2) `snapshot`: fix every dev error and lint finding. 3) `screenshot`: fix the look. 4) `prefer {"dark": true}` + `screenshot`. 5) `click`/`fill` the main interactions and `screenshot` the states (dialogs, toasts after `wait`). 6) `resize` to a narrow window. 7) `check`, and a `telatest` test of the main flow.
 
 **CLI equivalents** (same rendering, deterministic, no system fonts):
 
 ```sh
 tela snapshot --size 1040x800 --scale 2 --dark -o out.png ./myapp   # PNG (W*scale x H*scale); one frame: effects, timers and toasts do not show
+tela snapshot --film 600 --click 'role=button[name="Open"]' -o film.png ./myapp   # frames of the motion an action starts (also --hover, --press KEY; selectors role=..., text=..., testid=...)
 tela inspect ./myapp            # aria snapshot YAML; --layout for the layout JSON
 tela lint ./...                 # unknown classes, roles, aria tokens, keys, hook misuse, a prop where a node goes; file:line:col: rule: message
 tela lint -fix ./...            # also removes redundant single-child Fragment(x) wrappers
