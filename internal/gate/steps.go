@@ -550,14 +550,17 @@ func (g *gate) testStep() stepResult {
 	return r
 }
 
-// testSpecs are the test step's commands. They start at once (noSlot):
-// waiting for a slot behind vet and staticcheck added 4 s to a gate whose
-// time the tests set.
+// testSpecs are the test step's commands. The first, the longest, starts
+// at once (noSlot): when it lost the race for a slot it waited 4 s behind
+// vet and staticcheck, on a gate whose time it sets. The two others keep
+// waiting for theirs: with all three started at once the gate took 201 s
+// instead of 188 after an edit of internal/core, likely from more go
+// commands compiling the same packages at the same time.
 func testSpecs() []cmdSpec {
 	return []cmdSpec{
 		{label: "go test -short ./...", args: []string{"go", "test", "-short", "-vet=off", "-json", "./..."}, stripTela: true, noSlot: true},
-		{label: "go test -short -tags telagpu ./internal/vk/... ./internal/gfx/gpu/...", args: []string{"go", "test", "-short", "-vet=off", "-json", "-tags", "telagpu", "./internal/vk/...", "./internal/gfx/gpu/..."}, stripTela: true, noSlot: true},
-		inNotes(cmdSpec{label: "go test -short ./...", args: []string{"go", "test", "-short", "-vet=off", "-json", "./..."}, stripTela: true, noSlot: true}),
+		{label: "go test -short -tags telagpu ./internal/vk/... ./internal/gfx/gpu/...", args: []string{"go", "test", "-short", "-vet=off", "-json", "-tags", "telagpu", "./internal/vk/...", "./internal/gfx/gpu/..."}, stripTela: true},
+		inNotes(cmdSpec{label: "go test -short ./...", args: []string{"go", "test", "-short", "-vet=off", "-json", "./..."}, stripTela: true}),
 	}
 }
 
