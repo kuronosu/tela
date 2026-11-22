@@ -112,6 +112,19 @@ type loader struct {
 	// of this loader checking them (export.go).
 	exported map[string]bool
 	gen      *generation
+
+	// cache keeps the packages checked from source between runs
+	// (cache.go); ep is the epoch of it this run checks into, whose file
+	// set is fset. fresh are the packages being linted, which are checked
+	// for every run. cached are the packages whose result is in the
+	// cache, and kept the parse keys of their files: the syntax this run
+	// parsed for anything else leaves the file set at the end (release).
+	cache  *Cache
+	ep     *cacheEpoch
+	fresh  map[string]bool
+	cached map[string]bool // guarded by mu
+	reused map[string]bool // guarded by mu: taken from the cache
+	kept   map[string]bool // guarded by mu
 }
 
 type state struct {
@@ -200,10 +213,7 @@ func (l *loader) add(pkgs []*listPackage) {
 // parse parses a file once. Targets keep their comments (for the ignore
 // directives); dependencies do not need them.
 func (l *loader) parse(path string, comments bool) (*ast.File, error) {
-	key := path
-	if !comments {
-		key += "\x00nc"
-	}
+	key := parseKey(path, comments)
 	l.mu.Lock()
 	pf := l.parsed[key]
 	if pf == nil {
@@ -223,6 +233,14 @@ func (l *loader) parse(path string, comments bool) (*ast.File, error) {
 		pf.f, pf.err = parser.ParseFile(l.fset, path, src, mode)
 	})
 	return pf.f, pf.err
+}
+
+// parseKey is the key of l.parsed for a file.
+func parseKey(path string, comments bool) string {
+	if !comments {
+		return path + "\x00nc"
+	}
+	return path
 }
 
 // load returns the type-checked package with the import path, checking it
@@ -305,6 +323,14 @@ func newInfo() *types.Info {
 }
 
 func (l *loader) check(path string) *checked {
+	if lp := l.pkgs[path]; l.cache != nil && lp != nil && !l.fresh[path] && !l.cyclic[path] && lp.Error == nil {
+		return l.checkCached(path, lp)
+	}
+	return l.checkSource(path)
+}
+
+// checkSource type-checks a package from its files.
+func (l *loader) checkSource(path string) *checked {
 	lp := l.pkgs[path]
 	target := l.targets[path]
 	c := &checked{}

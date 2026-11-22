@@ -1,7 +1,6 @@
 package lint
 
 import (
-	"bytes"
 	"encoding/json"
 	"go/ast"
 	"go/types"
@@ -130,6 +129,16 @@ func (r *run) run(patterns []string) (*Result, error) {
 	}
 	r.l = newLoader(pkgs)
 	r.l.overlay = r.overlay
+	if r.opts.Cache != nil {
+		fresh := map[string]bool{}
+		for _, p := range pkgs {
+			if !p.DepOnly && !p.Standard && !r.ctxOnly[p.ImportPath] {
+				fresh[p.ImportPath] = true
+			}
+		}
+		r.l.useCache(r.opts.Cache, fresh)
+		defer r.l.release()
+	}
 	r.l.useExports(r.dir)
 
 	res := &Result{}
@@ -225,6 +234,9 @@ func (r *run) run(patterns []string) (*Result, error) {
 	sortDiagnostics(r.diags)
 	res.Diagnostics = dedupe(r.diags)
 	res.Parser = r.parser
+	if r.l.cache != nil {
+		res.Reused = len(r.l.reusedPaths())
+	}
 	res.ClassStrings = r.classStrings
 	if r.opts.Fix {
 		var left []Diagnostic
@@ -399,7 +411,7 @@ func (r *run) addContext(pkgs []*listPackage) []*listPackage {
 		}
 	}
 	for _, p := range ctx {
-		if !p.DepOnly && !p.Standard && p.Module != nil && mentionsAliases(p) {
+		if !p.DepOnly && !p.Standard && p.Module != nil && mentionsAliases(p, r.opts.Cache) {
 			visit(p)
 		}
 	}
@@ -419,8 +431,9 @@ func (r *run) addContext(pkgs []*listPackage) []*listPackage {
 }
 
 // mentionsAliases reports whether a file of p names ClassAliases or
-// SchemeColor, so that it may declare class aliases or theme colors.
-func mentionsAliases(p *listPackage) bool {
+// SchemeColor, so that it may declare class aliases or theme colors. With
+// a cache, a file is read again only when it changed.
+func mentionsAliases(p *listPackage, cache *Cache) bool {
 	// Tela's own packages mention both everywhere (the App type, the
 	// themes of the looks); only the apps and fixtures inside its module
 	// declare aliases of their own.
@@ -428,8 +441,15 @@ func mentionsAliases(p *listPackage) bool {
 		return false
 	}
 	for _, name := range p.GoFiles {
-		data, err := os.ReadFile(filepath.Join(p.Dir, name))
-		if err == nil && (bytes.Contains(data, []byte("ClassAliases")) || bytes.Contains(data, []byte("SchemeColor"))) {
+		file := filepath.Join(p.Dir, name)
+		if cache != nil {
+			if st, ok := cache.stamp(file); ok && st.mentions {
+				return true
+			}
+			continue
+		}
+		data, err := os.ReadFile(file)
+		if err == nil && mentionsAliasText(data) {
 			return true
 		}
 	}
