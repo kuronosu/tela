@@ -96,7 +96,9 @@ func Card() tela.Node { return Div(Class("brand-btn brand-card flex"), Div(Class
 		if version == 1 {
 			c.open(uri, text)
 		} else {
+			// A save lints at once, without the pause after a change.
 			c.change(uri, version, text)
+			c.notify("textDocument/didSave", map[string]any{"textDocument": map[string]any{"uri": uri}})
 		}
 		version++
 		c.diagnostics(uri, func(d []lspDiagnostic) bool {
