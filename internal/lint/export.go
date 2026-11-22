@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"sort"
 	"sync"
 )
@@ -95,13 +96,24 @@ func (l *loader) independent() []string {
 }
 
 // useExports makes the loader import its independent dependencies from
-// export data, when the go command and the importer can provide it.
-func (l *loader) useExports(dir string) {
+// export data, when the go command and the importer can provide it. spec,
+// when not nil, is a listing of the export data that the run started with
+// the independent packages of the cache's last run in dir: it is used when
+// they are the same packages.
+func (l *loader) useExports(dir string, spec *exportSpec) {
 	paths := l.independent()
+	if l.cache != nil {
+		l.cache.setExportPaths(dir, paths)
+	}
 	if len(paths) == 0 {
 		return
 	}
-	files := listExports(dir, paths)
+	var files map[string]string
+	if spec != nil && slices.Equal(spec.paths, paths) {
+		files = spec.wait()
+	} else {
+		files = listExports(dir, paths)
+	}
 
 	// A package is read from export data when it has an export file and
 	// everything it imports does.

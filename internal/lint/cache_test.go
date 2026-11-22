@@ -84,8 +84,8 @@ func TestCacheReusesUnchangedContext(t *testing.T) {
 
 // Every kind of change a session sees: a file of the context that the
 // linted package imports edited on disk (a function, a constant), deleted
-// and written back, an overlay over it, and a change of what it imports
-// from export data.
+// and written back, an overlay over it, a new import, and a change of what
+// it imports from export data.
 func TestCacheSeesChanges(t *testing.T) {
 	parallelLint(t)
 	needGo(t)
@@ -123,6 +123,13 @@ func TestCacheSeesChanges(t *testing.T) {
 	step("G renamed in an overlay", "undefined: dep.G")
 	opts.Overlay = nil
 	step("overlay gone", "")
+
+	// An import that only the overlay has: the run needs other export
+	// data than the last one listed.
+	opts.Overlay = map[string][]byte{filepath.Join(dir, "app", "extra.go"): []byte("package app\n\nimport \"strings\"\n\nvar _ = strings.ToUpper(1)\n")}
+	step("a new import in an overlay", "cannot use 1")
+	opts.Overlay = nil
+	step("overlay gone again", "")
 
 	writeFile(t, dir, "other/base/base.go", "package base\n\ntype T struct{}\n")
 	step("base.T a struct in export data", "cannot convert")

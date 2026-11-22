@@ -43,11 +43,14 @@ type Cache struct {
 	epoch  *cacheEpoch
 	stamps map[string]fileStamp // by file path
 	reused int                  // packages taken from the cache, for tests
+	// exportPaths are the packages the last run in a directory read from
+	// export data, which the next one lists while it lists the rest.
+	exportPaths map[string][]string
 }
 
 // NewCache returns an empty cache.
 func NewCache() *Cache {
-	return &Cache{epoch: newCacheEpoch(), stamps: map[string]fileStamp{}}
+	return &Cache{epoch: newCacheEpoch(), stamps: map[string]fileStamp{}, exportPaths: map[string][]string{}}
 }
 
 // cacheEpoch is the file set and the packages checked into it. The syntax
@@ -387,4 +390,42 @@ func (l *loader) release() {
 			l.fset.RemoveFile(tf)
 		}
 	}
+}
+
+// exportSpec is a listing of export data started before the run knows the
+// packages it needs: those of the last run in the directory, usually the
+// same, since an edit seldom changes what a package imports.
+type exportSpec struct {
+	paths []string
+	done  chan struct{}
+	files map[string]string
+}
+
+// speculateExports starts listing the export data of the packages the last
+// run in dir read from it, or returns nil when there was none.
+func (c *Cache) speculateExports(dir string) *exportSpec {
+	c.mu.Lock()
+	paths := c.exportPaths[dir]
+	c.mu.Unlock()
+	if len(paths) == 0 {
+		return nil
+	}
+	s := &exportSpec{paths: paths, done: make(chan struct{})}
+	go func() {
+		defer close(s.done)
+		s.files = listExports(dir, paths)
+	}()
+	return s
+}
+
+// wait returns the listing once it is done.
+func (s *exportSpec) wait() map[string]string {
+	<-s.done
+	return s.files
+}
+
+func (c *Cache) setExportPaths(dir string, paths []string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.exportPaths[dir] = paths
 }

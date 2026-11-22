@@ -38,7 +38,7 @@ func readsFromExport(t *testing.T, dir, pattern, path string) bool {
 		t.Fatal(err)
 	}
 	l := newLoader(pkgs)
-	l.useExports(dir)
+	l.useExports(dir, nil)
 	return l.exported[path]
 }
 

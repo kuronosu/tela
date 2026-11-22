@@ -108,6 +108,29 @@ func (r *run) run(patterns []string) (*Result, error) {
 	}
 	defer cleanup()
 	r.overlayJSON = overlayJSON
+	// The context is listed while the packages are, and with a cache the
+	// export data of the dependencies the last run read from it is listed
+	// at the same time (export.go): three go commands at once instead of
+	// one after the other.
+	var spec *exportSpec
+	if r.opts.Cache != nil {
+		spec = r.opts.Cache.speculateExports(r.dir)
+		if spec != nil {
+			defer spec.wait() // no go command outlives the run
+		}
+	}
+	var ctx []*listPackage
+	var ctxErr error
+	ctxDone := make(chan struct{})
+	if len(r.opts.Context) > 0 {
+		go func() {
+			defer close(ctxDone)
+			ctx, ctxErr = goList(r.dir, r.overlayJSON, r.opts.Context)
+		}()
+	} else {
+		close(ctxDone)
+	}
+	defer func() { <-ctxDone }()
 	pkgs, err := goList(r.dir, r.overlayJSON, patterns)
 	if err != nil {
 		return nil, err
@@ -125,7 +148,10 @@ func (r *run) run(patterns []string) (*Result, error) {
 	}
 	r.ctxOnly = map[string]bool{}
 	if len(r.opts.Context) > 0 {
-		pkgs = r.addContext(pkgs)
+		<-ctxDone
+		if ctxErr == nil {
+			pkgs = r.addContext(pkgs, ctx)
+		}
 	}
 	r.l = newLoader(pkgs)
 	r.l.overlay = r.overlay
@@ -139,7 +165,7 @@ func (r *run) run(patterns []string) (*Result, error) {
 		r.l.useCache(r.opts.Cache, fresh)
 		defer r.l.release()
 	}
-	r.l.useExports(r.dir)
+	r.l.useExports(r.dir, spec)
 
 	res := &Result{}
 	var targets []*listPackage
@@ -376,18 +402,14 @@ func dedupe(ds []Diagnostic) []Diagnostic {
 	return out
 }
 
-// addContext lists Options.Context and adds to pkgs, as targets that are
+// addContext adds to pkgs the listing of Options.Context: as targets that are
 // only read, the packages of it that mention what declares aliases and
 // theme colors, and what they import from the same module (the maps are
 // often declared in a package of their own), but Tela's own packages
 // (telaOwn). The other packages of the listing are added as dependencies.
-// A context that cannot be listed adds nothing: it is a help, not a
-// requirement.
-func (r *run) addContext(pkgs []*listPackage) []*listPackage {
-	ctx, err := goList(r.dir, r.overlayJSON, r.opts.Context)
-	if err != nil {
-		return pkgs
-	}
+// A context that cannot be listed adds nothing (the caller does not call
+// it): it is a help, not a requirement.
+func (r *run) addContext(pkgs, ctx []*listPackage) []*listPackage {
 	have := map[string]*listPackage{}
 	for _, p := range pkgs {
 		have[p.ImportPath] = p
