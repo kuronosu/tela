@@ -610,7 +610,10 @@ func TestDevToolsEndToEnd(t *testing.T) {
 		}
 		return false
 	})
-	if frame.Built == 0 || frame.Duration <= 0 {
+	// On Windows Go's clock moves once per timer tick (0.5–15.6 ms), so a
+	// frame shorter than a tick measures 0 (docs/LIMITATIONS.md, Profiler
+	// on Windows).
+	if frame.Built == 0 || frame.Duration < 0 || frame.Duration == 0 && runtime.GOOS != "windows" {
 		t.Errorf("the frame of the click: %+v", frame)
 	}
 	// Only what the click changed comes, the counter's text among it.
