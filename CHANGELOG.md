@@ -20,6 +20,10 @@ separated by commas), or with `migrate: none -- <why nothing can be rewritten>`
 (ADR-305). internal/lint's tests fail on an entry without one.
 -->
 
+## [0.14.10] - 2026-11-23
+
+Phase 29: Dev loop and testing (ADR-304 to ADR-314). Released as a patch with the owner's leave: three small breaks of `telatest` and `tela mcp`, listed under Breaking.
+
 ### Breaking
 
 - `telatest.ClickOption` and `telatest.DragOption` are interfaces, so one `Modifiers` serves clicks and drags (ADR-307). migrate: none -- only code that declared its own func-typed options breaks, and it has no mechanical rewrite
@@ -1292,7 +1296,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.9...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.10...HEAD
+[0.14.10]: https://github.com/kuronosu/tela/compare/v0.14.9...v0.14.10
 [0.14.9]: https://github.com/kuronosu/tela/compare/v0.14.8...v0.14.9
 [0.14.8]: https://github.com/kuronosu/tela/compare/v0.14.7...v0.14.8
 [0.14.7]: https://github.com/kuronosu/tela/compare/v0.14.6...v0.14.7
