@@ -99,6 +99,9 @@ jobs:
           printf 'module example.com/warm\n\ngo 1.27\n\nrequire github.com/kuronosu/tela v0.0.0\n\nreplace github.com/kuronosu/tela => %s\n' "$ws" > "$d/go.mod"
           printf 'package main\n\nimport _ "github.com/kuronosu/tela"\n\nfunc main() {}\n' > "$d/main.go"
           (cd "$d" && go mod tidy)
+          # The notes template of tela new (TestNewAppBuildsAndPasses) also
+          # needs what examples/notes requires: SQLite.
+          (cd examples/notes && go mod download)
       - name: go test
         env:
           CGO_ENABLED: "0"
@@ -428,6 +431,9 @@ jobs:
           printf 'module example.com/warm\n\ngo 1.27\n\nrequire github.com/kuronosu/tela v0.0.0\n\nreplace github.com/kuronosu/tela => %s\n' "$ws" > "$d/go.mod"
           printf 'package main\n\nimport _ "github.com/kuronosu/tela"\n\nfunc main() {}\n' > "$d/main.go"
           (cd "$d" && go mod tidy)
+          # The notes template of tela new (TestNewAppBuildsAndPasses) also
+          # needs what examples/notes requires: SQLite.
+          (cd examples/notes && go mod download)
       - name: go test (win32, alone)
         shell: bash
         env:
@@ -490,6 +496,9 @@ jobs:
           printf 'module example.com/warm\n\ngo 1.27\n\nrequire github.com/kuronosu/tela v0.0.0\n\nreplace github.com/kuronosu/tela => %s\n' "$ws" > "$d/go.mod"
           printf 'package main\n\nimport _ "github.com/kuronosu/tela"\n\nfunc main() {}\n' > "$d/main.go"
           (cd "$d" && go mod tidy)
+          # The notes template of tela new (TestNewAppBuildsAndPasses) also
+          # needs what examples/notes requires: SQLite.
+          (cd examples/notes && go mod download)
       - name: go test (cocoa, verbose)
         env:
           CGO_ENABLED: "0"
