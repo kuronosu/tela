@@ -131,6 +131,29 @@ func TestSwapKeepsIMESession(t *testing.T) {
 	}
 }
 
+// A new build promoted before its restored field was laid out (its state
+// has no caret area yet, under load) keeps the session's caret area: the
+// real window's state does not change, and nor does it when the new build
+// reports the area of the same layout.
+func TestSwapKeepsIMESessionBeforeLayout(t *testing.T) {
+	s := newIMESwap(t)
+	unknown := s.field
+	unknown.CursorArea = platform.Rect{}
+	if n := s.promote(t, &unknown); n != 0 {
+		t.Errorf("the real window's text input changed %d times at the swap, want 0: B's field is the same, its caret area not known yet", n)
+	}
+	if got := s.hw.TextInput(); !got.Equal(&s.field) || !s.hw.IMEActive() {
+		t.Errorf("real window: text input %+v, session active %v; want A's caret area in the same session", got, s.hw.IMEActive())
+	}
+	s.expectSessions(t, true)
+	before := s.hw.TextInputChanges()
+	s.b.ui(func() { s.wb.SetTextInput(s.field.Clone()) })
+	s.p.roundTrip(s.b, s.cb)
+	if n := s.hw.TextInputChanges() - before; n != 0 {
+		t.Errorf("B's laid-out state, the same as A's, changed the real window's text input %d times", n)
+	}
+}
+
 func TestSwapRestartsIMESessionForAnotherField(t *testing.T) {
 	for _, tc := range []struct {
 		name string
