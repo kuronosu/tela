@@ -130,15 +130,26 @@ func (c *lspClient) mustRequest(method string, params any) json.RawMessage {
 // diagnostics waits for a publishDiagnostics of uri that satisfies ok.
 func (c *lspClient) diagnostics(uri string, ok func([]lspDiagnostic) bool) []lspDiagnostic {
 	c.t.Helper()
+	return c.diagnosticsAt(uri, -1, ok)
+}
+
+// diagnosticsAt is diagnostics for the run of the buffer's version (-1:
+// any): a run of an earlier version may publish after a change.
+func (c *lspClient) diagnosticsAt(uri string, version int, ok func([]lspDiagnostic) bool) []lspDiagnostic {
+	c.t.Helper()
 	check := func(m lspMessage) ([]lspDiagnostic, bool) {
 		if m.Method != "textDocument/publishDiagnostics" {
 			return nil, false
 		}
 		var p struct {
 			URI         string          `json:"uri"`
+			Version     *int            `json:"version"`
 			Diagnostics []lspDiagnostic `json:"diagnostics"`
 		}
 		if err := json.Unmarshal(m.Params, &p); err != nil || p.URI != uri {
+			return nil, false
+		}
+		if version >= 0 && (p.Version == nil || *p.Version != version) {
 			return nil, false
 		}
 		return p.Diagnostics, ok(p.Diagnostics)
@@ -663,7 +674,7 @@ func TestLSPAliases(t *testing.T) {
 	}
 	// And the use of an alias is not an error.
 	c.change(uri, 4, strings.ReplaceAll(text, "|", ""))
-	if d := c.diagnostics(uri, func([]lspDiagnostic) bool { return true }); len(d) != 0 {
+	if d := c.diagnosticsAt(uri, 4, func([]lspDiagnostic) bool { return true }); len(d) != 0 {
 		t.Errorf("diagnostics = %+v, want none: btn is an alias of the package", d)
 	}
 }
