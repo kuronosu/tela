@@ -7,7 +7,6 @@ import (
 	"go/token"
 	"image"
 	"image/color"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -16,36 +15,23 @@ import (
 )
 
 // The OS-independent half of TestExamplesCocoa (examples_cocoa_e2e_test.go):
-// finding the examples and the window size each one declares, and comparing
+// telling an example from another folder and the window size each one declares, and comparing
 // a window's pixels with the headless reference. TestExamplesCompare checks
 // it on every OS.
 
-// exampleDirs returns the names of the directories under root that hold a
-// package main: the examples.
-func exampleDirs(root string) ([]string, error) {
-	entries, err := os.ReadDir(root)
-	if err != nil {
-		return nil, err
-	}
-	var names []string
-	for _, e := range entries {
-		if !e.IsDir() {
+// isExampleDir reports whether dir holds a package main.
+func isExampleDir(dir string) bool {
+	files, _ := filepath.Glob(filepath.Join(dir, "*.go"))
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
 			continue
 		}
-		files, _ := filepath.Glob(filepath.Join(root, e.Name(), "*.go"))
-		for _, f := range files {
-			if strings.HasSuffix(f, "_test.go") {
-				continue
-			}
-			pf, err := parser.ParseFile(token.NewFileSet(), f, nil, parser.PackageClauseOnly)
-			if err == nil && pf.Name.Name == "main" {
-				names = append(names, e.Name())
-				break
-			}
+		pf, err := parser.ParseFile(token.NewFileSet(), f, nil, parser.PackageClauseOnly)
+		if err == nil && pf.Name.Name == "main" {
+			return true
 		}
 	}
-	slices.Sort(names)
-	return names, nil
+	return false
 }
 
 // declaredSizes returns the distinct "WxH" of the tela.App composite
@@ -371,16 +357,14 @@ func diffPanels(got, want *image.RGBA, mask func(x, y int, got color.RGBA) strin
 }
 
 // TestExamplesCompare checks the helpers of TestExamplesCocoa: the examples
-// and their declared sizes, and the pixel comparison.
+// and their declared sizes, and the pixel comparison. It looks only at the
+// four examples it compares: reading every example made an edit of any of
+// them run cmd/tela's tests again.
 func TestExamplesCompare(t *testing.T) {
 	root := filepath.Join(repoRoot(t), "examples")
-	names, err := exampleDirs(root)
-	if err != nil {
-		t.Fatal(err)
-	}
 	for _, want := range []string{"counter", "hello", "kit", "notes"} {
-		if !slices.Contains(names, want) {
-			t.Errorf("exampleDirs found %v, without %s", names, want)
+		if !isExampleDir(filepath.Join(root, want)) {
+			t.Errorf("examples/%s holds no package main", want)
 		}
 	}
 	for name, want := range map[string]string{"counter": "800x600", "hello": "800x450", "kit": "1280x800", "notes": "960x640"} {
