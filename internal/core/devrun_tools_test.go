@@ -42,6 +42,11 @@ func TestDevToolsLoggedWhileIdleArms(t *testing.T) {
 	woke := make(chan struct{}, 8)
 	tr.SetWake(func() { woke <- struct{}{} })
 	devTools.h, devTools.on, devTools.armed = h, true, false
+	// A push was just made: the flush the post arms waits devloop.ToolsBatch
+	// instead of landing in the same ApplyUpdates (with a zero last push its
+	// timer fires at once, and on a slow machine the flush ran before the
+	// test disarmed it, on maps this test does not set up).
+	devTools.last = time.Now()
 	devTools.rb = new(remote.Backend) // only compared with nil before the flush
 	logged := devToolsLogged(h)
 	insLogAdded.Store(&logged)
