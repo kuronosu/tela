@@ -50,7 +50,8 @@ them. Completion
 and hover read the text only, so they answer while the file does not
 compile. Diagnostics need the go command in PATH and a module that requires
 Tela; the first run of a package builds the export data of its dependencies,
-the later ones take a fraction of a second. Aliases and theme colors are
+and the server keeps what it read of the module between runs, so that the
+later ones check only what changed. Aliases and theme colors are
 found in the package of the file and in the other packages of its module that
 declare them (the app's main package, a theme package), as "tela lint" finds
 them in the packages it lints.
@@ -111,15 +112,20 @@ func runLSP(args []string, stdout, stderr io.Writer) int {
 			mu.Unlock()
 		}
 	}
-	return serveLSP(ctx, os.Stdin, stdout, logf)
+	return serveLSP(ctx, os.Stdin, stdout, logf, lspCache())
 }
 
+// lspCache is the process's cache of the lint runs' module context: a
+// tela lsp process serves one editor session, and the servers of the tests
+// share it, as runs that read the same module may (internal/lint's Cache).
+var lspCache = sync.OnceValue(lint.NewCache)
+
 // serveLSP serves one client on in and out until it exits, in ends or ctx
-// is done. It returns the exit status the protocol asks for: 0 after a
-// shutdown request and an exit notification, 1 when the client goes away
-// without them.
-func serveLSP(ctx context.Context, in io.Reader, out io.Writer, logf func(string, ...any)) int {
-	s := newLSPServer(newLSPConn(in, out), logf)
+// is done, keeping the module context of its lint runs in cache. It
+// returns the exit status the protocol asks for: 0 after a shutdown request
+// and an exit notification, 1 when the client goes away without them.
+func serveLSP(ctx context.Context, in io.Reader, out io.Writer, logf func(string, ...any), cache *lint.Cache) int {
+	s := newLSPServer(newLSPConn(in, out), logf, cache)
 	defer s.close()
 	// The input is read on a goroutine of its own, so that a signal ends
 	// the server while it waits for input.
@@ -164,6 +170,10 @@ type lspServer struct {
 	conn     *lspConn
 	logf     func(string, ...any)
 	debounce time.Duration
+	// cache keeps the module context of the lint runs (the packages that
+	// declare aliases and colors, and what they import of the module)
+	// between runs: only what changed is checked again.
+	cache *lint.Cache
 
 	mu          sync.Mutex // guards everything below but runMu
 	initialized bool
@@ -227,9 +237,9 @@ type lspTypedStrings struct {
 	spans   []lint.ClassString
 }
 
-func newLSPServer(conn *lspConn, logf func(string, ...any)) *lspServer {
+func newLSPServer(conn *lspConn, logf func(string, ...any), cache *lint.Cache) *lspServer {
 	return &lspServer{
-		conn: conn, logf: logf, debounce: lspDebounce,
+		conn: conn, logf: logf, debounce: lspDebounce, cache: cache,
 		docs: map[string]*lspDoc{}, dirty: map[string]bool{},
 		state: map[string]*lspDirState{}, published: map[string]string{}, logged: map[string]bool{},
 		fixes: map[string]lspFixes{},
@@ -592,13 +602,13 @@ func (s *lspServer) lintDir(dir string, docs []*lspDoc) {
 	}
 	res, err := lint.Run(lint.Options{
 		Dir: dir, Patterns: []string{"."}, Context: lspModuleContext(dir), Tests: tests,
-		Overlay: overlay, AbsPaths: true, Lenient: true,
+		Overlay: overlay, AbsPaths: true, Lenient: true, Cache: s.cache,
 	})
 	if err != nil {
 		s.tellOnce("lint-"+dir, fmt.Sprintf("tela lsp: cannot lint %s: %v", dir, err))
 		return
 	}
-	s.logf("linted %s in %s: %d findings, %d load errors", dir, time.Since(start).Round(time.Millisecond), len(res.Diagnostics), len(res.LoadErrors))
+	s.logf("linted %s in %s: %d findings, %d load errors, %d packages of the context reused", dir, time.Since(start).Round(time.Millisecond), len(res.Diagnostics), len(res.LoadErrors), res.Reused)
 	for _, e := range res.LoadErrors {
 		s.logf("  %s", e)
 	}

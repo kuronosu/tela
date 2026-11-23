@@ -123,6 +123,10 @@ type Options struct {
 	// AbsPaths makes Diagnostic.File an absolute path instead of one
 	// relative to the working directory.
 	AbsPaths bool
+	// Cache keeps the packages a run checks from source but does not lint
+	// for the runs after it (tela lsp's context); nil checks everything
+	// again. See Cache.
+	Cache *Cache
 	// Lenient lints a package that does not type-check, with what was
 	// resolved of it, instead of skipping it: a buffer being typed is
 	// rarely well-formed. The type errors are still in Result.LoadErrors.
@@ -138,6 +142,9 @@ type Result struct {
 	LoadErrors []string
 	// Packages is the number of packages linted.
 	Packages int
+	// Reused is the number of packages that Options.Cache had checked
+	// already, of those the run read from source.
+	Reused int
 	// Fixed are the findings that Options.Fix fixed, and FixedFiles the
 	// number of files it wrote.
 	Fixed      []Diagnostic

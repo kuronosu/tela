@@ -1,7 +1,6 @@
 package lint
 
 import (
-	"bytes"
 	"encoding/json"
 	"go/ast"
 	"go/types"
@@ -109,6 +108,25 @@ func (r *run) run(patterns []string) (*Result, error) {
 	}
 	defer cleanup()
 	r.overlayJSON = overlayJSON
+	// The context is listed while the packages are (ctxwalk.go).
+	var ctx []*listPackage
+	var ctxErr error
+	ctxDone := make(chan struct{})
+	if len(r.opts.Context) > 0 {
+		go func() {
+			defer close(ctxDone)
+			if dirs, ok := r.contextDirs(); ok {
+				if len(dirs) > 0 {
+					ctx, ctxErr = goList(r.dir, r.overlayJSON, dirs)
+				}
+				return
+			}
+			ctx, ctxErr = goList(r.dir, r.overlayJSON, r.opts.Context)
+		}()
+	} else {
+		close(ctxDone)
+	}
+	defer func() { <-ctxDone }()
 	pkgs, err := goList(r.dir, r.overlayJSON, patterns)
 	if err != nil {
 		return nil, err
@@ -126,10 +144,23 @@ func (r *run) run(patterns []string) (*Result, error) {
 	}
 	r.ctxOnly = map[string]bool{}
 	if len(r.opts.Context) > 0 {
-		pkgs = r.addContext(pkgs)
+		<-ctxDone
+		if ctxErr == nil {
+			pkgs = r.addContext(pkgs, ctx)
+		}
 	}
 	r.l = newLoader(pkgs)
 	r.l.overlay = r.overlay
+	if r.opts.Cache != nil {
+		fresh := map[string]bool{}
+		for _, p := range pkgs {
+			if !p.DepOnly && !p.Standard && !r.ctxOnly[p.ImportPath] {
+				fresh[p.ImportPath] = true
+			}
+		}
+		r.l.useCache(r.opts.Cache, fresh)
+		defer r.l.release()
+	}
 	r.l.useExports(r.dir)
 
 	res := &Result{}
@@ -225,6 +256,9 @@ func (r *run) run(patterns []string) (*Result, error) {
 	sortDiagnostics(r.diags)
 	res.Diagnostics = dedupe(r.diags)
 	res.Parser = r.parser
+	if r.l.cache != nil {
+		res.Reused = len(r.l.reusedPaths())
+	}
 	res.ClassStrings = r.classStrings
 	if r.opts.Fix {
 		var left []Diagnostic
@@ -364,17 +398,14 @@ func dedupe(ds []Diagnostic) []Diagnostic {
 	return out
 }
 
-// addContext lists Options.Context and adds to pkgs, as targets that are
+// addContext adds to pkgs the listing of Options.Context: as targets that are
 // only read, the packages of it that mention what declares aliases and
 // theme colors, and what they import from the same module (the maps are
-// often declared in a package of their own). The other packages of the
-// listing are added as dependencies. A context that cannot be listed adds
-// nothing: it is a help, not a requirement.
-func (r *run) addContext(pkgs []*listPackage) []*listPackage {
-	ctx, err := goList(r.dir, r.overlayJSON, r.opts.Context)
-	if err != nil {
-		return pkgs
-	}
+// often declared in a package of their own), but Tela's own packages
+// (telaOwn). The other packages of the listing are added as dependencies.
+// A context that cannot be listed adds nothing (the caller does not call
+// it): it is a help, not a requirement.
+func (r *run) addContext(pkgs, ctx []*listPackage) []*listPackage {
 	have := map[string]*listPackage{}
 	for _, p := range pkgs {
 		have[p.ImportPath] = p
@@ -385,7 +416,7 @@ func (r *run) addContext(pkgs []*listPackage) []*listPackage {
 	}
 	var visit func(p *listPackage)
 	visit = func(p *listPackage) {
-		if r.ctxOnly[p.ImportPath] || p.Standard || p.Module == nil {
+		if r.ctxOnly[p.ImportPath] || p.Standard || p.Module == nil || telaOwn(p) {
 			return
 		}
 		if t := have[p.ImportPath]; t != nil && !t.DepOnly {
@@ -399,7 +430,7 @@ func (r *run) addContext(pkgs []*listPackage) []*listPackage {
 		}
 	}
 	for _, p := range ctx {
-		if !p.DepOnly && !p.Standard && p.Module != nil && mentionsAliases(p) {
+		if !p.DepOnly && !p.Standard && p.Module != nil && mentionsAliases(p, r.opts.Cache) {
 			visit(p)
 		}
 	}
@@ -419,19 +450,40 @@ func (r *run) addContext(pkgs []*listPackage) []*listPackage {
 }
 
 // mentionsAliases reports whether a file of p names ClassAliases or
-// SchemeColor, so that it may declare class aliases or theme colors.
-func mentionsAliases(p *listPackage) bool {
+// SchemeColor, so that it may declare class aliases or theme colors. With
+// a cache, a file is read again only when it changed.
+func mentionsAliases(p *listPackage, cache *Cache) bool {
 	// Tela's own packages mention both everywhere (the App type, the
 	// themes of the looks); only the apps and fixtures inside its module
 	// declare aliases of their own.
-	if p.Module.Path == modulePath && !strings.Contains(p.ImportPath, "/examples/") && !strings.Contains(p.ImportPath, "/testdata/") {
+	if telaOwn(p) {
 		return false
 	}
 	for _, name := range p.GoFiles {
-		data, err := os.ReadFile(filepath.Join(p.Dir, name))
-		if err == nil && (bytes.Contains(data, []byte("ClassAliases")) || bytes.Contains(data, []byte("SchemeColor"))) {
+		if mentionsFile(filepath.Join(p.Dir, name), cache) {
 			return true
 		}
 	}
 	return false
+}
+
+// mentionsFile reports whether a file names ClassAliases or SchemeColor,
+// read through the cache's stamps when there is one.
+func mentionsFile(file string, cache *Cache) bool {
+	if cache != nil {
+		st, ok := cache.stamp(file)
+		return ok && st.mentions
+	}
+	data, err := os.ReadFile(file)
+	return err == nil && mentionsAliasText(data)
+}
+
+// telaOwn reports whether p is a package of Tela itself, not one of the
+// apps and fixtures inside its module. It is never context: it declares no
+// app's aliases, and outside Tela's repository it is another module, which
+// the context does not follow. Following an example's imports into it made
+// most of the framework context, checked from source with bodies: about
+// 1.2 s of every lint of an example, for the same findings.
+func telaOwn(p *listPackage) bool {
+	return p.Module != nil && p.Module.Path == modulePath && !strings.Contains(p.ImportPath, "/examples/") && !strings.Contains(p.ImportPath, "/testdata/")
 }

@@ -12,8 +12,10 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"sync"
+	"sync/atomic"
 )
 
 // Dependencies from export data. Type-checking the standard library and
@@ -101,7 +103,7 @@ func (l *loader) useExports(dir string) {
 	if len(paths) == 0 {
 		return
 	}
-	files := listExports(dir, paths)
+	files := exportFiles(dir, paths, l.pkgs)
 
 	// A package is read from export data when it has an export file and
 	// everything it imports does.
@@ -140,6 +142,134 @@ func (l *loader) useExports(dir string) {
 		return
 	}
 	l.exported = exported
+}
+
+// The export files of the process. Listing them was about half of a run
+// that reads the module as context (the go command hashes the sources of
+// every package it lists), so the file the go command named for a package
+// is remembered with what it was named for: the package's listing, the
+// identity of each of its files (fileid.go) and, the same way, of each
+// package it imports, with the environment and the go command. A package
+// whose files are not trusted yet (modified in the last stampSlack) is
+// listed every time, as is one whose export file is gone (go clean -cache).
+var exportMemo = struct {
+	mu sync.Mutex
+	m  map[string]exportMemoEntry // by import path
+}{m: map[string]exportMemoEntry{}}
+
+// exportsListed counts the packages whose export file the go command was
+// asked for, for tests.
+var exportsListed atomic.Int64
+
+type exportMemoEntry struct {
+	key  string
+	file string
+}
+
+// exportFiles returns the export file of each of paths that has one, from
+// the memo or from the go command.
+func exportFiles(dir string, paths []string, pkgs map[string]*listPackage) map[string]string {
+	keys := exportKeys(paths, pkgs)
+	files := make(map[string]string, len(paths))
+	var missing []string
+	exportMemo.mu.Lock()
+	for _, p := range paths {
+		e, ok := exportMemo.m[p]
+		if k := keys[p]; ok && k != "" && e.key == k {
+			files[p] = e.file
+			continue
+		}
+		missing = append(missing, p)
+	}
+	exportMemo.mu.Unlock()
+	for p, f := range files {
+		if _, err := os.Stat(f); err != nil {
+			delete(files, p)
+			missing = append(missing, p)
+		}
+	}
+	if len(missing) == 0 {
+		return files
+	}
+	sort.Strings(missing)
+	exportsListed.Add(int64(len(missing)))
+	listed := listExports(dir, missing)
+	exportMemo.mu.Lock()
+	defer exportMemo.mu.Unlock()
+	for p, f := range listed {
+		files[p] = f
+		if k := keys[p]; k != "" {
+			exportMemo.m[p] = exportMemoEntry{k, f}
+		}
+	}
+	return files
+}
+
+// exportKeys returns the key of each of paths, which are independent (they
+// import only each other): "" for a package that cannot be remembered.
+func exportKeys(paths []string, pkgs map[string]*listPackage) map[string]string {
+	env := exportEnvKey()
+	keys := make(map[string]string, len(paths))
+	done := make(map[string]bool, len(paths))
+	var key func(path string) string
+	key = func(path string) string {
+		if done[path] {
+			return keys[path]
+		}
+		done[path] = true
+		lp := pkgs[path]
+		if lp == nil || env == "" {
+			return ""
+		}
+		h := sha256.New()
+		fmt.Fprintf(h, "%s\x00%s\x00%s\x00%s\x00%s\x00", env, lp.ImportPath, lp.Dir, lp.Name, goVersion(lp))
+		imps := make([]string, 0, len(lp.ImportMap))
+		for k, v := range lp.ImportMap {
+			imps = append(imps, k+"="+v)
+		}
+		sort.Strings(imps)
+		fmt.Fprintf(h, "%q\x00", imps)
+		for _, name := range lp.GoFiles {
+			id, trusted, ok := statFile(filepath.Join(lp.Dir, name))
+			if !ok || !trusted {
+				return ""
+			}
+			fmt.Fprintf(h, "%s %d %d %d\x00", name, id.size, id.mod, id.change)
+		}
+		for _, imp := range resolvedImports(lp) {
+			k := key(imp)
+			if k == "" {
+				return ""
+			}
+			fmt.Fprintf(h, "%s=%s\x00", imp, k)
+		}
+		k := hex.EncodeToString(h.Sum(nil))
+		keys[path] = k
+		return k
+	}
+	for _, p := range paths {
+		key(p)
+	}
+	return keys
+}
+
+// exportEnvKey is what the export files depend on besides the sources: the
+// environment (GOFLAGS, GOOS, GOARCH, GOEXPERIMENT, GOTOOLCHAIN, PATH...)
+// and the go command it finds. It is "" when there is no go command.
+func exportEnvKey() string {
+	goCmd, err := exec.LookPath("go")
+	if err != nil {
+		return ""
+	}
+	id, _, ok := statFile(goCmd)
+	if !ok {
+		return ""
+	}
+	env := os.Environ()
+	sort.Strings(env)
+	h := sha256.New()
+	fmt.Fprintf(h, "%s %d %d %d\x00%q", goCmd, id.size, id.mod, id.change, env)
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // listExports runs `go list -export` for paths and returns the export file
