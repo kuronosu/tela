@@ -52,6 +52,7 @@ separated by commas), or with `migrate: none -- <why nothing can be rewritten>`
 
 ### Changed
 
+- `tela lsp` keeps the module context between lints and lists less of the module: a lint after an edit of `examples/dashboard` goes from about 1.5 s to 0.1 s, the first one from 1.9 s to 0.3 s. `tela lint` no longer type-checks Tela's own packages as context in the Tela repository, as for any other app.
 - `docs/llms.txt` is a 31 KB core (it was 100 KB) with an index of recipes in `docs/llms/` (kit, settings-screen, components, styling, animation, windows, desktop-integration, testing, accessibility, i18n, dev), served at `telaui.dev/llms/NAME.md` and, concatenated, at `telaui.dev/llms-full.txt`; its common mistakes are only those reproduced on the current API, as symptom, cause and fix, and leave when `tela lint` catches them (ADR-313). `tela new`'s AGENTS.md and `tela mcp`'s instructions point to the recipes and to `tela check`.
 - `tela lint` reports a class held in a constant where the constant is declared (put `//tela:ignore` there), and finds aliases a package declares in another package's map.
 - The gate runs staticcheck for Windows and macOS too.
