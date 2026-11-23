@@ -90,6 +90,7 @@ func displayPathIn(cwd, file string) string {
 	if !path.IsAbs(file) && !isWinAbs(file) {
 		return file // already relative (-trimpath): module@version/file.go
 	}
+	file = onVolume(cwd, file)
 	if rel, ok := underReal(cwd, file); ok {
 		return rel
 	}
@@ -104,6 +105,19 @@ func displayPathIn(cwd, file string) string {
 // runtime writes them with forward slashes).
 func isWinAbs(p string) bool {
 	return len(p) > 2 && p[1] == ':' && p[2] == '/' && (p[0]|0x20) >= 'a' && (p[0]|0x20) <= 'z'
+}
+
+// onVolume returns file, a path rooted without a volume ("/src/a.go"), on
+// the volume of cwd when cwd has one ("Z:/src/a.go"), as Windows reads a
+// rooted path on the current drive. A binary built on Linux or macOS and
+// run under Wine records its sources that way, while Wine's working
+// directory is a drive path (Z: is its Unix root). A UNC path ("//host/")
+// and every path on other systems are left alone.
+func onVolume(cwd, file string) string {
+	if isWinAbs(cwd) && strings.HasPrefix(file, "/") && !strings.HasPrefix(file, "//") {
+		return cwd[:2] + file
+	}
+	return file
 }
 
 // under returns file relative to dir when it is inside it.
@@ -218,7 +232,7 @@ func inAppModule(file string) bool {
 	if app.root == "" {
 		return true
 	}
-	_, ok := underReal(app.root, file)
+	_, ok := underReal(app.root, onVolume(pathState.cwd, file))
 	return ok
 }
 
