@@ -546,8 +546,14 @@ func TestPackageWithOnlyTests(t *testing.T) {
 	}
 }
 
-// The repository follows its own rules (CI runs tela lint ./...).
+// The repository follows its own rules (CI runs tela lint ./...). It reads
+// every Go file of the repository, so any edit would run the tests of the
+// package again: under -short the gate's lint step, which lints ./...
+// itself, stands for it.
 func TestRepositoryLintsClean(t *testing.T) {
+	if testing.Short() {
+		t.Skip("the gate's lint step lints ./...; the full suite runs this test")
+	}
 	parallelLint(t)
 	needGo(t)
 	res, err := Run(Options{Dir: "../..", Patterns: []string{"./..."}})
