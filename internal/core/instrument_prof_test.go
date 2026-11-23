@@ -10,17 +10,25 @@ import (
 	"github.com/kuronosu/tela/internal/style"
 )
 
-// The ring keeps the last ProfileFrames frames, each with what it built.
+// The ring keeps the last ProfileFrames frames, each with what it built
+// and how long it took. The clock moves on every read: Go's monotonic
+// clock on Windows is the interrupt time, which moves once per timer tick
+// (0.5 to 15.6 ms), so a frame of this small tree reads 0 there.
 func TestInstrumentProfileRing(t *testing.T) {
+	var clock time.Duration
+	tick := func() time.Duration {
+		clock += time.Microsecond
+		return clock
+	}
 	var set Setter[int]
-	tr := newInsTree(t, func() Node {
+	tr := newInsTreeClock(t, tick, func() Node {
 		return Component(func() Node {
 			n, s := UseState(0)
 			set = s
 			return Primitive(style.KindDiv, Textf("%d", n))
 		})
 	})
-	comp := insOne(t, tr, "core.TestInstrumentProfileRing.func1.1")
+	comp := insOne(t, tr, "core.TestInstrumentProfileRing.func2.1")
 	first := tr.FrameProfiles(0)
 	if len(first) != 1 || first[0].Frame != 1 || first[0].Built != 1 || len(first[0].BuiltIDs) != 1 || first[0].BuiltIDs[0] != comp.ID {
 		t.Fatalf("the mount's frame: %+v", first)

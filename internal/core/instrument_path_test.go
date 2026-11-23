@@ -69,6 +69,18 @@ func TestSourceSiteRelTo(t *testing.T) {
 	if got := (SourceSite{}).RelTo(core); got != "" {
 		t.Errorf("no site: RelTo() = %q", got)
 	}
+	// A path rooted without a volume is on the working directory's drive,
+	// as Windows reads it: a binary built on Linux and run under Wine
+	// records "/src/..." and runs in "Z:\src\...".
+	if got := (SourceSite{File: "/src/ui/card.go", Line: 7}).RelTo("Z:/src"); got != "ui/card.go:7" {
+		t.Errorf("RelTo(a drive) of a rooted path = %q, want ui/card.go:7", got)
+	}
+	if got := onVolume("Z:/src", "//host/share/a.go"); got != "//host/share/a.go" {
+		t.Errorf("onVolume moved a UNC path: %q", got)
+	}
+	if got := onVolume("/src", "/src/a.go"); got != "/src/a.go" {
+		t.Errorf("onVolume with no volume: %q", got)
+	}
 }
 
 // A working directory reached through a symbolic link (macOS's /var is
@@ -83,6 +95,10 @@ func TestSourceSiteRelToSymlink(t *testing.T) {
 	link := filepath.Join(base, "link")
 	if err := os.Symlink(real, link); err != nil {
 		t.Skip("no symbolic links:", err)
+	}
+	// Wine 9 reports success from CreateSymbolicLinkW and makes nothing.
+	if _, err := os.Lstat(link); err != nil {
+		t.Skip("no symbolic links: os.Symlink returned nil and made nothing:", err)
 	}
 	for _, c := range []struct{ cwd, file string }{
 		{link, filepath.Join(real, "ui", "card.go")},
