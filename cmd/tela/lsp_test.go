@@ -850,10 +850,17 @@ func TestSiteAt(t *testing.T) {
 // first time and after a change, once the first run has loaded the package.
 // It asserts nothing about the time (machines differ); the numbers are in
 // the log with -v. The server has a cache of its own, so the first lint is
-// a session's first, not one after the other tests. Under -short it makes
-// one change instead of five: the mean and the worst are the full suite's
-// numbers.
+// a session's first, not one after the other tests.
+//
+// It runs in the full suite only. What it measures is a lint inside Tela's
+// repository, whose context is the whole repository (every Go file is
+// looked at for aliases), so it reads every file, and any edit would run
+// cmd/tela's tests again; a fixture module large enough to stand for it
+// would be a copy of the framework to keep in step.
 func TestLSPLatency(t *testing.T) {
+	if testing.Short() {
+		t.Skip("lints inside the repository, reading every file of it; the full suite runs it")
+	}
 	t.Parallel()
 	file, err := filepath.Abs(filepath.Join("..", "..", "examples", "dashboard", "overview.go"))
 	if err != nil {
@@ -877,10 +884,7 @@ func TestLSPLatency(t *testing.T) {
 	c.diagnostics(uri, func(d []lspDiagnostic) bool { return len(d) == 1 })
 	t.Logf("first diagnostics of overview.go: %v", time.Since(start).Round(time.Millisecond))
 	var worst, total time.Duration
-	rounds := 5
-	if testing.Short() {
-		rounds = 1 // one change still checks that its findings replace the first ones
-	}
+	const rounds = 5
 	for i := range rounds {
 		start := time.Now()
 		c.change(uri, 2+i, probe(500+i))
