@@ -171,7 +171,7 @@ func TestStableLocatorsOfRefs(t *testing.T) {
 	lines, cands, _, _ := prepareRefs(yaml)
 	tab := newRefTable()
 	nodes := []uint64{11, 12, 13, 14, 15}
-	tab.assignNodes(lines, cands, nodes)
+	tab.assignNodes(lines, cands, nodes, nil)
 	for ref, want := range map[string]string{
 		"e1": `telatest.ByRole("button", "Save")`,
 		"e2": `telatest.ByRole("button", "Remove").Nth(0)`,
@@ -191,6 +191,22 @@ func TestStableLocatorsOfRefs(t *testing.T) {
 			t.Errorf("%s lost its identity", ref)
 		}
 	}
+	// An element whose test id no other element has is named by it, even
+	// beside look-alikes.
+	lines, cands, _, _ = prepareRefs(yaml)
+	tab = newRefTable()
+	tab.assignNodes(lines, cands, nodes, []string{"", "", "remove-b", "", ""})
+	for ref, want := range map[string]string{
+		"e2": `telatest.ByRole("button", "Remove").Nth(0)`,
+		"e3": `telatest.ByTestID("remove-b")`,
+	} {
+		e, _ := tab.lookup(ref)
+		loc := e.loc
+		loc.Stable = &e.stable
+		if got := loc.goExpr(); got != want {
+			t.Errorf("with test ids, %s: %s, want %s", ref, got, want)
+		}
+	}
 	// The same through the headless counts path, which has no identities.
 	lines, cands, groups, want := prepareRefs(yaml)
 	got := make([]int, len(groups))
@@ -207,7 +223,7 @@ func TestPreferLines(t *testing.T) {
 	a := mcpMount{}
 	b := mcpMount{Dark: true, Prefer: mcpPrefer{ReducedMotion: true, HighContrast: true, TextScale: 1.5, Locale: "ar", LocaleSet: true}}
 	got := strings.Join(preferLines(a, b), "\n")
-	for _, want := range []string{"app.SetDarkMode(true)", "app.SetReducedMotion(true)", "app.SetHighContrast(true)", "app.SetTextScale(1.5)", "// the session set the locale to \"ar\""} {
+	for _, want := range []string{"app.SetDarkMode(true)", "app.SetReducedMotion(true)", "app.SetHighContrast(true)", "app.SetTextScale(1.5)", `i18n.SetLocale("ar")`} {
 		if !strings.Contains(got, want) {
 			t.Errorf("preferLines lacks %q:\n%s", want, got)
 		}
@@ -215,7 +231,7 @@ func TestPreferLines(t *testing.T) {
 	if lines := preferLines(b, b); len(lines) != 0 {
 		t.Errorf("no change: %q", lines)
 	}
-	if got := strings.Join(preferLines(b, a), "\n"); !strings.Contains(got, "app.SetTextScale(1)") || !strings.Contains(got, "app.SetDarkMode(false)") {
+	if got := strings.Join(preferLines(b, a), "\n"); !strings.Contains(got, "app.SetTextScale(1)") || !strings.Contains(got, "app.SetDarkMode(false)") || !strings.Contains(got, `i18n.SetLocale("")`) {
 		t.Errorf("back to the defaults:\n%s", got)
 	}
 }
@@ -264,11 +280,21 @@ func TestGenerateTestSource(t *testing.T) {
 				`app.DragBy(telatest.ByRole("slider", ""), 40, 0)`, `app.DragFromTo(tela.Point{X: 1, Y: 2}, tela.Point{X: 30, Y: 40})`,
 				`app.Advance(250 * time.Millisecond)`, `app.ExpectText("Done")`,
 				`app.Resize(390, 844)`, `app.SetScale(2)`, `app.SetDarkMode(true)`,
-				`app = telatest.Mount(t, Previews["Other"],`, "telatest.Scale(2)", "telatest.Dark()", "telatest.ReducedMotion()", "telatest.TextScale(1.25)",
-				`the session mounted the screen with the direction "rtl"`, `app.Hover(telatest.ByText("Hi", telatest.Exact()))`,
+				`app = telatest.Mount(t, direction(Previews["Other"], "rtl"),`, "telatest.Scale(2)", "telatest.Dark()", "telatest.ReducedMotion()", "telatest.TextScale(1.25)",
+				`direction := func(root tela.Component, dir string) tela.Component {`, `h.Div(h.Dir(dir), h.Class("contents"), n)`, `"github.com/kuronosu/tela/h"`,
+				`app.Hover(telatest.ByText("Hi", telatest.Exact()))`,
 				"13 actions", "2 checks", // a segment without steps adds none
 			},
-			[]string{"NodeID", "getByNodeId", "e1"},
+			[]string{"NodeID", "getByNodeId", "e1", "does not reproduce", "i18n"},
+		},
+		{
+			"a locale",
+			testgenInput{Pkg: "demo", Func: "TestLocale", Segments: []*mcpSegment{{mount: mcpMount{W: 400, H: 300, Scale: 1, Prefer: mcpPrefer{Locale: "es", LocaleSet: true}}, steps: []mcpStep{
+				{req: mcpReq{Op: "press", Key: "Tab"}},
+				{lines: []string{`i18n.SetLocale("ar")`}},
+			}}}, Contract: contractPreview},
+			[]string{`"github.com/kuronosu/tela/i18n"`, "i18n.SetLocale(\"es\")\n\tt.Cleanup(func() { i18n.SetLocale(\"\") })\n\tapp := telatest.Mount(", `i18n.SetLocale("ar")`},
+			[]string{"does not reproduce", `"github.com/kuronosu/tela/h"`},
 		},
 		{
 			"a Preview",

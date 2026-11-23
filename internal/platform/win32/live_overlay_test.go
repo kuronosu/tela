@@ -18,15 +18,17 @@ import (
 // Live tests of TitleBarOverlay windows (ADR-236): DWM keeps its caption
 // buttons over the client area of a Windows 11 window, reports their
 // rectangle, answers their hit test, and the app's title bar fills the
-// rest. They need DWM composing an attended desktop (the buttons are read
-// from the screen, and an unattended runner's DWM may not compose the
-// window), so they run with TELA_LIVE=1, on Windows 11 only: elsewhere a
-// TitleBarOverlay window is Frameless (overlaySupported).
+// rest. They read the buttons from the screen as DWM composes them, so
+// they run on Windows 11 only (elsewhere a TitleBarOverlay window is
+// Frameless, overlaySupported), CI's windows-latest runner included, and
+// not under Wine. Every read checks that the screen shows the test window
+// there (screenFor). They make DWM draw a window as active with
+// WM_NCACTIVATE (activate), so they need no foreground window.
 
 func requireLiveOverlay(t *testing.T) {
 	t.Helper()
 	requireBuild(t, buildOverlay)
-	requireLiveScreen(t)
+	requireScreen(t)
 }
 
 // overlayRegions is the title bar of a 480 px wide overlay window: a
@@ -96,8 +98,8 @@ func checkButtonsHit(t *testing.T, what string, w *Window, r platform.Rect) {
 
 // glyphPixels counts the pixels of the screen rectangle that differ from
 // fill by more than a little: what DWM drew there.
-func glyphPixels(r image.Rectangle, fill color.RGBA) int {
-	img := captureScreenRect(r)
+func glyphPixels(t *testing.T, w *Window, r image.Rectangle, fill color.RGBA) int {
+	img := screenFor(t, w.hwnd, r)
 	n := 0
 	for y := 0; y < img.Rect.Dy(); y++ {
 		for x := 0; x < img.Rect.Dx(); x++ {
@@ -130,8 +132,8 @@ func buttonRect(w *Window, r platform.Rect, i int) image.Rectangle {
 
 // glyphColor returns the pixel of a screen rectangle farthest from fill:
 // the glyph DWM drew there.
-func glyphColor(r image.Rectangle, fill color.RGBA) color.RGBA {
-	img := captureScreenRect(r)
+func glyphColor(t *testing.T, w *Window, r image.Rectangle, fill color.RGBA) color.RGBA {
+	img := screenFor(t, w.hwnd, r)
 	var far color.RGBA
 	best := -1
 	for y := 0; y < img.Rect.Dy(); y++ {
@@ -152,14 +154,14 @@ func glyphColor(r image.Rectangle, fill color.RGBA) color.RGBA {
 func checkDrawn(t *testing.T, what string, w *Window, r platform.Rect, fill color.RGBA) {
 	t.Helper()
 	settle()
-	if n := glyphPixels(buttonRect(w, r, 2), fill); n < 6 {
+	if n := glyphPixels(t, w, buttonRect(w, r, 2), fill); n < 6 {
 		t.Errorf("%s: %d pixels of the close button differ from the app's fill: DWM drew no button", what, n)
 	}
 	checkButtonsBackground(t, what, w, r, fill)
 	width := float64(w.Metrics().Size.W)
 	for _, p := range [][2]float64{{12, 6}, {60, 16}, {width / 2, 2}, {width / 2, 16}, {width / 2, 31}, {float64(r.X) - 8, 16}, {width / 2, 150}} {
 		sp := screenAt(w, p[0], p[1])
-		if c := captureScreenRect(image.Rectangle{Min: sp, Max: sp.Add(image.Pt(1, 1))}).RGBAAt(0, 0); !nearColor(c, fill) {
+		if c := screenFor(t, w.hwnd, image.Rectangle{Min: sp, Max: sp.Add(image.Pt(1, 1))}).RGBAAt(0, 0); !nearColor(c, fill) {
 			t.Errorf("%s: screen at %v,%v = %02x%02x%02x, want the app's %02x%02x%02x", what, p[0], p[1], c.R, c.G, c.B, fill.R, fill.G, fill.B)
 		}
 	}
@@ -172,7 +174,7 @@ func checkButtonsBackground(t *testing.T, what string, w *Window, r platform.Rec
 	t.Helper()
 	for i := range 3 {
 		b := buttonRect(w, r, i)
-		img := captureScreenRect(b)
+		img := screenFor(t, w.hwnd, b)
 		for _, x := range [2]int{3, b.Dx() - 4} {
 			if c := img.RGBAAt(x, img.Rect.Dy()/2); colorDist(c, fill) > 9 {
 				t.Errorf("%s: button %d's background at %v = %02x%02x%02x, want the bar's %02x%02x%02x", what, i,
@@ -200,7 +202,7 @@ func saveShot(t *testing.T, w *Window, name string) {
 		return
 	}
 	defer f.Close()
-	if err := png.Encode(f, captureScreenRect(r)); err != nil {
+	if err := png.Encode(f, screenFor(t, w.hwnd, r)); err != nil {
 		t.Logf("capture %s: %v", name, err)
 		return
 	}
@@ -446,10 +448,10 @@ func TestLiveOverlayGlyphs(t *testing.T) {
 		closeBtn := buttonRect(w, r, 2)
 		activate(w, false)
 		settle()
-		inactive := glyphColor(closeBtn, fill)
+		inactive := glyphColor(t, w, closeBtn, fill)
 		activate(w, true)
 		settle()
-		active := glyphColor(closeBtn, fill)
+		active := glyphColor(t, w, closeBtn, fill)
 		lum := int(active.R) + int(active.G) + int(active.B)
 		t.Logf("%s: close glyph %02x%02x%02x active, %02x%02x%02x inactive", what, active.R, active.G, active.B, inactive.R, inactive.G, inactive.B)
 		if d := colorDist(inactive, fill); d < 60 || d >= colorDist(active, fill) {
@@ -503,7 +505,7 @@ func TestLiveOverlayCaption(t *testing.T) {
 		}
 		activate(w, true)
 		checkDrawn(t, what, w, r, fill)
-		g := glyphColor(buttonRect(w, r, 2), fill)
+		g := glyphColor(t, w, buttonRect(w, r, 2), fill)
 		if lum := int(g.R) + int(g.G) + int(g.B); (lum > 3*0x80) != wantDark {
 			t.Errorf("%s: the close glyph is %02x%02x%02x, want light %v", what, g.R, g.G, g.B, wantDark)
 		}

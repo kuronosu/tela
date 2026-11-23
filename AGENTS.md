@@ -13,7 +13,7 @@ Tela is a pure-Go desktop UI framework: no cgo, no webview, React-like API, Tail
 - In `docs/ROADMAP.md`: check off completed tasks; keep "Current status" to a few lines; add each limitation found as a task of the planned phase whose subject covers it, or else to "Known limitations" in `docs/LIMITATIONS.md` (small gaps, non-blocking) or "By design or outside Tela"; never open a new phase to collect them, only the owner opens one (ADR-267); remove what was fixed; put checks that need hardware the project lacks under its "Live checks"; update "Next step" (ADR-218).
 - Add user-visible changes to the `Unreleased` section of `CHANGELOG.md`.
 - Append one line to the session log at the end of `docs/HISTORY.md`.
-- Do not record CI results or what was pushed (run outcomes, "green on <hash>", pushed hashes) in the roadmap, and never make a commit only to note them: every commit runs CI again. A CI failure that needs work becomes a task.
+- Do not record CI results or what was pushed (run outcomes, pushed hashes) in the roadmap, and never commit only to note them: every commit runs CI again. A CI failure that needs work becomes a task.
 - When a phase starts, it takes the next number; future phases have none. When a phase is done, move its section from the roadmap to HISTORY.md.
 
 ## At the end of a phase
@@ -26,20 +26,21 @@ Fixes and work between phases are released the same way, with the same rule for 
 
 ## Rules
 
-- **Never use cgo.** Run everything with `CGO_ENABLED=0`; a dependency that needs cgo is not acceptable. The one exception is the race detector, which needs cgo: `CGO_ENABLED=1 go test -race` is allowed as a verification tool only (the main session runs it on packages with concurrency, such as `internal/core`, `tela` and `internal/platform/...`); nothing is ever built or shipped with cgo.
+- **Never use cgo.** Run everything with `CGO_ENABLED=0`; a dependency that needs cgo is not acceptable. The one exception is the race detector, which needs cgo: `CGO_ENABLED=1 go test -race` is allowed as a verification tool only (the main session runs it on the packages with concurrency; see Commands); nothing is ever built or shipped with cgo.
 - **Approved dependencies only.** See ARCHITECTURE §2; a new one needs an ADR.
 - **Ported code** keeps its original copyright notice and is listed in `THIRD_PARTY.md`.
 - **Do not rewrite `ARCHITECTURE.md`.** To change a decision, add an ADR file `docs/adr/NNN-title.md` with the next number, add its row to `docs/adr/README.md`, and minimally adjust the affected section. ADRs are short (decision, why, what it changes; about 1 KB): details go to doc comments and tests. Small fixes (typos, clarifications) are fine.
 - **Respect layer dependency rules** (ARCHITECTURE §5). Nothing in `internal/` becomes public without an ADR.
 - **Everything in English:** code, comments, commits and docs.
 - **Visual work is tested with headless goldens.** When you change rendering, generate a snapshot and look at it.
+- **Breaking changes ship a `tela lint -fix` rewrite (ADR-305)** in `internal/lint/migrations.go`; each Breaking entry of the changelog ends with `migrate: <ID>`, or `migrate: none -- <why>`.
 - **Three attempts per failure (ADR-290).** After three failed fixes, stop and report each attempt (hypothesis, change, result) with a way out: a test that reproduces it, a roadmap task, or a decision for the main session. Regenerating goldens, raising a tolerance, skipping a test, lengthening a timeout or retrying inside a test is descoping, reported as such. The main session delegates one failure at most three times, then asks the owner.
 - **Apparatus by approval (ADR-290).** Remove apparatus freely; add it only with the owner's approval (a subagent: when its brief asks): CI jobs, tools, agent instructions, `TELA_*` switches, skips, lint ignores, tolerance overrides, documents.
-- **Pushing (ADR-220).** By default nothing is pushed: the owner pushes. When the owner allows it in a session, the main session may push commits to a work branch (never `main`) to run CI there, and watch the runs with `gh` (`gh run watch`, `gh run view --log-failed`). Never push tags, never force-push, never push `main`; merging the branch into `main` stays local, and the owner pushes it. Subagents never push.
+- **Pushing (ADR-220).** By default nothing is pushed: the owner pushes. When the owner allows it in a session, the main session may push commits to a work branch (never `main`) to run CI there, and watch the runs with `gh`. Never push tags, never force-push, never push `main`; merging the branch into `main` stays local, and the owner pushes it. Subagents never push.
 
 ## Delegation (Claude Code)
 
-The main session plans, delegates, verifies and updates the roadmap. The owner picks its model (Opus or Fable). Implementation goes to the project subagents in `.claude/agents/`, which have model and effort fixed in their frontmatter:
+The main session plans, delegates, verifies and updates the roadmap. The owner picks its model. Implementation goes to the project subagents in `.claude/agents/`, which have model and effort fixed in their frontmatter:
 
 | Agent | Model / effort | Use for |
 |---|---|---|
@@ -48,13 +49,13 @@ The main session plans, delegates, verifies and updates the roadmap. The owner p
 | `tela-impl` | Sonnet / high | `gfx` basic types, Wayland XML generator, Tailwind generator and class parser, `tela`/`h` API surface, Win32 backend, transitions/springs, filters, `telatest`, debug overlays, `aria`, `kit`, CLI, `llms.txt`, examples |
 | `tela-chore` | Haiku / low | Boilerplate, renames, lint fixes, CI config, codebase searches, roadmap updates |
 
-A phase in `docs/ROADMAP.md` may name a model and effort for its agents' tasks (for example the GPU backend: Fable / high). Pass them as `model` and `effort` in each Agent call of that phase instead of editing the frontmatter, which stays the default.
+A phase in `docs/ROADMAP.md` may name a model and effort for its agents' tasks. Pass them as `model` and `effort` in each Agent call of that phase instead of editing the frontmatter, which stays the default.
 
 Main-session workflow per task:
 
 1. **Plan.** Split the phase into tasks of a size worth a fresh agent (one package or one algorithm). Don't delegate tiny edits; do them directly.
 2. **Brief.** Give each agent a self-contained prompt: goal, files/packages in scope, the ARCHITECTURE sections to read (agents always read §1–§5 and §19, then only those, ADR-219), done criteria. Agents start without conversation context.
-3. **Sequence.** Run agents sequentially by default, because layers depend on each other. Run in parallel only for independent packages, each with `isolation: "worktree"`, then integrate.
+3. **Sequence.** Run agents sequentially by default: layers depend on each other. Run in parallel only for independent packages, each with `isolation: "worktree"`, then integrate.
 4. **Verify.** Never accept a report at face value: rerun the gate and look at any snapshot and changed golden.
 5. **Record.** Update `docs/ROADMAP.md` yourself, or via `tela-chore`.
 

@@ -28,6 +28,7 @@ func (n *InspectNode) UnmarshalJSON(b []byte) error {
 		InlineBox bool          `json:"inlineBox"`
 		Style     StyleSummary  `json:"style"`
 		Children  []InspectNode `json:"children"`
+		More      int           `json:"more"`
 	}
 	if err := json.Unmarshal(b, &a); err != nil {
 		return err
@@ -37,7 +38,7 @@ func (n *InspectNode) UnmarshalJSON(b []byte) error {
 		Kind: a.Kind, Key: a.Key, Component: a.Component, Element: a.Element, Src: a.Src,
 		Rect: rect(a.Rect), Margin: a.Margin, Border: a.Border, Padding: a.Padding,
 		Text: a.Text, Lines: a.Lines, Inline: a.Inline, InlineBox: a.InlineBox,
-		Style: a.Style, Children: a.Children,
+		Style: a.Style, Children: a.Children, More: a.More,
 	}
 	if a.Bounds != nil {
 		r := rect(*a.Bounds)

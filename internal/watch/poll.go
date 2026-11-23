@@ -2,7 +2,6 @@ package watch
 
 import (
 	"io/fs"
-	"os"
 	"path/filepath"
 	"time"
 )
@@ -60,7 +59,7 @@ func (p *poller) snapshot(roots []string) (map[string]stamp, map[string]bool) {
 		if p.w.opts.Flat {
 			// The root's entries, its subdirectories by name only.
 			dirs[r] = true
-			ents, _ := os.ReadDir(r)
+			ents, _ := readDir(r)
 			for _, e := range ents {
 				path := filepath.Join(r, e.Name())
 				if e.IsDir() {

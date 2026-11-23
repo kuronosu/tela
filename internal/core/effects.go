@@ -161,12 +161,18 @@ func UseGo(f func(ctx context.Context), deps ...any) {
 		panic("tela: UseGo(nil, ...): pass the function to run on a goroutine, a func(ctx context.Context) that returns when ctx is done")
 	}
 	var t *Tree
+	var run *goRun
 	if current != nil { // nil: useEffect panics with the fix
 		t = current.tree
+		// The slot useEffect takes next, for Pending to name it.
+		run = &goRun{el: current, i: current.hookIdx}
 	}
 	useEffect(hookGo, func() func() {
 		ctx, cancel := context.WithCancel(context.Background())
+		r := &goRun{el: run.el, i: run.i} // one per goroutine: a rerun overlaps the last one's end
+		t.goStarted(r)
 		go func() {
+			defer t.goEnded(r)
 			defer crashRecover(PanicGo) // logtee.go
 			goWithApp(ctx, t.app(), f)
 		}()
@@ -360,5 +366,8 @@ func UseOnce[T any](init func() T) T {
 	s := &onceSlot[T]{}
 	el.hooks = append(el.hooks, s)
 	s.value = init()
+	if devStateEnabled {
+		devSeed(el, i) // tela dev: a store of Tela's hooks with a codec (ADR-309)
+	}
 	return s.value
 }

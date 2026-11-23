@@ -32,6 +32,12 @@ import (
 //     tree and their hook signature, as for an edited component;
 //   - a Provider: "X:" and its context's type; a Presence: "Presence".
 //
+// A renamed component (its function or type renamed, its declaration left
+// where it was) has another identity, so no saved node has its step: it
+// takes the node of the component it was renamed from by the rule of
+// devRestore.renamed (ADR-309), at the same key or position, declared at
+// the same file and line, and new to the tree.
+//
 // A slot's signature entry is its hook's kind and its value's full type
 // ("UseState[int]", "UseReducer[example.com/app.State,example.com/app.Action]"):
 // the kind recorded in dev mode (hookRecord), or the kind of its storage
@@ -87,6 +93,50 @@ func devFuncIdent(pc uintptr) string {
 	}
 	devCompIdents.Store(pc, id)
 	return id
+}
+
+// devDecls caches devCompDecl by code pointer, or by type for struct
+// components.
+var devDecls sync.Map // uintptr or reflect.Type → string
+
+// devCompDecl returns where the code of component c is declared,
+// "file:line": a function component's function (a function literal's
+// line), a struct component's own Build method. A rename keeps it (the
+// declaration stays where it was), which is what tells a renamed component
+// from another one at the same place (devRestore.renamed). It is "" for a
+// Provider, a Presence and a struct component whose Build is promoted from
+// an embedded type (other types share it).
+func devCompDecl(c *compDesc) string {
+	if c.ctx != nil || c.presence || c.typ == 0 {
+		return ""
+	}
+	var key any = c.typ
+	if c.rtype != nil {
+		key = c.rtype
+	}
+	if v, ok := devDecls.Load(key); ok {
+		return v.(string)
+	}
+	decl := ""
+	if f := runtime.FuncForPC(c.typ); f != nil {
+		own := true
+		if c.rtype != nil {
+			// "Card.Build" or "(*Card).Build", and the type's own name
+			// without type arguments.
+			sym := strings.NewReplacer("(*", "", ")", "").Replace(symbol(normFunc(f.Name())))
+			base := c.rtype.Name()
+			if c.rtype.Kind() == reflect.Pointer {
+				base = c.rtype.Elem().Name()
+			}
+			base, _, _ = strings.Cut(base, "[")
+			own = sym == base+".Build"
+		}
+		if file, line := f.FileLine(f.Entry()); own && file != "" && line > 0 {
+			decl = file + ":" + strconv.Itoa(line)
+		}
+	}
+	devDecls.Store(key, decl)
+	return decl
 }
 
 // devStepParts returns the identity of el among its siblings: its type and
@@ -364,9 +414,11 @@ func devCompName(c *compDesc) string {
 // Creators.
 
 // devCreator is what created a hook slot: Tela's own code (a hook of
-// package aria, i18n...), and whether its value follows the pointer.
+// package aria, i18n...), and whether its value follows the pointer; name
+// is the function that called the hook ("aria.useBoolState"), for reports.
 type devCreator struct {
 	framework, transient bool
+	name                 string
 }
 
 // devCreators caches devCreatorOf by call stack.
@@ -431,6 +483,7 @@ func devClassify(fn, file string) (devCreator, bool) {
 	cr.framework = devFrameworkPkg(pkg) && !test
 	named, _ := funcParts(name)
 	cr.transient = cr.framework && devTransient[pkg+"."+named]
+	cr.name = describeFunc(name)
 	return cr, true
 }
 

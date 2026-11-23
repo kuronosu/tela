@@ -50,10 +50,13 @@ const (
 )
 
 // devWhy is why a value is not kept ("" when it is), and whether that
-// goes without a warning.
+// goes without a warning. skip marks a slot that is not state at all (the
+// value of a UseOnce of the app's own: an initializer, run again by the
+// next build), which is neither kept nor reported.
 type devWhy struct {
 	reason string
 	silent bool
+	skip   bool
 }
 
 // devKept is a hook slot whose value the dev state keeps.
@@ -104,6 +107,61 @@ func (r *Ref[T]) devDecode(b []byte) error {
 	return err
 }
 
+// A UseOnce slot is an initializer, run again by the next build, except
+// for the stores of Tela's own hooks (package aria's collections, sliders,
+// colors...): a pointer to a type of Tela's packages that has a codec
+// (GobEncode and GobDecode, in a file built with the teladev tag) keeps
+// what its codec saves, decoded into the store that the next build's
+// initializer made (ADR-309). A store of Tela's without a codec resets
+// silently and is reported; the app's own UseOnce values are skipped.
+func (s *onceSlot[T]) devEncode() ([]byte, devWhy) {
+	switch devStoreOf(reflect.TypeFor[T]()) {
+	case devStoreKept:
+		return devEncodeValue(s.value)
+	case devStoreNone:
+		return nil, devWhy{reason: "is the state of a hook of Tela's, made again by the next build", silent: true}
+	}
+	return nil, devWhy{skip: true}
+}
+
+func (s *onceSlot[T]) devDecode(b []byte) error {
+	if devStoreOf(reflect.TypeFor[T]()) != devStoreKept {
+		return errDevValue
+	}
+	rv := reflect.ValueOf(s.value)
+	if rv.IsNil() {
+		return errDevValue
+	}
+	return devDecodeRV(b, rv.Elem(), false)
+}
+
+// devStore is what the value type of a UseOnce slot is to the dev state.
+type devStore uint8
+
+const (
+	devStoreApp  devStore = iota // the app's own value: skipped
+	devStoreNone                 // a store of Tela's without a codec
+	devStoreKept                 // a store of Tela's with a codec
+)
+
+var devStores sync.Map // reflect.Type → devStore
+
+// devStoreOf classifies the value type of a UseOnce slot.
+func devStoreOf(rt reflect.Type) devStore {
+	if v, ok := devStores.Load(rt); ok {
+		return v.(devStore)
+	}
+	st := devStoreApp
+	if rt.Kind() == reflect.Pointer && devFrameworkType(rt.Elem()) {
+		st = devStoreNone
+		if devMarshaler(rt.Elem()) {
+			st = devStoreKept
+		}
+	}
+	devStores.Store(rt, st)
+	return st
+}
+
 // devAnimTarget is a Value's animation (valueAnim), which reports where it
 // is going.
 type devAnimTarget interface{ devTarget() (any, bool) }
@@ -126,12 +184,47 @@ var errDevValue = errors.New("the saved value does not fit the slot")
 // devEncodeValue encodes v for a hook slot of type T, or reports why it
 // is not kept.
 func devEncodeValue[T any](v T) ([]byte, devWhy) {
-	rt := reflect.TypeFor[T]()
+	return devEncodeRV(reflect.TypeFor[T](), reflect.ValueOf(&v).Elem())
+}
+
+// DevEncode encodes v as tela dev encodes the value of a hook slot, for the
+// codecs of Tela's own types that keep state in unexported fields (the
+// GobEncode methods of package aria, in files built with the teladev tag;
+// ADR-309): what a codec keeps must be what tela dev keeps (booleans,
+// numbers, strings, slices, maps, pointers and structs of exported fields
+// of those, and types with codecs), and the error names what is not, where
+// encoding/gob alone would drop an unexported field silently. DevDecode
+// decodes it.
+func DevEncode(v any) ([]byte, error) {
+	rv := reflect.ValueOf(v)
+	if !rv.IsValid() {
+		return []byte{devTagZero}, nil
+	}
+	p := reflect.New(rv.Type()).Elem()
+	p.Set(rv)
+	data, why := devEncodeRV(rv.Type(), p)
+	if why.reason != "" {
+		return nil, errors.New(why.reason)
+	}
+	return data, nil
+}
+
+// DevDecode decodes into *ptr what DevEncode encoded from a value of that
+// type. ptr must be a non-nil pointer.
+func DevDecode(data []byte, ptr any) error {
+	pv := reflect.ValueOf(ptr)
+	if pv.Kind() != reflect.Pointer || pv.IsNil() {
+		return errors.New("core: DevDecode needs a non-nil pointer")
+	}
+	return devDecodeRV(data, pv.Elem(), true)
+}
+
+// devEncodeRV encodes rv, an addressable value of type rt.
+func devEncodeRV(rt reflect.Type, rv reflect.Value) ([]byte, devWhy) {
 	k := devKeepOf(rt)
 	if k.bad != "" {
 		return nil, devWhy{reason: devReason(rt, k), silent: k.silent}
 	}
-	rv := reflect.ValueOf(&v).Elem()
 	if k.walk {
 		var w devWalker
 		if bad, bt, silent := w.walk(rv); bad != "" {
@@ -161,7 +254,13 @@ func devEncodeValue[T any](v T) ([]byte, devWhy) {
 	}
 	var buf bytes.Buffer
 	buf.WriteByte(devTagGob)
-	if err := devGobEncode(&buf, &v); err != nil {
+	// A pointer is given as it is (gob flattens pointers): gob fails on a
+	// pointer to a pointer whose element has a GobEncode method.
+	enc := rv.Addr().Interface()
+	if rv.Kind() == reflect.Pointer {
+		enc = rv.Interface()
+	}
+	if err := devGobEncode(&buf, enc); err != nil {
 		hint := ""
 		if bytes.Contains([]byte(err.Error()), []byte("not registered")) {
 			hint = "; register the types an interface holds with gob.Register, in an init function"
@@ -174,49 +273,65 @@ func devEncodeValue[T any](v T) ([]byte, devWhy) {
 // devDecodeValue decodes a value encoded by devEncodeValue for type T.
 func devDecodeValue[T any](b []byte) (T, error) {
 	var v T
-	if len(b) == 0 {
-		return v, errDevValue
+	if err := devDecodeRV(b, reflect.ValueOf(&v).Elem(), true); err != nil {
+		var zero T
+		return zero, err
 	}
-	rv := reflect.ValueOf(&v).Elem()
+	return v, nil
+}
+
+// devDecodeRV decodes b into rv, an addressable value. With zero, the
+// encoding of the zero value stores it; without (a UseOnce store, decoded
+// in place) it leaves rv as it is.
+func devDecodeRV(b []byte, rv reflect.Value, zero bool) error {
+	if len(b) == 0 {
+		return errDevValue
+	}
 	switch b[0] {
 	case devTagZero:
-		return v, nil
+		if zero {
+			rv.SetZero()
+		}
 	case devTagBool:
 		if rv.Kind() != reflect.Bool || len(b) != 2 {
-			return v, errDevValue
+			return errDevValue
 		}
 		rv.SetBool(b[1] == 1)
 	case devTagInt:
 		x, n := binary.Varint(b[1:])
 		if n <= 0 || n != len(b)-1 || !rv.CanInt() || rv.OverflowInt(x) {
-			return v, errDevValue
+			return errDevValue
 		}
 		rv.SetInt(x)
 	case devTagUint:
 		x, n := binary.Uvarint(b[1:])
 		if n <= 0 || n != len(b)-1 || !rv.CanUint() || rv.OverflowUint(x) {
-			return v, errDevValue
+			return errDevValue
 		}
 		rv.SetUint(x)
 	case devTagFloat:
 		if len(b) != 9 || !rv.CanFloat() {
-			return v, errDevValue
+			return errDevValue
 		}
 		rv.SetFloat(math.Float64frombits(binary.LittleEndian.Uint64(b[1:])))
 	case devTagString:
 		if rv.Kind() != reflect.String {
-			return v, errDevValue
+			return errDevValue
 		}
 		rv.SetString(string(b[1:]))
 	case devTagGob:
-		if err := devGobDecode(b[1:], &v); err != nil {
-			var zero T
-			return zero, err
+		if rv.Kind() == reflect.Pointer {
+			// As it was encoded: into the element, allocated when nil.
+			if rv.IsNil() {
+				rv.Set(reflect.New(rv.Type().Elem()))
+			}
+			return devGobDecode(b[1:], rv.Interface())
 		}
+		return devGobDecode(b[1:], rv.Addr().Interface())
 	default:
-		return v, errDevValue
+		return errDevValue
 	}
-	return v, nil
+	return nil
 }
 
 // devGobEncode encodes v with gob, turning a panic into an error.

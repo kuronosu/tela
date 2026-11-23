@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // A dependency is read from export data kept for the rest of the process
@@ -141,5 +142,35 @@ func TestDependencyThatDoesNotCompileIsChecked(t *testing.T) {
 	writeFile(t, dir, "dep/dep.go", "package dep\n\nfunc F() int { return 1 }\n")
 	if got := loadErrors(t, dir, "./app"); got != "" {
 		t.Fatalf("after fixing it: %s", got)
+	}
+}
+
+// The export file of a package whose files were not modified lately is
+// remembered for the process (exportMemo): the next run does not ask the
+// go command for it, and a write gives the file a new identity, so the run
+// after it does.
+func TestExportMemoSeesAWrite(t *testing.T) {
+	needGo(t)
+	dir := writeModule(t, map[string]string{
+		"dep/dep.go": "package dep\n\nfunc F() int { return 1 }\n",
+		"app/app.go": staleApp,
+	})
+	old := time.Now().Add(-time.Hour)
+	if err := os.Chtimes(filepath.Join(dir, "dep", "dep.go"), old, old); err != nil {
+		t.Fatal(err)
+	}
+	if got := loadErrors(t, dir, "./app"); got != "" {
+		t.Fatalf("first run: %s", got)
+	}
+	before := exportsListed.Load()
+	if got := loadErrors(t, dir, "./app"); got != "" {
+		t.Fatalf("second run: %s", got)
+	}
+	if n := exportsListed.Load() - before; n != 0 {
+		t.Errorf("the second run listed the export data of %d packages, want none", n)
+	}
+	writeFile(t, dir, "dep/dep.go", "package dep\n\nfunc G() int { return 1 }\n") // the same size
+	if got := loadErrors(t, dir, "./app"); !strings.Contains(got, "undefined: dep.F") {
+		t.Fatalf("after renaming F, load errors = %q; want undefined: dep.F", got)
 	}
 }

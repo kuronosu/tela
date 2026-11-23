@@ -5,7 +5,6 @@ package win32
 import (
 	"image"
 	"image/color"
-	"os"
 	"testing"
 	"time"
 	"unsafe"
@@ -54,22 +53,6 @@ func presentHalves(t *testing.T, w platform.Window) {
 	}
 }
 
-// liveScreen reports whether the tests may read the screen, which shows
-// what Tela drew only when nothing else is on top and DWM composes an
-// attended desktop. On the unattended windows-latest runner the same tests
-// passed in one run and, in the next, read 0c0c0c (a console's black) where
-// the title bar and both halves of the backdrop window were: the screen
-// checks run with TELA_LIVE=1, like the shell's tests (requireLiveShell).
-// The attributes and the alpha of the retained copy are checked always.
-func liveScreen() bool { return os.Getenv("TELA_LIVE") == "1" }
-
-func requireLiveScreen(t *testing.T) {
-	t.Helper()
-	if !liveScreen() {
-		t.Skip("set TELA_LIVE=1 to read the screen (DWM's composition needs an attended desktop with nothing over the test window)")
-	}
-}
-
 // settle lets DWM compose what was presented.
 func settle() {
 	for range 4 {
@@ -84,7 +67,7 @@ func settle() {
 // from the screen.
 func TestLiveTitleBarColors(t *testing.T) {
 	requireBuild(t, buildColors)
-	requireLiveScreen(t)
+	requireScreen(t)
 	b := liveBackend(t)
 	var w *Window
 	stage := 0
@@ -113,7 +96,7 @@ func TestLiveTitleBarColors(t *testing.T) {
 			var origin point
 			procClientToScreen.Call(w.hwnd, uintptr(unsafe.Pointer(&origin)))
 			x, y := r.Min.X+r.Dx()/2, (r.Min.Y+int(origin.y))/2
-			return captureScreenRect(image.Rect(x, y, x+1, y+1)).RGBAAt(0, 0)
+			return screenFor(t, w.hwnd, image.Rect(x, y, x+1, y+1)).RGBAAt(0, 0)
 		}
 		near := func(a, b color.RGBA) bool {
 			return absInt(int(a.R)-int(b.R)) <= 2 && absInt(int(a.G)-int(b.G)) <= 2 && absInt(int(a.B)-int(b.B)) <= 2
@@ -189,13 +172,13 @@ func TestLiveBackdropAlpha(t *testing.T) {
 			if left != 0xFF || right != 0 {
 				t.Errorf("frameless=%v: retained alpha %#x on the opaque half and %#x on the transparent one, want 0xff and 0", frameless, left, right)
 			}
-			if !liveScreen() {
-				return
+			if inWine() {
+				return // no screen to read (requireScreen)
 			}
 			settle()
 			var origin point
 			procClientToScreen.Call(w.hwnd, uintptr(unsafe.Pointer(&origin)))
-			shot := captureScreenRect(image.Rect(int(origin.x), int(origin.y), int(origin.x)+size.X, int(origin.y)+size.Y))
+			shot := screenFor(t, w.hwnd, image.Rect(int(origin.x), int(origin.y), int(origin.x)+size.X, int(origin.y)+size.Y))
 			l, r := shot.RGBAAt(size.X/4, size.Y/2), shot.RGBAAt(3*size.X/4, size.Y/2)
 			t.Logf("frameless=%v: screen shows %02x%02x%02x on the opaque half, %02x%02x%02x on the transparent one", frameless, l.R, l.G, l.B, r.R, r.G, r.B)
 			if l.R < 0xe0 || l.G > 0x20 || l.B > 0x20 {
@@ -284,7 +267,7 @@ func TestLiveBackdropToggle(t *testing.T) {
 // the top right are the app's.
 func TestLiveFramelessGlassKeepsAppTitleBar(t *testing.T) {
 	requireBuild(t, buildBackdrop)
-	requireLiveScreen(t)
+	requireScreen(t)
 	b := liveBackend(t)
 	var w *Window
 	stage := 0
@@ -305,7 +288,7 @@ func TestLiveFramelessGlassKeepsAppTitleBar(t *testing.T) {
 		size := w.Metrics().Physical()
 		var origin point
 		procClientToScreen.Call(w.hwnd, uintptr(unsafe.Pointer(&origin)))
-		shot := captureScreenRect(image.Rect(int(origin.x), int(origin.y), int(origin.x)+size.X, int(origin.y)+size.Y))
+		shot := screenFor(t, w.hwnd, image.Rect(int(origin.x), int(origin.y), int(origin.x)+size.X, int(origin.y)+size.Y))
 		for _, p := range []image.Point{{size.X - 20, 10}, {size.X - 70, 10}, {size.X - 120, 10}, {size.X / 2, 10}, {10, 10}} {
 			if c := shot.RGBAAt(p.X, p.Y); c.R < 0xe0 || c.G > 0x20 || c.B > 0x20 {
 				t.Errorf("pixel %v = %02x%02x%02x, want the app's red: DWM drew over the title bar", p, c.R, c.G, c.B)

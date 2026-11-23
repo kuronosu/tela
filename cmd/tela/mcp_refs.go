@@ -54,10 +54,10 @@ type refEntry struct {
 	loc      mcpLoc
 	desc     string // `button "Save"`
 	disabled bool
-	// stable is the locator a test can use for the element: its role and
-	// name, with the Nth that tells it from the others like it in the
-	// snapshot (loc may be a node identity, which means nothing outside
-	// the running instance).
+	// stable is the locator a test can use for the element: its test id
+	// when no other element has it, else its role and name, with the Nth
+	// that tells it from the others like it in the snapshot (loc may be a
+	// node identity, which means nothing outside the running instance).
 	stable mcpLoc
 }
 
@@ -231,8 +231,11 @@ func (t *refTable) assign(lines []string, cands []snapCandidate, want, got []int
 // this mount gets the ref of the element that had its role and name
 // before a remount, if no other element took it, and a new number
 // otherwise. Refs of elements that left the snapshot stay valid: the
-// instance says whether the element is still mounted.
-func (t *refTable) assignNodes(lines []string, cands []snapCandidate, nodes []uint64) string {
+// instance says whether the element is still mounted. testIDs, when not
+// nil, are the test ids of the lines' elements that no other element has:
+// such an element's stable locator is ByTestID, as Playwright's codegen
+// prefers a test id.
+func (t *refTable) assignNodes(lines []string, cands []snapCandidate, nodes []uint64, testIDs []string) string {
 	refs := make([]string, len(cands))
 	used := map[string]bool{}
 	for i, c := range cands {
@@ -274,6 +277,9 @@ func (t *refTable) assignNodes(lines []string, cands []snapCandidate, nodes []ui
 		stable := c.loc
 		if c.line.HasName && size[c.group] == 1 || !c.line.HasName && roleSize[c.line.Role] == 1 {
 			stable.Nth = nil
+		}
+		if len(testIDs) == len(lines) && testIDs[c.index] != "" {
+			stable = mcpLoc{TestID: testIDs[c.index]}
 		}
 		t.current[ref] = refEntry{loc: mcpLoc{NodeID: id, Ref: ref}, desc: c.line.Describe(), disabled: c.line.Disabled, stable: stable}
 		t.issued[ref] = true

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -39,7 +40,8 @@ import (
 // presents); "crash" (exits with status 3 before connecting its window);
 // "panic" (reports a panic and exits with status 2 at startup); "nosave"
 // (no state.save handler); "late" (the state report comes 150 ms after
-// start) and "noreport" (none); "stdio" checks that its standard output
+// start), "noreport" (none) and "lines" (the report has fakeReportLines,
+// for -v); "stdio" checks that its standard output
 // and error are pipes and writes fakeLines numbered lines to each;
 // "nullout" checks that its standard output is not a pipe (the null
 // device); "orphan" starts a process ("hold", fakeHolder) that inherits
@@ -52,12 +54,23 @@ import (
 // asks to start instrumented (devloop.KindToolsStart) and starts with the
 // instrumentation off whatever the answer, as a child whose answer came
 // too late does.
+//
+// One mode is no child of tela dev: "sign" is a -sign-cmd for tela
+// package's tests that runs on every system (a shell script does not run
+// on Windows): it writes "signed\n" to the file named by its last argument
+// plus ".sig", as gpg --detach-sign writes a signature next to the file.
 const envFake = "TELA_DEV_TEST_FAKE"
 
 const (
 	fakeSlow  = 400 * time.Millisecond
 	fakeLines = 500
 )
+
+// fakeReportLines are the lines of the "lines" mode's state report.
+var fakeReportLines = []string{
+	"Toggle's UseRef #3 (aria.useBoolState) resets: holds an aria.boolState with the unexported field cur (x2)",
+	"Counter's UseRef #2 resets: holds a func()",
+}
 
 // envFakeGo makes this test binary a go command (fakeGo) that runs the real
 // one, named by the variable, except that the GOFLAGS of go env -json is
@@ -127,8 +140,19 @@ func fakeGo(goBin string, args []string) int {
 }
 
 func fakeChild(mode string) int {
-	if mode == "hold" {
+	switch mode {
+	case "hold":
 		return fakeHolder()
+	case "sign":
+		if len(os.Args) < 2 {
+			fmt.Fprintln(os.Stderr, "fake sign: no file to sign")
+			return 1
+		}
+		if err := os.WriteFile(os.Args[len(os.Args)-1]+".sig", []byte("signed\n"), 0o644); err != nil {
+			fmt.Fprintln(os.Stderr, "fake sign:", err)
+			return 1
+		}
+		return 0
 	}
 	if mode == "slowstart" {
 		time.Sleep(fakeSlow)
@@ -156,6 +180,13 @@ func fakeChild(mode string) int {
 		} else if len(data) > 0 {
 			count, _ = strconv.Atoi(string(data))
 			report := devloop.StateReport{Kept: 1, Reset: 2}.Encode()
+			if mode == "lines" {
+				// The lines for -v, on the wire: a length and the bytes each.
+				for _, l := range fakeReportLines {
+					report = binary.AppendUvarint(report, uint64(len(l)))
+					report = append(report, l...)
+				}
+			}
 			switch mode {
 			case "late":
 				// Like the real runtime: once the state is restored, a

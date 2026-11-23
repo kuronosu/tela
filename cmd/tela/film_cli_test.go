@@ -101,3 +101,58 @@ func TestSnapshotFilmKeepsSubMillisecondValues(t *testing.T) {
 		t.Errorf("stdout: %s", out.String())
 	}
 }
+
+// TestSnapshotFilmAction films what a click starts: testdata/motionapp's
+// Slide preview moves its box by 192 px over a 300 ms linear transition
+// when the button is clicked. The film starts from the settled screen,
+// right after the click, and the box moves from frame to frame; an element
+// that is not there is the error of the run.
+func TestSnapshotFilmAction(t *testing.T) {
+	skipShort(t)
+	dir := t.TempDir()
+	sheetPath, apngPath := filepath.Join(dir, "sheet.png"), filepath.Join(dir, "motion.png")
+	var out, errOut bytes.Buffer
+	args := []string{"snapshot", "--film", "300ms", "--every", "100ms", "--size", "320x120", "--preview", "Slide",
+		"--click", `role=button[name="Slide"]`, "--apng", apngPath, "-o", sheetPath, "./testdata/motionapp"}
+	if code := run(args, &out, &errOut); code != 0 {
+		t.Fatalf("tela %v: exit %d\nstdout: %s\nstderr: %s", args, code, out.String(), errOut.String())
+	}
+	if !strings.Contains(out.String(), `(4 frames, 0 to 300 ms every 100 ms, after clicking role=button[name="Slide"])`) {
+		t.Errorf("stdout: %s", out.String())
+	}
+	data, err := os.ReadFile(apngPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := parseAPNG(data)
+	if err != nil || len(a.frames) != 4 {
+		t.Fatalf("the animated PNG: %v, %d frames", err, len(a.frames))
+	}
+	// The box's left edge, the first rose pixel of a row through it (it
+	// fades to a quarter of its opacity, over white).
+	left := func(c *image.NRGBA) int {
+		y := c.Bounds().Dy() - 30
+		for x := 0; x < a.w; x++ {
+			if p := c.NRGBAAt(x, y); p.R > 200 && int(p.R)-int(p.G) > 30 {
+				return x
+			}
+		}
+		return -1
+	}
+	var xs []int
+	for _, fr := range a.frames {
+		xs = append(xs, left(fr.canvas))
+	}
+	for i := 1; i < len(xs); i++ {
+		if xs[i] <= xs[i-1] || xs[0] < 0 {
+			t.Errorf("the box does not move after the click: left edges %v", xs)
+			break
+		}
+	}
+	// No such element: the error says so, with what the screen has.
+	errOut.Reset()
+	bad := []string{"snapshot", "--film", "100ms", "--preview", "Slide", "--click", "text=Nothing here", "-o", sheetPath, "./testdata/motionapp"}
+	if code := run(bad, &out, &errOut); code != 1 || !strings.Contains(errOut.String(), "Nothing here") || strings.Contains(errOut.String(), "go test failed") {
+		t.Errorf("a click on nothing: exit %d\n%s", code, errOut.String())
+	}
+}

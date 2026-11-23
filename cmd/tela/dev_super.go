@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -90,6 +91,12 @@ type supervisorConfig struct {
 	// Timeouts; zero means devloop's, and reportWait and exitSettle the
 	// defaults below.
 	saveTimeout, firstFrameTimeout, stopTimeout, reportWait, exitSettle time.Duration
+
+	// promotedHook, in tests, receives the outcome of each promotion as
+	// a function that delivers it to the supervisor, to call when the
+	// test chooses: a supervisor that learns late that the host shows the
+	// new build (nil: delivered at once).
+	promotedHook func(gen int, deliver func())
 }
 
 // defaultReportWait is how long the line of a finished swap waits for the
@@ -123,6 +130,7 @@ type supervisor struct {
 	swap     *swapState
 	held     *heldLine // the line of the latest swap, waiting for the state report
 	problem  bool      // a problem is shown
+	probGen  int       // the build the problem is of
 	started  bool      // a child has been promoted once
 	hinted   bool      // the slow-start hint was printed
 
@@ -157,6 +165,7 @@ type proc struct {
 	tail      *tailWriter // the end of its standard error
 	panic     string
 	report    *devloop.StateReport
+	reported  bool // the line of its swap was printed (a later report's -v lines print when it comes)
 	stopping  bool
 	lostConn  *time.Timer
 
@@ -274,6 +283,8 @@ func newSupervisor(cfg supervisorConfig) *supervisor {
 	}
 	if cfg.tools {
 		s.tools = newToolsServer(cfg.opts.Pkg, cfg.pkgDir, cfg.toolsDir, s.log.verbosef)
+		s.tools.preview = cfg.opts.Preview
+		s.log.tee = s.tools.note
 	}
 	s.q.init()
 	return s
@@ -316,7 +327,7 @@ func (s *supervisor) hostOptions() remote.HostOptions {
 	}
 	if s.opts.Dark {
 		o.Settings = func(st platform.SystemSettings) platform.SystemSettings {
-			st.DarkMode = true
+			st.DarkMode, st.LightMode = true, false
 			return st
 		}
 	}
@@ -531,8 +542,11 @@ func (s *supervisor) handle(e any) {
 		if p := s.procOf(e.c); p != nil {
 			r := e.r
 			p.report = &r
-			if h := s.held; h != nil && h.sw.proc == p {
+			switch h := s.held; {
+			case h != nil && h.sw.proc == p:
 				s.flushHeld() // the line of the swap, now with the counts
+			case p.reported:
+				s.reportLines(p) // the line went out without the report
 			}
 		}
 	case evReportDue:
@@ -814,7 +828,14 @@ func (s *supervisor) startChild(sw *swapState, state []byte) {
 	})
 	gen := res.gen
 	sw.timer = time.AfterFunc(s.cfg.firstFrameTimeout, func() { s.push(evTimeout{gen}) })
-	s.log.verbosef("build %d started (pid %d)", gen, cmd.Process.Pid)
+	if s.opts.Debug {
+		// Each reload is a new process: a debugger attaches to each one
+		// (ADR-310).
+		pid := cmd.Process.Pid
+		s.log.printf("build %d started (pid %d); attach a debugger with: dlv attach %d", gen, pid, pid)
+	} else {
+		s.log.verbosef("build %d started (pid %d)", gen, cmd.Process.Pid)
+	}
 }
 
 // childEnv is the environment of a child (ADR-115, package devloop).
@@ -875,9 +896,14 @@ func (s *supervisor) firstFrame(c *remote.Child) {
 	sw.first = time.Now()
 	gen := p.gen
 	h := s.host
+	hook := s.cfg.promotedHook
 	h.Post(func() {
-		err := h.Promote(c)
-		s.push(evPromoted{gen, err})
+		ev := evPromoted{gen, h.Promote(c)}
+		if hook != nil {
+			hook(gen, func() { s.push(ev) })
+			return
+		}
+		s.push(ev)
 	})
 }
 
@@ -907,7 +933,10 @@ func (s *supervisor) promoted(gen int, err error) {
 	if old != nil && old != sw.proc {
 		s.stop(old)
 	}
-	if s.problem {
+	// The build shown now clears the problems of the builds up to it; a
+	// newer build's (one that failed while this promotion was under way)
+	// stays until a build after it is shown.
+	if s.problem && s.probGen <= gen {
 		s.problem = false
 		s.view.clear()
 	}
@@ -986,6 +1015,7 @@ func (s *supervisor) report(sw *swapState, now time.Time) {
 		line += " (" + state + ")"
 	}
 	s.log.printf("%s", line)
+	p.reported = true
 	if s.cfg.opts.Verbose {
 		var parts []string
 		res := sw.res
@@ -1001,6 +1031,19 @@ func (s *supervisor) report(sw *swapState, now time.Time) {
 		parts = append(parts, fmt.Sprintf("promote %v", ms(now.Sub(sw.first))))
 		s.log.verbosef("timing: %s", strings.Join(parts, ", "))
 	}
+	s.reportLines(p)
+}
+
+// reportLines prints, with -v, the lines of p's state report: each slot the
+// swap could not keep, so that none resets silently (ADR-309).
+func (s *supervisor) reportLines(p *proc) {
+	if p.report == nil {
+		return
+	}
+	for _, l := range p.report.Lines {
+		s.log.verbosef("state: %s", l)
+	}
+	p.report.Lines = nil // printed once
 }
 
 // stays says what the window shows after a failed swap.
@@ -1268,8 +1311,12 @@ type problemView interface {
 
 func (s *supervisor) show(p problem) {
 	s.flushHeld()
-	s.problem = true
-	p.live = s.active != nil
+	s.problem, s.probGen = true, p.gen
+	// A child whose promotion is under way counts: the host shows it
+	// already (it shows the first child that connects while none is
+	// active, and Promote presents it), though the supervisor learns so
+	// only from evPromoted.
+	p.live = s.active != nil || (s.swap != nil && s.swap.promoting)
 	s.view.show(p)
 }
 
@@ -1278,29 +1325,42 @@ type terminalView struct{ log *devLog }
 
 func (v terminalView) show(p problem) {
 	if p.kind == problemBuild {
-		v.log.printf("%s:\n%s", p.summary, p.text)
+		v.log.print(slog.LevelError, "%s:\n%s", p.summary, p.text)
 		return
 	}
 	// A panic's trace is already on the terminal: the child printed it on
 	// its standard error, which tela dev forwards.
-	v.log.printf("%s", p.summary)
+	v.log.print(slog.LevelError, "%s", p.summary)
 }
 
 func (v terminalView) clear() {}
 
 // --- output ---
 
-// devLog prints the supervisor's lines.
+// devLog prints the supervisor's lines, and gives each to tee (the tools
+// socket's log, source "tela dev") when it is set.
 type devLog struct {
 	mu      sync.Mutex
 	w       io.Writer
 	verbose bool
+	tee     func(level slog.Level, msg string)
 }
 
 func (l *devLog) printf(format string, args ...any) {
+	l.print(slog.LevelInfo, format, args...)
+}
+
+// print prints a line of the given level (the terminal does not show it;
+// the tools socket's log does).
+func (l *devLog) print(level slog.Level, format string, args ...any) {
+	msg := fmt.Sprintf(format, args...)
 	l.mu.Lock()
-	defer l.mu.Unlock()
-	fmt.Fprintf(l.w, "tela dev: "+format+"\n", args...)
+	fmt.Fprintf(l.w, "tela dev: %s\n", msg)
+	tee := l.tee
+	l.mu.Unlock()
+	if tee != nil {
+		tee(level, msg)
+	}
 }
 
 func (l *devLog) verbosef(format string, args ...any) {

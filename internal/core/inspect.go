@@ -64,6 +64,11 @@ type InspectNode struct {
 	// Style summarizes the computed style.
 	Style    StyleSummary  `json:"style"`
 	Children []InspectNode `json:"children,omitempty"`
+	// More counts the children left out past the depth asked for
+	// (Tree.InspectDepth), 0 when Children has them all: inspect the
+	// node's Element with a depth to get them (an anonymous box has none:
+	// inspect its parent deeper).
+	More int `json:"more,omitempty"`
 }
 
 // jsonRect is the serialized form of a rectangle: the origin and the size
@@ -106,10 +111,11 @@ func (n InspectNode) MarshalJSON() ([]byte, error) {
 		InlineBox bool          `json:"inlineBox,omitempty"`
 		Style     StyleSummary  `json:"style"`
 		Children  []InspectNode `json:"children,omitempty"`
+		More      int           `json:"more,omitempty"`
 	}{
 		n.Kind, n.Key, n.Component, n.Element, n.Src,
 		jsonRect{n.Rect.X0, n.Rect.Y0, n.Rect.Width(), n.Rect.Height()}, bounds,
-		n.Margin, n.Border, n.Padding, n.Text, n.Lines, n.Inline, jsonFrags(n.Fragments), n.InlineBox, n.Style, n.Children,
+		n.Margin, n.Border, n.Padding, n.Text, n.Lines, n.Inline, jsonFrags(n.Fragments), n.InlineBox, n.Style, n.Children, n.More,
 	})
 	return bytes.TrimRight(buf.Bytes(), "\n"), err
 }
@@ -193,7 +199,7 @@ func (t *Tree) Inspect() InspectNode {
 	if t.rootBox == nil || t.rootBox.cs == nil {
 		return InspectNode{Kind: "root"}
 	}
-	return t.inspect(t.rootBox, gfx.Point{})
+	return t.inspect(t.rootBox, gfx.Point{}, -1)
 }
 
 // InspectElement returns the box of the element of semantics node id with
@@ -209,12 +215,12 @@ func (t *Tree) InspectElement(id semantics.NodeID) (InspectNode, error) {
 	if el == nil {
 		return InspectNode{}, fmt.Errorf("%w: %d", ErrNodeGone, id)
 	}
-	return t.inspectOf(el, fmt.Sprint(id))
+	return t.inspectOf(el, fmt.Sprint(id), -1)
 }
 
 // inspectOf is InspectElement for el, a mounted element (what names it in
 // the error).
-func (t *Tree) inspectOf(el *Element, what string) (InspectNode, error) {
+func (t *Tree) inspectOf(el *Element, what string, depth int) (InspectNode, error) {
 	for el != nil && !(el.mounted && el.kind == elemPrimitive && t.ownBox(el, false) && t.inTree(el.box)) {
 		el = el.styleParent()
 	}
@@ -227,10 +233,10 @@ func (t *Tree) inspectOf(el *Element, what string) (InspectNode, error) {
 	for p := el.box.parent; p != nil; p = p.parent {
 		origin = origin.Add(p.ld.Layout().Location)
 	}
-	return t.inspect(el.box, origin), nil
+	return t.inspect(el.box, origin, depth), nil
 }
 
-func (t *Tree) inspect(b *Box, origin gfx.Point) InspectNode {
+func (t *Tree) inspect(b *Box, origin gfx.Point, depth int) InspectNode {
 	l := b.ld.Layout()
 	r := gfx.RectFromOriginSize(origin.Add(l.Location), l.Size)
 	n := InspectNode{
@@ -280,8 +286,12 @@ func (t *Tree) inspect(b *Box, origin gfx.Point) InspectNode {
 		}
 	}
 	n.InlineBox = b.parent != nil && b.parent.mode == modeParagraph
+	if depth == 0 {
+		n.More = len(b.kids)
+		return n
+	}
 	for _, k := range b.kids {
-		n.Children = append(n.Children, t.inspect(k, r.Origin()))
+		n.Children = append(n.Children, t.inspect(k, r.Origin(), depth-1))
 	}
 	return n
 }

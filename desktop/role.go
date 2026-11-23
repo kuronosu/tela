@@ -93,8 +93,9 @@ func (r Role) valid() bool  { return platform.MenuRole(r).Valid() }
 func (r Role) isMenu() bool { return platform.MenuRole(r).IsMenu() }
 
 // accelerator returns the text the role's item shows at its right: the
-// edit roles' shortcut of the platform, "" for the others.
-func (r Role) accelerator() string {
+// edit roles' shortcut under the key conventions fl of the window
+// (ADR-221), "" for the others.
+func (r Role) accelerator(fl platform.Flavor) string {
 	var keys string
 	switch r {
 	case RoleUndo:
@@ -112,11 +113,11 @@ func (r Role) accelerator() string {
 	default:
 		return ""
 	}
-	s, err := ParseKeys(keys)
+	a, err := platform.ParseAcceleratorFor(keys, fl)
 	if err != nil {
 		return ""
 	}
-	return s
+	return a.String()
 }
 
 // standardMenu returns the items of a menu role with no Submenu.
@@ -151,16 +152,18 @@ func (a menuActions) run(id platform.MenuItemID, perform func(Role)) {
 
 // platformMenu returns the platform menu of items, numbering the items
 // that can be chosen from 1 in menu order, and what choosing them does.
-// An Accelerator with control characters panics (what names the menu).
-func platformMenu(what string, items []MenuItem) ([]platform.MenuItem, menuActions) {
-	ms, actions := platformMenus(what, items)
+// fl is the key conventions of the window the menu belongs to, which the
+// roles' shortcuts follow. An Accelerator with control characters panics
+// (what names the menu).
+func platformMenu(what string, fl platform.Flavor, items []MenuItem) ([]platform.MenuItem, menuActions) {
+	ms, actions := platformMenus(what, fl, items)
 	return ms[0], actions
 }
 
 // platformMenus converts several lists of items that share one numbering
 // (the app's menu bar and its app items: an AppMenuEvent reports an item
 // of either).
-func platformMenus(what string, lists ...[]MenuItem) ([][]platform.MenuItem, menuActions) {
+func platformMenus(what string, fl platform.Flavor, lists ...[]MenuItem) ([][]platform.MenuItem, menuActions) {
 	actions := menuActions{fn: map[platform.MenuItemID]func(){}, role: map[platform.MenuItemID]Role{}}
 	var next platform.MenuItemID
 	var conv func(items []MenuItem) []platform.MenuItem
@@ -201,7 +204,7 @@ func platformMenus(what string, lists ...[]MenuItem) ([][]platform.MenuItem, men
 				next++
 				accel := it.Accelerator
 				if accel == "" {
-					accel = it.Role.accelerator()
+					accel = it.Role.accelerator(fl)
 				}
 				pi := platform.MenuItem{ID: next, Label: label, AccessKey: it.AccessKey, Accelerator: accel, Checkable: it.Checkbox, Checked: it.Checked, Disabled: it.Disabled}
 				switch {

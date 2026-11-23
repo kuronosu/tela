@@ -5,6 +5,7 @@ package core
 import (
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/text/edit"
@@ -48,6 +49,9 @@ type devRestore struct {
 	// focusType and focusKey are the focus-visible heuristic's state.
 	focusType focusType
 	focusKey  bool
+	// oldComps are the identities of the captured tree's components
+	// (devSnapshot.Comps), for the rename rule.
+	oldComps map[string]bool
 }
 
 // seedNode is a saved node being restored.
@@ -65,6 +69,11 @@ type seedNode struct {
 	// many took a saved value.
 	verified, seeded, restored int
 	slots                      map[int][]byte
+	// byID indexes the component kids by key or position, for the rename
+	// rule (made at its first use); renamedFrom names the component a
+	// node was saved for when a renamed one took it.
+	byID        map[string][]*seedNode
+	renamedFrom string
 	// pend counts the engine records pending in the node and below;
 	// field, fieldX (an Input's own scroll), scroll and focus are the
 	// node's own.
@@ -74,7 +83,10 @@ type seedNode struct {
 
 func newDevSeed(t *Tree, snap *devSnapshot) *devRestore {
 	s := &devRestore{t: t, snap: snap, cache: map[*Element]*seedNode{}, rep: &t.devState().seedRep,
-		focusType: focusType(snap.FocusType), focusKey: snap.FocusKey}
+		focusType: focusType(snap.FocusType), focusKey: snap.FocusKey, oldComps: map[string]bool{}}
+	for _, x := range snap.Comps {
+		s.oldComps[snap.Idents[x]] = true
+	}
 	s.root = s.build(&snap.Root, nil)
 	return s
 }
@@ -144,13 +156,79 @@ func (s *devRestore) nodeFor(el *Element) *seedNode {
 		}
 	default:
 		if p := s.nodeFor(el.parent); p != nil && !p.dropped && p.kids != nil {
-			if c := p.kids[devStep(el)]; c != nil && s.claim(c, el) {
-				n = c
+			switch c := p.kids[devStep(el)]; {
+			case c != nil:
+				if s.claim(c, el) {
+					n = c
+				}
+			default:
+				n = s.renamed(p, el)
 			}
 		}
 	}
 	s.cache[el] = n
 	return n
+}
+
+// renamed returns the saved node that component el takes as the same
+// component under a new name (ADR-309), or nil; el found no node of its own
+// step under p, its parent's node. The rule, which a rename meets and
+// another component at the same place does not:
+//
+//   - the node is a component under p that no Element took, at el's key or
+//     position (its ID), and of the same kind (both function components,
+//     or both struct components; never a Provider or a Presence);
+//   - its code was declared at the file and line where el's is
+//     (devCompDecl): renaming a function or a type leaves its declaration
+//     where it was, while another component is declared elsewhere;
+//   - no component of the captured tree had el's identity: a component the
+//     previous build already had is another component, not the old one
+//     renamed (a declaration moved up into a deleted one's line);
+//   - exactly one node meets the three.
+//
+// The full hook signature is then checked as for any component
+// (devFirstBuild): a renamed component whose hooks changed starts fresh.
+func (s *devRestore) renamed(p *seedNode, el *Element) *seedNode {
+	if el.kind != elemComponent || el.prov != nil || el.comp.presence {
+		return nil
+	}
+	ident, id := devStepParts(el)
+	kind, _, _ := strings.Cut(ident, ":")
+	if kind != "F" && kind != "S" || s.oldComps[ident] {
+		return nil
+	}
+	decl := devCompDecl(el.comp)
+	if decl == "" {
+		return nil
+	}
+	if p.byID == nil {
+		p.byID = map[string][]*seedNode{}
+		for _, c := range p.kids {
+			if c.rec.Comp {
+				p.byID[c.rec.ID] = append(p.byID[c.rec.ID], c)
+			}
+		}
+	}
+	var found *seedNode
+	for _, c := range p.byID[id] {
+		old := s.snap.Idents[c.rec.Ident]
+		if c.el != nil || c.rec.Decl == 0 || old == ident || !strings.HasPrefix(old, kind+":") || s.snap.Idents[c.rec.Decl-1] != decl {
+			continue
+		}
+		if found != nil {
+			return nil // two candidates: neither
+		}
+		found = c
+	}
+	if found == nil || !s.claim(found, el) {
+		return nil
+	}
+	old := s.snap.Idents[found.rec.Ident]
+	found.renamedFrom = old[strings.LastIndexByte(old, '/')+1:]
+	if i := strings.IndexByte(found.renamedFrom, ':'); i >= 0 {
+		found.renamedFrom = found.renamedFrom[i+1:] // a name without a package path
+	}
+	return found
 }
 
 // claim gives node n to el, unless another Element has it.
@@ -243,11 +321,18 @@ func (t *Tree) devFirstBuild(el *Element, out Node, mark int) Node {
 	if n == nil || !n.rec.Comp || n.dropped {
 		return out
 	}
+	name := devCompName(el.comp)
+	if n.renamedFrom != "" {
+		name += " (renamed from " + n.renamedFrom + ")"
+	}
 	if !n.mismatch && len(el.hooks) == len(n.rec.Sig) && n.verify(el, len(el.hooks)-1, s.snap) {
+		if n.renamedFrom != "" {
+			s.rep.Renamed = append(s.rep.Renamed, name)
+		}
 		return out
 	}
 	n.dropped = true
-	s.rep.Remounted = append(s.rep.Remounted, devCompName(el.comp)+": "+s.sigDiff(n, el))
+	s.rep.Remounted = append(s.rep.Remounted, name+": "+s.sigDiff(n, el))
 	if n.seeded == 0 {
 		return out // nothing was seeded: this build was a fresh one
 	}
@@ -395,9 +480,11 @@ func (s *devRestore) walkEngine(el *Element, n *seedNode, inFrame bool, moved *b
 // own scroll and a scroll container's offset in a frame, after layout.
 func (s *devRestore) applyRecords(el *Element, n *seedNode, inFrame bool, moved *bool) {
 	t := s.t
+	restored := false // the field's editor took the saved state
 	if n.field {
 		if f := el.box.fld; f != nil && t.devRestoreField(f, n.rec.Field) {
 			s.rep.Fields++
+			restored = true
 		}
 		s.done(n, &n.field)
 	}
@@ -411,6 +498,11 @@ func (s *devRestore) applyRecords(el *Element, n *seedNode, inFrame bool, moved 
 		if ok && t.foc.el == nil {
 			t.devFocus(el, s.focusType, s.focusKey)
 			s.rep.Focus = true
+			// The composition of the focused field goes on: the IME's
+			// session is the host's, which keeps it (ADR-309).
+			if st := n.rec.Field; restored && st.Composition != nil && t.devRestoreComposition(el.box.fld, *st.Composition) {
+				s.rep.Composition = true
+			}
 		}
 		s.done(n, &n.focus)
 	}
@@ -494,7 +586,11 @@ func (s *devRestore) done(n *seedNode, flag *bool) {
 // It reports whether it restored.
 func (t *Tree) devRestoreField(f *field, st *edit.DevState) bool {
 	fp := f.props()
-	if (fp.hasValue || fp.bind != nil) && f.ed.Value() != st.Value {
+	shown := st.Value
+	if c := st.Composition; c != nil && c.At >= 0 && c.At <= len(c.Value) {
+		shown = c.Value[:c.At] + c.Preedit + c.Value[c.At:] // what OnChange gave the app
+	}
+	if (fp.hasValue || fp.bind != nil) && f.ed.Value() != shown {
 		return false
 	}
 	composing := f.ed.Composing()
@@ -507,5 +603,28 @@ func (t *Tree) devRestoreField(f *field, st *edit.DevState) bool {
 	t.fieldChanged(f, r)
 	t.fieldStates(f)
 	f.selStart, f.selEnd, _ = f.ed.SelectionRange()
+	return true
+}
+
+// devRestoreComposition starts the saved composition c again in the
+// focused text field f, over the state devRestoreField restored (the one
+// it started from): its preedit is shown from the first frame, its text
+// input state is the one the IME already has, and the IME's next update
+// applies to it. No composition event fires: the composition did not
+// start in this build, it goes on (the Fast Refresh view of the focus).
+// It reports whether the field composes.
+func (t *Tree) devRestoreComposition(f *field, c edit.DevComposition) bool {
+	if f == nil {
+		return false
+	}
+	r := f.ed.RestoreDevComposition(c)
+	if !f.ed.Composing() {
+		return false
+	}
+	f.raw = f.ed.RawValue()
+	t.fieldChanged(f, r)
+	t.fieldStates(f)
+	f.selStart, f.selEnd, _ = f.ed.SelectionRange()
+	t.caretReset(f)
 	return true
 }

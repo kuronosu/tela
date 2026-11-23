@@ -34,7 +34,7 @@ const devBuildTags = "teladev"
 //   - -ldflags=-s -w: no symbol table and no DWARF, so the link writes less.
 //     Panics keep their file:line (the runtime reads pclntab, which stays),
 //     and so do runtime.FuncForPC and the component names; a debugger
-//     cannot attach to a dev build.
+//     cannot attach to such a build (--debug builds one it can).
 //   - -gcflags=-l: no inlining in the package built (the app's main
 //     package, or the generated runner), which the compiler spends most
 //     time on there; Tela and the other packages keep their usual flags
@@ -43,18 +43,52 @@ const devBuildTags = "teladev"
 // Measured on examples/dashboard (ADR-116): -ldflags saves about 110 ms of
 // a 600 ms build, -gcflags=-l about 90 ms, -buildvcs=false about 25 ms in a
 // git checkout.
-func devBuildFlags(goflags string) []string {
+//
+// debug (tela dev --debug, ADR-310) builds for a debugger instead: no
+// -ldflags, so the DWARF information and the symbol table stay, and
+// -gcflags=all=-N -l, so no package is optimized or inlined (Delve's
+// advice: variables keep their values and every line can take a
+// breakpoint). The first such build compiles Tela and the other
+// dependencies again; later ones reuse the cache.
+func devBuildFlags(goflags string, debug bool) []string {
 	flags := []string{"-tags", devTags(goflags)}
 	if !hasGoFlag(goflags, "buildvcs") {
 		flags = append(flags, "-buildvcs=false")
 	}
-	if !hasGoFlag(goflags, "ldflags") {
+	if !debug && !hasGoFlag(goflags, "ldflags") {
 		flags = append(flags, "-ldflags=-s -w")
 	}
 	if !hasGoFlag(goflags, "gcflags") {
-		flags = append(flags, "-gcflags=-l")
+		if debug {
+			flags = append(flags, "-gcflags=all=-N -l")
+		} else {
+			flags = append(flags, "-gcflags=-l")
+		}
 	}
 	return flags
+}
+
+// debugFlagConflicts names the flags of goflags (a GOFLAGS list) that keep
+// a --debug build from being debuggable as it should: a -gcflags, which
+// replaces all=-N -l, and an -ldflags that strips the DWARF information or
+// the symbol table (-s, -w). Sorted.
+func debugFlagConflicts(goflags string) []string {
+	var out []string
+	if hasGoFlag(goflags, "gcflags") {
+		out = append(out, "-gcflags")
+	}
+	for _, f := range splitGoFlags(goflags) {
+		if name, value, ok := goFlag(f); name == "ldflags" && ok {
+			if slices.ContainsFunc(strings.Fields(value), func(v string) bool {
+				v = strings.TrimLeft(v, "-")
+				return v == "s" || v == "w" || strings.HasPrefix(v, "s=") || strings.HasPrefix(v, "w=")
+			}) {
+				out = append(out, "-ldflags")
+				break
+			}
+		}
+	}
+	return out
 }
 
 // hasGoFlag reports whether goflags (a GOFLAGS list) sets the build flag
@@ -253,6 +287,8 @@ type goBuilder struct {
 	env     []string
 	// goflags is the user's GOFLAGS (devBuildFlags), the target's.
 	goflags string
+	// debug builds for a debugger (tela dev --debug, devBuildFlags).
+	debug bool
 }
 
 // newGoBuilder prepares the builds of t into outDir, writing the overlay
@@ -300,7 +336,7 @@ func exeName(gen int) string {
 
 // args returns the go command line for a build into out.
 func (b *goBuilder) args(out string) []string {
-	args := append([]string{"build"}, devBuildFlags(b.goflags)...)
+	args := append([]string{"build"}, devBuildFlags(b.goflags, b.debug)...)
 	args = append(args, "-o", out)
 	if b.overlay != "" {
 		args = append(args, "-overlay", b.overlay)

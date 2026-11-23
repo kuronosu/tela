@@ -34,6 +34,8 @@ knows about Tailwind classes, and nothing else about Go:
 	              unsaved text: unknown classes with "did you mean", roles,
 	              aria tokens, keys, hooks. Published on open, on change
 	              (after a short pause) and on save
+	code actions  a quick fix on an unknown class: replace it with the
+	              suggestion of the message ("did you mean")
 	completion    inside a class string: utilities and theme keys, variants
 	              (hover:, md:, dark:, stacked), the app's class aliases and
 	              arbitrary values (w-[...]); each with the CSS it produces
@@ -42,13 +44,17 @@ knows about Tailwind classes, and nothing else about Go:
 
 A string is a class string when it is an argument of Class(...), the value of
 a field named Class or ending in Class, or a value of ClassAliases; once the
-file has type-checked, every string that tela lint checks is one. Completion
+file has type-checked, every string that tela lint checks is one, the
+constants that are used as classes (const card = "..."; Class(card)) among
+them. Completion
 and hover read the text only, so they answer while the file does not
 compile. Diagnostics need the go command in PATH and a module that requires
 Tela; the first run of a package builds the export data of its dependencies,
-the later ones take a fraction of a second. Aliases and theme colors are
-found in the package of the file, as "tela lint" finds them in the packages
-it lints.
+and the server keeps what it read of the module between runs, so that the
+later ones check only what changed. Aliases and theme colors are
+found in the package of the file and in the other packages of its module that
+declare them (the app's main package, a theme package), as "tela lint" finds
+them in the packages it lints.
 
 The messages are the Language Server Protocol's, with Content-Length framing
 and UTF-16 positions; the text of a file is synchronized in full. See
@@ -106,15 +112,20 @@ func runLSP(args []string, stdout, stderr io.Writer) int {
 			mu.Unlock()
 		}
 	}
-	return serveLSP(ctx, os.Stdin, stdout, logf)
+	return serveLSP(ctx, os.Stdin, stdout, logf, lspCache())
 }
 
+// lspCache is the process's cache of the lint runs' module context: a
+// tela lsp process serves one editor session, and the servers of the tests
+// share it, as runs that read the same module may (internal/lint's Cache).
+var lspCache = sync.OnceValue(lint.NewCache)
+
 // serveLSP serves one client on in and out until it exits, in ends or ctx
-// is done. It returns the exit status the protocol asks for: 0 after a
-// shutdown request and an exit notification, 1 when the client goes away
-// without them.
-func serveLSP(ctx context.Context, in io.Reader, out io.Writer, logf func(string, ...any)) int {
-	s := newLSPServer(newLSPConn(in, out), logf)
+// is done, keeping the module context of its lint runs in cache. It
+// returns the exit status the protocol asks for: 0 after a shutdown request
+// and an exit notification, 1 when the client goes away without them.
+func serveLSP(ctx context.Context, in io.Reader, out io.Writer, logf func(string, ...any), cache *lint.Cache) int {
+	s := newLSPServer(newLSPConn(in, out), logf, cache)
 	defer s.close()
 	// The input is read on a goroutine of its own, so that a signal ends
 	// the server while it waits for input.
@@ -159,6 +170,10 @@ type lspServer struct {
 	conn     *lspConn
 	logf     func(string, ...any)
 	debounce time.Duration
+	// cache keeps the module context of the lint runs (the packages that
+	// declare aliases and colors, and what they import of the module)
+	// between runs: only what changed is checked again.
+	cache *lint.Cache
 
 	mu          sync.Mutex // guards everything below but runMu
 	initialized bool
@@ -169,9 +184,24 @@ type lspServer struct {
 	timer       *time.Timer
 	state       map[string]*lspDirState // what the last run of a directory found, by directory
 	published   map[string]string       // the diagnostics last sent, by URI, as JSON
+	fixes       map[string]lspFixes     // the quick fixes of the diagnostics last sent, by URI
 	logged      map[string]bool         // errors already told to the client
 
 	runMu sync.Mutex // one lint run at a time
+}
+
+// lspFixes are the quick fixes of the diagnostics sent for one version of a
+// document: a request for an older text gets none, since the ranges moved.
+type lspFixes struct {
+	version int
+	list    []lspFix
+}
+
+// lspFix replaces the text of a range, where the class a diagnostic is about
+// is, with the suggestion of the diagnostic's message.
+type lspFix struct {
+	diag       lspDiagnostic
+	suggestion string
 }
 
 // lspDirState is what the last lint run of a directory knows: the class
@@ -203,14 +233,16 @@ type classSource struct {
 
 type lspTypedStrings struct {
 	version int
+	text    string // the text the spans are offsets of
 	spans   []lint.ClassString
 }
 
-func newLSPServer(conn *lspConn, logf func(string, ...any)) *lspServer {
+func newLSPServer(conn *lspConn, logf func(string, ...any), cache *lint.Cache) *lspServer {
 	return &lspServer{
-		conn: conn, logf: logf, debounce: lspDebounce,
+		conn: conn, logf: logf, debounce: lspDebounce, cache: cache,
 		docs: map[string]*lspDoc{}, dirty: map[string]bool{},
 		state: map[string]*lspDirState{}, published: map[string]string{}, logged: map[string]bool{},
+		fixes: map[string]lspFixes{},
 	}
 }
 
@@ -319,6 +351,8 @@ func (s *lspServer) dispatch(m lspMessage) (any, error) {
 		return s.completion(m.Params)
 	case "textDocument/hover":
 		return s.hover(m.Params)
+	case "textDocument/codeAction":
+		return s.codeAction(m.Params)
 	}
 	if len(m.ID) > 0 {
 		return nil, &lspCodedError{lspMethodNotFound, "method " + m.Method + " is not supported by tela lsp, which serves class strings only; gopls serves the rest"}
@@ -351,6 +385,9 @@ func (s *lspServer) initialize(params json.RawMessage) (any, error) {
 			"triggerCharacters": []string{"\"", " ", "-", ":", "[", "/", "`"},
 		},
 		"hoverProvider": true,
+		"codeActionProvider": map[string]any{
+			"codeActionKinds": []string{"quickfix"},
+		},
 	}
 	// UTF-16 is what every client speaks and the default; say it when the
 	// client lists encodings.
@@ -460,6 +497,7 @@ func (s *lspServer) didClose(params json.RawMessage) error {
 	delete(s.docs, p.TextDocument.URI)
 	_, hadDiagnostics := s.published[p.TextDocument.URI]
 	delete(s.published, p.TextDocument.URI)
+	delete(s.fixes, p.TextDocument.URI)
 	if doc != nil {
 		s.markDirty(doc)
 		s.scheduleLocked(s.debounce)
@@ -476,6 +514,15 @@ func (s *lspServer) didClose(params json.RawMessage) error {
 func (s *lspServer) markDirty(doc *lspDoc) {
 	if doc.path != "" && strings.HasSuffix(doc.path, ".go") {
 		s.dirty[filepath.Dir(doc.path)] = true
+		// What declares aliases and colors is read by every package of
+		// the module: they are linted again with the new declarations.
+		if strings.Contains(doc.text, "ClassAliases") || strings.Contains(doc.text, "SchemeColor") {
+			for _, other := range s.docs {
+				if other.path != "" && strings.HasSuffix(other.path, ".go") {
+					s.dirty[filepath.Dir(other.path)] = true
+				}
+			}
+		}
 	}
 }
 
@@ -554,14 +601,14 @@ func (s *lspServer) lintDir(dir string, docs []*lspDoc) {
 		tests = tests || strings.HasSuffix(d.path, "_test.go")
 	}
 	res, err := lint.Run(lint.Options{
-		Dir: dir, Patterns: []string{"."}, Tests: tests,
-		Overlay: overlay, AbsPaths: true, Lenient: true,
+		Dir: dir, Patterns: []string{"."}, Context: lspModuleContext(dir), Tests: tests,
+		Overlay: overlay, AbsPaths: true, Lenient: true, Cache: s.cache,
 	})
 	if err != nil {
 		s.tellOnce("lint-"+dir, fmt.Sprintf("tela lsp: cannot lint %s: %v", dir, err))
 		return
 	}
-	s.logf("linted %s in %s: %d findings, %d load errors", dir, time.Since(start).Round(time.Millisecond), len(res.Diagnostics), len(res.LoadErrors))
+	s.logf("linted %s in %s: %d findings, %d load errors, %d packages of the context reused", dir, time.Since(start).Round(time.Millisecond), len(res.Diagnostics), len(res.LoadErrors), res.Reused)
 	for _, e := range res.LoadErrors {
 		s.logf("  %s", e)
 	}
@@ -572,7 +619,7 @@ func (s *lspServer) lintDir(dir string, docs []*lspDoc) {
 	byPath := map[string]*lspDoc{}
 	for _, d := range docs {
 		byPath[d.path] = d
-		st.strings[d.path] = lspTypedStrings{version: d.version}
+		st.strings[d.path] = lspTypedStrings{version: d.version, text: d.text}
 	}
 	for _, cs := range res.ClassStrings {
 		if ts, ok := st.strings[cs.File]; ok {
@@ -581,9 +628,14 @@ func (s *lspServer) lintDir(dir string, docs []*lspDoc) {
 		}
 	}
 	diags := map[string][]lspDiagnostic{}
+	fixes := map[string][]lspFix{}
 	for _, d := range res.Diagnostics {
 		if doc := byPath[d.File]; doc != nil {
-			diags[doc.path] = append(diags[doc.path], toLSPDiagnostic(doc, d))
+			ld := toLSPDiagnostic(doc, d)
+			diags[doc.path] = append(diags[doc.path], ld)
+			if sugg := classSuggestion(d); sugg != "" {
+				fixes[doc.path] = append(fixes[doc.path], lspFix{ld, sugg})
+			}
 		}
 	}
 	s.mu.Lock()
@@ -603,6 +655,7 @@ func (s *lspServer) lintDir(dir string, docs []*lspDoc) {
 		if s.docs[d.uri] == nil {
 			continue // closed while the run went on
 		}
+		s.fixes[d.uri] = lspFixes{version: d.version, list: fixes[d.path]}
 		list := diags[d.path]
 		if list == nil {
 			list = []lspDiagnostic{}
@@ -702,11 +755,20 @@ func (s *lspServer) siteFor(params json.RawMessage) (doc *lspDoc, site classSite
 	src = classSource{parser: style.DefaultParser(), index: defaultIndex}
 	if st != nil {
 		src = classSource{parser: st.parser, index: st.classIndex}
-		// The type checker knows more strings than the syntax shows, when
-		// it has read this very text.
-		if ts, ok := st.strings[doc.path]; ok && ts.version == doc.version && !site.class {
+		// The type checker knows more strings than the syntax shows, from
+		// the text it read.
+		if ts, ok := st.strings[doc.path]; ok && !site.class {
 			for _, sp := range ts.spans {
-				if sp.Start == site.litStart && sp.End == site.litEnd {
+				start, end := sp.Start, sp.End
+				if ts.version != doc.version {
+					// An edit since the run: the literal is where the edit
+					// leaves it, if it is still a literal.
+					var ok bool
+					if start, end, ok = shiftSpan(ts.text, doc.text, start, end); !ok {
+						continue
+					}
+				}
+				if start == site.litStart && end == site.litEnd {
 					site.class = true
 					break
 				}

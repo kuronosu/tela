@@ -161,7 +161,7 @@ func readDeb(t *testing.T, path string) (members []string, control, data map[str
 	return members, control, data, contents
 }
 
-// readTree returns every file under dir, by relative path.
+// readTree returns every file under dir, by relative path with slashes.
 func readTree(t *testing.T, dir string) map[string][]byte {
 	t.Helper()
 	out := map[string][]byte{}
@@ -172,7 +172,7 @@ func readTree(t *testing.T, dir string) map[string][]byte {
 		rel, _ := filepath.Rel(dir, p)
 		if d.Type().IsRegular() {
 			b, _ := os.ReadFile(p)
-			out[rel] = b
+			out[filepath.ToSlash(rel)] = b // the same names on every system
 		}
 		return nil
 	})
@@ -193,8 +193,14 @@ func TestPackageLinux(t *testing.T) {
 	})
 	t.Chdir(dir)
 	t.Setenv("SOURCE_DATE_EPOCH", "1763337600") // 2025-11-17
-	signer := filepath.Join(dir, "sign.sh")
-	os.WriteFile(signer, []byte("#!/bin/sh\necho signed > \"$1.sig\"\n"), 0o755)
+	// The signer is this test binary (fakeChild's "sign" mode), which runs
+	// on every system: a shell script does not run on Windows.
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(envFake, "sign")
+	signer := `"` + exe + `"`
 
 	pack := func(out string, extra ...string) (string, string) {
 		t.Helper()

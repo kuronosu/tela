@@ -49,6 +49,7 @@ var pathState struct {
 	cwd  string // slash-separated, no trailing slash
 	mu   sync.Mutex
 	mods map[string]modInfo // by directory
+	real map[string]string  // a directory with its symbolic links resolved
 }
 
 // modInfo is the module a directory belongs to.
@@ -63,16 +64,34 @@ func pathInit() {
 			pathState.cwd = strings.TrimRight(filepath.ToSlash(wd), "/")
 		}
 		pathState.mods = map[string]modInfo{}
+		pathState.real = map[string]string{}
 	})
 }
 
+// RelTo is Rel with dir as the working directory of rule 1: the form the
+// app's own process shows (its [src=] lines), for a tool that runs
+// elsewhere and knows the app's working directory.
+func (s SourceSite) RelTo(dir string) string {
+	if s.File == "" {
+		return ""
+	}
+	return displayPathIn(strings.TrimRight(filepath.ToSlash(dir), "/"), s.File) + ":" + strconv.Itoa(s.Line)
+}
+
 func displayPath(file string) string {
+	pathInit()
+	return displayPathIn(pathState.cwd, file)
+}
+
+// displayPathIn is displayPath with cwd, slash-separated, as the working
+// directory.
+func displayPathIn(cwd, file string) string {
 	file = filepath.ToSlash(file)
 	if !path.IsAbs(file) && !isWinAbs(file) {
 		return file // already relative (-trimpath): module@version/file.go
 	}
-	pathInit()
-	if rel, ok := under(pathState.cwd, file); ok {
+	file = onVolume(cwd, file)
+	if rel, ok := underReal(cwd, file); ok {
 		return rel
 	}
 	if m := moduleOfDir(path.Dir(file)); m.root != "" {
@@ -88,6 +107,19 @@ func isWinAbs(p string) bool {
 	return len(p) > 2 && p[1] == ':' && p[2] == '/' && (p[0]|0x20) >= 'a' && (p[0]|0x20) <= 'z'
 }
 
+// onVolume returns file, a path rooted without a volume ("/src/a.go"), on
+// the volume of cwd when cwd has one ("Z:/src/a.go"), as Windows reads a
+// rooted path on the current drive. A binary built on Linux or macOS and
+// run under Wine records its sources that way, while Wine's working
+// directory is a drive path (Z: is its Unix root). A UNC path ("//host/")
+// and every path on other systems are left alone.
+func onVolume(cwd, file string) string {
+	if isWinAbs(cwd) && strings.HasPrefix(file, "/") && !strings.HasPrefix(file, "//") {
+		return cwd[:2] + file
+	}
+	return file
+}
+
 // under returns file relative to dir when it is inside it.
 func under(dir, file string) (string, bool) {
 	if dir == "" {
@@ -101,6 +133,41 @@ func under(dir, file string) (string, bool) {
 		}
 	}
 	return file[len(prefix):], true
+}
+
+// underReal is under, also through symbolic links: on macOS the
+// temporary directory /var/folders/... is /private/var/folders/..., and
+// the working directory and the paths the compiler recorded may each be
+// spelled either way.
+func underReal(dir, file string) (string, bool) {
+	if rel, ok := under(dir, file); ok || dir == "" {
+		return rel, ok
+	}
+	rd, rf := realDir(dir), realDir(path.Dir(file))
+	if rd == dir && rf == path.Dir(file) {
+		return "", false
+	}
+	return under(rd, rf+"/"+path.Base(file))
+}
+
+// realDir returns dir, slash-separated, with its symbolic links resolved,
+// cached per directory; dir itself when it cannot be resolved.
+func realDir(dir string) string {
+	pathInit()
+	pathState.mu.Lock()
+	r, ok := pathState.real[dir]
+	pathState.mu.Unlock()
+	if ok {
+		return r
+	}
+	r = dir
+	if e, err := filepath.EvalSymlinks(filepath.FromSlash(dir)); err == nil {
+		r = strings.TrimRight(filepath.ToSlash(e), "/")
+	}
+	pathState.mu.Lock()
+	pathState.real[dir] = r
+	pathState.mu.Unlock()
+	return r
 }
 
 // moduleOfDir finds the module of directory dir by looking for go.mod
@@ -165,7 +232,7 @@ func inAppModule(file string) bool {
 	if app.root == "" {
 		return true
 	}
-	_, ok := under(app.root, file)
+	_, ok := underReal(app.root, onVolume(pathState.cwd, file))
 	return ok
 }
 
@@ -200,10 +267,18 @@ func (ins *instrument) appSite(el *Element) SourceSite {
 	return first
 }
 
-// siteOf returns the creation site of el, resolved.
+// siteOf returns the creation site of el, resolved. A component whose node
+// was made before sites were captured (at package level, as the
+// tela.C(form) of a Previews entry or of App.Root, which runs when the
+// package is initialized) has the declaration of its function instead,
+// as a struct component a build returned has (instrument_site.go, rule
+// 3): the node is shared by every mount, so it is not written into.
 func (ins *instrument) siteOf(el *Element) SourceSite {
 	if d := el.node.d; d != nil && d.site != nil {
 		return ins.creationSite(d.site)
+	}
+	if ins.dev && el.kind == elemComponent && el.comp != nil && el.comp.typ != 0 {
+		return ins.creationSite(declSite(el.comp.typ))
 	}
 	return SourceSite{}
 }

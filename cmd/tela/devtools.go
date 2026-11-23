@@ -115,7 +115,7 @@ func newDevtoolsSource(c *toolsClient) *devtoolsSource {
 
 func (s *devtoolsSource) Info(ctx context.Context) (devtools.Info, error) {
 	i, err := s.c.Info(ctx)
-	return devtools.Info(i), err
+	return devtools.Info{Pkg: i.Pkg, Dir: i.Dir, PID: i.PID, Started: i.Started, Build: i.Build, Protocol: i.Protocol}, err
 }
 
 func (s *devtoolsSource) Windows(ctx context.Context) ([]devtools.Window, error) {
@@ -135,16 +135,16 @@ func (s *devtoolsSource) Unsubscribe(ctx context.Context, events ...string) erro
 	return s.c.Unsubscribe(ctx, events...)
 }
 
-func (s *devtoolsSource) Elements(ctx context.Context, window uint32, detail bool) ([]core.ElementInfo, error) {
-	return s.c.Elements(ctx, window, detail)
+func (s *devtoolsSource) ElementsSince(ctx context.Context, window uint32, version uint64) (core.ElementsDiff, error) {
+	return s.c.ElementsSince(ctx, window, version)
 }
 
 func (s *devtoolsSource) Element(ctx context.Context, window uint32, id core.ElementID) (core.ElementInfo, error) {
 	return s.c.Element(ctx, window, id)
 }
 
-func (s *devtoolsSource) Inspect(ctx context.Context, window uint32, id core.ElementID) (core.InspectNode, error) {
-	return s.c.Inspect(ctx, window, id)
+func (s *devtoolsSource) Inspect(ctx context.Context, window uint32, id core.ElementID, depth int) (core.InspectNode, error) {
+	return s.c.InspectDepth(ctx, window, id, depth)
 }
 
 func (s *devtoolsSource) Semantics(ctx context.Context, window uint32) (devtools.Semantics, error) {

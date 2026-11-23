@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/kuronosu/tela/internal/lint"
 )
 
 // lspClient is a client of tela lsp over pipes: it frames what it sends,
@@ -27,14 +29,24 @@ type lspClient struct {
 	notes  []lspMessage // notifications read while waiting for something else
 }
 
+// startLSP serves tela lsp to the test in process, with the process's
+// cache of the module context, as tela lsp does. The tests that lint run in
+// parallel: the first lint loads what the module needs, and the cache
+// makes the others check only what they change.
 func startLSP(t *testing.T) *lspClient {
+	t.Helper()
+	return startLSPCache(t, lspCache())
+}
+
+// startLSPCache is startLSP with a cache of the test's own.
+func startLSPCache(t *testing.T, cache *lint.Cache) *lspClient {
 	t.Helper()
 	inR, inW := io.Pipe()
 	outR, outW := io.Pipe()
 	c := &lspClient{t: t, in: inW, msgs: make(chan lspMessage, 1024), done: make(chan int, 1)}
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		code := serveLSP(ctx, inR, outW, func(format string, args ...any) { t.Logf("server: "+format, args...) })
+		code := serveLSP(ctx, inR, outW, func(format string, args ...any) { t.Logf("server: "+format, args...) }, cache)
 		outW.Close()
 		c.done <- code
 	}()
@@ -118,15 +130,26 @@ func (c *lspClient) mustRequest(method string, params any) json.RawMessage {
 // diagnostics waits for a publishDiagnostics of uri that satisfies ok.
 func (c *lspClient) diagnostics(uri string, ok func([]lspDiagnostic) bool) []lspDiagnostic {
 	c.t.Helper()
+	return c.diagnosticsAt(uri, -1, ok)
+}
+
+// diagnosticsAt is diagnostics for the run of the buffer's version (-1:
+// any): a run of an earlier version may publish after a change.
+func (c *lspClient) diagnosticsAt(uri string, version int, ok func([]lspDiagnostic) bool) []lspDiagnostic {
+	c.t.Helper()
 	check := func(m lspMessage) ([]lspDiagnostic, bool) {
 		if m.Method != "textDocument/publishDiagnostics" {
 			return nil, false
 		}
 		var p struct {
 			URI         string          `json:"uri"`
+			Version     *int            `json:"version"`
 			Diagnostics []lspDiagnostic `json:"diagnostics"`
 		}
 		if err := json.Unmarshal(m.Params, &p); err != nil || p.URI != uri {
+			return nil, false
+		}
+		if version >= 0 && (p.Version == nil || *p.Version != version) {
 			return nil, false
 		}
 		return p.Diagnostics, ok(p.Diagnostics)
@@ -424,6 +447,8 @@ func TestLSPCommand(t *testing.T) {
 }
 
 func TestLSPDiagnostics(t *testing.T) {
+	t.Parallel()
+	needGo(t) // it lints, which runs go list
 	c := startLSP(t)
 	c.initialize()
 	path, uri := bufferFor(t, "buffer.go")
@@ -497,6 +522,7 @@ func utf16Of(s string) []uint16 {
 }
 
 func TestLSPCompletion(t *testing.T) {
+	t.Parallel()
 	c := startLSP(t)
 	c.initialize()
 	_, uri := bufferFor(t, "complete.go")
@@ -602,6 +628,8 @@ func TestLSPCompletion(t *testing.T) {
 }
 
 func TestLSPAliases(t *testing.T) {
+	t.Parallel()
+	needGo(t) // it lints, which runs go list
 	c := startLSP(t)
 	c.initialize()
 	_, uri := bufferFor(t, "aliases.go")
@@ -646,12 +674,13 @@ func TestLSPAliases(t *testing.T) {
 	}
 	// And the use of an alias is not an error.
 	c.change(uri, 4, strings.ReplaceAll(text, "|", ""))
-	if d := c.diagnostics(uri, func([]lspDiagnostic) bool { return true }); len(d) != 0 {
+	if d := c.diagnosticsAt(uri, 4, func([]lspDiagnostic) bool { return true }); len(d) != 0 {
 		t.Errorf("diagnostics = %+v, want none: btn is an alias of the package", d)
 	}
 }
 
 func TestLSPHover(t *testing.T) {
+	t.Parallel()
 	c := startLSP(t)
 	c.initialize()
 	_, uri := bufferFor(t, "hover.go")
@@ -681,9 +710,13 @@ func TestLSPHover(t *testing.T) {
 	if md := hover("func screen() tela.Node { return Div(Class(\"bg-r|de-500\")) }\n"); !strings.Contains(md, `unknown class "bg-rde-500"`) || !strings.Contains(md, `did you mean "bg-red-500"`) {
 		t.Errorf("hover over an unknown class:\n%s", md)
 	}
-	// A class the tables do not describe still says what it is.
-	if md := hover("func screen() tela.Node { return Div(Class(\"mask-t-from-|50%\")) }\n"); !strings.Contains(md, "mask-t-from") {
-		t.Errorf("hover over an undescribed class:\n%s", md)
+	// The mask utilities are described too.
+	if md := hover("func screen() tela.Node { return Div(Class(\"mask-t-from-|50%\")) }\n"); !strings.Contains(md, "--tw-mask-top-from-position: 50%;") {
+		t.Errorf("hover over a mask class:\n%s", md)
+	}
+	// A class with no CSS equivalent still says what it is.
+	if md := hover("func screen() tela.Node { return Div(Class(\"scrollbar-|overlay\")) }\n"); !strings.Contains(md, "scrollbar") || !strings.Contains(md, "no CSS summary") {
+		t.Errorf("hover over a class with no CSS:\n%s", md)
 	}
 	// Between classes, and outside class strings: nothing.
 	for name, body := range map[string]string{
@@ -704,6 +737,8 @@ func TestLSPHover(t *testing.T) {
 // The type-checked strings refine the syntactic ones: the fields of a kit
 // recipe hold classes, which no token of the syntax says.
 func TestLSPTypedClassStrings(t *testing.T) {
+	t.Parallel()
+	needGo(t) // it lints, which runs go list
 	c := startLSP(t)
 	c.initialize()
 	_, uri := bufferFor(t, "typed.go")
@@ -718,10 +753,22 @@ func TestLSPTypedClassStrings(t *testing.T) {
 	if md := c.hover(uri, pos); !strings.Contains(md, "border-radius: 0.5rem;") {
 		t.Errorf("hover over a recipe field after the lint run:\n%s", md)
 	}
-	// An edit makes the strings of the run stale until the next one.
+	// An edit that leaves the string where it is keeps it a class string
+	// before the next run, and so does one that moves it.
 	c.change(uri, 2, strings.Replace(text, "p-4", "p-8", 1))
+	if md := c.hover(uri, pos); !strings.Contains(md, "border-radius: 0.5rem;") {
+		t.Errorf("hover after an edit inside the string, before the next run:\n%s", md)
+	}
+	cut := strings.Index(text, "rounded-") + len("rounded-")
+	moved, mpos := withCursor(t, "// a comment\n"+text[:cut]+"|"+text[cut:])
+	c.change(uri, 3, moved)
+	if md := c.hover(uri, mpos); !strings.Contains(md, "border-radius: 0.5rem;") {
+		t.Errorf("hover after an edit above the string, before the next run:\n%s", md)
+	}
+	// An edit that breaks the literal does not.
+	c.change(uri, 4, strings.Replace(text, "{Root: \"rounded", "{Root: rounded", 1))
 	if md := c.hover(uri, pos); md != "" {
-		t.Errorf("hover after an edit, before the next run = %q, want none: offsets moved", md)
+		t.Errorf("hover over a broken literal = %q, want none", md)
 	}
 }
 
@@ -816,8 +863,19 @@ func TestSiteAt(t *testing.T) {
 // (a package of 5,000 lines that imports the whole framework) take, the
 // first time and after a change, once the first run has loaded the package.
 // It asserts nothing about the time (machines differ); the numbers are in
-// the log with -v.
+// the log with -v. The server has a cache of its own, so the first lint is
+// a session's first, not one after the other tests.
+//
+// It runs in the full suite only. What it measures is a lint inside Tela's
+// repository, whose context is the whole repository (every Go file is
+// looked at for aliases), so it reads every file, and any edit would run
+// cmd/tela's tests again; a fixture module large enough to stand for it
+// would be a copy of the framework to keep in step.
 func TestLSPLatency(t *testing.T) {
+	if testing.Short() {
+		t.Skip("lints inside the repository, reading every file of it; the full suite runs it")
+	}
+	t.Parallel()
 	file, err := filepath.Abs(filepath.Join("..", "..", "examples", "dashboard", "overview.go"))
 	if err != nil {
 		t.Fatal(err)
@@ -833,7 +891,7 @@ func TestLSPLatency(t *testing.T) {
 	probe := func(n int) string {
 		return string(src) + fmt.Sprintf("\nfunc latencyProbe() tela.Node { return Div(Class(\"flex bg-rde-%d\")) }\n", n)
 	}
-	c := startLSP(t)
+	c := startLSPCache(t, lint.NewCache())
 	c.initialize()
 	start := time.Now()
 	c.open(uri, probe(400))
@@ -852,7 +910,7 @@ func TestLSPLatency(t *testing.T) {
 		worst = max(worst, el)
 	}
 	t.Logf("diagnostics after a change, without the %v pause: mean %v, worst %v",
-		lspDebounce, (total / rounds).Round(time.Millisecond), worst.Round(time.Millisecond))
+		lspDebounce, (total / time.Duration(rounds)).Round(time.Millisecond), worst.Round(time.Millisecond))
 
 	// Completion and hover do not wait for any of it.
 	text, pos := withCursor(t, probe(600)+"\nvar _ = Div(Class(\"flex bg-|\"))\n")

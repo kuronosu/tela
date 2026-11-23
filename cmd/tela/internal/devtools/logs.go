@@ -17,7 +17,7 @@ type LogsPanel struct{ panelProps }
 type LogFilter struct {
 	// Min is the lowest level shown.
 	Min slog.Level
-	// Source is "app", "stderr" or "" for both.
+	// Source is "app", "stderr", "tela dev" or "" for all.
 	Source string
 	// Search matches the message, case-insensitive.
 	Search string
@@ -78,7 +78,7 @@ func (p LogsPanel) Build() tela.Node {
 					{Value: slog.LevelDebug, Label: "All"}, {Value: slog.LevelInfo, Label: "Info"},
 					{Value: slog.LevelWarn, Label: "Warnings"}, {Value: slog.LevelError, Label: "Errors"}}},
 			kit.Select[string]{AriaLabel: "Source", Value: &source, OnValueChange: setSource.Set, Size: kit.Sm, Class: "h-7 w-32 text-xs", ContentClass: "text-xs",
-				Items: []kit.SelectItem[string]{{Value: "all", Label: "All sources"}, {Value: "app", Label: "App warnings"}, {Value: "stderr", Label: "Standard error"}}},
+				Items: []kit.SelectItem[string]{{Value: "all", Label: "All sources"}, {Value: "app", Label: "App warnings"}, {Value: "stderr", Label: "Standard error"}, {Value: "tela dev", Label: "tela dev"}}},
 			Div(Class("flex-1")),
 			Label(Class("flex items-center gap-2 text-xs text-muted-foreground"),
 				kit.Switch{Size: kit.Sm, Checked: &follow, OnCheckedChange: setFollow.Set, AriaLabel: "Follow the newest entry"}, Text("Follow")),

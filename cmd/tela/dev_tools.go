@@ -15,6 +15,7 @@ import (
 	"os"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/kuronosu/tela/internal/devloop"
@@ -61,8 +62,9 @@ import (
 //	unsubscribe   {events: [...]}         → {events}   the ones still subscribed
 //	instrument    {on}                    → {on}
 //	elements      {window, detail}        → {elements: [ElementInfo]}
+//	elements      {window, diff: true, version} → {version, full, elements, order}  the change since version (core.ElementsDiff)
 //	element       {window, id}            → ElementInfo
-//	inspect       {window, id}            → InspectNode (id 0: the whole tree)
+//	inspect       {window, id, depth}     → InspectNode (id 0: the whole tree; depth: levels of children, absent for all)
 //	semantics     {window}                → {yaml, nodes, elements, srcs}
 //	profiles      {window, since}         → {profiles: [FrameProfile]}
 //	logs          {since}                 → {entries: [{seq, at, level, msg, source, window, build}], last}
@@ -78,24 +80,28 @@ import (
 //
 // Notifications (to the clients subscribed): picked {window, id, element},
 // frames {window, profiles}, logs {entries}, reload {build}, windows
-// {windows}.
+// {windows}; and to any client whose queue was full, dropped {events:
+// {event: count}} before the next one it gets (toolsConn.notify).
 //
 // What cannot be injected: IME composition (text commits are typed as
 // keys), the OS's own menus, dialogs and notifications (the host's
 // backend shows them; a tela.Menu popup or a kit dialog is the app's and
 // takes input like the rest), drags between applications, and the focus
 // of the real window: a key or text call on a window without the keyboard
-// focus gives it the focus as the app sees it (a FocusEvent), not the OS's.
+// focus lends it the focus as the app sees it while the keys reach it
+// (toolsServer.keys), and the OS's focus does not move.
 
 // toolsProtocol is the version info returns; it grows with the methods.
-const toolsProtocol = 1
+// 2: elements with diff, inspect with depth, the dropped notification.
+const toolsProtocol = 2
 
 // toolsTimeout bounds a relayed request and a wait for the host's UI
 // thread.
 const toolsTimeout = 10 * time.Second
 
 // toolsQueue bounds the messages waiting to be written to a client; a
-// notification that finds it full is dropped.
+// notification that finds it full is counted in the client's dropped
+// notification (toolsConn.notify).
 const toolsQueue = 256
 
 // toolsEvents are the notifications a client can subscribe to.
@@ -106,11 +112,12 @@ var errNoApp = errors.New("no app is running (it is starting, or it crashed: sav
 
 // toolsServer is the tools socket of a supervisor.
 type toolsServer struct {
-	pkg    string
-	pkgDir string // the package's absolute directory
-	dir    string // the directory of the discovery file
-	logf   func(format string, args ...any)
-	log    toolsLog
+	pkg     string
+	pkgDir  string // the package's absolute directory
+	preview string // tela dev's --preview, "" for none
+	dir     string // the directory of the discovery file
+	logf    func(format string, args ...any)
+	log     toolsLog
 
 	host    *remote.Host
 	ln      net.Listener
@@ -144,8 +151,10 @@ type toolsServer struct {
 	insMu        sync.Mutex
 	instrumented *remote.Child
 
-	// UI thread: the buttons held by injected pointer events, per window.
+	// UI thread: the buttons held by injected pointer events, per window,
+	// and the windows the keys of a client were lent the focus for (keys).
 	buttons map[platform.Window]platform.Buttons
+	lent    map[platform.Window]bool
 }
 
 // toolsConn is a client of the socket.
@@ -162,6 +171,11 @@ type toolsConn struct {
 	subs  map[string]bool
 	holds bool
 	input bool // it injected input
+	// dropped counts the notifications per event that found the queue
+	// full since the last dropped notification (notify); lost is set
+	// while it has counts, for the writer, which reads it without ts.mu.
+	dropped map[string]int
+	lost    atomic.Bool
 	// UI thread: what its input holds, per window: the buttons, where the
 	// pointer is, and the keys pressed (in order).
 	buttons map[platform.Window]platform.Buttons
@@ -185,7 +199,8 @@ type toolsWindow struct {
 
 func newToolsServer(pkg, pkgDir, dir string, logf func(string, ...any)) *toolsServer {
 	ts := &toolsServer{pkg: pkg, pkgDir: pkgDir, dir: dir, logf: logf, conns: map[*toolsConn]struct{}{},
-		picker: map[uint32]*toolsConn{}, highlighter: map[uint32]*toolsConn{}, buttons: map[platform.Window]platform.Buttons{}}
+		picker: map[uint32]*toolsConn{}, highlighter: map[uint32]*toolsConn{}, buttons: map[platform.Window]platform.Buttons{},
+		lent: map[platform.Window]bool{}}
 	ts.log.added = ts.logAdded
 	return ts
 }
@@ -322,6 +337,11 @@ func (ts *toolsServer) windowsChanged() {
 			delete(ts.buttons, w)
 		}
 	}
+	for w := range ts.lent {
+		if !windowOpen(infos, w) {
+			delete(ts.lent, w)
+		}
+	}
 	ws := toolsWindows(infos)
 	ts.mu.Lock()
 	same := slices.Equal(ws, ts.windows)
@@ -376,7 +396,16 @@ func (ts *toolsServer) appLogs(bs []devloop.ToolsLogBatch) {
 			}
 		}
 	}
-	ts.log.add(es)
+	ts.log.addApp(es)
+}
+
+// note adds a line of the supervisor's own to the log (source "tela
+// dev"): what it prints on the terminal, such as a failed build.
+func (ts *toolsServer) note(level slog.Level, msg string) {
+	ts.mu.Lock()
+	build := ts.build
+	ts.mu.Unlock()
+	ts.log.add([]toolsLogEntry{{At: time.Now(), Level: level, Msg: msg, Source: "tela dev", Build: build}})
 }
 
 // logAdded batches the log entries for the clients subscribed to logs.
@@ -600,24 +629,77 @@ func (c *toolsConn) write() {
 		if _, err := c.nc.Write(b); err != nil {
 			return
 		}
+		if c.lost.Load() {
+			c.resume()
+		}
 	}
 }
 
-// send queues a message; a response waits for room (or for the writer to
-// stop), a notification is dropped when the queue is full. Only serve
-// sends responses, and broadcast notifications under ts.mu to the
-// connections in ts.conns: none sends after serve closed c.out.
-func (c *toolsConn) send(b []byte, wait bool) {
-	if wait {
-		select {
-		case c.out <- b:
-		case <-c.dead:
-		}
+// send queues a response, waiting for room (or for the writer to stop).
+// Only serve sends responses, and broadcast notifications under ts.mu to
+// the connections in ts.conns: none sends after serve closed c.out.
+func (c *toolsConn) send(b []byte) {
+	select {
+	case c.out <- b:
+	case <-c.dead:
+	}
+}
+
+// A client that does not read its notifications fills its queue
+// (toolsQueue). What it misses then is counted per event, and once there
+// is room again (at the next notification for it, or when the writer
+// takes a message from the queue) it gets one notification of its own
+// before any other, dropped {events: {frames: 12, logs: 3}}: it resyncs
+// from the calls it already has (profiles and logs since what it saw,
+// windows, info for the build, elements). Coalescing would need a merge
+// per event, and frames and logs are streams whose merge is as large as
+// what was dropped; disconnecting would close a DevTools window over a
+// stall that a resync repairs, and a reconnecting client resyncs with the
+// same calls anyway. So the queue stays bounded, no notification is lost
+// silently, and the client stays attached.
+
+// notify queues notification b of event for c, or counts it as dropped
+// when the queue is full. ts.mu is held.
+func (c *toolsConn) notify(event string, b []byte) {
+	if len(c.dropped) > 0 && !c.sendDroppedLocked() {
+		c.dropped[event]++
 		return
 	}
 	select {
 	case c.out <- b:
 	default:
+		if c.dropped == nil {
+			c.dropped = map[string]int{}
+		}
+		c.dropped[event]++
+		c.lost.Store(true)
+	}
+}
+
+// sendDroppedLocked queues the dropped notification for what c missed,
+// and reports whether it found room for it. ts.mu is held.
+func (c *toolsConn) sendDroppedLocked() bool {
+	b, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "method": "dropped", "params": map[string]any{"events": c.dropped}})
+	select {
+	case c.out <- append(b, '\n'):
+		clear(c.dropped)
+		c.lost.Store(false)
+		return true
+	default:
+		return false
+	}
+}
+
+// resume sends the dropped notification once the writer made room, when
+// no notification came to do it. Writer goroutine.
+func (c *toolsConn) resume() {
+	ts := c.ts
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	// serve closes c.out only after it removed c from ts.conns, under
+	// ts.mu: a connection still there may be sent to.
+	if _, ok := ts.conns[c]; ok && len(c.dropped) > 0 {
+		c.sendDroppedLocked()
 	}
 }
 
@@ -632,7 +714,7 @@ func (ts *toolsServer) broadcast(event string, params any) {
 	defer ts.mu.Unlock()
 	for c := range ts.conns {
 		if c.subs[event] {
-			c.send(b, false)
+			c.notify(event, b)
 		}
 	}
 }
@@ -666,7 +748,7 @@ func (c *toolsConn) serve() {
 			if err != nil {
 				b, _ = json.Marshal(rpcResponse{JSONRPC: "2.0", ID: r.ID, Error: &rpcError{Code: rpcInternalError, Message: "internal error: " + err.Error()}})
 			}
-			c.send(append(b, '\n'), true)
+			c.send(append(b, '\n'))
 		}
 	}
 }
@@ -728,12 +810,15 @@ func (c *toolsConn) handle(raw []byte) *rpcResponse {
 
 // toolsParams are the parameters of every method; each reads its own.
 type toolsParams struct {
-	Window uint32   `json:"window"`
-	ID     uint64   `json:"id"`
-	Detail bool     `json:"detail"`
-	Since  uint64   `json:"since"`
-	On     *bool    `json:"on"`
-	Events []string `json:"events"`
+	Window  uint32   `json:"window"`
+	ID      uint64   `json:"id"`
+	Detail  bool     `json:"detail"`
+	Since   uint64   `json:"since"`
+	On      *bool    `json:"on"`
+	Events  []string `json:"events"`
+	Diff    bool     `json:"diff"`
+	Version uint64   `json:"version"`
+	Depth   *int     `json:"depth"`
 	// Input.
 	Action string   `json:"action"`
 	X      float32  `json:"x"`
@@ -763,7 +848,10 @@ func (c *toolsConn) call(method string, raw json.RawMessage) (any, error) {
 		ts.mu.Lock()
 		build := ts.build
 		ts.mu.Unlock()
-		return map[string]any{"pkg": ts.pkg, "dir": ts.pkgDir, "pid": os.Getpid(), "started": ts.started, "build": build, "protocol": toolsProtocol}, nil
+		// cwd is tela dev's working directory, which its children
+		// inherit: the one their [src=] paths are relative to.
+		cwd, _ := os.Getwd()
+		return map[string]any{"pkg": ts.pkg, "dir": ts.pkgDir, "cwd": cwd, "preview": ts.preview, "pid": os.Getpid(), "started": ts.started, "build": build, "protocol": toolsProtocol}, nil
 	case "windows":
 		var ws []toolsWindow
 		if err := ts.onUI(func() { ws = toolsWindows(ts.host.WindowInfos()) }); err != nil {
@@ -808,14 +896,14 @@ func (c *toolsConn) call(method string, raw json.RawMessage) (any, error) {
 		}
 		return map[string]any{"on": got}, nil
 	case "elements":
-		return tree(devloop.KindToolsElements, devloop.ToolsParams{Detail: p.Detail})
+		return tree(devloop.KindToolsElements, devloop.ToolsParams{Detail: p.Detail, Diff: p.Diff, Version: p.Version})
 	case "element":
 		if p.ID == 0 {
 			return nil, toolsBadParams("give the id of an element")
 		}
 		return tree(devloop.KindToolsElement, devloop.ToolsParams{ID: p.ID})
 	case "inspect":
-		return tree(devloop.KindToolsInspect, devloop.ToolsParams{ID: p.ID})
+		return tree(devloop.KindToolsInspect, devloop.ToolsParams{ID: p.ID, Depth: p.Depth})
 	case "semantics":
 		return tree(devloop.KindToolsSemantics, devloop.ToolsParams{})
 	case "profiles":
@@ -860,6 +948,9 @@ func (c *toolsConn) call(method string, raw json.RawMessage) (any, error) {
 				}
 			}
 		}
+		// The lines of standard error waiting for their twin have had
+		// it: the child's entries are all in.
+		ts.log.flush()
 		es, last := ts.log.since(p.Since)
 		return map[string]any{"entries": es, "last": last}, nil
 	case "screenshot":
@@ -1005,14 +1096,24 @@ func (ts *toolsServer) pointer(c *toolsConn, p toolsParams) error {
 	})
 }
 
-// keys injects key events into window id, giving it the focus first as
-// the app sees it when it has not.
+// keys injects key events into window id. A window without the keyboard
+// focus gets it lent first, as the app sees it (a FocusEvent: the child's
+// view of a window drops keys while it is not focused), and given back
+// once no client holds a key pressed in it: after the keys of a call that
+// presses and releases them, or with the release of the last key held. So
+// the app is focused only while the keys reach it, and agrees with the OS
+// again afterwards, which never moved the focus (the OS may refuse a real
+// activation, and would take the focus from the person's own window). A
+// real focus change of the window while a lent one lasts is not told
+// apart from it: the lent focus is given back all the same.
 func (ts *toolsServer) keys(c *toolsConn, id uint32, keys []platform.KeyEvent) error {
 	c.injects()
 	return ts.inject(id, func(wi remote.WindowInfo, now time.Duration) ([]platform.Event, error) {
+		w := wi.Window
 		var evs []platform.Event
 		if !wi.Focused {
 			evs = append(evs, platform.FocusEvent{Focused: true})
+			ts.lent[w] = true
 		}
 		if c.keys == nil {
 			c.keys = map[platform.Window][]platform.KeyEvent{}
@@ -1020,14 +1121,31 @@ func (ts *toolsServer) keys(c *toolsConn, id uint32, keys []platform.KeyEvent) e
 		for _, k := range keys {
 			k.Time = now
 			evs = append(evs, k)
-			held := slices.DeleteFunc(c.keys[wi.Window], func(h platform.KeyEvent) bool { return h.Code == k.Code })
+			held := slices.DeleteFunc(c.keys[w], func(h platform.KeyEvent) bool { return h.Code == k.Code })
 			if k.Action == platform.KeyPress {
 				held = append(held, k)
 			}
-			c.keys[wi.Window] = held
+			c.keys[w] = held
+		}
+		if ts.lent[w] && !ts.keysHeld(w) {
+			evs = append(evs, platform.FocusEvent{Focused: false})
+			delete(ts.lent, w)
 		}
 		return evs, nil
 	})
+}
+
+// keysHeld reports whether a client's input holds a key pressed in w. UI
+// thread.
+func (ts *toolsServer) keysHeld(w platform.Window) bool {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	for c := range ts.conns {
+		if len(c.keys[w]) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // injects records that c injects input: what it holds is released when it
@@ -1126,6 +1244,12 @@ func (ts *toolsServer) releaseInput(c *toolsConn) {
 			}
 			k := keys[i]
 			ts.host.HandleEvent(w, platform.KeyEvent{Action: platform.KeyRelease, Code: k.Code, Key: k.Key, Location: k.Location, Mods: mods, Time: now})
+		}
+		delete(c.keys, w)
+		if ts.lent[w] && !ts.keysHeld(w) {
+			// The focus lent for those keys goes back (keys).
+			ts.host.HandleEvent(w, platform.FocusEvent{Focused: false})
+			delete(ts.lent, w)
 		}
 	}
 }

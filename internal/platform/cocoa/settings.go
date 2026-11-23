@@ -33,6 +33,7 @@ type rawSettings struct {
 func settingsFrom(r rawSettings) platform.SystemSettings {
 	s := platform.SystemSettings{
 		DarkMode:            r.Dark,
+		LightMode:           !r.Dark, // macOS always has an appearance: light unless dark
 		ReducedMotion:       r.ReduceMotion,
 		HighContrast:        r.IncreaseContrast,
 		DoubleClickInterval: doubleClickFrom(r.DoubleClick),

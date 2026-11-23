@@ -146,8 +146,6 @@ func TestLintTestsFlag(t *testing.T) {
 	}
 }
 
-// needGo skips a test that runs the go command when there is none: under
-// Wine, and on a Windows machine without Go, the test binary runs alone.
 // lintSlots bounds the lint tests that run at once (parallelLint): each
 // type-checks its packages and their dependencies from source, a few
 // hundred MB of syntax and types.
@@ -162,6 +160,8 @@ func parallelLint(t *testing.T) {
 	t.Cleanup(func() { <-lintSlots })
 }
 
+// needGo skips a test that runs the go command when there is none: under
+// Wine, and on a Windows machine without Go, the test binary runs alone.
 func needGo(t *testing.T) {
 	t.Helper()
 	if _, err := exec.LookPath("go"); err != nil {
@@ -216,5 +216,43 @@ func Page() tela.Node {
 	}
 	if code, stdout, stderr := lintRun(t, pattern); code != 0 || stdout != "" || stderr != "" {
 		t.Errorf("after -fix: exit %d, stdout %q, stderr %q", code, stdout, stderr)
+	}
+}
+
+// The old spelling of a removed API does not type-check: it is reported with
+// its rewrite, and -fix leaves compiling code.
+func TestLintFixMigrates(t *testing.T) {
+	parallelLint(t)
+	needGo(t)
+	dir, err := os.MkdirTemp("testdata/lint", "migrate-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	const src = `package migrate
+
+import "github.com/kuronosu/tela/desktop"
+
+func Second(l desktop.Launch) bool { return l.Forwarded }
+`
+	file := filepath.Join(dir, "migrate.go")
+	if err := os.WriteFile(file, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pattern := "./" + filepath.ToSlash(dir)
+	code, stdout, stderr := lintRun(t, pattern)
+	if code != 2 || !strings.Contains(stdout, "migrate: desktop.Launch.Forwarded was removed in v0.14.0") || !strings.Contains(stderr, "Forwarded") {
+		t.Fatalf("without -fix: exit %d, stdout %q, stderr %q; want the finding and the type error", code, stdout, stderr)
+	}
+	code, stdout, stderr = lintRun(t, "-fix", pattern)
+	if code != 0 || stdout != "" || !strings.Contains(stderr, "fixed 1 findings in 1 files") {
+		t.Errorf("-fix: exit %d, stdout %q, stderr %q", code, stdout, stderr)
+	}
+	got, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := strings.Replace(src, "l.Forwarded", "l.Source == desktop.LaunchForwarded", 1); string(got) != want {
+		t.Errorf("fixed file:\n%s", got)
 	}
 }

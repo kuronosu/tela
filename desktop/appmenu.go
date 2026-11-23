@@ -83,7 +83,7 @@ func (m AppMenuBar) Build() tela.Node {
 	w := tela.UseWindow()
 	s := tela.UseOnce(func() *appBarState { return &appBarState{} })
 	s.props = m
-	lists, actions := platformMenus("desktop.AppMenuBar", m.Menus, m.AppItems)
+	lists, actions := platformMenus("desktop.AppMenuBar", core.UseFlavor(), m.Menus, m.AppItems)
 	tela.UseMount(func() func() {
 		d, ok := core.DesktopOf(w)
 		if !ok {

@@ -27,21 +27,21 @@ func TestSettingsFrom(t *testing.T) {
 		in   rawSettings
 		want platform.SystemSettings
 	}{
-		{"light", base, platform.SystemSettings{DoubleClickInterval: ms(500), TextScale: 1}},
+		{"light", base, platform.SystemSettings{LightMode: true, DoubleClickInterval: ms(500), TextScale: 1}},
 		{"dark", with(func(r *rawSettings) { r.AppsUseLightTheme = 0; r.DoubleClickMs = 400 }),
 			platform.SystemSettings{DarkMode: true, DoubleClickInterval: ms(400), TextScale: 1}},
-		{"theme value missing is light", with(func(r *rawSettings) { r.AppsUseLightTheme, r.ThemeKnown = 0, false }),
+		{"theme value missing states no preference", with(func(r *rawSettings) { r.AppsUseLightTheme, r.ThemeKnown = 0, false }),
 			platform.SystemSettings{DoubleClickInterval: ms(500), TextScale: 1}},
 		{"animations off is reduced motion", with(func(r *rawSettings) { r.ClientAreaAnimation = false }),
-			platform.SystemSettings{ReducedMotion: true, DoubleClickInterval: ms(500), TextScale: 1}},
+			platform.SystemSettings{LightMode: true, ReducedMotion: true, DoubleClickInterval: ms(500), TextScale: 1}},
 		{"any non-zero is light", with(func(r *rawSettings) { r.AppsUseLightTheme, r.DoubleClickMs = 7, 0 }),
-			platform.SystemSettings{TextScale: 1}},
+			platform.SystemSettings{LightMode: true, TextScale: 1}},
 		{"accent", with(func(r *rawSettings) { r.Accent, r.HasAccent = color.NRGBA{R: 0, G: 120, B: 212, A: 255}, true }),
-			platform.SystemSettings{DoubleClickInterval: ms(500), TextScale: 1, AccentColor: color.NRGBA{R: 0, G: 120, B: 212, A: 255}, HasAccentColor: true}},
+			platform.SystemSettings{LightMode: true, DoubleClickInterval: ms(500), TextScale: 1, AccentColor: color.NRGBA{R: 0, G: 120, B: 212, A: 255}, HasAccentColor: true}},
 		{"high contrast", with(func(r *rawSettings) { r.HighContrast = true }),
-			platform.SystemSettings{DoubleClickInterval: ms(500), TextScale: 1, HighContrast: true}},
+			platform.SystemSettings{LightMode: true, DoubleClickInterval: ms(500), TextScale: 1, HighContrast: true}},
 		{"text scale", with(func(r *rawSettings) { r.TextScalePercent = 150 }),
-			platform.SystemSettings{DoubleClickInterval: ms(500), TextScale: 1.5}},
+			platform.SystemSettings{LightMode: true, DoubleClickInterval: ms(500), TextScale: 1.5}},
 	} {
 		got := settingsFrom(tc.in)
 		if got != tc.want {

@@ -222,7 +222,16 @@ func TestPackageWindows(t *testing.T) {
 		return stdout.String(), stderr.String()
 	}
 	out1, out2 := filepath.Join(dir, "dist1"), filepath.Join(dir, "dist2")
-	stdout, stderr := pack(out1, "-appinstaller-url", "https://example.com/notes", "-sign")
+	// Off Windows, -sign says it cannot sign and changes nothing. On Windows
+	// it runs signtool, which needs a certificate the machine may lack
+	// (GitHub's runners have none), and a signed MSIX differs from an
+	// unsigned one (its publisher is the certificate's subject): signing is
+	// not this test's.
+	first := []string{"-appinstaller-url", "https://example.com/notes"}
+	if runtime.GOOS != "windows" {
+		first = append(first, "-sign")
+	}
+	stdout, stderr := pack(out1, first...)
 	if runtime.GOOS != "windows" && !strings.Contains(stderr, "signtool is not available") {
 		t.Errorf("-sign off Windows says nothing:\n%s", stderr)
 	}

@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -24,6 +25,23 @@ import (
 
 	"github.com/kuronosu/tela/internal/darwin"
 )
+
+// exampleDirs returns the names of the directories under root that hold a
+// package main: the examples.
+func exampleDirs(root string) ([]string, error) {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	for _, e := range entries {
+		if e.IsDir() && isExampleDir(filepath.Join(root, e.Name())) {
+			names = append(names, e.Name())
+		}
+	}
+	slices.Sort(names)
+	return names, nil
+}
 
 // TestExamplesCocoa is phase 14's done criterion: every example runs on
 // macOS with snapshots pixel-identical to the headless ones. For each

@@ -24,9 +24,10 @@ import (
 //
 // Where each value comes from (the first key present wins):
 //
-//   - DarkMode: org.freedesktop.appearance color-scheme (1: prefer dark;
-//     0 no preference and 2 prefer light are light), else
-//     org.gnome.desktop.interface color-scheme "prefer-dark".
+//   - DarkMode and LightMode: org.freedesktop.appearance color-scheme (1:
+//     prefer dark, 2: prefer light, 0: no preference, neither), else
+//     org.gnome.desktop.interface color-scheme "prefer-dark" or
+//     "prefer-light" ("default" is neither).
 //   - AccentColor: org.freedesktop.appearance accent-color, an (ddd) of
 //     sRGB components in 0..1 (anything out of range means unset, as the
 //     portal specifies), else GNOME's named org.gnome.desktop.interface
@@ -234,9 +235,9 @@ func settingsFrom(raw map[settingKey]any, kdeFonts bool) platform.SystemSettings
 
 	if v, ok := get(nsAppearance, "color-scheme"); ok {
 		n, _ := number(v)
-		s.DarkMode = n == 1
+		s.DarkMode, s.LightMode = n == 1, n == 2
 	} else if v, ok := get(nsGnomeInterface, "color-scheme"); ok {
-		s.DarkMode = v == "prefer-dark"
+		s.DarkMode, s.LightMode = v == "prefer-dark", v == "prefer-light"
 	}
 
 	if v, ok := get(nsAppearance, "accent-color"); ok {

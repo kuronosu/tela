@@ -11,12 +11,13 @@ import (
 	"github.com/kuronosu/tela/internal/testutil/golden"
 )
 
-// paragraphsScene lays out the paragraphs of the phase-2 golden: mixed
-// scripts, a bidi sentence with numbers, alignments, justification,
+// paragraphsScene lays out the paragraphs of the phase-2 golden at scale k:
+// mixed scripts, a bidi sentence with numbers, alignments, justification,
 // truncation, line-clamp, decorations and inline boxes.
-func paragraphsScene(t testing.TB) (*gfx.DisplayList, int, int) {
+func paragraphsScene(t testing.TB, k float32) (*scene, int, int) {
 	c := layoutCollection(t)
-	b := gfx.NewBuilder()
+	s := newScene(k)
+	b := s.b
 	const W = 560
 	ink := gfx.RGB8(0x11, 0x18, 0x27)
 	muted := gfx.RGB8(0x6b, 0x72, 0x80)
@@ -41,11 +42,11 @@ func paragraphsScene(t testing.TB) (*gfx.DisplayList, int, int) {
 				b.FillRRect(gfx.NewRRect(r.Translate(x, y), 3), accent)
 			}
 		}
-		l.Paint(b, gfx.Pt(x, y))
+		s.paint(l, gfx.Pt(x, y))
 		return h
 	}
 	layout := func(p *Paragraph, w float32) *Layout {
-		l := NewLayout(c, p)
+		l := s.layout(c, p)
 		l.BreakLines(w)
 		return l
 	}
@@ -120,16 +121,16 @@ func paragraphsScene(t testing.TB) (*gfx.DisplayList, int, int) {
 	deco.AddText(" with tabular 0123456789.", st(16, 28, func(s *TextStyle) { s.Numeric = NumericTabular }))
 	y += place(layout(deco, W), 16, W) + 16
 
-	return b.Finish(), W + 32, int(math.Ceil(float64(y)))
+	return s, W + 32, int(math.Ceil(float64(y)))
 }
 
 func TestGoldenParagraphs(t *testing.T) {
-	dl, w, h := paragraphsScene(t)
 	for _, scale := range []float32{1, 2} {
 		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
+			s, w, h := paragraphsScene(t, scale)
 			img := image.NewRGBA(image.Rect(0, 0, int(float32(w)*scale), int(float32(h)*scale)))
 			raster.Clear(img, image.Rectangle{}, gfx.RGB8(0xf9, 0xfa, 0xfb))
-			raster.Render(img, dl, raster.Options{Scale: scale})
+			raster.Render(img, s.b.Finish(), raster.Options{Scale: scale})
 			golden.Image(t, fmt.Sprintf("paragraphs_x%g", scale), img)
 		})
 	}

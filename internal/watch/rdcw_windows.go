@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -52,6 +53,11 @@ import (
 //     as the old guess did.
 //   - The walks run on the root's goroutine and stop when the root or the
 //     watcher is closed, so Close does not wait for a large tree.
+//   - The walks list directories with a handle that shares delete access
+//     (dirlist_windows.go): MoveFileEx still holds a directory with
+//     delete access when the record of its new name arrives.
+//   - The read's buffer and OVERLAPPED are on the heap: the system
+//     writes them at completion, and a goroutine's stack moves.
 //   - Names are relative to the root, in UTF-16; the handle is opened with
 //     FILE_FLAG_BACKUP_SEMANTICS, which a directory handle requires, and
 //     shares delete access so the watched trees can still be renamed.
@@ -151,7 +157,7 @@ func (d *rdcw) stopped(r *rootWatch) bool { return r.stopping.Load() || d.closin
 // other entry. It stops when r or the watcher is closed. Errors of
 // vanished entries are ignored; others, dir's own included, are reported.
 func (d *rdcw) walkTree(r *rootWatch, dir string, file func(path string)) {
-	filepath.WalkDir(dir, func(path string, e fs.DirEntry, err error) error {
+	walkDir(dir, func(path string, e fs.DirEntry, err error) error {
 		if d.stopped(r) {
 			return filepath.SkipAll
 		}
@@ -289,17 +295,26 @@ func (d *rdcw) loop(r *rootWatch, ready chan<- error) {
 		return
 	}
 	defer windows.CloseHandle(ev)
-	// DWORD-aligned, as the API requires (a []uint64 is 8-aligned).
-	words := make([]uint64, 64<<10/8)
-	buf := unsafe.Slice((*byte)(unsafe.Pointer(&words[0])), len(words)*8)
+	// The system writes the buffer and the OVERLAPPED when the read
+	// completes, at the addresses the read was given: they live on the
+	// heap, which never moves. On this goroutine's stack (where a buffer
+	// of 64 KB or less that does not escape stays), a stack that grew
+	// while the read was pending (the walk below, a deep SkipDir) was
+	// copied elsewhere, the outcome went to the old stack, and the copy
+	// read as incomplete: the root stopped with "Overlapped I/O
+	// incomplete" (TestReadBufferOffStack). fsnotify keeps both in a heap
+	// object too.
+	rio := new(rdcwIO)
+	buf := rio.buf[:]
+	ov := &rio.ov
 	first, rescan := true, true
 	for {
-		ov := windows.Overlapped{HEvent: ev}
+		*ov = windows.Overlapped{HEvent: ev}
 		windows.ResetEvent(ev)
 		// A Flat watcher's root alone: without the subtree flag, the
 		// changes deep in a large tree (all of %APPDATA% for a store
 		// whose folder does not exist yet) never reach the process.
-		err := windows.ReadDirectoryChanges(r.h, &buf[0], uint32(len(buf)), !d.w.opts.Flat, rdcwMask, nil, &ov, 0)
+		err := windows.ReadDirectoryChanges(r.h, &buf[0], uint32(len(buf)), !d.w.opts.Flat, rdcwMask, nil, ov, 0)
 		if err != nil {
 			if first {
 				ready <- err
@@ -320,13 +335,14 @@ func (d *rdcw) loop(r *rootWatch, ready chan<- error) {
 		}
 		which, err := windows.WaitForMultipleObjects([]windows.Handle{ev, r.stop}, false, windows.INFINITE)
 		if err != nil || which != windows.WAIT_OBJECT_0 {
-			windows.CancelIoEx(r.h, &ov)
+			windows.CancelIoEx(r.h, ov)
 			var n uint32
-			windows.GetOverlappedResult(r.h, &ov, &n, true)
+			windows.GetOverlappedResult(r.h, ov, &n, true)
+			runtime.KeepAlive(rio) // until the read is over
 			return
 		}
 		var n uint32
-		if err := windows.GetOverlappedResult(r.h, &ov, &n, false); err != nil {
+		if err := windows.GetOverlappedResult(r.h, ov, &n, false); err != nil {
 			if errors.Is(err, windows.ERROR_NOTIFY_ENUM_DIR) {
 				d.w.lost()
 				rescan = true
@@ -344,6 +360,14 @@ func (d *rdcw) loop(r *rootWatch, ready chan<- error) {
 		}
 		d.parse(r, buf[:n])
 	}
+}
+
+// rdcwIO is what a pending ReadDirectoryChangesW writes to. buf follows
+// the OVERLAPPED (32 bytes on 64-bit systems, 20 on 32-bit ones), so it
+// is DWORD-aligned, as the API requires.
+type rdcwIO struct {
+	ov  windows.Overlapped
+	buf [64 << 10]byte
 }
 
 // parse reports the FILE_NOTIFY_INFORMATION records of buf.

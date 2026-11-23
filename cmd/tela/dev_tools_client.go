@@ -224,8 +224,12 @@ func (c *toolsClient) call(ctx context.Context, method string, params, result an
 
 // toolsInfo is the session's info.
 type toolsInfo struct {
-	Pkg      string    `json:"pkg"`
-	Dir      string    `json:"dir,omitempty"`
+	Pkg string `json:"pkg"`
+	Dir string `json:"dir,omitempty"`
+	// Cwd is tela dev's working directory, which its children inherit,
+	// and Preview its --preview (both empty from an older tela dev).
+	Cwd      string    `json:"cwd,omitempty"`
+	Preview  string    `json:"preview,omitempty"`
 	PID      int       `json:"pid"`
 	Started  time.Time `json:"started"`
 	Build    int       `json:"build"`
@@ -269,10 +273,24 @@ func (c *toolsClient) Element(ctx context.Context, window uint32, id core.Elemen
 	return r, c.call(ctx, "element", map[string]any{"window": window, "id": id}, &r)
 }
 
+// ElementsSince returns the element list as a change from the list of
+// version (0: the whole list).
+func (c *toolsClient) ElementsSince(ctx context.Context, window uint32, version uint64) (core.ElementsDiff, error) {
+	var r core.ElementsDiff
+	return r, c.call(ctx, "elements", map[string]any{"window": window, "diff": true, "version": version}, &r)
+}
+
 // Inspect returns the layout of element id, or of the whole tree for 0.
 func (c *toolsClient) Inspect(ctx context.Context, window uint32, id core.ElementID) (core.InspectNode, error) {
 	var r core.InspectNode
 	return r, c.call(ctx, "inspect", map[string]any{"window": window, "id": id}, &r)
+}
+
+// InspectDepth is Inspect down to depth levels of children (0: the box
+// alone; the last level counts the rest in More).
+func (c *toolsClient) InspectDepth(ctx context.Context, window uint32, id core.ElementID, depth int) (core.InspectNode, error) {
+	var r core.InspectNode
+	return r, c.call(ctx, "inspect", map[string]any{"window": window, "id": id, "depth": depth}, &r)
 }
 
 // toolsSemantics is the aria snapshot of a window with, per line, its node
@@ -349,11 +367,14 @@ func (c *toolsClient) Hit(ctx context.Context, window uint32, x, y float32, targ
 }
 
 // toolsReveal is the answer of reveal: the part of the element visible
-// once its scroll containers reach their targets (nil for none), and
-// whether a scroll is under way.
+// once its scroll containers reach their targets (nil for none), whether
+// a scroll is under way, and, once none is, a point of the visible part
+// where the element is painted (core.Tree.ActionPoint; nil from an older
+// Tela, or when none is found).
 type toolsReveal struct {
-	Visible *gfx.Rect `json:"visible"`
-	Moved   bool      `json:"moved"`
+	Visible *gfx.Rect  `json:"visible"`
+	Moved   bool       `json:"moved"`
+	Point   *gfx.Point `json:"point,omitempty"`
 }
 
 // Reveal scrolls element id into view.

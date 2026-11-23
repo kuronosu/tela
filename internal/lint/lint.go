@@ -23,9 +23,10 @@
 //	hooks  React's rules of hooks, as dev mode applies them
 //	fragment   a Fragment of a single child, redundant since ADR-205 (has a fix)
 //	prop-node  a Prop where a tela.Node is expected (compiles, panics at run time)
+//	migrate    an API spelling that a release removed or renamed (has a fix, ADR-305)
 //
 // This package is used only by cmd/tela and by the test that checks
-// docs/llms.txt (internal/gen/llmsdoc, ADR-177).
+// docs/llms.txt and docs/llms/ (internal/gen/llmsdoc, ADR-177, ADR-313).
 package lint
 
 import (
@@ -52,10 +53,13 @@ const (
 	RuleFragment = "fragment"
 	// RulePropNode is a Prop where a tela.Node is expected (ADR-205).
 	RulePropNode = "prop-node"
+	// RuleMigrate is a use of an API a release removed or renamed; it has
+	// a fix (ADR-305).
+	RuleMigrate = "migrate"
 )
 
 // Rules lists the rule names.
-var Rules = []string{RuleClass, RuleRole, RuleAria, RuleProp, RuleKey, RuleHooks, RuleFragment, RulePropNode}
+var Rules = []string{RuleClass, RuleRole, RuleAria, RuleProp, RuleKey, RuleHooks, RuleFragment, RulePropNode, RuleMigrate}
 
 // Severities of a Diagnostic.
 const (
@@ -94,6 +98,16 @@ type Options struct {
 	// Patterns are package patterns as `go list` takes them; empty is
 	// "./...".
 	Patterns []string
+	// Context are package patterns, like Patterns, of packages that are
+	// read but not linted: the class aliases and theme colors they declare
+	// are known to the packages that are. Only the packages that mention
+	// ClassAliases or SchemeColor, and what they import in the module, are
+	// type-checked, so the context can be a whole module (tela lsp lints
+	// one package, and an app's aliases are usually declared in another).
+	Context []string
+	// Migrations are the rewrites of the migrate rule; nil is the table
+	// Migrations. Tests give their own.
+	Migrations []Migration
 	// Tests also lints the _test.go files.
 	Tests bool
 	// Fix applies the fixes of the findings that have one (Fixable),
@@ -109,6 +123,10 @@ type Options struct {
 	// AbsPaths makes Diagnostic.File an absolute path instead of one
 	// relative to the working directory.
 	AbsPaths bool
+	// Cache keeps the packages a run checks from source but does not lint
+	// for the runs after it (tela lsp's context); nil checks everything
+	// again. See Cache.
+	Cache *Cache
 	// Lenient lints a package that does not type-check, with what was
 	// resolved of it, instead of skipping it: a buffer being typed is
 	// rarely well-formed. The type errors are still in Result.LoadErrors.
@@ -124,6 +142,9 @@ type Result struct {
 	LoadErrors []string
 	// Packages is the number of packages linted.
 	Packages int
+	// Reused is the number of packages that Options.Cache had checked
+	// already, of those the run read from source.
+	Reused int
 	// Fixed are the findings that Options.Fix fixed, and FixedFiles the
 	// number of files it wrote.
 	Fixed      []Diagnostic
@@ -171,7 +192,44 @@ func Run(opts Options) (res *Result, err error) {
 		patterns = []string{"./..."}
 	}
 	r := &run{opts: opts, dir: dir}
-	return r.run(patterns)
+	res, err = r.run(patterns)
+	if err != nil || !opts.Fix {
+		return res, err
+	}
+	// A migration makes a package that did not type-check compile, and the
+	// other rules, their fixes among them, can then look at it: go on
+	// until a pass fixes nothing.
+	for range 3 {
+		if !fixedRule(res.Fixed, RuleMigrate) {
+			break
+		}
+		next, err := (&run{opts: opts, dir: dir}).run(patterns)
+		if err != nil {
+			return res, err
+		}
+		fixedBefore := res.Fixed
+		next.Fixed = append(append([]Diagnostic(nil), fixedBefore...), next.Fixed...)
+		next.FixedFiles += res.FixedFiles
+		if next.FixError == nil {
+			next.FixError = res.FixError
+		}
+		again := fixedRule(next.Fixed[len(fixedBefore):], RuleMigrate)
+		res = next
+		if !again {
+			break
+		}
+	}
+	return res, nil
+}
+
+// fixedRule reports whether a finding of the rule is among the fixed ones.
+func fixedRule(fixed []Diagnostic, rule string) bool {
+	for _, d := range fixed {
+		if d.Rule == rule {
+			return true
+		}
+	}
+	return false
 }
 
 // WriteText prints the diagnostics one per line, as go vet does.

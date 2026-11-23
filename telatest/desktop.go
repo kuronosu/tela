@@ -521,6 +521,9 @@ func (a *App) DismissNotification(title string) {
 type TrayIcon struct {
 	Tooltip string
 	Menu    []TrayItem
+	// Template is whether the icon is a template image (desktop.Tray's
+	// Template: a single-color shape macOS tints for the menu bar).
+	Template bool
 	// Updates counts the changes of the icon since it was added.
 	Updates int
 }
@@ -540,7 +543,7 @@ func (a *App) Trays() []TrayIcon {
 	a.settleAfter()
 	var out []TrayIcon
 	for _, r := range a.backend.Trays() {
-		out = append(out, TrayIcon{Tooltip: r.Options.Tooltip, Menu: trayItems(r.Options.Menu), Updates: r.Updates})
+		out = append(out, TrayIcon{Tooltip: r.Options.Tooltip, Menu: trayItems(r.Options.Menu), Template: r.Options.Template, Updates: r.Updates})
 	}
 	return out
 }

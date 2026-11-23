@@ -3,6 +3,7 @@ package core
 import (
 	"runtime"
 	"strings"
+	"sync/atomic"
 )
 
 // Creation sites (ADR-299): where the user's code made a node, for
@@ -47,8 +48,30 @@ import (
 // full).
 const maxSiteCache = 4096
 
+// siteDeep bounds the frames read above a node constructor when its
+// nearest callStack frames decide nothing (deepSite).
+const siteDeep = 64
+
 // noteSite records the call stack above the node constructor that calls
 // it in d.site (skip 0), while creation sites are captured.
+//
+// The stack is captured into a callStack (8 frames), which the rules
+// above resolve when the site is read. Most nodes are decided there: the
+// constructor's caller is the app (Div(...) in a Build), or a library's
+// Build, which the build machinery called. A node made at the end of a
+// deeper chain of helpers that are not the app's (a library's functions
+// calling each other, then h.Div) has its app frame past those 8; for it
+// (deepSite) the stack is read again up to siteDeep frames, and the first
+// frame of the app found there replaces the last of the 8 (or the first
+// library frame, when the 8 have none), so that resolving gives what a
+// full stack would. Deciding reads the class of each return address
+// (siteClassOf) from a small lock-free cache, about a nanosecond each,
+// and stops at the first that decides: the common case costs one or two
+// lookups, the deep one a second runtime.Callers. Capturing siteDeep
+// frames every time instead would unwind the whole build machinery and
+// the event loop below it for every node (most stacks are 30 to 50 frames
+// deep), and a larger callStack would grow every node's capture and the
+// resolved-site cache's keys.
 //
 //go:noinline
 func noteSite(d *desc) {
@@ -56,8 +79,97 @@ func noteSite(d *desc) {
 		return
 	}
 	s := new(callStack)
-	runtime.Callers(3, s[:]) // runtime.Callers, noteSite, the constructor
+	n := runtime.Callers(3, s[:]) // runtime.Callers, noteSite, the constructor
 	d.site = s
+	if n < len(s) {
+		return // the whole stack
+	}
+	lib := false
+	for _, pc := range s {
+		switch siteClassOf(pc) {
+		case siteApp, siteMachinery:
+			return
+		case siteLib:
+			lib = true
+		}
+	}
+	deepSite(s, lib)
+}
+
+// deepSite reads the stack above the constructor again, deeper, for the
+// first frame that decides past the 8 of s (noteSite), and puts it in the
+// last slot of s: the app's, or the first library frame when s has none
+// (lib is false). It runs on the goroutine of noteSite's caller, under
+// the same constructor (skip counts noteSite's frame and its own).
+//
+//go:noinline
+func deepSite(s *callStack, lib bool) {
+	var buf [siteDeep]uintptr
+	n := runtime.Callers(4, buf[:]) // runtime.Callers, deepSite, noteSite, the constructor
+	var firstLib uintptr
+scan:
+	for _, pc := range buf[min(len(s), n):n] {
+		switch siteClassOf(pc) {
+		case siteMachinery:
+			break scan // what is past the build did not make the node
+		case siteApp:
+			s[len(s)-1] = pc
+			return
+		case siteLib:
+			if firstLib == 0 {
+				firstLib = pc
+			}
+		}
+	}
+	if !lib && firstLib != 0 {
+		s[len(s)-1] = firstLib
+	}
+}
+
+// The classes of a return address for creation sites: the first frame it
+// stands for (with the frames inlined there) that decides, by the rules
+// above.
+const (
+	siteUnknown   = iota // not in the cache
+	sitePlumbing         // Tela's own packages: skipped
+	siteLib              // outside the plumbing but not the app (rule 2)
+	siteApp              // the app (rule 1)
+	siteMachinery        // core's build machinery: the stack stops there
+)
+
+// siteClasses caches the class of return addresses, direct-mapped: an
+// entry holds pc<<3 | class. Collisions only cost a new lookup.
+var siteClasses [1024]atomic.Uint64
+
+// siteClassOf returns the class of return address pc.
+func siteClassOf(pc uintptr) uint64 {
+	slot := &siteClasses[(pc^pc>>10)%uintptr(len(siteClasses))]
+	if v := slot.Load(); v>>3 == uint64(pc) && v&7 != siteUnknown {
+		return v & 7
+	}
+	class := uint64(sitePlumbing)
+	frames := runtime.CallersFrames([]uintptr{pc})
+	for {
+		f, more := frames.Next()
+		if f.Function != "" {
+			if buildMachinery(f.Function) {
+				class = siteMachinery
+				break
+			}
+			if appFrame(f.Function, f.File) {
+				class = siteApp
+				break
+			}
+			if !frameworkFrame(f.Function, f.File) {
+				class = siteLib
+			}
+		}
+		if !more {
+			break
+		}
+	}
+	slot.Store(uint64(pc)<<3 | class)
+	return class
 }
 
 // declSite returns a stack whose one frame is the declaration of the

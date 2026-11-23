@@ -162,6 +162,21 @@ func (w *Window) SetBackdrop(backdrop platform.Backdrop) {
 	}
 }
 
+var _ platform.AlphaPresenter = (*Window)(nil)
+
+// PresentsAlpha reports whether the host's real window shows the alpha of
+// the frames (platform.AlphaPresenter: a Windows 11 or macOS window with a
+// client-area backdrop), as the host last told (protocol 19): false until
+// it did, and false while this window's backdrop is not yet the real
+// window's (a starting build that changed it). A change arrives before a
+// WindowStateEvent, so the layers above ask again then; right after
+// SetBackdrop the answer is still the old one.
+func (w *Window) PresentsAlpha() bool {
+	w.b.mu.Lock()
+	defer w.b.mu.Unlock()
+	return w.alpha
+}
+
 // SetHitRegions declares the custom title bar's regions; equal lists are
 // not resent. Invalid regions panic.
 func (w *Window) SetHitRegions(regions []platform.HitRegion) {
@@ -322,6 +337,8 @@ func (c *Child) windowCtl(d *dec) error {
 			cw.backdrop = backdrp
 			if active {
 				h.applyWindow(rw, cw)
+			} else {
+				h.syncAlpha(rw) // reload.go: its backdrop may be the real window's now
 			}
 		case ctlHitRegions:
 			cw.regions = regions
@@ -381,6 +398,7 @@ func (h *Host) applyWindow(rw *realWin, cw *childWin) {
 		rw.regions = cw.regions
 		rw.w.SetHitRegions(cw.regions)
 	}
+	h.syncAlpha(rw) // reload.go: the backdrop decides whether it shows alpha
 }
 
 // equalIcons reports whether two decoded icons have the same images.

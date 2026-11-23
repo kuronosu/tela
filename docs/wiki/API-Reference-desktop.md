@@ -1049,7 +1049,7 @@ desktop.UseLaunch(func(l desktop.Launch) {
 })
 ```
 
-The process's own start is given to the UseLaunch calls mounted when the first of them mounts (normally the app's first frame), not to those that mount later, so a screen that mounts again does not reopen the files. telatest gives no start launch (App.InjectLaunch gives later ones), and neither does a reload of tela dev.
+The process's own start is given to the UseLaunch calls mounted when the first of them mounts (normally the app's first frame), not to those that mount later, so a screen that mounts again does not reopen the files. telatest gives one with its StartLaunch option (App.InjectLaunch gives later ones), and a reload of tela dev gives none.
 
 ### func UseSavePlacement
 

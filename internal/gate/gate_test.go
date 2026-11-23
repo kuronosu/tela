@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -317,5 +319,136 @@ func TestCollapseApparatus(t *testing.T) {
 	got := collapseApparatus(items)
 	if len(got) != 3 || got[0].Where != "internal/gate/ (4 files)" || got[1].Where != ".github/workflows/ci.yml" || got[2].What != "test skip" {
 		t.Errorf("collapsed = %+v", got)
+	}
+}
+
+// TestFailureKeepsErrorLines is the failure of 2026-11-22: an aria snapshot
+// printed after the error filled the last lines, so the gate showed no
+// error line at all.
+func TestFailureKeepsErrorLines(t *testing.T) {
+	out := []string{"    notes_test.go:88: aria snapshot of the list:"}
+	for i := range 120 {
+		out = append(out, fmt.Sprintf("        - listitem \"Note %d\"", i))
+	}
+	out = append(out, "    notes_test.go:91: got 120 items, want 121")
+	for i := range 60 {
+		out = append(out, fmt.Sprintf("        - row %d", i))
+	}
+	out = append(out, "--- FAIL: TestAriaSnapshot (0.41s)")
+	f := (&gate{}).describeFailure(testFailure{Package: modulePath + "/examples/notes", Test: "TestAriaSnapshot", Reason: "failed", Output: out})
+	for _, want := range []string{
+		"notes_test.go:88: aria snapshot of the list:",
+		`- listitem "Note 0"`, // the start of a dump says what it is
+		"notes_test.go:91: got 120 items, want 121",
+		"--- FAIL: TestAriaSnapshot (0.41s)",
+	} {
+		if !strings.Contains(f.Detail, want) {
+			t.Errorf("detail lacks %q:\n%s", want, f.Detail)
+		}
+	}
+	if strings.Contains(f.Detail, `"Note 60"`) {
+		t.Errorf("detail keeps the middle of the dump:\n%s", f.Detail)
+	}
+	if n := strings.Count(f.Detail, "\n") + 1; n > 2*maxTail {
+		t.Errorf("detail has %d lines, want at most %d:\n%s", n, 2*maxTail, f.Detail)
+	}
+}
+
+// TestFailureKeepsManyErrorLines bounds a test that reports an error per
+// item: the first errors and the last are kept.
+func TestFailureKeepsManyErrorLines(t *testing.T) {
+	var out []string
+	for i := range 200 {
+		out = append(out, fmt.Sprintf("    x_test.go:%d: item %d is wrong", 10+i, i))
+	}
+	out = append(out, "--- FAIL: TestItems (0.01s)")
+	f := (&gate{}).describeFailure(testFailure{Package: "m/x", Test: "TestItems", Reason: "failed", Output: out})
+	for _, want := range []string{"x_test.go:10: item 0 is wrong", "x_test.go:209: item 199 is wrong", "--- FAIL: TestItems"} {
+		if !strings.Contains(f.Detail, want) {
+			t.Errorf("detail lacks %q:\n%s", want, f.Detail)
+		}
+	}
+	if n := strings.Count(f.Detail, "\n") + 1; n > 2*maxTail {
+		t.Errorf("detail has %d lines, want at most %d:\n%s", n, 2*maxTail, f.Detail)
+	}
+}
+
+// TestFailureKeepsPanicHead keeps the first lines of a panic (the test
+// that timed out, the panic value) when a goroutine dump follows.
+func TestFailureKeepsPanicHead(t *testing.T) {
+	out := []string{
+		"panic: test timed out after 10m0s",
+		"\trunning tests:",
+		"\t\tTestCopyActions (10m0s)",
+		"",
+	}
+	for i := range 200 {
+		out = append(out, fmt.Sprintf("goroutine %d [chan receive]:", i), "\t/x/y.go:12 +0x45", "")
+	}
+	out = append(out, "FAIL\tgithub.com/kuronosu/tela/cmd/tela/internal/devtools\t600.1s")
+	f := (&gate{}).describeFailure(testFailure{Package: modulePath + "/cmd/tela/internal/devtools", Reason: "package failed", Output: out})
+	for _, want := range []string{"panic: test timed out after 10m0s", "TestCopyActions (10m0s)", "devtools\t600.1s"} {
+		if !strings.Contains(f.Detail, want) {
+			t.Errorf("detail lacks %q:\n%s", want, f.Detail)
+		}
+	}
+	if n := strings.Count(f.Detail, "\n") + 1; n > 2*maxTail {
+		t.Errorf("detail has %d lines, want at most %d:\n%s", n, 2*maxTail, f.Detail)
+	}
+}
+
+// TestFailureShortOutputWhole keeps a short output as it is.
+func TestFailureShortOutputWhole(t *testing.T) {
+	out := []string{"    a_test.go:3: got 1", "        more", "--- FAIL: TestA (0.00s)"}
+	f := (&gate{}).describeFailure(testFailure{Package: "m/a", Test: "TestA", Reason: "failed", Output: out})
+	if want := strings.Join(out, "\n"); f.Detail != want {
+		t.Errorf("detail = %q, want %q", f.Detail, want)
+	}
+}
+
+// The test step turns go test's vet off because the vet step covers what
+// it checked: every test command has a vet command for the same module
+// and tags on each system the tests may run on, for the host's
+// architecture (vet runs a superset of go test's analyzers, test files
+// included).
+func TestTestStepVetIsCovered(t *testing.T) {
+	tags := func(args []string) string {
+		for i, a := range args {
+			if a == "-tags" && i+1 < len(args) {
+				return args[i+1]
+			}
+		}
+		return ""
+	}
+	type key struct{ dir, tags, goos string }
+	vetted := map[key]bool{}
+	for _, s := range vetSpecs() {
+		goos, arch := "", ""
+		for _, e := range s.env {
+			if v, ok := strings.CutPrefix(e, "GOOS="); ok {
+				goos = v
+			}
+			if v, ok := strings.CutPrefix(e, "GOARCH="); ok {
+				arch = v
+			}
+		}
+		if arch == "" {
+			vetted[key{s.dir, tags(s.args), goos}] = true
+		}
+	}
+	n := 0
+	for _, s := range testSpecs() {
+		if !slices.Contains(s.args, "-vet=off") {
+			continue
+		}
+		n++
+		for _, goos := range []string{"linux", "windows", "darwin"} {
+			if !vetted[key{s.dir, tags(s.args), goos}] {
+				t.Errorf("%s: no vet command for dir %q, tags %q, GOOS=%s", s.label, s.dir, tags(s.args), goos)
+			}
+		}
+	}
+	if n == 0 {
+		t.Error("no test command turns vet off: this test checks nothing")
 	}
 }

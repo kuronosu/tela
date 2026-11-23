@@ -262,6 +262,7 @@ func (f *failMoveApp) Pointer(ctx context.Context, win uint32, action string, x,
 // The attached lint tool lints the directory tela dev runs, wherever tela
 // mcp --attach runs.
 func TestAttachLintUsesTheSessionDir(t *testing.T) {
+	needGo(t) // it lints, which runs go list
 	dir, err := filepath.Abs(filepath.Join("testdata", "lint", "dirty"))
 	if err != nil {
 		t.Fatal(err)
@@ -271,7 +272,10 @@ func TestAttachLintUsesTheSessionDir(t *testing.T) {
 	s.dial = func(string) (attachConn, error) { return app, nil }
 	s.quiet, s.first, s.max, s.poll = 5*time.Millisecond, 20*time.Millisecond, 300*time.Millisecond, time.Millisecond
 	text, res := s.tool(t, "lint", `{}`)
-	if res.IsError || !strings.Contains(text, "problem") || !strings.Contains(text, filepath.Join(dir, "dirty.go")) {
+	// The findings are JSON, whose strings escape a Windows path's
+	// backslashes.
+	file, _ := json.Marshal(filepath.Join(dir, "dirty.go"))
+	if res.IsError || !strings.Contains(text, "problem") || !strings.Contains(text, string(file)) {
 		t.Errorf("lint of the session's directory: %v %s", res.IsError, text)
 	}
 }
@@ -332,5 +336,77 @@ func TestToolsDiscoveryCleanup(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Dir(addr)); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("the socket directory of the ended session is still there: %v", err)
+	}
+}
+
+// A client that does not read its notifications fills its queue: what it
+// misses is counted, and once it reads again it gets a dropped
+// notification, before any newer one, that names what to fetch again. It
+// runs over net.Pipe, so it needs no AF_UNIX socket (it runs under Wine).
+func TestToolsQueueFullDropped(t *testing.T) {
+	ts := newToolsServer("./pipe", "", t.TempDir(), func(string, ...any) {})
+	server, client := net.Pipe()
+	defer client.Close()
+	c := &toolsConn{ts: ts, nc: server, out: make(chan []byte, toolsQueue), dead: make(chan struct{}),
+		subs: map[string]bool{"frames": true, "logs": true}}
+	ts.conns[c] = struct{}{}
+	go c.write()
+	// net.Pipe has no buffer: the writer blocks on its first message, so
+	// the queue holds toolsQueue more; the rest is dropped. The loop waits
+	// for the writer to take the first one: a writer that started late (on
+	// a busy machine) made room in the middle, and the dropped
+	// notification went out with part of the count.
+	const sent = toolsQueue + 40
+	for i := range sent {
+		ts.broadcast("frames", map[string]int{"n": i})
+		for i == 0 && len(c.out) > 0 {
+			time.Sleep(time.Millisecond)
+		}
+	}
+	ts.broadcast("logs", map[string]int{"n": 0})
+	ts.broadcast("windows", map[string]int{"n": 0}) // not subscribed: not counted
+
+	sc := bufio.NewScanner(client)
+	sc.Buffer(make([]byte, 64<<10), 1<<20)
+	type msg struct {
+		Method string          `json:"method"`
+		Params json.RawMessage `json:"params"`
+	}
+	read := func() msg {
+		t.Helper()
+		client.SetReadDeadline(time.Now().Add(5 * time.Second))
+		if !sc.Scan() {
+			t.Fatalf("no message: %v", sc.Err())
+		}
+		var m msg
+		if err := json.Unmarshal(sc.Bytes(), &m); err != nil {
+			t.Fatal(err)
+		}
+		return m
+	}
+	// The frames the queue held (and the one the writer had taken, if it
+	// took one before the queue filled), then the dropped notification.
+	frames := 0
+	m := read()
+	for ; m.Method == "frames"; m = read() {
+		frames++
+	}
+	if frames < toolsQueue || frames > toolsQueue+1 {
+		t.Errorf("%d frames before %s, want the %d the queue held", frames, m.Method, toolsQueue)
+	}
+	var d struct {
+		Events map[string]int `json:"events"`
+	}
+	if m.Method != "dropped" || json.Unmarshal(m.Params, &d) != nil || d.Events["frames"] != sent-frames || d.Events["logs"] != 1 || len(d.Events) != 2 {
+		t.Fatalf("after the queue emptied: %s %s, want dropped {frames: %d, logs: 1}", m.Method, m.Params, sent-frames)
+	}
+	// Notifications flow again, and the counts start again.
+	ts.broadcast("logs", map[string]int{"n": 1})
+	if m := read(); m.Method != "logs" {
+		t.Errorf("then %s %s, want logs", m.Method, m.Params)
+	}
+	ts.broadcast("frames", map[string]int{"n": sent})
+	if m := read(); m.Method != "frames" {
+		t.Errorf("then %s %s, want frames (no second dropped notification)", m.Method, m.Params)
 	}
 }

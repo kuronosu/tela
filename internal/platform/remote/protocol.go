@@ -56,7 +56,11 @@ import (
 //   - 16: platform contract v15 (ADR-297): NotificationEvent.Earlier.
 //   - 17: platform contract v16 (ADR-298; surfaces.go): SetStartAtLogin,
 //     StartsAtLogin, SetTasks, AddRecentDocument, ClearRecentDocuments.
-const ProtocolVersion = 17
+//   - 18: platform contract v17 (ADR-304): SystemSettings.LightMode.
+//   - 19: desktop services across reloads (ADR-310; reload.go):
+//     msgDropDone, the final effect of a drop, and the real window's
+//     alpha (PresentsAlpha) in msgWindowInfo.
+const ProtocolVersion = 19
 
 // magic opens the hello message.
 const magic = "TELA"
@@ -107,7 +111,7 @@ const (
 
 	// Window control (version 3, ADR-184).
 	msgWindowCtl  // child→host: id, op (ctl…), arguments
-	msgWindowInfo // host→child: id, hidden, restore token of the real window
+	msgWindowInfo // host→child: id, hidden, restore token of the real window, alpha (version 19)
 	msgRunning    // child→host: Run started (the windows of its setup are sent)
 
 	// Drag and drop (version 5, ADR-214).
@@ -115,6 +119,9 @@ const (
 
 	// Accessibility (version 9, ADR-246; access.go).
 	msgSetAccessibility // child→host: id, update
+
+	// Desktop services across reloads (version 19, ADR-310; reload.go).
+	msgDropDone // child→host: id, drag session, the drop's final effect
 )
 
 // Window control operations of msgWindowCtl.
@@ -224,6 +231,7 @@ func (e *enc) settings(s platform.SystemSettings) {
 	e.str(s.TitleBarButtons) // protocol 7 (ADR-238)
 	e.str(s.UIFontFamily)    // protocol 8 (ADR-244)
 	e.str(s.MonoFontFamily)
+	e.boolean(s.LightMode) // protocol 18 (ADR-304)
 }
 func (e *enc) rects(rs []image.Rectangle) {
 	e.u32(uint32(len(rs)))
@@ -304,6 +312,7 @@ func (d *dec) settings() platform.SystemSettings {
 		TitleBarButtons:     d.str(),
 		UIFontFamily:        d.str(),
 		MonoFontFamily:      d.str(),
+		LightMode:           d.boolean(),
 	}
 }
 func (d *dec) str() string {

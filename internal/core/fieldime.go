@@ -206,6 +206,9 @@ func (t *Tree) fieldBlurred(f *field) {
 // HandleIME applies an IMEEvent to the focused text field (see the
 // comment at the top of fieldime.go). Call it on the UI thread.
 func (t *Tree) HandleIME(e platform.IMEEvent) {
+	if t.pickSwallows() {
+		return // pick mode takes the text input (instrument_pick.go)
+	}
 	f := t.focusedField()
 	if f == nil || f.readOnly() {
 		return

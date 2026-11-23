@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"image"
+	"io"
 	"log/slog"
 	"net"
 	"os"
@@ -18,6 +20,7 @@ import (
 	"time"
 
 	"github.com/kuronosu/tela/internal/core"
+	"github.com/kuronosu/tela/internal/devloop"
 	"github.com/kuronosu/tela/internal/platform/remote"
 	"github.com/kuronosu/tela/internal/testutil/wine"
 )
@@ -149,6 +152,7 @@ func TestToolsLog(t *testing.T) {
 	if fwd.String() != strings.Join(parts, "") {
 		t.Errorf("forwarded %q", fwd.String())
 	}
+	l.flush() // the lines wait for a twin among the app's entries
 	es, last := l.since(0)
 	type line struct {
 		msg   string
@@ -186,6 +190,66 @@ func TestToolsLog(t *testing.T) {
 	es, last = l.since(0)
 	if len(es) != toolsLogMax || es[0].Seq != last-toolsLogMax+1 || es[len(es)-1].Seq != last {
 		t.Errorf("after overflow: %d entries, %d..%d, last %d", len(es), es[0].Seq, es[len(es)-1].Seq, last)
+	}
+}
+
+// A dev warning reaches the log twice, on the child's standard error and
+// among its tree's entries, in either order: the log keeps the tree's
+// entry (level, window) once, and a line with no twin after the wait.
+func TestToolsLogTwins(t *testing.T) {
+	ts := newToolsServer("./app", "", t.TempDir(), func(string, ...any) {})
+	ts.build = 2
+	w := ts.log.stderr(2, nil)
+	app := func(msg string) {
+		raw, _ := json.Marshal(core.LogEntry{Seq: 1, At: time.Now(), Level: slog.LevelWarn, Msg: msg})
+		ts.appLogs([]devloop.ToolsLogBatch{{Window: 1, Entries: []json.RawMessage{raw}}})
+	}
+	// Standard error first, then the tree's entry.
+	w.Write([]byte("tela: Item has no key\n"))
+	app("tela: Item has no key")
+	// The tree's entry first, then standard error; a message of two lines.
+	app("tela: unknown class \"p-13\"\n  did you mean \"p-12\"?")
+	w.Write([]byte("tela: unknown class \"p-13\"\n  did you mean \"p-12\"?\n"))
+	// A line of the app's own, and one of another build that looks the same.
+	w.Write([]byte("listening on :8080\n"))
+	ts.log.stderr(1, nil).Write([]byte("tela: Item has no key\n"))
+	// The lines without a twin come after the wait; nothing comes after.
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		es, _ := ts.log.since(0)
+		if len(es) >= 4 || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	time.Sleep(600 * time.Millisecond) // twice the wait (toolsLogGrace)
+	es, _ := ts.log.since(0)
+	var got []string
+	for _, e := range es {
+		got = append(got, fmt.Sprintf("%s %d %s", e.Source, e.Build, strings.ReplaceAll(e.Msg, "\n", "|")))
+	}
+	slices.Sort(got)
+	want := []string{
+		`app 2 tela: Item has no key`,
+		`app 2 tela: unknown class "p-13"|  did you mean "p-12"?`,
+		`stderr 1 tela: Item has no key`,
+		`stderr 2 listening on :8080`,
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("entries\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+// The supervisor's own lines are in the log, a failed build as an error.
+func TestToolsLogSupervisorLines(t *testing.T) {
+	s := newSupervisor(supervisorConfig{opts: devOptions{Pkg: "./app"}, log: io.Discard, stdout: io.Discard, stderr: io.Discard,
+		tools: true, toolsDir: t.TempDir()})
+	s.log.printf("building…")
+	terminalView{s.log}.show(problem{kind: problemBuild, summary: "build failed", text: "main.go:3:1: syntax error"})
+	es, _ := s.tools.log.since(0)
+	if len(es) != 2 || es[0].Source != "tela dev" || es[0].Msg != "building…" || es[0].Level != slog.LevelInfo ||
+		es[1].Source != "tela dev" || es[1].Level != slog.LevelError || es[1].Msg != "build failed:\nmain.go:3:1: syntax error" {
+		t.Errorf("entries %+v", es)
 	}
 }
 
@@ -350,14 +414,44 @@ func TestDevToolsRelay(t *testing.T) {
 	if err := c.Text(ctx, 0, "hi"); err != nil {
 		t.Fatal(err)
 	}
-	expectFake("1 fake.focus true") // the window had no focus: the app is given it
+	expectFake("1 fake.focus true") // the window had no focus: the app is lent it
 	expectFake("1 fake.key h|h")
 	expectFake("1 fake.key i|i")
+	expectFake("1 fake.focus false") // and gets it back once the keys are typed
+	focused := func() bool {
+		t.Helper()
+		ws, err := c.Windows(ctx)
+		if err != nil || len(ws) != 1 {
+			t.Fatalf("windows %+v, %v", ws, err)
+		}
+		return ws[0].Focused
+	}
+	if focused() {
+		t.Error("the window is focused after typing into it; the OS never focused it")
+	}
 	if err := c.Key(ctx, 0, "Control+s", ""); err != nil {
 		t.Fatal(err)
 	}
+	expectFake("1 fake.focus true")
 	expectFake("1 fake.key Control|")
 	expectFake("1 fake.key s|s")
+	expectFake("1 fake.focus false")
+	// A key held across calls keeps the lent focus until its release.
+	if err := c.Key(ctx, 0, "Shift", "press"); err != nil {
+		t.Fatal(err)
+	}
+	expectFake("1 fake.focus true")
+	expectFake("1 fake.key Shift|")
+	if !focused() {
+		t.Error("the focus went back while Shift is held")
+	}
+	if err := c.Key(ctx, 0, "Shift", "release"); err != nil {
+		t.Fatal(err)
+	}
+	expectFake("1 fake.focus false")
+	if focused() {
+		t.Error("the window is focused after Shift's release")
+	}
 	if err := c.Key(ctx, 0, "Ctrl+s", ""); err == nil || !strings.Contains(err.Error(), `"Ctrl" is not a modifier`) {
 		t.Errorf("a bad combination: %v", err)
 	}
@@ -478,6 +572,16 @@ func TestDevToolsEndToEnd(t *testing.T) {
 	if cy < 48 || cy > 88 {
 		t.Errorf("the Increment button is at %v; devapp says y 48 to 88", *button.Bounds)
 	}
+	// The layout of the root a level at a time, and the element list as
+	// changes from a version.
+	root, err := c.InspectDepth(ctx, win, 0, 0)
+	if err != nil || root.Kind != "root" || len(root.Children) != 0 || root.More == 0 {
+		t.Errorf("inspect of the root at depth 0: %d children, more %d, %v", len(root.Children), root.More, err)
+	}
+	full, err := c.ElementsSince(ctx, win, 0)
+	if err != nil || !full.Full || full.Version == 0 || len(full.Elements) != len(els) {
+		t.Fatalf("elements since 0: full %v, version %d, %d of %d, %v", full.Full, full.Version, len(full.Elements), len(els), err)
+	}
 	ps, err := c.Profiles(ctx, win, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -506,8 +610,17 @@ func TestDevToolsEndToEnd(t *testing.T) {
 		}
 		return false
 	})
-	if frame.Built == 0 || frame.Duration <= 0 {
+	// On Windows Go's clock moves once per timer tick (0.5–15.6 ms), so a
+	// frame shorter than a tick measures 0 (docs/LIMITATIONS.md, Profiler
+	// on Windows).
+	if frame.Built == 0 || frame.Duration < 0 || frame.Duration == 0 && runtime.GOOS != "windows" {
 		t.Errorf("the frame of the click: %+v", frame)
+	}
+	// Only what the click changed comes, the counter's text among it.
+	d, err := c.ElementsSince(ctx, win, full.Version)
+	if err != nil || d.Full || d.Version == full.Version || len(d.Elements) == 0 || len(d.Elements) >= len(full.Elements)/2 ||
+		!slices.ContainsFunc(d.Elements, func(e core.ElementInfo) bool { return e.ID == counter.ID }) {
+		t.Errorf("elements since the click: full %v, version %d (was %d), %d of %d elements, %v", d.Full, d.Version, full.Version, len(d.Elements), len(full.Elements), err)
 	}
 	info, err := c.Element(ctx, win, counter.ID)
 	if err != nil || len(info.Recent) == 0 {
@@ -576,8 +689,22 @@ func TestDevToolsEndToEnd(t *testing.T) {
 		(info.Recent[0].Reasons[0].Cause != core.CauseReload && info.Recent[0].Reasons[0].Cause != core.CauseMount) {
 		t.Errorf("the counter's first build in the new child is not recorded: %+v, %v", info.Recent, err)
 	}
+	// The dev warning about Mixed's func slot is printed on the child's
+	// standard error and kept by its instrumented tree: the log has it once.
+	// (tela dev's own report of the slot's reset, "state: … resets", is
+	// another line, from the supervisor.)
 	es, _, err := c.Logs(ctx, 0)
-	if err != nil || !slices.ContainsFunc(es, func(e toolsLogEntry) bool { return e.Source == "stderr" && strings.Contains(e.Msg, "holds a func") }) {
-		t.Errorf("the logs have no line of the child's standard error about Mixed's func slot (%v):\n%+v", err, es)
+	var twins []toolsLogEntry
+	for _, e := range es {
+		if e.Source != "tela dev" && strings.Contains(e.Msg, "holds a func") {
+			twins = append(twins, e)
+		}
+	}
+	if err != nil || len(twins) != 1 {
+		t.Errorf("the logs have %d entries about Mixed's func slot, want 1 (%v):\n%+v", len(twins), err, es)
+	}
+	// The supervisor's own lines are there too.
+	if !slices.ContainsFunc(es, func(e toolsLogEntry) bool { return e.Source == "tela dev" && strings.Contains(e.Msg, "reloaded") }) {
+		t.Errorf("the logs have no line of tela dev's own about the reload:\n%+v", es)
 	}
 }

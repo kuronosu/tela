@@ -125,7 +125,6 @@ var attachDefs = func() []attachToolDef {
 		def("open", `Not available while attached to tela dev: there is one running app. Use the headless server for previews.`,
 			act("Open a screen"), []schemaProp{
 				{"preview", "string", "Name of a preview", nil},
-				{"dark", "boolean", "Dark mode", nil},
 				{"width", "number", "Logical width in pixels", nil},
 				{"height", "number", "Logical height in pixels", nil},
 				{"scale", "number", "Display scale", nil},
@@ -138,11 +137,10 @@ var attachDefs = func() []attachToolDef {
 			}, (*attachSession).toolWait),
 		def("inspect", `Show the layout tree of the running app as JSON (tela inspect --layout): each box's rect in logical pixels, margin, border, padding, classes and computed style, with its source line. With an element (ref), only its box and what it contains. Use it when something is misplaced, misaligned or has the wrong size. Example: {"ref": "e5"}`,
 			ro("Layout tree"), elementProps("element"), (*attachSession).toolInspect),
-		def("state", `Show why a component rendered and what it holds: its props, its hooks (kind, call site, current value), how many times it built and the reason of each of its last builds. With a ref, the component that rendered that element (the nearest one above it); without, the window's components that have props or hooks, in tree order (max, default 40). Example: {"ref": "e5"}`,
-			ro("Component state"), []schemaProp{
-				{"ref", "string", "Ref of an element in the latest snapshot, such as \"e5\"", nil},
-				{"max", "integer", "Without ref: the most components to list (1 to 200, default 40)", nil},
-			}, (*attachSession).toolState),
+		def("state", `Show why a component rendered and what it holds: its props, its hooks (kind, call site, current value), how many times it built and the reason of each of its last builds. With an element (its ref, or role and name, text), the component that rendered it (the nearest one above it); without, the window's components that have props or hooks, in tree order (max, default 40). Example: {"ref": "e5"}`,
+			ro("Component state"), append(elementProps("element"),
+				schemaProp{"max", "integer", "Without an element: the most components to list (1 to 200, default 40)", nil}),
+			(*attachSession).toolState),
 		def("logs", `List what tela dev has logged since the last logs call, with levels: the dev warnings and errors of Tela (unknown classes, missing keys, misused hooks: "dev") and what the app wrote on its standard error ("stderr"; standard output is not kept). Every other result already carries the dev warnings it caused. Example: {"level": "warn"}`,
 			ro("Logs"), []schemaProp{
 				{"level", "string", `Only this level and above: "info" (everything, the default), "warn" or "error"`, []string{"info", "warn", "error"}},
@@ -176,6 +174,8 @@ type attachTarget struct {
 	line     *attachLine
 	desc     string
 	disabled bool
+	// loc is the locator a test uses for it (the test tool).
+	loc mcpLoc
 }
 
 // resolve finds the element an element argument names, in the window the
@@ -214,7 +214,8 @@ func (s *attachSession) resolve(ctx context.Context, winArg uint32, a elementArg
 		aw := s.win(w.ID)
 		if line := snap.byRef[ref]; line != nil {
 			e := aw.refs.current[ref]
-			return attachTarget{win: w, line: line, desc: e.desc + " [ref=" + ref + "]", disabled: e.disabled}, nil
+			stable := e.stable
+			return attachTarget{win: w, line: line, desc: e.desc + " [ref=" + ref + "]", disabled: e.disabled, loc: mcpLoc{Ref: ref, Stable: &stable}}, nil
 		}
 		if _, err := aw.refs.lookup(ref); err != nil {
 			return attachTarget{}, err
@@ -229,7 +230,11 @@ func (s *attachSession) resolve(ctx context.Context, winArg uint32, a elementArg
 	var desc string
 	for i := range snap.lines {
 		l := &snap.lines[i]
-		if !l.ok || l.node == 0 {
+		// A text line (a text of a paragraph beside a link, with no box
+		// of its own) has no node of its own but the element of its
+		// text: text finds it as telatest's ByText finds the text.
+		isText := !l.ok && l.parsed.Key == "text" && l.el != 0
+		if (!l.ok || l.node == 0) && !(isText && a.Role == "") {
 			continue
 		}
 		switch {
@@ -238,8 +243,9 @@ func (s *attachSession) resolve(ctx context.Context, winArg uint32, a elementArg
 				found = append(found, l)
 			}
 		default:
-			hay := l.parsed.Name + " " + strings.TrimPrefix(l.parsed.Rest, ":")
-			if a.Exact && (l.parsed.Name == a.Text || strings.TrimSpace(strings.TrimPrefix(l.parsed.Rest, ":")) == a.Text) ||
+			value := unquoteValue(strings.TrimSpace(strings.TrimPrefix(l.parsed.Rest, ":")))
+			hay := l.parsed.Name + " " + value
+			if a.Exact && (l.parsed.Name == a.Text && !isText || value == a.Text) ||
 				!a.Exact && strings.Contains(strings.ToLower(hay), strings.ToLower(a.Text)) {
 				found = append(found, l)
 			}
@@ -265,7 +271,14 @@ func (s *attachSession) resolve(ctx context.Context, winArg uint32, a elementArg
 	if a.Nth != nil {
 		line = found[*a.Nth]
 	}
-	return attachTarget{win: w, line: line, desc: line.parsed.Describe(), disabled: line.parsed.Disabled}, nil
+	loc := mcpLoc{Role: a.Role, Name: a.Name, Nth: a.Nth}
+	if a.Role == "" {
+		loc = mcpLoc{Text: a.Text, Exact: a.Exact, Nth: a.Nth}
+	}
+	if !line.ok {
+		return attachTarget{win: w, line: line, desc: "the text " + fmt.Sprintf("%q", unquoteValue(strings.TrimSpace(strings.TrimPrefix(line.parsed.Rest, ":")))), loc: loc}, nil
+	}
+	return attachTarget{win: w, line: line, desc: line.parsed.Describe(), disabled: line.parsed.Disabled, loc: loc}, nil
 }
 
 // revealTries bounds the scrolls into view of one target: a scroll that
@@ -277,38 +290,50 @@ const revealTries = 3
 // window, with Playwright's actionability: the element is scrolled into
 // view (its scroll containers move as little as needed, and the session
 // waits for them), and the point is one of its visible part that hit
-// testing sends to it or to a descendant: its center, else the center of
-// a quarter. A point where another element takes the pointer (a dialog,
-// a popover, a sticky header over it) makes the element covered.
+// testing sends to it or to a descendant: the point the app found where
+// the element is painted (inside rounded corners and rotations, which the
+// visible rectangle cannot follow), else the rectangle's center, else the
+// center of a quarter. A point where another element takes the pointer
+// (a dialog, a popover, a sticky header over it) makes the element
+// covered. An element laid out in a paragraph's text (a link, a text
+// with no box of its own) is acted on at its first rectangle that shows.
 func (s *attachSession) point(ctx context.Context, t attachTarget) (x, y float32, err error) {
-	info, err := s.conn.Element(ctx, t.win.ID, t.line.el)
-	if err != nil {
-		return 0, 0, err
-	}
-	if info.Bounds == nil || info.Bounds.X1 <= info.Bounds.X0 || info.Bounds.Y1 <= info.Bounds.Y0 {
-		return 0, 0, fmt.Errorf("%s has no painted box (it has no size, or is not drawn)", t.desc)
-	}
-	var vis *gfx.Rect
+	var r toolsReveal
 	for i := 0; ; i++ {
 		s.frameCursor(ctx, t.win.ID)
 		start := time.Now()
-		r, err := s.conn.Reveal(ctx, t.win.ID, t.line.el)
+		r, err = s.conn.Reveal(ctx, t.win.ID, t.line.el)
 		if unsupported(err) {
-			return s.center(t, *info.Bounds) // an app of an older Tela
+			// An app of an older Tela: the center of the bounds.
+			info, err := s.conn.Element(ctx, t.win.ID, t.line.el)
+			if err != nil {
+				return 0, 0, err
+			}
+			if info.Bounds == nil || info.Bounds.X1 <= info.Bounds.X0 || info.Bounds.Y1 <= info.Bounds.Y0 {
+				return 0, 0, fmt.Errorf("%s has no painted box (it has no size, or is not drawn)", t.desc)
+			}
+			return s.center(t, *info.Bounds)
 		}
 		if err != nil {
 			return 0, 0, err
 		}
-		vis = r.Visible
 		if !r.Moved || i == revealTries-1 {
 			break
 		}
 		s.settle(ctx, t.win.ID, start) // the scroll's frames
 	}
+	vis := r.Visible
 	if vis == nil || vis.Empty() {
+		if info, err := s.conn.Element(ctx, t.win.ID, t.line.el); err == nil && t.line.parsed.Key != "text" &&
+			(info.Bounds == nil || info.Bounds.X1 <= info.Bounds.X0 || info.Bounds.Y1 <= info.Bounds.Y0) {
+			return 0, 0, fmt.Errorf("%s has no painted box (it has no size, or is not drawn)", t.desc)
+		}
 		return 0, 0, fmt.Errorf("%s is not visible even scrolled into view: an ancestor that clips its overflow (overflow-hidden, overflow-clip) or the window's edge cuts it whole", t.desc)
 	}
 	pts := actionPoints(*vis)
+	if r.Point != nil {
+		pts = append([]gfx.Point{*r.Point}, pts...)
+	}
 	var first toolsHit
 	for i, p := range pts {
 		h, err := s.conn.Hit(ctx, t.win.ID, p.X, p.Y, t.line.el)
@@ -408,16 +433,36 @@ func atPoint(w toolsWindow, x, y float64) error {
 
 // act runs an input on window w, waits until the app has settled and
 // answers with the new snapshot.
-func (s *attachSession) act(ctx context.Context, o *mcpOut, w toolsWindow, done string, do func() error) mcpResult {
-	s.frameCursor(ctx, w.ID)
+//
+// The frames the action caused (those after the frame the app was at when
+// it began, a scroll into view during it included) are what perf
+// {"action": true} lists, and the result sums them up.
+//
+// req is the call as the test tool writes it, recorded with the
+// snapshots before and after it.
+func (s *attachSession) act(ctx context.Context, o *mcpOut, w toolsWindow, done string, req mcpReq, do func() error) mcpResult {
+	from := s.frameCursor(ctx, w.ID)
+	before, recorded := s.recordBefore(ctx, w)
 	start := time.Now()
 	o.screen = describeWindow(w)
 	if err := do(); err != nil {
 		o.fail(err.Error())
 		s.collectLogs(ctx, o)
+		if recorded {
+			s.rec.interrupt() // part of it may have happened
+		}
 		return o.result()
 	}
+	if f := s.filming; f != nil {
+		f.frames, f.err = s.filmWindow(ctx, w, f.span, f.every)
+		f.ran = true
+	}
 	_, settled := s.settle(ctx, w.ID, start)
+	aw := s.win(w.ID)
+	if ps, err := s.conn.Profiles(ctx, w.ID, from); err == nil {
+		aw.action = ps
+	}
+	o.frames = framesLine(profileFrames(aw.action))
 	snap, err := s.snapshot(ctx, w)
 	if err != nil {
 		o.fail(err.Error())
@@ -427,9 +472,45 @@ func (s *attachSession) act(ctx context.Context, o *mcpOut, w toolsWindow, done 
 	if !settled {
 		o.notes = append(o.notes, fmt.Sprintf("The app was still drawing frames after %v (an animation?): the snapshot is of that moment.", s.max))
 	}
+	if recorded {
+		s.rec.add(mcpStep{req: req, before: before, after: snap.plain, w: float64(w.Width), h: float64(w.Height)}, "")
+		if f := s.filming; f != nil && f.ran {
+			// The film ran the app's clock for its span after the action.
+			s.rec.add(mcpStep{req: mcpReq{Op: "wait", Ms: float64(f.span) / float64(time.Millisecond)}, before: snap.plain, after: snap.plain, w: float64(w.Width), h: float64(w.Height)}, "")
+		}
+	}
 	o.snapshot = &snap.yaml
 	s.collectLogs(ctx, o)
 	return o.result()
+}
+
+// recordBefore returns the plain snapshot of window w before an acting
+// call, and whether the call is recorded for the test tool: only the
+// calls on the app's first window are (a test mounts its screen), and a
+// call on another one breaks the recording.
+func (s *attachSession) recordBefore(ctx context.Context, w toolsWindow) (string, bool) {
+	first, err := s.window(ctx, 0)
+	if err != nil {
+		return "", false
+	}
+	if first.ID != w.ID {
+		if len(s.rec.segs) == 0 {
+			s.rec.reset(mcpMount{}) // so that the interruption is kept
+		}
+		s.rec.interrupt()
+		return "", false
+	}
+	if s.rec.interrupted() {
+		return "", false
+	}
+	snap, err := s.snapshot(ctx, w)
+	if err != nil {
+		return "", false
+	}
+	if len(s.rec.segs) == 0 {
+		s.rec.reset(mcpMount{W: round2(float64(w.Width)), H: round2(float64(w.Height)), SizeSet: true, Scale: w.Scale})
+	}
+	return snap.plain, true
 }
 
 // ---------------------------------------------------------------------
@@ -615,6 +696,7 @@ func (s *attachSession) toolClick(ctx context.Context, args json.RawMessage) mcp
 	var w toolsWindow
 	var x, y float32
 	var desc string
+	req := mcpReq{Op: "click", Button: a.Button, Double: a.Double}
 	if !a.given() && a.X != nil {
 		var err error
 		if w, err = s.window(ctx, a.Window); err == nil {
@@ -625,14 +707,16 @@ func (s *attachSession) toolClick(ctx context.Context, args json.RawMessage) mcp
 			return o.result()
 		}
 		x, y, desc = float32(*a.X), float32(*a.Y), fmt.Sprintf("at (%g, %g)", *a.X, *a.Y)
+		req.At = &mcpPoint{*a.X, *a.Y}
 	} else {
 		t, cx, cy, ok := s.target(ctx, &o, a.Window, a.elementArgs, "click", true)
 		if !ok {
 			return o.result()
 		}
 		w, x, y, desc = t.win, cx, cy, t.desc
+		req.Loc = &t.loc
 	}
-	return s.act(ctx, &o, w, verb+" "+desc+".", func() error {
+	return s.act(ctx, &o, w, verb+" "+desc+".", req, func() error {
 		return s.conn.Clicks(ctx, w.ID, x, y, a.Button, count)
 	})
 }
@@ -655,6 +739,7 @@ func (s *attachSession) toolHover(ctx context.Context, args json.RawMessage) mcp
 	var w toolsWindow
 	var x, y float32
 	var desc string
+	req := mcpReq{Op: "hover"}
 	if !a.given() && a.X != nil && a.Y != nil {
 		var err error
 		if w, err = s.window(ctx, a.Window); err == nil {
@@ -665,14 +750,16 @@ func (s *attachSession) toolHover(ctx context.Context, args json.RawMessage) mcp
 			return o.result()
 		}
 		x, y, desc = float32(*a.X), float32(*a.Y), fmt.Sprintf("(%g, %g)", *a.X, *a.Y)
+		req.At = &mcpPoint{*a.X, *a.Y}
 	} else {
 		t, cx, cy, ok := s.target(ctx, &o, a.Window, a.elementArgs, "hover", false)
 		if !ok {
 			return o.result()
 		}
 		w, x, y, desc = t.win, cx, cy, t.desc
+		req.Loc = &t.loc
 	}
-	return s.act(ctx, &o, w, "The pointer is over "+desc+".", func() error {
+	return s.act(ctx, &o, w, "The pointer is over "+desc+".", req, func() error {
 		return s.conn.Pointer(ctx, w.ID, "move", x, y, "")
 	})
 }
@@ -705,7 +792,8 @@ func (s *attachSession) toolFill(ctx context.Context, args json.RawMessage) mcpR
 	if a.Submit {
 		done += " Pressed Enter."
 	}
-	return s.act(ctx, &o, t.win, done, func() error {
+	req := mcpReq{Op: "fill", Loc: &t.loc, Text: *a.Value, Submit: a.Submit}
+	return s.act(ctx, &o, t.win, done, req, func() error {
 		w := t.win.ID
 		if err := s.conn.Click(ctx, w, x, y); err != nil {
 			return err
@@ -753,6 +841,7 @@ func (s *attachSession) toolPress(ctx context.Context, args json.RawMessage) mcp
 	var w toolsWindow
 	var x, y float32
 	focus := false
+	req := mcpReq{Op: "press", Key: a.Key}
 	if a.given() {
 		t, cx, cy, ok := s.target(ctx, &o, a.Window, a.elementArgs, "focus", false)
 		if !ok {
@@ -764,6 +853,7 @@ func (s *attachSession) toolPress(ctx context.Context, args json.RawMessage) mcp
 		}
 		w, x, y, focus = t.win, cx, cy, true
 		done = fmt.Sprintf("Clicked %s to focus it and pressed %s.", t.desc, a.Key)
+		req.Loc = &t.loc
 	} else {
 		var err error
 		if w, err = s.window(ctx, a.Window); err != nil {
@@ -771,7 +861,7 @@ func (s *attachSession) toolPress(ctx context.Context, args json.RawMessage) mcp
 			return o.result()
 		}
 	}
-	return s.act(ctx, &o, w, done, func() error {
+	return s.act(ctx, &o, w, done, req, func() error {
 		if focus {
 			if err := s.conn.Click(ctx, w.ID, x, y); err != nil {
 				return err
@@ -809,6 +899,7 @@ func (s *attachSession) toolScroll(ctx context.Context, args json.RawMessage) mc
 	var w toolsWindow
 	var x, y float32
 	var desc string
+	req := mcpReq{Op: "scroll", DX: a.DX, DY: a.DY}
 	switch {
 	case a.given():
 		t, cx, cy, ok := s.target(ctx, &o, a.Window, a.elementArgs, "scroll", false)
@@ -816,6 +907,7 @@ func (s *attachSession) toolScroll(ctx context.Context, args json.RawMessage) mc
 			return o.result()
 		}
 		w, x, y, desc = t.win, cx, cy, t.desc
+		req.Loc = &t.loc
 	default:
 		var err error
 		if w, err = s.window(ctx, a.Window); err != nil {
@@ -828,11 +920,12 @@ func (s *attachSession) toolScroll(ctx context.Context, args json.RawMessage) mc
 				return o.result()
 			}
 			x, y, desc = float32(*a.X), float32(*a.Y), fmt.Sprintf("the point (%g, %g)", *a.X, *a.Y)
+			req.At = &mcpPoint{*a.X, *a.Y}
 		} else {
 			x, y, desc = w.Width/2, w.Height/2, "the window (at its center)"
 		}
 	}
-	return s.act(ctx, &o, w, fmt.Sprintf("Scrolled by (%g, %g) over %s.", a.DX, a.DY, desc), func() error {
+	return s.act(ctx, &o, w, fmt.Sprintf("Scrolled by (%g, %g) over %s.", a.DX, a.DY, desc), req, func() error {
 		return s.conn.Scroll(ctx, w.ID, x, y, float32(a.DX), float32(a.DY))
 	})
 }
@@ -869,55 +962,78 @@ func (s *attachSession) toolDrag(ctx context.Context, args json.RawMessage) mcpR
 		o.fail(err.Error())
 		return o.result()
 	}
-	// end resolves the from or to: an element, or a point of the window.
-	// Both ends are in the window of the first.
-	winArg := a.Window
-	end := func(e *dragEnd, enabled bool) (x, y float32, desc string, ok bool) {
-		if !e.given() && e.X != nil && e.Y != nil {
-			if err := atPoint(w, *e.X, *e.Y); err != nil {
-				o.fail(err.Error())
-				return 0, 0, "", false
-			}
-			return float32(*e.X), float32(*e.Y), fmt.Sprintf("(%g, %g)", *e.X, *e.Y), true
+	// The start is resolved and scrolled into view first. An element at
+	// the end is scrolled into view only once the button is down at the
+	// start, as Playwright's dragTo does: revealing it before could scroll
+	// the start away. Both ends are in the window of the start.
+	x0, y0, fromDesc := float32(0), float32(0), ""
+	req := mcpReq{Op: "drag", DX: a.DX, DY: a.DY}
+	if f := a.From; !f.given() && f.X != nil && f.Y != nil {
+		if err := atPoint(w, *f.X, *f.Y); err != nil {
+			o.fail(err.Error())
+			return o.result()
 		}
-		t, cx, cy, ok := s.target(ctx, &o, winArg, e.elementArgs, "drag", enabled)
+		x0, y0, fromDesc = float32(*f.X), float32(*f.Y), fmt.Sprintf("(%g, %g)", *f.X, *f.Y)
+		req.At = &mcpPoint{*f.X, *f.Y}
+	} else {
+		t, cx, cy, ok := s.target(ctx, &o, a.Window, f.elementArgs, "drag", true)
 		if !ok {
-			return 0, 0, "", false
+			return o.result()
 		}
-		w, winArg = t.win, t.win.ID
-		return cx, cy, t.desc, true
-	}
-	x0, y0, fromDesc, ok := end(a.From, true)
-	if !ok {
-		return o.result()
+		w, x0, y0, fromDesc = t.win, cx, cy, t.desc
+		req.Loc = &t.loc
 	}
 	done := "Dragged " + fromDesc
 	var x1, y1 float32
-	if a.To != nil {
-		var toDesc string
-		if x1, y1, toDesc, ok = end(a.To, false); !ok {
-			return o.result()
-		}
-		done += " to " + toDesc + "."
-	} else {
+	var to *attachTarget
+	switch e := a.To; {
+	case e == nil:
 		x1, y1 = x0+float32(a.DX), y0+float32(a.DY)
 		done += fmt.Sprintf(" by (%g, %g).", a.DX, a.DY)
+	case !e.given() && e.X != nil && e.Y != nil:
+		if err := atPoint(w, *e.X, *e.Y); err != nil {
+			o.fail(err.Error())
+			return o.result()
+		}
+		x1, y1 = float32(*e.X), float32(*e.Y)
+		done += fmt.Sprintf(" to (%g, %g).", *e.X, *e.Y)
+		req.ToAt = &mcpPoint{*e.X, *e.Y}
+	default:
+		t, err := s.resolve(ctx, w.ID, e.elementArgs)
+		if err != nil {
+			o.fail(err.Error())
+			return o.result()
+		}
+		if t.win.ID != w.ID {
+			o.fail(fmt.Sprintf("the drag starts in window %d and %s is in window %d: a drag stays in one window", w.ID, t.desc, t.win.ID))
+			return o.result()
+		}
+		to = &t
+		done += " to " + t.desc + "."
+		req.To = &t.loc
 	}
-	return s.act(ctx, &o, w, done, func() error {
+	return s.act(ctx, &o, w, done, req, func() error {
 		id := w.ID
 		if err := s.conn.Pointer(ctx, id, "down", x0, y0, ""); err != nil {
 			return err
 		}
 		// letGo releases the button where the pointer is when the drag
-		// stops early (a move failed, the call was cancelled): the app
-		// would keep a button held, and the session would keep dragging
-		// with every later move. Its own context: ctx may be done.
+		// stops early (a move failed, the end cannot be reached, the call
+		// was cancelled): the app would keep a button held, and the
+		// session would keep dragging with every later move. Its own
+		// context: ctx may be done.
 		x, y := x0, y0
 		letGo := func(err error) error {
 			uctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 			s.conn.Pointer(uctx, id, "up", x, y, "")
 			return err
+		}
+		if to != nil {
+			var err error
+			if x1, y1, err = s.point(ctx, *to); err != nil {
+				return letGo(fmt.Errorf("the button went down on %s, but the end cannot be reached: %v; the button was released where it went down", fromDesc, err))
+			}
 		}
 		for i := 1; i <= dragSteps; i++ {
 			f := float32(i) / dragSteps
@@ -967,6 +1083,7 @@ func (s *attachSession) toolWait(ctx context.Context, args json.RawMessage) mcpR
 		o.fail(err.Error())
 		return o.result()
 	}
+	before, recorded := s.recordBefore(ctx, w)
 	var did []string
 	if a.Ms > 0 {
 		select {
@@ -1017,6 +1134,9 @@ func (s *attachSession) toolWait(ctx context.Context, args json.RawMessage) mcpR
 	o.screen = describeWindow(w)
 	o.head = "Waited: " + strings.Join(did, "; ") + "."
 	o.snapshot = &snap.yaml
+	if recorded {
+		s.rec.add(mcpStep{req: mcpReq{Op: "wait", Ms: a.Ms, Text: a.Text, Gone: a.Gone}, before: before, after: snap.plain, w: float64(w.Width), h: float64(w.Height)}, "")
+	}
 	s.collectLogs(ctx, &o)
 	return o.result()
 }
@@ -1064,9 +1184,16 @@ func (s *attachSession) toolInspect(ctx context.Context, args json.RawMessage) m
 	return o.result()
 }
 
-// attachComponent is a component element as writeComponent shows it.
-func attachComponent(e core.ElementInfo) mcpComponent {
-	c := mcpComponent{Name: e.Kind, Key: e.Key, Source: e.Site.Rel(), Builds: e.Builds}
+// attachComponent is a component element as writeComponent shows it, its
+// sites relative to dir, the app's working directory (rel).
+func attachComponent(e core.ElementInfo, dir string) mcpComponent {
+	rel := func(s core.SourceSite) string {
+		if dir == "" {
+			return s.Rel()
+		}
+		return s.RelTo(dir)
+	}
+	c := mcpComponent{Name: e.Kind, Key: e.Key, Source: rel(e.Site), Builds: e.Builds}
 	for _, p := range e.Props {
 		c.Props = append(c.Props, struct{ Name, Value string }{p.Name, p.Value})
 	}
@@ -1074,7 +1201,7 @@ func attachComponent(e core.ElementInfo) mcpComponent {
 		c.Hooks = append(c.Hooks, struct {
 			Index               int
 			Kind, Source, Value string
-		}{h.Index, h.Kind, h.Site.Rel(), h.Value})
+		}{h.Index, h.Kind, rel(h.Site), h.Value})
 	}
 	for _, r := range e.Recent {
 		rr := struct {
@@ -1087,6 +1214,16 @@ func attachComponent(e core.ElementInfo) mcpComponent {
 		c.Renders = append(c.Renders, rr)
 	}
 	return c
+}
+
+// appDir is the working directory of the app tela dev runs, the one the
+// [src=] paths of its snapshots are relative to: tela dev's own, else (an
+// older tela dev) the package's directory; "" when neither is known.
+func (s *attachSession) appDir() string {
+	if s.info.Cwd != "" {
+		return s.info.Cwd
+	}
+	return s.info.Dir
 }
 
 func (s *attachSession) toolState(ctx context.Context, args json.RawMessage) mcpResult {
@@ -1114,10 +1251,6 @@ func (s *attachSession) toolState(ctx context.Context, args json.RawMessage) mcp
 	}
 	var el core.ElementID
 	if a.given() {
-		if a.Ref == "" {
-			o.fail(`state names the element by its ref from the latest snapshot: {"ref": "e5"}; without one it lists the components of the window`)
-			return o.result()
-		}
 		t, err := s.resolve(ctx, a.Window, a.elementArgs)
 		if err != nil {
 			o.fail(err.Error())
@@ -1139,7 +1272,7 @@ func (s *attachSession) toolState(ctx context.Context, args json.RawMessage) mcp
 		}
 		for id := el; id != 0; id = byID[id].Parent {
 			if e, ok := byID[id]; ok && e.Component {
-				comps = append(comps, attachComponent(e))
+				comps = append(comps, attachComponent(e, s.appDir()))
 				break
 			}
 		}
@@ -1152,7 +1285,7 @@ func (s *attachSession) toolState(ctx context.Context, args json.RawMessage) mcp
 			if e.Component && (len(e.Props) > 0 || len(e.Hooks) > 0) {
 				total++
 				if len(comps) < limit {
-					comps = append(comps, attachComponent(e))
+					comps = append(comps, attachComponent(e, s.appDir()))
 				}
 			}
 		}
@@ -1303,16 +1436,7 @@ func (s *attachSession) toolPerf(ctx context.Context, args json.RawMessage) mcpR
 		o.head = fmt.Sprintf("No frames in %s (the app is at frame %d: a window that changes nothing draws none).", what, now)
 		return o.result()
 	}
-	fs := make([]mcpFrame, len(ps))
-	for i, p := range ps {
-		f := mcpFrame{Number: p.Frame, Duration: p.Duration, Phases: map[string]time.Duration{}, Built: p.Built, Styled: p.Styled, LaidOut: p.LaidOut, Damage: p.Damage}
-		for ph, d := range p.Phases {
-			if d > 0 {
-				f.Phases[core.Phase(ph).String()] = d
-			}
-		}
-		fs[i] = f
-	}
+	fs := profileFrames(ps)
 	o.head = perfSummary(fs, what)
 	var b strings.Builder
 	for _, f := range fs {
@@ -1324,6 +1448,22 @@ func (s *attachSession) toolPerf(ctx context.Context, args json.RawMessage) mcpR
 	}
 	o.sections = append(o.sections, "```\n"+strings.TrimRight(b.String(), "\n")+"\n```\nTimes are the real window's on this machine while tela dev instruments it (the instrumentation adds a little); compare frames with each other, and read the counts as the exact part.")
 	return o.result()
+}
+
+// profileFrames turns the frame profiles of the app into the frames the
+// perf summary reads.
+func profileFrames(ps []core.FrameProfile) []mcpFrame {
+	fs := make([]mcpFrame, len(ps))
+	for i, p := range ps {
+		f := mcpFrame{Number: p.Frame, Duration: p.Duration, Phases: map[string]time.Duration{}, Built: p.Built, Styled: p.Styled, LaidOut: p.LaidOut, Damage: p.Damage}
+		for ph, d := range p.Phases {
+			if d > 0 {
+				f.Phases[core.Phase(ph).String()] = d
+			}
+		}
+		fs[i] = f
+	}
+	return fs
 }
 
 func (s *attachSession) toolLint(ctx context.Context, args json.RawMessage) mcpResult {

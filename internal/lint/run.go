@@ -20,6 +20,12 @@ type unit struct {
 	pkg   *types.Package
 	info  *types.Info
 	files []*ast.File
+	// ctxOnly marks a package of Options.Context: its aliases and colors
+	// are collected, nothing in it is checked.
+	ctxOnly bool
+	// migrateOnly marks a package that did not type-check: it is checked
+	// for the migrate rule alone, which reads what resolved.
+	migrateOnly bool
 }
 
 // run is the state of one Run, shared by the passes of all packages: the
@@ -51,6 +57,18 @@ type run struct {
 	// varInit maps a variable to the expression that initializes it, when
 	// it is declared with one (var x = e, x := e).
 	varInit map[types.Object]ast.Expr
+	// varUnit is the unit that declares the variable of varInit.
+	varUnit map[types.Object]*unit
+
+	// consts maps a constant to its declaration, when it is declared with
+	// a value of its own (not by the repetition of the one above).
+	consts map[*types.Const]*constDecl
+
+	// migrations are the rewrites of the migrate rule.
+	migrations []Migration
+
+	// ctxOnly are the import paths of the packages read as context.
+	ctxOnly map[string]bool
 
 	// fileAST and ignores serve the //tela:ignore comments, by file name.
 	fileAST map[string]*ast.File
@@ -62,8 +80,16 @@ type run struct {
 	diags []Diagnostic
 	// classStrings are the literals the class rule saw.
 	classStrings []ClassString
+	seenClassLit map[ClassString]bool
 	// fixes are the edits of the fixable findings.
 	fixes map[fixKey][]edit
+}
+
+// constDecl is the value of a declared constant and the unit that has its
+// types.
+type constDecl struct {
+	expr ast.Expr
+	unit *unit
 }
 
 type funcDecl struct {
@@ -82,6 +108,25 @@ func (r *run) run(patterns []string) (*Result, error) {
 	}
 	defer cleanup()
 	r.overlayJSON = overlayJSON
+	// The context is listed while the packages are (ctxwalk.go).
+	var ctx []*listPackage
+	var ctxErr error
+	ctxDone := make(chan struct{})
+	if len(r.opts.Context) > 0 {
+		go func() {
+			defer close(ctxDone)
+			if dirs, ok := r.contextDirs(); ok {
+				if len(dirs) > 0 {
+					ctx, ctxErr = goList(r.dir, r.overlayJSON, dirs)
+				}
+				return
+			}
+			ctx, ctxErr = goList(r.dir, r.overlayJSON, r.opts.Context)
+		}()
+	} else {
+		close(ctxDone)
+	}
+	defer func() { <-ctxDone }()
 	pkgs, err := goList(r.dir, r.overlayJSON, patterns)
 	if err != nil {
 		return nil, err
@@ -93,14 +138,38 @@ func (r *run) run(patterns []string) (*Result, error) {
 		}
 		pkgs = append(pkgs, more...)
 	}
+	r.migrations = r.opts.Migrations
+	if r.migrations == nil {
+		r.migrations = Migrations
+	}
+	r.ctxOnly = map[string]bool{}
+	if len(r.opts.Context) > 0 {
+		<-ctxDone
+		if ctxErr == nil {
+			pkgs = r.addContext(pkgs, ctx)
+		}
+	}
 	r.l = newLoader(pkgs)
 	r.l.overlay = r.overlay
+	if r.opts.Cache != nil {
+		fresh := map[string]bool{}
+		for _, p := range pkgs {
+			if !p.DepOnly && !p.Standard && !r.ctxOnly[p.ImportPath] {
+				fresh[p.ImportPath] = true
+			}
+		}
+		r.l.useCache(r.opts.Cache, fresh)
+		defer r.l.release()
+	}
 	r.l.useExports(r.dir)
 
 	res := &Result{}
 	var targets []*listPackage
 	for _, p := range pkgs {
 		if p.DepOnly || p.Standard {
+			continue
+		}
+		if len(p.GoFiles) == 0 && r.ctxOnly[p.ImportPath] {
 			continue
 		}
 		if len(p.GoFiles) == 0 {
@@ -132,6 +201,15 @@ func (r *run) run(patterns []string) (*Result, error) {
 
 	for i, p := range targets {
 		c := checks[i]
+		if r.ctxOnly[p.ImportPath] {
+			// Read for what it declares: a package that does not
+			// type-check is read as far as it resolved, and its
+			// problems are not the run's.
+			if c.pkg != nil && c.info != nil {
+				r.units = append(r.units, &unit{pkg: c.pkg, info: c.info, files: c.files, ctxOnly: true})
+			}
+			continue
+		}
 		if len(c.errs) > 0 || c.pkg == nil {
 			msg := p.ImportPath + ": "
 			if len(c.errs) > 0 {
@@ -143,7 +221,14 @@ func (r *run) run(patterns []string) (*Result, error) {
 				msg += "could not be type-checked"
 			}
 			res.LoadErrors = append(res.LoadErrors, strings.ReplaceAll(msg, r.cwd+string(filepath.Separator), ""))
-			if !r.opts.Lenient || c.pkg == nil || c.info == nil {
+			if c.pkg == nil || c.info == nil {
+				continue
+			}
+			if !r.opts.Lenient {
+				// Old code does not type-check against the new API: what
+				// resolved of it is checked for the migrations, which are
+				// what fixes it.
+				r.units = append(r.units, &unit{pkg: c.pkg, info: c.info, files: c.files, migrateOnly: true})
 				continue
 			}
 		}
@@ -152,7 +237,12 @@ func (r *run) run(patterns []string) (*Result, error) {
 			r.addTestUnits(p, c)
 		}
 	}
-	res.Packages = len(r.units)
+	res.Packages = 0
+	for _, u := range r.units {
+		if !u.ctxOnly {
+			res.Packages++
+		}
+	}
 	r.fileAST = map[string]*ast.File{}
 	for _, u := range r.units {
 		for _, f := range u.files {
@@ -166,6 +256,9 @@ func (r *run) run(patterns []string) (*Result, error) {
 	sortDiagnostics(r.diags)
 	res.Diagnostics = dedupe(r.diags)
 	res.Parser = r.parser
+	if r.l.cache != nil {
+		res.Reused = len(r.l.reusedPaths())
+	}
 	res.ClassStrings = r.classStrings
 	if r.opts.Fix {
 		var left []Diagnostic
@@ -303,4 +396,94 @@ func dedupe(ds []Diagnostic) []Diagnostic {
 		out = append(out, d)
 	}
 	return out
+}
+
+// addContext adds to pkgs the listing of Options.Context: as targets that are
+// only read, the packages of it that mention what declares aliases and
+// theme colors, and what they import from the same module (the maps are
+// often declared in a package of their own), but Tela's own packages
+// (telaOwn). The other packages of the listing are added as dependencies.
+// A context that cannot be listed adds nothing (the caller does not call
+// it): it is a help, not a requirement.
+func (r *run) addContext(pkgs, ctx []*listPackage) []*listPackage {
+	have := map[string]*listPackage{}
+	for _, p := range pkgs {
+		have[p.ImportPath] = p
+	}
+	byPath := map[string]*listPackage{}
+	for _, p := range ctx {
+		byPath[p.ImportPath] = p
+	}
+	var visit func(p *listPackage)
+	visit = func(p *listPackage) {
+		if r.ctxOnly[p.ImportPath] || p.Standard || p.Module == nil || telaOwn(p) {
+			return
+		}
+		if t := have[p.ImportPath]; t != nil && !t.DepOnly {
+			return // linted: not context
+		}
+		r.ctxOnly[p.ImportPath] = true
+		for _, imp := range p.Imports {
+			if q := byPath[imp]; q != nil && q.Module != nil && q.Module.Path == p.Module.Path {
+				visit(q)
+			}
+		}
+	}
+	for _, p := range ctx {
+		if !p.DepOnly && !p.Standard && p.Module != nil && mentionsAliases(p, r.opts.Cache) {
+			visit(p)
+		}
+	}
+	for _, p := range ctx {
+		switch have[p.ImportPath] {
+		case nil:
+			q := *p
+			q.DepOnly = !r.ctxOnly[p.ImportPath]
+			pkgs = append(pkgs, &q)
+		default:
+			if r.ctxOnly[p.ImportPath] {
+				have[p.ImportPath].DepOnly = false
+			}
+		}
+	}
+	return pkgs
+}
+
+// mentionsAliases reports whether a file of p names ClassAliases or
+// SchemeColor, so that it may declare class aliases or theme colors. With
+// a cache, a file is read again only when it changed.
+func mentionsAliases(p *listPackage, cache *Cache) bool {
+	// Tela's own packages mention both everywhere (the App type, the
+	// themes of the looks); only the apps and fixtures inside its module
+	// declare aliases of their own.
+	if telaOwn(p) {
+		return false
+	}
+	for _, name := range p.GoFiles {
+		if mentionsFile(filepath.Join(p.Dir, name), cache) {
+			return true
+		}
+	}
+	return false
+}
+
+// mentionsFile reports whether a file names ClassAliases or SchemeColor,
+// read through the cache's stamps when there is one.
+func mentionsFile(file string, cache *Cache) bool {
+	if cache != nil {
+		st, ok := cache.stamp(file)
+		return ok && st.mentions
+	}
+	data, err := os.ReadFile(file)
+	return err == nil && mentionsAliasText(data)
+}
+
+// telaOwn reports whether p is a package of Tela itself, not one of the
+// apps and fixtures inside its module. It is never context: it declares no
+// app's aliases, and outside Tela's repository it is another module, which
+// the context does not follow. Following an example's imports into it made
+// most of the framework context, checked from source with bodies: about
+// 1.2 s of every lint of an example, for the same findings.
+func telaOwn(p *listPackage) bool {
+	return p.Module != nil && p.Module.Path == modulePath && !strings.Contains(p.ImportPath, "/examples/") && !strings.Contains(p.ImportPath, "/testdata/")
 }

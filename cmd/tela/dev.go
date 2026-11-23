@@ -28,7 +28,7 @@ func init() {
 
 const devUsage = `Usage:
 
-	tela dev [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [--devtools] [-v] [pkg]
+	tela dev [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [--devtools] [--debug] [-v] [pkg]
 
 Runs a package's app in a window that never closes, rebuilds it in the
 background when its sources change and swaps the running process for the
@@ -57,6 +57,16 @@ but a debugger cannot attach) and inlining in the package built
 (-gcflags=-l); a -buildvcs, -ldflags or -gcflags set in GOFLAGS is used
 instead.
 
+With --debug, builds can be debugged instead: they keep the DWARF debug
+information and the symbol table, and no package is optimized or inlined
+(-gcflags=all=-N -l), so the first build takes longer. Each reload is a
+new process, so every start of a build prints its process ID and the
+command that attaches Delve to it (dlv attach <pid>); attach again after
+each reload. On Linux, attaching to a process that is not the debugger's
+child needs ptrace permission (kernel.yama.ptrace_scope set to 0, or
+sudo dlv attach). While the debugger holds the app at a breakpoint the window
+does not update, and a reload in the meantime starts without the state.
+
 While it runs, tela dev serves a DevTools socket (ADR-299) that tools
 attach to: it lists the windows and the elements of the running app, its
 frame profiles and logs, and injects input into its windows. Its address is
@@ -84,7 +94,11 @@ Flags:
 	--preview NAME run the preview NAME of the package's Previews
 	--no-state     do not keep state across reloads
 	--devtools     open the DevTools window (tela devtools) beside the app
-	-v             print the timing of every step of a reload
+	--debug        build for a debugger (DWARF, no optimizations or
+	               inlining) and print each build's process ID and the
+	               dlv attach command
+	-v             print the timing of every step of a reload, and every
+	               hook slot a reload could not keep, with the reason
 
 Keys (when standard input is a terminal):
 
@@ -104,7 +118,9 @@ type devOptions struct {
 	NoState bool
 	// DevTools starts tela devtools beside the app.
 	DevTools bool
-	Verbose  bool
+	// Debug builds for a debugger (ADR-310).
+	Debug   bool
+	Verbose bool
 
 	noTerminal bool // tests: leave standard input alone
 }
@@ -122,6 +138,7 @@ func parseDevArgs(args []string) (devOptions, error) {
 	fs.StringVar(&o.Preview, "preview", "", "")
 	fs.BoolVar(&o.NoState, "no-state", false, "")
 	fs.BoolVar(&o.DevTools, "devtools", false, "")
+	fs.BoolVar(&o.Debug, "debug", false, "")
 	fs.BoolVar(&o.Verbose, "v", false, "")
 	fs.BoolVar(&o.Verbose, "verbose", false, "")
 	pkgs, err := parsePositionals("dev", fs, args)
@@ -198,6 +215,12 @@ func devMain(goBin string, opts devOptions, stdout, stderr io.Writer) (int, erro
 		return 1, err
 	}
 	b.env = append(b.env, buildTempEnv(tmp, target.gotmpdir)...)
+	b.debug = opts.Debug
+	if opts.Debug {
+		if fl := debugFlagConflicts(target.goflags); len(fl) > 0 {
+			fmt.Fprintf(stderr, "tela dev: warning: --debug: GOFLAGS sets %s, which tela dev leaves to you; the builds may not be debuggable (they need DWARF and -gcflags=all=-N -l)\n", strings.Join(fl, " and "))
+		}
+	}
 
 	// What to watch: the module (and local replacements) of the target,
 	// refreshed after each build together with the embedded files.

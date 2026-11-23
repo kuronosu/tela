@@ -171,12 +171,12 @@ func (h *harness) absent(what string, d time.Duration, paths ...string) {
 	}
 }
 
-// rename renames a directory (or file) of a test. On Windows a directory
-// that a walk (the poller's, or the native watcher's of a new directory)
-// is listing cannot be renamed: "being used by another process" when the
-// walk holds it, "access is denied" when it holds a directory under it. A
-// walk holds it for a moment only, so the rename is retried for a while, as
-// a user would.
+// rename renames a directory (or file) of a test. A walk (the poller's,
+// or the native watcher's of a new directory) lists a directory with a
+// handle that shares delete access, so that directory can be renamed
+// meanwhile; on Windows, a directory with an open handle under it may
+// still refuse ("access is denied"). A walk holds it for a moment only, so
+// the rename is retried for a while, as a user would.
 func rename(t *testing.T, from, to string) {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
@@ -247,9 +247,7 @@ func TestNewSubdirectories(t *testing.T) {
 
 func TestDirectoryMovedInAndOut(t *testing.T) {
 	modes(t, func(t *testing.T, poll bool) {
-		if poll {
-			wine.Skip(t, "renaming a directory the poller scanned fails with a sharing violation")
-		} else {
+		if !poll {
 			wine.Skip(t, "ReadDirectoryChangesW does not report the files of a directory renamed within the watched tree")
 		}
 		h := newHarness(t, poll, Options{})
@@ -283,9 +281,6 @@ func TestDirectoryMovedInAndOut(t *testing.T) {
 // which a removed name was; the watcher knows its tree's directories).
 func TestRemovedNames(t *testing.T) {
 	modes(t, func(t *testing.T, poll bool) {
-		if poll {
-			wine.Skip(t, "renaming a directory the poller scanned fails with a sharing violation")
-		}
 		root, err := filepath.EvalSymlinks(t.TempDir())
 		if err != nil {
 			t.Fatal(err)
@@ -317,9 +312,6 @@ func TestRemovedNames(t *testing.T) {
 // the walk that finds the tree's directories, which then missed it).
 func TestDirectoryGoneRightAfterStart(t *testing.T) {
 	modes(t, func(t *testing.T, poll bool) {
-		if poll {
-			wine.Skip(t, "moving away a directory the poller scanned does not complete (sharing violation, then a timeout)")
-		}
 		root, err := filepath.EvalSymlinks(t.TempDir())
 		if err != nil {
 			t.Fatal(err)
@@ -355,13 +347,21 @@ func TestDebounce(t *testing.T) {
 		// ReadDirectoryChangesW, the poller's walk) gets them, which a
 		// loaded runner can stall too, unseen by the writer below.
 		const debounce = 500 * time.Millisecond
+		// The writer is descheduled right after its last write, as Wine
+		// in CI was for some 75 ms: the watcher saw that write before the
+		// writer could note the time, so a bound measured from after the
+		// write read "batch 426ms after the last write, before the
+		// debounce". The debounce runs from the last change the watcher
+		// saw, which cannot come before the last write began: the bound
+		// is measured from there.
+		const stall = 100 * time.Millisecond
 		// The burst is a burst only if no gap between its writes came
 		// near the debounce: a loaded runner can stall a sleep or a write
 		// for longer, and the watcher then rightly sees two bursts. Such
 		// an attempt proves nothing, so it is retried.
 		var (
-			h           *harness
-			start, last time.Time
+			h                      *harness
+			start, lastBegan, last time.Time
 		)
 		for attempt := 1; ; attempt++ {
 			// MaxDelay far away: with the default 1 s, a burst that a slow
@@ -377,8 +377,12 @@ func TestDebounce(t *testing.T) {
 				if i > 0 {
 					time.Sleep(20 * time.Millisecond)
 				}
+				lastBegan = time.Now()
 				h.write("a.go", strings.Repeat("x", i+1))
 				h.write("b.go", strings.Repeat("y", i+1))
+				if i == 4 {
+					time.Sleep(stall)
+				}
 				now := time.Now()
 				maxGap = max(maxGap, now.Sub(last))
 				last = now
@@ -397,8 +401,8 @@ func TestDebounce(t *testing.T) {
 		if len(bs) != 1 {
 			t.Errorf("a burst of writes gave %d batches, want 1", len(bs))
 		}
-		if got.Sub(last) < debounce-10*time.Millisecond {
-			t.Errorf("batch %v after the last write, before the debounce", got.Sub(last))
+		if got.Sub(lastBegan) < debounce-10*time.Millisecond {
+			t.Errorf("batch %v after the last write began, before the debounce", got.Sub(lastBegan))
 		}
 		if bs[0].First.Before(start) || bs[0].First.After(last) {
 			t.Errorf("Batch.First %v is not within the burst", bs[0].First)
@@ -591,9 +595,6 @@ func TestFlat(t *testing.T) {
 // it as a file, and inotify not at all when it was deleted).
 func TestFlatRemovedDirectory(t *testing.T) {
 	modes(t, func(t *testing.T, poll bool) {
-		if poll {
-			wine.Skip(t, "renaming a directory the poller scanned fails with a sharing violation")
-		}
 		root, err := filepath.EvalSymlinks(t.TempDir())
 		if err != nil {
 			t.Fatal(err)

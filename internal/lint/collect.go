@@ -38,12 +38,15 @@ type colorEntry struct {
 func (r *run) collect() {
 	r.decls = map[*types.Func]*funcDecl{}
 	r.varInit = map[types.Object]ast.Expr{}
+	r.varUnit = map[types.Object]*unit{}
+	r.consts = map[*types.Const]*constDecl{}
 	r.hooks = map[*types.Func]bool{}
 
 	for _, u := range r.units {
 		for _, f := range u.files {
 			r.collectDecls(u, f)
 			r.collectDefines(u, f)
+			r.collectConsts(u, f)
 		}
 	}
 
@@ -87,9 +90,32 @@ func (r *run) collectVarSpecs(u *unit, d *ast.GenDecl) {
 		for i, n := range vs.Names {
 			if obj := u.info.Defs[n]; obj != nil {
 				r.varInit[obj] = vs.Values[i]
+				r.varUnit[obj] = u
 			}
 		}
 	}
+}
+
+// collectConsts records the constants f declares with a value, at any level.
+func (r *run) collectConsts(u *unit, f *ast.File) {
+	ast.Inspect(f, func(n ast.Node) bool {
+		gen, ok := n.(*ast.GenDecl)
+		if !ok || gen.Tok != token.CONST {
+			return true
+		}
+		for _, s := range gen.Specs {
+			vs, ok := s.(*ast.ValueSpec)
+			if !ok || len(vs.Names) != len(vs.Values) {
+				continue
+			}
+			for i, name := range vs.Names {
+				if c, ok := u.info.Defs[name].(*types.Const); ok {
+					r.consts[c] = &constDecl{vs.Values[i], u}
+				}
+			}
+		}
+		return true
+	})
 }
 
 // collectDefines records the initializers of the variables that f declares
@@ -107,6 +133,7 @@ func (r *run) collectDefines(u *unit, f *ast.File) {
 			}
 			if obj := u.info.Defs[id]; obj != nil {
 				r.varInit[obj] = as.Rhs[i]
+				r.varUnit[obj] = u
 			}
 		}
 		return true
@@ -228,6 +255,9 @@ func (r *run) buildParser(aliases []*aliasEntry, colors []*colorEntry) {
 		probe := style.DefaultTheme()
 		probe.Tokens[c.name] = style.SchemeColor{}
 		if err := probe.CheckTokens(); err != nil {
+			if c.unit.ctxOnly || c.unit.migrateOnly {
+				continue
+			}
 			p := &pass{r: r, u: c.unit, info: c.unit.info}
 			p.report(c.expr.Pos(), RuleClass, SeverityError, "tela: "+err.Error()+" (App.Theme)", "")
 			continue
@@ -237,6 +267,9 @@ func (r *run) buildParser(aliases []*aliasEntry, colors []*colorEntry) {
 	valid := map[string]string{}
 	for _, a := range aliases {
 		if err := style.CheckAliases(map[string]string{a.name: ""}); err != nil {
+			if a.unit.ctxOnly || a.unit.migrateOnly {
+				continue
+			}
 			p := &pass{r: r, u: a.unit, info: a.unit.info}
 			p.report(a.key.Pos(), RuleClass, SeverityError, err.Error(), "")
 			continue
@@ -253,10 +286,13 @@ func (r *run) buildParser(aliases []*aliasEntry, colors []*colorEntry) {
 // aliasEntries returns the aliases of a ClassAliases value: a map literal,
 // or a variable initialized with one.
 func (p *pass) aliasEntries(e ast.Expr) []*aliasEntry {
-	cl := p.mapLit(e)
+	cl, u := p.mapLit(e)
 	if cl == nil {
 		return nil
 	}
+	// The literal may be declared in another package: its constants are
+	// typed there.
+	p = &pass{r: p.r, u: u, info: u.info}
 	var out []*aliasEntry
 	for _, el := range cl.Elts {
 		kv, ok := el.(*ast.KeyValueExpr)
@@ -306,29 +342,28 @@ func (p *pass) colorEntries(cl *ast.CompositeLit) []*colorEntry {
 }
 
 // mapLit returns the map literal e is, or the one the variable e names was
-// initialized with.
-func (p *pass) mapLit(e ast.Expr) *ast.CompositeLit {
+// initialized with, and the unit that declares it.
+func (p *pass) mapLit(e ast.Expr) (*ast.CompositeLit, *unit) {
+	u := p.u
 	for range 4 {
+		var obj types.Object
 		switch x := ast.Unparen(e).(type) {
 		case *ast.CompositeLit:
-			return x
+			return x, u
 		case *ast.Ident:
-			init, ok := p.r.varInit[p.info.Uses[x]]
-			if !ok {
-				return nil
-			}
-			e = init
+			obj = u.info.Uses[x]
 		case *ast.SelectorExpr:
-			init, ok := p.r.varInit[p.info.Uses[x.Sel]]
-			if !ok {
-				return nil
-			}
-			e = init
+			obj = u.info.Uses[x.Sel]
 		default:
-			return nil
+			return nil, nil
 		}
+		init, ok := p.r.varInit[obj]
+		if !ok {
+			return nil, nil
+		}
+		e, u = init, p.r.varUnit[obj]
 	}
-	return nil
+	return nil, nil
 }
 
 // constString returns the value of a constant string expression.

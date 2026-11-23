@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -35,6 +36,7 @@ type FakeSource struct {
 	Err error
 
 	calls []string
+	snaps [][]core.ElementInfo // the lists ElementsSince gave, version i+1 at i
 	notes chan Note
 	done  chan struct{}
 	once  sync.Once
@@ -87,13 +89,48 @@ func (f *FakeSource) Windows(context.Context) ([]Window, error) {
 func (f *FakeSource) Subscribe(context.Context, ...string) error   { return nil }
 func (f *FakeSource) Unsubscribe(context.Context, ...string) error { return nil }
 
-func (f *FakeSource) Elements(_ context.Context, _ uint32, _ bool) ([]core.ElementInfo, error) {
+// ElementsSince answers as a session does: the whole list for version 0 or
+// an unknown one, else what changed in Els since that version's list. It
+// records "elements since N" for a change, "elements" for a whole list.
+func (f *FakeSource) ElementsSince(_ context.Context, _ uint32, version uint64) (core.ElementsDiff, error) {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	if f.Err != nil {
-		return nil, f.Err
+		f.mu.Unlock()
+		return core.ElementsDiff{}, f.Err
 	}
-	return append([]core.ElementInfo(nil), f.Els...), nil
+	cur := slices.Clone(f.Els)
+	if n := len(f.snaps); n == 0 || !reflect.DeepEqual(f.snaps[n-1], cur) {
+		f.snaps = append(f.snaps, cur)
+	}
+	latest := uint64(len(f.snaps))
+	old := []core.ElementInfo(nil)
+	if version > 0 && version <= latest {
+		old = f.snaps[version-1]
+	}
+	f.mu.Unlock()
+	if old == nil {
+		f.record("elements")
+		return core.ElementsDiff{Version: latest, Full: true, Elements: cur}, nil
+	}
+	f.record("elements since %d", version)
+	d := core.ElementsDiff{Version: latest, Elements: []core.ElementInfo{}}
+	byID := map[core.ElementID]core.ElementInfo{}
+	for _, e := range old {
+		byID[e.ID] = e
+	}
+	order := len(old) != len(cur)
+	for i, e := range cur {
+		order = order || old[i].ID != e.ID
+		if o, ok := byID[e.ID]; !ok || !reflect.DeepEqual(o, e) {
+			d.Elements = append(d.Elements, e)
+		}
+	}
+	if order {
+		for _, e := range cur {
+			d.Order = append(d.Order, e.ID)
+		}
+	}
+	return d, nil
 }
 
 func (f *FakeSource) Element(_ context.Context, _ uint32, id core.ElementID) (core.ElementInfo, error) {
@@ -127,7 +164,8 @@ func (f *FakeSource) Element(_ context.Context, _ uint32, id core.ElementID) (co
 	return core.ElementInfo{}, fmt.Errorf("no element %d (it was unmounted)", id)
 }
 
-func (f *FakeSource) Inspect(_ context.Context, _ uint32, id core.ElementID) (core.InspectNode, error) {
+func (f *FakeSource) Inspect(_ context.Context, _ uint32, id core.ElementID, depth int) (core.InspectNode, error) {
+	f.record("inspect %d depth %d", id, depth)
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if b, ok := f.Boxes[id]; ok {

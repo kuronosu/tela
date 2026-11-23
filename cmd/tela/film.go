@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"hash/crc32"
@@ -11,6 +12,7 @@ import (
 	"image/draw"
 	"image/png"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -18,8 +20,9 @@ import (
 // Film: the frames of a motion (a transition, a spring, a Presence exit)
 // as a contact sheet and, optionally, an animated PNG. The frames are
 // taken by telatest's App.Film on the app's own clock, by tela snapshot
-// --film (what the mount starts) and by the film tool of tela mcp (what an
-// action starts); this file turns them into pictures.
+// --film (what the mount, a click, a hover or a key starts) and by the film
+// tool of tela mcp (what an action starts; over --attach, the real window's
+// frames in real time); this file turns them into pictures.
 
 // Limits of a film.
 const (
@@ -453,6 +456,82 @@ func encodeAPNG(frames []filmFrame) ([]byte, error) {
 }
 
 // parseFilmDuration reads a duration for --film and --every.
+// filmAct is the action a film of tela snapshot starts with (--click,
+// --hover, --press), as the generated test reads it from envAct.
+type filmAct struct {
+	Op  string  `json:"op"` // click, hover or press
+	Loc *mcpLoc `json:"loc,omitempty"`
+	Key string  `json:"key,omitempty"`
+}
+
+// env is the value of envAct: "" for no action.
+func (a *filmAct) env() string {
+	if a == nil {
+		return ""
+	}
+	b, _ := json.Marshal(a)
+	return string(b)
+}
+
+// describe names the action for the output, "after clicking role=button[name="Open"]".
+func (a *filmAct) describe(arg string) string {
+	switch a.Op {
+	case "press":
+		return "after pressing " + a.Key
+	case "hover":
+		return "after hovering " + arg
+	}
+	return "after clicking " + arg
+}
+
+// parseFilmLocator reads the element of --click and --hover, in the
+// syntax of Playwright's selectors: role=button[name="Open"] (the name
+// optional), text=Open (contained, any case) or text="Open" (exact), and
+// testid=open, the h.TestID.
+func parseFilmLocator(flagName, v string) (*mcpLoc, error) {
+	help := fmt.Errorf(`invalid --%s %q: name the element as role=button[name="Open"], text=Open (text="Open" for the exact text) or testid=open`, flagName, v)
+	kind, rest, ok := strings.Cut(strings.TrimSpace(v), "=")
+	if !ok || rest == "" {
+		return nil, help
+	}
+	switch kind {
+	case "role":
+		role, attr, hasAttr := strings.Cut(rest, "[")
+		loc := &mcpLoc{Role: strings.TrimSpace(role)}
+		if loc.Role == "" {
+			return nil, help
+		}
+		if hasAttr {
+			attr, ok = strings.CutSuffix(strings.TrimSpace(attr), "]")
+			name, ok2 := strings.CutPrefix(strings.TrimSpace(attr), "name=")
+			if !ok || !ok2 {
+				return nil, help
+			}
+			if name = strings.TrimSpace(name); strings.HasPrefix(name, `"`) {
+				u, err := strconv.Unquote(name)
+				if err != nil {
+					return nil, help
+				}
+				name = u
+			}
+			loc.Name = name
+		}
+		return loc, nil
+	case "text":
+		if strings.HasPrefix(rest, `"`) {
+			u, err := strconv.Unquote(rest)
+			if err != nil {
+				return nil, help
+			}
+			return &mcpLoc{Text: u, Exact: true}, nil
+		}
+		return &mcpLoc{Text: rest}, nil
+	case "testid":
+		return &mcpLoc{TestID: rest}, nil
+	}
+	return nil, help
+}
+
 func parseFilmDuration(flagName, v string) (time.Duration, error) {
 	d, err := time.ParseDuration(strings.TrimSpace(v))
 	if err != nil {

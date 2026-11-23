@@ -12,7 +12,7 @@ import (
 
 // State is one condition on an element that [App.Expect] checks: a
 // toggle such as [Checked], a flag such as [Disabled], its [HasName] and
-// [HasValue], or a widget property the aria snapshot does not print:
+// [HasValue] and [HasRange], or a widget property the aria snapshot does not print:
 // [HasPopup], [ActiveDescendant] and [Controls] (which compare the element
 // an ID reference points to with the one a Locator finds). They read the
 // element's semantics node, so they test what assistive technologies are
@@ -210,6 +210,35 @@ func HasValue(value string) State {
 	}
 }
 
+// HasRange expects the element's aria-valuenow, aria-valuemin and
+// aria-valuemax to be now, min and max (h.AriaValueNow, h.AriaValueMin and
+// h.AriaValueMax; what the aria hooks of a slider, progress bar, meter or
+// scroll bar set). All three must be set: a progress bar with only a value
+// has no bounds. The aria snapshot prints only the value text, so
+// [HasValue] cannot read these numbers.
+//
+//	app.Expect(telatest.ByRole("slider", "Volume"), telatest.HasRange(40, 0, 100))
+func HasRange(now, min, max float64) State {
+	num := func(v float64) string { return strconv.FormatFloat(v, 'g', -1, 64) }
+	opt := func(has bool, v float64) string {
+		if !has {
+			return "unset"
+		}
+		return num(v)
+	}
+	return State{
+		want: "range now=" + num(now) + " min=" + num(min) + " max=" + num(max),
+		check: func(_ *App, n *semantics.Node) (bool, string) {
+			r := n.Range
+			if !r.HasNow && !r.HasMin && !r.HasMax {
+				return false, "no range: it is not a range widget (h.AriaValueNow, AriaValueMin and AriaValueMax set it)"
+			}
+			ok := r.HasNow && r.HasMin && r.HasMax && r.Now == now && r.Min == min && r.Max == max
+			return ok, "now=" + opt(r.HasNow, r.Now) + " min=" + opt(r.HasMin, r.Min) + " max=" + opt(r.HasMax, r.Max)
+		},
+	}
+}
+
 // popupKinds are the values HasPopup accepts, after normalizing.
 var popupKinds = []string{"", "menu", "listbox", "tree", "grid", "dialog"}
 
@@ -348,8 +377,8 @@ func (a *App) describeRef(id semantics.NodeID) string {
 
 // Expect waits until the element l locates satisfies every state, like
 // Playwright's toBeChecked, toBeDisabled and toBeExpanded: it settles the
-// app and checks, and while a state does not hold lets a frame of app time
-// pass and checks again, until it holds or the [Timeout] expires. The
+// app and checks, and while a state does not hold lets time pass (see
+// [App.WaitFor]) and checks again, until it holds or the [Timeout] expires. The
 // locator must match exactly one element (strictness). The failure
 // message says which states differ, shows the element's actual states and
 // its line of the aria snapshot.

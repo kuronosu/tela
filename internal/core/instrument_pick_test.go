@@ -123,7 +123,7 @@ func TestInstrumentPick(t *testing.T) {
 	x.w.Inject(platform.KeyEvent{Action: platform.KeyPress, Key: platform.KeyEscape, Code: platform.CodeEscape})
 	x.w.Inject(platform.KeyEvent{Action: platform.KeyRelease, Key: platform.KeyEscape, Code: platform.CodeEscape})
 	x.b.Drain(x.h)
-	if len(picked) != 2 || picked[1] != 0 || tr.Picking() || tr.ins.pick.escUp {
+	if len(picked) != 2 || picked[1] != 0 || tr.Picking() || len(tr.ins.pick.keys) != 0 {
 		t.Errorf("after Escape: picked %v, picking %v", picked, tr.Picking())
 	}
 	// Off, it calls nothing.
@@ -184,9 +184,10 @@ func TestInstrumentHighlight(t *testing.T) {
 	}
 }
 
-// A press the app holds when pick mode starts ends with a pointercancel,
-// as when the OS takes the pointer away, and the rest of it stays out of
-// the app; the next press picks, and the one after reaches the app.
+// A press the app holds when pick mode starts keeps its release: the app
+// ends the press it saw begin (nothing else of it reaches the app, and
+// pick mode is not cancelled by it); the next press picks, and the one
+// after reaches the app.
 func TestInstrumentPickHeldPress(t *testing.T) {
 	hits := map[string]int{}
 	x := newScrollHost(t, pickPage(hits), 400, 300, Config{Dev: true})
@@ -200,23 +201,26 @@ func TestInstrumentPickHeldPress(t *testing.T) {
 	clear(hits)
 	var picked []ElementID
 	tr.SetPick(true, func(id ElementID) { picked = append(picked, id) })
-	if hits["cancel:moved"] != 1 || hits["cancel:page"] != 1 || len(hits) != 2 {
-		t.Errorf("pick mode began: the app got %v, want one pointercancel (bubbling to the page)", hits)
+	if len(hits) != 0 {
+		t.Errorf("pick mode began: the app got %v, want nothing", hits)
 	}
-	ps := tr.in.ptrs[pointerKey{platform.PointerMouse, 0}]
-	if ps == nil || ps.buttons != 0 || ps.pressing || ps.down != nil {
-		t.Fatalf("the app's pointer after the cancel: %+v", ps)
-	}
-	// The rest of the press is pick mode's: its moves highlight, its
-	// release reaches nothing.
+	// Its moves are pick mode's (they highlight); its release is the app's.
 	x.send(moveHeld(50, 30))
 	if h := tr.ins.pick.hover; h == nil || h.key != "a" {
 		t.Errorf("hover %v, want a", h)
 	}
-	x.send(up(50, 30))
-	if len(hits) != 2 || len(picked) != 0 || !tr.Picking() {
-		t.Errorf("after the release: hits %v, picked %v, picking %v", hits, picked, tr.Picking())
+	if len(hits) != 0 {
+		t.Errorf("a move of the held press reached the app: %v", hits)
 	}
+	x.send(up(50, 30))
+	if hits["up:a"] != 1 || hits["cancel:moved"] != 0 || len(picked) != 0 || !tr.Picking() {
+		t.Errorf("after the release: hits %v, picked %v, picking %v; want the release in the app", hits, picked, tr.Picking())
+	}
+	ps := tr.in.ptrs[pointerKey{platform.PointerMouse, 0}]
+	if ps == nil || ps.buttons != 0 || ps.pressing {
+		t.Fatalf("the app's pointer after the release: %+v", ps)
+	}
+	clear(hits)
 	// The next press picks; the one after reaches the app, a click.
 	x.click(120, 170)
 	if !slices.Equal(picked, []ElementID{pickID(t, tr, "moved")}) || tr.Picking() {
@@ -226,6 +230,79 @@ func TestInstrumentPickHeldPress(t *testing.T) {
 	x.click(120, 170)
 	if hits["click:moved"] != 1 || hits["down:moved"] != 1 || hits["up:moved"] != 1 {
 		t.Errorf("after pick mode: %v", hits)
+	}
+}
+
+// Pick mode keeps the wheel, the keys and IME text from the app; a key
+// held when it starts keeps its release (not its repeats), and the
+// release of a key pressed in pick mode stays out of the app after it.
+func TestInstrumentPickSwallowsInput(t *testing.T) {
+	var keys []string
+	root := div(Class("h-full"), On("keydown", func(e KeyboardEvent) { keys = append(keys, "down:"+string(e.Key)) }),
+		On("keyup", func(e KeyboardEvent) { keys = append(keys, "up:"+string(e.Key)) }),
+		pickPage(map[string]int{}))
+	x := newScrollHost(t, root, 400, 300, Config{Dev: true, InstantScroll: true})
+	tr := x.tree()
+	tr.SetInstrument(true)
+	t.Cleanup(func() { tr.SetInstrument(false) })
+	x.w.SetFocused(true)
+	x.b.Drain(x.h)
+	x.keys(keyEv(platform.KeyPress, "Shift", platform.CodeShiftLeft, platform.ModShift))
+	tr.SetPick(true, func(ElementID) {})
+
+	x.wheel(touchpad(50, 50, 100, platform.ScrollPhaseNone))
+	x.frame()
+	if s := scr(t, tr, "scroller"); s.pos.Y != 0 {
+		t.Errorf("a wheel in pick mode scrolled to %v", s.pos.Y)
+	}
+	repeat := keyEv(platform.KeyPress, "Shift", platform.CodeShiftLeft, platform.ModShift)
+	repeat.Repeat = true
+	x.keys(repeat, keyEv(platform.KeyPress, "a", platform.CodeKeyA, platform.ModShift),
+		keyEv(platform.KeyRelease, "Shift", platform.CodeShiftLeft, 0))
+	if want := []string{"down:Shift", "up:Shift"}; !slices.Equal(keys, want) {
+		t.Errorf("keys in the app %v, want %v (the held Shift ends; the rest is pick mode's)", keys, want)
+	}
+	tr.SetPick(false, nil)
+	x.keys(keyEv(platform.KeyRelease, "a", platform.CodeKeyA, 0), keyEv(platform.KeyPress, "b", platform.CodeKeyB, 0))
+	if want := []string{"down:Shift", "up:Shift", "down:b"}; !slices.Equal(keys, want) {
+		t.Errorf("after pick mode: keys %v, want %v (the release of a, pressed in pick mode, stays out)", keys, want)
+	}
+	x.wheel(touchpad(50, 50, 100, platform.ScrollPhaseNone))
+	x.frame()
+	if s := scr(t, tr, "scroller"); s.pos.Y != 100 {
+		t.Errorf("a wheel after pick mode scrolled to %v, want 100", s.pos.Y)
+	}
+}
+
+// Pick mode picks what is painted, as Chrome's inspect picker does:
+// boxes with pointer-events: none and inert ones too.
+func TestInstrumentPickIgnoresPointerEvents(t *testing.T) {
+	root := div(Class("relative h-full"),
+		div(Key("under"), Class("absolute left-0 top-0 size-[100px] bg-slate-200")),
+		div(Key("ghost"), Class("pointer-events-none absolute left-0 top-0 size-[60px] bg-rose-300")),
+		div(Key("inert"), Inert(true), Class("absolute left-[150px] top-0 size-[60px] bg-sky-300")),
+	)
+	x := newScrollHost(t, root, 400, 300, Config{Dev: true})
+	tr := x.tree()
+	tr.SetInstrument(true)
+	t.Cleanup(func() { tr.SetInstrument(false) })
+	if el := tr.HitTest(30, 30); el == nil || el.key != "under" {
+		t.Fatalf("HitTest under the ghost: %v, want under (pointer-events: none)", el)
+	}
+	var picked []ElementID
+	tr.SetPick(true, func(id ElementID) { picked = append(picked, id) })
+	for _, c := range []struct {
+		x, y float32
+		key  string
+	}{{30, 30, "ghost"}, {80, 80, "under"}, {180, 30, "inert"}} {
+		x.send(move(c.x, c.y))
+		if h := tr.ins.pick.hover; h == nil || h.key != c.key {
+			t.Errorf("hover at (%v, %v): %v, want %s", c.x, c.y, h, c.key)
+		}
+	}
+	x.send(down(180, 30), up(180, 30))
+	if !slices.Equal(picked, []ElementID{idOfKey(t, tr, "inert")}) {
+		t.Errorf("picked %v, want the inert box %d", picked, idOfKey(t, tr, "inert"))
 	}
 }
 

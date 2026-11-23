@@ -94,6 +94,13 @@ type HostOptions struct {
 	// or the app itself): the child's launch went to that process, and
 	// the child was told it is a second instance, so it exits (phase13.go).
 	OnSecondInstance func(c *Child, appID string)
+	// ReloadGrace is how long a child's start lasts after its promotion
+	// (or after its first frame, for a child that connected active): a
+	// window it opens with the key of a window of the build it replaced
+	// takes that real window over, which waits for it until then, and a
+	// dialog it asks for that the replaced build asked for at its own
+	// start is not shown again (reload.go). Zero means defaultReloadGrace.
+	ReloadGrace time.Duration
 }
 
 // Host is the supervisor side: it owns the real windows (on any
@@ -134,6 +141,14 @@ type Host struct {
 	instances map[string]bool // app IDs the backend claimed for the children
 	// appMenu is the app menu bar set on the backend (appmenu.go).
 	appMenu hostAppMenu
+	// lastActive is the child that became active last: the next build
+	// replaces it, and its start takes over its startup dialogs
+	// (reload.go).
+	lastActive *Child
+	// frameFallback is how long a starting build waits for a frame of its
+	// real window before the host gives it one offscreen (reload.go;
+	// defaultFrameFallback).
+	frameFallback time.Duration
 	// desk is b.Desktop(), kept for the secret and association calls,
 	// which run on goroutines of their own (immutable).
 	desk platform.Desktop
@@ -176,20 +191,21 @@ func NewHost(b platform.Backend, opts HostOptions) (*Host, error) {
 		d.SetDevHost()
 	}
 	h := &Host{
-		b:         b,
-		name:      b.Name(),
-		opts:      opts,
-		ln:        ln,
-		addr:      addr,
-		settings:  opts.filterSettings(b.Settings()),
-		handlers:  map[string]func(*Child, []byte) ([]byte, error){},
-		all:       map[*Child]struct{}{},
-		byWin:     map[platform.Window]*realWin{},
-		trays:     map[platform.TrayID]*hostTray{},
-		notes:     map[platform.NotificationID]*hostNote{},
-		shortcuts: map[string]*hostShortcut{},
-		instances: map[string]bool{},
-		desk:      b.Desktop(),
+		b:             b,
+		name:          b.Name(),
+		opts:          opts,
+		ln:            ln,
+		addr:          addr,
+		settings:      opts.filterSettings(b.Settings()),
+		frameFallback: defaultFrameFallback,
+		handlers:      map[string]func(*Child, []byte) ([]byte, error){},
+		all:           map[*Child]struct{}{},
+		byWin:         map[platform.Window]*realWin{},
+		trays:         map[platform.TrayID]*hostTray{},
+		notes:         map[platform.NotificationID]*hostNote{},
+		shortcuts:     map[string]*hostShortcut{},
+		instances:     map[string]bool{},
+		desk:          b.Desktop(),
 	}
 	go h.accept()
 	return h, nil
@@ -350,12 +366,15 @@ func (h *Host) Unfreeze() {
 
 // Promote makes c the active child: its windows take over their real
 // windows (title, cursor, text input state, visibility, always-on-top,
-// size limits, icon and hit regions are applied, the IME session
-// restarts), its latest frame is presented in full, and it receives input,
+// size limits, icon and hit regions are applied; the IME session goes on
+// when c's window shows the same field, a composition included, and
+// restarts for another: handoverIME), its latest frame is presented in
+// full, and it receives input,
 // starting with the input queued since Freeze (Promote implies Unfreeze).
 // The previously active child is detached: it receives nothing more, and
 // the caller stops it. If c has windows, real windows it does not use are
-// closed. Its tray icons replace the old child's (services.go): icons
+// closed, except those it may still open (from an effect), which wait for
+// it until HostOptions.ReloadGrace is over (reload.go). Its tray icons replace the old child's (services.go): icons
 // both have stay, with c's options; likewise its global shortcuts and
 // menu bars (phase13.go). Promoting the active child only unfreezes.
 func (h *Host) Promote(c *Child) error {
@@ -369,11 +388,20 @@ func (h *Host) Promote(c *Child) error {
 		h.Unfreeze()
 		return nil
 	}
+	// The windows c takes over, with the child window each showed: its IME
+	// session may go on in c's (handover).
+	prev := map[*realWin]*childWin{}
+	for _, cw := range c.windows {
+		if rw := cw.rw; rw != nil && rw.active != nil {
+			prev[rw] = rw.active
+		}
+	}
 	if old := h.active; old != nil {
-		h.detach(old)
+		h.detachKeeping(old, prev)
 	}
 	c.state = stateActive
 	h.active = c
+	h.becameActive(c)
 	used := map[*realWin]bool{}
 	for _, cw := range c.windows {
 		rw := cw.rw
@@ -382,14 +410,10 @@ func (h *Host) Promote(c *Child) error {
 		}
 		used[rw] = true
 		rw.pending = slices.DeleteFunc(rw.pending, func(x *childWin) bool { return x == cw })
-		h.activate(rw, cw)
+		h.activateAfter(rw, cw, prev[rw])
 	}
 	if len(used) > 0 {
-		for _, rw := range slices.Clone(h.order) {
-			if !used[rw] && rw.active == nil && len(rw.pending) == 0 {
-				h.closeReal(rw)
-			}
-		}
+		h.unclaimed(c, used) // reload.go: closed, or waiting for a window c opens later
 	}
 	for rw := range used {
 		h.flush(rw)
@@ -407,7 +431,12 @@ func (h *Host) Promote(c *Child) error {
 // requests still work); use Child.Close for that.
 func (h *Host) Detach(c *Child) { h.detach(c) }
 
-func (h *Host) detach(c *Child) {
+func (h *Host) detach(c *Child) { h.detachKeeping(c, nil) }
+
+// detachKeeping is detach, leaving the text input state of the real
+// windows in keep to the child that takes them over (Promote's handover of
+// the IME session).
+func (h *Host) detachKeeping(c *Child, keep map[*realWin]*childWin) {
 	if c.state == stateDetached {
 		return
 	}
@@ -422,7 +451,9 @@ func (h *Host) detach(c *Child) {
 		}
 		if rw.active == cw {
 			rw.active = nil
-			h.setTextInput(rw, nil)
+			if _, taken := keep[rw]; !taken {
+				h.setTextInput(rw, nil)
+			}
 		}
 		rw.pending = slices.DeleteFunc(rw.pending, func(x *childWin) bool { return x == cw })
 	}
@@ -433,10 +464,11 @@ func (h *Host) detach(c *Child) {
 
 // prune closes the real windows that no child uses and that no active
 // child ever had: those a pending child opened before it was detached or
-// lost (a window an active child had stays for the error overlay).
+// lost (a window an active child had stays for the error overlay), and
+// those that waited for a new build's window in vain (reload.go).
 func (h *Host) prune() {
 	for _, rw := range slices.Clone(h.order) {
-		if !rw.closed && rw.active == nil && len(rw.pending) == 0 && !rw.wasActive {
+		if !rw.closed && rw.active == nil && len(rw.pending) == 0 && (!rw.wasActive || rw.orphanDone) {
 			h.closeReal(rw)
 		}
 	}
@@ -554,7 +586,9 @@ func (h *Host) windowEvent(rw *realWin, e platform.Event) {
 		rw.full = true
 		for _, cw := range rw.attached() {
 			h.configure(rw, cw)
+			h.syncState(rw, cw) // what it could not be told before its first ConfigureEvent
 		}
+		h.syncAlpha(rw) // reload.go: DWM's composition may have changed
 	case platform.WindowStateEvent:
 		// State, like metrics, goes to every child mapped onto the window
 		// (pending ones too), and is kept for the children that map onto
@@ -564,6 +598,7 @@ func (h *Host) windowEvent(rw *realWin, e platform.Event) {
 		for _, cw := range rw.attached() {
 			h.syncState(rw, cw)
 		}
+		h.syncAlpha(rw)
 	case platform.FrameEvent:
 		for _, cw := range rw.attached() {
 			if cw.wantFrame && cw.visible {
@@ -587,7 +622,16 @@ func (h *Host) windowEvent(rw *realWin, e platform.Event) {
 	case platform.DragEvent, platform.DragDoneEvent, platform.MenuEvent:
 		// Input for the active child, but not for HostOptions.Input: the
 		// overlay takes clicks and keys, not drags or menu choices.
+		drop := false
+		if de, ok := e.(platform.DragEvent); ok && de.Action == platform.DragDrop && rw.active != nil {
+			drop = true
+			rw.active.dropAwait = 0
+			drainDrops(rw.active.c) // reload.go: answers of earlier drops
+		}
 		h.forward(rw, e)
+		if drop {
+			h.awaitDrop(rw) // reload.go: the backend reads the final effect when this returns
+		}
 	default:
 		h.input(rw, e)
 	}
@@ -662,10 +706,14 @@ func (h *Host) route(rw *realWin, e platform.Event) {
 		}
 		return
 	}
-	if rw.active != nil {
+	switch {
+	case rw.active != nil:
 		h.deliver(rw.active, e)
-	} else if fn := h.opts.OnUnhandled; fn != nil {
-		fn(rw.w, e)
+	case h.orphanInput(rw, e): // reload.go: a window waiting for a new build's
+	default:
+		if fn := h.opts.OnUnhandled; fn != nil {
+			fn(rw.w, e)
+		}
 	}
 }
 
@@ -698,10 +746,12 @@ func (h *Host) routeApp(e platform.Event) {
 // child is told nothing before its ConfigureEvent, and nothing while the
 // state is the zero one it starts with.
 func (h *Host) syncState(rw *realWin, cw *childWin) {
-	if cw.closed || cw.c.state == stateDetached || cw.sent.Scale == 0 || cw.state == rw.state {
+	// A change of the alpha the child was told (sendInfo) is followed by
+	// a state event, at which the layers above ask it again.
+	if cw.closed || cw.c.state == stateDetached || cw.sent.Scale == 0 || (cw.state == rw.state && cw.alphaState == cw.alpha) {
 		return
 	}
-	cw.state = rw.state
+	cw.state, cw.alphaState = rw.state, cw.alpha
 	cw.c.sendEvent(cw.id, platform.WindowStateEvent{State: rw.state})
 }
 
@@ -717,15 +767,18 @@ func (h *Host) syncToken(rw *realWin) {
 	}
 }
 
-// sendInfo tells cw the real window's restore token and visibility.
+// sendInfo tells cw the real window's restore token, visibility and alpha
+// (childAlpha, reload.go).
 func (h *Host) sendInfo(rw *realWin, cw *childWin) {
 	if cw.closed || cw.c.state == stateDetached {
 		return
 	}
+	cw.alpha = childAlpha(rw, cw)
 	e := newMsg(msgWindowInfo)
 	e.u32(cw.id)
 	e.boolean(!rw.visible)
 	e.str(rw.token)
+	e.boolean(cw.alpha)
 	cw.c.c.send(e.bytes())
 }
 
@@ -757,17 +810,19 @@ func (h *Host) configure(rw *realWin, cw *childWin) {
 
 // offscreenFrame gives a pending child the frame it asked for when its
 // window is visible in its own view but the real window delivers no frames
-// (the previous build hid or minimized it): a swap waits for the new
-// build's first frame. Only until that first frame: once promoted, the
-// real window is shown (or stays minimized) and paces the child.
+// (the previous build hid or minimized it, or the compositor suspended
+// it): a swap waits for the new build's first frame. When the real window
+// should deliver one, the host still gives it after Host.frameFallback if it
+// does not (reload.go: a compositor that stops the frames of a minimized
+// window without saying so). Only until that first frame: once promoted,
+// the real window is shown (or stays minimized) and paces the child.
 func (h *Host) offscreenFrame(rw *realWin, cw *childWin) {
-	if (rw.visible && !rw.state.Minimized) || !cw.visible || !cw.wantFrame || cw.c.state != statePending || cw.sent.Scale == 0 {
+	if !h.wantsOffscreen(cw) {
 		return
 	}
-	select {
-	case <-cw.c.firstFrame:
+	if rw.visible && !rw.state.Minimized && !rw.state.Suspended {
+		h.armFrameFallback(rw, cw)
 		return
-	default:
 	}
 	cw.wantFrame = false
 	h.deliver(cw, platform.FrameEvent{Time: h.b.Now()})
@@ -813,6 +868,9 @@ func (h *Host) deliver(cw *childWin, e platform.Event) {
 	case platform.DragEvent:
 		if !h.dragView(cw, ev) {
 			return
+		}
+		if ev.Action == platform.DragDrop {
+			cw.dropAwait = cw.dragSession // reload.go: awaitDrop
 		}
 	case platform.AccessibilityEvent:
 		if ev.Active == cw.access {
@@ -901,6 +959,7 @@ func (h *Host) serve(nc *net.UnixConn) {
 		wins:       map[uint32]*childWin{},
 		firstFrame: make(chan struct{}),
 		done:       make(chan struct{}),
+		drops:      make(chan dropDone, 4),
 	}
 	c.c = newConn(t, r)
 	c.ctl = newCtl(c.c)
@@ -922,9 +981,11 @@ func (h *Host) serve(nc *net.UnixConn) {
 
 func (h *Host) connected(c *Child) {
 	h.children = append(h.children, c)
+	c.from = h.lastActive // the build it replaces (reload.go)
 	if h.active == nil && !h.frozen {
 		c.state = stateActive
 		h.active = c
+		h.becameActive(c)
 	} else {
 		c.state = statePending
 	}
@@ -991,6 +1052,7 @@ func (h *Host) attach(cw *childWin) {
 			visible: !opts.Hidden, onTop: opts.AlwaysOnTop, min: cw.min, max: cw.max,
 			titleBar: opts.TitleBar, backdrop: opts.Backdrop}
 		rw.token = w.RestoreToken()
+		rw.alpha = presentsAlpha(w)
 		h.byWin[w] = rw
 		h.order = append(h.order, rw)
 		defer h.windowsChanged()
@@ -1038,18 +1100,19 @@ func (h *Host) findReal(cw *childWin, parent *realWin) *realWin {
 }
 
 // activate makes cw the active window of rw and applies its state.
-func (h *Host) activate(rw *realWin, cw *childWin) {
+func (h *Host) activate(rw *realWin, cw *childWin) { h.activateAfter(rw, cw, nil) }
+
+// activateAfter is activate for cw taking rw over from prev, the child
+// window that was active on it (nil for none).
+func (h *Host) activateAfter(rw *realWin, cw *childWin, prev *childWin) {
 	rw.active = cw
 	rw.src = cw
 	rw.wasActive = true
+	rw.adopt() // reload.go: no longer waiting for a window
 	rw.full = true
 	rw.w.SetTitle(cw.title)
 	rw.w.SetCursor(cw.cursor)
-	if rw.textInput != nil && cw.textInput != nil {
-		// Another process's field: restart the IME session.
-		h.setTextInput(rw, nil)
-	}
-	h.setTextInput(rw, cw.textInput)
+	h.handoverIME(rw, cw, prev)
 	h.applyWindow(rw, cw)
 	h.promoteMenu(rw, cw)
 	h.syncAccess(rw, cw)
@@ -1072,6 +1135,57 @@ func (h *Host) enter(rw *realWin, cw *childWin) {
 	h.deliver(cw, platform.PointerEvent{Action: platform.PointerEnter, Kind: p.Kind, ID: p.ID, Pos: p.Pos, Mods: p.Mods, Time: h.b.Now()})
 }
 
+// handoverIME applies the text input state of cw, which takes rw over from
+// prev, to the real window's IME session (ADR-309). The platform's IME
+// holds the session, and its preedit while a composition is in progress:
+// a swap of tela dev must not end it. When prev was in an active session
+// and cw shows the same field (sameField: the dev state restored it, a
+// composition included), the session goes on, its state updated (the
+// caret area moves with a new layout), and cw joins it: it is told the
+// session is active, and the IME's next events are its own. Otherwise the
+// session restarts for another process's field, and a cw that took over
+// prev's session is told that it ended (an IMESessionEvent that starts and
+// one that ends it, a valid stream for a child that saw none), which
+// finishes a composition its restored state holds, keeping its text.
+//
+// A caret area cw does not know yet (the zero Rect: cw set its state
+// before its restored field was laid out, and the promotion came before
+// its next one) keeps the session's: the IME's candidate window stays
+// where it is until cw reports the area, instead of losing its position
+// for a frame and the state changing twice.
+func (h *Host) handoverIME(rw *realWin, cw *childWin, prev *childWin) {
+	inherited := prev != nil && prev.imeActive && rw.textInput != nil
+	if inherited && cw.textInput != nil && sameField(rw.textInput, cw.textInput) {
+		st := cw.textInput
+		if st.CursorArea == (platform.Rect{}) {
+			st = st.Clone()
+			st.CursorArea = rw.textInput.CursorArea
+		}
+		h.setTextInput(rw, st)
+		h.deliver(cw, platform.IMESessionEvent{Active: true})
+		return
+	}
+	if inherited {
+		h.deliver(cw, platform.IMESessionEvent{Active: true})
+		h.deliver(cw, platform.IMESessionEvent{Active: false})
+	}
+	if rw.textInput != nil && cw.textInput != nil {
+		// Another process's field: restart the IME session.
+		h.setTextInput(rw, nil)
+	}
+	h.setTextInput(rw, cw.textInput)
+}
+
+// sameField reports whether two text input states describe the same field
+// to the IME: the same purpose, multiline flag and text around the caret
+// (a field whose state a reload restored). The caret area may differ.
+func sameField(a, b *platform.TextInputState) bool {
+	if a.Purpose != b.Purpose || a.Multiline != b.Multiline || (a.Surrounding == nil) != (b.Surrounding == nil) {
+		return false
+	}
+	return a.Surrounding == nil || *a.Surrounding == *b.Surrounding
+}
+
 func (h *Host) setTextInput(rw *realWin, st *platform.TextInputState) {
 	if rw.closed || rw.textInput.Equal(st) {
 		return
@@ -1092,6 +1206,7 @@ func (h *Host) closeReal(rw *realWin) {
 		}
 	}
 	rw.closed = true
+	rw.adopt() // ends a wait (reload.go)
 	rw.w.Close()
 	delete(h.byWin, rw.w)
 	h.order = slices.DeleteFunc(h.order, func(x *realWin) bool { return x == rw })
@@ -1210,6 +1325,18 @@ type Child struct {
 	notes []platform.NotificationID
 	// appMenu is the app menu bar it set (appmenu.go), nil before any.
 	appMenu *appMenuBar
+	// Its start (reload.go): from is the build it replaces (whose startup
+	// dialogs it takes over), startDialogs the dialogs it asked for while
+	// starting; firstSeen, its first frame came; startEnd, the host time
+	// its start ends once active (0: not yet known).
+	from         *Child
+	startDialogs []*hostDialog
+	firstSeen    bool
+	startEnd     time.Duration
+
+	// drops carries its msgDropDone from the reader goroutine to the UI
+	// thread's awaitDrop (reload.go). Buffered; full: dropped.
+	drops chan dropDone
 
 	mu   sync.Mutex
 	wins map[uint32]*childWin // the reader goroutine's open windows
@@ -1373,6 +1500,8 @@ func (c *Child) dispatch(t msgType, d *dec) error {
 		return c.windowCtl(d)
 	case msgSetDropEffect:
 		return c.setDropEffect(d)
+	case msgDropDone:
+		return c.dropDone(d) // reload.go
 	case msgSetAccessibility:
 		return c.setAccessibility(d)
 	case msgRunning:
@@ -1631,8 +1760,13 @@ func (c *Child) present(d *dec) error {
 func (c *Child) markFirstFrame() {
 	c.firstOnce.Do(func() {
 		close(c.firstFrame)
-		if fn := c.h.opts.OnFirstFrame; fn != nil {
-			c.h.post(func() { fn(c) })
+		h := c.h
+		h.post(func() {
+			c.firstSeen = true
+			h.startClock(c) // reload.go: a child that connected active starts until the grace after it
+		})
+		if fn := h.opts.OnFirstFrame; fn != nil {
+			h.post(func() { fn(c) })
 		}
 	})
 }
@@ -1691,6 +1825,15 @@ type childWin struct {
 	// the child's view; the DragEnters sent to it.
 	dragging    bool
 	dragSession uint32
+	// dropAwait is the session of a DragDrop just sent, whose final
+	// effect the host waits for (reload.go); 0 for none.
+	dropAwait uint32
+	// alpha is the real window's alpha it was told (msgWindowInfo),
+	// alphaState the one of its latest WindowStateEvent (reload.go).
+	alpha, alphaState bool
+	// fallback: a frame of the host for a starting build is armed
+	// (reload.go).
+	fallback bool
 	// Accessibility (access.go): access, the child was told its bridge is
 	// active; accessSynced, it sent an update since.
 	access, accessSynced bool

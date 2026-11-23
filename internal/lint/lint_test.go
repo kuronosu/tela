@@ -314,14 +314,14 @@ func TestFixOverlay(t *testing.T) {
 func TestFixEdits(t *testing.T) {
 	parallelLint(t)
 	src := []byte("abcdefghij")
-	got, ok := applyEdits(src, []edit{{"f", 6, 8}, {"f", 1, 3}, {"f", 1, 3}})
+	got, ok := applyEdits(src, []edit{{file: "f", start: 6, end: 8}, {file: "f", start: 1, end: 3}, {file: "f", start: 1, end: 3}})
 	if !ok || string(got) != "adefij" {
 		t.Errorf("got %q, %v", got, ok)
 	}
-	if _, ok := applyEdits(src, []edit{{"f", 1, 5}, {"f", 3, 7}}); ok {
+	if _, ok := applyEdits(src, []edit{{file: "f", start: 1, end: 5}, {file: "f", start: 3, end: 7}}); ok {
 		t.Error("overlapping edits should fail")
 	}
-	if _, ok := applyEdits(src, []edit{{"f", 8, 20}}); ok {
+	if _, ok := applyEdits(src, []edit{{file: "f", start: 8, end: 20}}); ok {
 		t.Error("an edit outside the file should fail")
 	}
 }
@@ -546,8 +546,14 @@ func TestPackageWithOnlyTests(t *testing.T) {
 	}
 }
 
-// The repository follows its own rules (CI runs tela lint ./...).
+// The repository follows its own rules (CI runs tela lint ./...). It reads
+// every Go file of the repository, so any edit would run the tests of the
+// package again: under -short the gate's lint step, which lints ./...
+// itself, stands for it.
 func TestRepositoryLintsClean(t *testing.T) {
+	if testing.Short() {
+		t.Skip("the gate's lint step lints ./...; the full suite runs this test")
+	}
 	parallelLint(t)
 	needGo(t)
 	res, err := Run(Options{Dir: "../..", Patterns: []string{"./..."}})

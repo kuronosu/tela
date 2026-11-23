@@ -45,6 +45,7 @@ CGO_ENABLED=0 go run ./cmd/tela snapshot -o counter.png ./examples/counter
 | `tela snapshot` | Renders a screen to a PNG, or with `--film` the frames of its motion as a contact sheet and an animated PNG |
 | `tela inspect` | Prints a screen's aria snapshot (YAML) or layout tree (JSON) |
 | `tela lint` | Checks the Go source for the mistakes that dev mode reports at run time: unknown classes, roles and aria tokens, duplicate or missing keys, misused hooks, a redundant `Fragment`, a prop where a node goes (see [tela lint](#tela-lint)) |
+| `tela check`, `tela verify` | Look for cut-off or overlapping text, low contrast, small targets and focus problems on a package's screens: `check` the default preview in light and dark, `verify` every preview in a matrix of widths, large text, right-to-left and another language (see [tela check and tela verify](#tela-check-and-tela-verify)) |
 | `tela dev` | Runs an app and reloads it on every save, keeping the window and the state |
 | `tela mcp` | Serves a package's screen to agents over the Model Context Protocol: snapshot, screenshot, click, fill, film, test... on an instance that stays up and rebuilds on edits; `--attach` drives a running `tela dev`'s real windows instead (see [tela mcp](#tela-mcp)) |
 | `tela lsp` | Serves class diagnostics, completion and hover to editors over the Language Server Protocol, beside gopls (see [tela lsp](#tela-lsp)) |
@@ -233,7 +234,7 @@ directory knows the loop without being told:
 
 | File | Is |
 |---|---|
-| `AGENTS.md` | A short guide: read `llms.txt` (online, and the copy of the module at the version in `go.mod`, found with `go list -m -f '{{.Dir}}' github.com/kuronosu/tela`), write the UI, look at it with the `tela mcp` tools or `tela snapshot` and `tela inspect`, then `tela lint ./...` and `CGO_ENABLED=0 go test ./...` before finishing |
+| `AGENTS.md` | A short guide: read `llms.txt` (online, and the copy of the module at the version in `go.mod`, found with `go list -m -f '{{.Dir}}' github.com/kuronosu/tela`), then the recipe in `llms/` for the area you work on, write the UI, look at it with the `tela mcp` tools or `tela snapshot` and `tela inspect`, then `tela check`, `tela lint ./...` and `CGO_ENABLED=0 go test ./...` before finishing |
 | `CLAUDE.md` | One line, `@AGENTS.md`, the import Claude Code reads |
 | `.mcp.json` | The server entry that Claude Code and other MCP clients read: it starts `tela mcp .` in the app's directory, so `tela` must be in `PATH` |
 
@@ -265,7 +266,7 @@ app becomes yours.
 
 ```text
 tela snapshot [--size WxH] [--scale N] [--dark] [--preview NAME] [-o out.png] <pkg>
-tela snapshot --film SPAN [--every DUR] [--apng anim.png] [flags] <pkg>
+tela snapshot --film SPAN [--every DUR] [--apng anim.png] [--click LOC | --hover LOC | --press KEY] [flags] <pkg>
 ```
 
 | Flag | Meaning |
@@ -278,6 +279,7 @@ tela snapshot --film SPAN [--every DUR] [--apng anim.png] [flags] <pkg>
 | `--film SPAN` | Film the first `SPAN` (`600ms`, `1.5s`) of the app's clock instead of a still: see [Film](#film) |
 | `--every DUR` | With `--film`: the time between frames (default `50ms`, at least `1ms`) |
 | `--apng file` | With `--film`: also write every frame as an animated PNG |
+| `--click LOC`, `--hover LOC`, `--press KEY` | With `--film`: film what that action starts instead of the mount |
 
 ```bash
 tela snapshot --size 480x200 --scale 2 --dark -o counter-dark.png ./examples/counter
@@ -309,8 +311,22 @@ format: it plays in browsers and image viewers, and a program that does not
 animate shows the first frame. Frames after the first hold only the box that
 changed, so a small motion in a big window is a small file; each lasts until
 the next frame's time and the last stays a second. Browsers play frames
-shorter than 20 ms slower than asked. A film starts at the mount; to film
-what an action starts, use the `film` tool of [`tela mcp`](#tela-mcp).
+shorter than 20 ms slower than asked.
+
+A film starts at the mount, or with `--click`, `--hover` or `--press` at an
+action: the screen is settled first, the action runs, and the first frame is
+right after it (a dialog opening, a hover transition, a menu a key shows). The
+element is named as Playwright's selectors name it: `role=button[name="Open"]`
+(the name may be left out), `text=Open` (contained, any case) or `text="Open"`
+(exact), or `testid=open` (an `h.TestID`); a key is in Playwright's syntax
+(`Escape`, `Control+k`). An element that is not on the screen is the error of
+the run, with what the screen has.
+
+```bash
+tela snapshot --film 300ms --every 100ms --preview Slide --click 'role=button[name="Slide"]' ./myapp
+```
+
+For a longer session, use the `film` tool of [`tela mcp`](#tela-mcp).
 
 Rendering uses Tela's own rasterizer and its standard fonts (the fonts of the
 package's `App.Fonts` first, never the system's), so the PNG is the same on
@@ -358,7 +374,7 @@ stable.
 ## tela dev
 
 ```text
-tela dev [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [--devtools] [-v] [pkg]
+tela dev [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [--devtools] [--debug] [-v] [pkg]
 ```
 
 Runs the app and reloads it every time you save, in the same window and with
@@ -387,11 +403,22 @@ screen `tela snapshot` renders, with the window settings of its `var App`.
 **What is kept:** the values of `UseState`, `UseReducer`, `UseValue` and
 `UseRef` that `encoding/gob` can encode in full (no funcs, channels or
 unexported fields), matched by the component's place in the tree and the
-hook's position, as React Fast Refresh does; the text, selection and undo
-history of text fields; scroll offsets; the focus; the color scheme, theme
-and locale set at run time. A component whose hooks changed (one added,
-removed or of another type) starts fresh, with its children; in dev mode
-every value that cannot be kept is named once on the terminal. Animations
+hook's position, as React Fast Refresh does; the state that `kit`'s
+components and `aria`'s hooks hold themselves (an uncontrolled choice,
+selection, tab, slider value, color, calendar date or menu checkbox, the
+focused item of a list, an `aria.Selection` in your own state); the text,
+selection and undo history of text fields, and an IME composition in
+progress in the focused one (the preedit stays and the IME goes on; if the
+new build has no such field any more, the preedit is committed as text, as
+when a field loses the focus); scroll offsets; the focus; the
+color scheme, theme and locale set at run time. A component whose hooks
+changed (one added, removed or of another type) starts fresh, with its
+children. A component you rename (its function or type, where it is
+declared) keeps its state when it stays at the same place in the tree with
+the same hooks; another component that takes its place does not, even with
+the same hooks. In dev mode every value of yours that cannot be kept is named once
+on the terminal, and `-v` lists at each reload every slot that reset, Tela's
+own included (a press, a hover, a timer, the typeahead's search). Animations
 restart from rest and effects run again, as on a new mount. State outside
 the tree (package variables, controllers) is kept with
 [`App.DevState`](https://pkg.go.dev/github.com/kuronosu/tela#DevState):
@@ -424,7 +451,25 @@ panel and the next good build clears it.
 everything of the dev loop compiles only with it; a plain `go build` links
 none of it. Dev builds also skip the VCS stamp, the symbol table and DWARF,
 and inlining in the app's package, to build faster (panics keep their
-`file:line`, but a debugger cannot attach).
+`file:line`, but a debugger cannot attach without `--debug`).
+
+**Debugging:** with `--debug` the builds keep DWARF and the symbol table, and
+no package is optimized or inlined (`-gcflags=all=-N -l`), so
+[Delve](https://github.com/go-delve/delve) can attach; the first build takes
+longer, as every package is compiled again once. Each reload is a new process,
+so every start prints its process ID and the command to attach to it:
+
+```text
+tela dev: build 3 started (pid 41872); attach a debugger with: dlv attach 41872
+```
+
+Attach again after each reload (in an editor, an "attach to process" launch
+configuration with that PID). On Linux, attaching to a process the debugger did
+not start needs ptrace permission (`kernel.yama.ptrace_scope` set to 0, or
+`sudo dlv attach`). While the debugger holds the app at a breakpoint the window
+does not update, and a reload in the meantime starts without the state. A
+`-gcflags` in `GOFLAGS`, or an `-ldflags` there with `-s` or `-w`, replaces what
+`--debug` needs; `tela dev` warns and leaves it to you.
 
 | Flag | Does |
 |---|---|
@@ -433,7 +478,9 @@ and inlining in the app's package, to build faster (panics keep their
 | `--dark` | The app sees the system in dark mode (`App.ColorScheme` still wins) |
 | `--preview NAME` | Runs the preview `NAME` of the package's `Previews` |
 | `--no-state` | Starts every build fresh |
-| `-v` | Prints the timing of every step of a reload |
+| `--devtools` | Opens the DevTools window beside the app (see [tela devtools](#tela-devtools)) |
+| `--debug` | Builds for a debugger (DWARF, no optimizations or inlining) and prints each build's process ID and the `dlv attach` command |
+| `-v` | Prints the timing of every step of a reload, and each hook slot it could not keep, with the reason |
 
 Keys, when standard input is a terminal: `r` reloads keeping state, `R`
 reloads with fresh state, `q` quits (as does closing the window or Ctrl+C).
@@ -500,27 +547,44 @@ The window follows the app live and survives its reloads. Four panels:
   folding, a search over kinds, keys, text and classes, a *Components* view
   that leaves out the primitives, and a window picker when the app has several
   windows. The crosshair turns on **pick mode** in the app: the box under the
-  pointer is highlighted, a click selects it here (and does not reach the
-  app), Esc cancels. Hovering a row highlights its element in the app. The
+  pointer is highlighted, a click selects it here, Esc cancels. Pick mode
+  picks what is painted, as Chrome's picker does (`pointer-events-none` and
+  inert elements too), and keeps the app's input (clicks, the wheel, keys,
+  the title bar) from it until it ends; only the release of a press the app
+  already held reaches it. Hovering a row highlights its element in the app. The
   selection shows its source line (`settings.go:42`), **why it rendered** (the
   causes of its last builds, newest first: a `UseState` and the line that
   declared it, new props and which fields differ, a context, a parent that
   built it), its hooks with their values, its props, the box model (margin,
   border, padding and content, as Chrome draws it) and its computed style.
 - **Accessibility**: the semantics tree as `tela inspect` prints it. Selecting
-  a node selects its element, with the same details.
+  a node selects its element, with the same details; hovering or selecting a
+  node highlights its element in the app, as the Elements panel does.
+
+The details pane of both panels is as wide as you drag the splitter at its
+edge (or move it with the arrow keys once focused; a double click puts the
+default back). Its copy button puts the element on the clipboard as JSON (its
+details and its box), as its source location (`path/settings.go:42`, which
+editors open) or as its line of the aria snapshot. The tree follows the app by
+fetching what changed since the version it has, and a selection fetches its
+own box only, so big trees stay quick.
 - **Profiler**: *Record*, use the app, *Stop*. Each frame is a bar stacked by
   phase (input, animate, build, style, layout, paint, semantics, raster,
   present, effects) against the 16.7 ms line; a summary counts the frames,
   the ones over budget and the slowest phase. Click a frame for its time per
   phase, its counts and damage, and the elements it built with the reason of
   each build; a row opens the element in the Elements panel.
-- **Logs**: what the app printed on standard error and the warnings and errors
+- **Logs**: what the app printed on standard error, the warnings and errors
   of its trees (unknown classes, duplicate keys, state that a reload cannot
-  keep), filterable by level, source and text.
+  keep; once each, though the app prints them on standard error too) and
+  `tela dev`'s own lines (building, a failed build with its errors),
+  filterable by level, source and text. Entries logged while the app is idle
+  arrive at once.
 
-The look follows the system's color scheme: graphite in the dark, a calm grey
-in the light.
+The look follows the system's color scheme, graphite in the dark and a calm
+grey in the light, and is dark when the system states no preference, as
+Chrome's and Flutter's DevTools are; the sun and moon button in the toolbar
+switches it.
 
 ## tela lint
 
@@ -555,6 +619,7 @@ Anything computed (`"p-" + strconv.Itoa(n)`) is skipped, never guessed.
 | `hooks` | A hook (`Use...` of `tela`, `aria`, `kit`, `i18n`, or a custom hook of your code) called conditionally, in a loop, after an early return, from a function that is neither a component nor a custom hook, or in a function literal that is not a component; and a component (a function or `Build` method that uses hooks) called directly instead of through `tela.C`, `tela.CP` or an element. A function with the shape `func() tela.Node` or `func(P) tela.Node` is given the benefit of the doubt. A function is a custom hook when it is named `UseXxx` or `useXxx` and calls a hook |
 | `fragment` | `h.Fragment(x)` with a single child and no spread: a struct component is a `tela.Node` (ADR-205), so write `x`. It has a fix (`-fix`), and is reported only where removing the wrapper still type-checks and keeps the child's identity (its state): `x` is not a `Prop` or a `tela.Child` that could hold one (`Fragment(Key(k))` sets the key of the fragment), the place takes a `tela.Node` or `tela.Child` (an argument, an element or a field of a literal, a result, an assignment to a declared type; not `n := Fragment(x)`, an `any` or a generic parameter), no comment sits inside the call, the first argument of `tela.WithKey` is a struct literal, and the same function (or the same `IfElse`) has no `Fragment` of several children as an alternative: a child that moves between `Fragment(x)` and `Fragment(x, y)` keeps its state, and one that moves between a bare `x` and `Fragment(x, y)` does not |
 | `prop-node` | A `Prop` or `StyleProp` (`h.Class`, `h.Key`, `h.OnClick`, `tela.Width`...) where a `tela.Node` is expected: the result of a function or of a `Map` callback, an element of a `[]tela.Node`, a field of type `tela.Node` or `tela.Component`, an argument of `tela.WithKey`, an `If` of props. A prop has a `Build` method, so it compiles, and it panics when the node is consumed. Props go to an element: `Div(Class("p-4"), ...)`. A `tela.Child` takes props, so it is not reported |
+| `migrate` | A spelling of the public API that a release removed or renamed, such as `desktop.Launch.Forwarded` (now `Launch.Source == desktop.LaunchForwarded`) or `telatest.App.Move` (now `MoveWindow`). Every breaking change ships a rewrite (ADR-305), so `tela lint -fix` moves an app to the new release: the rewrites are in `internal/lint/migrations.go`, each with an example that a test runs. Old code does not type-check, so a package that fails to type-check is checked for this rule alone, and `-fix` goes on to the other rules once it compiles |
 
 Each finding is `file:line:col: rule: message`, sorted by position, with paths
 relative to the current directory. The exit status is 0 when nothing is
@@ -577,7 +642,7 @@ only a reason: `//tela:ignore -- generated`) covers every rule.
 |---|---|
 | `-json` | Prints the findings as a JSON array of `{file, line, col, rule, severity, message, suggestion}` (`suggestion` only when the message proposes a replacement; `severity` is `error` or `warning`; `[]` when there is nothing) |
 | `-tests` | Lints the `_test.go` files too (by default they are skipped: tests often use a wrong class on purpose) |
-| `-fix` | Applies the fixes of the findings that have one (today the `fragment` rule): the files are rewritten and formatted with gofmt, an import that the fix left unused is removed, and a file whose fixed text would not parse is left as it was. It prints `fixed N findings in M files` on standard error and reports what is left. Review the result with `git diff` |
+| `-fix` | Applies the fixes of the findings that have one (the `fragment` and `migrate` rules): the files are rewritten and formatted with gofmt, an import that the fix left unused is removed, and a file whose fixed text would not parse is left as it was. It prints `fixed N findings in M files` on standard error and reports what is left. Review the result with `git diff` |
 
 Limits: only the files that the current platform and build tags select are read;
 aliases and theme colors come from the linted packages, so lint `./...` when you
@@ -591,6 +656,59 @@ Run it in CI after `go vet`:
 ```bash
 CGO_ENABLED=0 go run github.com/kuronosu/tela/cmd/tela@latest lint ./...
 ```
+
+## tela check and tela verify
+
+```text
+tela check  [--preview NAME] [--size WxH] [--rules LIST] [--disable LIST] [-json] <pkg>
+tela verify [--preview NAME] [--size WxH] [--widths LIST] [--text-scale N] [--lang TAG] [--rules LIST] [--disable LIST] [-json] <pkg>
+```
+
+`tela inspect` shows the tree; these commands judge it. They mount the screen
+headlessly as `tela snapshot` does and run the rules of
+[`telatest`'s audit](Testing#checking-accessibility) (ADR-306, ADR-312): text
+that is cut off or lies over other text, targets over targets, contrast under
+WCAG 2.2 AA, targets under 24x24, controls a keyboard cannot operate, focus that
+shows nothing, and missing names and states. `tela check` is the fast pass: the
+screen of `tela snapshot` in light and dark. `tela verify` runs every preview
+(or `--preview`) in a matrix, one change from the baseline at a time:
+
+| Variant | What changes |
+|---|---|
+| `light`, `dark` | The color scheme (skipped when the `App` or the preview fixes it) |
+| `width N` | The window's width, for each of `--widths` (default 360, 768, 1280), at the baseline's height |
+| `text xN` | The text scale, `--text-scale` (default 2, WCAG 1.4.4) |
+| `rtl` | The whole screen under `h.Dir("rtl")` |
+| `lang TAG` | The locale `--lang`, or the first other one of a package that links `tela/i18n` |
+
+Each finding says where it is, so that it can be opened and fixed:
+
+```text
+$ tela verify ./examples/hello
+main.go:17: color-contrast (serious): text is #79716b on #e7e5e4: contrast 3.83:1, text needs 4.5:1 (WCAG 2.2 AA 1.4.3)
+    element: text "TELA / GO UI FRAMEWORK" in span (class "text-sm font-medium tracking-widest text-stone-500")
+    fix: raise the contrast to 4.5:1: darken the text color or lighten its background (a theme's foreground over its background does)
+    in: light, dark, width 360, width 768, width 1280, rtl
+```
+
+The line is where the app made the element (a library component's is the line
+of the app that used it, else the library's own). The same finding in several
+variants is one, with the variants it appears in. `-json` prints one object:
+`package`, `previews`, `variants`, `skipped` (variants that do not apply, with
+why) and `findings` (`preview`, `rule`, `impact`, `message`, `fix`, `element`,
+`src`, `x`, `y`, `width`, `height`, `variants`). The exit status is 0 when
+nothing is found, 1 when something is, 2 on a usage error or when the package
+cannot run. `--rules` and `--disable` take rule IDs (`tela help check` lists
+them with what each rule does not see).
+
+A finding is a judgement of the laid-out screen, so each rule leaves out what
+it cannot judge: text over an image, a gradient, a blur or a filter, and text
+faded to 60% or less (the look of an inactive control) are not checked for
+contrast, only text and not borders or icons; truncation on purpose
+(`truncate`, `line-clamp`), text in a scroll container, `sr-only` text and text
+under a transform are not clipped; overlays, portals and scrolled-out content
+do not overlap; a text field's caret is its focus indicator. `tela mcp` has the
+same two as the tools `check` and `verify`.
 
 ## tela mcp
 
@@ -643,23 +761,26 @@ services are not reachable through the tools yet.
 | `hover` | Moves the pointer over an element |
 | `fill` | Replaces the text of a field; `submit: true` presses Enter after |
 | `press` | Presses a key or combo in Playwright's syntax (`Enter`, `Shift+Tab`, `Control+a`), on the focused element or on one it focuses first |
-| `scroll` | Scrolls the wheel over an element by `dx`, `dy`; without an element, at a point (`x`, `y`) or at the center of the window |
+| `scroll` | Scrolls the wheel over an element by `dx`, `dy`; without an element, at a point (`x`, `y`) or over the largest scroll container that can move that way; the answer says when nothing moved |
 | `drag` | Drags `from` an element or point `to` another, or by `dx`, `dy` |
 | `resize` | Changes the window's `width` and `height` or `scale`, keeping the state |
-| `open` | Mounts another `preview`, `dark` mode, size or scale afresh; without arguments, lists the previews |
+| `open` | Mounts another `preview`, size or scale afresh; without arguments, lists the previews (dark mode is `prefer`'s) |
 | `wait` | Advances the app's clock by `ms` (timers, animations), or waits for a `text` to appear or `textGone` to go |
 | `inspect` | The layout tree of `tela inspect --layout`, whole or of one element |
-| `state` | Why a component rendered and what it holds: props, hooks (kind, call site, value), build count and the reason of each of its last builds, for a `ref` (its nearest component) or for the screen's components that have props or hooks (`max`) |
+| `state` | Why a component rendered and what it holds: props, hooks (kind, call site, value), build count and the reason of each of its last builds, for an element (its nearest component) or for the screen's components that have props or hooks (`max`) |
 | `logs` | The dev warnings and errors and the app's output since the last `logs` call, with levels (`level`, `all`) |
 | `perf` | The last `frames` frames, or with `action: true` the frames the last click, press or wait caused: time per phase, what each built, styled, laid out and repainted, and a summary |
 | `prefer` | `reducedMotion`, `highContrast`, `textScale`, `locale`, `direction` and `dark`; without arguments, the current ones |
 | `lint` | `tela lint -json` on the package |
+| `check` | `tela check` on the package's source as it is, in a process of its own: findings with rule, element, `[src=file:line]` and fix (`preview`, `rules`, `disable`) |
+| `verify` | `tela verify`: every preview in light and dark, at several widths, with large text, right-to-left and in another language (`preview`, `widths`, `textScale`, `lang`, `rules`, `disable`) |
 | `film` | The frames of the motion an `action` starts, every `every` ms over `span` ms of the app's clock, as a contact sheet image (and, with `apng`, an animated PNG): see [`film`](#film-and-test) |
 | `test` | Writes the session's actions, and what each changed, as a Go `telatest` test in the package, then runs `go vet` and the test: see [`test`](#film-and-test) |
 
 An element is named by the `ref` of the latest snapshot, or by `role` and
 `name`, `text` or `testId` (`telatest`'s locators; `nth` picks one of several).
-Every tool that acts answers with the new snapshot. A ref is the element
+Every tool that acts answers with the new snapshot and a line on the frames
+it caused (how many, their time, the slowest phase). A ref is the element
 itself, not its role and name: it stays with the element across actions
 and rebuilds of the tree whatever happens to its label or its siblings (a
 counter's text changes, rows before it are removed), for as long as the
@@ -670,8 +791,8 @@ was mounted afresh the refs are matched again by role, name and position, so
 rebuilt. A failed action (an element not found, a disabled button, a panic in
 a handler) is an error result of that call: the instance keeps running, and
 after a panic it mounts the screen afresh. An element that is not on the
-screen fails at once when nothing is pending (no animation, timer or queued
-update); while something is, the call waits up to two seconds for it to
+screen fails at once when nothing that can change the screen is pending (no animation, timer, queued
+update, or load on a `UseAsync` or `UseGo` goroutine; a caret blink, a spinner or a scrollbar fade does not count), and so does `wait` for a `text` that cannot come; while something is, the call waits up to two seconds for it to
 appear. Use `wait {"text": "Loaded"}` for data that arrives from a goroutine.
 The client's `notifications/cancelled` stops a wait or an action in progress,
 keeps the app's state and sends no response for that call.
@@ -686,9 +807,11 @@ paths are those of [`tela inspect`](#tela-inspect), and so is the `"src"` of
 - button "Count: 1" [ref=e4] [src=counter.go:21]
 ```
 
-**`state`, `perf`, `logs`.** `state {"ref": "e4"}` answers for the component
-that rendered the element: the setter behind its last build is named with its
-line.
+**`state`, `perf`, `logs`.** `state {"ref": "e4"}` (or any element: `role`
+and `name`, `text`, `testId`) answers for the component that rendered the
+element: the setter behind its last build is named with its line. A
+component made at package level, as the `tela.C(Form)` of a `Previews`
+entry, is shown at its function's declaration.
 
 ```text
 ### app.Counter
@@ -703,7 +826,8 @@ are those of the instance on this machine (headless, no GPU): compare frames
 with each other, and read the counts (built, styled, laid out, repainted
 pixels) as the exact part. `logs` lists what the screen and the app logged
 since its last call: the dev warnings and errors of Tela (`dev`) and what the
-app printed (`app`; a `log/slog` or `log` line carrying `ERROR` or `WARN` gets
+app printed (`app`, from its first line: what the package's `init` functions
+print is kept too; a `log/slog` or `log` line carrying `ERROR` or `WARN` gets
 that level); every other result already carries the ones it caused.
 
 **`prefer`.** What the user of the app prefers, to see the screen in it:
@@ -715,8 +839,7 @@ and the answer says each one is `live`. The locale is
 the preference has no effect). `{"direction": "rtl"}` puts an `h.Dir` around
 the whole screen, which is part of the tree: the screen is mounted afresh
 (state reset, refs new) with every preference set, and the answer says so.
-The preferences stay across rebuilds and `open`. `dark` is also an argument of
-`open`, which always mounts afresh.
+The preferences stay across rebuilds and `open`.
 
 ### `film` and `test`
 
@@ -737,7 +860,7 @@ grid of at most 24 frames, each scaled down and captioned with its time; at most
 60 frames and 30 000 ms in all) and the snapshot of the app once settled, so the
 last frame can be compared with where it ends up. `apng` also writes every frame
 as an animated PNG to a path. The same sheet and animation come from
-[`tela snapshot --film`](#film) for the motion a mount starts.
+[`tela snapshot --film`](#film), with `--click`, `--hover` or `--press`.
 
 **`test`.** The session becomes a regression test:
 
@@ -751,8 +874,10 @@ its directory; a relative path is relative to it), then runs `go vet` and
 What it records is the acting calls since the screen was last mounted: `click`,
 `fill`, `press`, `hover`, `scroll`, `drag`, `wait`, `resize`, the actions of
 `film`, and `prefer` where `telatest` has the method (dark mode, reduced motion,
-high contrast, text scale). The mount has the session's preview, size, scale,
-dark mode and preferences (and the package's `App`); `open` starts another
+high contrast, text scale, locale). The mount has the session's preview, size,
+scale, dark mode and preferences (and the package's `App`): a locale is
+`i18n.SetLocale` before it (put back when the test ends), a direction the
+`h.Dir` around the screen that `prefer` put; `open` starts another
 mount in the same test; a change of the Go source starts the recording over,
 because the steps no longer say what the screen does. Each action is the
 `telatest` call for it, and an element is the most specific stable locator for
@@ -762,16 +887,17 @@ it, never a node identity:
 app := telatest.Mount(t, Previews["Form"], telatest.Size(480, 320))
 app.Click(telatest.ByRole("button", "Count: 0"))
 app.ExpectRole("button", "Count: 1")
-app.Fill(telatest.ByRole("textbox", "Name"), "Ana")
+app.Fill(telatest.ByTestID("name"), "Ana")
 app.ExpectValue(telatest.ByRole("textbox", "Name"), "Ana")
 app.Press("Enter")
 app.ExpectText("Hello, Ana!")
 app.Advance(100 * time.Millisecond)
 ```
 
-A ref becomes `ByRole(role, name)`, with `.Nth(i)` only when several elements of
-the snapshot look alike; a `testId` the agent gave stays `ByTestID`, and
-`text` stays `ByText`. After each action come checks of **what changed** in the
+A ref becomes `ByTestID` when its element has an `h.TestID` no other element
+has (Playwright's codegen prefers test ids too), else `ByRole(role, name)`,
+with `.Nth(i)` only when several elements of the snapshot look alike; a
+`testId` the agent gave stays `ByTestID`, and `text` stays `ByText`. After each action come checks of **what changed** in the
 snapshot (an element that appeared, a state that flipped to `Checked(true)` or
 `Expanded(true)`, a field's value, a text shown or gone, an element removed),
 at most eight, not a copy of the whole snapshot: the test breaks when the
@@ -781,8 +907,9 @@ to overwrite another one. If the test does not compile or vet it is not kept
 (the error shows what was written); if it compiles but fails it is kept, with
 the failure.
 
-Neither tool is available over [`--attach`](#tela-mcp---attach) yet: they need
-the headless app's controllable clock and mount.
+Over [`--attach`](#tela-mcp---attach) both work on the real window: `film`
+takes the frames it presents in real time, and `test` writes the session as a
+test of the package `tela dev` runs (see there).
 
 The instance is built against the `tela` your module requires, which may be
 older than the `tela` binary: the source lines, `state`, `perf` and `prefer`
@@ -836,17 +963,19 @@ because the app, its clock and its window are the person's and `tela dev`'s:
 | `windows` | New: lists ID, title, logical size, display scale and which window has the keyboard focus |
 | `snapshot` | The real window's aria snapshot, with refs and `[src=file:line]`. Refs are semantics node IDs per window, as in the headless server; after a `tela dev` reload (a new child, whose IDs start again) they are matched again by role, name and position, and the result says the app was built again |
 | `screenshot` | The frame the window presents, in real pixels at the display's scale (the answer says it: 480x400 logical at scale 2 is 960x800 pixels); with a `ref`, that element with an 8 px margin |
-| `click`, `hover`, `fill`, `press`, `scroll`, `drag` | Inject pointer, key and text events into the real window at the element's painted position (the path a person's input takes), wait until the app has drawn no frame for 100 ms (at most 5 s: an animation never settles, and the answer says so), and answer with the new snapshot. `fill` clicks the field, selects all and types the text, so `OnChange` fires per character; `press` with a `ref` clicks the field to focus it, and refuses an element a click would activate (use `Tab`). An element's center must be inside the window: scroll it into view first. `testId` is not available (the snapshot has no test ids): use `ref`, `role` and `name`, or `text` |
+| `click`, `hover`, `fill`, `press`, `scroll`, `drag` | Inject pointer, key and text events into the real window at the element's painted position (the path a person's input takes), wait until the app has drawn no frame for 100 ms (at most 5 s: an animation never settles, and the answer says so), and answer with the new snapshot. `fill` clicks the field, selects all and types the text, so `OnChange` fires per character; `press` with a `ref` clicks the field to focus it, and refuses an element a click would activate (use `Tab`). The element is scrolled into view first and acted on at a point where the app paints it (inside rounded corners and rotations), and refused when another element covers it there; `drag` presses on its start before it scrolls its end into view. `text` also finds a text of a paragraph that has no box of its own (beside a link or a button). `testId` is not available (the snapshot has no test ids): use `ref`, `role` and `name`, or `text` |
 | `wait` | Waits real time (`ms`, at most 60 s) and/or up to 10 s for a `text` to appear or `textGone` to go: the app's clock runs by itself |
-| `inspect`, `state`, `perf`, `logs` | Read the running app through the instrumentation `tela dev` turns on for the attached client: the layout tree, the component behind a `ref`, the frames' time per phase (`action: true` for the frames of the last acting call) and what `tela dev` logged (the dev warnings and errors of Tela, and the app's standard error; standard output is not kept) |
+| `inspect`, `state`, `perf`, `logs` | Read the running app through the instrumentation `tela dev` turns on for the attached client: the layout tree, the component behind an element, the frames' time per phase (`action: true` for the frames of the last acting call, which its answer sums up) and what `tela dev` logged (the dev warnings and errors of Tela, and the app's standard error; standard output is not kept) |
 | `lint` | `tela lint -json` on the session's package, as `tela dev` was given it |
+| `film` | Takes the frame the window presents every `every` ms of real time over `span` ms, after an `action` or not: the times are the wall clock's, close to the ones asked (each frame is captioned with the time it was taken), and the motion runs at this machine's speed; `apng` writes in the module of `tela dev`'s package |
+| `test` | Writes the acting calls on the app's first window since `tela dev` last built the app as a `telatest` test of its package, which mounts the screen headlessly (the package's `var App`, `Preview` or `tela dev`'s preview) at the window's size and scale, then runs `go vet` and the test. The app's state when the recording started is not in the test: act from a fresh start for a test that passes. An action on another window, or one that failed part-way, stops the recording until the next build |
 | `resize`, `open`, `prefer` | Not available (they answer so): the window and the system's preferences are the person's, and there are no previews to mount; use the headless server |
 
 `[src=]` is known for what the app built since the session was instrumented
 (the first call): an element built earlier has none until it rebuilds, so a
 snapshot taken right after attaching shows few until the app changes or
-reloads. The paths are relative to the directory `tela mcp --attach` runs in,
-like `tela dev`'s; the `Site` of a hook is shown as that process sees it.
+reloads. The paths are relative to the directory `tela dev` runs in, and so
+are those of `state` (its components and hooks).
 
 ## tela lsp
 
@@ -863,8 +992,11 @@ and leaves the rest to gopls:
   with "did you mean", roles, aria tokens, keys, hooks) for the open files, from
   their unsaved text. They are published when a file opens, a moment after you
   stop typing and on save. The aliases of `App.ClassAliases` and the theme
-  colors declared in the package are known. A file that does not compile is
-  still linted with what type-checks.
+  colors declared in the package, or in another package of the module (the
+  app's main package, a theme package), are known. A file that does not
+  compile is still linted with what type-checks.
+- **Quick fix** on an unknown class: "Replace with" the suggestion of the
+  message (`bg-rde-500` becomes `bg-red-500`, variants kept).
 - **Completion** inside a class string: utilities and theme keys, variants
   (`hover:`, `md:`, `dark:`, stacked), your class aliases and arbitrary values
   (`w-[...]`), each with the CSS it produces (`p-4` is `padding: 1rem`, a color
@@ -876,7 +1008,8 @@ A string is a class string when it is an argument of `Class(...)`, the value of
 a field named `Class` or ending in `Class` (`kit.Button{Class: "..."}`,
 `App.RootClass`), or a value of `ClassAliases`; once the file has been linted
 every string that `tela lint` checks is one (the fields of a `kit` recipe, for
-example). Completion and hover read the text, not the type checker, so they
+example, and a constant that is used as a class: `const card = "..."` with
+`Class(card)`, where the finding is reported at the constant). Completion and hover read the text, not the type checker, so they
 answer at once and while the file does not compile. Diagnostics need the `go`
 command in `PATH`; a package takes about 150 ms to lint again after the first
 run (the first one builds the export data of its dependencies, as `tela lint`

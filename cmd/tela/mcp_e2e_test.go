@@ -99,7 +99,7 @@ func fixtureModule(t *testing.T, fixture string) string {
 	tidy.Dir = dir
 	tidy.Env = append(os.Environ(), "CGO_ENABLED=0", "GOFLAGS=-mod=mod", "GOPROXY=off", "GOSUMDB=off")
 	if out, err := tidy.CombinedOutput(); err != nil {
-		t.Skipf("cannot resolve the dependencies of a module outside the repository offline (go mod tidy: %v):\n%s", err, out)
+		offlineUnresolved(t, "cannot resolve the dependencies of a module outside the repository offline (go mod tidy: %v):\n%s", err, out)
 	}
 	return dir
 }
@@ -415,7 +415,7 @@ func TestMCPEndToEnd(t *testing.T) {
 
 	// open lists the previews and mounts another.
 	r = c.tool("open", nil)
-	if r.isError || !strings.Contains(r.text, "Form, List, Long, Other, Prefs, Spinner") {
+	if r.isError || !strings.Contains(r.text, "Form, List, Loader, Long, Other, Panes, Prefs, Spinner") {
 		t.Errorf("open without arguments:\n%s", r.text)
 	}
 	r = c.tool("open", map[string]any{"preview": "Other"})

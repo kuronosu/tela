@@ -86,6 +86,22 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Warm the module cache for the out-of-repository tests
+        # cmd/tela's end-to-end tests (dev, mcp, new, build, outside
+        # modules) run go mod tidy offline on a module that requires tela
+        # and need the cache to resolve it (godbus, go-text's test
+        # modules); on GitHub Actions they fail when it cannot
+        # (offlineUnresolved in cmd/tela/offline_test.go).
+        shell: bash
+        run: |
+          d="$(mktemp -d)"
+          ws="${GITHUB_WORKSPACE//\\//}"
+          printf 'module example.com/warm\n\ngo 1.27\n\nrequire github.com/kuronosu/tela v0.0.0\n\nreplace github.com/kuronosu/tela => %s\n' "$ws" > "$d/go.mod"
+          printf 'package main\n\nimport _ "github.com/kuronosu/tela"\n\nfunc main() {}\n' > "$d/main.go"
+          (cd "$d" && go mod tidy)
+          # The notes template of tela new (TestNewAppBuildsAndPasses) also
+          # needs what examples/notes requires: SQLite.
+          (cd examples/notes && go mod download)
       - name: go test
         env:
           CGO_ENABLED: "0"
@@ -94,6 +110,15 @@ jobs:
         # its largest package, runs through nearly all of it: its 10-minute
         # default timeout measured the whole suite. 20m leaves room.
         run: go test -timeout 20m ./...
+      - name: go test -tags teladev (tela dev's kept state)
+        if: success() || failure()
+        env:
+          CGO_ENABLED: "0"
+        # The codecs and restore paths that keep hook state, renamed
+        # components and IME compositions across a tela dev reload exist
+        # only in teladev builds (ADR-113, ADR-309): the default suite
+        # never compiles them.
+        run: go test -short -timeout 20m -tags teladev . ./aria ./i18n ./internal/core/... ./internal/devloop ./internal/text/edit ./kit ./router ./examples/dashboard
       - name: Upload golden diffs
         if: failure()
         uses: actions/upload-artifact@v4
@@ -393,6 +418,22 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Warm the module cache for the out-of-repository tests
+        # cmd/tela's end-to-end tests (dev, mcp, new, build, outside
+        # modules) run go mod tidy offline on a module that requires tela
+        # and need the cache to resolve it (godbus, go-text's test
+        # modules); on GitHub Actions they fail when it cannot
+        # (offlineUnresolved in cmd/tela/offline_test.go).
+        shell: bash
+        run: |
+          d="$(mktemp -d)"
+          ws="${GITHUB_WORKSPACE//\\//}"
+          printf 'module example.com/warm\n\ngo 1.27\n\nrequire github.com/kuronosu/tela v0.0.0\n\nreplace github.com/kuronosu/tela => %s\n' "$ws" > "$d/go.mod"
+          printf 'package main\n\nimport _ "github.com/kuronosu/tela"\n\nfunc main() {}\n' > "$d/main.go"
+          (cd "$d" && go mod tidy)
+          # The notes template of tela new (TestNewAppBuildsAndPasses) also
+          # needs what examples/notes requires: SQLite.
+          (cd examples/notes && go mod download)
       - name: go test (win32, alone)
         shell: bash
         env:
@@ -401,8 +442,12 @@ jobs:
         # keyboard, cursor, DWM). Beside the rest of the suite they share it
         # with other packages' processes, whose console windows can come on
         # top (a console's black was read where a test window was), and the
-        # CPU with the heaviest packages: they run first, alone.
-        run: go test -timeout 20m ./internal/platform/win32/
+        # CPU with the heaviest packages: they run first, alone. The tests
+        # that read the screen (DWM's title bars, backdrops, glass, modal
+        # and overlay pixels), the keyboard tests and the global shortcut's
+        # press run here without TELA_LIVE; they skip where the process has
+        # no interactive desktop, so -v lists which ran and which skipped.
+        run: go test -v -timeout 20m ./internal/platform/win32/
       - name: go test (the rest)
         if: success() || failure()
         shell: bash
@@ -439,14 +484,21 @@ jobs:
           CGO_ENABLED: "0"
         run: go build ./...
       - name: Warm the module cache for the out-of-repository tests
-        # cmd/tela's end-to-end tests (dev, mcp, new, outside modules) run
-        # go mod tidy offline on a module that requires tela, and skip when
-        # the cache cannot resolve it (godbus, go-text's test modules).
+        # cmd/tela's end-to-end tests (dev, mcp, new, build, outside
+        # modules) run go mod tidy offline on a module that requires tela
+        # and need the cache to resolve it (godbus, go-text's test
+        # modules); on GitHub Actions they fail when it cannot
+        # (offlineUnresolved in cmd/tela/offline_test.go).
+        shell: bash
         run: |
           d="$(mktemp -d)"
-          printf 'module example.com/warm\n\ngo 1.27\n\nrequire github.com/kuronosu/tela v0.0.0\n\nreplace github.com/kuronosu/tela => %s\n' "$GITHUB_WORKSPACE" > "$d/go.mod"
+          ws="${GITHUB_WORKSPACE//\\//}"
+          printf 'module example.com/warm\n\ngo 1.27\n\nrequire github.com/kuronosu/tela v0.0.0\n\nreplace github.com/kuronosu/tela => %s\n' "$ws" > "$d/go.mod"
           printf 'package main\n\nimport _ "github.com/kuronosu/tela"\n\nfunc main() {}\n' > "$d/main.go"
           (cd "$d" && go mod tidy)
+          # The notes template of tela new (TestNewAppBuildsAndPasses) also
+          # needs what examples/notes requires: SQLite.
+          (cd examples/notes && go mod download)
       - name: go test (cocoa, verbose)
         env:
           CGO_ENABLED: "0"

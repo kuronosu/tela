@@ -53,6 +53,11 @@ Rules, each with the message and the "did you mean" of dev mode:
 	        and the function (or IfElse) has no Fragment of several
 	        children as an alternative, which would give the child another
 	        identity and reset its state
+	migrate a spelling of the public API that a release removed or renamed
+	        (desktop.Launch.Forwarded, telatest.App.Move...): -fix rewrites it
+	        to the new one. Old code does not type-check, so a package that
+	        fails to type-check is checked for this rule alone, and what -fix
+	        rewrites is linted again for the others (ADR-305)
 	prop-node  a Prop (h.Class, h.Key, h.OnClick, tela.Width...) where a
 	        tela.Node is expected: the result of a function or of a Map
 	        callback, an element of a []tela.Node, a Node field, an
@@ -83,10 +88,11 @@ Flags:
 	         col, rule, severity ("error", or "warning" for what dev mode only
 	         warns about), message and, when there is one, suggestion
 	-tests   lint the _test.go files too
-	-fix     apply the fixes of the findings that have one (the fragment
-	         rule), rewriting the files (gofmt-formatted; a file whose fixed
-	         text would not parse is left as it was), and report what is
-	         left. Review the result with git diff; no other rule has a fix
+	-fix     apply the fixes of the findings that have one (the fragment and
+	         migrate rules), rewriting the files (gofmt-formatted; a file
+	         whose fixed text would not parse is left as it was), and report
+	         what is left. Review the result with git diff; no other rule has
+	         a fix
 `
 
 // lintOptions are the parsed arguments of `tela lint`.

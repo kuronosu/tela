@@ -60,7 +60,7 @@ func devAppModule(t *testing.T) string {
 	tidy.Dir = dir
 	tidy.Env = append(os.Environ(), "CGO_ENABLED=0", "GOFLAGS=-mod=mod", "GOPROXY=off", "GOSUMDB=off")
 	if out, err := tidy.CombinedOutput(); err != nil {
-		t.Skipf("cannot resolve the dependencies of a module outside the repository offline (go mod tidy: %v):\n%s", err, out)
+		offlineUnresolved(t, "cannot resolve the dependencies of a module outside the repository offline (go mod tidy: %v):\n%s", err, out)
 	}
 	return dir
 }
@@ -412,4 +412,49 @@ func TestDevEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 	e.until("the reload after an asset changed", func() bool { return strings.Count(e.out.String(), "reloaded in") > reloads })
+
+	// 6. Rename a component (its function and its use): it keeps its state
+	// (ADR-309), and -v says so.
+	_, mark = e.edit(func(s string) string {
+		s = strings.Replace(s, "func Mixed() tela.Node {", "func Blend() tela.Node {", 1)
+		return strings.Replace(s, "tela.C(Mixed),", "tela.C(Blend),", 1)
+	})
+	e.expect(mark, "devapp: mixed", "devapp: mixed n=1 f=7")
+	e.expect(mark, "devapp: counter", "devapp: counter n=3 pkg=3")
+	e.until("the line of the rename", func() bool {
+		return strings.Contains(e.out.String()[mark:], "tela dev: state: Blend (renamed from main.Mixed) kept its state")
+	})
+	// The slot that cannot be kept is a -v line at each reload, not only
+	// the warning of the first one (ADR-309).
+	if out := e.out.String()[mark:]; !strings.Contains(out, "tela dev: state: Mixed's UseState #2 resets: holds a func() int") {
+		t.Errorf("no -v line for the func slot:\n%s", out)
+	}
+
+	// 7. An IME composition in progress at a reload goes on in the new
+	// build (ADR-309): the window's IME session is not restarted (its text
+	// input state does not even change: the new build reports the same
+	// field, composing), and the IME's commit lands in the new build.
+	mark = len(e.out.String())
+	e.click(60, 188) // the field again (the click of step 3 focused the counter)
+	w := e.window()
+	e.until("the field's IME session", w.IMEActive)
+	w.Inject(platform.IMEEvent{Preedit: "にほ", CursorStart: 6, CursorEnd: 6})
+	e.expect(mark, "devapp: input", `devapp: input "hi!にほ"`)
+	// The app prints its input in the handler, before the frame that lays
+	// the preedit out and sends the state with its area (a caret's has no
+	// width): count from that state on.
+	e.until("the composition's text input state", func() bool {
+		st := w.TextInput()
+		return st != nil && st.CursorArea.W > 0
+	})
+	changes := w.TextInputChanges()
+	_, mark = e.edit(func(s string) string { return strings.Replace(s, `Text("Version B")`, `Text("Version C")`, 1) })
+	e.until("the line of the composition", func() bool {
+		return strings.Contains(e.out.String()[mark:], "tela dev: state: the IME composition of the focused field goes on")
+	})
+	if n := w.TextInputChanges() - changes; n != 0 || !w.IMEActive() {
+		t.Errorf("the reload changed the window's text input %d times (session active %v): the IME session restarted", n, w.IMEActive())
+	}
+	w.Inject(platform.IMEEvent{Commit: "日本"})
+	e.expect(mark, "devapp: input", `devapp: input "hi!日本"`)
 }

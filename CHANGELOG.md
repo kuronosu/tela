@@ -13,6 +13,60 @@ under **Breaking**, as are the small breaks released in a patch. See ADR-049 and
 
 ## [Unreleased]
 
+<!--
+Every entry under Breaking ends with the rewrite that `tela lint -fix` applies
+for it, as `migrate: <name>` (a name in internal/lint/migrations.go, several
+separated by commas), or with `migrate: none -- <why nothing can be rewritten>`
+(ADR-305). internal/lint's tests fail on an entry without one.
+-->
+
+## [0.14.10] - 2026-11-23
+
+Phase 29: Dev loop and testing (ADR-304 to ADR-314). Released as a patch with the owner's leave: three small breaks of `telatest` and `tela mcp`, listed under Breaking.
+
+### Breaking
+
+- `telatest.ClickOption` and `telatest.DragOption` are interfaces, so one `Modifiers` serves clicks and drags (ADR-307). migrate: none -- only code that declared its own func-typed options breaks, and it has no mechanical rewrite
+- `telatest.App.Pending` returns `[]telatest.Pending`, each with a kind, so callers no longer match its text (ADR-308). migrate: none -- a result type change; `Pending.String()` gives the old line
+- `tela mcp`'s `open` no longer takes `dark`: use `prefer {"dark": true}` (ADR-308). migrate: none -- an MCP tool argument, not Go code; the server's error names `prefer`
+
+### Added
+
+- `tela lsp`: a quick fix replaces an unknown class with the suggestion; class strings held in constants (`const card = "..."; Class(card)`) and the aliases and theme colors declared in other packages of the module are seen; hover shows the CSS of every utility (`mask-*`, `bg-conic-*` and the rest).
+- `telatest.Modifiers("Shift", "ControlOrMeta", …)` holds modifiers during `Click`, `ClickAt`, `DoubleClick` and drags, like Playwright's `click({modifiers})`; `telatest.HasRange(now, min, max)`; `TrayIcon.Template`; `telatest.StartLaunch(desktop.Launch{…, AtLogin})`; `App.AskForFileDefaults` and `App.DefaultsAsked` play Windows' `DefaultAsked` (ADR-307).
+- `App.Pending` and `ExpectIdle` name `UseAsync` runs in flight.
+- `tela dev` keeps the state kit's components and aria's hooks hold themselves (an uncontrolled radio group, tab, toggle group, select, slider, color picker, calendar date and month, menu checkboxes, a list's selection and focused item, an open context menu's place, an `aria.Selection` in your own state), the state of a component whose function or type you rename, and an IME composition in progress; `tela dev -v` lists every hook slot a reload could not keep, with the reason (ADR-309).
+- `tela devtools`: the tree updates incrementally (tools protocol 2: `elements` with a version, `inspect` with a depth), a resizable details pane, copy as JSON, source location or aria line, the Accessibility panel highlights in the app, and a scheme toggle; dark when the system states no preference (ADR-304).
+- `telatest`: `App.ExpectAccessible` and `App.Audit` with axe-like rules by ID, plus six rules about what is on screen: `color-contrast`, `click-events-have-key-events`, `text-clipped`, `text-overlap`, `target-overlap`, `focus-visible` (ADR-306, ADR-312).
+- `tela check` and `tela verify`: report cut-off or overlapping text, low contrast, small targets and focus problems on a package's screens, in light and dark, at several widths, with large text, in RTL and in another language; `-json`, exit status 1 on findings; `tela mcp` tools `check` and `verify` (ADR-312).
+- `tela dev --debug`: builds keep DWARF without optimizations or inlining, and each build prints `dlv attach <pid>` (ADR-310).
+- `telatest.App.NodeOf` and `App.TestIDOf`; `tela snapshot --film SPAN --click LOC|--hover LOC|--press KEY` films the motion an action starts; `tela mcp`'s acting tools end with the frames they caused, `state` takes any element, `film` and `test` work under `--attach`, and recorded tests use `ByTestID`, the locale and the direction (ADR-308).
+- Platform contract v17: `SystemSettings.LightMode` tells "light" from "no preference"; remote protocol 18.
+- `tela lint`: the `migrate` rule rewrites, with `-fix`, the spellings a release removed (`desktop.Launch.Forwarded`, `telatest.App.Move`); a package that no longer type-checks is still checked for it, and `-fix` goes on to the other rules once it compiles (ADR-305).
+
+### Fixed
+
+- `tela dev`: an IME composition that goes on across a reload keeps its candidate window in place when the new build takes over before its field is laid out (on a loaded machine), instead of the window's text input state changing twice.
+- The `[src=file:line]` of aria snapshots, `tela inspect` and `tela mcp` is relative to the app's directory when that directory is reached through a symbolic link, such as macOS's `/var` (it was qualified by the module path).
+- Under Wine, with the app built on Linux or macOS, the `[src=file:line]` of aria snapshots, `tela inspect` and `tela mcp`, the hooks' sites and the reasons of a render are relative to the app's directory too: a rooted source path such as `/src/app.go` is read on the working directory's drive (`Z:`), as Windows reads it.
+- `tela dev`'s tools socket lists a dev warning once, receives entries logged while the app is idle and includes `tela dev`'s own lines (a failed build as an error); a client whose queue filled gets a `dropped` notification and DevTools resync; keys sent to an unfocused window lend it the focus only while they reach it.
+- Pick mode keeps the wheel, keys and IME text from the app, picks `pointer-events-none` and inert elements, lets a press the app already held end in the app, and finds the app's source line past deep helper chains.
+- `watch` on Windows: a directory moved into a watched tree is no longer missed, a directory being scanned can be renamed meanwhile, and a watch no longer stops when its goroutine's stack grows ("Overlapped I/O incomplete").
+- `tela dev` with desktop services: the effect an `OnDrop` handler sets is the drop's outcome; a global shortcut the OS refused, or another app took, is registered again at the next reload; a window a new build opens from an effect keeps its window; a dialog opened at startup is not shown again on every reload; a reload while a Wayland window is minimized no longer stalls; Windows 11 and macOS backdrops show through. Remote protocol 19 (ADR-310).
+- `tela mcp`: fail-fast and `wait` read the kinds of what is pending and wait for `UseGo` loads; `scroll` without an element scrolls the largest container and says whether anything moved; under `--attach` it acts where the app paints a target (rounded clips, rotations), on text inside a paragraph, drags before it reveals the end, and `state` shows paths from `tela dev`'s directory; `logs` keeps output printed at init; components made at package level have a source (ADR-308).
+- `tela dev`: a child's clean exit no longer reaches the host as "connection reset by peer" (on Windows, "forcibly closed by the remote host": Windows' AF_UNIX sometimes leaves a pending receive waiting after the peer's end, so a receive is restarted every 250 ms); a build error that happens while the first build is being shown stays on screen, docked.
+
+### Changed
+
+- `tela lsp` keeps the module context between lints and lists less of the module: a lint after an edit of `examples/dashboard` goes from about 1.5 s to 0.1 s, the first one from 1.9 s to 0.3 s. `tela lint` no longer type-checks Tela's own packages as context in the Tela repository, as for any other app.
+- `docs/llms.txt` is a 31 KB core (it was 100 KB) with an index of recipes in `docs/llms/` (kit, settings-screen, components, styling, animation, windows, desktop-integration, testing, accessibility, i18n, dev), served at `telaui.dev/llms/NAME.md` and, concatenated, at `telaui.dev/llms-full.txt`; its common mistakes are only those reproduced on the current API, as symptom, cause and fix, and leave when `tela lint` catches them (ADR-313). `tela new`'s AGENTS.md and `tela mcp`'s instructions point to the recipes and to `tela check`.
+- `tela lint` reports a class held in a constant where the constant is declared (put `//tela:ignore` there), and finds aliases a package declares in another package's map.
+- The gate runs staticcheck for Windows and macOS too.
+- The gate's report of a failing test keeps its error lines (`file_test.go:N:`, `--- FAIL`, panics) and cuts the long output after them, such as aria snapshots and goroutine dumps; it keeps staticcheck installed in the user cache (`tela-gate/`), runs `go test` without its own vet (the vet step covers it) and starts the root module's tests at once.
+- `telatest` settles only when `UseAsync` runs end: a run still going after the `Timeout` fails the test naming it, and `NoSettle()` leaves runs alone; `tela snapshot`, `tela inspect` and `telatest.Render`, `AriaSnapshot` and `LayoutJSON` wait for them (up to the `Timeout`) before capturing.
+- A `telatest` wait on a long timer moves the clock to the next deadline instead of one frame per try, and only for what is on the clock: a caret's blink phase no longer depends on the machine's speed (ADR-311).
+- A menu role item's key text and a `GlobalShortcut`'s `CmdOrCtrl` follow the window's key flavor (`telatest.PlatformKeys`), not the host's.
+
 ## [0.14.9] - 2026-11-20
 
 Phase 28: DevTools and agents (ADR-299 to ADR-303). It breaks no public API; `tela inspect`'s output gains source lines.
@@ -1242,7 +1296,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.9...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.10...HEAD
+[0.14.10]: https://github.com/kuronosu/tela/compare/v0.14.9...v0.14.10
 [0.14.9]: https://github.com/kuronosu/tela/compare/v0.14.8...v0.14.9
 [0.14.8]: https://github.com/kuronosu/tela/compare/v0.14.7...v0.14.8
 [0.14.7]: https://github.com/kuronosu/tela/compare/v0.14.6...v0.14.7

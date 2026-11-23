@@ -126,7 +126,7 @@ func (t Tray) Build() tela.Node {
 	w := tela.UseWindow()
 	s := tela.UseOnce(func() *trayState { return &trayState{} })
 	s.props = t // the latest callbacks
-	opts, actions := trayOptions(t)
+	opts, actions := trayOptions(t, core.UseFlavor())
 	tela.UseMount(func() func() {
 		d, ok := core.DesktopOf(w)
 		if !ok {
@@ -220,8 +220,8 @@ func (s *trayState) event(e platform.Event) {
 
 // trayOptions returns the platform options of t, numbering the items that
 // can be chosen from 1 in menu order, and their OnSelect by number.
-func trayOptions(t Tray) (platform.TrayOptions, menuActions) {
-	menu, actions := platformMenu("desktop.Tray", t.Menu)
+func trayOptions(t Tray, fl platform.Flavor) (platform.TrayOptions, menuActions) {
+	menu, actions := platformMenu("desktop.Tray", fl, t.Menu)
 	return platform.TrayOptions{Icon: t.Icon, Tooltip: t.Tooltip, Menu: menu, Template: t.Template}, actions
 }
 

@@ -28,9 +28,15 @@ type Source interface {
 	// frames, logs, reload and windows.
 	Subscribe(ctx context.Context, events ...string) error
 	Unsubscribe(ctx context.Context, events ...string) error
-	Elements(ctx context.Context, window uint32, detail bool) ([]core.ElementInfo, error)
+	// ElementsSince returns the element tree as a change from the list of
+	// version (0: the whole list); a session too old to give changes
+	// answers the whole list with version 0.
+	ElementsSince(ctx context.Context, window uint32, version uint64) (core.ElementsDiff, error)
 	Element(ctx context.Context, window uint32, id core.ElementID) (core.ElementInfo, error)
-	Inspect(ctx context.Context, window uint32, id core.ElementID) (core.InspectNode, error)
+	// Inspect returns the layout of the element's box down to depth
+	// levels of children (0: the box alone, its children counted in
+	// More).
+	Inspect(ctx context.Context, window uint32, id core.ElementID, depth int) (core.InspectNode, error)
 	Semantics(ctx context.Context, window uint32) (Semantics, error)
 	Profiles(ctx context.Context, window uint32, since int) ([]core.FrameProfile, error)
 	Logs(ctx context.Context, since uint64) ([]LogEntry, uint64, error)
@@ -75,7 +81,8 @@ type Semantics struct {
 }
 
 // LogEntry is an entry of the session's log. Source is "stderr" (what the
-// app printed) or "app" (the dev warnings and errors of its trees).
+// app printed), "app" (the dev warnings and errors of its trees) or "tela
+// dev" (the session's own lines: building, a failed build).
 type LogEntry struct {
 	Seq    uint64     `json:"seq"`
 	At     time.Time  `json:"at"`

@@ -128,6 +128,16 @@
 //     served off its UI thread like the secrets, with the child's
 //     HandlerApp (its ID and executable, never the host's). A Dock menu
 //     task is a LaunchEvent for the active child.
+//   - Desktop services across reloads (protocol 19, ADR-310; reload.go):
+//     the effect a child sets while it handles a drop is the drop's final
+//     effect (the host waits for it); a shortcut the OS did not bind is
+//     registered again by the next build; a real window the new build has
+//     no window for at its promotion waits for one it opens later
+//     ([HostOptions.ReloadGrace]); a dialog opened at a build's start is
+//     taken over by the next build's start instead of shown again; a
+//     starting build under a suspended window, or one that gets no
+//     frames, gets its frame offscreen; and the real window's alpha
+//     (platform.AlphaPresenter) reaches the child windows.
 //   - Run returns an error when the connection is lost.
 //
 // The child's loop is internal/loop's (queue, coalesced wake, quit,
@@ -172,6 +182,15 @@
 // events while pending still receives a valid sequence: no release
 // without its press, no IME event outside a session, no event before its
 // ConfigureEvent.
+//
+// The IME session is the real window's, and the platform's IME holds a
+// composition in progress in it, so a promotion does not end it when the
+// new child's window shows the same field (the same purpose, multiline
+// flag and surrounding text: tela dev restored it, its composition
+// included): the session goes on, its state updated, and the new child
+// joins it with an IMESessionEvent. For another field the session restarts,
+// and a child that took over an active session is first told it ended
+// (ADR-309).
 //
 // [HostOptions.Scale] forces the scale children render at (tela dev
 // --scale): their ConfigureEvents carry it, with the real logical size,

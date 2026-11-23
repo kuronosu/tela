@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/kuronosu/tela/internal/devloop"
@@ -66,6 +67,8 @@ func devToolsAttached(rb *remote.Backend) bool {
 // its frames and logs from the start.
 func devToolsRegister(rb *remote.Backend, h *Host) {
 	devTools.h, devTools.rb = h, rb
+	logged := devToolsLogged(h)
+	insLogAdded.Store(&logged)
 	if h.tree.Instrumented() {
 		devTools.on = true
 		devTools.frames = map[*Tree]int{}
@@ -98,6 +101,9 @@ func devToolsRegister(rb *remote.Backend, h *Host) {
 	}
 	handle(devloop.KindToolsInstrument, false, devToolsInstrument)
 	handle(devloop.KindToolsElements, true, func(_ *Host, t *Tree, p devloop.ToolsParams) (any, error) {
+		if p.Diff && !p.Detail {
+			return t.ElementsSince(p.Version), nil
+		}
 		els := t.Elements(p.Detail)
 		if els == nil {
 			els = []ElementInfo{}
@@ -112,25 +118,29 @@ func devToolsRegister(rb *remote.Backend, h *Host) {
 		return info, nil
 	})
 	handle(devloop.KindToolsInspect, true, func(_ *Host, t *Tree, p devloop.ToolsParams) (any, error) {
-		if p.ID == 0 {
-			return t.Inspect(), nil
+		depth := -1
+		if p.Depth != nil {
+			depth = *p.Depth
 		}
-		if !t.HasElement(ElementID(p.ID)) {
+		if p.ID != 0 && !t.HasElement(ElementID(p.ID)) {
 			return nil, devToolsNoElement(p)
 		}
-		return t.InspectElementID(ElementID(p.ID))
+		return t.InspectDepth(ElementID(p.ID), depth)
 	})
 	handle(devloop.KindToolsSemantics, true, func(_ *Host, t *Tree, _ devloop.ToolsParams) (any, error) {
-		yaml, ids := semantics.SnapshotIDs(t.Semantics())
+		yaml, ids, texts := semantics.SnapshotTexts(t.Semantics())
 		nodes := make([]uint64, len(ids))
 		els := make([]uint64, len(ids))
 		srcs := make([]string, len(ids))
 		for i, id := range ids {
 			nodes[i] = uint64(id)
-			if id != 0 {
+			switch {
+			case id != 0:
 				el := t.ElementOfNode(id)
 				els[i] = uint64(el)
 				srcs[i] = t.AppSite(el).Rel() // "settings.go:42", as the app's working directory shows it
+			case texts[i] != 0:
+				els[i] = uint64(t.ElementOfNode(texts[i])) // the text a text line shows
 			}
 		}
 		return map[string]any{"yaml": yaml, "nodes": nodes, "elements": els, "srcs": srcs}, nil
@@ -175,6 +185,11 @@ func devToolsRegister(rb *remote.Backend, h *Host) {
 		res := map[string]any{"moved": moved}
 		if !vis.Empty() {
 			res["visible"] = vis
+			if !moved {
+				if pt, ok := t.ActionPoint(ElementID(p.ID), vis); ok {
+					res["point"] = pt
+				}
+			}
 		}
 		return res, nil
 	})
@@ -241,9 +256,31 @@ func devToolsNotify(kind string, msg any) {
 	devTools.rb.Notify(kind, b)
 }
 
-// devToolsFrame runs after each frame of an instrumented window: the
-// frames recorded and the log entries are pushed at most every
-// devloop.ToolsBatch, from a flush posted to the main tree.
+// devToolsLogPosted is set while a log entry's arming (devToolsLogged) is
+// on its way to the UI thread, so a burst of entries posts once.
+var devToolsLogPosted atomic.Bool
+
+// devToolsLogged is core's insLogAdded in a tela dev child: an entry was
+// logged on any goroutine, maybe while the app is idle, when no frame
+// will come to push it, so the push is armed from the UI thread. It
+// posts from a goroutine of its own: the caller may hold the tree's lock,
+// which enqueue takes.
+func devToolsLogged(h *Host) func(*Tree) {
+	return func(*Tree) {
+		if !devToolsLogPosted.CompareAndSwap(false, true) {
+			return
+		}
+		go h.tree.enqueue(update{post: func() {
+			devToolsLogPosted.Store(false)
+			devToolsFrame(h)
+		}})
+	}
+}
+
+// devToolsFrame runs after each frame of an instrumented window, and
+// after an entry was logged (devToolsLogged): the frames recorded and the
+// log entries are pushed at most every devloop.ToolsBatch, from a flush
+// posted to the main tree. UI thread.
 func devToolsFrame(h *Host) {
 	if !devTools.on || devTools.armed || devTools.rb == nil {
 		return

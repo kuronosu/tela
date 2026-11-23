@@ -247,17 +247,6 @@ func (w *Watcher) changed(path string, dir bool) {
 	w.arm()
 }
 
-// lost records that events were dropped.
-func (w *Watcher) lost() {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	if w.closed {
-		return
-	}
-	w.overflow = true
-	w.arm()
-}
-
 // arm (re)starts the debounce timer. w.mu is held.
 func (w *Watcher) arm() {
 	now := time.Now()
@@ -369,7 +358,7 @@ func (w *Watcher) walk(root string, dir func(path string) error, file func(path 
 // walkTree is walk with the skipped directories (skip, never called for
 // root) and the error report given.
 func walkTree(root string, skip func(path string) bool, report func(error), dir func(path string) error, file func(path string, d fs.DirEntry)) {
-	filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	walkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			if path == root || errors.Is(err, fs.ErrNotExist) {
 				return nil

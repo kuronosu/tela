@@ -52,6 +52,11 @@ type Config struct {
 	// Host takes them from the platform): the dark: variants, unless
 	// ColorScheme overrides the scheme, and motion-reduce: (env.go).
 	Dark, ReducedMotion bool
+	// Light reports that the system states a light preference; with
+	// neither Dark nor Light it states none (platform.SystemSettings
+	// LightMode), and ColorSchemeSystem gives the process's
+	// SetNoPreferenceScheme.
+	Light bool
 	// DoubleClickInterval is the system's double-click time for mice and
 	// pens (a Host takes it from the platform's settings, then
 	// SetDoubleClickInterval on every change); zero is
@@ -186,6 +191,13 @@ type Tree struct {
 	// intervals are the running UseInterval and UseTimeout slots
 	// (interval.go).
 	intervals []*intervalSlot
+	// asyncRuns are the UseAsync slots with a run in flight (asyncwait.go);
+	// asyncMu guards it, as goroutines end runs.
+	asyncMu   sync.Mutex
+	asyncRuns map[asyncRun]struct{}
+	// goRuns are the UseGo goroutines that have not returned (pending.go),
+	// guarded by asyncMu.
+	goRuns map[*goRun]struct{}
 	// locals are the values of TreeLocal (engine.go).
 	locals map[any]any
 	// autoDirs are the elements with Dir("auto") and whether their text
@@ -443,7 +455,7 @@ func NewTree(cfg Config) *Tree {
 		t.idPrefix = "t" + strconv.FormatUint(treeSerial.Add(1)-1, 36) + "-"
 	}
 	checkScheme(cfg.ColorScheme)
-	t.env = envState{sysDark: cfg.Dark, sysReduced: cfg.ReducedMotion, sysContrast: cfg.HighContrast, scheme: cfg.ColorScheme,
+	t.env = envState{sysDark: cfg.Dark, sysLight: cfg.Light, noPref: noPreferenceScheme(), sysReduced: cfg.ReducedMotion, sysContrast: cfg.HighContrast, scheme: cfg.ColorScheme,
 		sysTextScale: textScaleFactor(cfg.TextScale), ignoreText: cfg.IgnoreTextScale,
 		accent: accentOf(cfg.HasAccentColor, cfg.AccentColor)}
 	t.textScale = t.env.effectiveTextScale()

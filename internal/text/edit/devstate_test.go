@@ -85,3 +85,51 @@ func TestDevStateCleanedValue(t *testing.T) {
 	m.e.RestoreDevState(st)
 	expectState(t, "multi-line", m.e, "ab\n[cd]\nef")
 }
+
+// TestDevStateComposition moves a composition in progress to a new editor
+// (ADR-309): the state it started from, then the composition itself, so
+// that its commit and its undo work as in the old editor.
+func TestDevStateComposition(t *testing.T) {
+	a := parse(t, "a[bc]", Options{})
+	a.e.SetPreedit("にほ", 6, 6)
+	st := a.e.DevState()
+	if c := st.Composition; st.Value != "abc" || c == nil || c.Value != "a" || c.At != 1 || c.Preedit != "にほ" {
+		t.Fatalf("state %+v (composition %+v): want the state before the composition and the composition", st, st.Composition)
+	}
+	b := parse(t, "|", Options{})
+	b.e.RestoreDevState(st)
+	expectState(t, "the state the composition started from", b.e, "a[bc]")
+	r := b.e.RestoreDevComposition(*st.Composition)
+	if !r.ValueChanged || !r.DisplayChanged || !b.e.Composing() || b.e.Display() != a.e.Display() || b.e.Selection() != a.e.Selection() {
+		t.Fatalf("restored composition: result %+v, composing %v, display %q (want %q)", r, b.e.Composing(), b.e.Display(), a.e.Display())
+	}
+	ca, _ := a.e.Composition()
+	cb, _ := b.e.Composition()
+	if ca != cb {
+		t.Errorf("composition %+v, want %+v", cb, ca)
+	}
+	b.e.CommitComposition("日本")
+	expectState(t, "commit", b.e, "a日本|")
+	b.kind(Undo)
+	expectState(t, "undo of the composition", b.e, "a[bc]")
+
+	// Without RestoreDevComposition the restore is a clean cancel: the text
+	// before the composition, with its selection.
+	c := parse(t, "|", Options{})
+	c.e.RestoreDevState(st)
+	if c.e.Composing() || c.e.Value() != "abc" {
+		t.Errorf("cancel: composing %v, %q", c.e.Composing(), c.e.Value())
+	}
+	// A composition that does not fit is refused, and so is one for a
+	// read-only editor.
+	for _, bad := range []DevComposition{{Value: "a\nb", At: 1, Preedit: "x"}, {Value: "a", At: 5, Preedit: "x"}, {Value: "é", At: 1, Preedit: "x"}} {
+		d := parse(t, "|", Options{})
+		if r := d.e.RestoreDevComposition(bad); r != (Result{}) || d.e.Composing() {
+			t.Errorf("RestoreDevComposition(%+v) applied", bad)
+		}
+	}
+	ro := parse(t, "|", Options{ReadOnly: true})
+	if ro.e.RestoreDevComposition(*st.Composition); ro.e.Composing() {
+		t.Errorf("a read-only editor composes")
+	}
+}

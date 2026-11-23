@@ -47,6 +47,7 @@ const (
 	modeInspect  mode = "inspect"  // print the layout tree as JSON
 	modeAria     mode = "aria"     // print the aria snapshot as YAML
 	modeFilm     mode = "film"     // capture the frames of the mount's motion (JSON)
+	modeCheck    mode = "check"    // audit the screens in a matrix of variants (JSON, check.go)
 )
 
 // contract is how a package exposes its screens.
@@ -107,10 +108,12 @@ const (
 	envPreview = "TELA_RUN_PREVIEW"
 	envFilm    = "TELA_RUN_FILM"  // span of the film, in nanoseconds (checkFilm validated these exact values)
 	envEvery   = "TELA_RUN_EVERY" // interval of the film, in nanoseconds
+	envAct     = "TELA_RUN_ACT"   // the action that starts the film: JSON filmAct, "" for none
 	envOut     = "TELA_RUN_OUT"   // the result: a PNG, JSON or YAML
 	envErr     = "TELA_RUN_ERR"   // a message for the user, when the run fails
 	envInfo    = "TELA_RUN_INFO"  // JSON runInfo
 	envLog     = "TELA_RUN_LOG"   // what the run printed on standard error (dev warnings and class errors)
+	envSpec    = "TELA_RUN_SPEC"  // JSON checkSpec, for modeCheck
 )
 
 // runFeatures is detectFeatures, replaced by a test that runs the form for
@@ -351,11 +354,20 @@ func runInPackage(m mode, opts renderOptions, ext string, stderr io.Writer) (*ru
 	// The module's tela may predate the settled mount; the source lines
 	// are only for inspect.
 	feats := runFeatures(goBin, pkg.Dir)
-	feats.I18N = false
+	if m != modeCheck {
+		feats.I18N = false
+	}
 	if m == modeSnapshot || m == modeFilm {
 		feats.DevTools = false // a picture, or a film of the app as it is: not instrumented
 	}
-	if err := os.WriteFile(src, generateSource(pkg.Name, c, det.hasApp, feats), 0o644); err != nil {
+	gen := generateSource(pkg.Name, c, det.hasApp, feats)
+	if m == modeCheck {
+		if !feats.Audit {
+			return nil, errors.New("this package's tela module predates telatest's accessibility audit (App.Audit); update it with go get github.com/kuronosu/tela@latest")
+		}
+		gen = generateCheckSource(pkg.Name, c, det.hasApp, feats)
+	}
+	if err := os.WriteFile(src, gen, 0o644); err != nil {
 		return nil, err
 	}
 	overlay := filepath.Join(tmp, "overlay.json")
@@ -387,6 +399,7 @@ func runInPackage(m mode, opts renderOptions, ext string, stderr io.Writer) (*ru
 		envScale+"="+strconv.FormatFloat(opts.Scale, 'g', -1, 64),
 		envFilm+"="+strconv.FormatInt(int64(opts.Film), 10),
 		envEvery+"="+strconv.FormatInt(int64(opts.Every), 10),
+		envAct+"="+opts.Act.env(),
 		envDark+"="+strconv.FormatBool(opts.Dark),
 		envSizeSet+"="+strconv.FormatBool(opts.SizeSet),
 		envPreview+"="+opts.Preview,
@@ -394,6 +407,7 @@ func runInPackage(m mode, opts renderOptions, ext string, stderr io.Writer) (*ru
 		envErr+"="+errFile,
 		envInfo+"="+infoFile,
 		envLog+"="+logFile,
+		envSpec+"="+opts.Spec,
 	)
 	var output bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &output, &output
@@ -516,7 +530,7 @@ func generateSource(pkgName string, c contract, hasApp bool, feats ...genFeature
 		Env: map[string]string{
 			"Mode": envMode, "W": envW, "H": envH, "Scale": envScale, "Dark": envDark, "SizeSet": envSizeSet,
 			"Preview": envPreview, "Out": envOut, "Err": envErr, "Info": envInfo, "Log": envLog,
-			"Film": envFilm, "Every": envEvery,
+			"Film": envFilm, "Every": envEvery, "Act": envAct,
 		},
 	})
 	if err != nil {
@@ -562,6 +576,18 @@ var (
 type telaTB struct {
 	telatesting.TB
 	quiet bool
+	// errFile, when set, receives the message of a failure of telatest
+	// (an action whose element is not there), which tela prints instead
+	// of go test's output.
+	errFile string
+}
+
+func (b telaTB) Fatalf(format string, args ...any) {
+	b.TB.Helper()
+	if b.errFile != "" {
+		telaos.WriteFile(b.errFile, []byte(telastrings.TrimPrefix(telafmt.Sprintf(format, args...), "telatest: ")), 0o644)
+	}
+	b.TB.Fatalf(format, args...)
 }
 
 func (b telaTB) Logf(format string, args ...any) {
@@ -680,16 +706,22 @@ func TestTelaRun(t *telatesting.T) {
 		dev = true
 	}
 	opts = append(opts, telatest.AllowDev(""))
-	if getenv({{printf "%q" .Env.Mode}}) == {{printf "%q" "film"}} {
+	filmAct := getenv({{printf "%q" .Env.Act}})
+	if getenv({{printf "%q" .Env.Mode}}) == {{printf "%q" "film"}} && filmAct == "" {
 		// The film starts with the mount: its first frame is the screen as
-		// the mount left it, with the motion it started still to run.
+		// the mount left it, with the motion it started still to run. A
+		// film of an action starts from the settled screen.
 		opts = append(opts, telatest.NoSettle())
+	}
+	errFile := ""
+	if filmAct != "" {
+		errFile = getenv({{printf "%q" .Env.Err}})
 	}
 {{- if .DevTools}}
 	// The elements' source lines are part of what inspect prints.
 	opts = append(opts, telatest.Instrument())
 {{- end}}
-	app := telatest.Mount(telaTB{t, !dev}, root, opts...)
+	app := telatest.Mount(telaTB{t, !dev, errFile}, root, opts...)
 {{- end}}
 
 	switch getenv({{printf "%q" .Env.Mode}}) {
@@ -748,7 +780,45 @@ func TestTelaRun(t *telatesting.T) {
 		var frames []telaFrame
 		span := telatime.Duration(num({{printf "%q" .Env.Film}})) // nanoseconds
 		every := telatime.Duration(num({{printf "%q" .Env.Every}}))
-		for _, f := range app.Film(span, every, nil) {
+		// The action that starts the motion: a click, a hover or a key.
+		var act func()
+		if filmAct != "" {
+			var a struct {
+				Op  string
+				Key string
+				Loc *struct {
+					Role, Name, Text, TestID string
+					Exact                    bool
+				}
+			}
+			if err := telajson.Unmarshal([]byte(filmAct), &a); err != nil {
+				fail("unreadable action %q: %v", filmAct, err)
+			}
+			var loc telatest.Locator
+			if l := a.Loc; l != nil {
+				switch {
+				case l.TestID != "":
+					loc = telatest.ByTestID(l.TestID)
+				case l.Role != "":
+					loc = telatest.ByRole(l.Role, l.Name)
+				case l.Exact:
+					loc = telatest.ByText(l.Text, telatest.Exact())
+				default:
+					loc = telatest.ByText(l.Text)
+				}
+			}
+			switch a.Op {
+			case "click":
+				act = func() { app.Click(loc) }
+			case "hover":
+				act = func() { app.Hover(loc) }
+			case "press":
+				act = func() { app.Press(a.Key) }
+			default:
+				fail("unknown action %q", a.Op)
+			}
+		}
+		for _, f := range app.Film(span, every, act) {
 			var buf telaBuffer
 			if err := telapng.Encode(&buf, f.Image); err != nil {
 				t.Fatal(err)

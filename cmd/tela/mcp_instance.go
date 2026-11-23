@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kuronosu/tela/internal/watch"
@@ -194,6 +195,41 @@ type mcpChild struct {
 	// onReply, when set, sees every reply the call returns (the log the
 	// logs tool lists).
 	onReply func(mcpReply)
+	// stray is what the process printed outside the replies: on its
+	// standard output before TestTelaMCP points os.Stdout at its file (the
+	// package's init functions and variables, the testing package), and
+	// on its standard error before os.Stderr follows (the runtime's own
+	// writes, a fatal error, go there for good). It goes with the next
+	// reply, first, so the logs tool keeps it.
+	stray strayOutput
+}
+
+// strayOutput collects what an instance printed outside its replies.
+type strayOutput struct {
+	mu  sync.Mutex
+	buf []byte
+}
+
+// strayLimit bounds the stray output kept between two replies.
+const strayLimit = 64 << 10
+
+func (o *strayOutput) Write(p []byte) (int, error) {
+	o.mu.Lock()
+	o.buf = append(o.buf, p...)
+	if len(o.buf) > strayLimit {
+		o.buf = append([]byte(nil), o.buf[len(o.buf)-strayLimit:]...)
+	}
+	o.mu.Unlock()
+	return len(p), nil
+}
+
+// take returns what was collected since the last take.
+func (o *strayOutput) take() string {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	s := string(o.buf)
+	o.buf = nil
+	return s
 }
 
 // startChild starts the instance binary exe in the package's directory.
@@ -205,7 +241,7 @@ func startChild(exe, dir string, stderr io.Writer, logf func(string, ...any)) (*
 	cmd.Env = os.Environ()
 	cmd.SysProcAttr = childSysProcAttr()
 	c := &mcpChild{exe: exe, cmd: cmd, replies: make(chan mcpReply, 4), done: make(chan struct{}), tail: &tailWriter{w: stderr}, logf: logf}
-	cmd.Stderr = c.tail
+	cmd.Stderr = io.MultiWriter(c.tail, &c.stray)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -239,6 +275,7 @@ func startChild(exe, dir string, stderr io.Writer, logf func(string, ...any)) (*
 				}
 			} else if s := strings.TrimSpace(string(line)); s != "" {
 				logf("instance: %s", s)
+				c.stray.Write(line)
 			}
 			if err != nil {
 				return
@@ -290,6 +327,9 @@ func (c *mcpChild) call(ctx context.Context, req mcpReq) (mcpReply, error) {
 				continue // the late reply of a call that timed out
 			}
 			c.logf("instance %s in %v", req.Op, time.Since(start).Round(time.Millisecond))
+			if s := c.stray.take(); s != "" {
+				rep.Output = s + rep.Output
+			}
 			if c.onReply != nil {
 				c.onReply(rep)
 			}

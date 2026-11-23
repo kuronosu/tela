@@ -73,7 +73,7 @@ func TestPrefetchedSettings(t *testing.T) {
 	p.mu.Unlock()
 
 	p.setSetting(nsAppearance, "color-scheme", uint32(2))
-	want.DarkMode = false
+	want.DarkMode, want.LightMode = false, true
 	if se := h.event("the color scheme change").(platform.SettingsEvent); se.Settings != want {
 		t.Fatalf("event = %+v, want %+v", se.Settings, want)
 	}

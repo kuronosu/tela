@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -14,8 +15,8 @@ import (
 )
 
 // staticcheckVersion is the pinned staticcheck release. It is the one place
-// that names it. It runs through `go run`, so the gate never depends on a
-// staticcheck binary on PATH.
+// that names it. The gate installs it into a temporary folder, so it never
+// depends on a staticcheck binary on PATH.
 const staticcheckVersion = "2026.2.2"
 
 // modulePath is trimmed from package paths in reports.
@@ -58,6 +59,7 @@ type cmdSpec struct {
 	env       []string // KEY=VALUE additions (GOOS, GOARCH)
 	dir       string   // working directory relative to the root ("" is the root): a nested module
 	stripTela bool     // remove every TELA_* variable from the environment
+	noSlot    bool     // start at once, without waiting for a slot (the tests: the longest commands)
 }
 
 type cmdOut struct {
@@ -94,10 +96,13 @@ func buildEnv(base []string, extra []string, stripTela bool) []string {
 	return append(out, extra...)
 }
 
-// run runs one subprocess in the repository root, waiting for a free slot.
+// run runs one subprocess in the repository root, waiting for a free slot
+// unless the spec has noSlot.
 func (g *gate) run(s cmdSpec) cmdOut {
-	g.sem <- struct{}{}
-	defer func() { <-g.sem }()
+	if !s.noSlot {
+		g.sem <- struct{}{}
+		defer func() { <-g.sem }()
+	}
 	start := time.Now()
 	cmd := exec.Command(s.args[0], s.args[1:]...)
 	cmd.Dir = filepath.Join(g.root, filepath.FromSlash(s.dir))
@@ -146,6 +151,98 @@ func tail(s string, n int) string {
 		lines = append([]string{fmt.Sprintf("... (%d earlier lines left out)", len(lines)-n)}, lines[len(lines)-n:]...)
 	}
 	return strings.Join(lines, "\n")
+}
+
+// What trimOutput keeps of a long test output: the first and the last
+// message heads, a few lines of each message, and the last lines.
+const (
+	firstHeads  = 6
+	lastHeads   = 4
+	headContext = 3
+	keepLast    = 5
+)
+
+// logHead matches a line of t.Error, t.Fatal or t.Log ("    x_test.go:12:
+// got 1"), at any indentation (subtests indent theirs); testFrame matches a
+// stack frame in a test file ("\t/path/x_test.go:12 +0x45"), the place a
+// panic came from.
+var (
+	logHead   = regexp.MustCompile(`^\s*[^\s:]+\.go:\d+: `)
+	testFrame = regexp.MustCompile(`_test\.go:\d+ \+0x`)
+)
+
+// trimOutput returns the output of a failing test, up to limit lines as it
+// is. A longer one keeps what says why it failed: each message head (a
+// file.go:N: line, a --- FAIL line, a panic) with its first lines, and the
+// last lines; long dumps after a message (an aria snapshot, a goroutine
+// dump) are cut, and every cut is marked. The tail alone lost the error
+// lines when a dump followed them (2026-11-22).
+func trimOutput(lines []string, limit int) string {
+	if len(lines) <= limit {
+		return strings.Join(lines, "\n")
+	}
+	var heads []int
+	for i, l := range lines {
+		t := strings.TrimSpace(l)
+		switch {
+		case logHead.MatchString(l), strings.HasPrefix(t, "--- FAIL"),
+			strings.HasPrefix(t, "panic: "), strings.HasPrefix(t, "fatal error: "):
+			heads = append(heads, i)
+		case testFrame.MatchString(l) && i > 0 && (len(heads) == 0 || heads[len(heads)-1] != i-1):
+			heads = append(heads, i-1) // the function line; the frame follows as its context
+		}
+	}
+	if len(heads) == 0 {
+		return tail(strings.Join(lines, "\n"), limit)
+	}
+	if len(heads) > firstHeads+lastHeads {
+		heads = append(heads[:firstHeads:firstHeads], heads[len(heads)-lastHeads:]...)
+	}
+	keep := make([]bool, len(lines))
+	for _, h := range heads {
+		keep[h] = true
+		ind := indent(lines[h])
+		for j := h + 1; j < len(lines) && j <= h+headContext; j++ {
+			if strings.TrimSpace(lines[j]) == "" || indent(lines[j]) <= ind {
+				break
+			}
+			keep[j] = true
+		}
+	}
+	for i := max(0, len(lines)-keepLast); i < len(lines); i++ {
+		keep[i] = true
+	}
+	var out []string
+	for i := 0; i < len(lines); {
+		if keep[i] {
+			out = append(out, lines[i])
+			i++
+			continue
+		}
+		j := i
+		for j < len(lines) && !keep[j] {
+			j++
+		}
+		out = append(out, fmt.Sprintf("... (%d lines left out)", j-i))
+		i = j
+	}
+	return strings.Join(out, "\n")
+}
+
+// indent is the width of a line's leading white space, a tab as 8.
+func indent(s string) int {
+	n := 0
+	for _, r := range s {
+		switch r {
+		case ' ':
+			n++
+		case '\t':
+			n += 8
+		default:
+			return n
+		}
+	}
+	return n
 }
 
 func cmdInfos(outs []cmdOut) []commandInfo {
@@ -260,8 +357,11 @@ func checkFormatted(path string) string {
 	return ""
 }
 
-func (g *gate) vetStep() stepResult {
-	return g.commandStep([]cmdSpec{
+func (g *gate) vetStep() stepResult { return g.commandStep(vetSpecs()) }
+
+// vetSpecs are the vet step's commands.
+func vetSpecs() []cmdSpec {
+	return []cmdSpec{
 		goCmd("go vet ./... (linux)", goos("linux"), "vet", "./..."),
 		goCmd("go vet ./... (windows)", goos("windows"), "vet", "./..."),
 		goCmd("go vet ./... (darwin)", goos("darwin"), "vet", "./..."),
@@ -272,7 +372,7 @@ func (g *gate) vetStep() stepResult {
 		inNotes(goCmd("go vet ./... (linux)", goos("linux"), "vet", "./...")),
 		inNotes(goCmd("go vet ./... (windows)", goos("windows"), "vet", "./...")),
 		inNotes(goCmd("go vet ./... (darwin)", goos("darwin"), "vet", "./...")),
-	})
+	}
 }
 
 func (g *gate) buildStep() stepResult {
@@ -347,12 +447,51 @@ func (g *gate) sizeStep() stepResult {
 	return r
 }
 
+// staticcheckDir returns the folder staticcheck is installed into, and what
+// to do once the step is done. It is a folder of the user cache, one per
+// version, kept between runs: go install leaves an up-to-date binary alone
+// (it compares build IDs, so a new Go toolchain links it again), which
+// saves linking staticcheck on every run (1.4 of 1.7 s). Without a user
+// cache it is a temporary folder that the step removes.
+func staticcheckDir() (dir string, done func(), err error) {
+	if cache, err := os.UserCacheDir(); err == nil {
+		dir = filepath.Join(cache, "tela-gate", "staticcheck-"+staticcheckVersion)
+		if err := os.MkdirAll(dir, 0o755); err == nil {
+			return dir, func() {}, nil
+		}
+	}
+	dir, err = os.MkdirTemp("", "tela-gate-staticcheck-")
+	if err != nil {
+		return "", nil, err
+	}
+	return dir, func() { os.RemoveAll(dir) }, nil
+}
+
+// staticcheckStep runs staticcheck for Linux (with and without telagpu),
+// Windows and macOS: code that only one system uses (a helper a backend
+// calls) is unused on the others. go run would build staticcheck for the
+// GOOS it checks, so the step installs it for the host first.
 func (g *gate) staticcheckStep() stepResult {
 	pkg := "honnef.co/go/tools/cmd/staticcheck@" + staticcheckVersion
+	bin, done, err := staticcheckDir()
+	if err != nil {
+		return stepResult{Failures: []failure{{Title: "staticcheck", Detail: err.Error()}}}
+	}
+	defer done()
+	install := g.run(cmdSpec{label: "go install " + pkg, args: []string{"go", "install", pkg}, env: []string{"GOBIN=" + bin}})
+	if !install.ok() {
+		return stepResult{Commands: cmdInfos([]cmdOut{install}), Failures: []failure{{Title: install.spec.label, Detail: failureDetail(install)}}}
+	}
+	sc := filepath.Join(bin, "staticcheck")
+	if runtime.GOOS == "windows" {
+		sc += ".exe"
+	}
 	return g.commandStep([]cmdSpec{
-		{label: "staticcheck ./...", args: []string{"go", "run", pkg, "./..."}},
-		{label: "staticcheck -tags telagpu ./internal/... .", args: []string{"go", "run", pkg, "-tags", "telagpu", "./internal/...", "."}},
-		inNotes(cmdSpec{label: "staticcheck ./...", args: []string{"go", "run", pkg, "./..."}}),
+		{label: "staticcheck ./...", args: []string{sc, "./..."}},
+		{label: "staticcheck -tags telagpu ./internal/... .", args: []string{sc, "-tags", "telagpu", "./internal/...", "."}},
+		{label: "staticcheck ./... (windows)", args: []string{sc, "./..."}, env: goos("windows")},
+		{label: "staticcheck ./... (darwin)", args: []string{sc, "./..."}, env: goos("darwin")},
+		inNotes(cmdSpec{label: "staticcheck ./...", args: []string{sc, "./..."}}),
 	})
 }
 
@@ -380,12 +519,12 @@ func (g *gate) docsStep() stepResult {
 }
 
 // testStep runs the short tests with Go's test cache and parses the JSON.
+// go test's own vet is off: it runs a subset of the analyzers that the vet
+// step runs over the same packages and test files (linux, with and
+// without telagpu, and the notes module), and it ran again for every
+// package whose tests ran, before them.
 func (g *gate) testStep() stepResult {
-	outs := g.runAll([]cmdSpec{
-		{label: "go test -short ./...", args: []string{"go", "test", "-short", "-json", "./..."}, stripTela: true},
-		{label: "go test -short -tags telagpu ./internal/vk/... ./internal/gfx/gpu/...", args: []string{"go", "test", "-short", "-json", "-tags", "telagpu", "./internal/vk/...", "./internal/gfx/gpu/..."}, stripTela: true},
-		inNotes(cmdSpec{label: "go test -short ./...", args: []string{"go", "test", "-short", "-json", "./..."}, stripTela: true}),
-	})
+	outs := g.runAll(testSpecs())
 	r := stepResult{Commands: cmdInfos(outs)}
 	sum := &testSummary{}
 	var tests, pkgs []slow
@@ -411,6 +550,20 @@ func (g *gate) testStep() stepResult {
 	return r
 }
 
+// testSpecs are the test step's commands. The first, the longest, starts
+// at once (noSlot): when it lost the race for a slot it waited 4 s behind
+// vet and staticcheck, on a gate whose time it sets. The two others keep
+// waiting for theirs: with all three started at once the gate took 201 s
+// instead of 188 after an edit of internal/core, likely from more go
+// commands compiling the same packages at the same time.
+func testSpecs() []cmdSpec {
+	return []cmdSpec{
+		{label: "go test -short ./...", args: []string{"go", "test", "-short", "-vet=off", "-json", "./..."}, stripTela: true, noSlot: true},
+		{label: "go test -short -tags telagpu ./internal/vk/... ./internal/gfx/gpu/...", args: []string{"go", "test", "-short", "-vet=off", "-json", "-tags", "telagpu", "./internal/vk/...", "./internal/gfx/gpu/..."}, stripTela: true},
+		inNotes(cmdSpec{label: "go test -short ./...", args: []string{"go", "test", "-short", "-vet=off", "-json", "./..."}, stripTela: true}),
+	}
+}
+
 // describeFailure turns a failing test into a report entry, labeling a
 // test that the roadmap or LIMITATIONS.md names: likely a known flake. It
 // still fails the step.
@@ -420,7 +573,7 @@ func (g *gate) describeFailure(f testFailure) failure {
 	if f.Test == "" {
 		title = short + " (" + f.Reason + ")"
 	}
-	out := failure{Title: title, Detail: tail(strings.Join(f.Output, "\n"), maxTail)}
+	out := failure{Title: title, Detail: trimOutput(f.Output, maxTail)}
 	for _, d := range g.flakeDocs {
 		if line, ok := findFlake(d.lines, f.Test); ok {
 			out.Note = fmt.Sprintf("named in %s:%d (a known flake?)", d.file, line)

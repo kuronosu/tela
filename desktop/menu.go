@@ -43,8 +43,12 @@ func PopupMenu(w tela.WindowHandle, at tela.Point, items []MenuItem, done func(c
 	if at.X != at.X || at.Y != at.Y {
 		panic(fmt.Sprintf("desktop.PopupMenu at %v: the position must be a number (logical pixels in the window)", at))
 	}
-	menu, actions := platformMenu("desktop.PopupMenu", items)
 	d, err := running("PopupMenu")
+	fl := platform.FlavorHost // the keys of the window it belongs to, when the app runs
+	if err == nil {
+		fl = d.FlavorOf(window(d, w))
+	}
+	menu, actions := platformMenu("desktop.PopupMenu", fl, items)
 	if err != nil {
 		return err
 	}
@@ -112,7 +116,7 @@ func (m MenuBar) Build() tela.Node {
 	w := tela.UseWindow()
 	s := tela.UseOnce(func() *menuBarState { return &menuBarState{} })
 	s.props = m
-	menu, actions := platformMenu("desktop.MenuBar", m.Menus)
+	menu, actions := platformMenu("desktop.MenuBar", core.UseFlavor(), m.Menus)
 	tela.UseMount(func() func() {
 		d, ok := core.DesktopOf(w)
 		if !ok {

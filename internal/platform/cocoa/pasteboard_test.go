@@ -180,7 +180,7 @@ func TestSettingsFrom(t *testing.T) {
 		t.Errorf("settingsFrom = %+v, want %+v", s, want)
 	}
 	platform.CheckSystemSettings(s)
-	if s := settingsFrom(rawSettings{}); s.HasAccentColor || s.DoubleClickInterval != 0 || s.TextScale != 1 {
+	if s := settingsFrom(rawSettings{}); s.HasAccentColor || s.DoubleClickInterval != 0 || s.TextScale != 1 || !s.LightMode {
 		t.Errorf("settingsFrom(zero) = %+v", s)
 	}
 	for _, c := range []struct {
