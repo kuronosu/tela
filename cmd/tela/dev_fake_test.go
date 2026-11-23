@@ -54,6 +54,11 @@ import (
 // asks to start instrumented (devloop.KindToolsStart) and starts with the
 // instrumentation off whatever the answer, as a child whose answer came
 // too late does.
+//
+// One mode is no child of tela dev: "sign" is a -sign-cmd for tela
+// package's tests that runs on every system (a shell script does not run
+// on Windows): it writes "signed\n" to the file named by its last argument
+// plus ".sig", as gpg --detach-sign writes a signature next to the file.
 const envFake = "TELA_DEV_TEST_FAKE"
 
 const (
@@ -135,8 +140,19 @@ func fakeGo(goBin string, args []string) int {
 }
 
 func fakeChild(mode string) int {
-	if mode == "hold" {
+	switch mode {
+	case "hold":
 		return fakeHolder()
+	case "sign":
+		if len(os.Args) < 2 {
+			fmt.Fprintln(os.Stderr, "fake sign: no file to sign")
+			return 1
+		}
+		if err := os.WriteFile(os.Args[len(os.Args)-1]+".sig", []byte("signed\n"), 0o644); err != nil {
+			fmt.Fprintln(os.Stderr, "fake sign:", err)
+			return 1
+		}
+		return 0
 	}
 	if mode == "slowstart" {
 		time.Sleep(fakeSlow)
