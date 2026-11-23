@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/style"
@@ -25,7 +26,14 @@ import (
 // laid out.
 func newInsTree(t *testing.T, root func() Node) *Tree {
 	t.Helper()
-	tr := NewTree(Config{Fonts: testFonts, Dev: true, Warn: func(string) {}})
+	return newInsTreeClock(t, nil, root)
+}
+
+// newInsTreeClock is newInsTree with clock as its Config.DebugClock (nil:
+// the monotonic clock).
+func newInsTreeClock(t *testing.T, clock func() time.Duration, root func() Node) *Tree {
+	t.Helper()
+	tr := NewTree(Config{Fonts: testFonts, Dev: true, Warn: func(string) {}, DebugClock: clock})
 	tr.SetViewport(gfx.Size{W: 400, H: 300})
 	tr.SetInstrument(true)
 	t.Cleanup(func() { tr.SetInstrument(false) })
