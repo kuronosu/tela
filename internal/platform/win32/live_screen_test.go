@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -67,17 +68,44 @@ func raiseForScreen(hwnd uintptr) bool {
 
 // screenShows returns an error when the screen shows a window other than
 // hwnd at a corner or the center of r.
+//
+// It asks WindowFromPoint from a thread of its own: WindowFromPoint sends
+// WM_NCHITTEST to the windows of its calling thread (for HTTRANSPARENT),
+// and a TitleBarOverlay window passes that to DwmDefWindowProc, which
+// takes it as the pointer's and highlights the caption button there. Asked
+// from the window's thread, the probes left DWM's buttons hot, fading, for
+// the read that followed (the close glyph read as the hover's red c42b1c,
+// the backgrounds tinted), on CI and on a desktop alike. From another
+// thread WindowFromPoint sends nothing and still names the window on top.
+// That thread calls nothing that sends a message (describeWindow's
+// GetWindowTextW sends WM_GETTEXT to a window of this process): the
+// window's thread waits for it without pumping messages.
 func screenShows(hwnd uintptr, r image.Rectangle) error {
-	ps := []image.Point{r.Min, {r.Max.X - 1, r.Min.Y}, {r.Min.X, r.Max.Y - 1}, r.Max.Sub(image.Pt(1, 1)), {(r.Min.X + r.Max.X) / 2, (r.Min.Y + r.Max.Y) / 2}}
-	for _, p := range ps {
-		hit := windowFromPoint(point{int32(p.X), int32(p.Y)})
-		root, _, _ := procGetAncestor.Call(hit, gaRoot)
-		if root == hwnd {
-			continue
-		}
-		return fmt.Errorf("the screen at %v shows another window over the test window %#x: %s; the pixels read there are not the test's", p, hwnd, describeWindow(root))
+	type found struct {
+		at   image.Point
+		root uintptr
 	}
-	return nil
+	done := make(chan found, 1)
+	go func() {
+		// Locked, so that this goroutine never shares a thread with a
+		// window's: the UI goroutine keeps its own thread locked (New).
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+		ps := []image.Point{r.Min, {r.Max.X - 1, r.Min.Y}, {r.Min.X, r.Max.Y - 1}, r.Max.Sub(image.Pt(1, 1)), {(r.Min.X + r.Max.X) / 2, (r.Min.Y + r.Max.Y) / 2}}
+		for _, p := range ps {
+			hit := windowFromPoint(point{int32(p.X), int32(p.Y)})
+			if root, _, _ := procGetAncestor.Call(hit, gaRoot); root != hwnd {
+				done <- found{p, root}
+				return
+			}
+		}
+		done <- found{root: hwnd}
+	}()
+	f := <-done
+	if f.root == hwnd {
+		return nil
+	}
+	return fmt.Errorf("the screen at %v shows another window over the test window %#x: %s; the pixels read there are not the test's", f.at, hwnd, describeWindow(f.root))
 }
 
 // describeWindow names a top-level window for a failure: its handle,
