@@ -143,8 +143,13 @@ func TestLSPConstantClassStrings(t *testing.T) {
 	// The finding is at the constant, with the class's range.
 	broken := strings.ReplaceAll(strings.Replace(text, "rounded-lg", "rounded-xxl", 1), "|", "")
 	c.change(uri, 3, broken)
-	diags := c.diagnostics(uri, func(d []lspDiagnostic) bool { return len(d) == 1 })
+	// The run of version 2 (its "bg-" is unknown too) may publish after
+	// this change: wait for the run of this text, whose one finding is
+	// rounded-xxl's.
 	doc := &lspDoc{text: broken}
+	diags := c.diagnostics(uri, func(d []lspDiagnostic) bool {
+		return len(d) == 1 && broken[doc.offset(d[0].Range.Start):doc.offset(d[0].Range.End)] == "rounded-xxl"
+	})
 	if got := broken[doc.offset(diags[0].Range.Start):doc.offset(diags[0].Range.End)]; got != "rounded-xxl" {
 		t.Errorf("the finding selects %q, want rounded-xxl in the constant", got)
 	}
