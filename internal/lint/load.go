@@ -10,7 +10,6 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -56,7 +55,11 @@ func goList(dir, overlay string, patterns []string) ([]*listPackage, error) {
 	}
 	cmd := exec.Command("go", append(args, patterns...)...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+	// cmd.Environ, not os.Environ: it sets PWD to cmd.Dir. The parent's
+	// PWD names another directory, so the go command would take the
+	// resolved working directory (macOS's /private/var for /var) and
+	// find the absolute directories it is given outside its module.
+	cmd.Env = append(cmd.Environ(), "CGO_ENABLED=0")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {

@@ -278,7 +278,11 @@ func listExports(dir string, paths []string) map[string]string {
 	args := append([]string{"list", "-e", "-export", "-json=ImportPath,Export,Error", "--"}, paths...)
 	cmd := exec.Command("go", args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+	// cmd.Environ, not os.Environ: it sets PWD to cmd.Dir. The parent's
+	// PWD names another directory, so the go command would take the
+	// resolved working directory (macOS's /private/var for /var) and
+	// find the absolute directories it is given outside its module.
+	cmd.Env = append(cmd.Environ(), "CGO_ENABLED=0")
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 	// A package that does not compile makes the command fail, but it still
