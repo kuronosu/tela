@@ -15,9 +15,10 @@ import (
 // but does not lint: the packages of Options.Context that declare aliases
 // and colors, with what they import of their module, and the dependencies
 // that import a linted package. A run of tela lsp lints one package with
-// the whole module as context, and in Tela's own repository that context is
-// most of the framework, checked with bodies: about 1.2 s of a 1.8 s run.
-// With a Cache, the runs after the first one check only what changed.
+// the whole module as context: the app's packages that declare aliases are
+// checked with bodies, and so is what they import of the app, which in a
+// large app is most of it. With a Cache, the runs after the first one check
+// only what changed.
 //
 // A package is reused when nothing a fresh check reads differs: its go
 // list entry (files, imports, the import map, the Go version), the content

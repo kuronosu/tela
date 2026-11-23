@@ -31,7 +31,7 @@ type lspClient struct {
 
 // startLSP serves tela lsp to the test in process, with the process's
 // cache of the module context, as tela lsp does. The tests that lint run in
-// parallel: the first lint loads the module (about 1.5 s), and the cache
+// parallel: the first lint loads what the module needs, and the cache
 // makes the others check only what they change.
 func startLSP(t *testing.T) *lspClient {
 	t.Helper()
