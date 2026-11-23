@@ -50,7 +50,8 @@ them. Completion
 and hover read the text only, so they answer while the file does not
 compile. Diagnostics need the go command in PATH and a module that requires
 Tela; the first run of a package builds the export data of its dependencies,
-the later ones take a fraction of a second. Aliases and theme colors are
+and the server keeps what it read of the module between runs, so that the
+later ones check only what changed. Aliases and theme colors are
 found in the package of the file and in the other packages of its module that
 declare them (the app's main package, a theme package), as "tela lint" finds
 them in the packages it lints.
