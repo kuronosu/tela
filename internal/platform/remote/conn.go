@@ -211,7 +211,8 @@ func (c *conn) fail(err error) {
 // in it resets the peer (Linux's AF_UNIX gives its next read ECONNRESET
 // instead of EOF; Windows resets too), so closing at once made a clean end
 // depend on whether the peer's last messages had been read. It closes at
-// once after timeout, or when the peer does not close.
+// once after timeout, or when the peer does not close. (On Windows the
+// peer's reader can miss the EOF; winTransport's Read finds it.)
 func (c *conn) closeClean(readerDone <-chan struct{}, timeout time.Duration) {
 	t := time.NewTimer(timeout)
 	defer t.Stop()
