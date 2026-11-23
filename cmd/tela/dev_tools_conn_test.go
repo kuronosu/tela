@@ -262,6 +262,7 @@ func (f *failMoveApp) Pointer(ctx context.Context, win uint32, action string, x,
 // The attached lint tool lints the directory tela dev runs, wherever tela
 // mcp --attach runs.
 func TestAttachLintUsesTheSessionDir(t *testing.T) {
+	needGo(t) // it lints, which runs go list
 	dir, err := filepath.Abs(filepath.Join("testdata", "lint", "dirty"))
 	if err != nil {
 		t.Fatal(err)
@@ -271,7 +272,10 @@ func TestAttachLintUsesTheSessionDir(t *testing.T) {
 	s.dial = func(string) (attachConn, error) { return app, nil }
 	s.quiet, s.first, s.max, s.poll = 5*time.Millisecond, 20*time.Millisecond, 300*time.Millisecond, time.Millisecond
 	text, res := s.tool(t, "lint", `{}`)
-	if res.IsError || !strings.Contains(text, "problem") || !strings.Contains(text, filepath.Join(dir, "dirty.go")) {
+	// The findings are JSON, whose strings escape a Windows path's
+	// backslashes.
+	file, _ := json.Marshal(filepath.Join(dir, "dirty.go"))
+	if res.IsError || !strings.Contains(text, "problem") || !strings.Contains(text, string(file)) {
 		t.Errorf("lint of the session's directory: %v %s", res.IsError, text)
 	}
 }

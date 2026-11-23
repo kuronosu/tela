@@ -440,6 +440,13 @@ func TestDevEndToEnd(t *testing.T) {
 	e.until("the field's IME session", w.IMEActive)
 	w.Inject(platform.IMEEvent{Preedit: "にほ", CursorStart: 6, CursorEnd: 6})
 	e.expect(mark, "devapp: input", `devapp: input "hi!にほ"`)
+	// The app prints its input in the handler, before the frame that lays
+	// the preedit out and sends the state with its area (a caret's has no
+	// width): count from that state on.
+	e.until("the composition's text input state", func() bool {
+		st := w.TextInput()
+		return st != nil && st.CursorArea.W > 0
+	})
 	changes := w.TextInputChanges()
 	_, mark = e.edit(func(s string) string { return strings.Replace(s, `Text("Version B")`, `Text("Version C")`, 1) })
 	e.until("the line of the composition", func() bool {

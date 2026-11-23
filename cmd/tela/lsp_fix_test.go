@@ -41,6 +41,7 @@ func applyLSPEdits(t *testing.T, text string, edits []lspTextEdit) string {
 // An unknown class has a quick fix that replaces it with the suggestion.
 func TestLSPQuickFix(t *testing.T) {
 	t.Parallel()
+	needGo(t) // it lints, which runs go list
 	c := startLSP(t)
 	caps := c.initialize()["capabilities"].(map[string]any)
 	if caps["codeActionProvider"] == nil {
@@ -117,6 +118,7 @@ func TestLSPQuickFix(t *testing.T) {
 // its findings are reported there.
 func TestLSPConstantClassStrings(t *testing.T) {
 	t.Parallel()
+	needGo(t) // it lints, which runs go list
 	c := startLSP(t)
 	c.initialize()
 	_, uri := bufferFor(t, "consts.go")
@@ -153,6 +155,7 @@ func TestLSPConstantClassStrings(t *testing.T) {
 
 // Aliases that another package of the module declares are the buffer's.
 func TestLSPAliasesOfAnotherPackage(t *testing.T) {
+	needGo(t) // it lints, which runs go list
 	// The go command's "..." skips testdata folders: the module of the
 	// fixture is its folder.
 	fixtures, err := filepath.Abs(filepath.Join("testdata", "lspctx"))

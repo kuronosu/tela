@@ -1147,10 +1147,21 @@ func (h *Host) enter(rw *realWin, cw *childWin) {
 // prev's session is told that it ended (an IMESessionEvent that starts and
 // one that ends it, a valid stream for a child that saw none), which
 // finishes a composition its restored state holds, keeping its text.
+//
+// A caret area cw does not know yet (the zero Rect: cw set its state
+// before its restored field was laid out, and the promotion came before
+// its next one) keeps the session's: the IME's candidate window stays
+// where it is until cw reports the area, instead of losing its position
+// for a frame and the state changing twice.
 func (h *Host) handoverIME(rw *realWin, cw *childWin, prev *childWin) {
 	inherited := prev != nil && prev.imeActive && rw.textInput != nil
 	if inherited && cw.textInput != nil && sameField(rw.textInput, cw.textInput) {
-		h.setTextInput(rw, cw.textInput)
+		st := cw.textInput
+		if st.CursorArea == (platform.Rect{}) {
+			st = st.Clone()
+			st.CursorArea = rw.textInput.CursorArea
+		}
+		h.setTextInput(rw, st)
 		h.deliver(cw, platform.IMESessionEvent{Active: true})
 		return
 	}
