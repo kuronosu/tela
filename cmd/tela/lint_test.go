@@ -146,8 +146,6 @@ func TestLintTestsFlag(t *testing.T) {
 	}
 }
 
-// needGo skips a test that runs the go command when there is none: under
-// Wine, and on a Windows machine without Go, the test binary runs alone.
 // lintSlots bounds the lint tests that run at once (parallelLint): each
 // type-checks its packages and their dependencies from source, a few
 // hundred MB of syntax and types.
@@ -162,6 +160,8 @@ func parallelLint(t *testing.T) {
 	t.Cleanup(func() { <-lintSlots })
 }
 
+// needGo skips a test that runs the go command when there is none: under
+// Wine, and on a Windows machine without Go, the test binary runs alone.
 func needGo(t *testing.T) {
 	t.Helper()
 	if _, err := exec.LookPath("go"); err != nil {

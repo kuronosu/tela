@@ -437,6 +437,7 @@ func TestLSPCommand(t *testing.T) {
 
 func TestLSPDiagnostics(t *testing.T) {
 	t.Parallel()
+	needGo(t) // it lints, which runs go list
 	c := startLSP(t)
 	c.initialize()
 	path, uri := bufferFor(t, "buffer.go")
@@ -617,6 +618,7 @@ func TestLSPCompletion(t *testing.T) {
 
 func TestLSPAliases(t *testing.T) {
 	t.Parallel()
+	needGo(t) // it lints, which runs go list
 	c := startLSP(t)
 	c.initialize()
 	_, uri := bufferFor(t, "aliases.go")
@@ -725,6 +727,7 @@ func TestLSPHover(t *testing.T) {
 // recipe hold classes, which no token of the syntax says.
 func TestLSPTypedClassStrings(t *testing.T) {
 	t.Parallel()
+	needGo(t) // it lints, which runs go list
 	c := startLSP(t)
 	c.initialize()
 	_, uri := bufferFor(t, "typed.go")

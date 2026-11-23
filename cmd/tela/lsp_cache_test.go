@@ -64,6 +64,7 @@ func writeTestFile(t *testing.T, root, name, src string) {
 // run's.
 func TestLSPContextCacheSeesChanges(t *testing.T) {
 	t.Parallel()
+	needGo(t) // it lints, which runs go list
 	root, ui := aliasModule(t)
 	path := filepath.Join(ui, "ui.go")
 	uri := fileURI(path)
