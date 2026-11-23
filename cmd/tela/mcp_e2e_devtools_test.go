@@ -38,6 +38,23 @@ func layoutX(t *testing.T, text string) float64 {
 	return x
 }
 
+// measuredPhase reports whether a frame line of perf's text lists a phase
+// of the frame (one but input, which runs before it): the summary then
+// names the slowest. On Windows, where Go's monotonic clock is the
+// system's interrupt time, which moves by the timer tick (0.5 to 15.6 ms),
+// a sub-millisecond phase measures 0 and is not listed, so a fast frame
+// can list none.
+func measuredPhase(text string) bool {
+	for _, m := range regexp.MustCompile(`(?m)^- frame \d+: [0-9.]+ ms \(([^)]*)\)`).FindAllStringSubmatch(text, -1) {
+		for _, p := range strings.Split(m[1], ", ") {
+			if !strings.HasPrefix(p, "input ") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // TestMCPDevTools runs the DevTools of tela mcp (ADR-299) on the fixture:
 // the source line of each element, state, perf, logs and prefer.
 func TestMCPDevTools(t *testing.T) {
@@ -80,8 +97,8 @@ func TestMCPDevTools(t *testing.T) {
 		t.Errorf("click lacks the frames it caused:\n%s", r.text)
 	}
 	r = c.tool("perf", map[string]any{"action": true})
-	if r.isError || !strings.Contains(r.text, "(the frames the last acting call caused)") || !strings.Contains(r.text, "Slowest phase:") ||
-		!regexp.MustCompile(`- frame \d+: [0-9.]+ ms .*built [1-9]`).MatchString(r.text) {
+	if r.isError || !strings.Contains(r.text, "(the frames the last acting call caused)") || measuredPhase(r.text) && !strings.Contains(r.text, "Slowest phase:") ||
+		!regexp.MustCompile(`- frame \d+: [0-9.]+ ms.*; built [1-9]`).MatchString(r.text) {
 		t.Errorf("perf of the action:\n%s", r.text)
 	}
 	r = c.tool("perf", map[string]any{"frames": 3})
