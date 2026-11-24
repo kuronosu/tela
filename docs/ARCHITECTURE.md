@@ -71,7 +71,7 @@ Contributions that break these are rejected.
 | `github.com/ebitengine/purego` | macOS backend; the GPU backend, only with the build tag `telagpu`, since it makes a Linux binary dynamically linked (on Windows it only wraps `syscall`; ADR-281) |
 | `github.com/godbus/dbus/v5` | Linux D-Bus: desktop services (portal, notifications, tray; ADR-178) and accessibility (AT-SPI) |
 | `github.com/yuin/goldmark` | `kit.Markdown` (ADR-298) |
-| `github.com/jezek/xgb` | X11 client (chosen in phase 1); from phase 4 a patched copy of its core, `xproto` and `bigreq` is vendored under `internal/` (ADR-025). XInput2 and XKB are hand-written on its connection |
+| `github.com/jezek/xgb` | X11 client; a patched copy of its core, `xproto` and `bigreq` is vendored under `internal/` (ADR-025). XInput2 and XKB are hand-written on its connection |
 
 **Porting code** from projects in §20 is allowed when the license is compatible (MIT, BSD, Apache-2.0, Unlicense). Keep the original copyright notice in the ported file and list it in `THIRD_PARTY.md`.
 
@@ -131,7 +131,7 @@ Contributions that break these are rejected.
 ├──────────────┴───────────────┴───────────────┴────────────────┤
 │ internal/style   ComputedStyle, Tailwind parser, theme/tokens │
 ├───────────────────────────────────────────────────────────────┤
-│ internal/canvas  Canvas 2D drawing API → DisplayList (ADR-319)│
+│ internal/canvas  Canvas drawing API (ADR-319)                 │
 ├───────────────────────────────────────────────────────────────┤
 │ internal/text    Fonts, shaping, paragraphs, glyph cache      │
 ├───────────────────────────────────────────────────────────────┤
@@ -331,7 +331,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
 - **Sizing and spacing:** `width`, `height`, `min-*`/`max-*`, `aspect-ratio`, padding, margin (no collapsing), `gap`.
 - **Backgrounds and borders:** colors; linear, radial and conic gradients; multiple background layers; background images (`bg-[url(…)]` from the file systems registered with `tela.Assets`, SVG files included, or `tela.BgImage`; size, position, repeat, origin, clip, `bg-clip-text`, `bg-blend-*`; ADR-079, ADR-098); per-side borders; per-corner `border-radius`; `outline` with offset.
 - **Effects:** multiple and `inset` `box-shadow`, `opacity`, `filter` (`blur`, `brightness`, `contrast`, `grayscale`, `saturate`, `drop-shadow`…), `backdrop-filter`, `mix-blend-mode`, `clip-path` basic shapes (written as the arbitrary property `[clip-path:circle(50%)]`, ADR-079), masks (`mask-[url(…)]` and Tailwind v4's gradient masks with their size, position, repeat, origin, clip, mode and composite utilities; ADR-098).
-- **Images and icons:** `Img` from decoded images, `tela.Assets` paths, bytes or any `fs.FS` (PNG, JPEG, GIF, WebP and vector SVG); `h.Texture`, an external texture's last frame (ADR-315); `h.Canvas`, drawn by a paint-phase function over the Canvas 2D API (ADR-319); `object-fit` and `object-position`, `h.Tint`; `h.Icon` with `tela.Icon` SVG documents; the SVG paint utilities `fill-*`, `stroke-*` and `stroke-<n>` (ADR-098).
+- **Images and icons:** `Img` from decoded images, `tela.Assets` paths, bytes or any `fs.FS` (PNG, JPEG, GIF, WebP and vector SVG); `h.Texture`, an external texture's last frame (ADR-315); `h.Canvas`, a paint-phase draw function (ADR-319); `object-fit` and `object-position`, `h.Tint`; `h.Icon` with `tela.Icon` SVG documents; the SVG paint utilities `fill-*`, `stroke-*` and `stroke-<n>` (ADR-098).
 - **Motion:** 2D `transform` (`translate`, `scale`, `rotate`, `skew`, `origin`), `transition` on any animatable property.
 - **Interaction:** `cursor`, `pointer-events`, `user-select`, `visibility`, `z-index` within parent.
 - **Text:** see §11.
@@ -409,7 +409,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
   - Content: `DrawGlyphRun`, `DrawImage`.
   - Shadows: `DrawShadow` (incl. inset).
   - State: `PushClip(RRect|Path)`/`PopClip`, `PushTransform`/`PopTransform`, `PushLayer(opacity, blend, filter, mask)`/`PopLayer`, `BackdropFilter`. A mask is painted content (a display list) used as alpha or luminance coverage of the layer (ADR-074).
-- **Paints:** solid color or gradient (linear, radial, two-point focal, conic; with stops and an interpolation color space, Oklab by default like Tailwind v4's named utilities, sRGB for gradients written as CSS text unless they say `in oklab`; ADR-023, ADR-158). Linear, radial and focal gradients pad, reflect or repeat (ADR-095). Tiled images, and the Porter-Duff operations of layers, are Canvas's (ADR-319).
+- **Paints:** solid color or gradient (linear, radial, two-point focal, conic; with stops and an interpolation color space, Oklab by default like Tailwind v4's named utilities, sRGB for gradients written as CSS text unless they say `in oklab`; ADR-023, ADR-158). Linear, radial and focal gradients pad, reflect or repeat (ADR-095). Images tile (ADR-319).
 - **Coordinates:** float32 in logical pixels; display scale is applied at raster time.
 
 ### CPU rasterizer (initial and reference backend)
@@ -522,8 +522,8 @@ type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entr
 |---|---|---|
 | `wayland` (primary on Linux) | Protocol over `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` | `xdg_shell`, `wl_shm` (memfd buffers), `wp_viewporter` + `wp_fractional_scale_v1`, `xdg-decoration` (if absent, the window reports `ClientSideDecorations` and core draws a fallback title bar unless the app has a `WindowDrag` area of its own, ADR-238), `wp_cursor_shape_v1`, `wl_data_device` (clipboard), `zwp_text_input_v3` (IME), `zwp_linux_dmabuf_v1` (GPU frames without a copy, ADR-283). **Protocol bindings are generated from the official XML** (a Go `wayland-scanner`, see `rajveermalviya/go-wayland`), so adding a protocol is trivial. The keyboard's XKB keymap is read by a **minimal pure-Go XKB subset** (`internal/platform/internal/xkb`, ADR-052; reference: `kbvm`, a pure-Rust XKB implementation) |
 | `x11` (Linux fallback) | X11 protocol over socket, via a patched copy of `jezek/xgb` vendored under `internal/` (ADR-025) | `PutImage` (MIT-SHM later), DRI3 1.2 with Present for GPU frames without a copy (file descriptors passed by a patch to the vendored xgb; ADR-283), XInput2 for smooth scrolling, XKB or core keyboard mapping, `_NET_WM_*`, selections for clipboard, XIM for the IME (ADR-231) |
-| `win32` | `x/sys/windows` + `syscall.NewCallback` | `CreateWindowExW`, `GetMessageW` loop, `SetDIBitsToDevice`/`StretchDIBits` (GPU frames through a Vulkan swapchain on the HWND, ADR-289), per-monitor DPI v2, IMM32, Win32 clipboard, `DwmFlush` for pacing. Reference: Ebitengine's no-cgo Windows code |
-| `cocoa` | `purego` + ObjC runtime | `NSApplication`, `NSWindow`, layer-hosting `NSView`, present via `CALayer.contents` (an IOSurface swap chain written only where damaged, ADR-278; a `CGImage` as fallback), `NSTextInputClient` (IME), a display link (`NSView.displayLink`, `CVDisplayLink` on macOS 13). Main thread only. Reference: Ebitengine's purego macOS code |
+| `win32` | `x/sys/windows` + `syscall.NewCallback` | `CreateWindowExW`, `GetMessageW` loop, `SetDIBitsToDevice`/`StretchDIBits` (GPU frames through a Vulkan swapchain on the HWND, ADR-289), per-monitor DPI v2, IMM32, Win32 clipboard, `DwmFlush` for pacing. |
+| `cocoa` | `purego` + ObjC runtime | `NSApplication`, `NSWindow`, layer-hosting `NSView`, present via `CALayer.contents` (an IOSurface swap chain written only where damaged, ADR-278; a `CGImage` as fallback), `NSTextInputClient` (IME), a display link (`NSView.displayLink`, `CVDisplayLink` on macOS 13). Main thread only. |
 | `headless` | Memory | Tests, snapshots, CLI. Configurable size and scale, controllable clock |
 | `remote` (dev loop only) | AF_UNIX socket to a host process; pixels in shared memory (memfd, named file mapping) | The child backend of `tela dev`: windows, events, clock, clipboard, IME and settings are forwarded to a `remote.Host` that owns the real windows on another backend and swaps children under them (ADR-111, ADR-112); later protocols add window control and keyed child windows (3–4, ADR-184, ADR-187), phase 13's services held by the host (5, ADR-214, ADR-216), the quit request and app menu bar (6, ADR-225), tray templates and title bar layout (7, ADR-237, ADR-238), desktop fonts (8, ADR-244), accessibility (9, ADR-246), contracts v6 to v17 (10–18), desktop services kept across reloads (19, ADR-310) and contract v18 (20, ADR-317) |
 
@@ -653,10 +653,10 @@ Implementation references, not dependencies.
 | Layer | Reference | What to take |
 |---|---|---|
 | Architecture | **Flutter** | Three trees, constraints protocol, relayout/repaint boundaries, phase pipeline, gesture arena, semantics tree, goldens |
-| Architecture | **Blitz** (Dioxus) | Near-identical stack (Taffy + Parley + Vello) mapping CSS to layout/render; see where it got hard |
+| Architecture | **Blitz** (Dioxus) | Near-identical stack (Taffy + Parley + Vello) mapping CSS to layout/render |
 | State | **React** | Hooks, reconciliation with keys, context |
 | State | **Jetpack Compose** | Skipping on equal props, phase-deferred state reads (§7) |
-| Raster | **tiny-skia** (BSD) | Compact CPU port of Skia: AA fill, gradients, blending, pipelines |
+| Raster | **tiny-skia** (BSD) | CPU port of Skia: AA fill, gradients, blending, pipelines |
 | Raster | **vello_cpu** (MIT/Apache) | Sparse-strip rasterization designed for parallelism |
 | Geometry | **kurbo** (MIT/Apache) | Stroking (joins, caps, dashes), curve flattening, arc/ellipse math |
 | SVG | **resvg / usvg** (MIT/Apache) | Normalization rules of static SVG (`internal/svg`, ADR-095): `use`/`symbol` instancing, gradient `href` chains and bad stops, units, invalid geometry and references |
