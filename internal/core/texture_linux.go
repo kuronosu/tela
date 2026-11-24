@@ -2,11 +2,9 @@ package core
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
-	"runtime/debug"
 	"sync"
 	"unsafe"
 
@@ -119,52 +117,12 @@ func dmabufSize(fd int) (int64, error) {
 
 // read implements mappedTexture. The kernel waits for the writers it knows
 // of (the dma-buf's implicit fences) when the read starts.
-func (m *mappedDmabuf) read(dst []byte) (err error) {
-	// The mapping is inside the memory, but the memory may still go (a
-	// device unplugged): an error, not a crash.
-	defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
-	defer func() {
-		if r := recover(); r != nil {
-			if f, ok := r.(interface{ Addr() uintptr }); ok {
-				err = fmt.Errorf("the memory of a dmabuf is gone (a fault at 0x%x)", f.Addr())
-				return
-			}
-			panic(r)
-		}
-	}()
+func (m *mappedDmabuf) read(dst []byte) error {
 	if err := dmabufSync(m.fd, dmaBufSyncStart|dmaBufSyncRead); err != nil {
 		return fmt.Errorf("asking to read a dmabuf: %w", err)
 	}
 	defer dmabufSync(m.fd, dmaBufSyncEnd|dmaBufSyncRead)
-	row := 4 * m.w
-	for y := range m.h {
-		src := m.data[m.off+y*m.stride:][:row]
-		d := dst[y*row:][:row]
-		switch {
-		case !m.swap && !m.opaque:
-			copy(d, src)
-		default:
-			convertRow(d, src, m.swap, m.opaque)
-		}
-	}
-	return nil
-}
-
-// convertRow copies the pixels of src to dst as RGBA: with swap they are
-// blue first, and with opaque their fourth byte means nothing.
-func convertRow(dst, src []byte, swap, opaque bool) {
-	// perf: eight bytes at a time would halve it.
-	var alpha uint32
-	if opaque {
-		alpha = 0xff000000
-	}
-	for i := 0; i+4 <= len(src) && i+4 <= len(dst); i += 4 {
-		v := binary.LittleEndian.Uint32(src[i:])
-		if swap {
-			v = v&0xff00ff00 | v>>16&0xff | v&0xff<<16
-		}
-		binary.LittleEndian.PutUint32(dst[i:], v|alpha)
-	}
+	return copyMapped(dst, "a dmabuf", m.data[m.off:], m.w, m.h, m.stride, m.swap, m.opaque)
 }
 
 // close implements mappedTexture.

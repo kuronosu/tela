@@ -106,6 +106,12 @@ func LoadIOSurface() error {
 // IOSurfaceGetBytesPerRow is the stride to use, whatever was asked.
 // Call it inside an autorelease pool, after LoadIOSurface succeeded.
 func NewIOSurfaceBGRA(width, height int, colorSpace uintptr) (uintptr, error) {
+	return NewIOSurface(width, height, IOSurfacePixelFormatBGRA, colorSpace)
+}
+
+// NewIOSurface is NewIOSurfaceBGRA with another pixel format (an OSType) of
+// four bytes per pixel.
+func NewIOSurface(width, height int, format uint32, colorSpace uintptr) (uintptr, error) {
 	if IOSurfaceCreate == nil {
 		return 0, errors.New("darwin: IOSurface is not loaded")
 	}
@@ -120,10 +126,10 @@ func NewIOSurfaceBGRA(width, height int, colorSpace uintptr) (uintptr, error) {
 	DictionarySet(props, ioSurfaceBytesPerElement, NSNumberInt(4))
 	DictionarySet(props, ioSurfaceBytesPerRow, NSNumberInt(int(bpr)))
 	DictionarySet(props, ioSurfaceAllocSize, NSNumberInt(int(size)))
-	DictionarySet(props, ioSurfacePixelFormat, NSNumberInt(IOSurfacePixelFormatBGRA))
+	DictionarySet(props, ioSurfacePixelFormat, NSNumberInt(int(format)))
 	s := IOSurfaceCreate(props)
 	if s == 0 {
-		return 0, fmt.Errorf("darwin: IOSurfaceCreate of %dx%d BGRA pixels (%d bytes per row) failed", width, height, bpr)
+		return 0, fmt.Errorf("darwin: IOSurfaceCreate of %dx%d pixels, format %#x (%d bytes per row), failed", width, height, format, bpr)
 	}
 	if colorSpace != 0 {
 		// The key Chromium and Firefox set (CFSTR("IOSurfaceColorSpace")):

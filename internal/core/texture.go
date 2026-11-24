@@ -821,9 +821,11 @@ func (x *Texture) askable() *texView {
 // The device.
 
 // TextureFormat is a pixel format of imported memory: a DRM fourcc and a
-// DRM format modifier.
+// DRM format modifier, or the pixel format of an IOSurface.
 type TextureFormat struct {
-	// Fourcc is the DRM fourcc, such as 0x34325241 (AR24, DRM_FORMAT_ARGB8888).
+	// Fourcc is the DRM fourcc, such as 0x34325241 (AR24,
+	// DRM_FORMAT_ARGB8888). On macOS it is the pixel format of the
+	// IOSurface, an OSType such as 0x42475241 ('BGRA'), and Modifier is 0.
 	Fourcc uint32
 	// Modifier is the DRM format modifier; 0 is linear.
 	Modifier uint64
@@ -850,7 +852,9 @@ type TextureDevice struct {
 	// locally unique identifier on Windows (its deviceLUID).
 	UUID [16]byte
 	LUID [8]byte
-	// MetalRegistryID is the registry ID of the Metal device on macOS.
+	// MetalRegistryID is the registryID of the Metal device that drives the
+	// main display, on macOS. Tela does not draw with it: the frames of any
+	// device are copied.
 	MetalRegistryID uint64
 	// Formats are the formats Texture.Import takes for memory allocated on
 	// this device, the preferred ones first, and ForeignFormats those for
@@ -860,12 +864,13 @@ type TextureDevice struct {
 
 // Device describes the device that draws the app's windows. Without a GPU
 // (a default build, or the CPU rasterizer chosen or fallen back to) it has
-// no identity, and its formats, on Linux, are those Import maps and copies:
-// AR24, XR24, AB24 and XB24 in linear memory. The GPU opens with the first
-// window: call it in an effect or a goroutine, not in a build.
+// no identity but MetalRegistryID, and its formats are those Import maps and
+// copies: AR24, XR24, AB24 and XB24 in linear memory on Linux, 'BGRA' and
+// 'RGBA' on macOS, none on Windows. The GPU opens with the first window: call
+// it in an effect or a goroutine, not in a build.
 func (x *Texture) Device() TextureDevice {
 	if imp := x.importer(); imp != nil {
 		return imp.textureDevice()
 	}
-	return TextureDevice{Formats: mappedFormats(), ForeignFormats: mappedFormats()}
+	return TextureDevice{MetalRegistryID: metalRegistryID(), Formats: mappedFormats(), ForeignFormats: mappedFormats()}
 }

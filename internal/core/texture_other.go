@@ -10,7 +10,12 @@ import (
 
 // Dmabufs and sync files exist on Linux only.
 
-func mappedFormats() []TextureFormat { return nil }
+func mappedFormats() []TextureFormat {
+	if runtime.GOOS == "darwin" {
+		return surfaceFormats()
+	}
+	return nil
+}
 
 func mapDmabuf(d Dmabuf) (mappedTexture, error) {
 	return nil, fmt.Errorf("tela: Texture.Import: %s: dmabufs exist on Linux, and this is %s; submit pixels with SubmitImage: %w", d.describe(), runtime.GOOS, ErrTextureUnsupported)
