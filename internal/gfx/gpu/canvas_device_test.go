@@ -13,6 +13,11 @@ import (
 	"github.com/kuronosu/tela/internal/gfx/raster"
 )
 
+// operatorPage is the page of operatorPanes as a list.
+func operatorPage(moved, label float32) *gfx.DisplayList {
+	return gfxtest.Build(func(b *gfx.Builder) { operatorPanes(b, moved, label) })
+}
+
 // TestOperatorsKeepPixels checks the operators at the root of lists drawn
 // over what the target holds from earlier renders, whole and in a region,
 // without Clear: they work on those pixels, and change none beyond.

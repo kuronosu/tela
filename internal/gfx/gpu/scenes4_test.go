@@ -102,10 +102,6 @@ func operatorPanes(b *gfx.Builder, moved, label float32) {
 	b.FillRect(gfx.RectXYWH(80+label, 120, 40, 12), emerald)
 }
 
-func operatorPage(moved, label float32) *gfx.DisplayList {
-	return gfxtest.Build(func(b *gfx.Builder) { operatorPanes(b, moved, label) })
-}
-
 // shapesOf paints every shape a pattern can, in a box of 190x110.
 func shapesOf(b *gfx.Builder, p gfx.Paint) {
 	b.FillRect(gfx.RectXYWH(4.3, 4.6, 50, 44), p)
