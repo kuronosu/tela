@@ -402,8 +402,11 @@ const snapWorth = 4
 
 // paintCost is the weight of a fill in worthSnap.
 func paintCost(p gfx.Paint) int {
-	if _, ok := p.(gfx.Color); ok {
+	switch p.(type) {
+	case gfx.Color:
 		return 1
+	case gfx.ImagePattern:
+		return 3 // as a DrawImage
 	}
 	return 2
 }

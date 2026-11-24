@@ -298,6 +298,8 @@ func (r *Renderer) shaderFor(p gfx.Paint) shader {
 			return sh
 		}
 		return r.focalShader(p, inv)
+	case gfx.ImagePattern:
+		return r.patternFor(p)
 	case nil:
 		panic("raster: nil paint in a display list")
 	}

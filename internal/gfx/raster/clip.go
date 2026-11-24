@@ -229,15 +229,20 @@ func (r *Renderer) rrectInner(rr gfx.RRect) image.Rectangle {
 func (r *Renderer) pushLayer(i int, c gfx.PushLayer) {
 	op := unit8(float64(c.Opacity))
 	if op == 0 {
-		r.narrow(image.Rectangle{})
-		return
+		if !c.Blend.Unbounded() {
+			r.narrow(image.Rectangle{})
+			return
+		}
+		// The operator still clears the clip, with a transparent source:
+		// neither content, filters nor mask matter.
+		c.Filters, c.Mask = nil, gfx.Mask{}
 	}
 	if len(c.Filters) > 0 {
 		r.pushFilterLayer(i, c, op)
 		return
 	}
 	// The layer's root-space bounds (its content, clipped by the clip at
-	// PushLayer) in device pixels.
+	// PushLayer; that clip for an unbounded operator) in device pixels.
 	r.narrow(r.devBounds(r.dl.BoundsAt(i)))
 	if r.skipping {
 		return
@@ -253,6 +258,7 @@ func (r *Renderer) pushLayer(i int, c gfx.PushLayer) {
 	// within the narrowed rectangle, which lies inside it.
 	b.pix, b.stride, b.origin, b.cm = buf, 4*rect.Dx(), rect.Min, clipMask{}
 	r.surfBounds = rect
+	r.skipping = op == 0
 }
 
 // renderMask renders the mask m of a layer that composites the device

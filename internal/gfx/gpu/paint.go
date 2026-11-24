@@ -66,6 +66,9 @@ func (e *Encoder) paint(p gfx.Paint, m *gfx.Affine) (paintEnc, bool) {
 		stops, interp = p.Stops, p.Interp
 	case gfx.FocalGradient:
 		stops, interp = p.Stops, p.Interp
+	case gfx.ImagePattern:
+		e.unsupported("image pattern")
+		return paintEnc{}, false
 	default:
 		return paintEnc{}, false // nil: the Builder stores none
 	}

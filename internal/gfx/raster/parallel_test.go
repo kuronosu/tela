@@ -25,7 +25,8 @@ var parallelSplits = []struct{ workers, rows int }{
 // allScenes returns every golden scene and the random scenes of the region
 // tests.
 func allScenes() []scene {
-	all := append(append(append(append(append([]scene(nil), scenes...), scenes2...), scenes3...), scenes4...), textScenes...)
+	all := append(append(append(append(append([]scene(nil), scenes...), scenes2...), scenes3...), append(scenes4, scenes5...)...), textScenes...)
+	all = append(all, randomComposite(1, 150, 110), randomComposite(2, 150, 110))
 	for seed := uint64(1); seed <= 4; seed++ {
 		all = append(all, randomScene(seed, 150, 110))
 	}

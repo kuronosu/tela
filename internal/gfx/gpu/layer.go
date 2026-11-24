@@ -139,6 +139,13 @@ func growXY(rect image.Rectangle, dx, dy int) image.Rectangle {
 // encoded. Its state has been pushed.
 func (e *Encoder) pushLayer(i int, c gfx.PushLayer) {
 	st := e.top()
+	if c.Blend > gfx.PlusLighter {
+		// The shaders blend with the modes of CSS only. Opacity 0 does not
+		// change that: some of the operators clear the backdrop.
+		e.unsupported("PushLayer (" + c.Blend.String() + ")")
+		st.skip = true
+		return
+	}
 	op := raster.Unit8(float64(c.Opacity))
 	if op == 0 {
 		st.skip = true

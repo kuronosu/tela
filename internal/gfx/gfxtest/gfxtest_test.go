@@ -10,7 +10,7 @@ func TestScenes(t *testing.T) {
 	if want := len(Scenes1) + len(Scenes2) + len(Scenes3) + len(Scenes4) + len(TextScenes); len(scenes) != want {
 		t.Fatalf("Scenes() has %d scenes, want %d", len(scenes), want)
 	}
-	for _, s := range scenes {
+	for _, s := range append(scenes, Scenes5...) {
 		if seen[s.Name] {
 			t.Errorf("duplicate scene name %q", s.Name)
 		}

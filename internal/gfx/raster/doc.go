@@ -63,8 +63,10 @@
 // cone; pad, reflect or repeat spread (ADR-095), premultiplied
 // interpolation in Oklab or sRGB of the
 // unclipped extended sRGB stops, each pixel clipped per channel, through
-// 256-entry ramps per stop segment, exact hard stops) and images (image.go:
-// nearest or bilinear sampling, clamped to the Src rectangle).
+// 256-entry ramps per stop segment, exact hard stops), images (image.go:
+// nearest or bilinear sampling, clamped to the Src rectangle) and image
+// patterns (pattern.go: the same sampling, wrapping around the axes that
+// repeat and transparent beyond the others, from a mip level when minified).
 //
 // Clips (clip.go) narrow the writable rectangle and, unless they are
 // pixel-aligned rectangles, add an 8-bit coverage mask that multiplies the
@@ -83,11 +85,19 @@
 // exclusion are exact integer expressions rounded once; color-dodge,
 // color-burn, soft-light, hue, saturation, color and luminosity are
 // computed in float64 (fusion-safe); plus-lighter adds and saturates.
-// Every mode leaves the backdrop where the source is transparent, so a
-// blend layer touches only its bounds, and its pixels depend only on the
-// source and backdrop pixels at the same place: regions, bands and damage
-// rectangles stay bit-identical to full renders. Source-over layers
+// Every mode of CSS leaves the backdrop where the source is transparent,
+// so a blend layer touches only its bounds, and its pixels depend only on
+// the source and backdrop pixels at the same place: regions, bands and
+// damage rectangles stay bit-identical to full renders. Source-over layers
 // without a mask composite exactly as before blend modes existed.
+//
+// The Porter-Duff operators (ADR-319) are exact integer expressions too.
+// Those that clear the backdrop where the source is transparent
+// (gfx.BlendMode.Unbounded) are composited over the region ∩ the whole clip
+// active at PushLayer, which the list gives as the layer's bounds, whatever
+// the content, the mask and the opacity; the coverage of an anti-aliased
+// clip interpolates there as everywhere. They stay pixel by pixel, so
+// regions, bands and damage are exact as well.
 //
 // A layer's mask (gfx.Mask, clip.go) is rendered at PushLayer onto a
 // transparent surface over the pixels the layer composites, from the

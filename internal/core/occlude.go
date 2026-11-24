@@ -19,8 +19,9 @@ import (
 // not, which otherwise made every glass pane blur its unchanged backdrop
 // again after a scheme switch.
 //
-// A cover is a FillRect or FillRRect of an opaque color or of a linear
-// gradient whose stops are opaque, or a DrawImage of an opaque image,
+// A cover is a FillRect or FillRRect of an opaque color, of a linear
+// gradient whose stops are opaque or of an opaque image that repeats along
+// both axes, or a DrawImage of an opaque image,
 // drawn inside clips and translations only (no layer: its opacity and
 // blend apply to the whole group); the pixels it paints fully are its
 // shape's inner device pixels, clipped to the inner pixels of the clips.
@@ -107,11 +108,11 @@ func (d *damager) covers() []cover {
 		var r image.Rectangle
 		switch c := c.(type) {
 		case gfx.FillRect:
-			if opaquePaint(c.Paint) {
+			if s.opaquePaint(c.Paint) {
 				r = d.inner(gfx.RRect{Rect: c.Rect}, cur.t)
 			}
 		case gfx.FillRRect:
-			if opaquePaint(c.Paint) {
+			if s.opaquePaint(c.Paint) {
 				r = d.inner(c.RRect, cur.t)
 			}
 		case gfx.DrawImage:
@@ -127,9 +128,9 @@ func (d *damager) covers() []cover {
 }
 
 // opaquePaint reports whether a paint is opaque everywhere: an opaque
-// color, or a linear gradient of opaque stops (it pads, reflects or
-// repeats them).
-func opaquePaint(p gfx.Paint) bool {
+// color, a linear gradient of opaque stops (it pads, reflects or repeats
+// them), or an opaque image that repeats along both axes.
+func (s *damageScratch) opaquePaint(p gfx.Paint) bool {
 	switch p := p.(type) {
 	case gfx.Color:
 		return p.A >= 1
@@ -143,6 +144,8 @@ func opaquePaint(p gfx.Paint) bool {
 			}
 		}
 		return true
+	case gfx.ImagePattern:
+		return p.Repeat == gfx.RepeatBoth && s.opaqueImage(p.Image)
 	}
 	return false
 }

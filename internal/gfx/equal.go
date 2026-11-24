@@ -116,6 +116,9 @@ func PaintEqual(a, b Paint) bool {
 		b, ok := b.(FocalGradient)
 		return ok && a.Focal == b.Focal && a.FocalRadius == b.FocalRadius && a.Center == b.Center &&
 			a.Radius == b.Radius && a.Interp == b.Interp && a.Spread == b.Spread && sameSlice(a.Stops, b.Stops)
+	case ImagePattern:
+		b, ok := b.(ImagePattern)
+		return ok && a == b
 	}
 	return false
 }

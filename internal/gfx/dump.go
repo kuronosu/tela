@@ -248,6 +248,8 @@ func fmtPaint(p Paint) string {
 	case FocalGradient:
 		return "focal(f=" + fmtPt(p.Focal) + " fr=" + fmtF(p.FocalRadius) + " c=" + fmtPt(p.Center) + " r=" + fmtF(p.Radius) +
 			" " + p.Interp.String() + fmtSpread(p.Spread) + " " + fmtStops(p.Stops) + ")"
+	case ImagePattern:
+		return fmt.Sprintf("pattern(%dx%d %s %s %s)", p.Image.w, p.Image.h, p.Repeat, p.Sampling, fmtList(p.Transform[:]))
 	}
 	return "paint(?)"
 }

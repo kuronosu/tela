@@ -17,9 +17,10 @@
 //
 // Color is non-premultiplied, extended sRGB with float32 components: colors
 // outside the sRGB gamut keep components below 0 or above 1. Colors are
-// composited in sRGB space like browsers (ADR-007), blend modes included
-// (W3C Compositing and Blending Level 1 on sRGB-encoded premultiplied
-// values; ADR-074). Oklab and OKLCH
+// composited in sRGB space like browsers (ADR-007), with the blend modes of
+// CSS and the Porter-Duff operators of Canvas (W3C Compositing and Blending
+// Level 1 on sRGB-encoded premultiplied values; ADR-074, ADR-319). Oklab
+// and OKLCH
 // constructors convert with the CSS Color 4 matrices, fusion-safe, without
 // gamut mapping. Like Chromium, a solid color paints clipped per channel to
 // [0, 1], and a gradient interpolates its unclipped stops and clips each
@@ -28,6 +29,12 @@
 // interpolation is done on premultiplied colors (CSS Color 4, section
 // 12.3). Linear, radial and focal gradients pad, reflect or repeat
 // beyond their ends (SpreadMode, SVG's spreadMethod; ADR-095).
+//
+// # Patterns
+//
+// ImagePattern is a Paint like a color or a gradient: an image that repeats
+// along both axes, one or none, under a transform of its own (Canvas's
+// createPattern). Every command that takes a Paint draws with it.
 //
 // # Paths
 //
@@ -79,6 +86,12 @@
 //     blend mode. A mask applies to the group as a whole: for CSS
 //     background-clip: text, the backgrounds go in a layer masked by the
 //     glyph runs.
+//   - The Porter-Duff operators that clear the backdrop where the source is
+//     transparent (BlendMode.Unbounded: source-in, source-out,
+//     destination-in, destination-atop, copy) change the whole clip active
+//     at PushLayer: that clip is the layer's bounds, and an empty or fully
+//     transparent layer is not a no-op. Every operator works on the pixels
+//     of the enclosing group (or of the surface, outside any group).
 //   - DrawShadow follows CSS box-shadow: Blur is the CSS blur radius (the
 //     Gaussian standard deviation is Blur/2), an outer shadow is painted only
 //     outside the box and an inset shadow only inside it.

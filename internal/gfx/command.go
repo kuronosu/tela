@@ -211,6 +211,12 @@ type PopTransform struct{}
 //
 // Opacity is in [0, 1] (the Builder clamps). A layer with Opacity 1, SrcOver,
 // no Filters and no Mask is still an isolated group.
+//
+// A layer whose Blend is Unbounded affects the whole clip current at
+// PushLayer (the whole surface when there is none), whatever its content
+// and its mask: where they are transparent the operator clears the backdrop.
+// The backdrop is the enclosing group's pixels, never what is outside it,
+// or the surface itself outside any group.
 type PushLayer struct {
 	Opacity float32
 	Blend   BlendMode

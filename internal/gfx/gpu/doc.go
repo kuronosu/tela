@@ -24,7 +24,7 @@
 //
 // # What is drawn
 //
-// Every command of a display list is drawn. Most of it by one pipeline,
+// Every command of a display list is drawn (but see Unsupported below). Most of it by one pipeline,
 // the quad (shaders/quad.vert, quad.frag): an instance is a device
 // rectangle whose fragment shader evaluates, per pixel, a coverage, the
 // clips, and a paint.
@@ -64,9 +64,12 @@
 // pixels, bit for bit.
 //
 // What a device cannot draw is never drawn wrong silently:
-// Frame.Unsupported, and the Result of a Render, name it. That is only
-// what is larger than the device's textures (an image, or a layer grown
-// for its filters, beyond 16384 pixels on the devices of today).
+// Frame.Unsupported, and the Result of a Render, name it. That is what is
+// larger than the device's textures (an image, or a layer grown for its
+// filters, beyond 16384 pixels on the devices of today), and, not drawn
+// yet, the layers composited with a Porter-Duff operator (gfx.SrcIn to
+// gfx.Xor) and the image patterns (gfx.ImagePattern): core draws such a
+// window with the CPU rasterizer.
 //
 // # Targets and passes
 //
