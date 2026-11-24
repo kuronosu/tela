@@ -239,7 +239,7 @@ type gpuImage struct{ img, mem uint64 }
 
 // NewTarget allocates a buffer of w by h pixels.
 func (r *Renderer) NewTarget(w, h int) (_ *Target, err error) {
-	if w < 1 || h < 1 || w > r.Device.maxSize || h > r.Device.maxSize {
+	if w < 1 || h < 1 || w > r.Device.MaxSize || h > r.Device.MaxSize {
 		return nil, fmt.Errorf("%s draws no buffer of %dx%d pixels", r.Device.Name, w, h)
 	}
 	t := &Target{Width: w, Height: h, FD: -1, r: r}

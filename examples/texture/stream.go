@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -28,8 +29,14 @@ type painter interface {
 	// paint draws the scene and submits it as a frame, waiting for a free
 	// buffer (until ctx is done).
 	paint(ctx context.Context, u *uniforms) error
-	// about says what it draws with.
+	// about says what it draws with, and limit how wide and high its frames
+	// may be.
 	about() string
+	limit() int
+	// returned tells that Tela let go of a buffer. trim frees those that are
+	// not of the size of the last frame.
+	returned() <-chan struct{}
+	trim()
 	// close frees what it has, once Tela let go of all of it: while its last
 	// frame is on screen it waits for another painter's, or for the texture
 	// to close.
@@ -54,10 +61,28 @@ func openPainter(tex *tela.Texture, dev tela.TextureDevice, mode Mode) (painter,
 
 func softwareNote(err error) string { return "Drawn in software: " + err.Error() }
 
+const (
+	// frameLimit is the largest width and height of a frame that a texture
+	// imports.
+	frameLimit = 1 << 14
+	// frameLeast is the smallest the scene is drawn at.
+	frameLeast = 16
+)
+
+// frameSize returns the size of the frames for a texture that is shown at
+// size: percent of it, at least frameLeast and at most limit.
+func frameSize(size tela.TextureSize, percent, limit int) (w, h int) {
+	fw, fh := float64(size.Width), float64(size.Height)
+	k := max(float64(percent)/100, frameLeast/min(fw, fh))
+	k = min(k, float64(limit)/max(fw, fh)) // the same shape
+	side := func(f float64) int { return min(max(int(math.Round(f*k)), frameLeast), limit) }
+	return side(fw), side(fh)
+}
+
 // stream draws the scene until ctx is done or the texture is closed: a frame
-// for each frame of the window, and none while paused, unless the size
-// changes. NextFrame blocks while the texture is out of
-// sight, so there is no timer, and nothing runs at rest.
+// for each frame of the window, and none while paused, unless the scene or
+// the size changes. NextFrame blocks while the texture is out of sight, so
+// there is no timer, and nothing runs at rest.
 func stream(ctx context.Context, tex *tela.Texture, ctl *controls, mode Mode, report func(Status)) {
 	ft, err := tex.NextFrame(ctx) // the window is open: its device is known
 	if err != nil {
@@ -75,9 +100,11 @@ func stream(ctx context.Context, tex *tela.Texture, ctl *controls, mode Mode, re
 	m := newMeter(tex)
 	for {
 		moving := ctl.advance(ft.Time)
-		size := tex.Size()
+		size, pic := tex.Size(), ctl.picture()
+		var w, h int
 		if size.Width > 0 {
-			u := sceneAt(ctl.now(), size.Width, size.Height)
+			w, h = frameSize(size, pic.percent, p.limit())
+			u := sceneAt(pic.scene, ctl.now(), w, h)
 			start := time.Now()
 			err := p.paint(ctx, &u)
 			switch {
@@ -101,11 +128,11 @@ func stream(ctx context.Context, tex *tela.Texture, ctl *controls, mode Mode, re
 				use(next, why)
 				continue
 			}
-			report(m.status(dev, p, note, size, ft, moving))
+			report(m.status(dev, p, note, size, w, h, ft, moving))
 		}
 		if !moving {
-			for again := false; !again; again = ctl.playing() || tex.Size() != size {
-				if !ctl.wait(ctx) {
+			for !ctl.playing() && tex.Size() == size && ctl.picture() == pic {
+				if !ctl.wait(ctx, p) {
 					return
 				}
 			}
@@ -122,13 +149,20 @@ type controls struct {
 	mu     sync.Mutex
 	paused bool
 	speed  float64
+	pic    picture
 	at     time.Duration // the scene's clock
 	last   time.Time     // the time of the frame it was advanced to
 	wake   chan struct{} // what a paused loop waits for: something changed
 }
 
-func newControls(at time.Duration) *controls {
-	return &controls{speed: 1, at: at, wake: make(chan struct{}, 1)}
+// picture is what to draw: a scene, in percent of the size it is shown at.
+type picture struct {
+	scene   Scene
+	percent int
+}
+
+func newControls(at time.Duration, pic picture) *controls {
+	return &controls{speed: 1, at: at, pic: pic, wake: make(chan struct{}, 1)}
 }
 
 // set pauses or plays, at a speed.
@@ -139,6 +173,20 @@ func (c *controls) set(paused bool, speed float64) {
 	c.changed()
 }
 
+// show changes what to draw.
+func (c *controls) show(pic picture) {
+	c.mu.Lock()
+	c.pic = pic
+	c.mu.Unlock()
+	c.changed()
+}
+
+func (c *controls) picture() picture {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.pic
+}
+
 // changed makes a paused loop look at whether it should draw.
 func (c *controls) changed() {
 	select {
@@ -147,10 +195,15 @@ func (c *controls) changed() {
 	}
 }
 
-// wait blocks until changed is called; it reports false when ctx is done.
-func (c *controls) wait(ctx context.Context) bool {
+// wait blocks until changed is called, or Tela lets go of a buffer of p's,
+// for p to free it if it is of no use any more; it reports false when ctx is
+// done.
+func (c *controls) wait(ctx context.Context, p painter) bool {
 	select {
 	case <-c.wake:
+		return true
+	case <-p.returned():
+		p.trim()
 		return true
 	case <-ctx.Done():
 		return false
@@ -192,7 +245,10 @@ type Status struct {
 	Still, Moving bool
 	// FPS is the frames shown per second, of a display that shows Refresh.
 	FPS, Refresh float64
-	Size         tela.TextureSize
+	// Size is what the texture is shown at, Width and Height are the
+	// frames'.
+	Size          tela.TextureSize
+	Width, Height int
 	// Draw is the CPU's time for a frame, and Age the time from its
 	// submission to its presentation.
 	Draw, Age      time.Duration
@@ -225,7 +281,11 @@ func (s Status) frames() string {
 	if s.Size.Width == 0 {
 		return ""
 	}
-	out := fmt.Sprintf("%d×%d at scale %g", s.Size.Width, s.Size.Height, s.Size.Scale)
+	out := fmt.Sprintf("%d×%d", s.Width, s.Height)
+	if s.Width != s.Size.Width || s.Height != s.Size.Height {
+		out += fmt.Sprintf(" of %d×%d", s.Size.Width, s.Size.Height)
+	}
+	out += fmt.Sprintf(" at scale %g", s.Size.Scale)
 	if !s.Moving {
 		return out
 	}
@@ -267,10 +327,10 @@ func (m *meter) due(t time.Time) bool {
 }
 
 // status is the report, and starts the next one.
-func (m *meter) status(dev tela.TextureDevice, p painter, note string, size tela.TextureSize, ft tela.FrameTime, moving bool) Status {
+func (m *meter) status(dev tela.TextureDevice, p painter, note string, size tela.TextureSize, w, h int, ft tela.FrameTime, moving bool) Status {
 	st := m.tex.Stats()
 	s := Status{
-		Device: "the CPU", Painter: p.about(), Note: note, Moving: moving, Size: size,
+		Device: "the CPU", Painter: p.about(), Note: note, Moving: moving, Size: size, Width: w, Height: h,
 		Age: st.Age, Shown: st.Shown, Dropped: st.Dropped,
 	}
 	if dev.GPU {

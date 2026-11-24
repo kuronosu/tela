@@ -100,7 +100,7 @@ func renderer(t *testing.T, inst *vulkan.Instance, d vulkan.Device, formats []te
 	return r
 }
 
-// TestVulkanDrawsTheScene draws the scene with every GPU into linear dmabufs,
+// TestVulkanDrawsTheScene draws the scenes with every GPU into linear dmabufs,
 // waits for the sync file of the frame, maps the dmabuf and compares its
 // pixels with those of the software renderer.
 func TestVulkanDrawsTheScene(t *testing.T) {
@@ -122,6 +122,16 @@ func TestVulkanDrawsTheScene(t *testing.T) {
 	})
 }
 
+// TestVulkanAtTwiceTheSize is the largest the window draws at scale 2, 200%:
+// there the edges are the sharpest, so the rounding of the GPU shows most.
+func TestVulkanAtTwiceTheSize(t *testing.T) {
+	eachDevice(t, func(t *testing.T, inst *vulkan.Instance, d vulkan.Device) {
+		r := renderer(t, inst, d, linear(xb24), vulkan.Mapped)
+		defer r.Close()
+		drawAndCompare(t, r, image.Pt(3064, 1724), vulkan.Mapped)
+	})
+}
+
 func drawAndCompare(t *testing.T, r *vulkan.Renderer, size image.Point, readBy vulkan.Memory) {
 	t.Helper()
 	target, err := r.NewTarget(size.X, size.Y)
@@ -129,8 +139,9 @@ func drawAndCompare(t *testing.T, r *vulkan.Renderer, size image.Point, readBy v
 		t.Fatal(err)
 	}
 	defer target.Close()
-	for i, at := range []time.Duration{4 * time.Second, 20 * time.Second} { // the buffer drawn into again
-		u := sceneAt(at, size.X, size.Y)
+	for i := range 3 * len(scenes) { // the buffer drawn into again
+		s, at := Scene(i%len(scenes)), []time.Duration{4 * time.Second, 20 * time.Second, 2 * time.Hour}[i/len(scenes)]
+		u := sceneAt(s, at, size.X, size.Y)
 		fd, err := target.Draw(u.bytes())
 		if err != nil {
 			t.Fatal(err)
@@ -150,7 +161,7 @@ func drawAndCompare(t *testing.T, r *vulkan.Renderer, size image.Point, readBy v
 		}
 		want := image.NewRGBA(image.Rect(0, 0, size.X, size.Y))
 		drawScene(want, &u)
-		compare(t, got, want)
+		compare(t, scenes[s].name, got, want)
 	}
 }
 
@@ -192,12 +203,12 @@ func readDmabuf(target *vulkan.Target, fourcc uint32) (*image.RGBA, error) {
 
 // compare fails the test unless the pictures are the same, but for the
 // rounding of another processor.
-func compare(t *testing.T, got, want *image.RGBA) {
+func compare(t *testing.T, what string, got, want *image.RGBA) {
 	t.Helper()
 	if got.Rect.Size() != want.Rect.Size() {
-		t.Fatalf("a picture of %v, want %v", got.Rect.Size(), want.Rect.Size())
+		t.Fatalf("%s: a picture of %v, want %v", what, got.Rect.Size(), want.Rect.Size())
 	}
-	const most = 2 // levels
+	const most = 1 // level
 	worst, at, differ := 0, image.Point{}, 0
 	for i := range want.Pix {
 		d := int(got.Pix[i]) - int(want.Pix[i])
@@ -210,9 +221,9 @@ func compare(t *testing.T, got, want *image.RGBA) {
 		}
 	}
 	if worst > most {
-		t.Errorf("%v: %v, the software renderer drew %v (%d levels)", at, got.RGBAAt(at.X, at.Y), want.RGBAAt(at.X, at.Y), worst)
+		t.Errorf("%s, %v: %v, the software renderer drew %v (%d levels)", what, at, got.RGBAAt(at.X, at.Y), want.RGBAAt(at.X, at.Y), worst)
 	}
-	t.Logf("%v: %d of %d components differ, by at most %d", want.Rect.Size(), differ, len(want.Pix), worst)
+	t.Logf("%s, %v: %d of %d components differ, by at most %d", what, want.Rect.Size(), differ, len(want.Pix), worst)
 }
 
 // shown mounts a texture of 320x180 alone in a window.
@@ -224,11 +235,11 @@ func shown(t *testing.T, opts ...telatest.Option) (*telatest.App, *tela.Texture)
 	return app, app.Texture(telatest.ByTestID("scene"))
 }
 
-// paintAndCompare paints the scene and compares what the window shows.
-func paintAndCompare(t *testing.T, app *telatest.App, tex *tela.Texture, p painter, at time.Duration) {
+// paintAndCompare paints a scene and compares what the window shows.
+func paintAndCompare(t *testing.T, app *telatest.App, tex *tela.Texture, p painter, s Scene, at time.Duration) {
 	t.Helper()
 	size := tex.Size()
-	u := sceneAt(at, size.Width, size.Height)
+	u := sceneAt(s, at, size.Width, size.Height)
 	before := tex.Stats().Shown
 	if err := p.paint(t.Context(), &u); err != nil {
 		t.Fatal(err)
@@ -236,7 +247,7 @@ func paintAndCompare(t *testing.T, app *telatest.App, tex *tela.Texture, p paint
 	app.WaitFor("the frame", func() bool { return tex.Stats().Shown > before })
 	want := image.NewRGBA(image.Rect(0, 0, size.Width, size.Height))
 	drawScene(want, &u)
-	compare(t, app.Screenshot(), want)
+	compare(t, scenes[s].name, app.Screenshot(), want)
 }
 
 // TestPainterOnTheWindow paints with every GPU into linear dmabufs that the
@@ -249,13 +260,13 @@ func TestPainterOnTheWindow(t *testing.T) {
 			p := newPainter(tex, inst, renderer(t, inst, d, tex.Device().ForeignFormats, vulkan.Mapped))
 			p.inst = nil // the test's
 			for i := range 12 {
-				paintAndCompare(t, app, tex, p, time.Duration(i)*time.Second)
+				paintAndCompare(t, app, tex, p, Scene(i%len(scenes)), time.Duration(i)*time.Second)
 			}
 			app.Resize(400, 200)
-			paintAndCompare(t, app, tex, p, 30*time.Second)
+			paintAndCompare(t, app, tex, p, Planet, 30*time.Second)
 			app.SetScale(2)
-			paintAndCompare(t, app, tex, p, 31*time.Second)
-			paintAndCompare(t, app, tex, p, 32*time.Second)
+			paintAndCompare(t, app, tex, p, Mountains, 31*time.Second)
+			paintAndCompare(t, app, tex, p, Satin, 32*time.Second)
 			app.Close() // the texture closes: Tela lets go of its frames
 			p.close()
 			if n := p.r.Targets(); n != 0 {
@@ -331,7 +342,7 @@ func TestPainterOnTelasGPU(t *testing.T) {
 					t.Errorf("drawn on %s, Tela draws on %s", r.Device.Name, d.Name)
 				}
 				for i := range 8 {
-					u := sceneAt(time.Duration(i)*time.Second, 320, 180)
+					u := sceneAt(Scene(i%len(scenes)), time.Duration(i)*time.Second, 320, 180)
 					if err := p.paint(t.Context(), &u); err != nil {
 						t.Fatal(err)
 					}
@@ -354,6 +365,88 @@ func TestPainterOnTelasGPU(t *testing.T) {
 					t.Errorf("%d targets left open", n)
 				}
 			})
+		}
+	})
+}
+
+// TestSizesOnAGPU: a change of the resolution, of the card's size, of both and
+// of the window's size, on every GPU, paused and playing: the loop goes on with
+// the same painter, draws frames of the new size, and frees the buffers of the
+// old ones as Tela lets go of them. Tela's GPU is a fake one here.
+func TestSizesOnAGPU(t *testing.T) {
+	eachDevice(t, func(t *testing.T, inst *vulkan.Instance, d vulkan.Device) {
+		dev := fakeGPU(inst, d)
+		renderer(t, inst, d, dev.Formats, vulkan.Own).Close() // it skips where this does not work
+		// The example opens Vulkan by itself, while the test has it open too.
+		old, open := openInstance, vulkanOpener(t)
+		opened := 0
+		openInstance = func() (*vulkan.Instance, error) { opened++; return open() }
+		t.Cleanup(func() { openInstance = old })
+		closed := make(chan struct{}, 1)
+		onClose = func() { closed <- struct{}{} }
+		t.Cleanup(func() { onClose = func() {} })
+
+		fake := telatest.NewFakeTextureDevice(dev)
+		a := mount(t, Demo{Paused: true, At: 4 * time.Second}, telatest.WithTextureDevice(fake))
+		a.ExpectText("The scene on " + d.Name)
+		a.ExpectText("766×430 at scale 1")
+		// only waits until the buffers of other sizes are freed.
+		only := func(w, h int) {
+			t.Helper()
+			a.WaitFor(fmt.Sprintf("the buffers that are not of %dx%d to be freed", w, h), func() bool {
+				n := 0
+				for _, b := range fake.Imports() {
+					if b.Closed() {
+						continue
+					}
+					if m := b.Dmabuf(); m.Width != w || m.Height != h {
+						return false
+					}
+					n++
+				}
+				if n > gpuBuffers {
+					t.Fatalf("%d buffers of %dx%d", n, w, h)
+				}
+				return n > 0
+			})
+		}
+		only(766, 430)
+		tex := scene(Planet)
+		oneFrame(t, a, tex, "half", func() { resolve(a, 50) })
+		only(383, 215)
+		oneFrame(t, a, tex, "full", func() { choose(a, "Full") })
+		only(455, 256)
+		oneFrame(t, a, tex, "satin", func() { choose(a, "Satin") })
+		only(455, 256)
+		oneFrame(t, a, scene(Satin), "twice", func() { resolve(a, 200) })
+		only(1820, 1024)
+
+		a.Click(play)
+		a.ExpectText("shown")
+		resolve(a, 25)
+		only(228, 128)
+		choose(a, "Mountains")
+		choose(a, "Small")
+		only(112, 63)
+		a.Resize(380, 600)
+		only(83, 47)
+		a.Click(pause)
+		a.ExpectText("Paused")
+		a.ExpectReleases(1)
+		a.ExpectText("The scene on " + d.Name)
+		if opened != 1 {
+			t.Errorf("Vulkan was opened %d times", opened)
+		}
+		a.Close()
+		select {
+		case <-closed:
+		case <-time.After(30 * time.Second):
+			t.Fatal("the GPU was not closed with the window")
+		}
+		for _, b := range fake.Imports() {
+			if !b.Closed() {
+				t.Errorf("a buffer of %dx%d was left open", b.Dmabuf().Width, b.Dmabuf().Height)
+			}
 		}
 	})
 }
@@ -422,28 +515,30 @@ func BenchmarkVulkan(b *testing.B) {
 			formats []tela.TextureFormat
 			readBy  vulkan.Memory
 		}{{"tiled", dev.Formats, vulkan.Own}, {"shared", dev.ForeignFormats, vulkan.Shared}} {
-			b.Run(d.Name+" "+c.name, func(b *testing.B) {
-				r, err := openRenderer(inst, d, c.formats, c.readBy)
-				if err != nil {
-					b.Skip(err)
-				}
-				defer r.Close()
-				target, err := r.NewTarget(w, h)
-				if err != nil {
-					b.Fatal(err)
-				}
-				defer target.Close()
-				for i := 0; b.Loop(); i++ {
-					u := sceneAt(time.Duration(i)*time.Second/60, w, h)
-					fd, err := target.Draw(u.bytes())
+			for s := range scenes {
+				b.Run(d.Name+" "+c.name+" "+scenes[s].name, func(b *testing.B) {
+					r, err := openRenderer(inst, d, c.formats, c.readBy)
+					if err != nil {
+						b.Skip(err)
+					}
+					defer r.Close()
+					target, err := r.NewTarget(w, h)
 					if err != nil {
 						b.Fatal(err)
 					}
-					if err := tela.SyncFile(fd).Wait(b.Context()); err != nil {
-						b.Fatal(err)
+					defer target.Close()
+					for i := 0; b.Loop(); i++ {
+						u := sceneAt(Scene(s), time.Duration(i)*time.Second/60, w, h)
+						fd, err := target.Draw(u.bytes())
+						if err != nil {
+							b.Fatal(err)
+						}
+						if err := tela.SyncFile(fd).Wait(b.Context()); err != nil {
+							b.Fatal(err)
+						}
 					}
-				}
-			})
+				})
+			}
 		}
 	}
 }
