@@ -237,10 +237,13 @@ func arcSweep(start, end float64, ccw bool) float64 {
 		return -arcSweep(-start, -end, false)
 	}
 	d := end - start
-	if math.IsInf(d, -1) {
-		// Too far apart for a float64: the angles within a turn.
-		d = math.Mod(end, turn) - math.Mod(start, turn)
-		d = math.Mod(d, turn)
+	if d < -(1 << 20) {
+		// So far apart that the difference has lost one of them, or is not a
+		// number: the angles within a turn.
+		if d = math.Mod(math.Mod(end, turn)-math.Mod(start, turn), turn); d > 0 {
+			d -= turn
+		}
+		return turn + d
 	}
 	switch {
 	case d >= turn:

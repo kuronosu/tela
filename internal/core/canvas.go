@@ -739,7 +739,7 @@ func drawSite() string {
 	frames := runtime.CallersFrames(pcs[:runtime.Callers(3, pcs[:])])
 	for {
 		f, more := frames.Next()
-		if f.Function != "" && !frameworkFrame(f.Function, f.File) && !strings.HasPrefix(f.Function, telaPkg+"/i18n.") {
+		if f.Function != "" && !frameworkFrame(f.Function, f.File) && (!strings.HasPrefix(f.Function, telaPkg+"/i18n.") || strings.HasSuffix(f.File, "_test.go")) {
 			return fmt.Sprintf(" (%s:%d)", filepath.Base(f.File), f.Line)
 		}
 		if !more {

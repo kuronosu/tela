@@ -1292,6 +1292,32 @@ func gfxPath(p *Path2D) *gfx.Path {
 	return out
 }
 
+// An arc from a very large angle ends where its end angle says.
+func TestArcLargeStart(t *testing.T) {
+	for _, start := range []float64{1e7, 1e12, 1e17, 1e300} {
+		for _, end := range []float64{0, 1, -2, 5} {
+			for _, dir := range []float64{1, -1} {
+				var p Path2D
+				p.Ellipse(50, 25, 40, 20, 0, dir*start, dir*end, dir < 0)
+				pts := gfxPath(&p).Points()
+				got := pts[len(pts)-1]
+				x, y := 50+40*math.Cos(end), 25+20*math.Sin(dir*end)
+				if math.Hypot(float64(got.X)-x, float64(got.Y)-y) > 0.001 {
+					t.Errorf("from %g to %g: ends at %v, want (%.2f, %.2f)", dir*start, dir*end, got, x, y)
+				}
+			}
+		}
+	}
+	for _, s := range []float64{1e17, 1e300} {
+		if got := arcSweep(s, -s, false); !(got > 0 && got <= 2*math.Pi) {
+			t.Errorf("from %g to %g: a sweep of %g", s, -s, got)
+		}
+		if got := arcSweep(-s, s, true); !(got < 0 && got >= -2*math.Pi) {
+			t.Errorf("from %g to %g, ccw: a sweep of %g", s, -s, got)
+		}
+	}
+}
+
 // Angles too far apart for a float64 make an arc all the same.
 func TestArcFarAngles(t *testing.T) {
 	for _, ccw := range []bool{false, true} {
