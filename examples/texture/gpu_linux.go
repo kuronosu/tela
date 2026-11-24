@@ -7,6 +7,7 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"unsafe"
 
@@ -43,7 +44,9 @@ type gpu struct {
 	r    *vulkan.Renderer
 	// modifier is the layout of its buffers.
 	modifier uint64
-	// idle are the buffers that are free, held those Tela has.
+	// w and h are the size of its frames. idle are the buffers that are
+	// free, held those Tela has.
+	w, h int
 	idle []*gpuBuffer
 	held int
 
@@ -152,6 +155,8 @@ func (g *gpu) about() string {
 	return fmt.Sprintf("%s, %c%c%c%c, %s, %s", g.r.Device.Name, f&0xff, f>>8&0xff, f>>16&0xff, f>>24, layout, how)
 }
 
+func (g *gpu) limit() int { return min(g.r.Device.MaxSize, frameLimit) }
+
 func (g *gpu) paint(ctx context.Context, u *uniforms) error {
 	b, err := g.buffer(ctx, int(u.Size[0]), int(u.Size[1]))
 	if err != nil {
@@ -191,18 +196,30 @@ func (g *gpu) collect() {
 	g.released = g.released[:0]
 }
 
-// buffer returns a buffer of w by h pixels that Tela does not read. It frees
-// the idle ones of another size: the texture was resized.
-func (g *gpu) buffer(ctx context.Context, w, h int) (*gpuBuffer, error) {
-	for {
-		g.collect()
-		for i := len(g.idle) - 1; i >= 0; i-- {
-			b := g.idle[i]
-			g.idle = append(g.idle[:i], g.idle[i+1:]...)
-			if b.target.Width == w && b.target.Height == h {
-				return b, nil
-			}
+// returned tells that Tela let go of a buffer, for trim.
+func (g *gpu) returned() <-chan struct{} { return g.wake }
+
+// trim frees the idle buffers that are not of the size of the frames.
+func (g *gpu) trim() {
+	g.collect()
+	g.idle = slices.DeleteFunc(g.idle, func(b *gpuBuffer) bool {
+		old := b.target.Width != g.w || b.target.Height != g.h
+		if old {
 			b.close()
+		}
+		return old
+	})
+}
+
+// buffer returns a buffer of w by h pixels that Tela does not read.
+func (g *gpu) buffer(ctx context.Context, w, h int) (*gpuBuffer, error) {
+	g.w, g.h = w, h
+	for {
+		g.trim()
+		if n := len(g.idle); n > 0 {
+			b := g.idle[n-1]
+			g.idle = g.idle[:n-1]
+			return b, nil
 		}
 		// What Tela holds of another size makes room soon: the count is of
 		// all of them.

@@ -239,11 +239,12 @@ type Device struct {
 	// DRM render node, zero when it has none.
 	UUID         [16]byte
 	Major, Minor int64
+	// MaxSize is the largest width and height of its images.
+	MaxSize int
 
 	h       uintptr
 	version uint32
 	exts    map[string]bool
-	maxSize int
 }
 
 // Devices returns the GPUs of the system (no software renderer).
@@ -268,7 +269,7 @@ func (i *Instance) Devices() ([]Device, error) {
 			continue
 		}
 		d.Name, d.UUID = goString(p.Properties.DeviceName[:]), id.DeviceUUID
-		d.version, d.maxSize = p.Properties.ApiVersion, int(p.Properties.Limits.MaxImageDimension2D)
+		d.version, d.MaxSize = p.Properties.ApiVersion, int(p.Properties.Limits.MaxImageDimension2D)
 		if drm.HasRender != 0 {
 			d.Major, d.Minor = drm.RenderMajor, drm.RenderMinor
 		}

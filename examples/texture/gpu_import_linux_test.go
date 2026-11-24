@@ -62,8 +62,9 @@ func TestTelasRendererReadsTheFrames(t *testing.T) {
 				}
 				defer m.Close()
 				t.Logf("modifier %#x, planes %v", target.Modifier, target.Planes)
-				for _, at := range []time.Duration{4 * time.Second, 20 * time.Second} {
-					u := sceneAt(at, 640, 360)
+				for i := range 2 * len(scenes) {
+					s, at := Scene(i%len(scenes)), time.Duration(4+3*i)*time.Second
+					u := sceneAt(s, at, 640, 360)
 					fd, err := target.Draw(u.bytes())
 					if err != nil {
 						t.Fatal(err)
@@ -73,7 +74,7 @@ func TestTelasRendererReadsTheFrames(t *testing.T) {
 					}
 					want := image.NewRGBA(image.Rect(0, 0, 640, 360))
 					drawScene(want, &u)
-					compare(t, &image.RGBA{Pix: m.Pixels(), Stride: 4 * 640, Rect: want.Rect}, want)
+					compare(t, scenes[s].name, &image.RGBA{Pix: m.Pixels(), Stride: 4 * 640, Rect: want.Rect}, want)
 				}
 			})
 		}
