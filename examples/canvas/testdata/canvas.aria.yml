@@ -1,0 +1,36 @@
+- text: h.Canvas
+- heading "Drawn by a Go function" [level=1]
+- paragraph: The 2D context of a browser's canvas, as a Go function that runs when something changes and follows the theme.
+- text: 0% CPU when nothing moves
+- heading "Twelve months" [level=2]
+- text: Move the pointer over the chart to read a point.
+- radiogroup "Series":
+  - radio "Visitors" [checked]
+  - radio "Sign-ups"
+  - radio "Revenue"
+- text: Latest (Dec) 17.4k Peak (Nov) 18.2k Average 12.9k Since January +112%
+- img "Visitors by month, area chart"
+- paragraph: "Visitors by month: Jan 8.2k, Feb 9.1k, Mar 8.7k, Apr 10.4k, May 11.9k, Jun 11.2k, Jul 13.6k, Aug 15.1k, Sep 14.4k, Oct 16.8k, Nov 18.2k, Dec 17.4k."
+- heading "Particles" [level=2]
+- text: Move the pointer over the field; press to pull harder.
+- button "Play"
+- img "Particles that follow the pointer"
+- status: "Paused: no frames, no CPU."
+- heading "Sketch pad" [level=2]
+- text: Draw, erase and undo. Ctrl+Z works too.
+- button "Undo"
+- button "Clear"
+- img "Sketch pad"
+- radiogroup "Tool":
+  - radio "Pen" [checked]
+  - radio "Eraser"
+- radiogroup "Color":
+  - radio "Ink"
+  - radio "Indigo" [checked]
+  - radio "Pink"
+  - radio "Amber"
+  - radio "Green"
+- radiogroup "Brush":
+  - radio "Thin"
+  - radio "Medium" [checked]
+  - radio "Thick"
