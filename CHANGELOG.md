@@ -20,6 +20,10 @@ separated by commas), or with `migrate: none -- <why nothing can be rewritten>`
 (ADR-305). internal/lint's tests fail on an entry without one.
 -->
 
+## [0.14.12] - 2026-11-24
+
+Phase 31: Canvas (ADR-319, ADR-320).
+
 ### Added
 
 - `h.Canvas(draw func(c *tela.Canvas), props...)` and `tela.Canvas`: an element that a Go function draws with the 2D context of a browser's canvas, with its method names over `float64` and its properties as fields: paths (curves, `RoundRect`, `Ellipse`, `Path2D` and `tela.ParsePath` for SVG path data, `Path2D.Contains` for hit testing), `Fill`, `Stroke` and `Clip` with `FillRule`, line dashes, linear, radial and conic gradients, patterns, `DrawImage`, text with `MeasureText`, shadows and the 26 composite operations (`CompositeDestinationOut` erases). The drawing is vectors, sharp at any scale, and its initial fill, stroke and font are the element's (`fill-*`, `stroke-*`, `text-*`, `font-*`; `c.Color` reads the theme). The function runs when something it draws with changes: a build, a size, scale, style, theme or scheme, a `tela.Value` it read, or `c.RequestFrame()`; an app whose canvas does not move asks for no frames. In its handlers `LocalX` and `LocalY` are in the coordinates it draws in (ADR-319).
@@ -1332,7 +1336,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.11...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.12...HEAD
+[0.14.12]: https://github.com/kuronosu/tela/compare/v0.14.11...v0.14.12
 [0.14.11]: https://github.com/kuronosu/tela/compare/v0.14.10...v0.14.11
 [0.14.10]: https://github.com/kuronosu/tela/compare/v0.14.9...v0.14.10
 [0.14.9]: https://github.com/kuronosu/tela/compare/v0.14.8...v0.14.9

@@ -410,7 +410,13 @@ are done (ADR-208 sets how versions are numbered).
 | 23 | Layout, text and engine fidelity: selectable static text, `h.Lang` and CJK forms by language, hyphenation, synthetic bold and italic, skip-ink, borders on device pixels, `aspect-*` and grid areas as in Chromium, drag autoscroll of scroll containers | ✅ v0.14.3 |
 | 24 | CPU performance: layout and paint place only what moved, recorded groups, damage drawn from a list position, backdrops found again, the dashboard's p95 from 19.3 to 9.7 ms at 1080p | ✅ v0.14.4 |
 | 25 | GPU backend, opt-in with `-tags telagpu`: Vulkan on Linux and Windows, frames to the compositor without a copy (dmabufs on Wayland and X11), the CPU rasterizer as reference and fallback | ✅ v0.14.5 |
-| — | Packaging and auto-update, app building blocks, DevTools and agents, dev loop and testing, external textures, canvas, SVG and PDF, audio and video, game input, accessibility gaps | planned |
+| 26 | Packaging and auto-update: `tela package` for every system from one machine, signed update manifests, logs and crash reports | ✅ v0.14.7 |
+| 27 | App building blocks: async data, sign-in, navigation, Markdown, start at login | ✅ v0.14.8 |
+| 28 | DevTools and agents: a DevTools window, `tela lsp`, more `tela mcp` tools | ✅ v0.14.9 |
+| 29 | Dev loop and testing: more state kept by `tela dev`, `tela check` and `tela verify`, `tela lint -fix` migrations | ✅ v0.14.10 |
+| 30 | External textures: content an app renders itself, shown by `h.Texture`, without a copy on the Linux GPU backend | ✅ v0.14.11 |
+| 31 | Canvas: `h.Canvas`, the browser's 2D drawing API in a Go function, redrawn when something it reads changes; transitions of `fill` and `stroke` | ✅ v0.14.12 |
+| — | SVG and PDF, audio and video, game input, accessibility gaps | planned |
 
 ### What works today
 

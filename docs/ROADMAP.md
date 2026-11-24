@@ -11,35 +11,22 @@
 
 ## Current status
 
-- **Done:** phases 1–30. Latest version `v0.14.11` (2026-11-24, phase 30: External textures, ADR-315 to ADR-318). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch; the owner may release a small break, such as a rename, as a patch.
-- **Phase in progress:** 31, Canvas (branch `phase-31`; ADR-319). Next in order: SVG and PDF; Audio and video; Game input.
+- **Done:** phases 1–31. Latest version `v0.14.12` (2026-11-24, phase 31: Canvas, ADR-319 and ADR-320; the tag waits for the owner). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch; the owner may release a small break, such as a rename, as a patch.
+- **Phase in progress:** none; the owner picks the next (in order: SVG and PDF; Audio and video; Game input).
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** the owner pushes `main` and a site tag `site-YYYY-MM-DD` on its head, so that the site gets the docs of `v0.14.11` (a broken anchor stopped its deploys from `v0.14.9` on). Phase 31's first tasks: the Porter-Duff operations and the Canvas element. Phase 28's DevTools window and `tela mcp --attach` wait for a live check on a real desktop (`docs/LIMITATIONS.md`). Phase 27's Windows and macOS surfaces wait for their live checks (`docs/LIMITATIONS.md`). Phase 26's Mac checks wait for a macOS CI run or a Mac (`docs/LIMITATIONS.md`). The GPU backend's Windows code ran without windows on an Intel Arc laptop (2026-11-23); its windowed live check waits. Phase 30's Windows windowed tests run on the owner's Intel Arc laptop next (Smart App Control blocks some test programs). R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** the owner pushes `main` (phase 31 merged) and the tag `v0.14.12`, which deploys the site, then opens the next phase. The macOS CI run of phase 31 says whether `examples/canvas`, whose particles move from the start, passes `TestExamplesCocoa`; if not, its App starts paused. Phase 28's DevTools window and `tela mcp --attach` wait for a live check on a real desktop (`docs/LIMITATIONS.md`). Phase 27's Windows and macOS surfaces wait for their live checks (`docs/LIMITATIONS.md`). Phase 26's Mac checks wait for a macOS CI run or a Mac (`docs/LIMITATIONS.md`). The GPU backend's Windows code ran without windows on an Intel Arc laptop (2026-11-23); its windowed live check waits. Phase 30's Windows windowed tests run on the owner's Intel Arc laptop next (Smart App Control blocks some test programs). R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no Wine on the host (it froze it once): Wine runs in a Docker container limited to 4 CPUs and 8 GB (Ubuntu 24.04 with `wine` and `wine64`, `LANG=C.UTF-8`, the host's Go mounted read-only), as CI's job runs it; the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` takes about 15 minutes in one process (2026-11-09; run it with `-timeout 30m`, or shard it; longer since phase 24's `TELA_CHECK_SEMANTICS` and `TELA_CHECK_LAYOUT` are on in core's tests), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
 
-In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–30 are done (HISTORY.md).
-
-### Phase 31: Canvas
-
-An immediate-mode 2D drawing surface with the lifecycle of a component (ADR-319).
-
-- [x] `gfx` and the CPU rasterizer: the Porter-Duff operations as layer blends, and a tiled image paint
-- [x] The same on the GPU backend, compared with the CPU rasterizer
-- [x] `core`: the `Canvas` element, its draw in the paint phase (tracked reads, recording, damage), `RequestFrame` and its clock, dev checks; `telatest` drives it
-- [x] The drawing API: paths and `Path2D`, transforms, styles, text, images, shadows, clips, compositing
-- [x] `fill`, `stroke` and `stroke-width` transition (added 2026-11-24: a canvas starts with them)
-- [x] Compared with Chromium's output
-- [x] An example, the wiki, `llms.txt` with a recipe, and `tela lint`'s checks
-
-**Done when:** the example animates at 60 fps at scale 2 on Linux with either renderer and is idle at rest, an equal redraw damages nothing, and the scenes compared with Chromium pass.
+In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–31 are done (HISTORY.md).
 
 ### SVG and PDF
 
 Vector output on the `DisplayList`.
 
 - [ ] SVG: text, filters, images, patterns and markers
+- [ ] Left by Canvas (phase 31): the CPU rasterizer adds up the partial coverage of contours of one path that overlap (stroked text of variable fonts, serifs; up to 94 levels against Chromium at edges); a huge `ClearRect` under a turned and very uneven transform can clear a few pixels off at its edge; on the GPU every path and stroke of a canvas is a coverage mask made on the CPU (`examples/canvas`: 7.4 ms a frame against 2.3 by the CPU rasterizer, Intel Arc, 2400x1900)
 - [ ] Printing and PDF export: a vector PDF backend over the DisplayList (fonts embedded, gradients, clip, opacity), print dialogs, page-break CSS subset
 
 **Done when:** the new SVG features match their resvg test cases, and a page exports to a PDF that two viewers render identically.

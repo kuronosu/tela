@@ -709,6 +709,22 @@ GPU content an application renders itself, composed by Tela (the owner, 2026-11-
 
 Accepted by the owner on 2026-11-24: 144 fps at scale 1 with 3.9 times the pixels of the element at scale 2, for the 60 fps at scale 2; the scale factor itself is a live check.
 
+### Phase 31: Canvas (`v0.14.12`)
+
+An immediate-mode 2D drawing surface with the lifecycle of a component (ADR-319).
+
+- [x] `gfx` and the CPU rasterizer: the Porter-Duff operations as layer blends, and a tiled image paint
+- [x] The same on the GPU backend, compared with the CPU rasterizer
+- [x] `core`: the `Canvas` element, its draw in the paint phase (tracked reads, recording, damage), `RequestFrame` and its clock, dev checks; `telatest` drives it
+- [x] The drawing API: paths and `Path2D`, transforms, styles, text, images, shadows, clips, compositing
+- [x] `fill`, `stroke` and `stroke-width` transition (added 2026-11-24: a canvas starts with them)
+- [x] Compared with Chromium's output
+- [x] An example, the wiki, `llms.txt` with a recipe, and `tela lint`'s checks
+
+**Measured (2026-11-24, Intel Arc, Wayland, Hyprland, the laptop's 2880x1800 at 120 Hz and scale 1.6, the whole work area, 1776x1071 logical):** 120 fps on the GPU (worst frame of a second 8.7 to 14.8 ms) and 120 fps by the CPU rasterizer (8.8 to 9.1 ms), the particles moving. Its device pixels are those of a window of 1421x857 at scale 2. Paused: 0 CPU ticks in 15 s (headless sway). Frames alone at 2400x1900: CPU 2.3 ms, GPU without a copy 7.4, read back 16.3.
+
+**Done when:** the example animates at 60 fps at scale 2 on Linux with either renderer and is idle at rest, an equal redraw damages nothing, and the scenes compared with Chromium pass.
+
 ## Session log
 
 One line per session: date, what was done, what is pending. Append new sessions at the end.
@@ -865,3 +881,4 @@ One line per session: date, what was done, what is pending.
 - **2026-11-23/24 (phase 30):** External textures on `phase-30`: the model and the copy path, dmabuf imports on both GPUs, refresh rates, `telatest` textures, IOSurface copies, `examples/texture` (three scenes, resolution and card size); ADR-315 to ADR-318; the Windows GPU code ran for the first time, without windows, on an Intel Arc laptop (Smart App Control blocked part of the suite); still open: 60 fps at scale 2 in a visible Wayland window, and the windowed Windows tests, which wait for the owner.
 - **2026-11-24 (phase 30, close):** closed as `v0.14.11`; `examples/texture` joins the gate and CI (`examples-modules`, with notes); `conic_x1` on the Intel Arc stays a limitation; the owner accepted ADR-315 to ADR-318 and the new skips.
 - **2026-11-24 (site):** the site's build failed from `v0.14.9` on: Astro's smart punctuation turned the `--` of the heading `tela mcp --attach` into a dash, so a link to its anchor was broken; off now in `site/astro.config.mjs` (which also builds the docs of `v0.14.11` as tagged), and the heading is code; `site/package.json` asks for the Node Astro 7.4 needs.
+- **2026-11-24 (phase 31):** Canvas on `phase-31`: `h.Canvas` and the drawing API (`internal/canvas`), Porter-Duff and tiled images on the CPU and the GPU, fill and stroke transitions, 970 cells compared with Chromium 155 (18 kept different), `examples/canvas`; ADR-319 and ADR-320 (hello's size budget, 22,100,000); the owner chose the draw function, `RequestFrame`, `float64`, fields, a font struct, and `LocalX`/`LocalY` from a canvas's content box. Three reviews: 8, 7 and 4 findings, fixed but the uneven `ClearRect`. `wantPatternDigest` was recorded again (nearest ties). Found and not of this phase: five `TestTextureGPU*` with `telagpu`, `TestPlain` and `TestTextureSurfaceCopy` now and then, slow readback on the Intel Arc. Pending: the owner's push, the tag, and macOS CI for the example.
