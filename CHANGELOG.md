@@ -20,6 +20,10 @@ separated by commas), or with `migrate: none -- <why nothing can be rewritten>`
 (ADR-305). internal/lint's tests fail on an entry without one.
 -->
 
+## [0.14.11] - 2026-11-24
+
+Phase 30: External textures (ADR-315 to ADR-318).
+
 ### Added
 
 - External textures: `tela.UseTexture` and `h.Texture` show content the application renders itself, pushed from any goroutine as pixels (`SubmitImage`) or imported memory (`Import` once, `Submit` with a `Fence` and a `Release`); the latest finished frame wins, `Release` runs exactly once, `NextFrame` paces a renderer at the window's rate and drops nothing, `OnResize` gives its size in device pixels (ADR-315).
@@ -1313,7 +1317,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.10...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.11...HEAD
+[0.14.11]: https://github.com/kuronosu/tela/compare/v0.14.10...v0.14.11
 [0.14.10]: https://github.com/kuronosu/tela/compare/v0.14.9...v0.14.10
 [0.14.9]: https://github.com/kuronosu/tela/compare/v0.14.8...v0.14.9
 [0.14.8]: https://github.com/kuronosu/tela/compare/v0.14.7...v0.14.8
