@@ -27,6 +27,8 @@ type fakeServer struct {
 	props map[xproto.Window]map[xproto.Atom][]uint32
 	pos   map[xproto.Window]image.Point
 	mons  []image.Rectangle   // the monitors RandR reports
+	crtcs []crtc              // the CRTCs RandR reports
+	reads int                 // how often the CRTCs were read
 	named map[string][]uint32 // root properties read by name (namedProperty32)
 }
 
@@ -190,6 +192,11 @@ func (f *fakeServer) rootPosition(win xproto.Window) (image.Point, bool) {
 func (f *fakeServer) destroy(win xproto.Window, _ xproto.Gcontext) { f.log("destroy win=%d", win) }
 
 func (f *fakeServer) monitors() []image.Rectangle { return f.mons }
+
+func (f *fakeServer) activeCRTCs() []crtc {
+	f.reads++
+	return f.crtcs
+}
 
 func (f *fakeServer) namedProperty32(win xproto.Window, name string) ([]uint32, bool) {
 	if win != f.b.root {

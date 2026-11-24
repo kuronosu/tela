@@ -60,7 +60,8 @@ import (
 //   - 19: desktop services across reloads (ADR-310; reload.go):
 //     msgDropDone, the final effect of a drop, and the real window's
 //     alpha (PresentsAlpha) in msgWindowInfo.
-const ProtocolVersion = 19
+//   - 20: platform contract v18 (ADR-317): FrameEvent.Refresh.
+const ProtocolVersion = 20
 
 // magic opens the hello message.
 const magic = "TELA"
@@ -409,6 +410,7 @@ func (e *enc) event(ev platform.Event) {
 	case platform.FrameEvent:
 		e.u8(evFrame)
 		e.dur(ev.Time)
+		e.dur(ev.Refresh)
 	case platform.CloseRequestedEvent:
 		e.u8(evCloseRequested)
 	case platform.FocusEvent:
@@ -548,7 +550,7 @@ func (d *dec) event() platform.Event {
 	case evConfigure:
 		return platform.ConfigureEvent{Metrics: d.metrics()}
 	case evFrame:
-		return platform.FrameEvent{Time: d.dur()}
+		return platform.FrameEvent{Time: d.dur(), Refresh: d.dur()}
 	case evCloseRequested:
 		return platform.CloseRequestedEvent{}
 	case evFocus:

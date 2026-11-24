@@ -63,7 +63,9 @@
 // idle loop sleeps in GetMessageW (0% CPU). If DwmFlush returns at once
 // (composition off, an emulator), the goroutine sleeps for the rest of the
 // refresh interval instead. Posted messages are dispatched by modal loops
-// too, so animations keep running during a live resize.
+// too, so animations keep running during a live resize. FrameEvent.Refresh
+// is the interval of the window's monitor (refresh_windows.go), which
+// DwmFlush does not follow: it waits for the compositor.
 //
 // # Sizes and DPI
 //

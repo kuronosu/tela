@@ -30,6 +30,9 @@ type Backend struct {
 	msgHwnd  uintptr // message-only window: target of Wake, Quit and vsync posts
 	tid      uint32  // the thread that owns msgHwnd and the windows
 	interval time.Duration
+	// refreshes are the refresh intervals of the monitors windows have
+	// been on, until the display settings change (refresh_windows.go).
+	refreshes map[uintptr]time.Duration
 
 	// loop holds the open windows, the event queue, the wake/quit flags and
 	// the frame pacing state shared with the other backends.
@@ -98,6 +101,7 @@ func newBackend() (*Backend, error) {
 		Notify:   b.notify,
 		Interval: b.interval,
 		Pace:     b.paceHook,
+		Refresh:  b.refreshHook,
 	})
 	if err := registerClass(b.hinst); err != nil {
 		return nil, err

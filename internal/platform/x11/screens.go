@@ -14,7 +14,8 @@ import (
 // (WindowOptions.Position, a placement saved in an earlier run), which
 // platform.FitOnScreens moves onto them when its monitor is gone. RandR
 // 1.5's RRGetMonitors has no package in the vendored xgb (ADR-025): its
-// two requests are encoded by hand, as XInput2's are.
+// requests are encoded by hand, as XInput2's are (those of the refresh rate
+// are in refresh.go).
 
 const (
 	randrOpQueryVersion = 0
@@ -22,11 +23,45 @@ const (
 )
 
 // randrState is what the backend learned about RandR, asked the first
-// time a window is created at a position.
+// time a window is created at a position or is drawn on screen.
 type randrState struct {
-	checked  bool
-	opcode   byte
-	monitors bool // RandR 1.5 or later: RRGetMonitors
+	checked    bool
+	ok         bool // the server has it
+	opcode     byte
+	firstEvent byte
+	monitors   bool // RandR 1.5 or later: RRGetMonitors
+	current    bool // RandR 1.3 or later: RRGetScreenResourcesCurrent
+
+	// The active CRTCs (refresh.go): as last read, whether nothing
+	// changed since, and whether the change notifications were asked for.
+	crtcs           []crtc
+	fresh, selected bool
+}
+
+// ensureRandR asks for RandR once and returns its state. QueryVersion must
+// come before any other RandR request.
+func (b *Backend) ensureRandR() *randrState {
+	r := &b.randr
+	if r.checked {
+		return r
+	}
+	r.checked = true
+	e := b.queryExtension("RANDR")
+	if !e.present {
+		return r
+	}
+	req := newRequest(e.opcode, randrOpQueryVersion, 12)
+	le.PutUint32(req[4:], 1)
+	le.PutUint32(req[8:], 5)
+	rep, err := b.roundTrip(req, 16)
+	if err != nil {
+		return r
+	}
+	major, minor := le.Uint32(rep[8:]), le.Uint32(rep[12:])
+	r.ok, r.opcode, r.firstEvent = true, e.opcode, e.firstEvent
+	r.monitors = major > 1 || major == 1 && minor >= 5
+	r.current = major > 1 || major == 1 && minor >= 3
+	return r
 }
 
 // monitors returns the rectangles of the active monitors in root
@@ -37,19 +72,7 @@ type randrState struct {
 // every monitor.
 func (s connServer) monitors() []image.Rectangle {
 	b := s.b
-	r := &b.randr
-	if !r.checked {
-		r.checked = true
-		if e := b.queryExtension("RANDR"); e.present {
-			req := newRequest(e.opcode, randrOpQueryVersion, 12)
-			le.PutUint32(req[4:], 1)
-			le.PutUint32(req[8:], 5)
-			if rep, err := b.roundTrip(req, 16); err == nil {
-				major, minor := le.Uint32(rep[8:]), le.Uint32(rep[12:])
-				r.opcode, r.monitors = e.opcode, major > 1 || major == 1 && minor >= 5
-			}
-		}
-	}
+	r := b.ensureRandR()
 	if r.monitors {
 		req := newRequest(r.opcode, randrOpGetMonitors, 12)
 		le.PutUint32(req[4:], uint32(b.root))

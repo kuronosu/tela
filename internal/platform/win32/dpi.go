@@ -46,7 +46,18 @@ func logicalPoint(x, y int, scale float64) platform.Point {
 	return platform.Point{X: float32(float64(x) / scale), Y: float32(float64(y) / scale)}
 }
 
-// refreshInterval returns the frame interval of a display refresh rate in
+// refreshOf returns the refresh interval (FrameEvent.Refresh) of a display
+// whose DEVMODE.dmDisplayFrequency is hz: 0 (unknown) for the zero and one
+// that mean "the hardware default". The field has whole hertz: a display of
+// 59.94 Hz says 59 or 60.
+func refreshOf(hz uint32) time.Duration {
+	if hz <= 1 {
+		return 0
+	}
+	return platform.RefreshInterval(float64(hz))
+}
+
+// refreshInterval returns the pacing interval for a display refresh rate in
 // hertz, as reported by DEVMODE.dmDisplayFrequency. Zero and one mean "the
 // hardware default" in that field, and absurd values come from broken
 // drivers; all of them give the 60 Hz default.

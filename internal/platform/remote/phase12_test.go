@@ -315,7 +315,9 @@ func TestHiddenWindowSwap(t *testing.T) {
 	c := p.dial("c").start()
 	wc := c.newWindow(platform.WindowOptions{Title: "tray app"})
 	cc := p.child(2)
-	c.waitEvent("C's offscreen frame", isType[platform.FrameEvent])
+	if fe := c.waitEvent("C's offscreen frame", isType[platform.FrameEvent]).(platform.FrameEvent); fe.Refresh != headless.DefaultFrameInterval {
+		t.Errorf("the offscreen frame's Refresh = %v, want the host window's %v", fe.Refresh, headless.DefaultFrameInterval)
+	}
 	frameC := c.presentNow(wc, 3, nil)
 	waitChan(t, cc.FirstFrame(), "C's first frame")
 	p.promote(cc)

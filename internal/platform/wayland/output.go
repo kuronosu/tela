@@ -4,38 +4,64 @@ package wayland
 
 import (
 	"slices"
+	"time"
 
+	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/wayland/protocols"
 )
 
-// output is a bound wl_output. Only its integer scale matters: it is the
-// fallback of scaleFor.
+// output is a bound wl_output. Only its integer scale, the fallback of
+// scaleFor, and the refresh rate of its current mode matter. Both arrive
+// in events of their own and are applied on done (version 2+).
 type output struct {
-	b       *Backend
-	name    uint32 // registry name
-	wl      *protocols.WlOutput
-	scale   int32 // applied scale
-	pending int32 // scale received, applied on done (version 2+)
+	b    *Backend
+	name uint32 // registry name
+	wl   *protocols.WlOutput
+	outputProps
+	pending outputProps // received, not applied yet
+}
+
+// outputProps are the properties of an output.
+type outputProps struct {
+	scale   int32
+	refresh int32 // of the current mode, in mHz; unknown when not positive
 }
 
 func (b *Backend) addOutput(name, version uint32) {
-	o := &output{b: b, name: name, scale: 1, pending: 1}
+	o := &output{b: b, name: name, outputProps: outputProps{scale: 1}, pending: outputProps{scale: 1}}
 	o.wl = protocols.WlRegistryBind[protocols.WlOutput](b.registry, name, min(version, outputVersion))
 	o.wl.SetScaleHandler(func(e protocols.WlOutputScaleEvent) {
-		o.pending = max(1, e.Factor)
-		if o.wl.Version() < 2 { // no done event before version 2
-			o.apply()
+		o.pending.scale = max(1, e.Factor)
+		o.received()
+	})
+	o.wl.SetModeHandler(func(e protocols.WlOutputModeEvent) {
+		// Some compositors list every mode of the output (deprecated by
+		// the protocol), one of them flagged current.
+		if e.Flags.Has(protocols.WlOutputModeCurrent) {
+			o.pending.refresh = e.Refresh
+			o.received()
 		}
 	})
 	o.wl.SetDoneHandler(func(protocols.WlOutputDoneEvent) { o.apply() })
 	b.outputs = append(b.outputs, o)
 }
 
+// received applies a property at once when no done event follows it
+// (version 1).
+func (o *output) received() {
+	if o.wl.Version() < 2 {
+		o.apply()
+	}
+}
+
+// apply makes the properties received the output's. The refresh rate is
+// read at each FrameEvent (Window.refresh), so its change needs no more.
 func (o *output) apply() {
-	if o.pending == o.scale {
+	scaled := o.pending.scale != o.scale
+	o.outputProps = o.pending
+	if !scaled {
 		return
 	}
-	o.scale = o.pending
 	for _, w := range o.b.loop.Windows() {
 		if slices.Contains(w.outputs, o) {
 			w.updateScale()
@@ -141,3 +167,19 @@ func scaleFor(fractional uint32, preferred int32, entered []*output, current flo
 	}
 	return float64(s)
 }
+
+// refreshFor returns the refresh interval (FrameEvent.Refresh) of a window
+// whose surface is on the outputs entered: that of the fastest, since the
+// compositor does not say how much of the surface each one shows. 0
+// (unknown) on no output, or when no output states a rate: the protocol
+// has virtual outputs report 0.
+func refreshFor(entered []*output) time.Duration {
+	var mhz int32
+	for _, o := range entered {
+		mhz = max(mhz, o.refresh)
+	}
+	return platform.RefreshInterval(float64(mhz) / 1000)
+}
+
+// refresh is the loop's Refresh hook.
+func (w *Window) refresh() time.Duration { return refreshFor(w.outputs) }

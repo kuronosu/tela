@@ -76,8 +76,8 @@
 // (headless, whose injection API is goroutine-safe) set Options.Lock: every
 // method other than Wake, Quit, Quitting and Deliver must then be called
 // with it held, and Deliver takes it itself and never holds it while the
-// handler or a queued callback runs. The Now and Pace hooks run with the
-// lock held.
+// handler or a queued callback runs. The Now, Pace and Refresh hooks run
+// with the lock held.
 package loop
 
 import (
@@ -114,6 +114,10 @@ type Options[W Window] struct {
 	// if it arranged a display signal for it (and called VsyncRequested), so
 	// no timer is needed; false falls back to the timer deadline.
 	Pace func(w W, now time.Duration) bool
+	// Refresh, if set, returns FrameEvent.Refresh for w: the refresh
+	// interval of the output the window is on, or 0 when unknown. It is
+	// called right before each FrameEvent.
+	Refresh func(w W) time.Duration
 	// Lock, if set, guards the loop state together with the backend's own;
 	// see the package documentation.
 	Lock sync.Locker
@@ -446,13 +450,17 @@ func (l *Loop[W]) Deliver(h platform.Handler) int {
 		if l.quit.Load() {
 			return n
 		}
+		ev := platform.FrameEvent{Time: now}
 		l.lock()
 		closed := w.LoopState().closed
+		if !closed && l.opts.Refresh != nil {
+			ev.Refresh = l.opts.Refresh(w)
+		}
 		l.unlock()
 		if closed {
 			continue
 		}
-		h.HandleEvent(w, platform.FrameEvent{Time: now})
+		h.HandleEvent(w, ev)
 		n++
 	}
 	return n

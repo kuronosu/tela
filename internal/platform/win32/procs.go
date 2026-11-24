@@ -376,6 +376,12 @@ type (
 		flags   uint32
 	}
 
+	// monitorInfoEx is MONITORINFOEXW.
+	monitorInfoEx struct {
+		monitorInfo
+		device [32]uint16 // szDevice, for EnumDisplaySettingsW
+	}
+
 	flashWInfo struct {
 		size    uint32
 		hwnd    uintptr

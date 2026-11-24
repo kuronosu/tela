@@ -244,6 +244,7 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		w.frameChanged()
 		return r
 	case wmDisplayChange:
+		clear(w.b.refreshes)
 		w.repaint(true)
 	case wmPowerBroadcast:
 		w.onPowerBroadcast(wparam)

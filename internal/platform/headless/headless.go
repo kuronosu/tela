@@ -28,7 +28,10 @@
 // otherwise at lastFrame + interval. A ConfigureEvent's frame is due
 // immediately. With a manual clock, an animation that keeps requesting
 // frames therefore only progresses when the test advances the clock; Drain
-// never loops forever on it.
+// never loops forever on it. FrameEvent.Refresh is that interval (0 when
+// no display has it, platform.RefreshInterval); Window.SetRefresh simulates
+// a window moved to another display, or to one whose rate is unknown,
+// without changing the pacing.
 //
 // # Input
 //
@@ -118,7 +121,7 @@
 //
 // All state is guarded by one mutex, and the handler is never called with it
 // held. The injection API (Window.Inject, Resize, SetScale, RequestClose,
-// SetFocused, SetState, SetTitleBarControls, Backend.SetSettings,
+// SetFocused, SetState, SetRefresh, SetTitleBarControls, Backend.SetSettings,
 // Backend.InjectApp, ChooseAppMenu, RequestQuit, Backend.AnswerDialog,
 // Advance) and the inspection API (Frame, Damage,
 // Presents, Title, OSState, Dialogs, AccessUpdates, ...) are safe from any goroutine, so a tool can
@@ -256,6 +259,7 @@ func New(opts Options) *Backend {
 		Now:      b.now,
 		Notify:   b.signal,
 		Interval: opts.FrameInterval,
+		Refresh:  func(w *Window) time.Duration { return w.refresh },
 		Lock:     &b.mu,
 	})
 	return b
@@ -310,7 +314,7 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 		opts.Size = b.opts.Size
 	}
 	opts = opts.Resolve()
-	w := &Window{b: b, opts: opts, title: opts.Title}
+	w := &Window{b: b, opts: opts, title: opts.Title, refresh: platform.RefreshInterval(float64(time.Second) / float64(b.opts.FrameInterval))}
 	b.mu.Lock()
 	b.created++
 	n := b.created

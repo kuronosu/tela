@@ -124,6 +124,9 @@ type wmServer interface {
 	// monitors returns the active monitors in root coordinates, the
 	// primary first (round trips; screens.go).
 	monitors() []image.Rectangle
+	// activeCRTCs returns the CRTCs that show something, with their
+	// refresh intervals (round trips; refresh.go).
+	activeCRTCs() []crtc
 	// namedProperty32 reads a format-32 property by name, when the atom
 	// exists (two round trips; ok is false if the atom or the property
 	// does not), for the properties whose names are made at run time

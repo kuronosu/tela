@@ -48,6 +48,30 @@ type FrameEvent struct {
 	// when the frame will be shown (vsync target where known, otherwise the
 	// time the frame was dispatched).
 	Time time.Duration
+
+	// Refresh is the refresh interval of the output the window is on
+	// (contract v18, ADR-317), so that an app that renders its own frames
+	// can render at the display's pace: the next presentation after the
+	// one Time estimates is at Time+Refresh. 0 means unknown: the OS does
+	// not say, or the window is on no output (not shown yet, or off every
+	// output). It is never negative, and a known one is from 100
+	// microseconds to one second ([CheckFrameEvent]).
+	//
+	// On an output with a variable refresh rate it is the interval at the
+	// rate of its mode, the highest it refreshes at: frames may be shown
+	// farther apart. For a window on several outputs it is that of the
+	// output showing most of the window; on Wayland, where a window does
+	// not know how much of it each output shows, and between X11 outputs
+	// that show as much (mirrored ones), that of the fastest.
+	//
+	// It may change from one FrameEvent to the next: the window moved to
+	// another output, or the output's mode changed. No event announces
+	// the change, and no frame is delivered for it. It describes the
+	// display and promises no frames: FrameEvents follow RequestFrame,
+	// and a backend's pacing may be slower or faster than the window's
+	// output (X11's is a 60 Hz timer on every display, Win32's the
+	// compositor's).
+	Refresh time.Duration
 }
 
 // CloseRequestedEvent reports that the user asked to close the window (close
