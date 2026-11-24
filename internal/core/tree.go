@@ -318,8 +318,10 @@ type Tree struct {
 
 	// bnd holds the UseBounds slots (bounds.go).
 	bnd boundsState
-	// tex holds the textures its elements show (texture_tree.go).
+	// tex holds the textures its elements show (texture_tree.go), cnv its
+	// canvases (canvas.go), nil for none.
 	tex texTree
+	cnv canvasSet
 
 	// sem is the semantics tree built last (semantics.go).
 	sem semState
@@ -892,6 +894,9 @@ func (t *Tree) afterFrame() {
 	t.animAfterFrame()
 	t.floatAfterFrame()
 	t.texturesAfterFrame()
+	if t.cnv != nil {
+		t.cnv.afterFrame()
+	}
 	if t.ins != nil {
 		t.ins.prof.end()
 	}

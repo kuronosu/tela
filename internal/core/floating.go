@@ -745,8 +745,11 @@ func PublishValue[T any](v *Value[T], x T) {
 // function published it.
 func (t *Tree) publishChanged(v *valueCore) {
 	for _, s := range v.subs {
-		if o := s.obs; o.kind == obsPaint && (o.box.parent != nil || o.box.inPara != nil || contentsBox(o.box)) {
+		switch o := s.obs; {
+		case o.kind == obsPaint && (o.box.parent != nil || o.box.inPara != nil || contentsBox(o.box)):
 			t.markPaint(o.box)
+		case o.kind == obsCanvas:
+			o.box.med.cnv.valueChanged()
 		}
 	}
 	if !v.pub {

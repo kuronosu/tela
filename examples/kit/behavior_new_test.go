@@ -21,7 +21,7 @@ func loading(a *telatest.App) int {
 
 func TestLoadingButtonsSaveForTwoSeconds(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Button"}, telatest.NoSettle())
+	a := mount(t, Stage{Page: "Button"}, telatest.NoSettle())
 	for _, name := range []string{"Save changes", "Save", "Continue"} {
 		btn := telatest.ByRole("button", name).Nth(0)
 		if name == "Continue" {
@@ -44,7 +44,7 @@ func TestLoadingButtonsSaveForTwoSeconds(t *testing.T) {
 
 func TestSubmitButtonLoadsWhileTheFormSubmits(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Button"}, telatest.NoSettle())
+	a := mount(t, Stage{Page: "Button"}, telatest.NoSettle())
 	a.Click(telatest.ByRole("button", "Subscribe"))
 	if got := loading(a); got != 1 {
 		t.Errorf("the submit button is not loading after the click (%d loading)", got)
@@ -57,7 +57,7 @@ func TestSubmitButtonLoadsWhileTheFormSubmits(t *testing.T) {
 
 func TestDropdownSubmenusNest(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "DropdownMenu"})
+	a := mount(t, Stage{Page: "DropdownMenu"})
 	a.Click(telatest.ByRole("button", "Team"))
 	a.Click(telatest.ByRole("menuitem", "Invite users"))
 	a.ExpectRole("menuitem", "Email")
@@ -70,7 +70,7 @@ func TestDropdownSubmenusNest(t *testing.T) {
 
 func TestContextClickSelectsTheOptionFirst(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "ContextMenu"})
+	a := mount(t, Stage{Page: "ContextMenu"})
 	a.ExpectText("Nothing is selected.")
 	a.Click(telatest.ByRole("option", "notes.md"), telatest.Right())
 	a.ExpectRole("menu", "Files")
@@ -85,7 +85,7 @@ func TestContextClickSelectsTheOptionFirst(t *testing.T) {
 
 func TestContextMenuSubmenuAndFocusableArea(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "ContextMenu"})
+	a := mount(t, Stage{Page: "ContextMenu"})
 	area := telatest.ByRole("region", "Page area")
 	a.Focus(area)
 	a.Press("Shift+F10")
@@ -97,7 +97,7 @@ func TestContextMenuSubmenuAndFocusableArea(t *testing.T) {
 
 func TestMenubarRoleItemsAndFind(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Menubar"})
+	a := mount(t, Stage{Page: "Menubar"})
 	a.Click(telatest.ByRole("menuitem", "Edit").Nth(1)) // the second bar's
 	for _, item := range []string{"Undo", "Redo", "Cut", "Copy", "Paste", "Select All", "Find..."} {
 		a.ExpectRole("menuitem", item)
@@ -108,7 +108,7 @@ func TestMenubarRoleItemsAndFind(t *testing.T) {
 
 func TestMenubarRoleItemsFollowTheLanguage(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Menubar", Locale: "es"})
+	a := mount(t, Stage{Page: "Menubar", Locale: "es"})
 	a.Click(telatest.ByRole("menuitem", "Edición").Nth(1))
 	for _, item := range []string{"Deshacer", "Cortar", "Copiar", "Pegar", "Seleccionar todo"} {
 		a.ExpectRole("menuitem", item)
@@ -117,7 +117,7 @@ func TestMenubarRoleItemsFollowTheLanguage(t *testing.T) {
 
 func TestTooltipOnOtherTriggers(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Tooltip"})
+	a := mount(t, Stage{Page: "Tooltip"})
 	for _, c := range []struct {
 		trigger telatest.Locator
 		tip     string
@@ -145,7 +145,7 @@ func TestTooltipOnOtherTriggers(t *testing.T) {
 
 func TestDownloadBarRunsOnlyAfterAPress(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Progress"}, telatest.NoSettle())
+	a := mount(t, Stage{Page: "Progress"}, telatest.NoSettle())
 	text := telatest.ByTestID("download-text")
 	a.Advance(5 * time.Second)
 	a.ExpectCount(text.Filter(telatest.HasText("0%")), 1)
@@ -160,7 +160,7 @@ func TestDownloadBarRunsOnlyAfterAPress(t *testing.T) {
 
 func TestTweenBarEases(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Progress"}, telatest.NoSettle())
+	a := mount(t, Stage{Page: "Progress"}, telatest.NoSettle())
 	bar := telatest.ByRole("progressbar", "Disk cleanup")
 	a.Click(telatest.ByRole("button", "+25%"))
 	a.Advance(2 * time.Second)
@@ -172,7 +172,7 @@ func TestTweenBarEases(t *testing.T) {
 
 func TestSlidingPillChoosesARange(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "ToggleGroup"})
+	a := mount(t, Stage{Page: "ToggleGroup"})
 	a.ExpectText("Showing the last week.")
 	a.Click(telatest.ByRole("radio", "Month").Nth(0))
 	a.ExpectText("Showing the last month.")
@@ -182,7 +182,7 @@ func TestSlidingPillChoosesARange(t *testing.T) {
 
 func TestSearchPutsTheTableInTheOtherState(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Table"})
+	a := mount(t, Stage{Page: "Table"})
 	rel := telatest.ByRole("columnheader", "Relevance")
 	a.Expect(rel, telatest.Sort("other"))
 	a.Click(telatest.ByRole("button", "Component"))
@@ -194,7 +194,7 @@ func TestSearchPutsTheTableInTheOtherState(t *testing.T) {
 
 func TestAlwaysSortedNeverGoesBackToUnsorted(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Table"})
+	a := mount(t, Stage{Page: "Table"})
 	name := telatest.ByRole("button", "Name").Nth(0)
 	head := telatest.ByRole("columnheader", "Name").Nth(0)
 	a.Expect(head, telatest.Sort("ascending"))
@@ -216,7 +216,7 @@ func TestMessageBoxIsTranslated(t *testing.T) {
 		{"ar", "إظهار مربع رسالة", "نعم", "اخترت «نعم»."},
 	} {
 		t.Run(c.tag, func(t *testing.T) {
-			a := mount(t, Canvas{Page: "Internationalization", Locale: c.tag}, telatest.WithUnsupported(telatest.MessageBoxes)) // drawn, as on Linux
+			a := mount(t, Stage{Page: "Internationalization", Locale: c.tag}, telatest.WithUnsupported(telatest.MessageBoxes)) // drawn, as on Linux
 			a.Click(telatest.ByRole("button", c.show))
 			boxes := 0
 			for _, w := range a.Windows() {
@@ -240,7 +240,7 @@ func TestToasterNamesFollowTheLanguage(t *testing.T) {
 		{"es", "Notificaciones", "Éxito", "Cerrar notificación"},
 		{"ar", "الإشعارات", "نجاح", "إغلاق الإشعار"},
 	} {
-		a := mount(t, Canvas{Page: "Toast", Locale: c.tag})
+		a := mount(t, Stage{Page: "Toast", Locale: c.tag})
 		a.ExpectRole("region", c.region)
 		a.Click(telatest.ByRole("button", c.trigger))
 		a.ExpectRole("button", c.close)
@@ -249,7 +249,7 @@ func TestToasterNamesFollowTheLanguage(t *testing.T) {
 
 func TestDigitsOfALocale(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Internationalization"})
+	a := mount(t, Stage{Page: "Internationalization"})
 	a.ExpectText("١٬٢٣٤٫٥٠") // ar-EG; bare ar writes Latin digits
 	a.ExpectText("1,234.50 · 14")
 }

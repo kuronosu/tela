@@ -55,7 +55,7 @@ func TestGoldenNewPages(t *testing.T) {
 			if p.still {
 				opts = append(opts, telatest.NoSettle())
 			}
-			a := mount(t, Canvas{Page: p.name, Locale: tag}, opts...)
+			a := mount(t, Stage{Page: p.name, Locale: tag}, opts...)
 			name := "kit_page_" + slug(p.name) + "_" + tag
 			if dark {
 				name += "_dark"
@@ -105,7 +105,7 @@ func TestGoldenArabicPages(t *testing.T) {
 			continue
 		}
 		t.Run(p.name, func(t *testing.T) {
-			a := mount(t, Canvas{Page: p.name, Locale: "ar"}, telatest.Size(1280, float32(p.height)))
+			a := mount(t, Stage{Page: p.name, Locale: "ar"}, telatest.Size(1280, float32(p.height)))
 			a.GoldenScales("kit_page_"+slug(p.name)+"_ar", 1)
 		})
 	}

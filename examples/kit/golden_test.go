@@ -40,31 +40,31 @@ func TestGoldenOpen(t *testing.T) {
 	t.Parallel()
 	for _, s := range schemes {
 		t.Run("dialog/"+s.name, func(t *testing.T) {
-			a := mount(t, Canvas{Page: "Dialog"}, s.opts...)
+			a := mount(t, Stage{Page: "Dialog"}, s.opts...)
 			a.Click(telatest.ByRole("button", "Edit profile"))
 			a.ExpectRole("dialog", "Edit profile")
 			a.GoldenScales("kit_dialog_open_"+s.name, 1)
 		})
 		t.Run("dropdown/"+s.name, func(t *testing.T) {
-			a := mount(t, Canvas{Page: "DropdownMenu"}, s.opts...)
+			a := mount(t, Stage{Page: "DropdownMenu"}, s.opts...)
 			a.Click(telatest.ByRole("button", "View"))
 			a.ExpectRole("menu", "View")
 			a.GoldenScales("kit_dropdown_open_"+s.name, 1)
 		})
 		t.Run("datepicker/"+s.name, func(t *testing.T) {
-			a := mount(t, Canvas{Page: "DatePicker"}, s.opts...)
+			a := mount(t, Stage{Page: "DatePicker"}, s.opts...)
 			a.Click(telatest.ByRole("button", "Date"))
 			a.ExpectRole("grid", "October 2026")
 			a.GoldenScales("kit_datepicker_open_"+s.name, 1)
 		})
 		t.Run("select/"+s.name, func(t *testing.T) {
-			a := mount(t, Canvas{Page: "Select"}, s.opts...)
+			a := mount(t, Stage{Page: "Select"}, s.opts...)
 			a.Click(telatest.ByRole("button", "Select a timezone Timezone"))
 			a.ExpectRole("listbox", "Timezone")
 			a.GoldenScales("kit_select_open_"+s.name, 1)
 		})
 		t.Run("toast/"+s.name, func(t *testing.T) {
-			a := mount(t, Canvas{Page: "Toast"}, s.opts...)
+			a := mount(t, Stage{Page: "Toast"}, s.opts...)
 			a.Click(telatest.ByRole("button", "Error"))
 			a.ExpectText("The upload failed")
 			a.GoldenScales("kit_toast_"+s.name, 1)

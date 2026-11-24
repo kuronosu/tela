@@ -47,7 +47,7 @@ func find(name string) page {
 
 // navigate hands the pages the setter of the selected page, so that a page
 // can send the user to another one (the Introduction's list of components).
-// The zero Setter, outside a Gallery or a Canvas, goes nowhere.
+// The zero Setter, outside a Gallery or a Stage, goes nowhere.
 var navigate = tela.CreateContext(tela.Setter[string]{})
 
 // Shell is the box that holds a screen of the gallery and sets its
@@ -202,17 +202,17 @@ func (v PageView) Build() tela.Node {
 	)
 }
 
-// Canvas is a page on the window's background and under the Toaster,
+// Stage is a page on the window's background and under the Toaster,
 // without the sidebar: what a preview shows. Locale fixes its language
 // (English when empty) and so its direction. A page that sends the user to
-// another one (the Introduction's list) changes the Canvas to it.
-type Canvas struct {
+// another one (the Introduction's list) changes the Stage to it.
+type Stage struct {
 	Page   string
 	Style  string
 	Locale string
 }
 
-func (c Canvas) Build() tela.Node {
+func (c Stage) Build() tela.Node {
 	current, setCurrent := tela.UseState(find(c.Page).Name)
 	return i18n.Provider(cmp.Or(c.Locale, "en"), navigate.Provider(setCurrent, kit.StyleProvider{
 		Style: styles[cmp.Or(c.Style, "default")],

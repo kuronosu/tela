@@ -179,9 +179,10 @@ func (t *Tree) invalidateAfterRestyle(el, sp *Element, old, cs *style.ComputedSt
 	if old.VerticalAlign != cs.VerticalAlign {
 		t.markBoxes(sp) // the inline box of an atomic inline
 	}
-	if inherited || old.Scheme != cs.Scheme || !old.Divide.Equal(cs.Divide) {
+	if inherited || old.Scheme != cs.Scheme || !old.Divide.Equal(cs.Divide) || !sameSVGPaint(old, cs) {
 		// A new scheme override restyles the subtree (dark: variants and
-		// tokens), without laying out what only changes color.
+		// tokens), without laying out what only changes color; so do the
+		// fill and the stroke that drawings inherit.
 		t.restyleChildren(el)
 	}
 }
@@ -331,6 +332,12 @@ func sameInherited(a, b *style.ComputedStyle) bool {
 		ta.Direction == tb.Direction && ta.Language == tb.Language && ta.Hyphens == tb.Hyphens &&
 		a.Visibility == b.Visibility && a.Cursor == b.Cursor &&
 		a.PointerEvents == b.PointerEvents && a.UserSelect == b.UserSelect
+}
+
+// sameSVGPaint reports whether the fill and the stroke of two styles, which
+// the icons and the canvases below inherit, are equal.
+func sameSVGPaint(a, b *style.ComputedStyle) bool {
+	return a.Fill == b.Fill && a.Stroke == b.Stroke && a.StrokeWidth == b.StrokeWidth && a.StrokeWidthSet == b.StrokeWidthSet
 }
 
 // displayClass groups display values by their effect on the box

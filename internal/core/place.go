@@ -246,10 +246,16 @@ func (t *Tree) checkPlace(p *painter) {
 	walk(t.rootBox)
 	stickies := append([]*Box(nil), t.stickies...)
 	floats := append([]*Box(nil), t.flt.boxes...)
-	st := t.stats
+	st, cq := t.stats, 0
+	if t.cnv != nil {
+		cq = t.cnv.queued()
+	}
 	q := painter{t: t, scale: p.scale, full: true}
 	q.place(t.rootBox, nil)
 	t.stats = st
+	if t.cnv != nil {
+		t.cnv.unqueue(cq) // only what the partial place placed is looked at
+	}
 	for i, b := range boxes {
 		got, want := snaps[i], snapOf(b)
 		if b.deferPaint && got.pcs != nil && want.pcs != nil && sameStyle(got.pcs, want.pcs, false) {

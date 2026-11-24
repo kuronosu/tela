@@ -62,9 +62,9 @@ import (
 // scrollbars and outline; a stacking context's participants too) weighs
 // groupMin or more, counting the boxes it paints in its list and the
 // participants its stacking context paints, outside the groups in it
-// (Box.wt; a Texture weighs groupMin), is a group: a layer whose list holds only that painting, in
-// the scroll space, interest rect and culling of the list around it, which
-// holds its marker. A group stays one while it paints more than itself, so
+// (Box.wt; a Texture and a Canvas weigh groupMin), is a group: a layer whose
+// list holds only that painting, in the scroll space, interest rect and
+// culling of the list around it, which holds its marker. A group stays one while it paints more than itself, so
 // that a weight that moves around the threshold moves no lists. So a list
 // is a few boxes and the markers of the groups in it: a hover records the
 // hovered box's group, a hoisted box that mounts records its stacking
@@ -146,6 +146,7 @@ type paintIn struct {
 	pver            uint64
 	img             *gfx.Image
 	asset           *imageAsset
+	drawing         *gfx.DisplayList // a Canvas's: another one when it draws something else (canvas.go)
 	tint            tintValue
 	fld             *field
 	// ink: a mask can clip to it. It grows with what the box's in-flow
@@ -284,6 +285,10 @@ func (p *painter) inputsIn(bx *Box) paintIn {
 	}
 	if m := bx.med; m != nil {
 		in.asset = m.asset
+		if m.cnv != nil {
+			in.drawing = m.drawing
+			in.fg = gfx.Color{} // it drew with the color already
+		}
 	}
 	if bx.el != nil && bx.mode == modeImage {
 		in.tint = bx.el.node.d.media.tintOf()

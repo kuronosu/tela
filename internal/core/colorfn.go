@@ -56,7 +56,10 @@ func (t *Tree) stampText(el *Element) {
 		}
 		if b := e.box; e.kind == elemPrimitive && b != nil {
 			stamp(b.inPara)
-			if b.mode == modeParagraph || b.mode == modeImage {
+			switch {
+			case b.kind == style.KindCanvas:
+				b.med.cnv.queue() // its color may have changed (canvas.go)
+			case b.mode == modeParagraph || b.mode == modeImage:
 				stamp(b)
 			}
 			for _, a := range b.anon {

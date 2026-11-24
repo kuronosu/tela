@@ -643,6 +643,9 @@ func (t *Tree) animApply(bx *Box, old, u *style.ComputedStyle) {
 	}
 	bx.cs = u
 	t.markPlace(bx)
+	if bx.kind == style.KindCanvas {
+		bx.med.cnv.queue() // canvas.go
+	}
 	t.semStyled(bx, old, u)
 	changed := !sameStyle(old, u, false)
 	inkCh := false

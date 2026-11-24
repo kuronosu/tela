@@ -651,6 +651,7 @@ func (v *Value[T]) stopAnim() {
 // UI thread applies it, in order with the Value's Set and Update calls.
 func Animate[T Animatable](v *Value[T], target T, opts ...AnimOption) {
 	v.load("Animate")
+	checkDraw("Animate")
 	t := v.el.tree
 	m := t.resolveMotion("Animate", animAuto, typeName[T](), opts)
 	t.enqueue(update{el: v.el, set: func() bool {

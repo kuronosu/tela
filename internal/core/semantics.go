@@ -776,8 +776,8 @@ func (t *Tree) implicitRole(el *Element) string {
 		return "img"
 	case style.KindSVG:
 		return "img"
-	case style.KindTexture:
-		// As a canvas, it says nothing by itself: an image when it is named.
+	case style.KindTexture, style.KindCanvas:
+		// It says nothing by itself: an image when it is named.
 		if a := d.aria; a != nil && (semantics.TrimSpace(t.ariaLabel(el, a)) != "" || len(a.labelledBy) > 0) {
 			return "img"
 		}

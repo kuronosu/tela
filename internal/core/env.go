@@ -281,6 +281,7 @@ func (t *Tree) TextScale() float64 { return t.textScale }
 // the app runs, it is applied when it starts.
 func SetColorScheme(s ColorScheme) {
 	checkScheme(s)
+	checkDraw("SetColorScheme")
 	postUpdate(update{postTree: func(t *Tree) { t.SetColorScheme(s) }})
 }
 

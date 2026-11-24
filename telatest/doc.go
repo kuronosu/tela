@@ -233,6 +233,23 @@
 // functions that the application gave: every frame's is called exactly once,
 // which the end of the test checks too.
 //
+// # Canvases
+//
+// An element that draws (h.Canvas) is found like any other ([ByTestID], or
+// [ByRole]("img", name) when it has an AriaLabel), and its drawing is in the
+// screenshots and goldens. One that animates with tela.Canvas.RequestFrame
+// never stops asking for frames, as an endless animation: settling does not
+// wait for it (it is named by [PendingCanvas], and counts for
+// [App.ExpectIdle]), and [App.Advance] moves it, a draw per frame, with the
+// app's clock:
+//
+//	app := telatest.Mount(t, Game())
+//	app.Advance(500 * time.Millisecond)
+//	app.Golden("game.png")
+//
+// The frames that settling runs for other work move it too, as they move the
+// animations.
+//
 // # The clock
 //
 // The window's clock is manual: it starts at zero and moves only when the
