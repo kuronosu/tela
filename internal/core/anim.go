@@ -215,11 +215,10 @@ func (ba *boxAnim) find(p anim.Prop) int {
 // add adds a transition, in the order of the properties: a fill that is
 // currentColor takes the text color of its step (anim.Blend).
 func (ba *boxAnim) add(tr boxTransition) {
-	i := len(ba.trans)
-	for i > 0 && ba.trans[i-1].Prop > tr.Prop {
-		i--
+	ba.trans = append(ba.trans, tr)
+	for i := len(ba.trans) - 1; i > 0 && ba.trans[i-1].Prop > tr.Prop; i-- {
+		ba.trans[i-1], ba.trans[i] = ba.trans[i], ba.trans[i-1]
 	}
-	ba.trans = slices.Insert(ba.trans, i, tr)
 }
 
 func (ba *boxAnim) remove(i int) {
