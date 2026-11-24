@@ -710,10 +710,9 @@ func TestTextureReleaseMaySubmit(t *testing.T) {
 		in--
 		mu.Unlock()
 	}
-	submit()
-	submit()
-	for range 2 {
-		if err := tex.SubmitImage(solid(2, 2, texRed), nil); err != nil {
+	// Only Releases call submit: a call from here would count as one more.
+	for _, release := range []func(){submit, submit, nil, nil} {
+		if err := tex.SubmitImage(solid(2, 2, texRed), release); err != nil {
 			t.Fatal(err)
 		}
 	}
