@@ -329,7 +329,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
 - **Sizing and spacing:** `width`, `height`, `min-*`/`max-*`, `aspect-ratio`, padding, margin (no collapsing), `gap`.
 - **Backgrounds and borders:** colors; linear, radial and conic gradients; multiple background layers; background images (`bg-[url(…)]` from the file systems registered with `tela.Assets`, SVG files included, or `tela.BgImage`; size, position, repeat, origin, clip, `bg-clip-text`, `bg-blend-*`; ADR-079, ADR-098); per-side borders; per-corner `border-radius`; `outline` with offset.
 - **Effects:** multiple and `inset` `box-shadow`, `opacity`, `filter` (`blur`, `brightness`, `contrast`, `grayscale`, `saturate`, `drop-shadow`…), `backdrop-filter`, `mix-blend-mode`, `clip-path` basic shapes (written as the arbitrary property `[clip-path:circle(50%)]`, ADR-079), masks (`mask-[url(…)]` and Tailwind v4's gradient masks with their size, position, repeat, origin, clip, mode and composite utilities; ADR-098).
-- **Images and icons:** `Img` from decoded images, `tela.Assets` paths, bytes or any `fs.FS` (PNG, JPEG, GIF, WebP and vector SVG); `h.Texture`, an external texture's last frame (ADR-315); `object-fit` and `object-position`, `h.Tint`; `h.Icon` with `tela.Icon` SVG documents; the SVG paint utilities `fill-*`, `stroke-*` and `stroke-<n>` (ADR-098).
+- **Images and icons:** `Img` from decoded images, `tela.Assets` paths, bytes or any `fs.FS` (PNG, JPEG, GIF, WebP and vector SVG); `h.Texture`, an external texture's last frame (ADR-315); `h.Canvas`, drawn by a paint-phase function over the Canvas 2D API (ADR-319); `object-fit` and `object-position`, `h.Tint`; `h.Icon` with `tela.Icon` SVG documents; the SVG paint utilities `fill-*`, `stroke-*` and `stroke-<n>` (ADR-098).
 - **Motion:** 2D `transform` (`translate`, `scale`, `rotate`, `skew`, `origin`), `transition` on any animatable property.
 - **Interaction:** `cursor`, `pointer-events`, `user-select`, `visibility`, `z-index` within parent.
 - **Text:** see §11.
@@ -407,7 +407,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
   - Content: `DrawGlyphRun`, `DrawImage`.
   - Shadows: `DrawShadow` (incl. inset).
   - State: `PushClip(RRect|Path)`/`PopClip`, `PushTransform`/`PopTransform`, `PushLayer(opacity, blend, filter, mask)`/`PopLayer`, `BackdropFilter`. A mask is painted content (a display list) used as alpha or luminance coverage of the layer (ADR-074).
-- **Paints:** solid color or gradient (linear, radial, two-point focal, conic; with stops and an interpolation color space, Oklab by default like Tailwind v4's named utilities, sRGB for gradients written as CSS text unless they say `in oklab`; ADR-023, ADR-158). Linear, radial and focal gradients pad, reflect or repeat (ADR-095).
+- **Paints:** solid color or gradient (linear, radial, two-point focal, conic; with stops and an interpolation color space, Oklab by default like Tailwind v4's named utilities, sRGB for gradients written as CSS text unless they say `in oklab`; ADR-023, ADR-158). Linear, radial and focal gradients pad, reflect or repeat (ADR-095). Tiled images, and the Porter-Duff operations of layers, are Canvas's (ADR-319).
 - **Coordinates:** float32 in logical pixels; display scale is applied at raster time.
 
 ### CPU rasterizer (initial and reference backend)
