@@ -20,6 +20,21 @@ separated by commas), or with `migrate: none -- <why nothing can be rewritten>`
 (ADR-305). internal/lint's tests fail on an entry without one.
 -->
 
+### Added
+
+- `h.Canvas(draw func(c *tela.Canvas), props...)` and `tela.Canvas`: an element that a Go function draws with the 2D context of a browser's canvas, with its method names over `float64` and its properties as fields: paths (curves, `RoundRect`, `Ellipse`, `Path2D` and `tela.ParsePath` for SVG path data, `Path2D.Contains` for hit testing), `Fill`, `Stroke` and `Clip` with `FillRule`, line dashes, linear, radial and conic gradients, patterns, `DrawImage`, text with `MeasureText`, shadows and the 26 composite operations (`CompositeDestinationOut` erases). The drawing is vectors, sharp at any scale, and its initial fill, stroke and font are the element's (`fill-*`, `stroke-*`, `text-*`, `font-*`; `c.Color` reads the theme). The function runs when something it draws with changes: a build, a size, scale, style, theme or scheme, a `tela.Value` it read, or `c.RequestFrame()`; an app whose canvas does not move asks for no frames (ADR-319).
+- `telatest`: `PendingCanvas` names a canvas that asks for a frame in every draw; settling does not wait for it, `Advance` moves it and `ExpectIdle` fails until it rests. `tela mcp` and the idle budgets treat it, and a texture's `NextFrame` loop, as quiet work.
+- `examples/canvas`: a chart with a cursor and a spring, a particle field that sleeps when paused and a sketch pad with an eraser and undo, in light and dark. The wiki page Canvas and the recipe `llms/canvas.md` explain it.
+
+### Changed
+
+- `transition` and `transition-colors` animate `fill` and `stroke`, and `transition-all` animates `stroke-width`, as Tailwind 4.3 does, so an icon, an SVG image or a canvas fades between the paints of `hover:stroke-red-500`.
+- `h` has a new name, `Canvas`: a package that dot-imports `h` and declares its own `Canvas` stops compiling ("Canvas already declared through dot-import"). Rename yours, as `examples/kit` did (its `Canvas` is `Stage`).
+
+### Fixed
+
+- The children of an element were not restyled when only the fill, the stroke or the stroke width they inherit changed on an ancestor; icons inside a button that gains `hover:stroke-red-500` now follow it.
+
 ## [0.14.11] - 2026-11-24
 
 Phase 30: External textures (ADR-315 to ADR-318).
