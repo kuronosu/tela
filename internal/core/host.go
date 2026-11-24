@@ -446,7 +446,7 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 			span = ins.prof.spanBegin(PhaseAnimate)
 		}
 		if len(t.tex.views) > 0 {
-			t.startTextureFrame(h.frameTime(e.Time)) // Texture.NextFrame
+			t.startTextureFrame(h.frameTime(e)) // Texture.NextFrame
 		}
 		h.tick(e.Time)
 		// Phase 2 of the pipeline: scroll animations, flings and fades
@@ -885,13 +885,13 @@ func (h *Host) frame(v *winView, now time.Duration) {
 	}
 }
 
-// frameTime returns the FrameTime of the frame at backend time at. The
-// times of an app's frames differ as their backend times do.
-func (h *Host) frameTime(at time.Duration) FrameTime {
+// frameTime returns the FrameTime of the frame e. The times of an app's
+// frames differ as their backend times do.
+func (h *Host) frameTime(e platform.FrameEvent) FrameTime {
 	if h.clockBase.IsZero() {
 		h.clockBase = time.Now().Add(-h.backend.Now())
 	}
-	return FrameTime{Time: h.clockBase.Add(at)}
+	return FrameTime{Time: h.clockBase.Add(e.Time), Refresh: e.Refresh}
 }
 
 // syncTexturesOn tells the textures of the windows, after one was hidden,

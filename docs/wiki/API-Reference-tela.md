@@ -3734,11 +3734,16 @@ type FrameTime struct {
     // animation by.
     //
     // It carries a monotonic clock reading. Content rendered for a frame
-    // after NextFrame returns is usually shown by the frame after it, so
-    // time.Until(ft.Time.Add(ft.Refresh)) is how long is left to render it.
+    // after NextFrame returns is usually shown by the frame after it: where
+    // frames follow the display, time.Until(ft.Time.Add(ft.Refresh)) is an
+    // estimate of how long is left to render it.
     Time time.Time
-    // Refresh is the interval between the frames of the window, 0 when it
-    // is not known.
+    // Refresh is the refresh interval of the display the window is on, 0
+    // when it is not known, as in a window's first frames (with a variable
+    // rate, the shortest). It may differ from one frame to the next: the
+    // window moved to another display, or its mode changed. Frames may come
+    // farther apart: on X11 a window gets 60 a second on a faster display
+    // too. The Times of the frames tell.
     Refresh time.Duration
 }
 ```
