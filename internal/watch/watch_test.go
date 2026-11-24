@@ -316,7 +316,13 @@ func TestDirectoryGoneRightAfterStart(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for i := range 400 {
+		// A poller walks the whole tree again for every poll, which under Wine
+		// with a busy wineserver took more than the test waits for.
+		dirs := 400
+		if poll {
+			dirs = 60
+		}
+		for i := range dirs {
 			os.MkdirAll(filepath.Join(root, fmt.Sprintf("a%03d", i), "b"), 0o755)
 		}
 		if err := os.MkdirAll(filepath.Join(root, "z", "pkg", "sub"), 0o755); err != nil {
