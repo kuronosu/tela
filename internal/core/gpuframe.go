@@ -38,6 +38,9 @@ type GPU struct {
 	// lost: the device is gone (gpu.ErrDeviceLost); nothing more is drawn
 	// with it.
 	lost bool
+	// tex imports the memory of the app's textures (gputexture.go), nil
+	// until it is asked for.
+	tex *gpuTextures
 }
 
 // OpenGPU opens the device ADR-281 chooses (the environment variable
@@ -71,8 +74,9 @@ func NewGPU(dev gpu.Device) *GPU { return &GPU{dev: dev} }
 func (g *GPU) Name() string { return g.dev.Name() }
 
 // Lost reports that the device is gone: its surfaces draw nothing more,
-// and every frame is the CPU rasterizer's.
-func (g *GPU) Lost() bool { return g.lost }
+// and every frame is the CPU rasterizer's. An import, or the read back of
+// one, may have found it out.
+func (g *GPU) Lost() bool { return g.lost || g.tex != nil && g.tex.gone() }
 
 // Exporter returns the device as one that exports images as dmabufs, for
 // a window presented without a copy (gpuchain.go); nil when it is not one
@@ -129,6 +133,9 @@ func (g *GPU) Memory() gpu.Memory { return g.r.Memory() }
 func (g *GPU) Close() {
 	if g.dev == nil {
 		return
+	}
+	if g.tex != nil {
+		g.tex.closed.Store(true)
 	}
 	g.r.Trim()
 	if g.own {

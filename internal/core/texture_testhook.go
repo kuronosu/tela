@@ -319,7 +319,7 @@ func (f fakeImporter) textureDevice() TextureDevice {
 	return d
 }
 
-func (f fakeImporter) importTexture(m TextureMemory) (textureContent, error) {
+func (f fakeImporter) importTexture(m TextureMemory, _ uint64) (textureContent, error) {
 	pixels, free, err := f.imp(m)
 	if err != nil {
 		return nil, err

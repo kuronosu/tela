@@ -424,8 +424,9 @@ var (
     // component unmounted, or whose app quit.
     ErrTextureClosed = core.ErrTextureClosed
     // ErrTextureUnsupported is wrapped by the errors of Texture.Import for
-    // memory, formats and modifiers that cannot be shown, and returned by
-    // the fence of [SyncFile] where sync files do not exist.
+    // memory, formats and modifiers that cannot be shown, by those of
+    // Texture.Submit for a buffer that only a GPU which is gone could read,
+    // and by that of the fence of [SyncFile] where sync files do not exist.
     ErrTextureUnsupported = core.ErrTextureUnsupported
 )
 ```
@@ -6279,7 +6280,9 @@ fmt.Println(app.PixelAt(80, 40))
 func (x *Texture) Device() TextureDevice
 ```
 
-Device describes the device that draws the app's windows. Without a GPU (a default build, or the CPU rasterizer chosen or fallen back to) it has no identity but MetalRegistryID, and its formats are those Import maps and copies: AR24, XR24, AB24 and XB24 in linear memory on Linux, 'BGRA' and 'RGBA' on macOS, none on Windows. The GPU opens with the first window: call it in an effect or a goroutine, not in a build.
+Device describes the device that draws the app's windows. Without a GPU (a default build, or the CPU rasterizer chosen or fallen back to) it has no identity but MetalRegistryID, and its formats are those Import maps and copies: AR24, XR24, AB24 and XB24 in linear memory on Linux, 'BGRA' and 'RGBA' on macOS, none on Windows. A GPU that imports nothing (Windows) has its identity alone.
+
+The GPU opens with the first window: call it in an effect or a goroutine, not in a build. The answer changes when the device is lost, or when the GPU failed for every window: ask again when Import or Submit returns an error that wraps ErrTextureUnsupported.
 
 #### func (*Texture) Import
 
@@ -6289,7 +6292,11 @@ func (x *Texture) Import(m TextureMemory) (*TextureBuffer, error)
 
 Import imports memory that the application allocated, to submit it as frames (Submit): once per buffer, not per frame. The memory stays the application's, and Import keeps its own reference to it until the buffer is closed.
 
-A Dmabuf is imported by the GPU that draws the windows when it takes its format (Device), and its frames are sampled without a copy. Without a GPU, a Dmabuf with one linear plane (modifier 0) is mapped, and copied for every frame that becomes ready, on a goroutine of Tela's. An IOSurface is always copied so: no GPU of Tela's draws on macOS.
+A Dmabuf is imported by the GPU that draws the windows when it takes its format and reaches its memory (Device), and its frames are drawn without the CPU. Otherwise a Dmabuf with one linear plane (modifier 0) is mapped, and copied by the CPU for every frame that becomes ready, on a goroutine of Tela's. The GPU opens with the first window: a buffer imported before, in the first build, stays a mapped one, so import in an effect or a goroutine. An IOSurface is always copied so: no GPU of Tela's draws on macOS.
+
+Import may be called from any goroutine, the UI thread included. It waits for the GPU's frame being drawn, if there is one, and for nothing else: not for the UI thread.
+
+A GPU may be lost while the app runs (its driver was reset). Nothing has to be imported again for linear buffers: they are mapped from then on. The others show nothing any more, and Submit returns an error that wraps ErrTextureUnsupported for them: ask Device again, and import buffers of a format it has.
 
 It returns ErrTextureClosed once the component unmounted, an error that wraps ErrTextureUnsupported for memory that cannot be shown, which says what is, and another one for a Dmabuf that is wrong: a plane that ends beyond its descriptor's memory, a stride shorter than a row, a descriptor that is not a dma-buf.
 
@@ -6349,7 +6356,7 @@ What happens to a frame that arrives while another one is pending: the latest fi
 
 Three buffers are enough for frames that are finished when they are submitted, five for frames that wait: the application then always finds one that is free, or about to be. A producer that must drop nothing paces itself with NextFrame. Stats counts the frames.
 
-It returns ErrTextureClosed once the component unmounted, and an error for a buffer that is closed, of another texture, or still held by an earlier frame (its Release has not been called). On an error the Release of f is still called, and its Fence is not waited for.
+It returns ErrTextureClosed once the component unmounted, an error that wraps ErrTextureUnsupported for a buffer that only a GPU which is gone could read (Import), and an error for a buffer that is closed, of another texture, or still held by an earlier frame (its Release has not been called). On an error the Release of f is still called, and its Fence is not waited for.
 
 #### func (*Texture) SubmitImage
 
@@ -6401,9 +6408,10 @@ TextureDevice describes the device that draws the app's windows (Texture.Device)
 
 ```go
 type TextureDevice struct {
-    // GPU reports that Tela draws with a GPU and imports its memory: an
-    // imported buffer is then sampled without a copy. Without it, the pixels
-    // of an imported buffer are copied for every frame.
+    // GPU reports that Tela draws with a GPU that imports memory: an imported
+    // buffer is then sampled where it lies, or copied on the GPU when it
+    // cannot be (rows behind a discrete GPU's bus, mostly). Without it, the
+    // pixels of an imported buffer are copied by the CPU for every frame.
     GPU bool
     // Name is the device's name, and VendorID and DeviceID its PCI IDs.
     Name               string
@@ -6424,7 +6432,8 @@ type TextureDevice struct {
     MetalRegistryID uint64
     // Formats are the formats Texture.Import takes for memory allocated on
     // this device, the preferred ones first, and ForeignFormats those for
-    // memory of any other one.
+    // memory of any other one, which must be memory this device can reach
+    // (system memory) or that can be mapped.
     Formats, ForeignFormats []TextureFormat
 }
 ```

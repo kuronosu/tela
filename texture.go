@@ -164,8 +164,9 @@ var (
 	// component unmounted, or whose app quit.
 	ErrTextureClosed = core.ErrTextureClosed
 	// ErrTextureUnsupported is wrapped by the errors of Texture.Import for
-	// memory, formats and modifiers that cannot be shown, and returned by
-	// the fence of [SyncFile] where sync files do not exist.
+	// memory, formats and modifiers that cannot be shown, by those of
+	// Texture.Submit for a buffer that only a GPU which is gone could read,
+	// and by that of the fence of [SyncFile] where sync files do not exist.
 	ErrTextureUnsupported = core.ErrTextureUnsupported
 )
 

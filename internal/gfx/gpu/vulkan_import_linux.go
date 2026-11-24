@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -58,7 +59,7 @@ type vkImported struct {
 	// off and stride place the rows of a copied one in its buffer, and size
 	// is the buffer's.
 	off, stride, size int
-	closed            bool // under d.mu
+	closed            atomic.Bool // set under d.mu
 }
 
 var _ Importer = (*vkDevice)(nil)
@@ -114,6 +115,8 @@ func linearLast(m uint64) int {
 }
 
 func (d *vkDevice) ImportFormats() (own, foreign []DmabufFormat) {
+	d.resMu.Lock()
+	defer d.resMu.Unlock()
 	if d.usable() != nil {
 		return nil, nil
 	}
@@ -122,6 +125,8 @@ func (d *vkDevice) ImportFormats() (own, foreign []DmabufFormat) {
 }
 
 func (d *vkDevice) Import(desc DmabufDescriptor) (*Imported, error) {
+	d.resMu.Lock()
+	defer d.resMu.Unlock()
 	if err := d.usable(); err != nil {
 		return nil, err
 	}
@@ -150,6 +155,12 @@ func (d *vkDevice) Import(desc DmabufDescriptor) (*Imported, error) {
 		}
 	}
 	if err != nil {
+		// The descriptor is right, as far as importLayout can tell: what a
+		// linear one means is known, and a tiled one is what the driver
+		// makes of it.
+		if desc.Modifier == ModifierLinear || !errors.Is(err, vk.ErrDmabufLayout) && !errors.Is(err, vk.ErrorInvalidDrmFormatModifierPlaneLayoutEXT) {
+			err = unsupported(err)
+		}
 		return nil, d.check(fmt.Errorf("gpu: a dmabuf cannot be imported: %w", err))
 	}
 	m.kind.opaque = DmabufFormat{Fourcc: desc.Fourcc}.opaque()
@@ -166,21 +177,27 @@ func (d *vkDevice) Import(desc DmabufDescriptor) (*Imported, error) {
 	return newImported(d, &desc, m.mem.Image == 0, m), nil
 }
 
+// unsupported marks an error as one of what the device does not take.
+func unsupported(err error) error { return fmt.Errorf("%w: %w", ErrImportUnsupported, err) }
+
 // importLayout checks a descriptor and returns what it says to the driver.
 // What it says is never trusted: a driver is handed only a layout that lies
 // inside the dmabuf.
 func (d *vkDevice) importLayout(desc *DmabufDescriptor) (*vk.DmabufLayout, error) {
 	if !slices.Contains(importFourccs[:], desc.Fourcc) {
-		return nil, fmt.Errorf("the format %#08x %q (AR24, XR24, AB24 and XB24 are)", desc.Fourcc, DmabufFormat{Fourcc: desc.Fourcc}.fourccString())
+		return nil, unsupported(fmt.Errorf("the format %#08x %q (AR24, XR24, AB24 and XB24 are)", desc.Fourcc, DmabufFormat{Fourcc: desc.Fourcc}.fourccString()))
 	}
-	if desc.Width < 1 || desc.Height < 1 || desc.Width > d.maxSize || desc.Height > d.maxSize {
-		return nil, fmt.Errorf("the size %dx%d: it must be between 1 and %d", desc.Width, desc.Height, d.maxSize)
+	if desc.Width < 1 || desc.Height < 1 {
+		return nil, fmt.Errorf("the size %dx%d", desc.Width, desc.Height)
+	}
+	if desc.Width > d.maxSize || desc.Height > d.maxSize {
+		return nil, unsupported(fmt.Errorf("the size %dx%d: it must be between 1 and %d", desc.Width, desc.Height, d.maxSize))
 	}
 	if desc.Modifier == ModifierInvalid {
-		return nil, errors.New("a layout without an explicit modifier (DRM_FORMAT_MOD_INVALID)")
+		return nil, unsupported(errors.New("a layout without an explicit modifier (DRM_FORMAT_MOD_INVALID)"))
 	}
 	if !slices.Contains(d.importOwn, DmabufFormat{Fourcc: desc.Fourcc, Modifier: desc.Modifier}) {
-		return nil, fmt.Errorf("%s does not import the format %q with the modifier %#x", d.info.Name, DmabufFormat{Fourcc: desc.Fourcc}.fourccString(), desc.Modifier)
+		return nil, unsupported(fmt.Errorf("%s does not import the format %q with the modifier %#x", d.info.Name, DmabufFormat{Fourcc: desc.Fourcc}.fourccString(), desc.Modifier))
 	}
 	format := exportVkFormat(desc.Fourcc)
 	planes := 1 // of a linear layout only copied
@@ -188,7 +205,7 @@ func (d *vkDevice) importLayout(desc *DmabufDescriptor) (*vk.DmabufLayout, error
 		if m.Modifier == desc.Modifier {
 			planes = int(m.Planes)
 			if desc.Width > int(m.MaxExtent.Width) || desc.Height > int(m.MaxExtent.Height) {
-				return nil, fmt.Errorf("the size %dx%d: with the modifier %#x it is at most %dx%d", desc.Width, desc.Height, desc.Modifier, m.MaxExtent.Width, m.MaxExtent.Height)
+				return nil, unsupported(fmt.Errorf("the size %dx%d: with the modifier %#x it is at most %dx%d", desc.Width, desc.Height, desc.Modifier, m.MaxExtent.Width, m.MaxExtent.Height))
 			}
 		}
 	}
@@ -213,7 +230,7 @@ func (d *vkDevice) importLayout(desc *DmabufDescriptor) (*vk.DmabufLayout, error
 		if i == 0 {
 			first = st
 		} else if st.Dev != first.Dev || st.Ino != first.Ino {
-			return nil, fmt.Errorf("plane %d is in another dmabuf than plane 0", i)
+			return nil, unsupported(fmt.Errorf("plane %d is in another dmabuf than plane 0", i))
 		}
 		if i == 0 {
 			size, err := unix.Seek(p.FD, 0, unix.SEEK_END)
@@ -230,11 +247,14 @@ func (d *vkDevice) importLayout(desc *DmabufDescriptor) (*vk.DmabufLayout, error
 	// The first plane holds the pixels: whatever the layout, at least rows
 	// of its stride.
 	row, p := 4*uint64(desc.Width), l.Planes[0]
-	if p.Stride < row || p.Stride%4 != 0 || p.Offset%4 != 0 {
-		return nil, fmt.Errorf("rows of %d bytes with the stride %d at the offset %d, which must be multiples of 4", row, p.Stride, p.Offset)
+	if p.Stride < row {
+		return nil, fmt.Errorf("rows of %d bytes with the stride %d", row, p.Stride)
 	}
 	if need := p.Offset + p.Stride*uint64(desc.Height-1) + row; need > l.Size { // of 32-bit values: no overflow
 		return nil, fmt.Errorf("%d rows with the stride %d at the offset %d need %d bytes, the dmabuf has %d", desc.Height, p.Stride, p.Offset, need, l.Size)
+	}
+	if p.Stride%4 != 0 || p.Offset%4 != 0 {
+		return nil, unsupported(fmt.Errorf("the stride %d and the offset %d, which must be multiples of 4", p.Stride, p.Offset))
 	}
 	return l, nil
 }
@@ -322,11 +342,11 @@ func (d *vkDevice) reach(fd int) error {
 	defer unix.Close(node) // and with it the handle
 	prime := &drmPrimeHandle{fd: int32(fd)}
 	if err := ioctl(node, drmIoctlPrimeFDToHandle, unsafe.Pointer(prime)); err != nil {
-		return fmt.Errorf("%s does not take the descriptor: %w", d.info.Name, err)
+		return unsupported(fmt.Errorf("%s does not take the descriptor: %w", d.info.Name, err))
 	}
 	domain := &i915GemSetDomain{handle: prime.handle, readDomains: i915GemDomainGTT}
 	if err := ioctl(node, drmIoctlI915GemSetDomain, unsafe.Pointer(domain)); err != nil && err != unix.ENODEV {
-		return fmt.Errorf("%s cannot reach the memory, which another device holds (frames for another GPU need system memory): %w", d.info.Name, err)
+		return unsupported(fmt.Errorf("%s cannot reach the memory, which another device holds (frames for another GPU need system memory): %w", d.info.Name, err))
 	}
 	return nil
 }
@@ -388,18 +408,20 @@ func openDRM(dev uint64) (int, error) {
 // Closing
 // ---------------------------------------------------------------------------
 
-func (m *vkImported) open() bool { return !m.closed && !m.d.closed }
+func (m *vkImported) open() bool { return !m.closed.Load() && !m.d.closed }
 
 func (m *vkImported) close() {
 	d := m.d
-	// Every submission is waited for under the lock: none reads the memory
-	// once it is taken.
+	// Every submission is waited for under the locks: none reads the memory
+	// once they are taken, and no frame that does is about to be submitted.
+	d.resMu.Lock()
+	defer d.resMu.Unlock()
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if m.closed || d.closed {
+	if m.closed.Load() || d.closed {
 		return
 	}
-	m.closed = true
+	m.closed.Store(true)
 	delete(d.imports, m)
 	if d.lost.Load() {
 		// Work may still run: the memory goes when the device is closed,
@@ -546,7 +568,7 @@ func (m *vkImported) pixels() []byte {
 	d := m.d
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if m.closed || d.closed || d.lost.Load() {
+	if m.closed.Load() || d.closed || d.lost.Load() {
 		return nil
 	}
 	out, err := m.read()
@@ -642,7 +664,7 @@ func (m *vkImported) read() ([]byte, error) {
 	}}, fence); err != nil {
 		return nil, err
 	}
-	if err := dev.WaitForFences([]vk.Fence{fence}, true, waitTimeout); err != nil {
+	if err := d.wait(fence); err != nil {
 		// As in submitWith: the work may still run.
 		d.lost.Store(true)
 		d.held = append(d.held, free)

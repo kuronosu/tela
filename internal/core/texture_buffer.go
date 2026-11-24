@@ -12,14 +12,14 @@ import (
 // with its own graphics API and gives to a Texture once, to submit it as
 // many frames.
 //
-// The Host's GPU imports it into its device (textureImporter), and samples
-// it without a copy. Without a GPU, or for memory it does not import, linear
-// dmabufs and IOSurfaces (texture_iosurface.go) are mapped, and every frame
-// that becomes ready is copied first, on the goroutine that waited for its
-// fence (Texture.await): the copy is what the window draws, and the buffer is
-// not read again. It is still held until its frame is replaced, as a buffer
-// the device reads is, so that an application behaves the same with and
-// without the GPU.
+// The Host's GPU imports it into its device (textureImporter; gputexture.go),
+// and samples it without a copy. Without a GPU, or for memory it does not
+// import, linear dmabufs and IOSurfaces (texture_iosurface.go) are mapped, and
+// every frame that becomes ready is copied first, on the goroutine that waited
+// for its fence (Texture.await): the copy is what the window draws, and the
+// buffer is not read again. It is still held until its frame is replaced, as a
+// buffer the device reads is, so that an application behaves the same with
+// and without the GPU.
 
 // TextureMemory is memory that Texture.Import imports: a Dmabuf or an
 // IOSurface.
@@ -127,10 +127,12 @@ func (d Dmabuf) check() error {
 type textureImporter interface {
 	// textureDevice describes the device.
 	textureDevice() TextureDevice
-	// importTexture imports m, whose descriptors stay the caller's. An
-	// error that wraps ErrTextureUnsupported lets the memory be mapped and
-	// copied instead, where that is possible.
-	importTexture(m TextureMemory) (textureContent, error)
+	// importTexture imports m, whose descriptors stay the caller's, for the
+	// texture whose images are of stream (gfx.Image.Stream). An error that
+	// wraps ErrTextureUnsupported lets the memory be mapped and copied
+	// instead, where that is possible; so does a nil content without an
+	// error, of a device that imports nothing or is gone.
+	importTexture(m TextureMemory, stream uint64) (textureContent, error)
 }
 
 // textureContent is imported memory: the content of the images that draw
@@ -141,6 +143,26 @@ type textureContent interface {
 	// buffer is closed and no frame of it is held: no display list that may
 	// be drawn has it.
 	closeTexture()
+}
+
+// deviceTexture is a textureContent whose device may go away before the
+// buffer is closed: lost, or closed. Any goroutine.
+type deviceTexture interface {
+	textureContent
+	// deviceGone reports that the device is gone. The frames submitted from
+	// then on are copied (read), like those of mapped memory, or refused.
+	deviceGone() bool
+	// readable returns why the memory cannot be read without the device, for
+	// Submit: an error that wraps ErrTextureUnsupported. It does not block.
+	readable() error
+	textureReader
+}
+
+// textureReader copies the pixels of a buffer.
+type textureReader interface {
+	// read copies the picture into dst, premultiplied RGBA8 with rows of 4
+	// bytes per pixel. It may block while the memory is written.
+	read(dst []byte) error
 }
 
 // setTextureImporter makes imp what imports the memory of the app's
@@ -173,9 +195,7 @@ func (x *Texture) importer() textureImporter {
 
 // mappedTexture is imported memory mapped into the process, to be copied.
 type mappedTexture interface {
-	// read copies the picture into dst, premultiplied RGBA8 with rows of 4
-	// bytes per pixel. It may block while the memory is written.
-	read(dst []byte) error
+	textureReader
 	close()
 }
 
@@ -202,10 +222,22 @@ type TextureBuffer struct {
 // is closed.
 //
 // A Dmabuf is imported by the GPU that draws the windows when it takes its
-// format (Device), and its frames are sampled without a copy. Without a GPU,
-// a Dmabuf with one linear plane (modifier 0) is mapped, and copied for
-// every frame that becomes ready, on a goroutine of Tela's. An IOSurface is
-// always copied so: no GPU of Tela's draws on macOS.
+// format and reaches its memory (Device), and its frames are drawn without
+// the CPU. Otherwise a Dmabuf with one linear plane (modifier 0) is mapped,
+// and copied by the CPU for every frame that becomes ready, on a goroutine of
+// Tela's. The GPU opens with the first window: a buffer imported before, in
+// the first build, stays a mapped one, so import in an effect or a goroutine.
+// An IOSurface is always copied so: no GPU of Tela's draws on macOS.
+//
+// Import may be called from any goroutine, the UI thread included. It waits
+// for the GPU's frame being drawn, if there is one, and for nothing else: not
+// for the UI thread.
+//
+// A GPU may be lost while the app runs (its driver was reset). Nothing has to
+// be imported again for linear buffers: they are mapped from then on. The
+// others show nothing any more, and Submit returns an error that wraps
+// ErrTextureUnsupported for them: ask Device again, and import buffers of a
+// format it has.
 //
 // It returns ErrTextureClosed once the component unmounted, an error that
 // wraps ErrTextureUnsupported for memory that cannot be shown, which says
@@ -242,17 +274,20 @@ func (x *Texture) Import(m TextureMemory) (*TextureBuffer, error) {
 	b := &TextureBuffer{x: x, w: d.Width, h: d.Height, opaque: opaque}
 	var err error
 	if imp := x.importer(); imp != nil {
-		b.content, err = imp.importTexture(d)
+		b.content, err = imp.importTexture(d, x.stream)
 		if err != nil && !errors.Is(err, ErrTextureUnsupported) {
 			return nil, err
 		}
 	}
 	if b.content == nil {
 		mem, merr := mapDmabuf(d)
-		if merr != nil {
-			if err != nil && errors.Is(merr, ErrTextureUnsupported) {
-				return nil, err // what the device says of it
-			}
+		switch {
+		case merr == nil:
+		case x.isClosed():
+			return nil, ErrTextureClosed // meanwhile: the GPU goes with the app
+		case err != nil && errors.Is(merr, ErrTextureUnsupported):
+			return nil, err // what the device says of it
+		default:
 			return nil, merr
 		}
 		b.mem = mem
@@ -275,6 +310,22 @@ func (x *Texture) addBuffer(b *TextureBuffer) (*TextureBuffer, error) {
 	x.bufs[b] = struct{}{}
 	x.mu.Unlock()
 	return b, nil
+}
+
+// reader returns what copies the frames of the buffer, nil for memory the
+// device reads itself, and an error when nothing reads it any more.
+func (b *TextureBuffer) reader() (textureReader, error) {
+	if b.mem != nil {
+		return b.mem, nil
+	}
+	d, ok := b.content.(deviceTexture)
+	if !ok || !d.deviceGone() {
+		return nil, nil
+	}
+	if err := d.readable(); err != nil {
+		return nil, fmt.Errorf("tela: Texture.Submit: %w", err)
+	}
+	return d, nil
 }
 
 // image returns an image of the buffer's current pixels, which the device

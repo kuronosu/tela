@@ -162,10 +162,11 @@ func (e *vkExport) Size() image.Point     { return e.size }
 func (e *vkExport) Format() DmabufFormat  { return e.format }
 func (e *vkExport) Planes() []DmabufPlane { return slices.Clone(e.planes) }
 
-// Close destroys the image. It may be called more than once, and after
+// Close destroys the image, or leaves it to the Close of a lost device,
+// whose work may still write it. It may be called more than once, and after
 // the device was closed.
 func (e *vkExport) Close() {
-	if e.d == nil || e.d.closed {
+	if e.d == nil || e.d.closed || e.d.lost.Load() {
 		return
 	}
 	delete(e.d.exports, e)

@@ -127,6 +127,9 @@ func (t *Tree) dropTextureBox(b *Box) {
 // whose image changed, so that the lists that paint them are recorded again
 // by the paint that follows.
 func (t *Tree) bindTextures(take bool) {
+	if t.wv != nil {
+		t.wv.host.endLostGPU() // before the paint lets go of a frame
+	}
 	L := &t.lay
 	for _, v := range t.tex.views {
 		live := false
@@ -229,6 +232,9 @@ func (t *Tree) forgetTextures() {
 // dropTextures lets go of every frame the tree's lists draw: it unmounted,
 // and nothing draws its last list any more.
 func (t *Tree) dropTextures() {
+	if t.wv != nil && len(t.tex.views) > 0 {
+		t.wv.host.endLostGPU()
+	}
 	for _, v := range t.tex.views {
 		for _, b := range slices.Clone(v.boxes) {
 			t.dropTextureBox(b)

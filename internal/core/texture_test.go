@@ -812,7 +812,7 @@ func (f *fakeTextures) textureDevice() TextureDevice {
 	return TextureDevice{GPU: true, Name: "fake", Formats: []TextureFormat{{Fourcc: fourccAR24, Modifier: 42}}}
 }
 
-func (f *fakeTextures) importTexture(m TextureMemory) (textureContent, error) {
+func (f *fakeTextures) importTexture(m TextureMemory, _ uint64) (textureContent, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.err != nil {
@@ -1047,6 +1047,52 @@ func TestTextureImportedBuffer(t *testing.T) {
 		_, closed := imp.imported[1].state()
 		return closed == 1
 	})
+}
+
+// A frame drawn much smaller than it is has no mip levels: its image is the
+// one drawn, its pixels are read once, as they are rasterized, and it names
+// the texture's stream.
+func TestTextureNoLevels(t *testing.T) {
+	var a, other texApp
+	a.class, other.class = "w-8 h-4 object-cover", "w-8 h-4"
+	x, imp, _ := newTexImport(t, &a, 0)
+	newWinHarness(t, Options{Root: other.root()})
+	big := Dmabuf{Width: 640, Height: 320, Fourcc: fourccAR24, Modifier: 42, Planes: []DmabufPlane{{FD: 3, Stride: 2560}}}
+	b, err := a.tex.Import(big)
+	if err != nil {
+		t.Fatal(err)
+	}
+	drawn := func() *gfx.Image {
+		t.Helper()
+		var out *gfx.Image
+		for _, c := range x.h.Tree().lay.cur.dl.All() {
+			if d, ok := c.(gfx.DrawImage); ok {
+				if out != nil {
+					t.Error("several images are drawn")
+				}
+				out = d.Image
+			}
+		}
+		return out
+	}
+	for n := range 3 {
+		if n == 1 {
+			_ = a.tex.SubmitImage(solid(640, 320, texBlue), func() {})
+		} else if err := a.tex.Submit(b, TextureFrame{}); err != nil {
+			t.Fatal(err)
+		}
+		x.drain()
+		f := a.tex.views[0].cur
+		if got := drawn(); got != f.img || got.Width() != 640 {
+			t.Errorf("frame %d is drawn by another image than its own", n)
+		}
+		if n == 1 && (f.img.Stream() == 0 || f.img.Stream() != a.tex.stream || a.tex.stream == other.tex.stream) {
+			t.Errorf("the image is of the stream %d; the textures are %d and %d", f.img.Stream(), a.tex.stream, other.tex.stream)
+		}
+	}
+	if reads, _ := imp.imported[0].state(); reads != 2 {
+		t.Errorf("two frames were read %d times", reads)
+	}
 }
 
 func TestTextureImportErrors(t *testing.T) {
