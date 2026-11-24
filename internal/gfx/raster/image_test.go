@@ -37,6 +37,42 @@ func TestImageIdentity(t *testing.T) {
 	}
 }
 
+// At a fractional scale the float32 coordinates of an image drawn 1:1 are a
+// hair off the device pixels: it reproduces its pixels exactly all the same
+// (unitMapping).
+func TestImageIdentityAtFractionalScale(t *testing.T) {
+	const w, h = 331, 97
+	pix := make([]uint8, 4*w*h)
+	for i := range pix {
+		pix[i] = uint8(i*i*31 + i*17)
+		if i%4 == 3 {
+			pix[i] = 255
+		}
+	}
+	img := gfx.NewImagePremul(w, h, pix)
+	for _, scale := range []float32{1.25, 1.5, 1.75, 2.4, 1.1} {
+		for _, at := range [][2]int{{0, 0}, {3, 4}, {131, 57}, {1017, 33}} {
+			dst := gfx.Rect{X0: float32(at[0]) / scale, Y0: float32(at[1]) / scale, X1: float32(at[0]+w) / scale, Y1: float32(at[1]+h) / scale}
+			out := renderTransparent(1400, 200, scale, func(b *gfx.Builder) {
+				b.DrawImage(img, gfx.Rect{}, dst, gfx.SampleLinear)
+			})
+			for y := range h {
+				for x := range w {
+					if got, want := rgba(out.RGBAAt(at[0]+x, at[1]+y)), imagePixel(img, x, y); got != want {
+						t.Fatalf("scale %v at %v: pixel (%d, %d) = %v, want %v", scale, at, x, y, got, want)
+					}
+				}
+			}
+		}
+	}
+	// A mapping that is not one keeps what it is.
+	for _, m := range [][4]float64{{0.5, 3, 0, 100}, {1, 0.25, 0, 100}, {1.0001, 0, 0, 100}, {-1, 0, 0, 10}, {1, 7, 0, 10}} {
+		if a, c := unitMapping(m[0], m[1], m[2], m[3]); a != m[0] || c != m[1] {
+			t.Errorf("%v became %v, %v", m, a, c)
+		}
+	}
+}
+
 // Nearest upscaling by 4 gives 4x4 blocks of the source pixels.
 func TestImageNearestUpscale(t *testing.T) {
 	out := renderTransparent(24, 24, 1, func(b *gfx.Builder) {

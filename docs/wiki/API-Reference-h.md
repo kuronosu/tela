@@ -11,7 +11,7 @@ This page is generated from the doc comments of the package; the same text is on
 ## Index
 
 - [Overview](#overview)
-- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AnimateLayout`](#func-animatelayout) · [`AriaActiveDescendant`](#func-ariaactivedescendant) · [`AriaAtomic`](#func-ariaatomic) · [`AriaAutoComplete`](#func-ariaautocomplete) · [`AriaBusy`](#func-ariabusy) · [`AriaChecked`](#func-ariachecked) · [`AriaControls`](#func-ariacontrols) · [`AriaCurrent`](#func-ariacurrent) · [`AriaDescribedBy`](#func-ariadescribedby) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHasPopup`](#func-ariahaspopup) · [`AriaHidden`](#func-ariahidden) · [`AriaInvalid`](#func-ariainvalid) · [`AriaKeyShortcuts`](#func-ariakeyshortcuts) · [`AriaLabel`](#func-arialabel) · [`AriaLabelFn`](#func-arialabelfn) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaLive`](#func-arialive) · [`AriaModal`](#func-ariamodal) · [`AriaMultiSelectable`](#func-ariamultiselectable) · [`AriaOrientation`](#func-ariaorientation) · [`AriaPosInSet`](#func-ariaposinset) · [`AriaPressed`](#func-ariapressed) · [`AriaReadOnly`](#func-ariareadonly) · [`AriaRequired`](#func-ariarequired) · [`AriaRowCount`](#func-ariarowcount) · [`AriaRowIndex`](#func-ariarowindex) · [`AriaSelected`](#func-ariaselected) · [`AriaSetSize`](#func-ariasetsize) · [`AriaSort`](#func-ariasort) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueNowFn`](#func-ariavaluenowfn) · [`AriaValueText`](#func-ariavaluetext) · [`AriaValueTextFn`](#func-ariavaluetextfn) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Dir`](#func-dir) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Draggable`](#func-draggable) · [`Em`](#func-em) · [`Exit`](#func-exit) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`ID`](#func-id) · [`Icon`](#func-icon) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Inert`](#func-inert) · [`Input`](#func-input) · [`ItemHeight`](#func-itemheight) · [`ItemKey`](#func-itemkey) · [`Key`](#func-key) · [`Label`](#func-label) · [`Lang`](#func-lang) · [`LayoutID`](#func-layoutid) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MapKeyed`](#func-mapkeyed) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`Nodes`](#func-nodes) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragEnter`](#func-ondragenter) · [`OnDragLeave`](#func-ondragleave) · [`OnDragOver`](#func-ondragover) · [`OnDragStart`](#func-ondragstart) · [`OnDrop`](#func-ondrop) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`Portal`](#func-portal) · [`Presence`](#func-presence) · [`Range`](#func-range) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Scale`](#func-scale) · [`Scheme`](#func-scheme) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`SrcBytes`](#func-srcbytes) · [`SrcFS`](#func-srcfs) · [`SrcPath`](#func-srcpath) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`TestID`](#func-testid) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Tint`](#func-tint) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist) · [`WindowControl`](#func-windowcontrol) · [`WindowDrag`](#func-windowdrag) · [`WindowNoDrag`](#func-windownodrag) · [`WindowResize`](#func-windowresize)
+- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AnimateLayout`](#func-animatelayout) · [`AriaActiveDescendant`](#func-ariaactivedescendant) · [`AriaAtomic`](#func-ariaatomic) · [`AriaAutoComplete`](#func-ariaautocomplete) · [`AriaBusy`](#func-ariabusy) · [`AriaChecked`](#func-ariachecked) · [`AriaControls`](#func-ariacontrols) · [`AriaCurrent`](#func-ariacurrent) · [`AriaDescribedBy`](#func-ariadescribedby) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHasPopup`](#func-ariahaspopup) · [`AriaHidden`](#func-ariahidden) · [`AriaInvalid`](#func-ariainvalid) · [`AriaKeyShortcuts`](#func-ariakeyshortcuts) · [`AriaLabel`](#func-arialabel) · [`AriaLabelFn`](#func-arialabelfn) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaLive`](#func-arialive) · [`AriaModal`](#func-ariamodal) · [`AriaMultiSelectable`](#func-ariamultiselectable) · [`AriaOrientation`](#func-ariaorientation) · [`AriaPosInSet`](#func-ariaposinset) · [`AriaPressed`](#func-ariapressed) · [`AriaReadOnly`](#func-ariareadonly) · [`AriaRequired`](#func-ariarequired) · [`AriaRowCount`](#func-ariarowcount) · [`AriaRowIndex`](#func-ariarowindex) · [`AriaSelected`](#func-ariaselected) · [`AriaSetSize`](#func-ariasetsize) · [`AriaSort`](#func-ariasort) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueNowFn`](#func-ariavaluenowfn) · [`AriaValueText`](#func-ariavaluetext) · [`AriaValueTextFn`](#func-ariavaluetextfn) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Dir`](#func-dir) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Draggable`](#func-draggable) · [`Em`](#func-em) · [`Exit`](#func-exit) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`ID`](#func-id) · [`Icon`](#func-icon) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Inert`](#func-inert) · [`Input`](#func-input) · [`ItemHeight`](#func-itemheight) · [`ItemKey`](#func-itemkey) · [`Key`](#func-key) · [`Label`](#func-label) · [`Lang`](#func-lang) · [`LayoutID`](#func-layoutid) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MapKeyed`](#func-mapkeyed) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`Nodes`](#func-nodes) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragEnter`](#func-ondragenter) · [`OnDragLeave`](#func-ondragleave) · [`OnDragOver`](#func-ondragover) · [`OnDragStart`](#func-ondragstart) · [`OnDrop`](#func-ondrop) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`Portal`](#func-portal) · [`Presence`](#func-presence) · [`Range`](#func-range) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Scale`](#func-scale) · [`Scheme`](#func-scheme) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`SrcBytes`](#func-srcbytes) · [`SrcFS`](#func-srcfs) · [`SrcPath`](#func-srcpath) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`TestID`](#func-testid) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Texture`](#func-texture) · [`Tint`](#func-tint) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist) · [`WindowControl`](#func-windowcontrol) · [`WindowDrag`](#func-windowdrag) · [`WindowNoDrag`](#func-windownodrag) · [`WindowResize`](#func-windowresize)
 
 ## Overview
 
@@ -2385,6 +2385,54 @@ func Textf(format string, args ...any) tela.Node
 ```
 
 Textf returns a text node formatted like fmt.Sprintf.
+
+### func Texture
+
+```go
+func Texture(tex *tela.Texture, children ...tela.Child) tela.Node
+```
+
+Texture shows the frames that the application pushes to tex, a texture of tela.UseTexture: content it renders itself, with its own graphics API. It is a replaced element, like an Img whose picture changes: without Class or Style sizes it is 300x150 as an HTML canvas, whatever the size of its frames, and with one size (w-full) the other keeps that ratio unless an aspect-\* class sets another. object-contain, object-cover and the other object-\* classes fit the last frame in its box, whose rounded corners clip it; borders, shadows, opacity, filters, transforms, blend modes and masks apply to it as to any element, and so do the On… handlers, TabIndex and the pointer. Until the first frame it shows its background.
+
+It takes no children: place an overlay beside it.
+
+```go
+Div(Class("relative overflow-hidden rounded-xl"),
+    Texture(tex, Class("w-full aspect-video"), AriaLabel("Camera"),
+        OnPointerMove(look)),
+    Div(Class("absolute bottom-2 left-2 rounded bg-black/50 px-2 text-white"), Text("Live")))
+```
+
+It is an image (role img) when it has a name (AriaLabel or AriaLabelledBy), and says nothing to accessibility otherwise.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var tex *tela.Texture
+player := func() tela.Node {
+    tex = tela.UseTexture()
+    return Div(Class("relative w-80 overflow-hidden rounded-xl"),
+        Texture(tex, Class("w-full aspect-video object-contain bg-black"), AriaLabel("Video")),
+        P(Class("absolute bottom-2 left-2 text-white"), Text("Live")))
+}
+app := telatest.Mount(t, tela.C(player))
+// A frame of the video, from any goroutine: 4:3 in a 16:9 element.
+frame := image.NewRGBA(image.Rect(0, 0, 4, 3))
+for i := range frame.Pix {
+    frame.Pix[i] = 255
+}
+if err := tex.SubmitImage(frame, nil); err != nil {
+    fmt.Println(err)
+}
+fmt.Println(app.AriaSnapshot())
+fmt.Println(app.PixelAt(10, 90), app.PixelAt(160, 90))
+// Output:
+// - img "Video"
+// - paragraph: Live
+// {0 0 0 255} {255 255 255 255}
+```
 
 ### func Tint
 

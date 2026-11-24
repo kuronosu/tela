@@ -266,6 +266,13 @@ type Host struct {
 	// one (gpuhost.go, ADR-281); empty otherwise.
 	gpu hostGPU
 
+	// texImp imports the memory of the app's textures into the GPU's
+	// device (texture_buffer.go), nil without one; any goroutine, under
+	// texMu. clockBase is the time of the backend's clock 0 (frameTime).
+	texMu     sync.Mutex
+	texImp    textureImporter
+	clockBase time.Time
+
 	// timer wakes the loop at timerAt (backend clock) for the gesture
 	// arenas (a long press); nil when nothing waits.
 	timerMu sync.Mutex
@@ -427,6 +434,7 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 		v.placementMoved()
 		v.syncCanvas() // a Transparent window the OS shows opaque, or again with alpha
 		v.syncState()
+		h.syncTexturesOn()
 	case platform.FrameEvent:
 		// The state of a new window comes before its first frame, if
 		// it comes at all (an OS that refused to maximize sends none).
@@ -436,6 +444,9 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 		if ins != nil {
 			ins.prof.frameEvent() // the frame profile (instrument_prof.go)
 			span = ins.prof.spanBegin(PhaseAnimate)
+		}
+		if len(t.tex.views) > 0 {
+			t.startTextureFrame(h.frameTime(e.Time)) // Texture.NextFrame
 		}
 		h.tick(e.Time)
 		// Phase 2 of the pipeline: scroll animations, flings and fades
@@ -870,6 +881,25 @@ func (h *Host) frame(v *winView, now time.Duration) {
 	}
 	if shown {
 		v.presents++
+		t.texturesPresented()
+	}
+}
+
+// frameTime returns the FrameTime of the frame at backend time at. The
+// times of an app's frames differ as their backend times do.
+func (h *Host) frameTime(at time.Duration) FrameTime {
+	if h.clockBase.IsZero() {
+		h.clockBase = time.Now().Add(-h.backend.Now())
+	}
+	return FrameTime{Time: h.clockBase.Add(at)}
+}
+
+// syncTexturesOn tells the textures of the windows, after one was hidden,
+// minimized or shown again (its child windows with it), whether they are on
+// screen.
+func (h *Host) syncTexturesOn() {
+	for _, v := range h.views {
+		v.tree.syncTexturesOn()
 	}
 }
 

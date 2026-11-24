@@ -62,7 +62,7 @@ import (
 // scrollbars and outline; a stacking context's participants too) weighs
 // groupMin or more, counting the boxes it paints in its list and the
 // participants its stacking context paints, outside the groups in it
-// (Box.wt), is a group: a layer whose list holds only that painting, in
+// (Box.wt; a Texture weighs groupMin), is a group: a layer whose list holds only that painting, in
 // the scroll space, interest rect and culling of the list around it, which
 // holds its marker. A group stays one while it paints more than itself, so
 // that a weight that moves around the threshold moves no lists. So a list

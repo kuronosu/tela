@@ -2,6 +2,7 @@ package h_test
 
 import (
 	"fmt"
+	"image"
 	"testing/fstest"
 
 	"github.com/kuronosu/tela"
@@ -48,6 +49,33 @@ func ExampleSrcPath() {
 	r := app.Bounds(telatest.ByRole("img", "Logo"))
 	fmt.Println(r.Width, r.Height)
 	// Output: 96 32
+}
+
+func ExampleTexture() {
+	t := &exampleT{}
+	defer t.close()
+	var tex *tela.Texture
+	player := func() tela.Node {
+		tex = tela.UseTexture()
+		return Div(Class("relative w-80 overflow-hidden rounded-xl"),
+			Texture(tex, Class("w-full aspect-video object-contain bg-black"), AriaLabel("Video")),
+			P(Class("absolute bottom-2 left-2 text-white"), Text("Live")))
+	}
+	app := telatest.Mount(t, tela.C(player))
+	// A frame of the video, from any goroutine: 4:3 in a 16:9 element.
+	frame := image.NewRGBA(image.Rect(0, 0, 4, 3))
+	for i := range frame.Pix {
+		frame.Pix[i] = 255
+	}
+	if err := tex.SubmitImage(frame, nil); err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(app.AriaSnapshot())
+	fmt.Println(app.PixelAt(10, 90), app.PixelAt(160, 90))
+	// Output:
+	// - img "Video"
+	// - paragraph: Live
+	// {0 0 0 255} {255 255 255 255}
 }
 
 func ExampleTint() {

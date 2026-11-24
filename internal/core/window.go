@@ -366,6 +366,7 @@ func (v *winView) setHidden(hidden bool) {
 		v.shownGPU() // gpuhost.go: its next frame presents
 	}
 	v.syncState()
+	v.host.syncTexturesOn()
 }
 
 // alive reports whether requests may still reach the window.
