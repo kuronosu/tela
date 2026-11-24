@@ -30,6 +30,7 @@ var Previews = tela.Previews{
 	"List":    {Root: tela.C(list)},
 	"Long":    {Root: tela.C(long)},
 	"Spinner": {Root: tela.C(busy)},
+	"Sweep":   {Root: tela.C(moving)},
 	"Prefs":   {Root: tela.C(prefs)},
 	"Loader":  {Root: tela.C(loader)},
 	"Panes":   {Root: tela.C(panes)},
@@ -127,6 +128,18 @@ func busy() tela.Node {
 	ticks, setTicks := tela.UseState(0)
 	return Div(Class("flex flex-col gap-3 p-6"),
 		Div(Class("size-8 animate-spin rounded-full border-4 border-stone-300 border-t-stone-800")),
+		Button(OnClick(func() { setTicks.Set(ticks + 1) }), Textf("Ticks: %d", ticks)))
+}
+
+// moving is a canvas that animates for ever (Canvas.RequestFrame) beside a
+// button: like a spinner, it asks for a frame at every vsync.
+func moving() tela.Node {
+	ticks, setTicks := tela.UseState(0)
+	return Div(Class("flex flex-col gap-3 p-6"),
+		Canvas(func(c *tela.Canvas) {
+			c.FillRect(c.Width*float64(c.Time.Milliseconds()%1000)/1000, 0, 8, c.Height)
+			c.RequestFrame()
+		}, Class("h-8 w-48 fill-stone-800")),
 		Button(OnClick(func() { setTicks.Set(ticks + 1) }), Textf("Ticks: %d", ticks)))
 }
 

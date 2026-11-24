@@ -259,3 +259,13 @@ func Direct() tela.Node {
 func Valid2() tela.Node { return tela.C(Page) }
 
 func Plain() tela.Node { return Div() }
+
+// The function given to h.Canvas draws while a frame is painted: it is not a
+// component, so a hook in it is reported as in a function literal.
+func Drawing() tela.Node {
+	tela.UseRef(0) // the component's own hook: fine
+	return Canvas(func(c *tela.Canvas) {
+		tela.UseState(0) // want hooks `inside a function literal`
+		c.FillRect(0, 0, c.Width, c.Height)
+	}, Class("size-8"))
+}
