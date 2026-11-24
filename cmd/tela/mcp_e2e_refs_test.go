@@ -155,6 +155,23 @@ func TestMCPRefsScrollFailFastAndCancel(t *testing.T) {
 		}
 	})
 
+	// A canvas that animates (Canvas.RequestFrame) is the same: a frame
+	// request and a pending canvas, nothing that can change what the
+	// locator looks for.
+	t.Run("fail fast on a canvas", func(t *testing.T) {
+		if r := c.tool("open", map[string]any{"preview": "Sweep"}); r.isError {
+			t.Fatalf("open Sweep:\n%s", r.text)
+		}
+		start := time.Now()
+		r := c.tool("click", map[string]any{"role": "button", "name": "Nowhere"})
+		if !r.isError || !strings.Contains(r.text, "waiting would not help") {
+			t.Errorf("a locator that matches nothing on a screen with a running canvas:\n%s", r.text)
+		}
+		if d := time.Since(start); d > 1500*time.Millisecond {
+			t.Errorf("it took %v to fail: telatest's wait is 2 s", d)
+		}
+	})
+
 	// A cancelled wait ends without a response, and the app keeps its
 	// state: it is not mounted again.
 	t.Run("cancel", func(t *testing.T) {

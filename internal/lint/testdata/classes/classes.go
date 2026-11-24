@@ -24,9 +24,10 @@ func Sinks(dynamic string, n int) []tela.Node {
 		h.Div(h.Class("flex", "bg-whte", dynamic)), // want class `unknown class "bg-whte"`
 		h.Div(h.Class(cardTypo)),                   // reported where cardTypo is declared
 		h.Div(h.Class(good)),
-		h.Div(h.Class(bad)),                              // reported where bad is declared
-		h.Div(h.Class("flex " + "gapp-3")),               // want class `unknown class "gapp-3"`
-		h.Div(h.Class("hover:bg-reed-500")),              // want class `unknown class "hover:bg-reed-500"`
+		h.Div(h.Class(bad)),                 // reported where bad is declared
+		h.Div(h.Class("flex " + "gapp-3")),  // want class `unknown class "gapp-3"`
+		h.Div(h.Class("hover:bg-reed-500")), // want class `unknown class "hover:bg-reed-500"`
+		h.Canvas(func(c *tela.Canvas) {}, h.Class("size-32 stroke-primary hover:strok-red-500")), // want class `unknown class "hover:strok-red-500"`
 		h.Div(h.Class("hovr:bg-red-500")),                // want class `unknown variant "hovr:"`
 		h.Div(h.Class("w-[calc(100%-" + dynamic + ")]")), // computed: skipped
 		h.Div(h.Class("p-"+itoa(n), "flexx")),            // want class `unknown class "flexx"`

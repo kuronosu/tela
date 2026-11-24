@@ -130,20 +130,24 @@ func (h *Host) Settle() *Host {
 }
 
 // SettleEndless waits, as Settle does, until the only thing left is an
-// endless animation (animate-spin, animate-pulse) and the frames it asks
-// for.
+// endless animation (animate-spin, animate-pulse), a running canvas or a
+// texture's frame loop, and the frames it asks for.
 func (h *Host) SettleEndless() *Host {
 	h.settle(h.OnlyEndless)
 	return h
 }
 
-// OnlyEndless reports whether everything pending belongs to endless
-// animations: their frame request, and no deadline, timer or other work.
+// OnlyEndless reports whether everything pending belongs to what never
+// ends: endless animations, canvases that ask for a frame in every draw
+// (Canvas.RequestFrame) and goroutines that wait for the next frame of a
+// texture (Texture.NextFrame), with their frame request, and no deadline,
+// timer or other work.
 func (h *Host) OnlyEndless() bool {
 	t := h.H.Tree()
 	_, timer := h.H.TimerArmed()
 	_, deadline := t.NextDeadline()
-	return t.Animating() && t.OnlyEndlessAnimations() && !timer && !deadline && !h.H.NeedsFrame()
+	endless := t.Animating() && t.OnlyEndlessAnimations() || t.OnlyCanvasFrames() || t.OnlyTextureFrames()
+	return endless && !timer && !deadline && !h.H.NeedsFrame()
 }
 
 // settle moves the clock to each frame and timer until done or settleLimit.
