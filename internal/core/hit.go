@@ -468,6 +468,17 @@ func (t *Tree) localPoint(el *Element, p gfx.Point) gfx.Point {
 	return t.boxPoint(bx, p)
 }
 
+// eventPoint returns the window point p as the events of el give it (LocalX
+// and LocalY): from its border box, as localPoint; for a Canvas from its
+// content box, which is where the coordinates of its drawing start (ADR-319).
+func (t *Tree) eventPoint(el *Element, p gfx.Point) gfx.Point {
+	l := t.localPoint(el, p)
+	if bx := t.geomBox(el); bx != nil && bx.med != nil && bx.med.cnv != nil {
+		l = l.Sub(bx.med.cnv.origin())
+	}
+	return l
+}
+
 // boxPoint returns the window point p in the coordinates of painted box
 // bx's border box (localPoint).
 func (t *Tree) boxPoint(bx *Box, p gfx.Point) gfx.Point {

@@ -114,6 +114,8 @@ type canvasItem interface {
 	// fontsChanged marks it after a change of the fonts that its text
 	// resolves to.
 	fontsChanged()
+	// origin returns where its drawing starts in its border box.
+	origin() gfx.Point
 	// paint paints what it drew into b, in its content box c; ref is
 	// painter.ref.
 	paint(b *gfx.Builder, c gfx.RRect, ref bool)
@@ -564,6 +566,19 @@ func sameDrawing(a, b *gfx.DisplayList) bool {
 		}
 	}
 	return true
+}
+
+// origin returns the top left corner of the content box, as it is painted
+// (snapped to device pixels), in the border box of the last place.
+func (c *canvasBox) origin() gfx.Point {
+	b, t := c.box, c.set.t
+	if b.pcs == nil || !t.inTree(b) {
+		return gfx.Point{}
+	}
+	p := painter{t: t, scale: float64(t.scale)}
+	g := p.geom(b)
+	r := p.contentRRect(b, &g).Rect
+	return gfx.Point{X: r.X0 - b.u.X0, Y: r.Y0 - b.u.Y0}
 }
 
 // paint paints what the canvas drew in its content box r, clipped to its

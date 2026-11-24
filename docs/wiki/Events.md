@@ -91,7 +91,7 @@ mousedown, pointerup, mouseup, click.
 | Field | Meaning |
 |---|---|
 | `X`, `Y` | Position in the window, in logical pixels |
-| `LocalX`, `LocalY` | Position relative to the border box of the element whose handler runs |
+| `LocalX`, `LocalY` | Position relative to the border box of the element whose handler runs (the content box of a [canvas](Canvas#events-and-hit-testing)) |
 | `Button`, `Buttons` | The button that changed ([`tela.MouseButtonLeft`](https://pkg.go.dev/github.com/kuronosu/tela#MouseButtonLeft), [`tela.MouseButtonRight`](https://pkg.go.dev/github.com/kuronosu/tela#MouseButtonRight), [`tela.MouseButtonMiddle`](https://pkg.go.dev/github.com/kuronosu/tela#MouseButtonMiddle)...) and the set held; `e.Buttons.Has(tela.MouseButtonLeft)` |
 | `Shift`, `Ctrl`, `Alt`, `Meta` | Modifier keys (`Meta` is the Windows, Command or Super key) |
 | `ClickCount` | 1 for a click, 2 for the second click of a double click |

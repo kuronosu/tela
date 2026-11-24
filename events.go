@@ -102,7 +102,8 @@ const (
 // MouseEvent is passed to the mouse handlers (h.OnClick, h.OnMouseDown,
 // h.OnContextMenu...). X and Y are window coordinates in logical pixels;
 // LocalX and LocalY are relative to the border box of the element whose
-// handler runs. ClickCount is 1 for a click, 2 for the second click of a
+// handler runs (of an h.Canvas, to its content box: the coordinates it draws
+// in). ClickCount is 1 for a click, 2 for the second click of a
 // double click. StopPropagation stops the bubbling; PreventDefault marks
 // the event (on h.OnPointerDown it suppresses the press's mouse events,
 // not the click).

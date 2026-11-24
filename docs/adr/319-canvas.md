@@ -11,6 +11,7 @@
 - **Frames:** `RequestFrame` asks for one more draw, at the window's next frame. Without it the canvas is idle. Off screen, or in a window without frames, it waits. `c.Time` and `c.Delta` (`time.Duration`) are the canvas's clock, which stops while it waits; `Delta` is 0 on the first draw and on a second one in the same frame.
 - **State:** the browser's method names over `float64`; its properties are fields (`FillStyle`, `LineWidth`, `GlobalAlpha`...), plus `FillRule` for the argument of `fill` and `clip`. Save and Restore cover them; what is still open when `draw` returns is closed. `FillStyle` and `StrokeStyle` take a `Color`, a `*CanvasGradient` or a `*CanvasPattern`; gradients interpolate in sRGB, as Canvas does.
 - **Style:** the initial fill, stroke and font are the element's (`fill-*`, `stroke-*`, `text-*`, `font-*`); without a fill or stroke class, its text color, not black. `c.Color(token)` reads the theme. `tela.CanvasFont{Family, Size, Weight, Italic}`: a zero field is the element's.
+- **Events:** in a canvas's handlers `LocalX` and `LocalY` are from its content box, where its drawing starts (other elements: the border box).
 - **Compositing:** the 26 operations of Canvas, so `gfx` gets the Porter-Duff ones and a tiled image paint (SVG patterns use it too), on the CPU and the GPU. A canvas is isolated only when an operation or a partial `ClearRect` needs it.
 
 Not covered: pixel access (`UseTexture`), a persistent bitmap (keep the strokes in state), `ctx.filter`, images by asset path, offscreen canvases.

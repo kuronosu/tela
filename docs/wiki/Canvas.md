@@ -175,13 +175,11 @@ layer.
 ## Events and hit testing
 
 Pointer events work on a canvas as on any element (`OnClick`, `OnPointerMove`,
-`OnPointerDown`, `TabIndex`, `OnKeyDown`). `e.LocalX` and `e.LocalY` are in the
-element's coordinates, which is what the drawing uses, with one rule to know: a
-position is measured from the **border box** of the element, and the canvas draws
-from its **content box**. A canvas with a border or padding is off by that much.
-Keep the border, the padding and the background on a box round the canvas
-(`Div(Class("rounded-lg border p-2"), Canvas(..., Class("size-full")))`) and
-the two agree, as in the sketch pad.
+`OnPointerDown`, `TabIndex`, `OnKeyDown`). In the handlers of a canvas
+`e.LocalX` and `e.LocalY` are in the coordinates it draws in: from its content
+box, whatever border and padding it has and however it is transformed, where
+other elements measure from their border box. (`aria.PressEvent`'s are from the
+border box on every element.)
 
 `Path2D.Contains` tells whether a point is inside a path, in the path's
 coordinates and without a draw, which is how a click finds what it hit:

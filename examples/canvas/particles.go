@@ -172,7 +172,7 @@ func (pc ParticlesCard) Build() tela.Node {
 		Action: kit.Button{Variant: kit.Outline, Size: kit.Sm, Icon: icon, Children: Text(label),
 			OnClick: func() { setRunning.Set(!running) }},
 		Children: Div(Class("flex flex-col gap-6"),
-			Div(Class("h-44 w-full overflow-hidden rounded-lg border border-border bg-muted/40"), Canvas(func(c *tela.Canvas) {
+			Canvas(func(c *tela.Canvas) {
 				f := sim.Current
 				f.resize(c.Width, c.Height)
 				if running {
@@ -186,7 +186,7 @@ func (pc ParticlesCard) Build() tela.Node {
 					drawn(f)
 				}
 			},
-				Class("block size-full cursor-crosshair"),
+				Class("block h-44 w-full cursor-crosshair rounded-lg border border-border bg-muted/40"),
 				TestID("particles"), Role("img"), AriaLabel("Particles that follow the pointer"),
 				OnPointerMove(func(e tela.PointerEvent) {
 					ptr.Current = pointer{x: float64(e.LocalX), y: float64(e.LocalY), over: true, down: e.Buttons != 0}
@@ -197,7 +197,7 @@ func (pc ParticlesCard) Build() tela.Node {
 				OnPointerUp(func(e tela.PointerEvent) {
 					ptr.Current = pointer{x: float64(e.LocalX), y: float64(e.LocalY), over: true}
 				}),
-				OnPointerLeave(func() { ptr.Current = pointer{} }))),
+				OnPointerLeave(func() { ptr.Current = pointer{} })),
 			Div(Class("flex h-8 items-center gap-2 text-xs text-muted-foreground"), Role("status"),
 				Span(Class("size-2 rounded-full "+pick(running, "bg-emerald-500", "bg-muted-foreground/50"))),
 				Text(status+pick(running, ": a frame at every vsync.", ": no frames, no CPU.")))),

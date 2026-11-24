@@ -197,32 +197,30 @@ func (sc SketchCard) Build() tela.Node {
 				undo()
 			}
 		}),
-		// The border is on a box round the canvas: a pointer position is
-		// from the border box of the element, and the canvas draws from its
-		// content box, so a canvas with a border would draw 1 px off.
-		Children: Div(Class("h-44 w-full overflow-hidden rounded-lg border border-border bg-muted/40 focus-within:ring-[3px] focus-within:ring-ring/50"),
-			Canvas(func(c *tela.Canvas) { drawStrokes(c, strokes.Get()) },
-				Class("block size-full cursor-crosshair outline-none"),
-				TestID("sketch"), Role("img"), AriaLabel("Sketch pad"), TabIndex(0),
-				OnPointerDown(func(e tela.PointerEvent) {
-					w := width
-					if tool == "eraser" {
-						w *= eraserScale
-					}
-					drawing.Current = true
-					hasInk.Set(true)
-					p := pt{float64(e.LocalX), float64(e.LocalY)}
-					strokes.Update(func(s []stroke) []stroke {
-						return append(slices.Clip(s), stroke{Ink: ink, Width: w, Erase: tool == "eraser", Pts: []pt{p}})
-					})
-				}),
-				OnPointerMove(func(e tela.PointerEvent) {
-					if drawing.Current {
-						add(pt{float64(e.LocalX), float64(e.LocalY)})
-					}
-				}),
-				OnPointerUp(func() { drawing.Current = false }),
-				OnPointerCancel(func() { drawing.Current = false }))),
+		// LocalX and LocalY are where the canvas draws, inside its border.
+		Children: Canvas(func(c *tela.Canvas) { drawStrokes(c, strokes.Get()) },
+			Class("block h-44 w-full cursor-crosshair rounded-lg border border-border bg-muted/40",
+				"outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"),
+			TestID("sketch"), Role("img"), AriaLabel("Sketch pad"), TabIndex(0),
+			OnPointerDown(func(e tela.PointerEvent) {
+				w := width
+				if tool == "eraser" {
+					w *= eraserScale
+				}
+				drawing.Current = true
+				hasInk.Set(true)
+				p := pt{float64(e.LocalX), float64(e.LocalY)}
+				strokes.Update(func(s []stroke) []stroke {
+					return append(slices.Clip(s), stroke{Ink: ink, Width: w, Erase: tool == "eraser", Pts: []pt{p}})
+				})
+			}),
+			OnPointerMove(func(e tela.PointerEvent) {
+				if drawing.Current {
+					add(pt{float64(e.LocalX), float64(e.LocalY)})
+				}
+			}),
+			OnPointerUp(func() { drawing.Current = false }),
+			OnPointerCancel(func() { drawing.Current = false })),
 		Footer: Div(Class("flex flex-wrap items-center gap-x-3 gap-y-2"),
 			tools,
 			kit.ToggleGroup[string]{AriaLabel: "Color", Variant: kit.Outline, Size: kit.Sm, DisallowEmptySelection: true,

@@ -74,6 +74,11 @@ import (
 // the features of its font (tabular-nums). Text is shaped once, however many
 // draws write it.
 //
+// # Events
+//
+// In the handlers of a canvas LocalX and LocalY are in the coordinates it
+// draws in, from its content box: a border or padding does not move them.
+//
 // # Compositing
 //
 // A draw that uses a GlobalCompositeOperation other than the first one, or

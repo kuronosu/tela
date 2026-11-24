@@ -1062,25 +1062,25 @@ type eventPtr[E event] interface {
 }
 
 func (e *MouseEvent) prepare(t *Tree, st *eventState, cur *Element) {
-	l := t.localPoint(cur, gfx.Point{X: e.X, Y: e.Y})
+	l := t.eventPoint(cur, gfx.Point{X: e.X, Y: e.Y})
 	e.st, e.LocalX, e.LocalY = st, l.X, l.Y
 	st.flavor = t.flavor
 }
 
 func (e *PointerEvent) prepare(t *Tree, st *eventState, cur *Element) {
-	l := t.localPoint(cur, gfx.Point{X: e.X, Y: e.Y})
+	l := t.eventPoint(cur, gfx.Point{X: e.X, Y: e.Y})
 	e.st, e.LocalX, e.LocalY = st, l.X, l.Y
 	st.flavor = t.flavor
 }
 
 func (e *DragEvent) prepare(t *Tree, st *eventState, cur *Element) {
-	l := t.localPoint(cur, gfx.Point{X: e.X, Y: e.Y})
+	l := t.eventPoint(cur, gfx.Point{X: e.X, Y: e.Y})
 	e.st, e.LocalX, e.LocalY = st, l.X, l.Y
 	st.flavor = t.flavor
 }
 
 func (e *WheelEvent) prepare(t *Tree, st *eventState, cur *Element) {
-	l := t.localPoint(cur, gfx.Point{X: e.X, Y: e.Y})
+	l := t.eventPoint(cur, gfx.Point{X: e.X, Y: e.Y})
 	e.st, e.LocalX, e.LocalY = st, l.X, l.Y
 	st.flavor = t.flavor
 }

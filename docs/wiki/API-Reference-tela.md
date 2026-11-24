@@ -2261,6 +2261,10 @@ c.FillText("42 %", c.Width/2, c.Height/2)
 
 The direction and the language are the element's (h.Dir, h.Lang), as are the features of its font (tabular-nums). Text is shaped once, however many draws write it.
 
+##### Events
+
+In the handlers of a canvas LocalX and LocalY are in the coordinates it draws in, from its content box: a border or padding does not move them.
+
 ##### Compositing
 
 A draw that uses a GlobalCompositeOperation other than the first one, or clears a part of the canvas with ClearRect, makes the canvas a layer of its own, so that what is behind it is not erased. The others cost no layer.
@@ -5749,7 +5753,7 @@ Has reports whether b is in the set.
 type MouseEvent = core.MouseEvent
 ```
 
-MouseEvent is passed to the mouse handlers (h.OnClick, h.OnMouseDown, h.OnContextMenu...). X and Y are window coordinates in logical pixels; LocalX and LocalY are relative to the border box of the element whose handler runs. ClickCount is 1 for a click, 2 for the second click of a double click. StopPropagation stops the bubbling; PreventDefault marks the event (on h.OnPointerDown it suppresses the press's mouse events, not the click).
+MouseEvent is passed to the mouse handlers (h.OnClick, h.OnMouseDown, h.OnContextMenu...). X and Y are window coordinates in logical pixels; LocalX and LocalY are relative to the border box of the element whose handler runs (of an h.Canvas, to its content box: the coordinates it draws in). ClickCount is 1 for a click, 2 for the second click of a double click. StopPropagation stops the bubbling; PreventDefault marks the event (on h.OnPointerDown it suppresses the press's mouse events, not the click).
 
 `MouseEvent` is an alias of `core.MouseEvent`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
 
@@ -5760,7 +5764,8 @@ type MouseEvent struct {
     X, Y float32
     // LocalX and LocalY are the position relative to the border box of
     // the element whose handler runs (the DOM's currentTarget), in its own
-    // coordinates (its transforms and its ancestors' undone).
+    // coordinates (its transforms and its ancestors' undone). For a Canvas
+    // they are relative to its content box, where its drawing starts.
     LocalX, LocalY float32
     // Button is the button that changed state for a press, release or
     // click; MouseButtonNone for moves, enter and leave.
@@ -6239,8 +6244,8 @@ PointerEvent is passed to the pointer handlers (h.OnPointerDown..., h.OnLongPres
 ```go
 type PointerEvent struct {
     // X and Y are the position in the window, LocalX and LocalY relative
-    // to the border box of the element whose handler runs (see
-    // MouseEvent).
+    // to the border box of the element whose handler runs, or a Canvas's
+    // content box (see MouseEvent).
     X, Y, LocalX, LocalY float32
     // Button is the button that changed state (MouseButtonNone for moves,
     // enter and leave); Buttons the buttons held after the event.
