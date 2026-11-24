@@ -6306,7 +6306,9 @@ It returns ErrTextureClosed once the component unmounted, an error that wraps Er
 func (x *Texture) NextFrame(ctx context.Context) (FrameTime, error)
 ```
 
-NextFrame blocks the calling goroutine until the window that shows the texture starts its next frame, and asks that window for one: a loop of NextFrame, rendering and submitting runs at the window's frame rate and drops nothing, and the window sleeps once the loop stops. Content submitted soon after it returns may still be shown by that frame, and otherwise by the next one.
+NextFrame blocks the calling goroutine until the window that shows the texture has taken what its next frame shows, and asks that window for one: a loop of NextFrame, rendering and submitting runs at the window's frame rate and drops nothing, and the window sleeps once the loop stops. Content submitted after it returns is shown by the frame after that one, at the earliest.
+
+It returns only while no frame of the texture waits or is ready, so a loop whose fences signal after the window's next frame runs at a lower rate instead of dropping frames: one that is to show the latest frame submits without it.
 
 While no element shows the texture on screen (unmounted, display: none, scrolled out of view, a hidden or minimized window) it blocks, and costs nothing. With elements in several windows, the window of the largest one on screen paces it.
 

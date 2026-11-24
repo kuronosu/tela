@@ -459,6 +459,7 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 			ins.prof.spanEnd(span)
 		}
 		h.frame(v, e.Time)
+		t.paceTextures() // a frame that painted nothing
 		if devStateEnabled {
 			if v == h.main {
 				devAfterFrame(h) // tela dev: the state report

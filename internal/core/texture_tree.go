@@ -66,6 +66,10 @@ type texTree struct {
 	frames int
 	// ask: a frame was asked for (askFrame) while one ran.
 	ask bool
+	// pace: the NextFrame calls have not been told of the frame in progress,
+	// which is at paceAt.
+	pace   bool
+	paceAt FrameTime
 }
 
 // updateTexture makes box b of a Texture element show its node's texture,
@@ -177,6 +181,9 @@ func (t *Tree) bindTextures(take bool) {
 				}
 			}
 		}
+	}
+	if take {
+		t.paceTextures()
 	}
 }
 
@@ -441,18 +448,31 @@ func (t *Tree) askFrame() {
 	t.onDirty()
 }
 
-// startTextureFrame tells the NextFrame calls that wait for t's window that
-// a frame of it starts, at ft.
-func (t *Tree) startTextureFrame(ft FrameTime) {
+// startTextureFrame notes that a frame of t's window starts, at ft, for the
+// NextFrame calls that wait for it (paceTextures).
+func (t *Tree) startTextureFrame(ft FrameTime) { t.tex.pace, t.tex.paceAt = true, ft }
+
+// paceTextures tells the NextFrame calls that wait for t's window of the
+// frame in progress, once: after bindTextures took the ready frames, so that
+// what a producer submits next replaces none of them, or, in a frame that
+// paints nothing, at its end. A texture with a frame that waits or is ready
+// is not told: one more would drop it. What ends that state asks for a frame
+// of the window: a frame that becomes ready wakes it (readyViews), and so
+// does one whose wait fails (Texture.finish).
+func (t *Tree) paceTextures() {
+	if !t.tex.pace {
+		return
+	}
+	t.tex.pace = false
 	hold := t.holdTextureFrames() // tests only
 	for _, v := range t.tex.views {
 		x := v.x
 		x.mu.Lock()
 		if x.primary == v {
 			x.asked = false
-			if !hold { // a test's frame that does not pace the producers
+			if !hold && x.mb.pending() == 0 { // hold: a test's frame that does not pace the producers
 				for _, w := range x.waiters {
-					w.ch <- ft // buffered: each one gets one frame
+					w.ch <- t.tex.paceAt // buffered: each one gets one frame
 				}
 				clear(x.waiters)
 				x.waiters = x.waiters[:0]
