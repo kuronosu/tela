@@ -21,4 +21,4 @@ A ref, an effect, a pixel ratio, a resize observer and a cancelled frame callbac
 
 ## Changes
 
-ARCHITECTURE §10, §13. Roadmap: SVG and PDF are a phase of their own.
+`internal/canvas` (the drawing API, over `gfx`, `svg` and `text`; `core` runs it). ARCHITECTURE §5, §10, §13. Roadmap: SVG and PDF are a phase of their own.

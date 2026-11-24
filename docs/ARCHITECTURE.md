@@ -131,6 +131,8 @@ Contributions that break these are rejected.
 ├──────────────┴───────────────┴───────────────┴────────────────┤
 │ internal/style   ComputedStyle, Tailwind parser, theme/tokens │
 ├───────────────────────────────────────────────────────────────┤
+│ internal/canvas  Canvas 2D drawing API → DisplayList (ADR-319)│
+├───────────────────────────────────────────────────────────────┤
 │ internal/text    Fonts, shaping, paragraphs, glyph cache      │
 ├───────────────────────────────────────────────────────────────┤
 │ internal/svg     SVG documents → DisplayList commands         │
@@ -148,7 +150,7 @@ Contributions that break these are rejected.
 A package may only import lower layers. Order, bottom to top:
 
 ```
-platform → gfx → svg → text → style → layout → {anim, gesture, semantics} → core → tela/h → desktop → update → router → oauth → i18n → aria → kit → telatest → cmd/tela
+platform → gfx → svg → text → canvas → style → layout → {anim, gesture, semantics} → core → tela/h → desktop → update → router → oauth → i18n → aria → kit → telatest → cmd/tela
 ```
 
 - `platform` does not know `gfx`; it receives an `*image.RGBA` framebuffer and damage rects.
@@ -178,7 +180,7 @@ tela/
 │   ├── gfx/  gfx/raster/  svg/
 │   ├── gfx/gpu/  vk/     # GPU renderer and its Vulkan bindings, only with the build tag telagpu (ADR-281)
 │   ├── icongen/          # SVG directory -> Go file of tela.Icon variables, behind `tela icons gen` (ADR-102)
-│   ├── text/  style/  layout/  anim/  gesture/  semantics/  core/
+│   ├── text/  canvas/  style/  layout/  anim/  gesture/  semantics/  core/
 │   ├── style/gen/        # go:generate from Tailwind v4 theme (§10)
 │   ├── assets/fonts/     # font files, one package per family (go:embed), imported only by fonts/, internal/stdfonts and tests
 │   ├── assets/hyphen/    # TeX hyphenation patterns, compiled by go:generate into one package per language, imported only by hyphen/ and tests (ADR-270)
