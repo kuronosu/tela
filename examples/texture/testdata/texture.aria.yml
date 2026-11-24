@@ -1,21 +1,21 @@
 - img "A ringed planet the color of sand, turning among stars"
 - text: Still
+- button "Play"
+- group "Speed":
+  - slider "Speed"
+- text: 1× Scene
 - radiogroup "Scene":
   - radio "Planet" [checked]
   - radio "Mountains"
   - radio "Satin"
-- text: Resolution
-- button "100% Resolution": 100%
 - text: Size
 - radiogroup "Size":
   - radio "Small"
   - radio "Medium" [checked]
   - radio "Full"
-- button "Play"
-- text: Speed
-- group "Speed":
-  - slider "Speed"
-- text: 1×
+- text: Resolution
+- button "100% Resolution": 100%
+- text: Drawn by
 - radiogroup "Drawn by":
   - radio "Same GPU" [checked]
   - radio "Another GPU"

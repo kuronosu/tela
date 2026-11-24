@@ -36,8 +36,10 @@ var theme = kit.Theme()
 var App = tela.App{
 	Title:       "Tela — texture",
 	AppID:       "dev.telaui.texture",
-	Width:       960,
-	Height:      760,
+	Width:       1180,
+	Height:      660,
+	MinWidth:    760,
+	MinHeight:   600,
 	Theme:       &theme,
 	ColorScheme: tela.Dark,
 	RootClass:   "bg-background text-foreground",

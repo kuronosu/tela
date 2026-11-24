@@ -12,7 +12,7 @@ import (
 	"github.com/kuronosu/tela/telatest"
 )
 
-const windowW, windowH = 960, 760
+const windowW, windowH = 1180, 660
 
 // mount opens the screen in the window of main. Frames are drawn on a
 // goroutine, so the waits are generous for slow machines.
@@ -40,9 +40,9 @@ func TestGolden(t *testing.T) {
 	}
 }
 
-// TestGoldenSizes is the card that fills the window, in a short window too, the
-// small one, and a frame of a quarter of the size, stretched, in a narrow
-// window.
+// TestGoldenSizes is the scene that fills its side of the window, in a short
+// window too, the small one, and a frame of a quarter of the size, stretched, in
+// the smallest window.
 func TestGoldenSizes(t *testing.T) {
 	for _, c := range []struct {
 		name string
@@ -50,9 +50,9 @@ func TestGoldenSizes(t *testing.T) {
 		w, h float32
 	}{
 		{"full", Demo{Still: true, Size: Full, At: 4 * time.Second}, windowW, windowH},
-		{"short", Demo{Still: true, Scene: Satin, Size: Full, At: 4 * time.Second}, 1100, 560},
-		{"small", Demo{Still: true, Scene: Mountains, Size: Small, At: 4 * time.Second}, 600, windowH},
-		{"narrow", Demo{Still: true, Scene: Satin, Percent: 25, At: 4 * time.Second}, 400, 760},
+		{"short", Demo{Still: true, Scene: Satin, Size: Full, At: 4 * time.Second}, 1400, 600},
+		{"small", Demo{Still: true, Scene: Mountains, Size: Small, At: 4 * time.Second}, windowW, windowH},
+		{"narrow", Demo{Still: true, Scene: Satin, Percent: 25, At: 4 * time.Second}, 760, 600},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			mount(t, c.root, telatest.Size(c.w, c.h)).Golden("texture_" + c.name + "_x1.png")
@@ -60,32 +60,39 @@ func TestGoldenSizes(t *testing.T) {
 	}
 }
 
-// TestSizes mounts the window at other sizes, down to a narrow one: dev mode
-// is on, so any dev message fails the test. The scene leaves room for the
-// controls in a short window, as far as 320 pixels wide, and what does not fit
-// can be scrolled to.
+// TestSizes mounts the window at other sizes, below the smallest one of the
+// app too, which a tiling window manager can give it: dev mode is on, so any
+// dev message fails the test. The controls are on the right of the scene, whole
+// and in the window, and nothing scrolls.
 func TestSizes(t *testing.T) {
 	last := telatest.ByRole("radio", "Software")
-	for _, s := range [][2]float32{{windowW, windowH}, {380, 700}, {1600, 1000}, {1600, 500}, {700, 320}} {
+	for _, s := range [][2]float32{{windowW, windowH}, {760, 600}, {1600, 1000}, {1600, 420}, {720, 360}} {
 		for _, size := range []CardSize{Small, Medium, Full} {
-			a := mount(t, Demo{Still: true, Size: size}, telatest.Size(s[0], s[1]))
+			app := App
+			app.Root, app.MinWidth, app.MinHeight = Demo{Still: true, Size: size}, 0, 0
+			a := telatest.MountApp(t, app, telatest.Size(s[0], s[1]), telatest.Timeout(30*time.Second))
 			what := fmt.Sprintf("%v, %s", s, size)
 			r := a.Bounds(scene(Planet))
-			if r.Height > s[1]-176 && r.Width > 321 {
-				t.Errorf("%s: the scene is %v high", what, r.Height)
-			}
 			if d := r.Width/r.Height - 16.0/9; d < -0.01 || d > 0.01 {
 				t.Errorf("%s: the scene is %v", what, r)
 			}
-			if r.X < 0 || r.X+r.Width > s[0] {
+			if r.X < 0 || r.Y < 0 || r.Y+r.Height > s[1] {
 				t.Errorf("%s: the scene is cut off: %v", what, r)
 			}
-			a.Click(last) // scrolled into view
-			a.Expect(last, telatest.Checked(true))
+			play := a.Bounds(telatest.ByRole("button", "Play"))
 			a.ScrollAt(s[0]/2, s[1]/2, 0, 2000)
-			if r := a.Bounds(telatest.ByText("Frames")); r.Y+r.Height > s[1] {
-				t.Errorf("%s: the numbers are at %v: out of reach", what, r)
+			a.ScrollAt(s[0]-100, s[1]/2, 0, 2000)
+			if a.Bounds(telatest.ByRole("button", "Play")) != play || a.Bounds(scene(Planet)) != r {
+				t.Errorf("%s: the window scrolls", what)
 			}
+			for _, l := range []telatest.Locator{last, telatest.ByRole("button", "Play"), telatest.ByTestID("resolution"), telatest.ByRole("radio", "Satin")} {
+				b := a.Bounds(l)
+				if b.X < r.X+r.Width || b.X+b.Width > s[0] || b.Y < 0 || b.Y+b.Height > s[1] {
+					t.Errorf("%s: %v is at %v, not on the right of the scene (%v)", what, l, b, r)
+				}
+			}
+			a.Click(last)
+			a.Expect(last, telatest.Checked(true))
 		}
 	}
 }
@@ -204,17 +211,17 @@ func TestResolution(t *testing.T) {
 		}
 	}
 	// Combined with a resize, which keeps the share.
-	a.Resize(640, 800)
-	a.ExpectText("885×498 of 1180×664 at scale 2")
+	a.Resize(900, 800)
+	a.ExpectText("747×420 of 996×560 at scale 2")
 	oneFrame(t, a, scene(Planet), "the whole size", func() { resolve(a, 100) })
-	a.ExpectText("1180×664 at scale 2")
+	a.ExpectText("996×560 at scale 2")
 
 	a.Click(play)
 	a.ExpectText("shown")
 	resolve(a, 25)
-	a.ExpectText("295×166 of 1180×664 at scale 2, ")
+	a.ExpectText("249×140 of 996×560 at scale 2, ")
 	resolve(a, 200)
-	a.ExpectText("2360×1328 of 1180×664 at scale 2, ")
+	a.ExpectText("1992×1120 of 996×560 at scale 2, ")
 	a.Click(pause)
 	a.ExpectText("Paused")
 	a.ExpectReleases(1)
@@ -226,9 +233,9 @@ func TestCardSize(t *testing.T) {
 	a := mount(t, Demo{Paused: true, At: 4 * time.Second})
 	a.ExpectText("766×430 at scale 1")
 	oneFrame(t, a, scene(Planet), "full", func() { choose(a, "Full") })
-	a.ExpectText("910×512 at scale 1")
+	a.ExpectText("778×438 at scale 1")
 	oneFrame(t, a, scene(Planet), "half", func() { resolve(a, 50) })
-	a.ExpectText("455×256 of 910×512 at scale 1")
+	a.ExpectText("389×219 of 778×438 at scale 1")
 	oneFrame(t, a, scene(Planet), "small", func() { choose(a, "Small") })
 	a.ExpectText("223×125 of 446×250 at scale 1")
 	oneFrame(t, a, scene(Planet), "medium", func() { choose(a, "Medium") })
@@ -237,13 +244,13 @@ func TestCardSize(t *testing.T) {
 	a.Click(play)
 	a.ExpectText("383×215 of 766×430 at scale 1, ")
 	choose(a, "Full")
-	a.ExpectText("455×256 of 910×512 at scale 1, ")
+	a.ExpectText("389×219 of 778×438 at scale 1, ")
 	resolve(a, 200)
-	a.ExpectText("1820×1024 of 910×512 at scale 1, ")
-	a.Resize(1200, 600) // short: the scene leaves room for the controls
-	a.ExpectText("1508×848 of 754×424 at scale 1, ")
+	a.ExpectText("1556×876 of 778×438 at scale 1, ")
+	a.Resize(1400, 600) // short: the scene is as tall as the window
+	a.ExpectText("1996×1124 of 998×562 at scale 1, ")
 	choose(a, "Small")
-	a.ExpectText("892×502 of 446×251 at scale 1, ")
+	a.ExpectText("892×500 of 446×250 at scale 1, ")
 	a.Click(pause)
 	a.ExpectText("Paused")
 	a.ExpectReleases(1)
@@ -253,8 +260,8 @@ func TestCardSize(t *testing.T) {
 func TestResize(t *testing.T) {
 	a := mount(t, Demo{Paused: true, At: 4 * time.Second})
 	a.ExpectText("766×430 at scale 1")
-	a.Resize(640, 700)
-	a.ExpectText("590×332 at scale 1")
+	a.Resize(800, 700)
+	a.ExpectText("398×224 at scale 1")
 	idle.Zero(t, "texture, resized", idle.Watch(a))
 }
 

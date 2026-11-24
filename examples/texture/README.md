@@ -1,6 +1,6 @@
 # texture
 
-Content that the application renders itself, inside a Tela window (`tela.UseTexture` and `h.Texture`, ADR-315): one of three animated scenes (a ringed planet, mountains in the mist at dusk, folds of satin), drawn by the example's own Vulkan code on the GPU that draws Tela's windows, and composed by Tela as any image: inside a rounded card that clips it, under a label and over controls (the scene, the resolution of its frames, the size of the card, pause, speed, who draws).
+Content that the application renders itself, inside a Tela window (`tela.UseTexture` and `h.Texture`, ADR-315): one of three animated scenes (a ringed planet, mountains in the mist at dusk, folds of satin), drawn by the example's own Vulkan code on the GPU that draws Tela's windows, and composed by Tela as any image: inside a rounded card that clips it, under a label and beside the controls (the scene, the resolution of its frames, the size of the card, pause, speed, who draws).
 
 It is a module of its own (`go.mod` here, with `replace github.com/kuronosu/tela => ../..`): an application with a graphics API of its own. The API is Vulkan, called through purego without cgo, which links a Linux binary to the C library, as Tela's own GPU backend does (ADR-281). Run everything for it from this folder.
 
@@ -16,7 +16,7 @@ It is a module of its own (`go.mod` here, with `replace github.com/kuronosu/tela
 
 **Scenes.** One fragment shader draws all three, which a push constant chooses. The shader and the Go code draw the same pixels, within one level: they are made of sums, products, divisions, square roots and integer hashes, with no sine, exponential or power, which every GPU rounds in its own way. What changes slowly (the folds of the satin, the clouds) is computed every few pixels and interpolated, on both.
 
-**Sizes.** Resolution is the size of the frames, 25% to 200% of the device pixels they are shown at (at least 16 pixels, at most what the device and the texture take); the element's size does not change, and Tela scales the texture into it. Size is the card's: the loop follows it as it follows the window, at the same share. In a short window the scene is narrower than the card, to leave room for the controls below it; what does not fit scrolls.
+**Sizes.** Resolution is the size of the frames, 25% to 200% of the device pixels they are shown at (at least 16 pixels, at most what the device and the texture take); the element's size does not change, and Tela scales the texture into it. Size is the card's: the loop follows it as it follows the window, at the same share. The controls are always on the right of it, and the scene takes what is left of the window, never taller than it: nothing scrolls. The window is at least 760x600; where a window manager makes it shorter, the numbers below the controls are cut off.
 
 **Another GPU.** The second choice draws on a GPU that is not Tela's, from the formats `Texture.Device` lists for foreign memory, which are linear, in system memory: no GPU is sure to reach the memory of another one (NVIDIA's cannot be read by Intel's). NVIDIA draws into no linear image, so there each frame is drawn beside the buffer and copied into it, on the GPU. Where Tela draws with the CPU this choice takes the first GPU there is, and Tela maps and copies its frames.
 
@@ -26,7 +26,7 @@ It is a module of its own (`go.mod` here, with `replace github.com/kuronosu/tela
 
 - With Tela's GPU backend, no copy of a frame leaves the GPU: `CGO_ENABLED=0 go run -tags telagpu .`
 - In software, the same scenes: `CGO_ENABLED=0 go run .`, or the first binary with `TELA_RENDERER=cpu`.
-- Without a window: `CGO_ENABLED=0 go run github.com/kuronosu/tela/cmd/tela snapshot --preview Planet --size 960x760 --scale 2 -o texture.png .` (a still, drawn in software; the other previews are `Mountains` and `Satin`).
+- Without a window: `CGO_ENABLED=0 go run github.com/kuronosu/tela/cmd/tela snapshot --preview Planet --size 1180x660 --scale 2 -o texture.png .` (a still, drawn in software; the other previews are `Mountains` and `Satin`).
 - Tests: `CGO_ENABLED=0 go test ./...`. The goldens (`testdata`) and the aria snapshot need no GPU; regenerate them with `TELA_UPDATE=1`. The Vulkan tests run on every GPU of the system, skip without one, and compare what it drew, read through the mapped dmabuf or from the window, with the software renderer (`TELA_VK_VALIDATE=1` turns on the Khronos validation layer, and objects left alive fail). `go test -tags telagpu ./...` adds the frames imported by Tela's renderer on each GPU, the frames' own and another one. `go test -run xxx -bench .` measures both renderers.
 - The shaders (`scene.frag` includes the others) are compiled with `go generate` (glslangValidator); the `.spv` files are checked in.
 
