@@ -1,6 +1,7 @@
 package gpu
 
 import (
+	"errors"
 	"image"
 	"sync/atomic"
 
@@ -44,6 +45,14 @@ import (
 // pixels, with their budget and their reuse (a frame of a stream takes the
 // texture of the one before it).
 //
+// # Goroutines
+//
+// A Device is used by one goroutine at a time, but an application imports and
+// closes buffers where it likes: Import, ImportFormats, Lost, Imported.Close
+// and Imported.Pixels may be called from any goroutine, also while the
+// device's own draws. Import and Close wait for the Draw in progress, and for
+// nothing else.
+//
 // # Formats
 //
 // 32-bit RGB in sRGB, premultiplied, first row at the top: the fourccs of
@@ -51,6 +60,14 @@ import (
 // alpha is 1.
 //
 // Only the Vulkan device on Linux implements Importer.
+
+// ErrImportUnsupported is wrapped by the errors of Importer.Import for a
+// dmabuf that is what its descriptor says, as far as can be told, and that
+// the device does not take: its format, its modifier, its size, rows it
+// cannot read, memory it cannot reach. A linear one can be read by the CPU.
+// An error without it is a wrong descriptor, or a device that is lost or
+// closed.
+var ErrImportUnsupported = errors.New("the device does not take it")
 
 // DmabufDescriptor describes an image in a dmabuf, as an application hands
 // it over.
@@ -100,9 +117,13 @@ type Identified interface {
 }
 
 // An Importer is a Device that draws dmabufs. A caller asks a Device for it
-// with a type assertion.
+// with a type assertion. Its methods may be called from any goroutine.
 type Importer interface {
 	Identified
+	// Lost reports that the device is lost (ErrDeviceLost): it draws and
+	// imports nothing more, and until Close has returned it may still read
+	// what it was drawing.
+	Lost() bool
 	// ImportFormats returns the pairs of format and modifier Import takes:
 	// own for memory of the same device, the layouts it draws fastest
 	// first, and foreign for memory of another one, which is linear and
@@ -113,8 +134,8 @@ type Importer interface {
 	// Import makes an image of a dmabuf. Whatever a descriptor says, a
 	// wrong one is an error: a size, an offset or a stride that does not
 	// fit the dmabuf, planes the modifier does not have, a descriptor that
-	// is no dmabuf, memory the device cannot reach, a layout the driver
-	// does not take.
+	// is no dmabuf. So is, with ErrImportUnsupported, memory the device
+	// cannot reach and a layout the device or the driver does not take.
 	Import(desc DmabufDescriptor) (*Imported, error)
 }
 
@@ -200,19 +221,17 @@ func (m *Imported) Imported() *Imported { return m }
 
 // Pixels reads the buffer's pixels back through the GPU, as premultiplied
 // RGBA8: what the CPU rasterizer draws when a window of the device falls
-// back to it. It waits for the GPU. It may be called from any goroutine and
-// by several at a time, as the rasterizer's tiles do, also while the
-// device's own goroutine draws; it is nil when the memory or the device is
-// closed, or the device is lost.
+// back to it. It waits for the GPU. It may be called by several goroutines
+// at a time, as the rasterizer's tiles do; it is nil when the memory or the
+// device is closed, or the device is lost.
 func (m *Imported) Pixels() []byte { return m.mem.pixels() }
 
 // Close gives up the memory: the device forgets the buffer, whose
 // descriptors were never its own. It returns once no submitted work of the
 // GPU reads it; on a lost device, whose work may still run, the memory is
 // held until the device is closed. Images of it are then ordinary images
-// without pixels. Like every call into a Device, Import and Close are made
-// on the goroutine that draws with it. Close may be called more than once,
-// and after the device was closed.
+// without pixels. Close may be called more than once, and after the device
+// was closed.
 func (m *Imported) Close() { m.mem.close() }
 
 // opaque reports whether a format has no alpha.

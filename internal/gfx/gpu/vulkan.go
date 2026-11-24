@@ -132,13 +132,19 @@ func selectDevice(devices []vk.DeviceInfo, cfg Config, env string) (int, error) 
 // are copied into one host-visible buffer; frames in flight, with a ring
 // of buffers, come with presenting.
 //
-// One call may come from another goroutine while the device's own draws:
+// Three calls may come from other goroutines while the device's own draws:
+// Import and Imported.Close, which an application makes where it likes, and
 // the read back of an imported buffer (Imported.Pixels, which a tile of the
-// rasterizer asks for). It has a command buffer, a fence and memory of its
-// own, and mu keeps it and the device's submissions apart.
+// rasterizer asks for). The first two wait for a Draw in progress (resMu);
+// the read has a command buffer, a fence and memory of its own, and mu keeps
+// it and the device's submissions apart.
 type vkDevice struct {
+	// resMu is held while the textures and the descriptor sets of images and
+	// imports are made and destroyed: by Draw, Trim, Rest and Close, and by
+	// Import and Imported.Close. It is locked before mu.
+	resMu sync.Mutex
 	// mu is held from the recording of a submission to the end of the wait
-	// for it, and while closed and the state of the imported buffers
+	// for it, and while closed, held and the state of the imported buffers
 	// change.
 	mu sync.Mutex
 
@@ -217,8 +223,8 @@ type vkDevice struct {
 	// said of the imports, asked once (vulkan_import_linux.go).
 	imports map[*vkImported]struct{}
 	importCache
-	// held is what the work of a lost device may still use of the imports:
-	// Close destroys it once nothing runs.
+	// held is what the work of a lost device may still use, destroyed once
+	// Close has waited for it (discard). Under mu.
 	held []func()
 	// windows are the swapchains on windows' surfaces
 	// (vulkan_swapchain_windows.go); nil when the device was created
@@ -241,9 +247,37 @@ type vkDevice struct {
 	quiet int
 	// made counts the images created with newTextureOf, for the tests.
 	made int
-	// waitErr, when set, replaces the result of the wait for a submission:
-	// a test's timeout. Nil outside tests.
-	waitErr func(error) error
+	// waitErr, when set, stands in for the wait for a submission, which is
+	// left in flight: a test's timeout. Nil outside tests.
+	waitErr func() error
+}
+
+// Lost implements Importer.
+func (d *vkDevice) Lost() bool { return d.lost.Load() }
+
+// ImagesMade returns the images created so far, for the tests of the
+// packages above: a frame of a stream creates none.
+func (d *vkDevice) ImagesMade() int { return d.made }
+
+// wait waits for the fence of a submission.
+func (d *vkDevice) wait(fence vk.Fence) error {
+	if d.waitErr != nil {
+		return d.waitErr()
+	}
+	return d.dev.WaitForFences([]vk.Fence{fence}, true, waitTimeout)
+}
+
+// discard destroys what submitted work may use: at once, since every
+// submission was waited for, but on a lost device, whose work may still
+// run, when Close has waited for it.
+func (d *vkDevice) discard(destroy func()) {
+	if !d.lost.Load() {
+		destroy()
+		return
+	}
+	d.mu.Lock()
+	d.held = append(d.held, destroy)
+	d.mu.Unlock()
 }
 
 // check notes an error of a call into the device: a lost device stays
@@ -688,6 +722,8 @@ func (d *vkDevice) MaxTargetSize() int { return d.maxSize }
 // Close destroys the device's objects, the targets it still has, and the
 // instance when Open created it. It may be called more than once.
 func (d *vkDevice) Close() {
+	d.resMu.Lock() // not under an import
+	defer d.resMu.Unlock()
 	if d.closed {
 		return
 	}
@@ -1006,7 +1042,7 @@ func (d *vkDevice) growRamps(rows int) error {
 		})
 	})
 	if err != nil {
-		d.destroyTexture(&t)
+		d.discard(func() { d.destroyTexture(&t) })
 		return err
 	}
 	d.destroyTexture(&d.ramps)
@@ -1125,7 +1161,7 @@ func (d *vkDevice) sizeAtlas(i int, want AtlasInfo) error {
 		})
 	})
 	if err != nil {
-		d.destroyTexture(&t)
+		d.discard(func() { d.destroyTexture(&t) })
 		return err
 	}
 	d.destroyTexture(&a.tex)
@@ -1233,7 +1269,8 @@ func (d *vkDevice) destroyImage(im *vkImage) {
 
 // releaseResources destroys the image textures and the pools they leave
 // empty, and forgets whose resources the device holds: the next frame
-// must bring its own (Frame.Res.Base 0).
+// must bring its own (Frame.Res.Base 0). Nothing is in flight: on a lost
+// device only Close calls it, once it has waited.
 func (d *vkDevice) releaseResources() {
 	for id, im := range d.images {
 		d.destroyImage(im)
@@ -1258,18 +1295,24 @@ func (d *vkDevice) releaseResources() {
 }
 
 // Trim releases the atlases, the image textures, the offscreen targets and
-// the buffers of uploads and readbacks.
+// the buffers of uploads and readbacks. On a lost device, whose work may
+// still read them, Close does.
 func (d *vkDevice) Trim() {
-	if d.closed || d.dev == nil {
+	d.resMu.Lock()
+	defer d.resMu.Unlock()
+	d.trim()
+}
+
+func (d *vkDevice) trim() {
+	if d.closed || d.dev == nil || d.lost.Load() {
 		return
 	}
 	d.releaseResources()
 	for i := range d.atlases {
-		if d.lost.Load() {
-			break // nothing can be submitted; Close destroys the atlases
-		}
 		// An error keeps the atlas as it is: its pixels are not read again.
-		_ = d.sizeAtlas(i, AtlasInfo{})
+		if _ = d.sizeAtlas(i, AtlasInfo{}); d.lost.Load() {
+			return // the last one may be read still
+		}
 	}
 	d.destroyBuffer(&d.staging)
 	d.destroyBuffer(&d.readback)
@@ -1279,23 +1322,27 @@ func (d *vkDevice) Trim() {
 // Rest applies a frame of Encoder.Rest and releases the device's own
 // transient memory.
 func (d *vkDevice) Rest(f *Frame) error {
+	d.resMu.Lock()
+	defer d.resMu.Unlock()
 	if err := d.usable(); err != nil {
 		return err
 	}
 	if f == nil || len(f.Passes) > 0 || f.Res.ID != d.resID || f.Res.Base != d.resSerial {
-		d.Trim()
+		d.trim()
 		return ErrResourcesLost
 	}
 	for i := range f.Atlases {
 		if err := d.sizeAtlas(i, f.Atlases[i]); err != nil {
-			d.Trim()
-			return d.check(fmt.Errorf("gpu: %w", err))
+			err = d.check(fmt.Errorf("gpu: %w", err))
+			d.trim()
+			return err
 		}
 	}
 	d.resetSourceSets()
 	if err := d.syncTargets(f.Targets); err != nil {
-		d.Trim()
-		return d.check(err)
+		err = d.check(err)
+		d.trim()
+		return err
 	}
 	d.release(f.Releases)
 	d.dropSpare()
@@ -1353,11 +1400,7 @@ func (d *vkDevice) submitWith(wait vk.Semaphore, waitStage vk.PipelineStageFlags
 	// CPU rasterizer and closes the device, whose Close waits for the
 	// queue before it destroys anything. The same for a fence that cannot
 	// be reset, which the next submission could not use.
-	err := dev.WaitForFences([]vk.Fence{d.fence}, true, waitTimeout)
-	if d.waitErr != nil {
-		err = d.waitErr(err)
-	}
-	if err != nil {
+	if err := d.wait(d.fence); err != nil {
 		d.lost.Store(true)
 		return fmt.Errorf("%w: waiting for the frame: %w", ErrDeviceLost, err)
 	}
@@ -1556,7 +1599,7 @@ func (d *vkDevice) NewTarget(width, height int) (Target, error) {
 		d.use(cb, t.surf, vk.ImageLayoutTransferSrcOptimal)
 	})
 	if err != nil {
-		t.destroy()
+		d.discard(t.destroy)
 		return nil, d.check(err)
 	}
 	d.targets[t] = struct{}{}
@@ -1566,10 +1609,11 @@ func (d *vkDevice) NewTarget(width, height int) (Target, error) {
 func (t *vkTarget) Size() image.Point { return t.size }
 func (t *vkTarget) Device() Device    { return t.owner }
 
-// Close destroys the target. It may be called more than once, and after
+// Close destroys the target, or leaves it to the Close of a lost device,
+// whose work may still use it. It may be called more than once, and after
 // the device was closed.
 func (t *vkTarget) Close() {
-	if t.d == nil || t.d.closed {
+	if t.d == nil || t.d.closed || t.d.lost.Load() {
 		return
 	}
 	delete(t.d.targets, t)
@@ -1599,6 +1643,11 @@ func (t *vkTarget) usable() error {
 
 func (t *vkTarget) Draw(f *Frame) error {
 	d := t.d
+	if d == nil {
+		return t.usable()
+	}
+	d.resMu.Lock()
+	defer d.resMu.Unlock()
 	if err := t.usable(); err != nil {
 		return err
 	}
@@ -1613,10 +1662,13 @@ func (t *vkTarget) Draw(f *Frame) error {
 		// A frame that brings everything it draws with: start from it.
 		d.releaseResources()
 	}
-	if err := d.draw(t, f); err != nil {
-		// What the frame left on the device is not known.
-		d.releaseResources()
-		return d.check(err)
+	if err := d.check(d.draw(t, f)); err != nil {
+		// What the frame left on the device is not known. On a lost device
+		// it may be read still: it waits for Close.
+		if !d.lost.Load() {
+			d.releaseResources()
+		}
+		return err
 	}
 	d.resID, d.resSerial = f.Res.ID, f.Res.Next
 	return nil

@@ -7,6 +7,7 @@ import (
 	"image"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -72,7 +73,10 @@ import (
 // the next one.
 //
 // An image has no mip levels and states its opacity (gfx.NewImageNoCopy), so
-// no cache keyed by image ID grows with the frames.
+// no cache keyed by image ID grows with the frames; those of a texture are a
+// stream (gfx.NewStreamImage), so the GPU holds one image for all of them.
+// The GPU reads a frame while it draws the list that holds it, as above: what
+// it adds is in gputexture.go.
 //
 // # Release
 //
@@ -85,8 +89,9 @@ import (
 var ErrTextureClosed = errors.New("tela: the texture is closed: the component that called UseTexture unmounted")
 
 // ErrTextureUnsupported is wrapped by the errors of Texture.Import for
-// memory, formats and modifiers that cannot be shown, and returned by the
-// Fence of SyncFile where sync files do not exist.
+// memory, formats and modifiers that cannot be shown, by those of
+// Texture.Submit for a buffer that cannot be shown any more, and by that of
+// the Fence of SyncFile where sync files do not exist.
 var ErrTextureUnsupported = errors.New("tela: not supported by textures here")
 
 // Texture is a handle on content that the application renders itself,
@@ -98,6 +103,9 @@ type Texture struct {
 	owner *Tree
 	host  *Host
 	ui    uint64
+	// stream names the texture among the streams of images (gfx.Image.Stream):
+	// a frame takes the texture of the one before it.
+	stream uint64
 
 	mu     sync.Mutex
 	mb     texMailbox
@@ -140,6 +148,9 @@ type texRelease struct {
 // the frames it can hold besides the one shown.
 const texMaxSpare = 3
 
+// texStreams numbers the textures of the process, from 1 (Texture.stream).
+var texStreams atomic.Uint64
+
 // UseTexture returns a Texture, the same on every build, that is closed
 // when the component unmounts.
 func UseTexture() *Texture {
@@ -148,7 +159,7 @@ func UseTexture() *Texture {
 		return x
 	}
 	t := el.tree
-	x := &Texture{owner: t, ui: goid()}
+	x := &Texture{owner: t, ui: goid(), stream: texStreams.Add(1)}
 	if t.wv != nil {
 		x.host = t.wv.host
 	}
@@ -237,7 +248,7 @@ func (x *Texture) SubmitImage(img *image.RGBA, release func()) error {
 		}
 		pix = f.pix
 	}
-	f.img = gfx.NewImageNoCopy(w, h, pix[:4*w*h:4*w*h], false)
+	f.img = gfx.NewStreamImage(w, h, pix[:4*w*h:4*w*h], false, x.stream)
 	return x.submit(f, nil)
 }
 
@@ -318,10 +329,11 @@ type TextureFrame struct {
 // one that is free, or about to be. A producer that must drop nothing paces
 // itself with NextFrame. Stats counts the frames.
 //
-// It returns ErrTextureClosed once the component unmounted, and an error for
-// a buffer that is closed, of another texture, or still held by an earlier
-// frame (its Release has not been called). On an error the Release of f is
-// still called, and its Fence is not waited for.
+// It returns ErrTextureClosed once the component unmounted, an error that
+// wraps ErrTextureUnsupported for a buffer that only a GPU which is gone could
+// read (Import), and an error for a buffer that is closed, of another texture,
+// or still held by an earlier frame (its Release has not been called). On an
+// error the Release of f is still called, and its Fence is not waited for.
 func (x *Texture) Submit(buf *TextureBuffer, f TextureFrame) error {
 	f.Release, f.Fence = x.hookRelease(f.Release), x.hookFence(f.Fence) // tests only
 	switch {
@@ -348,6 +360,10 @@ func (x *Texture) submit(f *texFrame, fence Fence) error {
 	case b != nil && b.held:
 		err = errors.New("tela: Texture.Submit: the buffer is still held by an earlier frame; draw into another one until its Release is called")
 	}
+	var mem textureReader
+	if err == nil && f.buf != nil {
+		mem, err = f.buf.reader()
+	}
 	if err != nil {
 		if f.pix != nil {
 			x.recycle(f.pix)
@@ -359,7 +375,7 @@ func (x *Texture) submit(f *texFrame, fence Fence) error {
 	f.at, f.refs = time.Now(), 1
 	if f.buf != nil {
 		f.buf.held = true
-		if fence == nil && f.buf.mem == nil {
+		if fence == nil && mem == nil {
 			f.img = f.buf.image() // the device reads the memory itself
 		}
 	}
@@ -390,7 +406,11 @@ func (x *Texture) await(ctx context.Context, f *texFrame, fence Fence) {
 		closeFence(fence)
 	}
 	var pix []byte
-	if err == nil && f.buf.mem != nil {
+	var mem textureReader
+	if err == nil {
+		mem, err = f.buf.reader()
+	}
+	if mem != nil {
 		x.mu.Lock()
 		if f.state != texWaiting {
 			x.mu.Unlock()
@@ -399,7 +419,7 @@ func (x *Texture) await(ctx context.Context, f *texFrame, fence Fence) {
 		f.reading = true
 		x.mu.Unlock()
 		pix = x.pixels(4 * f.w * f.h)
-		err = f.buf.mem.read(pix)
+		err = mem.read(pix)
 	}
 	x.finish(f, pix, err)
 }
@@ -436,7 +456,7 @@ func (x *Texture) finish(f *texFrame, pix []byte, err error) {
 	}
 	if pix != nil {
 		f.pix = pix
-		f.img = gfx.NewImageNoCopy(f.w, f.h, pix, f.opaque)
+		f.img = gfx.NewStreamImage(f.w, f.h, pix, f.opaque, x.stream)
 	} else {
 		f.img = f.buf.image()
 	}
@@ -616,6 +636,9 @@ func (x *Texture) isClosed() bool {
 // close ends the texture: its frames are let go as soon as the windows that
 // show it stop drawing them, and its buffers are closed. UI thread.
 func (x *Texture) close() {
+	if x.host != nil {
+		x.host.endLostGPU() // before the frame shown may be let go
+	}
 	x.mu.Lock()
 	if x.closed {
 		x.mu.Unlock()
@@ -844,9 +867,10 @@ type TextureFormat struct {
 // the application renders on the same one, with a format it imports. The
 // identities a device does not have are zero.
 type TextureDevice struct {
-	// GPU reports that Tela draws with a GPU and imports its memory: an
-	// imported buffer is then sampled without a copy. Without it, the pixels
-	// of an imported buffer are copied for every frame.
+	// GPU reports that Tela draws with a GPU that imports memory: an imported
+	// buffer is then sampled where it lies, or copied on the GPU when it
+	// cannot be (rows behind a discrete GPU's bus, mostly). Without it, the
+	// pixels of an imported buffer are copied by the CPU for every frame.
 	GPU bool
 	// Name is the device's name, and VendorID and DeviceID its PCI IDs.
 	Name               string
@@ -867,7 +891,8 @@ type TextureDevice struct {
 	MetalRegistryID uint64
 	// Formats are the formats Texture.Import takes for memory allocated on
 	// this device, the preferred ones first, and ForeignFormats those for
-	// memory of any other one.
+	// memory of any other one, which must be memory this device can reach
+	// (system memory) or that can be mapped.
 	Formats, ForeignFormats []TextureFormat
 }
 
@@ -875,11 +900,21 @@ type TextureDevice struct {
 // (a default build, or the CPU rasterizer chosen or fallen back to) it has
 // no identity but MetalRegistryID, and its formats are those Import maps and
 // copies: AR24, XR24, AB24 and XB24 in linear memory on Linux, 'BGRA' and
-// 'RGBA' on macOS, none on Windows. The GPU opens with the first window: call
-// it in an effect or a goroutine, not in a build.
+// 'RGBA' on macOS, none on Windows. A GPU that imports nothing (Windows) has
+// its identity alone.
+//
+// The GPU opens with the first window: call it in an effect or a goroutine,
+// not in a build. The answer changes when the device is lost, or when the
+// GPU failed for every window: ask again when Import or Submit returns an
+// error that wraps ErrTextureUnsupported.
 func (x *Texture) Device() TextureDevice {
 	if imp := x.importer(); imp != nil {
 		return imp.textureDevice()
 	}
+	return copyTextureDevice()
+}
+
+// copyTextureDevice is what Device says without a GPU that imports.
+func copyTextureDevice() TextureDevice {
 	return TextureDevice{MetalRegistryID: metalRegistryID(), Formats: mappedFormats(), ForeignFormats: mappedFormats()}
 }

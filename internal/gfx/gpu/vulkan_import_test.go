@@ -371,6 +371,9 @@ func TestImportForeignVideoMemory(t *testing.T) {
 		m, err := win.Import(b.desc())
 		d := time.Since(t0)
 		t.Logf("%s -> %s: %v in %v", app.Name(), win.Name(), err, d)
+		if err != nil && !errors.Is(err, ErrImportUnsupported) {
+			t.Errorf("memory the device cannot reach is not a wrong descriptor: %v", err)
+		}
 		if d > 2*time.Second {
 			t.Errorf("the import took %v", d)
 		}
@@ -473,8 +476,16 @@ func TestImportStrides(t *testing.T) {
 }
 
 // TestImportMalformed hands the device descriptors that are wrong in every
-// way: each is an error, and the device draws on.
+// way: each is an error, which tells what the device does not take from what
+// is wrong, and the device draws on.
 func TestImportMalformed(t *testing.T) {
+	// wrong: the descriptor. refused: the device does not take it
+	// (ErrImportUnsupported). either: it depends on the layout.
+	const (
+		wrong = iota
+		refused
+		either
+	)
 	eachPair(t, onGPU, func(t *testing.T, app, win *vkDevice) {
 		const w, h = 160, 100
 		var r Renderer
@@ -518,51 +529,52 @@ func TestImportMalformed(t *testing.T) {
 			fds := openFDs(t)
 			for _, c := range []struct {
 				name string
+				what int
 				edit func(d *DmabufDescriptor)
 			}{
-				{"no size", func(d *DmabufDescriptor) { d.Width, d.Height = 0, 0 }},
-				{"a negative size", func(d *DmabufDescriptor) { d.Width = -w }},
-				{"wider than its stride", func(d *DmabufDescriptor) { d.Width = int(d.Planes[0].Stride)/4 + 1 }},
-				{"twice as high", func(d *DmabufDescriptor) { d.Height = 100 * h }},
-				{"larger than any texture", func(d *DmabufDescriptor) { d.Width, d.Height = 1<<20, 1<<20 }},
-				{"an overflowing size", func(d *DmabufDescriptor) { d.Width, d.Height = 1<<62, 1<<62 }},
-				{"no format", func(d *DmabufDescriptor) { d.Fourcc = 0 }},
-				{"NV12", func(d *DmabufDescriptor) { d.Fourcc = 0x3231564e }},
-				{"an implicit modifier", func(d *DmabufDescriptor) { d.Modifier = ModifierInvalid }},
-				{"an unknown modifier", func(d *DmabufDescriptor) { d.Modifier = 0x7f00000000000123 }},
-				{"no planes", func(d *DmabufDescriptor) { d.Planes = nil }},
-				{"a plane more", func(d *DmabufDescriptor) { d.Planes = append(d.Planes, d.Planes[0]) }},
-				{"five planes", func(d *DmabufDescriptor) {
+				{"no size", wrong, func(d *DmabufDescriptor) { d.Width, d.Height = 0, 0 }},
+				{"a negative size", wrong, func(d *DmabufDescriptor) { d.Width = -w }},
+				{"wider than its stride", wrong, func(d *DmabufDescriptor) { d.Width = int(d.Planes[0].Stride)/4 + 1 }},
+				{"twice as high", wrong, func(d *DmabufDescriptor) { d.Height = 100 * h }},
+				{"larger than any texture", refused, func(d *DmabufDescriptor) { d.Width, d.Height = 1<<20, 1<<20 }},
+				{"an overflowing size", refused, func(d *DmabufDescriptor) { d.Width, d.Height = 1<<62, 1<<62 }},
+				{"no format", refused, func(d *DmabufDescriptor) { d.Fourcc = 0 }},
+				{"NV12", refused, func(d *DmabufDescriptor) { d.Fourcc = 0x3231564e }},
+				{"an implicit modifier", refused, func(d *DmabufDescriptor) { d.Modifier = ModifierInvalid }},
+				{"an unknown modifier", refused, func(d *DmabufDescriptor) { d.Modifier = 0x7f00000000000123 }},
+				{"no planes", wrong, func(d *DmabufDescriptor) { d.Planes = nil }},
+				{"a plane more", wrong, func(d *DmabufDescriptor) { d.Planes = append(d.Planes, d.Planes[0]) }},
+				{"five planes", wrong, func(d *DmabufDescriptor) {
 					d.Planes = []DmabufPlane{d.Planes[0], d.Planes[0], d.Planes[0], d.Planes[0], d.Planes[0]}
 				}},
-				{"no descriptor", func(d *DmabufDescriptor) { d.Planes[0].FD = -1 }},
-				{"a closed descriptor", func(d *DmabufDescriptor) { d.Planes[0].FD = closed }},
-				{"a file", func(d *DmabufDescriptor) { d.Planes[0].FD = int(file.Fd()) }},
-				{"a memfd", func(d *DmabufDescriptor) { d.Planes[0].FD = memfd }},
-				{"no stride", func(d *DmabufDescriptor) { d.Planes[0].Stride = 0 }},
-				{"a stride shorter than a row", func(d *DmabufDescriptor) { d.Planes[0].Stride = 4*w - 4 }},
-				{"a stride of no whole pixels", func(d *DmabufDescriptor) { d.Planes[0].Stride += 2 }},
-				{"a huge stride", func(d *DmabufDescriptor) { d.Planes[0].Stride = 1<<32 - 4 }},
-				{"a stride that does not fit", func(d *DmabufDescriptor) { d.Planes[0].Stride *= 4 }},
-				{"an offset at the end", func(d *DmabufDescriptor) { d.Planes[0].Offset = uint32(size) }},
-				{"an offset near the end", func(d *DmabufDescriptor) { d.Planes[0].Offset = uint32(size) - 4096 }},
-				{"a huge offset", func(d *DmabufDescriptor) { d.Planes[0].Offset = 1<<32 - 4 }},
-				{"an odd offset", func(d *DmabufDescriptor) { d.Planes[0].Offset = 3 }},
-				{"the second plane's offset", func(d *DmabufDescriptor) {
+				{"no descriptor", wrong, func(d *DmabufDescriptor) { d.Planes[0].FD = -1 }},
+				{"a closed descriptor", wrong, func(d *DmabufDescriptor) { d.Planes[0].FD = closed }},
+				{"a file", wrong, func(d *DmabufDescriptor) { d.Planes[0].FD = int(file.Fd()) }},
+				{"a memfd", wrong, func(d *DmabufDescriptor) { d.Planes[0].FD = memfd }},
+				{"no stride", wrong, func(d *DmabufDescriptor) { d.Planes[0].Stride = 0 }},
+				{"a stride shorter than a row", wrong, func(d *DmabufDescriptor) { d.Planes[0].Stride = 4*w - 4 }},
+				{"a stride of no whole pixels", either, func(d *DmabufDescriptor) { d.Planes[0].Stride += 2 }},
+				{"a huge stride", wrong, func(d *DmabufDescriptor) { d.Planes[0].Stride = 1<<32 - 4 }},
+				{"a stride that does not fit", wrong, func(d *DmabufDescriptor) { d.Planes[0].Stride *= 4 }},
+				{"an offset at the end", wrong, func(d *DmabufDescriptor) { d.Planes[0].Offset = uint32(size) }},
+				{"an offset near the end", wrong, func(d *DmabufDescriptor) { d.Planes[0].Offset = uint32(size) - 4096 }},
+				{"a huge offset", wrong, func(d *DmabufDescriptor) { d.Planes[0].Offset = 1<<32 - 4 }},
+				{"an odd offset", either, func(d *DmabufDescriptor) { d.Planes[0].Offset = 3 }},
+				{"the second plane's offset", wrong, func(d *DmabufDescriptor) {
 					if len(d.Planes) < 2 {
 						d.Planes = nil
 						return
 					}
 					d.Planes[1].Offset += 100 << 20
 				}},
-				{"the second plane's stride", func(d *DmabufDescriptor) {
+				{"the second plane's stride", either, func(d *DmabufDescriptor) {
 					if len(d.Planes) < 2 || validating() { // Mesa writes a warning
 						d.Planes = nil
 						return
 					}
 					d.Planes[1].Stride = 1
 				}},
-				{"planes of two dmabufs", func(d *DmabufDescriptor) {
+				{"planes of two dmabufs", either, func(d *DmabufDescriptor) {
 					if len(d.Planes) < 2 {
 						d.Planes = nil
 						return
@@ -581,6 +593,9 @@ func TestImportMalformed(t *testing.T) {
 				}
 				if errors.Is(err, ErrDeviceLost) || win.usable() != nil {
 					t.Fatalf("%#x, %s: the device is lost: %v", f.Modifier, c.name, err)
+				}
+				if errors.Is(err, ErrImportUnsupported) != (c.what == refused) && c.what != either {
+					t.Errorf("%#x, %s: what the device does not take, or a wrong descriptor? %v", f.Modifier, c.name, err)
 				}
 				t.Logf("%#x, %s: %v", f.Modifier, c.name, err)
 			}

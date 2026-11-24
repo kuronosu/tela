@@ -3,6 +3,7 @@
 package vk
 
 import (
+	"errors"
 	"fmt"
 	"unsafe"
 
@@ -34,6 +35,10 @@ type ImportedMemory struct {
 	// behind its bus.
 	Local bool
 }
+
+// ErrDmabufLayout is wrapped by the error of [Device.ImportDmabufImage] for
+// a layout the driver does not read as it was described.
+var ErrDmabufLayout = errors.New("not the driver's layout")
 
 // ImportDmabufImage creates a 2D image with one mip level and one layer
 // over a dmabuf, at the offsets and strides of its planes. mem are the
@@ -92,15 +97,15 @@ func (d *Device) ImportDmabufImage(mem *PhysicalDeviceMemoryProperties, l *Dmabu
 	// Where the driver finds the planes, and all it reads.
 	req := d.GetImageMemoryRequirements(out.Image)
 	if req.Size > l.Size {
-		return fail("checking the layout", fmt.Errorf("the image needs %d bytes, the dmabuf has %d", req.Size, l.Size))
+		return fail("checking the layout", fmt.Errorf("%w: the image needs %d bytes, the dmabuf has %d", ErrDmabufLayout, req.Size, l.Size))
 	}
 	for i := range layouts {
 		p := d.GetImageSubresourceLayout(out.Image, &ImageSubresource{AspectMask: ImageAspectMemoryPlane0EXT << i})
 		if p.Offset != l.Planes[i].Offset || p.RowPitch != l.Planes[i].Stride {
-			return fail("checking the layout", fmt.Errorf("plane %d is read with the stride %d at the offset %d, not with %d at %d", i, p.RowPitch, p.Offset, l.Planes[i].Stride, l.Planes[i].Offset))
+			return fail("checking the layout", fmt.Errorf("%w: plane %d is read with the stride %d at the offset %d, not with %d at %d", ErrDmabufLayout, i, p.RowPitch, p.Offset, l.Planes[i].Stride, l.Planes[i].Offset))
 		}
 		if p.Offset > req.Size || p.Size > req.Size-p.Offset {
-			return fail("checking the layout", fmt.Errorf("plane %d is %d bytes at %d, the image's memory is %d bytes", i, p.Size, p.Offset, req.Size))
+			return fail("checking the layout", fmt.Errorf("%w: plane %d is %d bytes at %d, the image's memory is %d bytes", ErrDmabufLayout, i, p.Size, p.Offset, req.Size))
 		}
 	}
 	dedicated := &MemoryDedicatedAllocateInfo{SType: StructureTypeMemoryDedicatedAllocateInfo, Image: out.Image}

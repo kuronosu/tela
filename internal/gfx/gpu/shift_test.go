@@ -219,16 +219,12 @@ func TestWaitTimeout(t *testing.T) {
 				}
 				d := dev.(*vkDevice)
 				waits := 0
-				d.waitErr = func(err error) error {
-					// The submission did finish (the fence is signaled): the
-					// wait says it did not, as one that timed out does.
+				d.waitErr = func() error {
+					// Nobody waited: the submission is in flight, as one that
+					// timed out.
 					waits++
-					if err != nil {
-						return err
-					}
 					return vk.Timeout
 				}
-				defer func() { d.waitErr = nil }()
 				switch op {
 				case "Render":
 					_, err = r.Render(target, regionScene(), Options{Clear: &gfx.Black})

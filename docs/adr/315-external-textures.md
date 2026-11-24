@@ -17,7 +17,7 @@
 
 **Pixels:** 8-bit RGB in sRGB, premultiplied, first row at the top: `image.RGBA`, and the fourccs AR24, XR24, AB24, XB24. Anything else is an error that says so. NV12 goes to Audio and video.
 
-**Which device:** `Device()` names it (DRM render node, Vulkan UUID, LUID, Metal registry ID) with the pairs of fourcc and modifier Tela's renderer imports (not the compositor's: Tela composes the frame), also those from another GPU. Without the GPU backend, linear dmabufs and IOSurfaces are mapped and copied. An IOSurface's format is its OSType (`'BGRA'`, `'RGBA'`; modifier 0); Tela retains it and does not raise its use count. Windows imports wait for a machine to run them on: pixels only.
+**Which device:** `Device()` names it (DRM render node, Vulkan UUID, LUID, Metal registry ID) with the pairs of fourcc and modifier Tela's renderer imports (not the compositor's: Tela composes the frame), also those from another GPU. Without the GPU backend, linear dmabufs and IOSurfaces are mapped and copied. So are the linear buffers of a GPU that is lost; `Submit` refuses its others (`ErrTextureUnsupported`). An IOSurface's format is its OSType (`'BGRA'`, `'RGBA'`; modifier 0); Tela retains it and does not raise its use count. Windows imports wait for a machine to run them on: pixels only.
 
 Not covered: uncapped frame rates, variable refresh, tearing, direct scanout, several textures in one swapchain.
 

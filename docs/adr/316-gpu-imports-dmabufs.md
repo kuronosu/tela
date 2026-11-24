@@ -10,6 +10,7 @@ An optional device interface, `gpu.Importer`: `DeviceID`, `ImportFormats` (pairs
 - **Ownership:** each `Target.Draw` takes the buffer from the foreign queue family (general layout) and gives it back in one submission it waits for. After Draw the GPU reads nothing; after `ErrDeviceLost`, once `Device.Close` returned.
 - **Sampled or copied:** linear rows the device does not sample as they lie, or that are behind a discrete GPU's bus, are copied on the GPU once per frame. Everything else is sampled where it lies.
 - **A wrong descriptor is an error, never a lost device:** it is checked against the dmabuf, and the driver's account of the image against it; on i915 the pages of a foreign dmabuf are asked for first.
+- **Goroutines:** `Import` and `Imported.Close` run where the application calls them, beside the device's own goroutine, and wait for a `Draw` in progress only. Handing them to the UI thread would deadlock with an `OnResize` that waits for the goroutine that imports. What the device does not take wraps `ErrImportUnsupported`, and core maps it when it is linear.
 - **Streams:** an image of `gfx.NewStreamImage` gives up the textures of those before it, and a frame's new images take them.
 
 ## Why
