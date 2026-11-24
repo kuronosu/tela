@@ -18,6 +18,8 @@ It is a module of its own (`go.mod` here, with `replace github.com/kuronosu/tela
 
 **Sizes.** Resolution is the size of the frames, 25% to 200% of the device pixels they are shown at (at least 16 pixels, at most what the device and the texture take); the element's size does not change, and Tela scales the texture into it. Size is the card's: the loop follows it as it follows the window, at the same share. The controls are always on the right of it, and the scene takes what is left of the window, never taller than it: nothing scrolls. The window is at least 760x600; where a window manager makes it shorter, the numbers below the controls are cut off.
 
+**Reduced motion.** Where the system asks for it (`tela.UseReducedMotion`) the scene starts as a still drawn once in software, with no loop, until Play.
+
 **Another GPU.** The second choice draws on a GPU that is not Tela's, from the formats `Texture.Device` lists for foreign memory, which are linear, in system memory: no GPU is sure to reach the memory of another one (NVIDIA's cannot be read by Intel's). NVIDIA draws into no linear image, so there each frame is drawn beside the buffer and copied into it, on the GPU. Where Tela draws with the CPU this choice takes the first GPU there is, and Tela maps and copies its frames.
 
 **Ending.** When the component unmounts, or another choice replaces the painter, the loop ends and its painter waits until Tela let go of every buffer (the shown one when another frame replaces it), then frees them and closes the device.

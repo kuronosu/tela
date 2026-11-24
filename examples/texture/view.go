@@ -52,7 +52,10 @@ var percents = []int{25, 50, 75, 100, 200}
 
 func (d Demo) Build() tela.Node {
 	tex := tela.UseTexture()
-	paused, setPaused := tela.UseState(d.Paused || d.Still)
+	// With reduced motion the scene starts as a still, until Play.
+	calm, setCalm := tela.UseState(tela.UseReducedMotion() && !d.Still)
+	still := d.Still || calm
+	paused, setPaused := tela.UseState(d.Paused || still)
 	speed, setSpeed := tela.UseState(1.0)
 	mode, setMode := tela.UseState(Auto)
 	status := tela.UseValue(Status{Still: d.Still})
@@ -61,26 +64,26 @@ func (d Demo) Build() tela.Node {
 	size, setSize := tela.UseState(cmp.Or(d.Size, Medium))
 	ctl := tela.UseOnce(func() *controls { return newControls(d.At, picture{scene, percent}) })
 
-	still := func(size tela.TextureSize) {
+	drawn := func(size tela.TextureSize) {
 		if w, h, ok := drawStill(tex, size, ctl.picture(), d.At); ok {
-			status.Set(Status{Still: true, Device: "the CPU", Painter: softwareName, Size: size, Width: w, Height: h})
+			status.Set(Status{Still: d.Still, Device: deviceName(tex.Device()), Painter: softwareName, Size: size, Width: w, Height: h})
 		}
 	}
 	tela.UseLayoutEffect(func() func() {
 		tex.OnResize(func(size tela.TextureSize) {
-			if d.Still {
-				still(size)
+			if still {
+				drawn(size)
 				return
 			}
 			ctl.changed()
 		})
 		return nil
-	}, tela.Once)
+	}, still)
 	tela.UseEffect(func() func() {
 		if pic := (picture{scene, percent}); pic != ctl.picture() {
 			ctl.show(pic)
-			if d.Still {
-				still(tex.Size())
+			if still {
+				drawn(tex.Size())
 			}
 		}
 		return nil
@@ -91,10 +94,10 @@ func (d Demo) Build() tela.Node {
 	}, paused, speed)
 	// The loop draws with one renderer; another choice starts another.
 	tela.UseGo(func(ctx context.Context) {
-		if !d.Still {
+		if !still {
 			stream(ctx, tex, ctl, mode, status.Set)
 		}
-	}, mode)
+	}, mode, still)
 
 	row := func(label string, value func(Status) string) tela.Node {
 		return Div(
@@ -114,7 +117,7 @@ func (d Demo) Build() tela.Node {
 		Div(Class("flex w-88 shrink-0 flex-col overflow-hidden rounded-3xl border border-border bg-card text-sm text-card-foreground"),
 			Div(Class("flex shrink-0 flex-col gap-4 p-5"),
 				Div(Class("flex items-center gap-3"),
-					kit.Button{Class: "w-20", OnClick: func() { setPaused.Update(func(p bool) bool { return !p }) },
+					kit.Button{Class: "w-20", OnClick: func() { setCalm.Set(false); setPaused.Update(func(p bool) bool { return !p }) },
 						Children: Text(either(paused, "Play", "Pause"))},
 					kit.Slider{Class: "flex-1", Value: &speed, OnValueChange: setSpeed.Set, Min: 0.25, Max: 4, Step: 0.25,
 						AriaLabel: "Speed", FormatValue: times},

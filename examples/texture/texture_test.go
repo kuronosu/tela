@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"image"
 	"strings"
@@ -143,6 +144,40 @@ func TestPlayAndPause(t *testing.T) {
 
 	a.Click(play)
 	a.WaitFor("the planet to turn again", func() bool { return a.PixelAt(480, 250) != rest })
+}
+
+// TestReducedMotion: where the system asks for reduced motion the scene starts
+// as a still, with no loop, that follows its selectors and its size, until Play.
+func TestReducedMotion(t *testing.T) {
+	a := mount(t, Demo{At: 4 * time.Second}, telatest.ReducedMotion())
+	a.ExpectText("Paused")
+	a.ExpectText("766×430 at scale 1")
+	a.ExpectIdle()
+	idle.Zero(t, "texture, reduced motion", idle.Watch(a))
+	at, shot := a.Bounds(scene(Planet)), a.Screenshot()
+	u := sceneAt(Planet, 4*time.Second, 766, 430)
+	want := image.NewRGBA(image.Rect(0, 0, 766, 430))
+	drawScene(want, &u)
+	for _, p := range []image.Point{{383, 215}, {600, 60}, {100, 400}} {
+		if got, want := shot.RGBAAt(int(at.X+0.5)+p.X, int(at.Y+0.5)+p.Y), want.RGBAAt(p.X, p.Y); got != want {
+			t.Errorf("%v: %v, want %v", p, got, want)
+		}
+	}
+	resolve(a, 50)
+	a.ExpectText("383×215 of 766×430 at scale 1")
+	a.Resize(900, 660)
+	a.ExpectText("249×140 of 498×280 at scale 1")
+	before := a.Screenshot()
+	a.Advance(3 * time.Second)
+	if !bytes.Equal(before.Pix, a.Screenshot().Pix) {
+		t.Error("the still changed")
+	}
+	first := a.PixelAt(250, 330)
+	a.Click(play)
+	a.WaitFor("the planet to turn", func() bool { return a.PixelAt(250, 330) != first })
+	a.Click(pause)
+	a.ExpectText("Paused")
+	a.ExpectReleases(1)
 }
 
 // TestScenes: another scene is drawn by the same loop, playing and paused;

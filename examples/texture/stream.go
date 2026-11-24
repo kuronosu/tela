@@ -330,14 +330,8 @@ func (m *meter) due(t time.Time) bool {
 func (m *meter) status(dev tela.TextureDevice, p painter, note string, size tela.TextureSize, w, h int, ft tela.FrameTime, moving bool) Status {
 	st := m.tex.Stats()
 	s := Status{
-		Device: "the CPU", Painter: p.about(), Note: note, Moving: moving, Size: size, Width: w, Height: h,
+		Device: deviceName(dev), Painter: p.about(), Note: note, Moving: moving, Size: size, Width: w, Height: h,
 		Age: st.Age, Shown: st.Shown, Dropped: st.Dropped,
-	}
-	if dev.GPU {
-		s.Device = dev.Name
-		if dev.RenderNode != "" {
-			s.Device += " (" + dev.RenderNode + ")"
-		}
 	}
 	if ft.Refresh > 0 {
 		s.Refresh = float64(time.Second) / float64(ft.Refresh)
@@ -350,4 +344,15 @@ func (m *meter) status(dev tela.TextureDevice, p painter, note string, size tela
 	}
 	*m = meter{tex: m.tex, start: ft.Time, shown: st.Shown}
 	return s
+}
+
+// deviceName is what draws Tela's windows.
+func deviceName(dev tela.TextureDevice) string {
+	switch {
+	case !dev.GPU:
+		return "the CPU"
+	case dev.RenderNode != "":
+		return dev.Name + " (" + dev.RenderNode + ")"
+	}
+	return dev.Name
 }
