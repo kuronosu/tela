@@ -102,10 +102,12 @@ func (s *patternShader) shadeSpan(x, y int, dst []uint8) {
 	v0 := float64(s.vb*Y) + s.vc
 	n := len(dst) / 4
 	// Nearest sampling is bilinear at the pixel's center: with no weight on
-	// the other taps.
+	// the other taps. A center exactly on the boundary of two pixels of the
+	// image (pixel art at 4.5 times its size) takes the one after it,
+	// whichever side the rounding of the coordinate leaves it on.
 	half, weights := 0.5, int64(255)
 	if s.nearest {
-		half, weights = 0, 0
+		half, weights = -1.0/(1<<20), 0
 	}
 	const round = 1<<15 | 1<<15<<32
 	const lanes = 0x000000ff000000ff

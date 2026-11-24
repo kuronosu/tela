@@ -130,6 +130,9 @@ func (e *Encoder) cover(m *gfx.Affine, p gfx.Path, rule gfx.FillRule, style *gfx
 	if vis.Empty() {
 		return
 	}
+	if !e.usePaint(pe) {
+		return
+	}
 	if sh.pieces == nil {
 		r.buildPieces(sh, r.atlas[AtlasCoverage].tile)
 	}
@@ -141,13 +144,14 @@ func (e *Encoder) cover(m *gfx.Affine, p gfx.Path, rule gfx.FillRule, style *gfx
 		dev := pc.rel.Add(org)
 		var in instance
 		quad := e.begin(&in, dev)
-		flags := FlagCoverAtlas | pe.put(&in, float64(quad.Min.X), float64(quad.Min.Y))
+		flags := FlagCoverAtlas | pe.put(&in, quad)
 		e.src = coverSrc{
 			atlas: AtlasCoverage, key: atlasKey{kind: keyCover, id: sh.id, tx: int32(k)},
 			rect: dev, shape: sh, rel: pc.rel, full: pc.full, rows: pc.rows,
 		}
 		e.emit(&in, flags, st, quad, &e.src)
 	}
+	e.image = 0
 }
 
 // fullTile is the entry of a piece known to be covered entirely.
@@ -164,7 +168,7 @@ func (e *Encoder) picture(key atlasKey, rect image.Rectangle, pix []uint8, st *s
 	}
 	a := &e.res.atlas[ai]
 	vis := st.scissor.Intersect(rect)
-	if vis.Empty() {
+	if vis.Empty() || (pe != nil && !e.usePaint(pe)) {
 		return
 	}
 	t := a.tile
@@ -174,14 +178,13 @@ func (e *Encoder) picture(key atlasKey, rect image.Rectangle, pix []uint8, st *s
 			tile := image.Rect(x0+i*t, y0+j*t, x0+(i+1)*t, y0+(j+1)*t).Intersect(rect)
 			var in instance
 			quad := e.begin(&in, tile)
-			ox, oy := float64(quad.Min.X), float64(quad.Min.Y)
 			var flags uint32
 			if pe != nil {
-				flags = FlagCoverAtlas | pe.put(&in, ox, oy)
+				flags = FlagCoverAtlas | pe.put(&in, quad)
 			} else {
 				// The sprite's rectangle, covered entirely.
 				sh := shape{rect: [4]float64{float64(tile.Min.X), float64(tile.Min.Y), float64(tile.Max.X), float64(tile.Max.Y)}}
-				sh.put(&in, SlotShape, ox, oy)
+				sh.put(&in, SlotShape, float64(quad.Min.X), float64(quad.Min.Y))
 				in[SlotHead][2] = uint32(alpha) << 24
 				flags = PaintSprite << FlagPaintShift
 			}
@@ -190,6 +193,7 @@ func (e *Encoder) picture(key atlasKey, rect image.Rectangle, pix []uint8, st *s
 			e.emit(&in, flags, st, quad, &e.src)
 		}
 	}
+	e.image = 0
 }
 
 // acquire returns the atlas entry of an instance's own tile, rasterizing

@@ -69,7 +69,7 @@ func (e *Encoder) shadow(c gfx.DrawShadow) {
 		flags |= FlagShapeLocal
 	}
 	box.put(&in, SlotShape, ox, oy)
-	flags |= pe.put(&in, ox, oy)
+	flags |= pe.put(&in, quad)
 
 	mode := uint32(BlurEmpty)
 	if ok {

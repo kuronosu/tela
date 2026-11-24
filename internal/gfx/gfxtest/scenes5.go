@@ -334,8 +334,7 @@ func DrawPatternMore(b *gfx.Builder) {
 	b.FillRect(gfx.RectXYWH(170, 110, 64, 44), gfx.ImagePattern{Image: PatternBig, Repeat: gfx.RepeatY, Transform: gfx.Translate(190, -7)})
 }
 
-// Scenes5 are the composite and pattern scenes. They are not in Scenes: the
-// GPU does not draw them yet.
+// Scenes5 are the composite and pattern scenes.
 var Scenes5 = []Scene{
 	{"composite", 600, 400, func(b *gfx.Builder) {
 		for _, c := range CompositeCells() {

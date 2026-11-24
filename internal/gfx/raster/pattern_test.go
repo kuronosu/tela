@@ -186,6 +186,89 @@ func countUnit(m gfx.Affine) int {
 	return 0
 }
 
+// TestPatternNearestTies checks that a pixel center exactly on the boundary
+// of two pixels of the image takes the one after it, however the coordinate
+// is rounded: pixel art at 4.5 times its size has such a center on every
+// other boundary of its pixels.
+func TestPatternNearestTies(t *testing.T) {
+	const w, h = 7, 5
+	pix := make([]byte, 0, 4*w*h)
+	for y := range h {
+		for x := range w {
+			pix = append(pix, uint8(30*x), uint8(50*y), 0, 255)
+		}
+	}
+	img := gfx.NewImagePremul(w, h, pix)
+	// All of it in halves of a device pixel: whole numbers decide.
+	for _, scale := range []int{3, 5, 9, 11} {
+		for _, org := range []image.Point{{}, {X: 3, Y: 8}, {X: 757, Y: 1}, {X: -411, Y: 90}} {
+			p := gfx.ImagePattern{Image: img, Sampling: gfx.SampleNearest,
+				Transform: gfx.Affine{float32(scale) / 2, 0, 0, float32(scale) / 2, float32(org.X), float32(org.Y)}}
+			got := renderTransparent(200, 200, 1, func(b *gfx.Builder) { b.FillRect(gfx.Rect{X1: 200, Y1: 200}, p) })
+			at := func(v, org, n int) int {
+				i := floorDiv(2*(v-org)+1, scale)
+				return i - floorDiv(i, n)*n
+			}
+			for y := range 200 {
+				for x := range 200 {
+					want := [4]uint8{uint8(30 * at(x, org.X, w)), uint8(50 * at(y, org.Y, h)), 0, 255}
+					if g := pixelAt(got, x, y); g != want {
+						t.Fatalf("scale %v/2 at %v: pixel (%d, %d) = %v, want %v", scale, org, x, y, g, want)
+					}
+				}
+			}
+		}
+	}
+}
+
+// TestMapPattern checks that what the GPU is told of a pattern is what the
+// rasterizer samples, and that nobody looked at the pixels.
+func TestMapPattern(t *testing.T) {
+	rng := rand.New(rand.NewPCG(319, 4))
+	f := func(lo, hi float64) float32 { return float32(lo + float64(rng.Float64()*(hi-lo))) }
+	r := NewRenderer()
+	check := func(p gfx.ImagePattern, m gfx.Affine) {
+		t.Helper()
+		r.ctm = m
+		s, ok := r.patternFor(p).(*patternShader)
+		got, gotOK := MapPattern(p, m)
+		if gotOK != ok {
+			t.Fatalf("MapPattern(%v, %v): %v, the rasterizer's %v", p, m, gotOK, ok)
+		}
+		if !ok {
+			return
+		}
+		if got.Image.Width() != s.w || got.Image.Height() != s.h ||
+			got.UA != s.ua || got.UB != s.ub || got.UC != s.uc || got.VA != s.va || got.VB != s.vb || got.VC != s.vc {
+			t.Fatalf("MapPattern(%v, %v) = %+v, the rasterizer's %+v", p, m, got, s)
+		}
+	}
+	for i := range 2000 {
+		m := gfx.Affine{f(-2, 2), f(-2, 2), f(-2, 2), f(-2, 2), f(-99, 99), f(-99, 99)}
+		p := gfx.ImagePattern{Image: gfxtest.PatternBig, Repeat: gfx.PatternRepeat(rng.IntN(4)), Sampling: gfx.Sampling(rng.IntN(2)),
+			Transform: gfx.Affine{f(-2, 2), f(-2, 2), f(-2, 2), f(-2, 2), f(-99, 99), f(-99, 99)}}
+		switch i % 4 {
+		case 1: // scaled and translated
+			m[1], m[2], p.Transform[1], p.Transform[2] = 0, 0, 0, 0
+		case 2: // a whole-pixel mapping, or nearly
+			s := f(1, 3)
+			m = gfx.Scale(s, s)
+			p.Transform = gfx.Affine{1 / s, 0, 0, 1 / s, float32(rng.IntN(99)) / s, float32(rng.IntN(99)) / s}
+		}
+		check(p, m)
+	}
+	check(gfx.ImagePattern{Image: gfxtest.PatternTile, Transform: gfx.Identity}, gfx.Affine{})
+	check(gfx.ImagePattern{Image: gfxtest.PatternTile, Transform: gfx.Affine{1, 1, 1, 1, 0, 0}}, gfx.Identity)
+	ext := &externalPixels{}
+	if _, ok := MapPattern(gfx.ImagePattern{Image: gfx.NewExternalImage(2, 2, true, ext), Transform: gfx.Identity}, gfx.Identity); !ok || ext.read {
+		t.Errorf("an external image at its size: ok %v, pixels read %v", ok, ext.read)
+	}
+}
+
+type externalPixels struct{ read bool }
+
+func (e *externalPixels) Pixels() []byte { e.read = true; return nil }
+
 // TestPatternExtremes draws patterns under transforms at the limits of
 // float32: nothing panics, and what is outside an axis that does not repeat
 // stays transparent.
@@ -273,7 +356,7 @@ func patternDigest() uint64 {
 
 // wantPatternDigest is patternDigest() recorded on amd64 (GOAMD64=v1); see
 // wantCompositingDigest.
-const wantPatternDigest uint64 = 0xf82205bdfa44e1d
+const wantPatternDigest uint64 = 0x1108b58ee6cfb0f1
 
 func TestPatternDeterministic(t *testing.T) {
 	if got := patternDigest(); got != wantPatternDigest {

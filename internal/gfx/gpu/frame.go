@@ -254,8 +254,9 @@ const (
 	// PipelineOpaque is PipelinePlain without the device's blending, for
 	// what is opaque (a solid fill of an opaque color, a filtered backdrop
 	// whose pixels are all opaque, at full opacity), where source-over
-	// gives the source, and for the copies of pixels between targets of
-	// FormatRGBA8: the shader's output replaces the pixel.
+	// gives the source, for the copies of pixels between targets of
+	// FormatRGBA8, and for the pixels an operator clears (popLayer): the
+	// shader's output replaces the pixel.
 	PipelineOpaque
 )
 
@@ -285,7 +286,8 @@ const (
 	// raster/image.go): the image coordinates u = a*X + b*Y + c from slot 0
 	// and v from slot 1, and in slot 2 the range that u - 0.5 and v - 0.5
 	// are clamped to (bilinear) or the range of the pixel indices
-	// (nearest): u low, u high, v low, v high.
+	// (nearest): u low, u high, v low, v high. An image pattern
+	// (raster/pattern.go) has no slot 2.
 	SlotPaint = 2
 	// SlotShape is the shape filled, or the box of a shadow (ShapeSlots
 	// slots).
@@ -357,8 +359,9 @@ const (
 	// FlagLayer says the instance paints the pixels of a target, the
 	// batch's first source: a layer, or a filtered backdrop. SlotTex's
 	// first two values are what to add to a device pixel to get the
-	// texel. The second value of SlotHead holds the opacity (8 bits),
-	// then the gfx.BlendMode (8 bits), how the batch's second source
+	// texel. The second value of SlotHead holds the opacity (8 bits; with 0
+	// the first source is not read: an operator over a source that shows
+	// nothing), then the gfx.BlendMode (8 bits), how the batch's second source
 	// masks the layer (a LayerMask constant, 8 bits) and whether the
 	// opacity scales the colors before the coverage does (1: a backdrop
 	// filter; 0: a layer, whose opacity is coverage). SlotPaint+1 holds,
@@ -380,6 +383,15 @@ const (
 	// FlagSegmentsShift is where the number of ramp rows of a gradient is
 	// (16 bits).
 	FlagSegmentsShift = 16
+	// FlagPattern says, in the place of the ramp rows, that the image a
+	// paint samples (PaintImageLinear, PaintImageNearest) is an image
+	// pattern: not clamped to the range of SlotPaint+2, but repeated along
+	// the axes of FlagRepeatX and FlagRepeatY and transparent beyond the
+	// others. Along an axis that repeats, its coordinates in the instance's
+	// quad are 0 or more.
+	FlagPattern = 1 << 16
+	FlagRepeatX = 1 << 17
+	FlagRepeatY = 1 << 18
 )
 
 // The paint kinds.
@@ -390,7 +402,8 @@ const (
 	PaintConic
 	PaintFocal
 	// PaintImageLinear and PaintImageNearest sample the batch's image
-	// texture, with the rasterizer's bilinear filter or its nearest pixel.
+	// texture, with the rasterizer's bilinear filter or its nearest pixel: a
+	// DrawImage, or with FlagPattern an image pattern.
 	PaintImageLinear
 	PaintImageNearest
 	// PaintSprite copies the pixels of the color atlas (SlotTex), faded by

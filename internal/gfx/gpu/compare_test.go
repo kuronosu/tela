@@ -366,7 +366,7 @@ type regionCase struct {
 // regionCases returns the scenes of TestRegion: every primitive, then the
 // scenes of layers, filters and backdrop filters, whose regions cross
 // layers, clips, blurred edges and glass panels, inside them, at their
-// edges and across several.
+// edges and across several, and those of operators and patterns.
 func regionCases() []regionCase {
 	cases := []regionCase{{name: "primitives", dl: regionScene(), w: 421, h: 303}}
 	for i := range layerScenes {
@@ -377,7 +377,12 @@ func regionCases() []regionCase {
 			cases = append(cases, regionCase{name: s.Name, dl: s.displayList(), w: s.W, h: s.H})
 		}
 	}
-	rng := rand.New(rand.NewSource(11))
+	for i := range canvasScenes {
+		if s := &canvasScenes[i]; s.Name != "gpu_operators_transparent" { // gpu_operators_root, over another color
+			cases = append(cases, regionCase{name: s.Name, dl: s.displayList(), w: s.W, h: s.H})
+		}
+	}
+	rng :=rand.New(rand.NewSource(11))
 	for i := range cases {
 		c := &cases[i]
 		w, h := c.w, c.h

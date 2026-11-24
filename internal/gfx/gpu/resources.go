@@ -88,6 +88,9 @@ type resources struct {
 
 	atlas  [NumAtlases]atlas
 	images map[uint64]*imageTex
+	// levels holds, by the ID of an image, the IDs of its mip levels in
+	// images that patterns drew.
+	levels map[uint64][]uint64
 	// opaque remembers, by ID, whether the images seen are opaque
 	// (cull.go).
 	opaque map[uint64]bool
@@ -120,6 +123,7 @@ func (r *resources) init(l Limits) {
 	r.atlas[AtlasCoverage].init(1, l.CoveragePage, l.CoveragePages)
 	r.atlas[AtlasColor].init(4, l.ColorPage, l.ColorPages)
 	r.images = map[uint64]*imageTex{}
+	r.levels = map[uint64][]uint64{}
 	r.styles = map[uint64][]*styleRec{}
 	r.shapes = map[coverKey]*coverShape{}
 	r.maskIDs = map[maskDef]*maskID{}
@@ -207,10 +211,13 @@ type imageTex struct {
 	idle  uint16
 	// stream is the stream the image is a frame of (gfx.Image.Stream), or 0.
 	stream uint64
+	// base is the ID of the image of which it is the mip level a pattern
+	// chose, or 0.
+	base uint64
 }
 
-// markImages marks the images that dl draws, the lists of its masks
-// included, as used by the frame being encoded.
+// markImages marks the images that dl draws, those of its patterns and the
+// lists of its masks included, as used by the frame being encoded.
 func (r *resources) markImages(dl *gfx.DisplayList, depth int) {
 	if dl == nil || depth > 8 {
 		return
@@ -219,17 +226,66 @@ func (r *resources) markImages(dl *gfx.DisplayList, depth int) {
 		switch c := c.(type) {
 		case gfx.DrawImage:
 			if c.Image != nil {
-				if im := r.images[c.Image.ID()]; im != nil {
-					im.used = r.frame
-				}
+				r.markImage(c.Image.ID())
 			}
 		case gfx.PushLayer:
 			r.markImages(c.Mask.List, depth+1)
+		default:
+			if img := patternImage(c); img != nil {
+				r.markPattern(img.ID())
+			}
 		}
 	}
 }
 
+// patternImage returns the image of the pattern a command paints with, nil
+// when it paints with none.
+func patternImage(c gfx.Command) *gfx.Image {
+	var p gfx.Paint
+	switch c := c.(type) {
+	case gfx.FillRect:
+		p = c.Paint
+	case gfx.FillRRect:
+		p = c.Paint
+	case gfx.FillPath:
+		p = c.Paint
+	case gfx.StrokePath:
+		p = c.Paint
+	case gfx.DrawGlyphRun:
+		p = c.Paint
+	}
+	if p, ok := p.(gfx.ImagePattern); ok {
+		return p.Image
+	}
+	return nil
+}
+
+// markImage marks an image, if the device holds it, as used by the frame
+// being encoded.
+func (r *resources) markImage(id uint64) {
+	if im := r.images[id]; im != nil {
+		im.used = r.frame
+	}
+}
+
+// markPattern is markImage for the image of a pattern, and for its mip
+// levels that patterns drew: which of them a list draws depends on the
+// transforms, and together they are a third of the image.
+func (r *resources) markPattern(id uint64) {
+	r.markImage(id)
+	for _, l := range r.levels[id] {
+		r.markImage(l)
+	}
+}
+
 func (r *resources) releaseImage(id uint64, im *imageTex) {
+	if im.base != 0 {
+		if l := slices.DeleteFunc(r.levels[im.base], func(l uint64) bool { return l == id }); len(l) > 0 {
+			r.levels[im.base] = l
+		} else {
+			delete(r.levels, im.base)
+		}
+	}
 	delete(r.images, id)
 	r.imageBytes -= im.bytes
 	r.released = append(r.released, id)

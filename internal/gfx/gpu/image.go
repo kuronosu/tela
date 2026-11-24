@@ -15,7 +15,8 @@ import (
 // to 1/256, clamped to the source rectangle.
 //
 // An image has a texture of its own on the device, named by its ID (a mip
-// level is an image with its own ID, chosen by whoever draws). The texture
+// level is an image with its own ID, chosen by whoever draws, or for an image
+// pattern, which is a paint, by patternPaint). The texture
 // is created by the first frame that draws the image and released when no
 // frame has drawn it for a while, when the textures exceed their budget
 // and it is the one unused for longest, or when a frame draws a later image
@@ -98,7 +99,7 @@ func (e *Encoder) drawImage(c gfx.DrawImage) {
 		in.floats(SlotPaint+2, ulo, uhi, vlo, vhi)
 		flags |= PaintImageLinear << FlagPaintShift
 	}
-	e.image = e.useImage(img)
+	e.image = e.useImage(img, img)
 	e.emitShape(&in, flags, st, quad, sh.inside(), false)
 	e.image = 0
 }
@@ -109,7 +110,14 @@ func (e *Encoder) drawImage(c gfx.DrawImage) {
 // by the frame, gives up the textures of the images it replaces in its
 // stream, and makes room in the budget by releasing the textures no frame
 // used for longest.
-func (e *Encoder) useImage(img *gfx.Image) uint64 {
+//
+// base is the image of which img is a mip level, or img itself. Whoever
+// draws a DrawImage chose its level, and the list names that one; a pattern's
+// is chosen here, and the list names the base (resources.markPattern). The
+// levels of a frame of a stream replace those of the frames before it. Those
+// of an imported buffer are computed on the CPU, as the rasterizer's are,
+// from pixels that are read back.
+func (e *Encoder) useImage(img, base *gfx.Image) uint64 {
 	r := e.res
 	f := &e.frame
 	from := e.imported(img)
@@ -125,11 +133,18 @@ func (e *Encoder) useImage(img *gfx.Image) uint64 {
 		return id
 	}
 	up := ImageUpload{ID: id, Width: img.Width(), Height: img.Height(), From: from}
-	im := &imageTex{bytes: 4 * int64(img.Width()) * int64(img.Height()), used: r.frame, stream: img.Stream()}
+	im := &imageTex{bytes: 4 * int64(img.Width()) * int64(img.Height()), used: r.frame, stream: base.Stream()}
 	if from != nil {
 		im.stream = from.stream
 	} else {
 		up.Pix = img.Pix()
+	}
+	if base != img {
+		if m := e.imported(base); m != nil {
+			im.stream = m.stream
+		}
+		im.base = base.ID()
+		r.levels[im.base] = append(r.levels[im.base], id)
 	}
 	r.images[id] = im
 	r.imageBytes += im.bytes

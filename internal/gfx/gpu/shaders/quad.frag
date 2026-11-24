@@ -3,18 +3,20 @@
 // Fragment shader of the quad pipeline (ADR-282): rectangles and rounded
 // rectangles with analytic coverage, rounded-rectangle shadows in closed
 // form, coverage read from the atlas (glyphs, paths, strokes), solid and
-// gradient paints, images and sprites, one anti-aliased clip shape and one
-// clip mask; and the pixels of a layer or of a filtered backdrop, with an
-// opacity, a mask and a blend mode.
+// gradient paints, images, image patterns and sprites, one anti-aliased
+// clip shape and one clip mask; and the pixels of a layer or of a filtered
+// backdrop, with an opacity, a mask and a blend mode (a Porter-Duff operator
+// among them).
 //
 // It follows the CPU rasterizer (internal/gfx/raster), whose output is the
 // reference: the same coverage (the exact area of the pixel inside the
 // shape, rounded to 8 bits; the rasterizer's own for what comes from the
 // atlas), the same shadow formula (raster/shadow.go), the same gradient
 // geometry sampled at pixel centers (raster/gradient.go) with the ramps
-// the rasterizer bakes, the same image sampling (raster/image.go). Every
-// quantity is a function of the pixel's coordinates and of the instance
-// only, so a render of a region gives the pixels of a full render.
+// the rasterizer bakes, the same image sampling (raster/image.go,
+// raster/pattern.go). Every quantity is a function of the pixel's
+// coordinates and of the instance only, so a render of a region gives the
+// pixels of a full render.
 //
 // Compiled to quad.frag.spv by `go generate ./internal/gfx/gpu`.
 
@@ -102,6 +104,11 @@ const uint LAYER = 8192u;          // the paint is the pixels of a layer
 const uint FULL = 16384u;          // every pixel of the quad is covered entirely: no shape, no clip
 const uint OPACITY = 32768u;       // a solid fill faded by the opacity in head.y (a layer of one rectangle)
 const uint SEGMENTS_SHIFT = 16u;
+// In the place of the segments, for an image: it is a pattern, and the axes
+// along which that repeats.
+const uint PATTERN = 65536u;
+const uint REPEAT_X = 131072u;
+const uint REPEAT_Y = 262144u;
 
 const uint PAINT_IMAGE = 5u;
 const uint PAINT_NEAREST = 6u;
@@ -576,25 +583,61 @@ uvec4 texel8(ivec2 p, ivec2 size) {
     return uvec4(texelFetch(image, clamp(p, ivec2(0), size - 1), 0) * 255.0 + 0.5);
 }
 
-// imageColor samples the batch's image at the image coordinates uv
-// (raster's imageShader): the pixel that contains the point, or the four
-// around it with weights quantized to 1/256 and summed in integers, in
-// both cases clamped to the range of the source rectangle (paint2).
-vec4 imageColor(vec2 uv, bool nearest) {
+// imageColor samples the batch's image at the image coordinates uv: the
+// pixel that contains the point, or the four around it with weights
+// quantized to 1/256 and summed in integers. A DrawImage (raster's
+// imageShader) is clamped to the range of its source rectangle (paint2). A
+// pattern (raster's patternShader) wraps around along an axis that repeats,
+// where the encoder keeps the coordinates at 0 or above, and is transparent
+// beyond one that does not, for each of the four pixels.
+vec4 imageColor(vec2 uv, vec2 rel, uint flags, bool nearest) {
     ivec2 size = textureSize(image, 0);
-    vec2 lo = IT.paint2.xz, hi = IT.paint2.yw;
-    if (nearest) {
-        return texelFetch(image, clamp(ivec2(clamp(floor(uv), lo, hi)), ivec2(0), size - 1), 0);
+    ivec2 i, j;   // the taps: columns i.x and j.x, rows i.y and j.y,
+    uvec2 wi, wj; // and their weights
+    if ((flags & PATTERN) == 0u) {
+        vec2 lo = IT.paint2.xz, hi = IT.paint2.yw;
+        if (nearest) {
+            return texelFetch(image, clamp(ivec2(clamp(floor(uv), lo, hi)), ivec2(0), size - 1), 0);
+        }
+        vec2 f = floor(clamp(uv - 0.5, lo, hi) * 256.0);
+        i = ivec2(f) >> 8;
+        wj = uvec2(ivec2(f) & 255);
+        wi = 256u - wj;
+        // The second tap has weight 0 where it would leave the image.
+        j = i + ivec2(wj.x == 0u ? 0 : 1, wj.y == 0u ? 0 : 1);
+    } else {
+        // The coordinates come in two parts (splitCoord): uv, which float32
+        // holds without rounding, and a rest, small where that matters. They
+        // are added to the part of uv below 1. (The bounds keep coordinates
+        // of no meaning inside an int.)
+        vec2 rest = vec2(IT.paint0.w * rel.x + IT.paint2.x * rel.y + IT.paint2.y,
+                         IT.paint1.w * rel.x + IT.paint2.z * rel.y + IT.paint2.w);
+        vec2 whole = clamp(floor(uv), -2097152.0, 2097152.0);
+        vec2 f = clamp(floor((uv - whole + rest) * 256.0), -536870912.0, 536870912.0);
+        i = ivec2(whole) * 256 + ivec2(f);
+        wj = nearest ? uvec2(0u) : uvec2(i & 255); // nearest: bilinear at a pixel's center
+        wi = 256u - wj;
+        i = i >> 8;
+        bvec2 rep = bvec2((flags & REPEAT_X) != 0u, (flags & REPEAT_Y) != 0u);
+        if (rep.x) {
+            i.x = int(uint(max(i.x + size.x, 0)) % uint(size.x));
+        }
+        if (rep.y) {
+            i.y = int(uint(max(i.y + size.y, 0)) % uint(size.y));
+        }
+        j = i + 1;
+        j.x = rep.x && j.x == size.x ? 0 : j.x;
+        j.y = rep.y && j.y == size.y ? 0 : j.y;
+        // A tap beyond the image has no weight (its fetch is clamped).
+        wi.x = i.x >= 0 && i.x < size.x ? wi.x : 0u;
+        wi.y = i.y >= 0 && i.y < size.y ? wi.y : 0u;
+        wj.x = j.x >= 0 && j.x < size.x ? wj.x : 0u;
+        wj.y = j.y >= 0 && j.y < size.y ? wj.y : 0u;
     }
-    vec2 f = floor(clamp(uv - 0.5, lo, hi) * 256.0);
-    ivec2 i = ivec2(f) >> 8;
-    uvec2 w = uvec2(ivec2(f) & 255);
-    // The second tap has weight 0 where it would leave the image.
-    ivec2 d = ivec2(w.x == 0u ? 0 : 1, w.y == 0u ? 0 : 1);
-    uvec4 sum = texel8(i, size) * ((256u - w.x) * (256u - w.y))
-              + texel8(i + ivec2(d.x, 0), size) * (w.x * (256u - w.y))
-              + texel8(i + ivec2(0, d.y), size) * ((256u - w.x) * w.y)
-              + texel8(i + d, size) * (w.x * w.y);
+    uvec4 sum = texel8(i, size) * (wi.x * wi.y)
+              + texel8(ivec2(j.x, i.y), size) * (wj.x * wi.y)
+              + texel8(ivec2(i.x, j.y), size) * (wi.x * wj.y)
+              + texel8(j, size) * (wj.x * wj.y);
     return vec4((sum + 32768u) >> 16) / 255.0;
 }
 
@@ -615,7 +658,7 @@ vec4 paintColor(vec2 rel, ivec2 px) {
     }
     float q = IT.paint1.x * rel.x + IT.paint1.y * rel.y + IT.paint1.z;
     if (kind == PAINT_IMAGE || kind == PAINT_NEAREST) {
-        return imageColor(vec2(p, q), kind == PAINT_NEAREST);
+        return imageColor(vec2(p, q), rel, IT.head.x, kind == PAINT_NEAREST);
     }
     if (kind == 2u) {
         return rampColor(spreadT(sqrt(p * p + q * q), spread));
@@ -654,6 +697,40 @@ const uint BLEND_SATURATION = 13u;
 const uint BLEND_COLOR = 14u;
 const uint BLEND_LUMINOSITY = 15u;
 const uint BLEND_PLUS_LIGHTER = 16u;
+// The Porter-Duff operators.
+const uint BLEND_SRC_IN = 17u;
+const uint BLEND_SRC_OUT = 18u;
+const uint BLEND_SRC_ATOP = 19u;
+const uint BLEND_DST_OVER = 20u;
+const uint BLEND_DST_IN = 21u;
+const uint BLEND_DST_OUT = 22u;
+const uint BLEND_DST_ATOP = 23u;
+const uint BLEND_COPY = 24u;
+const uint BLEND_XOR = 25u;
+
+// Sets of operators, a bit each: those whose factor Fa is the alpha of the
+// backdrop, what that lacks of 1, and 1 (0 for the others), and whose factor
+// Fb is that of the source, what that lacks of 1, and 1 (raster's
+// porterDuff).
+const uint FA_ALPHA = 1u << BLEND_SRC_IN | 1u << BLEND_SRC_ATOP;
+const uint FA_REST = 1u << BLEND_SRC_OUT | 1u << BLEND_DST_OVER | 1u << BLEND_DST_ATOP | 1u << BLEND_XOR;
+const uint FA_ONE = 1u << BLEND_COPY;
+const uint FB_ALPHA = 1u << BLEND_DST_IN | 1u << BLEND_DST_ATOP;
+const uint FB_REST = 1u << BLEND_SRC_ATOP | 1u << BLEND_DST_OUT | 1u << BLEND_XOR;
+const uint FB_ONE = 1u << BLEND_DST_OVER;
+// The operators that change the backdrop where the source is transparent
+// (gfx.BlendMode.Unbounded).
+const uint UNBOUNDED = 1u << BLEND_SRC_IN | 1u << BLEND_SRC_OUT | 1u << BLEND_DST_IN | 1u << BLEND_DST_ATOP | 1u << BLEND_COPY;
+
+// porterDuff composites the premultiplied 8-bit source s onto the backdrop d
+// with an operator: the sum of the two times their factors over 255, rounded
+// once.
+ivec4 porterDuff(uint mode, ivec4 s, ivec4 d) {
+    uint m = 1u << mode;
+    int fa = (m & FA_ALPHA) != 0u ? d.a : (m & FA_REST) != 0u ? 255 - d.a : (m & FA_ONE) != 0u ? 255 : 0;
+    int fb = (m & FB_ALPHA) != 0u ? s.a : (m & FB_REST) != 0u ? 255 - s.a : (m & FB_ONE) != 0u ? 255 : 0;
+    return (s * fa + d * fb + 127) / 255; // 255 is odd: no ties
+}
 
 // imul8 is round(a*b/255) for 8-bit values, in integers (raster.mul8).
 int imul8(int a, int b) {
@@ -709,8 +786,11 @@ vec3 setSat(vec3 c, float s) {
 // blendPixel composites the premultiplied 8-bit source s onto the backdrop
 // d with a blend mode other than source-over (raster's blendRow and
 // blendFloat): exact integers, rounded once, for the modes whose formula
-// is a polynomial; floats for the others.
+// is a polynomial and for the operators; floats for the others.
 ivec4 blendPixel(uint mode, ivec4 s, ivec4 d) {
+    if (mode > BLEND_PLUS_LIGHTER) {
+        return porterDuff(mode, s, d);
+    }
     if (mode == BLEND_PLUS_LIGHTER) {
         return min(s + d, ivec4(255));
     }
@@ -864,7 +944,10 @@ void main() {
     int op = int(lp & 255u);
     uint mode = (lp >> 8) & 255u;
     uint maskKind = (lp >> 16) & 255u;
-    ivec4 s = ivec4(texelFetch(image, px + IT.tex.xy, 0) * 255.0 + 0.5);
+    ivec4 s = ivec4(0);
+    if (op != 0) { // else nothing of the source shows, and there may be none
+        s = ivec4(texelFetch(image, px + IT.tex.xy, 0) * 255.0 + 0.5);
+    }
     int k = op; // the opacity, times the mask's coverage
     if (maskKind != 0u) {
         uvec4 m = uvec4(texelFetch(layerMask, px + ivec2(IT.paint1.xy), 0) * 255.0 + 0.5);
@@ -894,8 +977,8 @@ void main() {
     if (k != 255) {
         s = ivec4(imul8(s.r, k), imul8(s.g, k), imul8(s.b, k), imul8(s.a, k));
     }
-    if (s.a == 0 && s.rgb == ivec3(0)) {
-        discard; // every mode leaves the backdrop
+    if (s.a == 0 && s.rgb == ivec3(0) && (1u << mode & UNBOUNDED) == 0u) {
+        discard; // the mode leaves the backdrop
     }
     ivec4 d = ivec4(texelFetch(backdrop, px + ivec2(IT.paint1.zw), 0) * 255.0 + 0.5);
     ivec4 r = blendPixel(mode, s, d);
