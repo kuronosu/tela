@@ -514,8 +514,8 @@ func TestTicker(t *testing.T) {
 }
 
 func TestPropsMapTheTransitionBits(t *testing.T) {
-	if got := Set(style.TransitionColors | style.TransitionOpacity | style.TransitionFontSize); len(got) != 7 ||
-		got[0] != PropColor || got[5] != PropOpacity || got[6] != PropFontSize {
+	if got := Set(style.TransitionColors | style.TransitionOpacity | style.TransitionFontSize); len(got) != 9 ||
+		got[0] != PropColor || got[5] != PropOpacity || got[6] != PropFontSize || got[7] != PropFill || got[8] != PropStroke {
 		t.Errorf("Set = %v", got)
 	}
 	if len(Set(style.TransitionAll)) != int(NumProps) {
@@ -529,7 +529,8 @@ func TestPropsMapTheTransitionBits(t *testing.T) {
 			t.Errorf("%v mask %b is not one bit", p, p.Mask())
 		}
 	}
-	if style.TransitionFontSize != PropFontSize.Mask() || style.TransitionTransform != PropTransform.Mask() {
+	if style.TransitionFontSize != PropFontSize.Mask() || style.TransitionTransform != PropTransform.Mask() ||
+		style.TransitionFill != PropFill.Mask() || style.TransitionStrokeWidth != PropStrokeWidth.Mask() {
 		t.Error("masks out of step with style.TransitionProps")
 	}
 }

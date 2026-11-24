@@ -41,6 +41,10 @@ type animCell struct {
 	// css is the page's CSS for the box in both states: the rules for
 	// .c-<name> and .c-<name>.on.
 	css string
+	// icon is the SVG document of a cell with an icon, which is the box, or
+	// with inBox a child of it.
+	icon  string
+	inBox bool
 	// bound is the largest difference from Chromium accepted.
 	bound chromiumBound
 }
@@ -136,6 +140,38 @@ var animCells = []animCell{
 			".c-bounce.on { animation: bounce 1s infinite; }",
 		bound: chromiumBound{max: 80, mean: 0.3, why: "anti-aliased circle edge"},
 	},
+	{
+		// From the attributes of the root: the stroke from currentColor,
+		// which moves too, its width from 2. The fill, none, jumps.
+		name: "icon-attrs", icon: heartSVG,
+		base: "size-16 transition-all duration-400 ease-in-out", off: "text-[#ff0000]", on: "text-[#00ff00] stroke-[#0000ff] stroke-4 fill-blue-500/20",
+		css: ".c-icon-attrs { display: block; width: 4rem; height: 4rem; color: #f00; transition: all .4s " + twEaseInOut + "; }\n" +
+			".c-icon-attrs.on { color: #0f0; stroke: #00f; stroke-width: 4; fill: oklch(62.3% .214 259.815 / .2); }",
+		bound: chromiumBound{max: 90, mean: 0.3, why: "anti-aliased strokes"},
+	},
+	{
+		name: "icon-fill", icon: discSVG,
+		base: "size-16 stroke-none transition-colors duration-400 ease-in-out", off: "fill-blue-500", on: "fill-red-500",
+		css: ".c-icon-fill { display: block; width: 4rem; height: 4rem; stroke: none; fill: " + oklchBlue500 + "; transition: color .4s " + twEaseInOut + ", fill .4s " + twEaseInOut + ", stroke .4s " + twEaseInOut + "; }\n" +
+			".c-icon-fill.on { fill: " + oklchRed500 + "; }",
+		bound: chromiumBound{max: 30, mean: 0.1, why: "anti-aliased circle edge"},
+	},
+	{
+		// From the initial fill, black, with a width that overshoots.
+		name: "icon-initial", icon: discSVG,
+		base: "size-16 stroke-[#f59e0b] transition-all duration-400 ease-[cubic-bezier(.4,-1,.6,2)]", off: "stroke-0", on: "fill-[#fde047] stroke-4",
+		css: ".c-icon-initial { display: block; width: 4rem; height: 4rem; stroke: #f59e0b; stroke-width: 0; transition: all .4s cubic-bezier(.4, -1, .6, 2); }\n" +
+			".c-icon-initial.on { fill: #fde047; stroke-width: 4; }",
+		bound: chromiumBound{max: 60, mean: 0.2, why: "anti-aliased strokes"},
+	},
+	{
+		// The icon inherits each step of its parent.
+		name: "icon-inherit", icon: discSVG, inBox: true,
+		base: "size-16 stroke-2 text-[#ff0000] transition-colors duration-400 ease-in-out", off: "fill-[#fde047] stroke-current", on: "fill-[#1e3a8a] stroke-[#00ff00]",
+		css: ".c-icon-inherit { width: 4rem; height: 4rem; color: #f00; fill: #fde047; stroke: currentColor; stroke-width: 2; transition: fill .4s " + twEaseInOut + ", stroke .4s " + twEaseInOut + "; }\n" +
+			".c-icon-inherit.on { fill: #1e3a8a; stroke: #0f0; }\n.c-icon-inherit svg { display: block; width: 4rem; height: 4rem; }",
+		bound: chromiumBound{max: 60, mean: 0.3, why: "anti-aliased strokes"},
+	},
 }
 
 // animOracleTimes are the times, since the start of the animations, the
@@ -166,7 +202,11 @@ html, body { background: #fff; }
 	}
 	sb.WriteString("</style></head><body>\n<div class=\"grid\">\n")
 	for _, c := range animCells {
-		fmt.Fprintf(&sb, "<div class=\"cell\"><div class=\"box c-%s\"></div></div>\n", c.name)
+		box := fmt.Sprintf("<div class=\"box c-%s\">%s</div>", c.name, c.icon)
+		if c.icon != "" && !c.inBox {
+			box = strings.Replace(c.icon, "<svg ", fmt.Sprintf("<svg class=\"box c-%s\" ", c.name), 1)
+		}
+		fmt.Fprintf(&sb, "<div class=\"cell\">%s</div>\n", box)
 	}
 	sb.WriteString(`</div>
 <script>
@@ -219,7 +259,14 @@ func animOracleRoot(set *Setter[bool]) Node {
 			if on {
 				cls = c.base + " " + c.on
 			}
-			cells = append(cells, div(Class("flex size-[120px] shrink-0 items-center justify-center"), div(Key(c.name), Class(cls))))
+			box := div(Key(c.name), Class(cls))
+			switch {
+			case c.inBox:
+				box = div(Key(c.name), Class(cls), icon(c.icon, Class("size-16")))
+			case c.icon != "":
+				box = icon(c.icon, Key(c.name), Class(cls))
+			}
+			cells = append(cells, div(Class("flex size-[120px] shrink-0 items-center justify-center"), box))
 		}
 		return div(cells...)
 	})

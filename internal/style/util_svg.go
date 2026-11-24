@@ -18,8 +18,10 @@ func registerMedia(r *registry) {
 		set := func(e *env, p SVGPaint) {
 			if root == "fill" {
 				e.s.Fill = p
+				e.s.PaintsSet |= TransitionFill
 			} else {
 				e.s.Stroke = p
+				e.s.PaintsSet |= TransitionStroke
 			}
 		}
 		r.enum(root, false, map[string]Op{
@@ -86,7 +88,7 @@ func strokeWidthUtility(c *pctx, a *arg) (Op, error) {
 		if !ok || n < 0 {
 			return Op{}, errNoMatch
 		}
-		return op(func(e *env) { e.s.StrokeWidth, e.s.StrokeWidthSet = n, true }), nil
+		return op(func(e *env) { e.setStrokeWidth(n) }), nil
 	}
 	switch a.hint {
 	case "", "length", "number", "line-width":
@@ -98,7 +100,7 @@ func strokeWidthUtility(c *pctx, a *arg) (Op, error) {
 		if n < 0 {
 			return Op{}, fmt.Errorf("a stroke width cannot be negative")
 		}
-		return op(func(e *env) { e.s.StrokeWidth, e.s.StrokeWidthSet = n, true }), nil
+		return op(func(e *env) { e.setStrokeWidth(n) }), nil
 	}
 	if a.hint == "" && looksLikeColor(in) {
 		return Op{}, errNoMatch
@@ -113,7 +115,10 @@ func strokeWidthUtility(c *pctx, a *arg) (Op, error) {
 		}
 		return Op{}, fmt.Errorf("%q is not a stroke width; use a number of user units such as stroke-[1.5] or a length such as stroke-[2px]", in)
 	}
-	return op(func(e *env) {
-		e.s.StrokeWidth, e.s.StrokeWidthSet = max(e.lp(&x).Px, 0), true
-	}), nil
+	return op(func(e *env) { e.setStrokeWidth(max(e.lp(&x).Px, 0)) }), nil
+}
+
+func (e *env) setStrokeWidth(n float32) {
+	e.s.StrokeWidth, e.s.StrokeWidthSet = n, true
+	e.s.PaintsSet |= TransitionStrokeWidth
 }

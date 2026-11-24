@@ -11,6 +11,7 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/kuronosu/tela/internal/anim"
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/style"
 	"github.com/kuronosu/tela/internal/svg"
@@ -760,4 +761,47 @@ func (bx *Box) imageNatural() (w, h, ratio float32) {
 		return w, h, w / h
 	}
 	return 0, 0, 0
+}
+
+// shownPaint returns cs with the value of the SVG paint property p that
+// box bx shows when its style has none: that of the root of its document
+// for an icon or an SVG image, which browsers transition from and to too
+// (there the root's attributes are part of its style); the text color, and
+// a line width of 1, for a canvas (canvasKey). It is cs itself for another
+// property, a value that is set, and a box that draws with no paints: what
+// its descendants show for an unset value is up to each.
+func shownPaint(bx *Box, p anim.Prop, cs *style.ComputedStyle) *style.ComputedStyle {
+	switch {
+	case !p.IsPaint(),
+		p == anim.PropFill && cs.Fill.Kind != style.SVGPaintUnset,
+		p == anim.PropStroke && cs.Stroke.Kind != style.SVGPaintUnset,
+		p == anim.PropStrokeWidth && cs.StrokeWidthSet:
+		return cs
+	}
+	var root svg.RootPaints
+	if bx.kind == style.KindCanvas {
+		cur := svg.Paint{Kind: svg.PaintCurrentColor}
+		root = svg.RootPaints{Fill: cur, Stroke: cur, StrokeWidth: 1, HasStrokeWidth: true}
+	} else if d := bx.doc(); d != nil {
+		root = d.RootPaints()
+	} else {
+		return cs
+	}
+	u := *cs
+	u.Fill, u.Stroke = stylePaint(root.Fill), stylePaint(root.Stroke)
+	u.StrokeWidth, u.StrokeWidthSet = root.StrokeWidth, root.HasStrokeWidth
+	return &u
+}
+
+// stylePaint is the inverse of svgPaint.
+func stylePaint(p svg.Paint) style.SVGPaint {
+	switch p.Kind {
+	case svg.PaintNone:
+		return style.SVGPaint{Kind: style.SVGPaintNone}
+	case svg.PaintColor:
+		return style.SVGPaint{Kind: style.SVGPaintColor, Color: p.Color}
+	case svg.PaintCurrentColor:
+		return style.SVGPaint{Kind: style.SVGPaintCurrent, Color: gfx.Color{A: 1}}
+	}
+	return style.SVGPaint{}
 }

@@ -226,8 +226,10 @@ mask-b-from-50%` fades the bottom edge.
 
 **SVG paints.** `fill-*` and `stroke-*` (colors, tokens, `/NN`,
 `fill-current`, `fill-none`) and `stroke-2`, `stroke-[1.5]` (stroke width in
-SVG units) restyle icons and SVG images; they are inherited, so a class on a
-button reaches the icons inside it.
+SVG units) restyle icons, SVG images and what a `Canvas` draws with first. They
+are inherited, so a class on a button reaches the icons inside it. `transition`
+and `transition-colors` animate them from one color to another (`none` switches
+at once), and `transition-all` the stroke width too.
 
 **Gradient text.** `bg-clip-text text-transparent` paints the background
 through the glyphs of the element's text, with gradients or images, over

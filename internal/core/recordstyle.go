@@ -65,7 +65,7 @@ func sameStyle(a, b *style.ComputedStyle, layer bool) bool {
 		sameFilters(&a.Filter, &b.Filter) && sameFilters(&a.BackdropFilter, &b.BackdropFilter) &&
 		sameClipPath(&a.ClipPath, &b.ClipPath) && sameMask(&a.Mask, &b.Mask) &&
 		a.Fill == b.Fill && a.Stroke == b.Stroke && a.StrokeWidth == b.StrokeWidth &&
-		a.StrokeWidthSet == b.StrokeWidthSet &&
+		a.StrokeWidthSet == b.StrokeWidthSet && a.PaintsSet == b.PaintsSet &&
 		a.ObjectFit == b.ObjectFit && a.ObjectPosX == b.ObjectPosX && a.ObjectPosY == b.ObjectPosY &&
 		a.Transition == b.Transition && a.Animation == b.Animation &&
 		a.AnimationDelay == b.AnimationDelay && a.AnimationDelaySet == b.AnimationDelaySet && a.AnimProps == b.AnimProps &&

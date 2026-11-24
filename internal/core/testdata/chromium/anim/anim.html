@@ -33,6 +33,15 @@ html, body { background: #fff; }
 .c-pulse.on { animation: pulse 2s cubic-bezier(.4, 0, .6, 1) infinite; }
 .c-bounce { width: 3rem; height: 3rem; border-radius: 9999px; background-color: oklch(82.8% .189 84.429); }
 .c-bounce.on { animation: bounce 1s infinite; }
+.c-icon-attrs { display: block; width: 4rem; height: 4rem; color: #f00; transition: all .4s cubic-bezier(.4, 0, .2, 1); }
+.c-icon-attrs.on { color: #0f0; stroke: #00f; stroke-width: 4; fill: oklch(62.3% .214 259.815 / .2); }
+.c-icon-fill { display: block; width: 4rem; height: 4rem; stroke: none; fill: oklch(62.3% .214 259.815); transition: color .4s cubic-bezier(.4, 0, .2, 1), fill .4s cubic-bezier(.4, 0, .2, 1), stroke .4s cubic-bezier(.4, 0, .2, 1); }
+.c-icon-fill.on { fill: oklch(63.7% .237 25.331); }
+.c-icon-initial { display: block; width: 4rem; height: 4rem; stroke: #f59e0b; stroke-width: 0; transition: all .4s cubic-bezier(.4, -1, .6, 2); }
+.c-icon-initial.on { fill: #fde047; stroke-width: 4; }
+.c-icon-inherit { width: 4rem; height: 4rem; color: #f00; fill: #fde047; stroke: currentColor; stroke-width: 2; transition: fill .4s cubic-bezier(.4, 0, .2, 1), stroke .4s cubic-bezier(.4, 0, .2, 1); }
+.c-icon-inherit.on { fill: #1e3a8a; stroke: #0f0; }
+.c-icon-inherit svg { display: block; width: 4rem; height: 4rem; }
 </style></head><body>
 <div class="grid">
 <div class="cell"><div class="box c-oklch"></div></div>
@@ -47,6 +56,10 @@ html, body { background: #fff; }
 <div class="cell"><div class="box c-ping"></div></div>
 <div class="cell"><div class="box c-pulse"></div></div>
 <div class="cell"><div class="box c-bounce"></div></div>
+<div class="cell"><svg class="box c-icon-attrs" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></div>
+<div class="cell"><svg class="box c-icon-fill" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></div>
+<div class="cell"><svg class="box c-icon-initial" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></div>
+<div class="cell"><div class="box c-icon-inherit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></div></div>
 </div>
 <script>
 // Put every box in its "on" state (starting the transitions and the
