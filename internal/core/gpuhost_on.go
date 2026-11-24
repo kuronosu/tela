@@ -150,6 +150,7 @@ func (h *Host) UseGPU(g *GPU) {
 	for _, v := range h.views {
 		v.gpu.off, v.gpu.copied, v.gpu.why = false, false, ""
 	}
+	h.syncTextures() // gputexture.go
 }
 
 // OpenGPU opens the GPU for the Host's windows as Run does, after the main
@@ -203,6 +204,24 @@ func (h *Host) GPUWindow(w platform.Window) GPUWindow {
 // the CPU rasterizer.
 func (h *Host) GPU() *GPU { return h.gpu.g }
 
+// endLostGPU closes the GPU when its device is lost. It runs before a frame
+// of a texture that a window may have drawn is let go: until the device is
+// closed, the GPU may read it (gputexture.go).
+func (h *Host) endLostGPU() {
+	if g := h.gpu.g; g != nil && g.Lost() {
+		h.lostGPU(gpu.ErrDeviceLost)
+	}
+}
+
+// lostGPU closes the GPU, whose device is lost, and says so in the error
+// log. The framebuffers of the windows hold their frames, or the CPU
+// rasterizer is asked for them (lagGPU): their next frame is its, in full
+// (layerState.rasGPU).
+func (h *Host) lostGPU(err error) {
+	fmt.Fprintf(h.log, "tela: the GPU device is lost, the app is drawn by the CPU rasterizer from now on: %s\n", oneLine(err))
+	h.closeGPU()
+}
+
 // closeGPU releases the windows' targets and buffers and closes the GPU.
 func (h *Host) closeGPU() {
 	g := h.gpu.g
@@ -216,6 +235,7 @@ func (h *Host) closeGPU() {
 		v.gpu.surf, v.gpu.chain, v.gpu.wsurf = nil, nil, nil // they are g's
 	}
 	h.gpu.g, h.gpu.trimAt = nil, 0
+	h.syncTextures() // no more imports: gputexture.go
 	g.Close()
 }
 
@@ -360,6 +380,7 @@ func (h *Host) rasterize(v *winView, full bool) Damage {
 	}
 	if v.gpu.surf == nil {
 		v.gpu.surf = g.NewSurface()
+		h.syncTextures() // a new window, maybe the only one of the GPU
 	}
 	direct := h.direct(v)
 	v.gpu.surf.SetDirect(direct)
@@ -497,14 +518,11 @@ func (h *Host) gpuFailed(v *winView, err error) {
 	v.endGPU()
 	v.gpu.off = true
 	if !g.Lost() {
+		h.syncTextures() // the last window of the GPU, maybe
 		fmt.Fprintf(h.log, "tela: the GPU renderer failed, this window is drawn by the CPU rasterizer from now on: %s\n", oneLine(err))
 		return
 	}
-	fmt.Fprintf(h.log, "tela: the GPU device is lost, the app is drawn by the CPU rasterizer from now on: %s\n", oneLine(err))
-	// The framebuffers of the other windows hold their frames, or the
-	// CPU rasterizer was asked for them (lagGPU): their next frame is its,
-	// in full (layerState.rasGPU).
-	h.closeGPU()
+	h.lostGPU(err)
 }
 
 // oneLine returns the message of err on one line (the errors of the

@@ -70,7 +70,7 @@ func TestLogicalPoint(t *testing.T) {
 }
 
 func TestScaleFor(t *testing.T) {
-	o1, o2 := &output{scale: 1}, &output{scale: 3}
+	o1, o2 := &output{outputProps: outputProps{scale: 1}}, &output{outputProps: outputProps{scale: 3}}
 	cases := []struct {
 		frac    uint32
 		pref    int32

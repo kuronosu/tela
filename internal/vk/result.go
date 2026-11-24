@@ -33,6 +33,8 @@ var resultNames = map[Result]string{
 	SuboptimalKHR:              "VK_SUBOPTIMAL_KHR",
 	ErrorOutOfDateKHR:          "VK_ERROR_OUT_OF_DATE_KHR",
 	ErrorValidationFailedEXT:   "VK_ERROR_VALIDATION_FAILED_EXT",
+
+	ErrorInvalidDrmFormatModifierPlaneLayoutEXT: "VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT",
 }
 
 // String returns the C name of the code, or its number when the bindings

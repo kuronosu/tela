@@ -166,12 +166,6 @@ func TestExport(t *testing.T) {
 	})
 }
 
-// fourccString spells a format's fourcc.
-func (f DmabufFormat) fourccString() string {
-	c := f.Fourcc
-	return string([]byte{byte(c), byte(c >> 8), byte(c >> 16), byte(c >> 24)})
-}
-
 // TestSelectDevice checks the device Open opens: a name wins over the
 // display server's device, which wins over the first discrete one, which
 // wins over the first integrated one, and a software device is refused

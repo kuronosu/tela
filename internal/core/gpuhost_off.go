@@ -27,7 +27,8 @@ func (h *Host) openGPU() {
 	}
 }
 
-func (h *Host) closeGPU() { h.gpu = hostGPU{} }
+func (h *Host) closeGPU()   { h.gpu = hostGPU{} }
+func (h *Host) endLostGPU() {}
 
 // quitGPU ends the swapchains on the windows before the loop ends: there
 // are none.

@@ -3,6 +3,7 @@ package loop
 import (
 	"fmt"
 	"image"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -368,6 +369,46 @@ func TestVsyncGate(t *testing.T) {
 	a.RequestFrame()
 	if d, ok := r.l.Pace(); !ok || d != time.Second+10*time.Millisecond {
 		t.Errorf("Pace = %v, %v; want the interval deadline", d, ok)
+	}
+}
+
+// The Refresh hook is asked for each window's frame when it is delivered,
+// and not for a window closed by then; without it the interval is unknown.
+func TestRefresh(t *testing.T) {
+	r := newRig(t, nil)
+	var asked []string
+	var got []time.Duration
+	refresh := map[string]time.Duration{"a": 7 * time.Millisecond}
+	r.l.opts.Refresh = func(w *win) time.Duration {
+		asked = append(asked, w.name)
+		return refresh[w.name]
+	}
+	a, b, c := r.window("a"), r.window("b"), r.window("c")
+	r.on = func(w platform.Window, e platform.Event) {
+		if f, ok := e.(platform.FrameEvent); ok {
+			got = append(got, f.Refresh)
+			if w == platform.Window(a) {
+				refresh["b"] = 4 * time.Millisecond
+				r.l.Remove(c)
+			}
+		}
+	}
+	for _, w := range []*win{a, b, c} {
+		r.l.Enqueue(w, platform.ConfigureEvent{Metrics: metrics})
+	}
+	r.expect("a configure 10x10; b configure 10x10; c configure 10x10; a frame 0s; b frame 0s")
+	if want := []time.Duration{7 * time.Millisecond, 4 * time.Millisecond}; !slices.Equal(got, want) {
+		t.Errorf("Refresh = %v, want %v", got, want)
+	}
+	if want := []string{"a", "b"}; !slices.Equal(asked, want) {
+		t.Errorf("the hook was asked for %v, want %v", asked, want)
+	}
+	r.l.opts.Refresh, got = nil, nil
+	a.RequestFrame()
+	r.clock += time.Second
+	r.expect("a frame 1s")
+	if len(got) != 1 || got[0] != 0 {
+		t.Errorf("Refresh = %v without a hook, want 0", got)
 	}
 }
 

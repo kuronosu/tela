@@ -258,7 +258,10 @@ func (p *painter) place(bx *Box, parent *Box) {
 	// paints in flow outside groups, and the participants its stacking
 	// context paints.
 	wt, parts := 1, 0
-	if bx.mode == modeImage && bx.doc() != nil {
+	switch {
+	case bx.kind == style.KindTexture:
+		wt = groupMin // a list of its own, recorded for every frame it shows (texture.go)
+	case bx.mode == modeImage && bx.doc() != nil:
 		wt = 2 // a drawing: its commands
 	}
 	// A partial place (place.go) places the children that hold a change,

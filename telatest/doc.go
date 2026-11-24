@@ -198,6 +198,41 @@
 // fields' bindings, the events' CmdOrCtrl, what "ControlOrMeta" presses),
 // so a test of Command shortcuts runs on any OS.
 //
+// # Textures
+//
+// An element that shows a tela.Texture (h.Texture) is found like any other
+// ([ByTestID], or [ByRole]("img", name) when it has an AriaLabel), and the
+// test plays the application's producer (ADR-318). [App.SubmitTexture]
+// shows a frame, which is on the screen when it returns, so goldens do not
+// depend on timing; [App.TextureSize] says what size to render it at and
+// [App.TextureStats] counts the frames; [App.Texture] returns the handle for
+// every other call of the application's own.
+//
+//	app := telatest.Mount(t, Globe())
+//	globe := telatest.ByTestID("globe")
+//	size := app.TextureSize(globe) // device pixels, with the scale
+//	app.SubmitTexture(globe, render(size.Width, size.Height))
+//	app.Golden("globe.png")
+//
+// A producer that loops on tela.Texture.NextFrame renders at the window's
+// pace, so it never stops asking for frames: settling does not wait for it
+// (it is named by [PendingNextFrame], and counts for [App.ExpectIdle]), and
+// the frames that settling runs leave it waiting. The frames of [App.Advance]
+// and of the waits of the expectations let it go as often as the window runs
+// one, so what it draws depends on how fast it runs; [App.StepTexture] runs
+// one frame and waits until the producer rendered what it renders for that
+// frame, which makes a loop deterministic.
+//
+// The code path of an application that renders with its own GPU and gives
+// Tela dmabufs runs headless with a [FakeTextureDevice]
+// ([WithTextureDevice]): the test gives the imported [FakeTextureBuffer]s the
+// pixels that the application's renderer would draw, and signals the fences of
+// the frames ([NewFakeFence]). A frame that waits for its fence is named by
+// [PendingFence] and does not keep the app from being idle; settling waits
+// for what follows the signal. [App.ExpectReleases] checks the Release
+// functions that the application gave: every frame's is called exactly once,
+// which the end of the test checks too.
+//
 // # The clock
 //
 // The window's clock is manual: it starts at zero and moves only when the

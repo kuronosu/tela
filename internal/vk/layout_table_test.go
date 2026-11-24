@@ -980,6 +980,50 @@ var layoutTable = []structLayout{
 		{"pNext", unsafe.Offsetof(ImageDrmFormatModifierPropertiesEXT{}.PNext), unsafe.Sizeof(ImageDrmFormatModifierPropertiesEXT{}.PNext), 8, 8},
 		{"drmFormatModifier", unsafe.Offsetof(ImageDrmFormatModifierPropertiesEXT{}.DrmFormatModifier), unsafe.Sizeof(ImageDrmFormatModifierPropertiesEXT{}.DrmFormatModifier), 16, 8},
 	}},
+	{"VkImportMemoryFdInfoKHR", reflect.TypeOf(ImportMemoryFdInfoKHR{}), 24, 8, false, []fieldLayout{
+		{"sType", unsafe.Offsetof(ImportMemoryFdInfoKHR{}.SType), unsafe.Sizeof(ImportMemoryFdInfoKHR{}.SType), 0, 4},
+		{"pNext", unsafe.Offsetof(ImportMemoryFdInfoKHR{}.PNext), unsafe.Sizeof(ImportMemoryFdInfoKHR{}.PNext), 8, 8},
+		{"handleType", unsafe.Offsetof(ImportMemoryFdInfoKHR{}.HandleType), unsafe.Sizeof(ImportMemoryFdInfoKHR{}.HandleType), 16, 4},
+		{"fd", unsafe.Offsetof(ImportMemoryFdInfoKHR{}.Fd), unsafe.Sizeof(ImportMemoryFdInfoKHR{}.Fd), 20, 4},
+	}},
+	{"VkMemoryFdPropertiesKHR", reflect.TypeOf(MemoryFdPropertiesKHR{}), 24, 8, false, []fieldLayout{
+		{"sType", unsafe.Offsetof(MemoryFdPropertiesKHR{}.SType), unsafe.Sizeof(MemoryFdPropertiesKHR{}.SType), 0, 4},
+		{"pNext", unsafe.Offsetof(MemoryFdPropertiesKHR{}.PNext), unsafe.Sizeof(MemoryFdPropertiesKHR{}.PNext), 8, 8},
+		{"memoryTypeBits", unsafe.Offsetof(MemoryFdPropertiesKHR{}.MemoryTypeBits), unsafe.Sizeof(MemoryFdPropertiesKHR{}.MemoryTypeBits), 16, 4},
+	}},
+	{"VkImageDrmFormatModifierExplicitCreateInfoEXT", reflect.TypeOf(ImageDrmFormatModifierExplicitCreateInfoEXT{}), 40, 8, false, []fieldLayout{
+		{"sType", unsafe.Offsetof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.SType), unsafe.Sizeof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.SType), 0, 4},
+		{"pNext", unsafe.Offsetof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.PNext), unsafe.Sizeof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.PNext), 8, 8},
+		{"drmFormatModifier", unsafe.Offsetof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.DrmFormatModifier), unsafe.Sizeof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.DrmFormatModifier), 16, 8},
+		{"drmFormatModifierPlaneCount", unsafe.Offsetof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.DrmFormatModifierPlaneCount), unsafe.Sizeof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.DrmFormatModifierPlaneCount), 24, 4},
+		{"pPlaneLayouts", unsafe.Offsetof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.PPlaneLayouts), unsafe.Sizeof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.PPlaneLayouts), 32, 8},
+	}},
+	{"VkPhysicalDeviceIDProperties", reflect.TypeOf(PhysicalDeviceIDProperties{}), 64, 8, false, []fieldLayout{
+		{"sType", unsafe.Offsetof(PhysicalDeviceIDProperties{}.SType), unsafe.Sizeof(PhysicalDeviceIDProperties{}.SType), 0, 4},
+		{"pNext", unsafe.Offsetof(PhysicalDeviceIDProperties{}.PNext), unsafe.Sizeof(PhysicalDeviceIDProperties{}.PNext), 8, 8},
+		{"deviceUUID", unsafe.Offsetof(PhysicalDeviceIDProperties{}.DeviceUUID), unsafe.Sizeof(PhysicalDeviceIDProperties{}.DeviceUUID), 16, 16},
+		{"driverUUID", unsafe.Offsetof(PhysicalDeviceIDProperties{}.DriverUUID), unsafe.Sizeof(PhysicalDeviceIDProperties{}.DriverUUID), 32, 16},
+		{"deviceLUID", unsafe.Offsetof(PhysicalDeviceIDProperties{}.DeviceLUID), unsafe.Sizeof(PhysicalDeviceIDProperties{}.DeviceLUID), 48, 8},
+		{"deviceNodeMask", unsafe.Offsetof(PhysicalDeviceIDProperties{}.DeviceNodeMask), unsafe.Sizeof(PhysicalDeviceIDProperties{}.DeviceNodeMask), 56, 4},
+		{"deviceLUIDValid", unsafe.Offsetof(PhysicalDeviceIDProperties{}.DeviceLUIDValid), unsafe.Sizeof(PhysicalDeviceIDProperties{}.DeviceLUIDValid), 60, 4},
+	}},
+	{"VkPhysicalDeviceExternalBufferInfo", reflect.TypeOf(PhysicalDeviceExternalBufferInfo{}), 32, 8, false, []fieldLayout{
+		{"sType", unsafe.Offsetof(PhysicalDeviceExternalBufferInfo{}.SType), unsafe.Sizeof(PhysicalDeviceExternalBufferInfo{}.SType), 0, 4},
+		{"pNext", unsafe.Offsetof(PhysicalDeviceExternalBufferInfo{}.PNext), unsafe.Sizeof(PhysicalDeviceExternalBufferInfo{}.PNext), 8, 8},
+		{"flags", unsafe.Offsetof(PhysicalDeviceExternalBufferInfo{}.Flags), unsafe.Sizeof(PhysicalDeviceExternalBufferInfo{}.Flags), 16, 4},
+		{"usage", unsafe.Offsetof(PhysicalDeviceExternalBufferInfo{}.Usage), unsafe.Sizeof(PhysicalDeviceExternalBufferInfo{}.Usage), 20, 4},
+		{"handleType", unsafe.Offsetof(PhysicalDeviceExternalBufferInfo{}.HandleType), unsafe.Sizeof(PhysicalDeviceExternalBufferInfo{}.HandleType), 24, 4},
+	}},
+	{"VkExternalBufferProperties", reflect.TypeOf(ExternalBufferProperties{}), 32, 8, false, []fieldLayout{
+		{"sType", unsafe.Offsetof(ExternalBufferProperties{}.SType), unsafe.Sizeof(ExternalBufferProperties{}.SType), 0, 4},
+		{"pNext", unsafe.Offsetof(ExternalBufferProperties{}.PNext), unsafe.Sizeof(ExternalBufferProperties{}.PNext), 8, 8},
+		{"externalMemoryProperties", unsafe.Offsetof(ExternalBufferProperties{}.ExternalMemoryProperties), unsafe.Sizeof(ExternalBufferProperties{}.ExternalMemoryProperties), 16, 12},
+	}},
+	{"VkExternalMemoryBufferCreateInfo", reflect.TypeOf(ExternalMemoryBufferCreateInfo{}), 24, 8, false, []fieldLayout{
+		{"sType", unsafe.Offsetof(ExternalMemoryBufferCreateInfo{}.SType), unsafe.Sizeof(ExternalMemoryBufferCreateInfo{}.SType), 0, 4},
+		{"pNext", unsafe.Offsetof(ExternalMemoryBufferCreateInfo{}.PNext), unsafe.Sizeof(ExternalMemoryBufferCreateInfo{}.PNext), 8, 8},
+		{"handleTypes", unsafe.Offsetof(ExternalMemoryBufferCreateInfo{}.HandleTypes), unsafe.Sizeof(ExternalMemoryBufferCreateInfo{}.HandleTypes), 16, 4},
+	}},
 	{"VkSurfaceCapabilitiesKHR", reflect.TypeOf(SurfaceCapabilitiesKHR{}), 52, 4, false, []fieldLayout{
 		{"minImageCount", unsafe.Offsetof(SurfaceCapabilitiesKHR{}.MinImageCount), unsafe.Sizeof(SurfaceCapabilitiesKHR{}.MinImageCount), 0, 4},
 		{"maxImageCount", unsafe.Offsetof(SurfaceCapabilitiesKHR{}.MaxImageCount), unsafe.Sizeof(SurfaceCapabilitiesKHR{}.MaxImageCount), 4, 4},
@@ -2775,6 +2819,80 @@ var (
 	_ = [1]struct{}{}[unsafe.Sizeof(ImageDrmFormatModifierPropertiesEXT{}.PNext)-8]
 	_ = [1]struct{}{}[unsafe.Offsetof(ImageDrmFormatModifierPropertiesEXT{}.DrmFormatModifier)-16]
 	_ = [1]struct{}{}[unsafe.Sizeof(ImageDrmFormatModifierPropertiesEXT{}.DrmFormatModifier)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(ImportMemoryFdInfoKHR{})-24]
+	_ = [1]struct{}{}[unsafe.Alignof(ImportMemoryFdInfoKHR{})-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(ImportMemoryFdInfoKHR{}.SType)-0]
+	_ = [1]struct{}{}[unsafe.Sizeof(ImportMemoryFdInfoKHR{}.SType)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(ImportMemoryFdInfoKHR{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(ImportMemoryFdInfoKHR{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(ImportMemoryFdInfoKHR{}.HandleType)-16]
+	_ = [1]struct{}{}[unsafe.Sizeof(ImportMemoryFdInfoKHR{}.HandleType)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(ImportMemoryFdInfoKHR{}.Fd)-20]
+	_ = [1]struct{}{}[unsafe.Sizeof(ImportMemoryFdInfoKHR{}.Fd)-4]
+	_ = [1]struct{}{}[unsafe.Sizeof(MemoryFdPropertiesKHR{})-24]
+	_ = [1]struct{}{}[unsafe.Alignof(MemoryFdPropertiesKHR{})-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(MemoryFdPropertiesKHR{}.SType)-0]
+	_ = [1]struct{}{}[unsafe.Sizeof(MemoryFdPropertiesKHR{}.SType)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(MemoryFdPropertiesKHR{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(MemoryFdPropertiesKHR{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(MemoryFdPropertiesKHR{}.MemoryTypeBits)-16]
+	_ = [1]struct{}{}[unsafe.Sizeof(MemoryFdPropertiesKHR{}.MemoryTypeBits)-4]
+	_ = [1]struct{}{}[unsafe.Sizeof(ImageDrmFormatModifierExplicitCreateInfoEXT{})-40]
+	_ = [1]struct{}{}[unsafe.Alignof(ImageDrmFormatModifierExplicitCreateInfoEXT{})-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.SType)-0]
+	_ = [1]struct{}{}[unsafe.Sizeof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.SType)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.DrmFormatModifier)-16]
+	_ = [1]struct{}{}[unsafe.Sizeof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.DrmFormatModifier)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.DrmFormatModifierPlaneCount)-24]
+	_ = [1]struct{}{}[unsafe.Sizeof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.DrmFormatModifierPlaneCount)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.PPlaneLayouts)-32]
+	_ = [1]struct{}{}[unsafe.Sizeof(ImageDrmFormatModifierExplicitCreateInfoEXT{}.PPlaneLayouts)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(PhysicalDeviceIDProperties{})-64]
+	_ = [1]struct{}{}[unsafe.Alignof(PhysicalDeviceIDProperties{})-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(PhysicalDeviceIDProperties{}.SType)-0]
+	_ = [1]struct{}{}[unsafe.Sizeof(PhysicalDeviceIDProperties{}.SType)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(PhysicalDeviceIDProperties{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(PhysicalDeviceIDProperties{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(PhysicalDeviceIDProperties{}.DeviceUUID)-16]
+	_ = [1]struct{}{}[unsafe.Sizeof(PhysicalDeviceIDProperties{}.DeviceUUID)-16]
+	_ = [1]struct{}{}[unsafe.Offsetof(PhysicalDeviceIDProperties{}.DriverUUID)-32]
+	_ = [1]struct{}{}[unsafe.Sizeof(PhysicalDeviceIDProperties{}.DriverUUID)-16]
+	_ = [1]struct{}{}[unsafe.Offsetof(PhysicalDeviceIDProperties{}.DeviceLUID)-48]
+	_ = [1]struct{}{}[unsafe.Sizeof(PhysicalDeviceIDProperties{}.DeviceLUID)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(PhysicalDeviceIDProperties{}.DeviceNodeMask)-56]
+	_ = [1]struct{}{}[unsafe.Sizeof(PhysicalDeviceIDProperties{}.DeviceNodeMask)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(PhysicalDeviceIDProperties{}.DeviceLUIDValid)-60]
+	_ = [1]struct{}{}[unsafe.Sizeof(PhysicalDeviceIDProperties{}.DeviceLUIDValid)-4]
+	_ = [1]struct{}{}[unsafe.Sizeof(PhysicalDeviceExternalBufferInfo{})-32]
+	_ = [1]struct{}{}[unsafe.Alignof(PhysicalDeviceExternalBufferInfo{})-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(PhysicalDeviceExternalBufferInfo{}.SType)-0]
+	_ = [1]struct{}{}[unsafe.Sizeof(PhysicalDeviceExternalBufferInfo{}.SType)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(PhysicalDeviceExternalBufferInfo{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(PhysicalDeviceExternalBufferInfo{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(PhysicalDeviceExternalBufferInfo{}.Flags)-16]
+	_ = [1]struct{}{}[unsafe.Sizeof(PhysicalDeviceExternalBufferInfo{}.Flags)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(PhysicalDeviceExternalBufferInfo{}.Usage)-20]
+	_ = [1]struct{}{}[unsafe.Sizeof(PhysicalDeviceExternalBufferInfo{}.Usage)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(PhysicalDeviceExternalBufferInfo{}.HandleType)-24]
+	_ = [1]struct{}{}[unsafe.Sizeof(PhysicalDeviceExternalBufferInfo{}.HandleType)-4]
+	_ = [1]struct{}{}[unsafe.Sizeof(ExternalBufferProperties{})-32]
+	_ = [1]struct{}{}[unsafe.Alignof(ExternalBufferProperties{})-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(ExternalBufferProperties{}.SType)-0]
+	_ = [1]struct{}{}[unsafe.Sizeof(ExternalBufferProperties{}.SType)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(ExternalBufferProperties{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(ExternalBufferProperties{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(ExternalBufferProperties{}.ExternalMemoryProperties)-16]
+	_ = [1]struct{}{}[unsafe.Sizeof(ExternalBufferProperties{}.ExternalMemoryProperties)-12]
+	_ = [1]struct{}{}[unsafe.Sizeof(ExternalMemoryBufferCreateInfo{})-24]
+	_ = [1]struct{}{}[unsafe.Alignof(ExternalMemoryBufferCreateInfo{})-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(ExternalMemoryBufferCreateInfo{}.SType)-0]
+	_ = [1]struct{}{}[unsafe.Sizeof(ExternalMemoryBufferCreateInfo{}.SType)-4]
+	_ = [1]struct{}{}[unsafe.Offsetof(ExternalMemoryBufferCreateInfo{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Sizeof(ExternalMemoryBufferCreateInfo{}.PNext)-8]
+	_ = [1]struct{}{}[unsafe.Offsetof(ExternalMemoryBufferCreateInfo{}.HandleTypes)-16]
+	_ = [1]struct{}{}[unsafe.Sizeof(ExternalMemoryBufferCreateInfo{}.HandleTypes)-4]
 	_ = [1]struct{}{}[unsafe.Sizeof(SurfaceCapabilitiesKHR{})-52]
 	_ = [1]struct{}{}[unsafe.Alignof(SurfaceCapabilitiesKHR{})-4]
 	_ = [1]struct{}{}[unsafe.Offsetof(SurfaceCapabilitiesKHR{}.MinImageCount)-0]
@@ -3322,6 +3440,14 @@ var constTable = []constValue{
 	{"VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT", u64(ExternalMemoryFeatureDedicatedOnly), 0x1},
 	{"VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT", u64(ExternalMemoryFeatureExportable), 0x2},
 	{"VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT", u64(ExternalMemoryFeatureImportable), 0x4},
+	{"VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO", u64(StructureTypePhysicalDeviceExternalBufferInfo), 0x3b9bdf5a},
+	{"VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES", u64(StructureTypeExternalBufferProperties), 0x3b9bdf5b},
+	{"VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES", u64(StructureTypePhysicalDeviceIDProperties), 0x3b9bdf5c},
+	{"VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO", u64(StructureTypeExternalMemoryBufferCreateInfo), 0x3b9be340},
+	{"VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR", u64(StructureTypeImportMemoryFdInfoKHR), 0x3b9beb10},
+	{"VK_STRUCTURE_TYPE_MEMORY_FD_PROPERTIES_KHR", u64(StructureTypeMemoryFdPropertiesKHR), 0x3b9beb11},
+	{"VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_EXPLICIT_CREATE_INFO_EXT", u64(StructureTypeImageDrmFormatModifierExplicitCreateInfoEXT), 0x3b9d3334},
+	{"VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT", u64(ErrorInvalidDrmFormatModifierPlaneLayoutEXT), 0xffffffffc462ccd0},
 	{"VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR", u64(StructureTypeSwapchainCreateInfoKHR), 0x3b9acde8},
 	{"VK_STRUCTURE_TYPE_PRESENT_INFO_KHR", u64(StructureTypePresentInfoKHR), 0x3b9acde9},
 	{"VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR", u64(StructureTypeWin32SurfaceCreateInfoKHR), 0x3b9aed28},

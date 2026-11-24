@@ -118,7 +118,7 @@ func New() (*Backend, error) {
 	}
 	runtime.LockOSThread()
 	b := &Backend{start: time.Now(), runLoop: darwin.CFRunLoopGetMain(), linkKind: chooseLink()}
-	b.loop = loop.New(loop.Options[*Window]{Now: b.Now, Notify: b.notify, Pace: b.paceHook})
+	b.loop = loop.New(loop.Options[*Window]{Now: b.Now, Notify: b.notify, Pace: b.paceHook, Refresh: (*Window).refresh})
 	pool := darwin.PoolPush()
 	b.clock.offset = b.Now() - time.Duration(uptime()*float64(time.Second))
 	darwin.PoolPop(pool)

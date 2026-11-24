@@ -10,6 +10,8 @@ import (
 	"image"
 	"os"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"unsafe"
 
 	"github.com/kuronosu/tela/internal/vk"
@@ -129,10 +131,27 @@ func selectDevice(devices []vk.DeviceInfo, cfg Config, env string) (int, error) 
 // perf: a frame waits for the GPU before Draw returns, and its instances
 // are copied into one host-visible buffer; frames in flight, with a ring
 // of buffers, come with presenting.
+//
+// Three calls may come from other goroutines while the device's own draws:
+// Import and Imported.Close, which an application makes where it likes, and
+// the read back of an imported buffer (Imported.Pixels, which a tile of the
+// rasterizer asks for). The first two wait for a Draw in progress (resMu);
+// the read has a command buffer, a fence and memory of its own, and mu keeps
+// it and the device's submissions apart.
 type vkDevice struct {
+	// resMu is held while the textures and the descriptor sets of images and
+	// imports are made and destroyed: by Draw, Trim, Rest and Close, and by
+	// Import and Imported.Close. It is locked before mu.
+	resMu sync.Mutex
+	// mu is held from the recording of a submission to the end of the wait
+	// for it, and while closed, held and the state of the imported buffers
+	// change.
+	mu sync.Mutex
+
 	inst        *vk.Instance
 	ownInstance bool
 	info        vk.DeviceInfo
+	id          DeviceID
 	dev         *vk.Device
 	queue       vk.Queue
 	mem         *vk.PhysicalDeviceMemoryProperties
@@ -200,6 +219,13 @@ type vkDevice struct {
 	// exportCache is what the driver said of the exports, asked once
 	// (vulkan_export_linux.go).
 	exportCache
+	// imports are the dmabufs imported, and importCache what the driver
+	// said of the imports, asked once (vulkan_import_linux.go).
+	imports map[*vkImported]struct{}
+	importCache
+	// held is what the work of a lost device may still use, destroyed once
+	// Close has waited for it (discard). Under mu.
+	held []func()
 	// windows are the swapchains on windows' surfaces
 	// (vulkan_swapchain_windows.go); nil when the device was created
 	// without VK_KHR_swapchain. incremental: the device has
@@ -213,17 +239,52 @@ type vkDevice struct {
 	// lost: a call returned VK_ERROR_DEVICE_LOST, or the wait for a
 	// submission failed (submitWith). Every call fails from then on
 	// (ErrDeviceLost).
-	lost bool
-	// waitErr, when set, replaces the result of the wait for a submission:
-	// a test's timeout. Nil outside tests.
-	waitErr func(error) error
+	lost atomic.Bool
+	// spare are the textures of the images a frame gave up, until its new
+	// images have taken what they can use (newImage). quiet counts the
+	// frames since one uploaded anything.
+	spare []*vkImage
+	quiet int
+	// made counts the images created with newTextureOf, for the tests.
+	made int
+	// waitErr, when set, stands in for the wait for a submission, which is
+	// left in flight: a test's timeout. Nil outside tests.
+	waitErr func() error
+}
+
+// Lost implements Importer.
+func (d *vkDevice) Lost() bool { return d.lost.Load() }
+
+// ImagesMade returns the images created so far, for the tests of the
+// packages above: a frame of a stream creates none.
+func (d *vkDevice) ImagesMade() int { return d.made }
+
+// wait waits for the fence of a submission.
+func (d *vkDevice) wait(fence vk.Fence) error {
+	if d.waitErr != nil {
+		return d.waitErr()
+	}
+	return d.dev.WaitForFences([]vk.Fence{fence}, true, waitTimeout)
+}
+
+// discard destroys what submitted work may use: at once, since every
+// submission was waited for, but on a lost device, whose work may still
+// run, when Close has waited for it.
+func (d *vkDevice) discard(destroy func()) {
+	if !d.lost.Load() {
+		destroy()
+		return
+	}
+	d.mu.Lock()
+	d.held = append(d.held, destroy)
+	d.mu.Unlock()
 }
 
 // check notes an error of a call into the device: a lost device stays
 // lost, and its errors are ErrDeviceLost.
 func (d *vkDevice) check(err error) error {
 	if err != nil && !errors.Is(err, ErrDeviceLost) && errors.Is(err, vk.ErrorDeviceLost) {
-		d.lost = true
+		d.lost.Store(true)
 		return fmt.Errorf("%w: %w", ErrDeviceLost, err)
 	}
 	return err
@@ -235,7 +296,7 @@ func (d *vkDevice) usable() error {
 	switch {
 	case d == nil || d.closed:
 		return errors.New("gpu: the device is closed")
-	case d.lost:
+	case d.lost.Load():
 		return ErrDeviceLost
 	}
 	return nil
@@ -282,6 +343,15 @@ type vkImage struct {
 	tex  texture
 	set  vk.DescriptorSet
 	pool *imagePool
+	kind imageKind
+}
+
+// imageKind is what the textures of two images must share for one to take
+// the other's.
+type imageKind struct {
+	w, h   int
+	format vk.Format
+	opaque bool // the alpha read is 1, whatever the texels hold
 }
 
 // imagePool allocates the descriptor sets of imageSetsPerPool images.
@@ -335,6 +405,13 @@ func (d *vkDevice) init() error {
 		return fmt.Errorf("R8_UNORM lacks features (has %#x)", got)
 	}
 	d.maxSize = int(d.inst.GetPhysicalDeviceProperties(pd).Limits.MaxImageDimension2D)
+	d.id = DeviceID{Name: d.info.Name, VendorID: d.info.VendorID, DeviceID: d.info.DeviceID}
+	if id, ok := d.inst.GetPhysicalDeviceID(pd); ok {
+		d.id.UUID, d.id.DriverUUID, d.id.LUID, d.id.HasLUID = id.DeviceUUID, id.DriverUUID, id.LUID, id.HasLUID
+	}
+	if drm := d.info.DRM; drm.HasRender {
+		d.id.Render, d.id.HasRender = DRMNode{Major: uint32(drm.RenderMajor), Minor: uint32(drm.RenderMinor)}, true
+	}
 	d.mem = d.inst.GetPhysicalDeviceMemoryProperties(pd)
 
 	priority := float32(1)
@@ -349,14 +426,16 @@ func (d *vkDevice) init() error {
 		},
 		PEnabledFeatures: &vk.PhysicalDeviceFeatures{},
 	}
-	// The extensions of the dmabuf export, on the devices that have them
-	// (Linux): what presenting without a copy needs (export.go). And on
-	// Windows those of a swapchain on a window (swapchain.go), when the
-	// instance makes surfaces of windows.
+	// The extensions of the dmabufs, on the devices that have them (Linux):
+	// what presenting without a copy needs (export.go), and drawing an
+	// application's buffers (import.go). And on Windows those of a swapchain
+	// on a window (swapchain.go), when the instance makes surfaces of
+	// windows.
 	var extensions []string
 	if names, ok := vk.DmabufExtensions(&d.info); ok && exportSupported {
 		extensions = append(extensions, names...)
 		d.exports = map[*vkExport]struct{}{}
+		d.imports = map[*vkImported]struct{}{}
 		d.foreign = d.info.HasExtension(vk.ExtQueueFamilyForeignExtensionName)
 	}
 	if names, incremental, ok := vk.SwapchainExtensions(&d.info); ok && surfaceSupported && d.inst.HasWin32Surface() {
@@ -547,7 +626,7 @@ func (d *vkDevice) init() error {
 		}
 	}
 	// A transparent pixel stands for the image while a batch reads none.
-	if d.noImage, err = d.newImage(ImageUpload{Width: 1, Height: 1}); err != nil {
+	if d.noImage, err = d.newImage(imageKind{w: 1, h: 1, format: targetFormat}); err != nil {
 		return err
 	}
 	return d.run(func(cb vk.CommandBuffer) { d.clearTexture(cb, d.noImage.tex.img, 0) })
@@ -632,21 +711,34 @@ func (d *vkDevice) pipeline(frag vk.ShaderModule, format TargetFormat, blend boo
 	return pipelines[0], nil
 }
 
+// DeviceID implements Identified.
+func (d *vkDevice) DeviceID() DeviceID { return d.id }
+
+var _ Identified = (*vkDevice)(nil)
+
 func (d *vkDevice) Name() string       { return d.info.Name }
 func (d *vkDevice) MaxTargetSize() int { return d.maxSize }
 
 // Close destroys the device's objects, the targets it still has, and the
 // instance when Open created it. It may be called more than once.
 func (d *vkDevice) Close() {
+	d.resMu.Lock() // not under an import
+	defer d.resMu.Unlock()
 	if d.closed {
 		return
 	}
+	d.mu.Lock() // not under a read of an imported buffer
 	d.closed = true
+	d.mu.Unlock()
 	dev := d.dev
 	if dev != nil {
 		// Nothing is in flight, unless the wait for a submission failed
 		// (submitWith): it is waited for here. An error leaves nothing to do.
 		dev.WaitIdle()
+		for _, destroy := range d.held {
+			destroy()
+		}
+		d.held = nil
 		for t := range d.targets {
 			t.destroy()
 		}
@@ -656,6 +748,11 @@ func (d *vkDevice) Close() {
 		}
 		d.exports = nil
 		d.exportCache.forget()
+		for m := range d.imports {
+			m.destroy()
+		}
+		d.imports = nil
+		d.importCache.forget()
 		for s := range d.windows {
 			s.destroy() // the swapchain and the surface, before the instance
 		}
@@ -738,6 +835,13 @@ func (d *vkDevice) growBuffer(b *hostBuffer, size int, usage vk.BufferUsageFlags
 	}
 	size = max(size, 2*len(b.bytes)) // amortized growth
 	d.destroyBuffer(b)
+	d.setStale = true
+	return d.newBuffer(b, size, usage)
+}
+
+// newBuffer makes b, which is empty, a mapped buffer of size bytes. On an
+// error b holds what was made of it, for destroyBuffer.
+func (d *vkDevice) newBuffer(b *hostBuffer, size int, usage vk.BufferUsageFlags) error {
 	dev := d.dev
 	buf, err := dev.CreateBuffer(&vk.BufferCreateInfo{
 		SType:       vk.StructureTypeBufferCreateInfo,
@@ -778,7 +882,6 @@ func (d *vkDevice) growBuffer(b *hostBuffer, size int, usage vk.BufferUsageFlags
 		return fmt.Errorf("mapping buffer memory: %w", err)
 	}
 	b.bytes = unsafe.Slice((*byte)(p), size)
-	d.setStale = true
 	return nil
 }
 
@@ -803,8 +906,15 @@ func (d *vkDevice) newTexture(width, height int, usage vk.ImageUsageFlags) (text
 
 // newTextureOf creates a 2D image in device memory, with its view: an
 // array of the given number of layers, or with 0 a plain image.
-func (d *vkDevice) newTextureOf(format vk.Format, width, height, layers int, usage vk.ImageUsageFlags) (t texture, err error) {
+func (d *vkDevice) newTextureOf(format vk.Format, width, height, layers int, usage vk.ImageUsageFlags) (texture, error) {
+	return d.newTextureWith(format, width, height, layers, usage, false)
+}
+
+// newTextureWith is newTextureOf, whose view reads the alpha as 1 when
+// opaque.
+func (d *vkDevice) newTextureWith(format vk.Format, width, height, layers int, usage vk.ImageUsageFlags, opaque bool) (t texture, err error) {
 	dev := d.dev
+	d.made++
 	viewType := vk.ImageViewType2DArray
 	if layers == 0 {
 		layers, viewType = 1, vk.ImageViewType2D
@@ -844,19 +954,33 @@ func (d *vkDevice) newTextureOf(format vk.Format, width, height, layers int, usa
 	if err = dev.BindImageMemory(t.img, t.mem, 0); err != nil {
 		return t, fmt.Errorf("binding image memory: %w", err)
 	}
-	if t.view, err = dev.CreateImageView(&vk.ImageViewCreateInfo{
+	if t.view, err = d.newView(t.img, viewType, format, opaque); err != nil {
+		return t, err
+	}
+	return t, nil
+}
+
+// newView creates the view of an image the shaders read it through, its
+// alpha as 1 when opaque.
+func (d *vkDevice) newView(img vk.Image, viewType vk.ImageViewType, format vk.Format, opaque bool) (vk.ImageView, error) {
+	alpha := vk.ComponentSwizzleIdentity
+	if opaque {
+		alpha = vk.ComponentSwizzleOne
+	}
+	view, err := d.dev.CreateImageView(&vk.ImageViewCreateInfo{
 		SType:    vk.StructureTypeImageViewCreateInfo,
-		Image:    t.img,
+		Image:    img,
 		ViewType: viewType,
 		Format:   format,
 		Components: vk.ComponentMapping{
-			R: vk.ComponentSwizzleIdentity, G: vk.ComponentSwizzleIdentity, B: vk.ComponentSwizzleIdentity, A: vk.ComponentSwizzleIdentity,
+			R: vk.ComponentSwizzleIdentity, G: vk.ComponentSwizzleIdentity, B: vk.ComponentSwizzleIdentity, A: alpha,
 		},
 		SubresourceRange: colorRange,
-	}); err != nil {
-		return t, fmt.Errorf("creating an image view: %w", err)
+	})
+	if err != nil {
+		return 0, fmt.Errorf("creating an image view: %w", err)
 	}
-	return t, nil
+	return view, nil
 }
 
 func (d *vkDevice) destroyTexture(t *texture) {
@@ -918,7 +1042,7 @@ func (d *vkDevice) growRamps(rows int) error {
 		})
 	})
 	if err != nil {
-		d.destroyTexture(&t)
+		d.discard(func() { d.destroyTexture(&t) })
 		return err
 	}
 	d.destroyTexture(&d.ramps)
@@ -1037,7 +1161,7 @@ func (d *vkDevice) sizeAtlas(i int, want AtlasInfo) error {
 		})
 	})
 	if err != nil {
-		d.destroyTexture(&t)
+		d.discard(func() { d.destroyTexture(&t) })
 		return err
 	}
 	d.destroyTexture(&a.tex)
@@ -1047,21 +1171,41 @@ func (d *vkDevice) sizeAtlas(i int, want AtlasInfo) error {
 }
 
 // newImage creates the texture of an image, without its pixels, and the
-// descriptor set that binds it.
-func (d *vkDevice) newImage(up ImageUpload) (*vkImage, error) {
-	dev := d.dev
-	im := &vkImage{}
+// descriptor set that binds it, or takes a spare one of the same kind: the
+// frames of a stream follow each other in one texture.
+func (d *vkDevice) newImage(kind imageKind) (*vkImage, error) {
+	for i, im := range d.spare {
+		if im.kind == kind {
+			d.spare[i] = d.spare[len(d.spare)-1]
+			d.spare[len(d.spare)-1] = nil
+			d.spare = d.spare[:len(d.spare)-1]
+			return im, nil
+		}
+	}
+	im := &vkImage{kind: kind}
 	var err error
-	if im.tex, err = d.newTexture(up.Width, up.Height, vk.ImageUsageSampled|vk.ImageUsageTransferDst); err != nil {
+	if im.tex, err = d.newTextureWith(kind.format, kind.w, kind.h, 0, vk.ImageUsageSampled|vk.ImageUsageTransferDst, kind.opaque); err != nil {
 		return nil, err
 	}
+	if im.set, im.pool, err = d.newImageSet(im.tex.view); err != nil {
+		d.destroyTexture(&im.tex)
+		return nil, err
+	}
+	return im, nil
+}
+
+// newImageSet allocates the descriptor set that binds the view of an image
+// as the first texture of a batch.
+func (d *vkDevice) newImageSet(view vk.ImageView) (vk.DescriptorSet, *imagePool, error) {
+	dev := d.dev
+	var from *imagePool
 	for _, p := range d.imagePools {
 		if p.used < imageSetsPerPool {
-			im.pool = p
+			from = p
 			break
 		}
 	}
-	if im.pool == nil {
+	if from == nil {
 		pool, err := dev.CreateDescriptorPool(&vk.DescriptorPoolCreateInfo{
 			SType:         vk.StructureTypeDescriptorPoolCreateInfo,
 			Flags:         vk.DescriptorPoolCreateFreeDescriptorSet,
@@ -1070,32 +1214,36 @@ func (d *vkDevice) newImage(up ImageUpload) (*vkImage, error) {
 			PPoolSizes:    &vk.DescriptorPoolSize{Type: vk.DescriptorTypeCombinedImageSampler, DescriptorCount: 3 * imageSetsPerPool},
 		})
 		if err != nil {
-			d.destroyTexture(&im.tex)
-			return nil, fmt.Errorf("creating a descriptor pool: %w", err)
+			return 0, nil, fmt.Errorf("creating a descriptor pool: %w", err)
 		}
-		im.pool = &imagePool{pool: pool}
-		d.imagePools = append(d.imagePools, im.pool)
+		from = &imagePool{pool: pool}
+		d.imagePools = append(d.imagePools, from)
 	}
 	sets, err := dev.AllocateDescriptorSets(&vk.DescriptorSetAllocateInfo{
 		SType:              vk.StructureTypeDescriptorSetAllocateInfo,
-		DescriptorPool:     im.pool.pool,
+		DescriptorPool:     from.pool,
 		DescriptorSetCount: 1,
 		PSetLayouts:        &d.imageLayout,
 	})
 	if err != nil {
-		d.destroyTexture(&im.tex)
-		return nil, fmt.Errorf("allocating a descriptor set: %w", err)
+		return 0, nil, fmt.Errorf("allocating a descriptor set: %w", err)
 	}
-	im.set = sets[0]
-	im.pool.used++
+	from.used++
 	// The other textures of the set are the placeholder (which is this
 	// image, for the placeholder itself).
-	none := im.tex.view
+	none := view
 	if d.noImage != nil {
 		none = d.noImage.tex.view
 	}
-	d.writeTextures(im.set, [3]vk.ImageView{im.tex.view, none, none})
-	return im, nil
+	d.writeTextures(sets[0], [3]vk.ImageView{view, none, none})
+	return sets[0], from, nil
+}
+
+// freeImageSet frees a set of newImageSet.
+func (d *vkDevice) freeImageSet(set vk.DescriptorSet, pool *imagePool) {
+	// An error leaves the set to its pool, which is destroyed with it.
+	_ = d.dev.FreeDescriptorSets(pool.pool, []vk.DescriptorSet{set})
+	pool.used--
 }
 
 // writeTextures points the three textures of a set of a batch at views.
@@ -1115,15 +1263,14 @@ func (d *vkDevice) writeTextures(set vk.DescriptorSet, views [3]vk.ImageView) {
 // destroyImage destroys the texture of an image and frees its set. Nothing
 // is in flight when it is called.
 func (d *vkDevice) destroyImage(im *vkImage) {
-	// An error leaves the set to its pool, which is destroyed with it.
-	_ = d.dev.FreeDescriptorSets(im.pool.pool, []vk.DescriptorSet{im.set})
-	im.pool.used--
+	d.freeImageSet(im.set, im.pool)
 	d.destroyTexture(&im.tex)
 }
 
 // releaseResources destroys the image textures and the pools they leave
 // empty, and forgets whose resources the device holds: the next frame
-// must bring its own (Frame.Res.Base 0).
+// must bring its own (Frame.Res.Base 0). Nothing is in flight: on a lost
+// device only Close calls it, once it has waited.
 func (d *vkDevice) releaseResources() {
 	for id, im := range d.images {
 		d.destroyImage(im)
@@ -1148,18 +1295,24 @@ func (d *vkDevice) releaseResources() {
 }
 
 // Trim releases the atlases, the image textures, the offscreen targets and
-// the buffers of uploads and readbacks.
+// the buffers of uploads and readbacks. On a lost device, whose work may
+// still read them, Close does.
 func (d *vkDevice) Trim() {
-	if d.closed || d.dev == nil {
+	d.resMu.Lock()
+	defer d.resMu.Unlock()
+	d.trim()
+}
+
+func (d *vkDevice) trim() {
+	if d.closed || d.dev == nil || d.lost.Load() {
 		return
 	}
 	d.releaseResources()
 	for i := range d.atlases {
-		if d.lost {
-			break // nothing can be submitted; Close destroys the atlases
-		}
 		// An error keeps the atlas as it is: its pixels are not read again.
-		_ = d.sizeAtlas(i, AtlasInfo{})
+		if _ = d.sizeAtlas(i, AtlasInfo{}); d.lost.Load() {
+			return // the last one may be read still
+		}
 	}
 	d.destroyBuffer(&d.staging)
 	d.destroyBuffer(&d.readback)
@@ -1169,25 +1322,30 @@ func (d *vkDevice) Trim() {
 // Rest applies a frame of Encoder.Rest and releases the device's own
 // transient memory.
 func (d *vkDevice) Rest(f *Frame) error {
+	d.resMu.Lock()
+	defer d.resMu.Unlock()
 	if err := d.usable(); err != nil {
 		return err
 	}
 	if f == nil || len(f.Passes) > 0 || f.Res.ID != d.resID || f.Res.Base != d.resSerial {
-		d.Trim()
+		d.trim()
 		return ErrResourcesLost
 	}
 	for i := range f.Atlases {
 		if err := d.sizeAtlas(i, f.Atlases[i]); err != nil {
-			d.Trim()
-			return d.check(fmt.Errorf("gpu: %w", err))
+			err = d.check(fmt.Errorf("gpu: %w", err))
+			d.trim()
+			return err
 		}
 	}
 	d.resetSourceSets()
 	if err := d.syncTargets(f.Targets); err != nil {
-		d.Trim()
-		return d.check(err)
+		err = d.check(err)
+		d.trim()
+		return err
 	}
 	d.release(f.Releases)
+	d.dropSpare()
 	d.resSerial = f.Res.Next
 	d.destroyBuffer(&d.staging)
 	d.destroyBuffer(&d.readback)
@@ -1208,6 +1366,8 @@ func (d *vkDevice) dropScratch() {
 // commands wait for at a stage and one they signal, either zero for none:
 // a swapchain's image acquired, and its present.
 func (d *vkDevice) submitWith(wait vk.Semaphore, waitStage vk.PipelineStageFlags, signal vk.Semaphore, record func(cb vk.CommandBuffer)) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	dev := d.dev
 	if err := dev.BeginCommandBuffer(d.cb, &vk.CommandBufferBeginInfo{
 		SType: vk.StructureTypeCommandBufferBeginInfo,
@@ -1240,16 +1400,12 @@ func (d *vkDevice) submitWith(wait vk.Semaphore, waitStage vk.PipelineStageFlags
 	// CPU rasterizer and closes the device, whose Close waits for the
 	// queue before it destroys anything. The same for a fence that cannot
 	// be reset, which the next submission could not use.
-	err := dev.WaitForFences([]vk.Fence{d.fence}, true, waitTimeout)
-	if d.waitErr != nil {
-		err = d.waitErr(err)
-	}
-	if err != nil {
-		d.lost = true
+	if err := d.wait(d.fence); err != nil {
+		d.lost.Store(true)
 		return fmt.Errorf("%w: waiting for the frame: %w", ErrDeviceLost, err)
 	}
 	if err := dev.ResetFences([]vk.Fence{d.fence}); err != nil {
-		d.lost = true
+		d.lost.Store(true)
 		return fmt.Errorf("%w: resetting the fence: %w", ErrDeviceLost, err)
 	}
 	return nil
@@ -1443,7 +1599,7 @@ func (d *vkDevice) NewTarget(width, height int) (Target, error) {
 		d.use(cb, t.surf, vk.ImageLayoutTransferSrcOptimal)
 	})
 	if err != nil {
-		t.destroy()
+		d.discard(t.destroy)
 		return nil, d.check(err)
 	}
 	d.targets[t] = struct{}{}
@@ -1453,10 +1609,11 @@ func (d *vkDevice) NewTarget(width, height int) (Target, error) {
 func (t *vkTarget) Size() image.Point { return t.size }
 func (t *vkTarget) Device() Device    { return t.owner }
 
-// Close destroys the target. It may be called more than once, and after
+// Close destroys the target, or leaves it to the Close of a lost device,
+// whose work may still use it. It may be called more than once, and after
 // the device was closed.
 func (t *vkTarget) Close() {
-	if t.d == nil || t.d.closed {
+	if t.d == nil || t.d.closed || t.d.lost.Load() {
 		return
 	}
 	delete(t.d.targets, t)
@@ -1486,6 +1643,11 @@ func (t *vkTarget) usable() error {
 
 func (t *vkTarget) Draw(f *Frame) error {
 	d := t.d
+	if d == nil {
+		return t.usable()
+	}
+	d.resMu.Lock()
+	defer d.resMu.Unlock()
 	if err := t.usable(); err != nil {
 		return err
 	}
@@ -1500,10 +1662,13 @@ func (t *vkTarget) Draw(f *Frame) error {
 		// A frame that brings everything it draws with: start from it.
 		d.releaseResources()
 	}
-	if err := d.draw(t, f); err != nil {
-		// What the frame left on the device is not known.
-		d.releaseResources()
-		return d.check(err)
+	if err := d.check(d.draw(t, f)); err != nil {
+		// What the frame left on the device is not known. On a lost device
+		// it may be read still: it waits for Close.
+		if !d.lost.Load() {
+			d.releaseResources()
+		}
+		return err
 	}
 	d.resID, d.resSerial = f.Res.ID, f.Res.Next
 	return nil
@@ -1594,15 +1759,13 @@ func (d *vkDevice) planFrame(t *vkTarget, f *Frame) error {
 			views := [3]vk.ImageView{none, none, none}
 			reads := false
 			if b.Image != 0 {
-				im := d.images[b.Image]
-				if im == nil {
+				var ok bool
+				if views[0], pb.set, ok = d.imageOf(f, b.Image); !ok {
 					return fmt.Errorf("gpu: a batch reads the image %d, which the device does not hold", b.Image)
 				}
 				if b.Sources[0] != 0 {
 					return fmt.Errorf("gpu: a batch reads the image %d and the target %d as one texture", b.Image, b.Sources[0])
 				}
-				views[0] = im.tex.view
-				pb.set = im.set
 			}
 			for i, src := range b.Sources {
 				if src == 0 {
@@ -1637,9 +1800,31 @@ func (d *vkDevice) planFrame(t *vkTarget, f *Frame) error {
 	return nil
 }
 
+// imageOf returns the view and the descriptor set of the image a batch of f
+// names: an image's texture, or an imported buffer.
+func (d *vkDevice) imageOf(f *Frame, id uint64) (vk.ImageView, vk.DescriptorSet, bool) {
+	if id&importedID != 0 {
+		for _, m := range f.Imports {
+			if m.id == id {
+				im := m.mem.(*vkImported)
+				return im.view, im.set, true
+			}
+		}
+		return 0, 0, false
+	}
+	im := d.images[id]
+	if im == nil {
+		return 0, 0, false
+	}
+	return im.tex.view, im.set, true
+}
+
 // draw executes a frame whose resources follow the device's.
 func (d *vkDevice) draw(t *vkTarget, f *Frame) error {
 	dev := d.dev
+	if err := d.checkImports(f); err != nil {
+		return err
+	}
 
 	// The frame's data.
 	if err := d.growBuffer(&d.instances, len(f.Instances), vk.BufferUsageStorageBuffer); err != nil {
@@ -1678,6 +1863,10 @@ func (d *vkDevice) draw(t *vkTarget, f *Frame) error {
 	if err := d.syncTargets(f.Targets); err != nil {
 		return err
 	}
+	// What the frame gave up can go: no batch of it reads any, and nothing
+	// is in flight. The new images take the textures they can use.
+	d.release(f.Releases)
+	defer d.dropSpare()
 	// The textures of the new images.
 	var created []stagedImage
 	for i := range f.Images {
@@ -1685,10 +1874,14 @@ func (d *vkDevice) draw(t *vkTarget, f *Frame) error {
 		if d.images[up.ID] != nil {
 			continue // an image never changes
 		}
-		if up.Width < 1 || up.Height < 1 || up.Width > d.maxSize || up.Height > d.maxSize || len(up.Pix) != 4*up.Width*up.Height {
+		if up.Width < 1 || up.Height < 1 || up.Width > d.maxSize || up.Height > d.maxSize || up.From == nil && len(up.Pix) != 4*up.Width*up.Height {
 			return fmt.Errorf("gpu: an image of %dx%d with %d bytes: the size must be between 1 and %d", up.Width, up.Height, len(up.Pix), d.maxSize)
 		}
-		im, err := d.newImage(*up)
+		kind := imageKind{w: up.Width, h: up.Height, format: targetFormat}
+		if up.From != nil {
+			kind = up.From.mem.(*vkImported).kind
+		}
+		im, err := d.newImage(kind)
 		if err != nil {
 			return fmt.Errorf("gpu: %w", err)
 		}
@@ -1712,11 +1905,15 @@ func (d *vkDevice) draw(t *vkTarget, f *Frame) error {
 		staged += len(created[i].up.Pix)
 	}
 	if staged == 0 && len(d.staging.bytes) > 1<<20 {
-		// What a large upload needed is not kept by frames that upload
-		// nothing; small uploads keep their buffer.
-		d.destroyBuffer(&d.staging)
+		// What a large upload needed is not kept when frames stop
+		// uploading; small uploads keep their buffer, and so does a stream,
+		// between whose uploads other frames upload nothing.
+		if d.quiet++; d.quiet > idleFrames {
+			d.destroyBuffer(&d.staging)
+		}
 	}
 	if staged > 0 {
+		d.quiet = 0
 		if err := d.growBuffer(&d.staging, staged, vk.BufferUsageTransferSrc); err != nil {
 			return fmt.Errorf("gpu: %w", err)
 		}
@@ -1731,7 +1928,6 @@ func (d *vkDevice) draw(t *vkTarget, f *Frame) error {
 	d.writeSet()
 
 	if len(f.Passes) == 0 && !rampUpload && len(created) == 0 {
-		d.release(f.Releases)
 		return nil // nothing to record
 	}
 	prelude := func(cb vk.CommandBuffer) {
@@ -1758,8 +1954,14 @@ func (d *vkDevice) draw(t *vkTarget, f *Frame) error {
 			}})
 			toRead(d.ramps.img)
 		}
+		d.takeImports(cb, f)
 		for _, c := range created {
 			toDst(c.im.tex.img, vk.ImageLayoutUndefined)
+			if c.up.From != nil {
+				d.copyImport(cb, c.up.From.mem.(*vkImported), c.im.tex.img)
+				toRead(c.im.tex.img)
+				continue
+			}
 			dev.CmdCopyBufferToImage(cb, d.staging.buf, c.im.tex.img, vk.ImageLayoutTransferDstOptimal, []vk.BufferImageCopy{{
 				BufferOffset:     uint64(c.off),
 				ImageSubresource: colorLayers,
@@ -1782,6 +1984,7 @@ func (d *vkDevice) draw(t *vkTarget, f *Frame) error {
 				next += len(pass.Batches)
 				d.recordPass(cb, t, pass, plan, dataOff)
 			}
+			d.giveImports(cb, f)
 			// The destination rests ready to be read back.
 			d.use(cb, t.surf, vk.ImageLayoutTransferSrcOptimal)
 		})
@@ -1792,8 +1995,6 @@ func (d *vkDevice) draw(t *vkTarget, f *Frame) error {
 	if rampUpload {
 		d.uploaded = append(d.uploaded[:0], f.Ramps...)
 	}
-	// The frame is drawn: what it gave up can go.
-	d.release(f.Releases)
 	return nil
 }
 
@@ -1894,14 +2095,25 @@ func (d *vkDevice) recordPass(cb vk.CommandBuffer, t *vkTarget, pass *Pass, plan
 	dev.CmdEndRenderPass(cb)
 }
 
-// release destroys the textures of the images a frame gave up.
+// release makes the textures of the images a frame gave up spare. Nothing
+// is in flight.
 func (d *vkDevice) release(ids []uint64) {
 	for _, id := range ids {
 		if im := d.images[id]; im != nil {
-			d.destroyImage(im)
+			d.spare = append(d.spare, im)
 			delete(d.images, id)
 		}
 	}
+}
+
+// dropSpare destroys the spare textures: the frame that made them spare
+// does not read them, and the ones before it are done.
+func (d *vkDevice) dropSpare() {
+	for _, im := range d.spare {
+		d.destroyImage(im)
+	}
+	clear(d.spare)
+	d.spare = d.spare[:0]
 }
 
 func rect2D(r image.Rectangle) vk.Rect2D {

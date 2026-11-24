@@ -60,6 +60,11 @@ type fakeDevice struct {
 	// strideless: the exported images report planes without a stride, as
 	// a driver may for a plane of some modifiers.
 	strideless bool
+	// real: the targets say they are of the device itself, whose imports
+	// the encoder then draws (gputexture_test.go).
+	real bool
+	// onDraw, when set, stands around the draws of the Host's frames.
+	onDraw func(f *gpu.Frame, draw func() error) error
 }
 
 // fakeDevice is an Exporter when its device is one: it counts the images
@@ -181,11 +186,19 @@ type fakeTarget struct {
 	closed bool
 }
 
-func (t *fakeTarget) Device() gpu.Device { return t.d }
+func (t *fakeTarget) Device() gpu.Device {
+	if t.d.real {
+		return t.Target.Device()
+	}
+	return t.d
+}
 
 func (t *fakeTarget) Draw(f *gpu.Frame) error {
 	if err := t.d.failing("Draw"); err != nil {
 		return err
+	}
+	if t.d.onDraw != nil && !t.d.bypass {
+		return t.d.onDraw(f, func() error { return t.Target.Draw(f) })
 	}
 	return t.Target.Draw(f)
 }

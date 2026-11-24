@@ -162,6 +162,23 @@
 // against SwapchainOps and tested with a fake; the Vulkan side
 // (vulkan_swapchain_windows.go) runs only on Windows.
 //
+// # Drawing an application's GPU memory
+//
+// The content of an image may be a dmabuf an application drew into with
+// its own graphics API (import.go, ADR-315, ADR-316): the Vulkan device on
+// Linux is an Importer, DeviceID and ImportFormats are what an application
+// is told to render on and in, Import makes an Imported of a buffer, once,
+// and an image of it (gfx.NewExternalImage) is drawn from the memory, with
+// no pixels read and nothing uploaded. Each Draw takes the buffer from the
+// foreign queue family and gives it back, and returns when the GPU has
+// finished with it. A descriptor is checked against the dmabuf, and the
+// image the driver makes of it against the descriptor, before anything is
+// submitted: what is wrong is an error of Import and never a lost device.
+// Linear rows that the device samples badly or not at all are copied on
+// the GPU into an image texture, once per frame. Whoever cannot draw from
+// the memory (another device, the rasterizer) reads it back
+// (Imported.Pixels).
+//
 // Open chooses the device: the one Config.Device or TELA_GPU_DEVICE
 // names, else the one that has the DRM node of Config.DRM (the display
 // server's, whose buffers need no copy), else the first discrete one, else
@@ -196,7 +213,11 @@
 //
 // A frame uploads only what is new: Frame.Data and Pass.Uploads for the
 // atlases, Frame.Images for the images. A frame that draws what earlier
-// frames drew uploads nothing. Since a device mirrors what one Encoder
+// frames drew uploads nothing. An image of a stream (gfx.NewStreamImage),
+// as the frames of a video are, gives up the textures of those before it,
+// and the device gives what a frame gives up to its new images of the same
+// size: a stream lives in one texture, and no texture is made per frame
+// (TestStreamTextures). Since a device mirrors what one Encoder
 // decided, frames must be drawn in the order they were encoded:
 // Frame.Res numbers the changes, a device refuses a frame it cannot follow
 // (ErrResourcesLost), and the Renderer then starts over with a frame that
@@ -337,8 +358,11 @@
 // flushes, clip stacks) is tested without a device, by applying the
 // uploads of frames to atlases in memory and checking what every instance
 // reads (resources_test.go); so are the passes of layers and filters,
-// their targets and what they read (layer_test.go), and the kernels of the
-// blurs against the rasterizer's (TestBlurKernels).
+// their targets and what they read (layer_test.go), the images of imported
+// memory and of streams (import_test.go), and the kernels of the
+// blurs against the rasterizer's (TestBlurKernels). The tests of the
+// imports (vulkan_import_test.go) play the application with a second device,
+// of the same GPU and of the other one.
 //
 // # Shaders
 //

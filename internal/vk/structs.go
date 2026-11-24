@@ -1327,6 +1327,75 @@ type ImageDrmFormatModifierPropertiesEXT struct {
 	DrmFormatModifier uint64
 }
 
+// --- Importing dmabufs (ADR-316): the same extensions, and
+// VkPhysicalDeviceIDProperties of Vulkan 1.1. Their wrappers are in
+// dmabuf_import.go. ---
+
+// ImportMemoryFdInfoKHR is VkImportMemoryFdInfoKHR.
+type ImportMemoryFdInfoKHR struct {
+	_          structs.HostLayout
+	SType      StructureType
+	PNext      unsafe.Pointer
+	HandleType ExternalMemoryHandleTypeFlags
+	Fd         int32
+}
+
+// MemoryFdPropertiesKHR is VkMemoryFdPropertiesKHR.
+type MemoryFdPropertiesKHR struct {
+	_              structs.HostLayout
+	SType          StructureType
+	PNext          unsafe.Pointer
+	MemoryTypeBits uint32
+}
+
+// ImageDrmFormatModifierExplicitCreateInfoEXT is VkImageDrmFormatModifierExplicitCreateInfoEXT.
+type ImageDrmFormatModifierExplicitCreateInfoEXT struct {
+	_                           structs.HostLayout
+	SType                       StructureType
+	PNext                       unsafe.Pointer
+	DrmFormatModifier           uint64
+	DrmFormatModifierPlaneCount uint32
+	PPlaneLayouts               *SubresourceLayout
+}
+
+// PhysicalDeviceIDProperties is VkPhysicalDeviceIDProperties.
+type PhysicalDeviceIDProperties struct {
+	_               structs.HostLayout
+	SType           StructureType
+	PNext           unsafe.Pointer
+	DeviceUUID      [16]uint8
+	DriverUUID      [16]uint8
+	DeviceLUID      [8]uint8
+	DeviceNodeMask  uint32
+	DeviceLUIDValid Bool32
+}
+
+// PhysicalDeviceExternalBufferInfo is VkPhysicalDeviceExternalBufferInfo.
+type PhysicalDeviceExternalBufferInfo struct {
+	_          structs.HostLayout
+	SType      StructureType
+	PNext      unsafe.Pointer
+	Flags      uint32
+	Usage      BufferUsageFlags
+	HandleType ExternalMemoryHandleTypeFlags
+}
+
+// ExternalBufferProperties is VkExternalBufferProperties.
+type ExternalBufferProperties struct {
+	_                        structs.HostLayout
+	SType                    StructureType
+	PNext                    unsafe.Pointer
+	ExternalMemoryProperties ExternalMemoryProperties
+}
+
+// ExternalMemoryBufferCreateInfo is VkExternalMemoryBufferCreateInfo.
+type ExternalMemoryBufferCreateInfo struct {
+	_           structs.HostLayout
+	SType       StructureType
+	PNext       unsafe.Pointer
+	HandleTypes ExternalMemoryHandleTypeFlags
+}
+
 // --- Presenting to a window (ADR-289): VK_KHR_surface,
 // VK_KHR_win32_surface (whose struct is in vulkan_win32.h), VK_KHR_swapchain
 // and VK_KHR_incremental_present. Their wrappers are in surface.go. ---

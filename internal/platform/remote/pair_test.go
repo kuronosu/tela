@@ -191,10 +191,17 @@ func TestEveryEventForwarded(t *testing.T) {
 		t.Errorf("FrameEvent.Time %v is not in the host's time base (now %v)", fe.Time, p.hb.Now())
 	}
 
+	if fe.Refresh != headless.DefaultFrameInterval {
+		t.Errorf("FrameEvent.Refresh = %v, want the host window's %v", fe.Refresh, headless.DefaultFrameInterval)
+	}
+
 	// A requested frame is the host window's.
 	a.take()
+	hw.SetRefresh(7 * time.Millisecond)
 	a.ui(func() { w.RequestFrame(); w.RequestFrame() })
-	a.waitEvent("requested frame", isType[platform.FrameEvent])
+	if fe := a.waitEvent("requested frame", isType[platform.FrameEvent]).(platform.FrameEvent); fe.Refresh != 7*time.Millisecond {
+		t.Errorf("FrameEvent.Refresh = %v after the host window moved, want 7ms", fe.Refresh)
+	}
 	time.Sleep(50 * time.Millisecond)
 	for _, e := range a.take() {
 		if isType[platform.FrameEvent](e.e) {

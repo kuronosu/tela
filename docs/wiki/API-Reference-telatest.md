@@ -13,9 +13,9 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`AccentColor`](#func-accentcolor) · [`Active`](#func-active) · [`ActiveDescendant`](#func-activedescendant) · [`AllowDev`](#func-allowdev) · [`Allowed`](#func-allowed) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`AriaSnapshot`](#func-ariasnapshot) · [`Backdrop`](#func-backdrop) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`Carrying`](#func-carrying) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ClientDecorations`](#func-clientdecorations) · [`ColorScheme`](#func-colorscheme) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`DisableRules`](#func-disablerules) · [`Disabled`](#func-disabled) · [`DragFiles`](#func-dragfiles) · [`DragHTML`](#func-draghtml) · [`DragPNG`](#func-dragpng) · [`DragText`](#func-dragtext) · [`DragType`](#func-dragtype) · [`Exact`](#func-exact) · [`Exclude`](#func-exclude) · [`Expanded`](#func-expanded) · [`FixedSize`](#func-fixedsize) · [`Focused`](#func-focused) · [`Fonts`](#func-fonts) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`Fullscreen`](#func-fullscreen) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasRange`](#func-hasrange) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`Hidden`](#func-hidden) · [`HighContrast`](#func-highcontrast) · [`Hyphenation`](#func-hyphenation) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`Instrument`](#func-instrument) · [`Invalid`](#func-invalid) · [`LayoutJSON`](#func-layoutjson) · [`MaxSize`](#func-maxsize) · [`Maximized`](#func-maximized) · [`MinSize`](#func-minsize) · [`Minimized`](#func-minimized) · [`Modifiers`](#func-modifiers) · [`Monitors`](#func-monitors) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`MouseBack`](#func-mouseback) · [`MouseForward`](#func-mouseforward) · [`NoActiveDescendant`](#func-noactivedescendant) · [`NoCompositing`](#func-nocompositing) · [`NoDev`](#func-nodev) · [`NoServerDecorations`](#func-noserverdecorations) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`OnQuit`](#func-onquit) · [`Placement`](#func-placement) · [`PlatformKeys`](#func-platformkeys) · [`PreferNativeMenus`](#func-prefernativemenus) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`Right`](#func-right) · [`RootClass`](#func-rootclass) · [`Rules`](#func-rules) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Sort`](#func-sort) · [`StartHidden`](#func-starthidden) · [`StartLaunch`](#func-startlaunch) · [`Steps`](#func-steps) · [`TempDesktopDirs`](#func-tempdesktopdirs) · [`TextScale`](#func-textscale) · [`Theme`](#func-theme) · [`ThemeTransitions`](#func-themetransitions) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`TitleBar`](#func-titlebar) · [`TitleBarControls`](#func-titlebarcontrols) · [`TitleBarOverlay`](#func-titlebaroverlay) · [`Tolerance`](#func-tolerance) · [`Transparent`](#func-transparent) · [`WithRules`](#func-withrules) · [`WithTags`](#func-withtags) · [`WithUnsupported`](#func-withunsupported)
+- [Functions](#functions): [`AccentColor`](#func-accentcolor) · [`Active`](#func-active) · [`ActiveDescendant`](#func-activedescendant) · [`AllowDev`](#func-allowdev) · [`Allowed`](#func-allowed) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`AriaSnapshot`](#func-ariasnapshot) · [`Backdrop`](#func-backdrop) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`Carrying`](#func-carrying) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ClientDecorations`](#func-clientdecorations) · [`ColorScheme`](#func-colorscheme) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`DisableRules`](#func-disablerules) · [`Disabled`](#func-disabled) · [`DragFiles`](#func-dragfiles) · [`DragHTML`](#func-draghtml) · [`DragPNG`](#func-dragpng) · [`DragText`](#func-dragtext) · [`DragType`](#func-dragtype) · [`Exact`](#func-exact) · [`Exclude`](#func-exclude) · [`Expanded`](#func-expanded) · [`FixedSize`](#func-fixedsize) · [`Focused`](#func-focused) · [`Fonts`](#func-fonts) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`Fullscreen`](#func-fullscreen) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasRange`](#func-hasrange) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`Hidden`](#func-hidden) · [`HighContrast`](#func-highcontrast) · [`Hyphenation`](#func-hyphenation) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`Instrument`](#func-instrument) · [`Invalid`](#func-invalid) · [`LayoutJSON`](#func-layoutjson) · [`MaxSize`](#func-maxsize) · [`Maximized`](#func-maximized) · [`MinSize`](#func-minsize) · [`Minimized`](#func-minimized) · [`Modifiers`](#func-modifiers) · [`Monitors`](#func-monitors) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`MouseBack`](#func-mouseback) · [`MouseForward`](#func-mouseforward) · [`NewFakeFence`](#func-newfakefence) · [`NewFakeTextureDevice`](#func-newfaketexturedevice) · [`NoActiveDescendant`](#func-noactivedescendant) · [`NoCompositing`](#func-nocompositing) · [`NoDev`](#func-nodev) · [`NoServerDecorations`](#func-noserverdecorations) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`OnQuit`](#func-onquit) · [`Placement`](#func-placement) · [`PlatformKeys`](#func-platformkeys) · [`PreferNativeMenus`](#func-prefernativemenus) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`Right`](#func-right) · [`RootClass`](#func-rootclass) · [`Rules`](#func-rules) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Sort`](#func-sort) · [`StartHidden`](#func-starthidden) · [`StartLaunch`](#func-startlaunch) · [`Steps`](#func-steps) · [`TempDesktopDirs`](#func-tempdesktopdirs) · [`TextScale`](#func-textscale) · [`Theme`](#func-theme) · [`ThemeTransitions`](#func-themetransitions) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`TitleBar`](#func-titlebar) · [`TitleBarControls`](#func-titlebarcontrols) · [`TitleBarOverlay`](#func-titlebaroverlay) · [`Tolerance`](#func-tolerance) · [`Transparent`](#func-transparent) · [`WithRules`](#func-withrules) · [`WithTags`](#func-withtags) · [`WithTextureDevice`](#func-withtexturedevice) · [`WithUnsupported`](#func-withunsupported)
 - [Types](#types)
-  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`ActiveDrag`](#func-app-activedrag) · [`Advance`](#func-app-advance) · [`AnswerFileDialog`](#func-app-answerfiledialog) · [`AnswerMessage`](#func-app-answermessage) · [`AppMenuBar`](#func-app-appmenubar) · [`AppMenuItems`](#func-app-appmenuitems) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`AriaSnapshotNodes`](#func-app-ariasnapshotnodes) · [`AriaSnapshotSources`](#func-app-ariasnapshotsources) · [`AskForFileDefaults`](#func-app-askforfiledefaults) · [`Audit`](#func-app-audit) · [`Backdrop`](#func-app-backdrop) · [`BackendStrings`](#func-app-backendstrings) · [`Blocked`](#func-app-blocked) · [`BlockedBy`](#func-app-blockedby) · [`Blocks`](#func-app-blocks) · [`Bounds`](#func-app-bounds) · [`BringToFront`](#func-app-bringtofront) · [`CancelDrag`](#func-app-canceldrag) · [`CaptionDrags`](#func-app-captiondrags) · [`ChooseAppMenuItem`](#func-app-chooseappmenuitem) · [`ChooseMenuItem`](#func-app-choosemenuitem) · [`ChoosePopupItem`](#func-app-choosepopupitem) · [`ClearAccentColor`](#func-app-clearaccentcolor) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`ClickNotification`](#func-app-clicknotification) · [`ClickNotificationAction`](#func-app-clicknotificationaction) · [`ClickTray`](#func-app-clicktray) · [`ClickTrayItem`](#func-app-clicktrayitem) · [`Clipboard`](#func-app-clipboard) · [`Close`](#func-app-close) · [`Closed`](#func-app-closed) · [`ComponentOf`](#func-app-componentof) · [`Components`](#func-app-components) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DefaultsAsked`](#func-app-defaultsasked) · [`DismissNotification`](#func-app-dismissnotification) · [`DismissPopupMenu`](#func-app-dismisspopupmenu) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`DragTo`](#func-app-dragto) · [`DragToWindow`](#func-app-dragtowindow) · [`DropData`](#func-app-dropdata) · [`DropFiles`](#func-app-dropfiles) · [`DropOn`](#func-app-dropon) · [`DropOutside`](#func-app-dropoutside) · [`Expect`](#func-app-expect) · [`ExpectAccessible`](#func-app-expectaccessible) · [`ExpectAria`](#func-app-expectaria) · [`ExpectClosed`](#func-app-expectclosed) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectIdle`](#func-app-expectidle) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectNoWindow`](#func-app-expectnowindow) · [`ExpectQuit`](#func-app-expectquit) · [`ExpectRole`](#func-app-expectrole) · [`ExpectRunning`](#func-app-expectrunning) · [`ExpectText`](#func-app-expecttext) · [`ExpectTitle`](#func-app-expecttitle) · [`ExpectValue`](#func-app-expectvalue) · [`ExpectWindowCount`](#func-app-expectwindowcount) · [`ExpectWindowState`](#func-app-expectwindowstate) · [`FailSecrets`](#func-app-failsecrets) · [`FailShortcuts`](#func-app-failshortcuts) · [`FailSurfaces`](#func-app-failsurfaces) · [`FailTrash`](#func-app-failtrash) · [`FileDialogs`](#func-app-filedialogs) · [`Fill`](#func-app-fill) · [`Film`](#func-app-film) · [`Focus`](#func-app-focus) · [`Frames`](#func-app-frames) · [`GlobalShortcuts`](#func-app-globalshortcuts) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`HasQuit`](#func-app-hasquit) · [`HitAt`](#func-app-hitat) · [`HitRegions`](#func-app-hitregions) · [`HoldAppEntry`](#func-app-holdappentry) · [`HoldAssociation`](#func-app-holdassociation) · [`Hover`](#func-app-hover) · [`HoverDrag`](#func-app-hoverdrag) · [`InjectLaunch`](#func-app-injectlaunch) · [`LastWindow`](#func-app-lastwindow) · [`LayoutJSON`](#func-app-layoutjson) · [`LayoutJSONOf`](#func-app-layoutjsonof) · [`LeaveDrag`](#func-app-leavedrag) · [`LongPress`](#func-app-longpress) · [`MainWindow`](#func-app-mainwindow) · [`Maximize`](#func-app-maximize) · [`Measure`](#func-app-measure) · [`MenuBar`](#func-app-menubar) · [`MessageBoxes`](#func-app-messageboxes) · [`Minimize`](#func-app-minimize) · [`Modal`](#func-app-modal) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`MoveWindow`](#func-app-movewindow) · [`NodeLocator`](#func-app-nodelocator) · [`NodeOf`](#func-app-nodeof) · [`Notifications`](#func-app-notifications) · [`Now`](#func-app-now) · [`OpenedURLs`](#func-app-openedurls) · [`Parent`](#func-app-parent) · [`Pending`](#func-app-pending) · [`PixelAt`](#func-app-pixelat) · [`Placement`](#func-app-placement) · [`PopupMenus`](#func-app-popupmenus) · [`Press`](#func-app-press) · [`PressShortcut`](#func-app-pressshortcut) · [`RecentDocuments`](#func-app-recentdocuments) · [`RegisteredApps`](#func-app-registeredapps) · [`Registrations`](#func-app-registrations) · [`ReleaseShortcut`](#func-app-releaseshortcut) · [`RequestClose`](#func-app-requestclose) · [`RequestQuit`](#func-app-requestquit) · [`Resize`](#func-app-resize) · [`ResizeStarts`](#func-app-resizestarts) · [`Restore`](#func-app-restore) · [`RunTask`](#func-app-runtask) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`ScrollAt`](#func-app-scrollat) · [`Scrollables`](#func-app-scrollables) · [`SelectedText`](#func-app-selectedtext) · [`SetAccentColor`](#func-app-setaccentcolor) · [`SetClipboard`](#func-app-setclipboard) · [`SetCompositing`](#func-app-setcompositing) · [`SetDarkMode`](#func-app-setdarkmode) · [`SetDefaultHandler`](#func-app-setdefaulthandler) · [`SetFullscreen`](#func-app-setfullscreen) · [`SetHighContrast`](#func-app-sethighcontrast) · [`SetReducedMotion`](#func-app-setreducedmotion) · [`SetScale`](#func-app-setscale) · [`SetShortcutStatus`](#func-app-setshortcutstatus) · [`SetShortcutUnassigned`](#func-app-setshortcutunassigned) · [`SetStartsAtLogin`](#func-app-setstartsatlogin) · [`SetStoredSecret`](#func-app-setstoredsecret) · [`SetTextScale`](#func-app-settextscale) · [`SetTitleBarControls`](#func-app-settitlebarcontrols) · [`StartDrag`](#func-app-startdrag) · [`StartsAtLogin`](#func-app-startsatlogin) · [`Stats`](#func-app-stats) · [`StoredSecret`](#func-app-storedsecret) · [`TakesInput`](#func-app-takesinput) · [`Tap`](#func-app-tap) · [`Tasks`](#func-app-tasks) · [`TestIDOf`](#func-app-testidof) · [`Title`](#func-app-title) · [`TitleBar`](#func-app-titlebar) · [`Trashed`](#func-app-trashed) · [`Tray`](#func-app-tray) · [`Trays`](#func-app-trays) · [`Type`](#func-app-type) · [`Unmaximize`](#func-app-unmaximize) · [`Unsupported`](#func-app-unsupported) · [`WaitFor`](#func-app-waitfor) · [`WaitForWindow`](#func-app-waitforwindow) · [`Window`](#func-app-window) · [`WindowAt`](#func-app-windowat) · [`WindowMenus`](#func-app-windowmenus) · [`WindowSize`](#func-app-windowsize) · [`WindowState`](#func-app-windowstate) · [`Windows`](#func-app-windows)
+  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`ActiveDrag`](#func-app-activedrag) · [`Advance`](#func-app-advance) · [`AnswerFileDialog`](#func-app-answerfiledialog) · [`AnswerMessage`](#func-app-answermessage) · [`AppMenuBar`](#func-app-appmenubar) · [`AppMenuItems`](#func-app-appmenuitems) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`AriaSnapshotNodes`](#func-app-ariasnapshotnodes) · [`AriaSnapshotSources`](#func-app-ariasnapshotsources) · [`AskForFileDefaults`](#func-app-askforfiledefaults) · [`Audit`](#func-app-audit) · [`Backdrop`](#func-app-backdrop) · [`BackendStrings`](#func-app-backendstrings) · [`Blocked`](#func-app-blocked) · [`BlockedBy`](#func-app-blockedby) · [`Blocks`](#func-app-blocks) · [`Bounds`](#func-app-bounds) · [`BringToFront`](#func-app-bringtofront) · [`CancelDrag`](#func-app-canceldrag) · [`CaptionDrags`](#func-app-captiondrags) · [`ChooseAppMenuItem`](#func-app-chooseappmenuitem) · [`ChooseMenuItem`](#func-app-choosemenuitem) · [`ChoosePopupItem`](#func-app-choosepopupitem) · [`ClearAccentColor`](#func-app-clearaccentcolor) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`ClickNotification`](#func-app-clicknotification) · [`ClickNotificationAction`](#func-app-clicknotificationaction) · [`ClickTray`](#func-app-clicktray) · [`ClickTrayItem`](#func-app-clicktrayitem) · [`Clipboard`](#func-app-clipboard) · [`Close`](#func-app-close) · [`Closed`](#func-app-closed) · [`ComponentOf`](#func-app-componentof) · [`Components`](#func-app-components) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DefaultsAsked`](#func-app-defaultsasked) · [`DismissNotification`](#func-app-dismissnotification) · [`DismissPopupMenu`](#func-app-dismisspopupmenu) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`DragTo`](#func-app-dragto) · [`DragToWindow`](#func-app-dragtowindow) · [`DropData`](#func-app-dropdata) · [`DropFiles`](#func-app-dropfiles) · [`DropOn`](#func-app-dropon) · [`DropOutside`](#func-app-dropoutside) · [`Expect`](#func-app-expect) · [`ExpectAccessible`](#func-app-expectaccessible) · [`ExpectAria`](#func-app-expectaria) · [`ExpectClosed`](#func-app-expectclosed) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectIdle`](#func-app-expectidle) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectNoWindow`](#func-app-expectnowindow) · [`ExpectQuit`](#func-app-expectquit) · [`ExpectReleases`](#func-app-expectreleases) · [`ExpectRole`](#func-app-expectrole) · [`ExpectRunning`](#func-app-expectrunning) · [`ExpectText`](#func-app-expecttext) · [`ExpectTitle`](#func-app-expecttitle) · [`ExpectValue`](#func-app-expectvalue) · [`ExpectWindowCount`](#func-app-expectwindowcount) · [`ExpectWindowState`](#func-app-expectwindowstate) · [`FailSecrets`](#func-app-failsecrets) · [`FailShortcuts`](#func-app-failshortcuts) · [`FailSurfaces`](#func-app-failsurfaces) · [`FailTrash`](#func-app-failtrash) · [`FileDialogs`](#func-app-filedialogs) · [`Fill`](#func-app-fill) · [`Film`](#func-app-film) · [`Focus`](#func-app-focus) · [`Frames`](#func-app-frames) · [`GlobalShortcuts`](#func-app-globalshortcuts) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`HasQuit`](#func-app-hasquit) · [`HitAt`](#func-app-hitat) · [`HitRegions`](#func-app-hitregions) · [`HoldAppEntry`](#func-app-holdappentry) · [`HoldAssociation`](#func-app-holdassociation) · [`Hover`](#func-app-hover) · [`HoverDrag`](#func-app-hoverdrag) · [`InjectLaunch`](#func-app-injectlaunch) · [`LastWindow`](#func-app-lastwindow) · [`LayoutJSON`](#func-app-layoutjson) · [`LayoutJSONOf`](#func-app-layoutjsonof) · [`LeaveDrag`](#func-app-leavedrag) · [`LongPress`](#func-app-longpress) · [`MainWindow`](#func-app-mainwindow) · [`Maximize`](#func-app-maximize) · [`Measure`](#func-app-measure) · [`MenuBar`](#func-app-menubar) · [`MessageBoxes`](#func-app-messageboxes) · [`Minimize`](#func-app-minimize) · [`Modal`](#func-app-modal) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`MoveWindow`](#func-app-movewindow) · [`NodeLocator`](#func-app-nodelocator) · [`NodeOf`](#func-app-nodeof) · [`Notifications`](#func-app-notifications) · [`Now`](#func-app-now) · [`OpenedURLs`](#func-app-openedurls) · [`Parent`](#func-app-parent) · [`Pending`](#func-app-pending) · [`PixelAt`](#func-app-pixelat) · [`Placement`](#func-app-placement) · [`PopupMenus`](#func-app-popupmenus) · [`Press`](#func-app-press) · [`PressShortcut`](#func-app-pressshortcut) · [`RecentDocuments`](#func-app-recentdocuments) · [`RegisteredApps`](#func-app-registeredapps) · [`Registrations`](#func-app-registrations) · [`ReleaseShortcut`](#func-app-releaseshortcut) · [`RequestClose`](#func-app-requestclose) · [`RequestQuit`](#func-app-requestquit) · [`Resize`](#func-app-resize) · [`ResizeStarts`](#func-app-resizestarts) · [`Restore`](#func-app-restore) · [`RunTask`](#func-app-runtask) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`ScrollAt`](#func-app-scrollat) · [`Scrollables`](#func-app-scrollables) · [`SelectedText`](#func-app-selectedtext) · [`SetAccentColor`](#func-app-setaccentcolor) · [`SetClipboard`](#func-app-setclipboard) · [`SetCompositing`](#func-app-setcompositing) · [`SetDarkMode`](#func-app-setdarkmode) · [`SetDefaultHandler`](#func-app-setdefaulthandler) · [`SetFullscreen`](#func-app-setfullscreen) · [`SetHighContrast`](#func-app-sethighcontrast) · [`SetReducedMotion`](#func-app-setreducedmotion) · [`SetScale`](#func-app-setscale) · [`SetShortcutStatus`](#func-app-setshortcutstatus) · [`SetShortcutUnassigned`](#func-app-setshortcutunassigned) · [`SetStartsAtLogin`](#func-app-setstartsatlogin) · [`SetStoredSecret`](#func-app-setstoredsecret) · [`SetTextScale`](#func-app-settextscale) · [`SetTitleBarControls`](#func-app-settitlebarcontrols) · [`StartDrag`](#func-app-startdrag) · [`StartsAtLogin`](#func-app-startsatlogin) · [`Stats`](#func-app-stats) · [`StepTexture`](#func-app-steptexture) · [`StoredSecret`](#func-app-storedsecret) · [`SubmitTexture`](#func-app-submittexture) · [`TakesInput`](#func-app-takesinput) · [`Tap`](#func-app-tap) · [`Tasks`](#func-app-tasks) · [`TestIDOf`](#func-app-testidof) · [`Texture`](#func-app-texture) · [`TextureSize`](#func-app-texturesize) · [`TextureStats`](#func-app-texturestats) · [`Title`](#func-app-title) · [`TitleBar`](#func-app-titlebar) · [`Trashed`](#func-app-trashed) · [`Tray`](#func-app-tray) · [`Trays`](#func-app-trays) · [`Type`](#func-app-type) · [`Unmaximize`](#func-app-unmaximize) · [`Unsupported`](#func-app-unsupported) · [`WaitFor`](#func-app-waitfor) · [`WaitForWindow`](#func-app-waitforwindow) · [`Window`](#func-app-window) · [`WindowAt`](#func-app-windowat) · [`WindowMenus`](#func-app-windowmenus) · [`WindowSize`](#func-app-windowsize) · [`WindowState`](#func-app-windowstate) · [`Windows`](#func-app-windows)
   - [`type AuditOption`](#type-auditoption): [`DisableRules`](#func-disablerules) · [`Exclude`](#func-exclude) · [`WithRules`](#func-withrules) · [`WithTags`](#func-withtags)
   - [`type ClickOption`](#type-clickoption): [`Delay`](#func-delay) · [`MouseBack`](#func-mouseback) · [`MouseForward`](#func-mouseforward) · [`Right`](#func-right)
   - [`type Component`](#type-component)
@@ -23,6 +23,9 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type DragInfo`](#type-draginfo)
   - [`type DragOption`](#type-dragoption): [`Allowed`](#func-allowed) · [`Carrying`](#func-carrying) · [`Steps`](#func-steps)
   - [`type DragPayload`](#type-dragpayload): [`DragFiles`](#func-dragfiles) · [`DragHTML`](#func-draghtml) · [`DragPNG`](#func-dragpng) · [`DragText`](#func-dragtext) · [`DragType`](#func-dragtype) · [`And`](#func-dragpayload-and)
+  - [`type FakeFence`](#type-fakefence): [`NewFakeFence`](#func-newfakefence) · [`Done`](#func-fakefence-done) · [`Fail`](#func-fakefence-fail) · [`Signal`](#func-fakefence-signal) · [`Wait`](#func-fakefence-wait)
+  - [`type FakeTextureBuffer`](#type-faketexturebuffer): [`Closed`](#func-faketexturebuffer-closed) · [`Dmabuf`](#func-faketexturebuffer-dmabuf) · [`Fill`](#func-faketexturebuffer-fill) · [`Reads`](#func-faketexturebuffer-reads) · [`SetPixels`](#func-faketexturebuffer-setpixels)
+  - [`type FakeTextureDevice`](#type-faketexturedevice): [`NewFakeTextureDevice`](#func-newfaketexturedevice) · [`Device`](#func-faketexturedevice-device) · [`Imports`](#func-faketexturedevice-imports) · [`OnImport`](#func-faketexturedevice-onimport) · [`SetDevice`](#func-faketexturedevice-setdevice)
   - [`type FileDialog`](#type-filedialog)
   - [`type FileDialogKind`](#type-filedialogkind)
   - [`type FilmFrame`](#type-filmframe)
@@ -38,7 +41,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type MessageBox`](#type-messagebox)
   - [`type ModifiersOption`](#type-modifiersoption): [`Modifiers`](#func-modifiers)
   - [`type Notification`](#type-notification)
-  - [`type Option`](#type-option): [`AccentColor`](#func-accentcolor) · [`AllowDev`](#func-allowdev) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`Backdrop`](#func-backdrop) · [`CheckDamage`](#func-checkdamage) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Dev`](#func-dev) · [`FixedSize`](#func-fixedsize) · [`Fonts`](#func-fonts) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`HighContrast`](#func-highcontrast) · [`Hyphenation`](#func-hyphenation) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`Instrument`](#func-instrument) · [`MaxSize`](#func-maxsize) · [`MinSize`](#func-minsize) · [`Monitors`](#func-monitors) · [`NoCompositing`](#func-nocompositing) · [`NoDev`](#func-nodev) · [`NoServerDecorations`](#func-noserverdecorations) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`OnQuit`](#func-onquit) · [`Placement`](#func-placement) · [`PlatformKeys`](#func-platformkeys) · [`PreferNativeMenus`](#func-prefernativemenus) · [`ReducedMotion`](#func-reducedmotion) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Size`](#func-size) · [`StartHidden`](#func-starthidden) · [`StartLaunch`](#func-startlaunch) · [`TextScale`](#func-textscale) · [`Theme`](#func-theme) · [`ThemeTransitions`](#func-themetransitions) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`TitleBar`](#func-titlebar) · [`TitleBarControls`](#func-titlebarcontrols) · [`TitleBarOverlay`](#func-titlebaroverlay) · [`Transparent`](#func-transparent) · [`WithUnsupported`](#func-withunsupported)
+  - [`type Option`](#type-option): [`AccentColor`](#func-accentcolor) · [`AllowDev`](#func-allowdev) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`Backdrop`](#func-backdrop) · [`CheckDamage`](#func-checkdamage) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Dev`](#func-dev) · [`FixedSize`](#func-fixedsize) · [`Fonts`](#func-fonts) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`HighContrast`](#func-highcontrast) · [`Hyphenation`](#func-hyphenation) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`Instrument`](#func-instrument) · [`MaxSize`](#func-maxsize) · [`MinSize`](#func-minsize) · [`Monitors`](#func-monitors) · [`NoCompositing`](#func-nocompositing) · [`NoDev`](#func-nodev) · [`NoServerDecorations`](#func-noserverdecorations) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`OnQuit`](#func-onquit) · [`Placement`](#func-placement) · [`PlatformKeys`](#func-platformkeys) · [`PreferNativeMenus`](#func-prefernativemenus) · [`ReducedMotion`](#func-reducedmotion) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Size`](#func-size) · [`StartHidden`](#func-starthidden) · [`StartLaunch`](#func-startlaunch) · [`TextScale`](#func-textscale) · [`Theme`](#func-theme) · [`ThemeTransitions`](#func-themetransitions) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`TitleBar`](#func-titlebar) · [`TitleBarControls`](#func-titlebarcontrols) · [`TitleBarOverlay`](#func-titlebaroverlay) · [`Transparent`](#func-transparent) · [`WithTextureDevice`](#func-withtexturedevice) · [`WithUnsupported`](#func-withunsupported)
   - [`type Pending`](#type-pending): [`String`](#func-pending-string)
   - [`type PendingKind`](#type-pendingkind): [`String`](#func-pendingkind-string)
   - [`type PopupMenu`](#type-popupmenu)
@@ -126,6 +129,22 @@ app.DropOn(telatest.ByTestID("column-done"))
 [`App.SetDarkMode`](#func-app-setdarkmode), [`App.SetReducedMotion`](#func-app-setreducedmotion), [`App.SetHighContrast`](#func-app-sethighcontrast), [`App.SetTextScale`](#func-app-settextscale), [`App.SetAccentColor`](#func-app-setaccentcolor) and [`App.ClearAccentColor`](#func-app-clearaccentcolor) change what the system says while the app is mounted, as the user does in the system's settings; the components that read the setting rebuild. The options [`Dark`](#func-dark), [`ReducedMotion`](#func-reducedmotion), [`HighContrast`](#func-highcontrast), [`TextScale`](#func-textscale) and [`AccentColor`](#func-accentcolor) set it at Mount.
 
 [`PlatformKeys`](#func-platformkeys) gives the app another platform's key conventions (the text fields' bindings, the events' CmdOrCtrl, what "ControlOrMeta" presses), so a test of Command shortcuts runs on any OS.
+
+### Textures
+
+An element that shows a tela.Texture (h.Texture) is found like any other ([`ByTestID`](#func-bytestid), or [`ByRole`](#func-byrole)("img", name) when it has an AriaLabel), and the test plays the application's producer (ADR-318). [`App.SubmitTexture`](#func-app-submittexture) shows a frame, which is on the screen when it returns, so goldens do not depend on timing; [`App.TextureSize`](#func-app-texturesize) says what size to render it at and [`App.TextureStats`](#func-app-texturestats) counts the frames; [`App.Texture`](#func-app-texture) returns the handle for every other call of the application's own.
+
+```go
+app := telatest.Mount(t, Globe())
+globe := telatest.ByTestID("globe")
+size := app.TextureSize(globe) // device pixels, with the scale
+app.SubmitTexture(globe, render(size.Width, size.Height))
+app.Golden("globe.png")
+```
+
+A producer that loops on tela.Texture.NextFrame renders at the window's pace, so it never stops asking for frames: settling does not wait for it (it is named by [`PendingNextFrame`](#type-pendingkind), and counts for [`App.ExpectIdle`](#func-app-expectidle)), and the frames that settling runs leave it waiting. The frames of [`App.Advance`](#func-app-advance) and of the waits of the expectations let it go as often as the window runs one, so what it draws depends on how fast it runs; [`App.StepTexture`](#func-app-steptexture) runs one frame and waits until the producer rendered what it renders for that frame, which makes a loop deterministic.
+
+The code path of an application that renders with its own GPU and gives Tela dmabufs runs headless with a [`FakeTextureDevice`](#type-faketexturedevice) ([`WithTextureDevice`](#func-withtexturedevice)): the test gives the imported \[FakeTextureBuffer\]s the pixels that the application's renderer would draw, and signals the fences of the frames ([`NewFakeFence`](#func-newfakefence)). A frame that waits for its fence is named by [`PendingFence`](#type-pendingkind) and does not keep the app from being idle; settling waits for what follows the signal. [`App.ExpectReleases`](#func-app-expectreleases) checks the Release functions that the application gave: every frame's is called exactly once, which the end of the test checks too.
 
 ### The clock
 
@@ -1048,7 +1067,7 @@ ExpectFocused waits until the element l locates has the keyboard focus.
 func (a *App) ExpectIdle()
 ```
 
-ExpectIdle fails the test, naming what is pending ([`App.Pending`](#func-app-pending)), unless the app is idle once settled: nothing asks for a frame and nothing waits for a deadline. A screen that nobody touches should cost nothing; a forgotten UseInterval, an endless animation left mounted or a toast's timer show here, though they do not show in [`App.Stats`](#func-app-stats) until the clock reaches them. A UseGo goroutine ([`PendingGo`](#type-pendingkind)) does not count: one that waits costs nothing.
+ExpectIdle fails the test, naming what is pending ([`App.Pending`](#func-app-pending)), unless the app is idle once settled: nothing asks for a frame and nothing waits for a deadline. A screen that nobody touches should cost nothing; a forgotten UseInterval, an endless animation left mounted or a toast's timer show here, though they do not show in [`App.Stats`](#func-app-stats) until the clock reaches them. A UseGo goroutine ([`PendingGo`](#type-pendingkind)) does not count: one that waits costs nothing, and neither does a frame of a texture that waits for its fence ([`PendingFence`](#type-pendingkind)).
 
 ```go
 app := telatest.Mount(t, tela.C(Clock))
@@ -1093,6 +1112,40 @@ ExpectQuit waits until the app quits (see [`App.HasQuit`](#func-app-hasquit)) an
 app.Click(telatest.ByRole("button", "Quit"))   // OnClick(tela.Quit)
 app.ExpectQuit()
 if !cleaned { t.Error("the effect did not clean up") }
+```
+
+#### func (*App) ExpectReleases
+
+```go
+func (a *App) ExpectReleases(held int)
+```
+
+ExpectReleases fails the test unless the Release functions that the app gave to Texture.Submit and SubmitImage add up: every frame that Tela does not hold any more had its Release called exactly once, and held are the frames it still holds (the one on screen, per texture shown with a Release; the ones waiting for the next frame or for a fence). It waits, settling the app, for the calls that run on a goroutine of Tela's, until the [`Timeout`](#func-timeout). Call it with 0 after the textures unmounted ([`App.Close`](#func-app-close) checks it by itself when the test ends, and fails the test for a Release that never ran or ran twice).
+
+```go
+app.SubmitTexture(loc, frame) // no Release: nothing to count
+app.ExpectReleases(1)         // the frame on screen
+```
+
+**Example**
+
+Release is called once per frame, whatever happens to it: the test checks how many frames Tela still holds.
+
+```go
+view := func() tela.Node {
+    tex := tela.UseTexture()
+    return Texture(tex, TestID("screen"), Class("h-20 w-20"))
+}
+app := telatest.Mount(t, tela.C(view), telatest.Size(100, 100))
+tex := app.Texture(telatest.ByTestID("screen"))
+
+for i := range 3 {
+    tex.SubmitImage(solid(80, 80, color.Gray{uint8(80 * i)}), func() {})
+    app.Advance(time.Second / 60)
+}
+app.ExpectReleases(1) // the one on the screen; the other two went back
+fmt.Println("held: 1")
+// Output: held: 1
 ```
 
 #### func (*App) ExpectRole
@@ -2192,6 +2245,63 @@ func (a *App) Stats() Stats
 
 Stats returns the work counters of the app's tree, after settling it (under [`NoSettle`](#func-nosettle), handling only the work due).
 
+#### func (*App) StepTexture
+
+```go
+func (a *App) StepTexture(l Locator)
+```
+
+StepTexture runs one frame of the window that shows the texture of l for the producers that loop on its NextFrame, and waits until they came back: each one rendered and submitted what it renders for that frame, and waits in NextFrame for the next one. The next frame of the window then shows what they submitted, which is what the screenshot after StepTexture has. A loop of NextFrame is thus advanced frame by frame, deterministically, with the app's clock.
+
+Settling never lets a NextFrame loop go: the frames it runs leave the producers waiting, so an app with such a loop settles as any other, and [`App.Pending`](#func-app-pending) names it ([`PendingNextFrame`](#type-pendingkind)). [`App.Advance`](#func-app-advance) and the waits of the expectations (frames of the clock) do let them go, as often as the window runs a frame, so what they show depends on how fast the producers run; step them with StepTexture to compare pixels.
+
+A frame of the window lets go every producer of the textures it shows, not only this one's; StepTexture waits for this texture's. It fails the test when no goroutine waits in NextFrame (the texture is not shown, or its producer has not started: give it a UseGo), or when they do not come back within the [`Timeout`](#func-timeout) of real time: a producer that returns instead of waiting again (it ran its last frame) is stepped with [`App.Advance`](#func-app-advance).
+
+```go
+app := telatest.Mount(t, Game())
+for range 3 {
+    app.StepTexture(telatest.ByTestID("screen"))
+}
+app.Golden("game-3.png")
+```
+
+**Example**
+
+A producer that renders at the window's pace never lets the app settle by itself: its frames are stepped by hand.
+
+```go
+view := func() tela.Node {
+    tex := tela.UseTexture()
+    tela.UseGo(func(ctx context.Context) {
+        for n := 0; ; n++ {
+            if _, err := tex.NextFrame(ctx); err != nil {
+                return
+            }
+            s := tex.Size()
+            tex.SubmitImage(solid(s.Width, s.Height, color.Gray{uint8(60 * (n + 1))}), nil)
+        }
+    }, tela.Once)
+    return Texture(tex, TestID("screen"), Class("h-20 w-20"))
+}
+app := telatest.Mount(t, tela.C(view), telatest.Size(100, 100))
+screen := telatest.ByTestID("screen")
+
+for range 3 {
+    app.StepTexture(screen)
+    fmt.Println(app.PixelAt(10, 10))
+}
+for _, p := range app.Pending() {
+    if p.Kind == telatest.PendingNextFrame {
+        fmt.Println(p) // what keeps the app awake
+    }
+}
+// Output:
+// {60 60 60 255}
+// {120 120 120 255}
+// {180 180 180 255}
+// 1 goroutine(s) wait in Texture.NextFrame for the next frame of the window: a texture on screen whose producer renders at the window's pace asks for a frame at every vsync
+```
+
 #### func (*App) StoredSecret
 
 ```go
@@ -2199,6 +2309,48 @@ func (a *App) StoredSecret(name string) ([]byte, bool)
 ```
 
 StoredSecret returns the secret the app stored under name (desktop.SetSecret), and whether there is one. It does not fail while FailSecrets is in effect.
+
+#### func (*App) SubmitTexture
+
+```go
+func (a *App) SubmitTexture(l Locator, img *image.RGBA)
+```
+
+SubmitTexture shows img in the texture that l locates, as the application's producer would with SubmitImage: the pixels are copied, so img is the test's again when it returns, and the frame is shown, the app settled, when it returns. It fails the test when the texture is closed or img is not an image of at least one pixel. Size it with [`App.TextureSize`](#func-app-texturesize) to see it pixel for pixel; any other size is fitted by the element's object-fit.
+
+```go
+app.SubmitTexture(telatest.ByTestID("globe"), frame)
+app.Golden("globe.png")
+```
+
+Frames of the application's own producer and the ones it submits do not order themselves: an app with a producer that loops on NextFrame is stepped with [`App.StepTexture`](#func-app-steptexture).
+
+**Example**
+
+A texture without a producer: the test renders what the application's graphics would, at the size the element asks for.
+
+```go
+view := func() tela.Node {
+    tex := tela.UseTexture()
+    return Div(Class("p-4"),
+        Texture(tex, TestID("globe"), Class("h-24 w-40 rounded-xl"), AriaLabel("Globe")))
+}
+app := telatest.Mount(t, tela.C(view), telatest.Size(200, 140), telatest.Scale(2))
+globe := telatest.ByTestID("globe")
+
+size := app.TextureSize(globe) // device pixels: what a frame should have
+fmt.Printf("%dx%d at x%g\n", size.Width, size.Height, size.Scale)
+
+app.SubmitTexture(globe, solid(size.Width, size.Height, color.RGBA{79, 70, 229, 255}))
+fmt.Println(app.PixelAt(100, 70)) // the frame is on the screen
+
+st := app.TextureStats(globe)
+fmt.Println(st.Submitted, st.Shown, st.Dropped)
+// Output:
+// 320x192 at x2
+// {79 70 229 255}
+// 1 1 0
+```
 
 #### func (*App) TakesInput
 
@@ -2241,6 +2393,55 @@ func (a *App) TestIDOf(id uint64) string
 ```
 
 TestIDOf returns the test id ([`h.TestID`](API-Reference-h#func-testid)) of the element that [`App.AriaSnapshotNodes`](#func-app-ariasnapshotnodes) gave the identity id, "" when it has none or is no longer mounted. It is for tools that write tests from snapshots, such as `tela mcp`'s test, which names an element by [`ByTestID`](#func-bytestid) when it has one.
+
+#### func (*App) Texture
+
+```go
+func (a *App) Texture(l Locator) *tela.Texture
+```
+
+Texture returns the tela.Texture that the element l locates shows (the one UseTexture returned to the component that called h.Texture), waiting for the element as an action does. It fails the test when the element is not a texture, or several match. Use it for what the other methods do not cover: the handle takes every call of the application's own, such as Submit with a Fence, Import or Device.
+
+A texture is a replaced element that says nothing to accessibility unless it has a name: find it with [`ByTestID`](#func-bytestid) (h.TestID), or by its AriaLabel with [`ByRole`](#func-byrole)("img", name).
+
+```go
+app := telatest.Mount(t, Globe())
+tex := app.Texture(telatest.ByTestID("globe"))
+```
+
+**Example**
+
+The handle that the element shows takes every call of the application's own.
+
+```go
+view := func() tela.Node {
+    tex := tela.UseTexture()
+    return Texture(tex, Class("h-20 w-20"), AriaLabel("Radar"))
+}
+app := telatest.Mount(t, tela.C(view), telatest.Size(100, 100))
+
+tex := app.Texture(telatest.ByRole("img", "Radar"))
+tex.SubmitImage(solid(80, 80, color.RGBA{255, 0, 0, 255}), nil)
+app.Advance(0) // the window's next frame shows it
+fmt.Println(app.PixelAt(40, 40), tex.Device().GPU)
+// Output: {255 0 0 255} false
+```
+
+#### func (*App) TextureSize
+
+```go
+func (a *App) TextureSize(l Locator) tela.TextureSize
+```
+
+TextureSize returns the size, in device pixels, and the scale that the texture of l is shown at: what the element asks its producer to render (tela.Texture.Size), after settling the app. It is the zero value while no element is laid out.
+
+#### func (*App) TextureStats
+
+```go
+func (a *App) TextureStats(l Locator) tela.TextureStats
+```
+
+TextureStats returns the counters of the texture of l: the frames submitted, shown and dropped, after settling the app. The ages are real time, which the test does not control: do not assert on them.
 
 #### func (*App) Title
 
@@ -2726,6 +2927,219 @@ And returns the payload with the representations of other added after its own. I
 ```go
 telatest.DragHTML("<b>Hi</b>").And(telatest.DragText("Hi"))
 ```
+
+### type FakeFence
+
+```go
+type FakeFence struct {
+    // contains filtered or unexported fields
+}
+```
+
+FakeFence is a tela.Fence that the test ends: give it to TextureFrame.Fence, and the frame waits, as one whose GPU work is running does, until [`FakeFence.Signal`](#func-fakefence-signal) (its pixels are finished) or [`FakeFence.Fail`](#func-fakefence-fail) (the work failed, and the frame is dropped). Settling waits for what follows a Signal, so the frame is on screen when the next action or screenshot looks.
+
+```go
+f := telatest.NewFakeFence()
+tex.Submit(buf, tela.TextureFrame{Fence: f})
+app.Pending() // ... a PendingFence: the frame waits
+f.Signal()
+app.Golden("frame.png") // shows it
+```
+
+#### func NewFakeFence
+
+```go
+func NewFakeFence() *FakeFence
+```
+
+NewFakeFence returns a fence that waits for [`FakeFence.Signal`](#func-fakefence-signal) or [`FakeFence.Fail`](#func-fakefence-fail).
+
+#### func (*FakeFence) Done
+
+```go
+func (f *FakeFence) Done() bool
+```
+
+Done reports whether Signal or Fail was called: the fence has ended even if the goroutine that waits for it has not returned from Wait yet. Tela's settling in tests reads it, to wait for that goroutine.
+
+#### func (*FakeFence) Fail
+
+```go
+func (f *FakeFence) Fail(err error)
+```
+
+Fail ends the fence with err, which Tela reports as the reason the frame was dropped: the GPU work failed. It does nothing after Signal.
+
+#### func (*FakeFence) Signal
+
+```go
+func (f *FakeFence) Signal()
+```
+
+Signal ends the fence: its frame's pixels are finished. Calling it again, or after Fail, does nothing.
+
+#### func (*FakeFence) Wait
+
+```go
+func (f *FakeFence) Wait(ctx context.Context) error
+```
+
+Wait implements tela.Fence.
+
+### type FakeTextureBuffer
+
+```go
+type FakeTextureBuffer struct {
+    // contains filtered or unexported fields
+}
+```
+
+FakeTextureBuffer is memory that a texture imported on a [`FakeTextureDevice`](#type-faketexturedevice) (Texture.Import): the test gives it the pixels that the application's renderer would draw into it. Its methods may be called from any goroutine.
+
+As with a real buffer, the pixels are read when a frame submitted from it is drawn: set them before Submit, and do not change them before the frame's Release, so that every frame shows the pixels it was submitted with.
+
+#### func (*FakeTextureBuffer) Closed
+
+```go
+func (b *FakeTextureBuffer) Closed() bool
+```
+
+Closed reports whether Tela gave the buffer back: it was closed (TextureBuffer.Close, or its texture's end) and no frame of it is held.
+
+#### func (*FakeTextureBuffer) Dmabuf
+
+```go
+func (b *FakeTextureBuffer) Dmabuf() tela.Dmabuf
+```
+
+Dmabuf returns what the application gave Texture.Import: the size, the fourcc and the modifier of the buffer it describes.
+
+#### func (*FakeTextureBuffer) Fill
+
+```go
+func (b *FakeTextureBuffer) Fill(c color.Color)
+```
+
+Fill gives every pixel of the buffer the color c.
+
+#### func (*FakeTextureBuffer) Reads
+
+```go
+func (b *FakeTextureBuffer) Reads() int
+```
+
+Reads returns how many frames submitted from the buffer were drawn: each one reads the pixels once.
+
+#### func (*FakeTextureBuffer) SetPixels
+
+```go
+func (b *FakeTextureBuffer) SetPixels(img *image.RGBA)
+```
+
+SetPixels gives the buffer the pixels of img, which it copies: its size must be the buffer's (Dmabuf().Width by Height). The pixels are premultiplied sRGB, the first row at the top, whatever the buffer's fourcc: a fake buffer has no byte order. It panics for another size.
+
+### type FakeTextureDevice
+
+```go
+type FakeTextureDevice struct {
+    // contains filtered or unexported fields
+}
+```
+
+FakeTextureDevice plays the GPU that draws the app's windows and imports the memory of its textures, so that the code path of an application that renders with its own GPU and gives Tela dmabufs (tela.Texture.Import) runs headless, on any machine: [`WithTextureDevice`](#func-withtexturedevice) makes the app's textures import with it, and tela.Texture.Device returns the device it was made with. Import accepts a tela.Dmabuf whose format the device takes ([`FakeTextureDevice.Device`](#func-faketexturedevice-device)'s Formats and ForeignFormats; every format when it lists none) and makes a [`FakeTextureBuffer`](#type-faketexturebuffer) of it, whose pixels the test provides, in the place of the application's graphics API.
+
+Frames submitted from a buffer, with the [`FakeFence`](#type-fakefence) the test signals, come to the screen as those of a real device do.
+
+```go
+dev := telatest.NewFakeTextureDevice(tela.TextureDevice{
+    GPU: true, Name: "Fake GPU",
+    Formats: []tela.TextureFormat{{Fourcc: 0x34325241}}, // AR24, linear
+})
+dev.OnImport(func(b *telatest.FakeTextureBuffer) { b.Fill(color.RGBA{0, 0, 255, 255}) })
+app := telatest.Mount(t, Player(), telatest.WithTextureDevice(dev))
+```
+
+#### func NewFakeTextureDevice
+
+```go
+func NewFakeTextureDevice(dev tela.TextureDevice) *FakeTextureDevice
+```
+
+NewFakeTextureDevice returns a device that Texture.Device describes as dev.
+
+**Example**
+
+An application that renders with its own GPU gives Tela dmabufs. The fake device stands in for the GPU that draws the windows: the test makes the pictures the application's renderer would draw, and signals the fences of its frames.
+
+```go
+dev := telatest.NewFakeTextureDevice(tela.TextureDevice{
+    GPU: true, Name: "Fake GPU",
+    Formats: []tela.TextureFormat{{Fourcc: 0x34325241}}, // AR24, linear
+})
+// The application's renderer: draws into the buffer it just imported.
+dev.OnImport(func(b *telatest.FakeTextureBuffer) { b.Fill(color.RGBA{16, 185, 129, 255}) })
+
+var tex *tela.Texture
+view := func() tela.Node {
+    tex = tela.UseTexture()
+    return Texture(tex, TestID("screen"), Class("h-20 w-20"))
+}
+app := telatest.Mount(t, tela.C(view), telatest.Size(100, 100), telatest.WithTextureDevice(dev))
+
+// What the application does: import once, submit with a fence.
+fmt.Println(tex.Device().Name)
+buf, _ := tex.Import(tela.Dmabuf{Width: 80, Height: 80, Fourcc: 0x34325241,
+    Planes: []tela.DmabufPlane{{FD: 3, Stride: 320}}})
+fence := telatest.NewFakeFence()
+released := make(chan struct{})
+tex.Submit(buf, tela.TextureFrame{Fence: fence, Release: func() { close(released) }})
+
+app.Advance(0)
+for _, p := range app.Pending() {
+    if p.Kind == telatest.PendingFence {
+        fmt.Println(p.Kind, app.PixelAt(40, 40)) // waits for the GPU
+    }
+}
+fence.Signal()
+app.Advance(0)
+fmt.Println(app.PixelAt(40, 40)) // the frame is shown
+// Output:
+// Fake GPU
+// texture fence {255 255 255 255}
+// {16 185 129 255}
+```
+
+#### func (*FakeTextureDevice) Device
+
+```go
+func (d *FakeTextureDevice) Device() tela.TextureDevice
+```
+
+Device returns the description that Texture.Device gives: the one the device was made with, or last set with [`FakeTextureDevice.SetDevice`](#func-faketexturedevice-setdevice).
+
+#### func (*FakeTextureDevice) Imports
+
+```go
+func (d *FakeTextureDevice) Imports() []*FakeTextureBuffer
+```
+
+Imports returns the buffers imported on the device so far, in the order of the Import calls.
+
+#### func (*FakeTextureDevice) OnImport
+
+```go
+func (d *FakeTextureDevice) OnImport(f func(*FakeTextureBuffer))
+```
+
+OnImport makes f the function called for every buffer Texture.Import makes on the device, on the goroutine that called Import, before it returns: the place to give the buffer its first pixels, as the application's renderer would. nil for none.
+
+#### func (*FakeTextureDevice) SetDevice
+
+```go
+func (d *FakeTextureDevice) SetDevice(dev tela.TextureDevice)
+```
+
+SetDevice changes the description that Texture.Device gives, as a device that is replaced does, and the formats the next imports are checked against.
 
 ### type FileDialog
 
@@ -3688,6 +4102,14 @@ app := telatest.Mount(t, Widget{}, telatest.Transparent(), telatest.Size(360, 24
 app.Golden("widget.png") // a PNG with alpha: the card and its shadow
 ```
 
+#### func WithTextureDevice
+
+```go
+func WithTextureDevice(d *FakeTextureDevice) Option
+```
+
+WithTextureDevice makes the textures of the app import their memory with d, a [`FakeTextureDevice`](#type-faketexturedevice), and Texture.Device return d's description. It applies from the first frame of the app. A device serves one app at a time.
+
 #### func WithUnsupported
 
 ```go
@@ -3778,10 +4200,22 @@ const (
     // [App.ExpectIdle] does not count it; a result it posts can still
     // change the screen.
     PendingGo
+    // PendingNextFrame: goroutines waiting in Texture.NextFrame for the
+    // next frame of the window, of a texture on screen: a producer that
+    // renders at the window's pace. It asks for a frame at every vsync, as
+    // an endless animation does, so it counts for [App.ExpectIdle]; settling
+    // does not wait for it, and [App.StepTexture] runs its frames one by
+    // one.
+    PendingNextFrame
+    // PendingFence: frames of a texture waiting for their fences, or for
+    // the copy of their memory. Like [PendingGo] it costs nothing while it
+    // waits, so [App.ExpectIdle] does not count it; the frame is shown when
+    // the wait ends.
+    PendingFence
 )
 ```
 
-The kinds of [`Pending`](#type-pending) items. Those that only redraw what is on the screen, without changing its elements, are [`PendingEndless`](#type-pendingkind), [`PendingScrollbar`](#type-pendingkind), [`PendingCaret`](#type-pendingkind) and [`PendingDebug`](#type-pendingkind) (a frame request beside them is theirs).
+The kinds of [`Pending`](#type-pending) items. Those that only redraw what is on the screen, without changing its elements, are [`PendingEndless`](#type-pendingkind), [`PendingScrollbar`](#type-pendingkind), [`PendingCaret`](#type-pendingkind), [`PendingDebug`](#type-pendingkind) and [`PendingNextFrame`](#type-pendingkind) (a frame request beside them is theirs).
 
 #### func (PendingKind) String
 

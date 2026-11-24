@@ -126,8 +126,11 @@ type Target interface {
 	// Device returns the device of the target.
 	Device() Device
 	// Draw executes a frame encoded for this size and returns when the
-	// pixels are drawn. It returns ErrResourcesLost, having drawn nothing,
-	// when the device does not hold what the frame draws with.
+	// pixels are drawn: the GPU then reads nothing the frame read, imported
+	// buffers included, which may be given back to whoever draws into them
+	// (import.go). After ErrDeviceLost it may read them until Device.Close
+	// has returned. It returns ErrResourcesLost, having drawn nothing, when
+	// the device does not hold what the frame draws with.
 	Draw(f *Frame) error
 	// ReadPixels copies the pixels of the rectangles into dst, at the same
 	// coordinates. Only the pixels inside both the target and dst are
@@ -194,6 +197,7 @@ func (r *Renderer) Render(t Target, dl *gfx.DisplayList, opts Options) (Result, 
 		}
 		r.dev = dev
 	}
+	r.enc.dev = r.dev
 	if r.enc.Limits.MaxTextureSize == 0 && r.dev != nil {
 		r.enc.Limits.MaxTextureSize = r.dev.MaxTargetSize()
 	}
@@ -269,7 +273,8 @@ func (r *Renderer) Rest(lists ...*gfx.DisplayList) {
 // Memory describes what a Renderer holds on its device, in bytes.
 type Memory struct {
 	// Atlases is the pages of the coverage and color atlases, Images the
-	// image textures, Targets the offscreen targets of the pool (layers,
+	// image textures (not the memory of imported buffers, which is the
+	// application's), Targets the offscreen targets of the pool (layers,
 	// the steps of filters), and Backdrops the filtered backdrops that
 	// BackdropCaches keep in targets of their own.
 	Atlases, Images, Targets, Backdrops int64

@@ -240,7 +240,7 @@ func (s *vkSwapchain) dropChain(chain vk.SwapchainKHR) {
 		// The queue may still use the semaphores: the device counts as
 		// lost, as after a failed fence wait (submitWith), so that nothing
 		// is submitted or reused any more and its Close waits for it.
-		d.lost = true
+		d.lost.Store(true)
 	}
 	if chain != 0 {
 		dev.DestroySwapchainKHR(chain)

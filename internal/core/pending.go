@@ -42,6 +42,12 @@ const (
 	PendingAsync
 	// PendingGo: a UseGo goroutine that has not returned.
 	PendingGo
+	// PendingNextFrame: goroutines waiting in Texture.NextFrame for the
+	// next frame of the window of a texture on screen.
+	PendingNextFrame
+	// PendingFence: frames of a texture waiting for their fences, or for
+	// the copy of their memory.
+	PendingFence
 )
 
 // PendingItem is one item of [Tree.Pending]: its kind, its description
@@ -122,6 +128,7 @@ func (t *Tree) Pending(now time.Duration) []PendingItem {
 	for _, r := range t.goRunning() {
 		add(PendingGo, r+" running (its function has not returned; a result it posts can still change the screen)")
 	}
+	t.texturePending(add)
 	return why
 }
 

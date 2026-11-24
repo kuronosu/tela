@@ -89,9 +89,11 @@ func (s *srcSpec) same(o *srcSpec) bool {
 	return s.fsys == nil && o.fsys == nil || s.fsys != nil && o.fsys != nil && safeEqual(s.fsys, o.fsys)
 }
 
-// mediaProps are the Img and Icon props beyond Src and SrcImage.
+// mediaProps are the Img and Icon props beyond Src and SrcImage, and the
+// texture of a Texture (texture.go).
 type mediaProps struct {
 	src     srcSpec
+	tex     *Texture
 	tint    gfx.Color
 	hasTint bool
 }
@@ -472,10 +474,11 @@ func (s *srcSpec) reportKey() string {
 
 // boxMedia is the decoded source of an Img or Icon box given by a
 // srcSpec, and the SVG list recorded for the last options it was drawn
-// with.
+// with; or the texture of a Texture box.
 type boxMedia struct {
 	src   srcSpec
 	asset *imageAsset
+	tex   *texView // texture_tree.go: the box draws its frame (Box.img)
 	// rec is the document recorded for recOpts (svg.Doc.Record); recOK
 	// reports that it is valid.
 	rec     *gfx.DisplayList
@@ -492,9 +495,12 @@ func (bx *Box) doc() *svg.Doc {
 }
 
 // imageSize returns the size of the image of bx when nothing else sets
-// it, and its natural ratio (0 for none).
+// it, and its natural ratio (0 for none). A Texture's is a canvas's,
+// whatever its frames.
 func (bx *Box) imageSize() (w, h, ratio float32) {
 	switch {
+	case bx.kind == style.KindTexture:
+		return 300, 150, 2
 	case bx.med != nil && bx.med.asset != nil:
 		w, h = bx.med.asset.size()
 		_, _, ratio = bx.med.asset.natural()
@@ -669,8 +675,8 @@ func mipLevel(img *gfx.Image, w, h float64) *gfx.Image {
 	return img
 }
 
-// paintReplaced paints the image of an Img or Icon box in its content
-// box.
+// paintReplaced paints the image of an Img, Icon or Texture box in its
+// content box.
 func (p *painter) paintReplaced(bx *Box) {
 	doc := bx.doc()
 	if bx.img == nil && doc == nil {
@@ -710,7 +716,10 @@ func (p *painter) paintReplaced(bx *Box) {
 		p.b = mb
 	}
 	if bx.img != nil {
-		src := mipLevel(bx.img, float64(dst.Width())*p.scale, float64(dst.Height())*p.scale)
+		src := bx.img
+		if bx.kind != style.KindTexture { // a frame has no mip levels (texture.go)
+			src = mipLevel(src, float64(dst.Width())*p.scale, float64(dst.Height())*p.scale)
+		}
 		p.b.DrawImage(src, gfx.Rect{}, dst, gfx.SampleLinear)
 	} else {
 		doc.DrawRecorded(p.b, dst, bx.svgList(p.svgOptions(bx)))

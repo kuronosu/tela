@@ -44,6 +44,9 @@ type instanceFuncs struct {
 	GetPhysicalDeviceFormatProperties2      uintptr `vk:"optional"` // Vulkan 1.1
 	GetPhysicalDeviceImageFormatProperties2 uintptr `vk:"optional"` // Vulkan 1.1
 
+	// Importing dmabufs (dmabuf_import.go).
+	GetPhysicalDeviceExternalBufferProperties uintptr `vk:"optional"` // Vulkan 1.1
+
 	// Presenting to a window (surface.go).
 	DestroySurfaceKHR                            uintptr `vk:"optional"` // VK_KHR_surface
 	GetPhysicalDeviceSurfaceSupportKHR           uintptr `vk:"optional"`
@@ -147,6 +150,9 @@ type deviceFuncs struct {
 	GetImageSubresourceLayout              uintptr
 	GetMemoryFdKHR                         uintptr `vk:"optional"` // VK_KHR_external_memory_fd
 	GetImageDrmFormatModifierPropertiesEXT uintptr `vk:"optional"` // VK_EXT_image_drm_format_modifier
+
+	// Importing dmabufs (dmabuf_import.go).
+	GetMemoryFdPropertiesKHR uintptr `vk:"optional"` // VK_KHR_external_memory_fd
 
 	// Presenting to a window (surface.go).
 	CreateSwapchainKHR    uintptr `vk:"optional"` // VK_KHR_swapchain

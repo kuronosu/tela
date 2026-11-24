@@ -52,6 +52,11 @@
 // VK_EXT_image_drm_format_modifier, [DmabufExtensions] and
 // [Instance.DmabufModifiers]) and, on Linux, dmabuf_linux.go
 // ([Device.CreateDmabufImage]); TestDmabufExport is its worked example.
+// The import of other processes' and APIs' dmabufs, over the same
+// extensions, is in dmabuf_import.go ([Instance.DmabufImportModifiers],
+// [Instance.GetPhysicalDeviceID]) and dmabuf_import_linux.go
+// ([Device.ImportDmabufImage], [Device.ImportDmabufBuffer]);
+// TestDmabufImport is its worked example.
 // Presenting to a window is in surface.go: VK_KHR_surface and
 // VK_KHR_win32_surface ([InstanceConfig].Win32Surface,
 // [Instance.CreateWin32SurfaceKHR]), VK_KHR_swapchain and
@@ -97,8 +102,8 @@
 // One place per thing: structs in structs.go, constants in enums.go (each
 // with its C name in a trailing comment), handle types in handles.go,
 // entry points in the tables of funcs.go, and the wrappers in instance.go,
-// device.go and commands.go (dmabuf.go for the dmabuf export and
-// surface.go for presenting to a window, whose structs, constants and
+// device.go and commands.go (dmabuf.go and dmabuf_import.go for the dmabufs
+// and surface.go for presenting to a window, whose structs, constants and
 // entry points are marked blocks at the end of their files). Struct layouts and constant values are not
 // trusted: internal/layoutgen writes a C program (internal/layoutgen/c)
 // that prints sizeof, alignof and offsetof of every struct of structs.go

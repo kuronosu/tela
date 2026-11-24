@@ -799,6 +799,14 @@
 // is told from one that prefers light; Windows and macOS always state
 // one, the freedesktop portal may not. Remote protocol 18 carries it.
 //
+// Contract v18 (ADR-317) adds [FrameEvent].Refresh, the refresh interval
+// of the output the window is on: the current mode of the fastest of the
+// wl_outputs the surface entered, or the mode of the RandR CRTC, the
+// monitor (EnumDisplaySettings, whole hertz) or the NSScreen that shows
+// most of the window. Backends look it up right before each FrameEvent
+// (the shared loop's Refresh hook), so nothing runs when a window moves or
+// a mode changes. Remote protocol 20 carries it.
+//
 // # Drag and drop and the clipboard
 //
 // One data type, [Data], carries a drag and the clipboard: an ordered set
@@ -1888,7 +1896,9 @@
 // (ADR-259: launches at the start, access keys, registered roles), 16
 // with contract v15 (ADR-297: earlier toasts), 17 with contract v16
 // (ADR-298: start at login, tasks and recent documents, served off the
-// host's UI thread), 18 with contract v17 (ADR-304: LightMode):
+// host's UI thread), 18 with contract v17 (ADR-304: LightMode), 19
+// (ADR-310: desktop services across reloads), 20 with contract v18
+// (ADR-317: FrameEvent.Refresh):
 // everything is forwarded to the host's backend, which owns the real
 // windows: drags in both directions (the answer to a drag reaches the OS
 // one round trip late, so a drag entering a window is refused until the

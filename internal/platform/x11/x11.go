@@ -25,8 +25,8 @@ import (
 )
 
 // FrameInterval is the frame pacing interval: a fixed 60 Hz. The core
-// protocol has no vsync signal; the Present extension (or RandR's refresh
-// rate) can replace this later.
+// protocol has no vsync signal; the Present extension (or the CRTC's
+// refresh rate, refresh.go) can replace this later.
 const FrameInterval = time.Second / 60
 
 const (
@@ -83,7 +83,8 @@ type Backend struct {
 	xi  xiState
 	xkb xkbExt
 	kbd kbd
-	// randr: the monitors of positions given at creation (screens.go).
+	// randr: the monitors of positions given at creation (screens.go), and
+	// the CRTCs of the refresh rate (refresh.go).
 	randr randrState
 
 	// UI-thread state.
@@ -303,6 +304,7 @@ func (b *Backend) initLoop() {
 		Now:      b.Now,
 		Notify:   b.signal,
 		Interval: FrameInterval,
+		Refresh:  (*Window).refresh,
 	})
 }
 

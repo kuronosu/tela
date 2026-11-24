@@ -266,6 +266,16 @@ type Host struct {
 	// one (gpuhost.go, ADR-281); empty otherwise.
 	gpu hostGPU
 
+	// texImp imports the memory of the app's textures into the GPU's
+	// device (texture_buffer.go), nil without one; any goroutine, under
+	// texMu. clockBase is the time of the backend's clock 0 (frameTime).
+	texMu     sync.Mutex
+	texImp    textureImporter
+	clockBase time.Time
+	// texHooks is what a test harness attaches to the app's textures
+	// (texture_testhook.go), nil outside tests; set before the first frame.
+	texHooks textureHooker
+
 	// timer wakes the loop at timerAt (backend clock) for the gesture
 	// arenas (a long press); nil when nothing waits.
 	timerMu sync.Mutex
@@ -427,6 +437,7 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 		v.placementMoved()
 		v.syncCanvas() // a Transparent window the OS shows opaque, or again with alpha
 		v.syncState()
+		h.syncTexturesOn()
 	case platform.FrameEvent:
 		// The state of a new window comes before its first frame, if
 		// it comes at all (an OS that refused to maximize sends none).
@@ -437,6 +448,9 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 			ins.prof.frameEvent() // the frame profile (instrument_prof.go)
 			span = ins.prof.spanBegin(PhaseAnimate)
 		}
+		if len(t.tex.views) > 0 {
+			t.startTextureFrame(h.frameTime(e)) // Texture.NextFrame
+		}
 		h.tick(e.Time)
 		// Phase 2 of the pipeline: scroll animations, flings and fades
 		// advance with the frame clock.
@@ -445,6 +459,7 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 			ins.prof.spanEnd(span)
 		}
 		h.frame(v, e.Time)
+		t.paceTextures() // a frame that painted nothing
 		if devStateEnabled {
 			if v == h.main {
 				devAfterFrame(h) // tela dev: the state report
@@ -870,6 +885,25 @@ func (h *Host) frame(v *winView, now time.Duration) {
 	}
 	if shown {
 		v.presents++
+		t.texturesPresented()
+	}
+}
+
+// frameTime returns the FrameTime of the frame e. The times of an app's
+// frames differ as their backend times do.
+func (h *Host) frameTime(e platform.FrameEvent) FrameTime {
+	if h.clockBase.IsZero() {
+		h.clockBase = time.Now().Add(-h.backend.Now())
+	}
+	return FrameTime{Time: h.clockBase.Add(e.Time), Refresh: e.Refresh}
+}
+
+// syncTexturesOn tells the textures of the windows, after one was hidden,
+// minimized or shown again (its child windows with it), whether they are on
+// screen.
+func (h *Host) syncTexturesOn() {
+	for _, v := range h.views {
+		v.tree.syncTexturesOn()
 	}
 }
 

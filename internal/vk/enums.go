@@ -839,6 +839,25 @@ const (
 	ExternalMemoryFeatureImportable    ExternalMemoryFeatureFlags = 0x4 // VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT
 )
 
+// --- Importing dmabufs (ADR-316). ---
+
+// The structure types of importing dmabufs.
+const (
+	StructureTypePhysicalDeviceExternalBufferInfo            StructureType = 1000071002 // VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO
+	StructureTypeExternalBufferProperties                    StructureType = 1000071003 // VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES
+	StructureTypePhysicalDeviceIDProperties                  StructureType = 1000071004 // VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES
+	StructureTypeExternalMemoryBufferCreateInfo              StructureType = 1000072000 // VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO
+	StructureTypeImportMemoryFdInfoKHR                       StructureType = 1000074000 // VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR
+	StructureTypeMemoryFdPropertiesKHR                       StructureType = 1000074001 // VK_STRUCTURE_TYPE_MEMORY_FD_PROPERTIES_KHR
+	StructureTypeImageDrmFormatModifierExplicitCreateInfoEXT StructureType = 1000158004 // VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_EXPLICIT_CREATE_INFO_EXT
+)
+
+// ErrorInvalidDrmFormatModifierPlaneLayoutEXT: the driver cannot read an
+// image with the offsets and strides its explicit layout names.
+const (
+	ErrorInvalidDrmFormatModifierPlaneLayoutEXT Result = -1000158000 // VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT
+)
+
 // --- Presenting to a window (ADR-289): VK_KHR_surface,
 // VK_KHR_win32_surface, VK_KHR_swapchain and VK_KHR_incremental_present. ---
 

@@ -135,7 +135,8 @@ package core
 // frame: RasterizeFrameGPU draws that frame in full with the CPU
 // rasterizer and returns the error. The Host then draws that window with
 // the CPU rasterizer for good, or every window when the device is lost,
-// which it closes, and writes one line to the error log.
+// which it closes, and writes one line to the error log. What becomes of the
+// imported memory of textures is in gputexture.go.
 //
 // Presenting without a copy falls back to reading back, for that window
 // and for good, with one line of the log: a buffer the display server

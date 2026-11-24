@@ -553,6 +553,7 @@ func Primitive(kind style.Kind, children ...Child) Node {
 		panic(fmt.Sprintf("core: Src on <%v>: only Img takes an image source", kind))
 	}
 	checkMediaProps(kind, d)
+	checkTexture(kind, d)
 	if kind == style.KindSVG {
 		// Icons are decorative unless they are named (lucide-react's
 		// aria-hidden="true"): with AriaLabel or AriaLabelledBy they are

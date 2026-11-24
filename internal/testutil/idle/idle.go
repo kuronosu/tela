@@ -225,7 +225,7 @@ func (h *Host) Busy() []string {
 		why = append(why, "a configured window whose frame has not run")
 	}
 	for _, p := range h.H.Tree().Pending(now) {
-		if p.Kind != core.PendingGo { // a goroutine that waits wakes nothing
+		if p.Kind != core.PendingGo && p.Kind != core.PendingFence { // a goroutine or a fence that waits wakes nothing
 			why = append(why, p.What)
 		}
 	}

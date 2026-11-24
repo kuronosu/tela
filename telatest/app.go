@@ -97,6 +97,9 @@ type appShared struct {
 	// damage is the App whose frames CheckDamage compares (the main
 	// window's), when it compares only some of them (damagesample).
 	damage *App
+
+	// tex is what the app's textures report to the test (texture.go).
+	tex *texState
 }
 
 // Mount shows root in a headless window and returns the running app. The
@@ -134,7 +137,7 @@ func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 	if err != nil {
 		tb.Fatalf("telatest: Mount: %v", err)
 	}
-	a := &App{tb: tb, cfg: cfg, dev: cfg.devMode(), sh: &appShared{views: map[*headless.Window]*App{}}}
+	a := &App{tb: tb, cfg: cfg, dev: cfg.devMode(), sh: &appShared{views: map[*headless.Window]*App{}, tex: newTexState()}}
 	size := platform.Size{W: cfg.width, H: cfg.height}
 	a.backend = headless.New(headless.Options{
 		Size:     size,
@@ -177,6 +180,7 @@ func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 	}
 	a.host, a.tree = host, host.Tree()
 	a.win = host.Window().(*headless.Window)
+	a.setupTextures()
 	if cfg.checkDamage {
 		host.AfterFrame = a.checkDamage
 		if a.damageEvery = damagesample.Every(tb); a.damageEvery > 1 {
@@ -294,6 +298,7 @@ func (a *App) end() {
 	a.host.SetInstrument(false) // the node constructors stop capturing call stacks
 	a.host.Window().Close()
 	a.backend.Quit()
+	a.checkReleased()
 	a.flushDev()
 }
 
@@ -453,15 +458,16 @@ func (a *App) pendingWork() bool {
 		return true
 	}
 	// A frame requested for the debug overlays alone (a fading flash, the
-	// fps meter), or for infinite animations alone (a spinner, a pulse),
-	// is not work the app must finish. Finite transitions and animations
+	// fps meter), or for infinite animations alone (a spinner, a pulse), or
+	// for the goroutines that loop on Texture.NextFrame, is not work the app
+	// must finish. Finite transitions and animations
 	// are: settle advances the clock until they end.
 	for _, w := range a.host.Windows() {
 		hw := w.(*headless.Window)
 		if !drawn(hw) || !hw.FrameRequested() {
 			continue
 		}
-		if t := a.host.TreeOf(w); !t.DebugWantsFrame() && !t.OnlyEndlessAnimations() {
+		if t := a.host.TreeOf(w); !t.DebugWantsFrame() && !t.OnlyEndlessAnimations() && !t.OnlyTextureFrames() {
 			return true
 		}
 	}
@@ -541,7 +547,7 @@ func (a *App) settle() {
 		// The runs in flight are read before the work: a run queues its
 		// result before it ends (core's endRun), so a run that ends between
 		// the two reads leaves its result in pendingWork, never in neither.
-		inFlight := !a.cfg.noSettle && a.asyncInFlight()
+		inFlight := !a.cfg.noSettle && (a.asyncInFlight() || a.texturesInTransit())
 		if !a.pendingWork() {
 			if inFlight {
 				// A UseAsync run is on its goroutine and its result comes
@@ -550,6 +556,10 @@ func (a *App) settle() {
 					asyncSince = time.Now()
 				}
 				if time.Since(asyncSince) > a.cfg.timeout {
+					if len(a.asyncRuns()) == 0 {
+						a.fatalf("a frame of a texture was still being finished after %v of real time: settling waits for the goroutines that Tela starts to wait for a frame's Fence and to copy its pixels once the Fence returned, and this one has not ended.\n"+
+							"A Fence of the app's own whose Wait returns only after the test does something, or a Wait that ignores its context, keeps it from ending: make Wait return when its context is done, or signal it", a.cfg.timeout)
+					}
 					a.fatalf("%s was still in flight after %v of real time: settling waits for the UseAsync runs of the app, and this one has not returned.\n"+
 						"A function that never returns, or waits for something the test controls, keeps the app from settling: make it return when its context is done, "+
 						"test the loading state with telatest.NoSettle(), which leaves the runs alone, or give a longer telatest.Timeout(d)",
@@ -673,6 +683,11 @@ func (a *App) advance(d time.Duration) {
 	if a.sh.closed {
 		return
 	}
+	// The frames of the clock's moves pace the goroutines that loop on
+	// Texture.NextFrame, which the frames of settling do not (texture.go).
+	a.sh.tex.releasing.Add(1)
+	defer a.sh.tex.releasing.Add(-1)
+	a.askTextureFrames()
 	target := a.backend.Now() + d
 	a.backend.Wake() // let the deadlines that are already due fire
 	for {
@@ -748,7 +763,7 @@ func (a *App) idleStep() (time.Duration, bool) {
 			return max(at-a.backend.Now(), frame), true
 		}
 	}
-	if _, owed := a.backend.NextFrameTime(); due || owed {
+	if _, owed := a.backend.NextFrameTime(); due || owed || a.texturesParked() {
 		return frame, true
 	}
 	return 0, false

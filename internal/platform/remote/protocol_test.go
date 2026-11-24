@@ -26,7 +26,8 @@ import (
 // with every field set.
 var eventSamples = []platform.Event{
 	platform.ConfigureEvent{Metrics: platform.Metrics{Size: platform.Size{W: 801.5, H: 600.25}, Scale: 1.25}},
-	platform.FrameEvent{Time: 123456789 * time.Nanosecond},
+	platform.FrameEvent{Time: 123456789 * time.Nanosecond, Refresh: 6944444 * time.Nanosecond},
+	platform.FrameEvent{Time: time.Second},
 	platform.CloseRequestedEvent{},
 	platform.FocusEvent{Focused: true},
 	platform.WakeEvent{},

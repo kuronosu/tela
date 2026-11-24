@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -190,6 +191,34 @@ func TestRequestFrameCoalescesAndPaces(t *testing.T) {
 	}
 	if _, ok := b.NextFrameTime(); ok {
 		t.Errorf("NextFrameTime reports a frame with no request")
+	}
+}
+
+func TestFrameRefresh(t *testing.T) {
+	for _, c := range []struct {
+		interval, want time.Duration
+	}{
+		{0, DefaultFrameInterval}, {10 * time.Millisecond, 10 * time.Millisecond}, {time.Nanosecond, 0}, {2 * time.Second, 0},
+	} {
+		b := New(Options{FrameInterval: c.interval})
+		var got []time.Duration
+		r := &recorder{react: func(_ platform.Window, e platform.Event) {
+			if f, ok := e.(platform.FrameEvent); ok {
+				got = append(got, f.Refresh)
+			}
+		}}
+		w := newWindow(t, b, platform.WindowOptions{Title: "w"})
+		b.Drain(r)
+		for _, d := range []time.Duration{time.Second / 144, 0} {
+			w.SetRefresh(d)
+			w.RequestFrame()
+			b.Advance(b.FrameInterval())
+			b.Drain(r)
+		}
+		if want := []time.Duration{c.want, time.Second / 144, 0}; !slices.Equal(got, want) {
+			t.Errorf("FrameInterval %v: Refresh = %v, want %v", c.interval, got, want)
+		}
+		expectPanic(t, "implausible Refresh", func() { w.SetRefresh(-1) })
 	}
 }
 

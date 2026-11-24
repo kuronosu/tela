@@ -279,16 +279,20 @@ func goCmd(label string, env []string, args ...string) cmdSpec {
 
 func goos(os string) []string { return []string{"GOOS=" + os} }
 
-// notesDir is the example that is a module of its own (ADR-298): the root's
-// ./... does not reach it, so each step that checks the repository runs
-// again inside it.
-const notesDir = "examples/notes"
+// moduleDirs are the examples that are modules of their own (ADR-298,
+// ADR-315): the root's ./... does not reach them, so each step that checks the
+// repository runs again inside each one.
+var moduleDirs = []string{"examples/notes", "examples/texture"}
 
-// inNotes runs spec in the notes module.
-func inNotes(s cmdSpec) cmdSpec {
-	s.label += " (" + notesDir + ")"
-	s.dir = notesDir
-	return s
+// inModules runs spec in every module of moduleDirs.
+func inModules(s cmdSpec) []cmdSpec {
+	out := make([]cmdSpec, len(moduleDirs))
+	for i, dir := range moduleDirs {
+		out[i] = s
+		out[i].label += " (" + dir + ")"
+		out[i].dir = dir
+	}
+	return out
 }
 
 // fmtStep checks that every Go file of the repository is gofmt-formatted,
@@ -361,7 +365,7 @@ func (g *gate) vetStep() stepResult { return g.commandStep(vetSpecs()) }
 
 // vetSpecs are the vet step's commands.
 func vetSpecs() []cmdSpec {
-	return []cmdSpec{
+	specs := []cmdSpec{
 		goCmd("go vet ./... (linux)", goos("linux"), "vet", "./..."),
 		goCmd("go vet ./... (windows)", goos("windows"), "vet", "./..."),
 		goCmd("go vet ./... (darwin)", goos("darwin"), "vet", "./..."),
@@ -369,10 +373,11 @@ func vetSpecs() []cmdSpec {
 		goCmd("go vet -tags telagpu ./... (windows)", goos("windows"), "vet", "-tags", "telagpu", "./..."),
 		goCmd("go vet -tags telagpu ./... (darwin)", goos("darwin"), "vet", "-tags", "telagpu", "./..."),
 		goCmd("go vet -tags telagpu ./... (linux/arm64)", []string{"GOOS=linux", "GOARCH=arm64"}, "vet", "-tags", "telagpu", "./..."),
-		inNotes(goCmd("go vet ./... (linux)", goos("linux"), "vet", "./...")),
-		inNotes(goCmd("go vet ./... (windows)", goos("windows"), "vet", "./...")),
-		inNotes(goCmd("go vet ./... (darwin)", goos("darwin"), "vet", "./...")),
 	}
+	for _, os := range []string{"linux", "windows", "darwin"} {
+		specs = append(specs, inModules(goCmd("go vet ./... ("+os+")", goos(os), "vet", "./..."))...)
+	}
+	return specs
 }
 
 func (g *gate) buildStep() stepResult {
@@ -486,20 +491,18 @@ func (g *gate) staticcheckStep() stepResult {
 	if runtime.GOOS == "windows" {
 		sc += ".exe"
 	}
-	return g.commandStep([]cmdSpec{
+	return g.commandStep(append([]cmdSpec{
 		{label: "staticcheck ./...", args: []string{sc, "./..."}},
 		{label: "staticcheck -tags telagpu ./internal/... .", args: []string{sc, "-tags", "telagpu", "./internal/...", "."}},
 		{label: "staticcheck ./... (windows)", args: []string{sc, "./..."}, env: goos("windows")},
 		{label: "staticcheck ./... (darwin)", args: []string{sc, "./..."}, env: goos("darwin")},
-		inNotes(cmdSpec{label: "staticcheck ./...", args: []string{sc, "./..."}}),
-	})
+	}, inModules(cmdSpec{label: "staticcheck ./...", args: []string{sc, "./..."}})...))
 }
 
 func (g *gate) lintStep() stepResult {
-	return g.commandStep([]cmdSpec{
+	return g.commandStep(append([]cmdSpec{
 		goCmd("tela lint ./...", nil, "run", "./cmd/tela", "lint", "./..."),
-		inNotes(goCmd("tela lint ./...", nil, "run", "github.com/kuronosu/tela/cmd/tela", "lint", "./...")),
-	})
+	}, inModules(goCmd("tela lint ./...", nil, "run", "github.com/kuronosu/tela/cmd/tela", "lint", "./..."))...))
 }
 
 func (g *gate) docsStep() stepResult {
@@ -557,11 +560,10 @@ func (g *gate) testStep() stepResult {
 // instead of 188 after an edit of internal/core, likely from more go
 // commands compiling the same packages at the same time.
 func testSpecs() []cmdSpec {
-	return []cmdSpec{
+	return append([]cmdSpec{
 		{label: "go test -short ./...", args: []string{"go", "test", "-short", "-vet=off", "-json", "./..."}, stripTela: true, noSlot: true},
 		{label: "go test -short -tags telagpu ./internal/vk/... ./internal/gfx/gpu/...", args: []string{"go", "test", "-short", "-vet=off", "-json", "-tags", "telagpu", "./internal/vk/...", "./internal/gfx/gpu/..."}, stripTela: true},
-		inNotes(cmdSpec{label: "go test -short ./...", args: []string{"go", "test", "-short", "-vet=off", "-json", "./..."}, stripTela: true}),
-	}
+	}, inModules(cmdSpec{label: "go test -short ./...", args: []string{"go", "test", "-short", "-vet=off", "-json", "./..."}, stripTela: true})...)
 }
 
 // describeFailure turns a failing test into a report entry, labeling a

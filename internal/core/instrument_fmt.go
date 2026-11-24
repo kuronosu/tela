@@ -231,8 +231,8 @@ func nodeOfValue(v reflect.Value) node {
 }
 
 // handleName names a handle of Tela's (a Setter, Callback or Dispatcher,
-// a *Value, a *Ref, an ElementRef): what a build makes again, shown as its
-// type, not its insides.
+// a *Value, a *Ref, an ElementRef, a *Texture or one of its buffers): what a
+// build makes again, shown as its type, not its insides.
 func handleName(rt reflect.Type) (string, bool) {
 	base, ptr := rt, ""
 	if base.Kind() == reflect.Pointer {
@@ -245,6 +245,7 @@ func handleName(rt reflect.Type) (string, bool) {
 	switch {
 	case ptr == "" && rt.Implements(zeroHandleType),
 		ptr != "" && (strings.HasPrefix(name, "Value[") || strings.HasPrefix(name, "Ref[")),
+		ptr != "" && (name == "Texture" || name == "TextureBuffer"),
 		name == "ElementRef":
 		return ptr + goName(name), true
 	}

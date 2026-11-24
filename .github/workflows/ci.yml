@@ -199,23 +199,25 @@ jobs:
           GOOS: darwin
         run: go build ./...
 
-  examples-notes:
-    name: examples/notes (separate module, ${{ matrix.os }})
-    # examples/notes has its own go.mod (ADR-298): it is the one program that
-    # depends on modernc.org/sqlite, so the root jobs do not build or test it.
-    # It builds against the tela next to it (a replace directive). Its tests
-    # run headless, like the root's, on Linux and on Windows; macOS runs them
-    # in its own job.
+  examples-modules:
+    name: examples/${{ matrix.module }} (separate module, ${{ matrix.os }})
+    # examples/notes (ADR-298: the one program that depends on
+    # modernc.org/sqlite) and examples/texture (ADR-315: it calls Vulkan through
+    # purego) have their own go.mod, so the root jobs do not build or test them.
+    # They build against the tela next to them (a replace directive). Their
+    # tests run headless, like the root's, on Linux and on Windows; macOS runs
+    # notes' in its own job. The runners have no GPU: texture's Vulkan tests skip.
     if: github.event_name != 'push' || !startsWith(github.ref, 'refs/heads/') || github.ref == 'refs/heads/main'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        module: [notes, texture]
     defaults:
       run:
         shell: bash
-        working-directory: examples/notes
+        working-directory: examples/${{ matrix.module }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
@@ -223,7 +225,7 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: |
             go.sum
-            examples/notes/go.sum
+            examples/${{ matrix.module }}/go.sum
       - name: go build
         env:
           CGO_ENABLED: "0"
@@ -252,7 +254,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: golden-diffs-notes-${{ matrix.os }}
+          name: golden-diffs-${{ matrix.module }}-${{ matrix.os }}
           path: |
             **/*_actual.png
             **/*_diff.png

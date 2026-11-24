@@ -14,7 +14,10 @@
 //     is client-side (keyboard.go). Pointer and scroll events carry the
 //     seat's keyboard modifiers.
 //   - wl_output: integer scale fallback when the compositor has no
-//     wl_surface.preferred_buffer_scale.
+//     wl_surface.preferred_buffer_scale, and the refresh rate of the
+//     current mode: FrameEvent.Refresh is that of the fastest output the
+//     surface is on (refreshFor), 0 before it enters one, and after it
+//     left all of them or they were removed.
 //   - wp_fractional_scale_manager_v1 and wp_viewporter (optional, version
 //     1, used only together): fractional scales (see Scale).
 //   - wp_cursor_shape_manager_v1 (optional): cursors. Without it the cursor

@@ -40,8 +40,8 @@ type PendingKind uint8
 
 // The kinds of [Pending] items. Those that only redraw what is on the
 // screen, without changing its elements, are [PendingEndless],
-// [PendingScrollbar], [PendingCaret] and [PendingDebug] (a frame request
-// beside them is theirs).
+// [PendingScrollbar], [PendingCaret], [PendingDebug] and [PendingNextFrame]
+// (a frame request beside them is theirs).
 const (
 	// PendingEvents: input or window events waiting to be delivered.
 	PendingEvents PendingKind = iota + 1
@@ -81,6 +81,18 @@ const (
 	// [App.ExpectIdle] does not count it; a result it posts can still
 	// change the screen.
 	PendingGo
+	// PendingNextFrame: goroutines waiting in Texture.NextFrame for the
+	// next frame of the window, of a texture on screen: a producer that
+	// renders at the window's pace. It asks for a frame at every vsync, as
+	// an endless animation does, so it counts for [App.ExpectIdle]; settling
+	// does not wait for it, and [App.StepTexture] runs its frames one by
+	// one.
+	PendingNextFrame
+	// PendingFence: frames of a texture waiting for their fences, or for
+	// the copy of their memory. Like [PendingGo] it costs nothing while it
+	// waits, so [App.ExpectIdle] does not count it; the frame is shown when
+	// the wait ends.
+	PendingFence
 )
 
 var pendingKindNames = [...]string{
@@ -89,6 +101,7 @@ var pendingKindNames = [...]string{
 	PendingEndless: "endless animation", PendingScroll: "scroll", PendingScrollbar: "scrollbar",
 	PendingDebug: "debug overlay", PendingLongPress: "long press", PendingCaret: "caret",
 	PendingTimer: "timer", PendingAutoscroll: "autoscroll", PendingAsync: "UseAsync", PendingGo: "UseGo",
+	PendingNextFrame: "NextFrame", PendingFence: "texture fence",
 }
 
 // String names the kind: "timer", "endless animation", "UseAsync".
@@ -107,7 +120,7 @@ var coreKinds = map[core.PendingKind]PendingKind{
 	core.PendingDebug: PendingDebug, core.PendingLongPress: PendingLongPress,
 	core.PendingCaret: PendingCaret, core.PendingTimer: PendingTimer,
 	core.PendingAutoscroll: PendingAutoscroll, core.PendingAsync: PendingAsync,
-	core.PendingGo: PendingGo,
+	core.PendingGo: PendingGo, core.PendingNextFrame: PendingNextFrame, core.PendingFence: PendingFence,
 }
 
 // Pending names what keeps the app from being idle (ADR-291, ADR-308):
@@ -146,7 +159,8 @@ func (a *App) Pending() []Pending {
 // nothing; a forgotten UseInterval, an endless animation left mounted or
 // a toast's timer show here, though they do not show in [App.Stats] until
 // the clock reaches them. A UseGo goroutine ([PendingGo]) does not count:
-// one that waits costs nothing.
+// one that waits costs nothing, and neither does a frame of a texture that
+// waits for its fence ([PendingFence]).
 //
 //	app := telatest.Mount(t, tela.C(Clock))
 //	app.ExpectIdle()
@@ -163,7 +177,7 @@ func (a *App) ExpectIdle() {
 	a.tb.Helper()
 	var why []string
 	for _, p := range a.Pending() {
-		if p.Kind != PendingGo {
+		if p.Kind != PendingGo && p.Kind != PendingFence {
 			why = append(why, p.String())
 		}
 	}

@@ -39,6 +39,15 @@ type Image struct {
 	w, h int
 	pix  []byte // 4*w*h bytes, premultiplied RGBA, row-major, stride 4*w
 
+	// ext is the content of an image whose pixels somebody else owns
+	// (external.go); extOnce reads its pixels into pix.
+	ext     External
+	extOnce sync.Once
+	// known: opaque says whether every pixel is opaque.
+	known, opaque bool
+	// stream names the stream the image is a frame of (NewStreamImage), or 0.
+	stream uint64
+
 	mu   sync.Mutex
 	mips []*Image // levels 1, 2, ... computed so far (Level)
 }
@@ -68,10 +77,14 @@ func NewImage(src image.Image) *Image {
 // NewImagePremul creates an Image from premultiplied RGBA8 pixels, copying
 // them. pix must hold exactly 4*w*h bytes.
 func NewImagePremul(w, h int, pix []byte) *Image {
-	if w < 0 || h < 0 || len(pix) != 4*w*h {
-		panic(fmt.Sprintf("gfx.NewImagePremul: %dx%d image needs %d bytes of RGBA data, got %d", w, h, 4*w*h, len(pix)))
-	}
+	checkImageSize("NewImagePremul", w, h, len(pix))
 	return &Image{id: nextImageID.Add(1), w: w, h: h, pix: append([]byte(nil), pix...)}
+}
+
+func checkImageSize(fn string, w, h, n int) {
+	if w < 0 || h < 0 || n != 4*w*h {
+		panic(fmt.Sprintf("gfx.%s: %dx%d image needs %d bytes of RGBA data, got %d", fn, w, h, 4*w*h, n))
+	}
 }
 
 // ID returns a process-unique identifier, stable for the life of the Image.
@@ -90,8 +103,18 @@ func (i *Image) Bounds() Rect { return Rect{0, 0, float32(i.w), float32(i.h)} }
 func (i *Image) Stride() int { return 4 * i.w }
 
 // Pix returns the premultiplied RGBA8 pixels, row-major with Stride bytes per
-// row. The slice is shared with the Image and must not be modified.
-func (i *Image) Pix() []byte { return i.pix }
+// row. The slice is shared with the Image and must not be modified. For an
+// external image (NewExternalImage) the first call reads the pixels.
+func (i *Image) Pix() []byte {
+	if i.ext != nil {
+		i.extOnce.Do(func() {
+			if i.pix = i.ext.Pixels(); len(i.pix) != 4*i.w*i.h {
+				i.pix = make([]byte, 4*i.w*i.h)
+			}
+		})
+	}
+	return i.pix
+}
 
 // Level returns mip level n of the image (n <= 0 is the image itself):
 // each level halves the previous one, rounding down to at least one pixel,
@@ -121,6 +144,7 @@ func (i *Image) Level(n int) *Image {
 
 // halve returns the next mip level of i.
 func (i *Image) halve() *Image {
+	src := i.Pix()
 	taps := func(size int) (int, [3]uint32) {
 		switch {
 		case size <= 1:
@@ -156,10 +180,10 @@ func (i *Image) halve() *Image {
 					xx := min(2*x+tx, i.w-1)
 					o := yy*4*i.w + 4*xx
 					k := kx * ky
-					acc[0] += k * uint32(i.pix[o])
-					acc[1] += k * uint32(i.pix[o+1])
-					acc[2] += k * uint32(i.pix[o+2])
-					acc[3] += k * uint32(i.pix[o+3])
+					acc[0] += k * uint32(src[o])
+					acc[1] += k * uint32(src[o+1])
+					acc[2] += k * uint32(src[o+2])
+					acc[3] += k * uint32(src[o+3])
 				}
 			}
 			d := 4 * (y*w + x)

@@ -20,6 +20,27 @@ separated by commas), or with `migrate: none -- <why nothing can be rewritten>`
 (ADR-305). internal/lint's tests fail on an entry without one.
 -->
 
+## [0.14.11] - 2026-11-24
+
+Phase 30: External textures (ADR-315 to ADR-318).
+
+### Added
+
+- External textures: `tela.UseTexture` and `h.Texture` show content the application renders itself, pushed from any goroutine as pixels (`SubmitImage`) or imported memory (`Import` once, `Submit` with a `Fence` and a `Release`); the latest finished frame wins, `Release` runs exactly once, `NextFrame` paces a renderer at the window's rate and drops nothing, `OnResize` gives its size in device pixels (ADR-315).
+- `Texture.Import` takes `tela.Dmabuf` on Linux, drawn by Tela's GPU (`-tags telagpu`) without a copy through the CPU, also from another GPU, and copied without one (ADR-316), and `tela.IOSurface` on macOS ('BGRA' and 'RGBA', copied). `Texture.Device` names the GPU that draws the windows and the formats it imports; `tela.SyncFile` is a `Fence`.
+- `FrameTime.Refresh`: the refresh interval of the window's display (ADR-317; platform contract v18, remote protocol 20).
+- `telatest`: `App.Texture`, `SubmitTexture`, `TextureSize`, `TextureStats`, `StepTexture`, `ExpectReleases`, `WithTextureDevice`, `FakeTextureDevice`, `FakeTextureBuffer`, `FakeFence`, `PendingNextFrame` and `PendingFence` (ADR-318).
+- `examples/texture`: three animated scenes the application draws with its own Vulkan renderer (no cgo), or in software without a GPU.
+
+### Changed
+
+- A stream of pixels takes one GPU texture instead of one per frame: 1280x720 frames went from 2.6 to 0.7 ms on an RTX 3060 Ti and from 214 to 3.5 MiB (ADR-316).
+
+### Fixed
+
+- An image drawn pixel for pixel at a fractional scale reproduces its pixels exactly.
+- The GPU backend destroyed images the GPU might still read after a wait that timed out.
+
 ## [0.14.10] - 2026-11-23
 
 Phase 29: Dev loop and testing (ADR-304 to ADR-314). Released as a patch with the owner's leave: three small breaks of `telatest` and `tela mcp`, listed under Breaking.
@@ -1296,7 +1317,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.10...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.14.11...HEAD
+[0.14.11]: https://github.com/kuronosu/tela/compare/v0.14.10...v0.14.11
 [0.14.10]: https://github.com/kuronosu/tela/compare/v0.14.9...v0.14.10
 [0.14.9]: https://github.com/kuronosu/tela/compare/v0.14.8...v0.14.9
 [0.14.8]: https://github.com/kuronosu/tela/compare/v0.14.7...v0.14.8

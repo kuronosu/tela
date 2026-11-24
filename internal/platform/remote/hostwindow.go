@@ -6,6 +6,7 @@ import (
 	"image"
 	"math"
 	"sort"
+	"time"
 
 	"github.com/kuronosu/tela/internal/platform"
 )
@@ -21,6 +22,7 @@ type realWin struct {
 	closed  bool
 	metrics platform.Metrics     // of the latest delivered ConfigureEvent
 	state   platform.WindowState // of the latest delivered WindowStateEvent
+	refresh time.Duration        // of the latest delivered FrameEvent
 	token   string               // the latest RestoreToken sent to children
 	// wasActive: an active child had it (it shows that child's last frame
 	// and is kept for the error overlay when no child uses it).
@@ -304,4 +306,11 @@ func fillBlack(img *image.RGBA, r image.Rectangle) {
 			binary.LittleEndian.PutUint32(row[i:], opaqueBlack)
 		}
 	}
+}
+
+// offscreen is the frame the host gives a starting build in the place of
+// one of rw (Host.offscreenFrame), with the refresh interval rw last
+// reported.
+func (rw *realWin) offscreen(now time.Duration) platform.FrameEvent {
+	return platform.FrameEvent{Time: now, Refresh: rw.refresh}
 }

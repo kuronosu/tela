@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`BackgroundGradientFn`](#func-backgroundgradientfn) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultLang`](#func-defaultlang) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`HyphenationPatterns`](#func-hyphenationpatterns) · [`Initial`](#func-initial) · [`Label`](#func-label) · [`Labels`](#func-labels) · [`LabelsChanged`](#func-labelschanged) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`OpenPath`](#func-openpath) · [`OpenURL`](#func-openurl) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`Quit`](#func-quit) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`ResizeBand`](#func-resizeband) · [`ResizeEdges`](#func-resizeedges) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetDefaultLang`](#func-setdefaultlang) · [`SetLabelSource`](#func-setlabelsource) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseAccentColor`](#func-useaccentcolor) · [`UseAsync`](#func-useasync) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseCloseRequest`](#func-usecloserequest) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDebounced`](#func-usedebounced) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseHighContrast`](#func-usehighcontrast) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLabels`](#func-uselabels) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseNativeMenus`](#func-usenativemenus) · [`UseOnce`](#func-useonce) · [`UsePlatformKeys`](#func-useplatformkeys) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseQuitRequest`](#func-usequitrequest) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTextScale`](#func-usetextscale) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`UseWindow`](#func-usewindow) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`BackgroundGradientFn`](#func-backgroundgradientfn) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultLang`](#func-defaultlang) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`HyphenationPatterns`](#func-hyphenationpatterns) · [`Initial`](#func-initial) · [`Label`](#func-label) · [`Labels`](#func-labels) · [`LabelsChanged`](#func-labelschanged) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`OpenPath`](#func-openpath) · [`OpenURL`](#func-openurl) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`Quit`](#func-quit) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`ResizeBand`](#func-resizeband) · [`ResizeEdges`](#func-resizeedges) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetDefaultLang`](#func-setdefaultlang) · [`SetLabelSource`](#func-setlabelsource) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`SyncFile`](#func-syncfile) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseAccentColor`](#func-useaccentcolor) · [`UseAsync`](#func-useasync) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseCloseRequest`](#func-usecloserequest) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDebounced`](#func-usedebounced) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseHighContrast`](#func-usehighcontrast) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLabels`](#func-uselabels) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseNativeMenus`](#func-usenativemenus) · [`UseOnce`](#func-useonce) · [`UsePlatformKeys`](#func-useplatformkeys) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseQuitRequest`](#func-usequitrequest) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTextScale`](#func-usetextscale) · [`UseTexture`](#func-usetexture) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`UseWindow`](#func-usewindow) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Initial`](#func-initial) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
@@ -32,18 +32,23 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type DataTransfer`](#type-datatransfer): [`ClearData`](#func-datatransfer-cleardata) · [`Files`](#func-datatransfer-files) · [`Get`](#func-datatransfer-get) · [`GetData`](#func-datatransfer-getdata) · [`HTML`](#func-datatransfer-html) · [`Has`](#func-datatransfer-has) · [`Image`](#func-datatransfer-image) · [`Set`](#func-datatransfer-set) · [`SetData`](#func-datatransfer-setdata) · [`SetDragImage`](#func-datatransfer-setdragimage) · [`SetFiles`](#func-datatransfer-setfiles) · [`SetHTML`](#func-datatransfer-sethtml) · [`SetImage`](#func-datatransfer-setimage) · [`SetText`](#func-datatransfer-settext) · [`Text`](#func-datatransfer-text) · [`Types`](#func-datatransfer-types)
   - [`type DevState`](#type-devstate)
   - [`type Dispatcher`](#type-dispatcher): [`UseReducer`](#func-usereducer) · [`Dispatch`](#func-dispatcher-dispatch)
+  - [`type Dmabuf`](#type-dmabuf)
+  - [`type DmabufPlane`](#type-dmabufplane)
   - [`type DragEvent`](#type-dragevent): [`CmdOrCtrl`](#func-dragevent-cmdorctrl) · [`DefaultPrevented`](#func-dragevent-defaultprevented) · [`PreventDefault`](#func-dragevent-preventdefault) · [`StopPropagation`](#func-dragevent-stoppropagation)
   - [`type DropEffect`](#type-dropeffect)
   - [`type Easing`](#type-easing): [`CubicBezier`](#func-cubicbezier)
   - [`type Edge`](#type-edge): [`String`](#func-edge-string)
   - [`type ElementRef`](#type-elementref): [`UseElementRef`](#func-useelementref) · [`Blur`](#func-elementref-blur) · [`Bounds`](#func-elementref-bounds) · [`Click`](#func-elementref-click) · [`Focus`](#func-elementref-focus) · [`Focused`](#func-elementref-focused) · [`ScrollBy`](#func-elementref-scrollby) · [`ScrollIntoView`](#func-elementref-scrollintoview) · [`ScrollOffset`](#func-elementref-scrolloffset) · [`ScrollTo`](#func-elementref-scrollto) · [`ScrollToIndex`](#func-elementref-scrolltoindex) · [`Select`](#func-elementref-select) · [`SelectionRange`](#func-elementref-selectionrange) · [`SetSelectionRange`](#func-elementref-setselectionrange) · [`Value`](#func-elementref-value)
+  - [`type Fence`](#type-fence): [`SyncFile`](#func-syncfile)
   - [`type FileType`](#type-filetype)
   - [`type FocusEvent`](#type-focusevent): [`DefaultPrevented`](#func-focusevent-defaultprevented) · [`PreventDefault`](#func-focusevent-preventdefault) · [`StopPropagation`](#func-focusevent-stoppropagation)
   - [`type Font`](#type-font): [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`Emoji`](#func-font-emoji) · [`Mono`](#func-font-mono) · [`Sans`](#func-font-sans) · [`Scripts`](#func-font-scripts) · [`Serif`](#func-font-serif)
+  - [`type FrameTime`](#type-frametime)
   - [`type Gradient`](#type-gradient): [`LinearGradient`](#func-lineargradient) · [`Paint`](#func-gradient-paint)
   - [`type GradientStop`](#type-gradientstop): [`Stop`](#func-stop) · [`StopAt`](#func-stopat)
   - [`type HandlerRole`](#type-handlerrole)
   - [`type Hyphenation`](#type-hyphenation): [`HyphenationPatterns`](#func-hyphenationpatterns)
+  - [`type IOSurface`](#type-iosurface)
   - [`type Icon`](#type-icon): [`MustSVG`](#func-mustsvg) · [`ParseSVG`](#func-parsesvg)
   - [`type InputEvent`](#type-inputevent): [`DefaultPrevented`](#func-inputevent-defaultprevented) · [`PreventDefault`](#func-inputevent-preventdefault) · [`StopPropagation`](#func-inputevent-stoppropagation)
   - [`type KeyCode`](#type-keycode)
@@ -76,6 +81,14 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type StopHandler`](#type-stophandler): [`StopPropagation`](#func-stoppropagation)
   - [`type StyleProp`](#type-styleprop): [`BackgroundGradient`](#func-backgroundgradient) · [`BackgroundGradientFn`](#func-backgroundgradientfn) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Left`](#func-left) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Scale`](#func-scale) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`ZIndex`](#func-zindex) · [`Build`](#func-styleprop-build) · [`Ops`](#func-styleprop-ops)
   - [`type SubmitEvent`](#type-submitevent): [`DefaultPrevented`](#func-submitevent-defaultprevented) · [`PreventDefault`](#func-submitevent-preventdefault) · [`StopPropagation`](#func-submitevent-stoppropagation)
+  - [`type Texture`](#type-texture): [`UseTexture`](#func-usetexture) · [`Device`](#func-texture-device) · [`Import`](#func-texture-import) · [`NextFrame`](#func-texture-nextframe) · [`OnResize`](#func-texture-onresize) · [`Size`](#func-texture-size) · [`Stats`](#func-texture-stats) · [`Submit`](#func-texture-submit) · [`SubmitImage`](#func-texture-submitimage)
+  - [`type TextureBuffer`](#type-texturebuffer): [`Close`](#func-texturebuffer-close)
+  - [`type TextureDevice`](#type-texturedevice)
+  - [`type TextureFormat`](#type-textureformat)
+  - [`type TextureFrame`](#type-textureframe)
+  - [`type TextureMemory`](#type-texturememory)
+  - [`type TextureSize`](#type-texturesize)
+  - [`type TextureStats`](#type-texturestats)
   - [`type Theme`](#type-theme): [`DefaultTheme`](#func-defaulttheme)
   - [`type ThemeValues`](#type-themevalues): [`UseTheme`](#func-usetheme) · [`Color`](#func-themevalues-color) · [`FontMono`](#func-themevalues-fontmono) · [`FontSans`](#func-themevalues-fontsans) · [`Lookup`](#func-themevalues-lookup) · [`Radius`](#func-themevalues-radius) · [`Scheme`](#func-themevalues-scheme) · [`Tokens`](#func-themevalues-tokens)
   - [`type TitleBarColors`](#type-titlebarcolors)
@@ -404,6 +417,19 @@ var (
 ```
 
 Common colors.
+
+```go
+var (
+    // ErrTextureClosed is returned by the methods of a [Texture] whose
+    // component unmounted, or whose app quit.
+    ErrTextureClosed = core.ErrTextureClosed
+    // ErrTextureUnsupported is wrapped by the errors of Texture.Import for
+    // memory, formats and modifiers that cannot be shown, by those of
+    // Texture.Submit for a buffer that only a GPU which is gone could read,
+    // and by that of the fence of [SyncFile] where sync files do not exist.
+    ErrTextureUnsupported = core.ErrTextureUnsupported
+)
+```
 
 ```go
 var Once = core.Once
@@ -2954,6 +2980,60 @@ func (d Dispatcher[A]) Dispatch(a A)
 
 Dispatch queues action a. When the update applies on the UI thread, the reducer of the latest build computes the new state from the state left by the previous queued update; for comparable states, a result == to the current state does not rebuild.
 
+### type Dmabuf
+
+```go
+type Dmabuf = core.Dmabuf
+```
+
+Dmabuf is memory shared by a Linux dma-buf, to import into a [`Texture`](#type-texture): its size, its DRM fourcc (AR24, XR24, AB24 or XB24), its DRM format modifier and its planes. Texture.Device lists the formats the device that draws the windows takes.
+
+```go
+buf, err := tex.Import(tela.Dmabuf{
+    Width: 1280, Height: 720,
+    Fourcc: 0x34325241, // AR24, DRM_FORMAT_ARGB8888
+    Planes: []tela.DmabufPlane{{FD: fd, Stride: 1280 * 4}},
+})
+```
+
+`Dmabuf` is an alias of `core.Dmabuf`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type Dmabuf struct {
+    // Width and Height are the size of the picture in pixels.
+    Width, Height int
+    // Fourcc is the DRM fourcc of its pixels: AR24 or AB24 (premultiplied
+    // alpha), or XR24 or XB24 (opaque), 8 bits per channel in sRGB.
+    Fourcc uint32
+    // Modifier is the DRM format modifier of its layout; 0 is linear.
+    Modifier uint64
+    // Planes are the memory planes of the layout, as the modifier defines
+    // them: one for a linear picture.
+    Planes []DmabufPlane
+}
+```
+
+### type DmabufPlane
+
+```go
+type DmabufPlane = core.DmabufPlane
+```
+
+DmabufPlane is a memory plane of a [`Dmabuf`](#type-dmabuf): the descriptor of the dma-buf that holds it (which stays the application's: Import keeps a duplicate), where it starts in it, and the bytes from a row to the next.
+
+`DmabufPlane` is an alias of `core.DmabufPlane`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type DmabufPlane struct {
+    // FD is the descriptor of the dma-buf that holds the plane. It stays
+    // the application's: Import keeps a duplicate.
+    FD int
+    // Offset is where the plane starts in it, and Stride the bytes from a
+    // row to the next one.
+    Offset, Stride uint32
+}
+```
+
 ### type DragEvent
 
 ```go
@@ -3342,6 +3422,54 @@ func (r ElementRef) Value() string
 
 Value returns the value of the text field the ref is attached to (with the text an IME is composing, as the DOM's input.value), "" for other elements: mainly for uncontrolled fields.
 
+### type Fence
+
+```go
+type Fence = core.Fence
+```
+
+Fence tells when the pixels of a frame given to Texture.Submit are finished: Wait blocks until they are, or returns an error, which drops the frame. Tela waits on a goroutine of its own and never reads the pixels before. [`SyncFile`](#func-syncfile) is the fence of a Linux sync file; any other wait of the application's graphics API (a Vulkan fence or timeline semaphore) is a type with that method:
+
+```go
+// vkFence waits for a fence of the application's device.
+type vkFence struct {
+    dev   vk.Device
+    fence vk.Fence
+}
+
+func (f vkFence) Wait(ctx context.Context) error {
+    for ctx.Err() == nil {
+        if done, err := f.dev.WaitFence(f.fence, 100*time.Millisecond); done || err != nil {
+            return err
+        }
+    }
+    return ctx.Err()
+}
+```
+
+`Fence` is an alias of `core.Fence`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type Fence interface {
+    // Wait blocks until the pixels are finished, and returns nil; it
+    // returns an error when they never will be, and the error of ctx soon
+    // after ctx is done. The frame is dropped on an error. Tela calls it
+    // once per frame, on a goroutine of its own, and cancels ctx when
+    // another frame replaced this one.
+    Wait(ctx context.Context) error
+}
+```
+
+#### func SyncFile
+
+```go
+func SyncFile(fd int) Fence
+```
+
+SyncFile returns the [`Fence`](#type-fence) of a Linux sync file, the descriptor that VK_KHR_external_fence_fd or EGL_ANDROID_native_fence_sync exports: it signals when the GPU work it stands for ends, and fails when that work failed. A negative fd is work that already ended, as in Vulkan.
+
+It takes the descriptor over: it is closed, once, when the wait ends, or when the frame the fence was submitted with is dropped or refused. Use the fence for one frame. On other systems its Wait returns an error that wraps [`ErrTextureUnsupported`](#variables).
+
 ### type FileType
 
 ```go
@@ -3589,6 +3717,39 @@ Serif makes the font the family of ui-serif and serif (font-serif).
 tela.App{Fonts: []tela.Font{tela.FontData("Lora", lora).Serif()}}
 ```
 
+### type FrameTime
+
+```go
+type FrameTime = core.FrameTime
+```
+
+FrameTime tells when a window's frame is shown (Texture.NextFrame).
+
+`FrameTime` is an alias of `core.FrameTime`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type FrameTime struct {
+    // Time is the window's frame clock at the frame, the clock Tela's own
+    // animations advance with: the best estimate of when the frame will be
+    // on screen where the platform knows it, else when the frame started.
+    // The difference of the Times of two frames is the time to advance an
+    // animation by.
+    //
+    // It carries a monotonic clock reading. Content rendered for a frame
+    // after NextFrame returns is usually shown by the frame after it: where
+    // frames follow the display, time.Until(ft.Time.Add(ft.Refresh)) is an
+    // estimate of how long is left to render it.
+    Time time.Time
+    // Refresh is the refresh interval of the display the window is on, 0
+    // when it is not known, as in a window's first frames (with a variable
+    // rate, the shortest). It may differ from one frame to the next: the
+    // window moved to another display, or its mode changed. Frames may come
+    // farther apart: on X11 a window gets 60 a second on a faster display
+    // too. The Times of the frames tell.
+    Refresh time.Duration
+}
+```
+
 ### type Gradient
 
 ```go
@@ -3741,6 +3902,58 @@ An empty pattern text or a malformed tag makes [`Run`](#func-run) return an erro
 var italian string
 
 tela.App{Hyphenation: []tela.Hyphenation{tela.HyphenationPatterns("it", italian, "")}}
+```
+
+### type IOSurface
+
+```go
+type IOSurface = core.IOSurface
+```
+
+IOSurface is memory shared by a macOS IOSurface, to import into a [`Texture`](#type-texture): its IOSurfaceRef, with any binding of the application's. Its size and pixel format, 'BGRA' or 'RGBA' (a Metal texture of BGRA8Unorm or RGBA8Unorm, \_sRGB or not), are read from it, and its pixels are premultiplied sRGB, whatever color space it is tagged with:
+
+```go
+buf, err := tex.Import(tela.IOSurface{Surface: ref})
+```
+
+Import keeps a reference of its own (CFRetain) until the buffer is freed; the application's stays the application's. The use count that IOSurfaceIsInUse reads is not raised, so a pool that recycles by it must keep the surface out (a CVPixelBuffer retained) until the frame's Release. Tela draws with the CPU on macOS: each frame is copied, with the surface locked for reading, on a goroutine of Tela's.
+
+The [`Fence`](#type-fence) of a frame waits for the Metal work that draws it, to its completion (that it was scheduled is not enough). A channel filled by the completed handler of its command buffer does:
+
+```go
+// metalFence gets what addCompletedHandler: was told: the error of the
+// command buffer, nil when it finished. make(metalFence, 1)
+type metalFence chan error
+
+func (f metalFence) Wait(ctx context.Context) error {
+    select {
+    case err := <-f:
+        return err
+    case <-ctx.Done():
+        return ctx.Err()
+    }
+}
+```
+
+So does an MTLSharedEvent, with the block of an MTLSharedEventListener or a loop of waitUntilSignaledValue:timeoutMS: whose short timeout leaves time to look at ctx.
+
+On other systems Import returns an error that wraps [`ErrTextureUnsupported`](#variables).
+
+`IOSurface` is an alias of `core.IOSurface`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type IOSurface struct {
+    // Surface is the IOSurfaceRef (an IOSurface object is one too). It
+    // stays the application's, which holds it during Import: Import takes a
+    // reference of its own (CFRetain), and keeps it until the buffer is
+    // closed and no frame of it is held. It does not raise the use count
+    // (IOSurfaceIsInUse): TextureFrame.Release tells when the surface may be
+    // drawn into again.
+    Surface uintptr
+    // Opaque says that the alpha of its pixels means nothing, as in a
+    // Dmabuf's XR24: every pixel is opaque.
+    Opaque bool
+}
 ```
 
 ### type Icon
@@ -5982,6 +6195,373 @@ func (e SubmitEvent) StopPropagation()
 ```
 
 StopPropagation stops the event from bubbling (see MouseEvent).
+
+### type Texture
+
+```go
+type Texture = core.Texture
+```
+
+Texture is a handle on content that the application renders itself, with the graphics API it chooses (a 3D view, a decoded video, a map, an emulator's screen): the application pushes frames to it, and h.Texture shows the latest one as an element. [`UseTexture`](#func-usetexture) returns one; h.Texture has an example.
+
+The application allocates every buffer and draws on its own device; Tela never exposes its own. Pixels are 8-bit RGB in sRGB, with premultiplied alpha, the first row at the top.
+
+Its methods are safe from any goroutine:
+
+- SubmitImage shows an \*image.RGBA, the pixels of a frame drawn by the CPU.
+- Import takes memory of the application's, a [`Dmabuf`](#type-dmabuf) or an [`IOSurface`](#type-iosurface), once per buffer, and Submit shows it as a frame: sampled by the GPU without a copy where Tela draws with one, copied otherwise. Submit's documentation says exactly what happens to a frame that arrives while another is pending: the latest finished frame wins.
+- Size and OnResize give the size in device pixels that a frame should have.
+- NextFrame blocks until the window starts its next frame, to render at its pace.
+- Device says which device to render on, and Stats counts the frames.
+
+A texture whose component unmounted is closed: its methods return [`ErrTextureClosed`](#variables).
+
+`Texture` is an alias of `core.Texture`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type Texture struct {
+    // contains filtered or unexported fields
+}
+```
+
+#### func UseTexture
+
+```go
+func UseTexture() *Texture
+```
+
+UseTexture returns a [`Texture`](#type-texture), the same handle on every build, to show with h.Texture. It is closed when the component unmounts. A reload of tela dev makes a new one, whose frames start again.
+
+Push frames to it from an effect or a goroutine. This one renders at the window's frame rate, and sleeps while the texture is not on screen:
+
+```go
+tex := tela.UseTexture()
+tela.UseGo(func(ctx context.Context) {
+    for {
+        ft, err := tex.NextFrame(ctx)
+        if err != nil {
+            return
+        }
+        size := tex.Size()
+        tex.SubmitImage(render(size.Width, size.Height, ft.Time), nil)
+    }
+}, tela.Once)
+return Texture(tex, Class("w-full h-64 rounded-xl"), AriaLabel("Globe"))
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+view := func() tela.Node {
+    tex := tela.UseTexture()
+    // A frame for every size the element gets, drawn before it is
+    // painted: no frame is ever stretched.
+    tela.UseLayoutEffect(func() func() {
+        tex.OnResize(func(s tela.TextureSize) {
+            tex.SubmitImage(fill(s.Width, s.Height, color.RGBA{79, 70, 229, 255}), nil)
+        })
+        return nil
+    }, tela.Once)
+    return Texture(tex, Class("w-40 h-20 rounded-xl"), AriaLabel("Globe"))
+}
+app := telatest.Mount(t, tela.C(view))
+fmt.Println(app.AriaSnapshot())
+fmt.Println(app.PixelAt(80, 40))
+// Output:
+// - img "Globe"
+// {79 70 229 255}
+```
+
+#### func (*Texture) Device
+
+```go
+func (x *Texture) Device() TextureDevice
+```
+
+Device describes the device that draws the app's windows. Without a GPU (a default build, or the CPU rasterizer chosen or fallen back to) it has no identity but MetalRegistryID, and its formats are those Import maps and copies: AR24, XR24, AB24 and XB24 in linear memory on Linux, 'BGRA' and 'RGBA' on macOS, none on Windows. A GPU that imports nothing (Windows) has its identity alone.
+
+The GPU opens with the first window: call it in an effect or a goroutine, not in a build. The answer changes when the device is lost, or when the GPU failed for every window: ask again when Import or Submit returns an error that wraps ErrTextureUnsupported.
+
+#### func (*Texture) Import
+
+```go
+func (x *Texture) Import(m TextureMemory) (*TextureBuffer, error)
+```
+
+Import imports memory that the application allocated, to submit it as frames (Submit): once per buffer, not per frame. The memory stays the application's, and Import keeps its own reference to it until the buffer is closed.
+
+A Dmabuf is imported by the GPU that draws the windows when it takes its format and reaches its memory (Device), and its frames are drawn without the CPU. Otherwise a Dmabuf with one linear plane (modifier 0) is mapped, and copied by the CPU for every frame that becomes ready, on a goroutine of Tela's. The GPU opens with the first window: a buffer imported before, in the first build, stays a mapped one, so import in an effect or a goroutine. An IOSurface is always copied so: no GPU of Tela's draws on macOS.
+
+Import may be called from any goroutine, the UI thread included. It waits for the GPU's frame being drawn, if there is one, and for nothing else: not for the UI thread.
+
+A GPU may be lost while the app runs (its driver was reset). Nothing has to be imported again for linear buffers: they are mapped from then on. The others show nothing any more, and Submit returns an error that wraps ErrTextureUnsupported for them: ask Device again, and import buffers of a format it has.
+
+It returns ErrTextureClosed once the component unmounted, an error that wraps ErrTextureUnsupported for memory that cannot be shown, which says what is, and another one for a Dmabuf that is wrong: a plane that ends beyond its descriptor's memory, a stride shorter than a row, a descriptor that is not a dma-buf.
+
+#### func (*Texture) NextFrame
+
+```go
+func (x *Texture) NextFrame(ctx context.Context) (FrameTime, error)
+```
+
+NextFrame blocks the calling goroutine until the window that shows the texture has taken what its next frame shows, and asks that window for one: a loop of NextFrame, rendering and submitting runs at the window's frame rate and drops nothing, and the window sleeps once the loop stops. Content submitted after it returns is shown by the frame after that one, at the earliest.
+
+It returns only while no frame of the texture waits or is ready, so a loop whose fences signal after the window's next frame runs at a lower rate instead of dropping frames: one that is to show the latest frame submits without it.
+
+While no element shows the texture on screen (unmounted, display: none, scrolled out of view, a hidden or minimized window) it blocks, and costs nothing. With elements in several windows, the window of the largest one on screen paces it.
+
+It returns the error of ctx once ctx is done, and ErrTextureClosed when the component unmounts or the app quits. It panics on the UI thread, whose frame it waits for: call it on a goroutine (tela.UseGo).
+
+#### func (*Texture) OnResize
+
+```go
+func (x *Texture) OnResize(f func(TextureSize))
+```
+
+OnResize makes f the function called when Size changes, in the place of the one set before; nil for none. f runs on the UI thread, after layout and before the frame is painted, so a frame it submits without a fence (SubmitImage) is shown in that same frame; until a frame of the new size arrives, the last one is stretched to the element by its object-fit. It is also called once with the current size, if the texture is shown, after it is set: in the frame in progress, or soon after. It is called with the zero TextureSize when the texture is not shown any more, and not called when nothing changed. A change of the display scale and a move to another window are changes of the size.
+
+Call it from an effect (tela.UseMount), or from a goroutine: in the component's body it would set another f, and call it, on every build.
+
+#### func (*Texture) Size
+
+```go
+func (x *Texture) Size() TextureSize
+```
+
+Size returns the size the texture is shown at: of the largest element that shows it, when several do, and the zero TextureSize while none is laid out (none mounted, or in display: none) or its content box is empty. Scrolling the element out of view, and hiding or minimizing its window, do not change it. Safe from any goroutine; OnResize tells of changes.
+
+#### func (*Texture) Stats
+
+```go
+func (x *Texture) Stats() TextureStats
+```
+
+Stats returns the counters of the texture's frames.
+
+#### func (*Texture) Submit
+
+```go
+func (x *Texture) Submit(buf *TextureBuffer, f TextureFrame) error
+```
+
+Submit shows the pixels of buf, a buffer of this texture made by Import, from the next frame of the window on. It never blocks and never runs Release: it queues the frame and returns.
+
+What happens to a frame that arrives while another one is pending: the latest finished frame wins. A texture holds at most the frame it shows, one that is ready, for the next frame of the window, and two that wait.
+
+- A frame that is finished becomes the ready one: at once, or when its wait ends. If another was ready and no window's frame had taken it, that one is dropped: released without being shown. So are the waiting ones submitted before it: a frame never replaces one submitted after it.
+- A frame with a Fence waits for it, and one whose memory is mapped (Import) is then copied, which counts as waiting. If two already wait, it replaces the newer of the two, which is dropped: the older one is always left to finish, so a producer that submits faster than its fences signal still shows frames.
+- A frame whose Fence fails is dropped.
+- The next frame of a window that shows the texture takes the ready one and shows it. The frame shown before is released as soon as that window stopped drawing it. While nothing new is ready, the shown frame stays, and costs nothing.
+- While no element shows the texture on screen (unmounted, display: none, scrolled out of view, a hidden or minimized window) the same rules hold and no window is woken: the latest finished frame stays ready, the others are dropped as they are replaced, and the element shows it as soon as it is on screen.
+
+Three buffers are enough for frames that are finished when they are submitted, five for frames that wait: the application then always finds one that is free, or about to be. A producer that must drop nothing paces itself with NextFrame. Stats counts the frames.
+
+It returns ErrTextureClosed once the component unmounted, an error that wraps ErrTextureUnsupported for a buffer that only a GPU which is gone could read (Import), and an error for a buffer that is closed, of another texture, or still held by an earlier frame (its Release has not been called). On an error the Release of f is still called, and its Fence is not waited for.
+
+#### func (*Texture) SubmitImage
+
+```go
+func (x *Texture) SubmitImage(img *image.RGBA, release func()) error
+```
+
+SubmitImage shows img, whose pixels are finished, from the next frame of the window on. It never blocks and never runs release: it queues the frame, wakes the windows that show the texture and returns. Until a frame of a window takes it, another frame submitted replaces it: see Texture.Submit for exactly what happens to a frame that arrives while another one is pending.
+
+The pixels are 8-bit sRGB with premultiplied alpha, the first row at the top, as in every image.RGBA. With a release they are not copied when img's rows are contiguous (Stride is 4 times the width, as image.NewRGBA makes them): the application must not write to them until release is called. Otherwise, and always with a nil release, they are copied before SubmitImage returns, and img is the application's again.
+
+release (nil for none) is called exactly once, also when SubmitImage returns an error: see TextureFrame.Release.
+
+It returns ErrTextureClosed once the component unmounted, and an error for an image that is nil, empty or shorter than its bounds.
+
+### type TextureBuffer
+
+```go
+type TextureBuffer = core.TextureBuffer
+```
+
+TextureBuffer is memory of the application's imported by a [`Texture`](#type-texture) (Texture.Import), to be shown by Texture.Submit any number of times. Close gives back what Tela holds of it, once no frame of it is held.
+
+`TextureBuffer` is an alias of `core.TextureBuffer`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type TextureBuffer struct {
+    // contains filtered or unexported fields
+}
+```
+
+#### func (*TextureBuffer) Close
+
+```go
+func (b *TextureBuffer) Close() error
+```
+
+Close gives back what Tela holds of the buffer's memory. A buffer whose frame is still held (waiting, ready or shown) is closed when that frame is let go, right before its Release is called. Submit then returns an error. The buffers of a texture are closed with it. Closing twice is fine; Close returns nil.
+
+### type TextureDevice
+
+```go
+type TextureDevice = core.TextureDevice
+```
+
+TextureDevice describes the device that draws the app's windows (Texture.Device): which one it is, for the application to render on the same one, whether it imports memory, and the formats it takes.
+
+`TextureDevice` is an alias of `core.TextureDevice`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type TextureDevice struct {
+    // GPU reports that Tela draws with a GPU that imports memory: an imported
+    // buffer is then sampled where it lies, or copied on the GPU when it
+    // cannot be (rows behind a discrete GPU's bus, mostly). Without it, the
+    // pixels of an imported buffer are copied by the CPU for every frame.
+    GPU bool
+    // Name is the device's name, and VendorID and DeviceID its PCI IDs.
+    Name               string
+    VendorID, DeviceID uint32
+    // RenderNode is the path of the DRM render node on Linux
+    // ("/dev/dri/renderD128"), and RenderMajor and RenderMinor its device
+    // numbers.
+    RenderNode               string
+    RenderMajor, RenderMinor uint32
+    // UUID is the Vulkan device UUID
+    // (VkPhysicalDeviceIDProperties.deviceUUID), and LUID the adapter's
+    // locally unique identifier on Windows (its deviceLUID).
+    UUID [16]byte
+    LUID [8]byte
+    // MetalRegistryID is the registryID of the Metal device that drives the
+    // main display, on macOS. Tela does not draw with it: the frames of any
+    // device are copied.
+    MetalRegistryID uint64
+    // Formats are the formats Texture.Import takes for memory allocated on
+    // this device, the preferred ones first, and ForeignFormats those for
+    // memory of any other one, which must be memory this device can reach
+    // (system memory) or that can be mapped.
+    Formats, ForeignFormats []TextureFormat
+}
+```
+
+### type TextureFormat
+
+```go
+type TextureFormat = core.TextureFormat
+```
+
+TextureFormat is a pixel format of imported memory: a DRM fourcc and a DRM format modifier on Linux, the pixel format of an [`IOSurface`](#type-iosurface) on macOS.
+
+`TextureFormat` is an alias of `core.TextureFormat`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type TextureFormat struct {
+    // Fourcc is the DRM fourcc, such as 0x34325241 (AR24,
+    // DRM_FORMAT_ARGB8888). On macOS it is the pixel format of the
+    // IOSurface, an OSType such as 0x42475241 ('BGRA'), and Modifier is 0.
+    Fourcc uint32
+    // Modifier is the DRM format modifier; 0 is linear.
+    Modifier uint64
+}
+```
+
+### type TextureFrame
+
+```go
+type TextureFrame = core.TextureFrame
+```
+
+TextureFrame describes a frame given to Texture.Submit: the [`Fence`](#type-fence) that tells when its pixels are finished, nil if they are, and Release, called exactly once when Tela does not read the buffer any more.
+
+`TextureFrame` is an alias of `core.TextureFrame`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type TextureFrame struct {
+    // Fence tells when the buffer's pixels are finished: Tela waits for it
+    // on a goroutine of its own, and never reads the buffer before. Nil
+    // means they are finished already.
+    Fence Fence
+    // Release, when not nil, is called exactly once for the Submit call it
+    // was given to, whatever happens to the frame: replaced by another one
+    // after it was shown, dropped without being shown, the Fence failed,
+    // Submit returned an error, the component unmounted, the app quit. From
+    // then on Tela does not read the buffer, with the CPU or the GPU, and
+    // the application may draw into it again. The frame on screen stays
+    // held until another one replaces it, in every window that shows it (a
+    // hidden or minimized one when it draws again).
+    //
+    // A frame dropped before its Fence signals is released at once: the
+    // buffer is then free of Tela, not of the application's own GPU work.
+    //
+    // The Release calls of a texture run on a goroutine of Tela's, one at a
+    // time, in the order Tela let go of the frames, which is not always the
+    // order they were submitted in: a frame dropped is released before an
+    // older one that is still on screen. A Release never runs inside a call
+    // of the application's (Submit, Close), and may call any method of the
+    // texture, Submit included; the next Release waits until it returns.
+    Release func()
+}
+```
+
+### type TextureMemory
+
+```go
+type TextureMemory = core.TextureMemory
+```
+
+TextureMemory is memory that Texture.Import imports: a [`Dmabuf`](#type-dmabuf) on Linux, an [`IOSurface`](#type-iosurface) on macOS. No other type implements it.
+
+`TextureMemory` is an alias of `core.TextureMemory`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type TextureMemory interface {
+    // contains filtered or unexported methods
+}
+```
+
+### type TextureSize
+
+```go
+type TextureSize = core.TextureSize
+```
+
+TextureSize is the size a [`Texture`](#type-texture) is shown at (Texture.Size, Texture.OnResize): the content box of its element in device pixels, snapped to them as it is painted, so that a frame of that size is drawn pixel for pixel, and the display scale. Transforms do not count. The zero TextureSize means that no element shows it.
+
+`TextureSize` is an alias of `core.TextureSize`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type TextureSize struct {
+    // Width and Height are the content box of the element in device
+    // pixels, snapped to them as it is painted: a frame of this size is
+    // drawn pixel for pixel. Transforms do not count.
+    Width, Height int
+    // Scale is the display scale of its window: device pixels per logical
+    // pixel.
+    Scale float32
+}
+```
+
+### type TextureStats
+
+```go
+type TextureStats = core.TextureStats
+```
+
+TextureStats counts the frames of a [`Texture`](#type-texture) (Texture.Stats): submitted, shown, dropped, and how old the last one was when it was presented.
+
+`TextureStats` is an alias of `core.TextureStats`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type TextureStats struct {
+    // Submitted counts the frames queued (the calls of SubmitImage and
+    // Submit without an error). Shown counts those a window's frame took,
+    // and Dropped those replaced before one did, or whose Fence failed.
+    // What is left, at most three frames, waits or is ready.
+    Submitted, Shown, Dropped uint64
+    // Age is how long before the last new frame was presented to the
+    // display server it had been submitted (the wait for its Fence
+    // included), and MaxAge the largest one: what Tela adds to the latency
+    // of the application's content, without what the display server and the
+    // screen add.
+    Age, MaxAge time.Duration
+}
+```
 
 ### type Theme
 
