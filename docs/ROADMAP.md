@@ -25,10 +25,11 @@ In order. Each phase ends with verifiable criteria and is not done unless they p
 
 An immediate-mode 2D drawing surface with the lifecycle of a component (ADR-319).
 
-- [ ] `gfx` and the CPU rasterizer: the Porter-Duff operations as layer blends, and a tiled image paint
-- [ ] The same on the GPU backend, compared with the CPU rasterizer
-- [ ] `core`: the `Canvas` element, its draw in the paint phase (tracked reads, recording, damage), `RequestFrame` and its clock, dev checks; `telatest` drives it
-- [ ] The drawing API: paths and `Path2D`, transforms, styles, text, images, shadows, clips, compositing
+- [x] `gfx` and the CPU rasterizer: the Porter-Duff operations as layer blends, and a tiled image paint
+- [x] The same on the GPU backend, compared with the CPU rasterizer
+- [x] `core`: the `Canvas` element, its draw in the paint phase (tracked reads, recording, damage), `RequestFrame` and its clock, dev checks; `telatest` drives it
+- [x] The drawing API: paths and `Path2D`, transforms, styles, text, images, shadows, clips, compositing
+- [x] `fill`, `stroke` and `stroke-width` transition (added 2026-11-24: a canvas starts with them)
 - [ ] Compared with Chromium's output
 - [ ] An example, the wiki, `llms.txt` with a recipe, and `tela lint`'s checks
 
@@ -50,7 +51,7 @@ Highest uncertainty of the roadmap: pure-Go decoders limit the codecs.
 - [ ] Audio playback and capture: pure-Go decoders (WAV, MP3, OGG/Vorbis, FLAC, Opus where one exists), output through ALSA/PulseAudio/PipeWire, WASAPI, CoreAudio
 - [ ] A low-latency output stream the application fills from its own callback (a mixer, a game engine, a synthesizer), besides file playback; the ADR states the latency each backend reaches (added 2026-11-23 for applications that render their own content)
 - [ ] Video playback: patent-free subset first (VP8/VP9/AV1 if a pure-Go decoder is viable), A/V sync, a `Video` component with `kit` controls; an ADR settles codec scope before work starts. Pure-Go decoders produce CPU frames, so `Video` shows them through External textures' element and its copy path; the GPU imports of that phase serve frames a hardware decoder leaves on the GPU. The Windows shared-handle import (it needs a keyed mutex or a fence, and the Intel Arc laptop to run on) and X11's fixed 60 Hz pacing, which could follow `FrameEvent.Refresh` (ADR-317), are here. Textures take 8-bit RGB only (ADR-315): NV12 and other YUV frames (BT.601/709, limited or full range), converted in the shader and in the copy, are this phase's
-- [ ] Dmabuf imports on an Intel Arc (Meteor Lake, Linux 7.2, Mesa 26.2.5): `TestImportStrides` (`internal/gfx/gpu`), `TestVulkanDrawsTheScene` and `TestPainterOnTheWindow` (`examples/texture`) read wrong pixels, so the gate fails on that machine (found 2026-11-24, cause not looked for)
+- [ ] Dmabuf imports on an Intel Arc (Meteor Lake, Linux 7.2, Mesa 26.2.5): `TestImportStrides` (`internal/gfx/gpu`), `TestVulkanDrawsTheScene` and `TestPainterOnTheWindow` (`examples/texture`) read wrong pixels, so the gate fails on that machine, and so do `internal/core`'s five `TestTextureGPU*` with `telagpu` (found 2026-11-24, cause not looked for). There, `TestPlain` (`internal/gfx/gpu`) also fails now and then under GPU contention, in blur scenes: 2 of 445 runs before phase 31, 4 of 317 after its GPU work, cause unknown
 - [ ] 3D (exploratory, ADR first; transforms stay 2D until then) lives here or in the backlog; an application can already show its own 3D rendering through External textures
 
 **Done when:** a "player" example plays an audio file and a video with synced controls.
