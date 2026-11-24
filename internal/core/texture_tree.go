@@ -438,16 +438,19 @@ func (t *Tree) askFrame() {
 // startTextureFrame tells the NextFrame calls that wait for t's window that
 // a frame of it starts, at ft.
 func (t *Tree) startTextureFrame(ft FrameTime) {
+	hold := t.holdTextureFrames() // tests only
 	for _, v := range t.tex.views {
 		x := v.x
 		x.mu.Lock()
 		if x.primary == v {
 			x.asked = false
-			for _, w := range x.waiters {
-				w.ch <- ft // buffered: each one gets one frame
+			if !hold { // a test's frame that does not pace the producers
+				for _, w := range x.waiters {
+					w.ch <- ft // buffered: each one gets one frame
+				}
+				clear(x.waiters)
+				x.waiters = x.waiters[:0]
 			}
-			clear(x.waiters)
-			x.waiters = x.waiters[:0]
 		}
 		x.mu.Unlock()
 	}

@@ -272,6 +272,9 @@ type Host struct {
 	texMu     sync.Mutex
 	texImp    textureImporter
 	clockBase time.Time
+	// texHooks is what a test harness attaches to the app's textures
+	// (texture_testhook.go), nil outside tests; set before the first frame.
+	texHooks textureHooker
 
 	// timer wakes the loop at timerAt (backend clock) for the gesture
 	// arenas (a long press); nil when nothing waits.

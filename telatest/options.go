@@ -68,6 +68,8 @@ type config struct {
 	// start: StartLaunch, and whether the desktop made it at login.
 	start        *platform.Launch
 	startAtLogin bool
+	// texDevice: WithTextureDevice.
+	texDevice *FakeTextureDevice
 }
 
 func newConfig(opts []Option) config {

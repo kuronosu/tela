@@ -220,6 +220,7 @@ func checkTexture(kind style.Kind, d *desc) {
 // It returns ErrTextureClosed once the component unmounted, and an error
 // for an image that is nil, empty or shorter than its bounds.
 func (x *Texture) SubmitImage(img *image.RGBA, release func()) error {
+	release = x.hookRelease(release) // tests only
 	w, h, pix, err := rgbaPixels(img)
 	if err == nil && x.isClosed() {
 		err = ErrTextureClosed // before a copy for nothing
@@ -322,6 +323,7 @@ type TextureFrame struct {
 // frame (its Release has not been called). On an error the Release of f is
 // still called, and its Fence is not waited for.
 func (x *Texture) Submit(buf *TextureBuffer, f TextureFrame) error {
+	f.Release, f.Fence = x.hookRelease(f.Release), x.hookFence(f.Fence) // tests only
 	switch {
 	case buf == nil:
 		x.reject(f.Release, f.Fence)
@@ -372,6 +374,7 @@ func (x *Texture) submit(f *texFrame, fence Fence) error {
 	f.cancel = cancel
 	x.dropAll(x.mb.submit(f, false))
 	x.mu.Unlock()
+	x.hookAwait(1)
 	go x.await(ctx, f, fence)
 	return nil
 }
@@ -380,6 +383,7 @@ func (x *Texture) submit(f *texFrame, fence Fence) error {
 // f are finished: its fence, then the copy of its buffer's mapped memory.
 func (x *Texture) await(ctx context.Context, f *texFrame, fence Fence) {
 	defer crashRecover(PanicGo) // logtee.go
+	defer x.hookAwait(-1)
 	var err error
 	if fence != nil {
 		err = fence.Wait(ctx)
