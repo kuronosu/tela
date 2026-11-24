@@ -1229,10 +1229,48 @@ func TestClearRectHuge(t *testing.T) {
 			if at >= 1 && img.RGBAAt(0, 25) != blackPx {
 				t.Errorf("a rectangle of %g at %g cleared what is before it", size, at)
 			}
+			// What is left before it is less than a pixel, but it is left.
+			if list := record(100, 50, func(c *Canvas) {
+				c.FillRect(0, 0, 100, 50)
+				c.ClearRect(at, 0, size, size)
+			}); list.Len() == 0 {
+				t.Errorf("a rectangle of %g at %g forgot the drawing", size, at)
+			}
 			if got := img.RGBAAt(99, 25); got != none {
 				t.Errorf("a rectangle of %g at %g left %v", size, at, got)
 			}
 		}
+	}
+	// Turned, its near edge is where it is for a small one.
+	want := -1
+	for _, size := range []float64{300, 1e6, 1e9, 1e12, 1e39, 1e300} {
+		img := render(100, 50, 1, func(c *Canvas) {
+			c.FillRect(0, 0, 100, 50)
+			c.Translate(50, 25)
+			c.Rotate(1)
+			c.ClearRect(0, -size, size, 2*size)
+		})
+		n := 0
+		for y := range 50 {
+			for x := range 100 {
+				n += int(img.RGBAAt(x, y).A)
+			}
+		}
+		if want < 0 {
+			want = n
+			if n < 2400*255 || n > 2600*255 {
+				t.Errorf("half of the canvas: %d levels are left", n)
+			}
+		}
+		if d := n - want; d < -255 || d > 255 {
+			t.Errorf("turned, a rectangle of %g left %d levels, one of 300 %d", size, n, want)
+		}
+	}
+	if img := render(100, 50, 1, func(c *Canvas) {
+		c.FillRect(0, 0, 100, 50)
+		c.ClearRect(50, -1e39, 1e39, 2e39)
+	}); img.RGBAAt(40, 25) != blackPx || img.RGBAAt(60, 25) != none {
+		t.Error("beyond float32, upright")
 	}
 	// The whole canvas, under transforms, is still forgotten.
 	for _, angle := range []float64{0, 0.3, 1} {
@@ -1248,16 +1286,58 @@ func TestClearRectHuge(t *testing.T) {
 	}
 }
 
+func gfxPath(p *Path2D) *gfx.Path {
+	out := &gfx.Path{}
+	p.p.gfx(out, nil)
+	return out
+}
+
+// Angles too far apart for a float64 make an arc all the same.
+func TestArcFarAngles(t *testing.T) {
+	for _, ccw := range []bool{false, true} {
+		for _, a := range [][2]float64{{1e308, -1e308}, {-1e308, 1e308}} {
+			var p Path2D
+			p.Ellipse(50, 25, 40, 20, 0, a[0], a[1], ccw)
+			p.Arc(50, 25, 10, a[0], a[1], ccw)
+			if g := gfxPath(&p); !g.IsFinite() || g.IsEmpty() {
+				t.Errorf("from %g to %g, ccw %v: %v", a[0], a[1], ccw, g)
+			}
+		}
+	}
+}
+
 // A flat ellipse ends whatever its angles are.
 func TestEllipseFlatHugeAngles(t *testing.T) {
-	for _, start := range []float64{0, 1, -1, 1e8, 1e16, 3e16, 1e17, -1e17, 1e300} {
-		for _, d := range []float64{1, 7, 1e17, -1, -1e17, 1e300} {
+	for _, start := range []float64{0, 1, -1, 1e8, 1e16, -1e16, 3e16, 1e17, -1e17, 1e300} {
+		for _, d := range []float64{1, 2, 4, 7, 1e17, -1, -2, -4, -1e17, 1e300} {
 			for _, ccw := range []bool{false, true} {
 				var p Path2D
 				p.Ellipse(50, 25, 40, 0, 0, start, start+d, ccw)
 				p.Ellipse(50, 25, 0, 20, 0, start, start+d, ccw)
 				if n := len(p.p.verbs); n > 12 {
 					t.Errorf("from %g by %g: %d lines", start, d, n)
+				}
+				// Its ends and corners are those of one that is hardly not flat.
+				span := func(ry float64) (lo, hi float64) {
+					var p Path2D
+					p.Ellipse(50, 25, 40, ry, 0, start, start+d, ccw)
+					lo, hi = math.Inf(1), math.Inf(-1)
+					for el := range gfxPath(&p).Elements() {
+						for _, q := range el.Pts[:el.Verb.NumPoints()] {
+							if math.IsNaN(float64(q.X)) || math.IsNaN(float64(q.Y)) {
+								t.Errorf("from %g by %g: a NaN point", start, d)
+							}
+							if el.Verb == gfx.CubicTo && q != el.Pts[2] {
+								continue
+							}
+							lo, hi = min(lo, float64(q.X)), max(hi, float64(q.X))
+						}
+					}
+					return lo, hi
+				}
+				lo, hi := span(0)
+				if l, h := span(1e-9); lo > l+0.01 || hi < h-0.01 {
+					t.Errorf("from %g by %g (ccw %v): flat from %.2f to %.2f, round from %.2f to %.2f", start, d, ccw, lo, hi, l, h)
 				}
 			}
 		}

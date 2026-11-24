@@ -236,7 +236,13 @@ func arcSweep(start, end float64, ccw bool) float64 {
 	if ccw {
 		return -arcSweep(-start, -end, false)
 	}
-	switch d := end - start; {
+	d := end - start
+	if math.IsInf(d, -1) {
+		// Too far apart for a float64: the angles within a turn.
+		d = math.Mod(end, turn) - math.Mod(start, turn)
+		d = math.Mod(d, turn)
+	}
+	switch {
 	case d >= turn:
 		return turn
 	case d < 0:
@@ -250,6 +256,10 @@ func arcSweep(start, end float64, ccw bool) float64 {
 // radii rx and ry along axes turned by rotation, that starts at angle start
 // and turns by sweep, after a line to its start.
 func (p *path) ellipse(m *matrix, x, y, rx, ry, rotation, start, sweep float64) {
+	if math.Abs(start) > 1<<20 {
+		// Adding a sweep to an angle so large loses the sweep.
+		start = math.Mod(start, 2*math.Pi)
+	}
 	sr, cr := 0.0, 1.0
 	if rotation != 0 {
 		sr, cr = fmath.Sincos(rotation)
@@ -276,12 +286,9 @@ func (p *path) ellipse(m *matrix, x, y, rx, ry, rotation, start, sweep float64) 
 			turn = math.Pi / 2
 		}
 		dir := math.Copysign(1, sweep)
-		// Within a turn: an angle so large that adding to it changes nothing
-		// would never reach the end of the sweep.
-		from := math.Mod(start, 2*math.Pi)
-		for i := math.Floor(float64((from-turn)*dir)/math.Pi) + 1; ; i++ {
+		for i := math.Floor(float64((start-turn)*dir)/math.Pi) + 1; ; i++ {
 			a := turn + float64(float64(i*math.Pi)*dir)
-			if !(float64((a-from)*dir) < math.Abs(sweep)) {
+			if !(float64((a-start)*dir) < math.Abs(sweep)) {
 				break
 			}
 			p.lineTo(at(a))

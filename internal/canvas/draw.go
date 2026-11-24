@@ -143,11 +143,16 @@ func (c *Canvas) ClearRect(x, y, width, height float64) {
 		r.forget()
 		return
 	}
-	if inv, ok := r.m.invert(); ok && r.m.axisAligned() {
-		// Whole pixels, as in Chromium, which does not antialias it: what is
-		// cleared leaves no traces of its edges.
-		at := [4]float64{min(x, x+width), min(y, y+height), max(x, x+width), max(y, y+height)}
-		at, _ = r.snap(&inv, at)
+	if inv, ok := r.m.invert(); ok {
+		at := r.near(&inv, [4]float64{min(x, x+width), min(y, y+height), max(x, x+width), max(y, y+height)})
+		if at[0] >= at[2] || at[1] >= at[3] {
+			return
+		}
+		if r.m.axisAligned() {
+			// Whole pixels, as in Chromium, which does not antialias it: what
+			// is cleared leaves no traces of its edges.
+			at, _ = r.snap(&inv, at)
+		}
 		x, y, width, height = at[0], at[1], at[2]-at[0], at[3]-at[1]
 	}
 	r.rect.reset()
@@ -161,6 +166,22 @@ func (c *Canvas) ClearRect(x, y, width, height float64) {
 		r.b.FillPath(r.geom, gfx.NonZero, gfx.Black)
 	}
 	r.b.PopLayer()
+}
+
+// near returns the part of the rectangle at, in the current coordinates, whose
+// transform has the inverse inv, that is around the canvas: a corner far away
+// would take the edges that show with it, in the float32 of a path.
+func (r *Recorder) near(inv *matrix, at [4]float64) [4]float64 {
+	const margin = 4 // pixels: its edges do not show
+	x0, y0, x1, y1 := math.Inf(1), math.Inf(1), math.Inf(-1), math.Inf(-1)
+	for _, p := range [4][2]float64{
+		{-margin, -margin}, {float64(r.size.X1) + margin, -margin},
+		{-margin, float64(r.size.Y1) + margin}, {float64(r.size.X1) + margin, float64(r.size.Y1) + margin},
+	} {
+		x, y := inv.at(p[0], p[1])
+		x0, y0, x1, y1 = min(x0, x), min(y0, y), max(x1, x), max(y1, y)
+	}
+	return [4]float64{max(at[0], x0), max(at[1], y0), min(at[2], x1), min(at[3], y1)}
 }
 
 // forget drops everything drawn so far; no clip is open.

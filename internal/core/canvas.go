@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -707,6 +708,11 @@ func checkDraw(call string) {
 	}
 }
 
+// CheckDraw is checkDraw for the packages above core, whose functions change
+// the app through core while they hold something a panic would not give back
+// (package i18n): they check first, by their own name.
+func CheckDraw(call string) { checkDraw(call) }
+
 // checkDrawHook panics when a hook is called in a draw function in dev mode.
 func checkDrawHook(hook string) {
 	if guard := drawGuard.Load(); guard != nil {
@@ -733,7 +739,7 @@ func drawSite() string {
 	frames := runtime.CallersFrames(pcs[:runtime.Callers(3, pcs[:])])
 	for {
 		f, more := frames.Next()
-		if f.Function != "" && !frameworkFrame(f.Function, f.File) {
+		if f.Function != "" && !frameworkFrame(f.Function, f.File) && !strings.HasPrefix(f.Function, telaPkg+"/i18n.") {
 			return fmt.Sprintf(" (%s:%d)", filepath.Base(f.File), f.Line)
 		}
 		if !more {
