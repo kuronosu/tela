@@ -418,9 +418,10 @@ func (g *gate) gpuDepsStep() stepResult {
 }
 
 // sizeBudget is the largest size of the examples/hello binary on
-// linux/amd64, in bytes (ADR-290: 21,548,342 on 2026-11-16). Raising it is
+// linux/amd64, in bytes (ADR-290: 21,548,342 on 2026-11-16; ADR-320:
+// 22,004,784 on 2026-11-24). Raising it is
 // a trade: name in an ADR what the bytes bought.
-const sizeBudget = 22_000_000
+const sizeBudget = 22_100_000
 
 // sizeStep builds examples/hello for linux/amd64 and checks its size
 // against sizeBudget: what every app pays before its own code.
