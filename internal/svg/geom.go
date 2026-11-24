@@ -1,6 +1,7 @@
 package svg
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/kuronosu/tela/internal/fmath"
@@ -17,7 +18,31 @@ import (
 // parsePathData parses SVG path data (SVG 2, section 9.3.9). On an error
 // the path keeps the segments before it, as browsers render it.
 func parsePathData(s string) gfx.Path {
-	var p gfx.Path
+	p, _, _ := scanPath(s)
+	return p
+}
+
+// ParsePath is parsePathData with the error, which names the place of what
+// the grammar does not allow. Empty data is an empty path.
+func ParsePath(s string) (gfx.Path, error) {
+	p, at, want := scanPath(s)
+	switch {
+	case want == "":
+		return p, nil
+	case at >= len(s):
+		return p, fmt.Errorf("path data ends where %s was expected", want)
+	}
+	rest := s[at:]
+	if len(rest) > 12 {
+		rest = rest[:12] + "..."
+	}
+	return p, fmt.Errorf("path data has %q at byte %d, where %s was expected", rest, at, want)
+}
+
+// scanPath is parsePathData, and returns what was expected at which byte
+// where the data has an error, or "".
+func scanPath(s string) (p gfx.Path, at int, want string) {
+	const number = "a number"
 	var cur, start, ctrl gfx.Point // ctrl: last control point, for S and T
 	var prev byte                  // previous command, for S and T
 	var cmd byte
@@ -28,13 +53,14 @@ func parsePathData(s string) gfx.Path {
 		c := s[i]
 		if isCommand(c) {
 			if needArgs {
-				return p // a command without arguments is an error
+				return p, i, number // a command without arguments
 			}
+			at = i
 			cmd = c
 			needArgs = cmd != 'Z' && cmd != 'z'
 			i = skipSpace(s, i+1)
 			if p.IsEmpty() && cmd != 'M' && cmd != 'm' {
-				return p
+				return p, at, "a move (M or m)"
 			}
 			if cmd == 'Z' || cmd == 'z' {
 				p.Close()
@@ -42,11 +68,12 @@ func parsePathData(s string) gfx.Path {
 				continue
 			}
 		} else if cmd == 0 || cmd == 'Z' || cmd == 'z' {
-			return p
+			return p, i, "a command"
 		}
 		n := argCount(cmd)
 		j := i
 		ok := true
+		want = number
 		for k := 0; k < n; k++ {
 			if k > 0 {
 				j = skipSep(s, j)
@@ -57,7 +84,7 @@ func parsePathData(s string) gfx.Path {
 					j++
 					continue
 				}
-				ok = false
+				ok, want = false, "a flag (0 or 1)"
 				break
 			}
 			var v float64
@@ -68,7 +95,7 @@ func parsePathData(s string) gfx.Path {
 			a[k] = v
 		}
 		if !ok {
-			return p
+			return p, j, want
 		}
 		i = skipSpace(s, j)
 		stop := false
@@ -146,10 +173,13 @@ func parsePathData(s string) gfx.Path {
 		}
 		prev = cmd
 		if stop {
-			return p
+			return p, i, number
 		}
 	}
-	return p
+	if needArgs {
+		return p, i, number
+	}
+	return p, 0, ""
 }
 
 func isCommand(c byte) bool {

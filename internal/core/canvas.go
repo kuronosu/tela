@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"image"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -11,6 +12,8 @@ import (
 	"github.com/kuronosu/tela/internal/canvas"
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/style"
+	"github.com/kuronosu/tela/internal/svg"
+	"github.com/kuronosu/tela/internal/text"
 )
 
 // Canvases (ADR-319): an element whose content a function of the
@@ -37,7 +40,9 @@ import (
 //     by an observer of their own;
 //   - a place of its box (painter.place): a new size, scale, style, theme or
 //     scheme marks the box. It draws if what it can see of them changed
-//     (canvasKey), so a hover that changes its background does not draw it;
+//     (canvasKey, sameText), so a hover that changes its background does not
+//     draw it;
+//   - other fonts for the same styles: the desktop's changed (reshapeText);
 //   - a TextColorFn that changes the color it inherits (stampText);
 //   - a request for a frame (Canvas.RequestFrame) that the frame serves.
 //
@@ -106,6 +111,9 @@ type canvasItem interface {
 	// valueChanged marks it after a change of a Value that its last draw
 	// read, and reports whether that needs a frame.
 	valueChanged() bool
+	// fontsChanged marks it after a change of the fonts that its text
+	// resolves to.
+	fontsChanged()
 	// paint paints what it drew into b, in its content box c; ref is
 	// painter.ref.
 	paint(b *gfx.Builder, c gfx.RRect, ref bool)
@@ -203,6 +211,14 @@ type canvasBox struct {
 	time, last time.Duration
 	// fill and stroke are key's colors as a canvas takes them.
 	fill, stroke canvas.Style
+	// text is the style of its text at the last draw (nothing that only
+	// paints), in direction dir, and font what a canvas sees of it.
+	text text.TextStyle
+	dir  text.Direction
+	font canvas.CanvasFont
+	// uses holds the images of the last draw (assets.go, "Releasing
+	// images"), using those of the one that runs.
+	uses, using []*imageAsset
 }
 
 // canvasKey is what a draw function sees of its element.
@@ -227,6 +243,8 @@ type canvasTree struct {
 	frames int
 	// more: a draw function left work for another frame (run).
 	more bool
+	// fonts counts the changes of the fonts that text resolves to.
+	fonts uint64
 	// rec records the draws, made at the first one.
 	rec *canvas.Recorder
 }
@@ -241,6 +259,7 @@ func (c *canvasBox) drop() {
 	dropObserver(c.obs)
 	c.box.med.drawing = nil
 	c.draw, c.wants, c.on, c.due = nil, false, false, false
+	c.uses = nil
 }
 
 func (c *canvasBox) queue() {
@@ -258,6 +277,11 @@ func (c *canvasBox) valueChanged() bool {
 	c.queue()
 	c.set.t.requestRepaint()
 	return true
+}
+
+func (c *canvasBox) fontsChanged() {
+	c.set.fonts++
+	c.valueChanged()
 }
 
 func (s *canvasTree) queued() int { return len(s.q) }
@@ -336,7 +360,9 @@ func (c *canvasBox) look(p *painter) {
 		return
 	}
 	key := c.keyOf(p)
-	if !c.stale && !due && key == c.key {
+	tp := &b.pcs.Text
+	sameText := c.sameText(tp)
+	if !c.stale && !due && key == c.key && sameText {
 		return
 	}
 	if key.w <= 0 || key.h <= 0 || b.pcs.Visibility != style.VisibilityVisible || b.hiddenAtom ||
@@ -350,6 +376,9 @@ func (c *canvasBox) look(p *painter) {
 	if c.stroke == nil || key.stroke != c.key.stroke {
 		c.stroke = key.stroke
 	}
+	if !sameText {
+		c.setText(b.pcs)
+	}
 	now := t.anim.tk.Now()
 	var delta time.Duration
 	if c.running {
@@ -361,6 +390,8 @@ func (c *canvasBox) look(p *painter) {
 		Width: float64(key.w) / float64(key.scale), Height: float64(key.h) / float64(key.scale),
 		Time: c.time + delta, Delta: delta,
 		Fill: c.fill, Stroke: c.stroke, LineWidth: float64(key.lineWidth),
+		Font: c.font, LetterSpacing: float64(tp.LetterSpacing),
+		Scale: float64(key.scale), Fonts: t.fonts, FontsGen: c.set.fonts, Text: &c.text, Dir: c.dir,
 		Env: c, Dev: t.dev,
 	}
 	c.parked = false
@@ -416,6 +447,25 @@ func (c *canvasBox) keyOf(p *painter) canvasKey {
 	return k
 }
 
+// sameText reports whether the style of text tp is that of the last draw, as
+// far as a canvas sees it.
+func (c *canvasBox) sameText(tp *style.TextProps) bool {
+	s := &c.text
+	return s.Size == tp.FontSize && s.Weight == tp.FontWeight && s.Style == tp.FontStyle && s.Stretch == tp.FontStretch &&
+		s.LetterSpacing == tp.LetterSpacing && s.WordSpacing == tp.WordSpacing && s.Numeric == tp.Numeric &&
+		s.Language == tp.Language && c.dir == tp.Direction && slices.Equal(s.Families, tp.FontFamily)
+}
+
+// setText takes the style of text of cs.
+func (c *canvasBox) setText(cs *style.ComputedStyle) {
+	c.text, c.dir = cs.TextStyle(), cs.Text.Direction
+	c.text.Paint, c.text.Decoration, c.text.Transform = nil, text.TextDecoration{}, text.TransformNone
+	c.font = canvas.CanvasFont{
+		Family: canvas.JoinFamilies(c.text.Families),
+		Size:   float64(c.text.Size), Weight: float64(c.text.Weight), Italic: c.text.Style != text.StyleNormal,
+	}
+}
+
 // canvasColor returns the color of the fill or the stroke p of an element
 // whose text color is cur: the text color without one.
 func canvasColor(p style.SVGPaint, cur gfx.Color) gfx.Color {
@@ -439,6 +489,7 @@ func (c *canvasBox) run(f *canvas.Frame) (list *gfx.DisplayList, again bool) {
 	changed, repaint := t.changed, t.repaint
 	t.changed, t.repaint = false, false
 	c.stale = false // unless a Value it read changes meanwhile
+	c.using = nil
 	mark := t.beginTrack()
 	done := false
 	defer func() {
@@ -459,6 +510,7 @@ func (c *canvasBox) run(f *canvas.Frame) (list *gfx.DisplayList, again bool) {
 		list, again = s.rec.Record(f, c.draw)
 	}
 	done = true
+	c.uses, c.using = c.using, nil
 	t.observe(&c.obs, obsCanvas, nil, c.box, t.endTrack(mark))
 	return list, again
 }
@@ -468,6 +520,34 @@ func (c *canvasBox) run(f *canvas.Frame) (list *gfx.DisplayList, again bool) {
 func (c *canvasBox) Color(token string) gfx.Color {
 	t := c.set.t
 	return ThemeValues{th: t.cx.Theme, dark: c.box.pcs.IsDark(&t.cx), dev: t.dev}.color("Canvas", token)
+}
+
+// Image implements canvas.Env: img converted, once while a canvas or a
+// background shows it.
+func (c *canvasBox) Image(img image.Image) *gfx.Image {
+	a := convertBgImage(img)
+	c.use(a)
+	return a.raster
+}
+
+// Icon implements canvas.Env: the document of an icon, parsed once while
+// something shows it, as h.Icon's.
+func (c *canvasBox) Icon(svgText string) *svg.Doc {
+	s := srcSpec{kind: srcIcon, icon: svgText}
+	a, err := loadSource(&s)
+	if err != nil {
+		c.set.t.reportOnce(s.reportKey(), "tela: Canvas.DrawIcon: "+err.Error())
+		return nil
+	}
+	c.use(a)
+	return a.doc
+}
+
+// use holds an image for as long as what the draw in progress draws.
+func (c *canvasBox) use(a *imageAsset) {
+	if !slices.Contains(c.using, a) {
+		c.using = append(c.using, a)
+	}
 }
 
 // sameDrawing reports whether two lists (nil for none) draw the same.

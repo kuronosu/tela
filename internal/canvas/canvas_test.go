@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -767,6 +768,8 @@ func expectPanic(t *testing.T, want string, f func()) {
 	f()
 }
 
+var onePixel = image.NewRGBA(image.Rect(0, 0, 1, 1))
+
 // methods are the methods of Canvas that draw or read.
 var methods = map[string]func(c *Canvas){
 	"Save": (*Canvas).Save, "Restore": (*Canvas).Restore,
@@ -778,12 +781,41 @@ var methods = map[string]func(c *Canvas){
 	"ClosePath": (*Canvas).ClosePath, "Rect": func(c *Canvas) { c.Rect(0, 0, 1, 1) },
 	"Arc": func(c *Canvas) { c.Arc(0, 0, 1, 0, 1) }, "Fill": (*Canvas).Fill, "Stroke": (*Canvas).Stroke, "Clip": (*Canvas).Clip,
 	"FillRect": func(c *Canvas) { c.FillRect(0, 0, 1, 1) }, "StrokeRect": func(c *Canvas) { c.StrokeRect(0, 0, 1, 1) },
-	"ClearRect": func(c *Canvas) { c.ClearRect(0, 0, 1, 1) },
+	"ClearRect":            func(c *Canvas) { c.ClearRect(0, 0, 1, 1) },
+	"QuadraticCurveTo":     func(c *Canvas) { c.QuadraticCurveTo(0, 0, 1, 1) },
+	"BezierCurveTo":        func(c *Canvas) { c.BezierCurveTo(0, 0, 1, 1, 2, 2) },
+	"ArcTo":                func(c *Canvas) { c.ArcTo(0, 0, 1, 1, 2) },
+	"Ellipse":              func(c *Canvas) { c.Ellipse(0, 0, 1, 1, 0, 0, 1) },
+	"RoundRect":            func(c *Canvas) { c.RoundRect(0, 0, 1, 1, 1) },
+	"FillPath":             func(c *Canvas) { c.FillPath(&Path2D{}) },
+	"StrokePath":           func(c *Canvas) { c.StrokePath(&Path2D{}) },
+	"ClipPath":             func(c *Canvas) { c.ClipPath(&Path2D{}) },
+	"IsPointInPath":        func(c *Canvas) { c.IsPointInPath(0, 0) },
+	"IsPointInStroke":      func(c *Canvas) { c.IsPointInStroke(0, 0) },
+	"SetLineDash":          func(c *Canvas) { c.SetLineDash(1) },
+	"LineDash":             func(c *Canvas) { c.LineDash() },
+	"CreateLinearGradient": func(c *Canvas) { c.CreateLinearGradient(0, 0, 1, 1) },
+	"CreateRadialGradient": func(c *Canvas) { c.CreateRadialGradient(0, 0, 1, 0, 0, 2) },
+	"CreateConicGradient":  func(c *Canvas) { c.CreateConicGradient(0, 0, 0) },
+	"CreatePattern":        func(c *Canvas) { c.CreatePattern(onePixel, 0) },
+	"FillText":             func(c *Canvas) { c.FillText("a", 0, 0) },
+	"StrokeText":           func(c *Canvas) { c.StrokeText("a", 0, 0) },
+	"MeasureText":          func(c *Canvas) { c.MeasureText("a") },
+	"DrawImage":            func(c *Canvas) { c.DrawImage(onePixel, 0, 0) },
+	"DrawImageSize":        func(c *Canvas) { c.DrawImageSize(onePixel, 0, 0, 1, 1) },
+	"DrawImageRegion":      func(c *Canvas) { c.DrawImageRegion(onePixel, 0, 0, 1, 1, 0, 0, 1, 1) },
+	"DrawIcon":             func(c *Canvas) { c.DrawIcon(Icon{}, 0, 0, 1, 1) },
+	"Reset":                (*Canvas).Reset,
 }
 
 // A Canvas kept after its draw panics in dev mode, and does nothing
 // otherwise, also from another goroutine while a later draw runs.
 func TestKept(t *testing.T) {
+	for m := range reflect.TypeFor[*Canvas]().Methods() {
+		if methods[m.Name] == nil {
+			t.Errorf("%s is not in methods", m.Name)
+		}
+	}
 	var r Recorder
 	var dev, release *Canvas
 	r.Record(frameOf(100, 50), func(c *Canvas) { dev = c })
@@ -820,8 +852,8 @@ func TestKept(t *testing.T) {
 	wg.Wait()
 }
 
-// Only colors are styles; a type outside gfx is one by embedding, and cannot
-// be painted with.
+// A type outside Tela is a style only by embedding, and cannot be painted
+// with.
 func TestStyle(t *testing.T) {
 	type embedded struct{ Style }
 	expectPanic(t, "cannot paint with a canvas.embedded", func() {
@@ -842,7 +874,7 @@ func TestArcAccuracy(t *testing.T) {
 			r.Record(frameOf(100, 50), func(c *Canvas) {
 				c.Scale(k, k)
 				c.Arc(0, 0, radius/k, 0.3, 0.3+2*math.Pi)
-				path = r.path.Clone()
+				r.path.gfx(&path, nil)
 			})
 			pts := path.Points()
 			if pts[0] != pts[len(pts)-1] {
@@ -908,7 +940,7 @@ func TestMatrix(t *testing.T) {
 // particles draws a scene of 2000 commands.
 func particles(c *Canvas) {
 	for i := range 500 {
-		x := float64(i*37%400) + c.Time.Seconds()
+		x := float64(i*37%400) + math.Mod(c.Time.Seconds(), 1)
 		y := float64(i * 53 % 300)
 		c.FillRect(x, y, 3, 3)
 		c.BeginPath()

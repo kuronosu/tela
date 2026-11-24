@@ -57,6 +57,30 @@ func (m Metrics) Scale(size float32) Metrics {
 // Metrics returns the font-wide metrics in em units.
 func (f *Face) Metrics() Metrics { return f.metrics }
 
+// EmBox returns the top and the bottom of the font's em square, in em above
+// and below the baseline: the ascender and descender of OS/2 (sTypo*), else
+// Metrics' ascent and descent, scaled to add up to 1 em, as Blink does for
+// the top, middle and bottom baselines of Canvas
+// (SimpleFontData::NormalizedTypoAscentAndDescent).
+func (f *Face) EmBox() (ascent, descent float32) {
+	norm := func(a, d float64) bool {
+		h := a + d
+		if !(h > 0) || a < 0 || a > h {
+			return false
+		}
+		ascent = float32(a / h)
+		descent = 1 - ascent
+		return true
+	}
+	if t := f.tf; t.hasOS2 && t.os2.STypoAscender > 0 && norm(float64(t.os2.STypoAscender), -float64(t.os2.STypoDescender)) {
+		return ascent, descent
+	}
+	if norm(float64(f.metrics.Ascent), float64(f.metrics.Descent)) {
+		return ascent, descent
+	}
+	return 1, 0
+}
+
 // noFontMetrics are the metrics of text that has no face because the
 // collection has no font at all: the ascent and descent computeMetrics
 // gives a font without vertical metrics (0.8 and 0.2 em), so lines keep a

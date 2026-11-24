@@ -124,6 +124,55 @@ func drawLines(c *canvas.Canvas) {
 	c.StrokeRect(-40, 8, 120, 30)
 }
 
+// drawLabels writes text, some of which moves.
+func drawLabels(u float64) func(*canvas.Canvas) {
+	return func(c *canvas.Canvas) {
+		c.TextAlign, c.TextBaseline = canvas.TextAlignCenter, canvas.BaselineMiddle
+		c.FillText(fmt.Sprintf("%.0f %% 🎈", u*100), c.Width/2, c.Height/3)
+		g := c.CreateLinearGradient(0, 0, c.Width, 0)
+		g.AddColorStop(0, gfx.Color{R: 1, A: 1})
+		g.AddColorStop(1, gfx.Color{B: 1, A: 0.2})
+		c.FillStyle, c.StrokeStyle = g, g
+		c.SetLineDash(6, 3)
+		c.LineDashOffset = u * 20
+		c.StrokeRect(4, 4, c.Width-8, c.Height-8)
+		c.Translate(c.Width/2, c.Height*2/3)
+		c.Rotate(u)
+		c.FillText("turns", 0, 0, 30)
+	}
+}
+
+// drawCards draws shapes with shadows.
+func drawCards(c *canvas.Canvas) {
+	c.Save()
+	c.ShadowColor, c.ShadowBlur, c.ShadowOffsetY = gfx.Color{A: 0.5}, 6, 3
+	t := c.Time.Seconds()
+	c.BeginPath()
+	c.RoundRect(6+10*math.Sin(t*3), 8, 40, 20, 6)
+	c.Fill()
+	c.BeginPath()
+	c.Arc(70, 50+6*math.Cos(t*4), 12, 0, 2*math.Pi)
+	c.Fill()
+	c.Restore()
+}
+
+// drawErased erases a part of what it draws, which shows what is behind.
+func drawErased(u float64) func(*canvas.Canvas) {
+	return func(c *canvas.Canvas) {
+		c.FillRect(6, 6, c.Width-12, c.Height-12)
+		c.ClearRect(10+u*20, 20, 20, 20)
+		c.GlobalCompositeOperation = canvas.DestinationOut
+		c.BeginPath()
+		c.Arc(60, 40, 10+u*5, 0, 2*math.Pi)
+		c.Fill()
+		if u > 0.5 {
+			c.GlobalCompositeOperation = canvas.SourceIn
+			c.FillStyle = gfx.Color{G: 0.6, A: 1}
+			c.FillRect(0, c.Height/2, c.Width, c.Height)
+		}
+	}
+}
+
 func canvasGallery() Node {
 	cell := func(label string, n Node) Node {
 		return div(Class("flex flex-col items-center gap-1 text-xs text-slate-500"), n, Text(label))
@@ -195,7 +244,10 @@ func canvasScene(st *sceneState) Node {
 				cell("rotate-12 rounded-lg fill-sky-500", drawChart(20, float64(v))),
 				cell("blur-[2px] fill-emerald-500", loop(3)),
 				cell("mix-blend-multiply p-2 fill-rose-400", read(func(u float64) func(*canvas.Canvas) { return drawStar(gfx.NonZero, u) })),
-				cell("mask-linear-to-r mask-from-50% rounded-full fill-violet-600", flood),
+				cell("mask-r-from-50% rounded-full fill-violet-600", flood),
+				cell("rounded-xl bg-white text-slate-700 font-medium hover:font-bold hover:text-sm", read(drawLabels)),
+				cell("rounded-xl bg-slate-100 fill-indigo-400", func(c *canvas.Canvas) { drawCards(c); loop(2)(c) }),
+				cell("bg-sky-200 fill-rose-500", read(drawErased)),
 				div(Class("relative m-1 h-20 w-24"), canvasNode(loop(5), Class("size-full fill-fuchsia-500")),
 					div(Class("absolute inset-3 rounded-xl border border-white/50 bg-white/20 p-1 text-xs backdrop-blur-sm"), Text("glass"))),
 			),
@@ -283,6 +335,47 @@ func BenchmarkCanvasRedrawEqual2000(b *testing.B) {
 	if n := tr.lay.recorded; n != 0 {
 		b.Fatalf("%d lists recorded", n)
 	}
+}
+
+// benchCanvas is the frames of a canvas that moves.
+func benchCanvas(b *testing.B, draw func(*canvas.Canvas)) {
+	tr := newTestTree(b, 400, 300, canvasNode(func(c *canvas.Canvas) {
+		draw(c)
+		c.RequestFrame()
+	}, Class("size-full fill-sky-500 text-xs")), nil)
+	tr.SetRequestFrame(func() {})
+	tr.Frame()
+	b.ReportAllocs()
+	for i := 1; b.Loop(); i++ {
+		tr.Animate(time.Duration(i) * time.Second / 60)
+		tr.Frame()
+	}
+}
+
+// BenchmarkCanvasLabels200 is a frame with 200 labels that stay as they are.
+func BenchmarkCanvasLabels200(b *testing.B) {
+	labels := make([]string, 200)
+	for i := range labels {
+		labels[i] = fmt.Sprintf("label %d", i)
+	}
+	benchCanvas(b, func(c *canvas.Canvas) {
+		for i, s := range labels {
+			c.FillText(s, float64(i%10)*40, 12+float64(i/10)*15)
+		}
+		c.FillRect(math.Mod(c.Time.Seconds()*50, 400), 0, 5, 5)
+	})
+}
+
+// BenchmarkCanvasArcs2000 is a frame of 2000 particles, each a circle.
+func BenchmarkCanvasArcs2000(b *testing.B) {
+	benchCanvas(b, func(c *canvas.Canvas) {
+		t := c.Time.Seconds()
+		for i := range 2000 {
+			c.BeginPath()
+			c.Arc(math.Mod(float64(i*37)+t*40, 400), float64(i*53%300), 3, 0, 2*math.Pi)
+			c.Fill()
+		}
+	})
 }
 
 // BenchmarkCanvasRaster2000 rasterizes the frame of the particles at scale 2.

@@ -171,6 +171,12 @@ func TestMetricsInter(t *testing.T) {
 		t.Errorf("Scale(16) = %+v", s)
 	}
 
+	// The em square: the typo ascender and descender, as parts of an em.
+	typo, down := float64(f.tf.os2.STypoAscender), -float64(f.tf.os2.STypoDescender)
+	if a, d := f.EmBox(); !(a > 0.5 && a < 1) || abs32(a-float32(typo/(typo+down))) > 1e-6 || a+d != 1 {
+		t.Errorf("EmBox() = %g, %g, want %g/%g of an em", a, d, typo, typo+down)
+	}
+
 	for _, q := range []Query{{Families: []string{"Inter"}, Weight: 800}, {Families: []string{"Inter"}, Weight: 100, Style: StyleItalic}} {
 		for _, size := range []float32{14, 32} {
 			f := c.Face(q, size)
