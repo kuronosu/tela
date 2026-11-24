@@ -1,4 +1,5 @@
 import { defineConfig } from 'astro/config';
+import { satteri } from '@astrojs/markdown-satteri';
 import starlight from '@astrojs/starlight';
 import starlightLinksValidator from 'starlight-links-validator';
 import { syncWiki, wikiWatcher } from './scripts/sync-wiki.mjs';
@@ -8,6 +9,11 @@ const sidebar = syncWiki();
 
 export default defineConfig({
 	site: 'https://telaui.dev',
+	markdown: {
+		// No smart punctuation: it turns the "--" of a flag in a heading into a
+		// dash, so the anchor is not the one the same page has on GitHub's wiki.
+		processor: satteri({ features: { smartPunctuation: false } }),
+	},
 	vite: {
 		server: {
 			fs: {

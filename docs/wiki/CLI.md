@@ -936,7 +936,7 @@ a test binary built with `go test -c` from a generated `_test.go` file in an
 overlay (nothing is written into the package), so the server works in any
 module that requires Tela.
 
-### tela mcp --attach
+### `tela mcp --attach`
 
 ```text
 tela mcp --attach[=addr] [-v] [addr]

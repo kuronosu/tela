@@ -1,7 +1,7 @@
 # Tela website
 
 The site at <https://telaui.dev>, built with [Astro](https://astro.build) and
-[Starlight](https://starlight.astro.build) (ADR-206). Node >= 22.23.
+[Starlight](https://starlight.astro.build) (ADR-206). Node >= 22.23.4.
 
 ```bash
 npm install
