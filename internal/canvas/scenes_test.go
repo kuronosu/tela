@@ -15,7 +15,9 @@ type scene struct {
 	name string
 	w, h float64
 	dir  text.Direction
-	draw func(c *Canvas)
+	draw func(c *pen)
+	// cells are the parts compared with Chromium, one by one.
+	cells []sceneCell
 }
 
 // The initial state of the scenes: black, in Inter of 16 px, and lines of 1.
@@ -30,20 +32,20 @@ var (
 
 func scenes() []scene {
 	return []scene{
-		{"paths", 400, 300, 0, drawPaths},
-		{"dashes", 400, 200, 0, drawDashes},
-		{"gradients", 400, 320, 0, drawGradients},
-		{"patterns", 400, 240, 0, drawPatterns},
-		{"text", 480, 420, 0, drawTexts},
-		{"text_rtl", 320, 160, text.DirectionRTL, drawTextsRTL},
-		{"images", 400, 300, 0, drawImages},
-		{"shadows", 480, 400, 0, drawShadows},
-		{"operations", 480, 400, 0, drawOperations},
+		{"paths", 400, 300, 0, drawPaths, nil},
+		{"dashes", 400, 200, 0, drawDashes, nil},
+		{"gradients", 400, 320, 0, drawGradients, nil},
+		{"patterns", 400, 240, 0, drawPatterns, nil},
+		{"text", 480, 420, 0, drawTexts, nil},
+		{"text_rtl", 320, 160, text.DirectionRTL, drawTextsRTL, nil},
+		{"images", 400, 300, 0, drawImages, nil},
+		{"shadows", 480, 400, 0, drawShadows, nil},
+		{"operations", 480, 400, 0, drawOperations, nil},
 	}
 }
 
 // drawPaths shows every kind of segment.
-func drawPaths(c *Canvas) {
+func drawPaths(c *pen) {
 	c.LineWidth = 3
 	c.FillStyle, c.StrokeStyle = sky, indigo
 	shape := func(x, y float64, build func()) {
@@ -113,7 +115,7 @@ func drawPaths(c *Canvas) {
 }
 
 // drawDashes shows line dashes.
-func drawDashes(c *Canvas) {
+func drawDashes(c *pen) {
 	c.LineWidth = 6
 	c.StrokeStyle = indigo
 	line := func(y float64) {
@@ -154,7 +156,7 @@ func drawDashes(c *Canvas) {
 }
 
 // drawGradients shows gradients, transformed and on lines and text.
-func drawGradients(c *Canvas) {
+func drawGradients(c *pen) {
 	stops := func(g *CanvasGradient) *CanvasGradient {
 		g.AddColorStop(1, indigo)
 		g.AddColorStop(0, amber)
@@ -273,7 +275,7 @@ func photo() *image.RGBA {
 }
 
 // drawPatterns shows patterns.
-func drawPatterns(c *Canvas) {
+func drawPatterns(c *pen) {
 	img := tile()
 	for i, repeat := range []PatternRepeat{gfx.RepeatBoth, gfx.RepeatX, gfx.RepeatY, gfx.RepeatNone} {
 		c.Save()
@@ -322,7 +324,7 @@ func drawPatterns(c *Canvas) {
 }
 
 // drawTexts shows text: alignments, baselines, fonts and all.
-func drawTexts(c *Canvas) {
+func drawTexts(c *pen) {
 	c.StrokeStyle = rose
 	c.BeginPath()
 	c.MoveTo(100.5, 5)
@@ -405,7 +407,7 @@ func drawTexts(c *Canvas) {
 }
 
 // drawTextsRTL shows text in a right-to-left element.
-func drawTextsRTL(c *Canvas) {
+func drawTextsRTL(c *pen) {
 	c.StrokeStyle = rose
 	c.BeginPath()
 	c.MoveTo(160.5, 5)
@@ -418,7 +420,7 @@ func drawTextsRTL(c *Canvas) {
 }
 
 // drawImages shows images and icons.
-func drawImages(c *Canvas) {
+func drawImages(c *pen) {
 	img, small := photo(), tile()
 	c.DrawImage(img, 10, 10)
 	c.DrawImageSize(img, 90, 10, 100, 48)
@@ -471,7 +473,7 @@ func drawImages(c *Canvas) {
 }
 
 // drawShadows shows shadows.
-func drawShadows(c *Canvas) {
+func drawShadows(c *pen) {
 	cell := func(col, row int, draw func()) {
 		c.Save()
 		c.Translate(20+float64(col)*118, 15+float64(row)*100)
@@ -565,7 +567,7 @@ func drawShadows(c *Canvas) {
 
 // drawOperations shows the operations: a square over a circle, inside a
 // clip.
-func drawOperations(c *Canvas) {
+func drawOperations(c *pen) {
 	for i := range len(operations) {
 		c.Save()
 		c.Translate(6+float64(i%6)*80, 6+float64(i/6)*80)

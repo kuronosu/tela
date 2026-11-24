@@ -106,7 +106,7 @@ func (c *Canvas) MeasureText(s string) TextMetrics {
 		Width:                 t.width,
 		FontBoundingBoxAscent: t.ascent - dy, FontBoundingBoxDescent: t.descent + dy,
 		EmHeightAscent: t.emAscent - dy, EmHeightDescent: t.emDescent + dy,
-		HangingBaseline: float64(t.ascent*hanging) - dy, AlphabeticBaseline: 0 - dy, IdeographicBaseline: -t.descent - dy,
+		HangingBaseline: t.hanging - dy, AlphabeticBaseline: 0 - dy, IdeographicBaseline: t.ideographic - dy,
 	}
 	if ink := t.ink; !ink.Empty() {
 		m.ActualBoundingBoxLeft, m.ActualBoundingBoxRight = dx-float64(ink.X0), float64(ink.X1)-dx
@@ -116,7 +116,7 @@ func (c *Canvas) MeasureText(s string) TextMetrics {
 }
 
 // hanging is where the hanging baseline is, as a part of the ascent (as in
-// Chromium, for a font that does not tell).
+// Chromium), for a font that does not tell.
 const hanging = 0.8
 
 // anchor returns the point of t that is at the x, y given: to the right of
@@ -133,11 +133,11 @@ func (c *Canvas) anchor(r *Recorder, t *shaped) (dx, dy float64) {
 	case BaselineTop:
 		dy = t.emAscent
 	case BaselineHanging:
-		dy = float64(t.ascent * hanging)
+		dy = t.hanging
 	case BaselineMiddle:
 		dy = float64((t.emAscent - t.emDescent) / 2)
 	case BaselineIdeographic:
-		dy = -t.descent
+		dy = t.ideographic
 	case BaselineBottom:
 		dy = -t.emDescent
 	}
@@ -175,7 +175,6 @@ func (c *Canvas) drawText(r *Recorder, s string, x, y float64, maxWidth []float6
 	d.under, d.m = true, r.m.mul(local)
 	g, ok := local.invert()
 	if _, inv := d.m.invert(); !ok || !inv {
-		r.draw(c, &d, ink{})
 		return
 	}
 	if stroke {
@@ -242,8 +241,13 @@ func (r *Recorder) strokeText(c *Canvas, d *drawing, g *matrix) {
 	}
 	d.line = r.line(c, 1, d.path)
 	k, distorted := r.ink(inkStroke, c.StrokeStyle, c.alpha(), g, c.ImageSmoothing)
-	if distorted {
+	switch {
+	case distorted:
 		k = r.masked(c, d, inkStroke, c.StrokeStyle)
+	case !k.solid || k.color.A < 1:
+		// Glyph by glyph, as Chromium does, so that what is translucent
+		// shows where two of them overlap, as it does for FillText.
+		d.parts = t.glyphs
 	}
 	r.draw(c, d, k)
 }
@@ -280,11 +284,13 @@ type shaped struct {
 	width float64
 	ink   gfx.Rect // what they paint
 	color bool     // some may be color glyphs
-	// The font's: above and below the baseline.
+	// The font's: above and below the baseline, and the baselines above it.
 	ascent, descent, emAscent, emDescent float64
+	hanging, ideographic                 float64
 
-	outline  *gfx.Path // outlines, made once
-	colorful *shaped   // colorPart
+	outline  *gfx.Path  // outlines, made once
+	glyphs   []gfx.Path // with it: the outline of each glyph
+	colorful *shaped    // colorPart
 }
 
 // textKey is what the shape of a text depends on.
@@ -485,10 +491,21 @@ func (r *Recorder) shapeText(k textKey, base *text.TextStyle) *shaped {
 			if !(size > 0) {
 				size = 16
 			}
+			// As in Blink (TextMetrics::Update, FontMetrics): the ascent and
+			// the descent are whole pixels, and the em square in its units
+			// of 1/64, so that texts are on the rows of Chromium's.
 			m := face.Metrics()
-			t.ascent, t.descent = float64(float64(m.Ascent)*size), float64(float64(m.Descent)*size)
-			a, d := face.EmBox()
-			t.emAscent, t.emDescent = float64(float64(a)*size), float64(float64(d)*size)
+			t.ascent, t.descent = math.Floor(float64(float64(m.Ascent)*size)+0.5), math.Floor(float64(float64(m.Descent)*size)+0.5)
+			a, _ := face.EmBox()
+			t.emAscent = math.Floor(float64(float64(float64(a)*size)*64)+0.5) / 64
+			t.emDescent = size - t.emAscent
+			t.hanging, t.ideographic = float64(t.ascent*hanging), -t.descent
+			if v, ok := face.Baseline("hang"); ok {
+				t.hanging = float64(float64(v) * size)
+			}
+			if v, ok := face.Baseline("ideo"); ok {
+				t.ideographic = float64(float64(v) * size)
+			}
 		}
 	}
 	l.Paint(r.aside, gfx.Point{X: -ln.X, Y: -ln.Baseline})
@@ -516,7 +533,7 @@ func (t *shaped) outlines() *gfx.Path {
 	if t.outline != nil {
 		return t.outline
 	}
-	p := &gfx.Path{}
+	whole := &gfx.Path{}
 	for _, run := range t.runs {
 		color := isColor(run.Font)
 		for _, g := range run.Glyphs {
@@ -527,28 +544,34 @@ func (t *shaped) outlines() *gfx.Path {
 			if !ok {
 				continue
 			}
+			p := &gfx.Path{}
 			x, y := run.Origin.X+g.X, g.Y
 			at := func(v gfx.Point) gfx.Point {
 				return gfx.Point{X: x + float32(v.X*run.Size), Y: y + float32(v.Y*run.Size)}
 			}
 			for el := range o.Elements() {
-				switch el.Verb {
-				case gfx.MoveTo:
-					p.MoveTo(at(el.Pts[0]))
-				case gfx.LineTo:
-					p.LineTo(at(el.Pts[0]))
-				case gfx.QuadTo:
-					p.QuadTo(at(el.Pts[0]), at(el.Pts[1]))
-				case gfx.CubicTo:
-					p.CubicTo(at(el.Pts[0]), at(el.Pts[1]), at(el.Pts[2]))
-				case gfx.Close:
-					p.Close()
+				for _, p := range [2]*gfx.Path{p, whole} {
+					switch el.Verb {
+					case gfx.MoveTo:
+						p.MoveTo(at(el.Pts[0]))
+					case gfx.LineTo:
+						p.LineTo(at(el.Pts[0]))
+					case gfx.QuadTo:
+						p.QuadTo(at(el.Pts[0]), at(el.Pts[1]))
+					case gfx.CubicTo:
+						p.CubicTo(at(el.Pts[0]), at(el.Pts[1]), at(el.Pts[2]))
+					case gfx.Close:
+						p.Close()
+					}
 				}
+			}
+			if !p.IsEmpty() {
+				t.glyphs = append(t.glyphs, *p)
 			}
 		}
 	}
-	t.outline = p
-	return p
+	t.outline = whole
+	return whole
 }
 
 // colorPart returns the color glyphs of t alone.

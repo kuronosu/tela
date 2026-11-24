@@ -2486,7 +2486,7 @@ func (c *Canvas) ClearRect(x, y, width, height float64)
 
 ClearRect makes a rectangle of the canvas transparent again, inside the clip. The path stays as it is.
 
-A canvas starts every draw empty: only what the draw itself painted needs clearing. A rectangle that covers the whole canvas, with no clip, forgets everything drawn so far, and costs nothing; another one makes the canvas a layer of its own.
+A canvas starts every draw empty: only what the draw itself painted needs clearing. A rectangle that covers the whole canvas, with no clip, forgets everything drawn so far, and costs nothing; another one makes the canvas a layer of its own. Upright, it clears whole pixels of the screen.
 
 #### func (*Canvas) Clip
 
@@ -2567,6 +2567,8 @@ func (c *Canvas) DrawImage(img image.Image, x, y float64)
 ```
 
 DrawImage draws an image with its top left corner at x, y, one unit for each of its pixels. The image must not be modified while a canvas draws it: it is converted once, while it is drawn. Make it once too, not in each draw. A nil image panics in dev mode.
+
+Upright, an image covers whole pixels of the screen, so that images side by side leave no seams.
 
 #### func (*Canvas) DrawImageRegion
 

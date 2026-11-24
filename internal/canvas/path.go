@@ -268,6 +268,24 @@ func (p *path) ellipse(m *matrix, x, y, rx, ry, rotation, start, sweep float64) 
 	if math.Abs(sweep) != 2*math.Pi {
 		end = at(start + sweep)
 	}
+	if rx == 0 || ry == 0 {
+		// A line there and back: its ends are corners, which the cubics of an
+		// arc would only be nearly.
+		turn := 0.0
+		if rx == 0 {
+			turn = math.Pi / 2
+		}
+		dir := math.Copysign(1, sweep)
+		for i := math.Floor(float64((start-turn)*dir)/math.Pi) + 1; ; i++ {
+			a := turn + float64(float64(i*math.Pi)*dir)
+			if !(float64((a-start)*dir) < math.Abs(sweep)) {
+				break
+			}
+			p.lineTo(at(a))
+		}
+		p.lineTo(end)
+		return
+	}
 	whole := len(p.verbs) == 1 && end == first && rotation == 0 && m.axisAligned()
 	p.arc(m, x, y, rx, ry, sr, cr, start, sweep, end)
 	if whole {

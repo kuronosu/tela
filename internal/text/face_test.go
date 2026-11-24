@@ -151,6 +151,31 @@ func TestCFFOutlines(t *testing.T) {
 	}
 }
 
+// TestBaseline checks the baselines that fonts tell (BASE), and that a table
+// cut anywhere tells nothing or the same.
+func TestBaseline(t *testing.T) {
+	c := testCollection(t)
+	for _, tt := range []struct {
+		family, tag string
+		want        float32
+		ok          bool
+	}{
+		{"Noto Sans JP", "ideo", -0.12, true}, {"Noto Sans JP", "romn", 0, true}, {"Noto Sans JP", "hang", 0, false},
+		{"Inter", "ideo", 0, false},
+	} {
+		f := c.Face(Query{Families: []string{tt.family}}, 16)
+		if v, ok := f.Baseline(tt.tag); ok != tt.ok || abs32(v-tt.want) > 1e-6 {
+			t.Errorf("%s: Baseline(%q) = %g, %v, want %g, %v", tt.family, tt.tag, v, ok, tt.want, tt.ok)
+		}
+	}
+	table := c.Face(Query{Families: []string{"Noto Sans JP"}}, 16).tf.base
+	for n := range len(table) {
+		if v, ok := baseCoord(table[:n], "ideo"); ok && v != -120 {
+			t.Errorf("the first %d bytes: %d", n, v)
+		}
+	}
+}
+
 // TestMetricsInter checks the metrics of Inter against its tables: hhea
 // ascender 1984 and descender -494 (USE_TYPO_METRICS is not set), line gap
 // 0, cap height 1490, x-height 1118 at the default instance, and the MVAR

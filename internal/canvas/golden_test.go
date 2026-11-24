@@ -28,7 +28,7 @@ func textFrame(w, h float64, dir text.Direction, scale float64) *Frame {
 // renderScene returns the pixels of a scene on white.
 func renderScene(s *scene, scale float32) *image.RGBA {
 	var r Recorder
-	list, _ := r.Record(textFrame(s.w, s.h, s.dir, float64(scale)), s.draw)
+	list, _ := r.Record(textFrame(s.w, s.h, s.dir, float64(scale)), func(c *Canvas) { s.draw(&pen{Canvas: c}) })
 	b := gfx.NewBuilder()
 	b.FillRect(gfx.Rect{X1: float32(s.w), Y1: float32(s.h)}, gfx.White)
 	b.AppendList(list, nil)

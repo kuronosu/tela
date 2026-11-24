@@ -1,0 +1,126 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+@font-face { font-family: "Inter"; src: url("../../../assets/fonts/inter/InterVariable.ttf"); font-weight: 100 900; }
+@font-face { font-family: "Inter"; src: url("../../../assets/fonts/inter/InterVariable-Italic.ttf"); font-weight: 100 900; font-style: italic; }
+@font-face { font-family: "JetBrains Mono"; src: url("../../../assets/fonts/jetbrainsmono/JetBrainsMono-wght.ttf"); font-weight: 100 800; }
+@font-face { font-family: "JetBrains Mono"; src: url("../../../assets/fonts/jetbrainsmono/JetBrainsMono-Italic-wght.ttf"); font-weight: 100 800; font-style: italic; }
+@font-face { font-family: "Source Serif 4"; src: url("../../../assets/fonts/sourceserif4/SourceSerif4-opsz-wght.ttf"); font-weight: 200 900; }
+@font-face { font-family: "Source Serif 4"; src: url("../../../assets/fonts/sourceserif4/SourceSerif4-Italic-opsz-wght.ttf"); font-weight: 200 900; font-style: italic; }
+@font-face { font-family: "Noto Sans Arabic"; src: url("../../../assets/fonts/notosansarabic/NotoSansArabic-wdth-wght.ttf"); font-weight: 100 900; font-stretch: 62.5% 100%; }
+@font-face { font-family: "Noto Color Emoji"; src: url("../../../assets/fonts/notocoloremoji/Noto-COLRv1.ttf"); }
+html, body { margin: 0; padding: 0; overflow: hidden; background: #fff; }
+canvas { display: block; width: 480px; height: 420px; }
+</style></head><body><canvas id="canvas"></canvas>
+<script>
+const loading = [];
+function image(w, data) {
+  const pix = Uint8ClampedArray.from(atob(data), c => c.charCodeAt(0));
+  const cv = document.createElement("canvas");
+  cv.width = w; cv.height = pix.length / 4 / w;
+  cv.getContext("2d").putImageData(new ImageData(pix, w), 0, 0);
+  const img = new Image();
+  img.src = cv.toDataURL();
+  loading.push(img.decode());
+  return img;
+}
+const k = window.devicePixelRatio, cv = document.getElementById("canvas");
+cv.width = 480 * k; cv.height = 420 * k;
+const c = cv.getContext("2d");
+let g;
+Promise.all([...loading, ...[...document.fonts].map(f => f.load())]).then(() => {
+c.scale(k, k);
+// Glyphs at fractions of a pixel and without hinting, as Tela's.
+c.textRendering = "geometricPrecision";
+c.strokeStyle = "rgb(225 29 72 / 1)";
+c.font = "400 16px 'Inter', 'JetBrains Mono', 'Noto Sans Arabic', 'Noto Color Emoji'";
+c.beginPath();
+c.moveTo(100.5, 5);
+c.lineTo(100.5, 115);
+c.stroke();
+c.fillText("start", 100, 22);
+c.textAlign = "end";
+c.fillText("end", 100, 44);
+c.textAlign = "left";
+c.fillText("left", 100, 66);
+c.textAlign = "right";
+c.fillText("right", 100, 88);
+c.textAlign = "center";
+c.fillText("center", 100, 110);
+c.textAlign = "start";
+c.beginPath();
+c.moveTo(170, 60.5);
+c.lineTo(475, 60.5);
+c.stroke();
+c.font = "400 14px 'Inter', 'JetBrains Mono', 'Noto Sans Arabic', 'Noto Color Emoji'";
+c.fillText("Alpha", 172, 60);
+c.textBaseline = "top";
+c.fillText("Top", 219.76171875, 60);
+c.textBaseline = "hanging";
+c.fillText("Hang", 254.671875, 60.8);
+c.textBaseline = "middle";
+c.fillText("Middle", 299.794921875, 60);
+c.textBaseline = "ideographic";
+c.fillText("Ideo", 354.529296875, 61);
+c.textBaseline = "bottom";
+c.fillText("Bottom", 393.41796875, 60);
+c.font = "400 20px 'Inter', 'JetBrains Mono', 'Noto Sans Arabic', 'Noto Color Emoji'";
+c.textBaseline = "alphabetic";
+c.fillText("Arabic مرحبا بالعالم and 🎉👩‍🚀 emoji", 10, 150);
+c.font = "italic 700 20px 'Inter', 'JetBrains Mono', 'Noto Sans Arabic', 'Noto Color Emoji'";
+c.fillText("bold italic", 10, 180);
+c.font = "400 16px 'JetBrains Mono', 'Inter', 'Noto Sans Arabic', 'Noto Color Emoji'";
+c.fillText("mono  spaces\tand\ntabs", 140, 180);
+c.font = "800 16px 'No such font', 'JetBrains Mono', 'Inter', 'Noto Sans Arabic', 'Noto Color Emoji'";
+c.fillText("fallback", 360, 180);
+c.font = "400 22px 'Inter', 'JetBrains Mono', 'Noto Sans Arabic', 'Noto Color Emoji'";
+c.fillText("as wide as it is", 10, 210);
+c.fillText("condensed to be 120 wide", 190, 210, 120);
+c.textAlign = "right";
+c.fillText("condensed to the right", 470, 210, 120);
+c.font = "400 14px 'Inter', 'JetBrains Mono', 'Noto Sans Arabic', 'Noto Color Emoji'";
+c.letterSpacing = "4px";
+c.textAlign = "start";
+c.fillText("letter spacing", 10, 235);
+c.letterSpacing = "-1px";
+c.fillText("closer letters", 170, 235);
+c.strokeStyle = "rgb(79 70 229 / 1)";
+c.lineWidth = 2;
+c.font = "800 44px 'Inter', 'JetBrains Mono', 'Noto Sans Arabic', 'Noto Color Emoji'";
+c.letterSpacing = "0px";
+c.strokeText("Stroke", 10, 285);
+c.setLineDash([4, 2]);
+c.strokeText("dash", 180, 285, 80);
+c.setLineDash([]);
+c.fillStyle = "rgb(245 158 11 / 1)";
+c.lineWidth = 6;
+c.lineJoin = "round";
+c.strokeText("both", 310, 285);
+c.fillText("both", 310, 285);
+c.fillStyle = "rgb(71 85 105 / 1)";
+c.globalAlpha = 0.5;
+c.font = "400 24px 'Inter', 'JetBrains Mono', 'Noto Sans Arabic', 'Noto Color Emoji'";
+c.fillText("faded 🎈", 10, 320);
+c.globalAlpha = 1;
+c.save();
+c.translate(190, 315);
+c.rotate(-0.1);
+c.fillText("turned 🎈", 0, 0);
+c.restore();
+c.save();
+c.translate(340, 330);
+c.scale(1, 2);
+c.fillText("scaled", 0, 0);
+c.restore();
+c.font = "400 32px 'Inter', 'JetBrains Mono', 'Noto Sans Arabic', 'Noto Color Emoji'";
+c.textAlign = "center";
+c.textBaseline = "middle";
+c.fillText("Ágjfy", 80, 375);
+c.strokeStyle = "rgb(225 29 72 / 1)";
+c.lineWidth = 1;
+c.strokeRect(44.6640625, 354.5625, 70.515625, 36.8125);
+c.strokeStyle = "rgb(56 189 248 / 1)";
+c.strokeRect(44.3515625, 353.625, 71.296875, 39);
+c.strokeStyle = "rgb(79 70 229 / 1)";
+c.strokeRect(44.3515625, 359, 71.296875, 32);
+});
+</script></body></html>

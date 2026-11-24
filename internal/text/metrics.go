@@ -1,6 +1,8 @@
 package text
 
 import (
+	"encoding/binary"
+
 	"github.com/kuronosu/tela/internal/gfx"
 )
 
@@ -79,6 +81,56 @@ func (f *Face) EmBox() (ascent, descent float32) {
 		return ascent, descent
 	}
 	return 1, 0
+}
+
+// Baseline returns where the font says its baseline called tag is, in em
+// above the alphabetic one, and false when it does not say: the coordinate of
+// the BASE table for horizontal text of the script DFLT, as Blink asks
+// HarfBuzz (OpenTypeBaselineMetrics). "hang" is the hanging baseline, "ideo"
+// the bottom of ideographs. The variations of a coordinate do not count.
+func (f *Face) Baseline(tag string) (em float32, ok bool) {
+	v, ok := baseCoord(f.tf.base, tag)
+	return float32(float64(v) / f.upem), ok
+}
+
+// baseCoord reads a coordinate of the BASE table b.
+func baseCoord(b []byte, tag string) (int16, bool) {
+	// word returns the 16 bits of b at i, 0 past its end, and at what is at
+	// the offset they are, nil when there is nothing.
+	word := func(b []byte, i int) int {
+		if i+2 > len(b) {
+			return 0
+		}
+		return int(binary.BigEndian.Uint16(b[i:]))
+	}
+	at := func(b []byte, i int) []byte {
+		if o := word(b, i); o != 0 && o < len(b) {
+			return b[o:]
+		}
+		return nil
+	}
+	axis := at(b, 4) // horizAxisOffset
+	// The place of the tag in the lists of coordinates.
+	tags, index := at(axis, 0), -1
+	for i := range word(tags, 0) {
+		if j := 2 + 4*i; j+4 <= len(tags) && string(tags[j:j+4]) == tag {
+			index = i
+		}
+	}
+	scripts := at(axis, 2)
+	for i := range word(scripts, 0) {
+		j := 2 + 6*i
+		if index < 0 || j+6 > len(scripts) || string(scripts[j:j+4]) != "DFLT" {
+			continue
+		}
+		values := at(at(scripts, j+4), 0)
+		if index >= word(values, 2) {
+			break
+		}
+		coord := at(values, 4+2*index)
+		return int16(word(coord, 2)), len(coord) >= 4
+	}
+	return 0, false
 }
 
 // noFontMetrics are the metrics of text that has no face because the

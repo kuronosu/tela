@@ -655,12 +655,31 @@ func TestMethods(t *testing.T) {
 			c.FillStyle = nil
 			c.FillRect(0, 0, 10, 10)
 		}, at(none, 50, 25)},
-		{"but not of no size", func(c *Canvas) {
-			whole(c, green)
+		{"and so does a rectangle of no size", func(c *Canvas) {
+			whole(c, red)
 			c.GlobalCompositeOperation = Copy
 			c.FillRect(0, 0, 0, 10)
+		}, at(none, 50, 25)},
+		{"but not what is not drawn", func(c *Canvas) {
+			whole(c, green)
+			c.GlobalCompositeOperation = Copy
 			c.DrawImage(image.NewRGBA(image.Rectangle{}), 0, 0)
-		}, at(greenPx, 50, 25)},
+			c.StrokeRect(5, 5, 0, 0)
+			c.Fill() // an empty path
+			c.Stroke()
+			c.MoveTo(5, 5)
+			c.Stroke()
+			c.LineTo(10, 10)
+			c.Fill()
+			c.Rect(5, 5, 20, 20)
+			c.Scale(0, 1)
+			c.Fill()
+			c.Stroke()
+			c.FillRect(5, 5, 20, 20)
+			c.DrawImage(solid(5, 5, redPx), 5, 5)
+			c.FillText("x", 5, 20)
+			c.StrokeText("x", 5, 20)
+		}, at(greenPx, 50, 25, 15, 15)},
 		{"an unbounded operation stays in its clip (2d.composite.clip.copy)", func(c *Canvas) {
 			whole(c, green)
 			c.Rect(0, 0, 50, 50)
@@ -701,10 +720,17 @@ func TestMethods(t *testing.T) {
 			c.ShadowColor, c.ShadowBlur = green, 10
 			c.ClearRect(0, 0, 50, 50)
 		}, pxs(at(none, 25, 25), at(redPx, 75, 25))},
-		{"clearRect of a fraction of a pixel", func(c *Canvas) {
+		{"clearRect clears whole pixels", func(c *Canvas) {
 			whole(c, red)
-			c.ClearRect(0, 0, 50.5, 50)
-		}, pxs(at(none, 25, 25), at(halfRedPx, 50, 25), at(redPx, 52, 25))},
+			c.ClearRect(0, 0, 50.6, 24.4)
+		}, pxs(at(none, 25, 23, 50, 23), at(redPx, 25, 24, 51, 23))},
+		{"drawImage covers whole pixels", func(c *Canvas) {
+			c.DrawImage(solid(8, 8, redPx), 10.3, 10.6)
+			c.DrawImage(solid(8, 8, greenPx), 18.3, 10.6)
+			c.Transform(0, 2, -1, 0, 40, 0) // a quarter turn
+			c.DrawImage(solid(8, 8, bluePx), 5.3, 5.4)
+		}, pxs(at(redPx, 10, 11, 17, 18), at(greenPx, 18, 11, 25, 18), at(none, 9, 14, 26, 14, 12, 10, 12, 19),
+			at(bluePx, 27, 11, 34, 26), at(none, 26, 15, 35, 15, 30, 10, 30, 27))},
 
 		// State.
 		{"reset", func(c *Canvas) {
@@ -1175,7 +1201,7 @@ func TestImageRecorded(t *testing.T) {
 		list, _ := r.Record(textFrame(100, 100, 0, tt.scale), func(c *Canvas) {
 			c.ImageSmoothing = tt.smooth
 			for range 3 {
-				c.DrawImageSize(img, 0, 0, tt.w, tt.w*48/64)
+				c.DrawImageSize(img, 0, 0, tt.w, math.Floor(tt.w*48/64))
 			}
 		})
 		if list.Len() != 5 {

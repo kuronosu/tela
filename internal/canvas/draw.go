@@ -85,7 +85,13 @@ func (c *Canvas) ClipPath(path *Path2D) {
 // FillRect fills a rectangle with FillStyle. The path stays as it is.
 func (c *Canvas) FillRect(x, y, width, height float64) {
 	r := c.use("FillRect")
-	if r == nil || !finite(x, y, width, height) || width == 0 || height == 0 {
+	if r == nil || !finite(x, y, width, height) {
+		return
+	}
+	if width == 0 || height == 0 {
+		if _, ok := r.m.invert(); ok {
+			r.draw(c, &drawing{}, ink{})
+		}
 		return
 	}
 	if r.m.axisAligned() && c.plain() {
@@ -111,8 +117,10 @@ func (c *Canvas) StrokeRect(x, y, width, height float64) {
 	}
 	r.rect.reset()
 	if width == 0 || height == 0 {
+		// A line there and back, as in Chromium: it has corners, not ends.
 		r.rect.moveTo(r.m.vec(x, y))
 		r.rect.lineTo(r.m.vec(x+width, y+height))
+		r.rect.close()
 	} else {
 		r.rect.rect(&r.m, x, y, width, height)
 	}
@@ -125,7 +133,7 @@ func (c *Canvas) StrokeRect(x, y, width, height float64) {
 // A canvas starts every draw empty: only what the draw itself painted needs
 // clearing. A rectangle that covers the whole canvas, with no clip, forgets
 // everything drawn so far, and costs nothing; another one makes the canvas a
-// layer of its own.
+// layer of its own. Upright, it clears whole pixels of the screen.
 func (c *Canvas) ClearRect(x, y, width, height float64) {
 	r := c.use("ClearRect")
 	if r == nil || !finite(x, y, width, height) || !r.drawn || width == 0 || height == 0 {
@@ -134,6 +142,13 @@ func (c *Canvas) ClearRect(x, y, width, height float64) {
 	if r.clips == 0 && r.covers(x, y, width, height) {
 		r.forget()
 		return
+	}
+	if inv, ok := r.m.invert(); ok && r.m.axisAligned() {
+		// Whole pixels, as in Chromium, which does not antialias it: what is
+		// cleared leaves no traces of its edges.
+		at := [4]float64{min(x, x+width), min(y, y+height), max(x, x+width), max(y, y+height)}
+		at, _ = r.snap(&inv, at)
+		x, y, width, height = at[0], at[1], at[2]-at[0], at[3]-at[1]
 	}
 	r.rect.reset()
 	r.rect.rect(&r.m, x, y, width, height)
@@ -206,6 +221,7 @@ type drawing struct {
 	under bool
 	m     matrix
 	path  *gfx.Path    // drawPath, drawStroke
+	parts []gfx.Path   // drawStroke: the parts of path, stroked one by one
 	rule  gfx.FillRule // drawPath
 	box   gfx.RRect    // drawBox, and when boxed the shape of the shadow
 	boxed bool
@@ -216,15 +232,18 @@ type drawing struct {
 	// over area.
 	mask *gfx.DisplayList
 	area gfx.Rect
-	// What drawImage draws of img, with sampling, cut to dst when cut; and
-	// the list that drawIcon does, of doc.
+	// What drawImage draws: src of img, with sampling, in each of the nx
+	// columns and ny rows, cut to them when cut.
 	img      *gfx.Image
-	src, dst gfx.Rect
-	cutTo    gfx.Rect
+	src      gfx.Rect
+	xs, ys   [3]imagePiece
+	nx, ny   int
 	cut      bool
 	sampling gfx.Sampling
-	doc      *svg.Doc
-	list     *gfx.DisplayList
+	// What drawIcon does: list, of doc, in dst.
+	doc  *svg.Doc
+	list *gfx.DisplayList
+	dst  gfx.Rect
 }
 
 type drawingKind uint8
@@ -256,8 +275,25 @@ func (c *Canvas) plain() bool {
 	return !(c.ShadowColor.A > 0) && c.GlobalCompositeOperation.blend() == gfx.SrcOver
 }
 
+// nothing reports that a path is not drawn at all, so that not even an
+// unbounded operation clears what is outside it: as in Chromium, an empty
+// one, a lone line or point (which its fill, and its stroke, skip), and any
+// path under a transform that has no inverse. (The filled point and other
+// paths of no area are drawn, and paint nothing.)
+func (r *Recorder) nothing(p *path, stroke bool) bool {
+	switch n := len(p.verbs); {
+	case n == 0, stroke && n == 1, !stroke && n == 2 && p.verbs[1] == gfx.LineTo:
+		return true
+	}
+	_, ok := r.m.invert()
+	return !ok
+}
+
 // fill fills path, transformed by m (nil for none).
 func (r *Recorder) fill(c *Canvas, p *path, m *matrix) {
+	if r.nothing(p, false) {
+		return
+	}
 	k, distorted := r.ink(inkFill, c.FillStyle, c.alpha(), &r.m, c.ImageSmoothing)
 	if k.solid && (!p.hasBox || p.oval) && c.plain() { // the usual case
 		r.drawn = true
@@ -299,6 +335,9 @@ func (r *Recorder) fill(c *Canvas, p *path, m *matrix) {
 
 // strokeLines strokes path.
 func (r *Recorder) strokeLines(c *Canvas, p *path) {
+	if r.nothing(p, true) {
+		return
+	}
 	if scale, ok := r.m.similar(); ok && c.LineWidth > 0 && c.plain() && !math.IsInf(c.LineWidth, 0) {
 		if k, _ := r.ink(inkStroke, c.StrokeStyle, c.alpha(), &r.m, c.ImageSmoothing); k.solid { // the usual case
 			r.drawn = true
@@ -360,6 +399,11 @@ func (r *Recorder) line(c *Canvas, k float64, p *gfx.Path) gfx.StrokeStyle {
 	s := gfx.StrokeStyle{Width: float32(c.LineWidth * k), MiterLimit: DefaultMiterLimit, Join: c.LineJoin, Cap: c.LineCap}
 	if c.MiterLimit > 0 && !math.IsInf(c.MiterLimit, 0) {
 		s.MiterLimit = float32(max(c.MiterLimit, 1))
+		if float64(s.MiterLimit) < c.MiterLimit {
+			// Corners at the limit, such as right ones at the square root of
+			// 2, have a miter.
+			s.MiterLimit = math.Nextafter32(s.MiterLimit, math.MaxFloat32)
+		}
 	}
 	if s.Join == gfx.JoinMiter {
 		s.MiterLimit = miterReach(p, s.MiterLimit)
@@ -601,7 +645,12 @@ func (r *Recorder) emit(d *drawing, k ink) {
 			b.FillRRect(d.box, k.paint)
 		}
 	case drawStroke:
-		b.StrokePath(*d.path, d.line, k.paint)
+		for i := range d.parts {
+			b.StrokePath(d.parts[i], d.line, k.paint)
+		}
+		if d.parts == nil {
+			b.StrokePath(*d.path, d.line, k.paint)
+		}
 	case drawText:
 		for _, run := range d.text.runs {
 			run.Origin.X += d.at.X
@@ -616,12 +665,16 @@ func (r *Recorder) emit(d *drawing, k ink) {
 		b.PopTransform()
 		b.PopLayer()
 	case drawImage:
-		if d.cut {
-			b.PushClipRect(d.cutTo)
-		}
-		b.DrawImage(d.img, d.src, d.dst, d.sampling)
-		if d.cut {
-			b.PopClip()
+		for _, y := range d.ys[:d.ny] {
+			for _, x := range d.xs[:d.nx] {
+				if d.cut {
+					b.PushClipRect(gfx.Rect{X0: float32(x.lo), Y0: float32(y.lo), X1: float32(x.hi), Y1: float32(y.hi)})
+				}
+				b.DrawImage(d.img, d.src, gfx.Rect{X0: float32(x.p), Y0: float32(y.p), X1: float32(x.q), Y1: float32(y.q)}, d.sampling)
+				if d.cut {
+					b.PopClip()
+				}
+			}
 		}
 	case drawIcon:
 		if k.paint != nil {

@@ -149,9 +149,14 @@ func TestDrawing(t *testing.T) {
 		}, at(none, 50, 25)},
 		{"strokeRect without width is a line (2d.strokeRect.zero.4)", func(c *Canvas) {
 			c.LineWidth, c.StrokeStyle = 10, green
-			c.LineCap = gfx.CapRound
+			c.LineCap = gfx.CapRound // it has no ends (in Chromium)
 			c.StrokeRect(50, 15, 0, 20)
-		}, pxs(at(greenPx, 50, 25, 46, 25, 53, 25, 50, 11), at(none, 40, 25, 60, 25))},
+		}, pxs(at(greenPx, 50, 25, 46, 25, 53, 25, 50, 16), at(none, 40, 25, 60, 25, 50, 12))},
+		{"strokeRect without width has corners", func(c *Canvas) {
+			c.LineWidth, c.StrokeStyle = 10, green
+			c.LineJoin = gfx.JoinRound
+			c.StrokeRect(50, 15, 0, 20)
+		}, pxs(at(greenPx, 50, 25, 46, 25, 53, 25, 50, 11), at(none, 45, 10))},
 		{"strokeRect distorted", func(c *Canvas) {
 			c.Scale(10, 1)
 			c.StrokeStyle = green
