@@ -26,7 +26,8 @@ import (
 // Sampling is clamped to the Src rectangle (its pixel centers, for
 // bilinear), so pixels outside Src never bleed into the edges, like Skia's
 // strict source-rectangle constraint. An identity mapping (Dst the size of
-// Src at a whole-pixel offset) reproduces the source pixels exactly.
+// Src at a whole-pixel offset, to a thousandth of a pixel: unitMapping)
+// reproduces the source pixels exactly.
 
 // imageShader samples a gfx.Image; see above.
 type imageShader struct {
@@ -303,9 +304,31 @@ func (r *Renderer) drawImage(c gfx.DrawImage) {
 	s.jlo, s.jhi = int(math.Floor(sy0)), min(int(math.Ceil(sy1))-1, img.Height()-1)
 	s.ilo, s.jlo = max(min(s.ilo, s.ihi), 0), max(min(s.jlo, s.jhi), 0)
 	s.axis = s.ub == 0 && s.va == 0
+	if s.axis {
+		s.ua, s.uc = unitMapping(s.ua, s.uc, sx0, sx1)
+		s.vb, s.vc = unitMapping(s.vb, s.vc, sy0, sy1)
+	}
 
 	r.blit.setShader(s)
 	r.coverRect(dst)
+}
+
+// unitMapping returns the mapping u = a*X + c of device coordinates to the
+// image's, along one axis, or the whole-pixel translation it stands for over
+// the source interval lo to hi: at a fractional scale the float32 logical
+// coordinates of an image drawn pixel for pixel are a hair off the device
+// pixels, which would give the neighbors of its pixels 1/256 of the weight.
+func unitMapping(a, c, lo, hi float64) (float64, float64) {
+	const eps = 1.0 / 1024 // of a pixel: a quarter of a weight step
+	if d := float64((a - 1) * (hi - lo)); a == 1 && c == math.Trunc(c) || !(math.Abs(d) < eps) {
+		return a, c
+	}
+	x := (lo - c) / a // where lo is on the device
+	n := math.Round(lo - x)
+	if math.Abs(x+n-lo) < eps {
+		return 1, n
+	}
+	return a, c
 }
 
 // imageOpacityCache remembers whether the last images drawn are opaque, so

@@ -197,7 +197,7 @@ func TestExportedNames(t *testing.T) {
 		"OnMouseUp", "OnPointerCancel", "OnPointerDown", "OnPointerEnter", "OnPointerLeave", "OnPointerMove",
 		"OnPointerUp", "OnScroll", "OnSelect", "OnSubmit", "OnWheel", "Overscan", "P", "Placeholder", "Portal", "Presence", "Range", "ReadOnly",
 		"Ref", "Role", "Rows", "Scale", "Scheme", "Span", "SpellCheck", "Src", "SrcBytes", "SrcFS", "SrcPath", "Strong", "Style", "TabIndex", "TestID", "Text", "TextFn",
-		"Textarea", "Textf", "Tint", "Type", "Value",
+		"Textarea", "Textf", "Texture", "Tint", "Type", "Value",
 		"VirtualList",
 		// ADR-180: custom title bars.
 		"WindowControl", "WindowDrag", "WindowNoDrag", "WindowResize", // WindowResize: ADR-257

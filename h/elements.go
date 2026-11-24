@@ -88,6 +88,32 @@ func Icon(icon tela.Icon, props ...tela.Child) tela.Node {
 	return core.Primitive(style.KindSVG, append(children, props...)...)
 }
 
+// Texture shows the frames that the application pushes to tex, a texture of
+// tela.UseTexture: content it renders itself, with its own graphics API. It
+// is a replaced element, like an Img whose picture changes: without Class or
+// Style sizes it is 300x150 as an HTML canvas, whatever the size of its
+// frames, and with one size (w-full) the other keeps that ratio unless an
+// aspect-* class sets another. object-contain, object-cover and the other
+// object-* classes fit the last frame in its box, whose rounded corners clip
+// it; borders, shadows, opacity, filters, transforms, blend modes and masks
+// apply to it as to any element, and so do the On… handlers, TabIndex and
+// the pointer. Until the first frame it shows its background.
+//
+// It takes no children: place an overlay beside it.
+//
+//	Div(Class("relative overflow-hidden rounded-xl"),
+//	    Texture(tex, Class("w-full aspect-video"), AriaLabel("Camera"),
+//	        OnPointerMove(look)),
+//	    Div(Class("absolute bottom-2 left-2 rounded bg-black/50 px-2 text-white"), Text("Live")))
+//
+// It is an image (role img) when it has a name (AriaLabel or
+// AriaLabelledBy), and says nothing to accessibility otherwise.
+func Texture(tex *tela.Texture, children ...tela.Child) tela.Node {
+	all := make([]tela.Child, 0, len(children)+1)
+	all = append(all, core.TextureSource(tex))
+	return core.Primitive(style.KindTexture, append(all, children...)...)
+}
+
 // Strong returns bold inline text.
 func Strong(children ...tela.Child) tela.Node { return core.Primitive(style.KindStrong, children...) }
 

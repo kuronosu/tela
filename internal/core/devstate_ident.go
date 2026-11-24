@@ -365,6 +365,8 @@ func devSlotKind(el *Element, j int) hookKind {
 		return hookWindow
 	case *windowSlot:
 		return hookWindowSpec
+	case *Texture:
+		return hookTexture
 	case envHook:
 		return hookKind(h)
 	case nil:

@@ -318,6 +318,8 @@ type Tree struct {
 
 	// bnd holds the UseBounds slots (bounds.go).
 	bnd boundsState
+	// tex holds the textures its elements show (texture_tree.go).
+	tex texTree
 
 	// sem is the semantics tree built last (semantics.go).
 	sem semState
@@ -585,6 +587,7 @@ func (t *Tree) Unmount() {
 			t.flushWindows() // the child windows close (window.go)
 		}
 	}
+	t.dropTextures()
 	t.resetFocus()
 	t.dropEffects()
 }
@@ -826,11 +829,20 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 			full = t.devFrame(full) // tela dev: scroll offsets of the saved state
 		}
 		if full {
-			t.syncSizes() // UseSize (bounds.go): paint-phase readers see it now
-			t.checkSel()  // the static selection follows the tree (textsel.go)
+			t.syncSizes()        // UseSize (bounds.go): paint-phase readers see it now
+			t.syncTextureSizes() // OnResize (texture_tree.go): what it submits is painted now
+			t.checkSel()         // the static selection follows the tree (textsel.go)
 		}
 		t.phase(PhasePaint)
+		if len(t.tex.views) > 0 {
+			// The frames of the textures (texture_tree.go); a window that
+			// presents nothing takes none.
+			t.bindTextures(!again && (t.wv == nil || !t.wv.paused()))
+		}
 		t.lastDL = t.paintPhase(full)
+		if len(t.tex.views) > 0 {
+			t.releaseTextures()
+		}
 		if t.ins != nil {
 			t.ins.prof.layers += t.lay.recorded
 		}
@@ -879,6 +891,7 @@ func (t *Tree) afterFrame() {
 	t.scrollAfterFrame()
 	t.animAfterFrame()
 	t.floatAfterFrame()
+	t.texturesAfterFrame()
 	if t.ins != nil {
 		t.ins.prof.end()
 	}

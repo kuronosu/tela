@@ -457,6 +457,12 @@
 // Tree.LastDamage expose the layer tree and each frame's damage (debug
 // overlays).
 //
+// External textures (texture.go, whose top comment is the reference;
+// ADR-315) are the frames an application renders itself, shown by a replaced
+// element: UseTexture gives the handle they are pushed to from any
+// goroutine, and a frame that arrives only repaints the element
+// (texture_tree.go).
+//
 // The semantics tree (semantics.go, whose top comment is the reference;
 // ARCHITECTURE section 16) is not a phase of Frame: Tree.Semantics builds
 // it from the Element and Box trees when a consumer asks (tela inspect
