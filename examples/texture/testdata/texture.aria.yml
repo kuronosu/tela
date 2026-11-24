@@ -1,0 +1,12 @@
+- img "A ringed planet with four moons, turning"
+- text: Still
+- button "Play"
+- text: Speed
+- group "Speed":
+  - slider "Speed"
+- text: 1×
+- radiogroup "Drawn by":
+  - radio "Same GPU" [checked]
+  - radio "Another GPU"
+  - radio "Software"
+- text: Tela draws on the CPU The scene on the CPU, as pixels Frames 766×430 at scale 1
