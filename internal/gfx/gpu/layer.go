@@ -29,7 +29,13 @@ import (
 //     computes the W3C formula from the layer and the copy, on 8-bit
 //     values with the rasterizer's integer arithmetic where it has one,
 //     then interpolates between the copy and the result by the clip's
-//     coverage.
+//     coverage. The Porter-Duff operators are such modes.
+//
+// An operator that clears the backdrop where its source is transparent
+// (gfx.BlendMode.Unbounded) changes the whole clip at PushLayer, which the
+// bounds of its command are. A layer that shows nothing under one (it is
+// empty, or at opacity 0) has no target: its composite reads no source
+// (popEmpty).
 //
 // A mask (gfx.Mask) is its display list encoded into a target of its own
 // before the content, under the transform at PushLayer and no clip, whole
@@ -73,6 +79,9 @@ type layerRec struct {
 	maskMode gfx.MaskMode
 	// nf is the number of filters the layer pushed onto Encoder.dfs.
 	nf int
+	// empty: the layer has no target. Nothing of it shows, and its operator
+	// composites transparent pixels.
+	empty bool
 }
 
 // pixelBounds returns the device pixels a device-space box can touch, with
@@ -139,24 +148,26 @@ func growXY(rect image.Rectangle, dx, dy int) image.Rectangle {
 // encoded. Its state has been pushed.
 func (e *Encoder) pushLayer(i int, c gfx.PushLayer) {
 	st := e.top()
-	if c.Blend > gfx.PlusLighter {
-		// The shaders blend with the modes of CSS only. Opacity 0 does not
-		// change that: some of the operators clear the backdrop.
-		e.unsupported("PushLayer (" + c.Blend.String() + ")")
-		st.skip = true
-		return
-	}
 	op := raster.Unit8(float64(c.Opacity))
-	if op == 0 {
+	if op == 0 && !c.Blend.Unbounded() {
 		st.skip = true
 		return
 	}
 	// The layer's bounds (its content, clipped by the clip at PushLayer; for
-	// a layer with filters, grown by their reach first) in device pixels.
+	// a layer with filters, grown by their reach first; that clip for an
+	// unbounded operator, whatever the content) in device pixels.
 	bb := e.devBounds(e.dl.BoundsAt(i))
 	// outer is the state the composite is drawn in: the clips around the
 	// layer, inside its bounds.
 	if !e.narrow(st, bb) {
+		return
+	}
+	if op == 0 || (c.Blend.Unbounded() && len(c.Filters) == 0 && e.dl.Match(i) == i+1) {
+		// Nothing of the layer shows, or it holds nothing, and its operator
+		// clears the clip all the same: there is nothing to draw first.
+		e.layers = append(e.layers, layerRec{outer: *st, pass: e.pass, lim: e.lim, comp: st.scissor, empty: true, blend: c.Blend})
+		st.layer = len(e.layers) - 1
+		st.skip = true
 		return
 	}
 	if e.fades(i, &c, st, op) {
@@ -256,6 +267,10 @@ func (e *Encoder) popLayer() {
 	rec := e.layers[k]
 	e.layers[k] = layerRec{}
 	e.layers = e.layers[:k]
+	if rec.empty {
+		e.popEmpty(&rec)
+		return
+	}
 
 	// What is composited: the layer's target, or the result of its filters.
 	src := targetPlane(rec.target, rec.surf)
@@ -277,6 +292,35 @@ func (e *Encoder) popLayer() {
 		e.lim = rec.lim
 		return
 	}
+	e.composite(&rec, src)
+	// Every pass that draws into these targets again comes after the one
+	// being encoded.
+	e.releaseTarget(src.t)
+	e.releaseTarget(rec.mask)
+}
+
+// popEmpty composites a layer that shows nothing with its operator, which
+// clears the pixels of the clip by its coverage. Those of a clip that falls
+// on pixel boundaries are replaced: an instance of the pass that goes on, with
+// no copy of what is under it.
+//
+// perf: so could be the insides of any other clip.
+func (e *Encoder) popEmpty(rec *layerRec) {
+	st := &rec.outer
+	if st.clip >= 0 || st.mask >= 0 || e.noPlain {
+		e.composite(rec, plane{})
+		return
+	}
+	var in instance
+	quad := e.begin(&in, st.bound) // a solid fill of no color
+	e.pipeline = PipelineOpaque
+	e.emitIn(&in, FlagFull, st, quad, quad, nil)
+	e.pipeline = PipelineQuad
+}
+
+// composite composites the picture src (none: transparent pixels) into the
+// surface below the layer rec, whose pass goes on.
+func (e *Encoder) composite(rec *layerRec, src plane) {
 	st := rec.outer
 	st.scissor = st.scissor.Intersect(rec.comp)
 	below := Source(rec.pass.target)
@@ -284,9 +328,18 @@ func (e *Encoder) popLayer() {
 		below = SourceDest
 	}
 	// A blend mode reads the pixels under the layer from a copy.
+	//
+	// perf: gfx.Copy reads them only under the edges of its clip, and the
+	// content of an unbounded operator is drawn and composited over the whole
+	// clip, where its target could hold the pixels it can touch.
 	var back *poolTarget
 	if rec.blend != gfx.SrcOver {
-		back, _ = e.acquireTarget(st.scissor.Size(), FormatRGBA8) // no larger than the layer
+		var ok bool
+		if back, ok = e.acquireTarget(st.scissor.Size(), FormatRGBA8); !ok {
+			// An empty layer: the target of any other is no smaller.
+			e.unsupported("PushLayer (a layer larger than the device's textures)")
+			return
+		}
 		e.setTarget(back.id, st.scissor.Min, nil)
 		e.copyPixels(st.scissor, below, rec.outer.surf, rec.pass.origin)
 	}
@@ -314,10 +367,6 @@ func (e *Encoder) popLayer() {
 		lp.back, lp.backOrg = back, st.scissor.Min
 	}
 	e.emitLayer(&in, 0, &st, quad, &lp)
-	// Every pass that draws into these targets again comes after the one
-	// being encoded.
-	e.releaseTarget(src.t)
-	e.releaseTarget(rec.mask)
 	e.releaseTarget(back)
 }
 

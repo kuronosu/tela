@@ -22,10 +22,14 @@ import (
 //
 // Before a frame's list is encoded it is walked once, with the transforms
 // and the clips of the encoding, for its covers: a FillRect or FillRRect of
-// an opaque color, a DrawImage of an opaque image, and a BackdropFilter at
-// full opacity drawn from an opaque cache entry; drawn through pixel
-// aligned clips only, outside every layer, each over the pixels its shape
-// covers entirely. And for its readers, each with the pixels it reads.
+// an opaque color or of an opaque image that repeats along both axes, a
+// DrawImage of an opaque image, and a BackdropFilter at full opacity drawn
+// from an opaque cache entry; drawn through pixel aligned clips only,
+// outside every layer, each over the pixels its shape covers entirely. And
+// for its readers, each with the pixels it reads. A layer with a blend mode
+// reads the pixels it can change, which its bounds in the list hold: those
+// of an operator that clears the backdrop where its source is transparent
+// (gfx.BlendMode.Unbounded) are the clip's.
 //
 // A command is not encoded when a cover that follows it holds the pixels
 // it can touch in this render (its bounds inside the scissor) and no
@@ -65,6 +69,8 @@ type cover struct {
 type reader struct {
 	idx  int
 	rect image.Rectangle
+	// clears: it can leave pixels of rect that were opaque translucent.
+	clears bool
 }
 
 // occluderKey is what the covers and the readers of a list depend on.
@@ -91,13 +97,14 @@ func (e *Encoder) findCovers(dl *gfx.DisplayList, scale float32) {
 	if key == e.coverKey {
 		// The same list as the render before: its images are still in use.
 		for _, id := range e.listImages {
-			if im := e.res.images[id]; im != nil {
-				im.used = e.res.frame
-			}
+			e.res.markImage(id)
+		}
+		for _, id := range e.listPatterns {
+			e.res.markPattern(id)
 		}
 		return
 	}
-	e.listImages = e.listImages[:0]
+	e.listImages, e.listPatterns = e.listImages[:0], e.listPatterns[:0]
 	e.coverKey = key
 	e.covers, e.readers = e.covers[:0], e.readers[:0]
 	e.scan = true
@@ -121,6 +128,10 @@ func (e *Encoder) scanVisit(i int, c gfx.Command) {
 		e.scanFill(i, gfx.RRect{Rect: c.Rect}, c.Paint)
 	case gfx.FillRRect:
 		e.scanFill(i, c.RRect, c.Paint)
+	case gfx.FillPath, gfx.StrokePath, gfx.DrawGlyphRun:
+		if img := patternImage(c); img != nil {
+			e.notePattern(img)
+		}
 	case gfx.DrawImage:
 		img := c.Image
 		if img == nil {
@@ -129,9 +140,7 @@ func (e *Encoder) scanVisit(i int, c gfx.Command) {
 		// An image of the frame's list is in use, drawn or not: hidden under
 		// a pane, or outside the regions of the frames that follow, it
 		// keeps its texture for the frame that shows it again.
-		if im := e.res.images[img.ID()]; im != nil {
-			im.used = e.res.frame
-		}
+		e.res.markImage(img.ID())
 		e.listImages = append(e.listImages, img.ID())
 		if !c.Src.Empty() && c.Src == c.Src.Intersect(img.Bounds()) && !c.Dst.Empty() && e.coverable() && e.res.opaqueImage(img) {
 			e.addCovers(i, gfx.RRect{Rect: c.Dst}, image.Rectangle{})
@@ -165,7 +174,7 @@ func (e *Encoder) scanVisit(i int, c gfx.Command) {
 		st := e.push()
 		if !st.skip && c.Blend != gfx.SrcOver {
 			if r := e.devBounds(e.dl.BoundsAt(i)).Intersect(st.bound); !r.Empty() {
-				e.readers = append(e.readers, reader{idx: e.dl.Match(i), rect: r})
+				e.readers = append(e.readers, reader{idx: e.dl.Match(i), rect: r, clears: clearsOpaque(c.Blend)})
 			}
 		}
 		st.skip = true
@@ -203,11 +212,55 @@ func (e *Encoder) coverable() bool {
 }
 
 // scanFill notes the cover of a rectangle or rounded rectangle filled with
-// an opaque color.
+// an opaque color, or with a pattern of an opaque image that repeats along
+// both axes.
 func (e *Encoder) scanFill(i int, rr gfx.RRect, p gfx.Paint) {
-	if col, ok := p.(gfx.Color); ok && e.coverable() && premul8(col)[3] == 255 {
-		e.addCovers(i, rr, image.Rectangle{})
+	switch p := p.(type) {
+	case gfx.Color:
+		if e.coverable() && premul8(p)[3] == 255 {
+			e.addCovers(i, rr, image.Rectangle{})
+		}
+	case gfx.ImagePattern:
+		e.notePattern(p.Image)
+		if p.Repeat == gfx.RepeatBoth && e.coverable() && e.res.opaqueImage(p.Image) {
+			if _, ok := patternPaint(p, &e.top().ctm); ok { // else it paints nothing
+				e.addCovers(i, rr, image.Rectangle{})
+			}
+		}
 	}
+}
+
+// notePattern marks the image of a pattern of the frame's list as in use,
+// drawn or not, as scanVisit does those of its DrawImages.
+func (e *Encoder) notePattern(img *gfx.Image) {
+	e.res.markPattern(img.ID())
+	e.listPatterns = append(e.listPatterns, img.ID())
+}
+
+// clearsOpaque reports whether a layer composited with the mode can leave
+// opaque pixels translucent. The modes of CSS, source-atop and
+// destination-over cannot.
+func clearsOpaque(m gfx.BlendMode) bool {
+	switch m {
+	case gfx.SrcIn, gfx.SrcOut, gfx.DstIn, gfx.DstOut, gfx.DstAtop, gfx.Copy, gfx.Xor:
+		return true
+	}
+	return false
+}
+
+// opaqueAt reports whether the pixels r of the frame's surface are opaque
+// when command i of the frame's list is drawn: the frame draws over opaque
+// pixels, and no operator before the command can have cleared some of r.
+func (e *Encoder) opaqueAt(i int, r image.Rectangle) bool {
+	if !e.opaque {
+		return false
+	}
+	for k := range e.readers {
+		if rd := &e.readers[k]; rd.clears && rd.idx < i && rd.rect.Overlaps(r) {
+			return false
+		}
+	}
+	return true
 }
 
 // addCovers adds the covers of the shape rr drawn by command i in the

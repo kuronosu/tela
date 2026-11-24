@@ -819,7 +819,7 @@ func (e *Encoder) keepBackdrop(en *glassEntry, slot int, c *gfx.BackdropFilter, 
 	bc.epoch++ // the entry changes, one way or another
 	// The output is opaque when the surface under it is and the filters
 	// keep it so.
-	opaque := e.opaque && keepOpaque(fs)
+	opaque := e.opaqueAt(i, full) && keepOpaque(fs)
 	whole := out == full && res.t != nil && res.org == out.Min
 	if bc.holds(slot) && !whole {
 		// state is glassPatch (a hit is painted from the entry).

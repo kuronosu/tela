@@ -11,9 +11,9 @@ import (
 // rasterizer: the pieces whose values must be the same on both backends
 // and that are not worth computing twice. The geometry of rectangle fills,
 // gradients and shadows is evaluated per pixel by the GPU's own shaders;
-// the colors of a gradient, the shape of a shadow, the coverage of paths,
-// strokes, clips and glyphs (Masker) and the kernels of blurs (BlurKernel)
-// come from here.
+// the colors of a gradient, the mip level and the mapping of an image
+// pattern, the shape of a shadow, the coverage of paths, strokes, clips and
+// glyphs (Masker) and the kernels of blurs (BlurKernel) come from here.
 
 // RampSize is the number of colors in the lookup table of one segment of a
 // gradient (see Ramp).
@@ -71,6 +71,42 @@ func GradientRamp(stops []gfx.GradientStop, interp gfx.ColorSpace) Ramp {
 		out.Segments[i] = RampSegment{Offset: s.o0, Scale: s.scale, Bias: s.bias, Colors: &s.lut}
 	}
 	return out
+}
+
+// Pattern is how an image pattern is sampled (see the comment at the top of
+// pattern.go).
+type Pattern struct {
+	// Image is the mip level of the pattern's image that is sampled.
+	Image *gfx.Image
+	// The pixel center (X, Y) reads the pattern at u = UA*X + UB*Y + UC,
+	// v = VA*X + VB*Y + VC, in pixels of Image.
+	UA, UB, UC float64
+	VA, VB, VC float64
+}
+
+// MapPattern returns how the rasterizer samples p under the transform m of
+// the device: patternFor, without a look at the pixels (TestMapPattern
+// checks that the two agree). ok is false when the pattern shows nothing (a
+// transform without an inverse).
+func MapPattern(p gfx.ImagePattern, m gfx.Affine) (s Pattern, ok bool) {
+	img := p.Image
+	inv, ok := invert(m)
+	pinv, pok := invert(p.Transform)
+	if !ok || !pok || img.Width() == 0 || img.Height() == 0 {
+		return Pattern{}, false
+	}
+	if s.Image = img; p.Sampling != gfx.SampleNearest {
+		s.Image = img.Level(patternLevel(&m, &p.Transform))
+	}
+	w, h := s.Image.Width(), s.Image.Height()
+	kx, ky := float64(w)/float64(img.Width()), float64(h)/float64(img.Height())
+	s.UA, s.UB, s.UC = inv.compose(float64(pinv.a*kx), float64(pinv.c*kx), float64(pinv.e*kx))
+	s.VA, s.VB, s.VC = inv.compose(float64(pinv.b*ky), float64(pinv.d*ky), float64(pinv.f*ky))
+	if s.UB == 0 && s.VA == 0 {
+		s.UA, s.UC = unitMapping(s.UA, s.UC, 0, unitSpan(w, p.Repeat.X()))
+		s.VB, s.VC = unitMapping(s.VB, s.VC, 0, unitSpan(h, p.Repeat.Y()))
+	}
+	return s, true
 }
 
 // ShadowShape returns the shape a DrawShadow blurs, in the command's local

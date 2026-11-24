@@ -164,7 +164,11 @@ func classify(pipeline Pipeline, in []byte) (class string, taps int) {
 		switch (flags >> FlagPaintShift) & 7 {
 		case PaintSolid:
 		case PaintImageLinear, PaintImageNearest:
-			class += ", image"
+			if flags&FlagPattern != 0 {
+				class += ", pattern"
+			} else {
+				class += ", image"
+			}
 		case PaintSprite:
 			class += ", sprite"
 		default:
