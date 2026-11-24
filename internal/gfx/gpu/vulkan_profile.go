@@ -345,5 +345,8 @@ func (d *vkDevice) drawProfiled(t *vkTarget, f *Frame, prelude func(cb vk.Comman
 		p.add("(submit)", 1, 0, 0, empty)
 	}
 	// The destination rests ready to be read back.
-	return d.run(func(cb vk.CommandBuffer) { d.use(cb, t.surf, vk.ImageLayoutTransferSrcOptimal) })
+	return d.run(func(cb vk.CommandBuffer) {
+		d.giveImports(cb, f)
+		d.use(cb, t.surf, vk.ImageLayoutTransferSrcOptimal)
+	})
 }

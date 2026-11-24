@@ -69,6 +69,7 @@ func (d *Device) forgetDisabled(info *DeviceCreateInfo) {
 	}
 	if !enabled[KhrExternalMemoryFdExtensionName] {
 		d.fn.GetMemoryFdKHR = 0
+		d.fn.GetMemoryFdPropertiesKHR = 0
 	}
 	if !enabled[ExtImageDrmFormatModifierExtensionName] {
 		d.fn.GetImageDrmFormatModifierPropertiesEXT = 0
@@ -163,8 +164,8 @@ func (d *Device) GetImageDrmFormatModifierPropertiesEXT(img Image) (uint64, erro
 	return p.DrmFormatModifier, result(r)
 }
 
-// DmabufModifier is a DRM format modifier a device can export 2D images
-// of one format and usage with.
+// DmabufModifier is a DRM format modifier a device can export or import 2D
+// images of one format and usage with.
 type DmabufModifier struct {
 	// Modifier is the DRM format modifier (0 is DRM_FORMAT_MOD_LINEAR).
 	Modifier uint64
@@ -185,9 +186,23 @@ type DmabufModifier struct {
 // DmabufModifiers returns the modifiers with which the device can create a
 // 2D image of the format and usage and export its memory as a dmabuf, in
 // the driver's order: those whose features cover the usage and whose
-// image format query reports exportable dmabuf memory. The device must have the extensions of
-// [DmabufExtensions]. The list is empty when it can export none.
+// image format query reports exportable dmabuf memory. The device must
+// have the extensions of [DmabufExtensions]. The list is empty when it can
+// export none.
 func (i *Instance) DmabufModifiers(pd PhysicalDevice, format Format, usage ImageUsageFlags) []DmabufModifier {
+	return i.dmabufModifiers(pd, format, usage, ExternalMemoryFeatureExportable)
+}
+
+// DmabufImportModifiers is [Instance.DmabufModifiers] for images whose
+// memory is a dmabuf made by somebody else: the modifiers whose image
+// format query reports importable dmabuf memory.
+func (i *Instance) DmabufImportModifiers(pd PhysicalDevice, format Format, usage ImageUsageFlags) []DmabufModifier {
+	return i.dmabufModifiers(pd, format, usage, ExternalMemoryFeatureImportable)
+}
+
+// dmabufModifiers returns the modifiers whose external memory has a
+// feature.
+func (i *Instance) dmabufModifiers(pd PhysicalDevice, format Format, usage ImageUsageFlags, feature ExternalMemoryFeatureFlags) []DmabufModifier {
 	// What the usage needs of the format. The image format query below
 	// does not always say it: NVIDIA (615) answers it for a linear color
 	// attachment, whose modifier lacks the color attachment feature.
@@ -235,7 +250,7 @@ func (i *Instance) DmabufModifiers(pd PhysicalDevice, format Format, usage Image
 			continue // this usage is not possible with this modifier
 		}
 		features := extProps.ExternalMemoryProperties.ExternalMemoryFeatures
-		if features&ExternalMemoryFeatureExportable == 0 {
+		if features&feature == 0 {
 			continue
 		}
 		out = append(out, DmabufModifier{

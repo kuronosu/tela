@@ -41,6 +41,9 @@ func TestImageNoCopy(t *testing.T) {
 	if o, known := img.KnownOpaque(); o || !known {
 		t.Errorf("KnownOpaque() = %v, %v, want false, true", o, known)
 	}
+	if st := NewStreamImage(1, 1, pix, true, 7); st.Stream() != 7 || img.Stream() != 0 {
+		t.Errorf("streams %d and %d, want 7 and 0", st.Stream(), img.Stream())
+	}
 	if _, known := NewImagePremul(1, 1, pix).KnownOpaque(); known {
 		t.Error("an ordinary image claims to be known")
 	}

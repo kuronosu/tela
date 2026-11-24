@@ -45,6 +45,8 @@ type Image struct {
 	extOnce sync.Once
 	// known: opaque says whether every pixel is opaque.
 	known, opaque bool
+	// stream names the stream the image is a frame of (NewStreamImage), or 0.
+	stream uint64
 
 	mu   sync.Mutex
 	mips []*Image // levels 1, 2, ... computed so far (Level)

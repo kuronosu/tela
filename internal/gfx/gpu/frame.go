@@ -47,9 +47,15 @@ type Frame struct {
 	// Images are the image textures the frame's batches use that the device
 	// does not hold yet: it creates them before it draws.
 	Images []ImageUpload
-	// Releases are the image textures the device may destroy once the frame
-	// is drawn (their IDs).
+	// Releases are the image textures the device may destroy (their IDs):
+	// no batch of the frame reads one. The device gives their memory to the
+	// frame's new images of the same size.
 	Releases []uint64
+	// Imports are the buffers imported from the application whose memory
+	// the frame's batches read (Importer), each once: the device takes them
+	// from whoever else uses them before the first pass, and gives them back
+	// after the last.
+	Imports []*Imported
 	// Targets are the offscreen targets the device holds for the frame's
 	// Encoder once the frame is drawn: those the frame's passes draw into
 	// and read, and those kept for the frames that follow. The device
@@ -165,6 +171,9 @@ type ImageUpload struct {
 	// Pix holds the premultiplied RGBA8 pixels, 4*Width bytes per row. It
 	// is the image's own memory.
 	Pix []byte
+	// From, when not nil, is the imported buffer the pixels are copied
+	// from on the device, and Pix is nil (Imported.Copied).
+	From *Imported
 }
 
 // A Pass draws into one target. A target may be drawn into by several
@@ -207,7 +216,8 @@ type Batch struct {
 	// First and Count select the instances.
 	First, Count int
 	// Image is the ID of the image texture the instances that paint an
-	// image read (they all read the same one), or 0.
+	// image read (they all read the same one), or 0. One with importedID
+	// set is a buffer of Frame.Imports.
 	Image uint64
 	// Sources are the targets whose textures the instances read. For the
 	// quad pipelines: the layer or the filtered backdrop they paint (in

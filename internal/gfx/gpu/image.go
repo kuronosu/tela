@@ -17,8 +17,10 @@ import (
 // An image has a texture of its own on the device, named by its ID (a mip
 // level is an image with its own ID, chosen by whoever draws). The texture
 // is created by the first frame that draws the image and released when no
-// frame has drawn it for a while, or when the textures exceed their budget
-// and it is the one unused for longest.
+// frame has drawn it for a while, when the textures exceed their budget
+// and it is the one unused for longest, or when a frame draws a later image
+// of the same stream. The memory of an imported buffer is a texture already
+// (import.go).
 
 // drawImage encodes a DrawImage.
 func (e *Encoder) drawImage(c gfx.DrawImage) {
@@ -96,32 +98,56 @@ func (e *Encoder) drawImage(c gfx.DrawImage) {
 		in.floats(SlotPaint+2, ulo, uhi, vlo, vhi)
 		flags |= PaintImageLinear << FlagPaintShift
 	}
-	e.useImage(img)
-	e.image = img.ID()
+	e.image = e.useImage(img)
 	e.emitShape(&in, flags, st, quad, sh.inside(), false)
 	e.image = 0
 }
 
 // useImage makes sure the device has the texture of img when the frame is
-// drawn: a new image is uploaded by the frame, and makes room in the
-// budget by releasing the textures no frame used for longest.
-func (e *Encoder) useImage(img *gfx.Image) {
+// drawn, and returns the ID batches name it by. The memory of an imported
+// buffer the device samples is the texture. Any other new image is uploaded
+// by the frame, gives up the textures of the images it replaces in its
+// stream, and makes room in the budget by releasing the textures no frame
+// used for longest.
+func (e *Encoder) useImage(img *gfx.Image) uint64 {
 	r := e.res
+	f := &e.frame
+	from := e.imported(img)
+	if from != nil && !from.copied {
+		if !slices.Contains(f.Imports, from) {
+			f.Imports = append(f.Imports, from)
+		}
+		return from.id
+	}
 	id := img.ID()
 	if im := r.images[id]; im != nil {
 		im.used = r.frame
-		return
+		return id
 	}
-	im := &imageTex{bytes: int64(len(img.Pix())), used: r.frame}
+	up := ImageUpload{ID: id, Width: img.Width(), Height: img.Height(), From: from}
+	im := &imageTex{bytes: 4 * int64(img.Width()) * int64(img.Height()), used: r.frame, stream: img.Stream()}
+	if from != nil {
+		im.stream = from.stream
+	} else {
+		up.Pix = img.Pix()
+	}
 	r.images[id] = im
 	r.imageBytes += im.bytes
-	f := &e.frame
 	if i := slices.Index(f.Releases, id); i >= 0 {
 		// Given up, and drawn again before the device was told: it still
 		// has the texture.
 		f.Releases = slices.Delete(f.Releases, i, i+1)
 	} else {
-		f.Images = append(f.Images, ImageUpload{ID: id, Width: img.Width(), Height: img.Height(), Pix: img.Pix()})
+		f.Images = append(f.Images, up)
+	}
+	if im.stream != 0 {
+		// The frames of the stream before this one are not drawn again: a
+		// stream holds one texture, not those of a second of frames.
+		for k, o := range r.images {
+			if o.stream == im.stream && k < id && o.used != r.frame {
+				e.giveUp(k, o)
+			}
+		}
 	}
 	for r.imageBytes > r.limits.ImageBytes {
 		var old *imageTex
@@ -134,9 +160,17 @@ func (e *Encoder) useImage(img *gfx.Image) {
 		if old == nil {
 			break // the frame draws them all
 		}
-		r.releaseImage(oldID, old)
-		// The device may destroy it once this frame is drawn.
-		e.frame.Releases = append(e.frame.Releases, oldID)
-		r.released = r.released[:len(r.released)-1]
+		e.giveUp(oldID, old)
 	}
+	return id
+}
+
+// giveUp releases the texture of an image that the frame being encoded has
+// not drawn: the device may destroy it with this frame, unless the frame
+// draws it yet (useImage).
+func (e *Encoder) giveUp(id uint64, im *imageTex) {
+	r := e.res
+	r.releaseImage(id, im)
+	e.frame.Releases = append(e.frame.Releases, id)
+	r.released = r.released[:len(r.released)-1]
 }

@@ -103,6 +103,9 @@ type Encoder struct {
 	cmd      int
 	// cuts: a cover hides a part of the command being encoded.
 	cuts bool
+	// dev is the device the frames are drawn by: the one whose imported
+	// memory they may draw from (import.go). nil for none.
+	dev Device
 	// listImages are the IDs of the images the list of coverKey draws.
 	listImages []uint64
 	// culled counts the commands of the frame hidden by a cover, and
@@ -243,6 +246,7 @@ func (e *Encoder) Encode(dl *gfx.DisplayList, size image.Point, opts Options) *F
 	clear(e.dfs)
 	e.dfs = e.dfs[:0]
 	e.kernels = e.kernels[:0]
+	clear(e.frame.Imports)
 	for _, t := range res.targets {
 		t.busy = t.kept
 	}
@@ -255,6 +259,7 @@ func (e *Encoder) Encode(dl *gfx.DisplayList, size image.Point, opts Options) *F
 		Data:         f.Data[:0],
 		Images:       f.Images[:0],
 		Releases:     append(f.Releases[:0], res.released...),
+		Imports:      f.Imports[:0],
 		Targets:      f.Targets[:0],
 		Taps:         f.Taps[:0],
 		Unsupported:  f.Unsupported[:0],

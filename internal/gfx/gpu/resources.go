@@ -205,6 +205,8 @@ type imageTex struct {
 	bytes int64
 	used  uint64
 	idle  uint16
+	// stream is the stream the image is a frame of (gfx.Image.Stream), or 0.
+	stream uint64
 }
 
 // markImages marks the images that dl draws, the lists of its masks

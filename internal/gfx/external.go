@@ -21,6 +21,21 @@ func NewImageNoCopy(w, h int, pix []byte, opaque bool) *Image {
 	return &Image{id: nextImageID.Add(1), w: w, h: h, pix: pix, known: true, opaque: opaque}
 }
 
+// NewStreamImage is NewImageNoCopy for a frame of a stream, a texture that
+// shows one frame after another: stream, not 0, names it. An image of a
+// stream replaces the ones of the same stream created before it: a renderer
+// that keeps textures of images gives theirs up as soon as it draws the new
+// one, and may reuse them, instead of keeping them for a while in case they
+// are drawn again. Drawing a replaced image still works; it costs an upload.
+func NewStreamImage(w, h int, pix []byte, opaque bool, stream uint64) *Image {
+	img := NewImageNoCopy(w, h, pix, opaque)
+	img.stream = stream
+	return img
+}
+
+// Stream returns the stream the image is a frame of, 0 for none.
+func (i *Image) Stream() uint64 { return i.stream }
+
 // NewExternalImage creates an Image of w x h pixels whose content is ext. A
 // renderer that understands ext's type uses it; others read Pix, which
 // asks ext for the pixels. opaque is as in NewImageNoCopy.

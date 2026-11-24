@@ -174,8 +174,8 @@ func TestDeviceLost(t *testing.T) {
 		d := dev.(*vkDevice)
 		// Another error is passed on as it is.
 		other := fmt.Errorf("gpu: submitting: %w", vk.ErrorOutOfDeviceMemory)
-		if err := d.check(other); err != other || d.lost {
-			t.Fatalf("check(%v) = %v, lost %v", other, err, d.lost)
+		if err := d.check(other); err != other || d.lost.Load() {
+			t.Fatalf("check(%v) = %v, lost %v", other, err, d.lost.Load())
 		}
 		err = d.check(fmt.Errorf("gpu: waiting for the frame: %w", vk.ErrorDeviceLost))
 		if !errors.Is(err, ErrDeviceLost) || !errors.Is(err, vk.ErrorDeviceLost) {
@@ -237,8 +237,8 @@ func TestWaitTimeout(t *testing.T) {
 				case "Shift":
 					err = target.Shift(image.Rect(0, 0, 32, 32), 1, 1)
 				}
-				if !errors.Is(err, ErrDeviceLost) || !errors.Is(err, vk.Timeout) || !d.lost {
-					t.Fatalf("%s whose wait timed out: %v (lost %v), want an error that wraps ErrDeviceLost and the timeout", op, err, d.lost)
+				if !errors.Is(err, ErrDeviceLost) || !errors.Is(err, vk.Timeout) || !d.lost.Load() {
+					t.Fatalf("%s whose wait timed out: %v (lost %v), want an error that wraps ErrDeviceLost and the timeout", op, err, d.lost.Load())
 				}
 				// Nothing is submitted after it.
 				before := waits
