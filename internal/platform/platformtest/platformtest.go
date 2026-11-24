@@ -299,6 +299,9 @@ func testAnimation(s *session) {
 	}, func(_ platform.Window, e platform.Event) {
 		if e, ok := e.(platform.FrameEvent); ok {
 			times = append(times, e.Time)
+			if p := platform.CheckFrameEvent(e); p != "" {
+				s.t.Errorf("frame %d: %s", len(times), p)
+			}
 			s.present(w, color.RGBA{uint8(len(times) * 40), 0, 0, 0xff})
 			if len(times) < 6 {
 				w.RequestFrame()

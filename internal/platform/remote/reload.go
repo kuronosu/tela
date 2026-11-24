@@ -350,7 +350,7 @@ func (h *Host) armFrameFallback(rw *realWin, cw *childWin) {
 				return
 			}
 			cw.wantFrame = false
-			h.deliver(cw, platform.FrameEvent{Time: h.b.Now()})
+			h.deliver(cw, rw.offscreen(h.b.Now()))
 		})
 	})
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"slices"
+	"time"
 
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/internal/keyboard"
@@ -23,6 +24,7 @@ type Window struct {
 	title    string
 	cursor   platform.Cursor
 	os       platform.Metrics // the "OS" state: latest size/scale, maybe not delivered yet
+	refresh  time.Duration    // FrameEvent.Refresh (SetRefresh)
 	focused  bool
 	held     keyboard.Held // keys pressed and not released, for synthetic releases
 	ime      imeState
@@ -370,6 +372,19 @@ func (w *Window) Resize(size platform.Size) {
 func (w *Window) SetScale(scale float64) {
 	platform.PhysicalSize(platform.Size{}, scale) // validates the scale
 	w.reconfigure(func(m *platform.Metrics) { m.Scale = scale })
+}
+
+// SetRefresh simulates moving the window to a display with another refresh
+// rate: d is the Refresh of its FrameEvents from the next one on (0:
+// unknown). Nothing is queued, and the pacing stays Options.FrameInterval's.
+// It panics for a value no FrameEvent has (platform.CheckFrameEvent).
+func (w *Window) SetRefresh(d time.Duration) {
+	if p := platform.CheckFrameEvent(platform.FrameEvent{Refresh: d}); p != "" {
+		panic("headless: SetRefresh: " + p)
+	}
+	w.b.mu.Lock()
+	w.refresh = d
+	w.b.mu.Unlock()
 }
 
 // RequestClose simulates the user clicking the close button: it queues a

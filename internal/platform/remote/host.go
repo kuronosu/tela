@@ -600,6 +600,7 @@ func (h *Host) windowEvent(rw *realWin, e platform.Event) {
 		}
 		h.syncAlpha(rw)
 	case platform.FrameEvent:
+		rw.refresh = ev.Refresh
 		for _, cw := range rw.attached() {
 			if cw.wantFrame && cw.visible {
 				cw.wantFrame = false
@@ -825,7 +826,7 @@ func (h *Host) offscreenFrame(rw *realWin, cw *childWin) {
 		return
 	}
 	cw.wantFrame = false
-	h.deliver(cw, platform.FrameEvent{Time: h.b.Now()})
+	h.deliver(cw, rw.offscreen(h.b.Now()))
 }
 
 // deliver sends e to cw through cw's view of the window, which keeps every

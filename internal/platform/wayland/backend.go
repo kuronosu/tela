@@ -192,6 +192,7 @@ func newBackend(conn *wire.Conn) (*Backend, error) {
 		Notify:   b.signal,
 		Interval: frameInterval,
 		Pace:     (*Window).paceFrame,
+		Refresh:  (*Window).refresh,
 	})
 	b.display = protocols.NewWlDisplay(conn)
 	b.registry = b.display.GetRegistry()

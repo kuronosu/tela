@@ -520,6 +520,10 @@ func checkHostEvent(id uint32, ev platform.Event) error {
 		return nil
 	case platform.WakeEvent:
 		return errors.New("remote: the host sent a WakeEvent")
+	case platform.FrameEvent:
+		if p := platform.CheckFrameEvent(e); p != "" {
+			return fmt.Errorf("remote: invalid FrameEvent: %s", p)
+		}
 	case platform.AccessActionEvent:
 		if p := platform.CheckAccessActionEvent(e); p != "" {
 			return fmt.Errorf("remote: invalid AccessActionEvent: %s", p)

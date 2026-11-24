@@ -150,6 +150,11 @@ type wireX struct {
 	dri3Minor, presentMinor, xfixesMajor uint32
 	window, screen                       []uint64
 	device                               *os.File // DRI3 Open's reply; nil answers BadMatch
+	// RandR (refresh_test.go): its version, and its replies by request
+	// (and CRTC), whose sequence numbers are filled in.
+	randrMinor uint32
+	resources  []byte
+	crtcs      map[uint32][]byte
 	// failImport makes PixmapFromBuffers answer BadAlloc, failPresent
 	// PresentPixmap BadDrawable. The test changes them while the server
 	// runs.
@@ -163,7 +168,9 @@ type wireX struct {
 }
 
 const (
-	wireDRI3, wirePresent, wireXFixes = 147, 146, 138
+	wireDRI3, wirePresent, wireXFixes, wireRandR = 147, 146, 138, 139
+	// The first event of RandR.
+	wireRandREvent = 89
 	// The test's window and its graphics context: ids outside the range
 	// the connection allocates from (0x00a00001 and up).
 	wireWindow, wireGC = 0x00c00001, 0x00c00002
@@ -324,13 +331,16 @@ func (x *wireX) serve() {
 
 func (x *wireX) handle(req []byte, fds []int) {
 	const badRequest, badMatch, badDrawable, badAlloc = 1, 8, 9, 11
-	versions := map[byte]uint32{wireDRI3: x.dri3Minor, wirePresent: x.presentMinor, wireXFixes: x.xfixesMajor}
+	versions := map[byte]uint32{wireDRI3: x.dri3Minor, wirePresent: x.presentMinor, wireXFixes: x.xfixesMajor, wireRandR: x.randrMinor}
 	switch op, minor := req[0], req[1]; {
 	case op == 98: // QueryExtension
-		code := map[string]byte{"DRI3": wireDRI3, "Present": wirePresent, "XFIXES": wireXFixes}[string(req[8:8+le.Uint16(req[4:])])]
+		code := map[string]byte{"DRI3": wireDRI3, "Present": wirePresent, "XFIXES": wireXFixes, "RANDR": wireRandR}[string(req[8:8+le.Uint16(req[4:])])]
 		x.reply(0, func(r []byte) {
 			if code != 0 && versions[code] != 0 {
 				r[8], r[9] = 1, code
+				if code == wireRandR {
+					r[10] = wireRandREvent
+				}
 			}
 		})
 	case op == 43: // GetInputFocus: the round trip of Sync and Check
@@ -342,6 +352,20 @@ func (x *wireX) handle(req []byte, fds []int) {
 			le.Uint16(req[16:]), le.Uint16(req[18:]), le.Uint16(req[20:]), le.Uint16(req[22:]), le.Uint16(req[24:]), le.Uint16(req[26:]))
 	case versions[op] == 0:
 		x.fail(badRequest, req)
+	case op == wireRandR && minor == randrOpSelectInput:
+		x.logf("RRSelectInput %#x mask %d", le.Uint32(req[4:]), le.Uint16(req[8:]))
+	case op == wireRandR && minor == randrOpGetScreenResourcesCurrent:
+		x.logf("RRGetScreenResourcesCurrent %#x", le.Uint32(req[4:]))
+		x.reply(len(x.resources)-32, func(r []byte) { copy(r[8:], x.resources[8:]) })
+	case op == wireRandR && minor == randrOpGetCrtcInfo:
+		id := le.Uint32(req[4:])
+		x.logf("RRGetCrtcInfo %d at %d", id, le.Uint32(req[8:]))
+		rep, ok := x.crtcs[id]
+		if !ok {
+			x.fail(badRequest, req) // BadRRCrtc of a server, whose code its errors start at
+			return
+		}
+		x.reply(len(rep)-32, func(r []byte) { r[1] = rep[1]; copy(r[8:], rep[8:]) })
 	case minor == 0: // QueryVersion: the smaller of the client's and the server's
 		x.logf("QueryVersion %d: client %d.%d", op, le.Uint32(req[4:]), le.Uint32(req[8:]))
 		x.reply(0, func(r []byte) {

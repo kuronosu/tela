@@ -81,6 +81,14 @@ func TestRefreshInterval(t *testing.T) {
 	}
 }
 
+func TestRefreshOf(t *testing.T) {
+	for hz, want := range map[uint32]time.Duration{0: 0, 1: 0, 24: 41666667, 60: 16666667, 144: 6944444, 360: 2777778, 1 << 31: 0} {
+		if got := refreshOf(hz); got != want {
+			t.Errorf("refreshOf(%d) = %d, want %d", hz, got, want)
+		}
+	}
+}
+
 func TestCursorResource(t *testing.T) {
 	for c := platform.CursorDefault; c.Valid(); c++ {
 		idc, ok := cursorResource(c)

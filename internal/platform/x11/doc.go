@@ -187,6 +187,8 @@
 // at a fixed 60 Hz: a requested frame is delivered on the next iteration
 // if the window has not had a frame in the last interval, otherwise when
 // the interval elapses. A ConfigureEvent's frame is delivered immediately.
+// FrameEvent.Refresh is the interval of the RandR CRTC that shows most of
+// the window (refresh.go), which the timer does not follow.
 // The Present extension's PresentCompleteNotify, which windows that
 // present dmabufs receive, is not used as a display signal: it comes once
 // a second for a window Xwayland does not draw, the loop's gate has no
