@@ -5,7 +5,9 @@
 // CoreFoundation (the run loop and its sources, CFData), CoreGraphics
 // (color spaces, data providers, images, bitmap contexts, window capture),
 // IOSurface (the surfaces Present shows, iosurface_darwin.go, opened on
-// first use: [LoadIOSurface]; ADR-278) and the constants of QuartzCore and AppKit that the backends need, plus
+// first use: [LoadIOSurface]; ADR-278; and those of the application that a
+// texture copies, [LoadIOSurfaceImport]; ADR-315), the Metal device of the
+// main display ([MainDisplayMetalRegistryID]) and the constants of QuartzCore and AppKit that the backends need, plus
 // Foundation conversions (NSString and NSData to and from bytes, NSArray),
 // AppKit's NSString constants by name and the UniformTypeIdentifiers
 // framework (foundation_darwin.go), and the text input helpers: NSRange,

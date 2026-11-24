@@ -14,13 +14,15 @@ import (
 //
 // The Host's GPU imports it into its device (textureImporter), and samples
 // it without a copy. Without a GPU, or for memory it does not import, linear
-// dmabufs are mapped, and every frame that becomes ready is copied first, on
-// the goroutine that waited for its fence (Texture.await): the copy is what
-// the window draws, and the buffer is not read again. It is still held until
-// its frame is replaced, as a buffer the device reads is, so that an
-// application behaves the same with and without the GPU.
+// dmabufs and IOSurfaces (texture_iosurface.go) are mapped, and every frame
+// that becomes ready is copied first, on the goroutine that waited for its
+// fence (Texture.await): the copy is what the window draws, and the buffer is
+// not read again. It is still held until its frame is replaced, as a buffer
+// the device reads is, so that an application behaves the same with and
+// without the GPU.
 
-// TextureMemory is memory that Texture.Import imports: a Dmabuf.
+// TextureMemory is memory that Texture.Import imports: a Dmabuf or an
+// IOSurface.
 type TextureMemory interface{ textureMemory() }
 
 // Dmabuf is memory shared by a Linux dma-buf (Texture.Import).
@@ -202,7 +204,8 @@ type TextureBuffer struct {
 // A Dmabuf is imported by the GPU that draws the windows when it takes its
 // format (Device), and its frames are sampled without a copy. Without a GPU,
 // a Dmabuf with one linear plane (modifier 0) is mapped, and copied for
-// every frame that becomes ready, on a goroutine of Tela's.
+// every frame that becomes ready, on a goroutine of Tela's. An IOSurface is
+// always copied so: no GPU of Tela's draws on macOS.
 //
 // It returns ErrTextureClosed once the component unmounted, an error that
 // wraps ErrTextureUnsupported for memory that cannot be shown, which says
@@ -219,8 +222,15 @@ func (x *Texture) Import(m TextureMemory) (*TextureBuffer, error) {
 			return nil, errors.New("tela: Texture.Import of a nil *Dmabuf; pass a tela.Dmabuf")
 		}
 		d = *m
+	case IOSurface:
+		return x.importSurface(m)
+	case *IOSurface:
+		if m == nil {
+			return nil, errors.New("tela: Texture.Import of a nil *IOSurface; pass a tela.IOSurface")
+		}
+		return x.importSurface(*m)
 	default:
-		return nil, errors.New("tela: Texture.Import(nil): pass the memory to import, such as a tela.Dmabuf")
+		return nil, errors.New("tela: Texture.Import(nil): pass the memory to import, such as a tela.Dmabuf or a tela.IOSurface")
 	}
 	if x.isClosed() {
 		return nil, ErrTextureClosed
@@ -247,6 +257,12 @@ func (x *Texture) Import(m TextureMemory) (*TextureBuffer, error) {
 		}
 		b.mem = mem
 	}
+	return x.addBuffer(b)
+}
+
+// addBuffer makes b a buffer of the texture, or frees it when the texture is
+// closed.
+func (x *Texture) addBuffer(b *TextureBuffer) (*TextureBuffer, error) {
 	x.mu.Lock()
 	if x.closed {
 		x.mu.Unlock()

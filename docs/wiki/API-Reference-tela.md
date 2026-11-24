@@ -48,6 +48,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type GradientStop`](#type-gradientstop): [`Stop`](#func-stop) · [`StopAt`](#func-stopat)
   - [`type HandlerRole`](#type-handlerrole)
   - [`type Hyphenation`](#type-hyphenation): [`HyphenationPatterns`](#func-hyphenationpatterns)
+  - [`type IOSurface`](#type-iosurface)
   - [`type Icon`](#type-icon): [`MustSVG`](#func-mustsvg) · [`ParseSVG`](#func-parsesvg)
   - [`type InputEvent`](#type-inputevent): [`DefaultPrevented`](#func-inputevent-defaultprevented) · [`PreventDefault`](#func-inputevent-preventdefault) · [`StopPropagation`](#func-inputevent-stoppropagation)
   - [`type KeyCode`](#type-keycode)
@@ -3902,6 +3903,58 @@ var italian string
 tela.App{Hyphenation: []tela.Hyphenation{tela.HyphenationPatterns("it", italian, "")}}
 ```
 
+### type IOSurface
+
+```go
+type IOSurface = core.IOSurface
+```
+
+IOSurface is memory shared by a macOS IOSurface, to import into a [`Texture`](#type-texture): its IOSurfaceRef, with any binding of the application's. Its size and pixel format, 'BGRA' or 'RGBA' (a Metal texture of BGRA8Unorm or RGBA8Unorm, \_sRGB or not), are read from it, and its pixels are premultiplied sRGB, whatever color space it is tagged with:
+
+```go
+buf, err := tex.Import(tela.IOSurface{Surface: ref})
+```
+
+Import keeps a reference of its own (CFRetain) until the buffer is freed; the application's stays the application's. The use count that IOSurfaceIsInUse reads is not raised, so a pool that recycles by it must keep the surface out (a CVPixelBuffer retained) until the frame's Release. Tela draws with the CPU on macOS: each frame is copied, with the surface locked for reading, on a goroutine of Tela's.
+
+The [`Fence`](#type-fence) of a frame waits for the Metal work that draws it, to its completion (that it was scheduled is not enough). A channel filled by the completed handler of its command buffer does:
+
+```go
+// metalFence gets what addCompletedHandler: was told: the error of the
+// command buffer, nil when it finished. make(metalFence, 1)
+type metalFence chan error
+
+func (f metalFence) Wait(ctx context.Context) error {
+    select {
+    case err := <-f:
+        return err
+    case <-ctx.Done():
+        return ctx.Err()
+    }
+}
+```
+
+So does an MTLSharedEvent, with the block of an MTLSharedEventListener or a loop of waitUntilSignaledValue:timeoutMS: whose short timeout leaves time to look at ctx.
+
+On other systems Import returns an error that wraps [`ErrTextureUnsupported`](#variables).
+
+`IOSurface` is an alias of `core.IOSurface`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type IOSurface struct {
+    // Surface is the IOSurfaceRef (an IOSurface object is one too). It
+    // stays the application's, which holds it during Import: Import takes a
+    // reference of its own (CFRetain), and keeps it until the buffer is
+    // closed and no frame of it is held. It does not raise the use count
+    // (IOSurfaceIsInUse): TextureFrame.Release tells when the surface may be
+    // drawn into again.
+    Surface uintptr
+    // Opaque says that the alpha of its pixels means nothing, as in a
+    // Dmabuf's XR24: every pixel is opaque.
+    Opaque bool
+}
+```
+
 ### type Icon
 
 ```go
@@ -6155,7 +6208,7 @@ The application allocates every buffer and draws on its own device; Tela never e
 Its methods are safe from any goroutine:
 
 - SubmitImage shows an \*image.RGBA, the pixels of a frame drawn by the CPU.
-- Import takes memory of the application's, such as a [`Dmabuf`](#type-dmabuf), once per buffer, and Submit shows it as a frame: sampled by the GPU without a copy where Tela draws with one, copied otherwise. Submit's documentation says exactly what happens to a frame that arrives while another is pending: the latest finished frame wins.
+- Import takes memory of the application's, a [`Dmabuf`](#type-dmabuf) or an [`IOSurface`](#type-iosurface), once per buffer, and Submit shows it as a frame: sampled by the GPU without a copy where Tela draws with one, copied otherwise. Submit's documentation says exactly what happens to a frame that arrives while another is pending: the latest finished frame wins.
 - Size and OnResize give the size in device pixels that a frame should have.
 - NextFrame blocks until the window starts its next frame, to render at its pace.
 - Device says which device to render on, and Stats counts the frames.
@@ -6226,7 +6279,7 @@ fmt.Println(app.PixelAt(80, 40))
 func (x *Texture) Device() TextureDevice
 ```
 
-Device describes the device that draws the app's windows. Without a GPU (a default build, or the CPU rasterizer chosen or fallen back to) it has no identity, and its formats, on Linux, are those Import maps and copies: AR24, XR24, AB24 and XB24 in linear memory. The GPU opens with the first window: call it in an effect or a goroutine, not in a build.
+Device describes the device that draws the app's windows. Without a GPU (a default build, or the CPU rasterizer chosen or fallen back to) it has no identity but MetalRegistryID, and its formats are those Import maps and copies: AR24, XR24, AB24 and XB24 in linear memory on Linux, 'BGRA' and 'RGBA' on macOS, none on Windows. The GPU opens with the first window: call it in an effect or a goroutine, not in a build.
 
 #### func (*Texture) Import
 
@@ -6236,7 +6289,7 @@ func (x *Texture) Import(m TextureMemory) (*TextureBuffer, error)
 
 Import imports memory that the application allocated, to submit it as frames (Submit): once per buffer, not per frame. The memory stays the application's, and Import keeps its own reference to it until the buffer is closed.
 
-A Dmabuf is imported by the GPU that draws the windows when it takes its format (Device), and its frames are sampled without a copy. Without a GPU, a Dmabuf with one linear plane (modifier 0) is mapped, and copied for every frame that becomes ready, on a goroutine of Tela's.
+A Dmabuf is imported by the GPU that draws the windows when it takes its format (Device), and its frames are sampled without a copy. Without a GPU, a Dmabuf with one linear plane (modifier 0) is mapped, and copied for every frame that becomes ready, on a goroutine of Tela's. An IOSurface is always copied so: no GPU of Tela's draws on macOS.
 
 It returns ErrTextureClosed once the component unmounted, an error that wraps ErrTextureUnsupported for memory that cannot be shown, which says what is, and another one for a Dmabuf that is wrong: a plane that ends beyond its descriptor's memory, a stride shorter than a row, a descriptor that is not a dma-buf.
 
@@ -6365,7 +6418,9 @@ type TextureDevice struct {
     // locally unique identifier on Windows (its deviceLUID).
     UUID [16]byte
     LUID [8]byte
-    // MetalRegistryID is the registry ID of the Metal device on macOS.
+    // MetalRegistryID is the registryID of the Metal device that drives the
+    // main display, on macOS. Tela does not draw with it: the frames of any
+    // device are copied.
     MetalRegistryID uint64
     // Formats are the formats Texture.Import takes for memory allocated on
     // this device, the preferred ones first, and ForeignFormats those for
@@ -6380,13 +6435,15 @@ type TextureDevice struct {
 type TextureFormat = core.TextureFormat
 ```
 
-TextureFormat is a pixel format of imported memory: a DRM fourcc and a DRM format modifier.
+TextureFormat is a pixel format of imported memory: a DRM fourcc and a DRM format modifier on Linux, the pixel format of an [`IOSurface`](#type-iosurface) on macOS.
 
 `TextureFormat` is an alias of `core.TextureFormat`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
 
 ```go
 type TextureFormat struct {
-    // Fourcc is the DRM fourcc, such as 0x34325241 (AR24, DRM_FORMAT_ARGB8888).
+    // Fourcc is the DRM fourcc, such as 0x34325241 (AR24,
+    // DRM_FORMAT_ARGB8888). On macOS it is the pixel format of the
+    // IOSurface, an OSType such as 0x42475241 ('BGRA'), and Modifier is 0.
     Fourcc uint32
     // Modifier is the DRM format modifier; 0 is linear.
     Modifier uint64
@@ -6437,7 +6494,7 @@ type TextureFrame struct {
 type TextureMemory = core.TextureMemory
 ```
 
-TextureMemory is memory that Texture.Import imports: a [`Dmabuf`](#type-dmabuf). No other type implements it.
+TextureMemory is memory that Texture.Import imports: a [`Dmabuf`](#type-dmabuf) on Linux, an [`IOSurface`](#type-iosurface) on macOS. No other type implements it.
 
 `TextureMemory` is an alias of `core.TextureMemory`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
 

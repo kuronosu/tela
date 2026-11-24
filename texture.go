@@ -16,8 +16,8 @@ import "github.com/kuronosu/tela/internal/core"
 //
 //   - SubmitImage shows an *image.RGBA, the pixels of a frame drawn by the
 //     CPU.
-//   - Import takes memory of the application's, such as a [Dmabuf], once per
-//     buffer, and Submit shows it as a frame: sampled by the GPU without a
+//   - Import takes memory of the application's, a [Dmabuf] or an
+//     [IOSurface], once per buffer, and Submit shows it as a frame: sampled by the GPU without a
 //     copy where Tela draws with one, copied otherwise. Submit's
 //     documentation says exactly what happens to a frame that arrives while
 //     another is pending: the latest finished frame wins.
@@ -41,8 +41,8 @@ type TextureBuffer = core.TextureBuffer
 // exactly once when Tela does not read the buffer any more.
 type TextureFrame = core.TextureFrame
 
-// TextureMemory is memory that Texture.Import imports: a [Dmabuf]. No other
-// type implements it.
+// TextureMemory is memory that Texture.Import imports: a [Dmabuf] on Linux,
+// an [IOSurface] on macOS. No other type implements it.
 type TextureMemory = core.TextureMemory
 
 // Dmabuf is memory shared by a Linux dma-buf, to import into a [Texture]:
@@ -61,6 +61,46 @@ type Dmabuf = core.Dmabuf
 // that holds it (which stays the application's: Import keeps a duplicate),
 // where it starts in it, and the bytes from a row to the next.
 type DmabufPlane = core.DmabufPlane
+
+// IOSurface is memory shared by a macOS IOSurface, to import into a
+// [Texture]: its IOSurfaceRef, with any binding of the application's. Its
+// size and pixel format, 'BGRA' or 'RGBA' (a Metal texture of BGRA8Unorm or
+// RGBA8Unorm, _sRGB or not), are read from it, and its pixels are
+// premultiplied sRGB, whatever color space it is tagged with:
+//
+//	buf, err := tex.Import(tela.IOSurface{Surface: ref})
+//
+// Import keeps a reference of its own (CFRetain) until the buffer is freed;
+// the application's stays the application's. The use count that
+// IOSurfaceIsInUse reads is not raised, so a pool that recycles by it must
+// keep the surface out (a CVPixelBuffer retained) until the frame's Release.
+// Tela draws with the CPU on macOS: each frame is copied, with the surface
+// locked for reading, on a goroutine of Tela's.
+//
+// The [Fence] of a frame waits for the Metal work that draws it, to its
+// completion (that it was scheduled is not enough). A channel filled by the
+// completed handler of its command buffer does:
+//
+//	// metalFence gets what addCompletedHandler: was told: the error of the
+//	// command buffer, nil when it finished. make(metalFence, 1)
+//	type metalFence chan error
+//
+//	func (f metalFence) Wait(ctx context.Context) error {
+//	    select {
+//	    case err := <-f:
+//	        return err
+//	    case <-ctx.Done():
+//	        return ctx.Err()
+//	    }
+//	}
+//
+// So does an MTLSharedEvent, with the block of an MTLSharedEventListener or a
+// loop of waitUntilSignaledValue:timeoutMS: whose short timeout leaves time
+// to look at ctx.
+//
+// On other systems Import returns an error that wraps
+// [ErrTextureUnsupported].
+type IOSurface = core.IOSurface
 
 // Fence tells when the pixels of a frame given to Texture.Submit are
 // finished: Wait blocks until they are, or returns an error, which drops the
@@ -113,7 +153,7 @@ type TextureStats = core.TextureStats
 type TextureDevice = core.TextureDevice
 
 // TextureFormat is a pixel format of imported memory: a DRM fourcc and a DRM
-// format modifier.
+// format modifier on Linux, the pixel format of an [IOSurface] on macOS.
 type TextureFormat = core.TextureFormat
 
 // FrameTime tells when a window's frame is shown (Texture.NextFrame).
