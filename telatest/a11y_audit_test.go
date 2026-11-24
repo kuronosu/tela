@@ -252,7 +252,7 @@ func TestKitAccessibilityAudit(t *testing.T) {
 			}}
 		}},
 		{name: "calendar", root: func() tela.Node {
-			return kit.Calendar{DefaultValue: aria.Date{Year: 2026, Month: 11, Day: 8}, Today: aria.Date{Year: 2026, Month: 11, Day: 8}}
+			return kit.Calendar{Locale: "en-US", DefaultValue: aria.Date{Year: 2026, Month: 11, Day: 8}, Today: aria.Date{Year: 2026, Month: 11, Day: 8}}
 		}, check: func(t *testing.T, root *semantics.Node) {
 			var selected []string
 			root.Walk(func(n *semantics.Node) bool {

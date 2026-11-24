@@ -643,6 +643,14 @@ func load(cache *tela.Ref[[]byte]) {
 Functions posted before [`tela.Run`](https://pkg.go.dev/github.com/kuronosu/tela#Run) starts run once the window is up. In tests,
 [`telatest.Mount`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#Mount) delivers them.
 
+## External textures: UseTexture
+
+[`tela.UseTexture`](https://pkg.go.dev/github.com/kuronosu/tela#UseTexture) returns a handle on content the application renders itself (a 3D view, a decoded video, a map), which lives as long as the component. [`h.Texture`](https://pkg.go.dev/github.com/kuronosu/tela/h#Texture) shows its last frame as an image of 300x150 pixels or of the size its classes give it; frames never lay anything out.
+
+- Frames are pushed from any goroutine: `SubmitImage` (pixels, with a `release`), or `Import` a buffer of your own GPU once and `Submit` it with a `Fence` and a `Release`. `Release` runs exactly once, when Tela no longer uses the buffer.
+- The latest finished frame wins; older ones are dropped and counted in `Stats`. A loop of `NextFrame` drops nothing.
+- `OnResize` tells the size in device pixels; `Device` names the GPU to render on and the formats it imports.
+
 ## See also
 
 - The API reference of every hook: [API-Reference-tela](API-Reference-tela#functions).
