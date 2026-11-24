@@ -1317,26 +1317,19 @@ func TestEllipseFlatHugeAngles(t *testing.T) {
 				if n := len(p.p.verbs); n > 12 {
 					t.Errorf("from %g by %g: %d lines", start, d, n)
 				}
-				// Its ends and corners are those of one that is hardly not flat.
-				span := func(ry float64) (lo, hi float64) {
+				// It spans what one that is hardly not flat does.
+				span := func(ry float64) (lo, hi float32) {
 					var p Path2D
 					p.Ellipse(50, 25, 40, ry, 0, start, start+d, ccw)
-					lo, hi = math.Inf(1), math.Inf(-1)
-					for el := range gfxPath(&p).Elements() {
-						for _, q := range el.Pts[:el.Verb.NumPoints()] {
-							if math.IsNaN(float64(q.X)) || math.IsNaN(float64(q.Y)) {
-								t.Errorf("from %g by %g: a NaN point", start, d)
-							}
-							if el.Verb == gfx.CubicTo && q != el.Pts[2] {
-								continue
-							}
-							lo, hi = min(lo, float64(q.X)), max(hi, float64(q.X))
-						}
+					g := gfxPath(&p)
+					if !g.IsFinite() {
+						t.Errorf("from %g by %g: %v", start, d, g.Points())
 					}
-					return lo, hi
+					b := g.Bounds()
+					return b.X0, b.X1
 				}
 				lo, hi := span(0)
-				if l, h := span(1e-9); lo > l+0.01 || hi < h-0.01 {
+				if l, h := span(1e-9); math.Abs(float64(lo-l)) > 0.01 || math.Abs(float64(hi-h)) > 0.01 {
 					t.Errorf("from %g by %g (ccw %v): flat from %.2f to %.2f, round from %.2f to %.2f", start, d, ccw, lo, hi, l, h)
 				}
 			}
