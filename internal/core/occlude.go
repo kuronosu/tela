@@ -150,6 +150,9 @@ func opaquePaint(p gfx.Paint) bool {
 // opaqueImage reports whether every pixel of img is opaque, remembered by
 // the image's id (images are immutable).
 func (s *damageScratch) opaqueImage(img *gfx.Image) bool {
+	if o, known := img.KnownOpaque(); known {
+		return o
+	}
 	if o, ok := s.opaque[img.ID()]; ok {
 		return o
 	}

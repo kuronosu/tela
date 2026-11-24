@@ -334,6 +334,9 @@ func (e *Encoder) cut(i int, r image.Rectangle, out []image.Rectangle) []image.R
 // opaqueImage reports whether every pixel of img is opaque, remembered by
 // the image's ID.
 func (r *resources) opaqueImage(img *gfx.Image) bool {
+	if o, known := img.KnownOpaque(); known {
+		return o
+	}
 	id := img.ID()
 	if o, ok := r.opaque[id]; ok {
 		return o

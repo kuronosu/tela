@@ -317,6 +317,9 @@ type imageOpacityCache struct {
 }
 
 func (c *imageOpacityCache) opaque(img *gfx.Image) bool {
+	if o, known := img.KnownOpaque(); known {
+		return o
+	}
 	id := img.ID()
 	for i, v := range c.ids {
 		if v == id {
