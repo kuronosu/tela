@@ -35,6 +35,12 @@ func (m *matrix) at(x, y float64) (float64, float64) {
 	return float64(m.a*x) + float64(m.c*y) + m.e, float64(m.b*x) + float64(m.d*y) + m.f
 }
 
+// vec returns the point (x, y) transformed, as a path keeps it.
+func (m *matrix) vec(x, y float64) vec {
+	x, y = m.at(x, y)
+	return vec{x, y}
+}
+
 // point returns the point (x, y) transformed, as a path holds it.
 func (m *matrix) point(x, y float64) gfx.Point {
 	x, y = m.at(x, y)
@@ -107,3 +113,6 @@ func finite(v ...float64) bool {
 	}
 	return true
 }
+
+// length returns the length of the vector (x, y).
+func length(x, y float64) float64 { return math.Sqrt(float64(x*x) + float64(y*y)) }

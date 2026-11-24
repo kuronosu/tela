@@ -641,8 +641,9 @@ func (t *Tree) SetScale(scale float32) {
 func (t *Tree) rescaleText() { t.eachTextBox(t.rescaleBox) }
 
 // reshapeText shapes the text of every paragraph and text field again
-// and queues their boxes for layout: the fonts resolve the same styles
-// to other faces (the desktop's families changed, fonts.go).
+// and queues their boxes for layout, and draws every canvas: the fonts
+// resolve the same styles to other faces (the desktop's families changed,
+// fonts.go).
 func (t *Tree) reshapeText() {
 	t.eachTextBox(func(b *Box) {
 		if p := b.para; p != nil {
@@ -650,6 +651,9 @@ func (t *Tree) reshapeText() {
 		}
 		if f := b.fld; f != nil {
 			f.reshape()
+		}
+		if b.med != nil && b.med.cnv != nil {
+			b.med.cnv.fontsChanged()
 		}
 	})
 }
