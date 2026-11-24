@@ -1216,3 +1216,68 @@ func TestImageRecorded(t *testing.T) {
 		}
 	}
 }
+
+// A rectangle far larger than the canvas clears what it covers, and nothing
+// else: how far it goes does not make its near edges less exact.
+func TestClearRectHuge(t *testing.T) {
+	for _, size := range []float64{1e3, 1e6, 1e9, 1e15} {
+		for _, at := range []float64{50, 1, 0.01} {
+			img := render(100, 50, 1, func(c *Canvas) {
+				c.FillRect(0, 0, 100, 50)
+				c.ClearRect(at, 0, size, size)
+			})
+			if at >= 1 && img.RGBAAt(0, 25) != blackPx {
+				t.Errorf("a rectangle of %g at %g cleared what is before it", size, at)
+			}
+			if got := img.RGBAAt(99, 25); got != none {
+				t.Errorf("a rectangle of %g at %g left %v", size, at, got)
+			}
+		}
+	}
+	// The whole canvas, under transforms, is still forgotten.
+	for _, angle := range []float64{0, 0.3, 1} {
+		list := record(100, 50, func(c *Canvas) {
+			c.FillRect(0, 0, 100, 50)
+			c.Rotate(angle)
+			c.Scale(1e-3, 1e3)
+			c.ClearRect(-1e6, -1, 2e6, 2)
+		})
+		if list.Len() != 0 {
+			t.Errorf("turned by %g: %d commands are left", angle, list.Len())
+		}
+	}
+}
+
+// A flat ellipse ends whatever its angles are.
+func TestEllipseFlatHugeAngles(t *testing.T) {
+	for _, start := range []float64{0, 1, -1, 1e8, 1e16, 3e16, 1e17, -1e17, 1e300} {
+		for _, d := range []float64{1, 7, 1e17, -1, -1e17, 1e300} {
+			for _, ccw := range []bool{false, true} {
+				var p Path2D
+				p.Ellipse(50, 25, 40, 0, 0, start, start+d, ccw)
+				p.Ellipse(50, 25, 0, 20, 0, start, start+d, ccw)
+				if n := len(p.p.verbs); n > 12 {
+					t.Errorf("from %g by %g: %d lines", start, d, n)
+				}
+			}
+		}
+	}
+}
+
+// A radial gradient between circles apart is a cone, with one stop too.
+func TestRadialGradientOneStop(t *testing.T) {
+	img := render(200, 100, 1, func(c *Canvas) {
+		g := c.CreateRadialGradient(40, 50, 5, 150, 50, 20)
+		g.AddColorStop(0, gfx.Color{R: 1, A: 1})
+		c.FillStyle = g
+		c.FillRect(0, 0, 200, 100)
+	})
+	if got := img.RGBAAt(100, 50); got != redPx {
+		t.Errorf("in the cone: %v", got)
+	}
+	for _, p := range [][2]int{{5, 5}, {5, 50}, {100, 5}, {100, 95}} {
+		if got := img.RGBAAt(p[0], p[1]); got != none {
+			t.Errorf("outside the cone, at %v: %v", p, got)
+		}
+	}
+}

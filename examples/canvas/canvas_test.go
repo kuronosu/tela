@@ -363,3 +363,26 @@ func TestIdle(t *testing.T) {
 func TestAccessible(t *testing.T) {
 	mount(t, Previews["Overview"].Root, windowW, windowH).ExpectAccessible()
 }
+
+// TestSketchUndoWhileDrawing: taking back the stroke in progress ends it, and
+// the pointer does not go on with the stroke before it.
+func TestSketchUndoWhileDrawing(t *testing.T) {
+	app := mount(t, still, windowW, windowH)
+	r := app.Bounds(sketchEl)
+	at := func(x, y float32) color.RGBA { return app.PixelAt(r.X+x, r.Y+y) }
+	empty := at(120, 120)
+	app.DragFromTo(tela.Point{X: r.X + 40, Y: r.Y + 40}, tela.Point{X: r.X + 200, Y: r.Y + 40})
+	app.MouseMove(r.X+40, r.Y+80)
+	app.MouseDown()
+	app.MouseMove(r.X+100, r.Y+80)
+	app.Press("ControlOrMeta+z")
+	app.MouseMove(r.X+120, r.Y+120)
+	app.MouseMove(r.X+200, r.Y+120)
+	if got := at(160, 120); got != empty {
+		t.Errorf("after Ctrl+Z the pointer draws %v on the stroke before", got)
+	}
+	app.MouseUp()
+	if got := at(120, 40); got != indigo {
+		t.Errorf("the first line is %v, want %v", got, indigo)
+	}
+}

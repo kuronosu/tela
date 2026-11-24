@@ -155,13 +155,17 @@ func (sc SketchCard) Build() tela.Node {
 			return append(slices.Clip(s[:len(s)-1]), last)
 		})
 	}
+	// Taking a stroke back ends the one in progress: what the pointer draws
+	// next must not go on the stroke before it.
 	undo := func() {
+		drawing.Current = false
 		s := strokes.Latest()
 		s = slices.Clip(s[:max(len(s)-1, 0)])
 		strokes.Set(s)
 		hasInk.Set(len(s) > 0)
 	}
 	wipe := func() {
+		drawing.Current = false
 		strokes.Set(nil)
 		hasInk.Set(false)
 	}

@@ -871,6 +871,7 @@ func TestCanvasWrites(t *testing.T) {
 		{"Post", func(e *env) { Post(func() { e.set.Set(7) }) }, func(_ *env, s, _ int) bool { return s == 7 }},
 		{"SetColorScheme", func(*env) { SetColorScheme(ColorSchemeDark) }, func(e *env, _, _ int) bool { return true }},
 		{"SetTheme", func(*env) { SetTheme(Theme{}) }, func(e *env, _, _ int) bool { return true }},
+		{"SetDefaultLang", func(*env) { SetDefaultLang("") }, func(e *env, _, _ int) bool { return true }},
 		{"WindowHandle", func(e *env) { e.w.Maximize() }, func(e *env, _, _ int) bool { return true }},
 	}
 	for _, dev := range []bool{true, false} {

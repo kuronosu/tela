@@ -180,11 +180,13 @@ func (r *Recorder) covers(x, y, width, height float64) bool {
 	}
 	x0, y0 := min(x, x+width), min(y, y+height)
 	x1, y1 := max(x, x+width), max(y, y+height)
-	// A hair of rounding: the corners of the canvas go through the inverse.
-	eps := 1e-6 * (1 + math.Abs(x1-x0) + math.Abs(y1-y0))
+	// A hair of rounding, since the corners of the canvas go through the
+	// inverse: a ten thousandth of a pixel of the canvas.
+	ex := 1e-4 * (math.Abs(inv.a) + math.Abs(inv.c))
+	ey := 1e-4 * (math.Abs(inv.b) + math.Abs(inv.d))
 	for _, p := range [4]gfx.Point{{}, {X: r.size.X1}, {Y: r.size.Y1}, {X: r.size.X1, Y: r.size.Y1}} {
 		px, py := inv.at(float64(p.X), float64(p.Y))
-		if !(px >= x0-eps && px <= x1+eps && py >= y0-eps && py <= y1+eps) {
+		if !(px >= x0-ex && px <= x1+ex && py >= y0-ey && py <= y1+ey) {
 			return false
 		}
 	}

@@ -169,6 +169,11 @@ func (g *CanvasGradient) paint(m *matrix, alpha float32) (p gfx.Paint, distorted
 		if !ok {
 			return nil, true
 		}
+		if len(stops) == 1 {
+			// A gradient of one stop is its color everywhere, outside the cone
+			// of two circles too, where nothing is painted.
+			stops = []gfx.GradientStop{{Offset: 0, Color: stops[0].Color}, {Offset: 1, Color: stops[0].Color}}
+		}
 		return gfx.FocalGradient{
 			Focal: m.point(g.x0, g.y0), FocalRadius: float32(float64(g.r0 * k)),
 			Center: m.point(g.x1, g.y1), Radius: float32(float64(g.r1 * k)),

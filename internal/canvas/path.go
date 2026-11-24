@@ -276,9 +276,12 @@ func (p *path) ellipse(m *matrix, x, y, rx, ry, rotation, start, sweep float64) 
 			turn = math.Pi / 2
 		}
 		dir := math.Copysign(1, sweep)
-		for i := math.Floor(float64((start-turn)*dir)/math.Pi) + 1; ; i++ {
+		// Within a turn: an angle so large that adding to it changes nothing
+		// would never reach the end of the sweep.
+		from := math.Mod(start, 2*math.Pi)
+		for i := math.Floor(float64((from-turn)*dir)/math.Pi) + 1; ; i++ {
 			a := turn + float64(float64(i*math.Pi)*dir)
-			if !(float64((a-start)*dir) < math.Abs(sweep)) {
+			if !(float64((a-from)*dir) < math.Abs(sweep)) {
 				break
 			}
 			p.lineTo(at(a))
