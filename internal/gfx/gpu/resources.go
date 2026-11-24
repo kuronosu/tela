@@ -278,6 +278,13 @@ func (r *resources) markPattern(id uint64) {
 	}
 }
 
+// setBase notes that the image id, im, is a mip level of base that a pattern
+// draws.
+func (r *resources) setBase(id uint64, im *imageTex, base uint64) {
+	im.base = base
+	r.levels[base] = append(r.levels[base], id)
+}
+
 func (r *resources) releaseImage(id uint64, im *imageTex) {
 	if im.base != 0 {
 		if l := slices.DeleteFunc(r.levels[im.base], func(l uint64) bool { return l == id }); len(l) > 0 {

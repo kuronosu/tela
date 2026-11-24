@@ -91,10 +91,10 @@ func tileStart(u, a, b float64, quad image.Rectangle, n int) float64 {
 // of a quad, relative to its origin, in two parts for the shader, which
 // computes in float32: with a1, b1 and c1, multiples of a power of two, the
 // products and their sum are not rounded, and a2, b2 and c2 are what is left
-// of them, a few thousandths of a pixel or less. A pattern sampled by its
-// nearest pixel then takes the rasterizer's pixel but within a ten millionth
-// of a boundary, where one sum in float32 is wrong within a ten thousandth: a
-// pixel of some turned pattern of every window.
+// of a, b and c. A pattern sampled by its nearest pixel then takes the pixel
+// the rasterizer does, but within a ten millionth of a boundary. One sum in
+// float32 would be wrong within a ten thousandth of one: in a pixel of every
+// turned pattern or two.
 func splitCoord(a, b, c float64, quad image.Rectangle) (a1, b1, c1, a2, b2, c2 float64) {
 	_, exp := math.Frexp(math.Abs(float64(a*float64(quad.Dx()))) + math.Abs(float64(b*float64(quad.Dy()))) + math.Abs(c))
 	// The centers are multiples of 1/2, so the sum is one of grid/2 = 2^(exp-23),

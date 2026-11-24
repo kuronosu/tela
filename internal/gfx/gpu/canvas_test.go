@@ -667,6 +667,16 @@ func TestPatternImages(t *testing.T) {
 		t.Errorf("a rest without the pattern: releases %v", f.Releases)
 	}
 
+	// A level a DrawImage drew first is kept for the pattern too.
+	lvl := photo.Level(2)
+	e = Encoder{}
+	e.Encode(drawImages(lvl), size, Options{})
+	e.Encode(patternList(photoPattern(gfx.Scale(0.25, 0.25))), size, Options{})
+	e.EndFrame()
+	if f := e.Rest(patternList(photoPattern(gfx.Scale(0.25, 0.25)))); len(f.Releases) != 0 {
+		t.Errorf("a rest releases a level that a DrawImage drew first: %v", f.Releases)
+	}
+
 	// The budget: an image that no frame draws goes first.
 	a, c := imageOfSize(40, 40), imageOfSize(40, 40)
 	e = Encoder{Limits: Limits{ImageBytes: 4 * 40 * 40}}

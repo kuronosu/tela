@@ -29,7 +29,13 @@ import (
 //     computes the W3C formula from the layer and the copy, on 8-bit
 //     values with the rasterizer's integer arithmetic where it has one,
 //     then interpolates between the copy and the result by the clip's
-//     coverage.
+//     coverage. The Porter-Duff operators are such modes.
+//
+// An operator that clears the backdrop where its source is transparent
+// (gfx.BlendMode.Unbounded) changes the whole clip at PushLayer, which the
+// bounds of its command are. A layer that shows nothing under one (it is
+// empty, or at opacity 0) has no target: its composite reads no source
+// (popEmpty).
 //
 // A mask (gfx.Mask) is its display list encoded into a target of its own
 // before the content, under the transform at PushLayer and no clip, whole

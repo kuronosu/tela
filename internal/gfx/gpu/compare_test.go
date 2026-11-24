@@ -382,7 +382,7 @@ func regionCases() []regionCase {
 			cases = append(cases, regionCase{name: s.Name, dl: s.displayList(), w: s.W, h: s.H})
 		}
 	}
-	rng :=rand.New(rand.NewSource(11))
+	rng := rand.New(rand.NewSource(11))
 	for i := range cases {
 		c := &cases[i]
 		w, h := c.w, c.h

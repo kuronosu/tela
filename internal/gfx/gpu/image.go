@@ -130,6 +130,9 @@ func (e *Encoder) useImage(img, base *gfx.Image) uint64 {
 	id := img.ID()
 	if im := r.images[id]; im != nil {
 		im.used = r.frame
+		if base != img && im.base == 0 { // so far drawn by a DrawImage
+			r.setBase(id, im, base.ID())
+		}
 		return id
 	}
 	up := ImageUpload{ID: id, Width: img.Width(), Height: img.Height(), From: from}
@@ -143,8 +146,7 @@ func (e *Encoder) useImage(img, base *gfx.Image) uint64 {
 		if m := e.imported(base); m != nil {
 			im.stream = m.stream
 		}
-		im.base = base.ID()
-		r.levels[im.base] = append(r.levels[im.base], id)
+		r.setBase(id, im, base.ID())
 	}
 	r.images[id] = im
 	r.imageBytes += im.bytes

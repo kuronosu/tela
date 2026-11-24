@@ -15,7 +15,7 @@ import (
 
 // benchScenes are the scenes of the benchmarks: every one is drawn whole.
 var benchScenes = []string{"tailwind_shadows", "linear", "strokes", "gpu_shadows", "gpu_rrects", "gpu_transforms",
-	"gpu_text", "gpu_paths", "gpu_images", "gpu_clips_nested"}
+	"gpu_text", "gpu_paths", "gpu_images", "gpu_clips_nested", "composite", "pattern"}
 
 // benchText lays out the page of raster's text benchmarks: 2,000 glyphs
 // of 14 px text in 20 lines of 100 glyphs on a 1920x1080 page, at

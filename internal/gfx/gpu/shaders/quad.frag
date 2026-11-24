@@ -588,8 +588,8 @@ uvec4 texel8(ivec2 p, ivec2 size) {
 // quantized to 1/256 and summed in integers. A DrawImage (raster's
 // imageShader) is clamped to the range of its source rectangle (paint2). A
 // pattern (raster's patternShader) wraps around along an axis that repeats,
-// where the encoder keeps the coordinates at 0 or above, and is transparent
-// beyond one that does not, for each of the four pixels.
+// where the encoder keeps the taps at -1 or above, and is transparent beyond
+// one that does not, for each of the four pixels.
 vec4 imageColor(vec2 uv, vec2 rel, uint flags, bool nearest) {
     ivec2 size = textureSize(image, 0);
     ivec2 i, j;   // the taps: columns i.x and j.x, rows i.y and j.y,
@@ -607,13 +607,16 @@ vec4 imageColor(vec2 uv, vec2 rel, uint flags, bool nearest) {
         j = i + ivec2(wj.x == 0u ? 0 : 1, wj.y == 0u ? 0 : 1);
     } else {
         // The coordinates come in two parts (splitCoord): uv, which float32
-        // holds without rounding, and a rest, small where that matters. They
-        // are added to the part of uv below 1. (The bounds keep coordinates
-        // of no meaning inside an int.)
-        vec2 rest = vec2(IT.paint0.w * rel.x + IT.paint2.x * rel.y + IT.paint2.y,
-                         IT.paint1.w * rel.x + IT.paint2.z * rel.y + IT.paint2.w);
+        // holds without rounding, and a rest, small where that matters, added
+        // to what uv is above a whole number. The half pixel between a center
+        // and the taps around it is in them. (The bounds keep coordinates of
+        // no meaning inside an int.)
+        precise vec2 rest = vec2(IT.paint0.w * rel.x + IT.paint2.x * rel.y + IT.paint2.y,
+                                 IT.paint1.w * rel.x + IT.paint2.z * rel.y + IT.paint2.w);
         vec2 whole = clamp(floor(uv), -2097152.0, 2097152.0);
-        vec2 f = clamp(floor((uv - whole + rest) * 256.0), -536870912.0, 536870912.0);
+        precise vec2 part = uv - whole;
+        precise vec2 f = floor((part + rest) * 256.0);
+        f = clamp(f, -536870912.0, 536870912.0);
         i = ivec2(whole) * 256 + ivec2(f);
         wj = nearest ? uvec2(0u) : uvec2(i & 255); // nearest: bilinear at a pixel's center
         wi = 256u - wj;
