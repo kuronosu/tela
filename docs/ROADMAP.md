@@ -12,7 +12,7 @@
 ## Current status
 
 - **Done:** phases 1–29. Latest version `v0.14.10` (2026-11-23, phase 29: Dev loop and testing, ADR-304 to ADR-314; the tag waits for the owner). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch; the owner may release a small break, such as a rename, as a patch.
-- **Phase in progress:** none; the owner picks the next (in order: External textures). The owner pushes `main` and the tags `v0.14.5` to `v0.14.10`.
+- **Phase in progress:** none; the owner picks the next (in order: External textures; Canvas, SVG and PDF; Audio and video; Game input). The owner pushes `main` and the tags `v0.14.5` to `v0.14.10`.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
 - **Next step:** the owner pushes `main` (phase 29 merged) and the tag `v0.14.10`, then opens the next phase. Phase 28's DevTools window and `tela mcp --attach` wait for a live check on a real desktop (`docs/LIMITATIONS.md`). Phase 27's Windows and macOS surfaces wait for their live checks (`docs/LIMITATIONS.md`). Phase 26's Mac checks wait for a macOS CI run or a Mac (`docs/LIMITATIONS.md`). The GPU backend's Windows code has never run: its live check needs a Windows machine with a GPU. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no Wine on the host (it froze it once): Wine runs in a Docker container limited to 4 CPUs and 8 GB (Ubuntu 24.04 with `wine` and `wine64`, `LANG=C.UTF-8`, the host's Go mounted read-only), as CI's job runs it; the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` takes about 15 minutes in one process (2026-11-09; run it with `-timeout 30m`, or shard it; longer since phase 24's `TELA_CHECK_SEMANTICS` and `TELA_CHECK_LAYOUT` are on in core's tests), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
@@ -23,17 +23,20 @@ In order. Each phase ends with verifiable criteria and is not done unless they p
 
 ### External textures
 
-GPU content an application renders itself, composed by Tela (the owner, 2026-11-15): a 3D view, a video decoded in hardware, a map, a game view. Flutter's `Texture` model: the application draws with the graphics API it chooses and hands Tela a texture; Tela never exposes its own device. Placed before Canvas and Audio and video because both build on it: one model for content drawn by the application inside the tree, and `Video` shows its frames through it.
+GPU content an application renders itself, composed by Tela (the owner, 2026-11-15): a 3D view, a video decoded in hardware, a map, a game view. Flutter's `Texture` model: the application draws with the graphics API it chooses and hands Tela a texture; Tela never exposes its own device and ships no graphics bindings (`internal/vk` stays internal; the application brings its own, pure Go). Placed before Canvas and Audio and video because both build on it: one model for content drawn by the application inside the tree, and `Video` shows its frames through it (the owner, 2026-11-15; kept on 2026-11-23 after weighing a move behind them). The tasks run in two halves: the model and the copy path first, which Canvas and `Video` need, then the GPU imports, which block neither. What a game engine needs beyond this view is in Game input.
 
-- [ ] First: an ADR on the public element (such as `h.Texture`) and its source type: what the application hands over on each platform, who allocates, how a new frame is announced, and how sizes are negotiated on resize and scale changes
-- [ ] Linux: a dmabuf (descriptors, fourcc, modifier, planes) imported by the GPU renderer as an image source, on the exchange the GPU backend's presenting already has (`internal/vk`'s external memory); Windows: a shared handle; macOS: an IOSurface
-- [ ] Composed as any image: clips, rounded corners, opacity, transforms, filters and blend modes, hit testing, a semantics role and name
+- [ ] First: an ADR on the public element (such as `h.Texture`) and its source type: what the application hands over on each platform, who allocates, how a new frame is announced, and how sizes are negotiated on resize and scale changes; also the pixel contract (sRGB or linear, premultiplied or straight alpha, HDR, multi-plane YUV frames from decoders, orientation) and whether an application can get the window's native handle for its own swapchain or the texture is the only route
 - [ ] Frames: the application announces a new frame from any goroutine and only that element is damaged; a fence or an acquire and release pair so that Tela never reads a frame being drawn; 0% CPU while the content rests
+- [ ] Composed as any image: clips, rounded corners, opacity, transforms, filters and blend modes, hit testing, a semantics role and name
 - [ ] Without the GPU backend (a default build, or `TELA_RENDERER=cpu`) the same element works through a copy: pixels the application gives, or the mapped buffer
 - [ ] `telatest`: a fake source, so screens with a texture have headless goldens
+- [ ] Which GPU: Tela tells the application the device to render on (Linux: the DRM render node and the accepted fourcc and modifier pairs the compositor's feedback gives, ADR-283; Windows: the adapter's LUID; macOS: the Metal device's registry ID), and says whether it takes frames from another GPU; checked with two GPUs (the owner's RTX 3060 Ti and UHD 630)
+- [ ] Linux: a dmabuf (descriptors, fourcc, modifier, planes) imported by the GPU renderer as an image source, on the exchange the GPU backend's presenting already has (`internal/vk`'s external memory); Windows: a shared handle; macOS: an IOSurface
+- [ ] macOS has no Metal device in the GPU backend (`LIMITATIONS.md`, the owner's choice 2026-11-16), so an IOSurface frame reaches the CPU rasterizer through the copy until one exists; the ADR says which, and the Windows import waits for a Windows machine with a GPU (the GPU backend's Windows code has never run: Live checks)
+- [ ] Pacing and latency: the application learns the window's frame pace (the next presentation and the refresh rate) to render at it; the latency the path adds is measured and documented (the age of a frame when it is presented); an uncapped frame rate, variable refresh, tearing and direct scanout are stated as not covered, since Tela composes the frame
 - [ ] An example whose application renders an animated scene with its own code
 
-**Done when:** the example shows animated content rendered by the application inside a rounded, clipped card at 60 fps at scale 2 on Linux with no copy through the CPU, and the same binary without the GPU backend shows it through the copy; Windows and macOS go to the live checks.
+**Done when:** the example shows animated content rendered by the application inside a rounded, clipped card at 60 fps at scale 2 on Linux with no copy through the CPU, and the same binary without the GPU backend shows it through the copy; the application got its device from Tela's answer, also with two GPUs; Windows and macOS go to the live checks.
 
 ### Canvas, SVG and PDF
 
@@ -50,10 +53,24 @@ Vector output on the `DisplayList`.
 Highest uncertainty of the roadmap: pure-Go decoders limit the codecs.
 
 - [ ] Audio playback and capture: pure-Go decoders (WAV, MP3, OGG/Vorbis, FLAC, Opus where one exists), output through ALSA/PulseAudio/PipeWire, WASAPI, CoreAudio
-- [ ] Video playback: patent-free subset first (VP8/VP9/AV1 if a pure-Go decoder is viable), A/V sync, a `Video` component with `kit` controls; an ADR settles codec scope before work starts
+- [ ] A low-latency output stream the application fills from its own callback (a mixer, a game engine, a synthesizer), besides file playback; the ADR states the latency each backend reaches (added 2026-11-23 for applications that render their own content)
+- [ ] Video playback: patent-free subset first (VP8/VP9/AV1 if a pure-Go decoder is viable), A/V sync, a `Video` component with `kit` controls; an ADR settles codec scope before work starts. Pure-Go decoders produce CPU frames, so `Video` shows them through External textures' element and its copy path; the GPU imports of that phase serve frames a hardware decoder leaves on the GPU
 - [ ] 3D (exploratory, ADR first; transforms stay 2D until then) lives here or in the backlog; an application can already show its own 3D rendering through External textures
 
 **Done when:** a "player" example plays an audio file and a video with synced controls.
+
+### Game input
+
+What an application that draws its own frames (External textures) needs from the window and the input devices, found on 2026-11-23 when asking whether an application could build a game engine on Tela. Today a window can go fullscreen; there is no pointer lock or relative motion and no gamepad. Opened at the owner's request (ADR-267).
+
+- [ ] First: an ADR (a platform contract version) on pointer lock, relative motion and gamepads: who asks (an element, as a texture view does), what the OS grants, how the application learns it lost the lock
+- [ ] Pointer lock and relative motion for a focused element: the pointer hidden and held in place, unscaled motion deltas; Wayland `zwp_pointer_constraints_v1` and `zwp_relative_pointer_v1`, X11 XInput2 raw motion with a grab, Win32 raw input with `ClipCursor`, Cocoa dissociating the cursor; released when the window loses focus, with a way out that the application cannot disable
+- [ ] Gamepads, pure Go: evdev on Linux (and its permissions), Windows' XInput or HID, macOS' GameController through purego; buttons, axes, triggers, hot-plug and rumble, as events, a polling call or both (the ADR picks)
+- [ ] Keys for a game view: a focused element that is not a text field gets physical keys, with auto-repeat told apart and no text composition; check what it gets today in each backend
+- [ ] `telatest`: fake pointer lock and a fake gamepad, so a game view has headless tests
+- [ ] An example: a camera over the External textures scene, moved with the locked mouse and a gamepad
+
+**Done when:** the example turns its camera with the locked mouse and the gamepad on Linux and gives the pointer back when the window loses focus; Windows and macOS go to the live checks.
 
 ### Accessibility gaps
 

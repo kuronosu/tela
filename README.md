@@ -402,7 +402,7 @@ are done (ADR-208 sets how versions are numbered).
 | 23 | Layout, text and engine fidelity: selectable static text, `h.Lang` and CJK forms by language, hyphenation, synthetic bold and italic, skip-ink, borders on device pixels, `aspect-*` and grid areas as in Chromium, drag autoscroll of scroll containers | ✅ v0.14.3 |
 | 24 | CPU performance: layout and paint place only what moved, recorded groups, damage drawn from a list position, backdrops found again, the dashboard's p95 from 19.3 to 9.7 ms at 1080p | ✅ v0.14.4 |
 | 25 | GPU backend, opt-in with `-tags telagpu`: Vulkan on Linux and Windows, frames to the compositor without a copy (dmabufs on Wayland and X11), the CPU rasterizer as reference and fallback | ✅ v0.14.5 |
-| — | Packaging and auto-update, app building blocks, DevTools and agents, dev loop and testing, external textures, canvas, SVG and PDF, audio and video, accessibility gaps | planned |
+| — | Packaging and auto-update, app building blocks, DevTools and agents, dev loop and testing, external textures, canvas, SVG and PDF, audio and video, game input, accessibility gaps | planned |
 
 ### What works today
 
