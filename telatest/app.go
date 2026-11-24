@@ -459,15 +459,15 @@ func (a *App) pendingWork() bool {
 	}
 	// A frame requested for the debug overlays alone (a fading flash, the
 	// fps meter), or for infinite animations alone (a spinner, a pulse), or
-	// for the goroutines that loop on Texture.NextFrame, is not work the app
-	// must finish. Finite transitions and animations
-	// are: settle advances the clock until they end.
+	// for the goroutines that loop on Texture.NextFrame, or for canvases that
+	// call RequestFrame, is not work the app must finish. Finite transitions
+	// and animations are: settle advances the clock until they end.
 	for _, w := range a.host.Windows() {
 		hw := w.(*headless.Window)
 		if !drawn(hw) || !hw.FrameRequested() {
 			continue
 		}
-		if t := a.host.TreeOf(w); !t.DebugWantsFrame() && !t.OnlyEndlessAnimations() && !t.OnlyTextureFrames() {
+		if t := a.host.TreeOf(w); !t.DebugWantsFrame() && !t.OnlyEndlessAnimations() && !t.OnlyTextureFrames() && !t.OnlyCanvasFrames() {
 			return true
 		}
 	}

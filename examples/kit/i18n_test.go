@@ -19,7 +19,7 @@ import (
 // language.
 func canvasIn(t *testing.T, tag string, opts ...telatest.Option) *telatest.App {
 	t.Helper()
-	return mount(t, Canvas{Page: "Internationalization", Locale: tag}, opts...)
+	return mount(t, Stage{Page: "Internationalization", Locale: tag}, opts...)
 }
 
 var (
@@ -159,21 +159,21 @@ func TestKitDefaultsFromTheCatalog(t *testing.T) {
 	} {
 		t.Run(c.tag, func(t *testing.T) {
 			tr := trFor(i18n.For(c.tag))
-			a := mount(t, Canvas{Page: "DatePicker", Locale: c.tag})
+			a := mount(t, Stage{Page: "DatePicker", Locale: c.tag})
 			a.ExpectText(c.pick)
 			a.Click(telatest.ByRole("button", tr("picker.date", "Date")))
 			a.ExpectCount(telatest.ByRole("button", c.previous), 1)
 			a.ExpectCount(telatest.ByRole("button", c.next), 1)
 
-			b := mount(t, Canvas{Page: "DateRangePicker", Locale: c.tag})
+			b := mount(t, Stage{Page: "DateRangePicker", Locale: c.tag})
 			b.ExpectText(c.rangeText)
 
-			d := mount(t, Canvas{Page: "Dialog", Locale: c.tag})
+			d := mount(t, Stage{Page: "Dialog", Locale: c.tag})
 			d.Click(telatest.ByRole("button", tr("dialog.share", "Share")))
 			d.Click(telatest.ByRole("button", c.close))
 			d.ExpectCount(telatest.ByRole("dialog", ""), 0)
 
-			e := mount(t, Canvas{Page: "AlertDialog", Locale: c.tag})
+			e := mount(t, Stage{Page: "AlertDialog", Locale: c.tag})
 			e.Click(telatest.ByRole("button", tr("alertDialog.publish", "Publish")))
 			e.ExpectCount(telatest.ByRole("button", c.cancel), 1)
 			e.ExpectCount(telatest.ByRole("button", c.cont), 1)

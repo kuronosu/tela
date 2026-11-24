@@ -504,6 +504,7 @@ func (w WindowHandle) Placement() WindowPlacement {
 // still open.
 func (w WindowHandle) request(f func(v *winView)) {
 	t := w.t
+	checkDraw("a method of WindowHandle")
 	if t == nil || t.wv == nil || t.wv.dead.Load() { // any goroutine: dead is atomic
 		return
 	}
@@ -1043,6 +1044,7 @@ func (h *Host) Quit() {
 // updates queued before it. Before the app runs, it is applied when it
 // starts (Run then returns at once).
 func Quit() {
+	checkDraw("Quit")
 	postUpdate(update{postTree: func(t *Tree) {
 		if v := t.wv; v != nil {
 			v.host.Quit()

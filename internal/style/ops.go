@@ -329,15 +329,20 @@ const (
 	// KindTexture shows the frames of an external texture, a replaced
 	// element sized like a <canvas> (ADR-315).
 	KindTexture
+	// KindCanvas shows what a function draws, a replaced element sized like
+	// a <canvas> (ADR-319).
+	KindCanvas
 	numKinds
 )
 
 var kindNames = [...]string{"div", "span", "text", "h1", "h2", "h3", "h4", "h5", "h6", "p", "button", "img", "root", "strong", "em", "code", "a",
-	"input", "textarea", "form", "label", "svg", "texture"}
+	"input", "textarea", "form", "label", "svg", "texture", "canvas"}
 
 // IsReplaced reports whether k is a replaced element that shows an image
-// (Img, Icon, Texture).
-func (k Kind) IsReplaced() bool { return k == KindImg || k == KindSVG || k == KindTexture }
+// (Img, Icon, Texture, Canvas).
+func (k Kind) IsReplaced() bool {
+	return k == KindImg || k == KindSVG || k == KindTexture || k == KindCanvas
+}
 
 // IsTextField reports whether k is a text field (Input, Textarea).
 func (k Kind) IsTextField() bool { return k == KindInput || k == KindTextarea }
@@ -415,11 +420,13 @@ func initKindDefaults() {
 		}),
 	}
 	// canvas (Preflight): "canvas { display: block; vertical-align: middle
-	// }". The 300x150 of a Texture is its natural size, as a canvas's is
-	// (core: Box.imageSize), not a width and a height.
-	kindOps[KindTexture] = []Op{
-		display(DisplayBlock),
-		op(func(e *env) { e.s.VerticalAlign = text.BoxMiddle }),
+	// }". The 300x150 of a Canvas is its natural size, and a Texture's is
+	// the same (core: Box.imageSize), not a width and a height.
+	for _, k := range []Kind{KindTexture, KindCanvas} {
+		kindOps[k] = []Op{
+			display(DisplayBlock),
+			op(func(e *env) { e.s.VerticalAlign = text.BoxMiddle }),
+		}
 	}
 	// strong (Preflight): "b, strong { font-weight: bolder }".
 	kindOps[KindStrong] = append(kindOps[KindStrong], op(func(e *env) {

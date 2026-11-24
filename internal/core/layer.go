@@ -392,9 +392,15 @@ func (t *Tree) paintPhase(full bool) *gfx.DisplayList {
 	// What the inputs of the boxes do not cover: the scale (snapping), the
 	// viewport and the canvas.
 	all = all || t.scale != L.recScale || t.viewport != L.recView || t.transCanvas != L.recTrans
+	if t.cnv != nil {
+		t.cnv.draw() // canvas.go
+	}
 	partial := !all && t.recordDirty(&p)
 	if !partial {
 		t.recordAll(&p)
+	}
+	if t.cnv != nil {
+		t.cnv.drawLate()
 	}
 	L.recScale, L.recView, L.recTrans = t.scale, t.viewport, t.transCanvas
 	dl := t.composite()

@@ -146,6 +146,18 @@ A producer that loops on tela.Texture.NextFrame renders at the window's pace, so
 
 The code path of an application that renders with its own GPU and gives Tela dmabufs runs headless with a [`FakeTextureDevice`](#type-faketexturedevice) ([`WithTextureDevice`](#func-withtexturedevice)): the test gives the imported \[FakeTextureBuffer\]s the pixels that the application's renderer would draw, and signals the fences of the frames ([`NewFakeFence`](#func-newfakefence)). A frame that waits for its fence is named by [`PendingFence`](#type-pendingkind) and does not keep the app from being idle; settling waits for what follows the signal. [`App.ExpectReleases`](#func-app-expectreleases) checks the Release functions that the application gave: every frame's is called exactly once, which the end of the test checks too.
 
+### Canvases
+
+An element that draws (h.Canvas) is found like any other ([`ByTestID`](#func-bytestid), or [`ByRole`](#func-byrole)("img", name) when it has an AriaLabel), and its drawing is in the screenshots and goldens. One that animates with tela.Canvas.RequestFrame never stops asking for frames, as an endless animation: settling does not wait for it (it is named by [`PendingCanvas`](#type-pendingkind), and counts for [`App.ExpectIdle`](#func-app-expectidle)), and [`App.Advance`](#func-app-advance) moves it, a draw per frame, with the app's clock:
+
+```go
+app := telatest.Mount(t, Game())
+app.Advance(500 * time.Millisecond)
+app.Golden("game.png")
+```
+
+The frames that settling runs for other work move it too, as they move the animations.
+
 ### The clock
 
 The window's clock is manual: it starts at zero and moves only when the app waits or the test advances it, so animations, scroll flings and timers are deterministic. Frames are paced like a 60 Hz display.
@@ -429,6 +441,22 @@ app.MouseUp()
 app.ExpectText("Held")
 fmt.Println(app.AriaSnapshot())
 // Output: - button "Held"
+```
+
+**Example (canvas)**
+
+The film of a canvas that asks for frames.
+
+```go
+var t0 time.Duration
+clock := Canvas(func(c *tela.Canvas) {
+    t0 = c.Time
+    c.RequestFrame()
+}, AriaLabel("Clock"))
+app := telatest.Mount(t, clock)
+app.Advance(time.Second / 2)
+fmt.Println(t0.Round(time.Millisecond))
+// Output: 500ms
 ```
 
 #### func (*App) AnswerFileDialog
@@ -4212,10 +4240,16 @@ const (
     // waits, so [App.ExpectIdle] does not count it; the frame is shown when
     // the wait ends.
     PendingFence
+    // PendingCanvas: canvases on screen whose last draw called
+    // tela.Canvas.RequestFrame. One that does so in every draw asks for a
+    // frame at every vsync, as an endless animation does, so it counts for
+    // [App.ExpectIdle]; settling does not wait for it, and [App.Advance] runs
+    // its frames.
+    PendingCanvas
 )
 ```
 
-The kinds of [`Pending`](#type-pending) items. Those that only redraw what is on the screen, without changing its elements, are [`PendingEndless`](#type-pendingkind), [`PendingScrollbar`](#type-pendingkind), [`PendingCaret`](#type-pendingkind), [`PendingDebug`](#type-pendingkind) and [`PendingNextFrame`](#type-pendingkind) (a frame request beside them is theirs).
+The kinds of [`Pending`](#type-pending) items. Those that only redraw what is on the screen, without changing its elements, are [`PendingEndless`](#type-pendingkind), [`PendingScrollbar`](#type-pendingkind), [`PendingCaret`](#type-pendingkind), [`PendingDebug`](#type-pendingkind), [`PendingNextFrame`](#type-pendingkind) and [`PendingCanvas`](#type-pendingkind) (a frame request beside them is theirs).
 
 #### func (PendingKind) String
 

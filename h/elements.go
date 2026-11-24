@@ -114,6 +114,41 @@ func Texture(tex *tela.Texture, children ...tela.Child) tela.Node {
 	return core.Primitive(style.KindTexture, append(all, children...)...)
 }
 
+// Canvas shows what draw draws, with the 2D context of a browser's canvas
+// (tela.Canvas): a chart, a gauge, a signature, a simulation. It is a
+// replaced element: without Class or Style sizes it is 300x150 as an HTML
+// canvas, and with one size (w-full) the other keeps that ratio unless an
+// aspect-* class sets another. The drawing covers its content box, whose
+// rounded corners clip it, and stays vector at any display scale; borders,
+// shadows, opacity, filters, transforms, blend modes and masks apply to it as
+// to any element, and so do the On… handlers, TabIndex and the pointer.
+//
+//	Canvas(func(c *tela.Canvas) {
+//	    r := min(c.Width, c.Height)/2 - 8
+//	    c.LineWidth, c.LineCap = 8, tela.CapRound
+//	    c.BeginPath()
+//	    c.Arc(c.Width/2, c.Height/2, r, 0, 2*math.Pi*float64(v.Get()))
+//	    c.Stroke()
+//	}, Class("size-32 stroke-primary"), AriaLabel("Progress"))
+//
+// draw runs while the frame is painted, when the component builds, when the
+// size or the style of the element changes, when a Value it read changes (as
+// v above: without a build) and, after a draw that called c.RequestFrame, at
+// the next frame of the window. tela.Canvas says it all. It starts each time
+// from an empty canvas, and with the element's fill-*, stroke-* and text
+// color. A nil draw panics.
+//
+// It takes no children: place an overlay beside it.
+//
+// It is an image (role img) when it has a name (AriaLabel or
+// AriaLabelledBy), and says nothing to accessibility otherwise: name it, and
+// say in text what its drawing says.
+func Canvas(draw func(c *tela.Canvas), children ...tela.Child) tela.Node {
+	all := make([]tela.Child, 0, len(children)+1)
+	all = append(all, core.CanvasDraw(draw))
+	return core.Primitive(style.KindCanvas, append(all, children...)...)
+}
+
 // Strong returns bold inline text.
 func Strong(children ...tela.Child) tela.Node { return core.Primitive(style.KindStrong, children...) }
 

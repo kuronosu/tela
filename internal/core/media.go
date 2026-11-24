@@ -89,11 +89,13 @@ func (s *srcSpec) same(o *srcSpec) bool {
 	return s.fsys == nil && o.fsys == nil || s.fsys != nil && o.fsys != nil && safeEqual(s.fsys, o.fsys)
 }
 
-// mediaProps are the Img and Icon props beyond Src and SrcImage, and the
-// texture of a Texture (texture.go).
+// mediaProps are the Img and Icon props beyond Src and SrcImage, the
+// texture of a Texture (texture.go) and the draw function of a Canvas
+// (canvas.go).
 type mediaProps struct {
 	src     srcSpec
 	tex     *Texture
+	draw    canvasDrawer
 	tint    gfx.Color
 	hasTint bool
 }
@@ -474,11 +476,15 @@ func (s *srcSpec) reportKey() string {
 
 // boxMedia is the decoded source of an Img or Icon box given by a
 // srcSpec, and the SVG list recorded for the last options it was drawn
-// with; or the texture of a Texture box.
+// with; or the texture of a Texture box, or the drawing of a Canvas box.
 type boxMedia struct {
 	src   srcSpec
 	asset *imageAsset
 	tex   *texView // texture_tree.go: the box draws its frame (Box.img)
+	// cnv is the canvas, and drawing what it drew last, nil for nothing
+	// (canvas.go).
+	cnv     canvasItem
+	drawing *gfx.DisplayList
 	// rec is the document recorded for recOpts (svg.Doc.Record); recOK
 	// reports that it is valid.
 	rec     *gfx.DisplayList
@@ -499,7 +505,7 @@ func (bx *Box) doc() *svg.Doc {
 // whatever its frames.
 func (bx *Box) imageSize() (w, h, ratio float32) {
 	switch {
-	case bx.kind == style.KindTexture:
+	case bx.kind == style.KindTexture || bx.kind == style.KindCanvas:
 		return 300, 150, 2
 	case bx.med != nil && bx.med.asset != nil:
 		w, h = bx.med.asset.size()
@@ -675,16 +681,20 @@ func mipLevel(img *gfx.Image, w, h float64) *gfx.Image {
 	return img
 }
 
-// paintReplaced paints the image of an Img, Icon or Texture box in its
-// content box.
+// paintReplaced paints the image of an Img, Icon, Texture or Canvas box in
+// its content box.
 func (p *painter) paintReplaced(bx *Box) {
 	doc := bx.doc()
-	if bx.img == nil && doc == nil {
+	if bx.img == nil && doc == nil && bx.kind != style.KindCanvas {
 		return
 	}
 	g := p.geom(bx)
 	c := p.contentRRect(bx, &g)
 	if c.Rect.Empty() {
+		return
+	}
+	if bx.kind == style.KindCanvas {
+		bx.med.cnv.paint(p.b, c, p.ref) // canvas.go
 		return
 	}
 	cs := bx.pcs

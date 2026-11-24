@@ -62,10 +62,10 @@ func previews() tela.Previews {
 		"Gallery Arabic":  {Root: Gallery{Page: "DatePicker", Locale: "ar"}},
 	}
 	for _, pg := range sidebar() {
-		p[pg.Name] = tela.Preview{Root: Canvas{Page: pg.Name}}
+		p[pg.Name] = tela.Preview{Root: Stage{Page: pg.Name}}
 	}
 	for _, tag := range languages[1:] {
-		p["Internationalization "+tag] = tela.Preview{Root: Canvas{Page: "Internationalization", Locale: tag}}
+		p["Internationalization "+tag] = tela.Preview{Root: Stage{Page: "Internationalization", Locale: tag}}
 	}
 	return p
 }

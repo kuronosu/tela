@@ -1362,6 +1362,9 @@ func (t *Tree) panRecognizer(s *scroller, ps *pointerState) *gesture.Drag {
 // the Host calls it before Frame). Changes are painted by the next Frame.
 func (t *Tree) Animate(now time.Duration) {
 	t.animateStyles(now)
+	if t.cnv != nil {
+		t.cnv.tick() // canvas.go
+	}
 	st := &t.scr
 	st.now = max(st.now, now)
 	now = st.now

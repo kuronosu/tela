@@ -777,8 +777,11 @@ func (t *Tree) unmount(el *Element) {
 		if el.box.portal {
 			t.unmountPortal(el)
 		}
-		if el.box.kind == style.KindTexture {
+		switch el.box.kind {
+		case style.KindTexture:
 			t.dropTextureBox(el.box)
+		case style.KindCanvas:
+			el.box.med.cnv.drop()
 		}
 		if el.node.d.overlay != nil {
 			t.removeOverlay(el)
