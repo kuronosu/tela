@@ -725,6 +725,8 @@ An immediate-mode 2D drawing surface with the lifecycle of a component (ADR-319)
 
 **Done when:** the example animates at 60 fps at scale 2 on Linux with either renderer and is idle at rest, an equal redraw damages nothing, and the scenes compared with Chromium pass.
 
+Accepted by the owner on 2026-11-24: 120 fps at scale 1.6 for the 60 fps at scale 2, and ADR-320.
+
 ## Session log
 
 One line per session: date, what was done, what is pending. Append new sessions at the end.
