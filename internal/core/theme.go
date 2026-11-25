@@ -177,6 +177,7 @@ func (t *Tree) noteThemeChange() {
 // Post), like Tree.SetTheme: safe from any goroutine. Before the app runs,
 // it is applied when it starts.
 func SetTheme(th Theme) {
+	checkDraw("SetTheme")
 	th.Colors = maps.Clone(th.Colors) // the caller may reuse its map
 	if _, err := StyleTheme(&th); err != nil {
 		panic("tela: SetTheme: " + err.Error())
@@ -324,10 +325,13 @@ func (v ThemeValues) Lookup(name string) (gfx.Color, bool) {
 // Color returns the value of a color token, or of a palette color. An
 // unknown name is transparent; in dev mode it panics with the closest
 // token.
-func (v ThemeValues) Color(name string) gfx.Color {
+func (v ThemeValues) Color(name string) gfx.Color { return v.color("ThemeValues", name) }
+
+// color is Color, the method of who in its message.
+func (v ThemeValues) color(who, name string) gfx.Color {
 	c, ok := v.Lookup(name)
 	if !ok && v.dev {
-		msg := fmt.Sprintf("tela: ThemeValues.Color(%q): the theme has no color %q", name, name)
+		msg := fmt.Sprintf("tela: %s.Color(%q): the theme has no color %q", who, name, name)
 		if s := v.theme().SuggestToken(name); s != "" {
 			msg += fmt.Sprintf("; did you mean %q?", s)
 		}

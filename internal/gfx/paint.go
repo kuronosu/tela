@@ -2,8 +2,9 @@ package gfx
 
 import "math"
 
-// Paint describes how a shape is filled or stroked: a solid Color or one of
-// the gradients. The interface is sealed: only this package defines Paints.
+// Paint describes how a shape is filled or stroked: a solid Color, one of
+// the gradients or an ImagePattern. The interface is sealed: only this
+// package defines Paints.
 //
 // Coordinates inside a Paint (gradient points, centers, radii) are in the
 // local coordinate space of the command that uses it, so they follow the
@@ -17,6 +18,7 @@ func (LinearGradient) isPaint() {}
 func (RadialGradient) isPaint() {}
 func (ConicGradient) isPaint()  {}
 func (FocalGradient) isPaint()  {}
+func (ImagePattern) isPaint()   {}
 
 // ColorSpace is the color space in which gradient stops are interpolated.
 // Compositing itself always happens in sRGB (ADR-007).
@@ -243,6 +245,68 @@ type FocalGradient struct {
 	Spread SpreadMode
 }
 
+// PatternRepeat selects the axes along which an ImagePattern repeats, with
+// Canvas's names.
+type PatternRepeat uint8
+
+const (
+	// RepeatBoth repeats along both axes ("repeat"). It is the zero value.
+	RepeatBoth PatternRepeat = iota
+	// RepeatX repeats horizontally only ("repeat-x").
+	RepeatX
+	// RepeatY repeats vertically only ("repeat-y").
+	RepeatY
+	// RepeatNone paints the image once ("no-repeat").
+	RepeatNone
+)
+
+// X reports whether the pattern repeats along the x axis of its space.
+func (r PatternRepeat) X() bool { return r == RepeatBoth || r == RepeatX }
+
+// Y reports whether the pattern repeats along the y axis of its space.
+func (r PatternRepeat) Y() bool { return r == RepeatBoth || r == RepeatY }
+
+// String returns Canvas's keyword: "repeat", "repeat-x", "repeat-y" or
+// "no-repeat".
+func (r PatternRepeat) String() string {
+	switch r {
+	case RepeatBoth:
+		return "repeat"
+	case RepeatX:
+		return "repeat-x"
+	case RepeatY:
+		return "repeat-y"
+	case RepeatNone:
+		return "no-repeat"
+	}
+	return "PatternRepeat(?)"
+}
+
+// ImagePattern paints a tiled image: Canvas's createPattern. Pattern space
+// is measured in image pixels: the image covers (0, 0) to (Width, Height)
+// and, along the axes Repeat says, every translation of it by a multiple of
+// its size. Elsewhere the paint is transparent. Transform maps pattern space
+// to the local coordinate space of the command, whose origin is therefore
+// the pattern's (Canvas: the canvas's origin under the current transform,
+// wherever the shape is).
+//
+// Sampling is DrawImage's, except at the ends: bilinear samples read the
+// next tile along a repeated axis and transparent pixels beyond an axis that
+// does not repeat. An image painted smaller than its size with SampleLinear
+// is sampled from its mip level (Image.Level) whose size is the smallest
+// that is not smaller than the size painted, which the rasterizer chooses
+// from the transform, so that it does not alias.
+//
+// The Builder drops commands whose pattern shows nothing: an empty image, a
+// Transform that is not finite or is singular (the zero value is: use
+// Identity).
+type ImagePattern struct {
+	Image     *Image
+	Repeat    PatternRepeat
+	Transform Affine
+	Sampling  Sampling
+}
+
 // sanitizePaint validates a Paint for the Builder and returns a copy that
 // shares no mutable memory with the argument: solid colors are clamped to
 // [0, 1], stop slices copied and normalized, with stop alphas clamped and
@@ -292,6 +356,9 @@ func sanitizePaint(p Paint) (Paint, bool) {
 		var ok bool
 		q.Stops, ok = sanitizeStops(q.Stops)
 		return q, ok
+	case ImagePattern:
+		ok := q.Image.w > 0 && q.Image.h > 0 && q.Transform.IsFinite() && q.Transform.Det() != 0
+		return p, ok // the caller's value: nothing in it is mutable
 	}
 	return nil, false
 }

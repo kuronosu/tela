@@ -106,6 +106,7 @@ func buildName(c *compDesc) string {
 // read only then: a component called directly, telatest.Mount(t,
 // Counter()), is told to use tela.C).
 func currentElement(hook string) *Element {
+	checkDrawHook(hook)
 	el := current
 	if el == nil {
 		panic(outsideBuildMessage(hook))
@@ -197,6 +198,7 @@ type Setter[T any] struct{ s *stateSlot[T] }
 // the state when the update applies does not rebuild.
 func (st Setter[T]) Set(v T) {
 	s := st.slot("Set")
+	checkDraw("Setter.Set")
 	s.el.tree.enqueue(update{el: s.el, apply: func() (bool, any) { return s.store(v), s }})
 }
 
@@ -209,6 +211,7 @@ func (st Setter[T]) Update(f func(T) T) {
 	if f == nil {
 		panic("tela: Setter.Update(nil): pass a function that returns the new state from the current one, such as setCount.Update(func(n int) int { return n + 1 })")
 	}
+	checkDraw("Setter.Update")
 	s.el.tree.enqueue(update{el: s.el, apply: func() (bool, any) { return s.store(f(s.value)), s }})
 }
 
@@ -298,6 +301,7 @@ func (d Dispatcher[A]) Dispatch(a A) {
 	if d.t == nil {
 		panic("tela: Dispatch called on a zero Dispatcher; use the Dispatcher returned by tela.UseReducer")
 	}
+	checkDraw("Dispatcher.Dispatch")
 	d.t.dispatch(a)
 }
 
@@ -458,6 +462,7 @@ func Post(fn func()) {
 	if fn == nil {
 		panic("tela: Post(nil): pass the function to run on the UI thread")
 	}
+	checkDraw("Post")
 	postUpdate(update{post: fn})
 }
 

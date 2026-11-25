@@ -847,11 +847,20 @@ func (s *telaMCPSession) snapshot() (string, []uint64) {
 {{if .Kinds -}}
 // telaMCPQuiet reports whether an item of App.Pending cannot change what
 // is on the screen (ADR-308): the blink of a caret, the fade of a
-// scrollbar, an animation that never ends, the debug overlays. A miss that
+// scrollbar, an animation that never ends, a canvas that asks for a frame
+// again and again, the debug overlays. A miss that
 // waits on nothing else will not turn into a match.
 func telaMCPQuiet(k telatest.PendingKind) bool {
 	switch k {
 	case telatest.PendingCaret, telatest.PendingScrollbar, telatest.PendingEndless, telatest.PendingDebug:
+		return true
+	}
+	// The kinds that came later are named, not by constant, which a tela that
+	// has Pending but not them does not declare: a goroutine waiting for the
+	// next frame of a texture, and a canvas that asks for one (RequestFrame).
+	// Both ask for a frame at every vsync, as an endless animation does.
+	switch k.String() {
+	case "NextFrame", "canvas":
 		return true
 	}
 	return false

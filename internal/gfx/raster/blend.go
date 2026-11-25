@@ -34,10 +34,16 @@ import (
 // modes (hue, saturation, color, luminosity; Lum with 0.3, 0.59, 0.11)
 // are evaluated in float64 on unpremultiplied values, with every product
 // rounded explicitly (ADR-027). plus-lighter is min(1, s + d) on every
-// channel, alpha included (CSS Compositing 2). Every mode leaves the
+// channel, alpha included (CSS Compositing 2). These modes leave the
 // backdrop unchanged where the source is transparent, so a layer only
-// touches the pixels inside its bounds, and every mode returns the source
-// where the backdrop is transparent.
+// touches the pixels inside its bounds, and they return the source where
+// the backdrop is transparent.
+//
+// The Porter-Duff operators (Canvas, ADR-319) are integer expressions of
+// the premultiplied values over the denominator 255, rounded once, exactly.
+// An operator that clears the backdrop where the source is transparent
+// (gfx.BlendMode.Unbounded) is composited over the whole clip current at
+// PushLayer: the list's bounds say so.
 
 // compositeLayer composites a layer row onto row y of the surface starting
 // at x: src holds n premultiplied pixels, op is the layer's opacity, mask
@@ -253,6 +259,16 @@ func blendRow(mode gfx.BlendMode, out, d, s []uint8) {
 		for i := range s {
 			out[i] = uint8(min(uint32(s[i])+uint32(d[i]), 255))
 		}
+	case gfx.SrcIn, gfx.SrcOut, gfx.SrcAtop, gfx.DstOver, gfx.DstIn, gfx.DstOut, gfx.DstAtop, gfx.Copy, gfx.Xor:
+		f := &porterDuff[mode-gfx.SrcIn]
+		for i := 0; i+3 < len(s); i += 4 {
+			sp, dp, o := s[i:i+4:i+4], d[i:i+4:i+4], out[i:i+4:i+4]
+			fa, fb := uint32(f.a0+f.a1*int32(dp[3])), uint32(f.b0+f.b1*int32(sp[3]))
+			o[0] = div255(uint32(sp[0])*fa + uint32(dp[0])*fb)
+			o[1] = div255(uint32(sp[1])*fa + uint32(dp[1])*fb)
+			o[2] = div255(uint32(sp[2])*fa + uint32(dp[2])*fb)
+			o[3] = div255(uint32(sp[3])*fa + uint32(dp[3])*fb)
+		}
 	default:
 		// The float modes are slow: neighbors often repeat the same pair
 		// of pixels (gradients, flat colors), so the last result is kept.
@@ -274,8 +290,25 @@ func blendRow(mode gfx.BlendMode, out, d, s []uint8) {
 	}
 }
 
-// srcOrDst sets o to the result of every blend mode where the source or
-// the backdrop is transparent: the backdrop if the source is, else the
+// porterDuff holds, from gfx.SrcIn on, the factors Fa = a0 + a1·αb and
+// Fb = b0 + b1·αs of the Porter-Duff operators (0 to 255): a result is
+// (s·Fa + d·Fb) / 255, each channel rounded once. The sum never exceeds
+// 255², as div255 needs: for premultiplied values it is at most that of the
+// alphas, which is αo·255².
+var porterDuff = [...]struct{ a0, a1, b0, b1 int32 }{
+	0:                       {0, 1, 0, 0}, // gfx.SrcIn
+	gfx.SrcOut - gfx.SrcIn:  {255, -1, 0, 0},
+	gfx.SrcAtop - gfx.SrcIn: {0, 1, 255, -1},
+	gfx.DstOver - gfx.SrcIn: {255, -1, 255, 0},
+	gfx.DstIn - gfx.SrcIn:   {0, 0, 0, 1},
+	gfx.DstOut - gfx.SrcIn:  {0, 0, 255, -1},
+	gfx.DstAtop - gfx.SrcIn: {255, -1, 0, 1},
+	gfx.Copy - gfx.SrcIn:    {255, 0, 0, 0},
+	gfx.Xor - gfx.SrcIn:     {255, -1, 255, -1},
+}
+
+// srcOrDst sets o to the result of every blend mode of CSS where the source
+// or the backdrop is transparent: the backdrop if the source is, else the
 // source.
 func srcOrDst(o, s, d []uint8) {
 	if s[3] == 0 {

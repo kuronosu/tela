@@ -25,7 +25,9 @@ import (
 // unmatched one would damage the pixel); they nest the same way and paint
 // the same thing in the same state, and a block whose content does not
 // touch the pixel leaves it alone (a group composites transparent pixels
-// there). The damage is therefore the device bounds of
+// there; one whose operator changes the pixel all the same,
+// gfx.BlendMode.Unbounded, has the bounds of its clip, which differ only
+// where an unmatched push around it does). The damage is therefore the device bounds of
 // the unmatched commands of both frames, with three corrections for what
 // reads pixels away from where it writes:
 //

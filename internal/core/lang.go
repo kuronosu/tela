@@ -188,6 +188,7 @@ func PlatformLanguage() string { return text.PlatformLanguage() }
 // changes. It is
 // safe from any goroutine; a tag that is not well formed panics.
 func SetDefaultLang(tag string) {
+	checkDraw("SetDefaultLang")
 	if tag != "" && !validLangTag(tag) {
 		panic(langMessage("SetDefaultLang", tag))
 	}

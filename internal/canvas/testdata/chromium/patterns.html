@@ -1,0 +1,100 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+@font-face { font-family: "Inter"; src: url("../../../assets/fonts/inter/InterVariable.ttf"); font-weight: 100 900; }
+@font-face { font-family: "Inter"; src: url("../../../assets/fonts/inter/InterVariable-Italic.ttf"); font-weight: 100 900; font-style: italic; }
+@font-face { font-family: "JetBrains Mono"; src: url("../../../assets/fonts/jetbrainsmono/JetBrainsMono-wght.ttf"); font-weight: 100 800; }
+@font-face { font-family: "JetBrains Mono"; src: url("../../../assets/fonts/jetbrainsmono/JetBrainsMono-Italic-wght.ttf"); font-weight: 100 800; font-style: italic; }
+@font-face { font-family: "Source Serif 4"; src: url("../../../assets/fonts/sourceserif4/SourceSerif4-opsz-wght.ttf"); font-weight: 200 900; }
+@font-face { font-family: "Source Serif 4"; src: url("../../../assets/fonts/sourceserif4/SourceSerif4-Italic-opsz-wght.ttf"); font-weight: 200 900; font-style: italic; }
+@font-face { font-family: "Noto Sans Arabic"; src: url("../../../assets/fonts/notosansarabic/NotoSansArabic-wdth-wght.ttf"); font-weight: 100 900; font-stretch: 62.5% 100%; }
+@font-face { font-family: "Noto Color Emoji"; src: url("../../../assets/fonts/notocoloremoji/Noto-COLRv1.ttf"); }
+html, body { margin: 0; padding: 0; overflow: hidden; background: #fff; }
+canvas { display: block; width: 400px; height: 240px; }
+</style></head><body><canvas id="canvas"></canvas>
+<script>
+const loading = [];
+function image(w, data) {
+  const pix = Uint8ClampedArray.from(atob(data), c => c.charCodeAt(0));
+  const cv = document.createElement("canvas");
+  cv.width = w; cv.height = pix.length / 4 / w;
+  cv.getContext("2d").putImageData(new ImageData(pix, w), 0, 0);
+  const img = new Image();
+  img.src = cv.toDataURL();
+  loading.push(img.decode());
+  return img;
+}
+const image0 = image(16, "T0bl/09G5f9PRuX/T0bl/09G5f9PRuX/T0bl/09G5f8AAAAAAAAAAAAAAAAAAAAA4R1IgOEdSIDhHUiA4R1IgE9G5f9PRuX/T0bl/09G5f9PRuX/T0bl/09G5f9PRuX/AAAAAAAAAAAAAAAAAAAAAOEdSIDhHUiA4R1IgOEdSIBPRuX/T0bl/09G5f9PRuX/T0bl/09G5f9PRuX/T0bl/wAAAAAAAAAAAAAAAAAAAADhHUiA4R1IgOEdSIDhHUiAT0bl/09G5f9PRuX/T0bl/09G5f9PRuX/T0bl/09G5f8AAAAAAAAAAAAAAAAAAAAA4R1IgOEdSIDhHUiA4R1IgE9G5f9PRuX/T0bl/09G5f9PRuX/T0bl/09G5f9PRuX/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABPRuX/T0bl/09G5f9PRuX/T0bl/09G5f9PRuX/T0bl/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAT0bl/09G5f9PRuX/T0bl/09G5f9PRuX/T0bl/09G5f8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE9G5f9PRuX/T0bl/09G5f9PRuX/T0bl/09G5f9PRuX/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPWeC//1ngv/9Z4L//WeC//1ngv/9Z4L//WeC//1ngv/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD1ngv/9Z4L//WeC//1ngv/9Z4L//WeC//1ngv/9Z4L/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9Z4L//WeC//1ngv/9Z4L//WeC//1ngv/9Z4L//WeC/8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPWeC//1ngv/9Z4L//WeC//1ngv/9Z4L//WeC//1ngv/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD1ngv/9Z4L//WeC//1ngv/9Z4L//WeC//1ngv/9Z4L/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA9Z4L//WeC//1ngv/9Z4L//WeC//1ngv/9Z4L//WeC/8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPWeC//1ngv/9Z4L//WeC//1ngv/9Z4L//WeC//1ngv/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD1ngv/9Z4L//WeC//1ngv/9Z4L//WeC//1ngv/9Z4L/w==");
+const k = window.devicePixelRatio, cv = document.getElementById("canvas");
+cv.width = 400 * k; cv.height = 240 * k;
+const c = cv.getContext("2d");
+let g;
+Promise.all([...loading, ...[...document.fonts].map(f => f.load())]).then(() => {
+c.scale(k, k);
+// Glyphs at fractions of a pixel and without hinting, as Tela's.
+c.textRendering = "geometricPrecision";
+c.font = "400 16px 'Inter', 'JetBrains Mono', 'Noto Sans Arabic', 'Noto Color Emoji'";
+c.save();
+c.translate(10, 10);
+g = c.createPattern(image0, "repeat"); c.fillStyle = g;
+c.strokeStyle = "rgb(71 85 105 / 1)";
+c.fillRect(0, 0, 85, 60);
+c.strokeRect(0.5, 0.5, 84, 59);
+c.restore();
+c.save();
+c.translate(108, 10);
+g = c.createPattern(image0, "repeat-x"); c.fillStyle = g;
+c.strokeStyle = "rgb(71 85 105 / 1)";
+c.fillRect(0, 0, 85, 60);
+c.strokeRect(0.5, 0.5, 84, 59);
+c.restore();
+c.save();
+c.translate(206, 10);
+g = c.createPattern(image0, "repeat-y"); c.fillStyle = g;
+c.strokeStyle = "rgb(71 85 105 / 1)";
+c.fillRect(0, 0, 85, 60);
+c.strokeRect(0.5, 0.5, 84, 59);
+c.restore();
+c.save();
+c.translate(304, 10);
+g = c.createPattern(image0, "no-repeat"); c.fillStyle = g;
+c.strokeStyle = "rgb(71 85 105 / 1)";
+c.fillRect(0, 0, 85, 60);
+c.strokeRect(0.5, 0.5, 84, 59);
+c.restore();
+g = c.createPattern(image0, "repeat"); c.fillStyle = g;
+c.save();
+c.translate(10, 85);
+c.beginPath();
+c.roundRect(-4, -4, 93, 68, [20]);
+c.fill();
+c.restore();
+c.save();
+c.translate(155, 85);
+c.rotate(0.5235987755982989);
+c.scale(2, 2);
+c.imageSmoothingEnabled = false;
+c.fillRect(0, 0, 40, 25);
+c.restore();
+c.save();
+c.translate(235, 85);
+g = c.createPattern(image0, "repeat"); g.setTransform(new DOMMatrix([0.5, 0.2, -0.2, 0.5, 4, 4])); c.fillStyle = g;
+c.globalAlpha = 0.5;
+c.fillRect(0, 0, 70, 60);
+c.restore();
+g = c.createPattern(image0, "repeat"); g.setTransform(new DOMMatrix([0.5, 0.2, -0.2, 0.5, 4, 4])); c.fillStyle = g;
+c.save();
+g = c.createPattern(image0, "repeat"); g.setTransform(new DOMMatrix([0.3, 0, 0, 0.3, 0, 0])); c.fillStyle = g;
+g = c.createPattern(image0, "repeat"); g.setTransform(new DOMMatrix([0.3, 0, 0, 0.3, 0, 0])); c.strokeStyle = g;
+c.lineWidth = 18;
+c.beginPath();
+c.arc(350, 115, 25, 0, 6.283185307179586);
+c.stroke();
+c.restore();
+g = c.createPattern(image0, "repeat"); c.fillStyle = g;
+c.font = "900 56px 'Inter', 'JetBrains Mono', 'Noto Sans Arabic', 'Noto Color Emoji'";
+c.fillText("Pattern", 10, 220);
+c.translate(300, 170);
+c.scale(1.5, 1.5);
+c.fillRect(0, 0, 60, 40);
+});
+</script></body></html>

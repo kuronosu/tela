@@ -67,6 +67,7 @@ type Typeface struct {
 	hasOS2 bool
 	hhea   tables.Hhea
 	head   tables.Head
+	base   []byte // the raw BASE table
 
 	// From post: the underline (the glyph names are not kept).
 	underlinePosition, underlineThickness int16
@@ -162,6 +163,7 @@ func newTypeface(src tableSource, family string) (*Typeface, error) {
 	if os2, _, err := tables.ParseOs2(raw("OS/2")); err == nil {
 		tf.os2, tf.hasOS2 = os2, true
 	}
+	tf.base = raw("BASE")
 	if post := raw("post"); len(post) >= 32 { // the header of tables.ParsePost
 		tf.underlinePosition = int16(binary.BigEndian.Uint16(post[8:]))
 		tf.underlineThickness = int16(binary.BigEndian.Uint16(post[10:]))

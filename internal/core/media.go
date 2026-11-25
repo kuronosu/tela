@@ -11,6 +11,7 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/kuronosu/tela/internal/anim"
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/style"
 	"github.com/kuronosu/tela/internal/svg"
@@ -89,11 +90,13 @@ func (s *srcSpec) same(o *srcSpec) bool {
 	return s.fsys == nil && o.fsys == nil || s.fsys != nil && o.fsys != nil && safeEqual(s.fsys, o.fsys)
 }
 
-// mediaProps are the Img and Icon props beyond Src and SrcImage, and the
-// texture of a Texture (texture.go).
+// mediaProps are the Img and Icon props beyond Src and SrcImage, the
+// texture of a Texture (texture.go) and the draw function of a Canvas
+// (canvas.go).
 type mediaProps struct {
 	src     srcSpec
 	tex     *Texture
+	draw    canvasDrawer
 	tint    gfx.Color
 	hasTint bool
 }
@@ -474,11 +477,15 @@ func (s *srcSpec) reportKey() string {
 
 // boxMedia is the decoded source of an Img or Icon box given by a
 // srcSpec, and the SVG list recorded for the last options it was drawn
-// with; or the texture of a Texture box.
+// with; or the texture of a Texture box, or the drawing of a Canvas box.
 type boxMedia struct {
 	src   srcSpec
 	asset *imageAsset
 	tex   *texView // texture_tree.go: the box draws its frame (Box.img)
+	// cnv is the canvas, and drawing what it drew last, nil for nothing
+	// (canvas.go).
+	cnv     canvasItem
+	drawing *gfx.DisplayList
 	// rec is the document recorded for recOpts (svg.Doc.Record); recOK
 	// reports that it is valid.
 	rec     *gfx.DisplayList
@@ -499,7 +506,7 @@ func (bx *Box) doc() *svg.Doc {
 // whatever its frames.
 func (bx *Box) imageSize() (w, h, ratio float32) {
 	switch {
-	case bx.kind == style.KindTexture:
+	case bx.kind == style.KindTexture || bx.kind == style.KindCanvas:
 		return 300, 150, 2
 	case bx.med != nil && bx.med.asset != nil:
 		w, h = bx.med.asset.size()
@@ -675,16 +682,20 @@ func mipLevel(img *gfx.Image, w, h float64) *gfx.Image {
 	return img
 }
 
-// paintReplaced paints the image of an Img, Icon or Texture box in its
-// content box.
+// paintReplaced paints the image of an Img, Icon, Texture or Canvas box in
+// its content box.
 func (p *painter) paintReplaced(bx *Box) {
 	doc := bx.doc()
-	if bx.img == nil && doc == nil {
+	if bx.img == nil && doc == nil && bx.kind != style.KindCanvas {
 		return
 	}
 	g := p.geom(bx)
 	c := p.contentRRect(bx, &g)
 	if c.Rect.Empty() {
+		return
+	}
+	if bx.kind == style.KindCanvas {
+		bx.med.cnv.paint(p.b, c, p.ref) // canvas.go
 		return
 	}
 	cs := bx.pcs
@@ -750,4 +761,47 @@ func (bx *Box) imageNatural() (w, h, ratio float32) {
 		return w, h, w / h
 	}
 	return 0, 0, 0
+}
+
+// shownPaint returns cs with the value of the SVG paint property p that
+// box bx shows when its style has none: that of the root of its document
+// for an icon or an SVG image, which browsers transition from and to too
+// (there the root's attributes are part of its style); the text color, and
+// a line width of 1, for a canvas (canvasKey). It is cs itself for another
+// property, a value that is set, and a box that draws with no paints: what
+// its descendants show for an unset value is up to each.
+func shownPaint(bx *Box, p anim.Prop, cs *style.ComputedStyle) *style.ComputedStyle {
+	switch {
+	case !p.IsPaint(),
+		p == anim.PropFill && cs.Fill.Kind != style.SVGPaintUnset,
+		p == anim.PropStroke && cs.Stroke.Kind != style.SVGPaintUnset,
+		p == anim.PropStrokeWidth && cs.StrokeWidthSet:
+		return cs
+	}
+	var root svg.RootPaints
+	if bx.kind == style.KindCanvas {
+		cur := svg.Paint{Kind: svg.PaintCurrentColor}
+		root = svg.RootPaints{Fill: cur, Stroke: cur, StrokeWidth: 1, HasStrokeWidth: true}
+	} else if d := bx.doc(); d != nil {
+		root = d.RootPaints()
+	} else {
+		return cs
+	}
+	u := *cs
+	u.Fill, u.Stroke = stylePaint(root.Fill), stylePaint(root.Stroke)
+	u.StrokeWidth, u.StrokeWidthSet = root.StrokeWidth, root.HasStrokeWidth
+	return &u
+}
+
+// stylePaint is the inverse of svgPaint.
+func stylePaint(p svg.Paint) style.SVGPaint {
+	switch p.Kind {
+	case svg.PaintNone:
+		return style.SVGPaint{Kind: style.SVGPaintNone}
+	case svg.PaintColor:
+		return style.SVGPaint{Kind: style.SVGPaintColor, Color: p.Color}
+	case svg.PaintCurrentColor:
+		return style.SVGPaint{Kind: style.SVGPaintCurrent, Color: gfx.Color{A: 1}}
+	}
+	return style.SVGPaint{}
 }

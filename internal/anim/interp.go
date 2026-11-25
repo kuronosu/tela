@@ -67,6 +67,11 @@ func LerpDim(a, b style.Dim, t float64) (d style.Dim, ok bool) {
 // which is exact for hex and rgb() colors and does not happen for the
 // converted Oklch colors of Tailwind's palette.
 func LerpColor(a, b gfx.Color, t float64) gfx.Color {
+	return lerpColor(a, b, t, isLegacy(a) && isLegacy(b))
+}
+
+// lerpColor is LerpColor in sRGB, or in Oklab.
+func lerpColor(a, b gfx.Color, t float64, srgb bool) gfx.Color {
 	switch t {
 	case 0:
 		return a
@@ -78,7 +83,7 @@ func LerpColor(a, b gfx.Color, t float64) gfx.Color {
 		return gfx.Transparent
 	}
 	var c0, c1, c2 float64
-	if isLegacy(a) && isLegacy(b) {
+	if srgb {
 		c0 = lerp64(float64(a.R*a.A), float64(b.R*b.A), t)
 		c1 = lerp64(float64(a.G*a.A), float64(b.G*b.A), t)
 		c2 = lerp64(float64(a.B*a.A), float64(b.B*b.A), t)

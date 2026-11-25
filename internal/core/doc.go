@@ -463,6 +463,12 @@
 // goroutine, and a frame that arrives only repaints the element
 // (texture_tree.go).
 //
+// Canvases (canvas.go, whose top comment is the reference; ADR-319) are
+// replaced elements whose content a function of the application draws, with
+// the 2D context of a browser's canvas (package canvas): it runs in the paint
+// phase, when something it draws with changed, and records a display list
+// that the element's painting appends.
+//
 // The semantics tree (semantics.go, whose top comment is the reference;
 // ARCHITECTURE section 16) is not a phase of Frame: Tree.Semantics builds
 // it from the Element and Box trees when a consumer asks (tela inspect

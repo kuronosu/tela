@@ -554,6 +554,12 @@ func Primitive(kind style.Kind, children ...Child) Node {
 	}
 	checkMediaProps(kind, d)
 	checkTexture(kind, d)
+	switch {
+	case d.media != nil && d.media.draw != nil:
+		d.media.draw.check(kind, d) // canvas.go
+	case kind == style.KindCanvas:
+		panic("core: a canvas primitive without CanvasDraw")
+	}
 	if kind == style.KindSVG {
 		// Icons are decorative unless they are named (lucide-react's
 		// aria-hidden="true"): with AriaLabel or AriaLabelledBy they are

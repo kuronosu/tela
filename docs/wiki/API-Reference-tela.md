@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`BackgroundGradientFn`](#func-backgroundgradientfn) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultLang`](#func-defaultlang) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`HyphenationPatterns`](#func-hyphenationpatterns) · [`Initial`](#func-initial) · [`Label`](#func-label) · [`Labels`](#func-labels) · [`LabelsChanged`](#func-labelschanged) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`OpenPath`](#func-openpath) · [`OpenURL`](#func-openurl) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`Quit`](#func-quit) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`ResizeBand`](#func-resizeband) · [`ResizeEdges`](#func-resizeedges) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetDefaultLang`](#func-setdefaultlang) · [`SetLabelSource`](#func-setlabelsource) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`SyncFile`](#func-syncfile) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseAccentColor`](#func-useaccentcolor) · [`UseAsync`](#func-useasync) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseCloseRequest`](#func-usecloserequest) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDebounced`](#func-usedebounced) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseHighContrast`](#func-usehighcontrast) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLabels`](#func-uselabels) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseNativeMenus`](#func-usenativemenus) · [`UseOnce`](#func-useonce) · [`UsePlatformKeys`](#func-useplatformkeys) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseQuitRequest`](#func-usequitrequest) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTextScale`](#func-usetextscale) · [`UseTexture`](#func-usetexture) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`UseWindow`](#func-usewindow) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`BackgroundGradientFn`](#func-backgroundgradientfn) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultLang`](#func-defaultlang) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`HyphenationPatterns`](#func-hyphenationpatterns) · [`Initial`](#func-initial) · [`Label`](#func-label) · [`Labels`](#func-labels) · [`LabelsChanged`](#func-labelschanged) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustPath`](#func-mustpath) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`OpenPath`](#func-openpath) · [`OpenURL`](#func-openurl) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParsePath`](#func-parsepath) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`Quit`](#func-quit) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`ResizeBand`](#func-resizeband) · [`ResizeEdges`](#func-resizeedges) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetDefaultLang`](#func-setdefaultlang) · [`SetLabelSource`](#func-setlabelsource) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`SyncFile`](#func-syncfile) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseAccentColor`](#func-useaccentcolor) · [`UseAsync`](#func-useasync) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseCloseRequest`](#func-usecloserequest) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDebounced`](#func-usedebounced) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseHighContrast`](#func-usehighcontrast) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLabels`](#func-uselabels) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseNativeMenus`](#func-usenativemenus) · [`UseOnce`](#func-useonce) · [`UsePlatformKeys`](#func-useplatformkeys) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseQuitRequest`](#func-usequitrequest) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTextScale`](#func-usetextscale) · [`UseTexture`](#func-usetexture) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`UseWindow`](#func-usewindow) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Initial`](#func-initial) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
@@ -21,12 +21,18 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Async`](#type-async): [`UseAsync`](#func-useasync) · [`Reload`](#func-async-reload)
   - [`type Backdrop`](#type-backdrop)
   - [`type Callback`](#type-callback): [`UseCallback`](#func-usecallback) · [`Fn`](#func-callback-fn) · [`IsZero`](#func-callback-iszero)
+  - [`type Canvas`](#type-canvas): [`Arc`](#func-canvas-arc) · [`ArcTo`](#func-canvas-arcto) · [`BeginPath`](#func-canvas-beginpath) · [`BezierCurveTo`](#func-canvas-beziercurveto) · [`ClearRect`](#func-canvas-clearrect) · [`Clip`](#func-canvas-clip) · [`ClipPath`](#func-canvas-clippath) · [`ClosePath`](#func-canvas-closepath) · [`Color`](#func-canvas-color) · [`CreateConicGradient`](#func-canvas-createconicgradient) · [`CreateLinearGradient`](#func-canvas-createlineargradient) · [`CreatePattern`](#func-canvas-createpattern) · [`CreateRadialGradient`](#func-canvas-createradialgradient) · [`DrawIcon`](#func-canvas-drawicon) · [`DrawImage`](#func-canvas-drawimage) · [`DrawImageRegion`](#func-canvas-drawimageregion) · [`DrawImageSize`](#func-canvas-drawimagesize) · [`Ellipse`](#func-canvas-ellipse) · [`Fill`](#func-canvas-fill) · [`FillPath`](#func-canvas-fillpath) · [`FillRect`](#func-canvas-fillrect) · [`FillText`](#func-canvas-filltext) · [`IsPointInPath`](#func-canvas-ispointinpath) · [`IsPointInStroke`](#func-canvas-ispointinstroke) · [`LineDash`](#func-canvas-linedash) · [`LineTo`](#func-canvas-lineto) · [`MeasureText`](#func-canvas-measuretext) · [`MoveTo`](#func-canvas-moveto) · [`QuadraticCurveTo`](#func-canvas-quadraticcurveto) · [`Rect`](#func-canvas-rect) · [`RequestFrame`](#func-canvas-requestframe) · [`Reset`](#func-canvas-reset) · [`ResetTransform`](#func-canvas-resettransform) · [`Restore`](#func-canvas-restore) · [`Rotate`](#func-canvas-rotate) · [`RoundRect`](#func-canvas-roundrect) · [`Save`](#func-canvas-save) · [`Scale`](#func-canvas-scale) · [`SetLineDash`](#func-canvas-setlinedash) · [`SetTransform`](#func-canvas-settransform) · [`Stroke`](#func-canvas-stroke) · [`StrokePath`](#func-canvas-strokepath) · [`StrokeRect`](#func-canvas-strokerect) · [`StrokeText`](#func-canvas-stroketext) · [`Transform`](#func-canvas-transform) · [`Translate`](#func-canvas-translate)
+  - [`type CanvasFont`](#type-canvasfont)
+  - [`type CanvasGradient`](#type-canvasgradient): [`AddColorStop`](#func-canvasgradient-addcolorstop)
+  - [`type CanvasPattern`](#type-canvaspattern): [`SetTransform`](#func-canvaspattern-settransform)
+  - [`type CanvasStyle`](#type-canvasstyle)
   - [`type ChangeEvent`](#type-changeevent): [`DefaultPrevented`](#func-changeevent-defaultprevented) · [`PreventDefault`](#func-changeevent-preventdefault) · [`StopPropagation`](#func-changeevent-stoppropagation)
   - [`type Child`](#type-child)
   - [`type CloseRequestEvent`](#type-closerequestevent): [`DefaultPrevented`](#func-closerequestevent-defaultprevented) · [`PreventDefault`](#func-closerequestevent-preventdefault)
   - [`type Color`](#type-color): [`Hex`](#func-hex) · [`OKLCH`](#func-oklch) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`UseAccentColor`](#func-useaccentcolor) · [`Clamp`](#func-color-clamp) · [`IsFinite`](#func-color-isfinite) · [`IsOpaque`](#func-color-isopaque) · [`MulAlpha`](#func-color-mulalpha) · [`NRGBA8`](#func-color-nrgba8) · [`Premul8`](#func-color-premul8) · [`Premultiplied`](#func-color-premultiplied) · [`String`](#func-color-string) · [`ToOKLCH`](#func-color-tooklch) · [`ToOklab`](#func-color-tooklab) · [`WithAlpha`](#func-color-withalpha)
   - [`type ColorScheme`](#type-colorscheme): [`UseColorScheme`](#func-usecolorscheme) · [`String`](#func-colorscheme-string)
   - [`type Component`](#type-component)
+  - [`type CompositeOperation`](#type-compositeoperation): [`String`](#func-compositeoperation-string)
   - [`type CompositionEvent`](#type-compositionevent): [`DefaultPrevented`](#func-compositionevent-defaultprevented) · [`PreventDefault`](#func-compositionevent-preventdefault) · [`StopPropagation`](#func-compositionevent-stoppropagation)
   - [`type Context`](#type-context): [`CreateContext`](#func-createcontext) · [`Provider`](#func-context-provider)
   - [`type DataTransfer`](#type-datatransfer): [`ClearData`](#func-datatransfer-cleardata) · [`Files`](#func-datatransfer-files) · [`Get`](#func-datatransfer-get) · [`GetData`](#func-datatransfer-getdata) · [`HTML`](#func-datatransfer-html) · [`Has`](#func-datatransfer-has) · [`Image`](#func-datatransfer-image) · [`Set`](#func-datatransfer-set) · [`SetData`](#func-datatransfer-setdata) · [`SetDragImage`](#func-datatransfer-setdragimage) · [`SetFiles`](#func-datatransfer-setfiles) · [`SetHTML`](#func-datatransfer-sethtml) · [`SetImage`](#func-datatransfer-setimage) · [`SetText`](#func-datatransfer-settext) · [`Text`](#func-datatransfer-text) · [`Types`](#func-datatransfer-types)
@@ -41,6 +47,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type ElementRef`](#type-elementref): [`UseElementRef`](#func-useelementref) · [`Blur`](#func-elementref-blur) · [`Bounds`](#func-elementref-bounds) · [`Click`](#func-elementref-click) · [`Focus`](#func-elementref-focus) · [`Focused`](#func-elementref-focused) · [`ScrollBy`](#func-elementref-scrollby) · [`ScrollIntoView`](#func-elementref-scrollintoview) · [`ScrollOffset`](#func-elementref-scrolloffset) · [`ScrollTo`](#func-elementref-scrollto) · [`ScrollToIndex`](#func-elementref-scrolltoindex) · [`Select`](#func-elementref-select) · [`SelectionRange`](#func-elementref-selectionrange) · [`SetSelectionRange`](#func-elementref-setselectionrange) · [`Value`](#func-elementref-value)
   - [`type Fence`](#type-fence): [`SyncFile`](#func-syncfile)
   - [`type FileType`](#type-filetype)
+  - [`type FillRule`](#type-fillrule): [`String`](#func-fillrule-string)
   - [`type FocusEvent`](#type-focusevent): [`DefaultPrevented`](#func-focusevent-defaultprevented) · [`PreventDefault`](#func-focusevent-preventdefault) · [`StopPropagation`](#func-focusevent-stoppropagation)
   - [`type Font`](#type-font): [`FontData`](#func-fontdata) · [`FontFS`](#func-fontfs) · [`Emoji`](#func-font-emoji) · [`Mono`](#func-font-mono) · [`Sans`](#func-font-sans) · [`Scripts`](#func-font-scripts) · [`Serif`](#func-font-serif)
   - [`type FrameTime`](#type-frametime)
@@ -56,10 +63,14 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type KeyName`](#type-keyname)
   - [`type KeyboardEvent`](#type-keyboardevent): [`CmdOrCtrl`](#func-keyboardevent-cmdorctrl) · [`DefaultPrevented`](#func-keyboardevent-defaultprevented) · [`PreventDefault`](#func-keyboardevent-preventdefault) · [`StopPropagation`](#func-keyboardevent-stoppropagation)
   - [`type LabelSource`](#type-labelsource)
+  - [`type LineCap`](#type-linecap): [`String`](#func-linecap-string)
+  - [`type LineJoin`](#type-linejoin): [`String`](#func-linejoin-string)
   - [`type MouseButton`](#type-mousebutton): [`String`](#func-mousebutton-string)
   - [`type MouseButtons`](#type-mousebuttons): [`Has`](#func-mousebuttons-has)
   - [`type MouseEvent`](#type-mouseevent): [`CmdOrCtrl`](#func-mouseevent-cmdorctrl) · [`DefaultPrevented`](#func-mouseevent-defaultprevented) · [`PreventDefault`](#func-mouseevent-preventdefault) · [`StopPropagation`](#func-mouseevent-stoppropagation)
   - [`type Node`](#type-node): [`C`](#func-c) · [`CP`](#func-cp) · [`Memo`](#func-memo) · [`WithKey`](#func-withkey)
+  - [`type Path2D`](#type-path2d): [`MustPath`](#func-mustpath) · [`ParsePath`](#func-parsepath) · [`AddPath`](#func-path2d-addpath) · [`Arc`](#func-path2d-arc) · [`ArcTo`](#func-path2d-arcto) · [`BezierCurveTo`](#func-path2d-beziercurveto) · [`ClosePath`](#func-path2d-closepath) · [`Contains`](#func-path2d-contains) · [`Ellipse`](#func-path2d-ellipse) · [`LineTo`](#func-path2d-lineto) · [`MoveTo`](#func-path2d-moveto) · [`QuadraticCurveTo`](#func-path2d-quadraticcurveto) · [`Rect`](#func-path2d-rect) · [`RoundRect`](#func-path2d-roundrect)
+  - [`type PatternRepeat`](#type-patternrepeat)
   - [`type Point`](#type-point)
   - [`type PointerEvent`](#type-pointerevent): [`CmdOrCtrl`](#func-pointerevent-cmdorctrl) · [`DefaultPrevented`](#func-pointerevent-defaultprevented) · [`PreventDefault`](#func-pointerevent-preventdefault) · [`StopPropagation`](#func-pointerevent-stoppropagation)
   - [`type PointerKind`](#type-pointerkind): [`String`](#func-pointerkind-string)
@@ -81,6 +92,9 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type StopHandler`](#type-stophandler): [`StopPropagation`](#func-stoppropagation)
   - [`type StyleProp`](#type-styleprop): [`BackgroundGradient`](#func-backgroundgradient) · [`BackgroundGradientFn`](#func-backgroundgradientfn) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Left`](#func-left) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Scale`](#func-scale) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`ZIndex`](#func-zindex) · [`Build`](#func-styleprop-build) · [`Ops`](#func-styleprop-ops)
   - [`type SubmitEvent`](#type-submitevent): [`DefaultPrevented`](#func-submitevent-defaultprevented) · [`PreventDefault`](#func-submitevent-preventdefault) · [`StopPropagation`](#func-submitevent-stoppropagation)
+  - [`type TextAlign`](#type-textalign)
+  - [`type TextBaseline`](#type-textbaseline)
+  - [`type TextMetrics`](#type-textmetrics)
   - [`type Texture`](#type-texture): [`UseTexture`](#func-usetexture) · [`Device`](#func-texture-device) · [`Import`](#func-texture-import) · [`NextFrame`](#func-texture-nextframe) · [`OnResize`](#func-texture-onresize) · [`Size`](#func-texture-size) · [`Stats`](#func-texture-stats) · [`Submit`](#func-texture-submit) · [`SubmitImage`](#func-texture-submitimage)
   - [`type TextureBuffer`](#type-texturebuffer): [`Close`](#func-texturebuffer-close)
   - [`type TextureDevice`](#type-texturedevice)
@@ -2187,6 +2201,773 @@ func (c Callback[F]) IsZero() bool
 
 IsZero reports whether c is the zero Callback, which is not tied to any UseCallback slot: Fn panics. A Callback left unset in a props struct, or read from a context default without a Provider, is zero.
 
+### type Canvas
+
+```go
+type Canvas = canvas.Canvas
+```
+
+Canvas is what the function given to h.Canvas draws with: the 2D context of a browser's canvas, with the same methods over float64, and its properties as fields. The function records a drawing, which Tela keeps and paints at any scale: every draw starts from an empty canvas, and nothing is drawn again until something changes.
+
+```go
+Canvas(func(c *tela.Canvas) {
+    r := min(c.Width, c.Height)/2 - 8
+    c.LineWidth, c.LineCap = 8, tela.CapRound
+    c.BeginPath()
+    c.Arc(c.Width/2, c.Height/2, r, 0, 2*math.Pi*progress)
+    c.Stroke()
+}, Class("size-32 stroke-primary"), AriaLabel("Progress"))
+```
+
+##### When it draws
+
+The function runs on the UI thread, while a frame is painted and after its layout, when something it draws with changed: at the mount and at every build of the component that made the element, for a new size, display scale, style (the color, the fill, the stroke), theme or color scheme, when a [`Value`](#type-value) it read with Get changes (no component builds for that), and for [`Canvas.RequestFrame`](#func-canvas-requestframe). A canvas that nothing shows waits until something does. A drawing equal to the last one paints nothing.
+
+It must not call hooks, set state (a [`Setter`](#type-setter), a [`Value`](#type-value), [`Animate`](#func-animate), [`Post`](#func-post)) or keep the Canvas: in dev mode those panic. What a simulation moves from a draw to the next one is kept in a [`UseRef`](#func-useref).
+
+##### Colors
+
+FillStyle and StrokeStyle start as the fill and the stroke of the element (fill-\*, stroke-\*), and as its text color without those classes, so a canvas follows the theme as an icon does. Color reads any other color of the theme:
+
+```go
+c.FillStyle = c.Color("chart-1")
+```
+
+##### Animation
+
+A draw that calls RequestFrame is followed by another one at the window's next frame. Time and Delta tell how long the canvas has been moving; they stand still while it rests, and while it is off screen or in a window that gets no frames, where it waits. Reduced motion changes nothing: see [`UseReducedMotion`](#func-usereducedmotion).
+
+```go
+ball := tela.UseRef(Ball{})
+return Canvas(func(c *tela.Canvas) {
+    ball.Current.Move(c.Delta)
+    c.BeginPath()
+    c.Arc(ball.Current.X, ball.Current.Y, 12, 0, 2*math.Pi)
+    c.Fill()
+    c.RequestFrame()
+}, Class("w-full h-64 fill-sky-500"))
+```
+
+##### Text
+
+Font starts as the element's font (font-\*, text-\*, italic, tracking-\*, and what the theme and the desktop make of them), and a canvas draws again when that changes. A field of it set to zero is the element's again:
+
+```go
+c.Font.Size, c.Font.Weight = 12, 600 // the element's family
+c.Font = tela.CanvasFont{Family: "ui-monospace, monospace"}
+c.TextAlign, c.TextBaseline = tela.TextAlignCenter, tela.BaselineMiddle
+c.FillText("42 %", c.Width/2, c.Height/2)
+```
+
+The direction and the language are the element's (h.Dir, h.Lang), as are the features of its font (tabular-nums). Text is shaped once, however many draws write it.
+
+##### Events
+
+In the handlers of a canvas LocalX and LocalY are in the coordinates it draws in, from its content box: a border or padding does not move them.
+
+##### Compositing
+
+A draw that uses a GlobalCompositeOperation other than the first one, or clears a part of the canvas with ClearRect, makes the canvas a layer of its own, so that what is behind it is not erased. The others cost no layer.
+
+##### From the browser's API
+
+Methods have the browser's names, with a capital, and its properties are fields, with these differences:
+
+```go
+browser                              Tela
+getContext, width, height            the draw function's argument, Width, Height
+requestAnimationFrame(draw)          c.RequestFrame(), Time and Delta
+fillStyle = "#4f46e5"                FillStyle = tela.Hex("#4f46e5"), or Color("primary")
+fillStyle = gradient                 FillStyle = gradient, a CanvasGradient
+gradient.addColorStop(0, "red")      AddColorStop(0, color)
+createPattern(img, "repeat-x")       CreatePattern(img, tela.RepeatX)
+pattern.setTransform(matrix)         SetTransform(m11, m12, m21, m22, dx, dy)
+fill("evenodd"), clip("evenodd")     FillRule = tela.EvenOdd, then Fill or Clip
+fill(path), stroke(path), clip(path) FillPath(path), StrokePath(path), ClipPath(path)
+new Path2D("M0 0L9 9"), new Path2D() tela.ParsePath("M0 0L9 9"), new(tela.Path2D)
+isPointInPath(path, x, y)            path.Contains(x, y), in the path's coordinates, also outside a draw
+roundRect(x, y, w, h, [8, 4])        RoundRect(x, y, w, h, 8, 4)
+setLineDash([4, 2]), getLineDash()   SetLineDash(4, 2), LineDash()
+lineCap = "round", lineJoin = "bevel" LineCap = tela.CapRound, LineJoin = tela.JoinBevel
+font = "600 12px Inter"              Font = tela.CanvasFont{Family: "Inter", Size: 12, Weight: 600}
+textAlign = "center"                 TextAlign = tela.TextAlignCenter
+textBaseline = "middle"              TextBaseline = tela.BaselineMiddle
+letterSpacing = "2px"                LetterSpacing = 2
+direction, lang, fontVariantNumeric  h.Dir, h.Lang and classes on the element
+drawImage(img, x, y)                 DrawImage(img, x, y), of an image.Image
+drawImage(img, x, y, w, h)           DrawImageSize(img, x, y, w, h)
+drawImage(img, sx, ..., dh)          DrawImageRegion(img, sx, ..., dh)
+imageSmoothingEnabled = false        ImageSmoothing = false
+globalCompositeOperation = "xor"     GlobalCompositeOperation = tela.CompositeXor
+shadowColor = "rgb(0 0 0 / 50%)"     ShadowColor = tela.Black.WithAlpha(0.5)
+filter, getImageData, putImageData   none (pixels: UseTexture)
+```
+
+FillStyle, StrokeStyle and Font start as the element's, where the browser starts black and in 10px sans-serif. Invalid values never stop a draw: what the browser ignores is ignored when it draws, and what it answers with an error (a negative radius, an offset of a stop above 1) does nothing.
+
+`Canvas` is an alias of `canvas.Canvas`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type Canvas struct {
+    // Width and Height are the size of the canvas in logical pixels: the
+    // content box of its element, snapped to device pixels as it is painted.
+    // (0, 0) is its top left corner. Nothing is drawn outside.
+    Width, Height float64
+    // Time is the canvas's own clock: how long it has been running, the sum
+    // of the Deltas. It is 0 at the first draw and moves with the frame clock
+    // from a draw that called [Canvas.RequestFrame] to the next draw; it
+    // stands still while the canvas rests, and while it waits off screen or
+    // in a window that gets no frames, so what moves with it goes on from
+    // where it was.
+    Time time.Duration
+    // Delta is how far Time moved since the canvas's previous draw. It is 0
+    // when the clock did not run: at the first draw, at a second one within
+    // the same frame, and at the first one after a rest (the previous draw
+    // did not call RequestFrame) or a wait (off screen, hidden, or more than
+    // a second without frames).
+    Delta time.Duration
+
+    // FillStyle is what Fill, FillRect, FillText and DrawIcon paint with: a
+    // Color, a gradient or a pattern. It starts as the element's fill (a
+    // fill-* class, its own or inherited), or its text color without one;
+    // nil and transparent paint nothing, as fill-none.
+    FillStyle Style
+    // StrokeStyle is what Stroke, StrokeRect and StrokeText paint with: a
+    // Color, a gradient or a pattern. It starts as the element's stroke (a
+    // stroke-* class, its own or inherited), or its text color without one;
+    // nil and transparent paint nothing, as stroke-none.
+    StrokeStyle Style
+    // LineWidth is the width of lines. It starts as the element's
+    // stroke-width (stroke-2), or 1. Lines are drawn only for a finite width
+    // above 0.
+    LineWidth float64
+    // LineCap is the shape of the ends of lines, CapButt at first.
+    LineCap LineCap
+    // LineJoin is the shape of the corners of lines, JoinMiter at first.
+    LineJoin LineJoin
+    // MiterLimit is the longest miter a JoinMiter corner may have, as a
+    // multiple of LineWidth, 10 at first; a longer one is cut as JoinBevel.
+    // A limit that is not above 0 counts as 10.
+    MiterLimit float64
+    // LineDashOffset is where in the pattern of SetLineDash lines start, 0
+    // at first. A value that is not finite counts as 0.
+    LineDashOffset float64
+    // GlobalAlpha multiplies the alpha of everything drawn, shadows
+    // included, 1 at first. It is cut to 0 to 1; NaN draws nothing.
+    GlobalAlpha float64
+    // GlobalCompositeOperation is how what is drawn meets what the canvas
+    // has, source-over at first: on top. Operations see the canvas only,
+    // never what is behind it: a draw that uses another one makes the canvas
+    // a layer of its own. An unknown value counts as source-over.
+    GlobalCompositeOperation CompositeOperation
+    // FillRule is the rule of Fill, FillPath, Clip, ClipPath and
+    // IsPointInPath, NonZero at first: the argument of the browser's fill,
+    // clip and isPointInPath.
+    FillRule FillRule
+
+    // ShadowColor is the color of the shadow of everything drawn,
+    // transparent at first, which draws none. There is a shadow when
+    // ShadowBlur or an offset is not 0 too. Its alpha is multiplied by that
+    // of what is drawn. The lengths are in the canvas's logical pixels,
+    // whatever the transform.
+    ShadowColor gfx.Color
+    // ShadowBlur is how far shadows blur, 0 at first: twice the standard
+    // deviation, as in CSS. A value that is not above 0 and finite counts as
+    // 0.
+    ShadowBlur float64
+    // ShadowOffsetX and ShadowOffsetY are how far shadows are to the right
+    // and down, 0 at first. A value that is not finite counts as 0.
+    ShadowOffsetX, ShadowOffsetY float64
+
+    // ImageSmoothing reports whether images and patterns are smoothed when
+    // they are scaled, true at first; without it they show their pixels:
+    // the browser's imageSmoothingEnabled.
+    ImageSmoothing bool
+
+    // Font is the font of text. It starts as the element's (font-*, text-*,
+    // italic, and the theme), and a zero field is the element's.
+    Font CanvasFont
+    // LetterSpacing is added after each character of text, in pixels. It
+    // starts as the element's (tracking-*). A value that is not finite
+    // counts as 0.
+    LetterSpacing float64
+    // TextAlign is where in a text its x is: TextAlignStart at first.
+    TextAlign TextAlign
+    // TextBaseline is where in a text its y is: BaselineAlphabetic at first.
+    TextBaseline TextBaseline
+    // contains filtered or unexported fields
+}
+```
+
+**Example**
+
+A gauge that follows a Value: a change draws it again, and builds nothing.
+
+```go
+t := &exampleT{}
+defer t.close()
+gauge := func() tela.Node {
+    v := tela.UseValue(0.25)
+    return Div(
+        Canvas(func(c *tela.Canvas) {
+            r := min(c.Width, c.Height)/2 - 8
+            c.LineWidth, c.LineCap = 8, tela.CapButt
+            c.BeginPath()
+            c.Arc(c.Width/2, c.Height/2, r, 0, 2*math.Pi*v.Get())
+            c.Stroke()
+        }, Class("size-32 stroke-[#4f46e5]"), AriaLabel("Progress")),
+        Button(OnClick(func() { v.Set(0.75) }), Text("More")))
+}
+app := telatest.Mount(t, tela.C(gauge))
+fmt.Println(app.AriaSnapshot())
+fmt.Println(app.PixelAt(8, 64)) // the left of the ring
+app.Click(telatest.ByRole("button", "More"))
+fmt.Println(app.PixelAt(8, 64))
+// Output:
+// - img "Progress"
+// - button "More"
+// {255 255 255 255}
+// {79 70 229 255}
+```
+
+**Example (shadow)**
+
+Shadows follow the shape, also that of text and images.
+
+```go
+t := &exampleT{}
+defer t.close()
+card := func() tela.Node {
+    return Canvas(func(c *tela.Canvas) {
+        c.ShadowColor = tela.Black.WithAlpha(0.5)
+        c.ShadowOffsetX, c.ShadowOffsetY = 10, 10
+        c.FillStyle = tela.Hex("#ff0000")
+        c.FillRect(10, 10, 40, 40)
+    }, Class("size-20"))
+}
+app := telatest.Mount(t, tela.C(card))
+fmt.Println(app.PixelAt(30, 30), app.PixelAt(55, 55), app.PixelAt(5, 5))
+// Output: {255 0 0 255} {127 127 127 255} {255 255 255 255}
+```
+
+#### func (*Canvas) Arc
+
+```go
+func (c *Canvas) Arc(x, y, radius, startAngle, endAngle float64, counterclockwise ...bool)
+```
+
+Arc adds an arc of the circle of radius around x, y, from startAngle to endAngle in radians (0 points right, and angles grow clockwise on the screen), with a straight line to its start from the last point of the path, if there is one. It goes clockwise, or counterclockwise with true as the last argument, and at most once around. A negative radius adds nothing, where the browser throws an error.
+
+#### func (*Canvas) ArcTo
+
+```go
+func (c *Canvas) ArcTo(x1, y1, x2, y2, radius float64)
+```
+
+ArcTo rounds the corner that the lines from the last point of the path to x1, y1 and from there to x2, y2 make: it adds the arc of radius that touches both, with a straight line to its start. A negative radius adds nothing, where the browser throws an error.
+
+#### func (*Canvas) BeginPath
+
+```go
+func (c *Canvas) BeginPath()
+```
+
+BeginPath empties the path: the next Fill or Stroke draws only what is added after it.
+
+#### func (*Canvas) BezierCurveTo
+
+```go
+func (c *Canvas) BezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y float64)
+```
+
+BezierCurveTo adds a cubic Bezier curve from the last point of the path to x, y, with the control points cp1x, cp1y and cp2x, cp2y.
+
+#### func (*Canvas) ClearRect
+
+```go
+func (c *Canvas) ClearRect(x, y, width, height float64)
+```
+
+ClearRect makes a rectangle of the canvas transparent again, inside the clip. The path stays as it is.
+
+A canvas starts every draw empty: only what the draw itself painted needs clearing. A rectangle that covers the whole canvas, with no clip, forgets everything drawn so far, and costs nothing; another one makes the canvas a layer of its own. Upright, it clears whole pixels of the screen.
+
+#### func (*Canvas) Clip
+
+```go
+func (c *Canvas) Clip()
+```
+
+Clip cuts what is drawn from now on to the inside of the path, besides the clips made before, until the Restore that brings back the state before it. An empty path hides everything.
+
+#### func (*Canvas) ClipPath
+
+```go
+func (c *Canvas) ClipPath(path *Path2D)
+```
+
+ClipPath cuts what is drawn from now on to the inside of path, as Clip does to the one of the current path, with the transform current now.
+
+#### func (*Canvas) ClosePath
+
+```go
+func (c *Canvas) ClosePath()
+```
+
+ClosePath closes the last subpath with a straight line to its start, where the next one starts.
+
+#### func (*Canvas) Color
+
+```go
+func (c *Canvas) Color(token string) gfx.Color
+```
+
+Color returns the color of a theme token ("primary") or of the palette ("violet-500") in the element's color scheme, as ThemeValues.Color does. An unknown name is transparent; in dev mode it panics with the closest token. A change of the theme or of the scheme draws the canvas again.
+
+#### func (*Canvas) CreateConicGradient
+
+```go
+func (c *Canvas) CreateConicGradient(startAngle, x, y float64) *CanvasGradient
+```
+
+CreateConicGradient returns a gradient that turns clockwise around x, y, from startAngle in radians (0 points right), at offset 0, a whole turn.
+
+#### func (*Canvas) CreateLinearGradient
+
+```go
+func (c *Canvas) CreateLinearGradient(x0, y0, x1, y1 float64) *CanvasGradient
+```
+
+CreateLinearGradient returns a gradient along the line from x0, y0, at offset 0, to x1, y1, at offset 1. The colors at its ends go on beyond them. A line of no length paints nothing.
+
+#### func (*Canvas) CreatePattern
+
+```go
+func (c *Canvas) CreatePattern(img image.Image, repeat PatternRepeat) *CanvasPattern
+```
+
+CreatePattern returns a pattern of img, repeated in both directions, in one of them or in none. The image must not be modified while it is used. An image of no size paints nothing, and a nil one panics in dev mode.
+
+#### func (*Canvas) CreateRadialGradient
+
+```go
+func (c *Canvas) CreateRadialGradient(x0, y0, r0, x1, y1, r1 float64) *CanvasGradient
+```
+
+CreateRadialGradient returns a gradient between two circles: around x0, y0 with radius r0, at offset 0, and around x1, y1 with radius r1, at offset 1. When neither circle is inside the other, the gradient paints a cone and nothing outside it. Two equal circles paint nothing, and neither does a negative radius, where the browser throws an error.
+
+#### func (*Canvas) DrawIcon
+
+```go
+func (c *Canvas) DrawIcon(icon Icon, x, y, width, height float64)
+```
+
+DrawIcon draws an icon (a tela.Icon) in a rectangle, as h.Icon does in its box: sharp at any scale, fitted by its viewBox, with the color of FillStyle as its currentColor. A gradient or a pattern paints the whole shape of the icon instead, whatever its own colors.
+
+#### func (*Canvas) DrawImage
+
+```go
+func (c *Canvas) DrawImage(img image.Image, x, y float64)
+```
+
+DrawImage draws an image with its top left corner at x, y, one unit for each of its pixels. The image must not be modified while a canvas draws it: it is converted once, while it is drawn. Make it once too, not in each draw. A nil image panics in dev mode.
+
+Upright, an image covers whole pixels of the screen, so that images side by side leave no seams.
+
+#### func (*Canvas) DrawImageRegion
+
+```go
+func (c *Canvas) DrawImageRegion(img image.Image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight float64)
+```
+
+DrawImageRegion draws the rectangle sx, sy, sWidth, sHeight of an image, in its pixels from its top left one, scaled to the rectangle dx, dy, dWidth, dHeight of the canvas. What is outside the image draws nothing. A negative size is that of the same rectangle from its other side: it mirrors nothing.
+
+#### func (*Canvas) DrawImageSize
+
+```go
+func (c *Canvas) DrawImageSize(img image.Image, x, y, width, height float64)
+```
+
+DrawImageSize draws an image scaled to a rectangle.
+
+#### func (*Canvas) Ellipse
+
+```go
+func (c *Canvas) Ellipse(x, y, radiusX, radiusY, rotation, startAngle, endAngle float64, counterclockwise ...bool)
+```
+
+Ellipse adds an arc of an ellipse, as Arc does of a circle: the ellipse around x, y with radii radiusX and radiusY, turned by rotation radians. The angles are those from its own axes.
+
+#### func (*Canvas) Fill
+
+```go
+func (c *Canvas) Fill()
+```
+
+Fill fills the path with FillStyle, its open subpaths as if they were closed.
+
+#### func (*Canvas) FillPath
+
+```go
+func (c *Canvas) FillPath(path *Path2D)
+```
+
+FillPath fills path as Fill does the current one, with the transform current now. The current path stays as it is.
+
+#### func (*Canvas) FillRect
+
+```go
+func (c *Canvas) FillRect(x, y, width, height float64)
+```
+
+FillRect fills a rectangle with FillStyle. The path stays as it is.
+
+#### func (*Canvas) FillText
+
+```go
+func (c *Canvas) FillText(s string, x, y float64, maxWidth ...float64)
+```
+
+FillText writes s on one line with FillStyle, in Font, at the point x, y, which TextAlign and TextBaseline place in it. Line breaks and tabs are spaces. A maxWidth condenses a text that is wider to that width; one that is not above 0 draws nothing.
+
+#### func (*Canvas) IsPointInPath
+
+```go
+func (c *Canvas) IsPointInPath(x, y float64) bool
+```
+
+IsPointInPath reports whether the point x, y is inside the path, as the canvas's FillRule tells, or on it. The point is one of the canvas, in logical pixels, whatever the transform: the pointer's, in an event's coordinates of the element's content box. A handler of events asks [`Path2D.Contains`](#func-path2d-contains) instead: a Canvas is usable only while it draws.
+
+#### func (*Canvas) IsPointInStroke
+
+```go
+func (c *Canvas) IsPointInStroke(x, y float64) bool
+```
+
+IsPointInStroke reports whether the point x, y, one of the canvas as in IsPointInPath, is inside what Stroke would draw, or on its edge.
+
+#### func (*Canvas) LineDash
+
+```go
+func (c *Canvas) LineDash() []float64
+```
+
+LineDash returns the lengths given to SetLineDash, an even number of them, and none when lines are whole.
+
+#### func (*Canvas) LineTo
+
+```go
+func (c *Canvas) LineTo(x, y float64)
+```
+
+LineTo adds a straight line from the last point of the path to x, y, or starts a subpath there when the path is empty.
+
+#### func (*Canvas) MeasureText
+
+```go
+func (c *Canvas) MeasureText(s string) TextMetrics
+```
+
+MeasureText returns the sizes of s as FillText would write it, with Font, LetterSpacing, TextAlign and TextBaseline as they are now.
+
+#### func (*Canvas) MoveTo
+
+```go
+func (c *Canvas) MoveTo(x, y float64)
+```
+
+MoveTo starts a new subpath at x, y.
+
+#### func (*Canvas) QuadraticCurveTo
+
+```go
+func (c *Canvas) QuadraticCurveTo(cpx, cpy, x, y float64)
+```
+
+QuadraticCurveTo adds a quadratic Bezier curve from the last point of the path to x, y, with the control point cpx, cpy.
+
+#### func (*Canvas) Rect
+
+```go
+func (c *Canvas) Rect(x, y, width, height float64)
+```
+
+Rect adds a rectangle as a closed subpath, from its corner x, y.
+
+#### func (*Canvas) RequestFrame
+
+```go
+func (c *Canvas) RequestFrame()
+```
+
+RequestFrame asks for one more draw, at the window's next frame: call it in the draw function for as long as something moves, as a browser's animation calls requestAnimationFrame. Without it the canvas rests, and the window sleeps.
+
+Off screen (scrolled out of view, invisible), or in a window that gets no frames (hidden, minimized), the request waits, and asks for no frames; the canvas goes on when it is shown.
+
+#### func (*Canvas) Reset
+
+```go
+func (c *Canvas) Reset()
+```
+
+Reset makes the canvas as it was when the draw started: empty, without a path, a clip or saved states, its fields as they were then.
+
+#### func (*Canvas) ResetTransform
+
+```go
+func (c *Canvas) ResetTransform()
+```
+
+ResetTransform makes the current transform the identity.
+
+#### func (*Canvas) Restore
+
+```go
+func (c *Canvas) Restore()
+```
+
+Restore brings back the state of the last Save that was not restored. It does nothing without one.
+
+#### func (*Canvas) Rotate
+
+```go
+func (c *Canvas) Rotate(angle float64)
+```
+
+Rotate turns what is drawn from now on by angle radians around the origin, clockwise.
+
+#### func (*Canvas) RoundRect
+
+```go
+func (c *Canvas) RoundRect(x, y, width, height float64, radii ...float64)
+```
+
+RoundRect adds a rectangle with rounded corners as a closed subpath. One radius is that of every corner; two are those of the top left and bottom right corners, and of the others; three, of the top left, of the top right and bottom left, and of the bottom right; four, of the corners clockwise from the top left. Radii that do not fit are scaled down together. A negative one adds nothing, where the browser throws an error.
+
+#### func (*Canvas) Save
+
+```go
+func (c *Canvas) Save()
+```
+
+Save puts the state of the canvas on a stack: the transform, the clip, the fields from FillStyle to TextBaseline and the line dash. The path is not part of it. What is still saved when the draw function returns is restored.
+
+#### func (*Canvas) Scale
+
+```go
+func (c *Canvas) Scale(x, y float64)
+```
+
+Scale scales what is drawn from now on from the origin, by x and y.
+
+#### func (*Canvas) SetLineDash
+
+```go
+func (c *Canvas) SetLineDash(segments ...float64)
+```
+
+SetLineDash makes the lines dashed: the lengths of a dash, a gap, a dash... in turns, which repeat. An odd number of them is repeated once to be even. Without any, or with a sum of 0, lines are whole. A call with a negative, infinite or NaN length is ignored.
+
+#### func (*Canvas) SetTransform
+
+```go
+func (c *Canvas) SetTransform(m11, m12, m21, m22, dx, dy float64)
+```
+
+SetTransform makes the matrix of [`Canvas.Transform`](#func-canvas-transform) the current transform, from the canvas's logical pixels.
+
+#### func (*Canvas) Stroke
+
+```go
+func (c *Canvas) Stroke()
+```
+
+Stroke draws the lines of the path with StrokeStyle. Their shape (width, ends, corners, dashes) follows the transform current now, and their place the transforms that were current when their points were added.
+
+#### func (*Canvas) StrokePath
+
+```go
+func (c *Canvas) StrokePath(path *Path2D)
+```
+
+StrokePath draws the lines of path as Stroke does the ones of the current path, with the transform current now. The current path stays as it is.
+
+#### func (*Canvas) StrokeRect
+
+```go
+func (c *Canvas) StrokeRect(x, y, width, height float64)
+```
+
+StrokeRect draws the outline of a rectangle with StrokeStyle. The path stays as it is.
+
+#### func (*Canvas) StrokeText
+
+```go
+func (c *Canvas) StrokeText(s string, x, y float64, maxWidth ...float64)
+```
+
+StrokeText draws the outlines of the characters of s with StrokeStyle and the line of Stroke, where FillText would write them. Characters of a color font (emoji) are drawn as FillText does.
+
+#### func (*Canvas) Transform
+
+```go
+func (c *Canvas) Transform(m11, m12, m21, m22, dx, dy float64)
+```
+
+Transform multiplies the current transform by the matrix
+
+```go
+m11 m21 dx
+m12 m22 dy
+0   0   1
+```
+
+whose numbers it takes in the browser's order (a, b, c, d, e, f).
+
+#### func (*Canvas) Translate
+
+```go
+func (c *Canvas) Translate(x, y float64)
+```
+
+Translate moves what is drawn from now on by x, y.
+
+### type CanvasFont
+
+```go
+type CanvasFont = canvas.CanvasFont
+```
+
+CanvasFont is the font of the text of a [`Canvas`](#type-canvas): a family or a list of them as in CSS ("Inter", "ui-monospace, monospace"), a size in logical pixels, a weight from 1 to 1000 and whether it is italic. A zero field is the element's: on an element with the class italic, so is Italic: false.
+
+`CanvasFont` is an alias of `canvas.CanvasFont`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type CanvasFont struct {
+    // Family is a font family, or a list of them as in CSS: "Inter",
+    // "ui-monospace, monospace". A name with a comma is in quotes.
+    Family string
+    // Size is in logical pixels, and Weight from 1 to 1000.
+    Size, Weight float64
+    Italic       bool
+}
+```
+
+### type CanvasGradient
+
+```go
+type CanvasGradient = canvas.CanvasGradient
+```
+
+CanvasGradient is a gradient that a [`Canvas`](#type-canvas) paints with, made by its CreateLinearGradient, CreateRadialGradient and CreateConicGradient. Its AddColorStop adds a color at an offset from 0 to 1:
+
+```go
+sky := c.CreateLinearGradient(0, 0, 0, c.Height)
+sky.AddColorStop(0, c.Color("sky-400"))
+sky.AddColorStop(1, c.Color("sky-100"))
+c.FillStyle = sky
+c.FillRect(0, 0, c.Width, c.Height)
+```
+
+It is in the coordinates of the transform current when it paints, whatever it paints. Colors interpolate in sRGB, as in a browser's canvas, not in Oklab as those of the bg-linear-\* classes. It may be kept, and used by other draws and other canvases, on the UI thread.
+
+`CanvasGradient` is an alias of `canvas.CanvasGradient`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type CanvasGradient struct {
+    // contains filtered or unexported fields
+}
+```
+
+**Example**
+
+A gradient along the bars of a chart, whatever their number.
+
+```go
+t := &exampleT{}
+defer t.close()
+bars := func() tela.Node {
+    return Canvas(func(c *tela.Canvas) {
+        g := c.CreateLinearGradient(0, c.Height, 0, 0) // from the bottom up
+        g.AddColorStop(0, tela.Hex("#000000"))
+        g.AddColorStop(1, tela.Hex("#ff0000"))
+        c.FillStyle = g
+        for i, v := range []float64{0.25, 1, 0.5} {
+            c.FillRect(float64(i)*20, c.Height*(1-v), 18, c.Height*v)
+        }
+    }, Class("w-15 h-25"))
+}
+app := telatest.Mount(t, tela.C(bars))
+fmt.Println(app.PixelAt(25, 1), app.PixelAt(25, 50), app.PixelAt(5, 50))
+// Output: {251 0 0 255} {126 0 0 255} {255 255 255 255}
+```
+
+#### func (*CanvasGradient) AddColorStop
+
+```go
+func (g *CanvasGradient) AddColorStop(offset float64, color gfx.Color)
+```
+
+AddColorStop adds a color at an offset of the gradient, from 0 to 1. Stops may be added in any order; those at the same offset keep theirs, and the color changes at once there. Without stops a gradient paints nothing. An offset outside 0 to 1 adds nothing, where the browser throws an error.
+
+### type CanvasPattern
+
+```go
+type CanvasPattern = canvas.CanvasPattern
+```
+
+CanvasPattern is an image that a [`Canvas`](#type-canvas) paints with, repeated, made by its CreatePattern. Its SetTransform places, turns and scales the image. It is in the coordinates of the transform current when it paints, from 0, 0 on. It may be kept, and used by other draws and other canvases, on the UI thread.
+
+`CanvasPattern` is an alias of `canvas.CanvasPattern`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type CanvasPattern struct {
+    // contains filtered or unexported fields
+}
+```
+
+**Example**
+
+An image that repeats behind what is drawn.
+
+```go
+t := &exampleT{}
+defer t.close()
+dots := image.NewRGBA(image.Rect(0, 0, 10, 10))
+dots.SetRGBA(5, 5, color.RGBA{255, 0, 0, 255})
+paper := func() tela.Node {
+    return Canvas(func(c *tela.Canvas) {
+        c.FillStyle = c.CreatePattern(dots, tela.Repeat)
+        c.FillRect(0, 0, c.Width, c.Height)
+    }, Class("w-40 h-20"))
+}
+app := telatest.Mount(t, tela.C(paper))
+fmt.Println(app.PixelAt(5, 5), app.PixelAt(75, 45), app.PixelAt(10, 10))
+// Output: {255 0 0 255} {255 0 0 255} {255 255 255 255}
+```
+
+#### func (*CanvasPattern) SetTransform
+
+```go
+func (p *CanvasPattern) SetTransform(m11, m12, m21, m22, dx, dy float64)
+```
+
+SetTransform places the pattern: its image goes through the matrix (as in [`Canvas.Transform`](#func-canvas-transform)) and then through the transform current when it paints.
+
+### type CanvasStyle
+
+```go
+type CanvasStyle = canvas.Style
+```
+
+CanvasStyle is what the FillStyle and the StrokeStyle of a [`Canvas`](#type-canvas) take: a [`Color`](#type-color), a [`*CanvasGradient`](#type-canvasgradient) or a [`*CanvasPattern`](#type-canvaspattern). No type outside Tela implements it.
+
+`CanvasStyle` is an alias of `canvas.Style`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type Style interface{ gfx.Paint }
+```
+
 ### type ChangeEvent
 
 ```go
@@ -2591,6 +3372,154 @@ app.Click(telatest.ByRole("button", "Click"))
 fmt.Println(counts["Inbox"], counts["Clicks"])
 // Output: 1 3
 ```
+
+### type CompositeOperation
+
+```go
+type CompositeOperation = canvas.CompositeOperation
+```
+
+CompositeOperation is how what a [`Canvas`](#type-canvas) draws, the source, meets what it has, the destination: its GlobalCompositeOperation.
+
+`CompositeOperation` is an alias of `canvas.CompositeOperation`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type CompositeOperation uint8
+```
+
+```go
+const (
+    SourceOver CompositeOperation = iota
+    SourceIn
+    SourceOut
+    SourceAtop
+    DestinationOver
+    DestinationIn
+    DestinationOut
+    DestinationAtop
+    Lighter
+    Copy
+    Xor
+    Multiply
+    Screen
+    Overlay
+    Darken
+    Lighten
+    ColorDodge
+    ColorBurn
+    HardLight
+    SoftLight
+    Difference
+    Exclusion
+    Hue
+    Saturation
+    ColorOp
+    Luminosity
+)
+```
+
+The operations, in the order of the HTML Standard's compositing and blending specification.
+
+```go
+const (
+    // CompositeSourceOver draws on top of what there is. It is the zero value.
+    CompositeSourceOver CompositeOperation = canvas.SourceOver
+    // CompositeSourceIn keeps the source where there was something.
+    CompositeSourceIn CompositeOperation = canvas.SourceIn
+    // CompositeSourceOut keeps the source where there was nothing.
+    CompositeSourceOut CompositeOperation = canvas.SourceOut
+    // CompositeSourceAtop draws only over what there is.
+    CompositeSourceAtop CompositeOperation = canvas.SourceAtop
+    // CompositeDestinationOver draws behind what there is.
+    CompositeDestinationOver CompositeOperation = canvas.DestinationOver
+    // CompositeDestinationIn keeps what there is where the source is.
+    CompositeDestinationIn CompositeOperation = canvas.DestinationIn
+    // CompositeDestinationOut erases what there is where the source is.
+    CompositeDestinationOut CompositeOperation = canvas.DestinationOut
+    // CompositeDestinationAtop keeps what there is where the source is, over
+    // the source.
+    CompositeDestinationAtop CompositeOperation = canvas.DestinationAtop
+    // CompositeLighter adds the colors.
+    CompositeLighter CompositeOperation = canvas.Lighter
+    // CompositeCopy leaves the source alone.
+    CompositeCopy CompositeOperation = canvas.Copy
+    // CompositeXor leaves the source and what there is where the other is
+    // not.
+    CompositeXor CompositeOperation = canvas.Xor
+)
+```
+
+The operations of Porter and Duff. Those that keep the destination only where the source is (CompositeSourceIn, CompositeSourceOut, CompositeDestinationIn, CompositeDestinationAtop and CompositeCopy) change the whole canvas, inside its clip.
+
+```go
+const (
+    // CompositeMultiply multiplies the colors, which darkens.
+    CompositeMultiply CompositeOperation = canvas.Multiply
+    // CompositeScreen is the opposite of multiply, and lightens.
+    CompositeScreen CompositeOperation = canvas.Screen
+    // CompositeOverlay multiplies dark colors and screens light ones.
+    CompositeOverlay CompositeOperation = canvas.Overlay
+    // CompositeDarken keeps the darker of each component.
+    CompositeDarken CompositeOperation = canvas.Darken
+    // CompositeLighten keeps the lighter of each component.
+    CompositeLighten CompositeOperation = canvas.Lighten
+    // CompositeColorDodge lightens what there is to reflect the source.
+    CompositeColorDodge CompositeOperation = canvas.ColorDodge
+    // CompositeColorBurn darkens what there is to reflect the source.
+    CompositeColorBurn CompositeOperation = canvas.ColorBurn
+    // CompositeHardLight is overlay with the two sides exchanged.
+    CompositeHardLight CompositeOperation = canvas.HardLight
+    // CompositeSoftLight is a softer hard light.
+    CompositeSoftLight CompositeOperation = canvas.SoftLight
+    // CompositeDifference subtracts the darker from the lighter.
+    CompositeDifference CompositeOperation = canvas.Difference
+    // CompositeExclusion is a difference of lower contrast.
+    CompositeExclusion CompositeOperation = canvas.Exclusion
+    // CompositeHue keeps the saturation and the luminosity of what there is.
+    CompositeHue CompositeOperation = canvas.Hue
+    // CompositeSaturation keeps the hue and the luminosity of what there is.
+    CompositeSaturation CompositeOperation = canvas.Saturation
+    // CompositeColor keeps the luminosity of what there is.
+    CompositeColor CompositeOperation = canvas.ColorOp
+    // CompositeLuminosity keeps the hue and the saturation of what there is.
+    CompositeLuminosity CompositeOperation = canvas.Luminosity
+)
+```
+
+The blend modes, which are those of the mix-blend-\* classes.
+
+**Example**
+
+An eraser: what it passes over shows what is behind the canvas.
+
+```go
+t := &exampleT{}
+defer t.close()
+scratch := func() tela.Node {
+    return Div(Class("w-25 h-12 bg-[#00ff00]"),
+        Canvas(func(c *tela.Canvas) {
+            c.FillStyle = tela.Hex("#888888")
+            c.FillRect(0, 0, c.Width, c.Height)
+            c.GlobalCompositeOperation = tela.CompositeDestinationOut
+            c.LineWidth, c.LineCap = 20, tela.CapRound
+            c.BeginPath()
+            c.MoveTo(20, 24)
+            c.LineTo(60, 24)
+            c.Stroke()
+        }, Class("size-full")))
+}
+app := telatest.Mount(t, tela.C(scratch))
+fmt.Println(app.PixelAt(40, 24), app.PixelAt(90, 24))
+// Output: {0 255 0 255} {136 136 136 255}
+```
+
+#### func (CompositeOperation) String
+
+```go
+func (o CompositeOperation) String() string
+```
+
+String returns the browser's name of the operation, such as "destination-out".
 
 ### type CompositionEvent
 
@@ -3496,6 +4425,52 @@ FileTypes: []tela.FileType{
     {Ext: ".notes-backup", MIME: "application/x-notes-backup", Description: "Notes backup", Role: tela.HandlerViewer},
 },
 ```
+
+### type FillRule
+
+```go
+type FillRule = gfx.FillRule
+```
+
+FillRule tells which points are inside a path of a [`Canvas`](#type-canvas) that crosses itself, or has one subpath inside another.
+
+`FillRule` is an alias of `gfx.FillRule`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type FillRule uint8
+```
+
+```go
+const (
+    // NonZero fills a point if the path winds around it a non-zero number of
+    // times. It is the zero value, like SVG's and CSS's default.
+    NonZero FillRule = iota
+    // EvenOdd fills a point if a ray from it crosses the path an odd number
+    // of times.
+    EvenOdd
+)
+```
+
+```go
+const (
+    // NonZero: the points that the path turns around.
+    NonZero FillRule = gfx.NonZero
+    // EvenOdd: the points that a line from far away reaches after crossing
+    // the path an odd number of times, so a subpath inside another one is a
+    // hole.
+    EvenOdd FillRule = gfx.EvenOdd
+)
+```
+
+The fill rules.
+
+#### func (FillRule) String
+
+```go
+func (r FillRule) String() string
+```
+
+String returns "nonzero" or "evenodd".
 
 ### type FocusEvent
 
@@ -4616,6 +5591,98 @@ LabelSource answers a built-in label's ID with the text in the app's current lan
 type LabelSource func(id string, args ...any) (string, bool)
 ```
 
+### type LineCap
+
+```go
+type LineCap = gfx.LineCap
+```
+
+LineCap is the shape of the ends of the lines of a [`Canvas`](#type-canvas).
+
+`LineCap` is an alias of `gfx.LineCap`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type LineCap uint8
+```
+
+```go
+const (
+    // CapButt ends the stroke flush with the endpoint. It is the zero value.
+    CapButt LineCap = iota
+    CapRound
+    // CapSquare extends the stroke by half its width.
+    CapSquare
+)
+```
+
+```go
+const (
+    // CapButt ends a line at its last point.
+    CapButt LineCap = gfx.CapButt
+    // CapRound ends a line with half a circle around its last point.
+    CapRound LineCap = gfx.CapRound
+    // CapSquare ends a line half its width beyond its last point.
+    CapSquare LineCap = gfx.CapSquare
+)
+```
+
+The line caps.
+
+#### func (LineCap) String
+
+```go
+func (c LineCap) String() string
+```
+
+String returns "butt", "round" or "square".
+
+### type LineJoin
+
+```go
+type LineJoin = gfx.LineJoin
+```
+
+LineJoin is the shape of the corners of the lines of a [`Canvas`](#type-canvas).
+
+`LineJoin` is an alias of `gfx.LineJoin`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type LineJoin uint8
+```
+
+```go
+const (
+    // JoinMiter extends the outer edges to a sharp corner, unless the miter
+    // is longer than MiterLimit, in which case the join is a bevel. It is the
+    // zero value (the SVG and CSS default).
+    JoinMiter LineJoin = iota
+    JoinRound
+    JoinBevel
+)
+```
+
+```go
+const (
+    // JoinMiter extends the sides of a corner until they meet, up to the
+    // canvas's MiterLimit, beyond which the corner is cut as JoinBevel.
+    JoinMiter LineJoin = gfx.JoinMiter
+    // JoinRound rounds a corner.
+    JoinRound LineJoin = gfx.JoinRound
+    // JoinBevel cuts a corner.
+    JoinBevel LineJoin = gfx.JoinBevel
+)
+```
+
+The line joins.
+
+#### func (LineJoin) String
+
+```go
+func (j LineJoin) String() string
+```
+
+String returns "miter", "round" or "bevel".
+
 ### type MouseButton
 
 ```go
@@ -4686,7 +5753,7 @@ Has reports whether b is in the set.
 type MouseEvent = core.MouseEvent
 ```
 
-MouseEvent is passed to the mouse handlers (h.OnClick, h.OnMouseDown, h.OnContextMenu...). X and Y are window coordinates in logical pixels; LocalX and LocalY are relative to the border box of the element whose handler runs. ClickCount is 1 for a click, 2 for the second click of a double click. StopPropagation stops the bubbling; PreventDefault marks the event (on h.OnPointerDown it suppresses the press's mouse events, not the click).
+MouseEvent is passed to the mouse handlers (h.OnClick, h.OnMouseDown, h.OnContextMenu...). X and Y are window coordinates in logical pixels; LocalX and LocalY are relative to the border box of the element whose handler runs (of an h.Canvas, to its content box: the coordinates it draws in). ClickCount is 1 for a click, 2 for the second click of a double click. StopPropagation stops the bubbling; PreventDefault marks the event (on h.OnPointerDown it suppresses the press's mouse events, not the click).
 
 `MouseEvent` is an alias of `core.MouseEvent`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
 
@@ -4697,7 +5764,8 @@ type MouseEvent struct {
     X, Y float32
     // LocalX and LocalY are the position relative to the border box of
     // the element whose handler runs (the DOM's currentTarget), in its own
-    // coordinates (its transforms and its ancestors' undone).
+    // coordinates (its transforms and its ancestors' undone). For a Canvas
+    // they are relative to its content box, where its drawing starts.
     LocalX, LocalY float32
     // Button is the button that changed state for a press, release or
     // click; MouseButtonNone for moves, enter and leave.
@@ -4897,6 +5965,235 @@ Map(cards, func(c CardData) tela.Node {
 })
 ```
 
+### type Path2D
+
+```go
+type Path2D = canvas.Path2D
+```
+
+Path2D is a path that is kept: built once with the methods of the path of a [`Canvas`](#type-canvas) (MoveTo, LineTo, Arc, RoundRect...) in coordinates of its own, and drawn by the FillPath, StrokePath and ClipPath of any canvas, with the transform current then. The zero Path2D is an empty path, ready to use.
+
+Its Contains tells whether a point is inside, without a canvas, which is how a click finds what it hit:
+
+```go
+slice := new(tela.Path2D)
+slice.MoveTo(50, 50)
+slice.Arc(50, 50, 40, 0, math.Pi/2)
+slice.ClosePath()
+return Canvas(func(c *tela.Canvas) { c.FillPath(slice) },
+    Class("size-25"),
+    OnClick(func(e tela.MouseEvent) {
+        if slice.Contains(float64(e.LocalX), float64(e.LocalY)) {
+            open()
+        }
+    }))
+```
+
+Several goroutines may read a path, and one that changes it must be alone.
+
+`Path2D` is an alias of `canvas.Path2D`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type Path2D struct {
+    // contains filtered or unexported fields
+}
+```
+
+**Example**
+
+A click finds the shape under it, without a draw.
+
+```go
+t := &exampleT{}
+defer t.close()
+slice := func(from, to float64) *tela.Path2D {
+    p := new(tela.Path2D)
+    p.MoveTo(50, 50)
+    p.Arc(50, 50, 40, from*2*math.Pi, to*2*math.Pi)
+    p.ClosePath()
+    return p
+}
+slices := []*tela.Path2D{slice(0, 0.25), slice(0.25, 1)}
+pie := func() tela.Node {
+    return Canvas(func(c *tela.Canvas) {
+        for i, p := range slices {
+            c.FillStyle = c.Color([]string{"sky-500", "rose-500"}[i])
+            c.FillPath(p)
+        }
+    }, Class("size-25"), AriaLabel("Sales"), OnClick(func(e tela.MouseEvent) {
+        for i, p := range slices {
+            if p.Contains(float64(e.LocalX), float64(e.LocalY)) {
+                fmt.Println("slice", i)
+            }
+        }
+    }))
+}
+app := telatest.Mount(t, tela.C(pie))
+app.ClickAt(70, 70)
+app.ClickAt(30, 30)
+app.ClickAt(95, 5) // outside both
+// Output:
+// slice 0
+// slice 1
+```
+
+#### func MustPath
+
+```go
+func MustPath(d string) *Path2D
+```
+
+MustPath is [`ParsePath`](#func-parsepath) for data known to be valid, such as a package-level shape: it panics on an error.
+
+```go
+var pin = tela.MustPath("M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z")
+```
+
+#### func ParsePath
+
+```go
+func ParsePath(d string) (*Path2D, error)
+```
+
+ParsePath returns the path that SVG path data describes (the d attribute of an SVG path element, the argument of a browser's new Path2D), or an error that tells where the data is wrong. A browser draws such data up to there.
+
+**Example**
+
+```go
+play, err := tela.ParsePath("M8 5v14l11-7z")
+fmt.Println(play.Contains(10, 12), play.Contains(5, 12), err)
+_, err = tela.ParsePath("M8 5 14l")
+fmt.Println(err)
+// Output:
+// true false <nil>
+// tela.ParsePath: path data has "l" at byte 7, where a number was expected
+```
+
+#### func (*Path2D) AddPath
+
+```go
+func (p *Path2D) AddPath(q *Path2D)
+```
+
+AddPath adds the subpaths of q. What is added after them starts a subpath at their last point.
+
+#### func (*Path2D) Arc
+
+```go
+func (p *Path2D) Arc(x, y, radius, startAngle, endAngle float64, counterclockwise ...bool)
+```
+
+Arc adds an arc of a circle; see [`Canvas.Arc`](#func-canvas-arc).
+
+#### func (*Path2D) ArcTo
+
+```go
+func (p *Path2D) ArcTo(x1, y1, x2, y2, radius float64)
+```
+
+ArcTo rounds a corner; see [`Canvas.ArcTo`](#func-canvas-arcto).
+
+#### func (*Path2D) BezierCurveTo
+
+```go
+func (p *Path2D) BezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y float64)
+```
+
+BezierCurveTo adds a cubic Bezier curve; see [`Canvas.BezierCurveTo`](#func-canvas-beziercurveto).
+
+#### func (*Path2D) ClosePath
+
+```go
+func (p *Path2D) ClosePath()
+```
+
+ClosePath closes the last subpath with a straight line to its start, where the next one starts.
+
+#### func (*Path2D) Contains
+
+```go
+func (p *Path2D) Contains(x, y float64, rule ...FillRule) bool
+```
+
+Contains reports whether the point x, y, in the coordinates of the path, is inside it or on it, as the fill rule tells (NonZero without one). It needs no canvas and no draw: an OnClick, or any goroutine, asks it.
+
+#### func (*Path2D) Ellipse
+
+```go
+func (p *Path2D) Ellipse(x, y, radiusX, radiusY, rotation, startAngle, endAngle float64, counterclockwise ...bool)
+```
+
+Ellipse adds an arc of an ellipse; see [`Canvas.Ellipse`](#func-canvas-ellipse).
+
+#### func (*Path2D) LineTo
+
+```go
+func (p *Path2D) LineTo(x, y float64)
+```
+
+LineTo adds a straight line from the last point to x, y, or starts a subpath there when the path is empty.
+
+#### func (*Path2D) MoveTo
+
+```go
+func (p *Path2D) MoveTo(x, y float64)
+```
+
+MoveTo starts a new subpath at x, y.
+
+#### func (*Path2D) QuadraticCurveTo
+
+```go
+func (p *Path2D) QuadraticCurveTo(cpx, cpy, x, y float64)
+```
+
+QuadraticCurveTo adds a quadratic Bezier curve; see [`Canvas.QuadraticCurveTo`](#func-canvas-quadraticcurveto).
+
+#### func (*Path2D) Rect
+
+```go
+func (p *Path2D) Rect(x, y, width, height float64)
+```
+
+Rect adds a rectangle as a closed subpath, from its corner x, y.
+
+#### func (*Path2D) RoundRect
+
+```go
+func (p *Path2D) RoundRect(x, y, width, height float64, radii ...float64)
+```
+
+RoundRect adds a rectangle with rounded corners as a closed subpath; see [`Canvas.RoundRect`](#func-canvas-roundrect).
+
+### type PatternRepeat
+
+```go
+type PatternRepeat = canvas.PatternRepeat
+```
+
+PatternRepeat tells in which directions a [`CanvasPattern`](#type-canvaspattern) repeats.
+
+`PatternRepeat` is an alias of `canvas.PatternRepeat`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type PatternRepeat = gfx.PatternRepeat
+```
+
+```go
+const (
+    // Repeat repeats the image in both directions.
+    Repeat PatternRepeat = gfx.RepeatBoth
+    // RepeatX repeats the image to the sides.
+    RepeatX PatternRepeat = gfx.RepeatX
+    // RepeatY repeats the image up and down.
+    RepeatY PatternRepeat = gfx.RepeatY
+    // NoRepeat paints the image once, and nothing around it.
+    NoRepeat PatternRepeat = gfx.RepeatNone
+)
+```
+
+The repetitions of a pattern.
+
 ### type Point
 
 ```go
@@ -4947,8 +6244,8 @@ PointerEvent is passed to the pointer handlers (h.OnPointerDown..., h.OnLongPres
 ```go
 type PointerEvent struct {
     // X and Y are the position in the window, LocalX and LocalY relative
-    // to the border box of the element whose handler runs (see
-    // MouseEvent).
+    // to the border box of the element whose handler runs, or a Canvas's
+    // content box (see MouseEvent).
     X, Y, LocalX, LocalY float32
     // Button is the button that changed state (MouseButtonNone for moves,
     // enter and leave); Buttons the buttons held after the event.
@@ -6195,6 +7492,124 @@ func (e SubmitEvent) StopPropagation()
 ```
 
 StopPropagation stops the event from bubbling (see MouseEvent).
+
+### type TextAlign
+
+```go
+type TextAlign = canvas.TextAlign
+```
+
+TextAlign is where in a text of a [`Canvas`](#type-canvas) its x is.
+
+`TextAlign` is an alias of `canvas.TextAlign`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type TextAlign uint8
+```
+
+```go
+const (
+    TextAlignStart TextAlign = iota
+    TextAlignEnd
+    TextAlignLeft
+    TextAlignRight
+    TextAlignCenter
+)
+```
+
+The alignments, the browser's.
+
+```go
+const (
+    // TextAlignStart: x is the start of the text: its left end, or its right
+    // one in a right-to-left element (h.Dir).
+    TextAlignStart TextAlign = canvas.TextAlignStart
+    // TextAlignEnd: x is the end of the text.
+    TextAlignEnd TextAlign = canvas.TextAlignEnd
+    // TextAlignLeft: x is the left end of the text.
+    TextAlignLeft TextAlign = canvas.TextAlignLeft
+    // TextAlignRight: x is the right end of the text.
+    TextAlignRight TextAlign = canvas.TextAlignRight
+    // TextAlignCenter: x is the middle of the text.
+    TextAlignCenter TextAlign = canvas.TextAlignCenter
+)
+```
+
+The alignments of the text of a canvas.
+
+### type TextBaseline
+
+```go
+type TextBaseline = canvas.TextBaseline
+```
+
+TextBaseline is where in a text of a [`Canvas`](#type-canvas) its y is.
+
+`TextBaseline` is an alias of `canvas.TextBaseline`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type TextBaseline uint8
+```
+
+```go
+const (
+    BaselineAlphabetic TextBaseline = iota
+    BaselineTop
+    BaselineHanging
+    BaselineMiddle
+    BaselineIdeographic
+    BaselineBottom
+)
+```
+
+The baselines, the browser's.
+
+```go
+const (
+    // BaselineAlphabetic: y is the line that most letters stand on.
+    BaselineAlphabetic TextBaseline = canvas.BaselineAlphabetic
+    // BaselineTop: y is the top of the em square.
+    BaselineTop TextBaseline = canvas.BaselineTop
+    // BaselineHanging: y is the line that letters hang from in scripts such
+    // as Devanagari.
+    BaselineHanging TextBaseline = canvas.BaselineHanging
+    // BaselineMiddle: y is the middle of the em square.
+    BaselineMiddle TextBaseline = canvas.BaselineMiddle
+    // BaselineIdeographic: y is the line below the letters that go down.
+    BaselineIdeographic TextBaseline = canvas.BaselineIdeographic
+    // BaselineBottom: y is the bottom of the em square.
+    BaselineBottom TextBaseline = canvas.BaselineBottom
+)
+```
+
+The baselines of the text of a canvas.
+
+### type TextMetrics
+
+```go
+type TextMetrics = canvas.TextMetrics
+```
+
+TextMetrics are the sizes of a text as a [`Canvas`](#type-canvas) writes it, which its MeasureText returns.
+
+`TextMetrics` is an alias of `canvas.TextMetrics`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type TextMetrics struct {
+    // Width is the advance of the text, what the next text goes after.
+    Width float64
+    // The box of what the text paints, which may be larger or smaller than
+    // its advance.
+    ActualBoundingBoxLeft, ActualBoundingBoxRight     float64
+    ActualBoundingBoxAscent, ActualBoundingBoxDescent float64
+    // The ascent and the descent of the font, the same for every text.
+    FontBoundingBoxAscent, FontBoundingBoxDescent float64
+    // The em square of the font.
+    EmHeightAscent, EmHeightDescent float64
+    // The baselines of the font.
+    HangingBaseline, AlphabeticBaseline, IdeographicBaseline float64
+}
+```
 
 ### type Texture
 

@@ -898,12 +898,15 @@ func (h *Host) frameTime(e platform.FrameEvent) FrameTime {
 	return FrameTime{Time: h.clockBase.Add(e.Time), Refresh: e.Refresh}
 }
 
-// syncTexturesOn tells the textures of the windows, after one was hidden,
-// minimized or shown again (its child windows with it), whether they are on
-// screen.
+// syncTexturesOn tells the textures and the canvases of the windows, after
+// one was hidden, minimized or shown again (its child windows with it),
+// whether they are on screen.
 func (h *Host) syncTexturesOn() {
 	for _, v := range h.views {
 		v.tree.syncTexturesOn()
+		if v.tree.cnv != nil {
+			v.tree.cnv.syncOn()
+		}
 	}
 }
 

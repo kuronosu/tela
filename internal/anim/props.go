@@ -32,6 +32,9 @@ const (
 	PropBorderWidth                 // border-width
 	PropFontSize                    // font-size (inherited)
 	PropClipPath                    // clip-path
+	PropFill                        // fill (inherited)
+	PropStroke                      // stroke (inherited)
+	PropStrokeWidth                 // stroke-width (inherited)
 
 	// NumProps is the number of groups.
 	NumProps
@@ -39,7 +42,8 @@ const (
 
 var propNames = [...]string{"color", "background-color", "border-color", "outline-color",
 	"text-decoration-color", "opacity", "box-shadow", "transform", "filter", "backdrop-filter",
-	"width", "height", "spacing", "inset", "border-radius", "border-width", "font-size", "clip-path"}
+	"width", "height", "spacing", "inset", "border-radius", "border-width", "font-size", "clip-path",
+	"fill", "stroke", "stroke-width"}
 
 // String returns the CSS name of the group.
 func (p Prop) String() string {
@@ -98,8 +102,13 @@ func (p Prop) Class() Class {
 // Inherited reports whether the property is inherited, so that children
 // must be styled again when it changes.
 func (p Prop) Inherited() bool {
-	return p == PropColor || p == PropDecorationColor || p == PropFontSize
+	return p == PropColor || p == PropDecorationColor || p == PropFontSize || p.IsPaint()
 }
+
+// IsPaint reports whether p is an SVG paint property (fill, stroke,
+// stroke-width): inherited, and read only by the boxes that draw with it
+// (an icon, an SVG image, a canvas).
+func (p Prop) IsPaint() bool { return p >= PropFill && p <= PropStrokeWidth }
 
 func sides[T any](s *style.Sides[T]) [4]*T {
 	return [4]*T{&s.Top, &s.Right, &s.Bottom, &s.Left}
@@ -151,6 +160,12 @@ func Equal(p Prop, a, b *style.ComputedStyle) bool {
 		return a.Text.FontSize == b.Text.FontSize
 	case PropClipPath:
 		return a.ClipPath.Equal(&b.ClipPath)
+	case PropFill:
+		return a.Fill == b.Fill
+	case PropStroke:
+		return a.Stroke == b.Stroke
+	case PropStrokeWidth:
+		return a.StrokeWidth == b.StrokeWidth && a.StrokeWidthSet == b.StrokeWidthSet
 	}
 	return true
 }
@@ -164,7 +179,8 @@ func filtersEqual(a, b *style.FilterSet) bool {
 // CanInterpolate reports whether the values of p in a and b interpolate
 // (CSS Transitions: "the before-change style is different from and can be
 // interpolated with the after-change style"): a change between auto and a
-// length, or between an inset and an outer shadow, does not.
+// length, between an inset and an outer shadow, or between a color and no
+// fill, does not.
 func CanInterpolate(p Prop, a, b *style.ComputedStyle) bool {
 	switch p {
 	case PropShadow:
@@ -182,8 +198,53 @@ func CanInterpolate(p Prop, a, b *style.ComputedStyle) bool {
 		}
 	case PropClipPath:
 		return a.ClipPath.Interpolable(&b.ClipPath)
+	case PropFill:
+		return isColor(a.Fill) && isColor(b.Fill)
+	case PropStroke:
+		return isColor(a.Stroke) && isColor(b.Stroke)
+	case PropStrokeWidth:
+		return a.StrokeWidthSet && b.StrokeWidthSet
 	}
 	return true
+}
+
+// isColor reports whether a paint is a color, currentColor included.
+func isColor(p style.SVGPaint) bool {
+	return p.Kind == style.SVGPaintColor || p.Kind == style.SVGPaintCurrent
+}
+
+// PaintsLegacy reports whether fill or stroke, p, interpolates in sRGB
+// between from and to, as LerpColor decides it, with each style's text color
+// for currentColor. A transition keeps the answer it started with
+// (BlendPaint): the text color may be between two colors later on.
+func PaintsLegacy(p Prop, from, to *style.ComputedStyle) bool {
+	a, b := paintOf(p, from), paintOf(p, to)
+	return isLegacy(a.Resolve(from.Text.Color)) && isLegacy(b.Resolve(to.Text.Color))
+}
+
+// paintOf returns the paint of s that p, PropFill or PropStroke, is.
+func paintOf(p Prop, s *style.ComputedStyle) *style.SVGPaint {
+	if p == PropFill {
+		return &s.Fill
+	}
+	return &s.Stroke
+}
+
+// BlendPaint is Blend for fill and stroke, p, in sRGB or in Oklab.
+// currentColor at either end is the text color of dst, which is to be
+// blended first (the order of the Props), and the result is a color at
+// every step, the first one included, which is what the element's children
+// inherit: both as in Chromium 155.
+func BlendPaint(p Prop, dst, from, to *style.ComputedStyle, t float64, srgb bool) {
+	a, b := *paintOf(p, from), *paintOf(p, to)
+	switch {
+	case isColor(a) && isColor(b):
+		cur := dst.Text.Color
+		b = style.SVGPaint{Kind: style.SVGPaintColor, Color: lerpColor(a.Resolve(cur), b.Resolve(cur), t, srgb)}
+	case t < 0.5:
+		b = a
+	}
+	*paintOf(p, dst) = b
 }
 
 // Copy sets the property of dst to its value in src.
@@ -229,6 +290,12 @@ func Copy(p Prop, dst, src *style.ComputedStyle) {
 		dst.Text.FontSize = src.Text.FontSize
 	case PropClipPath:
 		dst.ClipPath = src.ClipPath
+	case PropFill:
+		dst.Fill = src.Fill
+	case PropStroke:
+		dst.Stroke = src.Stroke
+	case PropStrokeWidth:
+		dst.StrokeWidth, dst.StrokeWidthSet = src.StrokeWidth, src.StrokeWidthSet
 	}
 }
 
@@ -237,6 +304,10 @@ func Copy(p Prop, dst, src *style.ComputedStyle) {
 // which may overshoot [0, 1]). The other properties of dst are untouched.
 // Values that do not interpolate switch at t = 0.5.
 func Blend(p Prop, dst, from, to *style.ComputedStyle, t float64) {
+	if p == PropFill || p == PropStroke {
+		BlendPaint(p, dst, from, to, t, PaintsLegacy(p, from, to))
+		return
+	}
 	switch {
 	case t == 0:
 		Copy(p, dst, from)
@@ -296,6 +367,15 @@ func Blend(p Prop, dst, from, to *style.ComputedStyle, t float64) {
 		dst.Text.FontSize = max(Lerp(from.Text.FontSize, to.Text.FontSize, t), 0)
 	case PropClipPath:
 		dst.ClipPath = LerpClipPath(from.ClipPath, to.ClipPath, t)
+	case PropStrokeWidth:
+		switch {
+		case CanInterpolate(p, from, to):
+			dst.StrokeWidth, dst.StrokeWidthSet = max(Lerp(from.StrokeWidth, to.StrokeWidth, t), 0), true
+		case t < 0.5:
+			Copy(p, dst, from)
+		default:
+			Copy(p, dst, to)
+		}
 	}
 }
 

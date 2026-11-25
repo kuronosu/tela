@@ -215,6 +215,7 @@ tokens, a single class (`bg-background`); render it with `tela snapshot --dark`.
 | **[settings](examples/settings)**: Darkroom's Preferences, a photo editor's window with five sections, built by an LLM from `llms.txt` and a prompt: a whole form as one comparable value, validation that blocks Save, confirmations, and a theme and accent applied on Save. <br><img src="docs/images/settings.png" alt="settings example"> | **[player](examples/player)**: a `kit.Slider` seek bar that follows a playing clock and a drag without building anything (`Slider.ValueSource`), icon buttons with tooltips. <br><img src="docs/images/player.png" alt="player example"> |
 | **[login](examples/login)**: a card with a brand panel that hides below `md:` and two modes, Sign in and Create account: `kit.Field` around every control with errors (`aria-invalid`), a show/hide password button, a strength `kit.Progress`, a bio with a live counter (`BindValue` + `TextFn`), a spinner while a fake request runs on `tela.UseTimeout`, an alert for a wrong password. <br><img src="docs/images/login.png" alt="login example"> | **[chat](examples/chat)**: a messaging app on `kit`: one reducer for the whole state, `tela.UseTimeout` for the typing indicator and the reply, `h.AriaCurrent` on the open conversation, a virtualized message list that scrolls to its end, a growing `kit.Textarea` composer. <br><img src="docs/images/chat.png" alt="chat example"> |
 | **[notes](examples/notes)**: the desktop services of package `desktop` in a small notes app: native open and save dialogs, a tray icon with a menu, a second window (Preferences) with settings stored by `desktop.UseSetting`, a remembered window position, a message box before quitting, a notification after saving, and its own `kit.TitleBar` under the OS's window buttons (`TitleBarOverlay`: the traffic lights on macOS, where it also has an app menu bar and `OnQuit`). It is also the example of the app building blocks (a module of its own, with SQLite): `tela.UseAsync`, an OAuth sign-in with sync, `kit.Markdown`, the `router` with back and forward, start at login and recent documents. <br><img src="docs/images/notes.png" alt="notes example"> | **[texture](examples/texture)**: content the application renders itself, inside a rounded card: one of three animated scenes (a ringed planet, mountains at dusk, folds of satin) drawn by the example's own Vulkan code (a module of its own, no cgo) on the GPU that draws Tela's windows, shown without a copy through `tela.UseTexture`, at the window's pace, at the resolution and size chosen, and asleep when paused; the same scenes in software where there is no GPU. <br><img src="docs/images/texture.png" alt="texture example"> |
+| **[canvas](examples/canvas)**: `h.Canvas`, the 2D context of a browser's canvas as a Go function, in three `kit` cards: an area chart (a gradient, measured axis labels, a cursor that follows the pointer through a `tela.Value` read in the draw, so no component builds, and a spring when the series changes), a particle field that is attracted to the pointer, moved by `Canvas.Delta`, kept going with `RequestFrame` and at 0% CPU when paused or under reduced motion, and a sketch pad with brush sizes, an eraser (`CompositeDestinationOut`) and undo. Light and dark follow the theme's tokens. <br><img src="docs/images/canvas.png" alt="canvas example"> | |
 
 ### Component gallery (`kit`)
 
@@ -318,6 +319,13 @@ VirtualList(100_000, func(int) float32 { return 65 }, func(i int) tela.Component
   edit `kit.DefaultStyle()` and apply it to a subtree with `kit.StyleProvider`.
   The [`examples/kit`](examples/kit) gallery shows them all; the guide is
   [Kit](https://github.com/kuronosu/tela/wiki/Kit) on the wiki. (Phase 10.)
+- **Canvas**: `h.Canvas(func(c *tela.Canvas) {...})` is an element that a Go
+  function draws with the 2D context of a browser's canvas (paths, gradients,
+  text, shadows, the 26 composite operations), as vectors at any scale, in the
+  theme's colors, and drawn again only when something it draws with changes:
+  a chart, a gauge, a sketch pad, a particle field that costs no CPU at rest.
+  See [Canvas](https://github.com/kuronosu/tela/wiki/Canvas) and
+  [`examples/canvas`](examples/canvas).
 - **Icons and images**: `h.Icon` draws SVG as vectors, colored by the text
   color; `Img` takes files, `embed.FS`, bytes and SVG, with `h.Tint`. The
   separate module `github.com/kuronosu/tela/icons/lucide` has Lucide's whole
@@ -402,7 +410,13 @@ are done (ADR-208 sets how versions are numbered).
 | 23 | Layout, text and engine fidelity: selectable static text, `h.Lang` and CJK forms by language, hyphenation, synthetic bold and italic, skip-ink, borders on device pixels, `aspect-*` and grid areas as in Chromium, drag autoscroll of scroll containers | ✅ v0.14.3 |
 | 24 | CPU performance: layout and paint place only what moved, recorded groups, damage drawn from a list position, backdrops found again, the dashboard's p95 from 19.3 to 9.7 ms at 1080p | ✅ v0.14.4 |
 | 25 | GPU backend, opt-in with `-tags telagpu`: Vulkan on Linux and Windows, frames to the compositor without a copy (dmabufs on Wayland and X11), the CPU rasterizer as reference and fallback | ✅ v0.14.5 |
-| — | Packaging and auto-update, app building blocks, DevTools and agents, dev loop and testing, external textures, canvas, SVG and PDF, audio and video, game input, accessibility gaps | planned |
+| 26 | Packaging and auto-update: `tela package` for every system from one machine, signed update manifests, logs and crash reports | ✅ v0.14.7 |
+| 27 | App building blocks: async data, sign-in, navigation, Markdown, start at login | ✅ v0.14.8 |
+| 28 | DevTools and agents: a DevTools window, `tela lsp`, more `tela mcp` tools | ✅ v0.14.9 |
+| 29 | Dev loop and testing: more state kept by `tela dev`, `tela check` and `tela verify`, `tela lint -fix` migrations | ✅ v0.14.10 |
+| 30 | External textures: content an app renders itself, shown by `h.Texture`, without a copy on the Linux GPU backend | ✅ v0.14.11 |
+| 31 | Canvas: `h.Canvas`, the browser's 2D drawing API in a Go function, redrawn when something it reads changes; transitions of `fill` and `stroke` | ✅ v0.14.12 |
+| — | SVG and PDF, audio and video, game input, accessibility gaps | planned |
 
 ### What works today
 

@@ -40,8 +40,8 @@ type PendingKind uint8
 
 // The kinds of [Pending] items. Those that only redraw what is on the
 // screen, without changing its elements, are [PendingEndless],
-// [PendingScrollbar], [PendingCaret], [PendingDebug] and [PendingNextFrame]
-// (a frame request beside them is theirs).
+// [PendingScrollbar], [PendingCaret], [PendingDebug], [PendingNextFrame] and
+// [PendingCanvas] (a frame request beside them is theirs).
 const (
 	// PendingEvents: input or window events waiting to be delivered.
 	PendingEvents PendingKind = iota + 1
@@ -93,6 +93,12 @@ const (
 	// waits, so [App.ExpectIdle] does not count it; the frame is shown when
 	// the wait ends.
 	PendingFence
+	// PendingCanvas: canvases on screen whose last draw called
+	// tela.Canvas.RequestFrame. One that does so in every draw asks for a
+	// frame at every vsync, as an endless animation does, so it counts for
+	// [App.ExpectIdle]; settling does not wait for it, and [App.Advance] runs
+	// its frames.
+	PendingCanvas
 )
 
 var pendingKindNames = [...]string{
@@ -101,7 +107,7 @@ var pendingKindNames = [...]string{
 	PendingEndless: "endless animation", PendingScroll: "scroll", PendingScrollbar: "scrollbar",
 	PendingDebug: "debug overlay", PendingLongPress: "long press", PendingCaret: "caret",
 	PendingTimer: "timer", PendingAutoscroll: "autoscroll", PendingAsync: "UseAsync", PendingGo: "UseGo",
-	PendingNextFrame: "NextFrame", PendingFence: "texture fence",
+	PendingNextFrame: "NextFrame", PendingFence: "texture fence", PendingCanvas: "canvas",
 }
 
 // String names the kind: "timer", "endless animation", "UseAsync".
@@ -121,6 +127,7 @@ var coreKinds = map[core.PendingKind]PendingKind{
 	core.PendingCaret: PendingCaret, core.PendingTimer: PendingTimer,
 	core.PendingAutoscroll: PendingAutoscroll, core.PendingAsync: PendingAsync,
 	core.PendingGo: PendingGo, core.PendingNextFrame: PendingNextFrame, core.PendingFence: PendingFence,
+	core.PendingCanvas: PendingCanvas,
 }
 
 // Pending names what keeps the app from being idle (ADR-291, ADR-308):

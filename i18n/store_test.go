@@ -233,7 +233,7 @@ func TestSystemLocale(t *testing.T) {
 		if catalogsLoaded {
 			mustLoad(t, enES)
 		} else {
-			update(func(*state) error { return nil })
+			update("test", func(*state) error { return nil })
 		}
 	}
 	// lang is the language i18n gives the text that has no h.Lang
@@ -272,7 +272,7 @@ func TestSystemLocale(t *testing.T) {
 		}
 		setup(tc.cats)
 		osLocale = func() string { return tc.os }
-		update(func(*state) error { return nil })
+		update("test", func(*state) error { return nil })
 		if got := Locale(); got != tc.want {
 			t.Errorf("%s: Locale() = %q, want %q", tc.name, got, tc.want)
 		}

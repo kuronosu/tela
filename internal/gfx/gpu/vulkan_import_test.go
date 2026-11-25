@@ -237,6 +237,9 @@ func importScene(img *gfx.Image) *gfx.DisplayList {
 		b.PushClipPath(gfx.CirclePath(gfx.Pt(340, 240), 45), gfx.NonZero)
 		b.DrawImage(img, gfx.Rect{X0: w / 4, Y0: h / 4, X1: 3 * w / 4, Y1: 3 * h / 4}, gfx.RectXYWH(290, 190, 110, 110), gfx.SampleLinear)
 		b.PopClip()
+		// As patterns, repeated and turned, and once.
+		b.FillRRect(gfx.NewRRect(gfx.RectXYWH(170, 200, 110, 50), 14), gfx.ImagePattern{Image: img, Transform: gfx.Affine{1.2, 0.3, -0.2, 1.1, 250, 220}})
+		b.FillRect(gfx.RectXYWH(170, 255, 110, 40), gfx.ImagePattern{Image: img, Repeat: gfx.RepeatNone, Sampling: gfx.SampleNearest, Transform: gfx.Translate(200, 230)})
 	})
 }
 

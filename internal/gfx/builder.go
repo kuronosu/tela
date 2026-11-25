@@ -40,13 +40,16 @@ import (
 //     Affine.MaxScale, and limited to the clip active at PushLayer and to
 //     the bounds of its mask, if any. Inside a layer with filters, the
 //     content is limited by that area grown by the same reach, since the
-//     filters pull content from outside it;
+//     filters pull content from outside it. A layer whose blend mode is
+//     Unbounded has the bounds of the clip active at PushLayer (without one,
+//     a rectangle larger than any surface), whatever its content;
 //   - everything is intersected with the active clip.
 //
 // # Invalid input and no-op commands
 //
-// Programmer errors (unbalanced pushes, a nil Paint, an unknown BlendMode
-// or MaskMode) panic. Bad VALUES never reach the rasterizer:
+// Programmer errors (unbalanced pushes, a nil Paint, a pattern without an
+// image, an unknown BlendMode, MaskMode, SpreadMode or PatternRepeat) panic.
+// Bad VALUES never reach the rasterizer:
 //
 //   - A command with a NaN or infinite coordinate, color, parameter or
 //     transform is dropped. A push command with such a value drops its whole
@@ -58,7 +61,9 @@ import (
 //     mask or one outside the clip), and
 //     blocks left empty after their commands were dropped. The indices
 //     returned by DisplayList therefore do not match the number of Builder
-//     calls.
+//     calls. A layer whose blend mode is Unbounded clears its clip even when
+//     it shows nothing: it is kept, without its content, and recorded with
+//     opacity 0 when its opacity or its mask hide all of it.
 //   - Out-of-range values are clamped: colors to [0, 1], Opacity to [0, 1],
 //     negative blur to 0. Rectangles and RRects are made upright, and RRect
 //     radii are normalized.
@@ -106,7 +111,13 @@ type frame struct {
 	prevCTM  Affine
 	prevClip Rect
 	reach    float32 // PushLayer: root-space outset of filters
-	visible  Rect    // PushLayer: the clip at PushLayer, cut by the mask's bounds
+	// visible holds the pixels a layer can change: the clip at PushLayer,
+	// cut by the mask's bounds unless unbounded (BlendMode.Unbounded).
+	visible   Rect
+	unbounded bool
+	// mute: the block is recorded but its content shows nothing (an
+	// unbounded layer at opacity 0) and is dropped.
+	mute bool
 }
 
 // NewBuilder returns an empty Builder.
@@ -136,9 +147,14 @@ func (b *Builder) begin() {
 	b.calls++
 }
 
-// suppressed reports whether the innermost open block is being dropped.
+// suppressed reports whether the content of the innermost open block is
+// being dropped.
 func (b *Builder) suppressed() bool {
-	return len(b.stack) > 0 && b.stack[len(b.stack)-1].skipped
+	if len(b.stack) == 0 {
+		return false
+	}
+	f := &b.stack[len(b.stack)-1]
+	return f.skipped || f.mute
 }
 
 // record appends a command with its root-space bounds, which the caller has
@@ -459,7 +475,7 @@ func (b *Builder) PopTransform() { b.pop(kindTransform, "PopTransform", PopTrans
 // PushLayer starts a group composited with opacity, blend and filters at the
 // matching PopLayer; see the PushLayer command. The filters are copied.
 // Opacity is clamped to [0, 1]; a layer with opacity 0 is dropped with its
-// content.
+// content (only its content, if blend is Unbounded).
 func (b *Builder) PushLayer(opacity float32, blend BlendMode, filters ...Filter) {
 	b.begin()
 	b.pushLayer("PushLayer", opacity, blend, Mask{}, filters)
@@ -469,27 +485,30 @@ func (b *Builder) PushLayer(opacity float32, blend BlendMode, filters ...Filter)
 // multiplied by mask (see Mask) before they are composited; it is closed by
 // PopLayer. mask.List is a finished list in the current local space (its
 // root space), for example glyph runs recorded by another Builder. A nil or
-// empty mask list shows nothing: the layer is dropped with its content,
-// like a layer of opacity 0. Content outside the mask's bounds cannot show
-// and is dropped too.
+// empty mask list shows nothing: the layer is dropped with its content (only
+// its content, if blend is Unbounded), like a layer of opacity 0. Content
+// outside the mask's bounds cannot show and is dropped too.
 func (b *Builder) PushMaskLayer(mask Mask, opacity float32, blend BlendMode, filters ...Filter) {
 	b.begin()
 	if mask.Mode > MaskLuminance {
 		panic(fmt.Sprintf("gfx.Builder.PushMaskLayer: unknown MaskMode(%d); use MaskAlpha or MaskLuminance", mask.Mode))
 	}
 	if mask.List == nil || mask.List.Len() == 0 {
-		b.open(kindLayer, "PushMaskLayer", true)
-		return
+		if !blend.Unbounded() {
+			b.open(kindLayer, "PushMaskLayer", true)
+			return
+		}
+		mask, opacity = Mask{}, min(opacity, 0) // NaN and -Inf stay
 	}
 	b.pushLayer("PushMaskLayer", opacity, blend, mask, filters)
 }
 
 func (b *Builder) pushLayer(name string, opacity float32, blend BlendMode, mask Mask, filters []Filter) {
-	if blend > PlusLighter {
+	if int(blend) >= len(blendNames) {
 		panic(fmt.Sprintf("gfx.Builder.%s: unknown BlendMode(%d); use the BlendMode constants", name, blend))
 	}
 	fs, ok := sanitizeFilters(filters)
-	if b.suppressed() || !ok || !finite(opacity) || opacity <= 0 {
+	if b.suppressed() || !ok || !finite(opacity) || (opacity <= 0 && !blend.Unbounded()) {
 		b.open(kindLayer, name, true)
 		return
 	}
@@ -498,27 +517,40 @@ func (b *Builder) pushLayer(name string, opacity float32, blend BlendMode, mask 
 
 // openLayer opens a layer block for a sanitized PushLayer (the Builder
 // methods and AppendList). The block is dropped when nothing in it can
-// show: inside a dropped block, or a mask outside the clip.
+// show: inside a dropped block, or a mask outside the clip; only its content
+// when it is unbounded.
 func (b *Builder) openLayer(name string, c PushLayer) {
 	skip := b.suppressed()
-	visible := b.clip
+	unbounded := c.Blend.Unbounded()
+	content := b.clip
 	if !skip && c.Mask.List != nil {
 		// The layer shows only where the mask paints.
-		visible = visible.Intersect(b.ctm.TransformRect(c.Mask.List.Bounds()))
-		skip = visible.Empty()
+		content = content.Intersect(b.ctm.TransformRect(c.Mask.List.Bounds()))
+		skip = content.Empty() && !unbounded
 	}
 	f := b.open(kindLayer, name, skip)
 	if skip {
 		return
 	}
+	f.visible = content
+	if unbounded {
+		f.unbounded = true
+		// The mask scales the source; it does not limit what is cleared.
+		f.visible = b.clip
+		if c.Opacity == 0 || content.Empty() {
+			// Nothing of the source shows: the operator alone, with a
+			// transparent source.
+			f.mute = true
+			c = PushLayer{Blend: c.Blend}
+		}
+	}
 	f.idx = b.recordPush(c)
 	f.reach = FiltersOutset(c.Filters) * b.ctm.MaxScale()
-	f.visible = visible
 	b.reach[f.idx] = f.reach
 	// The filters read the content up to reach beyond the clip active at
 	// PushLayer (the clip applies to the filtered result), so content that
 	// lies outside that clip but within reach of it is kept.
-	b.clip = visible.Outset(f.reach)
+	b.clip = content.Outset(f.reach)
 }
 
 // PopLayer closes the innermost block, which must be a PushLayer.
@@ -542,7 +574,10 @@ func (b *Builder) pop(kind stackKind, name string, c Command) {
 		return
 	}
 	acc := f.acc
-	if kind == kindLayer && !acc.Empty() {
+	switch {
+	case f.unbounded:
+		acc = f.visible
+	case kind == kindLayer && !acc.Empty():
 		// A layer can only paint where its content is, grown by the reach of
 		// its filters, and never outside the clip active at PushLayer nor
 		// outside its mask.
@@ -688,13 +723,20 @@ func pushNames(k stackKind) string {
 	return "Push?"
 }
 
-// checkPaint panics on a nil paint or an unknown SpreadMode, which are
-// programmer errors.
+// checkPaint panics on a nil paint, a pattern without an image or an unknown
+// SpreadMode or PatternRepeat, which are programmer errors.
 func checkPaint(op string, p Paint) {
 	var s SpreadMode
 	switch p := p.(type) {
 	case nil:
-		panic("gfx.Builder." + op + ": paint is nil; pass a gfx.Color or a gradient")
+		panic("gfx.Builder." + op + ": paint is nil; pass a gfx.Color, a gradient or a pattern")
+	case ImagePattern:
+		if p.Image == nil {
+			panic("gfx.Builder." + op + ": the pattern's image is nil; create it with gfx.NewImage")
+		}
+		if p.Repeat > RepeatNone {
+			panic(fmt.Sprintf("gfx.Builder.%s: unknown PatternRepeat(%d); use RepeatBoth, RepeatX, RepeatY or RepeatNone", op, p.Repeat))
+		}
 	case LinearGradient:
 		s = p.Spread
 	case RadialGradient:

@@ -21,7 +21,8 @@ import (
 //     and the box laid out, without building or computing styles;
 //   - the paint-phase deferred props of a box (TranslateFn, OpacityFn,
 //     evaluated by painter.place): the box is repainted, without building,
-//     computing styles or laying out.
+//     computing styles or laying out;
+//   - the draw function of a Canvas (canvas.go): the canvas draws again.
 //
 // Reads anywhere else (event handlers, effects, goroutines) are not
 // tracked. Each evaluation replaces the observer's subscriptions with the
@@ -50,6 +51,7 @@ const (
 	obsPaint                 // a box's paint-phase deferred props: repaint
 	obsText                  // a TextFn: assemble its paragraph again (textfn.go)
 	obsField                 // a text field bound to the Value (BindValue): show it
+	obsCanvas                // the draw function of a Canvas: draw again (canvas.go)
 	obsSem                   // an AriaLabelFn, AriaValueNowFn or AriaValueTextFn: the semantics tree is stale (semantics.go), no frame
 )
 
@@ -201,6 +203,7 @@ func (v *Value[T]) checkPending(t *Tree) {
 // changes nothing.
 func (v *Value[T]) Set(x T) {
 	v.load("Set")
+	checkDraw("Value.Set")
 	v.queue(valueOp[T]{val: x})
 }
 
@@ -283,6 +286,7 @@ func (v *Value[T]) Update(f func(T) T) {
 	if f == nil {
 		panic("tela: Value.Update(nil): pass a function that returns the new value from the current one, such as v.Update(func(x float64) float64 { return x + 1 })")
 	}
+	checkDraw("Value.Update")
 	v.queue(valueOp[T]{f: f})
 }
 
@@ -479,14 +483,15 @@ func (t *Tree) valueChanged(v *valueCore) bool { return t.valueChangedSkip(v, ob
 // obsNone is no observer kind (valueChangedSkip skips nothing).
 const obsNone obsKind = 255
 
-// valueChangedSkip is valueChanged without the readers of kind skip. Each
+// valueChangedSkip is valueChanged without the readers of kind skip (with
+// obsPaint, without those of the paint phase: the canvases too). Each
 // reader is marked in its own Tree: a reader in another window of the app
 // (the shared tracking of beginTrack) requests a frame of that window.
 func (t *Tree) valueChangedSkip(v *valueCore, skip obsKind) bool {
 	hit := false
 	for _, s := range v.subs {
 		o := s.obs
-		if o.kind == skip {
+		if o.kind == skip || skip == obsPaint && o.kind == obsCanvas {
 			continue
 		}
 		switch o.kind {
@@ -524,6 +529,10 @@ func (t *Tree) valueChangedSkip(v *valueCore, skip obsKind) bool {
 		case obsField:
 			o.box.tree.bindChanged(o.box)
 			hit = true
+		case obsCanvas:
+			if o.box.med.cnv.valueChanged() {
+				hit = true
+			}
 		case obsSem:
 			// Not a hit: nothing is built, laid out or painted, so no frame.
 			if o.el.mounted {

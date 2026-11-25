@@ -123,6 +123,7 @@ type Renderer struct {
 	solid solidShader
 	grad  gradShader
 	img   imageShader
+	pat   patternShader
 	ramps rampCache
 	opq   imageOpacityCache
 
@@ -497,6 +498,7 @@ func (r *Renderer) render(dst *image.RGBA, dl *gfx.DisplayList, root gfx.Affine,
 		r.blit.pix, r.blit.sh, r.blit.solid, r.blit.cm, r.blit.a8 = nil, nil, nil, clipMask{}, nil
 		r.dl, r.target = nil, nil
 		r.grad.ramp, r.img.img = nil, nil
+		r.pat = patternShader{}
 		for i := range r.stack {
 			r.stack[i] = savedState{}
 		}

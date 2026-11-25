@@ -67,8 +67,11 @@ func init() {
 func current() *state { return st.Load() }
 
 // update applies f to a copy of the state and publishes it, then tells
-// the subscribers if the current locale changed.
-func update(f func(s *state) error) error {
+// the subscribers if the current locale changed. name is the function that
+// calls it, for the panic of a call in the draw function of an h.Canvas (in
+// dev mode), which must come before anything changes or is locked.
+func update(name string, f func(s *state) error) error {
+	core.CheckDraw("i18n." + name)
 	stMu.Lock()
 	old := st.Load()
 	ns := &state{
@@ -241,7 +244,7 @@ func SetLocale(tag string) {
 		}
 		name = d.name
 	}
-	_ = update(func(s *state) error { s.explicit = name; return nil })
+	_ = update("SetLocale", func(s *state) error { s.explicit = name; return nil })
 }
 
 // SetFallback sets the locale whose messages are used when the current
@@ -254,7 +257,7 @@ func SetFallback(tag string) error {
 	if err != nil {
 		return errors.New("i18n: SetFallback(" + fmt.Sprintf("%q", tag) + "): " + err.Error())
 	}
-	return update(func(s *state) error {
+	return update("SetFallback", func(s *state) error {
 		if _, ok := s.cats[d.name]; !ok {
 			return fmt.Errorf("i18n: SetFallback(%q): no catalog for %q is loaded (loaded: %s); call Load first", tag, d.name, strings.Join(s.order, ", "))
 		}
@@ -295,7 +298,7 @@ func Load(fsys fs.FS, pattern string) error {
 	if err != nil {
 		return err
 	}
-	return update(func(s *state) error {
+	return update("Load", func(s *state) error {
 		for _, l := range all {
 			c := s.cats[l.loc.name]
 			if c == nil {
@@ -330,7 +333,7 @@ func Replace(fsys fs.FS, pattern string) error {
 	if err != nil {
 		return err
 	}
-	return update(func(s *state) error {
+	return update("Replace", func(s *state) error {
 		s.cats = map[string]*catalog{}
 		s.order = nil
 		for _, l := range all {
@@ -360,7 +363,7 @@ func Replace(fsys fs.FS, pattern string) error {
 // gone is forgotten. It returns an error, and removes nothing, for a tag
 // that is not valid or has no catalog loaded. It is safe from any goroutine.
 func Unload(tags ...string) error {
-	return update(func(s *state) error {
+	return update("Unload", func(s *state) error {
 		var gone []string
 		for _, tag := range tags {
 			d, err := forTag(tag)

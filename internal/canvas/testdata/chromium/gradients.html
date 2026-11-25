@@ -1,0 +1,112 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+@font-face { font-family: "Inter"; src: url("../../../assets/fonts/inter/InterVariable.ttf"); font-weight: 100 900; }
+@font-face { font-family: "Inter"; src: url("../../../assets/fonts/inter/InterVariable-Italic.ttf"); font-weight: 100 900; font-style: italic; }
+@font-face { font-family: "JetBrains Mono"; src: url("../../../assets/fonts/jetbrainsmono/JetBrainsMono-wght.ttf"); font-weight: 100 800; }
+@font-face { font-family: "JetBrains Mono"; src: url("../../../assets/fonts/jetbrainsmono/JetBrainsMono-Italic-wght.ttf"); font-weight: 100 800; font-style: italic; }
+@font-face { font-family: "Source Serif 4"; src: url("../../../assets/fonts/sourceserif4/SourceSerif4-opsz-wght.ttf"); font-weight: 200 900; }
+@font-face { font-family: "Source Serif 4"; src: url("../../../assets/fonts/sourceserif4/SourceSerif4-Italic-opsz-wght.ttf"); font-weight: 200 900; font-style: italic; }
+@font-face { font-family: "Noto Sans Arabic"; src: url("../../../assets/fonts/notosansarabic/NotoSansArabic-wdth-wght.ttf"); font-weight: 100 900; font-stretch: 62.5% 100%; }
+@font-face { font-family: "Noto Color Emoji"; src: url("../../../assets/fonts/notocoloremoji/Noto-COLRv1.ttf"); }
+html, body { margin: 0; padding: 0; overflow: hidden; background: #fff; }
+canvas { display: block; width: 400px; height: 320px; }
+</style></head><body><canvas id="canvas"></canvas>
+<script>
+const loading = [];
+function image(w, data) {
+  const pix = Uint8ClampedArray.from(atob(data), c => c.charCodeAt(0));
+  const cv = document.createElement("canvas");
+  cv.width = w; cv.height = pix.length / 4 / w;
+  cv.getContext("2d").putImageData(new ImageData(pix, w), 0, 0);
+  const img = new Image();
+  img.src = cv.toDataURL();
+  loading.push(img.decode());
+  return img;
+}
+const k = window.devicePixelRatio, cv = document.getElementById("canvas");
+cv.width = 400 * k; cv.height = 320 * k;
+const c = cv.getContext("2d");
+let g;
+Promise.all([...loading, ...[...document.fonts].map(f => f.load())]).then(() => {
+c.scale(k, k);
+// Glyphs at fractions of a pixel and without hinting, as Tela's.
+c.textRendering = "geometricPrecision";
+g = c.createLinearGradient(10, 0, 90, 30); g.addColorStop(0, "rgb(245 158 11 / 1)"); g.addColorStop(0.5, "rgb(255 0 0 / 0)"); g.addColorStop(1, "rgb(79 70 229 / 1)"); c.fillStyle = g;
+c.font = "400 16px 'Inter', 'JetBrains Mono', 'Noto Sans Arabic', 'Noto Color Emoji'";
+c.fillRect(0, 10, 100, 60);
+g = c.createRadialGradient(150, 40, 0, 150, 40, 40); g.addColorStop(0, "rgb(245 158 11 / 1)"); g.addColorStop(0.5, "rgb(255 0 0 / 0)"); g.addColorStop(1, "rgb(79 70 229 / 1)"); c.fillStyle = g;
+c.fillRect(110, 10, 80, 60);
+g = c.createRadialGradient(235, 35, 8, 250, 40, 38); g.addColorStop(0, "rgb(245 158 11 / 1)"); g.addColorStop(0.5, "rgb(255 0 0 / 0)"); g.addColorStop(1, "rgb(79 70 229 / 1)"); c.fillStyle = g;
+c.fillRect(210, 10, 80, 60);
+g = c.createRadialGradient(320, 40, 5, 370, 40, 20); g.addColorStop(0, "rgb(245 158 11 / 1)"); g.addColorStop(0.5, "rgb(255 0 0 / 0)"); g.addColorStop(1, "rgb(79 70 229 / 1)"); c.fillStyle = g;
+c.fillRect(305, 10, 90, 60);
+g = c.createConicGradient(0.7853981633974483, 50, 120); g.addColorStop(0, "rgb(245 158 11 / 1)"); g.addColorStop(0.5, "rgb(255 0 0 / 0)"); g.addColorStop(1, "rgb(79 70 229 / 1)"); c.fillStyle = g;
+c.fillRect(10, 85, 80, 70);
+g = c.createLinearGradient(0, 85, 0, 155); g.addColorStop(0, "rgb(225 29 72 / 1)"); g.addColorStop(0.33333334, "rgb(225 29 72 / 1)"); g.addColorStop(0.33333334, "rgb(56 189 248 / 1)"); g.addColorStop(0.6666667, "rgb(56 189 248 / 1)"); g.addColorStop(0.6666667, "rgb(71 85 105 / 1)"); g.addColorStop(1, "rgb(71 85 105 / 1)"); c.fillStyle = g;
+c.fillRect(110, 85, 80, 70);
+g = c.createLinearGradient(0, 0, 40, 0); g.addColorStop(0, "rgb(56 189 248 / 1)"); g.addColorStop(1, "rgb(79 70 229 / 1)"); c.fillStyle = g;
+g = c.createLinearGradient(0, 0, 40, 0); g.addColorStop(0, "rgb(56 189 248 / 1)"); g.addColorStop(1, "rgb(79 70 229 / 1)"); c.strokeStyle = g;
+c.save();
+c.translate(210, 90);
+c.rotate(0);
+c.fillRect(0, 0, 40, 24);
+c.restore();
+c.save();
+c.translate(255, 90);
+c.rotate(0.2617993877991494);
+c.fillRect(0, 0, 40, 24);
+c.restore();
+c.save();
+c.translate(300, 90);
+c.rotate(0.5235987755982988);
+c.fillRect(0, 0, 40, 24);
+c.restore();
+c.save();
+c.translate(345, 90);
+c.rotate(0.7853981633974483);
+c.fillRect(0, 0, 40, 24);
+c.restore();
+c.lineWidth = 12;
+c.save();
+c.translate(230, 125);
+c.scale(4, 1);
+c.beginPath();
+c.arc(20, 15, 10, 0, 6.283185307179586);
+c.stroke();
+c.restore();
+c.save();
+c.translate(10, 170);
+c.transform(1.5, 0.2, 0.5, 0.8, 0, 0);
+g = c.createRadialGradient(20, 25, 5, 30, 30, 30); g.addColorStop(0, "rgb(245 158 11 / 1)"); g.addColorStop(0.5, "rgb(255 0 0 / 0)"); g.addColorStop(1, "rgb(79 70 229 / 1)"); c.fillStyle = g;
+c.beginPath();
+c.arc(30, 30, 28, 0, 6.283185307179586);
+c.fill();
+c.restore();
+c.save();
+c.translate(130, 170);
+c.scale(1.5, 0.8);
+g = c.createConicGradient(0, 30, 40); g.addColorStop(0, "rgb(245 158 11 / 1)"); g.addColorStop(0.5, "rgb(255 0 0 / 0)"); g.addColorStop(1, "rgb(79 70 229 / 1)"); c.fillStyle = g;
+c.fillRect(0, 0, 60, 80);
+c.restore();
+c.save();
+c.translate(330, 170);
+c.scale(-1, 1);
+g = c.createConicGradient(0, 40, 35); g.addColorStop(0, "rgb(245 158 11 / 1)"); g.addColorStop(0.5, "rgb(255 0 0 / 0)"); g.addColorStop(1, "rgb(79 70 229 / 1)"); c.strokeStyle = g;
+c.lineWidth = 16;
+c.strokeRect(10, 10, 60, 50);
+c.restore();
+g = c.createLinearGradient(0, 0, 390, 0); g.addColorStop(0, "rgb(225 29 72 / 1)"); g.addColorStop(0.5, "rgb(245 158 11 / 1)"); g.addColorStop(1, "rgb(79 70 229 / 1)"); c.fillStyle = g;
+g = c.createLinearGradient(0, 0, 390, 0); g.addColorStop(0, "rgb(225 29 72 / 1)"); g.addColorStop(0.5, "rgb(245 158 11 / 1)"); g.addColorStop(1, "rgb(79 70 229 / 1)"); c.strokeStyle = g;
+c.font = "700 36px 'Inter', 'JetBrains Mono', 'Noto Sans Arabic', 'Noto Color Emoji'";
+c.fillText("Gradients", 10, 290);
+c.lineWidth = 1.5;
+c.strokeText("in text", 220, 290);
+g = c.createConicGradient(0, 240, 270); g.addColorStop(0, "rgb(245 158 11 / 1)"); g.addColorStop(0.5, "rgb(255 0 0 / 0)"); g.addColorStop(1, "rgb(79 70 229 / 1)"); c.fillStyle = g;
+c.globalAlpha = 0.5;
+c.fillRect(340, 180, 50, 50);
+g = c.createLinearGradient(5, 5, 5, 5); g.addColorStop(0, "rgb(245 158 11 / 1)"); g.addColorStop(0.5, "rgb(255 0 0 / 0)"); g.addColorStop(1, "rgb(79 70 229 / 1)"); c.fillStyle = g;
+c.fillRect(0, 0, 400, 320);
+g = c.createLinearGradient(0, 0, 5, 5); c.fillStyle = g;
+c.fillRect(0, 0, 400, 320);
+});
+</script></body></html>

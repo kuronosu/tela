@@ -39,11 +39,12 @@ import (
 // Config.ReducedMotion) transitions take no time: none starts and running
 // ones end.
 //
-// Inherited properties (color, font size) are the exception to "a restyle
-// compares": a child restyled because its parent's inherited value changed
-// follows the parent's current value and starts no transition for the
-// values it inherits (nor for its currentColor borders, outlines and
-// decorations while its text color is inherited). The values it sets
+// Inherited properties (color, font size, and the SVG paints: fill, stroke
+// and stroke-width) are the exception to "a restyle compares": a child
+// restyled because its parent's inherited value changed follows the
+// parent's current value and starts no transition for the values it
+// inherits (nor for its currentColor borders, outlines and decorations
+// while its text color is inherited). The values it sets
 // itself in the same restyle (a group-hover: text color, say) transition
 // as usual (followsParent).
 //
@@ -66,7 +67,9 @@ import (
 //   - inherited properties, sizes, spacing, insets and border widths
 //     (ClassLayout, and the colors that children inherit): the box is styled
 //     again every frame (stylePhase), which lays out and restyles the
-//     children when needed.
+//     children when needed. The SVG paints of a box without children, an
+//     icon or a canvas, are inherited by nothing: they are like the colors
+//     above.
 //
 // # Frames and idle
 //
@@ -138,6 +141,11 @@ type boxTransition struct {
 	// from is the style before the change (immutable), radj the style
 	// whose value is the reversing-adjusted start value.
 	from, radj *style.ComputedStyle
+	// to has the end value when the target sets none and the box shows one
+	// all the same (shownPaint); nil otherwise.
+	to *style.ComputedStyle
+	// srgb: a fill or a stroke interpolates in sRGB (anim.PaintsLegacy).
+	srgb bool
 }
 
 // kfRun is a running keyframe animation.
@@ -202,6 +210,15 @@ func (ba *boxAnim) find(p anim.Prop) int {
 		}
 	}
 	return -1
+}
+
+// add adds a transition, in the order of the properties: a fill that is
+// currentColor takes the text color of its step (anim.Blend).
+func (ba *boxAnim) add(tr boxTransition) {
+	ba.trans = append(ba.trans, tr)
+	for i := len(ba.trans) - 1; i > 0 && ba.trans[i-1].Prop > tr.Prop; i-- {
+		ba.trans[i-1], ba.trans[i] = ba.trans[i], ba.trans[i-1]
+	}
 }
 
 func (ba *boxAnim) remove(i int) {
@@ -365,7 +382,9 @@ func (t *Tree) updateTransitions(ba *boxAnim, old, cs *style.ComputedStyle, now 
 		// A child restyled because its parent's inherited values changed
 		// follows the values it takes from the parent; the ones it sets
 		// itself transition like any other.
-		inherited := t.anim.inherited && followsParent(p, cs)
+		// (A paint that it stops setting transitions to the inherited one, or
+		// back to its own drawing: a group-hover:fill-* on an icon.)
+		inherited := t.anim.inherited && followsParent(p, cs) && (!p.IsPaint() || followsParent(p, old))
 		if i < 0 {
 			if inherited {
 				continue
@@ -377,8 +396,12 @@ func (t *Tree) updateTransitions(ba *boxAnim, old, cs *style.ComputedStyle, now 
 			if ba.target != nil {
 				before = ba.target
 			}
-			if !anim.Equal(p, before, cs) && anim.CanInterpolate(p, before, cs) && timing.Runs() {
-				ba.trans = append(ba.trans, boxTransition{Transition: anim.Begin(p, timing, now), from: before, radj: before})
+			if anim.Equal(p, before, cs) || !timing.Runs() {
+				continue
+			}
+			from, end := shownPaint(ba.bx, p, before), shownPaint(ba.bx, p, cs)
+			if !anim.Equal(p, from, end) && anim.CanInterpolate(p, from, end) {
+				ba.add(beginTransition(anim.Begin(p, timing, now), from, from, end, cs))
 			}
 			continue
 		}
@@ -386,24 +409,53 @@ func (t *Tree) updateTransitions(ba *boxAnim, old, cs *style.ComputedStyle, now 
 		if ba.target != nil && anim.Equal(p, ba.target, cs) {
 			continue // the target did not change: it keeps going
 		}
+		end := shownPaint(ba.bx, p, cs)
+		prev := ba.target // the end value of the running transition
+		if prev != nil {
+			prev = shownPaint(ba.bx, p, prev)
+		}
 		switch {
-		case inherited, anim.Equal(p, old, cs), !anim.CanInterpolate(p, old, cs), !timing.Runs():
+		case inherited, !anim.CanInterpolate(p, old, end), !timing.Runs():
 			ba.remove(i)
-		case anim.Equal(p, run.radj, cs):
+		case prev != nil && anim.Equal(p, prev, end):
+			// The same target, which one of the styles sets and the other
+			// does not: it keeps going.
+			run.to = nil
+			if end != cs {
+				run.to = end
+			}
+		case anim.Equal(p, old, end):
+			ba.remove(i)
+		case anim.Equal(p, run.radj, end):
 			// Back to where it came from: a shorter transition.
 			rev := run.Reverse(timing, now)
-			ba.trans[i] = boxTransition{Transition: rev, from: old, radj: ba.target}
+			ba.trans[i] = beginTransition(rev, old, prev, end, cs)
 		default:
-			ba.trans[i] = boxTransition{Transition: anim.Begin(p, timing, now), from: old, radj: old}
+			ba.trans[i] = beginTransition(anim.Begin(p, timing, now), old, old, end, cs)
 		}
 	}
 }
 
+// beginTransition returns the transition tr to the target cs from the value
+// in from to the one in end, which is cs or the copy that shownPaint made
+// of it. radj has the reversing-adjusted start value.
+func beginTransition(tr anim.Transition, from, radj, end, cs *style.ComputedStyle) boxTransition {
+	bt := boxTransition{Transition: tr, from: from, radj: radj}
+	if end != cs {
+		bt.to = end
+	}
+	bt.srgb = isFillOrStroke(tr.Prop) && anim.PaintsLegacy(tr.Prop, from, end)
+	return bt
+}
+
+func isFillOrStroke(p anim.Prop) bool { return p == anim.PropFill || p == anim.PropStroke }
+
 // followsParent reports whether the value of p in cs is not the element's
 // own but its parent's: an inherited property the element does not set
-// (color, font size, decoration color), or a color that is currentColor
-// (borders, outlines, decorations; Tela resolves it when the style is
-// computed) while the text color is inherited. A value set relative to the
+// (color, font size, decoration color, the SVG paints), or a color that is
+// currentColor (borders, outlines, decorations; Tela resolves it when the
+// style is computed) while the text color is inherited. A value set
+// relative to the
 // parent's (an em font size, text-current/50) counts as the element's own
 // font size but not as its own text color (TextColorSet; ADR-082).
 func followsParent(p anim.Prop, cs *style.ComputedStyle) bool {
@@ -419,6 +471,8 @@ func followsParent(p anim.Prop, cs *style.ComputedStyle) bool {
 		fallthrough
 	case anim.PropBorderColor, anim.PropOutlineColor:
 		return cs.CurrentColors&p.Mask() != 0 && !cs.TextColorSet
+	case anim.PropFill, anim.PropStroke, anim.PropStrokeWidth:
+		return cs.PaintsSet&p.Mask() == 0
 	}
 	return false
 }
@@ -555,7 +609,15 @@ func (t *Tree) animStyle(ba *boxAnim, target *style.ComputedStyle, now time.Dura
 			continue
 		}
 		own()
-		anim.Blend(tr.Prop, u, tr.from, target, eased)
+		to := target
+		if tr.to != nil {
+			to = tr.to
+		}
+		if isFillOrStroke(tr.Prop) {
+			anim.BlendPaint(tr.Prop, u, tr.from, to, eased, tr.srgb)
+		} else {
+			anim.Blend(tr.Prop, u, tr.from, to, eased)
+		}
 		layer = layer || tr.Prop.Class() == anim.ClassLayer
 		i++
 	}
@@ -616,7 +678,8 @@ func (ba *boxAnim) Advance(now time.Duration) anim.State {
 	// Properties that other boxes inherit or that change the layout need
 	// the whole style phase, which also applies the end values.
 	for i := range ba.trans {
-		if p := ba.trans[i].Prop; p.Inherited() || p.Class() == anim.ClassLayout {
+		p := ba.trans[i].Prop
+		if p.Inherited() && !(p.IsPaint() && len(el.children) == 0) || p.Class() == anim.ClassLayout {
 			t.markStyle(el)
 			return ba.stateAt(now)
 		}
@@ -643,6 +706,9 @@ func (t *Tree) animApply(bx *Box, old, u *style.ComputedStyle) {
 	}
 	bx.cs = u
 	t.markPlace(bx)
+	if bx.kind == style.KindCanvas {
+		bx.med.cnv.queue() // canvas.go
+	}
 	t.semStyled(bx, old, u)
 	changed := !sameStyle(old, u, false)
 	inkCh := false

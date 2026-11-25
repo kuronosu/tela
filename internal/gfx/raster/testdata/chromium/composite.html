@@ -1,0 +1,59 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+html, body { margin: 0; padding: 0; overflow: hidden; background: #fff; }
+canvas { position: absolute; width: 100px; height: 100px; }
+</style></head><body>
+<script>
+const cells = [
+[0, 0, "source-over", false],
+[100, 0, "lighter", false],
+[200, 0, "source-in", false],
+[300, 0, "source-out", false],
+[400, 0, "source-atop", false],
+[500, 0, "destination-over", false],
+[0, 100, "destination-in", false],
+[100, 100, "destination-out", false],
+[200, 100, "destination-atop", false],
+[300, 100, "copy", false],
+[400, 100, "xor", false],
+[0, 200, "source-over", true],
+[100, 200, "lighter", true],
+[200, 200, "source-in", true],
+[300, 200, "source-out", true],
+[400, 200, "source-atop", true],
+[500, 200, "destination-over", true],
+[0, 300, "destination-in", true],
+[100, 300, "destination-out", true],
+[200, 300, "destination-atop", true],
+[300, 300, "copy", true],
+[400, 300, "xor", true]
+];
+const dpr = window.devicePixelRatio;
+function gradient(ctx, x0, y0, x1, y1, a, b) {
+  const g = ctx.createLinearGradient(x0, y0, x1, y1);
+  g.addColorStop(0, a);
+  g.addColorStop(1, b);
+  return g;
+}
+for (const [x, y, op, clip] of cells) {
+  const cv = document.createElement("canvas");
+  cv.style.left = x + "px";
+  cv.style.top = y + "px";
+  cv.width = cv.height = 100 * dpr;
+  document.body.append(cv);
+  const ctx = cv.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.fillStyle = gradient(ctx, 10, 10, 65, 10, "rgb(239.000 68.000 68.000 / 1.000)", "rgb(14.000 165.000 233.000 / 1.000)");
+  ctx.fillRect(10, 10, 55, 55);
+  ctx.fillStyle = "rgb(99.000 102.000 241.000 / 0.500)";
+  ctx.beginPath(); ctx.roundRect(14, 48, 44, 44, 22); ctx.fill();
+  if (clip) {
+    ctx.beginPath(); ctx.roundRect(8, 12, 80, 76, 26); ctx.clip();
+    ctx.globalAlpha = 0.7;
+  }
+  ctx.globalCompositeOperation = op;
+  ctx.translate(50, 50); ctx.rotate(0.3); ctx.translate(-50, -50);
+  ctx.fillStyle = gradient(ctx, 30, 30, 30, 76, "rgb(245.000 158.000 11.000 / 1.000)", "rgb(245.000 158.000 11.000 / 0.250)");
+  ctx.fillRect(30, 30, 56, 46);
+}
+</script></body></html>

@@ -43,6 +43,7 @@ const (
 var recipeMaxBytes = map[string]int{
 	"accessibility":       7_000,
 	"animation":           5_000,
+	"canvas":              7_500,
 	"components":          8_000,
 	"desktop-integration": 19_000,
 	"dev":                 5_500,

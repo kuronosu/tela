@@ -259,8 +259,8 @@ func (p *painter) place(bx *Box, parent *Box) {
 	// context paints.
 	wt, parts := 1, 0
 	switch {
-	case bx.kind == style.KindTexture:
-		wt = groupMin // a list of its own, recorded for every frame it shows (texture.go)
+	case bx.kind == style.KindTexture || bx.kind == style.KindCanvas:
+		wt = groupMin // a list of its own, recorded for every frame it shows (texture.go, canvas.go)
 	case bx.mode == modeImage && bx.doc() != nil:
 		wt = 2 // a drawing: its commands
 	}
@@ -327,6 +327,9 @@ func (p *painter) place(bx *Box, parent *Box) {
 	bx.hitSub = sub
 	bx.hitBounds = hitBounds(bx)
 	p.notePlaced(bx)
+	if bx.kind == style.KindCanvas && !p.ref {
+		bx.med.cnv.queue() // its size or its style may have changed (canvas.go)
+	}
 }
 
 // kidAgg is what place sums of the children of a box: the weights of

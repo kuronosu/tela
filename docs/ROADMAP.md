@@ -11,25 +11,25 @@
 
 ## Current status
 
-- **Done:** phases 1–30. Latest version `v0.14.11` (2026-11-24, phase 30: External textures, ADR-315 to ADR-318). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch; the owner may release a small break, such as a rename, as a patch.
-- **Phase in progress:** none; the owner picks the next (in order: Canvas, SVG and PDF; Audio and video; Game input).
+- **Done:** phases 1–31. Latest version `v0.14.12` (2026-11-24, phase 31: Canvas, ADR-319 and ADR-320; the tag waits for the owner). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch; the owner may release a small break, such as a rename, as a patch.
+- **Phase in progress:** none; the owner picks the next (in order: SVG and PDF; Audio and video; Game input).
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the docs of the latest release tag. Only tags deploy it: a release tag `v*`, or a site tag `site-YYYY-MM-DD` for a change to the site between releases, which the owner pushes (ADR-229).
-- **Next step:** the owner pushes `main` and a site tag `site-YYYY-MM-DD` on its head, so that the site gets the docs of `v0.14.11` (a broken anchor stopped its deploys from `v0.14.9` on), then opens the next phase. Phase 28's DevTools window and `tela mcp --attach` wait for a live check on a real desktop (`docs/LIMITATIONS.md`). Phase 27's Windows and macOS surfaces wait for their live checks (`docs/LIMITATIONS.md`). Phase 26's Mac checks wait for a macOS CI run or a Mac (`docs/LIMITATIONS.md`). The GPU backend's Windows code ran without windows on an Intel Arc laptop (2026-11-23); its windowed live check waits. Phase 30's Windows windowed tests run on the owner's Intel Arc laptop next (Smart App Control blocks some test programs). R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** the owner pushes `main` (phase 31 merged) and the tag `v0.14.12`, which deploys the site, then opens the next phase. The macOS CI run of phase 31 says whether `examples/canvas`, whose particles move from the start, passes `TestExamplesCocoa`; if not, its App starts paused. Phase 28's DevTools window and `tela mcp --attach` wait for a live check on a real desktop (`docs/LIMITATIONS.md`). Phase 27's Windows and macOS surfaces wait for their live checks (`docs/LIMITATIONS.md`). Phase 26's Mac checks wait for a macOS CI run or a Mac (`docs/LIMITATIONS.md`). The GPU backend's Windows code ran without windows on an Intel Arc laptop (2026-11-23); its windowed live check waits. Phase 30's Windows windowed tests run on the owner's Intel Arc laptop next (Smart App Control blocks some test programs). R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no Wine on the host (it froze it once): Wine runs in a Docker container limited to 4 CPUs and 8 GB (Ubuntu 24.04 with `wine` and `wine64`, `LANG=C.UTF-8`, the host's Go mounted read-only), as CI's job runs it; the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` takes about 15 minutes in one process (2026-11-09; run it with `-timeout 30m`, or shard it; longer since phase 24's `TELA_CHECK_SEMANTICS` and `TELA_CHECK_LAYOUT` are on in core's tests), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
 
-In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–30 are done (HISTORY.md).
+In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–31 are done (HISTORY.md).
 
-### Canvas, SVG and PDF
+### SVG and PDF
 
 Vector output on the `DisplayList`.
 
-- [ ] `Canvas` (2D): immediate-mode drawing surface (paths, gradients, text, images) with an animation-frame callback, with the method names of the browser's Canvas 2D API and compared with Chromium's output
 - [ ] SVG: text, filters, images, patterns and markers
+- [ ] Left by Canvas (phase 31): the CPU rasterizer adds up the partial coverage of contours of one path that overlap (stroked text of variable fonts, serifs; up to 94 levels against Chromium at edges); a huge `ClearRect` under a turned and very uneven transform can clear a few pixels off at its edge; on the GPU every path and stroke of a canvas is a coverage mask made on the CPU (`examples/canvas`: 7.4 ms a frame against 2.3 by the CPU rasterizer, Intel Arc, 2400x1900)
 - [ ] Printing and PDF export: a vector PDF backend over the DisplayList (fonts embedded, gradients, clip, opacity), print dialogs, page-break CSS subset
 
-**Done when:** a `Canvas` example animates at 60 fps, the new SVG features match their resvg test cases, and a page exports to a PDF that two viewers render identically.
+**Done when:** the new SVG features match their resvg test cases, and a page exports to a PDF that two viewers render identically.
 
 ### Audio and video
 
@@ -38,7 +38,8 @@ Highest uncertainty of the roadmap: pure-Go decoders limit the codecs.
 - [ ] Audio playback and capture: pure-Go decoders (WAV, MP3, OGG/Vorbis, FLAC, Opus where one exists), output through ALSA/PulseAudio/PipeWire, WASAPI, CoreAudio
 - [ ] A low-latency output stream the application fills from its own callback (a mixer, a game engine, a synthesizer), besides file playback; the ADR states the latency each backend reaches (added 2026-11-23 for applications that render their own content)
 - [ ] Video playback: patent-free subset first (VP8/VP9/AV1 if a pure-Go decoder is viable), A/V sync, a `Video` component with `kit` controls; an ADR settles codec scope before work starts. Pure-Go decoders produce CPU frames, so `Video` shows them through External textures' element and its copy path; the GPU imports of that phase serve frames a hardware decoder leaves on the GPU. The Windows shared-handle import (it needs a keyed mutex or a fence, and the Intel Arc laptop to run on) and X11's fixed 60 Hz pacing, which could follow `FrameEvent.Refresh` (ADR-317), are here. Textures take 8-bit RGB only (ADR-315): NV12 and other YUV frames (BT.601/709, limited or full range), converted in the shader and in the copy, are this phase's
-- [ ] Dmabuf imports on an Intel Arc (Meteor Lake, Linux 7.2, Mesa 26.2.5): `TestImportStrides` (`internal/gfx/gpu`), `TestVulkanDrawsTheScene` and `TestPainterOnTheWindow` (`examples/texture`) read wrong pixels, so the gate fails on that machine (found 2026-11-24, cause not looked for)
+- [ ] Dmabuf imports on an Intel Arc (Meteor Lake, Linux 7.2, Mesa 26.2.5): `TestImportStrides` (`internal/gfx/gpu`), `TestVulkanDrawsTheScene` and `TestPainterOnTheWindow` (`examples/texture`) read wrong pixels, so the gate fails on that machine, and so do `internal/core`'s five `TestTextureGPU*` with `telagpu` (found 2026-11-24, cause not looked for). There, `TestPlain` (`internal/gfx/gpu`) also fails now and then under GPU contention, in blur scenes: 2 of 445 runs before phase 31, 4 of 317 after its GPU work, cause unknown. Reading a frame back is slow there: 8.4 ms for 297,000 pixels (`examples/canvas`, 2400x1900), where a window that shows no dmabufs, or `TELA_DEBUG`, reads every frame back (perhaps no cached and coherent memory type: `vulkan.go` then takes an uncached one; not checked)
+- [ ] `TestTextureSurfaceCopy` (`internal/core`) fails now and then when the machine is busy: the window still shows the frame before (about 1 of 100 runs, before phase 31 too; 2026-11-24)
 - [ ] 3D (exploratory, ADR first; transforms stay 2D until then) lives here or in the backlog; an application can already show its own 3D rendering through External textures
 
 **Done when:** a "player" example plays an audio file and a video with synced controls.
@@ -112,7 +113,7 @@ Not planned; the owner can reopen any of them.
 
 Optional, outside the core module. Until `tela add` exists (see "Deferred") they are plain Go modules that applications import. They are not scheduled; each starts when a real application needs it.
 
-- **Charts:** line, bar, area, pie, scatter, axes, tooltips, built on `Canvas` (Canvas, SVG and PDF) or plain `Div`/SVG until then
+- **Charts:** line, bar, area, pie, scatter, axes, tooltips, built on `Canvas` (phase 31) or plain `Div`/SVG until then
 - **DataGrid / TreeView:** sortable, resizable, editable cells, row selection, grouping, tree expansion, on top of `VirtualList`; the simple `Table` in `kit` stays in core
 - **Third-party packages with an implementation per system:** a documented convention (build tags or files per OS, no cgo, a fake for headless tests) so others can publish services like `desktop`'s
 - **Looks (`looks/`, ADR-197, ADR-223):** done for Windows 11, GNOME, KDE and macOS (`win11`, `adwaita`, `breeze`, `aqua` in two designs, `detect`, and a gallery)

@@ -188,7 +188,7 @@ func TestExportedNames(t *testing.T) {
 	want := []string{
 		"A", "Alt", "AnimateLayout", "AriaBusy", "AriaChecked", "AriaDescription", "AriaDisabled", "AriaExpanded", "AriaHidden", "AriaLabel",
 		"AriaLabelledBy", "AriaLevel", "AriaPressed", "AriaReadOnly", "AriaRequired", "AriaRowCount", "AriaRowIndex", "AriaSelected", "AriaValueMax", "AriaValueMin",
-		"AriaValueNow", "AriaValueText", "AutoComplete", "AutoFocus", "Bind", "BindValue", "Button", "Class",
+		"AriaValueNow", "AriaValueText", "AutoComplete", "AutoFocus", "Bind", "BindValue", "Button", "Canvas", "Class",
 		"Code", "DefaultValue", "Dir", "Disabled", "Div", "Em", "Exit", "For", "Form", "Fragment", "H1", "H2", "H3", "H4", "H5",
 		"H6", "Href", "ID", "Icon", "If", "IfElse", "Img", "Input", "ItemHeight", "ItemKey", "Key", "Label", "Lang", "LayoutID", "Map", "MapIndex", "MapKeyed", "MaxLength", "Name", "Nodes",
 		"OnBeforeInput", "OnBlur", "OnChange", "OnClick", "OnCompositionEnd", "OnCompositionStart",

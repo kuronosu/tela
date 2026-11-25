@@ -535,6 +535,16 @@ func TestBackdropCachePixels(t *testing.T) {
 			{"the input rested", glassPage(60, 6, gfx.Rect{}), same, nil, []gfx.Rect{gfx.RectXYWH(40, 60, 70, 12), gfx.RectXYWH(230, 60, 90, 12)}},
 			{"drawn from the entry made", glassPage(60, 9, gfx.Rect{}), same, nil, []gfx.Rect{gfx.RectXYWH(40, 60, 80, 12), gfx.RectXYWH(230, 60, 90, 12)}},
 		}, BackdropStats{Hits: 2, Stored: 4, Computed: 2}},
+		{"over what operators cleared", []frame{
+			// The first pane's backdrop has transparent pixels, and the
+			// second's translucent ones: blended over what is under them, and
+			// hiding none of it.
+			{"full", operatorPage(0, 0), nil, nil, nil},
+			{"a label moves", operatorPage(0, 5), same, nil, []gfx.Rect{gfx.RectXYWH(80, 120, 45, 12)}},
+			{"the strip moves", operatorPage(7, 5), []int{-1, 1}, []int{0, -1}, []gfx.Rect{gfx.RectXYWH(10, 0, 91, 300)}},
+			{"a label again", operatorPage(7, 9), same, nil, []gfx.Rect{gfx.RectXYWH(85, 120, 44, 12)}},
+			{"a full frame", operatorPage(7, 9), same, nil, nil},
+		}, BackdropStats{Hits: 4, Patched: 1, Stored: 2}},
 	}
 	white := gfx.White
 	eachDevice(t, func(t *testing.T, dev Device) {

@@ -318,8 +318,10 @@ type Tree struct {
 
 	// bnd holds the UseBounds slots (bounds.go).
 	bnd boundsState
-	// tex holds the textures its elements show (texture_tree.go).
+	// tex holds the textures its elements show (texture_tree.go), cnv its
+	// canvases (canvas.go), nil for none.
 	tex texTree
+	cnv canvasSet
 
 	// sem is the semantics tree built last (semantics.go).
 	sem semState
@@ -639,8 +641,9 @@ func (t *Tree) SetScale(scale float32) {
 func (t *Tree) rescaleText() { t.eachTextBox(t.rescaleBox) }
 
 // reshapeText shapes the text of every paragraph and text field again
-// and queues their boxes for layout: the fonts resolve the same styles
-// to other faces (the desktop's families changed, fonts.go).
+// and queues their boxes for layout, and draws every canvas: the fonts
+// resolve the same styles to other faces (the desktop's families changed,
+// fonts.go).
 func (t *Tree) reshapeText() {
 	t.eachTextBox(func(b *Box) {
 		if p := b.para; p != nil {
@@ -648,6 +651,9 @@ func (t *Tree) reshapeText() {
 		}
 		if f := b.fld; f != nil {
 			f.reshape()
+		}
+		if b.med != nil && b.med.cnv != nil {
+			b.med.cnv.fontsChanged()
 		}
 	})
 }
@@ -892,6 +898,9 @@ func (t *Tree) afterFrame() {
 	t.animAfterFrame()
 	t.floatAfterFrame()
 	t.texturesAfterFrame()
+	if t.cnv != nil {
+		t.cnv.afterFrame()
+	}
 	if t.ins != nil {
 		t.ins.prof.end()
 	}

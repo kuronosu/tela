@@ -12,6 +12,7 @@ examples/*/notes
 examples/*/notes.exe
 examples/texture/texture
 /player
+/canvas
 /settings
 
 # Golden test failures

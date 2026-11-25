@@ -59,7 +59,7 @@ func TestDarkSwitchWithPointer(t *testing.T) {
 
 func TestCheckboxSelectAll(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Checkbox"})
+	a := mount(t, Stage{Page: "Checkbox"})
 	a.ExpectText("3 of 6 selected")
 	a.Click(telatest.ByRole("checkbox", "Select all"))
 	a.ExpectText("6 of 6 selected")
@@ -71,7 +71,7 @@ func TestCheckboxSelectAll(t *testing.T) {
 
 func TestFieldErrorFollowsTheValue(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Field"})
+	a := mount(t, Stage{Page: "Field"})
 	email := telatest.ByRole("textbox", "Email")
 	a.Expect(email, telatest.Invalid(true))
 	a.ExpectText("Enter a valid email address.")
@@ -82,7 +82,7 @@ func TestFieldErrorFollowsTheValue(t *testing.T) {
 
 func TestToastsAppear(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Toast"})
+	a := mount(t, Stage{Page: "Toast"})
 	a.Click(telatest.ByRole("button", "Success"))
 	a.ExpectText("Changes saved")
 	a.Click(telatest.ByRole("button", "Delete the draft"))
@@ -93,7 +93,7 @@ func TestToastsAppear(t *testing.T) {
 
 func TestEditProfileSavesAndCloses(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Dialog"})
+	a := mount(t, Stage{Page: "Dialog"})
 	edit := telatest.ByRole("button", "Edit profile")
 	a.Click(edit)
 	a.ExpectRole("dialog", "Edit profile")
@@ -106,7 +106,7 @@ func TestEditProfileSavesAndCloses(t *testing.T) {
 
 func TestAlertDialogDecisions(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "AlertDialog"})
+	a := mount(t, Stage{Page: "AlertDialog"})
 	trigger := telatest.ByRole("button", "Delete project")
 	a.Click(trigger)
 	a.ExpectRole("alertdialog", "Are you absolutely sure?")
@@ -118,7 +118,7 @@ func TestAlertDialogDecisions(t *testing.T) {
 
 func TestDatePickerChoosesADate(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "DatePicker"})
+	a := mount(t, Stage{Page: "DatePicker"})
 	a.Click(telatest.ByRole("button", "Date"))
 	a.Click(telatest.ByRole("gridcell", "Friday, October 30, 2026"))
 	a.ExpectText("Chosen: Friday, October 30, 2026")
@@ -128,7 +128,7 @@ func TestDatePickerChoosesADate(t *testing.T) {
 
 func TestRangeCalendarTwoPresses(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "RangeCalendar"})
+	a := mount(t, Stage{Page: "RangeCalendar"})
 	a.ExpectText("From Oct 27, 2026 to Nov 3, 2026")
 	a.Click(telatest.ByRole("button", "Clear"))
 	a.ExpectText("No dates chosen.")
@@ -139,7 +139,7 @@ func TestRangeCalendarTwoPresses(t *testing.T) {
 
 func TestTableSorts(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Table"})
+	a := mount(t, Stage{Page: "Table"})
 	first := func() string {
 		snap := a.AriaSnapshot()
 		_, rest, _ := strings.Cut(snap, "INV0")
@@ -157,7 +157,7 @@ func TestTableSorts(t *testing.T) {
 
 func TestSlidersMoveWithKeys(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Slider"})
+	a := mount(t, Stage{Page: "Slider"})
 	volume := telatest.ByRole("slider", "Volume")
 	a.Focus(volume)
 	a.Press("ArrowRight")
@@ -168,7 +168,7 @@ func TestSlidersMoveWithKeys(t *testing.T) {
 
 func TestRadioGroupPlans(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "RadioGroup"})
+	a := mount(t, Stage{Page: "RadioGroup"})
 	a.ExpectText("Plan: Pro")
 	a.Click(telatest.ByRole("radio", "Free"))
 	a.ExpectText("Plan: Free")
@@ -176,7 +176,7 @@ func TestRadioGroupPlans(t *testing.T) {
 
 func TestColorPickerHexField(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "ColorPicker"})
+	a := mount(t, Stage{Page: "ColorPicker"})
 	hex := telatest.ByRole("textbox", "Hex").Nth(0)
 	a.Fill(hex, "#ff0000")
 	a.Press("Enter")
@@ -185,7 +185,7 @@ func TestColorPickerHexField(t *testing.T) {
 
 func TestTooltipOnHover(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Tooltip"})
+	a := mount(t, Stage{Page: "Tooltip"})
 	a.ExpectCount(telatest.ByRole("tooltip", ""), 0)
 	a.Hover(telatest.ByRole("button", "Download"))
 	a.ExpectRole("tooltip", "Download")

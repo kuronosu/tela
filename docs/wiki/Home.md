@@ -48,6 +48,7 @@ func Counter() tela.Node {
 | [Animation](Animation) | Transitions, `starting:`, springs and tweens, enter and exit with `Presence`, layout animations |
 | [Internationalization](Internationalization) | Message catalogs (ICU), plurals, locale-aware numbers, dates and lists, switching the language at run time |
 | [Icons](Icons) | `h.Icon`, the Lucide set, generating an icon set from SVG files with `tela icons gen`, what icons cost in a binary |
+| [Canvas](Canvas) | `h.Canvas`: the 2D context of a browser's canvas as a Go function, when it draws, `Value`s and `RequestFrame`, colors and fonts from classes, pointer events and hit testing, compositing, and how it differs from the browser, `Texture`, images and icons |
 | [Kit](Kit) | Ready-made components in the look of shadcn/ui: the shape of a component, controlled and uncontrolled values, trigger slots, customizing with theme tokens, recipes and classes, and every component with an example |
 | [Aria](Aria) | Behavior hooks: press, hover, focus, buttons, checkboxes and switches, and `UseFloating` for popovers, tooltips and menus |
 | [Windows and Desktop](Windows-and-Desktop) | Several windows with `tela.Window`, `UseWindow`, custom title bars, file dialogs, message boxes, notifications, the tray, settings, remembered window placement, app folders, what each platform lacks |

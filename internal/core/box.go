@@ -21,7 +21,7 @@ const (
 	// modeParagraph is a leaf that lays out inline content: one
 	// text.Layout (ARCHITECTURE section 11).
 	modeParagraph
-	// modeImage is a replaced leaf: an Img, an Icon or a Texture.
+	// modeImage is a replaced leaf: an Img, an Icon, a Texture or a Canvas.
 	modeImage
 	// modeField is a text field: a leaf that lays out and paints its
 	// editor's text (field.go).
@@ -338,12 +338,16 @@ func (b *Box) measureImage(in layout.MeasureInput) layout.Measurement {
 }
 
 // updateImage converts the Img source of el's node when it changed (or
-// takes the texture of a Texture).
+// takes the texture of a Texture, or the draw function of a Canvas).
 func (t *Tree) updateImage(el *Element) {
 	d := el.node.d
 	b := el.box
-	if b.kind == style.KindTexture {
+	switch b.kind {
+	case style.KindTexture:
 		t.updateTexture(el) // texture_tree.go
+		return
+	case style.KindCanvas:
+		t.updateCanvas(el) // canvas.go
 		return
 	}
 	if m := d.media; m != nil && m.src.kind != srcNone {

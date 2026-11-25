@@ -22,7 +22,7 @@ func TestPasswordRevealNamesFollowTheState(t *testing.T) {
 		{"ar", "إظهار كلمة المرور", "إخفاء كلمة المرور"},
 	} {
 		t.Run(c.tag, func(t *testing.T) {
-			a := mount(t, Canvas{Page: "Input", Locale: c.tag})
+			a := mount(t, Stage{Page: "Input", Locale: c.tag})
 			a.Click(telatest.ByRole("button", c.show))
 			a.ExpectCount(telatest.ByRole("button", c.show), 0)
 			a.Click(telatest.ByRole("button", c.hide))
@@ -35,7 +35,7 @@ func TestPasswordRevealNamesFollowTheState(t *testing.T) {
 // the button is in the field (its box is inside the input's).
 func TestPasswordRevealKeepsTheTextAndSitsInsideTheField(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Input"})
+	a := mount(t, Stage{Page: "Input"})
 	field := telatest.ByRole("textbox", "Your password")
 	a.Fill(field, "hunter2")
 	btn := telatest.ByRole("button", "Show password")
@@ -49,7 +49,7 @@ func TestPasswordRevealKeepsTheTextAndSitsInsideTheField(t *testing.T) {
 
 func TestAlertActionRetryAndDismiss(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Alert"}, telatest.NoSettle())
+	a := mount(t, Stage{Page: "Alert"}, telatest.NoSettle())
 	retry := telatest.ByRole("button", "Retry")
 	a.Click(retry)
 	if got := loading(a); got != 1 {
@@ -69,7 +69,7 @@ func TestAlertActionRetryAndDismiss(t *testing.T) {
 
 func TestAlertActionIsTranslated(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Alert", Locale: "es"})
+	a := mount(t, Stage{Page: "Alert", Locale: "es"})
 	a.ExpectRole("button", "Reintentar")
 	a.Click(telatest.ByRole("button", "Descartar"))
 	a.ExpectRole("button", "Mostrar la alerta de nuevo")
@@ -77,7 +77,7 @@ func TestAlertActionIsTranslated(t *testing.T) {
 
 func TestFieldRichErrorLinkFillsTheName(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Field"})
+	a := mount(t, Stage{Page: "Field"})
 	name := telatest.ByRole("textbox", "Username").Nth(1) // the second is the rich error's
 	a.Expect(name, telatest.HasValue("mei"))
 	a.ExpectText("That username is taken.")
@@ -91,7 +91,7 @@ func TestFieldRichErrorLinkFillsTheName(t *testing.T) {
 
 func TestSeparatorCaptionAlignDemo(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Separator", Locale: "es"})
+	a := mount(t, Stage{Page: "Separator", Locale: "es"})
 	a.ExpectText("Ayer")
 	a.ExpectText("La semana pasada")
 }
@@ -119,7 +119,7 @@ func TestReplayPlaysThenRests(t *testing.T) {
 
 func TestSkeletonReplaysStartWithAPress(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Skeleton"}, telatest.NoSettle())
+	a := mount(t, Stage{Page: "Skeleton"}, telatest.NoSettle())
 	cls := telatest.ByClass("repeat-3")
 	a.ExpectCount(cls, 0)
 	a.Click(telatest.ByRole("button", "Refresh"))
@@ -134,7 +134,7 @@ func TestSkeletonReplaysStartWithAPress(t *testing.T) {
 
 func TestSubmenuContentClass(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "Menubar"})
+	a := mount(t, Stage{Page: "Menubar"})
 	a.Click(telatest.ByRole("menuitem", "File").Nth(1)) // the second bar's
 	wide := telatest.ByClass("min-w-64")
 	a.ExpectCount(wide, 0)
@@ -147,7 +147,7 @@ func TestSubmenuContentClass(t *testing.T) {
 
 func TestExportTriggerIsBusyWhileItWorks(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "DropdownMenu"}, telatest.NoSettle())
+	a := mount(t, Stage{Page: "DropdownMenu"}, telatest.NoSettle())
 	export := telatest.ByRole("button", "Export")
 	a.ExpectText("Choose a format.")
 	a.Click(export)
@@ -176,7 +176,7 @@ func TestExportTriggerIsBusyWhileItWorks(t *testing.T) {
 
 func TestExportTextIsTranslated(t *testing.T) {
 	t.Parallel()
-	a := mount(t, Canvas{Page: "DropdownMenu", Locale: "es"}, telatest.NoSettle())
+	a := mount(t, Stage{Page: "DropdownMenu", Locale: "es"}, telatest.NoSettle())
 	a.Click(telatest.ByRole("button", "Exportar"))
 	a.Click(telatest.ByRole("menuitem", "PDF"))
 	a.ExpectText("Exportando PDF...")

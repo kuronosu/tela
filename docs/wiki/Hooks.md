@@ -650,6 +650,7 @@ Functions posted before [`tela.Run`](https://pkg.go.dev/github.com/kuronosu/tela
 - Frames are pushed from any goroutine: `SubmitImage` (pixels, with a `release`), or `Import` a buffer of your own GPU once and `Submit` it with a `Fence` and a `Release`. `Release` runs exactly once, when Tela no longer uses the buffer.
 - The latest finished frame wins; older ones are dropped and counted in `Stats`. A loop of `NextFrame` drops nothing.
 - `OnResize` tells the size in device pixels; `Device` names the GPU to render on and the formats it imports.
+- Shapes that code can describe (charts, gauges, a sketch pad) are better an [`h.Canvas`](Canvas): vectors, themed, with no frames to push.
 
 ## See also
 

@@ -27,7 +27,8 @@ Icon(lucide.Search, Class("size-5 text-muted-foreground"), AriaLabel("Search"))
 - `currentColor` is the text color: `text-*` classes, theme tokens and
   transitions recolor it without parsing the SVG again. `fill-*`, `stroke-*`
   and `stroke-[1.5]`, on the icon or on an ancestor such as the button,
-  override the document's own paints.
+  override the document's own paints, and `transition` animates their colors
+  (`hover:stroke-red-500`; `transition-all` the stroke width too).
 - Icons are decorative (hidden from accessibility). `AriaLabel` or
   `AriaLabelledBy` makes one an image with that name.
 - Your own icon is any SVG: `var Logo = tela.Icon{SVG: "<svg ...>"}`, or

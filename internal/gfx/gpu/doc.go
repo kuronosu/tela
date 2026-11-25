@@ -40,15 +40,18 @@
 //     paths, and display lists encoded in place (glyph.go).
 //   - DrawImage: the image's texture, sampled as the rasterizer samples
 //     its pixels (image.go).
-//   - Paints: a solid color, or any gradient, on all of the above.
+//   - Paints: a solid color, any gradient or an image pattern, on all of the
+//     above (paint.go).
 //   - PushClipRect, PushClipRRect and PushClipPath, nested in any way: the
 //     scissor, one shape in the instance, and one clip mask in the
 //     coverage atlas that holds the product of the others (clip.go).
 //   - PushTransform and Marker.
 //   - PushLayer and PopLayer: the layer is drawn into an offscreen target
 //     and composited by an instance that paints its pixels, with its
-//     opacity, its mask and its blend mode, through the clip around it
-//     (layer.go). Its filters, and those of a BackdropFilter, are steps of
+//     opacity, its mask and its blend mode or Porter-Duff operator, through
+//     the clip around it (layer.go): over the whole of that clip for an
+//     operator that clears what the layer leaves transparent
+//     (gfx.BlendMode.Unbounded). Its filters, and those of a BackdropFilter, are steps of
 //     a second pipeline, the filter (shaders/filter.frag), between
 //     offscreen targets (filter.go).
 //
@@ -59,14 +62,16 @@
 // the quad's shape, clip and paint code, which a device runs faster
 // (measured on the UHD 630: solid insides 1.6 to 2.1 Gpx/s, backdrops
 // painted from the cache 0.4 to 0.8), and without the device's blending
-// (PipelineOpaque) where the source is opaque. Copies of pixels between targets of
-// FormatRGBA8 go the same way. TestPlain checks that they draw the quad's
-// pixels, bit for bit.
+// (PipelineOpaque) where the source is opaque. Copies of pixels between
+// targets of FormatRGBA8 go the same way, and the pixels an operator clears
+// inside a clip that falls on their boundaries. TestPlain checks that they
+// draw the quad's pixels, bit for bit.
 //
 // What a device cannot draw is never drawn wrong silently:
 // Frame.Unsupported, and the Result of a Render, name it. That is only
-// what is larger than the device's textures (an image, or a layer grown
-// for its filters, beyond 16384 pixels on the devices of today).
+// what is larger than the device's textures (an image, the mip level a
+// pattern samples, or a layer grown for its filters, beyond 16384 pixels on
+// the devices of today).
 //
 // # Targets and passes
 //
@@ -84,7 +89,12 @@
 // its list drawn into another target; a blend mode other than source-over
 // reads the pixels under the layer from a copy, since a fragment cannot
 // read the target it writes, and its shader computes the W3C formula on
-// 8-bit values, with the rasterizer's integers where it has them. A
+// 8-bit values, with the rasterizer's integers where it has them. An
+// operator that clears the backdrop where its source is transparent is
+// composited over the whole clip around the layer, which the bounds of its
+// command are, and also when nothing of the layer shows (it is empty, or
+// at opacity 0): the source is then not drawn and not read. At the root of
+// a list the operators work on the pixels of the destination. A
 // backdrop filter ends the pass of its surface, filters the surface's
 // pixels into a target (mirrored at the shape's bounds, like the
 // rasterizer's) and paints the result through the shape when the pass
@@ -209,7 +219,10 @@
 // rasterized and repeated. The mask of a rounded clip is cut into small
 // tiles, and what is drawn where a clip or a mask covers entirely reads
 // neither. The color atlas is the same for the RGBA sprites
-// of color glyphs. An image has a texture of its own, named by its ID.
+// of color glyphs. An image has a texture of its own, named by its ID. So
+// has each mip level a pattern samples, which the Encoder chooses as the
+// rasterizer does and keeps for as long as a list shows a pattern of the
+// image.
 //
 // A frame uploads only what is new: Frame.Data and Pass.Uploads for the
 // atlases, Frame.Images for the images. A frame that draws what earlier
@@ -251,10 +264,13 @@
 // need the device that drew it: a frame that makes one counts as a change
 // of the resources.
 //
-// What an opaque command hides is not drawn (cull.go): an opaque fill or
-// image, or a backdrop drawn from an opaque entry, hides what the list
+// What an opaque command hides is not drawn (cull.go): an opaque fill (an
+// opaque image repeated along both axes too) or image, or a backdrop drawn
+// from an opaque entry, hides what the list
 // paints before it inside the pixels it covers entirely, unless something
-// in between reads them. A command it hides whole is skipped, a large one
+// in between reads them: a backdrop filter, a layer with a blend mode, over
+// all its clip for an unbounded operator. An entry is not opaque when an
+// operator before its filter can have cleared what that reads. A command it hides whole is skipped, a large one
 // it hides in part is cut around it. Most of a glass pane's backdrop
 // comes from the cache, so a render inside it starts at the pane.
 //
@@ -263,7 +279,9 @@
 // computes neither its coverage nor the clips there, and an outer shadow
 // skips the inside of its box, where it paints nothing. A layer that only
 // fades one rectangle on pixel boundaries (a scrim) is that rectangle with
-// the opacity on its coverage (FlagOpacity), without a target. None of
+// the opacity on its coverage (FlagOpacity), without a target. An operator
+// that clears a clip on pixel boundaries is one instance, without a copy of
+// what is under it. None of
 // this depends on the region rendered, nor changes a pixel.
 //
 // # How it follows the rasterizer
@@ -325,11 +343,14 @@
 // summed in integers, clamped to the source rectangle. The point is
 // computed in float32: the weights can differ by 1/256, and a pixel center
 // exactly on the boundary of two pixels of an image sampled by its nearest
-// pixel can take the other one.
+// pixel can take the other one. A pattern's point is computed in two parts
+// (splitCoord), so that its pixels and weights are the rasterizer's but
+// within a ten millionth of a boundary: pixel art meets boundaries often.
 //
 // A layer is composited on 8-bit values: its opacity times its mask's
 // coverage times the clip's, each product rounded like the rasterizer's,
-// and for the blend modes the rasterizer's exact integer formulas (its
+// and for the blend modes and the operators the rasterizer's exact integer
+// formulas (its
 // float64 ones in float32 for color-dodge, color-burn, soft-light and the
 // non-separable modes, a level of difference in places). A color matrix
 // is the rasterizer's arithmetic in float32; a drop shadow's composite
@@ -358,9 +379,11 @@
 // flushes, clip stacks) is tested without a device, by applying the
 // uploads of frames to atlases in memory and checking what every instance
 // reads (resources_test.go); so are the passes of layers and filters,
-// their targets and what they read (layer_test.go), the images of imported
+// their targets and what they read (layer_test.go), the operators and the
+// patterns (canvas_test.go), the images of imported
 // memory and of streams (import_test.go), and the kernels of the
-// blurs against the rasterizer's (TestBlurKernels). The tests of the
+// blurs against the rasterizer's (TestBlurKernels). TestCanvasRandom
+// compares random lists of layers, operators and patterns. The tests of the
 // imports (vulkan_import_test.go) play the application with a second device,
 // of the same GPU and of the other one.
 //

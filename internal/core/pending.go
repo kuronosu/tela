@@ -48,6 +48,9 @@ const (
 	// PendingFence: frames of a texture waiting for their fences, or for
 	// the copy of their memory.
 	PendingFence
+	// PendingCanvas: canvases on screen that asked for a frame
+	// (Canvas.RequestFrame).
+	PendingCanvas
 )
 
 // PendingItem is one item of [Tree.Pending]: its kind, its description
@@ -129,6 +132,9 @@ func (t *Tree) Pending(now time.Duration) []PendingItem {
 		add(PendingGo, r+" running (its function has not returned; a result it posts can still change the screen)")
 	}
 	t.texturePending(add)
+	if n := t.canvasesRunning(); n > 0 {
+		add(PendingCanvas, fmt.Sprintf("%d canvas(es) on screen whose draw function called Canvas.RequestFrame: a canvas that does so in every draw asks for a frame at every vsync", n))
+	}
 	return why
 }
 

@@ -1,0 +1,91 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+@font-face { font-family: "Inter"; src: url("../../../assets/fonts/inter/InterVariable.ttf"); font-weight: 100 900; }
+@font-face { font-family: "Inter"; src: url("../../../assets/fonts/inter/InterVariable-Italic.ttf"); font-weight: 100 900; font-style: italic; }
+@font-face { font-family: "JetBrains Mono"; src: url("../../../assets/fonts/jetbrainsmono/JetBrainsMono-wght.ttf"); font-weight: 100 800; }
+@font-face { font-family: "JetBrains Mono"; src: url("../../../assets/fonts/jetbrainsmono/JetBrainsMono-Italic-wght.ttf"); font-weight: 100 800; font-style: italic; }
+@font-face { font-family: "Source Serif 4"; src: url("../../../assets/fonts/sourceserif4/SourceSerif4-opsz-wght.ttf"); font-weight: 200 900; }
+@font-face { font-family: "Source Serif 4"; src: url("../../../assets/fonts/sourceserif4/SourceSerif4-Italic-opsz-wght.ttf"); font-weight: 200 900; font-style: italic; }
+@font-face { font-family: "Noto Sans Arabic"; src: url("../../../assets/fonts/notosansarabic/NotoSansArabic-wdth-wght.ttf"); font-weight: 100 900; font-stretch: 62.5% 100%; }
+@font-face { font-family: "Noto Color Emoji"; src: url("../../../assets/fonts/notocoloremoji/Noto-COLRv1.ttf"); }
+html, body { margin: 0; padding: 0; overflow: hidden; background: #fff; }
+canvas { display: block; width: 400px; height: 200px; }
+</style></head><body><canvas id="canvas"></canvas>
+<script>
+const loading = [];
+function image(w, data) {
+  const pix = Uint8ClampedArray.from(atob(data), c => c.charCodeAt(0));
+  const cv = document.createElement("canvas");
+  cv.width = w; cv.height = pix.length / 4 / w;
+  cv.getContext("2d").putImageData(new ImageData(pix, w), 0, 0);
+  const img = new Image();
+  img.src = cv.toDataURL();
+  loading.push(img.decode());
+  return img;
+}
+const k = window.devicePixelRatio, cv = document.getElementById("canvas");
+cv.width = 400 * k; cv.height = 200 * k;
+const c = cv.getContext("2d");
+let g;
+Promise.all([...loading, ...[...document.fonts].map(f => f.load())]).then(() => {
+c.scale(k, k);
+// Glyphs at fractions of a pixel and without hinting, as Tela's.
+c.textRendering = "geometricPrecision";
+c.strokeStyle = "rgb(79 70 229 / 1)";
+c.lineWidth = 6;
+c.font = "400 16px 'Inter', 'JetBrains Mono', 'Noto Sans Arabic', 'Noto Color Emoji'";
+c.setLineDash([20, 10]);
+c.beginPath();
+c.moveTo(10, 15);
+c.lineTo(190, 15);
+c.stroke();
+c.lineDashOffset = 15;
+c.beginPath();
+c.moveTo(10, 35);
+c.lineTo(190, 35);
+c.stroke();
+c.lineDashOffset = 0;
+c.setLineDash([12]);
+c.beginPath();
+c.moveTo(10, 55);
+c.lineTo(190, 55);
+c.stroke();
+c.setLineDash([1, 12, 12, 12]);
+c.lineCap = "round";
+c.beginPath();
+c.moveTo(10, 75);
+c.lineTo(190, 75);
+c.stroke();
+c.setLineDash([0, 14]);
+c.beginPath();
+c.moveTo(10, 95);
+c.lineTo(190, 95);
+c.stroke();
+c.lineCap = "square";
+c.beginPath();
+c.moveTo(10, 115);
+c.lineTo(190, 115);
+c.stroke();
+c.setLineDash([]);
+c.beginPath();
+c.moveTo(10, 135);
+c.lineTo(190, 135);
+c.stroke();
+c.lineCap = "butt";
+c.setLineDash([10, 4]);
+c.setLineDash([3, -1]);
+c.beginPath();
+c.moveTo(10, 155);
+c.lineTo(190, 155);
+c.stroke();
+c.strokeStyle = "rgb(225 29 72 / 1)";
+c.lineWidth = 4;
+c.strokeRect(220, 15, 80, 60);
+c.beginPath();
+c.arc(350, 45, 32, 0, 6.283185307179586);
+c.stroke();
+c.translate(220, 100);
+c.scale(3, 1);
+c.strokeRect(0, 0, 55, 70);
+});
+</script></body></html>

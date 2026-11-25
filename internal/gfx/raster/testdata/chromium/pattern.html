@@ -1,0 +1,51 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+html, body { margin: 0; padding: 0; overflow: hidden; background: #fff; }
+canvas { display: block; width: 600px; height: 200px; }
+</style></head><body><canvas id="c"></canvas>
+<script>
+const cells = [
+["repeat", 0, 0, "repeat", false, [1, 0, 0, 1, 5, 7], [1, 0, 0, 1, 0, 0], "rect"],
+["repeat-x", 100, 0, "repeat-x", false, [2.3, 0, 0, 2.3, 13.3, 31.2], [1, 0, 0, 1, 0, 0], "rect"],
+["repeat-y", 200, 0, "repeat-y", false, [2.3, 0, 0, 2.3, 33.3, 11.2], [1, 0, 0, 1, 0, 0], "rect"],
+["no-repeat", 300, 0, "no-repeat", false, [5, 0, 0, 5, 20, 25], [1, 0, 0, 1, 0, 0], "rect"],
+["scaled", 400, 0, "repeat", false, [3, 0, 0, 3, 4, 2], [1, 0, 0, 1, 0, 0], "rect"],
+["nearest", 500, 0, "repeat", true, [3, 0, 0, 3, 4, 2], [1, 0, 0, 1, 0, 0], "rect"],
+["rotated", 0, 100, "repeat", false, [1.5658038, 0.6620106, -0.6620106, 1.5658038, 34, 6], [1, 0, 0, 1, 0, 0], "rect"],
+["rotated no-repeat", 100, 100, "no-repeat", false, [3.684244, 1.557672, -1.557672, 3.684244, 34, 6], [1, 0, 0, 1, 0, 0], "rect"],
+["pattern transform", 200, 100, "repeat", false, [1, 0, 0, 1, 2, 3], [1.5, 0.3, -0.4, 1.2, 4, 6], "disc"],
+["stroke", 300, 100, "repeat", false, [1, 0, 0, 1, 0, 0], [1.5, 0, 0, 1.5, 0, 0], "ring"]
+];
+function tile(w, pix) {
+  const cv = document.createElement("canvas");
+  cv.width = w; cv.height = pix.length / 4 / w;
+  cv.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(pix), w), 0, 0);
+  return cv;
+}
+const image = tile(12, [244,63,94,255,244,63,94,255,245,158,11,255,245,158,11,255,14,165,233,255,14,165,233,255,99,102,241,255,99,102,241,255,16,185,129,255,16,185,129,255,15,23,42,255,15,23,42,255,244,63,94,255,244,63,94,255,245,158,11,255,245,158,11,255,14,165,233,255,14,165,233,255,99,102,241,255,99,102,241,255,16,185,129,255,16,185,129,255,15,23,42,255,15,23,42,255,245,158,11,255,14,165,233,255,14,165,233,255,99,102,241,255,99,102,241,128,16,185,129,128,16,185,129,128,15,23,42,128,15,23,42,255,244,63,94,255,244,63,94,255,245,158,11,255,245,158,11,255,14,165,233,255,14,165,233,255,99,102,241,255,99,102,241,128,16,185,129,0,16,185,129,128,15,23,42,128,15,23,42,255,244,63,94,255,244,63,94,255,245,158,11,255,99,102,241,255,99,102,241,255,16,185,129,255,16,185,129,255,15,23,42,128,15,23,42,128,244,63,94,128,244,63,94,128,245,158,11,255,245,158,11,255,14,165,233,255,14,165,233,255,99,102,241,255,99,102,241,255,16,185,129,255,16,185,129,255,15,23,42,128,15,23,42,128,244,63,94,128,244,63,94,128,245,158,11,255,245,158,11,255,14,165,233,255,14,165,233,255,16,185,129,255,15,23,42,255,15,23,42,255,244,63,94,255,244,63,94,255,245,158,11,255,245,158,11,255,14,165,233,255,14,165,233,255,99,102,241,255,99,102,241,255,16,185,129,255,16,185,129,255,15,23,42,255,15,23,42,255,244,63,94,255,244,63,94,255,245,158,11,255,245,158,11,255,14,165,233,255,14,165,233,255,99,102,241,255,99,102,241,255,16,185,129,255]);
+const dpr = window.devicePixelRatio, cv = document.getElementById("c");
+cv.width = 600 * dpr; cv.height = 200 * dpr;
+const ctx = cv.getContext("2d");
+// The bilinear weights of "low", the default, are coarse.
+ctx.imageSmoothingQuality = "medium";
+ctx.scale(dpr, dpr);
+for (const [name, x, y, repeat, nearest, m, p, shape] of cells) {
+  ctx.save();
+  ctx.beginPath(); ctx.rect(x + 4, y + 4, 92, 92); ctx.clip();
+  ctx.translate(x, y);
+  ctx.transform(...m);
+  ctx.imageSmoothingEnabled = !nearest;
+  const pat = ctx.createPattern(image, repeat);
+  pat.setTransform(new DOMMatrix(p));
+  ctx.fillStyle = ctx.strokeStyle = pat;
+  if (shape == "rect") {
+    ctx.fillRect(-2000, -2000, 4000, 4000);
+  } else if (shape == "disc") {
+    ctx.beginPath(); ctx.roundRect(8, 7, 80, 80, 40); ctx.fill();
+  } else {
+    ctx.lineWidth = 22;
+    ctx.beginPath(); ctx.arc(50, 50, 32, 0, 2 * Math.PI); ctx.stroke();
+  }
+  ctx.restore();
+}
+</script></body></html>

@@ -78,6 +78,30 @@ func ExampleTexture() {
 	// {0 0 0 255} {255 255 255 255}
 }
 
+func ExampleCanvas() {
+	t := &exampleT{}
+	defer t.close()
+	// A sparkline that fills the width it is given, in the text color.
+	spark := func(points ...float64) tela.Node {
+		return Canvas(func(c *tela.Canvas) {
+			step := c.Width / float64(len(points)-1)
+			c.BeginPath()
+			for i, p := range points {
+				c.LineTo(float64(i)*step, c.Height*(1-p))
+			}
+			c.LineWidth, c.LineJoin = 2, tela.JoinRound
+			c.Stroke()
+		}, Class("w-full h-8"), AriaLabel("Sales, rising"))
+	}
+	app := telatest.Mount(t, Div(Class("w-40 text-emerald-600"), spark(0.5, 0.5, 0.5, 1)))
+	fmt.Println(app.AriaSnapshot())
+	r := app.Bounds(telatest.ByRole("img", "Sales, rising"))
+	fmt.Println(r.Width, r.Height, app.PixelAt(20, 16))
+	// Output:
+	// - img "Sales, rising"
+	// 160 32 {0 153 102 255}
+}
+
 func ExampleTint() {
 	t := &exampleT{}
 	defer t.close()

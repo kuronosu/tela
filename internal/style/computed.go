@@ -550,6 +550,9 @@ const (
 	TransitionBorderWidth
 	TransitionFontSize
 	TransitionClipPath
+	TransitionFill
+	TransitionStroke
+	TransitionStrokeWidth
 
 	// TransitionNone transitions nothing. It is the zero value.
 	TransitionNone TransitionProps = 0
@@ -557,7 +560,7 @@ const (
 	TransitionAll TransitionProps = math.MaxUint32
 	// TransitionColors is the set of Tailwind's transition-colors.
 	TransitionColors = TransitionColor | TransitionBackgroundColor | TransitionBorderColor |
-		TransitionOutlineColor | TransitionDecorationColor
+		TransitionOutlineColor | TransitionDecorationColor | TransitionFill | TransitionStroke
 	// TransitionDefault is the set of Tailwind's bare "transition".
 	TransitionDefault = TransitionColors | TransitionOpacity | TransitionShadow |
 		TransitionTransform | TransitionFilter | TransitionBackdropFilter
@@ -725,11 +728,16 @@ type ComputedStyle struct {
 	Mask Mask
 
 	// SVG paints (fill-*, stroke-*, stroke-<n>), inherited like CSS: the
-	// root overrides of the SVG documents shown by Icon and Img (ADR-098).
-	// StrokeWidth is in SVG user units and applies when StrokeWidthSet.
+	// root overrides of the SVG documents shown by Icon and Img (ADR-098),
+	// and what a Canvas draws with first (ADR-319). StrokeWidth is in SVG
+	// user units and applies when StrokeWidthSet. PaintsSet are the ones
+	// that the element's own classes set (as TransitionFill,
+	// TransitionStroke and TransitionStrokeWidth bits); the others are its
+	// parent's. Transitions tell them apart by it.
 	Fill, Stroke   SVGPaint
 	StrokeWidth    float32
 	StrokeWidthSet bool
+	PaintsSet      TransitionProps
 
 	// Replaced content (Img): object-fit and object-position (50% 50% by
 	// default; percentages of the free space, as in CSS).

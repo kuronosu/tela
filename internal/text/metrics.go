@@ -1,6 +1,8 @@
 package text
 
 import (
+	"encoding/binary"
+
 	"github.com/kuronosu/tela/internal/gfx"
 )
 
@@ -56,6 +58,80 @@ func (m Metrics) Scale(size float32) Metrics {
 
 // Metrics returns the font-wide metrics in em units.
 func (f *Face) Metrics() Metrics { return f.metrics }
+
+// EmBox returns the top and the bottom of the font's em square, in em above
+// and below the baseline: the ascender and descender of OS/2 (sTypo*), else
+// Metrics' ascent and descent, scaled to add up to 1 em, as Blink does for
+// the top, middle and bottom baselines of Canvas
+// (SimpleFontData::NormalizedTypoAscentAndDescent).
+func (f *Face) EmBox() (ascent, descent float32) {
+	norm := func(a, d float64) bool {
+		h := a + d
+		if !(h > 0) || a < 0 || a > h {
+			return false
+		}
+		ascent = float32(a / h)
+		descent = 1 - ascent
+		return true
+	}
+	if t := f.tf; t.hasOS2 && t.os2.STypoAscender > 0 && norm(float64(t.os2.STypoAscender), -float64(t.os2.STypoDescender)) {
+		return ascent, descent
+	}
+	if norm(float64(f.metrics.Ascent), float64(f.metrics.Descent)) {
+		return ascent, descent
+	}
+	return 1, 0
+}
+
+// Baseline returns where the font says its baseline called tag is, in em
+// above the alphabetic one, and false when it does not say: the coordinate of
+// the BASE table for horizontal text of the script DFLT, as Blink asks
+// HarfBuzz (OpenTypeBaselineMetrics). "hang" is the hanging baseline, "ideo"
+// the bottom of ideographs. The variations of a coordinate do not count.
+func (f *Face) Baseline(tag string) (em float32, ok bool) {
+	v, ok := baseCoord(f.tf.base, tag)
+	return float32(float64(v) / f.upem), ok
+}
+
+// baseCoord reads a coordinate of the BASE table b.
+func baseCoord(b []byte, tag string) (int16, bool) {
+	// word returns the 16 bits of b at i, 0 past its end, and at what is at
+	// the offset they are, nil when there is nothing.
+	word := func(b []byte, i int) int {
+		if i+2 > len(b) {
+			return 0
+		}
+		return int(binary.BigEndian.Uint16(b[i:]))
+	}
+	at := func(b []byte, i int) []byte {
+		if o := word(b, i); o != 0 && o < len(b) {
+			return b[o:]
+		}
+		return nil
+	}
+	axis := at(b, 4) // horizAxisOffset
+	// The place of the tag in the lists of coordinates.
+	tags, index := at(axis, 0), -1
+	for i := range word(tags, 0) {
+		if j := 2 + 4*i; j+4 <= len(tags) && string(tags[j:j+4]) == tag {
+			index = i
+		}
+	}
+	scripts := at(axis, 2)
+	for i := range word(scripts, 0) {
+		j := 2 + 6*i
+		if index < 0 || j+6 > len(scripts) || string(scripts[j:j+4]) != "DFLT" {
+			continue
+		}
+		values := at(at(scripts, j+4), 0)
+		if index >= word(values, 2) {
+			break
+		}
+		coord := at(values, 4+2*index)
+		return int16(word(coord, 2)), len(coord) >= 4
+	}
+	return 0, false
+}
 
 // noFontMetrics are the metrics of text that has no face because the
 // collection has no font at all: the ascent and descent computeMetrics

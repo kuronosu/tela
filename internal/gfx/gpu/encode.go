@@ -90,7 +90,8 @@ type Encoder struct {
 	needBuf  []image.Rectangle
 	// frameDL is the list of the frame being encoded, bdc the cache of its
 	// filtered backdrops (nil: none), and opaque whether the frame draws
-	// over opaque pixels (an opaque Clear).
+	// over opaque pixels (an opaque Clear), which stay opaque but where an
+	// operator clears them (opaqueAt).
 	frameDL *gfx.DisplayList
 	bdc     *BackdropCache
 	opaque  bool
@@ -106,8 +107,9 @@ type Encoder struct {
 	// dev is the device the frames are drawn by: the one whose imported
 	// memory they may draw from (import.go). nil for none.
 	dev Device
-	// listImages are the IDs of the images the list of coverKey draws.
-	listImages []uint64
+	// listImages are the IDs of the images the list of coverKey draws, and
+	// listPatterns those of the images of its patterns.
+	listImages, listPatterns []uint64
 	// culled counts the commands of the frame hidden by a cover, and
 	// glass what the frame did with the cached backdrop filters.
 	culled int
@@ -660,23 +662,23 @@ func (e *Encoder) fill(rr gfx.RRect, p gfx.Paint) {
 		return
 	}
 	pe, ok := e.paint(p, &st.ctm)
-	if !ok {
+	if !ok || !e.usePaint(&pe) {
 		return
 	}
 	var in instance
 	quad := e.begin(&in, bounds)
-	ox, oy := float64(quad.Min.X), float64(quad.Min.Y)
 	var flags uint32
 	if sh.local {
 		flags |= FlagShapeLocal
 	}
-	sh.put(&in, SlotShape, ox, oy)
-	flags |= pe.put(&in, ox, oy)
+	sh.put(&in, SlotShape, float64(quad.Min.X), float64(quad.Min.Y))
+	flags |= pe.put(&in, quad)
 	if st.fade != 0 {
 		flags |= FlagOpacity
 		in[SlotHead][1] = uint32(st.fade)
 	}
 	e.emitShape(&in, flags, st, quad, sh.inside(), false)
+	e.image = 0
 }
 
 // inside returns pixels the shape covers entirely: the larger of the two

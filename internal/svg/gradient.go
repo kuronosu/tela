@@ -21,9 +21,8 @@ import (
 //
 // Chromium interpolates SVG gradient stops on unpremultiplied colors, in
 // sRGB. gfx interpolates premultiplied colors, so a segment whose two
-// stops differ in both alpha and color gets intermediate stops (finishStops)
-// that keep the premultiplied piecewise-linear ramp within half an 8-bit
-// level of the unpremultiplied one.
+// stops differ in both alpha and color gets intermediate stops
+// (gfx.UnpremultipliedStops).
 
 // gradRes is a gradient resolved for one shape and paint.
 type gradRes struct {
@@ -301,37 +300,9 @@ func finishStops(tmpl []stopTmpl, root gfx.Color) []gfx.GradientStop {
 		}
 		return t.c
 	}
-	out := make([]gfx.GradientStop, 0, len(tmpl))
+	out := make([]gfx.GradientStop, len(tmpl))
 	for i, t := range tmpl {
-		c0 := col(t)
-		out = append(out, gfx.GradientStop{Offset: t.off, Color: c0})
-		if i+1 == len(tmpl) {
-			break
-		}
-		n := tmpl[i+1]
-		c1 := col(n)
-		da := math.Abs(float64(c1.A - c0.A))
-		dc := max(math.Abs(float64(c1.R-c0.R)), math.Abs(float64(c1.G-c0.G)), math.Abs(float64(c1.B-c0.B)))
-		if !(n.off > t.off) || da == 0 || dc == 0 || c0.A <= 0 && c1.A <= 0 {
-			continue
-		}
-		// The premultiplied value a(u)·c(u) is quadratic in u; k linear
-		// pieces stay within da·dc/(4k²) of it: half a level for
-		// k² ≥ 127.5·da·dc.
-		k := int(math.Ceil(math.Sqrt(127.5 * float64(da*dc))))
-		k = min(max(k, 1), 16)
-		for j := 1; j < k; j++ {
-			u := float32(j) / float32(k)
-			out = append(out, gfx.GradientStop{
-				Offset: t.off + float32((n.off-t.off)*u),
-				Color: gfx.Color{
-					R: c0.R + float32((c1.R-c0.R)*u),
-					G: c0.G + float32((c1.G-c0.G)*u),
-					B: c0.B + float32((c1.B-c0.B)*u),
-					A: c0.A + float32((c1.A-c0.A)*u),
-				},
-			})
-		}
+		out[i] = gfx.GradientStop{Offset: t.off, Color: col(t)}
 	}
-	return out
+	return gfx.UnpremultipliedStops(out)
 }

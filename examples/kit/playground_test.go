@@ -16,7 +16,7 @@ import (
 // openPlayground opens the demo window from the button of a page.
 func openPlayground(t *testing.T, page, tag, button string) (*telatest.App, *telatest.App) {
 	t.Helper()
-	a := mount(t, Canvas{Page: page, Locale: tag}, telatest.Size(1280, 900), telatest.PlatformKeys("linux"))
+	a := mount(t, Stage{Page: page, Locale: tag}, telatest.Size(1280, 900), telatest.PlatformKeys("linux"))
 	w := a.WaitForWindow(func() { a.Click(telatest.ByRole("button", button)) })
 	return a, w
 }
@@ -180,7 +180,7 @@ func TestGoldenPlayground(t *testing.T) {
 	w.ExpectCount(telatest.ByRole("menu", "File"), 1)
 	w.GoldenScales("kit_playground_menu_en", 1)
 
-	a := mount(t, Canvas{Page: "TitleBar", Locale: "ar"}, telatest.Size(1280, 900), telatest.Dark(), telatest.PlatformKeys("linux"))
+	a := mount(t, Stage{Page: "TitleBar", Locale: "ar"}, telatest.Size(1280, 900), telatest.Dark(), telatest.PlatformKeys("linux"))
 	w = a.WaitForWindow(func() { a.Click(telatest.ByRole("button", "فتح نافذة بلا إطار")) })
 	w.GoldenScales("kit_playground_ar_dark", 1)
 }

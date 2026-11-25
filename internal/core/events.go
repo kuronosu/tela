@@ -134,7 +134,8 @@ type MouseEvent struct {
 	X, Y float32
 	// LocalX and LocalY are the position relative to the border box of
 	// the element whose handler runs (the DOM's currentTarget), in its own
-	// coordinates (its transforms and its ancestors' undone).
+	// coordinates (its transforms and its ancestors' undone). For a Canvas
+	// they are relative to its content box, where its drawing starts.
 	LocalX, LocalY float32
 	// Button is the button that changed state for a press, release or
 	// click; MouseButtonNone for moves, enter and leave.
@@ -181,8 +182,8 @@ func (e MouseEvent) CmdOrCtrl() bool { return cmdOrCtrl(e.st, e.Ctrl, e.Meta) }
 // OnLongPress): every pointer, mouse, touch and pen, as in the DOM.
 type PointerEvent struct {
 	// X and Y are the position in the window, LocalX and LocalY relative
-	// to the border box of the element whose handler runs (see
-	// MouseEvent).
+	// to the border box of the element whose handler runs, or a Canvas's
+	// content box (see MouseEvent).
 	X, Y, LocalX, LocalY float32
 	// Button is the button that changed state (MouseButtonNone for moves,
 	// enter and leave); Buttons the buttons held after the event.

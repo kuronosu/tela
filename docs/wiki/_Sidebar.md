@@ -14,6 +14,7 @@
 - [Animation](Animation)
 - [Internationalization](Internationalization)
 - [Icons](Icons)
+- [Canvas](Canvas)
 - [Aria](Aria)
 - [Kit](Kit)
 - [Windows and Desktop](Windows-and-Desktop)

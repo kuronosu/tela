@@ -33,6 +33,9 @@ A transition interrupted by another change starts from where it is; going
 back to where it came from takes only as long as the way back (CSS's
 reversing rule). Opacity and transforms are the cheapest: their frames only
 composite the element. Colors repaint it, sizes and spacing lay it out.
+`fill` and `stroke` are part of `transition` and `transition-colors` and
+`stroke-width` of `transition-all`, so an icon or a [canvas](Canvas) that
+draws with them fades on `hover:`.
 `animate-spin`, `animate-ping`, `animate-pulse` and `animate-bounce` run
 Tailwind's keyframes.
 

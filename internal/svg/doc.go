@@ -58,6 +58,35 @@ type Doc struct {
 	rootHasColor     bool
 	rootColor        gfx.Color
 	defaultRootColor gfx.Color
+
+	rootPaints RootPaints
+}
+
+// RootPaints are the paints of the root element of a document, from its own
+// declarations or the initial values: what the elements that set none paint
+// with, which Options.Root overrides. A zero value is one that Options.Root
+// cannot express (a paint server, a width in percent).
+type RootPaints struct {
+	Fill, Stroke   Paint
+	StrokeWidth    float32
+	HasStrokeWidth bool
+}
+
+// RootPaints returns the paints of the document's root element.
+func (d *Doc) RootPaints() RootPaints { return d.rootPaints }
+
+// rootPaint is the paint p of a root as a Paint. The currentColor of a root
+// with a color of its own (hasColor) is not its context's.
+func rootPaint(p *paintDecl, hasColor bool) Paint {
+	switch {
+	case p.kind == paintNone:
+		return Paint{Kind: PaintNone}
+	case p.kind == paintColor:
+		return Paint{Kind: PaintColor, Color: p.color}
+	case p.kind == paintCurrent && !hasColor:
+		return Paint{Kind: PaintCurrentColor}
+	}
+	return Paint{}
 }
 
 // Parse decodes and normalizes an SVG document. It returns an error for
@@ -85,6 +114,10 @@ func Parse(data []byte) (doc *Doc, err error) {
 		d.defaultRootColor = d.rootColor
 	}
 	c.defaultRootColor = d.defaultRootColor
+	d.rootPaints = RootPaints{Fill: rootPaint(&st.fill, d.rootHasColor), Stroke: rootPaint(&st.stroke, d.rootHasColor)}
+	if w := st.strokeWidth; w.isAbsolute() {
+		d.rootPaints.StrokeWidth, d.rootPaints.HasStrokeWidth = w.resolve(axisX, viewport{}, st.fonts()), true
+	}
 	d.overflowVis = st.overflowVisible
 
 	if v, ok := root.attr("width"); ok {
